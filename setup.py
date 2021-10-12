@@ -52,16 +52,17 @@ extra_deps['unet'] = [
 extra_deps['all'] = set(dep for deps in extra_deps.values() for dep in deps)
 
 setup(
-    name="mosaicml-composer",
-    version="0.1.2",
+    name="mosaicml",
+    version="0.2.0",
     author="MosaicML",
     author_email="team@mosaicml.com",
-    description="The most amazing compositional algorithm thing for ML",
+    description="composing methods for ML training efficiency",
     long_description=long_description,
     long_description_content_type="text/markdown",
     url="https://github.com/mosaicml/composer",
+    include_package_data=True,
     package_data={
-        'composer': ['yamls/**/*.yaml'],
+        "": ["*.yaml", "*.yml"],
     },
     packages=setuptools.find_packages(),
     classifiers=[
@@ -74,7 +75,6 @@ setup(
     extras_require=extra_deps,
     dependency_links=['https://developer.download.nvidia.com/compute/redist'],
     python_requires='>=3.8',
-    ext_package="composer",
 )
 
 # TODO: emit warning about pillow & pillow-SIMD
