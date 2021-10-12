@@ -1,0 +1,5 @@
+start: 0.5
+end: 0.9
+keep: 0.5
+scale_factor: 0.5
+interrupt: 2
