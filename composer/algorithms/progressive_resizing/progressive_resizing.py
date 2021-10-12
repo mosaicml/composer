@@ -1,3 +1,5 @@
+# Copyright 2021 MosaicML. All Rights Reserved.
+
 from __future__ import annotations
 
 import logging
@@ -33,7 +35,7 @@ def resize_inputs(X: torch.Tensor,
         y (torch.Tensor): If resize_targets is True, output tensor of shape (N, C, H, W)
                           that will also be resized.
         scale_factor (float): Scaling coefficient for the height and width of the
-                              input/output tensor
+                              input/output tensor. 1.0 keeps the original size.
         mode (str): Type of scaling to perform. Value must be one of 'crop' or 'resize'.
                     'crop' performs a random crop, whereas 'resize' performs a bilinear
                     interpolation. Default: 'crop'.

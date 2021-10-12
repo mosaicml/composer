@@ -1,3 +1,5 @@
+# Copyright 2021 MosaicML. All Rights Reserved.
+
 from __future__ import annotations
 
 import warnings
@@ -18,9 +20,7 @@ class DeferredLogMetricWarning(UserWarning):
 
 
 class BaseLoggerBackend(Callback, ABC):
-    """
-    BaseLoggerBackend defines the interface for logging destinations.
-    """
+    """BaseLoggerBackend defines the interface for logging destinations."""
 
     def will_log(self, state: State, log_level: LogLevel) -> bool:
         """

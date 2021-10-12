@@ -1,8 +1,12 @@
+# Copyright 2021 MosaicML. All Rights Reserved.
+
 from __future__ import annotations
 
+import sys
 from dataclasses import asdict, dataclass, field
-from typing import TYPE_CHECKING, Dict, Optional, Sequence
+from typing import TYPE_CHECKING, Any, Dict, Optional, Sequence
 
+import yaml
 from tqdm import tqdm
 
 from composer.core.logging import LogLevel, RankZeroLoggerBackend, TLogData, TLogDataValue, format_log_data_value
@@ -65,11 +69,12 @@ class TQDMLoggerInstance:
 
 class TQDMLoggerBackend(RankZeroLoggerBackend):
 
-    def __init__(self) -> None:
+    def __init__(self, config: Optional[Dict[str, Any]] = None) -> None:
         super().__init__()
         self.pbar_train: Optional[TQDMLoggerInstance] = None
         self.pbar_val: Optional[TQDMLoggerInstance] = None
         self.is_validating = False
+        self.config = config
 
     def _will_log(self, state: State, log_level: LogLevel) -> bool:
         return log_level <= LogLevel.BATCH
@@ -80,6 +85,14 @@ class TQDMLoggerBackend(RankZeroLoggerBackend):
             # Logging outside an epoch
             return
         pbar.log_metric(data)
+
+    def _training_start(self, state: State, logger: Logger) -> None:
+        if self.config is not None:
+            print("Config")
+            print("-" * 30)
+            yaml.safe_dump(self.config, stream=sys.stdout)
+            print("-" * 30)
+            print()
 
     def epoch_start(self, state: State, logger: Logger) -> None:
         assert self.pbar_train is None

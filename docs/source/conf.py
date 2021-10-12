@@ -17,9 +17,9 @@ sys.path.insert(0, os.path.abspath('..'))
 
 # -- Project information -----------------------------------------------------
 
-project = 'mosaicml'
-copyright = '2021, MosaicML Team'
-author = 'MosaicML Team'
+project = 'MosaicML'
+copyright = '2021, MosaicML, Inc.'
+author = 'MosaicML'
 
 # -- General configuration ---------------------------------------------------
 
@@ -28,6 +28,7 @@ author = 'MosaicML Team'
 # ones.
 extensions = [
     "sphinx.ext.autodoc",
+    "sphinx.ext.autosummary",
     "sphinx.ext.extlinks",
     "sphinx.ext.coverage",
     "sphinx.ext.napoleon",
@@ -57,10 +58,26 @@ html_theme = 'sphinx_rtd_theme'
 
 html_theme_options = {
     # Toc options
-    'collapse_navigation': False
+    'collapse_navigation': False,
+    'display_version': False,
+    'navigation_depth': 2,
+    'logo_only': True,
+    'sticky_navigation': False
 }
+
+# Make sure the target is unique
+autosummary_imported_members = True
 
 # Add any paths that contain custom static files (such as style sheets) here,
 # relative to this directory. They are copied after the builtin static files,
 # so a file named "default.css" will overwrite the builtin "default.css".
-# html_static_path = ['_static']
+html_static_path = ['_static']
+
+# Customize CSS
+html_css_files = ['css/custom.css']
+
+# Mosaic logo
+html_logo = 'https://storage.googleapis.com/docs.mosaicml.com/images/logo-dark-bg.png'
+
+# Favicon
+html_favicon = 'https://mosaic-ml-staging.cdn.prismic.io/mosaic-ml-staging/b1f1a2a0-2b54-4b43-9b76-bfa2e24d6fdf_favicon.svg'

@@ -1,3 +1,5 @@
+# Copyright 2021 MosaicML. All Rights Reserved.
+
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
@@ -31,7 +33,7 @@ class BaseLoggerBackendHparams(hp.Hparams, ABC):
 
 @dataclass
 class FileLoggerBackendHparams(BaseLoggerBackendHparams):
-    log_level: LogLevel = hp.optional("The maximum verbosity to log. Default: EPOCH", default=LogLevel.EPOCH.name)
+    log_level: LogLevel = hp.optional("The maximum verbosity to log. Default: EPOCH", default=LogLevel.EPOCH)
     filename: str = hp.optional("The path to the logfile. Can also be `stdout` or `stderr`. Default: stdout",
                                 default="stdout")
     buffer_size: int = hp.optional("Number of bytes to buffer. Defaults to 1 for line-buffering. "
@@ -53,7 +55,7 @@ class FileLoggerBackendHparams(BaseLoggerBackendHparams):
     def initialize_object(self, config: Optional[Dict[str, Any]] = None) -> FileLoggerBackend:
 
         from composer.loggers.file_logger import FileLoggerBackend
-        return FileLoggerBackend(**asdict(self))
+        return FileLoggerBackend(**asdict(self), config=config)
 
 
 @dataclass
@@ -166,4 +168,4 @@ class TQDMLoggerBackendHparams(BaseLoggerBackendHparams):
 
     def initialize_object(self, config: Optional[Dict[str, Any]] = None) -> TQDMLoggerBackend:
         from composer.loggers.tqdm_logger import TQDMLoggerBackend
-        return TQDMLoggerBackend()
+        return TQDMLoggerBackend(config=config)

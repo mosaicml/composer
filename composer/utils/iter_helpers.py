@@ -1,3 +1,5 @@
+# Copyright 2021 MosaicML. All Rights Reserved.
+
 # To keep the typing organized for this file, see iter_helpers.pyi
 # All typing annotations are in there
 # All methods signatures must be defined in there.

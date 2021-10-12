@@ -1,3 +1,5 @@
+# Copyright 2021 MosaicML. All Rights Reserved.
+
 from composer.algorithms.sam.sam import SAM as SAM
 from composer.algorithms.sam.sam import SAMHparams as SAMHparams
 

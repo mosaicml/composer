@@ -1,3 +1,5 @@
+# Copyright 2021 MosaicML. All Rights Reserved.
+
 from composer.models.base import MosaicClassifier
 from composer.models.efficientnetb0.efficientnetb0_hparams import EfficientNetB0Hparams
 from composer.models.efficientnets import EfficientNet

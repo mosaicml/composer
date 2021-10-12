@@ -1,3 +1,5 @@
+# Copyright 2021 MosaicML. All Rights Reserved.
+
 # type: ignore
 from __future__ import annotations
 
@@ -53,6 +55,20 @@ def update_bn(loader, model, device=None):
 
 
 class SWA(Algorithm):
+    """Apply Stochastic Weight Averaging
+
+    Stochastic Weight Averaging (SWA) averages model weights sampled towards the end of training.
+    This leads to better generalization than conventional training.
+
+    See `Averaging Weights Leads to Wider Optima and Better Generalization` <https://arxiv.org/abs/1803.05407>.
+
+    
+    Args:
+        swa_start (float): fraction of training completed before stochastic weight averaging is applied
+        anneal_epochs (int): The final learning rate to anneal towards
+        swa_lr (float): fraction of minibatch to select and keep for gradient computation
+
+    """
 
     def __init__(self, swa_start: float = 0.8, anneal_epochs: int = 10, swa_lr: Optional[float] = None):
         self.hparams = SWAHparams(
@@ -66,7 +82,7 @@ class SWA(Algorithm):
         self.swa_scheduler = None
 
     def match(self, event: Event, state: State) -> bool:
-        should_start_swa = state.epoch >= self.hparams.swa_start * state.max_epochs
+        should_start_swa = state.epoch >= int(self.hparams.swa_start * state.max_epochs)
         return event in (Event.TRAINING_START, Event.TRAINING_END) or \
              (event == Event.EPOCH_END and should_start_swa)
 
@@ -89,7 +105,7 @@ class SWA(Algorithm):
                 self.hparams.swa_lr = last_lr
 
             self.swa_scheduler = SWALR(
-                state.optimizers,
+                state.optimizers[0] if isinstance(state.optimizers, tuple) else state.optimizers,
                 swa_lr=self.hparams.swa_lr,
                 anneal_epochs=self.hparams.anneal_epochs,
                 anneal_strategy='cos',

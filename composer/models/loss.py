@@ -1,3 +1,5 @@
+# Copyright 2021 MosaicML. All Rights Reserved.
+
 from __future__ import annotations
 
 from typing import TYPE_CHECKING, Optional, Tuple
@@ -103,7 +105,7 @@ def soft_cross_entropy(input: Tensor,
     if target_type == 'indicies':
         return F.cross_entropy(input, target, weight, size_average, ignore_index, reduce, reduction)
     elif target_type == 'one_hot':
-        assert reduction in ['sum', 'mean'], f"{reduction} reduction not supported."
+        assert reduction in ['sum', 'mean', 'none'], f"{reduction} reduction not supported."
         assert size_average is None, "size_average is deprecated"
         assert reduce is None, "reduce is deprecated"
         assert ignore_index == -100, "ignore_index not supported."

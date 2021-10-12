@@ -1,3 +1,5 @@
+# Copyright 2021 MosaicML. All Rights Reserved.
+
 from abc import ABC, abstractmethod
 from contextlib import contextmanager
 from typing import Generator, Optional, TypeVar, Union

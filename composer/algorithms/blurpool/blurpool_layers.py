@@ -1,3 +1,5 @@
+# Copyright 2021 MosaicML. All Rights Reserved.
+
 # type: ignore
 from typing import Optional
 
@@ -43,12 +45,11 @@ def blur_2d(input: torch.Tensor, stride: _size_2_t = 1, filter: Optional[torch.T
             channels in the input tensor and `kH` and `kW` are the spatial
             sizes of the filter.
 
-    By default, the filter used is:
-    ```
+    By default, the filter used is::
+
         [1 2 1]
         [2 4 2] * 1/16
         [1 2 1]
-    ```
     """
     n, c, h, w = input.shape
     n_in_channels = c
@@ -114,12 +115,11 @@ def blurmax_pool2d(input: torch.Tensor,
             at each spatial position, within each channel. If 4d, the structure
             is required to be `(C, 1, kH, kW)` where `C` is the number of
             channels in the input tensor and `kH` and `kW` are the spatial
-            sizes of the filter. By default, the filter used is:
-            ```
+            sizes of the filter. By default, the filter used is::
+
                 [1 2 1]
                 [2 4 2] * 1/16
                 [1 2 1]
-            ```
     """
     maxs = F.max_pool2d(input,
                         kernel_size=kernel_size,
@@ -294,12 +294,12 @@ class BlurConv2d(nn.Module):
 class BlurPool2d(nn.Module):
     """Apply a spatial low-pass filter.
 
-    The filter used is:
-    ```
+    The filter used is::
+
         [1 2 1]
         [2 4 2] * 1/16
         [1 2 1]
-    ```
+
     This module is a thin wrapper around :func:`~blur_2d`."""
 
     def __init__(self, stride: _size_2_t = 2, padding: _size_2_t = 1) -> None:

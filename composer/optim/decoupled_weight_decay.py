@@ -1,7 +1,10 @@
+# Copyright 2021 MosaicML. All Rights Reserved.
+
 from __future__ import annotations
 
 import logging
 import math
+from typing import List, Tuple
 
 import torch
 from torch.optim import SGD, AdamW
@@ -10,11 +13,38 @@ from torch.optim.optimizer import required  # type: ignore
 log = logging.getLogger(__name__)
 
 
-class MosaicMLSGDW(SGD):
+class DecoupledSGDW(SGD):
+    """ SGD optimizer with the weight decay term decoupled from the learning rate.
+
+    The standard `SGD <https://pytorch.org/docs/stable/generated/torch.optim.SGD.html?highlight=sgd#torch.optim.SGD>`_
+    optimizer couples the weight decay term with the gradient calculation. This ties the optimal value
+    of :attr:`weight_decay` to :attr:`lr` and can also hurt generalization in practice. For more details on why decoupling might be
+    desirable, see `"Decoupled Weight Decay Regularization" <https://arxiv.org/abs/1711.05101>`_.
+
+    Args:
+        params (list): List of parameters to optimize or dicts defining parameter groups.
+        lr (float, optional): Learning rate.
+        momentum (int, optional): Momentum factor. Default: ``0``.
+        dampening (int, optional): Dampening factor applied to the momentum. Default: ``0``.
+        weight_decay (int, optional): Decoupled weight decay factor. Default: ``0``.
+        nesterov (bool, optional): Enables Nesterov momentum updates. Default: ``False``.
+    """
 
     @staticmethod
-    def sgdw(params, d_p_list, momentum_buffer_list, *, weight_decay, momentum, lr, initial_lr, dampening, nesterov):
-        r"""Functional API that performs SGDW algorithm computation.
+    def sgdw(params: List[torch.Tensor], d_p_list: List[torch.Tensor], momentum_buffer_list: List[torch.Tensor], *,
+             weight_decay: float, momentum: float, lr: float, initial_lr: float, dampening: float, nesterov: bool):
+        r""" Functional API that performs SGDW algorithm computation.
+
+        Args:
+            params (list): List of parameters to update
+            d_p_list (list): List of parameter gradients
+            momentum_buffer_list (list): List of momentum buffers
+            weight_decay (float): Decoupled weight decay factor
+            momentum (float): Momentum factor
+            lr (float): Learning rate
+            initial_lr (float): Initial learning rate
+            dampening (float): Dampening factor for momentum update
+            nesterov (bool): Enables Nesterov momentum updates
         """
 
         for i, param in enumerate(params):
@@ -41,7 +71,13 @@ class MosaicMLSGDW(SGD):
 
             param.add_(d_p, alpha=-lr)
 
-    def __init__(self, params, lr=required, momentum=0, dampening=0, weight_decay=0, nesterov=False):
+    def __init__(self,
+                 params: List[torch.Tensor],
+                 lr: float = required,
+                 momentum: float = 0,
+                 dampening: float = 0,
+                 weight_decay: float = 0,
+                 nesterov: bool = False):
         super().__init__(params, lr, momentum, dampening, weight_decay, nesterov)
         for group in self.param_groups:
             group['initial_lr'] = group['lr']
@@ -98,12 +134,45 @@ class MosaicMLSGDW(SGD):
         return loss
 
 
-class MosaicMLAdamW(AdamW):
+class DecoupledAdamW(AdamW):
+    """Adam optimizer with the weight decay term decoupled from the learning rate.
+
+    The standard `AdamW <https://pytorch.org/docs/stable/generated/torch.optim.AdamW.html#torch.optim.AdamW>`_
+    optimizer explicitly couples the weight decay term with the learning rate. This ties the
+    optimal value of :attr:`weight_decay` to :attr:`lr` and can also hurt generalization in practice. For more details on
+    why decoupling might be desirable, see `"Decoupled Weight Decay Regularization" <https://arxiv.org/abs/1711.05101>`_.
+
+    Args:
+        params (list): List of parameters to update.
+        lr (float, optional): Learning rate. Default: ``1e-3``.
+        betas (tuple, optional): Coefficients used for computing running averages of gradient and its square
+                                 Default: ``(0.9, 0.999)``.
+        eps (float, optional): Term added to the denominator to improve numerical stability. Default: ``1e-8``.
+        weight_decay (float, optional): Decoupled weight decay factor. Default: ``1e-2``.
+        amsgrad (bool, optional): Enables the amsgrad variant of Adam. Default: ``False``.
+    """
 
     @staticmethod
-    def adamw(params, grads, exp_avgs, exp_avg_sqs, max_exp_avg_sqs, state_steps, *, amsgrad, beta1, beta2, lr,
-              initial_lr, weight_decay, eps):
-        r"""Functional API that performs AdamW algorithm computation.
+    def adamw(params: List[torch.Tensor], grads: List[torch.Tensor], exp_avgs: List[torch.Tensor],
+              exp_avg_sqs: List[torch.Tensor], max_exp_avg_sqs: List[torch.Tensor], state_steps: List[int], *,
+              amsgrad: bool, beta1: float, beta2: float, lr: float, initial_lr: float, weight_decay: float,
+              eps: float) -> None:
+        r""" Functional API that performs AdamW algorithm computation with decoupled weight decay.
+
+        Args:
+            params (List[torch.Tensor]): List of parameters to update.
+            grads (List[torch.Tensor]): List of parameter gradients.
+            exp_avgs (List[torch.Tensor]): List of average gradients.
+            exp_avg_sqs (List[torch.Tensor]): List of average squared gradients.
+            max_exp_avg_sqs (List[torch.Tensor]): List of max average squared gradients for amsgrad updates.
+            state_steps (Iterable[int]): List of steps taken for all parameters.
+            amsgrad (bool): Enables amsgrad variant of Adam.
+            beta1 (float): Coefficient for computing the moving average of gradient values.
+            beta2 (float): Coefficient for computing the moving average of squared gradient values.
+            lr (float): Learning rate.
+            initial_lr (float): Initial learning rate.
+            weight_decay (float): Factor for decoupled weight decay
+            eps (float): Term added to the denominator to improve numerical stability.
         """
 
         for i, param in enumerate(params):
@@ -135,7 +204,13 @@ class MosaicMLAdamW(AdamW):
 
             param.addcdiv_(exp_avg, denom, value=-step_size)
 
-    def __init__(self, params, lr=1e-3, betas=(0.9, 0.999), eps=1e-8, weight_decay=1e-2, amsgrad=False):
+    def __init__(self,
+                 params: List[torch.Tensor],
+                 lr: float = 1e-3,
+                 betas: Tuple[float, float] = (0.9, 0.999),
+                 eps: float = 1e-8,
+                 weight_decay: float = 1e-2,
+                 amsgrad: bool = False):
         super().__init__(params, lr, betas, eps, weight_decay, amsgrad)
         for group in self.param_groups:
             group['initial_lr'] = group['lr']
@@ -143,6 +218,7 @@ class MosaicMLAdamW(AdamW):
     @torch.no_grad()
     def step(self, closure=None):
         """Performs a single optimization step.
+
         Args:
             closure (callable, optional): A closure that reevaluates the model
                 and returns the loss.

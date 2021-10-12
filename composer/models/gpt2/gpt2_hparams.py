@@ -1,3 +1,5 @@
+# Copyright 2021 MosaicML. All Rights Reserved.
+
 from typing import TYPE_CHECKING
 
 from composer.models.transformer_hparams import TransformerHparams

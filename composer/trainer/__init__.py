@@ -1,3 +1,5 @@
+# Copyright 2021 MosaicML. All Rights Reserved.
+
 from composer.trainer import devices as devices
 from composer.trainer.ddp import DDPDataLoader as DDPDataLoader
 from composer.trainer.ddp import DDPHparams as DDPHparams

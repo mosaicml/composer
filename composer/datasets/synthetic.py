@@ -1,3 +1,5 @@
+# Copyright 2021 MosaicML. All Rights Reserved.
+
 from dataclasses import dataclass
 from typing import Callable, List, Optional, Sequence, Union
 
@@ -7,6 +9,12 @@ import yahp as hp
 
 from composer.datasets.hparams import DataloaderSpec, DatasetHparams
 from composer.utils.string_enum import StringEnum
+
+
+class SyntheticDataType(StringEnum):
+    INCREASING = "increasing"
+    GAUSSIAN = "gaussian"
+    SEPARABLE = "separable"
 
 
 class MemoryFormat(StringEnum):
@@ -26,7 +34,8 @@ class SyntheticDataset(torch.utils.data.Dataset):
                  device: str,
                  one_hot: bool,
                  num_classes: int,
-                 transform: Optional[Callable] = None):
+                 transform: Optional[Callable] = None,
+                 data_type: SyntheticDataType = SyntheticDataType.GAUSSIAN):
         self.size = sample_pool_size
         self.shape = shape
         self.input_data = None
@@ -36,6 +45,7 @@ class SyntheticDataset(torch.utils.data.Dataset):
         self.one_hot = one_hot
         self.num_classes = num_classes
         self.transform = transform
+        self.data_type = data_type
 
     def __len__(self) -> int:
         return self.size
@@ -48,9 +58,13 @@ class SyntheticDataset(torch.utils.data.Dataset):
             # generating samples so all values for the sample are the sample index
             # e.g. all(input_data[1] == 1). Helps with debugging.
             assert self.input_target is None
-            input_data = torch.arange(start=0, end=self.size, step=1, dtype=torch.float)
-            input_data = input_data.reshape(self.size, *(1 for _ in self.shape))
-            input_data = input_data.expand(self.size, *self.shape)  # returns a view
+            if self.data_type == SyntheticDataType.GAUSSIAN or \
+                self.data_type == SyntheticDataType.SEPARABLE:
+                input_data = torch.randn(self.size, *self.shape)
+            else:
+                input_data = torch.arange(start=0, end=self.size, step=1, dtype=torch.float)
+                input_data = input_data.reshape(self.size, *(1 for _ in self.shape))
+                input_data = input_data.expand(self.size, *self.shape)  # returns a view
             assert input_data.shape == (self.size, *self.shape)
             input_data = torch.clone(input_data)  # allocate actual memory
             input_data = input_data.contiguous(memory_format=self.memory_format)
@@ -60,6 +74,16 @@ class SyntheticDataset(torch.utils.data.Dataset):
                 input_target[:, 0] = 1.0
             else:
                 input_target = torch.randint(0, self.num_classes, (self.size,))
+
+            # If separable, force the positive examples to have a higher mean than the negative examples
+            if self.data_type == SyntheticDataType.SEPARABLE:
+                assert not self.one_hot, "SyntheticDataType.SEPARABLE does not support one_hot=True."
+                assert max(input_target) == 1 and min(input_target) == 0, \
+                    "SyntheticDataType.SEPARABLE only supports binary labels"
+                # Make positive examples have mean = 3 and negative examples have mean = -3
+                # so they are easier to separate with a classifier
+                input_data[input_target == 0] -= 3
+                input_data[input_target == 1] += 3
 
             self.input_data = input_data
             self.input_target = input_target
@@ -85,6 +109,7 @@ class SyntheticDatasetHparams(DatasetHparams):
     sample_pool_size: int = hp.optional("Number of samples", default=100)
     drop_last: bool = hp.optional("Whether to drop the last samples for the last batch", default=True)
     shuffle: bool = hp.optional("Whether to shuffle the dataset for each epoch", default=True)
+    data_type: SyntheticDataType = hp.optional("Type of synthetic data to create.", default=SyntheticDataType.GAUSSIAN)
 
     def initialize_object(self) -> DataloaderSpec:
         return DataloaderSpec(
@@ -95,7 +120,8 @@ class SyntheticDatasetHparams(DatasetHparams):
                 device=self.device,
                 memory_format=self.memory_format,
                 sample_pool_size=self.sample_pool_size,
+                data_type=self.data_type,
             ),
             drop_last=self.drop_last,
-            shuffle=self.shuffle,
+            shuffle=False,
         )

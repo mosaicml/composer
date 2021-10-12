@@ -1,3 +1,5 @@
+# Copyright 2021 MosaicML. All Rights Reserved.
+
 from __future__ import annotations
 
 import atexit
@@ -11,6 +13,11 @@ import wandb  # isort:skip
 
 
 class WandBLoggerBackend(RankZeroLoggerBackend):
+    """Log to Weights and Biases (https://wandb.ai/)
+
+    Args:
+        kwargs (Any): Parameters to pass into :meth:`wandb.init`.
+    """
 
     def __init__(self, **kwargs: Any) -> None:
         super().__init__()

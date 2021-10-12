@@ -1,4 +1,6 @@
-from dataclasses import dataclass
+# Copyright 2021 MosaicML. All Rights Reserved.
+
+from dataclasses import asdict, dataclass
 
 from composer.models.model_hparams import ModelHparams
 
@@ -7,5 +9,5 @@ from composer.models.model_hparams import ModelHparams
 class ResNet18Hparams(ModelHparams):
 
     def initialize_object(self):
-        from composer.models import Resnet18
-        return Resnet18(self)
+        from composer.models import ResNet18
+        return ResNet18(**asdict(self))

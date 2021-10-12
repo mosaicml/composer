@@ -1,3 +1,5 @@
+# Copyright 2021 MosaicML. All Rights Reserved.
+
 import logging
 from collections import OrderedDict
 from dataclasses import dataclass
@@ -38,6 +40,15 @@ def _setup_trace(algorithms: Sequence[Algorithm], event: Event) -> Traces:
 
 
 class Engine():
+    """
+    Coordinator for running and resolving conflicts between algorithms.
+
+    Args:
+        state (State): the initial ``State`` of the trainer. Will be modified in-place.
+        algorithms (Sequence[Algorithm]): the list of algorithms for this engine to execute.
+        logger (Optional[Logger]): a ``Logger`` instance to be used for logging algorithm and callback specific metrics.
+        callbacks (Sequence[Callback]): the list of callbacks for this engine to execute.
+    """
 
     def __init__(self,
                  state: State,
@@ -58,6 +69,34 @@ class Engine():
         self,
         event: Union[Event, str],
     ) -> Traces:
+        """Runs the sequence of algorithms and callbacks.
+        
+        Filters algorithms by calling each one's ``match`` function, then passes to ``compile`` to
+        make any modifications, then runs each algorithm's ``apply`` function to make in-place
+        changes to the ``State``.
+
+        The order of algorithm execution is determined by the provided list, and any changes made
+        by ``compile``.
+
+        Returns ``Traces`` of the execution, a dictionary with keys formatted as 'algorithm_name/event'
+        (e.g. Blurpool/TRAINING_START), and values are the ``Trace`` object, which include an optional
+        return code from the algorithm, the order of execution, and whether the algorithm was run.
+
+        Callbacks are always ran after algorithms, and do not return a trace.
+
+        Can be called with either the Event enum, or a string of the event value.
+
+        Examples:
+            >>> engine = Engine(state, algorithms, logger, callbacks)
+            >>> engine.run_event(Event.BEFORE_LOSS) # or
+            >>> engine.run_event('before_loss') # also works
+
+
+        Args:
+            event (Event or str): the current ``Event``. Can be the Enum or a string with the event value.
+        Returns:
+            traces (Dict[str, Trace]): dictionary of trace for each algorithm.
+        """
         traces = self._run_algorithms(event)
         self._run_callbacks(event)
         return traces
@@ -66,31 +105,6 @@ class Engine():
         self,
         event: Union[Event, str],
     ) -> Traces:
-        """
-        Runs the sequence of algorithms, returning a trace of their execution. Filters by calling each
-        algorithms' ``match`` function, passes to ``compile`` to make any modifications, then
-        runs each algorithm's ``apply`` to make in-place changes to the ``State``.
-
-        The order of execution is determined by the provided list, and any changes made
-        by ``compile``.
-
-        Returns ``Traces`` of the execution, a dictionary with keys formatted as 'algorithm_name/event'
-        (e.g. Blurpool/TRAINING_START), and values are the ``Trace`` object, which include an optional
-        return code from the algorithm, the order of execution, and whether the algorithm was run.
-
-        Can be called with either the Event enum, or a string of the event value.
-
-        Examples:
-            >>> engine = Engine(state, algorithms, logger)
-            >>> engine.run_algorithms(Event.BEFORE_LOSS)
-            >>> engine.run_algorithms('before_loss')
-
-
-        Args:
-            event (Event or str): the current ``Event``. Can be the Enum or a string with the event value.
-        Returns:
-            traces (Dict[str, Trace]): dictionary of trace for each algorithm
-        """
         event = Event(event)
 
         algorithms_to_run = [algo for algo in self.algorithms if algo.match(event, self.state)]
@@ -105,11 +119,8 @@ class Engine():
             trace_key = f'{algorithm}/{event}'
             trace[trace_key] = Trace(exit_code=exit_code, order=order, run=True)
 
-        try:
-            if self.logger is not None:
-                self.logger.metric_verbose(data={key: 1 if tr.run else 0 for key, tr in trace.items()})
-        except Exception as e:
-            log.warning(f'Skipping logging for {event} due to "{e}"')  # todo: fix
+        if self.logger is not None:
+            self.logger.metric_verbose(data={key: 1 if tr.run else 0 for key, tr in trace.items()})
 
         return trace
 

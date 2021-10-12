@@ -1,3 +1,5 @@
+# Copyright 2021 MosaicML. All Rights Reserved.
+
 # type: ignore
 # yapf: disable
 # Code original from TODO CITATION.

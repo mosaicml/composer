@@ -1,3 +1,5 @@
+# Copyright 2021 MosaicML. All Rights Reserved.
+
 from composer.models.efficientnetb0.efficientnetb0_hparams import EfficientNetB0Hparams as EfficientNetB0Hparams
 from composer.models.efficientnetb0.model import EfficientNetB0 as EfficientNetB0
 

@@ -1,5 +1,7 @@
+# Copyright 2021 MosaicML. All Rights Reserved.
+
 import logging
-from typing import Any, Dict, Iterable, List, Optional, Protocol, Tuple, Type
+from typing import Any, Dict, List, Optional, Protocol, Tuple, Type
 
 import torch
 
@@ -7,18 +9,18 @@ log = logging.getLogger(__name__)
 
 
 class ReplacementFunction(Protocol):
-    """
-    For typing, we define a ``ReplacementFunction`` to represent replacement policies. These policies
-    return either a replacement module, or None. Return of None means the no modifications will be made.
+    """Represents a scheme for replacing a model's modules with other modules.
 
-    Replacement policies return either a replacement module, or None. Return of None
-    means the no modifications will be made.
+    For typing reasons we represent this as a ``Protocol``, but in practice this class only describes a function.
+    Replacement policies return either a replacement module, or None. Return of None means that no modifications will
+    be made.
 
     Args:
-        module: source module
-        module_index: optionally used, the i-th instance of module class
+        module (torch.nn.Module): Source module
+        module_index (int): Optionally used, the i-th instance of module class.
 
-    Returns replacement module ``torch.nn.Module`` or ``None``.
+    Returns:
+        torch.nn.Module, optional: replacement module, or ``None`` to indicate no modification.
     """
 
     def __call__(self, module: torch.nn.Module, module_index: int) -> Optional[torch.nn.Module]:
@@ -106,45 +108,6 @@ def replace_module_classes(
             )
 
     return replaced_pairs
-
-
-def tensor_in(tensor: torch.Tensor, iterable: Iterable[torch.Tensor]):
-    """Returns whether `tensor is element` for any element in `iterable`
-
-    This function is necessary because `tensor in iterable` does not work
-    reliably for `Tensor`s.
-
-    See https://discuss.pytorch.org/t/how-to-judge-a-tensor-is-in-a-list/15998/4
-    for further discussion.
-    """
-    return any(tensor is elem for elem in iterable)
-
-
-def find_param_in_optimizer(param: torch.Tensor, opt: torch.optim.Optimizer) -> int:
-    """Returns the index of the optimizer `param_group` containing `param`
-
-    Optimizers store their parameters within an iterable of `dict`s called
-    `param_groups`. By default, there is only one group in `param_groups`
-    that containing all the parameters, but there can be more than one. This
-    function is a simple utility to identify which parameter group in
-    `param_groups` contains a given parameter, if any. The information
-    might be desirable to, e.g., inspect the optimizer settings being used
-    for a given parameter, or to remove unused parameter tensors from
-    the optimizer.
-
-    Args:
-        param: `Parameter` to search for
-        opt: `Optimizer` to search within
-
-    Returns:
-        The index within `opt.param_groups` of the first group containing
-        param. If not found, returns -1.
-    """
-    for i, group in enumerate(opt.param_groups):
-        param_list: List[torch.Tensor] = group['params']
-        if tensor_in(param, param_list):
-            return i
-    return -1
 
 
 def count_module_instances(model: torch.nn.Module, module_class: Type[torch.nn.Module]) -> int:

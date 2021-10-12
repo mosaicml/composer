@@ -1,3 +1,5 @@
+# Copyright 2021 MosaicML. All Rights Reserved.
+
 from __future__ import annotations
 
 from typing import Any, Callable, Dict, Iterable, Iterator, List, Optional, Protocol, Sequence, Tuple, Union
@@ -29,15 +31,15 @@ Batch = Union[BatchPair, BatchDict, Tensor]
 
 def as_batch_dict(batch: Batch) -> BatchDict:
     if not isinstance(batch, dict):
-        raise RuntimeError(f'batch_dict requires batch of type dict, got {type(batch)}')
+        raise TypeError(f'batch_dict requires batch of type dict, got {type(batch)}')
     return batch
 
 
 def as_batch_pair(batch: Batch) -> BatchPair:
     if not isinstance(batch, (tuple, list)):
-        raise RuntimeError(f'batch_pair required batch to be a tuple or list, got {type(batch)}')
+        raise TypeError(f'batch_pair required batch to be a tuple or list, got {type(batch)}')
     if not len(batch) == 2:
-        raise RuntimeError(f'batch has length {len(batch)}, expected length 2')
+        raise TypeError(f'batch has length {len(batch)}, expected length 2')
     return batch
 
 

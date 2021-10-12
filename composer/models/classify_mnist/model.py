@@ -1,11 +1,12 @@
-from typing import Sequence, Union
+# Copyright 2021 MosaicML. All Rights Reserved.
+
+from typing import List, Optional, Sequence, Union
 
 import torch
 import torch.nn as nn
 from torch.nn import functional as F
 
 from composer.models.base import MosaicClassifier
-from composer.models.classify_mnist.mnist_hparams import MnistClassifierHparams
 from composer.models.model_hparams import Initializer
 
 
@@ -43,7 +44,14 @@ class Model(nn.Module):
 
 class MNIST_Classifier(MosaicClassifier):
 
-    def __init__(self, hparams: MnistClassifierHparams) -> None:
-        assert hparams.num_classes is not None, "num_classes must be set in ModelHparams"
-        model = Model(hparams.initializers, hparams.num_classes)
+    def __init__(
+        self,
+        num_classes: int,
+        initializers: Optional[List[Initializer]] = None,
+    ) -> None:
+
+        if initializers is None:
+            initializers = []
+
+        model = Model(initializers, num_classes)
         super().__init__(module=model)

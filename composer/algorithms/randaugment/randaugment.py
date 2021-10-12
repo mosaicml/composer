@@ -1,3 +1,5 @@
+# Copyright 2021 MosaicML. All Rights Reserved.
+
 from dataclasses import asdict, dataclass
 
 import numpy as np
@@ -68,6 +70,7 @@ class RandAugment(Algorithm):
     Object that does RandAugment (Cubuk et al. (2019), RandAugment: Practical
         automated data augmentation with a reduced search space). Can be passed as a
         transform to torchvision.transforms.Compose().
+
     Args:
         severity (int): Severity of augmentation operators (between 1 to 10). M in the
             original paper. Default = 9.

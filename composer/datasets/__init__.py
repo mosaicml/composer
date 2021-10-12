@@ -1,3 +1,5 @@
+# Copyright 2021 MosaicML. All Rights Reserved.
+
 from composer.datasets.brats import BratsDatasetHparams as BratsDatasetHparams
 from composer.datasets.cifar10 import CIFAR10DatasetHparams as CIFAR10DatasetHparams
 from composer.datasets.dataloader import DataloaderHparams as DataloaderHparams

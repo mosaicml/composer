@@ -1,0 +1,103 @@
+train_dataset:
+  lm:
+    split: train
+    datadir:
+      - /datasets/openwebtext_saved
+    tokenizer_name: gpt2
+    seed: 17
+    shuffle: false
+    drop_last: false
+    num_tokens: 5585633280
+val_dataset:
+  lm:
+    split: validation
+    datadir:
+      - /datasets/openwebtext_saved
+    tokenizer_name: gpt2
+    seed: 17
+    shuffle: false
+    drop_last: false
+    num_tokens: 35262464
+model:
+  gpt2:
+    use_pretrained: false
+    tokenizer_name: gpt2
+    model_config:
+      activation_function: gelu_new
+      architectures:
+        - GPT2LMHeadModel
+      attn_pdrop: 0.1
+      bos_token_id: 50256
+      embd_pdrop: 0.1
+      eos_token_id: 50256
+      initializer_range: 0.02
+      layer_norm_epsilon: 1.0e-05
+      model_type: gpt2
+      n_ctx: 1024
+      n_embd: 720
+      n_head: 15
+      n_inner: 2800
+      n_layer: 8
+      n_positions: 1024
+      resid_pdrop: 0.1
+      scale_attn_weights: true
+      summary_activation: null
+      summary_first_dropout: 0.1
+      summary_proj_to_labels: true
+      summary_type: cls_index
+      summary_use_proj: true
+      task_specific_params:
+        text-generation:
+          do_sample: true
+          max_length: 50
+      transformers_version: 4.11.0.dev0
+      use_cache: true
+      vocab_size: 50257
+optimizer:
+  adamw:
+    lr: 0.0007926257845976177
+    betas:
+      - 0.9
+      - 0.999
+    eps: 1.0e-06
+    weight_decay: 0.0
+schedulers:
+  - warmup:
+      warmup_method: linear
+      warmup_factor: 0
+      interval: step
+      warmup_iters: 474ba
+  - cosine_decay:
+      T_max: 4261ba
+      interval: step
+      eta_min: 1.0e-05
+      verbose: false
+loggers:
+  - file:
+      log_level: BATCH
+      filename: stdout
+      buffer_size: 1
+      flush_every_n_batches: 100
+      every_n_epochs: 1
+      every_n_batches: 236
+  - wandb:
+      project: gpt2
+      name: gpt2-12.0-ga-True
+      extra_init_params: {}
+max_epochs: 1
+total_batch_size: 1152
+eval_batch_size: 32
+seed: 17
+device:
+  gpu:
+    n_gpus: 8
+dataloader:
+  pin_memory: true
+  persistent_workers: true
+  num_workers: 8
+  timeout: 0
+  prefetch_factor: 2
+validate_every_n_batches: 236
+grad_accum: 36
+precision: amp
+grad_clip_norm: 1.0

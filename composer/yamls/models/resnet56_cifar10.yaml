@@ -1,0 +1,55 @@
+train_dataset:
+  cifar10:
+    is_train: true
+    datadir: /datasets/CIFAR10
+    download: false
+    shuffle: true
+    drop_last: true
+val_dataset:
+  cifar10:
+    is_train: false
+    datadir: /datasets/CIFAR10
+    download: false
+    shuffle: false
+    drop_last: false
+optimizer:
+  sgd:
+    lr: 1.2
+    momentum: 0.9
+    weight_decay: 1.0e-4
+schedulers:
+  - multistep:
+      milestones:
+        - "80ep"
+        - "120ep"
+      gamma: 0.1
+      interval: step
+  - warmup:
+      warmup_factor: 0
+      warmup_iters: "5ep"
+      warmup_method: linear
+      interval: step
+model:
+  resnet56_cifar10:
+    initializers:
+      - kaiming_normal
+      - bn_uniform
+    num_classes: 10
+loggers:
+  - tqdm: {}
+max_epochs: 160
+total_batch_size: 1024
+eval_batch_size: 1000
+seed: 17
+validate_every_n_epochs: 1
+grad_accum: 1
+device:
+  gpu:
+    n_gpus: 1
+dataloader:
+  pin_memory: true
+  timeout: 0
+  prefetch_factor: 2
+  persistent_workers: true
+  num_workers: 8
+precision: amp

@@ -1,3 +1,5 @@
+# Copyright 2021 MosaicML. All Rights Reserved.
+
 # type: ignore
 
 import logging
@@ -26,7 +28,7 @@ def scale_scheduler(scheduler: Scheduler, ssr: float, orig_max_epochs: Optional[
         assert orig_max_epochs is not None, "To scale Cosine decay, max_epochs must be provided."
 
         # TODO: get warmup directly and impute unmodified T_max
-        if scheduler.interval == "step":
+        if hasattr(scheduler, 'interval') and scheduler.interval == "step":
             orig_max_epochs *= scheduler.steps_per_epoch
 
         warmup = orig_max_epochs - scheduler.T_max

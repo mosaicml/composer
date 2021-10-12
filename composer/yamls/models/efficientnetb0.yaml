@@ -1,0 +1,57 @@
+train_dataset:
+  imagenet:
+    resize_size: -1
+    crop_size: 224
+    is_train: true
+    datadir: /datasets/ImageNet
+    shuffle: true
+    drop_last: true
+val_dataset:
+  imagenet:
+    resize_size: 256
+    crop_size: 224
+    is_train: false
+    datadir: /datasets/ImageNet
+    shuffle: False
+    drop_last: False
+optimizer:
+  rmsprop:
+    lr: 0.08
+    momentum: 0.9
+    alpha: 0.9
+    eps: 0.01
+    weight_decay: 1.0e-5
+schedulers:
+  - warmup:
+      warmup_iters: "16ep"
+      warmup_method: linear
+      warmup_factor: 0
+      verbose: false
+      interval: step
+  - cosine_decay:
+      T_max: "384ep"
+      eta_min: 0
+      verbose: false
+      interval: step
+model:
+  efficientnetb0:
+    drop_connect_rate: 0.2
+    num_classes: 1000
+loggers:
+  - tqdm: {}
+max_epochs: 400
+total_batch_size: 4096
+eval_batch_size: 2048
+seed: 17
+device:
+  gpu:
+    n_gpus: 8
+dataloader:
+  pin_memory: true
+  timeout: 0
+  prefetch_factor: 2
+  persistent_workers: true
+  num_workers: 8
+validate_every_n_epochs: 1
+grad_accum: 1
+precision: amp

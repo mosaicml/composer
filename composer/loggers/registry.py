@@ -1,3 +1,5 @@
+# Copyright 2021 MosaicML. All Rights Reserved.
+
 from typing import Type
 
 from composer.loggers.logger_hparams import (BaseLoggerBackendHparams, FileLoggerBackendHparams,

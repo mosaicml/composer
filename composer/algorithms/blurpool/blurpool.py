@@ -1,3 +1,5 @@
+# Copyright 2021 MosaicML. All Rights Reserved.
+
 from __future__ import annotations
 
 import functools
@@ -14,6 +16,14 @@ from composer.algorithms.blurpool.blurpool_layers import BlurConv2d, BlurMaxPool
 from composer.core import Algorithm, Event, Logger, State, surgery
 
 log = logging.getLogger(__name__)
+
+
+def _log_surgery_result(model: torch.nn.Module):
+    num_blurpool_layers = surgery.count_module_instances(model, BlurMaxPool2d)
+    num_blurconv_layers = surgery.count_module_instances(model, BlurConv2d)
+    log.info(f'Applied BlurPool to model {model.__class__.__name__}. '
+             f'Model now has {num_blurpool_layers} BlurMaxPool2d '
+             f'and {num_blurconv_layers} BlurConv2D layers.')
 
 
 def apply_blurpool(model: torch.nn.Module,
@@ -37,8 +47,8 @@ def apply_blurpool(model: torch.nn.Module,
             _maybe_replace_strided_conv2d,
             blur_first=blur_first,
         )
-
     surgery.replace_module_classes(model, policies=transforms)
+    _log_surgery_result(model)
 
 
 @dataclass

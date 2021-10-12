@@ -1,3 +1,5 @@
+# Copyright 2021 MosaicML. All Rights Reserved.
+
 from dataclasses import asdict, dataclass
 
 import numpy as np
@@ -101,6 +103,7 @@ class AugMix(Algorithm):
     Object that does AugMix (Hendrycks et al. (2020), AugMix: A Simple Data
         Processing Method to Improve Robustness and Uncertainty). Can be passed as a
         transform to torchvision.transforms.Compose().
+
     Args:
         severity: Severity of augmentation operators (between 1 to 10).
         width: Width of augmentation chains (number of parallel augmentations)

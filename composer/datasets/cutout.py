@@ -1,3 +1,5 @@
+# Copyright 2021 MosaicML. All Rights Reserved.
+
 # TODO(issue #320): Deduplicate with Algorithm Cutout
 import numpy as np
 import torch

@@ -1,3 +1,5 @@
+# Copyright 2021 MosaicML. All Rights Reserved.
+
 """
 Helper functions for auto-generating tables from metadata
 """

@@ -1,3 +1,5 @@
+# Copyright 2021 MosaicML. All Rights Reserved.
+
 import logging
 from dataclasses import asdict, dataclass
 from typing import Optional

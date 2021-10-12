@@ -1,3 +1,5 @@
+# Copyright 2021 MosaicML. All Rights Reserved.
+
 """
 Example usage and definition of hparams
 """
@@ -12,14 +14,14 @@ import yahp as hp
 import composer
 import composer.datasets as datasets
 from composer.algorithms import AlgorithmHparams, get_algorithm_registry
-from composer.callbacks import (CallbackHparams, GradMonitorHparams, LRMonitorHparams, SpeedMonitorHparams,
-                                TimingMonitorHparams, TorchProfilerHparams)
+from composer.callbacks import (BenchmarkerHparams, CallbackHparams, GradMonitorHparams, LRMonitorHparams,
+                                SpeedMonitorHparams, TorchProfilerHparams)
 from composer.core.types import Precision
 from composer.datasets import DataloaderHparams
 from composer.loggers import BaseLoggerBackendHparams, logger_registry
 from composer.models import (CIFARResNetHparams, EfficientNetB0Hparams, GPT2Hparams, MnistClassifierHparams,
                              ModelHparams, ResNet18Hparams, ResNet50Hparams, ResNet101Hparams, UnetHparams)
-from composer.optim import (AdamHparams, AdamWHparams, MosaicMLAdamWHparams, MosaicMLSGDWHparams, OptimizerHparams,
+from composer.optim import (AdamHparams, AdamWHparams, DecoupledAdamWHparams, DecoupledSGDWHparams, OptimizerHparams,
                             RAdamHparams, RMSPropHparams, SchedulerHparams, SGDHparams, scheduler)
 from composer.trainer.ddp import DDPHparams
 from composer.trainer.devices import CPUDeviceHparams, DeviceHparams, GPUDeviceHparams
@@ -30,10 +32,10 @@ if TYPE_CHECKING:
 optimizer_registry = {
     'adam': AdamHparams,
     'adamw': AdamWHparams,
-    'mosaicml_adamw': MosaicMLAdamWHparams,
+    'decoupled_adamw': DecoupledAdamWHparams,
     'radam': RAdamHparams,
     'sgd': SGDHparams,
-    'mosaicml_sgdw': MosaicMLSGDWHparams,
+    'decoupled_sgdw': DecoupledSGDWHparams,
     'rmsprop': RMSPropHparams,
 }
 
@@ -72,7 +74,7 @@ algorithms_registry = get_algorithm_registry()
 callback_registry = {
     "pytorch_profiler": TorchProfilerHparams,
     "speed_monitor": SpeedMonitorHparams,
-    "timing_monitor": TimingMonitorHparams,
+    "benchmarker": BenchmarkerHparams,
     "lr_monitor": LRMonitorHparams,
     "grad_monitor": GradMonitorHparams,
 }
@@ -85,9 +87,9 @@ device_registry = {
 
 @dataclass
 class TrainerHparams(hp.Hparams):
-    """
-    Hparams can have their own fields, but also be nested with other Hparams objects.
-    This is a choose one deploment for optimizer and scheduler fields
+    """Params for the :class:`Trainer`.
+
+    See the documentation for the :class:`Trainer`.
     """
     hparams_registry = {  # type: ignore
         "algorithms": algorithms_registry,
@@ -189,7 +191,12 @@ class TrainerHparams(hp.Hparams):
 
     @classmethod
     def load(cls, model: str) -> TrainerHparams:
-        model_hparams_file = os.path.join(os.path.dirname(composer.__file__), "yamls", "models", model, "hparams.yaml")
+        model_hparams_file = os.path.join(
+            os.path.dirname(composer.__file__),
+            "yamls",
+            "models",
+            f"{model}.yaml",
+        )
         trainer_hparams = TrainerHparams.create(model_hparams_file)
         assert isinstance(trainer_hparams, TrainerHparams), "trainer hparams should return an instance of self"
         return trainer_hparams
