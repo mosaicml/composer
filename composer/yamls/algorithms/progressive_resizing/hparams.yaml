@@ -1,0 +1,4 @@
+mode: resize
+initial_scale: 0.5
+finetune_fraction: 0.2
+resize_targets: true

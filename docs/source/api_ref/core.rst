@@ -1,0 +1,4 @@
+composer.core
+=============
+
+Text here

@@ -1,0 +1,3 @@
+replace_maxpools: true
+replace_convs: true
+blur_first: true
