@@ -1,3 +1,5 @@
+# Copyright 2021 MosaicML. All Rights Reserved.
+
 from typing import Dict, List, Type
 
 from composer.algorithms.algorithm_hparams import AlgorithmHparams
@@ -6,6 +8,7 @@ from composer.algorithms.augmix import AugMixHparams
 from composer.algorithms.blurpool import BlurPoolHparams
 from composer.algorithms.channels_last import ChannelsLastHparams
 from composer.algorithms.colout import ColOutHparams
+from composer.algorithms.curriculum_learning import CurriculumLearningHparams
 from composer.algorithms.cutout import CutOutHparams
 from composer.algorithms.dummy import DummyHparams
 from composer.algorithms.ghost_batchnorm import GhostBatchNormHparams
@@ -27,11 +30,11 @@ registry: Dict[str, Type[AlgorithmHparams]] = {
     'dummy': DummyHparams,
     'blurpool': BlurPoolHparams,
     'channels_last': ChannelsLastHparams,
+    'curriculum_learning': CurriculumLearningHparams,
     'cutout': CutOutHparams,
     'ghost_batchnorm': GhostBatchNormHparams,
     'label_smoothing': LabelSmoothingHparams,
     'layer_freezing': LayerFreezingHparams,
-    'scale_schedule': ScaleScheduleHparams,
     'squeeze_excite': SqueezeExciteHparams,
     'swa': SWAHparams,
     'no_op_model': NoOpModelHparams,

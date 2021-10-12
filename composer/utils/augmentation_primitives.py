@@ -1,4 +1,7 @@
+# Copyright 2021 MosaicML. All Rights Reserved.
+
 # Modified from https://github.com/google-research/augmix/blob/master/augmentations.py
+
 """Augmentation primitives for use in AugMix and RandAugment. Augmentation intensities
     are normalized on a scale of 1-10, where 10 is the strongest and maximum value an
     augmentation function will accept.

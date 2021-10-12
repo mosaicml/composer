@@ -1,3 +1,5 @@
+# Copyright 2021 MosaicML. All Rights Reserved.
+
 import torch
 
 from composer.models.resnets import Bottleneck

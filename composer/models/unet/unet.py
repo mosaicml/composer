@@ -1,3 +1,5 @@
+# Copyright 2021 MosaicML. All Rights Reserved.
+
 import contextlib
 import logging
 from typing import Any, Optional, Tuple

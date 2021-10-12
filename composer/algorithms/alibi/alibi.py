@@ -1,3 +1,5 @@
+# Copyright 2021 MosaicML. All Rights Reserved.
+
 from __future__ import annotations
 
 import importlib
@@ -59,27 +61,28 @@ def apply_alibi(model: torch.nn.Module, heads_per_layer: int, max_sequence_lengt
     """
     Applies ALiBi to the provided model. Removes position embeddings and replaces
         the attention function and attention mask.
+
     Args:
         model (torch.nn.Module): model to transform
         heads_per_layer (int): number of attention heads per layer
-        max_sequence_length (int): maximum sequence length that the 
+        max_sequence_length (int): maximum sequence length that the
             model will be able to accept without returning an error
-        position_embedding_attribute (str): attribute for position 
-            embeddings. For example in HuggingFace's GPT2, the 
+        position_embedding_attribute (str): attribute for position
+            embeddings. For example in HuggingFace's GPT2, the
             position embeddings are "transformer.wpe".
-        attention_module (str): module/class that will have its 
-            self-attention function replaced. For example, in 
+        attention_module (str): module/class that will have its
+            self-attention function replaced. For example, in
             HuggingFace's GPT, the self-attention module is
             transformers.models.gpt2.modeling_gpt2.GPT2Attention.
         attr_to_replace (str): attribute that self-attention function will
-            replace. For example, in HuggingFace's GPT2, the 
+            replace. For example, in HuggingFace's GPT2, the
             self-attention function is "_attn".
-        alibi_attention (callable): new self-attention function in which 
-            ALiBi is implemented. Used to replace 
+        alibi_attention (callable): new self-attention function in which
+            ALiBi is implemented. Used to replace
             "{attention_module}.{attr_to_replace}".
-        mask_replacement_function (callable): function to replace model's 
-            attention mask. This is sometimes necessary for evaluating 
-            on sequence lengths longer than the model was initialized to 
+        mask_replacement_function (callable): function to replace model's
+            attention mask. This is sometimes necessary for evaluating
+            on sequence lengths longer than the model was initialized to
             accommodate.
     """
 
@@ -109,27 +112,27 @@ class Alibi(Algorithm):
 
     Args:
         heads_per_layer (int): number of attention heads per layer
-        max_sequence_length (int): maximum sequence length that the 
+        max_sequence_length (int): maximum sequence length that the
             model will be able to accept without returning an error
-        position_embedding_attribute (str): attribute for position 
-            embeddings. For example in HuggingFace's GPT2, the 
+        position_embedding_attribute (str): attribute for position
+            embeddings. For example in HuggingFace's GPT2, the
             position embeddings are "transformer.wpe".
-        attention_module_name (str): module/class that will have 
-            its self-attention function replaced. For example, 
+        attention_module_name (str): module/class that will have
+            its self-attention function replaced. For example,
             in HuggingFace's GPT, the self-attention module is
             "transformers.models.gpt2.modeling_gpt2.GPT2Attention".
         attr_to_replace (str): attribute that self-attention function will
-            replace. For example, in HuggingFace's GPT2, the 
+            replace. For example, in HuggingFace's GPT2, the
             self-attention function is "_attn".
         alibi_attention (str): Path to new self-attention function in which ALiBi is
             implemented. Used to replace "{attention_module}.{attr_to_replace}".
-        mask_replacement_function (str): Path to function to replace model's 
-            attention mask. This is sometimes necessary for evaluating on 
-            sequence lengths longer than the model was initialized to 
+        mask_replacement_function (str): Path to function to replace model's
+            attention mask. This is sometimes necessary for evaluating on
+            sequence lengths longer than the model was initialized to
             accommodate.
-        train_sequence_length_scaling (float): Amount by which to scale 
-            training sequence length. One batch of training data will be 
-            reshaped from size (sequence_length, batch) to 
+        train_sequence_length_scaling (float): Amount by which to scale
+            training sequence length. One batch of training data will be
+            reshaped from size (sequence_length, batch) to
             (sequence_length*sequence_length_fraction, batch/sequence_length_fraction).
     """
 

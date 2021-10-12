@@ -1,3 +1,5 @@
+# Copyright 2021 MosaicML. All Rights Reserved.
+
 from composer.utils import augmentation_primitives as augmentation_primitives
 from composer.utils.ddp import get_global_rank as get_global_rank
 from composer.utils.ddp import is_rank_set as is_rank_set

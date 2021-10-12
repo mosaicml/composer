@@ -1,3 +1,5 @@
+# Copyright 2021 MosaicML. All Rights Reserved.
+
 from __future__ import annotations
 
 import abc
@@ -13,8 +15,9 @@ if TYPE_CHECKING:
 
 
 class Callback(Serializable, abc.ABC):
-    """
-    Base class for callbacks. Callbacks are similar to Algorithms, in that
+    """Base class for callbacks.
+    
+    Callbacks are similar to Algorithms, in that
     they are run on specific events. By convention, Callbacks should not
     modify ``State``.
 
@@ -90,8 +93,10 @@ class Callback(Serializable, abc.ABC):
 
 class RankZeroCallback(Callback, abc.ABC):
     """
-    RankZeroCallback ensures that all callback methods that occur after the DDP fork are only executed on rank 0.
-    Note: :meth:`init`, :meth:`load_state_dict` are executed before the DDP fork and will be called on all ranks.
+    Base class for callbacks that should only run on the rank 0 process.
+
+    This ensures that after a DDP fork, callback methods will execute only once per rank. Note that :meth:`init`
+    and :meth:`load_state_dict` are executed before the DDP fork and will be called on all ranks.
     """
 
     def __init__(self) -> None:

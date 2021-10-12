@@ -1,3 +1,5 @@
+# Copyright 2021 MosaicML. All Rights Reserved.
+
 import setuptools
 from setuptools import setup
 
@@ -52,17 +54,16 @@ extra_deps['unet'] = [
 extra_deps['all'] = set(dep for deps in extra_deps.values() for dep in deps)
 
 setup(
-    name="mosaicml",
-    version="0.2.0",
+    name="mosaicml-composer",
+    version="0.2.1",
     author="MosaicML",
     author_email="team@mosaicml.com",
-    description="composing methods for ML training efficiency",
+    description="The most amazing compositional algorithm thing for ML",
     long_description=long_description,
     long_description_content_type="text/markdown",
     url="https://github.com/mosaicml/composer",
-    include_package_data=True,
     package_data={
-        "": ["*.yaml", "*.yml"],
+        'composer': ['yamls/**/*.yaml'],
     },
     packages=setuptools.find_packages(),
     classifiers=[
@@ -70,11 +71,17 @@ setup(
     ],
     install_requires=install_requires,
     entry_points={
-        'console_scripts': ['composer = composer.trainer.entrypoint:main',],
+        'console_scripts': ['composer = examples.run_mosaic_trainer:main',],
     },
     extras_require=extra_deps,
     dependency_links=['https://developer.download.nvidia.com/compute/redist'],
     python_requires='>=3.8',
+    ext_package="composer",
 )
 
-# TODO: emit warning about pillow & pillow-SIMD
+# only visible if user installs with verbose -v flag
+print("*" * 20)
+print("\nNOTE: For best performance, we recommend installing Pillow-SIMD "
+      "\nfor accelerated image processing operations. To install:"
+      "\n\n\t pip uninstall pillow && pip install pillow-simd\n")
+print("*" * 20)

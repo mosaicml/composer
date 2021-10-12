@@ -1,3 +1,5 @@
+# Copyright 2021 MosaicML. All Rights Reserved.
+
 """
 How to BYOT (bring your own trainer) and use our algorithms,
 with minimal dependencies on our repo. Example invocation:
@@ -107,12 +109,11 @@ def train():
         for state.step, (x, y) in enumerate(train_dataloader):
             engine.run_event(Event.BATCH_START)
 
-            state.last_input = x.cuda()
-            state.last_target = y.cuda()
+            state.batch = x.cuda(), y.cuda()
             engine.run_event(Event.AFTER_DATALOADER)
             engine.run_event(Event.BEFORE_TRAIN_BATCH)
             engine.run_event(Event.BEFORE_FORWARD)
-            state.outputs = model(state.last_input)
+            state.outputs = model(state.batch)
             engine.run_event(Event.AFTER_FORWARD)
             engine.run_event(Event.BEFORE_LOSS)
             state.loss = F.cross_entropy(input=state.outputs, target=state.last_target)  # type: ignore

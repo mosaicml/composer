@@ -1,3 +1,5 @@
+# Copyright 2021 MosaicML. All Rights Reserved.
+
 from __future__ import annotations
 
 import time
@@ -14,6 +16,21 @@ from composer.core.types import StateDict
 
 
 class SpeedMonitor(RankZeroCallback):
+    """Callback to monitor the training throughput.
+
+    It logs:
+
+    * A rolling average (over the :attr:`window_size` most recent batches)
+      of the number of samples processed per second to the
+      ``throughput/step`` key.
+    * The number of samples processed per second, averaged over
+      an entire epoch, to the ``throughput/epoch`` key.
+    * The total elapsed training time to the ``wall_clock_train`` key.
+
+    Args:
+        window_size (int):
+            Number of batchs to use for a rolling average of throughput.
+    """
 
     def __init__(self, window_size: int):
         super().__init__()
@@ -87,8 +104,12 @@ class SpeedMonitor(RankZeroCallback):
 
 @dataclass
 class SpeedMonitorHparams(CallbackHparams):
+    """Parameters for the :class:`SpeedMonitor`.
+
+    See the documentation for the :class:`SpeedMonitor`.
+    """
     window_size: int = hp.optional(
-        doc="number of batchs to use for rolling average of throughput. Default: 100.",
+        doc="Number of batchs to use for a rolling average of throughput.",
         default=100,
     )
 

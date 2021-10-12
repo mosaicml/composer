@@ -1,3 +1,5 @@
+# Copyright 2021 MosaicML. All Rights Reserved.
+
 import os
 from dataclasses import dataclass
 from typing import List, Optional, Tuple

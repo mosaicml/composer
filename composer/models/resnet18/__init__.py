@@ -1,4 +1,6 @@
-from composer.models.resnet18.model import Resnet18 as Resnet18
+# Copyright 2021 MosaicML. All Rights Reserved.
+
+from composer.models.resnet18.model import ResNet18 as ResNet18
 from composer.models.resnet18.resnet18_hparams import ResNet18Hparams as ResNet18Hparams
 
 _task = 'Image Classification'

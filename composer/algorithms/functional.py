@@ -1,3 +1,5 @@
+# Copyright 2021 MosaicML. All Rights Reserved.
+
 """
 Functional API
 
@@ -11,6 +13,7 @@ Functional forms of methods are available here via::
 from composer.algorithms.augmix import augment_and_mix as augment_and_mix
 from composer.algorithms.blurpool import apply_blurpool as apply_blurpool
 from composer.algorithms.colout.colout import colout as colout
+from composer.algorithms.curriculum_learning.curriculum_learning import apply_curriculum as apply_curriculum
 from composer.algorithms.cutout.cutout import cutout as cutout
 from composer.algorithms.label_smoothing import smooth_labels as smooth_labels
 from composer.algorithms.layer_freezing import freeze_layers as freeze_layers

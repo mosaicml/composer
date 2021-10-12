@@ -1,3 +1,5 @@
+# Copyright 2021 MosaicML. All Rights Reserved.
+
 from __future__ import annotations
 
 import collections.abc
@@ -18,8 +20,8 @@ TLogData = Mapping[str, TLogDataValue]
 
 
 class LogLevel(IntEnum):
-    """
-    LogLevel denotes where in the training loop log messages are generated.
+    """LogLevel denotes where in the training loop log messages are generated.
+
     Logging destinations use the LogLevel to determine whether to record a given
     metric or state change
     """
@@ -34,6 +36,16 @@ class Logger:
     """
     Logger records metrics and state changes to logging destinations.
 
+    It routes logging calls to the
+    :class:`~compose.core.logging.base_backend.BaseLoggerBackend`s
+    (specified in :param log_destinations:)
+
+    Args:
+        state (State): The global :class:`~composer.core.State` object.
+        log_destinations (Sequence[BaseLoggerBackend]):
+            A sequence of
+            :class:`~compose.core.logging.base_backend.BaseLoggerBackend`s
+            to which logging calls will be sent.
     """
 
     def __init__(
@@ -53,13 +65,16 @@ class Logger:
 
     def metric(self, log_level: Union[str, LogLevel], data: Union[TLogData, Callable[[], TLogData]]) -> None:
         """
-        Send `data` with `log_level` to the logging backends.
+        Send :param data: with :param log_level: to the logging backends.
 
-        log_level : A `LogLevel` enum
-
-        data : Can be either logging data or a callable that returns data to be logged. Callables will be invoked
-               only when at least one logging backend will log this data, given the current state and log level.
-               Useful when it is expensive to generate the data to be logged.
+        Args:
+            log_level (Union[str, LogLevel]): A :class:`LogLevel`.
+            data (Union[TLogData, Callable[[], TLogData]]):
+                Can be either logging data or a callable that returns
+                data to be logged. Callables will be invoked
+                only when :meth:`will_log` returns True for at least one 
+                :class:`~compose.core.logging.base_backend.BaseLoggerBackend`.
+                Useful when it is expensive to generate the data to be logged.
         """
         if isinstance(log_level, str):
             log_level = LogLevel[log_level.upper()]
@@ -74,33 +89,23 @@ class Logger:
             destination.log_metric(self._state.epoch, self._state.step, log_level, copied_data)
 
     def metric_fit(self, data: Union[TLogData, Callable[[], TLogData]]) -> None:
-        """
-        Helper function for `self.metric(LogLevel.FIT, data)`
-        """
+        """Helper function for `self.metric(LogLevel.FIT, data)`"""
         self.metric(LogLevel.FIT, data)
 
     def metric_epoch(self, data: Union[TLogData, Callable[[], TLogData]]) -> None:
-        """
-        Helper function for `self.metric(LogLevel.EPOCH, data)`
-        """
+        """Helper function for `self.metric(LogLevel.EPOCH, data)`"""
         self.metric(LogLevel.EPOCH, data)
 
     def metric_batch(self, data: Union[TLogData, Callable[[], TLogData]]) -> None:
-        """
-        Helper function for `self.metric(LogLevel.BATCH, data)`
-        """
+        """Helper function for `self.metric(LogLevel.BATCH, data)`"""
         self.metric(LogLevel.BATCH, data)
 
     def metric_microbatch(self, data: Union[TLogData, Callable[[], TLogData]]) -> None:
-        """
-        Helper function for `self.metric(LogLevel.MICROBATCH, data)`
-        """
+        """Helper function for `self.metric(LogLevel.MICROBATCH, data)`"""
         self.metric(LogLevel.MICROBATCH, data)
 
     def metric_verbose(self, data: Union[TLogData, Callable[[], TLogData]]) -> None:
-        """
-        Helper function for `self.metric(LogLevel.VERBOSE, data)`
-        """
+        """Helper function for `self.metric(LogLevel.VERBOSE, data)`"""
         self.metric(LogLevel.VERBOSE, data)
 
 

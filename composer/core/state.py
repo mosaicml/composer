@@ -1,10 +1,11 @@
+# Copyright 2021 MosaicML. All Rights Reserved.
+
 from __future__ import annotations
 
 import logging
 import warnings
-from dataclasses import Field, dataclass, field, fields
-from itertools import count
-from typing import TYPE_CHECKING, Callable, ContextManager, Iterable, Optional, Sequence, Union
+from dataclasses import dataclass, field, fields
+from typing import TYPE_CHECKING, Callable, ContextManager, Optional, Sequence, Union
 
 import torch.nn.modules.utils
 from torch.nn.parallel import DistributedDataParallel
@@ -63,8 +64,36 @@ SKIP_SERIALIZATION_FIELDS = [
 @dataclass
 class State(Serializable):
     """
-    State attributes for the trainer. Algorithms can modify
-    these states in-place as needed.
+    The current state of the trainer.
+
+    Algorithms are able to modify this object in-place.
+
+    Attributes:
+        model (types.Model, often BaseMosaicModel): The model, typically as a subclass of :class:`BaseMosaicModel`.
+        train_batch_size (int): The global batch size used for training.
+        eval_batch_size (int): The batch size used for evaluation.
+        grad_accum (int): The number of gradient accumulation steps to use. The size of each microbatch is ``train_batch_size / num_gpus / grad_accum``.
+        max_epochs (int): The maximum number of epochs to train for.
+        precision (str | Precision): The numerical precision to use for training. Should be one of ``[fp32, amp]``.
+        precision_context ((precision: Precision) -> ContextManager): Function to produce a context manager to mandate precision.
+
+        epoch (int): The index of the current epoch.
+        step (int): The index of the current step/batch (measured globally).
+
+        batch (types.Batch): The most recently retrieved batch.
+        loss (types.Tensors): The most recently computed loss.
+        last_batch_size (int): The size of the batch last returned from the dataloader. This can be different from the current size of ``batch`` if algorithms have modified the ``batch``.
+        outputs (types.Tensors): The most recently computed output from the model's forward pass.
+
+        optimizers (Optimizer | Tuple(Optimizer)): The optimizers being used to train the model. Multiple optimizers are not currently supported.
+        schedulers (Scheduler | Tuple(Scheduler)): The learning rate schedulers, wrapped in :class:`ComposableScheduler`.
+        scaler (torch.cuda.amp.GradScaler, optional): The gradient scaler in use for mixed precision training.
+
+        train_dataloader (DataLoader): The dataloader used for training.
+        eval_dataloader (DataLoader): The dataloader used for evaluation.
+
+        algorithms (`list` of `Algorithm`): The algorithms used for training.
+        callbacks (`list` of `Callback`): The callbacks used for training.
     """
 
     # model
@@ -135,18 +164,6 @@ class State(Serializable):
     def is_rank_set(self) -> bool:
         return is_rank_set()
 
-    def get_epochs(self) -> Iterable[int]:
-        return range(self.epoch, self.max_epochs) if self.max_epochs else count(self.epoch)
-
-    def update_last(self, batch: types.Batch):
-        """Convenience function to update the state after the
-        dataloader with the batch.
-
-        Args:
-            batch (Batch): the batch returned by the dataloader
-        """
-        self.batch = batch
-
     def state_dict(self) -> types.StateDict:
         """Returns the state as a :class:`dict`.
         """
@@ -211,12 +228,12 @@ class State(Serializable):
 
     @property
     def batch_idx(self) -> int:
-        """batch_idx is the index of the batch in the current epoch.
-        """
+        """int: batch_idx is the index of the batch in the current epoch."""
         return self.step - self.epoch * self.steps_per_epoch
 
     @property
     def steps_per_epoch(self) -> int:
+        """int: The number of steps (batches) per epoch."""
         if self.train_dataloader is None:
             raise RuntimeError("To determine the number of steps per epoch, state.train_dataloader must be set.")
         return len(self.train_dataloader)
@@ -231,17 +248,16 @@ class State(Serializable):
 
     @property
     def batch_pair(self) -> types.BatchPair:
+        """:obj:`BatchPair`: The current batch, represented as a `BatchPair`.
+
+        :raises TypeError: If the current batch is not a `BatchPair`.
+        """
         return types.as_batch_pair(self.batch)
 
     @property
     def batch_dict(self) -> types.BatchDict:
+        """:obj:`BatchDict`: The current batch, represented as a `BatchDict`.
+
+        :raises TypeError: If the current batch is not a `BatchDict`.
+        """
         return types.as_batch_dict(self.batch)
-
-
-def is_field_serialized(f: Field) -> bool:
-    if f.name in STATE_DICT_SERIALIZATION_FIELDS or f.name in DIRECT_SERIALIZATION_FIELDS:
-        return True
-    elif f.name in SKIP_SERIALIZATION_FIELDS:
-        return False
-    else:
-        raise RuntimeError(f"Serialization method for field {f.name} not specified")

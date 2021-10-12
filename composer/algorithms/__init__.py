@@ -1,3 +1,5 @@
+# Copyright 2021 MosaicML. All Rights Reserved.
+
 from composer.algorithms.algorithm_hparams import AlgorithmHparams as AlgorithmHparams
 from composer.algorithms.algorithm_registry import get_algorithm_registry as get_algorithm_registry
 from composer.algorithms.algorithm_registry import list_algorithms as list_algorithms
@@ -10,6 +12,8 @@ from composer.algorithms.channels_last import ChannelsLast as ChannelsLast
 from composer.algorithms.channels_last import ChannelsLastHparams as ChannelsLastHparams
 from composer.algorithms.colout import ColOut as ColOut
 from composer.algorithms.colout import ColOutHparams as ColOutHparams
+from composer.algorithms.curriculum_learning import CurriculumLearning as CurriculumLearning
+from composer.algorithms.curriculum_learning import CurriculumLearningHparams as CurriculumLearningHparams
 from composer.algorithms.cutout import CutOut as CutOut
 from composer.algorithms.cutout import CutOutHparams as CutOutHparams
 from composer.algorithms.dummy import Dummy as Dummy
@@ -44,3 +48,4 @@ from composer.algorithms.swa import SWA as SWA
 from composer.algorithms.swa.hparams import SWAHparams as SWAHparams
 
 load_multiple = AlgorithmHparams.load_multiple
+load = AlgorithmHparams.load

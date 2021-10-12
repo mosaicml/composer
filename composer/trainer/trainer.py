@@ -1,3 +1,5 @@
+# Copyright 2021 MosaicML. All Rights Reserved.
+
 from __future__ import annotations
 
 import collections.abc
@@ -8,7 +10,6 @@ from typing import Any, Dict, List, Optional, Sequence, Union
 
 import torch
 import torch.utils.data
-import yaml
 from torch.backends import cudnn
 from torch.cuda.amp.grad_scaler import GradScaler
 from torch.nn.parallel import DistributedDataParallel
@@ -22,7 +23,7 @@ from composer.core.types import Batch, BreakEpochException, Metrics, Precision, 
 from composer.datasets import DataloaderHparams, DataloaderSpec
 from composer.loggers.tqdm_logger import TQDMLoggerBackend
 from composer.models.base import BaseMosaicModel
-from composer.optim import (ComposedScheduler, CosineAnnealingLRHparams, MosaicMLSGDWHparams, OptimizerHparams,
+from composer.optim import (ComposedScheduler, CosineAnnealingLRHparams, DecoupledSGDWHparams, OptimizerHparams,
                             SchedulerHparams, WarmUpLRHparams)
 from composer.optim.scheduler import ensure_warmup_last
 from composer.trainer.checkpoint import Checkpointer, CheckpointLoader
@@ -37,16 +38,80 @@ log = logging.getLogger(__name__)
 
 
 class Trainer:
-    """
-    SimpleTrainerfor running models with algorithms. Can be created either by providing
-    an hparams file, or providing a path to a saved checkpoint.
+    """Trainer for training a model with algorithms.
 
-    Example::
-        >>> trainer = Trainer(hparams=hparams)
-        >>> trainer.fit()
+    Can be created either with ``__init__`` or by providing a
+    :class:`~composer.trainer.TrainerHparams` object
+    (see :meth:`~composer.trainer.Trainer.create_from_hparams`).
 
-        >>> trainer = Trainer(hparams=hparams, checkpoint='path/to/checkpoint.pt')
-        >>> trainer.fit()
+    Args:
+        model (BasicMosaicModel): The model to train.
+        train_dataloader_spec (DataloaderSpec): The dataloader spec for the training data.
+        eval_dataloader_spec (DataloaderSpec): The dataloader spec for the evaluation data.
+        max_epochs (int): The maxmimum number of epochs to train for.
+        train_batch_size (int): Minibatch size for training data.
+        eval_batc_size (int): Minibatch size for evaluation data.
+        algorithms (List[Algorithm], optional): The algorithms to use during training.
+            (default: ``[]``)
+        optimizer_hparams: (OptimizerHparams, optional): The OptimizerHparams for constructing
+            the optimizer for training. Must pass OptimizerHparams instead of a `torch.optim.Optimizer`
+            object because the optimizer has to be constructed after certain algorithms which modify
+            the model architecture have run on the model. (default:
+            ``MosaicMLSGDWHparams(lr=0.1, momentum=0.9, weight_decay=1.0e-4)``)
+        schedulers_hparams: (Union[SchedulerHparams, List[SchedulerHparams]], optional): The
+            SchedulerHparams for constructing the one or more learning rate schedulers used
+            during training. Must pass SchedulerHparams instead of a `torch.optim.lr_scheduler._LRScheduler`
+            object because the scheduler needs an optimizer to be constructed and we construct the optimizer
+            in `__init__`. (default:
+            ``[CosineAnnealingLRHparams(T_max=f"{max_epochs}ep"), WarmUpLRHparams()]``).
+        device (Device, optional): The device to use for training. Either `DeviceCPU` or `DeviceGPU`.
+            (default ``DeviceCPU(n_cpus=1)``)
+        grad_accum (int, optional): The number of microbatches to split a per-device batch into. Gradients
+            are summed over the microbatches per device. (default: ``1``)
+        grad_clip_norm (float, optional): The norm to clip gradient magnitudes to. Set to None for no gradient
+            clipping. (default: ``None``)
+        validate_every_n_batches (int, optional): Compute metrics on evaluation data every N batches.
+             Set to -1 to never validate on a batchwise frequency. (default: ``-1``)
+        validate_every_n_epochs (int, optional): Compute metrics on evaluation data every N epochs.
+            Set to -1 to never validate on a epochwise frequency. (default: ``1``)
+        compute_training_metrics (bool, optional): True to compute metrics on training data and False to not.
+            (default: ``False``)
+        precision (Precision, optional): Numerical precision to use for training. (default: ``Precision.FP32``).
+        num_workers (int, optional): The number of CPU workers to use per GPU. 0 results in loading data
+            on the main process. (default: ``0``)
+        prefetch_factor (int, optional): Number of samples loaded in advance by each worker. (default: ``2``)
+        persistent_workers (bool, optional): Whether or not to shutdown workers after the dataset
+            has been consumed once. (default: ``False``)
+        pin_memory (bool, optional): Whether or not to copy data tensors into CUDA pinned memory.
+            (default: ``False``)
+        timeout (int, optional): Timeout value for collecting a batch from workers. 0 for no timeout.
+            (default: ``0``)
+        ddp_store_hparams (StoreHparams, optional): `DistributedDataParallel` configuration.
+            (default: ``TCPStoreHparams("127.0.0.1", 43297)``)
+        fork_rank_0 (bool, optional): True to fork the rank 0 process in distributed data parallel,
+            False to not. (default: ``True``)
+        seed (int, optional): The seed used in randomization. When not provided a random seed
+            will be created. (default: ``None``)
+        deterministic_mode (bool, optional): Run the model deterministically. Experimental. Performance
+            degradations expected. Certain Torch modules may not have deterministic implementations,
+            which will result in a crash. (default: ``False``)
+        log_destinations (List[BaseLoggerBackend], optional): The destinations to log training information to.
+            (default ``[TQDMLoggerBackend()]``).
+        callbacks (Sequence[Callback], optional): The callbacks to run during training. (default: ``[]``)
+        checkpoint_filepath (str, optional): The path to a trainer checkpoint file. If provided
+            the trainer will load the state (along with it's associated attributes) during initialization.
+            (default: ``None``)
+        checkpoint_interval_unit (int, optional): Unit for the checkpoint save interval -- should be 'ep'
+            for epochs, 'ba' for batches, or None to disable checkpointing. (default: ``None``).
+        checkpoint_folder (str, optional): The folder to save checkpoints to. (default: ``checkpoints``)
+        checkpoint_interval (int, optional): The frequency with which to checkpoint. (default: ``1``)
+        config (Dict[str, Any], optional): Extra user-provided trainer configuration. Will be persisted
+            along with the trainer state during checkpointing. (default: ``None``)
+
+    Attributes:
+        state (State): The :class:`State` object used to store training state.
+        logger (Logger): The :class:`Logger` used for logging.
+        engine (Engine): The :class:`Engine` used for running callbacks and algorithms.
     """
 
     def __init__(
@@ -101,7 +166,7 @@ class Trainer:
             # Optional config (ex. an hparams yaml file)
             config: Optional[Dict[str, Any]] = None):
         # surpressing GradScaler warnings as they are always created
-        # self.use_grad_scaling() will raise a RuntimeError if grad scaling is not available when it is required
+        # self._use_grad_scaling() will raise a RuntimeError if grad scaling is not available when it is required
         warnings.filterwarnings(action="ignore", message="torch.cuda.amp.GradScaler")
 
         self.config = config
@@ -184,7 +249,7 @@ class Trainer:
         steps_per_epoch = len(self.train_dl_spec.dataset) // train_batch_size
         # Need to use hparams here because optimizer and schedulers need to be created after Event.INIT
         if not optimizer_hparams:
-            optimizer_hparams = MosaicMLSGDWHparams(lr=0.1, momentum=0.9, weight_decay=1.0e-4)
+            optimizer_hparams = DecoupledSGDWHparams(lr=0.1, momentum=0.9, weight_decay=1.0e-4)
         if not schedulers_hparams:
             schedulers_hparams = [CosineAnnealingLRHparams(T_max=f"{max_epochs}ep"), WarmUpLRHparams()]
         if not isinstance(schedulers_hparams, list):
@@ -207,6 +272,14 @@ class Trainer:
 
     @classmethod
     def create_from_hparams(cls, hparams: TrainerHparams) -> Trainer:
+        """Instantiate a Trainer using a `TrainerHparams` object.
+
+        Args:
+            hparams (TrainerHparams): The TrainerHparams object used to instantiate the trainer.
+
+        Returns:
+            A Trainer object initialized with the provided TrainerHparams.
+        """
 
         hparams.validate()
 
@@ -288,11 +361,14 @@ class Trainer:
         return trainer
 
     def fit(self):
+        """Train and evaluate the model on the provided data.
+        """
         self.ddp.launch(self.state, self._train_loop)
 
-    def create_dataloaders(self) -> None:
-        """
-        Create the dataloaders. Should be called after distributed training has started,
+    def _create_dataloaders(self) -> None:
+        """Create the dataloaders.
+
+        Should be called after distributed training has started,
         since the dataloader samplers need to know their rank.
         """
         # shorthand
@@ -316,6 +392,18 @@ class Trainer:
         )
 
     def _get_metrics_as_collection(self, *, is_train: bool) -> MetricCollection:
+        """Get metrics relevant to the model. Metrics are all implmented as subclasses
+        of :class:`torchmetrics.Metric`. This function returns metrics as a
+        :class:`~torchmetrics.collections.MetricCollection` to enable support
+        for multiple metrics.
+
+        Args:
+            is_train (bool): True to get training metrics and false to get
+            evaluation metrics.
+
+        Returns:
+            A :class:`~torchmetrics.collections.MetricCollection` object.
+        """
         original_model = self.state.model.module
         assert isinstance(original_model, BaseMosaicModel)
 
@@ -333,6 +421,13 @@ class Trainer:
         return metrics
 
     def _compute_and_log_metrics(self, metrics: Metrics, *, is_train: bool, is_batch: bool):
+        """Computes metrics, logs the results, and resets the metrics.
+
+        Args:
+            metrics (Metrics): The metrics to compute.
+            is_train (bool): True for training metrics, False for evaluation metrics.
+            is_batch (bool): True if logging at batch level, false for epoch level.
+        """
         computed_metrics = metrics.compute()
         for name, value in computed_metrics.items():
             log_level = LogLevel.BATCH if is_batch else LogLevel.EPOCH
@@ -341,9 +436,13 @@ class Trainer:
         metrics.reset()
 
     def _spin_dataloaders(self):
-        # Spin the dataloaders to restore sampler state. Only one batch must be loaded to seed the sampler's generator
-        # Since only the first batch is being loaded, the dataloader may not be completely iterated through
-        # Surpressing this multiple iteration warning -- it is OK to ignore
+        """Spin the dataloaders to restore sampler state.
+
+        Only one batch must be loaded to seed the sampler's generator.
+        since only the first batch is being loaded, the dataloader may
+        not be completely iterated through.
+        """
+        # surpressing this multiple iteration warning -- it is OK to ignore
         warnings.simplefilter(action="ignore", category=DataloaderMultipleIterationWarning, append=True)
         assert self.state.train_dataloader is not None, "train dataloader should be set"
         assert self.state.eval_dataloader is not None, "eval dataloader should be set"
@@ -375,6 +474,8 @@ class Trainer:
                              f'multiple Tensor sizes in batch: {dim0_sizes}')
 
     def _train_loop(self) -> None:
+        """Run training for the specified number of epochs and log results.
+        """
         # shorthand
         state = self.state
 
@@ -386,7 +487,7 @@ class Trainer:
         state.optimizers = map_collection(state.optimizers, self.device.optimizer_to_device)
 
         # create dataloaders here after distributed training has started
-        self.create_dataloaders()
+        self._create_dataloaders()
         if state.train_dataloader is None or state.eval_dataloader is None:
             raise ValueError('Dataloaders were not created properly, and are None.')
 
@@ -396,9 +497,7 @@ class Trainer:
         assert isinstance(original_model, BaseMosaicModel)
 
         # print training start
-        algorithms_list = ', '.join([str(algo) for algo in self.engine.algorithms])
-        if state.global_rank == 0:
-            print(("-" * 60) + f"\n Running with Algorithms: {algorithms_list}\n" + ("-" * 60))
+        self.logger.metric_fit({"trainer/algorithms": [str(algo) for algo in self.engine.algorithms]})
 
         if self.compute_training_metrics:
             log.warn('Computing model evaluation metrics during training.'
@@ -407,18 +506,12 @@ class Trainer:
         train_metrics = self._get_metrics_as_collection(is_train=True)
 
         self.engine.run_event(Event.TRAINING_START)
-        if self.state.is_rank_zero:
-            dash_line = ("-" * 60 + "\n") * 3
-            print(dash_line)
-            if self.config:
-                print(yaml.dump(self.config))
-            print(dash_line)
 
         if len(ensure_tuple(state.optimizers)) != 1:
             raise NotImplementedError("The Mosaic trainer only supports one optimizer; "
                                       f"found {len(ensure_tuple(state.optimizers))} optimizers")
 
-        if self.use_closures:
+        if self._use_closures():
 
             def _ddp_reduce_scalar_and(flag: bool) -> bool:
                 value = 1 if flag else 0
@@ -435,7 +528,7 @@ class Trainer:
                                              ddp_reduce_tensor_sum=_ddp_reduce_tensor_sum)
         else:
             state.scaler = GradScaler()
-        use_grad_scaling = self.use_grad_scaling(state.precision, state.scaler)
+        use_grad_scaling = self._use_grad_scaling(state.precision, state.scaler)
 
         self._spin_dataloaders()
 
@@ -485,7 +578,7 @@ class Trainer:
                         "trainer/batch_idx": self.state.batch_idx,
                     })
                     total_loss = None
-                    if self.use_closures:
+                    if self._use_closures():
                         closure = lambda **kwargs: self._train_batch(microbatches, **kwargs)
                         for optimizer in ensure_tuple(state.optimizers):
                             if use_grad_scaling:
@@ -546,17 +639,32 @@ class Trainer:
 
         self.engine.run_event(Event.TRAINING_END)
 
-    def _train_batch(self, microbatches: Sequence[Batch], zero_grad: bool = True, ddp_sync: bool = True):
+    def _train_batch(self, microbatches: Sequence[Batch], ddp_sync: bool = True):
+        """Run training on a full batch of data.
+
+        Args:
+            microbatches (Sequence[Batch]): The microbatches which make up the batch.
+            ddp_sync (bool): True to sync gradients between devices on every backwards
+                pass and False to only sync gradients after each device has finished
+                computing a gradient on it's entire set of microbatches. (default: ``True``)
+        """
         if ddp_sync or not isinstance(self.state.model, DistributedDataParallel):
             context = contextlib.nullcontext
         else:
             context = self.state.model.no_sync
 
         with context():  # type: ignore - Pyright apparently doesn't recognize no_sync
-            return self._train_batch_inner(microbatches, zero_grad=zero_grad)
+            return self._train_batch_inner(microbatches)
 
-    def _train_batch_inner(self, microbatches: Sequence[Batch], zero_grad: bool = True):
+    def _train_batch_inner(self, microbatches: Sequence[Batch]):
+        """Iterate over microbatches and compute the loss that will be used to step
+        the optimizer.
+
+        Args:
+            microbatches (Sequence[Batch]): The microbatches which make up the batch.
+        """
         self.engine.run_event(Event.BEFORE_TRAIN_BATCH)
+        find_unused_parameters = any(map(lambda x: x.find_unused_parameters, self.engine.algorithms))
 
         state = self.state
         original_model = state.model.module
@@ -564,27 +672,27 @@ class Trainer:
         assert state.optimizers is not None
         assert state.scaler is not None
 
-        use_grad_scaling = self.use_grad_scaling(state.precision, state.scaler)
+        use_grad_scaling = self._use_grad_scaling(state.precision, state.scaler)
 
-        if zero_grad:
-            for optimizer in ensure_tuple(state.optimizers):
-                optimizer.zero_grad()
+        for optimizer in ensure_tuple(state.optimizers):
+            optimizer.zero_grad()
 
         # tracker for gradient accumulation
         total_loss = self.device.tensor_to_device(torch.zeros(size=(1,)))
         current_batch_size = sum([self._get_batch_size(batch) for batch in microbatches])
 
-        for microbatch_idx, batch in enumerate(microbatches):
+        for microbatch_idx, state.batch in enumerate(microbatches):
             # It's only necessary to run a DDP sync on the final microbatch, since the synced
             # gradients aren't needed until after this function has finished.
+            # When any algorithm sets find_unused_parameters to true, DDP must sync every microbatch.
 
-            if microbatch_idx + 1 == len(microbatches) or not isinstance(state.model, DistributedDataParallel):
+            if microbatch_idx + 1 == len(microbatches) or not isinstance(
+                    state.model, DistributedDataParallel) or find_unused_parameters:
                 context = contextlib.nullcontext
             else:
                 context = state.model.no_sync
             with context():  # type: ignore - Pyright does not recognize type of no_sync
-                last_microbatch_size = self._get_batch_size(batch)
-                state.update_last(batch=batch)
+                last_microbatch_size = self._get_batch_size(state.batch)
 
                 # forward pass
                 self.engine.run_event(Event.BEFORE_FORWARD)
@@ -639,6 +747,13 @@ class Trainer:
         return total_loss
 
     def eval(self, is_batch: bool):
+        """Evaluate the model on the provided evaluation data and log
+        appropriate metrics.
+
+        Args:
+            is_batch (bool): True to log metrics with ``LogLevel.BATCH``
+                and False to log metrics with ``LogLevel.EPOCH``.
+        """
         state = self.state
         model = state.model
 
@@ -656,12 +771,11 @@ class Trainer:
 
             assert state.eval_dataloader is not None
 
-            for batch in state.eval_dataloader:
-                state.update_last(batch=batch)
+            for state.batch in state.eval_dataloader:
                 self.engine.run_event(Event.EVAL_BATCH_START)
 
                 self.engine.run_event(Event.EVAL_BEFORE_FORWARD)
-                state.outputs, targets = original_model.validate(batch)
+                state.outputs, targets = original_model.validate(state.batch)
                 self.engine.run_event(Event.EVAL_AFTER_FORWARD)
 
                 metrics.update(state.outputs, targets)
@@ -674,14 +788,21 @@ class Trainer:
         if restore_model_train:
             model.train()
 
-    def use_grad_scaling(self, precision: Union[str, Precision], scaler: Optional[GradScaler]) -> bool:
-        """ Determines based on precision when to use grad scaling. Also performs
-        a safety check. By default, the pytorch GradScaler is a no-op if running on
-        unsupported hardware. Here we raise an Exception instead.
+    def _use_grad_scaling(self, precision: Union[str, Precision], scaler: Optional[GradScaler]) -> bool:
+        """Determines based on precision when to use grad scaling.
+
+        By default, the pytorch GradScaler is a no-op if running on
+        unsupported hardware. Here we raise a RuntimeError instead.
 
         Args:
-            precision (Precision): numerical precision, based on the Precision Enum
-            scaler (GradScaler): used for safety check
+            precision (Precision): Numerical precision, based on the Precision Enum.
+            scaler (GradScaler): Used to make sure that the scaler is enabled when
+            using grad scaling.
+
+        Raises:
+            RuntimeError:
+                Occurs when attemptng to use grad scaling without the scaler
+                enabled. Likely due to hardware not supporting the provided precision.
         """
         precision = Precision(precision)
         use_grad_scaling = precision == Precision.AMP
@@ -691,21 +812,18 @@ class Trainer:
                                f'Potentially your hardware does not support Precision {precision}.')
         return use_grad_scaling
 
-    @property
-    def use_closures(self) -> bool:
-        """ Determines based on precision and optimizers whether to use closures. We
-        default to using closures unless AMP is enabled, in which case we only allow
-        closures when using optimizers with the _step_supports_amp_closure flag. """
+    def _use_closures(self) -> bool:
+        """Determines based on precision and optimizers whether to use closures.
+
+        We default to using closures unless AMP is enabled, in which case we only allow
+        closures when using optimizers with the _step_supports_amp_closure flag.
+        """
         if self.state.precision != Precision.AMP:
             return True
 
         if self.state.optimizers is None:
-            raise RuntimeError("state.optimizers must be set before `use_closures` can be determined")
+            raise RuntimeError("state.optimizers must be set before `_use_closures` can be determined")
 
         return all(
             getattr(optimizer, "_step_supports_amp_closure", False)
             for optimizer in ensure_tuple(self.state.optimizers))
-
-    # TODO: Implementation of simpler functions for convenience
-    def pred(self) -> None:
-        raise NotImplementedError("This must be implemented")
