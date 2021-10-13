@@ -1,0 +1,6 @@
+stochastic_method: block
+target_layer_name: ResNetBottleneck
+drop_rate: 0.2
+drop_distribution: "linear"
+use_same_gpu_seed: false
+drop_warmup: 0.0

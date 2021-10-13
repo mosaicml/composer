@@ -1,0 +1,2 @@
+latent_channels: 64
+min_channels: 128

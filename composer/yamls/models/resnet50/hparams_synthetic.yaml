@@ -1,0 +1,63 @@
+train_dataset:
+  synthetic:
+    num_classes: 1000
+    shape: [3, 224, 224]
+    sample_pool_size: 12288
+    one_hot: false
+    device: cpu
+    memory_format: CONTIGUOUS_FORMAT
+    shuffle: true
+    drop_last: true
+val_dataset:
+  synthetic:
+    num_classes: 1000
+    shape: [3, 224, 224]
+    sample_pool_size: 2000
+    one_hot: false
+    device: cpu
+    memory_format: CONTIGUOUS_FORMAT
+    shuffle: true
+    drop_last: true
+optimizer:
+  sgd:
+    lr: 2.048
+    momentum: 0.875
+    weight_decay: 3.0517578125e-05
+    dampening: 0
+    nesterov: false
+schedulers:
+  - warmup:
+      warmup_iters: "8ep"
+      warmup_method: linear
+      warmup_factor: 0
+      verbose: false
+      interval: step
+  - cosine_decay:
+      T_max: "82ep"
+      eta_min: 0
+      verbose: false
+      interval: step
+model:
+  resnet50:
+    initializers:
+      - kaiming_normal
+      - bn_uniform
+    num_classes: 1000
+loggers:
+  - tqdm: {}
+max_epochs: 90
+total_batch_size: 2048
+eval_batch_size: 2048
+seed: 17
+device:
+  gpu:
+    n_gpus: 8
+dataloader:
+  pin_memory: true
+  timeout: 0
+  prefetch_factor: 2
+  persistent_workers: true
+  num_workers: 8
+validate_every_n_epochs: 1
+grad_accum: 1
+precision: amp
