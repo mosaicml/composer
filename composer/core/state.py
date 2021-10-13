@@ -248,16 +248,18 @@ class State(Serializable):
 
     @property
     def batch_pair(self) -> types.BatchPair:
-        """:obj:`BatchPair`: The current batch, represented as a `BatchPair`.
+        """:class:`~composer.core.types.BatchPair`: The current batch, represented as a :class:`~composer.core.types.BatchPair`.
 
-        :raises TypeError: If the current batch is not a `BatchPair`.
+        Raises:
+            TypeError: If the current batch is not a :class:`~composer.core.types.BatchPair`.
         """
         return types.as_batch_pair(self.batch)
 
     @property
     def batch_dict(self) -> types.BatchDict:
-        """:obj:`BatchDict`: The current batch, represented as a `BatchDict`.
+        """:class:`~BatchDict`: The current batch, represented as a :class:`~composer.core.types.BatchDict`.
 
-        :raises TypeError: If the current batch is not a `BatchDict`.
+        Raises:
+            TypeError: If the current batch is not a :class:`~composer.core.types.BatchDict`.
         """
         return types.as_batch_dict(self.batch)

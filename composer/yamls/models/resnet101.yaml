@@ -15,10 +15,10 @@ val_dataset:
     shuffle: false
     drop_last: false
 optimizer:
-  sgd:
+  decoupled_sgdw:
     lr: 2.048
     momentum: 0.875
-    weight_decay: 3.0517578125e-05
+    weight_decay: 5.0e-4
     dampening: 0
     nesterov: false
 schedulers:
@@ -55,5 +55,5 @@ dataloader:
   persistent_workers: true
   num_workers: 8
 validate_every_n_epochs: 1
-grad_accum: 1
+grad_accum: 2
 precision: amp

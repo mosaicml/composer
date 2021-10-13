@@ -45,7 +45,7 @@ class Trainer:
     (see :meth:`~composer.trainer.Trainer.create_from_hparams`).
 
     Args:
-        model (BasicMosaicModel): The model to train.
+        model (BaseMosaicModel): The model to train.
         train_dataloader_spec (DataloaderSpec): The dataloader spec for the training data.
         eval_dataloader_spec (DataloaderSpec): The dataloader spec for the evaluation data.
         max_epochs (int): The maxmimum number of epochs to train for.
@@ -147,7 +147,7 @@ class Trainer:
 
             # ddp hparams
             ddp_store_hparams: Optional[StoreHparams] = None,
-            fork_rank_0: bool = True,
+            fork_rank_0: bool = False,
 
             # Randomness
             seed: Optional[int] = None,
@@ -240,8 +240,6 @@ class Trainer:
             warnings.warn("Deterministic mode is activated. This will negatively impact performance.",
                           category=UserWarning)
 
-        # TODO: Resolve https://github.com/mosaicml/mosaicml/pull/169#discussion_r703683025
-        # Possibly rename Event name
         # run INIT event before optimizers and schedulers are created
         self.engine.run_event(Event.INIT)
 
@@ -612,7 +610,7 @@ class Trainer:
 
                     self.engine.run_event(Event.BATCH_END)
 
-                    state.schedulers.step(interval='batch')  # type: ignore # TODO fix later
+                    state.schedulers.step(interval='batch')  # type: ignore
 
                     if self.validate_every_n_batches > 0 and (state.step + 1) % self.validate_every_n_batches == 0:
                         self.eval(is_batch=True)
@@ -626,7 +624,7 @@ class Trainer:
             except BreakEpochException:
                 log.info(f'Skipping the rest of Epoch {state.epoch}')
 
-            state.schedulers.step(interval='epoch')  # type: ignore # TODO fix later
+            state.schedulers.step(interval='epoch')  # type: ignore
             self.engine.run_event(Event.EPOCH_END)
 
             if self.validate_every_n_epochs > 0 and (state.epoch + 1) % self.validate_every_n_epochs == 0:

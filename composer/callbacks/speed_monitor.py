@@ -4,23 +4,20 @@ from __future__ import annotations
 
 import time
 from collections import deque
-from dataclasses import dataclass
 from typing import Deque, Optional
 
-import yahp as hp
-
 from composer import Logger, State
-from composer.callbacks.callback_hparams import CallbackHparams
+from composer.callbacks.callback_hparams import SpeedMonitorHparams
 from composer.core.callback import RankZeroCallback
 from composer.core.types import StateDict
 
 
 class SpeedMonitor(RankZeroCallback):
-    """Callback to monitor the training throughput.
+    """Logs the training throughput.
 
     It logs:
 
-    * A rolling average (over the :attr:`window_size` most recent batches)
+    * A rolling average (over the ``window_size`` most recent batches)
       of the number of samples processed per second to the
       ``throughput/step`` key.
     * The number of samples processed per second, averaged over
@@ -67,9 +64,11 @@ class SpeedMonitor(RankZeroCallback):
             self.loaded_state = None
 
     def batch_start(self, state: State, logger: Logger) -> None:
+        del state, logger  # unused
         self._load_state()
 
     def epoch_start(self, state: State, logger: Logger):
+        del state, logger  # unused
         self._load_state()
         self.epoch_start_time = time.time()
         self.batch_end_times.clear()
@@ -92,6 +91,7 @@ class SpeedMonitor(RankZeroCallback):
             logger.metric_batch({'throughput/step': throughput})
 
     def epoch_end(self, state: State, logger: Logger):
+        del state  # unused
         epoch_time = time.time() - self.epoch_start_time
         self.wall_clock_train += epoch_time
         logger.metric_epoch({
@@ -100,18 +100,3 @@ class SpeedMonitor(RankZeroCallback):
         logger.metric_epoch({
             "throughput/epoch": self.train_examples_per_epoch / epoch_time,
         })
-
-
-@dataclass
-class SpeedMonitorHparams(CallbackHparams):
-    """Parameters for the :class:`SpeedMonitor`.
-
-    See the documentation for the :class:`SpeedMonitor`.
-    """
-    window_size: int = hp.optional(
-        doc="Number of batchs to use for a rolling average of throughput.",
-        default=100,
-    )
-
-    def initialize_object(self) -> SpeedMonitor:
-        return SpeedMonitor(window_size=self.window_size)

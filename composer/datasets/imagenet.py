@@ -64,6 +64,17 @@ def fast_collate(batch: List[Tuple[Image.Image, Tensor]], memory_format: torch.m
 
 @dataclass
 class ImagenetDatasetHparams(DatasetHparams):
+    """Defines an instance of the ImageNet dataset for image classification.
+    
+    Parameters:
+        resize_size (int): The resize size to use.
+        crop size (int): The crop size to use.
+        is_train (bool): Whether to load the training or validation dataset.
+        datadir (str): Data directory to use.
+        drop_last (bool): Whether to drop the last samples for the last batch.
+        shuffle (bool): Whether to shuffle the dataset for each epoch.
+    """
+
     resize_size: int = hp.required("resize size")
     crop_size: int = hp.required("crop size")
     is_train: bool = hp.required("whether to load the training or validation dataset")

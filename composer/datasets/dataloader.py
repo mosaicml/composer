@@ -46,6 +46,8 @@ class WrappedDataLoader(DataLoader):
 
 @dataclass
 class DataloaderHparams(hp.Hparams):
+    """Hyperparameters to initialize a ``torch.utils.data.Dataloader``."""
+
     num_workers: int = hp.required(doc="Number of CPU workers to use per gpu", template_default=8)
     prefetch_factor: int = hp.required(doc="Number of samples loaded in advance by each worker", template_default=2)
     persistent_workers: bool = hp.required(doc="Whether or not to shutdown workers after the dataset"
@@ -63,6 +65,8 @@ class DataloaderHparams(hp.Hparams):
         sampler: Sampler,
         dataloader_spec: DataloaderSpec,
     ) -> DataLoader:
+        """Initializes the dataloader."""
+
         dataloader = torch.utils.data.DataLoader(
             dataloader_spec.dataset,
             batch_size=batch_size,

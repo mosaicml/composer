@@ -30,9 +30,7 @@ def apply_cutout(X: Tensor, mask: Tensor):
 
 
 def cutout(X: Tensor, n_holes: int, length: int) -> Tensor:
-    """
-    Implements CutOut augmentation from https://arxiv.org/abs/1708.04552 on the batch level.
-    Adapted from the implementation in https://github.com/uoguelph-mlrg/Cutout
+    """See :class:`CutOut`.
 
     Args:
         X (Tensor): Batch Tensor image of size (B, C, H, W).
@@ -40,7 +38,7 @@ def cutout(X: Tensor, n_holes: int, length: int) -> Tensor:
         length: Side length of the square hole to cut out.
 
     Returns:
-        X_cutout: Image with n_holes of dimension length x length cut out of it.
+        X_cutout: Image with `n_holes` of dimension `length x length` cut out of it.
     """
     h = X.size(2)
     w = X.size(3)
@@ -58,6 +56,7 @@ def cutout(X: Tensor, n_holes: int, length: int) -> Tensor:
 
 @dataclass
 class CutOutHparams(AlgorithmHparams):
+    """See :class:`CutOut`"""
 
     n_holes: int = hp.required('Number of holes to cut out', template_default=1)
     length: int = hp.required('Side length of the square hole to cut out', template_default=112)
@@ -67,9 +66,11 @@ class CutOutHparams(AlgorithmHparams):
 
 
 class CutOut(Algorithm):
-    """
-    Implements CutOut augmentation from https://arxiv.org/abs/1708.04552 on the batch level.
+    """`Cutout <https://arxiv.org/abs/1708.04552>`_ is a data augmentation
+    technique that works by masking out one or more square regions of an
+    input image.
 
+    This implementation cuts out the same square from all images in a batch.
 
     Args:
         X (Tensor): Batch Tensor image of size (B, C, H, W).
@@ -81,9 +82,11 @@ class CutOut(Algorithm):
         self.hparams = CutOutHparams(n_holes=n_holes, length=length)
 
     def match(self, event: Event, state: State) -> bool:
+        """Runs on Event.AFTER_DATALOADER"""
         return event == Event.AFTER_DATALOADER
 
     def apply(self, event: Event, state: State, logger: Logger) -> Optional[int]:
+        """Apply cutout on input images"""
         x, y = state.batch_pair
         assert isinstance(x, Tensor), "Multiple tensors not supported for Cutout."
 

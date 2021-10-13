@@ -5,13 +5,10 @@ from __future__ import annotations
 import logging
 import time
 import warnings
-from dataclasses import dataclass
-from typing import List, Sequence
-
-import yahp as hp
+from typing import Sequence
 
 from composer import Logger, State
-from composer.callbacks.callback_hparams import CallbackHparams
+from composer.callbacks.callback_hparams import BenchmarkerHparams
 from composer.core.callback import Callback
 from composer.core.types import BreakEpochException
 
@@ -22,8 +19,8 @@ class Benchmarker(Callback):
     """Fast-forward the training loop to record 
     throughput for specific epochs and/or steps.
 
-    It modifies the :attr:`~composer.core.State.step` and
-    :attr:`~composer.core.State.epoch` to fast-forward the training loop,
+    It modifies the :attr:`~composer.core.state.State.step` and
+    :attr:`~composer.core.state.State.epoch` to fast-forward the training loop,
     so that algorithms that activate at specific times will trigger
     and can be profiled.
 
@@ -60,11 +57,11 @@ class Benchmarker(Callback):
             Whether to override epoch_list and profile at all epochs.
     
             If False (the default), then it fast-forwards to
-            the steps and epochs being profiled (specified by :attr:`epoch_list`
-            and :attr:`step_list`, respectively).
+            the steps and epochs being profiled (specified by ``epoch_list``
+            and ``step_list``, respectively).
 
             Otherwise, if True, then the throughput for
-            the first :attr:`min_steps` batches of every epoch are recorded.
+            the first ``min_steps`` batches of every epoch are recorded.
     """
 
     def __init__(self,
@@ -180,35 +177,3 @@ class Benchmarker(Callback):
                     raise BreakEpochException
                 else:
                     state.step = state.epoch * state.steps_per_epoch + self.step_list[self.step_ix]
-
-
-@dataclass
-class BenchmarkerHparams(CallbackHparams):
-    """Parameters for the :class:`Benchmarker`
-
-    See the documentation for the :class:`Benchmarker`.
-    """
-    min_steps: int = hp.optional(
-        doc="Minimum number of steps to use for measuring throughput.",
-        default=50,
-    )
-    epoch_list: List[int] = hp.optional(
-        doc="List of epochs at which to measure throughput.",
-        default_factory=lambda: [0, 1],
-    )
-    step_list: List[int] = hp.optional(
-        doc="List of steps at which to measure throughput.",
-        default_factory=lambda: [0, 50],
-    )
-    all_epochs: bool = hp.optional(
-        doc="If true, override epoch_list and profile at all epochs.",
-        default=False,
-    )
-
-    def initialize_object(self) -> Benchmarker:
-        return Benchmarker(
-            min_steps=self.min_steps,
-            epoch_list=self.epoch_list,
-            step_list=self.step_list,
-            all_epochs=self.all_epochs,
-        )

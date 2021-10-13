@@ -8,6 +8,17 @@ from composer.models.resnets import ImageNet_ResNet
 
 
 class ResNet101(MosaicClassifier):
+    """A ResNet-101 model extending :class:`MosaicClassifier`.
+
+    See this `paper <https://arxiv.org/abs/1512.03385>`_ for details
+    on the residual network architecture.
+
+    Args:
+        num_classes (int): The number of classes for the model.
+        initializers (List[Initializer], optional): Initializers
+            for the model. ``None`` for no initialization.
+            (default: ``None``)
+    """
 
     def __init__(
         self,

@@ -6,14 +6,14 @@ Sequence Length Warmup
    :alt: alternate text
    :figclass: align-center
 
-	 An example plot showing applying sequence length warmup to 30% of the training duration. 
+	An example plot showing applying sequence length warmup to 30% of the training duration. 
 
 |
 Tags: ``Method``, ``Autoregressive Language Modeling``, ``Masked Language Modeling``, ``NLP``, ``Warmup``, ``Curriculum``, ``Speedup``, ``Decreased Wall Clock Time``
 
 
 tl;dr
-----
+-----
 
 Sequence Length Warmup warms up the sequence length (number of tokens)
 from a ``min_seq_length`` to a ``max_seq_length`` over some duration of

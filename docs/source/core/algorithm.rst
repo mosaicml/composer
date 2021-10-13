@@ -26,7 +26,7 @@ For example, a simple algorithm that shortens training:
         def apply(self, state: State, event: Event, logger: Logger):
             state.max_epochs /= 2  # cut training time in half
 
-For a complete list of algorithms, see <TODO INSERT REF>
+For a complete list of algorithms, see :doc:`/algorithms`.
 
 For reference, available events include:
 

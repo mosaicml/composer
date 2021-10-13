@@ -3,32 +3,32 @@
 from __future__ import annotations
 
 import abc
-from typing import TYPE_CHECKING, Any, Optional, Tuple
+from typing import Any, Optional, Tuple
 
 import torch
 from torch import Tensor
 from torchmetrics.classification.accuracy import Accuracy
 from torchmetrics.collections import MetricCollection
 
-from composer.core.types import BatchPair
+from composer.core.types import Batch, BatchPair, Metrics, Tensors
 from composer.models.loss import CrossEntropyLoss, soft_cross_entropy
-
-if TYPE_CHECKING:
-    from composer.core.types import Batch, Metrics, Tensors
 
 
 class BaseMosaicModel(torch.nn.Module, abc.ABC):
+    """The minimal interface needed to use a model with :class:`composer.trainer.Trainer`.
+    """
 
     @abc.abstractmethod
     def loss(self, outputs: Any, batch: Batch, *args, **kwargs) -> Tensors:
         """Compute the loss of the model.
 
         Args:
-            outputs: output of the foward pass
-            batch: input batch from dataloader
+            outputs (Any): The output of the foward pass.
+            batch (~composer.core.types.Batch): The input batch from dataloader.
 
         Returns:
-            The loss as a Tensors object.
+            Tensors:
+                The loss as a ``Tensors`` object.
         """
         pass
 
@@ -37,49 +37,62 @@ class BaseMosaicModel(torch.nn.Module, abc.ABC):
         """Compute model output given an input.
 
         Args:
-            batch (Batch): input batch for forward pass
+            batch (Batch): The input batch for the forward pass.
 
         Returns:
-            Tensors: result that is passed to loss
+            Tensors:
+                The result that is passed to :meth:`loss` as a ``Tensors``
+                object.
         """
         pass
 
     @abc.abstractmethod
     def metrics(self, train: bool = False) -> Metrics:
-        """Used to get metrics that will be used to evaluate the model. Note
-        that each metric keeps states which are updated with data seen so far.
-        As a result, different metric objects should be used for training and validation.
-        See: https://torchmetrics.readthedocs.io/en/latest/pages/overview.html
-        for more details.
+        """Get metrics for evaluating the model.
+
+        .. warning:: Each metric keeps states which are updated with data seen so far.
+                     As a result, different metric instances should be used for training
+                     and validation. See:
+                     https://torchmetrics.readthedocs.io/en/latest/pages/overview.html
+                     for more details.
 
         Args:
-            train (optional): True to return metrics that should be computed during training
-            and False otherwise. Default is False.
+            train (bool, optional): True to return metrics that should be computed
+                during training and False otherwise. (default: ``False``)
 
         Returns:
-            Either a torchmetrics.Metric object or a torchmetrics.MetricCollection
-            object.
+            Metrics: A ``Metrics`` object.
         """
         pass
 
     @abc.abstractmethod
     def validate(self, batch: Batch) -> Tuple[Any, Any]:
-        """
-        Compute model outputs given data. The output of this function
-        will be used as input to any metrics being computed for the model.
+        """Compute model outputs on provided data.
+
+        The output of this function will be directly used as input
+        to all metrics returned by :meth:`metrics`.
 
         Args:
-            batch: The data to perform validation with. Specified as a tuple of
-            tensors (input, target).
+            batch (Batch): The data to perform validation with.
+                Specified as a tuple of tensors (input, target).
 
         Returns:
-            Tuple[Any, Any]: tuple that is passed directly
-                             to the provided torchmetrics.Metric's update method.
+            Tuple[Any, Any]: Tuple that is passed directly to the
+            `update()` methods of the metrics returned by :meth:`metrics`.
+            Most often, this will be a tuple of the form (predictions, targets).
         """
         pass
 
 
 class MosaicClassifier(BaseMosaicModel):
+    """Implements the base logic that all classifiers can build on top of.
+
+    Inherits from :class:`~composer.models.BaseMosaicModel`.
+
+    Args:
+        module (torch.nn.Module): The neural network module to wrap with
+            :class:`~composer.models.MosaicClassifier`.
+    """
 
     num_classes: Optional[int] = None
 
@@ -90,7 +103,6 @@ class MosaicClassifier(BaseMosaicModel):
         self.val_loss = CrossEntropyLoss()
         self.module = module
 
-        # TODO(issue #249): Needs to be replaced
         if hasattr(self.module, "num_classes"):
             self.num_classes = getattr(self.module, "num_classes")
 

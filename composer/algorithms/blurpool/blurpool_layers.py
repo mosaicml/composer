@@ -33,7 +33,7 @@ def blur_2d(input: torch.Tensor, stride: _size_2_t = 1, filter: Optional[torch.T
     """Apply a spatial low-pass filter.
 
     Args:
-        input: a 4d tensor in either NCHW or NHWC format.
+        input: a 4d tensor of shape NCHW
         stride: stride(s) along H and W axes. If a single value is passed, this
             value is used for both dimensions.
         padding: implicit zero-padding to use. For the default 3x3 low-pass
@@ -41,8 +41,8 @@ def blur_2d(input: torch.Tensor, stride: _size_2_t = 1, filter: Optional[torch.T
             as the input.
         filter: a 2d or 4d tensor to be cross-correlated with the input tensor
             at each spatial position, within each channel. If 4d, the structure
-            is required to be `(C, 1, kH, kW)` where `C` is the number of
-            channels in the input tensor and `kH` and `kW` are the spatial
+            is required to be ``(C, 1, kH, kW)`` where ``C`` is the number of
+            channels in the input tensor and ``kH`` and ``kW`` are the spatial
             sizes of the filter.
 
     By default, the filter used is::
@@ -97,10 +97,10 @@ def blurmax_pool2d(input: torch.Tensor,
     See also: :func:`~blur_2d`.
 
     Args:
-        input: a 4d tensor in either NCHW or NHWC format.
+        input: a 4d tensor of shape NCHW
         kernel_size: size(s) of the spatial neighborhoods over which to pool.
-            This is mostly commonly 2x2. If only a scalar `s` is provided, the
-            neighborhood is of size `(s, s)`.
+            This is mostly commonly 2x2. If only a scalar ``s`` is provided, the
+            neighborhood is of size ``(s, s)``.
         stride: stride(s) along H and W axes. If a single value is passed, this
             value is used for both dimensions.
         padding: implicit zero-padding to use. For the default 3x3 low-pass
@@ -113,8 +113,8 @@ def blurmax_pool2d(input: torch.Tensor,
         ceil_mode: when True, will use ceil instead of floor to compute the output shape
         filt: a 2d or 4d tensor to be cross-correlated with the input tensor
             at each spatial position, within each channel. If 4d, the structure
-            is required to be `(C, 1, kH, kW)` where `C` is the number of
-            channels in the input tensor and `kH` and `kW` are the spatial
+            is required to be ``(C, 1, kH, kW)`` where ``C`` is the number of
+            channels in the input tensor and ``kH`` and ``kW`` are the spatial
             sizes of the filter. By default, the filter used is::
 
                 [1 2 1]
@@ -135,7 +135,7 @@ class BlurMaxPool2d(nn.Module):
     `MaxPool2d <https://pytorch.org/docs/stable/generated/torch.nn.MaxPool2d.html>`_,
     but with an anti-aliasing filter applied.
 
-    The only API difference is that the parameter `return_indices` is not
+    The only API difference is that the parameter ``return_indices`` is not
     available, because it is ill-defined when using anti-aliasing.
 
     See the associated `paper <http://proceedings.mlr.press/v97/zhang19a.html>`_
@@ -191,7 +191,19 @@ class BlurConv2d(nn.Module):
     `Conv2d <https://pytorch.org/docs/stable/generated/torch.nn.Conv2d.html>`_,
     but with an anti-aliasing filter applied.
 
-    It should be used only to replace strided convolutions.
+    The one new parameter is ``blur_first``. When set to ``True``, the
+    anti-aliasing filter is applied before the underlying convolution, and
+    vice-versa when set to ``False``. This mostly makes a difference when the
+    stride is greater than one. In the former case, the only overhead is the
+    cost of doing the anti-aliasing operation. In the latter case, the ``Conv2d``
+    is applied with a stride of one to the input, and then the
+    anti-aliasing is applied with the provided stride to the result. Setting
+    the stride of the convolution to ``1`` can greatly increase the computational
+    cost. E.g., replacing a stride of ``(2, 2)`` with a stride of ``1`` increases
+    the number of operations by a factor of ``(2/1) * (2/1) = 4``. However,
+    this approach most closely matches the behavior specified in the paper.
+
+    This module should only be used to replace strided convolutions.
 
     See the associated `paper <http://proceedings.mlr.press/v97/zhang19a.html>`_
     for more details, experimental results, etc.
@@ -211,22 +223,6 @@ class BlurConv2d(nn.Module):
                  groups: int = 1,
                  bias: bool = True,
                  blur_first: bool = True):
-        """This function is a drop-in replacement for PyTorch's
-        `Conv2d.__init__ <https://pytorch.org/docs/stable/generated/torch.nn.Conv2d.html#torch.nn.Conv2d>`_.
-
-        The one new parameter is `blur_first`. When set to `True`, the
-        anti-aliasing filter is applied before the underlying convolution, and
-        vice-versa when set to `False`. This mostly makes a difference when the
-        stride is greater than one. In the former case, the anti-aliasing
-        filter is applied with this stride, and then the `Conv2d` is applied
-        with a stride of one to the result. In the latter case, the `Conv2d`
-        is applied with a stride of one to the input, and then the
-        anti-aliasing is applied with the provided stride to the result.
-        The former is much more computationally efficient because it
-        applies the expensive `Conv2d` to a smaller input, but the
-        latter is what most closely matches the behavior specified in
-        `the paper <http://proceedings.mlr.press/v97/zhang19a.html>`_.
-        """
 
         super(BlurConv2d, self).__init__()
         self.blur_first = blur_first
@@ -292,15 +288,7 @@ class BlurConv2d(nn.Module):
 
 
 class BlurPool2d(nn.Module):
-    """Apply a spatial low-pass filter.
-
-    The filter used is::
-
-        [1 2 1]
-        [2 4 2] * 1/16
-        [1 2 1]
-
-    This module is a thin wrapper around :func:`~blur_2d`."""
+    """This module just calls :func:`~blur_2d` in ``forward`` using the provided arguments."""
 
     def __init__(self, stride: _size_2_t = 2, padding: _size_2_t = 1) -> None:
         super(BlurPool2d, self).__init__()

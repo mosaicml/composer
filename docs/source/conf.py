@@ -116,10 +116,16 @@ intersphinx_mapping = {
 }
 
 nitpicky = False  # warn on broken links
-nitpick_ignore = [('py:class', 'type'), ('py:class', 'optional'), ('py:meth', 'wandb.init'),
-                  ('py:attr', 'wandb.run.config'), ('py:attr', 'wandb.run.tags'), ('py:meth', 'torch.save'),
-                  ('py:meth', 'torch.load'), ('py:class', 'TLogDataValue'), ('py:class', 'TLogData'),
-                  ('py:class', 'T_nnModule')]
 
-# add_module_names = False
-autodoc_typehints = 'description'
+nitpick_ignore = [
+    ('py:class', 'type'),
+    ('py:class', 'optional'),
+    ('py:meth', 'wandb.init'),
+    ('py:attr', 'wandb.run.config'),
+    ('py:attr', 'wandb.run.tags'),
+    ('py:meth', 'torch.save'),
+    ('py:meth', 'torch.load'),
+    ('py:class', 'TLogDataValue'),
+    ('py:class', 'TLogData'),
+    ('py:class', 'T_nnModule'),
+]

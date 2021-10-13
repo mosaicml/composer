@@ -12,8 +12,6 @@ from composer.algorithms.channels_last import ChannelsLast as ChannelsLast
 from composer.algorithms.channels_last import ChannelsLastHparams as ChannelsLastHparams
 from composer.algorithms.colout import ColOut as ColOut
 from composer.algorithms.colout import ColOutHparams as ColOutHparams
-from composer.algorithms.curriculum_learning import CurriculumLearning as CurriculumLearning
-from composer.algorithms.curriculum_learning import CurriculumLearningHparams as CurriculumLearningHparams
 from composer.algorithms.cutout import CutOut as CutOut
 from composer.algorithms.cutout import CutOutHparams as CutOutHparams
 from composer.algorithms.dummy import Dummy as Dummy
@@ -38,6 +36,8 @@ from composer.algorithms.scale_schedule import ScaleSchedule as ScaleSchedule
 from composer.algorithms.scale_schedule import ScaleScheduleHparams as ScaleScheduleHparams
 from composer.algorithms.selective_backprop import SelectiveBackprop as SelectiveBackprop
 from composer.algorithms.selective_backprop import SelectiveBackpropHparams as SelectiveBackpropHparams
+from composer.algorithms.seq_length_warmup import SeqLengthWarmup as SeqLengthWarmup
+from composer.algorithms.seq_length_warmup import SeqLengthWarmupHparams as SeqLengthWarmupHparams
 from composer.algorithms.squeeze_excite import SqueezeExcite as SqueezeExcite
 from composer.algorithms.squeeze_excite import SqueezeExcite2d as SqueezeExcite2d
 from composer.algorithms.squeeze_excite import SqueezeExciteConv2d as SqueezeExciteConv2d

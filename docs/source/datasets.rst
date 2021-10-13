@@ -11,7 +11,7 @@ composer.datasets
 * ``pin_memory``
 * ``timeout``
 
-Each :class:`DatasetHparams` is then reponsible for returning a :class:`DataloaderSpec`, which is a ``namedtuple`` of dataset-specific settings such as:
+Each :class:`DatasetHparams` is then responsible for returning a :class:`DataloaderSpec`, which is a ``NamedTuple`` of dataset-specific settings such as:
 
 * ``dataset``
 * ``drop_last``

@@ -17,6 +17,7 @@ log = logging.getLogger(__name__)
 
 @dataclass
 class LayerFreezingHparams(AlgorithmHparams):
+    """See :class:`LayerFreezing`"""
 
     freeze_start: float = hp.optional(doc='The percentage of epochs to run before freezing begins.', default=0.5)
     freeze_level: float = hp.optional(doc='Scale factor for the percentage of the network to freeze.', default=1.0)
@@ -25,7 +26,7 @@ class LayerFreezingHparams(AlgorithmHparams):
         return LayerFreezing(**asdict(self))
 
 
-def _freeze_schedule(current_epoch, max_epochs, freeze_start, freeze_level):
+def _freeze_schedule(current_epoch: int, max_epochs: int, freeze_start: float, freeze_level: float):
     """Implements a linear schedule for freezing.
 
     The schedule is linear and begins with no freezing and
@@ -105,19 +106,18 @@ def freeze_layers(
     max_epochs: int,
     freeze_start: float,
     freeze_level: float,
-    logger: Logger,
-):
-    """
-    Implements the layer freezing algorithm. During training, progressively freeze the
-    layers of the network starting with the earlier layers.
+    logger: Optional[Logger] = None,
+) -> Model:
+    """Progressively freeze the layers of the network during training, starting
+    with the earlier layers.
 
     Args:
-        model: An instance of the model being trained.
-        optimizers: The optimizers used during training.
-        current_epoch: Integer specifying the current epoch.
-        max_epochs: The max number of epochs training will run for.
-        freeze_start: The fraction of epochs to run before freezing begins.
-        freeze_level: The maximum fraction of levels to freeze.
+        model: an instance of the model being trained
+        optimizers: the optimizers used during training
+        current_epoch: integer specifying the current epoch
+        max_epochs: the max number of epochs training will run for
+        freeze_start: the fraction of epochs to run before freezing begins
+        freeze_level: the maximum fraction of layers to freeze
     """
     # Flatten out the layers
     flat_children = []
@@ -143,31 +143,35 @@ def freeze_layers(
              f'freeze_level={freeze_level}. '
              f'Froze {freeze_depth} layers in the model which'
              f' equates to {freeze_percentage * 100}% of all layers.')
-    logger.metric_epoch({
-        'layer_freezing/layers_frozen': freeze_depth,
-        'layer_freezing/percentage_frozen': freeze_percentage
-    })
+    if logger is not None:
+        logger.metric_epoch({
+            'layer_freezing/layers_frozen': freeze_depth,
+            'layer_freezing/percentage_frozen': freeze_percentage
+        })
 
     return model
 
 
 class LayerFreezing(Algorithm):
-    """
-    Algorithm to apply Layer Freezing to the model. Runs on Event.EPOCH_END.
-    During training, progressively freeze the layers of the network starting
-    with the earlier layers. Freezing starts after the percent of epochs
-    specified by freeze_start have run. The fraction of layers increases
-    linearly until it reaches freeze_level at the final epoch.
+    """Progressively freeze the layers of the network during training, starting
+    with the earlier layers.
+
+    Freezing starts after the fraction of epochs specified by ``freeze_start``
+    have run. The fraction of layers frozen increases linearly until it
+    reaches ``freeze_level`` at the final epoch.
+
+    This freezing schedule is most similar to
+    `FreezeOut <https://arxiv.org/abs/1706.04983>`_ and
+    `Freeze Training <https://arxiv.org/abs/1706.05806>`_.
+
+    Runs on ``Event.EPOCH_END``.
 
     Args:
-        freeze_start: The fraction of epochs to run before freezing begins.
-        freeze_level: The maximum fraction of levels to freeze.
+        freeze_start: the fraction of epochs to run before freezing begins
+        freeze_level: the maximum fraction of layers to freeze
     """
 
     def __init__(self, freeze_start: float = 0.5, freeze_level: float = 1.0):
-        """
-        __init__ is constructed from the same fields as in hparams.
-        """
         self.hparams = LayerFreezingHparams(freeze_start, freeze_level)
 
     @property
@@ -179,15 +183,11 @@ class LayerFreezing(Algorithm):
         return True
 
     def match(self, event: Event, state: State) -> bool:
-        """
-        Run Layer Freezing on epoch end.
-        """
+        """Run on ``Event.EPOCH_END``."""
         return event == Event.EPOCH_END
 
     def apply(self, event: Event, state: State, logger: Logger) -> Optional[int]:
-        """
-        Apply Layer Freezing.
-        """
+        """Freeze layers in the model"""
         optimizers = state.optimizers
         assert optimizers is not None
         state.model = freeze_layers(

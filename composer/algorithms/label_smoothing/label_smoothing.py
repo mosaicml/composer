@@ -12,6 +12,7 @@ from composer.models.loss import ensure_targets_one_hot
 
 @dataclass
 class LabelSmoothingHparams(AlgorithmHparams):
+    """See :class:`LabelSmoothing`"""
 
     alpha: float = hp.required(doc='smoothing factor', template_default=0.1)
 
@@ -20,13 +21,18 @@ class LabelSmoothingHparams(AlgorithmHparams):
 
 
 class LabelSmoothing(Algorithm):
-    """Applies label smoothing during before_loss, then restores the
-       original labels during after_loss.
+    """Shrinks targets towards a uniform distribution to counteract label noise
+    as in `Szegedy et al. <https://arxiv.org/abs/1512.00567>`_.
 
-       Args:
-        alpha (float): Strength of the label smoothing, between [0, 1].
-            alpha=0 means no label smoothing, and alpha=1 means maximal
-            smoothing (targets are ignored)
+    This is computed by ``(1 - alpha) * targets + alpha * smoothed_targets``
+    where ``smoothed_targets`` is a vector of ones.
+
+    Introduced in `Rethinking the Inception Architecture for Computer Vision <https://arxiv.org/abs/1512.00567>`_.
+
+    Args:
+        alpha: Strength of the label smoothing, in [0, 1]. ``alpha=0``
+            means no label smoothing, and ``alpha=1`` means maximal
+            smoothing (targets are ignored).
     """
 
     def __init__(self, alpha: float):
@@ -55,22 +61,20 @@ class LabelSmoothing(Algorithm):
 
 
 def smooth_labels(logits: Tensor, targets: Tensor, alpha: float):
-    """Shrinks targets towards a prior distribution to counteract label noise.
+    """Shrinks targets towards a uniform distribution to counteract label noise
+    as in `Szegedy et al. <https://arxiv.org/abs/1512.00567>`_.
 
-    This is computed by `(1 - alpha) * targets + alpha * smoothed_targets`
-    where `smoothed_targets` is a pre-specified vector of class probabilities.
-
-    Introduced in: https://arxiv.org/abs/1512.00567
-    Evaluated in: https://arxiv.org/abs/1906.02629
+    This is computed by ``(1 - alpha) * targets + alpha * smoothed_targets``
+    where ``smoothed_targets`` is a vector of ones.
 
     Args:
         logits: Output of the model. Tensor of shape (N, C, d1, ..., dn) for
             N examples and C classes, and d1, ..., dn extra dimensions.
         targets: Tensor of shape (N) containing integers 0 <= i <= C-1
             specifying the target labels for each example.
-        alpha: Strength of the label smoothing, between [0, 1].
-            alpha=0 means no label smoothing, and alpha=1 means maximal
-            smoothing (targets are ignored)
+        alpha: Strength of the label smoothing, in [0, 1]. ``alpha=0``
+            means no label smoothing, and ``alpha=1`` means maximal
+            smoothing (targets are ignored).
     """
 
     targets = ensure_targets_one_hot(logits, targets)

@@ -53,8 +53,7 @@ class LMDatasetHparams(DatasetHparams):
         self.config = transformers.AutoConfig.from_pretrained(self.tokenizer_name)  #type: ignore (thirdparty)
         lm_datasets = [datasets.load_from_disk(i) for i in self.datadir]  #type: ignore (thirdparty)
 
-        # TODO (Moin): this re-loads a large dataset into memory three times -- can the REng team permit
-        # returning a dataloader for a particular split?
+        # TODO: this re-loads a large dataset into memory three times
         if self.split not in ['train', 'validation', 'test']:
             raise ValueError("The dataset split must be one of 'train', 'validation', or 'test'.")
 

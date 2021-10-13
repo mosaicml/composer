@@ -26,29 +26,27 @@ def resize_inputs(X: torch.Tensor,
                   scale_factor: float,
                   mode: str = "resize",
                   resize_targets: bool = False) -> Tuple[torch.Tensor, torch.Tensor]:
-    """
-    Resize inputs and optionally outputs by cropping or interpolating.
+    """Resize inputs and optionally outputs by cropping or interpolating.
 
     Args:
-        X (torch.Tensor): Input tensor of shape (N, C, H, W). Resizing will be done along
-                          dimensions H and W using the constant factor scale_factor.
-        y (torch.Tensor): If resize_targets is True, output tensor of shape (N, C, H, W)
-                          that will also be resized.
-        scale_factor (float): Scaling coefficient for the height and width of the
-                              input/output tensor. 1.0 keeps the original size.
-        mode (str): Type of scaling to perform. Value must be one of 'crop' or 'resize'.
-                    'crop' performs a random crop, whereas 'resize' performs a bilinear
-                    interpolation. Default: 'crop'.
-        resize_targets (bool): Resize the targets, y, as well. Default: False.
+        X: input tensor of shape (N, C, H, W). Resizing will be done along
+            dimensions H and W using the constant factor ``scale_factor``.
+        y: output tensor of shape (N, C, H, W) that will also be resized if
+            ``resize_targets`` is ``True``,
+        scale_factor: scaling coefficient for the height and width of the
+            input/output tensor. 1.0 keeps the original size.
+        mode: type of scaling to perform. Value must be one of ``'crop'`` or
+            ``'resize'``. ``'crop'`` performs a random crop, whereas ``'resize'``
+            performs a bilinear interpolation.
+        resize_targets: whether to resize the targets, ``y``, as well
 
     Returns:
-        X_sized (torch.Tensor): Resized input tensor of shape
-                                (N, C, H * scale_factor, W * scale_factor).
-        y_sized (torch.Tensor): If resized_targets is True, resized output tensor of shape
-                                (N, C, H * scale_factor, W * scale_factor). Returns
-                                original y, otherwise.
-    """
+        X_sized: resized input tensor of shape ``(N, C, H * scale_factor, W * scale_factor)``.
+        y_sized: if ``resized_targets`` is ``True``, resized output tensor
+            of shape ``(N, C, H * scale_factor, W * scale_factor)``. Otherwise
+            returns original ``y``.
 
+    """
     # Short-circuit if nothing should be done
     if scale_factor >= 1:
         return X, y
@@ -75,8 +73,7 @@ def resize_inputs(X: torch.Tensor,
 
 @dataclass
 class ProgressiveResizingHparams(AlgorithmHparams):
-    """ Hyperparameters for the 'progressive resizing' algorithm
-    """
+    """See :class:`ProgressiveResizing`"""
 
     mode: str = hp.optional(doc="Type of scaling to perform", default="resize")
     initial_scale: float = hp.optional(doc="Initial scale factor", default=0.5)
@@ -89,27 +86,31 @@ class ProgressiveResizingHparams(AlgorithmHparams):
 
 
 class ProgressiveResizing(Algorithm):
-    """
-    Applies the 'progressive resizing' data augmentation algorithm to speed up training.
-    See `Training a State-of-the-Art Model` <https://github.com/fastai/fastbook/blob/780b76bef3127ce5b64f8230fce60e915a7e0735/07_sizing_and_tta.ipynb>`__.
+    """Apply Fastai's
+    `progressive resizing <https://github.com/fastai/fastbook/blob/780b76bef3127ce5b64f8230fce60e915a7e0735/07_sizing_and_tta.ipynb>`_
+    data augmentation to speed up training
 
-    "Progressive resizing" initially scales inputs down to speed up early training.
-    Throughout training, the scaling factor is gradually increased, yielding larger inputs
+    Progressive resizing initially reduces input resolution to speed up early training.
+    Throughout training, the downsampling factor is gradually increased, yielding larger inputs
     up to the original input size. A final finetuning period is then run to finetune the
     model using the full-sized inputs.
 
     Args:
-        mode (str): Type of scaling to perform. Value must be one of 'crop' or 'resize'.
-                    'crop' performs a random crop, whereas 'resize' performs a bilinear
-                    interpolation. Default: 'resize'.
-        initial_scale(float): Initial scale factor used to shrink the inputs. Must be a
-                              value in between 0 and 1.
-        finetune_fraction (float): Fraction of training to reserve for finetuning on the
-                                   full-sized inputs. Must be a value in between 0 and 1.
-        resize_targets (bool): If True, resize targets also.
+        mode: Type of scaling to perform. Value must be one of ``'crop'`` or ``'resize'``.
+            ``'crop'`` performs a random crop, whereas ``'resize'`` performs a bilinear
+            interpolation.
+        initial_scale: Initial scale factor used to shrink the inputs. Must be a
+            value in between 0 and 1.
+        finetune_fraction: Fraction of training to reserve for finetuning on the
+            full-sized inputs. Must be a value in between 0 and 1.
+        resize_targets: If True, resize targets also.
     """
 
-    def __init__(self, mode: str, initial_scale: float, finetune_fraction: float, resize_targets: bool):
+    def __init__(self,
+                 mode: str = 'resize',
+                 initial_scale: float = .5,
+                 finetune_fraction: float = .2,
+                 resize_targets: bool = False):
 
         if mode not in _VALID_MODES:
             raise ValueError(f"mode '{mode}' is not supported. Must be one of {_VALID_MODES}")
@@ -126,10 +127,24 @@ class ProgressiveResizing(Algorithm):
                                                   resize_targets=resize_targets)
 
     def match(self, event: Event, state: State) -> bool:
-        """ Apply on Event.AFTER_DATALOADER """
+        """Run on Event.AFTER_DATALOADER
+        
+        Args:
+            event (:class:`Event`): The current event.
+            state (:class:`State`): The current state.
+        Returns:
+            bool: True if this algorithm should run now
+        """
         return event == Event.AFTER_DATALOADER
 
     def apply(self, event: Event, state: State, logger: Optional[Logger] = None) -> None:
+        """Applies ProgressiveResizing on input images
+
+        Args:
+            event (Event): the current event
+            state (State): the current trainer state
+            logger (Logger): the training logger
+        """
         input, target = state.batch_pair
         assert isinstance(input, Tensor) and isinstance(target, Tensor), \
             "Multiple tensors not supported for this method yet."

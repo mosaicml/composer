@@ -19,7 +19,7 @@ For a developer install, clone directly:
 
 .. code-block::
 
-    git clone git@github.com/mosaicml/composer.git
+    git clone https://github.com/mosaicml/composer.git
     cd composer && pip install -e .
 
 
@@ -33,7 +33,6 @@ For a developer install, clone directly:
 
     Pillow-SIMD is not supported for Apple M1 Macs.
 
-``Composer`` has been tested with Ubuntu 20.04, PyTorch 1.8.1, and Python 3.8.
 
 Docker
 ~~~~~~
@@ -48,7 +47,7 @@ or build our ``Dockerfile``:
 
 .. code-block::
 
-    git clone git@github.com:mosaicml/composer.git
+    git clone https://github.com/mosaicml/composer.git
     cd composer/docker && make build
 
 Our dockerfile has Ubuntu 18.04, Python 3.8.0, PyTorch 1.9.0, and CUDA 11.1.1, and has been tested to work with GPU-based instances on AWS, GCP, and Azure. ``Pillow-SIMD`` is installed by default in our docker image.
@@ -59,7 +58,7 @@ Please see the ``README`` in the docker area for additional details.
 Verification
 ~~~~~~~~~~~~
 
-Test ``Composer`` was installed properly by opening a ``python`` prompt, and running:
+Test ``Composer`` was installed properly by opening a ``python`` prompt, and run:
 
 .. code-block:: python
 
@@ -82,6 +81,7 @@ Next, train a small classifier on MNIST with the label smoothing algorithm:
 
 .. code-block::
 
-    git clone git@github.com:mosaicml/composer.git
+    git clone https://github.com/mosaicml/composer.git
     cd composer
-    python examples/run_mosaic_trainer.py -f composer/models/classify_mnist/hparams_cpu.yaml --datadir /datasets/ --algorithms label_smoothing --alpha 0.1
+    pip install -e .
+    python examples/run_mosaic_trainer.py -f composer/yamls/models/classify_mnist_cpu.yaml --datadir ~/datasets/ --algorithms label_smoothing --alpha 0.1

@@ -12,8 +12,9 @@ class Serializable(Protocol):
     """Interface for serialization; used by checkpointing."""
 
     def state_dict(self) -> StateDict:
-        """state_dict() returns a dictionary representing the internal state.
-        The returned dictionary must be pickale-able via :meth:`torch.save()`.
+        """Returns a dictionary representing the internal state.
+    
+        The returned dictionary must be pickale-able via :meth:`torch.save`.
     
         Returns:
             StateDict: The state of the object
@@ -21,7 +22,7 @@ class Serializable(Protocol):
         return {}
 
     def load_state_dict(self, state: StateDict) -> None:
-        """load_state_dict() restores the state of the object
+        """Restores the state of the object.
 
         Args:
             state (StateDict): The state of the object,

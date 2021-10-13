@@ -39,14 +39,14 @@ def round_channels(
 
 
 def calculate_same_padding(kernel_size, dilation, stride):
-    """Calculates the amount of padding to use to get the "SAME" functionality in Tensorflow.
-    """
+    """Calculates the amount of padding to use to get the "SAME" functionality in Tensorflow."""
 
     return ((stride - 1) + dilation * (kernel_size - 1)) // 2
 
 
 def drop_connect(inputs: torch.Tensor, drop_connect_rate: float, training: bool):
     """ Randomly mask a set of samples. Provides similar regularization as stochastic depth.
+
     Args:
         input (torch.Tensor): Input tensor to mask.
         drop_connect_rate (float): Probability of droppping each sample.
@@ -108,10 +108,10 @@ class DepthwiseSeparableConv(nn.Module):
         kernel_size (int): Size of the convolving kernel.
         stride (int): Stride of the convolution.
         se_ratio (float): How much to scale `in_channels` for the hidden layer 
-                          dimensionality of the squeeze-excite module.
+            dimensionality of the squeeze-excite module.
         drop_connect_rate (float): Probability of dropping a sample before the
-                                   identity connection, provides regularization
-                                   similar to stochastic depth.
+            identity connection, provides regularization similar to stochastic
+            depth.
         act_layer (torch.nn.Module): Activation layer to use in block.
         norm_kwargs (dict): Normalization layer's keyword arguments.
         norm_layer (torch.nn.Module): Normalization layer to use in block.    
@@ -187,12 +187,12 @@ class MBConvBlock(nn.Module):
         kernel_size (int): Size of the convolving kernel.
         stride (int): Stride of the convolution.
         expand_ratio (int): How much to expand the input channels for the
-                            depthwise convolution.
+            depthwise convolution.
         se_ratio (float): How much to scale `in_channels` for the hidden layer
-                          dimensionality of the squeeze-excite module.
+            dimensionality of the squeeze-excite module.
         drop_connect_rate (float): Probability of dropping a sample before the
-                                   identity connection, provides regularization
-                                   similar to stochastic depth.
+            identity connection, provides regularization similar to stochastic
+            depth.
         act_layer (torch.nn.Module): Activation layer to use in block.
         norm_kwargs (dict): Normalization layer's keyword arguments.
         norm_layer (torch.nn.Module): Normalization layer to use in block.
@@ -272,14 +272,14 @@ class EfficientNet(nn.Module):
 
        Args:
            num_classes (int): Size of the EfficientNet output, typically viewed
-                              as the number of classes in a classification task.
+                as the number of classes in a classification task.
            width_multiplier (float): How much to scale the EfficientNet-B0 channel
-                                     dimension throughout the model. 
+                dimension throughout the model. 
            depth_multiplier (float): How much to scale the EFficientNet-B0 depth.
            drop_rate (float): Dropout probability for the penultimate activations.
            drop_connect_rate (float): Probability of dropping a sample before the
-                                      identity connection, provides regularization
-                                      similar to stochastic depth.
+                identity connection, provides regularization similar to stochastic
+                depth.
            act_layer (torch.nn.Module): Activation layer to use in the model.
            norm_kwargs (dict): Normalization layer's keyword arguments.
            norm_layer (torch.nn.Module): Normalization layer to use in the model.
@@ -418,8 +418,7 @@ class EfficientNet(nn.Module):
 
     @staticmethod
     def get_model_from_name(model_name: str, num_classes, drop_connect_rate: float):
-        """ Instantiate an EfficientNet model family member based on the model_name string
-        """
+        """ Instantiate an EfficientNet model family member based on the model_name string """
 
         # Coefficients: width, depth, res, dropout
         model_arch = {
@@ -447,6 +446,7 @@ class EfficientNet(nn.Module):
         """ Decodes an EfficientNet block specification string into a dictionary
             of keyword arguments for a block in the architecture
         """
+
         arg_strings = block_string.split('_')
         args = {}
         for arg_string in arg_strings:

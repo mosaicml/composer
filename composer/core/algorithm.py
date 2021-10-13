@@ -14,10 +14,11 @@ if TYPE_CHECKING:
 class Algorithm(Serializable, ABC):
     """Base class for algorithms.
 
-    Algorithms are pieces of code which run at specific events in the training loop. Algorithms
-    modify the trainer's state, generally with the effect of improving the model's quality, or
-    increasing the efficiency and throughput of the training loop. 
-    
+    Algorithms are pieces of code which run at specific events in the training
+    loop. Algorithms modify the trainer's state, generally with the effect of
+    improving the model's quality, or
+    increasing the efficiency and throughput of the training loop.
+
     Algorithms must implement two methods:
     :func:`match`, which returns whether the algorithm should be run given
     the current event and state, and :func:`apply`, which makes an in-place
@@ -26,7 +27,8 @@ class Algorithm(Serializable, ABC):
 
     @property
     def find_unused_parameters(self) -> bool:
-        """Indicates that the effect of this algorithm may cause some model parameters to be unused.
+        """Indicates that the effect of this algorithm may cause some model
+        parameters to be unused.
 
         Used to tell DDP that some parameters will be frozen during
         training and hence it should not expect gradients from them.
@@ -37,16 +39,17 @@ class Algorithm(Serializable, ABC):
 
     @abstractmethod
     def match(self, event: Event, state: State) -> bool:
-        """Determines whether this algorithm should run, given the current :class:`Event` and :class:`State`.
+        """Determines whether this algorithm should run, given the current
+        :class:`Event` and :class:`State`.
 
         Examples:
-        
+
         To only run on a specific event:
-            
+
             >>> return event == Event.BEFORE_LOSS
 
         Switching based on state attributes:
-            
+
             >>> return state.epoch > 30 && state.world_size == 1
 
         See :class:`State` for accessible attributes.
@@ -62,15 +65,17 @@ class Algorithm(Serializable, ABC):
     @abstractmethod
     def apply(self, event: Event, state: State, logger: Logger) -> Optional[int]:
         """Applies the algorithm to make an in-place change to the State
-        
+
         Can optionally return an exit code to be stored in a :class:`Trace`.
 
         Args:
             event (:class:`Event`): The current event.
             state (:class:`State`): The current state.
-            logger (:class:`Logger`): A logger to use for logging algorithm-specific metrics.
+            logger (:class:`Logger`): A logger to use for
+                logging algorithm-specific metrics.
         Returns:
-            int or None: exit code that is stored in :class:`Trace` and made accessible for debugging.
+            ``int`` or ``None``: exit code that is stored in :class:`Trace`
+            and made accessible for debugging.
         """
         raise NotImplementedError(f'implement apply() required for {self.__class__.__name__}')
 

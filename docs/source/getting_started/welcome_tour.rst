@@ -115,18 +115,19 @@ Putting all the pieces together, our trainer looks something like this:
             engine.run_event("batch_start")
 
             engine.run_event("before_forward")
-            state.outputs = model.forward(state.inputs)
+            state.outputs = state.model.forward(state.inputs)
             engine.run_event("after_forward")
 
             engine.run_event("before_loss")
-            state.loss = model.loss(state.outputs, state.targets)
+            state.loss = state.model.loss(state.outputs, state.targets)
             engine.run_event("after_loss")
 
             engine.run_event("before_backward")
             state.loss.backward()
-            engine.run_event(after_backward")
+            engine.run_event("after_backward")
 
-            optimizer.step()
+            state.optimizers.step()
+            state.schedulers.step()
 
             engine.run_event("batch_end")
         engine.run_event("epoch_end")
@@ -137,4 +138,4 @@ That's it! Our training loop is now taking full advantage of MixUp, and we can e
 Next: The MosaicML Trainer
 --------------------------
 
-For advanced experimentation, we recommend using our provided trainer. Our trainer takes care of all the state mangaement and event callbacks from above, and adds a bunch of advanced features, including hyperparameter management, gradient accumulation, and closure support. For more information, check out our trainer documentation at :doc:`/trainer`.
+For advanced experimentation, we recommend using our provided trainer. Our trainer takes care of all the state management and event callbacks from above, and adds a bunch of advanced features, including hyperparameter management, gradient accumulation, and closure support. For more information, check out our trainer documentation at :doc:`/trainer`.

@@ -7,11 +7,10 @@ from dataclasses import asdict, dataclass
 from typing import TYPE_CHECKING, Optional
 
 import torch.profiler
-import yahp as hp
 from torch.profiler.profiler import ProfilerAction
 
 from composer import Callback
-from composer.callbacks.callback_hparams import CallbackHparams
+from composer.callbacks.callback_hparams import TorchProfilerHparams
 from composer.core.types import StateDict
 from composer.utils.ddp import get_global_rank
 
@@ -19,29 +18,6 @@ if TYPE_CHECKING:
     from composer.core import Logger, State
 
 _PROFILE_MISSING_ERROR = "The profiler has not been setup. Please call profiler.training_start() before training starts."
-
-
-@dataclass
-class TorchProfilerHparams(CallbackHparams):
-    """Parameters for the :class:`TorchProfiler`.
-
-    See the documentation for the :class:`TorchProfiler`.
-    """
-
-    tensorboard_trace_handler_dir: str = hp.required("directory to store trace results")
-    tensorboard_use_gzip: bool = hp.optional("Whether to use gzip for trace", default=False)
-    record_shapes: bool = hp.optional(doc="Whether to record tensor shapes", default=True)
-    profile_memory: bool = hp.optional(doc="track tensor memory allocations and frees", default=False)
-    with_stack: bool = hp.optional(doc="record stack info", default=True)
-    with_flops: bool = hp.optional(doc="estimate flops for operators", default=True)
-
-    skip: int = hp.optional("Number of batches to skip at epoch start", default=0)
-    warmup: int = hp.optional("Number of warmup batches in a cycle", default=1)
-    active: int = hp.optional("Number of batches to profile in a cycle", default=5)
-    wait: int = hp.optional("Number of batches to skip at the end of each cycle", default=0)
-
-    def initialize_object(self) -> TorchProfiler:
-        return TorchProfiler(**asdict(self))
 
 
 @dataclass

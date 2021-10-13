@@ -21,15 +21,16 @@ log = logging.getLogger(__name__)
 
 @dataclass
 class AlibiHparams(AlgorithmHparams):
+    """See :class:`Alibi`"""
 
-    position_embedding_attribute: str = hp.required("attribute for position embeddings. "
+    position_embedding_attribute: str = hp.required("attribute name of position embeddings within the model. "
                                                     "For example in HuggingFace's GPT2, the position "
                                                     "embeddings are 'transformer.wpe'")
     attention_module_name: str = hp.required("module/class that will have its self-attention "
                                              "function replaced. For example, in HuggingFace's "
                                              "GPT, the self-attention module is "
                                              "'transformers.models.gpt2.modeling_gpt2.GPT2Attention'")
-    attr_to_replace: str = hp.required("attribute that self-attention function will "
+    attr_to_replace: str = hp.required("model attribute that self-attention function will "
                                        "replace. For example, in HuggingFace's "
                                        "GPT2, the self-attention function is '_attn'")
     alibi_attention: str = hp.required("new self-attention function in which ALiBi is "
@@ -59,28 +60,28 @@ def apply_alibi(model: torch.nn.Module, heads_per_layer: int, max_sequence_lengt
                 position_embedding_attribute: str, attention_module: torch.nn.Module, attr_to_replace: str,
                 alibi_attention: Callable, mask_replacement_function: Union[Callable, None]) -> None:
     """
-    Applies ALiBi to the provided model. Removes position embeddings and replaces
-        the attention function and attention mask.
+    Removes position embeddings and replaces the attention function and attention mask
+    according to `AliBi <https://arxiv.org/abs/2108.12409>`_.
 
     Args:
-        model (torch.nn.Module): model to transform
-        heads_per_layer (int): number of attention heads per layer
-        max_sequence_length (int): maximum sequence length that the
+        model: model to transform
+        heads_per_layer: number of attention heads per layer
+        max_sequence_length: maximum sequence length that the
             model will be able to accept without returning an error
-        position_embedding_attribute (str): attribute for position
+        position_embedding_attribute: attribute for position
             embeddings. For example in HuggingFace's GPT2, the
             position embeddings are "transformer.wpe".
-        attention_module (str): module/class that will have its
+        attention_module: module/class that will have its
             self-attention function replaced. For example, in
             HuggingFace's GPT, the self-attention module is
             transformers.models.gpt2.modeling_gpt2.GPT2Attention.
-        attr_to_replace (str): attribute that self-attention function will
+        attr_to_replace: attribute that self-attention function will
             replace. For example, in HuggingFace's GPT2, the
             self-attention function is "_attn".
-        alibi_attention (callable): new self-attention function in which
+        alibi_attention: new self-attention function in which
             ALiBi is implemented. Used to replace
             "{attention_module}.{attr_to_replace}".
-        mask_replacement_function (callable): function to replace model's
+        mask_replacement_function: function to replace model's
             attention mask. This is sometimes necessary for evaluating
             on sequence lengths longer than the model was initialized to
             accommodate.
@@ -107,30 +108,39 @@ def apply_alibi(model: torch.nn.Module, heads_per_layer: int, max_sequence_lengt
 
 class Alibi(Algorithm):
     """
-    Algorithm to apply ALiBi to the model. Runs on Event.INIT. This algorithm should be
-    applied before the model has been moved to accelerators.
+    `AliBi <https://arxiv.org/abs/2108.12409>`_ (Attention with Linear Biases)
+    dispenses with position embeddings and instead directly biases attention
+    matrices such that nearby tokens attend to one another more strongly.
+
+    ALiBi yields excellent extrapolation to unseen sequence lengths
+    compared to other position embedding schemes. We leverage this
+    extrapolation capability by training with shorter sequence lengths,
+    which reduces the memory and computation load.
+
+    This algorithm modifies the model and runs on Event.INIT. This algorithm
+    should be applied before the model has been moved to accelerators.
 
     Args:
-        heads_per_layer (int): number of attention heads per layer
-        max_sequence_length (int): maximum sequence length that the
+        heads_per_layer: number of attention heads per layer
+        max_sequence_length: maximum sequence length that the
             model will be able to accept without returning an error
-        position_embedding_attribute (str): attribute for position
+        position_embedding_attribute: attribute for position
             embeddings. For example in HuggingFace's GPT2, the
             position embeddings are "transformer.wpe".
-        attention_module_name (str): module/class that will have
+        attention_module_name: module/class that will have
             its self-attention function replaced. For example,
             in HuggingFace's GPT, the self-attention module is
             "transformers.models.gpt2.modeling_gpt2.GPT2Attention".
-        attr_to_replace (str): attribute that self-attention function will
+        attr_to_replace: attribute that self-attention function will
             replace. For example, in HuggingFace's GPT2, the
             self-attention function is "_attn".
-        alibi_attention (str): Path to new self-attention function in which ALiBi is
+        alibi_attention: Path to new self-attention function in which ALiBi is
             implemented. Used to replace "{attention_module}.{attr_to_replace}".
-        mask_replacement_function (str): Path to function to replace model's
+        mask_replacement_function: Path to function to replace model's
             attention mask. This is sometimes necessary for evaluating on
             sequence lengths longer than the model was initialized to
             accommodate.
-        train_sequence_length_scaling (float): Amount by which to scale
+        train_sequence_length_scaling: Amount by which to scale
             training sequence length. One batch of training data will be
             reshaped from size (sequence_length, batch) to
             (sequence_length*sequence_length_fraction, batch/sequence_length_fraction).
@@ -155,7 +165,7 @@ class Alibi(Algorithm):
         return event in (Event.INIT, Event.AFTER_DATALOADER)
 
     def apply(self, event: Event, state: State, logger: Logger) -> Optional[int]:
-        """ Applies ALiBi
+        """ Replace model's existing attention mechanism with AliBi
         """
 
         if event == Event.INIT:

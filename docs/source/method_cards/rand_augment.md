@@ -22,7 +22,11 @@ RandAugment uses image augmentations, and hence it is only applicable to vision 
 
 - `depth` - The number of augmentations applied to each image. Equivalent to the quantity *n* as described below.
 - `severity` - The maximum possible intensity of each augmentation.
-- `augmentation_set` - The set of augmentations to sample from. `all` is the set  {`translate_x`, `translate_y`, `shear_x`, `shear_y`, `rotate`, `solarize`, `posterize`, `equalize`, `autocontrast`, `color`, `contrast`, `brightness`, `sharpness`}. `safe` excludes `color`, `contrast`, `brightness`, and `sharpness`, which are used to generate the CIFAR-10-C and ImageNet-C benchmark datasets for naturalistic robustness ([Hendrycks et al., 2019](https://arxiv.org/abs/1903.12261)). `original` uses implementations of `color`, `contrast`, `brightness`, and `sharpness` that replicate [existing](https://github.com/rwightman/pytorch-image-models/blob/master/timm/data/auto_augment.py) [implementations](https://github.com/tensorflow/tpu/blob/master/models/official/efficientnet/autoaugment.py). See TODO LINK TO LINE IN CODE for more details.
+- `augmentation_set` - The set of augmentations to sample from. `all` is the set  {`translate_x`, `translate_y`, `shear_x`, `shear_y`, `rotate`, `solarize`, `posterize`, `equalize`, `autocontrast`, `color`, `contrast`, `brightness`, `sharpness`}. `safe` excludes `color`, `contrast`, `brightness`, and `sharpness`, which are used to generate the CIFAR-10-C and ImageNet-C benchmark datasets for naturalistic robustness ([Hendrycks et al., 2019](https://arxiv.org/abs/1903.12261)). `original` uses implementations of `color`, `contrast`, `brightness`, and `sharpness` that replicate [existing](https://github.com/rwightman/pytorch-image-models/blob/master/timm/data/auto_augment.py) [implementations](https://github.com/tensorflow/tpu/blob/master/models/official/efficientnet/autoaugment.py).
+
+<!--
+[comment]: #  See TODO LINK TO LINE IN CODE for more details.
+-->
 
 ## Example Effects
 
@@ -45,7 +49,11 @@ substantial training slowdown for `depth` ≥ 3. We also recommend `augmentation
 
 We found that RandAugment can significantly decrease throughput. This is due to the increased CPU load from performing the image augmentations. We found that training time could increase by up to 2.5x when `depth` **= 2, however the magnitude of the slowdown is determined by the ratio of GPU to CPU resources. For example, applying RandAugment with `depth` = 2 when running on a high GPU to CPU resource system (1 Nvidia V100—a relatively modern, powerful GPU—per 8 Intel Broadwell CPUs) causes throughput to decrease from ~612 im/sec/GPU to ~277 im/sec/GPU, while throughput remains at approximately at 212 im/sec/GPU on a low GPU to CPU system (1 Nvidia T4—a relatively less powerful GPU—per 12 Intel Cascade Lake CPUs).
 
-The regularization benefits of RandAugment also tend to yield a greater benefit in overparameterized regimes (i.e., larger models, smaller datasets, and longer training times). For example, applying RandAugment with `depth` = 2, `severity` = 9, yields a 0.31% accuracy gain for ResNet-18 trained for 90 epochs, a 0.41% accuracy gain for ResNet-50 trained for 90 epochs, a 1.15% gain for ResNet-50 trained for 120 epochs, and a TODO% gain for a ResNet-101 trained for 90 epochs.
+The regularization benefits of RandAugment also tend to yield a greater benefit in overparameterized regimes (i.e., larger models, smaller datasets, and longer training times). For example, applying RandAugment with `depth` = 2, `severity` = 9, yields a 0.31% accuracy gain for ResNet-18 trained for 90 epochs, a 0.41% accuracy gain for ResNet-50 trained for 90 epochs, and a 1.15% gain for ResNet-50 trained for 120 epochs.
+
+..
+
+    TOOD add in Resnet 101 into the line above
 
 
 ```{eval-rst}

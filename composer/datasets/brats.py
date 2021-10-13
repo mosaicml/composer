@@ -28,6 +28,17 @@ def my_collate(batch):
 
 @dataclass
 class BratsDatasetHparams(DatasetHparams):
+    """Defines an instance of the BraTS dataset for image segmentation.
+    
+    Parameters:
+        is_train (bool): Whether to load the training or validation dataset.
+        datadir (str): Data directory to use.
+        download (bool): Whether to download the dataset, if needed.
+        drop_last (bool): Whether to drop the last samples for the last batch.
+        shuffle (bool): Whether to shuffle the dataset for each epoch.
+        oversampling (float): The oversampling ratio to use.
+    """
+
     is_train: bool = hp.required("whether to load the training or validation dataset")
     datadir: str = hp.required("data directory")
     download: bool = hp.required("whether to download the dataset, if needed")

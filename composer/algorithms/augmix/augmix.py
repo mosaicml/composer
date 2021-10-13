@@ -17,10 +17,11 @@ from composer.utils.data import add_dataset_transform
 
 @dataclass
 class AugMixHparams(AlgorithmHparams):
+    """See :class:`AugMix`"""
 
     severity: int = hp.optional(doc="Intensity of each augmentation. Ranges from 0 (none) to 10 (maximum)", default=3)
     depth: int = hp.optional(doc="Number of augmentations to compose in a row", default=-1)
-    width: int = hp.optional(doc="Number of parallel augmentation chains to combine", default=3)
+    width: int = hp.optional(doc="Number of parallel augmentation sequences to combine", default=3)
     alpha: float = hp.optional(doc="Mixing parameter for clean vs. augmented images.", default=1.0)
     augmentation_set: str = hp.optional(
         doc=
@@ -37,8 +38,8 @@ def augment_and_mix(img: ImageType = None,
                     width: int = 3,
                     alpha: float = 1.0,
                     augmentation_set: List = augmentation_sets["all"]) -> ImageType:
-    """
-    Perform augmentations.
+    """Applies AugMix (`Hendrycks et al. <http://arxiv.org/abs/1912.02781>`_) data augmentation to an image.
+    See :class:`AugMix` for details.
     """
 
     assert isinstance(img, ImageType) or isinstance(img, np.ndarray), "img must be a PIL.Image"
@@ -65,6 +66,7 @@ def augment_and_mix(img: ImageType = None,
 
 
 class AugmentAndMixTransform(torch.nn.Module):
+    """Wrapper module for :func:`augment_and_mix` that can be passed to :class:`torchvision.transforms.Compose`"""
 
     def __init__(self,
                  severity: int = 3,
@@ -72,12 +74,9 @@ class AugmentAndMixTransform(torch.nn.Module):
                  width: int = 3,
                  alpha: float = 1.0,
                  augmentation_set: str = "all"):
-        """
-        See documentation for RandAugment
-        """
         super().__init__()
         if severity < 0 or severity > 10:
-            raise ValueError("AugMix severity value must be 0 ≤ severity ≤ 10")
+            raise ValueError("AugMix severity value must satisfy 0 ≤ severity ≤ 10")
         if width < 1:
             raise ValueError("AugMix width must be ≥ 1")
         if augmentation_set not in augmentation_sets.keys():
@@ -99,29 +98,45 @@ class AugmentAndMixTransform(torch.nn.Module):
 
 
 class AugMix(Algorithm):
-    """
-    Object that does AugMix (Hendrycks et al. (2020), AugMix: A Simple Data
-        Processing Method to Improve Robustness and Uncertainty). Can be passed as a
-        transform to torchvision.transforms.Compose().
+    """`AugMix <http://arxiv.org/abs/1912.02781>`_ creates ``width`` sequences
+    of ``depth`` image augmentations, applies each sequence with random
+    intensity, and returns a convex combination of the ``width`` augmented
+    images and the original image.
+
+    The coefficients for mixing the augmented images are drawn from a uniform
+    ``Dirichlet(alpha, alpha, ...)`` distribution. The coefficient for mixing
+    the combined augmented image and the original image is drawn from a
+    ``Beta(alpha, alpha)`` distribution, using the same ``alpha``.
+
+    Runs on ``Event.TRAINING_START``.
 
     Args:
-        severity: Severity of augmentation operators (between 1 to 10).
-        width: Width of augmentation chains (number of parallel augmentations)
-        depth: Depth of each augmentation chain. -1 enables stochastic depth
-            uniformly from [1, 3]
-        alpha: Probability coefficient for Beta and Dirichlet distributions. Sampling
-            from Dirichlet determines relative weights of each augmented image
-            sampling from beta determines relative weights of unaugmented and
-            augmented images.
-        augmentation_set: String, one of ["augmentations_all",
-            "augmentations_corruption_safe", "augmentations_original"]. Set of
-            augmentations to use. "augmentations_corruption_safe" excludes transforms
-            that are part of the ImageNet-C/CIFAR10-C test sets.
-            "augmentations_original" uses all augmentations, but some of the
-            implementations are identical to the original github repo, which appears
-            to contain implementation specificities for the augmentations "color",
-            "contrast", "sharpness", and "brightness".
+        severity: severity of augmentations; ranges from 0
+            (no augmentation) to 10 (most severe).
+        width: number of augmentation sequences
+        depth: number of augmentations per sequence. -1 enables stochastic depth
+            sampled uniformly from [1, 3].
+        alpha: pseudocount for Beta and Dirichlet distributions. Must be > 0.
+            Higher values yield mixing coefficients closer to uniform
+            weighting. As the value approaches 0, the mixing coefficients
+            approach using only one version of each image.
+        augmentation_set: must be one of the following options:
+
+            * ``"augmentations_all"``
+                Uses all augmentations from the paper.
+            * ``"augmentations_corruption_safe"``
+                Like ``"augmentations_all"``, but excludes transforms that are part of
+                the ImageNet-C/CIFAR10-C test sets
+            * ``"augmentations_original"``
+                Like ``"augmentations_all"``, but some of the implementations
+                are identical to the original Github repository, which contains
+                implementation specificities for the augmentations
+                ``"color"``, ``"contrast"``, ``"sharpness"``, and ``"brightness"``.
+
     """
+
+    # TODO document each value of augmentation_set in more detail; i.e.,
+    # which augmentations are actually used
 
     def __init__(self,
                  severity: int = 3,
@@ -130,7 +145,7 @@ class AugMix(Algorithm):
                  alpha: float = 1.0,
                  augmentation_set: str = "all"):
         if severity < 0 or severity > 10:
-            raise ValueError("AugMix severity value must be 0 ≤ severity ≤ 10")
+            raise ValueError("AugMix severity value must satisfy 0 ≤ severity ≤ 10")
         if width < 1:
             raise ValueError("AugMix width must be ≥ 1")
         if augmentation_set not in augmentation_sets.keys():
@@ -142,13 +157,11 @@ class AugMix(Algorithm):
                                      augmentation_set=augmentation_set)
 
     def match(self, event: Event, state: State) -> bool:
-        """ Runs on Event.TRAINING_START
-        """
+        """Runs on Event.TRAINING_START"""
         return event == Event.TRAINING_START
 
     def apply(self, event: Event, state: State, logger: Logger) -> None:
-        """ Inserts AugMix into the list of dataloader transforms
-        """
+        """Inserts AugMix into the list of dataloader transforms"""
         am = AugmentAndMixTransform(**self.hparams.to_dict())
         assert state.train_dataloader is not None, "Train Dataloader is not initialized."
         dataset = state.train_dataloader.dataset

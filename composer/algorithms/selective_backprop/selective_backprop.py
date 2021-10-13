@@ -24,21 +24,21 @@ def do_selective_backprop(
 ) -> bool:
     """Decide if selective backprop should be run based on time in training.
 
-    Returns true if the current `epoch` is between `start_epoch` and `end_epoch`.
-    Recommend that SB be applied during the later stages of a training run,
-    once the model has already "learned" easy examples.
+    Returns true if the current ``epoch`` is between ``start_epoch`` and
+    ``end_epoch``. Recommend that SB be applied during the later stages of
+    a training run, once the model has already "learned" easy examples.
 
     To preserve convergence, SB can be interrupted with vanilla minibatch
-    gradient steps every `interrupt` steps. When `interrupt=0`, SB will be
-    used at every step during the SB interval. When `interrupt=2`, SB will
+    gradient steps every ``interrupt`` steps. When ``interrupt=0``, SB will be
+    used at every step during the SB interval. When ``interrupt=2``, SB will
     alternate with vanilla minibatch steps.
 
     Args:
-        epoch (int): The current epoch during training.
-        batch_idx (int): The current batch within the epoch.
-        start_epoch (int): The epoch at which selective backprop should be enabled.
-        end_epoch (int): The epoch at which selective backprop should be disabled.
-        interrupt (int): The number of batches between vanilla minibatch gradient updates.
+        epoch: The current epoch during training
+        batch_idx: The current batch within the epoch
+        start_epoch: The epoch at which selective backprop should be enabled
+        end_epoch: The epoch at which selective backprop should be disabled
+        interrupt: The number of batches between vanilla minibatch gradient updates
 
     Returns:
         bool: If selective backprop should be performed on this batch.
@@ -49,60 +49,64 @@ def do_selective_backprop(
     return is_interval and is_step
 
 
+# TODO this function should probably be part of the public API
 def selective_backprop(X: torch.Tensor,
                        y: torch.Tensor,
                        model: torch.nn.Module,
                        loss_fun: Callable,
                        keep: float,
                        scale_factor: float = 1) -> Tuple[torch.Tensor, torch.Tensor]:
-    """Select a subset of the batch on which to learn.
+    """Select a subset of the batch on which to learn as per (`Jiang et al. 2019 <https://arxiv.org/abs/1910.00762>`_)
 
     Selective Backprop (SB) prunes minibatches according to the difficulty
-    of the individual training examples, and only computes weight gradients
-    over the pruned subset, reducing iteration time and speeding up training.
+    of the individual training examples and only computes weight gradients
+    over the selected subset. This reduces iteration time and speeds up training.
     The fraction of the minibatch that is kept for gradient computation is
-    specified by the argument `0 <= keep <= 1`.
+    specified by the argument ``0 <= keep <= 1``.
 
-    See `Accelerating Deep Learning by Focusing on the Biggest Losers` <https://arxiv.org/abs/1910.00762>.
-
-    To speed up SB's selection forward pass, the argument `scale_factor` can
-    be used to downsample input image tensors. The full-sized inputs will still
-    be used for the weight gradient computation.
+    To speed up SB's selection forward pass, the argument ``scale_factor`` can
+    be used to spatially downsample input tensors. The full-sized inputs
+    will still be used for the weight gradient computation.
 
     Args:
-        X (torch.Tensor): Input tensor to prune.
-        y (torch.Tensor): Output tensor to prune.
-        model (torch.nn.Module): Model with which to predict outputs.
-        loss_fun (Callable): Loss function of the form `loss(outputs, targets, reduction='none')`.
-                             The function must take the keyword argument `reduction='none'`
-                             to ensure that per-sample losses are returned.
-        keep (float): Fraction of examples in the batch to keep.
-        scale_factor (float, optional): Scale factor for downsampling input
-                                        tensors. Downsampling requires the input
-                                        tensor to be at least 3D. Default: 1 (no downsampling)
+        X: Input tensor to prune
+        y: Output tensor to prune
+        model: Model with which to predict outputs
+        loss_fun: Loss function of the form ``loss(outputs, targets, reduction='none')``.
+            The function must take the keyword argument ``reduction='none'``
+            to ensure that per-sample losses are returned.
+        keep: Fraction of examples in the batch to keep
+        scale_factor: Multiplier between 0 and 1 for spatial size. Downsampling
+            requires the input tensor to be at least 3D.
 
     Returns:
         (torch.Tensor, torch.Tensor): The pruned batch of inputs and targets
+
+    Raises:
+        ValueError: If ``scale_factor > 1``
+        TypeError: If ``loss_fun > 1`` has the wrong signature or is not callable
 
     Note:
     This function runs an extra forward pass through the model on the batch of data.
     If you are using a non-default precision, ensure that this forward pass
     runs in your desired precision. For example:
-    ```
-    with torch.cuda.amp.autocast(True):
-        X_new, y_new = selective_backprop(X, y, model, loss_fun, keep, scale_factor)
-    ```
+
+    .. code-block:: python
+
+        with torch.cuda.amp.autocast(True):
+            X_new, y_new = selective_backprop(X, y, model, loss_fun, keep, scale_factor)
+
     """
     INTERPOLATE_MODES = {3: "linear", 4: "bilinear", 5: "trilinear"}
 
     interp_mode = "bilinear"
     if scale_factor != 1:
         if X.dim() not in INTERPOLATE_MODES:
-            raise ValueError(f"Input must be 3D, 4D, or 5D if `scale_factor` != 1, got {X.dim()}")
+            raise ValueError(f"Input must be 3D, 4D, or 5D if scale_factor != 1, got {X.dim()}")
         interp_mode = INTERPOLATE_MODES[X.dim()]
 
     if scale_factor > 1:
-        raise ValueError("`scale_factor` must be <= 1")
+        raise ValueError("scale_factor must be <= 1")
 
     if callable(loss_fun):
         sig = inspect.signature(loss_fun)
@@ -140,6 +144,7 @@ def selective_backprop(X: torch.Tensor,
 
 @dataclass
 class SelectiveBackpropHparams(AlgorithmHparams):
+    """See :class:`SelectiveBackprop`"""
 
     start: float = hp.required(doc="SB interval start, as fraction of training duration", template_default=0.5)
     end: float = hp.required(doc="SB interval end, as fraction of training duration", template_default=0.9)
@@ -155,31 +160,30 @@ class SelectiveBackpropHparams(AlgorithmHparams):
 
 
 class SelectiveBackprop(Algorithm):
-    """Selectively backprop on a subset of each batch.
+    """Selectively backpropagate gradients from a subset of each batch (`Jiang et al. 2019 <https://arxiv.org/abs/1910.00762>`_).
 
     Selective Backprop (SB) prunes minibatches according to the difficulty
     of the individual training examples, and only computes weight gradients
     over the pruned subset, reducing iteration time and speeding up training.
     The fraction of the minibatch that is kept for gradient computation is
-    specified by the argument `0 <= keep <= 1`.
+    specified by the argument ``0 <= keep <= 1``.
 
-    See `Accelerating Deep Learning by Focusing on the Biggest Losers` <https://arxiv.org/abs/1910.00762>.
-
-    To speed up SB's selection forward pass, the argument `scale_factor` can
-    be used to downsample input image tensors. The full-sized inputs will still
-    be used for the weight gradient computation.
+    To speed up SB's selection forward pass, the argument ``scale_factor`` can
+    be used to spatially downsample input image tensors. The full-sized inputs
+    will still be used for the weight gradient computation.
 
     To preserve convergence, SB can be interrupted with vanilla minibatch
-    gradient steps every `interrupt` steps. When `interrupt=0`, SB will be
-    used at every step during the SB interval. When `interrupt=2`, SB will
+    gradient steps every ``interrupt`` steps. When ``interrupt=0``, SB will be
+    used at every step during the SB interval. When ``interrupt=2``, SB will
     alternate with vanilla minibatch steps.
 
     Args:
-        start (float): SB interval start as fraction of training duration
-        end (float): SB interval end as fraction of training duration
-        keep (float): fraction of minibatch to select and keep for gradient computation
-        scale_factor (float): scale for downsampling input for selection forward pass
-        interrupt (int): interrupt SB with a vanilla minibatch step every 'interrupt' batches
+        start: SB interval start as fraction of training duration
+        end: SB interval end as fraction of training duration
+        keep: fraction of minibatch to select and keep for gradient computation
+        scale_factor: scale for downsampling input for selection forward pass
+        interrupt: interrupt SB with a vanilla minibatch step every
+            ``interrupt`` batches
     """
 
     def __init__(self, start: float, end: float, keep: float, scale_factor: float, interrupt: int):
@@ -190,7 +194,8 @@ class SelectiveBackprop(Algorithm):
                                                 interrupt=interrupt)
 
     def match(self, event: Event, state: State) -> bool:
-        """Match on AFTER_DATALOADER event, but only if parametrized to do so. """
+        """Match on ``Event.AFTER_DATALOADER`` if time is between ``self.start`` and
+        ``self.end``."""
         is_event = (event == Event.AFTER_DATALOADER)
         if not is_event:
             return False
@@ -209,8 +214,7 @@ class SelectiveBackprop(Algorithm):
         return is_chosen
 
     def apply(self, event: Event, state: State, logger: Optional[Logger] = None) -> None:
-        """Apply selective backprop to the current batch.
-        """
+        """Apply selective backprop to the current batch."""
         input, target = state.batch_pair
         assert isinstance(input, Tensor) and isinstance(target, Tensor), \
             "Multiple tensors not supported for this method yet."

@@ -18,7 +18,8 @@ from composer.callbacks import (BenchmarkerHparams, CallbackHparams, GradMonitor
                                 SpeedMonitorHparams, TorchProfilerHparams)
 from composer.core.types import Precision
 from composer.datasets import DataloaderHparams
-from composer.loggers import BaseLoggerBackendHparams, logger_registry
+from composer.loggers import (BaseLoggerBackendHparams, FileLoggerBackendHparams, TQDMLoggerBackendHparams,
+                              WandBLoggerBackendHparams)
 from composer.models import (CIFARResNetHparams, EfficientNetB0Hparams, GPT2Hparams, MnistClassifierHparams,
                              ModelHparams, ResNet18Hparams, ResNet50Hparams, ResNet101Hparams, UnetHparams)
 from composer.optim import (AdamHparams, AdamWHparams, DecoupledAdamWHparams, DecoupledSGDWHparams, OptimizerHparams,
@@ -30,23 +31,23 @@ if TYPE_CHECKING:
     from composer.trainer.trainer import Trainer
 
 optimizer_registry = {
-    'adam': AdamHparams,
-    'adamw': AdamWHparams,
-    'decoupled_adamw': DecoupledAdamWHparams,
-    'radam': RAdamHparams,
-    'sgd': SGDHparams,
-    'decoupled_sgdw': DecoupledSGDWHparams,
-    'rmsprop': RMSPropHparams,
+    "adam": AdamHparams,
+    "adamw": AdamWHparams,
+    "decoupled_adamw": DecoupledAdamWHparams,
+    "radam": RAdamHparams,
+    "sgd": SGDHparams,
+    "decoupled_sgdw": DecoupledSGDWHparams,
+    "rmsprop": RMSPropHparams,
 }
 
 scheduler_registry = {
-    'step': scheduler.StepLRHparams,
-    'multistep': scheduler.MultiStepLRHparams,
-    'exponential': scheduler.ExponentialLRHparams,
-    'cosine_decay': scheduler.CosineAnnealingLRHparams,
-    'cosine_warmrestart': scheduler.CosineAnnealingWarmRestartsHparams,
-    'warmup': scheduler.WarmUpLRHparams,
-    'constant': scheduler.ConstantLRHparams,
+    "step": scheduler.StepLRHparams,
+    "multistep": scheduler.MultiStepLRHparams,
+    "exponential": scheduler.ExponentialLRHparams,
+    "cosine_decay": scheduler.CosineAnnealingLRHparams,
+    "cosine_warmrestart": scheduler.CosineAnnealingWarmRestartsHparams,
+    "warmup": scheduler.WarmUpLRHparams,
+    "constant": scheduler.ConstantLRHparams,
 }
 
 model_registry = {
@@ -77,6 +78,12 @@ callback_registry = {
     "benchmarker": BenchmarkerHparams,
     "lr_monitor": LRMonitorHparams,
     "grad_monitor": GradMonitorHparams,
+}
+
+logger_registry = {
+    "file": FileLoggerBackendHparams,
+    "wandb": WandBLoggerBackendHparams,
+    "tqdm": TQDMLoggerBackendHparams,
 }
 
 device_registry = {
@@ -188,6 +195,21 @@ class TrainerHparams(hp.Hparams):
     def initialize_object(self) -> Trainer:
         from composer.trainer.trainer import Trainer
         return Trainer.create_from_hparams(hparams=self)
+
+    def set_datadir(self, datadir: str) -> None:
+        """Override the ``datadir`` property in the :attr:`train_dataset` and :attr:`val_dataset`.
+
+        Args:
+            datadir (str): The datadir
+        
+        Raises
+            AttributeError: Raised if either :attr:`train_dataset` or :attr:`val_dataset` do not
+            have a ``datadir`` property.
+        """
+        if not hasattr(self.train_dataset, 'datadir') or not hasattr(self.val_dataset, 'datadir'):
+            raise AttributeError('Both the train and val dataset hparams must have the datadir attribute.')
+        setattr(self.train_dataset, 'datadir', datadir)
+        setattr(self.val_dataset, 'datadir', datadir)
 
     @classmethod
     def load(cls, model: str) -> TrainerHparams:

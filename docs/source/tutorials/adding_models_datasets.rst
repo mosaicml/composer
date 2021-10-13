@@ -59,7 +59,8 @@ In this tutorial, we start with a simple image classification model:
 Datasets
 --------
 
-Provide the trainer with your `torch.utils.data.Dataset` by configuring a dataloader spec for both train and eval datasets. Here, we create the :class:`~composer.datasets.DataloaderSpec` with the ``MNIST`` dataset:
+Provide the trainer with your :class:`torch.utils.data.Dataset` by configuring a :class:`DataloaderSpec` for
+both train and validation datasets. Here, we create the :class:`DataloaderSpec` with the ``MNIST`` dataset:
 
 .. code-block:: python
 
@@ -85,30 +86,30 @@ Now that your ``Dataset`` and ``Model`` are ready, you can initialize the :class
 
 .. code-block:: python
 
-     from composer import Trainer
-     from composer.algorithms import LabelSmoothing, CutOut
+    from composer import Trainer
+    from composer.algorithms import LabelSmoothing, CutOut
 
-     trainer = Trainer(
-           model=SimpleModel(num_hidden=128, num_classes=10)
-           train_dataloader_spec=train_dataloader_spec,
-           eval_dataloader_spec=eval_dataloader_spec,
-           max_epochs=3,
-           train_batch_size=256,
-           eval_batch_size=256,
-           algorithms=[
-               CutOut(n_holes=1, length=10),
-               LabelSmoothing(alpha=0.1).
-            ]
-       )
+    trainer = Trainer(
+        model=SimpleModel(num_hidden=128, num_classes=10),
+        train_dataloader_spec=train_dataloader_spec,
+        eval_dataloader_spec=eval_dataloader_spec,
+        max_epochs=3,
+        train_batch_size=256,
+        eval_batch_size=256,
+        algorithms=[
+            CutOut(n_holes=1, length=10),
+            LabelSmoothing(alpha=0.1),
+        ]
+    )
 
-       trainer.fit()
+    trainer.fit()
 
 Trainer with YAHP
 -----------------
 
-Integrating your models and datasets with our ``yahp`` system allows for configuration via ``yaml`` or command line flags automagically. This is recommended if you are running experiments or large scale runs, to ensure reproducibility.
+Integrating your models and datasets with :mod:`yahp.hparams` allows for configuration via ``yaml`` or command line flags automagically. This is recommended if you are running experiments or large scale runs, to ensure reproducibility.
 
-First, create ``hparams`` dataclasses for both your model and your dataset:
+First, create :class:`~yahp.hparams.Hparams` dataclasses for both your model and your dataset:
 
 .. code-block:: python
 
@@ -117,7 +118,7 @@ First, create ``hparams`` dataclasses for both your model and your dataset:
     import yahp as hp
 
     @dataclass
-    class MyModelHparams(models.ModelHparams)
+    class MyModelHparams(models.ModelHparams):
 
         num_hidden: int = hp.optional(doc="num hidden features", default=128)
         num_classes: int = hp.optional(doc="num of classes", default=10)
@@ -128,49 +129,49 @@ First, create ``hparams`` dataclasses for both your model and your dataset:
                 num_classes=self.num_classes
             )
 
-   @dataclass
-  class MNISTHparams(datasets.DatasetHparams):
-      is_train: bool = hp.required("whether to load the training or validation dataset")
-      datadir: str = hp.required("data directory")
-      download: bool = hp.required("whether to download the dataset, if needed")
-      drop_last: bool = hp.optional("Whether to drop the last samples for the last batch", default=True)
-      shuffle: bool = hp.optional("Whether to shuffle the dataset for each epoch", default=True)
+    @dataclass
+    class MNISTHparams(datasets.DatasetHparams):
+        is_train: bool = hp.required("whether to load the training or validation dataset")
+        datadir: str = hp.required("data directory")
+        download: bool = hp.required("whether to download the dataset, if needed")
+        drop_last: bool = hp.optional("Whether to drop the last samples for the last batch", default=True)
+        shuffle: bool = hp.optional("Whether to shuffle the dataset for each epoch", default=True)
 
-      def initialize_object(self) -> DataloaderSpec:
-          transform = transforms.Compose([transforms.ToTensor()])
-          dataset = datasets.MNIST(
-              self.datadir,
-              train=self.is_train,
-              download=self.download,
-              transform=transform,
-          )
-          return DataloaderSpec(
-              dataset=dataset,
-              drop_last=self.drop_last,
-              shuffle=self.shuffle,
-          )
+        def initialize_object(self) -> DataloaderSpec:
+            transform = transforms.Compose([transforms.ToTensor()])
+            dataset = datasets.MNIST(
+                self.datadir,
+                train=self.is_train,
+                download=self.download,
+                transform=transform,
+            )
+            return DataloaderSpec(
+                dataset=dataset,
+                drop_last=self.drop_last,
+                shuffle=self.shuffle,
+            )
 
 Then, we can register them with the trainer:
 
 .. code-block:: python
 
-    from composer import trainer_hparams
+    from composer.trainer import TrainerHparams
 
-    trainer_hparams.register_class(
+    TrainerHparams.register_class(
         field='model',
         register_class=MyModelHparams,
         class_key='my_model'
     )
 
     dataset_args = {
-       'register_class': 'MNISTHparams',
+       'register_class': MNISTHparams,
        'class_key': 'my_mnist'
     }
-    trainer_hparams.register_class(
+    TrainerHparams.register_class(
         field='train_dataset',
         **dataset_args
     )
-    trainer_hparams.register_class(
+    TrainerHparams.register_class(
         field='val_dataset',
         **dataset_args
     )

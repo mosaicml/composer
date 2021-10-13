@@ -57,7 +57,7 @@ class Engine():
                  callbacks: Sequence[Callback] = None):
         if logger is None:
             log.warning("No logger passed to the engine.  Defaulting to an empty logger")
-            logger = Logger(state=state, log_destinations=[])
+            logger = Logger(state=state, backends=[])
 
         assert logger is not None
         self.logger = logger
@@ -70,7 +70,7 @@ class Engine():
         event: Union[Event, str],
     ) -> Traces:
         """Runs the sequence of algorithms and callbacks.
-        
+
         Filters algorithms by calling each one's ``match`` function, then passes to ``compile`` to
         make any modifications, then runs each algorithm's ``apply`` function to make in-place
         changes to the ``State``.
@@ -154,8 +154,6 @@ class Engine():
             Establish a FILO queue of algorithms before_ and after_ an event.
             before_loss: A, B, C, D
             after_loss: D, C, B, A
-
-            TODO: store an actual LIFO queue upon __enter__ and __exit__
             """
             algorithms_to_run = list(reversed(algorithms_to_run))
 

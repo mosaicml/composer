@@ -148,7 +148,7 @@ Effects & Implications
    :alt: alternate text
    :figclass: align-center
 
-	 Source: Figure 5 from "Scaling Laws for Neural Language Models"
+	Source: Figure 5 from "Scaling Laws for Neural Language Models"
 
 `Scaling Laws for Neural Language
 Models <https://arxiv.org/abs/2001.08361>`__ aims to

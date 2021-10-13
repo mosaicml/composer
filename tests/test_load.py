@@ -26,6 +26,8 @@ model_names = [name for name in model_names if name not in EXCLUDE_MODELS]
 def test_load(model_name: str, dummy_dataset_hparams: SyntheticDatasetHparams):
     if "gpt" in model_name:
         pytest.skip("GPT doesn't work on the no-op model class")
+    if "unet" in model_name:
+        pytest.skip("unet doesn't work on the no-op model class")
 
     dummy_dataset_hparams.sample_pool_size = 4096
 

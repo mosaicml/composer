@@ -96,6 +96,22 @@ class SyntheticDataset(torch.utils.data.Dataset):
 
 @dataclass
 class SyntheticDatasetHparams(DatasetHparams):
+    """Defines an instance of a synthetic dataset for classification.
+    
+    Parameters:
+        num_classes (int): Number of classes to use.
+        shape (List[int]): Shape of the tensor for input samples.
+        one_hot (bool): Whether to use one-hot encoding.
+        device (str): Device to store the sample pool. Set to `cuda` to store samples
+            on the GPU and eliminate PCI-e bandwidth with the dataloader. Set to `cpu`
+            to move data between host memory and the gpu on every batch.
+        memory_format (MemoryFormat, optional): Memory format for the sample pool.
+        sample_pool_size (int): Number of samples to use.
+        drop_last (bool): Whether to drop the last samples for the last batch.
+        shuffle (bool): Whether to shuffle the dataset for each epoch.
+        data_type (SyntheticDataType, optional), Type of synthetic data to create.
+    """
+
     num_classes: int = hp.required("Number of classes")
     shape: List[int] = hp.required("Shape of tensor")
     one_hot: bool = hp.required("Whether to use one-hot encoding", template_default=False)

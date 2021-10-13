@@ -10,12 +10,11 @@ from composer.models.loss import soft_cross_entropy
 
 
 class LanguageCrossEntropyLoss(Metric):
-    """
-    Implements a CrossEntropyLoss metric that can be run during the validation step, and is compatible with the HF API.
+    """Hugging Face compatible cross entropy loss.
 
     Args:
-        dist_sync_on_step (bool): Synchronize metric state across processes at each forward() before returning
-                                  the value at the step.
+        dist_sync_on_step (bool): Synchronize metric state across processes at
+            each forward() before returning the value at the step.
 
     State:
         sum_loss (float): the sum of the per-example loss in the batch.
@@ -29,16 +28,12 @@ class LanguageCrossEntropyLoss(Metric):
         self.add_state("total_batches", default=torch.tensor(0), dist_reduce_fx="sum")
 
     def update(self, output: Union[Mapping, Tensor], target: Tensor) -> None:
-        """
-        Updates the internal state of the Metrics object with results from a new batch.
+        """Updates the internal state with results from a new batch.
 
         Args:
-            output (Mapping): the output from the model, which must contain either the Tensor or a Mapping type that
-                              contains the loss or model logits.
-            target (Tensor): a Tensor of ground-truth values to compare against.
-
-        Returns:
-            None
+            output (Mapping): The output from the model, which must contain
+                either the Tensor or a Mapping type that contains the loss or model logits.
+            target (Tensor): A Tensor of ground-truth values to compare against.
         """
 
         # if logit modification algorithms aren't on, we take the loss directly from the model output
@@ -61,32 +56,24 @@ class LanguageCrossEntropyLoss(Metric):
         self.total_batches += 1  #type: ignore (third-party)
 
     def compute(self) -> Tensor:
-        """
-        After all update operations, it computes the final metric from the internal state.
-
-        Args;
-            None
+        """Aggregate the state over all processes to compute the metric.
 
         Returns:
-            loss (Tensor): the loss averaged across all batches.
+            loss (Tensor): The loss averaged across all batches.
         """
         # Return average loss over entire dataset
         return self.sum_loss / self.total_batches  #type: ignore (third-party)
 
 
 class Perplexity(LanguageCrossEntropyLoss):
-    """
-    Subclasses the LanguageCrossEntropyLoss to provide a perplexity measurement.
+    """Subclasses :class:`LanguageCrossEntropyLoss` to implement perplexity.
 
-    Notes:
-        If an algorithm modifies the loss function and it is no longer directly provided in the output, then this
-        could be expensive because it'll compute the loss twice.
+    If an algorithm modifies the loss function and it is no longer directly
+    provided in the output, then this could be expensive because it'll compute the loss twice.
     """
 
     def compute(self) -> Tensor:
+        """Returns torch.exp() of the LanguageCrossEntropyLoss.
         """
-        Returns torch.exp() of the LanguageCrossEntropyLoss.
-        """
-
         avg_loss = super().compute()
         return torch.exp(avg_loss)

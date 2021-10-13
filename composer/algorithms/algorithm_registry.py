@@ -8,7 +8,6 @@ from composer.algorithms.augmix import AugMixHparams
 from composer.algorithms.blurpool import BlurPoolHparams
 from composer.algorithms.channels_last import ChannelsLastHparams
 from composer.algorithms.colout import ColOutHparams
-from composer.algorithms.curriculum_learning import CurriculumLearningHparams
 from composer.algorithms.cutout import CutOutHparams
 from composer.algorithms.dummy import DummyHparams
 from composer.algorithms.ghost_batchnorm import GhostBatchNormHparams
@@ -21,6 +20,7 @@ from composer.algorithms.randaugment import RandAugmentHparams
 from composer.algorithms.sam import SAMHparams
 from composer.algorithms.scale_schedule import ScaleScheduleHparams
 from composer.algorithms.selective_backprop import SelectiveBackpropHparams
+from composer.algorithms.seq_length_warmup import SeqLengthWarmupHparams
 from composer.algorithms.squeeze_excite import SqueezeExciteHparams
 from composer.algorithms.stochastic_depth import StochasticDepthHparams
 from composer.algorithms.swa.hparams import SWAHparams
@@ -30,7 +30,7 @@ registry: Dict[str, Type[AlgorithmHparams]] = {
     'dummy': DummyHparams,
     'blurpool': BlurPoolHparams,
     'channels_last': ChannelsLastHparams,
-    'curriculum_learning': CurriculumLearningHparams,
+    'seq_length_warmup': SeqLengthWarmupHparams,
     'cutout': CutOutHparams,
     'ghost_batchnorm': GhostBatchNormHparams,
     'label_smoothing': LabelSmoothingHparams,
@@ -39,7 +39,6 @@ registry: Dict[str, Type[AlgorithmHparams]] = {
     'swa': SWAHparams,
     'no_op_model': NoOpModelHparams,
     'mixup': MixUpHparams,
-    'no_op_model': NoOpModelHparams,
     'scale_schedule': ScaleScheduleHparams,
     'stochastic_depth': StochasticDepthHparams,
     'colout': ColOutHparams,

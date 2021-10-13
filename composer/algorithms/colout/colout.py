@@ -65,15 +65,15 @@ def colout(img: Union[torch.Tensor, Image], p_row: float, p_col: float) -> Union
 
 
 class ColOutTransform:
+    """ Torchvision-like transform for performing the ColOut augmentation, where random rows and columns are
+        dropped from a single image.
+
+    Args:
+        p_row (float): Fraction of rows to drop (drop along H).
+        p_col (float): Fraction of columns to drop (drop along W).
+    """
 
     def __init__(self, p_row: float, p_col: float):
-        """ Torchvision-like transform for performing the ColOut augmentation, where random rows and columns are
-            dropped from a single image.
-
-        Args:
-            p_row (float): Fraction of rows to drop (drop along H).
-            p_col (float): Fraction of columns to drop (drop along W).
-        """
         self.p_row = p_row
         self.p_col = p_col
 
@@ -90,11 +90,11 @@ class ColOutTransform:
 
 
 def batch_colout(X: torch.Tensor, p_row: float, p_col: float) -> torch.Tensor:
-    """ Implements ColOut augmentation on the batch level, where random rows and columns are
-        dropped from all images in a batch.
+    """Applies ColOut augmentation to a batch of images, dropping the same
+    random rows and columns from all images in a batch.
 
     Args:
-        X (Tensor): Batch Tensor image of size (N, C, H, W).
+        X: Batch of images of shape (N, C, H, W).
         p_row: Fraction of rows to drop (drop along H).
         p_col: Fraction of columns to drop (drop along W).
 
@@ -122,8 +122,9 @@ def batch_colout(X: torch.Tensor, p_row: float, p_col: float) -> torch.Tensor:
 
 @dataclass
 class ColOutHparams(AlgorithmHparams):
-    p_row: float = hp.optional(doc="Fraction of rows to drop. Default: 0.15", default=0.15)
-    p_col: float = hp.optional(doc="Fraction of cols to drop. Default: 0.15", default=0.15)
+    """See :class:`ColOut`"""
+    p_row: float = hp.optional(doc="Fraction of rows to drop", default=0.15)
+    p_col: float = hp.optional(doc="Fraction of cols to drop", default=0.15)
     batch: bool = hp.optional(doc="Run ColOut at the batch level", default=True)
 
     def initialize_object(self) -> ColOut:
@@ -131,16 +132,18 @@ class ColOutHparams(AlgorithmHparams):
 
 
 class ColOut(Algorithm):
+    """Drops a fraction of the rows and columns of an input image. If the
+    fraction of rows/columns dropped isn't too large, this does not
+    significantly alter the content of the image, but reduces its size
+    and provides extra variability.
+
+    Args:
+        p_row: Fraction of rows to drop (drop along H).
+        p_col: Fraction of columns to drop (drop along W).
+        batch: Run ColOut at the batch level.
+    """
 
     def __init__(self, p_row: float = 0.15, p_col: float = 0.15, batch: bool = True):
-        """ Algorithm interface for the ColOut augmentation, where random rows and columns are
-            dropped from input images.
-
-        Args:
-            p_row (float, optional): Fraction of rows to drop (drop along H). Defaults to 0.15.
-            p_col (float, optional): Fraction of columns to drop (drop along W). Defaults to 0.15.
-            batch (bool, optional): Run ColOut at the batch level. Defaults to True.
-        """
         if not (0 <= p_col <= 1):
             raise ValueError("p_col must be between 0 and 1")
 
@@ -150,14 +153,14 @@ class ColOut(Algorithm):
         self.hparams = ColOutHparams(p_row, p_col, batch)
 
     def match(self, event: Event, state: State) -> bool:
-        """ Apply on Event.TRAINING_START for samplewise or Event.AFTER_DATALOADER for batchwise """
+        """Apply on Event.TRAINING_START for samplewise or Event.AFTER_DATALOADER for batchwise """
         if self.hparams.batch:
             return event == Event.AFTER_DATALOADER
         else:
             return event == Event.TRAINING_START
 
     def _apply_sample(self, state: State) -> None:
-        """ Add the ColOut dataset transform to the dataloader """
+        """Add the ColOut dataset transform to the dataloader """
         assert state.train_dataloader is not None
         dataset = state.train_dataloader.dataset
 
@@ -170,7 +173,7 @@ class ColOut(Algorithm):
                 f"Dataset of type {type(dataset)} has no attribute 'transform'. Expected TorchVision dataset.")
 
     def _apply_batch(self, state: State) -> None:
-        """ Transform a batch of images using the ColOut augmentation """
+        """Transform a batch of images using the ColOut augmentation """
         inputs, labels = state.batch_pair
         assert isinstance(inputs, Tensor), "Multiple Tensors not supported yet for ColOut"
         new_inputs = batch_colout(inputs, p_row=self.hparams.p_row, p_col=self.hparams.p_col)
@@ -178,7 +181,7 @@ class ColOut(Algorithm):
         state.batch = (new_inputs, labels)
 
     def apply(self, event: Event, state: State, logger: Logger) -> None:
-        """ Apply the relevant ColOut augmentation
+        """Applies ColOut augmentation to the state's input
 
         Args:
             event (Event): the current event

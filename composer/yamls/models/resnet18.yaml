@@ -15,10 +15,10 @@ val_dataset:
     shuffle: true
     drop_last: true
 optimizer:
-  sgd:
+  decoupled_sgdw:
     lr: 2.048
     momentum: 0.875
-    weight_decay: 3.0517578125e-05
+    weight_decay: 5.0e-4
     dampening: 0
     nesterov: false
 schedulers:

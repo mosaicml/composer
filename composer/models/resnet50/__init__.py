@@ -6,7 +6,7 @@ from composer.models.resnet50.resnet50_hparams import ResNet50Hparams as ResNet5
 _task = 'Image Classification'
 _dataset = 'ImageNet'
 _name = 'ResNet50'
-_quality = 76.5
+_quality = '76.51'
 _metric = 'Top-1 Accuracy'
-_ttt = '?'
-_hparams = 'hparams.yaml'
+_ttt = '3h 33m'
+_hparams = 'resnet50.yaml'

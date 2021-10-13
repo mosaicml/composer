@@ -15,6 +15,7 @@ from composer.utils.data import add_dataset_transform
 
 @dataclass
 class RandAugmentHparams(AlgorithmHparams):
+    """See :class:`RandAugment`"""
 
     severity: int = hp.optional(doc="Intensity of each augmentation. Ranges from 0 (none) to 10 (maximum)", default=9)
     depth: int = hp.optional(doc="Number of augmentations to compose in a row", default=2)
@@ -31,8 +32,8 @@ def randaugment(img: ImageType = None,
                 severity: int = 9,
                 depth: int = 2,
                 augmentation_set: List = augmentation_sets["all"]) -> ImageType:
-    """
-    Perform augmentations.
+    """Randomly applies a sequence of image data augmentations (`Cubuk et al. 2019 <https://openaccess.thecvf.com/content_CVPRW_2020/papers/w40/Cubuk_Randaugment_Practical_Automated_Data_Augmentation_With_a_Reduced_Search_Space_CVPRW_2020_paper.pdf>`_).
+    See :class:`RandAugment` for details.
     """
 
     # Iterate over augmentations
@@ -44,14 +45,12 @@ def randaugment(img: ImageType = None,
 
 
 class RandAugmentTransform(torch.nn.Module):
+    """Wraps :func:`randaugment` in a ``torchvision``-compatible transform"""
 
     def __init__(self, severity: int = 9, depth: int = 2, augmentation_set: str = "all"):
-        """
-        See documentation for RandAugment
-        """
         super().__init__()
         if severity < 0 or severity > 10:
-            raise ValueError("RandAugment severity value must be 0 ≤ severity ≤ 10")
+            raise ValueError("RandAugment severity value must satisfy 0 ≤ severity ≤ 10")
         if depth < 0:
             raise ValueError("RandAugment depth value must be ≥ 0")
         if augmentation_set not in augmentation_sets.keys():
@@ -66,10 +65,7 @@ class RandAugmentTransform(torch.nn.Module):
 
 
 class RandAugment(Algorithm):
-    """
-    Object that does RandAugment (Cubuk et al. (2019), RandAugment: Practical
-        automated data augmentation with a reduced search space). Can be passed as a
-        transform to torchvision.transforms.Compose().
+    """Randomly applies a sequence of image data augmentations (`Cubuk et al. 2019 <https://openaccess.thecvf.com/content_CVPRW_2020/papers/w40/Cubuk_Randaugment_Practical_Automated_Data_Augmentation_With_a_Reduced_Search_Space_CVPRW_2020_paper.pdf>`_).
 
     Args:
         severity (int): Severity of augmentation operators (between 1 to 10). M in the
@@ -82,7 +78,14 @@ class RandAugment(Algorithm):
             "augmentations_original" uses all augmentations, but some of the
             implementations are identical to the original github repo, which appears
             to contain implementation specificities for the augmentations "color",
-            "contrast", "sharpness", and "brightness".
+            "contrast", "sharpness", and "brightness". The original implementations
+            have an intensity sampling scheme that samples a value bounded by 0.118
+            at a minimum, and a maximum value of intensity*0.18 + .1, which ranges 
+            from 0.28 (intensity = 1) to 1.9 (intensity 10). These augmentations 
+            have different effects depending on whether they are < 0 or > 0 (or 
+            < 1 or > 1). "augmentations_all" uses implementations of "color", 
+            "contrast", "sharpness", and "brightness" that account for diverging 
+            effects around 0 (or 1).
     """
 
     def __init__(self, severity: int = 9, depth: int = 2, augmentation_set: str = "all"):
@@ -93,12 +96,23 @@ class RandAugment(Algorithm):
         self.hparams = RandAugmentHparams(severity=severity, depth=depth, augmentation_set=augmentation_set)
 
     def match(self, event: Event, state: State) -> bool:
-        """ Runs on Event.TRAINING_START
+        """Runs on Event.TRAINING_START
+        
+        Args:
+            event (:class:`Event`): The current event.
+            state (:class:`State`): The current state.
+        Returns:
+            bool: True if this algorithm should run now
         """
         return event == Event.TRAINING_START
 
     def apply(self, event: Event, state: State, logger: Logger) -> None:
-        """ Inserts RandAugment into the list of dataloader transforms
+        """Inserts RandAugment into the list of dataloader transforms
+        
+        Args:
+            event (Event): the current event
+            state (State): the current trainer state
+            logger (Logger): the training logger
         """
         ra = RandAugmentTransform(**self.hparams.to_dict())
         assert state.train_dataloader is not None

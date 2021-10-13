@@ -17,9 +17,18 @@ from composer.utils import map_collection
 
 
 class CudaDataLoader(WrappedDataLoader):
-    """
-    CudaDataLoader wraps a DataLoader and moves samples onto the specified device
-    as they are used
+    """Wraps :class:`~composer.core.types.DataLoader` and moves samples onto
+    the specified device as they are used.
+
+    Args:
+        dataloader (Dataloader): The dataloader to wrap.
+        prefetch_in_cuda_stream (bool): ``True`` to asyncrhonously prefetch
+            samples with a CUDA stream during dataloading and ``False``
+            otherwise.
+        device (:class:`torch.device`): The device that samples should
+            automatically be moved to upon iteration.
+        prefetch_fn (TPrefetchFn, optional): A function to run on the data
+            after fetching it. (default: ``None``)
     """
 
     def __init__(
@@ -29,10 +38,6 @@ class CudaDataLoader(WrappedDataLoader):
         device: torch.device,
         prefetch_fn: Optional[TPrefetchFn] = None,
     ) -> None:
-        """
-        dataloader: The dataloader to wrap
-        device: The device that samples should automatically be moved to upon iteration
-        """
         super().__init__(dataloader)
         self.device = device
         self.prefetch_in_cuda_stream = prefetch_in_cuda_stream
@@ -45,6 +50,7 @@ class CudaDataLoader(WrappedDataLoader):
             return self.normal_iter()
 
     def normal_iter(self):
+        """Iterate over data without prefetching."""
         for batch in self.dataloader:
             batch = self.move_to_gpu(batch)
             if self.prefetch_fn is not None:
@@ -52,6 +58,7 @@ class CudaDataLoader(WrappedDataLoader):
             yield batch
 
     def prefetch_in_cuda_stream_iter(self):
+        """Iterate over data while prefetching data in a cuda stream."""
         stream = torch.cuda.Stream()
         batch: Optional[Batch] = None
 
@@ -72,6 +79,11 @@ class CudaDataLoader(WrappedDataLoader):
         return x.to(self.device, non_blocking=True)
 
     def move_to_gpu(self, batch: Batch) -> Batch:
+        """Move data to the GPU device.
+
+        Args:
+            batch (Batch): The data to move the gpu.
+        """
         if isinstance(batch, Tensor):
             return self._to_device(batch)
         if isinstance(batch, (tuple, list)):
@@ -83,6 +95,14 @@ class CudaDataLoader(WrappedDataLoader):
 
 
 class DeviceGPU(Device):
+    """An extension of :class:`~composer.trainer.devices.device.Device` for GPUs.
+
+    Args:
+        prefetch_in_cuda_stream (bool): ``True`` to asyncrhonously prefetch
+            samples with a CUDA stream during dataloading and ``False``
+            otherwise.
+        num_gpus (int): The number of GPUs to use.
+    """
 
     def __init__(
         self,

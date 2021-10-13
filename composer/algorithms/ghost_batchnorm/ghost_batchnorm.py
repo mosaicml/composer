@@ -31,30 +31,25 @@ def _corresponding_ghost_batchnorm_type(batchnorm: torch.nn.Module):
 
 
 class _GhostBatchNorm(torch.nn.Module):
-    """Ghost Batch Normalization. See
-    `Train longer, generalize better: closing the generalization gap in large
-    batch training of neural networks <https://arxiv.org/abs/1705.08741>`__.
+    """`Ghost batch normalization <https://arxiv.org/abs/1705.08741>`_ layer.
 
-    Works by spliting input into chunks of `ghost_batch_size` samples, and
-    running Batch Normalization on each chunk separately. Dim 0 is assumed to
+    Works by spliting input into chunks of ``ghost_batch_size`` samples and
+    running batch normalization on each chunk separately. Dim 0 is assumed to
     be the sample axis.
 
-    See also `torch.nn.BatchNorm1d <https://pytorch.org/docs/stable/generated/torch.nn.BatchNorm1d.html>`__,  `torch.nn.BatchNorm2d <https://pytorch.org/docs/stable/generated/torch.nn.BatchNorm2d.html>`__, and
-    `torch.nn.BatchNorm3d <https://pytorch.org/docs/stable/generated/torch.nn.BatchNorm3d.html>`__.
+    See also `torch.nn.BatchNorm1d <https://pytorch.org/docs/stable/generated/torch.nn.BatchNorm1d.html>`_,  `torch.nn.BatchNorm2d <https://pytorch.org/docs/stable/generated/torch.nn.BatchNorm2d.html>`_, and
+    `torch.nn.BatchNorm3d <https://pytorch.org/docs/stable/generated/torch.nn.BatchNorm3d.html>`_.
 
     Args:
         ghost_batch_size: the size of the chunks passed into the underlying
-            Batch Normalization.
-        num_dims: the tensor rank of the inputs to be normalized. Used
-            to construct the underlying BatchNorm object when `base_batchnorm`
-            is not provided.
-        base_batchnorm: A BatchNorm module to be applied to each chunk.
+            batch normalization
+        base_batchnorm: A batch normalization module to be applied to each chunk
 
     Raises:
-        ValueError: If `ghost_batch_size` exceeds the number of samples in
-        the batch provided to `forward`. This might happen when doing
-        data-parallel training, because the per-worker batch size is usually
-        much smaller than the overall batch size.
+        ValueError: If ``ghost_batch_size`` exceeds the number of samples in
+            the batch provided to `forward`. This might happen when doing
+            data-parallel training, because the per-worker batch size is usually
+            much smaller than the overall batch size.
     """
 
     def __init__(self, base_batchnorm: _TORCH_BATCHNORM_BASE_CLASS, ghost_batch_size: int = _DEFAULT_GHOST_BATCH_SIZE):
@@ -105,10 +100,10 @@ class GhostBatchNorm3d(_GhostBatchNorm):
 
 
 def apply_ghost_batchnorm(model: torch.nn.Module, ghost_batch_size: int) -> torch.nn.Module:
-    """Replaces batch normalization modules with ghost batch normalization modules
+    """Replace batch normalization modules with ghost batch normalization modules.
 
-    This algorithm should be applied before the model has been moved to
-    accelerators, and before the model's parameters have been passed to an optimizer.
+    Must be run before the model has been moved to accelerators and before
+    the model's parameters have been passed to an optimizer.
 
     Args:
         model: model to transform
@@ -128,6 +123,7 @@ def apply_ghost_batchnorm(model: torch.nn.Module, ghost_batch_size: int) -> torc
 
 @dataclass
 class GhostBatchNormHparams(AlgorithmHparams):
+    """See :class:`GhostBatchNorm`"""
 
     ghost_batch_size: int = hp.required(doc='Size of sub-batches to normalize over',
                                         template_default=_DEFAULT_GHOST_BATCH_SIZE)
@@ -137,10 +133,17 @@ class GhostBatchNormHparams(AlgorithmHparams):
 
 
 class GhostBatchNorm(Algorithm):
-    """Algorithm to apply `Ghost Batch Normalization <https://arxiv.org/abs/1705.08741>`__ to the model.
+    """Replaces batch normalization modules with
+    `Ghost Batch Normalization <https://arxiv.org/abs/1705.08741>`_ modules
+    that simulate the effect of using a smaller batch size.
 
-    This entails replacing all of the batch normalization modules with ghost
-    batch normalization modules on Event.INIT.
+    Works by spliting input into chunks of ``ghost_batch_size`` samples and
+    running batch normalization on each chunk separately. Dim 0 is assumed to
+    be the sample axis.
+
+    Runs on ``Event.INIT`` and should be applied both before the model has
+    been moved to accelerators and before the model’s parameters have
+    been passed to an optimizer.
 
     Args:
         ghost_batch_size: size of sub-batches to normalize over

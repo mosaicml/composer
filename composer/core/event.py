@@ -4,73 +4,47 @@ from composer.utils.string_enum import StringEnum
 
 
 class Event(StringEnum):
-    """An event that occurs during the execution of the training and evaluation loops.
-    
-    For a conceptual understanding of what events are run within the trainer, see the below *pseudo-code* outline:
+    """Enum to represent events.
 
-    ```
-    model = your_model()
-    <INIT>  # model surgery here
-    optimizers = SGD(model.parameters(), lr=0.01)
-    schedulers = CosineAnnealing(optimizers, T_max=90)
+    Training Loop
+    ~~~~~~~~~~~~~
 
-    ddp.launch()  # for multi-GPUs, processes are forked here
-    <TRAINING_START>  # has access to process rank for DDP
+    .. include:: /core/event_training_loop_event_docstring.rst
 
-    for epoch in range(90):
-        <EPOCH_START>
 
-        for batch in dataloader:
-            <AFTER_DATALOADER>
-            <BATCH_START>
+    Attributes:
+        INIT: Immediately after ``model`` initialization,
+            and before creation of ``optimizers`` and ``schedulers``.
+            Model surgery typically occurs here.
+        TRAINING_START: Start of training.
+            For multi-GPU training, runs after the DDP process fork.
+        EPOCH_START: Start of an epoch.
+        BATCH_START: Start of a batch.
+        AFTER_DATALOADER: Immediately after the dataloader is called.
+            Typically used for on-GPU dataloader transforms.
+        BEFORE_TRAIN_BATCH: Before the forward-loss-backward
+            computation for a training batch. When using
+            gradient accumulation, this is still called only once.
+        BEFORE_FORWARD: Before the call to ``model.forward()``.
+        AFTER_FORWARD: After the call to ``model.forward()``.
+        BEFORE_LOSS: Before the call to ``model.loss()``.
+        AFTER_LOSS: After the call to ``model.loss()``.
+        BEFORE_BACKWARD: Before the call to ``loss.backward()``.
+        AFTER_BACKWARD: After the call to ``loss.backward()``.
+        AFTER_TRAIN_BATCH: After the forward-loss-backward
+            computation for a training batch. When using
+            gradient accumulation, this is still called only once.
+        BATCH_END: End of a batch, which occurs after the optimizer step
+            and any gradient scaling.
+        EPOCH_END: End of an epoch.
+        TRAINING_END: End of training. 
 
-            #-- closure: forward/backward/loss -- #
-            <BEFORE_TRAIN_BATCH>
-
-            # for gradient accumulation
-            for microbatch in batch:
-                <BEFORE_FORWARD>
-                outputs = model.forward(microbatch)
-                <AFTER_FORWARD>
-                <BEFORE_LOSS>
-                loss = model.loss(outputs, microbatch)
-                <AFTER_LOSS>
-                <BEFORE_BACKWARD>
-                loss.backward()
-                <AFTER_BACKWARD>
-
-            gradient_unscaling()  # for mixed precision
-            gradient_clipping()
-            <AFTER_TRAIN_BATCH>
-            # -------------------------- #
-
-            optimizer.step() # grad scaling (AMP) also
-
-            <BATCH_END>
-            scheduler.step('step')
-            maybe_eval()
-
-        scheduler.step('epoch')
-        maybe_eval()
-        <EPOCH_END>
-
-    <TRAINING_END>
-
-    def maybe_eval():
-        <EVAL_START>
-
-        for batch in eval_dataloader:
-            <EVAL_BATCH_START>
-
-            <EVAL_BEFORE_FORWARD>
-            outputs, targets = model.validate(batch)
-            <EVAL_AFTER_FORWARD>
-
-            metrics.update(outputs, targets)
-            <EVAL_BATCH_END>
-        
-        <EVAL_END>
-    ```
+        EVAL_START: Start of evaluation through the validation dataset.
+        EVAL_BATCH_START: Before the call to ``model.validate(batch)``
+        EVAL_BEFORE_FORWARD: Before the call to ``model.validate(batch)``
+        EVAL_AFTER_FORWARD: After the call to ``model.validate(batch)``
+        EVAL_BATCH_END: After the call to ``model.validate(batch)``
+        EVAL_END: End of evaluation through the validation dataset.
     """
 
     INIT = "init"

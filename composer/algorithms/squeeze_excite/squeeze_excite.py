@@ -17,6 +17,7 @@ log = logging.getLogger(__name__)
 
 @dataclass
 class SqueezeExciteHparams(AlgorithmHparams):
+    """See :class:`SqueezeExcite`"""
 
     latent_channels: float = hp.optional(
         doc='Dimensionality of hidden layer within the added MLP.',
@@ -33,9 +34,21 @@ class SqueezeExciteHparams(AlgorithmHparams):
 
 
 class SqueezeExcite2d(torch.nn.Module):
-    """`Squeeze-and-Excitation block <https://arxiv.org/abs/1709.01507>`_"""
+    """Squeeze-and-Excitation block from (`Hu et al. 2019 <https://arxiv.org/abs/1709.01507>`_)
 
-    def __init__(self, num_features, latent_channels=.125):
+    This block applies global average pooling to the input, feeds the resulting
+    vector to a single-hidden-layer fully-connected network (MLP), and uses the
+    output of this MLP as attention coefficients to rescale the input. This
+    allows the network to take into account global information about each input,
+    as opposed to only local receptive fields like in a convolutional layer.
+
+    Args:
+        num_features: Number of features or channels in the input
+        latent_channels: Dimensionality of the hidden layer within the added
+            MLP. If less than 1, interpreted as a fraction of ``num_features``.
+    """
+
+    def __init__(self, num_features: int, latent_channels: float = .125):
         super().__init__()
         self.latent_channels = int(latent_channels if latent_channels >= 1 else latent_channels * num_features)
         flattened_dims = num_features
@@ -53,7 +66,7 @@ class SqueezeExcite2d(torch.nn.Module):
 
 
 class SqueezeExciteConv2d(torch.nn.Module):
-    """Helper class used to add a `Squeeze-and-Excitation block <https://arxiv.org/abs/1709.01507>`_ after a Conv2d."""
+    """Helper class used to add a :class:`SqueezeExcite2d` module after a :class:`~torch.nn.Conv2d`."""
 
     def __init__(self, *args, latent_channels=.125, conv: torch.nn.Conv2d = None, **kwargs):
         super().__init__()
@@ -69,20 +82,7 @@ class SqueezeExciteConv2d(torch.nn.Module):
 
 
 def apply_se(model: torch.nn.Module, latent_channels: float, min_channels: int):
-    """Adds Squeeze-and-Excitation <https://arxiv.org/abs/1709.01507>`_  (SE) blocks
-    after the `Conv2d` layers of a neural network.
-
-    Args:
-        model: A module containing one or more `torch.nn.Conv2d` modules.
-        latent_channels: The dimensionality of the hidden layer within the added MLP.
-        min_channels: An SE block is added after a `Conv2d` module `conv`
-            only if `min(conv.in_channels, conv.out_channels) >= min_channels`.
-            For models that reduce spatial size and increase channel count
-            deeper in the network, this parameter can be used to only
-            add SE blocks deeper in the network. This may be desirable
-            because SE blocks add less overhead when their inputs have
-            smaller spatial size.
-    """
+    """See :class:`SqueezeExcite`"""
 
     def convert_module(module: torch.nn.Conv2d, module_index: int):
         if min(module.in_channels, module.out_channels) < min_channels:
@@ -95,13 +95,16 @@ def apply_se(model: torch.nn.Module, latent_channels: float, min_channels: int):
 
 
 class SqueezeExcite(Algorithm):
-    """Adds Squeeze-and-Excitation <https://arxiv.org/abs/1709.01507>`_  (SE) blocks
-    after the `Conv2d` layers of a neural network.
+    """Adds Squeeze-and-Excitation blocks (`Hu et al. 2019 <https://arxiv.org/abs/1709.01507>`_) after the :class:`~torch.nn.Conv2d` modules in a neural network.
+
+    See :class:`SqueezeExcite2d` for more information.
 
     Args:
-        latent_channels: The dimensionality of the hidden layer within the added MLP.
-        min_channels: An SE block is added after a `Conv2d` module `conv`
-            only if `min(conv.in_channels, conv.out_channels) >= min_channels`.
+        latent_channels: Dimensionality of the hidden layer within the added
+            MLP. If less than 1, interpreted as a fraction of ``num_features``.
+        min_channels: An SE block is added after a :class:`~torch.nn.Conv2d`
+            module ``conv`` only if
+            ``min(conv.in_channels, conv.out_channels) >= min_channels``.
             For models that reduce spatial size and increase channel count
             deeper in the network, this parameter can be used to only
             add SE blocks deeper in the network. This may be desirable
@@ -114,20 +117,29 @@ class SqueezeExcite(Algorithm):
         latent_channels: float = 64,
         min_channels: int = 128,
     ):
-        """
-        __init__ is constructed from the same fields as in hparams.
-        """
         self.hparams = SqueezeExciteHparams(
             latent_channels=latent_channels,
             min_channels=min_channels,
         )
 
     def match(self, event: Event, state: State) -> bool:
+        """Run on Event.INIT
+
+        Args:
+            event (:class:`Event`): The current event.
+            state (:class:`State`): The current state.
+        Returns:
+            bool: True if this algorithm should run no         
+        """
         return event == Event.INIT
 
     def apply(self, event: Event, state: State, logger: Logger) -> Optional[int]:
-        """
-        Apply the Squeeze-and-Excitation layer replacement.
+        """Apply the Squeeze-and-Excitation layer replacement.
+
+        Args:
+            event (Event): the current event
+            state (State): the current trainer state
+            logger (Logger): the training logger        
         """
         state.model = apply_se(state.model,
                                latent_channels=self.hparams.latent_channels,

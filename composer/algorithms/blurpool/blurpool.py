@@ -30,14 +30,24 @@ def apply_blurpool(model: torch.nn.Module,
                    replace_convs: bool = True,
                    replace_maxpools: bool = True,
                    blur_first: bool = True) -> None:
-    """Applies BlurPool algorithm to the provided model. Performs an in-place
-    replacement of eligible convolution and pooling layers.
+    """Add anti-aliasing filters to the strided :class:`torch.nn.Conv2d`
+    and/or :class:`torch.nn.MaxPool2d` modules within `model`.
+
+    Must be run before the model has been moved to accelerators and before
+    the model's parameters have been passed to an optimizer.
 
     Args:
-        model (torch.nn.Module): model to transform
-        replace_convs (bool): replace eligible Conv2D with BlurConv2d. Default: True.
-        replace_maxpools (bool): replace eligible MaxPool2d with BlurMaxPool2d. Default: True.
-        blur_first (bool): for replace_convs, blur input before conv. Default: True
+        model: model to modify
+        replace_convs: replace strided :class:`torch.nn.Conv2d` modules with
+            :class:`BlurConv2d` modules
+        replace_maxpools: replace eligible :class:`torch.nn.MaxPool2d` modules
+            with :class:`BlurMaxPool2d` modules.
+        blur_first: for ``replace_convs``, blur input before the associated
+            convolution. When set to ``False``, the convolution is applied with
+            a stride of 1 before the blurring, resulting in significant
+            overhead (though more closely matching
+            `the paper <http://proceedings.mlr.press/v97/zhang19a.html>`_).
+            See :class:`~composer.algorithms.blurpool.BlurConv2d` for further discussion.
     """
     transforms = {}
     if replace_maxpools:
@@ -53,10 +63,11 @@ def apply_blurpool(model: torch.nn.Module,
 
 @dataclass
 class BlurPoolHparams(AlgorithmHparams):
+    """See :class:`BlurPool`"""
 
     replace_convs: bool = hp.optional('Replace Conv2d with BlurConv2d if stride > 1', default=True)
     replace_maxpools: bool = hp.optional('Replace MaxPool2d with BlurMaxPool2d', default=True)
-    blur_first: bool = hp.optional('Blur input before Conv', default=True)
+    blur_first: bool = hp.optional('Blur input before convolution', default=True)
 
     def initialize_object(self) -> "BlurPool":
         return BlurPool(**asdict(self))
@@ -69,13 +80,24 @@ def _maybe_replace_strided_conv2d(module: torch.nn.Conv2d, module_index: int, bl
 
 
 class BlurPool(Algorithm):
-    """Algorithm to apply BlurPool to the model. Runs on Event.INIT. This algorithm should
-    be applied before the model has been moved to devices.
+    """`BlurPool <http://proceedings.mlr.press/v97/zhang19a.html>`_
+    adds anti-aliasing filters to convolutional layers to increase accuracy
+    and invariance to small shifts in the input.
+
+    Runs on ``Event.INIT`` and should be applied both before the model has
+    been moved to accelerators and before the model’s parameters have
+    been passed to an optimizer.
 
     Args:
-        replace_convs (bool): replace eligible Conv2D with BlurConv2d. Default: True.
-        replace_maxpools (bool): replace eligible MaxPool2d with BlurMaxPool2d. Default: True.
-        blur_first (bool): for replace_convs, blur input before conv. Default: True
+        replace_convs: replace strided :class:`torch.nn.Conv2d` modules with
+            :class:`BlurConv2d` modules
+        replace_maxpools: replace eligible :class:`torch.nn.MaxPool2d` modules
+            with :class:`BlurMaxPool2d` modules.
+        blur_first: when ``replace_convs`` is ``True``, blur input before the
+            associated convolution. When set to ``False``, the convolution is
+            applied with a stride of 1 before the blurring, resulting in
+            significant overhead (though more closely matching the paper).
+            See :class:`~composer.algorithms.blurpool.BlurConv2d` for further discussion.
     """
 
     def __init__(self, replace_convs: bool, replace_maxpools: bool, blur_first: bool) -> None:
@@ -91,12 +113,23 @@ class BlurPool(Algorithm):
                         'BlurPool will not be modifying the model.')
 
     def match(self, event: Event, state: State) -> bool:
-        """ Runs on Event.INIT
+        """Runs on Event.INIT
+        
+        Args:
+            event (:class:`Event`): The current event.
+            state (:class:`State`): The current state.
+        Returns:
+            bool: True if this algorithm should run now.
         """
         return event == Event.INIT
 
     def apply(self, event: Event, state: State, logger: Logger) -> Optional[int]:
-        """ Applies BlurPool
+        """Adds anti-aliasing filters to the maxpools and/or convolutions
+        
+        Args:
+            event (Event): the current event
+            state (State): the current trainer state
+            logger (Logger): the training logger
         """
         assert state.model is not None
 
@@ -113,7 +146,6 @@ class BlurPool(Algorithm):
         num_blurconv_layers = surgery.count_module_instances(state.model, BlurConv2d)
 
         # python logger
-        # TODO: standardize algorithm logging
         log.info(f'Applied BlurPool to model {state.model.__class__.__name__} '
                  f'with replace_maxpools={self.hparams.replace_maxpools}, '
                  f'replace_convs={self.hparams.replace_convs}. '

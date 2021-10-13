@@ -108,7 +108,7 @@ def translate_y(pil_img, level):
 # The following augmentations overlap with corruptions in the ImageNet-C/CIFAR10-C test
 # sets. Their original implementations also have an intensity sampling scheme that
 # samples a value bounded by 0.118 at a minimum, and a maximum value of intensity*0.18+
-# 1, which ranged from 0.28 (intensity = 1) to 1.9 (intensity 10). These augmentations
+# 0.1, which ranged from 0.28 (intensity = 1) to 1.9 (intensity 10). These augmentations
 # have different effects depending on whether they are < 0 or > 0, so the original
 # sampling scheme does not make sense to me. Accordingly, I replaced it with the
 # symmetric_sample() above.

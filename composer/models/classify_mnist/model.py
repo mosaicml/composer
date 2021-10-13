@@ -16,7 +16,6 @@ class Model(nn.Module):
     def __init__(self, initializers: Sequence[Union[str, Initializer]], outputs: int):
         super().__init__()
 
-        # TODO(issue #249):
         self.num_classes = outputs
 
         for initializer in initializers:
@@ -43,6 +42,11 @@ class Model(nn.Module):
 
 
 class MNIST_Classifier(MosaicClassifier):
+    """A simple convolutional neural network.
+
+    :class:`composer.models.MNIST_Classifier` is a simple example
+    convolutional neural network which can be used to classify MNIST data.
+    """
 
     def __init__(
         self,

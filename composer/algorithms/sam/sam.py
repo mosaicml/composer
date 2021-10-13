@@ -18,6 +18,7 @@ log = logging.getLogger(__name__)
 
 @dataclass
 class SAMHparams(AlgorithmHparams):
+    """See :class:`SAM`"""
     rho: float = hp.optional(doc='The neighborhood size parameter of SAM. Must be greater than 0.', default=0.05)
     epsilon: float = hp.optional(doc='A small value added to gradient norm for numerical stability.', default=1.0e-12)
     interval: int = hp.optional(doc='SAM will run once per `interval` steps. A value of 1 will cause'
@@ -30,7 +31,11 @@ class SAMHparams(AlgorithmHparams):
 
 
 class SAMOptimizer(torch.optim.Optimizer):
-    """Implementation based on https://github.com/davda54/sam"""
+    """Wraps an optimizer with sharpness-aware minimization (`Foret et al. 2020 <https://arxiv.org/abs/2010.01412>`_). See :class:`SAM` for details.
+
+    Implementation based on https://github.com/davda54/sam"""
+
+    # TODO(license) code linked above is MIT license
 
     def __init__(self, base_optimizer, rho, epsilon, interval, **kwargs):
         assert rho >= 0.0, f"Invalid rho, should be non-negative: {rho}"
@@ -101,7 +106,15 @@ class SAMOptimizer(torch.optim.Optimizer):
 
 
 class SAM(Algorithm):
-    """Applies SAM by wrapping existing optimizers with the SAMOptimizer."""
+    """Adds sharpness-aware minimization (`Foret et al. 2020 <https://arxiv.org/abs/2010.01412>`_) by wrapping an existing optimizer with a :class:`SAMOptimizer`.
+
+    Args:
+        rho: The neighborhood size parameter of SAM. Must be greater than 0.
+        epsilon: A small value added to the gradient norm for numerical stability.
+        interval: SAM will run once per ``interval`` steps. A value of 1 will
+            cause SAM to run every step. Steps on which SAM runs take
+            roughly twice as much time to complete.
+    """
 
     def __init__(
         self,
@@ -115,9 +128,24 @@ class SAM(Algorithm):
         self.hparams = SAMHparams(rho=rho, epsilon=epsilon, interval=interval)
 
     def match(self, event: Event, state: State) -> bool:
+        """Run on Event.TRAINING_START
+        
+        Args:
+            event (:class:`Event`): The current event.
+            state (:class:`State`): The current state.
+        Returns:
+            bool: True if this algorithm should run now
+        """
         return event == Event.TRAINING_START
 
     def apply(self, event: Event, state: State, logger: Optional[Logger]) -> Optional[int]:
+        """Applies SAM by wrapping the base optimizer with the SAM optimizer
+        
+        Args:
+            event (Event): the current event
+            state (State): the current trainer state
+            logger (Logger): the training logger
+        """
         assert state.optimizers is not None
 
         state.optimizers = tuple(

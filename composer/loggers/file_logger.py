@@ -15,39 +15,32 @@ from composer.loggers.logger_hparams import FileLoggerBackendHparams
 
 
 class FileLoggerBackend(RankZeroLoggerBackend):
-    """Log to a file.
+    """Logs to a file or to the terminal.
 
-    It prints logs to a file
-    (or terminal, defaults to stdout) as specified by :param filename:.
-    The :param log_level: 
-    (defaults to :attr:`~composore.core.logging.logger.LogLevel.EPOCH`)
-    controls the verbosity of the logging.
+    Example output::
 
-    Example output:
-        ```
         [FIT][step=2]: { "logged_metric": "logged_value", }
         [EPOCH][step=2]: { "logged_metric": "logged_value", }
         [BATCH][step=2]: { "logged_metric": "logged_value", }
         [EPOCH][step=3]: { "logged_metric": "logged_value", }
-        ```
 
 
     Args:
-        filename (str, optional): File to log to. Can be a filepath, 'stdout', or 'stderr'. Defaults to 'stdout'.
-        buffer_size (int, optional): Buffer size. See
-            https://docs.python.org/3/library/functions.html#open. Defaults to 1
-            for line buffering.
+        filename (str, optional): File to log to.
+            Can be a filepath, ``stdout``, or ``stderr``. (default: ``stdout``)
+        buffer_size (int, optional): Buffer size. See :py:func:`open`.
+            (default: ``1`` for line buffering)
         log_level (LogLevel, optional): Maximum
-            :class:`~composore.core.logging.logger.LogLevel`. to record.
-            Defaults to :attr:`~composore.core.logging.logger.LogLevel.EPOCH`.
+            :class:`~composer.core.logging.logger.LogLevel`. to record.
+            (default: :attr:`~composer.core.logging.logger.LogLevel.EPOCH`)
         every_n_epochs (int, optional):
-            Frequency to print :attr:`~composore.core.logging.logger.LogLevel.EPOCH` logs.
-            Defaults to 1 (every epoch).
+            Frequency to print :attr:`~composer.core.logging.logger.LogLevel.EPOCH` logs.
+            (default: ``1``)
         every_n_batches (int, optional):
-            Frequency to print :attr:`~composore.core.logging.logger.LogLevel.BATCH` logs.
-            Defaults to 1 (every batch).
+            Frequency to print :attr:`~composer.core.logging.logger.LogLevel.BATCH` logs.
+            (default: ``1``)
         flush_every_n_batches (int, optional): How frequently to flush the log to the file.
-            Defaults to 1 (every batch).
+            (default: ``1``)
     """
 
     def __init__(

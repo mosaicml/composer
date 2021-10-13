@@ -24,9 +24,11 @@ class WandBLoggerBackend(RankZeroLoggerBackend):
         self._init_params = kwargs
 
     def _log_metric(self, epoch: int, step: int, log_level: LogLevel, data: TLogData):
+        del epoch, log_level  # unused
         wandb.log(data, step=step)
 
     def _training_start(self, state: State, logger: Logger) -> None:
+        del state, logger  # unused
         wandb.init(**self._init_params)
         atexit.register(self._close_wandb)
 

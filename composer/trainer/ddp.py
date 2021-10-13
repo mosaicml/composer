@@ -116,7 +116,6 @@ class DDP:
             reduce_op = getattr(torch.distributed.ReduceOp, reduce_operation.upper())
             torch.distributed.all_reduce(tensor, op=reduce_op)
         else:
-            # TODO implement NON-DDP versions of the reduce operations
             raise NotImplementedError("Non-DDP versions of reduce operations are not yet implemented")
 
     def all_gather(self, tensor: torch.Tensor) -> Sequence[Tensor]:
@@ -184,7 +183,8 @@ class DDP:
                         ]
 
                         if local_rank == 0:
-                            # Attaching rank 0 to the main stdout/stderr so interactive terminal output will work without issue (e.g. tqdm)
+                            # Attaching rank 0 to the main stdout/stderr so interactive
+                            # terminal output will work without issue (e.g. tqdm)
                             process = subprocess.Popen(cmd, env=current_env, text=True)
                         else:
                             # Other processes, except in the case of an error, should not print anything
@@ -344,7 +344,7 @@ class DDPHparams(hp.Hparams):
     num_nodes: int = hp.optional(doc="Number of nodes used for training", default=1)
     fork_rank_0: bool = hp.optional(
         doc="Whether to fork the local rank 0 process, or use the existing process for rank 0 training.",
-        default=True,
+        default=False,
     )
 
     def initialize_object(self, nproc_per_node: int, backend: str, find_unused_parameters: bool) -> DDP:

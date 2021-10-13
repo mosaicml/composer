@@ -11,7 +11,7 @@ from composer import utils
 
 HEADER = ['Name', 'Functional', 'Attribution', 'tl;dr', 'Card']
 ATTRIBUTES = ['_class_name', '_functional', '_tldr', '_attribution', '_link', '_method_card']
-GITHUB_BASE = 'https://github.com/mosaicml/mosaicml/tree/dev/composer/algorithms/'  # TODO: update for launch
+GITHUB_BASE = 'https://github.com/mosaicml/composer/tree/dev/composer/algorithms/'
 
 folder_path = Path(__file__).parent
 methods = utils.list_dirs(folder_path)

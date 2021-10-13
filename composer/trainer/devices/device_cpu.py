@@ -32,6 +32,11 @@ class PrefetchedDataLoader(WrappedDataLoader):
 
 
 class DeviceCPU(Device):
+    """An extension of :class:`~composer.trainer.devices.device.Device` for CPUs.
+
+    Args:
+        num_cpus (int): The number of CPUs to use.
+    """
 
     def __init__(self, num_cpus: int):
         self._num_cpus = num_cpus

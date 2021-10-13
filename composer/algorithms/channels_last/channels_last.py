@@ -15,19 +15,18 @@ log = logging.getLogger(__name__)
 
 
 class ChannelsLast(Algorithm):
-    """ ChannelsLast algorithm runs on Event.TRAINING_START and changes
-    the memory format of the model to `torch.channels_last`. This
-    algorithm has no hyperparameters.
+    """Changes the memory format of the model to ``torch.channels_last``.
+    This usually yields improved GPU utilization.
+
+    Runs on ``Event.TRAINING_START`` and has no hyperparameters.
     """
 
     def match(self, event: Event, state: State) -> bool:
-        """ Runs on Event.TRAINING_START
-        """
+        """Runs on ``Event.TRAINING_START``"""
         return event == Event.TRAINING_START
 
     def apply(self, event: Event, state: State, logger: Logger) -> Optional[int]:
-        """ Changes the memory format of the model to `torch.channels_last`
-        """
+        """Changes the memory format of the model to ``torch.channels_last``"""
         assert state.model is not None, 'Channels Last cannot be applied to None'
         # TODO: Double check model is moved to cuda with device type
         state.model.to(memory_format=torch.channels_last)  # type: ignore
@@ -37,8 +36,7 @@ class ChannelsLast(Algorithm):
 
 @dataclass
 class ChannelsLastHparams(AlgorithmHparams):
-    """ ChannelsLast algorithm has no hyperparameters.
-    """
+    """ChannelsLast has no hyperparameters, so this class has no member variables"""
     pass
 
     def initialize_object(self) -> ChannelsLast:

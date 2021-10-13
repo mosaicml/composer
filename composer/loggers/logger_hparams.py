@@ -1,5 +1,6 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
+"""Logger Hyperparameters"""
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
@@ -19,20 +20,33 @@ if TYPE_CHECKING:
 
 @dataclass
 class BaseLoggerBackendHparams(hp.Hparams, ABC):
+    """
+    Base class for logger backend hyperparameters.
+    
+    Logger parameters that are added to
+    :class:`~composer.trainer.trainer_hparams.TrainerHparams`
+    (e.g. via YAML or the CLI) are initialized in the training loop.
+    """
 
     @abstractmethod
     def initialize_object(self, config: Optional[Dict[str, Any]] = None) -> BaseLoggerBackend:
-        """ Initializes a Base Logger
+        """Initializes the logger.
 
         Args:
-            config: An optional dictionary that a logger can use on initialization to
-                log a config or configure the logger
+            config (dict): The configuration used by the trainer.
+                The logger can optionally save this configuration.
         """
         pass
 
 
 @dataclass
 class FileLoggerBackendHparams(BaseLoggerBackendHparams):
+    """:class:`~composer.loggers.file_logger.FileLoggerBackend`
+    hyperparameters.
+
+    See :class:`~composer.loggers.file_logger.FileLoggerBackend`
+    for documentation.
+    """
     log_level: LogLevel = hp.optional("The maximum verbosity to log. Default: EPOCH", default=LogLevel.EPOCH)
     filename: str = hp.optional("The path to the logfile. Can also be `stdout` or `stderr`. Default: stdout",
                                 default="stdout")
@@ -60,11 +74,16 @@ class FileLoggerBackendHparams(BaseLoggerBackendHparams):
 
 @dataclass
 class WandBLoggerBackendHparams(BaseLoggerBackendHparams):
-    """
-    WandBOutputConfig configures logging to Weights and Biases (wandb.ai)
+    """:class:`~composer.loggers.wandb_logger.WandBLoggerBackend`
+    hyperparameters.
 
     Args:
-        init_params: kwargs to pass into `wandb.init()`
+        project (str, optional): Weights and Biases project name.
+        name (str, optional): Weights and Biases run name.
+        entity (str, optional): Weights and Biases entity name.
+        tags (str, optional): Comma-seperated list of tags to add to the run.
+
+        extra_init_params (JSON Dictionary, optional): Extra parameters to pass into :func:`wandb.init`.
     """
 
     project: Optional[str] = hp.optional(doc="wandb project name", default=None)
@@ -74,6 +93,18 @@ class WandBLoggerBackendHparams(BaseLoggerBackendHparams):
     extra_init_params: Dict[str, JSON] = hp.optional(doc="wandb parameters", default_factory=dict)
 
     def initialize_object(self, config: Optional[Dict[str, Any]] = None) -> WandBLoggerBackend:
+        """Initializes the logger.
+        
+        The ``config`` is flattened and stored as :attr:`wandb.run.config`.
+        The list of algorithms in the ``config`` are appended to :attr:`wandb.run.tags`.
+
+        Args:
+            config (Optional[Dict[str, Any]], optional):
+                The configuration used by the trainer.
+
+        Returns:
+            WandBLoggerBackend: An instance of :class:`~composer.loggers.wandb_logger.WandBLoggerBackend`.
+        """
         tags = list(set([x.strip() for x in self.tags.split(",") if x.strip() != ""]))
 
         if config is not None:
@@ -165,6 +196,12 @@ class WandBLoggerBackendHparams(BaseLoggerBackendHparams):
 
 @dataclass
 class TQDMLoggerBackendHparams(BaseLoggerBackendHparams):
+    """:class:`~composer.loggers.tqdm_logger.TQDMLoggerBackend`
+    hyperparameters.
+
+    See :class:`~composer.loggers.tqdm_logger.TQDMLoggerBackend`
+    for documentation.
+    """
 
     def initialize_object(self, config: Optional[Dict[str, Any]] = None) -> TQDMLoggerBackend:
         from composer.loggers.tqdm_logger import TQDMLoggerBackend

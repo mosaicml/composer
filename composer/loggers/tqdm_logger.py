@@ -18,7 +18,7 @@ if TYPE_CHECKING:
 
 
 @dataclass
-class TQDMLoggerInstanceState:
+class _TQDMLoggerInstanceState:
     total: int
     epoch: int
     val: bool
@@ -27,7 +27,7 @@ class TQDMLoggerInstanceState:
     epoch_metrics: Dict[str, TLogDataValue] = field(default_factory=dict)
 
 
-class TQDMLoggerInstance:
+class _TQDMLoggerInstance:
 
     def __init__(self,
                  total: int,
@@ -36,12 +36,12 @@ class TQDMLoggerInstance:
                  keys_to_log: Sequence[str],
                  n: int = 0,
                  epoch_metrics: Optional[Dict[str, TLogDataValue]] = None) -> None:
-        self.state = TQDMLoggerInstanceState(total=total,
-                                             epoch=epoch,
-                                             val=val,
-                                             n=n,
-                                             keys_to_log=keys_to_log,
-                                             epoch_metrics=(epoch_metrics or {}))
+        self.state = _TQDMLoggerInstanceState(total=total,
+                                              epoch=epoch,
+                                              val=val,
+                                              n=n,
+                                              keys_to_log=keys_to_log,
+                                              epoch_metrics=(epoch_metrics or {}))
         desc = f'Epoch {epoch + 1}{" (val)" if val else ""}'
         position = 1 if val else 0
         self.pbar = tqdm(total=total,
@@ -68,18 +68,39 @@ class TQDMLoggerInstance:
 
 
 class TQDMLoggerBackend(RankZeroLoggerBackend):
+    """Shows TQDM progress bars.
+
+    During training, the progress bar logs the batch and training loss.
+    During validation, the progress bar logs the batch and validation accuracy.
+
+    Example output::
+
+        Epoch 1: 100%|██████████| 64/64 [00:01<00:00, 53.17it/s, loss/train=2.3023]                                                                                 
+        Epoch 1 (val): 100%|██████████| 20/20 [00:00<00:00, 100.96it/s, accuracy/val=0.0995]  
+
+    .. note::
+
+        It is currently not possible to show additional metrics. 
+        Custom metrics for the TQDM progress bar will be supported in a future version.
+
+    Args:
+        config (dict or None, optional):
+            Trainer configuration. If provided, it is printed to the terminal as YAML.
+    """
 
     def __init__(self, config: Optional[Dict[str, Any]] = None) -> None:
         super().__init__()
-        self.pbar_train: Optional[TQDMLoggerInstance] = None
-        self.pbar_val: Optional[TQDMLoggerInstance] = None
+        self.pbar_train: Optional[_TQDMLoggerInstance] = None
+        self.pbar_val: Optional[_TQDMLoggerInstance] = None
         self.is_validating = False
         self.config = config
 
     def _will_log(self, state: State, log_level: LogLevel) -> bool:
+        del state  # Unused
         return log_level <= LogLevel.BATCH
 
     def _log_metric(self, epoch: int, step: int, log_level: LogLevel, data: TLogData) -> None:
+        del epoch, step, log_level  # Unused
         pbar = self.pbar_val if self.is_validating else self.pbar_train
         if pbar is None:
             # Logging outside an epoch
@@ -87,6 +108,7 @@ class TQDMLoggerBackend(RankZeroLoggerBackend):
         pbar.log_metric(data)
 
     def _training_start(self, state: State, logger: Logger) -> None:
+        del state, logger  # Unused
         if self.config is not None:
             print("Config")
             print("-" * 30)
@@ -95,35 +117,41 @@ class TQDMLoggerBackend(RankZeroLoggerBackend):
             print()
 
     def epoch_start(self, state: State, logger: Logger) -> None:
+        del logger  # Unused
         assert self.pbar_train is None
-        self.pbar_train = TQDMLoggerInstance(total=state.steps_per_epoch,
-                                             epoch=state.epoch,
-                                             val=False,
-                                             keys_to_log=["loss/train"])
+        self.pbar_train = _TQDMLoggerInstance(total=state.steps_per_epoch,
+                                              epoch=state.epoch,
+                                              val=False,
+                                              keys_to_log=["loss/train"])
 
     def after_backward(self, state: State, logger: Logger) -> None:
+        del state, logger  # Unused
         assert self.pbar_train is not None
         self.pbar_train.update()
 
     def epoch_end(self, state: State, logger: Logger) -> None:
+        del state, logger  # Unused
         assert self.pbar_train is not None
         self.pbar_train.close()
         self.pbar_train = None
 
     def eval_start(self, state: State, logger: Logger) -> None:
+        del logger  # Unused
         assert self.pbar_val is None
         assert state.eval_dataloader is not None
-        self.pbar_val = TQDMLoggerInstance(total=len(state.eval_dataloader),
-                                           epoch=state.epoch,
-                                           val=True,
-                                           keys_to_log=["accuracy/val"])
+        self.pbar_val = _TQDMLoggerInstance(total=len(state.eval_dataloader),
+                                            epoch=state.epoch,
+                                            val=True,
+                                            keys_to_log=["accuracy/val"])
         self.is_validating = True
 
     def eval_after_forward(self, state: State, logger: Logger) -> None:
+        del state, logger  # Unused
         assert self.pbar_val is not None
         self.pbar_val.update()
 
     def eval_end(self, state: State, logger: Logger) -> None:
+        del state, logger  # Unused
         assert self.pbar_val is not None
         self.pbar_val.close()
         self.pbar_val = None
@@ -140,6 +168,6 @@ class TQDMLoggerBackend(RankZeroLoggerBackend):
     def load_state_dict(self, state: StateDict) -> None:
         self.is_validating = state["is_validating"]
         if "pbar_train" in state:
-            self.pbar_train = TQDMLoggerInstance(**state["pbar_train"])
+            self.pbar_train = _TQDMLoggerInstance(**state["pbar_train"])
         if "pbar_val" in state:
-            self.pbar_val = TQDMLoggerInstance(**state["pbar"])
+            self.pbar_val = _TQDMLoggerInstance(**state["pbar"])

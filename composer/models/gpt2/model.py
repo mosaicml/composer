@@ -15,8 +15,16 @@ if TYPE_CHECKING:
 
 
 class GPT2Model(MosaicTransformer):
-    """
-    Implements a GPT-2 wrapper around a MosaicTransformer.
+    """Implements a GPT-2 wrapper around a MosaicTransformer.
+
+    See this `paper <https://d4mucfpksywv.cloudfront.net/better-language-models/language-models.pdf>`_
+    for details on the GPT-2 architecutre.
+
+    Args:
+        module (transformers.GPT2Model): The model to wrap with this module.
+        config (transformers.GPT2Config): The config for the model.
+        tokenizer_name (str): The name of the tokenizer used for tihs model,
+            necessary to assert required model inputs.
     """
 
     def __init__(self, module: transformers.GPT2Model, config: transformers.GPT2Config, tokenizer_name: str) -> None:

@@ -14,8 +14,6 @@ The library features:
 .. note::
     MosaicML Composer is currently in **beta**, so the API is subject to change.
 
-MosaicML has been tested with Ubuntu 20.04, PyTorch 1.8.1, and Python 3.8.
-
 
 Motivation
 ~~~~~~~~~~
@@ -56,7 +54,6 @@ Our documentation is organized into a few sections:
    core/callback.rst
    core/engine.rst
    core/event.rst
-   core/functional.rst
    core/logger.rst
    core/state.rst
    core/surgery.rst

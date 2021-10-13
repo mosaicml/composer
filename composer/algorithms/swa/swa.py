@@ -55,19 +55,23 @@ def update_bn(loader, model, device=None):
 
 
 class SWA(Algorithm):
-    """Apply Stochastic Weight Averaging
+    """Apply Stochastic Weight Averaging (`Izmailov et al. <https://arxiv.org/abs/1803.05407>`_)
 
-    Stochastic Weight Averaging (SWA) averages model weights sampled towards the end of training.
-    This leads to better generalization than conventional training.
+    Stochastic Weight Averaging (SWA) averages model weights sampled at
+    different times near the end of training. This leads to better
+    generalization than just using the final trained weights.
 
-    See `Averaging Weights Leads to Wider Optima and Better Generalization` <https://arxiv.org/abs/1803.05407>.
+    Because this algorithm needs to maintain both the current value of the
+    weights and the average of all of the sampled weights, it doubles the
+    model's memory consumption. Note that this does not mean that the total
+    memory required doubles, however, since stored activations and the
+    optimizer state are not doubled.
 
-    
     Args:
-        swa_start (float): fraction of training completed before stochastic weight averaging is applied
-        anneal_epochs (int): The final learning rate to anneal towards
-        swa_lr (float): fraction of minibatch to select and keep for gradient computation
+        swa_start: fraction of training completed before stochastic weight averaging is applied
+        swa_lr: the final learning rate used for weight averaging
 
+    Note that 'anneal_epochs' is not used in the current implementation
     """
 
     def __init__(self, swa_start: float = 0.8, anneal_epochs: int = 10, swa_lr: Optional[float] = None):
@@ -82,12 +86,26 @@ class SWA(Algorithm):
         self.swa_scheduler = None
 
     def match(self, event: Event, state: State) -> bool:
+        """Run in Event.TRAINING_START, Event.TRAINING_END or if Event.EPOCH_END and epochs greater than or equal to `swa_start * max_epochs`
+
+        Args:
+            event (:class:`Event`): The current event.
+            state (:class:`State`): The current state.
+        Returns:
+            bool: True if this algorithm should run now.
+        """
         should_start_swa = state.epoch >= int(self.hparams.swa_start * state.max_epochs)
         return event in (Event.TRAINING_START, Event.TRAINING_END) or \
              (event == Event.EPOCH_END and should_start_swa)
 
     def apply(self, event: Event, state: State, logger: Logger) -> None:
+        """Apply SWA to weights towards the end of training
 
+        Args:
+            event (Event): the current event
+            state (State): the current trainer state
+            logger (Logger): the training logger
+        """
         assert state.model is not None, 'We cannot apply SWA to None'
 
         swa_start_epochs = int(self.hparams.swa_start * state.max_epochs)

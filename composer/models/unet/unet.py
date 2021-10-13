@@ -18,6 +18,14 @@ log = logging.getLogger(__name__)
 
 
 class UNet(BaseMosaicModel):
+    """A U-Net model extending :class:`MosaicClassifier`.
+
+    See this `paper <https://arxiv.org/abs/1505.04597> for details on the
+    U-Net architecture.
+
+    Args:
+        hparams (UnetHparams): The hyperparameters for constructing the model.
+    """
 
     n_classes: Optional[int] = None
 

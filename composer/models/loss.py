@@ -15,6 +15,12 @@ if TYPE_CHECKING:
 
 
 class Dice(Metric):
+    """The Dice Coefficient for evaluating image segmentation.
+
+    The Dice Coefficient measures how similar predictions and targets are.
+    More concretely, it is computed as 2 * the Area of Overlap divided by
+    the total number of pixels in both images.
+    """
 
     def __init__(self, nclass):
         super().__init__(dist_sync_on_step=True)
@@ -22,10 +28,14 @@ class Dice(Metric):
         self.add_state("dice", default=torch.zeros((nclass,)), dist_reduce_fx="sum")
 
     def update(self, pred, target):
+        """Update the state based on new predictions and targets.
+        """
         self.n_updates += 1  # type: ignore
         self.dice += self.compute_stats(pred, target)
 
     def compute(self):
+        """Aggregate the state over all processes to compute the metric.
+        """
         dice = 100 * self.dice / self.n_updates  # type: ignore
         best_sum_dice = dice[:]
         top_dice = round(torch.mean(best_sum_dice).item(), 2)
@@ -68,8 +78,7 @@ def _stat_scores(
 
 
 def _infer_target_type(input: Tensor, targets: Tensor) -> str:
-    """
-    Attempts to infer whether target is indicies format (e.g. [1, 4, 7]) or
+    """Attempts to infer whether target is indicies format (e.g. [1, 4, 7]) or
     one_hot format (e.g. [[0, 1, 0], [1, 0, 0], ...])
     """
     if input.shape == targets.shape:
@@ -96,9 +105,10 @@ def soft_cross_entropy(input: Tensor,
                        ignore_index: int = -100,
                        reduce: Optional[bool] = None,
                        reduction: str = 'mean'):
-    """
-    Drop-in replacement for torch.CrossEntropy that can handle dense labels.
-    This function will be obsolete with https://github.com/pytorch/pytorch/pull/61044
+    """Drop-in replacement for ``torch.CrossEntropy`` that can handle dense labels.
+
+    This function will be obsolete with
+    `this update <https://github.com/pytorch/pytorch/pull/61044>`_.
     """
     target_type = _infer_target_type(input, target)
 
@@ -127,8 +137,11 @@ def soft_cross_entropy(input: Tensor,
 
 
 class CrossEntropyLoss(Metric):
-    """
-    Torchmetric implementation to calculate validation loss
+    """Torchmetric cross entropy loss implementation.
+
+    This class implements cross entropy loss as a `torchmetric` so that
+    it can be returned by the :meth:`~composer.models.BaseMosaicModel.metric`
+    function in :class:`BaseMosaicModel`.
     """
 
     def __init__(self, dist_sync_on_step=False):
@@ -138,12 +151,16 @@ class CrossEntropyLoss(Metric):
         self.add_state("total_batches", default=torch.tensor(0), dist_reduce_fx="sum")
 
     def update(self, preds: Tensor, target: Tensor) -> None:
+        """Update the state with new predictions and targets.
+        """
         # Loss calculated over samples/batch, accumulate loss over all batches
         self.sum_loss += soft_cross_entropy(preds, target)
         assert isinstance(self.total_batches, Tensor)
         self.total_batches += 1
 
     def compute(self) -> Tensor:
+        """Aggregate state over all processes and compute the metric.
+        """
         # Return average loss over entire validation dataset
         assert isinstance(self.total_batches, Tensor)
         assert isinstance(self.sum_loss, Tensor)

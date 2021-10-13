@@ -66,12 +66,13 @@ Here are several ways to use ``Trainer``:
        from composer import algorithms, trainer, Trainer
        from composer.core.types import Precision
 
-       hparams = trainer.load("resnet50")  # loads from composer/models/resnet50/resnet50.yaml
+       hparams = trainer.load("classify_mnist_cpu")  # loads from composer/yamls/models/classify_mnist_cpu.yaml
        hparams.algorithms = algorithms.load_multiple("blurpool", "label_smoothing")
 
        # edit other properties in the hparams object
        hparams.precision = Precision.FP32
        hparams.grad_accum = 2
+       hparams.set_datadir("~/datasets")
 
        trainer = Trainer.create_from_hparams(hparams)
        trainer.fit()
@@ -86,15 +87,16 @@ Here are several ways to use ``Trainer``:
 
        git clone https://github.com/mosaicml/composer.git
        cd composer && pip install -e .
-       python3 examples/run_mosaic_trainer.py -f composer/models/classify_mnist/classify_mnist_cpu.yaml
+       python examples/run_mosaic_trainer.py -f composer/yamls/models/classify_mnist_cpu.yaml  --datadir ~/datasets
 
-   Or, in python,
+   Or, in Python,
 
    .. code-block:: python
 
-        from composer.trainer import trainer_hparams, Trainer
+        from composer.trainer import TrainerHparams, Trainer
 
-        hparams = trainer_hparams.create('path_to_yaml')
+        hparams = TrainerHparams.create('composer/yamls/models/classify_mnist_cpu.yaml')
+        hparams.set_datadir("~/datasets")
         trainer = Trainer.create_from_hparams(hparams)
 
         trainer.fit()
@@ -105,32 +107,32 @@ Here are several ways to use ``Trainer``:
 
    .. code-block:: python
 
-       from composer import Trainer
-       from composer import models, DataloaderSpec
-       from torchvision import datasets, transforms
+        from composer import Trainer
+        from composer import models, DataloaderSpec
+        from torchvision import datasets, transforms
 
         train_dataloader_spec = DataloaderSpec(
-            dataset=datasets.MNIST('/datasets/', train=True, transform=transforms.ToTensor(), download=True),
+            dataset=datasets.MNIST('~/datasets/', train=True, transform=transforms.ToTensor(), download=True),
             drop_last=False,
             shuffle=True,
         )
 
         eval_dataloader_spec = DataloaderSpec(
-            dataset=datasets.MNIST('/datasets/', train=False, transform=transforms.ToTensor()),
+            dataset=datasets.MNIST('~/datasets/', train=False, transform=transforms.ToTensor()),
             drop_last=False,
             shuffle=False,
         )
 
-       trainer = Trainer(
-           model=models.MNIST_Classifier(num_classes=10),
-           train_dataloader_spec=train_dataloader_spec,
-           eval_dataloader_spec=eval_dataloader_spec,
-           max_epochs=3,
-           train_batch_size=256,
-           eval_batch_size=256,
-       )
+        trainer = Trainer(
+            model=models.MNIST_Classifier(num_classes=10),
+            train_dataloader_spec=train_dataloader_spec,
+            eval_dataloader_spec=eval_dataloader_spec,
+            max_epochs=3,
+            train_batch_size=256,
+            eval_batch_size=256,
+        )
 
-       trainer.fit()
+        trainer.fit()
 
    For a comprehensive list of training arguments, see: :doc:`/trainer`
 

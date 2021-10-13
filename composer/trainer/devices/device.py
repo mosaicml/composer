@@ -14,11 +14,14 @@ T_nnModule = TypeVar("T_nnModule", bound=torch.nn.Module)
 
 
 class Device(Serializable, ABC):
+    """Abstract class for a device on which a model runs.
+    """
 
     @abstractmethod
     def prepare(self, state: State) -> None:
-        """prepare() is invoked by the trainer at the beginning of the training loop.
-        The device should perform any initialization here.
+        """Used for device initialization.
+
+        Invoked by the trainer at the beginning of the training loop.
         It should not modify the state.
 
         Args:
@@ -27,7 +30,7 @@ class Device(Serializable, ABC):
 
     @abstractmethod
     def module_to_device(self, module: T_nnModule) -> T_nnModule:
-        """module_to_device moves a module onto the device's device.
+        """Moves a module onto the device instance's device.
 
         Args:
             module (T_nnModule): The module to move to the device
@@ -39,7 +42,7 @@ class Device(Serializable, ABC):
 
     @abstractmethod
     def tensor_to_device(self, tensor: Tensor) -> Tensor:
-        """tensor_to_device moves a tensor onto the device's device.
+        """Moves a tensor onto the device instance's device.
 
         Args:
             tensor (T_nnModule): The tensor to move to the device
@@ -51,9 +54,11 @@ class Device(Serializable, ABC):
 
     @abstractmethod
     def dataloader_to_device(self, dataloader: DataLoader, prefetch_fn: Optional[TPrefetchFn]) -> DataLoader:
-        """dataloader_to_device wraps a dataloader and ensures that all returned batches are on the
-        the correct device. It is responsible for executing `prefetch_fn`, if provided, on each batch before it is
-        yielded. The `prefetch_fn` can be executed in the background, if the device supports it.
+        """Wraps a Dataloader and ensures all returned batches are on the correct device.
+
+        This function is responsible for executing `prefetch_fn`, if provided,
+        on each batch before it is yielded. The `prefetch_fn` can be executed
+        in the background, if the device supports it.
 
         Args:
             dataloader (DataLoader): The dataloader to wrap.
@@ -62,12 +67,13 @@ class Device(Serializable, ABC):
                 (e.g. on a GPU device, this function can be used for gpu transformations.)
 
         Returns:
-            DataLoader: The wrapped dataloader, which yields batches that have been moved to the device
-                and have been processed through the prefetch_fn.
+            DataLoader: The wrapped dataloader, which yields batches that
+            have been moved to the device and have been processed through
+            the prefetch_fn.
         """
 
     def optimizer_to_device(self, optimizer: Optimizer) -> Optimizer:
-        """optimizer_to_device moves an optimizer's state onto the device's device.
+        """Moves an optimizer's state onto the device instance's device.
 
         As a rule, this usually isn't necessary, since most optimizers lazy initialize their state
         when `.step()` is first called, based off of the device of the parameters. The prominent
@@ -88,14 +94,14 @@ class Device(Serializable, ABC):
     @abstractmethod
     @contextmanager
     def precision_context(self, precision: Union[str, Precision]) -> Generator[None, None, None]:
-        """precision returns a context manager that uses the specified precision.
+        """Precision returns a context manager that uses the specified precision.
 
         Example usage:
 
-        ```
-        with device.precision(Precision.AMP):
-            forward_pass_with_amp()
-        ```
+        .. code-block:: python
+
+            with device.precision(Precision.AMP):
+                forward_pass_with_amp()
 
         Args:
             precision (Precision): [description]
@@ -118,8 +124,11 @@ class Device(Serializable, ABC):
     @property
     @abstractmethod
     def ddp_backend(self) -> str:
-        """DDP backend to use. Should return `gloo`, `mpi`, or `nccl`.
-        See https://pytorch.org/docs/stable/distributed.html
+        """DDP backend to use.
+
+        Should return `gloo`, `mpi`, or `nccl`.
+        See `the pytorch docs <https://pytorch.org/docs/stable/distributed.html>`_
+        for details.
 
         Returns:
             str: `gloo`, `mpi`, or `nccl`

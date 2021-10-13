@@ -1,8 +1,10 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
+# Code below adapted from https://github.com/facebookresearch/open_lth
+# and https://github.com/pytorch/vision
+
 # type: ignore
 # yapf: disable
-# Code original from TODO CITATION.
 from functools import partial
 from typing import Callable, List, Optional, Union
 
@@ -162,7 +164,6 @@ class ImageNet_ResNet(nn.Module):
     def __init__(self, model_fn, initializers: List[Union[str, Initializer]], outputs=None):
         super(ImageNet_ResNet, self).__init__()
 
-        # TODO(issue #249):
         self.num_classes = outputs
         self.model = model_fn(num_classes=outputs or 1000)
         self.criterion = nn.CrossEntropyLoss()
@@ -265,7 +266,6 @@ class CIFAR_ResNet(nn.Module):
         super(CIFAR_ResNet, self).__init__()
         outputs = outputs or 10
 
-        # TODO(issue #249): Replace
         self.num_classes = outputs
 
         # Initial convolution.

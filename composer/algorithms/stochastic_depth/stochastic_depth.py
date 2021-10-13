@@ -53,7 +53,7 @@ def validate_stochastic_hparams(stochastic_method: str,
                          f" not supported. Must be one of {list(_VALID_LAYER_DISTRIBUTIONS)}")
 
     if drop_warmup and (drop_warmup < 0 or drop_warmup > 1):
-        raise ValueError(f"drop_warmup must be between 0 and 1: {drop_warmup}")
+        raise ValueError(f"drop_warmup must be between 0 and 1, not {drop_warmup}")
 
     if stochastic_method == "sample" and drop_warmup > 0:
         raise ValueError(f"drop_warmup can not be used with 'sample' stochastic_method")
@@ -61,9 +61,9 @@ def validate_stochastic_hparams(stochastic_method: str,
 
 @dataclass
 class StochasticDepthHparams(AlgorithmHparams):
-    """Hyperparameters for the Stochastic Depth algorithm"""
+    """See :class:`StochasticDepth`"""
 
-    stochastic_method: str = hp.required('The version of stochastic depth to use. Either ["sample", "block"].')
+    stochastic_method: str = hp.required('The version of stochastic depth to use. One of ["sample", "block"].')
     target_layer_name: str = hp.required(
         f'Reference name of layer to replace. "block" method can be {list(STOCHASTIC_LAYER_MAPPING["block"].keys())}.'
         f' "sample" method can be {list(STOCHASTIC_LAYER_MAPPING["sample"].keys())}.')
@@ -95,34 +95,35 @@ def apply_stochastic_depth(model: torch.nn.Module,
                            drop_rate: float = 0.2,
                            drop_distribution: str = 'linear',
                            use_same_gpu_seed: bool = True) -> None:
-    """Applies Stochastic Depth algorithm to the specified model.
+    """Applies Stochastic Depth (`Huang et al. <https://arxiv.org/abs/1603.09382>`_) to the specified model.
 
     The algorithm replaces the specified target layer with a stochastic version
     of the layer. The stochastic layer will randomly drop either samples or the
-    layer itself depending on the stochastic method specified. The layer-wise
-    version follows the original paper <https://arxiv.org/abs/1603.09382>`_. The
-    sample-wise version follows the implementation used for EfficientNet in the
-    Tensorflow/TPU repo: <https://github.com/tensorflow/tpu>`_.
+    layer itself depending on the stochastic method specified. The block-wise
+    version follows the original paper. The sample-wise version follows the
+    implementation used for EfficientNet in the
+    `Tensorflow/TPU repo <https://github.com/tensorflow/tpu>`_.
 
     Args:
-        stochastic_method: The version of stochastic depth to use. "block" randomly
-            drops blocks during training. "sample" randomly drops samples within
-            a block during training.
-        target_layer_name (str): Block to replace with a stochastic block
-            equivalent. The name must be registered in `STOCHASTIC_LAYER_MAPPING` 
+        model: model containing modules to be replaced with stochastic versions
+        stochastic_method: The version of stochastic depth to use. ``"block"``
+            randomly drops blocks during training. ``"sample"`` randomly drops
+            samples within a block during training.
+        target_layer_name: Block to replace with a stochastic block
+            equivalent. The name must be registered in ``STOCHASTIC_LAYER_MAPPING``
             dictionary with the target layer class and the stochastic layer class.
-            Currently, must be one of ['ResNetBottleneck'].
-        drop_rate (float): The base probability of dropping a layer or sample. Must be
+            Currently, only ``'ResNetBottleneck'`` is supported.
+        drop_rate: The base probability of dropping a layer or sample. Must be
             between 0.0 and 1.0.
-        drop_distribution (str): How `drop_rate` is distributed across 
-            layers. Value must be one of 'uniform' or 'linear'. 'uniform' assigns
-            the same `drop_rate` across all layers. 'linear' linearly 
-            increases the drop rate across layer depth starting with 0 drop rate
-            and ending with `drop_rate`.
-        use_same_gpu_seed (bool): Set to true to have the same layers dropped
-            across GPUs when using multi-GPU training. Set to false to have each
-            GPU drop a different set of layers. Only used with "block" stochastic
-            method.
+        drop_distribution: How ``drop_rate`` is distributed across
+            layers. Value must be one of ``"uniform"`` or ``"linear"``.
+            ``"uniform"`` assigns the same ``drop_rate`` across all layers.
+            ``"linear"`` linearly increases the drop rate across layer depth
+            starting with 0 drop rate and ending with ``drop_rate``.
+        use_same_gpu_seed: Set to ``True`` to have the same layers dropped
+            across GPUs when using multi-GPU training. Set to ``False`` to
+            have each GPU drop a different set of layers. Only used
+            with ``"block"`` stochastic method.
     """
     validate_stochastic_hparams(stochastic_method=stochastic_method,
                                 target_layer_name=target_layer_name,
@@ -168,37 +169,37 @@ def _update_drop_rate(module: torch.nn.Module, stochastic_block: Type[torch.nn.M
 
 
 class StochasticDepth(Algorithm):
-    """Algorithm to replace a specified block with a stochastic version of the block.
+    """Applies Stochastic Depth (`Huang et al. <https://arxiv.org/abs/1603.09382>`_) to the specified model.
 
-    The stochastic block will randomly drop either samples or the layer itself
-    depending on the stochastic method specified. The layer-wise version follows
-    the original paper <https://arxiv.org/abs/1603.09382>`_. The sample-wise
-    version follows the implementation used for EfficientNet in the Tensorflow/TPU
-    repo: <https://github.com/tensorflow/tpu>`_.
+    The algorithm replaces the specified target layer with a stochastic version
+    of the layer. The stochastic layer will randomly drop either samples or the
+    layer itself depending on the stochastic method specified. The block-wise
+    version follows the original paper. The sample-wise version follows the
+    implementation used for EfficientNet in the
+    `Tensorflow/TPU repo <https://github.com/tensorflow/tpu>`_.
 
     Args:
-        stochastic_method: The version of stochastic depth to use. "block" randomly
-            drops blocks during training. "sample" randomly drops samples within
-            a block during training.
-        target_layer_name (str): Which block to replace with a stochastic block
-            equivalent. The name must be registered in `STOCHASTIC_LAYER_MAPPING`
+        stochastic_method: The version of stochastic depth to use. ``"block"``
+            randomly drops blocks during training. ``"sample"`` randomly drops
+            samples within a block during training.
+        target_layer_name: Block to replace with a stochastic block
+            equivalent. The name must be registered in ``STOCHASTIC_LAYER_MAPPING``
             dictionary with the target layer class and the stochastic layer class.
-            Currently, must be one of ['ResNetBottleneck'].
-        drop_rate (float): The base probability of dropping a layer or a
-            sample. Must be between 0.0 and 1.0.
-        drop_distribution (str): How `drop_rate` is distributed across
-            layers. Value must be either 'uniform' or 'linear'. 'uniform' assigns
-            the same `drop_rate` across all layers. 'linear' linearly
-            increases the drop rate across layer depth starting with 0 drop rate
-            and ending with `drop_rate`.
-        drop_warmup (float): Percentage of training epochs to linearly
+            Currently, only ``'ResNetBottleneck'`` is supported.
+        drop_rate: The base probability of dropping a layer or sample. Must be
+            between 0.0 and 1.0.
+        drop_distribution: How ``drop_rate`` is distributed across
+            layers. Value must be one of ``"uniform"`` or ``"linear"``.
+            ``"uniform"`` assigns the same ``drop_rate`` across all layers.
+            ``"linear"`` linearly increases the drop rate across layer depth
+            starting with 0 drop rate and ending with ``drop_rate``.
+        drop_warmup: Percentage of training epochs to linearly
             increase the drop probability to `linear_drop_rate`. Must be between
             0.0 and 1.0.
-        use_same_gpu_seed (bool): Set to true to have the same layers dropped
-            across GPUs when using multi-GPU training. Set false to have each
-            GPU drop a different set of layers. Only used with "block" stochastic
-            method.
-        
+        use_same_gpu_seed: Set to ``True`` to have the same layers dropped
+            across GPUs when using multi-GPU training. Set to ``False`` to
+            have each GPU drop a different set of layers. Only used
+            with ``"block"`` stochastic method.
     """
 
     def __init__(self,
@@ -229,11 +230,25 @@ class StochasticDepth(Algorithm):
         return (self.hparams.stochastic_method == "block")
 
     def match(self, event: Event, state: State) -> bool:
-        """Apply on Event.INIT and Event.BATCH_START if drop_warmup is > 0.0"""
+        """Apply on Event.INIT and Event.BATCH_START if drop_warmup is > 0.0
+
+        Args:
+            event (:class:`Event`): The current event.
+            state (:class:`State`): The current state.
+        Returns:
+            bool: True if this algorithm should run now.        
+        """
 
         return (event == Event.INIT) or (event == Event.BATCH_START and self.hparams.drop_warmup > 0.0)
 
     def apply(self, event: Event, state: State, logger: Logger) -> Optional[int]:
+        """Applies StochasticDepth modification to the state's model 
+
+        Args:
+            event (Event): the current event
+            state (State): the current trainer state
+            logger (Logger): the training logger
+        """
         assert state.model is not None
         target_layer, stochastic_layer = STOCHASTIC_LAYER_MAPPING[self.hparams.stochastic_method][
             self.hparams.target_layer_name]

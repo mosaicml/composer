@@ -21,7 +21,7 @@ log = logging.getLogger(__name__)
 
 class CheckpointLoader:
     """Manager for initializing state and restoring RNG state from existing checkpoints.
-    
+
     Args:
         checkpoint_filepath (str): The path to an existing checkpoint file.
     """
@@ -70,11 +70,12 @@ class CheckpointLoader:
 
 class Checkpointer:
     """Manager for saving state to checkpoint files.
-    
+
     Args:
         checkpoint_folder (str): The path to the folder to store checkpoints in.
         checkpoint_interval (int): The amount of time units to wait between checkpoints.
-        checkpoint_interval_unit (str): The unit (`"ep"` or `"it"`) that `checkpoint_interval` should be measured in.
+        checkpoint_interval_unit (str): The unit (`"ep"` or `"it"`) that
+            `checkpoint_interval` should be measured in.
     """
 
     def __init__(self, checkpoint_folder: str, checkpoint_interval: int, checkpoint_interval_unit: str):

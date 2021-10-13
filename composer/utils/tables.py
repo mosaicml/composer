@@ -17,14 +17,14 @@ def list_dirs(folder):
         child.name for child in folder.iterdir() if child.is_dir() and ("__pycache__" not in str(child.absolute())))
 
 
-def assert_attributes_exist(module, attributes):
+def assert_attributes_exist(name, module_dict, attributes):
     """
     Assert that module has the provided attributes
     """
 
     for attribute in attributes:
-        assert hasattr(module, attribute), \
-        f"{module} should define {attribute} in its __init__.py file."
+        assert attribute in module_dict, \
+        f"{name} should define {attribute} in its __init__.py file."
 
 
 def get_metadata(names, attributes, module_basepath):
@@ -45,14 +45,29 @@ def get_metadata(names, attributes, module_basepath):
 
     for name in names:
         module = importlib.import_module(f'{module_basepath}.{name}')
-        assert_attributes_exist(module, attributes)
 
-        metadata[name] = {a: getattr(module, a) for a in attributes}
+        if hasattr(module, '_metadata'):
+            for subname in getattr(module, '_metadata'):
+                submodule_dict = getattr(module, '_metadata')[subname]
+                assert_attributes_exist(f"{name}/{subname}", submodule_dict, attributes)
 
-        # check for attributes with empty strings
-        for attribute in attributes:
-            if not metadata[name][attribute]:
-                print(f'WARNING: {name} has empty metadata {attribute}')
+                metadata[subname] = {a: submodule_dict[a] for a in attributes}
+
+                # check for attributes with empty strings
+                for attribute in attributes:
+                    if not metadata[subname][attribute]:
+                        print(f'WARNING: {subname} has empty metadata {attribute}')
+        else:
+            module_dict = module.__dict__
+
+            assert_attributes_exist(name, module_dict, attributes)
+
+            metadata[name] = {a: module_dict[a] for a in attributes}
+
+            # check for attributes with empty strings
+            for attribute in attributes:
+                if not metadata[name][attribute]:
+                    print(f'WARNING: {name} has empty metadata {attribute}')
     return metadata
 
 
