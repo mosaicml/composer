@@ -1,16 +1,14 @@
 # RandAugment
 
-Applicable Settings: `Vision`
+![rand_augment.jpg](https://storage.googleapis.com/docs.mosaicml.com/images/methods/rand_augment.jpg)
 
-Effects: `Increased Accuracy`, `Increased CPU Usage`
+Three example realizations of RandAugment. From [RandAugment: Practical Automated Data Augmentation with a Reduced Search Space](https://openaccess.thecvf.com/content_CVPRW_2020/html/w40/Cubuk_Randaugment_Practical_Automated_Data_Augmentation_With_a_Reduced_Search_Space_CVPRW_2020_paper.html) by Cubul et al. 2020
 
-Kind: `Method`
+Tags: `Vision`, `Increased Accuracy`, `Increased CPU Usage`, `Method`, `Augmentation`, `Regularization`
 
-Tags: `Augmentation`, `Regularization`
+## TL;DR
 
-## TLDR
-
-For each data sample, RandAugment randomly samples `depth` image augmentations from a set of augmentations (e.g. translation, shear, contrast) and applies them sequentially with intensity sampled uniformly from 0.1- `severity` **(`severity` ≤ 10) for each augmentation. 
+For each data sample, RandAugment randomly samples `depth` image augmentations from a set of augmentations (e.g. translation, shear, contrast) and applies them sequentially with intensity sampled uniformly from 0.1- `severity` **(`severity` ≤ 10) for each augmentation.
 
 ## Attribution
 
@@ -30,7 +28,7 @@ RandAugment uses image augmentations, and hence it is only applicable to vision 
 
 We observe an accuracy gain of 0.7% when adding RandAugment to a baseline ResNet-50 on ImageNet, and 1.4% when adding RandAugment to a baseline ResNet-101 on ImageNet. However, the increased CPU load imposed by RandAugment in performing additional augmentations can also substantially reduce throughput: using RandAugment with the hyperparameters recommended by Cubuk et al. can increase training time by up to 2.5x, depending on the hardware and model.
 
-Cubuk et al. report a 1.3% accuracy increase over a baseline ResNet50 on ImageNet. They report identical accuracy as a previous state-of-the-art augmentation scheme ([Fast AutoAugment](https://arxiv.org/abs/1905.00397)), but with reduced computational requirements due to AutoAugment requiring a supplementary phase to search for the optimal augmentation policy. 
+Cubuk et al. report a 1.3% accuracy increase over a baseline ResNet50 on ImageNet. They report identical accuracy as a previous state-of-the-art augmentation scheme ([Fast AutoAugment](https://arxiv.org/abs/1905.00397)), but with reduced computational requirements due to AutoAugment requiring a supplementary phase to search for the optimal augmentation policy.
 
 ## Implementation Details
 
@@ -38,7 +36,10 @@ As per Cubuk et al., RandAugment randomly samples *n* image augmentations (with 
 
 ## Suggested Hyperparameters
 
-As per Cubuk et al., we found that `depth` of 2 and `severity` of 9 worked well for different models of the ResNet family on ImageNet. We found diminishing accuracy gains and substantial training slowdown for `depth` ≥ 3. We recommend `augmentation_set` = `all` for reasons described TODO LINK TO LINE OF CODE.
+As per Cubuk et al., we found that `depth` of 2 and `severity` of 9 worked well for
+different models of the ResNet family on ImageNet. We found diminishing accuracy gains and
+substantial training slowdown for `depth` ≥ 3. We also recommend `augmentation_set` =
+`all`.
 
 ## Considerations
 
@@ -46,8 +47,6 @@ We found that RandAugment can significantly decrease throughput. This is due to 
 
 The regularization benefits of RandAugment also tend to yield a greater benefit in overparameterized regimes (i.e., larger models, smaller datasets, and longer training times). For example, applying RandAugment with `depth` = 2, `severity` = 9, yields a 0.31% accuracy gain for ResNet-18 trained for 90 epochs, a 0.41% accuracy gain for ResNet-50 trained for 90 epochs, a 1.15% gain for ResNet-50 trained for 120 epochs, and a TODO% gain for a ResNet-101 trained for 90 epochs.
 
-% This should be a table
-% [Untitled](https://www.notion.so/7ae4758b24f34c0183dabd52b883253b)
 
 ```{eval-rst}
 .. csv-table:: RandAugment
@@ -63,13 +62,7 @@ RandAugment is also more suitable for larger models because large model workload
 
 ## Composability
 
-As general rule, combining regularization-based methods yields sublinear improvements to accuracy. This holds true for RandAugment. For example, adding RandAugment on top of BlurPool, MixUp, and label smoothing yields no significant additional accuracy improvement. 
-
-## Graphic
-
-![rand_augment.jpg](https://storage.cloud.google.com/docs.mosaicml.com/images/methods/rand_augment.jpg)
-
-Three example realizations of RandAugment. In these examples depth, which corresponds to the number of augmentations applied to each image (*n* in Cubuk et al., 2019) = 2.
+As general rule, combining regularization-based methods yields sublinear improvements to accuracy. This holds true for RandAugment. For example, adding RandAugment on top of BlurPool, MixUp, and label smoothing yields no significant additional accuracy improvement.
 
 --- 
 
@@ -78,8 +71,11 @@ Three example realizations of RandAugment. In these examples depth, which corres
 ```{eval-rst}
 .. autoclass:: composer.algorithms.randaugment.RandAugment
     :members: match, apply
+    :noindex:
 
 .. autofunction:: composer.algorithms.randaugment.randaugment
+    :noindex:
 
 .. autofunction:: composer.algorithms.randaugment.RandAugmentTransform
+    :noindex:
 ```

@@ -1,3 +1,5 @@
+# Copyright 2021 MosaicML. All Rights Reserved.
+
 """Test Ghost Batch Normalization, both as an algorithm and module
 """
 
@@ -9,9 +11,11 @@ import pytest
 import torch
 
 from composer.algorithms import ghost_batchnorm as ghostbn
-from composer.algorithms.ghost_batchnorm.ghost_batchnorm import _GhostBatchNorm
+from composer.algorithms.ghost_batchnorm.ghost_batchnorm import GhostBatchNormHparams, _GhostBatchNorm
 from composer.core import Event, State, surgery
+from composer.trainer import TrainerHparams
 from tests.fixtures.dummy_fixtures import logger_mock as logger_mock
+from tests.utils.trainer_fit import train_model
 
 _GHOSTBN_MODULE_CLASS = _GhostBatchNorm
 _GHOSTBN_CORRECT_EVENT = Event.INIT
@@ -118,3 +122,10 @@ def test_algorithm_logging(logger_mock, state, algo_instance):
     logger_mock.metric_fit.assert_called_once_with({
         'GhostBatchNorm/num_new_modules': 1,
     })
+
+
+@pytest.mark.run_long
+@pytest.mark.timeout(90)
+def test_ghost_batchnorm_trains(mosaic_trainer_hparams: TrainerHparams):
+    mosaic_trainer_hparams.algorithms = [GhostBatchNormHparams(ghost_batch_size=16)]
+    train_model(mosaic_trainer_hparams)

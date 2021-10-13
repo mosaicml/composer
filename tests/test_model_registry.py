@@ -1,3 +1,5 @@
+# Copyright 2021 MosaicML. All Rights Reserved.
+
 import pytest
 
 from composer.models import BaseMosaicModel, ModelHparams

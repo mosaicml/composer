@@ -1,9 +1,13 @@
+# Copyright 2021 MosaicML. All Rights Reserved.
+
 import pytest
 import torch
 
 from composer.algorithms import CutOutHparams
 from composer.algorithms.cutout.cutout import generate_mask
 from composer.core.types import Event, Tensor
+from composer.trainer.trainer_hparams import TrainerHparams
+from tests.utils.trainer_fit import train_model
 
 
 def _is_square(cutout_box: Tensor) -> bool:
@@ -45,8 +49,6 @@ def check_box(batch_size, channels, input):
         for c in range(channels):
             mask_box = _find_box(input[b, c, :, :])
             _box_validate(mask_box)
-            # TODO (Bandish) - Rely on box checks for now, boundaries (x=0, y=0) won't result in squares due to clipping
-            # assert _is_square(mask_box)
 
 
 # Test square, rectangle inputs
@@ -95,9 +97,16 @@ def test_cutout_algorithm(batch_size, channels, height, width, cutout_length, du
     # Fix cutout_n_holes=1, mask generation is additive and box validation isn't smart enough to detect multiple/coalesced boxes
     algorithm = CutOutHparams(n_holes=1, length=cutout_length).initialize_object()
     state = dummy_state
-    state.update_last(batch=(input, torch.Tensor()))
+    state.batch = (input, torch.Tensor())
 
     algorithm.apply(Event.AFTER_DATALOADER, state, dummy_logger)
 
     input, _ = state.batch
     check_box(batch_size, channels, input)
+
+
+@pytest.mark.run_long
+@pytest.mark.timeout(90)
+def test_cutout_trains(mosaic_trainer_hparams: TrainerHparams):
+    mosaic_trainer_hparams.algorithms = [CutOutHparams(n_holes=1, length=4)]
+    train_model(mosaic_trainer_hparams)

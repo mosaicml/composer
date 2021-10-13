@@ -14,7 +14,7 @@
     * - ``BATCH_START``, ``BATCH_END``
       - Start and end of a batch, inclusive of the optimizer step and any gradient scaling.
     * - ``AFTER_DATALOADER``
-      - Immediately after the dataloader is called. Typically used for on-GPU dataloader trainsforms.
+      - Immediately after the dataloader is called. Typically used for on-GPU dataloader transforms.
     * - ``BEFORE_TRAIN_BATCH``, ``AFTER_TRAIN_BATCH``
       - Before and after the forward-loss-backward computation for a training batch. When using gradient_accumulation, these are still called only once.
     * - ``BEFORE_FORWARD``, ``AFTER_FORWARD``
@@ -25,3 +25,9 @@
       - Before and after the backward pass.
     * - ``TRAINING_END``
       - End of training.
+    * - ``EVAL_START``, ``EVAL_END``
+      - Start and end of evaluation through the validation dataset.
+    * - ``EVAL_BATCH_START``, ``EVAL_BATCH_END``
+      - Before and after the call to ``model.validate(batch)``
+    * - ``EVAL_BEFORE_FORWARD``, ``EVAL_AFTER_FORWARD``
+      - Before and after the call to ``model.validate(batch)``

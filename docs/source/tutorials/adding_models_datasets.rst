@@ -39,16 +39,21 @@ For convenience, we've provided a few base classes that are task-specific:
 * Transformers: :class:`~composer.models.MosaicTransformer`. For use with HuggingFace Transformers.
 * Segmentation: :class:`~composer.models.unet.UNet`. Uses a Dice and CE loss.
 
-In this tutorial, we start with a simple image classification model from ``torchvision``:
+In this tutorial, we start with a simple image classification model:
 
 .. code-block:: python
 
-    import torchvision
+    import torch
     import composer
 
     class SimpleModel(composer.models.MosaicClassifier):
-        def __init__(self):
-            module = torchvision.models.resnet18()
+        def __init__(self, num_hidden: int, num_classes: int):
+            module = torch.nn.Sequential(
+                torch.nn.Flatten(start_dim=1),
+                torch.nn.Linear(28 * 28, num_hidden),
+                torch.nn.Linear(num_hidden, num_classes),
+            )
+            self.num_classes = num_classes
             super().__init__(module=module)
 
 Datasets
@@ -58,17 +63,17 @@ Provide the trainer with your `torch.utils.data.Dataset` by configuring a datalo
 
 .. code-block:: python
 
-     from composer import models, datasets
-     from torchvision import datasets
+     from composer import DataloaderSpec
+     from torchvision import datasets, transforms
 
-     train_dataloader_spec = datasets.DataloaderSpec(
-         dataset=datasets.MNIST('/datasets/', train=True, download=True),
+     train_dataloader_spec = DataloaderSpec(
+         dataset=datasets.MNIST('/datasets/', train=True, transform=transforms.ToTensor(), download=True),
          drop_last=False,
          shuffle=True,
      )
 
-     eval_dataloader_spec = datasets.DataloaderSpec(
-         dataset=datasets.MNIST('/datasets/', train=False, download=True),
+     eval_dataloader_spec = DataloaderSpec(
+         dataset=datasets.MNIST('/datasets/', train=False, transform=transforms.ToTensor()),
          drop_last=False,
          shuffle=False,
      )
@@ -84,7 +89,7 @@ Now that your ``Dataset`` and ``Model`` are ready, you can initialize the :class
      from composer.algorithms import LabelSmoothing, CutOut
 
      trainer = Trainer(
-           model=SimpleModel()
+           model=SimpleModel(num_hidden=128, num_classes=10)
            train_dataloader_spec=train_dataloader_spec,
            eval_dataloader_spec=eval_dataloader_spec,
            max_epochs=3,
@@ -100,6 +105,94 @@ Now that your ``Dataset`` and ``Model`` are ready, you can initialize the :class
 
 Trainer with YAHP
 -----------------
+
+Integrating your models and datasets with our ``yahp`` system allows for configuration via ``yaml`` or command line flags automagically. This is recommended if you are running experiments or large scale runs, to ensure reproducibility.
+
+First, create ``hparams`` dataclasses for both your model and your dataset:
+
+.. code-block:: python
+
+    from dataclasses import dataclass
+    from composer import models, datasets
+    import yahp as hp
+
+    @dataclass
+    class MyModelHparams(models.ModelHparams)
+
+        num_hidden: int = hp.optional(doc="num hidden features", default=128)
+        num_classes: int = hp.optional(doc="num of classes", default=10)
+
+        def initialize_object(self):
+            return SimpleModel(
+                num_hidden=self.num_hidden,
+                num_classes=self.num_classes
+            )
+
+   @dataclass
+  class MNISTHparams(datasets.DatasetHparams):
+      is_train: bool = hp.required("whether to load the training or validation dataset")
+      datadir: str = hp.required("data directory")
+      download: bool = hp.required("whether to download the dataset, if needed")
+      drop_last: bool = hp.optional("Whether to drop the last samples for the last batch", default=True)
+      shuffle: bool = hp.optional("Whether to shuffle the dataset for each epoch", default=True)
+
+      def initialize_object(self) -> DataloaderSpec:
+          transform = transforms.Compose([transforms.ToTensor()])
+          dataset = datasets.MNIST(
+              self.datadir,
+              train=self.is_train,
+              download=self.download,
+              transform=transform,
+          )
+          return DataloaderSpec(
+              dataset=dataset,
+              drop_last=self.drop_last,
+              shuffle=self.shuffle,
+          )
+
+Then, we can register them with the trainer:
+
+.. code-block:: python
+
+    from composer import trainer_hparams
+
+    trainer_hparams.register_class(
+        field='model',
+        register_class=MyModelHparams,
+        class_key='my_model'
+    )
+
+    dataset_args = {
+       'register_class': 'MNISTHparams',
+       'class_key': 'my_mnist'
+    }
+    trainer_hparams.register_class(
+        field='train_dataset',
+        **dataset_args
+    )
+    trainer_hparams.register_class(
+        field='val_dataset',
+        **dataset_args
+    )
+
+Now, your registered dataset and model is now available by invocation either in a ``yaml`` file:
+
+.. code-block::
+
+    model:
+      my_model:
+        num_classes: 10
+        num_hidden: 128
+
+or via the command line, e.g.
+
+.. code-block::
+
+    python examples/run_mosaic_trainer.py -f my_config.yaml --model my_model --num_classes 10 --num_hidden 128
+
+
+
+
 
 
 

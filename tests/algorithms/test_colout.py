@@ -1,3 +1,5 @@
+# Copyright 2021 MosaicML. All Rights Reserved.
+
 import functools
 
 import numpy as np
@@ -8,6 +10,8 @@ from PIL import Image
 from composer.algorithms import ColOut, ColOutHparams
 from composer.algorithms.colout.colout import ColOutTransform, batch_colout
 from composer.core import Event
+from composer.trainer import TrainerHparams
+from tests.utils.trainer_fit import train_model
 
 
 def verify_shape_image(orig: Image.Image, new: Image.Image, p_row: float, p_col: float) -> None:
@@ -221,3 +225,10 @@ def test_apply_sample(dummy_algorithm, dummy_state, dummy_train_dataloader, dumm
     new, _ = dset[0]
 
     verify_shape_tensor(orig, new, p_row, p_col)
+
+
+@pytest.mark.run_long
+@pytest.mark.timeout(90)
+def test_colout_trains(mosaic_trainer_hparams: TrainerHparams):
+    mosaic_trainer_hparams.algorithms = [ColOutHparams(p_row=0.15, p_col=0.15, batch=True)]
+    train_model(mosaic_trainer_hparams)

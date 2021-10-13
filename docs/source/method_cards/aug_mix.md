@@ -1,14 +1,12 @@
 # AugMix
 
-Applicable Settings: `Vision`
+![aug_mix.png](https://storage.googleapis.com/docs.mosaicml.com/images/methods/aug_mix.png)
 
-Effects: `Increased Accuracy`, `Increased CPU Usage`
+Fig. 4 from [AugMix: A Simple Data Processing Method to Improve Robustness and Uncertainty](https://arxiv.org/abs/1912.02781), by Hendrycks et al. (2020).
 
-Kind: `Method`
+Tags: `Vision`, `Increased Accuracy`, `Increased CPU Usage`, `Method`, `Augmentation`, `Regularization`
 
-Tags: `Augmentation`, `Regularization`
-
-## TLDR
+## TL;DR
 
 For each data sample, AugMix creates an *augmentation chain* by sampling `depth` image augmentations from a set (e.g. translation, shear, contrast) and applies them sequentially with randomly sampled intensity. This is repeated `width` times in parallel to create `width` different augmentation chains. The augmented images are then combined via a random convex combination to yield a single augmented image, which is in turn combined via a random convex combination sampled from a Beta(`alpha`, `alpha`) distribution with the original image.
 
@@ -48,12 +46,6 @@ As mentioned in the "Example Effects" section, we found that AugMix can signific
 
 As general rule, combinging regularization-based methods yields sublinear improvements to accuracy. See RandAugment/Composability for more details.
 
-## Graphic
-
-![aug_mix.png](https://storage.cloud.google.com/docs.mosaicml.com/images/methods/aug_mix.png)
-
-Fig. 4 from [AugMix: A Simple Data Processing Method to Improve Robustness and Uncertainty](https://arxiv.org/abs/1912.02781), by Hendrycks et al. (2020).
-
 ---
 
 ## Code
@@ -61,8 +53,4 @@ Fig. 4 from [AugMix: A Simple Data Processing Method to Improve Robustness and U
 ```{eval-rst}
 .. autoclass:: composer.algorithms.augmix.AugMix
     :members: match, apply
-
-.. autoclass:: composer.algorithms.augmix.augment_and_mix
-
-.. autoclass:: composer.algorithms.augmix.AugmentAndMixTransform
 ```

@@ -10,9 +10,10 @@ Algorithms can be used directly through our functions-based API.
 
     model = models.resnet50()
 
-    # replace some layers with blurpool or squeeze-excite layers
+    # replace some layers with blurpool
     CF.apply_blurpool(model)
-    CF.apply_se(model)
+    # replace some layers with squeeze-excite
+    CF.apply_se(model, latent_channels=64, min_channels=128)
 
 
 .. currentmodule:: composer.algorithms
@@ -23,14 +24,17 @@ Algorithms can be used directly through our functions-based API.
 
     functional.augment_and_mix
     functional.apply_blurpool
+    functional.apply_alibi
     functional.colout
     functional.cutout
     functional.smooth_labels
     functional.freeze_layers
+    functional.apply_ghost_batchnorm
     functional.mixup_batch
     functional.resize_inputs
     functional.randaugment
     functional.scale_scheduler
     functional.selective_backprop
     functional.apply_se
-    functional.apply_curriculum
+    functional.apply_seq_length_warmup
+    functional.apply_stochastic_depth

@@ -1,3 +1,5 @@
+# Copyright 2021 MosaicML. All Rights Reserved.
+
 import dataclasses
 
 import pytest
@@ -6,8 +8,8 @@ from composer.algorithms import (AlgorithmHparams, AlibiHparams, AugMixHparams, 
                                  ColOutHparams, CutOutHparams, DummyHparams, GhostBatchNormHparams,
                                  LabelSmoothingHparams, LayerFreezingHparams, MixUpHparams, NoOpModelHparams,
                                  ProgressiveResizingHparams, RandAugmentHparams, SAMHparams, ScaleScheduleHparams,
-                                 SelectiveBackpropHparams, SqueezeExciteHparams, StochasticDepthHparams, SWAHparams,
-                                 algorithm_registry)
+                                 SelectiveBackpropHparams, SeqLengthWarmupHparams, SqueezeExciteHparams,
+                                 StochasticDepthHparams, SWAHparams, algorithm_registry)
 from composer.core.algorithm import Algorithm
 
 default_required_fields = {
@@ -35,6 +37,13 @@ default_required_fields = {
         "p_row": 0.15,
         "p_col": 0.15,
         "batch": True,
+    },
+    SeqLengthWarmupHparams: {
+        "duration": 0.30,
+        "min_seq_length": 8,
+        "max_seq_length": 1024,
+        "step_size": 8,
+        "truncate": True,
     },
     CutOutHparams: {
         'n_holes': 1,

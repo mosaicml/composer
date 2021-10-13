@@ -11,6 +11,9 @@ DecoupledAdamW
 .. autoclass:: composer.optim.DecoupledAdamW
     :show-inheritance:
 
+composer.optim.scheduler
+========================
+
 WarmUpLR
 ------------------
 .. autoclass:: composer.optim.WarmUpLR

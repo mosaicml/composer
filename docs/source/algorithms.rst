@@ -1,6 +1,43 @@
 composer.algorithms
 ===================
 
+.. _master-algo-list:
+
+.. currentmodule:: composer.algorithms
+
+We describe programmatic modifications to the model or training process as "algorithms." Examples include :py:class:`smoothing the labels <composer.algorithms.label_smoothing.LabelSmoothing>` and adding :py:class:`Squeeze-and-Excitation <composer.algorithms.squeeze_excite.SqueezeExcite>` blocks, among many others.
+
+Algorithms can be used in two ways:
+
+* Using :py:class:`~composer.algorithm.Algorithm` objects. These objects provide callbacks to be run in the training loop.
+* Using algorithm-specific functions and classes, such as :py:func:`smooth_labels <composer.algorithms.label_smoothing.smooth_labels>` or :py:class:`~composer.algorithms.squeeze_excite.SqueezeExcite2d`.
+
+The former are the easier to compose together, since they all have the same public interface and work automatically with the Composer :py:class:`~composer.trainer.Trainer`. The latter are easier to integrate piecemeal into an existing codebase.
+
+See :py:class:`~composer.algorithms.Algorithm` for more information.
+
+The following algorithms are available in Composer:
+
+.. autosummary::
+    :nosignatures:
+
+    ~alibi.Alibi
+    ~augmix.AugMix
+    ~blurpool.BlurPool
+    ~channels_last.ChannelsLast
+    ~colout.ColOut
+    ~cutout.CutOut
+    ~ghost_batchnorm.GhostBatchNorm
+    ~label_smoothing.LabelSmoothing
+    ~layer_freezing.LayerFreezing
+    ~mixup.MixUp
+    ~progressive_resizing.ProgressiveResizing
+    ~randaugment.RandAugment
+    ~sam.SAM
+    ~scale_schedule.ScaleSchedule
+    ~squeeze_excite.SqueezeExcite
+    ~stochastic_depth.StochasticDepth
+    ~swa.SWA
 
 Alibi
 ---------------
@@ -263,6 +300,27 @@ Standalone
 
    .. autofunction:: composer.algorithms.randaugment.randaugment
 
+
+Sequence Length Warmup
+---------------
+
+Algorithm
+^^^^^^^^^
+
+.. automodule:: composer.algorithms.seq_length_warmup
+    :show-inheritance:
+
+    .. autoclass:: composer.algorithms.seq_length_warmup.SeqLengthWarmup
+    .. autoclass:: composer.algorithms.seq_length_warmup.SeqLengthWarmupHparams
+
+Standalone
+^^^^^^^^^^
+
+.. automodule:: composer.algorithms.seq_length_warmup
+   :show-inheritance:
+   :noindex:
+
+   .. autofunction:: composer.algorithms.seq_length_warmup.apply_seq_length_warmup
 
 
 Sharpness-Aware Minimization

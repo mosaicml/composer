@@ -1,3 +1,5 @@
+# Copyright 2021 MosaicML. All Rights Reserved.
+
 import os
 
 import pytest
@@ -31,7 +33,7 @@ def test_file_logger(dummy_state: State, log_destination: FileLoggerBackend, mon
                      log_file_name: str):
     dummy_state.step = 2
     dummy_state.epoch = 2
-    logger = Logger(dummy_state, log_destinations=[log_destination])
+    logger = Logger(dummy_state, backends=[log_destination])
     monkeypatch.setattr(dist, "get_rank", lambda: 0)
     log_destination.training_start(dummy_state, logger)
     logger.metric_fit({"metric": "fit"})  # should print
@@ -64,7 +66,7 @@ class TestCoreLogger:
         dummy_state = dummy_state_without_rank
         dummy_state.step = 2
         dummy_state.epoch = 0
-        logger = Logger(dummy_state, log_destinations=[log_destination])
+        logger = Logger(dummy_state, backends=[log_destination])
         logger.metric_batch({"metric": "before_training_start"})
         monkeypatch.setattr(dist, "get_rank", lambda: rank)
         log_destination.training_start(dummy_state, logger)
@@ -88,7 +90,7 @@ class TestCoreLogger:
         dummy_state = dummy_state_without_rank
         dummy_state.step = 2
         dummy_state.epoch = 0
-        logger = Logger(dummy_state, log_destinations=[log_destination])
+        logger = Logger(dummy_state, backends=[log_destination])
         metric_data = [["hello"]]
         logger.metric_batch({"metric": metric_data})
         metric_data[0] = ["world"]

@@ -1,3 +1,5 @@
+# Copyright 2021 MosaicML. All Rights Reserved.
+
 import functools
 import os
 import random
@@ -292,7 +294,7 @@ def validate_events_called_expected_number_of_times(trainer: Trainer):
         Event.BATCH_END: num_total_steps,
         Event.EPOCH_END: num_epochs,
         Event.EVAL_START: num_evals,
-        Event.EVAL_BATCH_START: num_eval_steps,  # TODO this should be num_evals
+        Event.EVAL_BATCH_START: num_eval_steps,
         Event.EVAL_BEFORE_FORWARD: num_eval_steps,
         Event.EVAL_AFTER_FORWARD: num_eval_steps,
         Event.EVAL_BATCH_END: num_eval_steps,

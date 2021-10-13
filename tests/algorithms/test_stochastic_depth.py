@@ -1,3 +1,5 @@
+# Copyright 2021 MosaicML. All Rights Reserved.
+
 import pytest
 import torch
 import torch.nn.functional as F

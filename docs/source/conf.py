@@ -34,10 +34,12 @@ extensions = [
     "sphinx.ext.napoleon",
     'sphinxcontrib.katex',
     "sphinx.ext.viewcode",
+    "sphinx.ext.intersphinx",
     "sphinxext.opengraph",
     "sphinx_copybutton",
     "sphinx_rtd_theme",
     "myst_parser",
+    "sphinx.ext.intersphinx",
 ]
 
 # Add any paths that contain templates here, relative to this directory.
@@ -48,6 +50,16 @@ source_suffix = ['.rst', '.md']
 # directories to ignore when looking for source files.
 # This pattern also affects html_static_path and html_extra_path.
 exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store']
+
+intersphinx_mapping = {
+    'python': ('https://docs.python.org/3/', None),
+    'numpy': ('http://docs.scipy.org/doc/numpy/', None),
+    'torch': ('https://pytorch.org/docs/stable/', None),
+    'torchvision': ('https://pytorch.org/vision/stable/', None),
+    'torchtext': ('https://pytorch.org/text/stable/', None)
+}
+
+napoleon_custom_sections = [('Returns', 'params_style')]
 
 # -- Options for HTML output -------------------------------------------------
 
@@ -66,7 +78,9 @@ html_theme_options = {
 }
 
 # Make sure the target is unique
-autosummary_imported_members = True
+autosectionlabel_prefix_document = True
+autosummary_imported_members = False
+autosectionlabel_maxdepth = 1
 
 # Add any paths that contain custom static files (such as style sheets) here,
 # relative to this directory. They are copied after the builtin static files,
@@ -81,3 +95,31 @@ html_logo = 'https://storage.googleapis.com/docs.mosaicml.com/images/logo-dark-b
 
 # Favicon
 html_favicon = 'https://mosaic-ml-staging.cdn.prismic.io/mosaic-ml-staging/b1f1a2a0-2b54-4b43-9b76-bfa2e24d6fdf_favicon.svg'
+
+# Don't unfold our common type aliases
+autodoc_type_aliases = {
+    'Tensor': 'composer.core.types.Tensor',
+    'Tensors': 'composer.core.types.Tensors',
+    'Batch': 'composer.core.types.Batch',
+    'BatchPair': 'composer.core.types.BatchPair',
+    'BatchDict': 'composer.core.types.BatchDict',
+    'StateDict': 'composer.core.types.StateDict',
+    'TPrefetchFn': 'composer.core.types.TPrefetchFn',
+    'Hparams': 'yahp.hparams.Hparams',
+}
+
+intersphinx_mapping = {
+    'python': ('https://docs.python.org/3.8', None),
+    'torch': ('https://pytorch.org/docs/1.9.1', None),
+    'yapf': ('https://mosaicml-yahp.readthedocs-hosted.com/en/stable', None),
+    'torchmetrics': ('https://torchmetrics.readthedocs.io/en/v0.5.1/', None),
+}
+
+nitpicky = False  # warn on broken links
+nitpick_ignore = [('py:class', 'type'), ('py:class', 'optional'), ('py:meth', 'wandb.init'),
+                  ('py:attr', 'wandb.run.config'), ('py:attr', 'wandb.run.tags'), ('py:meth', 'torch.save'),
+                  ('py:meth', 'torch.load'), ('py:class', 'TLogDataValue'), ('py:class', 'TLogData'),
+                  ('py:class', 'T_nnModule')]
+
+# add_module_names = False
+autodoc_typehints = 'description'

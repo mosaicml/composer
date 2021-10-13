@@ -1,6 +1,8 @@
+# Copyright 2021 MosaicML. All Rights Reserved.
+
 import pathlib
 import random
-from dataclasses import fields
+from dataclasses import Field, fields
 
 import pytest
 import torch
@@ -11,7 +13,7 @@ from torch.functional import Tensor
 
 from composer.algorithms.dummy import DummyHparams
 from composer.core import State, types
-from composer.core.state import is_field_serialized
+from composer.core.state import DIRECT_SERIALIZATION_FIELDS, SKIP_SERIALIZATION_FIELDS, STATE_DICT_SERIALIZATION_FIELDS
 from composer.models.resnet56_cifar10.resnet56_cifar10_hparams import CIFARResNetHparams
 from composer.utils import ensure_tuple
 
@@ -57,6 +59,15 @@ def get_dummy_state():
                  algorithms=[DummyHparams().initialize_object()])
 
 
+def is_field_serialized(f: Field) -> bool:
+    if f.name in STATE_DICT_SERIALIZATION_FIELDS or f.name in DIRECT_SERIALIZATION_FIELDS:
+        return True
+    elif f.name in SKIP_SERIALIZATION_FIELDS:
+        return False
+    else:
+        raise RuntimeError(f"Serialization method for field {f.name} not specified")
+
+
 def assert_state_equivalent(state1: State, state2: State, skip_transient_fields: bool):
     # tested separately
     IGNORE_FIELDS = [
@@ -89,7 +100,7 @@ def assert_state_equivalent(state1: State, state2: State, skip_transient_fields:
 
 def train_one_step(state: State, batch: types.Batch) -> None:
     x, y = batch
-    state.update_last(batch)
+    state.batch = batch
 
     state.outputs = state.model(state.batch_pair)
     assert isinstance(y, Tensor)

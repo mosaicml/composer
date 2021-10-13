@@ -1,7 +1,7 @@
 composer.Engine
 ===============
 
-The order of ``algorithms`` can matter significantly during composition. For example, the Selective Backprop algorithm runs during ``AFTER_DATALOADER`` event, and must run before any data augmentations. The :class:`composer.Engine` runs these re-ordering passes.
+The order of ``algorithms`` can matter significantly during composition. For example, the Selective Backprop algorithm runs during ``AFTER_DATALOADER`` event, and must run before any data augmentations. The :class:`~composer.core.engine.Engine` runs these re-ordering passes.
 
 .. note::
 

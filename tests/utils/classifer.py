@@ -1,3 +1,5 @@
+# Copyright 2021 MosaicML. All Rights Reserved.
+
 from typing import Optional, Sequence
 
 import torch
@@ -38,7 +40,7 @@ def test_classifier_trains(
     state = _get_state(train_dataloader=train_dataloader, eval_dataloader=eval_dataloader, steps_per_epoch=n_steps)
     model = state.model
 
-    logger = Logger(state=state, log_destinations=[])
+    logger = Logger(state=state, backends=[])
     engine = Engine(state=state, algorithms=algorithms, logger=logger)
 
     engine.run_event(Event.INIT)

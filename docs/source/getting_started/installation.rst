@@ -38,7 +38,7 @@ For a developer install, clone directly:
 Docker
 ~~~~~~
 
-To access our docker, either pull from our docker repository with:
+To access our docker, either pull the latest image from our Docker repository with:
 
 .. code-block::
 
@@ -51,7 +51,9 @@ or build our ``Dockerfile``:
     git clone git@github.com:mosaicml/composer.git
     cd composer/docker && make build
 
-Our dockerfile has Ubuntu 20.04, PyTorch 1.8.1, and CUDA 11, and has been tested to work with GPU-based instances on AWS, GCP, and Azure. ``Pillow-SIMD`` is installed by default in our docker image.
+Our dockerfile has Ubuntu 18.04, Python 3.8.0, PyTorch 1.9.0, and CUDA 11.1.1, and has been tested to work with GPU-based instances on AWS, GCP, and Azure. ``Pillow-SIMD`` is installed by default in our docker image.
+
+Please see the ``README`` in the docker area for additional details.
 
 
 Verification

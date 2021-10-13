@@ -1,3 +1,5 @@
+# Copyright 2021 MosaicML. All Rights Reserved.
+
 from unittest.mock import MagicMock
 
 import pytest
@@ -17,7 +19,7 @@ def _do_trainer_fit(mosaic_trainer_hparams: TrainerHparams, log_layers=False):
     trainer = mosaic_trainer_hparams.initialize_object()
     log_destination = MagicMock()
     log_destination.will_log.return_value = True
-    trainer.logger._log_destinations = [log_destination]
+    trainer.logger.backends = [log_destination]
     trainer.fit()
 
     assert isinstance(mosaic_trainer_hparams.train_dataset, SyntheticDatasetHparams)

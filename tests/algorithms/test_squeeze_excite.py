@@ -1,8 +1,14 @@
+# Copyright 2021 MosaicML. All Rights Reserved.
+
+import pytest
 import torch
 
 from composer.algorithms import SqueezeExcite, SqueezeExciteConv2d
+from composer.algorithms.squeeze_excite.squeeze_excite import SqueezeExciteHparams
 from composer.core import Event, Logger, State, surgery
 from composer.core.types import Tensors
+from composer.trainer.trainer_hparams import TrainerHparams
+from tests.utils.trainer_fit import train_model
 
 
 def _do_squeeze_excite(state_with_model: State, simple_conv_model_input: Tensors, logger: Logger):
@@ -57,3 +63,10 @@ def test_squeeze_excite_algorithm_logging(state_with_model: State, logger_mock: 
     logger_mock.metric_fit.assert_called_once_with({
         'squeeze_excite/num_squeeze_excite_layers': conv_count,
     })
+
+
+@pytest.mark.run_long
+@pytest.mark.timeout(90)
+def test_squeeze_excite_trains(mosaic_trainer_hparams: TrainerHparams):
+    mosaic_trainer_hparams.algorithms = [SqueezeExciteHparams(latent_channels=32, min_channels=32)]
+    train_model(mosaic_trainer_hparams, run_loss_check=True)

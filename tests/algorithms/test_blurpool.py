@@ -1,9 +1,14 @@
+# Copyright 2021 MosaicML. All Rights Reserved.
+
 import itertools
 
 import pytest
 import torch
 
 from composer.algorithms import blurpool
+from composer.algorithms.blurpool.blurpool import BlurPoolHparams
+from composer.trainer import TrainerHparams
+from tests.utils.trainer_fit import train_model
 
 
 def generate_pool_args():
@@ -83,3 +88,10 @@ def test_blurpool_blurconv2d_params_match_original_params():
     assert blurconv.conv.weight.requires_grad
     assert blurconv.conv.bias is not None
     assert blurconv.conv.bias.requires_grad
+
+
+@pytest.mark.run_long
+@pytest.mark.timeout(90)
+def test_blurpool_trains(mosaic_trainer_hparams: TrainerHparams):
+    mosaic_trainer_hparams.algorithms = [BlurPoolHparams(replace_convs=True, replace_maxpools=True, blur_first=True)]
+    train_model(mosaic_trainer_hparams, run_loss_check=True)

@@ -3,7 +3,7 @@ composer.datasets
 
 .. currentmodule:: composer.datasets
 
-:class:`DataloaderHparams` contain the :class:`torch.utils.data.dataloader` settings that are common across both training and eval datasets:
+:class:`DataloaderHparams` contains the :class:`torch.utils.data.dataloader` settings that are common across both training and eval datasets:
 
 * ``num_workers``
 * ``prefetch_factor``
@@ -11,19 +11,20 @@ composer.datasets
 * ``pin_memory``
 * ``timeout``
 
-Each :class:`DatasetHparams` is then reponsible for returning a ``DataloaderSpec``, which is a ``namedtuple`` of dataset-specific settings such as:
+Each :class:`DatasetHparams` is then reponsible for returning a :class:`DataloaderSpec`, which is a ``namedtuple`` of dataset-specific settings such as:
+
 * ``dataset``
 * ``drop_last``
 * ``shuffle``
 * ``collate_fn``
 
-Ths indirection (instead of directly creating the ``dataloader`` at the start) is needed because for multi-GPU training, dataloaders require the global rank to initialize their :class:`torch.utils.data.distributed.DistributedSampler`.
+This indirection (instead of directly creating the ``dataloader`` at the start) is needed because for multi-GPU training, dataloaders require the global rank to initialize their :class:`torch.utils.data.distributed.DistributedSampler`.
 
-As a result, our trainer uses the ``DataloaderSpec`` and ``DataloaderHparams`` to create the dataloaders after DistributdDataParallel has forked the processes.
+As a result, our trainer uses the :class:`DataloaderSpec` and :class:`DataloaderHparams` to create the dataloaders after DDP has forked the processes.
 
 
-Base objects
-------------
+Base Classes and Hyperparameters
+--------------------------------
 
 .. autosummary::
     :toctree: generated

@@ -1,14 +1,10 @@
-# Progressive Resizing (Vision)
+# Progressive Image Resizing
 
-Applicable Settings: `Vision`
+![progressive_resizing_vision.png](https://storage.googleapis.com/docs.mosaicml.com/images/methods/progressive_resizing_vision.png)
 
-Effects: `Decreased Wall Clock Time`, `Increased GPU Throughput`, `Reduced GPU Memory Usage`
+Applicable Settings: `Vision`, `Increased GPU Throughput`, `Reduced GPU Memory Usage`, `Method`, `Curriculum`, `Speedup`
 
-Kind: `Method`
-
-Tags: `Curriculum`, `Speedup`
-
-## TLDR
+## TL;DR
 
 Progressive Resizing works by initially shrinking the size of the training images, and slowly growing them back to their full size by the end of training. It reduces costs during the early phase of training, when the network may learn coarse-grained features that do not require details lost by reducing image resolution.
 
@@ -37,7 +33,7 @@ Our implementation of Progressive Resizing gives two options for resizing the im
 
 `mode = "crop"`  does a random crop of the input image to a smaller size. This mode is appropriate for datasets where scale is important. For example, we get better results using crops for ResNet-56 on CIFAR-10, where the objects are similar sizes to one another and the images are already low resolution.
 
-`mode = "resize"` does downsampling with a bilinear interpolation of the image to a smaller size. This mode is appropriate for datasets where scale is variable, all the content of the image is needed each time it is seen, or the images are relatively higher resolution. For example, we get better results using resizing for ResNet-50 on ImageNet. 
+`mode = "resize"` does downsampling with a bilinear interpolation of the image to a smaller size. This mode is appropriate for datasets where scale is variable, all the content of the image is needed each time it is seen, or the images are relatively higher resolution. For example, we get better results using resizing for ResNet-50 on ImageNet.
 
 ## Suggested Hyperparameters
 
@@ -47,7 +43,7 @@ Our implementation of Progressive Resizing gives two options for resizing the im
 
 ## Considerations
 
-Progressive Resizing requires that the network architecture be capable of handling different sized images. Additionally, since the early epochs of training require significantly less GPU compute than the later epochs, CPU/dataloading may become a bottleneck in the early epochs even if this isn't true in the late epochs. 
+Progressive Resizing requires that the network architecture be capable of handling different sized images. Additionally, since the early epochs of training require significantly less GPU compute than the later epochs, CPU/dataloading may become a bottleneck in the early epochs even if this isn't true in the late epochs.
 
 Additionally, while we have not investigated this, Progressive Resizing may also change how sensitive the network is to different sizes of objects, or how biased the network is in favor of shape or texture.
 
@@ -57,14 +53,9 @@ Progressive Resizing will interact with other methods that change the size of th
 
 ## Detailed Results
 
-Using the recommendations above, we ran a baseline ResNet-50 model on CIFAR-10 and ImageNet with and without progressive resizing. CIFAR-10 runs were done on a single NVIDIA 3080 GPU for 200 epochs. ImageNet runs were done on 8x NVIDIA 3080 GPUs for 90 epochs. Shown below are the validation set accuracies and time-to-train for each of these runs. 
+Using the recommendations above, we ran a baseline ResNet-50 model on CIFAR-10 and ImageNet with and without progressive resizing. CIFAR-10 runs were done on a single NVIDIA 3080 GPU for 200 epochs. ImageNet runs were done on 8x NVIDIA 3080 GPUs for 90 epochs. Shown below are the validation set accuracies and time-to-train for each of these runs.
 
-% Should be a table
-% [Untitled](https://www.notion.so/59801343a7db488da135dcbe25a1c0a2)
 
-## Graphic
-
-![progressive_resizing_vision.png](https://storage.cloud.google.com/docs.mosaicml.com/images/methods/progressive_resizing_vision.png)
 
 --------
 
@@ -73,8 +64,10 @@ Using the recommendations above, we ran a baseline ResNet-50 model on CIFAR-10 a
 ```{eval-rst}
 .. autoclass:: composer.algorithms.progressive_resizing.ProgressiveResizing
     :members: match, apply
+    :noindex:
 ```
 
 ```{eval-rst}
 .. autoclass:: composer.algorithms.progressive_resizing.resize_inputs
+    :noindex:
 ```

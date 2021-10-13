@@ -1,3 +1,5 @@
+# Copyright 2021 MosaicML. All Rights Reserved.
+
 from unittest.mock import Mock
 
 import pytest
@@ -8,6 +10,8 @@ from composer.algorithms import label_smoothing
 from composer.algorithms.label_smoothing import LabelSmoothingHparams
 from composer.core.types import Event
 from composer.models import loss
+from composer.trainer.trainer_hparams import TrainerHparams
+from tests.utils.trainer_fit import train_model
 
 
 def _generate_tensors_classification(batch_size: int, num_classes: int):
@@ -114,7 +118,7 @@ class TestLabelSmoothing:
 
         algorithm = LabelSmoothingHparams(alpha=alpha).initialize_object()
         state = dummy_state
-        state.update_last(batch=(torch.Tensor(), target))
+        state.batch = (torch.Tensor(), target)
         state.outputs = outputs
 
         # BEFORE_LOSS should smooth the labels
@@ -135,3 +139,10 @@ def test_label_smoothing_match():
     algorithm = LabelSmoothingHparams(alpha=0.1).initialize_object()
     assert algorithm.match(Event.BEFORE_LOSS, Mock())
     assert algorithm.match(Event.AFTER_LOSS, Mock())
+
+
+@pytest.mark.run_long
+@pytest.mark.timeout(90)
+def test_label_smoothing_trains(mosaic_trainer_hparams: TrainerHparams):
+    mosaic_trainer_hparams.algorithms = [LabelSmoothingHparams(alpha=0.1)]
+    train_model(mosaic_trainer_hparams)

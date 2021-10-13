@@ -1,3 +1,5 @@
+# Copyright 2021 MosaicML. All Rights Reserved.
+
 from typing import Callable
 
 import pytest
@@ -10,6 +12,8 @@ from composer.core.logging.logger import Logger
 from composer.core.state import State
 from composer.core.types import DataLoader
 from composer.models import MosaicClassifier
+from composer.trainer.trainer_hparams import TrainerHparams
+from tests.utils.trainer_fit import train_model
 
 
 @pytest.fixture
@@ -321,3 +325,12 @@ def test_apply(Ximage: torch.Tensor, y: torch.Tensor, dummy_algorithm: Selective
     X_scaled, y_scaled = dummy_state_sb.batch
     assert X_scaled.shape == (int(N * keep), C, H, W)
     assert y_scaled.shape == (int(N * keep),)
+
+
+@pytest.mark.run_long
+@pytest.mark.timeout(90)
+def test_selective_backprop_trains(mosaic_trainer_hparams: TrainerHparams):
+    mosaic_trainer_hparams.algorithms = [
+        SelectiveBackpropHparams(start=0.3, end=0.9, keep=0.75, scale_factor=0.5, interrupt=1)
+    ]
+    train_model(mosaic_trainer_hparams, max_epochs=6)

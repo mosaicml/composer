@@ -1,8 +1,12 @@
+# Copyright 2021 MosaicML. All Rights Reserved.
+
 import pytest
 import torch
 
 from composer.algorithms.progressive_resizing import ProgressiveResizing, ProgressiveResizingHparams, resize_inputs
 from composer.core import Event
+from composer.trainer import TrainerHparams
+from tests.utils.trainer_fit import train_model
 
 
 def check_scaled_shape(orig: torch.Tensor, scaled: torch.Tensor, scale_factor: float) -> bool:
@@ -154,3 +158,12 @@ def test_apply(epoch_frac, X, y, dummy_algorithm, dummy_state, dummy_logger):
 
     last_input, _ = dummy_state.batch
     assert check_scaled_shape(X, last_input, scale_factor)
+
+
+@pytest.mark.run_long
+@pytest.mark.timeout(90)
+def test_progressive_resizing_trains(mosaic_trainer_hparams: TrainerHparams):
+    mosaic_trainer_hparams.algorithms = [
+        ProgressiveResizingHparams(mode="resize", initial_scale=0.5, finetune_fraction=0.2, resize_targets=False)
+    ]
+    train_model(mosaic_trainer_hparams)

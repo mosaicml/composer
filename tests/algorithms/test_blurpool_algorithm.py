@@ -1,3 +1,5 @@
+# Copyright 2021 MosaicML. All Rights Reserved.
+
 """
 Test the blurpool algorithm. Primitives are tested in test_blurpool.py
 """

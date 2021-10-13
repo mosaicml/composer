@@ -4,15 +4,20 @@ MosaicML `Composer` contains a library of methods, and ways to compose them toge
 
 The library features:
 * Implementation of 20+ efficiency methods curated from the research community
-* Standardized approach to implement and compose efficiency methods, extended from two-way callbacks (Howard et al, 2020)
-*  Easy way to access our methods either directly for your trainer loops, or through the MosaicML trainer
+* Standardized approach to implement and compose efficiency methods, extended from two-way callbacks ([Howard et al, 2020](https://arxiv.org/abs/2002.04688))
+* Easy way to access our methods either directly for your trainer loops, or through the MosaicML Trainer.
+
+To install `Composer`:
+```
+pip install mosaicml
+```
 
 A few ways to use `Composer`:
 
 1. Import the functional form of our methods:
 
 ```python
-import composer.functional as CF
+from composer import functional as CF
 import torchvision
 
 model = torchvision.models.resnet50()
@@ -33,24 +38,26 @@ We have a growing collection of deeply characterized methods, see [Methods](http
 2. Compose methods together using our `Trainer`:
 
 ```python
-from composer import trainer, algorithms
+from composer import trainer, algorithms, Trainer
 
 trainer_hparams = trainer.load("resnet50")
-trainer_hparams.algorithms = algorithms.load_multiple(["squeeze_excite", "scale_schedule"])
-trainer = trainer.MosaicTrainer.create_from_hparams(hparams=trainer_hparams)
-trainer.fit()
+trainer_hparams.algorithms = algorithms.load_multiple("squeeze_excite", "scale_schedule")
+trainer_hparams.set_datadir('your/dataset/path/')
+
+learner = Trainer.create_from_hparams(hparams=trainer_hparams)
+learner.fit()
 
 ```
 
-## Composer tl;dr
+## Composer TL;DR
 
 Composer methods are either curated from the literature, or developed internally, and rigorously measured on public benchmarks. To explore the benchmarks, see our [MosaicML Explorer](https://app.mosaicml.com).
 
-To compose methods together, we used the excellent two-way callbacks system (Howard et al, 2020). Each method is implemented as a two-way callback, and also in functional form for standalone access and extension.
+To compose methods together, we used the excellent two-way callbacks system ([Howard et al, 2020](https://arxiv.org/abs/2002.04688)). Each method is implemented as a two-way callback, and also in functional form for standalone access and extension.
 
 ## Documentation
 
-See [our documentation](https://docs.mosaicml.com/) for installation instructions and how to get started.
+See [our documentation](https://mosaicml-composer.readthedocs-hosted.com/en/stable/) for installation instructions and how to get started.
 
 ## Community
 

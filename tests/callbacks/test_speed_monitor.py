@@ -1,3 +1,5 @@
+# Copyright 2021 MosaicML. All Rights Reserved.
+
 import collections.abc
 from unittest.mock import MagicMock
 
@@ -19,7 +21,7 @@ def test_speed_monitor(mosaic_trainer_hparams: TrainerHparams):
     trainer = mosaic_trainer_hparams.initialize_object()
     log_destination = MagicMock()
     log_destination.will_log.return_value = True
-    trainer.logger._log_destinations = [log_destination]
+    trainer.logger.backends = [log_destination]
     trainer.fit()
 
     throughput_epoch_calls = 0

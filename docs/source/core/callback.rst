@@ -1,29 +1,37 @@
 composer.Callback
 =================
 
-A callback is a piece of code that can run at any :doc:`Event </core/event>`. Callbacks differ from :doc:`algorithms </core/algorithm>` in that they are not expected to have a major impact on the training of a model; rather, they are generally used for non-essential recording functions such as logging or timing. By convention, a callback should not modify the :doc:`Event </core/state>`.
+Callbacks are run at each given :class:`~composer.core.event.Event`, and are used to for
+non-essential recording functions such as logging or timing.
 
-A complete list of callbacks can be found :doc:`here </trainer/callbacks>`.
+Callbacks differ from :class:`~composer.core.algorithm.Algorithm` in that
+they do not modify the training of the model.
+By convention, callbacks should not modify the :class:`~composer.core.state.State`.
 
-.. currentmodule:: composer.core
 
-.. py:class:: Callback
+Each callback inherits from the :class:`~composer.core.callback.Callback` base class,
+and overrides functions corresponding to the event.
 
-    Abstract base class for callbacks.
-    
-    Callbacks are similar to Algorithms, in that
-    they are run on specific events. By convention, Callbacks should not
-    modify :class:`State`.
 
-    Each method name in corresponds to an :class:`Event` value.
-    This class has a method for each value in the :class:`Event` enum, formatted in snake case. Subclasses of :class:`Callback` can override these methods to run in response to given :class:`Event` invocations.
+For example:
 
-    .. py:method:: <event_name>(state: State, logger: Logger)
+.. code-block:: python
 
-        Called in response to the :class:`Event` corresponding to this method's name.
+    from composer import Callback
 
-        :param state: The current state.
-        :type state: State
-        :param logger: A logger to use for logging callback-specific metrics.
-        :type logger: Logger
+    class MyCallback(Callback)
 
+        def epoch_start(self, state: State, logger: Logger):
+            print(f'Epoch {state.epoch}/{state.max_epochs}')
+
+.. note::
+
+    To use Composer's built in callbacks, see :doc:`/callbacks`.
+
+.. autosummary::
+    :recursive:
+    :toctree: generated
+    :nosignatures:
+
+    ~composer.core.callback.Callback
+    ~composer.core.callback.RankZeroCallback

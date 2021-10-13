@@ -1,12 +1,17 @@
+# Copyright 2021 MosaicML. All Rights Reserved.
+
 from copy import deepcopy
 
+import pytest
 import torch
 
-from composer.algorithms import LayerFreezing
+from composer.algorithms import LayerFreezing, LayerFreezingHparams
 from composer.core.state import State
 from composer.core.types import Event, Model, Precision
 from composer.loggers import Logger
+from composer.trainer.trainer_hparams import TrainerHparams
 from composer.utils import ensure_tuple
+from tests.utils.trainer_fit import train_model
 
 
 def _generate_state(epoch: int, max_epochs: int, model: Model):
@@ -63,3 +68,10 @@ def test_freeze_layers_with_freeze(simple_conv_model: Model, noop_dummy_logger: 
     updated_param_groups = first_optimizer.param_groups
 
     _check_param_groups(expected_param_groups, updated_param_groups)
+
+
+@pytest.mark.run_long
+@pytest.mark.timeout(90)
+def test_layer_freezing_trains(mosaic_trainer_hparams: TrainerHparams):
+    mosaic_trainer_hparams.algorithms = [LayerFreezingHparams(freeze_start=.25, freeze_level=1)]
+    train_model(mosaic_trainer_hparams, max_epochs=4)

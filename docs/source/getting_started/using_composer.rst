@@ -4,7 +4,7 @@ Using Composer
 We provide several paths to use our library:
 
 * Use our functional API to integrate methods directly into your training loops
-* For easy composability, use our MosaicML ``Trainer`` to quickly experiment with different methods.
+* For easy composability, use our MosaicML :class:`~composer.trainer.Trainer` to quickly experiment with different methods.
 
 
 
@@ -30,7 +30,7 @@ Then, we apply BlurPool and SqueezeExcite methods to replace eligible convolutio
 
     # replace some layers with blurpool or squeeze-excite layers
     CF.apply_blurpool(model)
-    CF.apply_se(model)
+    CF.apply_se(model, latent_channels=64, min_channels=128)
 
 As another example, to apply Progressive Resizing, which increases the image size over the course of training:
 
@@ -63,20 +63,20 @@ Here are several ways to use ``Trainer``:
 
    .. code-block:: python
 
-       from composer import algorithms, trainer
-       from composer.trainer import Trainer
+       from composer import algorithms, trainer, Trainer
+       from composer.core.types import Precision
 
        hparams = trainer.load("resnet50")  # loads from composer/models/resnet50/resnet50.yaml
-       hparams.algorithms = algorithms.load_multiple(["blurpool", "label_smoothing"])
+       hparams.algorithms = algorithms.load_multiple("blurpool", "label_smoothing")
 
        # edit other properties in the hparams object
-       hparams.precision = "fp32"
+       hparams.precision = Precision.FP32
        hparams.grad_accum = 2
 
-       learner = Trainer.create_from_hparams(hparams)
-       learner.fit()
+       trainer = Trainer.create_from_hparams(hparams)
+       trainer.fit()
 
-   For a list of properties, see: <add link to docstrings for hparams>
+   For a list of properties, see: :doc:`/trainer`
 
 2. (Configurable): Provide a ``yaml`` file, either from our defaults or customized yourself.
 
@@ -84,8 +84,9 @@ Here are several ways to use ``Trainer``:
 
    .. code-block::
 
-       git clone git@github.com:mosaicml/composer && cd composer
-       python examples/run_mosaic_trainer.py -f composer/models/classify_mnist/classify_mnist_cpu.yaml
+       git clone https://github.com/mosaicml/composer.git
+       cd composer && pip install -e .
+       python3 examples/run_mosaic_trainer.py -f composer/models/classify_mnist/classify_mnist_cpu.yaml
 
    Or, in python,
 
@@ -94,31 +95,32 @@ Here are several ways to use ``Trainer``:
         from composer.trainer import trainer_hparams, Trainer
 
         hparams = trainer_hparams.create('path_to_yaml')
-        learner = Trainer.create_from_hparams(hparams)
+        trainer = Trainer.create_from_hparams(hparams)
 
-        learner.fit()
+        trainer.fit()
 
-   For more details on `yahp`_, see this primer <TODO: HERE>
+  For more details on `yahp`_, see the `documentation <https://mosaicml-yahp.readthedocs-hosted.com/en/stable/>`_.
 
-3. (Flexible): The :class:`Trainer` can also be initialized directly:
+3. (Flexible): The :class:`~composer.trainer.trainer.Trainer` can also be initialized directly:
 
    .. code-block:: python
 
-       from composer.trainer import Trainer
-       from composer import models, datasets
-       from torchvision import datasets
+       from composer import Trainer
+       from composer import models, DataloaderSpec
+       from torchvision import datasets, transforms
 
-       train_dataloader_spec = datasets.DataloaderSpec(
-           dataset=datasets.MNIST('/datasets/', train=True, download=True),
-           drop_last=False,
-           shuffle=True,
-       )
+        train_dataloader_spec = DataloaderSpec(
+            dataset=datasets.MNIST('/datasets/', train=True, transform=transforms.ToTensor(), download=True),
+            drop_last=False,
+            shuffle=True,
+        )
 
-       eval_dataloader_spec = datasets.DataloaderSpec(
-           dataset=datasets.MNIST('/datasets/', train=False, download=True),
-           drop_last=False,
-           shuffle=False,
-       )
+        eval_dataloader_spec = DataloaderSpec(
+            dataset=datasets.MNIST('/datasets/', train=False, transform=transforms.ToTensor()),
+            drop_last=False,
+            shuffle=False,
+        )
+
        trainer = Trainer(
            model=models.MNIST_Classifier(num_classes=10),
            train_dataloader_spec=train_dataloader_spec,

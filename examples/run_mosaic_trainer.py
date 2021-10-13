@@ -38,12 +38,7 @@ def main() -> None:
     hparams = TrainerHparams.create(cli_args=True)  # reads cli args from sys.argv
     logging.getLogger(composer.__name__).setLevel(hparams.log_level)
     if args.datadir is not None:
-        if not hasattr(hparams.train_dataset, 'datadir') or \
-            not hasattr(hparams.val_dataset, 'datadir'):
-            raise ValueError('To set with --datadir, both the train and val '
-                             'dataset must have the datadir attribute.')
-        setattr(hparams.train_dataset, 'datadir', args.datadir)
-        setattr(hparams.val_dataset, 'datadir', args.datadir)
+        hparams.set_datadir(args.datadir)
         logger.info(f'Set dataset dirs in hparams to: {args.datadir}')
     trainer = Trainer.create_from_hparams(hparams=hparams)
     trainer.fit()

@@ -1,10 +1,12 @@
+# Copyright 2021 MosaicML. All Rights Reserved.
+
 from typing import Dict, Type
 
 import pytest
 import torch
 
 from composer.core.types import ModelParameters
-from composer.optim.optimizer_hparams import (AdamHparams, AdamWHparams, MosaicMLAdamWHparams, MosaicMLSGDWHparams,
+from composer.optim.optimizer_hparams import (AdamHparams, AdamWHparams, DecoupledAdamWHparams, DecoupledSGDWHparams,
                                               OptimizerHparams, RAdamHparams, RMSPropHparams, SGDHparams, get_optimizer)
 from composer.trainer.trainer_hparams import optimizer_registry
 
@@ -12,9 +14,9 @@ optimizer_constructors: Dict[Type[OptimizerHparams], OptimizerHparams] = {
     AdamHparams: AdamHparams(),
     RAdamHparams: RAdamHparams(),
     AdamWHparams: AdamWHparams(),
-    MosaicMLAdamWHparams: MosaicMLAdamWHparams(),
+    DecoupledAdamWHparams: DecoupledAdamWHparams(),
     SGDHparams: SGDHparams(lr=0.001),
-    MosaicMLSGDWHparams: MosaicMLSGDWHparams(lr=0.001),
+    DecoupledSGDWHparams: DecoupledSGDWHparams(lr=0.001),
     RMSPropHparams: RMSPropHparams(lr=0.001),
 }
 

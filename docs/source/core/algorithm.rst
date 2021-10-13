@@ -3,12 +3,14 @@ composer.Algorithm
 
 .. currentmodule:: composer.core
 
-Algorithms are implemented in both a standalone functional form (see :doc:`../functional`), or as class :class:`Algorithm` for integration in the MosaicML :class:`Trainer`. This section describes the latter form.
+Algorithms are implemented in both a standalone functional form (see :doc:`../functional`), or as class :class:`Algorithm` for integration in the MosaicML :class:`~composer.trainer.Trainer`. This section describes the latter form.
 
 For ease of composability, algorithms in our Trainer are based on the two-way callbacks concept from `Howard et al, 2020 <https://arxiv.org/abs/2002.04688>`_. Each algorithm implements two methods:
 
-* :meth:`Algorithm.match`: returns ``True`` if the algorithm should be run given the current :class:`State` and :class:`Event`.
-* :meth:`Algorithm.apply`: performs an in-place modification of the given :class:`State`
+* :meth:`Algorithm.match`: returns ``True`` if the algorithm should be run given the current
+  :class:`~composer.core.state.State` and :class:`~composer.core.event.Event`.
+* :meth:`Algorithm.apply`: performs an in-place modification of the given
+  :class:`~composer.core.state.State`
 
 For example, a simple algorithm that shortens training:
 

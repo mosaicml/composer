@@ -1,32 +1,46 @@
 composer.loggers
 ================
 
-.. csv-table::
-    :header: "name", "logger", "description"
-    :widths: 20, 40, 30
-    :delim: |
+.. note::
 
-    wandb | :class:`WandBLoggerBackend` | logs to `weights and biases <https://wandb.ai>`_
-    tqdm | :class:`TQDMLoggerBackend` | creates progress bar
-    file | :class:`FileLoggerBackend` | logs to ``stdout`` (default), or file
+    To write a custom logger, see :doc:`/core/logger`.
 
 
-.. currentmodule:: composer.loggers
+Composer contains built-in loggers, which can be added via the ``--loggers`` CLI flag:
+
+.. code-block::
+
+    python examples/run_mosaic_trainer.py -f my_model.yaml --loggers tqdm file
+
+
+.. toctree::
+    :maxdepth: 1
+    :hidden:
+
+    logger
+
+
+Backends
+--------
 
 .. autosummary::
     :toctree: generated
     :nosignatures:
+    :recursive:
 
-    wandb_logger.WandBLoggerBackend
-    tqdm_logger.TQDMLoggerBackend
-    file_logger.FileLoggerBackend
+    ~composer.loggers.file_logger.FileLoggerBackend
+    ~composer.loggers.tqdm_logger.TQDMLoggerBackend
+    ~composer.loggers.wandb_logger.WandBLoggerBackend
 
-Base Loggers
--------------
+
+Backend Hyperparameters
+-----------------------
 
 .. autosummary::
     :toctree: generated
+    :nosignatures:
+    :recursive:
 
-    Logger
-    BaseLoggerBackend
-    RankZeroLoggerBackend
+    ~composer.loggers.logger_hparams.FileLoggerBackendHparams
+    ~composer.loggers.logger_hparams.TQDMLoggerBackendHparams
+    ~composer.loggers.logger_hparams.WandBLoggerBackendHparams

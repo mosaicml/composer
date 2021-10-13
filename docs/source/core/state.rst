@@ -1,7 +1,8 @@
 composer.State
 ==============
 
-The :class:`State` object is available for algorithms to modify during :meth:`Algorithm.apply`, and captures the state of the trainer.
+The :class:`~composer.core.state.State` object is available for algorithms to modify during
+:meth:`composer.core.algorithm.Algorithm.apply`, and captures the state of the trainer.
 
 A summary of available attributes and properties is given below:
 

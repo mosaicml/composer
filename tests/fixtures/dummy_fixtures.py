@@ -1,3 +1,5 @@
+# Copyright 2021 MosaicML. All Rights Reserved.
+
 import os
 from unittest.mock import MagicMock, Mock
 
@@ -173,6 +175,7 @@ def mosaic_trainer_hparams(
             store=FileStoreHparams(os.path.join(ddp_tmpdir, "store")),
             node_rank=0,
             num_nodes=1,
+            fork_rank_0=False,
         ),
         dataloader=DataloaderHparams(
             num_workers=0,

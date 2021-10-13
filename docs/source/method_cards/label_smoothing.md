@@ -1,14 +1,8 @@
 # Label Smoothing
 
-Applicable Settings: `Classification`
+Tags: `Vision`, `NLP`, `Classification`, `Increased Accuracy`, `Method`, `Regularization`
 
-Effects: `Increased Accuracy`
-
-Kind: `Method`
-
-Tags: `Regularization`
-
-## TLDR
+## TL;DR
 
 Label smoothing modifies the target distribution for a task by interpolating between the target distribution and a another distribution that usually has higher entropy. This typically reduces a model's confidence in its outputs and serves as a form of regularization.
 
@@ -36,7 +30,7 @@ Label smoothing replaces the one-hot encoded label with a combination of the tru
 
 ## Suggested Hyperparameters
 
-`alpha = 0.1` is a standard starting point for label smoothing.
+- `alpha = 0.1` is a standard starting point for label smoothing.
 
 ## Considerations
 
@@ -54,6 +48,8 @@ This method interacts with other methods (such as MixUp) that alter the targets.
 ```{eval-rst}
 .. autoclass:: composer.algorithms.label_smoothing.LabelSmoothing
     :members: match, apply
+    :noindex:
 
-.. autoclass:: composer.algorithms.label_smoothing.smooth_labels
+.. autofunction:: composer.algorithms.label_smoothing.smooth_labels
+    :noindex:
 ```

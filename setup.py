@@ -53,9 +53,13 @@ extra_deps['unet'] = [
 
 extra_deps['all'] = set(dep for deps in extra_deps.values() for dep in deps)
 
+# TODO fix deferred loading in composer.functional
+install_requires.extend(extra_deps['unet'])
+install_requires.extend(extra_deps['nlp'])
+
 setup(
     name="mosaicml",
-    version="0.2.1",
+    version="0.2.2",
     author="MosaicML",
     author_email="team@mosaicml.com",
     description="composing methods for ML training efficiency",
