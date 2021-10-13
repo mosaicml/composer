@@ -59,7 +59,7 @@ install_requires.extend(extra_deps['nlp'])
 
 setup(
     name="mosaicml",
-    version="0.2.2",
+    version="0.2.3",
     author="MosaicML",
     author_email="team@mosaicml.com",
     description="composing methods for ML training efficiency",
