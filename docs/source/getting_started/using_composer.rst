@@ -3,15 +3,15 @@ Using Composer
 
 We provide several paths to use our library:
 
-* Use our functional API to integrate methods directly into your training loops
-* For easy composability, use our MosaicML :class:`~composer.trainer.Trainer` to quickly experiment with different methods.
+* Use our :ref:`using_composer_functional` to integrate methods directly into your training loops
+* For easy composability, use our :ref:`using_composer_trainer` to quickly experiment with different methods.
 
+.. _using_composer_functional:
 
+Functional API
+~~~~~~~~~~~~~~
 
-Functional
-~~~~~~~~~~
-
-Almost all algorithms (efficiency methods) are implemented as both a standalone functions for direct access, and as classes for integration into the MosaicML ``Trainer``.
+Almost all algorithms (efficiency methods) are implemented as both standalone functions for direct access, and as classes for integration into the :ref:`using_composer_trainer`.
 
 For example, to use some of our model surgery-based methods, apply those functions after model creation and before the optimizers are created. First, to understand what is being modified, enable logging:
 
@@ -43,13 +43,14 @@ As another example, to apply Progressive Resizing, which increases the image siz
         CF.resize_inputs(image, label, scale_factor=scale)
         scale += 0.01
 
-For more details, please see :doc:`/functional`
+For more details, please see :doc:`/functional`.
 
+.. _using_composer_trainer:
 
 MosaicML Trainer
 ~~~~~~~~~~~~~~~~
 
-The previous approach is easy to get started and experiment with methods. However, the key to Composer is the ability to quickly configure and compose multiple methods together. For this, use the MosaicML :class:`Trainer`. Our trainer is designed to be minimally more opinionated than other libraries in order to achieve our composition goals.
+The previous approach is easy to get started and experiment with methods. However, the key to Composer is the ability to quickly configure and compose multiple methods together. For this, use the MosaicML Trainer. Our trainer is designed to be minimally more opinionated than other libraries in order to achieve our composition goals.
 
 Our trainer features:
 
@@ -57,7 +58,7 @@ Our trainer features:
 * engine that manages the ordering of algorithms for composition
 * a hyperparameter system based on `yahp`_ (optional, but recommended)
 
-Here are several ways to use ``Trainer``:
+Here are several ways to use the trainer:
 
 1. (Fastest): Directly load the hparams for preconfigured models and algorithms.
 
@@ -81,7 +82,7 @@ Here are several ways to use ``Trainer``:
 
 2. (Configurable): Provide a ``yaml`` file, either from our defaults or customized yourself.
 
-    With our `run_mosaic_trainer.py` entrypoint:
+    With our ``run_mosaic_trainer.py`` entrypoint:
 
    .. code-block::
 
@@ -134,7 +135,7 @@ Here are several ways to use ``Trainer``:
 
         trainer.fit()
 
-   For a comprehensive list of training arguments, see: :doc:`/trainer`
+   For a comprehensive list of training arguments, see :doc:`/trainer`.
 
 
 .. _yahp: https://github.com/mosaicml/yahp

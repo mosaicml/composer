@@ -1,4 +1,0 @@
-Methodology
-===========
-
-Text goes here

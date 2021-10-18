@@ -1,4 +1,0 @@
-composer.trainer
-================
-
-Text here

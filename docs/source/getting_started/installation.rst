@@ -71,7 +71,7 @@ Test ``Composer`` was installed properly by opening a ``python`` prompt, and run
 
     CF.apply_blurpool(model)
 
-This creates a ResNet50 model and replaces several pooling and convolution layers with BlurPool variants (`Zhang et al, 2019 <https://arxiv.org/abs/1904.11486>`_. The method should log:
+This creates a ResNet50 model and replaces several pooling and convolution layers with BlurPool variants (`Zhang et al., 2019 <https://arxiv.org/abs/1904.11486>`_). The method should log:
 
 .. code-block:: none
 

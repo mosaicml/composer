@@ -13,7 +13,7 @@ class WarmUpLR(_LRScheduler):
     pre-defined milestone: :attr:`warmup_iters`.
 
     This scheduler is adapted from PyTorch but rewritten in a non-chainable form to
-    accomodate :attr:`warmup_factor=0.0`. When :attr:`last_epoch=-1`, sets initial
+    accommodate :attr:`warmup_factor=0.0`. When :attr:`last_epoch=-1`, sets initial
     lr as lr.
 
     Args:

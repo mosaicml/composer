@@ -1,11 +1,8 @@
 .wy-nav-side {
-    /* background: rgb(19, 41, 78); */
     background: #fcfafa;
 }
 
 .wy-side-nav-search {
-    /* background-color: rgb(19, 41, 78); */
-    /* background: #fcfafa; */
     background: #13294e;
 }
 
@@ -15,12 +12,10 @@
 }
 
 .wy-menu-vertical a {
-    /* color: #fcfafa; */
-    color: rgb(19, 41, 78);
+    color: rgb(29, 51, 100);
 }
 
 .wy-menu-vertical a:hover {
-    /* background-color: rgb(233, 233, 233); */
     background-color: #f6817e;
 }
 

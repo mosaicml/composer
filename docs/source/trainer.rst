@@ -1,9 +1,9 @@
 composer.trainer
 ================
 
-.. currentmodule:: composer.trainer
+.. currentmodule:: composer
 
-:class:`Trainer` is used to train models with :class:`~composer.core.Algorithm` instances.
+:class:`Trainer` is used to train models with :class:`Algorithm` instances.
 The :class:`Trainer` is highly customizable and can support a wide variety of workloads.
 
 

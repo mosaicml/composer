@@ -1,4 +1,0 @@
-composer.models
-===============
-
-Text here

@@ -1,11 +1,13 @@
 composer.Engine
 ===============
 
-The order of ``algorithms`` can matter significantly during composition. For example, the Selective Backprop algorithm runs during ``AFTER_DATALOADER`` event, and must run before any data augmentations. The :class:`~composer.core.engine.Engine` runs these re-ordering passes.
+.. currentmodule:: composer
+
+The order of algorithms can matter significantly during composition. For example, the Selective Backprop algorithm runs during ``AFTER_DATALOADER`` event, and must run before any data augmentations. The :class:`Engine` runs these re-ordering passes.
 
 .. note::
 
-    The design of the ``Engine`` will be changed in future releases to accomdate more complexity as we investigation the composition of algorithms.
+    The design of the :class:`Engine` will be changed in future releases to accomdate more complexity as we investigation the composition of algorithms.
 
 
 Currently, the following passes are registered:
@@ -20,7 +22,6 @@ Currently, the following passes are registered:
 
    Selective backprop runs after the dataloader returns the batch, and executes an extra forward pass to rank and prune the examples in the batch by loss. To ensure a clean estimate of the example, Selective backprop should run before any other data augmentations during ``AFTER_DATALOADER`` (e.g. such as MixUp).
 
-.. currentmodule:: composer.core
 
 .. autoclass:: Engine
     :members:
@@ -44,5 +45,5 @@ For example, the algorithm ``Layer Freezing``, which runs at the end of every ep
    ...
    [STEP=3][layer_freezing/EPOCH_END=1]  # <-- ran here!
 
-.. autoclass:: Trace
+.. autoclass:: composer.core.engine.Trace
     :members:

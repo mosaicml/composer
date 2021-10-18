@@ -1,4 +1,0 @@
-composer.core
-=============
-
-Text here

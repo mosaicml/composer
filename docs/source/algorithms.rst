@@ -9,12 +9,12 @@ We describe programmatic modifications to the model or training process as "algo
 
 Algorithms can be used in two ways:
 
-* Using :py:class:`~composer.algorithm.Algorithm` objects. These objects provide callbacks to be run in the training loop.
+* Using :py:class:`~composer.Algorithm` objects. These objects provide callbacks to be run in the training loop.
 * Using algorithm-specific functions and classes, such as :py:func:`smooth_labels <composer.algorithms.label_smoothing.smooth_labels>` or :py:class:`~composer.algorithms.squeeze_excite.SqueezeExcite2d`.
 
 The former are the easier to compose together, since they all have the same public interface and work automatically with the Composer :py:class:`~composer.trainer.Trainer`. The latter are easier to integrate piecemeal into an existing codebase.
 
-See :py:class:`~composer.algorithms.Algorithm` for more information.
+See :py:class:`~composer.Algorithm` for more information.
 
 The following algorithms are available in Composer:
 

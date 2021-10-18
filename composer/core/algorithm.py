@@ -22,7 +22,7 @@ class Algorithm(Serializable, ABC):
     Algorithms must implement two methods:
     :func:`match`, which returns whether the algorithm should be run given
     the current event and state, and :func:`apply`, which makes an in-place
-    change to the State.
+    change to the :class:`~composer.core.State`.
     """
 
     @property
@@ -74,8 +74,8 @@ class Algorithm(Serializable, ABC):
             logger (:class:`Logger`): A logger to use for
                 logging algorithm-specific metrics.
         Returns:
-            ``int`` or ``None``: exit code that is stored in :class:`Trace`
-            and made accessible for debugging.
+            int or None: exit code that is stored in :class:`~composer.core.engine.Trace`
+                and made accessible for debugging.
         """
         raise NotImplementedError(f'implement apply() required for {self.__class__.__name__}')
 
