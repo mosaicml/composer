@@ -29,7 +29,7 @@ Currently, the following passes are registered:
 Trace
 ~~~~~
 
-``Trace`` records whether an algorithm ran at a particular step and ``Event`` combination, and also its order. These are logged with the key ``{algorithm_name}/{event}``.
+Traces record whether an algorithm ran at a particular step and event combination, and also the order of such executions. These are logged with the key ``{algorithm_name}/{event}``.
 
 For example, the algorithm ``Layer Freezing``, which runs at the end of every epoch, will emit a series of traces:
 

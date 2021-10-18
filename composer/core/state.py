@@ -85,15 +85,15 @@ class State(Serializable):
         last_batch_size (int): The size of the batch last returned from the dataloader. This can be different from the current size of ``batch`` if algorithms have modified the ``batch``.
         outputs (types.Tensors): The most recently computed output from the model's forward pass.
 
-        optimizers (Optimizer | Tuple(Optimizer)): The optimizers being used to train the model. Multiple optimizers are not currently supported.
-        schedulers (Scheduler | Tuple(Scheduler)): The learning rate schedulers, wrapped in :class:`ComposableScheduler`.
+        optimizers (types.Optimizers): The optimizers being used to train the model. Multiple optimizers are not currently supported.
+        schedulers (types.Schedulers): The learning rate schedulers, typically wrapped in :class:`ComposableScheduler`.
         scaler (torch.cuda.amp.GradScaler, optional): The gradient scaler in use for mixed precision training.
 
-        train_dataloader (DataLoader): The dataloader used for training.
-        eval_dataloader (DataLoader): The dataloader used for evaluation.
+        train_dataloader (types.DataLoader): The dataloader used for training.
+        eval_dataloader (types.DataLoader): The dataloader used for evaluation.
 
-        algorithms (`list` of `Algorithm`): The algorithms used for training.
-        callbacks (`list` of `Callback`): The callbacks used for training.
+        algorithms (Sequence[Algorithm]): The algorithms used for training.
+        callbacks (Sequence[Callback]): The callbacks used for training.
     """
 
     # model
@@ -248,18 +248,18 @@ class State(Serializable):
 
     @property
     def batch_pair(self) -> types.BatchPair:
-        """:class:`~composer.core.types.BatchPair`: The current batch, represented as a :class:`~composer.core.types.BatchPair`.
+        """:class:`~types.BatchPair`: The current batch, represented as a :class:`~types.BatchPair`.
 
         Raises:
-            TypeError: If the current batch is not a :class:`~composer.core.types.BatchPair`.
+            TypeError: If the current batch is not a :class:`~types.BatchPair`.
         """
         return types.as_batch_pair(self.batch)
 
     @property
     def batch_dict(self) -> types.BatchDict:
-        """:class:`~BatchDict`: The current batch, represented as a :class:`~composer.core.types.BatchDict`.
+        """:class:`~types.BatchDict`: The current batch, represented as a :class:`~types.BatchDict`.
 
         Raises:
-            TypeError: If the current batch is not a :class:`~composer.core.types.BatchDict`.
+            TypeError: If the current batch is not a :class:`~types.BatchDict`.
         """
         return types.as_batch_dict(self.batch)
