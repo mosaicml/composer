@@ -1,0 +1,87 @@
+name: PR Gate (CPU)
+on:
+  push: {}
+  workflow_dispatch: {}
+jobs:
+  runner-cpu:
+    timeout-minutes: 30
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/setup-python@v2
+        with:
+          python-version: 3.8
+      - name: Cache pip
+        uses: actions/cache@v2
+        with:
+          # This path is specific to Ubuntu
+          path: ~/.cache/pip
+          # Look to see if there is a cache hit for the corresponding requirements file
+          key: ${{ runner.os }}-pip-${{ hashFiles('setup.py', 'extra-requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+            ${{ runner.os }}-
+      - name: Setup
+        run: |
+          set -ex
+          python -m pip install --upgrade pip wheel
+          python -m pip install -f https://download.pytorch.org/whl/torch_stable.html \
+            torch==1.9.0+cpu \
+            torchvision==0.10.0+cpu \
+            torchaudio==0.9.0
+          python -m pip install -e .[all]
+      - name: Disable WandB
+        run: wandb disabled
+      - name: Run Tests
+        id: tests
+        run: |
+          set -ex
+          export FUNC_TEST_JUNITXML_RESULTS=${RUNNER_TEMP}/func_test_junitxml.xml
+          echo "::set-output name=func_test_junitxml_results::${FUNC_TEST_JUNITXML_RESULTS}"
+          python3 -m coverage run -m pytest -v --junitxml ${FUNC_TEST_JUNITXML_RESULTS} --n_gpus 0
+      - name: Publish Functional Test Results
+        uses: EnricoMi/publish-unit-test-result-action/composite@v1
+        if: ${{ always() }}
+        with:
+          files: ${{ steps.tests.outputs.func_test_junitxml_results }}
+  runner-cpu-long:
+    timeout-minutes: 30
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/setup-python@v2
+        with:
+          python-version: 3.8
+      - name: Cache pip
+        uses: actions/cache@v2
+        with:
+          # This path is specific to Ubuntu
+          path: ~/.cache/pip
+          # Look to see if there is a cache hit for the corresponding requirements file
+          key: ${{ runner.os }}-pip-${{ hashFiles('setup.py', 'extra-requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+            ${{ runner.os }}-
+      - name: Setup
+        run: |
+          set -ex
+          python -m pip install --upgrade pip wheel
+          python -m pip install -f https://download.pytorch.org/whl/torch_stable.html \
+            torch==1.9.0+cpu \
+            torchvision==0.10.0+cpu \
+            torchaudio==0.9.0
+          python -m pip install -e .[all]
+      - name: Disable WandB
+        run: wandb disabled
+      - name: Run Tests
+        id: tests
+        run: |
+          set -ex
+          export FUNC_TEST_JUNITXML_RESULTS=${RUNNER_TEMP}/func_test_junitxml.xml
+          echo "::set-output name=func_test_junitxml_results::${FUNC_TEST_JUNITXML_RESULTS}"
+          python3 -m coverage run -m pytest -v --junitxml ${FUNC_TEST_JUNITXML_RESULTS} -m run_long --n_gpus 0
+      - name: Publish Functional Test Results
+        uses: EnricoMi/publish-unit-test-result-action/composite@v1
+        if: ${{ always() }}
+        with:
+          files: ${{ steps.tests.outputs.func_test_junitxml_results }}
