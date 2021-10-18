@@ -22,7 +22,7 @@ import torchvision
 
 model = torchvision.models.resnet50()
 
-# replaces eligible layers with BlurPool (cite here)
+# replaces eligible layers with BlurPool (Zhang, 2019)
 CF.apply_blurpool(model)
 
 for epoch in range(max_epochs):
