@@ -40,11 +40,6 @@ jobs:
           export FUNC_TEST_JUNITXML_RESULTS=${RUNNER_TEMP}/func_test_junitxml.xml
           echo "::set-output name=func_test_junitxml_results::${FUNC_TEST_JUNITXML_RESULTS}"
           python3 -m coverage run -m pytest -v --junitxml ${FUNC_TEST_JUNITXML_RESULTS} --n_gpus 0
-      - name: Publish Functional Test Results
-        uses: EnricoMi/publish-unit-test-result-action/composite@v1
-        if: ${{ always() }}
-        with:
-          files: ${{ steps.tests.outputs.func_test_junitxml_results }}
   runner-cpu-long:
     timeout-minutes: 30
     runs-on: ubuntu-latest
@@ -81,8 +76,3 @@ jobs:
           export FUNC_TEST_JUNITXML_RESULTS=${RUNNER_TEMP}/func_test_junitxml.xml
           echo "::set-output name=func_test_junitxml_results::${FUNC_TEST_JUNITXML_RESULTS}"
           python3 -m coverage run -m pytest -v --junitxml ${FUNC_TEST_JUNITXML_RESULTS} -m run_long --n_gpus 0
-      - name: Publish Functional Test Results
-        uses: EnricoMi/publish-unit-test-result-action/composite@v1
-        if: ${{ always() }}
-        with:
-          files: ${{ steps.tests.outputs.func_test_junitxml_results }}
