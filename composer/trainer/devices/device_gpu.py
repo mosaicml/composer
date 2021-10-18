@@ -21,7 +21,7 @@ class CudaDataLoader(WrappedDataLoader):
     the specified device as they are used.
 
     Args:
-        dataloader (Dataloader): The dataloader to wrap.
+        dataloader (DataLoader): The dataloader to wrap.
         prefetch_in_cuda_stream (bool): ``True`` to asyncrhonously prefetch
             samples with a CUDA stream during dataloading and ``False``
             otherwise.

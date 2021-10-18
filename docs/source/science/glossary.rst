@@ -1,4 +1,0 @@
-Glossary
-========
-
-Text goes here

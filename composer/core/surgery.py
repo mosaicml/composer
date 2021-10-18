@@ -34,7 +34,7 @@ def replace_module_classes(
     recurse_on_replacements: bool = False,
     indices: Optional[Dict[Any, int]] = None,
 ) -> List[Tuple[torch.nn.Module, torch.nn.Module]]:
-    """ Modify model in-place by recursively applying replacement policies. Replacement policies are a mapping
+    """Modify model in-place by recursively applying replacement policies. Replacement policies are a mapping
     of source classes and `ReplacementFunction`.
 
     Examples:
@@ -111,8 +111,7 @@ def replace_module_classes(
 
 
 def count_module_instances(model: torch.nn.Module, module_class: Type[torch.nn.Module]) -> int:
-    """
-    Counts the number of instances of module_class in the model.
+    """Counts the number of instances of module_class in the model.
 
     Example:
         >>> model = nn.Sequential([nn.Linear(16, 32), nn.Linear(32, 64), nn.ReLU])

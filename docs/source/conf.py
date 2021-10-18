@@ -129,3 +129,5 @@ nitpick_ignore = [
     ('py:class', 'TLogData'),
     ('py:class', 'T_nnModule'),
 ]
+
+python_use_unqualified_type_names = True

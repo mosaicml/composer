@@ -6,7 +6,7 @@ Welcome to the MosaicML *Composer* library! This guide will walk you through the
 Our First Method!
 -----------------
 
-We're going to explore how MixUp, a fairly simple algorithm (method), works. MixUp, introduced in `mixup: Beyond Empirical Risk Minimization <https://arxiv.org/abs/1710.09412>`_ by Hongyi Zhang, Moutsapha Cisse, Yann N. Dauphin, and David Lopez-Paz, is a regularization technique that tends to improve the accuracy of image categorization models.
+We're going to explore how MixUp, a fairly simple algorithm, works. MixUp, introduced in `Zhang et al., 2017 <https://arxiv.org/abs/1710.09412>`_, is a regularization technique that tends to improve the accuracy of image categorization models.
 
 MixUp operates by modifying the batches of data used to train the model; instead of training on individual samples, we train on convex combinations of samples. Thus, our implementation of the MixUp algorithm needs to be able to modify batches of training data after they are loaded from the dataloader and before they are passed into the forward pass of a model.
 

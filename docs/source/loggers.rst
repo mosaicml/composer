@@ -13,13 +13,6 @@ Composer contains built-in loggers, which can be added via the ``--loggers`` CLI
     python examples/run_mosaic_trainer.py -f my_model.yaml --loggers tqdm file
 
 
-.. toctree::
-    :maxdepth: 1
-    :hidden:
-
-    logger
-
-
 Backends
 --------
 

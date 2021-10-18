@@ -1,10 +1,12 @@
 composer.Logger
 ===============
 
-The trainer includes a :class:`~composer.core.logging.logger.Logger`,
+.. currentmodule:: composer
+
+The trainer includes a :class:`Logger`,
 which routes logging calls to logger backends.
 Each logger backend inherits from :class:`~composer.core.logging.base_backend.BaseLoggerBackend`,
-which inherits from :class:`~composer.core.callback.Callback`.
+which inherits from :class:`Callback`.
 
 For example, to define a new logging backend:
 
@@ -29,3 +31,5 @@ For example, to define a new logging backend:
     ~composer.loggers.logger_hparams.BaseLoggerBackendHparams
     ~composer.core.logging.base_backend.BaseLoggerBackend
     ~composer.core.logging.base_backend.RankZeroLoggerBackend
+
+.. autoclass:: Logger

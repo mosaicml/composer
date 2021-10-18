@@ -71,16 +71,17 @@ class Engine():
     ) -> Traces:
         """Runs the sequence of algorithms and callbacks.
 
-        Filters algorithms by calling each one's ``match`` function, then passes to ``compile`` to
-        make any modifications, then runs each algorithm's ``apply`` function to make in-place
-        changes to the ``State``.
+        Filters algorithms by calling each one's :meth:`~Algorithm.match` function, internally 
+        checks for conflicting algorithms, then runs each algorithm's :meth:`~Algorithm.apply` 
+        function to make in-place changes to the :class:`State`.
 
-        The order of algorithm execution is determined by the provided list, and any changes made
-        by ``compile``.
+        The order of algorithm execution is determined by the provided list, plus any changes
+        made internally to prevent conflicts.
 
-        Returns ``Traces`` of the execution, a dictionary with keys formatted as 'algorithm_name/event'
-        (e.g. Blurpool/TRAINING_START), and values are the ``Trace`` object, which include an optional
-        return code from the algorithm, the order of execution, and whether the algorithm was run.
+        Returns traces of the execution, a dictionary with keys formatted as ``<algorithm_name>/<event>``
+        (e.g. ``Blurpool/TRAINING_START``), and values are the :class:`composer.core.engine.Trace` object, 
+        which include an optional return code from the algorithm, the order of execution, and whether 
+        the algorithm was run.
 
         Callbacks are always ran after algorithms, and do not return a trace.
 
@@ -93,9 +94,9 @@ class Engine():
 
 
         Args:
-            event (Event or str): the current ``Event``. Can be the Enum or a string with the event value.
+            event (Event or str): the current :class:`Event`. Can be the enum or a string with the event value.
         Returns:
-            traces (Dict[str, Trace]): dictionary of trace for each algorithm.
+            Dict[str, Trace]: dictionary of trace for each algorithm.
         """
         traces = self._run_algorithms(event)
         self._run_callbacks(event)
