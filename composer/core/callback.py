@@ -24,7 +24,7 @@ class Callback(Serializable, abc.ABC):
     they are run on specific events. By convention, Callbacks should not
     modify :class:`State`.
 
-    Each method name corresponds to an :class:`==Event`.
+    Each method name corresponds to an :class:`Event`.
 
     Subclasses of callbacks should override these methods to run in response
     to given :class:`Event` invocations.

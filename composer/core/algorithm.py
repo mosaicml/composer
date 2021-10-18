@@ -66,7 +66,7 @@ class Algorithm(Serializable, ABC):
     def apply(self, event: Event, state: State, logger: Logger) -> Optional[int]:
         """Applies the algorithm to make an in-place change to the State
 
-        Can optionally return an exit code to be stored in a :class:`Trace`.
+        Can optionally return an exit code to be stored in a :class:`~composer.core.engine.Trace`.
 
         Args:
             event (:class:`Event`): The current event.
@@ -74,7 +74,7 @@ class Algorithm(Serializable, ABC):
             logger (:class:`Logger`): A logger to use for
                 logging algorithm-specific metrics.
         Returns:
-            int or None: exit code that is stored in :class:`Trace`
+            int or None: exit code that is stored in :class:`~composer.core.engine.Trace`
                 and made accessible for debugging.
         """
         raise NotImplementedError(f'implement apply() required for {self.__class__.__name__}')
