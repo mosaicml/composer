@@ -1,0 +1,22 @@
+name: Pyright
+description: Run pyright type checker
+inputs:
+  working_directory:
+    required: true
+    description: Directory containing the Makefile
+runs:
+  using: composite
+  steps:
+    - name: Install Pyright
+      shell: bash
+      working-directory: ${{ inputs.working_directory }}
+      run: |
+        set -ex
+        sudo npm install -g pyright@1.1.173
+
+    - name: Run Pyright
+      shell: bash
+      working-directory: ${{ inputs.working_directory }}
+      run: |
+        set -ex
+        pyright
