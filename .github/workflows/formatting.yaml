@@ -42,9 +42,3 @@ jobs:
       - uses: ./.github/actions/license
         with:
           working_directory: "${{ github.workspace }}"
-      # - uses: karancode/yamllint-github-action@v2.0.0
-      #   with:
-      #     yamllint_file_or_dir: "${{ github.workspace }}"
-      #     yamllint_format: github
-      #     yamllint_strict: true
-      #     yamllint_comment: true
