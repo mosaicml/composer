@@ -1,6 +1,7 @@
 name: Formatting
 on:
   push: {}
+  pull_request: {}
   workflow_dispatch: {}
 defaults:
   run:

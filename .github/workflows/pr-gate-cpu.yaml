@@ -1,6 +1,7 @@
 name: PR Gate (CPU)
 on:
   push: {}
+  pull_request: {}
   workflow_dispatch: {}
 jobs:
   runner-cpu:
