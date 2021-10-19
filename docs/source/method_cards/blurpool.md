@@ -10,10 +10,6 @@ Tags: `Vision`, `Decreased GPU Throughput`, `Increased Accuracy`, `Method`, `Reg
 
 Increases accuracy at nearly the same speed by applying a spatial low-pass filter before the pool in max pooling and whenever using a strided convolution.## Graphic
 
-![BlurPool Antialiasing](https://storage.googleapis.com/docs.mosaicml.com/images/methods/blurpool-antialiasing.png)
-
-How various original ops (top row) are replaced with corresponding BlurPool ops (bottom row) in the original paper. In each case, a [low-pass filter](https://en.wikipedia.org/wiki/Low-pass_filter) is applied before the spatial downsampling to avoid [aliasing](https://en.wikipedia.org/wiki/Aliasing).
-
 ## Attribution
 
 [Making Convolutional Networks Shift-Invariant Again.](https://proceedings.mlr.press/v97/zhang19a.html) by Richard Zhang (2019).
@@ -23,8 +19,6 @@ How various original ops (top row) are replaced with corresponding BlurPool ops 
 [Project Website by Richard Zhang](https://richzhang.github.io/antialiased-cnns/)
 
 ## Code and Hyperparameters
-
-*Link to code in Mosaic*
 
 - `replace_convs` - replace strided `torch.nn.Conv2d` modules within the module with anti-aliased versions
 - `replace_maxpools` - replace torch.nn.MaxPool2d modules with anti-aliased versions
@@ -36,7 +30,7 @@ Applicable whenever using a strided convolution or a local max pooling layer, wh
 
 ## Example Effects
 
-The [original paper](https://arxiv.org/abs/1904.11486) showed accuracy gains of around 0.5-1% on ImageNet for various networks. A [subsequent paper](https://maureenzou.github.io/ddac/) demonstrated similar gains for ImageNet, as well as significant improvements on instance segmentation on MS COCO. The latter paper also showed improvements in semantic segmentation metrics on PACAL VOC2012 and Cityscapes. [Lee et al.](https://arxiv.org/abs/2001.06268) have also reproduced ImageNet accuracy gains, especially when applying Blurpool only to strided convolutions.
+The [original paper](https://arxiv.org/abs/1904.11486) showed accuracy gains of around 0.5-1% on ImageNet for various networks. A [subsequent paper](https://maureenzou.github.io/ddac/) demonstrated similar gains for ImageNet, as well as significant improvements on instance segmentation on MS COCO. The latter paper also showed improvements in semantic segmentation metrics on PASCAL VOC2012 and Cityscapes. [Lee et al.](https://arxiv.org/abs/2001.06268) have also reproduced ImageNet accuracy gains, especially when applying Blurpool only to strided convolutions.
 
 ## Implementation Details
 
