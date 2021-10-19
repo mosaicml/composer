@@ -1,13 +1,8 @@
 Scaling Laws
 ============
 
-Applicable Settings: ``Autoregressive Language Modeling``, ``NLP``
-
-Effects: ``Decreased Wall Clock Time``
-
-Kind: ``Best Practice``
-
-Tags: ``Speedup``
+Tags: ``Autoregressive Language Modeling``, ``NLP``, ``Decreased Wall Clock Time``, ``Best
+Practice``, ``Speedup``
 
 TLDR
 ----
