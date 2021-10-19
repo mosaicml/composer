@@ -30,7 +30,7 @@ Applicable whenever using a strided convolution or a local max pooling layer, wh
 
 ## Example Effects
 
-The [original paper](https://arxiv.org/abs/1904.11486) showed accuracy gains of around 0.5-1% on ImageNet for various networks. A [subsequent paper](https://maureenzou.github.io/ddac/) demonstrated similar gains for ImageNet, as well as significant improvements on instance segmentation on MS COCO. The latter paper also showed improvements in semantic segmentation metrics on PACAL VOC2012 and Cityscapes. [Lee et al.](https://arxiv.org/abs/2001.06268) have also reproduced ImageNet accuracy gains, especially when applying Blurpool only to strided convolutions.
+The [original paper](https://arxiv.org/abs/1904.11486) showed accuracy gains of around 0.5-1% on ImageNet for various networks. A [subsequent paper](https://maureenzou.github.io/ddac/) demonstrated similar gains for ImageNet, as well as significant improvements on instance segmentation on MS COCO. The latter paper also showed improvements in semantic segmentation metrics on PASCAL VOC2012 and Cityscapes. [Lee et al.](https://arxiv.org/abs/2001.06268) have also reproduced ImageNet accuracy gains, especially when applying Blurpool only to strided convolutions.
 
 ## Implementation Details
 
