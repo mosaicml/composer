@@ -2,11 +2,13 @@
 
 Tags: `Method`,`Vision`,`Regularization`,`Decreased GPU Throughput`, `Increased Accuracy`
 
-During training, BatchNorm normalizes a batch of inputs to have a mean of 0 and variance of 1. Ghost BatchNorm instead splits the batch into multiple "ghost" batches, each containing `ghost_batch_size` samples, and normalizes each one to have a mean of 0 and variance of 1. This causes training with a large batch size to behave more similarly to training with a small batch size and acts as a regularizer.
-
 ![Ghost-batch-normalization-and-alternatives](https://storage.googleapis.com/docs.mosaicml.com/images/methods/ghost-batch-normalization.png)
 
 Visualization of different normalization methods, from "A New Look at Ghost Normalization", cited below. Here $\mathbf{F}$ represents the spatial dimensions (such as height and width), $\mathbf{C}$ represents the channel dimension, and $\mathbf{M}$ represents the sample dimension within a batch. Ghost batch normalization (upper right) is a modified version of batchnorm that normalizes the mean and variance for disjoint sub-batches of the full batch.
+
+## TL;DR
+
+During training, BatchNorm normalizes a batch of inputs to have a mean of 0 and variance of 1. Ghost BatchNorm instead splits the batch into multiple "ghost" batches, each containing `ghost_batch_size` samples, and normalizes each one to have a mean of 0 and variance of 1. This causes training with a large batch size to behave more similarly to training with a small batch size and acts as a regularizer.
 
 ## Attribution
 
