@@ -4,7 +4,7 @@ Scaling Laws
 Tags: ``Autoregressive Language Modeling``, ``NLP``, ``Decreased Wall Clock Time``, ``Best
 Practice``, ``Speedup``
 
-TLDR
+TL;DR
 ----
 
 Scaling Laws capture the optimal training regime for a fixed compute
