@@ -65,11 +65,10 @@ class ClosureGradScaler(GradScaler):
 
     # Mostly copied from original grad_scaler implementation
     def update(self, new_scale=None):
-        """
-        Updates the scale factor.
+        """Updates the scale factor.
 
         If any optimizer steps were skipped the scale is multiplied by ``backoff_factor``
-        to reduce it. If ``growth_interval`` unskipped iterations occurred consecutively,
+        to reduce it. If ``growth_interval`` non-skipped iterations occurred consecutively,
         the scale is multiplied by ``growth_factor`` to increase it.
 
         Passing ``new_scale`` sets the new scale value manually. (``new_scale`` is not

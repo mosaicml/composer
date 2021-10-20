@@ -17,8 +17,7 @@ Traces = Dict[str, "Trace"]
 
 @dataclass
 class Trace():
-    """
-    Record of an algorithm's execution.
+    """Record of an algorithm's execution.
 
     Attributes:
         exit_code (int or None): optional return value from algorithm. Default: None.
@@ -40,8 +39,7 @@ def _setup_trace(algorithms: Sequence[Algorithm], event: Event) -> Traces:
 
 
 class Engine():
-    """
-    Coordinator for running and resolving conflicts between algorithms.
+    """Coordinator for running and resolving conflicts between algorithms.
 
     Args:
         state (State): the initial ``State`` of the trainer. Will be modified in-place.
@@ -71,16 +69,16 @@ class Engine():
     ) -> Traces:
         """Runs the sequence of algorithms and callbacks.
 
-        Filters algorithms by calling each one's :meth:`~Algorithm.match` function, internally 
-        checks for conflicting algorithms, then runs each algorithm's :meth:`~Algorithm.apply` 
+        Filters algorithms by calling each one's :meth:`~Algorithm.match` function, internally
+        checks for conflicting algorithms, then runs each algorithm's :meth:`~Algorithm.apply`
         function to make in-place changes to the :class:`State`.
 
         The order of algorithm execution is determined by the provided list, plus any changes
         made internally to prevent conflicts.
 
         Returns traces of the execution, a dictionary with keys formatted as ``<algorithm_name>/<event>``
-        (e.g. ``Blurpool/TRAINING_START``), and values are the :class:`composer.core.engine.Trace` object, 
-        which include an optional return code from the algorithm, the order of execution, and whether 
+        (e.g. ``Blurpool/TRAINING_START``), and values are the :class:`composer.core.engine.Trace` object,
+        which include an optional return code from the algorithm, the order of execution, and whether
         the algorithm was run.
 
         Callbacks are always ran after algorithms, and do not return a trace.
@@ -131,7 +129,7 @@ class Engine():
         event: Union[Event, str],
     ) -> Sequence[Algorithm]:
         """
-        Runs compiliation passes that modify the order and content of a list of algorithms.
+        Runs compilation passes that modify the order and content of a list of algorithms.
 
         Currently, runs the algorithms in a FILO queue for the before_ and after_ events. For example,
         algorithms will run in order ABCD during before_loss, and in DCBA during after_loss. The motivation
@@ -151,8 +149,8 @@ class Engine():
         event = Event(event)
 
         if event.value.startswith('after') or event.value.startswith('eval_after'):
-            """
-            Establish a FILO queue of algorithms before_ and after_ an event.
+            """Establish a FILO queue of algorithms before_ and after_ an event.
+
             before_loss: A, B, C, D
             after_loss: D, C, B, A
             """
@@ -164,8 +162,8 @@ class Engine():
         self,
         event: Union[Event, str],
     ):
-        """
-        Runs a sequence of callbacks, by calling the method corresponding to the event.
+        """Runs a sequence of callbacks by calling the function for an event.
+
         Args:
             event (Event): the current ``Event``
             state (State): the current ``State``

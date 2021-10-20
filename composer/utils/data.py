@@ -4,7 +4,7 @@ from torchvision import transforms
 
 
 def add_dataset_transform(dataset, transform):
-    """ Flexibly add the given transform to the dataset's collection of transforms
+    """Flexibly add a transform to the dataset's collection of transforms.
 
     Args:
         dataset: A torchvision-like dataset

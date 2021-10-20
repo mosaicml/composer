@@ -10,17 +10,13 @@ import tempfile
 
 
 def list_dirs(folder):
-    """
-    Lists all dirs for a given folder
-    """
+    """Lists all dirs for a given folder."""
     return sorted(
         child.name for child in folder.iterdir() if child.is_dir() and ("__pycache__" not in str(child.absolute())))
 
 
 def assert_attributes_exist(name, module_dict, attributes):
-    """
-    Assert that module has the provided attributes
-    """
+    """Assert that module has the provided attributes."""
 
     for attribute in attributes:
         assert attribute in module_dict, \

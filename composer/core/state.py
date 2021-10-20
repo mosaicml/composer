@@ -7,6 +7,7 @@ import warnings
 from dataclasses import dataclass, field, fields
 from typing import TYPE_CHECKING, Callable, ContextManager, Optional, Sequence, Union
 
+import torch
 import torch.nn.modules.utils
 from torch.nn.parallel import DistributedDataParallel
 
@@ -14,7 +15,7 @@ import composer.core.types as types
 from composer.core.callback import Callback
 from composer.core.precision import Precision
 from composer.core.serializable import Serializable
-from composer.utils import ensure_tuple, make_empty_tensor
+from composer.utils import ensure_tuple
 from composer.utils.ddp import get_global_rank, is_rank_set
 from composer.utils.precision import default_precision_factory
 
@@ -120,11 +121,11 @@ class State(Serializable):
     step: int = 0  # global step counter
 
     # transient tensors within training loop
-    loss: types.Tensors = field(default_factory=make_empty_tensor)
+    loss: types.Tensors = field(default_factory=lambda: torch.zeros(size=(1,)))
     last_batch_size: int = 0
 
     batch: types.Batch = field(default_factory=dict)
-    outputs: types.Tensors = field(default_factory=make_empty_tensor)
+    outputs: types.Tensors = field(default_factory=lambda: torch.zeros(size=(1,)))
 
     # optimizers
     optimizers: Optional[types.Optimizers] = None
