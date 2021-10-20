@@ -8,7 +8,7 @@ Tags: `Vision`, `Decreased GPU Throughput`, `Increased Accuracy`, `Method`, `Reg
 
 ## TL;DR
 
-Increases accuracy at nearly the same speed by applying a spatial low-pass filter before the pool in max pooling and whenever using a strided convolution.## Graphic
+Increases accuracy at nearly the same speed by applying a spatial low-pass filter before the pool in max pooling and whenever using a strided convolution.
 
 ## Attribution
 
