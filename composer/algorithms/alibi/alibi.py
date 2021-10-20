@@ -108,7 +108,7 @@ def apply_alibi(model: torch.nn.Module, heads_per_layer: int, max_sequence_lengt
 
 class Alibi(Algorithm):
     """
-    `AliBi <https://arxiv.org/abs/2108.12409>`_ (Attention with Linear Biases)
+    `ALiBi <https://arxiv.org/abs/2108.12409>`_ (Attention with Linear Biases)
     dispenses with position embeddings and instead directly biases attention
     matrices such that nearby tokens attend to one another more strongly.
 
