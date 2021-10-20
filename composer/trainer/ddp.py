@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import collections.abc
+import io
 import logging
 import os
 import subprocess
@@ -11,6 +12,7 @@ import time
 import warnings
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
+from multiprocessing import Process
 from threading import Thread
 from typing import Callable, Iterator, List, Optional, Sequence, TypeVar, cast
 
@@ -90,7 +92,7 @@ class DDP:
         self.last_return_code: Optional[int] = None
         self.backend = backend
         self.fork_rank_0 = fork_rank_0
-        self.processes: List[subprocess.Popen[str]] = []
+        self.processes: List[Process] = []
         self.find_unused_parameters = find_unused_parameters
 
         if backend == 'nccl':
@@ -163,52 +165,33 @@ class DDP:
 
                 # set PyTorch distributed related environmental variables
 
-                current_env = os.environ.copy()
                 # TODO omp num threads -- this parameter needs to be auto-tuned
                 for local_rank in range(self.nproc_per_node):
+                    if local_rank == 0 and not self.fork_rank_0:
+                        continue
+
                     # each process's rank
                     global_rank = self.nproc_per_node * self.node_rank + local_rank
-                    current_env["RANK"] = str(global_rank)
-
-                    if local_rank == 0 and not self.fork_rank_0:
-                        os.environ["RANK"] = str(global_rank)
-                    else:
-                        logger.info("Launching process for global_rank(%d) on node_rank(%d)", global_rank,
-                                    self.node_rank)
-                        # spawn the processes
-                        cmd = [
-                            sys.executable,
-                            "-u",
-                            *sys.argv,
-                        ]
-
-                        if local_rank == 0:
-                            # Attaching rank 0 to the main stdout/stderr so interactive
-                            # terminal output will work without issue (e.g. tqdm)
-                            process = subprocess.Popen(cmd, env=current_env, text=True)
-                        else:
-                            # Other processes, except in the case of an error, should not print anything
-                            process = subprocess.Popen(
-                                cmd,
-                                env=current_env,
-                                stdout=subprocess.PIPE,
-                                stderr=subprocess.PIPE,
-                                text=True,
-                            )
-                        self.processes.append(process)
+                    logger.info("Launching process for global_rank(%d) on node_rank(%d)", global_rank, self.node_rank)
+                    # spawn the process
+                    process = Process(target=self.run, args=(global_rank, state, loop))
+                    process.start()
+                    self.processes.append(process)
                 if self.fork_rank_0:
                     self.monitor()
                     return
                 else:
                     Thread(target=self.monitor, daemon=True).start()
+                    self.run(0, state, loop)
             else:
                 if self.world_size != 1:
                     raise ValueError("Must have world size == 1 when torch.distributed is not available")
                 if self.node_rank != 0:
                     raise ValueError("Must have a node_rank == 0 when torch.distributed is not available")
                 os.environ["RANK"] = "0"
-        # We are now on the correct process
-        global_rank = int(os.environ["RANK"])
+
+    def run(self, global_rank: int, state: State, loop: Callable[[], None]):
+        os.environ["RANK"] = str(global_rank)
         assert global_rank // self.world_size == self.node_rank
         assert os.environ["WORLD_SIZE"] == str(
             self.world_size
@@ -263,7 +246,7 @@ class DDP:
         while len(alive_processes) > 0:
             finished_processes: List[subprocess.Popen[str]] = []
             for process in alive_processes:
-                if process.poll() is None:
+                if process.is_alive():
                     # the process is still running
                     continue
                 else:
