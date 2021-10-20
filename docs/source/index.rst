@@ -94,11 +94,11 @@ Our documentation is organized into a few sections:
    method_cards/scale_schedule.md
    method_cards/scaling_laws.rst
    method_cards/selective_backprop.md
+   method_cards/seq_len_warmup.rst   
    method_cards/squeeze_excite.md
    method_cards/stochastic_depth_blockwise.md
    method_cards/stochastic_depth_samplewise.md
    method_cards/swa.md
-   method_cards/seq_len_warmup.rst
 
 .. toctree::
    :maxdepth: 1
