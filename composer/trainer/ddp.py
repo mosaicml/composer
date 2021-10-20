@@ -3,21 +3,17 @@
 from __future__ import annotations
 
 import collections.abc
-import io
 import logging
 import os
-import subprocess
-import sys
-import time
 import warnings
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from multiprocessing import Process
-from threading import Thread
 from typing import Callable, Iterator, List, Optional, Sequence, TypeVar, cast
 
 import torch
 import torch.distributed
+import torch.multiprocessing
 import torch.utils.data
 import yahp as hp
 from torch.nn.parallel import DistributedDataParallel
@@ -161,36 +157,16 @@ class DDP:
             logger.info("Starting DDP on node_rank(%d) with world_size(%d)", self.node_rank, self.world_size)
 
             if torch.distributed.is_available():
-                # Adapted from torch.distributed.launch
-
-                # set PyTorch distributed related environmental variables
-
-                # TODO omp num threads -- this parameter needs to be auto-tuned
-                for local_rank in range(self.nproc_per_node):
-                    if local_rank == 0 and not self.fork_rank_0:
-                        continue
-
-                    # each process's rank
-                    global_rank = self.nproc_per_node * self.node_rank + local_rank
-                    logger.info("Launching process for global_rank(%d) on node_rank(%d)", global_rank, self.node_rank)
-                    # spawn the process
-                    process = Process(target=self.run, args=(global_rank, state, loop))
-                    process.start()
-                    self.processes.append(process)
-                if self.fork_rank_0:
-                    self.monitor()
-                    return
-                else:
-                    Thread(target=self.monitor, daemon=True).start()
-                    self.run(0, state, loop)
+                torch.multiprocessing.spawn(self.run, args=(state, loop), nprocs=self.nproc_per_node)
             else:
                 if self.world_size != 1:
                     raise ValueError("Must have world size == 1 when torch.distributed is not available")
                 if self.node_rank != 0:
                     raise ValueError("Must have a node_rank == 0 when torch.distributed is not available")
-                os.environ["RANK"] = "0"
+                self.run(0, state, loop)
 
-    def run(self, global_rank: int, state: State, loop: Callable[[], None]):
+    def run(self, local_rank: int, state: State, loop: Callable[[], None]):
+        global_rank = self.nproc_per_node * self.node_rank + local_rank
         os.environ["RANK"] = str(global_rank)
         assert global_rank // self.world_size == self.node_rank
         assert os.environ["WORLD_SIZE"] == str(
@@ -210,7 +186,6 @@ class DDP:
             assert state.nproc_per_node == self.nproc_per_node, "state.nproc_per_node is incorrect"
             assert state.global_rank == torch.distributed.get_rank(
             ), "state.global_rank != torch.distributed.get_rank()"
-            logger.info("All DDP processes registered. world_size=%s.", self.world_size)
             logger.info("Starting process with global_rank=%s", global_rank)
         try:
             loop()
@@ -239,43 +214,6 @@ class DDP:
         if torch.distributed.is_available():
             dataloader = DDPDataLoader(dataloader)
         return dataloader
-
-    def monitor(self) -> None:
-        # Monitor checks whether any subprocesses have died unexpectedly
-        alive_processes = set(self.processes)
-        while len(alive_processes) > 0:
-            finished_processes: List[subprocess.Popen[str]] = []
-            for process in alive_processes:
-                if process.is_alive():
-                    # the process is still running
-                    continue
-                else:
-                    if process.returncode != 0:
-                        if process.stdout is None:
-                            output = ""
-                        else:
-                            output = process.stdout.read()
-
-                        if process.stderr is None:
-                            stderr = ""
-                        else:
-                            stderr = process.stderr.read()
-                        exc = subprocess.CalledProcessError(
-                            process.returncode,
-                            cmd=process.args,
-                            output=output,
-                            stderr=stderr,
-                        )
-                        if self.fork_rank_0:
-                            raise exc
-                        else:
-                            logger.exception("Error in subprocess", exc_info=exc)
-                            sys.exit(1)
-                    else:
-                        # exited cleanly
-                        finished_processes.append(process)
-            alive_processes = set(alive_processes) - set(finished_processes)
-            time.sleep(1)
 
     def cleanup(self) -> None:
         for process in self.processes:
