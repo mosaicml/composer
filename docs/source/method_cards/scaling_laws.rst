@@ -1,15 +1,10 @@
 Scaling Laws
 ============
 
-Applicable Settings: ``Autoregressive Language Modeling``, ``NLP``
+Tags: ``Autoregressive Language Modeling``, ``NLP``, ``Decreased Wall Clock Time``, ``Best
+Practice``, ``Speedup``
 
-Effects: ``Decreased Wall Clock Time``
-
-Kind: ``Best Practice``
-
-Tags: ``Speedup``
-
-TLDR
+TL;DR
 ----
 
 Scaling Laws capture the optimal training regime for a fixed compute
