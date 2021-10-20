@@ -41,7 +41,7 @@ The following algorithms are available in Composer:
     ~swa.SWA
 
 Alibi
----------------
+------
 
 Algorithm
 ^^^^^^^^^
