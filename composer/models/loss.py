@@ -28,14 +28,12 @@ class Dice(Metric):
         self.add_state("dice", default=torch.zeros((nclass,)), dist_reduce_fx="sum")
 
     def update(self, pred, target):
-        """Update the state based on new predictions and targets.
-        """
+        """Update the state based on new predictions and targets."""
         self.n_updates += 1  # type: ignore
         self.dice += self.compute_stats(pred, target)
 
     def compute(self):
-        """Aggregate the state over all processes to compute the metric.
-        """
+        """Aggregate the state over all processes to compute the metric."""
         dice = 100 * self.dice / self.n_updates  # type: ignore
         best_sum_dice = dice[:]
         top_dice = round(torch.mean(best_sum_dice).item(), 2)
@@ -78,8 +76,10 @@ def _stat_scores(
 
 
 def _infer_target_type(input: Tensor, targets: Tensor) -> str:
-    """Attempts to infer whether target is indices format (e.g. [1, 4, 7]) or
-    one_hot format (e.g. [[0, 1, 0], [1, 0, 0], ...])
+    """Infers whether the target is in indices format or one_hot format.
+
+    Example indices format: [1, 4, 7]
+    Example one_hot format [[0, 1, 0], [1, 0, 0], ...]
     """
     if input.shape == targets.shape:
         return 'one_hot'

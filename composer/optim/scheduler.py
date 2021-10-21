@@ -236,7 +236,7 @@ class MultiStepLRHparams(SchedulerHparams):
     scheduler.
     """
 
-    milestones: List[Time] = hp.required(doc='List of epoch indicies')
+    milestones: List[Time] = hp.required(doc='List of epoch indices')
     gamma: float = hp.optional(default=0.1, doc='multiplicative factor of decay')
     verbose: bool = hp.optional(default=False, doc='prints message to stdout')
     interval: str = hp.optional(default='epoch', doc=_interval_doc)
