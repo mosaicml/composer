@@ -36,6 +36,7 @@ The following algorithms are available in Composer:
     ~sam.SAM
     ~scale_schedule.ScaleSchedule
     ~selective_backprop.SelectiveBackprop
+    ~seq_length_warmup.SeqLengthWarmup
     ~squeeze_excite.SqueezeExcite
     ~stochastic_depth.StochasticDepth
     ~swa.SWA
