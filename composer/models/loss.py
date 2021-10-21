@@ -78,22 +78,22 @@ def _stat_scores(
 
 
 def _infer_target_type(input: Tensor, targets: Tensor) -> str:
-    """Attempts to infer whether target is indicies format (e.g. [1, 4, 7]) or
+    """Attempts to infer whether target is indices format (e.g. [1, 4, 7]) or
     one_hot format (e.g. [[0, 1, 0], [1, 0, 0], ...])
     """
     if input.shape == targets.shape:
         return 'one_hot'
     elif input.ndim == targets.ndim + 1:
-        return 'indicies'
+        return 'indices'
     else:
-        raise RuntimeError(f'Unable to infer indicies or one_hot. Targets has shape {targets.shape}'
+        raise RuntimeError(f'Unable to infer indices or one_hot. Targets has shape {targets.shape}'
                            f' and the inputs to cross entropy has shape {input.shape}. For one_hot, '
-                           'expect targets.shape == inputs.shape. For indicies, expect '
+                           'expect targets.shape == inputs.shape. For indices, expect '
                            'inputs.ndim == targets.ndim + 1')
 
 
 def ensure_targets_one_hot(input: Tensor, targets: Tensor) -> Tensor:
-    if _infer_target_type(input, targets) == 'indicies':
+    if _infer_target_type(input, targets) == 'indices':
         targets = F.one_hot(targets, num_classes=input.shape[1])
     return targets
 
@@ -112,7 +112,7 @@ def soft_cross_entropy(input: Tensor,
     """
     target_type = _infer_target_type(input, target)
 
-    if target_type == 'indicies':
+    if target_type == 'indices':
         return F.cross_entropy(input, target, weight, size_average, ignore_index, reduce, reduction)
     elif target_type == 'one_hot':
         assert reduction in ['sum', 'mean', 'none'], f"{reduction} reduction not supported."

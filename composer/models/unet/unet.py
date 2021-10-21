@@ -20,7 +20,7 @@ log = logging.getLogger(__name__)
 class UNet(BaseMosaicModel):
     """A U-Net model extending :class:`MosaicClassifier`.
 
-    See this `paper <https://arxiv.org/abs/1505.04597> for details on the
+    See this `paper <https://arxiv.org/abs/1505.04597>`_ for details on the
     U-Net architecture.
 
     Args:
@@ -70,8 +70,7 @@ class UNet(BaseMosaicModel):
         return logits
 
     def inference2d(self, image):
-        """Runs inference on a 3D image, by passing each depth slice through the model.
-        """
+        """Runs inference on a 3D image, by passing each depth slice through the model."""
         batch_modulo = image.shape[2] % 64
         if batch_modulo != 0:
             batch_pad = 64 - batch_modulo

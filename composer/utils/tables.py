@@ -10,13 +10,23 @@ import tempfile
 
 
 def list_dirs(folder):
-    """Lists all dirs for a given folder."""
+    """Lists all dirs for a given folder.
+
+    Args:
+        folder (str): The folder to list dirs for.
+    """
     return sorted(
         child.name for child in folder.iterdir() if child.is_dir() and ("__pycache__" not in str(child.absolute())))
 
 
 def assert_attributes_exist(name, module_dict, attributes):
-    """Assert that module has the provided attributes."""
+    """Assert that module has the provided attributes.
+
+    Args:
+        name (str): The class name.
+        module_dict (dict): The dict form of the class.
+        attributes (list): The attributes to check for.
+    """
 
     for attribute in attributes:
         assert attribute in module_dict, \
@@ -24,11 +34,17 @@ def assert_attributes_exist(name, module_dict, attributes):
 
 
 def get_metadata(names, attributes, module_basepath):
-    """
-    Returns a nested dict of metadata with names as keys. Checks
-    that all attributes exist in module given by module_basepath.name.
+    """Returns a nested dict of metadata with names as keys.
 
-    Example:
+    Checks that all attributes exist in module given by module_basepath.name.
+
+    Args:
+        names (str): The module names.
+        attributes (list): The attributes to check for.
+        module_basepath (str): The import path of the module.
+
+    Example::
+
         >>> get_metadata(
                 names=['blurpool', 'label_smoothing'],
                 attributes=['_name', '_tldr'],
@@ -68,9 +84,9 @@ def get_metadata(names, attributes, module_basepath):
 
 
 def build_markdown_table(header, metadata, sorted_keys, row_format):
-    """
-    Builds a markdown table, formatting `row_format` with the `metadata`. Entries
-    in the table are ordered by `sorted_keys`.
+    """Builds a markdown table, formatting `row_format` with the `metadata`.
+
+    Entries in the table are ordered by `sorted_keys`.
 
     Args:
         header (list): list of header strings
@@ -82,8 +98,8 @@ def build_markdown_table(header, metadata, sorted_keys, row_format):
     Returns:
         table_md (list): table in markdown format
     """
-    table_md = print_row(header)
-    table_md += print_row(['-' * len(h) for h in header])
+    table_md = _print_row(header)
+    table_md += _print_row(['-' * len(h) for h in header])
 
     for name in sorted_keys:
         d = metadata[name]
@@ -92,18 +108,22 @@ def build_markdown_table(header, metadata, sorted_keys, row_format):
         # e.g. to only print link if provided, define
         #    lambda d: '[Link]({_link})' if d[_link] else ''
         row = [r(d).format(**d) if callable(r) else r.format(**d) for r in row_format]
-        table_md += print_row(row)
+        table_md += _print_row(row)
 
     return table_md
 
 
-def print_row(row):
+def _print_row(row):
     return '|'.join(row) + '\n'
 
 
 def index_tag_in_lines(lines, tag):
-    """
-    Returns line number where tag is found.
+    """Returns line number where tag is found.
+
+    Args:
+        lines (list): List of lines to check.
+        tag (str): Tag to find.
+
     """
     for index, line in enumerate(lines):
         if tag in line:
@@ -112,7 +132,8 @@ def index_tag_in_lines(lines, tag):
 
 
 def update_table_in_file(table, source_file):
-    """
+    """Updates the table content based on a source file.
+
     Given a `source file`, updates the table. Searches
     the file for 'Table Start' and 'Table End' tags, and replaces
     the content between those tags.

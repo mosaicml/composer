@@ -16,8 +16,7 @@ from composer.optim import DecoupledAdamW, DecoupledSGDW
 
 @dataclass
 class OptimizerHparams(hp.Hparams, ABC):
-    """Abstract base class for optimizer hyperparameter classes.
-    """
+    """Abstract base class for optimizer hyperparameter classes."""
 
     @property
     @abstractmethod
@@ -64,7 +63,7 @@ class RAdamHparams(OptimizerHparams):
 
 @dataclass
 class AdamWHparams(OptimizerHparams):
-    """ Hyperparameters for the `AdamW <https://pytorch.org/docs/stable/generated/torch.optim.AdamW.html#torch.optim.AdamW>`_
+    """Hyperparameters for the `AdamW <https://pytorch.org/docs/stable/generated/torch.optim.AdamW.html#torch.optim.AdamW>`_
     optimizer.
     """
     lr: float = hp.optional(default=0.001, doc='learning rate')
@@ -81,8 +80,7 @@ class AdamWHparams(OptimizerHparams):
 
 @dataclass
 class DecoupledAdamWHparams(OptimizerHparams):
-    """ Hyperparameters for the :class:`~composer.optim.DecoupledAdamW` optimizer.
-    """
+    """Hyperparameters for the :class:`~composer.optim.DecoupledAdamW` optimizer."""
     lr: float = hp.optional(default=0.001, doc='learning rate')
     betas: List[float] = hp.optional(default_factory=lambda: [0.9, 0.999],
                                      doc='coefficients used for computing running averages of gradient and its square.')
@@ -97,7 +95,7 @@ class DecoupledAdamWHparams(OptimizerHparams):
 
 @dataclass
 class SGDHparams(OptimizerHparams):
-    """ Hyperparameters for the `SGD <https://pytorch.org/docs/stable/generated/torch.optim.SGD.html#torch.optim.SGD>`_
+    """Hyperparameters for the `SGD <https://pytorch.org/docs/stable/generated/torch.optim.SGD.html#torch.optim.SGD>`_
     optimizer.
     """
     lr: float = hp.required(doc='learning rate')
@@ -113,8 +111,7 @@ class SGDHparams(OptimizerHparams):
 
 @dataclass
 class DecoupledSGDWHparams(OptimizerHparams):
-    """ Hyperparameters for the :class:`~composer.optim.DecoupledSGDW` optimizer.
-    """
+    """Hyperparameters for the :class:`~composer.optim.DecoupledSGDW` optimizer."""
     lr: float = hp.required(doc='learning rate')
     momentum: float = hp.optional(default=0.0, doc='momentum factor')
     weight_decay: float = hp.optional(default=0.0, doc='weight decay (L2 penalty)')
@@ -128,8 +125,7 @@ class DecoupledSGDWHparams(OptimizerHparams):
 
 @dataclass
 class RMSPropHparams(OptimizerHparams):
-    """ Hyperparameters for the [RMSProp optimizer](https://pytorch.org/docs/stable/generated/torch.optim.RMSprop.html#torch.optim.RMSprop).
-    """
+    """Hyperparameters for the [RMSProp optimizer](https://pytorch.org/docs/stable/generated/torch.optim.RMSprop.html#torch.optim.RMSprop)."""
     lr: float = hp.required(doc='learning rate')
     alpha: float = hp.optional(default=0.99, doc='smoothing constant')
     eps: float = hp.optional(default=1e-8, doc='term for numerical stability')
@@ -146,7 +142,7 @@ class RMSPropHparams(OptimizerHparams):
 
 
 def get_optimizer(param_groups: ModelParameters, hparams: OptimizerHparams) -> Optimizer:
-    """ Get the optimizer specified by the given hyperparameters.
+    """Get the optimizer specified by the given hyperparameters.
 
     Args:
         param_groups (ModelParameters): List of model parameters to optimize.

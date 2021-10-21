@@ -23,7 +23,7 @@ class BaseMosaicModel(torch.nn.Module, abc.ABC):
         """Compute the loss of the model.
 
         Args:
-            outputs (Any): The output of the foward pass.
+            outputs (Any): The output of the forward pass.
             batch (~composer.core.types.Batch): The input batch from dataloader.
 
         Returns:
@@ -78,8 +78,8 @@ class BaseMosaicModel(torch.nn.Module, abc.ABC):
 
         Returns:
             Tuple[Any, Any]: Tuple that is passed directly to the
-            `update()` methods of the metrics returned by :meth:`metrics`.
-            Most often, this will be a tuple of the form (predictions, targets).
+                `update()` methods of the metrics returned by :meth:`metrics`.
+                Most often, this will be a tuple of the form (predictions, targets).
         """
         pass
 

@@ -64,10 +64,12 @@ SKIP_SERIALIZATION_FIELDS = [
 
 @dataclass
 class State(Serializable):
-    """
-    The current state of the trainer.
+    """The class used to store the state of the trainer.
 
-    Algorithms are able to modify this object in-place.
+    Contains variables that the trainer tracks throughout the training loop.
+    Note that the entire state is serialized when the trainer is checkpointed
+    so that it can be used restore the trainer and continue training from a
+    checkpoint. Algorithms are able to modify this object in-place.
 
     Attributes:
         model (types.Model, often BaseMosaicModel): The model, typically as a subclass of :class:`BaseMosaicModel`.
@@ -166,8 +168,7 @@ class State(Serializable):
         return is_rank_set()
 
     def state_dict(self) -> types.StateDict:
-        """Returns the state as a :class:`dict`.
-        """
+        """Returns the state as a :class:`dict`."""
         state_dict: types.StateDict = {}
 
         for state_field in fields(self):
