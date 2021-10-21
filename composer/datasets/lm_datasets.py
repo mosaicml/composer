@@ -64,7 +64,7 @@ class LMDatasetHparams(DatasetHparams):
         lm_datasets = datasets.concatenate_datasets(merged_dataset)  #type: ignore (thirdparty)
 
         # generate a cache file name so the training and validation set use the same split
-        indices_cache_file_name = join(tempfile.gettempdir(), f"{self.seed}.indicies")
+        indices_cache_file_name = join(tempfile.gettempdir(), f"{self.seed}.indices")
 
         # shuffle the dataset
         lm_datasets = lm_datasets.shuffle(indices_cache_file_name=indices_cache_file_name, seed=self.seed)

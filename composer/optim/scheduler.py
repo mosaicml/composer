@@ -103,7 +103,9 @@ class SchedulerHparams(hp.Hparams, ABC):
     interval = 'epochs'  # type: str
 
     def convert_time_fields(self, steps_per_epoch: Optional[int] = None) -> None:
-        """Converts all fields that were provided as timestrings (e.g. "32ep11ba") into
+        """Convert time fields into integers.
+
+        Converts all fields that were provided as timestrings (e.g. "32ep11ba") into
         integers, representing either epochs or batches, depending on the
         scheduler's interval attribute.
 
@@ -234,7 +236,7 @@ class MultiStepLRHparams(SchedulerHparams):
     scheduler.
     """
 
-    milestones: List[Time] = hp.required(doc='List of epoch indicies')
+    milestones: List[Time] = hp.required(doc='List of epoch indices')
     gamma: float = hp.optional(default=0.1, doc='multiplicative factor of decay')
     verbose: bool = hp.optional(default=False, doc='prints message to stdout')
     interval: str = hp.optional(default='epoch', doc=_interval_doc)

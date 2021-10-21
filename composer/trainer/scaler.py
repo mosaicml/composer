@@ -11,6 +11,24 @@ from composer.core.types import Tensor
 
 
 class ClosureGradScaler(GradScaler):
+    """ClosureGradScaler allows for gradient scaling during with closures.
+
+    We use closures with optimizers (see `here <https://pytorch.org/docs/stable/optim.html>`_)
+    during training in order to support certain algorithms like
+    :class:`~composer.algorithms.SAM`. This class allows us to perform gradient
+    scaling (see `here <https://pytorch.org/docs/stable/amp.html#torch.cuda.amp.GradScaler>`_)
+    along with the use of closures during training.
+
+    Args:
+        ddp_reduce_scalar_and (Callable[[bool], bool]): A function that performs a
+            ddp reduction with an `and` operation. Used to determine whether
+            or not to continue computing an optimizer's `step` based on the presence
+            of `inf/nan` in the gradients.
+        ddp_reduce_tensor_sum (Callable[[Tensor], Tensor]): A function that performs
+            a ddp reduction across tensors with a `sum` operation. Used to aggregate
+            `inf/nan` information stored in tensors across devices.
+
+    """
 
     def __init__(self, ddp_reduce_scalar_and: Callable[[bool], bool], ddp_reduce_tensor_sum: Callable[[Tensor], Tensor],
                  **kwargs):
@@ -43,7 +61,9 @@ class ClosureGradScaler(GradScaler):
         return not inf_detected
 
     def step(self, optimizer: Optimizer, *args, **kwargs):
-        """ Always called before the optimizer step.
+        """Step the optimizer with amp.
+
+        Always called before the optimizer step.
         Checks if the optimizer can handle AMP closures (currently only MosaicML's SAM optimizer)
         If so, it passes an AMP-modified closure to the optimizer.
         """
@@ -64,12 +84,12 @@ class ClosureGradScaler(GradScaler):
         return optimizer.step(closure=_amp_closure)  # type: ignore
 
     # Mostly copied from original grad_scaler implementation
+    # See: https://pytorch.org/docs/stable/_modules/torch/cuda/amp/grad_scaler.html#GradScaler
     def update(self, new_scale=None):
-        """
-        Updates the scale factor.
+        """Updates the scale factor.
 
         If any optimizer steps were skipped the scale is multiplied by ``backoff_factor``
-        to reduce it. If ``growth_interval`` unskipped iterations occurred consecutively,
+        to reduce it. If ``growth_interval`` non-skipped iterations occurred consecutively,
         the scale is multiplied by ``growth_factor`` to increase it.
 
         Passing ``new_scale`` sets the new scale value manually. (``new_scale`` is not

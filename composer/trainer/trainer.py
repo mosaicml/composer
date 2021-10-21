@@ -359,8 +359,7 @@ class Trainer:
         return trainer
 
     def fit(self):
-        """Train and evaluate the model on the provided data.
-        """
+        """Train and evaluate the model on the provided data."""
         self.ddp.launch(self.state, self._train_loop)
 
     def _create_dataloaders(self) -> None:
@@ -390,7 +389,7 @@ class Trainer:
         )
 
     def _get_metrics_as_collection(self, *, is_train: bool) -> MetricCollection:
-        """Get metrics relevant to the model. Metrics are all implmented as subclasses
+        """Get metrics relevant to the model. Metrics are all implemented as subclasses
         of :class:`torchmetrics.Metric`. This function returns metrics as a
         :class:`~torchmetrics.collections.MetricCollection` to enable support
         for multiple metrics.
@@ -472,8 +471,7 @@ class Trainer:
                              f'multiple Tensor sizes in batch: {dim0_sizes}')
 
     def _train_loop(self) -> None:
-        """Run training for the specified number of epochs and log results.
-        """
+        """Run training for the specified number of epochs and log results."""
         # shorthand
         state = self.state
 
@@ -799,7 +797,7 @@ class Trainer:
 
         Raises:
             RuntimeError:
-                Occurs when attemptng to use grad scaling without the scaler
+                Occurs when attempting to use grad scaling without the scaler
                 enabled. Likely due to hardware not supporting the provided precision.
         """
         precision = Precision(precision)
