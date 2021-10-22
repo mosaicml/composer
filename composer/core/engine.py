@@ -146,7 +146,20 @@ class Engine():
         Returns:
             algorithms_to_run(Sequence[Algorithm]): modified sequence of algorithms
         """
+        from composer.algorithms import SelectiveBackprop
+
         event = Event(event)
+
+        for i, a in enumerate(algorithms_to_run):
+            # If selective backprop is found, move it to the front of the array
+            # while preserving the order of other algorithms
+            if isinstance(a, SelectiveBackprop):
+                j = i
+                while j > 0:
+                    temp = algorithms_to_run[j]
+                    algorithms_to_run[j] = algorithms_to_run[j - 1]
+                    algorithms_to_run[j - 1] = temp
+                    j -= 1
 
         if event.value.startswith('after') or event.value.startswith('eval_after'):
             """Establish a FILO queue of algorithms before_ and after_ an event.
