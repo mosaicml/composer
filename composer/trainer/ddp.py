@@ -152,18 +152,17 @@ class DDP:
             return [obj]
 
     def launch(self, state: State, loop: Callable[[], None]):
-        if os.environ.get("RANK") is None:
-            os.environ["WORLD_SIZE"] = str(self.world_size)
-            logger.info("Starting DDP on node_rank(%d) with world_size(%d)", self.node_rank, self.world_size)
+        os.environ["WORLD_SIZE"] = str(self.world_size)
+        logger.info("Starting DDP on node_rank(%d) with world_size(%d)", self.node_rank, self.world_size)
 
-            if torch.distributed.is_available():
-                torch.multiprocessing.spawn(self.run, args=(state, loop), nprocs=self.nproc_per_node)
-            else:
-                if self.world_size != 1:
-                    raise ValueError("Must have world size == 1 when torch.distributed is not available")
-                if self.node_rank != 0:
-                    raise ValueError("Must have a node_rank == 0 when torch.distributed is not available")
-                self.run(0, state, loop)
+        if torch.distributed.is_available():
+            torch.multiprocessing.spawn(self.run, args=(state, loop), nprocs=self.nproc_per_node)
+        else:
+            if self.world_size != 1:
+                raise ValueError("Must have world size == 1 when torch.distributed is not available")
+            if self.node_rank != 0:
+                raise ValueError("Must have a node_rank == 0 when torch.distributed is not available")
+            self.run(0, state, loop)
 
     def run(self, local_rank: int, state: State, loop: Callable[[], None]):
         global_rank = self.nproc_per_node * self.node_rank + local_rank

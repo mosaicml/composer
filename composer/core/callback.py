@@ -6,9 +6,9 @@ from __future__ import annotations
 
 import abc
 from functools import wraps
-from types import MethodType
 from typing import TYPE_CHECKING, Any, Callable
 
+from composer.core.event import Event
 from composer.core.serializable import Serializable
 from composer.utils.ddp import is_rank_set, is_rank_zero
 
@@ -275,7 +275,6 @@ class Callback(Serializable, abc.ABC):
         del state, logger  # unused
         pass
 
-
 class RankZeroCallback(Callback, abc.ABC):
     """Base class for callbacks that only run on the rank zero process.
 
@@ -285,27 +284,24 @@ class RankZeroCallback(Callback, abc.ABC):
         before the DDP fork and will be called on all ranks.
     """
 
-    def __init__(self) -> None:
-        from composer.core import Event
-
-        super().__init__()
-
+    def __getattribute__(self, k):
         # ensure all callbacks are executed only on rank 0
         functions_to_wrap = [*(event.value for event in Event), "state_dict"]
 
-        for fn_name in functions_to_wrap:
-            original_fn = getattr(self, fn_name)
+        if k not in functions_to_wrap:
+            return object.__getattribute__(self, k)
+        
+        original_fn = object.__getattribute__(self, k)
 
-            @wraps(original_fn)
-            def wrapped_fn(
-                backend: RankZeroCallback,
-                *args: Any,
-                original_fn: Callable[[State, Logger], None] = original_fn,
-                **kwargs: Any,
-            ) -> None:
-                if is_rank_set():
-                    if not is_rank_zero():
-                        return
-                return original_fn(*args, **kwargs)
+        @wraps(original_fn)
+        def wrapped_fn(
+            *args: Any,
+            original_fn: Callable[[State, Logger], None] = original_fn,
+            **kwargs: Any,
+        ) -> None:
+            if is_rank_set():
+                if not is_rank_zero():
+                    return
+            return original_fn(*args, **kwargs)
 
-            setattr(self, fn_name, MethodType(wrapped_fn, self))
+        return wrapped_fn
