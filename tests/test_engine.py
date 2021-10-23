@@ -95,7 +95,7 @@ def test_engine_with_selective_backprop(always_match_algorithms, dummy_logger, d
 
     trace = run_event(event, dummy_state, algorithms, dummy_logger)
 
-    expected = ['sb'] + list(range(5))
+    expected = ['sb', 0, 1, 2, 3, 4]
     actual = [tr.exit_code for tr in trace.values()]
 
     assert actual == expected

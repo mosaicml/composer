@@ -149,16 +149,16 @@ class Engine():
         from composer.algorithms import SelectiveBackprop
 
         event = Event(event)
-
-        for i, a in enumerate(algorithms_to_run):
+        algorithms = list(algorithms_to_run)  # ensure list
+        for i, a in enumerate(algorithms):
             # If selective backprop is found, move it to the front of the array
             # while preserving the order of other algorithms
             if isinstance(a, SelectiveBackprop):
                 j = i
                 while j > 0:
-                    temp = algorithms_to_run[j]
-                    algorithms_to_run[j] = algorithms_to_run[j - 1]
-                    algorithms_to_run[j - 1] = temp
+                    temp = algorithms[j]
+                    algorithms[j] = algorithms[j - 1]
+                    algorithms[j - 1] = temp
                     j -= 1
 
         if event.value.startswith('after') or event.value.startswith('eval_after'):
@@ -167,9 +167,9 @@ class Engine():
             before_loss: A, B, C, D
             after_loss: D, C, B, A
             """
-            algorithms_to_run = list(reversed(algorithms_to_run))
+            algorithms = list(reversed(algorithms))
 
-        return algorithms_to_run
+        return algorithms
 
     def _run_callbacks(
         self,
