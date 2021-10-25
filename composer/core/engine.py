@@ -149,17 +149,9 @@ class Engine():
         from composer.algorithms import SelectiveBackprop
 
         event = Event(event)
-        algorithms = list(algorithms_to_run)  # ensure list
-        for i, a in enumerate(algorithms):
-            # If selective backprop is found, move it to the front of the array
-            # while preserving the order of other algorithms
-            if isinstance(a, SelectiveBackprop):
-                j = i
-                while j > 0:
-                    temp = algorithms[j]
-                    algorithms[j] = algorithms[j - 1]
-                    algorithms[j - 1] = temp
-                    j -= 1
+
+        # Move selective backprop to the beginning while maintaining order of other algorithms
+        algorithms = sorted(algorithms_to_run, key=lambda x: not isinstance(x, SelectiveBackprop))
 
         if event.value.startswith('after') or event.value.startswith('eval_after'):
             """Establish a FILO queue of algorithms before_ and after_ an event.
