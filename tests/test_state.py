@@ -4,7 +4,6 @@ import pathlib
 import random
 from dataclasses import Field, fields
 
-import pytest
 import torch
 import torch.distributed as dist
 import torch.nn.functional as F
