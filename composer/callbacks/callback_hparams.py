@@ -14,8 +14,8 @@ from composer.core.callback import Callback
 if TYPE_CHECKING:
     from composer.callbacks.benchmarker import Benchmarker
     from composer.callbacks.grad_monitor import GradMonitor
-    from composer.callbacks.memory_monitor import MemoryMonitor
     from composer.callbacks.lr_monitor import LRMonitor
+    from composer.callbacks.memory_monitor import MemoryMonitor
     from composer.callbacks.speed_monitor import SpeedMonitor
     from composer.callbacks.torch_profiler import TorchProfiler
 
@@ -88,22 +88,18 @@ class GradMonitorHparams(CallbackHparams):
         from composer.callbacks.grad_monitor import GradMonitor
         return GradMonitor(log_layer_grad_norms=self.log_layer_grad_norms)
 
+
 @dataclass
 class MemoryMonitorHparams(CallbackHparams):
     """:class:`~composer.callbacks.memory_monitor.MemoryMonitor` hyperparameters.
 
     See :class:`~composer.callbacks.memory_monitor.MemoryMonitor` for documentation.
     """
-    aggregate_device_stats: bool = hp.optional(
-        doc="Whether to compute memory statistics across all devices.",
-        default=False,
-    )
 
     def initialize_object(self) -> MemoryMonitor:
         from composer.callbacks.memory_monitor import MemoryMonitor
-        return MemoryMonitor(
-            aggregate_device_stats=self.aggregate_device_stats
-        )
+        return MemoryMonitor()
+
 
 @dataclass
 class LRMonitorHparams(CallbackHparams):

@@ -8,7 +8,6 @@ from __future__ import annotations
 import os
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, List, Optional
-from composer.callbacks.callback_hparams import MemoryMonitorHparams
 
 import yahp as hp
 
@@ -16,7 +15,7 @@ import composer
 import composer.datasets as datasets
 from composer.algorithms import AlgorithmHparams, get_algorithm_registry
 from composer.callbacks import (BenchmarkerHparams, CallbackHparams, GradMonitorHparams, LRMonitorHparams,
-                                SpeedMonitorHparams, TorchProfilerHparams)
+                                MemoryMonitorHparams, SpeedMonitorHparams, TorchProfilerHparams)
 from composer.core.types import Precision
 from composer.datasets import DataloaderHparams
 from composer.loggers import (BaseLoggerBackendHparams, FileLoggerBackendHparams, TQDMLoggerBackendHparams,
