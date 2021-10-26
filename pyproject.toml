@@ -12,7 +12,6 @@ include = [
     "tests/**"
 ]
 
-reportUnknownMemberType = "none"
 reportImportCycles = "none"
 reportUnnecessaryIsInstance = "none"
 reportMissingTypeStubs = "none"
@@ -21,6 +20,7 @@ reportIncompatibleVariableOverride = "warning"
 reportUnusedImport = "error"
 reportMissingModuleSource = "none"
 reportPrivateImportUsage = "warning"
+reportUndefinedVariable = "error"
 
 pythonVersion = "3.8"
 pythonPlatform = "Linux"
