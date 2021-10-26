@@ -53,7 +53,8 @@ class MemoryMonitor(Callback):
 
         n_devices = device_count()
         if n_devices == 0:
-            raise Exception("No CUDA devices found!")
+            print("No CUDA devices found!")
+            return
 
         if self.aggregate_device_stats:
             device_range = n_devices
