@@ -696,9 +696,9 @@ class Trainer:
 
             if not isinstance(state.model, DistributedDataParallel):
                 context = contextlib.nullcontext
-            elif self.ddp_sync_strategy() == 'single_auto_sync' and microbatch_idx + 1 == len(microbatches):
+            elif self.ddp_sync_strategy == 'single_auto_sync' and microbatch_idx + 1 == len(microbatches):
                 context = contextlib.nullcontext
-            elif self.ddp_sync_strategy() == 'multi_auto_sync':
+            elif self.ddp_sync_strategy == 'multi_auto_sync':
                 context = contextlib.nullcontext
             else:
                 context = state.model.no_sync
@@ -741,7 +741,7 @@ class Trainer:
 
                 self.engine.run_event(Event.AFTER_BACKWARD)
 
-        if self.ddp_sync_strategy() == 'manual_sync':
+        if self.ddp_sync_strategy == 'manual_sync':
             for optimizer in ensure_tuple(state.optimizers):
                 for p in optimizer.param_groups:
                     if p.grad is not None:
