@@ -26,10 +26,7 @@ jobs:
         run: |
           set -ex
           python -m pip install --upgrade pip wheel
-          python -m pip install -f https://download.pytorch.org/whl/torch_stable.html \
-            torch==1.9.0+cpu \
-            torchvision==0.10.0+cpu \
-            torchaudio==0.9.0
+
           python -m pip install -e .[all]
       - name: Disable WandB
         run: wandb disabled
