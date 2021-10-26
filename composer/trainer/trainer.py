@@ -172,7 +172,7 @@ class Trainer:
 
         self.config = config
 
-        self.ddp_sync_strategy = 'single_auto_sync'
+        self.ddp_sync_strategy = ddp_sync_strategy
 
         if not device:
             device = DeviceCPU(num_cpus=1)
