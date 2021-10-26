@@ -58,8 +58,8 @@ class RAdamHparams(OptimizerHparams):
     weight_decay: float = hp.optional(default=0.0, doc='weight decay (L2 penalty)')
 
     @property
-    def optimizer_object(cls) -> Type[torch_optimizer.RAdam]:
-        return torch_optimizer.RAdam
+    def optimizer_object(cls) -> Type[torch_optimizer.radam.RAdam]:
+        return torch_optimizer.radam.RAdam
 
 
 @dataclass
