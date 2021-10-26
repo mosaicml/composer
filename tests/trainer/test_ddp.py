@@ -18,10 +18,10 @@ from composer.callbacks import CallbackHparams
 from composer.core.logging import Logger
 from composer.core.state import State
 from composer.datasets import DataloaderHparams, DataloaderSpec, MemoryFormat, SyntheticDataset, SyntheticDatasetHparams
-from composer.models.classify_mnist import MnistClassifierHparams
 from composer.trainer.ddp import DDPHparams, FileStoreHparams
 from composer.trainer.devices import CPUDeviceHparams, GPUDeviceHparams
 from composer.trainer.trainer_hparams import TrainerHparams, callback_registry, dataset_registry
+from tests.fixtures.models import SimpleBatchPairModelHparams
 
 
 def get_file_path(tmpdir: str, *, idx: int, epoch: int, is_train: bool) -> str:
@@ -156,11 +156,12 @@ def test_ddp(is_gpu: bool, num_procs: int, fork_rank_0: bool, *, ddp_tmpdir: str
        and 2) each ddp process is indeed getting different data.
     """
     hparams = mosaic_trainer_hparams
-    assert isinstance(hparams, TrainerHparams)
-    hparams.model = MnistClassifierHparams(num_classes=10)
+    model_hparams = hparams.model
+    assert isinstance(model_hparams, SimpleBatchPairModelHparams)
+    model = model_hparams.initialize_object()
     mosaic_trainer_hparams.train_dataset = TrackedDatasetHparams(
-        num_classes=10,
-        shape=[1, 28, 28],
+        num_classes=model.num_classes,
+        shape=list(model.in_shape),
         sample_pool_size=300,
         one_hot=False,
         device="cpu",
@@ -169,8 +170,8 @@ def test_ddp(is_gpu: bool, num_procs: int, fork_rank_0: bool, *, ddp_tmpdir: str
         tmpdir=ddp_tmpdir,
     )
     hparams.val_dataset = TrackedDatasetHparams(
-        num_classes=10,
-        shape=[1, 28, 28],
+        num_classes=model.num_classes,
+        shape=list(model.in_shape),
         sample_pool_size=300,
         one_hot=False,
         device="cpu",

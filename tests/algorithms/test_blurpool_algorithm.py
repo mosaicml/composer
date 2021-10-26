@@ -13,7 +13,7 @@ from composer.algorithms import BlurPool, BlurPoolHparams
 from composer.algorithms.blurpool.blurpool_layers import BlurConv2d, BlurMaxPool2d
 from composer.core import Event, State
 from composer.core.types import Model, Precision
-from tests.fixtures.dummy_fixtures import SimpleConvModel
+from tests.fixtures.models import SimpleConvModel
 
 
 @pytest.fixture

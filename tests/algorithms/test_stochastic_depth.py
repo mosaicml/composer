@@ -11,13 +11,14 @@ from composer.algorithms.stochastic_depth.stochastic_layers import StochasticBot
 from composer.core import Event, Logger, State, surgery
 from composer.core.types import Precision
 from composer.datasets import SyntheticDatasetHparams
+from composer.datasets.dataloader import DataloaderHparams
 from composer.loggers import Logger
 from composer.models import ResNet50Hparams
 from tests.fixtures.dummy_fixtures import get_dataloader
 
 
 @pytest.fixture()
-def dummy_state(dummy_dataloader_hparams):
+def dummy_state(dummy_dataloader_hparams: DataloaderHparams):
     model = ResNet50Hparams(num_classes=100).initialize_object()
     dataset_hparams = SyntheticDatasetHparams(num_classes=10,
                                               shape=[3, 32, 32],
@@ -26,7 +27,7 @@ def dummy_state(dummy_dataloader_hparams):
                                               one_hot=False,
                                               drop_last=True,
                                               shuffle=False)
-    train_dataloader = get_dataloader(dataset_hparams.initialize_object(), dummy_dataloader_hparams)
+    train_dataloader = get_dataloader(dataset_hparams.initialize_object(), dummy_dataloader_hparams, batch_size=100)
     return State(epoch=50,
                  step=50,
                  train_dataloader=train_dataloader,
