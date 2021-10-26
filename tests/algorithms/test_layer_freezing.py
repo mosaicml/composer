@@ -37,7 +37,7 @@ def _check_param_groups(expected_groups, actual_groups):
             f'Group {i} has the wrong number of parameters'
 
         for j, expected_params in enumerate(expected_group['params']):
-            torch.testing.assert_equal(actual_groups[i]['params'][j], expected_params)
+            assert (actual_groups[i]['params'][j] == expected_params).all()
 
 
 def test_freeze_layers_no_freeze(simple_conv_model: Model, noop_dummy_logger: Logger):

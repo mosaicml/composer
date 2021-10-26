@@ -2,13 +2,13 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Protocol
+from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from composer.core.types import StateDict
 
 
-class Serializable(Protocol):
+class Serializable:
     """Interface for serialization; used by checkpointing."""
 
     def state_dict(self) -> StateDict:
