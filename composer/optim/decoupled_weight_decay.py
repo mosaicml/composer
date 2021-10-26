@@ -14,7 +14,7 @@ log = logging.getLogger(__name__)
 
 
 class DecoupledSGDW(SGD):
-    """ SGD optimizer with the weight decay term decoupled from the learning rate.
+    """SGD optimizer with the weight decay term decoupled from the learning rate.
 
     The standard `SGD <https://pytorch.org/docs/stable/generated/torch.optim.SGD.html?highlight=sgd#torch.optim.SGD>`_
     optimizer couples the weight decay term with the gradient calculation. This ties the optimal value
@@ -33,7 +33,7 @@ class DecoupledSGDW(SGD):
     @staticmethod
     def sgdw(params: List[torch.Tensor], d_p_list: List[torch.Tensor], momentum_buffer_list: List[torch.Tensor], *,
              weight_decay: float, momentum: float, lr: float, initial_lr: float, dampening: float, nesterov: bool):
-        r""" Functional API that performs SGDW algorithm computation.
+        r"""Functional API that performs SGDW algorithm computation.
 
         Args:
             params (list): List of parameters to update
@@ -157,7 +157,7 @@ class DecoupledAdamW(AdamW):
               exp_avg_sqs: List[torch.Tensor], max_exp_avg_sqs: List[torch.Tensor], state_steps: List[int], *,
               amsgrad: bool, beta1: float, beta2: float, lr: float, initial_lr: float, weight_decay: float,
               eps: float) -> None:
-        r""" Functional API that performs AdamW algorithm computation with decoupled weight decay.
+        r"""Functional API that performs AdamW algorithm computation with decoupled weight decay.
 
         Args:
             params (List[torch.Tensor]): List of parameters to update.

@@ -1,10 +1,12 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
-"""
-How to BYOT (bring your own trainer) and use our algorithms,
-with minimal dependencies on our repo. Example invocation:
+"""How to BYOT (bring your own trainer).
 
-    python byo_trainer.py --datadir /datasets/
+Allows algorithms to be used with minimal dependencies on our repo.
+
+Example invocation::
+
+    >>> python byo_trainer.py --datadir /datasets/
 """
 import argparse
 import logging

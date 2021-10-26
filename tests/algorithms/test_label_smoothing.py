@@ -17,31 +17,31 @@ from tests.utils.trainer_fit import train_model
 def _generate_tensors_classification(batch_size: int, num_classes: int):
     """
     Helper functions to generate input, target pairs
-    for image classification (1d indicies)
+    for image classification (1d indices)
     """
     N = batch_size
     C = num_classes
 
-    target_indicies = torch.randint(0, C, [N])
-    target_onehot = F.one_hot(target_indicies, num_classes=C)
+    target_indices = torch.randint(0, C, [N])
+    target_onehot = F.one_hot(target_indices, num_classes=C)
     input = F.softmax(torch.randn((N, C)), dim=1)
 
-    return (input, target_indicies, target_onehot)
+    return (input, target_indices, target_onehot)
 
 
 def _generate_tensors_segmentation(batch_size: int, num_classes: int, H: int, W: int):
     """
     Helper functions to generate input, target pairs
-    for image segmentation (2d indicies)
+    for image segmentation (2d indices)
     """
     N = batch_size
     C = num_classes
 
-    target_indicies = torch.randint(0, C, (N, H, W))
-    target_onehot = F.one_hot(target_indicies, num_classes=C)  # NHWC?
+    target_indices = torch.randint(0, C, (N, H, W))
+    target_onehot = F.one_hot(target_indices, num_classes=C)  # NHWC?
     input = F.softmax(torch.randn((N, C, H, W)), dim=1)
 
-    return (input, target_indicies, target_onehot)
+    return (input, target_indices, target_onehot)
 
 
 def xfail(val):
@@ -67,14 +67,14 @@ def generate_tensors():
 class TestSoftCrossEntropy:
 
     def test_infer_target_type(self, tensors):
-        (input, target_indicies, target_onehot) = tensors
-        assert loss._infer_target_type(input, target_indicies) == 'indicies'
+        (input, target_indices, target_onehot) = tensors
+        assert loss._infer_target_type(input, target_indices) == 'indices'
         assert loss._infer_target_type(input, target_onehot) == 'one_hot'
 
     @pytest.mark.parametrize('reduction', ['mean', 'sum'])
     @pytest.mark.parametrize('use_weights', [xfail(True), False])
     def test_soft_cross_entropy(self, tensors, use_weights, reduction):
-        (input, target_indicies, target_onehot) = tensors
+        (input, target_indices, target_onehot) = tensors
         if use_weights:
             num_classes = target_onehot.shape[-1]
             weights = torch.randn(size=[num_classes])
@@ -83,12 +83,12 @@ class TestSoftCrossEntropy:
 
         loss_args = dict(weight=weights, reduction=reduction)
 
-        loss_indicies = loss.soft_cross_entropy(input, target_indicies, **loss_args)
+        loss_indices = loss.soft_cross_entropy(input, target_indices, **loss_args)
         loss_onehot = loss.soft_cross_entropy(input, target_onehot, **loss_args)
-        loss_reference = F.cross_entropy(input, target_indicies, **loss_args)
+        loss_reference = F.cross_entropy(input, target_indices, **loss_args)
 
-        torch.testing.assert_allclose(loss_indicies, loss_onehot)
-        torch.testing.assert_allclose(loss_indicies, loss_reference)
+        torch.testing.assert_allclose(loss_indices, loss_onehot)
+        torch.testing.assert_allclose(loss_indices, loss_reference)
 
 
 @pytest.mark.parametrize('alpha', [0, 0.1, 0.5, 0.9, 1.0])
@@ -101,20 +101,20 @@ class TestLabelSmoothing:
         return targets * (1 - alpha) + alpha / num_classes
 
     def test_label_smoothing(self, tensors, alpha):
-        (input, target_indicies, target_onehot) = tensors
+        (input, target_indices, target_onehot) = tensors
 
         labels_onehot = label_smoothing.smooth_labels(input, target_onehot, alpha)
-        labels_indicies = label_smoothing.smooth_labels(input, target_indicies, alpha)
+        labels_indices = label_smoothing.smooth_labels(input, target_indices, alpha)
         labels_ref = self.reference_smooth_labels(target_onehot, alpha)
 
         torch.testing.assert_allclose(labels_onehot, labels_ref)
-        torch.testing.assert_allclose(labels_indicies, labels_ref)
+        torch.testing.assert_allclose(labels_indices, labels_ref)
 
-    @pytest.mark.parametrize('target_type', ['onehot', 'indicies'])
+    @pytest.mark.parametrize('target_type', ['onehot', 'indices'])
     def test_label_smoothing_algorithm(self, tensors, alpha, target_type, dummy_logger, dummy_state):
-        (outputs, target_indicies, target_onehot) = tensors
+        (outputs, target_indices, target_onehot) = tensors
 
-        target = target_indicies if target_type == 'indicies' else target_onehot
+        target = target_indices if target_type == 'indices' else target_onehot
 
         algorithm = LabelSmoothingHparams(alpha=alpha).initialize_object()
         state = dummy_state

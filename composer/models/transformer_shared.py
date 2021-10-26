@@ -26,7 +26,7 @@ class MosaicTransformer(BaseMosaicModel):
             contains the forward pass function.
         config (transformers.PretrainedConfig): The PretrainedConfig object that
             stores information about the model hyperparameters.
-        tokenizer_name (str): The name of the tokenizer used for tihs model,
+        tokenizer_name (str): The name of the tokenizer used for this model,
             necessary to assert required model inputs.
     """
 
@@ -54,7 +54,7 @@ class MosaicTransformer(BaseMosaicModel):
         """Computes the loss of the tensor from the output.
 
         We don't implement this for the generic Transformer abstraction, since loss
-        functions are model and objective specific. A single model architeture could
+        functions are model and objective specific. A single model architecture could
         use a myriad of loss functions which are better left expressed by the user.
 
         Args:
@@ -106,7 +106,7 @@ class MosaicTransformer(BaseMosaicModel):
 
         .. warning:: If train=True, then it might calculate the training loss twice if
                      algorithms are overriding the loss fn. This could be expensive due
-                     to the computational cost of softmax; it is worth exploring caching stratgies.
+                     to the computational cost of softmax; it is worth exploring caching strategies.
 
         Returns:
             A  Metrics object that can be used to calculate task performance.
@@ -121,8 +121,8 @@ class MosaicTransformer(BaseMosaicModel):
                 that the model expects, as found in MosaicTransformer.get_model_inputs().
 
         Returns:
-            A tuple of (Mapping, None) with the output from the forward pass.
-            This is fed into directly into the output of :meth:`metrics`.
+            Tuple[Mapping, None]: A tuple containing the output from the forward pass.
+                This is fed into directly into the output of :meth:`metrics`.
         """
 
         assert self.training is False, "For validation, model must be in eval mode"

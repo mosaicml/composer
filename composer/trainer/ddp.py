@@ -35,10 +35,11 @@ class DataloaderMultipleIterationWarning(Warning):
 
 
 class DDPDataLoader(WrappedDataLoader):
-    """
-    DDPDataLoader wraps a dataloader and a distributed sampler to ensure that
-    sampler.set_epoch() is called after each iteration (epoch) through the dataset
-    See https://pytorch.org/docs/stable/data.html#torch.utils.data.distributed.DistributedSampler
+    """Ensure sampler.set_epoch() is called after each iteration.
+
+    DDPDataLoader wraps a dataloader and a distributed sampler and is
+    called after each iteration (epoch) through the dataset.
+    See: https://pytorch.org/docs/stable/data.html#torch.utils.data.distributed.DistributedSampler
     """
 
     def __init__(self, dataloader: DataLoader) -> None:
