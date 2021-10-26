@@ -6,7 +6,7 @@ from dataclasses import asdict, dataclass
 from typing import List, Type
 
 import torch
-import torch_optimizer
+import torch_optimizer.radam
 import yahp as hp
 
 from composer.core.types import ModelParameters, Optimizer
