@@ -743,9 +743,10 @@ class Trainer:
 
         if self.ddp_sync_strategy == 'manual_sync':
             for optimizer in ensure_tuple(state.optimizers):
-                for p in optimizer.param_groups:
-                    if p.grad is not None:
-                        self.ddp.all_reduce(p.grad)
+                for group in optimizer.param_groups:
+                    for p in group["params"]:
+                        if p.grad is not None:
+                            self.ddp.all_reduce(p.grad)
 
         # Unscale gradients before `Event.AFTER_TRAIN_BATCH`
         if use_grad_scaling:
