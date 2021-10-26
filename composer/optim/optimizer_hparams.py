@@ -1,12 +1,11 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
-from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from dataclasses import asdict, dataclass
 from typing import List, Type
 
 import torch
-import torch_optimizer.radam
+import torch_optimizer
 import yahp as hp
 
 from composer.core.types import ModelParameters, Optimizer
@@ -58,7 +57,7 @@ class RAdamHparams(OptimizerHparams):
     weight_decay: float = hp.optional(default=0.0, doc='weight decay (L2 penalty)')
 
     @property
-    def optimizer_object(cls) -> Type[torch_optimizer.radam.RAdam]:
+    def optimizer_object(cls) -> Type[torch_optimizer.RAdam]:
         return torch_optimizer.radam.RAdam
 
 

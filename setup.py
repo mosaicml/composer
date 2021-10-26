@@ -10,7 +10,7 @@ install_requires = [
     "pyyaml>=5.4.1",
     "tqdm>=4.62.3",
     "torchmetrics>=0.5.1",
-    "torch_optimizer>=0.2.0",
+    "torch_optimizer==0.1.0",
     "torchvision>=0.9.0",
     "torch>=1.8.1",
     "argparse>=1.4.0",
