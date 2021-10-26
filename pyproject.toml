@@ -41,6 +41,7 @@ markers = [
     # Specify -m daily_regression to run daily_regression tests
     "weekly_regression",
     # Specify -m weekly_regression to run weekly_regression tests.
+    "regression",
 ]
 filterwarnings = [
     "ignore:.*:DeprecationWarning"
