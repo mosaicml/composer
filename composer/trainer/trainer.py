@@ -183,6 +183,7 @@ class Trainer:
         # If hparams is used to create the Trainer this function is called twice
         # which is okay because all runs with the hparams codepath will do this
         seed_all(seed)
+        self.seed = seed
 
         if not algorithms:
             algorithms = []
@@ -210,8 +211,7 @@ class Trainer:
                            precision=precision,
                            precision_context=self.device.precision_context,
                            nproc_per_node=self.device.nproc_per_node,
-                           world_size=self.ddp.world_size,
-                           seed=seed)
+                           world_size=self.ddp.world_size)
 
         if not log_destinations:
             log_destinations = [TQDMLoggerBackend()]
@@ -618,6 +618,7 @@ class Trainer:
                     state.step += 1
                     if self.checkpointer and self.checkpointer.should_checkpoint(state=state, event=Event.BATCH_END):
                         self.checkpointer.save_checkpoint(state=state,
+                                                          seed=self.seed,
                                                           device=self.device,
                                                           ddp=self.ddp,
                                                           config=self.config)
@@ -633,7 +634,11 @@ class Trainer:
             state.epoch += 1
 
             if self.checkpointer and self.checkpointer.should_checkpoint(state=state, event=Event.EPOCH_END):
-                self.checkpointer.save_checkpoint(state=state, device=self.device, ddp=self.ddp, config=self.config)
+                self.checkpointer.save_checkpoint(state=state,
+                                                  seed=self.seed,
+                                                  device=self.device,
+                                                  ddp=self.ddp,
+                                                  config=self.config)
 
         self.engine.run_event(Event.TRAINING_END)
 
