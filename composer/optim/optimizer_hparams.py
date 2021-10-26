@@ -58,7 +58,7 @@ class RAdamHparams(OptimizerHparams):
 
     @property
     def optimizer_object(cls) -> Type[torch_optimizer.RAdam]:
-        return torch_optimizer.radam.RAdam
+        return torch_optimizer.RAdam
 
 
 @dataclass
