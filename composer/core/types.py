@@ -7,7 +7,7 @@ See :doc:`/core/types` for documentation.
 
 from __future__ import annotations
 
-from typing import Any, Callable, Dict, Iterable, Iterator, List, Optional, Protocol, Sequence, Tuple, Union
+from typing import Any, Callable, Dict, Iterable, Iterator, List, Optional, Protocol, Tuple, Union
 
 import torch
 import torch.utils.data
@@ -23,7 +23,7 @@ from composer.core.state import State as State
 
 Tensor = torch.Tensor
 Tensors = Union[Tensor, Tuple[Tensor, ...], List[Tensor]]
-BatchPair = Sequence[Tensors]
+BatchPair = Tuple[Tensors, Tensors]
 BatchDict = Dict[str, Tensor]
 Batch = Union[BatchPair, BatchDict, Tensor]
 

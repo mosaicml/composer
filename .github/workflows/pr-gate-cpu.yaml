@@ -18,7 +18,7 @@ jobs:
           # This path is specific to Ubuntu
           path: ~/.cache/pip
           # Look to see if there is a cache hit for the corresponding requirements file
-          key: ${{ runner.os }}-pip-${{ hashFiles('setup.py', 'extra-requirements.txt') }}
+          key: ${{ runner.os }}-pip-${{ hashFiles('setup.py') }}
           restore-keys: |
             ${{ runner.os }}-pip-
             ${{ runner.os }}-
@@ -26,10 +26,7 @@ jobs:
         run: |
           set -ex
           python -m pip install --upgrade pip wheel
-          python -m pip install -f https://download.pytorch.org/whl/torch_stable.html \
-            torch==1.9.0+cpu \
-            torchvision==0.10.0+cpu \
-            torchaudio==0.9.0
+
           python -m pip install -e .[all]
       - name: Disable WandB
         run: wandb disabled
@@ -54,7 +51,7 @@ jobs:
           # This path is specific to Ubuntu
           path: ~/.cache/pip
           # Look to see if there is a cache hit for the corresponding requirements file
-          key: ${{ runner.os }}-pip-${{ hashFiles('setup.py', 'extra-requirements.txt') }}
+          key: ${{ runner.os }}-pip-${{ hashFiles('setup.py') }}
           restore-keys: |
             ${{ runner.os }}-pip-
             ${{ runner.os }}-
@@ -62,10 +59,7 @@ jobs:
         run: |
           set -ex
           python -m pip install --upgrade pip wheel
-          python -m pip install -f https://download.pytorch.org/whl/torch_stable.html \
-            torch==1.9.0+cpu \
-            torchvision==0.10.0+cpu \
-            torchaudio==0.9.0
+
           python -m pip install -e .[all]
       - name: Disable WandB
         run: wandb disabled

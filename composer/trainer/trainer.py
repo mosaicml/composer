@@ -460,7 +460,9 @@ class Trainer:
 
         dim0_sizes = []
         if isinstance(batch, (list, tuple)):
-            dim0_sizes = [t.shape[0] for t in batch]
+            for tensors in batch:
+                for t in ensure_tuple(tensors):
+                    dim0_sizes.append(t.shape[0])
         elif isinstance(batch, dict):
             dim0_sizes = [t.shape[0] for t in batch.values()]
 

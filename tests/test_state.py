@@ -93,7 +93,7 @@ def assert_state_equivalent(state1: State, state2: State, skip_transient_fields:
             for p, q in zip(state1.model.parameters(), state2.model.parameters()):
                 torch.testing.assert_allclose(p, q, atol=1e-2, rtol=1e-2)
         elif isinstance(var1, types.Tensor):
-            torch.testing.assert_equal(var1, var2)
+            assert (var1 == var2).all()
         else:
             assert var1 == var2
 
