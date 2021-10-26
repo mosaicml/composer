@@ -188,7 +188,6 @@ def clear_checkpoint_folder(checkpoint_folder: str):
     shutil.rmtree(checkpoint_folder, ignore_errors=True)
 
 
-@pytest.mark.run_long
 @pytest.mark.timeout(90)
 @pytest.mark.parametrize("device_hparams", [
     pytest.param(CPUDeviceHparams(n_cpus=1), id="1cpu"),

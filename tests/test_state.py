@@ -108,8 +108,6 @@ def get_batch(model: SimpleBatchPairModel, dataloader_hparams: DataloaderHparams
     raise RuntimeError("No batch in dataloader")
 
 
-@pytest.mark.run_long
-@pytest.mark.timeout(5)
 def test_state_serialize(tmpdir: pathlib.Path, dummy_model: BaseMosaicModel,
                          dummy_dataloader_hparams: DataloaderHparams):
 

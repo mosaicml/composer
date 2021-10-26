@@ -132,7 +132,6 @@ def patch_registries(monkeypatch: MonkeyPatch):
     monkeypatch.setitem(dataset_registry, "tracked", TrackedDatasetHparams)
 
 
-@pytest.mark.run_long
 @pytest.mark.timeout(90)
 @pytest.mark.parametrize("fork_rank_0", [True, False], ids=["fork-rank-0", "no-fork-rank-0"])
 @pytest.mark.parametrize("is_gpu,num_procs", [

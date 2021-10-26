@@ -141,8 +141,6 @@ def test_label_smoothing_match():
     assert algorithm.match(Event.AFTER_LOSS, Mock())
 
 
-@pytest.mark.run_long
-@pytest.mark.timeout(90)
 def test_label_smoothing_trains(mosaic_trainer_hparams: TrainerHparams):
     mosaic_trainer_hparams.algorithms = [LabelSmoothingHparams(alpha=0.1)]
     train_model(mosaic_trainer_hparams)
