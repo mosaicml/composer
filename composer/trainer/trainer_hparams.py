@@ -8,6 +8,7 @@ from __future__ import annotations
 import os
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, List, Optional
+from composer.callbacks.callback_hparams import MemoryMonitorHparams
 
 import yahp as hp
 
@@ -78,6 +79,7 @@ callback_registry = {
     "benchmarker": BenchmarkerHparams,
     "lr_monitor": LRMonitorHparams,
     "grad_monitor": GradMonitorHparams,
+    "memory_monitor": MemoryMonitorHparams,
 }
 
 logger_registry = {
