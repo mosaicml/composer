@@ -1,3 +1,4 @@
+import datetime
 import os
 from typing import Any, Dict, Optional
 
@@ -32,7 +33,9 @@ class MetricMonitorHparams(BaseLoggerBackendHparams):
 
 TrainerHparams.register_class("loggers", MetricMonitorHparams, "metric_monitor")
 
-EXPECTED_METRICS = {"resnet50": {"acc/val": [0.75, 0.79]}, "classify_mnist_cpu": {"acc/val": [0.98, 0.99]}}
+EXPECTED_METRICS = {"resnet50": {"acc/val": [0.75, 0.79]}, "classify_mnist_cpu": {"accuracy/val": [0.98, 0.99]}}
+DATADIR = os.environ.get("MOSAICML_DATASET_PATH", "~/datasets")
+PROJECT_PREFIX = os.environ.get('MOSAICML_REGRESSION_PREFIX', "TESTING")
 
 
 @pytest.mark.timeout(0)  # disable timeouts
@@ -46,11 +49,11 @@ def test_regression(model_name: str, is_main_pytest_process: bool):
     trainer_hparams.loggers = [
         MetricMonitorHparams(),
         WandBLoggerBackendHparams(
-            project=f"{model_name}-regression-tests",
-            entity="mosaic-ml",
+            project=f"{PROJECT_PREFIX}-regression-tests-{model_name}",
+            name=datetime.datetime.now(datetime.timezone.utc).isoformat(),
         )
     ]
-    trainer_hparams.set_datadir("~/datasets")
+    trainer_hparams.set_datadir(DATADIR)
     trainer = trainer_hparams.initialize_object()
     trainer.fit()
     if not is_main_pytest_process:
