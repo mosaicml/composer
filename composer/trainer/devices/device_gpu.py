@@ -86,7 +86,7 @@ class CudaDataLoader(WrappedDataLoader):
         """
         if isinstance(batch, Tensor):
             return cast(Tensor, self._to_device(batch))
-        if isinstance(batch, tuple):  # BatchPair
+        if isinstance(batch, (tuple, list)):  # BatchPair
             return cast(BatchPair, tuple(self._to_device(x) for x in batch))
         if isinstance(batch, dict):  # BatchDict
             return {k: cast(Tensor, self._to_device(v)) for k, v in batch.items()}
