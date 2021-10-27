@@ -21,15 +21,14 @@ class MemoryMonitor(Callback):
 
     def __init__(self):
         super().__init__()
-        log.info("Memory monitor just profiles the current GPU.")
+        log.info(
+            "Memory monitor just profiles the current GPU assuming that the memory footprint across GPUs is balanced.")
         if device_count == 0:
             log.warn("Memory monitor only works on GPU devices.")
 
     def after_train_batch(self, state: State, logger: Logger):
         """This function calls the torch cuda memory stats and reports basic memory
-        statistics. To report additional statistics, add their torch names to 
-        default_stats. The names of additional statistics can be found in the
-        documentation for the function torch.cuda.memory_stats.
+        statistics.
 
         Args:
             state (State): The :class:`~composer.core.State` object
@@ -55,8 +54,7 @@ class MemoryMonitor(Callback):
 
         device_stats = memory_stats()
         for torch_stat_name, stat_alias in default_stats.items():
-            memory_report[stat_alias] = device_stats.get(torch_stat_name, 0) + \
-                memory_report.get(stat_alias, 0)
+            memory_report[stat_alias] = device_stats.get(torch_stat_name, 0)
 
         for mem_stat, val in memory_report.items():
             logger.metric_batch({'memory/{}'.format(mem_stat): val})

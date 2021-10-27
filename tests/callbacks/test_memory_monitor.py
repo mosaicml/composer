@@ -16,7 +16,7 @@ def _do_trainer_fit(mosaic_trainer_hparams: TrainerHparams, testing_with_gpu: bo
     mosaic_trainer_hparams.callbacks.append(memory_monitor_hparams)
 
     mosaic_trainer_hparams.ddp.fork_rank_0 = False
-    mosaic_trainer_hparams.max_epochs = 20
+    mosaic_trainer_hparams.max_epochs = 1
 
     mosaic_trainer_hparams.total_batch_size = 50
 
@@ -32,23 +32,24 @@ def _do_trainer_fit(mosaic_trainer_hparams: TrainerHparams, testing_with_gpu: bo
     trainer.fit()
 
     assert isinstance(mosaic_trainer_hparams.train_dataset, SyntheticDatasetHparams)
+    num_train_samples = mosaic_trainer_hparams.train_dataset.sample_pool_size
+    num_train_steps = num_train_samples // mosaic_trainer_hparams.total_batch_size
 
-    return log_destination
+    return log_destination, num_train_steps
 
 
 @pytest.mark.timeout(60)
 @pytest.mark.run_long
 def test_memory_monitor_cpu(mosaic_trainer_hparams: TrainerHparams):
-    log_destination = _do_trainer_fit(mosaic_trainer_hparams, testing_with_gpu=False)
+    log_destination, _ = _do_trainer_fit(mosaic_trainer_hparams, testing_with_gpu=False)
 
-    memory_monitor_nonzero = False
+    memory_monitor_nonzero = 0
     for log_call in log_destination.log_metric.mock_calls:
         metrics = log_call[1][3]
         if "memory/alloc_requests" in metrics:
             if metrics["memory/alloc_requests"] > 0:
-                memory_monitor_nonzero = True
-
-    assert not memory_monitor_nonzero
+                memory_monitor_nonzero += 1
+    assert memory_monitor_nonzero == 0
 
 
 @pytest.mark.timeout(60)
@@ -56,12 +57,12 @@ def test_memory_monitor_cpu(mosaic_trainer_hparams: TrainerHparams):
 def test_memory_monitor_gpu(mosaic_trainer_hparams: TrainerHparams):
     n_cuda_devices = device_count()
     if n_cuda_devices > 0:
-        log_destination = _do_trainer_fit(mosaic_trainer_hparams, testing_with_gpu=True)
+        log_destination, num_train_steps = _do_trainer_fit(mosaic_trainer_hparams, testing_with_gpu=True)
 
-        memory_monitor_nonzero = False
+        memory_monitor_nonzero = 0
         for log_call in log_destination.log_metric.mock_calls:
             metrics = log_call[1][3]
             if "memory/alloc_requests" in metrics:
                 if metrics["memory/alloc_requests"] > 0:
-                    memory_monitor_nonzero = True
-        assert memory_monitor_nonzero
+                    memory_monitor_nonzero += 1
+        assert memory_monitor_nonzero == num_train_steps
