@@ -10,9 +10,10 @@ import sys
 import time
 import warnings
 from abc import ABC, abstractmethod
+from contextlib import contextmanager, nullcontext
 from dataclasses import dataclass
 from threading import Thread
-from typing import Callable, Iterator, List, Optional, Sequence, TypeVar, cast
+from typing import Callable, ContextManager, Iterator, List, Optional, Sequence, TypeVar, cast
 
 import torch
 import torch.distributed
@@ -24,6 +25,7 @@ from torch.utils.data.distributed import DistributedSampler
 from composer.core.state import State
 from composer.core.types import Batch, DataLoader, Model, Tensor
 from composer.datasets import DataloaderHparams, DataloaderSpec, WrappedDataLoader
+from composer.utils.iter_helpers import ensure_tuple
 
 logger = logging.getLogger(__name__)
 
@@ -82,7 +84,8 @@ class DDP:
                  num_nodes: int,
                  backend: str,
                  fork_rank_0: bool,
-                 find_unused_parameters: bool = False):
+                 find_unused_parameters: bool = False,
+                 ddp_sync_strategy: str = 'single_auto_sync'):
         self.nproc_per_node = nproc_per_node
         self.world_size = num_nodes * nproc_per_node
         self.num_nodes = num_nodes
@@ -93,6 +96,7 @@ class DDP:
         self.fork_rank_0 = fork_rank_0
         self.processes: List[subprocess.Popen[str]] = []
         self.find_unused_parameters = find_unused_parameters
+        self.ddp_sync_strategy = ddp_sync_strategy
 
         if backend == 'nccl':
             if not torch.cuda.is_available():
@@ -218,10 +222,12 @@ class DDP:
         if torch.distributed.is_available():
             logger.info("Initializing ddp: GLOBAL_RANK: %s, WORLD_SIZE: %s", global_rank, self.world_size)
             store = self.store_hparams.initialize_object(is_main, state.world_size)
+            print('to init')
             torch.distributed.init_process_group(self.backend,
                                                  rank=global_rank,
                                                  world_size=self.world_size,
                                                  store=store)
+            print('done init')
             assert torch.distributed.is_initialized()
             assert state.is_rank_set, "state.is_rank_set should be set after torch.distributed is initialized"
             assert state.local_rank == global_rank % self.nproc_per_node, "state.local_rank is incorrect"
@@ -307,6 +313,36 @@ class DDP:
                 pass
         if torch.distributed.is_initialized():
             torch.distributed.destroy_process_group()
+
+    def get_ddp_sync_context(self, state: State, is_final_microbatch: bool) -> ContextManager:
+        assert isinstance(state.model, DistributedDataParallel), "state.model is not wrapped by DDP"
+
+        no_sync_context = cast(ContextManager, state.model.no_sync)
+        autograd_sync_context = nullcontext
+
+        if self.ddp_sync_strategy == 'single_auto_sync':
+            return autograd_sync_context if is_final_microbatch else no_sync_context
+
+        if self.ddp_sync_strategy == 'multi_auto_sync':
+            return autograd_sync_context
+
+        if self.ddp_sync_strategy == 'manual_sync':
+
+            @contextmanager
+            def manual_sync_context():
+                try:
+                    with no_sync_context():
+                        yield
+                finally:
+                    if is_final_microbatch:
+                        for optimizer in ensure_tuple(state.optimizers):
+                            for group in optimizer.param_groups:
+                                for p in group["params"]:
+                                    if p.grad is not None:
+                                        self.all_reduce(p.grad)
+                                        p.grad = p.grad / state.world_size
+
+            return manual_sync_context
 
 
 @dataclass

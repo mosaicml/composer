@@ -204,6 +204,7 @@ class Trainer:
             backend=self.device.ddp_backend,
             fork_rank_0=fork_rank_0,
             find_unused_parameters=find_unused_parameters,
+            ddp_sync_strategy=ddp_sync_strategy,
         )
 
         self.state = State(max_epochs=max_epochs,
@@ -694,15 +695,9 @@ class Trainer:
             # gradients aren't needed until after this function has finished.
             # When any algorithm sets find_unused_parameters to true, DDP must sync every microbatch.
 
-            if not isinstance(state.model, DistributedDataParallel):
-                context = contextlib.nullcontext
-            elif self.ddp_sync_strategy == 'single_auto_sync' and microbatch_idx + 1 == len(microbatches):
-                context = contextlib.nullcontext
-            elif self.ddp_sync_strategy == 'multi_auto_sync':
-                context = contextlib.nullcontext
-            else:
-                context = state.model.no_sync
-            with context():  # type: ignore - Pyright does not recognize type of no_sync
+            is_final_microbatch = microbatch_idx + 1 == len(microbatches)
+            ddp_sync_context = self.ddp.get_ddp_sync_context(state, is_final_microbatch)
+            with ddp_sync_context():
                 last_microbatch_size = self._get_batch_size(state.batch)
 
                 # forward pass
@@ -740,13 +735,6 @@ class Trainer:
                     loss.backward(create_graph=self.backwards_create_graph)
 
                 self.engine.run_event(Event.AFTER_BACKWARD)
-
-        if self.ddp_sync_strategy == 'manual_sync':
-            for optimizer in ensure_tuple(state.optimizers):
-                for group in optimizer.param_groups:
-                    for p in group["params"]:
-                        if p.grad is not None:
-                            self.ddp.all_reduce(p.grad)
 
         # Unscale gradients before `Event.AFTER_TRAIN_BATCH`
         if use_grad_scaling:
