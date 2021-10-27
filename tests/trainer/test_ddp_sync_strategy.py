@@ -1,4 +1,5 @@
 import os
+from typing import List, Optional
 
 import pytest
 import torch
@@ -38,34 +39,25 @@ class MinimalConditionalModel(nn.Module):
 
 @pytest.mark.run_long
 @pytest.mark.timeout(90)
-def test_ddp_sync_strategy(ddp_tmpdir: str):
-
-    import logging
-
-    logging.getLogger().setLevel(0)
-
-    print('entering test')
-
-    if "RANK" in os.environ:
-        # raise Exception("foo")
-        print('with rank', os.environ["RANK"])
-        pass
+@pytest.mark.parametrize("ddp_sync_strategy,expected_grads", [
+    pytest.param('single_auto_sync', [-1, -1.5, None], id='single_auto_sync'),
+    pytest.param('multi_auto_sync', [-1.5, -1.5, None], id='multi_auto_sync'),
+    pytest.param('manual_sync', [-1.5, -1.5, None], id='manual_sync'),
+])
+def test_ddp_sync_strategy(ddp_sync_strategy: str, expected_grads: List[Optional[float]], ddp_tmpdir: str):
 
     original_model = MinimalConditionalModel()
 
     device = DeviceCPU(num_cpus=2)
 
-    ddp = DDP(
-        nproc_per_node=device.nproc_per_node,
-        store_hparams=FileStoreHparams(os.path.join(ddp_tmpdir, "store")),
-        node_rank=0,
-        num_nodes=1,
-        backend=device.ddp_backend,
-        fork_rank_0=True,
-        find_unused_parameters=True,
-        # ddp_sync_strategy='single_auto_sync')
-        ddp_sync_strategy='multi_auto_sync')
-    # ddp_sync_strategy='manual_sync')
+    ddp = DDP(nproc_per_node=device.nproc_per_node,
+              store_hparams=FileStoreHparams(os.path.join(ddp_tmpdir, "store")),
+              node_rank=0,
+              num_nodes=1,
+              backend=device.ddp_backend,
+              fork_rank_0=True,
+              find_unused_parameters=True,
+              ddp_sync_strategy=ddp_sync_strategy)
 
     state = State(model=original_model,
                   optimizers=torch.optim.SGD(original_model.parameters(), 0.1),
@@ -77,7 +69,7 @@ def test_ddp_sync_strategy(ddp_tmpdir: str):
                   world_size=2,
                   nproc_per_node=2)
 
-    batches = [[(1, Tensor([1])), (1, Tensor([2]))], [(2, Tensor([2])), (2, Tensor([1]))]]
+    batches = [[(1, Tensor([1])), (1, Tensor([2]))], [(2, Tensor([1])), (2, Tensor([2]))]]
 
     def basic_train_loop():
         state.model = ddp.prepare_module(state.model)
@@ -94,10 +86,9 @@ def test_ddp_sync_strategy(ddp_tmpdir: str):
                 loss.mul_(1 / 2)
                 loss.backward()
 
-                print([p.grad for p in original_model.parameters()])
-
-        print([p.grad for p in original_model.parameters()])
-        print(state.optimizers.param_groups[0]['params'])
-        raise Exception
+        grads = [p.grad.item() if p.grad else None for p in original_model.parameters()]
+        if state.is_rank_zero:
+            for expected, actual in zip(expected_grads, grads):
+                assert expected == actual
 
     ddp.launch(state, basic_train_loop)
