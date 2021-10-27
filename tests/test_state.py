@@ -14,36 +14,21 @@ from torch.functional import Tensor
 from composer.algorithms.dummy import DummyHparams
 from composer.core import State, types
 from composer.core.state import DIRECT_SERIALIZATION_FIELDS, SKIP_SERIALIZATION_FIELDS, STATE_DICT_SERIALIZATION_FIELDS
-from composer.models.resnet56_cifar10.resnet56_cifar10_hparams import CIFARResNetHparams
+from composer.datasets.dataloader import DataloaderHparams
+from composer.models.base import BaseMosaicModel
 from composer.utils import ensure_tuple
+from tests.fixtures.models import SimpleBatchPairModel
+from tests.utils.dataloader import get_dataloader
 
 
 def random_tensor(size=(4, 10)):
     return torch.rand(*size)
 
 
-class CIFARResNet():
-    """
-    CIFAR ResNet model with corresponding random data generation
-    """
+def get_dummy_state(model: BaseMosaicModel):
+    optimizers = torch.optim.Adadelta(model.parameters())
 
-    @staticmethod
-    def get_model():
-        return CIFARResNetHparams(num_classes=10).initialize_object()
-
-    @staticmethod
-    def random_data_pair(N=8, C=3, H=32, W=32, n_classes=10):
-        input = torch.rand(N, C, H, W)
-        label = torch.randint(0, n_classes, size=(N,))
-        return input, label
-
-
-def get_dummy_state():
-    # TODO: use a smaller test model
-    dummy_model = CIFARResNet.get_model()
-    optimizers = torch.optim.Adadelta(dummy_model.parameters())
-
-    return State(model=dummy_model,
+    return State(model=model,
                  train_batch_size=random.randint(0, 100),
                  eval_batch_size=random.randint(0, 100),
                  grad_accum=random.randint(0, 100),
@@ -68,7 +53,7 @@ def is_field_serialized(f: Field) -> bool:
         raise RuntimeError(f"Serialization method for field {f.name} not specified")
 
 
-def assert_state_equivalent(state1: State, state2: State, skip_transient_fields: bool):
+def assert_state_equivalent(state1: State, state2: State):
     # tested separately
     IGNORE_FIELDS = [
         'optimizers',
@@ -81,9 +66,7 @@ def assert_state_equivalent(state1: State, state2: State, skip_transient_fields:
     ]
 
     for f in fields(state1):
-        if f.name in IGNORE_FIELDS:
-            continue
-        if skip_transient_fields and not is_field_serialized(f):
+        if f.name in IGNORE_FIELDS or not is_field_serialized(f):
             continue
 
         var1 = getattr(state1, f.name)
@@ -116,15 +99,27 @@ def train_one_step(state: State, batch: types.Batch) -> None:
     state.step += 1
 
 
+def get_batch(model: SimpleBatchPairModel, dataloader_hparams: DataloaderHparams):
+    dataset_hparams = model.get_dataset_hparams(1, drop_last=False, shuffle=False)
+    dataloader_spec = dataset_hparams.initialize_object()
+    dataloader = get_dataloader(dataloader_spec, dataloader_hparams, 1)
+    for batch in dataloader:
+        return batch
+    raise RuntimeError("No batch in dataloader")
+
+
 @pytest.mark.run_long
 @pytest.mark.timeout(5)
-def test_state_serialize(tmpdir: pathlib.Path):
+def test_state_serialize(tmpdir: pathlib.Path, dummy_model: BaseMosaicModel,
+                         dummy_dataloader_hparams: DataloaderHparams):
 
-    state1 = get_dummy_state()
-    state2 = get_dummy_state()
+    assert isinstance(dummy_model, SimpleBatchPairModel)
+
+    state1 = get_dummy_state(dummy_model)
+    state2 = get_dummy_state(dummy_model)
 
     # train one step to set the optimizer states
-    batch = CIFARResNet.random_data_pair()
+    batch = get_batch(dummy_model, dummy_dataloader_hparams)
     train_one_step(state1, batch)
 
     # load from state1 to state2
@@ -134,15 +129,15 @@ def test_state_serialize(tmpdir: pathlib.Path):
     state_dict_2 = torch.load(filepath, map_location="cpu")
     state2.load_state_dict(state_dict_2)
     # Make sure there was nothing wrong serialization/deserialization of permanent
-    assert_state_equivalent(state1, state2, skip_transient_fields=True)
+    assert_state_equivalent(state1, state2)
 
     # train both for one step on another sample
-    batch = CIFARResNet.random_data_pair()
+    batch = get_batch(dummy_model, dummy_dataloader_hparams)
     train_one_step(state1, batch)
     train_one_step(state2, batch)
 
     # both states should have equivalent state, model parameters, loss, and outputs
-    assert_state_equivalent(state1, state2, skip_transient_fields=False)
+    assert_state_equivalent(state1, state2)
 
 
 def test_state_rank(monkeypatch: MonkeyPatch, dummy_state: State):
