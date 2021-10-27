@@ -23,7 +23,10 @@ from composer.core.state import State as State
 
 Tensor = torch.Tensor
 Tensors = Union[Tensor, Tuple[Tensor, ...], List[Tensor]]
-BatchPair = Tuple[Tensors, Tensors]
+
+# For BatchPar, if it is a list, then it should always be of length 2.
+# Pytorch's default collate_fn returns a list even when the dataset returns a tuple.
+BatchPair = Union[Tuple[Tensors, Tensors], List[Tensor]]
 BatchDict = Dict[str, Tensor]
 Batch = Union[BatchPair, BatchDict, Tensor]
 
