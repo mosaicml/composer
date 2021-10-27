@@ -222,12 +222,10 @@ class DDP:
         if torch.distributed.is_available():
             logger.info("Initializing ddp: GLOBAL_RANK: %s, WORLD_SIZE: %s", global_rank, self.world_size)
             store = self.store_hparams.initialize_object(is_main, state.world_size)
-            print('to init')
             torch.distributed.init_process_group(self.backend,
                                                  rank=global_rank,
                                                  world_size=self.world_size,
                                                  store=store)
-            print('done init')
             assert torch.distributed.is_initialized()
             assert state.is_rank_set, "state.is_rank_set should be set after torch.distributed is initialized"
             assert state.local_rank == global_rank % self.nproc_per_node, "state.local_rank is incorrect"
