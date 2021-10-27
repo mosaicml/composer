@@ -27,7 +27,7 @@ pythonPlatform = "Linux"
 
 # Pytest
 [tool.pytest.ini_options]
-addopts = "--strict-markers -m 'not daily_regression and not weekly_regression'"
+addopts = "--strict-markers -m 'not daily_regression and not weekly_regression and not regression'"
 
 # by default, tests should be fast.
 # for slower tests, use @pytest.mark.timeout with a higher timeout (specified in seconds)
@@ -43,7 +43,9 @@ markers = [
     # Specify -m weekly_regression to run weekly_regression tests.
 ]
 filterwarnings = [
-    "ignore:.*:DeprecationWarning"
+    # "error",  # warnings should be treated like errors, but still need to fix some warnings
+    'ignore:ExtraArgumentWarning',  # extra arguments originate from pytest-specific CLI args
+    'ignore::composer.core.logging.base_backend.DeferredLogMetricWarning',  # deferred logging is fine
 ]
 
 # Coverage
