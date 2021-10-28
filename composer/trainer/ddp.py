@@ -10,10 +10,10 @@ import sys
 import time
 import warnings
 from abc import ABC, abstractmethod
-from contextlib import _GeneratorContextManager, contextmanager, nullcontext
+from contextlib import contextmanager, nullcontext
 from dataclasses import dataclass
 from threading import Thread
-from typing import Callable, Iterator, List, Optional, Sequence, TypeVar, cast
+from typing import Callable, ContextManager, Iterator, List, Optional, Sequence, TypeVar, cast
 
 import torch
 import torch.distributed
@@ -350,7 +350,7 @@ class DDP:
         assert isinstance(state.model, DistributedDataParallel), "state.model is not wrapped by DDP"
         assert state.optimizers is not None, "optimizers have not been initialized"
 
-        no_sync_context = cast(_GeneratorContextManager[None], state.model.no_sync)
+        no_sync_context = cast(Callable[[], ContextManager], state.model.no_sync)
         auto_sync_context = nullcontext
 
         if self.ddp_sync_strategy == DDPSyncStrategy.SINGLE_AUTO_SYNC:
