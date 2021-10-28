@@ -1,0 +1,4 @@
+
+
+
+# TODO factorize algorithm class
