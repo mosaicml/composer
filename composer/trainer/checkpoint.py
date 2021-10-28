@@ -36,8 +36,8 @@ class CheckpointLoader:
         state.load_state_dict(self.state_dict["state"])
         self.checkpoint_rng_state = self._get_checkpoint_rng_state(state, self.state_dict["rng"])
 
-        if state.seed is not None:
-            seed_all(state.seed)
+        if "seed" in self.state_dict:
+            seed_all(self.state_dict["seed"])
 
     def restore_checkpoint_rng_state(self, state: State, device: Device):
         """Restore the state of all RNG objects in this context from the loaded checkpoint's data.
@@ -104,7 +104,12 @@ class Checkpointer:
             return state.step % self.save_interval == 0
         return False
 
-    def save_checkpoint(self, state: State, device: Device, ddp: DDP, config: Optional[Dict[str, Any]] = None) -> None:
+    def save_checkpoint(self,
+                        state: State,
+                        seed: int,
+                        device: Device,
+                        ddp: DDP,
+                        config: Optional[Dict[str, Any]] = None) -> None:
         """Save the current state to a a new checkpoint file.
 
         Args:
@@ -114,23 +119,28 @@ class Checkpointer:
             config (Optional[Dict[str, Any]]): The hparams used to initialize this trainer, if any.
         """
 
+        # Store the rank0 seed, if the seed was provided on trainer init
+        # then this is the same seed on all processes
+        # If the seed was not provided, then the rank0 seed will be copied
+        # to all processes on checkpoint resume.
+        # This will be fixed by: https://github.com/mosaicml/composer/issues/12
         state_dict = {
             'state': state.state_dict(),  # should be the same across all ranks. per-rank state not stored
             'rng': self._get_rng_state(device=device, ddp=ddp),  # stored across all ranks
+            'seed': seed,
         }
         if not state.is_rank_zero:
             # only rank 0 saves checkpoints
             # Need the check down here so all the DDP syncs will work for generating the checkpoint
             return
 
-        # The trainer will only have _hparams_yaml set if it is instantiated with create_from_hparams
         if config:
             hparams_path = os.path.join(self.checkpoint_folder, "hparams.yaml")
             os.makedirs(self.checkpoint_folder, mode=0o775, exist_ok=True)
             config_yaml_str = yaml.dump(config)
             try:
                 with open(hparams_path, "x") as f:
-                    # Storing the hparams in a separate file so they can be modified before resuming
+                    # Storing the config (ex. hparams) in a separate file so they can be modified before resuming
                     f.write(config_yaml_str)
             except FileExistsError as e:
                 with open(hparams_path, "r") as f:

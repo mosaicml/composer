@@ -148,9 +148,6 @@ class State(Serializable):
     world_size: int = 1
     nproc_per_node: int = 1
 
-    # random seed
-    seed: Optional[int] = None
-
     @property
     def global_rank(self) -> int:
         return get_global_rank()
