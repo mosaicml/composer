@@ -146,7 +146,12 @@ class Engine():
         Returns:
             algorithms_to_run(Sequence[Algorithm]): modified sequence of algorithms
         """
+        from composer.algorithms import SelectiveBackprop
+
         event = Event(event)
+
+        # Move selective backprop to the beginning while maintaining order of other algorithms
+        algorithms = sorted(algorithms_to_run, key=lambda x: not isinstance(x, SelectiveBackprop))
 
         if event.value.startswith('after') or event.value.startswith('eval_after'):
             """Establish a FILO queue of algorithms before_ and after_ an event.
@@ -154,9 +159,9 @@ class Engine():
             before_loss: A, B, C, D
             after_loss: D, C, B, A
             """
-            algorithms_to_run = list(reversed(algorithms_to_run))
+            algorithms = list(reversed(algorithms))
 
-        return algorithms_to_run
+        return algorithms
 
     def _run_callbacks(
         self,

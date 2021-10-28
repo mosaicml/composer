@@ -4,6 +4,7 @@ from unittest.mock import Mock
 
 import pytest
 
+from composer.algorithms import SelectiveBackprop
 from composer.core import Event, engine
 
 
@@ -81,3 +82,20 @@ def test_engine_lifo_last_out(event, dummy_state, always_match_algorithms, dummy
     expected_order = list(reversed([tr.exit_code for tr in trace.values()]))
 
     assert order == expected_order
+
+
+def test_engine_with_selective_backprop(always_match_algorithms, dummy_logger, dummy_state):
+    sb = SelectiveBackprop(start=0.5, end=0.9, keep=0.5, scale_factor=0.5, interrupt=2)
+    sb.apply = Mock(return_value='sb')
+    sb.match = Mock(return_value=True)
+
+    event = Event.TRAINING_START  # doesn't matter for this test
+
+    algorithms = always_match_algorithms[0:2] + [sb] + always_match_algorithms[2:]
+
+    trace = run_event(event, dummy_state, algorithms, dummy_logger)
+
+    expected = ['sb', 0, 1, 2, 3, 4]
+    actual = [tr.exit_code for tr in trace.values()]
+
+    assert actual == expected
