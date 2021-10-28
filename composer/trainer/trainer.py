@@ -187,7 +187,7 @@ class Trainer:
         if not algorithms:
             algorithms = []
 
-        self.needs_second_derivative = any(map(lambda x: x.needs_second_derivative, algorithms))
+        self.backwards_create_graph = any(map(lambda x: x.backwards_create_graph, algorithms))
 
         find_unused_parameters = any(map(lambda x: x.find_unused_parameters, algorithms))
         if not ddp_store_hparams:
@@ -726,7 +726,7 @@ class Trainer:
                     state.loss = state.scaler.scale(state.loss)
 
                 for loss in ensure_tuple(state.loss):
-                    loss.backward(create_graph=self.needs_second_derivative)
+                    loss.backward(create_graph=self.backwards_create_graph)
 
                 self.engine.run_event(Event.AFTER_BACKWARD)
 

@@ -38,7 +38,7 @@ class Algorithm(Serializable, ABC):
         return False
 
     @property
-    def needs_second_derivative(self) -> bool:
+    def backwards_create_graph(self) -> bool:
         """Indicates that this algorithm requires a second derivative
         to be computed. Defaults to False.
 
