@@ -15,6 +15,7 @@ if TYPE_CHECKING:
     from composer.callbacks.benchmarker import Benchmarker
     from composer.callbacks.grad_monitor import GradMonitor
     from composer.callbacks.lr_monitor import LRMonitor
+    from composer.callbacks.memory_monitor import MemoryMonitor
     from composer.callbacks.speed_monitor import SpeedMonitor
     from composer.callbacks.torch_profiler import TorchProfiler
 
@@ -86,6 +87,18 @@ class GradMonitorHparams(CallbackHparams):
     def initialize_object(self) -> GradMonitor:
         from composer.callbacks.grad_monitor import GradMonitor
         return GradMonitor(log_layer_grad_norms=self.log_layer_grad_norms)
+
+
+@dataclass
+class MemoryMonitorHparams(CallbackHparams):
+    """:class:`~composer.callbacks.memory_monitor.MemoryMonitor` hyperparameters.
+
+    See :class:`~composer.callbacks.memory_monitor.MemoryMonitor` for documentation.
+    """
+
+    def initialize_object(self) -> MemoryMonitor:
+        from composer.callbacks.memory_monitor import MemoryMonitor
+        return MemoryMonitor()
 
 
 @dataclass
