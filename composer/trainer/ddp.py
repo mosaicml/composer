@@ -10,10 +10,10 @@ import sys
 import time
 import warnings
 from abc import ABC, abstractmethod
-from contextlib import contextmanager, nullcontext
+from contextlib import _GeneratorContextManager, contextmanager, nullcontext
 from dataclasses import dataclass
 from threading import Thread
-from typing import Callable, ContextManager, Iterator, List, Optional, Sequence, TypeVar, cast
+from typing import Callable, Iterator, List, Optional, Sequence, TypeVar, cast
 
 import torch
 import torch.distributed
@@ -348,11 +348,9 @@ class DDP:
     @contextmanager
     def ddp_sync_context(self, state: State, is_final_microbatch: bool):
         assert isinstance(state.model, DistributedDataParallel), "state.model is not wrapped by DDP"
-
         assert state.optimizers is not None, "optimizers have not been initialized"
-        optimizers = ensure_tuple(state.optimizers)
 
-        no_sync_context = cast(ContextManager[None], state.model.no_sync)
+        no_sync_context = cast(_GeneratorContextManager[None], state.model.no_sync)
         auto_sync_context = nullcontext
 
         if self.ddp_sync_strategy == DDPSyncStrategy.SINGLE_AUTO_SYNC:
@@ -370,7 +368,7 @@ class DDP:
                     yield
             finally:
                 if is_final_microbatch:
-                    for optimizer in optimizers:
+                    for optimizer in ensure_tuple(state.optimizers):
                         for group in optimizer.param_groups:
                             for p in group["params"]:
                                 if p.grad is not None:
@@ -379,6 +377,7 @@ class DDP:
 
         else:
             raise ValueError("Unknown sync strategy", self.ddp_sync_strategy)
+
 
 @dataclass
 class StoreHparams(hp.Hparams, ABC):
