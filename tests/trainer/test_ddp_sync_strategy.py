@@ -89,14 +89,14 @@ def test_ddp_sync_strategy(ddp_sync_strategy: str, expected_grads: List[Optional
                 loss.mul_(1 / 2)
                 loss.backward()
 
-                if state.is_rank_zero():
+                if state.is_rank_zero:
                     grads = [p.grad.item() if p.grad else None for p in original_model.parameters()]
-                    for expected, actual in zip(expected_grads[microbatch_idx], grads):  # type: None
+                    for expected, actual in zip(expected_grads[microbatch_idx], grads):  # type: ignore
                         assert expected == actual
 
-        if state.is_rank_zero():
+        if state.is_rank_zero:
             grads = [p.grad.item() if p.grad else None for p in original_model.parameters()]
-            for expected, actual in zip(expected_grads[-1], grads):  # type: None
+            for expected, actual in zip(expected_grads[-1], grads):  # type: ignore
                 assert expected == actual
 
     ddp.launch(state, basic_train_loop)
