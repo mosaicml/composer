@@ -349,10 +349,10 @@ class DDP:
     def ddp_sync_context(self, state: State, is_final_microbatch: bool):
         assert isinstance(state.model, DistributedDataParallel), "state.model is not wrapped by DDP"
 
+        assert state.optimizers is not None, "optimizers have not been initialized"
         optimizers = ensure_tuple(state.optimizers)
-        assert optimizers is not None, "optimizers have not been initialized"
 
-        no_sync_context = cast(ContextManager, state.model.no_sync)
+        no_sync_context = cast(ContextManager[None], state.model.no_sync)
         auto_sync_context = nullcontext
 
         if self.ddp_sync_strategy == DDPSyncStrategy.SINGLE_AUTO_SYNC:
@@ -379,7 +379,6 @@ class DDP:
 
         else:
             raise ValueError("Unknown sync strategy", self.ddp_sync_strategy)
-
 
 @dataclass
 class StoreHparams(hp.Hparams, ABC):
