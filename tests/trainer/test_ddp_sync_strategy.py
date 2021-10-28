@@ -59,8 +59,10 @@ def test_ddp_sync_strategy(ddp_sync_strategy: str, expected_grads: List[Optional
               find_unused_parameters=True,
               ddp_sync_strategy=ddp_sync_strategy)
 
+    optimizer = torch.optim.SGD(original_model.parameters(), 0.1)
+
     state = State(model=original_model,
-                  optimizers=torch.optim.SGD(original_model.parameters(), 0.1),
+                  optimizers=optimizer,
                   train_batch_size=1,
                   eval_batch_size=1,
                   grad_accum=2,
@@ -74,7 +76,7 @@ def test_ddp_sync_strategy(ddp_sync_strategy: str, expected_grads: List[Optional
     def basic_train_loop():
         state.model = ddp.prepare_module(state.model)
 
-        state.optimizers.zero_grad()
+        optimizer.zero_grad()
 
         for microbatch_idx in range(2):
             with ddp.ddp_sync_context(state, microbatch_idx == 1):

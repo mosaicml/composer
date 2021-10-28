@@ -349,6 +349,9 @@ class DDP:
     def ddp_sync_context(self, state: State, is_final_microbatch: bool):
         assert isinstance(state.model, DistributedDataParallel), "state.model is not wrapped by DDP"
 
+        optimizers = ensure_tuple(state.optimizers)
+        assert optimizers is not None, "optimizers have not been initialized"
+
         no_sync_context = cast(ContextManager, state.model.no_sync)
         auto_sync_context = nullcontext
 
@@ -358,7 +361,8 @@ class DDP:
                 yield
 
         elif self.ddp_sync_strategy == DDPSyncStrategy.MULTI_AUTO_SYNC:
-            return auto_sync_context
+            with auto_sync_context():
+                yield
 
         elif self.ddp_sync_strategy == DDPSyncStrategy.FORCED_SYNC:
 
@@ -369,7 +373,7 @@ class DDP:
                         yield
                 finally:
                     if is_final_microbatch:
-                        for optimizer in ensure_tuple(state.optimizers):
+                        for optimizer in optimizers:
                             for group in optimizer.param_groups:
                                 for p in group["params"]:
                                     if p.grad is not None:
