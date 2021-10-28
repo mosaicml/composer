@@ -76,6 +76,7 @@ def test_trainer_validation(mosaic_trainer_hparams: TrainerHparams, invalid_hpar
         mosaic_trainer_hparams.validate()
 
 
+@pytest.mark.filterwarnings("ignore:Deterministic mode is activated:UserWarning")
 def test_trainer_determinism(mosaic_trainer_hparams: TrainerHparams, ddp_tmpdir: str):
     mosaic_trainer_hparams.seed = 10
     mosaic_trainer_hparams.deterministic_mode = True

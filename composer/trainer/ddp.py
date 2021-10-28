@@ -268,7 +268,10 @@ class DDP:
                     # the process is still running
                     continue
                 else:
-                    if process.returncode != 0:
+                    # return code of 0 implies clean exit
+                    # return code of -9 implies sigkill, presumably from
+                    # cleanup() in the main process
+                    if process.returncode not in (0, -9):
                         if process.stdout is None:
                             output = ""
                         else:
