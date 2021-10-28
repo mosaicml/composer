@@ -90,6 +90,8 @@ class Trainer:
             (default: ``TCPStoreHparams("127.0.0.1", 43297)``)
         fork_rank_0 (bool, optional): True to fork the rank 0 process in distributed data parallel,
             False to not. (default: ``True``)
+        ddp_sync_strategy (DDPSyncStrategy, optional): The strategy to use for synchronizing gradients.
+            Leave unset to let the trainer auto-configure this.
         seed (int, optional): The seed used in randomization. When not provided a random seed
             will be created. (default: ``None``)
         deterministic_mode (bool, optional): Run the model deterministically. Experimental. Performance
@@ -148,6 +150,7 @@ class Trainer:
             # ddp hparams
             ddp_store_hparams: Optional[StoreHparams] = None,
             fork_rank_0: bool = False,
+            ddp_sync_strategy: Optional[str] = None,
 
             # Randomness
             seed: Optional[int] = None,
@@ -162,7 +165,6 @@ class Trainer:
             checkpoint_interval_unit: Optional[str] = None,
             checkpoint_folder: Optional[str] = "checkpoints",
             checkpoint_interval: Optional[int] = 1,
-            ddp_sync_strategy: Optional[str] = 'single_auto_sync',
 
             # Optional config (ex. an hparams yaml file)
             config: Optional[Dict[str, Any]] = None):

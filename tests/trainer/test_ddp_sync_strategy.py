@@ -40,9 +40,9 @@ class MinimalConditionalModel(nn.Module):
 @pytest.mark.run_long
 @pytest.mark.timeout(90)
 @pytest.mark.parametrize("ddp_sync_strategy,expected_grads", [
-    pytest.param('single_auto_sync', [-1, -1.5, None], id='single_auto_sync'),
-    pytest.param('multi_auto_sync', [-1.5, -1.5, None], id='multi_auto_sync'),
-    pytest.param('manual_sync', [-1.5, -1.5, None], id='manual_sync'),
+    pytest.param('single_auto_sync', ([-1, None, None], [-1, -1.5, None], [-1, -1.5, None]), id='single_auto_sync'),
+    pytest.param('multi_auto_sync', ([-1.5, None, None], [-1.5, -1.5, None], [-1.5, -1.5, None]), id='multi_auto_sync'),
+    pytest.param('forced_sync', ([-1, None, None], [-1, -1, None], [-1.5, -1.5, None]), id='forced_sync'),
 ])
 def test_ddp_sync_strategy(ddp_sync_strategy: str, expected_grads: List[Optional[float]], ddp_tmpdir: str):
 
@@ -86,9 +86,14 @@ def test_ddp_sync_strategy(ddp_sync_strategy: str, expected_grads: List[Optional
                 loss.mul_(1 / 2)
                 loss.backward()
 
-        grads = [p.grad.item() if p.grad else None for p in original_model.parameters()]
+                if state.is_rank_zero:
+                    grads = [p.grad.item() if p.grad else None for p in original_model.parameters()]
+                    for expected, actual in zip(expected_grads[microbatch_idx], grads):
+                        assert expected == actual
+
         if state.is_rank_zero:
-            for expected, actual in zip(expected_grads, grads):
+            grads = [p.grad.item() if p.grad else None for p in original_model.parameters()]
+            for expected, actual in zip(expected_grads[-1], grads):
                 assert expected == actual
 
     ddp.launch(state, basic_train_loop)

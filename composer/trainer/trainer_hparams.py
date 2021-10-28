@@ -174,7 +174,7 @@ class TrainerHparams(hp.Hparams):
     compute_training_metrics: bool = hp.optional(doc="Log validation metrics on training data", default=False)
     log_level: str = hp.optional(doc="Python loglevel to use composer", default="INFO")
 
-    ddp_sync_strategy: str = hp.optional(doc="Strategy for DDP syncing", default="single_auto_sync")
+    ddp_sync_strategy: Optional[str] = hp.optional(doc="Strategy for DDP syncing", default=None)
 
     def validate(self):
         super().validate()
