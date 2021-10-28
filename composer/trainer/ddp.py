@@ -345,19 +345,22 @@ class DDP:
         if torch.distributed.is_initialized():
             torch.distributed.destroy_process_group()
 
-    def get_ddp_sync_context(self, state: State, is_final_microbatch: bool) -> ContextManager:
+    @contextmanager
+    def ddp_sync_context(self, state: State, is_final_microbatch: bool):
         assert isinstance(state.model, DistributedDataParallel), "state.model is not wrapped by DDP"
 
         no_sync_context = cast(ContextManager, state.model.no_sync)
-        autograd_sync_context = nullcontext
+        auto_sync_context = nullcontext
 
         if self.ddp_sync_strategy == DDPSyncStrategy.SINGLE_AUTO_SYNC:
-            return autograd_sync_context if is_final_microbatch else no_sync_context
+            context = auto_sync_context if is_final_microbatch else no_sync_context
+            with context():
+                yield
 
-        if self.ddp_sync_strategy == DDPSyncStrategy.MULTI_AUTO_SYNC:
-            return autograd_sync_context
+        elif self.ddp_sync_strategy == DDPSyncStrategy.MULTI_AUTO_SYNC:
+            return auto_sync_context
 
-        if self.ddp_sync_strategy == DDPSyncStrategy.FORCED_SYNC:
+        elif self.ddp_sync_strategy == DDPSyncStrategy.FORCED_SYNC:
 
             @contextmanager
             def manual_sync_context():
@@ -374,6 +377,9 @@ class DDP:
                                         p.grad = p.grad / state.world_size
 
             return manual_sync_context
+
+        else:
+            raise ValueError("Unknown sync strategy", self.ddp_sync_strategy)
 
 
 @dataclass

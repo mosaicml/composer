@@ -77,8 +77,7 @@ def test_ddp_sync_strategy(ddp_sync_strategy: str, expected_grads: List[Optional
         state.optimizers.zero_grad()
 
         for microbatch_idx in range(2):
-            ddp_sync_context = ddp.get_ddp_sync_context(state, microbatch_idx == 1)
-            with ddp_sync_context():
+            with ddp.ddp_sync_context(state, microbatch_idx == 1):
                 input, target = batches[microbatch_idx][state.local_rank]
 
                 output = state.model.forward(input)

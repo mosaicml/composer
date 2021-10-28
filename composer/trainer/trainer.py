@@ -693,13 +693,8 @@ class Trainer:
         current_batch_size = sum([self._get_batch_size(batch) for batch in microbatches])
 
         for microbatch_idx, state.batch in enumerate(microbatches):
-            # It's only necessary to run a DDP sync on the final microbatch, since the synced
-            # gradients aren't needed until after this function has finished.
-            # When any algorithm sets find_unused_parameters to true, DDP must sync every microbatch.
-
             is_final_microbatch = microbatch_idx + 1 == len(microbatches)
-            ddp_sync_context = self.ddp.get_ddp_sync_context(state, is_final_microbatch)
-            with ddp_sync_context():
+            with self.ddp.ddp_sync_context(state, is_final_microbatch):
                 last_microbatch_size = self._get_batch_size(state.batch)
 
                 # forward pass
