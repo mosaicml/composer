@@ -134,6 +134,7 @@ class TorchProfilerHparams(CallbackHparams):
     warmup: int = hp.optional("Number of warmup batches in a cycle", default=1)
     active: int = hp.optional("Number of batches to profile in a cycle", default=5)
     wait: int = hp.optional("Number of batches to skip at the end of each cycle", default=0)
+    repeat: int = hp.optional("Maximum number of profiling cycle repetitions per epoch (0 for no maximum)", default=0)
 
     def initialize_object(self) -> TorchProfiler:
         from composer.callbacks.torch_profiler import TorchProfiler
