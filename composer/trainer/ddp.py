@@ -365,22 +365,17 @@ class DDP:
                 yield
 
         elif self.ddp_sync_strategy == DDPSyncStrategy.FORCED_SYNC:
-
-            @contextmanager
-            def manual_sync_context():
-                try:
-                    with no_sync_context():
-                        yield
-                finally:
-                    if is_final_microbatch:
-                        for optimizer in optimizers:
-                            for group in optimizer.param_groups:
-                                for p in group["params"]:
-                                    if p.grad is not None:
-                                        self.all_reduce(p.grad)
-                                        p.grad = p.grad / state.world_size
-
-            return manual_sync_context
+            try:
+                with no_sync_context():
+                    yield
+            finally:
+                if is_final_microbatch:
+                    for optimizer in optimizers:
+                        for group in optimizer.param_groups:
+                            for p in group["params"]:
+                                if p.grad is not None:
+                                    self.all_reduce(p.grad)
+                                    p.grad = p.grad / state.world_size
 
         else:
             raise ValueError("Unknown sync strategy", self.ddp_sync_strategy)
