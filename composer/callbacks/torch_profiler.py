@@ -120,7 +120,6 @@ class TorchProfiler(Callback):
             if torch_scheduler_action == ProfilerAction.RECORD:
                 # force saving at epoch boundaries
                 torch_scheduler_action = ProfilerAction.RECORD_AND_SAVE
-        print("ACTION", torch_scheduler_action)
         return torch_scheduler_action
 
     def training_start(self, state: State, logger: Logger) -> None:
