@@ -188,6 +188,8 @@ class Trainer:
         if not algorithms:
             algorithms = []
 
+        self.backwards_create_graph = any(map(lambda x: x.backwards_create_graph, algorithms))
+
         find_unused_parameters = any(map(lambda x: x.find_unused_parameters, algorithms))
         if not ddp_store_hparams:
             ddp_store_hparams = TCPStoreHparams("127.0.0.1", 43297)
@@ -729,7 +731,7 @@ class Trainer:
                     state.loss = state.scaler.scale(state.loss)
 
                 for loss in ensure_tuple(state.loss):
-                    loss.backward()
+                    loss.backward(create_graph=self.backwards_create_graph)
 
                 self.engine.run_event(Event.AFTER_BACKWARD)
 
