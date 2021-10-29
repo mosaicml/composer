@@ -8,17 +8,13 @@ from torch.nn.common_types import _size_2_t
 from composer.algorithms.factorize.factorize_core import FractionOrInt, LowRankSolution, factorize
 
 
-def max_rank_with_possible_speedup(in_channels: int,
-                                   out_channels: int,
-                                   kernel_size: _size_2_t) -> int:
+def max_rank_with_possible_speedup(in_channels: int, out_channels: int, kernel_size: _size_2_t) -> int:
     # TODO less naive cost model than counting multiply-adds
     fan_in = in_channels * np.prod(kernel_size)
     return (fan_in * out_channels) / (fan_in + out_channels) - 1
 
 
-def clean_latent_channels(latent_channels: FractionOrInt,
-                          in_channels: int,
-                          out_channels: int):
+def clean_latent_channels(latent_channels: FractionOrInt, in_channels: int, out_channels: int):
     if latent_channels <= 1:  # fraction of input or output channels
         latent_channels = int(latent_channels * min(in_channels, out_channels))
         return max(1, latent_channels)
@@ -37,8 +33,7 @@ class FactorizedConv2d(nn.Module):
         self.in_channels = in_channels
         self.out_channels = out_channels
         self.kernel_size = kernel_size
-        self.latent_channels = clean_latent_channels(
-            latent_channels, self.in_channels, self.out_channels)
+        self.latent_channels = clean_latent_channels(latent_channels, self.in_channels, self.out_channels)
 
         # conv2d factorization code requires most Conv2d arguments, but
         # not boolean 'bias'

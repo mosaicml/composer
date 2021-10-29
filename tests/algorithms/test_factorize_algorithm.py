@@ -28,9 +28,7 @@ def _apply_algo(state_with_model: State, simple_conv_model_input: Tensors, logge
     return original_conv_count, original_size
 
 
-def test_layer_replacement(state_with_model: State,
-                           simple_conv_model_input: Tensors,
-                           noop_dummy_logger: Logger):
+def test_layer_replacement(state_with_model: State, simple_conv_model_input: Tensors, noop_dummy_logger: Logger):
     original_conv_count, _ = _apply_algo(
         state_with_model,
         simple_conv_model_input,
@@ -42,8 +40,7 @@ def test_layer_replacement(state_with_model: State,
     assert original_conv_count == replace_count
 
 
-def test_forward_shape(state_with_model: State, simple_conv_model_input: Tensors,
-                                      noop_dummy_logger: Logger):
+def test_forward_shape(state_with_model: State, simple_conv_model_input: Tensors, noop_dummy_logger: Logger):
     _, original_size = _apply_algo(
         state_with_model,
         simple_conv_model_input,

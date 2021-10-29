@@ -1,4 +1,3 @@
-
 from composer.algorithms.factorize.factorize import Factorize as Factorize
 from composer.algorithms.factorize.factorize import FactorizeHparams as FactorizeHparams
 from composer.algorithms.factorize.factorize import factorize_conv2d_modules as factorize_conv2d_modules

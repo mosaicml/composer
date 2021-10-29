@@ -126,7 +126,9 @@ def _check_factorization(f: Union[_RankReduce, _RankReduceConv2d],
     return nmse  # new "previous" nmse
 
 
-@pytest.mark.parametrize('shapes', [
+@pytest.mark.parametrize(
+    'shapes',
+    [
         (16, 16, 16, 16),  # all the same
         (16, 8, 16, 16),  # already low rank
         (16, 8, 16, 16),  # requested rank > current latent rank

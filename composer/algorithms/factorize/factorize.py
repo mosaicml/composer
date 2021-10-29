@@ -28,9 +28,7 @@ def _log_surgery_result(model: torch.nn.Module):
              f'Model now has {num_replaced_modules} {new_class.__name__} modules')
 
 
-def factorize_conv2d_modules(model: torch.nn.Module,
-                             min_channels: int,
-                             latent_channels: FractionOrInt):
+def factorize_conv2d_modules(model: torch.nn.Module, min_channels: int, latent_channels: FractionOrInt):
 
     def _maybe_replace_conv2d(module: torch.nn.Conv2d,
                               module_index: int,
@@ -38,12 +36,10 @@ def factorize_conv2d_modules(model: torch.nn.Module,
                               latent_channels: FractionOrInt = latent_channels) -> Optional[torch.nn.Module]:
         if min(module.in_channels, module.out_channels) < min_channels:
             return None
-        max_rank = fconv.max_rank_with_possible_speedup(
-            module.in_channels, module.out_channels, module.kernel_size)
-        latent_channels = fconv.clean_latent_channels(
-            latent_channels, module.in_channels, module.out_channels)
+        max_rank = fconv.max_rank_with_possible_speedup(module.in_channels, module.out_channels, module.kernel_size)
+        latent_channels = fconv.clean_latent_channels(latent_channels, module.in_channels, module.out_channels)
         if max_rank < latent_channels:
-            return None   # not enough rank reduction to be worth it
+            return None  # not enough rank reduction to be worth it
         return fconv.FactorizedConv2d.from_conv2d(module, module_index, latent_channels=latent_channels)
 
     transforms = {torch.nn.Conv2d: _maybe_replace_conv2d}
@@ -70,11 +66,8 @@ class FactorizeHparams(AlgorithmHparams):
 
 class Factorize(Algorithm):
 
-    def __init__(self,
-                 min_channels: int = _DEFAULT_MIN_CHANNELS,
-                 latent_channels: int = _DEFAULT_LATENT_CHANNELS):
-        self.hparams = FactorizeHparams(min_channels=min_channels,
-                                        latent_channels=latent_channels)
+    def __init__(self, min_channels: int = _DEFAULT_MIN_CHANNELS, latent_channels: int = _DEFAULT_LATENT_CHANNELS):
+        self.hparams = FactorizeHparams(min_channels=min_channels, latent_channels=latent_channels)
 
     def match(self, event: Event, state: State) -> bool:
         """Run on Event.INIT
@@ -97,9 +90,9 @@ class Factorize(Algorithm):
             logger (Logger): the training logger
         """
         assert state.model is not None, "Model must be part of state!"
-        factorize_conv2d_modules(
-            state.model, min_channels=self.hparams.min_channels,
-            latent_channels=self.hparams.latent_channels)
+        factorize_conv2d_modules(state.model,
+                                 min_channels=self.hparams.min_channels,
+                                 latent_channels=self.hparams.latent_channels)
         _log_surgery_result(state.model)
         num_fconv_modules = surgery.count_module_instances(state.model, fconv.FactorizedConv2d)
         logger.metric_fit({
