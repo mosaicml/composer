@@ -5,6 +5,8 @@ import numpy as np
 import torch
 import torch.nn.functional as F
 
+FractionOrInt = Union[int, float]
+
 
 def _lstsq(A: torch.Tensor, B: torch.Tensor):
     if A.shape[0] != B.shape[0]:
@@ -177,7 +179,7 @@ def factorize_conv2d(inputs,
                      biasA: Optional[torch.Tensor] = None,
                      biasB: Optional[torch.Tensor] = None,
                      n_iters=3,
-                     **conv2d_kwargs):
+                     **conv2d_kwargs) -> LowRankSolution:
     inputs = inputs.detach()
     weightsA = weightsA.detach()
 
