@@ -36,7 +36,7 @@ class FactorizedConv2d(nn.Module):
         self.in_channels = in_channels
         self.out_channels = out_channels
         self.kernel_size = kernel_size
-        self.latent_channels = self.clean_latent_channels(
+        self.latent_channels = clean_latent_channels(
             latent_channels, self.in_channels, self.out_channels)
 
         # conv2d factorization code requires most Conv2d arguments, but

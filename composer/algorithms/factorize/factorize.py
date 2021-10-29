@@ -18,6 +18,7 @@ log = logging.getLogger(__name__)
 
 _DEFAULT_MIN_CHANNELS = 256
 _DEFAULT_LATENT_CHANNELS = 128
+FACTORIZE_LOG_NUM_REPLACEMENTS_KEY = 'factorize/num_modules'
 
 
 def _log_surgery_result(model: torch.nn.Module):
@@ -97,10 +98,10 @@ class Factorize(Algorithm):
         """
         assert state.model is not None, "Model must be part of state!"
         factorize_conv2d_modules(
-            state.model, min_channels=self.min_channels,
-            latent_channels=self.latent_channels)
+            state.model, min_channels=self.hparams.min_channels,
+            latent_channels=self.hparams.latent_channels)
         _log_surgery_result(state.model)
-        num_fconv_modules = surgery.count_module_instances(state.model, FactorizedConv2d)
+        num_fconv_modules = surgery.count_module_instances(state.model, fconv.FactorizedConv2d)
         logger.metric_fit({
-            'factorize/num_modules': num_fconv_modules,
+            FACTORIZE_LOG_NUM_REPLACEMENTS_KEY: num_fconv_modules,
         })
