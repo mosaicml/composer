@@ -642,6 +642,10 @@ class Trainer:
 
         self.engine.run_event(Event.TRAINING_END)
 
+        # Deleting the dataloaders ensures their worker threads get cleaned up.
+        del state.train_dataloader
+        del state.eval_dataloader
+
     def _train_batch(self, microbatches: Sequence[Batch], ddp_sync: bool = True):
         """Run training on a full batch of data.
 
