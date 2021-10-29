@@ -16,6 +16,8 @@ from composer.algorithms.cutout import CutOut as CutOut
 from composer.algorithms.cutout import CutOutHparams as CutOutHparams
 from composer.algorithms.dummy import Dummy as Dummy
 from composer.algorithms.dummy import DummyHparams as DummyHparams
+from composer.algorithms.factorize import Factorize as Factorize
+from composer.algorithms.factorize import FactorizeHparams as FactorizeHparams
 from composer.algorithms.ghost_batchnorm import GhostBatchNorm as GhostBatchNorm
 from composer.algorithms.ghost_batchnorm import GhostBatchNormHparams as GhostBatchNormHparams
 from composer.algorithms.label_smoothing import LabelSmoothing as LabelSmoothing

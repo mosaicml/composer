@@ -10,6 +10,7 @@ from composer.algorithms.channels_last import ChannelsLastHparams
 from composer.algorithms.colout import ColOutHparams
 from composer.algorithms.cutout import CutOutHparams
 from composer.algorithms.dummy import DummyHparams
+from composer.algorithms.factorize import FactorizeHparams
 from composer.algorithms.ghost_batchnorm import GhostBatchNormHparams
 from composer.algorithms.label_smoothing import LabelSmoothingHparams
 from composer.algorithms.layer_freezing import LayerFreezingHparams
@@ -32,6 +33,7 @@ registry: Dict[str, Type[AlgorithmHparams]] = {
     'channels_last': ChannelsLastHparams,
     'seq_length_warmup': SeqLengthWarmupHparams,
     'cutout': CutOutHparams,
+    'factorize': FactorizeHparams,
     'ghost_batchnorm': GhostBatchNormHparams,
     'label_smoothing': LabelSmoothingHparams,
     'layer_freezing': LayerFreezingHparams,
