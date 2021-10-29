@@ -76,8 +76,7 @@ def test_trainer_validation(mosaic_trainer_hparams: TrainerHparams, invalid_hpar
         mosaic_trainer_hparams.validate()
 
 
-@pytest.mark.run_long
-@pytest.mark.timeout(90)
+@pytest.mark.filterwarnings("ignore:Deterministic mode is activated:UserWarning")
 def test_trainer_determinism(mosaic_trainer_hparams: TrainerHparams, ddp_tmpdir: str):
     mosaic_trainer_hparams.seed = 10
     mosaic_trainer_hparams.deterministic_mode = True
@@ -104,7 +103,6 @@ def test_trainer_determinism(mosaic_trainer_hparams: TrainerHparams, ddp_tmpdir:
     torch.testing.assert_allclose(second_loss, first_loss)
 
 
-@pytest.mark.run_long
 @pytest.mark.timeout(90)
 @pytest.mark.parametrize("device_hparams", [
     pytest.param(CPUDeviceHparams(n_cpus=1), id="1cpu"),

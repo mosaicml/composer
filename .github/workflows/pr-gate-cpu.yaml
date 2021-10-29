@@ -69,4 +69,4 @@ jobs:
           set -ex
           export FUNC_TEST_JUNITXML_RESULTS=${RUNNER_TEMP}/func_test_junitxml.xml
           echo "::set-output name=func_test_junitxml_results::${FUNC_TEST_JUNITXML_RESULTS}"
-          python3 -m coverage run -m pytest -v --junitxml ${FUNC_TEST_JUNITXML_RESULTS} -m run_long --n_gpus 0
+          python3 -m coverage run -m pytest -v --junitxml ${FUNC_TEST_JUNITXML_RESULTS} --test_duration long --n_gpus 0

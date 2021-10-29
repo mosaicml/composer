@@ -37,7 +37,7 @@ class SimpleBatchPairModel(BaseMosaicModel):
             torch.nn.Linear(in_features_flattened, 5),
             torch.nn.ReLU(),
             torch.nn.Linear(5, num_classes),
-            torch.nn.Softmax(),
+            torch.nn.Softmax(dim=-1),
         )
 
     def loss(self, outputs: Tensor, batch: BatchPair) -> Tensors:

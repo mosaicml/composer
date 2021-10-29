@@ -227,8 +227,6 @@ def test_apply_sample(dummy_algorithm, dummy_state, dummy_train_dataloader, dumm
     verify_shape_tensor(orig, new, p_row, p_col)
 
 
-@pytest.mark.run_long
-@pytest.mark.timeout(90)
 def test_colout_trains(mosaic_trainer_hparams: TrainerHparams):
     mosaic_trainer_hparams.algorithms = [ColOutHparams(p_row=0.15, p_col=0.15, batch=True)]
     train_model(mosaic_trainer_hparams)

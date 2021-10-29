@@ -3,14 +3,10 @@
 import collections.abc
 from unittest.mock import MagicMock
 
-import pytest
-
 from composer.callbacks import SpeedMonitorHparams
 from composer.trainer import TrainerHparams
 
 
-@pytest.mark.timeout(60)
-@pytest.mark.run_long
 def test_speed_monitor(mosaic_trainer_hparams: TrainerHparams):
     speed_monitor_hparams = SpeedMonitorHparams(window_size=2)
     mosaic_trainer_hparams.callbacks.append(speed_monitor_hparams)

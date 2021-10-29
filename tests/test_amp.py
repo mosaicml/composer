@@ -35,7 +35,6 @@ def run_and_measure_memory(precision: Precision, file_store_path: str) -> int:
 
 
 @pytest.mark.timeout(60)
-@pytest.mark.run_long
 @pytest.mark.n_gpus(1)
 def test_fp16_mixed(ddp_tmpdir: str):
     memory_full = run_and_measure_memory(Precision.FP32, os.path.join(ddp_tmpdir, "store_full"))

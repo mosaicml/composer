@@ -124,8 +124,6 @@ def test_algorithm_logging(logger_mock, state, algo_instance):
     })
 
 
-@pytest.mark.run_long
-@pytest.mark.timeout(90)
 def test_ghost_batchnorm_trains(mosaic_trainer_hparams: TrainerHparams):
     mosaic_trainer_hparams.algorithms = [GhostBatchNormHparams(ghost_batch_size=16)]
     train_model(mosaic_trainer_hparams)

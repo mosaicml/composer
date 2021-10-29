@@ -4,7 +4,6 @@ import pathlib
 import random
 from dataclasses import Field, fields
 
-import pytest
 import torch
 import torch.distributed as dist
 import torch.nn.functional as F
@@ -108,8 +107,6 @@ def get_batch(model: SimpleBatchPairModel, dataloader_hparams: DataloaderHparams
     raise RuntimeError("No batch in dataloader")
 
 
-@pytest.mark.run_long
-@pytest.mark.timeout(5)
 def test_state_serialize(tmpdir: pathlib.Path, dummy_model: BaseMosaicModel,
                          dummy_dataloader_hparams: DataloaderHparams):
 
