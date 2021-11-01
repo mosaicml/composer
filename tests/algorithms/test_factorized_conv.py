@@ -1,35 +1,24 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
-import itertools
-
-import numpy as np
+import pytest
 import torch
 
 from composer.algorithms.factorize import FactorizedConv2d
 
 
-def _default_input_and_weight_shapes():
-    batch_sizes = [1, 2]
-    hs = [5]
-    ws = [6]
-    C_ins = [4, 8]
-    C_outs = [4, 8]
-    kernel_sizes = [(1, 1), (2, 2), (3, 3), (1, 3), (3, 1), (5, 5)]
-    return itertools.product(batch_sizes, hs, ws, C_ins, C_outs, kernel_sizes)
-
-
-def _test_shapes(batch_size, h, w, C_in, C_out, kernel_size, **kwargs):
-    X = torch.randn(batch_size, C_in, h, w)
-    conv = FactorizedConv2d(in_channels=C_in, out_channels=C_out, kernel_size=kernel_size, **kwargs)
+@pytest.mark.parametrize('batch_size', [1, 2])
+@pytest.mark.parametrize('h', [5])
+@pytest.mark.parametrize('w', [6])
+@pytest.mark.parametrize('in_channels', [4, 8])
+@pytest.mark.parametrize('out_channels', [4, 8])
+@pytest.mark.parametrize('kernel_size', [(1, 1), (2, 2), (3, 3), (1, 3), (3, 1), (5, 5)])
+def test_shapes(batch_size, h, w, in_channels, out_channels, kernel_size, **kwargs):
+    X = torch.randn(batch_size, in_channels, h, w)
+    conv = FactorizedConv2d(in_channels=in_channels, out_channels=out_channels, kernel_size=kernel_size, **kwargs)
     Y = conv(X)
 
-    assert len(Y.shape) == 4
-    assert np.allclose(Y.shape[:2], torch.Tensor([batch_size, C_out]))
-
-
-def test_init_and_forward_run():
-    for args in _default_input_and_weight_shapes():
-        _test_shapes(*args)
+    assert Y.ndim == 4
+    assert Y.shape[:2] == (batch_size, out_channels)
 
 
 def test_update_layer_twice():
