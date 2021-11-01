@@ -1,13 +1,50 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
 import dataclasses
-from typing import Optional, Union
+from typing import Optional, Tuple, Union
 
 import numpy as np
 import torch
 import torch.nn.functional as F
 
 FractionOrInt = Union[int, float]
+
+
+@dataclasses.dataclass
+class LowRankSolution:
+    Wa: Optional[torch.Tensor] = None
+    Wb: Optional[torch.Tensor] = None
+    bias: Optional[torch.Tensor] = None
+    rank: int = -1
+    nmse: float = 0
+
+
+def clean_latent_dims(latent_dims: FractionOrInt, in_dims: int, out_dims: int) -> int:
+    if latent_dims <= 1:  # fraction of input or output channels
+        latent_channels = int(latent_dims * min(in_dims, out_dims))
+        return max(1, latent_channels)
+    return int(latent_dims)
+
+
+def max_rank_with_possible_speedup(in_channels: int, out_channels: int, kernel_size: Optional[Tuple] = None) -> int:
+    # TODO less naive cost model than counting multiply-adds
+    fan_in = in_channels
+    if kernel_size is not None:
+        fan_in *= np.prod(kernel_size)
+    return (fan_in * out_channels) / (fan_in + out_channels) - 1
+
+
+def apply_solution_to_module_parameters(solution: LowRankSolution, module0: torch.nn.Module, module1: torch.nn.Module) -> None:
+    assert solution.bias is not None, "Can't apply unititalized solution!"
+    assert solution.Wa is not None, "Can't apply unititalized solution!"
+    assert solution.Wb is not None, "Can't apply unititalized solution!"
+    with torch.no_grad():
+        # first op always has no bias since adds no expressivity
+        if module0.bias is not None:
+            module0.bias = torch.nn.Parameter(torch.zeros(solution.rank, dtype=module0.bias.dtype))
+        module1.bias.copy_(solution.bias)
+        module0.weight = torch.nn.Parameter(solution.Wa)
+        module1.weight = torch.nn.Parameter(solution.Wb)
 
 
 def _lstsq(A: torch.Tensor, B: torch.Tensor):
@@ -43,15 +80,6 @@ def _svd_initialize(Wa: torch.Tensor, Wb: torch.Tensor, k: int):
     Wa *= s_sqrt
     Wb *= s_sqrt.reshape(-1, 1)
     return Wa, Wb
-
-
-@dataclasses.dataclass
-class LowRankSolution:
-    Wa: Optional[torch.Tensor] = None
-    Wb: Optional[torch.Tensor] = None
-    bias: Optional[torch.Tensor] = None
-    rank: int = -1
-    nmse: float = 0
 
 
 def factorize(X: torch.Tensor,

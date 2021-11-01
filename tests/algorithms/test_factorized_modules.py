@@ -3,7 +3,7 @@
 import pytest
 import torch
 
-from composer.algorithms.factorize import FactorizedConv2d
+from composer.algorithms.factorize import FactorizedConv2d, FactorizedLinear
 
 
 @pytest.mark.parametrize('batch_size', [1, 2])
@@ -12,16 +12,16 @@ from composer.algorithms.factorize import FactorizedConv2d
 @pytest.mark.parametrize('in_channels', [4, 8])
 @pytest.mark.parametrize('out_channels', [4, 8])
 @pytest.mark.parametrize('kernel_size', [(1, 1), (2, 2), (3, 3), (1, 3), (3, 1), (5, 5)])
-def test_shapes(batch_size, h, w, in_channels, out_channels, kernel_size, **kwargs):
+def test_factorized_conv2d_shapes(batch_size, h, w, in_channels, out_channels, kernel_size):
     X = torch.randn(batch_size, in_channels, h, w)
-    conv = FactorizedConv2d(in_channels=in_channels, out_channels=out_channels, kernel_size=kernel_size, **kwargs)
+    conv = FactorizedConv2d(in_channels=in_channels, out_channels=out_channels, kernel_size=kernel_size)
     Y = conv(X)
 
     assert Y.ndim == 4
     assert Y.shape[:2] == (batch_size, out_channels)
 
 
-def test_update_layer_twice():
+def test_update_factorized_conv2d_twice():
     batch_size = 2
     h = 5
     w = 6
@@ -49,3 +49,18 @@ def test_update_layer_twice():
     _check_conv_shapes(module, C_in=C_in, C_out=C_out, C_latent=24)
     module.set_rank(X, 16)
     _check_conv_shapes(module, C_in=C_in, C_out=C_out, C_latent=16)
+
+
+@pytest.mark.parametrize('batch_size', [1, 2])
+@pytest.mark.parametrize('in_features', [3, 4, 8])
+@pytest.mark.parametrize('out_features', [4, 5, 8])
+def test_factorized_linear_shapes(batch_size, in_features, out_features):
+    X = torch.randn(batch_size, in_features)
+    module = FactorizedLinear(in_features=in_features, out_features=out_features)
+    Y = module(X)
+
+    assert Y.ndim == 2
+    assert Y.shape == (batch_size, out_features)
+
+
+

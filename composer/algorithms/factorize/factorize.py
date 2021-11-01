@@ -9,9 +9,10 @@ from typing import Optional
 import torch
 import yahp as hp
 
-import composer.algorithms.factorize.factorized_conv as fconv
 from composer.algorithms import AlgorithmHparams
-from composer.algorithms.factorize.factorize_core import FractionOrInt
+from composer.algorithms.factorize.factorize_core import (FractionOrInt, clean_latent_dims,
+                                                          max_rank_with_possible_speedup)
+from composer.algorithms.factorize.factorized_conv import FactorizedConv2d
 from composer.core import Algorithm, Event, Logger, State, surgery
 
 log = logging.getLogger(__name__)
@@ -22,7 +23,7 @@ FACTORIZE_LOG_NUM_REPLACEMENTS_KEY = 'factorize/num_modules'
 
 
 def _log_surgery_result(model: torch.nn.Module):
-    new_class = fconv.FactorizedConv2d
+    new_class = FactorizedConv2d
     num_replaced_modules = surgery.count_module_instances(model, new_class)
     log.info(f'Applied factorization to model {model.__class__.__name__}. '
              f'Model now has {num_replaced_modules} {new_class.__name__} modules')
@@ -36,11 +37,11 @@ def factorize_conv2d_modules(model: torch.nn.Module, min_channels: int, latent_c
                               latent_channels: FractionOrInt = latent_channels) -> Optional[torch.nn.Module]:
         if min(module.in_channels, module.out_channels) < min_channels:
             return None
-        max_rank = fconv.max_rank_with_possible_speedup(module.in_channels, module.out_channels, module.kernel_size)
-        latent_channels = fconv.clean_latent_channels(latent_channels, module.in_channels, module.out_channels)
+        max_rank = max_rank_with_possible_speedup(module.in_channels, module.out_channels, module.kernel_size)
+        latent_channels = clean_latent_dims(latent_channels, module.in_channels, module.out_channels)
         if max_rank < latent_channels:
             return None  # not enough rank reduction to be worth it
-        return fconv.FactorizedConv2d.from_conv2d(module, module_index, latent_channels=latent_channels)
+        return FactorizedConv2d.from_conv2d(module, module_index, latent_channels=latent_channels)
 
     transforms = {torch.nn.Conv2d: _maybe_replace_conv2d}
     ret = surgery.replace_module_classes(model, policies=transforms)
@@ -94,7 +95,7 @@ class Factorize(Algorithm):
                                  min_channels=self.hparams.min_channels,
                                  latent_channels=self.hparams.latent_channels)
         _log_surgery_result(state.model)
-        num_fconv_modules = surgery.count_module_instances(state.model, fconv.FactorizedConv2d)
+        num_fconv_modules = surgery.count_module_instances(state.model, FactorizedConv2d)
         logger.metric_fit({
             FACTORIZE_LOG_NUM_REPLACEMENTS_KEY: num_fconv_modules,
         })
