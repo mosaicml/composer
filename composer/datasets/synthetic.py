@@ -53,7 +53,7 @@ class SyntheticDataset(torch.utils.data.Dataset):
         return self.total_dataset_size
 
     def __getitem__(self, idx: int):
-        idx = idx % self.total_dataset_size
+        idx = idx % self.batch_size
         if self.input_data is None:
             # Generating data on the first call to __getitem__ so that data is stored on the correct gpu,
             # after DeviceSingleGPU calls torch.cuda.set_device
