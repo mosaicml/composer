@@ -9,6 +9,7 @@ import warnings
 from typing import Any, Dict, List, Optional, Sequence, Union
 
 import torch
+import torch.distributed
 import torch.utils.data
 from torch.backends import cudnn
 from torch.cuda.amp.grad_scaler import GradScaler
@@ -27,7 +28,7 @@ from composer.optim import (ComposedScheduler, CosineAnnealingLRHparams, Decoupl
                             SchedulerHparams, WarmUpLRHparams)
 from composer.optim.scheduler import ensure_warmup_last
 from composer.trainer.checkpoint import Checkpointer, CheckpointLoader
-from composer.trainer.ddp import DDP, DataloaderMultipleIterationWarning, StoreHparams, TCPStoreHparams
+from composer.trainer.ddp import DDP, DataloaderMultipleIterationWarning
 from composer.trainer.devices.device import Device
 from composer.trainer.devices.device_cpu import DeviceCPU
 from composer.trainer.scaler import ClosureGradScaler
@@ -86,12 +87,6 @@ class Trainer:
             (default: ``False``)
         timeout (int, optional): Timeout value for collecting a batch from workers. 0 for no timeout.
             (default: ``0``)
-        ddp_store_hparams (StoreHparams, optional): `DistributedDataParallel` configuration.
-            (default: ``TCPStoreHparams("127.0.0.1", 43297)``)
-        fork_rank_0 (bool, optional): True to fork the rank 0 process in distributed data parallel,
-            False to not. (default: ``True``)
-        ddp_timeout (float, optional): Timeout, in seconds, for initializing the DDP process group.
-            (default: ``5.0``)
         ddp_sync_strategy (DDPSyncStrategy, optional): The strategy to use for synchronizing gradients.
             Leave unset to let the trainer auto-configure this.
         seed (int, optional): The seed used in randomization. When not provided a random seed
@@ -150,9 +145,6 @@ class Trainer:
             timeout: int = 0,
 
             # ddp hparams
-            ddp_store_hparams: Optional[StoreHparams] = None,
-            fork_rank_0: bool = False,
-            ddp_timeout: float = 5.0,
             ddp_sync_strategy: Optional[str] = None,
 
             # Randomness
@@ -199,15 +191,8 @@ class Trainer:
         self.backwards_create_graph = any(map(lambda x: x.backwards_create_graph, algorithms))
 
         find_unused_parameters = any(map(lambda x: x.find_unused_parameters, algorithms))
-        if not ddp_store_hparams:
-            ddp_store_hparams = TCPStoreHparams("127.0.0.1", 43297)
         self.ddp = DDP(
-            nproc_per_node=self.device.nproc_per_node,
-            store_hparams=ddp_store_hparams,
-            node_rank=0,
-            num_nodes=1,
             backend=self.device.ddp_backend,
-            fork_rank_0=fork_rank_0,
             find_unused_parameters=find_unused_parameters,
             timeout=ddp_timeout,
             ddp_sync_strategy=ddp_sync_strategy,
@@ -221,9 +206,7 @@ class Trainer:
                            model=model,
                            grad_accum=grad_accum,
                            precision=precision,
-                           precision_context=self.device.precision_context,
-                           nproc_per_node=self.device.nproc_per_node,
-                           world_size=self.ddp.world_size)
+                           precision_context=self.device.precision_context)
 
         if not log_destinations:
             log_destinations = [TQDMLoggerBackend()]
@@ -308,13 +291,6 @@ class Trainer:
         dict_config = hparams.to_dict()
         log_destinations = [x.initialize_object(config=dict_config) for x in hparams.loggers]
 
-        find_unused_parameters = any(map(lambda x: x.find_unused_parameters, algorithms))
-        ddp = hparams.ddp.initialize_object(
-            device.nproc_per_node,
-            device.ddp_backend,
-            find_unused_parameters,
-        )
-
         train_dl_spec = hparams.train_dataset.initialize_object()
         eval_dl_spec = hparams.val_dataset.initialize_object()
 
@@ -347,11 +323,6 @@ class Trainer:
             pin_memory=hparams.dataloader.pin_memory,
             timeout=hparams.dataloader.timeout,
 
-            # ddp hparams
-            ddp_store_hparams=ddp.hparams.store,
-            fork_rank_0=ddp.hparams.fork_rank_0,
-            ddp_timeout=ddp.hparams.timeout,
-
             # Randomness
             seed=seed,
             deterministic_mode=hparams.deterministic_mode,
@@ -374,7 +345,7 @@ class Trainer:
 
     def fit(self):
         """Train and evaluate the model on the provided data."""
-        self.ddp.launch(self.state, self._train_loop)
+        self._train_loop()
 
     def _create_dataloaders(self) -> None:
         """Create the dataloaders.

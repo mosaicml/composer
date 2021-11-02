@@ -35,8 +35,7 @@ seed: 0
 validate_every_n_epochs: 1
 grad_accum: 1
 device:
-  gpu:
-    n_gpus: 8
+  gpu: {}
 dataloader:
   pin_memory: true
   timeout: 0

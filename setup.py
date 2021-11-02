@@ -25,7 +25,7 @@ install_requires = [
     "torchmetrics>=0.5.1",
     "torch_optimizer==0.1.0",
     "torchvision>=0.9.0",
-    "torch>=1.8.1",
+    "torch>=1.9.0",
     "argparse>=1.4.0",
     "yahp>=0.0.10",
 ]
@@ -88,6 +88,9 @@ setup(
         "Programming Language :: Python :: 3",
     ],
     install_requires=install_requires,
+    entry_points={
+        'console_scripts': ['composer = composer.run.run:main',],
+    },
     extras_require=extra_deps,
     dependency_links=['https://developer.download.nvidia.com/compute/redist'],
     python_requires='>=3.8',

@@ -113,16 +113,6 @@ class Device(Serializable, ABC):
 
     @property
     @abstractmethod
-    def nproc_per_node(self) -> int:
-        """nproc_per_node returns the number of processes per node the device would like to have.
-        This function may be invoked before `prepare()` and therefore should not rely on state.
-
-        Returns:
-            int: Number of processes per node.
-        """
-
-    @property
-    @abstractmethod
     def ddp_backend(self) -> str:
         """DDP backend to use.
 
