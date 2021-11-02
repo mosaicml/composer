@@ -121,6 +121,7 @@ def _check_factorization(f: Union[_RankReduce, _RankReduceConv2d],
         assert Wb.shape[in_dim] == f.C_latent_new
         assert Wb.shape[out_dim] == f.C_out
 
+    assert nmse < 1.0  # should explain variance better than just predicting mean
     if prev_nmse is not None:
         assert nmse <= prev_nmse + 1e-8  # error decreases over time
     return nmse  # new "previous" nmse
