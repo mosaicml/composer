@@ -36,7 +36,7 @@ class FactorizedConv2d(nn.Module):
             self.conv1 = nn.Conv2d(self.latent_channels, self.out_channels, kernel_size=1, bias=True)
             self.already_factorized = True
         else:
-            self.latent_channels = min(self.in_channels, self.out_channels)
+            self.latent_channels = self.out_channels
             self.conv0 = nn.Conv2d(self.in_channels, self.out_channels, self.kernel_size, **kwargs)
             self.conv1 = None
 
@@ -85,7 +85,7 @@ class FactorizedConv2d(nn.Module):
             self.already_factorized = True
         self.conv0.out_channels = solution.rank
         self.conv1.in_channels = solution.rank
-        apply_solution_to_module_parameters(solution, self.conv0, self.conv1)
+        apply_solution_to_module_parameters(solution, self.conv0, self.conv1, transpose=False)
 
     @staticmethod
     def from_conv2d(module: torch.nn.Conv2d, module_ix: int = -1, **kwargs):

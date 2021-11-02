@@ -22,7 +22,7 @@ class FactorizedLinear(nn.Module):
             self.linear0 = nn.Linear(in_features=self.in_features, out_features=self.latent_features, bias=False)
             self.linear1 = nn.Linear(in_features=self.latent_features, out_features=self.out_features, bias=self.bias)
         else:
-            self.latent_features = min(self.in_features, self.out_features)
+            self.latent_features = self.out_features
             self.linear0 = nn.Linear(in_features=self.in_features, out_features=self.out_features, bias=True)
             self.linear1 = None
 
@@ -49,19 +49,20 @@ class FactorizedLinear(nn.Module):
         return self.latent_features <= max_rank
 
     def _solution_for_rank(self, input: torch.Tensor, rank: int) -> LowRankSolution:
-        weight0 = self.linear0.weight
-        bias0 = self.linear0.bias
+        weight0 = torch.transpose(self.linear0.weight, 0, 1)
         if self.linear1 is None:
             weight1, bias1 = None, None
         else:
-            weight1, bias1 = self.linear1.weight, self.linear1.bias
+            weight1 = torch.transpose(self.linear1.weight, 0, 1)
+            bias1 = self.linear1.bias
+        target = self(input)
 
         return factorize(input,
+                         target,
                          weight0,
                          weight1,
-                         rank=rank,
-                         biasA=bias0,
-                         biasB=bias1)
+                         bias=bias1,
+                         rank=rank)
 
     def _update_factorization(self, solution: LowRankSolution):
         self.latent_features = solution.rank
@@ -70,7 +71,7 @@ class FactorizedLinear(nn.Module):
             self.already_factorized = True
         self.linear0.out_features = solution.rank
         self.linear1.in_features = solution.rank
-        apply_solution_to_module_parameters(solution, self.linear0, self.linear1)
+        apply_solution_to_module_parameters(solution, self.linear0, self.linear1, transpose=True)
 
     @staticmethod
     def from_linear(module: torch.nn.Linear, module_ix: int = -1, **kwargs):

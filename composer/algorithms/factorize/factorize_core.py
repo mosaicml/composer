@@ -34,17 +34,23 @@ def max_rank_with_possible_speedup(in_channels: int, out_channels: int, kernel_s
     return (fan_in * out_channels) / (fan_in + out_channels) - 1
 
 
-def apply_solution_to_module_parameters(solution: LowRankSolution, module0: torch.nn.Module, module1: torch.nn.Module) -> None:
+def apply_solution_to_module_parameters(solution: LowRankSolution, module0: torch.nn.Module, module1: torch.nn.Module, transpose: bool) -> None:
     assert solution.bias is not None, "Can't apply unititalized solution!"
     assert solution.Wa is not None, "Can't apply unititalized solution!"
     assert solution.Wb is not None, "Can't apply unititalized solution!"
+
     with torch.no_grad():
         # first op always has no bias since adds no expressivity
         if module0.bias is not None:
             module0.bias = torch.nn.Parameter(torch.zeros(solution.rank, dtype=module0.bias.dtype))
         module1.bias.copy_(solution.bias)
-        module0.weight = torch.nn.Parameter(solution.Wa)
-        module1.weight = torch.nn.Parameter(solution.Wb)
+        Wa = solution.Wa
+        Wb = solution.Wb
+        if transpose:
+            Wa = torch.transpose(Wa, 0, 1)
+            Wb = torch.transpose(Wb, 0, 1)
+        module0.weight = torch.nn.Parameter(Wa)
+        module1.weight = torch.nn.Parameter(Wb)
 
 
 def _lstsq(A: torch.Tensor, B: torch.Tensor):
@@ -57,7 +63,6 @@ def _lstsq(A: torch.Tensor, B: torch.Tensor):
 
     # TODO more intelligence regarding choice of lstsq `driver` arg
     return torch.linalg.lstsq(A, B).solution
-
 
 def _nmse(Y: torch.Tensor, Y_hat: torch.Tensor):
     diffs = Y - Y_hat
@@ -126,7 +131,7 @@ def factorize(X: torch.Tensor,
     Wa, Wb = _svd_initialize(Wa, Wb, k)
 
     Ya = _lstsq(X, Y)
-    for it in range(n_iters):
+    for _ in range(n_iters):
         # update Wb
         Xb = X @ Wa
         Yb = Y
