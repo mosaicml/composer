@@ -35,8 +35,9 @@ class SyntheticDataset(torch.utils.data.Dataset):
                  one_hot: bool,
                  num_classes: int,
                  transform: Optional[Callable] = None,
-                 data_type: SyntheticDataType = SyntheticDataType.GAUSSIAN):
-        self.size = sample_pool_size
+                 data_type: SyntheticDataType = SyntheticDataType.GAUSSIAN,
+                 total_dataset_size: Optional[int] = None):
+        self.batch_size = sample_pool_size
         self.shape = shape
         self.input_data = None
         self.input_target = None
@@ -46,11 +47,13 @@ class SyntheticDataset(torch.utils.data.Dataset):
         self.num_classes = num_classes
         self.transform = transform
         self.data_type = data_type
+        self.total_dataset_size = total_dataset_size if total_dataset_size else sample_pool_size
 
     def __len__(self) -> int:
-        return self.size
+        return self.total_dataset_size
 
     def __getitem__(self, idx: int):
+        idx = idx % self.total_dataset_size
         if self.input_data is None:
             # Generating data on the first call to __getitem__ so that data is stored on the correct gpu,
             # after DeviceSingleGPU calls torch.cuda.set_device
@@ -60,20 +63,20 @@ class SyntheticDataset(torch.utils.data.Dataset):
             assert self.input_target is None
             if self.data_type == SyntheticDataType.GAUSSIAN or \
                 self.data_type == SyntheticDataType.SEPARABLE:
-                input_data = torch.randn(self.size, *self.shape)
+                input_data = torch.randn(self.batch_size, *self.shape)
             else:
-                input_data = torch.arange(start=0, end=self.size, step=1, dtype=torch.float)
-                input_data = input_data.reshape(self.size, *(1 for _ in self.shape))
-                input_data = input_data.expand(self.size, *self.shape)  # returns a view
-            assert input_data.shape == (self.size, *self.shape)
+                input_data = torch.arange(start=0, end=self.batch_size, step=1, dtype=torch.float)
+                input_data = input_data.reshape(self.batch_size, *(1 for _ in self.shape))
+                input_data = input_data.expand(self.batch_size, *self.shape)  # returns a view
+            assert input_data.shape == (self.batch_size, *self.shape)
             input_data = torch.clone(input_data)  # allocate actual memory
             input_data = input_data.contiguous(memory_format=self.memory_format)
             input_data = input_data.to(self.device)
             if self.one_hot:
-                input_target = torch.empty(self.size, self.num_classes).to(self.device)
+                input_target = torch.empty(self.batch_size, self.num_classes).to(self.device)
                 input_target[:, 0] = 1.0
             else:
-                input_target = torch.randint(0, self.num_classes, (self.size,))
+                input_target = torch.randint(0, self.num_classes, (self.batch_size,))
 
             # If separable, force the positive examples to have a higher mean than the negative examples
             if self.data_type == SyntheticDataType.SEPARABLE:
@@ -97,7 +100,7 @@ class SyntheticDataset(torch.utils.data.Dataset):
 @dataclass
 class SyntheticDatasetHparams(DatasetHparams):
     """Defines an instance of a synthetic dataset for classification.
-    
+
     Parameters:
         num_classes (int): Number of classes to use.
         shape (List[int]): Shape of the tensor for input samples.
@@ -123,6 +126,7 @@ class SyntheticDatasetHparams(DatasetHparams):
     memory_format: MemoryFormat = hp.optional("Memory format for the sample pool",
                                               default=MemoryFormat.CONTIGUOUS_FORMAT)
     sample_pool_size: int = hp.optional("Number of samples", default=100)
+    total_dataset_size: int = hp.optional("Total size of the dataset to emulate", default=100)
     drop_last: bool = hp.optional("Whether to drop the last samples for the last batch", default=True)
     shuffle: bool = hp.optional("Whether to shuffle the dataset for each epoch", default=True)
     data_type: SyntheticDataType = hp.optional("Type of synthetic data to create.", default=SyntheticDataType.GAUSSIAN)
