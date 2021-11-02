@@ -126,7 +126,9 @@ class SyntheticDatasetHparams(DatasetHparams):
     memory_format: MemoryFormat = hp.optional("Memory format for the sample pool",
                                               default=MemoryFormat.CONTIGUOUS_FORMAT)
     sample_pool_size: int = hp.optional("Number of samples", default=100)
-    total_dataset_size: int = hp.optional("Total size of the dataset to emulate", default=100)
+    total_dataset_size: int = hp.optional(
+        "Total size of the dataset to emulate. "
+        "If None defaults to sample_pool_size.", default=None)
     drop_last: bool = hp.optional("Whether to drop the last samples for the last batch", default=True)
     shuffle: bool = hp.optional("Whether to shuffle the dataset for each epoch", default=True)
     data_type: SyntheticDataType = hp.optional("Type of synthetic data to create.", default=SyntheticDataType.GAUSSIAN)
