@@ -141,6 +141,7 @@ class SyntheticDatasetHparams(DatasetHparams):
                 memory_format=self.memory_format,
                 sample_pool_size=self.sample_pool_size,
                 data_type=self.data_type,
+                total_dataset_size=self.total_dataset_size,
             ),
             drop_last=self.drop_last,
             shuffle=False,
