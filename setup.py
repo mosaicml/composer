@@ -52,7 +52,7 @@ extra_deps['unet'] = [
 
 extra_deps['all'] = set(dep for deps in extra_deps.values() for dep in deps)
 
-# TODO fix deferred loading in composer.functional
+# TODO(ravi) fix deferred loading in composer.functional
 install_requires.extend(extra_deps['unet'])
 install_requires.extend(extra_deps['nlp'])
 
