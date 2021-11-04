@@ -1,5 +1,6 @@
 import subprocess
 from argparse import ArgumentParser
+from typing import Any, Callable, Sequence, Union
 
 from torch.distributed.elastic.multiprocessing import Std
 
@@ -7,7 +8,11 @@ from torch.distributed.elastic.multiprocessing import Std
 def parse_args():
     parser = ArgumentParser(description="Utility for launching distributed jobs with composer.")
 
-    parser.add_argument("-n", "--nproc_per_node", type=int, help="The number of process to launch per node.")
+    parser.add_argument("-n",
+                        "--nproc_per_node",
+                        type=int,
+                        required=True,
+                        help="The number of process to launch per node.")
 
     parser.add_argument("training_script",
                         type=str,

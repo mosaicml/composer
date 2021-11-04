@@ -29,9 +29,13 @@ class Model(nn.Module):
         self.fc2 = nn.Linear(32, outputs)
 
     def forward(self, x):
+        print(1)
         out = self.conv1(x)
+        print(2)
         out = F.relu(out)
+        print(3)
         out = self.conv2(out)
+        print(4)
         out = self.bn(out)
         out = F.relu(out)
         out = F.adaptive_avg_pool2d(out, (4, 4))

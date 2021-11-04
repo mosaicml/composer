@@ -9,20 +9,16 @@ import torch.distributed
 import composer
 from composer.core.types import Precision
 from composer.trainer import TrainerHparams
-from composer.trainer.ddp import FileStoreHparams
 from composer.trainer.devices import GPUDeviceHparams
 
 
-def run_and_measure_memory(precision: Precision, file_store_path: str) -> int:
+def run_and_measure_memory(precision: Precision) -> int:
     hparams_f = os.path.join(os.path.dirname(composer.__file__), "yamls", "models", "resnet56_cifar10",
                              "hparams_synthetic.yaml")
     hparams = TrainerHparams.create(f=hparams_f)
     assert isinstance(hparams, TrainerHparams)
     assert isinstance(hparams.device, GPUDeviceHparams)
-    hparams.device.n_gpus = 1
     hparams.precision = precision
-    hparams.ddp.store = FileStoreHparams(file_store_path)
-    hparams.ddp.fork_rank_0 = False
     hparams.dataloader.num_workers = 0
     hparams.dataloader.persistent_workers = False
     hparams.max_epochs = 2

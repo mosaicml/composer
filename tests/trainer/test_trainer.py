@@ -16,7 +16,6 @@ from composer.models.base import BaseMosaicModel
 from composer.optim.optimizer_hparams import AdamHparams
 from composer.optim.scheduler import ComposedScheduler, ExponentialLRHparams
 from composer.trainer import Trainer, TrainerHparams
-from composer.trainer.ddp import FileStoreHparams
 from composer.trainer.devices.device_hparams import CPUDeviceHparams, DeviceHparams, GPUDeviceHparams
 from tests.utils.trainer_fit import get_total_loss, train_model
 
@@ -82,7 +81,6 @@ def test_trainer_determinism(mosaic_trainer_hparams: TrainerHparams, ddp_tmpdir:
     mosaic_trainer_hparams.deterministic_mode = True
     mosaic_trainer_hparams.max_epochs = 2
 
-    mosaic_trainer_hparams.ddp.store = FileStoreHparams(os.path.join(ddp_tmpdir, "first_store"))
     first_trainer = Trainer.create_from_hparams(mosaic_trainer_hparams)
     first_trainer.fit()
     first_model = first_trainer.state.model.module
@@ -92,7 +90,6 @@ def test_trainer_determinism(mosaic_trainer_hparams: TrainerHparams, ddp_tmpdir:
 
     # Second trainer must be created after fitting the first so that the
     # seeds get fully reset for the second training run
-    mosaic_trainer_hparams.ddp.store = FileStoreHparams(os.path.join(ddp_tmpdir, "second_store"))
     second_trainer = Trainer.create_from_hparams(mosaic_trainer_hparams)
     second_trainer.fit()
     second_model = second_trainer.state.model.module
@@ -105,10 +102,10 @@ def test_trainer_determinism(mosaic_trainer_hparams: TrainerHparams, ddp_tmpdir:
 
 @pytest.mark.timeout(90)
 @pytest.mark.parametrize("device_hparams", [
-    pytest.param(CPUDeviceHparams(n_cpus=1), id="1cpu"),
-    pytest.param(CPUDeviceHparams(n_cpus=2), id='2cpu'),
-    pytest.param(GPUDeviceHparams(n_gpus=1), marks=pytest.mark.n_gpus(1), id="1gpu"),
-    pytest.param(GPUDeviceHparams(n_gpus=2), marks=pytest.mark.n_gpus(2), id="2gpu"),
+    pytest.param(CPUDeviceHparams(), id="1cpu"),
+    pytest.param(CPUDeviceHparams(), id='2cpu'),
+    pytest.param(GPUDeviceHparams(), marks=pytest.mark.n_gpus(1), id="1gpu"),
+    pytest.param(GPUDeviceHparams(), marks=pytest.mark.n_gpus(2), id="2gpu"),
 ])
 @pytest.mark.parametrize("grad_accum", [
     pytest.param(1, id="ga1"),

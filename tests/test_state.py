@@ -135,12 +135,3 @@ def test_state_serialize(tmpdir: pathlib.Path, dummy_model: BaseMosaicModel,
 
     # both states should have equivalent state, model parameters, loss, and outputs
     assert_state_equivalent(state1, state2)
-
-
-def test_state_rank(monkeypatch: MonkeyPatch, dummy_state: State):
-    monkeypatch.setattr(dist, "get_rank", lambda: 9)
-    dummy_state.nproc_per_node = 4
-    assert dummy_state.is_rank_set
-    assert not dummy_state.is_rank_zero
-    assert dummy_state.local_rank == 1
-    assert dummy_state.global_rank == 9

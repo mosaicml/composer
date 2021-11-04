@@ -53,7 +53,18 @@ class SimpleBatchPairModel(BaseMosaicModel):
 
     def forward(self, batch: BatchPair) -> Tensor:
         x, _ = batch
-        return self.net(x)
+        print('foo')
+        print(self.num_classes)
+        """print(self.in_shape)
+        print(x.shape)
+        a = torch.nn.Flatten()(x)
+        print(a)
+        print(a.shape)
+        b = torch.nn.Linear(25, 5)(a)
+        print(b)"""
+        o = self.net(x)
+        print('bar')
+        return o
 
     def metrics(self, train: bool = False) -> Metrics:
         if train:

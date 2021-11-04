@@ -16,7 +16,6 @@ from composer.core.callback import Callback
 from composer.core.event import Event
 from composer.core.state import State
 from composer.core.types import StateDict
-from composer.trainer.ddp import FileStoreHparams
 from composer.trainer.devices import CPUDeviceHparams, DeviceHparams, GPUDeviceHparams
 from composer.trainer.trainer import Trainer
 from composer.trainer.trainer_hparams import TrainerHparams, callback_registry
@@ -119,10 +118,8 @@ def get_trainer(device_hparams: DeviceHparams,
                 trainer_hparams: TrainerHparams,
                 *,
                 trainer_key: str,
-                ddp_tmpdir: str,
                 checkpoint_filepath: Optional[str] = None) -> Optional[Trainer]:
     trainer_hparams.device = device_hparams
-    trainer_hparams.ddp.store = FileStoreHparams(file_name=os.path.join(ddp_tmpdir, f"store_{trainer_key}"))
     trainer_hparams.checkpoint_filepath = checkpoint_filepath
     if not _should_create_trainer(trainer_key):
         return
@@ -190,10 +187,10 @@ def clear_checkpoint_folder(checkpoint_folder: str):
 
 @pytest.mark.timeout(90)
 @pytest.mark.parametrize("device_hparams", [
-    pytest.param(CPUDeviceHparams(n_cpus=1), id="1cpu"),
-    pytest.param(CPUDeviceHparams(n_cpus=2), id='2cpu'),
-    pytest.param(GPUDeviceHparams(n_gpus=1), marks=pytest.mark.n_gpus(1), id="1gpu"),
-    pytest.param(GPUDeviceHparams(n_gpus=2), marks=pytest.mark.n_gpus(2), id="2gpu"),
+    pytest.param(CPUDeviceHparams(), id="1cpu"),
+    pytest.param(CPUDeviceHparams(), id='2cpu'),
+    pytest.param(GPUDeviceHparams(), marks=pytest.mark.n_gpus(1), id="1gpu"),
+    pytest.param(GPUDeviceHparams(), marks=pytest.mark.n_gpus(2), id="2gpu"),
 ])
 @pytest.mark.parametrize("checkpoint_filename", ["ep1", "it4", "it1", "it6"])
 @pytest.mark.parametrize("validate_every_n_batches,validate_every_n_epochs", [

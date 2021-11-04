@@ -6,11 +6,6 @@ import collections.abc
 import datetime
 import logging
 import os
-import signal
-import subprocess
-import sys
-import tempfile
-import time
 import warnings
 from contextlib import contextmanager, nullcontext
 from dataclasses import dataclass
@@ -116,6 +111,10 @@ class DDP:
             self.ddp_sync_strategy = DDPSyncStrategy.SINGLE_AUTO_SYNC if not find_unused_parameters else DDPSyncStrategy.FORCED_SYNC
         else:
             self.ddp_sync_strategy = DDPSyncStrategy(ddp_sync_strategy)
+
+        if "RANK" not in os.environ and "WORLD_SIZE" not in os.environ:
+            warnings.warn("RANK and WORLD_SIZE env vars not set; skipping DDP process group initialization.")
+            return
 
         torch.distributed.init_process_group(self.backend)
 
