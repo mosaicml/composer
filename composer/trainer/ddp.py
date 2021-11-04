@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 import collections.abc
+import datetime
 import logging
 import os
+import signal
 import subprocess
 import sys
 import time
@@ -12,7 +14,7 @@ import warnings
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from threading import Thread
-from typing import Callable, Iterator, List, Optional, Sequence, TypeVar, cast
+from typing import Callable, Iterator, List, Optional, Sequence, Set, TypeVar, cast
 
 import torch
 import torch.distributed
@@ -82,16 +84,19 @@ class DDP:
                  num_nodes: int,
                  backend: str,
                  fork_rank_0: bool,
+                 timeout: float,
                  find_unused_parameters: bool = False):
+        self.hparams = DDPHparams(
+            store=store_hparams,
+            node_rank=node_rank,
+            num_nodes=num_nodes,
+            fork_rank_0=fork_rank_0,
+            timeout=timeout,
+        )
         self.nproc_per_node = nproc_per_node
-        self.world_size = num_nodes * nproc_per_node
-        self.num_nodes = num_nodes
-        self.node_rank = node_rank
-        self.store_hparams = store_hparams
-        self.last_return_code: Optional[int] = None
         self.backend = backend
-        self.fork_rank_0 = fork_rank_0
         self.processes: List[subprocess.Popen[str]] = []
+        self.killed_pids: Set[int] = set()  # track which pids have been killed
         self.find_unused_parameters = find_unused_parameters
 
         if backend == 'nccl':
@@ -102,6 +107,10 @@ class DDP:
                                  f'only {torch.cuda.device_count()} available.')
             if not torch.distributed.is_nccl_available():
                 raise ValueError('Requested NCCL backend not available in torch.distributed')
+
+    @property
+    def world_size(self) -> int:
+        return self.hparams.num_nodes * self.nproc_per_node
 
     def barrier(self) -> None:
         if torch.distributed.is_available():
@@ -157,7 +166,7 @@ class DDP:
     def launch(self, state: State, loop: Callable[[], None]):
         if os.environ.get("RANK") is None:
             os.environ["WORLD_SIZE"] = str(self.world_size)
-            logger.info("Starting DDP on node_rank(%d) with world_size(%d)", self.node_rank, self.world_size)
+            logger.info("Starting DDP on node_rank(%d) with world_size(%d)", self.hparams.node_rank, self.world_size)
 
             if torch.distributed.is_available():
                 # Adapted from torch.distributed.launch
@@ -168,14 +177,14 @@ class DDP:
                 # TODO omp num threads -- this parameter needs to be auto-tuned
                 for local_rank in range(self.nproc_per_node):
                     # each process's rank
-                    global_rank = self.nproc_per_node * self.node_rank + local_rank
+                    global_rank = self.nproc_per_node * self.hparams.node_rank + local_rank
                     current_env["RANK"] = str(global_rank)
 
-                    if local_rank == 0 and not self.fork_rank_0:
+                    if local_rank == 0 and not self.hparams.fork_rank_0:
                         os.environ["RANK"] = str(global_rank)
                     else:
                         logger.info("Launching process for global_rank(%d) on node_rank(%d)", global_rank,
-                                    self.node_rank)
+                                    self.hparams.node_rank)
                         # spawn the processes
                         cmd = [
                             sys.executable,
@@ -197,7 +206,7 @@ class DDP:
                                 text=True,
                             )
                         self.processes.append(process)
-                if self.fork_rank_0:
+                if self.hparams.fork_rank_0:
                     self.monitor()
                     return
                 else:
@@ -205,22 +214,23 @@ class DDP:
             else:
                 if self.world_size != 1:
                     raise ValueError("Must have world size == 1 when torch.distributed is not available")
-                if self.node_rank != 0:
+                if self.hparams.node_rank != 0:
                     raise ValueError("Must have a node_rank == 0 when torch.distributed is not available")
                 os.environ["RANK"] = "0"
         # We are now on the correct process
         global_rank = int(os.environ["RANK"])
-        assert global_rank // self.world_size == self.node_rank
+        assert global_rank // self.world_size == self.hparams.node_rank
         assert os.environ["WORLD_SIZE"] == str(
             self.world_size
         ), f"os.environ['WORLD_SIZE']({os.environ['WORLD_SIZE']}) != self.world_size({self.world_size})"
         is_main = global_rank == 0
         if torch.distributed.is_available():
             logger.info("Initializing ddp: GLOBAL_RANK: %s, WORLD_SIZE: %s", global_rank, self.world_size)
-            store = self.store_hparams.initialize_object(is_main, state.world_size)
+            store = self.hparams.store.initialize_object(is_main, state.world_size)
             torch.distributed.init_process_group(self.backend,
                                                  rank=global_rank,
                                                  world_size=self.world_size,
+                                                 timeout=datetime.timedelta(seconds=self.hparams.timeout),
                                                  store=store)
             assert torch.distributed.is_initialized()
             assert state.is_rank_set, "state.is_rank_set should be set after torch.distributed is initialized"
@@ -271,7 +281,10 @@ class DDP:
                     # return code of 0 implies clean exit
                     # return code of -9 implies sigkill, presumably from
                     # cleanup() in the main process
-                    if process.returncode not in (0, -9):
+                    if process.pid in self.killed_pids or process.returncode == 0:
+                        # exited cleanly
+                        finished_processes.append(process)
+                    else:
                         if process.stdout is None:
                             output = ""
                         else:
@@ -287,24 +300,43 @@ class DDP:
                             output=output,
                             stderr=stderr,
                         )
-                        if self.fork_rank_0:
+                        if self.hparams.fork_rank_0:
                             raise exc
                         else:
                             logger.exception("Error in subprocess", exc_info=exc)
-                            sys.exit(1)
-                    else:
-                        # exited cleanly
-                        finished_processes.append(process)
+                            sys.exit(process.returncode)
             alive_processes = set(alive_processes) - set(finished_processes)
             time.sleep(1)
 
     def cleanup(self) -> None:
         for process in self.processes:
-            logger.info("Killing subprocess %s", process.pid)
-            try:
-                process.kill()
-            except Exception:
-                pass
+            if process.returncode is None:
+                logger.info("Killing subprocess %s with SIGTERM", process.pid)
+                self.killed_pids.add(process.pid)
+                try:
+                    os.killpg(process.pid, signal.SIGTERM)
+                except ProcessLookupError:
+                    pass
+        current_time = datetime.datetime.now()
+        while datetime.datetime.now() - current_time < datetime.timedelta(seconds=5):
+            all_finished = True
+            for process in self.processes:
+                if process.returncode is None:
+                    all_finished = False
+                    break
+            if all_finished:
+                break
+            time.sleep(0.1)
+
+        for process in self.processes:
+            if process.returncode is None:
+                logger.error("Killing subprocess %s with SIGKILL", process.pid)
+                self.killed_pids.add(process.pid)
+                try:
+                    os.killpg(process.pid, signal.SIGKILL)
+                except ProcessLookupError:
+                    pass
+
         if torch.distributed.is_initialized():
             torch.distributed.destroy_process_group()
 
@@ -350,6 +382,7 @@ class DDPHparams(hp.Hparams):
         doc="Whether to fork the local rank 0 process, or use the existing process for rank 0 training.",
         default=False,
     )
+    timeout: float = hp.optional(doc="Timeout, in seconds, for initializing the DDP process group.", default=5.0)
 
     def initialize_object(self, nproc_per_node: int, backend: str, find_unused_parameters: bool) -> DDP:
         return DDP(
@@ -360,4 +393,5 @@ class DDPHparams(hp.Hparams):
             num_nodes=self.num_nodes,
             fork_rank_0=self.fork_rank_0,
             find_unused_parameters=find_unused_parameters,
+            timeout=self.timeout,
         )
