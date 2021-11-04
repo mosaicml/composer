@@ -462,8 +462,6 @@ class Trainer:
         # shorthand
         state = self.state
 
-        print('in the train loop')
-
         assert state.optimizers is not None
         assert state.schedulers is not None
         # place the state, model in the proper devices
@@ -521,7 +519,6 @@ class Trainer:
             # only restore the rng state here if the step in the current epoch is zero.
             self.checkpoint_loader.restore_checkpoint_rng_state(self.state, self.device)
 
-        print('loop beginning')
         for _ in range(state.epoch, state.max_epochs):
             try:
                 state.model.train()
@@ -679,12 +676,9 @@ class Trainer:
                 self.engine.run_event(Event.BEFORE_FORWARD)
 
                 with state.precision_context(state.precision):
-                    print('forward')
                     state.outputs = state.model.forward(state.batch)
-                    print('forward done')
 
                 self.engine.run_event(Event.AFTER_FORWARD)
-                print('loss')
                 # loss
                 self.engine.run_event(Event.BEFORE_LOSS)
 
@@ -701,7 +695,6 @@ class Trainer:
 
                 assert state.loss is not None
                 self.engine.run_event(Event.AFTER_LOSS)
-                print('backward')
                 # backward
                 self.engine.run_event(Event.BEFORE_BACKWARD)
 

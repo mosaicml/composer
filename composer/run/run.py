@@ -1,6 +1,6 @@
 import subprocess
+import sys
 from argparse import ArgumentParser
-from typing import Any, Callable, Sequence, Union
 
 from torch.distributed.elastic.multiprocessing import Std
 
@@ -31,6 +31,7 @@ def main():
     redirects_map = ','.join(f'{i}:{Std.ALL}' for i in range(1, args.nproc_per_node))
 
     subprocess.run([
-        'torchrun', '--standalone', '--nnodes=1', f'--nproc_per_node={args.nproc_per_node}',
-        f'--redirects={redirects_map}', args.training_script, *args.training_script_args
+        sys.executable, '-m', 'torch.distributed.run', '--standalone', '--nnodes=1',
+        f'--nproc_per_node={args.nproc_per_node}', f'--redirects={redirects_map}', args.training_script,
+        *args.training_script_args
     ])
