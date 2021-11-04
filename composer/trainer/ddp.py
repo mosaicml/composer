@@ -127,7 +127,7 @@ class DDP:
         self.processes: List[subprocess.Popen[str]] = []
         self.find_unused_parameters = find_unused_parameters
         if ddp_sync_strategy is None:
-            self.ddp_sync_strategy = DDPSyncStrategy.SINGLE_AUTO_SYNC if not find_unused_parameters else DDPSyncStrategy.MULTI_AUTO_SYNC
+            self.ddp_sync_strategy = DDPSyncStrategy.SINGLE_AUTO_SYNC if not find_unused_parameters else DDPSyncStrategy.FORCED_SYNC
         else:
             self.ddp_sync_strategy = DDPSyncStrategy(ddp_sync_strategy)
 
