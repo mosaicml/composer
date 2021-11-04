@@ -193,8 +193,6 @@ class DDP:
                             *sys.argv,
                         ]
 
-
-
                         if local_rank == 0:
                             # Attaching rank 0 to the main stdout/stderr so interactive
                             # terminal output will work without issue (e.g. tqdm)
