@@ -9,6 +9,7 @@ import os
 import signal
 import subprocess
 import sys
+import tempfile
 import time
 import warnings
 from abc import ABC, abstractmethod
@@ -192,6 +193,8 @@ class DDP:
                             *sys.argv,
                         ]
 
+
+
                         if local_rank == 0:
                             # Attaching rank 0 to the main stdout/stderr so interactive
                             # terminal output will work without issue (e.g. tqdm)
@@ -201,8 +204,8 @@ class DDP:
                             process = subprocess.Popen(
                                 cmd,
                                 env=current_env,
-                                stdout=subprocess.PIPE,
-                                stderr=subprocess.PIPE,
+                                stdout=tempfile.TemporaryFile(),
+                                stderr=tempfile.TemporaryFile(),
                                 text=True,
                             )
                         self.processes.append(process)
