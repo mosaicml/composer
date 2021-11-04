@@ -672,6 +672,7 @@ class Trainer:
             is_final_microbatch = microbatch_idx + 1 == len(microbatches)
             with self.ddp.ddp_sync_context(state, is_final_microbatch):
                 last_microbatch_size = self._get_batch_size(state.batch)
+
                 # forward pass
                 self.engine.run_event(Event.BEFORE_FORWARD)
 
@@ -679,6 +680,7 @@ class Trainer:
                     state.outputs = state.model.forward(state.batch)
 
                 self.engine.run_event(Event.AFTER_FORWARD)
+
                 # loss
                 self.engine.run_event(Event.BEFORE_LOSS)
 
@@ -695,6 +697,7 @@ class Trainer:
 
                 assert state.loss is not None
                 self.engine.run_event(Event.AFTER_LOSS)
+
                 # backward
                 self.engine.run_event(Event.BEFORE_BACKWARD)
 

@@ -113,7 +113,9 @@ class DDP:
             self.ddp_sync_strategy = DDPSyncStrategy(ddp_sync_strategy)
 
         if "RANK" not in os.environ and "WORLD_SIZE" not in os.environ:
-            warnings.warn("RANK and WORLD_SIZE env vars not set; skipping DDP process group initialization.")
+            warnings.warn("RANK and WORLD_SIZE env vars not set; assuming no parallelization.")
+            store = torch.distributed.TCPStore(host_name='127.0.0.1', port=29400, is_master=True)
+            torch.distributed.init_process_group(self.backend, store=store, world_size=1, rank=0)
             return
 
         torch.distributed.init_process_group(self.backend)

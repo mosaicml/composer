@@ -131,9 +131,20 @@ def patch_registries(monkeypatch: MonkeyPatch):
 
 
 @pytest.mark.timeout(90)
-@with_distributed(num_procs=[1, 2], test_cpu=True, test_gpu=True)
+@pytest.mark.parametrize("is_gpu,num_procs", [
+    pytest.param(False, 1, id="1-cpu"),
+    pytest.param(False, 2, id="2-cpu"),
+    pytest.param(True, 1, marks=[pytest.mark.n_gpus(1)], id="1-gpu"),
+    pytest.param(True, 2, marks=[pytest.mark.n_gpus(2)], id="2-gpu"),
+])
 def test_ddp(is_gpu: bool, num_procs: int, *, ddp_tmpdir: str, is_main_pytest_process: bool,
              mosaic_trainer_hparams: TrainerHparams) -> None:
+    with_multiprocessing(num_procs, _test_ddp)(is_gpu, num_procs, ddp_tmpdir, is_main_pytest_process,
+                                               mosaic_trainer_hparams)
+
+
+def _test_ddp(is_gpu: bool, num_procs: int, ddp_tmpdir: str, is_main_pytest_process: bool,
+              mosaic_trainer_hparams: TrainerHparams) -> None:
     """
     test strategy for ddp:
     1) Train a dummy model on two gps, for two epochs, using the tracked dataset.
@@ -146,13 +157,16 @@ def test_ddp(is_gpu: bool, num_procs: int, *, ddp_tmpdir: str, is_main_pytest_pr
        We assert that each of these tensors are different to ensure that 1) random seeding works properly,
        and 2) each ddp process is indeed getting different data.
     """
-
     hparams = mosaic_trainer_hparams
     model_hparams = hparams.model
     assert isinstance(model_hparams, SimpleBatchPairModelHparams)
     model = model_hparams.initialize_object()
     shape = list(model.in_shape)  # type: ignore
-    mosaic_trainer_hparams.train_dataset = TrackedDatasetHparams(
+
+    callback_registry["checkbatch0"] = CheckBatch0Hparams
+    dataset_registry["tracked"] = TrackedDatasetHparams
+
+    hparams.train_dataset = TrackedDatasetHparams(
         total_dataset_size=300,
         data_shape=shape,
         num_classes=model.num_classes,
@@ -182,8 +196,8 @@ def test_ddp(is_gpu: bool, num_procs: int, *, ddp_tmpdir: str, is_main_pytest_pr
         pin_memory=False,
         timeout=0,
     )
-    hparams.total_batch_size = 20
-    hparams.eval_batch_size = hparams.total_batch_size
+    hparams.total_batch_size = 50
+    hparams.eval_batch_size = 50
     hparams.max_epochs = 2
     hparams.precision = types.Precision.FP32
     hparams.loggers = []
@@ -197,10 +211,7 @@ def test_ddp(is_gpu: bool, num_procs: int, *, ddp_tmpdir: str, is_main_pytest_pr
     num_train_samples = len(trainer.train_dl_spec.dataset)
     assert isinstance(trainer.eval_dl_spec.dataset, collections.abc.Sized)
     num_eval_samples = len(trainer.eval_dl_spec.dataset)
-    print('fitting')
-    print(trainer.state.model)
     trainer.fit()
-    print('fit')
 
     # we want to validate on the spawning process only
     if is_main_pytest_process:

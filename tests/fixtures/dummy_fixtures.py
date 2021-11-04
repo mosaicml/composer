@@ -23,7 +23,7 @@ from tests.utils.dataloader import get_dataloader
 
 @pytest.fixture
 def dummy_in_shape() -> Tuple[int, ...]:
-    return (1,)
+    return (1, 5, 5)
 
 
 @pytest.fixture
@@ -161,7 +161,6 @@ def mosaic_trainer_hparams(
     dummy_val_dataset_hparams: DatasetHparams,
     dummy_train_batch_size: int,
     dummy_val_batch_size: int,
-    ddp_tmpdir: str,
 ) -> TrainerHparams:
     return TrainerHparams(
         algorithms=[],

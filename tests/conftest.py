@@ -19,7 +19,6 @@ N_GPU_OPTIONS = (0, 1, 2, 4, 8)
 # Add the path of any pytest fixture files you want to make global
 pytest_plugins = [
     "tests.fixtures.dummy_fixtures",
-    "tests.fixtures.ddp_fixtures",
     "tests.algorithms.algorithm_fixtures",
 ]
 
