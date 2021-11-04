@@ -51,6 +51,8 @@ filterwarnings = [
 # Coverage
 [tool.coverage.run]
 parallel = true
+branch = true
+concurrency = thread,multiprocessing
 source = [
     "composer"
 ]
