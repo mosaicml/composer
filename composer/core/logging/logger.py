@@ -48,13 +48,13 @@ class Logger:
             The global :class:`~composer.core.state.State` object.
         backends (Sequence[BaseLoggerBackend]):
             A sequence of
-            :class:`~composer.core.logging.base_backend.BaseLoggerBackend`\s
+            :class:`~composer.core.logging.base_backend.BaseLoggerBackend`\\s
             to which logging calls will be sent.
 
     Attributes:
         backends (Sequence[BaseLoggerBackend]):
             A sequence of
-            :class:`~composer.core.logging.base_backend.BaseLoggerBackend`\s
+            :class:`~composer.core.logging.base_backend.BaseLoggerBackend`\\s
             to which logging calls will be sent.
     """
 
