@@ -1,6 +1,6 @@
+import multiprocessing as mp
 import os
 from functools import wraps
-from multiprocessing import Process
 from typing import Callable, List
 
 import pytest
@@ -48,10 +48,11 @@ def with_distributed(num_procs: List[int],
         def dist_run_func(num_procs: int, is_gpu: bool, *args, **kwargs):
 
             processes = []
+            ctx = mp.get_context('spawn')
             for rank in range(num_procs):
                 _args = (rank, num_procs, is_gpu, *args)
                 print('launching', rank, args)
-                p = Process(target=dist_run_func_target, args=_args, kwargs=kwargs)
+                p = ctx.Process(target=dist_run_func_target, args=_args, kwargs=kwargs)
                 p.start()
                 processes += [p]
 
