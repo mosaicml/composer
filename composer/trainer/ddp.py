@@ -15,6 +15,7 @@ from typing import Callable, ContextManager, Iterator, List, Optional, Sequence,
 import torch
 import torch.distributed
 import torch.utils.data
+from torch.distributed.distributed_c10d import get_world_size
 from torch.nn.parallel import DistributedDataParallel
 from torch.utils.data.distributed import DistributedSampler
 
@@ -112,13 +113,25 @@ class DDP:
         else:
             self.ddp_sync_strategy = DDPSyncStrategy(ddp_sync_strategy)
 
-        if "RANK" not in os.environ and "WORLD_SIZE" not in os.environ:
-            warnings.warn("RANK and WORLD_SIZE env vars not set; assuming no parallelization.")
-            store = torch.distributed.TCPStore(host_name='127.0.0.1', port=29400, is_master=True)
-            torch.distributed.init_process_group(self.backend, store=store, world_size=1, rank=0)
+        if "RANK" in os.environ and "WORLD_SIZE" in os.environ:
+            # Assume we can initialize based off of env vars
+            torch.distributed.init_process_group(self.backend)
             return
 
-        torch.distributed.init_process_group(self.backend)
+        if "DDP_TMPDIR" in os.environ:
+            # Used predominantly for testing
+            store = torch.distributed.FileStore(os.environ["DDP_TMPDIR"], 1)
+        else:
+            warnings.warn("RANK and WORLD_SIZE env vars not set; assuming no parallelization. If "
+                          "this is unexpected, make sure you are running your training script with "
+                          "the composer executable.")
+            store = torch.distributed.TCPStore(host_name='127.0.0.1', port=29400, is_master=True)
+
+        torch.distributed.init_process_group(self.backend, store=store, world_size=1, rank=0)
+
+    @property
+    def world_size(self) -> int:
+        return get_world_size()
 
     @property
     def world_size(self) -> int:

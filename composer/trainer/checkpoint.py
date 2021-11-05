@@ -139,6 +139,7 @@ class Checkpointer:
             os.makedirs(self.checkpoint_folder, mode=0o775, exist_ok=True)
             config_yaml_str = yaml.dump(config)
             try:
+                print('saving to', hparams_path)
                 with open(hparams_path, "x") as f:
                     # Storing the config (ex. hparams) in a separate file so they can be modified before resuming
                     f.write(config_yaml_str)
@@ -156,6 +157,7 @@ class Checkpointer:
         else:
             raise ValueError(f"Invalid checkpoint event: {self.save_event}")
         save_file = os.path.join(self.checkpoint_folder, filename)
+        print('saving to', save_file)
         with open(save_file, 'xb') as f:
             torch.save(state_dict, f)
         log.info(f'Trainer checkpoint saved to {save_file}')

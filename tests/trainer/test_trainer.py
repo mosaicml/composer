@@ -1,10 +1,12 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
 import os
+import pathlib
 from unittest.mock import patch
 
 import pytest
 import torch
+import torch.distributed
 from torch.optim import Adam
 
 from composer.callbacks.lr_monitor import LRMonitor
@@ -17,6 +19,7 @@ from composer.optim.optimizer_hparams import AdamHparams
 from composer.optim.scheduler import ComposedScheduler, ExponentialLRHparams
 from composer.trainer import Trainer, TrainerHparams
 from composer.trainer.devices.device_hparams import CPUDeviceHparams, DeviceHparams, GPUDeviceHparams
+from tests.helpers import with_multiprocessing
 from tests.utils.trainer_fit import get_total_loss, train_model
 
 
@@ -76,7 +79,9 @@ def test_trainer_validation(mosaic_trainer_hparams: TrainerHparams, invalid_hpar
 
 
 @pytest.mark.filterwarnings("ignore:Deterministic mode is activated:UserWarning")
-def test_trainer_determinism(mosaic_trainer_hparams: TrainerHparams, ddp_tmpdir: str):
+@pytest.mark.run_long
+@pytest.mark.timeout(90)
+def test_trainer_determinism(mosaic_trainer_hparams: TrainerHparams, tmpdir: pathlib.Path):
     mosaic_trainer_hparams.seed = 10
     mosaic_trainer_hparams.deterministic_mode = True
     mosaic_trainer_hparams.max_epochs = 2
@@ -87,6 +92,10 @@ def test_trainer_determinism(mosaic_trainer_hparams: TrainerHparams, ddp_tmpdir:
     assert isinstance(first_model, BaseMosaicModel)
     assert first_trainer.state.train_dataloader is not None
     first_loss = get_total_loss(first_model, first_trainer.state.train_dataloader)
+
+    # Need to reinitialize some distributed settings in order to train twice in the same process
+    torch.distributed.destroy_process_group()
+    os.environ["DDP_TMPDIR"] = str(tmpdir / "store2")
 
     # Second trainer must be created after fitting the first so that the
     # seeds get fully reset for the second training run
@@ -101,11 +110,11 @@ def test_trainer_determinism(mosaic_trainer_hparams: TrainerHparams, ddp_tmpdir:
 
 
 @pytest.mark.timeout(90)
-@pytest.mark.parametrize("device_hparams", [
-    pytest.param(CPUDeviceHparams(), id="1cpu"),
-    pytest.param(CPUDeviceHparams(), id='2cpu'),
-    pytest.param(GPUDeviceHparams(), marks=pytest.mark.n_gpus(1), id="1gpu"),
-    pytest.param(GPUDeviceHparams(), marks=pytest.mark.n_gpus(2), id="2gpu"),
+@pytest.mark.parametrize("device_hparams,num_procs", [
+    pytest.param(CPUDeviceHparams(), 1, id="1cpu"),
+    pytest.param(CPUDeviceHparams(), 2, id='2cpu'),
+    pytest.param(GPUDeviceHparams(), 1, marks=pytest.mark.n_gpus(1), id="1gpu"),
+    pytest.param(GPUDeviceHparams(), 2, marks=pytest.mark.n_gpus(2), id="2gpu"),
 ])
 @pytest.mark.parametrize("grad_accum", [
     pytest.param(1, id="ga1"),
@@ -115,8 +124,8 @@ def test_trainer_determinism(mosaic_trainer_hparams: TrainerHparams, ddp_tmpdir:
     pytest.param(Precision.FP32, id="fp32"),
     pytest.param(Precision.AMP, id="amp"),
 ])
-def test_trainer_fit(mosaic_trainer_hparams: TrainerHparams, device_hparams: DeviceHparams, grad_accum: int,
-                     precision: Precision):
+def test_trainer_fit(mosaic_trainer_hparams: TrainerHparams, device_hparams: DeviceHparams, num_procs: int,
+                     grad_accum: int, precision: Precision):
     mosaic_trainer_hparams.device = device_hparams
     mosaic_trainer_hparams.grad_accum = grad_accum
     mosaic_trainer_hparams.precision = precision
@@ -125,4 +134,4 @@ def test_trainer_fit(mosaic_trainer_hparams: TrainerHparams, device_hparams: Dev
     if precision == Precision.AMP and isinstance(device_hparams, CPUDeviceHparams):
         return
 
-    train_model(mosaic_trainer_hparams, max_epochs=2, run_loss_check=True)
+    with_multiprocessing(num_procs, train_model)(mosaic_trainer_hparams, max_epochs=2, run_loss_check=True)

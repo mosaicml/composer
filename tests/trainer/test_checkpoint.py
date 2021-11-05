@@ -2,6 +2,7 @@
 
 import functools
 import os
+import pathlib
 import random
 import shutil
 from logging import Logger
@@ -9,6 +10,7 @@ from typing import Dict, Optional
 
 import pytest
 import torch
+import torch.distributed
 from _pytest.monkeypatch import MonkeyPatch
 
 from composer.callbacks.callback_hparams import CallbackHparams
@@ -16,9 +18,10 @@ from composer.core.callback import Callback
 from composer.core.event import Event
 from composer.core.state import State
 from composer.core.types import StateDict
-from composer.trainer.devices import CPUDeviceHparams, DeviceHparams, GPUDeviceHparams
+from composer.trainer.devices import CPUDeviceHparams, DeviceHparams, GPUDeviceHparams, device
 from composer.trainer.trainer import Trainer
 from composer.trainer.trainer_hparams import TrainerHparams, callback_registry
+from tests.helpers import with_multiprocessing
 from tests.test_state import assert_state_equivalent
 from tests.utils.deep_compare import deep_compare
 
@@ -74,70 +77,36 @@ class EventCounterCallbackHparams(CallbackHparams):
 
 
 @pytest.fixture
-def checkpoint_folder(ddp_tmpdir) -> str:
-    return os.path.join(ddp_tmpdir, "checkpoints")
+def checkpoint_folder(tmpdir: pathlib.Path) -> str:
+    return os.path.join(tmpdir, "checkpoints")
 
 
 @pytest.fixture
-def checkpointing_trainer_hparams(mosaic_trainer_hparams: TrainerHparams, ddp_tmpdir: str) -> TrainerHparams:
+def checkpointing_trainer_hparams(mosaic_trainer_hparams: TrainerHparams, checkpoint_folder: str) -> TrainerHparams:
     mosaic_trainer_hparams.grad_accum = 2
     mosaic_trainer_hparams.checkpoint_interval = 1
-    mosaic_trainer_hparams.checkpoint_folder = os.path.join(ddp_tmpdir, "checkpoints")
+    mosaic_trainer_hparams.checkpoint_folder = checkpoint_folder
     mosaic_trainer_hparams.max_epochs = 2
-    mosaic_trainer_hparams.ddp.fork_rank_0 = False
     mosaic_trainer_hparams.callbacks.append(DummyStatefulCallbackHparams())
     mosaic_trainer_hparams.callbacks.append(EventCounterCallbackHparams())
     return mosaic_trainer_hparams
 
 
-is_main_pytest_process: Optional[bool] = None
-
-
-def _should_create_trainer(trainer_key: str) -> bool:
-    # trainer_key is used for DDP forking, where a single test may create multiple trainers
-    # each trainer should have a unique key. This key is stored in an environ, so when the forked process is created,
-    # the test knows whether it got to the same point in the test as the main process.
-    #
-    # if the trainer key differs -- i.e. the test is forking for the 2nd trainer in a test, but the forked process
-    # just got to the first trainer, or a forked process from the first trainer got to the point where it was going
-    # to create the 2nd trainer, then _should_create_trainer returns False
-    # otherwise, it returns True
-    global is_main_pytest_process
-    if is_main_pytest_process is None:
-        is_main_pytest_process = "TRAINER_KEY" not in os.environ
-
-    if is_main_pytest_process:
-        os.environ["TRAINER_KEY"] = trainer_key
-        os.environ.pop("RANK", None)
-        os.environ.pop("LOCAL_RANK", None)
-        os.environ.pop("WORLD_SIZE", None)
-    return os.environ["TRAINER_KEY"] == trainer_key
-
-
 def get_trainer(device_hparams: DeviceHparams,
                 trainer_hparams: TrainerHparams,
                 *,
-                trainer_key: str,
                 checkpoint_filepath: Optional[str] = None) -> Optional[Trainer]:
     trainer_hparams.device = device_hparams
     trainer_hparams.checkpoint_filepath = checkpoint_filepath
-    if not _should_create_trainer(trainer_key):
-        return
     return Trainer.create_from_hparams(hparams=trainer_hparams)
 
 
 def move_checkpoint(checkpoint_folder: str, name: str, destination_path: str) -> None:
-    global is_main_pytest_process
-    if not is_main_pytest_process:
-        return
     checkpoint_filepath = os.path.join(checkpoint_folder, name)
     os.rename(checkpoint_filepath, destination_path)
 
 
 def move_hparams(checkpoint_folder: str, destination_path: str) -> None:
-    global is_main_pytest_process
-    if not is_main_pytest_process:
-        return
     checkpoint_filepath = os.path.join(checkpoint_folder, "hparams.yaml")
     os.rename(checkpoint_filepath, destination_path)
 
@@ -152,9 +121,6 @@ def assert_checkpoints_equivalent(hparams_file_a: str, checkpoint_file_a: str, h
     hparams_b = TrainerHparams.create(hparams_file_b, cli_args=False)
     assert isinstance(hparams_b, TrainerHparams)
 
-    # manually fix the store, as that part of the hparams WILL differ
-    hparams_b.ddp.store = hparams_a.ddp.store
-
     hparams_a.checkpoint_filepath = hparams_b.checkpoint_filepath
 
     assert hparams_a.to_dict() == hparams_b.to_dict()
@@ -163,10 +129,13 @@ def assert_checkpoints_equivalent(hparams_file_a: str, checkpoint_file_a: str, h
     hparams_b.checkpoint_filepath = checkpoint_file_b
 
     trainer_a = Trainer.create_from_hparams(hparams=hparams_a)
+    torch.distributed.destroy_process_group()
     trainer_b = Trainer.create_from_hparams(hparams=hparams_b)
+    torch.distributed.destroy_process_group()
 
     state_a = trainer_a.state
     state_b = trainer_b.state
+
     assert_state_equivalent(state_a, state_b)
 
     deep_compare(checkpoint_a["rng"], checkpoint_b["rng"])
@@ -179,18 +148,15 @@ def inject_stateful_callback_hparams(monkeypatch: MonkeyPatch):
 
 
 def clear_checkpoint_folder(checkpoint_folder: str):
-    global is_main_pytest_process
-    if not is_main_pytest_process:
-        return
     shutil.rmtree(checkpoint_folder, ignore_errors=True)
 
 
 @pytest.mark.timeout(90)
-@pytest.mark.parametrize("device_hparams", [
-    pytest.param(CPUDeviceHparams(), id="1cpu"),
-    pytest.param(CPUDeviceHparams(), id='2cpu'),
-    pytest.param(GPUDeviceHparams(), marks=pytest.mark.n_gpus(1), id="1gpu"),
-    pytest.param(GPUDeviceHparams(), marks=pytest.mark.n_gpus(2), id="2gpu"),
+@pytest.mark.parametrize("device_hparams,num_procs", [
+    pytest.param(CPUDeviceHparams(), 1, id="1cpu"),
+    pytest.param(CPUDeviceHparams(), 2, id='2cpu'),
+    pytest.param(GPUDeviceHparams(), 1, marks=pytest.mark.n_gpus(1), id="1gpu"),
+    pytest.param(GPUDeviceHparams(), 2, marks=pytest.mark.n_gpus(2), id="2gpu"),
 ])
 @pytest.mark.parametrize("checkpoint_filename", ["ep1", "it4", "it1", "it6"])
 @pytest.mark.parametrize("validate_every_n_batches,validate_every_n_epochs", [
@@ -199,12 +165,13 @@ def clear_checkpoint_folder(checkpoint_folder: str):
 ])
 def test_checkpoint(
     device_hparams: DeviceHparams,
+    num_procs: int,
     checkpointing_trainer_hparams: TrainerHparams,
-    ddp_tmpdir: str,
     checkpoint_folder: str,
     checkpoint_filename: str,
     validate_every_n_batches: int,
     validate_every_n_epochs: int,
+    tmpdir: str,
 ):
     """strategy:
     - train two epochs. capture checkpoints after `checkpoint_interval` and ep2.
@@ -214,48 +181,48 @@ def test_checkpoint(
     checkpointing_trainer_hparams.checkpoint_interval_unit = "ep" if checkpoint_filename.startswith("ep") else "it"
     checkpointing_trainer_hparams.validate_every_n_batches = validate_every_n_batches
     checkpointing_trainer_hparams.validate_every_n_epochs = validate_every_n_epochs
-    first_trainer = get_trainer(
-        device_hparams=device_hparams,
-        trainer_hparams=checkpointing_trainer_hparams,
-        trainer_key="first",
-        ddp_tmpdir=ddp_tmpdir,
-    )
-    checkpoint_a_file_path = os.path.join(ddp_tmpdir, "checkpoint_a.pt")
-    checkpoint_b_file_path = os.path.join(ddp_tmpdir, 'checkpoint_b.pt')
-    trainer_1_hparams_filepath = os.path.join(ddp_tmpdir, "trainer_1_hparams.yaml")
+    checkpoint_a_file_path = os.path.join(tmpdir, "checkpoint_a.pt")
+    checkpoint_b_file_path = os.path.join(tmpdir, 'checkpoint_b.pt')
+    trainer_1_hparams_filepath = os.path.join(tmpdir, "trainer_1_hparams.yaml")
     final_checkpoint = "ep2.pt" if checkpoint_filename.startswith("ep") else "it8.pt"
-    if first_trainer is not None:
-        first_trainer.fit()
-        move_checkpoint(checkpoint_folder, f"{checkpoint_filename}.pt", checkpoint_a_file_path)
-        move_checkpoint(checkpoint_folder, final_checkpoint, checkpoint_b_file_path)
-        move_hparams(checkpoint_folder, trainer_1_hparams_filepath)
-        clear_checkpoint_folder(checkpoint_folder)
-        validate_events_called_expected_number_of_times(first_trainer)
-    second_trainer_hparams = TrainerHparams.create(trainer_1_hparams_filepath, cli_args=False)
-    assert isinstance(second_trainer_hparams, TrainerHparams)
-    second_trainer = get_trainer(
-        device_hparams=device_hparams,
-        trainer_hparams=second_trainer_hparams,
-        trainer_key="second",
-        ddp_tmpdir=ddp_tmpdir,
-        checkpoint_filepath=checkpoint_a_file_path,
-    )
-    checkpoint_c_file_path = os.path.join(ddp_tmpdir, "checkpoint_c.pt")
-    trainer_2_hparams_filepath = os.path.join(ddp_tmpdir, "trainer_2_hparams.yaml")
-    if second_trainer is not None:
-        second_trainer.fit()
-        move_checkpoint(checkpoint_folder, final_checkpoint, checkpoint_c_file_path)
-        move_hparams(checkpoint_folder, trainer_2_hparams_filepath)
-        clear_checkpoint_folder(checkpoint_folder)
-        validate_events_called_expected_number_of_times(second_trainer)
 
-    if is_main_pytest_process:
-        assert_checkpoints_equivalent(
-            hparams_file_a=trainer_1_hparams_filepath,
-            checkpoint_file_a=checkpoint_b_file_path,
-            hparams_file_b=trainer_2_hparams_filepath,
-            checkpoint_file_b=checkpoint_c_file_path,
-        )
+    checkpointing_trainer_hparams.device = device_hparams
+
+    with_multiprocessing(num_procs, _test_checkpoint_trainer)(checkpointing_trainer_hparams)
+
+    move_checkpoint(checkpoint_folder, f"{checkpoint_filename}.pt", checkpoint_a_file_path)
+    move_checkpoint(checkpoint_folder, final_checkpoint, checkpoint_b_file_path)
+    move_hparams(checkpoint_folder, trainer_1_hparams_filepath)
+    clear_checkpoint_folder(checkpoint_folder)
+
+    second_trainer_hparams = TrainerHparams.create(trainer_1_hparams_filepath, cli_args=False)
+    second_trainer_hparams.checkpoint_filepath = checkpoint_a_file_path
+    assert isinstance(second_trainer_hparams, TrainerHparams)
+
+    with_multiprocessing(num_procs, _test_checkpoint_trainer)(second_trainer_hparams)
+
+    checkpoint_c_file_path = os.path.join(tmpdir, "checkpoint_c.pt")
+    trainer_2_hparams_filepath = os.path.join(tmpdir, "trainer_2_hparams.yaml")
+
+    move_checkpoint(checkpoint_folder, final_checkpoint, checkpoint_c_file_path)
+    move_hparams(checkpoint_folder, trainer_2_hparams_filepath)
+    clear_checkpoint_folder(checkpoint_folder)
+
+    assert_checkpoints_equivalent(
+        hparams_file_a=trainer_1_hparams_filepath,
+        checkpoint_file_a=checkpoint_b_file_path,
+        hparams_file_b=trainer_2_hparams_filepath,
+        checkpoint_file_b=checkpoint_c_file_path,
+    )
+
+
+def _test_checkpoint_trainer(trainer_hparams: TrainerHparams):
+    callback_registry["dummy"] = DummyStatefulCallbackHparams
+    callback_registry["event_counter"] = EventCounterCallbackHparams
+
+    trainer = Trainer.create_from_hparams(trainer_hparams)
+    trainer.fit()
+    validate_events_called_expected_number_of_times(trainer)
 
 
 def validate_events_called_expected_number_of_times(trainer: Trainer):

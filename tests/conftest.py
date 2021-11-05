@@ -20,6 +20,7 @@ N_GPU_OPTIONS = (0, 1, 2, 4, 8)
 pytest_plugins = [
     "tests.fixtures.dummy_fixtures",
     "tests.algorithms.algorithm_fixtures",
+    "tests.fixtures.ddp_fixtures",
 ]
 
 

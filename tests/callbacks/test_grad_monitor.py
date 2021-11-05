@@ -10,7 +10,6 @@ from composer.trainer import TrainerHparams
 def _do_trainer_fit(mosaic_trainer_hparams: TrainerHparams, log_layers=False):
     grad_monitor_hparams = GradMonitorHparams(log_layer_grad_norms=log_layers)
     mosaic_trainer_hparams.callbacks.append(grad_monitor_hparams)
-    mosaic_trainer_hparams.ddp.fork_rank_0 = False
     mosaic_trainer_hparams.max_epochs = 1
 
     mosaic_trainer_hparams.total_batch_size = 50
@@ -39,7 +38,9 @@ def test_grad_monitor_no_layers(mosaic_trainer_hparams: TrainerHparams):
     assert grad_norm_calls == num_train_steps
 
 
-def test_grad_moniter_per_layer(mosaic_trainer_hparams: TrainerHparams):
+@pytest.mark.timeout(60)
+@pytest.mark.run_long
+def test_grad_monitor_per_layer(mosaic_trainer_hparams: TrainerHparams):
     log_destination, num_train_steps = _do_trainer_fit(mosaic_trainer_hparams, log_layers=True)
     layer_norm_calls = 0
     for log_call in log_destination.log_metric.mock_calls:

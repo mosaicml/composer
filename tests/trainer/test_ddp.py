@@ -2,6 +2,7 @@
 
 import collections.abc
 import os
+import pathlib
 from dataclasses import dataclass
 from typing import Dict, List, Optional, Sequence
 from unittest import mock
@@ -137,14 +138,11 @@ def patch_registries(monkeypatch: MonkeyPatch):
     pytest.param(True, 1, marks=[pytest.mark.n_gpus(1)], id="1-gpu"),
     pytest.param(True, 2, marks=[pytest.mark.n_gpus(2)], id="2-gpu"),
 ])
-def test_ddp(is_gpu: bool, num_procs: int, *, ddp_tmpdir: str, is_main_pytest_process: bool,
-             mosaic_trainer_hparams: TrainerHparams) -> None:
-    with_multiprocessing(num_procs, _test_ddp)(is_gpu, num_procs, ddp_tmpdir, is_main_pytest_process,
-                                               mosaic_trainer_hparams)
+def test_ddp(is_gpu: bool, num_procs: int, *, tmpdir: pathlib.Path, mosaic_trainer_hparams: TrainerHparams) -> None:
+    with_multiprocessing(num_procs, _test_ddp)(is_gpu, num_procs, tmpdir, mosaic_trainer_hparams)
 
 
-def _test_ddp(is_gpu: bool, num_procs: int, ddp_tmpdir: str, is_main_pytest_process: bool,
-              mosaic_trainer_hparams: TrainerHparams) -> None:
+def _test_ddp(is_gpu: bool, num_procs: int, tmpdir: pathlib.Path, mosaic_trainer_hparams: TrainerHparams) -> None:
     """
     test strategy for ddp:
     1) Train a dummy model on two gps, for two epochs, using the tracked dataset.
@@ -173,7 +171,7 @@ def _test_ddp(is_gpu: bool, num_procs: int, ddp_tmpdir: str, is_main_pytest_proc
         device="cpu",
         is_train=True,
         memory_format=MemoryFormat.CONTIGUOUS_FORMAT,
-        tmpdir=ddp_tmpdir,
+        tmpdir=str(tmpdir),
     )
     hparams.val_dataset = TrackedDatasetHparams(
         total_dataset_size=300,
@@ -182,7 +180,7 @@ def _test_ddp(is_gpu: bool, num_procs: int, ddp_tmpdir: str, is_main_pytest_proc
         device="cpu",
         is_train=False,
         memory_format=MemoryFormat.CONTIGUOUS_FORMAT,
-        tmpdir=ddp_tmpdir,
+        tmpdir=str(tmpdir),
     )
     if is_gpu:
         device = GPUDeviceHparams()
@@ -203,7 +201,7 @@ def _test_ddp(is_gpu: bool, num_procs: int, ddp_tmpdir: str, is_main_pytest_proc
     hparams.loggers = []
     hparams.validate_every_n_batches = 0
     hparams.validate_every_n_epochs = 1
-    hparams.callbacks.append(CheckBatch0Hparams(tmpdir=ddp_tmpdir))
+    hparams.callbacks.append(CheckBatch0Hparams(tmpdir=tmpdir))
     trainer = hparams.initialize_object()
     assert trainer.state.world_size == num_procs
     assert trainer.state.local_world_size == num_procs
@@ -213,41 +211,37 @@ def _test_ddp(is_gpu: bool, num_procs: int, ddp_tmpdir: str, is_main_pytest_proc
     num_eval_samples = len(trainer.eval_dl_spec.dataset)
     trainer.fit()
 
-    # we want to validate on the spawning process only
-    if is_main_pytest_process:
-        # now validate that each sample were accessed exactly hparams.max_epochs * batch size times
-        num_epochs = hparams.max_epochs
+    # now validate that each sample were accessed exactly hparams.max_epochs * batch size times
+    num_epochs = hparams.max_epochs
 
-        for i in range(num_train_samples):
-            for epoch in range(num_epochs):
-                assert os.path.exists(
-                    get_file_path(ddp_tmpdir, idx=i, epoch=epoch,
-                                  is_train=True)), f"train sample {i} was not accessed during epoch {epoch}"
-            assert not os.path.exists(get_file_path(ddp_tmpdir, idx=i, epoch=num_epochs,
-                                                    is_train=True)), f"train sample {i} was accessed too many times"
-
-        for i in range(num_eval_samples):
-            for epoch in range(num_epochs):
-                assert os.path.exists(
-                    get_file_path(ddp_tmpdir, idx=i, epoch=epoch,
-                                  is_train=False)), f"val sample {i} was not accessed during epoch {epoch}"
-            # the eval dataloader is spun once more to initialize the rng, so expecting num_epochs + 1 to not exist
-            assert not os.path.exists(get_file_path(ddp_tmpdir, idx=i, epoch=num_epochs + 1,
-                                                    is_train=False)), f"val sample {i} was accessed too many times"
-
-        is_train_to_pickles: Dict[bool, List[Dict[str, types.Tensor]]] = {True: [], False: []}
-
+    for i in range(num_train_samples):
         for epoch in range(num_epochs):
-            for local_rank in range(trainer.state.local_world_size):
-                for is_train in (True, False):
-                    data: Dict[str, types.Tensor] = torch.load(  # type: ignore
-                        get_batch_file_path(ddp_tmpdir, rank=local_rank, epoch=epoch, is_train=is_train),
-                        map_location='cpu',
-                    )
-                    for pickle in is_train_to_pickles[is_train]:
-                        assert not torch.all(data['last_input'] == pickle['last_input'])
-                        assert not torch.all(data['last_target'] == pickle['last_target'])
-                    is_train_to_pickles[is_train].append(data)
+            assert os.path.exists(get_file_path(
+                tmpdir, idx=i, epoch=epoch, is_train=True)), f"train sample {i} was not accessed during epoch {epoch}"
+        assert not os.path.exists(get_file_path(tmpdir, idx=i, epoch=num_epochs,
+                                                is_train=True)), f"train sample {i} was accessed too many times"
+
+    for i in range(num_eval_samples):
+        for epoch in range(num_epochs):
+            assert os.path.exists(get_file_path(
+                tmpdir, idx=i, epoch=epoch, is_train=False)), f"val sample {i} was not accessed during epoch {epoch}"
+        # the eval dataloader is spun once more to initialize the rng, so expecting num_epochs + 1 to not exist
+        assert not os.path.exists(get_file_path(tmpdir, idx=i, epoch=num_epochs + 1,
+                                                is_train=False)), f"val sample {i} was accessed too many times"
+
+    is_train_to_pickles: Dict[bool, List[Dict[str, types.Tensor]]] = {True: [], False: []}
+
+    for epoch in range(num_epochs):
+        for local_rank in range(trainer.state.local_world_size):
+            for is_train in (True, False):
+                data: Dict[str, types.Tensor] = torch.load(  # type: ignore
+                    get_batch_file_path(tmpdir, rank=local_rank, epoch=epoch, is_train=is_train),
+                    map_location='cpu',
+                )
+                for pickle in is_train_to_pickles[is_train]:
+                    assert not torch.all(data['last_input'] == pickle['last_input'])
+                    assert not torch.all(data['last_target'] == pickle['last_target'])
+                is_train_to_pickles[is_train].append(data)
 
 
 def test_ddp_cuda_available_check(mosaic_trainer_hparams: TrainerHparams):
