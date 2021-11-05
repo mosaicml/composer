@@ -118,14 +118,10 @@ class DDP:
             torch.distributed.init_process_group(self.backend)
             return
 
-        if "DDP_TMPDIR" in os.environ:
-            # Used predominantly for testing
-            store = torch.distributed.FileStore(os.environ["DDP_TMPDIR"], 1)
-        else:
-            warnings.warn("RANK and WORLD_SIZE env vars not set; assuming no parallelization. If "
-                          "this is unexpected, make sure you are running your training script with "
-                          "the composer executable.")
-            store = torch.distributed.TCPStore(host_name='127.0.0.1', port=29400, is_master=True)
+        warnings.warn("RANK and WORLD_SIZE env vars not set; assuming no parallelization. If "
+                      "this is unexpected, make sure you are running your training script with "
+                      "the composer executable.")
+        store = torch.distributed.HashStore()
 
         torch.distributed.init_process_group(self.backend, store=store, world_size=1, rank=0)
 

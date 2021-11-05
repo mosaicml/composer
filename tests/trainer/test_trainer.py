@@ -80,7 +80,7 @@ def test_trainer_validation(mosaic_trainer_hparams: TrainerHparams, invalid_hpar
 
 @pytest.mark.filterwarnings("ignore:Deterministic mode is activated:UserWarning")
 @pytest.mark.timeout(90)
-def test_trainer_determinism(mosaic_trainer_hparams: TrainerHparams, tmpdir: pathlib.Path):
+def test_trainer_determinism(mosaic_trainer_hparams: TrainerHparams):
     mosaic_trainer_hparams.seed = 10
     mosaic_trainer_hparams.deterministic_mode = True
     mosaic_trainer_hparams.max_epochs = 2
@@ -94,7 +94,6 @@ def test_trainer_determinism(mosaic_trainer_hparams: TrainerHparams, tmpdir: pat
 
     # Need to reinitialize some distributed settings in order to train twice in the same process
     torch.distributed.destroy_process_group()
-    os.environ["DDP_TMPDIR"] = str(tmpdir / "store2")
 
     # Second trainer must be created after fitting the first so that the
     # seeds get fully reset for the second training run
