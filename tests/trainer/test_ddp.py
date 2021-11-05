@@ -139,7 +139,7 @@ def patch_registries(monkeypatch: MonkeyPatch):
     pytest.param(True, 2, marks=[pytest.mark.n_gpus(2)], id="2-gpu"),
 ])
 def test_ddp(is_gpu: bool, num_procs: int, *, tmpdir: pathlib.Path, mosaic_trainer_hparams: TrainerHparams) -> None:
-    with_multiprocessing(num_procs, _test_ddp)(is_gpu, num_procs, tmpdir, mosaic_trainer_hparams)
+    with_distributed(num_procs, _test_ddp)(is_gpu, num_procs, tmpdir, mosaic_trainer_hparams)
 
 
 def _test_ddp(is_gpu: bool, num_procs: int, tmpdir: pathlib.Path, mosaic_trainer_hparams: TrainerHparams) -> None:

@@ -21,7 +21,7 @@ from composer.core.types import StateDict
 from composer.trainer.devices import CPUDeviceHparams, DeviceHparams, GPUDeviceHparams, device
 from composer.trainer.trainer import Trainer
 from composer.trainer.trainer_hparams import TrainerHparams, callback_registry
-from tests.helpers import with_multiprocessing
+from tests.helpers import with_distributed
 from tests.test_state import assert_state_equivalent
 from tests.utils.deep_compare import deep_compare
 
@@ -188,7 +188,7 @@ def test_checkpoint(
 
     checkpointing_trainer_hparams.device = device_hparams
 
-    with_multiprocessing(num_procs, _test_checkpoint_trainer)(checkpointing_trainer_hparams)
+    with_distributed(num_procs, _test_checkpoint_trainer)(checkpointing_trainer_hparams)
 
     move_checkpoint(checkpoint_folder, f"{checkpoint_filename}.pt", checkpoint_a_file_path)
     move_checkpoint(checkpoint_folder, final_checkpoint, checkpoint_b_file_path)
@@ -199,7 +199,7 @@ def test_checkpoint(
     second_trainer_hparams.checkpoint_filepath = checkpoint_a_file_path
     assert isinstance(second_trainer_hparams, TrainerHparams)
 
-    with_multiprocessing(num_procs, _test_checkpoint_trainer)(second_trainer_hparams)
+    with_distributed(num_procs, _test_checkpoint_trainer)(second_trainer_hparams)
 
     checkpoint_c_file_path = os.path.join(tmpdir, "checkpoint_c.pt")
     trainer_2_hparams_filepath = os.path.join(tmpdir, "trainer_2_hparams.yaml")

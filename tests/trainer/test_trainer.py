@@ -19,7 +19,7 @@ from composer.optim.optimizer_hparams import AdamHparams
 from composer.optim.scheduler import ComposedScheduler, ExponentialLRHparams
 from composer.trainer import Trainer, TrainerHparams
 from composer.trainer.devices.device_hparams import CPUDeviceHparams, DeviceHparams, GPUDeviceHparams
-from tests.helpers import with_multiprocessing
+from tests.helpers import with_distributed
 from tests.utils.trainer_fit import get_total_loss, train_model
 
 
@@ -79,7 +79,6 @@ def test_trainer_validation(mosaic_trainer_hparams: TrainerHparams, invalid_hpar
 
 
 @pytest.mark.filterwarnings("ignore:Deterministic mode is activated:UserWarning")
-@pytest.mark.run_long
 @pytest.mark.timeout(90)
 def test_trainer_determinism(mosaic_trainer_hparams: TrainerHparams, tmpdir: pathlib.Path):
     mosaic_trainer_hparams.seed = 10
@@ -134,4 +133,4 @@ def test_trainer_fit(mosaic_trainer_hparams: TrainerHparams, device_hparams: Dev
     if precision == Precision.AMP and isinstance(device_hparams, CPUDeviceHparams):
         return
 
-    with_multiprocessing(num_procs, train_model)(mosaic_trainer_hparams, max_epochs=2, run_loss_check=True)
+    with_distributed(num_procs, train_model)(mosaic_trainer_hparams, max_epochs=2, run_loss_check=True)
