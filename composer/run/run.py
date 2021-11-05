@@ -34,6 +34,6 @@ def main():
 
     subprocess.run([
         sys.executable, '-m', 'torch.distributed.run', '--standalone', '--nnodes=1',
-        f'--nproc_per_node={args.nproc_per_node}', f'--redirects={redirects_map}', args.training_script,
-        *args.training_script_args
+        f'--nproc_per_node={args.nproc_per_node}', f'--redirects={redirects_map}' if args.nproc_per_node > 1 else '',
+        args.training_script, *args.training_script_args
     ])
