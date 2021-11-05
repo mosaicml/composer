@@ -49,6 +49,9 @@ def test_synthetic_data_creation(data_type: SyntheticDataType, label_type: Synth
     elif label_type == SyntheticDataLabelType.RANDOM_INT:
         assert y.size() == label_shape
 
+    # check that points were allocated in memory after the first call to __getitem__
+    assert dataset.input_data is not None
+    assert dataset.input_target is not None
     # check that the correct number of points were allocated in memory
     assert dataset.input_data.size()[0] == num_samples_to_create
     assert dataset.input_target.size()[0] == num_samples_to_create
