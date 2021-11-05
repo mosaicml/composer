@@ -304,7 +304,14 @@ class DDP:
                         if self.hparams.fork_rank_0:
                             raise exc
                         else:
-                            logger.exception("Error in subprocess", exc_info=exc)
+                            error_msg = [
+                                "Error in subprocess",
+                                "----------Subprocess STDOUT----------",
+                                exc.output,
+                                "----------Subprocess STDERR----------",
+                                exc.stderr,
+                            ]
+                            logger.exception("\n".join(error_msg), exc_info=exc)
                             sys.exit(process.returncode)
             alive_processes = set(alive_processes) - set(finished_processes)
             time.sleep(1)
