@@ -1,3 +1,5 @@
+# Copyright 2021 MosaicML. All Rights Reserved.
+
 import subprocess
 import sys
 from argparse import ArgumentParser
