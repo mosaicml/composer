@@ -29,26 +29,31 @@ class MemoryFormat(StringEnum):
     PRESERVE_FORMAT = "preserve_format"
 
 
-'''
-    sample_pool_size -> batch size
-    batches_in_dataset (default 1)
-
-    X -> leave as-is
-
-    Y -> y_shape (default (1,))
-    y_type: Classification, Random
-    if classification - one_hot + num_classes
-    if random - shape
-'''
-
-
 class SyntheticDataset(torch.utils.data.Dataset):
+    """Emulates a dataset of provided size and shape.
+
+    Args:
+        total_dataset_size (int): The total size of the dataset to emulate.
+        data_shape (List[int]): Shape of the tensor for input samples.
+        num_unique_samples_to_create (int): The number of unique samples to allocate memory for.
+        data_type (SyntheticDataType, optional), Type of synthetic data to create.
+        label_type (SyntheticDataLabelType, optional), Type of synthetic data to create.
+        num_classes (int): Number of classes to use.
+        one_hot (bool): Whether to use one-hot encoding.
+        label_shape (List[int]): Shape of the tensor for each sample label.
+        device (str): Device to store the sample pool. Set to `cuda` to store samples
+            on the GPU and eliminate PCI-e bandwidth with the dataloader. Set to `cpu`
+            to move data between host memory and the gpu on every batch.
+        memory_format (MemoryFormat, optional): Memory format for the sample pool.
+        drop_last (bool): Whether to drop the last samples for the last batch.
+        shuffle (bool): Whether to shuffle the dataset for each epoch.
+    """
 
     def __init__(self,
                  *,
-                 batch_size: int,
+                 total_dataset_size: int,
                  data_shape: Sequence[int],
-                 batches_in_dataset: int = 1,
+                 num_unique_samples_to_create: int = 100,
                  data_type: SyntheticDataType = SyntheticDataType.GAUSSIAN,
                  label_type: SyntheticDataLabelType = SyntheticDataLabelType.CLASSIFICATION,
                  one_hot: Optional[bool] = None,
@@ -57,9 +62,9 @@ class SyntheticDataset(torch.utils.data.Dataset):
                  device: str = "cpu",
                  memory_format: Union[str, MemoryFormat] = MemoryFormat.CONTIGUOUS_FORMAT,
                  transform: Optional[Callable] = None):
-        self.batch_size = batch_size
+        self.total_dataset_size = total_dataset_size
         self.data_shape = data_shape
-        self.batches_in_dataset = batches_in_dataset
+        self.num_unique_samples_to_create = num_unique_samples_to_create
         self.data_type = data_type
         self.label_type = label_type
         self.one_hot = one_hot
@@ -79,16 +84,10 @@ class SyntheticDataset(torch.utils.data.Dataset):
         self.input_target = None
 
     def __len__(self) -> int:
-        return self.batch_size * self.batches_in_dataset
+        return self.total_dataset_size
 
     def __getitem__(self, idx: int):
-        idx = idx % self.batch_size
-        if idx == 0 and self.input_data is not None and self.input_target is not None:
-            # allocate actual memory on each new batch for more realistic
-            # throughput
-            self.input_data = torch.clone(self.input_data)
-            self.input_target = torch.clone(self.input_target)
-
+        idx = idx % self.num_unique_samples_to_create
         if self.input_data is None:
             # Generating data on the first call to __getitem__ so that data is stored on the correct gpu,
             # after DeviceSingleGPU calls torch.cuda.set_device
@@ -98,26 +97,27 @@ class SyntheticDataset(torch.utils.data.Dataset):
             assert self.input_target is None
             if self.data_type == SyntheticDataType.GAUSSIAN or \
                 self.data_type == SyntheticDataType.SEPARABLE:
-                input_data = torch.randn(self.batch_size, *self.data_shape, device=self.device)
+                input_data = torch.randn(self.num_unique_samples_to_create, *self.data_shape, device=self.device)
             elif self.data_type == SyntheticDataType.INCREASING:
-                input_data = torch.arange(start=0, end=self.batch_size, step=1, dtype=torch.float, device=self.device)
-                input_data = input_data.reshape(self.batch_size, *(1 for _ in self.data_shape))
-                input_data = input_data.expand(self.batch_size, *self.data_shape)  # returns a view
+                input_data = torch.arange(start=0, end=self.num_unique_samples_to_create, step=1, dtype=torch.float, device=self.device)
+                input_data = input_data.reshape(self.num_unique_samples_to_create, *(1 for _ in self.data_shape))
+                input_data = input_data.expand(self.num_unique_samples_to_create, *self.data_shape)  # returns a view
             else:
                 raise ValueError(f"Unsupported data type {self.data_type}")
 
+            input_data = torch.clone(input_data) # allocate actual memory
             input_data = input_data.contiguous(memory_format=self.memory_format)
 
             if self.label_type == SyntheticDataLabelType.CLASSIFICATION:
                 if self.one_hot:
-                    input_target = torch.empty(self.batch_size, self.num_classes, device=self.device)
+                    input_target = torch.empty(self.num_unique_samples_to_create, self.num_classes, device=self.device)
                     input_target[:, 0] = 1.0
                 else:
-                    input_target = torch.randint(0, self.num_classes, (self.batch_size,), device=self.device)
+                    input_target = torch.randint(0, self.num_classes, (self.num_unique_samples_to_create,), device=self.device)
             elif self.label_type == SyntheticDataLabelType.RANDOM_INT:
                 # use a dummy value for max int value
                 dummy_max = 10
-                input_target = torch.randint(0, dummy_max, (self.batch_size, *self.label_shape), device=self.device)
+                input_target = torch.randint(0, dummy_max, (self.num_unique_samples_to_create, *self.label_shape), device=self.device)
             else:
                 raise ValueError(f"Unsupported label type {self.data_type}")
 
@@ -146,23 +146,13 @@ class SyntheticDataset(torch.utils.data.Dataset):
 class SyntheticDatasetHparams(DatasetHparams):
     """Defines an instance of a synthetic dataset for classification.
 
-    Parameters:
-        num_classes (int): Number of classes to use.
-        shape (List[int]): Shape of the tensor for input samples.
-        one_hot (bool): Whether to use one-hot encoding.
-        device (str): Device to store the sample pool. Set to `cuda` to store samples
-            on the GPU and eliminate PCI-e bandwidth with the dataloader. Set to `cpu`
-            to move data between host memory and the gpu on every batch.
-        memory_format (MemoryFormat, optional): Memory format for the sample pool.
-        sample_pool_size (int): Number of samples to use.
-        drop_last (bool): Whether to drop the last samples for the last batch.
-        shuffle (bool): Whether to shuffle the dataset for each epoch.
-        data_type (SyntheticDataType, optional), Type of synthetic data to create.
+    See :class:`~composer.datasetes.synthetic.SyntheticDataset`
     """
 
-    batch_size: int = hp.required("Number of samples in a batch")
+    total_dataset_size: int = hp.required("The total size of the dataset to emulate.")
     data_shape: List[int] = hp.required("Shape of the data tensor.")
-    batches_in_dataset: int = hp.optional("The number of batches in the dataset to emulate.", default=1)
+    num_unique_samples_to_create: int = hp.optional(
+        "The number of unique samples to allocate memory for.", default=100)
     data_type: SyntheticDataType = hp.optional("Type of synthetic data to create.", default=SyntheticDataType.GAUSSIAN)
     label_type: SyntheticDataLabelType = hp.optional("Type of synthetic label to create.",
                                                      default=SyntheticDataLabelType.CLASSIFICATION)
@@ -194,9 +184,9 @@ class SyntheticDatasetHparams(DatasetHparams):
     def initialize_object(self) -> DataloaderSpec:
         return DataloaderSpec(
             SyntheticDataset(
-                batch_size=self.batch_size,
+                total_dataset_size=self.total_dataset_size,
                 data_shape=self.data_shape,
-                batches_in_dataset=self.batches_in_dataset,
+                num_unique_samples_to_create=self.num_unique_samples_to_create,
                 data_type=self.data_type,
                 label_type=self.label_type,
                 num_classes=self.num_classes,

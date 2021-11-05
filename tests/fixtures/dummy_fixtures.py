@@ -54,12 +54,12 @@ def dummy_model(dummy_model_hparams: SimpleBatchPairModelHparams) -> SimpleBatch
 
 @pytest.fixture
 def dummy_train_dataset_hparams(dummy_model: SimpleBatchPairModel) -> SyntheticDatasetHparams:
-    return dummy_model.get_dataset_hparams(sample_pool_size=300, drop_last=True, shuffle=True)
+    return dummy_model.get_dataset_hparams(total_dataset_size=300, drop_last=True, shuffle=True)
 
 
 @pytest.fixture
 def dummy_val_dataset_hparams(dummy_model: SimpleBatchPairModel) -> SyntheticDatasetHparams:
-    return dummy_model.get_dataset_hparams(sample_pool_size=100, drop_last=False, shuffle=False)
+    return dummy_model.get_dataset_hparams(total_dataset_size=100, drop_last=False, shuffle=False)
 
 
 @pytest.fixture

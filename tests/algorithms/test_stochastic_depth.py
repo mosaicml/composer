@@ -20,7 +20,7 @@ from tests.fixtures.dummy_fixtures import get_dataloader
 @pytest.fixture()
 def dummy_state(dummy_dataloader_hparams: DataloaderHparams):
     model = ResNet50Hparams(num_classes=100).initialize_object()
-    dataset_hparams = SyntheticDatasetHparams(batch_size=1000000,
+    dataset_hparams = SyntheticDatasetHparams(total_dataset_size=1000000,
                                               data_shape=[3, 32, 32],
                                               num_classes=10,
                                               device="cpu",

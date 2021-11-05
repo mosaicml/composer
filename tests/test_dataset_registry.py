@@ -47,7 +47,7 @@ default_required_fields: Dict[Type[DatasetHparams], Callable[[], DatasetHparams]
         ),
     SyntheticDatasetHparams:
         lambda: SyntheticDatasetHparams(
-            batch_size=20,
+            total_dataset_size=20,
             data_shape=[256, 256],
             num_classes=100,
             one_hot=False,

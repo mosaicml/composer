@@ -61,9 +61,9 @@ class SimpleBatchPairModel(BaseMosaicModel):
         else:
             return self.val_acc
 
-    def get_dataset_hparams(self, sample_pool_size: int, drop_last: bool, shuffle: bool) -> SyntheticDatasetHparams:
+    def get_dataset_hparams(self, total_dataset_size: int, drop_last: bool, shuffle: bool) -> SyntheticDatasetHparams:
         return SyntheticDatasetHparams(
-            batch_size=sample_pool_size,
+            total_dataset_size=total_dataset_size,
             data_shape=list(self.in_shape),
             label_type=SyntheticDataLabelType.CLASSIFICATION,
             num_classes=self.num_classes,

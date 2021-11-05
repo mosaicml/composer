@@ -1,8 +1,8 @@
 train_dataset:
   synthetic:
+    total_dataset_size: 4096
+    data_shape: [3, 32, 32]
     num_classes: 10
-    shape: [3, 32, 32]
-    sample_pool_size: 4096
     one_hot: false
     device: cpu
     memory_format: CONTIGUOUS_FORMAT
@@ -10,9 +10,9 @@ train_dataset:
     drop_last: true
 val_dataset:
   synthetic:
+    total_dataset_size: 2000
+    data_shape: [3, 32, 32]
     num_classes: 10
-    shape: [3, 32, 32]
-    sample_pool_size: 2000
     one_hot: false
     device: cpu
     memory_format: CONTIGUOUS_FORMAT
