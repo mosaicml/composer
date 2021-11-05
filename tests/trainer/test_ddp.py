@@ -161,7 +161,7 @@ def test_ddp(is_gpu: bool, num_procs: int, fork_rank_0: bool, *, ddp_tmpdir: str
     model = model_hparams.initialize_object()
     shape = list(model.in_shape)  # type: ignore
     mosaic_trainer_hparams.train_dataset = TrackedDatasetHparams(
-        total_dataset_size == 300,
+        total_dataset_size=300,
         data_shape=shape,
         num_classes=model.num_classes,
         one_hot=False,
