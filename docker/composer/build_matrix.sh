@@ -4,7 +4,7 @@ set -exuo pipefail
 # For every pytorch base, build a corresponding composer base
 
 COMPOSER_EXTRA_DEPS_TAGS="base dev all"
-COMPOSER_VERSION=$(python $(dirname $0)/../../setup.py --version | xargs)
+COMPOSER_VERSION=$(python3 $(dirname $0)/../../setup.py --version | xargs)
 
 while read BUILD_ARGS; do
     echo $BUILD_ARGS
