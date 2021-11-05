@@ -89,7 +89,7 @@ setup(
     ],
     install_requires=install_requires,
     entry_points={
-        'console_scripts': ['composer = composer.run.run:main',],
+        'console_scripts': ['composer = composer.cli.launcher:main',],
     },
     extras_require=extra_deps,
     dependency_links=['https://developer.download.nvidia.com/compute/redist'],

@@ -88,7 +88,7 @@ def test_trainer_determinism(mosaic_trainer_hparams: TrainerHparams):
     first_model = first_trainer.state.model.module
     assert isinstance(first_model, BaseMosaicModel)
     assert first_trainer.state.train_dataloader is not None
-    first_loss = get_total_loss(first_model, first_trainer.state.train_dataloader)
+    first_loss = get_total_loss(first_model, first_trainer.state.train_dataloader, first_trainer.ddp)
 
     # Need to reinitialize some distributed settings in order to train twice in the same process
     torch.distributed.destroy_process_group()
@@ -100,7 +100,7 @@ def test_trainer_determinism(mosaic_trainer_hparams: TrainerHparams):
     second_model = second_trainer.state.model.module
     assert isinstance(second_model, BaseMosaicModel)
     assert second_trainer.state.train_dataloader is not None
-    second_loss = get_total_loss(second_model, second_trainer.state.train_dataloader)
+    second_loss = get_total_loss(second_model, second_trainer.state.train_dataloader, second_trainer.ddp)
 
     torch.testing.assert_allclose(second_loss, first_loss)
 
