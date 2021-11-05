@@ -177,7 +177,7 @@ class TrainerHparams(hp.Hparams):
 
     def validate(self):
         super().validate()
-        
+
         world_size = get_world_size()
 
         if self.total_batch_size % world_size != 0:
