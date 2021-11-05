@@ -99,13 +99,17 @@ class SyntheticDataset(torch.utils.data.Dataset):
                 self.data_type == SyntheticDataType.SEPARABLE:
                 input_data = torch.randn(self.num_unique_samples_to_create, *self.data_shape, device=self.device)
             elif self.data_type == SyntheticDataType.INCREASING:
-                input_data = torch.arange(start=0, end=self.num_unique_samples_to_create, step=1, dtype=torch.float, device=self.device)
+                input_data = torch.arange(start=0,
+                                          end=self.num_unique_samples_to_create,
+                                          step=1,
+                                          dtype=torch.float,
+                                          device=self.device)
                 input_data = input_data.reshape(self.num_unique_samples_to_create, *(1 for _ in self.data_shape))
                 input_data = input_data.expand(self.num_unique_samples_to_create, *self.data_shape)  # returns a view
             else:
                 raise ValueError(f"Unsupported data type {self.data_type}")
 
-            input_data = torch.clone(input_data) # allocate actual memory
+            input_data = torch.clone(input_data)  # allocate actual memory
             input_data = input_data.contiguous(memory_format=self.memory_format)
 
             if self.label_type == SyntheticDataLabelType.CLASSIFICATION:
@@ -113,11 +117,15 @@ class SyntheticDataset(torch.utils.data.Dataset):
                     input_target = torch.empty(self.num_unique_samples_to_create, self.num_classes, device=self.device)
                     input_target[:, 0] = 1.0
                 else:
-                    input_target = torch.randint(0, self.num_classes, (self.num_unique_samples_to_create,), device=self.device)
+                    input_target = torch.randint(0,
+                                                 self.num_classes, (self.num_unique_samples_to_create,),
+                                                 device=self.device)
             elif self.label_type == SyntheticDataLabelType.RANDOM_INT:
                 # use a dummy value for max int value
                 dummy_max = 10
-                input_target = torch.randint(0, dummy_max, (self.num_unique_samples_to_create, *self.label_shape), device=self.device)
+                input_target = torch.randint(0,
+                                             dummy_max, (self.num_unique_samples_to_create, *self.label_shape),
+                                             device=self.device)
             else:
                 raise ValueError(f"Unsupported label type {self.data_type}")
 
@@ -151,8 +159,7 @@ class SyntheticDatasetHparams(DatasetHparams):
 
     total_dataset_size: int = hp.required("The total size of the dataset to emulate.")
     data_shape: List[int] = hp.required("Shape of the data tensor.")
-    num_unique_samples_to_create: int = hp.optional(
-        "The number of unique samples to allocate memory for.", default=100)
+    num_unique_samples_to_create: int = hp.optional("The number of unique samples to allocate memory for.", default=100)
     data_type: SyntheticDataType = hp.optional("Type of synthetic data to create.", default=SyntheticDataType.GAUSSIAN)
     label_type: SyntheticDataLabelType = hp.optional("Type of synthetic label to create.",
                                                      default=SyntheticDataLabelType.CLASSIFICATION)

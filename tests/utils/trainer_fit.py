@@ -50,7 +50,7 @@ def train_model(mosaic_trainer_hparams: TrainerHparams, max_epochs: int = 2, run
 
     mosaic_trainer_hparams.model = MnistClassifierHparams(num_classes=2)
     mosaic_trainer_hparams.optimizer = SGDHparams(lr=1e-2)
-    mosaic_trainer_hparams.total_batch_size = total_dataset_size # one batch per epoch
+    mosaic_trainer_hparams.total_batch_size = total_dataset_size  # one batch per epoch
     mosaic_trainer_hparams.max_epochs = max_epochs
     # Don't validate
     mosaic_trainer_hparams.validate_every_n_epochs = max_epochs + 1
