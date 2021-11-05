@@ -1,6 +1,7 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
 import os
+import sys
 
 import setuptools
 from setuptools import setup
@@ -94,8 +95,11 @@ setup(
 )
 
 # only visible if user installs with verbose -v flag
-print("*" * 20)
-print("\nNOTE: For best performance, we recommend installing Pillow-SIMD "
-      "\nfor accelerated image processing operations. To install:"
-      "\n\n\t pip uninstall pillow && pip install pillow-simd\n")
-print("*" * 20)
+# Printing to stdout as not to interfere with setup.py CLI flags (e.g. --version)
+print("*" * 20, file=sys.stderr)
+print(
+    "\nNOTE: For best performance, we recommend installing Pillow-SIMD "
+    "\nfor accelerated image processing operations. To install:"
+    "\n\n\t pip uninstall pillow && pip install pillow-simd\n",
+    file=sys.stderr)
+print("*" * 20, file=sys.stderr)

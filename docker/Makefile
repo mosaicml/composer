@@ -5,14 +5,6 @@ TORCHVISION_VERSION ?= '0.11.1+cu113'
 PYTORCH_TAG ?= mosaicml/pytorch
 COMPOSER_TAG ?= mosaicml/composer
 
-ifeq (${BUILD_TYPE}, base)
-	# Base dependency build tagged with 'latest'
-	IMAGE_TAG = latest
-else
-	# Otherwise just use the BUILD_TYPE
-	IMAGE_TAG = ${BUILD_TYPE}
-endif
-
 .PHONY: build
 
 base:

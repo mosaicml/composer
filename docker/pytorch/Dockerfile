@@ -76,12 +76,13 @@ RUN curl -fsSL https://bootstrap.pypa.io/get-pip.py | python -
 #################
 ARG PYTORCH_VERSION
 ARG TORCHVISION_VERSION
+ARG CUDA_VERSION
 
 RUN pip install --no-cache-dir --upgrade pip && \
     pip install --no-cache-dir --upgrade pillow_simd==7.0.0.post3 && \
     pip install --no-cache-dir --find-links https://download.pytorch.org/whl/torch_stable.html \
-                torch==${PYTORCH_VERSION} \
-                torchvision==${TORCHVISION_VERSION}
+                torch==${PYTORCH_VERSION}\+${CUDA_VERSION} \
+                torchvision==${TORCHVISION_VERSION}\+${CUDA_VERSION}
 
 
 #########################
