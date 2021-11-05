@@ -108,6 +108,7 @@ class SyntheticDataset(torch.utils.data.Dataset):
             input_data = input_data.contiguous(memory_format=self.memory_format)
 
             if self.label_type == SyntheticDataLabelType.CLASSIFICATION_ONE_HOT:
+                assert self.num_classes is not None
                 input_target = torch.empty((self.num_unique_samples_to_create, self.num_classes), device=self.device)
                 input_target[:, 0] = 1.0
             elif self.label_type == SyntheticDataLabelType.CLASSIFICATION_INT:
