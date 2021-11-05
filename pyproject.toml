@@ -53,8 +53,8 @@ filterwarnings = [
 parallel = true
 branch = true
 concurrency = ["thread", "multiprocessing"]
-source = [
-    "composer"
+include = [
+    "composer/*"
 ]
 
 # Yapf
