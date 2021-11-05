@@ -72,9 +72,7 @@ class SyntheticDataset(torch.utils.data.Dataset):
         self.memory_format = getattr(torch, MemoryFormat(memory_format).value)
         self.transform = transform
 
-        _validate_label_inputs(label_type=self.label_type,
-                               num_classes=self.num_classes,
-                               label_shape=self.label_shape)
+        _validate_label_inputs(label_type=self.label_type, num_classes=self.num_classes, label_shape=self.label_shape)
 
         # The synthetic data
         self.input_data = None
@@ -179,9 +177,7 @@ class SyntheticDatasetHparams(DatasetHparams):
     def validate(self):
         super().validate()
 
-        _validate_label_inputs(label_type=self.label_type,
-                               num_classes=self.num_classes,
-                               label_shape=self.label_shape)
+        _validate_label_inputs(label_type=self.label_type, num_classes=self.num_classes, label_shape=self.label_shape)
 
     def initialize_object(self) -> DataloaderSpec:
         return DataloaderSpec(
@@ -201,8 +197,7 @@ class SyntheticDatasetHparams(DatasetHparams):
         )
 
 
-def _validate_label_inputs(label_type: SyntheticDataLabelType,
-                           num_classes: Optional[int],
+def _validate_label_inputs(label_type: SyntheticDataLabelType, num_classes: Optional[int],
                            label_shape: Optional[Sequence[int]]):
     if label_type == SyntheticDataLabelType.CLASSIFICATION_INT or label_type == SyntheticDataLabelType.CLASSIFICATION_ONE_HOT:
         if num_classes is None or num_classes <= 0:
