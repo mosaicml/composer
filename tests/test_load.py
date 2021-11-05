@@ -32,9 +32,9 @@ def test_load(model_name: str):
     trainer_hparams = trainer.load(model_name)
     # TODO(ravi) -- add a get_synthetic_dataset(num_samples) on BaseMosaicModel
     dummy_dataset_hparams = SyntheticDatasetHparams(
+        batch_size=4096,
+        data_shape=[1, 28, 28],  # mnist input shape
         num_classes=trainer_hparams.model.num_classes,
-        shape=[1, 28, 28],  # mnist input shape
-        sample_pool_size=4096,
         one_hot=False,
         device="cpu",
     )
@@ -54,9 +54,9 @@ def test_scale_schedule_load(ssr: str):
     trainer_hparams = trainer.load("classify_mnist")
     # TODO(ravi) -- add a get_synthetic_dataset(num_samples) on BaseMosaicModel
     dummy_dataset_hparams = SyntheticDatasetHparams(
+        batch_size=4096,
+        data_shape=[1, 28, 28],  # mnist input shape
         num_classes=trainer_hparams.model.num_classes,
-        shape=[1, 28, 28],  # mnist input shape
-        sample_pool_size=4096,
         one_hot=False,
         device="cpu",
     )

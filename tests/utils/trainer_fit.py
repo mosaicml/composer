@@ -5,7 +5,7 @@ from copy import deepcopy
 import torch
 
 from composer.core.types import DataLoader
-from composer.datasets.synthetic import SyntheticDatasetHparams, SyntheticDataType
+from composer.datasets.synthetic import SyntheticDataLabelType, SyntheticDatasetHparams, SyntheticDataType
 from composer.models.base import BaseMosaicModel
 from composer.models.classify_mnist.mnist_hparams import MnistClassifierHparams
 from composer.optim.optimizer_hparams import SGDHparams
@@ -28,20 +28,23 @@ def get_total_loss(model: BaseMosaicModel, dataloader: DataLoader):
 
 def train_model(mosaic_trainer_hparams: TrainerHparams, max_epochs: int = 2, run_loss_check: bool = False):
     total_dataset_size = 16
-    mosaic_trainer_hparams.train_dataset = SyntheticDatasetHparams(num_classes=2,
-                                                                   shape=[1, 28, 28],
-                                                                   device="cpu",
-                                                                   sample_pool_size=total_dataset_size,
+    mosaic_trainer_hparams.train_dataset = SyntheticDatasetHparams(batch_size=total_dataset_size,
+                                                                   data_shape=[1, 28, 28],
+                                                                   data_type=SyntheticDataType.SEPARABLE,
+                                                                   label_type=SyntheticDataLabelType.CLASSIFICATION,
+                                                                   num_classes=2,
                                                                    one_hot=False,
+                                                                   device="cpu",
                                                                    drop_last=True,
-                                                                   shuffle=False,
-                                                                   data_type=SyntheticDataType.SEPARABLE)
+                                                                   shuffle=False)
     # Not used in the training loop only being set because it is required
-    mosaic_trainer_hparams.val_dataset = SyntheticDatasetHparams(num_classes=2,
-                                                                 shape=[1, 28, 28],
-                                                                 device="cpu",
-                                                                 sample_pool_size=total_dataset_size,
+    mosaic_trainer_hparams.val_dataset = SyntheticDatasetHparams(batch_size=total_dataset_size,
+                                                                 data_shape=[1, 28, 28],
+                                                                 data_type=SyntheticDataType.SEPARABLE,
+                                                                 label_type=SyntheticDataLabelType.CLASSIFICATION,
+                                                                 num_classes=2,
                                                                  one_hot=False,
+                                                                 device="cpu",
                                                                  drop_last=True,
                                                                  shuffle=False)
 
