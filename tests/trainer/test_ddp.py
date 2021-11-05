@@ -5,7 +5,6 @@ import os
 import pathlib
 from dataclasses import dataclass
 from typing import Dict, List, Optional, Sequence, Union
-from unittest import mock
 
 import pytest
 import torch

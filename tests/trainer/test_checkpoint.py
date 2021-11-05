@@ -135,7 +135,6 @@ def assert_checkpoints_equivalent(hparams_file_a: str, checkpoint_file_a: str, h
 
     state_a = trainer_a.state
     state_b = trainer_b.state
-
     assert_state_equivalent(state_a, state_b)
 
     deep_compare(checkpoint_a["rng"], checkpoint_b["rng"])
