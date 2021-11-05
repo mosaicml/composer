@@ -9,7 +9,7 @@ import torchmetrics
 import yahp as hp
 
 from composer.core.types import BatchPair, Metrics, Tensor, Tensors
-from composer.datasets.synthetic import SyntheticDatasetHparams
+from composer.datasets.synthetic import SyntheticDataLabelType, SyntheticDatasetHparams
 from composer.models import BaseMosaicModel, ModelHparams
 from composer.trainer.trainer_hparams import TrainerHparams
 
@@ -61,13 +61,13 @@ class SimpleBatchPairModel(BaseMosaicModel):
         else:
             return self.val_acc
 
-    def get_dataset_hparams(self, sample_pool_size: int, drop_last: bool, shuffle: bool) -> SyntheticDatasetHparams:
+    def get_dataset_hparams(self, total_dataset_size: int, drop_last: bool, shuffle: bool) -> SyntheticDatasetHparams:
         return SyntheticDatasetHparams(
+            total_dataset_size=total_dataset_size,
+            data_shape=list(self.in_shape),
+            label_type=SyntheticDataLabelType.CLASSIFICATION_INT,
             num_classes=self.num_classes,
-            shape=list(self.in_shape),
             device="cpu",
-            sample_pool_size=sample_pool_size,
-            one_hot=False,
             drop_last=drop_last,
             shuffle=shuffle,
         )

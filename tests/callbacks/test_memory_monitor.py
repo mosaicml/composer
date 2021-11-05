@@ -32,7 +32,7 @@ def _do_trainer_fit(mosaic_trainer_hparams: TrainerHparams, testing_with_gpu: bo
     trainer.fit()
 
     assert isinstance(mosaic_trainer_hparams.train_dataset, SyntheticDatasetHparams)
-    num_train_samples = mosaic_trainer_hparams.train_dataset.sample_pool_size
+    num_train_samples = mosaic_trainer_hparams.train_dataset.total_dataset_size
     num_train_steps = num_train_samples // mosaic_trainer_hparams.total_batch_size
 
     expected_calls = num_train_steps * mosaic_trainer_hparams.max_epochs
@@ -41,7 +41,6 @@ def _do_trainer_fit(mosaic_trainer_hparams: TrainerHparams, testing_with_gpu: bo
 
 
 @pytest.mark.timeout(60)
-@pytest.mark.run_long
 def test_memory_monitor_cpu(mosaic_trainer_hparams: TrainerHparams):
     log_destination, _ = _do_trainer_fit(mosaic_trainer_hparams, testing_with_gpu=False)
 
@@ -56,7 +55,6 @@ def test_memory_monitor_cpu(mosaic_trainer_hparams: TrainerHparams):
 
 
 @pytest.mark.timeout(60)
-@pytest.mark.run_long
 def test_memory_monitor_gpu(mosaic_trainer_hparams: TrainerHparams):
     n_cuda_devices = device_count()
     if n_cuda_devices > 0:
