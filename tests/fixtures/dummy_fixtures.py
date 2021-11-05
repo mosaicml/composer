@@ -1,6 +1,5 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
-import os
 from typing import Tuple
 from unittest.mock import MagicMock, Mock
 

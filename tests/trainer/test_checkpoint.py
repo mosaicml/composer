@@ -18,10 +18,10 @@ from composer.core.callback import Callback
 from composer.core.event import Event
 from composer.core.state import State
 from composer.core.types import StateDict
-from composer.trainer.devices import CPUDeviceHparams, DeviceHparams, GPUDeviceHparams, device
+from composer.trainer.devices import CPUDeviceHparams, DeviceHparams, GPUDeviceHparams
 from composer.trainer.trainer import Trainer
 from composer.trainer.trainer_hparams import TrainerHparams, callback_registry
-from tests.helpers import with_distributed
+from tests.fixtures.ddp_fixtures import with_distributed
 from tests.test_state import assert_state_equivalent
 from tests.utils.deep_compare import deep_compare
 

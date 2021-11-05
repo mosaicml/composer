@@ -5,9 +5,7 @@ import random
 from dataclasses import Field, fields
 
 import torch
-import torch.distributed as dist
 import torch.nn.functional as F
-from _pytest.monkeypatch import MonkeyPatch
 from torch.functional import Tensor
 
 from composer.algorithms.dummy import DummyHparams

@@ -21,16 +21,16 @@ from composer.core.state import State
 from composer.datasets import DataloaderHparams, DataloaderSpec, MemoryFormat, SyntheticDataset, SyntheticDatasetHparams
 from composer.trainer.devices import CPUDeviceHparams, GPUDeviceHparams
 from composer.trainer.trainer_hparams import TrainerHparams, callback_registry, dataset_registry
+from tests.fixtures.ddp_fixtures import with_distributed
 from tests.fixtures.models import SimpleBatchPairModelHparams
-from tests.helpers import with_distributed
 
 
-def get_file_path(tmpdir: str, *, idx: int, epoch: int, is_train: bool) -> str:
+def get_file_path(tmpdir: pathlib.Path, *, idx: int, epoch: int, is_train: bool) -> str:
     train_str = "train" if is_train else "val"
     return os.path.join(tmpdir, f"{train_str}-epoch-{epoch}-sample-{idx}")
 
 
-def get_batch_file_path(tmpdir: str, *, rank: int, epoch: int, is_train: bool) -> str:
+def get_batch_file_path(tmpdir: pathlib.Path, *, rank: int, epoch: int, is_train: bool) -> str:
     train_str = "train" if is_train else "val"
     return os.path.join(tmpdir, f"{train_str}-rank-{rank}-epoch-{epoch}-batch0.pt")
 

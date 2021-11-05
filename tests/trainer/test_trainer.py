@@ -19,7 +19,7 @@ from composer.optim.optimizer_hparams import AdamHparams
 from composer.optim.scheduler import ComposedScheduler, ExponentialLRHparams
 from composer.trainer import Trainer, TrainerHparams
 from composer.trainer.devices.device_hparams import CPUDeviceHparams, DeviceHparams, GPUDeviceHparams
-from tests.helpers import with_distributed
+from tests.fixtures.ddp_fixtures import with_distributed
 from tests.utils.trainer_fit import get_total_loss, train_model
 
 
