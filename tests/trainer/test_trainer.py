@@ -1,7 +1,5 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
-import os
-import pathlib
 from unittest.mock import patch
 
 import pytest

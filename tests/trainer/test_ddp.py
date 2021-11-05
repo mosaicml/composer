@@ -4,7 +4,7 @@ import collections.abc
 import os
 import pathlib
 from dataclasses import dataclass
-from typing import Dict, List, Optional, Sequence
+from typing import Dict, List, Optional, Sequence, Union
 from unittest import mock
 
 import pytest
@@ -25,12 +25,12 @@ from tests.fixtures.ddp_fixtures import with_distributed
 from tests.fixtures.models import SimpleBatchPairModelHparams
 
 
-def get_file_path(tmpdir: pathlib.Path, *, idx: int, epoch: int, is_train: bool) -> str:
+def get_file_path(tmpdir: Union[str, pathlib.Path], *, idx: int, epoch: int, is_train: bool) -> str:
     train_str = "train" if is_train else "val"
     return os.path.join(tmpdir, f"{train_str}-epoch-{epoch}-sample-{idx}")
 
 
-def get_batch_file_path(tmpdir: pathlib.Path, *, rank: int, epoch: int, is_train: bool) -> str:
+def get_batch_file_path(tmpdir: Union[str, pathlib.Path], *, rank: int, epoch: int, is_train: bool) -> str:
     train_str = "train" if is_train else "val"
     return os.path.join(tmpdir, f"{train_str}-rank-{rank}-epoch-{epoch}-batch0.pt")
 
