@@ -12,7 +12,6 @@ from composer.utils.string_enum import StringEnum
 
 
 class SyntheticDataType(StringEnum):
-    INCREASING = "increasing"
     GAUSSIAN = "gaussian"
     SEPARABLE = "separable"
 
@@ -90,26 +89,14 @@ class SyntheticDataset(torch.utils.data.Dataset):
             # generating samples so all values for the sample are the sample index
             # e.g. all(input_data[1] == 1). Helps with debugging.
             assert self.input_target is None
-            if self.data_type == SyntheticDataType.GAUSSIAN or \
-                self.data_type == SyntheticDataType.SEPARABLE:
-                input_data = torch.randn(self.num_unique_samples_to_create, *self.data_shape, device=self.device)
-            elif self.data_type == SyntheticDataType.INCREASING:
-                input_data = torch.arange(start=0,
-                                          end=self.num_unique_samples_to_create,
-                                          step=1,
-                                          dtype=torch.float,
-                                          device=self.device)
-                input_data = input_data.reshape(self.num_unique_samples_to_create, *(1 for _ in self.data_shape))
-                input_data = input_data.expand(self.num_unique_samples_to_create, *self.data_shape)  # returns a view
-            else:
-                raise ValueError(f"Unsupported data type {self.data_type}")
+            input_data = torch.randn(self.num_unique_samples_to_create, *self.data_shape, device=self.device)
 
             input_data = torch.clone(input_data)  # allocate actual memory
             input_data = input_data.contiguous(memory_format=self.memory_format)
 
             if self.label_type == SyntheticDataLabelType.CLASSIFICATION_ONE_HOT:
                 assert self.num_classes is not None
-                input_target = torch.empty((self.num_unique_samples_to_create, self.num_classes), device=self.device)
+                input_target = torch.zeros((self.num_unique_samples_to_create, self.num_classes), device=self.device)
                 input_target[:, 0] = 1.0
             elif self.label_type == SyntheticDataLabelType.CLASSIFICATION_INT:
                 assert self.num_classes is not None
@@ -128,8 +115,8 @@ class SyntheticDataset(torch.utils.data.Dataset):
 
             # If separable, force the positive examples to have a higher mean than the negative examples
             if self.data_type == SyntheticDataType.SEPARABLE:
-                assert self.label_type != SyntheticDataLabelType.CLASSIFICATION_ONE_HOT, \
-                    "SyntheticDataType.SEPARABLE does not support one hot labels."
+                assert self.label_type == SyntheticDataLabelType.CLASSIFICATION_INT, \
+                    "SyntheticDataType.SEPARABLE requires integer classes."
                 assert max(input_target) == 1 and min(input_target) == 0, \
                     "SyntheticDataType.SEPARABLE only supports binary labels"
                 # Make positive examples have mean = 3 and negative examples have mean = -3
