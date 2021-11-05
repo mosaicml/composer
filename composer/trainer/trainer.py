@@ -462,6 +462,8 @@ class Trainer:
         # shorthand
         state = self.state
 
+        print(state.global_rank, '/', state.world_size)
+
         assert state.optimizers is not None
         assert state.schedulers is not None
         # place the state, model in the proper devices
