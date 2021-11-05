@@ -23,6 +23,7 @@ model_names = [name for name in model_names if name not in EXCLUDE_MODELS]
 
 
 @pytest.mark.parametrize('model_name', model_names)
+@pytest.mark.timeout(5)
 def test_load(model_name: str):
     if "gpt" in model_name:
         pytest.skip("GPT doesn't work on the no-op model class")
