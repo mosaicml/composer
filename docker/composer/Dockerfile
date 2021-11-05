@@ -9,9 +9,12 @@ ARG DEBIAN_FRONTEND=noninteractive
 ###################
 
 # Build context must be the root of the repo
-COPY . /tmp/composer
+COPY --chown=ubuntu:ubuntu ./ /tmp/composer
 
 ARG COMPOSER_EXTRA_DEPS
 
 # Install composer package
-RUN pip install --user src/composer[$COMPOSER_EXTRA_DEPS]
+RUN pip install --user /tmp/composer[$COMPOSER_EXTRA_DEPS]
+
+RUN rm -rf /tmp/*
+

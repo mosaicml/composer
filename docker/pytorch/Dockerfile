@@ -76,19 +76,24 @@ RUN curl -fsSL https://bootstrap.pypa.io/get-pip.py | python -
 #################
 ARG PYTORCH_VERSION
 ARG TORCHVISION_VERSION
-ARG CUDA_VERSION
+ARG CUDA_VERSION_TAG
 
 RUN pip install --no-cache-dir --upgrade pip && \
     pip install --no-cache-dir --upgrade pillow_simd==7.0.0.post3 && \
     pip install --no-cache-dir --find-links https://download.pytorch.org/whl/torch_stable.html \
-                torch==${PYTORCH_VERSION}\+${CUDA_VERSION} \
-                torchvision==${TORCHVISION_VERSION}\+${CUDA_VERSION}
+                torch==${PYTORCH_VERSION}\+${CUDA_VERSION_TAG} \
+                torchvision==${TORCHVISION_VERSION}\+${CUDA_VERSION_TAG}
 
+#########
+# Cleanup
+#########
+RUN rm -rf /tmp/*
 
 #########################
 # Configure non-root user
 #########################
-RUN useradd -rm -d /home/ubuntu -s /bin/bash -u 1000 -U -s /bin/bash ubuntu
+RUN echo "export PATH=\$PATH:~/.local/bin" >> /etc/skel/.bashrc && \
+    useradd -rm -d /home/ubuntu -s /bin/bash -u 1000 -U -s /bin/bash ubuntu
 WORKDIR /home/ubuntu
 
 USER ubuntu
