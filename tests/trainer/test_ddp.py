@@ -5,7 +5,6 @@ import os
 from dataclasses import dataclass
 from typing import Dict, List, Optional, Sequence
 from unittest import mock
-from composer.datasets.synthetic import SyntheticDataLabelType, SyntheticDataType
 
 import pytest
 import torch
@@ -43,10 +42,9 @@ class TrackedDataset(SyntheticDataset):
     """
 
     def __init__(self, *, total_dataset_size: int, data_shape: Sequence[int], memory_format: MemoryFormat, device: str,
-                 one_hot: bool, num_classes: int, is_train: bool, tmpdir: str):
+                 num_classes: int, is_train: bool, tmpdir: str):
         super().__init__(total_dataset_size=total_dataset_size,
                          data_shape=data_shape,
-                         one_hot=one_hot,
                          num_classes=num_classes,
                          memory_format=memory_format,
                          device=device)
@@ -77,7 +75,6 @@ class TrackedDatasetHparams(SyntheticDatasetHparams):
                 total_dataset_size=self.total_dataset_size,
                 data_shape=self.data_shape,
                 num_classes=self.num_classes,
-                one_hot=self.one_hot,
                 device=self.device,
                 memory_format=self.memory_format,
                 is_train=self.is_train,
@@ -164,7 +161,6 @@ def test_ddp(is_gpu: bool, num_procs: int, fork_rank_0: bool, *, ddp_tmpdir: str
         total_dataset_size=300,
         data_shape=shape,
         num_classes=model.num_classes,
-        one_hot=False,
         device="cpu",
         is_train=True,
         memory_format=MemoryFormat.CONTIGUOUS_FORMAT,
@@ -174,7 +170,6 @@ def test_ddp(is_gpu: bool, num_procs: int, fork_rank_0: bool, *, ddp_tmpdir: str
         total_dataset_size=300,
         data_shape=shape,
         num_classes=model.num_classes,
-        one_hot=False,
         device="cpu",
         is_train=False,
         memory_format=MemoryFormat.CONTIGUOUS_FORMAT,

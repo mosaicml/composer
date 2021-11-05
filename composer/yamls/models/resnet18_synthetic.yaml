@@ -3,7 +3,6 @@ train_dataset:
     total_dataset_size: 4096
     data_shape: [3, 224, 224]
     num_classes: 1000
-    one_hot: false
     device: cpu
     memory_format: CONTIGUOUS_FORMAT
     shuffle: true
@@ -13,7 +12,6 @@ val_dataset:
     total_dataset_size: 2000
     data_shape: [3, 224, 224]
     num_classes: 1000
-    one_hot: false
     device: cpu
     memory_format: CONTIGUOUS_FORMAT
     shuffle: true

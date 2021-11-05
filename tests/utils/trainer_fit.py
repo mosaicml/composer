@@ -31,9 +31,8 @@ def train_model(mosaic_trainer_hparams: TrainerHparams, max_epochs: int = 2, run
     mosaic_trainer_hparams.train_dataset = SyntheticDatasetHparams(total_dataset_size=total_dataset_size,
                                                                    data_shape=[1, 28, 28],
                                                                    data_type=SyntheticDataType.SEPARABLE,
-                                                                   label_type=SyntheticDataLabelType.CLASSIFICATION,
+                                                                   label_type=SyntheticDataLabelType.CLASSIFICATION_INT,
                                                                    num_classes=2,
-                                                                   one_hot=False,
                                                                    device="cpu",
                                                                    drop_last=True,
                                                                    shuffle=False)
@@ -41,9 +40,8 @@ def train_model(mosaic_trainer_hparams: TrainerHparams, max_epochs: int = 2, run
     mosaic_trainer_hparams.val_dataset = SyntheticDatasetHparams(total_dataset_size=total_dataset_size,
                                                                  data_shape=[1, 28, 28],
                                                                  data_type=SyntheticDataType.SEPARABLE,
-                                                                 label_type=SyntheticDataLabelType.CLASSIFICATION,
+                                                                 label_type=SyntheticDataLabelType.CLASSIFICATION_INT,
                                                                  num_classes=2,
-                                                                 one_hot=False,
                                                                  device="cpu",
                                                                  drop_last=True,
                                                                  shuffle=False)

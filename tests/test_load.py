@@ -35,7 +35,6 @@ def test_load(model_name: str):
         total_dataset_size=4096,
         data_shape=[1, 28, 28],  # mnist input shape
         num_classes=trainer_hparams.model.num_classes,
-        one_hot=False,
         device="cpu",
     )
     trainer_hparams.precision = Precision.FP32
@@ -57,7 +56,6 @@ def test_scale_schedule_load(ssr: str):
         total_dataset_size=4096,
         data_shape=[1, 28, 28],  # mnist input shape
         num_classes=trainer_hparams.model.num_classes,
-        one_hot=False,
         device="cpu",
     )
     trainer_hparams.precision = Precision.FP32

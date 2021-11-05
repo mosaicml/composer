@@ -65,9 +65,8 @@ class SimpleBatchPairModel(BaseMosaicModel):
         return SyntheticDatasetHparams(
             total_dataset_size=total_dataset_size,
             data_shape=list(self.in_shape),
-            label_type=SyntheticDataLabelType.CLASSIFICATION,
+            label_type=SyntheticDataLabelType.CLASSIFICATION_INT,
             num_classes=self.num_classes,
-            one_hot=False,
             device="cpu",
             drop_last=drop_last,
             shuffle=shuffle,

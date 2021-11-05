@@ -18,7 +18,8 @@ class SyntheticDataType(StringEnum):
 
 
 class SyntheticDataLabelType(StringEnum):
-    CLASSIFICATION = "classification"
+    CLASSIFICATION_INT = "classification_int"
+    CLASSIFICATION_ONE_HOT = "classification_one_hot"
     RANDOM_INT = "random_int"
 
 
@@ -39,7 +40,6 @@ class SyntheticDataset(torch.utils.data.Dataset):
         data_type (SyntheticDataType, optional), Type of synthetic data to create.
         label_type (SyntheticDataLabelType, optional), Type of synthetic data to create.
         num_classes (int): Number of classes to use.
-        one_hot (bool): Whether to use one-hot encoding.
         label_shape (List[int]): Shape of the tensor for each sample label.
         device (str): Device to store the sample pool. Set to `cuda` to store samples
             on the GPU and eliminate PCI-e bandwidth with the dataloader. Set to `cpu`
@@ -55,8 +55,7 @@ class SyntheticDataset(torch.utils.data.Dataset):
                  data_shape: Sequence[int],
                  num_unique_samples_to_create: int = 100,
                  data_type: SyntheticDataType = SyntheticDataType.GAUSSIAN,
-                 label_type: SyntheticDataLabelType = SyntheticDataLabelType.CLASSIFICATION,
-                 one_hot: Optional[bool] = None,
+                 label_type: SyntheticDataLabelType = SyntheticDataLabelType.CLASSIFICATION_INT,
                  num_classes: Optional[int] = None,
                  label_shape: Optional[Sequence[int]] = None,
                  device: str = "cpu",
@@ -67,7 +66,6 @@ class SyntheticDataset(torch.utils.data.Dataset):
         self.num_unique_samples_to_create = num_unique_samples_to_create
         self.data_type = data_type
         self.label_type = label_type
-        self.one_hot = one_hot
         self.num_classes = num_classes
         self.label_shape = label_shape
         self.device = device
@@ -76,7 +74,6 @@ class SyntheticDataset(torch.utils.data.Dataset):
 
         _validate_label_inputs(label_type=self.label_type,
                                num_classes=self.num_classes,
-                               one_hot=self.one_hot,
                                label_shape=self.label_shape)
 
         # The synthetic data
@@ -112,15 +109,16 @@ class SyntheticDataset(torch.utils.data.Dataset):
             input_data = torch.clone(input_data)  # allocate actual memory
             input_data = input_data.contiguous(memory_format=self.memory_format)
 
-            if self.label_type == SyntheticDataLabelType.CLASSIFICATION:
-                if self.one_hot:
-                    input_target = torch.empty(self.num_unique_samples_to_create, self.num_classes, device=self.device)
-                    input_target[:, 0] = 1.0
-                else:
-                    input_target = torch.randint(0,
-                                                 self.num_classes, (self.num_unique_samples_to_create,),
-                                                 device=self.device)
+            if self.label_type == SyntheticDataLabelType.CLASSIFICATION_ONE_HOT:
+                input_target = torch.empty((self.num_unique_samples_to_create, self.num_classes), device=self.device)
+                input_target[:, 0] = 1.0
+            elif self.label_type == SyntheticDataLabelType.CLASSIFICATION_INT:
+                assert self.num_classes is not None
+                input_target = torch.randint(0,
+                                             self.num_classes, (self.num_unique_samples_to_create,),
+                                             device=self.device)
             elif self.label_type == SyntheticDataLabelType.RANDOM_INT:
+                assert self.label_shape is not None
                 # use a dummy value for max int value
                 dummy_max = 10
                 input_target = torch.randint(0,
@@ -131,7 +129,8 @@ class SyntheticDataset(torch.utils.data.Dataset):
 
             # If separable, force the positive examples to have a higher mean than the negative examples
             if self.data_type == SyntheticDataType.SEPARABLE:
-                assert not self.one_hot, "SyntheticDataType.SEPARABLE does not support one_hot=True."
+                assert self.label_type != SyntheticDataLabelType.CLASSIFICATION_ONE_HOT, \
+                    "SyntheticDataType.SEPARABLE does not support one hot labels."
                 assert max(input_target) == 1 and min(input_target) == 0, \
                     "SyntheticDataType.SEPARABLE only supports binary labels"
                 # Make positive examples have mean = 3 and negative examples have mean = -3
@@ -162,12 +161,9 @@ class SyntheticDatasetHparams(DatasetHparams):
     num_unique_samples_to_create: int = hp.optional("The number of unique samples to allocate memory for.", default=100)
     data_type: SyntheticDataType = hp.optional("Type of synthetic data to create.", default=SyntheticDataType.GAUSSIAN)
     label_type: SyntheticDataLabelType = hp.optional("Type of synthetic label to create.",
-                                                     default=SyntheticDataLabelType.CLASSIFICATION)
+                                                     default=SyntheticDataLabelType.CLASSIFICATION_INT)
     num_classes: int = hp.optional(
         "Number of classes. Required if label_type is SyntheticDataLabelType.CLASSIFICATION.", default=2)
-    one_hot: bool = hp.optional(
-        "Whether to use one-hot encoding. Required if label_type is SyntheticDataLabelType.CLASSIFICATION.",
-        default=False)
     label_shape: List[int] = hp.optional(
         "Shape of the label tensor. Required if label_type is SyntheticDataLabelType.RANDOM_INT.",
         default_factory=lambda: [1])
@@ -185,7 +181,6 @@ class SyntheticDatasetHparams(DatasetHparams):
 
         _validate_label_inputs(label_type=self.label_type,
                                num_classes=self.num_classes,
-                               one_hot=self.one_hot,
                                label_shape=self.label_shape)
 
     def initialize_object(self) -> DataloaderSpec:
@@ -197,7 +192,6 @@ class SyntheticDatasetHparams(DatasetHparams):
                 data_type=self.data_type,
                 label_type=self.label_type,
                 num_classes=self.num_classes,
-                one_hot=self.one_hot,
                 label_shape=self.label_shape,
                 device=self.device,
                 memory_format=self.memory_format,
@@ -207,10 +201,11 @@ class SyntheticDatasetHparams(DatasetHparams):
         )
 
 
-def _validate_label_inputs(label_type: SyntheticDataLabelType, num_classes: Optional[int], one_hot: Optional[bool],
+def _validate_label_inputs(label_type: SyntheticDataLabelType,
+                           num_classes: Optional[int],
                            label_shape: Optional[Sequence[int]]):
-    if label_type == SyntheticDataLabelType.CLASSIFICATION and \
-        (num_classes is None or num_classes <= 0 or one_hot is None):
-        raise ValueError("label_type classification requires num_classes > 0 and one_hot to be specified")
+    if label_type == SyntheticDataLabelType.CLASSIFICATION_INT or label_type == SyntheticDataLabelType.CLASSIFICATION_ONE_HOT:
+        if num_classes is None or num_classes <= 0:
+            raise ValueError("classification label_types require num_classes > 0")
     if label_type == SyntheticDataLabelType.RANDOM_INT and label_shape is None:
         raise ValueError("label_type random_int requires label_shape to be specified")

@@ -24,7 +24,6 @@ def dummy_state(dummy_dataloader_hparams: DataloaderHparams):
                                               data_shape=[3, 32, 32],
                                               num_classes=10,
                                               device="cpu",
-                                              one_hot=False,
                                               drop_last=True,
                                               shuffle=False)
     train_dataloader = get_dataloader(dataset_hparams.initialize_object(), dummy_dataloader_hparams, batch_size=100)
