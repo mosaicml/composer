@@ -1,7 +1,19 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
+import os
+
 import setuptools
 from setuptools import setup
+
+
+def package_files(directory):
+    # from https://stackoverflow.com/a/36693250
+    paths = []
+    for (path, directories, filenames) in os.walk(directory):
+        for filename in filenames:
+            paths.append(os.path.join('..', path, filename))
+    return paths
+
 
 with open("README.md", "r", encoding="utf-8") as fh:
     long_description = fh.read()
@@ -67,16 +79,14 @@ setup(
     url="https://github.com/mosaicml/composer",
     include_package_data=True,
     package_data={
-        "": ["*.yaml", "*.yml"],
+        "composer": ['py.typed'],
+        "": package_files('composer/yamls'),
     },
     packages=setuptools.find_packages(),
     classifiers=[
         "Programming Language :: Python :: 3",
     ],
     install_requires=install_requires,
-    entry_points={
-        'console_scripts': ['composer = examples.run_mosaic_trainer:main',],
-    },
     extras_require=extra_deps,
     dependency_links=['https://developer.download.nvidia.com/compute/redist'],
     python_requires='>=3.8',
