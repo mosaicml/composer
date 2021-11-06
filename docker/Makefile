@@ -5,7 +5,7 @@ PYTORCH_VERSION ?= '1.10.0'
 TORCHVISION_VERSION ?= '0.11.1'
 PYTORCH_TAG ?= mosaicml/pytorch
 COMPOSER_TAG ?= mosaicml/composer
-COMPOSER_EXTRA_DEPS ?= all
+COMPOSER_EXTRA_DEPS ?= base
 
 .PHONY: build
 

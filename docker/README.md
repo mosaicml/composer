@@ -4,10 +4,10 @@ To simplify environment setup for the MosaicML `Composer` library, we provide a 
 leverage.
 
 All Docker images come preinstalled with the following packages:
-* Ubuntu 18.04
-* Python 3.8.0
-* Nvidia CUDA 11.1.1
-* PyTorch 1.9.0
+* Ubuntu 20.04
+* Python
+* Pytorch
+* Nvidia CUDA (except if using a CPU-only flavor of pytorch)
 
 Additional dependencies are installed as required by the `composer` library and particular flavor (see below)
 
@@ -50,8 +50,8 @@ docker pull mosaicml/composer:all
 make
 
 # Build 'dev' image
-BUILD_TYPE=dev make
+COMPOSER_EXTRA_DEPS=dev make
 
 # Build 'all' image
-BUILD_TYPE=all make
+COMPOSER_EXTRA_DEPS=all make
 ```
