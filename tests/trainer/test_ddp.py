@@ -41,14 +41,13 @@ class TrackedDataset(SyntheticDataset):
     Because of atomic file writes, it is slow and should not be used in any performance measurements.
     """
 
-    def __init__(self, *, sample_pool_size: int, shape: Sequence[int], memory_format: MemoryFormat, device: str,
-                 one_hot: bool, num_classes: int, is_train: bool, tmpdir: str):
-        super().__init__(sample_pool_size=sample_pool_size,
-                         shape=shape,
+    def __init__(self, *, total_dataset_size: int, data_shape: Sequence[int], memory_format: MemoryFormat, device: str,
+                 num_classes: int, is_train: bool, tmpdir: str):
+        super().__init__(total_dataset_size=total_dataset_size,
+                         data_shape=data_shape,
+                         num_classes=num_classes,
                          memory_format=memory_format,
-                         device=device,
-                         one_hot=one_hot,
-                         num_classes=num_classes)
+                         device=device)
         self.is_train = is_train
         self.tmpdir = tmpdir
 
@@ -73,12 +72,11 @@ class TrackedDatasetHparams(SyntheticDatasetHparams):
         assert self.tmpdir is not None
         return DataloaderSpec(
             TrackedDataset(
+                total_dataset_size=self.total_dataset_size,
+                data_shape=self.data_shape,
                 num_classes=self.num_classes,
-                shape=self.shape,
-                one_hot=self.one_hot,
                 device=self.device,
                 memory_format=self.memory_format,
-                sample_pool_size=self.sample_pool_size,
                 is_train=self.is_train,
                 tmpdir=self.tmpdir,
             ),
@@ -160,20 +158,18 @@ def test_ddp(is_gpu: bool, num_procs: int, fork_rank_0: bool, *, ddp_tmpdir: str
     model = model_hparams.initialize_object()
     shape = list(model.in_shape)  # type: ignore
     mosaic_trainer_hparams.train_dataset = TrackedDatasetHparams(
+        total_dataset_size=300,
+        data_shape=shape,
         num_classes=model.num_classes,
-        shape=shape,
-        sample_pool_size=300,
-        one_hot=False,
         device="cpu",
         is_train=True,
         memory_format=MemoryFormat.CONTIGUOUS_FORMAT,
         tmpdir=ddp_tmpdir,
     )
     hparams.val_dataset = TrackedDatasetHparams(
+        total_dataset_size=300,
+        data_shape=shape,
         num_classes=model.num_classes,
-        shape=shape,
-        sample_pool_size=300,
-        one_hot=False,
         device="cpu",
         is_train=False,
         memory_format=MemoryFormat.CONTIGUOUS_FORMAT,

@@ -21,7 +21,7 @@ def _do_trainer_fit(mosaic_trainer_hparams: TrainerHparams, log_layers=False):
     trainer.fit()
 
     assert isinstance(mosaic_trainer_hparams.train_dataset, SyntheticDatasetHparams)
-    num_train_samples = mosaic_trainer_hparams.train_dataset.sample_pool_size
+    num_train_samples = mosaic_trainer_hparams.train_dataset.total_dataset_size
     num_train_steps = num_train_samples // mosaic_trainer_hparams.total_batch_size
 
     return log_destination, num_train_steps

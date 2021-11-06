@@ -11,6 +11,9 @@ include = [
     "composer/**",
     "tests/**"
 ]
+exclude = [
+    "build/**"
+]
 
 reportImportCycles = "none"
 reportUnnecessaryIsInstance = "none"
