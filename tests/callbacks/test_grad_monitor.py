@@ -40,7 +40,6 @@ def test_grad_monitor_no_layers(mosaic_trainer_hparams: TrainerHparams):
     assert grad_norm_calls == num_train_steps
 
 
-@pytest.mark.timeout(60)
 def test_grad_monitor_per_layer(mosaic_trainer_hparams: TrainerHparams):
     log_destination, num_train_steps = _do_trainer_fit(mosaic_trainer_hparams, log_layers=True)
     layer_norm_calls = 0
