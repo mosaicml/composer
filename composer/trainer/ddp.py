@@ -119,7 +119,7 @@ class DDP:
                  num_nodes: int,
                  backend: str,
                  fork_rank_0: bool,
-                 timeout: float,
+                 timeout: float = 5,
                  find_unused_parameters: bool = False,
                  ddp_sync_strategy: Optional[Union[str, DDPSyncStrategy]] = None):
         self.hparams = DDPHparams(
