@@ -5,7 +5,7 @@ import torch
 import numpy as np
 
 from composer.algorithms import CutMixHparams
-from composer.algorithms.cutmix.cutmix import cutmix_batch, rand_bbox
+from composer.algorithms.cutmix.cutmix import cutmix, rand_bbox
 from composer.core.types import Event
 from composer.models.base import MosaicClassifier
 from composer.trainer.trainer_hparams import TrainerHparams
@@ -24,7 +24,7 @@ def fake_data(request):
     return x_fake, y_fake, indices, n_classes
 
 
-def validate_cutmix_batch(x, y, indices, x_cutmix, y_cutmix, cutmix_lambda, bbox, n_classes):
+def validate_cutmix(x, y, indices, x_cutmix, y_cutmix, cutmix_lambda, bbox, n_classes):
     # Create shuffled version of x, y for reference checking
     x_perm = x[indices]
     y_perm = y[indices]
@@ -48,7 +48,7 @@ def validate_cutmix_batch(x, y, indices, x_cutmix, y_cutmix, cutmix_lambda, bbox
 @pytest.mark.parametrize('alpha', [.2, 1])
 class TestCutMix:
 
-    def test_cutmix_batch(self, fake_data, alpha):
+    def test_cutmix(self, fake_data, alpha):
         # Generate fake data
         x_fake, y_fake, indices, n_classes = fake_data
 
@@ -68,25 +68,25 @@ class TestCutMix:
         cutmix_lambda = 1 - ((bbx2 - bbx1) * (bby2 - bby1) / (x_fake.size()[-1] * x_fake.size()[-2]))
 
         # Apply cutmix
-        x_cutmix, y_cutmix = cutmix_batch(
-                                    x=x_fake,
-                                    y=y_fake,
-                                    alpha=1.0,
-                                    n_classes=n_classes,
-                                    cutmix_lambda=cutmix_lambda,
-                                    bbox=bbox,
-                                    indices=indices)
+        x_cutmix, y_cutmix = cutmix(
+                                x=x_fake,
+                                y=y_fake,
+                                alpha=1.0,
+                                n_classes=n_classes,
+                                cutmix_lambda=cutmix_lambda,
+                                bbox=bbox,
+                                indices=indices)
 
         # Validate results
-        validate_cutmix_batch(
-                            x_fake,
-                            y_fake,
-                            indices,
-                            x_cutmix,
-                            y_cutmix,
-                            cutmix_lambda,
-                            bbox,
-                            n_classes)
+        validate_cutmix(
+                        x_fake,
+                        y_fake,
+                        indices,
+                        x_cutmix,
+                        y_cutmix,
+                        cutmix_lambda,
+                        bbox,
+                        n_classes)
 
     def test_cutmix_algorithm(self, fake_data, alpha, dummy_state, dummy_logger):
         # Generate fake data
@@ -104,15 +104,15 @@ class TestCutMix:
 
         x, y = state.batch
         # Validate results
-        validate_cutmix_batch(
-                            x_fake,
-                            y_fake,
-                            algorithm.indices,
-                            x,
-                            y,
-                            algorithm.cutmix_lambda,
-                            algorithm.bbox,
-                            algorithm.num_classes)
+        validate_cutmix(
+                        x_fake,
+                        y_fake,
+                        algorithm.indices,
+                        x,
+                        y,
+                        algorithm.cutmix_lambda,
+                        algorithm.bbox,
+                        algorithm.num_classes)
 
 @pytest.mark.xfail
 def test_cutmix_nclasses(dummy_state, dummy_logger):
