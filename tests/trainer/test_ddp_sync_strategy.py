@@ -11,6 +11,7 @@ from composer.core.state import State
 from composer.core.types import Tensor
 from composer.trainer.ddp import DDP
 from composer.trainer.devices.device_cpu import DeviceCPU
+from composer.utils.iter_helpers import ensure_tuple
 from tests.fixtures.ddp_fixtures import with_distributed
 
 
@@ -46,12 +47,15 @@ class MinimalConditionalModel(nn.Module):
     pytest.param('multi_auto_sync', ([-1.5, None, None], [-1.5, -1.5, None], [-1.5, -1.5, None]), id='multi_auto_sync'),
     pytest.param('forced_sync', ([-1, None, None], [-1, -1, None], [-1.5, -1.5, None]), id='forced_sync'),
 ])
-def test_ddp_sync_strategy(ddp_sync_strategy: str, expected_grads: List[Optional[float]], ddp_tmpdir: str):
+def test_ddp_sync_strategy(ddp_sync_strategy: str, expected_grads: List[Optional[float]]):
+    with_distributed(num_procs=2, target=_test_ddp_sync_strategy)(ddp_sync_strategy=ddp_sync_strategy,
+                                                                  expected_grads=expected_grads)
+
+
+def _test_ddp_sync_strategy(ddp_sync_strategy: str, expected_grads: List[Optional[float]]):
 
     original_model = MinimalConditionalModel()
-
-    device = DeviceCPU()
-
+    ddp = DDP(backend="gloo", find_unused_parameters=True, sync_strategy=ddp_sync_strategy, timeout=5.)
     optimizer = torch.optim.SGD(original_model.parameters(), 0.1)
 
     state = State(model=original_model,
@@ -60,37 +64,27 @@ def test_ddp_sync_strategy(ddp_sync_strategy: str, expected_grads: List[Optional
                   eval_batch_size=1,
                   grad_accum=2,
                   max_epochs=1,
-                  precision='fp32',
-                  world_size=2,
-                  nproc_per_node=2)
+                  precision='fp32')
 
     batches = [[(1, Tensor([1])), (1, Tensor([2]))], [(2, Tensor([1])), (2, Tensor([2]))]]
+    state.model = ddp.prepare_module(state.model)
+    optimizer.zero_grad()
 
-    def basic_train_loop():
+    for microbatch_idx in range(2):
+        with ddp.sync_context(state, microbatch_idx == 1):
+            input, target = batches[microbatch_idx][state.local_rank]
 
-        ddp = DDP(backend=device.ddp_backend, find_unused_parameters=True, ddp_sync_strategy=ddp_sync_strategy)
+            output = state.model.forward(input)
+            loss = original_model.loss(output, target)
+            loss.mul_(1 / 2)
+            loss.backward()
 
-        state.model = ddp.prepare_module(state.model)
+            if state.is_rank_zero:
+                grads = [p.grad.item() if p.grad else None for p in original_model.parameters()]
+                for expected, actual in zip(expected_grads[microbatch_idx], grads):  # type: ignore
+                    assert expected == actual
 
-        optimizer.zero_grad()
-
-        for microbatch_idx in range(2):
-            with ddp.sync_context(state, microbatch_idx == 1):
-                input, target = batches[microbatch_idx][state.local_rank]
-
-                output = state.model.forward(input)
-                loss = original_model.loss(output, target)
-                loss.mul_(1 / 2)
-                loss.backward()
-
-                if state.is_rank_zero:
-                    grads = [p.grad.item() if p.grad else None for p in original_model.parameters()]
-                    for expected, actual in zip(expected_grads[microbatch_idx], grads):  # type: ignore
-                        assert expected == actual
-
-        if state.is_rank_zero:
-            grads = [p.grad.item() if p.grad else None for p in original_model.parameters()]
-            for expected, actual in zip(expected_grads[-1], grads):  # type: ignore
-                assert expected == actual
-
-    with_distributed(num_procs=2, target=basic_train_loop)()
+    if state.is_rank_zero:
+        grads = [p.grad.item() if p.grad else None for p in original_model.parameters()]
+        for expected, actual in zip(expected_grads[-1], grads):  # type: ignore
+            assert expected == actual

@@ -105,7 +105,12 @@ class DDPSyncStrategy(StringEnum):
 
 class DDP:
 
-    def __init__(self, *, backend: str, find_unused_parameters: bool = False, sync_strategy: Optional[str] = None):
+    def __init__(self,
+                 *,
+                 backend: str,
+                 timeout: float,
+                 find_unused_parameters: bool = False,
+                 sync_strategy: Optional[str] = None):
         self.backend = backend
         self.find_unused_parameters = find_unused_parameters
         if sync_strategy is None:
@@ -113,9 +118,11 @@ class DDP:
         else:
             self.sync_strategy = DDPSyncStrategy(sync_strategy)
 
+        timeout = datetime.timedelta(seconds=timeout)
+
         if "RANK" in os.environ and "WORLD_SIZE" in os.environ:
             # Assume we can initialize based off of env vars
-            torch.distributed.init_process_group(self.backend)
+            torch.distributed.init_process_group(self.backend, timeout=timeout)
             return
 
         warnings.warn("RANK and WORLD_SIZE env vars not set; assuming no parallelization. If "
@@ -123,7 +130,7 @@ class DDP:
                       "the composer executable.")
         store = torch.distributed.HashStore()
 
-        torch.distributed.init_process_group(self.backend, store=store, world_size=1, rank=0)
+        torch.distributed.init_process_group(self.backend, timeout=timeout, store=store, world_size=1, rank=0)
 
     @property
     def world_size(self) -> int:
