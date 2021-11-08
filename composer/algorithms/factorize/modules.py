@@ -31,6 +31,8 @@ def factorizing_could_speedup(module: torch.nn.Module, latent_size: FractionOrIn
     if isinstance(module, _FactorizedModule):
         return module.should_factorize(latent_size)
     elif isinstance(module, torch.nn.Conv2d):
+        if module.groups > 1:
+            return False   # can't factorize grouped convolutions yet
         latent_size = clean_latent_size(latent_size, module.in_channels, module.out_channels)
         max_rank = max_rank_with_possible_speedup(module.in_channels, module.out_channels, kernel_size=module.kernel_size)
         return latent_size <= max_rank
@@ -154,6 +156,8 @@ class FactorizedConv2d(_FactorizedModule):
                  latent_channels: FractionOrInt = .5,
                  **kwargs):
         super().__init__(in_size=in_channels, out_size=out_channels, latent_size=latent_channels, kernel_size=kernel_size)
+        if kwargs.get('groups', 1) > 1:
+            raise NotImplementedError("Factorizing grouped convolutions is not supported.")
         self.kwargs = kwargs
         # conv2d factorization code requires most Conv2d arguments, but
         # not boolean 'bias'
