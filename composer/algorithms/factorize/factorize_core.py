@@ -28,6 +28,7 @@ def _lstsq(A: torch.Tensor, B: torch.Tensor):
     # TODO more intelligence regarding choice of lstsq `driver` arg
     return torch.linalg.lstsq(A, B).solution
 
+
 def _nmse(Y: torch.Tensor, Y_hat: torch.Tensor):
     diffs = Y - Y_hat
     return (diffs * diffs).mean() / Y.var()

@@ -42,7 +42,8 @@ def _apply_algo(state_with_model: State, simple_conv_model_input: Tensors, algo_
     return original_conv_count, original_linear_count, original_shape
 
 
-def test_layer_replacement(state_with_model: State, simple_conv_model_input: Tensors, noop_dummy_logger: Logger, algo_instance: Factorize):
+def test_layer_replacement(state_with_model: State, simple_conv_model_input: Tensors, noop_dummy_logger: Logger,
+                           algo_instance: Factorize):
     original_conv_count, original_linear_count, _ = _apply_algo(
         state_with_model=state_with_model,
         simple_conv_model_input=simple_conv_model_input,
@@ -52,14 +53,13 @@ def test_layer_replacement(state_with_model: State, simple_conv_model_input: Ten
 
     # verify that layer replacements have happened
     if algo_instance.hparams.factorize_convs:
-        assert original_conv_count == surgery.count_module_instances(
-            state_with_model.model, FactorizedConv2d)
+        assert original_conv_count == surgery.count_module_instances(state_with_model.model, FactorizedConv2d)
     if algo_instance.hparams.factorize_linears:
-        assert original_linear_count == surgery.count_module_instances(
-            state_with_model.model, FactorizedLinear)
+        assert original_linear_count == surgery.count_module_instances(state_with_model.model, FactorizedLinear)
 
 
-def test_forward_shape(state_with_model: State, simple_conv_model_input: Tensors, noop_dummy_logger: Logger, algo_instance: Factorize):
+def test_forward_shape(state_with_model: State, simple_conv_model_input: Tensors, noop_dummy_logger: Logger,
+                       algo_instance: Factorize):
     _, _, original_shape = _apply_algo(
         state_with_model=state_with_model,
         simple_conv_model_input=simple_conv_model_input,
@@ -93,11 +93,12 @@ def test_algorithm_logging(state_with_model: State, logger_mock: Logger, algo_in
 
 # not marked run_long because takes a fraction of a second
 def test_factorize_trains(mosaic_trainer_hparams: TrainerHparams):
-    mosaic_trainer_hparams.algorithms = [FactorizeHparams(
-        factorize_convs=True,
-        factorize_linears=True,
-        min_channels=8,
-        latent_channels=4,
-        min_features=8,
-        latent_features=4)]
+    mosaic_trainer_hparams.algorithms = [
+        FactorizeHparams(factorize_convs=True,
+                         factorize_linears=True,
+                         min_channels=8,
+                         latent_channels=4,
+                         min_features=8,
+                         latent_features=4)
+    ]
     train_model(mosaic_trainer_hparams, run_loss_check=True)

@@ -32,7 +32,9 @@ def _python_log_surgery_result(model: torch.nn.Module, new_class: TypeVar):
              f'Model now has {num_replaced_modules} {new_class.__name__} modules')
 
 
-def _replace_module_class_in_model(model: torch.nn.Conv2d, module_class: TypeVar, f_replace: surgery.ReplacementFunction) -> List[Tuple[torch.nn.Module, torch.nn.Module]]:
+def _replace_module_class_in_model(
+        model: torch.nn.Conv2d, module_class: TypeVar,
+        f_replace: surgery.ReplacementFunction) -> List[Tuple[torch.nn.Module, torch.nn.Module]]:
     transforms = {module_class: f_replace}
     ret = surgery.replace_module_classes(model, policies=transforms)
     _python_log_surgery_result(model, module_class)

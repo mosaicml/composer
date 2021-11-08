@@ -32,9 +32,11 @@ def factorizing_could_speedup(module: torch.nn.Module, latent_size: FractionOrIn
         return module.should_factorize(latent_size)
     elif isinstance(module, torch.nn.Conv2d):
         if module.groups > 1:
-            return False   # can't factorize grouped convolutions yet
+            return False  # can't factorize grouped convolutions yet
         latent_size = clean_latent_size(latent_size, module.in_channels, module.out_channels)
-        max_rank = max_rank_with_possible_speedup(module.in_channels, module.out_channels, kernel_size=module.kernel_size)
+        max_rank = max_rank_with_possible_speedup(module.in_channels,
+                                                  module.out_channels,
+                                                  kernel_size=module.kernel_size)
         return latent_size <= max_rank
     elif isinstance(module, torch.nn.Linear):
         latent_size = clean_latent_size(latent_size, module.in_features, module.out_features)
@@ -43,7 +45,9 @@ def factorizing_could_speedup(module: torch.nn.Module, latent_size: FractionOrIn
     else:
         return False
 
-def _apply_solution_to_module_parameters(solution: LowRankSolution, module0: torch.nn.Module, module1: torch.nn.Module, transpose: bool) -> None:
+
+def _apply_solution_to_module_parameters(solution: LowRankSolution, module0: torch.nn.Module, module1: torch.nn.Module,
+                                         transpose: bool) -> None:
     error_msg = "Can't apply unititalized solution!"
     assert solution.bias is not None, error_msg
     assert solution.Wa is not None, error_msg
@@ -155,7 +159,10 @@ class FactorizedConv2d(_FactorizedModule):
                  kernel_size: _size_2_t,
                  latent_channels: FractionOrInt = .5,
                  **kwargs):
-        super().__init__(in_size=in_channels, out_size=out_channels, latent_size=latent_channels, kernel_size=kernel_size)
+        super().__init__(in_size=in_channels,
+                         out_size=out_channels,
+                         latent_size=latent_channels,
+                         kernel_size=kernel_size)
         if kwargs.get('groups', 1) > 1:
             raise NotImplementedError("Factorizing grouped convolutions is not supported.")
         self.kwargs = kwargs
@@ -168,7 +175,11 @@ class FactorizedConv2d(_FactorizedModule):
         if self.should_factorize(self.latent_channels):
             # this one produces identical output as a regular Conv2d would,
             # except with fewer output channels
-            conv0 = nn.Conv2d(self.in_channels, self.latent_channels, self.kernel_size, bias=False, **self.convolution_kwargs)
+            conv0 = nn.Conv2d(self.in_channels,
+                              self.latent_channels,
+                              self.kernel_size,
+                              bias=False,
+                              **self.convolution_kwargs)
             # this one increases the number of output channels
             conv1 = nn.Conv2d(self.latent_channels, self.out_channels, kernel_size=1, bias=True)
         else:
@@ -199,13 +210,7 @@ class FactorizedConv2d(_FactorizedModule):
         else:
             weight1, bias1 = self.module1.weight, self.module1.bias
 
-        return factorize_conv2d(input,
-                                weight0,
-                                weight1,
-                                rank=rank,
-                                biasA=bias0,
-                                biasB=bias1,
-                                **self.convolution_kwargs)
+        return factorize_conv2d(input, weight0, weight1, rank=rank, biasA=bias0, biasB=bias1, **self.convolution_kwargs)
 
     def apply_solution(self, solution: LowRankSolution):
         self.latent_size = solution.rank
@@ -272,12 +277,7 @@ class FactorizedLinear(_FactorizedModule):
             bias1 = self.module1.bias
         target = self(input)
 
-        return factorize(input,
-                         target,
-                         weight0,
-                         weight1,
-                         bias=bias1,
-                         rank=rank)
+        return factorize(input, target, weight0, weight1, bias=bias1, rank=rank)
 
     def apply_solution(self, solution: LowRankSolution) -> None:
         self.latent_size = solution.rank

@@ -71,9 +71,7 @@ def test_update_factorized_linear_twice():
     d_out = 40
     d_latent = 32
     X = torch.randn(batch_size, d_in)
-    module = FactorizedLinear(in_features=d_in,
-                              out_features=d_out,
-                              latent_features=d_latent)
+    module = FactorizedLinear(in_features=d_in, out_features=d_out, latent_features=d_latent)
     assert module.module1 is None  # initially not factorized
 
     def _check_shapes(module: FactorizedLinear, d_in, d_out, d_latent):
