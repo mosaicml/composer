@@ -1,9 +1,12 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
+import datetime
 import logging
 import os
+import signal
 import subprocess
 import sys
+import tempfile
 import time
 from argparse import ArgumentParser
 from typing import Any, List, Set
@@ -28,7 +31,7 @@ def parse_args():
 
 
 def launch_processes(nproc: int, training_script: str, training_script_args: List[Any]) -> Set[subprocess.Popen]:
-
+    logger.info("Starting DDP on node_rank(%d) with world_size(%d)", 0, nproc)
     processes = []
 
     for rank in range(nproc):
@@ -42,14 +45,16 @@ def launch_processes(nproc: int, training_script: str, training_script_args: Lis
         current_env["MASTER_ADDR"] = "127.0.0.1"
         current_env["MASTER_PORT"] = str(29400)
 
+        logger.info("Launching process for global_rank(%d) on node_rank(%d)", rank, 0)
+
         if rank == 0:
             process = subprocess.Popen(cmd, env=current_env, text=True)
         else:
             process = subprocess.Popen(
                 cmd,
                 env=current_env,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
+                stdout=tempfile.TemporaryFile(),
+                stderr=tempfile.TemporaryFile(),
                 text=True,
             )
         processes.append(process)
@@ -65,8 +70,7 @@ def monitor_processes(processes: Set[subprocess.Popen]):
                 continue
             else:
                 # return code of 0 implies clean exit
-                # return code of -9 implies sigkill, presumably from
-                # cleanup() in the main process
+                # return code of -9 implies sigkill, presumably from cleanup_processes()
                 if process.returncode not in (0, -9):
                     if process.stdout is None:
                         output = ""
@@ -83,8 +87,15 @@ def monitor_processes(processes: Set[subprocess.Popen]):
                         output=output,
                         stderr=stderr,
                     )
-                    logger.exception("Error in subprocess", exc_info=exc)
-                    sys.exit(1)
+                    error_msg = [
+                        "Error in subprocess",
+                        "----------Subprocess STDOUT----------",
+                        exc.output,
+                        "----------Subprocess STDERR----------",
+                        exc.stderr,
+                    ]
+                    logger.exception("\n".join(error_msg), exc_info=exc)
+                    sys.exit(process.returncode)
                 else:
                     # exited cleanly
                     processes.remove(process)
@@ -94,11 +105,27 @@ def monitor_processes(processes: Set[subprocess.Popen]):
 
 def cleanup_processes(processes: Set[subprocess.Popen]):
     for process in processes:
-        logger.info("Killing subprocess %s", process.pid)
-        try:
-            process.kill()
-        except Exception:
-            pass
+        if process.returncode is None:
+            logger.info("Killing subprocess %s with SIGTERM", process.pid)
+            try:
+                os.killpg(process.pid, signal.SIGTERM)
+            except ProcessLookupError:
+                pass
+
+    current_time = datetime.datetime.now()
+    while datetime.datetime.now() - current_time < datetime.timedelta(seconds=5):
+        if all(process.returncode is not None for process in processes):
+            break
+        time.sleep(0.1)
+
+    for process in processes:
+        if process.returncode is None:
+            logger.error("Killing subprocess %s with SIGKILL", process.pid)
+            try:
+                os.killpg(process.pid, signal.SIGKILL)
+            except ProcessLookupError:
+                pass
+
     if torch.distributed.is_initialized():
         torch.distributed.destroy_process_group()
 
