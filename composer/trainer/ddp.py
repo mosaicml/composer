@@ -32,6 +32,8 @@ logger = logging.getLogger(__name__)
 
 TObj = TypeVar("TObj")
 
+CLEANUP_TIMEOUT = datetime.timedelta(seconds=5)
+
 
 class DataloaderMultipleIterationWarning(Warning):
     pass
@@ -326,19 +328,15 @@ class DDP:
                 except ProcessLookupError:
                     pass
         current_time = datetime.datetime.now()
-        while datetime.datetime.now() - current_time < datetime.timedelta(seconds=5):
-            all_finished = True
-            for process in self.processes:
-                if process.returncode is None:
-                    all_finished = False
-                    break
+        while datetime.datetime.now() - current_time < CLEANUP_TIMEOUT:
+            all_finished = all([p.returncode is None for p in self.processes])
             if all_finished:
                 break
             time.sleep(0.1)
 
         for process in self.processes:
             if process.returncode is None:
-                logger.error("Killing subprocess %s with SIGKILL", process.pid)
+                logger.error("Failed to kill subprocess %s with SIGTERM, using SIGKILL instead", process.pid)
                 self.killed_pids.add(process.pid)
                 try:
                     os.killpg(process.pid, signal.SIGKILL)
