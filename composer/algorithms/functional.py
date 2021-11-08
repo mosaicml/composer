@@ -14,6 +14,7 @@ from composer.algorithms.alibi.alibi import apply_alibi as apply_alibi
 from composer.algorithms.augmix import augment_and_mix as augment_and_mix
 from composer.algorithms.blurpool import apply_blurpool as apply_blurpool
 from composer.algorithms.colout.colout import colout as colout
+from composer.algorithms.cutmix.cutmix import cutmix_batch as cutmix_batch
 from composer.algorithms.cutout.cutout import cutout as cutout
 from composer.algorithms.ghost_batchnorm.ghost_batchnorm import apply_ghost_batchnorm as apply_ghost_batchnorm
 from composer.algorithms.label_smoothing import smooth_labels as smooth_labels
