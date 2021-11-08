@@ -90,6 +90,8 @@ class Trainer:
             (default: ``TCPStoreHparams("127.0.0.1", 43297)``)
         fork_rank_0 (bool, optional): True to fork the rank 0 process in distributed data parallel,
             False to not. (default: ``True``)
+        ddp_timeout (float, optional): Timeout, in seconds, for initializing the DDP process group.
+            (default: ``5.0``)
         ddp_sync_strategy (DDPSyncStrategy, optional): The strategy to use for synchronizing gradients.
             Leave unset to let the trainer auto-configure this.
         seed (int, optional): The seed used in randomization. When not provided a random seed
@@ -150,6 +152,7 @@ class Trainer:
             # ddp hparams
             ddp_store_hparams: Optional[StoreHparams] = None,
             fork_rank_0: bool = False,
+            ddp_timeout: float = 5.0,
             ddp_sync_strategy: Optional[str] = None,
 
             # Randomness
@@ -206,6 +209,7 @@ class Trainer:
             backend=self.device.ddp_backend,
             fork_rank_0=fork_rank_0,
             find_unused_parameters=find_unused_parameters,
+            timeout=ddp_timeout,
             ddp_sync_strategy=ddp_sync_strategy,
         )
 
@@ -344,8 +348,9 @@ class Trainer:
             timeout=hparams.dataloader.timeout,
 
             # ddp hparams
-            ddp_store_hparams=ddp.store_hparams,
-            fork_rank_0=ddp.fork_rank_0,
+            ddp_store_hparams=ddp.hparams.store,
+            fork_rank_0=ddp.hparams.fork_rank_0,
+            ddp_timeout=ddp.hparams.timeout,
 
             # Randomness
             seed=seed,
