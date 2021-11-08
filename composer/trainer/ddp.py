@@ -13,9 +13,10 @@ import tempfile
 import time
 import warnings
 from abc import ABC, abstractmethod
+from contextlib import contextmanager, nullcontext
 from dataclasses import dataclass
 from threading import Thread
-from typing import Callable, Iterator, List, Optional, Sequence, Set, TypeVar, cast
+from typing import Callable, ContextManager, Iterator, List, Optional, Sequence, Set, TypeVar, Union, cast
 
 import torch
 import torch.distributed
@@ -27,6 +28,8 @@ from torch.utils.data.distributed import DistributedSampler
 from composer.core.state import State
 from composer.core.types import Batch, DataLoader, Model, Tensor
 from composer.datasets import DataloaderHparams, DataloaderSpec, WrappedDataLoader
+from composer.utils.iter_helpers import ensure_tuple
+from composer.utils.string_enum import StringEnum
 
 logger = logging.getLogger(__name__)
 
@@ -77,6 +80,35 @@ class DDPDataLoader(WrappedDataLoader):
             raise
 
 
+class DDPSyncStrategy(StringEnum):
+    """How and when DDP gradient synchronization should happen.
+
+    Attributes:
+        SINGLE_AUTO_SYNC: The default behavior for DDP. Gradients are synchronized as they
+            computed, for only the final microbatch of a batch. This is the most efficient
+            strategy, but can lead to errors when ``find_unused_parameters`` is set, since
+            it is possible different microbatches may use different sets of parameters,
+            leading to an incomplete sync.
+        MULTI_AUTO_SYNC: The default behavior for DDP when ``find_unused_parameters`` is set.
+            Gradients are synchronized as they are computed for all microbatches. This ensures
+            complete synchronization, but is less efficient than :attr:`SINGLE_AUTO_SYNC`. This
+            efficiency gap is usually small, as long as either DDP syncs are a small portion
+            of the trainer's overall runtime, or the number of microbatches per batch is
+            relatively small.
+        FORCED_SYNC: Gradients are manually synchronized only after all gradients have been
+            computed for the final microbatch of a batch. Like :attr:`MULTI_AUTO_SYNC`, this
+            strategy ensures complete gradient synchronization, but this tends to be slower than
+            :attr:`MULTI_AUTO_SYNC`. This is because ordinarily syncs can happen in parallel
+            with the ``loss.backward()`` computation, meaning syncs can be mostly complete by
+            the time that function finishes. However, in certain circumstances, syncs may take
+            a very long time to complete - if there are also a lot of microbatches per batch,
+            this strategy may be optimal.
+    """
+    SINGLE_AUTO_SYNC = "single_auto_sync"
+    MULTI_AUTO_SYNC = "multi_auto_sync"
+    FORCED_SYNC = "forced_sync"
+
+
 class DDP:
 
     def __init__(self,
@@ -88,7 +120,8 @@ class DDP:
                  backend: str,
                  fork_rank_0: bool,
                  timeout: float,
-                 find_unused_parameters: bool = False):
+                 find_unused_parameters: bool = False,
+                 ddp_sync_strategy: Optional[Union[str, DDPSyncStrategy]] = None):
         self.hparams = DDPHparams(
             store=store_hparams,
             node_rank=node_rank,
@@ -101,6 +134,10 @@ class DDP:
         self.processes: List[subprocess.Popen[str]] = []
         self.killed_pids: Set[int] = set()  # track which pids have been killed
         self.find_unused_parameters = find_unused_parameters
+        if ddp_sync_strategy is None:
+            self.ddp_sync_strategy = DDPSyncStrategy.SINGLE_AUTO_SYNC if not find_unused_parameters else DDPSyncStrategy.FORCED_SYNC
+        else:
+            self.ddp_sync_strategy = DDPSyncStrategy(ddp_sync_strategy)
 
         if backend == 'nccl':
             if not torch.cuda.is_available():
@@ -345,6 +382,39 @@ class DDP:
 
         if torch.distributed.is_initialized():
             torch.distributed.destroy_process_group()
+
+    @contextmanager
+    def ddp_sync_context(self, state: State, is_final_microbatch: bool):
+        assert isinstance(state.model, DistributedDataParallel), "state.model is not wrapped by DDP"
+        assert state.optimizers is not None, "optimizers have not been initialized"
+
+        no_sync_context = cast(Callable[[], ContextManager], state.model.no_sync)
+        auto_sync_context = nullcontext
+
+        if self.ddp_sync_strategy == DDPSyncStrategy.SINGLE_AUTO_SYNC:
+            context = auto_sync_context if is_final_microbatch else no_sync_context
+            with context():
+                yield
+
+        elif self.ddp_sync_strategy == DDPSyncStrategy.MULTI_AUTO_SYNC:
+            with auto_sync_context():
+                yield
+
+        elif self.ddp_sync_strategy == DDPSyncStrategy.FORCED_SYNC:
+            try:
+                with no_sync_context():
+                    yield
+            finally:
+                if is_final_microbatch:
+                    for optimizer in ensure_tuple(state.optimizers):
+                        for group in optimizer.param_groups:
+                            for p in group["params"]:
+                                if p.grad is not None:
+                                    self.all_reduce(p.grad)
+                                    p.grad = p.grad / state.world_size
+
+        else:
+            raise ValueError("Unknown sync strategy", self.ddp_sync_strategy)
 
 
 @dataclass

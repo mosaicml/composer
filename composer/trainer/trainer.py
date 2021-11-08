@@ -92,6 +92,8 @@ class Trainer:
             False to not. (default: ``True``)
         ddp_timeout (float, optional): Timeout, in seconds, for initializing the DDP process group.
             (default: ``5.0``)
+        ddp_sync_strategy (DDPSyncStrategy, optional): The strategy to use for synchronizing gradients.
+            Leave unset to let the trainer auto-configure this.
         seed (int, optional): The seed used in randomization. When not provided a random seed
             will be created. (default: ``None``)
         deterministic_mode (bool, optional): Run the model deterministically. Experimental. Performance
@@ -151,6 +153,7 @@ class Trainer:
             ddp_store_hparams: Optional[StoreHparams] = None,
             fork_rank_0: bool = False,
             ddp_timeout: float = 5.0,
+            ddp_sync_strategy: Optional[str] = None,
 
             # Randomness
             seed: Optional[int] = None,
@@ -173,6 +176,8 @@ class Trainer:
         warnings.filterwarnings(action="ignore", message="torch.cuda.amp.GradScaler")
 
         self.config = config
+
+        self.ddp_sync_strategy = ddp_sync_strategy
 
         if not device:
             device = DeviceCPU(num_cpus=1)
@@ -205,6 +210,7 @@ class Trainer:
             fork_rank_0=fork_rank_0,
             find_unused_parameters=find_unused_parameters,
             timeout=ddp_timeout,
+            ddp_sync_strategy=ddp_sync_strategy,
         )
 
         self.state = State(max_epochs=max_epochs,
@@ -359,6 +365,7 @@ class Trainer:
             checkpoint_interval_unit=hparams.checkpoint_interval_unit,
             checkpoint_folder=hparams.checkpoint_folder,
             checkpoint_interval=hparams.checkpoint_interval,
+            ddp_sync_strategy=hparams.ddp_sync_strategy,
 
             # Optional config
             config=hparams.to_dict())
@@ -674,7 +681,6 @@ class Trainer:
             microbatches (Sequence[Batch]): The microbatches which make up the batch.
         """
         self.engine.run_event(Event.BEFORE_TRAIN_BATCH)
-        find_unused_parameters = any(map(lambda x: x.find_unused_parameters, self.engine.algorithms))
 
         state = self.state
         original_model = state.model.module
@@ -692,16 +698,8 @@ class Trainer:
         current_batch_size = sum([self._get_batch_size(batch) for batch in microbatches])
 
         for microbatch_idx, state.batch in enumerate(microbatches):
-            # It's only necessary to run a DDP sync on the final microbatch, since the synced
-            # gradients aren't needed until after this function has finished.
-            # When any algorithm sets find_unused_parameters to true, DDP must sync every microbatch.
-
-            if microbatch_idx + 1 == len(microbatches) or not isinstance(
-                    state.model, DistributedDataParallel) or find_unused_parameters:
-                context = contextlib.nullcontext
-            else:
-                context = state.model.no_sync
-            with context():  # type: ignore - Pyright does not recognize type of no_sync
+            is_final_microbatch = microbatch_idx + 1 == len(microbatches)
+            with self.ddp.ddp_sync_context(state, is_final_microbatch):
                 last_microbatch_size = self._get_batch_size(state.batch)
 
                 # forward pass
