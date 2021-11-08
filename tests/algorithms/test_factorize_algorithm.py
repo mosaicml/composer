@@ -15,8 +15,7 @@ from composer.trainer.trainer_hparams import TrainerHparams
 from tests.utils.trainer_fit import train_model
 
 
-# @pytest.fixture(params=itertools.product((False, True), (False, True)))
-@pytest.fixture(params=[(True, True)])
+@pytest.fixture(params=itertools.product((False, True), (False, True)))
 def algo_instance(request):
     replace_convs, replace_linears = request.param
     return Factorize(factorize_convs=replace_convs,
