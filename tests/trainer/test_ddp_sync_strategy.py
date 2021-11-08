@@ -9,8 +9,9 @@ import torch.nn as nn
 
 from composer.core.state import State
 from composer.core.types import Tensor
-from composer.trainer.ddp import DDP, FileStoreHparams
+from composer.trainer.ddp import DDP
 from composer.trainer.devices.device_cpu import DeviceCPU
+from tests.fixtures.ddp_fixtures import with_distributed
 
 
 class MinimalConditionalModel(nn.Module):
@@ -49,16 +50,7 @@ def test_ddp_sync_strategy(ddp_sync_strategy: str, expected_grads: List[Optional
 
     original_model = MinimalConditionalModel()
 
-    device = DeviceCPU(num_cpus=2)
-
-    ddp = DDP(nproc_per_node=device.nproc_per_node,
-              store_hparams=FileStoreHparams(os.path.join(ddp_tmpdir, "store")),
-              node_rank=0,
-              num_nodes=1,
-              backend=device.ddp_backend,
-              fork_rank_0=True,
-              find_unused_parameters=True,
-              ddp_sync_strategy=ddp_sync_strategy)
+    device = DeviceCPU()
 
     optimizer = torch.optim.SGD(original_model.parameters(), 0.1)
 
@@ -75,12 +67,15 @@ def test_ddp_sync_strategy(ddp_sync_strategy: str, expected_grads: List[Optional
     batches = [[(1, Tensor([1])), (1, Tensor([2]))], [(2, Tensor([1])), (2, Tensor([2]))]]
 
     def basic_train_loop():
+
+        ddp = DDP(backend=device.ddp_backend, find_unused_parameters=True, ddp_sync_strategy=ddp_sync_strategy)
+
         state.model = ddp.prepare_module(state.model)
 
         optimizer.zero_grad()
 
         for microbatch_idx in range(2):
-            with ddp.ddp_sync_context(state, microbatch_idx == 1):
+            with ddp.sync_context(state, microbatch_idx == 1):
                 input, target = batches[microbatch_idx][state.local_rank]
 
                 output = state.model.forward(input)
@@ -98,4 +93,4 @@ def test_ddp_sync_strategy(ddp_sync_strategy: str, expected_grads: List[Optional
             for expected, actual in zip(expected_grads[-1], grads):  # type: ignore
                 assert expected == actual
 
-    ddp.launch(state, basic_train_loop)
+    with_distributed(num_procs=2, target=basic_train_loop)()

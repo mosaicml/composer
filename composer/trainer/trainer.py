@@ -89,6 +89,8 @@ class Trainer:
             (default: ``0``)
         ddp_sync_strategy (DDPSyncStrategy, optional): The strategy to use for synchronizing gradients.
             Leave unset to let the trainer auto-configure this.
+        ddp_timeout (float, optional): Timeout, in seconds, for initializing the DDP process group.
+            (default: ``5.0``)
         seed (int, optional): The seed used in randomization. When not provided a random seed
             will be created. (default: ``None``)
         deterministic_mode (bool, optional): Run the model deterministically. Experimental. Performance
@@ -146,6 +148,7 @@ class Trainer:
 
             # ddp hparams
             ddp_sync_strategy: Optional[str] = None,
+            ddp_timeout: float = 5.0,
 
             # Randomness
             seed: Optional[int] = None,
@@ -194,8 +197,8 @@ class Trainer:
         self.ddp = DDP(
             backend=self.device.ddp_backend,
             find_unused_parameters=find_unused_parameters,
+            sync_strategy=ddp_sync_strategy,
             timeout=ddp_timeout,
-            ddp_sync_strategy=ddp_sync_strategy,
         )
 
         self.state = State(max_epochs=max_epochs,
@@ -323,6 +326,10 @@ class Trainer:
             pin_memory=hparams.dataloader.pin_memory,
             timeout=hparams.dataloader.timeout,
 
+            # ddp hparams
+            ddp_sync_strategy=hparams.ddp.sync_strategy,
+            ddp_timeout=hparams.ddp.timeout,
+
             # Randomness
             seed=seed,
             deterministic_mode=hparams.deterministic_mode,
@@ -336,7 +343,6 @@ class Trainer:
             checkpoint_interval_unit=hparams.checkpoint_interval_unit,
             checkpoint_folder=hparams.checkpoint_folder,
             checkpoint_interval=hparams.checkpoint_interval,
-            ddp_sync_strategy=hparams.ddp_sync_strategy,
 
             # Optional config
             config=hparams.to_dict())
@@ -670,7 +676,7 @@ class Trainer:
 
         for microbatch_idx, state.batch in enumerate(microbatches):
             is_final_microbatch = microbatch_idx + 1 == len(microbatches)
-            with self.ddp.ddp_sync_context(state, is_final_microbatch):
+            with self.ddp.sync_context(state, is_final_microbatch):
                 last_microbatch_size = self._get_batch_size(state.batch)
 
                 # forward pass

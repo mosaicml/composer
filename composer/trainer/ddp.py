@@ -9,17 +9,17 @@ import os
 import warnings
 from contextlib import contextmanager, nullcontext
 from dataclasses import dataclass
-from threading import Thread
-from typing import Callable, ContextManager, Iterator, List, Optional, Sequence, Set, TypeVar, Union, cast
+from typing import Callable, ContextManager, Iterator, List, Optional, Sequence, TypeVar, cast
 
 import torch
 import torch.distributed
 import torch.utils.data
+import yahp as hp
 from torch.distributed.distributed_c10d import get_world_size
 from torch.nn.parallel import DistributedDataParallel
 from torch.utils.data.distributed import DistributedSampler
 
-from composer import State
+from composer.core.state import State
 from composer.core.types import Batch, DataLoader, Model, Tensor
 from composer.datasets import DataloaderHparams, DataloaderSpec, WrappedDataLoader
 from composer.utils.iter_helpers import ensure_tuple
@@ -105,13 +105,13 @@ class DDPSyncStrategy(StringEnum):
 
 class DDP:
 
-    def __init__(self, *, backend: str, find_unused_parameters: bool = False, ddp_sync_strategy: Optional[str] = None):
+    def __init__(self, *, backend: str, find_unused_parameters: bool = False, sync_strategy: Optional[str] = None):
         self.backend = backend
         self.find_unused_parameters = find_unused_parameters
-        if ddp_sync_strategy is None:
-            self.ddp_sync_strategy = DDPSyncStrategy.SINGLE_AUTO_SYNC if not find_unused_parameters else DDPSyncStrategy.FORCED_SYNC
+        if sync_strategy is None:
+            self.sync_strategy = DDPSyncStrategy.SINGLE_AUTO_SYNC if not find_unused_parameters else DDPSyncStrategy.FORCED_SYNC
         else:
-            self.ddp_sync_strategy = DDPSyncStrategy(ddp_sync_strategy)
+            self.sync_strategy = DDPSyncStrategy(sync_strategy)
 
         if "RANK" in os.environ and "WORLD_SIZE" in os.environ:
             # Assume we can initialize based off of env vars
@@ -208,23 +208,23 @@ class DDP:
         return dataloader
 
     @contextmanager
-    def ddp_sync_context(self, state: State, is_final_microbatch: bool):
+    def sync_context(self, state: State, is_final_microbatch: bool):
         assert isinstance(state.model, DistributedDataParallel), "state.model is not wrapped by DDP"
         assert state.optimizers is not None, "optimizers have not been initialized"
 
         no_sync_context = cast(Callable[[], ContextManager], state.model.no_sync)
         auto_sync_context = nullcontext
 
-        if self.ddp_sync_strategy == DDPSyncStrategy.SINGLE_AUTO_SYNC:
+        if self.sync_strategy == DDPSyncStrategy.SINGLE_AUTO_SYNC:
             context = auto_sync_context if is_final_microbatch else no_sync_context
             with context():
                 yield
 
-        elif self.ddp_sync_strategy == DDPSyncStrategy.MULTI_AUTO_SYNC:
+        elif self.sync_strategy == DDPSyncStrategy.MULTI_AUTO_SYNC:
             with auto_sync_context():
                 yield
 
-        elif self.ddp_sync_strategy == DDPSyncStrategy.FORCED_SYNC:
+        elif self.sync_strategy == DDPSyncStrategy.FORCED_SYNC:
             try:
                 with no_sync_context():
                     yield
@@ -238,4 +238,10 @@ class DDP:
                                     p.grad = p.grad / state.world_size
 
         else:
-            raise ValueError("Unknown sync strategy", self.ddp_sync_strategy)
+            raise ValueError("Unknown sync strategy", self.sync_strategy)
+
+
+@dataclass
+class DDPHparams(hp.Hparams):
+    sync_strategy: Optional[str] = hp.optional(doc="Strategy for DDP syncing", default=None)
+    timeout: float = hp.optional(doc="Timeout, in seconds, for initializing the DDP process group.", default=5.0)
