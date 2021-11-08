@@ -23,15 +23,20 @@ model_names = [name for name in model_names if name not in EXCLUDE_MODELS]
 
 
 @pytest.mark.parametrize('model_name', model_names)
-def test_load(model_name: str, dummy_dataset_hparams: SyntheticDatasetHparams):
+def test_load(model_name: str):
     if "gpt" in model_name:
         pytest.skip("GPT doesn't work on the no-op model class")
     if "unet" in model_name:
         pytest.skip("unet doesn't work on the no-op model class")
 
-    dummy_dataset_hparams.sample_pool_size = 4096
-
     trainer_hparams = trainer.load(model_name)
+    # TODO(ravi) -- add a get_synthetic_dataset(num_samples) on BaseMosaicModel
+    dummy_dataset_hparams = SyntheticDatasetHparams(
+        total_dataset_size=4096,
+        data_shape=[1, 28, 28],  # mnist input shape
+        num_classes=trainer_hparams.model.num_classes,
+        device="cpu",
+    )
     trainer_hparams.precision = Precision.FP32
     algs = algorithms.list_algorithms()
     trainer_hparams.algorithms = algorithms.load_multiple(*algs)
@@ -44,9 +49,15 @@ def test_load(model_name: str, dummy_dataset_hparams: SyntheticDatasetHparams):
 
 
 @pytest.mark.parametrize("ssr", ["0.25", "0.33", "0.50", "0.67", "0.75", "1.00", "1.25"])
-def test_scale_schedule_load(ssr: str, dummy_dataset_hparams: SyntheticDatasetHparams):
-    dummy_dataset_hparams.sample_pool_size = 4096
+def test_scale_schedule_load(ssr: str):
     trainer_hparams = trainer.load("classify_mnist")
+    # TODO(ravi) -- add a get_synthetic_dataset(num_samples) on BaseMosaicModel
+    dummy_dataset_hparams = SyntheticDatasetHparams(
+        total_dataset_size=4096,
+        data_shape=[1, 28, 28],  # mnist input shape
+        num_classes=trainer_hparams.model.num_classes,
+        device="cpu",
+    )
     trainer_hparams.precision = Precision.FP32
     algs = [f"scale_schedule/{ssr}"]
     trainer_hparams.algorithms = algorithms.load_multiple(*algs)

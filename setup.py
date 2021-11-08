@@ -9,8 +9,8 @@ with open("README.md", "r", encoding="utf-8") as fh:
 install_requires = [
     "pyyaml>=5.4.1",
     "tqdm>=4.62.3",
-    "torchmetrics",
-    "torch_optimizer",
+    "torchmetrics>=0.5.1",
+    "torch_optimizer==0.1.0",
     "torchvision>=0.9.0",
     "torch>=1.8.1",
     "argparse>=1.4.0",
@@ -40,15 +40,14 @@ extra_deps['dev'] = [
 extra_deps['wandb'] = ['wandb>=0.12.2']
 
 extra_deps['nlp'] = [
-    'transformers',
-    'datasets',
+    'transformers>=4.11.3',
+    'datasets>=1.14.0',
 ]
 
 extra_deps['unet'] = [
     'medpy==0.4.0',
-    'monai',
-    'scikit-learn',
-    'torch_optimizer>=0.1.0',
+    'monai>=0.7.0',
+    'scikit-learn>=1.0.1',
 ]
 
 extra_deps['all'] = set(dep for deps in extra_deps.values() for dep in deps)

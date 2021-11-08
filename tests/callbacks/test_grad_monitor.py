@@ -2,8 +2,6 @@
 
 from unittest.mock import MagicMock
 
-import pytest
-
 from composer.callbacks import GradMonitorHparams
 from composer.datasets.synthetic import SyntheticDatasetHparams
 from composer.trainer import TrainerHparams
@@ -23,14 +21,12 @@ def _do_trainer_fit(mosaic_trainer_hparams: TrainerHparams, log_layers=False):
     trainer.fit()
 
     assert isinstance(mosaic_trainer_hparams.train_dataset, SyntheticDatasetHparams)
-    num_train_samples = mosaic_trainer_hparams.train_dataset.sample_pool_size
+    num_train_samples = mosaic_trainer_hparams.train_dataset.total_dataset_size
     num_train_steps = num_train_samples // mosaic_trainer_hparams.total_batch_size
 
     return log_destination, num_train_steps
 
 
-@pytest.mark.timeout(60)
-@pytest.mark.run_long
 def test_grad_monitor_no_layers(mosaic_trainer_hparams: TrainerHparams):
     log_destination, num_train_steps = _do_trainer_fit(mosaic_trainer_hparams, log_layers=False)
     grad_norm_calls = 0
@@ -43,8 +39,6 @@ def test_grad_monitor_no_layers(mosaic_trainer_hparams: TrainerHparams):
     assert grad_norm_calls == num_train_steps
 
 
-@pytest.mark.timeout(60)
-@pytest.mark.run_long
 def test_grad_moniter_per_layer(mosaic_trainer_hparams: TrainerHparams):
     log_destination, num_train_steps = _do_trainer_fit(mosaic_trainer_hparams, log_layers=True)
     layer_norm_calls = 0

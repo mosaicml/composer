@@ -3,14 +3,14 @@
 from __future__ import annotations
 
 from contextlib import contextmanager
-from typing import Generator, Optional, Union
+from typing import Generator, Optional, Union, cast
 
 import torch
 import torch.cuda.amp
 import torch.utils.data
 
 from composer.core.state import State
-from composer.core.types import Batch, DataLoader, Precision, StateDict, Tensor, TPrefetchFn
+from composer.core.types import Batch, BatchPair, DataLoader, Precision, StateDict, Tensor, Tensors, TPrefetchFn
 from composer.datasets.dataloader import WrappedDataLoader
 from composer.trainer.devices.device import Device, T_nnModule
 from composer.utils import map_collection
@@ -75,8 +75,8 @@ class CudaDataLoader(WrappedDataLoader):
         if batch is not None:
             yield batch
 
-    def _to_device(self, x: Tensor) -> Tensor:
-        return x.to(self.device, non_blocking=True)
+    def _to_device(self, x: Tensors) -> Tensors:
+        return map_collection(x, lambda t: cast(Tensor, t).to(self.device, non_blocking=True))
 
     def move_to_gpu(self, batch: Batch) -> Batch:
         """Move data to the GPU device.
@@ -85,13 +85,12 @@ class CudaDataLoader(WrappedDataLoader):
             batch (Batch): The data to move the gpu.
         """
         if isinstance(batch, Tensor):
-            return self._to_device(batch)
-        if isinstance(batch, (tuple, list)):
-            return type(batch)(self._to_device(x) for x in batch)
-        if isinstance(batch, dict):
-            return {k: self._to_device(v) for k, v in batch.items()}
-
-        return map_collection(batch, self._to_device)  # type: ignore
+            return cast(Tensor, self._to_device(batch))
+        if isinstance(batch, (tuple, list)):  # BatchPair
+            return cast(BatchPair, tuple(self._to_device(x) for x in batch))
+        if isinstance(batch, dict):  # BatchDict
+            return {k: cast(Tensor, self._to_device(v)) for k, v in batch.items()}
+        raise TypeError(f"Unsupported type for batch: {type(batch)}")
 
 
 class DeviceGPU(Device):

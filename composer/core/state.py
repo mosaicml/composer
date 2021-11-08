@@ -7,6 +7,7 @@ import warnings
 from dataclasses import dataclass, field, fields
 from typing import TYPE_CHECKING, Callable, ContextManager, Optional, Sequence, Union
 
+import torch
 import torch.nn.modules.utils
 from torch.nn.parallel import DistributedDataParallel
 
@@ -14,7 +15,7 @@ import composer.core.types as types
 from composer.core.callback import Callback
 from composer.core.precision import Precision
 from composer.core.serializable import Serializable
-from composer.utils import ensure_tuple, make_empty_tensor
+from composer.utils import ensure_tuple
 from composer.utils.ddp import get_global_rank, is_rank_set
 from composer.utils.precision import default_precision_factory
 
@@ -63,10 +64,12 @@ SKIP_SERIALIZATION_FIELDS = [
 
 @dataclass
 class State(Serializable):
-    """
-    The current state of the trainer.
+    """The class used to store the state of the trainer.
 
-    Algorithms are able to modify this object in-place.
+    Contains variables that the trainer tracks throughout the training loop.
+    Note that the entire state is serialized when the trainer is checkpointed
+    so that it can be used restore the trainer and continue training from a
+    checkpoint. Algorithms are able to modify this object in-place.
 
     Attributes:
         model (types.Model, often BaseMosaicModel): The model, typically as a subclass of :class:`BaseMosaicModel`.
@@ -120,11 +123,11 @@ class State(Serializable):
     step: int = 0  # global step counter
 
     # transient tensors within training loop
-    loss: types.Tensors = field(default_factory=make_empty_tensor)
+    loss: types.Tensors = field(default_factory=lambda: torch.zeros(size=(1,)))
     last_batch_size: int = 0
 
     batch: types.Batch = field(default_factory=dict)
-    outputs: types.Tensors = field(default_factory=make_empty_tensor)
+    outputs: types.Tensors = field(default_factory=lambda: torch.zeros(size=(1,)))
 
     # optimizers
     optimizers: Optional[types.Optimizers] = None
@@ -145,9 +148,6 @@ class State(Serializable):
     world_size: int = 1
     nproc_per_node: int = 1
 
-    # random seed
-    seed: Optional[int] = None
-
     @property
     def global_rank(self) -> int:
         return get_global_rank()
@@ -165,8 +165,7 @@ class State(Serializable):
         return is_rank_set()
 
     def state_dict(self) -> types.StateDict:
-        """Returns the state as a :class:`dict`.
-        """
+        """Returns the state as a :class:`dict`."""
         state_dict: types.StateDict = {}
 
         for state_field in fields(self):

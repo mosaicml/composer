@@ -183,9 +183,12 @@ class Trainer:
         # If hparams is used to create the Trainer this function is called twice
         # which is okay because all runs with the hparams codepath will do this
         seed_all(seed)
+        self.seed = seed
 
         if not algorithms:
             algorithms = []
+
+        self.backwards_create_graph = any(map(lambda x: x.backwards_create_graph, algorithms))
 
         find_unused_parameters = any(map(lambda x: x.find_unused_parameters, algorithms))
         if not ddp_store_hparams:
@@ -210,8 +213,7 @@ class Trainer:
                            precision=precision,
                            precision_context=self.device.precision_context,
                            nproc_per_node=self.device.nproc_per_node,
-                           world_size=self.ddp.world_size,
-                           seed=seed)
+                           world_size=self.ddp.world_size)
 
         if not log_destinations:
             log_destinations = [TQDMLoggerBackend()]
@@ -359,8 +361,7 @@ class Trainer:
         return trainer
 
     def fit(self):
-        """Train and evaluate the model on the provided data.
-        """
+        """Train and evaluate the model on the provided data."""
         self.ddp.launch(self.state, self._train_loop)
 
     def _create_dataloaders(self) -> None:
@@ -390,7 +391,7 @@ class Trainer:
         )
 
     def _get_metrics_as_collection(self, *, is_train: bool) -> MetricCollection:
-        """Get metrics relevant to the model. Metrics are all implmented as subclasses
+        """Get metrics relevant to the model. Metrics are all implemented as subclasses
         of :class:`torchmetrics.Metric`. This function returns metrics as a
         :class:`~torchmetrics.collections.MetricCollection` to enable support
         for multiple metrics.
@@ -461,7 +462,9 @@ class Trainer:
 
         dim0_sizes = []
         if isinstance(batch, (list, tuple)):
-            dim0_sizes = [t.shape[0] for t in batch]
+            for tensors in batch:
+                for t in ensure_tuple(tensors):
+                    dim0_sizes.append(t.shape[0])
         elif isinstance(batch, dict):
             dim0_sizes = [t.shape[0] for t in batch.values()]
 
@@ -472,8 +475,7 @@ class Trainer:
                              f'multiple Tensor sizes in batch: {dim0_sizes}')
 
     def _train_loop(self) -> None:
-        """Run training for the specified number of epochs and log results.
-        """
+        """Run training for the specified number of epochs and log results."""
         # shorthand
         state = self.state
 
@@ -618,6 +620,7 @@ class Trainer:
                     state.step += 1
                     if self.checkpointer and self.checkpointer.should_checkpoint(state=state, event=Event.BATCH_END):
                         self.checkpointer.save_checkpoint(state=state,
+                                                          seed=self.seed,
                                                           device=self.device,
                                                           ddp=self.ddp,
                                                           config=self.config)
@@ -633,7 +636,11 @@ class Trainer:
             state.epoch += 1
 
             if self.checkpointer and self.checkpointer.should_checkpoint(state=state, event=Event.EPOCH_END):
-                self.checkpointer.save_checkpoint(state=state, device=self.device, ddp=self.ddp, config=self.config)
+                self.checkpointer.save_checkpoint(state=state,
+                                                  seed=self.seed,
+                                                  device=self.device,
+                                                  ddp=self.ddp,
+                                                  config=self.config)
 
         self.engine.run_event(Event.TRAINING_END)
 
@@ -724,7 +731,7 @@ class Trainer:
                     state.loss = state.scaler.scale(state.loss)
 
                 for loss in ensure_tuple(state.loss):
-                    loss.backward()
+                    loss.backward(create_graph=self.backwards_create_graph)
 
                 self.engine.run_event(Event.AFTER_BACKWARD)
 
@@ -799,7 +806,7 @@ class Trainer:
 
         Raises:
             RuntimeError:
-                Occurs when attemptng to use grad scaling without the scaler
+                Occurs when attempting to use grad scaling without the scaler
                 enabled. Likely due to hardware not supporting the provided precision.
         """
         precision = Precision(precision)

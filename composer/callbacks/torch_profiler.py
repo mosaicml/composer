@@ -73,6 +73,7 @@ class TorchProfiler(Callback):
         warmup: int = 1,
         active: int = 5,
         wait: int = 0,
+        repeat: int = 0,
     ) -> None:
         super().__init__()
         self.hparams = TorchProfilerHparams(
@@ -86,6 +87,7 @@ class TorchProfiler(Callback):
             profile_memory=profile_memory,
             with_stack=with_stack,
             with_flops=with_flops,
+            repeat=repeat,
         )
         self.profiler: Optional[torch.profiler.profile] = None
         self.profiler_state: _TorchProfilerState = _TorchProfilerState()
@@ -94,6 +96,7 @@ class TorchProfiler(Callback):
             warmup=self.hparams.warmup,
             active=self.hparams.active,
             skip_first=self.hparams.skip,
+            repeat=self.hparams.repeat,
         )
 
     def state_dict(self) -> StateDict:
