@@ -1,0 +1,294 @@
+# Copyright 2021 MosaicML. All Rights Reserved.
+
+import abc
+
+import numpy as np
+import torch
+from torch import nn
+from torch.nn.common_types import Optional, Tuple, Union, _size_2_t
+
+from composer.algorithms.factorize.factorize_core import LowRankSolution, factorize, factorize_conv2d
+
+FractionOrInt = Union[int, float]
+
+
+def clean_latent_size(latent_size: FractionOrInt, in_size: int, out_size: int) -> int:
+    if latent_size <= 1:  # fraction of input or output channels
+        latent_channels = int(latent_size * min(in_size, out_size))
+        return max(1, latent_channels)
+    return int(latent_size)
+
+
+def max_rank_with_possible_speedup(in_channels: int, out_channels: int, kernel_size: Optional[Tuple] = None) -> int:
+    # TODO less naive cost model than counting multiply-adds
+    fan_in = in_channels
+    if kernel_size is not None:
+        fan_in *= np.prod(kernel_size)
+    return (fan_in * out_channels) / (fan_in + out_channels) - 1
+
+
+def factorizing_could_speedup(module: torch.nn.Module, latent_size: FractionOrInt):
+    if isinstance(module, _FactorizedModule):
+        return module.should_factorize(latent_size)
+    elif isinstance(module, torch.nn.Conv2d):
+        latent_size = clean_latent_size(latent_size, module.in_channels, module.out_channels)
+        max_rank = max_rank_with_possible_speedup(module.in_channels, module.out_channels, kernel_size=module.kernel_size)
+        return latent_size <= max_rank
+    elif isinstance(module, torch.nn.Linear):
+        latent_size = clean_latent_size(latent_size, module.in_features, module.out_features)
+        max_rank = max_rank_with_possible_speedup(module.in_features, module.out_features)
+        return latent_size <= max_rank
+    else:
+        return False
+
+def _apply_solution_to_module_parameters(solution: LowRankSolution, module0: torch.nn.Module, module1: torch.nn.Module, transpose: bool) -> None:
+    error_msg = "Can't apply unititalized solution!"
+    assert solution.bias is not None, error_msg
+    assert solution.Wa is not None, error_msg
+    assert solution.Wb is not None, error_msg
+
+    with torch.no_grad():
+        # first op always has no bias since adds no expressivity
+        if module0.bias is not None:
+            module0.bias = torch.nn.Parameter(torch.zeros(solution.rank, dtype=module0.bias.dtype))
+        module1.bias.copy_(solution.bias)
+        Wa = solution.Wa
+        Wb = solution.Wb
+        if transpose:
+            Wa = torch.transpose(Wa, 0, 1)
+            Wb = torch.transpose(Wb, 0, 1)
+        module0.weight = torch.nn.Parameter(Wa)
+        module1.weight = torch.nn.Parameter(Wb)
+
+
+class _FactorizedModule(nn.Module, abc.ABC):
+
+    def __init__(self, in_size: int, out_size: int, latent_size: FractionOrInt, kernel_size: _size_2_t = 1):
+        super().__init__()
+        self.in_size = in_size
+        self.out_size = out_size
+        self.latent_size = clean_latent_size(latent_size, in_size, out_size)
+        self.kernel_size = kernel_size
+
+    def _check_child_modules_present(self):
+        assert hasattr(self, 'module0'), "module0 must be set during child class __init__!"
+        assert hasattr(self, 'module1'), "module1 must be set during child class __init__!"
+
+    def forward(self, input: torch.Tensor):
+        self._check_child_modules_present()
+        ret = self.module0(input)
+        if self.module1 is not None:
+            ret = self.module1(ret)
+        return ret
+
+    def reset_parameters(self):
+        self._check_child_modules_present()
+        self.module0.reset_parameters()
+        if self.module1 is not None:
+            self.module1.reset_parameters()
+
+    def set_rank(self, input: torch.Tensor, rank: int) -> None:
+        soln = self.solution_for_rank(input, rank)
+        self.apply_solution(soln)
+
+    def _clean_latent_size(self, latent_size: FractionOrInt):
+        return clean_latent_size(latent_size, self.in_size, self.out_size)
+
+    def _max_rank_with_speedup(self):
+        if hasattr(self, 'module1') and self.module1 is not None:
+            # already factorized, so reducing rank at all helps
+            return self.latent_size - 1
+        else:
+            # not factorized yet; has to factorize enough to be worthwhile
+            return max_rank_with_possible_speedup(self.in_size, self.out_size, kernel_size=self.kernel_size)
+
+    def should_factorize(self, proposed_rank: FractionOrInt):
+        proposed_rank = self._clean_latent_size(proposed_rank)
+        return proposed_rank <= self._max_rank_with_speedup()
+
+    @abc.abstractmethod
+    def _create_child_modules(self) -> Tuple[torch.nn.Module, torch.nn.Module]:
+        """This is used to populate the self.module0 and self.module1 attributes;
+        it's not part of __init__ because the logic to initialize them is
+        subclass-specific and might depend on the shared logic in __init__"""
+        ...
+
+    @abc.abstractmethod
+    def solution_for_rank(input: torch.Tensor, rank: int) -> LowRankSolution:
+        """Returns a solution that :meth:`~apply_solution` can use to update the module's level of factorization.
+
+        This is seperate from set_rank() so that one can generate and assess
+        many possible solutions for a given module before choosing one.
+
+        Args:
+            input: An input to the module used to optimize the solution's
+                weights. The optimization seeks to preserve the module's
+                input-output mapping as much as possible subject to the
+                specified rank constraint.
+            rank: The number of dimensions in the latent space into which
+                the input is mapped.
+        """
+        ...
+
+    @abc.abstractmethod
+    def apply_solution(solution: LowRankSolution) -> None:
+        """Updates module's child modules to reflect the factorization solution.
+
+        This *always* applies the solution and doesn't check whether
+        using the solution is worthwhile.
+
+        Args:
+            solution: An object encapsulating the new parameters to be used
+                and their associated mean squared error on the input for
+                which they were optimized.
+        """
+        pass
+
+
+class FactorizedConv2d(_FactorizedModule):
+
+    def __init__(self,
+                 in_channels: int,
+                 out_channels: int,
+                 kernel_size: _size_2_t,
+                 latent_channels: FractionOrInt = .5,
+                 **kwargs):
+        super().__init__(in_size=in_channels, out_size=out_channels, latent_size=latent_channels, kernel_size=kernel_size)
+        self.kwargs = kwargs
+        # conv2d factorization code requires most Conv2d arguments, but
+        # not boolean 'bias'
+        self.convolution_kwargs = {k: v for k, v in kwargs.items() if k != 'bias'}
+        self.module0, self.module1 = self._create_child_modules()
+
+    def _create_child_modules(self) -> Tuple[torch.nn.Module, torch.nn.Module]:
+        if self.should_factorize(self.latent_channels):
+            # this one produces identical output as a regular Conv2d would,
+            # except with fewer output channels
+            conv0 = nn.Conv2d(self.in_channels, self.latent_channels, self.kernel_size, bias=False, **self.convolution_kwargs)
+            # this one increases the number of output channels
+            conv1 = nn.Conv2d(self.latent_channels, self.out_channels, kernel_size=1, bias=True)
+        else:
+            self.latent_size = self.out_channels
+            conv0 = nn.Conv2d(self.in_channels, self.out_channels, self.kernel_size, **self.kwargs)
+            conv1 = None
+
+        return conv0, conv1
+
+    # wrap shared fields in read-only properties matching the torch conv module API
+    @property
+    def in_channels(self) -> int:
+        return self.in_size
+
+    @property
+    def out_channels(self) -> int:
+        return self.out_size
+
+    @property
+    def latent_channels(self) -> int:
+        return self.latent_size
+
+    def solution_for_rank(self, input: torch.Tensor, rank: int) -> LowRankSolution:
+        weight0 = self.module0.weight
+        bias0 = self.module0.bias
+        if self.module1 is None:
+            weight1, bias1 = None, None
+        else:
+            weight1, bias1 = self.module1.weight, self.module1.bias
+
+        return factorize_conv2d(input,
+                                weight0,
+                                weight1,
+                                rank=rank,
+                                biasA=bias0,
+                                biasB=bias1,
+                                **self.convolution_kwargs)
+
+    def apply_solution(self, solution: LowRankSolution):
+        self.latent_size = solution.rank
+        if self.module1 is None:
+            self.module1 = nn.Conv2d(self.latent_channels, self.out_channels, kernel_size=1, bias=True)
+        self.module0.out_channels = solution.rank
+        self.module1.in_channels = solution.rank
+        _apply_solution_to_module_parameters(solution, self.module0, self.module1, transpose=False)
+
+    @staticmethod
+    def from_conv2d(module: torch.nn.Conv2d, module_ix: int = -1, **kwargs) -> 'FactorizedConv2d':
+        conv = FactorizedConv2d(
+            in_channels=module.in_channels,
+            out_channels=module.out_channels,
+            kernel_size=module.kernel_size,
+            stride=module.stride,
+            padding=module.padding,
+            dilation=module.dilation,
+            groups=module.groups,
+            bias=((module.bias is not None) and (module.bias is not False)),
+            **kwargs  # custom params
+        )
+        conv.reset_parameters()
+        return conv
+
+
+class FactorizedLinear(_FactorizedModule):
+
+    def __init__(self, in_features: int, out_features: int, latent_features: FractionOrInt = .5, bias: bool = True):
+        super().__init__(in_size=in_features, out_size=out_features, latent_size=latent_features)
+        self.bias = bias
+        self.module0, self.module1 = self._create_child_modules()
+
+    def _create_child_modules(self) -> Tuple[torch.nn.Module, torch.nn.Module]:
+        if self.should_factorize(self.latent_size):
+            module0 = nn.Linear(in_features=self.in_features, out_features=self.latent_size, bias=False)
+            module1 = nn.Linear(in_features=self.latent_size, out_features=self.out_features, bias=self.bias)
+        else:
+            self.latent_size = self.out_features
+            module0 = nn.Linear(in_features=self.in_features, out_features=self.out_features, bias=True)
+            module1 = None
+
+        return module0, module1
+
+    # wrap shared fields in read-only properties matching the torch conv module API
+    @property
+    def in_features(self) -> int:
+        return self.in_size
+
+    @property
+    def out_features(self) -> int:
+        return self.out_size
+
+    @property
+    def latent_features(self) -> int:
+        return self.latent_size
+
+    def solution_for_rank(self, input: torch.Tensor, rank: int) -> LowRankSolution:
+        weight0 = torch.transpose(self.module0.weight, 0, 1)
+        if self.module1 is None:
+            weight1, bias1 = None, None
+        else:
+            weight1 = torch.transpose(self.module1.weight, 0, 1)
+            bias1 = self.module1.bias
+        target = self(input)
+
+        return factorize(input,
+                         target,
+                         weight0,
+                         weight1,
+                         bias=bias1,
+                         rank=rank)
+
+    def apply_solution(self, solution: LowRankSolution) -> None:
+        self.latent_size = solution.rank
+        if self.module1 is None:
+            self.module1 = nn.Linear(self.latent_size, self.out_features, bias=True)
+            self.already_factorized = True
+        self.module0.out_features = solution.rank
+        self.module1.in_features = solution.rank
+        _apply_solution_to_module_parameters(solution, self.module0, self.module1, transpose=True)
+
+    @staticmethod
+    def from_linear(module: torch.nn.Linear, module_ix: int = -1, **kwargs) -> 'FactorizedLinear':
+        ret = FactorizedLinear(in_features=module.in_features,
+                               out_features=module.out_features,
+                               bias=((module.bias is not None) and (module.bias is not False)),
+                               **kwargs)
+        ret.reset_parameters()
+        return ret
