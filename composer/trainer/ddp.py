@@ -125,9 +125,9 @@ class DDP:
             torch.distributed.init_process_group(self.backend, timeout=timeout)
             return
 
-        warnings.warn("RANK and WORLD_SIZE env vars not set; assuming no parallelization. If "
-                      "this is unexpected, make sure you are running your training script with "
-                      "the composer executable.")
+        warnings.warn("NoDDPWarning: RANK and WORLD_SIZE env vars not set; assuming no parallelization. "
+                      "If this is unexpected, make sure you are running your training script with the "
+                      "composer executable.")
         store = torch.distributed.HashStore()
 
         torch.distributed.init_process_group(self.backend, timeout=timeout, store=store, world_size=1, rank=0)
@@ -135,10 +135,6 @@ class DDP:
     @property
     def world_size(self) -> int:
         return get_world_size()
-
-    @property
-    def world_size(self) -> int:
-        return self.hparams.num_nodes * self.nproc_per_node
 
     def barrier(self) -> None:
         if torch.distributed.is_available():
