@@ -74,7 +74,7 @@ class SWA(Algorithm):
     Note that 'anneal_epochs' is not used in the current implementation
     """
 
-    def __init__(self, swa_start: float = 0.05, anneal_epochs: int = 10, swa_lr: Optional[float] = None):
+    def __init__(self, swa_start: float = 0.8, anneal_epochs: int = 10, swa_lr: Optional[float] = None):
         self.hparams = SWAHparams(
             swa_start=swa_start,
             anneal_epochs=anneal_epochs,
@@ -94,11 +94,11 @@ class SWA(Algorithm):
         Returns:
             bool: True if this algorithm should run now.
         """
-        
+
         if state.max_epochs == 1 and event == Event.TRAINING_START:
             should_start_swa = state.step >= int(self.hparams.swa_start * state.steps_per_epoch)
             return (event == Event.TRAINING_START or should_start_swa)
-        
+
         else:
             if event == Event.TRAINING_START:
                 should_start_swa = state.step >= int(self.hparams.swa_start * state.max_epochs * state.steps_per_epoch)
@@ -117,7 +117,7 @@ class SWA(Algorithm):
         assert state.model is not None, 'We cannot apply SWA to None'
 
         swa_start_steps = state.step >= int(self.hparams.swa_start * state.max_epochs * state.steps_per_epoch)
-        
+
         if event == Event.TRAINING_START:
             self.swa_model = AveragedModel(state.model.module)
             log.info("Creating AveragedModel")
