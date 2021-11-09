@@ -62,7 +62,7 @@ def parse_args():
 
 def launch_processes(nproc: int, world_size: int, base_rank: int, master_addr: str, master_port: int, module_mode: bool,
                      training_script: str, training_script_args: List[Any]) -> Set[subprocess.Popen]:
-    print("Starting DDP on node_rank(%d) with world_size(%d)", 0, nproc)
+    print(f"Starting DDP on local node for global_rank({base_rank}-{base_rank+nproc-1})")
     processes = []
 
     for local_rank in range(nproc):
@@ -80,7 +80,7 @@ def launch_processes(nproc: int, world_size: int, base_rank: int, master_addr: s
         current_env["MASTER_ADDR"] = master_addr
         current_env["MASTER_PORT"] = str(master_port)
 
-        print("Launching process for local_rank(%d), global_rank(%d)", local_rank, global_rank)
+        print(f"Launching process for local_rank({local_rank}), global_rank({global_rank})", local_rank, global_rank)
 
         if local_rank == 0:
             process = subprocess.Popen(cmd, env=current_env, text=True)
@@ -107,6 +107,7 @@ def monitor_processes(processes: Set[subprocess.Popen]):
                 # return code of 0 implies clean exit
                 # return code of -9 implies sigkill, presumably from cleanup_processes()
                 if process.returncode not in (0, -9):
+                    print(process)
                     if process.stdout is None:
                         output = ""
                     else:
@@ -140,9 +141,14 @@ def monitor_processes(processes: Set[subprocess.Popen]):
 
 
 def cleanup_processes(processes: Set[subprocess.Popen]):
+    if len(processes) == 0:
+        if torch.distributed.is_initialized():
+            torch.distributed.destroy_process_group()
+        return
+
     for process in processes:
         if process.returncode is None:
-            print("Killing subprocess %s with SIGTERM", process.pid)
+            print(f"Killing subprocess {process.pid} with SIGTERM")
             try:
                 os.killpg(process.pid, signal.SIGTERM)
             except ProcessLookupError:
@@ -157,7 +163,7 @@ def cleanup_processes(processes: Set[subprocess.Popen]):
 
     for process in processes:
         if process.returncode is None:
-            print("Failed to kill subprocess %s with SIGTERM; using SIGKILL instead", process.pid)
+            print(f"Failed to kill subprocess {process.pid} with SIGTERM; using SIGKILL instead")
             try:
                 os.killpg(process.pid, signal.SIGKILL)
             except ProcessLookupError:
