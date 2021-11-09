@@ -74,7 +74,7 @@ class SWA(Algorithm):
     Note that 'anneal_epochs' is not used in the current implementation
     """
 
-    def __init__(self, swa_start: float = 0.8, anneal_epochs: int = 10, swa_lr: Optional[float] = None):
+    def __init__(self, swa_start: float = 0.05, anneal_epochs: int = 10, swa_lr: Optional[float] = None):
         self.hparams = SWAHparams(
             swa_start=swa_start,
             anneal_epochs=anneal_epochs,
@@ -86,7 +86,7 @@ class SWA(Algorithm):
         self.swa_scheduler = None
 
     def match(self, event: Event, state: State) -> bool:
-        """Run in Event.TRAINING_START, Event.TRAINING_END or if Event.EPOCH_END and epochs greater than or equal to `swa_start * max_epochs`
+        """Run in Event.TRAINING_START or if Event.EPOCH_END and steps greater than or equal to `swa_start * max_epochs * steps_per_epoch`
 
         Args:
             event (:class:`Event`): The current event.
@@ -94,9 +94,17 @@ class SWA(Algorithm):
         Returns:
             bool: True if this algorithm should run now.
         """
-        should_start_swa = state.epoch >= int(self.hparams.swa_start * state.max_epochs)
-        return event in (Event.TRAINING_START, Event.TRAINING_END) or \
-             (event == Event.EPOCH_END and should_start_swa)
+        
+        if state.max_epochs == 1 and event == Event.TRAINING_START:
+            should_start_swa = state.step >= int(self.hparams.swa_start * state.steps_per_epoch)
+            return (event == Event.TRAINING_START or should_start_swa)
+        
+        else:
+            if event == Event.TRAINING_START:
+                should_start_swa = state.step >= int(self.hparams.swa_start * state.max_epochs * state.steps_per_epoch)
+
+            return (event == Event.TRAINING_START) or \
+                (event == Event.EPOCH_END and should_start_swa)
 
     def apply(self, event: Event, state: State, logger: Logger) -> None:
         """Apply SWA to weights towards the end of training
@@ -108,36 +116,26 @@ class SWA(Algorithm):
         """
         assert state.model is not None, 'We cannot apply SWA to None'
 
-        swa_start_epochs = int(self.hparams.swa_start * state.max_epochs)
-
+        swa_start_steps = state.step >= int(self.hparams.swa_start * state.max_epochs * state.steps_per_epoch)
+        
         if event == Event.TRAINING_START:
-            self.swa_model = AveragedModel(state.model)
+            self.swa_model = AveragedModel(state.model.module)
+            log.info("Creating AveragedModel")
 
-        if event == Event.EPOCH_END and state.epoch == swa_start_epochs:
-            assert self.swa_scheduler is None, "SWA Scheduler should only be set once. Another algorithm "
-            "may have adjusted the max_epochs."
+        if self.hparams.swa_lr is None:
+            log.info(f'Setting SWA LR to default lr')
 
-            if self.hparams.swa_lr is None:
-                last_lr = state.schedulers.schedulers[0].get_last_lr()  # assumes ComposedScheduler
-                log.info(f'Setting SWA LR to {last_lr}')
-                self.hparams.swa_lr = last_lr
-
-            self.swa_scheduler = SWALR(
-                state.optimizers[0] if isinstance(state.optimizers, tuple) else state.optimizers,
-                swa_lr=self.hparams.swa_lr,
-                anneal_epochs=self.hparams.anneal_epochs,
-                anneal_strategy='cos',
-            )
-
-        if event == Event.EPOCH_END and state.epoch >= swa_start_epochs:
+        if swa_start_steps:
             self.swa_model.update_parameters(state.model)
+            log.info("updating AveragedModel")
 
-            if self.swa_scheduler is None:
-                raise ValueError('SWA LR scheduler was not set.')
-            self.swa_scheduler.step()
+            if state.max_epochs == 1:
+                update_bn(state.train_dataloader, self.swa_model)
+                state.model.module = self.swa_model.module
+                log.info('Updated BN and set model to the averaged model')
 
-        ## end of training
-        if event == Event.TRAINING_END:
-            update_bn(state.train_dataloader, self.swa_model)
-            state.model = self.swa_model
-            log.info('Updated BN and set model to the averaged model')
+            else:
+                if event == Event.EPOCH_END and state.epoch == state.max_epochs - 1:
+                    update_bn(state.train_dataloader, self.swa_model)
+                    state.model.module = self.swa_model.module
+                    log.info('Updated BN and set model to the averaged model')
