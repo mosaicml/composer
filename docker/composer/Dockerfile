@@ -9,7 +9,7 @@ ARG DEBIAN_FRONTEND=noninteractive
 ###################
 
 # Build context must be the root of the repo
-COPY --chown=ubuntu:ubuntu ./ /tmp/composer
+COPY --chown=1000:1000 ./ /tmp/composer
 
 ARG COMPOSER_EXTRA_DEPS
 

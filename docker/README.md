@@ -3,16 +3,6 @@
 To simplify environment setup for the MosaicML `Composer` library, we provide a set of Docker Images that users can
 leverage.
 
-All Docker images come preinstalled with the following packages:
-* Ubuntu 20.04
-* Python
-* Pytorch
-* Nvidia CUDA (except if using a CPU-only flavor of pytorch)
-
-Additional dependencies are installed as required by the `composer` library and particular flavor (see below)
-
-## Docker Images
-
 There are three flavors of the `composer` Docker image: 'latest', 'dev' and 'all'.
 
 The specific flavor refers to the specific `pip` packages that are pre-installed and depends on intended usage.
@@ -44,6 +34,8 @@ docker pull mosaicml/composer:all
 ## Building Images locally
 
 > Note: Docker must be [installed](https://docs.docker.com/get-docker/) on your local machine.
+
+> Note: Build arguments are explained in the [Makefile](Makefile).
 
 ```bash
 # Build 'base' image

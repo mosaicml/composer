@@ -68,8 +68,21 @@ RUN add-apt-repository ppa:deadsnakes/ppa && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
-RUN curl -fsSL https://bootstrap.pypa.io/get-pip.py | python -
+RUN curl -fsSL https://bootstrap.pypa.io/get-pip.py | python - && \
+    pip install --no-cache-dir --upgrade pip
 
+#####################
+# Install pillow-simd
+#####################
+ARG PILLOW_PSEUDOVERSION=7.0.0
+ARG PILLOW_SIMD_VERSION=7.0.0.post3
+
+# pillow_stub tricks pip into thinking that it installed pillow,
+# so when pillow_simd is installed, other packages won't later override it
+COPY pillow_stub /tmp/pillow_stub
+
+RUN pip install --no-cache-dir --upgrade /tmp/pillow_stub && \
+    pip install --no-cache-dir --upgrade pillow_simd==${PILLOW_SIMD_VERSION}
 
 #################
 # Install Pytorch
@@ -78,11 +91,9 @@ ARG PYTORCH_VERSION
 ARG TORCHVISION_VERSION
 ARG CUDA_VERSION_TAG
 
-RUN pip install --no-cache-dir --upgrade pip && \
-    pip install --no-cache-dir --upgrade pillow_simd==7.0.0.post3 && \
-    pip install --no-cache-dir --find-links https://download.pytorch.org/whl/torch_stable.html \
-                torch==${PYTORCH_VERSION}\+${CUDA_VERSION_TAG} \
-                torchvision==${TORCHVISION_VERSION}\+${CUDA_VERSION_TAG}
+RUN pip install --no-cache-dir --find-links https://download.pytorch.org/whl/torch_stable.html \
+        torch==${PYTORCH_VERSION}+${CUDA_VERSION_TAG} \
+        torchvision==${TORCHVISION_VERSION}+${CUDA_VERSION_TAG}
 
 #########
 # Cleanup
@@ -93,7 +104,7 @@ RUN rm -rf /tmp/*
 # Configure non-root user
 #########################
 RUN echo "export PATH=\$PATH:~/.local/bin" >> /etc/skel/.bashrc && \
-    useradd -rm -d /home/ubuntu -s /bin/bash -u 1000 -U -s /bin/bash ubuntu
-WORKDIR /home/ubuntu
+    useradd -rm -d /home/mosaicml -s /bin/bash -u 1000 -U -s /bin/bash mosaicml
+WORKDIR /home/mosaicml
 
-USER ubuntu
+USER mosaicml
