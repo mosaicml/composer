@@ -57,8 +57,8 @@ def rand_bbox(W: int,
         bby2: Bottom edge of the bounding box
     """
     cut_ratio = np.sqrt(1.0 - cutmix_lambda)
-    cut_w = np.int(W * cut_ratio)
-    cut_h = np.int(H * cut_ratio)
+    cut_w = int(W * cut_ratio)
+    cut_h = int(H * cut_ratio)
 
     # uniform
     if cx is None:

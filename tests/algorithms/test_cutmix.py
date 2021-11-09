@@ -2,6 +2,7 @@
 
 import pytest
 import torch
+from torch.nn import functional as F
 import numpy as np
 
 from composer.algorithms import CutMixHparams
