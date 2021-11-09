@@ -2,6 +2,7 @@
 
 import glob
 import os
+from typing import List
 
 import pytest
 
@@ -22,6 +23,14 @@ model_names = [os.path.basename(os.path.splitext(mn)[0]) for mn in model_names]
 model_names = [name for name in model_names if name not in EXCLUDE_MODELS]
 
 
+def get_model_algs(model_name: str) -> List[str]:
+    algs = algorithms.list_algorithms()
+    is_image_model = any(x in model_name for x in ("resnet", "mnist", "efficientnet"))
+    if is_image_model:
+        algs.remove("alibi")
+    return algs
+
+
 @pytest.mark.parametrize('model_name', model_names)
 @pytest.mark.timeout(5)
 def test_load(model_name: str):
@@ -39,8 +48,7 @@ def test_load(model_name: str):
         device="cpu",
     )
     trainer_hparams.precision = Precision.FP32
-    algs = algorithms.list_algorithms()
-    trainer_hparams.algorithms = algorithms.load_multiple(*algs)
+    trainer_hparams.algorithms = algorithms.load_multiple(*get_model_algs(model_name))
     trainer_hparams.train_dataset = dummy_dataset_hparams
     trainer_hparams.val_dataset = dummy_dataset_hparams
     trainer_hparams.device = CPUDeviceHparams(1)

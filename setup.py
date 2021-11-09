@@ -58,16 +58,12 @@ extra_deps['nlp'] = [
 ]
 
 extra_deps['unet'] = [
-    'medpy==0.4.0',
     'monai>=0.7.0',
     'scikit-learn>=1.0.1',
 ]
 
 extra_deps['all'] = set(dep for deps in extra_deps.values() for dep in deps)
 
-# TODO(ravi) fix deferred loading in composer.functional
-install_requires.extend(extra_deps['unet'])
-install_requires.extend(extra_deps['nlp'])
 
 setup(
     name="mosaicml",
