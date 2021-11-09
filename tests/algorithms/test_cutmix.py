@@ -115,6 +115,7 @@ class TestCutMix:
                         algorithm.bbox,
                         algorithm.num_classes)
 
+
 @pytest.mark.xfail
 def test_cutmix_nclasses(dummy_state, dummy_logger):
     algorithm = CutMixHparams(alpha=1.0).initialize_object()
