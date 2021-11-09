@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import warnings
 from abc import ABC
-from typing import TYPE_CHECKING, List, Optional, Tuple, final
+from typing import TYPE_CHECKING, List, Optional, Tuple
 
 from composer.core.callback import Callback, RankZeroCallback
 from composer.core.logging.logger import Logger
@@ -14,9 +14,10 @@ if TYPE_CHECKING:
     from composer.core.logging.logger import LogLevel, TLogData
     from composer.core.state import State
 
-
-class DeferredLogMetricWarning(UserWarning):
-    pass
+try:
+    from typing import final
+except ImportError:
+    final = lambda x: x  # final is not available in python 3.7
 
 
 class BaseLoggerBackend(Callback, ABC):
@@ -142,10 +143,9 @@ class RankZeroLoggerBackend(BaseLoggerBackend, RankZeroCallback, ABC):
             self._deferred_log_metric_calls = None
             return
         if self._deferred_log_metric_calls is not None:
-            warnings.warn(
-                f"{self.__class__.__name__}.log_metric() was invoked before training_start()."
-                "This log call will be queued and processed after training_start().",
-                category=DeferredLogMetricWarning)
+            warnings.warn(f"DeferredLogMetricWarning: {self.__class__.__name__}.log_metric()"
+                          "was invoked before training_start()."
+                          "This log call will be queued and processed after training_start().")
             self._deferred_log_metric_calls.append((epoch, step, log_level, data))
             return
         return self._log_metric(epoch, step, log_level, data)
