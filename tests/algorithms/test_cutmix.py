@@ -40,8 +40,8 @@ def validate_cutmix(x, y, indices, x_cutmix, y_cutmix, cutmix_lambda, bbox, n_cl
                 else:
                     torch.testing.assert_allclose(x[i, :, j, k], x_cutmix[i, :, j, k])
         # Check the label
-        y_onehot = torch.nn.functional.one_hot(y[i], num_classes=n_classes)
-        y_perm_onehot = torch.nn.functional.one_hot(y_perm[i], num_classes=n_classes)
+        y_onehot = F.one_hot(y[i], num_classes=n_classes)
+        y_perm_onehot = F.one_hot(y_perm[i], num_classes=n_classes)
         y_interp = cutmix_lambda * y_onehot + (1 - cutmix_lambda) * y_perm_onehot
         torch.testing.assert_allclose(y_interp, y_cutmix[i])
 
