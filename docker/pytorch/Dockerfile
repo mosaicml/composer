@@ -62,6 +62,8 @@ RUN add-apt-repository ppa:deadsnakes/ppa && \
     python${PYTHON_VERSION} \
     python${PYTHON_VERSION}-dev \
     python${PYTHON_VERSION}-distutils && \
+    python${PYTHON_VERSION}-venv && \
+    python${PYTHON_VERSION}-wheel && \
     update-alternatives --install /usr/bin/python python /usr/bin/python${PYTHON_VERSION} 1 && \
     update-alternatives --install /usr/bin/python3 python3 /usr/bin/python${PYTHON_VERSION} 1 && \
     apt-get autoclean && \
