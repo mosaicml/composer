@@ -118,11 +118,11 @@ class DDP:
         else:
             self.sync_strategy = DDPSyncStrategy(sync_strategy)
 
-        timeout = datetime.timedelta(seconds=timeout)
+        _timeout = datetime.timedelta(seconds=timeout)
 
         if "RANK" in os.environ and "WORLD_SIZE" in os.environ:
             # Assume we can initialize based off of env vars
-            torch.distributed.init_process_group(self.backend, timeout=timeout)
+            torch.distributed.init_process_group(self.backend, timeout=_timeout)
             return
 
         warnings.warn("NoDDPWarning: RANK and WORLD_SIZE env vars not set; assuming no parallelization. "
@@ -130,7 +130,7 @@ class DDP:
                       "composer executable.")
         store = torch.distributed.HashStore()
 
-        torch.distributed.init_process_group(self.backend, timeout=timeout, store=store, world_size=1, rank=0)
+        torch.distributed.init_process_group(self.backend, timeout=_timeout, store=store, world_size=1, rank=0)
 
     @property
     def world_size(self) -> int:

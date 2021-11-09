@@ -1,7 +1,6 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
 import datetime
-import logging
 import os
 import signal
 import subprocess
@@ -143,8 +142,8 @@ def cleanup_processes(processes: Set[subprocess.Popen]):
                 pass
 
     current_time = datetime.datetime.now()
-    print(f"Waiting {CLEANUP_TIMEOUT} seconds for processes to terminate...")
-    while datetime.datetime.now() - current_time < datetime.timedelta(seconds=CLEANUP_TIMEOUT):
+    print(f"Waiting {CLEANUP_TIMEOUT.seconds} seconds for processes to terminate...")
+    while datetime.datetime.now() - current_time < CLEANUP_TIMEOUT:
         if all(process.returncode is not None for process in processes):
             break
         time.sleep(0.1)
@@ -167,6 +166,8 @@ def main():
     processes = launch_processes(nproc=args.nproc,
                                  world_size=args.world_size,
                                  base_rank=args.base_rank,
+                                 master_addr=args.master_addr,
+                                 master_port=args.master_port,
                                  training_script=args.training_script,
                                  training_script_args=args.training_script_args)
 

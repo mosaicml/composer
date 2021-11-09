@@ -1,6 +1,5 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
-import os
 from typing import List, Optional
 
 import pytest
@@ -10,8 +9,6 @@ import torch.nn as nn
 from composer.core.state import State
 from composer.core.types import Tensor
 from composer.trainer.ddp import DDP
-from composer.trainer.devices.device_cpu import DeviceCPU
-from composer.utils.iter_helpers import ensure_tuple
 from tests.fixtures.ddp_fixtures import with_distributed
 
 
