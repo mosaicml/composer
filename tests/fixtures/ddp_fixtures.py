@@ -2,10 +2,13 @@
 
 import multiprocessing as mp
 import os
+import time
 from typing import Callable
 
 import pytest
 import torch.distributed
+
+SUBSEQUENT_TIMEOUT_PER_DEVICE = 5
 
 
 @pytest.fixture(autouse=True)
@@ -27,10 +30,7 @@ def _dist_run_target(target: Callable, rank: int, num_procs: int, *args, **kwarg
     target(*args, **kwargs)
 
 
-def with_distributed(num_procs: int,
-                     target: Callable,
-                     initial_timeout: int = 30,
-                     subsequent_timeout_per_device: int = 5):
+def with_distributed(num_procs: int, target: Callable, timeout: int = 30):
 
     def run_target(*args, **kwargs):
         processes = []
@@ -39,17 +39,20 @@ def with_distributed(num_procs: int,
             _args = (target, rank, num_procs, *args)
             p = ctx.Process(target=_dist_run_target, args=_args, kwargs=kwargs)
             p.start()
-            processes += [p]
+            processes.append(p)
 
-        processes[0].join(initial_timeout)
-        for p in processes[1:]:
-            p.join(subsequent_timeout_per_device)
+        start_time = time.time()
 
-        for rank, p in enumerate(processes):
-            if p.exitcode is None:
-                p.kill()
-                pytest.fail(f'Process {rank} did not exit', pytrace=False)
-            elif p.exitcode != 0:
-                pytest.fail(f'Process {rank} failed with error code {p.exitcode}', pytrace=False)
+        while len(processes) > 0:
+            has_timed_out = time.time() - start_time > timeout
+            for rank, p in enumerate(processes):
+                if p.is_alive() and not has_timed_out:
+                    continue
+                if p.exitcode is None:
+                    p.kill()
+                    pytest.fail(f'Process {rank} did not exit', pytrace=False)
+                elif p.exitcode != 0:
+                    pytest.fail(f'Process {rank} failed with error code {p.exitcode}', pytrace=False)
+            time.sleep(0.5)
 
     return run_target

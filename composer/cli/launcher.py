@@ -42,6 +42,10 @@ def parse_args():
                         type=int,
                         default=29400,
                         help="The port on the master hosting the C10d TCP store.")
+    parser.add_argument("-m",
+                        "--module_mode",
+                        action="store_true",
+                        help="Run the training script as a module instead of as a script.")
     parser.add_argument("training_script",
                         type=str,
                         help="The path to the training script used to initialize a single training "
@@ -56,14 +60,17 @@ def parse_args():
     return args
 
 
-def launch_processes(nproc: int, world_size: int, base_rank: int, master_addr: str, master_port: int,
+def launch_processes(nproc: int, world_size: int, base_rank: int, master_addr: str, master_port: int, module_mode: bool,
                      training_script: str, training_script_args: List[Any]) -> Set[subprocess.Popen]:
     print("Starting DDP on node_rank(%d) with world_size(%d)", 0, nproc)
     processes = []
 
     for local_rank in range(nproc):
         global_rank = base_rank + local_rank
-        cmd = [sys.executable, training_script, *training_script_args]
+        if module_mode:
+            cmd = [sys.executable, '-u', '-m', training_script, *training_script_args]
+        else:
+            cmd = [sys.executable, '-u', training_script, *training_script_args]
 
         current_env = os.environ.copy()
         current_env["RANK"] = str(global_rank)
@@ -168,6 +175,7 @@ def main():
                                  base_rank=args.base_rank,
                                  master_addr=args.master_addr,
                                  master_port=args.master_port,
+                                 module_mode=args.module_mode,
                                  training_script=args.training_script,
                                  training_script_args=args.training_script_args)
 

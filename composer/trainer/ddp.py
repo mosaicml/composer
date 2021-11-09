@@ -246,5 +246,8 @@ class DDP:
 
 @dataclass
 class DDPHparams(hp.Hparams):
-    sync_strategy: Optional[str] = hp.optional(doc="Strategy for DDP syncing", default=None)
+    sync_strategy: Optional[str] = hp.optional(
+        doc="The strategy for synchronizing DDP. Default value ``None`` causes the "
+        "trainer to auto-select a value depending on what algorithms are used.",
+        default=None)
     timeout: float = hp.optional(doc="Timeout, in seconds, for initializing the DDP process group.", default=5.0)
