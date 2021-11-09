@@ -11,15 +11,38 @@ import time
 from argparse import ArgumentParser
 from typing import Any, List, Set
 
-logger = logging.getLogger(__name__)
-
 import torch.distributed
+
+CLEANUP_TIMEOUT = datetime.timedelta(seconds=5)
 
 
 def parse_args():
     parser = ArgumentParser(description="Utility for launching distributed jobs with composer.")
 
-    parser.add_argument("-n", "--nproc", type=int, required=True, help="The number of process to launch on this node.")
+    parser.add_argument("-n",
+                        "--nproc",
+                        type=int,
+                        required=True,
+                        help="The number of processes to launch on this node.")
+    parser.add_argument("--world_size",
+                        type=int,
+                        default=-1,
+                        help="The total number of processes to launch on all"
+                        "nodes. Set to -1 to default to nproc (single-node operation).")
+    parser.add_argument("--base_rank",
+                        type=int,
+                        default=0,
+                        help="The rank of the lowest ranked process to launch on this node."
+                        "Specifying a base_rank B and an nproc N will spawn processes"
+                        "with global ranks [B, B+1, ... B+N-1].")
+    parser.add_argument("--master_addr",
+                        type=str,
+                        default="127.0.0.1",
+                        help="The FQDN of the node running the rank 0 worker.")
+    parser.add_argument("--master_port",
+                        type=int,
+                        default=29400,
+                        help="The port on the master hosting the C10d TCP store.")
     parser.add_argument("training_script",
                         type=str,
                         help="The path to the training script used to initialize a single training "
@@ -27,27 +50,33 @@ def parse_args():
                         "should be launched with.")
     parser.add_argument("training_script_args", nargs="...")
 
-    return parser.parse_args()
+    args = parser.parse_args()
+    if args.world_size == -1:
+        args.world_size = args.nproc
+
+    return args
 
 
-def launch_processes(nproc: int, training_script: str, training_script_args: List[Any]) -> Set[subprocess.Popen]:
-    logger.info("Starting DDP on node_rank(%d) with world_size(%d)", 0, nproc)
+def launch_processes(nproc: int, world_size: int, base_rank: int, master_addr: str, master_port: int,
+                     training_script: str, training_script_args: List[Any]) -> Set[subprocess.Popen]:
+    print("Starting DDP on node_rank(%d) with world_size(%d)", 0, nproc)
     processes = []
 
-    for rank in range(nproc):
+    for local_rank in range(nproc):
+        global_rank = base_rank + local_rank
         cmd = [sys.executable, training_script, *training_script_args]
 
         current_env = os.environ.copy()
-        current_env["RANK"] = str(rank)
-        current_env["WORLD_SIZE"] = str(nproc)
-        current_env["LOCAL_RANK"] = str(rank)
+        current_env["RANK"] = str(global_rank)
+        current_env["WORLD_SIZE"] = str(world_size)
+        current_env["LOCAL_RANK"] = str(local_rank)
         current_env["LOCAL_WORLD_SIZE"] = str(nproc)
-        current_env["MASTER_ADDR"] = "127.0.0.1"
-        current_env["MASTER_PORT"] = str(29400)
+        current_env["MASTER_ADDR"] = master_addr
+        current_env["MASTER_PORT"] = str(master_port)
 
-        logger.info("Launching process for global_rank(%d) on node_rank(%d)", rank, 0)
+        print("Launching process for local_rank(%d), global_rank(%d)", local_rank, global_rank)
 
-        if rank == 0:
+        if local_rank == 0:
             process = subprocess.Popen(cmd, env=current_env, text=True)
         else:
             process = subprocess.Popen(
@@ -94,7 +123,8 @@ def monitor_processes(processes: Set[subprocess.Popen]):
                         "----------Subprocess STDERR----------",
                         exc.stderr,
                     ]
-                    logger.exception("\n".join(error_msg), exc_info=exc)
+                    print("\n".join(error_msg))
+                    print(exc)
                     sys.exit(process.returncode)
                 else:
                     # exited cleanly
@@ -106,21 +136,22 @@ def monitor_processes(processes: Set[subprocess.Popen]):
 def cleanup_processes(processes: Set[subprocess.Popen]):
     for process in processes:
         if process.returncode is None:
-            logger.info("Killing subprocess %s with SIGTERM", process.pid)
+            print("Killing subprocess %s with SIGTERM", process.pid)
             try:
                 os.killpg(process.pid, signal.SIGTERM)
             except ProcessLookupError:
                 pass
 
     current_time = datetime.datetime.now()
-    while datetime.datetime.now() - current_time < datetime.timedelta(seconds=5):
+    print(f"Waiting {CLEANUP_TIMEOUT} seconds for processes to terminate...")
+    while datetime.datetime.now() - current_time < datetime.timedelta(seconds=CLEANUP_TIMEOUT):
         if all(process.returncode is not None for process in processes):
             break
         time.sleep(0.1)
 
     for process in processes:
         if process.returncode is None:
-            logger.error("Killing subprocess %s with SIGKILL", process.pid)
+            print("Failed to kill subprocess %s with SIGTERM; using SIGKILL instead", process.pid)
             try:
                 os.killpg(process.pid, signal.SIGKILL)
             except ProcessLookupError:
@@ -133,9 +164,18 @@ def cleanup_processes(processes: Set[subprocess.Popen]):
 def main():
     args = parse_args()
 
-    processes = launch_processes(args.nproc, args.training_script, args.training_script_args)
+    processes = launch_processes(nproc=args.nproc,
+                                 world_size=args.world_size,
+                                 base_rank=args.base_rank,
+                                 training_script=args.training_script,
+                                 training_script_args=args.training_script_args)
 
     try:
         monitor_processes(processes)
     finally:
         cleanup_processes(processes)
+        return 0
+
+
+if __name__ == '__main__':
+    sys.exit(main())
