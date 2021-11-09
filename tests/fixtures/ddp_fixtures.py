@@ -8,8 +8,6 @@ from typing import Callable
 import pytest
 import torch.distributed
 
-SUBSEQUENT_TIMEOUT_PER_DEVICE = 5
-
 
 @pytest.fixture(autouse=True)
 def ddp_cleanup():
@@ -43,7 +41,7 @@ def with_distributed(num_procs: int, target: Callable, timeout: int = 30):
 
         start_time = time.time()
 
-        while len(processes) > 0:
+        while any([p.is_alive() for p in processes]):
             has_timed_out = time.time() - start_time > timeout
             for rank, p in enumerate(processes):
                 if p.is_alive() and not has_timed_out:
