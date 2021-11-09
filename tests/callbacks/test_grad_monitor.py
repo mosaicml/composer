@@ -2,8 +2,6 @@
 
 from unittest.mock import MagicMock
 
-import pytest
-
 from composer.callbacks import GradMonitorHparams
 from composer.datasets.synthetic import SyntheticDatasetHparams
 from composer.trainer import TrainerHparams
