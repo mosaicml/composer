@@ -1,7 +1,20 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
+import os
+import sys
+
 import setuptools
 from setuptools import setup
+
+
+def package_files(directory):
+    # from https://stackoverflow.com/a/36693250
+    paths = []
+    for (path, directories, filenames) in os.walk(directory):
+        for filename in filenames:
+            paths.append(os.path.join('..', path, filename))
+    return paths
+
 
 with open("README.md", "r", encoding="utf-8") as fh:
     long_description = fh.read()
@@ -22,7 +35,7 @@ extra_deps['base'] = []
 
 extra_deps['dev'] = [
     'junitparser>=2.1.1',
-    'coverage[toml]>=5.5',
+    'coverage[toml]>=6.1.1',
     'pytest>=6.2.0',
     'yapf>=0.13.0',
     'isort>=5.9.3',
@@ -67,16 +80,14 @@ setup(
     url="https://github.com/mosaicml/composer",
     include_package_data=True,
     package_data={
-        "": ["*.yaml", "*.yml"],
+        "composer": ['py.typed'],
+        "": package_files('composer/yamls'),
     },
-    packages=setuptools.find_packages(),
+    packages=setuptools.find_packages(include=["composer"]),
     classifiers=[
         "Programming Language :: Python :: 3",
     ],
     install_requires=install_requires,
-    entry_points={
-        'console_scripts': ['composer = examples.run_mosaic_trainer:main',],
-    },
     extras_require=extra_deps,
     dependency_links=['https://developer.download.nvidia.com/compute/redist'],
     python_requires='>=3.8',
@@ -84,8 +95,11 @@ setup(
 )
 
 # only visible if user installs with verbose -v flag
-print("*" * 20)
-print("\nNOTE: For best performance, we recommend installing Pillow-SIMD "
-      "\nfor accelerated image processing operations. To install:"
-      "\n\n\t pip uninstall pillow && pip install pillow-simd\n")
-print("*" * 20)
+# Printing to stdout as not to interfere with setup.py CLI flags (e.g. --version)
+print("*" * 20, file=sys.stderr)
+print(
+    "\nNOTE: For best performance, we recommend installing Pillow-SIMD "
+    "\nfor accelerated image processing operations. To install:"
+    "\n\n\t pip uninstall pillow && pip install pillow-simd\n",
+    file=sys.stderr)
+print("*" * 20, file=sys.stderr)

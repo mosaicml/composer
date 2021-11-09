@@ -3,16 +3,20 @@
 from __future__ import annotations
 
 import collections.abc
+import datetime
 import logging
 import os
+import signal
 import subprocess
 import sys
+import tempfile
 import time
 import warnings
 from abc import ABC, abstractmethod
+from contextlib import contextmanager, nullcontext
 from dataclasses import dataclass
 from threading import Thread
-from typing import Callable, Iterator, List, Optional, Sequence, TypeVar, cast
+from typing import Callable, ContextManager, Iterator, List, Optional, Sequence, Set, TypeVar, Union, cast
 
 import torch
 import torch.distributed
@@ -24,10 +28,14 @@ from torch.utils.data.distributed import DistributedSampler
 from composer.core.state import State
 from composer.core.types import Batch, DataLoader, Model, Tensor
 from composer.datasets import DataloaderHparams, DataloaderSpec, WrappedDataLoader
+from composer.utils.iter_helpers import ensure_tuple
+from composer.utils.string_enum import StringEnum
 
 logger = logging.getLogger(__name__)
 
 TObj = TypeVar("TObj")
+
+CLEANUP_TIMEOUT = datetime.timedelta(seconds=5)
 
 
 class DataloaderMultipleIterationWarning(Warning):
@@ -72,6 +80,35 @@ class DDPDataLoader(WrappedDataLoader):
             raise
 
 
+class DDPSyncStrategy(StringEnum):
+    """How and when DDP gradient synchronization should happen.
+
+    Attributes:
+        SINGLE_AUTO_SYNC: The default behavior for DDP. Gradients are synchronized as they
+            computed, for only the final microbatch of a batch. This is the most efficient
+            strategy, but can lead to errors when ``find_unused_parameters`` is set, since
+            it is possible different microbatches may use different sets of parameters,
+            leading to an incomplete sync.
+        MULTI_AUTO_SYNC: The default behavior for DDP when ``find_unused_parameters`` is set.
+            Gradients are synchronized as they are computed for all microbatches. This ensures
+            complete synchronization, but is less efficient than :attr:`SINGLE_AUTO_SYNC`. This
+            efficiency gap is usually small, as long as either DDP syncs are a small portion
+            of the trainer's overall runtime, or the number of microbatches per batch is
+            relatively small.
+        FORCED_SYNC: Gradients are manually synchronized only after all gradients have been
+            computed for the final microbatch of a batch. Like :attr:`MULTI_AUTO_SYNC`, this
+            strategy ensures complete gradient synchronization, but this tends to be slower than
+            :attr:`MULTI_AUTO_SYNC`. This is because ordinarily syncs can happen in parallel
+            with the ``loss.backward()`` computation, meaning syncs can be mostly complete by
+            the time that function finishes. However, in certain circumstances, syncs may take
+            a very long time to complete - if there are also a lot of microbatches per batch,
+            this strategy may be optimal.
+    """
+    SINGLE_AUTO_SYNC = "single_auto_sync"
+    MULTI_AUTO_SYNC = "multi_auto_sync"
+    FORCED_SYNC = "forced_sync"
+
+
 class DDP:
 
     def __init__(self,
@@ -82,17 +119,25 @@ class DDP:
                  num_nodes: int,
                  backend: str,
                  fork_rank_0: bool,
-                 find_unused_parameters: bool = False):
+                 timeout: float = 5,
+                 find_unused_parameters: bool = False,
+                 ddp_sync_strategy: Optional[Union[str, DDPSyncStrategy]] = None):
+        self.hparams = DDPHparams(
+            store=store_hparams,
+            node_rank=node_rank,
+            num_nodes=num_nodes,
+            fork_rank_0=fork_rank_0,
+            timeout=timeout,
+        )
         self.nproc_per_node = nproc_per_node
-        self.world_size = num_nodes * nproc_per_node
-        self.num_nodes = num_nodes
-        self.node_rank = node_rank
-        self.store_hparams = store_hparams
-        self.last_return_code: Optional[int] = None
         self.backend = backend
-        self.fork_rank_0 = fork_rank_0
         self.processes: List[subprocess.Popen[str]] = []
+        self.killed_pids: Set[int] = set()  # track which pids have been killed
         self.find_unused_parameters = find_unused_parameters
+        if ddp_sync_strategy is None:
+            self.ddp_sync_strategy = DDPSyncStrategy.SINGLE_AUTO_SYNC if not find_unused_parameters else DDPSyncStrategy.FORCED_SYNC
+        else:
+            self.ddp_sync_strategy = DDPSyncStrategy(ddp_sync_strategy)
 
         if backend == 'nccl':
             if not torch.cuda.is_available():
@@ -102,6 +147,10 @@ class DDP:
                                  f'only {torch.cuda.device_count()} available.')
             if not torch.distributed.is_nccl_available():
                 raise ValueError('Requested NCCL backend not available in torch.distributed')
+
+    @property
+    def world_size(self) -> int:
+        return self.hparams.num_nodes * self.nproc_per_node
 
     def barrier(self) -> None:
         if torch.distributed.is_available():
@@ -157,7 +206,7 @@ class DDP:
     def launch(self, state: State, loop: Callable[[], None]):
         if os.environ.get("RANK") is None:
             os.environ["WORLD_SIZE"] = str(self.world_size)
-            logger.info("Starting DDP on node_rank(%d) with world_size(%d)", self.node_rank, self.world_size)
+            logger.info("Starting DDP on node_rank(%d) with world_size(%d)", self.hparams.node_rank, self.world_size)
 
             if torch.distributed.is_available():
                 # Adapted from torch.distributed.launch
@@ -168,14 +217,14 @@ class DDP:
                 # TODO omp num threads -- this parameter needs to be auto-tuned
                 for local_rank in range(self.nproc_per_node):
                     # each process's rank
-                    global_rank = self.nproc_per_node * self.node_rank + local_rank
+                    global_rank = self.nproc_per_node * self.hparams.node_rank + local_rank
                     current_env["RANK"] = str(global_rank)
 
-                    if local_rank == 0 and not self.fork_rank_0:
+                    if local_rank == 0 and not self.hparams.fork_rank_0:
                         os.environ["RANK"] = str(global_rank)
                     else:
                         logger.info("Launching process for global_rank(%d) on node_rank(%d)", global_rank,
-                                    self.node_rank)
+                                    self.hparams.node_rank)
                         # spawn the processes
                         cmd = [
                             sys.executable,
@@ -192,12 +241,12 @@ class DDP:
                             process = subprocess.Popen(
                                 cmd,
                                 env=current_env,
-                                stdout=subprocess.PIPE,
-                                stderr=subprocess.PIPE,
+                                stdout=tempfile.TemporaryFile(),
+                                stderr=tempfile.TemporaryFile(),
                                 text=True,
                             )
                         self.processes.append(process)
-                if self.fork_rank_0:
+                if self.hparams.fork_rank_0:
                     self.monitor()
                     return
                 else:
@@ -205,22 +254,23 @@ class DDP:
             else:
                 if self.world_size != 1:
                     raise ValueError("Must have world size == 1 when torch.distributed is not available")
-                if self.node_rank != 0:
+                if self.hparams.node_rank != 0:
                     raise ValueError("Must have a node_rank == 0 when torch.distributed is not available")
                 os.environ["RANK"] = "0"
         # We are now on the correct process
         global_rank = int(os.environ["RANK"])
-        assert global_rank // self.world_size == self.node_rank
+        assert global_rank // self.world_size == self.hparams.node_rank
         assert os.environ["WORLD_SIZE"] == str(
             self.world_size
         ), f"os.environ['WORLD_SIZE']({os.environ['WORLD_SIZE']}) != self.world_size({self.world_size})"
         is_main = global_rank == 0
         if torch.distributed.is_available():
             logger.info("Initializing ddp: GLOBAL_RANK: %s, WORLD_SIZE: %s", global_rank, self.world_size)
-            store = self.store_hparams.initialize_object(is_main, state.world_size)
+            store = self.hparams.store.initialize_object(is_main, state.world_size)
             torch.distributed.init_process_group(self.backend,
                                                  rank=global_rank,
                                                  world_size=self.world_size,
+                                                 timeout=datetime.timedelta(seconds=self.hparams.timeout),
                                                  store=store)
             assert torch.distributed.is_initialized()
             assert state.is_rank_set, "state.is_rank_set should be set after torch.distributed is initialized"
@@ -271,7 +321,10 @@ class DDP:
                     # return code of 0 implies clean exit
                     # return code of -9 implies sigkill, presumably from
                     # cleanup() in the main process
-                    if process.returncode not in (0, -9):
+                    if process.pid in self.killed_pids or process.returncode == 0:
+                        # exited cleanly
+                        finished_processes.append(process)
+                    else:
                         if process.stdout is None:
                             output = ""
                         else:
@@ -287,26 +340,81 @@ class DDP:
                             output=output,
                             stderr=stderr,
                         )
-                        if self.fork_rank_0:
+                        if self.hparams.fork_rank_0:
                             raise exc
                         else:
-                            logger.exception("Error in subprocess", exc_info=exc)
-                            sys.exit(1)
-                    else:
-                        # exited cleanly
-                        finished_processes.append(process)
+                            error_msg = [
+                                "Error in subprocess",
+                                "----------Subprocess STDOUT----------",
+                                exc.output,
+                                "----------Subprocess STDERR----------",
+                                exc.stderr,
+                            ]
+                            logger.exception("\n".join(error_msg), exc_info=exc)
+                            sys.exit(process.returncode)
             alive_processes = set(alive_processes) - set(finished_processes)
             time.sleep(1)
 
     def cleanup(self) -> None:
         for process in self.processes:
-            logger.info("Killing subprocess %s", process.pid)
-            try:
-                process.kill()
-            except Exception:
-                pass
+            if process.returncode is None:
+                logger.info("Killing subprocess %s with SIGTERM", process.pid)
+                self.killed_pids.add(process.pid)
+                try:
+                    os.killpg(process.pid, signal.SIGTERM)
+                except ProcessLookupError:
+                    pass
+        current_time = datetime.datetime.now()
+        while datetime.datetime.now() - current_time < CLEANUP_TIMEOUT:
+            all_finished = all([p.returncode is None for p in self.processes])
+            if all_finished:
+                break
+            time.sleep(0.1)
+
+        for process in self.processes:
+            if process.returncode is None:
+                logger.error("Failed to kill subprocess %s with SIGTERM, using SIGKILL instead", process.pid)
+                self.killed_pids.add(process.pid)
+                try:
+                    os.killpg(process.pid, signal.SIGKILL)
+                except ProcessLookupError:
+                    pass
+
         if torch.distributed.is_initialized():
             torch.distributed.destroy_process_group()
+
+    @contextmanager
+    def ddp_sync_context(self, state: State, is_final_microbatch: bool):
+        assert isinstance(state.model, DistributedDataParallel), "state.model is not wrapped by DDP"
+        assert state.optimizers is not None, "optimizers have not been initialized"
+
+        no_sync_context = cast(Callable[[], ContextManager], state.model.no_sync)
+        auto_sync_context = nullcontext
+
+        if self.ddp_sync_strategy == DDPSyncStrategy.SINGLE_AUTO_SYNC:
+            context = auto_sync_context if is_final_microbatch else no_sync_context
+            with context():
+                yield
+
+        elif self.ddp_sync_strategy == DDPSyncStrategy.MULTI_AUTO_SYNC:
+            with auto_sync_context():
+                yield
+
+        elif self.ddp_sync_strategy == DDPSyncStrategy.FORCED_SYNC:
+            try:
+                with no_sync_context():
+                    yield
+            finally:
+                if is_final_microbatch:
+                    for optimizer in ensure_tuple(state.optimizers):
+                        for group in optimizer.param_groups:
+                            for p in group["params"]:
+                                if p.grad is not None:
+                                    self.all_reduce(p.grad)
+                                    p.grad = p.grad / state.world_size
+
+        else:
+            raise ValueError("Unknown sync strategy", self.ddp_sync_strategy)
 
 
 @dataclass
@@ -350,6 +458,7 @@ class DDPHparams(hp.Hparams):
         doc="Whether to fork the local rank 0 process, or use the existing process for rank 0 training.",
         default=False,
     )
+    timeout: float = hp.optional(doc="Timeout, in seconds, for initializing the DDP process group.", default=5.0)
 
     def initialize_object(self, nproc_per_node: int, backend: str, find_unused_parameters: bool) -> DDP:
         return DDP(
@@ -360,4 +469,5 @@ class DDPHparams(hp.Hparams):
             num_nodes=self.num_nodes,
             fork_rank_0=self.fork_rank_0,
             find_unused_parameters=find_unused_parameters,
+            timeout=self.timeout,
         )

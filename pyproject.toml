@@ -11,6 +11,9 @@ include = [
     "composer/**",
     "tests/**"
 ]
+exclude = [
+    "build/**"
+]
 
 reportImportCycles = "none"
 reportUnnecessaryIsInstance = "none"
@@ -51,8 +54,10 @@ filterwarnings = [
 # Coverage
 [tool.coverage.run]
 parallel = true
-source = [
-    "composer"
+branch = true
+concurrency = ["thread", "multiprocessing"]
+include = [
+    "composer/*"
 ]
 
 # Yapf

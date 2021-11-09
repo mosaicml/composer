@@ -1,6 +1,7 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
 import atexit
+import logging
 from typing import Callable, List, Optional
 
 import _pytest.config
@@ -10,6 +11,8 @@ import _pytest.mark
 import pytest
 import torch
 from _pytest.monkeypatch import MonkeyPatch
+
+import composer
 
 N_GPU_OPTIONS = (0, 1, 2, 4, 8)
 
@@ -129,3 +132,9 @@ def atexit_at_test_end(monkeypatch: MonkeyPatch):
     yield
     for func, args, kwargs in atexit_callbacks:
         func(*args, **kwargs)
+
+
+@pytest.fixture(autouse=True)
+def set_loglevels():
+    logging.basicConfig()
+    logging.getLogger(composer.__name__).setLevel(logging.DEBUG)

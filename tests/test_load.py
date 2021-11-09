@@ -23,6 +23,7 @@ model_names = [name for name in model_names if name not in EXCLUDE_MODELS]
 
 
 @pytest.mark.parametrize('model_name', model_names)
+@pytest.mark.timeout(5)
 def test_load(model_name: str):
     if "gpt" in model_name:
         pytest.skip("GPT doesn't work on the no-op model class")
@@ -32,10 +33,9 @@ def test_load(model_name: str):
     trainer_hparams = trainer.load(model_name)
     # TODO(ravi) -- add a get_synthetic_dataset(num_samples) on BaseMosaicModel
     dummy_dataset_hparams = SyntheticDatasetHparams(
+        total_dataset_size=4096,
+        data_shape=[1, 28, 28],  # mnist input shape
         num_classes=trainer_hparams.model.num_classes,
-        shape=[1, 28, 28],  # mnist input shape
-        sample_pool_size=4096,
-        one_hot=False,
         device="cpu",
     )
     trainer_hparams.precision = Precision.FP32
@@ -54,10 +54,9 @@ def test_scale_schedule_load(ssr: str):
     trainer_hparams = trainer.load("classify_mnist")
     # TODO(ravi) -- add a get_synthetic_dataset(num_samples) on BaseMosaicModel
     dummy_dataset_hparams = SyntheticDatasetHparams(
+        total_dataset_size=4096,
+        data_shape=[1, 28, 28],  # mnist input shape
         num_classes=trainer_hparams.model.num_classes,
-        shape=[1, 28, 28],  # mnist input shape
-        sample_pool_size=4096,
-        one_hot=False,
         device="cpu",
     )
     trainer_hparams.precision = Precision.FP32
