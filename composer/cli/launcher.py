@@ -15,7 +15,6 @@ import torch.distributed
 CLEANUP_TIMEOUT = datetime.timedelta(seconds=5)
 
 
-
 def get_parser():
     parser = ArgumentParser(description="Utility for launching distributed machine learning jobs.")
 
