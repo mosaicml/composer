@@ -45,6 +45,7 @@ extra_deps['dev'] = [
     'sphinx>=4.2.0',
     'sphinx_copybutton>=0.4.0',
     'sphinx_markdown_tables>=0.0.15',
+    'sphinx-argparse>=0.3.1',
     'sphinxcontrib.katex>=0.8.6',
     'sphinxext.opengraph>=0.4.2',
     'sphinx_rtd_theme>=1.0.0',

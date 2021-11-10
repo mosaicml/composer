@@ -15,14 +15,15 @@ import torch.distributed
 CLEANUP_TIMEOUT = datetime.timedelta(seconds=5)
 
 
-def parse_args():
-    parser = ArgumentParser(description="Utility for launching distributed jobs with composer.")
+
+def get_parser():
+    parser = ArgumentParser(description="Utility for launching distributed machine learning jobs.")
 
     parser.add_argument("-n",
                         "--nproc",
                         type=int,
                         required=True,
-                        help="The number of processes to launch on this node.")
+                        help="The number of processes to launch on this node. Required.")
     parser.add_argument("--world_size",
                         type=int,
                         default=-1,
@@ -46,7 +47,7 @@ def parse_args():
                         default=29400,
                         help="The port on the master hosting the C10d TCP store. If you are running "
                         "multiple trainers on a single node, this generally needs to be unique for "
-                        "each one.")
+                        "each one. Defaults to 29400.")
     parser.add_argument("-m",
                         "--module_mode",
                         action="store_true",
@@ -56,7 +57,15 @@ def parse_args():
                         help="The path to the training script used to initialize a single training "
                         "process. Should be followed by any command-line arguments the script "
                         "should be launched with.")
-    parser.add_argument("training_script_args", nargs="...")
+    parser.add_argument("training_script_args",
+                        nargs="...",
+                        help="Any arguments for the training script, given in the expected order.")
+
+    return parser
+
+
+def parse_args():
+    parser = get_parser()
 
     args = parser.parse_args()
     if args.world_size == -1:
