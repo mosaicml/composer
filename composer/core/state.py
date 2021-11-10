@@ -16,7 +16,7 @@ from composer.core.callback import Callback
 from composer.core.precision import Precision
 from composer.core.serializable import Serializable
 from composer.utils import ensure_tuple
-from composer.utils.ddp import get_global_rank, get_local_rank, get_local_world_size, get_world_size, is_rank_set
+from composer.utils.ddp import get_global_rank, get_local_rank, get_local_world_size, get_world_size
 from composer.utils.precision import default_precision_factory
 
 if TYPE_CHECKING:
@@ -161,10 +161,6 @@ class State(Serializable):
     @property
     def is_rank_zero(self) -> bool:
         return self.global_rank == 0
-
-    @property
-    def is_rank_set(self) -> bool:
-        return is_rank_set()
 
     def state_dict(self) -> types.StateDict:
         """Returns the state as a :class:`dict`."""

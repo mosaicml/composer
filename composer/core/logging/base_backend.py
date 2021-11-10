@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING, List, Optional, Tuple, final
 
 from composer.core.callback import Callback, RankZeroCallback
 from composer.core.logging.logger import Logger
-from composer.utils.ddp import is_rank_set, is_rank_zero
+from composer.utils.ddp import is_rank_zero
 
 if TYPE_CHECKING:
     from composer.core.logging.logger import LogLevel, TLogData
@@ -115,7 +115,7 @@ class RankZeroLoggerBackend(BaseLoggerBackend, RankZeroCallback, ABC):
 
     @final
     def will_log(self, state: State, log_level: LogLevel) -> bool:
-        if state.is_rank_set and not state.is_rank_zero:
+        if not state.is_rank_zero:
             return False
         return self._will_log(state, log_level)
 
@@ -137,7 +137,7 @@ class RankZeroLoggerBackend(BaseLoggerBackend, RankZeroCallback, ABC):
 
     @final
     def log_metric(self, epoch: int, step: int, log_level: LogLevel, data: TLogData) -> None:
-        if is_rank_set() and not is_rank_zero():
+        if not is_rank_zero():
             # no log if not on rank zero, clear deferred calls to free memory
             self._deferred_log_metric_calls = None
             return

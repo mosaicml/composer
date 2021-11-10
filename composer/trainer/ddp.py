@@ -15,13 +15,13 @@ import torch
 import torch.distributed
 import torch.utils.data
 import yahp as hp
-from torch.distributed.distributed_c10d import get_world_size
 from torch.nn.parallel import DistributedDataParallel
 from torch.utils.data.distributed import DistributedSampler
 
 from composer.core.state import State
 from composer.core.types import Batch, DataLoader, Model, Tensor
 from composer.datasets import DataloaderHparams, DataloaderSpec, WrappedDataLoader
+from composer.utils.ddp import get_world_size
 from composer.utils.iter_helpers import ensure_tuple
 from composer.utils.string_enum import StringEnum
 

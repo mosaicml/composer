@@ -107,7 +107,6 @@ def monitor_processes(processes: Set[subprocess.Popen]):
                 # return code of 0 implies clean exit
                 # return code of -9 implies sigkill, presumably from cleanup_processes()
                 if process.returncode not in (0, -9):
-                    print(process)
                     if process.stdout is None:
                         output = ""
                     else:
@@ -173,6 +172,17 @@ def cleanup_processes(processes: Set[subprocess.Popen]):
         torch.distributed.destroy_process_group()
 
 
+def aggregate_process_returncode(processes: Set[subprocess.Popen]) -> int:
+    for process in processes:
+        if process.returncode is None:
+            print(f"Subprocess {process.pid} has still not exited; return exit code 1.")
+            return 1
+        if process.returncode != 0:
+            return process.returncode
+
+    return 0
+
+
 def main():
     args = parse_args()
 
@@ -189,7 +199,7 @@ def main():
         monitor_processes(processes)
     finally:
         cleanup_processes(processes)
-        return 0
+        return aggregate_process_returncode(processes)
 
 
 if __name__ == '__main__':
