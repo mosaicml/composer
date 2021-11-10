@@ -30,6 +30,7 @@ from composer.trainer.checkpoint import Checkpointer, CheckpointLoader
 from composer.trainer.ddp import DDP, DataloaderMultipleIterationWarning, StoreHparams, TCPStoreHparams
 from composer.trainer.devices.device import Device
 from composer.trainer.devices.device_cpu import DeviceCPU
+from composer.trainer.devices.device_gpu import DeviceGPU
 from composer.trainer.scaler import ClosureGradScaler
 from composer.trainer.trainer_hparams import TrainerHparams
 from composer.utils import ensure_tuple, get_random_seed, map_collection, seed_all
@@ -65,7 +66,7 @@ class Trainer:
             in `__init__`. (default:
             ``[CosineAnnealingLRHparams(T_max=f"{max_epochs}ep"), WarmUpLRHparams()]``).
         device (Device, optional): The device to use for training. Either `DeviceCPU` or `DeviceGPU`.
-            (default ``DeviceCPU(n_cpus=1)``)
+            Defaults to using all GPUs available if CUDA is available. Otherwise, defaults to ``DeviceCPU(n_cpus=1)``.
         grad_accum (int, optional): The number of microbatches to split a per-device batch into. Gradients
             are summed over the microbatches per device. (default: ``1``)
         grad_clip_norm (float, optional): The norm to clip gradient magnitudes to. Set to None for no gradient
@@ -76,7 +77,8 @@ class Trainer:
             Set to -1 to never validate on a epochwise frequency. (default: ``1``)
         compute_training_metrics (bool, optional): True to compute metrics on training data and False to not.
             (default: ``False``)
-        precision (Precision, optional): Numerical precision to use for training. (default: ``Precision.FP32``).
+        precision (Precision, optional): Numerical precision to use for training. If not provided then defaults
+            to `Precision.AMP` if training on a GPU otherwise defaults to `Precision.FP32`.
         num_workers (int, optional): The number of CPU workers to use per GPU. 0 results in loading data
             on the main process. (default: ``0``)
         prefetch_factor (int, optional): Number of samples loaded in advance by each worker. (default: ``2``)
@@ -140,7 +142,7 @@ class Trainer:
             validate_every_n_batches: int = -1,
             validate_every_n_epochs: int = 1,
             compute_training_metrics: bool = False,
-            precision: Precision = Precision.FP32,
+            precision: Optional[Precision] = None,
 
             # dataloader hparams
             num_workers: int = 0,
@@ -179,9 +181,16 @@ class Trainer:
 
         self.ddp_sync_strategy = ddp_sync_strategy
 
-        if not device:
-            device = DeviceCPU(num_cpus=1)
+        if device is None:
+            if torch.cuda.is_available():
+                num_gpus = torch.cuda.device_count()
+                device = DeviceGPU(prefetch_in_cuda_stream=False, n_gpus=num_gpus)
+            else:
+                device = DeviceCPU(num_cpus=1)
         self.device = device
+
+        if precision is None:
+            precision = Precision.AMP if isinstance(device, DeviceGPU) else Precision.FP32
 
         if not seed:
             # Set a deterministic seed in the hparams
