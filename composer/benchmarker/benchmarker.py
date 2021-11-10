@@ -2,20 +2,40 @@
 
 from __future__ import annotations
 
+import torch
+
 from typing import List, Optional, Sequence
 
 from composer.benchmarker.benchmarker_hparams import BenchmarkerHparams
 from composer.callbacks.timing_monitor import TimingMonitor
 from composer.core.logging.base_backend import BaseLoggerBackend
+from composer.core.precision import Precision
 from composer.datasets.hparams import DataloaderSpec
 from composer.datasets.synthetic import SyntheticDataLabelType, SyntheticDataset
 from composer.models.base import BaseMosaicModel
+from composer.trainer.devices import DeviceCPU, DeviceGPU
 from composer.trainer.trainer import Trainer
 
-NUM_PROFILING_STEPS = 500
+NUM_PROFILING_STEPS = 250 # needs to be high enough to be able to properly measure time
 
 
 class Benchmarker:
+    """Benchmarker for timing model training workloads with synthetic data.
+
+    Args:
+        model (BaseMosaicModel): The model to profile.
+        data_shape (List[int]): Shape of the tensor for input samples.
+        total_batch_size (int): The batch size to train with.
+        grad_accum (int, optional): The number of microbatches to split a per-device batch into. Gradients
+            are summed over the microbatches per device.
+        data_type (SyntheticDataType, optional), Type of synthetic data to create.
+        label_type (SyntheticDataLabelType, optional), Type of synthetic data to create.
+            If `CLASSIFICATION_INT` or `CLASSIFICATION_ONE_HOT` then `num_classes` must be specified.
+            If `RANDOM_INT` then `label_shape` must be specified.
+        num_classes (int, optional): Number of classes to use.
+        label_shape (List[int]): Shape of the tensor for each sample label.
+        log_destinations (List[BaseLoggerBackend], optional): The destinations to log training information to.
+    """
 
     def __init__(self,
                  model: BaseMosaicModel,
@@ -39,23 +59,44 @@ class Benchmarker:
 
         # Default for now - adjust to work with algorithms
         timing_callback = TimingMonitor(min_steps=50, epoch_list=[0, 1], step_list=[0, 50], all_epochs=False)
+
+        # Use optimal device settings based on what is available
+        device = DeviceCPU(num_cpus=1)
+        precision = Precision.FP32
+        if torch.cuda.is_available():
+            num_gpus = torch.cuda.device_count()
+            device = DeviceGPU(prefetch_in_cuda_stream=False, n_gpus=num_gpus)
+            precision = Precision.AMP
+
         self.trainer = Trainer(
             model=model,
             train_dataloader_spec=self.dataloader_spec,
             eval_dataloader_spec=self.dataloader_spec,
             max_epochs=2,
             train_batch_size=total_batch_size,
-            eval_batch_size=1,
+            eval_batch_size=total_batch_size,
             grad_accum=grad_accum,
+            device=device,
+            precision=precision,
             validate_every_n_epochs=100,  # don't validate
             log_destinations=log_destinations,
             callbacks=[timing_callback])
 
     def run_timing_benchmark(self):
+        """Run benchmarking to estimate throughput and wall clock time."""
         self.trainer.fit()
 
     @classmethod
     def create_from_hparams(cls, hparams: BenchmarkerHparams) -> Benchmarker:
+        """Instantiate a Benchmarker using a `BenchmarkerHparams` object.
+
+        Args:
+            hparams (BenchmarkerHparams): The BenchmarkerHparams object used to instantiate the Benchmarker.
+
+        Returns:
+            A Benchmarker object initialized with the provided BenchmarkerHparams.
+        """
+
         model = hparams.model.initialize_object()
         log_destinations = [l.initialize_object() for l in hparams.loggers]
 

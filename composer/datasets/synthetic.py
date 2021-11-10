@@ -36,11 +36,12 @@ class SyntheticDataset(torch.utils.data.Dataset):
         total_dataset_size (int): The total size of the dataset to emulate.
         data_shape (List[int]): Shape of the tensor for input samples.
         num_unique_samples_to_create (int): The number of unique samples to allocate memory for.
-        data_type (SyntheticDataType, optional), Type of synthetic data to create.
-        label_type (SyntheticDataLabelType, optional), Type of synthetic data to create.
-        num_classes (int, optional): Number of classes to use. Required if `SyntheticDataLabelType`
-            is `CLASSIFICATION_INT` or `CLASSIFICATION_ONE_HOT`. Otherwise, should be `None`.
-        label_shape (List[int]): Shape of the tensor for each sample label.
+        data_type (SyntheticDataType, optional): Type of synthetic data to create.
+        label_type (SyntheticDataLabelType, optional): Type of synthetic data to create.
+            If `CLASSIFICATION_INT` or `CLASSIFICATION_ONE_HOT` then `num_classes` must be specified.
+            If `RANDOM_INT` then `label_shape` must be specified.
+        num_classes (int, optional): Number of classes to use.
+        label_shape (List[int], optional): Shape of the tensor for each sample label.
         device (str): Device to store the sample pool. Set to `cuda` to store samples
             on the GPU and eliminate PCI-e bandwidth with the dataloader. Set to `cpu`
             to move data between host memory and the gpu on every batch.

@@ -1,4 +1,5 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -9,6 +10,7 @@ import yahp as hp
 from composer.datasets.synthetic import SyntheticDataLabelType, validate_label_inputs
 from composer.loggers import BaseLoggerBackendHparams
 from composer.models import ModelHparams
+from composer.trainer.trainer_hparams import model_registry, logger_registry
 
 if TYPE_CHECKING:
     from composer.benchmarker.benchmarker import Benchmarker
@@ -20,6 +22,11 @@ class BenchmarkerHparams(hp.Hparams):
 
     See the documentation for the :class:`~composer.benchmarker.benchmarker.Benchmarker`.
     """
+
+    hparams_registry = {
+        "loggers": logger_registry,
+        "model": model_registry,
+    }
 
     model: ModelHparams = hp.required(doc="model")
     total_batch_size: int = hp.required(
@@ -40,6 +47,8 @@ class BenchmarkerHparams(hp.Hparams):
     label_shape: List[int] = hp.optional(
         "Shape of the label tensor. Required if label_type is SyntheticDataLabelType.RANDOM_INT.",
         default_factory=lambda: [1])
+    log_level: str = hp.optional(doc="Python loglevel to use composer", default="INFO")
+
 
     def validate(self):
         super().validate()
