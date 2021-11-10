@@ -40,6 +40,7 @@ extensions = [
     "sphinx_rtd_theme",
     "myst_parser",
     "sphinx.ext.intersphinx",
+    "sphinxarg.ext",
 ]
 
 # Add any paths that contain templates here, relative to this directory.

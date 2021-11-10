@@ -32,18 +32,7 @@ class PrefetchedDataLoader(WrappedDataLoader):
 
 
 class DeviceCPU(Device):
-    """An extension of :class:`~composer.trainer.devices.device.Device` for CPUs.
-
-    Args:
-        num_cpus (int): The number of CPUs to use.
-    """
-
-    def __init__(self, num_cpus: int):
-        self._num_cpus = num_cpus
-
-    @property
-    def nproc_per_node(self) -> int:
-        return self._num_cpus
+    """An extension of :class:`~composer.trainer.devices.device.Device` for CPUs."""
 
     def prepare(self, state: State) -> None:
         logger.info("Preparing CPU worker")
