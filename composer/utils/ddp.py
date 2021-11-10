@@ -2,7 +2,7 @@
 
 import os
 import warnings
-from typing import Callable, Optional
+from typing import Optional
 
 import torch.distributed as dist
 
