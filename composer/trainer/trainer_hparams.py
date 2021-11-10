@@ -73,7 +73,7 @@ dataset_registry = {
 algorithms_registry = get_algorithm_registry()
 
 callback_registry = {
-    "pytorch_profiler": TorchProfilerHparams,
+    "torch_profiler": TorchProfilerHparams,
     "speed_monitor": SpeedMonitorHparams,
     "benchmarker": BenchmarkerHparams,
     "lr_monitor": LRMonitorHparams,
