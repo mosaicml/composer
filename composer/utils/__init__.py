@@ -2,7 +2,9 @@
 
 from composer.utils import augmentation_primitives as augmentation_primitives
 from composer.utils.ddp import get_global_rank as get_global_rank
-from composer.utils.ddp import is_rank_set as is_rank_set
+from composer.utils.ddp import get_local_rank as get_local_rank
+from composer.utils.ddp import get_local_world_size as get_local_world_size
+from composer.utils.ddp import get_world_size as get_world_size
 from composer.utils.ddp import is_rank_zero as is_rank_zero
 from composer.utils.determinism import get_random_seed as get_random_seed
 from composer.utils.determinism import seed_all as seed_all
