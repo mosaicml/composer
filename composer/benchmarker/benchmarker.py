@@ -16,7 +16,7 @@ from composer.models.base import BaseMosaicModel
 from composer.trainer.devices import DeviceCPU, DeviceGPU
 from composer.trainer.trainer import Trainer
 
-NUM_PROFILING_STEPS = 250 # needs to be high enough to be able to properly measure time
+NUM_PROFILING_STEPS = 250  # needs to be high enough to be able to properly measure time
 
 
 class Benchmarker:

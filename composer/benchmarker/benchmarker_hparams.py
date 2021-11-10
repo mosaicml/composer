@@ -49,7 +49,6 @@ class BenchmarkerHparams(hp.Hparams):
         default_factory=lambda: [1])
     log_level: str = hp.optional(doc="Python loglevel to use composer", default="INFO")
 
-
     def validate(self):
         super().validate()
 
