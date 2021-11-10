@@ -26,26 +26,31 @@ def parse_args():
     parser.add_argument("--world_size",
                         type=int,
                         default=-1,
-                        help="The total number of processes to launch on all"
-                        "nodes. Set to -1 to default to nproc (single-node operation).")
+                        help="The total number of processes to launch on all "
+                        "nodes. Set to -1 to default to nproc (single-node operation). "
+                        "Defaults to -1.")
     parser.add_argument("--base_rank",
                         type=int,
                         default=0,
-                        help="The rank of the lowest ranked process to launch on this node."
-                        "Specifying a base_rank B and an nproc N will spawn processes"
-                        "with global ranks [B, B+1, ... B+N-1].")
+                        help="The rank of the lowest ranked process to launch on this node. "
+                        "Specifying a base_rank B and an nproc N will spawn processes "
+                        "with global ranks [B, B+1, ... B+N-1]. Defaults to 0 (single-node "
+                        "operation).")
     parser.add_argument("--master_addr",
                         type=str,
                         default="127.0.0.1",
-                        help="The FQDN of the node running the rank 0 worker.")
+                        help="The FQDN of the node running the rank 0 worker. Defaults to "
+                        "127.0.0.1 (single-node operation).")
     parser.add_argument("--master_port",
                         type=int,
                         default=29400,
-                        help="The port on the master hosting the C10d TCP store.")
+                        help="The port on the master hosting the C10d TCP store. If you are running "
+                        "multiple trainers on a single node, this generally needs to be unique for "
+                        "each one.")
     parser.add_argument("-m",
                         "--module_mode",
                         action="store_true",
-                        help="Run the training script as a module instead of as a script.")
+                        help="If set, run the training script as a module instead of as a script.")
     parser.add_argument("training_script",
                         type=str,
                         help="The path to the training script used to initialize a single training "

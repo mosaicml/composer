@@ -45,6 +45,7 @@ Our documentation is organized into a few sections:
    getting_started/using_composer.rst
    getting_started/welcome_tour.rst
    tutorials/adding_models_datasets.rst
+   getting_started/distributed.rst
 
 .. toctree::
    :maxdepth: 1
