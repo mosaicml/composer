@@ -11,6 +11,7 @@ import yahp as hp
 
 from composer.core.logging import BaseLoggerBackend, LogLevel
 from composer.core.types import JSON
+from composer.utils.run_directory import get_run_directory
 
 if TYPE_CHECKING:
     from composer.loggers.file_logger import FileLoggerBackend
@@ -186,6 +187,7 @@ class WandBLoggerBackendHparams(BaseLoggerBackendHparams):
             "name": self.name,
             "entity": self.entity,
             "tags": tags,
+            "dir": get_run_directory(),
         }
 
         kwargs.update(self.extra_init_params)
