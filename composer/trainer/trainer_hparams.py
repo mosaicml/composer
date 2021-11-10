@@ -222,6 +222,6 @@ class TrainerHparams(hp.Hparams):
             "models",
             f"{model}.yaml",
         )
-        trainer_hparams = TrainerHparams.create(model_hparams_file)
+        trainer_hparams = TrainerHparams.create(model_hparams_file, cli_args=False)
         assert isinstance(trainer_hparams, TrainerHparams), "trainer hparams should return an instance of self"
         return trainer_hparams

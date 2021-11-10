@@ -16,7 +16,7 @@ from composer.trainer.devices import GPUDeviceHparams
 def run_and_measure_memory(precision: Precision, file_store_path: str) -> int:
     hparams_f = os.path.join(os.path.dirname(composer.__file__), "yamls", "models", "resnet56_cifar10",
                              "hparams_synthetic.yaml")
-    hparams = TrainerHparams.create(f=hparams_f)
+    hparams = TrainerHparams.create(f=hparams_f, cli_args=False)
     assert isinstance(hparams, TrainerHparams)
     assert isinstance(hparams.device, GPUDeviceHparams)
     hparams.device.n_gpus = 1
