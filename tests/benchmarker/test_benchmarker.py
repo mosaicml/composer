@@ -6,11 +6,12 @@ from composer.datasets.synthetic import SyntheticDataLabelType
 import pytest
 
 from composer.benchmarker.benchmarker import Benchmarker
-from tests.fixtures.models import SimpleBatchPairModel
+from composer.benchmarker.benchmarker_hparams import BenchmarkerHparams
+from tests.fixtures.models import SimpleBatchPairModel, SimpleBatchPairModelHparams
 
 
 @pytest.mark.timeout(90)
-def test_benchmarking(dummy_model: SimpleBatchPairModel):
+def test_benchmarker(dummy_model: SimpleBatchPairModel):
     log_destination = MagicMock()
     log_destination.will_log.return_value = True
 
@@ -35,3 +36,16 @@ def test_benchmarking(dummy_model: SimpleBatchPairModel):
 
     assert num_step_called == 4
     assert num_wall_clock_train_called == 2
+
+
+def test_benchmarker_create_from_hparams(dummy_model_hparams: SimpleBatchPairModelHparams):
+    hparams = BenchmarkerHparams(model=dummy_model_hparams,
+                                 data_shape=dummy_model_hparams.in_shape,
+                                 total_batch_size=16,
+                                 grad_accum=1,
+                                 label_type=SyntheticDataLabelType.CLASSIFICATION_INT,
+                                 num_classes=dummy_model_hparams.num_classes,
+                                 loggers=[])
+
+    benchmarker = Benchmarker.create_from_hparams(hparams=hparams)
+    assert isinstance(benchmarker, Benchmarker)

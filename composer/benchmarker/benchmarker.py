@@ -1,10 +1,12 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
+from __future__ import annotations
+
 from typing import List, Optional, Sequence
 
+from composer.benchmarker.benchmarker_hparams import BenchmarkerHparams
 from composer.callbacks.timing_monitor import TimingMonitor
 from composer.core.logging.base_backend import BaseLoggerBackend
-from composer.core.precision import Precision
 from composer.datasets.hparams import DataloaderSpec
 from composer.datasets.synthetic import SyntheticDataLabelType, SyntheticDataset
 from composer.models.base import BaseMosaicModel
@@ -51,3 +53,17 @@ class Benchmarker:
 
     def run_timing_benchmark(self):
         self.trainer.fit()
+
+    @classmethod
+    def create_from_hparams(cls, hparams: BenchmarkerHparams) -> Benchmarker:
+        model = hparams.model.initialize_object()
+        log_destinations = [l.initialize_object() for l in hparams.loggers]
+
+        return cls(model=model,
+                   data_shape=hparams.data_shape,
+                   total_batch_size=hparams.total_batch_size,
+                   grad_accum=hparams.grad_accum,
+                   label_type=hparams.label_type,
+                   num_classes=hparams.num_classes,
+                   label_shape=hparams.label_shape,
+                   log_destinations=log_destinations)
