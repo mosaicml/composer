@@ -127,7 +127,7 @@ You can also provide overrides at command line:
     benchmarker | :class:`~composer.callbacks.callback_hparams.BenchmarkerHparams`
     grad_monitor | :class:`~composer.callbacks.callback_hparams.GradMonitorHparams`
     lr_monitor | :class:`~composer.callbacks.callback_hparams.LRMonitorHparams`
-    pytorch_profiler | :class:`~composer.callbacks.callback_hparams.TorchProfilerHparams`
+    torch_profiler | :class:`~composer.callbacks.callback_hparams.TorchProfilerHparams`
     speed_monitor | :class:`~composer.callbacks.callback_hparams.SpeedMonitorHparams`
 
 **Datasets**

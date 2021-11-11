@@ -1,6 +1,7 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
 import os
+import pathlib
 
 import pytest
 import torch.distributed as dist
@@ -13,8 +14,8 @@ from composer.loggers.logger_hparams import FileLoggerBackendHparams
 
 
 @pytest.fixture
-def log_file_name(ddp_tmpdir: str) -> str:
-    return os.path.join(ddp_tmpdir, "output.log")
+def log_file_name(tmpdir: pathlib.Path) -> str:
+    return os.path.join(tmpdir, "output.log")
 
 
 @pytest.fixture

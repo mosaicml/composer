@@ -16,7 +16,7 @@ from composer.core.callback import Callback
 from composer.core.precision import Precision
 from composer.core.serializable import Serializable
 from composer.utils import ensure_tuple
-from composer.utils.ddp import get_global_rank, is_rank_set
+from composer.utils.ddp import get_global_rank, get_local_rank, get_local_world_size, get_world_size
 from composer.utils.precision import default_precision_factory
 
 if TYPE_CHECKING:
@@ -55,8 +55,6 @@ SKIP_SERIALIZATION_FIELDS = [
     "precision",
     "train_dataloader",
     "eval_dataloader",
-    "world_size",
-    "nproc_per_node",
     "precision",
     "precision_context",
 ]
@@ -144,25 +142,25 @@ class State(Serializable):
     algorithms: Sequence[Algorithm] = tuple()
     callbacks: Sequence[Callback] = tuple()
 
-    # machine info
-    world_size: int = 1
-    nproc_per_node: int = 1
+    @property
+    def world_size(self) -> int:
+        return get_world_size()
 
     @property
     def global_rank(self) -> int:
         return get_global_rank()
 
     @property
+    def local_world_size(self) -> int:
+        return get_local_world_size()
+
+    @property
     def local_rank(self) -> int:
-        return self.global_rank % self.nproc_per_node
+        return get_local_rank()
 
     @property
     def is_rank_zero(self) -> bool:
         return self.global_rank == 0
-
-    @property
-    def is_rank_set(self) -> bool:
-        return is_rank_set()
 
     def state_dict(self) -> types.StateDict:
         """Returns the state as a :class:`dict`."""
