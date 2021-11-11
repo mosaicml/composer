@@ -1,7 +1,15 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
 import logging
-from typing import Any, Dict, List, Optional, Protocol, Tuple, Type
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Type
+
+try:
+    from typing import Protocol
+except ImportError:
+    Protocol = object  # Protocol is not available in python 3.7
+
+if TYPE_CHECKING:
+    from typing import Protocol
 
 import torch
 

@@ -94,7 +94,7 @@ setup(
     },
     extras_require=extra_deps,
     dependency_links=['https://developer.download.nvidia.com/compute/redist'],
-    python_requires='>=3.8',
+    python_requires='>=3.7',
     ext_package="composer",
 )
 
