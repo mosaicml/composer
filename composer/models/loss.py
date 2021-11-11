@@ -100,8 +100,7 @@ def ensure_targets_one_hot(input: Tensor, targets: Tensor) -> Tensor:
 
 def check_for_index_targets(targets: Tensor) -> bool:
     """Checks if a given set of targets are indices by looking at the type"""
-    index_types = ['torch.LongTensor',
-                   'torch.cuda.LongTensor']
+    index_types = ['torch.LongTensor', 'torch.cuda.LongTensor']
     return targets.type() in index_types
 
 

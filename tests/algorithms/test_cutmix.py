@@ -58,36 +58,33 @@ class TestCutMix:
         # Get a random bounding box based on cutmix_lambda
         cx = np.random.randint(x_fake.shape[2])
         cy = np.random.randint(x_fake.shape[3])
-        bbx1, bby1, bbx2, bby2 = rand_bbox(
-                                    W=x_fake.shape[2],
-                                    H=x_fake.shape[3],
-                                    cutmix_lambda=cutmix_lambda,
-                                    cx=cx,
-                                    cy=cy)
+        bbx1, bby1, bbx2, bby2 = rand_bbox(W=x_fake.shape[2],
+                                           H=x_fake.shape[3],
+                                           cutmix_lambda=cutmix_lambda,
+                                           cx=cx,
+                                           cy=cy)
         bbox = (bbx1, bby1, bbx2, bby2)
         # Adjust lambda
         cutmix_lambda = 1 - ((bbx2 - bbx1) * (bby2 - bby1) / (x_fake.size()[-1] * x_fake.size()[-2]))
 
         # Apply cutmix
-        x_cutmix, y_cutmix = cutmix(
-                                x=x_fake,
-                                y=y_fake,
-                                alpha=1.0,
-                                n_classes=n_classes,
-                                cutmix_lambda=cutmix_lambda,
-                                bbox=bbox,
-                                indices=indices)
+        x_cutmix, y_cutmix = cutmix(x=x_fake,
+                                    y=y_fake,
+                                    alpha=1.0,
+                                    n_classes=n_classes,
+                                    cutmix_lambda=cutmix_lambda,
+                                    bbox=bbox,
+                                    indices=indices)
 
         # Validate results
-        validate_cutmix(
-                        x_fake,
-                        y_fake,
-                        indices,
-                        x_cutmix,
-                        y_cutmix,
-                        cutmix_lambda,
-                        bbox,
-                        n_classes)
+        validate_cutmix(x=x_fake,
+                        y=y_fake,
+                        indices=indices,
+                        x_cutmix=x_cutmix,
+                        y_cutmix=y_cutmix,
+                        cutmix_lambda=cutmix_lambda,
+                        bbox=bbox,
+                        n_classes=n_classes)
 
     def test_cutmix_algorithm(self, fake_data, alpha, dummy_state, dummy_logger):
         # Generate fake data
@@ -105,15 +102,14 @@ class TestCutMix:
 
         x, y = state.batch
         # Validate results
-        validate_cutmix(
-                        x_fake,
-                        y_fake,
-                        algorithm.indices,
-                        x,
-                        y,
-                        algorithm.cutmix_lambda,
-                        algorithm.bbox,
-                        algorithm.num_classes)
+        validate_cutmix(x=x_fake,
+                        y=y_fake,
+                        indices=algorithm.indices,
+                        x_cutmix=x,
+                        y_cutmix=y,
+                        cutmix_lambda=algorithm.cutmix_lambda,
+                        bbox=algorithm.bbox,
+                        n_classes=algorithm.num_classes)
 
 
 @pytest.mark.xfail
