@@ -25,7 +25,7 @@ install_requires = [
     "torchmetrics>=0.5.1",
     "torch_optimizer==0.1.0",
     "torchvision>=0.9.0",
-    "torch>=1.8.1",
+    "torch>=1.9",
     "argparse>=1.4.0",
     "yahp>=0.0.10",
 ]
