@@ -103,7 +103,7 @@ class TorchProfiler(Callback):
             repeat=self.hparams.repeat,
         )
         try:
-            import torch_tb_profiler
+            import torch_tb_profiler  # type: ignore
         except ModuleNotFoundError:
             warnings.warn(
                 "TorchTBProfilerNotFound: torch_tb_profiler not found. You will not be able to visualize torch profiler results."

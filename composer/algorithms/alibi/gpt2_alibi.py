@@ -42,7 +42,7 @@ def _attn(self, query, key, value, attention_mask=None, head_mask=None):
 def enlarge_mask(module: torch.nn.Module, max_sequence_length: int):
     old_mask = module.bias
     new_mask = torch.tril(
-        torch.ones((max_sequence_length, max_sequence_length), dtype=torch.uint8,
+        torch.ones((max_sequence_length, max_sequence_length), dtype=torch.uint8,  # type: ignore
                    device=old_mask.device)).view(1, 1, max_sequence_length, max_sequence_length)  # type: ignore
     setattr(module, "bias", new_mask)
     return module

@@ -229,6 +229,6 @@ class SelectiveBackprop(Algorithm):
 
         with state.precision_context(state.precision):
             new_input, new_target = selective_backprop(
-                input, target, model, loss, self.hparams.keep,
-                self.hparams.scale_factor)  # type: ignore - ditto because of loss
+                input, target, model, loss, self.hparams.keep,  # type: ignore - ditto because of loss
+                self.hparams.scale_factor)
         state.batch = (new_input, new_target)
