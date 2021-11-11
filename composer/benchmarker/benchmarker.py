@@ -7,7 +7,7 @@ import torch
 from typing import List, Optional, Sequence
 
 from composer.benchmarker.benchmarker_hparams import BenchmarkerHparams
-from composer.callbacks.timing_monitor import TimingMonitor
+from composer.callbacks.benchmarker import Benchmarker as BenchmarkerCallback
 from composer.core.logging.base_backend import BaseLoggerBackend
 from composer.core.precision import Precision
 from composer.datasets.hparams import DataloaderSpec
@@ -28,7 +28,6 @@ class Benchmarker:
         total_batch_size (int): The batch size to train with.
         grad_accum (int, optional): The number of microbatches to split a per-device batch into. Gradients
             are summed over the microbatches per device.
-        data_type (SyntheticDataType, optional), Type of synthetic data to create.
         label_type (SyntheticDataLabelType, optional), Type of synthetic data to create.
             If `CLASSIFICATION_INT` or `CLASSIFICATION_ONE_HOT` then `num_classes` must be specified.
             If `RANDOM_INT` then `label_shape` must be specified.
@@ -58,14 +57,13 @@ class Benchmarker:
         self.dataloader_spec = DataloaderSpec(dataset=self.dataset, shuffle=False, drop_last=True)
 
         # Default for now - adjust to work with algorithms
-        timing_callback = TimingMonitor(min_steps=50, epoch_list=[0, 1], step_list=[0, 50], all_epochs=False)
+        timing_callback = BenchmarkerCallback(min_steps=50, epoch_list=[0, 1], step_list=[0, 50], all_epochs=False)
 
         # Use optimal device settings based on what is available
-        device = DeviceCPU(num_cpus=1)
+        device = DeviceCPU()
         precision = Precision.FP32
         if torch.cuda.is_available():
-            num_gpus = torch.cuda.device_count()
-            device = DeviceGPU(prefetch_in_cuda_stream=False, n_gpus=num_gpus)
+            device = DeviceGPU(prefetch_in_cuda_stream=False)
             precision = Precision.AMP
 
         self.trainer = Trainer(
