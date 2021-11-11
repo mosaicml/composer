@@ -401,11 +401,10 @@ class DeepSpeedTrainer:
         assert len(ensure_tuple(state.optimizers)) == 1
         optimizer = ensure_tuple(state.optimizers)[0]
 
-        state.train_dataloader = self.dl_hparams.initialize_object(batch_size=self.state.train_batch_size,
-                                                                   sampler=torch.utils.data.RandomSampler(
-                                                                       self.train_dl_spec.dataset,
-                                                                       generator=self.train_dl_spec.generator),
-                                                                   dataloader_spec=self.train_dl_spec)
+        state.train_dataloader = self.dl_hparams.initialize_object(
+            batch_size=state.train_batch_size / state.world_size(),
+            sampler=torch.utils.data.RandomSampler(self.train_dl_spec.dataset, generator=self.train_dl_spec.generator),
+            dataloader_spec=self.train_dl_spec)
 
         (self.deepspeed_engine, state.optimizers, _, _) = deepspeed.initialize(
             config=self.deepspeed_config,
