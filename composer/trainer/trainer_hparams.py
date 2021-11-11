@@ -157,9 +157,6 @@ class TrainerHparams(hp.Hparams):
         doc="Validate every N batches. Set to -1 to never validate on a batchwise frequency. Defaults to -1.",
         default=-1)
     callbacks: List[CallbackHparams] = hp.optional(doc="Callback hparams", default_factory=list)
-    run_directory: Optional[str] = hp.optional(
-        doc="Directory to store training artifacts. Defaults to ./.runs/{datetime.datetime.now().isoformat()}/",
-        default=None)
 
     checkpoint_filepath: Optional[str] = hp.optional(doc="Path to an existing checkpoint file to load from.",
                                                      default=None)
@@ -169,9 +166,10 @@ class TrainerHparams(hp.Hparams):
         "Unit for the checkpoint save interval -- should be 'ep' for epochs; 'ba' for batches, or None to disable checkpointing",
         default=None)
     checkpoint_interval: int = hp.optional(doc="Interval for checkpointing.", default=1)
-    checkpoint_folder: str = hp.optional(doc="Folder in which to save checkpoint files. Relative to the run directory. "
-                                         "Defaults to RUN_DIRECTORY/checkpoints.",
-                                         default="checkpoints")
+    checkpoint_folder: str = hp.optional(
+        doc="Folder in which to save checkpoint files. Relative to the run directory, if set."
+        "Defaults to `checkpoints`.",
+        default="checkpoints")
     deterministic_mode: bool = hp.optional(doc="Run the model deterministically. Experimental. Performance"
                                            "degradations expected. Certain Torch modules may not have"
                                            "deterministic implementations, which will result in a crash.",

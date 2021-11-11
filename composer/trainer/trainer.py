@@ -6,8 +6,6 @@ import collections.abc
 import contextlib
 import logging
 import warnings
-import datetime
-import os
 from typing import Any, Dict, List, Optional, Sequence, Union
 
 import torch
@@ -36,7 +34,7 @@ from composer.trainer.devices.device_cpu import DeviceCPU
 from composer.trainer.scaler import ClosureGradScaler
 from composer.trainer.trainer_hparams import TrainerHparams
 from composer.utils import ensure_tuple, get_random_seed, map_collection, seed_all
-from composer.utils.run_directory import get_relative_to_run_directory, set_run_directory
+from composer.utils.run_directory import get_relative_to_run_directory
 
 log = logging.getLogger(__name__)
 
@@ -102,15 +100,12 @@ class Trainer:
         log_destinations (List[BaseLoggerBackend], optional): The destinations to log training information to.
             (default ``[TQDMLoggerBackend()]``).
         callbacks (Sequence[Callback], optional): The callbacks to run during training. (default: ``[]``)
-        run_directory (Optional[str], optional): Directory to store training artifacts.
-            Must be specified for multi-process training.
-            (default: ``./.runs/{datetime.datetime.now().isoformat()}/`` for single-process training)
         checkpoint_filepath (str, optional): The path to a trainer checkpoint file. If provided
             the trainer will load the state (along with it's associated attributes) during initialization.
             (default: ``None``)
         checkpoint_interval_unit (int, optional): Unit for the checkpoint save interval -- should be 'ep'
             for epochs, 'ba' for batches, or None to disable checkpointing. (default: ``None``).
-        checkpoint_folder (str, optional): The folder to save checkpoints to. Relative to the `run_directory`.
+        checkpoint_folder (str, optional): The folder to save checkpoints to. Relative to `os.environ.get('RUN_DIRECTORY', '.')`, 
             (default: ``checkpoints``)
         checkpoint_interval (int, optional): The frequency with which to checkpoint. (default: ``1``)
         config (Dict[str, Any], optional): Extra user-provided trainer configuration. Will be persisted
@@ -164,7 +159,6 @@ class Trainer:
             # Logging and callbacks
             log_destinations: Optional[List[BaseLoggerBackend]] = None,
             callbacks: Sequence[Callback] = tuple(),
-            run_directory: Optional[str] = None,
 
             # Checkpoint hparams
             checkpoint_filepath: Optional[str] = None,
@@ -185,13 +179,6 @@ class Trainer:
         if not device:
             device = DeviceCPU()
         self.device = device
-
-        if run_directory is None:
-            if get_world_size() != 1:
-                raise ValueError("If the world_size is not 1, then the run_directory must be specified."
-                                 "Otherwise, each process will have a separate, nondeterministic run directory.")
-            run_directory = os.path.join(".runs", datetime.datetime.now().isoformat())
-        set_run_directory(run_directory)
 
         if not seed:
             # Set a deterministic seed in the hparams
@@ -352,7 +339,6 @@ class Trainer:
             # Callbacks and logging
             log_destinations=log_destinations,
             callbacks=tuple(callbacks),
-            run_directory=hparams.run_directory,
 
             # Checkpointing hparams
             checkpoint_filepath=hparams.checkpoint_filepath,

@@ -3,9 +3,9 @@
 from __future__ import annotations
 
 import atexit
+import warnings
 from dataclasses import asdict, dataclass
 from typing import TYPE_CHECKING, Optional
-import warnings
 
 import torch.profiler
 from torch.profiler.profiler import ProfilerAction
@@ -105,7 +105,8 @@ class TorchProfiler(Callback):
         try:
             import torch_tb_profiler
         except ModuleNotFoundError:
-            warnings.warn("TorchTBProfilerNotFound: torch_tb_profiler not found. You will not be able to visualize torch profiler results."
+            warnings.warn(
+                "TorchTBProfilerNotFound: torch_tb_profiler not found. You will not be able to visualize torch profiler results."
                 "To visualize, run `pip install torch-tb-profiler`")
 
     def state_dict(self) -> StateDict:
