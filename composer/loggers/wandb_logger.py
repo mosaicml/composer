@@ -52,7 +52,7 @@ class WandBLoggerBackend(RankZeroLoggerBackend):
         # so uploads will not block the training loop
         # slowdown is likely from extra I/O
         # Hence, logging every n batches instead of every batch
-        if (state.step + 1) % self.log_artifacts_every_n_batches:
+        if (state.step + 1) % self.log_artifacts_every_n_batches == 0:
             self._log_artifacts()
 
     def epoch_end(self, state: State, logger: Logger) -> None:
