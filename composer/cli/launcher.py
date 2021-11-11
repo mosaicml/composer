@@ -230,7 +230,8 @@ def main():
     try:
         monitor_processes(processes)
     except KeyboardInterrupt:
-        print("Caught Ctrl+C; killping processes")
+        print("Caught Ctrl+C; killing processes")
+        raise
     finally:
         cleanup_processes(processes)
         return aggregate_process_returncode(processes)
