@@ -489,7 +489,8 @@ class DeepSpeedTrainer:
 
                     if total_loss is not None:
                         assert isinstance(total_loss, Tensor)
-                        full_loss = total_loss.cpu().item()
+                        all_losses = self.deepspeed_engine.all_gather_scalar(total_loss, group=None)
+                        full_loss = sum(all_losses).cpu().item()
                         self.logger.metric_batch({'loss/train': full_loss / state.world_size})
                     """
                     if self.compute_training_metrics:
@@ -556,14 +557,14 @@ class DeepSpeedTrainer:
 
             state.loss = self.deepspeed_engine.forward(state.batch)
 
-            loss_num = state.loss.item()
-
-            print(f"({state.batch_idx}) loss: {loss_num}")
+            print(f"({state.batch_idx}) loss: {state.loss.item()}")
 
             # Loss is added to losses with clone to not scale the loss for the step printout
             # Likely need to look into the performance impact
-
-            total_loss += loss_num * current_microbatch_size / current_batch_size
+            for loss in ensure_tuple(state.loss):
+                cloned_loss = loss.detach().clone()
+                cloned_loss.mul_(current_microbatch_size / current_batch_size)
+                total_loss += cloned_loss
 
             assert state.loss is not None
             self.engine.run_event(Event.AFTER_LOSS)
