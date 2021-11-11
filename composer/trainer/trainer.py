@@ -9,6 +9,7 @@ import warnings
 from typing import Any, Dict, List, Optional, Sequence, Union
 
 import torch
+import torch.distributed
 import torch.utils.data
 from torch.backends import cudnn
 from torch.cuda.amp.grad_scaler import GradScaler
@@ -27,7 +28,7 @@ from composer.optim import (ComposedScheduler, CosineAnnealingLRHparams, Decoupl
                             SchedulerHparams, WarmUpLRHparams)
 from composer.optim.scheduler import ensure_warmup_last
 from composer.trainer.checkpoint import Checkpointer, CheckpointLoader
-from composer.trainer.ddp import DDP, DataloaderMultipleIterationWarning, StoreHparams, TCPStoreHparams
+from composer.trainer.ddp import DDP, DataloaderMultipleIterationWarning
 from composer.trainer.devices.device import Device
 from composer.trainer.devices.device_cpu import DeviceCPU
 from composer.trainer.scaler import ClosureGradScaler
@@ -86,12 +87,10 @@ class Trainer:
             (default: ``False``)
         timeout (int, optional): Timeout value for collecting a batch from workers. 0 for no timeout.
             (default: ``0``)
-        ddp_store_hparams (StoreHparams, optional): `DistributedDataParallel` configuration.
-            (default: ``TCPStoreHparams("127.0.0.1", 43297)``)
-        fork_rank_0 (bool, optional): True to fork the rank 0 process in distributed data parallel,
-            False to not. (default: ``True``)
         ddp_sync_strategy (DDPSyncStrategy, optional): The strategy to use for synchronizing gradients.
             Leave unset to let the trainer auto-configure this.
+        ddp_timeout (float, optional): Timeout, in seconds, for initializing the DDP process group.
+            (default: ``5.0``)
         seed (int, optional): The seed used in randomization. When not provided a random seed
             will be created. (default: ``None``)
         deterministic_mode (bool, optional): Run the model deterministically. Experimental. Performance
@@ -148,9 +147,8 @@ class Trainer:
             timeout: int = 0,
 
             # ddp hparams
-            ddp_store_hparams: Optional[StoreHparams] = None,
-            fork_rank_0: bool = False,
             ddp_sync_strategy: Optional[str] = None,
+            ddp_timeout: float = 5.0,
 
             # Randomness
             seed: Optional[int] = None,
@@ -177,7 +175,7 @@ class Trainer:
         self.ddp_sync_strategy = ddp_sync_strategy
 
         if not device:
-            device = DeviceCPU(num_cpus=1)
+            device = DeviceCPU()
         self.device = device
 
         if not seed:
@@ -196,17 +194,11 @@ class Trainer:
         self.backwards_create_graph = any(map(lambda x: x.backwards_create_graph, algorithms))
 
         find_unused_parameters = any(map(lambda x: x.find_unused_parameters, algorithms))
-        if not ddp_store_hparams:
-            ddp_store_hparams = TCPStoreHparams("127.0.0.1", 43297)
         self.ddp = DDP(
-            nproc_per_node=self.device.nproc_per_node,
-            store_hparams=ddp_store_hparams,
-            node_rank=0,
-            num_nodes=1,
             backend=self.device.ddp_backend,
-            fork_rank_0=fork_rank_0,
             find_unused_parameters=find_unused_parameters,
-            ddp_sync_strategy=ddp_sync_strategy,
+            sync_strategy=ddp_sync_strategy,
+            timeout=ddp_timeout,
         )
 
         self.state = State(max_epochs=max_epochs,
@@ -217,9 +209,7 @@ class Trainer:
                            model=model,
                            grad_accum=grad_accum,
                            precision=precision,
-                           precision_context=self.device.precision_context,
-                           nproc_per_node=self.device.nproc_per_node,
-                           world_size=self.ddp.world_size)
+                           precision_context=self.device.precision_context)
 
         if not log_destinations:
             log_destinations = [TQDMLoggerBackend()]
@@ -304,13 +294,6 @@ class Trainer:
         dict_config = hparams.to_dict()
         log_destinations = [x.initialize_object(config=dict_config) for x in hparams.loggers]
 
-        find_unused_parameters = any(map(lambda x: x.find_unused_parameters, algorithms))
-        ddp = hparams.ddp.initialize_object(
-            device.nproc_per_node,
-            device.ddp_backend,
-            find_unused_parameters,
-        )
-
         train_dl_spec = hparams.train_dataset.initialize_object()
         eval_dl_spec = hparams.val_dataset.initialize_object()
 
@@ -344,8 +327,8 @@ class Trainer:
             timeout=hparams.dataloader.timeout,
 
             # ddp hparams
-            ddp_store_hparams=ddp.store_hparams,
-            fork_rank_0=ddp.fork_rank_0,
+            ddp_sync_strategy=hparams.ddp.sync_strategy,
+            ddp_timeout=hparams.ddp.timeout,
 
             # Randomness
             seed=seed,
@@ -360,7 +343,6 @@ class Trainer:
             checkpoint_interval_unit=hparams.checkpoint_interval_unit,
             checkpoint_folder=hparams.checkpoint_folder,
             checkpoint_interval=hparams.checkpoint_interval,
-            ddp_sync_strategy=hparams.ddp_sync_strategy,
 
             # Optional config
             config=hparams.to_dict())
@@ -369,7 +351,7 @@ class Trainer:
 
     def fit(self):
         """Train and evaluate the model on the provided data."""
-        self.ddp.launch(self.state, self._train_loop)
+        self._train_loop()
 
     def _create_dataloaders(self) -> None:
         """Create the dataloaders.
@@ -694,7 +676,7 @@ class Trainer:
 
         for microbatch_idx, state.batch in enumerate(microbatches):
             is_final_microbatch = microbatch_idx + 1 == len(microbatches)
-            with self.ddp.ddp_sync_context(state, is_final_microbatch):
+            with self.ddp.sync_context(state, is_final_microbatch):
                 last_microbatch_size = self._get_batch_size(state.batch)
 
                 # forward pass
