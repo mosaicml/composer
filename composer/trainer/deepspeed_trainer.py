@@ -544,7 +544,7 @@ class DeepSpeedTrainer:
 
         # tracker for gradient accumulation
         # total_loss = self.device.tensor_to_device(torch.zeros(size=(1,)))
-        total_loss = torch.zeros(size=(1,))
+        total_loss = torch.zeros(size=(1,), device=f'cuda:{state.local_rank}')
 
         current_batch_size = sum([self._get_batch_size(batch) for batch in microbatches])
 
