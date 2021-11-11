@@ -545,7 +545,11 @@ class DeepSpeedTrainer:
         # total_loss = self.device.tensor_to_device(torch.zeros(size=(1,)))
         total_loss = torch.zeros(size=(1,))
 
+        current_batch_size = sum([self._get_batch_size(batch) for batch in microbatches])
+
         for state.batch in microbatches:
+
+            current_microbatch_size = self._get_batch_size(state.batch)
 
             # forward pass
             self.engine.run_event(Event.BEFORE_FORWARD)
@@ -559,7 +563,7 @@ class DeepSpeedTrainer:
             # Loss is added to losses with clone to not scale the loss for the step printout
             # Likely need to look into the performance impact
 
-            total_loss += loss_num
+            total_loss += loss_num * current_microbatch_size / current_batch_size
 
             assert state.loss is not None
             self.engine.run_event(Event.AFTER_LOSS)
