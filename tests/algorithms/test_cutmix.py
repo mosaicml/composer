@@ -1,9 +1,9 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
 import pytest
-import torch
-from torch.nn import functional as F
 import numpy as np
+import torch
+import torch.nn.functional as F
 
 from composer.algorithms import CutMixHparams
 from composer.algorithms.cutmix.cutmix import cutmix, rand_bbox
@@ -46,7 +46,7 @@ def validate_cutmix(x, y, indices, x_cutmix, y_cutmix, cutmix_lambda, bbox, n_cl
         torch.testing.assert_allclose(y_interp, y_cutmix[i])
 
 
-@pytest.mark.parametrize('alpha', [.2, 1])
+@pytest.mark.parametrize('alpha', [0.2, 1])
 class TestCutMix:
 
     def test_cutmix(self, fake_data, alpha):
@@ -126,8 +126,6 @@ def test_cutmix_nclasses(dummy_state, dummy_logger):
     algorithm.apply(Event.AFTER_DATALOADER, state, dummy_logger)
 
 
-@pytest.mark.run_long
-@pytest.mark.timeout(90)
 def test_cutmix_trains(mosaic_trainer_hparams: TrainerHparams):
     mosaic_trainer_hparams.algorithms = [CutMixHparams(alpha=1.0)]
     train_model(mosaic_trainer_hparams)
