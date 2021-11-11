@@ -445,7 +445,7 @@ class DeepSpeedTrainer:
                 assert state.train_dataloader, "Train Dataloader must be set"
                 for batch_idx, state.batch in enumerate(state.train_dataloader):
                     print(state.batch)
-                    state.batch = {k: v.to(device=f'cuda:{state.local_rank()}') for (k, v) in state.batch_dict.items()}
+                    state.batch = {k: v.to(device=f'cuda:{state.local_rank}') for (k, v) in state.batch_dict.items()}
                     """state.batch = (
                         state.batch[0].to(dtype=torch.half, device='cuda:0'),
                         state.batch[1].to(dtype=torch.half, device='cuda:0'),
