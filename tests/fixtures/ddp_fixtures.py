@@ -1,70 +1,56 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
+import multiprocessing as mp
 import os
-import pathlib
-from typing import List
+import time
+from typing import Callable
 
-import _pytest.config
-import _pytest.config.argparsing
-import _pytest.fixtures
-import _pytest.mark
 import pytest
-
-_MAIN_PYTEST_KEY = "MAIN_PYTEST"
-
-
-@pytest.fixture
-def is_main_pytest_process() -> bool:
-    if _MAIN_PYTEST_KEY in os.environ:
-        return False
-    else:
-        os.environ[_MAIN_PYTEST_KEY] = "1"
-        return True
+import torch.distributed
 
 
 @pytest.fixture(autouse=True)
-def reset_osenviron(is_main_pytest_process: None):
-    # Require the is_main_pytest_process fixture so that will be set before the env variable capture
-    original_environ = os.environ.copy()
-    try:
-        yield
-    finally:
-        # remove the extra keys
-        keys_to_remove: List[str] = []
-        for k in os.environ.keys():
-            if k not in original_environ:
-                keys_to_remove.append(k)
-        for k in keys_to_remove:
-            del os.environ[k]
-
-        # reset the other keys
-        for k, v in original_environ.items():
-            os.environ[k] = v
+def ddp_cleanup():
+    yield
+    if torch.distributed.is_initialized():
+        torch.distributed.destroy_process_group()
 
 
-@pytest.fixture(autouse=True)
-def ddp_fork_multi_pytest(request: _pytest.fixtures.FixtureRequest, reset_osenviron: None) -> None:
-    # When using DDP fork, the same command is executed again.
-    # When multiple tests are executed with a single pytest command,
-    # then the DDP fork will re-run all tests, when instead we just want
-    # the forked test to run again. To prevent this behavior, we store the
-    # running pytest id as an environ. If this variable is set, and it does
-    # NOT match the current pytest test ID, then the test should be skipped
-    # as the test was launched by a different DDP fork
-    test_name: str = request.node.name
-    if "PYTEST_TEST_ID" not in os.environ:
-        os.environ["PYTEST_TEST_ID"] = test_name
-        return
-    if os.environ["PYTEST_TEST_ID"] != test_name:
-        pytest.skip("Skipping test invoked within a DDP fork")
+def _dist_run_target(target: Callable, rank: int, num_procs: int, *args, **kwargs):
+    os.environ['WORLD_SIZE'] = str(num_procs)
+    os.environ['RANK'] = str(rank)
+    os.environ['LOCAL_RANK'] = str(rank)
+    os.environ['LOCAL_WORLD_SIZE'] = str(num_procs)
+
+    os.environ['MASTER_ADDR'] = '127.0.0.1'
+    os.environ['MASTER_PORT'] = str(29400)
+
+    target(*args, **kwargs)
 
 
-@pytest.fixture
-def ddp_tmpdir(tmpdir: pathlib.Path) -> str:
-    if os.environ.get("DDP_TMP_DIR") is None:
-        # Need to set the tmpdir as an environ, so all subprocesses share the same tmpdir.
-        # Upon subprocess calls, pytest gives each ddp process a different tmpdir
-        # Instead, we want to use the same tmpdir for test case assertions.
-        os.environ['DDP_TMP_DIR'] = str(tmpdir)
-        return str(tmpdir)
-    return os.environ["DDP_TMP_DIR"]
+def with_distributed(num_procs: int, target: Callable, timeout: int = 30):
+
+    def run_target(*args, **kwargs):
+        processes = []
+        ctx = mp.get_context('spawn')
+        for rank in range(num_procs):
+            _args = (target, rank, num_procs, *args)
+            p = ctx.Process(target=_dist_run_target, args=_args, kwargs=kwargs)
+            p.start()
+            processes.append(p)
+
+        start_time = time.time()
+
+        while any([p.is_alive() for p in processes]):
+            has_timed_out = time.time() - start_time > timeout
+            for rank, p in enumerate(processes):
+                if p.is_alive() and not has_timed_out:
+                    continue
+                if p.exitcode is None:
+                    p.kill()
+                    pytest.fail(f'Process {rank} did not exit', pytrace=False)
+                elif p.exitcode != 0:
+                    pytest.fail(f'Process {rank} failed with error code {p.exitcode}', pytrace=False)
+            time.sleep(0.5)
+
+    return run_target

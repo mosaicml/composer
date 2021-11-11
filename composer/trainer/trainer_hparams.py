@@ -26,6 +26,7 @@ from composer.optim import (AdamHparams, AdamWHparams, DecoupledAdamWHparams, De
                             RAdamHparams, RMSPropHparams, SchedulerHparams, SGDHparams, scheduler)
 from composer.trainer.ddp import DDPHparams
 from composer.trainer.devices import CPUDeviceHparams, DeviceHparams, GPUDeviceHparams
+from composer.utils.ddp import get_world_size
 
 if TYPE_CHECKING:
     from composer.trainer.trainer import Trainer
@@ -73,7 +74,7 @@ dataset_registry = {
 algorithms_registry = get_algorithm_registry()
 
 callback_registry = {
-    "pytorch_profiler": TorchProfilerHparams,
+    "torch_profiler": TorchProfilerHparams,
     "speed_monitor": SpeedMonitorHparams,
     "benchmarker": BenchmarkerHparams,
     "lr_monitor": LRMonitorHparams,
@@ -179,21 +180,16 @@ class TrainerHparams(hp.Hparams):
     def validate(self):
         super().validate()
 
-        num_procs = 1
-        if isinstance(self.device, GPUDeviceHparams) and self.device.n_gpus > 0:
-            num_procs = self.device.n_gpus
-        if isinstance(self.device, CPUDeviceHparams) and self.device.n_cpus > 0:
-            num_procs = self.device.n_cpus
+        world_size = get_world_size()
 
-        if self.total_batch_size % (num_procs * self.ddp.num_nodes) != 0:
+        if self.total_batch_size % world_size != 0:
             raise ValueError(
-                f"batch size ({self.total_batch_size}) not divisible by the number of proccesses per node ({num_procs}) "
-                f"times the number of nodes ({self.ddp.num_nodes} ")
+                f"batch size ({self.total_batch_size}) not divisible by the total number of processes ({world_size})")
 
-        if self.eval_batch_size % (num_procs * self.ddp.num_nodes) != 0:
+        if self.eval_batch_size % world_size != 0:
             raise ValueError(
-                f"eval batch size ({self.eval_batch_size}) not divisible by the number of proccesses per node ({num_procs}) "
-                f"times the number of nodes ({self.ddp.num_nodes}")
+                f"eval batch size ({self.eval_batch_size}) not divisible by the total number of processes ({world_size}) "
+            )
 
     def initialize_object(self) -> Trainer:
         from composer.trainer.trainer import Trainer
@@ -222,6 +218,6 @@ class TrainerHparams(hp.Hparams):
             "models",
             f"{model}.yaml",
         )
-        trainer_hparams = TrainerHparams.create(model_hparams_file)
+        trainer_hparams = TrainerHparams.create(model_hparams_file, cli_args=False)
         assert isinstance(trainer_hparams, TrainerHparams), "trainer hparams should return an instance of self"
         return trainer_hparams
