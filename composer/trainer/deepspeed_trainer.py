@@ -401,9 +401,7 @@ class DeepSpeedTrainer:
         assert len(ensure_tuple(state.optimizers)) == 1
         optimizer = ensure_tuple(state.optimizers)[0]
 
-        original_model = state.model
-
-        state.train_dataloader = self.dl_hparams.initialize_object(batch_size=2048,
+        state.train_dataloader = self.dl_hparams.initialize_object(batch_size=self.state.train_batch_size,
                                                                    sampler=torch.utils.data.RandomSampler(
                                                                        self.train_dl_spec.dataset,
                                                                        generator=self.train_dl_spec.generator),
