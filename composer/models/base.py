@@ -119,6 +119,8 @@ class MosaicClassifier(BaseMosaicModel):
         x, y = batch
         logits = self.module(x)
 
+        return self.loss(logits, batch)
+
         return logits
 
     def validate(self, batch: BatchPair) -> Tuple[Any, Any]:

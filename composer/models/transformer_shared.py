@@ -5,6 +5,9 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING, Mapping, Tuple
 
+import torch
+import transformers
+
 from composer.models.base import BaseMosaicModel
 from composer.models.nlp_metrics import LanguageCrossEntropyLoss
 
@@ -94,6 +97,8 @@ class MosaicTransformer(BaseMosaicModel):
                 raise ValueError(f'Batch missing key: {key}')
 
         output = self.module(**batch)  # type: ignore (thirdparty)
+
+        return self.loss(output, batch)
         return output
 
     def metrics(self, train: bool = False) -> Metrics:

@@ -67,6 +67,10 @@ extra_deps['unet'] = [
     'scikit-learn>=1.0.1',
 ]
 
+extra_deps['deepspeed'] = [
+    'deepspeed>=0.5.5',
+]
+
 extra_deps['all'] = set(dep for deps in extra_deps.values() for dep in deps)
 
 setup(
