@@ -489,7 +489,7 @@ class DeepSpeedTrainer:
 
                     if total_loss is not None:
                         assert isinstance(total_loss, Tensor)
-                        all_losses = self.deepspeed_engine.all_gather_scalar(total_loss, group=None)
+                        all_losses = self.deepspeed_engine.all_gather_scalar(total_loss, dp_group=None)
                         full_loss = sum(all_losses).cpu().item()
                         self.logger.metric_batch({'loss/train': full_loss / state.world_size})
                     """
