@@ -94,6 +94,14 @@ class _FactorizedModule(nn.Module, abc.ABC):
             self.module1.reset_parameters()
 
     def set_rank(self, input: torch.Tensor, rank: int) -> None:
+        """Forces the module to factorize using a ``rank``-dimensional latent representation
+
+        Args:
+            input: Tensor that can be passed to the model's `forward()` method
+            rank: dimensionality of the latent representation; this is the
+                size of the vector space when factorizing linear modules and
+                the number of channels for convolutional modules.
+        """
         soln = self.solution_for_rank(input, rank)
         self.apply_solution(soln)
 
@@ -109,6 +117,7 @@ class _FactorizedModule(nn.Module, abc.ABC):
             return max_rank_with_possible_speedup(self.in_size, self.out_size, kernel_size=self.kernel_size)
 
     def should_factorize(self, proposed_rank: FractionOrInt):
+        """Whether factorizing with a given rank would reduce the number of multiply-add operations."""
         proposed_rank = self._clean_latent_size(proposed_rank)
         return proposed_rank <= self._max_rank_with_speedup()
 
@@ -133,6 +142,10 @@ class _FactorizedModule(nn.Module, abc.ABC):
                 specified rank constraint.
             rank: The number of dimensions in the latent space into which
                 the input is mapped.
+
+        Returns:
+            An object encapsulating the new parameters to be used
+                and their associated mean squared error on the input
         """
         ...
 
@@ -148,7 +161,7 @@ class _FactorizedModule(nn.Module, abc.ABC):
                 and their associated mean squared error on the input for
                 which they were optimized.
         """
-        pass
+        ...
 
 
 class FactorizedConv2d(_FactorizedModule):
@@ -192,14 +205,17 @@ class FactorizedConv2d(_FactorizedModule):
     # wrap shared fields in read-only properties matching the torch conv module API
     @property
     def in_channels(self) -> int:
+        """See `torch.nn.Conv2d`."""
         return self.in_size
 
     @property
     def out_channels(self) -> int:
+        """See `torch.nn.Conv2d`."""
         return self.out_size
 
     @property
     def latent_channels(self) -> int:
+        """The number of of output channels for the first convolution, which is also the number of input channels for the second convolution"""
         return self.latent_size
 
     def solution_for_rank(self, input: torch.Tensor, rank: int) -> LowRankSolution:
@@ -258,14 +274,17 @@ class FactorizedLinear(_FactorizedModule):
     # wrap shared fields in read-only properties matching the torch conv module API
     @property
     def in_features(self) -> int:
+        """See `torch.nn.Linear`."""
         return self.in_size
 
     @property
     def out_features(self) -> int:
+        """See `torch.nn.Linear`."""
         return self.out_size
 
     @property
     def latent_features(self) -> int:
+        """The dimensionality of the space into which the input is projected by the first matrix in the factorization"""
         return self.latent_size
 
     def solution_for_rank(self, input: torch.Tensor, rank: int) -> LowRankSolution:

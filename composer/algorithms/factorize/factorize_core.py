@@ -289,6 +289,11 @@ def factorize_conv2d(X,
         n_iters: number of iterations used in the optimization process. Higher
             numbers yield lower mean squared error, though there are usually
             diminishing returns after a handful of iterations.
+        **conv2d_kwargs: arguments such as `padding`, `stride`,
+            `dilation`, `groups`, etc used in the original convolution. If
+            these are not provided, the factorized tensors might not preserve
+            the function computed by the original weight tensor as well.
+            Note that not all combinations of arguments are supported.
 
     Returns:
         solution, a :class:`~LowRankSolution` of rank ``rank`` that
@@ -296,6 +301,9 @@ def factorize_conv2d(X,
 
     Raises:
         RuntimeError, if ``biasB`` is provided but not ``Wb`` is not.
+        NotImplementedError, if `conv2d_kwargs['dilation'] != 1` or
+            `conv2d_kwargs['groups'] != 1`.
+
     """
     X = X.detach()
     Wa = Wa.detach()
