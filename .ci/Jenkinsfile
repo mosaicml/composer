@@ -77,8 +77,8 @@ pipeline {
                     echo "dockerBuildMatrix $dockerBuildMatrix"
                     echo "gitUrl $gitUrl"
                     echo "gitBranch $gitBranch"
+                    echo "gitCommit $gitCommit"
                     echo "runWithChecks $runWithChecks"
-                    echo "dockerBuildMatrix $dockerBuildMatrix"
                     dockerBuildMatrix(
                         P_CLOUD: groovyLoadLabel,
                         P_BUILD_MATRIX: './composer/pytorch_build_matrix.sh',
