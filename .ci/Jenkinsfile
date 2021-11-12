@@ -3,9 +3,9 @@ gitUrl = null
 gitBranch = null
 gitCommit = null
 pytorchChanged = null  // TODO. Determine if the PR changes the docker.
-def runWithChecks = null
-def expandDockerMatrix = null
-def prChangeset = null
+runWithChecks = null
+expandDockerMatrix = null
+prChangeset = null
 builds = []
 
 def cloneJenkinsfilesRepo() {
@@ -81,7 +81,7 @@ def dockerImagePostBuild(stagingImageTag) {
                     string(name: 'P_CLOUD', value: groovyLoadLabel),
                     string(name: 'P_GIT_REPO', value: gitUrl),
                     string(name: 'P_GIT_COMMIT', value: gitCommit),
-                    string(name: 'P_DOCKER_IMAGE', value: dockerImage),
+                    string(name: 'P_DOCKER_IMAGE', value: stagingImageTag),
                     string(name: 'P_TIMEOUT', value: '5m'),
                     string(name: 'PIP_EXTRA_DEPS', value: 'dev'),
                     string(name: 'PYTEST_CLI_ARGS', value: '--test-duration all'),
@@ -95,7 +95,7 @@ def dockerImagePostBuild(stagingImageTag) {
                     string(name: 'P_CLOUD', value: groovyLoadLabel),
                     string(name: 'P_GIT_REPO', value: gitUrl),
                     string(name: 'P_GIT_COMMIT', value: gitCommit),
-                    string(name: 'P_DOCKER_IMAGE', value: dockerImage),
+                    string(name: 'P_DOCKER_IMAGE', value: stagingImageTag),
                     string(name: 'P_TIMEOUT', value: '5m'),
                     string(name: 'PIP_EXTRA_DEPS', value: 'all'),
                     string(name: 'PYTEST_CLI_ARGS', value: '--test-duration all'),
@@ -124,25 +124,25 @@ stage('Build') {
     if (gitBranch != "main") {
         // if not on main, run the pytest again.
         jobs << [
-            'Lint': { -> 
-                runWithChecks(
-                    name: 'lint',
-                    title: 'Lint',
-                    summary: 'Static Analysis Checks',
-                ) {
-                    builds << build(
-                        job: 'scratch/lint',
-                        parameters: [
-                            string(name: 'P_CLOUD', value: groovyLoadLabel),
-                            string(name: 'P_GIT_REPO', value: gitUrl),
-                            string(name: 'P_GIT_COMMIT', value: gitCommit),
-                            string(name: 'P_DOCKER_IMAGE', value: "ravimosaicml/pytorch:1.10.0_cpu-python3.9-ubuntu20.04"), // TODO: change ravimosaicml/pytorch to mosaicml/pytorch
-                            string(name: 'P_TIMEOUT', value: '10m'),
-                            string(name: 'PIP_EXTRA_DEPS', value: 'all'),
-                        ]
-                    )
-                }
-            },
+            // 'Lint': { -> 
+            //     runWithChecks(
+            //         name: 'lint',
+            //         title: 'Lint',
+            //         summary: 'Static Analysis Checks',
+            //     ) {
+            //         builds << build(
+            //             job: 'scratch/lint',
+            //             parameters: [
+            //                 string(name: 'P_CLOUD', value: groovyLoadLabel),
+            //                 string(name: 'P_GIT_REPO', value: gitUrl),
+            //                 string(name: 'P_GIT_COMMIT', value: gitCommit),
+            //                 string(name: 'P_DOCKER_IMAGE', value: "ravimosaicml/pytorch:1.10.0_cpu-python3.9-ubuntu20.04"), // TODO: change ravimosaicml/pytorch to mosaicml/pytorch
+            //                 string(name: 'P_TIMEOUT', value: '10m'),
+            //                 string(name: 'PIP_EXTRA_DEPS', value: 'all'),
+            //             ]
+            //         )
+            //     }
+            // },
             'Python 3.7 - All 0 GPUs': { -> runPytest("3.7", "all", 0) },
             // 'Python 3.8 - All 0 GPUs': { -> runPytest("3.8", "all", 0) },
             // 'Python 3.9 - All 0 GPUs': { -> runPytest("3.9", "all", 0) },
@@ -157,10 +157,13 @@ stage('Build') {
     finally {
         echo 'done'
         echo "builds: $builds"
+        echo "builds: ${builds[0].getFullProjectName()}"
+        echo "builds: ${builds[0].fullProjectName}"
+
         // node ("aws-next-01") {
         //     builds.each { item -> 
         //         copyArtifacts(
-        //             projectName: item.jobName,
+        //             projectName: item.fullProjectName,
         //             selector: specific("${item.number}"),
         //             fingerprintArtifacts: true,
         //         )
