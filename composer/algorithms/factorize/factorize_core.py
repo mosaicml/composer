@@ -19,20 +19,22 @@ class LowRankSolution:
 
     Args:
         Wa: First linear operation in the factorized approximation. For a
-            factorized linear operation, Wa is a matrix. For a factorized
+            factorized linear operation, ``Wa`` is a matrix. For a factorized
             convolution, ``Wa`` matches the shape of the convolution's
-            weight parameter, except along the channel axis.
-        Wb: Second linear operation in the factorized approximation.
-        bias: vector added to the output of the secondd linear operation
+            original weight parameter, except along the channel axis.
+        Wb: Second linear operation in the factorized approximation. Shape
+            is such that composing ``Wb`` with ``Wb`` yields an output of
+            the same size as the original operation.
+        bias: vector added to the output of the second linear operation
         rank: output dimensionality (channels or features) of the first linear
             operation, and input dimensionality of the second input operation.
         nmse: normalized mean squared error obtained during the optimization
             procedure used to derive ``Wa``, ``Wb``, and ``bias``. This is
-            to the raw mean squared error between the factorized approximation's
-            output and the original output, divided by the variance of the
-            original output. A value of 0 means no error was introduced, and
-            a value of 1 corresponds to capturing the output no better than
-            chance.
+            equal to the raw mean squared error between the factorized
+            approximation's output and the original output, divided by the
+            variance of the original output. A value of 0 means no error
+            was introduced, and a value of 1 corresponds to capturing the
+            output no better than chance.
     """
     Wa: Optional[torch.Tensor] = None
     Wb: Optional[torch.Tensor] = None
@@ -85,34 +87,29 @@ def factorize_matrix(X: torch.Tensor,
                      n_iters: int = 3) -> LowRankSolution:
     """Approximates a matrix by factorizing it into a product of two smaller matrices.
 
-    Given a matrix ``W`` of shape ``[N, D]``, TODO
+    Given a matrix ``W`` of shape ``[D, M]``, a bias vector of length ``M`,
+    and a target rank ``rank < D``, returns a solution ``(Wa, Wb, bias')`` of
+    tensors of shapes ``[N, rank]``, ``[rank, D]``, and ``M``, respectively.
+    These  tensors are chosen so as to minimize:
 
-    The approximation is optimized to minimize the Frobenius norm of the
-    matrix's product with another matrix ``X``. In the case that rows of ``X``
-    correspond to samples from some distribution, this amounts to reducing the
-    mean squared error in the output.
+    :math:`||` ``Y - (X @ Wa @ Wb + bias')`` :math:`||_F`,
+
+    where ``Y = X @ W + bias``, :math:`@` denotes matrix multiplication,
+    ``bias`` broadcasts along all the row dimension,
+    and :math:`||\cdot||_F` denotes the sum of squared elements.
+    In the case that rows of ``X`` correspond to samples
+    from some distribution, this amounts to minimizing the mean squared error
+    in the output.
 
     The input matrix can either be a single matrix ``W`` or a pair of matrices
-    ``(Wa, Wb)``. The latter case corresponds to using a matrix ``Wa @ Wb``
+    ``(Wa, Wb)``. The latter case corresponds to using a matrix ``W = Wa @ Wb``
     that has already been factorized, and is supported in order to facilitate
     progressively decreasing the rank of matrix.
 
-    Formally, we have either:
-
-        ``Y = X @ W + bias``
-
-    or
-
-        ``Y = X @ Wa @ Wb + bias``
-
-    and seek to minimize:
-
-        $$ TODO $$
-
     Args:
         X: input used to evaluate the quality of the approximation. Shape is
-            ``[N, D]``, where ``N`` is the number of input samples and ``D`` is
-            the dimensionality of each sample.
+            ``[N, D]``, where ``N`` is often the number of input samples and
+            ``D`` is the dimensionality of each sample.
         Y: output of applying the original matrix to ``X``. Must have shape
             ``[N, M]`` for some ``M``.
         Wa: either the matrix to be factorized, or the first of the two smaller
@@ -123,9 +120,9 @@ def factorize_matrix(X: torch.Tensor,
             matrices, and ``Wb`` is taken to be the second.
         bias: a vector added to the output after performing the matrix
             product with X
-        rank: number of columns in the latent representation of X.
+        rank: number of columns in the latent representation of X
         n_iters: number of iterations used in the optimization process. Higher
-            numbers yield lower mean-squared error, though there are usually
+            numbers yield lower mean squared error, though there are usually
             diminishing returns after a handful of iterations.
 
     Returns:
@@ -246,7 +243,7 @@ def _mat_to_weights_conv2d(mat: torch.Tensor, kernel_size):
     return w.reshape(w.shape[0], -1, *kernel_size)
 
 
-def factorize_conv2d(inputs,
+def factorize_conv2d(X,
                      Wa: torch.Tensor,
                      Wb: Optional[torch.Tensor] = None,
                      rank: Union[int, float] = .5,
@@ -257,47 +254,54 @@ def factorize_conv2d(inputs,
     """Approximates a KxK convolution by factorizing it into a KxK convolution with fewer channels followed by a 1x1 convolution.
 
     Given a convolutional weight tensor ``W`` for a 2d convolution of shape
-    ``[out_channels, in_channels, k_h, k_w]``, returns a pair ``(Wa, Wb)``
-    of convolutional weight tensors of shapes ``[rank, in_channels, k_h, k_w]``
-    and ``[out_channels, rank, 1, 1]``, respectively. ``Wa`` and ``Wb`` are
-    chosen so as to minimize:
+    ``[out_channels, in_channels, k_h, k_w]`` and a vector ``bias`` of length
+    ``out_channels``, returns a triple ``(Wa, Wb, bias')`` of
+    tensors with shapes ``[rank, in_channels, k_h, k_w]`` and
+    ``[out_channels, rank, 1, 1]``, ``[out_channels]``, respectively.
+    ``Wa``, ``Wb``, and ``bias'`` are chosen so as to minimize:
 
-        $$||(W * input + biasA) - (Wb * (Wa * inputs + biasB) + biasA)||_F$$,
+        :math:`||` ``(W * X + bias) - (Wb * (Wa * X) + bias')`` :math:`||_F`,
 
-    where $$*$$ denotes convolution, ``biasA`` and ``biasB`` are optional bias
-    vectors of lengths equal to the corresponding channel counts, and
-    $$||\cdot||_F$$ denotes the sum of squared elements.
+    where :math:`*` denotes convolution, ``bias`` broadcasts along all
+    non-channel dimensions, and :math:`||\cdot||_F` denotes the sum of
+    squared elements.
 
-    Similar to :func:``~factorize``, this function allows passing in an
+    Similar to :func:`~factorize_matrix`, this function allows passing in an
     already-factorized weight tensor in order to enable progressive
     factorization. In this case, the single tensor ``W`` is replaced with
     a similar ``(Wa, Wb)`` pair as the output, though presumably
     with different ``rank``.
 
     Args:
-        inputs: a tensor of shape ``[N, in_channels, H, W]``, for some
+        X: a tensor of shape ``[N, in_channels, H, W]``, for some
             ``N``, ``H``, and ``W``.
-        Wa: The first weight tensor to convolve with the input. If
+        Wa: The first weight tensor to convolve with ``X``. If
             ``Wb`` is not provided, must be of shape
             ``[out_channels, in_channels, k_h, k_w]``. Otherwise, must be of
             shape ``[original_rank, in_channels, k_h, k_w]``.
         Wb: The second weight tensor to convolve with the input. If
             provided, must be of shape ``[out_channels, rank, 1, 1]``.
+        rank: number of channels in the latent representation of ``X``.
         biasA: optional vector of biases. If ``Wb`` is ``None``, must
             have length ``out_channels``. Otherwise must have length
             ``original_rank``.
         biasB: if provided, must have length ``out_channels``.
+        n_iters: number of iterations used in the optimization process. Higher
+            numbers yield lower mean squared error, though there are usually
+            diminishing returns after a handful of iterations.
 
     Returns:
         solution, a :class:`~LowRankSolution` of rank ``rank`` that
             approximates the original matrix
-    """
 
-    inputs = inputs.detach()
+    Raises:
+        RuntimeError, if ``biasB`` is provided but not ``Wb`` is not.
+    """
+    X = X.detach()
     Wa = Wa.detach()
 
     kernel_size = Wa.shape[2:]
-    X_mat = _activations_conv2d_to_mat(inputs, kernel_size=kernel_size, **conv2d_kwargs)
+    X_mat = _activations_conv2d_to_mat(X, kernel_size=kernel_size, **conv2d_kwargs)
     Wa = _weights_conv2d_to_mat(Wa)
     # NOTE: we compute outputs ourselves, instead of having an arg for them,
     # since 1) we ignore input stride, and 2) any other intermediate ops
