@@ -21,11 +21,11 @@ def cloneJenkinsfilesRepo() {
     }
 }
 
-def runPytest(pythonVersion, extraDeps) {
+def runPytest(pythonVersion, extraDeps, nGpus = 0) {
     runWithChecks(
-        name: "pytest/python${pythonVersion}-extraDeps_${extraDeps}",
-        title: "Pytest - Python ${pythonVersion}-extraDeps_${extraDeps}",
-        summary: "Pytest - Python ${pythonVersion}-extraDeps_${extraDeps}",
+        name: "pytest/python${pythonVersion}-extraDeps_${extraDeps}-nGpus_${nGpus}",
+        title: "Pytest - Python ${pythonVersion}, composer[${extraDeps}], ${nGpus} GPUs",
+        summary: "Pytest - Python ${pythonVersion}, composer[${extraDeps}], ${nGpus} GPUs",
     ) {
         builds << build(
             job: 'scratch/pytest',
@@ -140,24 +140,31 @@ pipeline {
                         }
                     }
                 }
-                stage('Python 3.7') {
+                stage('Python 3.7 - All') {
                     steps {
                         script {
-                            runPytest("3.7")
+                            runPytest("3.7", "all")
                         }
                     }
                 }
-                stage('Python 3.8') {
+                stage('Python 3.8 - All') {
                     steps {
                         script {
-                            runPytest("3.8")
+                            runPytest("3.8", "all")
                         }
                     }
                 }
-                stage('Python 3.9') {
+                stage('Python 3.9 - Dev') {
                     steps {
                         script {
-                            runPytest("3.9")
+                            runPytest("3.9", "dev")
+                        }
+                    }
+                }
+                stage('Python 3.9 - All') {
+                    steps {
+                        script {
+                            runPytest("3.9", "all")
                         }
                     }
                 }
