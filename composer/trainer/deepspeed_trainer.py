@@ -557,8 +557,14 @@ class DeepSpeedTrainer:
             # forward pass
             self.engine.run_event(Event.BEFORE_FORWARD)
 
-            state.loss = self.deepspeed_engine.forward(state.batch)
+            state.outputs = self.deepspeed_engine.forward(state.batch)
 
+            self.engine.run_event(Event.AFTER_FORWARD)
+
+            # loss
+            self.engine.run_event(Event.BEFORE_LOSS)
+
+            state.loss = self.original_model.loss(state.outputs, state.batch)
             print(f"({state.batch_idx}) loss: {state.loss.item()}")
 
             # Loss is added to losses with clone to not scale the loss for the step printout
@@ -578,7 +584,7 @@ class DeepSpeedTrainer:
 
             self.engine.run_event(Event.AFTER_BACKWARD)
 
-            # This seems weird
+            # This seems weird, but it's how DeepSpeed's step() likes to be called
             self.deepspeed_engine.step()
 
         self.engine.run_event(Event.AFTER_TRAIN_BATCH)
@@ -593,20 +599,18 @@ class DeepSpeedTrainer:
             is_batch (bool): True to log metrics with ``LogLevel.BATCH``
                 and False to log metrics with ``LogLevel.EPOCH``.
         """
-        return
 
         state = self.state
         model = state.model
 
         restore_model_train = model.training
 
-        model.eval()
+        self.deepspeed_engine.eval()
         with torch.no_grad():
 
             self.engine.run_event(Event.EVAL_START)
 
-            original_model = state.model.module
-            assert isinstance(original_model, BaseMosaicModel)
+            assert isinstance(model, BaseMosaicModel)
 
             metrics = self._get_metrics_as_collection(is_train=False)
 
@@ -616,7 +620,7 @@ class DeepSpeedTrainer:
                 self.engine.run_event(Event.EVAL_BATCH_START)
 
                 self.engine.run_event(Event.EVAL_BEFORE_FORWARD)
-                state.outputs, targets = original_model.validate(state.batch)
+                state.outputs, targets = model.validate(state.batch)
                 self.engine.run_event(Event.EVAL_AFTER_FORWARD)
 
                 metrics.update(state.outputs, targets)
@@ -627,4 +631,4 @@ class DeepSpeedTrainer:
             self.engine.run_event(Event.EVAL_END)
 
         if restore_model_train:
-            model.train()
+            self.deepspeed_engine.train()

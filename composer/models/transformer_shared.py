@@ -98,7 +98,6 @@ class MosaicTransformer(BaseMosaicModel):
 
         output = self.module(**batch)  # type: ignore (thirdparty)
 
-        return self.loss(output, batch)
         return output
 
     def metrics(self, train: bool = False) -> Metrics:
