@@ -22,7 +22,7 @@ if TYPE_CHECKING:
 class BaseLoggerBackendHparams(hp.Hparams, ABC):
     """
     Base class for logger backend hyperparameters.
-    
+
     Logger parameters that are added to
     :class:`~composer.trainer.trainer_hparams.TrainerHparams`
     (e.g. via YAML or the CLI) are initialized in the training loop.
@@ -99,7 +99,7 @@ class WandBLoggerBackendHparams(BaseLoggerBackendHparams):
 
     def initialize_object(self, config: Optional[Dict[str, Any]] = None) -> WandBLoggerBackend:
         """Initializes the logger.
-        
+
         The ``config`` is flattened and stored as :attr:`wandb.run.config`.
         The list of algorithms in the ``config`` are appended to :attr:`wandb.run.tags`.
 
@@ -215,3 +215,27 @@ class TQDMLoggerBackendHparams(BaseLoggerBackendHparams):
     def initialize_object(self, config: Optional[Dict[str, Any]] = None) -> TQDMLoggerBackend:
         from composer.loggers.tqdm_logger import TQDMLoggerBackend
         return TQDMLoggerBackend(config=config)
+
+
+@dataclass
+class MosaicLoggerHparams(BaseLoggerBackendHparams):
+    """:class:`~composer.loggers.mosaic_logger.MosaicLoggerBackend`
+    hyperparameters.
+
+    See :class:`~composer.loggers.mosaic_logger.MosaicLoggerBackend`
+    for documentation.
+    """
+    job_id: int = hp.required("The id of the job to write logs for.")
+    sweep_id: int = hp.required("The id of the sweep to write logs for.")
+    creds_file: Optional[int] = hp.optional(
+        "A file containing the MosaicML api_key. If not provided "
+        "will default to the environment variable MOSAIC_API_KEY",
+        default=None)
+    flush_every_n_batches: int = hp.optional("Flush the log data buffer every n batches.", default=100)
+    max_logs_in_buffer: int = hp.optional(
+        "The maximum number of log entries allowed in the buffer "
+        "before aforced flush.", default=1000)
+
+    def initialize_object(self) -> FileLoggerBackend:
+        from composer.loggers.mosaic_logger import MosaicLoggerBackend
+        return MosaicLoggerBackend(**asdict(self))
