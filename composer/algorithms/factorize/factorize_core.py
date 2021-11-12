@@ -247,8 +247,8 @@ def _mat_to_weights_conv2d(mat: torch.Tensor, kernel_size):
 
 
 def factorize_conv2d(inputs,
-                     weightsA: torch.Tensor,
-                     weightsB: Optional[torch.Tensor] = None,
+                     Wa: torch.Tensor,
+                     Wb: Optional[torch.Tensor] = None,
                      rank: Union[int, float] = .5,
                      biasA: Optional[torch.Tensor] = None,
                      biasB: Optional[torch.Tensor] = None,
@@ -277,13 +277,13 @@ def factorize_conv2d(inputs,
     Args:
         inputs: a tensor of shape ``[N, in_channels, H, W]``, for some
             ``N``, ``H``, and ``W``.
-        weightsA: The first weight tensor to convolve with the input. If
-            ``weightsB`` is not provided, must be of shape
+        Wa: The first weight tensor to convolve with the input. If
+            ``Wb`` is not provided, must be of shape
             ``[out_channels, in_channels, k_h, k_w]``. Otherwise, must be of
             shape ``[original_rank, in_channels, k_h, k_w]``.
-        weightsB: The second weight tensor to convolve with the input. If
+        Wb: The second weight tensor to convolve with the input. If
             provided, must be of shape ``[out_channels, rank, 1, 1]``.
-        biasA: optional vector of biases. If ``weightsB`` is ``None``, must
+        biasA: optional vector of biases. If ``Wb`` is ``None``, must
             have length ``out_channels``. Otherwise must have length
             ``original_rank``.
         biasB: if provided, must have length ``out_channels``.
@@ -294,11 +294,11 @@ def factorize_conv2d(inputs,
     """
 
     inputs = inputs.detach()
-    weightsA = weightsA.detach()
+    Wa = Wa.detach()
 
-    kernel_size = weightsA.shape[2:]
+    kernel_size = Wa.shape[2:]
     X_mat = _activations_conv2d_to_mat(inputs, kernel_size=kernel_size, **conv2d_kwargs)
-    Wa = _weights_conv2d_to_mat(weightsA)
+    Wa = _weights_conv2d_to_mat(Wa)
     # NOTE: we compute outputs ourselves, instead of having an arg for them,
     # since 1) we ignore input stride, and 2) any other intermediate ops
     # or other discrepancies between user's actual settings and args they pass
@@ -308,10 +308,9 @@ def factorize_conv2d(inputs,
         biasA = biasA.detach()
         Y_mat += biasA
 
-    Wb = None
-    if weightsB is not None:
-        weightsB = weightsB.detach()
-        Wb = _weights_conv2d_to_mat(weightsB)
+    if Wb is not None:
+        Wb = Wb.detach()
+        Wb = _weights_conv2d_to_mat(Wb)
         Y_mat = Y_mat @ Wb
 
         if biasB is not None:
@@ -319,7 +318,7 @@ def factorize_conv2d(inputs,
             Y_mat += biasB
     elif biasB is not None:
         # fail fast if user passes in inconsistent combination of args
-        raise RuntimeError("Got biasB, but weightsB=None; cannot apply bias")
+        raise RuntimeError("Got biasB, but Wb=None; cannot apply bias")
 
     ret = factorize_matrix(X_mat, Y_mat, Wa, Wb, rank=rank, n_iters=n_iters)
 
