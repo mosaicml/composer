@@ -106,7 +106,7 @@ def dockerImagePostBuild(stagingImageTag) {
 
 stage('Build') {
     def jobs = [:]
-    jobs << build(job: 'scratch/noop')
+    jobs << ['noop': build(job: 'scratch/noop')]
     // if (pytorchChanged) {
     //     jobs << expandDockerMatrix(
     //         P_CLOUD: groovyLoadLabel,
