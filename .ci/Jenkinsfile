@@ -37,7 +37,7 @@ def runPytest(pythonVersion, extraDeps, nGpus = 0) {
                 string(name: 'P_GIT_REPO', value: gitUrl),
                 string(name: 'P_GIT_COMMIT', value: gitCommit),
                 string(name: 'P_DOCKER_IMAGE', value: "ravimosaicml/pytorch:1.10.0_cpu-python${pythonVersion}-ubuntu20.04"), // TODO: change ravi to mosaicml/pytorch
-                string(name: 'P_TIMEOUT', value: '5m'),
+                string(name: 'P_TIMEOUT', value: '30m'),
                 string(name: 'PIP_EXTRA_DEPS', value: extraDeps),
                 string(name: 'PYTEST_CLI_ARGS', value: '--test_duration all'),
             ]
@@ -82,7 +82,7 @@ def dockerImagePostBuild(stagingImageTag) {
                     string(name: 'P_GIT_REPO', value: gitUrl),
                     string(name: 'P_GIT_COMMIT', value: gitCommit),
                     string(name: 'P_DOCKER_IMAGE', value: stagingImageTag),
-                    string(name: 'P_TIMEOUT', value: '5m'),
+                    string(name: 'P_TIMEOUT', value: '30m'),
                     string(name: 'PIP_EXTRA_DEPS', value: 'dev'),
                     string(name: 'PYTEST_CLI_ARGS', value: '--test_duration all'),
                 ]
@@ -96,7 +96,7 @@ def dockerImagePostBuild(stagingImageTag) {
                     string(name: 'P_GIT_REPO', value: gitUrl),
                     string(name: 'P_GIT_COMMIT', value: gitCommit),
                     string(name: 'P_DOCKER_IMAGE', value: stagingImageTag),
-                    string(name: 'P_TIMEOUT', value: '5m'),
+                    string(name: 'P_TIMEOUT', value: '30m'),
                     string(name: 'PIP_EXTRA_DEPS', value: 'all'),
                     string(name: 'PYTEST_CLI_ARGS', value: '--test_duration all'),
                 ]
@@ -137,7 +137,7 @@ stage('Build') {
                             string(name: 'P_GIT_REPO', value: gitUrl),
                             string(name: 'P_GIT_COMMIT', value: gitCommit),
                             string(name: 'P_DOCKER_IMAGE', value: "ravimosaicml/pytorch:1.10.0_cpu-python3.9-ubuntu20.04"), // TODO: change ravimosaicml/pytorch to mosaicml/pytorch
-                            string(name: 'P_TIMEOUT', value: '10m'),
+                            string(name: 'P_TIMEOUT', value: '30m'),
                             string(name: 'PIP_EXTRA_DEPS', value: 'all'),
                         ]
                     )
