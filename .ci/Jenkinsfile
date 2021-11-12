@@ -67,9 +67,9 @@ pipeline {
             }
         }
         stage('Build Pytorch Docker') {
-            when {
-                changeset "./docker/pytorch/**"
-            }
+            // when {
+            //     changeset "./docker/pytorch/**"
+            // }
             steps {
                 script {
                     dockerBuildMatrix(
