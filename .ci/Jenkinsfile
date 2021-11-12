@@ -140,9 +140,7 @@ stage('Build') {
             'Python 3.9 - Dev 0 GPUs': { -> runPytest("3.9", "dev", 0) },
             'Python 3.9 - All 1 GPU': { -> runPytest("3.9", "all", 1) },
             'Python 3.9 - All 2 GPUs': { -> runPytest("3.9", "all", 2) },
-        ]
-        // no need to run tests again
-        return
+        ]        
     }
     try {
         parallel(jobs)
