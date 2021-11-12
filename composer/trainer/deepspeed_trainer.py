@@ -403,7 +403,9 @@ class DeepSpeedTrainer:
 
         state.train_dataloader = self.dl_hparams.initialize_object(
             batch_size=int(state.train_batch_size / state.world_size),
-            sampler=torch.utils.data.RandomSampler(self.train_dl_spec.dataset, generator=self.train_dl_spec.generator),
+            sampler=torch.utils.data.DistributedSampler[int](self.train_dl_spec.dataset,
+                                                             drop_last=self.train_dl_spec.drop_last,
+                                                             shuffle=self.train_dl_spec.shuffle),
             dataloader_spec=self.train_dl_spec)
 
         (self.deepspeed_engine, state.optimizers, _, _) = deepspeed.initialize(
