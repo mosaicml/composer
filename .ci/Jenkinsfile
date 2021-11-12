@@ -74,6 +74,7 @@ pipeline {
             // }
             steps {
                 script {
+                    echo "dockerBuildMatrix $dockerBuildMatrix"
                     dockerBuildMatrix(
                         P_CLOUD: groovyLoadLabel,
                         P_BUILD_MATRIX: './composer/pytorch_build_matrix.sh',
