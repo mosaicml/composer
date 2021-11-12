@@ -143,28 +143,28 @@ pipeline {
                 stage('Python 3.7 - All') {
                     steps {
                         script {
-                            runPytest("3.7", "all")
+                            runPytest("3.7", "all", 0)
                         }
                     }
                 }
                 stage('Python 3.8 - All') {
                     steps {
                         script {
-                            runPytest("3.8", "all")
+                            runPytest("3.8", "all", 0)
                         }
                     }
                 }
                 stage('Python 3.9 - Dev') {
                     steps {
                         script {
-                            runPytest("3.9", "dev")
+                            runPytest("3.9", "dev", 0)
                         }
                     }
                 }
                 stage('Python 3.9 - All') {
                     steps {
                         script {
-                            runPytest("3.9", "all")
+                            runPytest("3.9", "all", 0)
                         }
                     }
                 }
