@@ -320,10 +320,9 @@ class DeepSpeedTrainer:
         Returns:
             A :class:`~torchmetrics.collections.MetricCollection` object.
         """
-        original_model = self.state.model.module
-        assert isinstance(original_model, BaseMosaicModel)
+        assert isinstance(self.state.model, BaseMosaicModel)
 
-        metrics = original_model.metrics(train=is_train)
+        metrics = self.state.model.metrics(train=is_train)
         assert isinstance(metrics, (Metric, MetricCollection)), \
             "Error module.metrics() must return a Metric or MetricCollection object."
         if isinstance(metrics, Metric):
@@ -564,7 +563,7 @@ class DeepSpeedTrainer:
             # loss
             self.engine.run_event(Event.BEFORE_LOSS)
 
-            state.loss = self.original_model.loss(state.outputs, state.batch)
+            state.loss = self.state.model.loss(state.outputs, state.batch)
             print(f"({state.batch_idx}) loss: {state.loss.item()}")
 
             # Loss is added to losses with clone to not scale the loss for the step printout
