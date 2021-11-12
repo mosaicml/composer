@@ -66,7 +66,7 @@ class MosaicLoggerBackend(RankZeroLoggerBackend, Serializable):
         self.max_logs_in_buffer = max_logs_in_buffer
 
     def _log_metric(self, epoch: int, step: int, log_level: LogLevel, data: TLogData):
-        del epoch, log_level  # unused
+        del log_level  # unused
 
         if self.skip_logging:
             return
