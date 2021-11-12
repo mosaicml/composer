@@ -48,9 +48,13 @@ stage('Prepare') {
         // In order to print the env and get the commit url and hash, we must be on a real agent
         sh 'printenv'
 
-        gitUrl = env.GIT_URL
-        gitBranch = env.GIT_BRANCH
-        gitCommit = env.GIT_COMMIT
+        def loadedSCM = checkout scm
+
+        sh 'printenv'
+
+        gitUrl = loadedSCM.GIT_URL
+        gitBranch = loadedSCM.GIT_BRANCH
+        gitCommit = loadedSCM.GIT_COMMIT
 
         cloneJenkinsfilesRepo()
 
