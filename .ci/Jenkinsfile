@@ -188,16 +188,16 @@ pipeline {
                         )
                     }
 
-                    sh 'ls -al'
+                    // sh 'ls -al'
 
-                    sh 'ls -al build/output/'
-                    archiveArtifacts(artifacts: "build/output/*.xml", fingerprint: true)
-                    junit(allowEmptyResults: true, testResults: "build/output/junit.xml")
-                    publishCoverage(
-                        adapters: [cobertura(path: "build/output/coverage.xml", mergeToOneReport: true)],
-                        calculateDiffForChangeRequests: true,
-                        sourceFileResolver: [level: 'STORE_LAST_BUILD']
-                    )
+                    // sh 'ls -al build/output/'
+                    // archiveArtifacts(artifacts: "build/output/*.xml", fingerprint: true)
+                    // junit(allowEmptyResults: true, testResults: "build/output/junit.xml")
+                    // publishCoverage(
+                    //     adapters: [cobertura(path: "build/output/coverage.xml", mergeToOneReport: true)],
+                    //     calculateDiffForChangeRequests: true,
+                    //     sourceFileResolver: [level: 'STORE_LAST_BUILD']
+                    // )
                 }
                 
             }
