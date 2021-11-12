@@ -10,8 +10,8 @@ import torch
 import yahp as hp
 
 from composer.algorithms import AlgorithmHparams
-from composer.algorithms.factorize.modules import (FactorizedConv2d, FactorizedLinear, FractionOrInt,
-                                                   factorizing_could_speedup)
+from composer.algorithms.factorize.factorize_modules import (FactorizedConv2d, FactorizedLinear, FractionOrInt,
+                                                             factorizing_could_speedup)
 from composer.core import Algorithm, Event, Logger, State, surgery
 
 log = logging.getLogger(__name__)
