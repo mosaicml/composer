@@ -18,7 +18,7 @@ def cloneJenkinsfilesRepo() {
             submoduleCfg: [], 
             userRemoteConfigs: [[url: 'https://github.com/mosaicml/testing', credentialsId: "9cf9add1-2cdd-414b-8160-94bd4ac4a13d"]]  // TODO RJPP_SCM_URL
         ])
-        env.JENKINSFILES_WORKSPACE = "$WORKSPACE_TMP/jenkinsfiles"
+        return "$WORKSPACE_TMP/jenkinsfiles"
     }
 }
 
@@ -56,10 +56,10 @@ stage('Prepare') {
         gitBranch = loadedSCM.GIT_BRANCH
         gitCommit = loadedSCM.GIT_COMMIT
 
-        cloneJenkinsfilesRepo()
+        def jenkinsfileWorkspace = cloneJenkinsfilesRepo()
 
-        runWithChecks = load "$JENKINSFILES_WORKSPACE/utils/runWithChecks.groovy"
-        expandDockerMatrix = load "$JENKINSFILES_WORKSPACE/utils/expandDockerMatrix.groovy"
+        runWithChecks = load "$jenkinsfileWorkspace/utils/runWithChecks.groovy"
+        expandDockerMatrix = load "$jenkinsfileWorkspace/utils/expandDockerMatrix.groovy"
     }
 }
 
