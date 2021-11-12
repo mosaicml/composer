@@ -86,7 +86,7 @@ pipeline {
                         P_GIT_COMMIT: gitCommit,
                         // P_KANIKO_PUSH_FINAL: gitBranch == "main", // only push if we're on the main branch
                     ) { stagingImage ->
-                        if (env.GIT_BRANCH == "main") {
+                        if (gitBranch == "main") {
                             // no need to run tests again
                             return
                         }
