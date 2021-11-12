@@ -8,6 +8,7 @@ from __future__ import annotations
 import os
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, List, Optional
+from composer.loggers.logger_hparams import MosaicLoggerHparams
 
 import yahp as hp
 
@@ -18,7 +19,7 @@ from composer.callbacks import (BenchmarkerHparams, CallbackHparams, GradMonitor
                                 MemoryMonitorHparams, SpeedMonitorHparams, TorchProfilerHparams)
 from composer.core.types import Precision
 from composer.datasets import DataloaderHparams
-from composer.loggers import (BaseLoggerBackendHparams, FileLoggerBackendHparams, TQDMLoggerBackendHparams,
+from composer.loggers import (BaseLoggerBackendHparams, FileLoggerBackendHparams, MosaicLoggerBackendHparams, TQDMLoggerBackendHparams,
                               WandBLoggerBackendHparams)
 from composer.models import (CIFARResNetHparams, EfficientNetB0Hparams, GPT2Hparams, MnistClassifierHparams,
                              ModelHparams, ResNet18Hparams, ResNet50Hparams, ResNet101Hparams, UnetHparams)
@@ -85,6 +86,7 @@ logger_registry = {
     "file": FileLoggerBackendHparams,
     "wandb": WandBLoggerBackendHparams,
     "tqdm": TQDMLoggerBackendHparams,
+    "mosaicml": MosaicLoggerBackendHparams,
 }
 
 device_registry = {
@@ -204,7 +206,7 @@ class TrainerHparams(hp.Hparams):
 
         Args:
             datadir (str): The datadir
-        
+
         Raises
             AttributeError: Raised if either :attr:`train_dataset` or :attr:`val_dataset` do not
             have a ``datadir`` property.

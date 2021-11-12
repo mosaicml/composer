@@ -8,5 +8,6 @@ from composer.core.logging.logger import TLogData as TLogData
 from composer.core.logging.logger import TLogDataValue as TLogDataValue
 from composer.loggers.logger_hparams import BaseLoggerBackendHparams as BaseLoggerBackendHparams
 from composer.loggers.logger_hparams import FileLoggerBackendHparams as FileLoggerBackendHparams
+from composer.loggers.logger_hparams import MosaicLoggerBackendHparams as MosaicLoggerBackendHparams
 from composer.loggers.logger_hparams import TQDMLoggerBackendHparams as TQDMLoggerBackendHparams
 from composer.loggers.logger_hparams import WandBLoggerBackendHparams as WandBLoggerBackendHparams

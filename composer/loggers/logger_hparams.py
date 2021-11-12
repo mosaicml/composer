@@ -218,7 +218,7 @@ class TQDMLoggerBackendHparams(BaseLoggerBackendHparams):
 
 
 @dataclass
-class MosaicLoggerHparams(BaseLoggerBackendHparams):
+class MosaicLoggerBackendHparams(BaseLoggerBackendHparams):
     """:class:`~composer.loggers.mosaic_logger.MosaicLoggerBackend`
     hyperparameters.
 
