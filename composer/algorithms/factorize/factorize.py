@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import asdict, dataclass
-from typing import List, Optional, Tuple, TypeVar
+from typing import List, Optional, Tuple, Type
 
 import torch
 import yahp as hp
@@ -26,18 +26,17 @@ LOG_NUM_CONV2D_REPLACEMENTS_KEY = 'factorize/num_conv2d_replacements'
 LOG_NUM_LINEAR_REPLACEMENTS_KEY = 'factorize/num_linear_replacements'
 
 
-def _python_log_surgery_result(model: torch.nn.Module, new_class: TypeVar):
+def _python_log_surgery_result(model: torch.nn.Module, new_class: Type[torch.nn.Module]):
     num_replaced_modules = surgery.count_module_instances(model, new_class)
     log.info(f'Applied factorization to model {model.__class__.__name__}. '
              f'Model now has {num_replaced_modules} {new_class.__name__} modules')
 
 
 def _replace_module_class_in_model(
-        model: torch.nn.Conv2d, module_class: TypeVar,
+        model: torch.nn.Conv2d, module_class: Type[torch.nn.Module],
         f_replace: surgery.ReplacementFunction) -> List[Tuple[torch.nn.Module, torch.nn.Module]]:
     transforms = {module_class: f_replace}
     ret = surgery.replace_module_classes(model, policies=transforms)
-    _python_log_surgery_result(model, module_class)
     return ret
 
 
@@ -52,7 +51,9 @@ def factorize_conv2d_modules(model: torch.nn.Module, min_channels: int, latent_c
             return FactorizedConv2d.from_conv2d(module, module_index, latent_channels=latent_channels)
         return None  # not enough rank reduction to be worth it
 
-    return _replace_module_class_in_model(model, torch.nn.Conv2d, _maybe_replace_conv2d)
+    ret = _replace_module_class_in_model(model, torch.nn.Conv2d, _maybe_replace_conv2d)
+    _python_log_surgery_result(model, FactorizedConv2d)
+    return ret
 
 
 def factorize_linear_modules(model: torch.nn.Module, min_features: int, latent_features: FractionOrInt):
@@ -66,7 +67,9 @@ def factorize_linear_modules(model: torch.nn.Module, min_features: int, latent_f
             return FactorizedLinear.from_linear(module, module_index, latent_features=latent_features)
         return None  # not enough rank reduction to be worth it
 
-    return _replace_module_class_in_model(model, torch.nn.Linear, _maybe_replace_linear)
+    ret = _replace_module_class_in_model(model, torch.nn.Linear, _maybe_replace_linear)
+    _python_log_surgery_result(model, FactorizedLinear)
+    return ret
 
 
 @dataclass
