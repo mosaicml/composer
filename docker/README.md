@@ -3,6 +3,14 @@
 To simplify environment setup for the MosaicML `Composer` library, we provide a set of Docker Images that users can
 leverage.
 
+## Pytorch Images
+
+We use the following Pytorch images internally for testing:
+
+TODO
+
+## Composer Images
+
 There are three flavors of the `composer` Docker image: 'latest', 'dev' and 'all'.
 
 The specific flavor refers to the specific `pip` packages that are pre-installed and depends on intended usage.
@@ -16,7 +24,7 @@ The following table describes the various image flavors:
 
 For details on which specific `pip` packages are installed per flavor, please see the project `setup.py`.
 
-## Pulling Images
+### Pulling Images
 
 Pre-built images can be pulled from [MosaicML's DockerHub Repository](https://hub.docker.com/r/mosaicml/composer):
 

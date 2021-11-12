@@ -81,7 +81,12 @@ pipeline {
                         P_BUILD_CONTEXT: './docker/pytorch',
                         P_GIT_REPO: gitUrl,
                         P_GIT_COMMIT: gitCommit,
-                    ) { dockerImage ->
+                        P_KANIKO_PUSH_FINAL: env.GIT_BRANCH == "main", // only push if we're on the main branch
+                    ) { (stagingImage) ->
+                        if (env.GIT_BRANCH == "main") {
+                            // no need to run tests again
+                            return
+                        }
                         parallel([
                             'dev': { ->
                                 build(
@@ -176,10 +181,8 @@ pipeline {
             node("aws-next-01") {
                 script {
                     builds.each { item -> 
-                        echo "$item"
-
                         copyArtifacts(
-                            projectName: item.job,
+                            projectName: item.projectName,
                             selector: specific("${item.number}"),
                             fingerprintArtifacts: true,
                         )
