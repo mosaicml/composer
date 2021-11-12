@@ -2,9 +2,10 @@ groovyLoadLabel = "aws-next-01"
 gitUrl = null
 gitBranch = null
 gitCommit = null
-dockerChanged = false  // TODO. Determine if the PR changes the docker.
+pytorchChanged = null  // TODO. Determine if the PR changes the docker.
 def runWithChecks = null
 def expandDockerMatrix = null
+def prChangeset = null
 builds = []
 
 def cloneJenkinsfilesRepo() {
@@ -60,6 +61,9 @@ stage('Prepare') {
 
         runWithChecks = load "$jenkinsfileWorkspace/utils/runWithChecks.groovy"
         expandDockerMatrix = load "$jenkinsfileWorkspace/utils/expandDockerMatrix.groovy"
+        prChangeset = load "$jenkinsfileWorkspace/utils/prChangeset.groovy"
+
+        pytorchChanged = prChangeset("docker/pytorch/")
     }
 }
 
@@ -102,7 +106,7 @@ def dockerImagePostBuild(stagingImageTag) {
 
 stage('Build') {
     def jobs = [:]
-    if (dockerChanged) {
+    if (pytorchChanged) {
         jobs << expandDockerMatrix(
             P_CLOUD: groovyLoadLabel,
             P_BUILD_MATRIX: './composer/pytorch_build_matrix.sh',
@@ -150,7 +154,7 @@ stage('Build') {
         parallel(jobs)
     }
     finally {
-        node groovyLoadLabel {
+        node ("aws-next-01") {
             builds.each { item -> 
                 copyArtifacts(
                     projectName: item.projectName,
