@@ -127,11 +127,11 @@ stage('Build') {
                         ]
                     )
                 }
-            }
-            'Python 3.7 - All': { -> runPytest("3.7", "all", 0) }
-            'Python 3.8 - All': { -> runPytest("3.8", "all", 0) }
-            'Python 3.8 - All': { -> runPytest("3.9", "all", 0) }
-            'Python 3.8 - Dev': { -> runPytest("3.9", "dev", 0) }
+            },
+            'Python 3.7 - All': { -> runPytest("3.7", "all", 0) },
+            'Python 3.8 - All': { -> runPytest("3.8", "all", 0) },
+            'Python 3.8 - All': { -> runPytest("3.9", "all", 0) },
+            'Python 3.8 - Dev': { -> runPytest("3.9", "dev", 0) },
         ])
     }
     finally {
