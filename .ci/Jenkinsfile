@@ -64,7 +64,6 @@ pipeline {
 
                     runWithChecks = load "$JENKINSFILES_WORKSPACE/utils/runWithChecks.groovy"
                     dockerBuildMatrix = load "$JENKINSFILES_WORKSPACE/utils/dockerBuildMatrix.groovy"
-
                 }
             }
         }
@@ -74,11 +73,6 @@ pipeline {
             // }
             steps {
                 script {
-                    echo "dockerBuildMatrix $dockerBuildMatrix"
-                    echo "gitUrl $gitUrl"
-                    echo "gitBranch $gitBranch"
-                    echo "gitCommit $gitCommit"
-                    echo "runWithChecks $runWithChecks"
                     dockerBuildMatrix(
                         P_CLOUD: groovyLoadLabel,
                         P_BUILD_MATRIX: './composer/pytorch_build_matrix.sh',
