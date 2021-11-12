@@ -2,8 +2,8 @@ groovyLoadLabel = "aws-next-01"
 gitUrl = null
 gitBranch = null
 gitCommit = null
-runWithChecks = null
-dockerBuildMatrix = null
+def runWithChecks = null
+def dockerBuildMatrix = null
 builds = []
 
 
@@ -75,6 +75,10 @@ pipeline {
             steps {
                 script {
                     echo "dockerBuildMatrix $dockerBuildMatrix"
+                    echo "gitUrl $gitUrl"
+                    echo "gitBranch $gitBranch"
+                    echo "runWithChecks $runWithChecks"
+                    echo "dockerBuildMatrix $dockerBuildMatrix"
                     dockerBuildMatrix(
                         P_CLOUD: groovyLoadLabel,
                         P_BUILD_MATRIX: './composer/pytorch_build_matrix.sh',
@@ -84,7 +88,7 @@ pipeline {
                         P_BUILD_CONTEXT: './docker/pytorch',
                         P_GIT_REPO: gitUrl,
                         P_GIT_COMMIT: gitCommit,
-                        // P_KANIKO_PUSH_FINAL: gitBranch == "main", // only push if we're on the main branch
+                        P_KANIKO_PUSH_FINAL: gitBranch == "main", // only push if we're on the main branch
                     ) { stagingImage ->
                         if (gitBranch == "main") {
                             // no need to run tests again
