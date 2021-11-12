@@ -103,6 +103,17 @@ class MosaicLoggerBackend(RankZeroLoggerBackend, Serializable):
         self.job_id = state["job_id"]
         self.sweep_id = state["sweep_id"]
 
+    def _flush_buffered_data(self):
+        if len(self.buffered_data) == 0:
+            return
+
+        data_to_write = self.buffered_data.copy()
+        self.buffered_data = []
+
+        self.queue.put_nowait(data_to_write)
+        # Create a separate task for the new data written to the queue
+        asyncio.create_task(self._send_data())
+
     async def _send_data(self) -> str:
         data = self.queue.get()
         try:
@@ -121,14 +132,3 @@ class MosaicLoggerBackend(RankZeroLoggerBackend, Serializable):
             log.error(f"MosaicLogger got exception {e} when writing logs.")
             # Mark the task done even if there is an exception so that the training loop does not get stuck
             self.queue.task_done()
-
-    def _flush_buffered_data(self):
-        if len(self.buffered_data) == 0:
-            return
-
-        data_to_write = self.buffered_data.copy()
-        self.buffered_data = []
-
-        self.queue.put_nowait(data_to_write)
-        # Create a separate task for the new data written to the queue
-        asyncio.create_task(self._send_data())
