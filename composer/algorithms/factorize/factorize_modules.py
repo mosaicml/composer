@@ -7,7 +7,7 @@ import torch
 from torch import nn
 from torch.nn.common_types import Optional, Tuple, Union, _size_2_t
 
-from composer.algorithms.factorize.factorize_core import LowRankSolution, factorize, factorize_conv2d
+from composer.algorithms.factorize.factorize_core import LowRankSolution, factorize_conv2d, factorize_matrix
 
 FractionOrInt = Union[int, float]
 
@@ -277,7 +277,7 @@ class FactorizedLinear(_FactorizedModule):
             bias1 = self.module1.bias
         target = self(input)
 
-        return factorize(input, target, weight0, weight1, bias=bias1, rank=rank)
+        return factorize_matrix(input, target, weight0, weight1, bias=bias1, rank=rank)
 
     def apply_solution(self, solution: LowRankSolution) -> None:
         self.latent_size = solution.rank

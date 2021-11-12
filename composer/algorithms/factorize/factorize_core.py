@@ -7,11 +7,6 @@ import numpy as np
 import torch
 import torch.nn.functional as F
 
-_DOCS_ARG_N_ITERS = (
-"""n_iters: number of iterations used in the optimization process. Higher
-            numbers yield lower mean-squared error, though there are usually
-            diminishing returns after a handful of iterations."""
-)
 
 @dataclasses.dataclass
 class LowRankSolution:
@@ -81,14 +76,14 @@ def _svd_initialize(Wa: torch.Tensor, Wb: torch.Tensor, k: int):
     return Wa, Wb
 
 
-def factorize(X: torch.Tensor,
-              Y: torch.Tensor,
-              Wa: torch.Tensor,
-              Wb: Optional[torch.Tensor] = None,
-              bias: Optional[torch.Tensor] = None,
-              rank: Union[int, float] = .5,
-              n_iters: int = 3) -> LowRankSolution:
-    f"""Approximates a matrix by factorizing it into a product of two smaller matrices.
+def factorize_matrix(X: torch.Tensor,
+                     Y: torch.Tensor,
+                     Wa: torch.Tensor,
+                     Wb: Optional[torch.Tensor] = None,
+                     bias: Optional[torch.Tensor] = None,
+                     rank: Union[int, float] = .5,
+                     n_iters: int = 3) -> LowRankSolution:
+    """Approximates a matrix by factorizing it into a product of two smaller matrices.
 
     Given a matrix ``W`` of shape ``[N, D]``, TODO
 
@@ -129,7 +124,9 @@ def factorize(X: torch.Tensor,
         bias: a vector added to the output after performing the matrix
             product with X
         rank: number of columns in the latent representation of X.
-        {_DOCS_ARG_N_ITERS}
+        n_iters: number of iterations used in the optimization process. Higher
+            numbers yield lower mean-squared error, though there are usually
+            diminishing returns after a handful of iterations.
 
     Returns:
         solution, a :class:`~LowRankSolution` of rank ``rank`` that
@@ -324,7 +321,7 @@ def factorize_conv2d(inputs,
         # fail fast if user passes in inconsistent combination of args
         raise RuntimeError("Got biasB, but weightsB=None; cannot apply bias")
 
-    ret = factorize(X_mat, Y_mat, Wa, Wb, rank=rank, n_iters=n_iters)
+    ret = factorize_matrix(X_mat, Y_mat, Wa, Wb, rank=rank, n_iters=n_iters)
 
     # now we need to convert from two matrices to one kxk conv kernel and one
     # 1x1 conv kernel. Here's why the 2nd has to be a 1x1: if it were instead

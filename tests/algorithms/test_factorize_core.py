@@ -35,7 +35,7 @@ class _RankReduce(object):
             Wb = None
             Y = X @ Wa + bias
 
-        return factorize.factorize(X, Y, Wa, Wb, bias=bias, rank=self.C_latent_new, n_iters=self.n_iters)
+        return factorize.factorize_matrix(X, Y, Wa, Wb, bias=bias, rank=self.C_latent_new, n_iters=self.n_iters)
 
 
 @dataclass
