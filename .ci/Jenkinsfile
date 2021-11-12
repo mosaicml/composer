@@ -31,12 +31,13 @@ def runPytest(pythonVersion, extraDeps, nGpus = 0) {
         builds << build(
             job: 'scratch/pytest',
             parameters: [
-                string(name: 'P_CLOUD', value: groovyLoadLabel),
+                string(name: 'P_CLOUD', value: nGpus == 0 ? "aws-next-01" : "p2.xlarge"),
                 string(name: 'P_GIT_REPO', value: gitUrl),
                 string(name: 'P_GIT_COMMIT', value: gitCommit),
                 string(name: 'P_DOCKER_IMAGE', value: "ravimosaicml/pytorch:1.10.0_cpu-python${pythonVersion}-ubuntu20.04"), // TODO: change ravi to mosaicml/pytorch
                 string(name: 'P_TIMEOUT', value: '5m'),
                 string(name: 'PIP_EXTRA_DEPS', value: extraDeps),
+                string(name: 'PYTEST_CLI_ARGS', value: '--test-duration all'),
             ]
         )
     }
@@ -68,6 +69,7 @@ stage('Build Pytorch Docker') {
         P_BUILD_CONTEXT: './docker/pytorch',
         P_GIT_REPO: gitUrl,
         P_GIT_COMMIT: gitCommit,
+        P_TIMEOUT: '30m',
         P_KANIKO_PUSH_FINAL: gitBranch == "main", // only push if we're on the main branch
     ) { stagingImage ->
         if (gitBranch == "main") {
@@ -85,6 +87,7 @@ stage('Build Pytorch Docker') {
                         string(name: 'P_DOCKER_IMAGE', value: dockerImage),
                         string(name: 'P_TIMEOUT', value: '5m'),
                         string(name: 'PIP_EXTRA_DEPS', value: 'dev'),
+                        string(name: 'PYTEST_CLI_ARGS', value: '--test-duration all'),
                     ]
                 )
             },
@@ -98,6 +101,7 @@ stage('Build Pytorch Docker') {
                         string(name: 'P_DOCKER_IMAGE', value: dockerImage),
                         string(name: 'P_TIMEOUT', value: '5m'),
                         string(name: 'PIP_EXTRA_DEPS', value: 'all'),
+                        string(name: 'PYTEST_CLI_ARGS', value: '--test-duration all'),
                     ]
                 )
             }
@@ -128,10 +132,12 @@ stage('Build') {
                     )
                 }
             },
-            'Python 3.7 - All': { -> runPytest("3.7", "all", 0) },
-            'Python 3.8 - All': { -> runPytest("3.8", "all", 0) },
-            'Python 3.8 - All': { -> runPytest("3.9", "all", 0) },
-            'Python 3.8 - Dev': { -> runPytest("3.9", "dev", 0) },
+            'Python 3.7 - All 0 GPUs': { -> runPytest("3.7", "all", 0) },
+            'Python 3.8 - All 0 GPUs': { -> runPytest("3.8", "all", 0) },
+            'Python 3.9 - All 0 GPUs': { -> runPytest("3.9", "all", 0) },
+            'Python 3.9 - Dev 0 GPUs': { -> runPytest("3.9", "dev", 0) },
+            'Python 3.9 - All 1 GPU': { -> runPytest("3.9", "all", 1) },
+            'Python 3.9 - All 2 GPUs': { -> runPytest("3.9", "all", 2) },
         ])
     }
     finally {
