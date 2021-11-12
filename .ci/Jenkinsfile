@@ -1,5 +1,6 @@
 groovyLoadLabel = "aws-next-01"
 gitUrl = null
+gitBranch = null
 gitCommit = null
 runWithChecks = null
 dockerBuildMatrix = null
@@ -56,6 +57,7 @@ pipeline {
                     sh 'printenv'
 
                     gitUrl = env.GIT_URL
+                    gitBranch = env.GIT_BRANCH
                     gitCommit = env.GIT_COMMIT
 
                     cloneJenkinsfilesRepo()
@@ -81,7 +83,7 @@ pipeline {
                         P_BUILD_CONTEXT: './docker/pytorch',
                         P_GIT_REPO: gitUrl,
                         P_GIT_COMMIT: gitCommit,
-                        P_KANIKO_PUSH_FINAL: env.GIT_BRANCH == "main", // only push if we're on the main branch
+                        // P_KANIKO_PUSH_FINAL: gitBranch == "main", // only push if we're on the main branch
                     ) { stagingImage ->
                         if (env.GIT_BRANCH == "main") {
                             // no need to run tests again
