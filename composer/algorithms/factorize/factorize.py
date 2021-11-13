@@ -106,6 +106,27 @@ class FactorizeHparams(AlgorithmHparams):
 
 
 class Factorize(Algorithm):
+    """Decomposes linear operators into pairs of smaller linear operators.
+
+    Specifically, this algorithm replaces :class:`~torch.nn.Conv2d` and
+    :class:`~torch.nn.Linear` modules with
+    :class:`~composer.algorithms.factorize.FactorizedConv2d` and
+    :class:`~composer.algorithms.factorize.FactorizedLinear` modules.
+
+    The replacement is only performed if doing so would reduce the number of
+    multiply-adds operations used to compute each module's output. For linears
+    layers and pointwise convolutions, this means that the factorization must
+    use an intermediate rank of less than half the input and output ranks, since
+    it must perform two operations.
+
+    See :func:`~composer.algorithms.factorize.factorize_matrix` and
+    :func:`~composer.algorithms.factorize.factorize_conv2d` for more
+    information.
+
+    Args:
+        TODO pick up here
+
+    """
 
     def __init__(self,
                  factorize_convs: bool = _DEFAULT_SHOULD_FACTORIZE_CONVS,

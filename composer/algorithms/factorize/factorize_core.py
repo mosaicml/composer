@@ -126,8 +126,9 @@ def factorize_matrix(X: torch.Tensor,
             diminishing returns after a handful of iterations.
 
     Returns:
-        solution, a :class:`~LowRankSolution` of rank ``rank`` that
-            approximates the original matrix.
+        solution:
+            a :class:`~LowRankSolution` of rank ``rank`` that approximates
+            the original matrix.
 
     """
     X = X.detach()
@@ -296,13 +297,15 @@ def factorize_conv2d(X,
             Note that not all combinations of arguments are supported.
 
     Returns:
-        solution, a :class:`~LowRankSolution` of rank ``rank`` that
-            approximates the original matrix
+        solution:
+            A :class:`~composer.algorithms.factorize.LowRankSolution` of
+            rank ``rank`` that approximates the original matrix
 
     Raises:
-        RuntimeError, if ``biasB`` is provided but not ``Wb`` is not.
-        NotImplementedError, if `conv2d_kwargs['dilation'] != 1` or
-            `conv2d_kwargs['groups'] != 1`.
+        RuntimeError:
+            If ``biasB`` is provided but not ``Wb`` is not.
+        NotImplementedError:
+            if `conv2d_kwargs['dilation'] != 1` or `conv2d_kwargs['groups'] != 1`.
 
     """
     X = X.detach()

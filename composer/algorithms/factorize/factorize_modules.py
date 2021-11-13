@@ -116,7 +116,7 @@ class _FactorizedModule(nn.Module, abc.ABC):
             # not factorized yet; has to factorize enough to be worthwhile
             return max_rank_with_possible_speedup(self.in_size, self.out_size, kernel_size=self.kernel_size)
 
-    def should_factorize(self, proposed_rank: FractionOrInt):
+    def should_factorize(self, proposed_rank: FractionOrInt) -> bool:
         """Whether factorizing with a given rank would reduce the number of multiply-add operations."""
         proposed_rank = self._clean_latent_size(proposed_rank)
         return proposed_rank <= self._max_rank_with_speedup()
@@ -144,7 +144,7 @@ class _FactorizedModule(nn.Module, abc.ABC):
                 the input is mapped.
 
         Returns:
-            An object encapsulating the new parameters to be used
+            solution - An object encapsulating the new parameters to be used
                 and their associated mean squared error on the input
         """
         ...
@@ -157,7 +157,7 @@ class _FactorizedModule(nn.Module, abc.ABC):
         using the solution is worthwhile.
 
         Args:
-            solution: An object encapsulating the new parameters to be used
+            solution - An object encapsulating the new parameters to be used
                 and their associated mean squared error on the input for
                 which they were optimized.
         """
@@ -165,6 +165,43 @@ class _FactorizedModule(nn.Module, abc.ABC):
 
 
 class FactorizedConv2d(_FactorizedModule):
+    """Factorized replacement for :class:`torch.nn.Conv2d`.
+
+    Splits the conv2d operation into two smaller conv2d operations, which
+    are executed sequentially with no nonlinearity in between. This first
+    conv2d can be thought of as projecting the feature maps into a
+    lower-dimensional space, similar to PCA. The second produces outputs
+    of the same shape as the un-factorized version based on the embeddings
+    within this lower-dimensional space. Note that "dimensiontality" here
+    refers to the number of channels, not the spatial extent or tensor rank.
+
+    The first conv2d has a kernel size of ``kernel_size``, while the second
+    one always has a kernel size of 1x1. For large kernel sizes, the
+    lower-dimensional space can be nearly as large as
+    ``min(in_channels, out_channels)`` and still yield a reduction in
+    multiply-add operations (FLOPs). For kernels sizes of 1x1, the breakeven
+    point is a 2x reduction in channel count, similar to
+    :class:`~FactorizedLinear`.
+
+    See :func:`~composer.factorize.factorize_conv2d` for more details.
+
+    Args:
+        in_channels: number of channels in the input image
+        out_channels: number of channels produced by the convolution
+        kernel_size: size of the convolving kernel
+        **kwargs: other arguments to :class:`torch.nn.Conv2d` are supported
+            and will be used with the first of the two smaller `Conv2d`
+            operations. However, ``groups > 1`` and ``dilation > 1`` are
+            not currently supported.
+
+    Raises:
+        ValueError, if ``latent_channels`` is not small enough for factorization
+            to reduce the number of multiply-add operations. In this regime,
+            factorization is both slower and less expressive than a
+            non-factorized operation. Setting
+            ``latent_features`` to  :meth:`~max_allowed_latent_channels`
+            is sufficient to avoid this.
+    """
 
     def __init__(self,
                  in_channels: int,
@@ -196,6 +233,8 @@ class FactorizedConv2d(_FactorizedModule):
             # this one increases the number of output channels
             conv1 = nn.Conv2d(self.latent_channels, self.out_channels, kernel_size=1, bias=True)
         else:
+            # TODO uncomment this and change tests accordingly
+            # raise ValueError("latent_channels was not small enough to merit factorization!")
             self.latent_size = self.out_channels
             conv0 = nn.Conv2d(self.in_channels, self.out_channels, self.kernel_size, **self.kwargs)
             conv1 = None
@@ -205,12 +244,12 @@ class FactorizedConv2d(_FactorizedModule):
     # wrap shared fields in read-only properties matching the torch conv module API
     @property
     def in_channels(self) -> int:
-        """See `torch.nn.Conv2d`."""
+        """See :class:`torch.nn.Conv2d`."""
         return self.in_size
 
     @property
     def out_channels(self) -> int:
-        """See `torch.nn.Conv2d`."""
+        """See :class:`torch.nn.Conv2d`."""
         return self.out_size
 
     @property
@@ -237,6 +276,20 @@ class FactorizedConv2d(_FactorizedModule):
         _apply_solution_to_module_parameters(solution, self.module0, self.module1, transpose=False)
 
     @staticmethod
+    def max_allowed_latent_features(in_features: int, out_features: int, kernel_size: _size_2_t) -> int:
+        """Returns the largest latent channel count that isn't strictly worse than not factorizing
+
+        Args:
+            in_channels: number of channels in the input image
+            out_channels: number of channels produced by the convolution
+            kernel_size: size of the convolving kernel
+
+        Returns:
+            latent_channels, the largest allowable number of latent channels
+        """
+        return max_rank_with_possible_speedup(in_features, out_features, kernel_size=kernel_size)
+
+    @staticmethod
     def from_conv2d(module: torch.nn.Conv2d, module_ix: int = -1, **kwargs) -> 'FactorizedConv2d':
         conv = FactorizedConv2d(
             in_channels=module.in_channels,
@@ -254,17 +307,57 @@ class FactorizedConv2d(_FactorizedModule):
 
 
 class FactorizedLinear(_FactorizedModule):
+    """Factorized replacement for :class:`torch.nn.Linear`.
 
-    def __init__(self, in_features: int, out_features: int, latent_features: FractionOrInt = .5, bias: bool = True):
+    Splits the linear operation into two smaller linear operations, which
+    are executed sequentially with no nonlinearity in between. This first
+    linear operation can be thought of as projecting the inputs into a
+    lower-dimensional space, similar to PCA. The second produces outputs
+    of the same shape as the un-factorized version based on the embeddings
+    within this lower-dimensional space.
+
+    If the lower-dimensional space is less than half the size of the
+    smaller of the input and output dimensionality, this factorization
+    can reduce the number of multiply-adds necessary to compute the output.
+    However, because larger matrix products tend to utilize the hardware
+    better, it make take a reduction of more than 2x to get a speedup
+    in practice.
+
+    See :func:`~composer.factorize.factorize_matrix` for more details.
+
+    Args:
+        in_features: size of each input sample
+        out_features: size of each output sample
+        latent_features: size of the latent space. Can be specified as either
+            an integer > 1 or as float within [0, 0.5). In the latter case, the
+            value is interpreted as a fraction of ``min(in_features, out_features)``,
+            and is converted to the equivalent integer value, with a minimum
+            of 1.
+        bias: If set to False, the layer will not learn an additive bias. Default: True
+
+    Raises:
+        ValueError, if ``latent_features`` is not small enough for factorization
+            to reduce the number of multiply-add operations. In this regime,
+            factorization is both slower and less expressive than a
+            non-factorized operation. Setting
+            ``latent_features < min(in_features, out_features) / 2`` or
+            using :meth:`~max_allowed_latent_features` is sufficient to avoid
+            this.
+    """
+
+    def __init__(self, in_features: int, out_features: int, latent_features: FractionOrInt = .25, bias: bool = True):
         super().__init__(in_size=in_features, out_size=out_features, latent_size=latent_features)
         self.bias = bias
         self.module0, self.module1 = self._create_child_modules()
 
     def _create_child_modules(self) -> Tuple[torch.nn.Module, torch.nn.Module]:
+
         if self.should_factorize(self.latent_size):
             module0 = nn.Linear(in_features=self.in_features, out_features=self.latent_size, bias=False)
             module1 = nn.Linear(in_features=self.latent_size, out_features=self.out_features, bias=self.bias)
         else:
+            # TODO uncomment this and change tests accordingly
+            # raise ValueError("latent_features was not small enough to merit factorization!")
             self.latent_size = self.out_features
             module0 = nn.Linear(in_features=self.in_features, out_features=self.out_features, bias=True)
             module1 = None
@@ -274,12 +367,12 @@ class FactorizedLinear(_FactorizedModule):
     # wrap shared fields in read-only properties matching the torch conv module API
     @property
     def in_features(self) -> int:
-        """See `torch.nn.Linear`."""
+        """See :class:`torch.nn.Linear`."""
         return self.in_size
 
     @property
     def out_features(self) -> int:
-        """See `torch.nn.Linear`."""
+        """See :class:`torch.nn.Linear`."""
         return self.out_size
 
     @property
@@ -306,6 +399,19 @@ class FactorizedLinear(_FactorizedModule):
         self.module0.out_features = solution.rank
         self.module1.in_features = solution.rank
         _apply_solution_to_module_parameters(solution, self.module0, self.module1, transpose=True)
+
+    @staticmethod
+    def max_allowed_latent_channels(in_features: int, out_features: int) -> int:
+        """Returns the largest latent feature count that isn't strictly worse than not factorizing
+
+        Args:
+            in_features: size of each input sample
+            out_features: size of each output sample
+
+        Returns:
+            latent_features, the largest allowable number of latent features
+        """
+        return max_rank_with_possible_speedup(in_features, out_features)
 
     @staticmethod
     def from_linear(module: torch.nn.Linear, module_ix: int = -1, **kwargs) -> 'FactorizedLinear':

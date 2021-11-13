@@ -161,8 +161,11 @@ Standalone
 ^^^^^^^^^^
 
 .. autoclass:: composer.algorithms.factorize.FactorizedConv2d
+    :members:
+
 .. autoclass:: composer.algorithms.factorize.FactorizedLinear
-.. autoclass:: composer.algorithms.factorize.BlurPool2d
+    :members:
+
 .. autoclass:: composer.algorithms.factorize.LowRankSolution
 .. autofunction:: composer.algorithms.factorize.factorize_conv2d_modules
 .. autofunction:: composer.algorithms.factorize.factorize_linear_modules
