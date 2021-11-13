@@ -16,12 +16,6 @@ from composer.core import Algorithm, Event, Logger, State, surgery
 
 log = logging.getLogger(__name__)
 
-_DEFAULT_SHOULD_FACTORIZE_CONVS = True
-_DEFAULT_SHOULD_FACTORIZE_LINEARS = True
-_DEFAULT_MIN_CHANNELS = 256
-_DEFAULT_MIN_FEATURES = 256
-_DEFAULT_LATENT_CHANNELS = 128
-_DEFAULT_LATENT_FEATURES = 128
 LOG_NUM_CONV2D_REPLACEMENTS_KEY = 'factorize/num_conv2d_replacements'
 LOG_NUM_LINEAR_REPLACEMENTS_KEY = 'factorize/num_linear_replacements'
 
@@ -65,29 +59,29 @@ class FactorizeHparams(AlgorithmHparams):
     """See :class:`Factorize`"""
     factorize_convs: bool = hp.optional(
         doc='Whether to factorize convolutional layers',
-        default=_DEFAULT_SHOULD_FACTORIZE_CONVS,
+        default=True,
     )
     factorize_linears: bool = hp.optional(
         doc='Whether to factorize linear layers',
-        default=_DEFAULT_SHOULD_FACTORIZE_LINEARS,
+        default=True,
     )
     min_channels: int = hp.optional(
         doc='Minimum number of channels in a Conv2d module'
         ' for it to be factorized.',
-        default=_DEFAULT_MIN_CHANNELS,
+        default=256,
     )
     latent_channels: float = hp.optional(
         doc='Number of channels in factorized convolution latent representations',
-        default=_DEFAULT_LATENT_CHANNELS,
+        default=128,
     )
     min_features: int = hp.optional(
         doc='Minimum number of features in a Linear module'
         ' for it to be factorized.',
-        default=_DEFAULT_MIN_FEATURES,
+        default=256,
     )
     latent_features: float = hp.optional(
         doc='Number of features in factorized linear latent representations',
-        default=_DEFAULT_LATENT_FEATURES,
+        default=128,
     )
 
     def initialize_object(self) -> 'Factorize':
@@ -144,12 +138,12 @@ class Factorize(Algorithm):
     """
 
     def __init__(self,
-                 factorize_convs: bool = _DEFAULT_SHOULD_FACTORIZE_CONVS,
-                 factorize_linears: bool = _DEFAULT_SHOULD_FACTORIZE_LINEARS,
-                 min_channels: int = _DEFAULT_MIN_CHANNELS,
-                 latent_channels: FractionOrInt = _DEFAULT_LATENT_CHANNELS,
-                 min_features: int = _DEFAULT_MIN_FEATURES,
-                 latent_features: FractionOrInt = _DEFAULT_LATENT_FEATURES):
+                 factorize_convs: bool = True,
+                 factorize_linears: bool = True,
+                 min_channels: int = 256,
+                 latent_channels: FractionOrInt = 128,
+                 min_features: int = 256,
+                 latent_features: FractionOrInt = 128):
         self.hparams = FactorizeHparams(factorize_convs=factorize_convs,
                                         factorize_linears=factorize_linears,
                                         min_channels=min_channels,

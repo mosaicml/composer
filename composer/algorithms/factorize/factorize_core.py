@@ -141,30 +141,30 @@ def factorize_matrix(X: torch.Tensor,
         rank = min(int(rank * X.shape[1]), Wa.shape[1])
     k = int(rank)
 
-    ret = LowRankSolution()
+    solution = LowRankSolution()
 
     original_bias = None
     if bias is not None:
         original_bias = bias.detach()
         Y = Y - original_bias
-        ret.bias = original_bias
+        solution.bias = original_bias
 
     # if requested latent rank is greater than or equal to either
-    # input rank or output rank, no point in factorizing; just
+    # input rank or output rank, factorization is counterproductive, so
     # return a single matrix
     if k >= X.shape[1] or k >= Y.shape[1]:
         Wa = _lstsq(X, Y)
-        ret.Wa = Wa
-        ret.rank = -1
-        return ret
+        solution.Wa = Wa
+        solution.rank = -1
+        return solution
 
     # if requested latent rank is greater than current latent rank,
-    # just don't do the factorization
+    # skip the factorization
     if k >= Wa.shape[1]:
-        ret.Wa = Wa
-        ret.Wb = Wb
-        ret.rank = -1
-        return ret
+        solution.Wa = Wa
+        solution.Wb = Wb
+        solution.rank = -1
+        return solution
 
     Wa, Wb = _svd_initialize(Wa, Wb, k)
 
@@ -193,20 +193,20 @@ def factorize_matrix(X: torch.Tensor,
         Wa_T = _lstsq(Xa.T, Ya.T)
         Wa = Wa_T.T
 
-    ret.Wa = Wa
-    ret.Wb = Wb
-    ret.rank = k
+    solution.Wa = Wa
+    solution.Wb = Wb
+    solution.rank = k
     Y_hat = (X @ Wa) @ Wb
 
     bias = (Y - Y_hat).mean(dim=0)
     if original_bias is not None:
         bias += original_bias
-    ret.bias = bias
+    solution.bias = bias
 
     Y_hat += bias
-    ret.nmse = _nmse(Y, Y_hat)
+    solution.nmse = _nmse(Y, Y_hat)
 
-    return ret
+    return solution
 
 
 def _activations_conv2d_to_mat(activations,
