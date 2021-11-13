@@ -50,12 +50,15 @@ def test_update_factorized_conv2d_twice():
 
     def _check_conv_shapes(module: FactorizedConv2d, C_in, C_out, C_latent):
         assert module.latent_channels == C_latent
+        assert module.module0 is not None
         assert module.module0.in_channels == C_in
         assert module.module0.out_channels == C_latent
+        assert isinstance(module.module0.weight, torch.Tensor)
         assert module.module0.weight.shape[:2] == (C_latent, C_in)
         assert module.module1 is not None
         assert module.module1.in_channels == C_latent
         assert module.module1.out_channels == C_out
+        assert isinstance(module.module1.weight, torch.Tensor)
         assert module.module1.weight.shape[:2] == (C_out, C_latent)
 
     for new_C_latent in [12, 8]:

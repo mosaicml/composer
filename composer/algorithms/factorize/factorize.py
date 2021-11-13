@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import asdict, dataclass
-from typing import List, Optional, Tuple, Type
+from typing import Optional, Type, cast
 
 import torch
 import yahp as hp
@@ -32,42 +32,32 @@ def _python_log_surgery_result(model: torch.nn.Module, new_class: Type[torch.nn.
              f'Model now has {num_replaced_modules} {new_class.__name__} modules')
 
 
-def _replace_module_class_in_model(
-        model: torch.nn.Conv2d, module_class: Type[torch.nn.Module],
-        f_replace: surgery.ReplacementFunction) -> List[Tuple[torch.nn.Module, torch.nn.Module]]:
-    transforms = {module_class: f_replace}
-    ret = surgery.replace_module_classes(model, policies=transforms)
-    return ret
-
-
 def factorize_conv2d_modules(model: torch.nn.Module, min_channels: int, latent_channels: FractionOrInt):
 
-    def _maybe_replace_conv2d(module: torch.nn.Conv2d,
-                              module_index: int,
-                              min_channels: int = min_channels,
-                              latent_channels: FractionOrInt = latent_channels) -> Optional[torch.nn.Module]:
+    def _maybe_replace_conv2d(module: torch.nn.Module,
+                              module_index: int) -> Optional[torch.nn.Module]:
+        module = cast(torch.nn.Conv2d, module)
         wide_enough = min(module.out_channels, module.in_channels) >= min_channels
         if factorizing_could_speedup(module, latent_channels) and wide_enough:
             return FactorizedConv2d.from_conv2d(module, module_index, latent_channels=latent_channels)
         return None  # not enough rank reduction to be worth it
 
-    ret = _replace_module_class_in_model(model, torch.nn.Conv2d, _maybe_replace_conv2d)
+    ret = surgery.replace_module_classes(model, {torch.nn.Conv2d: _maybe_replace_conv2d})
     _python_log_surgery_result(model, FactorizedConv2d)
     return ret
 
 
 def factorize_linear_modules(model: torch.nn.Module, min_features: int, latent_features: FractionOrInt):
 
-    def _maybe_replace_linear(module: torch.nn.Linear,
-                              module_index: int,
-                              min_features: int = min_features,
-                              latent_features: FractionOrInt = latent_features) -> Optional[torch.nn.Module]:
+    def _maybe_replace_linear(module: torch.nn.Module,
+                              module_index: int) -> Optional[torch.nn.Module]:
+        module = cast(torch.nn.Linear, module)
         wide_enough = min(module.in_features, module.out_features) >= min_features
         if factorizing_could_speedup(module, latent_features) and wide_enough:
             return FactorizedLinear.from_linear(module, module_index, latent_features=latent_features)
         return None  # not enough rank reduction to be worth it
 
-    ret = _replace_module_class_in_model(model, torch.nn.Linear, _maybe_replace_linear)
+    ret = surgery.replace_module_classes(model, {torch.nn.Linear: _maybe_replace_linear})
     _python_log_surgery_result(model, FactorizedLinear)
     return ret
 
@@ -173,8 +163,8 @@ class Factorize(Algorithm):
         """Run on Event.INIT
 
         Args:
-            event (:class:`Event`): The current event.
-            state (:class:`State`): The current state.
+            event: The current event.
+            state: The current state.
 
         Returns:
             bool: True if this algorithm should run
@@ -182,12 +172,12 @@ class Factorize(Algorithm):
         return event == Event.INIT
 
     def apply(self, event: Event, state: State, logger: Logger) -> Optional[int]:
-        """Apply the Squeeze-and-Excitation layer replacement.
+        """Factorize convolutional and linear layers
 
         Args:
-            event (Event): the current event
-            state (State): the current trainer state
-            logger (Logger): the training logger
+            event: the current event
+            state: the current trainer state
+            logger: the training logger
         """
         assert state.model is not None, "Model must be part of state!"
         if self.hparams.factorize_convs:

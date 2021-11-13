@@ -1,7 +1,7 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
 import dataclasses
-from typing import Optional, Union
+from typing import Optional, Tuple, Union
 
 import numpy as np
 import torch
@@ -43,7 +43,7 @@ class LowRankSolution:
     nmse: float = 0
 
 
-def _lstsq(A: torch.Tensor, B: torch.Tensor):
+def _lstsq(A: torch.Tensor, B: torch.Tensor) -> torch.Tensor:
     if A.shape[0] != B.shape[0]:
         raise IndexError("A has different number of rows than B! " f"A.shape = {A.shape}, B.shape = {B.shape}")
     if len(A.shape) != 2:
@@ -55,12 +55,12 @@ def _lstsq(A: torch.Tensor, B: torch.Tensor):
     return torch.linalg.lstsq(A, B).solution
 
 
-def _nmse(Y: torch.Tensor, Y_hat: torch.Tensor):
-    diffs = Y - Y_hat
-    return (diffs * diffs).mean() / Y.var()
+def _nmse(Y: torch.Tensor, Y_hat: torch.Tensor) -> float:
+    diffs = Y.detach() - Y_hat.detach()
+    return float((diffs * diffs).mean() / Y.var())
 
 
-def _svd_initialize(Wa: torch.Tensor, Wb: torch.Tensor, k: int):
+def _svd_initialize(Wa: torch.Tensor, Wb: Optional[torch.Tensor], k: int) -> Tuple[torch.Tensor, torch.Tensor]:
     if Wb is None:
         W = Wa
     else:
@@ -96,7 +96,7 @@ def factorize_matrix(X: torch.Tensor,
 
     where ``Y = X @ W + bias``, ``@`` denotes matrix multiplication,
     ``new_bias`` broadcasts along the row dimension,
-    and :math:`||\cdot||_F` denotes the sum of squared elements.
+    and :math:`||\\cdot||_F` denotes the sum of squared elements.
     In the case that rows of ``X`` correspond to samples
     from some distribution, this amounts to minimizing the expected mean
     squared error in the output.
@@ -139,7 +139,7 @@ def factorize_matrix(X: torch.Tensor,
     if rank < 1:
         # fraction of input dimensionality (or current rank, if smaller)
         rank = min(int(rank * X.shape[1]), Wa.shape[1])
-    k = rank
+    k = int(rank)
 
     ret = LowRankSolution()
 
@@ -237,7 +237,7 @@ def _weights_conv2d_to_mat(weights: torch.Tensor):
     return weights.reshape(weights.shape[0], -1).T  # fan_in, out_channels
 
 
-def _mat_to_weights_conv2d(mat: torch.Tensor, kernel_size):
+def _mat_to_weights_conv2d(mat: Optional[torch.Tensor], kernel_size) -> Optional[torch.Tensor]:
     if mat is None:
         return None
     w = mat.T  # fan_in, out_channels -> out_channels, fan_in
@@ -265,7 +265,7 @@ def factorize_conv2d(X,
         :math:`||` ``(W * X + bias) - (Wb * (Wa * X) + new_bias)`` :math:`||_F`,
 
     where :math:`*` denotes convolution, ``bias`` broadcasts along all
-    non-channel dimensions, and :math:`||\cdot||_F` denotes the sum of
+    non-channel dimensions, and :math:`||\\cdot||_F` denotes the sum of
     squared elements.
 
     Similar to :func:`~factorize_matrix`, this function allows passing in an
@@ -346,6 +346,7 @@ def factorize_conv2d(X,
     # intermediate embeddings be 1/k'^2 as large. In the latter case, we'd
     # lose a lot of representational capacity. Also, the first op has to match
     # the kernel size of the original conv or the shapes don't work out.
+    assert ret.Wa is not None
     ret.Wa = _mat_to_weights_conv2d(ret.Wa, kernel_size=kernel_size)
     ret.Wb = _mat_to_weights_conv2d(ret.Wb, kernel_size=(1, 1))
 

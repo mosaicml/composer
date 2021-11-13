@@ -2,11 +2,12 @@
 
 import abc
 import math
+from typing import Optional, Tuple, Union, cast
 
 import numpy as np
 import torch
 from torch import nn
-from torch.nn.common_types import Optional, Tuple, Union, _size_2_t
+from torch.nn.common_types import _size_2_t
 
 from composer.algorithms.factorize.factorize_core import LowRankSolution, factorize_conv2d, factorize_matrix
 
@@ -20,7 +21,7 @@ def clean_latent_size(latent_size: FractionOrInt, in_size: int, out_size: int) -
     return int(latent_size)
 
 
-def max_rank_with_possible_speedup(in_channels: int, out_channels: int, kernel_size: Optional[Tuple] = None) -> int:
+def max_rank_with_possible_speedup(in_channels: int, out_channels: int, kernel_size: Optional[_size_2_t] = None) -> int:
     # TODO less naive cost model than counting multiply-adds
     fan_in = in_channels
     if kernel_size is not None:
@@ -38,7 +39,7 @@ def factorizing_could_speedup(module: torch.nn.Module, latent_size: FractionOrIn
         latent_size = clean_latent_size(latent_size, module.in_channels, module.out_channels)
         max_rank = max_rank_with_possible_speedup(module.in_channels,
                                                   module.out_channels,
-                                                  kernel_size=module.kernel_size)
+                                                  kernel_size=cast(_size_2_t, module.kernel_size))
         return latent_size <= max_rank
     elif isinstance(module, torch.nn.Linear):
         latent_size = clean_latent_size(latent_size, module.in_features, module.out_features)
@@ -58,15 +59,17 @@ def _apply_solution_to_module_parameters(solution: LowRankSolution, module0: tor
     with torch.no_grad():
         # first op always has no bias since adds no expressivity
         if module0.bias is not None:
-            module0.bias = torch.nn.Parameter(torch.zeros(solution.rank, dtype=module0.bias.dtype))
+            assert isinstance(module0.bias, torch.Tensor)
+            module0.bias = torch.nn.parameter.Parameter(torch.zeros(solution.rank, dtype=module0.bias.dtype))
+        assert isinstance(module1.bias, torch.Tensor)
         module1.bias.copy_(solution.bias)
         Wa = solution.Wa
         Wb = solution.Wb
         if transpose:
             Wa = torch.transpose(Wa, 0, 1)
             Wb = torch.transpose(Wb, 0, 1)
-        module0.weight = torch.nn.Parameter(Wa)
-        module1.weight = torch.nn.Parameter(Wb)
+        module0.weight = torch.nn.parameter.Parameter(Wa)
+        module1.weight = torch.nn.parameter.Parameter(Wb)
 
 
 class _FactorizedModule(nn.Module, abc.ABC):
@@ -81,19 +84,20 @@ class _FactorizedModule(nn.Module, abc.ABC):
     def _check_child_modules_present(self):
         assert hasattr(self, 'module0'), "module0 must be set during child class __init__!"
         assert hasattr(self, 'module1'), "module1 must be set during child class __init__!"
+        assert isinstance(self.module0, torch.nn.Module)
+        assert isinstance(self.module1, torch.nn.Module)
 
-    def forward(self, input: torch.Tensor):
+    def forward(self, input: torch.Tensor):   # type: ignore reportIncompatibleMethodOverride
         self._check_child_modules_present()
-        ret = self.module0(input)
+        ret = self.module0(input) # type: ignore reportGeneralTypeIssues
         if self.module1 is not None:
-            ret = self.module1(ret)
+            ret = self.module1(ret)  # type: ignore reportGeneralTypeIssues
         return ret
 
     def reset_parameters(self):
         self._check_child_modules_present()
-        self.module0.reset_parameters()
-        if self.module1 is not None:
-            self.module1.reset_parameters()
+        cast(torch.nn.Module, self.module0).reset_parameters()  # type: ignore reportGeneralTypeIssues
+        cast(torch.nn.Module, self.module1).reset_parameters()  # type: ignore reportGeneralTypeIssues
 
     def set_rank(self, input: torch.Tensor, rank: int) -> None:
         """Makes the module factorize using a ``rank``-dimensional latent representation
@@ -143,7 +147,7 @@ class _FactorizedModule(nn.Module, abc.ABC):
         ...
 
     @abc.abstractmethod
-    def solution_for_rank(input: torch.Tensor, rank: int) -> LowRankSolution:
+    def solution_for_rank(self, input: torch.Tensor, rank: int) -> LowRankSolution:
         """Returns a solution that :meth:`~apply_solution` can use to update the module's level of factorization.
 
         This is seperate from :meth:`set_rank` so that one can generate and assess
@@ -165,7 +169,7 @@ class _FactorizedModule(nn.Module, abc.ABC):
         ...
 
     @abc.abstractmethod
-    def apply_solution(solution: LowRankSolution) -> None:
+    def apply_solution(self, solution: LowRankSolution) -> None:
         """Updates module's child modules to reflect the factorization solution.
 
         This *always* applies the solution and doesn't check whether
@@ -280,6 +284,11 @@ class FactorizedConv2d(_FactorizedModule):
         bias0 = self.module0.bias
         weight1, bias1 = self.module1.weight, self.module1.bias
 
+        assert (bias0 is None) or isinstance(bias0, torch.Tensor)
+        assert isinstance(bias1, torch.Tensor)
+        assert isinstance(weight0, torch.Tensor)
+        assert isinstance(weight1, torch.Tensor)
+
         return factorize_conv2d(input, weight0, weight1, rank=rank, biasA=bias0, biasB=bias1, **self.convolution_kwargs)
 
     def apply_solution(self, solution: LowRankSolution):
@@ -307,7 +316,7 @@ class FactorizedConv2d(_FactorizedModule):
         conv = FactorizedConv2d(
             in_channels=module.in_channels,
             out_channels=module.out_channels,
-            kernel_size=module.kernel_size,
+            kernel_size=cast(_size_2_t, module.kernel_size),
             stride=module.stride,
             padding=module.padding,
             dilation=module.dilation,
@@ -389,6 +398,9 @@ class FactorizedLinear(_FactorizedModule):
         return self.latent_size
 
     def solution_for_rank(self, input: torch.Tensor, rank: int) -> LowRankSolution:
+        assert isinstance(self.module0.weight, torch.Tensor)
+        assert isinstance(self.module1.weight, torch.Tensor)
+        assert isinstance(self.module1.bias, torch.Tensor)
         weight0 = torch.transpose(self.module0.weight, 0, 1)
         weight1 = torch.transpose(self.module1.weight, 0, 1)
         bias1 = self.module1.bias
