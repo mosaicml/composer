@@ -1,6 +1,7 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
 import abc
+import math
 
 import numpy as np
 import torch
@@ -13,7 +14,7 @@ FractionOrInt = Union[int, float]
 
 
 def clean_latent_size(latent_size: FractionOrInt, in_size: int, out_size: int) -> int:
-    if latent_size <= 1:  # fraction of input or output channels
+    if latent_size < 1:  # fraction of input or output channels
         latent_channels = int(latent_size * min(in_size, out_size))
         return max(1, latent_channels)
     return int(latent_size)
@@ -24,7 +25,8 @@ def max_rank_with_possible_speedup(in_channels: int, out_channels: int, kernel_s
     fan_in = in_channels
     if kernel_size is not None:
         fan_in *= np.prod(kernel_size)
-    return (fan_in * out_channels) / (fan_in + out_channels) - 1
+    breakeven = (fan_in * out_channels) / (fan_in + out_channels)
+    return int(math.ceil(breakeven - 1))  # round down, or 1 lower if divides evenly
 
 
 def factorizing_could_speedup(module: torch.nn.Module, latent_size: FractionOrInt):
@@ -94,14 +96,26 @@ class _FactorizedModule(nn.Module, abc.ABC):
             self.module1.reset_parameters()
 
     def set_rank(self, input: torch.Tensor, rank: int) -> None:
-        """Forces the module to factorize using a ``rank``-dimensional latent representation
+        """Makes the module factorize using a ``rank``-dimensional latent representation
+
+        ``rank`` can be large enough that the factorization increases the
+        number of multiply-add operations, but not larger than the current
+        latent rank.
 
         Args:
             input: Tensor that can be passed to the model's `forward()` method
             rank: dimensionality of the latent representation; this is the
                 size of the vector space when factorizing linear modules and
                 the number of channels for convolutional modules.
+
+        Raises:
+            ValueError:
+                If ``rank`` is larger than the current latent rank
         """
+        if rank > self.latent_size:
+            raise ValueError(f"Requested rank {rank} exceeds current rank {self.latent_size}")
+        if rank == self.latent_size:
+            return
         soln = self.solution_for_rank(input, rank)
         self.apply_solution(soln)
 
@@ -216,7 +230,7 @@ class FactorizedConv2d(_FactorizedModule):
                  in_channels: int,
                  out_channels: int,
                  kernel_size: _size_2_t,
-                 latent_channels: FractionOrInt = .5,
+                 latent_channels: FractionOrInt = .25,
                  **kwargs):
         super().__init__(in_size=in_channels,
                          out_size=out_channels,
@@ -231,23 +245,18 @@ class FactorizedConv2d(_FactorizedModule):
         self.module0, self.module1 = self._create_child_modules()
 
     def _create_child_modules(self) -> Tuple[torch.nn.Module, torch.nn.Module]:
-        if self.should_factorize(self.latent_channels):
-            # this one produces identical output as a regular Conv2d would,
-            # except with fewer output channels
-            conv0 = nn.Conv2d(self.in_channels,
-                              self.latent_channels,
-                              self.kernel_size,
-                              bias=False,
-                              **self.convolution_kwargs)
-            # this one increases the number of output channels
-            conv1 = nn.Conv2d(self.latent_channels, self.out_channels, kernel_size=1, bias=True)
-        else:
-            # TODO uncomment this and change tests accordingly
-            # raise ValueError("latent_channels was not small enough to merit factorization!")
-            self.latent_size = self.out_channels
-            conv0 = nn.Conv2d(self.in_channels, self.out_channels, self.kernel_size, **self.kwargs)
-            conv1 = None
+        if not self.should_factorize(self.latent_channels):
+            raise ValueError(f"latent_channels {self.latent_size} is not small enough to merit factorization! Must be <= {self._max_rank_with_speedup()}")
 
+        # this one produces identical output as a regular Conv2d would,
+        # except with fewer output channels
+        conv0 = nn.Conv2d(self.in_channels,
+                            self.latent_channels,
+                            self.kernel_size,
+                            bias=False,
+                            **self.convolution_kwargs)
+        # this one increases the number of output channels
+        conv1 = nn.Conv2d(self.latent_channels, self.out_channels, kernel_size=1, bias=True)
         return conv0, conv1
 
     # wrap shared fields in read-only properties matching the torch conv module API
@@ -269,17 +278,12 @@ class FactorizedConv2d(_FactorizedModule):
     def solution_for_rank(self, input: torch.Tensor, rank: int) -> LowRankSolution:
         weight0 = self.module0.weight
         bias0 = self.module0.bias
-        if self.module1 is None:
-            weight1, bias1 = None, None
-        else:
-            weight1, bias1 = self.module1.weight, self.module1.bias
+        weight1, bias1 = self.module1.weight, self.module1.bias
 
         return factorize_conv2d(input, weight0, weight1, rank=rank, biasA=bias0, biasB=bias1, **self.convolution_kwargs)
 
     def apply_solution(self, solution: LowRankSolution):
         self.latent_size = solution.rank
-        if self.module1 is None:
-            self.module1 = nn.Conv2d(self.latent_channels, self.out_channels, kernel_size=1, bias=True)
         self.module0.out_channels = solution.rank
         self.module1.in_channels = solution.rank
         _apply_solution_to_module_parameters(solution, self.module0, self.module1, transpose=False)
@@ -361,17 +365,11 @@ class FactorizedLinear(_FactorizedModule):
         self.module0, self.module1 = self._create_child_modules()
 
     def _create_child_modules(self) -> Tuple[torch.nn.Module, torch.nn.Module]:
+        if not self.should_factorize(self.latent_size):
+            raise ValueError(f"latent_features {self.latent_size} is not small enough to merit factorization! Must be <= {self._max_rank_with_speedup()}")
 
-        if self.should_factorize(self.latent_size):
-            module0 = nn.Linear(in_features=self.in_features, out_features=self.latent_size, bias=False)
-            module1 = nn.Linear(in_features=self.latent_size, out_features=self.out_features, bias=self.bias)
-        else:
-            # TODO uncomment this and change tests accordingly
-            # raise ValueError("latent_features was not small enough to merit factorization!")
-            self.latent_size = self.out_features
-            module0 = nn.Linear(in_features=self.in_features, out_features=self.out_features, bias=True)
-            module1 = None
-
+        module0 = nn.Linear(in_features=self.in_features, out_features=self.latent_size, bias=False)
+        module1 = nn.Linear(in_features=self.latent_size, out_features=self.out_features, bias=self.bias)
         return module0, module1
 
     # wrap shared fields in read-only properties matching the torch conv module API
@@ -392,20 +390,14 @@ class FactorizedLinear(_FactorizedModule):
 
     def solution_for_rank(self, input: torch.Tensor, rank: int) -> LowRankSolution:
         weight0 = torch.transpose(self.module0.weight, 0, 1)
-        if self.module1 is None:
-            weight1, bias1 = None, None
-        else:
-            weight1 = torch.transpose(self.module1.weight, 0, 1)
-            bias1 = self.module1.bias
+        weight1 = torch.transpose(self.module1.weight, 0, 1)
+        bias1 = self.module1.bias
         target = self(input)
 
         return factorize_matrix(input, target, weight0, weight1, bias=bias1, rank=rank)
 
     def apply_solution(self, solution: LowRankSolution) -> None:
         self.latent_size = solution.rank
-        if self.module1 is None:
-            self.module1 = nn.Linear(self.latent_size, self.out_features, bias=True)
-            self.already_factorized = True
         self.module0.out_features = solution.rank
         self.module1.in_features = solution.rank
         _apply_solution_to_module_parameters(solution, self.module0, self.module1, transpose=True)
