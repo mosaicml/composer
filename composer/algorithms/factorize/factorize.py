@@ -74,6 +74,7 @@ def factorize_linear_modules(model: torch.nn.Module, min_features: int, latent_f
 
 @dataclass
 class FactorizeHparams(AlgorithmHparams):
+    """See :class:`Factorize`"""
     factorize_convs: bool = hp.optional(
         doc='Whether to factorize convolutional layers',
         default=_DEFAULT_SHOULD_FACTORIZE_CONVS,
@@ -114,27 +115,53 @@ class Factorize(Algorithm):
     :class:`~composer.algorithms.factorize.FactorizedLinear` modules.
 
     The replacement is only performed if doing so would reduce the number of
-    multiply-adds operations used to compute each module's output. For linears
+    multiply-adds used to compute each module's output. For linear
     layers and pointwise convolutions, this means that the factorization must
     use an intermediate rank of less than half the input and output ranks, since
-    it must perform two operations.
+    it must perform two operations instead of one.
+
+    For convolutions with kernel sizes greater than 1, the threshold for
+    factorization being worthwhile varies with kernel size. Larger kernels
+    have lower thresholds.
 
     See :func:`~composer.algorithms.factorize.factorize_matrix` and
     :func:`~composer.algorithms.factorize.factorize_conv2d` for more
-    information.
+    information about the factorization process. See :class:`~composer.algorithms.factorize.FactorizedConv2d` and :class:`~composer.algorithms.factorize.FactorizedLinear`
+    for more information about the factorized modules used to replace the
+    original modules.
 
     Args:
-        TODO pick up here
-
+        factorize_convs: whether to try factorizing :class:`torch.nn.Conv2d` modules.
+        factorize_linears: whether to try factorizing :class:`torch.nn.Linear` modules.
+        min_channels: if a :class:`~torch.nn.Conv2d` module does not have at least
+            this many input and output channels, it will be ignored. Modules with
+            few channels are unlikely to be accelerated by factorization due
+            to poor hardware utilization.
+        latent_channels: number of latent channels to use in factorized
+            convolutions. Can be specified as either an integer > 1 or as
+            float within [0, 1). In the latter case, the value is
+            interpreted as a fraction of ``min(in_channels, out_channels)``
+            for each :class:`~torch.nn.Conv2d` module, and is converted to
+            the equivalent integer value, with a minimum of 1.
+        min_features: if a :class:`~torch.nn.Linear` module does not have at least
+            this many input and output features, it will be ignored. Modules with
+            few features are unlikely to be accelerated by factorization due
+            to poor hardware utilization.
+        latent_features: size of the latent space for factorized linear modules.
+            Can be specified as either an integer > 1 or as a float within [0, 0.5).
+            In the latter case, the value is interpreted as a fraction of
+            ``min(in_features, out_features)`` for each :class:`~torch.nn.Linear`
+            module, and is converted to the equivalent integer value, with a
+            minimum of 1.
     """
 
     def __init__(self,
                  factorize_convs: bool = _DEFAULT_SHOULD_FACTORIZE_CONVS,
                  factorize_linears: bool = _DEFAULT_SHOULD_FACTORIZE_LINEARS,
                  min_channels: int = _DEFAULT_MIN_CHANNELS,
-                 latent_channels: int = _DEFAULT_LATENT_CHANNELS,
+                 latent_channels: FractionOrInt = _DEFAULT_LATENT_CHANNELS,
                  min_features: int = _DEFAULT_MIN_FEATURES,
-                 latent_features: int = _DEFAULT_LATENT_FEATURES):
+                 latent_features: FractionOrInt = _DEFAULT_LATENT_FEATURES):
         self.hparams = FactorizeHparams(factorize_convs=factorize_convs,
                                         factorize_linears=factorize_linears,
                                         min_channels=min_channels,

@@ -87,19 +87,19 @@ def factorize_matrix(X: torch.Tensor,
                      n_iters: int = 3) -> LowRankSolution:
     """Approximates a matrix by factorizing it into a product of two smaller matrices.
 
-    Given a matrix ``W`` of shape ``[D, M]``, a bias vector of length ``M`,
-    and a target rank ``rank < D``, returns a solution ``(Wa, Wb, bias')`` of
+    Given a matrix ``W`` of shape ``[D, M]``, a bias vector of length ``M``,
+    and a target rank ``rank < D``, returns a solution ``(Wa, Wb, new_bias)`` of
     tensors of shapes ``[N, rank]``, ``[rank, D]``, and ``M``, respectively.
     These  tensors are chosen so as to minimize:
 
-    :math:`||` ``Y - (X @ Wa @ Wb + bias')`` :math:`||_F`,
+    :math:`||` ``Y - (X @ Wa @ Wb + new_bias)`` :math:`||_F`,
 
-    where ``Y = X @ W + bias``, :math:`@` denotes matrix multiplication,
-    ``bias`` broadcasts along all the row dimension,
+    where ``Y = X @ W + bias``, ``@`` denotes matrix multiplication,
+    ``new_bias`` broadcasts along the row dimension,
     and :math:`||\cdot||_F` denotes the sum of squared elements.
     In the case that rows of ``X`` correspond to samples
-    from some distribution, this amounts to minimizing the mean squared error
-    in the output.
+    from some distribution, this amounts to minimizing the expected mean
+    squared error in the output.
 
     The input matrix can either be a single matrix ``W`` or a pair of matrices
     ``(Wa, Wb)``. The latter case corresponds to using a matrix ``W = Wa @ Wb``
@@ -117,7 +117,8 @@ def factorize_matrix(X: torch.Tensor,
             Must be of shape ``[D, M]`` in the former case and shape ``[D, d]``
             in the latter, for some ``d < D``.
         Wb: if present, ``Wa`` is interpreted as the first of two smaller
-            matrices, and ``Wb`` is taken to be the second.
+            matrices, and ``Wb`` is taken to be the second. Must be of shape
+            ``[d, M]``.
         bias: a vector added to the output after performing the matrix
             product with X
         rank: number of columns in the latent representation of X
@@ -256,12 +257,12 @@ def factorize_conv2d(X,
 
     Given a convolutional weight tensor ``W`` for a 2d convolution of shape
     ``[out_channels, in_channels, k_h, k_w]`` and a vector ``bias`` of length
-    ``out_channels``, returns a triple ``(Wa, Wb, bias')`` of
-    tensors with shapes ``[rank, in_channels, k_h, k_w]`` and
-    ``[out_channels, rank, 1, 1]``, ``[out_channels]``, respectively.
-    ``Wa``, ``Wb``, and ``bias'`` are chosen so as to minimize:
+    ``out_channels``, returns a triple ``(Wa, Wb, new_bias)`` of
+    tensors with shapes ``[rank, in_channels, k_h, k_w]``,
+    ``[out_channels, rank, 1, 1]``, and ``[out_channels]``, respectively.
+    ``Wa``, ``Wb``, and ``new_bias`` are chosen so as to minimize:
 
-        :math:`||` ``(W * X + bias) - (Wb * (Wa * X) + bias')`` :math:`||_F`,
+        :math:`||` ``(W * X + bias) - (Wb * (Wa * X) + new_bias)`` :math:`||_F`,
 
     where :math:`*` denotes convolution, ``bias`` broadcasts along all
     non-channel dimensions, and :math:`||\cdot||_F` denotes the sum of
@@ -270,8 +271,8 @@ def factorize_conv2d(X,
     Similar to :func:`~factorize_matrix`, this function allows passing in an
     already-factorized weight tensor in order to enable progressive
     factorization. In this case, the single tensor ``W`` is replaced with
-    a similar ``(Wa, Wb)`` pair as the output, though presumably
-    with different ``rank``.
+    a similar ``(Wa, Wb)`` pair as the output, though not necessarily with
+    the same rank.
 
     Args:
         X: a tensor of shape ``[N, in_channels, H, W]``, for some
@@ -279,10 +280,11 @@ def factorize_conv2d(X,
         Wa: The first weight tensor to convolve with ``X``. If
             ``Wb`` is not provided, must be of shape
             ``[out_channels, in_channels, k_h, k_w]``. Otherwise, must be of
-            shape ``[original_rank, in_channels, k_h, k_w]``.
+            shape ``[original_rank, in_channels, k_h, k_w]`` for some
+            ``original_rank < min(in_channels, out_channels)``.
         Wb: The second weight tensor to convolve with the input. If
-            provided, must be of shape ``[out_channels, rank, 1, 1]``.
-        rank: number of channels in the latent representation of ``X``.
+            provided, must be of shape ``[out_channels, original_rank, 1, 1]``.
+        rank: number of channels in the latent representation of ``X``
         biasA: optional vector of biases. If ``Wb`` is ``None``, must
             have length ``out_channels``. Otherwise must have length
             ``original_rank``.
@@ -290,8 +292,8 @@ def factorize_conv2d(X,
         n_iters: number of iterations used in the optimization process. Higher
             numbers yield lower mean squared error, though there are usually
             diminishing returns after a handful of iterations.
-        **conv2d_kwargs: arguments such as `padding`, `stride`,
-            `dilation`, `groups`, etc used in the original convolution. If
+        **conv2d_kwargs: arguments such as ``padding``, ``stride``,
+            ``dilation``, ``groups``, etc used in the original convolution. If
             these are not provided, the factorized tensors might not preserve
             the function computed by the original weight tensor as well.
             Note that not all combinations of arguments are supported.
@@ -299,13 +301,13 @@ def factorize_conv2d(X,
     Returns:
         solution:
             A :class:`~composer.algorithms.factorize.LowRankSolution` of
-            rank ``rank`` that approximates the original matrix
+            rank ``rank`` that approximates the original convolution operation
 
     Raises:
         RuntimeError:
             If ``biasB`` is provided but not ``Wb`` is not.
         NotImplementedError:
-            if `conv2d_kwargs['dilation'] != 1` or `conv2d_kwargs['groups'] != 1`.
+            if ``conv2d_kwargs['dilation'] != 1`` or ``conv2d_kwargs['groups'] != 1``.
 
     """
     X = X.detach()

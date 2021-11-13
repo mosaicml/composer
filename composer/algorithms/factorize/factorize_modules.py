@@ -132,7 +132,7 @@ class _FactorizedModule(nn.Module, abc.ABC):
     def solution_for_rank(input: torch.Tensor, rank: int) -> LowRankSolution:
         """Returns a solution that :meth:`~apply_solution` can use to update the module's level of factorization.
 
-        This is seperate from set_rank() so that one can generate and assess
+        This is seperate from :meth:`set_rank` so that one can generate and assess
         many possible solutions for a given module before choosing one.
 
         Args:
@@ -144,8 +144,9 @@ class _FactorizedModule(nn.Module, abc.ABC):
                 the input is mapped.
 
         Returns:
-            solution - An object encapsulating the new parameters to be used
-                and their associated mean squared error on the input
+            solution:
+                An object encapsulating the new parameters to be used and their
+                associated mean squared error on the input
         """
         ...
 
@@ -157,9 +158,10 @@ class _FactorizedModule(nn.Module, abc.ABC):
         using the solution is worthwhile.
 
         Args:
-            solution - An object encapsulating the new parameters to be used
+            solution: an object encapsulating the new parameters to be used
                 and their associated mean squared error on the input for
-                which they were optimized.
+                which they were optimized. Can be obtained using
+                :meth:`~solution_for_rank`.
         """
         ...
 
@@ -172,14 +174,14 @@ class FactorizedConv2d(_FactorizedModule):
     conv2d can be thought of as projecting the feature maps into a
     lower-dimensional space, similar to PCA. The second produces outputs
     of the same shape as the un-factorized version based on the embeddings
-    within this lower-dimensional space. Note that "dimensiontality" here
+    within this lower-dimensional space. Note that "dimensionality" here
     refers to the number of channels, not the spatial extent or tensor rank.
 
     The first conv2d has a kernel size of ``kernel_size``, while the second
     one always has a kernel size of 1x1. For large kernel sizes, the
     lower-dimensional space can be nearly as large as
     ``min(in_channels, out_channels)`` and still yield a reduction in
-    multiply-add operations (FLOPs). For kernels sizes of 1x1, the breakeven
+    multiply-add operations. For kernels sizes of 1x1, the breakeven
     point is a 2x reduction in channel count, similar to
     :class:`~FactorizedLinear`.
 
@@ -189,18 +191,25 @@ class FactorizedConv2d(_FactorizedModule):
         in_channels: number of channels in the input image
         out_channels: number of channels produced by the convolution
         kernel_size: size of the convolving kernel
+        latent_channels: number of channels in the latent representation
+            produced by the first small convolution. Can be specified as
+            either an integer > 1 or as float within [0, 1). In the
+            latter case, the value is interpreted as a fraction of
+            ``min(in_features, out_features)`` for each linear module, and
+            is converted to the equivalent integer value, with a minimum of 1.
         **kwargs: other arguments to :class:`torch.nn.Conv2d` are supported
-            and will be used with the first of the two smaller `Conv2d`
+            and will be used with the first of the two smaller ``Conv2d``
             operations. However, ``groups > 1`` and ``dilation > 1`` are
             not currently supported.
 
     Raises:
-        ValueError, if ``latent_channels`` is not small enough for factorization
+        ValueError:
+            If ``latent_channels`` is not small enough for factorization
             to reduce the number of multiply-add operations. In this regime,
             factorization is both slower and less expressive than a
             non-factorized operation. Setting
             ``latent_features`` to  :meth:`~max_allowed_latent_channels`
-            is sufficient to avoid this.
+            or a smaller value is sufficient to avoid this.
     """
 
     def __init__(self,
@@ -277,7 +286,7 @@ class FactorizedConv2d(_FactorizedModule):
 
     @staticmethod
     def max_allowed_latent_features(in_features: int, out_features: int, kernel_size: _size_2_t) -> int:
-        """Returns the largest latent channel count that isn't strictly worse than not factorizing
+        """Returns the largest latent channel count that reduces the number of multiply-adds
 
         Args:
             in_channels: number of channels in the input image
@@ -285,7 +294,7 @@ class FactorizedConv2d(_FactorizedModule):
             kernel_size: size of the convolving kernel
 
         Returns:
-            latent_channels, the largest allowable number of latent channels
+            latent_channels: the largest allowable number of latent channels
         """
         return max_rank_with_possible_speedup(in_features, out_features, kernel_size=kernel_size)
 
@@ -328,15 +337,16 @@ class FactorizedLinear(_FactorizedModule):
     Args:
         in_features: size of each input sample
         out_features: size of each output sample
+        bias: If set to False, the layer will not learn an additive bias. Default: True
         latent_features: size of the latent space. Can be specified as either
-            an integer > 1 or as float within [0, 0.5). In the latter case, the
+            an integer > 1 or as a float within [0, 0.5). In the latter case, the
             value is interpreted as a fraction of ``min(in_features, out_features)``,
             and is converted to the equivalent integer value, with a minimum
             of 1.
-        bias: If set to False, the layer will not learn an additive bias. Default: True
 
     Raises:
-        ValueError, if ``latent_features`` is not small enough for factorization
+        ValueError:
+            If ``latent_features`` is not small enough for factorization
             to reduce the number of multiply-add operations. In this regime,
             factorization is both slower and less expressive than a
             non-factorized operation. Setting
@@ -345,7 +355,7 @@ class FactorizedLinear(_FactorizedModule):
             this.
     """
 
-    def __init__(self, in_features: int, out_features: int, latent_features: FractionOrInt = .25, bias: bool = True):
+    def __init__(self, in_features: int, out_features: int, bias: bool = True, latent_features: FractionOrInt = .25):
         super().__init__(in_size=in_features, out_size=out_features, latent_size=latent_features)
         self.bias = bias
         self.module0, self.module1 = self._create_child_modules()
@@ -402,14 +412,14 @@ class FactorizedLinear(_FactorizedModule):
 
     @staticmethod
     def max_allowed_latent_channels(in_features: int, out_features: int) -> int:
-        """Returns the largest latent feature count that isn't strictly worse than not factorizing
+        """Returns the largest latent feature count that reduces the number of multiply-adds
 
         Args:
             in_features: size of each input sample
             out_features: size of each output sample
 
         Returns:
-            latent_features, the largest allowable number of latent features
+            latent_features: the largest allowable number of latent features
         """
         return max_rank_with_possible_speedup(in_features, out_features)
 
