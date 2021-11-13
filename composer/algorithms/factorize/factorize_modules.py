@@ -87,9 +87,9 @@ class _FactorizedModule(nn.Module, abc.ABC):
         assert isinstance(self.module0, torch.nn.Module)
         assert isinstance(self.module1, torch.nn.Module)
 
-    def forward(self, input: torch.Tensor):   # type: ignore reportIncompatibleMethodOverride
+    def forward(self, input: torch.Tensor):  # type: ignore reportIncompatibleMethodOverride
         self._check_child_modules_present()
-        ret = self.module0(input) # type: ignore reportGeneralTypeIssues
+        ret = self.module0(input)  # type: ignore reportGeneralTypeIssues
         if self.module1 is not None:
             ret = self.module1(ret)  # type: ignore reportGeneralTypeIssues
         return ret
@@ -250,15 +250,17 @@ class FactorizedConv2d(_FactorizedModule):
 
     def _create_child_modules(self) -> Tuple[torch.nn.Module, torch.nn.Module]:
         if not self.should_factorize(self.latent_channels):
-            raise ValueError(f"latent_channels {self.latent_size} is not small enough to merit factorization! Must be <= {self._max_rank_with_speedup()}")
+            raise ValueError(
+                f"latent_channels {self.latent_size} is not small enough to merit factorization! Must be <= {self._max_rank_with_speedup()}"
+            )
 
         # this one produces identical output as a regular Conv2d would,
         # except with fewer output channels
         conv0 = nn.Conv2d(self.in_channels,
-                            self.latent_channels,
-                            self.kernel_size,
-                            bias=False,
-                            **self.convolution_kwargs)
+                          self.latent_channels,
+                          self.kernel_size,
+                          bias=False,
+                          **self.convolution_kwargs)
         # this one increases the number of output channels
         conv1 = nn.Conv2d(self.latent_channels, self.out_channels, kernel_size=1, bias=True)
         return conv0, conv1
@@ -375,7 +377,9 @@ class FactorizedLinear(_FactorizedModule):
 
     def _create_child_modules(self) -> Tuple[torch.nn.Module, torch.nn.Module]:
         if not self.should_factorize(self.latent_size):
-            raise ValueError(f"latent_features {self.latent_size} is not small enough to merit factorization! Must be <= {self._max_rank_with_speedup()}")
+            raise ValueError(
+                f"latent_features {self.latent_size} is not small enough to merit factorization! Must be <= {self._max_rank_with_speedup()}"
+            )
 
         module0 = nn.Linear(in_features=self.in_features, out_features=self.latent_size, bias=False)
         module1 = nn.Linear(in_features=self.latent_size, out_features=self.out_features, bias=self.bias)

@@ -117,4 +117,3 @@ def test_factorized_linear_set_rank_throws_if_latent_too_big(sizes):
     X = torch.randn(2, module.in_features)
     with pytest.raises(ValueError):
         module.set_rank(X, sizes[3])
-

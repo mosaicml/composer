@@ -34,8 +34,7 @@ def _python_log_surgery_result(model: torch.nn.Module, new_class: Type[torch.nn.
 
 def factorize_conv2d_modules(model: torch.nn.Module, min_channels: int, latent_channels: FractionOrInt):
 
-    def _maybe_replace_conv2d(module: torch.nn.Module,
-                              module_index: int) -> Optional[torch.nn.Module]:
+    def _maybe_replace_conv2d(module: torch.nn.Module, module_index: int) -> Optional[torch.nn.Module]:
         module = cast(torch.nn.Conv2d, module)
         wide_enough = min(module.out_channels, module.in_channels) >= min_channels
         if factorizing_could_speedup(module, latent_channels) and wide_enough:
@@ -49,8 +48,7 @@ def factorize_conv2d_modules(model: torch.nn.Module, min_channels: int, latent_c
 
 def factorize_linear_modules(model: torch.nn.Module, min_features: int, latent_features: FractionOrInt):
 
-    def _maybe_replace_linear(module: torch.nn.Module,
-                              module_index: int) -> Optional[torch.nn.Module]:
+    def _maybe_replace_linear(module: torch.nn.Module, module_index: int) -> Optional[torch.nn.Module]:
         module = cast(torch.nn.Linear, module)
         wide_enough = min(module.in_features, module.out_features) >= min_features
         if factorizing_could_speedup(module, latent_features) and wide_enough:
