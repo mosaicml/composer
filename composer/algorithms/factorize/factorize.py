@@ -27,6 +27,7 @@ def _python_log_surgery_result(model: torch.nn.Module, new_class: Type[torch.nn.
 
 
 def factorize_conv2d_modules(model: torch.nn.Module, min_channels: int, latent_channels: FractionOrInt):
+    """Replaces :class:`torch.nn.Conv2d` modules in ``model`` with :class:`~composer.algorithms.factorize.FactorizedConv2d` modules. See :class:`Factorize` for details."""
 
     def _maybe_replace_conv2d(module: torch.nn.Module, module_index: int) -> Optional[torch.nn.Module]:
         module = cast(torch.nn.Conv2d, module)
@@ -41,6 +42,7 @@ def factorize_conv2d_modules(model: torch.nn.Module, min_channels: int, latent_c
 
 
 def factorize_linear_modules(model: torch.nn.Module, min_features: int, latent_features: FractionOrInt):
+    """Replaces :class:`torch.nn.Linear` modules in ``model`` with :class:`~composer.algorithms.factorize.FactorizedLinear` modules. See :class:`Factorize` for details."""
 
     def _maybe_replace_linear(module: torch.nn.Module, module_index: int) -> Optional[torch.nn.Module]:
         module = cast(torch.nn.Linear, module)
