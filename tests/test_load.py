@@ -28,23 +28,19 @@ def get_model_algs(model_name: str) -> List[str]:
     is_image_model = any(x in model_name for x in ("resnet", "mnist", "efficientnet"))
     if is_image_model:
         algs.remove("alibi")
+    if model_name in ("unet", "gpt2_52m", "gpt2_83m", 'gpt2_125m'):
+        algs.remove("mixup")
     return algs
 
 
 @pytest.mark.parametrize('model_name', model_names)
-@pytest.mark.timeout(5)
+@pytest.mark.timeout(15)
 def test_load(model_name: str):
-    if "gpt" in model_name:
-        pytest.skip("GPT doesn't work on the no-op model class")
-    if "unet" in model_name:
-        pytest.skip("unet doesn't work on the no-op model class")
-
     trainer_hparams = trainer.load(model_name)
-    # TODO(ravi) -- add a get_synthetic_dataset(num_samples) on BaseMosaicModel
     dummy_dataset_hparams = SyntheticDatasetHparams(
         total_dataset_size=4096,
-        data_shape=[1, 28, 28],  # mnist input shape
-        num_classes=trainer_hparams.model.num_classes,
+        data_shape=[1, 28, 28],  # TODO(ravi) -- add a getModelInputShape
+        num_classes=2, # TODO(ravi) -- add a getModelOutputShape
         device="cpu",
     )
     trainer_hparams.precision = Precision.FP32
