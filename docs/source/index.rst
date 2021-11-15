@@ -85,6 +85,7 @@ Our documentation is organized into a few sections:
    method_cards/col_out.md
    method_cards/cut_out.md
    method_cards/decoupled_weight_decay.md
+   method_cards/factorize.md
    method_cards/ghost_batchnorm.md
    method_cards/label_smoothing.md
    method_cards/layer_freezing.md
@@ -92,10 +93,10 @@ Our documentation is organized into a few sections:
    method_cards/progressive_resizing_vision.md
    method_cards/rand_augment.md
    method_cards/scale_schedule.md
-   method_cards/scaling_laws.rst   
+   method_cards/scaling_laws.rst
    method_cards/selective_backprop.md
-   method_cards/seq_len_warmup.rst   
-   method_cards/sam.md   
+   method_cards/seq_len_warmup.rst
+   method_cards/sam.md
    method_cards/squeeze_excite.md
    method_cards/stochastic_depth_blockwise.md
    method_cards/stochastic_depth_samplewise.md
