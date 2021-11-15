@@ -5,15 +5,13 @@
 from __future__ import annotations
 
 import abc
-from functools import wraps
-from types import MethodType
-from typing import TYPE_CHECKING, Any, Callable
+from typing import TYPE_CHECKING
 
 from composer.core.serializable import Serializable
 from composer.utils.ddp import is_rank_zero
 
 if TYPE_CHECKING:
-    from composer import Logger, State
+    from composer import Event, Logger, State
 
 
 class Callback(Serializable, abc.ABC):
@@ -43,6 +41,25 @@ class Callback(Serializable, abc.ABC):
         """
         del state, logger  # unused
         pass
+
+    def run_event(self, event: Event, state: State, logger: Logger) -> None:
+        """This method is called by the engine on each event. By default, it
+        invokes the callback function for the event (for example,
+        `self.run_event(Event.TRAINING_START, state, logger)` invokes
+        `self.training_start(state, logger)`). If this method is overridden,
+        the subclass method should include `super().run_event(event, state, logger)`
+        so all callback methods will be invoked.
+
+        Args:
+            event (Event): The event.
+            state (State): The state.
+            logger (Logger): The logger.
+        """
+        try:
+            event_cb = getattr(self, event.value)
+        except AttributeError:
+            raise ValueError(f'Callback {self} has no method for event {event}')
+        return event_cb(state, logger)
 
     def training_start(self, state: State, logger: Logger) -> None:
         """Called on the :attr:`Event.TRAINING_START` event.
@@ -278,33 +295,9 @@ class Callback(Serializable, abc.ABC):
 
 class RankZeroCallback(Callback, abc.ABC):
     """Base class for callbacks that only run on the rank zero process.
-
-    .. Note::
-    
-        :meth:`init` and :meth:`load_state_dict` are executed
-        before the DDP fork and will be called on all ranks.
     """
 
-    def __init__(self) -> None:
-        from composer.core import Event
-
-        super().__init__()
-
-        # ensure all callbacks are executed only on rank 0
-        functions_to_wrap = [*(event.value for event in Event), "state_dict"]
-
-        for fn_name in functions_to_wrap:
-            original_fn = getattr(self, fn_name)
-
-            @wraps(original_fn)
-            def wrapped_fn(
-                backend: RankZeroCallback,
-                *args: Any,
-                original_fn: Callable[[State, Logger], None] = original_fn,
-                **kwargs: Any,
-            ) -> None:
-                if not is_rank_zero():
-                    return
-                return original_fn(*args, **kwargs)
-
-            setattr(self, fn_name, MethodType(wrapped_fn, self))
+    def run_event(self, event: Event, state: State, logger: Logger) -> None:
+        if not is_rank_zero():
+            return
+        return super().run_event(event, state, logger)
