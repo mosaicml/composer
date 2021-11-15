@@ -48,8 +48,7 @@ total_batch_size: 2048
 eval_batch_size: 1000
 seed: 17
 device:
-  gpu:
-    n_gpus: 1
+  gpu: {}
 dataloader:
   pin_memory: true
   timeout: 0

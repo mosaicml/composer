@@ -51,7 +51,7 @@ def test_load(model_name: str):
     trainer_hparams.algorithms = algorithms.load_multiple(*get_model_algs(model_name))
     trainer_hparams.train_dataset = dummy_dataset_hparams
     trainer_hparams.val_dataset = dummy_dataset_hparams
-    trainer_hparams.device = CPUDeviceHparams(1)
+    trainer_hparams.device = CPUDeviceHparams()
     my_trainer = trainer_hparams.initialize_object()
 
     assert isinstance(my_trainer, trainer.Trainer)
@@ -72,7 +72,7 @@ def test_scale_schedule_load(ssr: str):
     trainer_hparams.algorithms = algorithms.load_multiple(*algs)
     trainer_hparams.train_dataset = dummy_dataset_hparams
     trainer_hparams.val_dataset = dummy_dataset_hparams
-    trainer_hparams.device = CPUDeviceHparams(1)
+    trainer_hparams.device = CPUDeviceHparams()
     assert len(trainer_hparams.algorithms) == 1
     alg = trainer_hparams.algorithms[0]
     assert isinstance(alg, ScaleScheduleHparams)

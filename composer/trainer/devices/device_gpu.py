@@ -100,21 +100,14 @@ class DeviceGPU(Device):
         prefetch_in_cuda_stream (bool): ``True`` to asyncrhonously prefetch
             samples with a CUDA stream during dataloading and ``False``
             otherwise.
-        num_gpus (int): The number of GPUs to use.
     """
 
     def __init__(
         self,
         prefetch_in_cuda_stream: bool,
-        n_gpus: int,
     ):
-        self.n_gpus = n_gpus
         self.prefetch_in_cuda_stream = prefetch_in_cuda_stream
         self._device: Optional[torch.device] = None
-
-    @property
-    def nproc_per_node(self) -> int:
-        return self.n_gpus
 
     def prepare(self, state: State) -> None:
         if self._device is not None:
