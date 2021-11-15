@@ -22,7 +22,7 @@ with open("README.md", "r", encoding="utf-8") as fh:
 install_requires = [
     "pyyaml>=5.4.1",
     "tqdm>=4.62.3",
-    "torchmetrics>=0.5.1",
+    "torchmetrics>=0.6.0",
     "torch_optimizer==0.1.0",
     "torchvision>=0.9.0",
     "torch>=1.9",

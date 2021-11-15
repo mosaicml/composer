@@ -370,6 +370,12 @@ class DeepSpeedTrainer:
         # needed because the metric is automatically on the same device as the model.
         # See https://torchmetrics.readthedocs.io/en/latest/pages/overview.html for details.
         metrics = self.device.module_to_device(metrics)
+
+        # HACK: DeepSpeed somehow manages to convert metric internal states to its own dtype. When
+        # running with FP16, this tends to result in overflows. Let's assume FP32 is good enough.
+        for _, metric in metrics.items():
+            metric.set_dtype(torch.float32)
+
         return metrics
 
     def _compute_and_log_metrics(self, metrics: Metrics, *, is_train: bool, is_batch: bool):
@@ -381,7 +387,6 @@ class DeepSpeedTrainer:
             is_batch (bool): True if logging at batch level, false for epoch level.
         """
         computed_metrics = metrics.compute()
-        print('COMPUTED METRICS', computed_metrics)
         for name, value in computed_metrics.items():
             log_level = LogLevel.BATCH if is_batch else LogLevel.EPOCH
             suffix = 'train' if is_train else 'val'
@@ -636,8 +641,6 @@ class DeepSpeedTrainer:
                 and False to log metrics with ``LogLevel.EPOCH``.
         """
 
-        print('RUNNING EVAL')
-
         state = self.state
         model = state.model
 
@@ -664,8 +667,6 @@ class DeepSpeedTrainer:
                 metrics.update(state.outputs, targets)
 
                 self.engine.run_event(Event.EVAL_BATCH_END)
-
-            print('GOT METRICS', metrics)
 
             self._compute_and_log_metrics(metrics, is_train=False, is_batch=is_batch)
             self.engine.run_event(Event.EVAL_END)
