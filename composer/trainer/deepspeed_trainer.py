@@ -332,7 +332,8 @@ class DeepSpeedTrainer:
         # Safety check to ensure the metric and data are on the same device. Normally not
         # needed because the metric is automatically on the same device as the model.
         # See https://torchmetrics.readthedocs.io/en/latest/pages/overview.html for details.
-        metrics = self.device.module_to_device(metrics)
+        # metrics = self.device.module_to_device(metrics)
+        metrics = metrics.to(f'cuda:{self.state.local_rank}')
         return metrics
 
     def _compute_and_log_metrics(self, metrics: Metrics, *, is_train: bool, is_batch: bool):
@@ -447,10 +448,6 @@ class DeepSpeedTrainer:
                 for batch_idx, state.batch in enumerate(state.train_dataloader):
                     print(state.batch)
                     state.batch = {k: v.to(device=f'cuda:{state.local_rank}') for (k, v) in state.batch_dict.items()}
-                    """state.batch = (
-                        state.batch[0].to(dtype=torch.half, device='cuda:0'),
-                        state.batch[1].to(dtype=torch.half, device='cuda:0'),
-                    )"""
 
                     # if resuming, skip dataloader forward to the minibatch index
                     if batch_idx < self.state.batch_idx:
