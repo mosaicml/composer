@@ -156,7 +156,7 @@ class DeepSpeedTrainer:
 
         self.config = config
 
-        self.device = DeviceGPU()
+        self.device = DeviceGPU(prefetch_in_cuda_stream=False)
 
         if not seed:
             # Set a deterministic seed in the hparams
