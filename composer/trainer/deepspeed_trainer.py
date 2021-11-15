@@ -381,6 +381,7 @@ class DeepSpeedTrainer:
             is_batch (bool): True if logging at batch level, false for epoch level.
         """
         computed_metrics = metrics.compute()
+        print('COMPUTED METRICS', computed_metrics)
         for name, value in computed_metrics.items():
             log_level = LogLevel.BATCH if is_batch else LogLevel.EPOCH
             suffix = 'train' if is_train else 'val'
