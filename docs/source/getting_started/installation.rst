@@ -1,7 +1,7 @@
 Installation
 ============
 
-MosaicML ``Composer`` can be installed via ``pip``:
+MosaicML ``Composer`` requires Python 3.7+ and Pytorch 1.9+. It can be installed via ``pip``:
 
 .. code-block::
 
