@@ -453,7 +453,6 @@ class DeepSpeedTrainer:
 
                 assert state.train_dataloader, "Train Dataloader must be set"
                 for batch_idx, state.batch in enumerate(state.train_dataloader):
-                    print(state.batch)
                     state.batch = {k: v.to(device=f'cuda:{state.local_rank}') for (k, v) in state.batch_dict.items()}
 
                     # if resuming, skip dataloader forward to the minibatch index
@@ -488,9 +487,6 @@ class DeepSpeedTrainer:
                         "trainer/batch_idx": self.state.batch_idx,
                     })
                     total_loss = self._train_batch(microbatches)
-
-                    # Apparently not here??
-                    # self.deepspeed_engine.step()
 
                     if total_loss is not None:
                         assert isinstance(total_loss, Tensor)
@@ -568,7 +564,6 @@ class DeepSpeedTrainer:
             self.engine.run_event(Event.BEFORE_LOSS)
 
             state.loss = self.state.model.loss(state.outputs, state.batch)
-            print(f"({state.batch_idx}) loss: {state.loss.item()}")
 
             # Loss is added to losses with clone to not scale the loss for the step printout
             # Likely need to look into the performance impact
@@ -620,6 +615,7 @@ class DeepSpeedTrainer:
             assert state.eval_dataloader is not None
 
             for state.batch in state.eval_dataloader:
+                state.batch = {k: v.to(device=f'cuda:{state.local_rank}') for (k, v) in state.batch_dict.items()}
                 self.engine.run_event(Event.EVAL_BATCH_START)
 
                 self.engine.run_event(Event.EVAL_BEFORE_FORWARD)
