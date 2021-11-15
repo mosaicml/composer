@@ -17,11 +17,27 @@ log = logging.getLogger(__name__)
 
 
 def gen_indices(x: Tensor) -> Tensor:
+    """Generates indices of a random permutation of elements of a batch.
+
+    Args:
+        x: input tensor of shape (B, d1, d2, ..., dn), B is batch size, d1-dn
+            are feature dimensions.
+
+    Returns:
+        indices: A random permutation of the batch indices.
+    """
     return torch.randperm(x.shape[0])
 
 
 def gen_cutmix_lambda(alpha: float) -> float:
-    """Generates lambda from ``Beta(alpha, alpha)``"""
+    """Generates lambda from ``Beta(alpha, alpha)``
+
+    Args:
+        alpha: Parameter for the Beta(alpha, alpha) distribution
+
+    Returns:
+        cutmix_lambda: Lambda parameter for performing cutmix.
+    """
     # First check if alpha is positive.
     assert alpha >= 0
     # Draw the area parameter from a beta distribution.
@@ -46,7 +62,7 @@ def rand_bbox(W: int,
     Args:
         W: Width of the image
         H: Height of the image
-        cutmix_lambda: Lamba param from cutmix, used to set the are of the box.
+        cutmix_lambda: Lambda param from cutmix, used to set the area of the box.
         cx: Optional x coordinate of the center of the box.
         cy: Optional y coordinate of the center of the box.
 
@@ -75,7 +91,18 @@ def rand_bbox(W: int,
 
 
 def adjust_lambda(cutmix_lambda: float, x: Tensor, bbox: Tuple) -> float:
-    """Rescale the cutmix lambda according to the size of the clipped bounding box"""
+    """Rescale the cutmix lambda according to the size of the clipped bounding box
+
+    Args:
+        cutmix_lambda: Lambda param from cutmix, used to set the area of the box.
+        x: input tensor of shape (B, d1, d2, ..., dn), B is batch size, d1-dn
+            are feature dimensions.
+        bbox: (x1, y1, x2, y2) coordinates of the boundind box, obeying x2 > x1, y2 > y1.
+
+    Returns:
+        adjusted_lambda: Rescaled cutmix_lambda to account for part of the bounding box
+            being potentially out of bounds of the input.
+    """
     rx, ry, rw, rh = bbox[0], bbox[1], bbox[2], bbox[3]
     adjusted_lambda = 1 - ((rw - rx) * (rh - ry) / (x.size()[-1] * x.size()[-2]))
     return adjusted_lambda
