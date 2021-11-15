@@ -8,8 +8,11 @@ class Precision(StringEnum):
     
     Attributes:
         AMP: Use :mod:`torch.cuda.amp`. Only compatible with GPUs.
+        FP16: Use 16-bit floating-point precision. Currently only
+            compatible with GPUs on DeepSpeed
         FP32: Use 32-bit floating-point precision.
             Compatible with CPUs and GPUs.
     """
     AMP = "amp"
+    FP16 = "fp16"
     FP32 = "fp32"

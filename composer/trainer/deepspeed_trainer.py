@@ -31,6 +31,7 @@ from composer.trainer.checkpoint import Checkpointer, CheckpointLoader
 from composer.trainer.ddp import DDP, DataloaderMultipleIterationWarning
 from composer.trainer.devices.device import Device
 from composer.trainer.devices.device_cpu import DeviceCPU
+from composer.trainer.devices.device_gpu import DeviceGPU
 from composer.trainer.scaler import ClosureGradScaler
 from composer.trainer.trainer_hparams import TrainerHparams
 from composer.utils import ensure_tuple, get_random_seed, map_collection, seed_all
@@ -109,7 +110,6 @@ class DeepSpeedTrainer:
     def __init__(
             self,
             *,
-            deepspeed_config: str,
             model: BaseMosaicModel,
             train_dataloader_spec: DataloaderSpec,
             eval_dataloader_spec: DataloaderSpec,
@@ -155,7 +155,8 @@ class DeepSpeedTrainer:
         warnings.filterwarnings(action="ignore", message="torch.cuda.amp.GradScaler")
 
         self.config = config
-        self.deepspeed_config = deepspeed_config
+
+        self.device = DeviceGPU()
 
         if not seed:
             # Set a deterministic seed in the hparams
@@ -231,7 +232,7 @@ class DeepSpeedTrainer:
             self.checkpoint_loader.load_checkpoint(state=self.state)
 
     @classmethod
-    def create_from_hparams(cls, hparams: TrainerHparams, deepspeed_config: str) -> DeepSpeedTrainer:
+    def create_from_hparams(cls, hparams: TrainerHparams) -> DeepSpeedTrainer:
         """Instantiate a Trainer using a `TrainerHparams` object.
 
         Args:
@@ -259,7 +260,6 @@ class DeepSpeedTrainer:
         eval_dl_spec = hparams.val_dataset.initialize_object()
 
         trainer = cls(
-            deepspeed_config=deepspeed_config,
             model=model,
             train_dataloader_spec=train_dl_spec,
             eval_dataloader_spec=eval_dl_spec,
@@ -307,6 +307,43 @@ class DeepSpeedTrainer:
         """Train and evaluate the model on the provided data."""
         self._train_loop()
 
+    def _create_dataloaders(self) -> None:
+        """Create the dataloaders.
+
+        Should be called after distributed training has started,
+        since the dataloader samplers need to know their rank.
+        """
+        # shorthand
+        state = self.state
+
+        # compute per gpu batch size
+        train_gpu_batch_size = state.train_batch_size // state.world_size
+        eval_gpu_batch_size = state.eval_batch_size // state.world_size
+
+        train_dataloader = self.dl_hparams.initialize_object(batch_size=train_gpu_batch_size,
+                                                             sampler=torch.utils.data.DistributedSampler[int](
+                                                                 self.train_dl_spec.dataset,
+                                                                 drop_last=self.train_dl_spec.drop_last,
+                                                                 shuffle=self.train_dl_spec.shuffle),
+                                                             dataloader_spec=self.train_dl_spec)
+
+        eval_dataloader = self.dl_hparams.initialize_object(batch_size=eval_gpu_batch_size,
+                                                            sampler=torch.utils.data.DistributedSampler[int](
+                                                                self.eval_dl_spec.dataset,
+                                                                drop_last=self.eval_dl_spec.drop_last,
+                                                                shuffle=self.eval_dl_spec.shuffle),
+                                                            dataloader_spec=self.train_dl_spec)
+
+        # move to device
+        state.train_dataloader = self.device.dataloader_to_device(
+            train_dataloader,
+            self.train_dl_spec.prefetch_fn,
+        )
+        state.eval_dataloader = self.device.dataloader_to_device(
+            eval_dataloader,
+            self.eval_dl_spec.prefetch_fn,
+        )
+
     def _get_metrics_as_collection(self, *, is_train: bool) -> MetricCollection:
         """Get metrics relevant to the model. Metrics are all implemented as subclasses
         of :class:`torchmetrics.Metric`. This function returns metrics as a
@@ -332,8 +369,7 @@ class DeepSpeedTrainer:
         # Safety check to ensure the metric and data are on the same device. Normally not
         # needed because the metric is automatically on the same device as the model.
         # See https://torchmetrics.readthedocs.io/en/latest/pages/overview.html for details.
-        # metrics = self.device.module_to_device(metrics)
-        metrics = metrics.to(f'cuda:{self.state.local_rank}')
+        metrics = self.device.module_to_device(metrics)
         return metrics
 
     def _compute_and_log_metrics(self, metrics: Metrics, *, is_train: bool, is_batch: bool):
@@ -401,35 +437,40 @@ class DeepSpeedTrainer:
         assert len(ensure_tuple(state.optimizers)) == 1
         optimizer = ensure_tuple(state.optimizers)[0]
 
+        deepspeed_config = {
+            "train_batch_size": state.train_batch_size,
+            "gradient_accumulation_steps": state.grad_accum,
+        }
+
+        if state.precision == Precision.AMP:
+            deepspeed_config["amp"] = {"enabled": True}
+        elif state.precision == Precision.FP16:
+            deepspeed_config["fp16"] = {"enabled": True}
+
+        if self.grad_clip_norm:
+            deepspeed_config["gradient_clipping"] = self.grad_clip_norm
+
         (self.deepspeed_engine, state.optimizers, _, _) = deepspeed.initialize(
-            config=self.deepspeed_config,
+            config=deepspeed_config,
             model=state.model,
             optimizer=optimizer,
         )
 
-        state.train_dataloader = self.dl_hparams.initialize_object(
-            batch_size=int(state.train_batch_size / state.world_size),
-            sampler=torch.utils.data.DistributedSampler[int](self.train_dl_spec.dataset,
-                                                             drop_last=self.train_dl_spec.drop_last,
-                                                             shuffle=self.train_dl_spec.shuffle),
-            dataloader_spec=self.train_dl_spec)
+        # place the state, model in the proper devices
+        self.device.prepare(state)
 
-        state.eval_dataloader = self.dl_hparams.initialize_object(
-            batch_size=int(state.eval_batch_size / state.world_size),
-            sampler=torch.utils.data.DistributedSampler[int](self.eval_dl_spec.dataset,
-                                                             drop_last=self.eval_dl_spec.drop_last,
-                                                             shuffle=self.eval_dl_spec.shuffle),
-            dataloader_spec=self.train_dl_spec)
+        self._create_dataloaders()
+        if state.train_dataloader is None or state.eval_dataloader is None:
+            raise ValueError('Dataloaders were not created properly, and are None.')
 
         # print training start
         self.logger.metric_fit({"trainer/algorithms": [str(algo) for algo in self.engine.algorithms]})
-        """
+
         if self.compute_training_metrics:
             log.warn('Computing model evaluation metrics during training.'
                      ' This doubles the number of forward passes and may lead'
                      ' to a throughput degradation.')
         train_metrics = self._get_metrics_as_collection(is_train=True)
-        """
 
         self.engine.run_event(Event.TRAINING_START)
 
@@ -437,7 +478,7 @@ class DeepSpeedTrainer:
             raise NotImplementedError("The Mosaic trainer only supports one optimizer; "
                                       f"found {len(ensure_tuple(state.optimizers))} optimizers")
 
-        # self._spin_dataloaders()
+        self._spin_dataloaders()
 
         if self.state.batch_idx == 0 and self.checkpoint_loader:
             # only restore the rng state here if the step in the current epoch is zero.
@@ -453,7 +494,6 @@ class DeepSpeedTrainer:
 
                 assert state.train_dataloader, "Train Dataloader must be set"
                 for batch_idx, state.batch in enumerate(state.train_dataloader):
-                    state.batch = {k: v.to(device=f'cuda:{state.local_rank}') for (k, v) in state.batch_dict.items()}
 
                     # if resuming, skip dataloader forward to the minibatch index
                     if batch_idx < self.state.batch_idx:
@@ -462,20 +502,19 @@ class DeepSpeedTrainer:
                         continue
 
                     state.last_batch_size = self._get_batch_size(state.batch)
-                    """
+
                     if self.compute_training_metrics:
                         # compute metrics on the training set
-                        state.model.eval()
+                        self.deepspeed_engine.eval()
                         with torch.no_grad():
                             eval_microbatches = self.train_dl_spec.split_fn(state.batch, state.grad_accum)
                             for eval_microbatch in eval_microbatches:
                                 # TODO: Detect if self.run_event(Event.AFTER_DATALOADER) changes the training
                                 # data and if so print a warning that metrics may return unexpected results
-                                outputs, targets = original_model.validate(eval_microbatch)
+                                outputs, targets = self.state.model.validate(eval_microbatch)
                                 train_metrics.update(outputs, targets)
-                    """
 
-                    state.model.train()
+                    self.deepspeed_engine.train()
 
                     self.engine.run_event(Event.AFTER_DATALOADER)
 
@@ -493,10 +532,9 @@ class DeepSpeedTrainer:
                         all_losses = self.deepspeed_engine.all_gather_scalar(total_loss, dp_group=None)
                         full_loss = sum(all_losses).cpu().item()
                         self.logger.metric_batch({'loss/train': full_loss / state.world_size})
-                    """
+
                     if self.compute_training_metrics:
                         self._compute_and_log_metrics(train_metrics, is_train=True, is_batch=True)
-                    """
 
                     self.engine.run_event(Event.BATCH_END)
 
@@ -544,8 +582,7 @@ class DeepSpeedTrainer:
         state = self.state
 
         # tracker for gradient accumulation
-        # total_loss = self.device.tensor_to_device(torch.zeros(size=(1,)))
-        total_loss = torch.zeros(size=(1,), device=f'cuda:{state.local_rank}')
+        total_loss = self.device.tensor_to_device(torch.zeros(size=(1,)))
 
         current_batch_size = sum([self._get_batch_size(batch) for batch in microbatches])
 
@@ -615,7 +652,6 @@ class DeepSpeedTrainer:
             assert state.eval_dataloader is not None
 
             for state.batch in state.eval_dataloader:
-                state.batch = {k: v.to(device=f'cuda:{state.local_rank}') for (k, v) in state.batch_dict.items()}
                 self.engine.run_event(Event.EVAL_BATCH_START)
 
                 self.engine.run_event(Event.EVAL_BEFORE_FORWARD)
