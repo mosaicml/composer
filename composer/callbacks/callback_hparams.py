@@ -136,7 +136,8 @@ class TorchProfilerHparams(CallbackHparams):
     See :class:`~composer.callbacks.torch_profiler.TorchProfiler` for documentation.
     """
 
-    tensorboard_trace_handler_dir: str = hp.required("directory to store trace results")
+    tensorboard_trace_handler_dir: str = hp.optional(
+        "directory to store trace results. Relative to the run directory, if set.", default="torch_profiler")
     tensorboard_use_gzip: bool = hp.optional("Whether to use gzip for trace", default=False)
     record_shapes: bool = hp.optional(doc="Whether to record tensor shapes", default=True)
     profile_memory: bool = hp.optional(doc="track tensor memory allocations and frees", default=False)

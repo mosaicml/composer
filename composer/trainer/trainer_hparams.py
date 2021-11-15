@@ -166,7 +166,10 @@ class TrainerHparams(hp.Hparams):
         "Unit for the checkpoint save interval -- should be 'ep' for epochs; 'ba' for batches, or None to disable checkpointing",
         default=None)
     checkpoint_interval: int = hp.optional(doc="Interval for checkpointing.", default=1)
-    checkpoint_folder: str = hp.optional(doc="Folder in which to save checkpoint files", default="checkpoints")
+    checkpoint_folder: str = hp.optional(
+        doc="Folder in which to save checkpoint files. Relative to the run directory, if set."
+        "Defaults to `checkpoints`.",
+        default="checkpoints")
     deterministic_mode: bool = hp.optional(doc="Run the model deterministically. Experimental. Performance"
                                            "degradations expected. Certain Torch modules may not have"
                                            "deterministic implementations, which will result in a crash.",
