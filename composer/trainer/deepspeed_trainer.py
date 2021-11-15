@@ -635,6 +635,8 @@ class DeepSpeedTrainer:
                 and False to log metrics with ``LogLevel.EPOCH``.
         """
 
+        print('RUNNING EVAL')
+
         state = self.state
         model = state.model
 
@@ -661,6 +663,8 @@ class DeepSpeedTrainer:
                 metrics.update(state.outputs, targets)
 
                 self.engine.run_event(Event.EVAL_BATCH_END)
+
+            print('GOT METRICS', metrics)
 
             self._compute_and_log_metrics(metrics, is_train=False, is_batch=is_batch)
             self.engine.run_event(Event.EVAL_END)
