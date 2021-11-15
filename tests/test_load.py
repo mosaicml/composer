@@ -40,7 +40,7 @@ def test_load(model_name: str):
     dummy_dataset_hparams = SyntheticDatasetHparams(
         total_dataset_size=4096,
         data_shape=[1, 28, 28],  # TODO(ravi) -- add a getModelInputShape
-        num_classes=2, # TODO(ravi) -- add a getModelOutputShape
+        num_classes=2,  # TODO(ravi) -- add a getModelOutputShape
         device="cpu",
     )
     trainer_hparams.precision = Precision.FP32

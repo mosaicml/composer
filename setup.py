@@ -65,7 +65,6 @@ extra_deps['unet'] = [
 
 extra_deps['all'] = set(dep for deps in extra_deps.values() for dep in deps)
 
-
 setup(
     name="mosaicml",
     version="0.2.4",
