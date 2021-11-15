@@ -414,6 +414,13 @@ class DeepSpeedTrainer:
                                                              shuffle=self.train_dl_spec.shuffle),
             dataloader_spec=self.train_dl_spec)
 
+        state.eval_dataloader = self.dl_hparams.initialize_object(
+            batch_size=int(state.eval_batch_size / state.world_size),
+            sampler=torch.utils.data.DistributedSampler[int](self.eval_dl_spec.dataset,
+                                                             drop_last=self.eval_dl_spec.drop_last,
+                                                             shuffle=self.eval_dl_spec.shuffle),
+            dataloader_spec=self.train_dl_spec)
+
         # print training start
         self.logger.metric_fit({"trainer/algorithms": [str(algo) for algo in self.engine.algorithms]})
         """
