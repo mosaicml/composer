@@ -7,12 +7,11 @@ import os
 import sys
 from typing import Any
 
-import wandb  # isort: skip
-
 from composer.core.logging import LogLevel, RankZeroLoggerBackend, TLogData
 from composer.core.types import Logger, State, StateDict
-
 from composer.utils.run_directory import get_run_directory
+
+import wandb  # isort: skip
 
 
 class WandBLoggerBackend(RankZeroLoggerBackend):
