@@ -7,6 +7,7 @@ from abc import ABC
 from typing import TYPE_CHECKING, List, Optional, Tuple
 
 from composer.core.callback import Callback, RankZeroCallback
+from composer.core.event import Event
 from composer.core.logging.logger import Logger
 from composer.utils.ddp import is_rank_zero
 
@@ -150,22 +151,11 @@ class RankZeroLoggerBackend(BaseLoggerBackend, RankZeroCallback, ABC):
             return
         return self._log_metric(epoch, step, log_level, data)
 
-    def _training_start(self, state: State, logger: Logger) -> None:
-        """Callback called on the
-        :attr:`~composer.core.event.Event.TRAINING_START` event.
-
-        Args:
-            state (State): The global state.
-            logger (Logger): The global logger.
-        """
-        del state, logger  # unused
-        pass
-
-    @final
-    def training_start(self, state: State, logger: Logger) -> None:
-        self._training_start(state, logger)  # initialize the logger
-        if self._deferred_log_metric_calls is None:
-            raise RuntimeError("_deferred_log_metric_calls should not be None")
-        for epoch, step, log_level, data in self._deferred_log_metric_calls:
-            self._log_metric(epoch, step, log_level, data)
-        self._deferred_log_metric_calls = None
+    def _run_event(self, event: Event, state: State, logger: Logger) -> None:
+        super()._run_event(event, state, logger)
+        if event == Event.TRAINING_START:
+            if self._deferred_log_metric_calls is None:
+                raise RuntimeError("_deferred_log_metric_calls should not be None")
+            for epoch, step, log_level, data in self._deferred_log_metric_calls:
+                self._log_metric(epoch, step, log_level, data)
+            self._deferred_log_metric_calls = None

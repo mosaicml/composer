@@ -10,6 +10,7 @@ from typing import Sequence
 from composer import Logger, State
 from composer.callbacks.callback_hparams import BenchmarkerHparams
 from composer.core.callback import Callback
+from composer.core.event import Event
 from composer.core.types import BreakEpochException
 
 log = logging.getLogger(__name__)
@@ -106,6 +107,17 @@ class Benchmarker(Callback):
         self.original_max_epochs = -1
         self.wct_dict = {}
 
+    def run_event(self, event: Event, state: State, logger: Logger) -> None:
+        super().run_event(event, state, logger)
+        if event == Event.TRAINING_START:
+            self._training_start(state, logger)
+        if event == Event.BATCH_START:
+            self._batch_start(state, logger)
+        if event == Event.BATCH_END:
+            self._batch_end(state, logger)
+        if event == Event.EPOCH_END:
+            self._epoch_end(state, logger)
+
     def _compute_elapsed_wct(self, epoch_wct_dict, steps_per_epoch: int, n_epochs: int):
         wct = 0.0
         wct_per_step = 0
@@ -116,7 +128,7 @@ class Benchmarker(Callback):
             wct += wct_per_step
         return wct * n_epochs
 
-    def training_start(self, state: State, logger: Logger):
+    def _training_start(self, state: State, logger: Logger):
         del logger  # Unused
         warnings.warn("The timing monitor is activated. The model will not be fully trained."
                       "All quality metrics for this run will be incorrect.")
@@ -129,7 +141,7 @@ class Benchmarker(Callback):
         self.wct_dict = {e: {s: -1.0 for s in self.step_list} for e in self.epoch_list}
         state.max_epochs = len(self.epoch_list)
 
-    def epoch_end(self, state: State, logger: Logger):
+    def _epoch_end(self, state: State, logger: Logger):
         prev_epoch = self.epoch_list[self.epoch_ix]
         epoch_wct_dict = self.wct_dict[prev_epoch]
         self.epoch_ix += 1
@@ -145,7 +157,7 @@ class Benchmarker(Callback):
         self.wall_clock_train += self._compute_elapsed_wct(epoch_wct_dict, state.steps_per_epoch, n_epochs)
         logger.metric_epoch({'wall_clock_train': self.wall_clock_train})
 
-    def batch_start(self, state: State, logger: Logger):
+    def _batch_start(self, state: State, logger: Logger):
         del state, logger  # Unused
         if self.current_time is None:
             self.current_time = time.time()
@@ -153,7 +165,7 @@ class Benchmarker(Callback):
             self.profile_steps = 0
             self.profile_time = 0.0
 
-    def batch_end(self, state: State, logger: Logger):
+    def _batch_end(self, state: State, logger: Logger):
         if self.current_time is not None:
             now = time.time()
             elapsed = now - self.current_time

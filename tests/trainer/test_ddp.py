@@ -13,13 +13,14 @@ import yahp as hp
 from _pytest.monkeypatch import MonkeyPatch
 
 import composer.core.types as types
-from composer import Callback
+from composer import Callback, Event
 from composer.callbacks import CallbackHparams
 from composer.core.logging import Logger
 from composer.core.state import State
 from composer.datasets import DataloaderHparams, DataloaderSpec, MemoryFormat, SyntheticDataset, SyntheticDatasetHparams
 from composer.trainer.devices import CPUDeviceHparams, GPUDeviceHparams
 from composer.trainer.trainer_hparams import TrainerHparams, callback_registry, dataset_registry
+from composer.utils.ddp import get_global_rank
 from tests.fixtures.ddp_fixtures import with_distributed
 from tests.fixtures.models import SimpleBatchPairModelHparams
 
@@ -91,29 +92,23 @@ class CheckBatch0(Callback):
         super().__init__()
         self.tmpdir = tmpdir
 
-    def before_forward(self, state: State, logger: Logger):
-        if state.batch_idx > 0:
-            return
-        rank: int = torch.distributed.get_rank()
-        last_input, last_target = state.batch_pair
-        torch.save(  # type: ignore
-            {
-                "last_input": last_input,
-                "last_target": last_target,
-            }, get_batch_file_path(self.tmpdir, rank=rank, epoch=state.epoch, is_train=True))
-
-    def eval_before_forward(self, state: State, logger: Logger):
-        rank: int = torch.distributed.get_rank()
-        filepath = get_batch_file_path(self.tmpdir, rank=rank, epoch=state.epoch, is_train=False)
-        if os.path.exists(filepath):
-            return
-        assert not state.model.training
-        last_input, last_target = state.batch_pair
-        torch.save(  # type: ignore
-            {
-                "last_input": last_input,
-                "last_target": last_target,
-            }, get_batch_file_path(self.tmpdir, rank=rank, epoch=state.epoch, is_train=False))
+    def run_event(self, event: Event, state: State, logger: Logger) -> None:
+        super().run_event(event, state, logger)
+        if event in (Event.BEFORE_FORWARD, Event.EVAL_BEFORE_FORWARD):
+            filepath = get_batch_file_path(self.tmpdir,
+                                           rank=get_global_rank(),
+                                           epoch=state.epoch,
+                                           is_train=state.model.training)
+            if state.batch_idx > 0:
+                return
+            if os.path.exists(filepath):
+                return
+            last_input, last_target = state.batch_pair
+            torch.save(  # type: ignore
+                {
+                    "last_input": last_input,
+                    "last_target": last_target,
+                }, filepath)
 
 
 @dataclass
@@ -200,7 +195,7 @@ def _test_ddp(is_gpu: bool, num_procs: int, tmpdir: pathlib.Path, mosaic_trainer
     hparams.loggers = []
     hparams.validate_every_n_batches = 0
     hparams.validate_every_n_epochs = 1
-    hparams.callbacks.append(CheckBatch0Hparams(tmpdir=tmpdir))
+    hparams.callbacks.append(CheckBatch0Hparams(tmpdir=str(tmpdir)))
     trainer = hparams.initialize_object()
     assert trainer.state.world_size == num_procs
     assert trainer.state.local_world_size == num_procs

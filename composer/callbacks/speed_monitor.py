@@ -6,7 +6,7 @@ import time
 from collections import deque
 from typing import Deque, Optional
 
-from composer import Logger, State
+from composer import Logger, State, Event
 from composer.callbacks.callback_hparams import SpeedMonitorHparams
 from composer.core.callback import RankZeroCallback
 from composer.core.types import StateDict
@@ -63,11 +63,18 @@ class SpeedMonitor(RankZeroCallback):
             self.batch_num_samples = self.loaded_state["batch_num_samples"]
             self.loaded_state = None
 
-    def batch_start(self, state: State, logger: Logger) -> None:
-        del state, logger  # unused
-        self._load_state()
+    def _run_event(self, event: Event, state: State, logger: Logger) -> None:
+        if event == Event.EPOCH_START:
+            self._epoch_start(state, logger)
+        if event == Event.BATCH_START:
+            self._load_state()
+        if event == Event.BATCH_END:
+            self._batch_end(state, logger)
+        if event == Event.EPOCH_END:
+            self._epoch_end(state, logger)
+        super()._run_event(event, state, logger)
 
-    def epoch_start(self, state: State, logger: Logger):
+    def _epoch_start(self, state: State, logger: Logger):
         del state, logger  # unused
         self._load_state()
         self.epoch_start_time = time.time()
@@ -75,7 +82,7 @@ class SpeedMonitor(RankZeroCallback):
         self.batch_num_samples.clear()
         self.train_examples_per_epoch = 0
 
-    def batch_end(self, state: State, logger: Logger):
+    def _batch_end(self, state: State, logger: Logger):
         self.batch_end_times.append(time.time())
         batch_num_samples = 0
         batch_num_samples += state.last_batch_size
@@ -90,7 +97,7 @@ class SpeedMonitor(RankZeroCallback):
             throughput = sum(self.batch_num_samples) / (self.batch_end_times[-1] - self.batch_end_times[0])
             logger.metric_batch({'throughput/step': throughput})
 
-    def epoch_end(self, state: State, logger: Logger):
+    def _epoch_end(self, state: State, logger: Logger):
         del state  # unused
         epoch_time = time.time() - self.epoch_start_time
         self.wall_clock_train += epoch_time

@@ -12,8 +12,7 @@ By convention, callbacks should not modify the :class:`State`.
 
 
 Each callback inherits from the :class:`Callback` base class,
-and overrides functions corresponding to the event.
-
+and overrides the :meth:`~Callback.run_event` method.
 
 For example:
 
@@ -23,8 +22,9 @@ For example:
 
     class MyCallback(Callback)
 
-        def epoch_start(self, state: State, logger: Logger):
-            print(f'Epoch {state.epoch}/{state.max_epochs}')
+        def run_event(self, event: Event, state: State, logger: Logger):
+            if event == Event.EPOCH_START:
+                print(f'Epoch {state.epoch}/{state.max_epochs}')
 
 .. note::
 
