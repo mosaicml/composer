@@ -168,6 +168,7 @@ stage('Build') {
                         projectName: item.fullProjectName,
                         selector: specific("${item.number}"),
                         fingerprintArtifacts: true,
+                        optional: true,
                     )
                 }
 
