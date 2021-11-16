@@ -40,7 +40,7 @@ def runPytest(pythonVersion, extraDeps, nGpus = 0) {
                 string(name: 'P_TIMEOUT', value: '30'),
                 string(name: 'PIP_EXTRA_DEPS', value: extraDeps),
                 string(name: 'PYTEST_CLI_ARGS', value: '--test_duration all'),
-                string(name: 'P_NODE_SELECTOR', value: nGpus == 0 ? null : "p2.xlarge"),
+                string(name: 'P_NODE_SELECTOR', value: nGpus == 0 ? "c5.large" : "p2.xlarge"),
             ]
         )
     }
