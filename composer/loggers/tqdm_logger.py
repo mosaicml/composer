@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import sys
 from dataclasses import asdict, dataclass, field
-from typing import TYPE_CHECKING, Any, Dict, Optional, Sequence
+from typing import TYPE_CHECKING, Any, Dict, Optional
 
 import yaml
 from tqdm import tqdm
@@ -26,7 +26,6 @@ class _TQDMLoggerInstanceState:
     epoch: int
     is_train: bool
     n: int
-    keys_to_log: Sequence[str]
     epoch_metrics: Dict[str, TLogDataValue] = field(default_factory=dict)
 
 
@@ -42,7 +41,6 @@ class _TQDMLoggerInstance:
                                               epoch=epoch,
                                               is_train=is_train,
                                               n=n,
-                                              keys_to_log=_IS_TRAIN_TO_KEYS_TO_LOG[is_train],
                                               epoch_metrics=(epoch_metrics or {}))
         desc = f'Epoch {epoch + 1}{"" if is_train else " (val)"}'
         position = 0 if is_train else 1
@@ -54,7 +52,9 @@ class _TQDMLoggerInstance:
         self.pbar.set_postfix(epoch_metrics)
 
     def log_metric(self, data: TLogData):
-        formatted_data = {k: format_log_data_value(v) for (k, v) in data.items() if k in self.state.keys_to_log}
+        formatted_data = {
+            k: format_log_data_value(v) for (k, v) in data.items() if k in _IS_TRAIN_TO_KEYS_TO_LOG[self.state.is_train]
+        }
         self.state.epoch_metrics.update(formatted_data)
         self.pbar.set_postfix(self.state.epoch_metrics)
 
@@ -93,7 +93,7 @@ class TQDMLoggerBackend(RankZeroLoggerBackend):
     def __init__(self, config: Optional[Dict[str, Any]] = None) -> None:
         super().__init__()
         self.pbars: Dict[bool, _TQDMLoggerInstance] = {}
-        self.active_pbar: Optional[_TQDMLoggerInstance] = None
+        self.is_train: Optional[bool] = None
         self.config = config
 
     def _will_log(self, state: State, log_level: LogLevel) -> bool:
@@ -102,10 +102,10 @@ class TQDMLoggerBackend(RankZeroLoggerBackend):
 
     def _log_metric(self, epoch: int, step: int, log_level: LogLevel, data: TLogData) -> None:
         del epoch, step, log_level  # Unused
-        if self.active_pbar is None:
+        if self.is_train in self.pbars:
             # Logging outside an epoch
-            return
-        self.active_pbar.log_metric(data)
+            assert self.is_train is not None
+            self.pbars[self.is_train].log_metric(data)
 
     def _run_event(self, event: Event, state: State, logger: Logger) -> None:
         if event == Event.TRAINING_START:
@@ -116,23 +116,29 @@ class TQDMLoggerBackend(RankZeroLoggerBackend):
                 print("-" * 30)
                 print()
         if event in (Event.EPOCH_START, Event.EVAL_START):
-            is_train = event == Event.TRAINING_START
-            self.pbars[is_train] = _TQDMLoggerInstance(total=state.steps_per_epoch,
-                                                       epoch=state.epoch,
-                                                       is_train=is_train)
-            self.active_pbar = self.pbars[is_train]
+            self.is_train = event == Event.EPOCH_START
+            self.pbars[self.is_train] = _TQDMLoggerInstance(total=state.steps_per_epoch,
+                                                            epoch=state.epoch,
+                                                            is_train=self.is_train)
         if event in (Event.AFTER_BACKWARD, Event.EVAL_AFTER_FORWARD):
-            assert self.active_pbar is not None
-            self.active_pbar.update()
+            if self.is_train in self.pbars:
+                assert self.is_train is not None
+                self.pbars[self.is_train].update()
         if event in (Event.EPOCH_END, Event.EVAL_END):
-            assert self.active_pbar is not None
-            self.active_pbar.close()
-            self.active_pbar = None
+            if self.is_train in self.pbars:
+                assert self.is_train is not None
+                self.pbars[self.is_train].close()
+                del self.pbars[self.is_train]
+                self.is_train = None
 
         super()._run_event(event, state, logger)
 
     def state_dict(self) -> StateDict:
-        return {"pbars": {k: v.state_dict() for (k, v) in self.pbars.items()}}
+        return {
+            "pbars": {k: v.state_dict() for (k, v) in self.pbars.items()},
+            "is_train": self.is_train,
+        }
 
     def load_state_dict(self, state: StateDict) -> None:
         self.pbars = {k: _TQDMLoggerInstance(**v) for (k, v) in state["pbars"].items()}
+        self.is_train = state["is_train"]
