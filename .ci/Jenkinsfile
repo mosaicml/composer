@@ -87,7 +87,7 @@ def dockerImagePostBuild(stagingImageTag) {
                     string(name: 'P_GIT_REPO', value: gitUrl),
                     string(name: 'P_GIT_COMMIT', value: gitCommit),
                     string(name: 'P_DOCKER_IMAGE', value: stagingImageTag),
-                    string(name: 'P_TIMEOUT', value: '30'),
+                    string(name: 'P_TIMEOUT', value: '1800'),
                     string(name: 'PIP_EXTRA_DEPS', value: 'dev'),
                     string(name: 'PYTEST_CLI_ARGS', value: '--test_duration all'),
                 ]
@@ -101,7 +101,7 @@ def dockerImagePostBuild(stagingImageTag) {
                     string(name: 'P_GIT_REPO', value: gitUrl),
                     string(name: 'P_GIT_COMMIT', value: gitCommit),
                     string(name: 'P_DOCKER_IMAGE', value: stagingImageTag),
-                    string(name: 'P_TIMEOUT', value: '30'),
+                    string(name: 'P_TIMEOUT', value: '1800'),
                     string(name: 'PIP_EXTRA_DEPS', value: 'all'),
                     string(name: 'PYTEST_CLI_ARGS', value: '--test_duration all'),
                 ]
@@ -112,7 +112,6 @@ def dockerImagePostBuild(stagingImageTag) {
 
 stage('Build') {
     def jobs = [:]
-    pytorchChanged = false // TODO remove. Adding this in so kube doesn't failover
     if (pytorchChanged) {
         jobs << expandDockerMatrix(
             P_CLOUD: groovyLoadLabel,
@@ -123,7 +122,7 @@ stage('Build') {
             P_BUILD_CONTEXT: './docker/pytorch',
             P_GIT_REPO: gitUrl,
             P_GIT_COMMIT: gitCommit,
-            P_TIMEOUT: '30',
+            P_TIMEOUT: '3600',
             P_KANIKO_PUSH_FINAL: gitBranch == "main", // only push if we're on the main branch
         ) { stagingImage -> dockerImagePostBuild(stagingImage) }
     }
