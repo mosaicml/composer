@@ -112,6 +112,7 @@ def dockerImagePostBuild(stagingImageTag) {
 
 stage('Build') {
     def jobs = [:]
+    pytorchChanged = false // TODO remove this line once docker matrix builds are fixed.
     if (pytorchChanged) {
         jobs << expandDockerMatrix(
             P_CLOUD: groovyLoadLabel,
@@ -162,6 +163,7 @@ stage('Build') {
     finally {
         stage('Merge Artifcats') {
             node ("aws-next-01") {
+                checkout scm  // checking out the SCM so the coverage report can load the source
                 builds.each { item -> 
                     copyArtifacts(
                         projectName: item.fullProjectName,
@@ -176,9 +178,6 @@ stage('Build') {
                 sh 'mkdir -p build/output/'
 
                 sh 'ls -al build/output/'
-
-                checkout scm  // checking out the SCM so the coverage report can load the source
-
                 archiveArtifacts(artifacts: "build/output/*.xml", fingerprint: true, allowEmptyArchive: true)
                 junit(allowEmptyResults: true, testResults: "build/output/*.junit.xml")
                 publishCoverage(
