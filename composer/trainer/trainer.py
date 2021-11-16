@@ -34,6 +34,7 @@ from composer.trainer.devices.device_cpu import DeviceCPU
 from composer.trainer.scaler import ClosureGradScaler
 from composer.trainer.trainer_hparams import TrainerHparams
 from composer.utils import ensure_tuple, get_random_seed, map_collection, seed_all
+from composer.utils.run_directory import get_relative_to_run_directory
 
 log = logging.getLogger(__name__)
 
@@ -104,7 +105,8 @@ class Trainer:
             (default: ``None``)
         checkpoint_interval_unit (int, optional): Unit for the checkpoint save interval -- should be 'ep'
             for epochs, 'ba' for batches, or None to disable checkpointing. (default: ``None``).
-        checkpoint_folder (str, optional): The folder to save checkpoints to. (default: ``checkpoints``)
+        checkpoint_folder (str, optional): The folder to save checkpoints to. Relative to `os.environ.get('RUN_DIRECTORY', '.')`, 
+            (default: ``checkpoints``)
         checkpoint_interval (int, optional): The frequency with which to checkpoint. (default: ``1``)
         config (Dict[str, Any], optional): Extra user-provided trainer configuration. Will be persisted
             along with the trainer state during checkpointing. (default: ``None``)
@@ -257,7 +259,7 @@ class Trainer:
 
         self.checkpointer = None
         if checkpoint_folder and checkpoint_interval and checkpoint_interval_unit:
-            self.checkpointer = Checkpointer(checkpoint_folder=checkpoint_folder,
+            self.checkpointer = Checkpointer(checkpoint_folder=get_relative_to_run_directory(checkpoint_folder),
                                              checkpoint_interval=checkpoint_interval,
                                              checkpoint_interval_unit=checkpoint_interval_unit)
 
