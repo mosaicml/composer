@@ -17,7 +17,6 @@ from composer.optim.optimizer_hparams import AdamHparams
 from composer.optim.scheduler import ComposedScheduler, ExponentialLRHparams
 from composer.trainer import Trainer, TrainerHparams
 from composer.trainer.devices.device_hparams import CPUDeviceHparams, DeviceHparams, GPUDeviceHparams
-from tests.fixtures.ddp_fixtures import with_distributed
 from tests.utils.trainer_fit import get_total_loss, train_model
 
 
@@ -90,9 +89,6 @@ def test_trainer_determinism(mosaic_trainer_hparams: TrainerHparams):
     assert first_trainer.state.train_dataloader is not None
     first_loss = get_total_loss(first_model, first_trainer.state.train_dataloader, first_trainer.ddp)
 
-    # Need to reinitialize some distributed settings in order to train twice in the same process
-    torch.distributed.destroy_process_group()
-
     # Second trainer must be created after fitting the first so that the
     # seeds get fully reset for the second training run
     second_trainer = Trainer.create_from_hparams(mosaic_trainer_hparams)
@@ -106,11 +102,13 @@ def test_trainer_determinism(mosaic_trainer_hparams: TrainerHparams):
 
 
 @pytest.mark.timeout(90)
-@pytest.mark.parametrize("device_hparams,num_procs", [
-    pytest.param(CPUDeviceHparams(), 1, id="1cpu"),
-    pytest.param(CPUDeviceHparams(), 2, id='2cpu'),
-    pytest.param(GPUDeviceHparams(), 1, marks=pytest.mark.n_gpus(1), id="1gpu"),
-    pytest.param(GPUDeviceHparams(), 2, marks=pytest.mark.n_gpus(2), id="2gpu"),
+@pytest.mark.parametrize("world_size", [
+    pytest.param(1),
+    pytest.param(2, marks=pytest.mark.world_size(2)),
+])
+@pytest.mark.parametrize("device_hparams", [
+    pytest.param(CPUDeviceHparams(), id="cpu"),
+    pytest.param(GPUDeviceHparams(), id="gpu", marks=pytest.mark.gpu),
 ])
 @pytest.mark.parametrize("grad_accum", [
     pytest.param(1, id="ga1"),
@@ -120,8 +118,9 @@ def test_trainer_determinism(mosaic_trainer_hparams: TrainerHparams):
     pytest.param(Precision.FP32, id="fp32"),
     pytest.param(Precision.AMP, id="amp"),
 ])
-def test_trainer_fit(mosaic_trainer_hparams: TrainerHparams, device_hparams: DeviceHparams, num_procs: int,
+def test_trainer_fit(mosaic_trainer_hparams: TrainerHparams, device_hparams: DeviceHparams, world_size: int,
                      grad_accum: int, precision: Precision):
+    del world_size  # unused. Set via env vars
     mosaic_trainer_hparams.device = device_hparams
     mosaic_trainer_hparams.grad_accum = grad_accum
     mosaic_trainer_hparams.precision = precision
@@ -130,4 +129,4 @@ def test_trainer_fit(mosaic_trainer_hparams: TrainerHparams, device_hparams: Dev
     if precision == Precision.AMP and isinstance(device_hparams, CPUDeviceHparams):
         return
 
-    with_distributed(num_procs, train_model)(mosaic_trainer_hparams, max_epochs=2, run_loss_check=True)
+    train_model(mosaic_trainer_hparams, max_epochs=2, run_loss_check=True)

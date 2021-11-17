@@ -16,20 +16,18 @@ def _get_distributed_config_var(env_var: str,
             f"DDPDefaultValueWarning: Torch distributed is not available; returning {default} for {human_name}")
         return default
 
-    if fetch_fn_name is not None:
-        try:
-            return getattr(dist, fetch_fn_name)()
-        except RuntimeError:
-            # Raises a RuntimeError is DDP is not yet initialized
-            pass
-
     if not env_var in os.environ:
         warnings.warn(f"DDPDefaultValueWarning: {env_var} env var not set"
                       f"{' and process group not initialized' if fetch_fn_name is not None else ''}; "
                       f"returning {default} for {human_name}.")
-        return default
+        env_value = default
+    else:
+        env_value = int(os.environ[env_var])
 
-    return int(os.environ[env_var])
+    if dist.is_initialized() and fetch_fn_name is not None:
+        assert env_value == int(getattr(dist, fetch_fn_name)()), "invariant violation"
+
+    return env_value
 
 
 def get_world_size() -> int:
@@ -48,7 +46,9 @@ def get_local_world_size() -> int:
 
 
 def get_local_rank() -> int:
-    return _get_distributed_config_var(env_var="LOCAL_RANK", human_name="local rank", default=0)
+    local_rank = _get_distributed_config_var(env_var="LOCAL_RANK", human_name="local rank", default=0)
+    assert local_rank == get_global_rank() % get_local_world_size(), "invariant violation"
+    return local_rank
 
 
 def is_rank_zero() -> bool:

@@ -54,7 +54,7 @@ def test_memory_monitor_cpu(mosaic_trainer_hparams: TrainerHparams):
 
 
 @pytest.mark.timeout(60)
-@pytest.mark.n_gpus(1)
+@pytest.mark.gpu
 def test_memory_monitor_gpu(mosaic_trainer_hparams: TrainerHparams):
     n_cuda_devices = device_count()
     if n_cuda_devices > 0:
