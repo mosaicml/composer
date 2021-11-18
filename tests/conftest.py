@@ -19,7 +19,10 @@ from _pytest.monkeypatch import MonkeyPatch
 import composer
 from composer.utils.run_directory import get_relative_to_run_directory
 
-WORLD_SIZE_OPTIONS = (1, 2, 4, 8)
+# Allowed options for pytest.mark.world_size()
+# Important: when updating this list, make sure to also up scripts/test.sh
+# so tests of all world sizes will be executed
+WORLD_SIZE_OPTIONS = (1, 2)
 
 PYTEST_DDP_LOCKFILE_DIR = get_relative_to_run_directory(os.path.join("pytest_lockfiles"))
 DDP_TIMEOUT = datetime.timedelta(seconds=5)
