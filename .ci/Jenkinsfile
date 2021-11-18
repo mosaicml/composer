@@ -124,7 +124,7 @@ def dockerImagePostBuild(stagingImageTag) {
 
 stage('Build') {
     def jobs = [:]
-    pytorchChanged = false // TODO remove. Adding this in so kube doesn't failover
+    pytorchChanged = false // TODO remove this line once docker matrix builds are fixed.
     if (pytorchChanged) {
         jobs << expandDockerMatrix(
             P_CLOUD: groovyLoadLabel,
@@ -135,7 +135,7 @@ stage('Build') {
             P_BUILD_CONTEXT: './docker/pytorch',
             P_GIT_REPO: gitUrl,
             P_GIT_COMMIT: gitCommit,
-            P_TIMEOUT: '30',
+            P_TIMEOUT: '3600',
             P_KANIKO_PUSH_FINAL: gitBranch == "main", // only push if we're on the main branch
         ) { stagingImage -> dockerImagePostBuild(stagingImage) }
     }
@@ -174,11 +174,13 @@ stage('Build') {
     finally {
         stage('Merge Artifcats') {
             node ("aws-next-01") {
+                checkout scm  // checking out the SCM so the coverage report can load the source
                 builds.each { item -> 
                     copyArtifacts(
                         projectName: item.fullProjectName,
                         selector: specific("${item.number}"),
                         fingerprintArtifacts: true,
+                        optional: true,
                     )
                 }
 
@@ -187,9 +189,6 @@ stage('Build') {
                 sh 'mkdir -p build/output/'
 
                 sh 'ls -al build/output/'
-
-                checkout scm  // checking out the SCM so the coverage report can load the source
-
                 archiveArtifacts(artifacts: "build/output/*.xml", fingerprint: true, allowEmptyArchive: true)
                 junit(allowEmptyResults: true, testResults: "build/output/*.junit.xml")
                 publishCoverage(
