@@ -23,11 +23,20 @@ def cloneJenkinsfilesRepo() {
     }
 }
 
-def runPytest(pythonVersion, extraDeps, nGpus = 0) {
+def runPytest(pythonVersion, extraDeps, gpu = false) {
+    def name = "pytest/python${pythonVersion}-extraDeps_${extraDeps}"
+    def title = "Pytest - Python ${pythonVersion}, composer[${extraDeps}]"
+    def summary = "Pytest - Python ${pythonVersion}, composer[${extraDeps}]"
+
+    if (gpu){
+        name = "$name-gpu"
+        title = "$title, GPU"
+        summary = "$summary, GPU"
+    }
     runWithChecks(
-        name: "pytest/python${pythonVersion}-extraDeps_${extraDeps}-nGpus_${nGpus}",
-        title: "Pytest - Python ${pythonVersion}, composer[${extraDeps}], ${nGpus} GPUs",
-        summary: "Pytest - Python ${pythonVersion}, composer[${extraDeps}], ${nGpus} GPUs",
+        name: name,
+        title: title,
+        summary: summary,
     ) {
         echo "Pytest - Python ${pythonVersion}, composer[${extraDeps}], ${nGpus} GPUs"
         builds << build(
