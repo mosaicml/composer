@@ -51,7 +51,7 @@ def get_parser():
                         type=str,
                         default=None,
                         help=textwrap.dedent("""Directory to store run artifcats. 
-                            Defaults to .runs/{datetime.datetime.now().isoformat()}/""")),
+                            Defaults to runs/{datetime.datetime.now().isoformat()}/""")),
     parser.add_argument("-m",
                         "--module_mode",
                         action="store_true",
@@ -85,7 +85,7 @@ def launch_processes(nproc: int, world_size: int, base_rank: int, master_addr: s
     processes = []
 
     if run_directory is None:
-        run_directory = os.path.join(".runs", datetime.datetime.now().isoformat())
+        run_directory = os.path.join("runs", datetime.datetime.now().isoformat())
     os.makedirs(run_directory, exist_ok=True)
     logs_dir = os.path.join(run_directory, "logs")
     os.makedirs(logs_dir, exist_ok=True)
