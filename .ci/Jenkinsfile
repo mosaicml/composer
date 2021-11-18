@@ -39,7 +39,7 @@ def runPytest(pythonVersion, extraDeps, nGpus = 0) {
                 string(name: 'P_DOCKER_IMAGE', value: "ravimosaicml/pytorch:1.10.0_cpu-python${pythonVersion}-ubuntu20.04"), // TODO: change ravi to mosaicml/pytorch
                 string(name: 'P_TIMEOUT', value: '1800'),
                 string(name: 'PIP_EXTRA_DEPS', value: extraDeps),
-                string(name: 'PYTEST_CLI_ARGS', value: '--test_duration all'),
+                string(name: 'PYTEST_COMMAND', value: './scripts/test.sh --test_duration all'),
                 string(name: 'P_NODE_SELECTOR', value: nGpus == 0 ? "c5.large" : "p2.xlarge"),
             ]
         )
@@ -87,9 +87,9 @@ def dockerImagePostBuild(stagingImageTag) {
                     string(name: 'P_GIT_REPO', value: gitUrl),
                     string(name: 'P_GIT_COMMIT', value: gitCommit),
                     string(name: 'P_DOCKER_IMAGE', value: stagingImageTag),
-                    string(name: 'P_TIMEOUT', value: '30'),
+                    string(name: 'P_TIMEOUT', value: '1800'),
                     string(name: 'PIP_EXTRA_DEPS', value: 'dev'),
-                    string(name: 'PYTEST_CLI_ARGS', value: '--test_duration all'),
+                    string(name: 'PYTEST_COMMAND', value: './scripts/test.sh --test_duration all'),
                 ]
             )
         },
@@ -101,9 +101,9 @@ def dockerImagePostBuild(stagingImageTag) {
                     string(name: 'P_GIT_REPO', value: gitUrl),
                     string(name: 'P_GIT_COMMIT', value: gitCommit),
                     string(name: 'P_DOCKER_IMAGE', value: stagingImageTag),
-                    string(name: 'P_TIMEOUT', value: '30'),
+                    string(name: 'P_TIMEOUT', value: '1800'),
                     string(name: 'PIP_EXTRA_DEPS', value: 'all'),
-                    string(name: 'PYTEST_CLI_ARGS', value: '--test_duration all'),
+                    string(name: 'PYTEST_COMMAND', value: './scripts/test.sh --test_duration all'),
                 ]
             )
         }
