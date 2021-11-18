@@ -45,20 +45,15 @@ class Callback(Serializable, abc.ABC):
             state (State): The state.
             logger (Logger): The logger.
         """
-        try:
-            event_cb = getattr(self, event.value)
-        except AttributeError:
-            # Good -- the callback does not override any methods
-            self._run_event(event, state, logger)
-            return
+        self._run_event(event, state, logger)
+
+    def _run_event(self, event: Event, state: State, logger: Logger) -> None:
         warnings.warn(
             f"CallbackMethodDeprecationWarning: `self.{event.value}()` will be removed in callbacks."
             "Instead, override `self.run_event()`.",
             category=DeprecationWarning)
+        event_cb = getattr(self, event.value)       
         return event_cb(state, logger)
-
-    def _run_event(self, event: Event, state: State, logger: Logger) -> None:
-        pass
 
 
 class RankZeroCallback(Callback, abc.ABC):
@@ -71,10 +66,6 @@ class RankZeroCallback(Callback, abc.ABC):
 
     @final
     def run_event(self, event: Event, state: State, logger: Logger) -> None:
-        super().run_event(event, state, logger)
         if not is_rank_zero():
             return
         return self._run_event(event, state, logger)
-
-    def _run_event(self, event: Event, state: State, logger: Logger) -> None:
-        pass

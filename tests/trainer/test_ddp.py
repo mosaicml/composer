@@ -93,7 +93,6 @@ class CheckBatch0(Callback):
         self.tmpdir = tmpdir
 
     def _run_event(self, event: Event, state: State, logger: Logger) -> None:
-        super().run_event(event, state, logger)
         if event in (Event.BEFORE_FORWARD, Event.EVAL_BEFORE_FORWARD):
             filepath = get_batch_file_path(self.tmpdir,
                                            rank=get_global_rank(),

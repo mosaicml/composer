@@ -162,6 +162,3 @@ class RankZeroLoggerBackend(BaseLoggerBackend, Callback, ABC):
             for epoch, step, log_level, data in self._deferred_log_metric_calls:
                 self._log_metric(epoch, step, log_level, data)
             self._deferred_log_metric_calls = None
-
-    def _run_event(self, event: Event, state: State, logger: Logger) -> None:
-        pass

@@ -54,7 +54,6 @@ class EventCounterCallback(Callback):
             self.event_to_num_calls[event] = 0
 
     def _run_event(self, event: Event, state: State, logger: Logger):
-        super().run_event(event, state, logger)
         if event == Event.TRAINING_START:
             # ignoring training start as it is called once per startup
             # and the states otherwise won't match
