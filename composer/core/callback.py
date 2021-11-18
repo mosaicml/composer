@@ -48,11 +48,15 @@ class Callback(Serializable, abc.ABC):
         self._run_event(event, state, logger)
 
     def _run_event(self, event: Event, state: State, logger: Logger) -> None:
+        # default fallback if the callback does not override _run_event
+        try:
+            event_cb = getattr(self, event.value)
+        except AttributeError:
+            return
         warnings.warn(
             f"CallbackMethodDeprecationWarning: `self.{event.value}()` will be removed in callbacks."
-            "Instead, override `self.run_event()`.",
+            "Instead, override `self._run_event()`.",
             category=DeprecationWarning)
-        event_cb = getattr(self, event.value)
         return event_cb(state, logger)
 
 
