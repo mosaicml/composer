@@ -52,7 +52,7 @@ class Callback(Serializable, abc.ABC):
             f"CallbackMethodDeprecationWarning: `self.{event.value}()` will be removed in callbacks."
             "Instead, override `self.run_event()`.",
             category=DeprecationWarning)
-        event_cb = getattr(self, event.value)       
+        event_cb = getattr(self, event.value)
         return event_cb(state, logger)
 
 
