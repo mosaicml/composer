@@ -24,7 +24,7 @@ class GradMonitor(Callback):
         super().__init__()
         self.log_layer_grad_norms = log_layer_grad_norms
 
-    def run_event(self, event: Event, state: State, logger: Logger):
+    def _run_event(self, event: Event, state: State, logger: Logger):
         """Compute the gradient L2 norm after the reduction of the
         backwards pass across GPUs. This function iterates over the
         parameters of the model and hence may cause a reduction in
@@ -39,7 +39,6 @@ class GradMonitor(Callback):
             logger (Logger):
                 The :class:`~composer.core.logging.logger.Logger` object.
         """
-        super().run_event(event, state, logger)
         if event != Event.AFTER_TRAIN_BATCH:
             return
         norm = None

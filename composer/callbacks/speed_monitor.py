@@ -72,7 +72,6 @@ class SpeedMonitor(RankZeroCallback):
             self._batch_end(state, logger)
         if event == Event.EPOCH_END:
             self._epoch_end(state, logger)
-        super()._run_event(event, state, logger)
 
     def _epoch_start(self, state: State, logger: Logger):
         del state, logger  # unused

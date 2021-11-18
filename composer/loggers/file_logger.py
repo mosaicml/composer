@@ -85,7 +85,6 @@ class FileLoggerBackend(RankZeroLoggerBackend):
             self._training_start(state, logger)
         if event == Event.BATCH_END:
             self._batch_end(state, logger)
-        super()._run_event(event, state, logger)
 
     def _training_start(self, state: State, logger: Logger) -> None:
         if self.hparams.filename == "stdout":

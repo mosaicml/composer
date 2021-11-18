@@ -22,7 +22,7 @@ For example:
 
     class MyCallback(Callback)
 
-        def run_event(self, event: Event, state: State, logger: Logger):
+        def _run_event(self, event: Event, state: State, logger: Logger):
             if event == Event.EPOCH_START:
                 print(f'Epoch {state.epoch}/{state.max_epochs}')
 

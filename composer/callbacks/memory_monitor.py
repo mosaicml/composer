@@ -26,8 +26,7 @@ class MemoryMonitor(Callback):
         if device_count == 0:
             log.warn("Memory monitor only works on GPU devices.")
 
-    def run_event(self, event: Event, state: State, logger: Logger):
-        super().run_event(event, state, logger)
+    def _run_event(self, event: Event, state: State, logger: Logger):
         if event != Event.AFTER_TRAIN_BATCH:
             return
 

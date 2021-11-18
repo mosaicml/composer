@@ -28,13 +28,15 @@ class Callback(Serializable, abc.ABC):
     they are run on specific events. By convention, Callbacks should not
     modify :class:`State`.
 
-    Subclasses should override :meth:`~Callback.run_event`
-    to run in response to given :class:`Event` invocations.
+    Subclasses should override :meth:`_run_event`
+    (**not** `run_event`) to run in response
+    to given :class:`Event` invocations.
     """
 
     def __init__(self) -> None:
         super().__init__()
 
+    @final
     def run_event(self, event: Event, state: State, logger: Logger) -> None:
         """This method is called by the engine on each event.
 
@@ -47,12 +49,16 @@ class Callback(Serializable, abc.ABC):
             event_cb = getattr(self, event.value)
         except AttributeError:
             # Good -- the callback does not override any methods
+            self._run_event(event, state, logger)
             return
         warnings.warn(
             f"CallbackMethodDeprecationWarning: `self.{event.value}()` will be removed in callbacks."
             "Instead, override `self.run_event()`.",
             category=DeprecationWarning)
         return event_cb(state, logger)
+
+    def _run_event(self, event: Event, state: State, logger: Logger) -> None:
+        pass
 
 
 class RankZeroCallback(Callback, abc.ABC):

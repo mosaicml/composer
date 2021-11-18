@@ -107,8 +107,7 @@ class Benchmarker(Callback):
         self.original_max_epochs = -1
         self.wct_dict = {}
 
-    def run_event(self, event: Event, state: State, logger: Logger) -> None:
-        super().run_event(event, state, logger)
+    def _run_event(self, event: Event, state: State, logger: Logger) -> None:
         if event == Event.TRAINING_START:
             self._training_start(state, logger)
         if event == Event.BATCH_START:

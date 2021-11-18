@@ -14,8 +14,7 @@ class LRMonitor(Callback):
     def __init__(self) -> None:
         super().__init__()
 
-    def run_event(self, event: Event, state: State, logger: Logger):
-        super().run_event(event, state, logger)
+    def _run_event(self, event: Event, state: State, logger: Logger):
         if event != Event.BATCH_END:
             return
         assert state.optimizers is not None, "optimizers must be defined"

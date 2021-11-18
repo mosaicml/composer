@@ -16,7 +16,7 @@ class EventTrackerCallback(Callback):
         super().__init__()
         self.event = None
 
-    def run_event(self, event: Event, state: State, logger: Logger) -> None:
+    def _run_event(self, event: Event, state: State, logger: Logger) -> None:
         self.event = event
 
 

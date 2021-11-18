@@ -132,8 +132,7 @@ class TorchProfiler(Callback):
                 torch_scheduler_action = ProfilerAction.RECORD_AND_SAVE
         return torch_scheduler_action
 
-    def run_event(self, event: Event, state: State, logger: Logger) -> None:
-        super().run_event(event, state, logger)
+    def _run_event(self, event: Event, state: State, logger: Logger) -> None:
         if event == Event.TRAINING_START:
             self._training_start(state, logger)
         if event == Event.BATCH_START:

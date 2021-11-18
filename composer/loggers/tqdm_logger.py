@@ -131,8 +131,6 @@ class TQDMLoggerBackend(RankZeroLoggerBackend):
                 del self.pbars[self.is_train]
                 self.is_train = None
 
-        super()._run_event(event, state, logger)
-
     def state_dict(self) -> StateDict:
         return {
             "pbars": {k: v.state_dict() for (k, v) in self.pbars.items()},

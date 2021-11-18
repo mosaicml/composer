@@ -51,8 +51,6 @@ class WandBLoggerBackend(RankZeroLoggerBackend):
         if event == Event.EPOCH_END:
             self._log_artifacts()
 
-        super()._run_event(event, state, logger)
-
     def _log_artifacts(self):
         # Scan the run directory and upload artifacts to wandb
         # On resnet50, _log_artifacts() caused a 22% throughput degradation
