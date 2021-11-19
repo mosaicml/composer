@@ -14,7 +14,6 @@ from composer.core.precision import Precision
 from composer.datasets import SyntheticDatasetHparams
 from composer.trainer.devices.device_hparams import CPUDeviceHparams
 
-
 modeldir_path = os.path.join(os.path.dirname(composer.__file__), 'yamls', 'models')
 model_names = glob.glob(os.path.join(modeldir_path, '*.yaml'))
 model_names = [os.path.basename(os.path.splitext(mn)[0]) for mn in model_names]
