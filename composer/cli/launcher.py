@@ -102,7 +102,7 @@ def launch_processes(nproc: int, world_size: int, base_rank: int, master_addr: s
     if master_port is None:
         warnings.warn("AutoSelectPortWarning: The DDP port was auto-selected. "
                       "This may lead to race conditions when launching multiple training processes simultaneously. "
-                      "To eliminate this race condition, explicitely specify a port with --master_port PORT_NUMBER")
+                      "To eliminate this race condition, explicitly specify a port with --master_port PORT_NUMBER")
         master_port = get_free_tcp_port()
     print(f"DDP Store: tcp://{master_addr}:{master_port}")
 
