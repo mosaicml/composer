@@ -41,7 +41,7 @@ class GradMonitor(Callback):
         """
         if event != Event.AFTER_TRAIN_BATCH:
             return
-        norm = None
+        norm = 0.0
         layer_norms = {}
         for name, p in state.model.named_parameters():
             if p.grad is not None and p.requires_grad:
@@ -50,7 +50,7 @@ class GradMonitor(Callback):
                     layer_norms[f'layer_grad_l2_norm/{name}'] = param_grad_norm
 
                 param_grad_norm = param_grad_norm**2
-                norm = param_grad_norm if not norm else norm + param_grad_norm
+                norm += param_grad_norm
 
         norm = norm**0.5
         logger.metric_batch({'grad_l2_norm/step': norm})

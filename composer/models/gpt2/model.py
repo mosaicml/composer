@@ -4,13 +4,14 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Mapping
 
-import transformers
 from torchmetrics.collections import MetricCollection
 
 from composer.models.nlp_metrics import Perplexity
 from composer.models.transformer_shared import MosaicTransformer
 
 if TYPE_CHECKING:
+    import transformers
+
     from composer.core.types import Batch, Metrics, Tensors
 
 

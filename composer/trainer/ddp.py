@@ -120,6 +120,15 @@ class DDP:
 
         _timeout = datetime.timedelta(seconds=timeout)
 
+        if torch.distributed.is_initialized():
+
+            if not torch.distributed.get_backend() == self.backend.lower():
+                raise RuntimeError(
+                    f"The requested backend ({self.backend}) differs from the backend "
+                    "of the current process group ({torch.distributed.get_backend()}). If you wish to change backends, "
+                    "please restart the python process.")
+            return
+
         if "RANK" in os.environ and "WORLD_SIZE" in os.environ:
             # Assume we can initialize based off of env vars
             torch.distributed.init_process_group(self.backend, timeout=_timeout)

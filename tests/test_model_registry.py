@@ -27,6 +27,11 @@ def test_model_registry(model_name, request):
 
     assert isinstance(model_hparams, ModelHparams)
 
-    # create the model object using the hparams
-    model = model_hparams.initialize_object()
-    assert isinstance(model, BaseMosaicModel)
+    try:
+        # create the model object using the hparams
+        model = model_hparams.initialize_object()
+        assert isinstance(model, BaseMosaicModel)
+    except ModuleNotFoundError as e:
+        if model_name == "unet" and e.name == 'monai':
+            pytest.skip("Unet not installed -- skipping")
+        raise e
