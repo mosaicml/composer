@@ -5,7 +5,7 @@ from __future__ import annotations
 import atexit
 import os
 import sys
-from typing import Any
+from typing import Any, Dict, Optional
 
 from composer.core.logging import LogLevel, RankZeroLoggerBackend, TLogData
 from composer.core.types import Logger, State, StateDict
@@ -18,17 +18,25 @@ class WandBLoggerBackend(RankZeroLoggerBackend):
     """Log to Weights and Biases (https://wandb.ai/)
 
     Args:
+        log_artifacts (bool, optional): Whether to log artifacts (default: ``False``)
         log_artifacts_every_n_batches (int, optional): Interval at which to upload
             artifcats to wandb from the `run_directory`. On resnet50, a 22% regression
             was realized when logging and uploading artifacts, so it is recommended to
-            do so infrequently. (default: ``100``)
-        kwargs (Any): Parameters to pass into :meth:`wandb.init`.
+            do so infrequently. Only applicable when `log_artifacts` is True
+            (default: ``100``)
+        init_params (Dict[str, Any], optional): Parameters to pass into :meth:`wandb.init`.
     """
 
-    def __init__(self, log_artifacts_every_n_batches: int = 100, **kwargs: Any) -> None:
+    def __init__(self,
+                 log_artifacts: bool = False,
+                 log_artifacts_every_n_batches: int = 100,
+                 init_params: Optional[Dict[str, Any]] = None) -> None:
         super().__init__()
-        self.log_artifacts_every_n_batches = log_artifacts_every_n_batches
-        self._init_params = kwargs
+        self._log_artifacts = log_artifacts
+        self._log_artifacts_every_n_batches = log_artifacts_every_n_batches
+        if init_params is None:
+            init_params = {}
+        self._init_params = init_params
 
     def _log_metric(self, epoch: int, step: int, log_level: LogLevel, data: TLogData):
         del epoch, log_level  # unused
@@ -45,20 +53,21 @@ class WandBLoggerBackend(RankZeroLoggerBackend):
 
     def batch_end(self, state: State, logger: Logger) -> None:
         del logger  # unused
-        # On resnet50, _log_artifacts() caused a 22% throughput degradation
+        # On resnet50, _upload_artifacts() caused a 22% throughput degradation
         # wandb.log_artifact() is async according to the docs
         # (see https://docs.wandb.ai/guides/artifacts/api#2.-create-an-artifact)
         # so uploads will not block the training loop
         # slowdown is likely from extra I/O
         # Hence, logging every n batches instead of every batch
-        if (state.step + 1) % self.log_artifacts_every_n_batches == 0:
-            self._log_artifacts()
+        if self._log_artifacts and (state.step + 1) % self._log_artifacts_every_n_batches == 0:
+            self._upload_artifacts()
 
     def epoch_end(self, state: State, logger: Logger) -> None:
         del state, logger  # unused
-        self._log_artifacts()
+        if self._log_artifacts:
+            self._upload_artifacts()
 
-    def _log_artifacts(self):
+    def _upload_artifacts(self):
         # Scan the run directory and upload artifacts to wandb
         run_directory = get_run_directory()
         if run_directory is not None:
@@ -72,7 +81,8 @@ class WandBLoggerBackend(RankZeroLoggerBackend):
                 wandb.log_artifact(artifact)
 
     def _close_wandb(self) -> None:
-        self._log_artifacts()
+        if self._log_artifacts:
+            self._upload_artifacts()
 
         exc_tpe, exc_info, tb = sys.exc_info()
 
