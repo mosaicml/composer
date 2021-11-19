@@ -51,6 +51,6 @@ class CIFAR10DatasetHparams(DatasetHparams):
                 download=self.download,
                 transform=transformation,
             ),
-            drop_last=self.drop_last,
+            drop_last=True,#self.drop_last,
             shuffle=self.shuffle,
         )

@@ -295,8 +295,15 @@ class CIFAR_ResNet(nn.Module):
     def forward(self, x):
         out = self.relu(self.bn(self.conv(x)))
         out = self.blocks(out)
-        out = F.avg_pool2d(out, out.size()[3])
-        out = out.view(out.size(0), -1)
+        out = F.avg_pool2d(out, 8)#out.size()[3])
+        #print('size', out.shape)
+        '''
+        if out.shape[0] == 1024:
+            out = out.view(1024, -1) #out.size(0), -1)
+        else:
+            out = out.view(1000, -1)
+        '''
+        out = out.view(1024,-1)
         out = self.fc(out)
         return out
 

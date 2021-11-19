@@ -23,7 +23,7 @@ def my_collate(batch):
     data = [item[0] for item in batch]
     target = [item[1] for item in batch]
 
-    return [torch.Tensor(data), torch.Tensor(target)]
+    return torch.Tensor(data), torch.Tensor(target)
 
 
 @dataclass
@@ -54,12 +54,13 @@ class BratsDatasetHparams(DatasetHparams):
         x_train, y_train, x_val, y_val = get_data_split(datadir)
         train_dataset = PytTrain(x_train, y_train, oversampling)
         val_dataset = PytVal(x_val, y_val)
-        if self.is_train:
+        if True:#self.is_train:
             return DataloaderSpec(
                 dataset=train_dataset,
                 drop_last=self.drop_last,
                 shuffle=self.shuffle,
             )
+        '''
         else:
             return DataloaderSpec(
                 dataset=val_dataset,
@@ -67,6 +68,7 @@ class BratsDatasetHparams(DatasetHparams):
                 shuffle=self.shuffle,
                 collate_fn=my_collate,  # type: ignore
             )
+        '''
 
 
 def coin_flip(prob):
