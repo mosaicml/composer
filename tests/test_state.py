@@ -22,7 +22,7 @@ def random_tensor(size=(4, 10)):
     return torch.rand(*size)
 
 
-def get_dummy_state(model: BaseMosaicModel):
+def get_dummy_state(model: BaseMosaicModel, train_dataloader: types.DataLoader, val_dataloader: types.DataLoader):
     optimizers = torch.optim.Adadelta(model.parameters())
 
     return State(model=model,
@@ -36,6 +36,8 @@ def get_dummy_state(model: BaseMosaicModel):
                  loss=random_tensor(),
                  batch=(random_tensor(), random_tensor()),
                  outputs=random_tensor(),
+                 train_dataloader=train_dataloader,
+                 eval_dataloader=val_dataloader,
                  optimizers=optimizers,
                  schedulers=torch.optim.lr_scheduler.StepLR(optimizers, step_size=3),
                  algorithms=[DummyHparams().initialize_object()])
@@ -106,12 +108,13 @@ def get_batch(model: SimpleBatchPairModel, dataloader_hparams: DataloaderHparams
 
 
 def test_state_serialize(tmpdir: pathlib.Path, dummy_model: BaseMosaicModel,
-                         dummy_dataloader_hparams: DataloaderHparams):
+                         dummy_dataloader_hparams: DataloaderHparams, dummy_train_dataloader: types.DataLoader,
+                         dummy_val_dataloader: types.DataLoader):
 
     assert isinstance(dummy_model, SimpleBatchPairModel)
 
-    state1 = get_dummy_state(dummy_model)
-    state2 = get_dummy_state(dummy_model)
+    state1 = get_dummy_state(dummy_model, dummy_train_dataloader, dummy_val_dataloader)
+    state2 = get_dummy_state(dummy_model, dummy_train_dataloader, dummy_val_dataloader)
 
     # train one step to set the optimizer states
     batch = get_batch(dummy_model, dummy_dataloader_hparams)

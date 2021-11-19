@@ -203,15 +203,39 @@ class Trainer:
             timeout=ddp_timeout,
         )
 
-        self.state = State(max_epochs=max_epochs,
-                           train_batch_size=train_batch_size,
-                           eval_batch_size=eval_batch_size,
-                           algorithms=algorithms,
-                           callbacks=callbacks,
-                           model=model,
-                           grad_accum=grad_accum,
-                           precision=precision,
-                           precision_context=self.device.precision_context)
+        dl_hparams = DataloaderHparams(num_workers=num_workers,
+                                       prefetch_factor=prefetch_factor,
+                                       persistent_workers=persistent_workers,
+                                       pin_memory=pin_memory,
+                                       timeout=timeout)
+
+        train_gpu_batch_size = train_batch_size // self.ddp.world_size
+        train_dataloader = self.device.dataloader_to_device(
+            self.ddp.create_dataloader(train_gpu_batch_size, dl_hparams, train_dataloader_spec),
+            train_dataloader_spec.prefetch_fn,
+        )
+        self.train_dl_spec = train_dataloader_spec
+
+        eval_gpu_batch_size = eval_batch_size // self.ddp.world_size
+        eval_dataloader = self.device.dataloader_to_device(
+            self.ddp.create_dataloader(eval_gpu_batch_size, dl_hparams, eval_dataloader_spec),
+            eval_dataloader_spec.prefetch_fn,
+        )
+        self.eval_dl_spec = eval_dataloader_spec
+
+        self.state = State(
+            max_epochs=max_epochs,
+            train_batch_size=train_batch_size,
+            eval_batch_size=eval_batch_size,
+            algorithms=algorithms,
+            callbacks=callbacks,
+            model=model,
+            grad_accum=grad_accum,
+            precision=precision,
+            precision_context=self.device.precision_context,
+            train_dataloader=train_dataloader,
+            eval_dataloader=eval_dataloader,
+        )
 
         if not log_destinations:
             log_destinations = [TQDMLoggerBackend()]
@@ -219,15 +243,6 @@ class Trainer:
         self.state.callbacks = [*log_destinations, *callbacks]
 
         self.engine = Engine(self.state, self.state.algorithms, self.logger, self.state.callbacks)
-
-        self.train_dl_spec = train_dataloader_spec
-        self.eval_dl_spec = eval_dataloader_spec
-
-        self.dl_hparams = DataloaderHparams(num_workers=num_workers,
-                                            prefetch_factor=prefetch_factor,
-                                            persistent_workers=persistent_workers,
-                                            pin_memory=pin_memory,
-                                            timeout=timeout)
 
         self.validate_every_n_batches = validate_every_n_batches
         self.validate_every_n_epochs = validate_every_n_epochs
@@ -243,8 +258,8 @@ class Trainer:
         # run INIT event before optimizers and schedulers are created
         self.engine.run_event(Event.INIT)
 
-        assert isinstance(self.train_dl_spec.dataset, collections.abc.Sized)
-        steps_per_epoch = len(self.train_dl_spec.dataset) // train_batch_size
+        assert isinstance(self.state.train_dataloader.dataset, collections.abc.Sized)
+        steps_per_epoch = len(self.state.train_dataloader.dataset) // train_batch_size
         # Need to use hparams here because optimizer and schedulers need to be created after Event.INIT
         if not optimizer_hparams:
             optimizer_hparams = DecoupledSGDWHparams(lr=0.1, momentum=0.9, weight_decay=1.0e-4)
@@ -365,21 +380,6 @@ class Trainer:
         state = self.state
 
         # compute per gpu batch size
-        train_gpu_batch_size = state.train_batch_size // state.world_size
-        eval_gpu_batch_size = state.eval_batch_size // state.world_size
-
-        train_dataloader = self.ddp.create_dataloader(train_gpu_batch_size, self.dl_hparams, self.train_dl_spec)
-        eval_dataloader = self.ddp.create_dataloader(eval_gpu_batch_size, self.dl_hparams, self.eval_dl_spec)
-
-        # move to device
-        state.train_dataloader = self.device.dataloader_to_device(
-            train_dataloader,
-            self.train_dl_spec.prefetch_fn,
-        )
-        state.eval_dataloader = self.device.dataloader_to_device(
-            eval_dataloader,
-            self.eval_dl_spec.prefetch_fn,
-        )
 
     def _get_metrics_as_collection(self, *, is_train: bool) -> MetricCollection:
         """Get metrics relevant to the model. Metrics are all implemented as subclasses
@@ -476,11 +476,6 @@ class Trainer:
         self.device.prepare(state)
         state.model = self.device.module_to_device(state.model)
         state.optimizers = map_collection(state.optimizers, self.device.optimizer_to_device)
-
-        # create dataloaders here after distributed training has started
-        self._create_dataloaders()
-        if state.train_dataloader is None or state.eval_dataloader is None:
-            raise ValueError('Dataloaders were not created properly, and are None.')
 
         # wrap model with DDP
         state.model = self.ddp.prepare_module(state.model)

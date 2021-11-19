@@ -7,7 +7,7 @@ import torch
 import torch.nn as nn
 
 from composer.core.state import State
-from composer.core.types import Tensor
+from composer.core.types import DataLoader, Tensor
 from composer.trainer.ddp import DDP
 
 
@@ -44,7 +44,8 @@ class MinimalConditionalModel(nn.Module):
     pytest.param('forced_sync', ([-1, None, None], [-1, -1, None], [-1.5, -1.5, None]), id='forced_sync'),
 ])
 @pytest.mark.world_size(2)
-def test_ddp_sync_strategy(ddp_sync_strategy: str, expected_grads: List[Optional[float]]):
+def test_ddp_sync_strategy(ddp_sync_strategy: str, expected_grads: List[Optional[float]],
+                           dummy_train_dataloader: DataLoader, dummy_val_dataloader: DataLoader):
     original_model = MinimalConditionalModel()
     ddp = DDP(backend="gloo", find_unused_parameters=True, sync_strategy=ddp_sync_strategy, timeout=5.)
     optimizer = torch.optim.SGD(original_model.parameters(), 0.1)
@@ -55,6 +56,8 @@ def test_ddp_sync_strategy(ddp_sync_strategy: str, expected_grads: List[Optional
                   eval_batch_size=1,
                   grad_accum=2,
                   max_epochs=1,
+                  train_dataloader=dummy_train_dataloader,
+                  eval_dataloader=dummy_val_dataloader,
                   precision='fp32')
 
     batches = [[(1, Tensor([1])), (1, Tensor([2]))], [(2, Tensor([1])), (2, Tensor([2]))]]
