@@ -3,12 +3,14 @@
 import logging
 from collections import OrderedDict
 from dataclasses import dataclass
-from typing import Dict, Optional, Sequence, Union
+from typing import Dict, Optional, Sequence, Union, ContextManager, cast
+import contextlib
 
 from composer.core.algorithm import Algorithm
 from composer.core.callback import Callback
 from composer.core.event import Event
 from composer.core.logging import Logger
+from composer.core.profiler import MosaicProfiler
 from composer.core.state import State
 
 log = logging.getLogger(__name__)
@@ -52,6 +54,7 @@ class Engine():
                  state: State,
                  algorithms: Sequence[Algorithm],
                  logger: Optional[Logger] = None,
+                 mosaic_profiler: Optional[MosaicProfiler] = None,
                  callbacks: Sequence[Callback] = None):
         if logger is None:
             log.warning("No logger passed to the engine.  Defaulting to an empty logger")
@@ -61,6 +64,7 @@ class Engine():
         self.logger = logger
         self.state = state
         self.algorithms = algorithms
+        self.mosaic_profiler = mosaic_profiler
         self.callbacks = callbacks or []
 
     def run_event(
@@ -96,16 +100,24 @@ class Engine():
         Returns:
             Dict[str, Trace]: dictionary of trace for each algorithm.
         """
+        marker = None
+        event = Event(event)
+        name = event.canonical_name
+        if self.mosaic_profiler is not None and (event.is_before_event or event.is_after_event):
+            # if not part of an event pair (e.g. init or after dataloader), then don't record an event here
+            marker = self.mosaic_profiler.marker(f"event/{name}")
+        if event.is_after_event and marker is not None:
+            marker.finish()
         traces = self._run_algorithms(event)
         self._run_callbacks(event)
+        if event.is_before_event and marker is not None:
+            marker.start()
         return traces
 
     def _run_algorithms(
         self,
-        event: Union[Event, str],
+        event: Event,
     ) -> Traces:
-        event = Event(event)
-
         algorithms_to_run = [algo for algo in self.algorithms if algo.match(event, self.state)]
 
         # future collision resolution
@@ -113,7 +125,15 @@ class Engine():
 
         trace = _setup_trace(algorithms_to_run, event)
         for order, algorithm in enumerate(algorithms_to_run):
-            exit_code = algorithm.apply(event, self.state, self.logger)
+            marker = None
+            if self.mosaic_profiler is not None:
+                marker = self.mosaic_profiler.marker(f"algorithm/{algorithm.__class__.__name__}/event/{event.value}", categories=[
+                    event.value,
+                    algorithm.__class__.__name__,
+                ])
+            ctx = cast(ContextManager, contextlib.nullcontext) if marker is None else marker
+            with ctx:
+                exit_code = algorithm.apply(event, self.state, self.logger)
 
             trace_key = f'{algorithm}/{event}'
             trace[trace_key] = Trace(exit_code=exit_code, order=order, run=True)
@@ -126,7 +146,7 @@ class Engine():
     def _compile(
         self,
         algorithms_to_run: Sequence[Algorithm],
-        event: Union[Event, str],
+        event: Event,
     ) -> Sequence[Algorithm]:
         """
         Runs compilation passes that modify the order and content of a list of algorithms.
@@ -148,12 +168,10 @@ class Engine():
         """
         from composer.algorithms import SelectiveBackprop
 
-        event = Event(event)
-
         # Move selective backprop to the beginning while maintaining order of other algorithms
         algorithms = sorted(algorithms_to_run, key=lambda x: not isinstance(x, SelectiveBackprop))
 
-        if event.value.startswith('after') or event.value.startswith('eval_after'):
+        if event.is_after_event:
             """Establish a FILO queue of algorithms before_ and after_ an event.
 
             before_loss: A, B, C, D
@@ -179,4 +197,13 @@ class Engine():
         event = Event(event)
 
         for cb in self.callbacks:
-            cb.run_event(event, self.state, self.logger)
+            marker = None
+            if self.mosaic_profiler is not None:
+                marker = self.mosaic_profiler.marker(f"callback/{cb.__class__.__name__}/event/{event.value}", categories=[
+                    event.value,
+                    cb.__class__.__name__,
+                ])
+            ctx = cast(ContextManager, contextlib.nullcontext) if marker is None else marker
+            with ctx:
+                cb.run_event(event, self.state, self.logger)
+        

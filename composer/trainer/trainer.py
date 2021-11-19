@@ -6,7 +6,7 @@ import collections.abc
 import contextlib
 import logging
 import warnings
-from typing import Any, Dict, List, Optional, Sequence, Union
+from typing import Any, Dict, Generator, List, Optional, Sequence, Union
 
 import torch
 import torch.distributed
@@ -20,7 +20,7 @@ from torchmetrics.metric import Metric
 from composer.core import Callback, Engine, Event, Logger, State
 from composer.core.algorithm import Algorithm
 from composer.core.logging import BaseLoggerBackend, LogLevel
-from composer.core.types import Batch, BreakEpochException, Metrics, Precision, Tensor
+from composer.core.types import Batch, BreakEpochException, Metrics, Precision, Tensor, DataLoader
 from composer.datasets import DataloaderHparams, DataloaderSpec
 from composer.loggers.tqdm_logger import TQDMLoggerBackend
 from composer.models.base import BaseMosaicModel
