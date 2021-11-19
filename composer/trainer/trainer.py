@@ -6,7 +6,7 @@ import collections.abc
 import contextlib
 import logging
 import warnings
-from typing import Any, Dict, Generator, List, Optional, Sequence, Union
+from typing import Any, Dict, List, Optional, Sequence, Union
 
 import torch
 import torch.distributed

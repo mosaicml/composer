@@ -1,13 +1,14 @@
 from __future__ import annotations
 import abc
 
-from typing import Dict, Generator, Optional, Sequence, Type, List, Tuple, Union
+from typing import Dict, Generator, Iterator, Optional, Sequence, Type, List, Tuple, Union
 from types import TracebackType
 
 import time
 
 from composer.core.state import State
 from composer.core.types import Batch, DataLoader
+from composer.datasets.dataloader import WrappedDataLoader
 
 class ProfilerEventHandler(abc.ABC):
     def process_event(
@@ -22,12 +23,34 @@ class ProfilerEventHandler(abc.ABC):
     ) -> None:
         pass
 
+class ProfiledDataLoader(WrappedDataLoader):
+    def __init__(self, profiler: MosaicProfiler, dataloader: DataLoader, name: str) -> None:
+        super().__init__(dataloader)
+        self._mosaic_profiler = profiler
+        self._marker = profiler.marker(f"dataloader/{name}", categories=["dataloader"])
+        self._iterator: Optional[Iterator[Batch]] = None
+
+    def __iter__(self) -> ProfiledDataLoader:
+        self._iterator = iter(self.dataloader)
+        return self
+
+    def __next__(self) -> Batch:
+        assert self._iterator is not None
+        self._marker.start()
+        try:
+            return next(self._iterator)
+        finally:
+            self._marker.finish()
+
+
+
 class MosaicProfiler:
     def __init__(self, state: State, event_handlers: Sequence[ProfilerEventHandler]) -> None:
         self._names_to_markers: Dict[str, Marker] = {}
         self._event_handlers = event_handlers
         self._state = state
-        state.da
+        self._state.train_dataloader = self._wrap_dataloaders_with_markers(self._state.train_dataloader, "train")
+        self._state.eval_dataloader = self._wrap_dataloaders_with_markers(self._state.eval_dataloader, "eval")
 
     def marker(self, name: str, categories: Union[List[str], Tuple[str]] = tuple()) -> Marker:
         if name not in self._names_to_markers:
@@ -47,17 +70,9 @@ class MosaicProfiler:
                 perf_counter_time_ns=perf_counter_time_ns,
             )
 
+    def _wrap_dataloaders_with_markers(self, dataloader: DataLoader, name: str) -> DataLoader:
+        return ProfiledDataLoader(self, dataloader, name)
 
-
-def _inject_before_dataloader_event(self, dataloader: DataLoader) -> Generator[Batch, None, None]:
-    dataloader_iterator = iter(dataloader)
-    while True:
-        self.engine.run_event('BEFORE_DATALOADER_FETCH')
-        try:
-            batch = next(dataloader_iterator)
-            yield batch
-        finally:
-            self.engine.run_event('AFTER_DATALOADER_FETCH')
         
 class Marker:
 
