@@ -9,7 +9,7 @@ import torch.nn as nn
 from composer.core.state import State
 from composer.core.types import Tensor
 from composer.trainer.ddp import DDP
-from tests.fixtures.ddp_fixtures import with_distributed
+from composer.utils.ddp import get_world_size
 
 
 class MinimalConditionalModel(nn.Module):
@@ -45,11 +45,8 @@ class MinimalConditionalModel(nn.Module):
     pytest.param('forced_sync', ([-1, None, None], [-1, -1, None], [-1.5, -1.5, None]), id='forced_sync'),
 ])
 def test_ddp_sync_strategy(ddp_sync_strategy: str, expected_grads: List[Optional[float]]):
-    with_distributed(num_procs=2, target=_test_ddp_sync_strategy)(ddp_sync_strategy=ddp_sync_strategy,
-                                                                  expected_grads=expected_grads)
-
-
-def _test_ddp_sync_strategy(ddp_sync_strategy: str, expected_grads: List[Optional[float]]):
+    if get_world_size() != 2:
+        pytest.skip(f"Skipping test as world_size({get_world_size()}) != num_procs({2})")
 
     original_model = MinimalConditionalModel()
     ddp = DDP(backend="gloo", find_unused_parameters=True, sync_strategy=ddp_sync_strategy, timeout=5.)
