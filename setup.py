@@ -27,7 +27,7 @@ install_requires = [
     "torchvision>=0.9.0",
     "torch>=1.9",
     "argparse>=1.4.0",
-    "yahp>=0.0.10",
+    "yahp>=0.0.12",
 ]
 extra_deps = {}
 
@@ -68,7 +68,7 @@ extra_deps['all'] = set(dep for deps in extra_deps.values() for dep in deps)
 
 setup(
     name="mosaicml",
-    version="0.2.4",
+    version="0.3.0",
     author="MosaicML",
     author_email="team@mosaicml.com",
     description="composing methods for ML training efficiency",
