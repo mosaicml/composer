@@ -135,7 +135,10 @@ def patch_registries(monkeypatch: MonkeyPatch):
     pytest.param(CPUDeviceHparams(), id="cpu"),
     pytest.param(GPUDeviceHparams(), id="gpu", marks=pytest.mark.gpu),
 ])
-@pytest.mark.parametrize("world_size", [1, 2])
+@pytest.mark.parametrize("world_size", [
+    pytest.param(1),
+    pytest.param(2, marks=pytest.mark.world_size(2)),
+])
 def test_ddp(device: DeviceHparams, world_size: int, ddp_tmpdir: str, mosaic_trainer_hparams: TrainerHparams) -> None:
     """
     test strategy for ddp:
