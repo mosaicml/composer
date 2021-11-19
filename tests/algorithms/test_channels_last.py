@@ -7,7 +7,7 @@ import torch
 from composer.algorithms import ChannelsLastHparams
 from composer.core.event import Event
 from composer.core.state import State
-from composer.core.types import Model, Precision, Tensor
+from composer.core.types import DataLoader, Model, Precision, Tensor
 
 
 def _has_singleton_dimension(tensor: Tensor) -> bool:
@@ -31,7 +31,7 @@ def _infer_memory_format(tensor: Tensor) -> str:
 
 
 @pytest.fixture()
-def state(simple_conv_model: Model):
+def state(simple_conv_model: Model, dummy_train_dataloader: DataLoader, dummy_val_dataloader: DataLoader):
     return State(
         model=simple_conv_model,
         train_batch_size=100,
@@ -39,6 +39,8 @@ def state(simple_conv_model: Model):
         precision=Precision.FP32,
         grad_accum=1,
         max_epochs=10,
+        train_dataloader=dummy_train_dataloader,
+        eval_dataloader=dummy_val_dataloader,
     )
 
 
