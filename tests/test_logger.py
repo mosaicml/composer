@@ -11,6 +11,7 @@ from composer.core.logging import Logger, LogLevel
 from composer.core.state import State
 from composer.loggers.file_logger import FileLoggerBackend
 from composer.loggers.logger_hparams import FileLoggerBackendHparams
+from composer.utils.ddp import is_rank_zero
 
 
 @pytest.fixture
@@ -61,20 +62,18 @@ def test_file_logger(dummy_state: State, log_destination: FileLoggerBackend, mon
 
 class TestCoreLogger:
 
-    @pytest.mark.parametrize("rank", [0, 1])
-    def test_deferred(self, dummy_state_without_rank: State, log_file_name: str, monkeypatch: MonkeyPatch,
-                      log_destination: FileLoggerBackend, rank: int):
+    @pytest.mark.world_size(2)
+    def test_deferred(self, dummy_state_without_rank: State, log_file_name: str, log_destination: FileLoggerBackend):
         dummy_state = dummy_state_without_rank
         dummy_state.step = 2
         dummy_state.epoch = 0
         logger = Logger(dummy_state, backends=[log_destination])
         logger.metric_batch({"metric": "before_training_start"})
-        monkeypatch.setattr(dist, "get_rank", lambda: rank)
         log_destination.training_start(dummy_state, logger)
         logger.metric_batch({"metric": "after_training_start"})
         log_destination.batch_end(dummy_state, logger)
         log_destination.training_end(dummy_state, logger)
-        if rank == 0:
+        if is_rank_zero():
             with open(log_file_name, 'r') as f:
                 assert f.readlines() == [
                     '[BATCH][step=2]: { "metric": "before_training_start", }\n',
@@ -82,7 +81,6 @@ class TestCoreLogger:
                 ]
             return
         else:
-            assert rank == 1
             assert not os.path.exists(log_file_name), "nothing should be logged on rank 1"
 
     def test_deep_copy(self, dummy_state_without_rank: State, log_destination: FileLoggerBackend,
