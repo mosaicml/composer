@@ -3,6 +3,9 @@ ARG BASE_IMAGE
 FROM ${BASE_IMAGE}
 ARG DEBIAN_FRONTEND=noninteractive
 
+# remove a bad symlink
+RUN rm -f /usr/local/cuda-11.3/cuda-11.3  
+
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
         libgomp1 \
