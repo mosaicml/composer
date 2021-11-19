@@ -23,24 +23,34 @@ def cloneJenkinsfilesRepo() {
     }
 }
 
-def runPytest(pythonVersion, extraDeps, nGpus = 0) {
+def runPytest(pythonVersion, extraDeps, gpu = false) {
+    def name = "pytest/python${pythonVersion}-extraDeps_${extraDeps}"
+    def title = "Pytest - Python ${pythonVersion}, composer[${extraDeps}]"
+    def summary = "Pytest - Python ${pythonVersion}, composer[${extraDeps}]"
+
+    if (gpu){
+        name = "$name-gpu"
+        title = "$title, GPU"
+        summary = "$summary, GPU"
+    }
     runWithChecks(
-        name: "pytest/python${pythonVersion}-extraDeps_${extraDeps}-nGpus_${nGpus}",
-        title: "Pytest - Python ${pythonVersion}, composer[${extraDeps}], ${nGpus} GPUs",
-        summary: "Pytest - Python ${pythonVersion}, composer[${extraDeps}], ${nGpus} GPUs",
+        name: name,
+        title: title,
+        summary: summary,
     ) {
-        echo "Pytest - Python ${pythonVersion}, composer[${extraDeps}], ${nGpus} GPUs"
+        echo "$title"
         builds << build(
             job: 'scratch/pytest',
             parameters: [
-                string(name: 'P_CLOUD', value: nGpus == 0 ? "aws-next-01" : "p2.xlarge"),
+                string(name: 'P_CLOUD', value: "aws-next-01"),
                 string(name: 'P_GIT_REPO', value: gitUrl),
                 string(name: 'P_GIT_COMMIT', value: gitCommit),
                 string(name: 'P_DOCKER_IMAGE', value: "ravimosaicml/pytorch:1.10.0_cpu-python${pythonVersion}-ubuntu20.04"), // TODO: change ravi to mosaicml/pytorch
                 string(name: 'P_TIMEOUT', value: '1800'),
                 string(name: 'PIP_EXTRA_DEPS', value: extraDeps),
+                string(name: 'PYTEST_COMMAND', value: './scripts/test.sh'),
                 string(name: 'PYTEST_CLI_ARGS', value: '--test_duration all'),
-                string(name: 'P_NODE_SELECTOR', value: nGpus == 0 ? "c5.large" : "p2.xlarge"),
+                string(name: 'P_NODE_SELECTOR', value: gpu ? "p2.xlarge": "c5.large"),
             ]
         )
     }
@@ -89,6 +99,7 @@ def dockerImagePostBuild(stagingImageTag) {
                     string(name: 'P_DOCKER_IMAGE', value: stagingImageTag),
                     string(name: 'P_TIMEOUT', value: '1800'),
                     string(name: 'PIP_EXTRA_DEPS', value: 'dev'),
+                    string(name: 'PYTEST_COMMAND', value: './scripts/test.sh'),
                     string(name: 'PYTEST_CLI_ARGS', value: '--test_duration all'),
                 ]
             )
@@ -103,6 +114,7 @@ def dockerImagePostBuild(stagingImageTag) {
                     string(name: 'P_DOCKER_IMAGE', value: stagingImageTag),
                     string(name: 'P_TIMEOUT', value: '1800'),
                     string(name: 'PIP_EXTRA_DEPS', value: 'all'),
+                    string(name: 'PYTEST_COMMAND', value: './scripts/test.sh'),
                     string(name: 'PYTEST_CLI_ARGS', value: '--test_duration all'),
                 ]
             )
@@ -112,6 +124,7 @@ def dockerImagePostBuild(stagingImageTag) {
 
 stage('Build') {
     def jobs = [:]
+    pytorchChanged = false // TODO remove this line once docker matrix builds are fixed.
     if (pytorchChanged) {
         jobs << expandDockerMatrix(
             P_CLOUD: groovyLoadLabel,
@@ -148,12 +161,11 @@ stage('Build') {
                     )
                 }
             },
-            'Python 3.7 - All 0 GPUs': { -> runPytest("3.7", "all", 0) },
-            'Python 3.8 - All 0 GPUs': { -> runPytest("3.8", "all", 0) },
-            'Python 3.9 - All 0 GPUs': { -> runPytest("3.9", "all", 0) },
-            'Python 3.9 - Dev 0 GPUs': { -> runPytest("3.9", "dev", 0) },
-            // 'Python 3.9 - All 1 GPU': { -> runPytest("3.9", "all", 1) },
-            // 'Python 3.9 - All 2 GPUs': { -> runPytest("3.9", "all", 2) },
+            'Python 3.7 - All': { -> runPytest("3.7", "all") },
+            'Python 3.8 - All': { -> runPytest("3.8", "all") },
+            'Python 3.9 - All': { -> runPytest("3.9", "all") },
+            'Python 3.9 - Dev': { -> runPytest("3.9", "dev") },
+            // 'Python 3.9 - All (GPU)': { -> runPytest("3.9", "all", true) },
         ]        
     }
     try {
