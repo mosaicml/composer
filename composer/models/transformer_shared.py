@@ -5,12 +5,12 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING, Mapping, Tuple
 
-import transformers
-
 from composer.models.base import BaseMosaicModel
 from composer.models.nlp_metrics import LanguageCrossEntropyLoss
 
 if TYPE_CHECKING:
+    import transformers
+
     from composer.core.types import Batch, Metrics, Tensors
 
 log = logging.getLogger(__name__)
@@ -33,6 +33,8 @@ class MosaicTransformer(BaseMosaicModel):
     def __init__(self, module: transformers.PreTrainedModel, config: transformers.PretrainedConfig,
                  tokenizer_name: str) -> None:
         super().__init__()
+        import transformers
+
         self.module = module
         self.config = config
         self.tokenizer = transformers.AutoTokenizer.from_pretrained(tokenizer_name)

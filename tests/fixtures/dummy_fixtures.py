@@ -1,6 +1,5 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
-import os
 from typing import Tuple
 from unittest.mock import MagicMock, Mock
 
@@ -16,7 +15,6 @@ from composer.datasets import DataloaderHparams, DataloaderSpec, DatasetHparams,
 from composer.models import ModelHparams, MosaicClassifier
 from composer.optim import AdamHparams, ExponentialLRHparams
 from composer.trainer import TrainerHparams
-from composer.trainer.ddp import DDPHparams, FileStoreHparams
 from composer.trainer.devices import CPUDeviceHparams
 from tests.fixtures.models import SimpleBatchPairModel, SimpleBatchPairModelHparams, SimpleConvModel
 from tests.utils.dataloader import get_dataloader
@@ -162,7 +160,6 @@ def mosaic_trainer_hparams(
     dummy_val_dataset_hparams: DatasetHparams,
     dummy_train_batch_size: int,
     dummy_val_batch_size: int,
-    ddp_tmpdir: str,
 ) -> TrainerHparams:
     return TrainerHparams(
         algorithms=[],
@@ -172,12 +169,6 @@ def mosaic_trainer_hparams(
         precision=Precision.FP32,
         total_batch_size=dummy_train_batch_size,
         eval_batch_size=dummy_val_batch_size,
-        ddp=DDPHparams(
-            store=FileStoreHparams(os.path.join(ddp_tmpdir, "store")),
-            node_rank=0,
-            num_nodes=1,
-            fork_rank_0=False,
-        ),
         dataloader=DataloaderHparams(
             num_workers=0,
             prefetch_factor=2,
@@ -185,7 +176,7 @@ def mosaic_trainer_hparams(
             pin_memory=False,
             timeout=0,
         ),
-        device=CPUDeviceHparams(n_cpus=1),
+        device=CPUDeviceHparams(),
         loggers=[],
         model=dummy_model_hparams,
         val_dataset=dummy_val_dataset_hparams,

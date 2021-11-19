@@ -15,7 +15,6 @@ def _do_trainer_fit(mosaic_trainer_hparams: TrainerHparams, testing_with_gpu: bo
     memory_monitor_hparams = MemoryMonitorHparams()
     mosaic_trainer_hparams.callbacks.append(memory_monitor_hparams)
 
-    mosaic_trainer_hparams.ddp.fork_rank_0 = False
     mosaic_trainer_hparams.max_epochs = 1
 
     mosaic_trainer_hparams.total_batch_size = 50
@@ -24,7 +23,7 @@ def _do_trainer_fit(mosaic_trainer_hparams: TrainerHparams, testing_with_gpu: bo
 
     # Default model uses CPU
     if testing_with_gpu:
-        trainer.device = DeviceGPU(True, 1)
+        trainer.device = DeviceGPU(True)
 
     log_destination = MagicMock()
     log_destination.will_log.return_value = True
@@ -55,6 +54,7 @@ def test_memory_monitor_cpu(mosaic_trainer_hparams: TrainerHparams):
 
 
 @pytest.mark.timeout(60)
+@pytest.mark.gpu
 def test_memory_monitor_gpu(mosaic_trainer_hparams: TrainerHparams):
     n_cuda_devices = device_count()
     if n_cuda_devices > 0:

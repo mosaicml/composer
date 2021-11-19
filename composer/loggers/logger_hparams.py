@@ -82,6 +82,9 @@ class WandBLoggerBackendHparams(BaseLoggerBackendHparams):
         name (str, optional): Weights and Biases run name.
         entity (str, optional): Weights and Biases entity name.
         tags (str, optional): Comma-seperated list of tags to add to the run.
+        log_artifacts (bool, optional): Whether to log artifacts. Defaults to False.
+        log_artifacts_every_n_batches (int, optional). How frequently to log artifacts. Defaults to 100.
+            Only applicable if `log_artifacts` is True.
 
         extra_init_params (JSON Dictionary, optional): Extra parameters to pass into :func:`wandb.init`.
     """
@@ -90,6 +93,8 @@ class WandBLoggerBackendHparams(BaseLoggerBackendHparams):
     name: Optional[str] = hp.optional(doc="wandb run name", default=None)
     entity: Optional[str] = hp.optional(doc="wandb entity", default=None)
     tags: str = hp.optional(doc="wandb tags comma separated", default="")
+    log_artifacts: bool = hp.optional(doc="Whether to log artifacts", default=False)
+    log_artifacts_every_n_batches: int = hp.optional(doc="interval, in batches, to log artifacts", default=100)
     extra_init_params: Dict[str, JSON] = hp.optional(doc="wandb parameters", default_factory=dict)
 
     def initialize_object(self, config: Optional[Dict[str, Any]] = None) -> WandBLoggerBackend:
@@ -181,17 +186,21 @@ class WandBLoggerBackendHparams(BaseLoggerBackendHparams):
                 self.extra_init_params["config"] = {}
             self.extra_init_params["config"].update(flattened_config)  # type: ignore
 
-        kwargs = {
+        init_params = {
             "project": self.project,
             "name": self.name,
             "entity": self.entity,
             "tags": tags,
         }
 
-        kwargs.update(self.extra_init_params)
+        init_params.update(self.extra_init_params)
 
         from composer.loggers.wandb_logger import WandBLoggerBackend
-        return WandBLoggerBackend(**kwargs)
+        return WandBLoggerBackend(
+            log_artifacts=self.log_artifacts,
+            log_artifacts_every_n_batches=self.log_artifacts_every_n_batches,
+            init_params=init_params,
+        )
 
 
 @dataclass
