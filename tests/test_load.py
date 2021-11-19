@@ -14,13 +14,10 @@ from composer.core.precision import Precision
 from composer.datasets import SyntheticDatasetHparams
 from composer.trainer.devices.device_hparams import CPUDeviceHparams
 
-# skip loading models from huggingface, and resnet101 timeout
-EXCLUDE_MODELS = ['gpt2_114m', 'gpt2_85m', 'gpt2_38m']
 
 modeldir_path = os.path.join(os.path.dirname(composer.__file__), 'yamls', 'models')
 model_names = glob.glob(os.path.join(modeldir_path, '*.yaml'))
 model_names = [os.path.basename(os.path.splitext(mn)[0]) for mn in model_names]
-model_names = [name for name in model_names if name not in EXCLUDE_MODELS]
 
 
 def get_model_algs(model_name: str) -> List[str]:
