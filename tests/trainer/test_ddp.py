@@ -17,11 +17,11 @@ from composer import Callback, Event
 from composer.callbacks import CallbackHparams
 from composer.core.logging import Logger
 from composer.core.state import State
-from composer.utils.ddp import get_global_rank
 from composer.datasets import DataloaderHparams, DataloaderSpec, MemoryFormat, SyntheticDataset, SyntheticDatasetHparams
 from composer.trainer.devices import CPUDeviceHparams, GPUDeviceHparams
 from composer.trainer.devices.device_hparams import DeviceHparams
 from composer.trainer.trainer_hparams import TrainerHparams, callback_registry, dataset_registry
+from composer.utils.ddp import get_global_rank
 from tests.fixtures.models import SimpleBatchPairModelHparams
 
 
