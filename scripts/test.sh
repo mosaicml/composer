@@ -1,6 +1,12 @@
 #!/bin/bash
 set -exuo pipefail
 
+
+# This script wraps calls to pytest with the composer launch script
+# so that multi-process tests (e.g. DDP) are correctly run.
+# It also records coverage and junitxml.
+# All CLI arguments to test.sh are passed through directly to pytest.
+
 JUNIT_PREFIX=${JUNIT_PREFIX:-'build/output/composer'}
 
 mkdir -p $(dirname $JUNIT_PREFIX)
