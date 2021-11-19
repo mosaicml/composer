@@ -46,9 +46,9 @@ class LMDatasetHparams(DatasetHparams):
         try:
             import datasets
             import transformers
-        except ImportError:
+        except ImportError as e:
             raise ImportError('huggingface transformers and datasets are not installed. '
-                              'Please install with `pip install mosaicml-composer[nlp]`')
+                              'Please install with `pip install mosaicml-composer[nlp]`') from e
         self.tokenizer = transformers.AutoTokenizer.from_pretrained(self.tokenizer_name)  #type: ignore (thirdparty)
         self.config = transformers.AutoConfig.from_pretrained(self.tokenizer_name)  #type: ignore (thirdparty)
         lm_datasets = [datasets.load_from_disk(i) for i in self.datadir]  #type: ignore (thirdparty)

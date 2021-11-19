@@ -38,7 +38,8 @@ class SyntheticDataset(torch.utils.data.Dataset):
         num_unique_samples_to_create (int): The number of unique samples to allocate memory for.
         data_type (SyntheticDataType, optional), Type of synthetic data to create.
         label_type (SyntheticDataLabelType, optional), Type of synthetic data to create.
-        num_classes (int): Number of classes to use.
+        num_classes (int, optional): Number of classes to use. Required if `SyntheticDataLabelType`
+            is `CLASSIFICATION_INT` or `CLASSIFICATION_ONE_HOT`. Otherwise, should be `None`.
         label_shape (List[int]): Shape of the tensor for each sample label.
         device (str): Device to store the sample pool. Set to `cuda` to store samples
             on the GPU and eliminate PCI-e bandwidth with the dataloader. Set to `cpu`
@@ -148,8 +149,10 @@ class SyntheticDatasetHparams(DatasetHparams):
     data_type: SyntheticDataType = hp.optional("Type of synthetic data to create.", default=SyntheticDataType.GAUSSIAN)
     label_type: SyntheticDataLabelType = hp.optional("Type of synthetic label to create.",
                                                      default=SyntheticDataLabelType.CLASSIFICATION_INT)
-    num_classes: int = hp.optional(
-        "Number of classes. Required if label_type is SyntheticDataLabelType.CLASSIFICATION.", default=2)
+    num_classes: Optional[int] = hp.optional(
+        "Number of classes. Required if label_type is SyntheticDataLabelType.CLASSIFICATION_INT or "
+        "SyntheticDataLabelType.CLASSIFICATION_ONE_HOT.",
+        default=2)
     label_shape: List[int] = hp.optional(
         "Shape of the label tensor. Required if label_type is SyntheticDataLabelType.RANDOM_INT.",
         default_factory=lambda: [1])

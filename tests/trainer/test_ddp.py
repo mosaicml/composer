@@ -70,6 +70,7 @@ class TrackedDatasetHparams(SyntheticDatasetHparams):
     def initialize_object(self) -> DataloaderSpec:
         assert self.is_train is not None
         assert self.tmpdir is not None
+        assert self.num_classes is not None
         return DataloaderSpec(
             TrackedDataset(
                 total_dataset_size=self.total_dataset_size,
