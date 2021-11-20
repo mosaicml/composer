@@ -1,13 +1,12 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
+import contextlib
 import logging
 from collections import OrderedDict
 from dataclasses import dataclass
-from typing import Dict, Optional, Sequence, Union, ContextManager, cast
-import contextlib
+from typing import ContextManager, Dict, Optional, Sequence, Union, cast
 
 from composer.core.algorithm import Algorithm
-from composer.core.callback import Callback
 from composer.core.event import Event
 from composer.core.logging import Logger
 from composer.core.profiler import MosaicProfiler
@@ -45,17 +44,11 @@ class Engine():
 
     Args:
         state (State): the initial ``State`` of the trainer. Will be modified in-place.
-        algorithms (Sequence[Algorithm]): the list of algorithms for this engine to execute.
         logger (Optional[Logger]): a ``Logger`` instance to be used for logging algorithm and callback specific metrics.
-        callbacks (Sequence[Callback]): the list of callbacks for this engine to execute.
+        mosaic_profiler (Optional[MosaicProfiler]): An instance of the Mosaic profiler, if profiling, or None otherwise.
     """
 
-    def __init__(self,
-                 state: State,
-                 algorithms: Sequence[Algorithm],
-                 logger: Optional[Logger] = None,
-                 mosaic_profiler: Optional[MosaicProfiler] = None,
-                 callbacks: Sequence[Callback] = None):
+    def __init__(self, state: State, logger: Optional[Logger] = None, mosaic_profiler: Optional[MosaicProfiler] = None):
         if logger is None:
             log.warning("No logger passed to the engine.  Defaulting to an empty logger")
             logger = Logger(state=state, backends=[])
@@ -63,9 +56,7 @@ class Engine():
         assert logger is not None
         self.logger = logger
         self.state = state
-        self.algorithms = algorithms
         self.mosaic_profiler = mosaic_profiler
-        self.callbacks = callbacks or []
 
     def run_event(
         self,
@@ -118,7 +109,7 @@ class Engine():
         self,
         event: Event,
     ) -> Traces:
-        algorithms_to_run = [algo for algo in self.algorithms if algo.match(event, self.state)]
+        algorithms_to_run = [algo for algo in self.state.algorithms if algo.match(event, self.state)]
 
         # future collision resolution
         algorithms_to_run = self._compile(algorithms_to_run, event)
@@ -127,11 +118,12 @@ class Engine():
         for order, algorithm in enumerate(algorithms_to_run):
             marker = None
             if self.mosaic_profiler is not None:
-                marker = self.mosaic_profiler.marker(f"algorithm/{algorithm.__class__.__name__}/event/{event.value}", categories=[
-                    event.value,
-                    algorithm.__class__.__name__,
-                ])
-            ctx = cast(ContextManager, contextlib.nullcontext) if marker is None else marker
+                marker = self.mosaic_profiler.marker(f"algorithm/{algorithm.__class__.__name__}/event/{event.value}",
+                                                     categories=[
+                                                         event.value,
+                                                         algorithm.__class__.__name__,
+                                                     ])
+            ctx = cast(ContextManager, contextlib.nullcontext()) if marker is None else marker
             with ctx:
                 exit_code = algorithm.apply(event, self.state, self.logger)
 
@@ -196,14 +188,14 @@ class Engine():
         """
         event = Event(event)
 
-        for cb in self.callbacks:
+        for cb in self.state.callbacks:
             marker = None
             if self.mosaic_profiler is not None:
-                marker = self.mosaic_profiler.marker(f"callback/{cb.__class__.__name__}/event/{event.value}", categories=[
-                    event.value,
-                    cb.__class__.__name__,
-                ])
-            ctx = cast(ContextManager, contextlib.nullcontext) if marker is None else marker
+                marker = self.mosaic_profiler.marker(f"callback/{cb.__class__.__name__}/event/{event.value}",
+                                                     categories=[
+                                                         event.value,
+                                                         cb.__class__.__name__,
+                                                     ])
+            ctx = cast(ContextManager, contextlib.nullcontext()) if marker is None else marker
             with ctx:
                 cb.run_event(event, self.state, self.logger)
-        

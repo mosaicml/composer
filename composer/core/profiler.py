@@ -1,29 +1,46 @@
 from __future__ import annotations
+
 import abc
-
-from typing import Dict, Generator, Iterator, Optional, Sequence, Type, List, Tuple, Union
-from types import TracebackType
-
 import time
+import dataclasses
+from types import TracebackType
+from typing import Dict, Iterator, List, Optional, Sequence, Tuple, Type, Union
 
 from composer.core.state import State
 from composer.core.types import Batch, DataLoader
+from composer.core.callback import Callback
 from composer.datasets.dataloader import WrappedDataLoader
 
-class ProfilerEventHandler(abc.ABC):
+import yahp as hp
+
+
+@dataclasses.dataclass
+class ProfilerEventHandlerHparams(hp.Hparams, abc.ABC):
+    flush_every_n_batches: int = hp.optional("Flush frequency in batches", default=100)
+    buffering: int = hp.optional("Python file buffering", default=-1)
+
+    @abc.abstractmethod
+    def initialize_object(self) -> ProfilerEventHandler:
+        pass
+
+class ProfilerEventHandler(Callback, abc.ABC):
+
     def process_event(
         self,
         name: str,
-        categories: Union[List[str], Tuple[str]],
+        categories: Union[List[str], Tuple[str, ...]],
         is_start: bool,
         epoch: int,
         step: int,
         wall_clock_time_ns: int,
         perf_counter_time_ns: int,
     ) -> None:
+        del name, categories, is_start, epoch, step, wall_clock_time_ns, perf_counter_time_ns  # unused
         pass
 
+
 class ProfiledDataLoader(WrappedDataLoader):
+
     def __init__(self, profiler: MosaicProfiler, dataloader: DataLoader, name: str) -> None:
         super().__init__(dataloader)
         self._mosaic_profiler = profiler
@@ -43,8 +60,8 @@ class ProfiledDataLoader(WrappedDataLoader):
             self._marker.finish()
 
 
-
 class MosaicProfiler:
+
     def __init__(self, state: State, event_handlers: Sequence[ProfilerEventHandler]) -> None:
         self._names_to_markers: Dict[str, Marker] = {}
         self._event_handlers = event_handlers
@@ -52,7 +69,7 @@ class MosaicProfiler:
         self._state.train_dataloader = self._wrap_dataloaders_with_markers(self._state.train_dataloader, "train")
         self._state.eval_dataloader = self._wrap_dataloaders_with_markers(self._state.eval_dataloader, "eval")
 
-    def marker(self, name: str, categories: Union[List[str], Tuple[str]] = tuple()) -> Marker:
+    def marker(self, name: str, categories: Union[List[str], Tuple[str, ...]] = tuple()) -> Marker:
         if name not in self._names_to_markers:
             self._names_to_markers[name] = Marker(self, name, categories)
         self._names_to_markers[name].categories = categories
@@ -73,18 +90,23 @@ class MosaicProfiler:
     def _wrap_dataloaders_with_markers(self, dataloader: DataLoader, name: str) -> DataLoader:
         return ProfiledDataLoader(self, dataloader, name)
 
-        
+
 class Marker:
 
-    def __init__(self, mosaic_profiler: MosaicProfiler, name: str, categories: Union[List[str], Tuple[str]] = tuple()) -> None:
+    def __init__(self,
+                 mosaic_profiler: MosaicProfiler,
+                 name: str,
+                 categories: Union[List[str], Tuple[str, ...]] = tuple()) -> None:
         self._instrumentation = mosaic_profiler
         self.name = name
         self.categories = categories
         if name in mosaic_profiler._names_to_markers:
             if mosaic_profiler._names_to_markers[name] is not self:
-                raise RuntimeError(f"{self.__class__.__name__} should not be instantiated directly. Instead, use {mosaic_profiler.__class__.__name__}.marker(name)")
+                raise RuntimeError(
+                    f"{self.__class__.__name__} should not be instantiated directly. Instead, use {mosaic_profiler.__class__.__name__}.marker(name)"
+                )
         self._started = False
-    
+
     def start(self) -> None:
         if self._started:
             raise RuntimeError(f"Cannot start an {self.__class__.__name__} that is already started")
@@ -110,6 +132,7 @@ class Marker:
     def __enter__(self) -> Marker:
         self.start()
         return self
-    
-    def __exit__(self, exc_type: Optional[Type[BaseException]], exc: Optional[BaseException], traceback: Optional[TracebackType]) -> None:
+
+    def __exit__(self, exc_type: Optional[Type[BaseException]], exc: Optional[BaseException],
+                 traceback: Optional[TracebackType]) -> None:
         self.finish()

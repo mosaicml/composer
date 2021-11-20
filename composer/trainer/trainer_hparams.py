@@ -24,6 +24,7 @@ from composer.models import (CIFARResNetHparams, EfficientNetB0Hparams, GPT2Hpar
                              ModelHparams, ResNet18Hparams, ResNet50Hparams, ResNet101Hparams, UnetHparams)
 from composer.optim import (AdamHparams, AdamWHparams, DecoupledAdamWHparams, DecoupledSGDWHparams, OptimizerHparams,
                             RAdamHparams, RMSPropHparams, SchedulerHparams, SGDHparams, scheduler)
+from composer.profiler import MosaicProfilerHparams
 from composer.trainer.ddp import DDPHparams
 from composer.trainer.devices import CPUDeviceHparams, DeviceHparams, GPUDeviceHparams
 from composer.utils.ddp import get_world_size
@@ -179,6 +180,7 @@ class TrainerHparams(hp.Hparams):
     log_level: str = hp.optional(doc="Python loglevel to use composer", default="INFO")
 
     ddp_sync_strategy: Optional[str] = hp.optional(doc="Strategy for DDP syncing", default=None)
+    mosaic_profiler: Optional[MosaicProfilerHparams] = hp.optional(doc="Mosaic profiler hparams", default=None)
 
     def validate(self):
         super().validate()

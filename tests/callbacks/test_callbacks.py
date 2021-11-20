@@ -24,7 +24,8 @@ class EventTrackerCallback(Callback):
 def test_run_event_callbacks(event: Event, dummy_state: State, monkeypatch: _pytest.monkeypatch.MonkeyPatch):
     callback = EventTrackerCallback()
     logger = Logger(dummy_state)
-    engine = Engine(state=dummy_state, algorithms=[], logger=logger, callbacks=[callback])
+    dummy_state.callbacks = [callback]
+    engine = Engine(state=dummy_state, logger=logger)
 
     engine.run_event(event)
 

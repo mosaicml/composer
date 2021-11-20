@@ -41,7 +41,7 @@ def test_classifier_trains(
     model = state.model
 
     logger = Logger(state=state, backends=[])
-    engine = Engine(state=state, algorithms=algorithms, logger=logger)
+    engine = Engine(state=state, logger=logger)
 
     engine.run_event(Event.INIT)
     engine.run_event(Event.TRAINING_START)

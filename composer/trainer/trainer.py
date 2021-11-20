@@ -20,7 +20,8 @@ from torchmetrics.metric import Metric
 from composer.core import Callback, Engine, Event, Logger, State
 from composer.core.algorithm import Algorithm
 from composer.core.logging import BaseLoggerBackend, LogLevel
-from composer.core.types import Batch, BreakEpochException, Metrics, Precision, Tensor, DataLoader
+from composer.core.profiler import MosaicProfiler, ProfilerEventHandler
+from composer.core.types import Batch, BreakEpochException, Metrics, Precision, Tensor
 from composer.datasets import DataloaderHparams, DataloaderSpec
 from composer.loggers.tqdm_logger import TQDMLoggerBackend
 from composer.models.base import BaseMosaicModel
@@ -166,6 +167,9 @@ class Trainer:
             checkpoint_folder: Optional[str] = "checkpoints",
             checkpoint_interval: Optional[int] = 1,
 
+            # Profiling
+            profile_event_handlers: Optional[List[ProfilerEventHandler]] = None,
+
             # Optional config (ex. an hparams yaml file)
             config: Optional[Dict[str, Any]] = None):
         # surpressing GradScaler warnings as they are always created
@@ -223,13 +227,20 @@ class Trainer:
         )
         self.eval_dl_spec = eval_dataloader_spec
 
+        if not log_destinations:
+            log_destinations = [TQDMLoggerBackend()]
+        callbacks = [*log_destinations, *callbacks]
+
+        if profile_event_handlers is not None:
+            callbacks = [*callbacks, *profile_event_handlers]
+
         self.state = State(
             max_epochs=max_epochs,
             train_batch_size=train_batch_size,
             eval_batch_size=eval_batch_size,
+            model=model,
             algorithms=algorithms,
             callbacks=callbacks,
-            model=model,
             grad_accum=grad_accum,
             precision=precision,
             precision_context=self.device.precision_context,
@@ -237,12 +248,17 @@ class Trainer:
             eval_dataloader=eval_dataloader,
         )
 
-        if not log_destinations:
-            log_destinations = [TQDMLoggerBackend()]
         self.logger = Logger(self.state, log_destinations)
-        self.state.callbacks = [*log_destinations, *callbacks]
+        if profile_event_handlers is not None:
+            profiler = MosaicProfiler(self.state, profile_event_handlers)
+        else:
+            profiler = None
 
-        self.engine = Engine(self.state, self.state.algorithms, self.logger, self.state.callbacks)
+        self.engine = Engine(
+            state=self.state,
+            logger=self.logger,
+            mosaic_profiler=profiler,
+        )
 
         self.validate_every_n_batches = validate_every_n_batches
         self.validate_every_n_epochs = validate_every_n_epochs
@@ -307,12 +323,17 @@ class Trainer:
         algorithms = [x.initialize_object() for x in hparams.algorithms]
 
         # callbacks, loggers, and seed
-        callbacks = [x.initialize_object() for x in hparams.callbacks]
         dict_config = hparams.to_dict()
         log_destinations = [x.initialize_object(config=dict_config) for x in hparams.loggers]
+        callbacks = [x.initialize_object() for x in hparams.callbacks]
 
         train_dl_spec = hparams.train_dataset.initialize_object()
         eval_dl_spec = hparams.val_dataset.initialize_object()
+
+        trace_event_handlers = None
+        if hparams.mosaic_profiler is not None:
+            trace_event_handlers = [x.initialize_object() for x in hparams.mosaic_profiler.trace_event_handlers]
+
 
         trainer = cls(
             model=model,
@@ -354,6 +375,9 @@ class Trainer:
             # Callbacks and logging
             log_destinations=log_destinations,
             callbacks=tuple(callbacks),
+
+            # Profiler
+            profile_event_handlers=trace_event_handlers,
 
             # Checkpointing hparams
             checkpoint_filepath=hparams.checkpoint_filepath,
@@ -483,7 +507,7 @@ class Trainer:
         assert isinstance(original_model, BaseMosaicModel)
 
         # print training start
-        self.logger.metric_fit({"trainer/algorithms": [str(algo) for algo in self.engine.algorithms]})
+        self.logger.metric_fit({"trainer/algorithms": [str(algo) for algo in self.state.algorithms]})
 
         if self.compute_training_metrics:
             log.warn('Computing model evaluation metrics during training.'

@@ -91,9 +91,9 @@ def train():
     )
 
     # define which algorithms to apply and configure the cmp engine
-    algorithms = [BlurPool(replace_convs=True, replace_maxpools=True, blur_first=False)]
+    state.algorithms = [BlurPool(replace_convs=True, replace_maxpools=True, blur_first=False)]
 
-    engine = composer.Engine(state=state, algorithms=algorithms)
+    engine = composer.Engine(state=state)
 
     # add two-way callbacks in the trainer loop
     engine.run_event(
