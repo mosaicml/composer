@@ -41,6 +41,7 @@ extra_deps['dev'] = [
     'isort>=5.9.3',
     'ipython>=7.29.0',
     'ipykernel>=6.5.0',
+    'jupyter>=1.0.0',
     'yamllint>=1.26.2',
     'pytest-timeout>=1.4.2',
     'recommonmark>=0.7.1',
