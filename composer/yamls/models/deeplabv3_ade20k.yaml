@@ -1,0 +1,52 @@
+train_dataset:
+  ade20k:
+    datadir: null
+    split: train
+    resize_size: 512
+    crop_size: 512
+    drop_last: true
+    shuffle: true
+val_dataset:
+  ade20k:
+    datadir: null
+    split: val
+    resize_size: 512
+    crop_size: 512
+    drop_last: false
+    shuffle: false
+optimizer:
+  sgd:
+    lr: 0.01
+    momentum: 0.9
+    weight_decay: 5.0e-4
+    dampening: 0
+    nesterov: false
+schedulers:
+  cosine_decay:
+    T_max: "160000ba"
+    eta_min: 0
+    verbose: false
+    interval: step
+model:
+  deeplabv3:
+    #    initializers:
+    #      - kaiming_normal
+    #      - bn_uniform
+    num_classes: 151
+loggers:
+  - tqdm: {}
+max_epochs: 127
+total_batch_size: 16
+eval_batch_size: 16
+seed: 17
+device:
+  gpu: {}
+dataloader:
+  pin_memory: true
+  timeout: 0
+  prefetch_factor: 2
+  persistent_workers: true
+  num_workers: 8
+validate_every_n_epochs: 1
+grad_accum: 1
+precision: amp

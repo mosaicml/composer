@@ -20,8 +20,9 @@ from composer.core.types import Precision
 from composer.datasets import DataloaderHparams
 from composer.loggers import (BaseLoggerBackendHparams, FileLoggerBackendHparams, TQDMLoggerBackendHparams,
                               WandBLoggerBackendHparams)
-from composer.models import (CIFARResNetHparams, EfficientNetB0Hparams, GPT2Hparams, MnistClassifierHparams,
-                             ModelHparams, ResNet18Hparams, ResNet50Hparams, ResNet101Hparams, UnetHparams)
+from composer.models import (CIFARResNetHparams, DeepLabv3Hparams, EfficientNetB0Hparams, GPT2Hparams,
+                             MnistClassifierHparams, ModelHparams, ResNet18Hparams, ResNet50Hparams, ResNet101Hparams,
+                             UnetHparams)
 from composer.optim import (AdamHparams, AdamWHparams, DecoupledAdamWHparams, DecoupledSGDWHparams, OptimizerHparams,
                             RAdamHparams, RMSPropHparams, SchedulerHparams, SGDHparams, scheduler)
 from composer.trainer.ddp import DDPHparams
@@ -53,6 +54,7 @@ scheduler_registry = {
 
 model_registry = {
     "unet": UnetHparams,
+    "deeplabv3": DeepLabv3Hparams,
     "efficientnetb0": EfficientNetB0Hparams,
     "resnet56_cifar10": CIFARResNetHparams,
     "resnet101": ResNet101Hparams,
@@ -63,6 +65,7 @@ model_registry = {
 }
 
 dataset_registry = {
+    "ade20k": datasets.ADE20kDatasetHparams,
     "brats": datasets.BratsDatasetHparams,
     "imagenet": datasets.ImagenetDatasetHparams,
     "cifar10": datasets.CIFAR10DatasetHparams,
