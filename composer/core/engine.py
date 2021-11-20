@@ -96,7 +96,7 @@ class Engine():
         name = event.canonical_name
         if self.mosaic_profiler is not None and (event.is_before_event or event.is_after_event):
             # if not part of an event pair (e.g. init or after dataloader), then don't record an event here
-            marker = self.mosaic_profiler.marker(f"event/{name}")
+            marker = self.mosaic_profiler.marker(name)
         if event.is_after_event and marker is not None:
             marker.finish()
         traces = self._run_algorithms(event)
