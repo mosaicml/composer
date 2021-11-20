@@ -39,6 +39,7 @@ extra_deps['dev'] = [
     'pytest>=6.2.0',
     'yapf>=0.13.0',
     'isort>=5.9.3',
+    'ipython>=7.29.0',
     'yamllint>=1.26.2',
     'pytest-timeout>=1.4.2',
     'recommonmark>=0.7.1',
