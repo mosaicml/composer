@@ -334,7 +334,6 @@ class Trainer:
         if hparams.mosaic_profiler is not None:
             trace_event_handlers = [x.initialize_object() for x in hparams.mosaic_profiler.trace_event_handlers]
 
-
         trainer = cls(
             model=model,
             train_dataloader_spec=train_dl_spec,

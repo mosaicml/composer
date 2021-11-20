@@ -8,12 +8,12 @@ import pathlib
 import time
 from typing import List, Optional
 
-import torch.distributed
 import _pytest.config
 import _pytest.config.argparsing
 import _pytest.fixtures
 import _pytest.mark
 import pytest
+import torch.distributed
 from _pytest.monkeypatch import MonkeyPatch
 
 import composer
@@ -134,8 +134,12 @@ def ddp_tmpdir(patch_run_directory: None) -> str:
     assert run_dir is not None
     return run_dir
 
+
 @pytest.fixture(autouse=True)
-def patch_run_directory(monkeypatch: pytest.MonkeyPatch, tmpdir: pathlib.Path, ):
+def patch_run_directory(
+    monkeypatch: pytest.MonkeyPatch,
+    tmpdir: pathlib.Path,
+):
     original_run_directory = composer.utils.run_directory.get_run_directory()
     assert original_run_directory is not None
     tmpdir_test_folder_name = os.path.basename(os.path.normpath(str(tmpdir)))

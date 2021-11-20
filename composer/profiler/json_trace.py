@@ -3,9 +3,9 @@
 from __future__ import annotations
 
 import atexit
+import dataclasses
 import json
 import os
-import dataclasses
 from typing import IO, List, Optional, Tuple, Union
 
 import yahp as hp
@@ -17,6 +17,7 @@ from composer.core.types import Logger
 from composer.utils.ddp import get_global_rank
 from composer.utils.run_directory import get_relative_to_run_directory
 
+
 @dataclasses.dataclass
 class JSONTraceHparams(ProfilerEventHandlerHparams):
     flush_every_n_batches: int = hp.optional("Flush frequency in batches", default=100)
@@ -24,6 +25,7 @@ class JSONTraceHparams(ProfilerEventHandlerHparams):
 
     def initialize_object(self) -> JSONTrace:
         return JSONTrace(**dataclasses.asdict(self))
+
 
 class JSONTrace(ProfilerEventHandler):
 

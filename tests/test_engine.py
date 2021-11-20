@@ -6,7 +6,7 @@ from unittest.mock import Mock
 import pytest
 
 from composer.algorithms import SelectiveBackprop
-from composer.core import Event, engine, Logger
+from composer.core import Event, Logger, engine
 from composer.core.algorithm import Algorithm
 from composer.core.state import State
 
@@ -36,41 +36,44 @@ def run_event(event: Event, state: State, logger: Logger):
 @pytest.mark.parametrize('event', list(Event))
 class TestAlgorithms:
 
-    def test_algorithms_always_called(self, event: Event, dummy_state: State, always_match_algorithms: Sequence[Algorithm], dummy_logger: Logger):
+    def test_algorithms_always_called(self, event: Event, dummy_state: State,
+                                      always_match_algorithms: Sequence[Algorithm], dummy_logger: Logger):
         dummy_state.algorithms = always_match_algorithms
         _ = run_event(event, dummy_state, dummy_logger)
         for algo in always_match_algorithms:
             algo.apply.assert_called_once()
             algo.match.assert_called_once()
 
-    def test_algorithms_never_called(self, event: Event, dummy_state: State, never_match_algorithms: Sequence[Algorithm], dummy_logger: Logger):
+    def test_algorithms_never_called(self, event: Event, dummy_state: State,
+                                     never_match_algorithms: Sequence[Algorithm], dummy_logger: Logger):
         dummy_state.algorithms = never_match_algorithms
         _ = run_event(event, dummy_state, dummy_logger)
         for algo in never_match_algorithms:
             algo.apply.assert_not_called()
             algo.match.assert_called_once()
 
-    def test_engine_trace_all(self, event: Event, dummy_state: State, always_match_algorithms: Sequence[Algorithm], dummy_logger: Logger):
+    def test_engine_trace_all(self, event: Event, dummy_state: State, always_match_algorithms: Sequence[Algorithm],
+                              dummy_logger: Logger):
         dummy_state.algorithms = always_match_algorithms
         trace = run_event(event, dummy_state, dummy_logger)
 
         assert all([tr.run for tr in trace.values()])
 
-    def test_engine_trace_never(self, event: Event, dummy_state: State, never_match_algorithms: Sequence[Algorithm], dummy_logger: Logger):
+    def test_engine_trace_never(self, event: Event, dummy_state: State, never_match_algorithms: Sequence[Algorithm],
+                                dummy_logger: Logger):
         dummy_state.algorithms = never_match_algorithms
         trace = run_event(event, dummy_state, dummy_logger)
 
         assert all([tr.run is False for tr in trace.values()])
 
 
-@pytest.mark.parametrize(
-    'event',
-    [
-        Event.TRAINING_START,
-        Event.BEFORE_LOSS,
-        Event.BEFORE_BACKWARD,
-    ])
-def test_engine_lifo_first_in(event: Event, dummy_state: State, dummy_logger: Logger, always_match_algorithms: Sequence[Algorithm]):
+@pytest.mark.parametrize('event', [
+    Event.TRAINING_START,
+    Event.BEFORE_LOSS,
+    Event.BEFORE_BACKWARD,
+])
+def test_engine_lifo_first_in(event: Event, dummy_state: State, dummy_logger: Logger,
+                              always_match_algorithms: Sequence[Algorithm]):
     dummy_state.algorithms = always_match_algorithms
     trace = run_event(event, dummy_state, dummy_logger)
     order = [tr.order for tr in trace.values()]
@@ -84,7 +87,8 @@ def test_engine_lifo_first_in(event: Event, dummy_state: State, dummy_logger: Lo
     Event.AFTER_BACKWARD,
     Event.TRAINING_END,
 ])
-def test_engine_lifo_last_out(event: Event, dummy_state: State, always_match_algorithms: Sequence[Algorithm], dummy_logger: Logger):
+def test_engine_lifo_last_out(event: Event, dummy_state: State, always_match_algorithms: Sequence[Algorithm],
+                              dummy_logger: Logger):
     dummy_state.algorithms = always_match_algorithms
     trace = run_event(event, dummy_state, dummy_logger)
     order = [tr.order for tr in trace.values()]
@@ -93,7 +97,8 @@ def test_engine_lifo_last_out(event: Event, dummy_state: State, always_match_alg
     assert order == expected_order
 
 
-def test_engine_with_selective_backprop(always_match_algorithms: Sequence[Algorithm], dummy_logger: Logger, dummy_state: State):
+def test_engine_with_selective_backprop(always_match_algorithms: Sequence[Algorithm], dummy_logger: Logger,
+                                        dummy_state: State):
     sb = SelectiveBackprop(start=0.5, end=0.9, keep=0.5, scale_factor=0.5, interrupt=2)
     sb.apply = Mock(return_value='sb')
     sb.match = Mock(return_value=True)

@@ -1,17 +1,19 @@
+# Copyright 2021 MosaicML. All Rights Reserved.
+
 from __future__ import annotations
 
 import abc
-import time
 import dataclasses
+import time
 from types import TracebackType
 from typing import Dict, Iterator, List, Optional, Sequence, Tuple, Type, Union
 
+import yahp as hp
+
+from composer.core.callback import Callback
 from composer.core.state import State
 from composer.core.types import Batch, DataLoader
-from composer.core.callback import Callback
 from composer.datasets.dataloader import WrappedDataLoader
-
-import yahp as hp
 
 
 @dataclasses.dataclass
@@ -22,6 +24,7 @@ class ProfilerEventHandlerHparams(hp.Hparams, abc.ABC):
     @abc.abstractmethod
     def initialize_object(self) -> ProfilerEventHandler:
         pass
+
 
 class ProfilerEventHandler(Callback, abc.ABC):
 
