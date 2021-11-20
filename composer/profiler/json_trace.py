@@ -38,10 +38,11 @@ class JSONTrace(ProfilerEventHandler):
     def _run_event(self, event: Event, state: State, logger: Logger) -> None:
         if event == Event.INIT:
             os.makedirs(get_relative_to_run_directory("mosaic_profiler"), exist_ok=True)
-            self._logfile = open(get_relative_to_run_directory(
+            self._file = open(get_relative_to_run_directory(
                 os.path.join("mosaic_profiler", f"rank_{get_global_rank()}.trace.json")),
                                  "x",
                                  buffering=self._buffering)
+            self._file.write("[\n")
             atexit.register(self._close_logfile)
         if event == Event.TRAINING_END:
             self._close_logfile()
@@ -52,10 +53,10 @@ class JSONTrace(ProfilerEventHandler):
             self._flush()
 
     def _close_logfile(self):
-        if self._logfile is not None:
-            self._logfile.write("\n]")
-            self._logfile.close()
-            self._logfile = None
+        if self._file is not None:
+            self._file.write("\n]")
+            self._file.close()
+            self._file = None
 
     def _flush(self):
         assert self._file is not None, "flush is only called when the file is open"

@@ -112,7 +112,7 @@ class Marker:
 
     def start(self) -> None:
         if self._started:
-            raise RuntimeError(f"Cannot start an {self.__class__.__name__} that is already started")
+            raise RuntimeError(f"Attempted to start marker {self.name}; however, this marker is already started")
         self._instrumentation.record_event(
             self,
             is_start=True,
@@ -123,7 +123,7 @@ class Marker:
 
     def finish(self) -> None:
         if not self._started:
-            raise RuntimeError(f"Cannot finish a {self.__class__.__name__} that is not started")
+            raise RuntimeError(f"Attempted to finish marker {self.name}; however, this marker is not yet started")
         self._instrumentation.record_event(
             self,
             is_start=False,
