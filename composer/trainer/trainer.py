@@ -495,8 +495,6 @@ class Trainer:
 
         assert state.optimizers is not None
         assert state.schedulers is not None
-        # place the state, model in the proper devices
-        self.device.prepare(state)
         state.model = self.device.module_to_device(state.model)
         state.optimizers = map_collection(state.optimizers, self.device.optimizer_to_device)
 

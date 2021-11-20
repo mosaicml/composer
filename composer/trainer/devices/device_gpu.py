@@ -9,11 +9,11 @@ import torch
 import torch.cuda.amp
 import torch.utils.data
 
-from composer.core.state import State
 from composer.core.types import Batch, BatchPair, DataLoader, Precision, StateDict, Tensor, Tensors, TPrefetchFn
 from composer.datasets.dataloader import WrappedDataLoader
 from composer.trainer.devices.device import Device, T_nnModule
 from composer.utils import map_collection
+from composer.utils.ddp import get_local_rank
 
 
 class CudaDataLoader(WrappedDataLoader):
@@ -107,28 +107,16 @@ class DeviceGPU(Device):
         prefetch_in_cuda_stream: bool,
     ):
         self.prefetch_in_cuda_stream = prefetch_in_cuda_stream
-        self._device: Optional[torch.device] = None
-
-    def prepare(self, state: State) -> None:
-        if self._device is not None:
-            raise ValueError("device is already set")
-        gpu = state.local_rank
+        gpu = get_local_rank()
         self._device = torch.device(f"cuda:{gpu}")
         torch.cuda.set_device(self._device)
         assert torch.cuda.current_device() == gpu
 
-    def _require_device(self) -> None:
-        if self._device is None:
-            raise RuntimeError("device.module_to_device() was called before device.prepare(). "
-                               "Please call device.prepare() first.")
-
     def module_to_device(self, module: T_nnModule) -> T_nnModule:
-        self._require_device()
         assert self._device is not None
         return module.to(self._device)
 
     def dataloader_to_device(self, dataloader: DataLoader, prefetch_fn: Optional[TPrefetchFn]) -> DataLoader:
-        self._require_device()
         assert self._device is not None
         return CudaDataLoader(
             dataloader,
