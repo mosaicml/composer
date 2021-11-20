@@ -79,7 +79,7 @@ setup(
         "composer": ['py.typed'],
         "": package_files('composer/yamls'),
     },
-    packages=setuptools.find_packages(include=["composer"]),
+    packages=setuptools.find_packages(include=["composer.*"]),
     classifiers=[
         "Programming Language :: Python :: 3",
     ],
