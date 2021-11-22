@@ -12,7 +12,7 @@ from torch.profiler.profiler import ProfilerAction
 
 from composer import Callback
 from composer.callbacks.callback_hparams import TorchProfilerHparams
-from composer.core.types import StateDict
+from composer.core.types import Event, StateDict
 from composer.utils.ddp import get_global_rank
 from composer.utils.run_directory import get_relative_to_run_directory
 
@@ -132,7 +132,15 @@ class TorchProfiler(Callback):
                 torch_scheduler_action = ProfilerAction.RECORD_AND_SAVE
         return torch_scheduler_action
 
-    def training_start(self, state: State, logger: Logger) -> None:
+    def _run_event(self, event: Event, state: State, logger: Logger) -> None:
+        if event == Event.TRAINING_START:
+            self._training_start(state, logger)
+        if event == Event.BATCH_START:
+            self._batch_start(state, logger)
+        if event == Event.BATCH_END:
+            self._batch_end(state, logger)
+
+    def _training_start(self, state: State, logger: Logger) -> None:
         del state, logger  # unused
         assert self.profiler is None, _PROFILE_MISSING_ERROR
         self.profiler = torch.profiler.profile(
@@ -151,16 +159,16 @@ class TorchProfiler(Callback):
         self.profiler.__enter__()
         atexit.register(self._close_profiler)
 
-    def batch_end(self, state: State, logger: Logger) -> None:
+    def _batch_end(self, state: State, logger: Logger) -> None:
         del state, logger  # unused
         assert self.profiler is not None, _PROFILE_MISSING_ERROR
         self.profiler.step()
 
-    def epoch_start(self, state: State, logger: Logger) -> None:
+    def _epoch_start(self, state: State, logger: Logger) -> None:
         del logger  # unused
         self.profiler_state.batches_per_epoch = state.steps_per_epoch
 
-    def batch_start(self, state: State, logger: Logger) -> None:
+    def _batch_start(self, state: State, logger: Logger) -> None:
         self.profiler_state.batch_in_epoch = state.batch_idx
         assert self.profiler is not None, _PROFILE_MISSING_ERROR
         logger.metric_batch({"profiler/state": self.profiler.current_action.name})

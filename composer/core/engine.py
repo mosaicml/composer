@@ -179,8 +179,4 @@ class Engine():
         event = Event(event)
 
         for cb in self.callbacks:
-            if not hasattr(cb, event.value):
-                raise ValueError(f'f{cb} has no method for event {event}')
-            else:
-                f = getattr(cb, event.value)
-                f(self.state, self.logger)
+            cb.run_event(event, self.state, self.logger)

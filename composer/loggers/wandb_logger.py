@@ -7,6 +7,7 @@ import os
 import sys
 from typing import Any, Dict, Optional
 
+from composer.core.event import Event
 from composer.core.logging import LogLevel, RankZeroLoggerBackend, TLogData
 from composer.core.types import Logger, State, StateDict
 from composer.utils.run_directory import get_run_directory
@@ -42,33 +43,31 @@ class WandBLoggerBackend(RankZeroLoggerBackend):
         del epoch, log_level  # unused
         wandb.log(data, step=step)
 
-    def _training_start(self, state: State, logger: Logger) -> None:
-        del state, logger  # unused
-        wandb.init(**self._init_params)
-        atexit.register(self._close_wandb)
-
     def state_dict(self) -> StateDict:
         # Storing these fields in the state dict to support run resuming in the future.
         return {"name": wandb.run.name, "project": wandb.run.project, "entity": wandb.run.entity, "id": wandb.run.id}
 
-    def batch_end(self, state: State, logger: Logger) -> None:
-        del logger  # unused
-        # On resnet50, _upload_artifacts() caused a 22% throughput degradation
-        # wandb.log_artifact() is async according to the docs
-        # (see https://docs.wandb.ai/guides/artifacts/api#2.-create-an-artifact)
-        # so uploads will not block the training loop
-        # slowdown is likely from extra I/O
-        # Hence, logging every n batches instead of every batch
-        if self._log_artifacts and (state.step + 1) % self._log_artifacts_every_n_batches == 0:
-            self._upload_artifacts()
+    def _run_event(self, event: Event, state: State, logger: Logger) -> None:
+        if event == Event.TRAINING_START:
+            wandb.init(**self._init_params)
+            atexit.register(self._close_wandb)
 
-    def epoch_end(self, state: State, logger: Logger) -> None:
-        del state, logger  # unused
-        if self._log_artifacts:
-            self._upload_artifacts()
+        if event == Event.BATCH_END:
+            if self._log_artifacts and (state.step + 1) % self._log_artifacts_every_n_batches == 0:
+                self._upload_artifacts()
+
+        if event == Event.EPOCH_END:
+            if self._log_artifacts:
+                self._upload_artifacts()
 
     def _upload_artifacts(self):
         # Scan the run directory and upload artifacts to wandb
+        # On resnet50, _log_artifacts() caused a 22% throughput degradation
+        # wandb.log_artifact() is async according to the docs
+        # (see https://docs.wandb.ai/guides/artifacts/api#2.-create-an-artifact)
+        # so uploads will not block the training loop
+        # slowdown is likely from extra I/O of scanning the directory and/or
+        # scheduling uploads
         run_directory = get_run_directory()
         if run_directory is not None:
             for subfile in os.listdir(run_directory):

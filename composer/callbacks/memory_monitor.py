@@ -4,7 +4,7 @@ import logging
 
 from torch.cuda import device_count, memory_stats
 
-from composer.core import Logger, State
+from composer.core import Event, Logger, State
 from composer.core.callback import Callback
 
 log = logging.getLogger(__name__)
@@ -26,16 +26,10 @@ class MemoryMonitor(Callback):
         if device_count == 0:
             log.warn("Memory monitor only works on GPU devices.")
 
-    def after_train_batch(self, state: State, logger: Logger):
-        """This function calls the torch cuda memory stats and reports basic memory
-        statistics.
+    def _run_event(self, event: Event, state: State, logger: Logger):
+        if event != Event.AFTER_TRAIN_BATCH:
+            return
 
-        Args:
-            state (State): The :class:`~composer.core.State` object
-                used during training.
-            logger (Logger):
-                The :class:`~composer.core.logging.logger.Logger` object.
-        """
         memory_report = {}
 
         default_stats = {

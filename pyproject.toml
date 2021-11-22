@@ -49,8 +49,8 @@ filterwarnings = [
     # "error",  # warnings should be treated like errors, but still need to fix some warnings
     'ignore:ExtraArgumentWarning',  # extra arguments originate from pytest-specific CLI args
     'ignore:DeferredLogMetricWarning',  # deferred logging is fine
-    'ignore:DDPDefaultValueWarning',  # default DDP values are fine
-    'ignore:NoDDPWarning',  # default DDP values are fine
+    'ignore:DDPDefaultValueWarning',  # OK to assume no ddp
+    'ignore:NoDDPWarning',  # OK to assume no ddp
 ]
 
 # Coverage

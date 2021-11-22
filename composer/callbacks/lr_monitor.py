@@ -1,6 +1,6 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
-from composer.core import Callback, Logger, State
+from composer.core import Callback, Event, Logger, State
 from composer.utils import ensure_tuple
 
 
@@ -14,7 +14,9 @@ class LRMonitor(Callback):
     def __init__(self) -> None:
         super().__init__()
 
-    def batch_end(self, state: State, logger: Logger):
+    def _run_event(self, event: Event, state: State, logger: Logger):
+        if event != Event.BATCH_END:
+            return
         assert state.optimizers is not None, "optimizers must be defined"
         for optimizer in ensure_tuple(state.optimizers):
             lrs = [group['lr'] for group in optimizer.param_groups]

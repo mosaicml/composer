@@ -7,6 +7,7 @@ import pytest
 import torch.distributed as dist
 from _pytest.monkeypatch import MonkeyPatch
 
+from composer.core.event import Event
 from composer.core.logging import Logger, LogLevel
 from composer.core.state import State
 from composer.loggers.file_logger import FileLoggerBackend
@@ -37,7 +38,7 @@ def test_file_logger(dummy_state: State, log_destination: FileLoggerBackend, mon
     dummy_state.epoch = 2
     logger = Logger(dummy_state, backends=[log_destination])
     monkeypatch.setattr(dist, "get_rank", lambda: 0)
-    log_destination.training_start(dummy_state, logger)
+    log_destination.run_event(Event.TRAINING_START, dummy_state, logger)
     logger.metric_fit({"metric": "fit"})  # should print
     logger.metric_epoch({"metric": "epoch"})  # should print
     logger.metric_batch({"metric": "batch"})  # should print
@@ -46,11 +47,11 @@ def test_file_logger(dummy_state: State, log_destination: FileLoggerBackend, mon
     logger.metric_epoch({"metric": "epoch1"})  # should NOT print, since we print every 2 epochs
     dummy_state.epoch = 4
     dummy_state.step = 3
-    log_destination.batch_end(dummy_state, logger)
+    log_destination.run_event(Event.BATCH_END, dummy_state, logger)
     logger.metric_epoch({"metric": "epoch2"})  # should print
     logger.metric_batch({"metric": "batch1"})  # should NOT print, since we print every 3 steps
-    log_destination.batch_end(dummy_state, logger)
-    log_destination.training_end(dummy_state, logger)
+    log_destination.run_event(Event.BATCH_END, dummy_state, logger)
+    log_destination.run_event(Event.TRAINING_END, dummy_state, logger)
     with open(log_file_name, 'r') as f:
         assert f.readlines() == [
             '[FIT][step=2]: { "metric": "fit", }\n',
@@ -69,10 +70,10 @@ class TestCoreLogger:
         dummy_state.epoch = 0
         logger = Logger(dummy_state, backends=[log_destination])
         logger.metric_batch({"metric": "before_training_start"})
-        log_destination.training_start(dummy_state, logger)
+        log_destination.run_event(Event.TRAINING_START, dummy_state, logger)
         logger.metric_batch({"metric": "after_training_start"})
-        log_destination.batch_end(dummy_state, logger)
-        log_destination.training_end(dummy_state, logger)
+        log_destination.run_event(Event.BATCH_END, dummy_state, logger)
+        log_destination.run_event(Event.TRAINING_END, dummy_state, logger)
         if is_rank_zero():
             with open(log_file_name, 'r') as f:
                 assert f.readlines() == [
@@ -94,10 +95,10 @@ class TestCoreLogger:
         logger.metric_batch({"metric": metric_data})
         metric_data[0] = ["world"]
         monkeypatch.setattr(dist, "get_rank", lambda: 0)
-        log_destination.training_start(dummy_state, logger)
+        log_destination.run_event(Event.TRAINING_START, dummy_state, logger)
         logger.metric_batch({"metric": metric_data})
-        log_destination.batch_end(dummy_state, logger)
-        log_destination.training_end(dummy_state, logger)
+        log_destination.run_event(Event.BATCH_END, dummy_state, logger)
+        log_destination.run_event(Event.TRAINING_END, dummy_state, logger)
         with open(log_file_name, 'r') as f:
             assert f.readlines() == [
                 '[BATCH][step=2]: { "metric": [["hello"]], }\n',
