@@ -8,7 +8,7 @@ from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple
 
 import torch
 import yahp as hp
-from torch.optim.lr_scheduler import CosineAnnealingLR, ExponentialLR, MultiStepLR, StepLR, _LRScheduler
+from torch.optim.lr_scheduler import CosineAnnealingLR, ExponentialLR, MultiStepLR, StepLR, _LRScheduler, CosineAnnealingWarmRestarts
 
 from composer.core.types import Optimizer, Scheduler
 from composer.optim.pytorch_future import WarmUpLR
@@ -422,7 +422,7 @@ class ComposedScheduler(_LRScheduler):
             self.warmup_iters = 0
 
         # these schedulers need to be silent during warmup
-        self.delay_schedulers = [CosineAnnealingLR, ExponentialLR]
+        self.delay_schedulers = [CosineAnnealingLR, ExponentialLR, CosineAnnealingWarmRestarts]
         self._warmup_counter = 0  # counter to track warmups
 
     def step(self, interval: str = 'epoch'):
