@@ -35,6 +35,7 @@ def dummy_state(dummy_dataloader_hparams: DataloaderHparams):
                  grad_accum=1,
                  max_epochs=100,
                  model=model,
+                 eval_dataloader=train_dataloader,
                  precision=Precision.FP32)
 
 
