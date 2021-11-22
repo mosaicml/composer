@@ -2,6 +2,7 @@ import contextlib
 from typing import Any
 
 import torch
+from torchvision.models import resnet50
 from torchvision.models.segmentation import deeplabv3_resnet50
 
 from composer.core.types import BatchPair, Tensor, Tensors
@@ -15,9 +16,11 @@ class DeepLabv3(BaseMosaicModel):
     def __init__(self, hparams: DeepLabv3Hparams):
         super().__init__()
         self.hparams = hparams
-        self.model = deeplabv3_resnet50(self.hparams.is_pretrained,
-                                        progress=False,
-                                        num_classes=self.hparams.num_classes)
+        self.model = deeplabv3_resnet50(False, progress=False, num_classes=self.hparams.num_classes, aux_loss=False)
+        if self.hparams.is_pretrained:
+            backbone = resnet50(pretrained=True, progress=False)
+            del backbone.fc
+            self.model.backbone.load_state_dict(backbone.state_dict())
 
     def forward(self, batch: BatchPair
                ):  # Should the forward pass take a batch pair? We shouldn't expect the forward pass to have labels
