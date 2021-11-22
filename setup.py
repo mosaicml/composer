@@ -52,7 +52,7 @@ extra_deps['dev'] = [
     'testbook>=0.4.2',
     'myst-parser>=0.15.2',
 ]
-extra_deps['wandb'] = ['wandb>=0.12.2']
+extra_deps['logging'] = ['wandb>=0.12.2', 'apache-libcloud>=3.4.1']
 
 extra_deps['nlp'] = [
     'transformers>=4.11.3',
