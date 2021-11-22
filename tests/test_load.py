@@ -26,6 +26,7 @@ def get_model_algs(model_name: str) -> List[str]:
         algs.remove("alibi")
     if model_name in ("unet", "gpt2_52m", "gpt2_83m", 'gpt2_125m'):
         algs.remove("mixup")
+        algs.remove("cutmix")
     return algs
 
 

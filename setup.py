@@ -49,6 +49,7 @@ extra_deps['dev'] = [
     'sphinxcontrib.katex>=0.8.6',
     'sphinxext.opengraph>=0.4.2',
     'sphinx_rtd_theme>=1.0.0',
+    'testbook>=0.4.2',
     'myst-parser>=0.15.2',
 ]
 extra_deps['wandb'] = ['wandb>=0.12.2']
