@@ -44,7 +44,8 @@ class DeepLabv3(BaseMosaicModel):
         """
 
         """
-        return MetricCollection([mIoU(self.hparams.num_classes, self.hparams.ignore_index), CrossEntropyLoss()])
+        #return MetricCollection([mIoU(self.hparams.num_classes, self.hparams.ignore_index), CrossEntropyLoss()])
+        return mIoU(self.hparams.num_classes, self.hparams.ignore_index)
 
     def validate(self, batch: BatchPair):
         assert self.training is False, "For validation, model must be in eval mode"
