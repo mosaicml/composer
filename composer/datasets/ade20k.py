@@ -62,7 +62,7 @@ def fast_collate(batch: List[Tuple[Image.Image, Image.Image]],
         target_array = np.asarray(targets[i], dtype=np.int_)
         tensor_targets[i] += target_array  # drop all channels except for the first
 
-    return tensor, tensor_targets
+    return tensor, (tensor_targets - 1)
 
 
 class ADE20k(Dataset):

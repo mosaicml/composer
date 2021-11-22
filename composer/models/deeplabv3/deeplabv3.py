@@ -2,6 +2,7 @@ import contextlib
 from typing import Any
 
 import torch
+from torchmetrics.collections import MetricCollection
 from torchvision.models import resnet50
 from torchvision.models.segmentation import deeplabv3_resnet50
 
@@ -35,15 +36,15 @@ class DeepLabv3(BaseMosaicModel):
 
     def loss(self, outputs: Any, batch: BatchPair):
         _, target = batch
-        #print(outputs.shape, target.shape, torch.unique(target))
-        loss = soft_cross_entropy(outputs, target)
+
+        loss = torch.nn.functional.cross_entropy(outputs, target, ignore_index=-1)
         return loss
 
     def metrics(self, train: bool = False):
         """
 
         """
-        return mIoU(self.hparams.num_classes, self.hparams.ignore_index)
+        return MetricCollection([mIoU(self.hparams.num_classes, self.hparams.ignore_index), CrossEntropyLoss()])
 
     def validate(self, batch: BatchPair):
         assert self.training is False, "For validation, model must be in eval mode"

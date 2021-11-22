@@ -32,7 +32,7 @@ model:
     #    initializers:
     #      - kaiming_normal
     #      - bn_uniform
-    num_classes: 151
+    num_classes: 150
 loggers:
   - tqdm: {}
 max_epochs: 127
