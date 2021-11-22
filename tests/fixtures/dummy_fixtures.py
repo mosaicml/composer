@@ -5,9 +5,7 @@ from unittest.mock import MagicMock, Mock
 
 import pytest
 import torch
-import torch.distributed as dist
 import torch.utils.data
-from _pytest.monkeypatch import MonkeyPatch
 
 from composer import Logger, State
 from composer.core.types import DataLoader, Model, Precision
@@ -112,8 +110,7 @@ def dummy_val_dataloader(dummy_dataloader_hparams: DataloaderHparams, dummy_val_
 
 
 @pytest.fixture()
-def dummy_state(dummy_state_without_rank: State, monkeypatch: MonkeyPatch) -> State:
-    monkeypatch.setattr(dist, "get_rank", lambda: 0)
+def dummy_state(dummy_state_without_rank: State) -> State:
     return dummy_state_without_rank
 
 
