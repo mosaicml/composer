@@ -158,7 +158,8 @@ def test_checkpoint(
     checkpointing_trainer_hparams.device = device_hparams
 
     _test_checkpoint_trainer(checkpointing_trainer_hparams)
-    checkpoint_a_file_path = get_relative_to_run_directory(os.path.join(checkpoint_a_folder, f"{checkpoint_filename}.pt"))
+    checkpoint_a_file_path = get_relative_to_run_directory(
+        os.path.join(checkpoint_a_folder, f"{checkpoint_filename}.pt"))
     checkpoint_b_file_path = get_relative_to_run_directory(os.path.join(checkpoint_a_folder, final_checkpoint))
     trainer_1_hparams_filepath = get_relative_to_run_directory(os.path.join(checkpoint_a_folder, "hparams.yaml"))
 
