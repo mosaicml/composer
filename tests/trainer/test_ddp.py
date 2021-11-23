@@ -21,7 +21,7 @@ from composer.datasets import DataloaderHparams, DataloaderSpec, MemoryFormat, S
 from composer.trainer.devices import CPUDeviceHparams, GPUDeviceHparams
 from composer.trainer.devices.device_hparams import DeviceHparams
 from composer.trainer.trainer_hparams import TrainerHparams, callback_registry, dataset_registry
-from composer.utils.ddp import get_global_rank
+from composer.utils import ddp
 from tests.fixtures.models import SimpleBatchPairModelHparams
 
 
@@ -96,7 +96,7 @@ class CheckBatch0(Callback):
     def _run_event(self, event: Event, state: State, logger: Logger) -> None:
         if event in (Event.BEFORE_FORWARD, Event.EVAL_BEFORE_FORWARD):
             filepath = get_batch_file_path(self.tmpdir,
-                                           rank=get_global_rank(),
+                                           rank=ddp.get_global_rank(),
                                            epoch=state.epoch,
                                            is_train=state.model.training)
             if os.path.exists(filepath):
@@ -220,7 +220,7 @@ def test_ddp(device: DeviceHparams, world_size: int, ddp_tmpdir: str, mosaic_tra
     is_train_to_pickles: Dict[bool, List[Dict[str, types.Tensor]]] = {True: [], False: []}
 
     for epoch in range(num_epochs):
-        for local_rank in range(trainer.state.local_world_size):
+        for local_rank in range(ddp.get_local_world_size()):
             for is_train in (True, False):
                 data: Dict[str, types.Tensor] = torch.load(  # type: ignore
                     get_batch_file_path(ddp_tmpdir, rank=local_rank, epoch=epoch, is_train=is_train),
