@@ -62,12 +62,12 @@ class MosaicMLLoggerBackend(RankZeroLoggerBackend, Serializable):
         self.job_id = job_id if job_id is not None else os.environ.get(_JOB_ID_ENV, None)
         if self.job_id is None:
             self.skip_logging = True
-            warnings.warn("No job_id provided to MosaicLoggerBackend. This logger will be a no-op.")
+            warnings.warn("No job_id provided to MosaicLoggerBackend. MosaicML logger will be a no-op.")
 
         self.sweep_id = sweep_id if sweep_id is not None else os.environ.get(_SWEEP_ID_ENV, None)
         if self.sweep_id is None:
             self.skip_logging = True
-            warnings.warn("No sweep_id provided to MosaicLoggerBackend. This logger will be a no-op.")
+            warnings.warn("No sweep_id provided to MosaicLoggerBackend. MosaicML logger will be a no-op.")
 
         if creds_file:
             with open(creds_file, 'r') as f:
@@ -76,7 +76,7 @@ class MosaicMLLoggerBackend(RankZeroLoggerBackend, Serializable):
         if os.environ.get(_MOSAICML_API_KEY_ENV, None) is None:
             self.skip_logging = True
             warnings.warn(
-                f"No api_key set for environment variable {_MOSAICML_API_KEY_ENV}. This logger will be a no-op.")
+                f"No api_key set for environment variable {_MOSAICML_API_KEY_ENV}. MosaicML logger will be a no-op.")
 
         self.buffered_data = []
         self.flush_every_n_batches = flush_every_n_batches
