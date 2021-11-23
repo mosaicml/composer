@@ -20,6 +20,7 @@ from composer.core.event import Event
 from composer.core.logging import Logger
 from composer.core.logging.logger import LogLevel
 from composer.core.state import State
+from composer.utils import ddp
 from composer.utils.run_directory import get_run_directory
 
 log = logging.getLogger(__name__)
@@ -175,11 +176,11 @@ class RunDirectoryUploader(RankZeroCallback):
             atexit.register(self._close)
         if event == Event.BATCH_END:
             if (state.batch_idx + 1) % self._upload_every_n_batches == 0:
-                self._trigger_upload(state, logger, LogLevel.BATCH)
+                self._trigger_upload(logger, LogLevel.BATCH)
         if event == Event.EPOCH_END:
-            self._trigger_upload(state, logger, LogLevel.EPOCH)
+            self._trigger_upload(logger, LogLevel.EPOCH)
         if event == Event.TRAINING_END:
-            self._trigger_upload(state, logger, LogLevel.FIT)
+            self._trigger_upload(logger, LogLevel.FIT)
             # TODO -- we are missing logfiles from other callbacks / loggers that write on training end but after
             # the run directory uploader is invoked. This callback either needs to fire last,
             # or we need another event such as cleanup
@@ -191,12 +192,11 @@ class RunDirectoryUploader(RankZeroCallback):
         for worker in self._workers:
             worker.join()
 
-    def _trigger_upload(self, state: State, logger: Logger, log_level: LogLevel) -> None:
+    def _trigger_upload(self, logger: Logger, log_level: LogLevel) -> None:
         # Ensure that every rank is at this point
         # Assuming only the main thread on each rank writes to the run directory, then the barrier here will ensure
         # that the run directory is not being modified after we pass this barrier
-        # TODO(ravi) -- add in a ddp barrier here.
-        # state.ddp.barrier()
+        ddp.barrier()
         new_last_uploaded_timestamp = time.time()
         # Now, for each file that was modified since self._last_upload_timestamp, copy it to the temporary directory
         # IMPROTANT: From now, until self._last_upload_timestamp is updated, no files should be written to the run directory
