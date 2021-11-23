@@ -28,7 +28,8 @@ def test_mosaic_logger(tmpdir: pathlib.Path, dummy_state: State, dummy_logger: L
 
     def _mock_send_data(job_id: str, sweep_id: str, data: JSON):
         del job_id, sweep_id
-        data_logged.extend(list(data))
+        assert isinstance(data, list)
+        data_logged.extend(data)
         response = requests.Response()
         response.status_code = 200
         return response

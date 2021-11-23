@@ -104,6 +104,10 @@ class MosaicMLLoggerBackend(RankZeroLoggerBackend, Serializable):
 
     def _training_start(self, state: State, logger: Logger) -> None:
         del state, logger  # unused
+
+        if self.skip_logging:
+            return
+
         log.info("Starting MosaicML logger thread.")
 
         # Start the logging thread
@@ -111,11 +115,18 @@ class MosaicMLLoggerBackend(RankZeroLoggerBackend, Serializable):
 
     def batch_end(self, state: State, logger: Logger):
         del logger  # unused
+
+        if self.skip_logging:
+            return
+
         if (state.step + 1) % self.flush_every_n_batches == 0:
             self._flush_buffered_data()
 
     def training_end(self, state: State, logger: Logger):
         del state, logger  # unused
+
+        if self.skip_logging:
+            return
 
         # Flush any remaining logs on training end
         self._flush_buffered_data()
@@ -154,10 +165,10 @@ class MosaicMLLoggerBackend(RankZeroLoggerBackend, Serializable):
                 response = _send_data(job_id=self.job_id, sweep_id=self.sweep_id, data=data) # type: ignore
                 if response.status_code != 200:
                     # Ignore errors for now for simplicity
-                    warnings.warning("Posting data to MosaicML backend failed with response code "
+                    warnings.warn("Posting data to MosaicML backend failed with response code "
                                      f"{response.status_code} and message {response.json()}.")
             except requests.exceptions.Timeout as e:
-                warnings.warning(f"MosaicML logger timed out with error {e}.")
+                warnings.warn(f"MosaicML logger timed out with error {e}.")
 
             # Mark the task done regardless of error to not block thread termination
             self.queue.task_done()

@@ -220,10 +220,10 @@ class TQDMLoggerBackendHparams(BaseLoggerBackendHparams):
 
 @dataclass
 class MosaicMLLoggerBackendHparams(BaseLoggerBackendHparams):
-    """:class:`~composer.loggers.mosaic_logger.MosaicLoggerBackend`
+    """:class:`~composer.loggers.mosaicml_logger.MosaicMLLoggerBackend`
     hyperparameters.
 
-    See :class:`~composer.loggers.mosaic_logger.MosaicLoggerBackend`
+    See :class:`~composer.loggers.mosaicml_logger.MosaicMLLoggerBackend`
     for documentation.
     """
     job_id: int = hp.required("The id of the job to write logs for.")
