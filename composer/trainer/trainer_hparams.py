@@ -8,7 +8,6 @@ from __future__ import annotations
 import os
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, List, Optional
-from composer.loggers.logger_hparams import MosaicLoggerHparams
 
 import yahp as hp
 
