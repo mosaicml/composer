@@ -37,5 +37,5 @@ def test_run_directory_uploader(tmpdir: pathlib.Path, use_procs: bool, dummy_sta
     uploader.run_event(Event.TRAINING_END, dummy_state, dummy_logger)
 
     # now assert that we have a dummy file in the run directory copy folder
-    with open(os.path.join(remote_dir, "dummy_file"), "r") as f:
+    with open(os.path.join(remote_dir, run_directory, "dummy_file"), "r") as f:
         assert f.read() == "Hello, world!"
