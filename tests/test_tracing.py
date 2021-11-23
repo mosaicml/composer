@@ -12,7 +12,10 @@ from tests.fixtures.models import SimpleBatchPairModel
 
 
 @pytest.mark.timeout(30)
-@pytest.mark.parametrize("device", ["cpu", "gpu"])
+@pytest.mark.parametrize("device", [
+    pytest.param("cpu", id="cpu"),
+    pytest.param("gpu", id="gpu", marks=pytest.mark.gpu),
+])
 def test_trace_and_load(dummy_model: SimpleBatchPairModel, tmpdir: pathlib.Path, device: str):
     num_points = 1
     x = torch.randn(num_points, *dummy_model.in_shape)
