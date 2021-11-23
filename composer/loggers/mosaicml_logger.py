@@ -9,6 +9,7 @@ from typing import Optional
 # import aiohttp
 # import asyncio
 
+import requests
 import time
 from threading import Thread
 from queue import Queue
@@ -17,15 +18,27 @@ from composer.core.logging import LogLevel, RankZeroLoggerBackend, TLogData
 from composer.core.serializable import Serializable
 from composer.core.types import Logger, State, StateDict
 
-_MOSAIC_API_KEY_ENV = "MOSAIC_API_KEY"
-_MOSAIC_LOGGER_URL = "https://api.mosaicml.com/v0/log/metric"
+_MOSAICML_API_KEY_ENV = "MOSAIC_API_KEY"
+_MOSAICML_LOGGER_URL = "https://api.mosaicml.com/v0/log/metric"
 _JOB_ID_ENV = "MOSAIC_LOGGER_JOB_ID"
 _SWEEP_ID_ENV = "MOSAIC_LOGGER_SWEEP_ID"
+
+_STOP_LOG_SIGNAL = "STOP"
 
 log = logging.getLogger(__name__)
 
 
-class MosaicLoggerBackend(RankZeroLoggerBackend, Serializable):
+def _send_data(job_id, sweep_id, data):
+    resp = requests.post(_MOSAICML_LOGGER_URL,
+                         headers={"X-MosaicML-API-key": os.environ.get(_MOSAICML_API_KEY_ENV, "")},
+                         json={
+                         "experimentID": job_id,
+                         "runID": sweep_id,
+                         "data": data})
+    return resp
+
+
+class MosaicMLLoggerBackend(RankZeroLoggerBackend, Serializable):
     """Log to the MosaicML backend.
 
     Args:
@@ -59,11 +72,11 @@ class MosaicLoggerBackend(RankZeroLoggerBackend, Serializable):
 
         if creds_file:
             with open(creds_file, 'r') as f:
-                os.environ[_MOSAIC_API_KEY_ENV] = str(f.read())
+                os.environ[_MOSAICML_API_KEY_ENV] = str(f.read())
 
-        if os.environ.get(_MOSAIC_API_KEY_ENV, None) is None:
+        if os.environ.get(_MOSAICML_API_KEY_ENV, None) is None:
             self.skip_logging = True
-            log.warn(f"No api_key set for environment variable {_MOSAIC_API_KEY_ENV}. This logger will be a no-op.")
+            log.warn(f"No api_key set for environment variable {_MOSAICML_API_KEY_ENV}. This logger will be a no-op.")
 
         self.buffered_data = []
         # self.queue = asyncio.Queue()
@@ -86,6 +99,7 @@ class MosaicLoggerBackend(RankZeroLoggerBackend, Serializable):
 
         log_data = {
             "job_id": self.job_id,
+            "sweep_id": self.sweep_id,
             "epoch": epoch,
             "step": step,
             "data": data,
@@ -111,7 +125,7 @@ class MosaicLoggerBackend(RankZeroLoggerBackend, Serializable):
         # self.queue.join()
         print('ALL QUEUE TASKS DONE')
 
-        self.queue.put_nowait('STOP')
+        self.queue.put_nowait(_STOP_LOG_SIGNAL)
         self.thread.join()
         print('STOPPED THREAD - EXITING')
         # Block on all log writes finishing
@@ -134,11 +148,12 @@ class MosaicLoggerBackend(RankZeroLoggerBackend, Serializable):
             print('AT TOP OF LOOP BEFORE GET')
             data = self.queue.get(block=True)
             print('GOT DATA')
-            if data == 'STOP':
+            if data == _STOP_LOG_SIGNAL:
                 self.queue.task_done()
                 print('stopping thread')
                 return
-            self._send_data(data)
+            _send_data(job_id=self.job_id, sweep_id=self.sweep_id, data=data)
+            # self._send_data(data)
             print('ABOUT TO CALL TASK DONE')
             self.queue.task_done()
             print('CALLED TASK DONE')
@@ -165,9 +180,9 @@ class MosaicLoggerBackend(RankZeroLoggerBackend, Serializable):
         # asyncio.get_event_loop().create_task(self._send_data())
 
 
-    def _send_data(self, data):
-        print(f'CALLED SEND DATA WITH DATA:', data)
-        time.sleep(1)
+    # def _send_data(self, data):
+    #     print(f'CALLED SEND DATA WITH DATA:', data)
+    #     time.sleep(1)
 
 
     # async def _send_data(self) -> str:

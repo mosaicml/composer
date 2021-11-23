@@ -18,7 +18,7 @@ from composer.callbacks import (BenchmarkerHparams, CallbackHparams, GradMonitor
                                 MemoryMonitorHparams, SpeedMonitorHparams, TorchProfilerHparams)
 from composer.core.types import Precision
 from composer.datasets import DataloaderHparams
-from composer.loggers import (BaseLoggerBackendHparams, FileLoggerBackendHparams, MosaicLoggerBackendHparams, TQDMLoggerBackendHparams,
+from composer.loggers import (BaseLoggerBackendHparams, FileLoggerBackendHparams, MosaicMLLoggerBackendHparams, TQDMLoggerBackendHparams,
                               WandBLoggerBackendHparams)
 from composer.models import (CIFARResNetHparams, EfficientNetB0Hparams, GPT2Hparams, MnistClassifierHparams,
                              ModelHparams, ResNet18Hparams, ResNet50Hparams, ResNet101Hparams, UnetHparams)
@@ -85,7 +85,7 @@ logger_registry = {
     "file": FileLoggerBackendHparams,
     "wandb": WandBLoggerBackendHparams,
     "tqdm": TQDMLoggerBackendHparams,
-    "mosaicml": MosaicLoggerBackendHparams,
+    "mosaicml": MosaicMLLoggerBackendHparams,
 }
 
 device_registry = {

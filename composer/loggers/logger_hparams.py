@@ -14,7 +14,7 @@ from composer.core.types import JSON
 
 if TYPE_CHECKING:
     from composer.loggers.file_logger import FileLoggerBackend
-    from composer.loggers.mosaic_logger import MosaicLoggerBackend
+    from composer.loggers.mosaicml_logger import MosaicMLLoggerBackend
     from composer.loggers.tqdm_logger import TQDMLoggerBackend
     from composer.loggers.wandb_logger import WandBLoggerBackend
 
@@ -219,7 +219,7 @@ class TQDMLoggerBackendHparams(BaseLoggerBackendHparams):
 
 
 @dataclass
-class MosaicLoggerBackendHparams(BaseLoggerBackendHparams):
+class MosaicMLLoggerBackendHparams(BaseLoggerBackendHparams):
     """:class:`~composer.loggers.mosaic_logger.MosaicLoggerBackend`
     hyperparameters.
 
@@ -237,6 +237,6 @@ class MosaicLoggerBackendHparams(BaseLoggerBackendHparams):
         "The maximum number of log entries allowed in the buffer "
         "before aforced flush.", default=1000)
 
-    def initialize_object(self) -> MosaicLoggerBackend:
-        from composer.loggers.mosaic_logger import MosaicLoggerBackend
-        return MosaicLoggerBackend(**asdict(self))
+    def initialize_object(self) -> MosaicMLLoggerBackend:
+        from composer.loggers.mosaicml_logger import MosaicMLLoggerBackend
+        return MosaicMLLoggerBackend(**asdict(self))
