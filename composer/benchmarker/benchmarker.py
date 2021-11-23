@@ -62,7 +62,8 @@ class Benchmarker:
         # Use optimal device settings based on what is available
         device = DeviceCPU()
         precision = Precision.FP32
-        if torch.cuda.is_available():
+        if torch.cuda.is_available() and (not torch.distributed.is_initialized() or
+                                          torch.distributed.get_backend() == "nccl"):
             device = DeviceGPU(prefetch_in_cuda_stream=False)
             precision = Precision.AMP
 

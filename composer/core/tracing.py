@@ -19,18 +19,11 @@ def trace_mosaic_model(model: BaseMosaicModel,
 
     if device == "gpu":
         # just use one GPU for tracing
-        device = torch.device(f"cuda:0")
-        model.to(device)
-        example_input = move_batch_to_gpu(batch=example_input, device=device)
-
-    x, y = example_input
-    print(f"X DEVICE {x.device} Y DEVICE {y.device}")
-    # print("MODEL DEVICE:", model.device)
-    # print("BATCH:", example_input)
+        torch_device = torch.device(f"cuda:0")
+        model.to(torch_device)
+        example_input = move_batch_to_gpu(batch=example_input, device=torch_device)
 
     output = model.forward(batch=example_input)
-
-    # jit_model = torch.jit.trace_module(model, {'forward': (example_input,)})
 
     jit_model = torch.jit.trace_module(model, {'forward': (example_input,), 'loss': (output, example_input)})
 

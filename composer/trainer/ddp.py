@@ -125,7 +125,7 @@ class DDP:
             if not torch.distributed.get_backend() == self.backend.lower():
                 raise RuntimeError(
                     f"The requested backend ({self.backend}) differs from the backend "
-                    "of the current process group ({torch.distributed.get_backend()}). If you wish to change backends, "
+                    f"of the current process group ({torch.distributed.get_backend()}). If you wish to change backends, "
                     "please restart the python process.")
             return
 
