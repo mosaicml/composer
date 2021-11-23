@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from typing import List, Optional, Sequence
-from composer.optim import optimizer_hparams
 
 import torch
 import torch.distributed
@@ -15,7 +14,7 @@ from composer.core.precision import Precision
 from composer.datasets.hparams import DataloaderSpec
 from composer.datasets.synthetic import SyntheticDataLabelType, SyntheticDataset
 from composer.models.base import BaseMosaicModel
-from composer.optim.optimizer_hparams import OptimizerHparams
+from composer.optim import OptimizerHparams
 from composer.trainer.devices import Device, DeviceCPU, DeviceGPU
 from composer.trainer.trainer import Trainer
 
@@ -70,9 +69,9 @@ class Benchmarker:
         timing_callback = BenchmarkerCallback(min_steps=50, epoch_list=[0, 1], step_list=[0, 50], all_epochs=False)
 
         # Use optimal device settings based on what is available if no device specified
+        precision = Precision.FP32
         if device is None:
             device = DeviceCPU()
-            precision = Precision.FP32
             # Need to check that the GPU backend is set correctly to not cause errors when unit testing on cpu
             if torch.cuda.is_available() and (not torch.distributed.is_initialized() or
                                               torch.distributed.get_backend() == "nccl"):
