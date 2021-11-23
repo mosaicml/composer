@@ -7,7 +7,6 @@ import os
 import sys
 from typing import Any, Dict, Optional
 
-from composer.core.event import Event
 from composer.core.logging import LogLevel, RankZeroLoggerBackend, TLogData
 from composer.core.types import Logger, State, StateDict
 from composer.utils.run_directory import get_run_directory
@@ -47,18 +46,25 @@ class WandBLoggerBackend(RankZeroLoggerBackend):
         # Storing these fields in the state dict to support run resuming in the future.
         return {"name": wandb.run.name, "project": wandb.run.project, "entity": wandb.run.entity, "id": wandb.run.id}
 
-    def _run_event(self, event: Event, state: State, logger: Logger) -> None:
-        if event == Event.TRAINING_START:
-            wandb.init(**self._init_params)
-            atexit.register(self._close_wandb)
+    def init(self, state: State, logger: Logger) -> None:
+        del state, logger  # unused
+        wandb.init(**self._init_params)
+        atexit.register(self._close_wandb)
 
-        if event == Event.BATCH_END:
-            if self._log_artifacts and (state.step + 1) % self._log_artifacts_every_n_batches == 0:
-                self._upload_artifacts()
+    def batch_end(self, state: State, logger: Logger) -> None:
+        del logger  # unused
+        if self._log_artifacts and (state.step + 1) % self._log_artifacts_every_n_batches == 0:
+            self._upload_artifacts()
 
-        if event == Event.EPOCH_END:
-            if self._log_artifacts:
-                self._upload_artifacts()
+    def epoch_end(self, state: State, logger: Logger) -> None:
+        del state, logger  # unused
+        if self._log_artifacts:
+            self._upload_artifacts()
+
+    def training_end(self, state: State, logger: Logger) -> None:
+        del state, logger  # unused
+        if self._log_artifacts:
+            self._upload_artifacts()
 
     def _upload_artifacts(self):
         # Scan the run directory and upload artifacts to wandb

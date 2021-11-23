@@ -1,6 +1,6 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
-from composer.core import Event, Logger, State
+from composer.core import Logger, State
 from composer.core.callback import Callback
 
 
@@ -24,7 +24,7 @@ class GradMonitor(Callback):
         super().__init__()
         self.log_layer_grad_norms = log_layer_grad_norms
 
-    def _run_event(self, event: Event, state: State, logger: Logger):
+    def after_train_batch(self, state: State, logger: Logger):
         """Compute the gradient L2 norm after the reduction of the
         backwards pass across GPUs. This function iterates over the
         parameters of the model and hence may cause a reduction in
@@ -33,14 +33,11 @@ class GradMonitor(Callback):
         unscaling in cases where gradients are scaled.
 
         Args:
-            event (Event): The :class:`~composer.core.Event` object
             state (State): The :class:`~composer.core.State` object
                 used during training.
             logger (Logger):
                 The :class:`~composer.core.logging.logger.Logger` object.
         """
-        if event != Event.AFTER_TRAIN_BATCH:
-            return
         norm = 0.0
         layer_norms = {}
         for name, p in state.model.named_parameters():
