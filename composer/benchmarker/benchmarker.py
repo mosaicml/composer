@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from typing import List, Optional, Sequence
+from composer.optim import optimizer_hparams
 
 import torch
 import torch.distributed
@@ -14,10 +15,11 @@ from composer.core.precision import Precision
 from composer.datasets.hparams import DataloaderSpec
 from composer.datasets.synthetic import SyntheticDataLabelType, SyntheticDataset
 from composer.models.base import BaseMosaicModel
-from composer.trainer.devices import DeviceCPU, DeviceGPU
+from composer.optim.optimizer_hparams import OptimizerHparams
+from composer.trainer.devices import Device, DeviceCPU, DeviceGPU
 from composer.trainer.trainer import Trainer
 
-NUM_PROFILING_STEPS = 250  # needs to be high enough to be able to properly measure time
+_NUM_PROFILING_STEPS = 250  # needs to be high enough to be able to properly measure time
 
 
 class Benchmarker:
@@ -34,7 +36,12 @@ class Benchmarker:
             If `RANDOM_INT` then `label_shape` must be specified.
         num_classes (int, optional): Number of classes to use.
         label_shape (List[int]): Shape of the tensor for each sample label.
+        optimizer_hparams: (OptimizerHparams, optional): The OptimizerHparams for constructing
+            the optimizer in the trainer for benchmarking.
+            (default: ``MosaicMLSGDWHparams(lr=0.1, momentum=0.9, weight_decay=1.0e-4)``)
         log_destinations (List[BaseLoggerBackend], optional): The destinations to log training information to.
+        device (Device, optional): The device to run benchmarking on. If not provided, will use ``DeviceCPU``
+            if no GPU is available. Otherwise, will use ``DeviceGPU``.
     """
 
     def __init__(self,
@@ -45,9 +52,11 @@ class Benchmarker:
                  label_type: SyntheticDataLabelType = SyntheticDataLabelType.CLASSIFICATION_INT,
                  num_classes: Optional[int] = None,
                  label_shape: Optional[Sequence[int]] = None,
-                 log_destinations: Optional[List[BaseLoggerBackend]] = None):
+                 optimizer_hparams: Optional[OptimizerHparams] = None,
+                 log_destinations: Optional[List[BaseLoggerBackend]] = None,
+                 device: Optional[Device] = None):
 
-        dataset_size = total_batch_size * NUM_PROFILING_STEPS
+        dataset_size = total_batch_size * _NUM_PROFILING_STEPS
         self.dataset = SyntheticDataset(total_dataset_size=dataset_size,
                                         data_shape=data_shape,
                                         num_unique_samples_to_create=total_batch_size,
@@ -60,13 +69,15 @@ class Benchmarker:
         # Default for now - adjust to work with algorithms
         timing_callback = BenchmarkerCallback(min_steps=50, epoch_list=[0, 1], step_list=[0, 50], all_epochs=False)
 
-        # Use optimal device settings based on what is available
-        device = DeviceCPU()
-        precision = Precision.FP32
-        if torch.cuda.is_available() and (not torch.distributed.is_initialized() or
-                                          torch.distributed.get_backend() == "nccl"):
-            device = DeviceGPU(prefetch_in_cuda_stream=False)
-            precision = Precision.AMP
+        # Use optimal device settings based on what is available if no device specified
+        if device is None:
+            device = DeviceCPU()
+            precision = Precision.FP32
+            # Need to check that the GPU backend is set correctly to not cause errors when unit testing on cpu
+            if torch.cuda.is_available() and (not torch.distributed.is_initialized() or
+                                              torch.distributed.get_backend() == "nccl"):
+                device = DeviceGPU(prefetch_in_cuda_stream=False)
+                precision = Precision.AMP
 
         self.trainer = Trainer(
             model=model,
@@ -75,10 +86,11 @@ class Benchmarker:
             max_epochs=2,
             train_batch_size=total_batch_size,
             eval_batch_size=total_batch_size,
+            optimizer_hparams=optimizer_hparams,
             grad_accum=grad_accum,
             device=device,
             precision=precision,
-            validate_every_n_epochs=100,  # don't validate
+            validate_every_n_epochs=10000,  # don't validate
             log_destinations=log_destinations,
             callbacks=[timing_callback])
 
@@ -99,6 +111,7 @@ class Benchmarker:
 
         model = hparams.model.initialize_object()
         log_destinations = [l.initialize_object() for l in hparams.loggers]
+        device = hparams.device.initialize_object() if hparams.device is not None else None
 
         return cls(model=model,
                    data_shape=hparams.data_shape,
@@ -107,4 +120,6 @@ class Benchmarker:
                    label_type=hparams.label_type,
                    num_classes=hparams.num_classes,
                    label_shape=hparams.label_shape,
-                   log_destinations=log_destinations)
+                   optimizer_hparams=hparams.optimizer,
+                   log_destinations=log_destinations,
+                   device=device)

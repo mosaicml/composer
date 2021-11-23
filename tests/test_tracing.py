@@ -7,7 +7,7 @@ import pytest
 import torch
 
 from composer.core.tracing import load_model_trace, trace_mosaic_model
-from composer.utils.device_helpers import move_batch_to_gpu
+from composer.utils.device_helpers import move_batch_to_device
 from tests.fixtures.models import SimpleBatchPairModel
 
 
@@ -31,7 +31,7 @@ def test_trace_and_load(dummy_model: SimpleBatchPairModel, tmpdir: pathlib.Path,
 
     loaded_model = load_model_trace(save_path)
     if device == "gpu":
-        batch = move_batch_to_gpu(batch, device=torch.device("cuda:0"))
+        batch = move_batch_to_device(batch, device=torch.device("cuda:0"))
     loaded_forward = loaded_model.forward(batch=batch)
     loaded_loss = loaded_model.loss(loaded_forward, batch=batch)
 

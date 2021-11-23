@@ -13,7 +13,7 @@ from composer.core.state import State
 from composer.core.types import Batch, DataLoader, Precision, StateDict, Tensor, TPrefetchFn
 from composer.datasets.dataloader import WrappedDataLoader
 from composer.trainer.devices.device import Device, T_nnModule
-from composer.utils.device_helpers import move_batch_to_gpu
+from composer.utils.device_helpers import move_batch_to_device
 
 
 class CudaDataLoader(WrappedDataLoader):
@@ -81,7 +81,7 @@ class CudaDataLoader(WrappedDataLoader):
         Args:
             batch (Batch): The data to move the gpu.
         """
-        return move_batch_to_gpu(batch=batch, device=self.device)
+        return move_batch_to_device(batch=batch, device=self.device)
 
 
 class DeviceGPU(Device):

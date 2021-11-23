@@ -3,13 +3,15 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, List
+from typing import TYPE_CHECKING, List, Optional
 
 import yahp as hp
 
 from composer.datasets.synthetic import SyntheticDataLabelType, validate_label_inputs
+from composer.trainer.devices.device_hparams import DeviceHparams
 from composer.loggers import BaseLoggerBackendHparams
 from composer.models import ModelHparams
+from composer.optim.optimizer_hparams import OptimizerHparams
 from composer.trainer.trainer_hparams import logger_registry, model_registry
 
 if TYPE_CHECKING:
@@ -39,7 +41,7 @@ class BenchmarkerHparams(hp.Hparams):
         "Determines the number of microbatches to split a per-gpu batch into, used to compensate for low-memory-capacity devices."
     )
     data_shape: List[int] = hp.required("Shape of the data tensor.")
-    loggers: List[BaseLoggerBackendHparams] = hp.required(doc="loggers to use")
+    loggers: List[BaseLoggerBackendHparams] = hp.required(doc="Loggers to use.")
     label_type: SyntheticDataLabelType = hp.optional("Type of synthetic label to create.",
                                                      default=SyntheticDataLabelType.CLASSIFICATION_INT)
     num_classes: int = hp.optional(
@@ -47,7 +49,9 @@ class BenchmarkerHparams(hp.Hparams):
     label_shape: List[int] = hp.optional(
         "Shape of the label tensor. Required if label_type is SyntheticDataLabelType.RANDOM_INT.",
         default_factory=lambda: [1])
-    log_level: str = hp.optional(doc="Python loglevel to use composer", default="INFO")
+    optimizer: Optional[OptimizerHparams] = hp.optional(doc="Optimizer to use.", default=None)
+    log_level: str = hp.optional(doc="Python loglevel to use composer.", default="INFO")
+    device: Optional[DeviceHparams] = hp.optional(doc="Device hparams.", default=None)
 
     def validate(self):
         super().validate()

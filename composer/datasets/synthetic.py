@@ -166,11 +166,6 @@ class SyntheticDatasetHparams(DatasetHparams):
     drop_last: bool = hp.optional("Whether to drop the last samples for the last batch", default=True)
     shuffle: bool = hp.optional("Whether to shuffle the dataset for each epoch", default=True)
 
-    def validate(self):
-        super().validate()
-
-        validate_label_inputs(label_type=self.label_type, num_classes=self.num_classes, label_shape=self.label_shape)
-
     def initialize_object(self) -> DataloaderSpec:
         return DataloaderSpec(
             SyntheticDataset(

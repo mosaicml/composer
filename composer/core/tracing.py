@@ -7,7 +7,7 @@ from torchmetrics.collections import MetricCollection
 
 from composer.core.types import Batch, Metrics, Tensors
 from composer.trainer.trainer import BaseMosaicModel
-from composer.utils.device_helpers import move_batch_to_gpu
+from composer.utils.device_helpers import move_batch_to_device
 
 
 def trace_mosaic_model(model: BaseMosaicModel,
@@ -21,7 +21,7 @@ def trace_mosaic_model(model: BaseMosaicModel,
         # just use one GPU for tracing
         torch_device = torch.device(f"cuda:0")
         model.to(torch_device)
-        example_input = move_batch_to_gpu(batch=example_input, device=torch_device)
+        example_input = move_batch_to_device(batch=example_input, device=torch_device)
 
     output = model.forward(batch=example_input)
 
@@ -36,13 +36,13 @@ def trace_mosaic_model(model: BaseMosaicModel,
 def load_model_trace(filename: str) -> BaseMosaicModel:
     jit_model = torch.jit.load(filename)
 
-    model = _EmptyMosaicModel()
+    model = _JITTracedMosaicModel()
     model.forward = jit_model.forward  # type: ignore
     model.loss = jit_model.loss  # type: ignore
     return model
 
 
-class _EmptyMosaicModel(BaseMosaicModel):
+class _JITTracedMosaicModel(BaseMosaicModel):
     """An empty implementation of :class:`~composer.trainer.trainer.BaseMosaicModel`.
 
     This class contains stub definitions for all the required methods in
@@ -63,7 +63,7 @@ class _EmptyMosaicModel(BaseMosaicModel):
                 A stub of the loss as a ``Tensors`` object.
         """
         del outputs, batch, args, kwargs
-        return torch.ones((1,))
+        raise NotImplementedError("JITTracedMosaicModel needs to have its loss function set.")
 
     def forward(self, batch: Batch) -> Tensors:
         """Compute model output given an input.
@@ -77,7 +77,7 @@ class _EmptyMosaicModel(BaseMosaicModel):
                 object.
         """
         del batch
-        return torch.ones((1,))
+        raise NotImplementedError("JITTracedMosaicModel needs to have its forward function set.")
 
     def metrics(self, train: bool = False) -> Metrics:
         """Get metrics for evaluating the model.
@@ -114,4 +114,4 @@ class _EmptyMosaicModel(BaseMosaicModel):
                 Most often, this will be a tuple of the form (predictions, targets).
         """
         del batch
-        return (1, 1)
+        raise NotImplementedError("JITTracedMosaicModel should not run validation.")
