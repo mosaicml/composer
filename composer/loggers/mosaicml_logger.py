@@ -4,8 +4,7 @@ from __future__ import annotations
 
 import logging
 import os
-import time
-from copy import deepcopy
+import warnings
 from queue import Queue
 from threading import Thread
 from typing import Optional
@@ -16,12 +15,12 @@ from composer.core.logging import LogLevel, RankZeroLoggerBackend, TLogData
 from composer.core.serializable import Serializable
 from composer.core.types import JSON, Logger, State, StateDict
 
-_MOSAICML_API_KEY_ENV = "MOSAIC_API_KEY"
+_MOSAICML_API_KEY_ENV = "MOSAICML_LOGGER_API_KEY"
 _MOSAICML_LOGGER_URL = "https://api.mosaicml.com/v0/log/metric"
-_JOB_ID_ENV = "MOSAIC_LOGGER_JOB_ID"
-_SWEEP_ID_ENV = "MOSAIC_LOGGER_SWEEP_ID"
+_JOB_ID_ENV = "MOSAICML_LOGGER_JOB_ID"
+_SWEEP_ID_ENV = "MOSAICML_LOGGER_SWEEP_ID"
 
-_STOP_LOG_SIGNAL = "STOP"
+_STOP_LOGGING_SIGNAL = "STOP_LOGGING"
 
 log = logging.getLogger(__name__)
 
@@ -63,12 +62,12 @@ class MosaicMLLoggerBackend(RankZeroLoggerBackend, Serializable):
         self.job_id = job_id if job_id is not None else os.environ.get(_JOB_ID_ENV, None)
         if self.job_id is None:
             self.skip_logging = True
-            log.warn("No job_id provided to MosaicLoggerBackend. This logger will be a no-op.")
+            warnings.warn("No job_id provided to MosaicLoggerBackend. This logger will be a no-op.")
 
         self.sweep_id = sweep_id if sweep_id is not None else os.environ.get(_SWEEP_ID_ENV, None)
         if self.sweep_id is None:
             self.skip_logging = True
-            log.warn("No sweep_id provided to MosaicLoggerBackend. This logger will be a no-op.")
+            warnings.warn("No sweep_id provided to MosaicLoggerBackend. This logger will be a no-op.")
 
         if creds_file:
             with open(creds_file, 'r') as f:
@@ -76,7 +75,8 @@ class MosaicMLLoggerBackend(RankZeroLoggerBackend, Serializable):
 
         if os.environ.get(_MOSAICML_API_KEY_ENV, None) is None:
             self.skip_logging = True
-            log.warn(f"No api_key set for environment variable {_MOSAICML_API_KEY_ENV}. This logger will be a no-op.")
+            warnings.warn(
+                f"No api_key set for environment variable {_MOSAICML_API_KEY_ENV}. This logger will be a no-op.")
 
         self.buffered_data = []
         self.flush_every_n_batches = flush_every_n_batches
@@ -120,10 +120,10 @@ class MosaicMLLoggerBackend(RankZeroLoggerBackend, Serializable):
         # Flush any remaining logs on training end
         self._flush_buffered_data()
 
-        self.queue.put_nowait(_STOP_LOG_SIGNAL)
+        self.queue.put_nowait(_STOP_LOGGING_SIGNAL)
         self.thread.join()
 
-        log.info(f"Stopped MosaicML logger thread exited.")
+        log.info(f"MosaicML logger thread has exited.")
 
     def state_dict(self) -> StateDict:
         # Storing these fields in the state dict to support run resuming in the future.
@@ -145,19 +145,19 @@ class MosaicMLLoggerBackend(RankZeroLoggerBackend, Serializable):
     def _listen_to_queue(self):
         while True:
             data = self.queue.get(block=True)
-            if data == _STOP_LOG_SIGNAL:
+            if data == _STOP_LOGGING_SIGNAL:
                 log.info("MosaicML logger thread received stop logging signal.")
                 self.queue.task_done()
                 return
 
             try:
-                response = _send_data(job_id=self.job_id, sweep_id=self.sweep_id, data=data)
+                response = _send_data(job_id=self.job_id, sweep_id=self.sweep_id, data=data) # type: ignore
                 if response.status_code != 200:
                     # Ignore errors for now for simplicity
-                    log.warning("Posting data to MosaicML backend failed with response code "
-                                f"{response.status_code} and message {response.json()}.")
+                    warnings.warning("Posting data to MosaicML backend failed with response code "
+                                     f"{response.status_code} and message {response.json()}.")
             except requests.exceptions.Timeout as e:
-                log.warning(f"MosaicML logger timed out with error {e}.")
+                warnings.warning(f"MosaicML logger timed out with error {e}.")
 
             # Mark the task done regardless of error to not block thread termination
             self.queue.task_done()

@@ -235,7 +235,7 @@ class MosaicMLLoggerBackendHparams(BaseLoggerBackendHparams):
     flush_every_n_batches: int = hp.optional("Flush the log data buffer every n batches.", default=100)
     max_logs_in_buffer: int = hp.optional(
         "The maximum number of log entries allowed in the buffer "
-        "before aforced flush.", default=1000)
+        "before a forced flush.", default=1000)
 
     def initialize_object(self) -> MosaicMLLoggerBackend:
         from composer.loggers.mosaicml_logger import MosaicMLLoggerBackend

@@ -3,7 +3,6 @@
 import os
 import pathlib
 
-import pytest
 import requests
 from _pytest.monkeypatch import MonkeyPatch
 
@@ -29,8 +28,7 @@ def test_mosaic_logger(tmpdir: pathlib.Path, dummy_state: State, dummy_logger: L
 
     def _mock_send_data(job_id: str, sweep_id: str, data: JSON):
         del job_id, sweep_id
-        # data = self.queue.get()
-        data_logged.extend(data)
+        data_logged.extend(list(data))
         response = requests.Response()
         response.status_code = 200
         return response
