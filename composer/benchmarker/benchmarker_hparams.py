@@ -12,7 +12,7 @@ from composer.trainer.devices.device_hparams import DeviceHparams
 from composer.loggers import BaseLoggerBackendHparams
 from composer.models import ModelHparams
 from composer.optim.optimizer_hparams import OptimizerHparams
-from composer.trainer.trainer_hparams import logger_registry, model_registry
+from composer.trainer.trainer_hparams import device_registry, logger_registry, model_registry, optimizer_registry
 
 if TYPE_CHECKING:
     from composer.benchmarker.benchmarker import Benchmarker
@@ -28,6 +28,8 @@ class BenchmarkerHparams(hp.Hparams):
     hparams_registry = {
         "loggers": logger_registry,
         "model": model_registry,
+        "optimizer": optimizer_registry,
+        "device": device_registry,
     }
 
     model: ModelHparams = hp.required(doc="model")
