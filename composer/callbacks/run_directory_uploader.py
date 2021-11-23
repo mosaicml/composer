@@ -2,18 +2,18 @@
 
 from __future__ import annotations
 
+import atexit
+import logging
 import multiprocessing
 import os
 import queue
 import shutil
+import sys
 import tempfile
 import threading
 import time
 import warnings
-import sys
-import atexit
 from typing import Any, Callable, Dict, Optional, Type, Union
-import logging
 
 from composer.core.callback import RankZeroCallback
 from composer.core.event import Event
@@ -140,8 +140,7 @@ class RunDirectoryUploader(RankZeroCallback):
             mp_ctx = multiprocessing.get_context('spawn')
             self._file_upload_queue: Union[queue.Queue[str],
                                            multiprocessing.JoinableQueue[str]] = mp_ctx.JoinableQueue()
-            self._finished_cls: Union[Callable[[], multiprocessing._EventType],
-                                      Type[threading.Event]] = mp_ctx.Event
+            self._finished_cls: Union[Callable[[], multiprocessing._EventType], Type[threading.Event]] = mp_ctx.Event
             self._proc_class = mp_ctx.Process
         else:
             self._file_upload_queue = queue.Queue()
@@ -231,6 +230,7 @@ class RunDirectoryUploader(RankZeroCallback):
         # incremented past self._last_upload_timestamp
         logger.metric(log_level, {"run_directory/uploaded_files": files_to_be_uploaded})
 
+
 def _validate_credentials(
     provider_name: str,
     container_name: str,
@@ -247,6 +247,7 @@ def _validate_credentials(
         container=container,
         object_name=f"{object_name_prefix}.validate_credentials_success",
     )
+
 
 def _upload_worker(
     file_queue: Union[queue.Queue[str], multiprocessing.JoinableQueue[str]],
@@ -275,23 +276,23 @@ def _upload_worker(
         init_kwargs (Dict[str, Any]): Arguments to pass in to the
             :class:`~libcloud.storage.providers.Provider` constructor.
     """
-    from libcloud.storage.providers import get_driver
     from libcloud.common.types import LibcloudError
+    from libcloud.storage.providers import get_driver
     provider_cls = get_driver(provider_name)
     provider = provider_cls(**init_kwargs)
     container = provider.get_container(container_name)
     while True:
         try:
-            file_path_to_upload = file_queue.get_nowait()
+            file_path_to_upload = file_queue.get(block=True, timeout=0.5)
         except queue.Empty:
             if is_finished.is_set():
                 break
             else:
-                time.sleep(0.5)
                 continue
         obj_name = ",".join(os.path.relpath(file_path_to_upload, upload_staging_dir).split(
             os.path.sep)[1:])  # the first folder is the upload timestamp. Chop that off.
-        log.info("Uploading file %s to %s://%s/%s%s", file_path_to_upload, provider_name, container_name, object_name_prefix, obj_name)
+        log.info("Uploading file %s to %s://%s/%s%s", file_path_to_upload, provider_name, container_name,
+                 object_name_prefix, obj_name)
         retry_counter = 0
         while True:
             try:
