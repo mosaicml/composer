@@ -10,7 +10,7 @@ from types import MethodType
 from typing import TYPE_CHECKING, Any, Callable
 
 from composer.core.serializable import Serializable
-from composer.utils.ddp import is_rank_zero
+from composer.utils.ddp import get_global_rank
 
 if TYPE_CHECKING:
     from composer import Logger, State
@@ -303,7 +303,7 @@ class RankZeroCallback(Callback, abc.ABC):
                 original_fn: Callable[[State, Logger], None] = original_fn,
                 **kwargs: Any,
             ) -> None:
-                if not is_rank_zero():
+                if not get_global_rank() == 0:
                     return
                 return original_fn(*args, **kwargs)
 

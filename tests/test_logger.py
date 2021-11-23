@@ -11,7 +11,7 @@ from composer.core.logging import Logger, LogLevel
 from composer.core.state import State
 from composer.loggers.file_logger import FileLoggerBackend
 from composer.loggers.logger_hparams import FileLoggerBackendHparams
-from composer.utils.ddp import is_rank_zero
+from composer.utils import ddp
 
 
 @pytest.fixture
@@ -73,7 +73,7 @@ class TestCoreLogger:
         logger.metric_batch({"metric": "after_training_start"})
         log_destination.batch_end(dummy_state, logger)
         log_destination.training_end(dummy_state, logger)
-        if is_rank_zero():
+        if ddp.get_global_rank() == 0:
             with open(log_file_name, 'r') as f:
                 assert f.readlines() == [
                     '[BATCH][step=2]: { "metric": "before_training_start", }\n',
