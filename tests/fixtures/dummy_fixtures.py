@@ -5,9 +5,7 @@ from unittest.mock import MagicMock, Mock
 
 import pytest
 import torch
-import torch.distributed as dist
 import torch.utils.data
-from _pytest.monkeypatch import MonkeyPatch
 
 from composer import Logger, State
 from composer.core.types import DataLoader, Model, Precision
@@ -71,8 +69,8 @@ def dummy_val_dataloader_spec(dummy_train_dataset_hparams: SyntheticDatasetHpara
 
 
 @pytest.fixture()
-def dummy_state_without_rank(dummy_model: SimpleBatchPairModel, dummy_train_batch_size: int,
-                             dummy_val_batch_size: int) -> State:
+def dummy_state_without_rank(dummy_model: SimpleBatchPairModel, dummy_train_batch_size: int, dummy_val_batch_size: int,
+                             dummy_train_dataloader: DataLoader, dummy_val_dataloader: DataLoader) -> State:
     state = State(
         model=dummy_model,
         epoch=5,
@@ -81,6 +79,8 @@ def dummy_state_without_rank(dummy_model: SimpleBatchPairModel, dummy_train_batc
         grad_accum=1,
         train_batch_size=dummy_train_batch_size,
         eval_batch_size=dummy_val_batch_size,
+        train_dataloader=dummy_train_dataloader,
+        eval_dataloader=dummy_val_dataloader,
         max_epochs=10,
     )
     return state
@@ -110,8 +110,7 @@ def dummy_val_dataloader(dummy_dataloader_hparams: DataloaderHparams, dummy_val_
 
 
 @pytest.fixture()
-def dummy_state(dummy_state_without_rank: State, monkeypatch: MonkeyPatch) -> State:
-    monkeypatch.setattr(dist, "get_rank", lambda: 0)
+def dummy_state(dummy_state_without_rank: State) -> State:
     return dummy_state_without_rank
 
 
@@ -191,7 +190,7 @@ def simple_conv_model_input():
 
 
 @pytest.fixture()
-def state_with_model(simple_conv_model: Model):
+def state_with_model(simple_conv_model: Model, dummy_train_dataloader: DataLoader, dummy_val_dataloader: DataLoader):
     state = State(
         epoch=50,
         step=50,
@@ -201,6 +200,8 @@ def state_with_model(simple_conv_model: Model):
         max_epochs=100,
         model=simple_conv_model,
         precision=Precision.FP32,
+        train_dataloader=dummy_train_dataloader,
+        eval_dataloader=dummy_val_dataloader,
     )
     return state
 
