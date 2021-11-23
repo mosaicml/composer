@@ -4,8 +4,9 @@
 from __future__ import annotations
 
 import abc
+import textwrap
 from dataclasses import asdict, dataclass
-from typing import TYPE_CHECKING, List
+from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
 import yahp as hp
 
@@ -16,6 +17,7 @@ if TYPE_CHECKING:
     from composer.callbacks.grad_monitor import GradMonitor
     from composer.callbacks.lr_monitor import LRMonitor
     from composer.callbacks.memory_monitor import MemoryMonitor
+    from composer.callbacks.run_directory_uploader import RunDirectoryUploader
     from composer.callbacks.speed_monitor import SpeedMonitor
     from composer.callbacks.torch_profiler import TorchProfiler
 
@@ -153,3 +155,61 @@ class TorchProfilerHparams(CallbackHparams):
     def initialize_object(self) -> TorchProfiler:
         from composer.callbacks.torch_profiler import TorchProfiler
         return TorchProfiler(**asdict(self))
+
+
+@dataclass
+class RunDirectoryUploaderHparams(CallbackHparams):
+    """:class:`~composer.callbacks.torch_profiler.RunDirectoryUploader` hyperparameters.
+
+    See :class:`~composer.callbacks.torch_profiler.RunDirectoryUploader` for documentation.
+    """
+
+    # Args:
+    #     provider_init_kwargs (Dict[str, Any], optional): Parameters to pass into the constructor for the
+    #         :class:`~libcloud.storage.providers.Provider` constructor. These arguments would usually include the cloud region
+    #         and credentials. Defaults to None, which is equivalent to an empty dictionary.
+    provider: str = hp.required("Cloud provider to use.")
+    container: str = hp.optional("he name of the container (i.e. bucket) to use.", default=None)
+    key: Optional[str] = hp.optional(textwrap.dedent(
+        """API key or username to use to connect to the provider. For security. do NOT hardcode the key in the YAML.
+        Instead, please specify via CLI arguments, or even better, environment variables."""),
+                                     default=None)
+    secret: Optional[str] = hp.optional(textwrap.dedent(
+        """API secret to use to connect to the provider. For security. do NOT hardcode the key in the YAML.
+Instead, please specify via CLI arguments, or even better, environment variables."""),
+                                        default=None)
+    region: Optional[str] = hp.optional("Cloud region to use", default=None)
+    host: Optional[str] = hp.optional("Override hostname for connections", default=None)
+    port: Optional[int] = hp.optional("Override port for connections", default=None)
+    num_concurrent_uploads: int = hp.optional("Maximum number of concurrent uploads. Defaults to 4.", default=4)
+    use_procs: bool = hp.optional(
+        "Whether to perform file uploads in background processes (as opposed to threads). Defaults to True.",
+        default=True)
+    upload_staging_folder: Optional[str] = hp.optional(
+        "Staging folder for uploads. If not specified, will use a temporary directory.", default=None)
+    extra_init_kwargs: Dict[str, Any] = hp.optional(
+        "Extra keyword arguments to pass into the constructor for the specified provider.", default_factory=dict)
+    upload_every_n_batches: int = hp.optional(
+        textwrap.dedent("""Interval at which to scan the run directory for changes and to
+            queue uploads of files. Uploads are also queued at the end of the epoch. Defaults to every 100 batches."""),
+        default=100)
+
+    def initialize_object(self) -> RunDirectoryUploader:
+        from composer.callbacks.run_directory_uploader import RunDirectoryUploader
+        init_kwargs = {
+            "key": self.key,
+            "secret": self.secret,
+            "host": self.host,
+            "port": self.port,
+            "region": self.region,
+        }
+        init_kwargs.update(self.extra_init_kwargs)
+        return RunDirectoryUploader(
+            provider=self.provider,
+            container=self.container,
+            num_concurrent_uploads=self.num_concurrent_uploads,
+            upload_staging_folder=self.upload_staging_folder,
+            use_procs=self.use_procs,
+            provider_init_kwargs=init_kwargs,
+            upload_every_n_batches=self.upload_every_n_batches,
+        )

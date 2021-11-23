@@ -2,13 +2,10 @@
 
 from __future__ import annotations
 
-import warnings
 from abc import ABC
-from typing import TYPE_CHECKING, List, Optional, Tuple
+from typing import TYPE_CHECKING
 
-from composer.core.callback import Callback
-from composer.core.event import Event
-from composer.core.logging.logger import Logger
+from composer.core.callback import Callback, RankZeroCallback
 from composer.utils.ddp import is_rank_zero
 
 if TYPE_CHECKING:
@@ -64,7 +61,7 @@ class BaseLoggerBackend(Callback, ABC):
         pass
 
 
-class RankZeroLoggerBackend(BaseLoggerBackend, Callback, ABC):
+class RankZeroLoggerBackend(BaseLoggerBackend, RankZeroCallback, ABC):
     """Base class for logging backends that run only on the rank zero process.
 
     In a multi-process training setup (e.g. when using DistributedDataParallel),
@@ -73,28 +70,18 @@ class RankZeroLoggerBackend(BaseLoggerBackend, Callback, ABC):
     and save data.
 
     When using this class, override
-    :func:`_will_log`, :func:`_log_metric`, and :func:`_training_start` instead of
-    :func:`will_log`, :func:`log_metric`, and :func:`training_start`, respectively.
+    :func:`_will_log` and :func:`_log_metric`` instead of
+    :func:`will_log` and :func:`log_metric`, respectively.
 
-    This class ensures that :func:`_log_metric` and :func:`_training_start` are invoked only
-    on the rank zero process.
-
-    It caputres all logged data before the global rank is available.
-    On the rank zero process, during the
-    :attr:`~composer.core.event.Event.TRAINING_START` event (which occurs
-    after the global rank is set), it routes all captured logged data to
-    :func:`_log_metric`. For other processes, the captured log data
-    is eventually discarded.
+    This class ensures that :func:`_will_log` and :func:`_log_metric`
+    are invoked only on the rank zero process.
 
     .. automethod:: _will_log
     .. automethod:: _log_metric
-    .. automethod:: _training_start
     """
 
     def __init__(self) -> None:
         super().__init__()
-        # self._deferred_log_metric_calls is set to None once the logger is initialized
-        self._deferred_log_metric_calls: Optional[List[Tuple[int, int, LogLevel, TLogData]]] = []
 
     def _will_log(self, state: State, log_level: LogLevel) -> bool:
         """Called by the :class:`~composer.core.logging.logger.Logger`
@@ -140,25 +127,5 @@ class RankZeroLoggerBackend(BaseLoggerBackend, Callback, ABC):
     @final
     def log_metric(self, epoch: int, step: int, log_level: LogLevel, data: TLogData) -> None:
         if not is_rank_zero():
-            # no log if not on rank zero, clear deferred calls to free memory
-            self._deferred_log_metric_calls = None
-            return
-        if self._deferred_log_metric_calls is not None:
-            warnings.warn(f"DeferredLogMetricWarning: {self.__class__.__name__}.log_metric()"
-                          "was invoked before training_start()."
-                          "This log call will be queued and processed after training_start().")
-            self._deferred_log_metric_calls.append((epoch, step, log_level, data))
             return
         return self._log_metric(epoch, step, log_level, data)
-
-    @final
-    def run_event(self, event: Event, state: State, logger: Logger) -> None:
-        if not is_rank_zero():
-            return
-        self._run_event(event, state, logger)
-        if event == Event.TRAINING_START:
-            if self._deferred_log_metric_calls is None:
-                raise RuntimeError("_deferred_log_metric_calls should not be None")
-            for epoch, step, log_level, data in self._deferred_log_metric_calls:
-                self._log_metric(epoch, step, log_level, data)
-            self._deferred_log_metric_calls = None

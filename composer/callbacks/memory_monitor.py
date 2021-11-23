@@ -5,7 +5,7 @@ from typing import Dict, Union
 
 import torch.cuda
 
-from composer.core import Event, Logger, State
+from composer.core import Logger, State
 from composer.core.callback import Callback
 
 log = logging.getLogger(__name__)
@@ -27,10 +27,16 @@ class MemoryMonitor(Callback):
         if torch.cuda.device_count() == 0:
             log.warn("Memory monitor only works on GPU devices.")
 
-    def _run_event(self, event: Event, state: State, logger: Logger):
-        if event != Event.AFTER_TRAIN_BATCH:
-            return
+    def after_train_batch(self, state: State, logger: Logger):
+        """This function calls the torch cuda memory stats and reports basic memory
+        statistics.
 
+        Args:
+            state (State): The :class:`~composer.core.State` object
+                used during training.
+            logger (Logger):
+                The :class:`~composer.core.logging.logger.Logger` object.
+        """
         memory_report = {}
 
         n_devices = torch.cuda.device_count()

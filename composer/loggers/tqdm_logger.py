@@ -108,7 +108,7 @@ class TQDMLoggerBackend(RankZeroLoggerBackend):
             self.pbars[self.is_train].log_metric(data)
 
     def _run_event(self, event: Event, state: State, logger: Logger) -> None:
-        if event == Event.TRAINING_START:
+        if event == Event.INIT:
             if self.config is not None:
                 print("Config")
                 print("-" * 30)
@@ -117,7 +117,10 @@ class TQDMLoggerBackend(RankZeroLoggerBackend):
                 print()
         if event in (Event.EPOCH_START, Event.EVAL_START):
             self.is_train = event == Event.EPOCH_START
-            self.pbars[self.is_train] = _TQDMLoggerInstance(total=state.steps_per_epoch,
+            assert state.train_dataloader is not None
+            assert state.eval_dataloader is not None
+            total_steps = len(state.train_dataloader) if self.is_train else len(state.eval_dataloader)
+            self.pbars[self.is_train] = _TQDMLoggerInstance(total=total_steps,
                                                             epoch=state.epoch,
                                                             is_train=self.is_train)
         if event in (Event.AFTER_BACKWARD, Event.EVAL_AFTER_FORWARD):

@@ -10,6 +10,16 @@ from composer.core.logging import Logger
 from composer.core.state import State
 
 
+def test_callbacks_map_to_events():
+    # callback methods must be 1:1 mapping with events
+    # exception for private methods
+    cb = Callback()
+    excluded_methods = ["state_dict", "load_state_dict", "run_event"]
+    methods = set(m for m in dir(cb) if (m not in excluded_methods and not m.startswith("_")))
+    event_names = set(e.value for e in Event)
+    assert methods == event_names
+
+
 class EventTrackerCallback(Callback):
 
     def __init__(self) -> None:
