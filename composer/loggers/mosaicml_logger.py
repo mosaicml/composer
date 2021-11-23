@@ -13,7 +13,6 @@ from typing import Optional
 import requests
 
 from composer.core.logging import LogLevel, RankZeroLoggerBackend, TLogData
-from composer.core.serializable import Serializable
 from composer.core.types import JSON, Logger, State, StateDict
 
 _MOSAICML_API_KEY_ENV = "MOSAICML_LOGGER_API_KEY"
