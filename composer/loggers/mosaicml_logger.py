@@ -162,11 +162,11 @@ class MosaicMLLoggerBackend(RankZeroLoggerBackend, Serializable):
                 return
 
             try:
-                response = _send_data(job_id=self.job_id, sweep_id=self.sweep_id, data=data) # type: ignore
+                response = _send_data(job_id=self.job_id, sweep_id=self.sweep_id, data=data)  # type: ignore
                 if response.status_code != 200:
                     # Ignore errors for now for simplicity
                     warnings.warn("Posting data to MosaicML backend failed with response code "
-                                     f"{response.status_code} and message {response.json()}.")
+                                  f"{response.status_code} and message {response.json()}.")
             except requests.exceptions.Timeout as e:
                 warnings.warn(f"MosaicML logger timed out with error {e}.")
 
