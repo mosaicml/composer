@@ -226,8 +226,7 @@ class MosaicMLLoggerBackendHparams(BaseLoggerBackendHparams):
     See :class:`~composer.loggers.mosaicml_logger.MosaicMLLoggerBackend`
     for documentation.
     """
-    job_id: int = hp.required("The id of the job to write logs for.")
-    sweep_id: int = hp.required("The id of the sweep to write logs for.")
+    job_id: str = hp.required("The id of the job to write logs for.")
     creds_file: Optional[int] = hp.optional(
         "A file containing the MosaicML api_key. If not provided "
         "will default to the environment variable MOSAIC_API_KEY",
