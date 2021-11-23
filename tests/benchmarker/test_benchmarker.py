@@ -1,12 +1,12 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
 from unittest.mock import MagicMock
-from composer.datasets.synthetic import SyntheticDataLabelType
 
 import pytest
 
 from composer.benchmarker.benchmarker import Benchmarker
 from composer.benchmarker.benchmarker_hparams import BenchmarkerHparams
+from composer.datasets.synthetic import SyntheticDataLabelType
 from tests.fixtures.models import SimpleBatchPairModel, SimpleBatchPairModelHparams
 
 

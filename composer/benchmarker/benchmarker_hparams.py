@@ -10,7 +10,7 @@ import yahp as hp
 from composer.datasets.synthetic import SyntheticDataLabelType, validate_label_inputs
 from composer.loggers import BaseLoggerBackendHparams
 from composer.models import ModelHparams
-from composer.trainer.trainer_hparams import model_registry, logger_registry
+from composer.trainer.trainer_hparams import logger_registry, model_registry
 
 if TYPE_CHECKING:
     from composer.benchmarker.benchmarker import Benchmarker

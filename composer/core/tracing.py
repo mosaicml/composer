@@ -1,16 +1,36 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
 from typing import Any, Optional, Tuple
+
 import torch
+from torchmetrics.collections import MetricCollection
 
 from composer.core.types import Batch, Metrics, Tensors
 from composer.trainer.trainer import BaseMosaicModel
-from torchmetrics.collections import MetricCollection
+from composer.utils.device_helpers import move_batch_to_gpu
 
 
-def trace_mosaic_model(model: BaseMosaicModel, example_input: Batch, save_file_path: Optional[str] = None):
+def trace_mosaic_model(model: BaseMosaicModel,
+                       example_input: Batch,
+                       device: str = "cpu",
+                       save_file_path: Optional[str] = None):
+    if not device in ("cpu", "gpu"):
+        raise ValueError(f"Invalid device {device} must be either 'cpu' or 'gpu'.")
+
+    if device == "gpu":
+        # just use one GPU for tracing
+        device = torch.device(f"cuda:0")
+        model.to(device)
+        example_input = move_batch_to_gpu(batch=example_input, device=device)
+
+    x, y = example_input
+    print(f"X DEVICE {x.device} Y DEVICE {y.device}")
+    # print("MODEL DEVICE:", model.device)
+    # print("BATCH:", example_input)
 
     output = model.forward(batch=example_input)
+
+    # jit_model = torch.jit.trace_module(model, {'forward': (example_input,)})
 
     jit_model = torch.jit.trace_module(model, {'forward': (example_input,), 'loss': (output, example_input)})
 
@@ -49,6 +69,7 @@ class _EmptyMosaicModel(BaseMosaicModel):
             Tensors:
                 A stub of the loss as a ``Tensors`` object.
         """
+        del outputs, batch, args, kwargs
         return torch.ones((1,))
 
     def forward(self, batch: Batch) -> Tensors:
@@ -62,6 +83,7 @@ class _EmptyMosaicModel(BaseMosaicModel):
                 The result that is passed to :meth:`loss` as a ``Tensors``
                 object.
         """
+        del batch
         return torch.ones((1,))
 
     def metrics(self, train: bool = False) -> Metrics:
@@ -80,6 +102,7 @@ class _EmptyMosaicModel(BaseMosaicModel):
         Returns:
             Metrics: A ``Metrics`` object.
         """
+        del train
         return MetricCollection([])
 
     def validate(self, batch: Batch) -> Tuple[Any, Any]:
@@ -97,4 +120,5 @@ class _EmptyMosaicModel(BaseMosaicModel):
                 `update()` methods of the metrics returned by :meth:`metrics`.
                 Most often, this will be a tuple of the form (predictions, targets).
         """
+        del batch
         return (1, 1)

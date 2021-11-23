@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-import torch
-
 from typing import List, Optional, Sequence
+
+import torch
 
 from composer.benchmarker.benchmarker_hparams import BenchmarkerHparams
 from composer.callbacks.benchmarker import Benchmarker as BenchmarkerCallback
