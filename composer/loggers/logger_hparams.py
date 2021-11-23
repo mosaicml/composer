@@ -227,7 +227,7 @@ class MosaicMLLoggerBackendHparams(BaseLoggerBackendHparams):
     for documentation.
     """
     job_id: str = hp.required("The id of the job to write logs for.")
-    creds_file: Optional[int] = hp.optional(
+    creds_file: Optional[str] = hp.optional(
         "A file containing the MosaicML api_key. If not provided "
         "will default to the environment variable MOSAIC_API_KEY",
         default=None)
