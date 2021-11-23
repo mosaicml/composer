@@ -64,7 +64,7 @@ def test_file_logger(dummy_state: State, log_destination: FileLoggerBackend, mon
 class TestCoreLogger:
 
     @pytest.mark.world_size(2)
-    def test_deferred(self, dummy_state_without_rank: State, log_file_name: str, log_destination: FileLoggerBackend):
+    def test_rank_zero(self, dummy_state_without_rank: State, log_file_name: str, log_destination: FileLoggerBackend):
         dummy_state = dummy_state_without_rank
         dummy_state.step = 2
         dummy_state.epoch = 0

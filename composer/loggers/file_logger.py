@@ -9,7 +9,6 @@ from typing import Any, Dict, Optional, TextIO
 
 import yaml
 
-from composer.core.event import Event
 from composer.core.logging import Logger, LogLevel, RankZeroLoggerBackend, TLogData, format_log_data_value
 from composer.core.state import State
 from composer.loggers.logger_hparams import FileLoggerBackendHparams
@@ -80,13 +79,8 @@ class FileLoggerBackend(RankZeroLoggerBackend):
         data_str = format_log_data_value(data)
         print(f"[{log_level.name}][step={step}]: {data_str}", file=self.file)
 
-    def _run_event(self, event: Event, state: State, logger: Logger) -> None:
-        if event == Event.TRAINING_START:
-            self._training_start(state, logger)
-        if event == Event.BATCH_END:
-            self._batch_end(state, logger)
-
-    def _training_start(self, state: State, logger: Logger) -> None:
+    def init(self, state: State, logger: Logger) -> None:
+        del state, logger  # unused
         if self.hparams.filename == "stdout":
             self.file = sys.stdout
         elif self.hparams.filename == "stderr":
@@ -101,13 +95,27 @@ class FileLoggerBackend(RankZeroLoggerBackend):
             print("-" * 30, file=self.file)
             print(file=self.file)
 
-    def _batch_end(self, state: State, logger: Logger) -> None:
+    def batch_end(self, state: State, logger: Logger) -> None:
+        del logger  # unused
         assert self.file is not None
-        if (state.step + 1) % self.hparams.flush_every_n_batches == 0 and self.file not in (sys.stdout, sys.stderr):
+        if (state.step + 1) % self.hparams.flush_every_n_batches == 0:
+            self._flush_file()
+
+    def epoch_end(self, state: State, logger: Logger) -> None:
+        del state, logger  # unused
+        self._flush_file()
+
+    def training_end(self, state: State, logger: Logger) -> None:
+        self._flush_file()
+
+    def _flush_file(self) -> None:
+        assert self.file is not None
+        if self.file not in (sys.stdout, sys.stderr):
             self.file.flush()
             os.fsync(self.file.fileno())
 
     def _close_file(self) -> None:
         assert self.file is not None
         assert self.file not in (sys.stdout, sys.stderr)
+        self._flush_file()
         self.file.close()
