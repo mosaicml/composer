@@ -108,6 +108,10 @@ class State(Serializable):
     # stopping conditions
     max_epochs: int
 
+    # dataloaders
+    train_dataloader: types.DataLoader
+    eval_dataloader: types.DataLoader
+
     # precision
     # storing precision internally so strings can be passed into the constructor and setter
     # but the getter will always return a Precision enum
@@ -133,10 +137,6 @@ class State(Serializable):
 
     # scaler
     scaler: Optional[types.Scaler] = None
-
-    # dataloaders
-    train_dataloader: Optional[types.DataLoader] = None
-    eval_dataloader: Optional[types.DataLoader] = None
 
     # algorithms
     algorithms: Sequence[Algorithm] = tuple()
