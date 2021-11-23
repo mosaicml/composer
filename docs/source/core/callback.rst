@@ -14,7 +14,7 @@ By convention, callbacks should not modify the :class:`State`.
 Each callback inherits from the :class:`Callback` base class.
 Callbacks can be implemented in two ways:
 
-#. Override the individual methods named for each :class:`Event`.
+#.  Override the individual methods named for each :class:`Event`.
 
     For example,
 
@@ -28,7 +28,7 @@ Callbacks can be implemented in two ways:
                 print(f'Epoch {state.epoch}/{state.max_epochs}')
 
         
-#. Override :meth:`_run_event` (**not** :meth:`run_event`) to run in response
+#.  Override :meth:`_run_event` (**not** :meth:`run_event`) to run in response
     to all events. If this method is overridden, then the individual methods
     corresponding to each event name will not be automatically called (however,
     the subclass implementation can invoke these methods as it wishes.)

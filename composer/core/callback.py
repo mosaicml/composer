@@ -68,6 +68,7 @@ class Callback(Serializable, abc.ABC):
 
     def training_start(self, state: State, logger: Logger) -> None:
         """Called on the :attr:`Event.TRAINING_START` event.
+
         Args:
             state (State): The global state.
             logger (Logger): The logger.
@@ -78,6 +79,7 @@ class Callback(Serializable, abc.ABC):
 
     def epoch_start(self, state: State, logger: Logger) -> None:
         """Called on the :attr:`~Event.EPOCH_START` event.
+
         Args:
             state (State): The global state.
             logger (Logger): The logger.
@@ -88,6 +90,7 @@ class Callback(Serializable, abc.ABC):
 
     def batch_start(self, state: State, logger: Logger) -> None:
         """Called on the :attr:`~Event.BATCH_START` event.
+
         Args:
             state (State): The global state.
             logger (Logger): The logger.
@@ -98,6 +101,7 @@ class Callback(Serializable, abc.ABC):
 
     def after_dataloader(self, state: State, logger: Logger) -> None:
         """Called on the :attr:`~Event.AFTER_DATALOADER` event.
+
         Args:
             state (State): The global state.
             logger (Logger): The logger.
@@ -108,6 +112,7 @@ class Callback(Serializable, abc.ABC):
 
     def before_train_batch(self, state: State, logger: Logger) -> None:
         """Called on the :attr:`~Event.BEFORE_TRAIN_BATCH` event.
+
         Args:
             state (State): The global state.
             logger (Logger): The logger.
@@ -118,6 +123,7 @@ class Callback(Serializable, abc.ABC):
 
     def before_forward(self, state: State, logger: Logger) -> None:
         """Called on the :attr:`~Event.BEFORE_FORWARD` event.
+
         Args:
             state (State): The global state.
             logger (Logger): The logger.
@@ -128,6 +134,7 @@ class Callback(Serializable, abc.ABC):
 
     def after_forward(self, state: State, logger: Logger) -> None:
         """Called on the :attr:`~Event.AFTER_FORWARD` event.
+
         Args:
             state (State): The global state.
             logger (Logger): The logger.
@@ -138,6 +145,7 @@ class Callback(Serializable, abc.ABC):
 
     def before_loss(self, state: State, logger: Logger) -> None:
         """Called on the :attr:`~Event.BEFORE_LOSS` event.
+
         Args:
             state (State): The global state.
             logger (Logger): The logger.
@@ -148,6 +156,7 @@ class Callback(Serializable, abc.ABC):
 
     def after_loss(self, state: State, logger: Logger) -> None:
         """Called on the :attr:`~Event.AFTER_LOSS` event.
+
         Args:
             state (State): The global state.
             logger (Logger): The logger.
@@ -158,6 +167,7 @@ class Callback(Serializable, abc.ABC):
 
     def before_backward(self, state: State, logger: Logger) -> None:
         """Called on the :attr:`~Event.BEFORE_BACKWARD` event.
+
         Args:
             state (State): The global state.
             logger (Logger): The logger.
@@ -168,6 +178,7 @@ class Callback(Serializable, abc.ABC):
 
     def after_backward(self, state: State, logger: Logger) -> None:
         """Called on the :attr:`~Event.AFTER_BACKWARD` event.
+
         Args:
             state (State): The global state.
             logger (Logger): The logger.
@@ -178,6 +189,7 @@ class Callback(Serializable, abc.ABC):
 
     def after_train_batch(self, state: State, logger: Logger) -> None:
         """Called on the :attr:`~Event.AFTER_TRAIN_BATCH` event.
+
         Args:
             state (State): The global state.
             logger (Logger): The logger.
@@ -188,6 +200,7 @@ class Callback(Serializable, abc.ABC):
 
     def batch_end(self, state: State, logger: Logger) -> None:
         """Called on the :attr:`~Event.BATCH_END` event.
+
         Args:
             state (State): The global state.
             logger (Logger): The logger.
@@ -198,6 +211,7 @@ class Callback(Serializable, abc.ABC):
 
     def epoch_end(self, state: State, logger: Logger) -> None:
         """Called on the :attr:`~Event.EPOCH_END` event.
+
         Args:
             state (State): The global state.
             logger (Logger): The logger.
@@ -208,6 +222,7 @@ class Callback(Serializable, abc.ABC):
 
     def training_end(self, state: State, logger: Logger) -> None:
         """Called on the :attr:`~Event.TRAINING_END` event.
+
         Args:
             state (State): The global state.
             logger (Logger): The logger.
@@ -218,6 +233,7 @@ class Callback(Serializable, abc.ABC):
 
     def eval_start(self, state: State, logger: Logger) -> None:
         """Called on the :attr:`~Event.EVAL_START` event.
+
         Args:
             state (State): The global state.
             logger (Logger): The logger.
@@ -228,6 +244,7 @@ class Callback(Serializable, abc.ABC):
 
     def eval_batch_start(self, state: State, logger: Logger) -> None:
         """Called on the :attr:`~Event.EVAL_BATCH_START` event.
+
         Args:
             state (State): The global state.
             logger (Logger): The logger.
@@ -238,6 +255,7 @@ class Callback(Serializable, abc.ABC):
 
     def eval_before_forward(self, state: State, logger: Logger) -> None:
         """Called on the :attr:`~Event.EVAL_BATCH_FORWARD` event.
+
         Args:
             state (State): The global state.
             logger (Logger): The logger.
@@ -248,6 +266,7 @@ class Callback(Serializable, abc.ABC):
 
     def eval_after_forward(self, state: State, logger: Logger) -> None:
         """Called on the :attr:`~Event.EVAL_AFTER_FORWARD` event.
+
         Args:
             state (State): The global state.
             logger (Logger): The logger.
@@ -258,6 +277,7 @@ class Callback(Serializable, abc.ABC):
 
     def eval_batch_end(self, state: State, logger: Logger) -> None:
         """Called on the :attr:`~Event.EVAL_BATCH_END` event.
+
         Args:
             state (State): The global state.
             logger (Logger): The logger.
@@ -268,6 +288,7 @@ class Callback(Serializable, abc.ABC):
 
     def eval_end(self, state: State, logger: Logger) -> None:
         """Called on the :attr:`~Event.EVAL_END` event.
+
         Args:
             state (State): The global state.
             logger (Logger): The logger.
