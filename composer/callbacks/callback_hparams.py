@@ -196,13 +196,11 @@ Instead, please specify via CLI arguments, or even better, environment variables
 
     def initialize_object(self) -> RunDirectoryUploader:
         from composer.callbacks.run_directory_uploader import RunDirectoryUploader
-        init_kwargs = {
-            "key": self.key,
-            "secret": self.secret,
-            "host": self.host,
-            "port": self.port,
-            "region": self.region,
-        }
+        init_kwargs = {}
+        for key in ("key", "secret", "host", "port", "region"):
+            kwarg = getattr(self, key)
+            if getattr(self, key) is not None:
+                init_kwargs[key] = kwarg
         init_kwargs.update(self.extra_init_kwargs)
         return RunDirectoryUploader(
             provider=self.provider,
