@@ -81,7 +81,7 @@ class CudaDataLoader(WrappedDataLoader):
         Args:
             batch (Batch): The data to move the gpu.
         """
-        move_batch_to_gpu(batch=batch, device=self.device)
+        return move_batch_to_gpu(batch=batch, device=self.device)
 
 
 class DeviceGPU(Device):

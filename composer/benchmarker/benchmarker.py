@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import List, Optional, Sequence
 
 import torch
+import torch.distributed
 
 from composer.benchmarker.benchmarker_hparams import BenchmarkerHparams
 from composer.callbacks.benchmarker import Benchmarker as BenchmarkerCallback
