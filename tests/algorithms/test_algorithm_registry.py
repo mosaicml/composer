@@ -5,7 +5,7 @@ import dataclasses
 import pytest
 
 from composer.algorithms import (AlgorithmHparams, AlibiHparams, AugMixHparams, BlurPoolHparams, ChannelsLastHparams,
-                                 ColOutHparams, CutOutHparams, DummyHparams, GhostBatchNormHparams,
+                                 ColOutHparams, CutMixHparams, CutOutHparams, DummyHparams, GhostBatchNormHparams,
                                  LabelSmoothingHparams, LayerFreezingHparams, MixUpHparams, NoOpModelHparams,
                                  ProgressiveResizingHparams, RandAugmentHparams, SAMHparams, ScaleScheduleHparams,
                                  SelectiveBackpropHparams, SeqLengthWarmupHparams, SqueezeExciteHparams,
@@ -44,6 +44,9 @@ default_required_fields = {
         "max_seq_length": 1024,
         "step_size": 8,
         "truncate": True,
+    },
+    CutMixHparams: {
+        'alpha': 1.0
     },
     CutOutHparams: {
         'n_holes': 1,
