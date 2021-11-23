@@ -2,21 +2,19 @@
 
 from __future__ import annotations
 
-from copy import deepcopy
 import logging
 import os
+import time
+from copy import deepcopy
+from queue import Queue
+from threading import Thread
 from typing import Optional
-# import aiohttp
-# import asyncio
 
 import requests
-import time
-from threading import Thread
-from queue import Queue
 
 from composer.core.logging import LogLevel, RankZeroLoggerBackend, TLogData
 from composer.core.serializable import Serializable
-from composer.core.types import Logger, State, StateDict
+from composer.core.types import JSON, Logger, State, StateDict
 
 _MOSAICML_API_KEY_ENV = "MOSAIC_API_KEY"
 _MOSAICML_LOGGER_URL = "https://api.mosaicml.com/v0/log/metric"
@@ -28,14 +26,16 @@ _STOP_LOG_SIGNAL = "STOP"
 log = logging.getLogger(__name__)
 
 
-def _send_data(job_id, sweep_id, data):
-    resp = requests.post(_MOSAICML_LOGGER_URL,
-                         headers={"X-MosaicML-API-key": os.environ.get(_MOSAICML_API_KEY_ENV, "")},
-                         json={
-                         "experimentID": job_id,
-                         "runID": sweep_id,
-                         "data": data})
-    return resp
+def _send_data(job_id: str, sweep_id: str, data: JSON):
+    response = requests.post(_MOSAICML_LOGGER_URL,
+                             headers={"X-MosaicML-API-key": os.environ.get(_MOSAICML_API_KEY_ENV, "")},
+                             json={
+                                 "experimentID": job_id,
+                                 "runID": sweep_id,
+                                 "data": data
+                             },
+                             timeout=3)
+    return response
 
 
 class MosaicMLLoggerBackend(RankZeroLoggerBackend, Serializable):
@@ -79,17 +79,11 @@ class MosaicMLLoggerBackend(RankZeroLoggerBackend, Serializable):
             log.warn(f"No api_key set for environment variable {_MOSAICML_API_KEY_ENV}. This logger will be a no-op.")
 
         self.buffered_data = []
-        # self.queue = asyncio.Queue()
         self.flush_every_n_batches = flush_every_n_batches
         self.max_logs_in_buffer = max_logs_in_buffer
 
-        # self.loop = asyncio.new_event_loop()
-        # self.loop.run_forever()
-
         self.queue = Queue()
         self.thread = Thread(target=self._listen_to_queue)
-        self.thread.start() # do on training start
-
 
     def _log_metric(self, epoch: int, step: int, log_level: LogLevel, data: TLogData):
         del log_level  # unused
@@ -108,10 +102,17 @@ class MosaicMLLoggerBackend(RankZeroLoggerBackend, Serializable):
         if len(self.buffered_data) > self.max_logs_in_buffer:
             self._flush_buffered_data()
 
-    # def batch_end(self, state: State, logger: Logger):
-    #     del logger  # unused
-    #     if (state.step + 1) % self.flush_every_n_batches == 0:
-    #         self._flush_buffered_data()
+    def _training_start(self, state: State, logger: Logger) -> None:
+        del state, logger  # unused
+        log.info("Starting MosaicML logger thread.")
+
+        # Start the logging thread
+        self.thread.start()
+
+    def batch_end(self, state: State, logger: Logger):
+        del logger  # unused
+        if (state.step + 1) % self.flush_every_n_batches == 0:
+            self._flush_buffered_data()
 
     def training_end(self, state: State, logger: Logger):
         del state, logger  # unused
@@ -119,20 +120,10 @@ class MosaicMLLoggerBackend(RankZeroLoggerBackend, Serializable):
         # Flush any remaining logs on training end
         self._flush_buffered_data()
 
-        # print('TRAINING END LOOP', self.loop)
-        print('QUEUE SIZE:', self.queue.qsize())
-        print('QUEUE:', self.queue)
-        # self.queue.join()
-        print('ALL QUEUE TASKS DONE')
-
         self.queue.put_nowait(_STOP_LOG_SIGNAL)
         self.thread.join()
-        print('STOPPED THREAD - EXITING')
-        # Block on all log writes finishing
-        # self.loop.run_until_complete(self.queue.join())
-        # self.loop.create_task(self.queue.join())
-        # self.loop.run_in_executor
 
+        log.info(f"Stopped MosaicML logger thread exited.")
 
     def state_dict(self) -> StateDict:
         # Storing these fields in the state dict to support run resuming in the future.
@@ -142,93 +133,31 @@ class MosaicMLLoggerBackend(RankZeroLoggerBackend, Serializable):
         self.job_id = state["job_id"]
         self.sweep_id = state["sweep_id"]
 
-    def _listen_to_queue(self):
-        print('THREAD STARTED RUNNING')
-        while True:
-            print('AT TOP OF LOOP BEFORE GET')
-            data = self.queue.get(block=True)
-            print('GOT DATA')
-            if data == _STOP_LOG_SIGNAL:
-                self.queue.task_done()
-                print('stopping thread')
-                return
-            _send_data(job_id=self.job_id, sweep_id=self.sweep_id, data=data)
-            # self._send_data(data)
-            print('ABOUT TO CALL TASK DONE')
-            self.queue.task_done()
-            print('CALLED TASK DONE')
-
-
     def _flush_buffered_data(self):
         if len(self.buffered_data) == 0:
             return
 
-        data_to_write = deepcopy(self.buffered_data.copy())
+        data_to_write = self.buffered_data.copy()
         self.buffered_data = []
 
         self.queue.put_nowait(data_to_write)
 
-        # loop = asyncio.get_event_loop()
-        # loop.
-        # print('loop is', asyncio.get_event_loop())
-        # print('new loop', asyncio.new_event_loop())
-        # asyncio.create_task
-        # Create a separate task for the new data written to the queue
-        # self.loop.create_task(self._send_data(), name="ello")
-        # self.loop.run_until_complete(self._send_data())
-        # asyncio.create_task(self._send_data())
-        # asyncio.get_event_loop().create_task(self._send_data())
+    def _listen_to_queue(self):
+        while True:
+            data = self.queue.get(block=True)
+            if data == _STOP_LOG_SIGNAL:
+                log.info("MosaicML logger thread received stop logging signal.")
+                self.queue.task_done()
+                return
 
+            try:
+                response = _send_data(job_id=self.job_id, sweep_id=self.sweep_id, data=data)
+                if response.status_code != 200:
+                    # Ignore errors for now for simplicity
+                    log.warning("Posting data to MosaicML backend failed with response code "
+                                f"{response.status_code} and message {response.json()}.")
+            except requests.exceptions.Timeout as e:
+                log.warning(f"MosaicML logger timed out with error {e}.")
 
-    # def _send_data(self, data):
-    #     print(f'CALLED SEND DATA WITH DATA:', data)
-    #     time.sleep(1)
-
-
-    # async def _send_data(self) -> str:
-    #     print('CALLED SEND DATA!!!')
-    #     data = await self.queue.get()
-    #     try:
-    #         print('hi')
-    #         # async with aiohttp.ClientSession() as session:
-    #         #     async with session.post(_MOSAIC_LOGGER_URL,
-    #         #                             headers={"X-MosaicML-API-key": os.environ.get(_MOSAIC_API_KEY_ENV, "")},
-    #         #                             json={
-    #         #                                 "experimentID": self.job_id,
-    #         #                                 "runID": self.sweep_id,
-    #         #                                 "data": data
-    #         #                             }) as resp:
-    #         #         response = await resp.text()
-    #         #         #self.queue.task_done()
-    #         #         return response
-    #     except Exception as e:
-    #         log.error(f"MosaicLogger got exception {e} when writing logs.")
-    #         # Mark the task done even if there is an exception so that the training loop does not get stuck
-    #         #self.queue.task_done()
-    #     finally:
-    #         self.queue.task_done()
-
-
-
-# if __name__ == '__main__':
-#     import time
-#     async def worker():
-#         print('worker started')
-#         time.sleep(10)
-#         print('worker finished')
-
-#     async def worker_caller(i):
-#         print(f'worker caller {i} started')
-#         await worker()
-#         print(f'worker caller {i} finished')
-
-#     loop = asyncio.new_event_loop()
-
-#     tasks = []
-#     for i in range(3):
-#         t = loop.create_task(worker_caller(i))
-#         tasks.append(t)
-#     await asyncio.gather(*tasks, loop=loop)
-    # worker_caller()
-
-
+            # Mark the task done regardless of error to not block thread termination
+            self.queue.task_done()
