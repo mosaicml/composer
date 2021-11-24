@@ -99,10 +99,8 @@ class ADE20k(Dataset):
             target = Image.open(target_path)
 
         if self.transformation:
-            try:
-                image, target = self.transformation(image, target, self.split == 'train')
-            except:
-                print('Error with this image:', image_path)
+            image, target = self.transformation(image, target, self.split == 'train')
+
         return image, target
 
     def __len__(self):
@@ -135,11 +133,7 @@ class ADE20kDatasetHparams(DatasetHparams):
         if is_train:
             image, target = random_resize(image, target, 0.5, 2.0, 0.25)
 
-            if image.width < self.crop_size or image.height < self.crop_size:
-                margin = self.crop_size - image.width
-                image = TF.pad(image, margin // 2, fill=(int(0.485 * 255), int(0.456 * 255), int(0.406 * 255)))
-                target = TF.pad(target, margin // 2, fill=0)
-            elif image.width > self.crop_size or image.height > self.crop_size:
+            if image.width > self.crop_size or image.height > self.crop_size:
                 i, j, h, w = transforms.RandomCrop.get_params(image, output_size=(self.crop_size, self.crop_size))
                 image = TF.crop(image, i, j, h, w)
                 target = TF.crop(target, i, j, h, w)
@@ -147,6 +141,34 @@ class ADE20kDatasetHparams(DatasetHparams):
             if np.random.random() > 0.5:
                 image = TF.hflip(image)
                 target = TF.hflip(target)
+
+            # Photometric distortions
+            if np.random.randint(2):
+                brightness_factor = np.random.uniform(1 - (32. / 255), 1 + (32. / 255))
+                image = TF.adjust_brightness(image, brightness_factor)
+
+            contrast_mode = np.random.randint(2)
+            if contrast_mode == 1 and np.random.randint(2):
+                contrast_factor = np.random.uniform(0.5, 1.5)
+                image = TF.adjust_contrast(image, contrast_factor)
+
+            if np.random.randint(2):
+                saturation_factor = np.random.uniform(0.5, 1.5)
+                image = TF.adjust_saturation(image, saturation_factor)
+
+            if np.random.randint(2):
+                hue_factor = np.random.uniform(-18. / 255, 18. / 255)
+                image = TF.adjust_hue(image, hue_factor)
+
+            if contrast_mode == 0 and np.random.randint(2):
+                contrast_factor = np.random.uniform(0.5, 1.5)
+                image = TF.adjust_contrast(image, contrast_factor)
+
+            if image.width < self.crop_size or image.height < self.crop_size:
+                margin = self.crop_size - image.width
+                image = TF.pad(image, margin // 2, fill=(int(0.485 * 255), int(0.456 * 255), int(0.406 * 255)))
+                target = TF.pad(target, margin // 2, fill=0)
+
         return image, target
 
     def initialize_object(self) -> DataloaderSpec:
