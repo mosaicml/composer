@@ -11,7 +11,6 @@ import composer.algorithms as algorithms
 import composer.trainer as trainer
 from composer.algorithms.scale_schedule.scale_schedule import ScaleScheduleHparams
 from composer.core.precision import Precision
-from composer.datasets import SyntheticDatasetHparams
 from composer.trainer.devices.device_hparams import CPUDeviceHparams
 
 modeldir_path = os.path.join(os.path.dirname(composer.__file__), 'yamls', 'models')
@@ -34,16 +33,36 @@ def get_model_algs(model_name: str) -> List[str]:
 @pytest.mark.timeout(15)
 def test_load(model_name: str):
     trainer_hparams = trainer.load(model_name)
-    dummy_dataset_hparams = SyntheticDatasetHparams(
-        total_dataset_size=4096,
-        data_shape=[1, 28, 28],  # TODO(ravi) -- add a getModelInputShape
-        num_classes=2,  # TODO(ravi) -- add a getModelOutputShape
-        device="cpu",
-    )
     trainer_hparams.precision = Precision.FP32
     trainer_hparams.algorithms = algorithms.load_multiple(*get_model_algs(model_name))
-    trainer_hparams.train_dataset = dummy_dataset_hparams
-    trainer_hparams.val_dataset = dummy_dataset_hparams
+    try:
+        trainer_hparams.train_dataset.set_num_total_batches(1)
+    except NotImplementedError:
+        pytest.xfail(f"Model {model_name} uses a train dataset that doesn't support num_total_batches")
+        raise
+
+    try:
+        train_synthetic = trainer_hparams.train_dataset.get_synthetic()
+    except NotImplementedError:
+        pytest.xfail(f"Model {model_name} uses a train dataset that doesn't support synthetic data.")
+        raise
+    if train_synthetic is None:
+        trainer_hparams.train_dataset.set_synthetic(trainer_hparams.train_dataset.get_synthetic_hparams_cls()())
+
+    try:
+        trainer_hparams.val_dataset.set_num_total_batches(1)
+    except NotImplementedError:
+        pytest.xfail(f"Model {model_name} uses a val dataset that doesn't support num_total_batches")
+        raise
+
+    try:
+        val_synthetic = trainer_hparams.val_dataset.get_synthetic()
+    except NotImplementedError:
+        pytest.xfail(f"Model {model_name} uses a val dataset that doesn't support synthetic data.")
+        raise
+
+    if val_synthetic is None:
+        trainer_hparams.val_dataset.set_synthetic(trainer_hparams.val_dataset.get_synthetic_hparams_cls()())
     trainer_hparams.device = CPUDeviceHparams()
     my_trainer = trainer_hparams.initialize_object()
 
@@ -53,18 +72,15 @@ def test_load(model_name: str):
 @pytest.mark.parametrize("ssr", ["0.25", "0.33", "0.50", "0.67", "0.75", "1.00", "1.25"])
 def test_scale_schedule_load(ssr: str):
     trainer_hparams = trainer.load("classify_mnist")
-    # TODO(ravi) -- add a get_synthetic_dataset(num_samples) on BaseMosaicModel
-    dummy_dataset_hparams = SyntheticDatasetHparams(
-        total_dataset_size=4096,
-        data_shape=[1, 28, 28],  # mnist input shape
-        num_classes=trainer_hparams.model.num_classes,
-        device="cpu",
-    )
     trainer_hparams.precision = Precision.FP32
     algs = [f"scale_schedule/{ssr}"]
     trainer_hparams.algorithms = algorithms.load_multiple(*algs)
-    trainer_hparams.train_dataset = dummy_dataset_hparams
-    trainer_hparams.val_dataset = dummy_dataset_hparams
+    trainer_hparams.train_dataset.set_num_total_batches(1)
+    if trainer_hparams.train_dataset.get_synthetic() is None:
+        trainer_hparams.train_dataset.set_synthetic(trainer_hparams.train_dataset.get_synthetic_hparams_cls()())
+    trainer_hparams.val_dataset.set_num_total_batches(1)
+    if trainer_hparams.val_dataset.get_synthetic() is None:
+        trainer_hparams.val_dataset.set_synthetic(trainer_hparams.val_dataset.get_synthetic_hparams_cls()())
     trainer_hparams.device = CPUDeviceHparams()
     assert len(trainer_hparams.algorithms) == 1
     alg = trainer_hparams.algorithms[0]

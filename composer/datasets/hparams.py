@@ -1,13 +1,15 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
+from __future__ import annotations
 
+import dataclasses
 from abc import ABC, abstractmethod
-from dataclasses import dataclass
-from typing import Any, Callable, List, NamedTuple, Optional, Sequence
+from typing import Callable, List, NamedTuple, Optional, Sequence, Type, Union
 
-import torch
 import yahp as hp
+from yahp.utils.type_helpers import HparamsType
 
-from composer.core.types import Batch, Dataset, Tensor, TPrefetchFn
+from composer.core.types import Batch, DataLoader, TDeviceTransformFn, Tensor
+from composer.datasets.dataloader import DataloaderHparams
 
 
 def _split_fn(batch: Batch, n_microbatches: int) -> List[Batch]:
@@ -30,40 +32,71 @@ class DataloaderSpec(NamedTuple):
     """Specification for initializing a dataloader.
     
     Attributes:
-        dataset (Dataset): The initialized dataset from which to load data.
-        drop_last (bool): Whether the final batch of an epoch should be discarded
-            if there are fewer samples than the batch size.
-        shuffle (bool): Whether the data should be shuffled.
-        collate_fn (List[Any] -> Batch, optional): A function to collate
-            data before returning it from the dataloader.
-        worker_init_fn (int -> None, optional): A function to be ran
-            on each worker before dataloading begins.
-        multiprocessing_context (Any, optional): The context to use for multiprocessing.
-        generator (torch.Generator, optional): An RNG to be used for seeding workers.
-        prefetch_fn (TPrefetchFn, optional): A function to run for prefetching data.
+        dataloader (DataLoader): The initialized dataloader.
+        device_transform_fn (TDeviceTransformFn, optional):
+            A function to modify the data once it has been loaded onto the device (for example, GPU-based batch normalization)
+            This function is invoked with a batch of data after it has been moved onto the device,
+            and it is expected to return a batch.
         split_fn (Batch, int -> List[Batch]): A function to
             run to split batches into microbatches.
     """
-
-    dataset: Dataset
-    drop_last: bool
-    shuffle: bool
-    collate_fn: Optional[Callable[[List[Any]], Batch]] = None
-    worker_init_fn: Optional[Callable[[int], None]] = None
-    multiprocessing_context: Any = None
-    generator: Optional[torch.Generator] = None
-    prefetch_fn: Optional[TPrefetchFn] = None
+    dataloader: DataLoader
+    device_transform_fn: Optional[TDeviceTransformFn] = None
     split_fn: Callable[[Batch, int], List[Batch]] = _split_fn
 
 
-@dataclass
+@dataclasses.dataclass
 class DatasetHparams(hp.Hparams, ABC):
-    """Abstract base class for hyperparameters to initialize a dataset."""
+    """Abstract base class for hyperparameters to initialize a dataset.
+    
+    If the dataset supports generating synthetic data, add a "synthetic" field to the hparams.
+    If this field is True, then the dataloader should yield samples from a synthetic (randomly generated)
+    dataset that does not depend on the real dataset.
+    and 
+    """
 
-    pass
+    def get_synthetic(self) -> Optional[hp.Hparams]:
+        if not hasattr(self, "synthetic"):
+            raise NotImplementedError(f"Dataset {self.__class__.__name__} does not support synthetic data")
+        return getattr(self, "synthetic")
+
+    def set_synthetic(self, value: Optional[hp.Hparams]) -> None:
+        if not hasattr(self, "synthetic"):
+            raise NotImplementedError(f"Dataset {self.__class__.__name__} does not support synthetic data")
+        setattr(self, "synthetic", value)
+
+    def get_num_total_batches(self) -> Optional[int]:
+        if not hasattr(self, "num_total_batches"):
+            raise NotImplementedError(
+                f"Dataset {self.__class__.__name__} does not support limiting the number of batches")
+        return getattr(self, "num_total_batches")
+
+    def set_num_total_batches(self, value: Optional[int]) -> None:
+        if not hasattr(self, "num_total_batches"):
+            raise NotImplementedError(
+                f"Dataset {self.__class__.__name__} does not support limiting to num_total_batches")
+        setattr(self, "num_total_batches", value)
+
+    @classmethod
+    def get_synthetic_hparams_cls(cls) -> Type[hp.Hparams]:
+        for field in dataclasses.fields(cls):
+            if field.name == "synthetic":
+                hparams_type = HparamsType(field.type)
+                if not hparams_type.is_hparams_dataclass:
+                    raise NotImplementedError(f"Dataset {cls.__name__} does not support synthetic data")
+                return hparams_type.type
+        raise NotImplementedError(f"Dataset {cls.__name__} does not support synthetic data")
 
     @abstractmethod
-    def initialize_object(self) -> DataloaderSpec:
-        """Initializes a :class:`DataloaderSpec` for this dataset."""
-
+    def initialize_object(self, batch_size: int,
+                          dataloader_hparams: DataloaderHparams) -> Union[DataLoader, DataloaderSpec]:
+        """Initializes a :class:`DataloaderSpec` for this dataset.
+        
+        Args:
+            batch_size (int): The size of the batch the dataloader should yield
+            dataloader_hparams (DataloaderHparams): The dataset-independent hparams for the dataloader
+        
+        Returns:
+            `Dataloader` or `DataloaderSpec`: The dataloader, or if a custom device transformation or split function is required, a `DataloaderSpec` tuple 
+        """
         pass

@@ -4,7 +4,7 @@ import collections.abc
 import os
 import pathlib
 from dataclasses import dataclass
-from typing import Dict, List, Optional, Sequence, Union
+from typing import Dict, List, Optional, Type, Union
 
 import pytest
 import torch
@@ -17,12 +17,12 @@ from composer import Callback, Event
 from composer.callbacks import CallbackHparams
 from composer.core.logging import Logger
 from composer.core.state import State
-from composer.datasets import DataloaderHparams, DataloaderSpec, MemoryFormat, SyntheticDataset, SyntheticDatasetHparams
+from composer.datasets import DataloaderHparams, synthetic
+from composer.models.model_hparams import ModelHparams
 from composer.trainer.devices import CPUDeviceHparams, GPUDeviceHparams
 from composer.trainer.devices.device_hparams import DeviceHparams
 from composer.trainer.trainer_hparams import TrainerHparams, callback_registry, dataset_registry
 from composer.utils import ddp
-from tests.fixtures.models import SimpleBatchPairModelHparams
 
 
 def get_file_path(tmpdir: Union[str, pathlib.Path], *, idx: int, epoch: int, is_train: bool) -> str:
@@ -35,20 +35,15 @@ def get_batch_file_path(tmpdir: Union[str, pathlib.Path], *, rank: int, epoch: i
     return os.path.join(tmpdir, f"{train_str}-rank-{rank}-epoch-{epoch}-batch0.pt")
 
 
-class TrackedDataset(SyntheticDataset):
+class TrackedDataset(synthetic.SyntheticBatchPairDataset):
     """
     TrackedDataset atomically writes a file every time a record is accessed.
     It is thread-safe and subprocess-safe, and is useful to measure how many times a sample is accessed.
     Because of atomic file writes, it is slow and should not be used in any performance measurements.
     """
 
-    def __init__(self, *, total_dataset_size: int, data_shape: Sequence[int], memory_format: MemoryFormat, device: str,
-                 num_classes: int, is_train: bool, tmpdir: str):
-        super().__init__(total_dataset_size=total_dataset_size,
-                         data_shape=data_shape,
-                         num_classes=num_classes,
-                         memory_format=memory_format,
-                         device=device)
+    def __init__(self, is_train: bool, tmpdir: str, *args, **kwargs):
+        super().__init__(*args, **kwargs)
         self.is_train = is_train
         self.tmpdir = tmpdir
 
@@ -64,27 +59,14 @@ class TrackedDataset(SyntheticDataset):
 
 
 @dataclass
-class TrackedDatasetHparams(SyntheticDatasetHparams):
+class TrackedDatasetHparams(synthetic.SyntheticBatchPairDatasetHparams):
     is_train: Optional[bool] = hp.optional("is_train", default=None)
     tmpdir: Optional[str] = hp.optional("tmpdir", default=None)
 
-    def initialize_object(self) -> DataloaderSpec:
+    def initialize_object(self, *args, **kwargs) -> TrackedDataset:
         assert self.is_train is not None
         assert self.tmpdir is not None
-        assert self.num_classes is not None
-        return DataloaderSpec(
-            TrackedDataset(
-                total_dataset_size=self.total_dataset_size,
-                data_shape=self.data_shape,
-                num_classes=self.num_classes,
-                device=self.device,
-                memory_format=self.memory_format,
-                is_train=self.is_train,
-                tmpdir=self.tmpdir,
-            ),
-            drop_last=self.drop_last,
-            shuffle=self.shuffle,
-        )
+        return TrackedDataset(is_train=self.is_train, tmpdir=self.tmpdir, *args, **kwargs)
 
 
 class CheckBatch0(Callback):
@@ -132,7 +114,8 @@ def patch_registries(monkeypatch: MonkeyPatch):
     pytest.param(1),
     pytest.param(2, marks=pytest.mark.world_size(2)),
 ])
-def test_ddp(device: DeviceHparams, world_size: int, ddp_tmpdir: str, mosaic_trainer_hparams: TrainerHparams) -> None:
+def test_ddp(device: DeviceHparams, world_size: int, ddp_tmpdir: str, mosaic_trainer_hparams: TrainerHparams,
+             SimpleBatchPairModelHparams: Type[ModelHparams]) -> None:
     """
     test strategy for ddp:
     1) Train a dummy model on two gps, for two epochs, using the tracked dataset.
@@ -150,30 +133,28 @@ def test_ddp(device: DeviceHparams, world_size: int, ddp_tmpdir: str, mosaic_tra
     hparams = mosaic_trainer_hparams
     model_hparams = hparams.model
     assert isinstance(model_hparams, SimpleBatchPairModelHparams)
-    model = model_hparams.initialize_object()
-    shape = list(model.in_shape)  # type: ignore
 
     callback_registry["checkbatch0"] = CheckBatch0Hparams
     dataset_registry["tracked"] = TrackedDatasetHparams
 
-    hparams.train_dataset = TrackedDatasetHparams(
-        total_dataset_size=300,
-        data_shape=shape,
-        num_classes=model.num_classes,
-        device="cpu",
-        is_train=True,
-        memory_format=MemoryFormat.CONTIGUOUS_FORMAT,
-        tmpdir=ddp_tmpdir,
-    )
-    hparams.val_dataset = TrackedDatasetHparams(
-        total_dataset_size=300,
-        data_shape=shape,
-        num_classes=model.num_classes,
-        device="cpu",
-        is_train=False,
-        memory_format=MemoryFormat.CONTIGUOUS_FORMAT,
-        tmpdir=ddp_tmpdir,
-    )
+    hparams.train_dataset.set_synthetic(
+        TrackedDatasetHparams(
+            num_unique_samples_to_create=300,
+            device="cpu",
+            is_train=True,
+            memory_format=synthetic.MemoryFormat.CONTIGUOUS_FORMAT,
+            tmpdir=ddp_tmpdir,
+        ))
+    hparams.train_dataset.set_num_total_batches(6)
+    hparams.val_dataset.set_synthetic(
+        TrackedDatasetHparams(
+            num_unique_samples_to_create=300,
+            device="cpu",
+            is_train=False,
+            memory_format=synthetic.MemoryFormat.CONTIGUOUS_FORMAT,
+            tmpdir=ddp_tmpdir,
+        ))
+    hparams.val_dataset.set_num_total_batches(6)
     hparams.device = device
     hparams.dataloader = DataloaderHparams(
         num_workers=0,
@@ -191,10 +172,10 @@ def test_ddp(device: DeviceHparams, world_size: int, ddp_tmpdir: str, mosaic_tra
     hparams.validate_every_n_epochs = 1
     hparams.callbacks.append(CheckBatch0Hparams(tmpdir=ddp_tmpdir))
     trainer = hparams.initialize_object()
-    assert isinstance(trainer.train_dl_spec.dataset, collections.abc.Sized)
-    num_train_samples = len(trainer.train_dl_spec.dataset)
-    assert isinstance(trainer.eval_dl_spec.dataset, collections.abc.Sized)
-    num_eval_samples = len(trainer.eval_dl_spec.dataset)
+    assert isinstance(trainer.state.train_dataloader.dataset, collections.abc.Sized)
+    num_train_samples = len(trainer.state.train_dataloader.dataset)
+    assert isinstance(trainer.state.eval_dataloader.dataset, collections.abc.Sized)
+    num_eval_samples = len(trainer.state.eval_dataloader.dataset)
     trainer.fit()
 
     # now validate that each sample were accessed exactly hparams.max_epochs * batch size times

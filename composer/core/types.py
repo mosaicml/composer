@@ -150,6 +150,6 @@ ModelParameters = Union[Iterable[Tensor], Iterable[Dict[str, Tensor]]]
 
 JSON = Union[str, float, int, None, List['JSON'], Dict[str, 'JSON']]
 
-TPrefetchFn = Callable[[Batch], Batch]
+TDeviceTransformFn = Callable[[Batch], Batch]
 
 StateDict = Dict[str, Any]

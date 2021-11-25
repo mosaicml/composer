@@ -7,11 +7,11 @@ import pytest
 
 from composer.datasets.brats import BratsDatasetHparams
 from composer.datasets.cifar10 import CIFAR10DatasetHparams
-from composer.datasets.hparams import DataloaderSpec, DatasetHparams
+from composer.datasets.dataloader import DataloaderHparams
+from composer.datasets.hparams import DatasetHparams
 from composer.datasets.imagenet import ImagenetDatasetHparams
 from composer.datasets.lm_datasets import LMDatasetHparams
 from composer.datasets.mnist import MNISTDatasetHparams
-from composer.datasets.synthetic import SyntheticDatasetHparams
 from composer.trainer.trainer_hparams import dataset_registry
 
 ROOT_DATADIR = os.environ.get('MOSAICML_DATASET_DIR', "/tmp")
@@ -24,33 +24,29 @@ default_required_fields: Dict[Type[DatasetHparams], Callable[[], DatasetHparams]
         lambda: CIFAR10DatasetHparams(
             is_train=False,
             datadir=os.path.join(ROOT_DATADIR, "cifar10"),
+            num_total_batches=1,
             download=False,
         ),
     BratsDatasetHparams:
         lambda: BratsDatasetHparams(
             is_train=False,
             datadir=os.path.join(ROOT_DATADIR, "01_2d"),
-            download=False,
+            num_total_batches=1,
         ),
     ImagenetDatasetHparams:
         lambda: ImagenetDatasetHparams(
             is_train=False,
             datadir=os.path.join(ROOT_DATADIR, "imagenet"),
+            num_total_batches=1,
             crop_size=224,
             resize_size=-1,
         ),
     MNISTDatasetHparams:
         lambda: MNISTDatasetHparams(
             datadir=os.path.join(ROOT_DATADIR, "mnist"),
+            num_total_batches=1,
             is_train=False,
             download=False,
-        ),
-    SyntheticDatasetHparams:
-        lambda: SyntheticDatasetHparams(
-            total_dataset_size=20,
-            data_shape=[256, 256],
-            num_classes=100,
-            device="cpu",
         ),
     LMDatasetHparams:
         lambda: LMDatasetHparams(
@@ -62,10 +58,15 @@ default_required_fields: Dict[Type[DatasetHparams], Callable[[], DatasetHparams]
 
 
 @pytest.mark.parametrize("dataset_name", dataset_registry.keys())
-def test_dataset(dataset_name: str, request: pytest.FixtureRequest) -> None:
+def test_dataset(dataset_name: str, dummy_dataloader_hparams: DataloaderHparams,
+                 request: pytest.FixtureRequest) -> None:
     hparams_cls = dataset_registry[dataset_name]
     hparams = default_required_fields[hparams_cls]()
-    if dataset_name != "synthetic":
-        request.applymarker(pytest.mark.xfail())
-    dataloader_spec = hparams.initialize_object()
-    assert isinstance(dataloader_spec, DataloaderSpec)
+    try:
+        synthetic = hparams.get_synthetic()
+    except NotImplementedError:
+        pytest.xfail(f"Dataset {dataset_name} does not support synthetic data")
+        raise
+    if synthetic is None:
+        hparams.set_synthetic(hparams.get_synthetic_hparams_cls()())
+    hparams.initialize_object(batch_size=1, dataloader_hparams=dummy_dataloader_hparams)

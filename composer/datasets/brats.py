@@ -4,14 +4,17 @@ import glob
 import os
 import random
 from dataclasses import dataclass
+from typing import Optional
 
 import numpy as np
 import torch
 import torchvision
 import yahp as hp
-from torch.utils.data import Dataset
 
-from composer.datasets.hparams import DataloaderSpec, DatasetHparams
+from composer.core.types import DataLoader, Dataset
+from composer.datasets.dataloader import DataloaderHparams
+from composer.datasets.hparams import DatasetHparams
+from composer.datasets.subset_dataset import SubsetDataset
 
 PATCH_SIZE = [1, 192, 160]
 
@@ -33,40 +36,37 @@ class BratsDatasetHparams(DatasetHparams):
     Parameters:
         is_train (bool): Whether to load the training or validation dataset.
         datadir (str): Data directory to use.
-        download (bool): Whether to download the dataset, if needed.
         drop_last (bool): Whether to drop the last samples for the last batch.
         shuffle (bool): Whether to shuffle the dataset for each epoch.
         oversampling (float): The oversampling ratio to use.
     """
 
     is_train: bool = hp.required("whether to load the training or validation dataset")
-    datadir: str = hp.required("data directory")
-    download: bool = hp.required("whether to download the dataset, if needed")
+    datadir: Optional[str] = hp.optional("data directory. Required unless if synthetic=True", default=None)
     drop_last: bool = hp.optional("Whether to drop the last samples for the last batch", default=True)
     shuffle: bool = hp.optional("Whether to shuffle the dataset for each epoch", default=True)
     oversampling: float = hp.optional("oversampling", default=0.33)
+    num_total_batches: Optional[int] = hp.optional("num total batches", default=None)
 
-    def initialize_object(self) -> DataloaderSpec:
+    def initialize_object(self, batch_size: int, dataloader_hparams: DataloaderHparams) -> DataLoader:
 
-        datadir = self.datadir
         oversampling = self.oversampling
 
-        x_train, y_train, x_val, y_val = get_data_split(datadir)
-        train_dataset = PytTrain(x_train, y_train, oversampling)
-        val_dataset = PytVal(x_val, y_val)
-        if self.is_train:
-            return DataloaderSpec(
-                dataset=train_dataset,
-                drop_last=self.drop_last,
-                shuffle=self.shuffle,
-            )
-        else:
-            return DataloaderSpec(
-                dataset=val_dataset,
-                drop_last=self.drop_last,
-                shuffle=self.shuffle,
-                collate_fn=my_collate,  # type: ignore
-            )
+        if self.datadir is None:
+            raise ValueError("datadir must be specified if self.synthetic is False")
+        x_train, y_train, x_val, y_val = get_data_split(self.datadir)
+        dataset = PytTrain(x_train, y_train, oversampling) if self.is_train else PytVal(x_val, y_val)
+        if self.num_total_batches is not None:
+            dataset = SubsetDataset(dataset, batch_size=batch_size, num_total_batches=self.num_total_batches)
+        collate_fn = None if self.is_train else my_collate
+
+        return dataloader_hparams.initialize_object(
+            dataset=dataset,
+            batch_size=batch_size,
+            shuffle=self.shuffle,
+            drop_last=self.drop_last,
+            collate_fn=collate_fn,
+        )
 
 
 def coin_flip(prob):

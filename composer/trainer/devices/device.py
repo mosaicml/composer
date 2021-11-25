@@ -2,13 +2,13 @@
 
 from abc import ABC, abstractmethod
 from contextlib import contextmanager
-from typing import Generator, Optional, TypeVar, Union
+from typing import Generator, TypeVar, Union
 
 import torch.nn
 
 from composer.core.serializable import Serializable
 from composer.core.state import State
-from composer.core.types import DataLoader, Optimizer, Precision, Tensor, TPrefetchFn
+from composer.core.types import DataLoader, Optimizer, Precision, Tensor
 
 T_nnModule = TypeVar("T_nnModule", bound=torch.nn.Module)
 
@@ -53,23 +53,15 @@ class Device(Serializable, ABC):
         pass
 
     @abstractmethod
-    def dataloader_to_device(self, dataloader: DataLoader, prefetch_fn: Optional[TPrefetchFn]) -> DataLoader:
+    def dataloader_to_device(self, dataloader: DataLoader) -> DataLoader:
         """Wraps a Dataloader and ensures all returned batches are on the correct device.
-
-        This function is responsible for executing `prefetch_fn`, if provided,
-        on each batch before it is yielded. The `prefetch_fn` can be executed
-        in the background, if the device supports it.
 
         Args:
             dataloader (DataLoader): The dataloader to wrap.
-            prefetch_fn (Optional[TPrefetchFn]): A function that takes a batch and returns a batch.
-                It should perform any on-device preprocessing of a batch.
-                (e.g. on a GPU device, this function can be used for gpu transformations.)
 
         Returns:
             DataLoader: The wrapped dataloader, which yields batches that
-            have been moved to the device and have been processed through
-            the prefetch_fn.
+            have been moved to the device
         """
 
     def optimizer_to_device(self, optimizer: Optimizer) -> Optimizer:

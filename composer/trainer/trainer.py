@@ -21,8 +21,9 @@ from torchmetrics.metric import Metric
 from composer.core import Callback, Engine, Event, Logger, State
 from composer.core.algorithm import Algorithm
 from composer.core.logging import BaseLoggerBackend, LogLevel
-from composer.core.types import Batch, BreakEpochException, Metrics, Precision, Tensor
-from composer.datasets import DataloaderHparams, DataloaderSpec
+from composer.core.types import Batch, BreakEpochException, DataLoader, Metrics, Precision, Tensor
+from composer.datasets import DataloaderSpec
+from composer.datasets.dataloader import DDPDataLoader
 from composer.loggers.tqdm_logger import TQDMLoggerBackend
 from composer.models.base import BaseMosaicModel
 from composer.optim import (ComposedScheduler, CosineAnnealingLRHparams, DecoupledSGDWHparams, OptimizerHparams,
@@ -48,11 +49,9 @@ class Trainer:
 
     Args:
         model (BaseMosaicModel): The model to train.
-        train_dataloader_spec (DataloaderSpec): The dataloader spec for the training data.
-        eval_dataloader_spec (DataloaderSpec): The dataloader spec for the evaluation data.
+        train_dataloader (DataLoader or DataloaderSpec): The dataloader or dataloader spec for the training data.
+        eval_dataloader_spec (DataLoader or DataloaderSpec): The dataloader or dataloader spec for the evaluation data.
         max_epochs (int): The maxmimum number of epochs to train for.
-        train_batch_size (int): Minibatch size for training data.
-        eval_batc_size (int): Minibatch size for evaluation data.
         algorithms (List[Algorithm], optional): The algorithms to use during training.
             (default: ``[]``)
         optimizer_hparams: (OptimizerHparams, optional): The OptimizerHparams for constructing
@@ -79,15 +78,6 @@ class Trainer:
         compute_training_metrics (bool, optional): True to compute metrics on training data and False to not.
             (default: ``False``)
         precision (Precision, optional): Numerical precision to use for training. (default: ``Precision.FP32``).
-        num_workers (int, optional): The number of CPU workers to use per GPU. 0 results in loading data
-            on the main process. (default: ``0``)
-        prefetch_factor (int, optional): Number of samples loaded in advance by each worker. (default: ``2``)
-        persistent_workers (bool, optional): Whether or not to shutdown workers after the dataset
-            has been consumed once. (default: ``False``)
-        pin_memory (bool, optional): Whether or not to copy data tensors into CUDA pinned memory.
-            (default: ``False``)
-        timeout (int, optional): Timeout value for collecting a batch from workers. 0 for no timeout.
-            (default: ``0``)
         ddp_sync_strategy (DDPSyncStrategy, optional): The strategy to use for synchronizing gradients.
             Leave unset to let the trainer auto-configure this.
         ddp_timeout (float, optional): Timeout, in seconds, for initializing the DDP process group.
@@ -121,11 +111,9 @@ class Trainer:
             self,
             *,
             model: BaseMosaicModel,
-            train_dataloader_spec: DataloaderSpec,
-            eval_dataloader_spec: DataloaderSpec,
+            train_dataloader: Union[DataLoader, DataloaderSpec],
+            eval_dataloader: Union[DataLoader, DataloaderSpec],
             max_epochs: int,
-            train_batch_size: int,
-            eval_batch_size: int,
             algorithms: Optional[List[Algorithm]] = None,
             optimizer_hparams: Optional[OptimizerHparams] = None,
             schedulers_hparams: Optional[Union[SchedulerHparams, List[SchedulerHparams]]] = None,
@@ -140,13 +128,6 @@ class Trainer:
             validate_every_n_epochs: int = 1,
             compute_training_metrics: bool = False,
             precision: Precision = Precision.FP32,
-
-            # dataloader hparams
-            num_workers: int = 0,
-            prefetch_factor: int = 2,
-            persistent_workers: bool = False,
-            pin_memory: bool = False,
-            timeout: int = 0,
 
             # ddp hparams
             ddp_sync_strategy: Optional[Union[str, ddp.DDPSyncStrategy]] = None,
@@ -203,30 +184,31 @@ class Trainer:
 
         ddp.initialize_ddp(device.ddp_backend, datetime.timedelta(seconds=ddp_timeout))
 
-        dl_hparams = DataloaderHparams(num_workers=num_workers,
-                                       prefetch_factor=prefetch_factor,
-                                       persistent_workers=persistent_workers,
-                                       pin_memory=pin_memory,
-                                       timeout=timeout)
+        if isinstance(train_dataloader, DataloaderSpec):
+            train_dataloader_spec = train_dataloader
+        else:
+            train_dataloader_spec = DataloaderSpec(train_dataloader)
+        train_dataloader = self.device.dataloader_to_device(DDPDataLoader(train_dataloader_spec.dataloader),)
+        self._train_device_transformation_fn = train_dataloader_spec.device_transform_fn
+        self.train_split_fn = train_dataloader_spec.split_fn
 
-        train_gpu_batch_size = train_batch_size // ddp.get_world_size()
-        train_dataloader = self.device.dataloader_to_device(
-            ddp.create_dataloader(train_gpu_batch_size, dl_hparams, train_dataloader_spec),
-            train_dataloader_spec.prefetch_fn,
-        )
-        self.train_dl_spec = train_dataloader_spec
+        if isinstance(eval_dataloader, DataloaderSpec):
+            eval_dataloader_spec = eval_dataloader
+        else:
+            eval_dataloader_spec = DataloaderSpec(eval_dataloader)
+        eval_dataloader = self.device.dataloader_to_device(DDPDataLoader(eval_dataloader_spec.dataloader),)
+        self._eval_device_transformation_fn = eval_dataloader_spec.device_transform_fn
+        self.eval_split_fn = eval_dataloader_spec.split_fn
 
-        eval_gpu_batch_size = eval_batch_size // ddp.get_world_size()
-        eval_dataloader = self.device.dataloader_to_device(
-            ddp.create_dataloader(eval_gpu_batch_size, dl_hparams, eval_dataloader_spec),
-            eval_dataloader_spec.prefetch_fn,
-        )
-        self.eval_dl_spec = eval_dataloader_spec
+        if train_dataloader.batch_size is None:
+            raise ValueError("train dataloader batch size is None")
+        if eval_dataloader.batch_size is None:
+            raise ValueError("eval dataloader batch size is None")
 
         self.state = State(
             max_epochs=max_epochs,
-            train_batch_size=train_batch_size,
-            eval_batch_size=eval_batch_size,
+            train_batch_size=train_dataloader.batch_size * ddp.get_world_size(),
+            eval_batch_size=eval_dataloader.batch_size * ddp.get_world_size(),
             algorithms=algorithms,
             callbacks=callbacks,
             model=model,
@@ -259,7 +241,7 @@ class Trainer:
         self.engine.run_event(Event.INIT)
 
         assert isinstance(self.state.train_dataloader.dataset, collections.abc.Sized)
-        steps_per_epoch = len(self.state.train_dataloader.dataset) // train_batch_size
+        steps_per_epoch = len(self.state.train_dataloader.dataset) // self.state.train_batch_size
         # Need to use hparams here because optimizer and schedulers need to be created after Event.INIT
         if not optimizer_hparams:
             optimizer_hparams = DecoupledSGDWHparams(lr=0.1, momentum=0.9, weight_decay=1.0e-4)
@@ -311,16 +293,17 @@ class Trainer:
         dict_config = hparams.to_dict()
         log_destinations = [x.initialize_object(config=dict_config) for x in hparams.loggers]
 
-        train_dl_spec = hparams.train_dataset.initialize_object()
-        eval_dl_spec = hparams.val_dataset.initialize_object()
+        train_device_batch_size = hparams.total_batch_size // ddp.get_world_size()
+        train_dataloader = hparams.train_dataset.initialize_object(train_device_batch_size, hparams.dataloader)
+
+        eval_device_batch_size = hparams.eval_batch_size // ddp.get_world_size()
+        eval_dataloader = hparams.val_dataset.initialize_object(eval_device_batch_size, hparams.dataloader)
 
         trainer = cls(
             model=model,
-            train_dataloader_spec=train_dl_spec,
-            eval_dataloader_spec=eval_dl_spec,
+            train_dataloader=train_dataloader,
+            eval_dataloader=eval_dataloader,
             max_epochs=hparams.max_epochs,
-            train_batch_size=hparams.total_batch_size,
-            eval_batch_size=hparams.eval_batch_size,
             algorithms=algorithms,
             optimizer_hparams=hparams.optimizer,
             schedulers_hparams=hparams.schedulers,
@@ -335,13 +318,6 @@ class Trainer:
             validate_every_n_epochs=hparams.validate_every_n_epochs,
             compute_training_metrics=hparams.compute_training_metrics,
             precision=hparams.precision,
-
-            # dataloader hparams
-            num_workers=hparams.dataloader.num_workers,
-            prefetch_factor=hparams.dataloader.prefetch_factor,
-            persistent_workers=hparams.dataloader.persistent_workers,
-            pin_memory=hparams.dataloader.pin_memory,
-            timeout=hparams.dataloader.timeout,
 
             # ddp hparams
             ddp_sync_strategy=hparams.ddp_sync_strategy,
@@ -539,13 +515,16 @@ class Trainer:
                             self.checkpoint_loader.restore_checkpoint_rng_state(self.state, self.device)
                         continue
 
+                    if self._train_device_transformation_fn is not None:
+                        state.batch = self._train_device_transformation_fn(state.batch)
+
                     state.last_batch_size = self._get_batch_size(state.batch)
 
                     if self.compute_training_metrics:
                         # compute metrics on the training set
                         state.model.eval()
                         with torch.no_grad():
-                            eval_microbatches = self.train_dl_spec.split_fn(state.batch, state.grad_accum)
+                            eval_microbatches = self.train_split_fn(state.batch, state.grad_accum)
                             for eval_microbatch in eval_microbatches:
                                 # TODO: Detect if self.run_event(Event.AFTER_DATALOADER) changes the training
                                 # data and if so print a warning that metrics may return unexpected results
@@ -556,7 +535,7 @@ class Trainer:
 
                     self.engine.run_event(Event.AFTER_DATALOADER)
 
-                    microbatches = self.train_dl_spec.split_fn(state.batch, state.grad_accum)
+                    microbatches = self.train_split_fn(state.batch, state.grad_accum)
 
                     self.engine.run_event(Event.BATCH_START)
                     self.logger.metric_batch({
@@ -749,6 +728,8 @@ class Trainer:
             assert state.eval_dataloader is not None
 
             for state.batch in state.eval_dataloader:
+                if self._eval_device_transformation_fn is not None:
+                    state.batch = self._eval_device_transformation_fn(state.batch)
                 self.engine.run_event(Event.EVAL_BATCH_START)
 
                 self.engine.run_event(Event.EVAL_BEFORE_FORWARD)

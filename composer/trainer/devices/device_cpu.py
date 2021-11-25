@@ -4,31 +4,13 @@ from __future__ import annotations
 
 import logging
 from contextlib import contextmanager
-from typing import Generator, Optional, Union
-
-import torch
+from typing import Generator, Union
 
 from composer.core.state import State
-from composer.core.types import Batch, DataLoader, Precision, StateDict, Tensor, TPrefetchFn
-from composer.datasets.dataloader import WrappedDataLoader
+from composer.core.types import DataLoader, Precision, StateDict, Tensor
 from composer.trainer.devices.device import Device, T_nnModule
 
 logger = logging.getLogger(__name__)
-
-
-class PrefetchedDataLoader(WrappedDataLoader):
-
-    def __init__(self, dataloader: DataLoader, batch_preprocessing_fn: Optional[TPrefetchFn]) -> None:
-        super().__init__(dataloader)
-        self.device = torch.device("cpu")
-        self.batch_preprocessing_fn = batch_preprocessing_fn
-
-    def __iter__(self) -> Generator[Batch, None, None]:
-        for batch in self.dataloader:
-            if self.batch_preprocessing_fn is None:
-                yield batch
-            else:
-                yield self.batch_preprocessing_fn(batch)
 
 
 class DeviceCPU(Device):
@@ -42,8 +24,8 @@ class DeviceCPU(Device):
     def module_to_device(self, module: T_nnModule) -> T_nnModule:
         return module
 
-    def dataloader_to_device(self, dataloader: DataLoader, prefetch_fn: Optional[TPrefetchFn]) -> DataLoader:
-        return PrefetchedDataLoader(dataloader, prefetch_fn)
+    def dataloader_to_device(self, dataloader: DataLoader) -> DataLoader:
+        return dataloader
 
     def tensor_to_device(self, tensor: Tensor) -> Tensor:
         return tensor

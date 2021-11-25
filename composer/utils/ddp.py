@@ -19,8 +19,7 @@ from composer.utils.string_enum import StringEnum
 
 if TYPE_CHECKING:
     from composer.core.state import State
-    from composer.core.types import DataLoader, Model
-    from composer.datasets.dataloader import DataloaderHparams, DataloaderSpec
+    from composer.core.types import Model
 
 TObj = TypeVar("TObj")
 
@@ -207,21 +206,13 @@ def prepare_module(module: Model, find_unused_parameters: bool) -> Model:
         return module
 
 
-def create_dataloader(batch_size: int, dataloader_hparams: DataloaderHparams,
-                      dataloader_spec: DataloaderSpec) -> DataLoader:
-    # TODO(ravi) refactor this function to return a sampler rather than create the dataloader
-    from composer.datasets.dataloader import DDPDataLoader
+def get_sampler(dataset: torch.utils.data.Dataset, drop_last: bool, shuffle: bool) -> torch.utils.data.Sampler[int]:
     if dist.is_available():
-        sampler = torch.utils.data.DistributedSampler[int](dataloader_spec.dataset,
-                                                           drop_last=dataloader_spec.drop_last,
-                                                           shuffle=dataloader_spec.shuffle)
+        sampler = torch.utils.data.DistributedSampler[int](dataset, drop_last=drop_last, shuffle=shuffle)
     else:
-        assert isinstance(dataloader_spec.dataset, collections.abc.Sized)
-        sampler = torch.utils.data.RandomSampler(dataloader_spec.dataset, generator=dataloader_spec.generator)
-    dataloader = dataloader_hparams.initialize_object(batch_size, sampler, dataloader_spec)
-    if dist.is_available():
-        dataloader = DDPDataLoader(dataloader)
-    return dataloader
+        assert isinstance(dataset, collections.abc.Sized)
+        sampler = torch.utils.data.RandomSampler(dataset)
+    return sampler
 
 
 @contextmanager

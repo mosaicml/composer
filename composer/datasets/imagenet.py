@@ -13,10 +13,13 @@ from torchvision import transforms
 from torchvision.datasets import ImageFolder
 
 from composer.core.types import Batch, Tensor
+from composer.datasets.dataloader import DataloaderHparams
 from composer.datasets.hparams import DataloaderSpec, DatasetHparams
+from composer.datasets.subset_dataset import SubsetDataset
+from composer.datasets.synthetic import SyntheticBatchPairDatasetHparams
 
 
-class PreprocessingFn:
+class TransformationFn:
 
     def __init__(self) -> None:
         self.mean: Optional[Tensor] = None
@@ -77,40 +80,66 @@ class ImagenetDatasetHparams(DatasetHparams):
 
     resize_size: int = hp.required("resize size")
     crop_size: int = hp.required("crop size")
-    is_train: bool = hp.required("whether to load the training or validation dataset")
-    datadir: str = hp.required("data directory")
+    is_train: Optional[bool] = hp.optional(
+        "whether to load the training or validation dataset. Required if synthetic is not None.", default=None)
+    datadir: Optional[str] = hp.optional("data directory. Required if synthetic is not None.", default=None)
     drop_last: bool = hp.optional("Whether to drop the last samples for the last batch", default=True)
     shuffle: bool = hp.optional("Whether to shuffle the dataset for each epoch", default=True)
+    synthetic: Optional[SyntheticBatchPairDatasetHparams] = hp.optional(
+        "If specified, synthetic data will be generated. The datadir argument is ignored", default=None)
+    num_total_batches: Optional[int] = hp.optional("num total batches", default=None)
 
-    def initialize_object(self) -> DataloaderSpec:
-        datadir = self.datadir
-        is_train = self.is_train
-
-        if is_train:
-            # include fixed-size resize before RandomResizedCrop in training only
-            # if requested (by specifying a size > 0)
-            train_resize_size = self.resize_size
-            train_transforms: List[torch.nn.Module] = []
-            if train_resize_size > 0:
-                train_transforms.append(transforms.Resize(train_resize_size))
-            # always include RandomResizedCrop and RandomHorizontalFlip
-            train_transforms += [
-                transforms.RandomResizedCrop(self.crop_size, scale=(0.08, 1.0), ratio=(0.75, 4.0 / 3.0)),
-                transforms.RandomHorizontalFlip()
-            ]
-            transformation = transforms.Compose(train_transforms)
+    def initialize_object(self, batch_size: int, dataloader_hparams: DataloaderHparams) -> DataloaderSpec:
+        if self.synthetic is not None:
+            if self.num_total_batches is None:
+                raise ValueError("num_total_batches must be specified if using synthetic data")
+            total_dataset_size = self.num_total_batches * batch_size
+            dataset = self.synthetic.initialize_object(
+                total_dataset_size=total_dataset_size,
+                data_shape=[3, self.crop_size, self.crop_size],
+                num_classes=1000,
+            )
+            collate_fn = None
+            device_transform_fn = None
         else:
-            transformation = transforms.Compose([
-                transforms.Resize(self.resize_size),
-                transforms.CenterCrop(self.crop_size),
-            ])
 
-        split = "train" if is_train else "val"
+            if self.is_train is True:
+                # include fixed-size resize before RandomResizedCrop in training only
+                # if requested (by specifying a size > 0)
+                train_resize_size = self.resize_size
+                train_transforms: List[torch.nn.Module] = []
+                if train_resize_size > 0:
+                    train_transforms.append(transforms.Resize(train_resize_size))
+                # always include RandomResizedCrop and RandomHorizontalFlip
+                train_transforms += [
+                    transforms.RandomResizedCrop(self.crop_size, scale=(0.08, 1.0), ratio=(0.75, 4.0 / 3.0)),
+                    transforms.RandomHorizontalFlip()
+                ]
+                transformation = transforms.Compose(train_transforms)
+                split = "train"
+            elif self.is_train is False:
+                transformation = transforms.Compose([
+                    transforms.Resize(self.resize_size),
+                    transforms.CenterCrop(self.crop_size),
+                ])
+                split = "val"
+            else:
+                raise ValueError("is_train must be specified if self.synthetic is False")
 
-        return DataloaderSpec(
-            dataset=ImageFolder(os.path.join(datadir, split), transformation),
-            drop_last=self.drop_last,
-            collate_fn=fast_collate,
+            device_transform_fn = TransformationFn()
+            collate_fn = fast_collate
+
+            if self.datadir is None:
+                raise ValueError("datadir must be specified is self.synthetic is False")
+            dataset = ImageFolder(os.path.join(self.datadir, split), transformation)
+            if self.num_total_batches is not None:
+                dataset = SubsetDataset(dataset, batch_size, self.num_total_batches)
+
+        return DataloaderSpec(dataloader=dataloader_hparams.initialize_object(
+            dataset=dataset,
+            batch_size=batch_size,
             shuffle=self.shuffle,
-            prefetch_fn=PreprocessingFn(),
-        )
+            drop_last=self.drop_last,
+            collate_fn=collate_fn,
+        ),
+                              device_transform_fn=device_transform_fn)
