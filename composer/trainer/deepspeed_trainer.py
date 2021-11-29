@@ -368,7 +368,7 @@ class DeepSpeedTrainer:
         # HACK: DeepSpeed somehow manages to convert metric internal states to its own dtype. When
         # running with FP16, this tends to result in overflows. Let's assume FP32 is good enough.
         for _, metric in metrics.items():
-            metric.set_dtype(torch.float32)
+            metric.set_dtype(torch.float32)  # type: ignore
 
         return metrics
 
@@ -432,12 +432,12 @@ class DeepSpeedTrainer:
         # shorthand
         state = self.state
 
+        assert isinstance(state.model, BaseMosaicModel)
         assert state.optimizers is not None
-
         assert len(ensure_tuple(state.optimizers)) == 1
         optimizer = ensure_tuple(state.optimizers)[0]
 
-        deepspeed_config = {
+        deepspeed_config: dict[str, Any] = {
             "train_batch_size": state.train_batch_size,
             "gradient_accumulation_steps": state.grad_accum,
         }
@@ -511,7 +511,7 @@ class DeepSpeedTrainer:
                             for eval_microbatch in eval_microbatches:
                                 # TODO: Detect if self.run_event(Event.AFTER_DATALOADER) changes the training
                                 # data and if so print a warning that metrics may return unexpected results
-                                outputs, targets = self.state.model.validate(eval_microbatch)
+                                outputs, targets = state.model.validate(eval_microbatch)
                                 train_metrics.update(outputs, targets)
 
                     self.deepspeed_engine.train()
@@ -529,6 +529,7 @@ class DeepSpeedTrainer:
 
                     if total_loss is not None:
                         assert isinstance(total_loss, Tensor)
+                        # TODO: does torch.dist.reduce_all work here?
                         all_losses = self.deepspeed_engine.all_gather_scalar(total_loss, dp_group=None)
                         full_loss = sum(all_losses).cpu().item()
                         self.logger.metric_batch({'loss/train': full_loss / state.world_size})
@@ -544,12 +545,12 @@ class DeepSpeedTrainer:
                         self.eval(is_batch=True)
 
                     state.step += 1
-                    if self.checkpointer and self.checkpointer.should_checkpoint(state=state, event=Event.BATCH_END):
+                    """if self.checkpointer and self.checkpointer.should_checkpoint(state=state, event=Event.BATCH_END):
                         self.checkpointer.save_checkpoint(state=state,
                                                           seed=self.seed,
                                                           device=self.device,
                                                           ddp=self.ddp,
-                                                          config=self.config)
+                                                          config=self.config)"""
             except BreakEpochException:
                 log.info(f'Skipping the rest of Epoch {state.epoch}')
 
@@ -560,13 +561,12 @@ class DeepSpeedTrainer:
                 self.eval(is_batch=False)
 
             state.epoch += 1
-
-            if self.checkpointer and self.checkpointer.should_checkpoint(state=state, event=Event.EPOCH_END):
+            """if self.checkpointer and self.checkpointer.should_checkpoint(state=state, event=Event.EPOCH_END):
                 self.checkpointer.save_checkpoint(state=state,
                                                   seed=self.seed,
                                                   device=self.device,
                                                   ddp=self.ddp,
-                                                  config=self.config)
+                                                  config=self.config)"""
 
         self.engine.run_event(Event.TRAINING_END)
 
@@ -580,6 +580,7 @@ class DeepSpeedTrainer:
         self.engine.run_event(Event.BEFORE_TRAIN_BATCH)
 
         state = self.state
+        assert isinstance(state.model, BaseMosaicModel)
 
         # tracker for gradient accumulation
         total_loss = self.device.tensor_to_device(torch.zeros(size=(1,)))
@@ -600,7 +601,7 @@ class DeepSpeedTrainer:
             # loss
             self.engine.run_event(Event.BEFORE_LOSS)
 
-            state.loss = self.state.model.loss(state.outputs, state.batch)
+            state.loss = state.model.loss(state.outputs, state.batch)
 
             # Loss is added to losses with clone to not scale the loss for the step printout
             # Likely need to look into the performance impact
