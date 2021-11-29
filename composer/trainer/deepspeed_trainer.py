@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import collections.abc
-import contextlib
 import logging
 import warnings
 from typing import Any, Dict, List, Optional, Sequence, Union
@@ -12,8 +11,6 @@ import deepspeed
 import torch
 import torch.distributed
 import torch.utils.data
-from torch.cuda.amp.grad_scaler import GradScaler
-from torch.nn.parallel import DistributedDataParallel
 from torchmetrics.collections import MetricCollection
 from torchmetrics.metric import Metric
 
@@ -28,13 +25,10 @@ from composer.optim import (ComposedScheduler, CosineAnnealingLRHparams, Decoupl
                             SchedulerHparams, WarmUpLRHparams)
 from composer.optim.scheduler import ensure_warmup_last
 from composer.trainer.checkpoint import Checkpointer, CheckpointLoader
-from composer.trainer.ddp import DDP, DataloaderMultipleIterationWarning
-from composer.trainer.devices.device import Device
-from composer.trainer.devices.device_cpu import DeviceCPU
+from composer.trainer.ddp import DataloaderMultipleIterationWarning
 from composer.trainer.devices.device_gpu import DeviceGPU
-from composer.trainer.scaler import ClosureGradScaler
 from composer.trainer.trainer_hparams import TrainerHparams
-from composer.utils import ensure_tuple, get_random_seed, map_collection, seed_all
+from composer.utils import ensure_tuple, get_random_seed, seed_all
 
 log = logging.getLogger(__name__)
 
