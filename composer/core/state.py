@@ -7,6 +7,7 @@ import warnings
 from dataclasses import dataclass, field, fields
 from typing import TYPE_CHECKING, Callable, ContextManager, Optional, Sequence, Union
 
+import torch
 import torch.nn.modules.utils
 from torch.nn.parallel import DistributedDataParallel
 
@@ -14,8 +15,8 @@ import composer.core.types as types
 from composer.core.callback import Callback
 from composer.core.precision import Precision
 from composer.core.serializable import Serializable
-from composer.utils import ensure_tuple, make_empty_tensor
-from composer.utils.ddp import get_global_rank, is_rank_set
+from composer.utils import ensure_tuple
+from composer.utils.ddp import get_global_rank, get_local_rank, get_local_world_size, get_world_size
 from composer.utils.precision import default_precision_factory
 
 if TYPE_CHECKING:
@@ -54,8 +55,6 @@ SKIP_SERIALIZATION_FIELDS = [
     "precision",
     "train_dataloader",
     "eval_dataloader",
-    "world_size",
-    "nproc_per_node",
     "precision",
     "precision_context",
 ]
@@ -63,10 +62,12 @@ SKIP_SERIALIZATION_FIELDS = [
 
 @dataclass
 class State(Serializable):
-    """
-    The current state of the trainer.
+    """The class used to store the state of the trainer.
 
-    Algorithms are able to modify this object in-place.
+    Contains variables that the trainer tracks throughout the training loop.
+    Note that the entire state is serialized when the trainer is checkpointed
+    so that it can be used restore the trainer and continue training from a
+    checkpoint. Algorithms are able to modify this object in-place.
 
     Attributes:
         model (types.Model, often BaseMosaicModel): The model, typically as a subclass of :class:`BaseMosaicModel`.
@@ -85,15 +86,15 @@ class State(Serializable):
         last_batch_size (int): The size of the batch last returned from the dataloader. This can be different from the current size of ``batch`` if algorithms have modified the ``batch``.
         outputs (types.Tensors): The most recently computed output from the model's forward pass.
 
-        optimizers (Optimizer | Tuple(Optimizer)): The optimizers being used to train the model. Multiple optimizers are not currently supported.
-        schedulers (Scheduler | Tuple(Scheduler)): The learning rate schedulers, wrapped in :class:`ComposableScheduler`.
+        optimizers (types.Optimizers): The optimizers being used to train the model. Multiple optimizers are not currently supported.
+        schedulers (types.Schedulers): The learning rate schedulers, typically wrapped in :class:`ComposableScheduler`.
         scaler (torch.cuda.amp.GradScaler, optional): The gradient scaler in use for mixed precision training.
 
-        train_dataloader (DataLoader): The dataloader used for training.
-        eval_dataloader (DataLoader): The dataloader used for evaluation.
+        train_dataloader (types.DataLoader): The dataloader used for training.
+        eval_dataloader (types.DataLoader): The dataloader used for evaluation.
 
-        algorithms (`list` of `Algorithm`): The algorithms used for training.
-        callbacks (`list` of `Callback`): The callbacks used for training.
+        algorithms (Sequence[Algorithm]): The algorithms used for training.
+        callbacks (Sequence[Callback]): The callbacks used for training.
     """
 
     # model
@@ -120,11 +121,11 @@ class State(Serializable):
     step: int = 0  # global step counter
 
     # transient tensors within training loop
-    loss: types.Tensors = field(default_factory=make_empty_tensor)
+    loss: types.Tensors = field(default_factory=lambda: torch.zeros(size=(1,)))
     last_batch_size: int = 0
 
     batch: types.Batch = field(default_factory=dict)
-    outputs: types.Tensors = field(default_factory=make_empty_tensor)
+    outputs: types.Tensors = field(default_factory=lambda: torch.zeros(size=(1,)))
 
     # optimizers
     optimizers: Optional[types.Optimizers] = None
@@ -141,32 +142,28 @@ class State(Serializable):
     algorithms: Sequence[Algorithm] = tuple()
     callbacks: Sequence[Callback] = tuple()
 
-    # machine info
-    world_size: int = 1
-    nproc_per_node: int = 1
-
-    # random seed
-    seed: Optional[int] = None
+    @property
+    def world_size(self) -> int:
+        return get_world_size()
 
     @property
     def global_rank(self) -> int:
         return get_global_rank()
 
     @property
+    def local_world_size(self) -> int:
+        return get_local_world_size()
+
+    @property
     def local_rank(self) -> int:
-        return self.global_rank % self.nproc_per_node
+        return get_local_rank()
 
     @property
     def is_rank_zero(self) -> bool:
         return self.global_rank == 0
 
-    @property
-    def is_rank_set(self) -> bool:
-        return is_rank_set()
-
     def state_dict(self) -> types.StateDict:
-        """Returns the state as a :class:`dict`.
-        """
+        """Returns the state as a :class:`dict`."""
         state_dict: types.StateDict = {}
 
         for state_field in fields(self):
@@ -248,18 +245,18 @@ class State(Serializable):
 
     @property
     def batch_pair(self) -> types.BatchPair:
-        """:class:`~composer.core.types.BatchPair`: The current batch, represented as a :class:`~composer.core.types.BatchPair`.
+        """:class:`~types.BatchPair`: The current batch, represented as a :class:`~types.BatchPair`.
 
         Raises:
-            TypeError: If the current batch is not a :class:`~composer.core.types.BatchPair`.
+            TypeError: If the current batch is not a :class:`~types.BatchPair`.
         """
         return types.as_batch_pair(self.batch)
 
     @property
     def batch_dict(self) -> types.BatchDict:
-        """:class:`~BatchDict`: The current batch, represented as a :class:`~composer.core.types.BatchDict`.
+        """:class:`~types.BatchDict`: The current batch, represented as a :class:`~types.BatchDict`.
 
         Raises:
-            TypeError: If the current batch is not a :class:`~composer.core.types.BatchDict`.
+            TypeError: If the current batch is not a :class:`~types.BatchDict`.
         """
         return types.as_batch_dict(self.batch)

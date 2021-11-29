@@ -40,6 +40,7 @@ extensions = [
     "sphinx_rtd_theme",
     "myst_parser",
     "sphinx.ext.intersphinx",
+    "sphinxarg.ext",
 ]
 
 # Add any paths that contain templates here, relative to this directory.
@@ -129,3 +130,5 @@ nitpick_ignore = [
     ('py:class', 'TLogData'),
     ('py:class', 'T_nnModule'),
 ]
+
+python_use_unqualified_type_names = True

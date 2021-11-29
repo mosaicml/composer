@@ -48,13 +48,13 @@ class Logger:
             The global :class:`~composer.core.state.State` object.
         backends (Sequence[BaseLoggerBackend]):
             A sequence of
-            :class:`~composer.core.logging.base_backend.BaseLoggerBackend`\s
+            :class:`~composer.core.logging.base_backend.BaseLoggerBackend`\\s
             to which logging calls will be sent.
 
     Attributes:
         backends (Sequence[BaseLoggerBackend]):
             A sequence of
-            :class:`~composer.core.logging.base_backend.BaseLoggerBackend`\s
+            :class:`~composer.core.logging.base_backend.BaseLoggerBackend`\\s
             to which logging calls will be sent.
     """
 
@@ -117,7 +117,7 @@ class Logger:
         self.metric(LogLevel.VERBOSE, data)
 
 
-def format_log_data_value(data: TLogDataValue, /) -> str:
+def format_log_data_value(data: TLogDataValue) -> str:
     """Recursively formats a given log data value into a string.
 
     Args:

@@ -23,5 +23,5 @@ def walk_model_yamls():
 class TestHparamsCreate:
 
     def test_hparams_create(self, hparams_file: str):
-        hparams = TrainerHparams.create(hparams_file)
+        hparams = TrainerHparams.create(hparams_file, cli_args=False)
         assert isinstance(hparams, TrainerHparams)

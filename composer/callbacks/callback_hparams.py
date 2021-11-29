@@ -15,6 +15,7 @@ if TYPE_CHECKING:
     from composer.callbacks.benchmarker import Benchmarker
     from composer.callbacks.grad_monitor import GradMonitor
     from composer.callbacks.lr_monitor import LRMonitor
+    from composer.callbacks.memory_monitor import MemoryMonitor
     from composer.callbacks.speed_monitor import SpeedMonitor
     from composer.callbacks.torch_profiler import TorchProfiler
 
@@ -89,6 +90,18 @@ class GradMonitorHparams(CallbackHparams):
 
 
 @dataclass
+class MemoryMonitorHparams(CallbackHparams):
+    """:class:`~composer.callbacks.memory_monitor.MemoryMonitor` hyperparameters.
+
+    See :class:`~composer.callbacks.memory_monitor.MemoryMonitor` for documentation.
+    """
+
+    def initialize_object(self) -> MemoryMonitor:
+        from composer.callbacks.memory_monitor import MemoryMonitor
+        return MemoryMonitor()
+
+
+@dataclass
 class LRMonitorHparams(CallbackHparams):
     """:class:`~composer.callbacks.lr_monitor.LRMonitor` hyperparameters.
 
@@ -123,7 +136,8 @@ class TorchProfilerHparams(CallbackHparams):
     See :class:`~composer.callbacks.torch_profiler.TorchProfiler` for documentation.
     """
 
-    tensorboard_trace_handler_dir: str = hp.required("directory to store trace results")
+    tensorboard_trace_handler_dir: str = hp.optional(
+        "directory to store trace results. Relative to the run directory, if set.", default="torch_profiler")
     tensorboard_use_gzip: bool = hp.optional("Whether to use gzip for trace", default=False)
     record_shapes: bool = hp.optional(doc="Whether to record tensor shapes", default=True)
     profile_memory: bool = hp.optional(doc="track tensor memory allocations and frees", default=False)
@@ -134,6 +148,7 @@ class TorchProfilerHparams(CallbackHparams):
     warmup: int = hp.optional("Number of warmup batches in a cycle", default=1)
     active: int = hp.optional("Number of batches to profile in a cycle", default=5)
     wait: int = hp.optional("Number of batches to skip at the end of each cycle", default=0)
+    repeat: int = hp.optional("Maximum number of profiling cycle repetitions per epoch (0 for no maximum)", default=0)
 
     def initialize_object(self) -> TorchProfiler:
         from composer.callbacks.torch_profiler import TorchProfiler

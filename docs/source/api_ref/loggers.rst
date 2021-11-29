@@ -1,4 +1,0 @@
-composer.loggers
-================
-
-Text here

@@ -7,13 +7,13 @@ import torch
 
 
 def get_random_seed() -> int:
+    """Get a randomly created seed to use for seeding rng objects."""
     seed = int(torch.empty((), dtype=torch.int64).random_(to=2**32).item())
     return seed
 
 
 def seed_all(seed: int):
-    """
-    Seed all rng objects
+    """Seed all rng objects
 
     Args:
         seed (int): random seed

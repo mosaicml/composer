@@ -1,0 +1,23 @@
+name: Check License Headers
+description: Ensure that all source files have the proper license headers
+inputs:
+  working_directory:
+    description: 'Working Directory'
+    required: true
+runs:
+  using: composite
+  steps:
+    - name: Download Addlicense
+      shell: bash
+      run: |
+        set -ex
+        wget -c https://github.com/google/addlicense/releases/download/v1.0.0/addlicense_1.0.0_Linux_x86_64.tar.gz -O - | sudo tar -xz -C /usr/local/bin
+    - name: Run Addlicense
+      shell: bash
+      working-directory: ${{ inputs.working_directory }}
+      env:
+        WORKING_DIRECTORY: ${{ inputs.working_directory }}
+      run: |
+        set -ex
+        # Recursively check that the license exists on all files
+        find . -type f -not -path '*/\.*' \( -iname \*.py -o -iname \*.pyi \) -print0 | xargs -0 -n1 addlicense -check -f ${WORKING_DIRECTORY}/LICENSE_HEADER

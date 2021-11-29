@@ -108,7 +108,7 @@ def apply_alibi(model: torch.nn.Module, heads_per_layer: int, max_sequence_lengt
 
 class Alibi(Algorithm):
     """
-    `AliBi <https://arxiv.org/abs/2108.12409>`_ (Attention with Linear Biases)
+    `ALiBi <https://arxiv.org/abs/2108.12409>`_ (Attention with Linear Biases)
     dispenses with position embeddings and instead directly biases attention
     matrices such that nearby tokens attend to one another more strongly.
 
@@ -265,10 +265,12 @@ def lazy_import(name: Union[str, None]) -> Any[Callable, ModuleType, None]:
         log.exception(f"Module {components[0]} not found when attempting "
                       f"to import {name}. Please confirm the name and "
                       f"module path you're attempting to import.")
+        raise
     try:
-        mod = attrgetter('.'.join(components[1:]))(mod)  # type: ignore
+        mod = attrgetter('.'.join(components[1:]))(mod)
     except (ValueError, AttributeError):
         log.exception(f"Unable to import {name}. "
                       f"Please confirm the name and module "
                       f" path you're attempting to import.")
-    return mod  # type: ignore
+        raise
+    return mod

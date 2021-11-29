@@ -1,18 +1,16 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
-"""
-Entrypoint script that runs the mosaic trainer
-on a provided YAML hparams file.
+"""Entrypoint that runs the mosaic trainer on a provided YAML hparams file.
 
 Adds a --datadir flag to conveniently set a common
 data directory for both train and validation datasets.
 
 Example that trains MNIST with label smoothing::
 
-> python examples/run_mosaic_trainer.py
-   -f composer/yamls/models/classify_mnist_cpu.yaml
-   --algorithms label_smoothing
-   --datadir ~/datasets
+    >>> python examples/run_mosaic_trainer.py
+    -f composer/yamls/models/classify_mnist_cpu.yaml
+    --algorithms label_smoothing
+    --datadir ~/datasets
 """
 import argparse
 import logging

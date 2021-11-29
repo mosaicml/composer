@@ -7,10 +7,17 @@ The library features:
 * Standardized approach to implement and compose efficiency methods, extended from two-way callbacks ([Howard et al, 2020](https://arxiv.org/abs/2002.04688))
 * Easy way to access our methods either directly for your trainer loops, or through the MosaicML Trainer.
 
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/mosaicml/composer/blob/main/examples/composer.ipynb)
+
+
+## Installing Composer
+
 To install `Composer`:
 ```
 pip install mosaicml
 ```
+
+## Using Composer
 
 A few ways to use `Composer`:
 
@@ -22,7 +29,7 @@ import torchvision
 
 model = torchvision.models.resnet50()
 
-# replaces eligible layers with BlurPool (cite here)
+# replaces eligible layers with BlurPool (Zhang, 2019)
 CF.apply_blurpool(model)
 
 for epoch in range(max_epochs):

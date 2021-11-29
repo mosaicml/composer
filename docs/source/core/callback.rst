@@ -1,15 +1,17 @@
 composer.Callback
 =================
 
-Callbacks are run at each given :class:`~composer.core.event.Event`, and are used to for
+.. currentmodule:: composer
+
+Callbacks are run at each given :class:`Event`, and are used to for
 non-essential recording functions such as logging or timing.
 
-Callbacks differ from :class:`~composer.core.algorithm.Algorithm` in that
+Callbacks differ from :class:`Algorithm` in that
 they do not modify the training of the model.
-By convention, callbacks should not modify the :class:`~composer.core.state.State`.
+By convention, callbacks should not modify the :class:`State`.
 
 
-Each callback inherits from the :class:`~composer.core.callback.Callback` base class,
+Each callback inherits from the :class:`Callback` base class,
 and overrides functions corresponding to the event.
 
 
@@ -33,5 +35,5 @@ For example:
     :toctree: generated
     :nosignatures:
 
-    ~composer.core.callback.Callback
+    ~composer.Callback
     ~composer.core.callback.RankZeroCallback

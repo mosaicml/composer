@@ -35,7 +35,7 @@ class AlgorithmHparams(hp.Hparams, ABC):
         else:
             hparams_file = os.path.join(alg_folder, alg_name, f"{alg_params}.yaml")
         if os.path.exists(hparams_file):
-            alg_hparams = cls.create(hparams_file)
+            alg_hparams = cls.create(hparams_file, cli_args=False)
             assert isinstance(alg_hparams, AlgorithmHparams), "hparams.create should return an instance of its type"
             return alg_hparams
         return cls()

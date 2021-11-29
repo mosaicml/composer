@@ -6,7 +6,6 @@ from typing import Any, Optional, Tuple
 
 import torch
 import torch.nn as nn
-from monai.losses import DiceLoss
 
 from composer.core.types import BatchPair, Metrics, Tensor, Tensors
 from composer.models.base import BaseMosaicModel
@@ -20,7 +19,7 @@ log = logging.getLogger(__name__)
 class UNet(BaseMosaicModel):
     """A U-Net model extending :class:`MosaicClassifier`.
 
-    See this `paper <https://arxiv.org/abs/1505.04597> for details on the
+    See this `paper <https://arxiv.org/abs/1505.04597>`_ for details on the
     U-Net architecture.
 
     Args:
@@ -31,6 +30,9 @@ class UNet(BaseMosaicModel):
 
     def __init__(self, hparams: UnetHparams) -> None:
         super().__init__()
+
+        from monai.losses import DiceLoss
+
         self.hparams = hparams
         self.module = self.build_nnunet()
 
@@ -70,8 +72,7 @@ class UNet(BaseMosaicModel):
         return logits
 
     def inference2d(self, image):
-        """Runs inference on a 3D image, by passing each depth slice through the model.
-        """
+        """Runs inference on a 3D image, by passing each depth slice through the model."""
         batch_modulo = image.shape[2] % 64
         if batch_modulo != 0:
             batch_pad = 64 - batch_modulo

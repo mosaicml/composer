@@ -1,9 +1,9 @@
 composer.trainer
 ================
 
-.. currentmodule:: composer.trainer
+.. currentmodule:: composer
 
-:class:`Trainer` is used to train models with :class:`~composer.core.Algorithm` instances.
+:class:`Trainer` is used to train models with :class:`Algorithm` instances.
 The :class:`Trainer` is highly customizable and can support a wide variety of workloads.
 
 
@@ -127,7 +127,7 @@ You can also provide overrides at command line:
     benchmarker | :class:`~composer.callbacks.callback_hparams.BenchmarkerHparams`
     grad_monitor | :class:`~composer.callbacks.callback_hparams.GradMonitorHparams`
     lr_monitor | :class:`~composer.callbacks.callback_hparams.LRMonitorHparams`
-    pytorch_profiler | :class:`~composer.callbacks.callback_hparams.TorchProfilerHparams`
+    torch_profiler | :class:`~composer.callbacks.callback_hparams.TorchProfilerHparams`
     speed_monitor | :class:`~composer.callbacks.callback_hparams.SpeedMonitorHparams`
 
 **Datasets**

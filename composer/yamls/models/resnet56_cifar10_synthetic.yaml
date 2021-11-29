@@ -1,19 +1,17 @@
 train_dataset:
   synthetic:
+    total_dataset_size: 4096
+    data_shape: [3, 32, 32]
     num_classes: 10
-    shape: [3, 32, 32]
-    sample_pool_size: 4096
-    one_hot: false
     device: cpu
     memory_format: CONTIGUOUS_FORMAT
     shuffle: true
     drop_last: true
 val_dataset:
   synthetic:
+    total_dataset_size: 2000
+    data_shape: [3, 32, 32]
     num_classes: 10
-    shape: [3, 32, 32]
-    sample_pool_size: 2000
-    one_hot: false
     device: cpu
     memory_format: CONTIGUOUS_FORMAT
     shuffle: true
@@ -57,8 +55,7 @@ seed: 17
 validate_every_n_epochs: 1
 grad_accum: 1
 device:
-  gpu:
-    n_gpus: 1
+  gpu: {}
 dataloader:
   pin_memory: true
   timeout: 0

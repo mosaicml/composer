@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import atexit
+import warnings
 from dataclasses import asdict, dataclass
 from typing import TYPE_CHECKING, Optional
 
@@ -13,6 +14,7 @@ from composer import Callback
 from composer.callbacks.callback_hparams import TorchProfilerHparams
 from composer.core.types import StateDict
 from composer.utils.ddp import get_global_rank
+from composer.utils.run_directory import get_relative_to_run_directory
 
 if TYPE_CHECKING:
     from composer.core import Logger, State
@@ -40,6 +42,8 @@ class TorchProfiler(Callback):
 
     Args:
         tensorboard_trace_handler_dir (str): Directory to store trace results.
+            Relative to the run_directory. Defaults to `torch_profiler` in the
+            run directory.
         tensorboard_use_gzip (bool, optional):
             Whether to use gzip for the trace. Defaults to False.
         record_shapes (bool, optional): Whether to record tensor shapes.
@@ -63,7 +67,7 @@ class TorchProfiler(Callback):
     def __init__(
         self,
         *,
-        tensorboard_trace_handler_dir: str,
+        tensorboard_trace_handler_dir: str = "torch_profiler",
         tensorboard_use_gzip: bool = False,
         record_shapes: bool = True,
         profile_memory: bool = False,
@@ -73,6 +77,7 @@ class TorchProfiler(Callback):
         warmup: int = 1,
         active: int = 5,
         wait: int = 0,
+        repeat: int = 0,
     ) -> None:
         super().__init__()
         self.hparams = TorchProfilerHparams(
@@ -80,12 +85,13 @@ class TorchProfiler(Callback):
             warmup=warmup,
             active=active,
             wait=wait,
-            tensorboard_trace_handler_dir=tensorboard_trace_handler_dir,
+            tensorboard_trace_handler_dir=get_relative_to_run_directory(tensorboard_trace_handler_dir),
             tensorboard_use_gzip=tensorboard_use_gzip,
             record_shapes=record_shapes,
             profile_memory=profile_memory,
             with_stack=with_stack,
             with_flops=with_flops,
+            repeat=repeat,
         )
         self.profiler: Optional[torch.profiler.profile] = None
         self.profiler_state: _TorchProfilerState = _TorchProfilerState()
@@ -94,7 +100,14 @@ class TorchProfiler(Callback):
             warmup=self.hparams.warmup,
             active=self.hparams.active,
             skip_first=self.hparams.skip,
+            repeat=self.hparams.repeat,
         )
+        try:
+            import torch_tb_profiler  # type: ignore
+        except ModuleNotFoundError:
+            warnings.warn(
+                "TorchTBProfilerNotFound: torch_tb_profiler not found. You will not be able to visualize torch profiler results."
+                "To visualize, run `pip install torch-tb-profiler`")
 
     def state_dict(self) -> StateDict:
         return asdict(self.profiler_state)

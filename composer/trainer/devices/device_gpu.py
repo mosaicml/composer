@@ -3,14 +3,14 @@
 from __future__ import annotations
 
 from contextlib import contextmanager
-from typing import Generator, Optional, Union
+from typing import Generator, Optional, Union, cast
 
 import torch
 import torch.cuda.amp
 import torch.utils.data
 
 from composer.core.state import State
-from composer.core.types import Batch, DataLoader, Precision, StateDict, Tensor, TPrefetchFn
+from composer.core.types import Batch, BatchPair, DataLoader, Precision, StateDict, Tensor, Tensors, TPrefetchFn
 from composer.datasets.dataloader import WrappedDataLoader
 from composer.trainer.devices.device import Device, T_nnModule
 from composer.utils import map_collection
@@ -21,7 +21,7 @@ class CudaDataLoader(WrappedDataLoader):
     the specified device as they are used.
 
     Args:
-        dataloader (Dataloader): The dataloader to wrap.
+        dataloader (DataLoader): The dataloader to wrap.
         prefetch_in_cuda_stream (bool): ``True`` to asyncrhonously prefetch
             samples with a CUDA stream during dataloading and ``False``
             otherwise.
@@ -75,8 +75,8 @@ class CudaDataLoader(WrappedDataLoader):
         if batch is not None:
             yield batch
 
-    def _to_device(self, x: Tensor) -> Tensor:
-        return x.to(self.device, non_blocking=True)
+    def _to_device(self, x: Tensors) -> Tensors:
+        return map_collection(x, lambda t: cast(Tensor, t).to(self.device, non_blocking=True))
 
     def move_to_gpu(self, batch: Batch) -> Batch:
         """Move data to the GPU device.
@@ -85,13 +85,12 @@ class CudaDataLoader(WrappedDataLoader):
             batch (Batch): The data to move the gpu.
         """
         if isinstance(batch, Tensor):
-            return self._to_device(batch)
-        if isinstance(batch, (tuple, list)):
-            return type(batch)(self._to_device(x) for x in batch)
-        if isinstance(batch, dict):
-            return {k: self._to_device(v) for k, v in batch.items()}
-
-        return map_collection(batch, self._to_device)  # type: ignore
+            return cast(Tensor, self._to_device(batch))
+        if isinstance(batch, (tuple, list)):  # BatchPair
+            return cast(BatchPair, tuple(self._to_device(x) for x in batch))
+        if isinstance(batch, dict):  # BatchDict
+            return {k: cast(Tensor, self._to_device(v)) for k, v in batch.items()}
+        raise TypeError(f"Unsupported type for batch: {type(batch)}")
 
 
 class DeviceGPU(Device):
@@ -101,21 +100,14 @@ class DeviceGPU(Device):
         prefetch_in_cuda_stream (bool): ``True`` to asyncrhonously prefetch
             samples with a CUDA stream during dataloading and ``False``
             otherwise.
-        num_gpus (int): The number of GPUs to use.
     """
 
     def __init__(
         self,
         prefetch_in_cuda_stream: bool,
-        n_gpus: int,
     ):
-        self.n_gpus = n_gpus
         self.prefetch_in_cuda_stream = prefetch_in_cuda_stream
         self._device: Optional[torch.device] = None
-
-    @property
-    def nproc_per_node(self) -> int:
-        return self.n_gpus
 
     def prepare(self, state: State) -> None:
         if self._device is not None:

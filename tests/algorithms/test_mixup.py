@@ -88,8 +88,6 @@ def test_mixup_nclasses(dummy_state, dummy_logger):
     algorithm.apply(Event.AFTER_DATALOADER, state, dummy_logger)
 
 
-@pytest.mark.run_long
-@pytest.mark.timeout(90)
 def test_mixup_trains(mosaic_trainer_hparams: TrainerHparams):
     mosaic_trainer_hparams.algorithms = [MixUpHparams(alpha=0.2)]
     train_model(mosaic_trainer_hparams)

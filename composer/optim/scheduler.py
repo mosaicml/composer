@@ -41,8 +41,8 @@ INTERVAL_MAP = {
 }
 
 
-def parse_time_string(timestring: str) -> Tuple[int, int]:
-    """ Parse timestring to (epoch, batches).
+def _parse_time_string(timestring: str) -> Tuple[int, int]:
+    """Parse timestring to (epoch, batches).
 
     Args:
         timestring (str): String in the format 'XXepYYba'.
@@ -54,11 +54,11 @@ def parse_time_string(timestring: str) -> Tuple[int, int]:
         ValueError: The timestring is invalid
 
     Examples:
-        >>> parse_time_string('32ep173ba')
+        >>> _parse_time_string('32ep173ba')
         (32, 173)
-        >>> parse_time_string('12ep')
+        >>> _parse_time_string('12ep')
         (12, 0)
-        >>> parse_time_string('1024ba')
+        >>> _parse_time_string('1024ba')
         (0, 1024)
     """
 
@@ -74,13 +74,13 @@ def parse_time_string(timestring: str) -> Tuple[int, int]:
 
 
 def _convert_time(time: Time, steps_per_epoch: Optional[int] = None, interval: str = 'epoch') -> int:
-    """ Convert time to either batches or epochs (based on interval argument) """
+    """Convert time to either batches or epochs (based on interval argument)."""
     if isinstance(time, int):
         return time
     if steps_per_epoch is None:
         raise ValueError('steps_per_epoch must be provided to parse time string.')
 
-    epochs, batches = parse_time_string(time)
+    epochs, batches = _parse_time_string(time)
     if interval in ('batches', 'batch', 'steps', 'step'):
         log.info(f'Converting {time}, {interval} to {batches + epochs * steps_per_epoch}')
         return batches + epochs * steps_per_epoch
@@ -103,7 +103,9 @@ class SchedulerHparams(hp.Hparams, ABC):
     interval = 'epochs'  # type: str
 
     def convert_time_fields(self, steps_per_epoch: Optional[int] = None) -> None:
-        """Converts all fields that were provided as timestrings (e.g. "32ep11ba") into
+        """Convert time fields into integers.
+
+        Converts all fields that were provided as timestrings (e.g. "32ep11ba") into
         integers, representing either epochs or batches, depending on the
         scheduler's interval attribute.
 
@@ -151,7 +153,7 @@ class SchedulerHparams(hp.Hparams, ABC):
             optimizer: Optimizer,
             steps_per_epoch: Optional[int] = None,
     ) -> Tuple[Scheduler, str]:
-        """ Create the scheduler object from the current hparams
+        """Create the scheduler object from the current hparams.
 
         Args:
             optimizer (Optimizer): the optimizer associated with this scheduler
@@ -174,7 +176,7 @@ class SchedulerHparams(hp.Hparams, ABC):
 
 
 class ConstantLR(_LRScheduler):
-    """ Scheduler that does not change the optimizer's learning rate.
+    """Scheduler that does not change the optimizer's learning rate.
 
     Args:
         optimizer (Optimizer): the optimizer associated with this scheduler.
@@ -207,8 +209,7 @@ class ConstantLR(_LRScheduler):
 
 @dataclass
 class ConstantLRHparams(SchedulerHparams):
-    """ Hyperparameters for the :class:`ConstantLR` scheduler.
-    """
+    """Hyperparameters for the :class:`ConstantLR` scheduler."""
     verbose: bool = hp.optional(default=False, doc='prints message to stdout')
     interval: str = hp.optional(default='epoch', doc=_interval_doc)
 
@@ -217,7 +218,7 @@ class ConstantLRHparams(SchedulerHparams):
 
 @dataclass
 class StepLRHparams(SchedulerHparams):
-    """ Hyperparameters for the `StepLR <https://pytorch.org/docs/stable/generated/torch.optim.lr_scheduler.StepLR.html#torch.optim.lr_scheduler.StepLR>`_
+    """Hyperparameters for the `StepLR <https://pytorch.org/docs/stable/generated/torch.optim.lr_scheduler.StepLR.html#torch.optim.lr_scheduler.StepLR>`_
     scheduler.
     """
 
@@ -231,11 +232,11 @@ class StepLRHparams(SchedulerHparams):
 
 @dataclass
 class MultiStepLRHparams(SchedulerHparams):
-    """ Hyperparameters for the `MultiStepLR <https://pytorch.org/docs/stable/generated/torch.optim.lr_scheduler.MultiStepLR.html#torch.optim.lr_scheduler.MultiStepLR>`_
+    """Hyperparameters for the `MultiStepLR <https://pytorch.org/docs/stable/generated/torch.optim.lr_scheduler.MultiStepLR.html#torch.optim.lr_scheduler.MultiStepLR>`_
     scheduler.
     """
 
-    milestones: List[Time] = hp.required(doc='List of epoch indicies')
+    milestones: List[Time] = hp.required(doc='List of epoch indices')
     gamma: float = hp.optional(default=0.1, doc='multiplicative factor of decay')
     verbose: bool = hp.optional(default=False, doc='prints message to stdout')
     interval: str = hp.optional(default='epoch', doc=_interval_doc)
@@ -245,7 +246,7 @@ class MultiStepLRHparams(SchedulerHparams):
 
 @dataclass
 class ExponentialLRHparams(SchedulerHparams):
-    """ Hyperparameters for the `ExponentialLR <https://pytorch.org/docs/stable/generated/torch.optim.lr_scheduler.ExponentialLR.html#torch.optim.lr_scheduler.ExponentialLR>`_
+    """Hyperparameters for the `ExponentialLR <https://pytorch.org/docs/stable/generated/torch.optim.lr_scheduler.ExponentialLR.html#torch.optim.lr_scheduler.ExponentialLR>`_
     scheduler.
     """
 
@@ -258,7 +259,7 @@ class ExponentialLRHparams(SchedulerHparams):
 
 @dataclass
 class CosineAnnealingLRHparams(SchedulerHparams):
-    """ Hyperparameters for the `CosineAnnealingLR <https://pytorch.org/docs/stable/generated/torch.optim.lr_scheduler.CosineAnnealingLR.html#torch.optim.lr_scheduler.CosineAnnealingLR>`_
+    """Hyperparameters for the `CosineAnnealingLR <https://pytorch.org/docs/stable/generated/torch.optim.lr_scheduler.CosineAnnealingLR.html#torch.optim.lr_scheduler.CosineAnnealingLR>`_
     scheduler.
     """
 
@@ -276,7 +277,7 @@ class CosineAnnealingLRHparams(SchedulerHparams):
 
 @dataclass
 class CosineAnnealingWarmRestartsHparams(SchedulerHparams):
-    """ Hyperparameters for the ``CosineAnnealingWarmRestarts` <https://pytorch.org/docs/stable/generated/torch.optim.lr_scheduler.CosineAnnealingWarmRestarts.html#torch.optim.lr_scheduler.CosineAnnealingWarmRestarts>`_
+    """Hyperparameters for the ``CosineAnnealingWarmRestarts` <https://pytorch.org/docs/stable/generated/torch.optim.lr_scheduler.CosineAnnealingWarmRestarts.html#torch.optim.lr_scheduler.CosineAnnealingWarmRestarts>`_
     scheduler.
     """
 
@@ -295,7 +296,7 @@ class CosineAnnealingWarmRestartsHparams(SchedulerHparams):
 
 @dataclass
 class WarmUpLRHparams(SchedulerHparams):
-    """ Hyperparameters for the :class:`~composer.optim.pytorch_future.WarmUpLR` scheduler.
+    """Hyperparameters for the :class:`~composer.optim.pytorch_future.WarmUpLR` scheduler.
 
     See the documentation for :class:`~composer.optim.pytorch_future.WarmUpLR`.
     """
@@ -310,7 +311,7 @@ class WarmUpLRHparams(SchedulerHparams):
 
 
 def ensure_warmup_last(schedulers: List[SchedulerHparams]) -> List[SchedulerHparams]:
-    """ Ensure that WarmUp-based schedulers appear last in the provided list.
+    """Ensure that WarmUp-based schedulers appear last in the provided list.
 
     Args:
         schedulers (List[SchedulerHparams]): List of schedulers.
@@ -323,7 +324,7 @@ def ensure_warmup_last(schedulers: List[SchedulerHparams]) -> List[SchedulerHpar
 
 
 def get_num_warmup_batches(scheduler_hparams: Sequence[SchedulerHparams], steps_per_epoch: Optional[int] = None) -> int:
-    """ Gets the number of warmup steps declared by a list of schedulers.
+    """Gets the number of warmup steps declared by a list of schedulers.
 
     Args:
         scheduler_hparams (Sequence[SchedulerHparams]): List of schedulers
@@ -425,7 +426,7 @@ class ComposedScheduler(_LRScheduler):
         self._warmup_counter = 0  # counter to track warmups
 
     def step(self, interval: str = 'epoch'):
-        """ Step all applicable schedulers.
+        """Step all applicable schedulers.
 
         Args:
             interval (str, optional): The interval of the current step. Must be either ``'step'`` or ``'epoch'``.
@@ -442,7 +443,7 @@ class ComposedScheduler(_LRScheduler):
                     self._warmup_counter += 1
 
     def _validate_schedulers(self, warmup_epochs: int) -> None:
-        """ Verify that any stepwise schedulers do not change the LR during the desired warmup period.
+        """Verify that any stepwise schedulers do not change the LR during the desired warmup period.
 
         Args:
             warmup_epochs (int): Number of epochs for warmup.
@@ -461,7 +462,7 @@ class ComposedScheduler(_LRScheduler):
                     raise ValueError(f'MultiStepLR milestones must be greater than warmup_iters {warmup_epochs}')
 
     def state_dict(self) -> Dict[str, Any]:
-        """ Returns a dictionary containing the state of all composed schedulers.
+        """Returns a dictionary containing the state of all composed schedulers.
 
         Returns:
             Dict: the state dictionary
@@ -473,7 +474,7 @@ class ComposedScheduler(_LRScheduler):
         return state_dict
 
     def load_state_dict(self, state_dict: Dict[str, Any]) -> None:
-        """ Load the state of all composed schedulers from the provided dictionary.
+        """Load the state of all composed schedulers from the provided dictionary.
 
         Args:
             state_dict (Dict[str, Any]): A dict containing the state of all composed schedulers. Should be an object
@@ -484,8 +485,7 @@ class ComposedScheduler(_LRScheduler):
         self._warmup_counter = state_dict["_warmup_counter"]
 
     def _validate_same_optimizers(self, schedulers):
-        """ Verify that all schedulers correspond to the same optimizer
-        """
+        """Verify that all schedulers correspond to the same optimizer."""
         for scheduler_idx in range(1, len(schedulers)):
             if (schedulers[scheduler_idx][0].optimizer != schedulers[0][0].optimizer):  # type: ignore
                 raise ValueError("ComposedScheduler expects all schedulers to belong to the same optimizer, but "

@@ -11,8 +11,10 @@ include = [
     "composer/**",
     "tests/**"
 ]
+exclude = [
+    "build/**"
+]
 
-reportUnknownMemberType = "none"
 reportImportCycles = "none"
 reportUnnecessaryIsInstance = "none"
 reportMissingTypeStubs = "none"
@@ -21,41 +23,43 @@ reportIncompatibleVariableOverride = "warning"
 reportUnusedImport = "error"
 reportMissingModuleSource = "none"
 reportPrivateImportUsage = "warning"
+reportUndefinedVariable = "error"
 
 pythonVersion = "3.8"
 pythonPlatform = "Linux"
 
 # Pytest
 [tool.pytest.ini_options]
-addopts = "--strict-markers -m 'not daily_regression and not weekly_regression and not run_long'"
+addopts = "--strict-markers -m 'not daily_regression and not weekly_regression and not gpu'"
 
 # by default, tests should be fast.
-# for slower tests, use @pytest.mark.timeout with a higher timeout, combined with
-# @pytest.mark.run_long to indicate that it should not be run by default
-# timeout is in seconds
-# the value here must be less than what is defined in testrunner.py
+# for slower tests, use @pytest.mark.timeout with a higher timeout (specified in seconds)
 timeout = 2
 markers = [
-    "n_gpus(val)",
-    # number of gpus this test requires. If not specified, equivalent to @pytest.mark.n_gpus(0), meaning CPU-only test.
-    "gpu_type(gpu_type)",
-    # type of gpu to use
+    "world_size(val)",
+    # world size this test requires. If not specified, equivalent to @pytest.mark.world_size(1), meaning a 1-process test
+    "gpu",
+    # Whether the test requires GPUs.
     "daily_regression",
     # Specify -m daily_regression to run daily_regression tests
     "weekly_regression",
     # Specify -m weekly_regression to run weekly_regression tests.
-    "run_long",
-    # Run tests that take a while to run
 ]
 filterwarnings = [
-    "ignore:.*:DeprecationWarning"
+    # "error",  # warnings should be treated like errors, but still need to fix some warnings
+    'ignore:ExtraArgumentWarning',  # extra arguments originate from pytest-specific CLI args
+    'ignore:DeferredLogMetricWarning',  # deferred logging is fine
+    'ignore:DDPDefaultValueWarning',  # default DDP values are fine
+    'ignore:NoDDPWarning',  # default DDP values are fine
 ]
 
 # Coverage
 [tool.coverage.run]
 parallel = true
-source = [
-    "composer"
+branch = true
+concurrency = ["thread", "multiprocessing"]
+include = [
+    "composer/*"
 ]
 
 # Yapf

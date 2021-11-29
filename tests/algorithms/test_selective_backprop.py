@@ -327,8 +327,6 @@ def test_apply(Ximage: torch.Tensor, y: torch.Tensor, dummy_algorithm: Selective
     assert y_scaled.shape == (int(N * keep),)
 
 
-@pytest.mark.run_long
-@pytest.mark.timeout(90)
 def test_selective_backprop_trains(mosaic_trainer_hparams: TrainerHparams):
     mosaic_trainer_hparams.algorithms = [
         SelectiveBackpropHparams(start=0.3, end=0.9, keep=0.75, scale_factor=0.5, interrupt=1)

@@ -105,8 +105,6 @@ def test_cutout_algorithm(batch_size, channels, height, width, cutout_length, du
     check_box(batch_size, channels, input)
 
 
-@pytest.mark.run_long
-@pytest.mark.timeout(90)
 def test_cutout_trains(mosaic_trainer_hparams: TrainerHparams):
     mosaic_trainer_hparams.algorithms = [CutOutHparams(n_holes=1, length=4)]
     train_model(mosaic_trainer_hparams)

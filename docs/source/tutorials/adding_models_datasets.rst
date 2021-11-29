@@ -1,5 +1,5 @@
-Custom Models/datasets
-======================
+Custom Models and Datasets
+==========================
 
 The MosaicML :class:`~composer.trainer.Trainer` can easily be extended to use your own models and datasets. We walk through two ways to get started and experiment with algorithms on your machine learning projects.
 

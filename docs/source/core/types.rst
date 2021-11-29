@@ -1,7 +1,7 @@
-composer.core.types
+composer.types
 ===================
 
-.. currentmodule:: composer.core.types
+.. currentmodule:: composer.types
 
 This is our reference for common types used throughout our library.
 

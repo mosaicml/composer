@@ -1,4 +1,0 @@
-composer.algorithms
-===================
-
-Text here

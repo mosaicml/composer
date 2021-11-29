@@ -1,8 +1,10 @@
 composer.State
 ==============
 
-The :class:`~composer.core.state.State` object is available for algorithms to modify during
-:meth:`composer.core.algorithm.Algorithm.apply`, and captures the state of the trainer.
+.. currentmodule:: composer
+
+The :class:`State` object is available for algorithms to modify during
+:meth:`Algorithm.apply`, and captures the state of the trainer.
 
 A summary of available attributes and properties is given below:
 
@@ -111,8 +113,6 @@ A summary of available attributes and properties is given below:
 .. note::
 
     ``Schedulers`` are wrapped in ``ComposableScheduler``, which handles stepping either stepwise or epochwise, and also properly sets up learning rate warmups.
-
-.. currentmodule:: composer.core
 
 .. autoclass:: State
     :members:

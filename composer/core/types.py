@@ -7,7 +7,7 @@ See :doc:`/core/types` for documentation.
 
 from __future__ import annotations
 
-from typing import Any, Callable, Dict, Iterable, Iterator, List, Optional, Protocol, Sequence, Tuple, Union
+from typing import TYPE_CHECKING, Any, Callable, Dict, Iterable, Iterator, List, Optional, Tuple, Union
 
 import torch
 import torch.utils.data
@@ -21,9 +21,20 @@ from composer.core.precision import Precision as Precision
 from composer.core.serializable import Serializable as Serializable
 from composer.core.state import State as State
 
+try:
+    from typing import Protocol
+except ImportError:
+    Protocol = object  # Protocol is not available in python 3.7
+
+if TYPE_CHECKING:
+    from typing import Protocol
+
 Tensor = torch.Tensor
 Tensors = Union[Tensor, Tuple[Tensor, ...], List[Tensor]]
-BatchPair = Sequence[Tensors]
+
+# For BatchPar, if it is a list, then it should always be of length 2.
+# Pytorch's default collate_fn returns a list even when the dataset returns a tuple.
+BatchPair = Union[Tuple[Tensors, Tensors], List[Tensor]]
 BatchDict = Dict[str, Tensor]
 Batch = Union[BatchPair, BatchDict, Tensor]
 

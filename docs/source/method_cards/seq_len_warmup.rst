@@ -12,7 +12,7 @@ Sequence Length Warmup
 Tags: ``Method``, ``Autoregressive Language Modeling``, ``Masked Language Modeling``, ``NLP``, ``Warmup``, ``Curriculum``, ``Speedup``, ``Decreased Wall Clock Time``
 
 
-tl;dr
+TL;DR
 -----
 
 Sequence Length Warmup warms up the sequence length (number of tokens)

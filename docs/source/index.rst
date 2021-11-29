@@ -45,6 +45,7 @@ Our documentation is organized into a few sections:
    getting_started/using_composer.rst
    getting_started/welcome_tour.rst
    tutorials/adding_models_datasets.rst
+   getting_started/distributed.rst
 
 .. toctree::
    :maxdepth: 1
@@ -90,15 +91,15 @@ Our documentation is organized into a few sections:
    method_cards/mix_up.md
    method_cards/progressive_resizing_vision.md
    method_cards/rand_augment.md
-   method_cards/sam.md
    method_cards/scale_schedule.md
-   method_cards/scaling_laws.rst
+   method_cards/scaling_laws.rst   
    method_cards/selective_backprop.md
+   method_cards/seq_len_warmup.rst   
+   method_cards/sam.md   
    method_cards/squeeze_excite.md
    method_cards/stochastic_depth_blockwise.md
    method_cards/stochastic_depth_samplewise.md
    method_cards/swa.md
-   method_cards/seq_len_warmup.rst
 
 .. toctree::
    :maxdepth: 1
