@@ -12,12 +12,12 @@ import torch
 from composer.algorithms import BlurPool, BlurPoolHparams
 from composer.algorithms.blurpool.blurpool_layers import BlurConv2d, BlurMaxPool2d
 from composer.core import Event, State
-from composer.core.types import Model, Precision
+from composer.core.types import DataLoader, Model, Precision
 from tests.fixtures.models import SimpleConvModel
 
 
 @pytest.fixture
-def state(simple_conv_model: Model):
+def state(simple_conv_model: Model, dummy_train_dataloader: DataLoader, dummy_val_dataloader: DataLoader):
     state = State(
         epoch=50,
         step=50,
@@ -27,6 +27,8 @@ def state(simple_conv_model: Model):
         max_epochs=100,
         model=simple_conv_model,
         precision=Precision.FP32,
+        train_dataloader=dummy_train_dataloader,
+        eval_dataloader=dummy_val_dataloader,
     )
     return state
 
