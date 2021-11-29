@@ -184,15 +184,18 @@ class TrainerHparams(hp.Hparams):
     def validate(self):
         super().validate()
 
+        if Precision(self.precision) == Precision.FP16:
+            raise ValueError("FP16 precision is only supported when training with DeepSpeed.")
+
         world_size = ddp.get_world_size()
 
         if self.total_batch_size % world_size != 0:
             raise ValueError(
-                f"batch size ({self.total_batch_size}) not divisible by the total number of processes ({world_size})")
+                f"Batch size ({self.total_batch_size}) not divisible by the total number of processes ({world_size}).")
 
         if self.eval_batch_size % world_size != 0:
             raise ValueError(
-                f"eval batch size ({self.eval_batch_size}) not divisible by the total number of processes ({world_size}) "
+                f"Eval batch size ({self.eval_batch_size}) not divisible by the total number of processes ({world_size})."
             )
 
     def initialize_object(self) -> Trainer:
