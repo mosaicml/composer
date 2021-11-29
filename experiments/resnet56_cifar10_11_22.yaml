@@ -1,0 +1,37 @@
+# mctl yaml
+image: mosaicml/research:latest
+parameters:
+  instance_types:
+    - cota-g8-3080
+  seed:
+    - 5
+  workers_per_gpu:
+    - 8
+
+  callbacks: # List of: profiler, speed_monitor, lr_monitor, classifier_metrics
+    - speed_monitor lr_monitor
+
+  # can't use {{parameters.schedulers.cosine_warmrestart.whatever*}} in jinja
+  # templates since {{parameters.schedulers}} is a string; so instead make
+  # up an intermediate variable that we *can* put in our run names
+  #__T_0:
+  __T_0: 
+    - "15ep"
+    - "30ep"
+    - "50ep"
+
+
+command: >-
+  git clone git@github.com:jacobfulano/composer
+  cd composer
+  git checkout clr_runs
+  pip install -e .
+  pip install wandb
+  pip install --upgrade yahp
+  
+  python examples/run_mosaic_trainer.py -f composer/yamls/models/resnet56_cifar10_clr.yaml --loggers wandb 
+  --loggers.wandb.project jacob_test 
+  --loggers.wandb.name test_run2 
+  --schedulers.cosine_warmrestart.eta_min 0.001 
+  --callbacks.speed_monitor.window_size 10
+  --schedulers.cosine_warmrestart.T_0 {{parameters.__T_0}}

@@ -1,0 +1,75 @@
+---
+image: mosaicml/composer:latest
+parameters:
+  _git_repo:
+    - git@github.com:jacobfulano/composer.git
+  _git_branch:
+    - clr_runs
+  #algorithms:
+  # - factorize
+  # can't use {{parameters.algorithms.factorize.whatever*}} in jinja
+  # templates since {{parameters.algorithms}} is a string; so instead make
+  # up an intermediate variable that we *can* put in our run names
+  #__factorize_linears:
+  # - "false"
+
+  _n_gpus:
+    - 8
+  device:
+    - gpu
+  dataloader.num_workers:
+    - 15
+  instance_types:
+    - cota-g8-3080
+  grad_accum:
+    - 2
+
+  precision:
+    - amp
+  train_dataset.imagenet.datadir:
+    - /localdisk/ImageNet
+  val_dataset.imagenet.datadir:
+    - /localdisk/ImageNet
+
+  loggers:
+    - file wandb
+  loggers.file.log_level:
+    - batch
+  loggers.file.every_n_batches:
+    - 30
+  loggers.wandb.project:
+    - jacob-test
+  loggers.wandb.entity:
+    - mosaic-ml
+
+
+  callbacks: # List of: profiler, speed_monitor, lr_monitor, classifier_metrics
+    - speed_monitor lr_monitor
+  callbacks.speed_monitor.window_size:
+    - 100
+
+  seed:
+    - 42
+
+  _model_file: # This is the actual yaml that is passed
+    - composer/yamls/models/resnet50.yaml
+
+command: >-
+  rm -rf /workspace/src/composer
+
+  git clone {{ parameters._git_repo }} /workspace/src/composer
+
+  cd /workspace/src/composer
+
+  echo {{ 'Checking out composer branch ' + ( parameters._git_branch ) }}
+
+  {{ 'git checkout ' + ( parameters._git_branch ) }}
+
+  pip install -e .
+  pip install wandb
+  pip install --upgrade yahp
+
+  composer -n {{ parameters._n_gpus }} examples/run_mosaic_trainer.py
+  -f {{ parameters._model_file }}
+  --algorithms.factorize.factorize_linears {{parameters.__factorize_linears}}
+  --loggers.wandb.name factorize_linears={{parameters.__factorize_linears}}

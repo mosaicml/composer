@@ -1,0 +1,55 @@
+# mctl yaml
+image: mosaicml/research:latest
+parameters:
+  instance_types:
+    - cota-g8-3080
+  seed:
+    - 5
+  workers_per_gpu:
+    - 8
+  grad_accum:
+    - 4
+  precision: 
+    - amp
+  _n_gpus:
+    - 8
+
+  callbacks: # List of: profiler, speed_monitor, lr_monitor, classifier_metrics
+    - speed_monitor lr_monitor
+  
+  # can't use {{parameters.schedulers.cosine_warmrestart.whatever*}} in jinja
+  # templates since {{parameters.schedulers}} is a string; so instead make
+  # up an intermediate variable that we *can* put in our run names
+  #__T_0:
+  __T_0: 
+    - "20ep"
+    - "25ep"
+    - "40ep"
+    - "50ep"
+
+  max_epochs: 
+    - 200
+  
+
+command: >-
+  git clone git@github.com:jacobfulano/composer
+
+  cd composer
+
+  git checkout clr_runs
+
+  pip install -e .
+  pip install wandb
+  pip install --upgrade yahp
+  
+  composer -n {{ parameters._n_gpus }} examples/run_mosaic_trainer.py
+  -f composer/yamls/models/resnet50_clr.yaml 
+  --loggers wandb 
+  --loggers.wandb.project i1k_clr_sweep 
+  --loggers.wandb.name res50_cwr_T0_{{parameters.__T_0}}
+  --schedulers.cosine_warmrestart.eta_min 0.0001 
+  --callbacks.speed_monitor.window_size 10
+  --schedulers.cosine_warmrestart.T_0 {{parameters.__T_0}}
+  --train_dataset.imagenet.datadir /localdisk/ImageNet
+  --val_dataset.imagenet.datadir /localdisk/ImageNet
+  --dataloader.num_workers 15
