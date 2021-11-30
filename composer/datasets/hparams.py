@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import dataclasses
 from abc import ABC, abstractmethod
-from typing import Callable, List, NamedTuple, Optional, Sequence, Type, Union
+from typing import Callable, List, NamedTuple, Optional, Sequence, Type, Union, get_type_hints
 
 import yahp as hp
 from yahp.utils.type_helpers import HparamsType
@@ -79,9 +79,10 @@ class DatasetHparams(hp.Hparams, ABC):
 
     @classmethod
     def get_synthetic_hparams_cls(cls) -> Type[hp.Hparams]:
+        field_types = get_type_hints(cls)
         for field in dataclasses.fields(cls):
             if field.name == "synthetic":
-                hparams_type = HparamsType(field.type)
+                hparams_type = HparamsType(field_types[field.name])
                 if not hparams_type.is_hparams_dataclass:
                     raise NotImplementedError(f"Dataset {cls.__name__} does not support synthetic data")
                 return hparams_type.type

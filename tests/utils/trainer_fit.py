@@ -70,4 +70,4 @@ def train_model(mosaic_trainer_hparams: TrainerHparams, max_epochs: int = 2, run
         assert isinstance(unwrapped_model, BaseMosaicModel)
         post_fit_loss = get_total_loss(unwrapped_model, trainer.state.train_dataloader)
 
-        assert post_fit_loss < initial_loss + 1e-5
+        assert post_fit_loss < initial_loss + 1e-5, f"post_fit_loss({post_fit_loss}) - initial_loss({initial_loss}) >= 1e-5"

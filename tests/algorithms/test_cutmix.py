@@ -10,6 +10,7 @@ from composer.algorithms.cutmix.cutmix import cutmix, rand_bbox
 from composer.core.types import Event
 from composer.models.base import MosaicClassifier
 from composer.trainer.trainer_hparams import TrainerHparams
+from tests.fixtures.models import SimpleConvModel
 from tests.utils.trainer_fit import train_model
 
 
@@ -112,13 +113,14 @@ class TestCutMix:
                         n_classes=algorithm.num_classes)
 
 
-@pytest.mark.xfail
 def test_cutmix_nclasses(dummy_state, dummy_logger):
     algorithm = CutMixHparams(alpha=1.0).initialize_object()
     state = dummy_state
-    state.model = MosaicClassifier
-    state.model.num_classes = None  # This should flag AttributeError
+    state.model = MosaicClassifier(SimpleConvModel())
+    state.model.num_classes = 10
+    state.batch = (torch.Tensor([[[[1]]]]), torch.Tensor([2]))
 
+    algorithm.apply(Event.INIT, state, dummy_logger)
     algorithm.apply(Event.AFTER_DATALOADER, state, dummy_logger)
 
 

@@ -9,7 +9,9 @@ from typing import List
 import yahp as hp
 
 from composer.core.types import Batch
+from composer.datasets.dataloader import DataloaderHparams
 from composer.datasets.hparams import DataloaderSpec, DatasetHparams
+from composer.utils import ddp
 
 log = logging.getLogger(__name__)
 
@@ -42,7 +44,7 @@ class LMDatasetHparams(DatasetHparams):
     shuffle: bool = hp.optional("Whether to shuffle the dataset for each epoch.", default=True)
     drop_last: bool = hp.optional("Whether to drop the last samples for the last batch.", default=False)
 
-    def initialize_object(self) -> DataloaderSpec:
+    def initialize_object(self, batch_size: int, dataloader_hparams: DataloaderHparams) -> DataloaderSpec:
         try:
             import datasets
             import transformers
@@ -94,13 +96,17 @@ class LMDatasetHparams(DatasetHparams):
         log.info(f"Subsample ratio: {self.subsample_ratio}")
         log.info(f"Total number of samples: {num_samples:e}")
         log.info(f"Total number of tokens: {self.num_tokens:e}")
-        self.dataset = lm_datasets
+        dataset = lm_datasets
 
-        self.data_collator = transformers.default_data_collator
+        data_collator = transformers.default_data_collator
 
-        return DataloaderSpec(
-            dataset=self.dataset,  #type: ignore (thirdparty)
-            collate_fn=self.data_collator,
-            shuffle=self.shuffle,
+        sampler = ddp.get_sampler(dataset, drop_last=self.drop_last, shuffle=self.shuffle)
+
+        return DataloaderSpec(dataloader=dataloader_hparams.initialize_object(
+            dataset=dataset,
+            batch_size=batch_size,
+            sampler=sampler,
             drop_last=self.drop_last,
-            split_fn=_split_dict_fn)
+            collate_fn=data_collator,
+        ),
+                              split_fn=_split_dict_fn)

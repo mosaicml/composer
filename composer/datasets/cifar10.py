@@ -3,6 +3,7 @@
 from dataclasses import dataclass
 from typing import Optional
 
+import torch.utils.data
 import yahp as hp
 from torchvision import transforms
 from torchvision.datasets import CIFAR10
@@ -12,6 +13,7 @@ from composer.datasets.dataloader import DataloaderHparams
 from composer.datasets.hparams import DatasetHparams
 from composer.datasets.subset_dataset import SubsetDataset
 from composer.datasets.synthetic import SyntheticBatchPairDatasetHparams
+from composer.utils import ddp
 
 
 @dataclass
@@ -47,6 +49,11 @@ class CIFAR10DatasetHparams(DatasetHparams):
                 data_shape=[3, 32, 32],
                 num_classes=10,
             )
+            if self.shuffle:
+                sampler = torch.utils.data.RandomSampler(dataset)
+            else:
+                sampler = torch.utils.data.SequentialSampler(dataset)
+
         else:
             if self.datadir is None:
                 raise ValueError("datadir is required if synthetic is None")
@@ -72,9 +79,11 @@ class CIFAR10DatasetHparams(DatasetHparams):
                 transform=transformation,
             )
             if self.num_total_batches is not None:
-                dataset = SubsetDataset(dataset, batch_size=batch_size, num_total_batches=self.num_total_batches)
+                size = batch_size * self.num_total_batches * ddp.get_world_size()
+                dataset = SubsetDataset(dataset, size)
+            sampler = ddp.get_sampler(dataset, drop_last=self.drop_last, shuffle=self.shuffle)
 
         return dataloader_hparams.initialize_object(dataset,
                                                     batch_size=batch_size,
-                                                    shuffle=self.shuffle,
+                                                    sampler=sampler,
                                                     drop_last=self.drop_last)

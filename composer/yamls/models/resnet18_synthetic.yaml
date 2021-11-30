@@ -1,19 +1,19 @@
 train_dataset:
-  synthetic:
-    total_dataset_size: 4096
-    data_shape: [3, 224, 224]
-    num_classes: 1000
-    device: cpu
-    memory_format: CONTIGUOUS_FORMAT
+  imagenet:
+    resize_size: -1
+    crop_size: 224
+    is_train: true
+    num_total_batches: 1
+    synthetic: {}
     shuffle: true
     drop_last: true
 val_dataset:
-  synthetic:
-    total_dataset_size: 2000
-    data_shape: [3, 224, 224]
-    num_classes: 1000
-    device: cpu
-    memory_format: CONTIGUOUS_FORMAT
+  imagenet:
+    resize_size: 256
+    crop_size: 224
+    is_train: false
+    num_total_batches: 1
+    synthetic: {}
     shuffle: true
     drop_last: true
 optimizer:

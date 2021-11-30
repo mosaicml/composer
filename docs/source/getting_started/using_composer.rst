@@ -109,28 +109,28 @@ Here are several ways to use the trainer:
    .. code-block:: python
 
         from composer import Trainer
-        from composer import models, DataloaderSpec
+        from torch.utils.data import DataLoader
         from torchvision import datasets, transforms
 
-        train_dataloader_spec = DataloaderSpec(
-            dataset=datasets.MNIST('~/datasets/', train=True, transform=transforms.ToTensor(), download=True),
-            drop_last=False,
+        train_dataloader = DataLoader(
+            datasets.MNIST('~/datasets/', train=True, transform=transforms.ToTensor(), download=True),
+            drop_last=True,
             shuffle=True,
+            batch_size=256,
         )
 
-        eval_dataloader_spec = DataloaderSpec(
-            dataset=datasets.MNIST('~/datasets/', train=False, transform=transforms.ToTensor()),
+        eval_dataloader = DataLoader(
+            datasets.MNIST('~/datasets/', train=True, transform=transforms.ToTensor(), download=True),
             drop_last=False,
             shuffle=False,
+            batch_size=256,
         )
 
         trainer = Trainer(
             model=models.MNIST_Classifier(num_classes=10),
-            train_dataloader_spec=train_dataloader_spec,
-            eval_dataloader_spec=eval_dataloader_spec,
+            train_dataloader=train_dataloader,
+            eval_dataloader=eval_dataloader,
             max_epochs=3,
-            train_batch_size=256,
-            eval_batch_size=256,
         )
 
         trainer.fit()

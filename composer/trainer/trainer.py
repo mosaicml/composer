@@ -50,7 +50,7 @@ class Trainer:
     Args:
         model (BaseMosaicModel): The model to train.
         train_dataloader (DataLoader or DataloaderSpec): The dataloader or dataloader spec for the training data.
-        eval_dataloader_spec (DataLoader or DataloaderSpec): The dataloader or dataloader spec for the evaluation data.
+        eval_dataloader (DataLoader or DataloaderSpec): The dataloader or dataloader spec for the evaluation data.
         max_epochs (int): The maxmimum number of epochs to train for.
         algorithms (List[Algorithm], optional): The algorithms to use during training.
             (default: ``[]``)

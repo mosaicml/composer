@@ -206,12 +206,21 @@ def prepare_module(module: Model, find_unused_parameters: bool) -> Model:
         return module
 
 
-def get_sampler(dataset: torch.utils.data.Dataset, drop_last: bool, shuffle: bool) -> torch.utils.data.Sampler[int]:
+def get_sampler(dataset: torch.utils.data.Dataset, *, drop_last: bool, shuffle: bool) -> torch.utils.data.Sampler[int]:
     if dist.is_available():
-        sampler = torch.utils.data.DistributedSampler[int](dataset, drop_last=drop_last, shuffle=shuffle)
+        # manually supplying num_replicas and rank to read from env variables
+        # if ddp is not yet initialized
+        sampler = torch.utils.data.DistributedSampler[int](dataset,
+                                                           drop_last=drop_last,
+                                                           shuffle=shuffle,
+                                                           num_replicas=get_world_size(),
+                                                           rank=get_global_rank())
     else:
         assert isinstance(dataset, collections.abc.Sized)
-        sampler = torch.utils.data.RandomSampler(dataset)
+        if shuffle:
+            sampler = torch.utils.data.RandomSampler(dataset)
+        else:
+            sampler = torch.utils.data.SequentialSampler(dataset)
     return sampler
 
 

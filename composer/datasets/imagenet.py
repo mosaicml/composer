@@ -17,6 +17,7 @@ from composer.datasets.dataloader import DataloaderHparams
 from composer.datasets.hparams import DataloaderSpec, DatasetHparams
 from composer.datasets.subset_dataset import SubsetDataset
 from composer.datasets.synthetic import SyntheticBatchPairDatasetHparams
+from composer.utils import ddp
 
 
 class TransformationFn:
@@ -90,6 +91,7 @@ class ImagenetDatasetHparams(DatasetHparams):
     num_total_batches: Optional[int] = hp.optional("num total batches", default=None)
 
     def initialize_object(self, batch_size: int, dataloader_hparams: DataloaderHparams) -> DataloaderSpec:
+
         if self.synthetic is not None:
             if self.num_total_batches is None:
                 raise ValueError("num_total_batches must be specified if using synthetic data")
@@ -101,6 +103,10 @@ class ImagenetDatasetHparams(DatasetHparams):
             )
             collate_fn = None
             device_transform_fn = None
+            if self.shuffle:
+                sampler = torch.utils.data.RandomSampler(dataset)
+            else:
+                sampler = torch.utils.data.SequentialSampler(dataset)
         else:
 
             if self.is_train is True:
@@ -133,12 +139,14 @@ class ImagenetDatasetHparams(DatasetHparams):
                 raise ValueError("datadir must be specified is self.synthetic is False")
             dataset = ImageFolder(os.path.join(self.datadir, split), transformation)
             if self.num_total_batches is not None:
-                dataset = SubsetDataset(dataset, batch_size, self.num_total_batches)
+                size = batch_size * self.num_total_batches * ddp.get_world_size()
+                dataset = SubsetDataset(dataset, size)
+            sampler = ddp.get_sampler(dataset, drop_last=self.drop_last, shuffle=self.shuffle)
 
         return DataloaderSpec(dataloader=dataloader_hparams.initialize_object(
             dataset=dataset,
             batch_size=batch_size,
-            shuffle=self.shuffle,
+            sampler=sampler,
             drop_last=self.drop_last,
             collate_fn=collate_fn,
         ),

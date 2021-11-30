@@ -9,9 +9,9 @@ from composer.core.types import Dataset
 
 class SubsetDataset(Dataset):
 
-    def __init__(self, dataset: Dataset, batch_size: int, num_total_batches: int):
+    def __init__(self, dataset: Dataset, size: int):
         self.dataset = dataset
-        self.size = batch_size * num_total_batches
+        self.size = size
 
     def __len__(self) -> int:
         return self.size

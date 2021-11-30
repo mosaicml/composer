@@ -13,7 +13,6 @@ import yahp as hp
 from torch.utils.data.distributed import DistributedSampler
 
 from composer.core.types import Batch, DataLoader, Dataset
-from composer.utils import ddp
 
 
 class WrappedDataLoader(DataLoader):
@@ -57,9 +56,6 @@ class DDPDataLoader(WrappedDataLoader):
 
     def __init__(self, dataloader: DataLoader) -> None:
         super().__init__(dataloader)
-        if torch.distributed.is_available():
-            if not isinstance(self.dataloader.sampler, DistributedSampler):
-                raise ValueError("When using the DDP data loader, the sampler must be a DistributedSampler")
         self._iterator: Optional[Iterator[Batch]] = None
 
     def __iter__(self) -> DDPDataLoader:
@@ -106,14 +102,12 @@ class DataloaderHparams(hp.Hparams):
         dataset: Dataset,
         *,
         batch_size: int,
-        shuffle: bool,
+        sampler: torch.utils.data.Sampler[int],
         drop_last: bool,
         collate_fn: Optional[Callable] = None,
         worker_init_fn: Optional[Callable] = None,
     ) -> DataLoader:
         """Initializes the dataloader."""
-
-        sampler = ddp.get_sampler(dataset, drop_last=drop_last, shuffle=shuffle)
 
         return torch.utils.data.DataLoader(dataset,
                                            batch_size=batch_size,

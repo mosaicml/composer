@@ -1,21 +1,21 @@
 train_dataset:
-  synthetic:
-    total_dataset_size: 4096
-    data_shape: [3, 224, 224]
-    num_classes: 1000
-    device: cpu
-    memory_format: CONTIGUOUS_FORMAT
+  imagenet:
+    resize_size: -1
+    crop_size: 224
+    is_train: true
+    num_total_batches: 1
+    synthetic: {}
     shuffle: true
     drop_last: true
 val_dataset:
-  synthetic:
-    total_dataset_size: 2000
-    data_shape: [3, 224, 224]
-    num_classes: 1000
-    device: cpu
-    memory_format: CONTIGUOUS_FORMAT
-    shuffle: true
-    drop_last: true
+  imagenet:
+    resize_size: 256
+    crop_size: 224
+    is_train: false
+    num_total_batches: 1
+    synthetic: {}
+    shuffle: false
+    drop_last: false
 optimizer:
   decoupled_sgdw:
     lr: 2.048
@@ -34,6 +34,7 @@ schedulers:
       T_max: "82ep"
       eta_min: 0
       verbose: false
+      interval: step
 model:
   resnet101:
     initializers:
@@ -55,5 +56,5 @@ dataloader:
   persistent_workers: true
   num_workers: 8
 validate_every_n_epochs: 1
-grad_accum: 1
+grad_accum: 2
 precision: amp

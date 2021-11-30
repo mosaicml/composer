@@ -80,10 +80,14 @@ class _SimpleDatasetHparams(DatasetHparams):
                                                    data_shape=self.data_shape,
                                                    label_type=SyntheticDataLabelType.CLASSIFICATION_INT,
                                                    num_classes=self.num_classes)
+        if self.shuffle:
+            sampler = torch.utils.data.RandomSampler(dataset)
+        else:
+            sampler = torch.utils.data.SequentialSampler(dataset)
         return dataloader_hparams.initialize_object(
             dataset=dataset,
             batch_size=batch_size,
-            shuffle=self.shuffle,
+            sampler=sampler,
             drop_last=self.drop_last,
         )
 

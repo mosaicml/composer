@@ -15,6 +15,7 @@ from composer.core.types import DataLoader, Dataset
 from composer.datasets.dataloader import DataloaderHparams
 from composer.datasets.hparams import DatasetHparams
 from composer.datasets.subset_dataset import SubsetDataset
+from composer.utils import ddp
 
 PATCH_SIZE = [1, 192, 160]
 
@@ -57,13 +58,15 @@ class BratsDatasetHparams(DatasetHparams):
         x_train, y_train, x_val, y_val = get_data_split(self.datadir)
         dataset = PytTrain(x_train, y_train, oversampling) if self.is_train else PytVal(x_val, y_val)
         if self.num_total_batches is not None:
-            dataset = SubsetDataset(dataset, batch_size=batch_size, num_total_batches=self.num_total_batches)
+            size = batch_size * self.num_total_batches * ddp.get_world_size()
+            dataset = SubsetDataset(dataset, size)
         collate_fn = None if self.is_train else my_collate
+        sampler = ddp.get_sampler(dataset, drop_last=self.drop_last, shuffle=self.shuffle)
 
         return dataloader_hparams.initialize_object(
             dataset=dataset,
             batch_size=batch_size,
-            shuffle=self.shuffle,
+            sampler=sampler,
             drop_last=self.drop_last,
             collate_fn=collate_fn,
         )

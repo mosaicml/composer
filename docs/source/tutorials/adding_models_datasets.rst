@@ -59,24 +59,26 @@ In this tutorial, we start with a simple image classification model:
 Datasets
 --------
 
-Provide the trainer with your :class:`torch.utils.data.Dataset` by configuring a :class:`DataloaderSpec` for
-both train and validation datasets. Here, we create the :class:`DataloaderSpec` with the ``MNIST`` dataset:
+Provide the trainer with :class:`~torch.utils.data.DataLoader` for both 
+train and validation datasets. Here, we create a :class:`~torch.utils.data.DataLoader` with the ``MNIST`` dataset:
 
 .. code-block:: python
 
-     from composer import DataloaderSpec
      from torchvision import datasets, transforms
+     from torch.utils.data import DataLoader
 
-     train_dataloader_spec = DataloaderSpec(
+     train_dataloader = DataLoader(
          dataset=datasets.MNIST('/datasets/', train=True, transform=transforms.ToTensor(), download=True),
          drop_last=False,
          shuffle=True,
+         batch_size=256,
      )
 
-     eval_dataloader_spec = DataloaderSpec(
+     eval_dataloader = DataLoader(
          dataset=datasets.MNIST('/datasets/', train=False, transform=transforms.ToTensor()),
          drop_last=False,
          shuffle=False,
+         batch_size=256,
      )
 
 Trainer init
@@ -91,11 +93,9 @@ Now that your ``Dataset`` and ``Model`` are ready, you can initialize the :class
 
     trainer = Trainer(
         model=SimpleModel(num_hidden=128, num_classes=10),
-        train_dataloader_spec=train_dataloader_spec,
-        eval_dataloader_spec=eval_dataloader_spec,
+        train_dataloader=train_dataloader,
+        eval_dataloader=eval_dataloader,
         max_epochs=3,
-        train_batch_size=256,
-        eval_batch_size=256,
         algorithms=[
             CutOut(n_holes=1, length=10),
             LabelSmoothing(alpha=0.1),

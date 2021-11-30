@@ -1,21 +1,19 @@
 train_dataset:
-  synthetic:
-    total_dataset_size: 4096
-    data_shape: [3, 32, 32]
-    num_classes: 10
-    device: cpu
-    memory_format: CONTIGUOUS_FORMAT
+  cifar10:
+    synthetic: {}
+    is_train: true
+    num_total_batches: 1
+    download: false
     shuffle: true
     drop_last: true
 val_dataset:
-  synthetic:
-    total_dataset_size: 2000
-    data_shape: [3, 32, 32]
-    num_classes: 10
-    device: cpu
-    memory_format: CONTIGUOUS_FORMAT
-    shuffle: true
-    drop_last: true
+  cifar10:
+    synthetic: {}
+    num_total_batches: 1
+    is_train: false
+    download: false
+    shuffle: false
+    drop_last: false
 optimizer:
   decoupled_sgdw:
     lr: 1.2
