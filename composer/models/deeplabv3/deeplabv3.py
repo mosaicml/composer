@@ -3,7 +3,7 @@ from typing import Any
 
 import torch
 from torchmetrics.collections import MetricCollection
-from torchvision.models import resnet50
+from torchvision.models import resnet
 from torchvision.models.segmentation import deeplabv3_resnet50
 
 from composer.core.surgery import replace_module_classes
@@ -40,7 +40,9 @@ class DeepLabv3(BaseMosaicModel):
         self.model.classifier[2] = torch.nn.Identity()
         self.model.classifier[3] = torch.nn.Identity()
         if self.hparams.is_pretrained:
-            backbone = resnet50(pretrained=True, progress=False)
+            resnet.model_urls["resnet50"] = "https://download.pytorch.org/models/resnet50-f46c3f97.pth"
+            #backbone = resnet50(pretrained=True, progress=False)
+            backbone = resnet.resnet50(pretrained=True)
             del backbone.fc
             self.model.backbone.load_state_dict(backbone.state_dict())
         if self.hparams.sync_bn:
