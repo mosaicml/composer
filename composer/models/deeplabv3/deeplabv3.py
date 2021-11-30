@@ -35,6 +35,10 @@ class DeepLabv3(BaseMosaicModel):
         super().__init__()
         self.hparams = hparams
         self.model = deeplabv3_resnet50(False, progress=False, num_classes=self.hparams.num_classes, aux_loss=False)
+        self.model.classifier[0].project[3] = torch.nn.Identity()  # replace dropout with identity
+        self.model.classifier[1] = torch.nn.Identity()
+        self.model.classifier[2] = torch.nn.Identity()
+        self.model.classifier[3] = torch.nn.Identity()
         if self.hparams.is_pretrained:
             backbone = resnet50(pretrained=True, progress=False)
             del backbone.fc
