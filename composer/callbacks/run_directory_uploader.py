@@ -210,8 +210,8 @@ class RunDirectoryUploader(RankZeroCallback):
         # check if any upload threads have crashed. if so, then shutdown the training process
         for worker in self._workers:
             if not worker.is_alive():
-                # assert self._finished is not None, "invariant error"
-                # self._finished.set()
+                assert self._finished is not None, "invariant error"
+                self._finished.set()
                 raise RuntimeError("Upload worker crashed unexpectedly")
         for root, dirs, files in os.walk(run_directory):
             del dirs  # unused
@@ -224,7 +224,6 @@ class RunDirectoryUploader(RankZeroCallback):
                     files_to_be_uploaded.append(relpath)
                     copied_path_dirname = os.path.dirname(copied_path)
                     os.makedirs(copied_path_dirname, exist_ok=True)
-                    # shutil.copyfile(filepath, copied_path)
                     shutil.copy2(filepath, copied_path)
                     self._file_upload_queue.put_nowait(copied_path)
         self._last_upload_timestamp = new_last_uploaded_timestamp
