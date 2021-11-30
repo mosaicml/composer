@@ -18,14 +18,10 @@ class Device(Serializable, ABC):
     """
 
     @abstractmethod
-    def prepare(self, state: State) -> None:
+    def prepare(self) -> None:
         """Used for device initialization.
 
         Invoked by the trainer at the beginning of the training loop.
-        It should not modify the state.
-
-        Args:
-            state (State): The global state variable.
         """
 
     @abstractmethod
