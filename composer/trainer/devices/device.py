@@ -7,7 +7,6 @@ from typing import Generator, Optional, TypeVar, Union
 import torch.nn
 
 from composer.core.serializable import Serializable
-from composer.core.state import State
 from composer.core.types import DataLoader, Optimizer, Precision, Tensor, TPrefetchFn
 
 T_nnModule = TypeVar("T_nnModule", bound=torch.nn.Module)
@@ -18,14 +17,10 @@ class Device(Serializable, ABC):
     """
 
     @abstractmethod
-    def prepare(self, state: State) -> None:
+    def prepare(self) -> None:
         """Used for device initialization.
 
         Invoked by the trainer at the beginning of the training loop.
-        It should not modify the state.
-
-        Args:
-            state (State): The global state variable.
         """
 
     @abstractmethod
