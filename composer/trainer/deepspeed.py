@@ -1,3 +1,5 @@
+# Copyright 2021 MosaicML. All Rights Reserved.
+
 from dataclasses import dataclass
 
 import yahp as hp
