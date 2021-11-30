@@ -289,12 +289,14 @@ class Trainer:
         self.state.schedulers = ComposedScheduler(schedulers=schedulers)
 
         self.checkpointer = None
+        # TODO: get checkpointing working with DeepSpeed.
         if not self.deepspeed_enabled and checkpoint_folder and checkpoint_interval and checkpoint_interval_unit:
             self.checkpointer = Checkpointer(checkpoint_folder=get_relative_to_run_directory(checkpoint_folder),
                                              checkpoint_interval=checkpoint_interval,
                                              checkpoint_interval_unit=checkpoint_interval_unit)
 
         self.checkpoint_loader = None
+        # TODO: get checkpointing working with DeepSpeed.
         if not self.deepspeed_enabled and checkpoint_filepath:
             self.checkpoint_loader = CheckpointLoader(checkpoint_filepath=checkpoint_filepath)
             self.checkpoint_loader.load_checkpoint(state=self.state)
@@ -402,10 +404,7 @@ class Trainer:
         Returns:
             A :class:`~torchmetrics.collections.MetricCollection` object.
         """
-        original_model = self.state.model.module
-        assert isinstance(original_model, BaseMosaicModel)
-
-        metrics = original_model.metrics(train=is_train)
+        metrics = self.original_model.metrics(train=is_train)
         assert isinstance(metrics, (Metric, MetricCollection)), \
             "Error module.metrics() must return a Metric or MetricCollection object."
         if isinstance(metrics, Metric):
@@ -491,8 +490,8 @@ class Trainer:
             raise NotImplementedError("The Mosaic trainer only supports one optimizer; "
                                       f"found {len(ensure_tuple(state.optimizers))} optimizers")
 
+        assert isinstance(state.model, BaseMosaicModel)
         self.original_model = state.model
-        assert isinstance(self.original_model, BaseMosaicModel)
 
         # place the state, model in the proper devices
         if self.deepspeed_enabled:
@@ -689,8 +688,6 @@ class Trainer:
         self.engine.run_event(Event.BEFORE_TRAIN_BATCH)
 
         state = self.state
-        original_model = state.model.module
-        assert isinstance(original_model, BaseMosaicModel)
         assert state.optimizers is not None
         assert state.scaler is not None
 
@@ -720,7 +717,7 @@ class Trainer:
                 self.engine.run_event(Event.BEFORE_LOSS)
 
                 with state.precision_context(state.precision):
-                    state.loss = original_model.loss(state.outputs, state.batch)
+                    state.loss = self.original_model.loss(state.outputs, state.batch)
 
                 for loss in ensure_tuple(state.loss):
                     loss.mul_(last_microbatch_size / current_batch_size)

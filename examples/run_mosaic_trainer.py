@@ -34,7 +34,6 @@ def main() -> None:
     )
 
     args, _ = parser.parse_known_args()
-
     hparams = TrainerHparams.create(cli_args=True)  # reads cli args from sys.argv
     logging.getLogger(composer.__name__).setLevel(hparams.log_level)
     if args.datadir is not None:

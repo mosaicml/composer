@@ -5,8 +5,6 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING, Mapping, Tuple
 
-import transformers
-
 from composer.models.base import BaseMosaicModel
 from composer.models.nlp_metrics import LanguageCrossEntropyLoss
 
