@@ -115,36 +115,35 @@ class TQDMLoggerBackend(RankZeroLoggerBackend):
             print("-" * 30)
             print()
 
-    def start(self, state: State):
-        assert state.train_dataloader is not None
-        assert state.eval_dataloader is not None
+    def _start(self, state: State):
+        assert self.is_train is not None, "self.is_train should be set by the callback"
         total_steps = len(state.train_dataloader) if self.is_train else len(state.eval_dataloader)
         self.pbars[self.is_train] = _TQDMLoggerInstance(total=total_steps, epoch=state.epoch, is_train=self.is_train)
 
     def epoch_start(self, state: State, logger: Logger) -> None:
         del logger  # unused
         self.is_train = True
-        self.start(state)
+        self._start(state)
 
     def eval_start(self, state: State, logger: Logger) -> None:
         del logger  # unused
         self.is_train = False
-        self.start(state)
+        self._start(state)
 
-    def update(self):
+    def _update(self):
         if self.is_train in self.pbars:
             assert self.is_train is not None
             self.pbars[self.is_train].update()
 
     def after_backward(self, state: State, logger: Logger) -> None:
         del state, logger  # unused
-        self.update()
+        self._update()
 
     def eval_after_forward(self, state: State, logger: Logger) -> None:
         del state, logger  # unused
-        self.update()
+        self._update()
 
-    def end(self):
+    def _end(self):
         if self.is_train in self.pbars:
             assert self.is_train is not None
             self.pbars[self.is_train].close()
@@ -153,11 +152,11 @@ class TQDMLoggerBackend(RankZeroLoggerBackend):
 
     def epoch_end(self, state: State, logger: Logger) -> None:
         del state, logger  # unused
-        self.end()
+        self._end()
 
     def eval_end(self, state: State, logger: Logger) -> None:
         del state, logger  # unused
-        self.end()
+        self._end()
 
     def state_dict(self) -> StateDict:
         return {
