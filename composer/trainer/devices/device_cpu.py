@@ -8,7 +8,6 @@ from typing import Generator, Optional, Union
 
 import torch
 
-from composer.core.state import State
 from composer.core.types import Batch, DataLoader, Precision, StateDict, Tensor, TPrefetchFn
 from composer.datasets.dataloader import WrappedDataLoader
 from composer.trainer.devices.device import Device, T_nnModule
@@ -34,7 +33,7 @@ class PrefetchedDataLoader(WrappedDataLoader):
 class DeviceCPU(Device):
     """An extension of :class:`~composer.trainer.devices.device.Device` for CPUs."""
 
-    def prepare(self, state: State) -> None:
+    def prepare(self) -> None:
         logger.info("Preparing CPU worker")
         # No preperation required
         return

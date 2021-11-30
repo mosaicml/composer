@@ -1,6 +1,5 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
-import _pytest.monkeypatch
 import pytest
 
 from composer.core import Event
@@ -27,11 +26,12 @@ class EventTrackerCallback(Callback):
         self.event = None
 
     def _run_event(self, event: Event, state: State, logger: Logger) -> None:
+        del state, logger  # unused
         self.event = event
 
 
 @pytest.mark.parametrize('event', list(Event))
-def test_run_event_callbacks(event: Event, dummy_state: State, monkeypatch: _pytest.monkeypatch.MonkeyPatch):
+def test_run_event_callbacks(event: Event, dummy_state: State):
     callback = EventTrackerCallback()
     logger = Logger(dummy_state)
     engine = Engine(state=dummy_state, algorithms=[], logger=logger, callbacks=[callback])
