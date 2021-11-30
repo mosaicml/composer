@@ -11,6 +11,7 @@ from composer import Logger, State
 from composer.callbacks.callback_hparams import BenchmarkerHparams
 from composer.core.callback import Callback
 from composer.core.types import BreakEpochException
+from composer.utils import ddp
 
 log = logging.getLogger(__name__)
 
@@ -158,7 +159,7 @@ class Benchmarker(Callback):
             now = time.time()
             elapsed = now - self.current_time
             self.current_time = now
-            self.profile_examples += state.last_batch_size * state.world_size
+            self.profile_examples += state.last_batch_size * ddp.get_world_size()
             self.profile_steps += 1
             self.profile_time += elapsed
 

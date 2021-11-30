@@ -5,15 +5,23 @@
 from __future__ import annotations
 
 import abc
-from functools import wraps
-from types import MethodType
-from typing import TYPE_CHECKING, Any, Callable
+from typing import TYPE_CHECKING
 
 from composer.core.serializable import Serializable
-from composer.utils.ddp import is_rank_zero
+from composer.utils import ddp
+
+try:
+    from typing import final
+except ImportError:
+    final = lambda x: x  # final is not available in python 3.7
+
+try:
+    from typing import final
+except ImportError:
+    final = lambda x: x  # final is not available in python 3.7
 
 if TYPE_CHECKING:
-    from composer import Logger, State
+    from composer import Event, Logger, State
 
 
 class Callback(Serializable, abc.ABC):
@@ -24,18 +32,37 @@ class Callback(Serializable, abc.ABC):
     they are run on specific events. By convention, Callbacks should not
     modify :class:`State`.
 
-    Each method name corresponds to an :class:`Event`.
+    Callbacks can be implemented in two ways:
 
-    Subclasses of callbacks should override these methods to run in response
-    to given :class:`Event` invocations.
+    #. Override the individual methods named for each :class:`Event`.
+        
+    #. Override :meth:`_run_event` (**not** :meth:`run_event`) to run in response
+       to all events. If this method is overridden, then the individual methods
+       corresponding to each event name will not be automatically called (however,
+       the subclass implementation can invoke these methods as it wishes.)
     """
 
     def __init__(self) -> None:
         super().__init__()
 
+    @final
+    def run_event(self, event: Event, state: State, logger: Logger) -> None:
+        """This method is called by the engine on each event.
+
+        Args:
+            event (Event): The event.
+            state (State): The state.
+            logger (Logger): The logger.
+        """
+        self._run_event(event, state, logger)
+
+    def _run_event(self, event: Event, state: State, logger: Logger) -> None:
+        # default fallback if the callback does not override _run_event
+        event_cb = getattr(self, event.value)
+        return event_cb(state, logger)
+
     def init(self, state: State, logger: Logger) -> None:
         """Called on the :attr:`~Event.INIT` event.
-
         Args:
             state (State): The global state.
             logger (Logger): The logger.
@@ -277,34 +304,21 @@ class Callback(Serializable, abc.ABC):
 
 
 class RankZeroCallback(Callback, abc.ABC):
-    """Base class for callbacks that only run on the rank zero process.
+    """Base class for callbacks that only run on the local rank zero process.
 
-    .. Note::
-    
-        :meth:`init` and :meth:`load_state_dict` are executed
-        before the DDP fork and will be called on all ranks.
+    Callbacks can be implemented in two ways:
+
+    #. Override the individual methods named for each :class:`Event`. (See
+       the parent class, :class:`Callback`.)
+        
+    #. Override :meth:`_run_event` (**not** :meth:`run_event`) to run in response
+       to all events. If this method is overridden, then the individual methods
+       corresponding to each event name will not be automatically called (however,
+       the subclass implementation can invoke these methods as it wishes.)
     """
 
-    def __init__(self) -> None:
-        from composer.core import Event
-
-        super().__init__()
-
-        # ensure all callbacks are executed only on rank 0
-        functions_to_wrap = [*(event.value for event in Event), "state_dict"]
-
-        for fn_name in functions_to_wrap:
-            original_fn = getattr(self, fn_name)
-
-            @wraps(original_fn)
-            def wrapped_fn(
-                backend: RankZeroCallback,
-                *args: Any,
-                original_fn: Callable[[State, Logger], None] = original_fn,
-                **kwargs: Any,
-            ) -> None:
-                if not is_rank_zero():
-                    return
-                return original_fn(*args, **kwargs)
-
-            setattr(self, fn_name, MethodType(wrapped_fn, self))
+    @final
+    def run_event(self, event: Event, state: State, logger: Logger) -> None:
+        if ddp.get_local_rank() != 0:
+            return
+        return self._run_event(event, state, logger)

@@ -3,6 +3,7 @@
 from composer.datasets.brats import BratsDatasetHparams as BratsDatasetHparams
 from composer.datasets.cifar10 import CIFAR10DatasetHparams as CIFAR10DatasetHparams
 from composer.datasets.dataloader import DataloaderHparams as DataloaderHparams
+from composer.datasets.dataloader import DDPDataLoader as DDPDataLoader
 from composer.datasets.dataloader import WrappedDataLoader as WrappedDataLoader
 from composer.datasets.dataset_registry import get_dataset_registry as get_dataset_registry
 from composer.datasets.evaluator import EvaluatorHparams as EvaluatorHparams

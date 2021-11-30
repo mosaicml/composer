@@ -9,11 +9,10 @@ import torch
 import torch.cuda.amp
 import torch.utils.data
 
-from composer.core.state import State
 from composer.core.types import Batch, BatchPair, DataLoader, Precision, StateDict, Tensor, Tensors, TPrefetchFn
 from composer.datasets.dataloader import WrappedDataLoader
 from composer.trainer.devices.device import Device, T_nnModule
-from composer.utils import map_collection
+from composer.utils import ddp, map_collection
 
 
 class CudaDataLoader(WrappedDataLoader):
@@ -109,10 +108,10 @@ class DeviceGPU(Device):
         self.prefetch_in_cuda_stream = prefetch_in_cuda_stream
         self._device: Optional[torch.device] = None
 
-    def prepare(self, state: State) -> None:
+    def prepare(self) -> None:
         if self._device is not None:
             raise ValueError("device is already set")
-        gpu = state.local_rank
+        gpu = ddp.get_local_rank()
         self._device = torch.device(f"cuda:{gpu}")
         torch.cuda.set_device(self._device)
         assert torch.cuda.current_device() == gpu
