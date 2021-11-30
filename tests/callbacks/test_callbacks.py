@@ -13,7 +13,7 @@ def test_callbacks_map_to_events():
     # callback methods must be 1:1 mapping with events
     # exception for private methods
     cb = Callback()
-    excluded_methods = ["state_dict", "load_state_dict", "run_event"]
+    excluded_methods = ["state_dict", "load_state_dict", "run_event", "close", "post_close"]
     methods = set(m for m in dir(cb) if (m not in excluded_methods and not m.startswith("_")))
     event_names = set(e.value for e in Event)
     assert methods == event_names

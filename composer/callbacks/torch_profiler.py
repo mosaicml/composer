@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import atexit
 import warnings
 from dataclasses import asdict, dataclass
 from typing import TYPE_CHECKING, Optional
@@ -132,7 +131,7 @@ class TorchProfiler(Callback):
                 torch_scheduler_action = ProfilerAction.RECORD_AND_SAVE
         return torch_scheduler_action
 
-    def training_start(self, state: State, logger: Logger) -> None:
+    def init(self, state: State, logger: Logger) -> None:
         del state, logger  # unused
         assert self.profiler is None, _PROFILE_MISSING_ERROR
         self.profiler = torch.profiler.profile(
@@ -149,7 +148,6 @@ class TorchProfiler(Callback):
             with_flops=self.hparams.with_flops,
         )
         self.profiler.__enter__()
-        atexit.register(self._close_profiler)
 
     def batch_end(self, state: State, logger: Logger) -> None:
         del state, logger  # unused
@@ -165,6 +163,6 @@ class TorchProfiler(Callback):
         assert self.profiler is not None, _PROFILE_MISSING_ERROR
         logger.metric_batch({"profiler/state": self.profiler.current_action.name})
 
-    def _close_profiler(self) -> None:
-        assert self.profiler is not None
-        self.profiler.__exit__(None, None, None)
+    def close(self) -> None:
+        if self.profiler is not None:
+            self.profiler.__exit__(None, None, None)
