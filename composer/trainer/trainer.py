@@ -20,8 +20,9 @@ from torchmetrics.metric import Metric
 from composer.core import Callback, Engine, Event, Logger, State
 from composer.core.algorithm import Algorithm
 from composer.core.logging import BaseLoggerBackend, LogLevel
-from composer.core.types import Batch, BreakEpochException, Metrics, Precision, Tensor
+from composer.core.types import Batch, BreakEpochException, Metrics, Precision, Tensor, Evaluator
 from composer.datasets import DataloaderHparams, DataloaderSpec
+from composer.datasets.evaluator import EvaluatorSpec
 from composer.loggers.tqdm_logger import TQDMLoggerBackend
 from composer.models.base import BaseMosaicModel
 from composer.optim import (ComposedScheduler, CosineAnnealingLRHparams, DecoupledSGDWHparams, OptimizerHparams,
@@ -49,10 +50,15 @@ class Trainer:
     Args:
         model (BaseMosaicModel): The model to train.
         train_dataloader_spec (DataloaderSpec): The dataloader spec for the training data.
-        eval_dataloader_spec (DataloaderSpec): The dataloader spec for the evaluation data.
+        eval_dataloader_spec (Optional[DataloaderSpec]): The dataloader spec for the evaluation
+            data. Will raise error if set to None and the evaluators argument is passed an
+            empty list.
+        evaluator_specs: (Optional[List[EvaluatorSpec]]): Wrapper object containing dataloaders and
+            metrics for multiple validation sets. Will raise error if this list is empty and no
+            valid dataloader_spec is passed in to the eval_dataloader_spec
         max_epochs (int): The maxmimum number of epochs to train for.
         train_batch_size (int): Minibatch size for training data.
-        eval_batc_size (int): Minibatch size for evaluation data.
+        eval_batch_size (int): Minibatch size for evaluation data.
         algorithms (List[Algorithm], optional): The algorithms to use during training.
             (default: ``[]``)
         optimizer_hparams: (OptimizerHparams, optional): The OptimizerHparams for constructing
@@ -122,10 +128,11 @@ class Trainer:
             *,
             model: BaseMosaicModel,
             train_dataloader_spec: DataloaderSpec,
-            eval_dataloader_spec: DataloaderSpec,
             max_epochs: int,
             train_batch_size: int,
             eval_batch_size: int,
+            eval_dataloader_spec: Optional[DataloaderSpec] = None,
+            evaluator_specs: Optional[List[EvaluatorSpec]] = [],
             algorithms: Optional[List[Algorithm]] = None,
             optimizer_hparams: Optional[OptimizerHparams] = None,
             schedulers_hparams: Optional[Union[SchedulerHparams, List[SchedulerHparams]]] = None,
@@ -203,7 +210,7 @@ class Trainer:
             timeout=ddp_timeout,
         )
 
-        dl_hparams = DataloaderHparams(num_workers=num_workers,
+        self.dl_hparams = DataloaderHparams(num_workers=num_workers,
                                        prefetch_factor=prefetch_factor,
                                        persistent_workers=persistent_workers,
                                        pin_memory=pin_memory,
@@ -211,17 +218,30 @@ class Trainer:
 
         train_gpu_batch_size = train_batch_size // self.ddp.world_size
         train_dataloader = self.device.dataloader_to_device(
-            self.ddp.create_dataloader(train_gpu_batch_size, dl_hparams, train_dataloader_spec),
+            self.ddp.create_dataloader(train_gpu_batch_size, self.dl_hparams, train_dataloader_spec),
             train_dataloader_spec.prefetch_fn,
         )
         self.train_dl_spec = train_dataloader_spec
 
-        eval_gpu_batch_size = eval_batch_size // self.ddp.world_size
-        eval_dataloader = self.device.dataloader_to_device(
-            self.ddp.create_dataloader(eval_gpu_batch_size, dl_hparams, eval_dataloader_spec),
-            eval_dataloader_spec.prefetch_fn,
-        )
-        self.eval_dl_spec = eval_dataloader_spec
+        # if eval_dataloader_spec is specified - wrap it in an EvaluatorSpec object
+        if eval_dataloader_spec is not None:
+            # get the validation metrics from the original model
+            original_model_metrics = model.metrics(train=False)
+            self.evaluator_specs = [
+                EvaluatorSpec(label="default_label",
+                        dataloader_spec=eval_dataloader_spec, 
+                        metrics=original_model_metrics)
+            ]
+            self.evaluator_specs.extend(evaluator_specs)
+        else:
+            self.evaluator_specs = evaluator_specs
+        
+        self.evaluators = self._create_evaluators(eval_batch_size)
+
+        # do a check here to make sure there is at least one validation set
+        if len(self.evaluators) == 0:
+            raise ValueError('At least one validation set should be passed in through',
+                             'eval_data_loader_spec or the evaluators')
 
         self.state = State(
             max_epochs=max_epochs,
@@ -234,7 +254,7 @@ class Trainer:
             precision=precision,
             precision_context=self.device.precision_context,
             train_dataloader=train_dataloader,
-            eval_dataloader=eval_dataloader,
+            evaluators=self.evaluators,
         )
 
         if not log_destinations:
@@ -312,12 +332,16 @@ class Trainer:
         log_destinations = [x.initialize_object(config=dict_config) for x in hparams.loggers]
 
         train_dl_spec = hparams.train_dataset.initialize_object()
+
         eval_dl_spec = hparams.val_dataset.initialize_object()
+
+        evaluator_specs = [evaluator_spec.initialize_object() for evaluator_spec in hparams.evaluators]
 
         trainer = cls(
             model=model,
             train_dataloader_spec=train_dl_spec,
             eval_dataloader_spec=eval_dl_spec,
+            evaluator_specs=evaluator_specs,
             max_epochs=hparams.max_epochs,
             train_batch_size=hparams.total_batch_size,
             eval_batch_size=hparams.eval_batch_size,
@@ -370,39 +394,60 @@ class Trainer:
         """Train and evaluate the model on the provided data."""
         self._train_loop()
 
-    def _create_dataloaders(self) -> None:
+    def _create_evaluators(self, eval_batch_size: int) -> List[Evaluator]:
         """Create the dataloaders.
 
-        Should be called after distributed training has started,
-        since the dataloader samplers need to know their rank.
+        Loops through the EvaluatorSpec objects and creates the dataloaders in
+        each of them and creates Evaluator objects
         """
-        # shorthand
-        state = self.state
 
-        # compute per gpu batch size
+        eval_gpu_batch_size = eval_batch_size // self.ddp.world_size
 
-    def _get_metrics_as_collection(self, *, is_train: bool) -> MetricCollection:
-        """Get metrics relevant to the model. Metrics are all implemented as subclasses
-        of :class:`torchmetrics.Metric`. This function returns metrics as a
-        :class:`~torchmetrics.collections.MetricCollection` to enable support
-        for multiple metrics.
+        evaluators = []
+        for evaluator_spec in self.evaluator_specs:
+            dataloader = self.device.dataloader_to_device(
+                self.ddp.create_dataloader(eval_gpu_batch_size, self.dl_hparams, evaluator_spec.dataloader_spec),
+                evaluator_spec.dataloader_spec.prefetch_fn,
+            )
+            new_evaluator = Evaluator(
+                label=evaluator_spec.label,
+                metrics=evaluator_spec.metrics,
+                dataloader=dataloader,
+            )
+            
+            evaluators.append(new_evaluator)
+
+        return evaluators
+
+    def _get_metrics_as_collection(self, *, is_train: bool, evaluator: Evaluator = None) -> MetricCollection:
+        """Get metrics relevant to a model or a particular evaluator. Metrics
+        are all implemented as subclasses of :class:`torchmetrics.Metric`. This
+        function returns metrics as a :class:`~torchmetrics.collections.MetricCollection`
+        to enable support for multiple metrics.
 
         Args:
             is_train (bool): True to get training metrics and false to get
-            evaluation metrics.
+                evaluation metrics.
+            evaluator (Evaluator): Evaluator to get the relevant metric from. If the Evaluator
+                has an empty list of metrics, or if no Evaluator is provided, the function returns
+                the model's default evaluation metrics.
 
         Returns:
             A :class:`~torchmetrics.collections.MetricCollection` object.
         """
-        original_model = self.state.model.module
-        assert isinstance(original_model, BaseMosaicModel)
+        if evaluator is not None and len(evaluator.metric_list) != 0:
+            metric_list = evaluator.metric_list
+            metrics = MetricCollection(metric_list)
+        else:
+            original_model = self.state.model.module
+            assert isinstance(original_model, BaseMosaicModel)
 
-        metrics = original_model.metrics(train=is_train)
-        assert isinstance(metrics, (Metric, MetricCollection)), \
-            "Error module.metrics() must return a Metric or MetricCollection object."
-        if isinstance(metrics, Metric):
-            # Forcing metrics to be a MetricCollection simplifies logging results
-            metrics = MetricCollection([metrics])
+            metrics = original_model.metrics(train=is_train)
+            assert isinstance(metrics, (Metric, MetricCollection)), \
+            "   Error module.metrics() must return a Metric or MetricCollection object."
+            if isinstance(metrics, Metric):
+                # Forcing metrics to be a MetricCollection simplifies logging results
+                metrics = MetricCollection([metrics])
 
         # Safety check to ensure the metric and data are on the same device. Normally not
         # needed because the metric is automatically on the same device as the model.
@@ -410,7 +455,7 @@ class Trainer:
         metrics = self.device.module_to_device(metrics)
         return metrics
 
-    def _compute_and_log_metrics(self, metrics: Metrics, *, is_train: bool, is_batch: bool):
+    def _compute_and_log_metrics(self, metrics: Metrics, *, is_train: bool, is_batch: bool, evaluator_label: str):
         """Computes metrics, logs the results, and resets the metrics.
 
         Args:
@@ -422,7 +467,13 @@ class Trainer:
         for name, value in computed_metrics.items():
             log_level = LogLevel.BATCH if is_batch else LogLevel.EPOCH
             suffix = 'train' if is_train else 'val'
-            self.logger.metric(log_level, {f'{name.lower()}/{suffix}': value})
+
+            # default label given to evaluator created by val_dataset parameter
+            if evaluator_label != "default_label":
+                label = f'{evaluator_label}_{name.lower()}/{suffix}'
+            else:
+                label = f'{name.lower()}/{suffix}'
+            self.logger.metric(log_level, {label: value})
         metrics.reset()
 
     def _spin_dataloaders(self):
@@ -435,12 +486,16 @@ class Trainer:
         # surpressing this multiple iteration warning -- it is OK to ignore
         warnings.simplefilter(action="ignore", category=DataloaderMultipleIterationWarning, append=True)
         assert self.state.train_dataloader is not None, "train dataloader should be set"
-        assert self.state.eval_dataloader is not None, "eval dataloader should be set"
 
-        # spin the eval dataloader once to initialize its sampler deterministically
-        # so it does not affect any other RNG reads
-        for _ in self.state.eval_dataloader:
-            break
+        # Loop throught the Evaluators to do the same checks as above
+        for evaluator in self.state.evaluators:
+            assert evaluator.dataloader is not None, f"{evaluator.name} dataloader should be set"
+
+        for evaluator in self.state.evaluators:
+            # spin the eval dataloader once to initialize its sampler deterministically
+            # so it does not affect any other RNG reads
+            for _ in evaluator.dataloader:
+                break
 
         # spin the train dataloader's sampler to get to the state of the desired epoch
         for _ in range(self.state.epoch):
@@ -476,6 +531,9 @@ class Trainer:
         self.device.prepare(state)
         state.model = self.device.module_to_device(state.model)
         state.optimizers = map_collection(state.optimizers, self.device.optimizer_to_device)
+
+        if state.train_dataloader is None or state.eval_dataloader is None:
+            raise ValueError('Dataloaders were not created properly, and are None.')
 
         # wrap model with DDP
         state.model = self.ddp.prepare_module(state.model)
@@ -730,7 +788,7 @@ class Trainer:
 
     def eval(self, is_batch: bool):
         """Evaluate the model on the provided evaluation data and log
-        appropriate metrics.
+        appropriate metrics. 
 
         Args:
             is_batch (bool): True to log metrics with ``LogLevel.BATCH``
@@ -748,6 +806,31 @@ class Trainer:
 
             original_model = state.model.module
             assert isinstance(original_model, BaseMosaicModel)
+
+            for evaluator in state.evaluators:
+
+                # TODO Anis - need to make this function
+                eval_metrics = self._get_metrics_as_collection(is_train=False, evaluator=evaluator)
+
+                assert evaluator.dataloader is not None
+
+                for state.batch in evaluator.dataloader:
+                    self.engine.run_event(Event.EVAL_BATCH_START)
+
+                    self.engine.run_event(Event.EVAL_BEFORE_FORWARD)
+                    state.outputs, targets = original_model.validate(state.batch)
+                    self.engine.run_event(Event.EVAL_AFTER_FORWARD)
+
+                    eval_metrics.update(state.outputs, targets)
+
+                    self.engine.run_event(Event.EVAL_BATCH_END)
+                
+                self._compute_and_log_metrics(eval_metrics, is_train=False, is_batch=is_batch)
+            
+            self.engine.run_event(Event.EVAL_END)
+        
+        if restore_model_train:
+            model.train()
 
             metrics = self._get_metrics_as_collection(is_train=False)
 

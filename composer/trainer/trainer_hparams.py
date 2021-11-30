@@ -18,6 +18,8 @@ from composer.callbacks import (BenchmarkerHparams, CallbackHparams, GradMonitor
                                 MemoryMonitorHparams, SpeedMonitorHparams, TorchProfilerHparams)
 from composer.core.types import Precision
 from composer.datasets import DataloaderHparams
+from composer.datasets.dataset_registry import get_dataset_registry
+from composer.datasets.evaluator import EvaluatorHparams
 from composer.loggers import (BaseLoggerBackendHparams, FileLoggerBackendHparams, TQDMLoggerBackendHparams,
                               WandBLoggerBackendHparams)
 from composer.models import (CIFARResNetHparams, EfficientNetB0Hparams, GPT2Hparams, MnistClassifierHparams,
@@ -62,14 +64,16 @@ model_registry = {
     "gpt2": GPT2Hparams,
 }
 
-dataset_registry = {
-    "brats": datasets.BratsDatasetHparams,
-    "imagenet": datasets.ImagenetDatasetHparams,
-    "cifar10": datasets.CIFAR10DatasetHparams,
-    "synthetic": datasets.SyntheticDatasetHparams,
-    "mnist": datasets.MNISTDatasetHparams,
-    "lm": datasets.LMDatasetHparams,
-}
+dataset_registry = get_dataset_registry()
+
+# dataset_registry = {
+#     "brats": datasets.BratsDatasetHparams,
+#     "imagenet": datasets.ImagenetDatasetHparams,
+#     "cifar10": datasets.CIFAR10DatasetHparams,
+#     "synthetic": datasets.SyntheticDatasetHparams,
+#     "mnist": datasets.MNISTDatasetHparams,
+#     "lm": datasets.LMDatasetHparams,
+# }
 
 algorithms_registry = get_algorithm_registry()
 
@@ -114,7 +118,6 @@ class TrainerHparams(hp.Hparams):
 
     device: DeviceHparams = hp.required(doc="Device Parameters")
     train_dataset: datasets.DatasetHparams = hp.required(doc="Training dataset hparams")
-    val_dataset: datasets.DatasetHparams = hp.required(doc="Validation dataset hparams")
 
     optimizer: OptimizerHparams = hp.required(doc="Optimizer to use")
 
@@ -143,6 +146,11 @@ class TrainerHparams(hp.Hparams):
         "Determines the number of microbatches to split a per-gpu batch into, used to compensate for low-memory-capacity devices."
     )
     precision: Precision = hp.required(doc="Precision to use for training", template_default=Precision.AMP)
+
+    val_dataset: datasets.DatasetHparams = hp.optional(doc="Validation dataset hparams", default=None)
+
+    evaluators: List[EvaluatorHparams] = hp.optional(doc="Evaluators", default_factory=list)
+
     ddp: DDPHparams = hp.optional(doc="DDP configuration", default_factory=DDPHparams)
 
     grad_clip_norm: Optional[float] = hp.optional(
@@ -193,6 +201,10 @@ class TrainerHparams(hp.Hparams):
             raise ValueError(
                 f"eval batch size ({self.eval_batch_size}) not divisible by the total number of processes ({world_size}) "
             )
+        
+        # There should be at least one structure for validation - evaluators or ordinary validation dataset
+        if self.val_dataset is None and not self.evaluators:
+            raise ValueError("val_dataset and evaluators can't both be empty")
 
     def initialize_object(self) -> Trainer:
         from composer.trainer.trainer import Trainer

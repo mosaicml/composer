@@ -55,6 +55,9 @@ SKIP_SERIALIZATION_FIELDS = [
     "precision",
     "train_dataloader",
     "eval_dataloader",
+    "evaluators",
+    "world_size",
+    "nproc_per_node",
     "precision",
     "precision_context",
 ]
@@ -91,7 +94,7 @@ class State(Serializable):
         scaler (torch.cuda.amp.GradScaler, optional): The gradient scaler in use for mixed precision training.
 
         train_dataloader (types.DataLoader): The dataloader used for training.
-        eval_dataloader (types.DataLoader): The dataloader used for evaluation.
+        evaluators (List[Evaluator]): The evaluator objects used for evaluation.
 
         algorithms (Sequence[Algorithm]): The algorithms used for training.
         callbacks (Sequence[Callback]): The callbacks used for training.
@@ -110,7 +113,6 @@ class State(Serializable):
 
     # dataloaders
     train_dataloader: types.DataLoader
-    eval_dataloader: types.DataLoader
 
     # precision
     # storing precision internally so strings can be passed into the constructor and setter
@@ -137,6 +139,9 @@ class State(Serializable):
 
     # scaler
     scaler: Optional[types.Scaler] = None
+
+    # evaluators
+    evaluators: Optional[Sequence[types.Evaluator]] = None
 
     # algorithms
     algorithms: Sequence[Algorithm] = tuple()
