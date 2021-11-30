@@ -202,17 +202,17 @@ class Trainer:
 
         self.backwards_create_graph = any(map(lambda x: x.backwards_create_graph, algorithms))
 
+        find_unused_parameters = any(map(lambda x: x.find_unused_parameters, algorithms))
+
+        self.find_unused_parameters = find_unused_parameters
+        if ddp_sync_strategy is None:
+            self.ddp_sync_strategy = ddp.DDPSyncStrategy.SINGLE_AUTO_SYNC if not find_unused_parameters else ddp.DDPSyncStrategy.FORCED_SYNC
+        else:
+            self.ddp_sync_strategy = ddp.DDPSyncStrategy(ddp_sync_strategy)
+
         if self.deepspeed_enabled:
             deepspeed.init_distributed()
         else:
-            find_unused_parameters = any(map(lambda x: x.find_unused_parameters, algorithms))
-
-            self.find_unused_parameters = find_unused_parameters
-            if ddp_sync_strategy is None:
-                self.ddp_sync_strategy = ddp.DDPSyncStrategy.SINGLE_AUTO_SYNC if not find_unused_parameters else ddp.DDPSyncStrategy.FORCED_SYNC
-            else:
-                self.ddp_sync_strategy = ddp.DDPSyncStrategy(ddp_sync_strategy)
-
             ddp.initialize_ddp(device.ddp_backend, datetime.timedelta(seconds=ddp_timeout))
 
         dl_hparams = DataloaderHparams(num_workers=num_workers,
