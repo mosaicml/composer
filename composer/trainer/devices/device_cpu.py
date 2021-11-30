@@ -6,7 +6,6 @@ import logging
 from contextlib import contextmanager
 from typing import Generator, Union
 
-from composer.core.state import State
 from composer.core.types import DataLoader, Precision, StateDict, Tensor
 from composer.trainer.devices.device import Device, T_nnModule
 
@@ -16,7 +15,7 @@ logger = logging.getLogger(__name__)
 class DeviceCPU(Device):
     """An extension of :class:`~composer.trainer.devices.device.Device` for CPUs."""
 
-    def prepare(self, state: State) -> None:
+    def prepare(self) -> None:
         logger.info("Preparing CPU worker")
         # No preperation required
         return

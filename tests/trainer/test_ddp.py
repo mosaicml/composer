@@ -157,7 +157,7 @@ def test_ddp(device: DeviceHparams, world_size: int, ddp_tmpdir: str, mosaic_tra
             memory_format=synthetic.MemoryFormat.CONTIGUOUS_FORMAT,
             tmpdir=ddp_tmpdir,
         ))
-    hparams.val_dataset.shuffle = True
+    hparams.val_dataset.shuffle = True  # type: ignore  # TODO add a set_shuffle like the other parameters
     hparams.device = device
     hparams.dataloader = DataloaderHparams(
         num_workers=0,

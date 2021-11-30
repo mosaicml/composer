@@ -158,6 +158,7 @@ class Trainer:
         if not device:
             device = DeviceCPU()
         self.device = device
+        self.device.prepare()
 
         if not seed:
             # Set a deterministic seed in the hparams
@@ -346,17 +347,6 @@ class Trainer:
         """Train and evaluate the model on the provided data."""
         self._train_loop()
 
-    def _create_dataloaders(self) -> None:
-        """Create the dataloaders.
-
-        Should be called after distributed training has started,
-        since the dataloader samplers need to know their rank.
-        """
-        # shorthand
-        state = self.state
-
-        # compute per gpu batch size
-
     def _get_metrics_as_collection(self, *, is_train: bool) -> MetricCollection:
         """Get metrics relevant to the model. Metrics are all implemented as subclasses
         of :class:`torchmetrics.Metric`. This function returns metrics as a
@@ -449,7 +439,6 @@ class Trainer:
         assert state.optimizers is not None
         assert state.schedulers is not None
         # place the state, model in the proper devices
-        self.device.prepare(state)
         state.model = self.device.module_to_device(state.model)
         state.optimizers = map_collection(state.optimizers, self.device.optimizer_to_device)
 

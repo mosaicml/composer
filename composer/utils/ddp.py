@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import collections.abc
 import datetime
 import os
 import warnings
@@ -89,7 +88,7 @@ def get_world_size() -> int:
 
 
 def get_global_rank() -> int:
-    """Returns the global rank of the current process, which is on `[0, WORLD_SIZE - 1]`
+    """Returns the global rank of the current process, which is in `[0, WORLD_SIZE - 1]`
 
     Returns:
         int: The global rank
@@ -107,7 +106,7 @@ def get_local_world_size() -> int:
 
 
 def get_local_rank() -> int:
-    """Returns the local rank for the current process, which is on `[0, LOCAL_WORLD_SIZE - 1]`
+    """Returns the local rank for the current process, which is in `[0, LOCAL_WORLD_SIZE - 1]`
 
     Returns:
         int: The local world size
@@ -118,24 +117,33 @@ def get_local_rank() -> int:
 
 
 def barrier() -> None:
-    if dist.is_available():
+    if dist.is_available() and dist.is_initialized():
         dist.barrier()
-    # If not on DDP, then do nothing
+        return
+    world_size = get_world_size()
+    if world_size == 1:
+        return
+    raise RuntimeError(f"Since the world_size({world_size}) > 1, please configure DDP to use ddp.barrier(). "
+                       "The mosaic trainer will automatically do this for you.")
 
 
 def all_reduce(
     tensor: torch.Tensor,
     reduce_operation: str = "SUM",
 ) -> None:
-    if dist.is_available():
+    if dist.is_available() and dist.is_initialized():
         reduce_op = getattr(dist.ReduceOp, reduce_operation.upper())
         dist.all_reduce(tensor, op=reduce_op)
-    else:
-        raise NotImplementedError("Non-DDP versions of reduce operations are not yet implemented")
+        return
+    world_size = get_world_size()
+    if world_size == 1:
+        return
+    raise RuntimeError(f"Since the world_size({world_size}) > 1, please configure DDP to use ddp.all_reduce(). "
+                       "The mosaic trainer will automatically do this for you.")
 
 
 def all_gather(tensor: torch.Tensor) -> Sequence[torch.Tensor]:
-    """gather_to_rank_zero collects a tensor from each rank, and returns a sequence of tensors indexed by rank
+    """all_gather collects a tensor from each rank, and returns a sequence of tensors indexed by rank
 
     Args:
         tensor (torch.Tensor): tensor from each rank to be gathered
@@ -143,16 +151,19 @@ def all_gather(tensor: torch.Tensor) -> Sequence[torch.Tensor]:
     Returns:
         Sequence[Tensor]: A sequence of tensors indexed by rank
     """
-    if dist.is_available():
+    if dist.is_available() and dist.is_initialized():
         obj_gather_list = [torch.zeros_like(tensor) for _ in range(get_world_size())]
         dist.all_gather(obj_gather_list, tensor)
         return obj_gather_list
-    else:
+    world_size = get_world_size()
+    if world_size == 1:
         return [tensor]
+    raise RuntimeError(f"Since the world_size({world_size}) > 1, please configure DDP to use ddp.all_gather(). "
+                       "The mosaic trainer will automatically do this for you.")
 
 
 def all_gather_object(obj: TObj) -> List[TObj]:
-    """gather_object_to_rank_zero collects a pickleable object from each rank, and returns a list of
+    """all_gather_object collects a pickleable object from each rank, and returns a list of
     these objects indexed by rank
 
     Args:
@@ -167,12 +178,18 @@ def all_gather_object(obj: TObj) -> List[TObj]:
         # torch.distributed will replace the None's in obj_gather_list with the gathered objects on rank 0
         # or will just be None on non-rank-0
         return cast(List[TObj], obj_gather_list)
-    else:
+    world_size = get_world_size()
+    if world_size == 1:
         return [obj]
+    raise RuntimeError(f"Since the world_size({world_size}) > 1, please configure DDP to use ddp.all_gather_object(). "
+                       "The mosaic trainer will automatically do this for you.")
 
 
 def initialize_ddp(backend: str, timeout: datetime.timedelta):
     if not dist.is_available():
+        if get_world_size() != 1:
+            raise RuntimeError("When the world size is > 1, DDP must be used. However, it is not available in your "
+                               "installation of PyTorch. Please install or build PyTorch with DDP support.")
         return
     if dist.is_initialized():
 
@@ -197,31 +214,17 @@ def initialize_ddp(backend: str, timeout: datetime.timedelta):
 
 
 def prepare_module(module: Model, find_unused_parameters: bool) -> Model:
-    if dist.is_available():
+    if dist.is_available() and dist.is_initialized():
         if any((p.requires_grad for p in module.parameters())):
             ddp_model = DistributedDataParallel(module, find_unused_parameters=find_unused_parameters)
             return ddp_model
         return module
-    else:
+    if get_world_size() == 1:
         return module
-
-
-def get_sampler(dataset: torch.utils.data.Dataset, *, drop_last: bool, shuffle: bool) -> torch.utils.data.Sampler[int]:
     if dist.is_available():
-        # manually supplying num_replicas and rank to read from env variables
-        # if ddp is not yet initialized
-        sampler = torch.utils.data.DistributedSampler[int](dataset,
-                                                           drop_last=drop_last,
-                                                           shuffle=shuffle,
-                                                           num_replicas=get_world_size(),
-                                                           rank=get_global_rank())
-    else:
-        assert isinstance(dataset, collections.abc.Sized)
-        if shuffle:
-            sampler = torch.utils.data.RandomSampler(dataset)
-        else:
-            sampler = torch.utils.data.SequentialSampler(dataset)
-    return sampler
+        raise RuntimeError("Please call ddp.initialize_ddp() before calling ddp.prepare_module()")
+    raise RuntimeError("When the world size is > 1, DDP must be used. However, it is not available in your "
+                       "installation of PyTorch. Please install or build PyTorch with DDP support.")
 
 
 @contextmanager
