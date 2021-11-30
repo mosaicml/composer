@@ -108,7 +108,7 @@ def get_local_world_size() -> int:
 
 
 def get_local_rank() -> int:
-    """Returns the local rank for the current process, which is on `[0, LOCAL_WORLD_SIZE - 1]`
+    """Returns the local rank for the current process, which is in `[0, LOCAL_WORLD_SIZE - 1]`
 
     Returns:
         int: The local world size
