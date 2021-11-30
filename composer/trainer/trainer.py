@@ -177,6 +177,7 @@ class Trainer:
         if not device:
             device = DeviceCPU()
         self.device = device
+        self.device.prepare()
 
         if not seed:
             # Set a deterministic seed in the hparams
@@ -473,7 +474,6 @@ class Trainer:
         assert state.optimizers is not None
         assert state.schedulers is not None
         # place the state, model in the proper devices
-        self.device.prepare(state)
         state.model = self.device.module_to_device(state.model)
         state.optimizers = map_collection(state.optimizers, self.device.optimizer_to_device)
 
