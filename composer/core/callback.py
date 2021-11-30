@@ -15,6 +15,11 @@ try:
 except ImportError:
     final = lambda x: x  # final is not available in python 3.7
 
+try:
+    from typing import final
+except ImportError:
+    final = lambda x: x  # final is not available in python 3.7
+
 if TYPE_CHECKING:
     from composer import Event, Logger, State
 
