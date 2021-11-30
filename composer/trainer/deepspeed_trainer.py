@@ -27,6 +27,8 @@ from composer.optim.scheduler import ensure_warmup_last
 from composer.trainer.checkpoint import Checkpointer, CheckpointLoader
 from composer.trainer.ddp import DataloaderMultipleIterationWarning
 from composer.trainer.deepspeed_trainer_hparams import DeepSpeedTrainerHparams
+from composer.trainer.devices.device import Device
+from composer.trainer.devices.device_cpu import DeviceCPU
 from composer.trainer.devices.device_gpu import DeviceGPU
 from composer.utils import ensure_tuple, get_random_seed, seed_all
 
@@ -114,6 +116,9 @@ class DeepSpeedTrainer:
             optimizer_hparams: Optional[OptimizerHparams] = None,
             schedulers_hparams: Optional[Union[SchedulerHparams, List[SchedulerHparams]]] = None,
 
+            # device
+            device: Optional[Device] = None,
+
             # training hparams
             grad_accum: int = 1,
             grad_clip_norm: Optional[float] = None,
@@ -150,7 +155,9 @@ class DeepSpeedTrainer:
 
         self.config = config
 
-        self.device = DeviceGPU(prefetch_in_cuda_stream=False)
+        if not device:
+            device = DeviceGPU(prefetch_in_cuda_stream=False)
+        self.device = device
 
         if not seed:
             # Set a deterministic seed in the hparams
@@ -238,6 +245,9 @@ class DeepSpeedTrainer:
 
         hparams.validate()
 
+        # devices and systems
+        device = hparams.device.initialize_object()
+
         seed = hparams.seed if hparams.seed else get_random_seed()
         # need to set seed before model initialization for determinism
         seed_all(seed)
@@ -263,6 +273,9 @@ class DeepSpeedTrainer:
             algorithms=algorithms,
             optimizer_hparams=hparams.optimizer,
             schedulers_hparams=hparams.schedulers,
+
+            # device
+            device=device,
 
             # training hparams
             grad_accum=hparams.grad_accum,

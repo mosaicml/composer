@@ -24,6 +24,7 @@ from composer.models import (CIFARResNetHparams, EfficientNetB0Hparams, GPT2Hpar
                              ModelHparams, ResNet18Hparams, ResNet50Hparams, ResNet101Hparams, UnetHparams)
 from composer.optim import (AdamHparams, AdamWHparams, DecoupledAdamWHparams, DecoupledSGDWHparams, OptimizerHparams,
                             RAdamHparams, RMSPropHparams, SchedulerHparams, SGDHparams, scheduler)
+from composer.trainer.devices import CPUDeviceHparams, DeviceHparams, GPUDeviceHparams
 from composer.utils.ddp import get_world_size
 
 if TYPE_CHECKING:
@@ -86,6 +87,10 @@ logger_registry = {
     "tqdm": TQDMLoggerBackendHparams,
 }
 
+device_registry = {
+    "gpu": GPUDeviceHparams,
+}
+
 
 @dataclass
 class DeepSpeedTrainerHparams(hp.Hparams):
@@ -104,6 +109,7 @@ class DeepSpeedTrainerHparams(hp.Hparams):
         "callbacks": callback_registry,
     }
 
+    device: DeviceHparams = hp.required(doc="Device Parameters")
     train_dataset: datasets.DatasetHparams = hp.required(doc="Training dataset hparams")
     val_dataset: datasets.DatasetHparams = hp.required(doc="Validation dataset hparams")
 
