@@ -13,10 +13,12 @@ from torchvision import transforms
 from torchvision.datasets import ImageFolder
 
 from composer.core.types import Batch, Tensor
+from composer.datasets.dataloader import DataloaderHparams
 from composer.datasets.hparams import DataloaderSpec, DatasetHparams
+from composer.utils import ddp
 
 
-class PreprocessingFn:
+class TransformationFn:
 
     def __init__(self) -> None:
         self.mean: Optional[Tensor] = None
@@ -82,7 +84,7 @@ class ImagenetDatasetHparams(DatasetHparams):
     drop_last: bool = hp.optional("Whether to drop the last samples for the last batch", default=True)
     shuffle: bool = hp.optional("Whether to shuffle the dataset for each epoch", default=True)
 
-    def initialize_object(self) -> DataloaderSpec:
+    def initialize_object(self, batch_size: int, dataloader_hparams: DataloaderHparams) -> DataloaderSpec:
         datadir = self.datadir
         is_train = self.is_train
 
@@ -107,10 +109,17 @@ class ImagenetDatasetHparams(DatasetHparams):
 
         split = "train" if is_train else "val"
 
+        dataset = ImageFolder(os.path.join(datadir, split), transformation)
+
+        sampler = ddp.get_sampler(dataset, drop_last=self.drop_last, shuffle=self.shuffle)
+
         return DataloaderSpec(
-            dataset=ImageFolder(os.path.join(datadir, split), transformation),
-            drop_last=self.drop_last,
-            collate_fn=fast_collate,
-            shuffle=self.shuffle,
-            prefetch_fn=PreprocessingFn(),
+            dataloader=dataloader_hparams.initialize_object(
+                dataset=dataset,
+                batch_size=batch_size,
+                sampler=sampler,
+                drop_last=self.drop_last,
+                collate_fn=fast_collate,
+            ),
+            device_transform_fn=TransformationFn(),
         )

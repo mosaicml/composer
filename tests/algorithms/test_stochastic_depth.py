@@ -14,7 +14,6 @@ from composer.datasets import SyntheticDatasetHparams
 from composer.datasets.dataloader import DataloaderHparams
 from composer.loggers import Logger
 from composer.models import ResNet50Hparams
-from tests.fixtures.dummy_fixtures import get_dataloader
 
 
 @pytest.fixture()
@@ -26,7 +25,7 @@ def dummy_state(dummy_dataloader_hparams: DataloaderHparams):
                                               device="cpu",
                                               drop_last=True,
                                               shuffle=False)
-    train_dataloader = get_dataloader(dataset_hparams.initialize_object(), dummy_dataloader_hparams, batch_size=100)
+    train_dataloader = dataset_hparams.initialize_object(batch_size=100, dataloader_hparams=dummy_dataloader_hparams)
     return State(epoch=50,
                  step=50,
                  train_dataloader=train_dataloader,

@@ -1,6 +1,6 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
-from typing import Tuple
+from typing import Tuple, Type, Union
 from unittest.mock import MagicMock, Mock
 
 import pytest
@@ -14,8 +14,7 @@ from composer.models import ModelHparams, MosaicClassifier
 from composer.optim import AdamHparams, ExponentialLRHparams
 from composer.trainer import TrainerHparams
 from composer.trainer.devices import CPUDeviceHparams
-from tests.fixtures.models import SimpleBatchPairModel, SimpleBatchPairModelHparams, SimpleConvModel
-from tests.utils.dataloader import get_dataloader
+from tests.fixtures.models import SimpleBatchPairModel, SimpleConvModel, _SimpleBatchPairModelHparams
 
 
 @pytest.fixture
@@ -39,12 +38,14 @@ def dummy_val_batch_size() -> int:
 
 
 @pytest.fixture
-def dummy_model_hparams(dummy_in_shape: Tuple[int, ...], dummy_num_classes: int) -> SimpleBatchPairModelHparams:
+def dummy_model_hparams(
+        dummy_in_shape: Tuple[int, ...], dummy_num_classes: int,
+        SimpleBatchPairModelHparams: Type[_SimpleBatchPairModelHparams]) -> _SimpleBatchPairModelHparams:
     return SimpleBatchPairModelHparams(in_shape=list(dummy_in_shape), num_classes=dummy_num_classes)
 
 
 @pytest.fixture
-def dummy_model(dummy_model_hparams: SimpleBatchPairModelHparams) -> SimpleBatchPairModel:
+def dummy_model(dummy_model_hparams: _SimpleBatchPairModelHparams) -> SimpleBatchPairModel:
     return dummy_model_hparams.initialize_object()
 
 
@@ -56,16 +57,6 @@ def dummy_train_dataset_hparams(dummy_model: SimpleBatchPairModel) -> SyntheticD
 @pytest.fixture
 def dummy_val_dataset_hparams(dummy_model: SimpleBatchPairModel) -> SyntheticDatasetHparams:
     return dummy_model.get_dataset_hparams(total_dataset_size=100, drop_last=False, shuffle=False)
-
-
-@pytest.fixture
-def dummy_train_dataloader_spec(dummy_train_dataset_hparams: SyntheticDatasetHparams) -> DataloaderSpec:
-    return dummy_train_dataset_hparams.initialize_object()
-
-
-@pytest.fixture
-def dummy_val_dataloader_spec(dummy_train_dataset_hparams: SyntheticDatasetHparams) -> DataloaderSpec:
-    return dummy_train_dataset_hparams.initialize_object()
 
 
 @pytest.fixture()
@@ -98,15 +89,15 @@ def dummy_dataloader_hparams() -> DataloaderHparams:
 
 
 @pytest.fixture
-def dummy_train_dataloader(dummy_dataloader_hparams: DataloaderHparams, dummy_train_dataloader_spec: DataloaderSpec,
-                           dummy_train_batch_size: int) -> DataLoader:
-    return get_dataloader(dummy_train_dataloader_spec, dummy_dataloader_hparams, dummy_train_batch_size)
+def dummy_train_dataloader(dummy_train_dataset_hparams: DatasetHparams, dummy_train_batch_size: int,
+                           dummy_dataloader_hparams: DataloaderHparams) -> Union[DataLoader, DataloaderSpec]:
+    return dummy_train_dataset_hparams.initialize_object(dummy_train_batch_size, dummy_dataloader_hparams)
 
 
 @pytest.fixture
-def dummy_val_dataloader(dummy_dataloader_hparams: DataloaderHparams, dummy_val_dataloader_spec: DataloaderSpec,
-                         dummy_val_batch_size: int) -> DataLoader:
-    return get_dataloader(dummy_val_dataloader_spec, dummy_dataloader_hparams, dummy_val_batch_size)
+def dummy_val_dataloader(dummy_train_dataset_hparams: DatasetHparams, dummy_val_batch_size: int,
+                         dummy_dataloader_hparams: DataloaderHparams) -> Union[DataLoader, DataloaderSpec]:
+    return dummy_train_dataset_hparams.initialize_object(dummy_val_batch_size, dummy_dataloader_hparams)
 
 
 @pytest.fixture()
@@ -209,3 +200,9 @@ def state_with_model(simple_conv_model: Model, dummy_train_dataloader: DataLoade
 @pytest.fixture()
 def simple_conv_model():
     return MosaicClassifier(SimpleConvModel())
+
+
+@pytest.fixture(scope="session")
+def SimpleBatchPairModelHparams():
+    TrainerHparams.register_class("model", _SimpleBatchPairModelHparams, "simple_batch_pair_model")
+    return _SimpleBatchPairModelHparams

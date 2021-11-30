@@ -5,7 +5,10 @@ from dataclasses import dataclass
 import yahp as hp
 from torchvision import datasets, transforms
 
-from composer.datasets.hparams import DataloaderSpec, DatasetHparams
+from composer.core.types import DataLoader
+from composer.datasets.dataloader import DataloaderHparams
+from composer.datasets.hparams import DatasetHparams
+from composer.utils import ddp
 
 
 @dataclass
@@ -26,7 +29,7 @@ class MNISTDatasetHparams(DatasetHparams):
     drop_last: bool = hp.optional("Whether to drop the last samples for the last batch", default=True)
     shuffle: bool = hp.optional("Whether to shuffle the dataset for each epoch", default=True)
 
-    def initialize_object(self) -> DataloaderSpec:
+    def initialize_object(self, batch_size: int, dataloader_hparams: DataloaderHparams) -> DataLoader:
         transform = transforms.Compose([transforms.ToTensor()])
         dataset = datasets.MNIST(
             self.datadir,
@@ -34,8 +37,8 @@ class MNISTDatasetHparams(DatasetHparams):
             download=self.download,
             transform=transform,
         )
-        return DataloaderSpec(
-            dataset=dataset,
-            drop_last=self.drop_last,
-            shuffle=self.shuffle,
-        )
+        sampler = ddp.get_sampler(dataset, drop_last=self.drop_last, shuffle=self.shuffle)
+        return dataloader_hparams.initialize_object(dataset,
+                                                    batch_size=batch_size,
+                                                    sampler=sampler,
+                                                    drop_last=self.drop_last)

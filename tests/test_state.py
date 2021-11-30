@@ -12,10 +12,10 @@ from composer.algorithms.dummy import DummyHparams
 from composer.core import State, types
 from composer.core.state import DIRECT_SERIALIZATION_FIELDS, SKIP_SERIALIZATION_FIELDS, STATE_DICT_SERIALIZATION_FIELDS
 from composer.datasets.dataloader import DataloaderHparams
+from composer.datasets.hparams import DataloaderSpec, DatasetHparams
 from composer.models.base import BaseMosaicModel
 from composer.utils import ensure_tuple
 from tests.fixtures.models import SimpleBatchPairModel
-from tests.utils.dataloader import get_dataloader
 
 
 def random_tensor(size=(4, 10)):
@@ -98,17 +98,18 @@ def train_one_step(state: State, batch: types.Batch) -> None:
     state.step += 1
 
 
-def get_batch(model: SimpleBatchPairModel, dataloader_hparams: DataloaderHparams):
-    dataset_hparams = model.get_dataset_hparams(1, drop_last=False, shuffle=False)
-    dataloader_spec = dataset_hparams.initialize_object()
-    dataloader = get_dataloader(dataloader_spec, dataloader_hparams, 1)
+def get_batch(dataset_hparams: DatasetHparams, dataloader_hparams: DataloaderHparams) -> types.Batch:
+    dataloader = dataset_hparams.initialize_object(batch_size=2, dataloader_hparams=dataloader_hparams)
+    if isinstance(dataloader, DataloaderSpec):
+        dataloader = dataloader.dataloader
     for batch in dataloader:
         return batch
     raise RuntimeError("No batch in dataloader")
 
 
 def test_state_serialize(tmpdir: pathlib.Path, dummy_model: BaseMosaicModel,
-                         dummy_dataloader_hparams: DataloaderHparams, dummy_train_dataloader: types.DataLoader,
+                         dummy_dataloader_hparams: DataloaderHparams, dummy_train_dataset_hparams: DatasetHparams,
+                         dummy_train_dataloader: types.DataLoader, dummy_val_dataset_hparams: DatasetHparams,
                          dummy_val_dataloader: types.DataLoader):
 
     assert isinstance(dummy_model, SimpleBatchPairModel)
@@ -117,7 +118,7 @@ def test_state_serialize(tmpdir: pathlib.Path, dummy_model: BaseMosaicModel,
     state2 = get_dummy_state(dummy_model, dummy_train_dataloader, dummy_val_dataloader)
 
     # train one step to set the optimizer states
-    batch = get_batch(dummy_model, dummy_dataloader_hparams)
+    batch = get_batch(dummy_train_dataset_hparams, dummy_dataloader_hparams)
     train_one_step(state1, batch)
 
     # load from state1 to state2
@@ -130,7 +131,7 @@ def test_state_serialize(tmpdir: pathlib.Path, dummy_model: BaseMosaicModel,
     assert_state_equivalent(state1, state2)
 
     # train both for one step on another sample
-    batch = get_batch(dummy_model, dummy_dataloader_hparams)
+    batch = get_batch(dummy_val_dataset_hparams, dummy_dataloader_hparams)
     train_one_step(state1, batch)
     train_one_step(state2, batch)
 

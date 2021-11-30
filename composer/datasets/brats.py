@@ -11,7 +11,10 @@ import torchvision
 import yahp as hp
 from torch.utils.data import Dataset
 
-from composer.datasets.hparams import DataloaderSpec, DatasetHparams
+from composer.core.types import DataLoader, Dataset
+from composer.datasets.dataloader import DataloaderHparams
+from composer.datasets.hparams import DatasetHparams
+from composer.utils import ddp
 
 PATCH_SIZE = [1, 192, 160]
 
@@ -46,27 +49,22 @@ class BratsDatasetHparams(DatasetHparams):
     shuffle: bool = hp.optional("Whether to shuffle the dataset for each epoch", default=True)
     oversampling: float = hp.optional("oversampling", default=0.33)
 
-    def initialize_object(self) -> DataloaderSpec:
+    def initialize_object(self, batch_size: int, dataloader_hparams: DataloaderHparams) -> DataLoader:
 
         datadir = self.datadir
         oversampling = self.oversampling
 
         x_train, y_train, x_val, y_val = get_data_split(datadir)
-        train_dataset = PytTrain(x_train, y_train, oversampling)
-        val_dataset = PytVal(x_val, y_val)
-        if self.is_train:
-            return DataloaderSpec(
-                dataset=train_dataset,
-                drop_last=self.drop_last,
-                shuffle=self.shuffle,
-            )
-        else:
-            return DataloaderSpec(
-                dataset=val_dataset,
-                drop_last=self.drop_last,
-                shuffle=self.shuffle,
-                collate_fn=my_collate,  # type: ignore
-            )
+        dataset = PytTrain(x_train, y_train, oversampling) if self.is_train else PytVal(x_val, y_val)
+        collate_fn = None if self.is_train else my_collate
+        sampler = ddp.get_sampler(dataset, drop_last=self.drop_last, shuffle=self.shuffle)
+        return dataloader_hparams.initialize_object(
+            dataset=dataset,
+            batch_size=batch_size,
+            sampler=sampler,
+            drop_last=self.drop_last,
+            collate_fn=collate_fn,
+        )
 
 
 def coin_flip(prob):

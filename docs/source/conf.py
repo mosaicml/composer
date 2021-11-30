@@ -105,7 +105,7 @@ autodoc_type_aliases = {
     'BatchPair': 'composer.core.types.BatchPair',
     'BatchDict': 'composer.core.types.BatchDict',
     'StateDict': 'composer.core.types.StateDict',
-    'TPrefetchFn': 'composer.core.types.TPrefetchFn',
+    'TDeviceTransformFn': 'composer.core.types.TDeviceTransformFn',
     'Hparams': 'yahp.hparams.Hparams',
 }
 
