@@ -29,7 +29,7 @@ def _send_data(job_id: str, data: JSON):
         response = requests.post(_MOSAICML_LOGGER_URL,
                                  headers={"X-MosaicML-API-key": os.environ.get(_MOSAICML_API_KEY_ENV, "")},
                                  json={
-                                     "experimentID": job_id,
+                                     "runID": job_id,
                                      "data": data,
                                  },
                                  timeout=5)
