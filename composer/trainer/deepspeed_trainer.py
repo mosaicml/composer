@@ -26,8 +26,8 @@ from composer.optim import (ComposedScheduler, CosineAnnealingLRHparams, Decoupl
 from composer.optim.scheduler import ensure_warmup_last
 from composer.trainer.checkpoint import Checkpointer, CheckpointLoader
 from composer.trainer.ddp import DataloaderMultipleIterationWarning
+from composer.trainer.deepspeed_trainer_hparams import DeepSpeedTrainerHparams
 from composer.trainer.devices.device_gpu import DeviceGPU
-from composer.trainer.trainer_hparams import TrainerHparams
 from composer.utils import ensure_tuple, get_random_seed, seed_all
 
 log = logging.getLogger(__name__)
@@ -226,7 +226,7 @@ class DeepSpeedTrainer:
             self.checkpoint_loader.load_checkpoint(state=self.state)
 
     @classmethod
-    def create_from_hparams(cls, hparams: TrainerHparams) -> DeepSpeedTrainer:
+    def create_from_hparams(cls, hparams: DeepSpeedTrainerHparams) -> DeepSpeedTrainer:
         """Instantiate a Trainer using a `TrainerHparams` object.
 
         Args:
