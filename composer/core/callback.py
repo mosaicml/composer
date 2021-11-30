@@ -8,7 +8,7 @@ import abc
 from typing import TYPE_CHECKING
 
 from composer.core.serializable import Serializable
-from composer.utils.ddp import is_rank_zero
+from composer.utils import ddp
 
 try:
     from typing import final
@@ -299,7 +299,7 @@ class Callback(Serializable, abc.ABC):
 
 
 class RankZeroCallback(Callback, abc.ABC):
-    """Base class for callbacks that only run on the rank zero process.
+    """Base class for callbacks that only run on the local rank zero process.
 
     Callbacks can be implemented in two ways:
 
@@ -314,6 +314,6 @@ class RankZeroCallback(Callback, abc.ABC):
 
     @final
     def run_event(self, event: Event, state: State, logger: Logger) -> None:
-        if not is_rank_zero():
+        if ddp.get_local_rank() != 0:
             return
         return self._run_event(event, state, logger)

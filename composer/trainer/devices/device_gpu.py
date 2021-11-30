@@ -12,8 +12,7 @@ import torch.utils.data
 from composer.core.types import Batch, BatchPair, DataLoader, Precision, StateDict, Tensor, Tensors, TPrefetchFn
 from composer.datasets.dataloader import WrappedDataLoader
 from composer.trainer.devices.device import Device, T_nnModule
-from composer.utils import map_collection
-from composer.utils.ddp import get_local_rank
+from composer.utils import ddp, map_collection
 
 
 class CudaDataLoader(WrappedDataLoader):
@@ -107,7 +106,7 @@ class DeviceGPU(Device):
         prefetch_in_cuda_stream: bool,
     ):
         self.prefetch_in_cuda_stream = prefetch_in_cuda_stream
-        gpu = get_local_rank()
+        gpu = ddp.get_local_rank()
         self._device = torch.device(f"cuda:{gpu}")
         torch.cuda.set_device(self._device)
         assert torch.cuda.current_device() == gpu

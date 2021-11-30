@@ -12,6 +12,7 @@ import yaml
 from composer.core.logging import Logger, LogLevel, RankZeroLoggerBackend, TLogData, format_log_data_value
 from composer.core.state import State
 from composer.loggers.logger_hparams import FileLoggerBackendHparams
+from composer.utils.run_directory import get_relative_to_run_directory
 
 
 class FileLoggerBackend(RankZeroLoggerBackend):
@@ -86,7 +87,9 @@ class FileLoggerBackend(RankZeroLoggerBackend):
         elif self.hparams.filename == "stderr":
             self.file = sys.stderr
         else:
-            self.file = open(self.hparams.filename, "x+", buffering=self.hparams.buffer_size)
+            self.file = open(get_relative_to_run_directory(self.hparams.filename),
+                             "x+",
+                             buffering=self.hparams.buffer_size)
             atexit.register(self._close_file)
         if self.config is not None:
             print("Config", file=self.file)

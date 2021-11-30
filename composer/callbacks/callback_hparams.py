@@ -164,12 +164,14 @@ class RunDirectoryUploaderHparams(CallbackHparams):
     See :class:`~composer.callbacks.torch_profiler.RunDirectoryUploader` for documentation.
     """
 
-    # Args:
-    #     provider_init_kwargs (Dict[str, Any], optional): Parameters to pass into the constructor for the
-    #         :class:`~libcloud.storage.providers.Provider` constructor. These arguments would usually include the cloud region
-    #         and credentials. Defaults to None, which is equivalent to an empty dictionary.
     provider: str = hp.required("Cloud provider to use.")
-    container: str = hp.optional("he name of the container (i.e. bucket) to use.", default=None)
+    container: str = hp.required("The name of the container (i.e. bucket) to use.")
+    object_name_prefix: Optional[str] = hp.optional(textwrap.dedent("""A prefix to prepend to all object keys.
+            An object's key is this prefix combined with its path relative to the run directory.
+            If the container prefix is non-empty, a trailing slash ('/') will
+            be added if necessary. If not specified, then the prefix defaults to the run directory. To disable prefixing,
+            set to the empty string."""),
+                                                    default=None)
     key: Optional[str] = hp.optional(textwrap.dedent(
         """API key or username to use to connect to the provider. For security. do NOT hardcode the key in the YAML.
         Instead, please specify via CLI arguments, or even better, environment variables."""),
@@ -196,17 +198,16 @@ Instead, please specify via CLI arguments, or even better, environment variables
 
     def initialize_object(self) -> RunDirectoryUploader:
         from composer.callbacks.run_directory_uploader import RunDirectoryUploader
-        init_kwargs = {
-            "key": self.key,
-            "secret": self.secret,
-            "host": self.host,
-            "port": self.port,
-            "region": self.region,
-        }
+        init_kwargs = {}
+        for key in ("key", "secret", "host", "port", "region"):
+            kwarg = getattr(self, key)
+            if getattr(self, key) is not None:
+                init_kwargs[key] = kwarg
         init_kwargs.update(self.extra_init_kwargs)
         return RunDirectoryUploader(
             provider=self.provider,
             container=self.container,
+            object_name_prefix=self.object_name_prefix,
             num_concurrent_uploads=self.num_concurrent_uploads,
             upload_staging_folder=self.upload_staging_folder,
             use_procs=self.use_procs,

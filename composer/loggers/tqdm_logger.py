@@ -6,10 +6,9 @@ import sys
 from dataclasses import asdict, dataclass, field
 from typing import TYPE_CHECKING, Any, Dict, Optional
 
+import tqdm
 import yaml
-from tqdm import tqdm
 
-from composer.core.event import Event
 from composer.core.logging import LogLevel, RankZeroLoggerBackend, TLogData, TLogDataValue, format_log_data_value
 from composer.core.state import State
 from composer.core.types import StateDict
@@ -44,11 +43,11 @@ class _TQDMLoggerInstance:
                                               epoch_metrics=(epoch_metrics or {}))
         desc = f'Epoch {epoch + 1}{"" if is_train else " (val)"}'
         position = 0 if is_train else 1
-        self.pbar = tqdm(total=total,
-                         desc=desc,
-                         position=position,
-                         initial=n,
-                         bar_format="{l_bar}{bar:10}{r_bar}{bar:-10b}")
+        self.pbar = tqdm.tqdm(total=total,
+                              desc=desc,
+                              position=position,
+                              initial=n,
+                              bar_format="{l_bar}{bar:10}{r_bar}{bar:-10b}")
         self.pbar.set_postfix(epoch_metrics)
 
     def log_metric(self, data: TLogData):
@@ -107,32 +106,57 @@ class TQDMLoggerBackend(RankZeroLoggerBackend):
             assert self.is_train is not None
             self.pbars[self.is_train].log_metric(data)
 
-    def _run_event(self, event: Event, state: State, logger: Logger) -> None:
-        if event == Event.INIT:
-            if self.config is not None:
-                print("Config")
-                print("-" * 30)
-                yaml.safe_dump(self.config, stream=sys.stdout)
-                print("-" * 30)
-                print()
-        if event in (Event.EPOCH_START, Event.EVAL_START):
-            self.is_train = event == Event.EPOCH_START
-            assert state.train_dataloader is not None
-            assert state.eval_dataloader is not None
-            total_steps = len(state.train_dataloader) if self.is_train else len(state.eval_dataloader)
-            self.pbars[self.is_train] = _TQDMLoggerInstance(total=total_steps,
-                                                            epoch=state.epoch,
-                                                            is_train=self.is_train)
-        if event in (Event.AFTER_BACKWARD, Event.EVAL_AFTER_FORWARD):
-            if self.is_train in self.pbars:
-                assert self.is_train is not None
-                self.pbars[self.is_train].update()
-        if event in (Event.EPOCH_END, Event.EVAL_END):
-            if self.is_train in self.pbars:
-                assert self.is_train is not None
-                self.pbars[self.is_train].close()
-                del self.pbars[self.is_train]
-                self.is_train = None
+    def init(self, state: State, logger: Logger) -> None:
+        del state, logger  # unused
+        if self.config is not None:
+            print("Config")
+            print("-" * 30)
+            yaml.safe_dump(self.config, stream=sys.stdout)
+            print("-" * 30)
+            print()
+
+    def _start(self, state: State):
+        assert self.is_train is not None, "self.is_train should be set by the callback"
+        total_steps = len(state.train_dataloader) if self.is_train else len(state.eval_dataloader)
+        self.pbars[self.is_train] = _TQDMLoggerInstance(total=total_steps, epoch=state.epoch, is_train=self.is_train)
+
+    def epoch_start(self, state: State, logger: Logger) -> None:
+        del logger  # unused
+        self.is_train = True
+        self._start(state)
+
+    def eval_start(self, state: State, logger: Logger) -> None:
+        del logger  # unused
+        self.is_train = False
+        self._start(state)
+
+    def _update(self):
+        if self.is_train in self.pbars:
+            assert self.is_train is not None
+            self.pbars[self.is_train].update()
+
+    def after_backward(self, state: State, logger: Logger) -> None:
+        del state, logger  # unused
+        self._update()
+
+    def eval_after_forward(self, state: State, logger: Logger) -> None:
+        del state, logger  # unused
+        self._update()
+
+    def _end(self):
+        if self.is_train in self.pbars:
+            assert self.is_train is not None
+            self.pbars[self.is_train].close()
+            del self.pbars[self.is_train]
+            self.is_train = None
+
+    def epoch_end(self, state: State, logger: Logger) -> None:
+        del state, logger  # unused
+        self._end()
+
+    def eval_end(self, state: State, logger: Logger) -> None:
+        del state, logger  # unused
+        self._end()
 
     def state_dict(self) -> StateDict:
         return {

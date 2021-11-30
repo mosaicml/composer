@@ -2,16 +2,19 @@
 
 import os
 import pathlib
+from unittest.mock import MagicMock
 
 import pytest
 import torch.distributed as dist
+import tqdm
 from _pytest.monkeypatch import MonkeyPatch
 
 from composer.core.event import Event
 from composer.core.logging import Logger, LogLevel
 from composer.core.state import State
 from composer.loggers.file_logger import FileLoggerBackend
-from composer.loggers.logger_hparams import FileLoggerBackendHparams
+from composer.loggers.logger_hparams import FileLoggerBackendHparams, TQDMLoggerBackendHparams
+from composer.trainer.trainer_hparams import TrainerHparams
 
 
 @pytest.fixture
@@ -58,3 +61,32 @@ def test_file_logger(dummy_state: State, log_destination: FileLoggerBackend, mon
             '[BATCH][step=2]: { "metric": "batch", }\n',
             '[EPOCH][step=3]: { "metric": "epoch2", }\n',
         ]
+
+
+def test_tqdm_logger(mosaic_trainer_hparams: TrainerHparams, monkeypatch: MonkeyPatch):
+    is_train_to_mock_tqdms = {
+        True: [],
+        False: [],
+    }
+
+    def get_mock_tqdm(position: int, *args, **kwargs):
+        del args, kwargs  # unused
+        is_train = position == 0
+        mock_tqdm = MagicMock()
+        is_train_to_mock_tqdms[is_train].append(mock_tqdm)
+        return mock_tqdm
+
+    monkeypatch.setattr(tqdm, "tqdm", get_mock_tqdm)
+    mosaic_trainer_hparams.loggers = [TQDMLoggerBackendHparams()]
+    trainer = mosaic_trainer_hparams.initialize_object()
+    trainer.fit()
+    assert len(is_train_to_mock_tqdms[True]) == mosaic_trainer_hparams.max_epochs
+    assert mosaic_trainer_hparams.validate_every_n_batches < 0
+    assert len(is_train_to_mock_tqdms[False]
+              ) == mosaic_trainer_hparams.validate_every_n_epochs * mosaic_trainer_hparams.max_epochs
+    for mock_tqdm in is_train_to_mock_tqdms[True]:
+        assert mock_tqdm.update.call_count == trainer.state.steps_per_epoch
+        mock_tqdm.close.assert_called_once()
+    for mock_tqdm in is_train_to_mock_tqdms[False]:
+        assert mock_tqdm.update.call_count == len(trainer.state.eval_dataloader)
+        mock_tqdm.close.assert_called_once()
