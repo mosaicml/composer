@@ -16,7 +16,6 @@ from composer.core.callback import Callback
 from composer.core.precision import Precision
 from composer.core.serializable import Serializable
 from composer.utils import ensure_tuple
-from composer.utils.ddp import get_global_rank, get_local_rank, get_local_world_size, get_world_size
 from composer.utils.precision import default_precision_factory
 
 if TYPE_CHECKING:
@@ -141,26 +140,6 @@ class State(Serializable):
     # algorithms
     algorithms: Sequence[Algorithm] = tuple()
     callbacks: Sequence[Callback] = tuple()
-
-    @property
-    def world_size(self) -> int:
-        return get_world_size()
-
-    @property
-    def global_rank(self) -> int:
-        return get_global_rank()
-
-    @property
-    def local_world_size(self) -> int:
-        return get_local_world_size()
-
-    @property
-    def local_rank(self) -> int:
-        return get_local_rank()
-
-    @property
-    def is_rank_zero(self) -> bool:
-        return self.global_rank == 0
 
     def state_dict(self) -> types.StateDict:
         """Returns the state as a :class:`dict`."""

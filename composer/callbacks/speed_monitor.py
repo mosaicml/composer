@@ -10,6 +10,7 @@ from composer import Logger, State
 from composer.callbacks.callback_hparams import SpeedMonitorHparams
 from composer.core.callback import RankZeroCallback
 from composer.core.types import StateDict
+from composer.utils import ddp
 
 
 class SpeedMonitor(RankZeroCallback):
@@ -83,7 +84,7 @@ class SpeedMonitor(RankZeroCallback):
         # Ideally, callbacks would have a way of reducing tensors.
         # It assumes that each process has equal batch sizing
         # For the speed monitor, we might be able to use the static step converter with num_samples
-        batch_num_samples *= state.world_size
+        batch_num_samples *= ddp.get_world_size()
         self.batch_num_samples.append(batch_num_samples)
         self.train_examples_per_epoch += batch_num_samples
         if len(self.batch_end_times) == self.hparams.window_size + 1:

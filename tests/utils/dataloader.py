@@ -3,8 +3,7 @@
 import torch.utils.data
 
 from composer.core.types import DataLoader
-from composer.datasets import DataloaderHparams, DataloaderSpec
-from composer.trainer.ddp import DDPDataLoader
+from composer.datasets import DataloaderHparams, DataloaderSpec, DDPDataLoader
 
 
 def get_dataloader(dataloader_spec: DataloaderSpec, dataloader_hparams: DataloaderHparams,

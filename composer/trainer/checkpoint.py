@@ -12,9 +12,8 @@ import yaml
 
 from composer.core import Event, State
 from composer.core.types import StateDict
-from composer.trainer.ddp import DDP
 from composer.trainer.devices.device import Device
-from composer.utils import seed_all
+from composer.utils import ddp, seed_all
 
 log = logging.getLogger(__name__)
 
@@ -46,25 +45,25 @@ class CheckpointLoader:
         if self.checkpoint_rng_state is None:
             return
 
-        assert state.world_size == len(
+        assert ddp.get_world_size() == len(
             self.checkpoint_rng_state['torch']
         ), f"invariant violation: if the rng state is being restored, then" \
             "the world size should be the same as in the checkpoint."
 
-        torch.set_rng_state(self.checkpoint_rng_state['torch'][state.global_rank])
-        device.load_state_dict(self.checkpoint_rng_state['device'][state.global_rank])
-        random.setstate(self.checkpoint_rng_state['python'][state.global_rank])
-        np.random.set_state(self.checkpoint_rng_state['numpy'][state.global_rank])
+        torch.set_rng_state(self.checkpoint_rng_state['torch'][ddp.get_global_rank()])
+        device.load_state_dict(self.checkpoint_rng_state['device'][ddp.get_global_rank()])
+        random.setstate(self.checkpoint_rng_state['python'][ddp.get_global_rank()])
+        np.random.set_state(self.checkpoint_rng_state['numpy'][ddp.get_global_rank()])
 
         self.checkpoint_rng_state = None
 
     def _get_checkpoint_rng_state(self, state: State, checkpoint_rng_state: StateDict) -> Optional[StateDict]:
         original_world_size = len(checkpoint_rng_state["torch"])
-        if original_world_size == state.world_size:
+        if original_world_size == ddp.get_world_size():
             return checkpoint_rng_state
         else:
             warnings.warn(f"The checkpoint was created with world_size({original_world_size}), "
-                          f"which differs from the current world_size({state.world_size})."
+                          f"which differs from the current world_size({ddp.get_world_size()})."
                           f"RNG state will not be restored.")
 
 
@@ -104,12 +103,7 @@ class Checkpointer:
             return state.step % self.save_interval == 0
         return False
 
-    def save_checkpoint(self,
-                        state: State,
-                        seed: int,
-                        device: Device,
-                        ddp: DDP,
-                        config: Optional[Dict[str, Any]] = None) -> None:
+    def save_checkpoint(self, state: State, seed: int, device: Device, config: Optional[Dict[str, Any]] = None) -> None:
         """Save the current state to a a new checkpoint file.
 
         Args:
@@ -126,10 +120,10 @@ class Checkpointer:
         # This will be fixed by: https://github.com/mosaicml/composer/issues/12
         state_dict = {
             'state': state.state_dict(),  # should be the same across all ranks. per-rank state not stored
-            'rng': self._get_rng_state(device=device, ddp=ddp),  # stored across all ranks
+            'rng': self._get_rng_state(device=device),  # stored across all ranks
             'seed': seed,
         }
-        if not state.is_rank_zero:
+        if ddp.get_global_rank() != 0:
             # only rank 0 saves checkpoints
             # Need the check down here so all the DDP syncs will work for generating the checkpoint
             return
@@ -160,7 +154,7 @@ class Checkpointer:
             torch.save(state_dict, f)
         log.info(f'Trainer checkpoint saved to {save_file}')
 
-    def _get_rng_state(self, device: Device, ddp: DDP) -> StateDict:
+    def _get_rng_state(self, device: Device) -> StateDict:
         rng_state = {
             "python": ddp.all_gather_object(random.getstate()),
             "numpy": ddp.all_gather_object(np.random.get_state()),
