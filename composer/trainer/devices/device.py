@@ -7,7 +7,6 @@ from typing import Generator, Optional, TypeVar, Union
 import torch.nn
 
 from composer.core.serializable import Serializable
-from composer.core.state import State
 from composer.core.types import DataLoader, Optimizer, Precision, Tensor, TPrefetchFn
 
 T_nnModule = TypeVar("T_nnModule", bound=torch.nn.Module)
