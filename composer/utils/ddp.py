@@ -256,7 +256,10 @@ def create_dataloader(batch_size: int, dataloader_hparams: DataloaderHparams,
 
 @contextmanager
 def sync_context(state: State, is_final_microbatch: bool, sync_strategy: Union[str, DDPSyncStrategy]):
-    assert isinstance(state.model, DistributedDataParallel), "state.model is not wrapped by DDP"
+    if not isinstance(state.model, DistributedDataParallel):
+        yield
+        return
+
     assert state.optimizers is not None, "optimizers have not been initialized"
     sync_strategy = DDPSyncStrategy(sync_strategy)
 

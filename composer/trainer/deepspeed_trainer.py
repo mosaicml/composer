@@ -26,6 +26,7 @@ from composer.optim import (ComposedScheduler, CosineAnnealingLRHparams, Decoupl
 from composer.optim.scheduler import ensure_warmup_last
 from composer.trainer.checkpoint import Checkpointer, CheckpointLoader
 from composer.trainer.ddp import DataloaderMultipleIterationWarning
+from composer.trainer.deepspeed import DeepSpeedHparams
 from composer.trainer.deepspeed_trainer_hparams import DeepSpeedTrainerHparams
 from composer.trainer.devices.device import Device
 from composer.trainer.devices.device_cpu import DeviceCPU

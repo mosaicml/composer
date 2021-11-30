@@ -16,10 +16,8 @@ import argparse
 import logging
 
 import composer
-from composer.trainer.deepspeed_trainer import DeepSpeedTrainer
-from composer.trainer.deepspeed_trainer_hparams import DeepSpeedTrainerHparams
-from composer.trainer.trainer import Trainer as _Trainer
-from composer.trainer.trainer_hparams import TrainerHparams as _TrainerHparams
+from composer.trainer.trainer import Trainer
+from composer.trainer.trainer_hparams import TrainerHparams
 
 logger = logging.getLogger(__name__)
 
@@ -27,13 +25,6 @@ logger = logging.getLogger(__name__)
 def main() -> None:
     logging.basicConfig()
     logging.captureWarnings(True)
-
-    deepspeed_parser = argparse.ArgumentParser()
-    deepspeed_parser.add_argument('--deepspeed', action='store_true', help='use the DeepSpeed variant of the trainer')
-    deepspeed_args, _ = deepspeed_parser.parse_known_args()
-
-    TrainerHparams = DeepSpeedTrainerHparams if deepspeed_args.deepspeed else _TrainerHparams
-    Trainer = DeepSpeedTrainer if deepspeed_args.deepspeed else _Trainer
 
     parser = argparse.ArgumentParser(parents=[TrainerHparams.get_argparse(cli_args=True)])
     parser.add_argument(
