@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import atexit
 import logging
 import multiprocessing
 import os
@@ -153,7 +152,6 @@ class RunDirectoryUploader(RankZeroCallback):
         if get_run_directory() is None:
             return
         del state, logger  # unused
-        atexit.register(self._close)
         self._finished = self._finished_cls()
         self._last_upload_timestamp = 0.0
         self._workers = [
@@ -188,18 +186,16 @@ class RunDirectoryUploader(RankZeroCallback):
         if get_run_directory() is None:
             return
         self._trigger_upload(logger, LogLevel.FIT)
-        # TODO -- we are missing logfiles from other callbacks / loggers that write on training end but after
-        # the run directory uploader is invoked. This callback either needs to fire last,
-        # or we need another event such as cleanup
-        self._close()
 
-    def _close(self):
+    def post_close(self):
+        # Cleaning up on post_close to ensure that all artifacts are uploaded
+        self._trigger_upload(logger=None, log_level=None)
         if self._finished is not None:
             self._finished.set()
         for worker in self._workers:
             worker.join()
 
-    def _trigger_upload(self, logger: Logger, log_level: LogLevel) -> None:
+    def _trigger_upload(self, logger: Optional[Logger], log_level: Optional[LogLevel]) -> None:
         # Ensure that every rank is at this point
         # Assuming only the main thread on each rank writes to the run directory, then the barrier here will ensure
         # that the run directory is not being modified after we pass this barrier
@@ -232,10 +228,11 @@ class RunDirectoryUploader(RankZeroCallback):
                     shutil.copy2(filepath, copied_path)
                     self._file_upload_queue.put_nowait(copied_path)
         self._last_upload_timestamp = new_last_uploaded_timestamp
-        # now log which files are being uploaded. OK to do, since we're done reading the directory,
-        # and any logfiles will now have their last modified timestamp
-        # incremented past self._last_upload_timestamp
-        logger.metric(log_level, {"run_directory/uploaded_files": files_to_be_uploaded})
+        if logger is not None and log_level is not None:
+            # now log which files are being uploaded. OK to do, since we're done reading the directory,
+            # and any logfiles will now have their last modified timestamp
+            # incremented past self._last_upload_timestamp
+            logger.metric(log_level, {"run_directory/uploaded_files": files_to_be_uploaded})
 
 
 def _validate_credentials(
