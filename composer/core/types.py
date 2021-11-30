@@ -6,6 +6,7 @@ See :doc:`/core/types` for documentation.
 """
 
 from __future__ import annotations
+from dataclasses import dataclass
 
 from typing import TYPE_CHECKING, Any, Callable, Dict, Iterable, Iterator, List, Optional, Tuple, Union
 
@@ -138,6 +139,7 @@ class DataLoader(Protocol):
 
 Metrics = Union[Metric, MetricCollection]
 
+@dataclass
 class Evaluator:
     """Wrapper for a dataloader to include metrics that apply to a specific
     dataset/dataloader.

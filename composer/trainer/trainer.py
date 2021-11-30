@@ -237,7 +237,8 @@ class Trainer:
         else:
             self.evaluator_specs = evaluator_specs
         
-        self.evaluators = self._create_evaluators(eval_batch_size)
+        eval_gpu_batch_size = eval_batch_size // ddp.get_world_size()
+        self.evaluators = self._create_evaluators(eval_gpu_batch_size)
 
         # do a check here to make sure there is at least one validation set
         if len(self.evaluators) == 0:
@@ -395,19 +396,16 @@ class Trainer:
         """Train and evaluate the model on the provided data."""
         self._train_loop()
 
-    def _create_evaluators(self, eval_batch_size: int) -> List[Evaluator]:
+    def _create_evaluators(self, eval_gpu_batch_size: int) -> List[Evaluator]:
         """Create the dataloaders.
 
         Loops through the EvaluatorSpec objects and creates the dataloaders in
         each of them and creates Evaluator objects
         """
-
-        eval_gpu_batch_size = eval_batch_size // self.ddp.world_size
-
         evaluators = []
         for evaluator_spec in self.evaluator_specs:
             dataloader = self.device.dataloader_to_device(
-                self.ddp.create_dataloader(eval_gpu_batch_size, self.dl_hparams, evaluator_spec.dataloader_spec),
+                ddp.create_dataloader(eval_gpu_batch_size, self.dl_hparams, evaluator_spec.dataloader_spec),
                 evaluator_spec.dataloader_spec.prefetch_fn,
             )
             new_evaluator = Evaluator(
@@ -415,7 +413,6 @@ class Trainer:
                 metrics=evaluator_spec.metrics,
                 dataloader=dataloader,
             )
-            
             evaluators.append(new_evaluator)
 
         return evaluators
@@ -532,8 +529,11 @@ class Trainer:
         state.model = self.device.module_to_device(state.model)
         state.optimizers = map_collection(state.optimizers, self.device.optimizer_to_device)
 
-        if state.train_dataloader is None or state.eval_dataloader is None:
+        if state.train_dataloader is None:
             raise ValueError('Dataloaders were not created properly, and are None.')
+        for evaluator in state.evaluators:
+            if evaluator.dataloader is None:
+                raise ValueError('Dataloaders were not created properly, and are None.')
 
         # wrap model with DDP
         state.model = ddp.prepare_module(state.model, self.find_unused_parameters)
