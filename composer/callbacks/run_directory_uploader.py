@@ -16,7 +16,6 @@ import warnings
 from typing import Any, Callable, Dict, Optional, Type, Union
 
 from composer.core.callback import RankZeroCallback
-from composer.core.event import Event
 from composer.core.logging import Logger
 from composer.core.logging.logger import LogLevel
 from composer.core.state import State
@@ -150,7 +149,11 @@ class RunDirectoryUploader(RankZeroCallback):
         self._finished: Union[None, multiprocessing._EventType, threading.Event] = None
         self._workers = []
 
-    def _init(self) -> None:
+    def init(self, state: State, logger: Logger) -> None:
+        if get_run_directory() is None:
+            return
+        del state, logger  # unused
+        atexit.register(self._close)
         self._finished = self._finished_cls()
         self._last_upload_timestamp = 0.0
         self._workers = [
@@ -168,23 +171,27 @@ class RunDirectoryUploader(RankZeroCallback):
         for worker in self._workers:
             worker.start()
 
-    def _run_event(self, event: Event, state: State, logger: Logger) -> None:
+    def batch_end(self, state: State, logger: Logger) -> None:
         if get_run_directory() is None:
             return
-        if event == Event.INIT:
-            self._init()
-            atexit.register(self._close)
-        if event == Event.BATCH_END:
-            if (state.batch_idx + 1) % self._upload_every_n_batches == 0:
-                self._trigger_upload(logger, LogLevel.BATCH)
-        if event == Event.EPOCH_END:
-            self._trigger_upload(logger, LogLevel.EPOCH)
-        if event == Event.TRAINING_END:
-            self._trigger_upload(logger, LogLevel.FIT)
-            # TODO -- we are missing logfiles from other callbacks / loggers that write on training end but after
-            # the run directory uploader is invoked. This callback either needs to fire last,
-            # or we need another event such as cleanup
-            self._close()
+        if (state.batch_idx + 1) % self._upload_every_n_batches == 0:
+            self._trigger_upload(logger, LogLevel.BATCH)
+
+    def epoch_end(self, state: State, logger: Logger) -> None:
+        del state  # unused
+        if get_run_directory() is None:
+            return
+        self._trigger_upload(logger, LogLevel.EPOCH)
+
+    def training_end(self, state: State, logger: Logger) -> None:
+        del state  # unused
+        if get_run_directory() is None:
+            return
+        self._trigger_upload(logger, LogLevel.FIT)
+        # TODO -- we are missing logfiles from other callbacks / loggers that write on training end but after
+        # the run directory uploader is invoked. This callback either needs to fire last,
+        # or we need another event such as cleanup
+        self._close()
 
     def _close(self):
         if self._finished is not None:
