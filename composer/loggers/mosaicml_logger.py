@@ -196,10 +196,17 @@ class MosaicMLLoggerBackend(RankZeroLoggerBackend):
 
     def state_dict(self) -> StateDict:
         # Storing these fields in the state dict to support run resuming in the future
-        return {"run_id": self.run_id, "buffered_data": self.buffered_data}
+        return {
+            "run_id": self.run_id,
+            "run_name": self.run_name,
+            "experiment_name": self.experiment_name,
+            "buffered_data": self.buffered_data
+        }
 
     def load_state_dict(self, state: StateDict) -> None:
         self.run_id = state["run_id"]
+        self.run_name = state["run_name"]
+        self.experiment_name = state["experiment_name"]
         self.buffered_data = state["buffered_data"]
 
     def _flush_buffered_data(self):
