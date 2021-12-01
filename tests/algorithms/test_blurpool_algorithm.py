@@ -12,12 +12,15 @@ import torch
 from composer.algorithms import BlurPool, BlurPoolHparams
 from composer.algorithms.blurpool.blurpool_layers import BlurConv2d, BlurMaxPool2d
 from composer.core import Event, State
-from composer.core.types import DataLoader, Model, Precision
+from composer.core.types import DataLoader, Evaluator, Model, Precision
 from tests.fixtures.models import SimpleConvModel
 
 
 @pytest.fixture
 def state(simple_conv_model: Model, dummy_train_dataloader: DataLoader, dummy_val_dataloader: DataLoader):
+    evaluators = [
+        Evaluator(label="dummy_label", dataloader=dummy_val_dataloader, metrics=simple_conv_model.metrics(train=False))
+    ]
     state = State(
         epoch=50,
         step=50,
@@ -28,7 +31,7 @@ def state(simple_conv_model: Model, dummy_train_dataloader: DataLoader, dummy_va
         model=simple_conv_model,
         precision=Precision.FP32,
         train_dataloader=dummy_train_dataloader,
-        eval_dataloader=dummy_val_dataloader,
+        evaluators=evaluators,
     )
     return state
 

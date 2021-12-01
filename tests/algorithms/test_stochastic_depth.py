@@ -9,7 +9,7 @@ from composer.algorithms.stochastic_depth.sample_stochastic_layers import Sample
 from composer.algorithms.stochastic_depth.stochastic_depth import STOCHASTIC_LAYER_MAPPING
 from composer.algorithms.stochastic_depth.stochastic_layers import StochasticBottleneck, _sample_bernoulli
 from composer.core import Event, Logger, State, surgery
-from composer.core.types import Precision
+from composer.core.types import Evaluator, Precision
 from composer.datasets import SyntheticDatasetHparams
 from composer.datasets.dataloader import DataloaderHparams
 from composer.loggers import Logger
@@ -27,6 +27,7 @@ def dummy_state(dummy_dataloader_hparams: DataloaderHparams):
                                               drop_last=True,
                                               shuffle=False)
     train_dataloader = get_dataloader(dataset_hparams.initialize_object(), dummy_dataloader_hparams, batch_size=100)
+    evaluators = [Evaluator(label="dummy_label", dataloader=train_dataloader, metrics=model.metrics(train=False))]
     return State(epoch=50,
                  step=50,
                  train_dataloader=train_dataloader,
@@ -35,7 +36,7 @@ def dummy_state(dummy_dataloader_hparams: DataloaderHparams):
                  grad_accum=1,
                  max_epochs=100,
                  model=model,
-                 eval_dataloader=train_dataloader,
+                 evaluators=evaluators,
                  precision=Precision.FP32)
 
 

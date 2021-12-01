@@ -445,9 +445,9 @@ class Trainer:
             metrics = original_model.metrics(train=is_train)
             assert isinstance(metrics, (Metric, MetricCollection)), \
             "   Error module.metrics() must return a Metric or MetricCollection object."
-            if isinstance(metrics, Metric):
-                # Forcing metrics to be a MetricCollection simplifies logging results
-                metrics = MetricCollection([metrics])
+        if isinstance(metrics, Metric):
+            # Forcing metrics to be a MetricCollection simplifies logging results
+            metrics = MetricCollection([metrics])
 
         # Safety check to ensure the metric and data are on the same device. Normally not
         # needed because the metric is automatically on the same device as the model.
@@ -465,6 +465,8 @@ class Trainer:
             evaluator_label (str): Should be left as empty string if called for training metrics.
                 Should be the evaluator label if called on evaluator metrics.
         """
+        if isinstance(metrics, Metric):
+            assert False
         computed_metrics = metrics.compute()
         for name, value in computed_metrics.items():
             log_level = LogLevel.BATCH if is_batch else LogLevel.EPOCH

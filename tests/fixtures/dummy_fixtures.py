@@ -194,6 +194,9 @@ def simple_conv_model_input():
 
 @pytest.fixture()
 def state_with_model(simple_conv_model: Model, dummy_train_dataloader: DataLoader, dummy_val_dataloader: DataLoader):
+    evaluators = [
+        Evaluator(label="dummy_label", dataloader=dummy_val_dataloader, metrics=simple_conv_model.metrics(train=False))
+    ]
     state = State(
         epoch=50,
         step=50,
@@ -204,7 +207,7 @@ def state_with_model(simple_conv_model: Model, dummy_train_dataloader: DataLoade
         model=simple_conv_model,
         precision=Precision.FP32,
         train_dataloader=dummy_train_dataloader,
-        eval_dataloader=dummy_val_dataloader,
+        evaluators=evaluators,
     )
     return state
 
