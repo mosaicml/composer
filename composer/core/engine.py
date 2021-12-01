@@ -187,3 +187,32 @@ class Engine():
 
         for cb in self.callbacks:
             cb.run_event(event, self.state, self.logger)
+
+    def close(self) -> None:
+        """Invoke :meth:`~Callback.close` and :meth:`~Callback.post_close` for each callback.
+
+        :meth:`~Callback.close` is invoked for each callback.
+        For all callbacks where :meth:`~Callback.close` did not raise an exception, then
+        :meth:`~Callback.post_close` is invoked.
+        
+        Does not re-raise any exceptions from :meth:`~Callback.close` and :meth:`~Callback.post_close`.
+        Instead, these exceptions are logged.
+        """
+        callback_to_has_exception: Dict[Callback, bool] = {}
+        for callback in self.callbacks:
+            try:
+                callback.close()
+            except Exception as e:
+                log.error(
+                    f"Error running {callback.__class__.__name__}.close(). Skipping {callback.__class__.__name__}.post_close().",
+                    exc_info=e,
+                    stack_info=True)
+                callback_to_has_exception[callback] = True
+            else:
+                callback_to_has_exception[callback] = False
+        for callback in self.callbacks:
+            if callback_to_has_exception[callback] is False:
+                try:
+                    callback.post_close()
+                except Exception as e:
+                    log.error(f"Error running {callback.__class__.__name__}.post_close().", exc_info=e, stack_info=True)

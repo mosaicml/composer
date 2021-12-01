@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import atexit
 import os
 import sys
 from typing import Any, Dict, Optional, TextIO
@@ -77,17 +76,20 @@ class FileLoggerBackend(RankZeroLoggerBackend):
 
     def _log_metric(self, epoch: int, step: int, log_level: LogLevel, data: TLogData):
         data_str = format_log_data_value(data)
+        if self.file is None:
+            raise RuntimeError("Attempted to log before self.init() or after self.close()")
         print(f"[{log_level.name}][step={step}]: {data_str}", file=self.file)
 
     def init(self, state: State, logger: Logger) -> None:
         del state, logger  # unused
+        if self.file is not None:
+            raise RuntimeError("The file logger is already initialized")
         if self.hparams.filename == "stdout":
             self.file = sys.stdout
         elif self.hparams.filename == "stderr":
             self.file = sys.stderr
         else:
             self.file = open(self.hparams.filename, "x+", buffering=self.hparams.buffer_size)
-            atexit.register(self._close_file)
         if self.config is not None:
             print("Config", file=self.file)
             print("-" * 30, file=self.file)
@@ -114,8 +116,9 @@ class FileLoggerBackend(RankZeroLoggerBackend):
             self.file.flush()
             os.fsync(self.file.fileno())
 
-    def _close_file(self) -> None:
-        assert self.file is not None
-        assert self.file not in (sys.stdout, sys.stderr)
-        self._flush_file()
-        self.file.close()
+    def close(self) -> None:
+        if self.file is not None:
+            if self.file not in (sys.stdout, sys.stderr):
+                self._flush_file()
+                self.file.close()
+            self.file = None
