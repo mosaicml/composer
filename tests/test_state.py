@@ -131,7 +131,7 @@ def test_state_serialize(tmpdir: pathlib.Path, dummy_model: BaseMosaicModel,
     assert_state_equivalent(state1, state2)
 
     # train both for one step on another sample
-    batch = get_batch(dummy_val_dataset_hparams, dummy_dataloader_hparams)
+    batch = get_batch(dummy_train_dataset_hparams, dummy_dataloader_hparams)
     train_one_step(state1, batch)
     train_one_step(state2, batch)
 
