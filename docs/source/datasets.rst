@@ -30,6 +30,7 @@ Base Classes and Hyperparameters
     :toctree: generated
     :nosignatures:
 
+    DataloaderHparams
     DataloaderSpec
     DatasetHparams
     DatadirHparamsMixin
