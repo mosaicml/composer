@@ -105,10 +105,10 @@ class MosaicMLLoggerBackend(RankZeroLoggerBackend):
         self.skip_logging = False
         self.run_name = run_name
         self.run_id = run_id  # if None will be set in training_start
-        self.experiment_name = experiment_name
         if experiment_name is None:
-            self.experiment_name = f"experiment_{str(uuid.uuid4())}"
-            log.info(f"experiment_name was None, set experiment_name to random value {self.experiment_name}")
+            experiment_name = f"experiment_{str(uuid.uuid4())}"
+            log.info(f"experiment_name was None, set experiment_name to random value {experiment_name}")
+        self.experiment_name = experiment_name
         self.run_config = run_config
 
         if creds_file:
