@@ -195,7 +195,7 @@ def test_ddp(device: DeviceHparams, world_size: int, ddp_tmpdir: str, mosaic_tra
     num_train_samples = len(trainer.train_dl_spec.dataset)
     for evaluator_spec in trainer.evaluator_specs:
         assert isinstance(evaluator_spec.dataloader_spec.dataset, collections.abc.Sized)
-    num_eval_samples = sum(len(evaluator_spec.dataloader.dataset) for evaluator_spec in trainer.evaluator_specs)
+    num_eval_samples = sum(len(evaluator_spec.dataloader_spec.dataset) for evaluator_spec in trainer.evaluator_specs)
     trainer.fit()
 
     # now validate that each sample were accessed exactly hparams.max_epochs * batch size times

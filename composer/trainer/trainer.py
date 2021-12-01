@@ -348,7 +348,7 @@ class Trainer:
             evaluator_specs = None
 
         if evaluator_specs is None and eval_dl_spec is None:
-            raise ValueError("both hparams.evaluators and eval_dl_spec are None")
+            raise ValueError("both hparams.evaluators and eval_dl_spec are None - at least one validation structure is necessary")
 
         trainer = cls(
             model=model,
