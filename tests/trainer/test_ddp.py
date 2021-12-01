@@ -19,12 +19,11 @@ from composer.core.logging import Logger
 from composer.core.state import State
 from composer.datasets import DataloaderHparams, synthetic
 from composer.models.model_hparams import ModelHparams
+from composer.trainer.deepspeed import DeepSpeedHparams
 from composer.trainer.devices import CPUDeviceHparams, GPUDeviceHparams
 from composer.trainer.devices.device_hparams import DeviceHparams
 from composer.trainer.trainer_hparams import TrainerHparams, callback_registry, dataset_registry
 from composer.utils import ddp
-
-from composer.trainer.deepspeed import DeepSpeedHparams
 
 
 def get_file_path(tmpdir: Union[str, pathlib.Path], *, rank: int, is_train: bool) -> str:
