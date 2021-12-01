@@ -13,6 +13,7 @@ import deepspeed
 import torch
 import torch.distributed
 import torch.utils.data
+from deepspeed.runtime.engine import DeepSpeedEngine
 from torch.backends import cudnn
 from torch.cuda.amp.grad_scaler import GradScaler
 from torch.nn.parallel import DistributedDataParallel
@@ -721,6 +722,10 @@ class Trainer:
                 with state.precision_context(state.precision):
                     state.loss = self.original_model.loss(state.outputs, state.batch)
 
+                if not self.deepspeed_enabled:
+                    for loss in ensure_tuple(state.loss):
+                        loss.mul_(last_microbatch_size / current_batch_size)
+
                 assert state.loss is not None
                 self.engine.run_event(Event.AFTER_LOSS)
 
@@ -733,18 +738,20 @@ class Trainer:
                 for loss in ensure_tuple(state.loss):
                     loss.backward(create_graph=self.backwards_create_graph)
 
-                for loss in ensure_tuple(state.loss):
-                    loss.mul_(last_microbatch_size / current_batch_size)
+                self.engine.run_event(Event.AFTER_BACKWARD)
+
+                if self.deepspeed_enabled:
+                    for loss in ensure_tuple(state.loss):
+                        loss.mul_(last_microbatch_size / current_batch_size)
 
                 # Loss is added to losses with clone to not scale the loss for the step printout
                 # Likely need to look into the performance impact
                 for loss in ensure_tuple(state.loss):
                     total_loss += loss.detach().clone()
 
-                self.engine.run_event(Event.AFTER_BACKWARD)
-
             if self.deepspeed_enabled:
-                state.model.step()  # type: ignore
+                assert isinstance(state.model, DeepSpeedEngine)
+                state.model.step()
 
         # Unscale gradients before `Event.AFTER_TRAIN_BATCH`
         if use_grad_scaling:
