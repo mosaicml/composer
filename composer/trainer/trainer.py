@@ -224,7 +224,8 @@ class Trainer:
 
         # TODO(#123): DeepSpeed still needs a precision context, but it's not completely clear how to
         # handle this with our version of Pytorch
-        precision_context = self.device.precision_context if not self.deepspeed_enabled else cast(Callable[[Union[str, Precision]], ContextManager], contextlib.nullcontext)
+        precision_context = self.device.precision_context if not self.deepspeed_enabled else cast(
+            Callable[..., ContextManager], contextlib.nullcontext)
 
         self.state = State(
             max_epochs=max_epochs,

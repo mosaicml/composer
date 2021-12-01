@@ -1,8 +1,8 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
 from __future__ import annotations
-import textwrap
 
+import textwrap
 import warnings
 from dataclasses import dataclass
 from typing import Any, Callable, Iterator, Optional
