@@ -202,7 +202,6 @@ class RunDirectoryUploader(RankZeroCallback):
         ddp.barrier()
         new_last_uploaded_timestamp = time.time()
         # Now, for each file that was modified since self._last_upload_timestamp, copy it to the temporary directory
-        # IMPROTANT: From now, until self._last_upload_timestamp is updated, no files should be written to the run directory
         run_directory = get_run_directory()
         assert run_directory is not None, "invariant error"
         files_to_be_uploaded = []
@@ -311,7 +310,12 @@ def _upload_worker(
                     if retry_counter < 3:
                         retry_counter += 1
                         # exponential backoff
-                        time.sleep(2**(retry_counter - 1))
+                        sleep_time = 2**(retry_counter - 1)
+                        log.warn("Request failed with a transient error code. Sleeping %s seconds and retrying",
+                                 sleep_time,
+                                 exc_info=e,
+                                 stack_info=True)
+                        time.sleep()
                         continue
                 raise e
             os.remove(file_path_to_upload)
