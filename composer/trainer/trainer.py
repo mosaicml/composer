@@ -206,6 +206,7 @@ class Trainer:
         self.find_unused_parameters = find_unused_parameters
 
         if self.deepspeed_enabled:
+            import deepspeed
             deepspeed.init_distributed()
         else:
             ddp.initialize_ddp(device.ddp_backend, datetime.timedelta(seconds=ddp_timeout))
