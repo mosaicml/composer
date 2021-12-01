@@ -4,7 +4,6 @@ import glob
 import os
 import random
 from dataclasses import dataclass
-from typing import Optional
 
 import numpy as np
 import torch
@@ -14,13 +13,14 @@ import yahp as hp
 
 from composer.core.types import DataLoader, Dataset
 from composer.datasets.dataloader import DataloaderHparams
-from composer.datasets.hparams import DatasetHparams
+from composer.datasets.hparams import (DatadirHparamsMixin, DatasetHparams, DropLastHparamsMixin, IsTrainHparamsMixin,
+                                       NumTotalBatchesHparamsMixin, ShuffleHparamsMixin)
 from composer.utils import ddp
 
 PATCH_SIZE = [1, 192, 160]
 
 
-def my_collate(batch):
+def _my_collate(batch):
     """Custom collate function to handle images with different depths.
 
     """
@@ -31,23 +31,15 @@ def my_collate(batch):
 
 
 @dataclass
-class BratsDatasetHparams(DatasetHparams):
+class BratsDatasetHparams(DatasetHparams, DatadirHparamsMixin, NumTotalBatchesHparamsMixin, ShuffleHparamsMixin,
+                          IsTrainHparamsMixin, DropLastHparamsMixin):
     """Defines an instance of the BraTS dataset for image segmentation.
     
     Parameters:
-        is_train (bool): Whether to load the training or validation dataset.
-        datadir (str): Data directory to use.
-        drop_last (bool): Whether to drop the last samples for the last batch.
-        shuffle (bool): Whether to shuffle the dataset for each epoch.
         oversampling (float): The oversampling ratio to use.
     """
 
-    is_train: bool = hp.required("whether to load the training or validation dataset")
-    datadir: Optional[str] = hp.optional("data directory. Required unless if synthetic=True", default=None)
-    drop_last: bool = hp.optional("Whether to drop the last samples for the last batch", default=True)
-    shuffle: bool = hp.optional("Whether to shuffle the dataset for each epoch", default=True)
     oversampling: float = hp.optional("oversampling", default=0.33)
-    num_total_batches: Optional[int] = hp.optional("num total batches", default=None)
 
     def initialize_object(self, batch_size: int, dataloader_hparams: DataloaderHparams) -> DataLoader:
 
@@ -60,7 +52,7 @@ class BratsDatasetHparams(DatasetHparams):
         if self.num_total_batches is not None:
             size = batch_size * self.num_total_batches * ddp.get_world_size()
             dataset = torch.utils.data.Subset(dataset, list(range(size)))
-        collate_fn = None if self.is_train else my_collate
+        collate_fn = None if self.is_train else _my_collate
         sampler = ddp.get_sampler(dataset, drop_last=self.drop_last, shuffle=self.shuffle)
 
         return dataloader_hparams.initialize_object(

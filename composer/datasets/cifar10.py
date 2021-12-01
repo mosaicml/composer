@@ -1,5 +1,6 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
+import textwrap
 from dataclasses import dataclass
 from typing import Optional
 
@@ -10,32 +11,25 @@ from torchvision.datasets import CIFAR10
 
 from composer.core.types import DataLoader
 from composer.datasets.dataloader import DataloaderHparams
-from composer.datasets.hparams import DatasetHparams
+from composer.datasets.hparams import (DatadirHparamsMixin, DatasetHparams, DropLastHparamsMixin, IsTrainHparamsMixin,
+                                       NumTotalBatchesHparamsMixin, ShuffleHparamsMixin, SyntheticBatchesHparamsMixin)
 from composer.datasets.synthetic import SyntheticBatchPairDatasetHparams
 from composer.utils import ddp
 
 
 @dataclass
-class CIFAR10DatasetHparams(DatasetHparams):
+class CIFAR10DatasetHparams(DatasetHparams, ShuffleHparamsMixin, DropLastHparamsMixin, DatadirHparamsMixin,
+                            NumTotalBatchesHparamsMixin, SyntheticBatchesHparamsMixin, IsTrainHparamsMixin):
     """Defines an instance of the CIFAR-10 dataset for image classification.
     
     Parameters:
-        is_train (bool): Whether to load the training or validation dataset.
-        datadir (str): Data directory to use.
         download (bool): Whether to download the dataset, if needed.
-        drop_last (bool): Whether to drop the last samples for the last batch.
-        shuffle (bool): Whether to shuffle the dataset for each epoch.
     """
-
-    is_train: Optional[bool] = hp.optional(
-        "whether to load the training or validation dataset. Required if synthetic is not None.", default=None)
-    synthetic: Optional[SyntheticBatchPairDatasetHparams] = hp.optional(
-        "If specified, synthetic data will be generated. The datadir argument is ignored", default=None)
-    num_total_batches: Optional[int] = hp.optional("num total batches", default=None)
-    datadir: Optional[str] = hp.optional("data directory. Required if synthetic is not None.", default=None)
     download: bool = hp.optional("whether to download the dataset, if needed", default=True)
-    drop_last: bool = hp.optional("Whether to drop the last samples for the last batch", default=True)
-    shuffle: bool = hp.optional("Whether to shuffle the dataset for each epoch", default=True)
+    synthetic: Optional[SyntheticBatchPairDatasetHparams] = hp.optional(
+        textwrap.dedent("""Parameters to use for synthetic data generation.
+            If None (the default), then real data will be used."""),
+        default=None)
 
     def initialize_object(self, batch_size: int, dataloader_hparams: DataloaderHparams) -> DataLoader:
         cifar10_mean, cifar10_std = [0.4914, 0.4822, 0.4465], [0.247, 0.243, 0.261]

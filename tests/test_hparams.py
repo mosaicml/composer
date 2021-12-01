@@ -5,7 +5,7 @@ import os
 import pytest
 
 import composer
-from composer.datasets.hparams import DatasetHparams
+from composer.datasets.hparams import DatasetHparams, NumTotalBatchesHparamsMixin, SyntheticBatchesHparamsMixin
 from composer.trainer import TrainerHparams
 from composer.trainer.devices import CPUDeviceHparams
 
@@ -13,6 +13,7 @@ from composer.trainer.devices import CPUDeviceHparams
 def walk_model_yamls():
     yamls = []
     for root, dirs, files in os.walk(os.path.join(os.path.dirname(composer.__file__), "yamls", "models")):
+        del dirs  # unused
         for name in files:
             filepath = os.path.join(root, name)
             if filepath.endswith(".yaml"):
@@ -22,19 +23,18 @@ def walk_model_yamls():
 
 
 def _configure_dataset_for_synthetic(dataset_hparams: DatasetHparams) -> None:
-    try:
-        synthetic = dataset_hparams.synthetic
-    except AttributeError:
-        pytest.xfail(f"{dataset_hparams.__class__.__name__} does not support synthetic data")
-        raise
+    if not (isinstance(dataset_hparams, SyntheticBatchesHparamsMixin) and
+            isinstance(dataset_hparams, NumTotalBatchesHparamsMixin)):
+        pytest.xfail(f"{dataset_hparams.__class__.__name__} does not support synthetic data or num_total_batchjes")
+
+    assert isinstance(dataset_hparams, SyntheticBatchesHparamsMixin)
+    assert isinstance(dataset_hparams, NumTotalBatchesHparamsMixin)
+
+    synthetic = dataset_hparams.synthetic
     if synthetic is None:
         dataset_hparams.synthetic = dataset_hparams.get_synthetic_hparams_cls()()
 
-        try:
-            dataset_hparams.num_total_batches = 1
-        except AttributeError:
-            pytest.xfail(f"{dataset_hparams.__class__.__name__} does not support num total batches")
-            raise
+    dataset_hparams.num_total_batches = 1
 
 
 @pytest.mark.parametrize("hparams_file", walk_model_yamls())

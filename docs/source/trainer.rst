@@ -149,7 +149,7 @@ You can also provide overrides at command line:
     imagenet | :class:`~composer.datasets.ImagenetDatasetHparams`
     lm | :class:`~composer.datasets.LMDatasetHparams`
     mnist | :class:`~composer.datasets.MNISTDatasetHparams`
-    synthetic | :class:`~composer.datasets.SyntheticDatasetHparams`
+    synthetic | :class:`~composer.datasets.SyntheticBatchPairDatasetHparams`
 
 **Devices**
 

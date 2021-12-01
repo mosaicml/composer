@@ -1,6 +1,7 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
 import os
+import textwrap
 from dataclasses import dataclass
 from typing import List, Optional, Tuple
 
@@ -14,7 +15,9 @@ from torchvision.datasets import ImageFolder
 
 from composer.core.types import Batch, Tensor
 from composer.datasets.dataloader import DataloaderHparams
-from composer.datasets.hparams import DataloaderSpec, DatasetHparams
+from composer.datasets.hparams import (DatadirHparamsMixin, DataloaderSpec, DatasetHparams, DropLastHparamsMixin,
+                                       IsTrainHparamsMixin, NumTotalBatchesHparamsMixin, ShuffleHparamsMixin,
+                                       SyntheticBatchesHparamsMixin)
 from composer.datasets.synthetic import SyntheticBatchPairDatasetHparams
 from composer.utils import ddp
 
@@ -66,32 +69,27 @@ def fast_collate(batch: List[Tuple[Image.Image, Tensor]], memory_format: torch.m
 
 
 @dataclass
-class ImagenetDatasetHparams(DatasetHparams):
+class ImagenetDatasetHparams(DatasetHparams, SyntheticBatchesHparamsMixin, DatadirHparamsMixin, DropLastHparamsMixin,
+                             ShuffleHparamsMixin, NumTotalBatchesHparamsMixin, IsTrainHparamsMixin):
     """Defines an instance of the ImageNet dataset for image classification.
     
     Parameters:
-        resize_size (int): The resize size to use.
+        resize_size (int, optional): The resize size to use. Defaults to -1 to not resize.
         crop size (int): The crop size to use.
-        is_train (bool): Whether to load the training or validation dataset.
-        datadir (str): Data directory to use.
-        drop_last (bool): Whether to drop the last samples for the last batch.
-        shuffle (bool): Whether to shuffle the dataset for each epoch.
     """
 
-    resize_size: int = hp.required("resize size")
-    crop_size: int = hp.required("crop size")
-    is_train: Optional[bool] = hp.optional(
-        "whether to load the training or validation dataset. Required if synthetic is not None.", default=None)
-    datadir: Optional[str] = hp.optional("data directory. Required if synthetic is not None.", default=None)
-    drop_last: bool = hp.optional("Whether to drop the last samples for the last batch", default=True)
-    shuffle: bool = hp.optional("Whether to shuffle the dataset for each epoch", default=True)
     synthetic: Optional[SyntheticBatchPairDatasetHparams] = hp.optional(
-        "If specified, synthetic data will be generated. The datadir argument is ignored", default=None)
-    num_total_batches: Optional[int] = hp.optional("num total batches", default=None)
+        textwrap.dedent("""Parameters to use for synthetic data generation.
+            If None (the default), then real data will be used."""),
+        default=None)
+
+    resize_size: int = hp.optional("resize size. Set to -1 to not resize", default=-1)
+    crop_size: int = hp.optional("crop size", default=224)
 
     def initialize_object(self, batch_size: int, dataloader_hparams: DataloaderHparams) -> DataloaderSpec:
 
         if self.synthetic is not None:
+            assert isinstance(self.synthetic, SyntheticBatchPairDatasetHparams)
             if self.num_total_batches is None:
                 raise ValueError("num_total_batches must be specified if using synthetic data")
             total_dataset_size = self.num_total_batches * batch_size

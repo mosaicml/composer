@@ -11,7 +11,9 @@ import composer.algorithms as algorithms
 import composer.trainer as trainer
 from composer.algorithms.scale_schedule.scale_schedule import ScaleScheduleHparams
 from composer.core.precision import Precision
-from composer.trainer.devices.device_hparams import CPUDeviceHparams
+from composer.datasets import NumTotalBatchesHparamsMixin
+from composer.datasets.hparams import SyntheticBatchesHparamsMixin
+from composer.trainer.devices import CPUDeviceHparams
 
 modeldir_path = os.path.join(os.path.dirname(composer.__file__), 'yamls', 'models')
 model_names = glob.glob(os.path.join(modeldir_path, '*.yaml'))
@@ -35,31 +37,24 @@ def test_load(model_name: str):
     trainer_hparams = trainer.load(model_name)
     trainer_hparams.precision = Precision.FP32
     trainer_hparams.algorithms = algorithms.load_multiple(*get_model_algs(model_name))
-    try:
-        trainer_hparams.train_dataset.num_total_batches = 1
-    except AttributeError:
-        pytest.xfail(f"Model {model_name} uses a train dataset that doesn't support num_total_batches")
-        raise
-
-    try:
-        train_synthetic = trainer_hparams.train_dataset.synthetic
-    except AttributeError:
-        pytest.xfail(f"Model {model_name} uses a train dataset that doesn't support synthetic data.")
-        raise
+    if not (isinstance(trainer_hparams.train_dataset, NumTotalBatchesHparamsMixin) and
+            isinstance(trainer_hparams.train_dataset, SyntheticBatchesHparamsMixin)):
+        pytest.skip(f"Model {model_name} uses a train dataset that doesn't support num_total_batches or synthetic")
+    assert isinstance(trainer_hparams.train_dataset, NumTotalBatchesHparamsMixin)
+    assert isinstance(trainer_hparams.train_dataset, SyntheticBatchesHparamsMixin)
+    trainer_hparams.train_dataset.num_total_batches = 1
+    train_synthetic = trainer_hparams.train_dataset.synthetic
     if train_synthetic is None:
         trainer_hparams.train_dataset.synthetic = trainer_hparams.train_dataset.get_synthetic_hparams_cls()()
 
-    try:
-        trainer_hparams.val_dataset.num_total_batches = 1
-    except AttributeError:
-        pytest.xfail(f"Model {model_name} uses a val dataset that doesn't support num_total_batches")
-        raise
+    if not (isinstance(trainer_hparams.val_dataset, NumTotalBatchesHparamsMixin) and
+            isinstance(trainer_hparams.val_dataset, SyntheticBatchesHparamsMixin)):
+        pytest.skip(f"Model {model_name} uses a val dataset that doesn't support num_total_batches or synthetic")
+    assert isinstance(trainer_hparams.val_dataset, NumTotalBatchesHparamsMixin)
+    assert isinstance(trainer_hparams.val_dataset, SyntheticBatchesHparamsMixin)
+    trainer_hparams.val_dataset.num_total_batches = 1
 
-    try:
-        val_synthetic = trainer_hparams.val_dataset.synthetic
-    except AttributeError:
-        pytest.xfail(f"Model {model_name} uses a val dataset that doesn't support synthetic data.")
-        raise
+    val_synthetic = trainer_hparams.val_dataset.synthetic
 
     if val_synthetic is None:
         trainer_hparams.val_dataset.synthetic = trainer_hparams.val_dataset.get_synthetic_hparams_cls()()
@@ -75,9 +70,14 @@ def test_scale_schedule_load(ssr: str):
     trainer_hparams.precision = Precision.FP32
     algs = [f"scale_schedule/{ssr}"]
     trainer_hparams.algorithms = algorithms.load_multiple(*algs)
+    assert isinstance(trainer_hparams.train_dataset, NumTotalBatchesHparamsMixin)
+    assert isinstance(trainer_hparams.train_dataset, SyntheticBatchesHparamsMixin)
     trainer_hparams.train_dataset.num_total_batches = 1
     if trainer_hparams.train_dataset.synthetic is None:
         trainer_hparams.train_dataset.synthetic = trainer_hparams.train_dataset.get_synthetic_hparams_cls()()
+
+    assert isinstance(trainer_hparams.val_dataset, NumTotalBatchesHparamsMixin)
+    assert isinstance(trainer_hparams.val_dataset, SyntheticBatchesHparamsMixin)
     trainer_hparams.val_dataset.num_total_batches = 1
     if trainer_hparams.val_dataset.synthetic is None:
         trainer_hparams.val_dataset.synthetic = trainer_hparams.val_dataset.get_synthetic_hparams_cls()()

@@ -12,7 +12,7 @@ from typing import TYPE_CHECKING, List, Optional
 import yahp as hp
 
 import composer
-import composer.datasets as datasets
+from composer import datasets
 from composer.algorithms import AlgorithmHparams, get_algorithm_registry
 from composer.callbacks import (BenchmarkerHparams, CallbackHparams, GradMonitorHparams, LRMonitorHparams,
                                 MemoryMonitorHparams, SpeedMonitorHparams, TorchProfilerHparams)
@@ -208,6 +208,10 @@ class TrainerHparams(hp.Hparams):
             AttributeError: Raised if either :attr:`train_dataset` or :attr:`val_dataset` do not
             have a ``datadir`` property.
         """
+        if not isinstance(self.train_dataset, datasets.DatadirHparamsMixin):
+            raise AttributeError("train dataset does not have the datadir attribute")
+        if not isinstance(self.val_dataset, datasets.DatadirHparamsMixin):
+            raise AttributeError("train dataset does not have the datadir attribute")
         self.train_dataset.datadir = datadir
         self.val_dataset.datadir = datadir
 

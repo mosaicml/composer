@@ -6,14 +6,10 @@ from typing import Callable, Dict, Optional, Type, cast
 
 import pytest
 
-from composer.datasets.brats import BratsDatasetHparams
-from composer.datasets.cifar10 import CIFAR10DatasetHparams
-from composer.datasets.dataloader import DataloaderHparams
-from composer.datasets.hparams import DataloaderSpec, DatasetHparams
-from composer.datasets.imagenet import ImagenetDatasetHparams
-from composer.datasets.lm_datasets import LMDatasetHparams
-from composer.datasets.mnist import MNISTDatasetHparams
-from composer.datasets.synthetic import SyntheticBatchPairDatasetHparams
+from composer.datasets import (BratsDatasetHparams, CIFAR10DatasetHparams, DataloaderHparams, DataloaderSpec,
+                               DatasetHparams, ImagenetDatasetHparams, LMDatasetHparams, MNISTDatasetHparams,
+                               NumTotalBatchesHparamsMixin, SyntheticBatchesHparamsMixin,
+                               SyntheticBatchPairDatasetHparams)
 from composer.trainer.trainer_hparams import dataset_registry
 
 # for testing, we provide values for required hparams fields
@@ -57,13 +53,18 @@ default_required_fields: Dict[Type[DatasetHparams], Callable[[], DatasetHparams]
 def test_dataset(dataset_name: str, dummy_dataloader_hparams: DataloaderHparams) -> None:
     hparams_cls = dataset_registry[dataset_name]
     hparams = default_required_fields[hparams_cls]()
-    try:
-        synthetic = hparams.synthetic
-    except AttributeError:
-        pytest.xfail(f"Dataset {dataset_name} does not support synthetic data")
-        raise
+    if not (isinstance(hparams, SyntheticBatchesHparamsMixin) and isinstance(hparams, NumTotalBatchesHparamsMixin)):
+        pytest.xfail(f"{hparams.__class__.__name__} does not support synthetic data or num_total_batchjes")
+
+    assert isinstance(hparams, SyntheticBatchesHparamsMixin)
+    assert isinstance(hparams, NumTotalBatchesHparamsMixin)
+
+    synthetic = hparams.synthetic
     if synthetic is None:
         hparams.synthetic = hparams.get_synthetic_hparams_cls()()
+
+    hparams.num_total_batches = 1
+
     dataloader = hparams.initialize_object(batch_size=1, dataloader_hparams=dummy_dataloader_hparams)
     if isinstance(dataloader, DataloaderSpec):
         dataloader = dataloader.dataloader

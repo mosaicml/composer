@@ -132,3 +132,4 @@ nitpick_ignore = [
 ]
 
 python_use_unqualified_type_names = True
+autodoc_inherit_docstrings = True

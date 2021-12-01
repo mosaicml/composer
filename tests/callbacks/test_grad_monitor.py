@@ -3,6 +3,7 @@
 from unittest.mock import MagicMock
 
 from composer.callbacks import GradMonitorHparams
+from composer.datasets import NumTotalBatchesHparamsMixin
 from composer.trainer import TrainerHparams
 
 
@@ -18,6 +19,7 @@ def _do_trainer_fit(mosaic_trainer_hparams: TrainerHparams, log_layers=False):
     trainer.logger.backends = [log_destination]
     trainer.fit()
 
+    assert isinstance(mosaic_trainer_hparams.train_dataset, NumTotalBatchesHparamsMixin)
     num_train_steps = mosaic_trainer_hparams.train_dataset.num_total_batches
 
     return log_destination, num_train_steps

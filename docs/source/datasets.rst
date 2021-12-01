@@ -30,9 +30,15 @@ Base Classes and Hyperparameters
     :toctree: generated
     :nosignatures:
 
-    DataloaderHparams
     DataloaderSpec
     DatasetHparams
+    DatadirHparamsMixin
+    SyntheticBatchesHparamsMixin
+    ShuffleHparamsMixin
+    DropLastHparamsMixin
+    NumTotalBatchesHparamsMixin
+    IsTrainHparamsMixin
+
 
 Datasets
 --------
@@ -45,7 +51,5 @@ Datasets
     CIFAR10DatasetHparams
     ImagenetDatasetHparams
     LMDatasetHparams
-    SyntheticDatasetHparams
+    SyntheticBatchPairDatasetHparams
     BratsDatasetHparams
-
-

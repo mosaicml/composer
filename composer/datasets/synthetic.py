@@ -7,6 +7,7 @@ import torch
 import torch.utils.data
 import yahp as hp
 
+from composer.core.types import MemoryFormat
 from composer.utils.string_enum import StringEnum
 
 
@@ -19,13 +20,6 @@ class SyntheticDataLabelType(StringEnum):
     CLASSIFICATION_INT = "classification_int"
     CLASSIFICATION_ONE_HOT = "classification_one_hot"
     RANDOM_INT = "random_int"
-
-
-class MemoryFormat(StringEnum):
-    CONTIGUOUS_FORMAT = "contiguous_format"
-    CHANNELS_LAST = "channels_last"
-    CHANNELS_LAST_3D = "channels_last_3d"
-    PRESERVE_FORMAT = "preserve_format"
 
 
 class SyntheticBatchPairDataset(torch.utils.data.Dataset):
