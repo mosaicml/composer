@@ -206,15 +206,15 @@ class Trainer:
         find_unused_parameters = any(map(lambda x: x.find_unused_parameters, algorithms))
 
         self.find_unused_parameters = find_unused_parameters
-        if ddp_sync_strategy is None:
-            self.ddp_sync_strategy = ddp.DDPSyncStrategy.SINGLE_AUTO_SYNC if not find_unused_parameters else ddp.DDPSyncStrategy.FORCED_SYNC
-        else:
-            self.ddp_sync_strategy = ddp.DDPSyncStrategy(ddp_sync_strategy)
 
         if self.deepspeed_enabled:
             deepspeed.init_distributed()
         else:
             ddp.initialize_ddp(device.ddp_backend, datetime.timedelta(seconds=ddp_timeout))
+            if ddp_sync_strategy is None:
+                self.ddp_sync_strategy = ddp.DDPSyncStrategy.SINGLE_AUTO_SYNC if not find_unused_parameters else ddp.DDPSyncStrategy.FORCED_SYNC
+            else:
+                self.ddp_sync_strategy = ddp.DDPSyncStrategy(ddp_sync_strategy)
 
         dl_hparams = DataloaderHparams(num_workers=num_workers,
                                        prefetch_factor=prefetch_factor,
@@ -706,7 +706,9 @@ class Trainer:
 
         for microbatch_idx, state.batch in enumerate(microbatches):
             is_final_microbatch = microbatch_idx + 1 == len(microbatches)
-            with ddp.sync_context(state, is_final_microbatch, self.ddp_sync_strategy):
+            sync_context = contextlib.nullcontext() if self.deepspeed_enabled else ddp.sync_context(
+                state, is_final_microbatch, self.ddp_sync_strategy)
+            with sync_context:
                 last_microbatch_size = self._get_batch_size(state.batch)
 
                 # forward pass
