@@ -18,7 +18,6 @@ from torchmetrics.regression.spearman import SpearmanCorrcoef
 from composer.core.types import Metrics
 from composer.datasets.dataset_registry import get_dataset_registry
 from composer.datasets.hparams import DataloaderSpec, DatasetHparams
-
 from composer.models.loss import CrossEntropyLoss
 
 log = logging.getLogger(__name__)

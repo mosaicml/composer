@@ -21,7 +21,7 @@ from torchmetrics.metric import Metric
 from composer.core import Callback, Engine, Event, Logger, State
 from composer.core.algorithm import Algorithm
 from composer.core.logging import BaseLoggerBackend, LogLevel
-from composer.core.types import Batch, BreakEpochException, Metrics, Precision, Tensor, Evaluator
+from composer.core.types import Batch, BreakEpochException, Evaluator, Metrics, Precision, Tensor
 from composer.datasets import DataloaderHparams, DataloaderSpec
 from composer.datasets.evaluator import EvaluatorSpec
 from composer.loggers.tqdm_logger import TQDMLoggerBackend
@@ -340,7 +340,13 @@ class Trainer:
         else:
             eval_dl_spec = None
 
-        evaluator_specs = [evaluator_spec.initialize_object() for evaluator_spec in hparams.evaluators]
+        if hparams.evaluators:
+            evaluator_specs = [evaluator_spec.initialize_object() for evaluator_spec in hparams.evaluators]
+        else:
+            evaluator_specs = None
+
+        if evaluator_specs is None and eval_dl_spec is None:
+            raise ValueError("both hparams.evaluators and eval_dl_spec are None")
 
         trainer = cls(
             model=model,

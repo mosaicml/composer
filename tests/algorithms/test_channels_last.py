@@ -7,7 +7,7 @@ import torch
 from composer.algorithms import ChannelsLastHparams
 from composer.core.event import Event
 from composer.core.state import State
-from composer.core.types import DataLoader, Model, Precision, Tensor, Evaluator
+from composer.core.types import DataLoader, Evaluator, Model, Precision, Tensor
 
 
 def _has_singleton_dimension(tensor: Tensor) -> bool:

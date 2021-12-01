@@ -8,7 +8,7 @@ import torch
 import torch.utils.data
 
 from composer import Logger, State
-from composer.core.types import DataLoader, Model, Precision, Evaluator
+from composer.core.types import DataLoader, Evaluator, Model, Precision
 from composer.datasets import DataloaderHparams, DataloaderSpec, DatasetHparams, SyntheticDatasetHparams
 from composer.models import ModelHparams, MosaicClassifier
 from composer.optim import AdamHparams, ExponentialLRHparams
