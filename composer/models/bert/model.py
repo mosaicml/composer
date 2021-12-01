@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING, Mapping
 from composer.models.transformer_shared import MosaicTransformer
 
 if TYPE_CHECKING:
-    from composer.core.types import Batch, Tensors
+    from composer.core.types import Batch, Metrics, Tensors
 
 
 class BERTModel(MosaicTransformer):
@@ -18,6 +18,6 @@ class BERTModel(MosaicTransformer):
             return outputs['loss']
         else:
             raise NotImplementedError('Calculating loss directly not supported yet.')
-        
 
-    # TODO (Moin): implement metrics for the validation set
+    def metrics(self, train: bool = False) -> Metrics:
+        return self.train_loss if train else self.val_loss

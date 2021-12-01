@@ -10,7 +10,7 @@ from composer.datasets.hparams import DataloaderSpec, DatasetHparams
 log = logging.getLogger(__name__)
 
 
-class SST2(DatasetHparams):
+class SST2Hparams(DatasetHparams):
     tokenizer_name: str = hp.required("The name of the tokenizer to preprocess text with.")
     split: str = hp.required("Whether to use 'train', 'validation' or 'test' split.")
     use_masked_lm: bool = hp.required("Whether the dataset shoud be encoded with masked language modeling or not.")
