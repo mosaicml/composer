@@ -24,9 +24,8 @@ from composer.models import (CIFARResNetHparams, EfficientNetB0Hparams, GPT2Hpar
                              ModelHparams, ResNet18Hparams, ResNet50Hparams, ResNet101Hparams, UnetHparams)
 from composer.optim import (AdamHparams, AdamWHparams, DecoupledAdamWHparams, DecoupledSGDWHparams, OptimizerHparams,
                             RAdamHparams, RMSPropHparams, SchedulerHparams, SGDHparams, scheduler)
-from composer.trainer.ddp import DDPHparams
 from composer.trainer.devices import CPUDeviceHparams, DeviceHparams, GPUDeviceHparams
-from composer.utils.ddp import get_world_size
+from composer.utils import ddp
 
 if TYPE_CHECKING:
     from composer.trainer.trainer import Trainer
@@ -143,7 +142,11 @@ class TrainerHparams(hp.Hparams):
         "Determines the number of microbatches to split a per-gpu batch into, used to compensate for low-memory-capacity devices."
     )
     precision: Precision = hp.required(doc="Precision to use for training", template_default=Precision.AMP)
-    ddp: DDPHparams = hp.optional(doc="DDP configuration", default_factory=DDPHparams)
+    ddp_sync_strategy: Optional[ddp.DDPSyncStrategy] = hp.optional(
+        doc="The strategy for synchronizing DDP. Default value ``None`` causes the "
+        "trainer to auto-select a value depending on what algorithms are used.",
+        default=None)
+    ddp_timeout: float = hp.optional(doc="Timeout, in seconds, for initializing the DDP process group.", default=5.0)
 
     grad_clip_norm: Optional[float] = hp.optional(
         default=None, doc='the norm to clip gradient magnitudes to. Default: None (no clip)')
@@ -178,12 +181,10 @@ class TrainerHparams(hp.Hparams):
     compute_training_metrics: bool = hp.optional(doc="Log validation metrics on training data", default=False)
     log_level: str = hp.optional(doc="Python loglevel to use composer", default="INFO")
 
-    ddp_sync_strategy: Optional[str] = hp.optional(doc="Strategy for DDP syncing", default=None)
-
     def validate(self):
         super().validate()
 
-        world_size = get_world_size()
+        world_size = ddp.get_world_size()
 
         if self.total_batch_size % world_size != 0:
             raise ValueError(

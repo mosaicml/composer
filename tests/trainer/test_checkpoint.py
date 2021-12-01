@@ -1,6 +1,5 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
-import functools
 import os
 import random
 from logging import Logger
@@ -15,11 +14,11 @@ from composer.callbacks.callback_hparams import CallbackHparams
 from composer.core.callback import Callback
 from composer.core.event import Event
 from composer.core.state import State
-from composer.core.types import StateDict
+from composer.core.types import Logger, StateDict
 from composer.trainer.devices import CPUDeviceHparams, DeviceHparams, GPUDeviceHparams
 from composer.trainer.trainer import Trainer
 from composer.trainer.trainer_hparams import TrainerHparams, callback_registry
-from composer.utils.ddp import is_rank_zero
+from composer.utils import ddp
 from tests.test_state import assert_state_equivalent
 from tests.utils.deep_compare import deep_compare
 
@@ -52,9 +51,8 @@ class EventCounterCallback(Callback):
 
         for event in Event:
             self.event_to_num_calls[event] = 0
-            setattr(self, event.value, functools.partial(self._event_catchall, event=event))
 
-    def _event_catchall(self, state: State, logger: Logger, event: Event):
+    def _run_event(self, event: Event, state: State, logger: Logger):
         if event == Event.TRAINING_START:
             # ignoring training start as it is called once per startup
             # and the states otherwise won't match
@@ -175,7 +173,7 @@ def test_checkpoint(
     checkpoint_c_file_path = os.path.join(checkpoint_b_folder, final_checkpoint)
     trainer_2_hparams_filepath = os.path.join(checkpoint_b_folder, "hparams.yaml")
 
-    if is_rank_zero():
+    if ddp.get_global_rank() == 0:
 
         assert_checkpoints_equivalent(
             hparams_file_a=trainer_1_hparams_filepath,

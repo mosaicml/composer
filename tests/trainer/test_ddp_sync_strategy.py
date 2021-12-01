@@ -7,8 +7,8 @@ import torch
 import torch.nn as nn
 
 from composer.core.state import State
-from composer.core.types import Tensor
-from composer.trainer.ddp import DDP
+from composer.core.types import DataLoader, Tensor
+from composer.utils import ddp
 
 
 class MinimalConditionalModel(nn.Module):
@@ -44,9 +44,10 @@ class MinimalConditionalModel(nn.Module):
     pytest.param('forced_sync', ([-1, None, None], [-1, -1, None], [-1.5, -1.5, None]), id='forced_sync'),
 ])
 @pytest.mark.world_size(2)
-def test_ddp_sync_strategy(ddp_sync_strategy: str, expected_grads: List[Optional[float]]):
+def test_ddp_sync_strategy(ddp_sync_strategy: str, expected_grads: List[Optional[float]],
+                           dummy_train_dataloader: DataLoader, dummy_val_dataloader: DataLoader):
     original_model = MinimalConditionalModel()
-    ddp = DDP(backend="gloo", find_unused_parameters=True, sync_strategy=ddp_sync_strategy, timeout=5.)
+    # ddp = DDP(backend="gloo", find_unused_parameters=True, sync_strategy=ddp_sync_strategy, timeout=5.)
     optimizer = torch.optim.SGD(original_model.parameters(), 0.1)
 
     state = State(model=original_model,
@@ -55,27 +56,29 @@ def test_ddp_sync_strategy(ddp_sync_strategy: str, expected_grads: List[Optional
                   eval_batch_size=1,
                   grad_accum=2,
                   max_epochs=1,
+                  train_dataloader=dummy_train_dataloader,
+                  eval_dataloader=dummy_val_dataloader,
                   precision='fp32')
 
     batches = [[(1, Tensor([1])), (1, Tensor([2]))], [(2, Tensor([1])), (2, Tensor([2]))]]
-    state.model = ddp.prepare_module(state.model)
+    state.model = ddp.prepare_module(state.model, find_unused_parameters=True)
     optimizer.zero_grad()
 
     for microbatch_idx in range(2):
-        with ddp.sync_context(state, microbatch_idx == 1):
-            input, target = batches[microbatch_idx][state.local_rank]
+        with ddp.sync_context(state, microbatch_idx == 1, sync_strategy=ddp_sync_strategy):
+            input, target = batches[microbatch_idx][ddp.get_local_rank()]
 
             output = state.model.forward(input)
             loss = original_model.loss(output, target)
             loss.mul_(1 / 2)
             loss.backward()
 
-            if state.is_rank_zero:
+            if ddp.get_global_rank() == 0:
                 grads = [p.grad.item() if p.grad else None for p in original_model.parameters()]
                 for expected, actual in zip(expected_grads[microbatch_idx], grads):  # type: ignore
                     assert expected == actual
 
-    if state.is_rank_zero:
+    if ddp.get_global_rank() == 0:
         grads = [p.grad.item() if p.grad else None for p in original_model.parameters()]
         for expected, actual in zip(expected_grads[-1], grads):  # type: ignore
             assert expected == actual

@@ -2,13 +2,15 @@
 
 from __future__ import annotations
 
+import warnings
 from dataclasses import dataclass
-from typing import Any, Iterator
+from typing import Any, Iterator, Optional
 
 import torch
 import torch.distributed
 import torch.utils.data
 import yahp as hp
+from torch.utils.data.distributed import DistributedSampler
 from torch.utils.data.sampler import Sampler
 
 from composer.core.types import Batch, DataLoader
@@ -42,6 +44,44 @@ class WrappedDataLoader(DataLoader):
                                             "timeout", "sampler", "prefetch_factor", "dataloader"):
             raise RuntimeError(f"Property {name} cannot be set after initialization in a DataLoader")
         return super().__setattr__(name, value)
+
+
+class DDPDataLoader(WrappedDataLoader):
+    """Ensure sampler.set_epoch() is called after each iteration.
+
+    DDPDataLoader wraps a dataloader and a distributed sampler and is
+    called after each iteration (epoch) through the dataset.
+    See: https://pytorch.org/docs/stable/data.html#torch.utils.data.distributed.DistributedSampler
+    """
+
+    def __init__(self, dataloader: DataLoader) -> None:
+        super().__init__(dataloader)
+        if not isinstance(self.dataloader.sampler, DistributedSampler):
+            raise ValueError("When using the DDP data loader, the sampler must be a DistributedSampler")
+        self._iterator: Optional[Iterator[Batch]] = None
+
+    def __iter__(self) -> DDPDataLoader:
+        if self._iterator is not None:
+            warnings.warn(
+                "DataloaderMultipleIterationWarning: "
+                "The dataloader detected the start of a new iteration before the previous iteration finished. "
+                "The dataloader is skipping ahead to the start of the next epoch. "
+                "Multiple simultaneous iterations through the DDP dataloader prohibited, since "
+                "it automatically tracks the current epoch.")
+            assert isinstance(self.sampler, DistributedSampler)
+            self.sampler.set_epoch(epoch=self.sampler.epoch + 1)
+        self._iterator = iter(self.dataloader)
+        return self
+
+    def __next__(self) -> Batch:
+        assert self._iterator is not None
+        try:
+            return next(self._iterator)
+        except StopIteration:
+            self._iterator = None
+            assert isinstance(self.sampler, DistributedSampler)
+            self.sampler.set_epoch(epoch=self.sampler.epoch + 1)
+            raise
 
 
 @dataclass

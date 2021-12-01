@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import collections.abc
 import contextlib
+import datetime
 import logging
 import warnings
 from typing import Any, Dict, List, Optional, Sequence, Union
@@ -28,12 +29,11 @@ from composer.optim import (ComposedScheduler, CosineAnnealingLRHparams, Decoupl
                             SchedulerHparams, WarmUpLRHparams)
 from composer.optim.scheduler import ensure_warmup_last
 from composer.trainer.checkpoint import Checkpointer, CheckpointLoader
-from composer.trainer.ddp import DDP, DataloaderMultipleIterationWarning
 from composer.trainer.devices.device import Device
 from composer.trainer.devices.device_cpu import DeviceCPU
 from composer.trainer.scaler import ClosureGradScaler
 from composer.trainer.trainer_hparams import TrainerHparams
-from composer.utils import ensure_tuple, get_random_seed, map_collection, seed_all
+from composer.utils import ddp, ensure_tuple, get_random_seed, map_collection, seed_all
 from composer.utils.run_directory import get_relative_to_run_directory
 
 log = logging.getLogger(__name__)
@@ -149,7 +149,7 @@ class Trainer:
             timeout: int = 0,
 
             # ddp hparams
-            ddp_sync_strategy: Optional[str] = None,
+            ddp_sync_strategy: Optional[Union[str, ddp.DDPSyncStrategy]] = None,
             ddp_timeout: float = 5.0,
 
             # Randomness
@@ -174,11 +174,10 @@ class Trainer:
 
         self.config = config
 
-        self.ddp_sync_strategy = ddp_sync_strategy
-
         if not device:
             device = DeviceCPU()
         self.device = device
+        self.device.prepare()
 
         if not seed:
             # Set a deterministic seed in the hparams
@@ -196,22 +195,48 @@ class Trainer:
         self.backwards_create_graph = any(map(lambda x: x.backwards_create_graph, algorithms))
 
         find_unused_parameters = any(map(lambda x: x.find_unused_parameters, algorithms))
-        self.ddp = DDP(
-            backend=self.device.ddp_backend,
-            find_unused_parameters=find_unused_parameters,
-            sync_strategy=ddp_sync_strategy,
-            timeout=ddp_timeout,
-        )
 
-        self.state = State(max_epochs=max_epochs,
-                           train_batch_size=train_batch_size,
-                           eval_batch_size=eval_batch_size,
-                           algorithms=algorithms,
-                           callbacks=callbacks,
-                           model=model,
-                           grad_accum=grad_accum,
-                           precision=precision,
-                           precision_context=self.device.precision_context)
+        self.find_unused_parameters = find_unused_parameters
+        if ddp_sync_strategy is None:
+            self.ddp_sync_strategy = ddp.DDPSyncStrategy.SINGLE_AUTO_SYNC if not find_unused_parameters else ddp.DDPSyncStrategy.FORCED_SYNC
+        else:
+            self.ddp_sync_strategy = ddp.DDPSyncStrategy(ddp_sync_strategy)
+
+        ddp.initialize_ddp(device.ddp_backend, datetime.timedelta(seconds=ddp_timeout))
+
+        dl_hparams = DataloaderHparams(num_workers=num_workers,
+                                       prefetch_factor=prefetch_factor,
+                                       persistent_workers=persistent_workers,
+                                       pin_memory=pin_memory,
+                                       timeout=timeout)
+
+        train_gpu_batch_size = train_batch_size // ddp.get_world_size()
+        train_dataloader = self.device.dataloader_to_device(
+            ddp.create_dataloader(train_gpu_batch_size, dl_hparams, train_dataloader_spec),
+            train_dataloader_spec.prefetch_fn,
+        )
+        self.train_dl_spec = train_dataloader_spec
+
+        eval_gpu_batch_size = eval_batch_size // ddp.get_world_size()
+        eval_dataloader = self.device.dataloader_to_device(
+            ddp.create_dataloader(eval_gpu_batch_size, dl_hparams, eval_dataloader_spec),
+            eval_dataloader_spec.prefetch_fn,
+        )
+        self.eval_dl_spec = eval_dataloader_spec
+
+        self.state = State(
+            max_epochs=max_epochs,
+            train_batch_size=train_batch_size,
+            eval_batch_size=eval_batch_size,
+            algorithms=algorithms,
+            callbacks=callbacks,
+            model=model,
+            grad_accum=grad_accum,
+            precision=precision,
+            precision_context=self.device.precision_context,
+            train_dataloader=train_dataloader,
+            eval_dataloader=eval_dataloader,
+        )
 
         if not log_destinations:
             log_destinations = [TQDMLoggerBackend()]
@@ -219,15 +244,6 @@ class Trainer:
         self.state.callbacks = [*log_destinations, *callbacks]
 
         self.engine = Engine(self.state, self.state.algorithms, self.logger, self.state.callbacks)
-
-        self.train_dl_spec = train_dataloader_spec
-        self.eval_dl_spec = eval_dataloader_spec
-
-        self.dl_hparams = DataloaderHparams(num_workers=num_workers,
-                                            prefetch_factor=prefetch_factor,
-                                            persistent_workers=persistent_workers,
-                                            pin_memory=pin_memory,
-                                            timeout=timeout)
 
         self.validate_every_n_batches = validate_every_n_batches
         self.validate_every_n_epochs = validate_every_n_epochs
@@ -243,8 +259,8 @@ class Trainer:
         # run INIT event before optimizers and schedulers are created
         self.engine.run_event(Event.INIT)
 
-        assert isinstance(self.train_dl_spec.dataset, collections.abc.Sized)
-        steps_per_epoch = len(self.train_dl_spec.dataset) // train_batch_size
+        assert isinstance(self.state.train_dataloader.dataset, collections.abc.Sized)
+        steps_per_epoch = len(self.state.train_dataloader.dataset) // train_batch_size
         # Need to use hparams here because optimizer and schedulers need to be created after Event.INIT
         if not optimizer_hparams:
             optimizer_hparams = DecoupledSGDWHparams(lr=0.1, momentum=0.9, weight_decay=1.0e-4)
@@ -329,8 +345,8 @@ class Trainer:
             timeout=hparams.dataloader.timeout,
 
             # ddp hparams
-            ddp_sync_strategy=hparams.ddp.sync_strategy,
-            ddp_timeout=hparams.ddp.timeout,
+            ddp_sync_strategy=hparams.ddp_sync_strategy,
+            ddp_timeout=hparams.ddp_timeout,
 
             # Randomness
             seed=seed,
@@ -353,7 +369,10 @@ class Trainer:
 
     def fit(self):
         """Train and evaluate the model on the provided data."""
-        self._train_loop()
+        try:
+            self._train_loop()
+        finally:
+            self.engine.close()
 
     def _create_dataloaders(self) -> None:
         """Create the dataloaders.
@@ -365,21 +384,6 @@ class Trainer:
         state = self.state
 
         # compute per gpu batch size
-        train_gpu_batch_size = state.train_batch_size // state.world_size
-        eval_gpu_batch_size = state.eval_batch_size // state.world_size
-
-        train_dataloader = self.ddp.create_dataloader(train_gpu_batch_size, self.dl_hparams, self.train_dl_spec)
-        eval_dataloader = self.ddp.create_dataloader(eval_gpu_batch_size, self.dl_hparams, self.eval_dl_spec)
-
-        # move to device
-        state.train_dataloader = self.device.dataloader_to_device(
-            train_dataloader,
-            self.train_dl_spec.prefetch_fn,
-        )
-        state.eval_dataloader = self.device.dataloader_to_device(
-            eval_dataloader,
-            self.eval_dl_spec.prefetch_fn,
-        )
 
     def _get_metrics_as_collection(self, *, is_train: bool) -> MetricCollection:
         """Get metrics relevant to the model. Metrics are all implemented as subclasses
@@ -433,7 +437,7 @@ class Trainer:
         not be completely iterated through.
         """
         # surpressing this multiple iteration warning -- it is OK to ignore
-        warnings.simplefilter(action="ignore", category=DataloaderMultipleIterationWarning, append=True)
+        warnings.filterwarnings(action="ignore", message=r"^DataloaderMultipleIterationWarning", append=True)
         assert self.state.train_dataloader is not None, "train dataloader should be set"
         assert self.state.eval_dataloader is not None, "eval dataloader should be set"
 
@@ -473,17 +477,11 @@ class Trainer:
         assert state.optimizers is not None
         assert state.schedulers is not None
         # place the state, model in the proper devices
-        self.device.prepare(state)
         state.model = self.device.module_to_device(state.model)
         state.optimizers = map_collection(state.optimizers, self.device.optimizer_to_device)
 
-        # create dataloaders here after distributed training has started
-        self._create_dataloaders()
-        if state.train_dataloader is None or state.eval_dataloader is None:
-            raise ValueError('Dataloaders were not created properly, and are None.')
-
         # wrap model with DDP
-        state.model = self.ddp.prepare_module(state.model)
+        state.model = ddp.prepare_module(state.model, self.find_unused_parameters)
         original_model = state.model.module
         assert isinstance(original_model, BaseMosaicModel)
 
@@ -507,12 +505,12 @@ class Trainer:
             def _ddp_reduce_scalar_and(flag: bool) -> bool:
                 value = 1 if flag else 0
                 flag_tensor = self.device.tensor_to_device(torch.tensor(value).int())
-                self.ddp.all_reduce(flag_tensor, reduce_operation='PRODUCT')
+                ddp.all_reduce(flag_tensor, reduce_operation='PRODUCT')
                 return flag_tensor.item() == 1
 
             def _ddp_reduce_tensor_sum(tensor: Tensor) -> Tensor:
                 # Happens in-place; that's fine
-                self.ddp.all_reduce(tensor, reduce_operation="SUM")
+                ddp.all_reduce(tensor, reduce_operation="SUM")
                 return tensor
 
             state.scaler = ClosureGradScaler(ddp_reduce_scalar_and=_ddp_reduce_scalar_and,
@@ -593,10 +591,10 @@ class Trainer:
                         assert isinstance(total_loss, Tensor)
 
                         # total_loss can be None if gradient scaling failed
-                        self.ddp.all_reduce(total_loss, reduce_operation="SUM")
-                        self.ddp.barrier()
+                        ddp.all_reduce(total_loss, reduce_operation="SUM")
+                        ddp.barrier()
                         full_loss = total_loss.cpu().item()
-                        self.logger.metric_batch({'loss/train': full_loss / state.world_size})
+                        self.logger.metric_batch({'loss/train': full_loss / ddp.get_world_size()})
 
                     if self.compute_training_metrics:
                         self._compute_and_log_metrics(train_metrics, is_train=True, is_batch=True)
@@ -613,7 +611,6 @@ class Trainer:
                         self.checkpointer.save_checkpoint(state=state,
                                                           seed=self.seed,
                                                           device=self.device,
-                                                          ddp=self.ddp,
                                                           config=self.config)
             except BreakEpochException:
                 log.info(f'Skipping the rest of Epoch {state.epoch}')
@@ -627,11 +624,7 @@ class Trainer:
             state.epoch += 1
 
             if self.checkpointer and self.checkpointer.should_checkpoint(state=state, event=Event.EPOCH_END):
-                self.checkpointer.save_checkpoint(state=state,
-                                                  seed=self.seed,
-                                                  device=self.device,
-                                                  ddp=self.ddp,
-                                                  config=self.config)
+                self.checkpointer.save_checkpoint(state=state, seed=self.seed, device=self.device, config=self.config)
 
         self.engine.run_event(Event.TRAINING_END)
 
@@ -678,7 +671,7 @@ class Trainer:
 
         for microbatch_idx, state.batch in enumerate(microbatches):
             is_final_microbatch = microbatch_idx + 1 == len(microbatches)
-            with self.ddp.sync_context(state, is_final_microbatch):
+            with ddp.sync_context(state, is_final_microbatch, self.ddp_sync_strategy):
                 last_microbatch_size = self._get_batch_size(state.batch)
 
                 # forward pass
