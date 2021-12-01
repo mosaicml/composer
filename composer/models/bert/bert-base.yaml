@@ -2,8 +2,8 @@ train_dataset:
   lm:
     split: train
     datadir:
-      - /localdisk/wikipedia_saved
-      - /localdisk/bookscorpus_saved
+      - /mnt/gcp/datasets/wikipedia_saved_bert_128
+      - /mnt/gcp/datasets/bookcorpus_saved_bert_128
     tokenizer_name: bert-base-uncased
     seed: 19
     shuffle: false
@@ -11,14 +11,14 @@ train_dataset:
     subsample_ratio: 1.0
     use_masked_lm: true
     mlm_probability: 0.15
-    train_sequence_length: 512
-    val_sequence_length: 512
+    train_sequence_length: 128 
+    val_sequence_length: 128 
 val_dataset:
   lm:
     split: validation
     datadir:
-      - /localdisk/wikipedia_saved
-      - /localdisk/bookscorpus_saved
+      - /mnt/gcp/datasets/wikipedia_saved_bert_128
+      - /mnt/gcp/datasets/bookcorpus_saved_bert_128
     tokenizer_name: bert-base-uncased
     seed: 19
     shuffle: false
@@ -26,8 +26,8 @@ val_dataset:
     subsample_ratio: 1.0
     use_masked_lm: true
     mlm_probability: 0.15
-    train_sequence_length: 512
-    val_sequence_length: 512
+    train_sequence_length: 128 
+    val_sequence_length: 128 
 model:
   bert:
     use_pretrained: false
@@ -65,8 +65,8 @@ loggers:
       name: bert-base
       extra_init_params: {}
 max_epochs: 1
-total_batch_size: 4096 
-eval_batch_size: 4096
+total_batch_size: 2000 
+eval_batch_size: 2000
 seed: 19
 device:
   gpu:
@@ -78,6 +78,6 @@ dataloader:
   num_workers: 8
   timeout: 0
   prefetch_factor: 2
-grad_accum: 24
+grad_accum: 1
 precision: amp
 grad_clip_norm: None
