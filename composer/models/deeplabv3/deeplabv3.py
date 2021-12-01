@@ -35,7 +35,17 @@ class DeepLabv3(BaseMosaicModel):
         super().__init__()
         self.hparams = hparams
         self.model = deeplabv3_resnet50(False, progress=False, num_classes=self.hparams.num_classes, aux_loss=False)
-        self.model.classifier[0].project[3] = torch.nn.Identity()  # replace dropout with identity
+        # replace 1x1 conv with 3x3 conv
+        conv_to_replace = self.model.classifier[0].project[0]
+        self.model.classifier[0].project[0] = torch.nn.Conv2d(conv_to_replace.in_channels,
+                                                              conv_to_replace.out_channels,
+                                                              kernel_size=3,
+                                                              stride=1,
+                                                              padding=1,
+                                                              bias=False)
+        # remove dropout
+        self.model.classifier[0].project[3] = torch.nn.Identity()
+        # remove 3x3 conv
         self.model.classifier[1] = torch.nn.Identity()
         self.model.classifier[2] = torch.nn.Identity()
         self.model.classifier[3] = torch.nn.Identity()
