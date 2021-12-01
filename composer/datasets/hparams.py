@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import dataclasses
 from abc import ABC, abstractmethod
-from typing import Callable, List, NamedTuple, Optional, Sequence, Set, Type, Union, get_type_hints
+from typing import Any, Callable, List, NamedTuple, Optional, Sequence, Type, Union, get_type_hints
 
 import yahp as hp
 from yahp.utils.type_helpers import HparamsType
@@ -55,25 +55,62 @@ class DatasetHparams(hp.Hparams, ABC):
     dataset that does not depend on the real dataset.
     """
 
-    # declaring default values without type annotations for these common fields
-    # This ensure that they are not registered as fields in the dataclass, but they register in Pyright
-    synthetic = None  # type: Optional[hp.Hparams]
-    num_total_batches = None  # type: Optional[int]
-    shuffle = False  # type: bool
-    drop_last = False  # type: bool
-    datadir = ""  # type: str
+    def _common_field_getter(self, field_name: str) -> Any:
+        if not hasattr(self, "_common_field_values"):
+            self._common_field_values = {}
+        try:
+            return self._common_field_values[field_name]
+        except KeyError as e:
+            raise AttributeError(f"Dataset {self.__class__.__name__} does not support {field_name}") from e
 
-    def __post_init__(self):
-        # Ensure that NotImplementedErrors are raised when attempting to use these common fields on unsupported datasets
-        fields = dataclasses.fields(self)
-        common_fields = ["synthetic", "num_total_batches", "shuffle", "drop_last", "datadir"]
-        field_names: Set[str] = set(f.name for f in fields)
-        for common_field in common_fields:
-            if common_field not in field_names:
-                def handler(field_name=common_field, *args, **kwargs):
-                    del args, kwargs  # unused
-                    raise AttributeError(f"Dataset {self.__class__.__name__} does not support {field_name}")
-                setattr(self, common_field, property(fget=handler, fset=handler, fdel=lambda x: None, doc=common_field))
+    def _common_field_setter(self, field_name: str, val: Any) -> Any:
+        dataclass_field_names = list(f.name for f in dataclasses.fields(self))
+        if not hasattr(self, "_common_field_values"):
+            self._common_field_values = {}
+        if field_name in dataclass_field_names:
+            self._common_field_values[field_name] = val
+            return
+        raise AttributeError(f"Dataset {self.__class__.__name__} does not support {field_name}")
+
+    @property
+    def synthetic(self) -> Optional[hp.Hparams]:
+        return self._common_field_getter("synthetic")
+
+    @synthetic.setter
+    def synthetic(self, val: Optional[hp.Hparams]):
+        self._common_field_setter("synthetic", val)
+
+    @property
+    def num_total_batches(self) -> Optional[int]:
+        return self._common_field_getter("num_total_batches")
+
+    @num_total_batches.setter
+    def num_total_batches(self, val: Optional[int]):
+        self._common_field_setter("num_total_batches", val)
+
+    @property
+    def shuffle(self) -> bool:
+        return self._common_field_getter("shuffle")
+
+    @shuffle.setter
+    def shuffle(self, val: bool):
+        self._common_field_setter("shuffle", val)
+
+    @property
+    def drop_last(self) -> bool:
+        return self._common_field_getter("drop_last")
+
+    @drop_last.setter
+    def drop_last(self, val: bool):
+        self._common_field_setter("drop_last", val)
+
+    @property
+    def datadir(self) -> str:
+        return self._common_field_getter("datadir")
+
+    @datadir.setter
+    def datadir(self, val: str):
+        self._common_field_setter("datadir", val)
 
     @classmethod
     def get_synthetic_hparams_cls(cls) -> Type[hp.Hparams]:

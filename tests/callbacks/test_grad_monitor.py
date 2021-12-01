@@ -18,7 +18,7 @@ def _do_trainer_fit(mosaic_trainer_hparams: TrainerHparams, log_layers=False):
     trainer.logger.backends = [log_destination]
     trainer.fit()
 
-    num_train_steps = mosaic_trainer_hparams.train_dataset.get_num_total_batches()
+    num_train_steps = mosaic_trainer_hparams.train_dataset.num_total_batches
 
     return log_destination, num_train_steps
 
