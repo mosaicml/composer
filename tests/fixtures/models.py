@@ -95,7 +95,7 @@ class _SimpleDatasetHparams(DatasetHparams):
 @dataclass
 class _SimpleBatchPairModelHparams(ModelHparams):
     in_shape: List[int] = hp.optional("shape for a single input", default_factory=lambda: [10])
-    num_classes: int = hp.optional("number of output classes", default=3)
+    num_classes: int = hp.optional("number of output classes", default=10)
 
     def initialize_object(self) -> SimpleBatchPairModel:
         return SimpleBatchPairModel(
