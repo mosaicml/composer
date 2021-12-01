@@ -23,7 +23,7 @@ def _do_trainer_fit(mosaic_trainer_hparams: TrainerHparams, testing_with_gpu: bo
 
     # Default model uses CPU
     if testing_with_gpu:
-        trainer.device = DeviceGPU(True)
+        trainer.device = DeviceGPU()
 
     log_destination = MagicMock()
     log_destination.will_log.return_value = True

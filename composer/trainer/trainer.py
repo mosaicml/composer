@@ -158,7 +158,6 @@ class Trainer:
         if not device:
             device = DeviceCPU()
         self.device = device
-        self.device.prepare()
 
         if not seed:
             # Set a deterministic seed in the hparams
