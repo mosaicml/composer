@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import atexit
 import os
 import sys
 from typing import Any, Dict, Optional
@@ -49,7 +48,6 @@ class WandBLoggerBackend(RankZeroLoggerBackend):
     def init(self, state: State, logger: Logger) -> None:
         del state, logger  # unused
         wandb.init(**self._init_params)
-        atexit.register(self._close_wandb)
 
     def batch_end(self, state: State, logger: Logger) -> None:
         del logger  # unused
@@ -85,7 +83,8 @@ class WandBLoggerBackend(RankZeroLoggerBackend):
                     artifact.add_file(full_path)
                 wandb.log_artifact(artifact)
 
-    def _close_wandb(self) -> None:
+    def post_close(self) -> None:
+        # Cleaning up on post_close so all artifacts are uploaded
         if self._log_artifacts:
             self._upload_artifacts()
 
