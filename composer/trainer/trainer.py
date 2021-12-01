@@ -9,7 +9,6 @@ import logging
 import warnings
 from typing import Any, Dict, List, Optional, Sequence, Union
 
-import deepspeed
 import torch
 import torch.distributed
 import torch.utils.data
@@ -235,7 +234,7 @@ class Trainer:
         )
         self.eval_dl_spec = eval_dataloader_spec
 
-        # TODO: DeepSpeed still needs a precision context, but it's not completely clear how to
+        # TODO(#123): DeepSpeed still needs a precision context, but it's not completely clear how to
         # handle this with our version of Pytorch
         precision_context = self.device.precision_context if not self.deepspeed_enabled else contextlib.nullcontext
 
@@ -289,15 +288,19 @@ class Trainer:
         self.state.schedulers = ComposedScheduler(schedulers=schedulers)
 
         self.checkpointer = None
-        # TODO: get checkpointing working with DeepSpeed.
-        if not self.deepspeed_enabled and checkpoint_folder and checkpoint_interval and checkpoint_interval_unit:
+        # TODO(#121): get checkpointing working with DeepSpeed.
+        if checkpoint_folder and checkpoint_interval and checkpoint_interval_unit:
+            if self.deepspeed_enabled:
+                raise NotImplementedError("Checkpointing is not yet supported with DeepSpeed.")
             self.checkpointer = Checkpointer(checkpoint_folder=get_relative_to_run_directory(checkpoint_folder),
                                              checkpoint_interval=checkpoint_interval,
                                              checkpoint_interval_unit=checkpoint_interval_unit)
 
         self.checkpoint_loader = None
-        # TODO: get checkpointing working with DeepSpeed.
-        if not self.deepspeed_enabled and checkpoint_filepath:
+        # TODO(#121): get checkpointing working with DeepSpeed.
+        if checkpoint_filepath:
+            if self.deepspeed_enabled:
+                raise NotImplementedError("Checkpointing is not yet supported with DeepSpeed.")
             self.checkpoint_loader = CheckpointLoader(checkpoint_filepath=checkpoint_filepath)
             self.checkpoint_loader.load_checkpoint(state=self.state)
 
@@ -495,6 +498,8 @@ class Trainer:
 
         # place the state, model in the proper devices
         if self.deepspeed_enabled:
+            import deepspeed
+
             optimizer = ensure_tuple(state.optimizers)[0]
 
             deepspeed_config: dict[str, Any] = {
@@ -724,6 +729,10 @@ class Trainer:
                 with state.precision_context(state.precision):
                     state.loss = self.original_model.loss(state.outputs, state.batch)
 
+                # We always want to scale loss by the grad_accum before the backwards pass and
+                # also for sake of metrics. Complicating matters, the DeepSpeed engine does its
+                # own scaling when we call `.backward`, but this isn't in place so we still need
+                # to scale for sake of metrics after the `.backward` call.
                 if not self.deepspeed_enabled:
                     for loss in ensure_tuple(state.loss):
                         loss.mul_(last_microbatch_size / current_batch_size)
@@ -739,6 +748,8 @@ class Trainer:
 
                 if self.deepspeed_enabled:
                     state.model.backward(state.loss)  # type: ignore
+
+                    # This is the same loss scaling we skipped earlier.
                     for loss in ensure_tuple(state.loss):
                         loss.mul_(last_microbatch_size / current_batch_size)
                 else:
