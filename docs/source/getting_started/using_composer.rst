@@ -139,4 +139,3 @@ Here are several ways to use the trainer:
 
 
 .. _yahp: https://github.com/mosaicml/yahp
-
