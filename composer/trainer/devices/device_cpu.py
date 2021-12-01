@@ -6,7 +6,7 @@ import logging
 from contextlib import contextmanager
 from typing import Generator, Union
 
-from composer.core.types import DataLoader, Precision, StateDict, Tensor
+from composer.core.types import Precision, StateDict, Tensor
 from composer.trainer.devices.device import Device, T_nnModule
 
 logger = logging.getLogger(__name__)
@@ -22,9 +22,6 @@ class DeviceCPU(Device):
 
     def module_to_device(self, module: T_nnModule) -> T_nnModule:
         return module
-
-    def dataloader_to_device(self, dataloader: DataLoader) -> DataLoader:
-        return dataloader
 
     def tensor_to_device(self, tensor: Tensor) -> Tensor:
         return tensor

@@ -2,12 +2,13 @@
 
 from abc import ABC, abstractmethod
 from contextlib import contextmanager
-from typing import Generator, TypeVar, Union
+from typing import Generator, TypeVar, Union, cast
 
 import torch.nn
 
 from composer.core.serializable import Serializable
-from composer.core.types import DataLoader, Optimizer, Precision, Tensor
+from composer.core.types import Batch, BatchPair, Optimizer, Precision, Tensor
+from composer.utils.iter_helpers import map_collection
 
 T_nnModule = TypeVar("T_nnModule", bound=torch.nn.Module)
 
@@ -40,24 +41,29 @@ class Device(Serializable, ABC):
         """Moves a tensor onto the device instance's device.
 
         Args:
-            tensor (T_nnModule): The tensor to move to the device
+            tensor (Tensor): The tensor to move to the device
 
         Returns:
             Tensor: The tensor on the device.
         """
         pass
 
-    @abstractmethod
-    def dataloader_to_device(self, dataloader: DataLoader) -> DataLoader:
-        """Wraps a Dataloader and ensures all returned batches are on the correct device.
+    def batch_to_device(self, batch: Batch) -> Batch:
+        """Moves a batch onto the device instance's device.
 
         Args:
-            dataloader (DataLoader): The dataloader to wrap.
+            batch (Batch): The batch to move to the device
 
         Returns:
-            DataLoader: The wrapped dataloader, which yields batches that
-            have been moved to the device
+            Batch: The batch on the device.
         """
+        if isinstance(batch, Tensor):
+            return self.tensor_to_device(batch)
+        if isinstance(batch, (tuple, list)):  # BatchPair
+            return cast(BatchPair, type(batch)(map_collection(x, self.tensor_to_device) for x in batch))
+        if isinstance(batch, dict):  # BatchDict
+            return {k: cast(Tensor, self.tensor_to_device(v)) for k, v in batch.items()}
+        raise TypeError(f"Unsupported type for batch: {type(batch)}")
 
     def optimizer_to_device(self, optimizer: Optimizer) -> Optimizer:
         """Moves an optimizer's state onto the device instance's device.
