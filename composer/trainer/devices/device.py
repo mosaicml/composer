@@ -15,14 +15,15 @@ T_nnModule = TypeVar("T_nnModule", bound=torch.nn.Module)
 
 class Device(Serializable, ABC):
     """Abstract class for a device on which a model runs.
+
+    Attributes:
+        ddp_backend (str): DDP backend to use.
+            Should be `gloo`, `mpi`, or `nccl`.
+            See `the pytorch docs <https://pytorch.org/docs/stable/distributed.html>`_
+            for details.
     """
 
-    @abstractmethod
-    def prepare(self) -> None:
-        """Used for device initialization.
-
-        Invoked by the trainer at the beginning of the training loop.
-        """
+    ddp_backend: str
 
     @abstractmethod
     def module_to_device(self, module: T_nnModule) -> T_nnModule:
@@ -62,7 +63,7 @@ class Device(Serializable, ABC):
         if isinstance(batch, (tuple, list)):  # BatchPair
             return cast(BatchPair, type(batch)(map_collection(x, self.tensor_to_device) for x in batch))
         if isinstance(batch, dict):  # BatchDict
-            return {k: cast(Tensor, self.tensor_to_device(v)) for k, v in batch.items()}
+            return {k: self.tensor_to_device(v) for k, v in batch.items()}
         raise TypeError(f"Unsupported type for batch: {type(batch)}")
 
     def optimizer_to_device(self, optimizer: Optimizer) -> Optimizer:
@@ -103,16 +104,3 @@ class Device(Serializable, ABC):
             Generator[None, None, None]: [description]
         """
         pass
-
-    @property
-    @abstractmethod
-    def ddp_backend(self) -> str:
-        """DDP backend to use.
-
-        Should return `gloo`, `mpi`, or `nccl`.
-        See `the pytorch docs <https://pytorch.org/docs/stable/distributed.html>`_
-        for details.
-
-        Returns:
-            str: `gloo`, `mpi`, or `nccl`
-        """

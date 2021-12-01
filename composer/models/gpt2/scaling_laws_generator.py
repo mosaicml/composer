@@ -178,8 +178,6 @@ template_yaml = {
     'seed': 17,
     'accelerator': {
         'gpu': {
-            'n_gpus': 1,
-            'prefetch_in_cuda_stream': False,
         }
     },
     'dataloader': {
