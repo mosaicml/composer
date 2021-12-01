@@ -13,6 +13,8 @@
 import os
 import sys
 
+import yahp as hp
+
 sys.path.insert(0, os.path.abspath('..'))
 
 # -- Project information -----------------------------------------------------
@@ -133,3 +135,18 @@ nitpick_ignore = [
 
 python_use_unqualified_type_names = True
 autodoc_inherit_docstrings = True
+
+# monkeypatch hparams docs so we don't get hparams_registry docstrings everywhere
+hp.Hparams.__doc__ = ""
+hp.Hparams.initialize_object.__doc__ = ""
+
+
+def maybe_skip_member(app, what: str, name: str, obj, skip: bool, options):
+    # Hide the default, duplicate attirubtes for named tuples
+    if '_tuplegetter' in obj.__class__.__name__:
+        return True
+    return None
+
+
+def setup(app):
+    app.connect('autodoc-skip-member', maybe_skip_member)

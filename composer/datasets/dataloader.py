@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import textwrap
 import warnings
 from dataclasses import dataclass
 from typing import Any, Callable, Iterator, Optional
@@ -84,18 +85,28 @@ class DDPDataLoader(WrappedDataLoader):
 
 @dataclass
 class DataloaderHparams(hp.Hparams):
-    """Hyperparameters to initialize a ``torch.utils.data.Dataloader``."""
+    """Hyperparameters to initialize a :class:`~torch.utils.data.Dataloader`.
+    
+    Parameters:
+        num_workers (int): Number of CPU workers to use per device to fetch data.
+        prefetch_factor (int): Number of samples loaded in advance by each worker.
+            2 means there will be a total of 2 * num_workers samples prefetched across all workers.
+        persistent_workers (bool): Whether or not to shutdown workers after the dataset has been consumed once.
+        pin_memory (bool): Whether or not to copy Tensors into CUDA pinned memory before returning them.
+        timeout (float): Timeout, in seconds, for collecting a batch from workers. Set to 0 for no timeout.
+    
+    """
 
-    num_workers: int = hp.required(doc="Number of CPU workers to use per gpu", template_default=8)
-    prefetch_factor: int = hp.required(doc="Number of samples loaded in advance by each worker", template_default=2)
-    persistent_workers: bool = hp.required(doc="Whether or not to shutdown workers after the dataset"
-                                           " has been consumed once",
+    num_workers: int = hp.required("Number of CPU workers to use per device to fetch data.", template_default=8)
+    prefetch_factor: int = hp.required("Number of samples loaded in advance by each worker", template_default=2)
+    persistent_workers: bool = hp.required(textwrap.dedent("""Whether or not to shutdown workers after the dataset
+        has been consumed once"""),
                                            template_default=True)
-    pin_memory: bool = hp.required(doc="Whether or not to copy Tensors into CUDA pinned memory"
-                                   " before returning them",
+    pin_memory: bool = hp.required(textwrap.dedent("""Whether or not to copy Tensors into CUDA pinned memory
+        before returning them"""),
                                    template_default=True)
-    timeout: int = hp.required(doc="Timeout value for collecting a batch from workers. 0 for no timeout.",
-                               template_default=0)
+    timeout: float = hp.required("Timeout, in seconds, for collecting a batch from workers. Set to 0 for no timeout",
+                                 template_default=0)
 
     def initialize_object(
         self,
@@ -107,7 +118,20 @@ class DataloaderHparams(hp.Hparams):
         collate_fn: Optional[Callable] = None,
         worker_init_fn: Optional[Callable] = None,
     ) -> DataLoader:
-        """Initializes the dataloader."""
+        """Create a dataloader.
+
+        Args:
+            dataset (Dataset): The dataset.
+            batch_size (int): The per-device batch size.
+            sampler (torch.utils.data.Sampler[int]): The sampler to use for the dataloader.
+            drop_last (bool): Whether to drop the last batch if the number of
+                samples is not evenly divisible by the batch size.
+            collate_fn (callable, optional): Custom collate function. Defaults to None.
+            worker_init_fn (callable, optional): Custom worker init function. Defaults to None.
+
+        Returns:
+            DataLoader: The dataloader.
+        """
 
         return torch.utils.data.DataLoader(dataset,
                                            batch_size=batch_size,

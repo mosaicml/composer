@@ -22,12 +22,12 @@ with open("README.md", "r", encoding="utf-8") as fh:
 install_requires = [
     "pyyaml>=5.4.1",
     "tqdm>=4.62.3",
-    "torchmetrics>=0.5.1",
+    "torchmetrics>=0.6.0",
     "torch_optimizer==0.1.0",
     "torchvision>=0.9.0",
     "torch>=1.9",
     "argparse>=1.4.0",
-    "yahp>=0.0.13",
+    "yahp>=0.0.14",
     "custom_inherit==2.3.2",
 ]
 extra_deps = {}
@@ -68,11 +68,15 @@ extra_deps['unet'] = [
     'scikit-learn>=1.0.1',
 ]
 
+extra_deps['deepspeed'] = [
+    'deepspeed>=0.5.5',
+]
+
 extra_deps['all'] = set(dep for deps in extra_deps.values() for dep in deps)
 
 setup(
     name="mosaicml",
-    version="0.3.0",
+    version="0.3.1",
     author="MosaicML",
     author_email="team@mosaicml.com",
     description="composing methods for ML training efficiency",
@@ -84,7 +88,7 @@ setup(
         "composer": ['py.typed'],
         "": package_files('composer/yamls'),
     },
-    packages=setuptools.find_packages(include=["composer"]),
+    packages=setuptools.find_packages(exclude=["tests*"]),
     classifiers=[
         "Programming Language :: Python :: 3",
     ],
