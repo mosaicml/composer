@@ -118,7 +118,7 @@ def test_cutmix_nclasses(dummy_state, dummy_logger):
     state = dummy_state
     state.model = MosaicClassifier(SimpleConvModel())
     state.model.num_classes = 10
-    state.batch = (torch.Tensor([[[[1]]]]), torch.Tensor([2]))
+    state.batch = (torch.ones((1, 1, 1, 1)), torch.Tensor([2]))
 
     algorithm.apply(Event.INIT, state, dummy_logger)
     algorithm.apply(Event.AFTER_DATALOADER, state, dummy_logger)
