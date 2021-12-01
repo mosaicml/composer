@@ -13,7 +13,6 @@ import deepspeed
 import torch
 import torch.distributed
 import torch.utils.data
-from deepspeed.runtime.engine import DeepSpeedEngine
 from torch.backends import cudnn
 from torch.cuda.amp.grad_scaler import GradScaler
 from torch.nn.parallel import DistributedDataParallel
@@ -236,7 +235,8 @@ class Trainer:
         )
         self.eval_dl_spec = eval_dataloader_spec
 
-        # TODO: handling precision correctly with DeepSpeed is an open problem
+        # TODO: DeepSpeed still needs a precision context, but it's not completely clear how to
+        # handle this with our version of Pytorch
         precision_context = self.device.precision_context if not self.deepspeed_enabled else contextlib.nullcontext
 
         self.state = State(
@@ -248,7 +248,7 @@ class Trainer:
             model=model,
             grad_accum=grad_accum,
             precision=precision,
-            precision_context=precision_context,
+            precision_context=precision_context,  # type: ignore
             train_dataloader=train_dataloader,
             eval_dataloader=eval_dataloader,
         )
@@ -738,8 +738,7 @@ class Trainer:
                     state.loss = state.scaler.scale(state.loss)
 
                 if self.deepspeed_enabled:
-                    assert isinstance(state.model, DeepSpeedEngine)
-                    state.model.backward(state.loss)
+                    state.model.backward(state.loss)  # type: ignore
                     for loss in ensure_tuple(state.loss):
                         loss.mul_(last_microbatch_size / current_batch_size)
                 else:
@@ -754,8 +753,7 @@ class Trainer:
                     total_loss += loss.detach().clone()
 
             if self.deepspeed_enabled:
-                assert isinstance(state.model, DeepSpeedEngine)
-                state.model.step()
+                state.model.step()  # type: ignore
 
         # Unscale gradients before `Event.AFTER_TRAIN_BATCH`
         if use_grad_scaling:
