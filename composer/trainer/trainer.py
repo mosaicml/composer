@@ -237,8 +237,7 @@ class Trainer:
         self.eval_dl_spec = eval_dataloader_spec
 
         # TODO: handling precision correctly with DeepSpeed is an open problem
-        precision_context = self.device.precision_context if not self.deepspeed_enabled else lambda _: contextlib.nullcontext(
-        )
+        precision_context = self.device.precision_context if not self.deepspeed_enabled else contextlib.nullcontext
 
         self.state = State(
             max_epochs=max_epochs,
@@ -738,14 +737,16 @@ class Trainer:
                 if use_grad_scaling:
                     state.loss = state.scaler.scale(state.loss)
 
-                for loss in ensure_tuple(state.loss):
-                    loss.backward(create_graph=self.backwards_create_graph)
-
-                self.engine.run_event(Event.AFTER_BACKWARD)
-
                 if self.deepspeed_enabled:
+                    assert isinstance(state.model, DeepSpeedEngine)
+                    state.model.backward(state.loss)
                     for loss in ensure_tuple(state.loss):
                         loss.mul_(last_microbatch_size / current_batch_size)
+                else:
+                    for loss in ensure_tuple(state.loss):
+                        loss.backward(create_graph=self.backwards_create_graph)
+
+                self.engine.run_event(Event.AFTER_BACKWARD)
 
                 # Loss is added to losses with clone to not scale the loss for the step printout
                 # Likely need to look into the performance impact
