@@ -696,8 +696,9 @@ class Trainer:
 
         use_grad_scaling = self._use_grad_scaling(state.precision, state.scaler)
 
-        for optimizer in ensure_tuple(state.optimizers):
-            optimizer.zero_grad()
+        if not self.deepspeed_enabled:
+            for optimizer in ensure_tuple(state.optimizers):
+                optimizer.zero_grad()
 
         # tracker for gradient accumulation
         total_loss = self.device.tensor_to_device(torch.zeros(size=(1,)))
