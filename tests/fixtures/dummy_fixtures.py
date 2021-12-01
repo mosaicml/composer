@@ -103,7 +103,7 @@ def dummy_dataloader_hparams() -> DataloaderHparams:
         prefetch_factor=2,
         persistent_workers=False,
         pin_memory=False,
-        timeout=0,
+        timeout=0.0,
     )
 
 
@@ -183,7 +183,7 @@ def mosaic_trainer_hparams(
             prefetch_factor=2,
             persistent_workers=False,
             pin_memory=False,
-            timeout=0,
+            timeout=0.0,
         ),
         device=CPUDeviceHparams(),
         loggers=[],

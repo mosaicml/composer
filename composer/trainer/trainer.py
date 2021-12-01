@@ -163,7 +163,7 @@ class Trainer:
         self.deepspeed_enabled = deepspeed_hparams and deepspeed_hparams.enabled
 
         if not device:
-            device = DeviceCPU() if not self.deepspeed_enabled else DeviceGPU(prefetch_in_cuda_stream=False)
+            device = DeviceCPU() if not self.deepspeed_enabled else DeviceGPU()
         self.device = device
 
         if not seed:

@@ -25,6 +25,8 @@ from composer.trainer.devices import CPUDeviceHparams, DeviceHparams, GPUDeviceH
 from composer.trainer.trainer_hparams import TrainerHparams, callback_registry, dataset_registry
 from composer.utils import ddp
 
+from composer.trainer.deepspeed import DeepSpeedHparams
+
 
 def get_file_path(tmpdir: Union[str, pathlib.Path], *, rank: int, is_train: bool) -> str:
     train_str = "train" if is_train else "val"
@@ -105,16 +107,17 @@ def patch_registries(monkeypatch: MonkeyPatch):
 
 
 @pytest.mark.timeout(90)
-@pytest.mark.parametrize("device", [
-    pytest.param(CPUDeviceHparams(), id="cpu"),
-    pytest.param(GPUDeviceHparams(), id="gpu", marks=pytest.mark.gpu),
+@pytest.mark.parametrize("device,deepspeed", [
+    pytest.param(CPUDeviceHparams(), False, id="cpu"),
+    pytest.param(GPUDeviceHparams(), False, id="gpu", marks=pytest.mark.gpu),
+    pytest.param(GPUDeviceHparams(), True, id="deepspeed", marks=pytest.mark.gpu),
 ])
 @pytest.mark.parametrize("world_size", [
     pytest.param(1),
     pytest.param(2, marks=pytest.mark.world_size(2)),
 ])
 def test_ddp(device: DeviceHparams, world_size: int, ddp_tmpdir: str, mosaic_trainer_hparams: TrainerHparams,
-             SimpleBatchPairModelHparams: Type[ModelHparams]) -> None:
+             SimpleBatchPairModelHparams: Type[ModelHparams], deepspeed: bool) -> None:
     """
     test strategy for ddp:
     1) Train a dummy model on two gps, for two epochs, using the tracked dataset.
@@ -170,7 +173,7 @@ def test_ddp(device: DeviceHparams, world_size: int, ddp_tmpdir: str, mosaic_tra
         prefetch_factor=2,
         persistent_workers=False,
         pin_memory=False,
-        timeout=0,
+        timeout=0.0,
     )
     hparams.max_epochs = 2
     hparams.precision = types.Precision.FP32
@@ -178,11 +181,11 @@ def test_ddp(device: DeviceHparams, world_size: int, ddp_tmpdir: str, mosaic_tra
     hparams.validate_every_n_batches = 0
     hparams.validate_every_n_epochs = 1
     hparams.callbacks.append(CheckBatch0Hparams(tmpdir=ddp_tmpdir))
+    if deepspeed:
+        hparams.deepspeed = DeepSpeedHparams(enabled=True)
     trainer = hparams.initialize_object()
     assert isinstance(trainer.state.train_dataloader.dataset, collections.abc.Sized)
-    num_train_samples = len(trainer.state.train_dataloader.dataset)
     assert isinstance(trainer.state.eval_dataloader.dataset, collections.abc.Sized)
-    num_eval_samples = len(trainer.state.eval_dataloader.dataset)
     trainer.fit()
 
     expected_train_num_loads = hparams.max_epochs * hparams.total_batch_size * train_num_total_batches
