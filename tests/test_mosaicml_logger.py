@@ -18,7 +18,9 @@ def test_mosaic_logger(tmpdir: pathlib.Path, dummy_state: State, dummy_logger: L
 
     flush_every_n_batches = 5
     max_logs_in_buffer = 3
-    hparams = MosaicMLLoggerBackendHparams(job_id="job_id",
+    hparams = MosaicMLLoggerBackendHparams(run_name="run_name",
+                                           experiment_name="experiment_name",
+                                           run_id="run_id",
                                            creds_file=creds_file,
                                            flush_every_n_batches=flush_every_n_batches,
                                            max_logs_in_buffer=max_logs_in_buffer)
@@ -27,8 +29,8 @@ def test_mosaic_logger(tmpdir: pathlib.Path, dummy_state: State, dummy_logger: L
     data_logged = []
     num_log_calls = 0
 
-    def _mock_send_data(job_id: str, data: JSON):
-        del job_id
+    def _mock_send_data(run_id: str, experiment_name: str, data: JSON):
+        del run_id, experiment_name
         nonlocal num_log_calls
         num_log_calls += 1
         assert isinstance(data, list)
@@ -53,7 +55,6 @@ def test_mosaic_logger(tmpdir: pathlib.Path, dummy_state: State, dummy_logger: L
         expected_data.append({
             "step": i,
             "epoch": 1,
-            "job_id": "job_id",
             "data": data_point,
         })
         buffer_length += 1

@@ -226,15 +226,24 @@ class MosaicMLLoggerBackendHparams(BaseLoggerBackendHparams):
     See :class:`~composer.loggers.mosaicml_logger.MosaicMLLoggerBackend`
     for documentation.
     """
-    job_id: str = hp.required("The id of the job to write logs for.")
+    run_name: str = hp.required("The name of the run to write logs for.")
+    run_id: Optional[str] = hp.optional(
+        "The name of the run to write logs for. If not provided, a random id "
+        "is created.", default=None)
+    experiment_name: Optional[str] = hp.optional(
+        "The name of the experiment to associate the run with. If "
+        "not provided, a random name is created.",
+        default=None)
     creds_file: Optional[str] = hp.optional(
         "A file containing the MosaicML api_key. If not provided "
-        "will default to the environment variable MOSAIC_API_KEY",
+        "will default to the environment variable MOSAIC_API_KEY.",
         default=None)
     flush_every_n_batches: int = hp.optional("Flush the log data buffer every n batches.", default=100)
     max_logs_in_buffer: int = hp.optional(
         "The maximum number of log entries allowed in the buffer "
         "before a forced flush.", default=1000)
+    run_config: Optional[JSON] = hp.optional(doc="Parameters to store that are related to the run.",
+                                             default_factory=dict)
 
     def initialize_object(self) -> MosaicMLLoggerBackend:
         from composer.loggers.mosaicml_logger import MosaicMLLoggerBackend
