@@ -721,14 +721,6 @@ class Trainer:
                 with state.precision_context(state.precision):
                     state.loss = self.original_model.loss(state.outputs, state.batch)
 
-                for loss in ensure_tuple(state.loss):
-                    loss.mul_(last_microbatch_size / current_batch_size)
-
-                # Loss is added to losses with clone to not scale the loss for the step printout
-                # Likely need to look into the performance impact
-                for loss in ensure_tuple(state.loss):
-                    total_loss += loss.detach().clone()
-
                 assert state.loss is not None
                 self.engine.run_event(Event.AFTER_LOSS)
 
@@ -740,6 +732,14 @@ class Trainer:
 
                 for loss in ensure_tuple(state.loss):
                     loss.backward(create_graph=self.backwards_create_graph)
+
+                for loss in ensure_tuple(state.loss):
+                    loss.mul_(last_microbatch_size / current_batch_size)
+
+                # Loss is added to losses with clone to not scale the loss for the step printout
+                # Likely need to look into the performance impact
+                for loss in ensure_tuple(state.loss):
+                    total_loss += loss.detach().clone()
 
                 self.engine.run_event(Event.AFTER_BACKWARD)
 
