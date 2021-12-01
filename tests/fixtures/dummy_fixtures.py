@@ -1,6 +1,6 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
-from typing import Tuple, Type, Union, cast
+from typing import Tuple, Type, Union
 from unittest.mock import MagicMock, Mock
 
 import pytest
@@ -41,14 +41,15 @@ def dummy_val_batch_size() -> int:
 
 
 @pytest.fixture
-def dummy_model_hparams(dummy_in_shape: Tuple[int, ...], dummy_num_classes: int,
-                        SimpleBatchPairModelHparams: Type[ModelHparams]) -> ModelHparams:
-    return SimpleBatchPairModelHparams(in_shape=list(dummy_in_shape), num_classes=dummy_num_classes)  # type: ignore
+def dummy_model_hparams(
+        dummy_in_shape: Tuple[int, ...], dummy_num_classes: int,
+        SimpleBatchPairModelHparams: Type[_SimpleBatchPairModelHparams]) -> _SimpleBatchPairModelHparams:
+    return SimpleBatchPairModelHparams(in_shape=list(dummy_in_shape), num_classes=dummy_num_classes)
 
 
 @pytest.fixture
-def dummy_model(dummy_model_hparams: ModelHparams) -> SimpleBatchPairModel:
-    return cast(SimpleBatchPairModel, dummy_model_hparams.initialize_object())
+def dummy_model(dummy_model_hparams: _SimpleBatchPairModelHparams) -> SimpleBatchPairModel:
+    return dummy_model_hparams.initialize_object()
 
 
 @pytest.fixture

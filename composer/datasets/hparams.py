@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import dataclasses
 from abc import ABC, abstractmethod
-from typing import Callable, List, NamedTuple, Optional, Sequence, Type, Union, get_type_hints
+from typing import Callable, List, NamedTuple, Optional, Sequence, Set, Type, Union, get_type_hints
 
 import yahp as hp
 from yahp.utils.type_helpers import HparamsType
@@ -29,7 +29,8 @@ def _split_fn(batch: Batch, n_microbatches: int) -> List[Batch]:
 
 
 class DataloaderSpec(NamedTuple):
-    """Specification for initializing a dataloader.
+    """Specification for initializing a dataloader when a device transformation function or split function
+    is required
     
     Attributes:
         dataloader (DataLoader): The initialized dataloader.
@@ -52,30 +53,27 @@ class DatasetHparams(hp.Hparams, ABC):
     If the dataset supports generating synthetic data, add a "synthetic" field to the hparams.
     If this field is True, then the dataloader should yield samples from a synthetic (randomly generated)
     dataset that does not depend on the real dataset.
-    and 
     """
 
-    def get_synthetic(self) -> Optional[hp.Hparams]:
-        if not hasattr(self, "synthetic"):
-            raise NotImplementedError(f"Dataset {self.__class__.__name__} does not support synthetic data")
-        return getattr(self, "synthetic")
+    # declaring default values without type annotations for these common fields
+    # This ensure that they are not registered as fields in the dataclass, but they register in Pyright
+    synthetic = None  # type: Optional[hp.Hparams]
+    num_total_batches = None  # type: Optional[int]
+    shuffle = False  # type: bool
+    drop_last = False  # type: bool
+    datadir = ""  # type: str
 
-    def set_synthetic(self, value: Optional[hp.Hparams]) -> None:
-        if not hasattr(self, "synthetic"):
-            raise NotImplementedError(f"Dataset {self.__class__.__name__} does not support synthetic data")
-        setattr(self, "synthetic", value)
-
-    def get_num_total_batches(self) -> Optional[int]:
-        if not hasattr(self, "num_total_batches"):
-            raise NotImplementedError(
-                f"Dataset {self.__class__.__name__} does not support limiting the number of batches")
-        return getattr(self, "num_total_batches")
-
-    def set_num_total_batches(self, value: Optional[int]) -> None:
-        if not hasattr(self, "num_total_batches"):
-            raise NotImplementedError(
-                f"Dataset {self.__class__.__name__} does not support limiting to num_total_batches")
-        setattr(self, "num_total_batches", value)
+    def __post_init__(self):
+        # Ensure that NotImplementedErrors are raised when attempting to use these common fields on unsupported datasets
+        fields = dataclasses.fields(self)
+        common_fields = ["synthetic", "num_total_batches", "shuffle", "drop_last", "datadir"]
+        field_names: Set[str] = set(f.name for f in fields)
+        for common_field in common_fields:
+            if common_field not in field_names:
+                def handler(field_name=common_field, *args, **kwargs):
+                    del args, kwargs  # unused
+                    raise AttributeError(f"Dataset {self.__class__.__name__} does not support {field_name}")
+                setattr(self, common_field, property(fget=handler, fset=handler, fdel=lambda x: None, doc=common_field))
 
     @classmethod
     def get_synthetic_hparams_cls(cls) -> Type[hp.Hparams]:
@@ -98,6 +96,7 @@ class DatasetHparams(hp.Hparams, ABC):
             dataloader_hparams (DataloaderHparams): The dataset-independent hparams for the dataloader
         
         Returns:
-            `Dataloader` or `DataloaderSpec`: The dataloader, or if a custom device transformation or split function is required, a `DataloaderSpec` tuple 
+            :class:`Dataloader` or :class:`DataloaderSpec`: The dataloader, or if a custom device transformation
+            or split function is required, a :class:`DataloaderSpec` tuple
         """
         pass

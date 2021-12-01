@@ -137,27 +137,25 @@ def test_ddp(device: DeviceHparams, world_size: int, ddp_tmpdir: str, mosaic_tra
 
     hparams.total_batch_size = 10
     train_num_total_batches = 3
-    hparams.train_dataset.set_num_total_batches(train_num_total_batches)
-    hparams.train_dataset.set_synthetic(
-        TrackedDatasetHparams(
-            num_unique_samples_to_create=hparams.total_batch_size * train_num_total_batches,
-            device="cpu",
-            is_train=True,
-            memory_format=synthetic.MemoryFormat.CONTIGUOUS_FORMAT,
-            tmpdir=ddp_tmpdir,
-        ))
+    hparams.train_dataset.num_total_batches = train_num_total_batches
+    hparams.train_dataset.synthetic = TrackedDatasetHparams(
+        num_unique_samples_to_create=hparams.total_batch_size * train_num_total_batches,
+        device="cpu",
+        is_train=True,
+        memory_format=synthetic.MemoryFormat.CONTIGUOUS_FORMAT,
+        tmpdir=ddp_tmpdir,
+    )
     val_num_total_batches = 3
     hparams.eval_batch_size = 10
-    hparams.val_dataset.set_num_total_batches(val_num_total_batches)
-    hparams.val_dataset.set_synthetic(
-        TrackedDatasetHparams(
-            num_unique_samples_to_create=hparams.eval_batch_size * val_num_total_batches,
-            device="cpu",
-            is_train=False,
-            memory_format=synthetic.MemoryFormat.CONTIGUOUS_FORMAT,
-            tmpdir=ddp_tmpdir,
-        ))
-    hparams.val_dataset.shuffle = True  # type: ignore  # TODO add a set_shuffle like the other parameters
+    hparams.val_dataset.num_total_batches = val_num_total_batches
+    hparams.val_dataset.synthetic = TrackedDatasetHparams(
+        num_unique_samples_to_create=hparams.eval_batch_size * val_num_total_batches,
+        device="cpu",
+        is_train=False,
+        memory_format=synthetic.MemoryFormat.CONTIGUOUS_FORMAT,
+        tmpdir=ddp_tmpdir,
+    )
+    hparams.val_dataset.shuffle = True
     hparams.device = device
     hparams.dataloader = DataloaderHparams(
         num_workers=0,

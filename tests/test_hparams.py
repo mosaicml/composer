@@ -23,16 +23,16 @@ def walk_model_yamls():
 
 def _configure_dataset_for_synthetic(dataset_hparams: DatasetHparams) -> None:
     try:
-        synthetic = dataset_hparams.get_synthetic()
-    except NotImplementedError:
+        synthetic = dataset_hparams.synthetic
+    except AttributeError:
         pytest.xfail(f"{dataset_hparams.__class__.__name__} does not support synthetic data")
         raise
     if synthetic is None:
         dataset_hparams.synthetic = dataset_hparams.get_synthetic_hparams_cls()()
 
         try:
-            dataset_hparams.set_num_total_batches(1)
-        except NotImplementedError:
+            dataset_hparams.num_total_batches = 1
+        except AttributeError:
             pytest.xfail(f"{dataset_hparams.__class__.__name__} does not support num total batches")
             raise
 

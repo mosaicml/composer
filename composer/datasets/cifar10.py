@@ -11,7 +11,6 @@ from torchvision.datasets import CIFAR10
 from composer.core.types import DataLoader
 from composer.datasets.dataloader import DataloaderHparams
 from composer.datasets.hparams import DatasetHparams
-from composer.datasets.subset_dataset import SubsetDataset
 from composer.datasets.synthetic import SyntheticBatchPairDatasetHparams
 from composer.utils import ddp
 
@@ -80,7 +79,7 @@ class CIFAR10DatasetHparams(DatasetHparams):
             )
             if self.num_total_batches is not None:
                 size = batch_size * self.num_total_batches * ddp.get_world_size()
-                dataset = SubsetDataset(dataset, size)
+                dataset = torch.utils.data.Subset(dataset, list(range(size)))
             sampler = ddp.get_sampler(dataset, drop_last=self.drop_last, shuffle=self.shuffle)
 
         return dataloader_hparams.initialize_object(dataset,

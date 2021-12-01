@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import collections.abc
 import datetime
 import os
 import warnings
@@ -225,6 +226,22 @@ def prepare_module(module: Model, find_unused_parameters: bool) -> Model:
         raise RuntimeError("Please call ddp.initialize_ddp() before calling ddp.prepare_module()")
     raise RuntimeError("When the world size is > 1, DDP must be used. However, it is not available in your "
                        "installation of PyTorch. Please install or build PyTorch with DDP support.")
+
+
+def get_sampler(dataset, *, drop_last: bool, shuffle: bool) -> torch.utils.data.Sampler:
+    if dist.is_available() and dist.is_initialized():
+        return torch.utils.data.DistributedSampler[int](dataset, drop_last=drop_last, shuffle=shuffle)
+    elif get_world_size() == 1:
+        assert isinstance(dataset, collections.abc.Sized)
+        if shuffle:
+            return torch.utils.data.RandomSampler(dataset)
+        else:
+            return torch.utils.data.SequentialSampler(dataset)
+    else:
+        if dist.is_available():
+            raise RuntimeError("Please call ddp.initialize_ddp() before calling ddp.create_dataloader()")
+        raise RuntimeError("When the world size is > 1, DDP must be used. However, it is not available in your "
+                           "installation of PyTorch. Please install or build PyTorch with DDP support.")
 
 
 @contextmanager

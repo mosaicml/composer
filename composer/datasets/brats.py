@@ -8,13 +8,13 @@ from typing import Optional
 
 import numpy as np
 import torch
+import torch.utils.data
 import torchvision
 import yahp as hp
 
 from composer.core.types import DataLoader, Dataset
 from composer.datasets.dataloader import DataloaderHparams
 from composer.datasets.hparams import DatasetHparams
-from composer.datasets.subset_dataset import SubsetDataset
 from composer.utils import ddp
 
 PATCH_SIZE = [1, 192, 160]
@@ -59,7 +59,7 @@ class BratsDatasetHparams(DatasetHparams):
         dataset = PytTrain(x_train, y_train, oversampling) if self.is_train else PytVal(x_val, y_val)
         if self.num_total_batches is not None:
             size = batch_size * self.num_total_batches * ddp.get_world_size()
-            dataset = SubsetDataset(dataset, size)
+            dataset = torch.utils.data.Subset(dataset, list(range(size)))
         collate_fn = None if self.is_train else my_collate
         sampler = ddp.get_sampler(dataset, drop_last=self.drop_last, shuffle=self.shuffle)
 

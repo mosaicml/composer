@@ -208,10 +208,8 @@ class TrainerHparams(hp.Hparams):
             AttributeError: Raised if either :attr:`train_dataset` or :attr:`val_dataset` do not
             have a ``datadir`` property.
         """
-        if not hasattr(self.train_dataset, 'datadir') or not hasattr(self.val_dataset, 'datadir'):
-            raise AttributeError('Both the train and val dataset hparams must have the datadir attribute.')
-        setattr(self.train_dataset, 'datadir', datadir)
-        setattr(self.val_dataset, 'datadir', datadir)
+        self.train_dataset.datadir = datadir
+        self.val_dataset.datadir = datadir
 
     @classmethod
     def load(cls, model: str) -> TrainerHparams:
