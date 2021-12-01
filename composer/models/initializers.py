@@ -6,7 +6,7 @@ import torch.nn as nn
 
 def kaiming_normal(w: nn.Module):
     if isinstance(w, torch.nn.Linear) or isinstance(w, torch.nn.Conv2d):
-        torch.nn.init.kaiming_normal_(w.weight)
+        torch.nn.init.kaiming_normal_(w.weight, mode='fan_out', nonlinearity='relu')
 
 
 def kaiming_uniform(w: nn.Module):
