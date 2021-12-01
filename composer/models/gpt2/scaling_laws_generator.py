@@ -177,8 +177,7 @@ template_yaml = {
     'eval_batch_size': 8,
     'seed': 17,
     'accelerator': {
-        'gpu': {
-        }
+        'gpu': {}
     },
     'dataloader': {
         'pin_memory': True,
