@@ -46,7 +46,7 @@ def _send_data(run_id: str, experiment_name: str, data: JSON):
         log.warning(f"MosaicML logger timed out with error {e}. Logs were not sent to the backend.")
 
 
-def _upsert_run(run_id: str, run_name: str, experiment_name: str, run_config: Optional[JSON]):
+def _upsert_run(run_id: str, run_name: str, experiment_name: str, run_config: Optional[JSON] = None):
     run_config = run_config if run_config is not None else {}
     # For now, terminate the process if the request does not succeed because we definitely want the run
     # to exist in the backend before logging
