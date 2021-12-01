@@ -13,7 +13,61 @@ from matplotlib.patches import Polygon
 from pycocotools import mask as maskUtils
 from urllib.request import urlretrieve
 
+from composer.datasets.hparams import DataloaderSpec, DatasetHparams
 
+@dataclass
+class COCODatasetHparams(DatasetHparams):
+    """Defines an instance of 
+
+    Parameters:
+        is_train (bool): Whether to load the training or validation dataset.
+        datadir (str): Data directory to use.
+        download (bool): Whether to download the dataset, if needed.
+        drop_last (bool): Whether to drop the last samples for the last batch.
+        shuffle (bool): Whether to shuffle the dataset for each epoch.
+
+    """
+
+    is_train: bool = hp.required("whether to load the training or validation dataset")
+    datadir: str = hp.required("data directory")
+    download: bool = hp.required("whether to download the dataset, if needed")
+    drop_last: bool = hp.optional("Whether to drop the last samples for the last batch", default=True)
+    shuffle: bool = hp.optional("Whether to shuffle the dataset for each epoch", default=True)
+
+
+    def initialize_object(self) -> DataloaderSpec:
+        
+
+        input_size = 300
+        train_trans = SSDTransformer(dboxes, (input_size, input_size),
+                                     val=False,
+                                     num_cropping_iterations=args.num_cropping_iterations)
+        val_trans = SSDTransformer(dboxes, (input_size, input_size), val=True)
+
+        val_annotate = os.path.join(args.data, "annotations/instances_val2017.json")
+        val_coco_root = os.path.join(args.data, "val2017")
+        train_annotate = os.path.join(args.data, "annotations/instances_train2017.json")
+        train_coco_root = os.path.join(args.data, "train2017")
+
+        cocoGt = COCO(annotation_file=val_annotate)
+        train_coco = COCODetection(train_coco_root, train_annotate, train_trans)
+        val_coco = COCODetection(val_coco_root, val_annotate, val_trans)
+    
+        
+        if self.is_train:
+            return DataloaderSpec(
+                dataset=train_coco,
+                drop_last=self.drop_last,
+                shuffle=self.shuffle,
+                num_workers=4,
+            )
+        else:
+            return DataloaderSpec(
+                dataset=val_coco,
+                drop_last=self.drop_last,
+                shuffle=False,
+                num_workers=4,
+            )
 
 def _isArrayLike(obj):
     return hasattr(obj, '__iter__') and hasattr(obj, '__len__')

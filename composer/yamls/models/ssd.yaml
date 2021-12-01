@@ -8,7 +8,7 @@ train_dataset:
 val_dataset:
   coco:
     is_train: false
-    datadir: /datasets/coco
+    datadir: /datasets/01_2d
     download: false
     shuffle: false
     drop_last: false
@@ -16,14 +16,6 @@ optimizer:
   sgd:
     lr: 2.5e-3
     weight_decay: 5e-4
-
-schedulers:
-  - multistep:
-      milestones:
-        - "40ep"
-        - "50ep"
-      interval: epoch
-
 schedulers:
   - constant:
       interval: step
@@ -54,5 +46,3 @@ dataloader:
   persistent_workers: true
   num_workers: 8
 precision: amp
-lr_decay_schedule: [40,50]
-warmup: None
