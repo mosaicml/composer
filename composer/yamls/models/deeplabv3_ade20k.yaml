@@ -23,7 +23,7 @@ optimizer:
     nesterov: false
 schedulers:
   cosine_decay:
-    T_max: "160000ba"
+    T_max: "64ep"
     eta_min: 0
     verbose: false
     interval: step
@@ -35,7 +35,7 @@ model:
     num_classes: 150
 loggers:
   - tqdm: {}
-max_epochs: 127
+max_epochs: 64
 total_batch_size: 16
 eval_batch_size: 16
 seed: 17
