@@ -6,7 +6,7 @@ import time
 from collections import deque
 from typing import Deque, Optional
 
-from composer import Logger, State
+from composer.core import Logger, State
 from composer.callbacks.callback_hparams import SpeedMonitorHparams
 from composer.core.callback import RankZeroCallback
 from composer.core.types import StateDict

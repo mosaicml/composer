@@ -28,6 +28,7 @@ install_requires = [
     "torch>=1.9",
     "argparse>=1.4.0",
     "yahp>=0.0.13",
+    "custom_inherit==2.3.2",
 ]
 extra_deps = {}
 

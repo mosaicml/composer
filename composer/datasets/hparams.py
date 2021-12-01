@@ -6,6 +6,7 @@ import abc
 import dataclasses
 import textwrap
 from typing import Callable, List, NamedTuple, Optional, Sequence, Type, Union, get_type_hints
+import custom_inherit
 
 import yahp as hp
 from yahp.utils.type_helpers import HparamsType
@@ -50,7 +51,7 @@ class DataloaderSpec(NamedTuple):
 
 @dataclasses.dataclass
 class DatadirHparamsMixin(hp.Hparams, abc.ABC):
-    """Datadir field mixing for :class:`DatasetHparams`.
+    """:attr:`datadir` field mixin for :class:`DatasetHparams`.
 
     Parameters:
         datadir (str): The path to the data directory.
@@ -60,10 +61,11 @@ class DatadirHparamsMixin(hp.Hparams, abc.ABC):
 
 @dataclasses.dataclass
 class SyntheticBatchesHparamsMixin(hp.Hparams, abc.ABC):
-    """Synthic field mixing for :class:`DatasetHparams`.
+    """:attr:`synthetic` field mixin for :class:`DatasetHparams`.
 
     Parameters:
-        synthetic (hp.Hparams, optional): Parameters to use for synthetic data generation. If None (the default),
+        synthetic (hp.Hparams, optional):
+            Parameters to use for synthetic data generation. If None (the default),
             then real data will be used.
     """
 
@@ -73,11 +75,7 @@ class SyntheticBatchesHparamsMixin(hp.Hparams, abc.ABC):
 
     @classmethod
     def get_synthetic_hparams_cls(cls) -> Type[hp.Hparams]:
-        """get_synthetic_hparams_cls returns the type of the dataclass for the
-        field :attr:`synthetic`.
-
-        Raises:
-            NotImplementedError: If the dataset hparams does not support synthetic data
+        """Returns the type of the dataclass for field :attr:`synthetic`.
 
         Returns:
             Type[hp.Hparams]: The type of the field :attr:`synthetic`.
@@ -92,11 +90,12 @@ class SyntheticBatchesHparamsMixin(hp.Hparams, abc.ABC):
 
 @dataclasses.dataclass
 class NumTotalBatchesHparamsMixin(hp.Hparams, abc.ABC):
-    """Num total batches field mixing for :class:`DatasetHparams`.
+    """:attr:`num_total_batches` field mixin for :class:`DatasetHparams`.
 
     Parameters:
-        num_total_batches (int, optional): If specified, then the dataloader from :meth:`initialize_object`
-            should yield this many batches per iteration. Specifically, `len(dataloader) == num_total_batches`.
+        num_total_batches (int, optional):
+            If specified, then the dataloader from :meth:`initialize_object`
+            should yield this many batches per iteration. Specifically, ``len(dataloader) == num_total_batches``.
             Each epoch should yield the same subset of samples.
             
             If this value is greater than the total number of samples in the dataset, then a :class:`ValueError` 
@@ -111,7 +110,7 @@ class NumTotalBatchesHparamsMixin(hp.Hparams, abc.ABC):
 
 @dataclasses.dataclass
 class ShuffleHparamsMixin(hp.Hparams, abc.ABC):
-    """Shuffle field mixing for :class:`DatasetHparams`.
+    """:attr:`shuffle` field mixin for :class:`DatasetHparams`.
 
     Parameters:
         shuffle (bool): Whether to shuffle the dataset. Defaults to True.
@@ -121,10 +120,11 @@ class ShuffleHparamsMixin(hp.Hparams, abc.ABC):
 
 @dataclasses.dataclass
 class DropLastHparamsMixin(hp.Hparams, abc.ABC):
-    """Drop last field mixing for :class:`DatasetHparams`.
+    """:attr:`drop_last` mixin for :class:`DatasetHparams`.
 
     Parameters:
-        drop_last (bool): If the number of samples is not divisible by the batch size, whether
+        drop_last (bool):
+            If the number of samples is not divisible by the batch size, whether
             to drop the last batch (the default) or pad the last batch with zeros.
     """
     drop_last: bool = hp.optional(textwrap.dedent("""If the number of samples is not divisible by the batch size,
@@ -134,22 +134,23 @@ class DropLastHparamsMixin(hp.Hparams, abc.ABC):
 
 @dataclasses.dataclass
 class IsTrainHparamsMixin(hp.Hparams, abc.ABC):
-    """Is train field mixing for :class:`DatasetHparams`.
+    """:attr:`is_train` field mixin for :class:`DatasetHparams`.
 
-    Attributes:
+    Parameters:
         is_train (bool): Whether to load the training data (the default) or validation data.
     """
     is_train: bool = hp.optional("Whether to load the training data (the default) or validation data.", default=True)
 
 
 @dataclasses.dataclass
-class DatasetHparams(hp.Hparams, abc.ABC):
+class DatasetHparams(hp.Hparams,
+                     metaclass=custom_inherit.DocInheritMeta(style="google_with_merge", abstract_base_class=True)):
     """Abstract base class for hyperparameters to initialize a dataset."""
 
     @abc.abstractmethod
     def initialize_object(self, batch_size: int,
                           dataloader_hparams: DataloaderHparams) -> Union[DataLoader, DataloaderSpec]:
-        """Initializes a :class:`DataloaderSpec` for this dataset.
+        """Creates a :class:`DataLoader` or :class:`DataloaderSpec` for this dataset.
         
         Parameters:
             batch_size (int): The size of the batch the dataloader should yield. This batch size is
@@ -157,7 +158,7 @@ class DatasetHparams(hp.Hparams, abc.ABC):
             dataloader_hparams (DataloaderHparams): The dataset-independent hparams for the dataloader
         
         Returns:
-            :class:`Dataloader` or :class:`DataloaderSpec`: The dataloader, or if a custom device transformation
-            or split function is required, a :class:`DataloaderSpec` tuple
+            Dataloader or DataloaderSpec: The dataloader, or if a custom device transformation
+                or split function is required, a :class:`DataloaderSpec` tuple
         """
         pass
