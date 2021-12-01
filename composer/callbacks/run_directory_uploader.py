@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import atexit
 import logging
 import multiprocessing
 import os
@@ -153,7 +152,6 @@ class RunDirectoryUploader(RankZeroCallback):
         if get_run_directory() is None:
             return
         del state, logger  # unused
-        atexit.register(self._close)
         self._finished = self._finished_cls()
         self._last_upload_timestamp = 0.0
         self._workers = [
@@ -188,25 +186,22 @@ class RunDirectoryUploader(RankZeroCallback):
         if get_run_directory() is None:
             return
         self._trigger_upload(logger, LogLevel.FIT)
-        # TODO -- we are missing logfiles from other callbacks / loggers that write on training end but after
-        # the run directory uploader is invoked. This callback either needs to fire last,
-        # or we need another event such as cleanup
-        self._close()
 
-    def _close(self):
+    def post_close(self):
+        # Cleaning up on post_close to ensure that all artifacts are uploaded
+        self._trigger_upload(logger=None, log_level=None)
         if self._finished is not None:
             self._finished.set()
         for worker in self._workers:
             worker.join()
 
-    def _trigger_upload(self, logger: Logger, log_level: LogLevel) -> None:
+    def _trigger_upload(self, logger: Optional[Logger], log_level: Optional[LogLevel]) -> None:
         # Ensure that every rank is at this point
         # Assuming only the main thread on each rank writes to the run directory, then the barrier here will ensure
         # that the run directory is not being modified after we pass this barrier
         ddp.barrier()
         new_last_uploaded_timestamp = time.time()
         # Now, for each file that was modified since self._last_upload_timestamp, copy it to the temporary directory
-        # IMPROTANT: From now, until self._last_upload_timestamp is updated, no files should be written to the run directory
         run_directory = get_run_directory()
         assert run_directory is not None, "invariant error"
         files_to_be_uploaded = []
@@ -214,8 +209,8 @@ class RunDirectoryUploader(RankZeroCallback):
         # check if any upload threads have crashed. if so, then shutdown the training process
         for worker in self._workers:
             if not worker.is_alive():
-                # assert self._finished is not None, "invariant error"
-                # self._finished.set()
+                assert self._finished is not None, "invariant error"
+                self._finished.set()
                 raise RuntimeError("Upload worker crashed unexpectedly")
         for root, dirs, files in os.walk(run_directory):
             del dirs  # unused
@@ -228,14 +223,14 @@ class RunDirectoryUploader(RankZeroCallback):
                     files_to_be_uploaded.append(relpath)
                     copied_path_dirname = os.path.dirname(copied_path)
                     os.makedirs(copied_path_dirname, exist_ok=True)
-                    # shutil.copyfile(filepath, copied_path)
                     shutil.copy2(filepath, copied_path)
                     self._file_upload_queue.put_nowait(copied_path)
         self._last_upload_timestamp = new_last_uploaded_timestamp
-        # now log which files are being uploaded. OK to do, since we're done reading the directory,
-        # and any logfiles will now have their last modified timestamp
-        # incremented past self._last_upload_timestamp
-        logger.metric(log_level, {"run_directory/uploaded_files": files_to_be_uploaded})
+        if logger is not None and log_level is not None:
+            # now log which files are being uploaded. OK to do, since we're done reading the directory,
+            # and any logfiles will now have their last modified timestamp
+            # incremented past self._last_upload_timestamp
+            logger.metric(log_level, {"run_directory/uploaded_files": files_to_be_uploaded})
 
 
 def _validate_credentials(
@@ -315,7 +310,12 @@ def _upload_worker(
                     if retry_counter < 3:
                         retry_counter += 1
                         # exponential backoff
-                        time.sleep(2**(retry_counter - 1))
+                        sleep_time = 2**(retry_counter - 1)
+                        log.warn("Request failed with a transient error code. Sleeping %s seconds and retrying",
+                                 sleep_time,
+                                 exc_info=e,
+                                 stack_info=True)
+                        time.sleep()
                         continue
                 raise e
             os.remove(file_path_to_upload)

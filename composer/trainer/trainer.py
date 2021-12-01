@@ -391,7 +391,10 @@ class Trainer:
 
     def fit(self):
         """Train and evaluate the model on the provided data."""
-        self._train_loop()
+        try:
+            self._train_loop()
+        finally:
+            self.engine.close()
 
     def _create_dataloaders(self) -> None:
         """Create the dataloaders.

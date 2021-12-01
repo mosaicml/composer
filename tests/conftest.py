@@ -1,6 +1,5 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
-import atexit
 import datetime
 import logging
 import os
@@ -14,7 +13,6 @@ import _pytest.fixtures
 import _pytest.mark
 import pytest
 import torch.distributed
-from _pytest.monkeypatch import MonkeyPatch
 
 import composer
 import composer.utils.run_directory
@@ -106,20 +104,6 @@ def pytest_collection_modifyitems(session: pytest.Session, config: _pytest.confi
     del session  # unused
     _filter_items_for_world_size(items)
     _filter_items_for_timeout(config, items)
-
-
-@pytest.fixture(autouse=True)
-def atexit_at_test_end(monkeypatch: MonkeyPatch):
-    # monkeypatch atexit so it is called when a test exits, not when the python process exits
-    atexit_callbacks = []
-
-    def register(func, *args, **kwargs):
-        atexit_callbacks.append((func, args, kwargs))
-
-    monkeypatch.setattr(atexit, "register", register)
-    yield
-    for func, args, kwargs in atexit_callbacks:
-        func(*args, **kwargs)
 
 
 @pytest.fixture(autouse=True)
