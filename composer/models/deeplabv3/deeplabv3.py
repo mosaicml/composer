@@ -44,7 +44,7 @@ class DeepLabv3(BaseMosaicModel):
                                                               padding=1,
                                                               bias=False)
         # change dropout to 0.1
-        self.model.classifier[0].project[3] = torch.nn.Dropout2d(0.1)
+        self.model.classifier[0].project[3] = torch.nn.Identity()
         # remove 3x3 conv
         self.model.classifier[1] = torch.nn.Identity()
         self.model.classifier[2] = torch.nn.Identity()
