@@ -49,10 +49,25 @@ class DataloaderSpec(NamedTuple):
 @dataclasses.dataclass
 class DatasetHparams(hp.Hparams, ABC):
     """Abstract base class for hyperparameters to initialize a dataset.
-    
-    If the dataset supports generating synthetic data, add a "synthetic" field to the hparams.
-    If this field is True, then the dataloader should yield samples from a synthetic (randomly generated)
-    dataset that does not depend on the real dataset.
+
+    Datasets MAY implement the following attributes. If a dataset does not implement an attribute,
+    a :class:`AttributeError` will be raised when trying access or set it.
+
+    Attributes:
+        synthetic (hp.Hparams, optional): If not None, then synthetic data will be returned. If None (the default),
+            then real data will be used.
+        num_total_batches (int, optional): If not None, the the dataloader from :meth:`initialize_object`
+            should have this length such that `len(dataloader) == num_total_batches`. Each epoch should yield
+            the same subset of samples.
+            
+            If this value is greater than the total number of samples in the dataset, then raises a :class:`ValueError`.
+
+            If this field is None, then the entire dataset will be iterated over.
+
+            This field is usally required if :attr:`synthetic` is not None.
+        shuffle (bool): Whether to shuffle the dataset.
+        drop_last (bool): Whether to drop the last batch.
+        datadir (str): The path to the data directory. Ignored if :attr:`synthetic` is not None.
     """
 
     def _common_field_getter(self, field_name: str) -> Any:
@@ -114,6 +129,15 @@ class DatasetHparams(hp.Hparams, ABC):
 
     @classmethod
     def get_synthetic_hparams_cls(cls) -> Type[hp.Hparams]:
+        """get_synthetic_hparams_cls returns the type of the dataclass for the
+        field :attr:`synthetic`.
+
+        Raises:
+            NotImplementedError: If the dataset hparams does not support synthetic data
+
+        Returns:
+            Type[hp.Hparams]: The type of the field :attr:`synthetic`.
+        """
         field_types = get_type_hints(cls)
         for field in dataclasses.fields(cls):
             if field.name == "synthetic":
@@ -129,7 +153,8 @@ class DatasetHparams(hp.Hparams, ABC):
         """Initializes a :class:`DataloaderSpec` for this dataset.
         
         Args:
-            batch_size (int): The size of the batch the dataloader should yield
+            batch_size (int): The size of the batch the dataloader should yield. This batch size is
+                device-specific and already incorporates the world size.
             dataloader_hparams (DataloaderHparams): The dataset-independent hparams for the dataloader
         
         Returns:

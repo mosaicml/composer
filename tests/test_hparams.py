@@ -51,4 +51,4 @@ class TestHparamsCreate:
         _configure_dataset_for_synthetic(hparams.val_dataset)
         hparams.device = CPUDeviceHparams()
 
-        trainer = hparams.initialize_object()
+        hparams.initialize_object()
