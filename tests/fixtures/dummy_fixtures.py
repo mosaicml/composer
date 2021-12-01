@@ -8,7 +8,7 @@ import torch
 import torch.utils.data
 
 from composer import Logger, State
-from composer.core.types import DataLoader, Model, Precision
+from composer.core.types import DataLoader, Model, Precision, Evaluator
 from composer.datasets import DataloaderHparams, DataloaderSpec, DatasetHparams, SyntheticDatasetHparams
 from composer.models import ModelHparams, MosaicClassifier
 from composer.optim import AdamHparams, ExponentialLRHparams
@@ -71,6 +71,9 @@ def dummy_val_dataloader_spec(dummy_train_dataset_hparams: SyntheticDatasetHpara
 @pytest.fixture()
 def dummy_state_without_rank(dummy_model: SimpleBatchPairModel, dummy_train_batch_size: int, dummy_val_batch_size: int,
                              dummy_train_dataloader: DataLoader, dummy_val_dataloader: DataLoader) -> State:
+    evaluators = [
+        Evaluator(label="dummy_label", dataloader=dummy_val_dataloader, metrics=dummy_model.metrics(train=False))
+    ]
     state = State(
         model=dummy_model,
         epoch=5,
@@ -80,7 +83,7 @@ def dummy_state_without_rank(dummy_model: SimpleBatchPairModel, dummy_train_batc
         train_batch_size=dummy_train_batch_size,
         eval_batch_size=dummy_val_batch_size,
         train_dataloader=dummy_train_dataloader,
-        eval_dataloader=dummy_val_dataloader,
+        evaluators=evaluators,
         max_epochs=10,
     )
     return state

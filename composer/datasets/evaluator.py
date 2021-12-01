@@ -19,7 +19,10 @@ from composer.core.types import Metrics
 from composer.datasets.dataset_registry import get_dataset_registry
 from composer.datasets.hparams import DataloaderSpec, DatasetHparams
 
+from composer.models.loss import CrossEntropyLoss
+
 log = logging.getLogger(__name__)
+
 
 @dataclass
 class EvaluatorHparams(hp.Hparams):
@@ -33,6 +36,7 @@ class EvaluatorHparams(hp.Hparams):
         "F1": F1,
         "PearsonCorrcoef": PearsonCorrcoef,
         "SpearmanCorrcoef": SpearmanCorrcoef,
+        "CrossEntropyLoss": CrossEntropyLoss,
     }
 
     label: str = hp.required(doc="label")
@@ -46,12 +50,15 @@ class EvaluatorHparams(hp.Hparams):
             resolved_metrics = []
             for metric_name in metric_names:
                 if metric_name in self.metric_registry:
-                    resolved_metrics.append(self.metric_registry[metric_name])
+                    metric_instance = self.metric_registry[metric_name]()
+                    resolved_metrics.append(metric_instance)
                 else:
                     log.warning(f"The metric {metric_name} is not a registered metric. Add it to the metric registry.")
+            return resolved_metrics
 
         metric_list = resolve_metric_list(self.metrics)
         return EvaluatorSpec(label=self.label, dataloader_spec=dataset, metrics=MetricCollection(metric_list))
+
 
 @dataclass
 class EvaluatorSpec:

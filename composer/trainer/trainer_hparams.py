@@ -65,15 +65,6 @@ model_registry = {
 
 dataset_registry = get_dataset_registry()
 
-# dataset_registry = {
-#     "brats": datasets.BratsDatasetHparams,
-#     "imagenet": datasets.ImagenetDatasetHparams,
-#     "cifar10": datasets.CIFAR10DatasetHparams,
-#     "synthetic": datasets.SyntheticDatasetHparams,
-#     "mnist": datasets.MNISTDatasetHparams,
-#     "lm": datasets.LMDatasetHparams,
-# }
-
 algorithms_registry = get_algorithm_registry()
 
 callback_registry = {
@@ -146,9 +137,9 @@ class TrainerHparams(hp.Hparams):
     )
     precision: Precision = hp.required(doc="Precision to use for training", template_default=Precision.AMP)
 
-    val_dataset: datasets.DatasetHparams = hp.optional(doc="Validation dataset hparams", default=None)
+    val_dataset: Optional[datasets.DatasetHparams] = hp.optional(doc="Validation dataset hparams", default=None)
 
-    evaluators: List[EvaluatorHparams] = hp.optional(doc="Evaluators", default_factory=list)
+    evaluators: Optional[List[EvaluatorHparams]] = hp.optional(doc="Evaluators", default_factory=list)
 
     ddp_sync_strategy: Optional[ddp.DDPSyncStrategy] = hp.optional(
         doc="The strategy for synchronizing DDP. Default value ``None`` causes the "
@@ -202,7 +193,7 @@ class TrainerHparams(hp.Hparams):
             raise ValueError(
                 f"eval batch size ({self.eval_batch_size}) not divisible by the total number of processes ({world_size}) "
             )
-        
+
         # There should be at least one structure for validation - evaluators or ordinary validation dataset
         if self.val_dataset is None and not self.evaluators:
             raise ValueError("val_dataset and evaluators can't both be empty")

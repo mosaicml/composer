@@ -212,10 +212,10 @@ class Trainer:
         ddp.initialize_ddp(device.ddp_backend, datetime.timedelta(seconds=ddp_timeout))
 
         self.dl_hparams = DataloaderHparams(num_workers=num_workers,
-                                       prefetch_factor=prefetch_factor,
-                                       persistent_workers=persistent_workers,
-                                       pin_memory=pin_memory,
-                                       timeout=timeout)
+                                            prefetch_factor=prefetch_factor,
+                                            persistent_workers=persistent_workers,
+                                            pin_memory=pin_memory,
+                                            timeout=timeout)
 
         train_gpu_batch_size = train_batch_size // ddp.get_world_size()
         train_dataloader = self.device.dataloader_to_device(
@@ -229,14 +229,14 @@ class Trainer:
             # get the validation metrics from the original model
             original_model_metrics = model.metrics(train=False)
             self.evaluator_specs = [
-                EvaluatorSpec(label="default_label",
-                        dataloader_spec=eval_dataloader_spec, 
-                        metrics=original_model_metrics)
+                EvaluatorSpec(label="eval_dataset",
+                              dataloader_spec=eval_dataloader_spec,
+                              metrics=original_model_metrics)
             ]
             self.evaluator_specs.extend(evaluator_specs)
         else:
             self.evaluator_specs = evaluator_specs
-        
+
         eval_gpu_batch_size = eval_batch_size // ddp.get_world_size()
         self.evaluators = self._create_evaluators(eval_gpu_batch_size)
 
@@ -335,7 +335,10 @@ class Trainer:
 
         train_dl_spec = hparams.train_dataset.initialize_object()
 
-        eval_dl_spec = hparams.val_dataset.initialize_object()
+        if hparams.val_dataset is not None:
+            eval_dl_spec = hparams.val_dataset.initialize_object()
+        else:
+            eval_dl_spec = None
 
         evaluator_specs = [evaluator_spec.initialize_object() for evaluator_spec in hparams.evaluators]
 
@@ -433,9 +436,8 @@ class Trainer:
         Returns:
             A :class:`~torchmetrics.collections.MetricCollection` object.
         """
-        if evaluator is not None and len(evaluator.metric_list) != 0:
-            metric_list = evaluator.metric_list
-            metrics = MetricCollection(metric_list)
+        if evaluator is not None:
+            metrics = evaluator.metrics
         else:
             original_model = self.state.model.module
             assert isinstance(original_model, BaseMosaicModel)
@@ -453,13 +455,15 @@ class Trainer:
         metrics = self.device.module_to_device(metrics)
         return metrics
 
-    def _compute_and_log_metrics(self, metrics: Metrics, *, is_train: bool, is_batch: bool, evaluator_label: str):
+    def _compute_and_log_metrics(self, metrics: Metrics, *, is_train: bool, is_batch: bool, logging_label: str = ''):
         """Computes metrics, logs the results, and resets the metrics.
 
         Args:
             metrics (Metrics): The metrics to compute.
             is_train (bool): True for training metrics, False for evaluation metrics.
             is_batch (bool): True if logging at batch level, false for epoch level.
+            evaluator_label (str): Should be left as empty string if called for training metrics.
+                Should be the evaluator label if called on evaluator metrics.
         """
         computed_metrics = metrics.compute()
         for name, value in computed_metrics.items():
@@ -467,10 +471,10 @@ class Trainer:
             suffix = 'train' if is_train else 'val'
 
             # default label given to evaluator created by val_dataset parameter
-            if evaluator_label != "default_label":
-                label = f'{evaluator_label}_{name.lower()}/{suffix}'
-            else:
+            if not logging_label or logging_label == "eval_dataset":
                 label = f'{name.lower()}/{suffix}'
+            else:
+                label = f'{logging_label}_{name.lower()}/{suffix}'
             self.logger.metric(log_level, {label: value})
         metrics.reset()
 
@@ -804,7 +808,6 @@ class Trainer:
 
             for evaluator in state.evaluators:
 
-                # TODO Anis - need to make this function
                 eval_metrics = self._get_metrics_as_collection(is_train=False, evaluator=evaluator)
 
                 assert evaluator.dataloader is not None
@@ -819,30 +822,12 @@ class Trainer:
                     eval_metrics.update(state.outputs, targets)
 
                     self.engine.run_event(Event.EVAL_BATCH_END)
-                
-                self._compute_and_log_metrics(eval_metrics, is_train=False, is_batch=is_batch)
-            
-            self.engine.run_event(Event.EVAL_END)
-        
-        if restore_model_train:
-            model.train()
 
-            metrics = self._get_metrics_as_collection(is_train=False)
+                self._compute_and_log_metrics(eval_metrics,
+                                              is_train=False,
+                                              is_batch=is_batch,
+                                              logging_label=evaluator.label)
 
-            assert state.eval_dataloader is not None
-
-            for state.batch in state.eval_dataloader:
-                self.engine.run_event(Event.EVAL_BATCH_START)
-
-                self.engine.run_event(Event.EVAL_BEFORE_FORWARD)
-                state.outputs, targets = original_model.validate(state.batch)
-                self.engine.run_event(Event.EVAL_AFTER_FORWARD)
-
-                metrics.update(state.outputs, targets)
-
-                self.engine.run_event(Event.EVAL_BATCH_END)
-
-            self._compute_and_log_metrics(metrics, is_train=False, is_batch=is_batch)
             self.engine.run_event(Event.EVAL_END)
 
         if restore_model_train:

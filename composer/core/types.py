@@ -139,17 +139,18 @@ class DataLoader(Protocol):
 
 Metrics = Union[Metric, MetricCollection]
 
+
 @dataclass
 class Evaluator:
     """Wrapper for a dataloader to include metrics that apply to a specific
-    dataset/dataloader.
+    dataset.
 
     Attributes:
         label (str): Name of the Evaluator for 
         dataloader (DataLoader): Dataloader for evaluation data
-        metrics (Metrics): Metrics to use for the particular dataset
+        metrics (Metrics): Metrics to use for the dataset
     """
-    
+
     label: str
     dataloader: DataLoader
     metrics: Metrics
