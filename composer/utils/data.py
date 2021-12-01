@@ -25,10 +25,3 @@ def add_dataset_transform(dataset, transform):
         dataset.transform = transforms.Compose([dataset.transform, transform])
 
     return dataset
-
-
-def get_num_batches(num_samples: int, batch_size: int, drop_last: bool) -> int:
-    if drop_last:
-        return num_samples // batch_size
-    else:
-        return (num_samples - 1) // batch_size + 1

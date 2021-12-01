@@ -190,12 +190,3 @@ or via the command line, e.g.
 .. code-block::
 
     python examples/run_mosaic_trainer.py -f my_config.yaml --model my_model --num_classes 10 --num_hidden 128
-
-
-
-
-
-
-
-
-

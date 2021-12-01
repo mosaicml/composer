@@ -189,7 +189,6 @@ class Trainer:
             train_dataloader_spec = train_dataloader
         else:
             train_dataloader_spec = DataloaderSpec(train_dataloader)
-        train_dataloader = self.device.dataloader_to_device(DDPDataLoader(train_dataloader_spec.dataloader),)
         self._train_device_transformation_fn = train_dataloader_spec.device_transform_fn
         self.train_split_fn = train_dataloader_spec.split_fn
 
@@ -197,27 +196,34 @@ class Trainer:
             eval_dataloader_spec = eval_dataloader
         else:
             eval_dataloader_spec = DataloaderSpec(eval_dataloader)
-        eval_dataloader = self.device.dataloader_to_device(DDPDataLoader(eval_dataloader_spec.dataloader),)
         self._eval_device_transformation_fn = eval_dataloader_spec.device_transform_fn
         self.eval_split_fn = eval_dataloader_spec.split_fn
 
-        if train_dataloader.batch_size is None:
+        train_batch_size = train_dataloader_spec.dataloader.batch_size
+
+        if train_batch_size is None:
             raise ValueError("train dataloader batch size is None")
-        if eval_dataloader.batch_size is None:
+
+        train_batch_size *= ddp.get_world_size()
+
+        eval_batch_size = eval_dataloader_spec.dataloader.batch_size
+        if eval_batch_size is None:
             raise ValueError("eval dataloader batch size is None")
+
+        eval_batch_size *= ddp.get_world_size()
 
         self.state = State(
             max_epochs=max_epochs,
-            train_batch_size=train_dataloader.batch_size * ddp.get_world_size(),
-            eval_batch_size=eval_dataloader.batch_size * ddp.get_world_size(),
+            train_batch_size=train_batch_size,
+            eval_batch_size=eval_batch_size,
             algorithms=algorithms,
             callbacks=callbacks,
             model=model,
             grad_accum=grad_accum,
             precision=precision,
             precision_context=self.device.precision_context,
-            train_dataloader=train_dataloader,
-            eval_dataloader=eval_dataloader,
+            train_dataloader=DDPDataLoader(train_dataloader_spec.dataloader),
+            eval_dataloader=DDPDataLoader(eval_dataloader_spec.dataloader),
         )
 
         if not log_destinations:
@@ -242,7 +248,7 @@ class Trainer:
         self.engine.run_event(Event.INIT)
 
         assert isinstance(self.state.train_dataloader.dataset, collections.abc.Sized)
-        steps_per_epoch = len(self.state.train_dataloader.dataset) // self.state.train_batch_size
+        steps_per_epoch = len(self.state.train_dataloader.dataset) // train_batch_size
         # Need to use hparams here because optimizer and schedulers need to be created after Event.INIT
         if not optimizer_hparams:
             optimizer_hparams = DecoupledSGDWHparams(lr=0.1, momentum=0.9, weight_decay=1.0e-4)
@@ -504,10 +510,10 @@ class Trainer:
                             self.checkpoint_loader.restore_checkpoint_rng_state(self.state, self.device)
                         continue
 
+                    state.last_batch_size = self._get_batch_size(state.batch)
+                    state.batch = self.device.batch_to_device(state.batch)
                     if self._train_device_transformation_fn is not None:
                         state.batch = self._train_device_transformation_fn(state.batch)
-
-                    state.last_batch_size = self._get_batch_size(state.batch)
 
                     if self.compute_training_metrics:
                         # compute metrics on the training set
@@ -717,8 +723,10 @@ class Trainer:
             assert state.eval_dataloader is not None
 
             for state.batch in state.eval_dataloader:
+                state.batch = self.device.batch_to_device(state.batch)
                 if self._eval_device_transformation_fn is not None:
                     state.batch = self._eval_device_transformation_fn(state.batch)
+
                 self.engine.run_event(Event.EVAL_BATCH_START)
 
                 self.engine.run_event(Event.EVAL_BEFORE_FORWARD)

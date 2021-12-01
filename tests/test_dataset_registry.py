@@ -63,10 +63,10 @@ def test_dataset(dataset_name: str, dummy_dataloader_hparams: DataloaderHparams,
     hparams_cls = dataset_registry[dataset_name]
     hparams = default_required_fields[hparams_cls]()
     try:
-        synthetic = hparams.get_synthetic()
-    except NotImplementedError:
+        synthetic = hparams.synthetic
+    except AttributeError:
         pytest.xfail(f"Dataset {dataset_name} does not support synthetic data")
         raise
     if synthetic is None:
-        hparams.set_synthetic(hparams.get_synthetic_hparams_cls()())
+        hparams.synthetic = hparams.get_synthetic_hparams_cls()()
     hparams.initialize_object(batch_size=1, dataloader_hparams=dummy_dataloader_hparams)

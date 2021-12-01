@@ -78,18 +78,6 @@ def dummy_val_dataset_hparams(dummy_model: SimpleBatchPairModel,
     )
 
 
-@pytest.fixture
-def dummy_train_dataloader(dummy_train_dataset_hparams: DatasetHparams, dummy_train_batch_size: int,
-                           dummy_dataloader_hparams: DataloaderHparams) -> Union[DataLoader, DataloaderSpec]:
-    return dummy_train_dataset_hparams.initialize_object(dummy_train_batch_size, dummy_dataloader_hparams)
-
-
-@pytest.fixture
-def dummy_val_dataloader(dummy_train_dataset_hparams: DatasetHparams, dummy_val_batch_size: int,
-                         dummy_dataloader_hparams: DataloaderHparams) -> Union[DataLoader, DataloaderSpec]:
-    return dummy_train_dataset_hparams.initialize_object(dummy_val_batch_size, dummy_dataloader_hparams)
-
-
 @pytest.fixture()
 def dummy_state_without_rank(dummy_model: SimpleBatchPairModel, dummy_train_batch_size: int, dummy_val_batch_size: int,
                              dummy_train_dataloader: DataLoader, dummy_val_dataloader: DataLoader) -> State:
@@ -117,6 +105,18 @@ def dummy_dataloader_hparams() -> DataloaderHparams:
         pin_memory=False,
         timeout=0,
     )
+
+
+@pytest.fixture
+def dummy_train_dataloader(dummy_train_dataset_hparams: DatasetHparams, dummy_train_batch_size: int,
+                           dummy_dataloader_hparams: DataloaderHparams) -> Union[DataLoader, DataloaderSpec]:
+    return dummy_train_dataset_hparams.initialize_object(dummy_train_batch_size, dummy_dataloader_hparams)
+
+
+@pytest.fixture
+def dummy_val_dataloader(dummy_train_dataset_hparams: DatasetHparams, dummy_val_batch_size: int,
+                         dummy_dataloader_hparams: DataloaderHparams) -> Union[DataLoader, DataloaderSpec]:
+    return dummy_train_dataset_hparams.initialize_object(dummy_val_batch_size, dummy_dataloader_hparams)
 
 
 @pytest.fixture()
