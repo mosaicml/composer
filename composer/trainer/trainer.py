@@ -132,7 +132,7 @@ class Trainer:
             train_batch_size: int,
             eval_batch_size: int,
             eval_dataloader_spec: Optional[DataloaderSpec] = None,
-            evaluator_specs: Optional[List[EvaluatorSpec]] = [],
+            evaluator_specs: Optional[List[EvaluatorSpec]] = None,
             algorithms: Optional[List[Algorithm]] = None,
             optimizer_hparams: Optional[OptimizerHparams] = None,
             schedulers_hparams: Optional[Union[SchedulerHparams, List[SchedulerHparams]]] = None,
@@ -224,21 +224,21 @@ class Trainer:
         )
         self.train_dl_spec = train_dataloader_spec
 
+        if evaluator_specs is None:
+            evaluator_specs = []
         # if eval_dataloader_spec is specified - wrap it in an EvaluatorSpec object
         if eval_dataloader_spec is not None:
             # get the validation metrics from the original model
             original_model_metrics = model.metrics(train=False)
-            self.evaluator_specs = [
+            default_evaluator_spec = [
                 EvaluatorSpec(label="eval_dataset",
                               dataloader_spec=eval_dataloader_spec,
                               metrics=original_model_metrics)
             ]
-            self.evaluator_specs.extend(evaluator_specs)
-        else:
-            self.evaluator_specs = evaluator_specs
+            evaluator_specs.extend(default_evaluator_spec)
 
         eval_gpu_batch_size = eval_batch_size // ddp.get_world_size()
-        self.evaluators = self._create_evaluators(eval_gpu_batch_size)
+        self.evaluators = self._create_evaluators(evaluator_specs, eval_gpu_batch_size)
 
         # do a check here to make sure there is at least one validation set
         if len(self.evaluators) == 0:
@@ -405,14 +405,14 @@ class Trainer:
         """Train and evaluate the model on the provided data."""
         self._train_loop()
 
-    def _create_evaluators(self, eval_gpu_batch_size: int) -> List[Evaluator]:
-        """Create the dataloaders.
+    def _create_evaluators(self, evaluator_specs: List[EvaluatorSpec], eval_gpu_batch_size: int) -> List[Evaluator]:
+        """Creates the evaluators from the evaluator_specs parameters.
 
         Loops through the EvaluatorSpec objects and creates the dataloaders in
-        each of them and creates Evaluator objects
+        each of them and creates Evaluator objects.
         """
         evaluators = []
-        for evaluator_spec in self.evaluator_specs:
+        for evaluator_spec in evaluator_specs:
             dataloader = self.device.dataloader_to_device(
                 ddp.create_dataloader(eval_gpu_batch_size, self.dl_hparams, evaluator_spec.dataloader_spec),
                 evaluator_spec.dataloader_spec.prefetch_fn,
@@ -482,7 +482,7 @@ class Trainer:
             if not logging_label or logging_label == "eval_dataset":
                 label = f'{name.lower()}/{suffix}'
             else:
-                label = f'{logging_label}_{name.lower()}/{suffix}'
+                label = f'{logging_label}/{name.lower()}_{suffix}'
             self.logger.metric(log_level, {label: value})
         metrics.reset()
 
