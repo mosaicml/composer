@@ -35,7 +35,7 @@ model:
     pretrained_model_name: bert-base-uncased
 optimizer:
   adamw:
-    lr: 1.0e-3
+    lr: 2.0e-3
     betas:
       - 0.9
       - 0.98
@@ -46,9 +46,9 @@ schedulers:
       warmup_method: linear
       warmup_factor: 0
       interval: step
-      warmup_iters: 1ep
+      warmup_iters: 630ba
   - cosine_decay:
-      T_max: 3ep
+      T_max: 63000ba 
       interval: step
       eta_min: 0
       verbose: false
@@ -64,9 +64,9 @@ loggers:
       project: bert
       name: bert-base
       extra_init_params: {}
-max_epochs: 4
-total_batch_size: 176 
-eval_batch_size: 176 
+max_epochs: 1
+total_batch_size: 4096 
+eval_batch_size: 4096
 seed: 19
 device:
   gpu:
@@ -78,6 +78,6 @@ dataloader:
   num_workers: 8
   timeout: 0
   prefetch_factor: 2
-grad_accum: 1
+grad_accum: 24
 precision: amp
 grad_clip_norm: None
