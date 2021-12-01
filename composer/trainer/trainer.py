@@ -29,8 +29,10 @@ from composer.optim import (ComposedScheduler, CosineAnnealingLRHparams, Decoupl
                             SchedulerHparams, WarmUpLRHparams)
 from composer.optim.scheduler import ensure_warmup_last
 from composer.trainer.checkpoint import Checkpointer, CheckpointLoader
+from composer.trainer.deepspeed import DeepSpeedHparams
 from composer.trainer.devices.device import Device
 from composer.trainer.devices.device_cpu import DeviceCPU
+from composer.trainer.devices.device_gpu import DeviceGPU
 from composer.trainer.scaler import ClosureGradScaler
 from composer.trainer.trainer_hparams import TrainerHparams
 from composer.utils import ddp, ensure_tuple, get_random_seed, map_collection, seed_all
@@ -166,6 +168,9 @@ class Trainer:
             checkpoint_folder: Optional[str] = "checkpoints",
             checkpoint_interval: Optional[int] = 1,
 
+            # DeepSpeed
+            deepspeed_hparams: Optional[DeepSpeedHparams] = None,
+
             # Optional config (ex. an hparams yaml file)
             config: Optional[Dict[str, Any]] = None):
         # surpressing GradScaler warnings as they are always created
@@ -174,8 +179,10 @@ class Trainer:
 
         self.config = config
 
+        self.deepspeed_enabled = deepspeed_hparams and deepspeed_hparams.enabled
+
         if not device:
-            device = DeviceCPU()
+            device = DeviceCPU() if not self.deepspeed_enabled else DeviceGPU(prefetch_in_cuda_stream=False)
         self.device = device
         self.device.prepare()
 
@@ -197,12 +204,16 @@ class Trainer:
         find_unused_parameters = any(map(lambda x: x.find_unused_parameters, algorithms))
 
         self.find_unused_parameters = find_unused_parameters
-        if ddp_sync_strategy is None:
-            self.ddp_sync_strategy = ddp.DDPSyncStrategy.SINGLE_AUTO_SYNC if not find_unused_parameters else ddp.DDPSyncStrategy.FORCED_SYNC
-        else:
-            self.ddp_sync_strategy = ddp.DDPSyncStrategy(ddp_sync_strategy)
 
-        ddp.initialize_ddp(device.ddp_backend, datetime.timedelta(seconds=ddp_timeout))
+        if self.deepspeed_enabled:
+            import deepspeed
+            deepspeed.init_distributed()
+        else:
+            ddp.initialize_ddp(device.ddp_backend, datetime.timedelta(seconds=ddp_timeout))
+            if ddp_sync_strategy is None:
+                self.ddp_sync_strategy = ddp.DDPSyncStrategy.SINGLE_AUTO_SYNC if not find_unused_parameters else ddp.DDPSyncStrategy.FORCED_SYNC
+            else:
+                self.ddp_sync_strategy = ddp.DDPSyncStrategy(ddp_sync_strategy)
 
         dl_hparams = DataloaderHparams(num_workers=num_workers,
                                        prefetch_factor=prefetch_factor,
@@ -224,6 +235,10 @@ class Trainer:
         )
         self.eval_dl_spec = eval_dataloader_spec
 
+        # TODO(#123): DeepSpeed still needs a precision context, but it's not completely clear how to
+        # handle this with our version of Pytorch
+        precision_context = self.device.precision_context if not self.deepspeed_enabled else contextlib.nullcontext
+
         self.state = State(
             max_epochs=max_epochs,
             train_batch_size=train_batch_size,
@@ -233,7 +248,7 @@ class Trainer:
             model=model,
             grad_accum=grad_accum,
             precision=precision,
-            precision_context=self.device.precision_context,
+            precision_context=precision_context,  # type: ignore
             train_dataloader=train_dataloader,
             eval_dataloader=eval_dataloader,
         )
@@ -274,13 +289,19 @@ class Trainer:
         self.state.schedulers = ComposedScheduler(schedulers=schedulers)
 
         self.checkpointer = None
+        # TODO(#121): get checkpointing working with DeepSpeed.
         if checkpoint_folder and checkpoint_interval and checkpoint_interval_unit:
+            if self.deepspeed_enabled:
+                raise NotImplementedError("Checkpointing is not yet supported with DeepSpeed.")
             self.checkpointer = Checkpointer(checkpoint_folder=get_relative_to_run_directory(checkpoint_folder),
                                              checkpoint_interval=checkpoint_interval,
                                              checkpoint_interval_unit=checkpoint_interval_unit)
 
         self.checkpoint_loader = None
+        # TODO(#121): get checkpointing working with DeepSpeed.
         if checkpoint_filepath:
+            if self.deepspeed_enabled:
+                raise NotImplementedError("Checkpointing is not yet supported with DeepSpeed.")
             self.checkpoint_loader = CheckpointLoader(checkpoint_filepath=checkpoint_filepath)
             self.checkpoint_loader.load_checkpoint(state=self.state)
 
@@ -362,6 +383,9 @@ class Trainer:
             checkpoint_folder=hparams.checkpoint_folder,
             checkpoint_interval=hparams.checkpoint_interval,
 
+            # DeepSpeed
+            deepspeed_hparams=hparams.deepspeed,
+
             # Optional config
             config=hparams.to_dict())
 
@@ -373,17 +397,6 @@ class Trainer:
             self._train_loop()
         finally:
             self.engine.close()
-
-    def _create_dataloaders(self) -> None:
-        """Create the dataloaders.
-
-        Should be called after distributed training has started,
-        since the dataloader samplers need to know their rank.
-        """
-        # shorthand
-        state = self.state
-
-        # compute per gpu batch size
 
     def _get_metrics_as_collection(self, *, is_train: bool) -> MetricCollection:
         """Get metrics relevant to the model. Metrics are all implemented as subclasses
@@ -398,10 +411,7 @@ class Trainer:
         Returns:
             A :class:`~torchmetrics.collections.MetricCollection` object.
         """
-        original_model = self.state.model.module
-        assert isinstance(original_model, BaseMosaicModel)
-
-        metrics = original_model.metrics(train=is_train)
+        metrics = self.original_model.metrics(train=is_train)
         assert isinstance(metrics, (Metric, MetricCollection)), \
             "Error module.metrics() must return a Metric or MetricCollection object."
         if isinstance(metrics, Metric):
@@ -412,6 +422,12 @@ class Trainer:
         # needed because the metric is automatically on the same device as the model.
         # See https://torchmetrics.readthedocs.io/en/latest/pages/overview.html for details.
         metrics = self.device.module_to_device(metrics)
+
+        # HACK: DeepSpeed somehow manages to convert metric internal states to its own dtype. When
+        # running with FP16, this tends to result in overflows. Let's assume FP32 is good enough.
+        for _, metric in metrics.items():
+            metric.set_dtype(torch.float32)  # type: ignore
+
         return metrics
 
     def _compute_and_log_metrics(self, metrics: Metrics, *, is_train: bool, is_batch: bool):
@@ -476,14 +492,44 @@ class Trainer:
 
         assert state.optimizers is not None
         assert state.schedulers is not None
-        # place the state, model in the proper devices
-        state.model = self.device.module_to_device(state.model)
-        state.optimizers = map_collection(state.optimizers, self.device.optimizer_to_device)
 
-        # wrap model with DDP
-        state.model = ddp.prepare_module(state.model, self.find_unused_parameters)
-        original_model = state.model.module
-        assert isinstance(original_model, BaseMosaicModel)
+        if len(ensure_tuple(state.optimizers)) != 1:
+            raise NotImplementedError("The Mosaic trainer only supports one optimizer; "
+                                      f"found {len(ensure_tuple(state.optimizers))} optimizers")
+
+        assert isinstance(state.model, BaseMosaicModel)
+        self.original_model = state.model
+
+        # place the state, model in the proper devices
+        if self.deepspeed_enabled:
+            import deepspeed
+
+            optimizer = ensure_tuple(state.optimizers)[0]
+
+            deepspeed_config: dict[str, Any] = {
+                "train_batch_size": state.train_batch_size,
+                "gradient_accumulation_steps": state.grad_accum,
+            }
+
+            if state.precision == Precision.AMP:
+                deepspeed_config["amp"] = {"enabled": True}
+            elif state.precision == Precision.FP16:
+                deepspeed_config["fp16"] = {"enabled": True}
+
+            if self.grad_clip_norm:
+                deepspeed_config["gradient_clipping"] = self.grad_clip_norm
+
+            (state.model, state.optimizers, _, _) = deepspeed.initialize(
+                config=deepspeed_config,
+                model=state.model,
+                optimizer=optimizer,
+            )
+        else:
+            state.model = self.device.module_to_device(state.model)
+            state.optimizers = map_collection(state.optimizers, self.device.optimizer_to_device)
+
+            # wrap model with DDP
+            state.model = ddp.prepare_module(state.model, self.find_unused_parameters)
 
         # print training start
         self.logger.metric_fit({"trainer/algorithms": [str(algo) for algo in self.engine.algorithms]})
@@ -495,10 +541,6 @@ class Trainer:
         train_metrics = self._get_metrics_as_collection(is_train=True)
 
         self.engine.run_event(Event.TRAINING_START)
-
-        if len(ensure_tuple(state.optimizers)) != 1:
-            raise NotImplementedError("The Mosaic trainer only supports one optimizer; "
-                                      f"found {len(ensure_tuple(state.optimizers))} optimizers")
 
         if self._use_closures():
 
@@ -552,7 +594,7 @@ class Trainer:
                             for eval_microbatch in eval_microbatches:
                                 # TODO: Detect if self.run_event(Event.AFTER_DATALOADER) changes the training
                                 # data and if so print a warning that metrics may return unexpected results
-                                outputs, targets = original_model.validate(eval_microbatch)
+                                outputs, targets = self.original_model.validate(eval_microbatch)
                                 train_metrics.update(outputs, targets)
 
                     state.model.train()
@@ -567,7 +609,9 @@ class Trainer:
                         "trainer/batch_idx": self.state.batch_idx,
                     })
                     total_loss = None
-                    if self._use_closures():
+                    if self.deepspeed_enabled:
+                        total_loss = self._train_batch(microbatches)
+                    elif self._use_closures():
                         closure = lambda **kwargs: self._train_batch(microbatches, **kwargs)
                         for optimizer in ensure_tuple(state.optimizers):
                             if use_grad_scaling:
@@ -655,15 +699,14 @@ class Trainer:
         self.engine.run_event(Event.BEFORE_TRAIN_BATCH)
 
         state = self.state
-        original_model = state.model.module
-        assert isinstance(original_model, BaseMosaicModel)
         assert state.optimizers is not None
         assert state.scaler is not None
 
         use_grad_scaling = self._use_grad_scaling(state.precision, state.scaler)
 
-        for optimizer in ensure_tuple(state.optimizers):
-            optimizer.zero_grad()
+        if not self.deepspeed_enabled:
+            for optimizer in ensure_tuple(state.optimizers):
+                optimizer.zero_grad()
 
         # tracker for gradient accumulation
         total_loss = self.device.tensor_to_device(torch.zeros(size=(1,)))
@@ -671,7 +714,9 @@ class Trainer:
 
         for microbatch_idx, state.batch in enumerate(microbatches):
             is_final_microbatch = microbatch_idx + 1 == len(microbatches)
-            with ddp.sync_context(state, is_final_microbatch, self.ddp_sync_strategy):
+            sync_context = contextlib.nullcontext() if self.deepspeed_enabled else ddp.sync_context(
+                state, is_final_microbatch, self.ddp_sync_strategy)
+            with sync_context:
                 last_microbatch_size = self._get_batch_size(state.batch)
 
                 # forward pass
@@ -686,15 +731,15 @@ class Trainer:
                 self.engine.run_event(Event.BEFORE_LOSS)
 
                 with state.precision_context(state.precision):
-                    state.loss = original_model.loss(state.outputs, state.batch)
+                    state.loss = self.original_model.loss(state.outputs, state.batch)
 
-                for loss in ensure_tuple(state.loss):
-                    loss.mul_(last_microbatch_size / current_batch_size)
-
-                # Loss is added to losses with clone to not scale the loss for the step printout
-                # Likely need to look into the performance impact
-                for loss in ensure_tuple(state.loss):
-                    total_loss += loss.detach().clone()
+                # We always want to scale loss by the grad_accum before the backwards pass and
+                # also for sake of metrics. Complicating matters, the DeepSpeed engine does its
+                # own scaling when we call `.backward`, but this isn't in place so we still need
+                # to scale for sake of metrics after the `.backward` call.
+                if not self.deepspeed_enabled:
+                    for loss in ensure_tuple(state.loss):
+                        loss.mul_(last_microbatch_size / current_batch_size)
 
                 assert state.loss is not None
                 self.engine.run_event(Event.AFTER_LOSS)
@@ -705,10 +750,25 @@ class Trainer:
                 if use_grad_scaling:
                     state.loss = state.scaler.scale(state.loss)
 
-                for loss in ensure_tuple(state.loss):
-                    loss.backward(create_graph=self.backwards_create_graph)
+                if self.deepspeed_enabled:
+                    state.model.backward(state.loss)  # type: ignore
+
+                    # This is the same loss scaling we skipped earlier.
+                    for loss in ensure_tuple(state.loss):
+                        loss.mul_(last_microbatch_size / current_batch_size)
+                else:
+                    for loss in ensure_tuple(state.loss):
+                        loss.backward(create_graph=self.backwards_create_graph)
 
                 self.engine.run_event(Event.AFTER_BACKWARD)
+
+                # Loss is added to losses with clone to not scale the loss for the step printout
+                # Likely need to look into the performance impact
+                for loss in ensure_tuple(state.loss):
+                    total_loss += loss.detach().clone()
+
+            if self.deepspeed_enabled:
+                state.model.step()  # type: ignore
 
         # Unscale gradients before `Event.AFTER_TRAIN_BATCH`
         if use_grad_scaling:
@@ -716,7 +776,7 @@ class Trainer:
                 state.scaler.unscale_(optimizer)
 
         # clip gradients if the magnitude is too large
-        if self.grad_clip_norm is not None:
+        if not self.deepspeed_enabled and self.grad_clip_norm is not None:
             torch.nn.utils.clip_grad_norm_(
                 parameters=state.model.parameters(),
                 max_norm=self.grad_clip_norm,
@@ -744,9 +804,6 @@ class Trainer:
 
             self.engine.run_event(Event.EVAL_START)
 
-            original_model = state.model.module
-            assert isinstance(original_model, BaseMosaicModel)
-
             metrics = self._get_metrics_as_collection(is_train=False)
 
             assert state.eval_dataloader is not None
@@ -755,7 +812,7 @@ class Trainer:
                 self.engine.run_event(Event.EVAL_BATCH_START)
 
                 self.engine.run_event(Event.EVAL_BEFORE_FORWARD)
-                state.outputs, targets = original_model.validate(state.batch)
+                state.outputs, targets = self.original_model.validate(state.batch)
                 self.engine.run_event(Event.EVAL_AFTER_FORWARD)
 
                 metrics.update(state.outputs, targets)
@@ -784,6 +841,9 @@ class Trainer:
                 Occurs when attempting to use grad scaling without the scaler
                 enabled. Likely due to hardware not supporting the provided precision.
         """
+        if self.deepspeed_enabled:
+            return False
+
         precision = Precision(precision)
         use_grad_scaling = precision == Precision.AMP
 
@@ -798,6 +858,9 @@ class Trainer:
         We default to using closures unless AMP is enabled, in which case we only allow
         closures when using optimizers with the _step_supports_amp_closure flag.
         """
+        if self.deepspeed_enabled:
+            return False
+
         if self.state.precision != Precision.AMP:
             return True
 
