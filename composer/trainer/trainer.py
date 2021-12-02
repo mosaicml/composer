@@ -180,6 +180,7 @@ class Trainer:
         self.config = config
 
         self.deepspeed_enabled = deepspeed_hparams and deepspeed_hparams.enabled
+        self.deepspeed_hparams = deepspeed_hparams
 
         if not device:
             device = DeviceCPU() if not self.deepspeed_enabled else DeviceGPU(prefetch_in_cuda_stream=False)
@@ -509,6 +510,9 @@ class Trainer:
             deepspeed_config: dict[str, Any] = {
                 "train_batch_size": state.train_batch_size,
                 "gradient_accumulation_steps": state.grad_accum,
+                "zero_optimization": {
+                    "stage": self.deepspeed_hparams.zero_stage,
+                },
             }
 
             if state.precision == Precision.AMP:
