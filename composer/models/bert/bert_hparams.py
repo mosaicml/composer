@@ -19,10 +19,7 @@ class MLMTasks(StringEnum):
 
 @dataclass
 class BERTHparams(TransformerHparams):
-    task: MLMTasks = hp.required(doc="The training task to use (must be one of MLMTasks)",)
-
-    def validate(self):
-        raise NotImplementedError("Need to write validation code.")
+    task: MLMTasks = hp.optional(doc="The training task to use (must be one of MLMTasks).", default=None)
 
     def initialize_object(self) -> "MosaicTransformer":
         import transformers
@@ -35,6 +32,7 @@ class BERTHparams(TransformerHparams):
             MLMTasks.SEQUENCE_CLASSIFICATION: transformers.AutoModelForSequenceClassification
         }
         self.task_class = self.task_classes[self.task]
+        print(self.task_class)
 
         if self.model_config:
             config = transformers.BertConfig.from_dict(self.model_config)

@@ -40,7 +40,7 @@ class SST2Hparams(DatasetHparams):
         self.dataset = datasets.load_dataset("glue", "sst2", split=self.split)
 
         n_cpus = cpu_count()
-        log.info(f"Starting tokenization step by preprocessing over {n_cpus()}")
+        log.info(f"Starting tokenization step by preprocessing over {n_cpus} threads!")
         text_column_name = "sentence"
 
         def tokenize_function(inp):

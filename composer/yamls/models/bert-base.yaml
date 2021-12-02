@@ -30,6 +30,7 @@ val_dataset:
     val_sequence_length: 128 
 model:
   bert:
+    task: masked_lm
     use_pretrained: false
     tokenizer_name: bert-base-uncased
     pretrained_model_name: bert-base-uncased
@@ -70,7 +71,6 @@ eval_batch_size: 2000
 seed: 19
 device:
   gpu:
-    n_gpus: 8
     prefetch_in_cuda_stream: false
 dataloader:
   pin_memory: true
