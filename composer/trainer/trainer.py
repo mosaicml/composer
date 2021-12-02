@@ -499,7 +499,7 @@ class Trainer:
                                       f"found {len(ensure_tuple(state.optimizers))} optimizers")
 
         assert isinstance(state.model, BaseMosaicModel)
-        self.original_model = state.model
+        #self.original_model = state.model
 
         # place the state, model in the proper devices
         if self.deepspeed_enabled:
@@ -748,8 +748,10 @@ class Trainer:
                 # loss
                 self.engine.run_event(Event.BEFORE_LOSS)
 
-                with state.precision_context(state.precision):
-                    state.loss = self.original_model.loss(state.outputs, state.batch)
+                #with state.precision_context(state.precision):
+                #    state.loss = self.original_model.loss(state.outputs, state.batch)
+
+                state.loss = state.outputs['loss']
 
                 # We always want to scale loss by the grad_accum before the backwards pass and
                 # also for sake of metrics. Complicating matters, the DeepSpeed engine does its
