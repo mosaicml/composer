@@ -521,6 +521,14 @@ class Trainer:
                 },
             }
 
+            if self.deepspeed_hparams.zero_stage == 2:
+                deepspeed_config["offload_param"] = {
+                    "device": "cpu",
+                    "pin_memory": True,
+                    "buffer_size": 1e6,
+                    "max_in_cpu": 1e7,
+                }
+
             if state.precision == Precision.AMP:
                 deepspeed_config["amp"] = {"enabled": True}
             elif state.precision == Precision.FP16:
