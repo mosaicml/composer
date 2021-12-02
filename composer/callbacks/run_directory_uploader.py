@@ -14,7 +14,7 @@ import time
 import warnings
 from typing import Any, Callable, Dict, Optional, Type, Union
 
-from composer.core.callback import RankZeroCallback
+from composer.core.callback import Callback
 from composer.core.logging import Logger
 from composer.core.logging.logger import LogLevel
 from composer.core.state import State
@@ -24,7 +24,7 @@ from composer.utils.run_directory import get_run_directory
 log = logging.getLogger(__name__)
 
 
-class RunDirectoryUploader(RankZeroCallback):
+class RunDirectoryUploader(Callback):
     """Callback to upload the run directory to a blob store.
 
     This callback checks the run directory for new or modified files
@@ -291,7 +291,7 @@ def _upload_worker(
                 break
             else:
                 continue
-        obj_name = ",".join(os.path.relpath(file_path_to_upload, upload_staging_dir).split(
+        obj_name = os.path.sep.join(os.path.relpath(file_path_to_upload, upload_staging_dir).split(
             os.path.sep)[1:])  # the first folder is the upload timestamp. Chop that off.
         log.info("Uploading file %s to %s://%s/%s%s", file_path_to_upload, provider_name, container_name,
                  object_name_prefix, obj_name)
