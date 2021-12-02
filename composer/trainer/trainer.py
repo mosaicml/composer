@@ -556,7 +556,7 @@ class Trainer:
             log.warn('Computing model evaluation metrics during training.'
                      ' This doubles the number of forward passes and may lead'
                      ' to a throughput degradation.')
-        train_metrics = self._get_metrics_as_collection(is_train=True)
+            train_metrics = self._get_metrics_as_collection(is_train=True)
 
         self.engine.run_event(Event.TRAINING_START)
 
