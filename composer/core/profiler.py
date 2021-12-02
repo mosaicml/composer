@@ -14,6 +14,7 @@ from composer.core.callback import Callback
 from composer.core.state import State
 from composer.core.types import Batch, DataLoader
 from composer.datasets.dataloader import WrappedDataLoader
+from composer.utils.string_enum import StringEnum
 
 
 @dataclasses.dataclass
@@ -63,14 +64,38 @@ class ProfiledDataLoader(WrappedDataLoader):
             self._marker.finish()
 
 
+class MosaicProfilerAction(StringEnum):
+    SKIP = "skip"
+    ACTIVE = "active"
+
+
 class MosaicProfiler:
 
-    def __init__(self, state: State, event_handlers: Sequence[ProfilerEventHandler]) -> None:
+    def __init__(self, state: State, event_handlers: Sequence[ProfilerEventHandler], active: int, repeat: Optional[int],
+                 skip_first_epoch: bool, wait: int) -> None:
         self._names_to_markers: Dict[str, Marker] = {}
         self._event_handlers = event_handlers
         self._state = state
         self._state.train_dataloader = self._wrap_dataloaders_with_markers(self._state.train_dataloader, "train")
         self._state.eval_dataloader = self._wrap_dataloaders_with_markers(self._state.eval_dataloader, "eval")
+        self._wait = wait
+        self._active = active
+        self._repeat = repeat
+        self._skip_first_epoch = skip_first_epoch
+        self._action = MosaicProfilerAction.SKIP
+
+    def get_action(self):
+        if self._state.epoch == 0 and self._skip_first_epoch:
+            return MosaicProfilerAction.SKIP
+        # do wait, then warump, then active, up to repeat times per cycle
+        cycle_len = self._wait + self._active
+        if self._repeat is not None and self._state.batch_idx >= cycle_len * self._repeat:
+            # exhausted the repeat
+            return MosaicProfilerAction.SKIP
+        position_in_cycle = self._state.batch_idx % cycle_len
+        if position_in_cycle < self._wait:
+            return MosaicProfilerAction.SKIP
+        return MosaicProfilerAction.ACTIVE
 
     def marker(self, name: str, categories: Union[List[str], Tuple[str, ...]] = tuple()) -> Marker:
         if name not in self._names_to_markers:
@@ -109,27 +134,32 @@ class Marker:
                     f"{self.__class__.__name__} should not be instantiated directly. Instead, use {mosaic_profiler.__class__.__name__}.marker(name)"
                 )
         self._started = False
+        self._action_at_start = None
 
     def start(self) -> None:
         if self._started:
             raise RuntimeError(f"Attempted to start marker {self.name}; however, this marker is already started")
-        self._instrumentation.record_event(
-            self,
-            is_start=True,
-            wall_clock_time_ns=time.time_ns(),
-            perf_counter_time_ns=time.perf_counter_ns(),
-        )
+        self._action_at_start = self._instrumentation.get_action()
+        if self._action_at_start == MosaicProfilerAction.ACTIVE:
+            self._instrumentation.record_event(
+                self,
+                is_start=True,
+                wall_clock_time_ns=time.time_ns(),
+                perf_counter_time_ns=time.perf_counter_ns(),
+            )
         self._started = True
 
     def finish(self) -> None:
         if not self._started:
             raise RuntimeError(f"Attempted to finish marker {self.name}; however, this marker is not yet started")
-        self._instrumentation.record_event(
-            self,
-            is_start=False,
-            wall_clock_time_ns=time.time_ns(),
-            perf_counter_time_ns=time.perf_counter_ns(),
-        )
+
+        if self._action_at_start == MosaicProfilerAction.ACTIVE:
+            self._instrumentation.record_event(
+                self,
+                is_start=False,
+                wall_clock_time_ns=time.time_ns(),
+                perf_counter_time_ns=time.perf_counter_ns(),
+            )
         self._started = False
 
     def __enter__(self) -> Marker:
