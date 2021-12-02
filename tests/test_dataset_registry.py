@@ -54,7 +54,7 @@ def test_dataset(dataset_name: str, dummy_dataloader_hparams: DataloaderHparams)
     hparams_cls = dataset_registry[dataset_name]
     hparams = default_required_fields[hparams_cls]()
     if not (isinstance(hparams, SyntheticBatchesHparamsMixin) and isinstance(hparams, NumTotalBatchesHparamsMixin)):
-        pytest.xfail(f"{hparams.__class__.__name__} does not support synthetic data or num_total_batchjes")
+        pytest.xfail(f"{hparams.__class__.__name__} does not support synthetic data or num_total_batches")
 
     assert isinstance(hparams, SyntheticBatchesHparamsMixin)
     assert isinstance(hparams, NumTotalBatchesHparamsMixin)
