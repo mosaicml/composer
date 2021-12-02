@@ -315,7 +315,7 @@ def _upload_worker(
                                  sleep_time,
                                  exc_info=e,
                                  stack_info=True)
-                        time.sleep()
+                        time.sleep(sleep_time)
                         continue
                 raise e
             os.remove(file_path_to_upload)
