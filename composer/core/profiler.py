@@ -29,7 +29,7 @@ class ProfilerEventHandlerHparams(hp.Hparams, abc.ABC):
 
 class ProfilerEventHandler(Callback, abc.ABC):
 
-    def process_event(
+    def process_duration_event(
         self,
         name: str,
         categories: Union[List[str], Tuple[str, ...]],
@@ -42,6 +42,17 @@ class ProfilerEventHandler(Callback, abc.ABC):
         del name, categories, is_start, epoch, step, wall_clock_time_ns, perf_counter_time_ns  # unused
         pass
 
+    def process_instant_event(
+        self,
+        name: str,
+        categories: Union[List[str], Tuple[str, ...]],
+        epoch: int,
+        step: int,
+        wall_clock_time_ns: int,
+        perf_counter_time_ns: int,
+    ) -> None:
+        del name, categories, epoch, step, wall_clock_time_ns, perf_counter_time_ns # unused
+        pass
 
 class ProfiledDataLoader(WrappedDataLoader):
 
@@ -103,9 +114,9 @@ class MosaicProfiler:
         self._names_to_markers[name].categories = categories
         return self._names_to_markers[name]
 
-    def record_event(self, marker: Marker, is_start: bool, wall_clock_time_ns: int, perf_counter_time_ns: int):
+    def record_duration_event(self, marker: Marker, is_start: bool, wall_clock_time_ns: int, perf_counter_time_ns: int):
         for handler in self._event_handlers:
-            handler.process_event(
+            handler.process_duration_event(
                 name=marker.name,
                 categories=marker.categories,
                 epoch=self._state.epoch,
@@ -113,6 +124,17 @@ class MosaicProfiler:
                 is_start=is_start,
                 wall_clock_time_ns=wall_clock_time_ns,
                 perf_counter_time_ns=perf_counter_time_ns,
+            )
+
+    def record_instant_event(self, marker: Marker, wall_clock_time_ns: int, perf_counter_time_ns: int):
+        for handler in self._event_handlers:
+            handler.process_instant_event(
+                name=marker.name,
+                categories=marker.categories,
+                epoch=self._state.epoch,
+                step=self._state.step,
+                wall_clock_time_ns=wall_clock_time_ns,
+                perf_counter_time_ns=perf_counter_time_ns
             )
 
     def _wrap_dataloaders_with_markers(self, dataloader: DataLoader, name: str) -> DataLoader:
@@ -141,7 +163,7 @@ class Marker:
             raise RuntimeError(f"Attempted to start marker {self.name}; however, this marker is already started")
         self._action_at_start = self._instrumentation.get_action()
         if self._action_at_start == MosaicProfilerAction.ACTIVE:
-            self._instrumentation.record_event(
+            self._instrumentation.record_duration_event(
                 self,
                 is_start=True,
                 wall_clock_time_ns=time.time_ns(),
@@ -154,13 +176,20 @@ class Marker:
             raise RuntimeError(f"Attempted to finish marker {self.name}; however, this marker is not yet started")
 
         if self._action_at_start == MosaicProfilerAction.ACTIVE:
-            self._instrumentation.record_event(
+            self._instrumentation.record_duration_event(
                 self,
                 is_start=False,
                 wall_clock_time_ns=time.time_ns(),
                 perf_counter_time_ns=time.perf_counter_ns(),
             )
         self._started = False
+
+    def instant(self) -> None:
+        self._instrumentation.record_instant_event(
+            self,
+            wall_clock_time_ns=time.time_ns(),
+            perf_counter_time_ns=time.perf_counter_ns(),
+        )
 
     def __enter__(self) -> Marker:
         self.start()

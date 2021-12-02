@@ -106,7 +106,7 @@ class JSONTrace(ProfilerEventHandler):
             self._file.write(entry)
             self._file.write(",\n")
 
-    def process_event(
+    def process_duration_event(
         self,
         name: str,
         categories: Union[List[str], Tuple[str, ...]],
@@ -126,6 +126,31 @@ class JSONTrace(ProfilerEventHandler):
             "pid": get_global_rank(),
             "tid":
                 0,  # right now, all events are thread 0 for the process. But we may want to break this out (e.g. for dataloader workers)
+            "args": {
+                "epoch": epoch,
+                "step": step,
+            }
+        })
+
+    def process_instant_event(
+        self,
+        name: str,
+        categories: Union[List[str], Tuple[str, ...]],
+        epoch: int,
+        step: int,
+        wall_clock_time_ns: int,
+        perf_counter_time_ns: int,
+    ) -> None:
+        self._buffer.put_nowait({
+            "name": f"{name}",
+            "cat": ",".join(categories),
+            "ph": "i",
+            "ts": wall_clock_time_ns // 1000,  # tracing clock timestamp, in microseconds
+            "tts": perf_counter_time_ns // 1000,  # thread clock timestamp, in microseconds
+            "pid": get_global_rank(),
+            "tid":
+                0,  # right now, all events are thread 0 for the process. But we may want to break this out (e.g. for dataloader workers)
+            "s": "p",  # mark instant event for at process level
             "args": {
                 "epoch": epoch,
                 "step": step,

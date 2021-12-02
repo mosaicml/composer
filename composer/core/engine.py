@@ -92,14 +92,23 @@ class Engine():
         Returns:
             Dict[str, Trace]: dictionary of trace for each algorithm.
         """
-        marker = None
+        instant_marker = None
+        duration_marker = None
         event = Event(event)
         name = event.canonical_name
-        if self.mosaic_profiler is not None and (event.is_before_event or event.is_after_event):
-            # if not part of an event pair (e.g. init or after dataloader), then don't record an event here
-            marker = self.mosaic_profiler.marker(name)
-        if event.is_after_event and marker is not None:
-            marker.finish()
+
+        if self.mosaic_profiler is not None:
+            instant_marker = self.mosaic_profiler.marker(event)
+            if (event.is_before_event or event.is_after_event):
+                # if not part of an event pair (e.g. init or after dataloader), then don't record an event here
+                duration_marker = self.mosaic_profiler.marker(name)
+
+        if event.is_after_event and duration_marker is not None:
+            duration_marker.finish()
+
+        if instant_marker is not None:
+            instant_marker.instant()
+
         if event == Event.INIT:
             # For the INIT event, run the callbacks first to initialize the loggers
             # For other events, run the algorithms first, so the callbacks have the state
@@ -109,8 +118,10 @@ class Engine():
         else:
             traces = self._run_algorithms(event)
             self._run_callbacks(event)
-        if event.is_before_event and marker is not None:
-            marker.start()
+
+        if event.is_before_event and duration_marker is not None:
+            duration_marker.start()
+
         return traces
 
     def _run_algorithms(
