@@ -18,6 +18,8 @@ from composer.datasets.synthetic import SyntheticBatchPairDataset, SyntheticData
 ])
 def test_synthetic_data_creation(data_type: SyntheticDataType, label_type: SyntheticDataLabelType):
     if data_type == SyntheticDataType.SEPARABLE:
+        if label_type != SyntheticDataLabelType.CLASSIFICATION_INT:
+            pytest.skip("Seperable data requires classification int labels")
         num_classes = 2
         label_shape = None
     else:
@@ -28,7 +30,6 @@ def test_synthetic_data_creation(data_type: SyntheticDataType, label_type: Synth
     dataset_size = 1000
     data_shape = (3, 32, 32)
     num_samples_to_create = 10
-    num_classes = 10
     dataset = SyntheticBatchPairDataset(total_dataset_size=dataset_size,
                                         data_shape=data_shape,
                                         num_unique_samples_to_create=num_samples_to_create,
@@ -71,4 +72,7 @@ def test_synthetic_data_creation(data_type: SyntheticDataType, label_type: Synth
 @pytest.mark.parametrize('num_classes', [None, 0])
 def test_synthetic_classification_param_validation(label_type: SyntheticDataLabelType, num_classes: Optional[int]):
     with pytest.raises(ValueError):
-        SyntheticBatchPairDataset(total_dataset_size=10, data_shape=(2, 2), label_type=label_type, num_classes=num_classes)
+        SyntheticBatchPairDataset(total_dataset_size=10,
+                                  data_shape=(2, 2),
+                                  label_type=label_type,
+                                  num_classes=num_classes)
