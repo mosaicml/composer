@@ -5,13 +5,8 @@ from composer.datasets.cifar10 import CIFAR10DatasetHparams as CIFAR10DatasetHpa
 from composer.datasets.dataloader import DataloaderHparams as DataloaderHparams
 from composer.datasets.dataloader import DDPDataLoader as DDPDataLoader
 from composer.datasets.dataloader import WrappedDataLoader as WrappedDataLoader
-from composer.datasets.hparams import DatadirHparamsMixin as DatadirHparamsMixin
 from composer.datasets.hparams import DataloaderSpec as DataloaderSpec
 from composer.datasets.hparams import DatasetHparams as DatasetHparams
-from composer.datasets.hparams import DropLastHparamsMixin as DropLastHparamsMixin
-from composer.datasets.hparams import IsTrainHparamsMixin as IsTrainHparamsMixin
-from composer.datasets.hparams import NumTotalBatchesHparamsMixin as NumTotalBatchesHparamsMixin
-from composer.datasets.hparams import ShuffleHparamsMixin as ShuffleHparamsMixin
 from composer.datasets.hparams import SyntheticHparamsMixin as SyntheticHparamsMixin
 from composer.datasets.imagenet import ImagenetDatasetHparams as ImagenetDatasetHparams
 from composer.datasets.lm_datasets import LMDatasetHparams as LMDatasetHparams

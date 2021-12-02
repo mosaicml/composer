@@ -56,16 +56,6 @@ class DataloaderSpec(NamedTuple):
 
 
 @dataclasses.dataclass
-class DatadirHparamsMixin(hp.Hparams, abc.ABC):
-    """:attr:`datadir` field mixin for :class:`DatasetHparams`.
-
-    Parameters:
-        datadir (str): The path to the data directory.
-    """
-    datadir: Optional[str] = hp.optional("The path to the data directory", default=None)
-
-
-@dataclasses.dataclass
 class SyntheticHparamsMixin(hp.Hparams, abc.ABC):
     """Synthetic dataset parameter mixin for :class:`DatasetHparams`.
 
@@ -90,62 +80,36 @@ class SyntheticHparamsMixin(hp.Hparams, abc.ABC):
 
 
 @dataclasses.dataclass
-class NumTotalBatchesHparamsMixin(hp.Hparams, abc.ABC):
-    """:attr:`num_total_batches` field mixin for :class:`DatasetHparams`.
+class DatasetHparams(hp.Hparams, abc.ABC, metaclass=metaclass):
+    """Abstract base class for hyperparameters to initialize a dataset.
 
     Parameters:
-        num_total_batches (int, optional):
-            If not None, then the dataloader from :meth:`initialize_object`
-            should yield this many batches per iteration. Specifically, ``len(dataloader) == num_total_batches``.
-            Each epoch should yield the same subset of samples.
-            
-            If this value is greater than the total number of samples in the dataset, then a :class:`ValueError` 
-            may be raised.
-
-            If None (the default), then the entire dataset will be iterated over.
-    """
-    num_total_batches: Optional[int] = hp.optional(
-        "If not None, limit len(dataloader) to this many batches. If None (the default), then the dataloader will iterate over the entire dataset.",
-        default=None)
-
-
-@dataclasses.dataclass
-class ShuffleHparamsMixin(hp.Hparams, abc.ABC):
-    """:attr:`shuffle` field mixin for :class:`DatasetHparams`.
-
-    Parameters:
-        shuffle (bool): Whether to shuffle the dataset. Defaults to True.
-    """
-    shuffle: bool = hp.optional("Whether to shuffle the dataset for each epoch. Defaults to True.", default=True)
-
-
-@dataclasses.dataclass
-class DropLastHparamsMixin(hp.Hparams, abc.ABC):
-    """:attr:`drop_last` mixin for :class:`DatasetHparams`.
-
-    Parameters:
+        datadir (str): The path to the data directory.
+        is_train (bool): Whether to load the training data (the default) or validation data.
         drop_last (bool):
             If the number of samples is not divisible by the batch size, whether
             to drop the last batch (the default) or pad the last batch with zeros.
+        shuffle (bool): Whether to shuffle the dataset. Defaults to True.
+        subset_num_batches (int, optional): If specified, limit the number of batches per dataloader iteration.
+            Specifically, ``len(dataloader) == num_total_batches``, where the ``dataloader`` is returned via
+            :meth:`initialize_object`. Each epoch should yield the same subset of samples.
+            
+            If this value is greater than the total number of samples in the dataset, then a :class:`ValueError` 
+            is raised.
+
+            If None (the default), then the entire dataset will be iterated over.
     """
+
+    is_train: bool = hp.optional("Whether to load the training data (the default) or validation data.", default=True)
     drop_last: bool = hp.optional(textwrap.dedent("""If the number of samples is not divisible by the batch size,
         whether to drop the last batch (the default) or pad the last batch with zeros."""),
                                   default=True)
+    shuffle: bool = hp.optional("Whether to shuffle the dataset for each epoch. Defaults to True.", default=True)
 
-
-@dataclasses.dataclass
-class IsTrainHparamsMixin(hp.Hparams, abc.ABC):
-    """:attr:`is_train` field mixin for :class:`DatasetHparams`.
-
-    Parameters:
-        is_train (bool): Whether to load the training data (the default) or validation data.
-    """
-    is_train: bool = hp.optional("Whether to load the training data (the default) or validation data.", default=True)
-
-
-@dataclasses.dataclass
-class DatasetHparams(hp.Hparams, abc.ABC, metaclass=metaclass):  # type: ignore
-    """Abstract base class for hyperparameters to initialize a dataset."""
+    subset_num_batches: Optional[int] = hp.optional(
+        "If not None, limit len(dataloader) to this many batches. If None (the default), then the dataloader will iterate over the entire dataset.",
+        default=None)
+    datadir: Optional[str] = hp.optional("The path to the data directory", default=None)
 
     @abc.abstractmethod
     def initialize_object(self, batch_size: int,

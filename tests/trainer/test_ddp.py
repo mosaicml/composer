@@ -18,8 +18,7 @@ from composer import Callback, Event
 from composer.callbacks import CallbackHparams
 from composer.core.logging import Logger
 from composer.core.state import State
-from composer.datasets import (DataloaderHparams, NumTotalBatchesHparamsMixin, SyntheticBatchPairDataset,
-                               SyntheticHparamsMixin)
+from composer.datasets import DataloaderHparams, SyntheticBatchPairDataset, SyntheticHparamsMixin
 from composer.datasets.hparams import DatasetHparams
 from composer.models import ModelHparams
 from composer.trainer.deepspeed import DeepSpeedHparams
@@ -63,21 +62,19 @@ class TrackedDataset(types.Dataset):
 
 
 @dataclass
-class TrackedDatasetHparams(DatasetHparams, NumTotalBatchesHparamsMixin, SyntheticHparamsMixin):
-    is_train: Optional[bool] = hp.optional("is_train", default=None)
+class TrackedDatasetHparams(DatasetHparams, SyntheticHparamsMixin):
     tmpdir: Optional[str] = hp.optional("tmpdir", default=None)
     num_classes: Optional[int] = hp.optional("num_classes", default=None)
     data_shape: Optional[List[int]] = hp.optional("data_shape", default=None)
 
     def initialize_object(self, batch_size: int, dataloader_hparams: DataloaderHparams) -> types.DataLoader:
-        assert self.is_train is not None
         assert self.tmpdir is not None
         assert self.num_classes is not None
         assert self.data_shape is not None
-        assert self.num_total_batches is not None
+        assert self.subset_num_batches is not None
         synthetic_dataset = SyntheticBatchPairDataset(
             num_unique_samples_to_create=self.synthetic_num_unique_samples,
-            total_dataset_size=batch_size * self.num_total_batches * ddp.get_world_size(),
+            total_dataset_size=batch_size * self.subset_num_batches * ddp.get_world_size(),
             data_shape=self.data_shape,
             num_classes=self.num_classes,
         )
@@ -166,25 +163,23 @@ def test_ddp(device: DeviceHparams, world_size: int, ddp_tmpdir: str, mosaic_tra
 
     hparams.total_batch_size = 10
     train_num_total_batches = 3
-    assert isinstance(hparams.train_dataset, NumTotalBatchesHparamsMixin)
     assert isinstance(hparams.train_dataset, SyntheticHparamsMixin)
     hparams.train_dataset = TrackedDatasetHparams(
         synthetic_num_unique_samples=hparams.total_batch_size * train_num_total_batches,
         is_train=True,
         tmpdir=ddp_tmpdir,
-        num_total_batches=train_num_total_batches,
+        subset_num_batches=train_num_total_batches,
         data_shape=list(model.in_shape),
         num_classes=model.num_classes,
     )
     val_num_total_batches = 3
     hparams.eval_batch_size = 10
-    assert isinstance(hparams.val_dataset, NumTotalBatchesHparamsMixin)
     assert isinstance(hparams.val_dataset, SyntheticHparamsMixin)
     hparams.val_dataset = TrackedDatasetHparams(
         synthetic_num_unique_samples=hparams.eval_batch_size * val_num_total_batches,
         is_train=False,
         tmpdir=ddp_tmpdir,
-        num_total_batches=val_num_total_batches,
+        subset_num_batches=val_num_total_batches,
         data_shape=list(model.in_shape),
         num_classes=model.num_classes,
     )

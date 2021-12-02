@@ -13,9 +13,9 @@ import yahp as hp
 
 from composer.core.types import DataLoader, Dataset
 from composer.datasets.dataloader import DataloaderHparams
-from composer.datasets.hparams import (DatadirHparamsMixin, DatasetHparams, DropLastHparamsMixin, IsTrainHparamsMixin,
-                                       NumTotalBatchesHparamsMixin, ShuffleHparamsMixin)
+from composer.datasets.hparams import DatasetHparams
 from composer.utils import ddp
+from composer.utils.data import get_subset_dataset
 
 PATCH_SIZE = [1, 192, 160]
 
@@ -31,8 +31,7 @@ def _my_collate(batch):
 
 
 @dataclass
-class BratsDatasetHparams(DatasetHparams, DatadirHparamsMixin, NumTotalBatchesHparamsMixin, ShuffleHparamsMixin,
-                          IsTrainHparamsMixin, DropLastHparamsMixin):
+class BratsDatasetHparams(DatasetHparams):
     """Defines an instance of the BraTS dataset for image segmentation.
     
     Parameters:
@@ -49,9 +48,9 @@ class BratsDatasetHparams(DatasetHparams, DatadirHparamsMixin, NumTotalBatchesHp
             raise ValueError("datadir must be specified if self.synthetic is False")
         x_train, y_train, x_val, y_val = get_data_split(self.datadir)
         dataset = PytTrain(x_train, y_train, oversampling) if self.is_train else PytVal(x_val, y_val)
-        if self.num_total_batches is not None:
-            size = batch_size * self.num_total_batches * ddp.get_world_size()
-            dataset = torch.utils.data.Subset(dataset, list(range(size)))
+        if self.subset_num_batches is not None:
+            size = batch_size * self.subset_num_batches * ddp.get_world_size()
+            dataset = get_subset_dataset(size, dataset)
         collate_fn = None if self.is_train else _my_collate
         sampler = ddp.get_sampler(dataset, drop_last=self.drop_last, shuffle=self.shuffle)
 

@@ -8,15 +8,14 @@ from torchvision import datasets, transforms
 
 from composer.core.types import DataLoader
 from composer.datasets.dataloader import DataloaderHparams
-from composer.datasets.hparams import (DatadirHparamsMixin, DatasetHparams, DropLastHparamsMixin, IsTrainHparamsMixin,
-                                       NumTotalBatchesHparamsMixin, ShuffleHparamsMixin, SyntheticHparamsMixin)
+from composer.datasets.hparams import DatasetHparams, SyntheticHparamsMixin
 from composer.datasets.synthetic import SyntheticBatchPairDataset
 from composer.utils import ddp
+from composer.utils.data import get_subset_dataset
 
 
 @dataclass
-class MNISTDatasetHparams(DatasetHparams, IsTrainHparamsMixin, SyntheticHparamsMixin, NumTotalBatchesHparamsMixin,
-                          DatadirHparamsMixin, DropLastHparamsMixin, ShuffleHparamsMixin):
+class MNISTDatasetHparams(DatasetHparams, SyntheticHparamsMixin):
     """Defines an instance of the MNIST dataset for image classification.
 
     Parameters:
@@ -26,10 +25,10 @@ class MNISTDatasetHparams(DatasetHparams, IsTrainHparamsMixin, SyntheticHparamsM
 
     def initialize_object(self, batch_size: int, dataloader_hparams: DataloaderHparams) -> DataLoader:
         if self.use_synthetic:
-            if self.num_total_batches is None:
-                raise ValueError("num_total_batches is required if synthetic is True")
+            if self.subset_num_batches is None:
+                raise ValueError("subset_num_batches is required if use_synthetic is True")
             dataset = SyntheticBatchPairDataset(
-                total_dataset_size=self.num_total_batches * batch_size,
+                total_dataset_size=self.subset_num_batches * batch_size,
                 data_shape=[1, 28, 28],
                 num_classes=10,
                 num_unique_samples_to_create=self.synthetic_num_unique_samples,
@@ -52,9 +51,9 @@ class MNISTDatasetHparams(DatasetHparams, IsTrainHparamsMixin, SyntheticHparamsM
                 download=self.download,
                 transform=transform,
             )
-            if self.num_total_batches is not None:
-                size = batch_size * self.num_total_batches * ddp.get_world_size()
-                dataset = torch.utils.data.Subset(dataset, list(range(size)))
+            if self.subset_num_batches is not None:
+                size = batch_size * self.subset_num_batches * ddp.get_world_size()
+                dataset = get_subset_dataset(size, dataset)
             sampler = ddp.get_sampler(dataset, drop_last=self.drop_last, shuffle=self.shuffle)
         return dataloader_hparams.initialize_object(dataset=dataset,
                                                     batch_size=batch_size,

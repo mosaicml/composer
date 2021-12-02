@@ -218,15 +218,7 @@ class TrainerHparams(hp.Hparams):
 
         Args:
             datadir (str): The datadir
-        
-        Raises
-            AttributeError: Raised if either :attr:`train_dataset` or :attr:`val_dataset` do not
-            have a ``datadir`` property.
         """
-        if not isinstance(self.train_dataset, datasets.DatadirHparamsMixin):
-            raise AttributeError("train dataset does not have the datadir attribute")
-        if not isinstance(self.val_dataset, datasets.DatadirHparamsMixin):
-            raise AttributeError("val dataset does not have the datadir attribute")
         self.train_dataset.datadir = datadir
         self.val_dataset.datadir = datadir
 

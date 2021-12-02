@@ -6,7 +6,6 @@ import pytest
 from torch.cuda import device_count
 
 from composer.callbacks import MemoryMonitorHparams
-from composer.datasets import NumTotalBatchesHparamsMixin
 from composer.trainer import TrainerHparams
 from composer.trainer.devices import DeviceGPU
 
@@ -30,8 +29,7 @@ def _do_trainer_fit(mosaic_trainer_hparams: TrainerHparams, testing_with_gpu: bo
     trainer.logger.backends = [log_destination]
     trainer.fit()
 
-    assert isinstance(mosaic_trainer_hparams.train_dataset, NumTotalBatchesHparamsMixin)
-    num_train_steps = mosaic_trainer_hparams.train_dataset.num_total_batches
+    num_train_steps = mosaic_trainer_hparams.train_dataset.subset_num_batches
     assert isinstance(num_train_steps, int)
 
     expected_calls = num_train_steps * mosaic_trainer_hparams.max_epochs

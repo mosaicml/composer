@@ -10,8 +10,9 @@ import yahp as hp
 
 from composer.core.types import Batch
 from composer.datasets.dataloader import DataloaderHparams
-from composer.datasets.hparams import DataloaderSpec, DatasetHparams, DropLastHparamsMixin, ShuffleHparamsMixin
+from composer.datasets.hparams import DataloaderSpec, DatasetHparams
 from composer.utils import ddp
+from composer.utils.data import get_subset_dataset
 
 log = logging.getLogger(__name__)
 
@@ -26,7 +27,7 @@ def _split_dict_fn(batch: Batch, n_microbatches: int) -> List[Batch]:
 
 
 @dataclass
-class LMDatasetHparams(DatasetHparams, ShuffleHparamsMixin, DropLastHparamsMixin):
+class LMDatasetHparams(DatasetHparams):
     """
     Defines a generic dataset class for autoregressive language models.
     """
@@ -97,6 +98,9 @@ class LMDatasetHparams(DatasetHparams, ShuffleHparamsMixin, DropLastHparamsMixin
         log.info(f"Total number of samples: {num_samples:e}")
         log.info(f"Total number of tokens: {self.num_tokens:e}")
         dataset = lm_datasets
+        if self.subset_num_batches is not None:
+            size = batch_size * self.subset_num_batches * ddp.get_world_size()
+            dataset = get_subset_dataset(size, dataset)
 
         data_collator = transformers.default_data_collator
 

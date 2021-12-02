@@ -11,7 +11,6 @@ import composer.algorithms as algorithms
 import composer.trainer as trainer
 from composer.algorithms.scale_schedule.scale_schedule import ScaleScheduleHparams
 from composer.core.precision import Precision
-from composer.datasets import NumTotalBatchesHparamsMixin
 from composer.datasets.hparams import SyntheticHparamsMixin
 from composer.trainer.devices import CPUDeviceHparams
 
@@ -37,20 +36,16 @@ def test_load(model_name: str):
     trainer_hparams = trainer.load(model_name)
     trainer_hparams.precision = Precision.FP32
     trainer_hparams.algorithms = algorithms.load_multiple(*get_model_algs(model_name))
-    if not (isinstance(trainer_hparams.train_dataset, NumTotalBatchesHparamsMixin) and
-            isinstance(trainer_hparams.train_dataset, SyntheticHparamsMixin)):
-        pytest.skip(f"Model {model_name} uses a train dataset that doesn't support num_total_batches or synthetic")
-    assert isinstance(trainer_hparams.train_dataset, NumTotalBatchesHparamsMixin)
+    if not isinstance(trainer_hparams.train_dataset, SyntheticHparamsMixin):
+        pytest.skip(f"Model {model_name} uses a train dataset that doesn't support synthetic")
     assert isinstance(trainer_hparams.train_dataset, SyntheticHparamsMixin)
-    trainer_hparams.train_dataset.num_total_batches = 1
+    trainer_hparams.train_dataset.subset_num_batches = 1
     trainer_hparams.train_dataset.use_synthetic = True
 
-    if not (isinstance(trainer_hparams.val_dataset, NumTotalBatchesHparamsMixin) and
-            isinstance(trainer_hparams.val_dataset, SyntheticHparamsMixin)):
-        pytest.skip(f"Model {model_name} uses a val dataset that doesn't support num_total_batches or synthetic")
-    assert isinstance(trainer_hparams.val_dataset, NumTotalBatchesHparamsMixin)
+    if not isinstance(trainer_hparams.val_dataset, SyntheticHparamsMixin):
+        pytest.skip(f"Model {model_name} uses a val dataset that doesn't support synthetic")
     assert isinstance(trainer_hparams.val_dataset, SyntheticHparamsMixin)
-    trainer_hparams.val_dataset.num_total_batches = 1
+    trainer_hparams.val_dataset.subset_num_batches = 1
     trainer_hparams.val_dataset.use_synthetic = True
 
     trainer_hparams.device = CPUDeviceHparams()
@@ -65,14 +60,12 @@ def test_scale_schedule_load(ssr: str):
     trainer_hparams.precision = Precision.FP32
     algs = [f"scale_schedule/{ssr}"]
     trainer_hparams.algorithms = algorithms.load_multiple(*algs)
-    assert isinstance(trainer_hparams.train_dataset, NumTotalBatchesHparamsMixin)
     assert isinstance(trainer_hparams.train_dataset, SyntheticHparamsMixin)
-    trainer_hparams.train_dataset.num_total_batches = 1
+    trainer_hparams.train_dataset.subset_num_batches = 1
     trainer_hparams.train_dataset.use_synthetic = True
 
-    assert isinstance(trainer_hparams.val_dataset, NumTotalBatchesHparamsMixin)
     assert isinstance(trainer_hparams.val_dataset, SyntheticHparamsMixin)
-    trainer_hparams.val_dataset.num_total_batches = 1
+    trainer_hparams.val_dataset.subset_num_batches = 1
     trainer_hparams.val_dataset.use_synthetic = True
     trainer_hparams.device = CPUDeviceHparams()
     assert len(trainer_hparams.algorithms) == 1

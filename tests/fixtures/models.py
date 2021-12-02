@@ -11,8 +11,7 @@ import yahp as hp
 
 from composer.core.types import BatchPair, DataLoader, Metrics, Tensor, Tensors
 from composer.datasets.dataloader import DataloaderHparams
-from composer.datasets.hparams import (DatasetHparams, DropLastHparamsMixin, NumTotalBatchesHparamsMixin,
-                                       ShuffleHparamsMixin, SyntheticHparamsMixin)
+from composer.datasets.hparams import DatasetHparams, SyntheticHparamsMixin
 from composer.datasets.synthetic import SyntheticBatchPairDataset, SyntheticDataLabelType
 from composer.models import BaseMosaicModel, ModelHparams
 
@@ -66,17 +65,16 @@ class SimpleBatchPairModel(BaseMosaicModel):
 
 
 @dataclasses.dataclass
-class _SimpleDatasetHparams(DatasetHparams, SyntheticHparamsMixin, NumTotalBatchesHparamsMixin, DropLastHparamsMixin,
-                            ShuffleHparamsMixin):
+class _SimpleDatasetHparams(DatasetHparams, SyntheticHparamsMixin):
 
     data_shape: Optional[List[int]] = hp.optional("data shape", default=None)
     num_classes: Optional[int] = hp.optional("num_classes", default=None)
 
     def initialize_object(self, batch_size: int, dataloader_hparams: DataloaderHparams) -> DataLoader:
-        assert self.num_total_batches is not None
-        total_dataset_size = self.num_total_batches * batch_size
+        assert self.subset_num_batches is not None
         assert self.data_shape is not None
         assert self.num_classes is not None
+        total_dataset_size = self.subset_num_batches * batch_size
         dataset = SyntheticBatchPairDataset(total_dataset_size=total_dataset_size,
                                             data_shape=self.data_shape,
                                             label_type=SyntheticDataLabelType.CLASSIFICATION_INT,

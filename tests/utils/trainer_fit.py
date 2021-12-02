@@ -34,11 +34,11 @@ def train_model(mosaic_trainer_hparams: TrainerHparams, max_epochs: int = 2, run
     total_dataset_size = 16
     mosaic_trainer_hparams.train_dataset = MNISTDatasetHparams(
         use_synthetic=True,
-        num_total_batches=1,
+        subset_num_batches=1,
     )
     mosaic_trainer_hparams.val_dataset = MNISTDatasetHparams(
         use_synthetic=True,
-        num_total_batches=1,
+        subset_num_batches=1,
     )
 
     mosaic_trainer_hparams.model = MnistClassifierHparams(num_classes=10)

@@ -3,6 +3,7 @@
 from typing import Optional
 
 import pytest
+from torch.utils.data.dataset import Subset
 
 from composer.datasets.synthetic import SyntheticBatchPairDataset, SyntheticDataLabelType, SyntheticDataType
 
@@ -29,14 +30,13 @@ def test_synthetic_data_creation(data_type: SyntheticDataType, label_type: Synth
     data_shape = (3, 32, 32)
     num_samples_to_create = 10
     num_classes = 10
-    dataset = SyntheticBatchPairDataset(total_dataset_size=dataset_size,
-                                        data_shape=data_shape,
+    dataset = SyntheticBatchPairDataset(data_shape=data_shape,
                                         num_unique_samples_to_create=num_samples_to_create,
                                         data_type=data_type,
                                         label_type=label_type,
                                         num_classes=num_classes,
                                         label_shape=label_shape)
-
+    dataset = Subset(dataset, list(range(dataset_size)))
     assert len(dataset) == dataset_size
 
     # verify datapoints are correct
@@ -72,7 +72,4 @@ def test_synthetic_data_creation(data_type: SyntheticDataType, label_type: Synth
 @pytest.mark.parametrize('num_classes', [None, 0])
 def test_synthetic_classification_param_validation(label_type: SyntheticDataLabelType, num_classes: Optional[int]):
     with pytest.raises(ValueError):
-        SyntheticBatchPairDataset(total_dataset_size=10,
-                                  data_shape=(2, 2),
-                                  label_type=label_type,
-                                  num_classes=num_classes)
+        SyntheticBatchPairDataset(data_shape=(2, 2), label_type=label_type, num_classes=num_classes)
