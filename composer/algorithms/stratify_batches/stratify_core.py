@@ -1,3 +1,5 @@
+# Copyright 2021 MosaicML. All Rights Reserved.
+
 import math
 from typing import Iterable, List
 
@@ -22,16 +24,17 @@ def _groupby_ints(targets: Iterable):
     return dict(zip(uniqs, idxs_for_uniqs))
 
 
-class _BalancedSampler:
-    """Enforces that number of times any two elements have been sampled differs by at most one.
+class BalancedSampler:
+    """Enforces that number of times any two elements have been sampled
+    differs by at most one.
 
-    Within a single pass through the data, this means that no element is sampled twice before
-    all elements have been sampled at least once.
+    Within a single pass through the data, this means that no element is
+    sampled twice before all elements have been sampled at least once.
     """
 
     def __init__(self, data: np.array, replace=False):
         self.data = data.copy()
-        self.replace = replace
+        # self.replace = replace
         self.reset()
 
     def reset(self) -> None:
@@ -52,22 +55,26 @@ class _BalancedSampler:
         n = len(self.data)
         ret = []
         num_copies = count // n
-        if num_copies > 0:  # so many elems requested we need to feed it whole array 1+ times
+        if num_copies > 0:
+            # so many elems requested we need to feed it whole array one or more times
             copy_idxs = np.random.permutation(n * num_copies) % n
             ret += list(self.data[copy_idxs])
             count -= n * num_copies
             self.num_epochs_completed += num_copies
-        if count >= len(self.tail):  # pass in the whole tail and re-init the shuffled array
-            if count > len(self.tail) and not self.replace:
-                raise IndexError(f"Tried to {count} elements when only {len(self.tail)} remained!")
+        if count >= len(self.tail):
+            # pass in the whole tail and re-init the shuffled array
+            # if count > len(self.tail) and not self.replace:
+            #     raise IndexError(f"Tried to {count} elements when only {len(self.tail)} remained!")
             ret += list(self.tail)
             count -= len(self.tail)
+            # self.tail = self.tail[-1:-1]   # empty array
             self.num_epochs_completed += 1
-            if self.replace:
-                np.random.shuffle(self.data)
-                self.tail = self.data
-        if count > 0:  # simple case: pass it next few elems in our permuted array
-            ret += self.tail[:count]
+            # if self.replace:
+            np.random.shuffle(self.data)
+            self.tail = self.data
+        if count > 0:
+            # simple case: pass it next few elems in our permuted array
+            ret += list(self.tail[:count])
             self.tail = self.tail[count:]
         return ret
 
@@ -76,13 +83,14 @@ class _BalancedSampler:
             return 0
         if epoch > self.num_epochs_completed:
             return len(self.data)
-        return len(self.tail)  # at current epoch, tail is the collection of unsampled elements
+        # at current epoch, tail is the collection of unsampled elements
+        return len(self.tail)
 
     def num_unsampled_elements(self):
         return self._num_elements_unsampled_at_epoch(0)
 
 
-def _sample_batches_stratified(samplers: List[_BalancedSampler], batch_size: int, num_batches: int) -> List:
+def _sample_batches_stratified(samplers: List[BalancedSampler], batch_size: int, num_batches: int) -> List:
     batches = []
     num_classes = len(samplers)
     class_idxs = np.arange(num_classes)
@@ -108,7 +116,7 @@ def _sample_batches_stratified(samplers: List[_BalancedSampler], batch_size: int
     return batches
 
 
-def _sample_batches_balanced(samplers: List[_BalancedSampler], batch_size: int, num_batches: int) -> List:
+def _sample_batches_balanced(samplers: List[BalancedSampler], batch_size: int, num_batches: int) -> List:
     batches = []
     num_classes = len(samplers)
     class_idxs = np.arange(len(num_classes))
@@ -134,7 +142,7 @@ def _sample_batches_balanced(samplers: List[_BalancedSampler], batch_size: int, 
     return batches
 
 
-def _sample_stragglers(samplers: List[_BalancedSampler], batch_size: int, total_num_samples: int) -> List:
+def _sample_stragglers(samplers: List[BalancedSampler], batch_size: int, total_num_samples: int) -> List:
     remaining_batch_size = batch_size
     batch = []
     shuffled_samplers = np.random.permutation(samplers)  # shuffle a copy
@@ -168,7 +176,7 @@ class StratifiedBatchSampler(Sampler):
         _class_to_idxs = _groupby_ints(targets)
         self.classes = list(_class_to_idxs.keys())
         self.num_classes = len(self.classes)
-        self.samplers = [_BalancedSampler(_class_to_idxs[c]) for c in self.classes]
+        self.samplers = [BalancedSampler(_class_to_idxs[c]) for c in self.classes]
 
     def __iter__(self):
         batches = []
