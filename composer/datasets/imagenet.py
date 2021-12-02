@@ -106,7 +106,7 @@ class ImagenetDatasetHparams(DatasetHparams, SyntheticBatchesHparamsMixin, Datad
                 sampler = torch.utils.data.SequentialSampler(dataset)
         else:
 
-            if self.is_train is True:
+            if self.is_train:
                 # include fixed-size resize before RandomResizedCrop in training only
                 # if requested (by specifying a size > 0)
                 train_resize_size = self.resize_size
@@ -120,14 +120,12 @@ class ImagenetDatasetHparams(DatasetHparams, SyntheticBatchesHparamsMixin, Datad
                 ]
                 transformation = transforms.Compose(train_transforms)
                 split = "train"
-            elif self.is_train is False:
+            else:
                 transformation = transforms.Compose([
                     transforms.Resize(self.resize_size),
                     transforms.CenterCrop(self.crop_size),
                 ])
                 split = "val"
-            else:
-                raise ValueError("is_train must be specified if self.synthetic is False")
 
             device_transform_fn = TransformationFn()
             collate_fn = fast_collate

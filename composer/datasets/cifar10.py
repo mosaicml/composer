@@ -51,20 +51,19 @@ class CIFAR10DatasetHparams(DatasetHparams, ShuffleHparamsMixin, DropLastHparams
             if self.datadir is None:
                 raise ValueError("datadir is required if synthetic is None")
 
-            if self.is_train is True:
+            if self.is_train:
                 transformation = transforms.Compose([
                     transforms.RandomCrop(32, padding=4),
                     transforms.RandomHorizontalFlip(),
                     transforms.ToTensor(),
                     transforms.Normalize(mean=cifar10_mean, std=cifar10_std),
                 ])
-            elif self.is_train is False:
+            else:
                 transformation = transforms.Compose([
                     transforms.ToTensor(),
                     transforms.Normalize(mean=cifar10_mean, std=cifar10_std),
                 ])
-            else:
-                raise ValueError("is_train is required if synthetic is None")
+
             dataset = CIFAR10(
                 self.datadir,
                 train=self.is_train,
