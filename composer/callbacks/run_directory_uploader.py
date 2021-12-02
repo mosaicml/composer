@@ -133,8 +133,6 @@ class RunDirectoryUploader(Callback):
         self._provider = provider
         self._container = container
 
-        _validate_credentials(provider, container, self._object_name_prefix, provider_init_kwargs)
-
         if use_procs:
             mp_ctx = multiprocessing.get_context('spawn')
             self._file_upload_queue: Union[queue.Queue[str],
@@ -148,8 +146,13 @@ class RunDirectoryUploader(Callback):
         self._finished: Union[None, multiprocessing._EventType, threading.Event] = None
         self._workers = []
 
+        if ddp.get_local_rank() == 0:
+            _validate_credentials(provider, container, self._object_name_prefix, provider_init_kwargs)
+
     def init(self, state: State, logger: Logger) -> None:
         if get_run_directory() is None:
+            return
+        if not ddp.get_local_rank() == 0:
             return
         del state, logger  # unused
         self._finished = self._finished_cls()
@@ -190,6 +193,8 @@ class RunDirectoryUploader(Callback):
     def post_close(self):
         # Cleaning up on post_close to ensure that all artifacts are uploaded
         self._trigger_upload(logger=None, log_level=None)
+        if not ddp.get_local_rank() == 0:
+            return
         if self._finished is not None:
             self._finished.set()
         for worker in self._workers:
@@ -200,6 +205,8 @@ class RunDirectoryUploader(Callback):
         # Assuming only the main thread on each rank writes to the run directory, then the barrier here will ensure
         # that the run directory is not being modified after we pass this barrier
         ddp.barrier()
+        if not ddp.get_local_rank() == 0:
+            return
         new_last_uploaded_timestamp = time.time()
         # Now, for each file that was modified since self._last_upload_timestamp, copy it to the temporary directory
         run_directory = get_run_directory()
