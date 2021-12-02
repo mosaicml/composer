@@ -28,13 +28,13 @@ install_requires = [
     "torch>=1.9",
     "argparse>=1.4.0",
     "yahp>=0.0.14",
-    "custom_inherit==2.3.2",
 ]
 extra_deps = {}
 
 extra_deps['base'] = []
 
 extra_deps['dev'] = [
+    "custom_inherit==2.3.2",
     'junitparser>=2.1.1',
     'coverage[toml]>=6.1.1',
     'pytest>=6.2.0',

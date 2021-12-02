@@ -5,13 +5,19 @@ from __future__ import annotations
 import abc
 import dataclasses
 import textwrap
-from typing import Callable, List, NamedTuple, Optional, Sequence, Type, Union, get_type_hints
-import custom_inherit
+from typing import Callable, List, NamedTuple, Optional, Sequence, Union
+
+try:
+    import custom_inherit
+except ImportError:
+    # if custom_inherit is not installed, then the docstrings will be incomplete. That's fine.
+    metaclass = abc.ABCMeta
+else:
+    metaclass = custom_inherit.DocInheritMeta(style="google_with_merge", abstract_base_class=True)
 
 import yahp as hp
-from yahp.utils.type_helpers import HparamsType
 
-from composer.core.types import Batch, DataLoader, TDeviceTransformFn, Tensor
+from composer.core.types import Batch, DataLoader, MemoryFormat, TDeviceTransformFn, Tensor
 from composer.datasets.dataloader import DataloaderHparams
 
 
@@ -60,32 +66,27 @@ class DatadirHparamsMixin(hp.Hparams, abc.ABC):
 
 
 @dataclasses.dataclass
-class SyntheticBatchesHparamsMixin(hp.Hparams, abc.ABC):
-    """:attr:`synthetic` field mixin for :class:`DatasetHparams`.
+class SyntheticHparamsMixin(hp.Hparams, abc.ABC):
+    """Synthetic dataset parameter mixin for :class:`DatasetHparams`.
 
     Parameters:
-        synthetic (hp.Hparams, optional):
-            Parameters to use for synthetic data generation. If None (the default),
-            then real data will be used.
+        use_synthetic (bool, optional): Whether to use synthetic data. (Default: ``False``)
+        synthetic_num_unique_samples (int, optional): The number of unique samples to allocate memory for.
+            Ignored if :attr:`use_synthetic` is False. (Default: ``100``)
+        synthetic_device (str, optonal): The device to store the sample pool.
+            Set to ``cuda`` to store samples on the GPU and eliminate PCI-e bandwidth with the dataloader.
+            Set to ``cpu`` to move data between host memory and the device on every batch.
+            Ignored if :attr:`use_synthetic` is False. (Default: ``cpu``)
+        synthetic_memory_format: The :class:`MemoryFormat` to use.
+            Ignored if :attr:`use_synthetic` is False. (Default: ``CONTIGUOUS_FORMAT``)
     """
 
-    synthetic: Optional[hp.Hparams] = hp.optional(textwrap.dedent("""Parameters to use for synthetic data generation.
-        If None (the default), then real data will be used."""),
-                                                  default=None)
-
-    @classmethod
-    def get_synthetic_hparams_cls(cls) -> Type[hp.Hparams]:
-        """Returns the type of the dataclass for field :attr:`synthetic`.
-
-        Returns:
-            Type[hp.Hparams]: The type of the field :attr:`synthetic`.
-        """
-        field_types = get_type_hints(cls)
-        for field in dataclasses.fields(cls):
-            if field.name == "synthetic":
-                hparams_type = HparamsType(field_types[field.name])
-                return hparams_type.type
-        raise RuntimeError(f"Invariant error -- Dataset {cls.__name__} does not support synthetic data")
+    use_synthetic: bool = hp.optional("Whether to use synthetic data. Defaults to False." "", default=False)
+    synthetic_num_unique_samples: int = hp.optional("The number of unique samples to allocate memory for.", default=100)
+    synthetic_device: str = hp.optional("Device to store the sample pool. Should be `cuda` or `cpu`. Defauls to `cpu`.",
+                                        default="cpu")
+    synthetic_memory_format: MemoryFormat = hp.optional("Memory format. Defaults to contiguous format.",
+                                                        default=MemoryFormat.CONTIGUOUS_FORMAT)
 
 
 @dataclasses.dataclass
@@ -94,7 +95,7 @@ class NumTotalBatchesHparamsMixin(hp.Hparams, abc.ABC):
 
     Parameters:
         num_total_batches (int, optional):
-            If specified, then the dataloader from :meth:`initialize_object`
+            If not None, then the dataloader from :meth:`initialize_object`
             should yield this many batches per iteration. Specifically, ``len(dataloader) == num_total_batches``.
             Each epoch should yield the same subset of samples.
             
@@ -143,8 +144,7 @@ class IsTrainHparamsMixin(hp.Hparams, abc.ABC):
 
 
 @dataclasses.dataclass
-class DatasetHparams(hp.Hparams,
-                     metaclass=custom_inherit.DocInheritMeta(style="google_with_merge", abstract_base_class=True)):
+class DatasetHparams(hp.Hparams, abc.ABC, metaclass=metaclass):  # type: ignore
     """Abstract base class for hyperparameters to initialize a dataset."""
 
     @abc.abstractmethod

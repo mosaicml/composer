@@ -4,7 +4,7 @@ train_dataset:
     crop_size: 224
     is_train: true
     num_total_batches: 1
-    synthetic: {}
+    use_synthetic: true
     shuffle: true
     drop_last: true
 val_dataset:
@@ -13,7 +13,7 @@ val_dataset:
     crop_size: 224
     is_train: false
     num_total_batches: 1
-    synthetic: {}
+    use_synthetic: true
     shuffle: true
     drop_last: true
 optimizer:

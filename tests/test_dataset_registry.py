@@ -2,14 +2,13 @@
 
 import collections.abc
 import os
-from typing import Callable, Dict, Optional, Type, cast
+from typing import Callable, Dict, Optional, Type
 
 import pytest
 
 from composer.datasets import (BratsDatasetHparams, CIFAR10DatasetHparams, DataloaderHparams, DataloaderSpec,
                                DatasetHparams, ImagenetDatasetHparams, LMDatasetHparams, MNISTDatasetHparams,
-                               NumTotalBatchesHparamsMixin, SyntheticBatchesHparamsMixin,
-                               SyntheticBatchPairDatasetHparams)
+                               NumTotalBatchesHparamsMixin, SyntheticHparamsMixin)
 from composer.trainer.trainer_hparams import dataset_registry
 
 # for testing, we provide values for required hparams fields
@@ -53,16 +52,13 @@ default_required_fields: Dict[Type[DatasetHparams], Callable[[], DatasetHparams]
 def test_dataset(dataset_name: str, dummy_dataloader_hparams: DataloaderHparams) -> None:
     hparams_cls = dataset_registry[dataset_name]
     hparams = default_required_fields[hparams_cls]()
-    if not (isinstance(hparams, SyntheticBatchesHparamsMixin) and isinstance(hparams, NumTotalBatchesHparamsMixin)):
+    if not (isinstance(hparams, SyntheticHparamsMixin) and isinstance(hparams, NumTotalBatchesHparamsMixin)):
         pytest.xfail(f"{hparams.__class__.__name__} does not support synthetic data or num_total_batches")
 
-    assert isinstance(hparams, SyntheticBatchesHparamsMixin)
+    assert isinstance(hparams, SyntheticHparamsMixin)
     assert isinstance(hparams, NumTotalBatchesHparamsMixin)
 
-    synthetic = hparams.synthetic
-    if synthetic is None:
-        hparams.synthetic = hparams.get_synthetic_hparams_cls()()
-
+    hparams.use_synthetic = True
     hparams.num_total_batches = 1
 
     dataloader = hparams.initialize_object(batch_size=1, dataloader_hparams=dummy_dataloader_hparams)
@@ -91,8 +87,7 @@ def test_num_total_batches(world_size: int, synthetic: bool, dummy_dataloader_hp
     hparams.download = not synthetic
     hparams.datadir = os.path.join(tmpdir, "mnist_data")
     hparams.is_train = False
-    if synthetic:
-        hparams.synthetic = cast(SyntheticBatchPairDatasetHparams, hparams.get_synthetic_hparams_cls()())
+    hparams.use_synthetic = synthetic
     hparams.num_total_batches = num_total_batches
     batch_size = 10
     device_batch_size = batch_size // world_size

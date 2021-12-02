@@ -9,7 +9,7 @@ from composer.datasets.synthetic import SyntheticBatchPairDataset, SyntheticData
 
 @pytest.mark.parametrize('data_type', [
     SyntheticDataType.GAUSSIAN,
-    SyntheticDataLabelType.CLASSIFICATION_INT,
+    SyntheticDataType.SEPARABLE,
 ])
 @pytest.mark.parametrize('label_type', [
     SyntheticDataLabelType.CLASSIFICATION_ONE_HOT,
@@ -17,15 +17,18 @@ from composer.datasets.synthetic import SyntheticBatchPairDataset, SyntheticData
     SyntheticDataLabelType.RANDOM_INT,
 ])
 def test_synthetic_data_creation(data_type: SyntheticDataType, label_type: SyntheticDataLabelType):
-    if data_type == SyntheticDataType.SEPARABLE and label_type != SyntheticDataLabelType.CLASSIFICATION_INT:
-        # skip because not supported
+    if data_type == SyntheticDataType.SEPARABLE:
+        num_classes = 2
+        label_shape = None
+    else:
+        num_classes = 10
+        label_shape = (1, 10, 12)
         return
 
     dataset_size = 1000
     data_shape = (3, 32, 32)
     num_samples_to_create = 10
     num_classes = 10
-    label_shape = (1, 10, 12)
     dataset = SyntheticBatchPairDataset(total_dataset_size=dataset_size,
                                         data_shape=data_shape,
                                         num_unique_samples_to_create=num_samples_to_create,

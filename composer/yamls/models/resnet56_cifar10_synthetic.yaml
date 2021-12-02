@@ -1,6 +1,6 @@
 train_dataset:
   cifar10:
-    synthetic: {}
+    use_synthetic: true
     is_train: true
     num_total_batches: 1
     download: false
@@ -8,7 +8,7 @@ train_dataset:
     drop_last: true
 val_dataset:
   cifar10:
-    synthetic: {}
+    use_synthetic: true
     num_total_batches: 1
     is_train: false
     download: false

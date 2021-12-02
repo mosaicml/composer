@@ -1,8 +1,6 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
-import textwrap
 from dataclasses import dataclass
-from typing import Optional
 
 import torch.utils.data
 import yahp as hp
@@ -12,35 +10,34 @@ from torchvision.datasets import CIFAR10
 from composer.core.types import DataLoader
 from composer.datasets.dataloader import DataloaderHparams
 from composer.datasets.hparams import (DatadirHparamsMixin, DatasetHparams, DropLastHparamsMixin, IsTrainHparamsMixin,
-                                       NumTotalBatchesHparamsMixin, ShuffleHparamsMixin, SyntheticBatchesHparamsMixin)
-from composer.datasets.synthetic import SyntheticBatchPairDatasetHparams
+                                       NumTotalBatchesHparamsMixin, ShuffleHparamsMixin, SyntheticHparamsMixin)
+from composer.datasets.synthetic import SyntheticBatchPairDataset
 from composer.utils import ddp
 
 
 @dataclass
 class CIFAR10DatasetHparams(DatasetHparams, ShuffleHparamsMixin, DropLastHparamsMixin, DatadirHparamsMixin,
-                            NumTotalBatchesHparamsMixin, SyntheticBatchesHparamsMixin, IsTrainHparamsMixin):
+                            NumTotalBatchesHparamsMixin, SyntheticHparamsMixin, IsTrainHparamsMixin):
     """Defines an instance of the CIFAR-10 dataset for image classification.
     
     Parameters:
         download (bool): Whether to download the dataset, if needed.
     """
     download: bool = hp.optional("whether to download the dataset, if needed", default=True)
-    synthetic: Optional[SyntheticBatchPairDatasetHparams] = hp.optional(
-        textwrap.dedent("""Parameters to use for synthetic data generation.
-            If None (the default), then real data will be used."""),
-        default=None)
 
     def initialize_object(self, batch_size: int, dataloader_hparams: DataloaderHparams) -> DataLoader:
         cifar10_mean, cifar10_std = [0.4914, 0.4822, 0.4465], [0.247, 0.243, 0.261]
 
-        if self.synthetic is not None:
+        if self.use_synthetic:
             if self.num_total_batches is None:
-                raise ValueError("num_total_batches is required if synthetic is True")
-            dataset = self.synthetic.initialize_object(
+                raise ValueError("num_total_batches is required if use_synthetic is True")
+            dataset = SyntheticBatchPairDataset(
                 total_dataset_size=self.num_total_batches * batch_size,
                 data_shape=[3, 32, 32],
                 num_classes=10,
+                num_unique_samples_to_create=self.synthetic_num_unique_samples,
+                device=self.synthetic_device,
+                memory_format=self.synthetic_memory_format,
             )
             if self.shuffle:
                 sampler = torch.utils.data.RandomSampler(dataset)
@@ -49,7 +46,7 @@ class CIFAR10DatasetHparams(DatasetHparams, ShuffleHparamsMixin, DropLastHparams
 
         else:
             if self.datadir is None:
-                raise ValueError("datadir is required if synthetic is None")
+                raise ValueError("datadir is required if use_synthetic is False")
 
             if self.is_train:
                 transformation = transforms.Compose([

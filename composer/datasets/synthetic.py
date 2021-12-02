@@ -1,11 +1,9 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
-from dataclasses import dataclass
 from typing import Callable, Optional, Sequence, Union
 
 import torch
 import torch.utils.data
-import yahp as hp
 
 from composer.core.types import MemoryFormat
 from composer.utils.string_enum import StringEnum
@@ -29,8 +27,8 @@ class SyntheticBatchPairDataset(torch.utils.data.Dataset):
         total_dataset_size (int): The total size of the dataset to emulate.
         data_shape (List[int]): Shape of the tensor for input samples.
         num_unique_samples_to_create (int): The number of unique samples to allocate memory for.
-        data_type (SyntheticDataType, optional), Type of synthetic data to create.
-        label_type (SyntheticDataLabelType, optional), Type of synthetic data to create.
+        data_type (str or SyntheticDataType, optional), Type of synthetic data to create.
+        label_type (str or SyntheticDataLabelType, optional), Type of synthetic data to create.
         num_classes (int, optional): Number of classes to use. Required if `SyntheticDataLabelType`
             is `CLASSIFICATION_INT` or `CLASSIFICATION_ONE_HOT`. Otherwise, should be `None`.
         label_shape (List[int]): Shape of the tensor for each sample label.
@@ -45,8 +43,8 @@ class SyntheticBatchPairDataset(torch.utils.data.Dataset):
                  total_dataset_size: int,
                  data_shape: Sequence[int],
                  num_unique_samples_to_create: int = 100,
-                 data_type: SyntheticDataType = SyntheticDataType.GAUSSIAN,
-                 label_type: SyntheticDataLabelType = SyntheticDataLabelType.CLASSIFICATION_INT,
+                 data_type: Union[str, SyntheticDataType] = SyntheticDataType.GAUSSIAN,
+                 label_type: Union[str, SyntheticDataLabelType] = SyntheticDataLabelType.CLASSIFICATION_INT,
                  num_classes: Optional[int] = None,
                  label_shape: Optional[Sequence[int]] = None,
                  device: str = "cpu",
@@ -55,8 +53,8 @@ class SyntheticBatchPairDataset(torch.utils.data.Dataset):
         self.total_dataset_size = total_dataset_size
         self.data_shape = data_shape
         self.num_unique_samples_to_create = num_unique_samples_to_create
-        self.data_type = data_type
-        self.label_type = label_type
+        self.data_type = SyntheticDataType(data_type)
+        self.label_type = SyntheticDataLabelType(label_type)
         self.num_classes = num_classes
         self.label_shape = label_shape
         self.device = device
@@ -135,37 +133,3 @@ class SyntheticBatchPairDataset(torch.utils.data.Dataset):
             return self.transform(self.input_data[idx]), self.input_target[idx]
         else:
             return self.input_data[idx], self.input_target[idx]
-
-
-@dataclass
-class SyntheticBatchPairDatasetHparams(hp.Hparams):
-    num_unique_samples_to_create: int = hp.optional("The number of unique samples to allocate memory for.", default=100)
-    device: str = hp.optional(
-        "Device to store the sample pool. "
-        "Set to `cuda` to store samples on the GPU and eliminate PCI-e bandwidth with the dataloader. "
-        "Set to `cpu` to move data between host memory and the gpu on every batch. ",
-        default="cpu")
-    memory_format: MemoryFormat = hp.optional("Memory format", default=MemoryFormat.CONTIGUOUS_FORMAT)
-
-    def initialize_object(
-        self,
-        total_dataset_size: int,
-        data_shape: Sequence[int],
-        data_type: SyntheticDataType = SyntheticDataType.GAUSSIAN,
-        label_shape: Optional[Sequence[int]] = None,
-        label_type: SyntheticDataLabelType = SyntheticDataLabelType.CLASSIFICATION_INT,
-        num_classes: Optional[int] = None,
-        transform: Optional[Callable] = None,
-    ) -> SyntheticBatchPairDataset:
-        return SyntheticBatchPairDataset(
-            total_dataset_size=total_dataset_size,
-            data_shape=data_shape,
-            num_unique_samples_to_create=self.num_unique_samples_to_create,
-            data_type=data_type,
-            label_type=label_type,
-            label_shape=label_shape,
-            device=self.device,
-            num_classes=num_classes,
-            memory_format=self.memory_format,
-            transform=transform,
-        )

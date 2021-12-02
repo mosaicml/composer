@@ -1,7 +1,6 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
 import dataclasses
-import textwrap
 from dataclasses import dataclass
 from typing import List, Optional, Tuple
 
@@ -13,8 +12,8 @@ import yahp as hp
 from composer.core.types import BatchPair, DataLoader, Metrics, Tensor, Tensors
 from composer.datasets.dataloader import DataloaderHparams
 from composer.datasets.hparams import (DatasetHparams, DropLastHparamsMixin, NumTotalBatchesHparamsMixin,
-                                       ShuffleHparamsMixin, SyntheticBatchesHparamsMixin)
-from composer.datasets.synthetic import SyntheticBatchPairDatasetHparams, SyntheticDataLabelType
+                                       ShuffleHparamsMixin, SyntheticHparamsMixin)
+from composer.datasets.synthetic import SyntheticBatchPairDataset, SyntheticDataLabelType
 from composer.models import BaseMosaicModel, ModelHparams
 
 
@@ -67,27 +66,24 @@ class SimpleBatchPairModel(BaseMosaicModel):
 
 
 @dataclasses.dataclass
-class _SimpleDatasetHparams(DatasetHparams, SyntheticBatchesHparamsMixin, NumTotalBatchesHparamsMixin,
-                            DropLastHparamsMixin, ShuffleHparamsMixin):
+class _SimpleDatasetHparams(DatasetHparams, SyntheticHparamsMixin, NumTotalBatchesHparamsMixin, DropLastHparamsMixin,
+                            ShuffleHparamsMixin):
 
     data_shape: Optional[List[int]] = hp.optional("data shape", default=None)
     num_classes: Optional[int] = hp.optional("num_classes", default=None)
 
-    synthetic: Optional[SyntheticBatchPairDatasetHparams] = hp.optional(
-        textwrap.dedent("""Parameters to use for synthetic data generation.
-            If None (the default), then real data will be used."""),
-        default=None)
-
     def initialize_object(self, batch_size: int, dataloader_hparams: DataloaderHparams) -> DataLoader:
         assert self.num_total_batches is not None
         total_dataset_size = self.num_total_batches * batch_size
-        assert self.synthetic is not None
         assert self.data_shape is not None
         assert self.num_classes is not None
-        dataset = self.synthetic.initialize_object(total_dataset_size=total_dataset_size,
-                                                   data_shape=self.data_shape,
-                                                   label_type=SyntheticDataLabelType.CLASSIFICATION_INT,
-                                                   num_classes=self.num_classes)
+        dataset = SyntheticBatchPairDataset(total_dataset_size=total_dataset_size,
+                                            data_shape=self.data_shape,
+                                            label_type=SyntheticDataLabelType.CLASSIFICATION_INT,
+                                            num_classes=self.num_classes,
+                                            memory_format=self.synthetic_memory_format,
+                                            num_unique_samples_to_create=self.synthetic_num_unique_samples,
+                                            device=self.synthetic_device)
         if self.shuffle:
             sampler = torch.utils.data.RandomSampler(dataset)
         else:

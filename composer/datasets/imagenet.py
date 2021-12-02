@@ -1,7 +1,6 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
 import os
-import textwrap
 from dataclasses import dataclass
 from typing import List, Optional, Tuple
 
@@ -17,8 +16,8 @@ from composer.core.types import Batch, Tensor
 from composer.datasets.dataloader import DataloaderHparams
 from composer.datasets.hparams import (DatadirHparamsMixin, DataloaderSpec, DatasetHparams, DropLastHparamsMixin,
                                        IsTrainHparamsMixin, NumTotalBatchesHparamsMixin, ShuffleHparamsMixin,
-                                       SyntheticBatchesHparamsMixin)
-from composer.datasets.synthetic import SyntheticBatchPairDatasetHparams
+                                       SyntheticHparamsMixin)
+from composer.datasets.synthetic import SyntheticBatchPairDataset
 from composer.utils import ddp
 
 
@@ -69,7 +68,7 @@ def fast_collate(batch: List[Tuple[Image.Image, Tensor]], memory_format: torch.m
 
 
 @dataclass
-class ImagenetDatasetHparams(DatasetHparams, SyntheticBatchesHparamsMixin, DatadirHparamsMixin, DropLastHparamsMixin,
+class ImagenetDatasetHparams(DatasetHparams, SyntheticHparamsMixin, DatadirHparamsMixin, DropLastHparamsMixin,
                              ShuffleHparamsMixin, NumTotalBatchesHparamsMixin, IsTrainHparamsMixin):
     """Defines an instance of the ImageNet dataset for image classification.
     
@@ -77,26 +76,22 @@ class ImagenetDatasetHparams(DatasetHparams, SyntheticBatchesHparamsMixin, Datad
         resize_size (int, optional): The resize size to use. Defaults to -1 to not resize.
         crop size (int): The crop size to use.
     """
-
-    synthetic: Optional[SyntheticBatchPairDatasetHparams] = hp.optional(
-        textwrap.dedent("""Parameters to use for synthetic data generation.
-            If None (the default), then real data will be used."""),
-        default=None)
-
     resize_size: int = hp.optional("resize size. Set to -1 to not resize", default=-1)
     crop_size: int = hp.optional("crop size", default=224)
 
     def initialize_object(self, batch_size: int, dataloader_hparams: DataloaderHparams) -> DataloaderSpec:
 
-        if self.synthetic is not None:
-            assert isinstance(self.synthetic, SyntheticBatchPairDatasetHparams)
+        if self.use_synthetic:
             if self.num_total_batches is None:
                 raise ValueError("num_total_batches must be specified if using synthetic data")
             total_dataset_size = self.num_total_batches * batch_size
-            dataset = self.synthetic.initialize_object(
+            dataset = SyntheticBatchPairDataset(
                 total_dataset_size=total_dataset_size,
                 data_shape=[3, self.crop_size, self.crop_size],
                 num_classes=1000,
+                num_unique_samples_to_create=self.synthetic_num_unique_samples,
+                device=self.synthetic_device,
+                memory_format=self.synthetic_memory_format,
             )
             collate_fn = None
             device_transform_fn = None

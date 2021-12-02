@@ -32,7 +32,7 @@ Base Classes and Hyperparameters
     DataloaderSpec
     DatasetHparams
     DatadirHparamsMixin
-    SyntheticBatchesHparamsMixin
+    SyntheticHparamsMixin
     ShuffleHparamsMixin
     DropLastHparamsMixin
     NumTotalBatchesHparamsMixin
@@ -50,5 +50,4 @@ Datasets
     CIFAR10DatasetHparams
     ImagenetDatasetHparams
     LMDatasetHparams
-    SyntheticBatchPairDatasetHparams
     BratsDatasetHparams

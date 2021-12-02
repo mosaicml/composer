@@ -1,8 +1,6 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
-import textwrap
 from dataclasses import dataclass
-from typing import Optional
 
 import torch.utils.data
 import yahp as hp
@@ -11,35 +9,32 @@ from torchvision import datasets, transforms
 from composer.core.types import DataLoader
 from composer.datasets.dataloader import DataloaderHparams
 from composer.datasets.hparams import (DatadirHparamsMixin, DatasetHparams, DropLastHparamsMixin, IsTrainHparamsMixin,
-                                       NumTotalBatchesHparamsMixin, ShuffleHparamsMixin, SyntheticBatchesHparamsMixin)
-from composer.datasets.synthetic import SyntheticBatchPairDatasetHparams
+                                       NumTotalBatchesHparamsMixin, ShuffleHparamsMixin, SyntheticHparamsMixin)
+from composer.datasets.synthetic import SyntheticBatchPairDataset
 from composer.utils import ddp
 
 
 @dataclass
-class MNISTDatasetHparams(DatasetHparams, IsTrainHparamsMixin, SyntheticBatchesHparamsMixin,
-                          NumTotalBatchesHparamsMixin, DatadirHparamsMixin, DropLastHparamsMixin, ShuffleHparamsMixin):
+class MNISTDatasetHparams(DatasetHparams, IsTrainHparamsMixin, SyntheticHparamsMixin, NumTotalBatchesHparamsMixin,
+                          DatadirHparamsMixin, DropLastHparamsMixin, ShuffleHparamsMixin):
     """Defines an instance of the MNIST dataset for image classification.
 
     Parameters:
         download (bool): Whether to download the dataset, if needed.
     """
-
-    synthetic: Optional[SyntheticBatchPairDatasetHparams] = hp.optional(
-        textwrap.dedent("""Parameters to use for synthetic data generation.
-            If None (the default), then real data will be used."""),
-        default=None)
-
     download: bool = hp.optional("whether to download the dataset, if needed", default=True)
 
     def initialize_object(self, batch_size: int, dataloader_hparams: DataloaderHparams) -> DataLoader:
-        if self.synthetic is not None:
+        if self.use_synthetic:
             if self.num_total_batches is None:
                 raise ValueError("num_total_batches is required if synthetic is True")
-            dataset = self.synthetic.initialize_object(
+            dataset = SyntheticBatchPairDataset(
                 total_dataset_size=self.num_total_batches * batch_size,
                 data_shape=[1, 28, 28],
                 num_classes=10,
+                num_unique_samples_to_create=self.synthetic_num_unique_samples,
+                device=self.synthetic_device,
+                memory_format=self.synthetic_memory_format,
             )
             if self.shuffle:
                 sampler = torch.utils.data.RandomSampler(dataset)
@@ -48,9 +43,7 @@ class MNISTDatasetHparams(DatasetHparams, IsTrainHparamsMixin, SyntheticBatchesH
 
         else:
             if self.datadir is None:
-                raise ValueError("datadir is required if synthetic is None")
-            if self.is_train is None:
-                raise ValueError("is_train is required if synthetic is None")
+                raise ValueError("datadir is required if synthetic is False")
 
             transform = transforms.Compose([transforms.ToTensor()])
             dataset = datasets.MNIST(

@@ -12,12 +12,11 @@ from composer.datasets.hparams import DropLastHparamsMixin as DropLastHparamsMix
 from composer.datasets.hparams import IsTrainHparamsMixin as IsTrainHparamsMixin
 from composer.datasets.hparams import NumTotalBatchesHparamsMixin as NumTotalBatchesHparamsMixin
 from composer.datasets.hparams import ShuffleHparamsMixin as ShuffleHparamsMixin
-from composer.datasets.hparams import SyntheticBatchesHparamsMixin as SyntheticBatchesHparamsMixin
+from composer.datasets.hparams import SyntheticHparamsMixin as SyntheticHparamsMixin
 from composer.datasets.imagenet import ImagenetDatasetHparams as ImagenetDatasetHparams
 from composer.datasets.lm_datasets import LMDatasetHparams as LMDatasetHparams
 from composer.datasets.mnist import MNISTDatasetHparams as MNISTDatasetHparams
 from composer.datasets.synthetic import MemoryFormat as MemoryFormat
 from composer.datasets.synthetic import SyntheticBatchPairDataset as SyntheticBatchPairDataset
-from composer.datasets.synthetic import SyntheticBatchPairDatasetHparams as SyntheticBatchPairDatasetHparams
 from composer.datasets.synthetic import SyntheticDataLabelType as SyntheticDataLabelType
 from composer.datasets.synthetic import SyntheticDataType as SyntheticDataType

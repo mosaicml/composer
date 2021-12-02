@@ -13,7 +13,6 @@ from composer.core.types import Precision
 from composer.datasets.dataloader import DataloaderHparams
 from composer.datasets.hparams import DataloaderSpec
 from composer.datasets.imagenet import ImagenetDatasetHparams
-from composer.datasets.synthetic import SyntheticBatchPairDatasetHparams
 from composer.loggers import Logger
 from composer.models import ResNet50Hparams
 
@@ -22,7 +21,7 @@ from composer.models import ResNet50Hparams
 def dummy_state(dummy_dataloader_hparams: DataloaderHparams):
     model = ResNet50Hparams(num_classes=100).initialize_object()
     dataset_hparams = ImagenetDatasetHparams(
-        synthetic=SyntheticBatchPairDatasetHparams(),
+        use_synthetic=True,
         num_total_batches=10000,
         drop_last=True,
         shuffle=False,

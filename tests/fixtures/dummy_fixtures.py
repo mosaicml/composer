@@ -11,7 +11,6 @@ from composer import Logger, State
 from composer.core.types import DataLoader, Model, Precision
 from composer.datasets import DataloaderHparams, DatasetHparams
 from composer.datasets.hparams import DataloaderSpec
-from composer.datasets.synthetic import SyntheticBatchPairDatasetHparams
 from composer.models import ModelHparams, MosaicClassifier
 from composer.optim import AdamHparams, ExponentialLRHparams
 from composer.trainer import TrainerHparams
@@ -56,7 +55,7 @@ def dummy_model(dummy_model_hparams: _SimpleBatchPairModelHparams) -> SimpleBatc
 def dummy_train_dataset_hparams(dummy_model: SimpleBatchPairModel,
                                 SimpleDatasetHparams: Type[_SimpleDatasetHparams]) -> DatasetHparams:
     return SimpleDatasetHparams(
-        synthetic=SyntheticBatchPairDatasetHparams(),
+        use_synthetic=True,
         num_total_batches=4,
         drop_last=True,
         shuffle=True,
@@ -69,7 +68,7 @@ def dummy_train_dataset_hparams(dummy_model: SimpleBatchPairModel,
 def dummy_val_dataset_hparams(dummy_model: SimpleBatchPairModel,
                               SimpleDatasetHparams: Type[_SimpleDatasetHparams]) -> DatasetHparams:
     return SimpleDatasetHparams(
-        synthetic=SyntheticBatchPairDatasetHparams(),
+        use_synthetic=True,
         num_total_batches=4,
         drop_last=False,
         shuffle=False,

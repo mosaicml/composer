@@ -6,7 +6,6 @@ import pytest
 import torch
 
 from composer.core.types import DataLoader
-from composer.datasets import synthetic
 from composer.datasets.mnist import MNISTDatasetHparams
 from composer.models.base import BaseMosaicModel
 from composer.models.classify_mnist.mnist_hparams import MnistClassifierHparams
@@ -33,16 +32,12 @@ def get_total_loss(model: BaseMosaicModel, dataloader: DataLoader):
 
 def train_model(mosaic_trainer_hparams: TrainerHparams, max_epochs: int = 2, run_loss_check: bool = False):
     total_dataset_size = 16
-    synthetic_cls = MNISTDatasetHparams.get_synthetic_hparams_cls()
-    assert synthetic_cls is not None
-    synthetic_hparams = synthetic_cls()
-    assert isinstance(synthetic_hparams, synthetic.SyntheticBatchPairDatasetHparams)
     mosaic_trainer_hparams.train_dataset = MNISTDatasetHparams(
-        synthetic=synthetic_hparams,
+        use_synthetic=True,
         num_total_batches=1,
     )
     mosaic_trainer_hparams.val_dataset = MNISTDatasetHparams(
-        synthetic=synthetic_hparams,
+        use_synthetic=True,
         num_total_batches=1,
     )
 

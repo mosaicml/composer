@@ -2,11 +2,11 @@
 
 from composer import algorithms as algorithms
 from composer import callbacks as callbacks
+from composer import datasets as datasets
 from composer import loggers as loggers
 from composer import models as models
 from composer import optim as optim
 from composer import profiler as profiler
-from composer import datasets as datasets
 from composer import trainer as trainer
 from composer import utils as utils
 from composer.algorithms import functional as functional

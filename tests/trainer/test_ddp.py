@@ -9,6 +9,7 @@ from typing import Dict, List, Optional, Type, Union
 import pytest
 import torch
 import torch.distributed
+import torch.utils.data
 import yahp as hp
 from _pytest.monkeypatch import MonkeyPatch
 
@@ -17,15 +18,15 @@ from composer import Callback, Event
 from composer.callbacks import CallbackHparams
 from composer.core.logging import Logger
 from composer.core.state import State
-from composer.datasets import (DataloaderHparams, NumTotalBatchesHparamsMixin, SyntheticBatchesHparamsMixin,
-                               SyntheticBatchPairDataset, SyntheticBatchPairDatasetHparams)
-from composer.datasets.hparams import ShuffleHparamsMixin
+from composer.datasets import (DataloaderHparams, NumTotalBatchesHparamsMixin, SyntheticBatchPairDataset,
+                               SyntheticHparamsMixin)
+from composer.datasets.hparams import DatasetHparams
 from composer.models import ModelHparams
+from composer.trainer.deepspeed import DeepSpeedHparams
 from composer.trainer.devices import CPUDeviceHparams, DeviceHparams, GPUDeviceHparams
 from composer.trainer.trainer_hparams import TrainerHparams, callback_registry, dataset_registry
 from composer.utils import ddp
-
-from composer.trainer.deepspeed import DeepSpeedHparams
+from tests.fixtures.models import SimpleBatchPairModel
 
 
 def get_file_path(tmpdir: Union[str, pathlib.Path], *, rank: int, is_train: bool) -> str:
@@ -38,36 +39,59 @@ def get_batch_file_path(tmpdir: Union[str, pathlib.Path], *, rank: int, epoch: i
     return os.path.join(tmpdir, f"{train_str}-rank-{rank}-epoch-{epoch}-batch0.pt")
 
 
-class TrackedDataset(SyntheticBatchPairDataset):
+class TrackedDataset(types.Dataset):
     """
     TrackedDataset atomically writes a file every time a record is accessed.
     It is thread-safe and subprocess-safe, and is useful to measure how many times a sample is accessed.
     Because of atomic file writes, it is slow and should not be used in any performance measurements.
     """
 
-    def __init__(self, is_train: bool, tmpdir: str, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+    def __init__(self, is_train: bool, tmpdir: str, synthetic_dataset: SyntheticBatchPairDataset):
+        self.dataset = synthetic_dataset
         self.is_train = is_train
         self.tmpdir = tmpdir
         self.counter = 0
 
     def __getitem__(self, idx: int):
         self.counter += 1
-        keyword = "train" if self.is_train else "val"
         with open(get_file_path(self.tmpdir, rank=ddp.get_global_rank(), is_train=self.is_train), "w+") as f:
             f.write(str(self.counter))
-        return super().__getitem__(idx)
+        return self.dataset[idx]
+
+    def __len__(self):
+        return len(self.dataset)
 
 
 @dataclass
-class TrackedDatasetHparams(SyntheticBatchPairDatasetHparams):
+class TrackedDatasetHparams(DatasetHparams, NumTotalBatchesHparamsMixin, SyntheticHparamsMixin):
     is_train: Optional[bool] = hp.optional("is_train", default=None)
     tmpdir: Optional[str] = hp.optional("tmpdir", default=None)
+    num_classes: Optional[int] = hp.optional("num_classes", default=None)
+    data_shape: Optional[List[int]] = hp.optional("data_shape", default=None)
 
-    def initialize_object(self, *args, **kwargs) -> TrackedDataset:
+    def initialize_object(self, batch_size: int, dataloader_hparams: DataloaderHparams) -> types.DataLoader:
         assert self.is_train is not None
         assert self.tmpdir is not None
-        return TrackedDataset(is_train=self.is_train, tmpdir=self.tmpdir, *args, **kwargs)
+        assert self.num_classes is not None
+        assert self.data_shape is not None
+        assert self.num_total_batches is not None
+        synthetic_dataset = SyntheticBatchPairDataset(
+            num_unique_samples_to_create=self.synthetic_num_unique_samples,
+            total_dataset_size=batch_size * self.num_total_batches * ddp.get_world_size(),
+            data_shape=self.data_shape,
+            num_classes=self.num_classes,
+        )
+        drop_last = False
+        tracked_dataset = TrackedDataset(is_train=self.is_train,
+                                         tmpdir=self.tmpdir,
+                                         synthetic_dataset=synthetic_dataset)
+        sampler = ddp.get_sampler(tracked_dataset, drop_last=drop_last, shuffle=True)
+        return dataloader_hparams.initialize_object(
+            dataset=tracked_dataset,
+            batch_size=batch_size,
+            sampler=sampler,
+            drop_last=drop_last,
+        )
 
 
 class CheckBatch0(Callback):
@@ -134,7 +158,8 @@ def test_ddp(device: DeviceHparams, world_size: int, ddp_tmpdir: str, mosaic_tra
 
     hparams = mosaic_trainer_hparams
     model_hparams = hparams.model
-    assert isinstance(model_hparams, SimpleBatchPairModelHparams)
+    model = model_hparams.initialize_object()
+    assert isinstance(model, SimpleBatchPairModel)
 
     callback_registry["checkbatch0"] = CheckBatch0Hparams
     dataset_registry["tracked"] = TrackedDatasetHparams
@@ -142,31 +167,27 @@ def test_ddp(device: DeviceHparams, world_size: int, ddp_tmpdir: str, mosaic_tra
     hparams.total_batch_size = 10
     train_num_total_batches = 3
     assert isinstance(hparams.train_dataset, NumTotalBatchesHparamsMixin)
-    assert isinstance(hparams.train_dataset, SyntheticBatchesHparamsMixin)
-    assert isinstance(hparams.train_dataset, ShuffleHparamsMixin)
-    hparams.train_dataset.num_total_batches = train_num_total_batches
-    hparams.train_dataset.synthetic = TrackedDatasetHparams(
-        num_unique_samples_to_create=hparams.total_batch_size * train_num_total_batches,
-        device="cpu",
+    assert isinstance(hparams.train_dataset, SyntheticHparamsMixin)
+    hparams.train_dataset = TrackedDatasetHparams(
+        synthetic_num_unique_samples=hparams.total_batch_size * train_num_total_batches,
         is_train=True,
-        memory_format=types.MemoryFormat.CONTIGUOUS_FORMAT,
         tmpdir=ddp_tmpdir,
+        num_total_batches=train_num_total_batches,
+        data_shape=list(model.in_shape),
+        num_classes=model.num_classes,
     )
-    hparams.train_dataset.shuffle = True
     val_num_total_batches = 3
     hparams.eval_batch_size = 10
     assert isinstance(hparams.val_dataset, NumTotalBatchesHparamsMixin)
-    assert isinstance(hparams.val_dataset, SyntheticBatchesHparamsMixin)
-    assert isinstance(hparams.val_dataset, ShuffleHparamsMixin)
-    hparams.val_dataset.num_total_batches = val_num_total_batches
-    hparams.val_dataset.synthetic = TrackedDatasetHparams(
-        num_unique_samples_to_create=hparams.eval_batch_size * val_num_total_batches,
-        device="cpu",
+    assert isinstance(hparams.val_dataset, SyntheticHparamsMixin)
+    hparams.val_dataset = TrackedDatasetHparams(
+        synthetic_num_unique_samples=hparams.eval_batch_size * val_num_total_batches,
         is_train=False,
-        memory_format=types.MemoryFormat.CONTIGUOUS_FORMAT,
         tmpdir=ddp_tmpdir,
+        num_total_batches=val_num_total_batches,
+        data_shape=list(model.in_shape),
+        num_classes=model.num_classes,
     )
-    hparams.val_dataset.shuffle = True
     hparams.device = device
     hparams.dataloader = DataloaderHparams(
         num_workers=0,
