@@ -3,11 +3,11 @@ import os
 import random
 import time
 from argparse import ArgumentParser
-
+from typing import Any, Optional, Tuple
 import numpy as np
 import torch
-from base_model import Loss
-from ssd300 import SSD300
+from composer.models.ssd.base_model import Loss
+from composer.models.ssd.ssd300 import SSD300
 from torch.autograd import Variable
 from torch.utils.data import DataLoader
 
@@ -15,9 +15,10 @@ from composer.models.ssd.utils import  DefaultBoxes, Encoder, SSDTransformer
 from composer.datasets.coco import COCODetection
 from composer.core.types import BatchPair, Metrics, Tensor, Tensors
 from composer.models.base import BaseMosaicModel
-
+from torchmetrics.classification.accuracy import Accuracy
 from composer.models.ssd.ssd_hparams import SSDHparams
-from composer.model.ssd.ssd300 import SSD300
+from composer.models.ssd.ssd300 import SSD300
+from PIL import Image
 
 _BASE_LR = 2.5e-3
 
@@ -27,11 +28,12 @@ class SSD(BaseMosaicModel):
         super().__init__()
 
         self.hparams = hparams
-        self.module = SSD300(train_coco.labelnum, model_path=args.pretrained_backbone)
+        ln = COCODetection.labelnum
+        self.module = SSD300(80, model_path="/mnt/cota/laura/composer/composer/models/ssd/resnet34-333f7ec4.pth")#args.pretrained_backbone)
         dboxes = dboxes300_coco()
         
         self.loss_func = Loss(dboxes)
-        self.mAP = mAP()
+        #self.mAP = mAP()
 
     def loss(self, outputs: Any, batch: BatchPair) -> Tensors:
         
@@ -50,7 +52,7 @@ class SSD(BaseMosaicModel):
         return loss
 
     def metrics(self, train: bool = False) -> Metrics:
-        return #self.mAP
+        return Accuracy()#self.mAP
 
     def forward(self, batch: BatchPair) -> Tensor:
         (img, img_id, img_size, bbox, label) = batch
@@ -98,7 +100,7 @@ class SSD(BaseMosaicModel):
                                          inv_map[label_]])
 
     
-    return ret
+        return ret
 
 
 from torchmetrics import Metric

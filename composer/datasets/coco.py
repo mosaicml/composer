@@ -5,6 +5,9 @@ import os
 import sys
 import time
 from collections import defaultdict
+from dataclasses import dataclass
+import yahp as hp
+import torch.utils.data as data
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -14,6 +17,20 @@ from pycocotools import mask as maskUtils
 from urllib.request import urlretrieve
 
 from composer.datasets.hparams import DataloaderSpec, DatasetHparams
+from composer.models.ssd.utils import SSDTransformer, DefaultBoxes
+#from composer.models.ssd.ssd import dboxes
+from PIL import Image
+import torch
+
+def dboxes300_coco():
+    figsize = 300
+    feat_size = [38, 19, 10, 5, 3, 1]
+    steps = [8, 16, 32, 64, 100, 300]
+    # use the scales here: https://github.com/amdegroot/ssd.pytorch/blob/master/data/config.py
+    scales = [21, 45, 99, 153, 207, 261, 315]
+    aspect_ratios = [[2], [2, 3], [2, 3], [2, 3], [2], [2]]
+    dboxes = DefaultBoxes(figsize, feat_size, steps, scales, aspect_ratios)
+    return dboxes
 
 @dataclass
 class COCODatasetHparams(DatasetHparams):
@@ -36,18 +53,20 @@ class COCODatasetHparams(DatasetHparams):
 
 
     def initialize_object(self) -> DataloaderSpec:
-        
+
+        dboxes = dboxes300_coco()
 
         input_size = 300
         train_trans = SSDTransformer(dboxes, (input_size, input_size),
                                      val=False,
-                                     num_cropping_iterations=args.num_cropping_iterations)
+                                     num_cropping_iterations=1)
         val_trans = SSDTransformer(dboxes, (input_size, input_size), val=True)
-
-        val_annotate = os.path.join(args.data, "annotations/instances_val2017.json")
-        val_coco_root = os.path.join(args.data, "val2017")
-        train_annotate = os.path.join(args.data, "annotations/instances_train2017.json")
-        train_coco_root = os.path.join(args.data, "train2017")
+        data = "/mnt/cota/datasets/coco"
+        
+        val_annotate = os.path.join(data, "annotations/instances_val2017.json")
+        val_coco_root = os.path.join(data, "val2017")
+        train_annotate = os.path.join(data, "annotations/instances_train2017.json")
+        train_coco_root = os.path.join(data, "train2017")
 
         cocoGt = COCO(annotation_file=val_annotate)
         train_coco = COCODetection(train_coco_root, train_annotate, train_trans)
@@ -59,14 +78,12 @@ class COCODatasetHparams(DatasetHparams):
                 dataset=train_coco,
                 drop_last=self.drop_last,
                 shuffle=self.shuffle,
-                num_workers=4,
             )
         else:
             return DataloaderSpec(
                 dataset=val_coco,
                 drop_last=self.drop_last,
                 shuffle=False,
-                num_workers=4,
             )
 
 def _isArrayLike(obj):
@@ -121,7 +138,7 @@ class COCODetection(data.Dataset):
         self.img_keys = list(self.images.keys())
         self.transform = transform
 
-    @property
+    #@property
     def labelnum(self):
         return len(self.label_info)
 

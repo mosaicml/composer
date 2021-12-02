@@ -9,5 +9,5 @@ from composer.models.model_hparams import ModelHparams
 class SSDHparams(ModelHparams):
 
     def initialize_object(self):
-        from composer.models.unet.unet import SSD
+        from composer.models.ssd.ssd import SSD
         return SSD(self)

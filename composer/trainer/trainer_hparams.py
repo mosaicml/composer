@@ -21,7 +21,7 @@ from composer.datasets import DataloaderHparams
 from composer.loggers import (BaseLoggerBackendHparams, FileLoggerBackendHparams, TQDMLoggerBackendHparams,
                               WandBLoggerBackendHparams)
 from composer.models import (CIFARResNetHparams, EfficientNetB0Hparams, GPT2Hparams, MnistClassifierHparams,
-                             ModelHparams, ResNet18Hparams, ResNet50Hparams, ResNet101Hparams, UnetHparams)
+                             ModelHparams, ResNet18Hparams, ResNet50Hparams, ResNet101Hparams, UnetHparams, SSDHparams)
 from composer.optim import (AdamHparams, AdamWHparams, DecoupledAdamWHparams, DecoupledSGDWHparams, OptimizerHparams,
                             RAdamHparams, RMSPropHparams, SchedulerHparams, SGDHparams, scheduler)
 from composer.trainer.devices import CPUDeviceHparams, DeviceHparams, GPUDeviceHparams
@@ -52,6 +52,7 @@ scheduler_registry = {
 
 model_registry = {
     "unet": UnetHparams,
+    "ssd": SSDHparams,
     "efficientnetb0": EfficientNetB0Hparams,
     "resnet56_cifar10": CIFARResNetHparams,
     "resnet101": ResNet101Hparams,
@@ -63,6 +64,7 @@ model_registry = {
 
 dataset_registry = {
     "brats": datasets.BratsDatasetHparams,
+    "coco": datasets.COCODatasetHparams,
     "imagenet": datasets.ImagenetDatasetHparams,
     "cifar10": datasets.CIFAR10DatasetHparams,
     "synthetic": datasets.SyntheticDatasetHparams,

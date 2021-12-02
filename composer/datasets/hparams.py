@@ -13,14 +13,19 @@ from composer.core.types import Batch, Dataset, Tensor, TPrefetchFn
 def _split_fn(batch: Batch, n_microbatches: int) -> List[Batch]:
     if not isinstance(batch, Sequence):
         raise ValueError(f'split_fn requires batch be a tuple pair of tensors, got {type(batch)}')
-    x, y = batch
+    x, y, a, b, c = batch
+    nm = n_microbatches
     if isinstance(x, Tensor) and isinstance(y, Tensor):
-        return list(zip(x.chunk(n_microbatches), y.chunk(n_microbatches)))
+        import pdb; pdb.set_trace()
+        return list(zip(x.chunk(n_microbatches), y.chunk(n_microbatches), a.chunk(nm), b.chunk(nm), c.chunk(nm)))
     if isinstance(x, List) and isinstance(y, List):
         return list(
             zip(
                 [x[i::n_microbatches] for i in range(n_microbatches)],
                 [y[i::n_microbatches] for i in range(n_microbatches)],
+                [a[i::nm] for i in range(nm)],
+                [b[i::nm] for i in range(nm)],
+                [c[i::nm] for i in range(nm)],
             ))
     raise NotImplementedError('The default split_fn is unable to split the output of this'
                               'dataloader. Please define a split_fn in your dataloader spec.')

@@ -16,17 +16,12 @@ optimizer:
   sgd:
     lr: 2.5e-3
     weight_decay: 5e-4
-
 schedulers:
   - multistep:
       milestones:
         - "40ep"
         - "50ep"
       interval: epoch
-
-schedulers:
-  - constant:
-      interval: step
 model:
   ssd:
     initializers:
@@ -38,15 +33,10 @@ max_epochs: 800
 total_batch_size: 32
 eval_batch_size: 32
 seed: 0
-threshold: 0.23
 validate_every_n_epochs: 5
 grad_accum: 1
-warmup_factor: 0
-nms_valid_thresh: 0.05
-num_cropping_iterations: 1
 device:
-  gpu:
-    n_gpus: 8
+  gpu: {}
 dataloader:
   pin_memory: true
   timeout: 0
@@ -54,5 +44,4 @@ dataloader:
   persistent_workers: true
   num_workers: 8
 precision: amp
-lr_decay_schedule: [40,50]
-warmup: None
+
