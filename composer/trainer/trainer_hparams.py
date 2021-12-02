@@ -226,7 +226,7 @@ class TrainerHparams(hp.Hparams):
         if not isinstance(self.train_dataset, datasets.DatadirHparamsMixin):
             raise AttributeError("train dataset does not have the datadir attribute")
         if not isinstance(self.val_dataset, datasets.DatadirHparamsMixin):
-            raise AttributeError("train dataset does not have the datadir attribute")
+            raise AttributeError("val dataset does not have the datadir attribute")
         self.train_dataset.datadir = datadir
         self.val_dataset.datadir = datadir
 
