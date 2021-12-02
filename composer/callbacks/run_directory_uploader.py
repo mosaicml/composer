@@ -5,6 +5,7 @@ from __future__ import annotations
 import logging
 import multiprocessing
 import os
+import pathlib
 import queue
 import shutil
 import sys
@@ -207,10 +208,15 @@ class RunDirectoryUploader(Callback):
         ddp.barrier()
         if not ddp.get_local_rank() == 0:
             return
-        new_last_uploaded_timestamp = time.time()
-        # Now, for each file that was modified since self._last_upload_timestamp, copy it to the temporary directory
         run_directory = get_run_directory()
         assert run_directory is not None, "invariant error"
+        # the disk time can differ from system time, so going to touch a file and then read the timestamp from it to get the real time
+        python_time = time.time()
+        touch_file = (pathlib.Path(run_directory) / f".{python_time}")
+        touch_file.touch()
+        new_last_uploaded_timestamp = os.path.getmtime(str(touch_file))
+
+        # Now, for each file that was modified since self._last_upload_timestamp, copy it to the temporary directory
         files_to_be_uploaded = []
 
         # check if any upload threads have crashed. if so, then shutdown the training process
@@ -222,6 +228,9 @@ class RunDirectoryUploader(Callback):
         for root, dirs, files in os.walk(run_directory):
             del dirs  # unused
             for file in files:
+                if any(x.startswith(".") for x in file.split(os.path.sep)):
+                    # skip hidden files and folders
+                    continue
                 filepath = os.path.join(root, file)
                 relpath = os.path.relpath(filepath, run_directory)  # chop off the run directory
                 modified_time = os.path.getmtime(filepath)
