@@ -26,7 +26,6 @@ install_requires = [
     "torch_optimizer==0.1.0",
     "torchvision>=0.9.0",
     "torch>=1.9",
-    "argparse>=1.4.0",
     "yahp>=0.0.14",
 ]
 extra_deps = {}
