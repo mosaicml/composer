@@ -5,6 +5,7 @@ from __future__ import annotations
 import logging
 import multiprocessing
 import os
+import pathlib
 import queue
 import shutil
 import sys
@@ -14,7 +15,7 @@ import time
 import warnings
 from typing import Any, Callable, Dict, Optional, Type, Union
 
-from composer.core.callback import RankZeroCallback
+from composer.core.callback import Callback
 from composer.core.logging import Logger
 from composer.core.logging.logger import LogLevel
 from composer.core.state import State
@@ -24,7 +25,7 @@ from composer.utils.run_directory import get_run_directory
 log = logging.getLogger(__name__)
 
 
-class RunDirectoryUploader(RankZeroCallback):
+class RunDirectoryUploader(Callback):
     """Callback to upload the run directory to a blob store.
 
     This callback checks the run directory for new or modified files
@@ -133,8 +134,6 @@ class RunDirectoryUploader(RankZeroCallback):
         self._provider = provider
         self._container = container
 
-        _validate_credentials(provider, container, self._object_name_prefix, provider_init_kwargs)
-
         if use_procs:
             mp_ctx = multiprocessing.get_context('spawn')
             self._file_upload_queue: Union[queue.Queue[str],
@@ -148,8 +147,13 @@ class RunDirectoryUploader(RankZeroCallback):
         self._finished: Union[None, multiprocessing._EventType, threading.Event] = None
         self._workers = []
 
+        if ddp.get_local_rank() == 0:
+            _validate_credentials(provider, container, self._object_name_prefix, provider_init_kwargs)
+
     def init(self, state: State, logger: Logger) -> None:
         if get_run_directory() is None:
+            return
+        if not ddp.get_local_rank() == 0:
             return
         del state, logger  # unused
         self._finished = self._finished_cls()
@@ -190,6 +194,8 @@ class RunDirectoryUploader(RankZeroCallback):
     def post_close(self):
         # Cleaning up on post_close to ensure that all artifacts are uploaded
         self._trigger_upload(logger=None, log_level=None)
+        if not ddp.get_local_rank() == 0:
+            return
         if self._finished is not None:
             self._finished.set()
         for worker in self._workers:
@@ -200,10 +206,17 @@ class RunDirectoryUploader(RankZeroCallback):
         # Assuming only the main thread on each rank writes to the run directory, then the barrier here will ensure
         # that the run directory is not being modified after we pass this barrier
         ddp.barrier()
-        new_last_uploaded_timestamp = time.time()
-        # Now, for each file that was modified since self._last_upload_timestamp, copy it to the temporary directory
+        if not ddp.get_local_rank() == 0:
+            return
         run_directory = get_run_directory()
         assert run_directory is not None, "invariant error"
+        # the disk time can differ from system time, so going to touch a file and then read the timestamp from it to get the real time
+        python_time = time.time()
+        touch_file = (pathlib.Path(run_directory) / f".{python_time}")
+        touch_file.touch()
+        new_last_uploaded_timestamp = os.path.getmtime(str(touch_file))
+
+        # Now, for each file that was modified since self._last_upload_timestamp, copy it to the temporary directory
         files_to_be_uploaded = []
 
         # check if any upload threads have crashed. if so, then shutdown the training process
@@ -215,6 +228,9 @@ class RunDirectoryUploader(RankZeroCallback):
         for root, dirs, files in os.walk(run_directory):
             del dirs  # unused
             for file in files:
+                if any(x.startswith(".") for x in file.split(os.path.sep)):
+                    # skip hidden files and folders
+                    continue
                 filepath = os.path.join(root, file)
                 relpath = os.path.relpath(filepath, run_directory)  # chop off the run directory
                 modified_time = os.path.getmtime(filepath)
@@ -291,7 +307,7 @@ def _upload_worker(
                 break
             else:
                 continue
-        obj_name = ",".join(os.path.relpath(file_path_to_upload, upload_staging_dir).split(
+        obj_name = os.path.sep.join(os.path.relpath(file_path_to_upload, upload_staging_dir).split(
             os.path.sep)[1:])  # the first folder is the upload timestamp. Chop that off.
         log.info("Uploading file %s to %s://%s/%s%s", file_path_to_upload, provider_name, container_name,
                  object_name_prefix, obj_name)
@@ -315,7 +331,7 @@ def _upload_worker(
                                  sleep_time,
                                  exc_info=e,
                                  stack_info=True)
-                        time.sleep()
+                        time.sleep(sleep_time)
                         continue
                 raise e
             os.remove(file_path_to_upload)

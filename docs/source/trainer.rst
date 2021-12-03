@@ -16,12 +16,19 @@ Examples
     from composer.datasets import MNISTDatasetHparams
     from composer.models.mnist import MnistClassifierHparams
     model = MnistClassifierHparams(num_classes=10).initialize_objeect()
-    train_dataloader_spec = MNISTDatasetHparams(is_train=True,
-                                                datadir="./mymnist",
-                                                download=True).initialize_object()
-    train_dataloader_spec = MNISTDatasetHparams(is_train=False,
-                                                datadir="./mymnist",
-                                                download=True).initialize_object()
+    train_dataloader = DataLoader(
+        datasets.MNIST('~/datasets/', train=True, transform=transforms.ToTensor(), download=True),
+        drop_last=True,
+        shuffle=True,
+        batch_size=256,
+    )
+
+    eval_dataloader = DataLoader(
+        datasets.MNIST('~/datasets/', train=True, transform=transforms.ToTensor(), download=True),
+        drop_last=False,
+        shuffle=False,
+        batch_size=256,
+    )
 
 
 .. code-block:: python
@@ -29,8 +36,8 @@ Examples
     # Create a trainer that will checkpoint every epoch
     # and train the model
     trainer = Trainer(model=model,
-                      train_dataloader_spec=train_dataloader_spec,
-                      eval_dataloader_spec=eval_dataloader_spec,
+                      train_dataloader=train_dataloader,
+                      eval_dataloader=eval_dataloader,
                       max_epochs=50,
                       train_batch_size=128,
                       eval_batch_size=128,
@@ -44,8 +51,8 @@ Examples
 
     # Load a trainer from the saved checkpoint and resume training
     trainer = Trainer(model=model,
-                      train_dataloader_spec=train_dataloader_spec,
-                      eval_dataloader_spec=eval_dataloader_spec,
+                      train_dataloader=train_dataloader,
+                      eval_dataloader=eval_dataloader,
                       max_epochs=50,
                       train_batch_size=128,
                       eval_batch_size=128,
@@ -142,7 +149,6 @@ You can also provide overrides at command line:
     imagenet | :class:`~composer.datasets.ImagenetDatasetHparams`
     lm | :class:`~composer.datasets.LMDatasetHparams`
     mnist | :class:`~composer.datasets.MNISTDatasetHparams`
-    synthetic | :class:`~composer.datasets.SyntheticDatasetHparams`
 
 **Devices**
 

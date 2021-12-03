@@ -7,8 +7,8 @@ import time
 import warnings
 from typing import Sequence
 
-from composer import Logger, State
 from composer.callbacks.callback_hparams import BenchmarkerHparams
+from composer.core import Logger, State
 from composer.core.callback import Callback
 from composer.core.types import BreakEpochException
 from composer.utils import ddp
