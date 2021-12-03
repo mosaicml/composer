@@ -128,6 +128,12 @@ def ensure_targets_one_hot(input: Tensor, targets: Tensor) -> Tensor:
     return targets
 
 
+def check_for_index_targets(targets: Tensor) -> bool:
+    """Checks if a given set of targets are indices by looking at the type"""
+    index_types = ['torch.LongTensor', 'torch.cuda.LongTensor']
+    return targets.type() in index_types
+
+
 def soft_cross_entropy(input: Tensor,
                        target: Tensor,
                        weight: Optional[Tensor] = None,

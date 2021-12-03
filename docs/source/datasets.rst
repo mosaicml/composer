@@ -11,16 +11,14 @@ composer.datasets
 * ``pin_memory``
 * ``timeout``
 
-Each :class:`DatasetHparams` is then responsible for returning a :class:`DataloaderSpec`, which is a ``NamedTuple`` of dataset-specific settings such as:
+Each :class:`DatasetHparams` is then responsible for settings such as:
 
 * ``dataset``
 * ``drop_last``
 * ``shuffle``
 * ``collate_fn``
 
-This indirection (instead of directly creating the ``dataloader`` at the start) is needed because for multi-GPU training, dataloaders require the global rank to initialize their :class:`torch.utils.data.distributed.DistributedSampler`.
-
-As a result, our trainer uses the :class:`DataloaderSpec` and :class:`DataloaderHparams` to create the dataloaders after DDP has forked the processes.
+A :class:`DatasetHparams` is responsible for returning a :class:`torch.utils.data.dataloader` or a :class:`DataloaderSpec`.
 
 
 Base Classes and Hyperparameters
@@ -33,6 +31,8 @@ Base Classes and Hyperparameters
     DataloaderHparams
     DataloaderSpec
     DatasetHparams
+    SyntheticHparamsMixin
+
 
 Datasets
 --------
@@ -45,7 +45,4 @@ Datasets
     CIFAR10DatasetHparams
     ImagenetDatasetHparams
     LMDatasetHparams
-    SyntheticDatasetHparams
     BratsDatasetHparams
-
-
