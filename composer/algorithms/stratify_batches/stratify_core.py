@@ -101,8 +101,7 @@ def _sample_batches_stratified(samplers: Sequence[BalancedSampler], batch_size: 
             remaining_batch_size -= take_num
 
         # now randomly sample from elems that won't evenly fit into a batch
-        straggler_counts = np.array([s.num_unsampled_elements() % num_remaining_batches
-                                     for s in samplers])
+        straggler_counts = np.array([s.num_unsampled_elements() % num_remaining_batches for s in samplers])
         num_stragglers = straggler_counts.sum()
         probs = straggler_counts / num_stragglers if num_stragglers > 0 else None
 
@@ -139,7 +138,10 @@ def _sample_batches_balanced(samplers: Sequence[BalancedSampler], batch_size: in
     return batches
 
 
-def sample_stragglers(samplers: Sequence[BalancedSampler], batch_size: int, total_num_samples: int, full_batch=True) -> List:
+def sample_stragglers(samplers: Sequence[BalancedSampler],
+                      batch_size: int,
+                      total_num_samples: int,
+                      full_batch=True) -> List:
     remaining_batch_size = batch_size
     batch = []
     shuffled_samplers = np.random.permutation(samplers)  # shuffle a copy
@@ -195,15 +197,12 @@ class StratifiedBatchSampler(Sampler):
         has_stragglers = num_batches * self.batch_size < total_num_samples
         self._reset_samplers()  # reset sampling for each epoch
 
-        f_sample = {'balance': _sample_batches_balanced,
-                    'match': _sample_batches_stratified}[self.stratify_how]
-        batches = f_sample(
-            self.samplers, batch_size=self.batch_size, num_batches=num_batches)
+        f_sample = {'balance': _sample_batches_balanced, 'match': _sample_batches_stratified}[self.stratify_how]
+        batches = f_sample(self.samplers, batch_size=self.batch_size, num_batches=num_batches)
 
         if has_stragglers and not self.drop_last:
-            batches.append(sample_stragglers(self.samplers,
-                                             batch_size=self.batch_size,
-                                             total_num_samples=total_num_samples))
+            batches.append(
+                sample_stragglers(self.samplers, batch_size=self.batch_size, total_num_samples=total_num_samples))
         return iter(batches)
 
     def __len__(self):

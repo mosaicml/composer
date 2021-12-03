@@ -16,7 +16,7 @@ def simple_elems():
 
 @pytest.fixture
 def uniq_elems():
-    return np.array([3, 1, 2, 5, 8, 4]) # plausible indices
+    return np.array([3, 1, 2, 5, 8, 4])  # plausible indices
 
 
 @pytest.fixture
@@ -40,7 +40,7 @@ def test_balanced_sampler_sample(simple_elems, num_vals):
     sampler = core.BalancedSampler(simple_elems)
     # tail changes after sampling
     vals = sampler.sample(num_vals)
-    if num_vals > 0: # if data should have actually changed
+    if num_vals > 0:  # if data should have actually changed
         assert not _equal_when_sorted(simple_elems, sampler.tail)
     # removed vals are ones it returned
     assert _equal_when_sorted(simple_elems, vals + list(sampler.tail))
@@ -100,7 +100,7 @@ def _make_targets(num_classes: int, batch_size: int, num_batches: int, add_strag
 
 def _construct_class_counts(batches: List[List], targets: Sequence[int], num_classes: int):
     targets = np.asarray(targets)  # needs to be ints starting at 0
-    batched_idxs = np.array(batches)   # each row is indices for one batch
+    batched_idxs = np.array(batches)  # each row is indices for one batch
     batched_targets = targets[batched_idxs.ravel()].reshape(batched_idxs.shape)
     class_counts = np.zeros((len(batches), num_classes))
     for b, row in enumerate(batched_targets):
@@ -113,14 +113,14 @@ def _construct_class_counts(batches: List[List], targets: Sequence[int], num_cla
 @pytest.mark.parametrize('num_batches', [1, 2, 3])
 @pytest.mark.parametrize('add_stragglers', [False, True])
 @pytest.mark.parametrize('stratify_how', ['balance', 'match'])
-def test_sample_batches_correctness(num_classes: int, batch_size: int,
-                                    num_batches: int, add_stragglers: bool,
+def test_sample_batches_correctness(num_classes: int, batch_size: int, num_batches: int, add_stragglers: bool,
                                     stratify_how: str):
-    targets = _make_targets(num_classes=num_classes, batch_size=batch_size,
-                            num_batches=num_batches, add_stragglers=add_stragglers)
+    targets = _make_targets(num_classes=num_classes,
+                            batch_size=batch_size,
+                            num_batches=num_batches,
+                            add_stragglers=add_stragglers)
 
-    batches = iter(core.StratifiedBatchSampler(targets=targets, batch_size=batch_size,
-                                               stratify_how=stratify_how))
+    batches = iter(core.StratifiedBatchSampler(targets=targets, batch_size=batch_size, stratify_how=stratify_how))
     batches = np.array(list(batches))
 
     # check stragglers if applicable
