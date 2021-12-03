@@ -31,12 +31,7 @@ Base Classes and Hyperparameters
     DataloaderHparams
     DataloaderSpec
     DatasetHparams
-    DatadirHparamsMixin
     SyntheticHparamsMixin
-    ShuffleHparamsMixin
-    DropLastHparamsMixin
-    NumTotalBatchesHparamsMixin
-    IsTrainHparamsMixin
 
 
 Datasets
