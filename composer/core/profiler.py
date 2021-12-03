@@ -208,7 +208,7 @@ class Marker:
     def __call__(self, func: Optional[Callable] = None) -> Union[Marker, Callable]:
         if func is None:
             return self  # decorator style @Marker()
-        
+
         @wraps(func)
         def wrapped(*args, **kwargs):
             with self:
