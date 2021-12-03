@@ -24,6 +24,8 @@ reportUnusedImport = "error"
 reportMissingModuleSource = "none"
 reportPrivateImportUsage = "warning"
 reportUndefinedVariable = "error"
+reportUnboundVariable = "error"
+strictParameterNoneValue = "error"
 
 pythonVersion = "3.8"
 pythonPlatform = "Linux"
