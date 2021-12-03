@@ -737,9 +737,13 @@ class Trainer:
                 # also for sake of metrics. Complicating matters, the DeepSpeed engine does its
                 # own scaling when we call `.backward`, but this isn't in place so we still need
                 # to scale for sake of metrics after the `.backward` call.
+
+                # Loss is added to losses with clone to not scale the loss for the step printout
+                # Likely need to look into the performance impact
                 if not self.deepspeed_enabled:
                     for loss in ensure_tuple(state.loss):
                         loss.mul_(last_microbatch_size / current_batch_size)
+                        total_loss += loss.detach().clone()
 
                 assert state.loss is not None
                 self.engine.run_event(Event.AFTER_LOSS)
@@ -753,19 +757,15 @@ class Trainer:
                 if self.deepspeed_enabled:
                     state.model.backward(state.loss)  # type: ignore
 
-                    # This is the same loss scaling we skipped earlier.
+                    # This is the same loss scaling and reporting we skipped earlier.
                     for loss in ensure_tuple(state.loss):
                         loss.mul_(last_microbatch_size / current_batch_size)
+                        total_loss += loss.detach().clone()
                 else:
                     for loss in ensure_tuple(state.loss):
                         loss.backward(create_graph=self.backwards_create_graph)
 
                 self.engine.run_event(Event.AFTER_BACKWARD)
-
-                # Loss is added to losses with clone to not scale the loss for the step printout
-                # Likely need to look into the performance impact
-                for loss in ensure_tuple(state.loss):
-                    total_loss += loss.detach().clone()
 
             if self.deepspeed_enabled:
                 state.model.step()  # type: ignore
