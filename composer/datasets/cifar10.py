@@ -6,7 +6,10 @@ import yahp as hp
 from torchvision import transforms
 from torchvision.datasets import CIFAR10
 
-from composer.datasets.hparams import DataloaderSpec, DatasetHparams
+from composer.core.types import DataLoader
+from composer.datasets.dataloader import DataloaderHparams
+from composer.datasets.hparams import DatasetHparams
+from composer.utils import ddp
 
 
 @dataclass
@@ -27,7 +30,7 @@ class CIFAR10DatasetHparams(DatasetHparams):
     drop_last: bool = hp.optional("Whether to drop the last samples for the last batch", default=True)
     shuffle: bool = hp.optional("Whether to shuffle the dataset for each epoch", default=True)
 
-    def initialize_object(self) -> DataloaderSpec:
+    def initialize_object(self, batch_size: int, dataloader_hparams: DataloaderHparams) -> DataLoader:
         cifar10_mean, cifar10_std = [0.4914, 0.4822, 0.4465], [0.247, 0.243, 0.261]
         datadir = self.datadir
 
@@ -44,13 +47,16 @@ class CIFAR10DatasetHparams(DatasetHparams):
                 transforms.Normalize(mean=cifar10_mean, std=cifar10_std),
             ])
 
-        return DataloaderSpec(
-            dataset=CIFAR10(
-                datadir,
-                train=self.is_train,
-                download=self.download,
-                transform=transformation,
-            ),
-            drop_last=self.drop_last,
-            shuffle=self.shuffle,
+        dataset = CIFAR10(
+            datadir,
+            train=self.is_train,
+            download=self.download,
+            transform=transformation,
         )
+
+        sampler = ddp.get_sampler(dataset, drop_last=self.drop_last, shuffle=self.shuffle)
+
+        return dataloader_hparams.initialize_object(dataset,
+                                                    batch_size=batch_size,
+                                                    sampler=sampler,
+                                                    drop_last=self.drop_last)

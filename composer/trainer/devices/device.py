@@ -2,26 +2,28 @@
 
 from abc import ABC, abstractmethod
 from contextlib import contextmanager
-from typing import Generator, Optional, TypeVar, Union
+from typing import Generator, TypeVar, Union, cast
 
 import torch.nn
 
 from composer.core.serializable import Serializable
-from composer.core.types import DataLoader, Optimizer, Precision, Tensor, TPrefetchFn
+from composer.core.types import Batch, BatchPair, Optimizer, Precision, Tensor
+from composer.utils.iter_helpers import map_collection
 
 T_nnModule = TypeVar("T_nnModule", bound=torch.nn.Module)
 
 
 class Device(Serializable, ABC):
     """Abstract class for a device on which a model runs.
+
+    Attributes:
+        ddp_backend (str): DDP backend to use.
+            Should be `gloo`, `mpi`, or `nccl`.
+            See `the pytorch docs <https://pytorch.org/docs/stable/distributed.html>`_
+            for details.
     """
 
-    @abstractmethod
-    def prepare(self) -> None:
-        """Used for device initialization.
-
-        Invoked by the trainer at the beginning of the training loop.
-        """
+    ddp_backend: str
 
     @abstractmethod
     def module_to_device(self, module: T_nnModule) -> T_nnModule:
@@ -40,32 +42,29 @@ class Device(Serializable, ABC):
         """Moves a tensor onto the device instance's device.
 
         Args:
-            tensor (T_nnModule): The tensor to move to the device
+            tensor (Tensor): The tensor to move to the device
 
         Returns:
             Tensor: The tensor on the device.
         """
         pass
 
-    @abstractmethod
-    def dataloader_to_device(self, dataloader: DataLoader, prefetch_fn: Optional[TPrefetchFn]) -> DataLoader:
-        """Wraps a Dataloader and ensures all returned batches are on the correct device.
-
-        This function is responsible for executing `prefetch_fn`, if provided,
-        on each batch before it is yielded. The `prefetch_fn` can be executed
-        in the background, if the device supports it.
+    def batch_to_device(self, batch: Batch) -> Batch:
+        """Moves a batch onto the device instance's device.
 
         Args:
-            dataloader (DataLoader): The dataloader to wrap.
-            prefetch_fn (Optional[TPrefetchFn]): A function that takes a batch and returns a batch.
-                It should perform any on-device preprocessing of a batch.
-                (e.g. on a GPU device, this function can be used for gpu transformations.)
+            batch (Batch): The batch to move to the device
 
         Returns:
-            DataLoader: The wrapped dataloader, which yields batches that
-            have been moved to the device and have been processed through
-            the prefetch_fn.
+            Batch: The batch on the device.
         """
+        if isinstance(batch, Tensor):
+            return self.tensor_to_device(batch)
+        if isinstance(batch, (tuple, list)):  # BatchPair
+            return cast(BatchPair, type(batch)(map_collection(x, self.tensor_to_device) for x in batch))
+        if isinstance(batch, dict):  # BatchDict
+            return {k: self.tensor_to_device(v) for k, v in batch.items()}
+        raise TypeError(f"Unsupported type for batch: {type(batch)}")
 
     def optimizer_to_device(self, optimizer: Optimizer) -> Optimizer:
         """Moves an optimizer's state onto the device instance's device.
@@ -105,16 +104,3 @@ class Device(Serializable, ABC):
             Generator[None, None, None]: [description]
         """
         pass
-
-    @property
-    @abstractmethod
-    def ddp_backend(self) -> str:
-        """DDP backend to use.
-
-        Should return `gloo`, `mpi`, or `nccl`.
-        See `the pytorch docs <https://pytorch.org/docs/stable/distributed.html>`_
-        for details.
-
-        Returns:
-            str: `gloo`, `mpi`, or `nccl`
-        """

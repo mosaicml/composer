@@ -11,7 +11,6 @@ import yahp as hp
 from composer.core.types import BatchPair, Metrics, Tensor, Tensors
 from composer.datasets.synthetic import SyntheticDataLabelType, SyntheticDatasetHparams
 from composer.models import BaseMosaicModel, ModelHparams
-from composer.trainer.trainer_hparams import TrainerHparams
 
 
 class SimpleBatchPairModel(BaseMosaicModel):
@@ -74,7 +73,7 @@ class SimpleBatchPairModel(BaseMosaicModel):
 
 
 @dataclass
-class SimpleBatchPairModelHparams(ModelHparams):
+class _SimpleBatchPairModelHparams(ModelHparams):
     in_shape: List[int] = hp.optional("shape for a single input", default_factory=lambda: [10])
     num_classes: int = hp.optional("number of output classes", default=3)
 
@@ -83,9 +82,6 @@ class SimpleBatchPairModelHparams(ModelHparams):
             in_shape=tuple(self.in_shape),
             num_classes=self.num_classes,
         )
-
-
-TrainerHparams.register_class("model", SimpleBatchPairModelHparams, "simple_batch_pair_model")
 
 
 class SimpleConvModel(torch.nn.Module):

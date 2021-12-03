@@ -7,7 +7,10 @@ import torch
 import torch.utils.data
 import yahp as hp
 
-from composer.datasets.hparams import DataloaderSpec, DatasetHparams
+from composer.core.types import DataLoader
+from composer.datasets.dataloader import DataloaderHparams
+from composer.datasets.hparams import DatasetHparams
+from composer.utils import ddp
 from composer.utils.string_enum import StringEnum
 
 
@@ -170,22 +173,23 @@ class SyntheticDatasetHparams(DatasetHparams):
 
         _validate_label_inputs(label_type=self.label_type, num_classes=self.num_classes, label_shape=self.label_shape)
 
-    def initialize_object(self) -> DataloaderSpec:
-        return DataloaderSpec(
-            SyntheticDataset(
-                total_dataset_size=self.total_dataset_size,
-                data_shape=self.data_shape,
-                num_unique_samples_to_create=self.num_unique_samples_to_create,
-                data_type=self.data_type,
-                label_type=self.label_type,
-                num_classes=self.num_classes,
-                label_shape=self.label_shape,
-                device=self.device,
-                memory_format=self.memory_format,
-            ),
-            drop_last=self.drop_last,
-            shuffle=False,
+    def initialize_object(self, batch_size: int, dataloader_hparams: DataloaderHparams) -> DataLoader:
+        dataset = SyntheticDataset(
+            total_dataset_size=self.total_dataset_size,
+            data_shape=self.data_shape,
+            num_unique_samples_to_create=self.num_unique_samples_to_create,
+            data_type=self.data_type,
+            label_type=self.label_type,
+            num_classes=self.num_classes,
+            label_shape=self.label_shape,
+            device=self.device,
+            memory_format=self.memory_format,
         )
+        sampler = ddp.get_sampler(dataset, drop_last=self.drop_last, shuffle=self.shuffle)
+        return dataloader_hparams.initialize_object(dataset,
+                                                    batch_size=batch_size,
+                                                    sampler=sampler,
+                                                    drop_last=self.drop_last)
 
 
 def _validate_label_inputs(label_type: SyntheticDataLabelType, num_classes: Optional[int],

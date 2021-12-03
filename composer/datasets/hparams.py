@@ -2,12 +2,12 @@
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import Any, Callable, List, NamedTuple, Optional, Sequence
+from typing import Callable, List, NamedTuple, Optional, Sequence, Union
 
-import torch
 import yahp as hp
 
-from composer.core.types import Batch, Dataset, Tensor, TPrefetchFn
+from composer.core.types import Batch, DataLoader, TDeviceTransformFn, Tensor
+from composer.datasets.dataloader import DataloaderHparams
 
 
 def _split_fn(batch: Batch, n_microbatches: int) -> List[Batch]:
@@ -30,29 +30,16 @@ class DataloaderSpec(NamedTuple):
     """Specification for initializing a dataloader.
     
     Attributes:
-        dataset (Dataset): The initialized dataset from which to load data.
-        drop_last (bool): Whether the final batch of an epoch should be discarded
-            if there are fewer samples than the batch size.
-        shuffle (bool): Whether the data should be shuffled.
-        collate_fn (List[Any] -> Batch, optional): A function to collate
-            data before returning it from the dataloader.
-        worker_init_fn (int -> None, optional): A function to be ran
-            on each worker before dataloading begins.
-        multiprocessing_context (Any, optional): The context to use for multiprocessing.
-        generator (torch.Generator, optional): An RNG to be used for seeding workers.
-        prefetch_fn (TPrefetchFn, optional): A function to run for prefetching data.
+        dataloader (DataLoader): The initialized dataloader.
+        device_transform_fn (TDeviceTransformFn, optional):
+            A function to modify the data once it has been loaded onto the device (for example, GPU-based batch normalization)
+            This function is invoked with a batch of data after it has been moved onto the device,
+            and it is expected to return a batch.
         split_fn (Batch, int -> List[Batch]): A function to
             run to split batches into microbatches.
     """
-
-    dataset: Dataset
-    drop_last: bool
-    shuffle: bool
-    collate_fn: Optional[Callable[[List[Any]], Batch]] = None
-    worker_init_fn: Optional[Callable[[int], None]] = None
-    multiprocessing_context: Any = None
-    generator: Optional[torch.Generator] = None
-    prefetch_fn: Optional[TPrefetchFn] = None
+    dataloader: DataLoader
+    device_transform_fn: Optional[TDeviceTransformFn] = None
     split_fn: Callable[[Batch, int], List[Batch]] = _split_fn
 
 
@@ -63,7 +50,8 @@ class DatasetHparams(hp.Hparams, ABC):
     pass
 
     @abstractmethod
-    def initialize_object(self) -> DataloaderSpec:
+    def initialize_object(self, batch_size: int,
+                          dataloader_hparams: DataloaderHparams) -> Union[DataLoader, DataloaderSpec]:
         """Initializes a :class:`DataloaderSpec` for this dataset."""
 
         pass

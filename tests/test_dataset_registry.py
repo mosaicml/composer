@@ -7,7 +7,8 @@ import pytest
 
 from composer.datasets.brats import BratsDatasetHparams
 from composer.datasets.cifar10 import CIFAR10DatasetHparams
-from composer.datasets.hparams import DataloaderSpec, DatasetHparams
+from composer.datasets.dataloader import DataloaderHparams
+from composer.datasets.hparams import DatasetHparams
 from composer.datasets.imagenet import ImagenetDatasetHparams
 from composer.datasets.lm_datasets import LMDatasetHparams
 from composer.datasets.mnist import MNISTDatasetHparams
@@ -62,10 +63,10 @@ default_required_fields: Dict[Type[DatasetHparams], Callable[[], DatasetHparams]
 
 
 @pytest.mark.parametrize("dataset_name", dataset_registry.keys())
-def test_dataset(dataset_name: str, request: pytest.FixtureRequest) -> None:
+def test_dataset(dataset_name: str, request: pytest.FixtureRequest,
+                 dummy_dataloader_hparams: DataloaderHparams) -> None:
     hparams_cls = dataset_registry[dataset_name]
     hparams = default_required_fields[hparams_cls]()
     if dataset_name != "synthetic":
         request.applymarker(pytest.mark.xfail())
-    dataloader_spec = hparams.initialize_object()
-    assert isinstance(dataloader_spec, DataloaderSpec)
+    hparams.initialize_object(batch_size=10, dataloader_hparams=dummy_dataloader_hparams)
