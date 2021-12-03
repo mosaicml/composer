@@ -31,6 +31,8 @@ Base Classes and Hyperparameters
     DataloaderHparams
     DataloaderSpec
     DatasetHparams
+    SyntheticHparamsMixin
+
 
 Datasets
 --------
@@ -43,7 +45,4 @@ Datasets
     CIFAR10DatasetHparams
     ImagenetDatasetHparams
     LMDatasetHparams
-    SyntheticDatasetHparams
     BratsDatasetHparams
-
-

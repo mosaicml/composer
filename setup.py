@@ -34,6 +34,7 @@ extra_deps = {}
 extra_deps['base'] = []
 
 extra_deps['dev'] = [
+    "custom_inherit==2.3.2",
     'junitparser>=2.1.1',
     'coverage[toml]>=6.1.1',
     'fasteners>=0.16.3',  # run_directory_uploader tests require fasteners

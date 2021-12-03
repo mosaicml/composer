@@ -9,12 +9,14 @@ import torch.utils.data
 
 from composer import Logger, State
 from composer.core.types import DataLoader, Model, Precision
-from composer.datasets import DataloaderHparams, DataloaderSpec, DatasetHparams, SyntheticDatasetHparams
+from composer.datasets import DataloaderHparams, DatasetHparams
+from composer.datasets.hparams import DataloaderSpec
 from composer.models import ModelHparams, MosaicClassifier
 from composer.optim import AdamHparams, ExponentialLRHparams
 from composer.trainer import TrainerHparams
 from composer.trainer.devices import CPUDeviceHparams
-from tests.fixtures.models import SimpleBatchPairModel, SimpleConvModel, _SimpleBatchPairModelHparams
+from tests.fixtures.models import (SimpleBatchPairModel, SimpleConvModel, _SimpleBatchPairModelHparams,
+                                   _SimpleDatasetHparams)
 
 
 @pytest.fixture
@@ -50,13 +52,29 @@ def dummy_model(dummy_model_hparams: _SimpleBatchPairModelHparams) -> SimpleBatc
 
 
 @pytest.fixture
-def dummy_train_dataset_hparams(dummy_model: SimpleBatchPairModel) -> SyntheticDatasetHparams:
-    return dummy_model.get_dataset_hparams(total_dataset_size=300, drop_last=True, shuffle=True)
+def dummy_train_dataset_hparams(dummy_model: SimpleBatchPairModel,
+                                SimpleDatasetHparams: Type[_SimpleDatasetHparams]) -> DatasetHparams:
+    return SimpleDatasetHparams(
+        use_synthetic=True,
+        subset_num_batches=4,
+        drop_last=True,
+        shuffle=True,
+        num_classes=dummy_model.num_classes,
+        data_shape=list(dummy_model.in_shape),
+    )
 
 
 @pytest.fixture
-def dummy_val_dataset_hparams(dummy_model: SimpleBatchPairModel) -> SyntheticDatasetHparams:
-    return dummy_model.get_dataset_hparams(total_dataset_size=100, drop_last=False, shuffle=False)
+def dummy_val_dataset_hparams(dummy_model: SimpleBatchPairModel,
+                              SimpleDatasetHparams: Type[_SimpleDatasetHparams]) -> DatasetHparams:
+    return SimpleDatasetHparams(
+        use_synthetic=True,
+        subset_num_batches=4,
+        drop_last=False,
+        shuffle=False,
+        num_classes=dummy_model.num_classes,
+        data_shape=list(dummy_model.in_shape),
+    )
 
 
 @pytest.fixture()
@@ -206,3 +224,9 @@ def simple_conv_model():
 def SimpleBatchPairModelHparams():
     TrainerHparams.register_class("model", _SimpleBatchPairModelHparams, "simple_batch_pair_model")
     return _SimpleBatchPairModelHparams
+
+
+@pytest.fixture(scope="session")
+def SimpleDatasetHparams():
+    TrainerHparams.register_class("train_dataset", _SimpleDatasetHparams, "simple_dataset")
+    return _SimpleDatasetHparams

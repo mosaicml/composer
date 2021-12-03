@@ -14,8 +14,10 @@ from torchvision.datasets import ImageFolder
 
 from composer.core.types import Batch, Tensor
 from composer.datasets.dataloader import DataloaderHparams
-from composer.datasets.hparams import DataloaderSpec, DatasetHparams
+from composer.datasets.hparams import DataloaderSpec, DatasetHparams, SyntheticHparamsMixin
+from composer.datasets.synthetic import SyntheticBatchPairDataset
 from composer.utils import ddp
+from composer.utils.data import get_subset_dataset
 
 
 class TransformationFn:
@@ -65,61 +67,74 @@ def fast_collate(batch: List[Tuple[Image.Image, Tensor]], memory_format: torch.m
 
 
 @dataclass
-class ImagenetDatasetHparams(DatasetHparams):
+class ImagenetDatasetHparams(DatasetHparams, SyntheticHparamsMixin):
     """Defines an instance of the ImageNet dataset for image classification.
     
     Parameters:
-        resize_size (int): The resize size to use.
+        resize_size (int, optional): The resize size to use. Defaults to -1 to not resize.
         crop size (int): The crop size to use.
-        is_train (bool): Whether to load the training or validation dataset.
-        datadir (str): Data directory to use.
-        drop_last (bool): Whether to drop the last samples for the last batch.
-        shuffle (bool): Whether to shuffle the dataset for each epoch.
     """
-
-    resize_size: int = hp.required("resize size")
-    crop_size: int = hp.required("crop size")
-    is_train: bool = hp.required("whether to load the training or validation dataset")
-    datadir: str = hp.required("data directory")
-    drop_last: bool = hp.optional("Whether to drop the last samples for the last batch", default=True)
-    shuffle: bool = hp.optional("Whether to shuffle the dataset for each epoch", default=True)
+    resize_size: int = hp.optional("resize size. Set to -1 to not resize", default=-1)
+    crop_size: int = hp.optional("crop size", default=224)
 
     def initialize_object(self, batch_size: int, dataloader_hparams: DataloaderHparams) -> DataloaderSpec:
-        datadir = self.datadir
-        is_train = self.is_train
 
-        if is_train:
-            # include fixed-size resize before RandomResizedCrop in training only
-            # if requested (by specifying a size > 0)
-            train_resize_size = self.resize_size
-            train_transforms: List[torch.nn.Module] = []
-            if train_resize_size > 0:
-                train_transforms.append(transforms.Resize(train_resize_size))
-            # always include RandomResizedCrop and RandomHorizontalFlip
-            train_transforms += [
-                transforms.RandomResizedCrop(self.crop_size, scale=(0.08, 1.0), ratio=(0.75, 4.0 / 3.0)),
-                transforms.RandomHorizontalFlip()
-            ]
-            transformation = transforms.Compose(train_transforms)
+        if self.use_synthetic:
+            if self.subset_num_batches is None:
+                raise ValueError("subset_num_batches is required if use_synthetic is True")
+            dataset = SyntheticBatchPairDataset(
+                total_dataset_size=self.subset_num_batches * batch_size * ddp.get_world_size(),
+                data_shape=[3, self.crop_size, self.crop_size],
+                num_classes=1000,
+                num_unique_samples_to_create=self.synthetic_num_unique_samples,
+                device=self.synthetic_device,
+                memory_format=self.synthetic_memory_format,
+            )
+            collate_fn = None
+            device_transform_fn = None
+            if self.shuffle:
+                sampler = torch.utils.data.RandomSampler(dataset)
+            else:
+                sampler = torch.utils.data.SequentialSampler(dataset)
         else:
-            transformation = transforms.Compose([
-                transforms.Resize(self.resize_size),
-                transforms.CenterCrop(self.crop_size),
-            ])
 
-        split = "train" if is_train else "val"
+            if self.is_train:
+                # include fixed-size resize before RandomResizedCrop in training only
+                # if requested (by specifying a size > 0)
+                train_resize_size = self.resize_size
+                train_transforms: List[torch.nn.Module] = []
+                if train_resize_size > 0:
+                    train_transforms.append(transforms.Resize(train_resize_size))
+                # always include RandomResizedCrop and RandomHorizontalFlip
+                train_transforms += [
+                    transforms.RandomResizedCrop(self.crop_size, scale=(0.08, 1.0), ratio=(0.75, 4.0 / 3.0)),
+                    transforms.RandomHorizontalFlip()
+                ]
+                transformation = transforms.Compose(train_transforms)
+                split = "train"
+            else:
+                transformation = transforms.Compose([
+                    transforms.Resize(self.resize_size),
+                    transforms.CenterCrop(self.crop_size),
+                ])
+                split = "val"
 
-        dataset = ImageFolder(os.path.join(datadir, split), transformation)
+            device_transform_fn = TransformationFn()
+            collate_fn = fast_collate
 
-        sampler = ddp.get_sampler(dataset, drop_last=self.drop_last, shuffle=self.shuffle)
+            if self.datadir is None:
+                raise ValueError("datadir must be specified is self.synthetic is False")
+            dataset = ImageFolder(os.path.join(self.datadir, split), transformation)
+            if self.subset_num_batches is not None:
+                size = batch_size * self.subset_num_batches * ddp.get_world_size()
+                dataset = get_subset_dataset(size, dataset)
+            sampler = ddp.get_sampler(dataset, drop_last=self.drop_last, shuffle=self.shuffle)
 
-        return DataloaderSpec(
-            dataloader=dataloader_hparams.initialize_object(
-                dataset=dataset,
-                batch_size=batch_size,
-                sampler=sampler,
-                drop_last=self.drop_last,
-                collate_fn=fast_collate,
-            ),
-            device_transform_fn=TransformationFn(),
-        )
+        return DataloaderSpec(dataloader=dataloader_hparams.initialize_object(
+            dataset=dataset,
+            batch_size=batch_size,
+            sampler=sampler,
+            drop_last=self.drop_last,
+            collate_fn=collate_fn,
+        ),
+                              device_transform_fn=device_transform_fn)

@@ -12,7 +12,7 @@ from typing import TYPE_CHECKING, List, Optional
 import yahp as hp
 
 import composer
-import composer.datasets as datasets
+from composer import datasets
 from composer.algorithms import AlgorithmHparams, get_algorithm_registry
 from composer.callbacks import (BenchmarkerHparams, CallbackHparams, GradMonitorHparams, LRMonitorHparams,
                                 MemoryMonitorHparams, RunDirectoryUploaderHparams, SpeedMonitorHparams,
@@ -67,7 +67,6 @@ dataset_registry = {
     "brats": datasets.BratsDatasetHparams,
     "imagenet": datasets.ImagenetDatasetHparams,
     "cifar10": datasets.CIFAR10DatasetHparams,
-    "synthetic": datasets.SyntheticDatasetHparams,
     "mnist": datasets.MNISTDatasetHparams,
     "lm": datasets.LMDatasetHparams,
 }
@@ -221,15 +220,9 @@ class TrainerHparams(hp.Hparams):
 
         Args:
             datadir (str): The datadir
-        
-        Raises
-            AttributeError: Raised if either :attr:`train_dataset` or :attr:`val_dataset` do not
-            have a ``datadir`` property.
         """
-        if not hasattr(self.train_dataset, 'datadir') or not hasattr(self.val_dataset, 'datadir'):
-            raise AttributeError('Both the train and val dataset hparams must have the datadir attribute.')
-        setattr(self.train_dataset, 'datadir', datadir)
-        setattr(self.val_dataset, 'datadir', datadir)
+        self.train_dataset.datadir = datadir
+        self.val_dataset.datadir = datadir
 
     @classmethod
     def load(cls, model: str) -> TrainerHparams:

@@ -9,26 +9,31 @@ skip = [ "env", "wandb" ]
 [tool.pyright]
 include = [
     "composer/**",
-    "tests/**"
+    "tests/**",
+    "examples/**",
 ]
 exclude = [
     "build/**"
 ]
 
-reportImportCycles = "none"
 reportUnnecessaryIsInstance = "none"
 reportMissingTypeStubs = "none"
 reportIncompatibleMethodOverride = "warning"
 reportIncompatibleVariableOverride = "warning"
 reportUnusedImport = "error"
-reportMissingModuleSource = "none"
+reportUnusedClass = "warning"
+reportUnusedFunction = "warning"
+reportUnusedVariable = "warning"
+reportDuplicateImport = "error"
+reportWildcardImportFromLibrary = "error"
+reportUntypedFunctionDecorator = "warning"
 reportPrivateImportUsage = "warning"
 reportUndefinedVariable = "error"
-reportUnboundVariable = "error"
 strictParameterNoneValue = "error"
-
-pythonVersion = "3.8"
-pythonPlatform = "Linux"
+reportPropertyTypeMismatch = "error"
+reportUntypedNamedTuple = "error"
+reportUnnecessaryCast = "error"
+reportInvalidTypeVarUse = "error"
 
 # Pytest
 [tool.pytest.ini_options]

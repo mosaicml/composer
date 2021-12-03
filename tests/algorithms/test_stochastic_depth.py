@@ -10,8 +10,9 @@ from composer.algorithms.stochastic_depth.stochastic_depth import STOCHASTIC_LAY
 from composer.algorithms.stochastic_depth.stochastic_layers import StochasticBottleneck, _sample_bernoulli
 from composer.core import Event, Logger, State, surgery
 from composer.core.types import Precision
-from composer.datasets import SyntheticDatasetHparams
 from composer.datasets.dataloader import DataloaderHparams
+from composer.datasets.hparams import DataloaderSpec
+from composer.datasets.imagenet import ImagenetDatasetHparams
 from composer.loggers import Logger
 from composer.models import ResNet50Hparams
 
@@ -19,13 +20,17 @@ from composer.models import ResNet50Hparams
 @pytest.fixture()
 def dummy_state(dummy_dataloader_hparams: DataloaderHparams):
     model = ResNet50Hparams(num_classes=100).initialize_object()
-    dataset_hparams = SyntheticDatasetHparams(total_dataset_size=1000000,
-                                              data_shape=[3, 32, 32],
-                                              num_classes=10,
-                                              device="cpu",
-                                              drop_last=True,
-                                              shuffle=False)
+    dataset_hparams = ImagenetDatasetHparams(
+        use_synthetic=True,
+        subset_num_batches=10000,
+        drop_last=True,
+        shuffle=False,
+        resize_size=256,
+        crop_size=224,
+    )
     train_dataloader = dataset_hparams.initialize_object(batch_size=100, dataloader_hparams=dummy_dataloader_hparams)
+    if isinstance(train_dataloader, DataloaderSpec):
+        train_dataloader = train_dataloader.dataloader
     return State(epoch=50,
                  step=50,
                  train_dataloader=train_dataloader,
