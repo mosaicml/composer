@@ -4,9 +4,10 @@ from __future__ import annotations
 
 import abc
 import dataclasses
+from functools import wraps
 import time
 from types import TracebackType
-from typing import Dict, Iterator, List, Optional, Sequence, Tuple, Type, Union
+from typing import Callable, Dict, Iterator, List, Optional, Sequence, Tuple, Type, Union
 
 import yahp as hp
 
@@ -203,3 +204,14 @@ class Marker:
     def __exit__(self, exc_type: Optional[Type[BaseException]], exc: Optional[BaseException],
                  traceback: Optional[TracebackType]) -> None:
         self.finish()
+
+    def __call__(self, func: Optional[Callable] = None) -> Union[Marker, Callable]:
+        if func is None:
+            return self  # decorator style @Marker()
+        
+        @wraps(func)
+        def wrapped(*args, **kwargs):
+            with self:
+                func(*args, **kwargs)
+
+        return wrapped
