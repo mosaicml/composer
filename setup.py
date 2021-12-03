@@ -36,6 +36,7 @@ extra_deps['base'] = []
 extra_deps['dev'] = [
     'junitparser>=2.1.1',
     'coverage[toml]>=6.1.1',
+    'fasteners>=0.16.3',  # run_directory_uploader tests require fasteners
     'pytest>=6.2.0',
     'yapf>=0.13.0',
     'isort>=5.9.3',
@@ -55,7 +56,7 @@ extra_deps['dev'] = [
     'testbook>=0.4.2',
     'myst-parser>=0.15.2',
 ]
-extra_deps['wandb'] = ['wandb>=0.12.2']
+extra_deps['logging'] = ['wandb>=0.12.2', 'apache-libcloud>=3.4.1']
 
 extra_deps['nlp'] = [
     'transformers>=4.11.3',
