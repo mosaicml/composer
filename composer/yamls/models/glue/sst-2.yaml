@@ -23,9 +23,9 @@ optimizer:
     lr: 3.0e-5
     betas:
       - 0.9
-      - 0.999
+      - 0.98
     eps: 1.0e-06
-    weight_decay: 0
+    weight_decay: 0.1
 schedulers:
   - warmup:
       warmup_method: linear
@@ -49,7 +49,7 @@ loggers:
       project: bert
       name: sst-2 
       extra_init_params: {}
-max_epochs: 10
+max_epochs: 3
 total_batch_size: 16 
 eval_batch_size: 16 
 seed: 19
@@ -65,5 +65,5 @@ dataloader:
 grad_accum: 1
 precision: amp
 grad_clip_norm: None
-validate_every_n_batches: 10
+validate_every_n_batches: 250
 validate_every_n_epochs: 1
