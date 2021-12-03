@@ -5,26 +5,27 @@ from typing import List, Optional
 
 import yahp as hp
 
-from composer.core.profiler import MosaicProfiler, ProfilerEventHandlerHparams
+from composer.core.profiler import ProfilerEventHandlerHparams, MosaicProfiler
 from composer.core.state import State
-from composer.profiler.json_trace import JSONTraceHparams
+from composer.profiler.json_trace import JSONTraceHandlerHparams
 
 
 @dataclasses.dataclass
 class MosaicProfilerHparams(hp.Hparams):
-    """Parameters for the Mosaic Profiler.
+    """Parameters for the :class:`~composer.core.profiler.MosaicProfiler`.
 
     Parameters:
-        Returns a callable that can be used as profiler ``schedule`` argument. The profiler will skip
-        the first ``skip_first`` steps, then wait for ``wait`` steps, then do the warmup for the next ``warmup`` steps,
-        then do the active recording for the next ``active`` steps and then repeat the cycle starting with ``wait`` steps.
-        The optional number of cycles is specified with the ``repeat`` parameter, the zero value means that
-        the cycles will continue until the profiling is finished.
+        trace_event_handlers (List[ProfilerEventHandlerHparams], optional):
+            List of prameters for the trace event handlers. (Default: [:class:`JSONTraceHandlerHparams`])
+        skip_first_epoch (bool, optional): Whether to skip profiling the first epoch. (Default: ``False``)
+        wait (int): For each profiling cycle, number of batches to skip at the beginning of the cycle. (Default: ``5``)
+        active (int): For each profiling cycle, number of batches to record after skipping the ``wait`` batches. (Default: ``5``)
+        repeat (Optional[int]): Number of profiling cycles to perform per epoch. Set to ``None`` to record the entire epoch. (Default: ``3``)
     """
-    hparams_registry = {"trace_event_handlers": {"json": JSONTraceHparams}}
+    hparams_registry = {"trace_event_handlers": {"json": JSONTraceHandlerHparams}}
 
-    trace_event_handlers: List[ProfilerEventHandlerHparams] = hp.optional("Trace event handler hparams",
-                                                                          default_factory=lambda: [JSONTraceHparams()])
+    trace_event_handlers: List[ProfilerEventHandlerHparams] = hp.optional(
+        "Trace event handler hparams", default_factory=lambda: [JSONTraceHandlerHparams()])
 
     skip_first_epoch: bool = hp.optional("Whether to skip profiling on the first epoch", default=False)
     wait: int = hp.optional("Number of steps to skip profiling each cycle", default=5)

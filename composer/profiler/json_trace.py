@@ -2,19 +2,17 @@
 
 from __future__ import annotations
 
-import atexit
 import dataclasses
 import json
 import os
 import queue
 import threading
 import time
-from typing import IO, List, Optional, Tuple, Union
+from typing import IO, Any, Dict, List, Optional, Tuple, Union
 
 import yahp as hp
 
 import composer.callbacks.memory_monitor as memory_monitor
-from composer.core.event import Event
 from composer.core.profiler import ProfilerEventHandler, ProfilerEventHandlerHparams
 from composer.core.state import State
 from composer.core.types import Logger
@@ -23,74 +21,92 @@ from composer.utils.run_directory import get_relative_to_run_directory
 
 
 @dataclasses.dataclass
-class JSONTraceHparams(ProfilerEventHandlerHparams):
-    flush_every_n_batches: int = hp.optional("Flush frequency in batches", default=100)
-    buffering: int = hp.optional("Python file buffering", default=-1)
-    memory_monitor_interval_seconds: float = hp.optional("memory monitor interval", default=0.5)
+class JSONTraceHandlerHparams(ProfilerEventHandlerHparams):
+    """Parameters for the :class:`JSONTraceHandler`."""
+    flush_every_n_batches: int = hp.optional("Interval at which to flush the logfile.", default=100)
+    buffering: int = hp.optional("Buffering parameter passed to :meth:`open` when opening the logfile.", default=-1)
+    output_directory: str = hp.optional("Directory, relative to the run directory, to store traces.",
+                                        default="mosaic_profiler")
+    memory_monitor_interval_seconds: float = hp.optional("Interval to record CUDA memory, in seconds.", default=0.5)
 
-    def initialize_object(self) -> JSONTrace:
-        return JSONTrace(**dataclasses.asdict(self))
+    def initialize_object(self) -> JSONTraceHandler:
+        return JSONTraceHandler(**dataclasses.asdict(self))
 
 
-class JSONTrace(ProfilerEventHandler):
+class JSONTraceHandler(ProfilerEventHandler):
+    """Records trace events in `JSON trace format <https://docs.google.com/document/d/1CvAClvFfyA5R-PhYUmn5OOQtYMH4h6I0nSsKchNAySU/preview>`_.
 
-    def __init__(self, flush_every_n_batches: int, buffering: int, memory_monitor_interval_seconds: float) -> None:
+    Args:
+        flush_every_n_batches (int): Interval at which to flush the logfile. (Default: ``100`` batches)
+        output_directory (str): Directory, relative to the run directory, to store traces.
+            Each trace will ``rank_XXX.trace.json`` within this directory, where ``XXX`` is the global rank.
+            (Default: ``mosaic_profiler`` within the run directory)
+        buffering (int, optional): Buffering parameter passed to :meth:`open` when opening the logfile.
+            (Default: ``-1`` for the system default)
+        memory_monitor_interval_seconds (float): Interval to record CUDA memory, in seconds. (Default: every ``0.5`` seconds)
+    """
+
+    def __init__(self,
+                 flush_every_n_batches: int = 100,
+                 buffering: int = -1,
+                 output_directory: str = "mosaic_profiler",
+                 memory_monitor_interval_seconds: float = 0.5) -> None:
         self._file: Optional[IO] = None
         self._buffering = buffering
         self._flush_every_n_batches = flush_every_n_batches
+        self._output_directory = output_directory
         self._memory_monitor_interval_seconds = memory_monitor_interval_seconds
         self._buffer = queue.SimpleQueue()
 
-    def _run_event(self, event: Event, state: State, logger: Logger) -> None:
-        if event == Event.INIT:
-            os.makedirs(get_relative_to_run_directory("mosaic_profiler"), exist_ok=True)
-            self._file = open(get_relative_to_run_directory(
-                os.path.join("mosaic_profiler", f"rank_{get_global_rank()}.trace.json")),
-                              "x",
-                              buffering=self._buffering)
-            self._file.write("[\n")
-            threading.Thread(target=self.memory_monitor_thread, daemon=True).start()
-            atexit.register(self._close_logfile)
-        if event == Event.BATCH_START:
-            self._record_step(state)
-        if event == Event.BATCH_END:
-            if (state.batch_idx + 1) % self._flush_every_n_batches == 0:
-                self._flush()
-        if event == Event.TRAINING_END:
+    def init(self, state: State, logger: Logger) -> None:
+        os.makedirs(get_relative_to_run_directory(self._output_directory), exist_ok=True)
+        self._file = open(get_relative_to_run_directory(
+            os.path.join(self._output_directory, f"rank_{get_global_rank()}.trace.json")),
+                          "x",
+                          buffering=self._buffering)
+        self._file.write("[\n")
+        threading.Thread(target=self._memory_monitor_thread, daemon=True).start()
+
+    def batch_end(self, state: State, logger: Logger) -> None:
+        del logger  # unused
+        if (state.batch_idx + 1) % self._flush_every_n_batches == 0:
             self._flush()
-        if event == Event.EPOCH_END:
-            self._flush()
+
+    def batch_start(self, state: State, logger: Logger) -> None:
+        del logger  # unused
+        self._record_step(state)
+
+    def training_end(self, state: State, logger: Logger) -> None:
+        del state, logger  # unused
+        self._flush()
+
+    def epoch_end(self, state: State, logger: Logger) -> None:
+        del state, logger  # unused
+        self._flush()
 
     def _record_step(self, state: State) -> None:
         wall_clock_time_ns = time.time_ns()
         perf_counter_time_ns = time.perf_counter_ns()
-        self._buffer.put_nowait({
-            "name": "step",
-            "ph": 'C',  # counter event
-            "ts": wall_clock_time_ns // 1000,  # tracing clock timestamp, in microseconds
-            "tts": perf_counter_time_ns // 1000,  # thread clock timestamp, in microseconds
-            "pid": get_global_rank(),
-            "tid":
-                0,  # right now, all events are thread 0 for the process. But we may want to break this out (e.g. for dataloader workers)
-            "args": {
-                "step": state.step,
-            }
-        })
-        self._buffer.put_nowait({
-            "name": "epoch",
-            "ph": 'C',  # counter event
-            "ts": wall_clock_time_ns // 1000,  # tracing clock timestamp, in microseconds
-            "tts": perf_counter_time_ns // 1000,  # thread clock timestamp, in microseconds
-            "pid": get_global_rank(),
-            "tid":
-                0,  # right now, all events are thread 0 for the process. But we may want to break this out (e.g. for dataloader workers)
-            "args": {
-                "epoch": state.epoch,
-            }
-        })
+        self._record_event(name="step",
+                           categories="time",
+                           ph='C',
+                           wall_clock_ns=wall_clock_time_ns,
+                           perf_counter_ns=perf_counter_time_ns,
+                           args={
+                               "step": state.step,
+                           })
+        self._record_event(name="epoch",
+                           categories="time",
+                           ph='C',
+                           wall_clock_ns=wall_clock_time_ns,
+                           perf_counter_ns=perf_counter_time_ns,
+                           args={
+                               "epoch": state.epoch,
+                           })
 
-    def _close_logfile(self):
+    def close(self):
         if self._file is not None:
+            self._flush()
             self._file.flush()
             self._file.close()
             self._file = None
@@ -111,69 +127,105 @@ class JSONTrace(ProfilerEventHandler):
         name: str,
         categories: Union[List[str], Tuple[str, ...]],
         is_start: bool,
-        epoch: int,
-        step: int,
+        epoch: Optional[int],
+        step: Optional[int],
         wall_clock_time_ns: int,
         perf_counter_time_ns: int,
     ) -> None:
         ph = "B" if is_start else "E"
-        self._buffer.put_nowait({
-            "name": f"{name}",
-            "cat": ",".join(categories),
-            "ph": ph,
-            "ts": wall_clock_time_ns // 1000,  # tracing clock timestamp, in microseconds
-            "tts": perf_counter_time_ns // 1000,  # thread clock timestamp, in microseconds
-            "pid": get_global_rank(),
-            "tid":
-                0,  # right now, all events are thread 0 for the process. But we may want to break this out (e.g. for dataloader workers)
-            "args": {
-                "epoch": epoch,
-                "step": step,
-            }
-        })
+        args = {}
+        if epoch is not None:
+            args["epoch"] = epoch
+        if step is not None:
+            args["step"] = step
+        self._record_event(
+            name=name,
+            categories=",".join(categories),
+            ph=ph,
+            wall_clock_ns=wall_clock_time_ns,
+            perf_counter_ns=perf_counter_time_ns,
+            args=args,
+        )
 
     def process_instant_event(
         self,
         name: str,
         categories: Union[List[str], Tuple[str, ...]],
-        epoch: int,
-        step: int,
+        epoch: Optional[int],
+        step: Optional[int],
         wall_clock_time_ns: int,
         perf_counter_time_ns: int,
     ) -> None:
-        self._buffer.put_nowait({
-            "name": f"{name}",
-            "cat": ",".join(categories),
-            "ph": "i",
-            "ts": wall_clock_time_ns // 1000,  # tracing clock timestamp, in microseconds
-            "tts": perf_counter_time_ns // 1000,  # thread clock timestamp, in microseconds
-            "pid": get_global_rank(),
-            "tid":
-                0,  # right now, all events are thread 0 for the process. But we may want to break this out (e.g. for dataloader workers)
-            "s": "p",  # mark instant event for at process level
-            "args": {
-                "epoch": epoch,
-                "step": step,
-            }
-        })
+        args = {}
+        if epoch is not None:
+            args["epoch"] = epoch
+        if step is not None:
+            args["step"] = step
+        self._record_event(
+            name=name,
+            categories=",".join(categories),
+            ph="i",
+            wall_clock_ns=wall_clock_time_ns,
+            perf_counter_ns=perf_counter_time_ns,
+            args=args,
+            s="p",  # mark instant event for at process level
+        )
 
-    def memory_monitor_thread(self):
+    def _record_event(self,
+                      name: str,
+                      categories: str,
+                      ph: str,
+                      wall_clock_ns: int,
+                      perf_counter_ns: int,
+                      tid: int = 0,
+                      args: Optional[Dict[str, Any]] = None,
+                      **kwargs):
+        """Helper function to record an event in the trace.
+
+        Args:
+            name (str): Event name
+            categories (str): Comma-seperated string of event categories
+            ph (str): Event type. Should be one of the following
+                Duration Events: ``B`` (begin), ``E`` (end)
+                Complete Events: ``X``
+                Instant Events: ``i``
+                Counter Events: ``C``
+                Async Events: ``b`` (nestable start), ``n`` (nestable instant), ``e`` (nestable end)
+                Flow events: ``s`` (start), ``t`` (step), ``f`` (end)
+                Sample events: ``P``
+                Object Events ``N`` (created), ``O`` (snapshot), ``D`` (destroyed)
+                Metadata Events: ``M``
+                Memory Dump Events: ``V`` (global), ``v`` (process)
+                Mark Events: ``R``
+                Clock Sync Events ``c``
+            wall_clock_ns (int): Wall clock time, in nanoseconds.
+            perf_counter_ns (int): Perf counter time, in nanoseconds.
+            tid (int, optional): Thread ID. Defaults to 0.
+            kwargs: Any extra info to record with the event, such as event specific fields.
+        """
+        data = {
+            "name": name,
+            "cat": categories,
+            "ph": ph,  # counter event
+            "ts": wall_clock_ns // 1000,  # tracing clock timestamp, in microseconds
+            "tts": perf_counter_ns // 1000,  # thread clock timestamp, in microseconds
+            "pid": get_global_rank(),
+            "tid": tid,
+            **kwargs,
+        }
+        self._buffer.put_nowait(data)
+
+    def _memory_monitor_thread(self):
         while True:
             wall_clock_time_ns = time.time_ns()
             perf_counter_time_ns = time.perf_counter_ns()
             memory_stats = memory_monitor.get_memory_report()
             for name, val in memory_stats.items():
-                self._buffer.put_nowait({
-                    "name": f"memory/{name}",
-                    "cat": "gpu",
-                    "ph": 'C',  # counter event
-                    "ts": wall_clock_time_ns // 1000,  # tracing clock timestamp, in microseconds
-                    "tts": perf_counter_time_ns // 1000,  # thread clock timestamp, in microseconds
-                    "pid": get_global_rank(),
-                    "tid":
-                        0,  # right now, all events are thread 0 for the process. But we may want to break this out (e.g. for dataloader workers)
-                    "args": {
-                        name: val,
-                    }
-                })
+                self._record_event(
+                    name=f"memory/{name}",
+                    categories="gpu",
+                    ph='C',  # counter event
+                    wall_clock_ns=wall_clock_time_ns,
+                    perf_counter_ns=perf_counter_time_ns,
+                    args={name: val})
             time.sleep(self._memory_monitor_interval_seconds)

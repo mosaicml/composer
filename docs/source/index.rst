@@ -71,6 +71,7 @@ Our documentation is organized into a few sections:
    loggers.rst
    models.rst
    optim.rst
+   profiler.rst
    trainer.rst
    trainer_devices.rst
 
