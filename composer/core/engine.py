@@ -16,6 +16,8 @@ from composer.core.state import State
 log = logging.getLogger(__name__)
 Traces = Dict[str, "Trace"]
 
+_ALWAYS_RECORD_EVENTS = [Event.INIT, Event.TRAINING_START, Event.EPOCH_START, Event.EPOCH_END, Event.TRAINING_END]
+
 
 @dataclass
 class Trace():
@@ -98,10 +100,10 @@ class Engine():
 
         if self.mosaic_profiler is not None:
             name = f"event/{event.canonical_name}"
-            instant_marker = self.mosaic_profiler.marker(name)
+            instant_marker = self.mosaic_profiler.marker(name, always_record=event in _ALWAYS_RECORD_EVENTS)
             if (event.is_before_event or event.is_after_event):
                 # if not part of an event pair (e.g. init or after dataloader), then don't record an event here
-                duration_marker = self.mosaic_profiler.marker(name)
+                duration_marker = self.mosaic_profiler.marker(name, always_record=event in _ALWAYS_RECORD_EVENTS)
 
         if event.is_after_event and duration_marker is not None:
             duration_marker.finish()

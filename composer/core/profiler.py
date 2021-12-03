@@ -109,9 +109,12 @@ class MosaicProfiler:
             return MosaicProfilerAction.SKIP
         return MosaicProfilerAction.ACTIVE
 
-    def marker(self, name: str, categories: Union[List[str], Tuple[str, ...]] = tuple()) -> Marker:
+    def marker(self,
+               name: str,
+               always_record: bool = False,
+               categories: Union[List[str], Tuple[str, ...]] = tuple()) -> Marker:
         if name not in self._names_to_markers:
-            self._names_to_markers[name] = Marker(self, name, categories)
+            self._names_to_markers[name] = Marker(self, name, always_record, categories)
         self._names_to_markers[name].categories = categories
         return self._names_to_markers[name]
 
@@ -145,9 +148,11 @@ class Marker:
     def __init__(self,
                  mosaic_profiler: MosaicProfiler,
                  name: str,
+                 always_record: bool,
                  categories: Union[List[str], Tuple[str, ...]] = tuple()) -> None:
         self._instrumentation = mosaic_profiler
         self.name = name
+        self.always_record = always_record
         self.categories = categories
         if name in mosaic_profiler._names_to_markers:
             if mosaic_profiler._names_to_markers[name] is not self:
@@ -161,7 +166,7 @@ class Marker:
         if self._started:
             raise RuntimeError(f"Attempted to start marker {self.name}; however, this marker is already started")
         self._action_at_start = self._instrumentation.get_action()
-        if self._action_at_start == MosaicProfilerAction.ACTIVE:
+        if self._action_at_start == MosaicProfilerAction.ACTIVE or self.always_record:
             self._instrumentation.record_duration_event(
                 self,
                 is_start=True,
@@ -174,7 +179,7 @@ class Marker:
         if not self._started:
             raise RuntimeError(f"Attempted to finish marker {self.name}; however, this marker is not yet started")
 
-        if self._action_at_start == MosaicProfilerAction.ACTIVE:
+        if self._action_at_start == MosaicProfilerAction.ACTIVE or self.always_record:
             self._instrumentation.record_duration_event(
                 self,
                 is_start=False,
@@ -184,11 +189,12 @@ class Marker:
         self._started = False
 
     def instant(self) -> None:
-        self._instrumentation.record_instant_event(
-            self,
-            wall_clock_time_ns=time.time_ns(),
-            perf_counter_time_ns=time.perf_counter_ns(),
-        )
+        if self._instrumentation.get_action() == MosaicProfilerAction.ACTIVE or self.always_record:
+            self._instrumentation.record_instant_event(
+                self,
+                wall_clock_time_ns=time.time_ns(),
+                perf_counter_time_ns=time.perf_counter_ns(),
+            )
 
     def __enter__(self) -> Marker:
         self.start()

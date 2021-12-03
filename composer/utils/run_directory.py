@@ -14,6 +14,7 @@ def _get_run_directory():
 
 
 def get_run_directory():
+    """Returns the run directory, if set, or None otherwise."""
     return _get_run_directory()
 
 
