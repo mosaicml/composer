@@ -522,7 +522,7 @@ class Trainer:
             }
 
             if self.deepspeed_hparams.zero_stage == 2:
-                deepspeed_config["zero_config"]["offload_optimizer"] = {
+                deepspeed_config["zero_optimization"]["offload_optimizer"] = {
                     "device": "cpu",
                 }
                 # deepspeed_config["activation_checkpointing"] = {}
