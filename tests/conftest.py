@@ -15,14 +15,15 @@ import pytest
 import torch.distributed
 
 import composer
-import composer.utils.run_directory
+from composer.utils import run_directory
+from composer.utils.run_directory import get_relative_to_run_directory, get_run_directory
 
 # Allowed options for pytest.mark.world_size()
 # Important: when updating this list, make sure to also up scripts/test.sh
 # so tests of all world sizes will be executed
 WORLD_SIZE_OPTIONS = (1, 2)
 
-PYTEST_DDP_LOCKFILE_DIR = composer.utils.run_directory.get_relative_to_run_directory(os.path.join(".pytest_lockfiles"))
+PYTEST_DDP_LOCKFILE_DIR = get_relative_to_run_directory(os.path.join(".pytest_lockfiles"))
 DDP_TIMEOUT = datetime.timedelta(seconds=5)
 
 # Add the path of any pytest fixture files you want to make global
@@ -114,7 +115,7 @@ def set_loglevels():
 
 @pytest.fixture
 def ddp_tmpdir(patch_run_directory: None) -> str:
-    run_dir = composer.utils.run_directory.get_run_directory()
+    run_dir = get_run_directory()
     assert run_dir is not None
     return run_dir
 
@@ -124,12 +125,12 @@ def patch_run_directory(
     monkeypatch: pytest.MonkeyPatch,
     tmpdir: pathlib.Path,
 ):
-    original_run_directory = composer.utils.run_directory.get_run_directory()
+    original_run_directory = get_run_directory()
     assert original_run_directory is not None
     tmpdir_test_folder_name = os.path.basename(os.path.normpath(str(tmpdir)))
     new_run_dir = os.path.join(original_run_directory, tmpdir_test_folder_name)
     os.makedirs(new_run_dir, exist_ok=True)
-    monkeypatch.setattr(composer.utils.run_directory, "_get_run_directory", lambda: new_run_dir)
+    monkeypatch.setattr(run_directory, "_get_run_directory", lambda: new_run_dir)
 
 
 @pytest.fixture(autouse=True)

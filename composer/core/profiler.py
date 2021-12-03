@@ -51,8 +51,9 @@ class ProfilerEventHandler(Callback, abc.ABC):
         wall_clock_time_ns: int,
         perf_counter_time_ns: int,
     ) -> None:
-        del name, categories, epoch, step, wall_clock_time_ns, perf_counter_time_ns # unused
+        del name, categories, epoch, step, wall_clock_time_ns, perf_counter_time_ns  # unused
         pass
+
 
 class ProfiledDataLoader(WrappedDataLoader):
 
@@ -128,14 +129,12 @@ class MosaicProfiler:
 
     def record_instant_event(self, marker: Marker, wall_clock_time_ns: int, perf_counter_time_ns: int):
         for handler in self._event_handlers:
-            handler.process_instant_event(
-                name=marker.name,
-                categories=marker.categories,
-                epoch=self._state.epoch,
-                step=self._state.step,
-                wall_clock_time_ns=wall_clock_time_ns,
-                perf_counter_time_ns=perf_counter_time_ns
-            )
+            handler.process_instant_event(name=marker.name,
+                                          categories=marker.categories,
+                                          epoch=self._state.epoch,
+                                          step=self._state.step,
+                                          wall_clock_time_ns=wall_clock_time_ns,
+                                          perf_counter_time_ns=perf_counter_time_ns)
 
     def _wrap_dataloaders_with_markers(self, dataloader: DataLoader, name: str) -> DataLoader:
         return ProfiledDataLoader(self, dataloader, name)

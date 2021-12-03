@@ -95,10 +95,10 @@ class Engine():
         instant_marker = None
         duration_marker = None
         event = Event(event)
-        name = event.canonical_name
 
         if self.mosaic_profiler is not None:
-            instant_marker = self.mosaic_profiler.marker(event)
+            name = f"event/{event.canonical_name}"
+            instant_marker = self.mosaic_profiler.marker(name)
             if (event.is_before_event or event.is_after_event):
                 # if not part of an event pair (e.g. init or after dataloader), then don't record an event here
                 duration_marker = self.mosaic_profiler.marker(name)
