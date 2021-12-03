@@ -209,18 +209,18 @@ class Trainer:
         self._eval_device_transformation_fn = eval_dataloader_spec.device_transform_fn
         self.eval_split_fn = eval_dataloader_spec.split_fn
 
-        train_batch_size = train_dataloader_spec.dataloader.batch_size
+        device_train_batch_size = train_dataloader_spec.dataloader.batch_size
 
-        if train_batch_size is None:
+        if device_train_batch_size is None:
             raise ValueError("train dataloader batch size is None")
 
-        train_batch_size *= ddp.get_world_size()
+        train_batch_size = device_train_batch_size * ddp.get_world_size()
 
-        eval_batch_size = eval_dataloader_spec.dataloader.batch_size
-        if eval_batch_size is None:
+        device_eval_batch_size = eval_dataloader_spec.dataloader.batch_size
+        if device_eval_batch_size is None:
             raise ValueError("eval dataloader batch size is None")
 
-        eval_batch_size *= ddp.get_world_size()
+        eval_batch_size = device_eval_batch_size * ddp.get_world_size()
 
         # TODO(#123): DeepSpeed still needs a precision context, but it's not completely clear how to
         # handle this with our version of Pytorch
