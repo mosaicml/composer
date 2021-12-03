@@ -85,8 +85,7 @@ total_batch_size: 512
 eval_batch_size: 16 # use micro_bs_per_gpu = 2 to accomodate 10GB limit
 seed: 17
 device:
-  gpu:
-    prefetch_in_cuda_stream: false
+  gpu: {}
 dataloader:
   pin_memory: true
   persistent_workers: true

@@ -9,24 +9,31 @@ skip = [ "env", "wandb" ]
 [tool.pyright]
 include = [
     "composer/**",
-    "tests/**"
+    "tests/**",
+    "examples/**",
 ]
 exclude = [
     "build/**"
 ]
 
-reportImportCycles = "none"
 reportUnnecessaryIsInstance = "none"
 reportMissingTypeStubs = "none"
 reportIncompatibleMethodOverride = "warning"
 reportIncompatibleVariableOverride = "warning"
 reportUnusedImport = "error"
-reportMissingModuleSource = "none"
+reportUnusedClass = "warning"
+reportUnusedFunction = "warning"
+reportUnusedVariable = "warning"
+reportDuplicateImport = "error"
+reportWildcardImportFromLibrary = "error"
+reportUntypedFunctionDecorator = "warning"
 reportPrivateImportUsage = "warning"
 reportUndefinedVariable = "error"
-
-pythonVersion = "3.8"
-pythonPlatform = "Linux"
+strictParameterNoneValue = "error"
+reportPropertyTypeMismatch = "error"
+reportUntypedNamedTuple = "error"
+reportUnnecessaryCast = "error"
+reportInvalidTypeVarUse = "error"
 
 # Pytest
 [tool.pytest.ini_options]
@@ -48,7 +55,8 @@ markers = [
 filterwarnings = [
     # "error",  # warnings should be treated like errors, but still need to fix some warnings
     'ignore:ExtraArgumentWarning',  # extra arguments originate from pytest-specific CLI args
-    'ignore:DeferredLogMetricWarning',  # deferred logging is fine
+    'ignore:DDPDefaultValueWarning',  # default DDP values are fine
+    'ignore:NoDDPWarning',  # default DDP values are fine
 ]
 
 # Coverage

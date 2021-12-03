@@ -10,7 +10,7 @@ from torch.optim import Adam
 from composer.callbacks.lr_monitor import LRMonitor
 from composer.core.logging.logger import Logger
 from composer.core.precision import Precision
-from composer.datasets.hparams import DataloaderSpec
+from composer.core.types import DataLoader
 from composer.loggers.tqdm_logger import TQDMLoggerBackend
 from composer.models.base import BaseMosaicModel
 from composer.optim.optimizer_hparams import AdamHparams
@@ -20,29 +20,23 @@ from composer.trainer.devices.device_hparams import CPUDeviceHparams, DeviceHpar
 from tests.utils.trainer_fit import get_total_loss, train_model
 
 
-def test_trainer_init_all_defaults(dummy_train_dataloader_spec: DataloaderSpec,
-                                   dummy_val_dataloader_spec: DataloaderSpec, dummy_model: BaseMosaicModel,
-                                   dummy_train_batch_size: int, dummy_val_batch_size: int):
+def test_trainer_init_all_defaults(dummy_train_dataloader: DataLoader, dummy_val_dataloader: DataLoader,
+                                   dummy_model: BaseMosaicModel):
     trainer = Trainer(model=dummy_model,
-                      train_dataloader_spec=dummy_train_dataloader_spec,
-                      eval_dataloader_spec=dummy_val_dataloader_spec,
-                      max_epochs=10,
-                      train_batch_size=dummy_train_batch_size,
-                      eval_batch_size=dummy_val_batch_size)
+                      train_dataloader=dummy_train_dataloader,
+                      eval_dataloader=dummy_val_dataloader,
+                      max_epochs=10)
 
     assert isinstance(trainer, Trainer)
 
 
-def test_trainer_init_additional_args(dummy_train_dataloader_spec: DataloaderSpec,
-                                      dummy_val_dataloader_spec: DataloaderSpec, dummy_model: BaseMosaicModel,
-                                      dummy_train_batch_size: int, dummy_val_batch_size: int):
+def test_trainer_init_additional_args(dummy_train_dataloader: DataLoader, dummy_val_dataloader: DataLoader,
+                                      dummy_model: BaseMosaicModel):
     trainer = Trainer(
         model=dummy_model,
-        train_dataloader_spec=dummy_train_dataloader_spec,
-        eval_dataloader_spec=dummy_val_dataloader_spec,
+        train_dataloader=dummy_train_dataloader,
+        eval_dataloader=dummy_val_dataloader,
         max_epochs=10,
-        train_batch_size=dummy_train_batch_size,
-        eval_batch_size=dummy_val_batch_size,
         optimizer_hparams=AdamHparams(),
         schedulers_hparams=[ExponentialLRHparams(gamma=0.1)],
         log_destinations=[TQDMLoggerBackend()],
@@ -87,7 +81,7 @@ def test_trainer_determinism(mosaic_trainer_hparams: TrainerHparams):
     first_model = first_trainer.state.model.module
     assert isinstance(first_model, BaseMosaicModel)
     assert first_trainer.state.train_dataloader is not None
-    first_loss = get_total_loss(first_model, first_trainer.state.train_dataloader, first_trainer.ddp)
+    first_loss = get_total_loss(first_model, first_trainer.state.train_dataloader)
 
     # Second trainer must be created after fitting the first so that the
     # seeds get fully reset for the second training run
@@ -96,7 +90,7 @@ def test_trainer_determinism(mosaic_trainer_hparams: TrainerHparams):
     second_model = second_trainer.state.model.module
     assert isinstance(second_model, BaseMosaicModel)
     assert second_trainer.state.train_dataloader is not None
-    second_loss = get_total_loss(second_model, second_trainer.state.train_dataloader, second_trainer.ddp)
+    second_loss = get_total_loss(second_model, second_trainer.state.train_dataloader)
 
     torch.testing.assert_allclose(second_loss, first_loss)
 
