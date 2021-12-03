@@ -15,7 +15,8 @@ import composer
 from composer import datasets
 from composer.algorithms import AlgorithmHparams, get_algorithm_registry
 from composer.callbacks import (BenchmarkerHparams, CallbackHparams, GradMonitorHparams, LRMonitorHparams,
-                                MemoryMonitorHparams, SpeedMonitorHparams, TorchProfilerHparams)
+                                MemoryMonitorHparams, RunDirectoryUploaderHparams, SpeedMonitorHparams,
+                                TorchProfilerHparams)
 from composer.core.types import Precision
 from composer.datasets import DataloaderHparams
 from composer.loggers import (BaseLoggerBackendHparams, FileLoggerBackendHparams, TQDMLoggerBackendHparams,
@@ -79,6 +80,7 @@ callback_registry = {
     "lr_monitor": LRMonitorHparams,
     "grad_monitor": GradMonitorHparams,
     "memory_monitor": MemoryMonitorHparams,
+    "run_directory_uploader": RunDirectoryUploaderHparams,
 }
 
 logger_registry = {
