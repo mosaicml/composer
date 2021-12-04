@@ -12,6 +12,7 @@ from torchvision import transforms
 
 from composer.core.types import Batch, Tensor
 from composer.datasets.hparams import DataloaderSpec, DatasetHparams
+from composer.utils import ddp
 
 
 class PreprocessingFn:
@@ -75,7 +76,7 @@ class ADE20k(Dataset):
 
         self.img_files = os.listdir(os.path.join(self.datadir, 'images', self.split))
         # Remove random colo files
-        self.img_files = [f for f in self.img_files if f[0] != '.']
+        self.img_files = [f for f in self.img_files if f[0] == 'A']
         # Remove grayscale image sample
         if self.split == 'train':
             self.img_files.remove('ADE_train_00003020.jpg')
@@ -119,12 +120,9 @@ def random_resize(image, target, min_resize_factor, max_resize_factor, factor_st
 @dataclass
 class ADE20kDatasetHparams(DatasetHparams):
 
-    datadir: str = hp.required("Directory containing the dataset")
-    split: str = hp.required("Which split of the dataset to use. Either ['train', 'val', 'test']")
-    resize_size: int = hp.required("Size of the image after resizing")
-    crop_size: int = hp.required("Size of image after cropping")
-    drop_last: bool = hp.optional("Whether to drop the last batch from training", default=True)
-    shuffle: bool = hp.optional("Whether to shuffle the dataset for each epoch", default=True)
+    split: str = hp.optional("Which split of the dataset to use. Either ['train', 'val', 'test']", default='train')
+    resize_size: int = hp.optional("Size of the image after resizing", default=512)
+    crop_size: int = hp.optional("Size of image after cropping", default=512)
 
     def segmentation_transformation(self, image, target, is_train):
         image = TF.resize(image, [self.resize_size] * 2, TF.InterpolationMode.BILINEAR)
@@ -171,10 +169,15 @@ class ADE20kDatasetHparams(DatasetHparams):
 
         return image, target
 
-    def initialize_object(self) -> DataloaderSpec:
+    def initialize_object(self, batch_size, dataloader_hparams) -> DataloaderSpec:
+        dataset = ADE20k(self.datadir, self.split, self.segmentation_transformation)
+        sampler = ddp.get_sampler(dataset, drop_last=self.drop_last, shuffle=self.shuffle)
+        return DataloaderSpec(dataloader=dataloader_hparams.initialize_object(dataset=dataset,
+                                                                              batch_size=batch_size,
+                                                                              sampler=sampler,
+                                                                              collate_fn=fast_collate,
+                                                                              drop_last=self.drop_last),
+                              device_transform_fn=PreprocessingFn())
 
-        return DataloaderSpec(dataset=ADE20k(self.datadir, self.split, self.segmentation_transformation),
-                              collate_fn=fast_collate,
-                              prefetch_fn=PreprocessingFn(),
-                              drop_last=self.drop_last,
-                              shuffle=self.shuffle)
+    def validate(self):
+        pass

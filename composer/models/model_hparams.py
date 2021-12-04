@@ -57,7 +57,7 @@ class Initializer(StringEnum):
 
 @dataclass
 class ModelHparams(hp.Hparams, ABC):
-    """
+
     initializers: List[Initializer] = hp.optional(
         default_factory=lambda: [],
         doc="The initialization strategy for the model",
@@ -67,7 +67,6 @@ class ModelHparams(hp.Hparams, ABC):
         doc="The number of classes.  Needed for classification tasks",
         default=None,
     )
-    """
 
     @abstractmethod
     def initialize_object(self) -> BaseMosaicModel:

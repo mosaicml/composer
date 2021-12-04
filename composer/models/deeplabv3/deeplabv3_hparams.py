@@ -8,8 +8,6 @@ from composer.models.model_hparams import Initializer, ModelHparams
 
 @dataclass
 class DeepLabv3Hparams(ModelHparams):
-    num_classes: int = hp.required("Number of classes for classification")
-    initializers: List[Initializer] = hp.required("The initialization strategy for the model")
     ignore_index: int = hp.optional("Class index to ignore for loss calculations", default=0)
     is_pretrained: str = hp.optional("Which pretrained backbone to use ['old', 'new']", default='')
     penult_kernel: int = hp.optional("Kernel size of penultimate convolution", default=1)

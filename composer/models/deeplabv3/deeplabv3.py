@@ -4,7 +4,7 @@ from typing import Any
 import torch
 from torchmetrics.collections import MetricCollection
 from torchvision.models import resnet
-from torchvision.models.segmentation import deeplabv3_resnet50
+from torchvision.models.segmentation import deeplabv3_resnet101
 
 from composer.core.surgery import replace_module_classes
 from composer.core.types import BatchPair, Tensor, Tensors
@@ -19,11 +19,11 @@ class DeepLabv3(BaseMosaicModel):
     def __init__(self, hparams: DeepLabv3Hparams):
         super().__init__()
         self.hparams = hparams
-        self.model = deeplabv3_resnet50(False,
-                                        progress=False,
-                                        num_classes=self.hparams.num_classes,
-                                        aux_loss=False,
-                                        pretrained_backbone=self.hparams.is_pretrained == 'old')
+        self.model = deeplabv3_resnet101(False,
+                                         progress=False,
+                                         num_classes=self.hparams.num_classes,
+                                         aux_loss=False,
+                                         pretrained_backbone=self.hparams.is_pretrained == 'old')
         # replace 1x1 conv with 3x3 conv
         conv_to_replace = self.model.classifier[0].project[0]
         if self.hparams.penult_kernel == 3:
@@ -44,8 +44,9 @@ class DeepLabv3(BaseMosaicModel):
         self.model.classifier[2] = torch.nn.Identity()
         self.model.classifier[3] = torch.nn.Identity()
         if self.hparams.is_pretrained == 'new':
-            resnet.model_urls["resnet50"] = "https://download.pytorch.org/models/resnet50-f46c3f97.pth"
-            backbone = resnet.resnet50(pretrained=True)
+            #resnet.model_urls["resnet101"] = "https://download.pytorch.org/models/resnet50-f46c3f97.pth"
+            resnet.model_urls["resnet101"] = "https://download.pytorch.org/models/resnet101-cd907fc2.pth"
+            backbone = resnet.resnet101(pretrained=True)
             del backbone.fc
             self.model.backbone.load_state_dict(backbone.state_dict())
         if self.hparams.sync_bn:
