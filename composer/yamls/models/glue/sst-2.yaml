@@ -20,7 +20,7 @@ model:
     pretrained_model_name: bert-base-uncased
 optimizer:
   adamw:
-    lr: 3.0e-5
+    lr: 1.0e-5
     betas:
       - 0.9
       - 0.98
@@ -33,7 +33,7 @@ schedulers:
       warmup_factor: 0
       interval: step
   - cosine_decay:
-      T_max: 3ep 
+      T_max: 5ep 
       interval: step
       eta_min: 0
       verbose: false
@@ -50,9 +50,9 @@ loggers:
       name: sst-2 
       extra_init_params: {}
   - tqdm: {}
-max_epochs: 3
-total_batch_size: 16 
-eval_batch_size: 16 
+max_epochs: 5
+total_batch_size: 16
+eval_batch_size: 16
 seed: 19
 device:
   gpu:
@@ -66,7 +66,7 @@ dataloader:
 grad_accum: 1
 precision: amp
 grad_clip_norm: None
-validate_every_n_batches: 250
+validate_every_n_batches: 500
 validate_every_n_epochs: 1
 callbacks:
   - lr_monitor: {}
