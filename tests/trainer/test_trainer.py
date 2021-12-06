@@ -95,7 +95,7 @@ def test_trainer_determinism(mosaic_trainer_hparams: TrainerHparams):
     torch.testing.assert_allclose(second_loss, first_loss)
 
 
-@pytest.mark.timeout(90)
+@pytest.mark.timeout(120)
 @pytest.mark.parametrize("world_size", [
     pytest.param(1),
     pytest.param(2, marks=pytest.mark.world_size(2)),
