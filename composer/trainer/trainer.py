@@ -21,7 +21,7 @@ from torchmetrics.metric import Metric
 from composer.core import Callback, Engine, Event, Logger, State
 from composer.core.algorithm import Algorithm
 from composer.core.logging import BaseLoggerBackend, LogLevel
-from composer.core.profiler import ProfilerEventHandler, MosaicProfiler
+from composer.core.profiler import MosaicProfiler, ProfilerEventHandler
 from composer.core.types import Batch, BreakEpochException, DataLoader, Metrics, Precision, Tensor
 from composer.datasets import DataloaderSpec
 from composer.datasets.dataloader import DDPDataLoader

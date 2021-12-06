@@ -5,7 +5,7 @@ from typing import List, Optional
 
 import yahp as hp
 
-from composer.core.profiler import ProfilerEventHandlerHparams, MosaicProfiler
+from composer.core.profiler import MosaicProfiler, ProfilerEventHandlerHparams
 from composer.core.state import State
 from composer.profiler.json_trace import JSONTraceHandlerHparams
 

@@ -8,7 +8,7 @@ import os
 import queue
 import threading
 import time
-from typing import IO, Any, Dict, List, Optional, Tuple, Union
+from typing import IO, List, Optional, Tuple, Union
 
 import yahp as hp
 
@@ -57,8 +57,10 @@ class JSONTraceHandler(ProfilerEventHandler):
         self._output_directory = output_directory
         self._memory_monitor_interval_seconds = memory_monitor_interval_seconds
         self._buffer = queue.SimpleQueue()
+        self._is_first_line = True
 
     def init(self, state: State, logger: Logger) -> None:
+        del state, logger  # unused
         os.makedirs(get_relative_to_run_directory(self._output_directory), exist_ok=True)
         self._file = open(get_relative_to_run_directory(
             os.path.join(self._output_directory, f"rank_{get_global_rank()}.trace.json")),
@@ -107,6 +109,7 @@ class JSONTraceHandler(ProfilerEventHandler):
     def close(self):
         if self._file is not None:
             self._flush()
+            self._file.write("\n]")
             self._file.flush()
             self._file.close()
             self._file = None
@@ -119,8 +122,10 @@ class JSONTraceHandler(ProfilerEventHandler):
             except queue.Empty:
                 break
             entry = json.dumps(event, indent=None)
+            if not self._is_first_line:
+                self._file.write(",\n")
+            self._is_first_line = False
             self._file.write(entry)
-            self._file.write(",\n")
 
     def process_duration_event(
         self,
@@ -178,7 +183,6 @@ class JSONTraceHandler(ProfilerEventHandler):
                       wall_clock_ns: int,
                       perf_counter_ns: int,
                       tid: int = 0,
-                      args: Optional[Dict[str, Any]] = None,
                       **kwargs):
         """Helper function to record an event in the trace.
 

@@ -126,10 +126,14 @@ def patch_run_directory(
     tmpdir: pathlib.Path,
 ):
     original_run_directory = get_run_directory()
-    assert original_run_directory is not None
-    tmpdir_test_folder_name = os.path.basename(os.path.normpath(str(tmpdir)))
-    new_run_dir = os.path.join(original_run_directory, tmpdir_test_folder_name)
-    os.makedirs(new_run_dir, exist_ok=True)
+    if original_run_directory is None:
+        # if running without a run directory (e.g. by invoking pytest directly),
+        # then set it to the tmpdir
+        new_run_dir = str(tmpdir)
+    else:
+        tmpdir_test_folder_name = os.path.basename(os.path.normpath(str(tmpdir)))
+        new_run_dir = os.path.join(original_run_directory, tmpdir_test_folder_name)
+        os.makedirs(new_run_dir, exist_ok=True)
     monkeypatch.setattr(run_directory, "_get_run_directory", lambda: new_run_dir)
 
 

@@ -7,7 +7,7 @@ import dataclasses
 import time
 from functools import wraps
 from types import TracebackType
-from typing import Callable, Dict, Iterator, List, Optional, Sequence, Tuple, Type, Union
+from typing import Any, Callable, Dict, Iterator, List, Optional, Sequence, Tuple, Type, Union
 
 import yahp as hp
 
@@ -392,7 +392,7 @@ class Marker:
                  traceback: Optional[TracebackType]) -> None:
         self.finish()
 
-    def __call__(self, func: Optional[Callable] = None) -> Union[Marker, Callable]:
+    def __call__(self, func: Optional[Callable[..., Any]] = None) -> Callable[..., Any]:
         if func is None:
             # for decorators of the style @Marker(),
             # return self so it's equivalent to @Marker
