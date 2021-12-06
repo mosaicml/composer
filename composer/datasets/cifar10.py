@@ -2,7 +2,6 @@
 
 from dataclasses import dataclass
 
-import torch.utils.data
 import yahp as hp
 from torchvision import transforms
 from torchvision.datasets import CIFAR10
@@ -36,10 +35,6 @@ class CIFAR10DatasetHparams(DatasetHparams, SyntheticHparamsMixin):
                 device=self.synthetic_device,
                 memory_format=self.synthetic_memory_format,
             )
-            if self.shuffle:
-                sampler = torch.utils.data.RandomSampler(dataset)
-            else:
-                sampler = torch.utils.data.SequentialSampler(dataset)
 
         else:
             if self.datadir is None:
@@ -64,7 +59,7 @@ class CIFAR10DatasetHparams(DatasetHparams, SyntheticHparamsMixin):
                 download=self.download,
                 transform=transformation,
             )
-            sampler = ddp.get_sampler(dataset, drop_last=self.drop_last, shuffle=self.shuffle)
+        sampler = ddp.get_sampler(dataset, drop_last=self.drop_last, shuffle=self.shuffle)
 
         return dataloader_hparams.initialize_object(dataset,
                                                     batch_size=batch_size,

@@ -90,10 +90,6 @@ class ImagenetDatasetHparams(DatasetHparams, SyntheticHparamsMixin):
             )
             collate_fn = None
             device_transform_fn = None
-            if self.shuffle:
-                sampler = torch.utils.data.RandomSampler(dataset)
-            else:
-                sampler = torch.utils.data.SequentialSampler(dataset)
         else:
 
             if self.is_train:
@@ -123,7 +119,7 @@ class ImagenetDatasetHparams(DatasetHparams, SyntheticHparamsMixin):
             if self.datadir is None:
                 raise ValueError("datadir must be specified is self.synthetic is False")
             dataset = ImageFolder(os.path.join(self.datadir, split), transformation)
-            sampler = ddp.get_sampler(dataset, drop_last=self.drop_last, shuffle=self.shuffle)
+        sampler = ddp.get_sampler(dataset, drop_last=self.drop_last, shuffle=self.shuffle)
 
         return DataloaderSpec(dataloader=dataloader_hparams.initialize_object(
             dataset=dataset,
