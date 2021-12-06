@@ -57,7 +57,7 @@ def dummy_train_dataset_hparams(dummy_model: SimpleBatchPairModel,
     return SimpleDatasetHparams(
         use_synthetic=True,
         drop_last=True,
-        shuffle=True,
+        shuffle=False,
         num_classes=dummy_model.num_classes,
         data_shape=list(dummy_model.in_shape),
     )
