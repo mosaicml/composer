@@ -90,7 +90,6 @@ def test_blurpool_blurconv2d_params_match_original_params():
     assert blurconv.conv.bias.requires_grad
 
 
-@pytest.mark.timeout(90)
 def test_blurpool_trains(mosaic_trainer_hparams: TrainerHparams):
     mosaic_trainer_hparams.algorithms = [BlurPoolHparams(replace_convs=True, replace_maxpools=True, blur_first=True)]
     train_model(mosaic_trainer_hparams, run_loss_check=True)

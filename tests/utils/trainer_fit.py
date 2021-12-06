@@ -4,6 +4,7 @@ from copy import deepcopy
 
 import pytest
 import torch
+import itertools
 
 from composer.core.types import DataLoader
 from composer.datasets.mnist import MNISTDatasetHparams
@@ -19,7 +20,7 @@ from composer.utils import ddp, ensure_tuple
 def get_total_loss(model: BaseMosaicModel, dataloader: DataLoader):
     with torch.no_grad():
         total_loss = 0
-        for batch in dataloader:
+        for batch in itertools.islice(dataloader, 1):
             outputs = model(batch)
             loss = model.loss(outputs, batch=batch)
             for l in ensure_tuple(loss):
