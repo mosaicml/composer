@@ -1,10 +1,10 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
+import itertools
 from copy import deepcopy
 
 import pytest
 import torch
-import itertools
 
 from composer.core.types import DataLoader
 from composer.datasets.mnist import MNISTDatasetHparams
