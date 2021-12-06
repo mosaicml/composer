@@ -64,6 +64,7 @@ class WarmUpLR(_LRScheduler):
                  optimizer,
                  warmup_factor=1.0 / 3,
                  warmup_iters=5,
+                 warmup_ratio=None,
                  warmup_method="linear",
                  last_epoch=-1,
                  verbose=False,
@@ -73,6 +74,7 @@ class WarmUpLR(_LRScheduler):
 
         self.warmup_factor = warmup_factor
         self.warmup_iters = warmup_iters
+        self.warmup_ratio = warmup_ratio
         self.warmup_method = warmup_method
         self.interval = interval
         super(WarmUpLR, self).__init__(optimizer, last_epoch, verbose)

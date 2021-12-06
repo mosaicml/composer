@@ -295,7 +295,8 @@ class Trainer:
             schedulers_hparams = [schedulers_hparams]
         optimizer = optimizer_hparams.initialize_object(param_group=self.state.model.parameters())
         schedulers = [
-            x.initialize_object(optimizer, self.state.steps_per_epoch) for x in ensure_warmup_last(schedulers_hparams)
+            x.initialize_object(optimizer, self.state.steps_per_epoch, max_epochs=max_epochs)
+            for x in ensure_warmup_last(schedulers_hparams)
         ]
         self.state.optimizers = optimizer
         self.state.schedulers = ComposedScheduler(schedulers=schedulers)

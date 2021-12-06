@@ -150,9 +150,10 @@ class SchedulerHparams(hp.Hparams, ABC):
                 setattr(self, field.name, result)
 
     def initialize_object(  # type: ignore
-            self,
-            optimizer: Optimizer,
-            steps_per_epoch: Optional[int] = None,
+        self,
+        optimizer: Optimizer,
+        steps_per_epoch: Optional[int] = None,
+        max_epochs: Optional[int] = None,
     ) -> Tuple[Scheduler, str]:
         """Create the scheduler object from the current hparams.
 
@@ -166,6 +167,16 @@ class SchedulerHparams(hp.Hparams, ABC):
 
         assert self.scheduler_object is not None, "Scheduler Hparams needs scheduler_object to initialize."
         assert hasattr(self, 'interval'), "Scheduler Hparams needs an interval (str) parameter."
+
+        # convert a warmup_ratio into a warmup_iters
+        if hasattr(self, 'warmup_ratio'):
+            if max_epochs is None:
+                raise ValueError("If using warmup_ratio, then max_epochs must be set.")
+            total_steps = steps_per_epoch * max_epochs
+            warmup_iters = round(self.warmup_ratio * total_steps)
+            delattr(self, "warmup_ratio")
+            self.warmup_iters = f"{warmup_iters}ba"
+
         self.convert_time_fields(steps_per_epoch)
 
         # we pass the interval to the trainer directly
@@ -271,7 +282,10 @@ class CosineAnnealingLRHparams(SchedulerHparams):
 
     scheduler_object = torch.optim.lr_scheduler.CosineAnnealingLR
 
-    def initialize_object(self, optimizer: Optimizer, steps_per_epoch: Optional[int] = None):
+    def initialize_object(self,
+                          optimizer: Optimizer,
+                          steps_per_epoch: Optional[int] = None,
+                          max_epochs: Optional[int] = None):
         self.convert_time_fields(steps_per_epoch)
         return super().initialize_object(optimizer, steps_per_epoch)
 
@@ -290,7 +304,10 @@ class CosineAnnealingWarmRestartsHparams(SchedulerHparams):
 
     scheduler_object = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts
 
-    def initialize_object(self, optimizer: Optimizer, steps_per_epoch: Optional[int] = None):
+    def initialize_object(self,
+                          optimizer: Optimizer,
+                          steps_per_epoch: Optional[int] = None,
+                          max_epochs: Optional[int] = None):
         self.convert_time_fields(steps_per_epoch)
         return super().initialize_object(optimizer, steps_per_epoch)
 
@@ -319,11 +336,22 @@ class WarmUpLRHparams(SchedulerHparams):
 
     warmup_factor: float = hp.optional("Number to multiply learning rate at start.", default=1.0 / 3)
     warmup_iters: Time = hp.optional("Number of warmup step. Default: 5 iterations.", default="5ba")
+    warmup_ratio: float = hp.optional("Percentage of total training time to warmup for. Default: None", default="None")
     warmup_method: str = hp.optional("Warmup method (linear or constant)", default='linear')
     verbose: bool = hp.optional('Prints message to stdout', default=False)
     interval: str = hp.optional('Warmup the LR every step or epoch. Default: epoch', default='epoch')
 
     scheduler_object = WarmUpLR
+
+    def validate(self):
+        if self.warmup_ratio is not None and self.warmup_iters is not None:
+            raise ValueError("Both warmup_ratio and warmup_iters cannot be set. Please set one or the other.")
+
+        if self.warmup_ratio > 1.0:
+            raise ValueError("Warmup Ratio must be <= 1.0.")
+
+        if self.warmup_ratio < 0.0:
+            raise ValueError("Warmup Ratio must be >= 0.0.")
 
 
 def ensure_warmup_last(schedulers: List[SchedulerHparams]) -> List[SchedulerHparams]:
