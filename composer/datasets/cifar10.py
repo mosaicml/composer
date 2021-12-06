@@ -12,7 +12,6 @@ from composer.datasets.dataloader import DataloaderHparams
 from composer.datasets.hparams import DatasetHparams, SyntheticHparamsMixin
 from composer.datasets.synthetic import SyntheticBatchPairDataset
 from composer.utils import ddp
-from composer.utils.data import get_subset_dataset
 
 
 @dataclass
@@ -28,10 +27,9 @@ class CIFAR10DatasetHparams(DatasetHparams, SyntheticHparamsMixin):
         cifar10_mean, cifar10_std = [0.4914, 0.4822, 0.4465], [0.247, 0.243, 0.261]
 
         if self.use_synthetic:
-            if self.subset_num_batches is None:
-                raise ValueError("subset_num_batches is required if use_synthetic is True")
+            total_dataset_size = 50_000 if self.is_train else 10_000
             dataset = SyntheticBatchPairDataset(
-                total_dataset_size=self.subset_num_batches * batch_size,
+                total_dataset_size=total_dataset_size,
                 data_shape=[3, 32, 32],
                 num_classes=10,
                 num_unique_samples_to_create=self.synthetic_num_unique_samples,
@@ -66,9 +64,6 @@ class CIFAR10DatasetHparams(DatasetHparams, SyntheticHparamsMixin):
                 download=self.download,
                 transform=transformation,
             )
-            if self.subset_num_batches is not None:
-                size = batch_size * self.subset_num_batches * ddp.get_world_size()
-                dataset = get_subset_dataset(size, dataset)
             sampler = ddp.get_sampler(dataset, drop_last=self.drop_last, shuffle=self.shuffle)
 
         return dataloader_hparams.initialize_object(dataset,

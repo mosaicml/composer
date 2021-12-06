@@ -22,7 +22,6 @@ def dummy_state(dummy_dataloader_hparams: DataloaderHparams):
     model = ResNet50Hparams(num_classes=100).initialize_object()
     dataset_hparams = ImagenetDatasetHparams(
         use_synthetic=True,
-        subset_num_batches=10000,
         drop_last=True,
         shuffle=False,
         resize_size=256,

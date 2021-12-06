@@ -2,10 +2,11 @@
 
 from __future__ import annotations
 
-import collections.abc
 import contextlib
 import datetime
+import itertools
 import logging
+import textwrap
 import warnings
 from typing import Any, Callable, ContextManager, Dict, List, Optional, Sequence, Union, cast
 
@@ -100,6 +101,9 @@ class Trainer:
         checkpoint_folder (str, optional): The folder to save checkpoints to. Relative to `os.environ.get('RUN_DIRECTORY', '.')`, 
             (default: ``checkpoints``)
         checkpoint_interval (int, optional): The frequency with which to checkpoint. (default: ``1``)
+        train_subset_num_batches (int, optional): If specified, finish every epoch early after training
+            on this many batches. This parameter has no effect if it is greater than ``len(train_dataloader)``.
+            If None (the default), then the entire datealoader will be iterated over.
         config (Dict[str, Any], optional): Extra user-provided trainer configuration. Will be persisted
             along with the trainer state during checkpointing. (default: ``None``)
 
@@ -148,6 +152,10 @@ class Trainer:
             checkpoint_interval_unit: Optional[str] = None,
             checkpoint_folder: Optional[str] = "checkpoints",
             checkpoint_interval: Optional[int] = 1,
+
+            # Subset parameters
+            train_subset_num_batches: Optional[int] = None,
+            eval_subset_num_batches: Optional[int] = None,
 
             # DeepSpeed
             deepspeed_hparams: Optional[DeepSpeedHparams] = None,
@@ -241,6 +249,26 @@ class Trainer:
             eval_dataloader=DDPDataLoader(eval_dataloader_spec.dataloader),
         )
 
+        # Steps per epoch
+        if train_subset_num_batches is not None:
+            if train_subset_num_batches > self.state.steps_per_epoch:
+                warnings.warn(
+                    textwrap.dedent(
+                        f"""SubsetNumBatchesWarning: The train_subset_num_batches({train_subset_num_batches})
+                        is greater than the number of batches in the training dataloader
+                        ({self.state.steps_per_epoch})"""))
+            else:
+                self.state.steps_per_epoch = train_subset_num_batches
+
+        if eval_subset_num_batches is not None:
+            if eval_subset_num_batches > len(self.state.eval_dataloader):
+                warnings.warn(
+                    textwrap.dedent(f"""SubsetNumBatchesWarning: The eval_subset_num_batches({eval_subset_num_batches})
+                        is greater than the number of batches in the evaluation dataloader
+                        ({len(self.state.eval_dataloader)})"""))
+
+        self._eval_subset_num_batches = eval_subset_num_batches
+
         if not log_destinations:
             log_destinations = [TQDMLoggerBackend()]
         self.logger = Logger(self.state, log_destinations)
@@ -262,8 +290,6 @@ class Trainer:
         # run INIT event before optimizers and schedulers are created
         self.engine.run_event(Event.INIT)
 
-        assert isinstance(self.state.train_dataloader.dataset, collections.abc.Sized)
-        steps_per_epoch = len(self.state.train_dataloader.dataset) // train_batch_size
         # Need to use hparams here because optimizer and schedulers need to be created after Event.INIT
         if not optimizer_hparams:
             optimizer_hparams = DecoupledSGDWHparams(lr=0.1, momentum=0.9, weight_decay=1.0e-4)
@@ -272,7 +298,9 @@ class Trainer:
         if not isinstance(schedulers_hparams, list):
             schedulers_hparams = [schedulers_hparams]
         optimizer = optimizer_hparams.initialize_object(param_group=self.state.model.parameters())
-        schedulers = [x.initialize_object(optimizer, steps_per_epoch) for x in ensure_warmup_last(schedulers_hparams)]
+        schedulers = [
+            x.initialize_object(optimizer, self.state.steps_per_epoch) for x in ensure_warmup_last(schedulers_hparams)
+        ]
         self.state.optimizers = optimizer
         self.state.schedulers = ComposedScheduler(schedulers=schedulers)
 
@@ -321,10 +349,20 @@ class Trainer:
         dict_config = hparams.to_dict()
         log_destinations = [x.initialize_object(config=dict_config) for x in hparams.loggers]
 
-        train_device_batch_size = hparams.total_batch_size // ddp.get_world_size()
+        train_device_batch_size = hparams.train_batch_size // ddp.get_world_size()
+        if hparams.train_dataset.shuffle and hparams.train_subset_num_batches:
+            warnings.warn(
+                textwrap.dedent(f"""SubsetNumBatchesWarning: When specifying train_subset_num_batches,
+            (set to {hparams.train_subset_num_batches}), train_datset.shuffle should be set to False. Otherwise,
+            each training epoch may load a different subset of samples."""))
         train_dataloader = hparams.train_dataset.initialize_object(train_device_batch_size, hparams.dataloader)
 
         eval_device_batch_size = hparams.eval_batch_size // ddp.get_world_size()
+        if hparams.val_dataset.shuffle and hparams.eval_subset_num_batches:
+            warnings.warn(
+                textwrap.dedent(f"""SubsetNumBatchesWarning: When specifying eval_subset_num_batches,
+            (set to {hparams.eval_subset_num_batches}), val_dataset.shuffle should be set to False. Otherwise,
+            each evaluation epoch may load a different subset of samples."""))
         eval_dataloader = hparams.val_dataset.initialize_object(eval_device_batch_size, hparams.dataloader)
 
         trainer = cls(
@@ -364,6 +402,10 @@ class Trainer:
             checkpoint_interval_unit=hparams.checkpoint_interval_unit,
             checkpoint_folder=hparams.checkpoint_folder,
             checkpoint_interval=hparams.checkpoint_interval,
+
+            # Subset parameters
+            train_subset_num_batches=hparams.train_subset_num_batches,
+            eval_subset_num_batches=hparams.eval_subset_num_batches,
 
             # DeepSpeed
             deepspeed_hparams=hparams.deepspeed,
@@ -557,8 +599,8 @@ class Trainer:
                     self.engine.run_event(Event.EPOCH_START)
                     self.logger.metric_epoch({"epoch": self.state.epoch})
 
-                assert state.train_dataloader, "Train Dataloader must be set"
-                for batch_idx, state.batch in enumerate(state.train_dataloader):
+                for batch_idx, state.batch in enumerate(
+                        itertools.islice(state.train_dataloader, self.state.steps_per_epoch)):
 
                     # if resuming, skip dataloader forward to the minibatch index
                     if batch_idx < self.state.batch_idx:
@@ -791,9 +833,7 @@ class Trainer:
 
             metrics = self._get_metrics_as_collection(is_train=False)
 
-            assert state.eval_dataloader is not None
-
-            for state.batch in state.eval_dataloader:
+            for i, state.batch in enumerate(itertools.islice(state.eval_dataloader, self._eval_subset_num_batches)):
                 state.batch = self.device.batch_to_device(state.batch)
                 if self._eval_device_transformation_fn is not None:
                     state.batch = self._eval_device_transformation_fn(state.batch)

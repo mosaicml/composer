@@ -32,18 +32,13 @@ def get_total_loss(model: BaseMosaicModel, dataloader: DataLoader):
 
 def train_model(mosaic_trainer_hparams: TrainerHparams, max_epochs: int = 2, run_loss_check: bool = False):
     total_dataset_size = 16
-    mosaic_trainer_hparams.train_dataset = MNISTDatasetHparams(
-        use_synthetic=True,
-        subset_num_batches=1,
-    )
-    mosaic_trainer_hparams.val_dataset = MNISTDatasetHparams(
-        use_synthetic=True,
-        subset_num_batches=1,
-    )
-
+    mosaic_trainer_hparams.train_dataset = MNISTDatasetHparams(use_synthetic=True,)
+    mosaic_trainer_hparams.train_subset_num_batches = 1
+    mosaic_trainer_hparams.val_dataset = MNISTDatasetHparams(use_synthetic=True,)
+    mosaic_trainer_hparams.eval_subset_num_batches = 1
     mosaic_trainer_hparams.model = MnistClassifierHparams(num_classes=10)
     mosaic_trainer_hparams.optimizer = SGDHparams(lr=1e-2)
-    mosaic_trainer_hparams.total_batch_size = total_dataset_size  # one batch per epoch
+    mosaic_trainer_hparams.train_batch_size = total_dataset_size  # one batch per epoch
     mosaic_trainer_hparams.max_epochs = max_epochs
     # Don't validate
     mosaic_trainer_hparams.validate_every_n_epochs = max_epochs + 1

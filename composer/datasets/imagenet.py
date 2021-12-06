@@ -17,7 +17,6 @@ from composer.datasets.dataloader import DataloaderHparams
 from composer.datasets.hparams import DataloaderSpec, DatasetHparams, SyntheticHparamsMixin
 from composer.datasets.synthetic import SyntheticBatchPairDataset
 from composer.utils import ddp
-from composer.utils.data import get_subset_dataset
 
 
 class TransformationFn:
@@ -80,10 +79,9 @@ class ImagenetDatasetHparams(DatasetHparams, SyntheticHparamsMixin):
     def initialize_object(self, batch_size: int, dataloader_hparams: DataloaderHparams) -> DataloaderSpec:
 
         if self.use_synthetic:
-            if self.subset_num_batches is None:
-                raise ValueError("subset_num_batches is required if use_synthetic is True")
+            total_dataset_size = 1_281_167 if self.is_train else 50_000
             dataset = SyntheticBatchPairDataset(
-                total_dataset_size=self.subset_num_batches * batch_size * ddp.get_world_size(),
+                total_dataset_size=total_dataset_size,
                 data_shape=[3, self.crop_size, self.crop_size],
                 num_classes=1000,
                 num_unique_samples_to_create=self.synthetic_num_unique_samples,
@@ -125,9 +123,6 @@ class ImagenetDatasetHparams(DatasetHparams, SyntheticHparamsMixin):
             if self.datadir is None:
                 raise ValueError("datadir must be specified is self.synthetic is False")
             dataset = ImageFolder(os.path.join(self.datadir, split), transformation)
-            if self.subset_num_batches is not None:
-                size = batch_size * self.subset_num_batches * ddp.get_world_size()
-                dataset = get_subset_dataset(size, dataset)
             sampler = ddp.get_sampler(dataset, drop_last=self.drop_last, shuffle=self.shuffle)
 
         return DataloaderSpec(dataloader=dataloader_hparams.initialize_object(

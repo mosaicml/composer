@@ -30,8 +30,6 @@ def _configure_dataset_for_synthetic(dataset_hparams: DatasetHparams) -> None:
 
     dataset_hparams.use_synthetic = True
 
-    dataset_hparams.subset_num_batches = 1
-
 
 @pytest.mark.parametrize("hparams_file", walk_model_yamls())
 class TestHparamsCreate:
