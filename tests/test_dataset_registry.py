@@ -68,4 +68,4 @@ def test_mnist_real_dataset(world_size: int, dummy_dataloader_hparams: Dataloade
     device_batch_size = batch_size // world_size
     dataloader = hparams.initialize_object(batch_size=device_batch_size, dataloader_hparams=dummy_dataloader_hparams)
     assert not isinstance(dataloader, DataloaderSpec)
-    assert len(dataloader) == 10_000 // device_batch_size  # mnist has 10_000 validation images
+    assert len(dataloader) == 10_000 // batch_size  # mnist has 10_000 validation images
