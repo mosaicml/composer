@@ -5,7 +5,10 @@ from composer.datasets.cifar10 import CIFAR10DatasetHparams as CIFAR10DatasetHpa
 from composer.datasets.dataloader import DataloaderHparams as DataloaderHparams
 from composer.datasets.dataloader import DDPDataLoader as DDPDataLoader
 from composer.datasets.dataloader import WrappedDataLoader as WrappedDataLoader
+from composer.datasets.glue import CoLAHparams as CoLAHparams
+from composer.datasets.glue import QNLIHparams as QNLIHparams
 from composer.datasets.glue import SST2Hparams as SST2Hparams
+from composer.datasets.glue import RTEHparams as RTEHparams
 from composer.datasets.hparams import DataloaderSpec as DataloaderSpec
 from composer.datasets.hparams import DatasetHparams as DatasetHparams
 from composer.datasets.hparams import SyntheticHparamsMixin as SyntheticHparamsMixin

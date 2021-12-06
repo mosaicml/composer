@@ -75,6 +75,9 @@ dataset_registry = {
     "cifar10": datasets.CIFAR10DatasetHparams,
     "mnist": datasets.MNISTDatasetHparams,
     "lm": datasets.LMDatasetHparams,
+    "cola": datasets.CoLAHparams,
+    "qnli": datasets.QNLIHparams,
+    "rte": datasets.RTEHparams,
     "sst-2": datasets.SST2Hparams,
 }
 
