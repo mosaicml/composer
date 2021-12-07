@@ -525,8 +525,9 @@ class Trainer:
                 #deepspeed_config["zero_optimization"]["offload_optimizer"] = {
                 #    "device": "cpu",
                 #}
-                deepspeed_config["zero_optimization"]["overlap_comm"] = True
+                #deepspeed_config["zero_optimization"]["overlap_comm"] = True
                 # deepspeed_config["activation_checkpointing"] = {}
+                pass
 
             if state.precision == Precision.AMP:
                 deepspeed_config["amp"] = {"enabled": True}
