@@ -80,6 +80,7 @@ def checkpointing_trainer_hparams(mosaic_trainer_hparams: TrainerHparams) -> Tra
     mosaic_trainer_hparams.max_epochs = 2
     mosaic_trainer_hparams.callbacks.append(DummyStatefulCallbackHparams())
     mosaic_trainer_hparams.callbacks.append(EventCounterCallbackHparams())
+    mosaic_trainer_hparams.train_subset_num_batches = 5
     return mosaic_trainer_hparams
 
 
@@ -206,7 +207,8 @@ def validate_events_called_expected_number_of_times(trainer: Trainer):
     if trainer.validate_every_n_epochs > 0:
         num_evals = num_epochs // trainer.validate_every_n_epochs
     assert state.eval_dataloader is not None
-    num_eval_steps = num_evals * len(state.eval_dataloader)
+    assert trainer._eval_subset_num_batches is not None
+    num_eval_steps = num_evals * trainer._eval_subset_num_batches
 
     event_to_num_expected_invocations = {
         Event.INIT: 1,

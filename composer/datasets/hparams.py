@@ -90,14 +90,6 @@ class DatasetHparams(hp.Hparams, abc.ABC, metaclass=metaclass):
             If the number of samples is not divisible by the batch size, whether
             to drop the last batch (the default) or pad the last batch with zeros.
         shuffle (bool): Whether to shuffle the dataset. Defaults to True.
-        subset_num_batches (int, optional): If specified, limit the number of batches per dataloader iteration.
-            Specifically, ``len(dataloader) == num_total_batches``, where the ``dataloader`` is returned via
-            :meth:`initialize_object`. Each epoch should yield the same subset of samples.
-            
-            If this value is greater than the total number of samples in the dataset, then a :class:`ValueError` 
-            is raised.
-
-            If None (the default), then the entire dataset will be iterated over.
     """
 
     is_train: bool = hp.optional("Whether to load the training data (the default) or validation data.", default=True)
@@ -106,9 +98,6 @@ class DatasetHparams(hp.Hparams, abc.ABC, metaclass=metaclass):
                                   default=True)
     shuffle: bool = hp.optional("Whether to shuffle the dataset for each epoch. Defaults to True.", default=True)
 
-    subset_num_batches: Optional[int] = hp.optional(
-        "If not None, limit len(dataloader) to this many batches. If None (the default), then the dataloader will iterate over the entire dataset.",
-        default=None)
     datadir: Optional[str] = hp.optional("The path to the data directory", default=None)
 
     @abc.abstractmethod

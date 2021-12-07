@@ -56,9 +56,8 @@ def dummy_train_dataset_hparams(dummy_model: SimpleBatchPairModel,
                                 SimpleDatasetHparams: Type[_SimpleDatasetHparams]) -> DatasetHparams:
     return SimpleDatasetHparams(
         use_synthetic=True,
-        subset_num_batches=4,
         drop_last=True,
-        shuffle=True,
+        shuffle=False,
         num_classes=dummy_model.num_classes,
         data_shape=list(dummy_model.in_shape),
     )
@@ -69,7 +68,6 @@ def dummy_val_dataset_hparams(dummy_model: SimpleBatchPairModel,
                               SimpleDatasetHparams: Type[_SimpleDatasetHparams]) -> DatasetHparams:
     return SimpleDatasetHparams(
         use_synthetic=True,
-        subset_num_batches=4,
         drop_last=False,
         shuffle=False,
         num_classes=dummy_model.num_classes,
@@ -175,7 +173,7 @@ def mosaic_trainer_hparams(
         schedulers=[ExponentialLRHparams(gamma=0.1)],
         max_epochs=2,
         precision=Precision.FP32,
-        total_batch_size=dummy_train_batch_size,
+        train_batch_size=dummy_train_batch_size,
         eval_batch_size=dummy_val_batch_size,
         dataloader=DataloaderHparams(
             num_workers=0,
@@ -190,6 +188,8 @@ def mosaic_trainer_hparams(
         val_dataset=dummy_val_dataset_hparams,
         train_dataset=dummy_train_dataset_hparams,
         grad_accum=1,
+        train_subset_num_batches=3,
+        eval_subset_num_batches=3,
     )
 
 

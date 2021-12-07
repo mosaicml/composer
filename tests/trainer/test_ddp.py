@@ -71,10 +71,9 @@ class TrackedDatasetHparams(DatasetHparams, SyntheticHparamsMixin):
         assert self.tmpdir is not None
         assert self.num_classes is not None
         assert self.data_shape is not None
-        assert self.subset_num_batches is not None
         synthetic_dataset = SyntheticBatchPairDataset(
             num_unique_samples_to_create=self.synthetic_num_unique_samples,
-            total_dataset_size=batch_size * self.subset_num_batches * ddp.get_world_size(),
+            total_dataset_size=10_000,
             data_shape=self.data_shape,
             num_classes=self.num_classes,
         )
@@ -161,25 +160,23 @@ def test_ddp(device: DeviceHparams, world_size: int, ddp_tmpdir: str, mosaic_tra
     callback_registry["checkbatch0"] = CheckBatch0Hparams
     dataset_registry["tracked"] = TrackedDatasetHparams
 
-    hparams.total_batch_size = 10
-    train_num_total_batches = 3
+    hparams.train_batch_size = 10
+    hparams.train_subset_num_batches = 3
     assert isinstance(hparams.train_dataset, SyntheticHparamsMixin)
     hparams.train_dataset = TrackedDatasetHparams(
-        synthetic_num_unique_samples=hparams.total_batch_size * train_num_total_batches,
+        synthetic_num_unique_samples=hparams.train_batch_size * hparams.train_subset_num_batches,
         is_train=True,
         tmpdir=ddp_tmpdir,
-        subset_num_batches=train_num_total_batches,
         data_shape=list(model.in_shape),
         num_classes=model.num_classes,
     )
-    val_num_total_batches = 3
+    hparams.eval_subset_num_batches = 3
     hparams.eval_batch_size = 10
     assert isinstance(hparams.val_dataset, SyntheticHparamsMixin)
     hparams.val_dataset = TrackedDatasetHparams(
-        synthetic_num_unique_samples=hparams.eval_batch_size * val_num_total_batches,
+        synthetic_num_unique_samples=hparams.eval_batch_size * hparams.eval_subset_num_batches,
         is_train=False,
         tmpdir=ddp_tmpdir,
-        subset_num_batches=val_num_total_batches,
         data_shape=list(model.in_shape),
         num_classes=model.num_classes,
     )
@@ -204,8 +201,8 @@ def test_ddp(device: DeviceHparams, world_size: int, ddp_tmpdir: str, mosaic_tra
     assert isinstance(trainer.state.eval_dataloader.dataset, collections.abc.Sized)
     trainer.fit()
 
-    expected_train_num_loads = hparams.max_epochs * hparams.total_batch_size * train_num_total_batches
-    expected_val_num_loads = hparams.max_epochs * hparams.eval_batch_size * val_num_total_batches
+    expected_train_num_loads = hparams.max_epochs * hparams.train_batch_size * hparams.train_subset_num_batches
+    expected_val_num_loads = hparams.max_epochs * hparams.eval_batch_size * hparams.eval_subset_num_batches
     # adding hparams.eval_batch_size to account for the extra spin of the eval dataloader
     # that is called to create a deterministic ordering for the sampler
     expected_val_num_loads += hparams.eval_batch_size
