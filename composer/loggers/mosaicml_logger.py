@@ -168,8 +168,7 @@ class MosaicMLLoggerBackend(RankZeroLoggerBackend):
             "epoch": epoch,
             "step": step,
         }
-        for k in data.keys():
-            log_data[k] = formatted_data[k]
+        log_data.update(formatted_data) # type: ignore
         self.buffered_data.append(log_data)
         if len(self.buffered_data) > self.max_logs_in_buffer:
             self._flush_buffered_data()
