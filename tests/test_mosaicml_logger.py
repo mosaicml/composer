@@ -70,7 +70,7 @@ def test_mosaic_logger(tmpdir: pathlib.Path, dummy_state: State, dummy_logger: L
             "step": i,
             "epoch": 1,
         }
-        expected_log_point.update(data_point) # type: ignore
+        expected_log_point.update(data_point)  # type: ignore
         expected_data.append(expected_log_point)
         buffer_length += 1
 

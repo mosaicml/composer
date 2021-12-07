@@ -166,11 +166,11 @@ def format_log_data_as_json(data: TLogDataValue) -> JSON:
     if isinstance(data, torch.Tensor):
         return format_log_data_as_json(data.cpu().item())
     if isinstance(data, collections.abc.Mapping):
-        dict_val = {}
+        data_dict = {}
         for k in data.keys():
             assert isinstance(k, str), f"Expected data key {k} to be a string"
-            dict_val[k] = format_log_data_as_json(data[k])
-        return dict_val
+            data_dict[k] = format_log_data_as_json(data[k])
+        return data_dict
     if isinstance(data, collections.abc.Iterable):
         return [format_log_data_as_json(val) for val in data]
     raise NotImplementedError(f"Unable to format variable of type: {type(data)} "
