@@ -380,7 +380,7 @@ class Trainer:
         callbacks = [x.initialize_object() for x in hparams.callbacks]
 
         train_device_batch_size = hparams.train_batch_size // ddp.get_world_size()
-        if hparams.train_dataset.shuffle and hparams.train_subset_num_batches:
+        if hparams.train_dataset.shuffle and hparams.train_subset_num_batches is not None:
             warnings.warn(
                 textwrap.dedent(f"""SubsetNumBatchesWarning: When specifying train_subset_num_batches,
             (set to {hparams.train_subset_num_batches}), train_datset.shuffle should be set to False. Otherwise,
@@ -388,7 +388,7 @@ class Trainer:
         train_dataloader = hparams.train_dataset.initialize_object(train_device_batch_size, hparams.dataloader)
 
         eval_device_batch_size = hparams.eval_batch_size // ddp.get_world_size()
-        if hparams.val_dataset.shuffle and hparams.eval_subset_num_batches:
+        if hparams.val_dataset.shuffle and hparams.eval_subset_num_batches is not None:
             warnings.warn(
                 textwrap.dedent(f"""SubsetNumBatchesWarning: When specifying eval_subset_num_batches,
             (set to {hparams.eval_subset_num_batches}), val_dataset.shuffle should be set to False. Otherwise,
