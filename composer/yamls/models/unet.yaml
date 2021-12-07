@@ -2,14 +2,12 @@ train_dataset:
   brats:
     is_train: true
     datadir: /datasets/01_2d
-    download: false
     shuffle: true
     drop_last: true
 val_dataset:
   brats:
     is_train: false
     datadir: /datasets/01_2d
-    download: false
     shuffle: false
     drop_last: false
 optimizer:

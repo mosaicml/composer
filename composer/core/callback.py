@@ -15,11 +15,6 @@ try:
 except ImportError:
     final = lambda x: x  # final is not available in python 3.7
 
-try:
-    from typing import final
-except ImportError:
-    final = lambda x: x  # final is not available in python 3.7
-
 if TYPE_CHECKING:
     from composer import Event, Logger, State
 
@@ -300,6 +295,25 @@ class Callback(Serializable, abc.ABC):
         
         """
         del state, logger  # unused
+        pass
+
+    def close(self) -> None:
+        """Called whenever the trainer finishes training.
+        Unlike the :attr:`~Event.TRAINING_END` event, :meth:`close` is
+        invoked even when there was an exception.
+
+        It should be used for flushing and closing any files, etc...
+        that may have been opened during the :attr:`~Event.INIT` event.
+        """
+        pass
+
+    def post_close(self) -> None:
+        """This hook is called after :meth:`close` has been invoked for each callback.
+        Very few callbacks should need to implement :meth:`post_close`.
+
+        This callback can be used to back up any data that may have been written by other
+        callbacks during :meth:`close`.
+        """
         pass
 
 

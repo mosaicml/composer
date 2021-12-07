@@ -6,8 +6,10 @@ from composer.callbacks.callback_hparams import CallbackHparams as CallbackHpara
 from composer.callbacks.callback_hparams import GradMonitorHparams as GradMonitorHparams
 from composer.callbacks.callback_hparams import LRMonitorHparams as LRMonitorHparams
 from composer.callbacks.callback_hparams import MemoryMonitorHparams as MemoryMonitorHparams
+from composer.callbacks.callback_hparams import RunDirectoryUploaderHparams as RunDirectoryUploaderHparams
 from composer.callbacks.callback_hparams import SpeedMonitorHparams as SpeedMonitorHparams
 from composer.callbacks.callback_hparams import TorchProfilerHparams as TorchProfilerHparams
 from composer.callbacks.lr_monitor import LRMonitor as LRMonitor
+from composer.callbacks.run_directory_uploader import RunDirectoryUploader as RunDirectoryUploader
 from composer.callbacks.speed_monitor import SpeedMonitor as SpeedMonitor
 from composer.callbacks.torch_profiler import TorchProfiler as TorchProfiler

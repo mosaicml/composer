@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import collections.abc
 import datetime
 import os
 import warnings
@@ -19,8 +18,7 @@ from composer.utils.string_enum import StringEnum
 
 if TYPE_CHECKING:
     from composer.core.state import State
-    from composer.core.types import DataLoader, Model
-    from composer.datasets.dataloader import DataloaderHparams, DataloaderSpec
+    from composer.core.types import Model
 
 TObj = TypeVar("TObj")
 
@@ -229,34 +227,22 @@ def prepare_module(module: Model, find_unused_parameters: bool) -> Model:
                        "installation of PyTorch. Please install or build PyTorch with DDP support.")
 
 
-def create_dataloader(batch_size: int, dataloader_hparams: DataloaderHparams,
-                      dataloader_spec: DataloaderSpec) -> DataLoader:
-    # TODO(ravi) refactor this function to return a sampler rather than create the dataloader
-    from composer.datasets.dataloader import DDPDataLoader
-    if dist.is_available() and dist.is_initialized():
-        sampler = torch.utils.data.DistributedSampler[int](dataloader_spec.dataset,
-                                                           drop_last=dataloader_spec.drop_last,
-                                                           shuffle=dataloader_spec.shuffle)
-    elif get_world_size() == 1:
-        assert isinstance(dataloader_spec.dataset, collections.abc.Sized)
-        if dataloader_spec.shuffle:
-            sampler = torch.utils.data.RandomSampler(dataloader_spec.dataset, generator=dataloader_spec.generator)
-        else:
-            sampler = torch.utils.data.SequentialSampler(dataloader_spec.dataset)
-    else:
-        if dist.is_available():
-            raise RuntimeError("Please call ddp.initialize_ddp() before calling ddp.create_dataloader()")
-        raise RuntimeError("When the world size is > 1, DDP must be used. However, it is not available in your "
-                           "installation of PyTorch. Please install or build PyTorch with DDP support.")
-    dataloader = dataloader_hparams.initialize_object(batch_size, sampler, dataloader_spec)
-    if dist.is_available():
-        dataloader = DDPDataLoader(dataloader)
-    return dataloader
+def get_sampler(dataset, *, drop_last: bool, shuffle: bool) -> torch.utils.data.Sampler:
+    return torch.utils.data.DistributedSampler[int](
+        dataset,
+        drop_last=drop_last,
+        shuffle=shuffle,
+        num_replicas=get_world_size(),
+        rank=get_global_rank(),
+    )
 
 
 @contextmanager
 def sync_context(state: State, is_final_microbatch: bool, sync_strategy: Union[str, DDPSyncStrategy]):
-    assert isinstance(state.model, DistributedDataParallel), "state.model is not wrapped by DDP"
+    if not isinstance(state.model, DistributedDataParallel):
+        yield
+        return
+
     assert state.optimizers is not None, "optimizers have not been initialized"
     sync_strategy = DDPSyncStrategy(sync_strategy)
 

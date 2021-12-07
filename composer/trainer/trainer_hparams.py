@@ -12,10 +12,11 @@ from typing import TYPE_CHECKING, List, Optional
 import yahp as hp
 
 import composer
-import composer.datasets as datasets
+from composer import datasets
 from composer.algorithms import AlgorithmHparams, get_algorithm_registry
 from composer.callbacks import (BenchmarkerHparams, CallbackHparams, GradMonitorHparams, LRMonitorHparams,
-                                MemoryMonitorHparams, SpeedMonitorHparams, TorchProfilerHparams)
+                                MemoryMonitorHparams, RunDirectoryUploaderHparams, SpeedMonitorHparams,
+                                TorchProfilerHparams)
 from composer.core.types import Precision
 from composer.datasets import DataloaderHparams
 from composer.loggers import (BaseLoggerBackendHparams, FileLoggerBackendHparams, MosaicMLLoggerBackendHparams,
@@ -24,6 +25,7 @@ from composer.models import (CIFARResNetHparams, EfficientNetB0Hparams, GPT2Hpar
                              ModelHparams, ResNet18Hparams, ResNet50Hparams, ResNet101Hparams, UnetHparams)
 from composer.optim import (AdamHparams, AdamWHparams, DecoupledAdamWHparams, DecoupledSGDWHparams, OptimizerHparams,
                             RAdamHparams, RMSPropHparams, SchedulerHparams, SGDHparams, scheduler)
+from composer.trainer.deepspeed import DeepSpeedHparams
 from composer.trainer.devices import CPUDeviceHparams, DeviceHparams, GPUDeviceHparams
 from composer.utils import ddp
 
@@ -65,7 +67,6 @@ dataset_registry = {
     "brats": datasets.BratsDatasetHparams,
     "imagenet": datasets.ImagenetDatasetHparams,
     "cifar10": datasets.CIFAR10DatasetHparams,
-    "synthetic": datasets.SyntheticDatasetHparams,
     "mnist": datasets.MNISTDatasetHparams,
     "lm": datasets.LMDatasetHparams,
 }
@@ -79,6 +80,7 @@ callback_registry = {
     "lr_monitor": LRMonitorHparams,
     "grad_monitor": GradMonitorHparams,
     "memory_monitor": MemoryMonitorHparams,
+    "run_directory_uploader": RunDirectoryUploaderHparams,
 }
 
 logger_registry = {
@@ -149,6 +151,8 @@ class TrainerHparams(hp.Hparams):
         default=None)
     ddp_timeout: float = hp.optional(doc="Timeout, in seconds, for initializing the DDP process group.", default=5.0)
 
+    deepspeed: Optional[DeepSpeedHparams] = hp.optional(doc="Configuration for DeepSpeed.", default=None)
+
     grad_clip_norm: Optional[float] = hp.optional(
         default=None, doc='the norm to clip gradient magnitudes to. Default: None (no clip)')
 
@@ -174,6 +178,7 @@ class TrainerHparams(hp.Hparams):
         doc="Folder in which to save checkpoint files. Relative to the run directory, if set."
         "Defaults to `checkpoints`.",
         default="checkpoints")
+
     deterministic_mode: bool = hp.optional(doc="Run the model deterministically. Experimental. Performance"
                                            "degradations expected. Certain Torch modules may not have"
                                            "deterministic implementations, which will result in a crash.",
@@ -185,15 +190,26 @@ class TrainerHparams(hp.Hparams):
     def validate(self):
         super().validate()
 
+        deepspeed_enabled = self.deepspeed and self.deepspeed.enabled
+
+        if not deepspeed_enabled and Precision(self.precision) == Precision.FP16:
+            raise ValueError("FP16 precision is only supported when training with DeepSpeed.")
+
+        if deepspeed_enabled and self.deterministic_mode:
+            raise ValueError("Deterministic mode is not supported with DeepSpeed.")
+
+        if deepspeed_enabled and isinstance(self.device, CPUDeviceHparams):
+            raise ValueError("Training on CPUs is not supported with DeepSpeed.")
+
         world_size = ddp.get_world_size()
 
         if self.total_batch_size % world_size != 0:
             raise ValueError(
-                f"batch size ({self.total_batch_size}) not divisible by the total number of processes ({world_size})")
+                f"Batch size ({self.total_batch_size}) not divisible by the total number of processes ({world_size}).")
 
         if self.eval_batch_size % world_size != 0:
             raise ValueError(
-                f"eval batch size ({self.eval_batch_size}) not divisible by the total number of processes ({world_size}) "
+                f"Eval batch size ({self.eval_batch_size}) not divisible by the total number of processes ({world_size})."
             )
 
     def initialize_object(self) -> Trainer:
@@ -205,15 +221,9 @@ class TrainerHparams(hp.Hparams):
 
         Args:
             datadir (str): The datadir
-
-        Raises
-            AttributeError: Raised if either :attr:`train_dataset` or :attr:`val_dataset` do not
-            have a ``datadir`` property.
         """
-        if not hasattr(self.train_dataset, 'datadir') or not hasattr(self.val_dataset, 'datadir'):
-            raise AttributeError('Both the train and val dataset hparams must have the datadir attribute.')
-        setattr(self.train_dataset, 'datadir', datadir)
-        setattr(self.val_dataset, 'datadir', datadir)
+        self.train_dataset.datadir = datadir
+        self.val_dataset.datadir = datadir
 
     @classmethod
     def load(cls, model: str) -> TrainerHparams:

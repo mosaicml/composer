@@ -177,10 +177,7 @@ template_yaml = {
     'eval_batch_size': 8,
     'seed': 17,
     'accelerator': {
-        'gpu': {
-            'n_gpus': 1,
-            'prefetch_in_cuda_stream': False,
-        }
+        'gpu': {}
     },
     'dataloader': {
         'pin_memory': True,

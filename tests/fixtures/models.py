@@ -1,17 +1,19 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
+import dataclasses
 from dataclasses import dataclass
-from typing import List, Tuple
+from typing import List, Optional, Tuple
 
 import torch
 import torch.utils.data
 import torchmetrics
 import yahp as hp
 
-from composer.core.types import BatchPair, Metrics, Tensor, Tensors
-from composer.datasets.synthetic import SyntheticDataLabelType, SyntheticDatasetHparams
+from composer.core.types import BatchPair, DataLoader, Metrics, Tensor, Tensors
+from composer.datasets.dataloader import DataloaderHparams
+from composer.datasets.hparams import DatasetHparams, SyntheticHparamsMixin
+from composer.datasets.synthetic import SyntheticBatchPairDataset, SyntheticDataLabelType
 from composer.models import BaseMosaicModel, ModelHparams
-from composer.trainer.trainer_hparams import TrainerHparams
 
 
 class SimpleBatchPairModel(BaseMosaicModel):
@@ -61,31 +63,47 @@ class SimpleBatchPairModel(BaseMosaicModel):
         else:
             return self.val_acc
 
-    def get_dataset_hparams(self, total_dataset_size: int, drop_last: bool, shuffle: bool) -> SyntheticDatasetHparams:
-        return SyntheticDatasetHparams(
-            total_dataset_size=total_dataset_size,
-            data_shape=list(self.in_shape),
-            label_type=SyntheticDataLabelType.CLASSIFICATION_INT,
-            num_classes=self.num_classes,
-            device="cpu",
-            drop_last=drop_last,
-            shuffle=shuffle,
+
+@dataclasses.dataclass
+class _SimpleDatasetHparams(DatasetHparams, SyntheticHparamsMixin):
+
+    data_shape: Optional[List[int]] = hp.optional("data shape", default=None)
+    num_classes: Optional[int] = hp.optional("num_classes", default=None)
+
+    def initialize_object(self, batch_size: int, dataloader_hparams: DataloaderHparams) -> DataLoader:
+        assert self.subset_num_batches is not None
+        assert self.data_shape is not None
+        assert self.num_classes is not None
+        total_dataset_size = self.subset_num_batches * batch_size
+        dataset = SyntheticBatchPairDataset(total_dataset_size=total_dataset_size,
+                                            data_shape=self.data_shape,
+                                            label_type=SyntheticDataLabelType.CLASSIFICATION_INT,
+                                            num_classes=self.num_classes,
+                                            memory_format=self.synthetic_memory_format,
+                                            num_unique_samples_to_create=self.synthetic_num_unique_samples,
+                                            device=self.synthetic_device)
+        if self.shuffle:
+            sampler = torch.utils.data.RandomSampler(dataset)
+        else:
+            sampler = torch.utils.data.SequentialSampler(dataset)
+        return dataloader_hparams.initialize_object(
+            dataset=dataset,
+            batch_size=batch_size,
+            sampler=sampler,
+            drop_last=self.drop_last,
         )
 
 
 @dataclass
-class SimpleBatchPairModelHparams(ModelHparams):
+class _SimpleBatchPairModelHparams(ModelHparams):
     in_shape: List[int] = hp.optional("shape for a single input", default_factory=lambda: [10])
-    num_classes: int = hp.optional("number of output classes", default=3)
+    num_classes: int = hp.optional("number of output classes", default=10)
 
     def initialize_object(self) -> SimpleBatchPairModel:
         return SimpleBatchPairModel(
             in_shape=tuple(self.in_shape),
             num_classes=self.num_classes,
         )
-
-
-TrainerHparams.register_class("model", SimpleBatchPairModelHparams, "simple_batch_pair_model")
 
 
 class SimpleConvModel(torch.nn.Module):
