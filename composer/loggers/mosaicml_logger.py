@@ -163,12 +163,13 @@ class MosaicMLLoggerBackend(RankZeroLoggerBackend):
         if self.skip_logging:
             return
 
-        data = format_log_data_as_json(data)
+        formatted_data = format_log_data_as_json(data)
         log_data = {
             "epoch": epoch,
             "step": step,
         }
-        log_data.update(data)
+        for k in data.keys():
+            log_data[k] = formatted_data[k]
         self.buffered_data.append(log_data)
         if len(self.buffered_data) > self.max_logs_in_buffer:
             self._flush_buffered_data()
@@ -187,7 +188,7 @@ class MosaicMLLoggerBackend(RankZeroLoggerBackend):
     def training_start(self, state: State, logger: Logger):
         del state, logger  # unused
 
-        if self.skip_logging:
+        if self.skip_logging or not self.run_id:
             return
 
         # This has to happen in training_start as opposed to init in order to make
@@ -225,7 +226,7 @@ class MosaicMLLoggerBackend(RankZeroLoggerBackend):
 
     def post_close(self):
         # Write any relevant logs from other callback's close() functions here
-        if self.skip_logging:
+        if self.skip_logging or not self.run_id:
             return
 
         # Flush any remaining logs on training end
@@ -254,10 +255,10 @@ class MosaicMLLoggerBackend(RankZeroLoggerBackend):
         }
 
     def load_state_dict(self, state: StateDict) -> None:
-        self.run_id = state["run_id"]
-        self.run_name = state["run_name"]
-        self.experiment_name = state["experiment_name"]
-        self.buffered_data = state["buffered_data"]
+        self.run_id = str(state["run_id"])
+        self.run_name = str(state["run_name"])
+        self.experiment_name = str(state["experiment_name"])
+        self.buffered_data = list(state["buffered_data"])
 
     def _flush_buffered_data(self):
         if len(self.buffered_data) == 0:
