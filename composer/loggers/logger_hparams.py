@@ -242,9 +242,9 @@ class MosaicMLLoggerBackendHparams(BaseLoggerBackendHparams):
     max_logs_in_buffer: int = hp.optional(
         "The maximum number of log entries allowed in the buffer "
         "before a forced flush.", default=1000)
-    run_config: Optional[JSON] = hp.optional(doc="Parameters to store that are related to the run.",
-                                             default_factory=dict)
+    log_level: LogLevel = hp.optional("The maximum verbosity to log. Default: BATCH", default=LogLevel.BATCH)
 
-    def initialize_object(self) -> MosaicMLLoggerBackend:
+
+    def initialize_object(self, config: Optional[Dict[str, Any]] = None) -> MosaicMLLoggerBackend:
         from composer.loggers.mosaicml_logger import MosaicMLLoggerBackend
-        return MosaicMLLoggerBackend(**asdict(self))
+        return MosaicMLLoggerBackend(**asdict(self), config=config)

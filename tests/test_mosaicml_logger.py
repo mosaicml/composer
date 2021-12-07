@@ -2,12 +2,12 @@
 
 import os
 import pathlib
+from typing import List
 
 from _pytest.monkeypatch import MonkeyPatch
 
 from composer.core import Logger, State
-from composer.core.logging.logger import LogLevel
-from composer.core.types import JSON
+from composer.core.logging.logger import LogLevel, TLogData
 from composer.loggers import MosaicMLLoggerBackendHparams, mosaicml_logger
 
 
@@ -29,8 +29,8 @@ def test_mosaic_logger(tmpdir: pathlib.Path, dummy_state: State, dummy_logger: L
     data_logged = []
     num_log_calls = 0
 
-    def _mock_send_data(run_id: str, experiment_name: str, data: JSON):
-        del run_id, experiment_name
+    def _mock_send_data(run_id: str, experiment_id: str, data: List[TLogData]):
+        del run_id, experiment_id
         nonlocal num_log_calls
         num_log_calls += 1
         assert isinstance(data, list)
