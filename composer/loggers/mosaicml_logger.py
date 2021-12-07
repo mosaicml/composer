@@ -11,6 +11,7 @@ from queue import Queue
 from threading import Thread
 from typing import Dict, List, Optional, Union
 from composer.core.logging.logger import format_log_data_as_json
+from composer.utils.string_enum import StringEnum
 
 import requests
 
@@ -21,15 +22,22 @@ _MOSAICML_API_KEY_ENV = "MOSAICML_LOGGER_API_KEY"
 _MOSAICML_LOGGER_URL = "https://api.mosaicml.com/v0/log/metric"
 _MOSAICML_UPSERT_RUN_URL = "https://api.mosaicml.com/v0/log/run"
 
-_RUN_STATUS = "RUNNING"
 _STOP_LOGGING_SIGNAL = "STOP_LOGGING"
 
 log = logging.getLogger(__name__)
 
 
+class RunStatus(StringEnum):
+    RUNNING = "running"
+    COMPLETED = "completed"
+
+
+class RunType(StringEnum):
+    BENCHMARKING = "benchmarking"
+    TRAINING = "training"
+
+
 def _send_data(run_id: str, experiment_id: str, data: List[TLogData]):
-    print('Trying to log data:', data)
-    return
     try:
         response = requests.post(_MOSAICML_LOGGER_URL,
                                  headers={"X-MosaicML-API-key": os.environ.get(_MOSAICML_API_KEY_ENV, "")},
@@ -49,8 +57,13 @@ def _send_data(run_id: str, experiment_id: str, data: List[TLogData]):
         log.warning(f"MosaicML logger timed out with error {e}. Logs were not sent to the backend.")
 
 
-def _upsert_run(run_id: str, run_name: str, experiment_name: str, run_config: Optional[Dict[str, JSON]] = None):
-    return ""
+def _upsert_run(run_id: str,
+                run_name: str,
+                run_type: RunType,
+                experiment_name: str,
+                run_status: RunStatus,
+                run_config: Optional[Dict[str, JSON]] = None):
+    # This functionality will eventually be moved to server-side
     run_config = run_config if run_config is not None else {}
     # For now, terminate the process if the request does not succeed because we definitely want the run
     # to exist in the backend before logging
@@ -60,9 +73,10 @@ def _upsert_run(run_id: str, run_name: str, experiment_name: str, run_config: Op
                                  json={
                                      "runID": run_id,
                                      "runName": run_name,
+                                     "runType": run_type.value,
                                      "experimentName": experiment_name,
                                      "runConfig": run_config,
-                                     "status": _RUN_STATUS,
+                                     "status": run_status.value,
                                  },
                                  timeout=5)
         if response.status_code >= 400:
@@ -70,7 +84,8 @@ def _upsert_run(run_id: str, run_name: str, experiment_name: str, run_config: Op
             log.error("Posting run upsert to MosaicML backend failed with response code "
                       f"{response.status_code} and message {response.text}.")
             sys.exit(1)
-        return response.json()["experimentID"]
+        response_json = response.json()
+        return response_json["experimentID"] if "experimentID" in response_json else None
     except requests.exceptions.Timeout as e:
         # Notify the user in the case of a timeout and terminate the process
         log.error(f"MosaicML logger run upsert timed out with error {e}. Terminating the process.")
@@ -82,13 +97,15 @@ class MosaicMLLoggerBackend(RankZeroLoggerBackend):
 
     Args:
         run_name (str): The name of the run.
+        run_type (RunType): The type of the run.
         experiment_name (str, optional): The name of the experiment to associate this run with. If not provided,
             a random name will be generated.
         run_id (str, optional): The id of the run to write logs for. If not provided, a random id will be generated.
             Note that not providing a run_id will result in a new run being created while providing a run_id
             will result in an existing run being updated.
         creds_file (str, optional): A file containing the MosaicML api_key. If not provided
-            will default to the environment variable MOSAIC_API_KEY.
+            will default to the environment variable MOSAIC_API_KEY. A valid key must be present or this logger will be
+            a no-op.
         flush_every_n_batches (int): Flush the log data buffer every n batches. (default: ``500``)
         max_logs_in_buffer (int): The maximum number of log entries allowed in the buffer before a
             forced flush. (default: ``1000``)
@@ -98,20 +115,22 @@ class MosaicMLLoggerBackend(RankZeroLoggerBackend):
 
     def __init__(self,
                  run_name: str,
+                 run_type: RunType,
                  experiment_name: Optional[str],
                  run_id: Optional[str] = None,
                  creds_file: Optional[str] = None,
                  flush_every_n_batches: int = 500,
                  max_logs_in_buffer: int = 1000,
-                 log_level: LogLevel = LogLevel.BATCH,
+                 log_level: LogLevel = LogLevel.EPOCH,
                  config: Optional[Dict[str, JSON]] = None) -> None:
 
         super().__init__()
         self.skip_logging = False
         self.log_level = log_level
         self.run_name = run_name
+        self.run_type = run_type
         self.run_id = run_id  # if None will be set in training_start
-        self.experiment_id = None # will be set in training_start
+        self.experiment_id = None  # will be set in training_start
         if experiment_name is None:
             experiment_name = f"experiment_{str(uuid.uuid4())}"
             log.info(f"experiment_name was None, set experiment_name to random value {experiment_name}")
@@ -132,11 +151,10 @@ class MosaicMLLoggerBackend(RankZeroLoggerBackend):
         self.max_logs_in_buffer = max_logs_in_buffer
 
         self.queue = Queue()
-        self.thread = Thread(target=self._listen_to_queue)
+        self.thread = Thread(target=self._listen_to_queue, daemon=True, name="mosaicml-logger-thread")
 
     def _will_log(self, state: State, log_level: LogLevel) -> bool:
-        del state # unused
-        # print('WILL LOG RETURNING:', log_level <= self.log_level)
+        del state  # unused
         return log_level <= self.log_level
 
     def _log_metric(self, epoch: int, step: int, log_level: LogLevel, data: TLogData):
@@ -145,7 +163,7 @@ class MosaicMLLoggerBackend(RankZeroLoggerBackend):
         if self.skip_logging:
             return
 
-        # data = format_log_data_as_json(data)
+        data = format_log_data_as_json(data)
         log_data = {
             "epoch": epoch,
             "step": step,
@@ -172,16 +190,19 @@ class MosaicMLLoggerBackend(RankZeroLoggerBackend):
         if self.skip_logging:
             return
 
-        if self.run_id is None:
-            self.run_id = str(uuid.uuid4())
-            log.info(f"run_id was None, set run_id to random value {self.run_id}")
         # This has to happen in training_start as opposed to init in order to make
         # resume from checkpoint work (i.e. the run_id from the checkpoint is loaded
         # after Event.INIT is called)
         # https://github.com/mosaicml/composer/issues/43 will fix this
+        if self.run_id is None:
+            self.run_id = str(uuid.uuid4())
+            log.info(f"run_id was None, set run_id to random value {self.run_id}")
+
         self.experiment_id = _upsert_run(run_id=self.run_id,
                                          run_name=self.run_name,
+                                         run_type=self.run_type,
                                          experiment_name=self.experiment_name,
+                                         run_status=RunStatus.RUNNING,
                                          run_config=self.run_config)
 
     def batch_end(self, state: State, logger: Logger):
@@ -202,10 +223,26 @@ class MosaicMLLoggerBackend(RankZeroLoggerBackend):
         # Flush any remaining logs on training end
         self._flush_buffered_data()
 
+    def post_close(self):
+        # Write any relevant logs from other callback's close() functions here
+        if self.skip_logging:
+            return
+
+        # Flush any remaining logs on training end
+        self._flush_buffered_data()
+
+        log.info(f"Updating run status to {RunStatus.COMPLETED}")
+        _upsert_run(run_id=self.run_id,
+                    run_name=self.run_name,
+                    run_type=self.run_type,
+                    experiment_name=self.experiment_name,
+                    run_status=RunStatus.COMPLETED,
+                    run_config=self.run_config)
+
         self.queue.put_nowait(_STOP_LOGGING_SIGNAL)
         self.thread.join()
 
-        log.info(f"MosaicML logger thread has exited.")
+        log.info("MosaicML logger thread has exited.")
 
     def state_dict(self) -> StateDict:
         # Storing these fields in the state dict to support run resuming in the future
@@ -242,23 +279,3 @@ class MosaicMLLoggerBackend(RankZeroLoggerBackend):
             _send_data(run_id=self.run_id, experiment_id=self.experiment_id, data=data)  # type: ignore
 
             self.queue.task_done()
-
-
-# if __name__ == '__main__':
-#     with open('mosaicml_api_key.txt', 'r') as f:
-#         os.environ[_MOSAICML_API_KEY_ENV] = str(f.read().strip())
-
-    # response = _upsert_run(run_id="test_run_id",
-    #                        run_name="test_run_name",
-    #                        experiment_name="test_experiment_name",
-    #                        run_config={"hparam1": "value1"})
-    # print(response)
-    # print(response.text)
-    # print(response.json())
-
-
-    # _send_data(run_id="test_run_id", experiment_id="a3060b4f-0f6c-400e-97c1-d040b943c7ad", data={
-    #         "epoch": 1,
-    #         "step": 10,
-    #         "data": {"example_acc": 1.0},
-    #     })

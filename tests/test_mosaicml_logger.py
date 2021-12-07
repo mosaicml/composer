@@ -2,13 +2,15 @@
 
 import os
 import pathlib
-from typing import List
+from typing import Dict, List, Optional
 
 from _pytest.monkeypatch import MonkeyPatch
 
 from composer.core import Logger, State
 from composer.core.logging.logger import LogLevel, TLogData
+from composer.core.types import JSON
 from composer.loggers import MosaicMLLoggerBackendHparams, mosaicml_logger
+from composer.loggers.mosaicml_logger import RunStatus, RunType
 
 
 def test_mosaic_logger(tmpdir: pathlib.Path, dummy_state: State, dummy_logger: Logger, monkeypatch: MonkeyPatch):
@@ -19,6 +21,7 @@ def test_mosaic_logger(tmpdir: pathlib.Path, dummy_state: State, dummy_logger: L
     flush_every_n_batches = 5
     max_logs_in_buffer = 3
     hparams = MosaicMLLoggerBackendHparams(run_name="run_name",
+                                           run_type=RunType.BENCHMARKING,
                                            experiment_name="experiment_name",
                                            run_id="run_id",
                                            creds_file=creds_file,
@@ -36,8 +39,18 @@ def test_mosaic_logger(tmpdir: pathlib.Path, dummy_state: State, dummy_logger: L
         assert isinstance(data, list)
         data_logged.extend(data)
 
+    def _mock_upsert_run(run_id: str,
+                         run_name: str,
+                         run_type: RunType,
+                         experiment_name: str,
+                         run_status: RunStatus,
+                         run_config: Optional[Dict[str, JSON]] = None):
+        del run_id, run_name, run_type, experiment_name, run_status, run_config  # unused
+        pass
+
     # Replace the network call with a function that records logs sent
     monkeypatch.setitem(mosaicml_logger.__dict__, "_send_data", _mock_send_data)
+    monkeypatch.setitem(mosaicml_logger.__dict__, "_upsert_run", _mock_upsert_run)
 
     # Start the logging thread
     logger.init(dummy_state, dummy_logger)
@@ -52,11 +65,13 @@ def test_mosaic_logger(tmpdir: pathlib.Path, dummy_state: State, dummy_logger: L
         logger._log_metric(epoch=1, step=i, log_level=LogLevel.BATCH, data=data_point)
         dummy_state.step = i
         logger.batch_end(dummy_state, dummy_logger)
-        expected_data.append({
+
+        expected_log_point = {
             "step": i,
             "epoch": 1,
-            "data": data_point,
-        })
+        }
+        expected_log_point.update(data_point)
+        expected_data.append(expected_log_point)
         buffer_length += 1
 
         # Emulate buffer flushing
@@ -68,6 +83,7 @@ def test_mosaic_logger(tmpdir: pathlib.Path, dummy_state: State, dummy_logger: L
             expected_log_calls += 1
 
     logger.training_end(state=dummy_state, logger=dummy_logger)
+    logger.post_close()
 
     assert num_log_calls == expected_log_calls
     assert len(data_logged) == len(expected_data)

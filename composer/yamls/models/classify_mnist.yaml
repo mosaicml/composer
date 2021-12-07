@@ -27,11 +27,7 @@ model:
       - bn_uniform
     num_classes: 10
 loggers:
-  - file: {}
-  - mosaicml:
-      run_name: mnist_training_run
-      experiment_name: first_experiment
-      creds_file: mosaicml_api_key.txt
+  - tqdm: {}
 max_epochs: 5
 total_batch_size: 2048
 eval_batch_size: 1000

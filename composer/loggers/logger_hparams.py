@@ -6,6 +6,7 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from dataclasses import asdict, dataclass
 from typing import TYPE_CHECKING, Any, Dict, List, Optional
+from composer.loggers.mosaicml_logger import RunType
 
 import yahp as hp
 
@@ -227,6 +228,7 @@ class MosaicMLLoggerBackendHparams(BaseLoggerBackendHparams):
     for documentation.
     """
     run_name: str = hp.required("The name of the run to write logs for.")
+    run_type: RunType = hp.required("The type of the run.")
     run_id: Optional[str] = hp.optional(
         "The name of the run to write logs for. If not provided, a random id "
         "is created.", default=None)
@@ -242,8 +244,7 @@ class MosaicMLLoggerBackendHparams(BaseLoggerBackendHparams):
     max_logs_in_buffer: int = hp.optional(
         "The maximum number of log entries allowed in the buffer "
         "before a forced flush.", default=1000)
-    log_level: LogLevel = hp.optional("The maximum verbosity to log. Default: BATCH", default=LogLevel.BATCH)
-
+    log_level: LogLevel = hp.optional("The maximum verbosity to log. Default: EPOCH", default=LogLevel.EPOCH)
 
     def initialize_object(self, config: Optional[Dict[str, Any]] = None) -> MosaicMLLoggerBackend:
         from composer.loggers.mosaicml_logger import MosaicMLLoggerBackend
