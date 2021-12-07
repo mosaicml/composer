@@ -103,10 +103,10 @@ class Trainer:
         checkpoint_interval (int, optional): The frequency with which to checkpoint. (default: ``1``)
         train_subset_num_batches (int, optional): If specified, finish every epoch early after training
             on this many batches. This parameter has no effect if it is greater than ``len(train_dataloader)``.
-            If None (the default), then the entire datealoader will be iterated over.
+            If None (the default), then the entire dataloader will be iterated over.
         eval_subset_num_batches (int, optional): If specified, evaluate on this many batches.
             This parameter has no effect if it is greater than ``len(eval_dataloader)``.
-            If None (the default), then the entire datealoader will be iterated over.
+            If None (the default), then the entire dataloader will be iterated over.
         config (Dict[str, Any], optional): Extra user-provided trainer configuration. Will be persisted
             along with the trainer state during checkpointing. (default: ``None``)
 

@@ -117,7 +117,7 @@ class TQDMLoggerBackend(RankZeroLoggerBackend):
 
     def _start(self, state: State):
         assert self.is_train is not None, "self.is_train should be set by the callback"
-        #TODO(anis) -- len(state.eval_dataloader) is inaccurate, as it does not incorporate
+        # TODO(anis) -- in #120, len(state.eval_dataloader) is inaccurate, as it does not incorporate
         # trainer._eval_subset_num_batches. The evaluator spec should fix this.
         total_steps = state.steps_per_epoch if self.is_train else len(state.eval_dataloader)
         self.pbars[self.is_train] = _TQDMLoggerInstance(total=total_steps, epoch=state.epoch, is_train=self.is_train)
