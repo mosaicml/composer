@@ -9,7 +9,7 @@ import uuid
 import warnings
 from queue import Queue
 from threading import Thread
-from typing import Dict, List, Optional, Union
+from typing import Dict, List, Optional
 from composer.core.logging.logger import format_log_data_as_json
 from composer.utils.string_enum import StringEnum
 
