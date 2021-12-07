@@ -10,13 +10,13 @@ import warnings
 from queue import Queue
 from threading import Thread
 from typing import Dict, List, Optional
-from composer.core.logging.logger import format_log_data_as_json
-from composer.utils.string_enum import StringEnum
 
 import requests
 
 from composer.core.logging import LogLevel, RankZeroLoggerBackend, TLogData
+from composer.core.logging.logger import format_log_data_as_json
 from composer.core.types import JSON, Logger, State, StateDict
+from composer.utils.string_enum import StringEnum
 
 _MOSAICML_API_KEY_ENV = "MOSAICML_LOGGER_API_KEY"
 _MOSAICML_LOGGER_URL = "https://api.mosaicml.com/v0/log/metric"

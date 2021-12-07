@@ -6,12 +6,12 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from dataclasses import asdict, dataclass
 from typing import TYPE_CHECKING, Any, Dict, List, Optional
-from composer.loggers.mosaicml_logger import RunType
 
 import yahp as hp
 
 from composer.core.logging import BaseLoggerBackend, LogLevel
 from composer.core.types import JSON
+from composer.loggers.mosaicml_logger import RunType
 
 if TYPE_CHECKING:
     from composer.loggers.file_logger import FileLoggerBackend
