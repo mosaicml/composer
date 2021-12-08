@@ -16,7 +16,7 @@ def _do_trainer_fit(mosaic_trainer_hparams: TrainerHparams, testing_with_gpu: bo
 
     mosaic_trainer_hparams.max_epochs = 1
 
-    mosaic_trainer_hparams.total_batch_size = 50
+    mosaic_trainer_hparams.train_batch_size = 50
 
     trainer = mosaic_trainer_hparams.initialize_object()
 
@@ -29,7 +29,7 @@ def _do_trainer_fit(mosaic_trainer_hparams: TrainerHparams, testing_with_gpu: bo
     trainer.logger.backends = [log_destination]
     trainer.fit()
 
-    num_train_steps = mosaic_trainer_hparams.train_dataset.subset_num_batches
+    num_train_steps = mosaic_trainer_hparams.train_subset_num_batches
     assert isinstance(num_train_steps, int)
 
     expected_calls = num_train_steps * mosaic_trainer_hparams.max_epochs

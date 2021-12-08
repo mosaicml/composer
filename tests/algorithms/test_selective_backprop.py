@@ -205,7 +205,7 @@ def dummy_state_sb(dummy_state: State, dummy_train_dataloader: DataLoader, conv_
 
     dummy_state.train_dataloader = dummy_train_dataloader
     dummy_state.epoch = epoch
-    dummy_state.step = epoch * len(dummy_train_dataloader) + batch
+    dummy_state.step = epoch * dummy_state.steps_per_epoch + batch
     dummy_state.model = conv_model
     dummy_state.model.module.loss = loss_fun_tuple
 

@@ -6,6 +6,7 @@ Example usage and definition of hparams
 from __future__ import annotations
 
 import os
+import textwrap
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, List, Optional
 
@@ -127,10 +128,11 @@ class TrainerHparams(hp.Hparams):
         template_default=10,
     )
 
-    total_batch_size: int = hp.required(
+    train_batch_size: int = hp.required(
         doc="batch size for each optimization step, across all devices and gradient accumulations.",
         template_default=2048,
     )
+
     eval_batch_size: int = hp.required(
         doc="batch size to use for each evaluation step",
         template_default=2048,
@@ -178,6 +180,13 @@ class TrainerHparams(hp.Hparams):
         "Defaults to `checkpoints`.",
         default="checkpoints")
 
+    train_subset_num_batches: Optional[int] = hp.optional(textwrap.dedent("""If specified,
+        finish every epoch early after training on this many batches."""),
+                                                          default=None)
+    eval_subset_num_batches: Optional[int] = hp.optional(textwrap.dedent("""If specified,
+        stop each evaluation after this many batches."""),
+                                                         default=None)
+
     deterministic_mode: bool = hp.optional(doc="Run the model deterministically. Experimental. Performance"
                                            "degradations expected. Certain Torch modules may not have"
                                            "deterministic implementations, which will result in a crash.",
@@ -202,9 +211,9 @@ class TrainerHparams(hp.Hparams):
 
         world_size = ddp.get_world_size()
 
-        if self.total_batch_size % world_size != 0:
+        if self.train_batch_size % world_size != 0:
             raise ValueError(
-                f"Batch size ({self.total_batch_size}) not divisible by the total number of processes ({world_size}).")
+                f"Batch size ({self.train_batch_size}) not divisible by the total number of processes ({world_size}).")
 
         if self.eval_batch_size % world_size != 0:
             raise ValueError(

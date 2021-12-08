@@ -12,7 +12,6 @@ from composer.core.types import Batch
 from composer.datasets.dataloader import DataloaderHparams
 from composer.datasets.hparams import DataloaderSpec, DatasetHparams
 from composer.utils import ddp
-from composer.utils.data import get_subset_dataset
 
 log = logging.getLogger(__name__)
 
@@ -98,10 +97,6 @@ class LMDatasetHparams(DatasetHparams):
         log.info(f"Total number of samples: {num_samples:e}")
         log.info(f"Total number of tokens: {self.num_tokens:e}")
         dataset = lm_datasets
-        if self.subset_num_batches is not None:
-            size = batch_size * self.subset_num_batches * ddp.get_world_size()
-            dataset = get_subset_dataset(size, dataset)
-
         data_collator = transformers.default_data_collator
 
         sampler = ddp.get_sampler(dataset, drop_last=self.drop_last, shuffle=self.shuffle)
