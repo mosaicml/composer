@@ -4,11 +4,12 @@ from __future__ import annotations
 
 import abc
 import dataclasses
+import os
+import threading
 import time
 from functools import wraps
 from types import TracebackType
 from typing import Any, Callable, Dict, Iterator, List, Optional, Sequence, Tuple, Type, Union
-import threading
 
 import yahp as hp
 
@@ -55,6 +56,7 @@ class ProfilerEventHandler(Callback, abc.ABC):
         step: Optional[int],
         wall_clock_time_ns: int,
         perf_counter_time_ns: int,
+        process_id: int,
         thread_id: int,
     ) -> None:
         """Called by the :class:`MosaicProfiler` whenever there is a duration event to record.
@@ -72,9 +74,10 @@ class ProfilerEventHandler(Callback, abc.ABC):
             step (int): The step, if applicable, corresponding to the event.
             wall_clock_time_ns (int): The :meth:`time.time_ns` corresponding to the event.
             perf_counter_time_ns (int): The :meth:`time.perf_counter_ns` corresponding to the event.
+            process_id (int): The process id corresponding to the event.
             thread_id (int): The thread id corresponding to the event.
         """
-        del name, categories, is_start, epoch, step, wall_clock_time_ns, perf_counter_time_ns, thread_id  # unused
+        del name, categories, is_start, epoch, step, wall_clock_time_ns, perf_counter_time_ns, process_id, thread_id  # unused
         pass
 
     def process_instant_event(
@@ -85,6 +88,7 @@ class ProfilerEventHandler(Callback, abc.ABC):
         step: Optional[int],
         wall_clock_time_ns: int,
         perf_counter_time_ns: int,
+        process_id: int,
         thread_id: int,
     ) -> None:
         """Called by the :class:`MosaicProfiler` whenever there is an instant event to record.
@@ -97,9 +101,10 @@ class ProfilerEventHandler(Callback, abc.ABC):
             step (int): The step, if applicable, corresponding to the event.
             wall_clock_time_ns (int): The :meth:`time.time_ns` corresponding to the event.
             perf_counter_time_ns (int): The :meth:`time.perf_counter_ns` corresponding to the event.
+            process_id (int): The process id corresponding to the event.
             thread_id (int): The thread id corresponding to the event.
         """
-        del name, categories, epoch, step, wall_clock_time_ns, perf_counter_time_ns, thread_id  # unused
+        del name, categories, epoch, step, wall_clock_time_ns, perf_counter_time_ns, process_id, thread_id  # unused
         pass
 
 
@@ -174,6 +179,10 @@ class MosaicProfiler:
         wait: int = 5,
         active: int = 5,
         repeat: int = 3,
+        record_shapes: bool = False,
+        profile_memory: bool = True,
+        with_stack: bool = False,
+        with_flops: bool = True,
     ) -> None:
         self._names_to_markers: Dict[str, Marker] = {}
         self._event_handlers = event_handlers
@@ -185,6 +194,10 @@ class MosaicProfiler:
         self._repeat = repeat
         self._skip_first_epoch = skip_first_epoch
         self._action = MosaicProfilerAction.SKIP
+        self._record_shapes = record_shapes
+        self._profile_memory = profile_memory
+        self._with_stack = with_stack
+        self._with_flops = with_flops
 
     def get_action(self):
         """Get the current :class:`MosaicProfilerAction` for the profiler, based upon
@@ -246,12 +259,8 @@ class MosaicProfiler:
         self._names_to_markers[name].categories = categories
         return self._names_to_markers[name]
 
-    def record_duration_event(self,
-                              marker: Marker,
-                              is_start: bool,
-                              wall_clock_time_ns: int,
-                              perf_counter_time_ns: int,
-                              thread_id: int = 0):
+    def record_duration_event(self, marker: Marker, is_start: bool, wall_clock_time_ns: int, perf_counter_time_ns: int,
+                              process_id: int, thread_id: int):
         """Record a duration event.
 
         .. note::
@@ -264,7 +273,8 @@ class MosaicProfiler:
             is_start (bool): Whether this is the start or end of the duration event.
             wall_clock_time_ns (int): The :meth:`time.time_ns` corresponding to the event.
             perf_counter_time_ns (int): The :meth:`time.perf_counter_ns` corresponding to the event.
-            thread_id (int, optional): The thread id where the event was triggered
+            process_id (int): The process id where the event was triggered
+            thread_id (int): The thread id where the event was triggered
         """
         for handler in self._event_handlers:
             handler.process_duration_event(
@@ -275,14 +285,12 @@ class MosaicProfiler:
                 is_start=is_start,
                 wall_clock_time_ns=wall_clock_time_ns,
                 perf_counter_time_ns=perf_counter_time_ns,
+                process_id=process_id,
                 thread_id=thread_id,
             )
 
-    def record_instant_event(self,
-                             marker: Marker,
-                             wall_clock_time_ns: int,
-                             perf_counter_time_ns: int,
-                             thread_id: int = 0):
+    def record_instant_event(self, marker: Marker, wall_clock_time_ns: int, perf_counter_time_ns: int, process_id: int,
+                             thread_id: int):
         """Record an instant event.
 
         .. note::
@@ -294,7 +302,8 @@ class MosaicProfiler:
             marker (Marker): The profiler event.
             wall_clock_time_ns (int): The :meth:`time.time_ns` corresponding to the event.
             perf_counter_time_ns (int): The :meth:`time.perf_counter_ns` corresponding to the event.
-            thread_id (int, optional): The thread id where the event was triggered
+            process_id (int): The process id where the event was triggered.
+            thread_id (int): The thread id where the event was triggered.
         """
         for handler in self._event_handlers:
             handler.process_instant_event(
@@ -304,6 +313,7 @@ class MosaicProfiler:
                 step=self._state.step,
                 wall_clock_time_ns=wall_clock_time_ns,
                 perf_counter_time_ns=perf_counter_time_ns,
+                process_id=process_id,
                 thread_id=thread_id,
             )
 
@@ -397,6 +407,7 @@ class Marker:
                 is_start=True,
                 wall_clock_time_ns=wall_clock_time,
                 perf_counter_time_ns=perf_counter_time,
+                process_id=os.getpid(),
                 thread_id=threading.get_ident(),
             )
             if self.record_instant_on_start:
@@ -404,6 +415,7 @@ class Marker:
                     self,
                     wall_clock_time_ns=wall_clock_time,
                     perf_counter_time_ns=perf_counter_time,
+                    process_id=os.getpid(),
                     thread_id=threading.get_ident(),
                 )
         self._started = True
@@ -422,6 +434,7 @@ class Marker:
                 is_start=False,
                 wall_clock_time_ns=wall_clock_time,
                 perf_counter_time_ns=perf_counter_time,
+                process_id=os.getpid(),
                 thread_id=threading.get_ident(),
             )
             if self.record_instant_on_finish:
@@ -429,6 +442,7 @@ class Marker:
                     self,
                     wall_clock_time_ns=wall_clock_time,
                     perf_counter_time_ns=perf_counter_time,
+                    process_id=os.getpid(),
                     thread_id=threading.get_ident(),
                 )
         self._started = False
@@ -440,6 +454,7 @@ class Marker:
                 self,
                 wall_clock_time_ns=time.time_ns(),
                 perf_counter_time_ns=time.perf_counter_ns(),
+                process_id=os.getpid(),
                 thread_id=threading.get_ident(),
             )
 

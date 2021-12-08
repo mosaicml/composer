@@ -1,6 +1,5 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
-from typing import Optional
 from unittest.mock import MagicMock
 
 import pytest
@@ -10,8 +9,8 @@ from composer.core.types import State
 
 
 @pytest.mark.parametrize("skip_first_epoch", [True, False])
-@pytest.mark.parametrize("repeat", [1, None])
-def test_profiler_get_action(dummy_state: State, skip_first_epoch: bool, repeat: Optional[int]):
+@pytest.mark.parametrize("repeat", [1, 0])
+def test_profiler_get_action(dummy_state: State, skip_first_epoch: bool, repeat: int):
     # tests that get_action works correctly given the state
     wait = 2
     active = 3

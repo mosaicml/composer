@@ -30,8 +30,7 @@ class MosaicProfilerHparams(hp.Hparams):
     skip_first_epoch: bool = hp.optional("Whether to skip profiling on the first epoch", default=False)
     wait: int = hp.optional("Number of steps to skip profiling each cycle", default=5)
     active: int = hp.optional("Number of steps to warm up the profiler each cycle", default=5)
-    repeat: int = hp.optional("Maximum number of cycles per epoch. Set to 0 to profile the entire epoch",
-                                        default=3)
+    repeat: int = hp.optional("Maximum number of cycles per epoch. Set to 0 to profile the entire epoch", default=3)
 
     def initialize_object(self, state: State) -> MosaicProfiler:
         return MosaicProfiler(

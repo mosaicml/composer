@@ -141,9 +141,9 @@ class TorchProfilerHparams(CallbackHparams):
     tensorboard_trace_handler_dir: str = hp.optional(
         "directory to store trace results. Relative to the run directory, if set.", default="torch_profiler")
     tensorboard_use_gzip: bool = hp.optional("Whether to use gzip for trace", default=False)
-    record_shapes: bool = hp.optional(doc="Whether to record tensor shapes", default=True)
-    profile_memory: bool = hp.optional(doc="track tensor memory allocations and frees", default=False)
-    with_stack: bool = hp.optional(doc="record stack info", default=True)
+    record_shapes: bool = hp.optional(doc="Whether to record tensor shapes", default=False)
+    profile_memory: bool = hp.optional(doc="track tensor memory allocations and frees", default=True)
+    with_stack: bool = hp.optional(doc="record stack info", default=False)
     with_flops: bool = hp.optional(doc="estimate flops for operators", default=True)
 
     skip: int = hp.optional("Number of batches to skip at epoch start", default=0)

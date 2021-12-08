@@ -33,10 +33,6 @@ def main() -> None:
     # Configure the torch profiler
     hparams.callbacks.append(
         TorchProfilerHparams(
-            record_shapes=True,
-            profile_memory=True,
-            with_stack=True,
-            with_flops=True,
             skip=0,
             warmup=hparams.mosaic_profiler.wait,
             active=hparams.mosaic_profiler.active,
