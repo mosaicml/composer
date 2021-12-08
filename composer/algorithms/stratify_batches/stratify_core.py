@@ -1,12 +1,10 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
 import math
-from typing import Iterable, List, Sequence, Tuple
+from typing import Iterable, List, Optional, Sequence, Tuple
 
 import numpy as np
 from torch.utils.data import Sampler
-
-# TODO refactor all of this to use rng = default_rng(), rng.whatever() instead of np.random.whatever()
 
 
 def groupby_ints(targets: Iterable):
@@ -32,12 +30,13 @@ class BalancedSampler:
     sampled twice before all elements have been sampled at least once.
     """
 
-    def __init__(self, data: np.array, replace=False):
+    def __init__(self, data: np.array, replace: bool = False, rng: Optional[np.random.Generator] = None):
         self.data = data.copy()
+        self.rng = rng or np.random.default_rng()
         self.reset()
 
     def reset(self) -> None:
-        np.random.shuffle(self.data)
+        self.rng.shuffle(self.data)
         self.tail = self.data
         self.num_epochs_completed = 0
 
@@ -56,7 +55,7 @@ class BalancedSampler:
         num_copies = count // n
         if num_copies > 0:
             # so many elems requested we need to feed it whole array one or more times
-            copy_idxs = np.random.permutation(n * num_copies) % n
+            copy_idxs = self.rng.permutation(n * num_copies) % n
             ret += list(self.data[copy_idxs])
             count -= n * num_copies
             self.num_epochs_completed += num_copies
@@ -65,7 +64,7 @@ class BalancedSampler:
             ret += list(self.tail)
             count -= len(self.tail)
             self.num_epochs_completed += 1
-            np.random.shuffle(self.data)
+            self.rng.shuffle(self.data)
             self.tail = self.data
         if count > 0:
             # simple case: pass it next few elems in our permuted array
@@ -85,7 +84,11 @@ class BalancedSampler:
         return self._num_elements_unsampled_at_epoch(0)
 
 
-def _sample_batches_stratified(samplers: Sequence[BalancedSampler], batch_size: int, num_batches: int) -> List:
+def _sample_batches_stratified(samplers: Sequence[BalancedSampler],
+                               batch_size: int,
+                               num_batches: int,
+                               rng: Optional[np.random.Generator] = None) -> List:
+    rng = rng or np.random.default_rng()
     batches = []
     num_classes = len(samplers)
     for b in range(num_batches):
@@ -109,7 +112,7 @@ def _sample_batches_stratified(samplers: Sequence[BalancedSampler], batch_size: 
         if probs is not None:
             replace_threshold = min(replace_threshold, (probs > 0).sum())
         replace = num_stragglers > replace_threshold
-        use_classes = np.random.choice(num_classes, replace=replace, p=probs, size=remaining_batch_size)
+        use_classes = rng.choice(num_classes, replace=replace, p=probs, size=remaining_batch_size)
 
         for c in use_classes:
             batch += samplers[c].sample(1)
@@ -117,7 +120,11 @@ def _sample_batches_stratified(samplers: Sequence[BalancedSampler], batch_size: 
     return batches
 
 
-def _sample_batches_balanced(samplers: Sequence[BalancedSampler], batch_size: int, num_batches: int) -> List:
+def _sample_batches_balanced(samplers: Sequence[BalancedSampler],
+                             batch_size: int,
+                             num_batches: int,
+                             rng: Optional[np.random.Generator] = None) -> List:
+    rng = rng or np.random.default_rng()
     batches = []
     num_classes = len(samplers)
     for _ in range(num_batches):
@@ -130,7 +137,7 @@ def _sample_batches_balanced(samplers: Sequence[BalancedSampler], batch_size: in
         remaining_batch_size = batch_size % num_classes
         assert remaining_batch_size == batch_size - (count_per_class * num_classes)
         # sample one elem each from subset of classes, chosen uniformly at random
-        use_classes = np.random.choice(num_classes, size=remaining_batch_size, replace=False)
+        use_classes = rng.choice(num_classes, size=remaining_batch_size, replace=False)
         for sampler in samplers[use_classes]:
             batch += sampler.sample(1)
         batches.append(batch)
@@ -141,10 +148,12 @@ def _sample_batches_balanced(samplers: Sequence[BalancedSampler], batch_size: in
 def sample_stragglers(samplers: Sequence[BalancedSampler],
                       batch_size: int,
                       total_num_samples: int,
-                      full_batch=True) -> List:
-    remaining_batch_size = batch_size
+                      full_batch=True,
+                      rng: Optional[np.random.Generator] = None) -> List:
+    rng = rng or np.random.default_rng()
     batch = []
-    shuffled_samplers = np.random.permutation(samplers)  # shuffle a copy
+    remaining_batch_size = batch_size
+    shuffled_samplers = rng.permutation(samplers)  # shuffle a copy
     for sampler in shuffled_samplers:
         idxs = sampler.sample(sampler.num_unsampled_elements())
         batch += idxs
@@ -157,7 +166,7 @@ def sample_stragglers(samplers: Sequence[BalancedSampler],
     # if we got to here, we didn't have enough unsampled elements, so
     # we'll have to sample some old ones; since this only happens for
     # final batch of epoch, keep things simple and sample uniformly at random
-    batch += list(np.random.choice(total_num_samples, size=remaining_batch_size, replace=False))
+    batch += list(rng.choice(total_num_samples, size=remaining_batch_size, replace=False))
     return batch
 
 
@@ -170,7 +179,12 @@ def create_samplers(targets) -> Tuple[np.array, np.array]:
 
 class StratifiedBatchSampler(Sampler):
 
-    def __init__(self, targets, batch_size, shuffle=True, drop_last=False, stratify_how='balance'):
+    def __init__(self,
+                 targets: Sequence,
+                 batch_size: int,
+                 shuffle: bool = True,
+                 drop_last: bool = False,
+                 stratify_how='balance'):
         self.batch_size = batch_size
         self.targets = targets
         self.shuffle = shuffle
