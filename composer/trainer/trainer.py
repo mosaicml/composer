@@ -529,6 +529,11 @@ class Trainer:
                 # deepspeed_config["activation_checkpointing"] = {}
                 pass
 
+            if self.deepspeed_hparams.zero_stage == 3:
+                deepspeed_config["zero_optimization"]["offload_param"] = {
+                    "device": "cpu",
+                }
+
             if state.precision == Precision.AMP:
                 deepspeed_config["amp"] = {"enabled": True}
             elif state.precision == Precision.FP16:
