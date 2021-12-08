@@ -8,7 +8,7 @@ import os
 import queue
 import threading
 import time
-from typing import List, Optional, Tuple, Union
+from typing import IO, List, Optional, Tuple, Union
 
 import yahp as hp
 
@@ -51,21 +51,22 @@ class JSONTraceHandler(ProfilerEventHandler):
                  buffering: int = -1,
                  output_directory: str = "mosaic_profiler",
                  memory_monitor_interval_seconds: float = 0.5) -> None:
+        self._file: Optional[IO] = None
         self._buffering = buffering
         self._flush_every_n_batches = flush_every_n_batches
         self._output_directory = output_directory
         self._memory_monitor_interval_seconds = memory_monitor_interval_seconds
+        self._is_first_line = True
         self._buffer = queue.SimpleQueue()
-        self._state = None
-        self._metadata = {
-            "displayTimeUnit": "ns",
-            "global_rank": ddp.get_global_rank(),
-        }
 
     def init(self, state: State, logger: Logger) -> None:
-        del logger  # unused
-        self._state = state
+        del state, logger  # unused
         os.makedirs(get_relative_to_run_directory(self._output_directory), exist_ok=True)
+        self._file = open(get_relative_to_run_directory(
+            os.path.join(self._output_directory, f"rank_{ddp.get_global_rank()}.trace.json")),
+                          "x",
+                          buffering=self._buffering)
+        self._file.write("[\n")
         wall_clock_ns = time.time_ns()
         perf_counter_ns = time.perf_counter_ns()
         self._record_event(
@@ -87,16 +88,29 @@ class JSONTraceHandler(ProfilerEventHandler):
             pid=os.getpid(),
             args={"name": f"Training Loop"})
 
-        # Clock sync
+        # Syncronize the clocks
+        # Each rank will record a timestamp at approxmately the same real world time
         clock_sync_a = time.time_ns()
         ddp.barrier()  # syncronize all ranks
         clock_sync_time_ns = time.time_ns()
         ddp.barrier()  # another barrier to bound the error
         clock_sync_b = time.time_ns()
         clock_sync_error_bound = clock_sync_b - clock_sync_a
-        self._metadata["clock_sync_timestamp_ns"] = clock_sync_time_ns
-        self._metadata["clock_sync_error_ns"] = clock_sync_error_bound
 
+        # Write the static metadata to a trace file in object format
+        metadata_filename = f"rank_{ddp.get_global_rank()}.metadata.trace.json"
+        metadata_file = get_relative_to_run_directory(os.path.join(self._output_directory, metadata_filename))
+        with open(metadata_file, "x") as f:
+            json.dump(
+                {
+                    "clock_sync_timestamp_us": clock_sync_time_ns // 1000,
+                    "clock_sync_error_us": clock_sync_error_bound // 1000,
+                    "displayTimeUnit": "ns",
+                    "global_rank": ddp.get_global_rank(),
+                    "traceEvents": [],
+                }, f)
+
+        # Start the memory monitor thread
         threading.Thread(target=self._memory_monitor_thread, daemon=True).start()
 
     def batch_end(self, state: State, logger: Logger) -> None:
@@ -141,25 +155,25 @@ class JSONTraceHandler(ProfilerEventHandler):
                            })
 
     def close(self):
-        self._flush()
+        if self._file is not None:
+            self._flush()
+            self._file.write("\n]")
+            self._file.flush()
+            self._file.close()
+            self._file = None
 
     def _flush(self):
-        events = []
+        assert self._file is not None, "flush is only called when the file is open"
         while True:
             try:
-                events.append(self._buffer.get_nowait())
+                event = self._buffer.get_nowait()
             except queue.Empty:
                 break
-        with open(get_relative_to_run_directory(
-                os.path.join(self._output_directory, f"rank_{ddp.get_global_rank()}.{time.time_ns()}.trace.json")),
-                  "x",
-                  buffering=self._buffering) as f:
-            data = {
-                "traceEvents": events,
-                **self._metadata,
-            }
-
-            json.dump(data, f)
+            entry = json.dumps(event, indent=None)
+            if not self._is_first_line:
+                self._file.write(",\n")
+            self._is_first_line = False
+            self._file.write(entry)
 
     def process_duration_event(
         self,
