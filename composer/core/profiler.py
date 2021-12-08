@@ -208,6 +208,8 @@ class MosaicProfiler:
     def marker(self,
                name: str,
                always_record: bool = False,
+               record_instant_on_start: bool = False,
+               record_instant_on_finish: bool = False,
                categories: Union[List[str], Tuple[str, ...]] = tuple()) -> Marker:
         """Get a :class:`Marker`.
 
@@ -219,13 +221,20 @@ class MosaicProfiler:
             always_record (bool, optional): Whether to always record events assocaited with this marker.
                 If True, then the scheduling parameters (e.g. ``skip_first_epoch``, ``wait``, ``active``, and ``repeat``) are ignored.
                 Should be sparingly set to ``True``. (Default: ``False``).
+            record_instant_on_start (bool, optional): Whether to record an instant event whenever the marker is started
+            record_instant_on_finish (bool, optional): Whether to record an instant event whenever the marker is finished
             categories (List[str] | Tuple[str, ...], optional): Categories for this marker.
 
         Returns:
             Marker: [description]
         """
         if name not in self._names_to_markers:
-            self._names_to_markers[name] = Marker(self, name, always_record, categories)
+            self._names_to_markers[name] = Marker(self, name,
+            always_record=always_record,
+            record_instant_on_start=record_instant_on_start,
+            record_instant_on_finish=record_instant_on_finish,
+            categories=categories,
+            )
         self._names_to_markers[name].categories = categories
         return self._names_to_markers[name]
 
@@ -324,6 +333,8 @@ class Marker:
         name (str): The name of the event.
         always_record (bool): Whether to always record the event, regardless of the result of
             :meth:`MosaicProfiler.get_action`.
+        record_instant_on_start (bool): Whether to record an instant event whenever the marker is started
+        record_instant_on_finish (bool): Whether to record an instant event whenever the marker is finished
         categories (List[str] | Tuple[str, ...]], optional): Categories corresponding to this event.
     """
 
@@ -331,12 +342,16 @@ class Marker:
                  mosaic_profiler: MosaicProfiler,
                  name: str,
                  always_record: bool,
+                 record_instant_on_start: bool,
+                 record_instant_on_finish: bool,
                  categories: Union[List[str], Tuple[str, ...]] = tuple()) -> None:
 
         self._instrumentation = mosaic_profiler
         self.name = name
         self.always_record = always_record
         self.categories = categories
+        self.record_instant_on_start = record_instant_on_start
+        self.record_instant_on_finish = record_instant_on_finish
         if name in mosaic_profiler._names_to_markers:
             if mosaic_profiler._names_to_markers[name] is not self:
                 raise RuntimeError(
@@ -352,12 +367,20 @@ class Marker:
                 f"Attempted to start profiler event {self.name}; however, this marker is already started")
         self._action_at_start = self._instrumentation.get_action()
         if self._action_at_start == MosaicProfilerAction.ACTIVE or self.always_record:
+            wall_clock_time = time.time_ns()
+            perf_counter_time = time.perf_counter_ns()
             self._instrumentation.record_duration_event(
                 self,
                 is_start=True,
-                wall_clock_time_ns=time.time_ns(),
-                perf_counter_time_ns=time.perf_counter_ns(),
+                wall_clock_time_ns=wall_clock_time,
+                perf_counter_time_ns=perf_counter_time,
             )
+            if self.record_instant_on_start:
+                self._instrumentation.record_instant_event(
+                    self,
+                    wall_clock_time_ns=wall_clock_time,
+                    perf_counter_time_ns=perf_counter_time,
+                )
         self._started = True
 
     def finish(self) -> None:
@@ -367,12 +390,20 @@ class Marker:
                 f"Attempted to finish profiler event {self.name}; however, this profiler event is not yet started")
 
         if self._action_at_start == MosaicProfilerAction.ACTIVE or self.always_record:
+            wall_clock_time = time.time_ns()
+            perf_counter_time = time.perf_counter_ns()
             self._instrumentation.record_duration_event(
                 self,
                 is_start=False,
-                wall_clock_time_ns=time.time_ns(),
-                perf_counter_time_ns=time.perf_counter_ns(),
+                wall_clock_time_ns=wall_clock_time,
+                perf_counter_time_ns=perf_counter_time,
             )
+            if self.record_instant_on_finish:
+                self._instrumentation.record_instant_event(
+                    self,
+                    wall_clock_time_ns=wall_clock_time,
+                    perf_counter_time_ns=perf_counter_time,
+                )
         self._started = False
 
     def instant(self) -> None:

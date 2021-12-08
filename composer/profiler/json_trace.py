@@ -67,6 +67,18 @@ class JSONTraceHandler(ProfilerEventHandler):
                           "x",
                           buffering=self._buffering)
         self._file.write("[\n")
+        wall_clock_ns = time.time_ns()
+        perf_counter_ns = time.perf_counter_ns()
+        self._record_event(
+            name="process_name",
+            categories="process_name",
+            ph="M",  # metadata
+            wall_clock_ns=wall_clock_ns,
+            perf_counter_ns=perf_counter_ns,
+            args={
+                "name": f"Training Loop - Rank {get_global_rank()}"
+            }
+        )
         threading.Thread(target=self._memory_monitor_thread, daemon=True).start()
 
     def batch_end(self, state: State, logger: Logger) -> None:
