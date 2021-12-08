@@ -8,6 +8,8 @@ from unittest.mock import MagicMock
 
 import pytest
 import torch
+from torchmetrics.classification.accuracy import Accuracy
+from torchmetrics.collections import MetricCollection
 
 from composer.algorithms import BlurPool, BlurPoolHparams
 from composer.algorithms.blurpool.blurpool_layers import BlurConv2d, BlurMaxPool2d
@@ -18,8 +20,9 @@ from tests.fixtures.models import SimpleConvModel
 
 @pytest.fixture
 def state(simple_conv_model: Model, dummy_train_dataloader: DataLoader, dummy_val_dataloader: DataLoader):
+    metric_coll = MetricCollection([Accuracy()])
     evaluators = [
-        Evaluator(label="dummy_label", dataloader=dummy_val_dataloader, metrics=simple_conv_model.metrics(train=False))
+        Evaluator(label="dummy_label", dataloader=dummy_val_dataloader, metrics=metric_coll)
     ]
     state = State(
         epoch=50,

@@ -117,6 +117,7 @@ class TQDMLoggerBackend(RankZeroLoggerBackend):
 
     def _start(self, state: State):
         assert self.is_train is not None, "self.is_train should be set by the callback"
+        assert state.evaluators is not None
         total_steps = len(state.train_dataloader) if self.is_train else sum(
             len(evaluator.dataloader) for evaluator in state.evaluators)
         self.pbars[self.is_train] = _TQDMLoggerInstance(total=total_steps, epoch=state.epoch, is_train=self.is_train)

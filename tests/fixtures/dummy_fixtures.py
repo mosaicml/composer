@@ -6,6 +6,8 @@ from unittest.mock import MagicMock, Mock
 import pytest
 import torch
 import torch.utils.data
+from torchmetrics.classification.accuracy import Accuracy
+from torchmetrics.collections import MetricCollection
 
 from composer import Logger, State
 from composer.core.types import DataLoader, Evaluator, Model, Precision
@@ -194,8 +196,9 @@ def simple_conv_model_input():
 
 @pytest.fixture()
 def state_with_model(simple_conv_model: Model, dummy_train_dataloader: DataLoader, dummy_val_dataloader: DataLoader):
+    metric_coll = MetricCollection([Accuracy()])
     evaluators = [
-        Evaluator(label="dummy_label", dataloader=dummy_val_dataloader, metrics=simple_conv_model.metrics(train=False))
+        Evaluator(label="dummy_label", dataloader=dummy_val_dataloader, metrics=metric_coll)
     ]
     state = State(
         epoch=50,

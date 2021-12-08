@@ -3,6 +3,8 @@
 import numpy as np
 import pytest
 import torch
+from torchmetrics.classification.accuracy import Accuracy
+from torchmetrics.collections import MetricCollection
 
 from composer.algorithms import ChannelsLastHparams
 from composer.core.event import Event
@@ -32,8 +34,9 @@ def _infer_memory_format(tensor: Tensor) -> str:
 
 @pytest.fixture()
 def state(simple_conv_model: Model, dummy_train_dataloader: DataLoader, dummy_val_dataloader: DataLoader):
+    metric_coll = MetricCollection([Accuracy()])
     evaluators = [
-        Evaluator(label="dummy_label", dataloader=dummy_val_dataloader, metrics=simple_conv_model.metrics(train=False))
+        Evaluator(label="dummy_label", dataloader=dummy_val_dataloader, metrics=metric_coll)
     ]
     return State(
         model=simple_conv_model,

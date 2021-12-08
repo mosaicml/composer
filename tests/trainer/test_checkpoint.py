@@ -203,9 +203,13 @@ def validate_events_called_expected_number_of_times(trainer: Trainer):
         num_evals = num_total_steps // trainer.validate_every_n_batches
     if trainer.validate_every_n_epochs > 0:
         num_evals = num_epochs // trainer.validate_every_n_epochs
+
+    assert state.evaluators is not None
+    eval_samples = 0
     for evaluator in state.evaluators:
         assert evaluator.dataloader is not None
-    num_eval_steps = num_evals * sum(len(evl.dataloader) for evl in state.evaluators)
+        eval_samples += len(evaluator.dataloader)
+    num_eval_steps = num_evals * eval_samples
 
     event_to_num_expected_invocations = {
         Event.INIT: 1,

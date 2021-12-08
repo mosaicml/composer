@@ -502,10 +502,10 @@ class Trainer:
         assert self.state.train_dataloader is not None, "train dataloader should be set"
 
         # Loop throught the Evaluators to do the same checks as above
+        assert self.state.evaluators is not None
         for evaluator in self.state.evaluators:
-            assert evaluator.dataloader is not None, f"{evaluator.name} dataloader should be set"
 
-        for evaluator in self.state.evaluators:
+            assert evaluator.dataloader is not None, f"{evaluator.label} dataloader should be set"
             # spin the eval dataloader once to initialize its sampler deterministically
             # so it does not affect any other RNG reads
             for _ in evaluator.dataloader:
@@ -547,6 +547,8 @@ class Trainer:
 
         if state.train_dataloader is None:
             raise ValueError('Dataloaders were not created properly, and are None.')
+
+        assert state.evaluators is not None
         for evaluator in state.evaluators:
             if evaluator.dataloader is None:
                 raise ValueError('Dataloaders were not created properly, and are None.')
@@ -817,7 +819,8 @@ class Trainer:
 
             original_model = state.model.module
             assert isinstance(original_model, BaseMosaicModel)
-
+            
+            assert state.evaluators is not None
             for evaluator in state.evaluators:
 
                 eval_metrics = self._get_metrics_as_collection(is_train=False, evaluator=evaluator)

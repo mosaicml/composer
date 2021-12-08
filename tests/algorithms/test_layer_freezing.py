@@ -3,6 +3,8 @@
 from copy import deepcopy
 
 import torch
+from torchmetrics.classification.accuracy import Accuracy
+from torchmetrics.collections import MetricCollection
 
 from composer.algorithms import LayerFreezing, LayerFreezingHparams
 from composer.core.state import State
@@ -15,7 +17,8 @@ from tests.utils.trainer_fit import train_model
 
 def _generate_state(epoch: int, max_epochs: int, model: Model, train_dataloader: DataLoader,
                     val_dataloader: DataLoader):
-    evaluators = [Evaluator(label="dummy_label", dataloader=val_dataloader, metrics=model.metrics(train=False))]
+    metric_coll = MetricCollection([Accuracy()])
+    evaluators = [Evaluator(label="dummy_label", dataloader=val_dataloader, metrics=metric_coll)]
     state = State(
         epoch=epoch,
         step=epoch,

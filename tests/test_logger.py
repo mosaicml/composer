@@ -62,7 +62,7 @@ def test_file_logger(dummy_state: State, log_destination: FileLoggerBackend, mon
             '[EPOCH][step=3]: { "metric": "epoch2", }\n',
         ]
 
-
+@pytest.mark.timeout(30000)
 def test_tqdm_logger(mosaic_trainer_hparams: TrainerHparams, monkeypatch: MonkeyPatch):
     is_train_to_mock_tqdms = {
         True: [],
@@ -88,5 +88,6 @@ def test_tqdm_logger(mosaic_trainer_hparams: TrainerHparams, monkeypatch: Monkey
         assert mock_tqdm.update.call_count == trainer.state.steps_per_epoch
         mock_tqdm.close.assert_called_once()
     for mock_tqdm in is_train_to_mock_tqdms[False]:
+        assert trainer.state.evaluators is not None
         assert mock_tqdm.update.call_count == sum(len(evaluator.dataloader) for evaluator in trainer.state.evaluators)
         mock_tqdm.close.assert_called_once()
