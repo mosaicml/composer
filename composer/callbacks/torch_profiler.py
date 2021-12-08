@@ -36,6 +36,12 @@ class TorchProfiler(Callback):
 
     Also see https://pytorch.org/docs/stable/profiler.html.
 
+    .. note::
+
+        Enabling shape and stack tracing results in additional overhead.
+        When ``record_shapes=True`` is specified, profiler will temporarily hold references to the tensors;
+        that may further prevent certain optimizations that depend on the reference count and introduce extra tensor copies.
+
     Args:
         tensorboard_trace_handler_dir (str): Directory to store trace results.
             Relative to the run_directory. Defaults to `torch_profiler` in the
@@ -43,21 +49,24 @@ class TorchProfiler(Callback):
         tensorboard_use_gzip (bool, optional):
             Whether to use gzip for the trace. Defaults to False.
         record_shapes (bool, optional): Whether to record tensor shapes.
-            Defaults to True.
-        profile_memory (bool, optional): Whether to profile memory.
             Defaults to False.
-        with_stack (bool, optional): Whether to record stack info.
+        profile_memory (bool, optional): Whether to profile memory.
             Defaults to True.
+        with_stack (bool, optional): Whether to record stack info.
+            Defaults to False.
         with_flops (bool, optional): Whether to estimate flops for operators.
             Defaults to True.
         skip (int, optional): Number of batches to skip at epoch start.
             Defaults to 0.
         warmup (int, optional): Number of warmup batches in a cycle.
-            Defaults to 1.
+            Defaults to 5.
         active (int, optional): Number of batches to profile in a cycle.
             Defaults to 5.
         wait (int, optional): Number of batches to skip at the end of each cycle.
             Defaults to 0.
+        repeat (int, optional): Number of times to repeat the wait / warmup / active cycle.
+            Set to 0 to continuously repeat.
+            Defaults to 1.
     """
 
     def __init__(
@@ -65,15 +74,15 @@ class TorchProfiler(Callback):
         *,
         tensorboard_trace_handler_dir: str = "torch_profiler",
         tensorboard_use_gzip: bool = False,
-        record_shapes: bool = True,
-        profile_memory: bool = False,
-        with_stack: bool = True,
+        record_shapes: bool = False,
+        profile_memory: bool = True,
+        with_stack: bool = False,
         with_flops: bool = True,
         skip: int = 0,
-        warmup: int = 1,
+        warmup: int = 5,
         active: int = 5,
         wait: int = 0,
-        repeat: int = 0,
+        repeat: int = 1,
     ) -> None:
         super().__init__()
         self.hparams = TorchProfilerHparams(

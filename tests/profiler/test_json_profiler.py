@@ -16,7 +16,7 @@ def test_json_trace_profiler_hanlder(mosaic_trainer_hparams: TrainerHparams):
         skip_first_epoch=False,
         wait=0,
         active=1000,
-        repeat=None,
+        repeat=0,
     )
 
     mosaic_trainer_hparams.mosaic_profiler = profiler_hparams

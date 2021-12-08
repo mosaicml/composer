@@ -8,7 +8,7 @@ import os
 import queue
 import threading
 import time
-from typing import IO, List, Optional, Tuple, Union
+from typing import List, Optional, Tuple, Union
 
 import yahp as hp
 
@@ -16,7 +16,7 @@ import composer.callbacks.memory_monitor as memory_monitor
 from composer.core.profiler import ProfilerEventHandler, ProfilerEventHandlerHparams
 from composer.core.state import State
 from composer.core.types import Logger
-from composer.utils.ddp import get_global_rank
+from composer.utils import ddp
 from composer.utils.run_directory import get_relative_to_run_directory
 
 
@@ -51,22 +51,52 @@ class JSONTraceHandler(ProfilerEventHandler):
                  buffering: int = -1,
                  output_directory: str = "mosaic_profiler",
                  memory_monitor_interval_seconds: float = 0.5) -> None:
-        self._file: Optional[IO] = None
         self._buffering = buffering
         self._flush_every_n_batches = flush_every_n_batches
         self._output_directory = output_directory
         self._memory_monitor_interval_seconds = memory_monitor_interval_seconds
         self._buffer = queue.SimpleQueue()
-        self._is_first_line = True
+        self._state = None
+        self._metadata = {
+            "displayTimeUnit": "ns",
+            "global_rank": ddp.get_global_rank(),
+        }
 
     def init(self, state: State, logger: Logger) -> None:
-        del state, logger  # unused
+        del logger  # unused
+        self._state = state
         os.makedirs(get_relative_to_run_directory(self._output_directory), exist_ok=True)
-        self._file = open(get_relative_to_run_directory(
-            os.path.join(self._output_directory, f"rank_{get_global_rank()}.trace.json")),
-                          "x",
-                          buffering=self._buffering)
-        self._file.write("[\n")
+        wall_clock_ns = time.time_ns()
+        perf_counter_ns = time.perf_counter_ns()
+        self._record_event(
+            name="process_name",
+            categories="process_name",
+            ph="M",  # metadata
+            wall_clock_ns=wall_clock_ns,
+            perf_counter_ns=perf_counter_ns,
+            tid=threading.get_ident(),
+            pid=os.getpid(),
+            args={"name": f"Rank {ddp.get_global_rank()} training loop process"})
+        self._record_event(
+            name="thread_name",
+            categories="thread_name",
+            ph="M",  # metadata
+            wall_clock_ns=wall_clock_ns,
+            perf_counter_ns=perf_counter_ns,
+            tid=threading.get_ident(),
+            pid=os.getpid(),
+            args={"name": f"Training Loop"})
+
+        # Clock sync
+        clock_sync_a = time.time_ns()
+        ddp.barrier()  # syncronize all ranks
+        clock_sync_time_ns = time.time_ns()
+        ddp.barrier()  # another barrier to bound the error
+        clock_sync_b = time.time_ns()
+        clock_sync_error_bound = clock_sync_b - clock_sync_a
+        self._metadata["clock_sync_timestamp_ns"] = clock_sync_time_ns
+        self._metadata["clock_sync_error_ns"] = clock_sync_error_bound
+
         threading.Thread(target=self._memory_monitor_thread, daemon=True).start()
 
     def batch_end(self, state: State, logger: Logger) -> None:
@@ -94,6 +124,8 @@ class JSONTraceHandler(ProfilerEventHandler):
                            ph='C',
                            wall_clock_ns=wall_clock_time_ns,
                            perf_counter_ns=perf_counter_time_ns,
+                           tid=threading.get_ident(),
+                           pid=os.getpid(),
                            args={
                                "step": state.step,
                            })
@@ -102,30 +134,32 @@ class JSONTraceHandler(ProfilerEventHandler):
                            ph='C',
                            wall_clock_ns=wall_clock_time_ns,
                            perf_counter_ns=perf_counter_time_ns,
+                           tid=threading.get_ident(),
+                           pid=os.getpid(),
                            args={
                                "epoch": state.epoch,
                            })
 
     def close(self):
-        if self._file is not None:
-            self._flush()
-            self._file.write("\n]")
-            self._file.flush()
-            self._file.close()
-            self._file = None
+        self._flush()
 
     def _flush(self):
-        assert self._file is not None, "flush is only called when the file is open"
+        events = []
         while True:
             try:
-                event = self._buffer.get_nowait()
+                events.append(self._buffer.get_nowait())
             except queue.Empty:
                 break
-            entry = json.dumps(event, indent=None)
-            if not self._is_first_line:
-                self._file.write(",\n")
-            self._is_first_line = False
-            self._file.write(entry)
+        with open(get_relative_to_run_directory(
+                os.path.join(self._output_directory, f"rank_{ddp.get_global_rank()}.{time.time_ns()}.trace.json")),
+                  "x",
+                  buffering=self._buffering) as f:
+            data = {
+                "traceEvents": events,
+                **self._metadata,
+            }
+
+            json.dump(data, f)
 
     def process_duration_event(
         self,
@@ -136,6 +170,8 @@ class JSONTraceHandler(ProfilerEventHandler):
         step: Optional[int],
         wall_clock_time_ns: int,
         perf_counter_time_ns: int,
+        process_id: int,
+        thread_id: int,
     ) -> None:
         ph = "B" if is_start else "E"
         args = {}
@@ -149,7 +185,9 @@ class JSONTraceHandler(ProfilerEventHandler):
             ph=ph,
             wall_clock_ns=wall_clock_time_ns,
             perf_counter_ns=perf_counter_time_ns,
+            pid=process_id,
             args=args,
+            tid=thread_id,
         )
 
     def process_instant_event(
@@ -160,6 +198,8 @@ class JSONTraceHandler(ProfilerEventHandler):
         step: Optional[int],
         wall_clock_time_ns: int,
         perf_counter_time_ns: int,
+        process_id: int,
+        thread_id: int,
     ) -> None:
         args = {}
         if epoch is not None:
@@ -173,16 +213,19 @@ class JSONTraceHandler(ProfilerEventHandler):
             wall_clock_ns=wall_clock_time_ns,
             perf_counter_ns=perf_counter_time_ns,
             args=args,
+            pid=process_id,
+            tid=thread_id,
             s="p",  # mark instant event for at process level
         )
 
     def _record_event(self,
                       name: str,
-                      categories: str,
                       ph: str,
                       wall_clock_ns: int,
                       perf_counter_ns: int,
-                      tid: int = 0,
+                      pid: int,
+                      tid: int,
+                      categories: str = "",
                       **kwargs):
         """Helper function to record an event in the trace.
 
@@ -204,16 +247,21 @@ class JSONTraceHandler(ProfilerEventHandler):
                 Clock Sync Events ``c``
             wall_clock_ns (int): Wall clock time, in nanoseconds.
             perf_counter_ns (int): Perf counter time, in nanoseconds.
-            tid (int, optional): Thread ID. Defaults to 0.
+            tid (int): :meth:`threading.get_ident` value for the event
+            pid (int): :meth:`os.get_pid` value for the event
             kwargs: Any extra info to record with the event, such as event specific fields.
         """
+        if "args" not in kwargs:
+            kwargs["args"] = {}
+        kwargs["args"]["global_rank"] = ddp.get_global_rank()
+        kwargs["args"]["node_id"] = ddp.get_global_rank() // ddp.get_local_world_size()
         data = {
             "name": name,
             "cat": categories,
-            "ph": ph,  # counter event
+            "ph": ph,
             "ts": wall_clock_ns // 1000,  # tracing clock timestamp, in microseconds
             "tts": perf_counter_ns // 1000,  # thread clock timestamp, in microseconds
-            "pid": get_global_rank(),
+            "pid": pid,
             "tid": tid,
             **kwargs,
         }
@@ -231,5 +279,7 @@ class JSONTraceHandler(ProfilerEventHandler):
                     ph='C',  # counter event
                     wall_clock_ns=wall_clock_time_ns,
                     perf_counter_ns=perf_counter_time_ns,
+                    pid=os.getpid(),
+                    tid=threading.get_ident(),
                     args={name: val})
             time.sleep(self._memory_monitor_interval_seconds)

@@ -56,6 +56,7 @@ SKIP_SERIALIZATION_FIELDS = [
     "eval_dataloader",
     "precision",
     "precision_context",
+    "_steps_per_epoch",
 ]
 
 
@@ -116,6 +117,7 @@ class State(Serializable):
     # but the getter will always return a Precision enum
     precision: Union[str, types.Precision]  # type: ignore
     _precision: types.Precision = field(init=False)  # but store an enum internally
+    _steps_per_epoch: Optional[int] = field(init=False, default=None)
     precision_context: Callable[[Union[str, Precision]], ContextManager] = \
         field(default_factory=default_precision_factory)
 
@@ -210,9 +212,13 @@ class State(Serializable):
     @property
     def steps_per_epoch(self) -> int:
         """int: The number of steps (batches) per epoch."""
-        if self.train_dataloader is None:
-            raise RuntimeError("To determine the number of steps per epoch, state.train_dataloader must be set.")
-        return len(self.train_dataloader)
+        if self._steps_per_epoch is None:
+            return len(self.train_dataloader)
+        return self._steps_per_epoch
+
+    @steps_per_epoch.setter
+    def steps_per_epoch(self, val: Optional[int]):  # type: ignore
+        self._steps_per_epoch = val
 
     @property
     def precision(self) -> types.Precision:

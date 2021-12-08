@@ -71,11 +71,9 @@ class _SimpleDatasetHparams(DatasetHparams, SyntheticHparamsMixin):
     num_classes: Optional[int] = hp.optional("num_classes", default=None)
 
     def initialize_object(self, batch_size: int, dataloader_hparams: DataloaderHparams) -> DataLoader:
-        assert self.subset_num_batches is not None
         assert self.data_shape is not None
         assert self.num_classes is not None
-        total_dataset_size = self.subset_num_batches * batch_size
-        dataset = SyntheticBatchPairDataset(total_dataset_size=total_dataset_size,
+        dataset = SyntheticBatchPairDataset(total_dataset_size=10_000,
                                             data_shape=self.data_shape,
                                             label_type=SyntheticDataLabelType.CLASSIFICATION_INT,
                                             num_classes=self.num_classes,

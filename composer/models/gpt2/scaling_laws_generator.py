@@ -173,7 +173,7 @@ template_yaml = {
         },
     ],
     'max_epochs': 1,
-    'total_batch_size': 8,
+    'train_batch_size': 8,
     'eval_batch_size': 8,
     'seed': 17,
     'accelerator': {
@@ -320,7 +320,7 @@ def configure_mosaic_yaml(model, scaling_law_predictions):
     logger.info(f"Minumum possible serial optimization steps before SSR: {min_serial_steps:,}")
     logger.info(f"Minumum possible serial optimization steps after SSR: {math.ceil(args.ssr * min_serial_steps):,}")
     logger.info(f"Current serial optimization steps: {final_serial_steps:,}")
-    template_yaml['total_batch_size'] = batch_size
+    template_yaml['train_batch_size'] = batch_size
     assert math.floor(batch_size / curr_grad_accum) == (batch_size / curr_grad_accum)
     template_yaml['eval_batch_size'] = math.floor(batch_size / curr_grad_accum)
     template_yaml['grad_accum'] = curr_grad_accum
