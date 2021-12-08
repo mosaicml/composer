@@ -75,10 +75,16 @@ class JSONTraceHandler(ProfilerEventHandler):
             ph="M",  # metadata
             wall_clock_ns=wall_clock_ns,
             perf_counter_ns=perf_counter_ns,
-            args={
-                "name": f"Training Loop - Rank {get_global_rank()}"
-            }
-        )
+            tid=threading.get_ident(),
+            args={"name": f"Rank {get_global_rank()} main process"})
+        self._record_event(
+            name="thread_name",
+            categories="thread_name",
+            ph="M",  # metadata
+            wall_clock_ns=wall_clock_ns,
+            perf_counter_ns=perf_counter_ns,
+            tid=threading.get_ident(),
+            args={"name": f"Training Loop"})
         threading.Thread(target=self._memory_monitor_thread, daemon=True).start()
 
     def batch_end(self, state: State, logger: Logger) -> None:
@@ -148,6 +154,7 @@ class JSONTraceHandler(ProfilerEventHandler):
         step: Optional[int],
         wall_clock_time_ns: int,
         perf_counter_time_ns: int,
+        thread_id: int,
     ) -> None:
         ph = "B" if is_start else "E"
         args = {}
@@ -162,6 +169,7 @@ class JSONTraceHandler(ProfilerEventHandler):
             wall_clock_ns=wall_clock_time_ns,
             perf_counter_ns=perf_counter_time_ns,
             args=args,
+            tid=thread_id,
         )
 
     def process_instant_event(
@@ -172,6 +180,7 @@ class JSONTraceHandler(ProfilerEventHandler):
         step: Optional[int],
         wall_clock_time_ns: int,
         perf_counter_time_ns: int,
+        thread_id: int,
     ) -> None:
         args = {}
         if epoch is not None:
@@ -185,6 +194,7 @@ class JSONTraceHandler(ProfilerEventHandler):
             wall_clock_ns=wall_clock_time_ns,
             perf_counter_ns=perf_counter_time_ns,
             args=args,
+            tid=thread_id,
             s="p",  # mark instant event for at process level
         )
 

@@ -27,20 +27,22 @@ def main() -> None:
         hparams.mosaic_profiler = MosaicProfilerHparams()
     hparams.max_epochs = 2
     if hparams.mosaic_profiler.repeat is not None:
-        hparams.train_subset_num_batches = (hparams.mosaic_profiler.wait + hparams.mosaic_profiler.active) *  hparams.mosaic_profiler.repeat
+        hparams.train_subset_num_batches = (hparams.mosaic_profiler.wait +
+                                            hparams.mosaic_profiler.active) * hparams.mosaic_profiler.repeat
 
     # Configure the torch profiler
-    hparams.callbacks.append(TorchProfilerHparams(
-        record_shapes=True,
-        profile_memory=True,
-        with_stack=True,
-        with_flops=True,
-        skip=0,
-        warmup=hparams.mosaic_profiler.wait,
-        active=hparams.mosaic_profiler.active,
-        wait=0,
-        repeat=hparams.mosaic_profiler.repeat or 3,
-    ))
+    hparams.callbacks.append(
+        TorchProfilerHparams(
+            record_shapes=True,
+            profile_memory=True,
+            with_stack=True,
+            with_flops=True,
+            skip=0,
+            warmup=hparams.mosaic_profiler.wait,
+            active=hparams.mosaic_profiler.active,
+            wait=0,
+            repeat=hparams.mosaic_profiler.repeat,
+        ))
 
     # Use synthetic data
     hparams.train_dataset.shuffle = False

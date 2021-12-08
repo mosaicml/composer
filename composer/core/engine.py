@@ -101,7 +101,9 @@ class Engine():
             name = f"event/{event.canonical_name}"
             if (event.is_before_event or event.is_after_event):
                 # if not part of an event pair (e.g. init or after dataloader), then don't record an event here
-                duration_marker = self.mosaic_profiler.marker(name, always_record=event in _ALWAYS_RECORD_EVENTS, record_instant_on_start=True)
+                duration_marker = self.mosaic_profiler.marker(name,
+                                                              always_record=event in _ALWAYS_RECORD_EVENTS,
+                                                              record_instant_on_start=True)
 
         if event.is_after_event and duration_marker is not None:
             duration_marker.finish()
