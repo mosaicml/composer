@@ -33,7 +33,7 @@ def test_profiler_get_action(dummy_state: State, skip_first_epoch: bool, repeat:
 
         dummy_state.step = wait + active + wait + 1
 
-        if repeat is None:
+        if repeat == 0:
             assert profiler.get_action() == MosaicProfilerAction.ACTIVE
         else:
             assert profiler.get_action() == MosaicProfilerAction.SKIP
@@ -45,7 +45,7 @@ def test_profiler_get_action(dummy_state: State, skip_first_epoch: bool, repeat:
 
     dummy_state.step = dummy_state.steps_per_epoch + wait + active + wait + 1
 
-    if repeat is None:
+    if repeat == 0:
         assert profiler.get_action() == MosaicProfilerAction.ACTIVE
     else:
         assert profiler.get_action() == MosaicProfilerAction.SKIP
