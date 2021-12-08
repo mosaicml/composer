@@ -8,8 +8,7 @@ import os
 import queue
 import threading
 import time
-import uuid
-from typing import IO, List, Optional, Tuple, Union
+from typing import List, Optional, Tuple, Union
 
 import yahp as hp
 
@@ -17,7 +16,7 @@ import composer.callbacks.memory_monitor as memory_monitor
 from composer.core.profiler import ProfilerEventHandler, ProfilerEventHandlerHparams
 from composer.core.state import State
 from composer.core.types import Logger
-from composer.utils.ddp import get_global_rank, get_local_world_size
+from composer.utils import ddp
 from composer.utils.run_directory import get_relative_to_run_directory
 
 
@@ -52,24 +51,21 @@ class JSONTraceHandler(ProfilerEventHandler):
                  buffering: int = -1,
                  output_directory: str = "mosaic_profiler",
                  memory_monitor_interval_seconds: float = 0.5) -> None:
-        self._file: Optional[IO] = None
         self._buffering = buffering
         self._flush_every_n_batches = flush_every_n_batches
         self._output_directory = output_directory
         self._memory_monitor_interval_seconds = memory_monitor_interval_seconds
         self._buffer = queue.SimpleQueue()
-        self._is_first_line = True
         self._state = None
+        self._metadata = {
+            "displayTimeUnit": "ns",
+            "global_rank": ddp.get_global_rank(),
+        }
 
     def init(self, state: State, logger: Logger) -> None:
         del logger  # unused
         self._state = state
         os.makedirs(get_relative_to_run_directory(self._output_directory), exist_ok=True)
-        self._file = open(get_relative_to_run_directory(
-            os.path.join(self._output_directory, f"rank_{get_global_rank()}.trace.json")),
-                          "x",
-                          buffering=self._buffering)
-        self._file.write("[\n")
         wall_clock_ns = time.time_ns()
         perf_counter_ns = time.perf_counter_ns()
         self._record_event(
@@ -80,7 +76,7 @@ class JSONTraceHandler(ProfilerEventHandler):
             perf_counter_ns=perf_counter_ns,
             tid=threading.get_ident(),
             pid=os.getpid(),
-            args={"name": f"Rank {get_global_rank()} main process"})
+            args={"name": f"Rank {ddp.get_global_rank()} training loop process"})
         self._record_event(
             name="thread_name",
             categories="thread_name",
@@ -90,25 +86,18 @@ class JSONTraceHandler(ProfilerEventHandler):
             tid=threading.get_ident(),
             pid=os.getpid(),
             args={"name": f"Training Loop"})
-        threading.Thread(target=self._memory_monitor_thread, daemon=True).start()
 
-    def training_start(self, state: State, logger: Logger) -> None:
-        sync_id = str(uuid.uuid4())
-        wall_clock_time_ns = time.time_ns()
-        new_wall_clock_time = time.time_ns()
-        new_perf_counter_time = time.perf_counter_ns()
-        self._record_event(
-            name="clock_sync",
-            ph="c",  # clock sync event
-            wall_clock_ns=new_wall_clock_time,
-            perf_counter_ns=new_perf_counter_time,
-            tid=threading.get_ident(),
-            pid=os.getpid(),
-            args={
-                "sync_id": sync_id,
-                "issue_ts": wall_clock_time_ns / 1000,  # in microseconds
-            },
-        )
+        # Clock sync
+        clock_sync_a = time.time_ns()
+        ddp.barrier()  # syncronize all ranks
+        clock_sync_time_ns = time.time_ns()
+        ddp.barrier()  # another barrier to bound the error
+        clock_sync_b = time.time_ns()
+        clock_sync_error_bound = clock_sync_b - clock_sync_a
+        self._metadata["clock_sync_timestamp_ns"] = clock_sync_time_ns
+        self._metadata["clock_sync_error_ns"] = clock_sync_error_bound
+
+        threading.Thread(target=self._memory_monitor_thread, daemon=True).start()
 
     def batch_end(self, state: State, logger: Logger) -> None:
         del logger  # unused
@@ -152,27 +141,25 @@ class JSONTraceHandler(ProfilerEventHandler):
                            })
 
     def close(self):
-        if self._file is not None:
-            assert self._state is not None
-            # self._dump_torch_profiler_events(self._state)
-            self._flush()
-            self._file.write("\n]")
-            self._file.flush()
-            self._file.close()
-            self._file = None
+        self._flush()
 
     def _flush(self):
-        assert self._file is not None, "flush is only called when the file is open"
+        events = []
         while True:
             try:
-                event = self._buffer.get_nowait()
+                events.append(self._buffer.get_nowait())
             except queue.Empty:
                 break
-            entry = json.dumps(event, indent=None)
-            if not self._is_first_line:
-                self._file.write(",\n")
-            self._is_first_line = False
-            self._file.write(entry)
+        with open(get_relative_to_run_directory(
+                os.path.join(self._output_directory, f"rank_{ddp.get_global_rank()}.{time.time_ns()}.trace.json")),
+                  "x",
+                  buffering=self._buffering) as f:
+            data = {
+                "traceEvents": events,
+                **self._metadata,
+            }
+
+            json.dump(data, f)
 
     def process_duration_event(
         self,
@@ -264,12 +251,14 @@ class JSONTraceHandler(ProfilerEventHandler):
             pid (int): :meth:`os.get_pid` value for the event
             kwargs: Any extra info to record with the event, such as event specific fields.
         """
-        kwargs["global_rank"] = get_global_rank()
-        kwargs["node_id"] = get_global_rank() // get_local_world_size()
+        if "args" not in kwargs:
+            kwargs["args"] = {}
+        kwargs["args"]["global_rank"] = ddp.get_global_rank()
+        kwargs["args"]["node_id"] = ddp.get_global_rank() // ddp.get_local_world_size()
         data = {
             "name": name,
             "cat": categories,
-            "ph": ph,  # counter event
+            "ph": ph,
             "ts": wall_clock_ns // 1000,  # tracing clock timestamp, in microseconds
             "tts": perf_counter_ns // 1000,  # thread clock timestamp, in microseconds
             "pid": pid,

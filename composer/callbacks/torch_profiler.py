@@ -59,11 +59,14 @@ class TorchProfiler(Callback):
         skip (int, optional): Number of batches to skip at epoch start.
             Defaults to 0.
         warmup (int, optional): Number of warmup batches in a cycle.
-            Defaults to 1.
+            Defaults to 5.
         active (int, optional): Number of batches to profile in a cycle.
             Defaults to 5.
         wait (int, optional): Number of batches to skip at the end of each cycle.
             Defaults to 0.
+        repeat (int, optional): Number of times to repeat the wait / warmup / active cycle.
+            Set to 0 to continuously repeat.
+            Defaults to 1.
     """
 
     def __init__(
@@ -76,10 +79,10 @@ class TorchProfiler(Callback):
         with_stack: bool = False,
         with_flops: bool = True,
         skip: int = 0,
-        warmup: int = 1,
+        warmup: int = 5,
         active: int = 5,
         wait: int = 0,
-        repeat: int = 0,
+        repeat: int = 1,
     ) -> None:
         super().__init__()
         self.hparams = TorchProfilerHparams(

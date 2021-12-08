@@ -162,7 +162,7 @@ class Trainer:
             profile_skip_first_epoch: bool = False,
             profile_wait: int = 5,
             profile_active: int = 5,
-            profile_repeat: int = 3,
+            profile_repeat: int = 1,
 
             # Subset parameters
             train_subset_num_batches: Optional[int] = None,

@@ -168,7 +168,7 @@ class MosaicProfiler:
         skip_first_epoch (bool, optional): Whether to skip profiling the first epoch. (Default: ``False``)
         wait (int, optional): For each profiling cycle, number of batches to skip at the beginning of the cycle. (Default: ``5``)
         active (int, optional): For each profiling cycle, number of batches to record after skipping the ``wait`` batches. (Default: ``5``)
-        repeat (int, optional): Number of profiling cycles to perform per epoch. Set to ``0`` to record the entire epoch. (Default: ``3``)
+        repeat (int, optional): Number of profiling cycles to perform per epoch. Set to ``0`` to record the entire epoch. (Default: ``1``)
     """
 
     def __init__(
@@ -178,11 +178,7 @@ class MosaicProfiler:
         skip_first_epoch: bool = False,
         wait: int = 5,
         active: int = 5,
-        repeat: int = 3,
-        record_shapes: bool = False,
-        profile_memory: bool = True,
-        with_stack: bool = False,
-        with_flops: bool = True,
+        repeat: int = 1,
     ) -> None:
         self._names_to_markers: Dict[str, Marker] = {}
         self._event_handlers = event_handlers
@@ -194,10 +190,6 @@ class MosaicProfiler:
         self._repeat = repeat
         self._skip_first_epoch = skip_first_epoch
         self._action = MosaicProfilerAction.SKIP
-        self._record_shapes = record_shapes
-        self._profile_memory = profile_memory
-        self._with_stack = with_stack
-        self._with_flops = with_flops
 
     def get_action(self):
         """Get the current :class:`MosaicProfilerAction` for the profiler, based upon
