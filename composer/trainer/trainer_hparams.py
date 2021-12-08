@@ -78,6 +78,7 @@ dataset_registry = {
     "cola": datasets.CoLAHparams,
     "qnli": datasets.QNLIHparams,
     "rte": datasets.RTEHparams,
+    "mnli-m": datasets.MNLImHparams,
     "sst-2": datasets.SST2Hparams,
 }
 

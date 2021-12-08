@@ -1,0 +1,73 @@
+train_dataset:
+  mnli-m:
+    tokenizer_name: bert-base-uncased
+    split: train
+    max_seq_length: 256 
+    shuffle: false
+    drop_last: false 
+val_dataset:
+  mnli-m:
+    tokenizer_name: bert-base-uncased
+    split: validation_matched
+    max_seq_length: 256 
+    shuffle: false
+    drop_last: false 
+model:
+  bert:
+    task: sequence_classification
+    use_pretrained: true 
+    tokenizer_name: bert-base-uncased
+    pretrained_model_name: bert-base-uncased
+optimizer:
+  adamw:
+    lr: 1.0e-5
+    betas:
+      - 0.9
+      - 0.98
+    eps: 1.0e-06
+    weight_decay: 0.1
+schedulers:
+  - warmup:
+      warmup_method: linear
+      warmup_ratio: 0.06
+      warmup_iters: None
+      warmup_factor: 0
+      interval: step
+  - cosine_decay:
+      T_max: 5ep 
+      interval: step
+      eta_min: 0
+      verbose: false
+loggers:
+  - file:
+      log_level: batch
+      filename: stdout
+      buffer_size: 1
+      flush_every_n_batches: 100
+      every_n_batches: 100
+      every_n_epochs: 1
+  - wandb:
+      project: bert
+      name: mnli 
+      extra_init_params: {}
+  - tqdm: {}
+max_epochs: 5
+total_batch_size: 16
+eval_batch_size: 16
+seed: 19
+device:
+  gpu:
+    prefetch_in_cuda_stream: false
+dataloader:
+  pin_memory: true
+  persistent_workers: true
+  num_workers: 8
+  timeout: 0
+  prefetch_factor: 2
+grad_accum: 1
+precision: amp
+grad_clip_norm: None
+validate_every_n_batches: 1000
+validate_every_n_epochs: 1
+callbacks:
+  - lr_monitor: {}
