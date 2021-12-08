@@ -117,7 +117,7 @@ class State(Serializable):
     # but the getter will always return a Precision enum
     precision: Union[str, types.Precision]  # type: ignore
     _precision: types.Precision = field(init=False)  # but store an enum internally
-    _steps_per_epoch: Optional[int] = field(init=False)
+    _steps_per_epoch: Optional[int] = field(init=False, default=None)
     precision_context: Callable[[Union[str, Precision]], ContextManager] = \
         field(default_factory=default_precision_factory)
 
