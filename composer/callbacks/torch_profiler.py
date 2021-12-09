@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import warnings
 from dataclasses import asdict, dataclass
 from typing import Optional
@@ -12,7 +13,7 @@ from torch.profiler.profiler import ProfilerAction
 from composer.callbacks.callback_hparams import TorchProfilerHparams
 from composer.core import Callback, Logger, State
 from composer.core.types import StateDict
-from composer.utils.ddp import get_global_rank
+from composer.utils import ddp
 from composer.utils.run_directory import get_relative_to_run_directory
 
 _PROFILE_MISSING_ERROR = "The profiler has not been setup. Please call profiler.init() before training starts."
@@ -144,7 +145,7 @@ class TorchProfiler(Callback):
             schedule=self.scheduler_fn,
             on_trace_ready=torch.profiler.tensorboard_trace_handler(
                 self.hparams.tensorboard_trace_handler_dir,
-                worker_name=str(get_global_rank()),
+                worker_name=str(ddp.get_global_rank()),
                 use_gzip=self.hparams.tensorboard_use_gzip,
             ),
             activities=None,  # auto-set
@@ -154,6 +155,7 @@ class TorchProfiler(Callback):
             with_flops=self.hparams.with_flops,
         )
         self.profiler.__enter__()
+        self.profiler.add_metadata_json("global_rank", json.dumps(ddp.get_global_rank()))
 
     def batch_end(self, state: State, logger: Logger) -> None:
         del state, logger  # unused

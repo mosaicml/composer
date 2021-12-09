@@ -61,8 +61,11 @@ _MEMORY_STATS = {
 
 
 def get_memory_report() -> Dict[str, Union[int, float]]:
+    if not torch.cuda.is_available():
+        log.debug("Cuda is not available. The memory report will be empty.")
+        return {}
     device_stats = torch.cuda.memory_stats()
     memory_report = {}
     for torch_stat_name, stat_alias in _MEMORY_STATS.items():
-        memory_report[stat_alias] = device_stats.get(torch_stat_name, 0)
+        memory_report[stat_alias] = device_stats[torch_stat_name]
     return memory_report

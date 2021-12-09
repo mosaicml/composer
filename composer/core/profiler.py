@@ -247,8 +247,8 @@ class MosaicProfiler:
         self._names_to_markers[name].categories = categories
         return self._names_to_markers[name]
 
-    def record_duration_event(self, marker: Marker, is_start: bool, wall_clock_time_ns: int,
-                              process_id: int, thread_id: int):
+    def record_duration_event(self, marker: Marker, is_start: bool, wall_clock_time_ns: int, process_id: int,
+                              thread_id: int):
         """Record a duration event.
 
         .. note::
@@ -275,8 +275,7 @@ class MosaicProfiler:
                 thread_id=thread_id,
             )
 
-    def record_instant_event(self, marker: Marker, wall_clock_time_ns: int, process_id: int,
-                             thread_id: int):
+    def record_instant_event(self, marker: Marker, wall_clock_time_ns: int, process_id: int, thread_id: int):
         """Record an instant event.
 
         .. note::
