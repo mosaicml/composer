@@ -314,7 +314,6 @@ class MosaicProfiler:
         """
 
         from composer.profiler.json_trace import JSONTraceHandler as JSONTraceHandler
-
         if ddp.get_global_rank() != 0:
             return
 
@@ -322,13 +321,13 @@ class MosaicProfiler:
             if isinstance(event_handler, JSONTraceHandler):
                 rank_0_metadata_filename = f"rank_0.metadata.trace.json"
                 rank_0_metadata_file = get_relative_to_run_directory(
-                    os.path.join(event_handler._output_directory, rank_0_metadata_filename))
+                    os.path.join(event_handler.output_directory, rank_0_metadata_filename))
                 with open(rank_0_metadata_file, "r") as f:
                     trace_metadata = json.load(f)
                 rank_0_clock_sync = trace_metadata["clock_sync_timestamp_us"]
 
                 merged_trace_file = open(
-                    get_relative_to_run_directory(os.path.join(event_handler._output_directory, f"merged_trace.json")),
+                    get_relative_to_run_directory(os.path.join(event_handler.output_directory, f"merged_trace.json")),
                     "x")
                 merged_trace_file.write("[\n")
 
@@ -336,7 +335,7 @@ class MosaicProfiler:
                 for ddp_rank in range(0, ddp.get_world_size()):
                     metadata_filename = f"rank_{ddp_rank}.metadata.trace.json"
                     metadata_file = get_relative_to_run_directory(
-                        os.path.join(event_handler._output_directory, metadata_filename))
+                        os.path.join(event_handler.output_directory, metadata_filename))
                     with open(metadata_file, "r") as f:
                         trace_metadata = json.load(f)
                     clock_sync = trace_metadata["clock_sync_timestamp_us"]
@@ -344,7 +343,7 @@ class MosaicProfiler:
 
                     trace_filename = f"rank_{ddp_rank}.trace.json"
                     trace_file = get_relative_to_run_directory(
-                        os.path.join(event_handler._output_directory, trace_filename))
+                        os.path.join(event_handler.output_directory, trace_filename))
                     with open(trace_file, "r") as f:
                         trace_data = json.load(f)
 

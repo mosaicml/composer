@@ -8,7 +8,7 @@ import os
 import queue
 import threading
 import time
-from typing import IO, List, Optional, Tuple, Union
+from typing import IO, Dict, List, Optional, Tuple, Union, cast
 
 import yahp as hp
 
@@ -27,7 +27,11 @@ class JSONTraceHandlerHparams(ProfilerEventHandlerHparams):
     buffering: int = hp.optional("Buffering parameter passed to :meth:`open` when opening the logfile.", default=-1)
     output_directory: str = hp.optional("Directory, relative to the run directory, to store traces.",
                                         default="mosaic_profiler")
-    memory_monitor_interval_seconds: float = hp.optional("Interval to record CUDA memory, in seconds.", default=0.5)
+    profile_cpu: bool = hp.optional("Whether to record cpu statistics", default=True)
+    profile_memory: bool = hp.optional("Whether to record memory statistics", default=False)
+    profile_disk: bool = hp.optional("Whether to record disk statistics", default=False)
+    profile_net: bool = hp.optional("Whether to record network statistics", default=False)
+    stats_thread_interval_seconds: float = hp.optional("Interval to record stats, in seconds.", default=0.5)
 
     def initialize_object(self) -> JSONTraceHandler:
         return JSONTraceHandler(**dataclasses.asdict(self))
@@ -38,40 +42,58 @@ class JSONTraceHandler(ProfilerEventHandler):
 
     Args:
         flush_every_n_batches (int): Interval at which to flush the logfile. (Default: ``100`` batches)
-        output_directory (str): Directory, relative to the run directory, to store traces.
-            Each trace will ``rank_XXX.trace.json`` within this directory, where ``XXX`` is the global rank.
-            (Default: ``mosaic_profiler`` within the run directory)
         buffering (int, optional): Buffering parameter passed to :meth:`open` when opening the logfile.
             (Default: ``-1`` for the system default)
-        memory_monitor_interval_seconds (float): Interval to record CUDA memory, in seconds. (Default: every ``0.5`` seconds)
+        output_directory (str): Directory, relative to the run directory, to store traces.
+            Each trace will be called ``rank_XXX.trace.json`` within this directory, and have an associated metadata file
+            called ``rank_XXX.metadata.trace.json``, where ``XXX`` is the global rank.
+            (Default: ``mosaic_profiler`` within the run directory)
+        profile_cpu (bool): Whether to record cpu statistics (Default: ``True``)
+        profile_memory (bool): Whether to record memory statistics (Default: ``False``)
+        profile_disk (bool): Whether to record disk I/O statistics (Default: ``False``)
+        profile_net (bool): Whether to record network I/O statistics (Default: ``False``)
+        stats_thread_interval_seconds (float): Interval to record system-level stats, in seconds. (Default: every ``0.5`` seconds)
     """
 
     def __init__(self,
                  flush_every_n_batches: int = 100,
                  buffering: int = -1,
                  output_directory: str = "mosaic_profiler",
-                 memory_monitor_interval_seconds: float = 0.5) -> None:
+                 profile_cpu: bool = True,
+                 profile_memory: bool = False,
+                 profile_disk: bool = False,
+                 profile_net: bool = False,
+                 stats_thread_interval_seconds: float = 0.5) -> None:
+        self.buffering = buffering
+        self.profile_disk = profile_disk
+        self.profile_memory = profile_memory
+        self.profile_net = profile_net
+        self.profile_cpu = profile_cpu
+        self.flush_every_n_batches = flush_every_n_batches
+        self.output_directory = output_directory
+        self.stats_thread_interval_seconds = stats_thread_interval_seconds
         self._file: Optional[IO] = None
-        self._buffering = buffering
-        self._flush_every_n_batches = flush_every_n_batches
-        self._output_directory = output_directory
-        self._memory_monitor_interval_seconds = memory_monitor_interval_seconds
         self._is_first_line = True
         self._buffer = queue.SimpleQueue()
         self._ddp_rank = ddp.get_global_rank()
+        try:
+            # Attempt an import of psutil in init to ensure it is installed
+            import psutil
+            del psutil
+        except ImportError as e:
+            raise ImportError("Please install composer with pip install composer[perf] to use the profiler") from e
 
     def init(self, state: State, logger: Logger) -> None:
         del state, logger  # unused
-        os.makedirs(get_relative_to_run_directory(self._output_directory), exist_ok=True)
+        os.makedirs(get_relative_to_run_directory(self.output_directory), exist_ok=True)
         self._file = open(get_relative_to_run_directory(
-            os.path.join(self._output_directory, f"rank_{ddp.get_global_rank()}.trace.json")),
+            os.path.join(self.output_directory, f"rank_{ddp.get_global_rank()}.trace.json")),
                           "x",
-                          buffering=self._buffering)
+                          buffering=self.buffering)
         self._file.write("[\n")
         wall_clock_ns = time.time_ns()
         self._record_event(
             name="process_name",
-            categories="process_name",
             ph="M",  # metadata
             wall_clock_ns=wall_clock_ns,
             tid=threading.get_ident(),
@@ -79,13 +101,18 @@ class JSONTraceHandler(ProfilerEventHandler):
             args={"name": f"Rank {ddp.get_global_rank()} training loop process"})
         self._record_event(
             name="thread_name",
-            categories="thread_name",
             ph="M",  # metadata
             wall_clock_ns=wall_clock_ns,
             tid=threading.get_ident(),
             pid=os.getpid(),
             args={"name": f"Training Loop"})
-
+        self._record_event(
+            name="global_rank",
+            ph="M",  # metadata
+            wall_clock_ns=wall_clock_ns,
+            tid=threading.get_ident(),
+            pid=os.getpid(),
+            args={"value": ddp.get_global_rank()})
         # Syncronize the clocks
         # Each rank will record a timestamp at approxmately the same real world time
         clock_sync_a = time.time_ns()
@@ -97,7 +124,7 @@ class JSONTraceHandler(ProfilerEventHandler):
 
         # Write the static metadata to a trace file in object format
         metadata_filename = f"rank_{ddp.get_global_rank()}.metadata.trace.json"
-        metadata_file = get_relative_to_run_directory(os.path.join(self._output_directory, metadata_filename))
+        metadata_file = get_relative_to_run_directory(os.path.join(self.output_directory, metadata_filename))
         with open(metadata_file, "x") as f:
             json.dump(
                 {
@@ -108,17 +135,13 @@ class JSONTraceHandler(ProfilerEventHandler):
                     "traceEvents": [],
                 }, f)
 
-        # Start the memory monitor thread
-        threading.Thread(target=self._memory_monitor_thread, daemon=True).start()
+        # Start the stats thread
+        threading.Thread(target=self._stats_thread, daemon=True).start()
 
     def batch_end(self, state: State, logger: Logger) -> None:
         del logger  # unused
-        if (state.batch_idx + 1) % self._flush_every_n_batches == 0:
+        if (state.batch_idx + 1) % self.flush_every_n_batches == 0:
             self._flush()
-
-    def batch_start(self, state: State, logger: Logger) -> None:
-        del logger  # unused
-        self._record_step(state)
 
     def training_end(self, state: State, logger: Logger) -> None:
         del state, logger  # unused
@@ -127,27 +150,6 @@ class JSONTraceHandler(ProfilerEventHandler):
     def epoch_end(self, state: State, logger: Logger) -> None:
         del state, logger  # unused
         self._flush()
-
-    def _record_step(self, state: State) -> None:
-        wall_clock_time_ns = time.time_ns()
-        self._record_event(name="step",
-                           categories="time",
-                           ph='C',
-                           wall_clock_ns=wall_clock_time_ns,
-                           tid=threading.get_ident(),
-                           pid=os.getpid(),
-                           args={
-                               "step": state.step,
-                           })
-        self._record_event(name="epoch",
-                           categories="time",
-                           ph='C',
-                           wall_clock_ns=wall_clock_time_ns,
-                           tid=threading.get_ident(),
-                           pid=os.getpid(),
-                           args={
-                               "epoch": state.epoch,
-                           })
 
     def close(self):
         if self._file is not None:
@@ -247,10 +249,6 @@ class JSONTraceHandler(ProfilerEventHandler):
             pid (int): :meth:`os.get_pid` value for the event
             kwargs: Any extra info to record with the event, such as event specific fields.
         """
-        if "args" not in kwargs:
-            kwargs["args"] = {}
-        kwargs["args"]["global_rank"] = ddp.get_global_rank()
-        kwargs["args"]["node_id"] = ddp.get_global_rank() // ddp.get_local_world_size()
         data = {
             "name": name,
             "cat": categories,
@@ -262,17 +260,89 @@ class JSONTraceHandler(ProfilerEventHandler):
         }
         self._buffer.put_nowait(data)
 
-    def _memory_monitor_thread(self):
+    def _stats_thread(self):
+        import psutil  # already checked that it's installed in init
+        psutil.disk_io_counters.cache_clear()
+        psutil.net_io_counters.cache_clear()
+        if self.profile_cpu:
+            psutil.cpu_percent()  # spin it once to clear the default 0.0 value on the first call
         while True:
             wall_clock_time_ns = time.time_ns()
-            memory_stats = memory_monitor.get_memory_report()
-            for name, val in memory_stats.items():
+            cuda_memory_stats = memory_monitor.get_memory_report()
+            disk_io_counters = cast(Dict[str, psutil._common.sdiskio], psutil.disk_io_counters(perdisk=True))
+            net_io_counters = cast(Dict[str, psutil._common.snetio], psutil.net_io_counters(pernic=True))
+            cpu_percent = psutil.cpu_percent()
+            if self.profile_cpu:
                 self._record_event(
-                    name=f"memory/{name}",
-                    categories="gpu",
+                    name=f"cpu",
+                    categories="cpu",
                     ph='C',  # counter event
                     wall_clock_ns=wall_clock_time_ns,
                     pid=os.getpid(),
                     tid=threading.get_ident(),
-                    args={name: val})
-            time.sleep(self._memory_monitor_interval_seconds)
+                    args={"cpu_percent": cpu_percent})
+            if self.profile_memory:
+                for name, val in cuda_memory_stats.items():
+                    self._record_event(
+                        name=f"cuda_memory/{name}",
+                        categories="memory",
+                        ph='C',  # counter event
+                        wall_clock_ns=wall_clock_time_ns,
+                        pid=os.getpid(),
+                        tid=threading.get_ident(),
+                        args={name: val})
+                swap_memory = psutil.swap_memory()
+                self._record_event(
+                    name=f"memory/swap",
+                    categories="memory",
+                    ph='C',  # counter event
+                    wall_clock_ns=wall_clock_time_ns,
+                    pid=os.getpid(),
+                    tid=threading.get_ident(),
+                    args={
+                        "used_gb": swap_memory.used / 2**9,
+                        "free_gb": swap_memory.free / 2**9
+                    })
+                virtual_memory = psutil.virtual_memory()
+                self._record_event(
+                    name=f"memory/virtual",
+                    categories="memory",
+                    ph='C',  # counter event
+                    wall_clock_ns=wall_clock_time_ns,
+                    pid=os.getpid(),
+                    tid=threading.get_ident(),
+                    args={
+                        "used_gb": virtual_memory.used / 2**9,
+                        "available_gb": virtual_memory.available / 2**9
+                    })
+            if self.profile_disk:
+                for disk_name, disk_stats in disk_io_counters.items():
+                    for field_name in ("read_count", "write_count", "read_bytes", "write_bytes", "read_time",
+                                       "write_time", "busy_time"):
+                        self._record_event(
+                            name=f"disk/{disk_name}/{field_name}",
+                            categories=f"disk,disk/{disk_name},disk/{field_name}",
+                            ph='C',  # counter event
+                            wall_clock_ns=wall_clock_time_ns,
+                            pid=os.getpid(),
+                            tid=threading.get_ident(),
+                            args={"field_name": getattr(disk_stats, field_name)})
+            if self.profile_net:
+                for nic, nic_stats in net_io_counters.items():
+                    self._record_event(
+                        name=f"network/{nic}/kb_sent",
+                        categories=f"network,network/{nic},network/kb_sent",
+                        ph='C',  # counter event
+                        wall_clock_ns=wall_clock_time_ns,
+                        pid=os.getpid(),
+                        tid=threading.get_ident(),
+                        args={"kb_sent": nic_stats.bytes_sent / 2**3})
+                    self._record_event(
+                        name=f"network/{nic}/kb_recv",
+                        categories=f"network,network/{nic},network/kb_recv",
+                        ph='C',  # counter event
+                        wall_clock_ns=wall_clock_time_ns,
+                        pid=os.getpid(),
+                        tid=threading.get_ident(),
+                        args={"kb_recv": nic_stats.bytes_recv / 2**3})
+            time.sleep(self.stats_thread_interval_seconds)
