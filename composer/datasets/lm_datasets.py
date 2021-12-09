@@ -1,5 +1,3 @@
-# Copyright 2021 MosaicML. All Rights Reserved.
-
 import logging
 import tempfile
 from dataclasses import dataclass
@@ -28,22 +26,49 @@ def _split_dict_fn(batch: Batch, n_microbatches: int) -> List[Batch]:
 @dataclass
 class LMDatasetHparams(DatasetHparams):
     """
-    Defines a generic dataset class for autoregressive language models.
+    Defines a generic dataset class for autoregressive and masked language models.
     """
 
     # TODO(moin): Switch datadir to be a string, rather than a list of strings, to be similar to the
     # other datasets
     datadir: List[str] = hp.optional(  # type: ignore
         "Path to the Huggingface Datasets directory.", default_factory=list)
+
     split: Optional[str] = hp.optional("Whether to use 'train', 'validation' or 'test' split.", default=None)
+    # TODO (Moin): add validation logic around datadir and tokenizer_name
     tokenizer_name: Optional[str] = hp.optional("The name of the tokenizer to preprocess text with.", default=None)
+    use_masked_lm: Optional[bool] = hp.optional(
+        "Whether the dataset shoud be encoded with masked language modeling or not.", default=None)
     num_tokens: int = hp.optional(doc='If desired, the number of tokens to truncate the dataset to.', default=0)
+    mlm_probability: float = hp.optional("If using masked language modeling, the probability to mask tokens with.",
+                                         default=0.15)
     seed: int = hp.optional("Which seed to use to generate train and validation splits.", default=5)
     subsample_ratio: float = hp.optional(default=1.0, doc='If desired, the percentage of the dataset to use.')
     train_sequence_length: int = hp.optional(
         default=1024, doc='Optionally, the ability to set a custom sequence length for the training dataset.')
     val_sequence_length: int = hp.optional(
         default=1024, doc='Optionally, the ability to set a custom sequence length for the validation dataset.')
+
+    def validate(self):
+        if self.datadir is None:
+            raise ValueError("A data directory must be specified.")
+
+        if self.split not in ['train', 'validation', 'test']:
+            raise ValueError("The dataset split must be one of 'train', 'validation', or 'test'.")
+
+        if self.tokenizer_name is None:
+            raise ValueError("A tokenizer name must be specified to tokenize the dataset.")
+
+        if self.use_masked_lm:
+            if self.mlm_probability <= 0.0:
+                raise ValueError(
+                    "If using Masked Language Modeling, you must replace tokens with a non-zero probability.")
+
+        if self.num_tokens > 0 and self.subsample_ratio < 1.0:
+            raise Exception("Must specify one of num_tokens OR subsample_ratio, cannot specify both.")
+
+        if (self.train_sequence_length % 8 != 0) or (self.val_sequence_length % 8 != 0):
+            log.warning("For best hardware acceleration, it is recommended that sequence lengths be multiples of 8.")
 
     def initialize_object(self, batch_size: int, dataloader_hparams: DataloaderHparams) -> DataloaderSpec:
         try:
@@ -56,7 +81,8 @@ class LMDatasetHparams(DatasetHparams):
         self.config = transformers.AutoConfig.from_pretrained(self.tokenizer_name)  #type: ignore (thirdparty)
         lm_datasets = [datasets.load_from_disk(i) for i in self.datadir]  #type: ignore (thirdparty)
 
-        # TODO: this re-loads a large dataset into memory three times
+        # TODO (Moin): this re-loads a large dataset into memory three times -- can the REng team permit
+        # returning a dataloader for a particular split?
         if self.split not in ['train', 'validation', 'test']:
             raise ValueError("The dataset split must be one of 'train', 'validation', or 'test'.")
 
@@ -91,6 +117,9 @@ class LMDatasetHparams(DatasetHparams):
         elif self.subsample_ratio < 1.0:
             num_samples = round(total_num_samples * self.subsample_ratio)
             self.num_tokens = num_samples * tokens_per_sample
+        # TODO (Moin): think through these edge cases a little more
+        elif self.subsample_ratio == 1.0 and self.num_tokens == 0:
+            self.num_tokens = total_num_tokens
         else:
             log.warning("No subsampling going on!")
 
@@ -100,9 +129,11 @@ class LMDatasetHparams(DatasetHparams):
         log.info(f"Total number of samples: {num_samples:e}")
         log.info(f"Total number of tokens: {self.num_tokens:e}")
         dataset = lm_datasets
-        data_collator = transformers.default_data_collator
 
         sampler = ddp.get_sampler(dataset, drop_last=self.drop_last, shuffle=self.shuffle)
+        data_collator = transformers.DataCollatorForLanguageModeling(tokenizer=self.tokenizer,
+                                                                     mlm=self.use_masked_lm,
+                                                                     mlm_probability=self.mlm_probability)
 
         return DataloaderSpec(dataloader=dataloader_hparams.initialize_object(
             dataset=dataset,

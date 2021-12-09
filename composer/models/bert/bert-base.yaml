@@ -1,0 +1,83 @@
+train_dataset:
+  lm:
+    split: train
+    datadir:
+      - /localdisk/wikipedia_saved
+      - /localdisk/bookscorpus_saved
+    tokenizer_name: bert-base-uncased
+    seed: 19
+    shuffle: false
+    drop_last: false 
+    subsample_ratio: 1.0
+    use_masked_lm: true
+    mlm_probability: 0.15
+    train_sequence_length: 512
+    val_sequence_length: 512
+val_dataset:
+  lm:
+    split: validation
+    datadir:
+      - /localdisk/wikipedia_saved
+      - /localdisk/bookscorpus_saved
+    tokenizer_name: bert-base-uncased
+    seed: 19
+    shuffle: false
+    drop_last: false 
+    subsample_ratio: 1.0
+    use_masked_lm: true
+    mlm_probability: 0.15
+    train_sequence_length: 512
+    val_sequence_length: 512
+model:
+  bert:
+    use_pretrained: false
+    tokenizer_name: bert-base-uncased
+    pretrained_model_name: bert-base-uncased
+optimizer:
+  adamw:
+    lr: 1.0e-3
+    betas:
+      - 0.9
+      - 0.98
+    eps: 1.0e-06
+    weight_decay: 1.0e-2 
+schedulers:
+  - warmup:
+      warmup_method: linear
+      warmup_factor: 0
+      interval: step
+      warmup_iters: 1ep
+  - cosine_decay:
+      T_max: 3ep
+      interval: step
+      eta_min: 0
+      verbose: false
+loggers:
+  - file:
+      log_level: batch
+      filename: stdout
+      buffer_size: 1
+      flush_every_n_batches: 100
+      every_n_batches: 100
+      every_n_epochs: 1
+  - wandb:
+      project: bert
+      name: bert-base
+      extra_init_params: {}
+max_epochs: 4
+total_batch_size: 176 
+eval_batch_size: 176 
+seed: 19
+device:
+  gpu:
+    n_gpus: 8
+    prefetch_in_cuda_stream: false
+dataloader:
+  pin_memory: true
+  persistent_workers: true
+  num_workers: 8
+  timeout: 0
+  prefetch_factor: 2
+grad_accum: 1
+precision: amp
+grad_clip_norm: None
