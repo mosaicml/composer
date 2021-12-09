@@ -22,7 +22,7 @@ from composer.datasets import DataloaderHparams
 from composer.loggers import (BaseLoggerBackendHparams, FileLoggerBackendHparams, TQDMLoggerBackendHparams,
                               WandBLoggerBackendHparams)
 from composer.models import (CIFARResNetHparams, EfficientNetB0Hparams, GPT2Hparams, MnistClassifierHparams,
-                             ModelHparams, ResNet18Hparams, ResNet50Hparams, ResNet101Hparams, UnetHparams)
+                             ModelHparams, ResNet18Hparams, ResNet50Hparams, ResNet101Hparams, UnetHparams, ViTSmallPatch16Hparams)
 from composer.optim import (AdamHparams, AdamWHparams, DecoupledAdamWHparams, DecoupledSGDWHparams, OptimizerHparams,
                             RAdamHparams, RMSPropHparams, SchedulerHparams, SGDHparams, scheduler)
 from composer.trainer.deepspeed import DeepSpeedHparams
@@ -61,6 +61,7 @@ model_registry = {
     "resnet18": ResNet18Hparams,
     "mnist_classifier": MnistClassifierHparams,
     "gpt2": GPT2Hparams,
+    "vit_small_patch16": ViTSmallPatch16Hparams
 }
 
 dataset_registry = {
