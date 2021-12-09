@@ -9,7 +9,7 @@ from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple
 import torch
 import yahp as hp
 from torch.optim.lr_scheduler import (CosineAnnealingLR, CosineAnnealingWarmRestarts, ExponentialLR, MultiStepLR,
-                                      StepLR, _LRScheduler)
+                                      LinearLR, StepLR, _LRScheduler)
 
 from composer.core.types import Optimizer, Scheduler
 from composer.optim.pytorch_future import WarmUpLR
@@ -293,6 +293,20 @@ class CosineAnnealingWarmRestartsHparams(SchedulerHparams):
     def initialize_object(self, optimizer: Optimizer, steps_per_epoch: Optional[int] = None):
         self.convert_time_fields(steps_per_epoch)
         return super().initialize_object(optimizer, steps_per_epoch)
+
+@dataclass
+class LinearLRHparams(SchedulerHparams):
+    """Hyperparameters for the `LinearLRHparams <https://pytorch.org/docs/stable/generated/torch.optim.lr_scheduler.LinearLR.html>`_
+    scheduler.
+    """
+
+    start_factor: float = hp.optional("Number to multiply learning rate at the start.", default=1.0 / 3)
+    end_factor: float = hp.optional("Number to multiply learning rate at the end .", default=1.0)
+    total_iters: Time = hp.optional("Number of linear decay steps. Default: 5 iterations.", default="5ba")
+    verbose: bool = hp.optional('Prints message to stdout', default=False)
+    interval: str = hp.optional(default='epoch', doc=_interval_doc)
+
+    scheduler_object = LinearLR
 
 
 @dataclass
