@@ -35,8 +35,6 @@ schedulers:
       interval: step
 model:
   vit_small_patch16:
-    image_size: 224
-    num_channels: 3
     num_classes: 1000
 loggers:
   - tqdm: {}
