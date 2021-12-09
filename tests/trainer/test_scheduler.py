@@ -10,8 +10,8 @@ from torch.optim.lr_scheduler import ExponentialLR, MultiStepLR, StepLR
 from composer.core.types import ModelParameters
 from composer.optim.pytorch_future import WarmUpLR
 from composer.optim.scheduler import (ComposedScheduler, ConstantLRHparams, CosineAnnealingLRHparams,
-                                      CosineAnnealingWarmRestartsHparams, ExponentialLRHparams, MultiStepLRHparams,
-                                      SchedulerHparams, StepLRHparams, WarmUpLRHparams, LinearLRHparams)
+                                      CosineAnnealingWarmRestartsHparams, ExponentialLRHparams, LinearLRHparams,
+                                      MultiStepLRHparams, SchedulerHparams, StepLRHparams, WarmUpLRHparams)
 from composer.trainer.trainer_hparams import scheduler_registry
 
 # for testing, we provide values for required hparams fields
