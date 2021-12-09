@@ -4,7 +4,7 @@ import math
 from typing import Iterable, List, Optional, Sequence, Tuple
 
 import numpy as np
-from torch.utils.data import Sampler
+from torch.utils.data import DistributedSampler
 
 
 def groupby_ints(targets: Iterable):
@@ -177,7 +177,7 @@ def create_samplers(targets) -> Tuple[np.array, np.array]:
     return np.array(samplers), np.array(classes)
 
 
-class StratifiedBatchSampler(Sampler):
+class StratifiedBatchSampler(DistributedSampler):
 
     def __init__(self,
                  targets: Sequence,
