@@ -29,12 +29,11 @@ optimizer:
 schedulers:
   - warmup:
       warmup_method: linear
-      warmup_ratio: 0.06
-      warmup_iters: None
+      warmup_iters: 0.02dur 
       warmup_factor: 0
       interval: step
   - cosine_decay:
-      T_max: 10ep 
+      T_max: 0.98dur 
       interval: step
       eta_min: 0
       verbose: false
