@@ -1,9 +1,6 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
-from typing import List, Optional
-
 from composer.models.base import MosaicClassifier
-from vit_pytorch import ViT
 
 
 class ViTSmallPatch16(MosaicClassifier):
@@ -17,6 +14,7 @@ class ViTSmallPatch16(MosaicClassifier):
         num_classes (int): The number of classes for the model.
     """
     def __init__(self, image_size: int, channels: int, num_classes: int):
+        from vit_pytorch import ViT
         model = ViT(image_size=image_size,
                     channels=channels,
                     num_classes=num_classes,
