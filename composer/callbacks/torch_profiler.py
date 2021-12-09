@@ -155,11 +155,11 @@ class TorchProfiler(Callback):
             with_flops=self.hparams.with_flops,
         )
         self.profiler.__enter__()
-        self.profiler.add_metadata_json("global_rank", json.dumps(ddp.get_global_rank()))
 
     def batch_end(self, state: State, logger: Logger) -> None:
         del state, logger  # unused
         assert self.profiler is not None, _PROFILE_MISSING_ERROR
+        self.profiler.add_metadata_json("global_rank", json.dumps(ddp.get_global_rank()))
         self.profiler.step()
 
     def epoch_start(self, state: State, logger: Logger) -> None:
