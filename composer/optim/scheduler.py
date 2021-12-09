@@ -9,10 +9,10 @@ from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple
 import torch
 import yahp as hp
 from torch.optim.lr_scheduler import (CosineAnnealingLR, CosineAnnealingWarmRestarts, ExponentialLR, MultiStepLR,
-                                      LinearLR, StepLR, _LRScheduler)
+                                      StepLR, _LRScheduler)
 
 from composer.core.types import Optimizer, Scheduler
-from composer.optim.pytorch_future import WarmUpLR
+from composer.optim.pytorch_future import LinearLR, WarmUpLR
 
 log = logging.getLogger(__name__)
 
@@ -294,6 +294,7 @@ class CosineAnnealingWarmRestartsHparams(SchedulerHparams):
         self.convert_time_fields(steps_per_epoch)
         return super().initialize_object(optimizer, steps_per_epoch)
 
+
 @dataclass
 class LinearLRHparams(SchedulerHparams):
     """Hyperparameters for the `LinearLRHparams <https://pytorch.org/docs/stable/generated/torch.optim.lr_scheduler.LinearLR.html>`_
@@ -437,7 +438,7 @@ class ComposedScheduler(_LRScheduler):
             self.warmup_iters = 0
 
         # these schedulers need to be silent during warmup
-        self.delay_schedulers = [CosineAnnealingLR, CosineAnnealingWarmRestarts, ExponentialLR]
+        self.delay_schedulers = [CosineAnnealingLR, CosineAnnealingWarmRestarts, ExponentialLR, LinearLR]
         self._warmup_counter = 0  # counter to track warmups
 
     def step(self, interval: str = 'epoch'):
