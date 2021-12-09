@@ -123,6 +123,7 @@ class WarmUpLR(_LRScheduler):
     def scale_schedule(self, ssr: float) -> None:
         pass
 
+
 class LinearLR(_LRScheduler):
     """Decays the learning rate of each parameter group by linearly changing small
     multiplicative factor until the number of epoch reaches a pre-defined milestone: total_iters.
@@ -156,8 +157,7 @@ class LinearLR(_LRScheduler):
         >>>     scheduler.step()
     """
 
-    def __init__(self, optimizer, start_factor=1.0 / 3, end_factor=1.0, total_iters=5, last_epoch=-1,
-                 verbose=False):
+    def __init__(self, optimizer, start_factor=1.0 / 3, end_factor=1.0, total_iters=5, last_epoch=-1, verbose=False):
         if start_factor > 1.0 or start_factor < 0:
             raise ValueError('Starting multiplicative factor expected to be between 0 and 1.')
 
@@ -180,11 +180,16 @@ class LinearLR(_LRScheduler):
         if (self.last_epoch > self.total_iters):
             return [group['lr'] for group in self.optimizer.param_groups]
 
-        return [group['lr'] * (1. + (self.end_factor - self.start_factor) /
-                (self.total_iters * self.start_factor + (self.last_epoch - 1) * (self.end_factor - self.start_factor)))
-                for group in self.optimizer.param_groups]
+        return [
+            group['lr'] * (1. + (self.end_factor - self.start_factor) /
+                           (self.total_iters * self.start_factor + (self.last_epoch - 1) *
+                            (self.end_factor - self.start_factor))) for group in self.optimizer.param_groups
+        ]
 
     def _get_closed_form_lr(self):
-        return [base_lr * (self.start_factor +
-                (self.end_factor - self.start_factor) * min(self.total_iters, self.last_epoch) / self.total_iters)
-                for base_lr in self.base_lrs]
+        return [
+            base_lr *
+            (self.start_factor +
+             (self.end_factor - self.start_factor) * min(self.total_iters, self.last_epoch) / self.total_iters)
+            for base_lr in self.base_lrs
+        ]
