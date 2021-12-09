@@ -75,6 +75,7 @@ class JSONTraceHandler(ProfilerEventHandler):
         self._file: Optional[IO] = None
         self._is_first_line = True
         self._buffer = queue.SimpleQueue()
+        self._ddp_rank = ddp.get_global_rank()
         try:
             # Attempt an import of psutil in init to ensure it is installed
             import psutil
