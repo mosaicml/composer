@@ -51,12 +51,11 @@ loggers:
       extra_init_params: {}
   - tqdm: {}
 max_epochs: 10
-total_batch_size: 16 
+train_batch_size: 16 
 eval_batch_size: 16 
 seed: 19
 device:
-  gpu:
-    prefetch_in_cuda_stream: false
+  gpu: {}
 dataloader:
   pin_memory: true
   persistent_workers: true

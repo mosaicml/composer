@@ -7,15 +7,18 @@ import transformers
 import yahp as hp
 from tqdm import tqdm
 
+from composer.datasets.dataloader import DataloaderHparams
 from composer.datasets.hparams import DataloaderSpec, DatasetHparams
 from composer.datasets.lm_datasets import _split_dict_fn
+from composer.utils import ddp
 
 log = logging.getLogger(__name__)
 
+
 @dataclass
 class MNLImHparams(DatasetHparams):
-    tokenizer_name: str = hp.required("The name of the tokenizer to preprocess text with.")
-    split: str = hp.required("Whether to use 'train', 'validation' or 'test' split.")
+    tokenizer_name: str = hp.optional("The name of the tokenizer to preprocess text with.", default=None)
+    split: str = hp.optional("Whether to use 'train', 'validation' or 'test' split.", default=None)
     max_seq_length: int = hp.optional(
         default=256, doc='Optionally, the ability to set a custom sequence length for the training dataset.')
     shuffle: bool = hp.optional("Whether to shuffle the dataset for each epoch.", default=True)
@@ -28,7 +31,7 @@ class MNLImHparams(DatasetHparams):
         if (self.max_seq_length % 8) != 0:
             raise ValueError("For best performance, please ensure that sequence lengths are a multiple of eight.")
 
-    def initialize_object(self) -> DataloaderSpec:
+    def initialize_object(self, batch_size: int, dataloader_hparams: DataloaderHparams) -> DataloaderSpec:
         # TODO (Moin): I think this code is copied verbatim in a few different places. Move this into a function.
         try:
             import datasets
@@ -56,7 +59,7 @@ class MNLImHparams(DatasetHparams):
             )
 
         columns_to_remove = ["idx"] + text_column_names
-        self.dataset = self.dataset.map(
+        dataset = self.dataset.map(
             tokenize_function,
             batched=True,
             num_proc=n_cpus,
@@ -66,21 +69,23 @@ class MNLImHparams(DatasetHparams):
             load_from_cache_file=True,
         )
 
-        self.data_collator = transformers.data.data_collator.default_data_collator
+        data_collator = transformers.data.data_collator.default_data_collator
+        sampler = ddp.get_sampler(dataset, drop_last=self.drop_last, shuffle=self.shuffle)
 
-        return DataloaderSpec(
-            dataset=self.dataset,
-            collate_fn=self.data_collator,
-            shuffle=self.shuffle,
+        return DataloaderSpec(dataloader=dataloader_hparams.initialize_object(
+            dataset=dataset,
+            batch_size=batch_size,
+            sampler=sampler,
             drop_last=self.drop_last,
-            split_fn=_split_dict_fn,
-        )
+            collate_fn=data_collator,
+        ),
+                              split_fn=_split_dict_fn)
 
 
 @dataclass
 class RTEHparams(DatasetHparams):
-    tokenizer_name: str = hp.required("The name of the tokenizer to preprocess text with.")
-    split: str = hp.required("Whether to use 'train', 'validation' or 'test' split.")
+    tokenizer_name: str = hp.optional("The name of the tokenizer to preprocess text with.", default=None)
+    split: str = hp.optional("Whether to use 'train', 'validation' or 'test' split.", default=None)
     max_seq_length: int = hp.optional(
         default=256, doc='Optionally, the ability to set a custom sequence length for the training dataset.')
     shuffle: bool = hp.optional("Whether to shuffle the dataset for each epoch.", default=True)
@@ -93,7 +98,7 @@ class RTEHparams(DatasetHparams):
         if (self.max_seq_length % 8) != 0:
             raise ValueError("For best performance, please ensure that sequence lengths are a multiple of eight.")
 
-    def initialize_object(self) -> DataloaderSpec:
+    def initialize_object(self, batch_size: int, dataloader_hparams: DataloaderHparams) -> DataloaderSpec:
         # TODO (Moin): I think this code is copied verbatim in a few different places. Move this into a function.
         try:
             import datasets
@@ -121,7 +126,7 @@ class RTEHparams(DatasetHparams):
             )
 
         columns_to_remove = ["idx"] + text_column_names
-        self.dataset = self.dataset.map(
+        dataset = self.dataset.map(
             tokenize_function,
             batched=True,
             num_proc=n_cpus,
@@ -131,21 +136,23 @@ class RTEHparams(DatasetHparams):
             load_from_cache_file=True,
         )
 
-        self.data_collator = transformers.data.data_collator.default_data_collator
+        data_collator = transformers.data.data_collator.default_data_collator
+        sampler = ddp.get_sampler(dataset, drop_last=self.drop_last, shuffle=self.shuffle)
 
-        return DataloaderSpec(
-            dataset=self.dataset,
-            collate_fn=self.data_collator,
-            shuffle=self.shuffle,
+        return DataloaderSpec(dataloader=dataloader_hparams.initialize_object(
+            dataset=dataset,
+            batch_size=batch_size,
+            sampler=sampler,
             drop_last=self.drop_last,
-            split_fn=_split_dict_fn,
-        )
+            collate_fn=data_collator,
+        ),
+                              split_fn=_split_dict_fn)
 
 
 @dataclass
 class QNLIHparams(DatasetHparams):
-    tokenizer_name: str = hp.required("The name of the tokenizer to preprocess text with.")
-    split: str = hp.required("Whether to use 'train', 'validation' or 'test' split.")
+    tokenizer_name: str = hp.optional("The name of the tokenizer to preprocess text with.", default=None)
+    split: str = hp.optional("Whether to use 'train', 'validation' or 'test' split.", default=None)
     max_seq_length: int = hp.optional(
         default=256, doc='Optionally, the ability to set a custom sequence length for the training dataset.')
     shuffle: bool = hp.optional("Whether to shuffle the dataset for each epoch.", default=True)
@@ -158,7 +165,7 @@ class QNLIHparams(DatasetHparams):
         if (self.max_seq_length % 8) != 0:
             raise ValueError("For best performance, please ensure that sequence lengths are a multiple of eight.")
 
-    def initialize_object(self) -> DataloaderSpec:
+    def initialize_object(self, batch_size: int, dataloader_hparams: DataloaderHparams) -> DataloaderSpec:
         # TODO (Moin): I think this code is copied verbatim in a few different places. Move this into a function.
         try:
             import datasets
@@ -186,7 +193,7 @@ class QNLIHparams(DatasetHparams):
             )
 
         columns_to_remove = ["idx"] + text_column_names
-        self.dataset = self.dataset.map(
+        dataset = self.dataset.map(
             tokenize_function,
             batched=True,
             num_proc=n_cpus,
@@ -196,21 +203,23 @@ class QNLIHparams(DatasetHparams):
             load_from_cache_file=True,
         )
 
-        self.data_collator = transformers.data.data_collator.default_data_collator
+        data_collator = transformers.data.data_collator.default_data_collator
+        sampler = ddp.get_sampler(dataset, drop_last=self.drop_last, shuffle=self.shuffle)
 
-        return DataloaderSpec(
-            dataset=self.dataset,
-            collate_fn=self.data_collator,
-            shuffle=self.shuffle,
+        return DataloaderSpec(dataloader=dataloader_hparams.initialize_object(
+            dataset=dataset,
+            batch_size=batch_size,
+            sampler=sampler,
             drop_last=self.drop_last,
-            split_fn=_split_dict_fn,
-        )
+            collate_fn=data_collator,
+        ),
+                              split_fn=_split_dict_fn)
 
 
 @dataclass
 class CoLAHparams(DatasetHparams):
-    tokenizer_name: str = hp.required("The name of the tokenizer to preprocess text with.")
-    split: str = hp.required("Whether to use 'train', 'validation' or 'test' split.")
+    tokenizer_name: str = hp.optional("The name of the tokenizer to preprocess text with.", default=None)
+    split: str = hp.optional("Whether to use 'train', 'validation' or 'test' split.", default=None)
     max_seq_length: int = hp.optional(
         default=128, doc='Optionally, the ability to set a custom sequence length for the training dataset.')
     shuffle: bool = hp.optional("Whether to shuffle the dataset for each epoch.", default=True)
@@ -223,7 +232,7 @@ class CoLAHparams(DatasetHparams):
         if (self.max_seq_length % 8) != 0:
             raise ValueError("For best performance, please ensure that sequence lengths are a multiple of eight.")
 
-    def initialize_object(self) -> DataloaderSpec:
+    def initialize_object(self, batch_size: int, dataloader_hparams: DataloaderHparams) -> DataloaderSpec:
         # TODO (Moin): I think this code is copied verbatim in a few different places. Move this into a function.
         try:
             import datasets
@@ -248,7 +257,7 @@ class CoLAHparams(DatasetHparams):
             )
 
         columns_to_remove = ["idx", text_column_name]
-        self.dataset = self.dataset.map(
+        dataset = self.dataset.map(
             tokenize_function,
             batched=True,
             num_proc=n_cpus,
@@ -258,21 +267,23 @@ class CoLAHparams(DatasetHparams):
             load_from_cache_file=True,
         )
 
-        self.data_collator = transformers.data.data_collator.default_data_collator
+        data_collator = transformers.data.data_collator.default_data_collator
+        sampler = ddp.get_sampler(dataset, drop_last=self.drop_last, shuffle=self.shuffle)
 
-        return DataloaderSpec(
-            dataset=self.dataset,
-            collate_fn=self.data_collator,
-            shuffle=self.shuffle,
+        return DataloaderSpec(dataloader=dataloader_hparams.initialize_object(
+            dataset=dataset,
+            batch_size=batch_size,
+            sampler=sampler,
             drop_last=self.drop_last,
-            split_fn=_split_dict_fn,
-        )
+            collate_fn=data_collator,
+        ),
+                              split_fn=_split_dict_fn)
 
 
 @dataclass
 class SST2Hparams(DatasetHparams):
-    tokenizer_name: str = hp.required("The name of the tokenizer to preprocess text with.")
-    split: str = hp.required("Whether to use 'train', 'validation' or 'test' split.")
+    tokenizer_name: str = hp.optional("The name of the tokenizer to preprocess text with.", default=None)
+    split: str = hp.optional("Whether to use 'train', 'validation' or 'test' split.", default=None)
     max_seq_length: int = hp.optional(
         default=128, doc='Optionally, the ability to set a custom sequence length for the training dataset.')
     shuffle: bool = hp.optional("Whether to shuffle the dataset for each epoch.", default=True)
@@ -285,7 +296,7 @@ class SST2Hparams(DatasetHparams):
         if (self.max_seq_length % 8) != 0:
             raise ValueError("For best performance, please ensure that sequence lengths are a multiple of eight.")
 
-    def initialize_object(self) -> DataloaderSpec:
+    def initialize_object(self, batch_size: int, dataloader_hparams: DataloaderHparams) -> DataloaderSpec:
         # TODO (Moin): I think this code is copied verbatim in a few different places. Move this into a function.
         try:
             import datasets
@@ -309,7 +320,7 @@ class SST2Hparams(DatasetHparams):
             )
 
         columns_to_remove = ["idx", text_column_name]
-        self.dataset = self.dataset.map(
+        dataset = self.dataset.map(
             tokenize_function,
             batched=True,
             num_proc=n_cpus,
@@ -319,12 +330,14 @@ class SST2Hparams(DatasetHparams):
             load_from_cache_file=True,
         )
 
-        self.data_collator = transformers.data.data_collator.default_data_collator
+        data_collator = transformers.data.data_collator.default_data_collator
+        sampler = ddp.get_sampler(dataset, drop_last=self.drop_last, shuffle=self.shuffle)
 
-        return DataloaderSpec(
-            dataset=self.dataset,
-            collate_fn=self.data_collator,
-            shuffle=self.shuffle,
+        return DataloaderSpec(dataloader=dataloader_hparams.initialize_object(
+            dataset=dataset,
+            batch_size=batch_size,
+            sampler=sampler,
             drop_last=self.drop_last,
-            split_fn=_split_dict_fn,
-        )
+            collate_fn=data_collator,
+        ),
+                              split_fn=_split_dict_fn)

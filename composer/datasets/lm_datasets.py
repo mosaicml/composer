@@ -35,7 +35,6 @@ class LMDatasetHparams(DatasetHparams):
         "Path to the Huggingface Datasets directory.", default_factory=list)
 
     split: Optional[str] = hp.optional("Whether to use 'train', 'validation' or 'test' split.", default=None)
-    # TODO (Moin): add validation logic around datadir and tokenizer_name
     tokenizer_name: Optional[str] = hp.optional("The name of the tokenizer to preprocess text with.", default=None)
     use_masked_lm: Optional[bool] = hp.optional(
         "Whether the dataset shoud be encoded with masked language modeling or not.", default=None)
@@ -59,7 +58,9 @@ class LMDatasetHparams(DatasetHparams):
         if self.tokenizer_name is None:
             raise ValueError("A tokenizer name must be specified to tokenize the dataset.")
 
-        if self.use_masked_lm:
+        if self.use_masked_lm is None:
+            raise ValueError("use_masked_lm must be manually set.")
+        elif self.use_masked_lm:
             if self.mlm_probability <= 0.0:
                 raise ValueError(
                     "If using Masked Language Modeling, you must replace tokens with a non-zero probability.")
