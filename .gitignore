@@ -153,3 +153,6 @@ generated/
 
 # Run directory
 runs/
+
+# pycharm
+.idea/
