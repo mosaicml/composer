@@ -58,6 +58,7 @@ class JSONTraceHandler(ProfilerEventHandler):
         self._memory_monitor_interval_seconds = memory_monitor_interval_seconds
         self._is_first_line = True
         self._buffer = queue.SimpleQueue()
+        self._ddp_rank = ddp.get_global_rank()
 
     def init(self, state: State, logger: Logger) -> None:
         del state, logger  # unused
@@ -222,14 +223,7 @@ class JSONTraceHandler(ProfilerEventHandler):
             s="p",  # mark instant event for at process level
         )
 
-    def _record_event(self,
-                      name: str,
-                      ph: str,
-                      wall_clock_ns: int,
-                      pid: int,
-                      tid: int,
-                      categories: str = "",
-                      **kwargs):
+    def _record_event(self, name: str, ph: str, wall_clock_ns: int, pid: int, tid: int, categories: str = "", **kwargs):
         """Helper function to record an event in the trace.
 
         Args:
