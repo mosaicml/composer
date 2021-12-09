@@ -32,10 +32,11 @@ schedulers:
       warmup_iters: 0.02dur 
       warmup_factor: 0
       interval: step
-  - cosine_decay:
-      T_max: 0.98dur 
+  - linear_decay:
+      start_factor: 1.0
+      end_factor: 0.0
+      total_iters: 0.98dur
       interval: step
-      eta_min: 0
       verbose: false
 loggers:
   - file:

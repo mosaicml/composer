@@ -9,7 +9,7 @@ from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple
 import torch
 import yahp as hp
 from torch.optim.lr_scheduler import (CosineAnnealingLR, CosineAnnealingWarmRestarts, ExponentialLR, MultiStepLR,
-                                      LinearLR, StepLR, _LRScheduler)
+                                      StepLR, _LRScheduler)
 
 from composer.core.types import Optimizer, Scheduler
 from composer.optim.pytorch_future import LinearLR, WarmUpLR
@@ -318,6 +318,7 @@ class CosineAnnealingWarmRestartsHparams(SchedulerHparams):
                           max_epochs: Optional[int] = None):
         self.convert_time_fields(steps_per_epoch=steps_per_epoch, max_epochs=max_epochs)
         return super().initialize_object(optimizer, steps_per_epoch)
+
 
 @dataclass
 class LinearLRHparams(SchedulerHparams):
