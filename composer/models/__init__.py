@@ -21,3 +21,4 @@ from composer.models.resnet101 import ResNet101Hparams as ResNet101Hparams
 from composer.models.transformer_shared import MosaicTransformer as MosaicTransformer
 from composer.models.unet import UNet as UNet
 from composer.models.unet import UnetHparams as UnetHparams
+from composer.models.vit_small_patch16 import ViTSmallPatch16, ViTSmallPatch16Hparams
