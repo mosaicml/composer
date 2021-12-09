@@ -13,10 +13,10 @@ class ViTSmallPatch16(MosaicClassifier):
         num_channels (int): The number of input channels.
         num_classes (int): The number of classes for the model.
     """
-    def __init__(self, image_size: int, channels: int, num_classes: int):
+    def __init__(self, num_classes: int):
         from vit_pytorch import ViT
-        model = ViT(image_size=image_size,
-                    channels=channels,
+        model = ViT(image_size=224,
+                    channels=3,
                     num_classes=num_classes,
                     dim=384,  # embed dim/width
                     patch_size=16,
