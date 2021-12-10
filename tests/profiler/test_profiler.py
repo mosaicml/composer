@@ -8,47 +8,42 @@ from composer.core.profiler import MosaicProfiler, MosaicProfilerAction
 from composer.core.types import State
 
 
-@pytest.mark.parametrize("skip_first_epoch", [True, False])
 @pytest.mark.parametrize("repeat", [1, 0])
-def test_profiler_get_action(dummy_state: State, skip_first_epoch: bool, repeat: int):
+def test_profiler_get_action(dummy_state: State, repeat: int):
     # tests that get_action works correctly given the state
+    skip_first = 1
     wait = 2
-    active = 3
+    warmup = 3
+    active = 4
     profiler = MosaicProfiler(
         state=dummy_state,
         event_handlers=[],
-        skip_first_epoch=skip_first_epoch,
+        skip_first=skip_first,
+        warmup=warmup,
         wait=wait,
         active=active,
         repeat=repeat,
     )
 
     dummy_state.epoch = 0
-    dummy_state.step = wait + 1
+    dummy_state.step = 0
+    assert profiler.get_action(dummy_state.batch_idx) == MosaicProfilerAction.SKIP  # skip first epoch
 
-    if skip_first_epoch:
-        assert profiler.get_action() == MosaicProfilerAction.SKIP
-    else:
-        assert profiler.get_action() == MosaicProfilerAction.ACTIVE
+    dummy_state.step = skip_first
+    assert profiler.get_action(dummy_state.batch_idx) == MosaicProfilerAction.SKIP
 
-        dummy_state.step = wait + active + wait + 1
+    dummy_state.step = skip_first + wait
+    assert profiler.get_action(dummy_state.batch_idx) == MosaicProfilerAction.WARMUP
 
-        if repeat == 0:
-            assert profiler.get_action() == MosaicProfilerAction.ACTIVE
-        else:
-            assert profiler.get_action() == MosaicProfilerAction.SKIP
+    dummy_state.step = skip_first + wait + warmup
+    assert profiler.get_action(dummy_state.batch_idx) == MosaicProfilerAction.ACTIVE
 
-    dummy_state.epoch = 1
-    dummy_state.step = dummy_state.steps_per_epoch + wait + 1
-
-    assert profiler.get_action() == MosaicProfilerAction.ACTIVE
-
-    dummy_state.step = dummy_state.steps_per_epoch + wait + active + wait + 1
+    dummy_state.step = skip_first + wait + warmup + active + wait + warmup
 
     if repeat == 0:
-        assert profiler.get_action() == MosaicProfilerAction.ACTIVE
+        assert profiler.get_action(dummy_state.batch_idx) == MosaicProfilerAction.ACTIVE
     else:
-        assert profiler.get_action() == MosaicProfilerAction.SKIP
+        assert profiler.get_action(dummy_state.batch_idx) == MosaicProfilerAction.SKIP
 
 
 def test_marker(dummy_state: State):
@@ -57,7 +52,10 @@ def test_marker(dummy_state: State):
         state=dummy_state,
         event_handlers=[mock_event_handler],
     )
-    marker = profiler.marker("name", always_record=True, categories=["cat1"])
+    marker = profiler.marker(
+        "name",
+        actions=[MosaicProfilerAction.SKIP, MosaicProfilerAction.WARMUP, MosaicProfilerAction.ACTIVE],
+        categories=["cat1"])
     marker.start()  # call #1
     with pytest.raises(RuntimeError):
         marker.start()  # cannot call start twice without finishing

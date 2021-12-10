@@ -13,7 +13,8 @@ def test_json_trace_profiler_hanlder(mosaic_trainer_hparams: TrainerHparams):
 
     profiler_hparams = MosaicProfilerHparams(
         trace_event_handlers=[json_trace_handler_params],
-        skip_first_epoch=False,
+        skip_first=0,
+        warmup=0,
         wait=0,
         active=1000,
         repeat=0,

@@ -159,9 +159,10 @@ class Trainer:
 
             # Profiling
             profile_event_handlers: Optional[List[ProfilerEventHandler]] = None,
-            profile_skip_first_epoch: bool = False,
-            profile_wait: int = 5,
-            profile_active: int = 5,
+            profile_skip_first: int = 0,
+            profile_wait: int = 0,
+            profile_warmup: int = 1,
+            profile_active: int = 4,
             profile_repeat: int = 1,
 
             # Subset parameters
@@ -267,6 +268,18 @@ class Trainer:
             eval_dataloader=DDPDataLoader(eval_dataloader_spec.dataloader),
         )
 
+        # Configure the profiler
+        if profile_event_handlers is not None:
+            self.state.profiler = MosaicProfiler(
+                state=self.state,
+                event_handlers=profile_event_handlers,
+                active=profile_active,
+                repeat=profile_repeat,
+                skip_first=profile_skip_first,
+                warmup=profile_warmup,
+                wait=profile_wait,
+            )
+
         # Steps per epoch
         if train_subset_num_batches is not None:
             if train_subset_num_batches > self.state.steps_per_epoch:
@@ -288,22 +301,10 @@ class Trainer:
         self._eval_subset_num_batches = eval_subset_num_batches
 
         self.logger = Logger(self.state, log_destinations)
-        if profile_event_handlers is not None:
-            profiler = MosaicProfiler(
-                state=self.state,
-                event_handlers=profile_event_handlers,
-                active=profile_active,
-                repeat=profile_repeat,
-                skip_first_epoch=profile_skip_first_epoch,
-                wait=profile_wait,
-            )
-        else:
-            profiler = None
 
         self.engine = Engine(
             state=self.state,
             logger=self.logger,
-            mosaic_profiler=profiler,
         )
 
         self.validate_every_n_batches = validate_every_n_batches
@@ -399,13 +400,16 @@ class Trainer:
         profile_active = 0
         profile_repeat = 0
         profile_wait = 0
-        profile_skip_first_epoch = False
+        profile_skip_first = 0
+        profile_warmup = 0
         if hparams.mosaic_profiler is not None:
             trace_event_handlers = [x.initialize_object() for x in hparams.mosaic_profiler.trace_event_handlers]
             profile_active = hparams.mosaic_profiler.active
             profile_repeat = hparams.mosaic_profiler.repeat
             profile_wait = hparams.mosaic_profiler.wait
-            profile_skip_first_epoch = hparams.mosaic_profiler.skip_first_epoch
+            profile_skip_first = hparams.mosaic_profiler.skip_first
+            profile_warmup = hparams.mosaic_profiler.warmup
+            callbacks.extend(profiler.initialize_object() for profiler in hparams.mosaic_profiler.profilers)
 
         trainer = cls(
             model=model,
@@ -443,8 +447,9 @@ class Trainer:
             profile_event_handlers=trace_event_handlers,
             profile_active=profile_active,
             profile_repeat=profile_repeat,
-            profile_skip_first_epoch=profile_skip_first_epoch,
+            profile_skip_first=profile_skip_first,
             profile_wait=profile_wait,
+            profile_warmup=profile_warmup,
 
             # Checkpointing hparams
             checkpoint_filepath=hparams.checkpoint_filepath,

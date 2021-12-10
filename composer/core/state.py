@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 import warnings
 from dataclasses import dataclass, field, fields
-from typing import TYPE_CHECKING, Callable, ContextManager, Optional, Sequence, Union
+from typing import TYPE_CHECKING, Callable, ContextManager, List, Optional, Union
 
 import torch
 import torch.nn.modules.utils
@@ -14,6 +14,7 @@ from torch.nn.parallel import DistributedDataParallel
 import composer.core.types as types
 from composer.core.callback import Callback
 from composer.core.precision import Precision
+from composer.core.profiler import MosaicProfiler
 from composer.core.serializable import Serializable
 from composer.utils import ensure_tuple
 from composer.utils.precision import default_precision_factory
@@ -57,6 +58,7 @@ SKIP_SERIALIZATION_FIELDS = [
     "precision",
     "precision_context",
     "_steps_per_epoch",
+    "profiler",
 ]
 
 
@@ -95,6 +97,8 @@ class State(Serializable):
 
         algorithms (Sequence[Algorithm]): The algorithms used for training.
         callbacks (Sequence[Callback]): The callbacks used for training.
+
+        profiler (Optional[MosaicProfiler]): The mosaic profiler.
     """
 
     # model
@@ -140,8 +144,11 @@ class State(Serializable):
     scaler: Optional[types.Scaler] = None
 
     # algorithms
-    algorithms: Sequence[Algorithm] = tuple()
-    callbacks: Sequence[Callback] = tuple()
+    algorithms: List[Algorithm] = field(default_factory=list)
+    callbacks: List[Callback] = field(default_factory=list)
+
+    # profiler
+    profiler: Optional[MosaicProfiler] = None
 
     def state_dict(self) -> types.StateDict:
         """Returns the state as a :class:`dict`."""

@@ -22,3 +22,9 @@ Composer contains a training loop profiler, which can be added via the ``--profi
     ~composer.core.profiler.ProfilerEventHandler
     ~composer.profiler.JSONTraceHandlerHparams
     ~composer.profiler.JSONTraceHandler
+    ~composer.profiler.DataloaderProfilerHparams
+    ~composer.profiler.DataloaderProfiler
+    ~composer.profiler.SystemProfilerHparams
+    ~composer.profiler.SystemProfiler
+    ~composer.profiler.TorchProfilerHparams
+    ~composer.profiler.TorchProfiler

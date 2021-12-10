@@ -16,8 +16,7 @@ import composer
 from composer import datasets
 from composer.algorithms import AlgorithmHparams, get_algorithm_registry
 from composer.callbacks import (BenchmarkerHparams, CallbackHparams, GradMonitorHparams, LRMonitorHparams,
-                                MemoryMonitorHparams, RunDirectoryUploaderHparams, SpeedMonitorHparams,
-                                TorchProfilerHparams)
+                                MemoryMonitorHparams, RunDirectoryUploaderHparams, SpeedMonitorHparams)
 from composer.core.types import Precision
 from composer.datasets import DataloaderHparams
 from composer.loggers import (BaseLoggerBackendHparams, FileLoggerBackendHparams, MosaicMLLoggerBackendHparams,
@@ -76,7 +75,6 @@ dataset_registry = {
 algorithms_registry = get_algorithm_registry()
 
 callback_registry = {
-    "torch_profiler": TorchProfilerHparams,
     "speed_monitor": SpeedMonitorHparams,
     "benchmarker": BenchmarkerHparams,
     "lr_monitor": LRMonitorHparams,

@@ -10,7 +10,7 @@ from composer.core.algorithm import Algorithm
 from composer.core.callback import Callback
 from composer.core.event import Event
 from composer.core.logging import Logger
-from composer.core.profiler import MosaicProfiler
+from composer.core.profiler import MosaicProfilerAction
 from composer.core.state import State
 
 log = logging.getLogger(__name__)
@@ -48,10 +48,9 @@ class Engine():
     Args:
         state (State): the initial ``State`` of the trainer. Will be modified in-place.
         logger (Optional[Logger]): a ``Logger`` instance to be used for logging algorithm and callback specific metrics.
-        mosaic_profiler (Optional[MosaicProfiler]): An instance of the Mosaic profiler, if profiling, or None otherwise.
     """
 
-    def __init__(self, state: State, logger: Optional[Logger] = None, mosaic_profiler: Optional[MosaicProfiler] = None):
+    def __init__(self, state: State, logger: Optional[Logger] = None):
         if logger is None:
             log.warning("No logger passed to the engine.  Defaulting to an empty logger")
             logger = Logger(state=state, backends=[])
@@ -59,7 +58,6 @@ class Engine():
         assert logger is not None
         self.logger = logger
         self.state = state
-        self.mosaic_profiler = mosaic_profiler
 
     def run_event(
         self,
@@ -97,13 +95,15 @@ class Engine():
         duration_marker = None
         event = Event(event)
 
-        if self.mosaic_profiler is not None:
+        if self.state.profiler is not None:
             name = f"event/{event.canonical_name}"
             if (event.is_before_event or event.is_after_event):
                 # if not part of an event pair (e.g. init or after dataloader), then don't record an event here
-                duration_marker = self.mosaic_profiler.marker(name,
-                                                              always_record=event in _ALWAYS_RECORD_EVENTS,
-                                                              record_instant_on_start=True)
+                if event in _ALWAYS_RECORD_EVENTS:
+                    actions = [MosaicProfilerAction.ACTIVE, MosaicProfilerAction.WARMUP, MosaicProfilerAction.SKIP]
+                else:
+                    actions = [MosaicProfilerAction.ACTIVE, MosaicProfilerAction.WARMUP]
+                duration_marker = self.state.profiler.marker(name, actions=actions, record_instant_on_start=True)
 
         if event.is_after_event and duration_marker is not None:
             duration_marker.finish()
@@ -135,12 +135,12 @@ class Engine():
         trace = _setup_trace(algorithms_to_run, event)
         for order, algorithm in enumerate(algorithms_to_run):
             marker = None
-            if self.mosaic_profiler is not None:
-                marker = self.mosaic_profiler.marker(f"algorithm/{algorithm.__class__.__name__}/event/{event.value}",
-                                                     categories=[
-                                                         event.value,
-                                                         algorithm.__class__.__name__,
-                                                     ])
+            if self.state.profiler is not None:
+                marker = self.state.profiler.marker(f"algorithm/{algorithm.__class__.__name__}/event/{event.value}",
+                                                    categories=[
+                                                        event.value,
+                                                        algorithm.__class__.__name__,
+                                                    ])
             ctx = cast(ContextManager, contextlib.nullcontext()) if marker is None else marker
             with ctx:
                 exit_code = algorithm.apply(event, self.state, self.logger)
@@ -208,12 +208,12 @@ class Engine():
 
         for cb in self.state.callbacks:
             marker = None
-            if self.mosaic_profiler is not None:
-                marker = self.mosaic_profiler.marker(f"callback/{cb.__class__.__name__}/event/{event.value}",
-                                                     categories=[
-                                                         event.value,
-                                                         cb.__class__.__name__,
-                                                     ])
+            if self.state.profiler is not None:
+                marker = self.state.profiler.marker(f"callback/{cb.__class__.__name__}/event/{event.value}",
+                                                    categories=[
+                                                        event.value,
+                                                        cb.__class__.__name__,
+                                                    ])
             ctx = cast(ContextManager, contextlib.nullcontext()) if marker is None else marker
             with ctx:
                 cb.run_event(event, self.state, self.logger)

@@ -1,6 +1,6 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
-from typing import Sequence
+from typing import List, Sequence
 from unittest.mock import Mock
 
 import pytest
@@ -36,30 +36,30 @@ def run_event(event: Event, state: State, logger: Logger):
 @pytest.mark.parametrize('event', list(Event))
 class TestAlgorithms:
 
-    def test_algorithms_always_called(self, event: Event, dummy_state: State,
-                                      always_match_algorithms: Sequence[Algorithm], dummy_logger: Logger):
+    def test_algorithms_always_called(self, event: Event, dummy_state: State, always_match_algorithms: List[Algorithm],
+                                      dummy_logger: Logger):
         dummy_state.algorithms = always_match_algorithms
         _ = run_event(event, dummy_state, dummy_logger)
         for algo in always_match_algorithms:
             algo.apply.assert_called_once()
             algo.match.assert_called_once()
 
-    def test_algorithms_never_called(self, event: Event, dummy_state: State,
-                                     never_match_algorithms: Sequence[Algorithm], dummy_logger: Logger):
+    def test_algorithms_never_called(self, event: Event, dummy_state: State, never_match_algorithms: List[Algorithm],
+                                     dummy_logger: Logger):
         dummy_state.algorithms = never_match_algorithms
         _ = run_event(event, dummy_state, dummy_logger)
         for algo in never_match_algorithms:
             algo.apply.assert_not_called()
             algo.match.assert_called_once()
 
-    def test_engine_trace_all(self, event: Event, dummy_state: State, always_match_algorithms: Sequence[Algorithm],
+    def test_engine_trace_all(self, event: Event, dummy_state: State, always_match_algorithms: List[Algorithm],
                               dummy_logger: Logger):
         dummy_state.algorithms = always_match_algorithms
         trace = run_event(event, dummy_state, dummy_logger)
 
         assert all([tr.run for tr in trace.values()])
 
-    def test_engine_trace_never(self, event: Event, dummy_state: State, never_match_algorithms: Sequence[Algorithm],
+    def test_engine_trace_never(self, event: Event, dummy_state: State, never_match_algorithms: List[Algorithm],
                                 dummy_logger: Logger):
         dummy_state.algorithms = never_match_algorithms
         trace = run_event(event, dummy_state, dummy_logger)
@@ -73,7 +73,7 @@ class TestAlgorithms:
     Event.BEFORE_BACKWARD,
 ])
 def test_engine_lifo_first_in(event: Event, dummy_state: State, dummy_logger: Logger,
-                              always_match_algorithms: Sequence[Algorithm]):
+                              always_match_algorithms: List[Algorithm]):
     dummy_state.algorithms = always_match_algorithms
     trace = run_event(event, dummy_state, dummy_logger)
     order = [tr.order for tr in trace.values()]
@@ -87,7 +87,7 @@ def test_engine_lifo_first_in(event: Event, dummy_state: State, dummy_logger: Lo
     Event.AFTER_BACKWARD,
     Event.TRAINING_END,
 ])
-def test_engine_lifo_last_out(event: Event, dummy_state: State, always_match_algorithms: Sequence[Algorithm],
+def test_engine_lifo_last_out(event: Event, dummy_state: State, always_match_algorithms: List[Algorithm],
                               dummy_logger: Logger):
     dummy_state.algorithms = always_match_algorithms
     trace = run_event(event, dummy_state, dummy_logger)
