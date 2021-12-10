@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import abc
 import dataclasses
+import json
 import os
 import threading
 import time
@@ -14,6 +15,9 @@ from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple, Type, U
 import yahp as hp
 
 from composer.core.callback import Callback
+from composer.core.state import State
+from composer.utils import ddp
+from composer.utils.run_directory import get_relative_to_run_directory
 from composer.utils.string_enum import StringEnum
 
 if TYPE_CHECKING:
@@ -335,6 +339,62 @@ class MosaicProfiler:
                 thread_id=thread_id,
                 values=values,
             )
+
+    def _merge_traces(self):
+        """Merge trace files in the output directory.
+
+        Compute the clock sync difference across every process and add the difference
+        to each recorded trace event.
+        """
+
+        from composer.profiler.json_trace import JSONTraceHandler as JSONTraceHandler
+        if ddp.get_global_rank() != 0:
+            return
+
+        for event_handler in self._event_handlers:
+            if isinstance(event_handler, JSONTraceHandler):
+                rank_0_metadata_filename = f"rank_0.metadata.trace.json"
+                rank_0_metadata_file = get_relative_to_run_directory(
+                    os.path.join(event_handler.output_directory, rank_0_metadata_filename))
+                with open(rank_0_metadata_file, "r") as f:
+                    trace_metadata = json.load(f)
+                rank_0_clock_sync = trace_metadata["clock_sync_timestamp_us"]
+
+                merged_trace_file = open(
+                    get_relative_to_run_directory(os.path.join(event_handler.output_directory, f"merged_trace.json")),
+                    "x")
+                merged_trace_file.write("[\n")
+
+                first_line = True
+                for ddp_rank in range(0, ddp.get_world_size()):
+                    metadata_filename = f"rank_{ddp_rank}.metadata.trace.json"
+                    metadata_file = get_relative_to_run_directory(
+                        os.path.join(event_handler.output_directory, metadata_filename))
+                    with open(metadata_file, "r") as f:
+                        trace_metadata = json.load(f)
+                    clock_sync = trace_metadata["clock_sync_timestamp_us"]
+                    clock_sync_diff = rank_0_clock_sync - clock_sync
+
+                    trace_filename = f"rank_{ddp_rank}.trace.json"
+                    trace_file = get_relative_to_run_directory(
+                        os.path.join(event_handler.output_directory, trace_filename))
+                    with open(trace_file, "r") as f:
+                        trace_data = json.load(f)
+
+                    for event in trace_data:
+                        if "ts" in event:
+                            event["ts"] = event["ts"] + clock_sync_diff
+                        event_string = json.dumps(
+                            event,
+                            separators=(',', ': '),
+                        )
+                        if not first_line:
+                            merged_trace_file.write(",\n")
+                        else:
+                            first_line = False
+                        merged_trace_file.write(event_string)
+                merged_trace_file.write("\n]")
+                merged_trace_file.close()
 
 
 class Marker:

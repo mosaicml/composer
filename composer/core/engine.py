@@ -246,3 +246,6 @@ class Engine():
                     callback.post_close()
                 except Exception as e:
                     log.error(f"Error running {callback.__class__.__name__}.post_close().", exc_info=e, stack_info=True)
+
+        if self.state.profiler is not None:
+            self.state.profiler._merge_traces()
