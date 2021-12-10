@@ -10,7 +10,7 @@ import yahp as hp
 from composer.algorithms import AlgorithmHparams
 from composer.core.types import Algorithm, Batch, Event, Logger, State, Tensor
 from composer.models.transformer_shared import MosaicTransformer
-from composer.utils import ensure_tuple
+from composer.utils import ddp, ensure_tuple
 
 
 def apply_curriculum(batch: Dict[str, Tensor], curr_seq_len: int, truncate: bool) -> Batch:
@@ -153,8 +153,8 @@ class CurriculumLearning(Algorithm):
             # all of the parameters
             device = next(state.model.parameters()).device
 
-            assert (state.train_batch_size % state.world_size) == 0
-            per_gpu_batch = math.ceil(state.train_batch_size / (state.world_size * state.grad_accum))
+            assert (state.train_batch_size % ddp.get_world_size()) == 0
+            per_gpu_batch = math.ceil(state.train_batch_size / (ddp.get_world_size() * state.grad_accum))
             input_ids = torch.randint(low=0,
                                       high=vocab_size - 1,
                                       size=(per_gpu_batch, self.hparams.max_seq_length),

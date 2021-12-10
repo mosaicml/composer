@@ -16,7 +16,6 @@ from composer.core.callback import Callback
 from composer.core.precision import Precision
 from composer.core.serializable import Serializable
 from composer.utils import ensure_tuple
-from composer.utils.ddp import get_global_rank, get_local_rank, get_local_world_size, get_world_size
 from composer.utils.precision import default_precision_factory
 
 if TYPE_CHECKING:
@@ -57,6 +56,7 @@ SKIP_SERIALIZATION_FIELDS = [
     "eval_dataloader",
     "precision",
     "precision_context",
+    "_steps_per_epoch",
 ]
 
 
@@ -117,6 +117,7 @@ class State(Serializable):
     # but the getter will always return a Precision enum
     precision: Union[str, types.Precision]  # type: ignore
     _precision: types.Precision = field(init=False)  # but store an enum internally
+    _steps_per_epoch: Optional[int] = field(init=False, default=None)
     precision_context: Callable[[Union[str, Precision]], ContextManager] = \
         field(default_factory=default_precision_factory)
 
@@ -141,26 +142,6 @@ class State(Serializable):
     # algorithms
     algorithms: Sequence[Algorithm] = tuple()
     callbacks: Sequence[Callback] = tuple()
-
-    @property
-    def world_size(self) -> int:
-        return get_world_size()
-
-    @property
-    def global_rank(self) -> int:
-        return get_global_rank()
-
-    @property
-    def local_world_size(self) -> int:
-        return get_local_world_size()
-
-    @property
-    def local_rank(self) -> int:
-        return get_local_rank()
-
-    @property
-    def is_rank_zero(self) -> bool:
-        return self.global_rank == 0
 
     def state_dict(self) -> types.StateDict:
         """Returns the state as a :class:`dict`."""
@@ -231,9 +212,13 @@ class State(Serializable):
     @property
     def steps_per_epoch(self) -> int:
         """int: The number of steps (batches) per epoch."""
-        if self.train_dataloader is None:
-            raise RuntimeError("To determine the number of steps per epoch, state.train_dataloader must be set.")
-        return len(self.train_dataloader)
+        if self._steps_per_epoch is None:
+            return len(self.train_dataloader)
+        return self._steps_per_epoch
+
+    @steps_per_epoch.setter
+    def steps_per_epoch(self, val: Optional[int]):  # type: ignore
+        self._steps_per_epoch = val
 
     @property
     def precision(self) -> types.Precision:

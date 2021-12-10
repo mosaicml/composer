@@ -22,11 +22,9 @@ class DeviceHparams(hp.Hparams):
 
 @dataclass
 class GPUDeviceHparams(DeviceHparams):
-    prefetch_in_cuda_stream: bool = hp.optional(doc="Whether to use a separate cuda stream for prefetching",
-                                                default=True)
 
     def initialize_object(self) -> DeviceGPU:
-        return DeviceGPU(prefetch_in_cuda_stream=self.prefetch_in_cuda_stream)
+        return DeviceGPU()
 
 
 @dataclass

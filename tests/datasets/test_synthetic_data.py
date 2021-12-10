@@ -4,13 +4,12 @@ from typing import Optional
 
 import pytest
 
-from composer.datasets import SyntheticDataset
-from composer.datasets.synthetic import SyntheticDataLabelType, SyntheticDataType
+from composer.datasets.synthetic import SyntheticBatchPairDataset, SyntheticDataLabelType, SyntheticDataType
 
 
 @pytest.mark.parametrize('data_type', [
     SyntheticDataType.GAUSSIAN,
-    SyntheticDataLabelType.CLASSIFICATION_INT,
+    SyntheticDataType.SEPARABLE,
 ])
 @pytest.mark.parametrize('label_type', [
     SyntheticDataLabelType.CLASSIFICATION_ONE_HOT,
@@ -18,23 +17,26 @@ from composer.datasets.synthetic import SyntheticDataLabelType, SyntheticDataTyp
     SyntheticDataLabelType.RANDOM_INT,
 ])
 def test_synthetic_data_creation(data_type: SyntheticDataType, label_type: SyntheticDataLabelType):
-    if data_type == SyntheticDataType.SEPARABLE and label_type != SyntheticDataLabelType.CLASSIFICATION_INT:
-        # skip because not supported
+    if data_type == SyntheticDataType.SEPARABLE:
+        if label_type != SyntheticDataLabelType.CLASSIFICATION_INT:
+            pytest.skip("Seperable data requires classification int labels")
+        num_classes = 2
+        label_shape = None
+    else:
+        num_classes = 10
+        label_shape = (1, 10, 12)
         return
 
     dataset_size = 1000
     data_shape = (3, 32, 32)
     num_samples_to_create = 10
-    num_classes = 10
-    label_shape = (1, 10, 12)
-    dataset = SyntheticDataset(total_dataset_size=dataset_size,
-                               data_shape=data_shape,
-                               num_unique_samples_to_create=num_samples_to_create,
-                               data_type=data_type,
-                               label_type=label_type,
-                               num_classes=num_classes,
-                               label_shape=label_shape)
-
+    dataset = SyntheticBatchPairDataset(total_dataset_size=dataset_size,
+                                        data_shape=data_shape,
+                                        num_unique_samples_to_create=num_samples_to_create,
+                                        data_type=data_type,
+                                        label_type=label_type,
+                                        num_classes=num_classes,
+                                        label_shape=label_shape)
     assert len(dataset) == dataset_size
 
     # verify datapoints are correct
@@ -70,4 +72,7 @@ def test_synthetic_data_creation(data_type: SyntheticDataType, label_type: Synth
 @pytest.mark.parametrize('num_classes', [None, 0])
 def test_synthetic_classification_param_validation(label_type: SyntheticDataLabelType, num_classes: Optional[int]):
     with pytest.raises(ValueError):
-        SyntheticDataset(total_dataset_size=10, data_shape=(2, 2), label_type=label_type, num_classes=num_classes)
+        SyntheticBatchPairDataset(total_dataset_size=10,
+                                  data_shape=(2, 2),
+                                  label_type=label_type,
+                                  num_classes=num_classes)

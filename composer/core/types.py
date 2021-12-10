@@ -20,6 +20,7 @@ from composer.core.logging import Logger as Logger
 from composer.core.precision import Precision as Precision
 from composer.core.serializable import Serializable as Serializable
 from composer.core.state import State as State
+from composer.utils.string_enum import StringEnum
 
 try:
     from typing import Protocol
@@ -150,6 +151,13 @@ ModelParameters = Union[Iterable[Tensor], Iterable[Dict[str, Tensor]]]
 
 JSON = Union[str, float, int, None, List['JSON'], Dict[str, 'JSON']]
 
-TPrefetchFn = Callable[[Batch], Batch]
+TDeviceTransformFn = Callable[[Batch], Batch]
 
 StateDict = Dict[str, Any]
+
+
+class MemoryFormat(StringEnum):
+    CONTIGUOUS_FORMAT = "contiguous_format"
+    CHANNELS_LAST = "channels_last"
+    CHANNELS_LAST_3D = "channels_last_3d"
+    PRESERVE_FORMAT = "preserve_format"

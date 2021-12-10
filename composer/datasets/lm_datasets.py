@@ -4,12 +4,14 @@ import logging
 import tempfile
 from dataclasses import dataclass
 from os.path import join
-from typing import List
+from typing import List, Optional
 
 import yahp as hp
 
 from composer.core.types import Batch
+from composer.datasets.dataloader import DataloaderHparams
 from composer.datasets.hparams import DataloaderSpec, DatasetHparams
+from composer.utils import ddp
 
 log = logging.getLogger(__name__)
 
@@ -29,9 +31,9 @@ class LMDatasetHparams(DatasetHparams):
     Defines a generic dataset class for autoregressive language models.
     """
 
-    datadir: List[str] = hp.required("Path to the Huggingface Datasets directory.")
-    split: str = hp.required("Whether to use 'train', 'validation' or 'test' split.")
-    tokenizer_name: str = hp.required("The name of the tokenizer to preprocess text with.")
+    datadir: List[str] = hp.optional("Path to the Huggingface Datasets directory.", default_factory=list)
+    split: Optional[str] = hp.optional("Whether to use 'train', 'validation' or 'test' split.", default=None)
+    tokenizer_name: Optional[str] = hp.optional("The name of the tokenizer to preprocess text with.", default=None)
     num_tokens: int = hp.optional(doc='If desired, the number of tokens to truncate the dataset to.', default=0)
     seed: int = hp.optional("Which seed to use to generate train and validation splits.", default=5)
     subsample_ratio: float = hp.optional(default=1.0, doc='If desired, the percentage of the dataset to use.')
@@ -39,10 +41,8 @@ class LMDatasetHparams(DatasetHparams):
         default=1024, doc='Optionally, the ability to set a custom sequence length for the training dataset.')
     val_sequence_length: int = hp.optional(
         default=1024, doc='Optionally, the ability to set a custom sequence length for the validation dataset.')
-    shuffle: bool = hp.optional("Whether to shuffle the dataset for each epoch.", default=True)
-    drop_last: bool = hp.optional("Whether to drop the last samples for the last batch.", default=False)
 
-    def initialize_object(self) -> DataloaderSpec:
+    def initialize_object(self, batch_size: int, dataloader_hparams: DataloaderHparams) -> DataloaderSpec:
         try:
             import datasets
             import transformers
@@ -58,6 +58,8 @@ class LMDatasetHparams(DatasetHparams):
             raise ValueError("The dataset split must be one of 'train', 'validation', or 'test'.")
 
         # merge the dataset to re-sample from
+        if self.split is None:
+            raise ValueError("split is required")
         merged_dataset = [[d[self.split]] for d in lm_datasets]
         # flatten merged_dataset
         merged_dataset = [item for sublist in merged_dataset for item in sublist]
@@ -94,13 +96,16 @@ class LMDatasetHparams(DatasetHparams):
         log.info(f"Subsample ratio: {self.subsample_ratio}")
         log.info(f"Total number of samples: {num_samples:e}")
         log.info(f"Total number of tokens: {self.num_tokens:e}")
-        self.dataset = lm_datasets
+        dataset = lm_datasets
+        data_collator = transformers.default_data_collator
 
-        self.data_collator = transformers.default_data_collator
+        sampler = ddp.get_sampler(dataset, drop_last=self.drop_last, shuffle=self.shuffle)
 
-        return DataloaderSpec(
-            dataset=self.dataset,  #type: ignore (thirdparty)
-            collate_fn=self.data_collator,
-            shuffle=self.shuffle,
+        return DataloaderSpec(dataloader=dataloader_hparams.initialize_object(
+            dataset=dataset,
+            batch_size=batch_size,
+            sampler=sampler,
             drop_last=self.drop_last,
-            split_fn=_split_dict_fn)
+            collate_fn=data_collator,
+        ),
+                              split_fn=_split_dict_fn)
