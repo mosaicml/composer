@@ -1,6 +1,7 @@
 import os
 from dataclasses import dataclass
-from typing import List, Optional, Tuple
+from math import ceil
+from typing import List, Optional, Tuple, Union
 
 import numpy as np
 import torch
@@ -15,7 +16,7 @@ from composer.datasets.hparams import DataloaderSpec, DatasetHparams
 from composer.utils import ddp
 
 
-class PreprocessingFn:
+class TransformationFn:
 
     def __init__(self) -> None:
         self.mean: Optional[Tensor] = None
@@ -36,17 +37,17 @@ class PreprocessingFn:
 
         xs = xs.float()
         xs = xs.sub_(self.mean).div_(self.std)
+        ys = ys.sub_(1)
         return xs, ys
 
 
-def fast_collate(batch: List[Tuple[Image.Image, Image.Image]],
-                 memory_format: torch.memory_format = torch.contiguous_format):
+def fast_collate(batch: List[Tuple[Image.Image, Tensor]], memory_format: torch.memory_format = torch.contiguous_format):
     imgs = [sample[0] for sample in batch]
     targets = [sample[1] for sample in batch]
     w = imgs[0].size[0]
     h = imgs[0].size[1]
-    tensor = torch.zeros((len(imgs), 3, h, w), dtype=torch.uint8).contiguous(memory_format=memory_format)
-    tensor_targets = torch.zeros((len(targets), h, w), dtype=torch.long).contiguous(memory_format=memory_format)
+    image_tensor = torch.zeros((len(imgs), 3, h, w), dtype=torch.uint8).contiguous(memory_format=memory_format)
+    target_tensor = torch.zeros((len(targets), h, w), dtype=torch.int64).contiguous(memory_format=memory_format)
     for i, img in enumerate(imgs):
         nump_array = np.asarray(img, dtype=np.uint8)
         if nump_array.ndim < 3:
@@ -56,65 +57,178 @@ def fast_collate(batch: List[Tuple[Image.Image, Image.Image]],
         if nump_array.shape[0] != 3:
             assert nump_array.shape[0] == 1, "unexpected shape"
             nump_array = np.resize(nump_array, (3, h, w))
-        assert tuple(tensor.shape)[1:] == nump_array.shape, "shape mistmatch"
+        assert image_tensor.shape[1:] == nump_array.shape, "shape mismatch"
 
-        tensor[i] += torch.from_numpy(nump_array)
+        image_tensor[i] += torch.from_numpy(nump_array)
+        target_tensor[i] += torch.from_numpy(np.array(targets[i], dtype=np.int64))
 
-        target_array = np.asarray(targets[i], dtype=np.int_)
-        tensor_targets[i] += target_array  # drop all channels except for the first
+    return image_tensor, target_tensor
 
-    return tensor, (tensor_targets - 1)
+
+class ResizePair(torch.nn.Module):
+
+    def __init__(self, size: int):
+        super().__init__()
+        self.size = size
+
+    def forward(self, sample: Tuple[Image.Image, Image.Image]):
+        image, target = sample
+        image = TF.resize(image, (self.size, self.size), interpolation=TF.InterpolationMode.BILINEAR)  # type: ignore
+        target = TF.resize(target, (self.size, self.size), interpolation=TF.InterpolationMode.NEAREST)  # type: ignore
+        return image, target
+
+
+class RandomResizePair(torch.nn.Module):
+
+    def __init__(self, min_scale: float, max_scale: float):
+        super().__init__()
+        self.min_scale = min_scale
+        self.max_scale = max_scale
+
+    def forward(self, sample: Tuple[Image.Image, Image.Image]):
+        image, target = sample
+        resize_ratio = np.random.random_sample() * (self.max_scale - self.min_scale) + self.min_scale
+        resized_dims = (int(image.width * resize_ratio), int(image.height * resize_ratio))
+        resized_image = TF.resize(image, resized_dims, interpolation=TF.InterpolationMode.BILINEAR)  # type: ignore
+        resized_target = TF.resize(target, resized_dims, interpolation=TF.InterpolationMode.NEAREST)  # type: ignore
+        return resized_image, resized_target
+
+
+class RandomCropPair(torch.nn.Module):
+
+    def __init__(self, crop_size: int):
+        super().__init__()
+        self.crop_size = crop_size
+
+    def forward(self, sample: Tuple[Image.Image, Image.Image]):
+        image, target = sample
+        if image.width > self.crop_size or image.height > self.crop_size:
+            i, j, h, w = transforms.RandomCrop.get_params(image, output_size=(self.crop_size, self.crop_size))
+            image = TF.crop(image, i, j, h, w)  # type: ignore
+            target = TF.crop(target, i, j, h, w)  # type: ignore
+        return image, target
+
+
+class RandomHFlipPair(torch.nn.Module):
+
+    def __init__(self, probability: float = 0.5):
+        super().__init__()
+        self.probability = probability
+
+    def forward(self, sample: Tuple[Image.Image, Image.Image]):
+        image, target = sample
+        if np.random.random_sample() > self.probability:
+            image = TF.hflip(image)  # type: ignore
+            target = TF.hflip(target)  # type: ignore
+        return image, target
+
+
+class PadToSize(torch.nn.Module):
+
+    def __init__(self, size: int, fill: Union[int, Tuple[int, int, int]] = 0):
+        super().__init__()
+        self.size = size
+        self.fill = fill
+
+    def forward(self, image: Image.Image):
+        padding = max(self.size - image.width, 0), max(self.size - image.height, 0)
+        padding = (padding[0] // 2, padding[1] // 2, ceil(padding[0] / 2), ceil(padding[1] / 2))
+        image = TF.pad(image, padding, fill=self.fill)  # type: ignore
+        return image
+
+
+class PhotometricDistoration(torch.nn.Module):
+
+    def __init__(self, brightness: float, contrast: float, saturation: float, hue: float):
+        super().__init__()
+        self.brightness = brightness
+        self.contrast = contrast
+        self.saturation = saturation
+        self.hue = hue
+
+    def forward(self, image: Image.Image):
+        if np.random.randint(2):
+            brightness_factor = np.random.uniform(1 - self.brightness, 1 + self.brightness)
+            image = TF.adjust_brightness(image, brightness_factor)  # type: ignore
+
+        contrast_mode = np.random.randint(2)
+        if contrast_mode == 1 and np.random.randint(2):
+            contrast_factor = np.random.uniform(1 - self.contrast, 1 + self.contrast)
+            image = TF.adjust_contrast(image, contrast_factor)  # type: ignore
+
+        if np.random.randint(2):
+            saturation_factor = np.random.uniform(1 - self.saturation, 1 + self.saturation)
+            image = TF.adjust_saturation(image, saturation_factor)  # type: ignore
+
+        if np.random.randint(2):
+            hue_factor = np.random.uniform(self.hue, self.hue)
+            image = TF.adjust_hue(image, hue_factor)  # type: ignore
+
+        if contrast_mode == 0 and np.random.randint(2):
+            contrast_factor = np.random.uniform(1 - self.contrast, 1 + self.contrast)
+            image = TF.adjust_contrast(image, contrast_factor)  # type: ignore
+
+        return image
+
+
+class PILToMask:
+
+    def __call__(self, target):
+        return torch.as_tensor(np.array(target), dtype=torch.int64)
 
 
 class ADE20k(Dataset):
 
-    def __init__(self, datadir: str, split: str, transformation):
+    def __init__(self,
+                 datadir: str,
+                 split: str,
+                 both_transforms: torch.nn.Module,
+                 image_transforms: torch.nn.Module,
+                 target_transforms: torch.nn.Module,
+                 ignore_class: int = -1):
         super().__init__()
         self.datadir = datadir
         self.split = split
-        self.transformation = transformation
+        self.both_transforms = both_transforms
+        self.image_transforms = image_transforms
+        self.target_transforms = target_transforms
+        self.ignore_class = ignore_class
 
-        self.img_files = os.listdir(os.path.join(self.datadir, 'images', self.split))
-        # Remove random colo files
-        self.img_files = [f for f in self.img_files if f[0] == 'A']
-        # Remove grayscale image sample
+        self.image_files = os.listdir(os.path.join(self.datadir, 'images', self.split))
+
+        # Grab only the ADE files
+        self.image_files = [f for f in self.image_files if f[:3] == 'ADE']
+
+        # Remove grayscale samples
         if self.split == 'train':
-            self.img_files.remove('ADE_train_00003020.jpg')
-            self.img_files.remove('ADE_train_00001701.jpg')
-            self.img_files.remove('ADE_train_00013508.jpg')
-            self.img_files.remove('ADE_train_00008455.jpg')
+            corrupted_samples = ['00003020', '00001701', '00013508', '00008455']
+            for sample in corrupted_samples:
+                self.image_files.remove(f'ADE_train_{sample}.jpg')
 
     def __getitem__(self, index):
         # Load image
-        #image_name = f'ADE_{self.split}_{index+1:08d}.jpg'
-        #image_path = os.path.join(self.datadir, 'images', self.split, image_name)
-        image_path = os.path.join(self.datadir, 'images', self.split, self.img_files[index])
+        image_file = self.image_files[index]
+        image_path = os.path.join(self.datadir, 'images', self.split, image_file)
         image = Image.open(image_path)
 
         # Load annotation target if using either train or val splits
         if self.split in ['train', 'val']:
-            #target_name = f'ADE_{self.split}_{index+1:08d}.png'
-            #target_path = os.path.join(self.datadir, 'annotations', self.split, target_name)
-            target_path = os.path.join(self.datadir, 'annotations', self.split,
-                                       self.img_files[index].split('.')[0] + '.png')
+            target_path = os.path.join(self.datadir, 'annotations', self.split, image_file.split('.')[0] + '.png')
             target = Image.open(target_path)
 
-        if self.transformation:
-            image, target = self.transformation(image, target, self.split == 'train')
+        if self.both_transforms:
+            image, target = self.both_transforms((image, target))
+
+        if self.image_transforms:
+            image = self.image_transforms(image)
+
+        if self.target_transforms:
+            target = self.target_transforms(target)
 
         return image, target
 
     def __len__(self):
-        return len(self.img_files)
-
-
-def random_resize(image, target, min_resize_factor, max_resize_factor, factor_step_size):
-    resize_factors = np.arange(min_resize_factor, max_resize_factor + factor_step_size, factor_step_size)
-    resize_factor = np.random.choice(resize_factors)
-    new_dims = [int(image.width * resize_factor), int(image.height * resize_factor)]
-    resize_image = TF.resize(image, new_dims, interpolation=TF.InterpolationMode.BILINEAR)
-    resize_target = TF.resize(target, new_dims, interpolation=TF.InterpolationMode.NEAREST)
-    return resize_image, resize_target
+        return len(self.image_files)
 
 
 @dataclass
@@ -122,62 +236,38 @@ class ADE20kDatasetHparams(DatasetHparams):
 
     split: str = hp.optional("Which split of the dataset to use. Either ['train', 'val', 'test']", default='train')
     resize_size: int = hp.optional("Size of the image after resizing", default=512)
+    min_resize_scale: float = hp.optional("Minimum scale that the image can be randomly scaled by", default=0.5)
+    max_resize_scale: float = hp.optional("Maximum scale that the image can be randomly scaled by", default=2.0)
     crop_size: int = hp.optional("Size of image after cropping", default=512)
-
-    def segmentation_transformation(self, image, target, is_train):
-        image = TF.resize(image, [self.resize_size] * 2, TF.InterpolationMode.BILINEAR)
-        target = TF.resize(target, [self.resize_size] * 2, TF.InterpolationMode.NEAREST)
-
-        if is_train:
-            image, target = random_resize(image, target, 0.5, 2.0, 0.25)
-
-            if image.width > self.crop_size or image.height > self.crop_size:
-                i, j, h, w = transforms.RandomCrop.get_params(image, output_size=(self.crop_size, self.crop_size))
-                image = TF.crop(image, i, j, h, w)
-                target = TF.crop(target, i, j, h, w)
-
-            if np.random.random() > 0.5:
-                image = TF.hflip(image)
-                target = TF.hflip(target)
-
-            # Photometric distortions
-            if np.random.randint(2):
-                brightness_factor = np.random.uniform(1 - (32. / 255), 1 + (32. / 255))
-                image = TF.adjust_brightness(image, brightness_factor)
-
-            contrast_mode = np.random.randint(2)
-            if contrast_mode == 1 and np.random.randint(2):
-                contrast_factor = np.random.uniform(0.5, 1.5)
-                image = TF.adjust_contrast(image, contrast_factor)
-
-            if np.random.randint(2):
-                saturation_factor = np.random.uniform(0.5, 1.5)
-                image = TF.adjust_saturation(image, saturation_factor)
-
-            if np.random.randint(2):
-                hue_factor = np.random.uniform(-18. / 255, 18. / 255)
-                image = TF.adjust_hue(image, hue_factor)
-
-            if contrast_mode == 0 and np.random.randint(2):
-                contrast_factor = np.random.uniform(0.5, 1.5)
-                image = TF.adjust_contrast(image, contrast_factor)
-
-            if image.width < self.crop_size or image.height < self.crop_size:
-                margin = self.crop_size - image.width
-                image = TF.pad(image, margin // 2, fill=(int(0.485 * 255), int(0.456 * 255), int(0.406 * 255)))
-                target = TF.pad(target, margin // 2, fill=0)
-
-        return image, target
+    ignore_class: int = hp.optional("The integer to assign the ignore class", default=-1)
 
     def initialize_object(self, batch_size, dataloader_hparams) -> DataloaderSpec:
-        dataset = ADE20k(self.datadir, self.split, self.segmentation_transformation)
+        both_transforms = [ResizePair(size=self.resize_size)]
+
+        if self.split == 'train':
+            both_transforms += [
+                RandomResizePair(self.min_resize_scale, self.max_resize_scale),
+                RandomCropPair(self.crop_size),
+            ]
+            both_transforms = transforms.Compose(both_transforms)
+            image_transforms = transforms.Compose([
+                PhotometricDistoration(brightness=0.125, contrast=0.5, saturation=0.5, hue=0.0703125),
+                PadToSize(self.crop_size, fill=(int(0.485 * 255), int(0.456 * 255), int(0.406 * 255)))
+            ])
+            target_transforms = transforms.Compose([PadToSize(self.crop_size, fill=self.ignore_class), PILToMask()])
+        else:
+            both_transforms = transforms.Compose(both_transforms)
+            image_transforms = None
+            target_transforms = PILToMask()
+        dataset = ADE20k(self.datadir, self.split, both_transforms, image_transforms, target_transforms,
+                         self.ignore_class)
         sampler = ddp.get_sampler(dataset, drop_last=self.drop_last, shuffle=self.shuffle)
         return DataloaderSpec(dataloader=dataloader_hparams.initialize_object(dataset=dataset,
                                                                               batch_size=batch_size,
                                                                               sampler=sampler,
                                                                               collate_fn=fast_collate,
                                                                               drop_last=self.drop_last),
-                              device_transform_fn=PreprocessingFn())
+                              device_transform_fn=TransformationFn())
 
     def validate(self):
         pass

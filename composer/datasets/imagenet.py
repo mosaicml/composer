@@ -59,7 +59,7 @@ def fast_collate(batch: List[Tuple[Image.Image, Tensor]], memory_format: torch.m
         if nump_array.shape[0] != 3:
             assert nump_array.shape[0] == 1, "unexpected shape"
             nump_array = np.resize(nump_array, (3, h, w))
-        assert tuple(tensor.shape)[1:] == nump_array.shape, "shape mistmatch"
+        assert tuple(tensor.shape)[1:] == nump_array.shape, "shape mismatch"
 
         tensor[i] += torch.from_numpy(nump_array)
 
