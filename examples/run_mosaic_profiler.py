@@ -3,11 +3,12 @@
 """Entrypoint that performs a profiling run on the provided yahp hparams file
 This example is interchangable with run_mosaic_trainer.py
 """
-import logging
 import argparse
+import logging
 
 import composer
 from composer.profiler import ProfilerHparams
+from composer.profiler.profiler_hparams import DataloaderProfilerHparams, SystemProfilerHparams, TorchProfilerHparams
 from composer.trainer import Trainer, TrainerHparams
 
 logger = logging.getLogger(__name__)
@@ -23,6 +24,10 @@ def main() -> None:
         default=None,
         help='set the datadir for the train dataset',
     )
+    parser.add_argument("--detailed",
+                        default=False,
+                        action="store_true",
+                        help="Whether to record all system level statistics and torch tensor shapes and stack traces.")
 
     args, _ = parser.parse_known_args()
     hparams = TrainerHparams.create(cli_args=True)  # reads cli args from sys.argv
@@ -33,7 +38,14 @@ def main() -> None:
 
     # Configure the mosaic profiler
     if hparams.profiler is None:
-        hparams.profiler = ProfilerHparams()
+        if args.detailed:
+            hparams.profiler = ProfilerHparams(profilers=[  # type: ignore
+                DataloaderProfilerHparams(),
+                SystemProfilerHparams(profile_disk=True, profile_memory=True, profile_net=True),
+                TorchProfilerHparams(record_shapes=True, with_stack=True),
+            ])
+        else:
+            hparams.profiler = ProfilerHparams()
     hparams.max_epochs = 2
     if hparams.profiler.repeat != 0 and hparams.train_subset_num_batches is None:
         cycle_len = hparams.profiler.wait + hparams.profiler.warmup + hparams.profiler.active
