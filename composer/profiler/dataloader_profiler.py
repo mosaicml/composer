@@ -6,7 +6,7 @@ import textwrap
 from typing import Iterator, Optional
 
 from composer.core.callback import Callback
-from composer.core.profiler import MosaicProfiler
+from composer.core.profiler import Profiler
 from composer.core.state import State
 from composer.core.types import Batch, DataLoader, Logger
 from composer.datasets.dataloader import WrappedDataLoader
@@ -17,14 +17,13 @@ class ProfiledDataLoader(WrappedDataLoader):
     This class should not be instantiated directly.
 
     Args:
-        profiler (MosaicProfiler): The profiler instance.
+        profiler (Profiler): The profiler instance.
         dataloader (DataLoader): The dataloader to profile.
         name (str): The name for the dataloader.
     """
 
-    def __init__(self, profiler: MosaicProfiler, dataloader: DataLoader, name: str) -> None:
+    def __init__(self, profiler: Profiler, dataloader: DataLoader, name: str) -> None:
         super().__init__(dataloader)
-        self._mosaic_profiler = profiler
         self._marker = profiler.marker(f"dataloader/{name}", categories=["dataloader"])
         self._iterator: Optional[Iterator[Batch]] = None
 

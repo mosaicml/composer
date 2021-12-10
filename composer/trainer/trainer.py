@@ -22,7 +22,7 @@ from torchmetrics.metric import Metric
 from composer.core import Callback, Engine, Event, Logger, State
 from composer.core.algorithm import Algorithm
 from composer.core.logging import BaseLoggerBackend, LogLevel
-from composer.core.profiler import MosaicProfiler, ProfilerEventHandler
+from composer.core.profiler import Profiler, ProfilerEventHandler
 from composer.core.types import Batch, BreakEpochException, DataLoader, Metrics, Precision, Tensor
 from composer.datasets import DataloaderSpec
 from composer.datasets.dataloader import DDPDataLoader
@@ -158,12 +158,12 @@ class Trainer:
             checkpoint_interval: Optional[int] = 1,
 
             # Profiling
-            profile_event_handlers: Optional[List[ProfilerEventHandler]] = None,
-            profile_skip_first: int = 0,
-            profile_wait: int = 0,
-            profile_warmup: int = 1,
-            profile_active: int = 4,
-            profile_repeat: int = 1,
+            profiler_event_handlers: Optional[List[ProfilerEventHandler]] = None,
+            profiler_skip_first: int = 0,
+            profiler_wait: int = 0,
+            profiler_warmup: int = 1,
+            profiler_active: int = 4,
+            profiler_repeat: int = 1,
 
             # Subset parameters
             train_subset_num_batches: Optional[int] = None,
@@ -251,8 +251,8 @@ class Trainer:
             log_destinations = [TQDMLoggerBackend()]
         callbacks = [*log_destinations, *callbacks]
 
-        if profile_event_handlers is not None:
-            callbacks = [*callbacks, *profile_event_handlers]
+        if profiler_event_handlers is not None:
+            callbacks = [*callbacks, *profiler_event_handlers]
 
         self.state = State(
             max_epochs=max_epochs,
@@ -269,15 +269,15 @@ class Trainer:
         )
 
         # Configure the profiler
-        if profile_event_handlers is not None:
-            self.state.profiler = MosaicProfiler(
+        if profiler_event_handlers is not None:
+            self.state.profiler = Profiler(
                 state=self.state,
-                event_handlers=profile_event_handlers,
-                active=profile_active,
-                repeat=profile_repeat,
-                skip_first=profile_skip_first,
-                warmup=profile_warmup,
-                wait=profile_wait,
+                event_handlers=profiler_event_handlers,
+                active=profiler_active,
+                repeat=profiler_repeat,
+                skip_first=profiler_skip_first,
+                warmup=profiler_warmup,
+                wait=profiler_wait,
             )
 
         # Steps per epoch
@@ -397,19 +397,19 @@ class Trainer:
         eval_dataloader = hparams.val_dataset.initialize_object(eval_device_batch_size, hparams.dataloader)
 
         trace_event_handlers = None
-        profile_active = 0
-        profile_repeat = 0
-        profile_wait = 0
-        profile_skip_first = 0
-        profile_warmup = 0
-        if hparams.mosaic_profiler is not None:
-            trace_event_handlers = [x.initialize_object() for x in hparams.mosaic_profiler.trace_event_handlers]
-            profile_active = hparams.mosaic_profiler.active
-            profile_repeat = hparams.mosaic_profiler.repeat
-            profile_wait = hparams.mosaic_profiler.wait
-            profile_skip_first = hparams.mosaic_profiler.skip_first
-            profile_warmup = hparams.mosaic_profiler.warmup
-            callbacks.extend(profiler.initialize_object() for profiler in hparams.mosaic_profiler.profilers)
+        profiler_active = 0
+        profiler_repeat = 0
+        profiler_wait = 0
+        profiler_skip_first = 0
+        profiler_warmup = 0
+        if hparams.profiler is not None:
+            trace_event_handlers = [x.initialize_object() for x in hparams.profiler.trace_event_handlers]
+            profiler_active = hparams.profiler.active
+            profiler_repeat = hparams.profiler.repeat
+            profiler_wait = hparams.profiler.wait
+            profiler_skip_first = hparams.profiler.skip_first
+            profiler_warmup = hparams.profiler.warmup
+            callbacks.extend(profiler.initialize_object() for profiler in hparams.profiler.profilers)
 
         trainer = cls(
             model=model,
@@ -444,12 +444,12 @@ class Trainer:
             callbacks=tuple(callbacks),
 
             # Profiler
-            profile_event_handlers=trace_event_handlers,
-            profile_active=profile_active,
-            profile_repeat=profile_repeat,
-            profile_skip_first=profile_skip_first,
-            profile_wait=profile_wait,
-            profile_warmup=profile_warmup,
+            profiler_event_handlers=trace_event_handlers,
+            profiler_active=profiler_active,
+            profiler_repeat=profiler_repeat,
+            profiler_skip_first=profiler_skip_first,
+            profiler_wait=profiler_wait,
+            profiler_warmup=profiler_warmup,
 
             # Checkpointing hparams
             checkpoint_filepath=hparams.checkpoint_filepath,

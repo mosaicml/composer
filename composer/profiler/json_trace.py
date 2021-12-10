@@ -24,8 +24,8 @@ class JSONTraceHandler(ProfilerEventHandler):
         buffering (int, optional): Buffering parameter passed to :meth:`open` when opening the logfile.
             (Default: ``-1`` for the system default)
         output_directory (str): Directory, relative to the run directory, to store traces.
-            Each trace will be called ``rank_XXX.trace.json`` within this directory, and have an associated metadata file
-            called ``rank_XXX.metadata.trace.json``, where ``XXX`` is the global rank.
+            Each trace will be called ``rank_XXX.trace.json`` within this directory,
+            where ``XXX`` is the global rank.
             (Default: ``mosaic_profiler`` within the run directory)
     """
 
@@ -35,18 +35,16 @@ class JSONTraceHandler(ProfilerEventHandler):
                  output_directory: str = "mosaic_profiler") -> None:
         self.buffering = buffering
         self.flush_every_n_batches = flush_every_n_batches
-        self.output_directory = output_directory
+        self.output_directory = get_relative_to_run_directory(output_directory)
         self._file: Optional[IO] = None
         self._is_first_line = True
         self._buffer = queue.SimpleQueue()
 
     def init(self, state: State, logger: Logger) -> None:
         del state, logger  # unused
-        os.makedirs(get_relative_to_run_directory(self.output_directory), exist_ok=True)
-        self._file = open(get_relative_to_run_directory(
-            os.path.join(self.output_directory, f"rank_{ddp.get_global_rank()}.trace.json")),
-                          "x",
-                          buffering=self.buffering)
+        os.makedirs(self.output_directory, exist_ok=True)
+        trace_file_name = os.path.join(self.output_directory, f"rank_{ddp.get_global_rank()}.trace.json")
+        self._file = open(trace_file_name, "x", buffering=self.buffering)
         self._file.write("[\n")
         wall_clock_ns = time.time_ns()
         self._record_event(
@@ -78,19 +76,21 @@ class JSONTraceHandler(ProfilerEventHandler):
         ddp.barrier()  # another barrier to bound the error
         clock_sync_b = time.time_ns()
         clock_sync_error_bound = clock_sync_b - clock_sync_a
+        self._record_event(
+            name="clock_sync_timestamp_us",
+            ph="M",  # metadata
+            wall_clock_ns=wall_clock_ns,
+            tid=threading.get_ident(),
+            pid=os.getpid(),
+            args={"value": clock_sync_time_ns // 1000})
 
-        # Write the static metadata to a trace file in object format
-        metadata_filename = f"rank_{ddp.get_global_rank()}.metadata.trace.json"
-        metadata_file = get_relative_to_run_directory(os.path.join(self.output_directory, metadata_filename))
-        with open(metadata_file, "x") as f:
-            json.dump(
-                {
-                    "clock_sync_timestamp_us": clock_sync_time_ns // 1000,
-                    "clock_sync_error_us": clock_sync_error_bound // 1000,
-                    "displayTimeUnit": "ns",
-                    "global_rank": ddp.get_global_rank(),
-                    "traceEvents": [],
-                }, f)
+        self._record_event(
+            name="clock_sync_error_bound",
+            ph="M",  # metadata
+            wall_clock_ns=wall_clock_ns,
+            tid=threading.get_ident(),
+            pid=os.getpid(),
+            args={"value": clock_sync_error_bound // 1000})
 
     def batch_end(self, state: State, logger: Logger) -> None:
         del logger  # unused

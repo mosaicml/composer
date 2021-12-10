@@ -4,10 +4,10 @@ from __future__ import annotations
 
 import abc
 import dataclasses
-import json
 import os
 import threading
 import time
+import logging
 from functools import wraps
 from types import TracebackType
 from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple, Type, Union, TYPE_CHECKING
@@ -15,7 +15,6 @@ from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple, Type, U
 import yahp as hp
 
 from composer.core.callback import Callback
-from composer.core.state import State
 from composer.utils import ddp
 from composer.utils.run_directory import get_relative_to_run_directory
 from composer.utils.string_enum import StringEnum
@@ -23,6 +22,7 @@ from composer.utils.string_enum import StringEnum
 if TYPE_CHECKING:
     from composer.core.state import State
 
+log = logging.getLogger(__name__)
 
 @dataclasses.dataclass
 class ProfilerEventHandlerHparams(hp.Hparams, abc.ABC):
@@ -42,7 +42,7 @@ class ProfilerEventHandler(Callback, abc.ABC):
     """Base class for profiler event handlers.
 
     Subclasses should implement :meth:`process_duration_event` and
-    :meth:`process_instant_event`. These methods are invoked by the :class:`MosaicProfiler`
+    :meth:`process_instant_event`. These methods are invoked by the :class:`Profiler`
     whenever there is an event to record.
 
     Since :class:`ProfilerEventHandler` subclasses :class:`~composer.Callback`,
@@ -62,7 +62,7 @@ class ProfilerEventHandler(Callback, abc.ABC):
         process_id: int,
         thread_id: int,
     ) -> None:
-        """Called by the :class:`MosaicProfiler` whenever there is a duration event to record.
+        """Called by the :class:`Profiler` whenever there is a duration event to record.
 
         This method is called twice for each duration event -- once with ``is_start = True``,
         and then again with ``is_start = False``. Interleaving events are not permitted.
@@ -92,7 +92,7 @@ class ProfilerEventHandler(Callback, abc.ABC):
         process_id: int,
         thread_id: int,
     ) -> None:
-        """Called by the :class:`MosaicProfiler` whenever there is an instant event to record.
+        """Called by the :class:`Profiler` whenever there is an instant event to record.
 
         Args:
             name (str): The name of the event.
@@ -116,7 +116,7 @@ class ProfilerEventHandler(Callback, abc.ABC):
         thread_id: int,
         values: Dict[str, Union[int, float]],
     ) -> None:
-        """Called by the :class:`MosaicProfiler` whenever there is an counter event to record.
+        """Called by the :class:`Profiler` whenever there is an counter event to record.
 
         Args:
             name (str): The name of the event.
@@ -130,8 +130,8 @@ class ProfilerEventHandler(Callback, abc.ABC):
         pass
 
 
-class MosaicProfilerAction(StringEnum):
-    """Action states for the :class:`MosaicProfiler`.
+class ProfilerAction(StringEnum):
+    """Action states for the :class:`Profiler`.
 
     Attributes:
         SKIP: Not currently recording new events at the batch level or below.
@@ -144,8 +144,8 @@ class MosaicProfilerAction(StringEnum):
     ACTIVE = "active"
 
 
-class MosaicProfiler:
-    """The MosaicProfiler produces a trace of the training graph.
+class Profiler:
+    """The Profiler produces a trace of the training graph.
 
     Specifically, it records:
 
@@ -177,6 +177,7 @@ class MosaicProfiler:
         warmup: int = 1,
         active: int = 4,
         repeat: int = 1,
+        merged_trace_file: str = "merged_profiler_trace.json",
     ) -> None:
         self._names_to_markers: Dict[str, Marker] = {}
         self._event_handlers = event_handlers
@@ -186,10 +187,11 @@ class MosaicProfiler:
         self.warmup = warmup
         self.active = active
         self.repeat = repeat
-        self._action = MosaicProfilerAction.SKIP
+        self.merged_trace_file = get_relative_to_run_directory(merged_trace_file)
+        self._action = ProfilerAction.SKIP
 
-    def get_action(self, batch_idx: int) -> MosaicProfilerAction:
-        """Get the current :class:`MosaicProfilerAction` for the profiler, based upon
+    def get_action(self, batch_idx: int) -> ProfilerAction:
+        """Get the current :class:`ProfilerAction` for the profiler, based upon
         the parameters ``skip_first``, ``wait``, ``warmup``, ``active``, and ``repeat``.
 
         The profiler skips the first ``skip_first`` batches in every epoch. Then, it performs a cycle of
@@ -198,24 +200,55 @@ class MosaicProfiler:
         This logic repeats every epoch.
 
         Returns:
-            MosaicProfilerAction: The current action.
+            ProfilerAction: The current action.
         """
         # do wait, then warump, then active, up to repeat times per cycle
         cycle_len = self.wait + self.warmup + self.active
         if self.repeat != 0 and batch_idx >= cycle_len * self.repeat:
             # exhausted the repeat
-            return MosaicProfilerAction.SKIP
+            return ProfilerAction.SKIP
         position_in_cycle = batch_idx % cycle_len
         if position_in_cycle < self.wait:
-            return MosaicProfilerAction.SKIP
+            return ProfilerAction.SKIP
         if position_in_cycle < self.wait + self.warmup:
-            return MosaicProfilerAction.WARMUP
-        return MosaicProfilerAction.ACTIVE
+            return ProfilerAction.WARMUP
+        return ProfilerAction.ACTIVE
+
+    def merge_traces(self):
+        """Merge traces together
+
+        .. note::
+
+            This method is invoked by the engine. Do not invoke this method directly.
+        """
+        ddp.barrier()
+        if not ddp.get_local_rank() == 0:
+            return
+        from composer.profiler.json_trace_merger import merge_traces
+        from composer.profiler.json_trace import JSONTraceHandler
+        from composer.profiler.torch_profiler import TorchProfiler
+        log.info("Merging profiling trace files together")
+        trace_folders = []
+        for callback in self.state.callbacks:
+            if isinstance(callback, JSONTraceHandler):
+                trace_folders.append(callback.output_directory)
+            if isinstance(callback, TorchProfiler):
+                trace_folders.append(callback.hparams.tensorboard_trace_handler_dir)
+
+        trace_files = []
+        for trace_folder in trace_folders:
+            for rootdir, dirnames, filenames in os.walk(trace_folder):
+                del dirnames  # unused
+                for filename in filenames:
+                    filepath = os.path.join(rootdir, filename)
+                    if filepath.endswith(".json"):
+                        trace_files.append(filepath)
+        merge_traces(self.merged_trace_file, *trace_files)
 
     def marker(
         self,
         name: str,
-        actions: Sequence[MosaicProfilerAction] = (MosaicProfilerAction.WARMUP, MosaicProfilerAction.ACTIVE),
+        actions: Sequence[ProfilerAction] = (ProfilerAction.WARMUP, ProfilerAction.ACTIVE),
         record_instant_on_start: bool = False,
         record_instant_on_finish: bool = False,
         categories: Union[List[str], Tuple[str, ...]] = tuple()) -> Marker:
@@ -226,8 +259,8 @@ class MosaicProfiler:
 
         Args:
             name (str): The name for the :class:`Marker`.
-            actions (Sequence[MosaicProfilerAction], optional): :class:`MosaicProfilerAction` states to record on.
-                By default, markers will record on :attr:`MosaicProfilerAction.WARMUP` and :attr:`MosaicProfilerAction.ACTIVE`
+            actions (Sequence[ProfilerAction], optional): :class:`ProfilerAction` states to record on.
+                By default, markers will record on :attr:`ProfilerAction.WARMUP` and :attr:`ProfilerAction.ACTIVE`
             record_instant_on_start (bool, optional): Whether to record an instant event whenever the marker is started
             record_instant_on_finish (bool, optional): Whether to record an instant event whenever the marker is finished
             categories (List[str] | Tuple[str, ...], optional): Categories for this marker.
@@ -340,69 +373,12 @@ class MosaicProfiler:
                 values=values,
             )
 
-    def _merge_traces(self):
-        """Merge trace files in the output directory.
-
-        Compute the clock sync difference across every process and add the difference
-        to each recorded trace event.
-        """
-
-        from composer.profiler.json_trace import JSONTraceHandler as JSONTraceHandler
-        if ddp.get_global_rank() != 0:
-            return
-
-        for event_handler in self._event_handlers:
-            if isinstance(event_handler, JSONTraceHandler):
-                rank_0_metadata_filename = f"rank_0.metadata.trace.json"
-                rank_0_metadata_file = get_relative_to_run_directory(
-                    os.path.join(event_handler.output_directory, rank_0_metadata_filename))
-                with open(rank_0_metadata_file, "r") as f:
-                    trace_metadata = json.load(f)
-                rank_0_clock_sync = trace_metadata["clock_sync_timestamp_us"]
-
-                merged_trace_file = open(
-                    get_relative_to_run_directory(os.path.join(event_handler.output_directory, f"merged_trace.json")),
-                    "x")
-                merged_trace_file.write("[\n")
-
-                first_line = True
-                for ddp_rank in range(0, ddp.get_world_size()):
-                    metadata_filename = f"rank_{ddp_rank}.metadata.trace.json"
-                    metadata_file = get_relative_to_run_directory(
-                        os.path.join(event_handler.output_directory, metadata_filename))
-                    with open(metadata_file, "r") as f:
-                        trace_metadata = json.load(f)
-                    clock_sync = trace_metadata["clock_sync_timestamp_us"]
-                    clock_sync_diff = rank_0_clock_sync - clock_sync
-
-                    trace_filename = f"rank_{ddp_rank}.trace.json"
-                    trace_file = get_relative_to_run_directory(
-                        os.path.join(event_handler.output_directory, trace_filename))
-                    with open(trace_file, "r") as f:
-                        trace_data = json.load(f)
-
-                    for event in trace_data:
-                        if "ts" in event:
-                            event["ts"] = event["ts"] + clock_sync_diff
-                        event_string = json.dumps(
-                            event,
-                            separators=(',', ': '),
-                        )
-                        if not first_line:
-                            merged_trace_file.write(",\n")
-                        else:
-                            first_line = False
-                        merged_trace_file.write(event_string)
-                merged_trace_file.write("\n]")
-                merged_trace_file.close()
-
-
 class Marker:
     """Record when something happens or how long something takes.
 
     .. note::
 
-        :class:`Marker` should not be instantiated directly; instead use :meth:`MosaicProfiler.marker`.
+        :class:`Marker` should not be instantiated directly; instead use :meth:`Profiler.marker`.
 
     To use a `Marker` to record a duration, you can:
 
@@ -438,28 +414,28 @@ class Marker:
     To use a :class:`Marker` to record an instant, call :meth:`instant`
 
     Args:
-        mosaic_profiler (MosaicProfiler): The profiler.
+        profiler (Profiler): The profiler.
         name (str): The name of the event.
-        actions (Sequence[MosaicProfilerAction], optional): :class:`MosaicProfilerAction` states to record on.
+        actions (Sequence[ProfilerAction], optional): :class:`ProfilerAction` states to record on.
         record_instant_on_start (bool): Whether to record an instant event whenever the marker is started
         record_instant_on_finish (bool): Whether to record an instant event whenever the marker is finished
         categories (List[str] | Tuple[str, ...]]): Categories corresponding to this event.
     """
 
-    def __init__(self, mosaic_profiler: MosaicProfiler, name: str, actions: Sequence[MosaicProfilerAction],
+    def __init__(self, profiler: Profiler, name: str, actions: Sequence[ProfilerAction],
                  record_instant_on_start: bool, record_instant_on_finish: bool,
                  categories: Union[List[str], Tuple[str, ...]]) -> None:
 
-        self._instrumentation = mosaic_profiler
+        self.profiler = profiler
         self.name = name
         self.actions = actions
         self.categories = categories
         self.record_instant_on_start = record_instant_on_start
         self.record_instant_on_finish = record_instant_on_finish
-        if name in mosaic_profiler._names_to_markers:
-            if mosaic_profiler._names_to_markers[name] is not self:
+        if name in profiler._names_to_markers:
+            if profiler._names_to_markers[name] is not self:
                 raise RuntimeError(
-                    f"{self.__class__.__name__} should not be instantiated directly. Instead, use {mosaic_profiler.__class__.__name__}.marker(name)"
+                    f"{self.__class__.__name__} should not be instantiated directly. Instead, use {profiler.__class__.__name__}.marker(name)"
                 )
         self._started = False
         self._action_at_start = None
@@ -470,13 +446,13 @@ class Marker:
             raise RuntimeError(
                 f"Attempted to start profiler event {self.name}; however, this marker is already started")
 
-        epoch = self._instrumentation.state.epoch
-        step = self._instrumentation.state.step
-        batch_idx = self._instrumentation.state.batch_idx
-        self._action_at_start = self._instrumentation.get_action(batch_idx)
+        epoch = self.profiler.state.epoch
+        step = self.profiler.state.step
+        batch_idx = self.profiler.state.batch_idx
+        self._action_at_start = self.profiler.get_action(batch_idx)
         if self._action_at_start in self.actions:
             wall_clock_time = time.time_ns()
-            self._instrumentation.record_duration_event(
+            self.profiler.record_duration_event(
                 self,
                 is_start=True,
                 wall_clock_time_ns=wall_clock_time,
@@ -486,7 +462,7 @@ class Marker:
                 thread_id=threading.get_ident(),
             )
             if self.record_instant_on_start:
-                self._instrumentation.record_instant_event(
+                self.profiler.record_instant_event(
                     self,
                     epoch=epoch,
                     step=step,
@@ -504,9 +480,9 @@ class Marker:
 
         if self._action_at_start in self.actions:
             wall_clock_time = time.time_ns()
-            epoch = self._instrumentation.state.epoch
-            step = self._instrumentation.state.step
-            self._instrumentation.record_duration_event(
+            epoch = self.profiler.state.epoch
+            step = self.profiler.state.step
+            self.profiler.record_duration_event(
                 self,
                 is_start=False,
                 epoch=epoch,
@@ -516,7 +492,7 @@ class Marker:
                 thread_id=threading.get_ident(),
             )
             if self.record_instant_on_finish:
-                self._instrumentation.record_instant_event(
+                self.profiler.record_instant_event(
                     self,
                     wall_clock_time_ns=wall_clock_time,
                     epoch=epoch,
@@ -528,11 +504,11 @@ class Marker:
 
     def instant(self) -> None:
         """Record an instant event."""
-        epoch = self._instrumentation.state.epoch
-        step = self._instrumentation.state.step
-        batch_idx = self._instrumentation.state.batch_idx
-        if self._instrumentation.get_action(batch_idx) in self.actions:
-            self._instrumentation.record_instant_event(
+        epoch = self.profiler.state.epoch
+        step = self.profiler.state.step
+        batch_idx = self.profiler.state.batch_idx
+        if self.profiler.get_action(batch_idx) in self.actions:
+            self.profiler.record_instant_event(
                 self,
                 wall_clock_time_ns=time.time_ns(),
                 epoch=epoch,
@@ -543,9 +519,9 @@ class Marker:
 
     def counter(self, values: Dict[str, Union[float, int]]) -> None:
         """Record a counter event."""
-        batch_idx = self._instrumentation.state.batch_idx
-        if self._instrumentation.get_action(batch_idx) in self.actions:
-            self._instrumentation.record_counter_event(
+        batch_idx = self.profiler.state.batch_idx
+        if self.profiler.get_action(batch_idx) in self.actions:
+            self.profiler.record_counter_event(
                 self,
                 wall_clock_time_ns=time.time_ns(),
                 process_id=os.getpid(),

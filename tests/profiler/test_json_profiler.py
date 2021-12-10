@@ -3,7 +3,7 @@
 import json
 import os
 
-from composer.profiler import JSONTraceHandlerHparams, MosaicProfilerHparams
+from composer.profiler import JSONTraceHandlerHparams, ProfilerHparams
 from composer.trainer import TrainerHparams
 from composer.utils.run_directory import get_relative_to_run_directory
 
@@ -11,7 +11,7 @@ from composer.utils.run_directory import get_relative_to_run_directory
 def test_json_trace_profiler_hanlder(mosaic_trainer_hparams: TrainerHparams):
     json_trace_handler_params = JSONTraceHandlerHparams(flush_every_n_batches=1,)
 
-    profiler_hparams = MosaicProfilerHparams(
+    profiler_hparams = ProfilerHparams(
         trace_event_handlers=[json_trace_handler_params],
         skip_first=0,
         warmup=0,
@@ -20,7 +20,7 @@ def test_json_trace_profiler_hanlder(mosaic_trainer_hparams: TrainerHparams):
         repeat=0,
     )
 
-    mosaic_trainer_hparams.mosaic_profiler = profiler_hparams
+    mosaic_trainer_hparams.profiler = profiler_hparams
     mosaic_trainer_hparams.max_epochs = 2
 
     trainer = mosaic_trainer_hparams.initialize_object()

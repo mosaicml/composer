@@ -9,10 +9,10 @@ import warnings
 from typing import Optional
 
 import torch.profiler
-from torch.profiler.profiler import ProfilerAction
+from torch.profiler.profiler import ProfilerAction as TorchProfilerAction
 
 from composer.core import Callback, Logger, State
-from composer.core.profiler import MosaicProfilerAction
+from composer.core.profiler import ProfilerAction
 from composer.profiler.profiler_hparams import TorchProfilerHparams
 from composer.utils import ddp
 from composer.utils.run_directory import get_relative_to_run_directory
@@ -81,7 +81,7 @@ class TorchProfiler(Callback):
                 "TorchTBProfilerNotFound: torch_tb_profiler not found. You will not be able to visualize torch profiler results."
                 "To visualize, run `pip install torch-tb-profiler`")
 
-    def _scheduler_fn(self, profiler_step: int, state: State) -> ProfilerAction:
+    def _scheduler_fn(self, profiler_step: int, state: State) -> TorchProfilerAction:
         # Invoked on every batch, at the batch end
         # But, it's called one batch in advance.
         # Wrapping the default scheduling function to deal with epoch boundaries
@@ -96,17 +96,17 @@ class TorchProfiler(Callback):
         mosaic_profiler_action = state.profiler.get_action(next_batch_in_epoch)
         next_mosaic_profiler_action = state.profiler.get_action(next_batch_in_epoch + 1)
         if next_batch_in_epoch == state.steps_per_epoch:
-            if mosaic_profiler_action == MosaicProfilerAction.ACTIVE:
+            if mosaic_profiler_action == ProfilerAction.ACTIVE:
                 # force saving at epoch boundaries
-                return ProfilerAction.RECORD_AND_SAVE
-        if mosaic_profiler_action == MosaicProfilerAction.ACTIVE and next_mosaic_profiler_action != MosaicProfilerAction.ACTIVE:
-            return ProfilerAction.RECORD_AND_SAVE
-        if mosaic_profiler_action == MosaicProfilerAction.ACTIVE:
-            return ProfilerAction.RECORD
-        if mosaic_profiler_action == MosaicProfilerAction.WARMUP:
-            return ProfilerAction.WARMUP
-        assert mosaic_profiler_action == MosaicProfilerAction.SKIP, "invariant error"
-        return ProfilerAction.NONE
+                return TorchProfilerAction.RECORD_AND_SAVE
+        if mosaic_profiler_action == ProfilerAction.ACTIVE and next_mosaic_profiler_action != ProfilerAction.ACTIVE:
+            return TorchProfilerAction.RECORD_AND_SAVE
+        if mosaic_profiler_action == ProfilerAction.ACTIVE:
+            return TorchProfilerAction.RECORD
+        if mosaic_profiler_action == ProfilerAction.WARMUP:
+            return TorchProfilerAction.WARMUP
+        assert mosaic_profiler_action == ProfilerAction.SKIP, "invariant error"
+        return TorchProfilerAction.NONE
 
     def init(self, state: State, logger: Logger) -> None:
         del logger  # unused
@@ -117,6 +117,10 @@ class TorchProfiler(Callback):
                 Make sure to run composer with the profiler -- i.e. with the `--profiler` CLI flag."""))
         self.profiler = torch.profiler.profile(
             schedule=functools.partial(self._scheduler_fn, state=state),
+            # TODO(ravi): Instruct the pytorch profiler to dump trace events through our profiler,
+            # rather than to a seperate JSON file. Then, temove the tensorboard_trace_handler_dir
+            # and tensorboard_use_gzip hparams, and the JSONTraceMerger can be invoked on the
+            # close() call of the JSONTraceHandler.
             on_trace_ready=torch.profiler.tensorboard_trace_handler(
                 dir_name=self.hparams.tensorboard_trace_handler_dir,
                 worker_name=f"torch_profiler_{ddp.get_global_rank()}",

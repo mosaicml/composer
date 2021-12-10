@@ -6,7 +6,7 @@ This example is interchangable with run_mosaic_trainer.py
 import logging
 
 import composer
-from composer.profiler import MosaicProfilerHparams
+from composer.profiler import ProfilerHparams
 from composer.trainer import Trainer, TrainerHparams
 
 logger = logging.getLogger(__name__)
@@ -20,25 +20,25 @@ def main() -> None:
     logging.getLogger(composer.__name__).setLevel(hparams.log_level)
 
     # Configure the mosaic profiler
-    if hparams.mosaic_profiler is None:
-        hparams.mosaic_profiler = MosaicProfilerHparams()
+    if hparams.profiler is None:
+        hparams.profiler = ProfilerHparams()
     hparams.max_epochs = 2
-    if hparams.mosaic_profiler.repeat != 0:
-        cycle_len = hparams.mosaic_profiler.wait + hparams.mosaic_profiler.warmup + hparams.mosaic_profiler.active
-        num_profiling_batches = hparams.mosaic_profiler.skip_first + cycle_len * hparams.mosaic_profiler.repeat
+    if hparams.profiler.repeat != 0 and hparams.train_subset_num_batches is None:
+        cycle_len = hparams.profiler.wait + hparams.profiler.warmup + hparams.profiler.active
+        num_profiling_batches = hparams.profiler.skip_first + cycle_len * hparams.profiler.repeat
         hparams.train_subset_num_batches = num_profiling_batches
 
-    # Disable dataset shuffle
-    hparams.train_dataset.shuffle = False
+        # Disable dataset shuffle, since shuffle is not supported when using subset_num_batches
+        hparams.train_dataset.shuffle = False
 
     # Disable validation
-    # fix the val dataset to the train dataset, to avoid any issues with initialization
+    # First, set the val dataset to the train dataset, to avoid any issues with initialization
     # We never run evaluation so it doesn't matter
-    # TODO(ravi) -- after #120 is merged, set the evaluators to the empty list.
     hparams.val_dataset = hparams.train_dataset
-    # disable validation
     hparams.validate_every_n_batches = -1
     hparams.validate_every_n_epochs = -1
+
+    # Create the trainer and train
     trainer = Trainer.create_from_hparams(hparams=hparams)
     trainer.fit()
 

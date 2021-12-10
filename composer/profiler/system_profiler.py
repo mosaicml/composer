@@ -10,7 +10,7 @@ from typing import Dict, cast
 from composer.callbacks import memory_monitor
 from composer.core.callback import Callback
 from composer.core.logging.logger import Logger
-from composer.core.profiler import MosaicProfiler
+from composer.core.profiler import Profiler
 from composer.core.state import State
 from composer.profiler.profiler_hparams import SystemProfilerHparams
 
@@ -57,7 +57,7 @@ class SystemProfiler(Callback):
         # Start the stats thread
         threading.Thread(target=self._stats_thread, daemon=True, args=[state.profiler]).start()
 
-    def _stats_thread(self, profiler: MosaicProfiler):
+    def _stats_thread(self, profiler: Profiler):
         import psutil  # already checked that it's installed in init
         psutil.disk_io_counters.cache_clear()
         psutil.net_io_counters.cache_clear()

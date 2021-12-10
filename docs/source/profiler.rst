@@ -14,9 +14,9 @@ Composer contains a training loop profiler, which can be added via the ``--profi
     :nosignatures:
     :recursive:
 
-    ~composer.profiler.MosaicProfilerHparams
-    ~composer.core.profiler.MosaicProfiler
-    ~composer.core.profiler.MosaicProfilerAction
+    ~composer.profiler.ProfilerHparams
+    ~composer.core.profiler.Profiler
+    ~composer.core.profiler.ProfilerAction
     ~composer.core.profiler.Marker
     ~composer.core.profiler.ProfilerEventHandlerHparams
     ~composer.core.profiler.ProfilerEventHandler

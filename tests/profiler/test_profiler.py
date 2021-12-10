@@ -4,7 +4,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from composer.core.profiler import MosaicProfiler, MosaicProfilerAction
+from composer.core.profiler import Profiler, ProfilerAction
 from composer.core.types import State
 
 
@@ -15,7 +15,7 @@ def test_profiler_get_action(dummy_state: State, repeat: int):
     wait = 2
     warmup = 3
     active = 4
-    profiler = MosaicProfiler(
+    profiler = Profiler(
         state=dummy_state,
         event_handlers=[],
         skip_first=skip_first,
@@ -27,34 +27,34 @@ def test_profiler_get_action(dummy_state: State, repeat: int):
 
     dummy_state.epoch = 0
     dummy_state.step = 0
-    assert profiler.get_action(dummy_state.batch_idx) == MosaicProfilerAction.SKIP  # skip first epoch
+    assert profiler.get_action(dummy_state.batch_idx) == ProfilerAction.SKIP  # skip first epoch
 
     dummy_state.step = skip_first
-    assert profiler.get_action(dummy_state.batch_idx) == MosaicProfilerAction.SKIP
+    assert profiler.get_action(dummy_state.batch_idx) == ProfilerAction.SKIP
 
     dummy_state.step = skip_first + wait
-    assert profiler.get_action(dummy_state.batch_idx) == MosaicProfilerAction.WARMUP
+    assert profiler.get_action(dummy_state.batch_idx) == ProfilerAction.WARMUP
 
     dummy_state.step = skip_first + wait + warmup
-    assert profiler.get_action(dummy_state.batch_idx) == MosaicProfilerAction.ACTIVE
+    assert profiler.get_action(dummy_state.batch_idx) == ProfilerAction.ACTIVE
 
     dummy_state.step = skip_first + wait + warmup + active + wait + warmup
 
     if repeat == 0:
-        assert profiler.get_action(dummy_state.batch_idx) == MosaicProfilerAction.ACTIVE
+        assert profiler.get_action(dummy_state.batch_idx) == ProfilerAction.ACTIVE
     else:
-        assert profiler.get_action(dummy_state.batch_idx) == MosaicProfilerAction.SKIP
+        assert profiler.get_action(dummy_state.batch_idx) == ProfilerAction.SKIP
 
 
 def test_marker(dummy_state: State):
     mock_event_handler = MagicMock()
-    profiler = MosaicProfiler(
+    profiler = Profiler(
         state=dummy_state,
         event_handlers=[mock_event_handler],
     )
     marker = profiler.marker(
         "name",
-        actions=[MosaicProfilerAction.SKIP, MosaicProfilerAction.WARMUP, MosaicProfilerAction.ACTIVE],
+        actions=[ProfilerAction.SKIP, ProfilerAction.WARMUP, ProfilerAction.ACTIVE],
         categories=["cat1"])
     marker.start()  # call #1
     with pytest.raises(RuntimeError):

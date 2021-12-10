@@ -10,7 +10,7 @@ from composer.core.algorithm import Algorithm
 from composer.core.callback import Callback
 from composer.core.event import Event
 from composer.core.logging import Logger
-from composer.core.profiler import MosaicProfilerAction
+from composer.core.profiler import ProfilerAction
 from composer.core.state import State
 
 log = logging.getLogger(__name__)
@@ -100,9 +100,9 @@ class Engine():
             if (event.is_before_event or event.is_after_event):
                 # if not part of an event pair (e.g. init or after dataloader), then don't record an event here
                 if event in _ALWAYS_RECORD_EVENTS:
-                    actions = [MosaicProfilerAction.ACTIVE, MosaicProfilerAction.WARMUP, MosaicProfilerAction.SKIP]
+                    actions = [ProfilerAction.ACTIVE, ProfilerAction.WARMUP, ProfilerAction.SKIP]
                 else:
-                    actions = [MosaicProfilerAction.ACTIVE, MosaicProfilerAction.WARMUP]
+                    actions = [ProfilerAction.ACTIVE, ProfilerAction.WARMUP]
                 duration_marker = self.state.profiler.marker(name, actions=actions, record_instant_on_start=True)
 
         if event.is_after_event and duration_marker is not None:
@@ -240,12 +240,14 @@ class Engine():
                 callback_to_has_exception[callback] = True
             else:
                 callback_to_has_exception[callback] = False
+
+        if self.state.profiler is not None:
+            # Merge traces after close, but before post_close, so the merged file will be uploaded
+            self.state.profiler.merge_traces()
+
         for callback in self.state.callbacks:
             if callback_to_has_exception[callback] is False:
                 try:
                     callback.post_close()
                 except Exception as e:
                     log.error(f"Error running {callback.__class__.__name__}.post_close().", exc_info=e, stack_info=True)
-
-        if self.state.profiler is not None:
-            self.state.profiler._merge_traces()

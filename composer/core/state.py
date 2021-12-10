@@ -14,7 +14,7 @@ from torch.nn.parallel import DistributedDataParallel
 import composer.core.types as types
 from composer.core.callback import Callback
 from composer.core.precision import Precision
-from composer.core.profiler import MosaicProfiler
+from composer.core.profiler import Profiler
 from composer.core.serializable import Serializable
 from composer.utils import ensure_tuple
 from composer.utils.precision import default_precision_factory
@@ -98,7 +98,7 @@ class State(Serializable):
         algorithms (Sequence[Algorithm]): The algorithms used for training.
         callbacks (Sequence[Callback]): The callbacks used for training.
 
-        profiler (Optional[MosaicProfiler]): The mosaic profiler.
+        profiler (Optional[Profiler]): The mosaic profiler.
     """
 
     # model
@@ -148,7 +148,7 @@ class State(Serializable):
     callbacks: List[Callback] = field(default_factory=list)
 
     # profiler
-    profiler: Optional[MosaicProfiler] = None
+    profiler: Optional[Profiler] = None
 
     def state_dict(self) -> types.StateDict:
         """Returns the state as a :class:`dict`."""

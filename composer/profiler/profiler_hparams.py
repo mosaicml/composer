@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING, List
 import yahp as hp
 
 from composer.callbacks import CallbackHparams
-from composer.core.profiler import MosaicProfiler, ProfilerEventHandlerHparams
+from composer.core.profiler import Profiler, ProfilerEventHandlerHparams
 from composer.core.state import State
 
 if TYPE_CHECKING:
@@ -88,8 +88,8 @@ class TorchProfilerHparams(CallbackHparams):
 
 
 @dataclasses.dataclass
-class MosaicProfilerHparams(hp.Hparams):
-    """Parameters for the :class:`~composer.core.profiler.MosaicProfiler`.
+class ProfilerHparams(hp.Hparams):
+    """Parameters for the :class:`~composer.core.profiler.Profiler`.
 
     Parameters:
         trace_event_handlers (List[ProfilerEventHandlerHparams], optional):
@@ -130,8 +130,8 @@ class MosaicProfilerHparams(hp.Hparams):
     active: int = hp.optional("Number of batches to profile in a cycle", default=4)
     repeat: int = hp.optional("Maximum number of profiling cycle repetitions per epoch (0 for no maximum)", default=1)
 
-    def initialize_object(self, state: State) -> MosaicProfiler:
-        return MosaicProfiler(
+    def initialize_object(self, state: State) -> Profiler:
+        return Profiler(
             state=state,
             event_handlers=[x.initialize_object() for x in self.trace_event_handlers],
             skip_first=self.skip_first,

@@ -25,7 +25,7 @@ from composer.models import (CIFARResNetHparams, EfficientNetB0Hparams, GPT2Hpar
                              ModelHparams, ResNet18Hparams, ResNet50Hparams, ResNet101Hparams, UnetHparams)
 from composer.optim import (AdamHparams, AdamWHparams, DecoupledAdamWHparams, DecoupledSGDWHparams, OptimizerHparams,
                             RAdamHparams, RMSPropHparams, SchedulerHparams, SGDHparams, scheduler)
-from composer.profiler import MosaicProfilerHparams
+from composer.profiler import ProfilerHparams
 from composer.trainer.deepspeed import DeepSpeedHparams
 from composer.trainer.devices import CPUDeviceHparams, DeviceHparams, GPUDeviceHparams
 from composer.utils import ddp
@@ -195,7 +195,7 @@ class TrainerHparams(hp.Hparams):
     compute_training_metrics: bool = hp.optional(doc="Log validation metrics on training data", default=False)
     log_level: str = hp.optional(doc="Python loglevel to use composer", default="INFO")
 
-    mosaic_profiler: Optional[MosaicProfilerHparams] = hp.optional(doc="Mosaic profiler hparams", default=None)
+    profiler: Optional[ProfilerHparams] = hp.optional(doc="Profiler hparams", default=None)
 
     def validate(self):
         super().validate()
