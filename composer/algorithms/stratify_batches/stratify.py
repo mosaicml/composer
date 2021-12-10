@@ -11,7 +11,10 @@ from composer.algorithms.stratify_batches.stratify_core import StratifiedBatchSa
 from composer.core import Algorithm, Event, Logger, State
 
 
-def add_stratification(dataloader: DataLoader, stratify_how='match', targets: Optional[Sequence[int]] = None, targets_attr: Optional[str] = None):
+def add_stratification(dataloader: DataLoader,
+                       stratify_how='match',
+                       targets: Optional[Sequence[int]] = None,
+                       targets_attr: Optional[str] = None):
     if targets is None:
         dataset = dataloader.dataset
         if targets_attr:
@@ -22,13 +25,17 @@ def add_stratification(dataloader: DataLoader, stratify_how='match', targets: Op
             targets = dataset.targets
         elif hasattr(dataset, 'y'):
             targets = dataset.y
-    else:
-        raise AttributeError("Since neither `targets` nor `targets_attr` "
-            "were provided, DataLoader.dataset must have an integer vector attribute "
-            "named either 'targets' or 'y'.")
+        else:
+            raise AttributeError("Since neither `targets` nor `targets_attr` "
+                "were provided, DataLoader.dataset must have an integer vector attribute "
+                "named either 'targets' or 'y'.")
+
+    batch_size = dataloader.batch_size
+
     dataloader.batch_sampler = StratifiedBatchSampler(
         targets=targets,
-        shuffle=dataloader.shuffle,
+        shuffle=True,  # False not implemented yet
+        batch_size=batch_size,
         drop_last=dataloader.drop_last)
 
 
@@ -55,7 +62,10 @@ class StratifyBatches(Algorithm):
 
     def match(self, event: Event, state: State) -> bool:
         """Apply on Event.AFTER_DATALOADER"""
-        return event == Event.AFTER_DATALOADER
+        # return event == Event.AFTER_DATALOADER
+        return event == Event.INIT
 
     def apply(self, event: Event, state: State, logger: Logger) -> None:
-        add_stratification(state.train_dataloader, stratify_how=self.stratify_how)
+        add_stratification(state.train_dataloader,
+                           stratify_how=self.stratify_how,
+                           targets_attr=self.targets_attr)

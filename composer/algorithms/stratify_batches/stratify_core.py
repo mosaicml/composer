@@ -186,7 +186,7 @@ class StratifiedBatchSampler(DistributedSampler):
                  drop_last: bool = False,
                  stratify_how='balance'):
         self.batch_size = batch_size
-        self.targets = targets
+        self.targets = np.asarray(targets).ravel()
         self.shuffle = shuffle
         if not shuffle:
             raise NotImplementedError("Sampling with shuffle=False is not yet supported")
