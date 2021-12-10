@@ -4,13 +4,13 @@ from __future__ import annotations
 
 import abc
 import dataclasses
+import logging
 import os
 import threading
 import time
-import logging
 from functools import wraps
 from types import TracebackType
-from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple, Type, Union, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Sequence, Tuple, Type, Union
 
 import yahp as hp
 
@@ -23,6 +23,7 @@ if TYPE_CHECKING:
     from composer.core.state import State
 
 log = logging.getLogger(__name__)
+
 
 @dataclasses.dataclass
 class ProfilerEventHandlerHparams(hp.Hparams, abc.ABC):
@@ -224,8 +225,8 @@ class Profiler:
         ddp.barrier()
         if not ddp.get_local_rank() == 0:
             return
-        from composer.profiler.json_trace_merger import merge_traces
         from composer.profiler.json_trace import JSONTraceHandler
+        from composer.profiler.json_trace_merger import merge_traces
         from composer.profiler.torch_profiler import TorchProfiler
         log.info("Merging profiling trace files together")
         trace_folders = []
@@ -373,6 +374,7 @@ class Profiler:
                 values=values,
             )
 
+
 class Marker:
     """Record when something happens or how long something takes.
 
@@ -422,9 +424,8 @@ class Marker:
         categories (List[str] | Tuple[str, ...]]): Categories corresponding to this event.
     """
 
-    def __init__(self, profiler: Profiler, name: str, actions: Sequence[ProfilerAction],
-                 record_instant_on_start: bool, record_instant_on_finish: bool,
-                 categories: Union[List[str], Tuple[str, ...]]) -> None:
+    def __init__(self, profiler: Profiler, name: str, actions: Sequence[ProfilerAction], record_instant_on_start: bool,
+                 record_instant_on_finish: bool, categories: Union[List[str], Tuple[str, ...]]) -> None:
 
         self.profiler = profiler
         self.name = name

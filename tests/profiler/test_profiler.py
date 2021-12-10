@@ -52,10 +52,9 @@ def test_marker(dummy_state: State):
         state=dummy_state,
         event_handlers=[mock_event_handler],
     )
-    marker = profiler.marker(
-        "name",
-        actions=[ProfilerAction.SKIP, ProfilerAction.WARMUP, ProfilerAction.ACTIVE],
-        categories=["cat1"])
+    marker = profiler.marker("name",
+                             actions=[ProfilerAction.SKIP, ProfilerAction.WARMUP, ProfilerAction.ACTIVE],
+                             categories=["cat1"])
     marker.start()  # call #1
     with pytest.raises(RuntimeError):
         marker.start()  # cannot call start twice without finishing

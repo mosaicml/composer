@@ -1,4 +1,5 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
+
 """Merge trace files together.
 
 To run:
@@ -10,9 +11,9 @@ To run:
 Then, open the `Chrome Trace Viewer <chrome://tracing>`_ in a browser window, and upload
 ``merged_trace_output.json`` to visualize the trace.
 """
-from typing import  Union, Tuple, Dict, List
-import json
 import argparse
+import json
+from typing import Dict, List, Tuple, Union
 
 
 def _load_trace(file: str) -> Union[Dict, List]:
@@ -37,6 +38,7 @@ def _get_global_rank_from_file(file: str) -> int:
         return trace_json["global_rank"]
     raise RuntimeError("global rank not found in file")
 
+
 def _get_rank_to_clock_syncs(trace_files: Tuple[str, ...]) -> Dict[int, int]:
     rank_to_clock_sync: Dict[int, int] = {}
     for filename in trace_files:
@@ -57,6 +59,7 @@ def _get_rank_to_clock_syncs(trace_files: Tuple[str, ...]) -> Dict[int, int]:
 
     return rank_to_clock_sync
 
+
 def merge_traces(output_file: str, *trace_files: str):
     """Merge trace files together.
 
@@ -75,7 +78,6 @@ def merge_traces(output_file: str, *trace_files: str):
 
     rank_zero_clock_sync = ranks_to_clock_sync[0]
 
-
     output_buffer = []
     for trace_filename in trace_files:
         rank = _get_global_rank_from_file(trace_filename)
@@ -89,7 +91,7 @@ def merge_traces(output_file: str, *trace_files: str):
             else:
                 assert isinstance(trace_data, dict)
                 trace_list = trace_data["traceEvents"]
-            
+
             for event in trace_list:
                 if "pid" not in event:
                     # we need the pid to merge
@@ -100,6 +102,7 @@ def merge_traces(output_file: str, *trace_files: str):
 
     with open(output_file, "x") as f:
         json.dump(output_buffer, f)
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()

@@ -9,6 +9,7 @@ from composer.profiler import JSONTraceHandlerHparams, ProfilerHparams
 from composer.trainer import TrainerHparams
 from composer.utils.run_directory import get_relative_to_run_directory
 
+
 @pytest.mark.timeout(10)
 def test_json_trace_profiler_hanlder(mosaic_trainer_hparams: TrainerHparams):
     json_trace_handler_params = JSONTraceHandlerHparams(flush_every_n_batches=1,)
