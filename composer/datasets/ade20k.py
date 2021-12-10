@@ -161,7 +161,7 @@ class PhotometricDistoration(torch.nn.Module):
             image = TF.adjust_saturation(image, saturation_factor)  # type: ignore
 
         if np.random.randint(2):
-            hue_factor = np.random.uniform(self.hue, self.hue)
+            hue_factor = np.random.uniform(-self.hue, self.hue)
             image = TF.adjust_hue(image, hue_factor)  # type: ignore
 
         if contrast_mode == 0 and np.random.randint(2):
@@ -174,7 +174,7 @@ class PhotometricDistoration(torch.nn.Module):
 class PILToMask:
 
     def __call__(self, target):
-        return torch.as_tensor(np.array(target), dtype=torch.int64)
+        return torch.from_numpy(np.array(target, dtype=np.int64))
 
 
 class ADE20k(Dataset):
@@ -239,7 +239,7 @@ class ADE20kDatasetHparams(DatasetHparams):
     min_resize_scale: float = hp.optional("Minimum scale that the image can be randomly scaled by", default=0.5)
     max_resize_scale: float = hp.optional("Maximum scale that the image can be randomly scaled by", default=2.0)
     crop_size: int = hp.optional("Size of image after cropping", default=512)
-    ignore_class: int = hp.optional("The integer to assign the ignore class", default=-1)
+    ignore_class: int = hp.optional("The integer to assign the ignore class", default=0)
 
     def initialize_object(self, batch_size, dataloader_hparams) -> DataloaderSpec:
         both_transforms = [ResizePair(size=self.resize_size)]
@@ -248,17 +248,18 @@ class ADE20kDatasetHparams(DatasetHparams):
             both_transforms += [
                 RandomResizePair(self.min_resize_scale, self.max_resize_scale),
                 RandomCropPair(self.crop_size),
+                RandomHFlipPair(),
             ]
             both_transforms = transforms.Compose(both_transforms)
             image_transforms = transforms.Compose([
-                PhotometricDistoration(brightness=0.125, contrast=0.5, saturation=0.5, hue=0.0703125),
+                PhotometricDistoration(brightness=32. / 255, contrast=0.5, saturation=0.5, hue=18. / 255),
                 PadToSize(self.crop_size, fill=(int(0.485 * 255), int(0.456 * 255), int(0.406 * 255)))
             ])
-            target_transforms = transforms.Compose([PadToSize(self.crop_size, fill=self.ignore_class), PILToMask()])
+            target_transforms = PadToSize(self.crop_size, fill=self.ignore_class)
         else:
             both_transforms = transforms.Compose(both_transforms)
             image_transforms = None
-            target_transforms = PILToMask()
+            target_transforms = None
         dataset = ADE20k(self.datadir, self.split, both_transforms, image_transforms, target_transforms,
                          self.ignore_class)
         sampler = ddp.get_sampler(dataset, drop_last=self.drop_last, shuffle=self.shuffle)
