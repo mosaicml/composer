@@ -62,12 +62,26 @@ class JSONTraceHandler(ProfilerEventHandler):
             pid=os.getpid(),
             args={"name": f"Training Loop"})
         self._record_event(
+            name="thread_sort_index",
+            ph="M",  # metadata
+            wall_clock_ns=wall_clock_ns,
+            tid=threading.get_ident(),
+            pid=os.getpid(),
+            args={"sort_index": 0})  # training loop thread should be first
+        self._record_event(
             name="global_rank",
             ph="M",  # metadata
             wall_clock_ns=wall_clock_ns,
             tid=threading.get_ident(),
             pid=os.getpid(),
             args={"value": ddp.get_global_rank()})
+        self._record_event(
+            name="process_sort_index",
+            ph="M",  # metadata
+            wall_clock_ns=wall_clock_ns,
+            tid=threading.get_ident(),
+            pid=os.getpid(),
+            args={"sort_index": ddp.get_global_rank()})  # sort index for processes should be the global rank
         # Syncronize the clocks
         # Each rank will record a timestamp at approxmately the same real world time
         clock_sync_a = time.time_ns()
