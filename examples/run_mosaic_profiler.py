@@ -4,6 +4,7 @@
 This example is interchangable with run_mosaic_trainer.py
 """
 import logging
+import argparse
 
 import composer
 from composer.profiler import ProfilerHparams
@@ -16,8 +17,19 @@ def main() -> None:
     logging.basicConfig()
     logging.captureWarnings(True)
 
+    parser = argparse.ArgumentParser(parents=[TrainerHparams.get_argparse(cli_args=True)])
+    parser.add_argument(
+        '--datadir',
+        default=None,
+        help='set the datadir for the train dataset',
+    )
+
+    args, _ = parser.parse_known_args()
     hparams = TrainerHparams.create(cli_args=True)  # reads cli args from sys.argv
     logging.getLogger(composer.__name__).setLevel(hparams.log_level)
+    if args.datadir is not None:
+        hparams.set_datadir(args.datadir)
+        logger.info(f'Set dataset dirs in hparams to: {args.datadir}')
 
     # Configure the mosaic profiler
     if hparams.profiler is None:
