@@ -17,10 +17,16 @@ from composer.utils import ddp
 
 
 class TransformationFn:
+    """ Normalizes input data and removes the background class from target data if desired
 
-    def __init__(self) -> None:
+    Parameters:
+        ignore_background (bool): Whether or not to ignore the background class when calculating the training loss
+    """
+
+    def __init__(self, ignore_background: bool = True) -> None:
         self.mean: Optional[Tensor] = None
         self.std: Optional[Tensor] = None
+        self.ignore_background = ignore_background
 
     def __call__(self, batch: Batch):
         xs, ys = batch
@@ -37,7 +43,8 @@ class TransformationFn:
 
         xs = xs.float()
         xs = xs.sub_(self.mean).div_(self.std)
-        ys = ys.sub_(1)
+        if self.ignore_background:
+            ys = ys.sub_(1)
         return xs, ys
 
 
@@ -179,20 +186,14 @@ class PILToMask:
 
 class ADE20k(Dataset):
 
-    def __init__(self,
-                 datadir: str,
-                 split: str,
-                 both_transforms: torch.nn.Module,
-                 image_transforms: torch.nn.Module,
-                 target_transforms: torch.nn.Module,
-                 ignore_class: int = -1):
+    def __init__(self, datadir: str, split: str, both_transforms: torch.nn.Module, image_transforms: torch.nn.Module,
+                 target_transforms: torch.nn.Module):
         super().__init__()
         self.datadir = datadir
         self.split = split
         self.both_transforms = both_transforms
         self.image_transforms = image_transforms
         self.target_transforms = target_transforms
-        self.ignore_class = ignore_class
 
         self.image_files = os.listdir(os.path.join(self.datadir, 'images', self.split))
 
@@ -233,13 +234,16 @@ class ADE20k(Dataset):
 
 @dataclass
 class ADE20kDatasetHparams(DatasetHparams):
+    """
+    """
 
     split: str = hp.optional("Which split of the dataset to use. Either ['train', 'val', 'test']", default='train')
     resize_size: int = hp.optional("Size of the image after resizing", default=512)
     min_resize_scale: float = hp.optional("Minimum scale that the image can be randomly scaled by", default=0.5)
     max_resize_scale: float = hp.optional("Maximum scale that the image can be randomly scaled by", default=2.0)
     crop_size: int = hp.optional("Size of image after cropping", default=512)
-    ignore_class: int = hp.optional("The integer to assign the ignore class", default=0)
+    ignore_background: bool = hp.optional("Whether or not to include the background class in training loss",
+                                          default=True)
 
     def initialize_object(self, batch_size, dataloader_hparams) -> DataloaderSpec:
         both_transforms = [ResizePair(size=self.resize_size)]
@@ -255,20 +259,19 @@ class ADE20kDatasetHparams(DatasetHparams):
                 PhotometricDistoration(brightness=32. / 255, contrast=0.5, saturation=0.5, hue=18. / 255),
                 PadToSize(self.crop_size, fill=(int(0.485 * 255), int(0.456 * 255), int(0.406 * 255)))
             ])
-            target_transforms = PadToSize(self.crop_size, fill=self.ignore_class)
+            target_transforms = PadToSize(self.crop_size, fill=0)
         else:
             both_transforms = transforms.Compose(both_transforms)
             image_transforms = None
             target_transforms = None
-        dataset = ADE20k(self.datadir, self.split, both_transforms, image_transforms, target_transforms,
-                         self.ignore_class)
+        dataset = ADE20k(self.datadir, self.split, both_transforms, image_transforms, target_transforms)  # type: ignore
         sampler = ddp.get_sampler(dataset, drop_last=self.drop_last, shuffle=self.shuffle)
         return DataloaderSpec(dataloader=dataloader_hparams.initialize_object(dataset=dataset,
                                                                               batch_size=batch_size,
                                                                               sampler=sampler,
                                                                               collate_fn=fast_collate,
                                                                               drop_last=self.drop_last),
-                              device_transform_fn=TransformationFn())
+                              device_transform_fn=TransformationFn(self.ignore_background))
 
     def validate(self):
         pass
