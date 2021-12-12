@@ -3,6 +3,7 @@
 from typing import Mapping, Union
 
 import torch
+from sklearn.metrics import f1_score
 from torch import Tensor
 from torchmetrics import Metric
 
@@ -77,3 +78,44 @@ class Perplexity(LanguageCrossEntropyLoss):
         """
         avg_loss = super().compute()
         return torch.exp(avg_loss)
+
+
+class BinaryF1Score(Metric):
+    """Hugging Face compatible cross entropy loss.
+
+    Args:
+        dist_sync_on_step (bool): Synchronize metric state across processes at
+            each forward() before returning the value at the step.
+
+    State:
+        sum_loss (float): the sum of the per-example loss in the batch.
+        total_batches (float): the number of batches to average across.
+    """
+
+    def __init__(self, dist_sync_on_step=False):
+        super().__init__(dist_sync_on_step=dist_sync_on_step)
+
+        self.add_state("predictions", default=[], dist_reduce_fx="cat")
+        self.add_state("labels", default=[], dist_reduce_fx="cat")
+
+    def update(self, output: Union[Mapping, Tensor], target: Tensor) -> None:
+        """Updates the internal state with results from a new batch.
+
+        Args:
+            output (Mapping): The output from the model, which must contain
+                either the Tensor or a Mapping type that contains the loss or model logits.
+            target (Tensor): A Tensor of ground-truth values to compare against.
+        """
+        self.predictions.append(output)
+        self.labels.append(target)
+
+    def compute(self) -> Tensor:
+        """Aggregate the state over all processes to compute the metric.
+
+        Returns:
+            loss (Tensor): The loss averaged across all batches.
+        """
+        # Return average loss over entire dataset
+        predictions = torch.argmax(self.predictions, dim=1).cpu()
+        labels = self.labels.cpu()
+        return float(f1_score(y_pred=predictions, y_true=labels))

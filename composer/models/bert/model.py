@@ -3,9 +3,10 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Mapping, Tuple
 
 import transformers
-from torchmetrics.classification.accuracy import Accuracy
+from torchmetrics import Accuracy, MatthewsCorrcoef, MeanSquaredError, SpearmanCorrcoef
 from torchmetrics.collections import MetricCollection
 
+from composer.models.nlp_metrics import BinaryF1Score
 from composer.models.transformer_shared import MosaicTransformer
 
 if TYPE_CHECKING:
@@ -26,8 +27,39 @@ class BERTModel(MosaicTransformer):
         # we're going to remove the label from the expected inputs
         # since we will handle metric calculation with TorchMetrics instead of HuggingFace.
         self.model_inputs.remove("labels")
-        self.train_acc = Accuracy()
-        self.val_acc = Accuracy()
+
+        # if config.num_labels=1, then we are training a regression task, so we should update our loss functions
+        self.train_metrics = []
+        self.val_metrics = []
+
+        if config.num_labels == 1:
+            self.train_loss = MeanSquaredError()
+            self.val_loss = MeanSquaredError()
+
+            self.train_spearman = SpearmanCorrcoef()
+            self.val_spearman = SpearmanCorrcoef()
+
+            self.train_metrics.extend([self.train_loss, self.train_spearman])
+            self.val_metrics.extend([self.val_loss, self.val_spearman])
+
+        if config.num_labels == 2:
+            # due to how F1 is calculated in TorchMetrics, we force multiclass = False to examine binary F1.
+            # TODO (Moin): make sure this is moved to be dataset-specific
+            self.train_f1 = BinaryF1Score()
+            self.val_f1 = BinaryF1Score()
+
+            self.train_metrics.extend([self.train_f1])
+            self.val_metrics.extend([self.val_f1])
+
+        if config.num_labels > 1:
+            self.train_acc = Accuracy()
+            self.val_acc = Accuracy()
+
+            self.train_matthews = MatthewsCorrcoef(num_classes=config.num_labels)
+            self.val_matthews = MatthewsCorrcoef(num_classes=config.num_labels)
+
+            self.train_metrics.extend([self.train_acc, self.train_matthews])
+            self.val_metrics.extend([self.val_acc, self.val_matthews])
 
     def loss(self, outputs: Mapping, batch: Batch) -> Tensors:
         if outputs.get('loss', None) is not None:
@@ -54,8 +86,11 @@ class BERTModel(MosaicTransformer):
         output = self.forward(batch)
         output = output['logits']
 
+        # if we are in the single class case, then remove the dimension for downstream metrics
+        if output.shape[1] == 1:
+            output = output.squeeze()
+
         return (output, labels)
 
     def metrics(self, train: bool = False) -> Metrics:
-        return MetricCollection([self.train_loss, self.train_acc]) if train else MetricCollection(
-            [self.val_loss, self.val_acc])
+        return MetricCollection(self.train_metrics) if train else MetricCollection(self.val_metrics)

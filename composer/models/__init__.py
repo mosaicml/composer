@@ -2,6 +2,7 @@
 
 from composer.models.base import BaseMosaicModel as BaseMosaicModel
 from composer.models.base import MosaicClassifier as MosaicClassifier
+from composer.models.bert import BERTForClassificationHparams as BERTForClassificationHparams
 from composer.models.bert import BERTHparams as BERTHparams
 from composer.models.bert import BERTModel as BERTModel
 from composer.models.classify_mnist import MNIST_Classifier as MNIST_Classifier

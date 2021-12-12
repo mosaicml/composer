@@ -12,14 +12,13 @@ if TYPE_CHECKING:
     from composer.models.transformer_shared import MosaicTransformer
 
 
-class MLMTasks(StringEnum):
-    MASKED_LM = "masked_lm"
-    SEQUENCE_CLASSIFICATION = "sequence_classification"
-
-
 @dataclass
-class BERTHparams(TransformerHparams):
-    task: MLMTasks = hp.optional(doc="The training task to use (must be one of MLMTasks).", default=None)
+class BERTForClassificationHparams(TransformerHparams):
+    num_labels: int = hp.optional(doc="The number of possible labels for the task.", default=2)
+
+    def validate(self):
+        if self.num_labels < 1:
+            raise ValueError("The number of target labels must be at least one.")
 
     def initialize_object(self) -> "MosaicTransformer":
         import transformers
@@ -27,12 +26,39 @@ class BERTHparams(TransformerHparams):
         from composer.models.bert.model import BERTModel
         self.validate()
 
-        self.task_classes = {
-            MLMTasks.MASKED_LM: transformers.AutoModelForMaskedLM,
-            MLMTasks.SEQUENCE_CLASSIFICATION: transformers.AutoModelForSequenceClassification
-        }
-        self.task_class = self.task_classes[self.task]
-        print(self.task_class)
+        model_hparams = {"num_labels": self.num_labels}
+
+        if self.model_config:
+            config = transformers.BertConfig.from_dict(self.model_config, **model_hparams)
+        elif self.pretrained_model_name is not None:
+            config = transformers.BertConfig.from_pretrained(self.pretrained_model_name, **model_hparams)
+        else:
+            raise ValueError('One of pretrained_model_name or model_config needed.')
+        config.num_labels = self.num_labels
+
+        if self.use_pretrained:
+            # TODO (Moin): handle the warnings on not using the seq_relationship head
+            model = transformers.AutoModelForSequenceClassification.from_pretrained(self.pretrained_model_name,
+                                                                                    **model_hparams)
+        else:
+            model = transformers.AutoModelForSequenceClassification.from_config(
+                config, **model_hparams)  #type: ignore (thirdparty)
+
+        return BERTModel(
+            module=model,
+            config=config,  #type: ignore (thirdparty)
+            tokenizer_name=self.tokenizer_name,
+        )
+
+
+@dataclass
+class BERTHparams(TransformerHparams):
+
+    def initialize_object(self) -> "MosaicTransformer":
+        import transformers
+
+        from composer.models.bert.model import BERTModel
+        self.validate()
 
         if self.model_config:
             config = transformers.BertConfig.from_dict(self.model_config)
@@ -43,9 +69,9 @@ class BERTHparams(TransformerHparams):
 
         if self.use_pretrained:
             # TODO (Moin): handle the warnings on not using the seq_relationship head
-            model = self.task_class.from_pretrained(self.pretrained_model_name)
+            model = transformers.AutoModelForMaskedLM.from_pretrained(self.pretrained_model_name)
         else:
-            model = self.task_class.from_config(config)  #type: ignore (thirdparty)
+            model = transformers.AutoModelForMaskedLM.from_config(config)  #type: ignore (thirdparty)
 
         return BERTModel(
             module=model,

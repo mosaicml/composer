@@ -73,7 +73,6 @@ def _parse_time_string(timestring: str) -> Tuple[int, int]:
         raise ValueError(f'Invalid timestring: {timestring}. Should be of format 0.98dur32ep15ba, or subsets thereof.')
     match = match[0]
 
-    print(match)
     duration = 0 if 'dur' not in match else float(match[match.index('dur') - 1])
     epochs = 0 if 'ep' not in match else int(match[match.index('ep') - 1])
     batches = 0 if 'ba' not in match else int(match[match.index('ba') - 1])
