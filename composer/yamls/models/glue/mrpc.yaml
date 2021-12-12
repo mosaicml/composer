@@ -1,6 +1,6 @@
 train_dataset:
   glue:
-    task: sst2 
+    task: mrpc
     tokenizer_name: bert-base-uncased
     split: train
     max_seq_length: 256 
@@ -8,7 +8,7 @@ train_dataset:
     drop_last: false 
 val_dataset:
   glue:
-    task: sst2 
+    task: mrpc
     tokenizer_name: bert-base-uncased
     split: validation 
     max_seq_length: 256 
@@ -22,7 +22,7 @@ model:
     pretrained_model_name: bert-base-uncased
 optimizer:
   adamw:
-    lr: 1.0e-5
+    lr: 5.0e-5
     betas:
       - 0.9
       - 0.98
@@ -50,12 +50,12 @@ loggers:
       every_n_epochs: 1
   - wandb:
       project: bert
-      name: sst-2 
+      name: mrpc 
       extra_init_params: {}
   - tqdm: {}
-max_epochs: 5
-train_batch_size: 16
-eval_batch_size: 16
+max_epochs: 10
+train_batch_size: 16 
+eval_batch_size: 16 
 seed: 19
 device:
   gpu: {}
@@ -68,7 +68,7 @@ dataloader:
 grad_accum: 1
 precision: amp
 grad_clip_norm: None
-validate_every_n_batches: 500
+validate_every_n_batches: 100
 validate_every_n_epochs: 1
 callbacks:
   - lr_monitor: {}

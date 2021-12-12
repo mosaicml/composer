@@ -1,26 +1,28 @@
 train_dataset:
-  cola:
+  glue:
+    task: cola 
     tokenizer_name: bert-base-uncased
     split: train
-    max_seq_length: 128 
+    max_seq_length: 256 
     shuffle: false
     drop_last: false 
 val_dataset:
-  cola:
+  glue:
+    task: cola 
     tokenizer_name: bert-base-uncased
     split: validation 
-    max_seq_length: 128 
+    max_seq_length: 256 
     shuffle: false
     drop_last: false 
 model:
-  bert:
-    task: sequence_classification
+  bert_classification:
+    num_labels: 2
     use_pretrained: true 
     tokenizer_name: bert-base-uncased
     pretrained_model_name: bert-base-uncased
 optimizer:
   adamw:
-    lr: 1.0e-5
+    lr: 5.0e-5
     betas:
       - 0.9
       - 0.98
@@ -29,14 +31,14 @@ optimizer:
 schedulers:
   - warmup:
       warmup_method: linear
-      warmup_ratio: 0.06
-      warmup_iters: None
+      warmup_iters: 0.06dur
       warmup_factor: 0
       interval: step
-  - cosine_decay:
-      T_max: 5ep 
+  - linear_decay:
+      start_factor: 1.0
+      end_factor: 0.0
+      total_iters: 0.94dur
       interval: step
-      eta_min: 0
       verbose: false
 loggers:
   - file:
@@ -52,12 +54,11 @@ loggers:
       extra_init_params: {}
   - tqdm: {}
 max_epochs: 5
-total_batch_size: 16
+train_batch_size: 16
 eval_batch_size: 16
 seed: 19
 device:
-  gpu:
-    prefetch_in_cuda_stream: false
+  gpu: {}
 dataloader:
   pin_memory: true
   persistent_workers: true
@@ -67,7 +68,7 @@ dataloader:
 grad_accum: 1
 precision: amp
 grad_clip_norm: None
-validate_every_n_batches: 100
+validate_every_n_batches: 250 
 validate_every_n_epochs: 1
 callbacks:
   - lr_monitor: {}

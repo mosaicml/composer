@@ -1,6 +1,6 @@
 train_dataset:
   glue:
-    task: sst2 
+    task: mnli
     tokenizer_name: bert-base-uncased
     split: train
     max_seq_length: 256 
@@ -8,15 +8,15 @@ train_dataset:
     drop_last: false 
 val_dataset:
   glue:
-    task: sst2 
+    task: mnli
     tokenizer_name: bert-base-uncased
-    split: validation 
+    split: validation_matched
     max_seq_length: 256 
     shuffle: false
     drop_last: false 
 model:
   bert_classification:
-    num_labels: 2
+    num_labels: 3
     use_pretrained: true 
     tokenizer_name: bert-base-uncased
     pretrained_model_name: bert-base-uncased
@@ -50,7 +50,7 @@ loggers:
       every_n_epochs: 1
   - wandb:
       project: bert
-      name: sst-2 
+      name: mnli 
       extra_init_params: {}
   - tqdm: {}
 max_epochs: 5
@@ -68,7 +68,7 @@ dataloader:
 grad_accum: 1
 precision: amp
 grad_clip_norm: None
-validate_every_n_batches: 500
+validate_every_n_batches: 2300
 validate_every_n_epochs: 1
 callbacks:
   - lr_monitor: {}
