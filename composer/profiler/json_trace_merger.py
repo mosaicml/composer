@@ -63,11 +63,13 @@ def _get_rank_to_clock_syncs(trace_files: Tuple[str, ...]) -> Dict[int, int]:
 def merge_traces(output_file: str, *trace_files: str):
     """Merge trace files together.
 
-    Compute the clock sync difference across every process and add the difference
-    to each recorded trace event.
-
     Each trace file must contain ``global_rank`` in the metadata, and
     one trace file per rank must contain ``clock_sync_timestamp_us`` in the metadata.
+
+    This function will update the trace events such that:
+
+    - The ``pid`` will be set to the global rank.
+    - The ``ts`` is syncronized with that of the rank 0 process.
 
     Args:
         output_file (str): The file to write the merged trace to
@@ -78,30 +80,35 @@ def merge_traces(output_file: str, *trace_files: str):
 
     rank_zero_clock_sync = ranks_to_clock_sync[0]
 
-    output_buffer = []
-    for trace_filename in trace_files:
-        rank = _get_global_rank_from_file(trace_filename)
-        clock_sync_diff = rank_zero_clock_sync - ranks_to_clock_sync[rank]
+    with open(output_file, "x") as output_f:
+        is_first_line = True
+        output_f.write("[")
+        for trace_filename in trace_files:
+            rank = _get_global_rank_from_file(trace_filename)
+            clock_sync_diff = rank_zero_clock_sync - ranks_to_clock_sync[rank]
 
-        with open(trace_filename, "r") as f:
-            trace_data = json.load(f)
+            with open(trace_filename, "r") as trace_f:
+                trace_data = json.load(trace_f)
 
-            if isinstance(trace_data, list):
-                trace_list = trace_data
-            else:
-                assert isinstance(trace_data, dict)
-                trace_list = trace_data["traceEvents"]
+                if isinstance(trace_data, list):
+                    trace_list = trace_data
+                else:
+                    assert isinstance(trace_data, dict)
+                    trace_list = trace_data["traceEvents"]
 
-            for event in trace_list:
-                if "pid" not in event:
-                    # we need the pid to merge
-                    continue
-                if "ts" in event:
-                    event["ts"] = event["ts"] + clock_sync_diff
-                output_buffer.append(event)
-
-    with open(output_file, "x") as f:
-        json.dump(output_buffer, f)
+                for event in trace_list:
+                    if "pid" not in event:
+                        # we need the pid to merge
+                        continue
+                    if "ts" in event:
+                        event["ts"] = event["ts"] + clock_sync_diff
+                    event["pid"] = rank
+                    if not is_first_line:
+                        output_f.write(",")
+                    is_first_line = False
+                    output_f.write(f"\n    ")
+                    json.dump(event, output_f)
+        output_f.write("\n]\n")
 
 
 if __name__ == "__main__":

@@ -5,7 +5,6 @@ from __future__ import annotations
 import json
 import os
 import queue
-import threading
 import time
 from typing import IO, Dict, List, Optional, Tuple, Union
 
@@ -51,36 +50,36 @@ class JSONTraceHandler(ProfilerEventHandler):
             name="process_name",
             ph="M",  # metadata
             wall_clock_ns=wall_clock_ns,
-            tid=threading.get_ident(),
-            pid=os.getpid(),
+            tid=os.getpid(),
+            pid=ddp.get_global_rank(),
             args={"name": f"Rank {ddp.get_global_rank()} training loop process"})
         self._record_event(
             name="thread_name",
             ph="M",  # metadata
             wall_clock_ns=wall_clock_ns,
-            tid=threading.get_ident(),
-            pid=os.getpid(),
+            tid=os.getpid(),
+            pid=ddp.get_global_rank(),
             args={"name": f"Training Loop"})
         self._record_event(
             name="thread_sort_index",
             ph="M",  # metadata
             wall_clock_ns=wall_clock_ns,
-            tid=threading.get_ident(),
-            pid=os.getpid(),
+            tid=os.getpid(),
+            pid=ddp.get_global_rank(),
             args={"sort_index": 0})  # training loop thread should be first
         self._record_event(
             name="global_rank",
             ph="M",  # metadata
             wall_clock_ns=wall_clock_ns,
-            tid=threading.get_ident(),
-            pid=os.getpid(),
+            tid=os.getpid(),
+            pid=ddp.get_global_rank(),
             args={"value": ddp.get_global_rank()})
         self._record_event(
             name="process_sort_index",
             ph="M",  # metadata
             wall_clock_ns=wall_clock_ns,
-            tid=threading.get_ident(),
-            pid=os.getpid(),
+            tid=os.getpid(),
+            pid=ddp.get_global_rank(),
             args={"sort_index": ddp.get_global_rank()})  # sort index for processes should be the global rank
         # Syncronize the clocks
         # Each rank will record a timestamp at approxmately the same real world time
@@ -94,16 +93,16 @@ class JSONTraceHandler(ProfilerEventHandler):
             name="clock_sync_timestamp_us",
             ph="M",  # metadata
             wall_clock_ns=wall_clock_ns,
-            tid=threading.get_ident(),
-            pid=os.getpid(),
+            tid=os.getpid(),
+            pid=ddp.get_global_rank(),
             args={"value": clock_sync_time_ns // 1000})
 
         self._record_event(
             name="clock_sync_error_bound",
             ph="M",  # metadata
             wall_clock_ns=wall_clock_ns,
-            tid=threading.get_ident(),
-            pid=os.getpid(),
+            tid=os.getpid(),
+            pid=ddp.get_global_rank(),
             args={"value": clock_sync_error_bound // 1000})
 
     def batch_end(self, state: State, logger: Logger) -> None:

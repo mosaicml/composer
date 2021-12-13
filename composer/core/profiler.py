@@ -6,7 +6,6 @@ import abc
 import dataclasses
 import logging
 import os
-import threading
 import time
 from functools import wraps
 from types import TracebackType
@@ -459,8 +458,8 @@ class Marker:
                 wall_clock_time_ns=wall_clock_time,
                 epoch=epoch,
                 step=step,
-                process_id=os.getpid(),
-                thread_id=threading.get_ident(),
+                process_id=ddp.get_global_rank(),
+                thread_id=os.getpid(),
             )
             if self.record_instant_on_start:
                 self.profiler.record_instant_event(
@@ -468,8 +467,8 @@ class Marker:
                     epoch=epoch,
                     step=step,
                     wall_clock_time_ns=wall_clock_time,
-                    process_id=os.getpid(),
-                    thread_id=threading.get_ident(),
+                    process_id=ddp.get_global_rank(),
+                    thread_id=os.getpid(),
                 )
         self._started = True
 
@@ -489,8 +488,8 @@ class Marker:
                 epoch=epoch,
                 step=step,
                 wall_clock_time_ns=wall_clock_time,
-                process_id=os.getpid(),
-                thread_id=threading.get_ident(),
+                process_id=ddp.get_global_rank(),
+                thread_id=os.getpid(),
             )
             if self.record_instant_on_finish:
                 self.profiler.record_instant_event(
@@ -498,8 +497,8 @@ class Marker:
                     wall_clock_time_ns=wall_clock_time,
                     epoch=epoch,
                     step=step,
-                    process_id=os.getpid(),
-                    thread_id=threading.get_ident(),
+                    process_id=ddp.get_global_rank(),
+                    thread_id=os.getpid(),
                 )
         self._started = False
 
@@ -514,8 +513,8 @@ class Marker:
                 wall_clock_time_ns=time.time_ns(),
                 epoch=epoch,
                 step=step,
-                process_id=os.getpid(),
-                thread_id=threading.get_ident(),
+                process_id=ddp.get_global_rank(),
+                thread_id=os.getpid(),
             )
 
     def counter(self, values: Dict[str, Union[float, int]]) -> None:
@@ -525,8 +524,8 @@ class Marker:
             self.profiler.record_counter_event(
                 self,
                 wall_clock_time_ns=time.time_ns(),
-                process_id=os.getpid(),
-                thread_id=threading.get_ident(),
+                process_id=ddp.get_global_rank(),
+                thread_id=os.getpid(),
                 values=values,
             )
 
