@@ -2,7 +2,7 @@ train_dataset:
   ade20k:
     datadir: null
     split: train
-    resize_size: 512
+    base_size: 512
     crop_size: 512
     drop_last: true
     shuffle: true
@@ -10,7 +10,7 @@ val_dataset:
   ade20k:
     datadir: null
     split: val
-    resize_size: 512
+    base_size: 512
     crop_size: 512
     drop_last: false
     shuffle: false

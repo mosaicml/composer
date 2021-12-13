@@ -87,15 +87,17 @@ class ResizePair(torch.nn.Module):
 
 class RandomResizePair(torch.nn.Module):
 
-    def __init__(self, min_scale: float, max_scale: float):
+    def __init__(self, min_scale: float, max_scale: float, base_size: Optional[Tuple[int, int]] = None):
         super().__init__()
         self.min_scale = min_scale
         self.max_scale = max_scale
+        self.base_size = base_size
 
     def forward(self, sample: Tuple[Image.Image, Image.Image]):
         image, target = sample
         resize_ratio = np.random.random_sample() * (self.max_scale - self.min_scale) + self.min_scale
-        resized_dims = (int(image.width * resize_ratio), int(image.height * resize_ratio))
+        width, height = self.base_size if self.base_size else image.size
+        resized_dims = (int(height * resize_ratio), int(width * resize_ratio))
         resized_image = TF.resize(image, resized_dims, interpolation=TF.InterpolationMode.BILINEAR)  # type: ignore
         resized_target = TF.resize(target, resized_dims, interpolation=TF.InterpolationMode.NEAREST)  # type: ignore
         return resized_image, resized_target
@@ -238,7 +240,7 @@ class ADE20kDatasetHparams(DatasetHparams):
     """
 
     split: str = hp.optional("Which split of the dataset to use. Either ['train', 'val', 'test']", default='train')
-    resize_size: int = hp.optional("Size of the image after resizing", default=512)
+    base_size: int = hp.optional("Size of the image to apply random scaling to", default=512)
     min_resize_scale: float = hp.optional("Minimum scale that the image can be randomly scaled by", default=0.5)
     max_resize_scale: float = hp.optional("Maximum scale that the image can be randomly scaled by", default=2.0)
     crop_size: int = hp.optional("Size of image after cropping", default=512)
@@ -246,22 +248,23 @@ class ADE20kDatasetHparams(DatasetHparams):
                                           default=True)
 
     def initialize_object(self, batch_size, dataloader_hparams) -> DataloaderSpec:
-        both_transforms = [ResizePair(size=self.resize_size)]
+        #both_transforms = [ResizePair(size=self.resize_size)]
 
         if self.split == 'train':
-            both_transforms += [
-                RandomResizePair(self.min_resize_scale, self.max_resize_scale),
+            both_transforms = transforms.Compose([
+                RandomResizePair(min_scale=self.min_resize_scale,
+                                 max_scale=self.max_resize_scale,
+                                 base_size=(self.base_size, self.base_size)),
                 RandomCropPair(self.crop_size),
                 RandomHFlipPair(),
-            ]
-            both_transforms = transforms.Compose(both_transforms)
+            ])
             image_transforms = transforms.Compose([
                 PhotometricDistoration(brightness=32. / 255, contrast=0.5, saturation=0.5, hue=18. / 255),
                 PadToSize(self.crop_size, fill=(int(0.485 * 255), int(0.456 * 255), int(0.406 * 255)))
             ])
             target_transforms = PadToSize(self.crop_size, fill=0)
         else:
-            both_transforms = transforms.Compose(both_transforms)
+            both_transforms = ResizePair(size=self.base_size)
             image_transforms = None
             target_transforms = None
         dataset = ADE20k(self.datadir, self.split, both_transforms, image_transforms, target_transforms)  # type: ignore
