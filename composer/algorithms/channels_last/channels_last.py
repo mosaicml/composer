@@ -18,7 +18,7 @@ class ChannelsLast(Algorithm):
     """Changes the memory format of the model to ``torch.channels_last``.
     This usually yields improved GPU utilization.
 
-    Runs on ``Event.INIT`` and has no hyperparameters.
+    Runs on ``Event.INIT``, so it can set the memory format before the model is DDP wrapped. Has no hyperparameters.
     """
 
     def match(self, event: Event, state: State) -> bool:
