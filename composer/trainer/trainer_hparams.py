@@ -47,6 +47,7 @@ scheduler_registry = {
     "step": scheduler.StepLRHparams,
     "multistep": scheduler.MultiStepLRHparams,
     "exponential": scheduler.ExponentialLRHparams,
+    "linear_decay": scheduler.LinearLRHparams,
     "cosine_decay": scheduler.CosineAnnealingLRHparams,
     "cosine_warmrestart": scheduler.CosineAnnealingWarmRestartsHparams,
     "warmup": scheduler.WarmUpLRHparams,

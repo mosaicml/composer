@@ -98,7 +98,7 @@ class Trainer:
             the trainer will load the state (along with it's associated attributes) during initialization.
             (default: ``None``)
         checkpoint_interval_unit (int, optional): Unit for the checkpoint save interval -- should be 'ep'
-            for epochs, 'ba' for batches, or None to disable checkpointing. (default: ``None``).
+            for epochs, 'it' for iterations, or None to disable checkpointing. (default: ``None``).
         checkpoint_folder (str, optional): The folder to save checkpoints to. Relative to `os.environ.get('RUN_DIRECTORY', '.')`, 
             (default: ``checkpoints``)
         checkpoint_interval (int, optional): The frequency with which to checkpoint. (default: ``1``)
