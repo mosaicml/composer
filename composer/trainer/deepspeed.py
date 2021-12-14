@@ -20,6 +20,8 @@ class DeepSpeedHparams(hp.Hparams):
         "Whether to offload model parameters to CPU. Compatible only with zero_stage = 3 and optimizer_offload.",
         default=False)
 
+    zero2_bucket_size: int = hp.optional("Buffer size used by ZeRO 2 for distributed communications.", default=5e8)
+
     def validate(self):
         super().validate()
 

@@ -512,12 +512,12 @@ class Trainer:
                 "gradient_accumulation_steps": state.grad_accum,
                 "zero_optimization": {
                     "stage": self.deepspeed_hparams.zero_stage,
-                    "allgather_bucket_size": 5e6,
-                    "reduce_bucket_size": 5e6,
-                    "stage3_max_live_parameters": 1e7,
-                    "stage3_max_reuse_distance": 1e7,
-                    "stage3_prefetch_bucket_size": 5e6,
-                    "stage3_param_persistence_threshold": 1e4,
+                    "allgather_bucket_size": self.deepspeed_hparams.zero2_bucket_size,
+                    "reduce_bucket_size": self.deepspeed_hparams.zero2_bucket_size,
+                    #"stage3_max_live_parameters": 1e7,
+                    #"stage3_max_reuse_distance": 1e7,
+                    #"stage3_prefetch_bucket_size": 5e6,
+                    #"stage3_param_persistence_threshold": 1e4,
                 },
             }
 
