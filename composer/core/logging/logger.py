@@ -7,7 +7,7 @@ import operator
 from copy import deepcopy
 from enum import IntEnum
 from functools import reduce
-from typing import TYPE_CHECKING, Callable, Generator, Mapping, Sequence, Union
+from typing import TYPE_CHECKING, Callable, Generator, List, Mapping, Optional, Sequence, Union
 
 import torch
 
@@ -60,11 +60,14 @@ class Logger:
     """
 
     def __init__(
-            self,
-            state: State,
-            backends: Sequence[BaseLoggerBackend] = tuple(),
+        self,
+        state: State,
+        backends: Optional[List[BaseLoggerBackend]] = None,
     ):
-        self.backends = backends
+        if backends is None:
+            self.backends = []
+        else:
+            self.backends = backends
         self._state = state
 
     def _get_destinations_for_log_level(self, log_level: LogLevel) -> Generator[BaseLoggerBackend, None, None]:

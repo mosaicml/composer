@@ -22,7 +22,6 @@ import composer
 from composer import Event
 from composer.algorithms import BlurPool
 from composer.core.types import Precision
-from composer.utils import ensure_tuple
 
 logging.basicConfig()
 logging.captureWarnings(True)
@@ -99,8 +98,9 @@ def train():
     engine.run_event(
         Event.INIT)  # Event.INIT should be run BEFORE any DDP fork and before optimizers and schedulers are created
 
-    state.optimizers = torch.optim.SGD(model.parameters(), lr=0.01, momentum=0.99)
-    state.schedulers = torch.optim.lr_scheduler.MultiStepLR(state.optimizers, milestones=[2, 4], gamma=0.1)
+    optimizer = torch.optim.SGD(model.parameters(), lr=0.01, momentum=0.99)
+    state.optimizers = [optimizer]
+    state.schedulers = [torch.optim.lr_scheduler.MultiStepLR(optimizer, milestones=[2, 4], gamma=0.1)]
 
     engine.run_event(Event.TRAINING_START)  # the Event.TRAINING_START should be run AFTER any DDP fork
 
@@ -124,10 +124,10 @@ def train():
             state.loss.backward()
             engine.run_event(Event.AFTER_BACKWARD)
 
-            for optimizer in ensure_tuple(state.optimizers):
+            for optimizer in state.optimizers:
                 optimizer.step()
             engine.run_event(Event.AFTER_TRAIN_BATCH)
-            for optimizer in ensure_tuple(state.optimizers):
+            for optimizer in state.optimizers:
                 optimizer.zero_grad()
 
             if state.step % 100 == 0:

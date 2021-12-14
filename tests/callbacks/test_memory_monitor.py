@@ -22,11 +22,11 @@ def _do_trainer_fit(mosaic_trainer_hparams: TrainerHparams, testing_with_gpu: bo
 
     # Default model uses CPU
     if testing_with_gpu:
-        trainer.device = DeviceGPU()
+        trainer._device = DeviceGPU()
 
     log_destination = MagicMock()
     log_destination.will_log.return_value = True
-    trainer.logger.backends = [log_destination]
+    trainer.logger.backends = [log_destination]  # type: ignore
     trainer.fit()
 
     num_train_steps = mosaic_trainer_hparams.train_subset_num_batches

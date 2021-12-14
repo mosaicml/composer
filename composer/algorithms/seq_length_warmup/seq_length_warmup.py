@@ -209,7 +209,7 @@ class SeqLengthWarmup(Algorithm):
             assert state.optimizers is not None, \
                 "optimizers are set before TRAINING_START"
 
-            for optimizer in ensure_tuple(state.optimizers):
+            for optimizer in state.optimizers:
                 optimizer.zero_grad()
         else:
             num_optimization_steps = state.steps_per_epoch * state.max_epochs

@@ -14,7 +14,6 @@ from composer.core.state import DIRECT_SERIALIZATION_FIELDS, SKIP_SERIALIZATION_
 from composer.datasets.dataloader import DataloaderHparams
 from composer.datasets.hparams import DataloaderSpec, DatasetHparams
 from composer.models.base import BaseMosaicModel
-from composer.utils import ensure_tuple
 from tests.fixtures.models import SimpleBatchPairModel
 
 
@@ -38,8 +37,8 @@ def get_dummy_state(model: BaseMosaicModel, train_dataloader: types.DataLoader, 
                  outputs=random_tensor(),
                  train_dataloader=train_dataloader,
                  eval_dataloader=val_dataloader,
-                 optimizers=optimizers,
-                 schedulers=torch.optim.lr_scheduler.StepLR(optimizers, step_size=3),
+                 optimizers=[optimizers],
+                 schedulers=[torch.optim.lr_scheduler.StepLR(optimizers, step_size=3)],
                  algorithms=[DummyHparams().initialize_object()])
 
 
@@ -91,9 +90,9 @@ def train_one_step(state: State, batch: types.Batch) -> None:
     state.loss.backward()
     assert state.optimizers is not None
     assert state.schedulers is not None
-    for optimizer in ensure_tuple(state.optimizers):
+    for optimizer in state.optimizers:
         optimizer.step()
-    for scheduler in ensure_tuple(state.schedulers):
+    for scheduler in state.schedulers:
         scheduler.step()
     state.step += 1
 

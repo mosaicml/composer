@@ -89,7 +89,7 @@ class ImagenetDatasetHparams(DatasetHparams, SyntheticHparamsMixin):
                 memory_format=self.synthetic_memory_format,
             )
             collate_fn = None
-            device_transform_fn = None
+            device_transform_fn = lambda x: x
         else:
 
             if self.is_train:

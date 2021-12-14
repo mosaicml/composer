@@ -14,6 +14,7 @@ from composer.core import Event, State
 from composer.core.types import StateDict
 from composer.trainer.devices.device import Device
 from composer.utils import ddp, seed_all
+from composer.utils.run_directory import get_relative_to_run_directory
 
 log = logging.getLogger(__name__)
 
@@ -71,21 +72,31 @@ class Checkpointer:
     """Manager for saving state to checkpoint files.
 
     Args:
-        checkpoint_folder (str): The path to the folder to store checkpoints in.
-        checkpoint_interval (int): The amount of time units to wait between checkpoints.
-        checkpoint_interval_unit (str): The unit (`"ep"` or `"it"`) that
-            `checkpoint_interval` should be measured in.
+        checkpoint_folder (str, optional): The folder to save checkpoints to. Relative to the run directory, 
+            (default: ``checkpoints``)
+        checkpoint_interval (int, optional): The frequency with which to checkpoint. (default: ``1``)
+        checkpoint_interval_unit (str, optional): Unit for the checkpoint save interval -- should be 'ep'
+            for epochs, 'it' for iterations, or None to disable checkpointing. (default: ``None``).
     """
 
-    def __init__(self, checkpoint_folder: str, checkpoint_interval: int, checkpoint_interval_unit: str):
-        if checkpoint_interval_unit.lower() == "ep":
-            self.save_event = Event.EPOCH_END
-        elif checkpoint_interval_unit.lower() == "it":
-            self.save_event = Event.BATCH_END
-        else:
-            raise ValueError(f"Unknown checkpointing interval: {checkpoint_interval_unit}")
+    def __init__(self,
+                 checkpoint_folder: str = "checkpoints",
+                 checkpoint_interval: int = 1,
+                 checkpoint_interval_unit: Optional[str] = None):
+        self.checkpoint_interval_unit = checkpoint_interval_unit
         self.checkpoint_folder = checkpoint_folder
         self.save_interval = checkpoint_interval
+
+    @property
+    def _save_event(self):
+        if self.checkpoint_interval_unit is None:
+            raise RuntimeError("Checkpointing is diabled")
+        if self.checkpoint_interval_unit.lower() == "ep":
+            return Event.EPOCH_END
+        elif self.checkpoint_interval_unit.lower() == "it":
+            return Event.BATCH_END
+        else:
+            raise RuntimeError(f"Unknown checkpointing interval: {self.checkpoint_interval_unit}")
 
     def should_checkpoint(self, state: State, event: Event) -> bool:
         """Given the current state and event, determine whether a checkpoint needs to be created.
@@ -95,11 +106,14 @@ class Checkpointer:
             event (Event): The current Event being executed.
         """
 
-        if event != self.save_event:
+        if self.checkpoint_interval_unit is None:
             return False
-        if self.save_event == Event.EPOCH_END:
+
+        if event != self._save_event:
+            return False
+        if self._save_event == Event.EPOCH_END:
             return state.epoch % self.save_interval == 0
-        if self.save_event == Event.BATCH_END:
+        if self._save_event == Event.BATCH_END:
             return state.step % self.save_interval == 0
         return False
 
@@ -130,9 +144,11 @@ class Checkpointer:
         # we add the state only on rank 0 since other processes don't have loggers to serialize
         state_dict['state'] = state.state_dict()  # should be the same across all ranks. per-rank state not stored
 
+        checkpoint_folder = get_relative_to_run_directory(self.checkpoint_folder)
+
         if config:
-            hparams_path = os.path.join(self.checkpoint_folder, "hparams.yaml")
-            os.makedirs(self.checkpoint_folder, mode=0o775, exist_ok=True)
+            hparams_path = os.path.join(checkpoint_folder, "hparams.yaml")
+            os.makedirs(checkpoint_folder, mode=0o775, exist_ok=True)
             config_yaml_str = yaml.dump(config)
             try:
                 with open(hparams_path, "x") as f:
@@ -142,16 +158,16 @@ class Checkpointer:
                 with open(hparams_path, "r") as f:
                     # comparing the parsed hparams to ignore whitespace and formatting differences
                     if yaml.safe_load(config_yaml_str) != yaml.safe_load(f):
-                        raise RuntimeError(f"The hparams in the existing checkpoint folder {self.checkpoint_folder} "
+                        raise RuntimeError(f"The hparams in the existing checkpoint folder {checkpoint_folder} "
                                            "differ from those being used in the current training run. "
                                            "Please specify a new checkpoint folder.") from e
-        if self.save_event == Event.EPOCH_END:
+        if self._save_event == Event.EPOCH_END:
             filename = f"ep{state.epoch}.pt"
-        elif self.save_event == Event.BATCH_END:
+        elif self._save_event == Event.BATCH_END:
             filename = f"it{state.step}.pt"
         else:
-            raise ValueError(f"Invalid checkpoint event: {self.save_event}")
-        save_file = os.path.join(self.checkpoint_folder, filename)
+            raise ValueError(f"Invalid checkpoint event: {self._save_event}")
+        save_file = os.path.join(checkpoint_folder, filename)
         with open(save_file, 'xb') as f:
             torch.save(state_dict, f)
         log.info(f'Trainer checkpoint saved to {save_file}')

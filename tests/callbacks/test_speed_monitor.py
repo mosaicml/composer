@@ -16,7 +16,7 @@ def test_speed_monitor(mosaic_trainer_hparams: TrainerHparams):
     trainer = mosaic_trainer_hparams.initialize_object()
     log_destination = MagicMock()
     log_destination.will_log.return_value = True
-    trainer.logger.backends = [log_destination]
+    trainer.logger.backends = [log_destination]  # type: ignore
     trainer.fit()
 
     throughput_epoch_calls = 0

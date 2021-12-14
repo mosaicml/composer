@@ -16,7 +16,7 @@ def _get_state(train_dataloader: DataLoader, eval_dataloader: DataLoader, steps_
     steps_per_epoch = steps_per_epoch
     return State(
         model=model,
-        optimizers=optim.SGD(model.parameters(), lr=.001, momentum=0.0),
+        optimizers=[optim.SGD(model.parameters(), lr=.001, momentum=0.0)],
         max_epochs=1,
         train_batch_size=2,
         eval_batch_size=2,

@@ -39,7 +39,6 @@ from composer.trainer.scaler import ClosureGradScaler
 from composer.trainer.trainer_hparams import TrainerHparams
 from composer.utils import ddp, ensure_tuple, get_random_seed, map_collection, seed_all
 from composer.utils.data import default_batch_split_fn
-from composer.utils.run_directory import get_relative_to_run_directory
 
 log = logging.getLogger(__name__)
 
@@ -97,11 +96,11 @@ class Trainer:
         checkpoint_filepath (str, optional): The path to a trainer checkpoint file. If provided
             the trainer will load the state (along with it's associated attributes) during initialization.
             (default: ``None``)
-        checkpoint_interval_unit (int, optional): Unit for the checkpoint save interval -- should be 'ep'
-            for epochs, 'it' for iterations, or None to disable checkpointing. (default: ``None``).
-        checkpoint_folder (str, optional): The folder to save checkpoints to. Relative to `os.environ.get('RUN_DIRECTORY', '.')`, 
+        checkpoint_folder (str, optional): The folder to save checkpoints to. Relative to the run directory, 
             (default: ``checkpoints``)
         checkpoint_interval (int, optional): The frequency with which to checkpoint. (default: ``1``)
+        checkpoint_interval_unit (int, optional): Unit for the checkpoint save interval -- should be 'ep'
+            for epochs, 'it' for iterations, or None to disable checkpointing. (default: ``None``).
         train_subset_num_batches (int, optional): If specified, finish every epoch early after training
             on this many batches. This parameter has no effect if it is greater than ``len(train_dataloader)``.
             If None (the default), then the entire dataloader will be iterated over.
@@ -199,6 +198,58 @@ class Trainer:
             raise RuntimeError("Unable to update the grad_clip_norm if using deepspeed")
         self._grad_clip_norm = grad_clip_norm
 
+    @property
+    def precision(self):
+        return self.state.precision
+
+    @precision.setter
+    def precision(self, precision: Union[str, Precision]):
+        self.state.precision = precision
+
+    @property
+    def log_destinations(self):
+        return self.logger.backends
+
+    @property
+    def checkpoint_folder(self):
+        return self._checkpointer.checkpoint_folder
+
+    @checkpoint_folder.setter
+    def checkpoint_folder(self, checkpoint_folder: str):
+        self._checkpointer.checkpoint_folder = checkpoint_folder
+
+    @property
+    def checkpoint_interval(self):
+        return self._checkpointer.save_interval
+
+    @checkpoint_interval.setter
+    def checkpoint_interval(self, checkpoint_interval: int):
+        self._checkpointer.save_interval = checkpoint_interval
+
+    @property
+    def checkpoint_interval_unit(self):
+        return self._checkpointer.checkpoint_interval_unit
+
+    @checkpoint_interval_unit.setter
+    def checkpoint_interval_unit(self, checkpoint_interval_unit: Optional[str]):
+        self._checkpointer.checkpoint_interval_unit = checkpoint_interval_unit
+
+    @property
+    def train_subset_num_batches(self):
+        return self.state._steps_per_epoch
+
+    @train_subset_num_batches.setter
+    def train_subset_num_batches(self, train_subset_num_batches: Optional[int] = None):
+        self.state.steps_per_epoch = train_subset_num_batches
+
+    @property
+    def eval_subset_num_batches(self):
+        return self._eval_subset_num_batches
+
+    @eval_subset_num_batches.setter
+    def eval_subset_num_batches(self, eval_subset_num_batches: Optional[int] = None):
+        self._eval_subset_num_batches = eval_subset_num_batches
+
     def __init__(
             self,
             *,
@@ -236,8 +287,8 @@ class Trainer:
             # Checkpoint hparams
             checkpoint_filepath: Optional[str] = None,
             checkpoint_interval_unit: Optional[str] = None,
-            checkpoint_folder: Optional[str] = "checkpoints",
-            checkpoint_interval: Optional[int] = 1,
+            checkpoint_folder: str = "checkpoints",
+            checkpoint_interval: int = 1,
 
             # Subset parameters
             train_subset_num_batches: Optional[int] = None,
@@ -359,7 +410,6 @@ class Trainer:
         if not log_destinations:
             log_destinations = [TQDMLoggerBackend()]
         self.logger = Logger(self.state, log_destinations)
-        self.state.callbacks = [*log_destinations, *callbacks]
 
         self.engine = Engine(self.state, self.state.algorithms, self.logger, self.state.callbacks)
 
@@ -391,14 +441,12 @@ class Trainer:
         self.state.optimizers = [optimizer]
         self.state.schedulers = [ComposedScheduler(schedulers=schedulers)]
 
-        self.checkpointer = None
         # TODO(#121): get checkpointing working with DeepSpeed.
-        if checkpoint_folder and checkpoint_interval and checkpoint_interval_unit:
-            if self.deepspeed_enabled:
-                raise NotImplementedError("Checkpointing is not yet supported with DeepSpeed.")
-            self.checkpointer = Checkpointer(checkpoint_folder=get_relative_to_run_directory(checkpoint_folder),
-                                             checkpoint_interval=checkpoint_interval,
-                                             checkpoint_interval_unit=checkpoint_interval_unit)
+        if checkpoint_interval_unit is not None and self.deepspeed_enabled:
+            raise NotImplementedError("Checkpointing is not yet supported with DeepSpeed.")
+        self._checkpointer = Checkpointer(checkpoint_folder=checkpoint_folder,
+                                          checkpoint_interval=checkpoint_interval,
+                                          checkpoint_interval_unit=checkpoint_interval_unit)
 
         self.checkpoint_loader = None
         # TODO(#121): get checkpointing working with DeepSpeed.
@@ -674,9 +722,10 @@ class Trainer:
 
         self._spin_dataloaders()
 
-        if self.state.batch_idx == 0 and self.checkpoint_loader:
+        if self.state.batch_idx == 0 and self.checkpoint_loader is not None:
             # only restore the rng state here if the step in the current epoch is zero.
             self.checkpoint_loader.restore_checkpoint_rng_state(self.state, self.device)
+            self.checkpoint_loader = None
 
         for _ in range(state.epoch, state.max_epochs):
             try:
@@ -691,8 +740,9 @@ class Trainer:
 
                     # if resuming, skip dataloader forward to the minibatch index
                     if batch_idx < self.state.batch_idx:
-                        if self.checkpoint_loader:
+                        if self.checkpoint_loader is not None:
                             self.checkpoint_loader.restore_checkpoint_rng_state(self.state, self.device)
+                            self.checkpoint_loader = None
                         continue
 
                     state.last_batch_size = self._get_batch_size(state.batch)
@@ -732,7 +782,7 @@ class Trainer:
                         total_loss = self._train_batch(microbatches)
                     elif self._use_closures():
                         closure = lambda **kwargs: self._train_batch(microbatches, **kwargs)
-                        for optimizer in ensure_tuple(state.optimizers):
+                        for optimizer in state.optimizers:
                             if use_grad_scaling:
                                 total_loss = state.scaler.step(optimizer, closure=closure)
                             else:
@@ -741,7 +791,7 @@ class Trainer:
                                 total_loss = optimizer.step(closure=closure)  # type: ignore
                     else:
                         total_loss = self._train_batch(microbatches)
-                        for optimizer in ensure_tuple(state.optimizers):
+                        for optimizer in state.optimizers:
                             if use_grad_scaling:
                                 state.scaler.step(optimizer)
                             else:
@@ -770,11 +820,11 @@ class Trainer:
                         self.eval(is_batch=True)
 
                     state.step += 1
-                    if self.checkpointer and self.checkpointer.should_checkpoint(state=state, event=Event.BATCH_END):
-                        self.checkpointer.save_checkpoint(state=state,
-                                                          seed=self.seed,
-                                                          device=self.device,
-                                                          config=self.config)
+                    if self._checkpointer.should_checkpoint(state=state, event=Event.BATCH_END):
+                        self._checkpointer.save_checkpoint(state=state,
+                                                           seed=self.seed,
+                                                           device=self.device,
+                                                           config=self.config)
             except BreakEpochException:
                 log.info(f'Skipping the rest of Epoch {state.epoch}')
 
@@ -786,8 +836,8 @@ class Trainer:
 
             state.epoch += 1
 
-            if self.checkpointer and self.checkpointer.should_checkpoint(state=state, event=Event.EPOCH_END):
-                self.checkpointer.save_checkpoint(state=state, seed=self.seed, device=self.device, config=self.config)
+            if self._checkpointer.should_checkpoint(state=state, event=Event.EPOCH_END):
+                self._checkpointer.save_checkpoint(state=state, seed=self.seed, device=self.device, config=self.config)
 
         self.engine.run_event(Event.TRAINING_END)
 
@@ -824,7 +874,7 @@ class Trainer:
         use_grad_scaling = self._use_grad_scaling(state.precision, state.scaler)
 
         if not self.deepspeed_enabled:
-            for optimizer in ensure_tuple(state.optimizers):
+            for optimizer in state.optimizers:
                 optimizer.zero_grad()
 
         # tracker for gradient accumulation

@@ -185,6 +185,9 @@ class Engine():
         """
         event = Event(event)
 
+        for logger in self.logger.backends:
+            logger.run_event(event, self.state, self.logger)
+
         for cb in self.callbacks:
             cb.run_event(event, self.state, self.logger)
 
