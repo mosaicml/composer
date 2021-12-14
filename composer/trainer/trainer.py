@@ -514,6 +514,7 @@ class Trainer:
                     "stage": self.deepspeed_hparams.zero_stage,
                     "allgather_bucket_size": self.deepspeed_hparams.zero2_bucket_size,
                     "reduce_bucket_size": self.deepspeed_hparams.zero2_bucket_size,
+                    "overlap_comm": self.deepspeed_hparams.overlap_comm,
                     #"stage3_max_live_parameters": 1e7,
                     #"stage3_max_reuse_distance": 1e7,
                     #"stage3_prefetch_bucket_size": 5e6,
