@@ -7,8 +7,7 @@ See :doc:`/core/types` for documentation.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Callable, Dict, Iterable, Iterator, List, Optional, Tuple, Union
+from typing import TYPE_CHECKING, Any, Callable, Dict, Iterable, Iterator, List, Optional, Tuple, Union, NamedTuple
 
 import torch
 import torch.utils.data
@@ -140,21 +139,21 @@ class DataLoader(Protocol):
 
 Metrics = Union[Metric, MetricCollection]
 
+Evaluator = NamedTuple('Evaluator', label=str, dataloader=DataLoader, metrics=Metrics)
 
-@dataclass
-class Evaluator:
-    """Wrapper for a dataloader to include metrics that apply to a specific
-    dataset.
+# class Evaluator:
+#     """Wrapper for a dataloader to include metrics that apply to a specific
+#     dataset.
 
-    Attributes:
-        label (str): Name of the Evaluator for 
-        dataloader (DataLoader): Dataloader for evaluation data
-        metrics (Metrics): Metrics to use for the dataset
-    """
+#     Attributes:
+#         label (str): Name of the Evaluator for 
+#         dataloader (DataLoader): Dataloader for evaluation data
+#         metrics (Metrics): Metrics to use for the dataset
+#     """
 
-    label: str
-    dataloader: DataLoader
-    metrics: Metrics
+#     label: str
+#     dataloader: DataLoader
+#     metrics: Metrics
 
 
 Optimizer = torch.optim.Optimizer

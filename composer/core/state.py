@@ -55,8 +55,6 @@ SKIP_SERIALIZATION_FIELDS = [
     "train_dataloader",
     "eval_dataloader",
     "evaluators",
-    "world_size",
-    "nproc_per_node",
     "precision",
     "precision_context",
     "_steps_per_epoch",
