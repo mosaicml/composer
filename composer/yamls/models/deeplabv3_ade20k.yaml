@@ -22,11 +22,12 @@ optimizer:
     dampening: 0
     nesterov: false
 schedulers:
-  cosine_decay:
+  polynomial:
     T_max: "64ep"
-    eta_min: 0
+    eta_min: 1e-4
     verbose: false
     interval: step
+    power: 0.9
 model:
   deeplabv3:
     initializers:

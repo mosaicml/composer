@@ -51,6 +51,7 @@ scheduler_registry = {
     "cosine_warmrestart": scheduler.CosineAnnealingWarmRestartsHparams,
     "warmup": scheduler.WarmUpLRHparams,
     "constant": scheduler.ConstantLRHparams,
+    "polynomial": scheduler.PolynomialLRHparams,
 }
 
 model_registry = {
