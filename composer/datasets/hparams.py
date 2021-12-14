@@ -5,7 +5,9 @@ from __future__ import annotations
 import abc
 import dataclasses
 import textwrap
-from typing import Callable, List, NamedTuple, Optional, Sequence, Union
+from typing import Callable, List, NamedTuple, Optional, Union
+
+from composer.utils.data import default_batch_split_fn
 
 try:
     import custom_inherit
@@ -17,24 +19,8 @@ else:
 
 import yahp as hp
 
-from composer.core.types import Batch, DataLoader, MemoryFormat, TDeviceTransformFn, Tensor
+from composer.core.types import Batch, DataLoader, MemoryFormat, TDeviceTransformFn
 from composer.datasets.dataloader import DataloaderHparams
-
-
-def _split_fn(batch: Batch, n_microbatches: int) -> List[Batch]:
-    if not isinstance(batch, Sequence):
-        raise ValueError(f'split_fn requires batch be a tuple pair of tensors, got {type(batch)}')
-    x, y = batch
-    if isinstance(x, Tensor) and isinstance(y, Tensor):
-        return list(zip(x.chunk(n_microbatches), y.chunk(n_microbatches)))
-    if isinstance(x, List) and isinstance(y, List):
-        return list(
-            zip(
-                [x[i::n_microbatches] for i in range(n_microbatches)],
-                [y[i::n_microbatches] for i in range(n_microbatches)],
-            ))
-    raise NotImplementedError('The default split_fn is unable to split the output of this'
-                              'dataloader. Please define a split_fn in your dataloader spec.')
 
 
 class DataloaderSpec(NamedTuple):
@@ -51,8 +37,8 @@ class DataloaderSpec(NamedTuple):
             run to split batches into microbatches.
     """
     dataloader: DataLoader
-    device_transform_fn: Optional[TDeviceTransformFn] = None
-    split_fn: Callable[[Batch, int], List[Batch]] = _split_fn
+    device_transform_fn: TDeviceTransformFn = lambda x: x
+    split_fn: Callable[[Batch, int], List[Batch]] = default_batch_split_fn
 
 
 @dataclasses.dataclass

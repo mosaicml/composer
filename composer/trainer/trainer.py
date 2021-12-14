@@ -38,6 +38,7 @@ from composer.trainer.devices.device_gpu import DeviceGPU
 from composer.trainer.scaler import ClosureGradScaler
 from composer.trainer.trainer_hparams import TrainerHparams
 from composer.utils import ddp, ensure_tuple, get_random_seed, map_collection, seed_all
+from composer.utils.data import default_batch_split_fn
 from composer.utils.run_directory import get_relative_to_run_directory
 
 log = logging.getLogger(__name__)
@@ -55,7 +56,7 @@ class Trainer:
         train_dataloader (DataLoader or DataloaderSpec): The dataloader or dataloader spec for the training data.
         eval_dataloader (DataLoader or DataloaderSpec): The dataloader or dataloader spec for the evaluation data.
         max_epochs (int): The maxmimum number of epochs to train for.
-        algorithms (List[Algorithm], optional): The algorithms to use during training.
+        algorithms (Sequence[Algorithm], optional): The algorithms to use during training.
             (default: ``[]``)
         optimizer_hparams: (OptimizerHparams, optional): The OptimizerHparams for constructing
             the optimizer for training. Must pass OptimizerHparams instead of a `torch.optim.Optimizer`
@@ -107,6 +108,8 @@ class Trainer:
         eval_subset_num_batches (int, optional): If specified, evaluate on this many batches.
             This parameter has no effect if it is greater than ``len(eval_dataloader)``.
             If None (the default), then the entire dataloader will be iterated over.
+        deepspeed_hparams (DeepspeedHparams, optional): If specified, parameters to use for the
+            deepseped engine.
         config (Dict[str, Any], optional): Extra user-provided trainer configuration. Will be persisted
             along with the trainer state during checkpointing. (default: ``None``)
 
@@ -115,6 +118,86 @@ class Trainer:
         logger (Logger): The :class:`Logger` used for logging.
         engine (Engine): The :class:`Engine` used for running callbacks and algorithms.
     """
+
+    @property
+    def model(self) -> BaseMosaicModel:
+        """The original model"""
+        return ddp.get_original_model(self.state.model)
+
+    @property
+    def train_dataloader(self) -> Union[DataLoader, DataloaderSpec]:
+        """The train dataloader"""
+        if self._train_split_fn is not None and self._train_device_transformation_fn is not None:
+            return DataloaderSpec(self.state.train_dataloader, self._train_device_transformation_fn,
+                                  self._train_split_fn)
+        else:
+            return self.state.train_dataloader
+
+    @train_dataloader.setter
+    def train_dataloader(self, train_dataloader: Union[DataLoader, DataloaderSpec]):
+        if isinstance(train_dataloader, DataloaderSpec):
+            self._train_device_transformation_fn = train_dataloader.device_transform_fn
+            self._train_split_fn = train_dataloader.split_fn
+            dataloader = train_dataloader.dataloader
+        else:
+            self._train_device_transformation_fn = None
+            self._train_split_fn = None
+            dataloader = train_dataloader
+        if not isinstance(dataloader, DDPDataLoader):
+            dataloader = DDPDataLoader(dataloader)
+        self.state.train_dataloader = dataloader
+
+    # TODO(anis) -- add getters/setters for evaluators
+
+    @property
+    def max_epochs(self):
+        """Maximum number of training epochs"""
+        return self.state.max_epochs
+
+    @property
+    def algorithms(self):
+        """Algorithms"""
+        return self.state.algorithms
+
+    @property
+    def callbacks(self):
+        """Callbacks"""
+        return self.state.callbacks
+
+    @property
+    def optimizers(self):
+        """Optimizers"""
+        return self.state.optimizers
+
+    @property
+    def schedulers(self):
+        """Schedulers"""
+        return self.state.schedulers
+
+    @property
+    def device(self):
+        """Device"""
+        return self.device
+
+    @property
+    def grad_accum(self):
+        """Gradient Accumulation"""
+        return self.state.grad_accum
+
+    @grad_accum.setter
+    def grad_accum(self, grad_accum: int):
+        self.state.grad_accum = grad_accum
+
+    @property
+    def grad_clip_norm(self):
+        """Gradient Clipping Norm"""
+        return self._grad_clip_norm
+
+    @grad_clip_norm.setter
+    def grad_clip_norm(self, grad_clip_norm: Optional[float]):
+        if self.deepspeed_enabled:
+            raise RuntimeError("Unable to update the grad_clip_norm if using deepspeed")
+        self._grad_clip_norm = grad_clip_norm
 
     def __init__(
             self,
@@ -175,7 +258,7 @@ class Trainer:
 
         if not device:
             device = DeviceCPU() if not self.deepspeed_enabled else DeviceGPU()
-        self.device = device
+        self._device = device
 
         if not seed:
             # Set a deterministic seed in the hparams
@@ -207,20 +290,21 @@ class Trainer:
                 self.ddp_sync_strategy = ddp.DDPSyncStrategy(ddp_sync_strategy)
 
         if isinstance(train_dataloader, DataloaderSpec):
-            train_dataloader_spec = train_dataloader
+            self._train_device_transformation_fn = train_dataloader.device_transform_fn
+            self._train_split_fn = train_dataloader.split_fn
+            train_dataloader = train_dataloader.dataloader
         else:
-            train_dataloader_spec = DataloaderSpec(train_dataloader)
-        self._train_device_transformation_fn = train_dataloader_spec.device_transform_fn
-        self.train_split_fn = train_dataloader_spec.split_fn
+            self._train_device_transformation_fn = None
+            self._train_split_fn = None
 
         if isinstance(eval_dataloader, DataloaderSpec):
             eval_dataloader_spec = eval_dataloader
         else:
             eval_dataloader_spec = DataloaderSpec(eval_dataloader)
         self._eval_device_transformation_fn = eval_dataloader_spec.device_transform_fn
-        self.eval_split_fn = eval_dataloader_spec.split_fn
+        self._eval_split_fn = eval_dataloader_spec.split_fn
 
-        device_train_batch_size = train_dataloader_spec.dataloader.batch_size
+        device_train_batch_size = train_dataloader.batch_size
 
         if device_train_batch_size is None:
             raise ValueError("train dataloader batch size is None")
@@ -243,12 +327,12 @@ class Trainer:
             train_batch_size=train_batch_size,
             eval_batch_size=eval_batch_size,
             algorithms=algorithms,
-            callbacks=callbacks,
+            callbacks=list(callbacks),
             model=model,
             grad_accum=grad_accum,
             precision=precision,
             precision_context=precision_context,
-            train_dataloader=DDPDataLoader(train_dataloader_spec.dataloader),
+            train_dataloader=DDPDataLoader(train_dataloader),
             eval_dataloader=DDPDataLoader(eval_dataloader_spec.dataloader),
         )
 
@@ -282,7 +366,7 @@ class Trainer:
         self.validate_every_n_batches = validate_every_n_batches
         self.validate_every_n_epochs = validate_every_n_epochs
         self.compute_training_metrics = compute_training_metrics
-        self.grad_clip_norm = grad_clip_norm
+        self._grad_clip_norm = grad_clip_norm
 
         if deterministic_mode:
             torch.use_deterministic_algorithms(True)
@@ -304,8 +388,8 @@ class Trainer:
         schedulers = [
             x.initialize_object(optimizer, self.state.steps_per_epoch) for x in ensure_warmup_last(schedulers_hparams)
         ]
-        self.state.optimizers = optimizer
-        self.state.schedulers = ComposedScheduler(schedulers=schedulers)
+        self.state.optimizers = [optimizer]
+        self.state.schedulers = [ComposedScheduler(schedulers=schedulers)]
 
         self.checkpointer = None
         # TODO(#121): get checkpointing working with DeepSpeed.
@@ -616,11 +700,16 @@ class Trainer:
                     if self._train_device_transformation_fn is not None:
                         state.batch = self._train_device_transformation_fn(state.batch)
 
+                    if self._train_split_fn is None:
+                        split_fn = default_batch_split_fn
+                    else:
+                        split_fn = self._train_split_fn
+
                     if self.compute_training_metrics:
                         # compute metrics on the training set
                         state.model.eval()
                         with torch.no_grad():
-                            eval_microbatches = self.train_split_fn(state.batch, state.grad_accum)
+                            eval_microbatches = split_fn(state.batch, state.grad_accum)
                             for eval_microbatch in eval_microbatches:
                                 # TODO: Detect if self.run_event(Event.AFTER_DATALOADER) changes the training
                                 # data and if so print a warning that metrics may return unexpected results
@@ -631,7 +720,7 @@ class Trainer:
 
                     self.engine.run_event(Event.AFTER_DATALOADER)
 
-                    microbatches = self.train_split_fn(state.batch, state.grad_accum)
+                    microbatches = split_fn(state.batch, state.grad_accum)
 
                     self.engine.run_event(Event.BATCH_START)
                     self.logger.metric_batch({
@@ -838,6 +927,7 @@ class Trainer:
 
             for i, state.batch in enumerate(itertools.islice(state.eval_dataloader, self._eval_subset_num_batches)):
                 state.batch = self.device.batch_to_device(state.batch)
+                state.last_batch_size = self._get_batch_size(state.batch)
                 if self._eval_device_transformation_fn is not None:
                     state.batch = self._eval_device_transformation_fn(state.batch)
 

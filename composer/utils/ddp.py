@@ -19,6 +19,7 @@ from composer.utils.string_enum import StringEnum
 if TYPE_CHECKING:
     from composer.core.state import State
     from composer.core.types import Model
+    from composer.models import BaseMosaicModel
 
 TObj = TypeVar("TObj")
 
@@ -225,6 +226,15 @@ def prepare_module(module: Model, find_unused_parameters: bool) -> Model:
         raise RuntimeError("Please call ddp.initialize_ddp() before calling ddp.prepare_module()")
     raise RuntimeError("When the world size is > 1, DDP must be used. However, it is not available in your "
                        "installation of PyTorch. Please install or build PyTorch with DDP support.")
+
+
+def get_original_model(module: Model) -> BaseMosaicModel:
+    from composer.models import BaseMosaicModel
+    if isinstance(module, DistributedDataParallel):
+        module = module.module
+    if isinstance(module, BaseMosaicModel):
+        return module
+    raise ValueError(f"The module is of type {type(module)}, which is not an instance of {BaseMosaicModel.__name__}")
 
 
 def get_sampler(dataset, *, drop_last: bool, shuffle: bool) -> torch.utils.data.Sampler:

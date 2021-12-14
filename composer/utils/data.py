@@ -1,11 +1,14 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
 import collections.abc
+import textwrap
+from typing import List, Sequence
 
 import torch.utils.data
+from torch.functional import Tensor
 from torchvision import transforms
 
-from composer.core.types import Dataset
+from composer.core.types import Batch, Dataset
 
 
 def add_dataset_transform(dataset, transform):
@@ -49,3 +52,20 @@ def get_subset_dataset(size: int, dataset: Dataset):
         raise ValueError(f"The dataset length ({len(dataset)}) is less than the requested size ({size}).")
     dataset = torch.utils.data.Subset(dataset, list(range(size)))
     return dataset
+
+
+def default_batch_split_fn(batch: Batch, n_microbatches: int) -> List[Batch]:
+    if not isinstance(batch, Sequence):
+        raise ValueError(f'split_fn requires batch be a tuple pair of tensors, got {type(batch)}')
+    x, y = batch
+    if isinstance(x, Tensor) and isinstance(y, Tensor):
+        return list(zip(x.chunk(n_microbatches), y.chunk(n_microbatches)))
+    if isinstance(x, List) and isinstance(y, List):
+        return list(
+            zip(
+                [x[i::n_microbatches] for i in range(n_microbatches)],
+                [y[i::n_microbatches] for i in range(n_microbatches)],
+            ))
+    raise ValueError(
+        textwrap.dedent("""The default_batch_split_fn is unable to split the output of the dataloader.
+        Please define a split_fn in your dataloader spec."""))

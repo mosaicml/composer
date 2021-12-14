@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 import warnings
 from dataclasses import dataclass, field, fields
-from typing import TYPE_CHECKING, Callable, ContextManager, Optional, Sequence, Union
+from typing import TYPE_CHECKING, Callable, ContextManager, List, Optional, Union
 
 import torch
 import torch.nn.modules.utils
@@ -133,15 +133,15 @@ class State(Serializable):
     outputs: types.Tensors = field(default_factory=lambda: torch.zeros(size=(1,)))
 
     # optimizers
-    optimizers: Optional[types.Optimizers] = None
-    schedulers: Optional[types.Schedulers] = None
+    optimizers: List[types.Optimizer] = field(default_factory=list)
+    schedulers: List[types.Scheduler] = field(default_factory=list)
 
     # scaler
     scaler: Optional[types.Scaler] = None
 
     # algorithms
-    algorithms: Sequence[Algorithm] = tuple()
-    callbacks: Sequence[Callback] = tuple()
+    algorithms: List[Algorithm] = field(default_factory=list)
+    callbacks: List[Callback] = field(default_factory=list)
 
     def state_dict(self) -> types.StateDict:
         """Returns the state as a :class:`dict`."""
