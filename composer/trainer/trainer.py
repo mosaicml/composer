@@ -521,15 +521,12 @@ class Trainer:
                 },
             }
 
-            if self.deepspeed_hparams.zero_stage >= 2:
-                #deepspeed_config["zero_optimization"]["offload_optimizer"] = {
-                #    "device": "cpu",
-                #}
-                #deepspeed_config["zero_optimization"]["overlap_comm"] = True
-                # deepspeed_config["activation_checkpointing"] = {}
-                pass
+            if self.deepspeed_hparams.optimizer_offload:
+                deepspeed_config["zero_optimization"]["offload_optimizer"] = {
+                    "device": "cpu",
+                }
 
-            if self.deepspeed_hparams.zero_stage == 3:
+            if self.deepspeed_hparams.parameter_offload:
                 deepspeed_config["zero_optimization"]["offload_param"] = {
                     "device": "cpu",
                 }
