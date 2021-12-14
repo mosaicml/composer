@@ -31,7 +31,7 @@ logging.getLogger().setLevel(logging.INFO)
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--datadir', type=str, required=True, help='data dir for MNIST')
-parser.add_argument('--total_batch_size', type=int, default=256, help='batch size')
+parser.add_argument('--train_batch_size', type=int, default=256, help='batch size')
 parser.add_argument('--epochs', type=int, default=5, help='epochs')
 
 args = parser.parse_args()
@@ -70,12 +70,12 @@ def train():
 
     train_dataloader = torch.utils.data.DataLoader(
         dataset=train_dataset,
-        batch_size=args.total_batch_size,
+        batch_size=args.train_batch_size,
         shuffle=True,
     )
     val_dataloader = torch.utils.data.DataLoader(
         dataset=val_dataset,
-        batch_size=args.total_batch_size,
+        batch_size=args.train_batch_size,
         shuffle=False,
     )
     # to use our algorithms, create and maintain the trainer state
@@ -83,7 +83,7 @@ def train():
         model=model,
         train_dataloader=train_dataloader,
         eval_dataloader=val_dataloader,
-        train_batch_size=args.total_batch_size,
+        train_batch_size=args.train_batch_size,
         max_epochs=args.epochs,
         eval_batch_size=100,
         grad_accum=1,

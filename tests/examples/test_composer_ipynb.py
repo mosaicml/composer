@@ -20,6 +20,8 @@ def test_composer_notebook(monkeypatch: pytest.MonkeyPatch):
         tb.execute_cell("imports")
         tb.execute_cell("hparams")
         tb.inject("trainer_hparams.max_epochs = 1")
+        tb.inject("trainer_hparams.train_subset_num_batches = 1")
+        tb.inject("trainer_hparams.eval_subset_num_batches = 1")
         tb.execute_cell("trainer")
         assert tb.get('mosaic_trainer').state.max_epochs == 1
         tb.execute_cell("train")

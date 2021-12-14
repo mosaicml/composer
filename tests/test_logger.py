@@ -88,6 +88,8 @@ def test_tqdm_logger(mosaic_trainer_hparams: TrainerHparams, monkeypatch: Monkey
         assert mock_tqdm.update.call_count == trainer.state.steps_per_epoch
         mock_tqdm.close.assert_called_once()
     for mock_tqdm in is_train_to_mock_tqdms[False]:
+        # TODO Anis - there are some problems here that need fixing
         assert trainer.state.evaluators is not None
         assert mock_tqdm.update.call_count == sum(len(evaluator.dataloader) for evaluator in trainer.state.evaluators)
+        assert mock_tqdm.update.call_count == trainer._eval_subset_num_batches
         mock_tqdm.close.assert_called_once()
