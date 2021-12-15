@@ -99,13 +99,11 @@ class LMDatasetHparams(DatasetHparams):
         dataset = lm_datasets
         data_collator = transformers.default_data_collator
 
-        sampler = ddp.get_sampler(dataset, drop_last=self.drop_last, shuffle=self.shuffle)
-
         return DataloaderSpec(dataloader=dataloader_hparams.initialize_object(
             dataset=dataset,
             batch_size=batch_size,
-            sampler=sampler,
             drop_last=self.drop_last,
+            shuffle=self.shuffle,
             collate_fn=data_collator,
         ),
                               split_fn=_split_dict_fn)

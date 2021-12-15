@@ -40,7 +40,7 @@ def _split_fn(batch: Batch, n_microbatches: int) -> List[Batch]:
 class DataloaderSpec(NamedTuple):
     """Specification for initializing a dataloader when a device transformation function or split function
     is required
-    
+
     Parameters:
         dataloader (DataLoader): The initialized dataloader.
         device_transform_fn (TDeviceTransformFn, optional):
@@ -104,12 +104,12 @@ class DatasetHparams(hp.Hparams, abc.ABC, metaclass=metaclass):
     def initialize_object(self, batch_size: int,
                           dataloader_hparams: DataloaderHparams) -> Union[DataLoader, DataloaderSpec]:
         """Creates a :class:`DataLoader` or :class:`DataloaderSpec` for this dataset.
-        
+
         Parameters:
             batch_size (int): The size of the batch the dataloader should yield. This batch size is
                 device-specific and already incorporates the world size.
             dataloader_hparams (DataloaderHparams): The dataset-independent hparams for the dataloader
-        
+
         Returns:
             Dataloader or DataloaderSpec: The dataloader, or if a custom device transformation
                 or split function is required, a :class:`DataloaderSpec` tuple

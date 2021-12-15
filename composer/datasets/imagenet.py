@@ -2,6 +2,7 @@
 
 import os
 from dataclasses import dataclass
+from random import shuffle
 from typing import List, Optional, Tuple
 
 import numpy as np
@@ -16,7 +17,6 @@ from composer.core.types import Batch, Tensor
 from composer.datasets.dataloader import DataloaderHparams
 from composer.datasets.hparams import DataloaderSpec, DatasetHparams, SyntheticHparamsMixin
 from composer.datasets.synthetic import SyntheticBatchPairDataset
-from composer.utils import ddp
 
 
 class TransformationFn:
@@ -68,7 +68,7 @@ def fast_collate(batch: List[Tuple[Image.Image, Tensor]], memory_format: torch.m
 @dataclass
 class ImagenetDatasetHparams(DatasetHparams, SyntheticHparamsMixin):
     """Defines an instance of the ImageNet dataset for image classification.
-    
+
     Parameters:
         resize_size (int, optional): The resize size to use. Defaults to -1 to not resize.
         crop size (int): The crop size to use.
@@ -119,13 +119,12 @@ class ImagenetDatasetHparams(DatasetHparams, SyntheticHparamsMixin):
             if self.datadir is None:
                 raise ValueError("datadir must be specified is self.synthetic is False")
             dataset = ImageFolder(os.path.join(self.datadir, split), transformation)
-        sampler = ddp.get_sampler(dataset, drop_last=self.drop_last, shuffle=self.shuffle)
 
         return DataloaderSpec(dataloader=dataloader_hparams.initialize_object(
             dataset=dataset,
             batch_size=batch_size,
-            sampler=sampler,
             drop_last=self.drop_last,
+            shuffle=self.shuffle,
             collate_fn=collate_fn,
         ),
                               device_transform_fn=device_transform_fn)
