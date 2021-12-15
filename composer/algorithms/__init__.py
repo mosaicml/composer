@@ -46,6 +46,8 @@ from composer.algorithms.squeeze_excite import SqueezeExciteConv2d as SqueezeExc
 from composer.algorithms.squeeze_excite import SqueezeExciteHparams as SqueezeExciteHparams
 from composer.algorithms.stochastic_depth import StochasticDepth as StochasticDepth
 from composer.algorithms.stochastic_depth import StochasticDepthHparams as StochasticDepthHparams
+from composer.algorithms.stratify_batches import StratifyBatches as StratifyBatches
+from composer.algorithms.stratify_batches import StratifyBatchesHparams as StratifyBatchesHparams
 from composer.algorithms.swa import SWA as SWA
 from composer.algorithms.swa.hparams import SWAHparams as SWAHparams
 

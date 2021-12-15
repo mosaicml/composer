@@ -9,7 +9,7 @@ from composer.algorithms import (AlgorithmHparams, AlibiHparams, AugMixHparams, 
                                  LabelSmoothingHparams, LayerFreezingHparams, MixUpHparams, NoOpModelHparams,
                                  ProgressiveResizingHparams, RandAugmentHparams, SAMHparams, ScaleScheduleHparams,
                                  SelectiveBackpropHparams, SeqLengthWarmupHparams, SqueezeExciteHparams,
-                                 StochasticDepthHparams, SWAHparams, algorithm_registry)
+                                 StochasticDepthHparams, StratifyBatchesHparams, SWAHparams, algorithm_registry)
 from composer.core.algorithm import Algorithm
 
 default_required_fields = {
@@ -75,6 +75,7 @@ default_required_fields = {
         'drop_warmup': 0.0,
         'use_same_gpu_seed': False
     },
+    StratifyBatchesHparams: {},
     ProgressiveResizingHparams: {
         'mode': 'resize',
         'initial_scale': 0.5,
