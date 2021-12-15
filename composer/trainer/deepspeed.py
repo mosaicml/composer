@@ -23,6 +23,8 @@ class DeepSpeedHparams(hp.Hparams):
     zero2_bucket_size: int = hp.optional("Buffer size used by ZeRO 2 for distributed communications.", default=5e8)
     overlap_comm: bool = hp.optional("Overlap comm", default=False)
 
+    gradient_checkpointing: bool = hp.optional("Whether to enable gradient checkpointing.", default=False)
+
     def validate(self):
         super().validate()
 

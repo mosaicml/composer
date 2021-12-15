@@ -532,6 +532,9 @@ class Trainer:
                     "device": "cpu",
                 }
 
+            if self.deepspeed_hparams.gradient_checkpointing:
+                state.model.module.gradient_checkpointing_enable()
+
             if state.precision == Precision.AMP:
                 deepspeed_config["amp"] = {"enabled": True}
             elif state.precision == Precision.FP16:
