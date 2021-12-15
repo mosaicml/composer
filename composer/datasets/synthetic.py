@@ -60,6 +60,8 @@ class SyntheticBatchPairDataset(torch.utils.data.Dataset):
         self.device = device
         self.memory_format = MemoryFormat(memory_format)
         self.transform = transform
+        self.generator = torch.Generator()
+        self.generator.manual_seed(num_unique_samples_to_create)
 
         self._validate_label_inputs(label_type=self.label_type,
                                     num_classes=self.num_classes,
@@ -89,7 +91,10 @@ class SyntheticBatchPairDataset(torch.utils.data.Dataset):
             # generating samples so all values for the sample are the sample index
             # e.g. all(input_data[1] == 1). Helps with debugging.
             assert self.input_target is None
-            input_data = torch.randn(self.num_unique_samples_to_create, *self.data_shape, device=self.device)
+            input_data = torch.randn(self.num_unique_samples_to_create,
+                                     *self.data_shape,
+                                     generator=self.generator,
+                                     device=self.device)
 
             input_data = torch.clone(input_data)  # allocate actual memory
             input_data = input_data.contiguous(memory_format=getattr(torch, self.memory_format.value))
@@ -102,6 +107,7 @@ class SyntheticBatchPairDataset(torch.utils.data.Dataset):
                 assert self.num_classes is not None
                 input_target = torch.randint(0,
                                              self.num_classes, (self.num_unique_samples_to_create,),
+                                             generator=self.generator,
                                              device=self.device)
             elif self.label_type == SyntheticDataLabelType.RANDOM_INT:
                 assert self.label_shape is not None
@@ -109,6 +115,7 @@ class SyntheticBatchPairDataset(torch.utils.data.Dataset):
                 dummy_max = 10
                 input_target = torch.randint(0,
                                              dummy_max, (self.num_unique_samples_to_create, *self.label_shape),
+                                             generator=self.generator,
                                              device=self.device)
             else:
                 raise ValueError(f"Unsupported label type {self.data_type}")

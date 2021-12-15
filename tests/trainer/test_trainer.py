@@ -17,6 +17,7 @@ from composer.optim.optimizer_hparams import AdamHparams
 from composer.optim.scheduler import ComposedScheduler, ExponentialLRHparams
 from composer.trainer import Trainer, TrainerHparams
 from composer.trainer.devices.device_hparams import CPUDeviceHparams, DeviceHparams, GPUDeviceHparams
+from tests.test_state import assert_state_equivalent
 from tests.utils.trainer_fit import get_total_loss, train_model
 
 
@@ -117,3 +118,57 @@ def test_trainer_fit(mosaic_trainer_hparams: TrainerHparams, device_hparams: Dev
     mosaic_trainer_hparams.precision = precision
 
     train_model(mosaic_trainer_hparams, max_epochs=2, run_loss_check=True)
+
+
+def test_partial_train(mosaic_trainer_hparams: TrainerHparams):
+    # Assert that following calls produce equivalent state:
+    # 1. .fit() (train until end)
+    # 2. for _ in range(max_epochs): .fit(num_epochs=1)
+    # 3. for _ in range(max_peochs): for _ in range(steps_per_epoch): .fit(num_bathces=1)
+    assert mosaic_trainer_hparams.max_epochs > 1
+    assert mosaic_trainer_hparams.train_subset_num_batches is not None
+    assert mosaic_trainer_hparams.train_subset_num_batches > 1
+    mosaic_trainer_hparams.train_dataset.shuffle = False
+    mosaic_trainer_hparams.val_dataset.shuffle = False
+
+    trainer_1 = mosaic_trainer_hparams.initialize_object()
+    model_state = trainer_1.model.state_dict()
+    trainer_1.fit()
+    assert trainer_1.engine.closed
+
+    with pytest.raises(RuntimeError):
+        # cannot over-train
+        trainer_1.fit()
+
+    trainer_2 = mosaic_trainer_hparams.initialize_object()
+    trainer_2.model.load_state_dict(model_state)
+    for _ in range(mosaic_trainer_hparams.max_epochs):
+        trainer_2.fit(num_epochs=1)
+    assert trainer_2.engine.closed
+
+    trainer_3 = mosaic_trainer_hparams.initialize_object()
+    trainer_3.model.load_state_dict(model_state)
+    for _ in range(mosaic_trainer_hparams.max_epochs):
+        for i in range(mosaic_trainer_hparams.train_subset_num_batches):
+            trainer_3.fit(num_batches=1)
+            if i == 0:
+                with pytest.raises(ValueError):
+                    trainer_3.fit(num_epochs=1)  # cannot fit with num_epochs when in the middle of a batch
+    assert trainer_3.engine.closed
+
+    trainer_4 = mosaic_trainer_hparams.initialize_object()
+    trainer_4.model.load_state_dict(model_state)
+    trainer_4.fit(num_epochs=1)
+    trainer_4.fit()
+    assert trainer_4.engine.closed
+
+    trainer_5 = mosaic_trainer_hparams.initialize_object()
+    trainer_5.model.load_state_dict(model_state)
+    trainer_5.fit(num_batches=mosaic_trainer_hparams.train_subset_num_batches)
+    trainer_5.fit(num_epochs=mosaic_trainer_hparams.max_epochs - 1)
+    assert trainer_5.engine.closed
+
+    assert_state_equivalent(trainer_1.state, trainer_2.state)
+    assert_state_equivalent(trainer_1.state, trainer_3.state)
+    assert_state_equivalent(trainer_1.state, trainer_4.state)
+    assert_state_equivalent(trainer_1.state, trainer_5.state)

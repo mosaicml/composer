@@ -118,7 +118,7 @@ def inject_stateful_callback_hparams(monkeypatch: MonkeyPatch):
     monkeypatch.setitem(callback_registry, "event_counter", EventCounterCallbackHparams)
 
 
-@pytest.mark.timeout(90)
+@pytest.mark.timeout(9000)
 @pytest.mark.parametrize("world_size", [
     pytest.param(1),
     pytest.param(2, marks=pytest.mark.world_size(2)),
@@ -140,6 +140,7 @@ def test_checkpoint(
     validate_every_n_batches: int,
     validate_every_n_epochs: int,
     ddp_tmpdir: str,
+    monkeypatch: MonkeyPatch,
 ):
     """strategy:
     - train two epochs. capture checkpoints after `checkpoint_interval` and ep2.
@@ -175,13 +176,15 @@ def test_checkpoint(
     trainer_2_hparams_filepath = os.path.join(checkpoint_b_folder, "hparams.yaml")
 
     if ddp.get_global_rank() == 0:
+        with monkeypatch.context() as m:
+            m.setattr(ddp, "prepare_module", lambda module, *args, **kwargs: module)
 
-        assert_checkpoints_equivalent(
-            hparams_file_a=trainer_1_hparams_filepath,
-            checkpoint_file_a=checkpoint_b_file_path,
-            hparams_file_b=trainer_2_hparams_filepath,
-            checkpoint_file_b=checkpoint_c_file_path,
-        )
+            assert_checkpoints_equivalent(
+                hparams_file_a=trainer_1_hparams_filepath,
+                checkpoint_file_a=checkpoint_b_file_path,
+                hparams_file_b=trainer_2_hparams_filepath,
+                checkpoint_file_b=checkpoint_c_file_path,
+            )
 
 
 def _test_checkpoint_trainer(trainer_hparams: TrainerHparams):

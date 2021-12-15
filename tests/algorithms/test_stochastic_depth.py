@@ -36,8 +36,6 @@ def dummy_state(dummy_dataloader_hparams: DataloaderHparams):
                   model=model,
                   eval_dataloader=train_dataloader,
                   precision=Precision.FP32)
-    state.epoch = 50
-    state.step = 50
     return state
 
 

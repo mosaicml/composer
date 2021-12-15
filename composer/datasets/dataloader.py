@@ -73,7 +73,8 @@ class DDPDataLoader(WrappedDataLoader):
         return self
 
     def __next__(self) -> Batch:
-        assert self._iterator is not None
+        if self._iterator is None:
+            raise StopIteration
         try:
             return next(self._iterator)
         except StopIteration:

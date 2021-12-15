@@ -166,7 +166,7 @@ class SeqLengthWarmup(Algorithm):
             # ensure that input_ids is a valid model input. since we don't need the
             # results, we don't use all inputs.
 
-            original_model = state.model.module
+            original_model = ddp.get_original_model(state.model)
             assert isinstance(original_model, MosaicTransformer)
             model_inputs = original_model.get_model_inputs()  # type: ignore
             assert 'input_ids' in model_inputs

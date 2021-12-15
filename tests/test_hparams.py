@@ -44,5 +44,10 @@ class TestHparamsCreate:
         _configure_dataset_for_synthetic(hparams.train_dataset)
         _configure_dataset_for_synthetic(hparams.val_dataset)
         hparams.device = CPUDeviceHparams()
+        hparams.train_batch_size = 1
+        hparams.eval_batch_size = 1
+        hparams.dataloader.persistent_workers = False
+        hparams.dataloader.pin_memory = False
+        hparams.dataloader.num_workers = 0
 
         hparams.initialize_object()

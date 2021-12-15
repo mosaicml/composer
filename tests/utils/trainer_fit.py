@@ -47,7 +47,6 @@ def train_model(mosaic_trainer_hparams: TrainerHparams, max_epochs: int = 2, run
     trainer = Trainer.create_from_hparams(mosaic_trainer_hparams)
 
     original_model = deepcopy(trainer.state.model)
-    assert isinstance(original_model, BaseMosaicModel)
 
     trainer.fit()
 
@@ -56,10 +55,7 @@ def train_model(mosaic_trainer_hparams: TrainerHparams, max_epochs: int = 2, run
         original_model = trainer.device.module_to_device(original_model)
 
     if run_loss_check and trainer.state.train_dataloader:
-        initial_loss = get_total_loss(original_model, trainer.state.train_dataloader)
-
-        unwrapped_model = trainer.state.model.module
-        assert isinstance(unwrapped_model, BaseMosaicModel)
-        post_fit_loss = get_total_loss(unwrapped_model, trainer.state.train_dataloader)
+        initial_loss = get_total_loss(ddp.get_original_model(original_model), trainer.state.train_dataloader)
+        post_fit_loss = get_total_loss(ddp.get_original_model(trainer.state.model), trainer.state.train_dataloader)
         pytest.xfail("train_model is flaky")
         assert post_fit_loss < initial_loss + 1e-5, f"post_fit_loss({post_fit_loss}) - initial_loss({initial_loss}) >= 1e-5"

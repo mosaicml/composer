@@ -10,6 +10,7 @@ from typing import TYPE_CHECKING, Callable, ContextManager, Optional, Sequence, 
 import torch
 import torch.nn.modules.utils
 from torch.nn.parallel import DistributedDataParallel
+from torchmetrics.collections import MetricCollection
 
 import composer.core.types as types
 from composer.core.precision import Precision
@@ -42,6 +43,7 @@ STATE_DICT_SERIALIZATION_FIELDS = [
     "_algorithms",
     "_callbacks",
     "scaler",
+    "train_metrics",
 ]
 
 # These fields will not be serialized
@@ -112,6 +114,7 @@ class State(Serializable):
             # algorithms and callbacks
             algorithms: Sequence[Algorithm] = tuple(),
             callbacks: Sequence[Callback] = tuple(),
+            train_metrics: Optional[MetricCollection] = None,
     ):
         self.model = model
         self.grad_accum = grad_accum
@@ -140,6 +143,7 @@ class State(Serializable):
             self._schedulers = list(ensure_tuple(schedulers))
 
         self.scaler = scaler
+        self.train_metrics = train_metrics
         self._algorithms = list(algorithms)
         self._callbacks = list(callbacks)
 

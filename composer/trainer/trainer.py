@@ -228,6 +228,7 @@ class Trainer:
             train_dataloader=DDPDataLoader(train_dataloader),
             eval_dataloader=DDPDataLoader(eval_dataloader_spec.dataloader),
         )
+        self.state.train_metrics = self._get_metrics_as_collection(is_train=True)
 
         # Steps per epoch
         self.state.steps_per_epoch = train_subset_num_batches
@@ -298,6 +299,75 @@ class Trainer:
                 raise NotImplementedError("Checkpointing is not yet supported with DeepSpeed.")
             self.checkpoint_loader = CheckpointLoader(checkpoint_filepath=checkpoint_filepath)
             self.checkpoint_loader.load_checkpoint(state=self.state)
+
+        # place the state, model in the proper devices
+        if self.deepspeed_enabled:
+            import deepspeed
+
+            optimizer = self.state.optimizers[0]
+
+            deepspeed_config: dict[str, Any] = {
+                "train_batch_size": self.state.train_batch_size,
+                "gradient_accumulation_steps": self.state.grad_accum,
+            }
+
+            if self.state.precision == Precision.AMP:
+                deepspeed_config["amp"] = {"enabled": True}
+            elif self.state.precision == Precision.FP16:
+                deepspeed_config["fp16"] = {"enabled": True}
+
+            if self.grad_clip_norm:
+                deepspeed_config["gradient_clipping"] = self.grad_clip_norm
+
+            (self.state.model, self.state.optimizers, _, _) = deepspeed.initialize(
+                config=deepspeed_config,
+                model=self.state.model,
+                optimizer=optimizer,
+            )
+        else:
+            self.state.model = self.device.module_to_device(self.state.model)
+            self.state.optimizers = map_collection(self.state.optimizers, self.device.optimizer_to_device)
+
+            # wrap model with DDP
+            self.state.model = ddp.prepare_module(self.state.model, self.find_unused_parameters)
+
+        # print training start
+        self.logger.metric_fit({"trainer/algorithms": [str(algo) for algo in self.engine.algorithms]})
+
+        if self.compute_training_metrics:
+            warnings.warn(
+                textwrap.dedent("""Computing model evaluation metrics during training.
+                    This doubles the number of forward passes and may lead
+                    to a throughput degradation."""))
+
+        if self._use_closures():
+
+            def _ddp_reduce_scalar_and(flag: bool) -> bool:
+                value = 1 if flag else 0
+                flag_tensor = self.device.tensor_to_device(torch.tensor(value).int())
+                ddp.all_reduce(flag_tensor, reduce_operation='PRODUCT')
+                return flag_tensor.item() == 1
+
+            def _ddp_reduce_tensor_sum(tensor: Tensor) -> Tensor:
+                # Happens in-place; that's fine
+                ddp.all_reduce(tensor, reduce_operation="SUM")
+                return tensor
+
+            self.state.scaler = ClosureGradScaler(ddp_reduce_scalar_and=_ddp_reduce_scalar_and,
+                                                  ddp_reduce_tensor_sum=_ddp_reduce_tensor_sum)
+        else:
+            self.state.scaler = GradScaler()
+
+        self.engine.run_event(Event.TRAINING_START)
+
+        self._spin_dataloaders()
+
+        if self.state.batch_idx == 0 and self.checkpoint_loader is not None:
+            # only restore the rng state here if the step in the current epoch is zero.
+            self.checkpoint_loader.restore_checkpoint_rng_state(self.state, self.device)
+            self.checkpoint_loader = None
+
+        self._train_dataloader_iterator = None
 
     @classmethod
     def create_from_hparams(cls, hparams: TrainerHparams) -> Trainer:
@@ -559,12 +629,89 @@ class Trainer:
     def eval_subset_num_batches(self, eval_subset_num_batches: Optional[int] = None):
         self._eval_subset_num_batches = eval_subset_num_batches
 
-    def fit(self):
-        """Train and evaluate the model on the provided data."""
+    def fit(self, num_batches: Optional[int] = None, num_epochs: Optional[int] = None):
+        """Train and evaluate the model on the provided data.
+
+        By default, it trains until the exit condition speicifed by ``max_epochs``.
+        You can optionally specify one of ``num_batches`` or ``num_epochs`` to train 
+        for the specified duration. This will continue the training process from the last
+        call to :meth:`fit`.
+        
+        Args:
+            num_batches (int, optional): Train for the specified number of batches. Cannot be
+                specified with ``num_epochs``.
+            num_epochs (int, optional): Train for the specified number of epochs. Cannot be
+                speciifed with ``num_batches``.
+        """
+
+        # shorthand
+        state = self.state
+
+        if self.engine.closed:
+            raise RuntimeError(
+                textwrap.dedent("""Cannot .fit() if the engine is already closed.
+                This would occur if the trainer already finished training to max_epochs, or if
+                an exception occured during the training process. Please create a new trainer to train."""))
+
+        if num_batches is not None and num_epochs is not None:
+            raise ValueError("Only one of num_batches or num_epochs can be provided")
+        if self.state.batch_idx != 0 and num_epochs is not None:
+            batches_remaining_in_epoch = state.steps_per_epoch - state.batch_idx
+            raise ValueError(
+                textwrap.dedent(f"""Num_epochs cannot be specified when the trainer is mid-epoch.
+                Instead, call trainer.fit(num_batches={batches_remaining_in_epoch}), which will advance the
+                trainer to the end of the current epoch"""))
+        max_step = float('inf')
+        max_epoch = state.max_epochs
+        if num_batches is not None:
+            max_step = state.step + num_batches
+        if num_epochs is not None:
+            max_epoch = state.epoch + num_epochs
         try:
-            self._train_loop()
-        finally:
+            while state.epoch < max_epoch and state.step < max_step:
+                if state.batch_idx == 0:
+                    self.engine.run_event(Event.EPOCH_START)
+                    self.logger.metric_epoch({"epoch": self.state.epoch})
+
+                    self._train_dataloader_iterator = iter(
+                        itertools.islice(self.state.train_dataloader, self.state.steps_per_epoch))
+                else:
+                    # if resuming from checkpoint, then spin the dataloader back to where we were:
+                    if self.checkpoint_loader is not None:
+                        # resuming a checkpoint mid epoch. Checkpoint loader to None after
+                        assert self._train_dataloader_iterator is None, "If resuming from a checkpoint mid epoch, iterator should be None"
+                        self._train_dataloader_iterator = iter(
+                            itertools.islice(state.train_dataloader, state.steps_per_epoch))
+                        for _ in range(self.state.batch_idx):
+                            next(self._train_dataloader_iterator)
+                        self.checkpoint_loader.restore_checkpoint_rng_state(self.state, self.device)
+                        self.checkpoint_loader = None
+
+                assert self._train_dataloader_iterator is not None, "iterator is set on self._epoch_start() or via the checkpoint loader"
+
+                while state.step < max_step:
+                    try:
+                        state.batch = next(self._train_dataloader_iterator)
+                    except StopIteration:
+                        break
+
+                    try:
+                        self._train_batch()
+                    except BreakEpochException:
+                        log.info(f'Skipping the `rest of Epoch {state.epoch}')
+                        state.step += state.steps_per_epoch - state.batch_idx
+
+                if state.batch_idx == state.steps_per_epoch:
+                    self._epoch_end()
+
+            self.engine.run_event(Event.TRAINING_END)
+        except:
+            # TODO allow subsequent calls to fit even if an exception occurs
             self.engine.close()
+            raise
+        else:
+            if state.epoch == state.max_epochs:
+                self.engine.close()
 
     @property
     def backwards_create_graph(self):
@@ -630,8 +777,6 @@ class Trainer:
         """
         # surpressing this multiple iteration warning -- it is OK to ignore
         warnings.filterwarnings(action="ignore", message=r"^DataloaderMultipleIterationWarning", append=True)
-        assert self.state.train_dataloader is not None, "train dataloader should be set"
-        assert self.state.eval_dataloader is not None, "eval dataloader should be set"
 
         # spin the eval dataloader once to initialize its sampler deterministically
         # so it does not affect any other RNG reads
@@ -661,201 +806,113 @@ class Trainer:
             raise ValueError('The default _get_batch_size function found ',
                              f'multiple Tensor sizes in batch: {dim0_sizes}')
 
-    def _train_loop(self) -> None:
-        """Run training for the specified number of epochs and log results."""
+    def _epoch_end(self):
         # shorthand
         state = self.state
 
-        if len(ensure_tuple(state.optimizers)) != 1:
-            raise NotImplementedError("The Mosaic trainer only supports one optimizer; "
-                                      f"found {len(state.optimizers)} optimizers")
+        for scheduler in state.schedulers:
+            scheduler.step(interval='epoch')  # type: ignore
 
-        # place the state, model in the proper devices
-        if self.deepspeed_enabled:
-            import deepspeed
+        self.engine.run_event(Event.EPOCH_END)
 
-            optimizer = state.optimizers[0]
+        if self.validate_every_n_epochs > 0 and (state.epoch + 1) % self.validate_every_n_epochs == 0:
+            self.eval(is_batch=False)
 
-            deepspeed_config: dict[str, Any] = {
-                "train_batch_size": state.train_batch_size,
-                "gradient_accumulation_steps": state.grad_accum,
-            }
+        state.epoch += 1
 
-            if state.precision == Precision.AMP:
-                deepspeed_config["amp"] = {"enabled": True}
-            elif state.precision == Precision.FP16:
-                deepspeed_config["fp16"] = {"enabled": True}
+        if self._checkpointer.should_checkpoint(state=state, event=Event.EPOCH_END):
+            self._checkpointer.save_checkpoint(state=state, seed=self.seed, device=self.device, config=self.config)
 
-            if self.grad_clip_norm:
-                deepspeed_config["gradient_clipping"] = self.grad_clip_norm
+        self._train_dataloader_iterator = None
 
-            (state.model, state.optimizers, _, _) = deepspeed.initialize(
-                config=deepspeed_config,
-                model=state.model,
-                optimizer=optimizer,
-            )
+    def _train_batch(self):
+        """Helper method to train a batch. Assumes that state.batch is set to the batch to be trained.
+        """
+        state = self.state
+        assert state.scaler is not None, "state.scalar should be set in __init__"
+        assert state.train_metrics is not None, "state.train_metrics should be set via .fit()"
+
+        state.last_batch_size = self._get_batch_size(state.batch)
+        state.batch = self.device.batch_to_device(state.batch)
+        if self._train_device_transformation_fn is not None:
+            state.batch = self._train_device_transformation_fn(state.batch)
+
+        if self._train_split_fn is None:
+            split_fn = default_batch_split_fn
         else:
-            state.model = self.device.module_to_device(state.model)
-            state.optimizers = map_collection(state.optimizers, self.device.optimizer_to_device)
-
-            # wrap model with DDP
-            state.model = ddp.prepare_module(state.model, self.find_unused_parameters)
-
-        # print training start
-        self.logger.metric_fit({"trainer/algorithms": [str(algo) for algo in self.engine.algorithms]})
+            split_fn = self._train_split_fn
 
         if self.compute_training_metrics:
-            log.warn('Computing model evaluation metrics during training.'
-                     ' This doubles the number of forward passes and may lead'
-                     ' to a throughput degradation.')
-        train_metrics = self._get_metrics_as_collection(is_train=True)
+            # compute metrics on the training set
+            state.model.eval()
+            with torch.no_grad():
+                eval_microbatches = split_fn(state.batch, state.grad_accum)
+                for eval_microbatch in eval_microbatches:
+                    # TODO: Detect if self.run_event(Event.AFTER_DATALOADER) changes the training
+                    # data and if so print a warning that metrics may return unexpected results
+                    outputs, targets = ddp.get_original_model(state.model).validate(eval_microbatch)
+                    state.train_metrics.update(outputs, targets)
 
-        self.engine.run_event(Event.TRAINING_START)
+        state.model.train()
 
-        if self._use_closures():
+        self.engine.run_event(Event.AFTER_DATALOADER)
 
-            def _ddp_reduce_scalar_and(flag: bool) -> bool:
-                value = 1 if flag else 0
-                flag_tensor = self.device.tensor_to_device(torch.tensor(value).int())
-                ddp.all_reduce(flag_tensor, reduce_operation='PRODUCT')
-                return flag_tensor.item() == 1
+        microbatches = split_fn(state.batch, state.grad_accum)
 
-            def _ddp_reduce_tensor_sum(tensor: Tensor) -> Tensor:
-                # Happens in-place; that's fine
-                ddp.all_reduce(tensor, reduce_operation="SUM")
-                return tensor
-
-            state.scaler = ClosureGradScaler(ddp_reduce_scalar_and=_ddp_reduce_scalar_and,
-                                             ddp_reduce_tensor_sum=_ddp_reduce_tensor_sum)
-        else:
-            state.scaler = GradScaler()
+        self.engine.run_event(Event.BATCH_START)
         use_grad_scaling = self._use_grad_scaling(state.precision, state.scaler)
+        self.logger.metric_batch({
+            "trainer/global_step": self.state.step,
+            "trainer/batch_idx": self.state.batch_idx,
+        })
+        total_loss = None
+        if self.deepspeed_enabled:
+            total_loss = self._train_batch_inner(microbatches)
+        elif self._use_closures():
+            closure = lambda **kwargs: self._train_batch_inner(microbatches, **kwargs)
+            for optimizer in state.optimizers:
+                if use_grad_scaling:
+                    total_loss = state.scaler.step(optimizer, closure=closure)
+                else:
+                    # Torch optimizers technically expect closures to return a float, not a Tensor.
+                    # In practice, this doesn't seem to actually matter.
+                    total_loss = optimizer.step(closure=closure)  # type: ignore
+        else:
+            total_loss = self._train_batch_inner(microbatches)
+            for optimizer in state.optimizers:
+                if use_grad_scaling:
+                    state.scaler.step(optimizer)
+                else:
+                    optimizer.step()
 
-        self._spin_dataloaders()
+        if use_grad_scaling:
+            state.scaler.update()
 
-        if self.state.batch_idx == 0 and self.checkpoint_loader is not None:
-            # only restore the rng state here if the step in the current epoch is zero.
-            self.checkpoint_loader.restore_checkpoint_rng_state(self.state, self.device)
-            self.checkpoint_loader = None
+        if total_loss is not None:
+            assert isinstance(total_loss, Tensor)
 
-        for _ in range(state.epoch, state.max_epochs):
-            try:
-                state.model.train()
+            # total_loss can be None if gradient scaling failed
+            ddp.all_reduce(total_loss, reduce_operation="SUM")
+            ddp.barrier()
+            full_loss = total_loss.cpu().item()
+            self.logger.metric_batch({'loss/train': full_loss / ddp.get_world_size()})
 
-                if self.state.batch_idx == 0:
-                    self.engine.run_event(Event.EPOCH_START)
-                    self.logger.metric_epoch({"epoch": self.state.epoch})
+        if self.compute_training_metrics:
+            self._compute_and_log_metrics(state.train_metrics, is_train=True, is_batch=True)
 
-                for batch_idx, state.batch in enumerate(
-                        itertools.islice(state.train_dataloader, self.state.steps_per_epoch)):
+        self.engine.run_event(Event.BATCH_END)
 
-                    # if resuming, skip dataloader forward to the minibatch index
-                    if batch_idx < self.state.batch_idx:
-                        if self.checkpoint_loader is not None:
-                            self.checkpoint_loader.restore_checkpoint_rng_state(self.state, self.device)
-                            self.checkpoint_loader = None
-                        continue
+        for scheduler in state.schedulers:
+            scheduler.step(interval='batch')  # type: ignore
 
-                    state.last_batch_size = self._get_batch_size(state.batch)
-                    state.batch = self.device.batch_to_device(state.batch)
-                    if self._train_device_transformation_fn is not None:
-                        state.batch = self._train_device_transformation_fn(state.batch)
+        if self.validate_every_n_batches > 0 and (state.step + 1) % self.validate_every_n_batches == 0:
+            self.eval(is_batch=True)
 
-                    if self._train_split_fn is None:
-                        split_fn = default_batch_split_fn
-                    else:
-                        split_fn = self._train_split_fn
+        state.step += 1
+        if self._checkpointer.should_checkpoint(state=state, event=Event.BATCH_END):
+            self._checkpointer.save_checkpoint(state=state, seed=self.seed, device=self.device, config=self.config)
 
-                    if self.compute_training_metrics:
-                        # compute metrics on the training set
-                        state.model.eval()
-                        with torch.no_grad():
-                            eval_microbatches = split_fn(state.batch, state.grad_accum)
-                            for eval_microbatch in eval_microbatches:
-                                # TODO: Detect if self.run_event(Event.AFTER_DATALOADER) changes the training
-                                # data and if so print a warning that metrics may return unexpected results
-                                outputs, targets = ddp.get_original_model(state.model).validate(eval_microbatch)
-                                train_metrics.update(outputs, targets)
-
-                    state.model.train()
-
-                    self.engine.run_event(Event.AFTER_DATALOADER)
-
-                    microbatches = split_fn(state.batch, state.grad_accum)
-
-                    self.engine.run_event(Event.BATCH_START)
-                    self.logger.metric_batch({
-                        "trainer/global_step": self.state.step,
-                        "trainer/batch_idx": self.state.batch_idx,
-                    })
-                    total_loss = None
-                    if self.deepspeed_enabled:
-                        total_loss = self._train_batch(microbatches)
-                    elif self._use_closures():
-                        closure = lambda **kwargs: self._train_batch(microbatches, **kwargs)
-                        for optimizer in state.optimizers:
-                            if use_grad_scaling:
-                                total_loss = state.scaler.step(optimizer, closure=closure)
-                            else:
-                                # Torch optimizers technically expect closures to return a float, not a Tensor.
-                                # In practice, this doesn't seem to actually matter.
-                                total_loss = optimizer.step(closure=closure)  # type: ignore
-                    else:
-                        total_loss = self._train_batch(microbatches)
-                        for optimizer in state.optimizers:
-                            if use_grad_scaling:
-                                state.scaler.step(optimizer)
-                            else:
-                                optimizer.step()
-
-                    if use_grad_scaling:
-                        state.scaler.update()
-
-                    if total_loss is not None:
-                        assert isinstance(total_loss, Tensor)
-
-                        # total_loss can be None if gradient scaling failed
-                        ddp.all_reduce(total_loss, reduce_operation="SUM")
-                        ddp.barrier()
-                        full_loss = total_loss.cpu().item()
-                        self.logger.metric_batch({'loss/train': full_loss / ddp.get_world_size()})
-
-                    if self.compute_training_metrics:
-                        self._compute_and_log_metrics(train_metrics, is_train=True, is_batch=True)
-
-                    self.engine.run_event(Event.BATCH_END)
-
-                    for scheduler in state.schedulers:
-                        scheduler.step(interval='batch')  # type: ignore
-
-                    if self.validate_every_n_batches > 0 and (state.step + 1) % self.validate_every_n_batches == 0:
-                        self.eval(is_batch=True)
-
-                    state.step += 1
-                    if self._checkpointer.should_checkpoint(state=state, event=Event.BATCH_END):
-                        self._checkpointer.save_checkpoint(state=state,
-                                                           seed=self.seed,
-                                                           device=self.device,
-                                                           config=self.config)
-            except BreakEpochException:
-                log.info(f'Skipping the rest of Epoch {state.epoch}')
-
-            for scheduler in state.schedulers:
-                scheduler.step(interval='epoch')  # type: ignore
-
-            self.engine.run_event(Event.EPOCH_END)
-
-            if self.validate_every_n_epochs > 0 and (state.epoch + 1) % self.validate_every_n_epochs == 0:
-                self.eval(is_batch=False)
-
-            state.epoch += 1
-
-            if self._checkpointer.should_checkpoint(state=state, event=Event.EPOCH_END):
-                self._checkpointer.save_checkpoint(state=state, seed=self.seed, device=self.device, config=self.config)
-
-        self.engine.run_event(Event.TRAINING_END)
-
-    def _train_batch(self, microbatches: Sequence[Batch], ddp_sync: bool = True):
+    def _train_batch_inner(self, microbatches: Sequence[Batch], ddp_sync: bool = True):
         """Run training on a full batch of data.
 
         Args:
@@ -863,6 +920,8 @@ class Trainer:
             ddp_sync (bool): True to sync gradients between devices on every backwards
                 pass and False to only sync gradients after each device has finished
                 computing a gradient on it's entire set of microbatches. (default: ``True``)
+        Returns:
+            float: Total loss
         """
         if ddp_sync or not isinstance(self.state.model, DistributedDataParallel):
             context = contextlib.nullcontext
@@ -870,104 +929,95 @@ class Trainer:
             context = self.state.model.no_sync
 
         with context():  # type: ignore - Pyright apparently doesn't recognize no_sync
-            return self._train_batch_inner(microbatches)
+            self.engine.run_event(Event.BEFORE_TRAIN_BATCH)
 
-    def _train_batch_inner(self, microbatches: Sequence[Batch]):
-        """Iterate over microbatches and compute the loss that will be used to step
-        the optimizer.
+            state = self.state
+            assert state.optimizers is not None
+            assert state.scaler is not None
 
-        Args:
-            microbatches (Sequence[Batch]): The microbatches which make up the batch.
-        """
-        self.engine.run_event(Event.BEFORE_TRAIN_BATCH)
+            use_grad_scaling = self._use_grad_scaling(state.precision, state.scaler)
 
-        state = self.state
-        assert state.optimizers is not None
-        assert state.scaler is not None
+            if not self.deepspeed_enabled:
+                for optimizer in state.optimizers:
+                    optimizer.zero_grad()
 
-        use_grad_scaling = self._use_grad_scaling(state.precision, state.scaler)
+            # tracker for gradient accumulation
+            total_loss = self.device.tensor_to_device(torch.zeros(size=(1,)))
+            current_batch_size = sum([self._get_batch_size(batch) for batch in microbatches])
 
-        if not self.deepspeed_enabled:
-            for optimizer in state.optimizers:
-                optimizer.zero_grad()
+            for microbatch_idx, state.batch in enumerate(microbatches):
+                is_final_microbatch = microbatch_idx + 1 == len(microbatches)
+                sync_context = contextlib.nullcontext() if self.deepspeed_enabled else ddp.sync_context(
+                    state, is_final_microbatch, self.ddp_sync_strategy)
+                with sync_context:
+                    last_microbatch_size = self._get_batch_size(state.batch)
 
-        # tracker for gradient accumulation
-        total_loss = self.device.tensor_to_device(torch.zeros(size=(1,)))
-        current_batch_size = sum([self._get_batch_size(batch) for batch in microbatches])
+                    # forward pass
+                    self.engine.run_event(Event.BEFORE_FORWARD)
 
-        for microbatch_idx, state.batch in enumerate(microbatches):
-            is_final_microbatch = microbatch_idx + 1 == len(microbatches)
-            sync_context = contextlib.nullcontext() if self.deepspeed_enabled else ddp.sync_context(
-                state, is_final_microbatch, self.ddp_sync_strategy)
-            with sync_context:
-                last_microbatch_size = self._get_batch_size(state.batch)
+                    with state.precision_context:
+                        state.outputs = state.model.forward(state.batch)
 
-                # forward pass
-                self.engine.run_event(Event.BEFORE_FORWARD)
+                    self.engine.run_event(Event.AFTER_FORWARD)
 
-                with state.precision_context:
-                    state.outputs = state.model.forward(state.batch)
+                    # loss
+                    self.engine.run_event(Event.BEFORE_LOSS)
 
-                self.engine.run_event(Event.AFTER_FORWARD)
+                    with state.precision_context:
+                        state.loss = ddp.get_original_model(state.model).loss(state.outputs, state.batch)
 
-                # loss
-                self.engine.run_event(Event.BEFORE_LOSS)
+                    # We always want to scale loss by the grad_accum before the backwards pass and
+                    # also for sake of metrics. Complicating matters, the DeepSpeed engine does its
+                    # own scaling when we call `.backward`, but this isn't in place so we still need
+                    # to scale for sake of metrics after the `.backward` call.
 
-                with state.precision_context:
-                    state.loss = ddp.get_original_model(state.model).loss(state.outputs, state.batch)
+                    # Loss is added to losses with clone to not scale the loss for the step printout
+                    # Likely need to look into the performance impact
+                    if not self.deepspeed_enabled:
+                        for loss in ensure_tuple(state.loss):
+                            loss.mul_(last_microbatch_size / current_batch_size)
+                            total_loss += loss.detach().clone()
 
-                # We always want to scale loss by the grad_accum before the backwards pass and
-                # also for sake of metrics. Complicating matters, the DeepSpeed engine does its
-                # own scaling when we call `.backward`, but this isn't in place so we still need
-                # to scale for sake of metrics after the `.backward` call.
+                    assert state.loss is not None
+                    self.engine.run_event(Event.AFTER_LOSS)
 
-                # Loss is added to losses with clone to not scale the loss for the step printout
-                # Likely need to look into the performance impact
-                if not self.deepspeed_enabled:
-                    for loss in ensure_tuple(state.loss):
-                        loss.mul_(last_microbatch_size / current_batch_size)
-                        total_loss += loss.detach().clone()
+                    # backward
+                    self.engine.run_event(Event.BEFORE_BACKWARD)
 
-                assert state.loss is not None
-                self.engine.run_event(Event.AFTER_LOSS)
+                    if use_grad_scaling:
+                        state.loss = state.scaler.scale(state.loss)
 
-                # backward
-                self.engine.run_event(Event.BEFORE_BACKWARD)
+                    if self.deepspeed_enabled:
+                        state.model.backward(state.loss)  # type: ignore
 
-                if use_grad_scaling:
-                    state.loss = state.scaler.scale(state.loss)
+                        # This is the same loss scaling and reporting we skipped earlier.
+                        for loss in ensure_tuple(state.loss):
+                            loss.mul_(last_microbatch_size / current_batch_size)
+                            total_loss += loss.detach().clone()
+                    else:
+                        for loss in ensure_tuple(state.loss):
+                            loss.backward(create_graph=self.backwards_create_graph)
+
+                    self.engine.run_event(Event.AFTER_BACKWARD)
 
                 if self.deepspeed_enabled:
-                    state.model.backward(state.loss)  # type: ignore
+                    state.model.step()  # type: ignore
 
-                    # This is the same loss scaling and reporting we skipped earlier.
-                    for loss in ensure_tuple(state.loss):
-                        loss.mul_(last_microbatch_size / current_batch_size)
-                        total_loss += loss.detach().clone()
-                else:
-                    for loss in ensure_tuple(state.loss):
-                        loss.backward(create_graph=self.backwards_create_graph)
+            # Unscale gradients before `Event.AFTER_TRAIN_BATCH`
+            if use_grad_scaling:
+                for optimizer in ensure_tuple(state.optimizers):
+                    state.scaler.unscale_(optimizer)
 
-                self.engine.run_event(Event.AFTER_BACKWARD)
+            # clip gradients if the magnitude is too large
+            if not self.deepspeed_enabled and self.grad_clip_norm is not None:
+                torch.nn.utils.clip_grad_norm_(
+                    parameters=state.model.parameters(),
+                    max_norm=self.grad_clip_norm,
+                )
 
-            if self.deepspeed_enabled:
-                state.model.step()  # type: ignore
+            self.engine.run_event(Event.AFTER_TRAIN_BATCH)
 
-        # Unscale gradients before `Event.AFTER_TRAIN_BATCH`
-        if use_grad_scaling:
-            for optimizer in ensure_tuple(state.optimizers):
-                state.scaler.unscale_(optimizer)
-
-        # clip gradients if the magnitude is too large
-        if not self.deepspeed_enabled and self.grad_clip_norm is not None:
-            torch.nn.utils.clip_grad_norm_(
-                parameters=state.model.parameters(),
-                max_norm=self.grad_clip_norm,
-            )
-
-        self.engine.run_event(Event.AFTER_TRAIN_BATCH)
-
-        return total_loss
+            return total_loss
 
     def eval(self, is_batch: bool):
         """Evaluate the model on the provided evaluation data and log

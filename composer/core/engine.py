@@ -62,6 +62,7 @@ class Engine():
         self.state = state
         self.algorithms = algorithms
         self.callbacks = callbacks or []
+        self._closed = False
 
     def run_event(
         self,
@@ -216,3 +217,8 @@ class Engine():
                     callback.post_close()
                 except Exception as e:
                     log.error(f"Error running {callback.__class__.__name__}.post_close().", exc_info=e, stack_info=True)
+        self._closed = True
+
+    @property
+    def closed(self):
+        return self._closed

@@ -70,6 +70,8 @@ def assert_state_equivalent(state1: State, state2: State):
                 torch.testing.assert_allclose(p, q, atol=1e-2, rtol=1e-2)
         elif isinstance(var1, types.Tensor):
             assert (var1 == var2).all()
+        elif field_name in STATE_DICT_SERIALIZATION_FIELDS:
+            assert var1 == var2 or var1.state_dict() == var2.state_dict()
         else:
             assert var1 == var2
 
