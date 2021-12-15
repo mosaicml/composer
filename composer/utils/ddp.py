@@ -227,7 +227,12 @@ def prepare_module(module: Model, find_unused_parameters: bool) -> Model:
                        "installation of PyTorch. Please install or build PyTorch with DDP support.")
 
 
-def get_sampler(dataset, *, drop_last: bool, shuffle: bool, factory: Optional[SamplerFactory] = None, **extra_sampler_kwargs) -> torch.utils.data.Sampler:
+def get_sampler(dataset,
+                *,
+                drop_last: bool,
+                shuffle: bool,
+                factory: Optional[SamplerFactory] = None,
+                **extra_sampler_kwargs) -> torch.utils.data.Sampler:
     factory = factory or torch.utils.data.DistributedSampler[int]
     return factory(
         dataset=dataset,

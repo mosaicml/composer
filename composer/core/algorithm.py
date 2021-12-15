@@ -100,7 +100,6 @@ class Algorithm(Serializable, ABC):
         """
         pass
 
-
     def __str__(self) -> str:
         """Returns the class name."""
         return self.__class__.__name__

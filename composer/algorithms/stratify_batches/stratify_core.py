@@ -191,8 +191,8 @@ def extract_targets_from_dataset(dataset: Sequence, targets_attr: Optional[str] 
         targets = dataset.y
     else:
         raise AttributeError("Since neither `targets` nor `targets_attr` "
-            "were provided, DataLoader.dataset must have an integer vector attribute "
-            "named either 'targets' or 'y'.")
+                             "were provided, DataLoader.dataset must have an integer vector attribute "
+                             "named either 'targets' or 'y'.")
     return targets
 
 
@@ -204,7 +204,7 @@ class StratifiedBatchSampler(DistributedSampler):
                  targets: Optional[Sequence] = None,
                  shuffle: bool = True,
                  drop_last: bool = False,
-                 stratify_how: str ='balance',
+                 stratify_how: str = 'balance',
                  targets_attr: Optional[str] = None):
         self.batch_size = batch_size
 

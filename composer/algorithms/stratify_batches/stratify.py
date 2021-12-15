@@ -15,12 +15,14 @@ from composer.core import Algorithm, Event, Logger, State
 class StratifyBatchesHparams(AlgorithmHparams):
     """See :class:`StratifyBatches`"""
     stratify_how: str = hp.optional(doc="One of {'match', 'balance'}. "
-        "'match' attempts to have class distribution in each batch match "
-        "the overall class distribution. 'balance' upsamples rare classes such "
-        "that the number of samples from each class is as close to equal as "
-        "possible within each batch.", default='match')
+                                    "'match' attempts to have class distribution in each batch match "
+                                    "the overall class distribution. 'balance' upsamples rare classes such "
+                                    "that the number of samples from each class is as close to equal as "
+                                    "possible within each batch.",
+                                    default='match')
     targets_attr: Optional[str] = hp.optional(doc='Name of DataLoader attribute '
-        'providing class labels.', default=None)
+                                              'providing class labels.',
+                                              default=None)
 
     def initialize_object(self) -> "StratifyBatches":
         return StratifyBatches(**asdict(self))
@@ -44,5 +46,6 @@ class StratifyBatches(Algorithm):
         # TODO resolve circular import better
         from composer.trainer.trainer_hparams import TrainerHparams
         hparams = cast(TrainerHparams, hparams)
-        hparams.dataloader.batch_sampler_factory = partial(
-            StratifiedBatchSampler, stratify_how=self.stratify_how, targets_attr=self.targets_attr)
+        hparams.dataloader.batch_sampler_factory = partial(StratifiedBatchSampler,
+                                                           stratify_how=self.stratify_how,
+                                                           targets_attr=self.targets_attr)

@@ -112,7 +112,8 @@ class DataloaderHparams(hp.Hparams):
 
     # XXX should actually be of type SamplerFactory; or we just make this
     # not take in the factory as a field...maybe a dict with known keys?
-    batch_sampler_factory: Optional[str] = hp.optional("Function returning an alternate batch_sampler to use, rather than the torch DataLoader default.", default=None)
+    batch_sampler_factory: Optional[str] = hp.optional(
+        "Function returning an alternate batch_sampler to use, rather than the torch DataLoader default.", default=None)
 
     def initialize_object(
         self,
@@ -143,11 +144,13 @@ class DataloaderHparams(hp.Hparams):
             if sampler is not None:
                 raise RuntimeError("Can't specify both sampler and batch_sampler!")
             self.batch_sampler_factory = cast(SamplerFactory, self.batch_sampler_factory)
-            batch_sampler = ddp.get_sampler(dataset,
+            batch_sampler = ddp.get_sampler(
+                dataset,
                 drop_last=drop_last,
                 shuffle=shuffle,
                 batch_size=batch_size,
-                factory=self.batch_sampler_factory,)
+                factory=self.batch_sampler_factory,
+            )
             sampler_dependent_kwargs = dict(batch_sampler=batch_sampler)
         else:
             if sampler is None:
