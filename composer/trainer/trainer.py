@@ -355,19 +355,6 @@ class Trainer:
         self._eval_device_transformation_fn = eval_dataloader_spec.device_transform_fn
         self._eval_split_fn = eval_dataloader_spec.split_fn
 
-        device_train_batch_size = train_dataloader.batch_size
-
-        if device_train_batch_size is None:
-            raise ValueError("train dataloader batch size is None")
-
-        train_batch_size = device_train_batch_size * ddp.get_world_size()
-
-        device_eval_batch_size = eval_dataloader_spec.dataloader.batch_size
-        if device_eval_batch_size is None:
-            raise ValueError("eval dataloader batch size is None")
-
-        eval_batch_size = device_eval_batch_size * ddp.get_world_size()
-
         # TODO(#123): DeepSpeed still needs a precision context, but it's not completely clear how to
         # handle this with our version of Pytorch
         precision_context = self.device.precision_context if not self.deepspeed_enabled else cast(
@@ -375,8 +362,6 @@ class Trainer:
 
         self.state = State(
             max_epochs=max_epochs,
-            train_batch_size=train_batch_size,
-            eval_batch_size=eval_batch_size,
             algorithms=algorithms,
             callbacks=list(callbacks),
             model=model,
@@ -814,7 +799,8 @@ class Trainer:
 
                     self.engine.run_event(Event.BATCH_END)
 
-                    state.schedulers.step(interval='batch')  # type: ignore
+                    for scheduler in state.schedulers:
+                        scheduler.step(interval='batch')  # type: ignore
 
                     if self.validate_every_n_batches > 0 and (state.step + 1) % self.validate_every_n_batches == 0:
                         self.eval(is_batch=True)
@@ -828,7 +814,9 @@ class Trainer:
             except BreakEpochException:
                 log.info(f'Skipping the rest of Epoch {state.epoch}')
 
-            state.schedulers.step(interval='epoch')  # type: ignore
+            for scheduler in state.schedulers:
+                scheduler.step(interval='epoch')  # type: ignore
+
             self.engine.run_event(Event.EPOCH_END)
 
             if self.validate_every_n_epochs > 0 and (state.epoch + 1) % self.validate_every_n_epochs == 0:
@@ -891,7 +879,7 @@ class Trainer:
                 # forward pass
                 self.engine.run_event(Event.BEFORE_FORWARD)
 
-                with state.precision_context(state.precision):
+                with state.precision_context:
                     state.outputs = state.model.forward(state.batch)
 
                 self.engine.run_event(Event.AFTER_FORWARD)
@@ -899,7 +887,7 @@ class Trainer:
                 # loss
                 self.engine.run_event(Event.BEFORE_LOSS)
 
-                with state.precision_context(state.precision):
+                with state.precision_context:
                     state.loss = self.original_model.loss(state.outputs, state.batch)
 
                 # We always want to scale loss by the grad_accum before the backwards pass and

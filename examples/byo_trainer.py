@@ -82,9 +82,7 @@ def train():
         model=model,
         train_dataloader=train_dataloader,
         eval_dataloader=val_dataloader,
-        train_batch_size=args.train_batch_size,
         max_epochs=args.epochs,
-        eval_batch_size=100,
         grad_accum=1,
         precision=Precision.FP32,
     )

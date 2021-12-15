@@ -196,7 +196,7 @@ class SeqLengthWarmup(Algorithm):
 
             # start by running a forward and backward pass
             # of the maximum sequence length to allocate cache.
-            with state.precision_context(state.precision):
+            with state.precision_context:
                 outputs = state.model.forward(model_inputs)
                 loss = original_model.loss(outputs, model_inputs)
 

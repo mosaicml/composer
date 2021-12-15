@@ -4,29 +4,26 @@ from __future__ import annotations
 
 import logging
 import warnings
-from dataclasses import dataclass, field, fields
-from typing import TYPE_CHECKING, Callable, ContextManager, List, Optional, Union
+from typing import TYPE_CHECKING, Callable, ContextManager, Optional, Sequence, Union
 
 import torch
 import torch.nn.modules.utils
 from torch.nn.parallel import DistributedDataParallel
 
 import composer.core.types as types
-from composer.core.callback import Callback
 from composer.core.precision import Precision
 from composer.core.serializable import Serializable
-from composer.utils import ensure_tuple
+from composer.utils import ddp, ensure_tuple
 from composer.utils.precision import default_precision_factory
 
 if TYPE_CHECKING:
-    from composer.core.algorithm import Algorithm
+    from composer.core.callback import Callback
+    from composer.core.types import Algorithm
 
 logger = logging.getLogger(__name__)
 
 # These fields will be serialized directly using torch.save / torch.load
 DIRECT_SERIALIZATION_FIELDS = [
-    "train_batch_size",
-    "eval_batch_size",
     "last_batch_size",
     "grad_accum",
     "_precision",
@@ -39,28 +36,19 @@ DIRECT_SERIALIZATION_FIELDS = [
 # These fields will be serialized using .state_dict(), and loaded with .load_state_dict()
 STATE_DICT_SERIALIZATION_FIELDS = [
     "model",
-    "optimizers",
-    "schedulers",
-    "algorithms",
-    "callbacks",
+    "_optimizers",
+    "_schedulers",
+    "_algorithms",
+    "_callbacks",
     "scaler",
 ]
 
 # These fields will not be serialized
 SKIP_SERIALIZATION_FIELDS = [
-    "loss",
-    "batch",
-    "outputs",
-    "precision",
-    "train_dataloader",
-    "eval_dataloader",
-    "precision",
-    "precision_context",
-    "_steps_per_epoch",
+    "loss", "batch", "outputs", "train_dataloader", "eval_dataloader", "_steps_per_epoch", "_precision_context"
 ]
 
 
-@dataclass
 class State(Serializable):
     """The class used to store the state of the trainer.
 
@@ -71,8 +59,6 @@ class State(Serializable):
 
     Attributes:
         model (types.Model, often BaseMosaicModel): The model, typically as a subclass of :class:`BaseMosaicModel`.
-        train_batch_size (int): The global batch size used for training.
-        eval_batch_size (int): The batch size used for evaluation.
         grad_accum (int): The number of gradient accumulation steps to use. The size of each microbatch is ``train_batch_size / num_gpus / grad_accum``.
         max_epochs (int): The maximum number of epochs to train for.
         precision (str | Precision): The numerical precision to use for training. Should be one of ``[fp32, amp]``.
@@ -97,76 +83,134 @@ class State(Serializable):
         callbacks (Sequence[Callback]): The callbacks used for training.
     """
 
-    # model
-    model: types.Model
+    def __init__(
+            self,
+            # model
+            model: types.Model,
 
-    # data configurations
-    train_batch_size: int
-    eval_batch_size: int
-    grad_accum: int
+            # data configurations
+            grad_accum: int,
+            train_dataloader: types.DataLoader,
+            eval_dataloader: types.DataLoader,
 
-    # stopping conditions
-    max_epochs: int
+            # stopping conditions
+            max_epochs: int,
 
-    # dataloaders
-    train_dataloader: types.DataLoader
-    eval_dataloader: types.DataLoader
+            # precision
+            precision: Union[str, types.Precision],
+            steps_per_epoch: Optional[int] = None,
+            precision_context: Callable[[Precision], ContextManager] = default_precision_factory(),
 
-    # precision
-    # storing precision internally so strings can be passed into the constructor and setter
-    # but the getter will always return a Precision enum
-    precision: Union[str, types.Precision]  # type: ignore
-    _precision: types.Precision = field(init=False)  # but store an enum internally
-    _steps_per_epoch: Optional[int] = field(init=False, default=None)
-    precision_context: Callable[[Union[str, Precision]], ContextManager] = \
-        field(default_factory=default_precision_factory)
+            # optimizers
+            optimizers: Optional[types.Optimizers] = None,
+            schedulers: Optional[types.Schedulers] = None,
 
-    # timing information
-    epoch: int = 0  # epoch counter
-    step: int = 0  # global step counter
+            # scaler
+            scaler: Optional[types.Scaler] = None,
 
-    # transient tensors within training loop
-    loss: types.Tensors = field(default_factory=lambda: torch.zeros(size=(1,)))
-    last_batch_size: int = 0
+            # algorithms and callbacks
+            algorithms: Sequence[Algorithm] = tuple(),
+            callbacks: Sequence[Callback] = tuple(),
+    ):
+        self.model = model
+        self.grad_accum = grad_accum
+        self.train_dataloader = train_dataloader
+        self.eval_dataloader = eval_dataloader
+        self.last_batch_size = 0
+        self.max_epochs = max_epochs
+        self.step = 0
+        self.epoch = 0
+        self._precision = Precision(precision)
+        self._steps_per_epoch = steps_per_epoch
+        self._precision_context = precision_context
 
-    batch: types.Batch = field(default_factory=dict)
-    outputs: types.Tensors = field(default_factory=lambda: torch.zeros(size=(1,)))
+        self.loss: types.Tensors = torch.zeros(size=(1,))
+        self.batch: types.Batch = {}
+        self.outputs: types.Tensors = torch.zeros(size=(1,))
 
-    # optimizers
-    optimizers: List[types.Optimizer] = field(default_factory=list)
-    schedulers: List[types.Scheduler] = field(default_factory=list)
+        if optimizers is None:
+            self._optimizers = []
+        else:
+            self._optimizers = list(ensure_tuple(optimizers))
 
-    # scaler
-    scaler: Optional[types.Scaler] = None
+        if schedulers is None:
+            self._schedulers = []
+        else:
+            self._schedulers = list(ensure_tuple(schedulers))
 
-    # algorithms
-    algorithms: List[Algorithm] = field(default_factory=list)
-    callbacks: List[Callback] = field(default_factory=list)
+        self.scaler = scaler
+        self._algorithms = list(algorithms)
+        self._callbacks = list(callbacks)
+
+    @property
+    def optimizers(self):
+        return self._optimizers
+
+    @optimizers.setter
+    def optimizers(self, optimizers: types.Optimizers):
+        self._optimizers[:] = ensure_tuple(optimizers)
+
+    @property
+    def schedulers(self):
+        return self._schedulers
+
+    @schedulers.setter
+    def schedulers(self, schedulers: types.Schedulers):
+        self._schedulers[:] = ensure_tuple(schedulers)
+
+    @property
+    def callbacks(self):
+        return self._callbacks
+
+    @callbacks.setter
+    def callbacks(self, callbacks: Sequence[Callback]):
+        self._callbacks[:] = callbacks
+
+    @property
+    def algorithms(self):
+        return self._algorithms
+
+    @algorithms.setter
+    def algorithms(self, algorithms: Sequence[Algorithm]):
+        self._algorithms[:] = algorithms
+
+    @property
+    def train_batch_size(self):
+        """The global batch size used for training."""
+        if self.train_dataloader.batch_size is None:
+            raise RuntimeError("train dataloader batch size is undefined")
+        return self.train_dataloader.batch_size * ddp.get_world_size()
+
+    @property
+    def eval_batch_size(self):
+        """The batch size used for evaluation."""
+        if self.eval_dataloader.batch_size is None:
+            raise RuntimeError("eval dataloader batch size is undefined")
+        return self.eval_dataloader.batch_size * ddp.get_world_size()
 
     def state_dict(self) -> types.StateDict:
         """Returns the state as a :class:`dict`."""
         state_dict: types.StateDict = {}
 
-        for state_field in fields(self):
-            if state_field.name in SKIP_SERIALIZATION_FIELDS:
+        for state_field_name, state_field_value in self.__dict__.items():
+            if state_field_name in SKIP_SERIALIZATION_FIELDS:
                 continue
-            elif state_field.name in DIRECT_SERIALIZATION_FIELDS:
-                state_dict[state_field.name] = getattr(self, state_field.name)
+            elif state_field_name in DIRECT_SERIALIZATION_FIELDS:
+                state_dict[state_field_name] = state_field_value
                 continue
-            elif state_field.name in STATE_DICT_SERIALIZATION_FIELDS:
-                state_value = getattr(self, state_field.name)
-                if state_field.name == "model":
+            elif state_field_name in STATE_DICT_SERIALIZATION_FIELDS:
+                if state_field_name == "model":
                     # Save model directly instead of by class name, since model may be wrapped by DistributedDataParallel
-                    serialized_value = state_value.state_dict()
+                    serialized_value = state_field_value.state_dict()
                 else:
                     serialized_value = {
                         obj.__class__.__qualname__: obj.state_dict()
-                        for obj in ensure_tuple(state_value)
+                        for obj in ensure_tuple(state_field_value)
                         if obj is not None
                     }
-                state_dict[state_field.name] = serialized_value
+                state_dict[state_field_name] = serialized_value
             else:
-                raise RuntimeError(f"Unable to serialize field {state_field.name}")
+                raise RuntimeError(f"Unable to serialize field {state_field_name}")
         state_dict["_is_model_ddp_wrapped"] = isinstance(self.model, DistributedDataParallel)
         return state_dict
 
@@ -177,21 +221,20 @@ class State(Serializable):
             state_dict (types.StateDict): object returned from call to :meth:`state_dict`.
 
         """
-        for state_field in fields(self):
-            if state_field.name in SKIP_SERIALIZATION_FIELDS:
+        for state_field_name, state_field_value in self.__dict__.items():
+            if state_field_name in SKIP_SERIALIZATION_FIELDS:
                 continue
-            elif state_field.name in DIRECT_SERIALIZATION_FIELDS:
-                setattr(self, state_field.name, state[state_field.name])
-            elif state_field.name in STATE_DICT_SERIALIZATION_FIELDS:
-                state_value = getattr(self, state_field.name)
-                serialized_value = state[state_field.name]
+            elif state_field_name in DIRECT_SERIALIZATION_FIELDS:
+                setattr(self, state_field_name, state[state_field_name])
+            elif state_field_name in STATE_DICT_SERIALIZATION_FIELDS:
+                serialized_value = state[state_field_name]
 
-                if state_field.name == "model":
+                if state_field_name == "model":
                     if state["_is_model_ddp_wrapped"] and not isinstance(self.model, DistributedDataParallel):
                         torch.nn.modules.utils.consume_prefix_in_state_dict_if_present(serialized_value, "module.")
-                    state_value.load_state_dict(serialized_value)
+                    state_field_value.load_state_dict(serialized_value)
                 else:
-                    for target in ensure_tuple(state_value):
+                    for target in ensure_tuple(state_field_value):
                         if target is None:
                             continue
                         if target.__class__.__qualname__ not in serialized_value:
@@ -202,7 +245,7 @@ class State(Serializable):
                         source = serialized_value[target.__class__.__qualname__]
                         target.load_state_dict(source)
             else:
-                raise RuntimeError(f"Unable to load field {state_field.name}")
+                raise RuntimeError(f"Unable to load field {state_field_name}")
 
     @property
     def batch_idx(self) -> int:
@@ -210,22 +253,23 @@ class State(Serializable):
         return self.step - self.epoch * self.steps_per_epoch
 
     @property
-    def steps_per_epoch(self) -> int:
-        """int: The number of steps (batches) per epoch."""
+    def steps_per_epoch(self):
+        """int: The maximum number of steps (batches) per epoch."""
         if self._steps_per_epoch is None:
             return len(self.train_dataloader)
         return self._steps_per_epoch
 
     @steps_per_epoch.setter
-    def steps_per_epoch(self, val: Optional[int]):  # type: ignore
+    def steps_per_epoch(self, val: Optional[int]):
         self._steps_per_epoch = val
 
     @property
-    def precision(self) -> types.Precision:
+    def precision(self):
+        """The numerical precision to use for training. Should be one of ``[fp32, amp]``."""
         return self._precision
 
     @precision.setter
-    def precision(self, precision: Union[str, types.Precision]):  # type: ignore
+    def precision(self, precision: Union[str, types.Precision]):
         self._precision = Precision(precision)
 
     @property
@@ -245,3 +289,7 @@ class State(Serializable):
             TypeError: If the current batch is not a :class:`~types.BatchDict`.
         """
         return types.as_batch_dict(self.batch)
+
+    @property
+    def precision_context(self):
+        return self._precision_context(self.precision)
