@@ -458,6 +458,8 @@ class Trainer:
 
     @optimizers.setter
     def optimizers(self, optimizers: Optimizers):
+        if self.deepspeed_enabled:
+            raise RuntimeError("Cannot change optimizers when using deepspeed")
         self.state.optimizers = optimizers
 
     @property
@@ -482,6 +484,8 @@ class Trainer:
 
     @grad_accum.setter
     def grad_accum(self, grad_accum: int):
+        if self.deepspeed_enabled:
+            raise RuntimeError("Cannot change grad_accum when using deepspeed")
         self.state.grad_accum = grad_accum
 
     @property
@@ -492,7 +496,7 @@ class Trainer:
     @grad_clip_norm.setter
     def grad_clip_norm(self, grad_clip_norm: Optional[float]):
         if self.deepspeed_enabled:
-            raise RuntimeError("Unable to update the grad_clip_norm if using deepspeed")
+            raise RuntimeError("Cannot change grad_clip_norm when using deepspeed")
         self._grad_clip_norm = grad_clip_norm
 
     @property
@@ -501,6 +505,8 @@ class Trainer:
 
     @precision.setter
     def precision(self, precision: Union[str, Precision]):
+        if self.deepspeed_enabled:
+            raise RuntimeError("Cannot change precision when using deepspeed")
         self.state.precision = precision
 
     @property
