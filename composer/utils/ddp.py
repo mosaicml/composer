@@ -18,7 +18,7 @@ from composer.utils.string_enum import StringEnum
 
 if TYPE_CHECKING:
     from composer.core.state import State
-    from composer.core.types import Model
+    from composer.core.types import Model, SamplerFactory
 
 TObj = TypeVar("TObj")
 
@@ -227,13 +227,15 @@ def prepare_module(module: Model, find_unused_parameters: bool) -> Model:
                        "installation of PyTorch. Please install or build PyTorch with DDP support.")
 
 
-def get_sampler(dataset, *, drop_last: bool, shuffle: bool) -> torch.utils.data.Sampler:
-    return torch.utils.data.DistributedSampler[int](
-        dataset,
+def get_sampler(dataset, *, drop_last: bool, shuffle: bool, factory: Optional[SamplerFactory] = None, **extra_sampler_kwargs) -> torch.utils.data.Sampler:
+    factory = factory or torch.utils.data.DistributedSampler[int]
+    return factory(
+        dataset=dataset,
         drop_last=drop_last,
         shuffle=shuffle,
         num_replicas=get_world_size(),
         rank=get_global_rank(),
+        **extra_sampler_kwargs,
     )
 
 

@@ -1,42 +1,14 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
 from dataclasses import asdict, dataclass
-from typing import Optional, Sequence
+from functools import partial
+from typing import Any, Optional, cast
 
 import yahp as hp
-from torch.utils.data import DataLoader
 
 from composer.algorithms import AlgorithmHparams
 from composer.algorithms.stratify_batches.stratify_core import StratifiedBatchSampler
 from composer.core import Algorithm, Event, Logger, State
-
-
-def add_stratification(dataloader: DataLoader,
-                       stratify_how='match',
-                       targets: Optional[Sequence[int]] = None,
-                       targets_attr: Optional[str] = None):
-    if targets is None:
-        dataset = dataloader.dataset
-        if targets_attr:
-            targets = getattr(dataset, targets_attr)
-        # torchvision DatasetFolder subclasses use 'targets'; some torchvision
-        # datasets, like caltech101, use 'y' instead
-        elif hasattr(dataset, 'targets'):
-            targets = dataset.targets
-        elif hasattr(dataset, 'y'):
-            targets = dataset.y
-        else:
-            raise AttributeError("Since neither `targets` nor `targets_attr` "
-                "were provided, DataLoader.dataset must have an integer vector attribute "
-                "named either 'targets' or 'y'.")
-
-    batch_size = dataloader.batch_size
-
-    dataloader.batch_sampler = StratifiedBatchSampler(
-        targets=targets,
-        shuffle=True,  # False not implemented yet
-        batch_size=batch_size,
-        drop_last=dataloader.drop_last)
 
 
 @dataclass
@@ -61,11 +33,16 @@ class StratifyBatches(Algorithm):
         self.targets_attr = targets_attr
 
     def match(self, event: Event, state: State) -> bool:
-        """Apply on Event.AFTER_DATALOADER"""
-        # return event == Event.AFTER_DATALOADER
-        return event == Event.INIT
+        """Apply on Event.AFTER_HPARAMS"""
+        return event == Event.AFTER_HPARAMS
 
-    def apply(self, event: Event, state: State, logger: Logger) -> None:
-        add_stratification(state.train_dataloader,
-                           stratify_how=self.stratify_how,
-                           targets_attr=self.targets_attr)
+    def apply(self, event: Event, state: State, logger: Logger) -> Optional[int]:
+        """Does nothing"""
+        pass
+
+    def apply_hparams(self, hparams: Any) -> None:
+        # TODO resolve circular import better
+        from composer.trainer.trainer_hparams import TrainerHparams
+        hparams = cast(TrainerHparams, hparams)
+        hparams.dataloader.batch_sampler_factory = partial(
+            StratifiedBatchSampler, stratify_how=self.stratify_how, targets_attr=self.targets_attr)

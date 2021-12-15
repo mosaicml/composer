@@ -6,6 +6,9 @@ from typing import Iterable, List, Optional, Sequence, Tuple
 import numpy as np
 from torch.utils.data import DistributedSampler
 
+# if TYPE_CHECKING:
+#     from composer.core.types import Dataset
+
 
 def groupby_ints(targets: Iterable):
     """Given a sequence of integers, returns a dict mapping unique integers to
@@ -177,15 +180,37 @@ def create_samplers(targets) -> Tuple[np.array, np.array]:
     return np.array(samplers), np.array(classes)
 
 
+def extract_targets_from_dataset(dataset: Sequence, targets_attr: Optional[str] = None):
+    if targets_attr:
+        targets = getattr(dataset, targets_attr)
+    # torchvision DatasetFolder subclasses use 'targets'; some torchvision
+    # datasets, like caltech101, use 'y' instead
+    elif hasattr(dataset, 'targets'):
+        targets = dataset.targets
+    elif hasattr(dataset, 'y'):
+        targets = dataset.y
+    else:
+        raise AttributeError("Since neither `targets` nor `targets_attr` "
+            "were provided, DataLoader.dataset must have an integer vector attribute "
+            "named either 'targets' or 'y'.")
+    return targets
+
+
 class StratifiedBatchSampler(DistributedSampler):
 
     def __init__(self,
-                 targets: Sequence,
                  batch_size: int,
+                 dataset: Optional[Sequence] = None,
+                 targets: Optional[Sequence] = None,
                  shuffle: bool = True,
                  drop_last: bool = False,
-                 stratify_how='balance'):
+                 stratify_how: str ='balance',
+                 targets_attr: Optional[str] = None):
         self.batch_size = batch_size
+
+        if targets is None:
+            targets = extract_targets_from_dataset(dataset, targets_attr=targets_attr)
+
         self.targets = np.asarray(targets).ravel()
         self.shuffle = shuffle
         if not shuffle:

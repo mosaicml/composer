@@ -42,7 +42,7 @@ Batch = Union[BatchPair, BatchDict, Tensor]
 
 def as_batch_dict(batch: Batch) -> BatchDict:
     """Casts a :class:`Batch` as a :class:`BatchDict`.
-    
+
     Args:
         batch (Batch): A batch.
     Raises:
@@ -79,7 +79,7 @@ Dataset = torch.utils.data.Dataset[Batch]
 
 class BreakEpochException(Exception):
     """Raising this exception will immediately end the current epoch.
-    
+
     If you're wondering whether you should use this, the answer is no.
     """
 
@@ -154,6 +154,8 @@ JSON = Union[str, float, int, None, List['JSON'], Dict[str, 'JSON']]
 TDeviceTransformFn = Callable[[Batch], Batch]
 
 StateDict = Dict[str, Any]
+
+SamplerFactory = Callable[[Any], torch.utils.data.Sampler]
 
 
 class MemoryFormat(StringEnum):

@@ -37,7 +37,7 @@ class Event(StringEnum):
         BATCH_END: End of a batch, which occurs after the optimizer step
             and any gradient scaling.
         EPOCH_END: End of an epoch.
-        TRAINING_END: End of training. 
+        TRAINING_END: End of training.
 
         EVAL_START: Start of evaluation through the validation dataset.
         EVAL_BATCH_START: Before the call to ``model.validate(batch)``
@@ -47,6 +47,7 @@ class Event(StringEnum):
         EVAL_END: End of evaluation through the validation dataset.
     """
 
+    AFTER_HPARAMS = "after_hparams"
     INIT = "init"
 
     TRAINING_START = "training_start"

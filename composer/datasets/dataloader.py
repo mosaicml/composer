@@ -2,10 +2,11 @@
 
 from __future__ import annotations
 
+import functools
 import textwrap
 import warnings
 from dataclasses import dataclass
-from typing import Any, Callable, Iterator, Optional
+from typing import Any, Callable, Iterator, Optional, cast
 
 import torch
 import torch.distributed
@@ -13,7 +14,7 @@ import torch.utils.data
 import yahp as hp
 from torch.utils.data.distributed import DistributedSampler
 
-from composer.core.types import Batch, DataLoader, Dataset
+from composer.core.types import Batch, DataLoader, Dataset, SamplerFactory
 from composer.utils import ddp
 
 
@@ -109,13 +110,18 @@ class DataloaderHparams(hp.Hparams):
     timeout: float = hp.required("Timeout, in seconds, for collecting a batch from workers. Set to 0 for no timeout",
                                  template_default=0)
 
+    # XXX should actually be of type SamplerFactory; or we just make this
+    # not take in the factory as a field...maybe a dict with known keys?
+    batch_sampler_factory: Optional[str] = hp.optional("Function returning an alternate batch_sampler to use, rather than the torch DataLoader default.", default=None)
+
     def initialize_object(
         self,
         dataset: Dataset,
         *,
         batch_size: int,
         drop_last: bool,
-        shuffle: bool,
+        shuffle: bool = True,
+        sampler: Optional[torch.utils.data.Sampler] = None,
         collate_fn: Optional[Callable] = None,
         worker_init_fn: Optional[Callable] = None,
     ) -> DataLoader:
@@ -133,18 +139,27 @@ class DataloaderHparams(hp.Hparams):
         Returns:
             DataLoader: The dataloader.
         """
-
-        sampler = ddp.get_sampler(dataset, drop_last=drop_last, shuffle=shuffle)
+        if self.batch_sampler_factory is not None:
+            if sampler is not None:
+                raise RuntimeError("Can't specify both sampler and batch_sampler!")
+            self.batch_sampler_factory = cast(SamplerFactory, self.batch_sampler_factory)
+            batch_sampler = ddp.get_sampler(dataset,
+                drop_last=drop_last,
+                shuffle=shuffle,
+                batch_size=batch_size,
+                factory=self.batch_sampler_factory,)
+            sampler_dependent_kwargs = dict(batch_sampler=batch_sampler)
+        else:
+            if sampler is None:
+                sampler = ddp.get_sampler(dataset, drop_last=drop_last, shuffle=shuffle)
+            sampler_dependent_kwargs = dict(batch_size=batch_size, drop_last=drop_last, sampler=sampler)
 
         return torch.utils.data.DataLoader(dataset,
-                                           batch_size=batch_size,
                                            num_workers=self.num_workers,
                                            pin_memory=self.pin_memory,
-                                           drop_last=drop_last,
-                                           shuffle=shuffle,
-                                           sampler=sampler,
                                            collate_fn=collate_fn,
                                            worker_init_fn=worker_init_fn,
                                            timeout=self.timeout,
                                            prefetch_factor=self.prefetch_factor,
-                                           persistent_workers=self.persistent_workers)
+                                           persistent_workers=self.persistent_workers,
+                                           **sampler_dependent_kwargs)

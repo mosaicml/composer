@@ -9,6 +9,7 @@ from composer.core.serializable import Serializable
 
 if TYPE_CHECKING:
     from composer.core import Event, Logger, State
+    from composer.trainer.trainer_hparams import TrainerHparams
 
 
 class Algorithm(Serializable, ABC):
@@ -88,6 +89,17 @@ class Algorithm(Serializable, ABC):
                 and made accessible for debugging.
         """
         raise NotImplementedError(f'implement apply() required for {self.__class__.__name__}')
+
+    # def apply_hparams(self, hparams: TrainerHparams) -> None:
+    def apply_hparams(self, hparams) -> None:
+        """Applies the algorithm to make an in-place change to the hyperparemeters
+
+        Args:
+            hparams: The hyperparameters to be used for training. Changes to
+            ``hparams.algorithms`` will have no effect.
+        """
+        pass
+
 
     def __str__(self) -> str:
         """Returns the class name."""

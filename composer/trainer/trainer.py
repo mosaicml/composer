@@ -98,7 +98,7 @@ class Trainer:
             (default: ``None``)
         checkpoint_interval_unit (int, optional): Unit for the checkpoint save interval -- should be 'ep'
             for epochs, 'ba' for batches, or None to disable checkpointing. (default: ``None``).
-        checkpoint_folder (str, optional): The folder to save checkpoints to. Relative to `os.environ.get('RUN_DIRECTORY', '.')`, 
+        checkpoint_folder (str, optional): The folder to save checkpoints to. Relative to `os.environ.get('RUN_DIRECTORY', '.')`,
             (default: ``checkpoints``)
         checkpoint_interval (int, optional): The frequency with which to checkpoint. (default: ``1``)
         train_subset_num_batches (int, optional): If specified, finish every epoch early after training
@@ -336,6 +336,9 @@ class Trainer:
         """
 
         hparams.validate()
+        algorithms = [x.initialize_object() for x in hparams.algorithms]
+        for algorithm in algorithms:
+            algorithm.apply_hparams(hparams)
 
         # devices and systems
         device = hparams.device.initialize_object()
@@ -345,7 +348,6 @@ class Trainer:
         seed_all(seed)
 
         model = hparams.model.initialize_object()
-        algorithms = [x.initialize_object() for x in hparams.algorithms]
 
         # callbacks, loggers, and seed
         callbacks = [x.initialize_object() for x in hparams.callbacks]
