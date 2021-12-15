@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import textwrap
 import warnings
 from typing import TYPE_CHECKING, Callable, ContextManager, Optional, Sequence, Union
 
@@ -261,6 +262,11 @@ class State(Serializable):
 
     @steps_per_epoch.setter
     def steps_per_epoch(self, val: Optional[int]):
+        if val is not None and val > len(self.train_dataloader):
+            warnings.warn(
+                textwrap.dedent(f"""StepsPerEpochWarning: The desired steps_per_epoch({val})
+                    is greater than the number of batches in the training dataloader
+                    ({len(self.train_dataloader)})"""))
         self._steps_per_epoch = val
 
     @property

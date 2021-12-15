@@ -98,7 +98,7 @@ def train():
 
     optimizer = torch.optim.SGD(model.parameters(), lr=0.01, momentum=0.99)
     state.optimizers = [optimizer]
-    state.schedulers = [torch.optim.lr_scheduler.MultiStepLR(optimizer, milestones=[2, 4], gamma=0.1)]
+    state.schedulers = torch.optim.lr_scheduler.MultiStepLR(optimizer, milestones=[2, 4], gamma=0.1)
 
     engine.run_event(Event.TRAINING_START)  # the Event.TRAINING_START should be run AFTER any DDP fork
 

@@ -148,11 +148,10 @@ class SAM(Algorithm):
         """
         assert state.optimizers is not None
 
-        state.optimizers[:] = [
+        state.optimizers = tuple(
             SAMOptimizer(
                 base_optimizer=optimizer,
                 rho=self.hparams.rho,
                 epsilon=self.hparams.epsilon,
                 interval=self.hparams.interval,
-            ) for optimizer in ensure_tuple(state.optimizers)
-        ]
+            ) for optimizer in ensure_tuple(state.optimizers))

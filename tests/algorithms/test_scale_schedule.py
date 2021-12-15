@@ -86,7 +86,7 @@ class TestScaleScheduleAlgorithm():
     def test_epochs_scaled(self, dummy_state: State, optimizer: Optimizer, ssr: float, noop_dummy_logger: Logger):
 
         scheduler = MultiStepLR(optimizer, milestones=[30, 50], gamma=0.1)
-        dummy_state.schedulers = [scheduler]
+        dummy_state.schedulers = scheduler
         dummy_state.max_epochs = 10
         algorithm = ScaleSchedule(ratio=ssr)
         algorithm.apply(Event.TRAINING_START, dummy_state, noop_dummy_logger)
@@ -105,14 +105,14 @@ class TestScaleScheduleAlgorithm():
 def test_epochs_validate_zero_epochs(dummy_state: State, noop_dummy_logger: Logger):
     algorithm = ScaleSchedule(ratio=0.01)
     dummy_state.max_epochs = 10
-    dummy_state.schedulers = []
+    dummy_state.schedulers = tuple()
     with pytest.raises(ValueError):
         algorithm.apply(Event.TRAINING_START, dummy_state, noop_dummy_logger)
 
 
 def test_epochs_validate_run_once(dummy_state: State, noop_dummy_logger: Logger):
     algorithm = ScaleSchedule(ratio=0.1)
-    dummy_state.schedulers = []
+    dummy_state.schedulers = tuple()
     with pytest.raises(AssertionError):
         algorithm.apply(Event.TRAINING_START, dummy_state, noop_dummy_logger)
         algorithm.apply(Event.TRAINING_START, dummy_state, noop_dummy_logger)

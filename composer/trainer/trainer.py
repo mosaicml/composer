@@ -8,7 +8,7 @@ import itertools
 import logging
 import textwrap
 import warnings
-from typing import Any, Callable, ContextManager, Dict, List, Optional, Sequence, Union, cast
+from typing import Any, Callable, ContextManager, Dict, List, Optional, Sequence, Tuple, Union, cast
 
 import torch
 import torch.distributed
@@ -22,7 +22,8 @@ from torchmetrics.metric import Metric
 from composer.core import Callback, Engine, Event, Logger, State
 from composer.core.algorithm import Algorithm
 from composer.core.logging import BaseLoggerBackend, LogLevel
-from composer.core.types import Batch, BreakEpochException, DataLoader, Metrics, Precision, Tensor
+from composer.core.types import (Batch, BreakEpochException, DataLoader, Metrics, Optimizers, Precision, Schedulers,
+                                 Tensor)
 from composer.datasets import DataloaderSpec
 from composer.datasets.dataloader import DDPDataLoader
 from composer.loggers.tqdm_logger import TQDMLoggerBackend
@@ -57,12 +58,13 @@ class Trainer:
         max_epochs (int): The maxmimum number of epochs to train for.
         algorithms (Sequence[Algorithm], optional): The algorithms to use during training.
             (default: ``[]``)
-        optimizer_hparams: (OptimizerHparams, optional): The OptimizerHparams for constructing
+        optimizer_hparams: (OptimizerHparams | List[OptimizerHparams] | Tuple[OptimizerHparams, ...], optional):
+            The OptimizerHparams for constructing
             the optimizer for training. Must pass OptimizerHparams instead of a `torch.optim.Optimizer`
             object because the optimizer has to be constructed after certain algorithms which modify
             the model architecture have run on the model. (default:
             ``MosaicMLSGDWHparams(lr=0.1, momentum=0.9, weight_decay=1.0e-4)``)
-        schedulers_hparams: (Union[SchedulerHparams, List[SchedulerHparams]], optional): The
+        schedulers_hparams: (SchedulerHparams | List[SchedulerHparams] | Tuple[SchedulerHparams, ...], optional): The
             SchedulerHparams for constructing the one or more learning rate schedulers used
             during training. Must pass SchedulerHparams instead of a `torch.optim.lr_scheduler._LRScheduler`
             object because the scheduler needs an optimizer to be constructed and we construct the optimizer
@@ -118,138 +120,6 @@ class Trainer:
         engine (Engine): The :class:`Engine` used for running callbacks and algorithms.
     """
 
-    @property
-    def model(self) -> BaseMosaicModel:
-        """The original model"""
-        return ddp.get_original_model(self.state.model)
-
-    @property
-    def train_dataloader(self) -> Union[DataLoader, DataloaderSpec]:
-        """The train dataloader"""
-        if self._train_split_fn is not None and self._train_device_transformation_fn is not None:
-            return DataloaderSpec(self.state.train_dataloader, self._train_device_transformation_fn,
-                                  self._train_split_fn)
-        else:
-            return self.state.train_dataloader
-
-    @train_dataloader.setter
-    def train_dataloader(self, train_dataloader: Union[DataLoader, DataloaderSpec]):
-        if isinstance(train_dataloader, DataloaderSpec):
-            self._train_device_transformation_fn = train_dataloader.device_transform_fn
-            self._train_split_fn = train_dataloader.split_fn
-            dataloader = train_dataloader.dataloader
-        else:
-            self._train_device_transformation_fn = None
-            self._train_split_fn = None
-            dataloader = train_dataloader
-        if not isinstance(dataloader, DDPDataLoader):
-            dataloader = DDPDataLoader(dataloader)
-        self.state.train_dataloader = dataloader
-
-    # TODO(anis) -- add getters/setters for evaluators
-
-    @property
-    def max_epochs(self):
-        """Maximum number of training epochs"""
-        return self.state.max_epochs
-
-    @property
-    def algorithms(self):
-        """Algorithms"""
-        return self.state.algorithms
-
-    @property
-    def callbacks(self):
-        """Callbacks"""
-        return self.state.callbacks
-
-    @property
-    def optimizers(self):
-        """Optimizers"""
-        return self.state.optimizers
-
-    @property
-    def schedulers(self):
-        """Schedulers"""
-        return self.state.schedulers
-
-    @property
-    def device(self):
-        """Device"""
-        return self.device
-
-    @property
-    def grad_accum(self):
-        """Gradient Accumulation"""
-        return self.state.grad_accum
-
-    @grad_accum.setter
-    def grad_accum(self, grad_accum: int):
-        self.state.grad_accum = grad_accum
-
-    @property
-    def grad_clip_norm(self):
-        """Gradient Clipping Norm"""
-        return self._grad_clip_norm
-
-    @grad_clip_norm.setter
-    def grad_clip_norm(self, grad_clip_norm: Optional[float]):
-        if self.deepspeed_enabled:
-            raise RuntimeError("Unable to update the grad_clip_norm if using deepspeed")
-        self._grad_clip_norm = grad_clip_norm
-
-    @property
-    def precision(self):
-        return self.state.precision
-
-    @precision.setter
-    def precision(self, precision: Union[str, Precision]):
-        self.state.precision = precision
-
-    @property
-    def log_destinations(self):
-        return self.logger.backends
-
-    @property
-    def checkpoint_folder(self):
-        return self._checkpointer.checkpoint_folder
-
-    @checkpoint_folder.setter
-    def checkpoint_folder(self, checkpoint_folder: str):
-        self._checkpointer.checkpoint_folder = checkpoint_folder
-
-    @property
-    def checkpoint_interval(self):
-        return self._checkpointer.save_interval
-
-    @checkpoint_interval.setter
-    def checkpoint_interval(self, checkpoint_interval: int):
-        self._checkpointer.save_interval = checkpoint_interval
-
-    @property
-    def checkpoint_interval_unit(self):
-        return self._checkpointer.checkpoint_interval_unit
-
-    @checkpoint_interval_unit.setter
-    def checkpoint_interval_unit(self, checkpoint_interval_unit: Optional[str]):
-        self._checkpointer.checkpoint_interval_unit = checkpoint_interval_unit
-
-    @property
-    def train_subset_num_batches(self):
-        return self.state._steps_per_epoch
-
-    @train_subset_num_batches.setter
-    def train_subset_num_batches(self, train_subset_num_batches: Optional[int] = None):
-        self.state.steps_per_epoch = train_subset_num_batches
-
-    @property
-    def eval_subset_num_batches(self):
-        return self._eval_subset_num_batches
-
-    @eval_subset_num_batches.setter
-    def eval_subset_num_batches(self, eval_subset_num_batches: Optional[int] = None):
-        self._eval_subset_num_batches = eval_subset_num_batches
-
     def __init__(
             self,
             *,
@@ -257,9 +127,9 @@ class Trainer:
             train_dataloader: Union[DataLoader, DataloaderSpec],
             eval_dataloader: Union[DataLoader, DataloaderSpec],
             max_epochs: int,
-            algorithms: Optional[List[Algorithm]] = None,
-            optimizer_hparams: Optional[OptimizerHparams] = None,
-            schedulers_hparams: Optional[Union[SchedulerHparams, List[SchedulerHparams]]] = None,
+            algorithms: Sequence[Algorithm] = tuple(),
+            optimizer_hparams: Union[OptimizerHparams, Tuple[OptimizerHparams, ...], List[OptimizerHparams]] = tuple(),
+            schedulers_hparams: Union[SchedulerHparams, Tuple[SchedulerHparams, ...], List[SchedulerHparams]] = tuple(),
 
             # device
             device: Optional[Device] = None,
@@ -321,24 +191,11 @@ class Trainer:
         seed_all(seed)
         self.seed = seed
 
-        if not algorithms:
-            algorithms = []
-
-        self.backwards_create_graph = any(map(lambda x: x.backwards_create_graph, algorithms))
-
-        find_unused_parameters = any(map(lambda x: x.find_unused_parameters, algorithms))
-
-        self.find_unused_parameters = find_unused_parameters
-
         if self.deepspeed_enabled:
             import deepspeed
             deepspeed.init_distributed()
         else:
             ddp.initialize_ddp(device.ddp_backend, datetime.timedelta(seconds=ddp_timeout))
-            if ddp_sync_strategy is None:
-                self.ddp_sync_strategy = ddp.DDPSyncStrategy.SINGLE_AUTO_SYNC if not find_unused_parameters else ddp.DDPSyncStrategy.FORCED_SYNC
-            else:
-                self.ddp_sync_strategy = ddp.DDPSyncStrategy(ddp_sync_strategy)
 
         if isinstance(train_dataloader, DataloaderSpec):
             self._train_device_transformation_fn = train_dataloader.device_transform_fn
@@ -363,7 +220,7 @@ class Trainer:
         self.state = State(
             max_epochs=max_epochs,
             algorithms=algorithms,
-            callbacks=list(callbacks),
+            callbacks=callbacks,
             model=model,
             grad_accum=grad_accum,
             precision=precision,
@@ -373,15 +230,7 @@ class Trainer:
         )
 
         # Steps per epoch
-        if train_subset_num_batches is not None:
-            if train_subset_num_batches > self.state.steps_per_epoch:
-                warnings.warn(
-                    textwrap.dedent(
-                        f"""SubsetNumBatchesWarning: The train_subset_num_batches({train_subset_num_batches})
-                        is greater than the number of batches in the training dataloader
-                        ({self.state.steps_per_epoch})"""))
-            else:
-                self.state.steps_per_epoch = train_subset_num_batches
+        self.state.steps_per_epoch = train_subset_num_batches
 
         if eval_subset_num_batches is not None:
             if eval_subset_num_batches > len(self.state.eval_dataloader):
@@ -395,13 +244,18 @@ class Trainer:
         if not log_destinations:
             log_destinations = [TQDMLoggerBackend()]
         self.logger = Logger(self.state, log_destinations)
-
+        self.state.callbacks = [*log_destinations, *callbacks]
         self.engine = Engine(self.state, self.state.algorithms, self.logger, self.state.callbacks)
 
         self.validate_every_n_batches = validate_every_n_batches
         self.validate_every_n_epochs = validate_every_n_epochs
         self.compute_training_metrics = compute_training_metrics
         self._grad_clip_norm = grad_clip_norm
+
+        if ddp_sync_strategy is None:
+            self.ddp_sync_strategy = ddp.DDPSyncStrategy.SINGLE_AUTO_SYNC if not self.find_unused_parameters else ddp.DDPSyncStrategy.FORCED_SYNC
+        else:
+            self.ddp_sync_strategy = ddp.DDPSyncStrategy(ddp_sync_strategy)
 
         if deterministic_mode:
             torch.use_deterministic_algorithms(True)
@@ -413,17 +267,21 @@ class Trainer:
         self.engine.run_event(Event.INIT)
 
         # Need to use hparams here because optimizer and schedulers need to be created after Event.INIT
-        if not optimizer_hparams:
+        if len(ensure_tuple(optimizer_hparams)) == 0:
             optimizer_hparams = DecoupledSGDWHparams(lr=0.1, momentum=0.9, weight_decay=1.0e-4)
-        if not schedulers_hparams:
+        if len(ensure_tuple(schedulers_hparams)) == 0:
             schedulers_hparams = [CosineAnnealingLRHparams(T_max=f"{max_epochs}ep"), WarmUpLRHparams()]
-        if not isinstance(schedulers_hparams, list):
-            schedulers_hparams = [schedulers_hparams]
-        optimizer = optimizer_hparams.initialize_object(param_group=self.state.model.parameters())
-        schedulers = [
-            x.initialize_object(optimizer, self.state.steps_per_epoch) for x in ensure_warmup_last(schedulers_hparams)
+        optimizers = [
+            optimizer_hparams.initialize_object(param_group=self.state.model.parameters())
+            for optimizer_hparams in ensure_tuple(optimizer_hparams)
         ]
-        self.state.optimizers = [optimizer]
+        if len(optimizers) != 1:
+            raise NotImplementedError("Multiple optimizers are not supported.")
+        schedulers = [
+            x.initialize_object(optimizers[0], self.state.steps_per_epoch)
+            for x in ensure_warmup_last(list(ensure_tuple(schedulers_hparams)))
+        ]
+        self.state.optimizers = optimizers
         self.state.schedulers = [ComposedScheduler(schedulers=schedulers)]
 
         # TODO(#121): get checkpointing working with DeepSpeed.
@@ -535,12 +393,186 @@ class Trainer:
 
         return trainer
 
+    @property
+    def model(self) -> BaseMosaicModel:
+        """The original model"""
+        return ddp.get_original_model(self.state.model)
+
+    @property
+    def train_dataloader(self) -> Union[DataLoader, DataloaderSpec]:
+        """The train dataloader"""
+        if self._train_split_fn is not None and self._train_device_transformation_fn is not None:
+            return DataloaderSpec(self.state.train_dataloader, self._train_device_transformation_fn,
+                                  self._train_split_fn)
+        else:
+            return self.state.train_dataloader
+
+    @train_dataloader.setter
+    def train_dataloader(self, train_dataloader: Union[DataLoader, DataloaderSpec]):
+        if isinstance(train_dataloader, DataloaderSpec):
+            self._train_device_transformation_fn = train_dataloader.device_transform_fn
+            self._train_split_fn = train_dataloader.split_fn
+            dataloader = train_dataloader.dataloader
+        else:
+            self._train_device_transformation_fn = None
+            self._train_split_fn = None
+            dataloader = train_dataloader
+        if not isinstance(dataloader, DDPDataLoader):
+            dataloader = DDPDataLoader(dataloader)
+        self.state.train_dataloader = dataloader
+
+    # TODO(anis) -- add getters/setters for evaluators
+
+    @property
+    def max_epochs(self):
+        """Maximum number of training epochs"""
+        return self.state.max_epochs
+
+    @max_epochs.setter
+    def max_epochs(self, max_epochs: int):
+        self.state.max_epochs = max_epochs
+
+    @property
+    def algorithms(self):
+        """Algorithms"""
+        return self.state.algorithms
+
+    @algorithms.setter
+    def algorithms(self, algorithms: Sequence[Algorithm]):
+        self.state.algorithms = algorithms
+
+    @property
+    def callbacks(self):
+        """Callbacks"""
+        return self.state.callbacks
+
+    @callbacks.setter
+    def callbacks(self, callbacks: Sequence[Callback]):
+        # Preserve the logger backends as callbacks
+        self.state.callbacks = [*self.logger.backends, *callbacks]
+
+    @property
+    def optimizers(self):
+        """Optimizers"""
+        return self.state.optimizers
+
+    @optimizers.setter
+    def optimizers(self, optimizers: Optimizers):
+        self.state.optimizers = optimizers
+
+    @property
+    def schedulers(self):
+        """Schedulers"""
+        return self.state.schedulers
+
+    @schedulers.setter
+    def schedulers(self, schedulers: Schedulers):
+        self.state.schedulers = schedulers
+
+    @property
+    def device(self):
+        """Device"""
+        # No setter for device since it wouldn't make sense to change it
+        return self._device
+
+    @property
+    def grad_accum(self):
+        """Gradient Accumulation"""
+        return self.state.grad_accum
+
+    @grad_accum.setter
+    def grad_accum(self, grad_accum: int):
+        self.state.grad_accum = grad_accum
+
+    @property
+    def grad_clip_norm(self):
+        """Gradient Clipping Norm"""
+        return self._grad_clip_norm
+
+    @grad_clip_norm.setter
+    def grad_clip_norm(self, grad_clip_norm: Optional[float]):
+        if self.deepspeed_enabled:
+            raise RuntimeError("Unable to update the grad_clip_norm if using deepspeed")
+        self._grad_clip_norm = grad_clip_norm
+
+    @property
+    def precision(self):
+        return self.state.precision
+
+    @precision.setter
+    def precision(self, precision: Union[str, Precision]):
+        self.state.precision = precision
+
+    @property
+    def log_destinations(self):
+        return self.logger.backends
+
+    @log_destinations.setter
+    def log_destinations(self, log_destinations: Sequence[BaseLoggerBackend]):
+        # first, remove existing log destinations as callbacks
+        for log_destination in self.logger.backends:
+            self.state.callbacks.remove(log_destination)
+
+        # Update the backends
+        self.logger.backends[:] = log_destinations
+
+        # Update the callbacks
+        self.state.callbacks = [*log_destinations, *self.state.callbacks]
+
+    @property
+    def checkpoint_folder(self):
+        return self._checkpointer.checkpoint_folder
+
+    @checkpoint_folder.setter
+    def checkpoint_folder(self, checkpoint_folder: str):
+        self._checkpointer.checkpoint_folder = checkpoint_folder
+
+    @property
+    def checkpoint_interval(self):
+        return self._checkpointer.save_interval
+
+    @checkpoint_interval.setter
+    def checkpoint_interval(self, checkpoint_interval: int):
+        self._checkpointer.save_interval = checkpoint_interval
+
+    @property
+    def checkpoint_interval_unit(self):
+        return self._checkpointer.checkpoint_interval_unit
+
+    @checkpoint_interval_unit.setter
+    def checkpoint_interval_unit(self, checkpoint_interval_unit: Optional[str]):
+        self._checkpointer.checkpoint_interval_unit = checkpoint_interval_unit
+
+    @property
+    def train_subset_num_batches(self):
+        return self.state._steps_per_epoch
+
+    @train_subset_num_batches.setter
+    def train_subset_num_batches(self, train_subset_num_batches: Optional[int] = None):
+        self.state.steps_per_epoch = train_subset_num_batches
+
+    @property
+    def eval_subset_num_batches(self):
+        return self._eval_subset_num_batches
+
+    @eval_subset_num_batches.setter
+    def eval_subset_num_batches(self, eval_subset_num_batches: Optional[int] = None):
+        self._eval_subset_num_batches = eval_subset_num_batches
+
     def fit(self):
         """Train and evaluate the model on the provided data."""
         try:
             self._train_loop()
         finally:
             self.engine.close()
+
+    @property
+    def backwards_create_graph(self):
+        return any(map(lambda x: x.backwards_create_graph, self.state.algorithms))
+
+    @property
+    def find_unused_parameters(self):
+        return any(map(lambda x: x.find_unused_parameters, self.state.algorithms))
 
     def _get_metrics_as_collection(self, *, is_train: bool) -> MetricCollection:
         """Get metrics relevant to the model. Metrics are all implemented as subclasses
@@ -555,7 +587,7 @@ class Trainer:
         Returns:
             A :class:`~torchmetrics.collections.MetricCollection` object.
         """
-        metrics = self.original_model.metrics(train=is_train)
+        metrics = ddp.get_original_model(self.state.model).metrics(train=is_train)
         assert isinstance(metrics, (Metric, MetricCollection)), \
             "Error module.metrics() must return a Metric or MetricCollection object."
         if isinstance(metrics, Metric):
@@ -634,21 +666,15 @@ class Trainer:
         # shorthand
         state = self.state
 
-        assert state.optimizers is not None
-        assert state.schedulers is not None
-
         if len(ensure_tuple(state.optimizers)) != 1:
             raise NotImplementedError("The Mosaic trainer only supports one optimizer; "
-                                      f"found {len(ensure_tuple(state.optimizers))} optimizers")
-
-        assert isinstance(state.model, BaseMosaicModel)
-        self.original_model = state.model
+                                      f"found {len(state.optimizers)} optimizers")
 
         # place the state, model in the proper devices
         if self.deepspeed_enabled:
             import deepspeed
 
-            optimizer = ensure_tuple(state.optimizers)[0]
+            optimizer = state.optimizers[0]
 
             deepspeed_config: dict[str, Any] = {
                 "train_batch_size": state.train_batch_size,
@@ -748,7 +774,7 @@ class Trainer:
                             for eval_microbatch in eval_microbatches:
                                 # TODO: Detect if self.run_event(Event.AFTER_DATALOADER) changes the training
                                 # data and if so print a warning that metrics may return unexpected results
-                                outputs, targets = self.original_model.validate(eval_microbatch)
+                                outputs, targets = ddp.get_original_model(state.model).validate(eval_microbatch)
                                 train_metrics.update(outputs, targets)
 
                     state.model.train()
@@ -888,7 +914,7 @@ class Trainer:
                 self.engine.run_event(Event.BEFORE_LOSS)
 
                 with state.precision_context:
-                    state.loss = self.original_model.loss(state.outputs, state.batch)
+                    state.loss = ddp.get_original_model(state.model).loss(state.outputs, state.batch)
 
                 # We always want to scale loss by the grad_accum before the backwards pass and
                 # also for sake of metrics. Complicating matters, the DeepSpeed engine does its
@@ -972,7 +998,7 @@ class Trainer:
                 self.engine.run_event(Event.EVAL_BATCH_START)
 
                 self.engine.run_event(Event.EVAL_BEFORE_FORWARD)
-                state.outputs, targets = self.original_model.validate(state.batch)
+                state.outputs, targets = ddp.get_original_model(state.model).validate(state.batch)
                 self.engine.run_event(Event.EVAL_AFTER_FORWARD)
 
                 metrics.update(state.outputs, targets)
