@@ -326,8 +326,10 @@ class ADE20kDatasetHparams(DatasetHparams):
             target_transforms = PadToSize((self.crop_size, self.crop_size), fill=0)
         else:
             both_transforms = None
-            image_transforms = transforms.Resize(size=self.base_size, interpolation=TF.InterpolationMode.BILINEAR)
-            target_transforms = transforms.Resize(size=self.base_size, interpolation=TF.InterpolationMode.NEAREST)
+            image_transforms = transforms.Resize(size=(self.base_size, self.base_size),
+                                                 interpolation=TF.InterpolationMode.BILINEAR)
+            target_transforms = transforms.Resize(size=(self.base_size, self.base_size),
+                                                  interpolation=TF.InterpolationMode.NEAREST)
 
         dataset = ADE20k(self.datadir, self.split, both_transforms, image_transforms, target_transforms)  # type: ignore
         sampler = ddp.get_sampler(dataset, drop_last=self.drop_last, shuffle=self.shuffle)

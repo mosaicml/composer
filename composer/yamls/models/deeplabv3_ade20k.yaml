@@ -2,7 +2,7 @@ train_dataset:
   ade20k:
     datadir: null
     split: train
-    resize_size: 512
+    base_size: 512
     crop_size: 512
     drop_last: true
     shuffle: true
@@ -10,7 +10,7 @@ val_dataset:
   ade20k:
     datadir: null
     split: val
-    resize_size: 512
+    base_size: 512
     crop_size: 512
     drop_last: false
     shuffle: false
@@ -22,12 +22,11 @@ optimizer:
     dampening: 0
     nesterov: false
 schedulers:
-  polynomial:
+  cosine_decay:
     T_max: "64ep"
-    eta_min: 1e-4
+    eta_min: 0
     verbose: false
     interval: step
-    power: 0.9
 model:
   deeplabv3:
     initializers:
