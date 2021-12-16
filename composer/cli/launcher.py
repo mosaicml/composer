@@ -3,16 +3,16 @@
 import datetime
 import os
 import signal
+import socket
 import subprocess
 import sys
-import tempfile
+import textwrap
 import time
+import warnings
 from argparse import ArgumentParser
-from typing import Any, List, Set
+from typing import Any, List, Optional, Set
 
-import torch.distributed
-
-CLEANUP_TIMEOUT = datetime.timedelta(seconds=5)
+CLEANUP_TIMEOUT = datetime.timedelta(seconds=30)
 
 
 def get_parser():
@@ -43,10 +43,15 @@ def get_parser():
                         "127.0.0.1 (single-node operation).")
     parser.add_argument("--master_port",
                         type=int,
-                        default=29400,
+                        default=None,
                         help="The port on the master hosting the C10d TCP store. If you are running "
                         "multiple trainers on a single node, this generally needs to be unique for "
-                        "each one. Defaults to 29400.")
+                        "each one. Defaults to a random free port.")
+    parser.add_argument("--run_directory",
+                        type=str,
+                        default=None,
+                        help=textwrap.dedent("""Directory to store run artifcats. 
+                            Defaults to runs/{datetime.datetime.now().isoformat()}/""")),
     parser.add_argument("-m",
                         "--module_mode",
                         action="store_true",
@@ -63,6 +68,15 @@ def get_parser():
     return parser
 
 
+def get_free_tcp_port() -> int:
+    # from https://www.programcreek.com/python/?CodeExample=get+free+port
+    tcp = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    tcp.bind(('', 0))
+    _, port = tcp.getsockname()
+    tcp.close()
+    return port
+
+
 def parse_args():
     parser = get_parser()
 
@@ -73,10 +87,24 @@ def parse_args():
     return args
 
 
-def launch_processes(nproc: int, world_size: int, base_rank: int, master_addr: str, master_port: int, module_mode: bool,
-                     training_script: str, training_script_args: List[Any]) -> Set[subprocess.Popen]:
+def launch_processes(nproc: int, world_size: int, base_rank: int, master_addr: str, master_port: Optional[int],
+                     module_mode: bool, run_directory: Optional[str], training_script: str,
+                     training_script_args: List[Any]) -> Set[subprocess.Popen]:
     print(f"Starting DDP on local node for global_rank({base_rank}-{base_rank+nproc-1})")
     processes = []
+
+    if run_directory is None:
+        run_directory = os.path.join("runs", datetime.datetime.now().isoformat())
+    os.makedirs(run_directory, exist_ok=True)
+    logs_dir = os.path.join(run_directory, "logs")
+    os.makedirs(logs_dir, exist_ok=True)
+
+    if master_port is None:
+        warnings.warn("AutoSelectPortWarning: The DDP port was auto-selected. "
+                      "This may lead to race conditions when launching multiple training processes simultaneously. "
+                      "To eliminate this race condition, explicitely specify a port with --master_port PORT_NUMBER")
+        master_port = get_free_tcp_port()
+    print(f"DDP Store: tcp://{master_addr}:{master_port}")
 
     for local_rank in range(nproc):
         global_rank = base_rank + local_rank
@@ -92,8 +120,9 @@ def launch_processes(nproc: int, world_size: int, base_rank: int, master_addr: s
         current_env["LOCAL_WORLD_SIZE"] = str(nproc)
         current_env["MASTER_ADDR"] = master_addr
         current_env["MASTER_PORT"] = str(master_port)
+        current_env["RUN_DIRECTORY"] = run_directory
 
-        print(f"Launching process for local_rank({local_rank}), global_rank({global_rank})", local_rank, global_rank)
+        print(f"Launching process for local_rank({local_rank}), global_rank({global_rank})")
 
         if local_rank == 0:
             process = subprocess.Popen(cmd, env=current_env, text=True)
@@ -101,8 +130,8 @@ def launch_processes(nproc: int, world_size: int, base_rank: int, master_addr: s
             process = subprocess.Popen(
                 cmd,
                 env=current_env,
-                stdout=tempfile.TemporaryFile(),
-                stderr=tempfile.TemporaryFile(),
+                stdout=open(os.path.join(logs_dir, f"rank_{global_rank}.stdout.txt"), "x"),
+                stderr=open(os.path.join(logs_dir, f"rank_{global_rank}.stderr.txt"), "x"),
                 text=True,
             )
         processes.append(process)
@@ -153,12 +182,8 @@ def monitor_processes(processes: Set[subprocess.Popen]):
 
 
 def cleanup_processes(processes: Set[subprocess.Popen]):
-    if len(processes) == 0:
-        if torch.distributed.is_initialized():
-            torch.distributed.destroy_process_group()
-        return
-
     for process in processes:
+        process.poll()
         if process.returncode is None:
             print(f"Killing subprocess {process.pid} with SIGTERM")
             try:
@@ -169,11 +194,14 @@ def cleanup_processes(processes: Set[subprocess.Popen]):
     current_time = datetime.datetime.now()
     print(f"Waiting {CLEANUP_TIMEOUT.seconds} seconds for processes to terminate...")
     while datetime.datetime.now() - current_time < CLEANUP_TIMEOUT:
+        for process in processes:
+            process.poll()
         if all(process.returncode is not None for process in processes):
             break
         time.sleep(0.1)
 
     for process in processes:
+        process.poll()
         if process.returncode is None:
             print(f"Failed to kill subprocess {process.pid} with SIGTERM; using SIGKILL instead")
             try:
@@ -181,12 +209,10 @@ def cleanup_processes(processes: Set[subprocess.Popen]):
             except ProcessLookupError:
                 pass
 
-    if torch.distributed.is_initialized():
-        torch.distributed.destroy_process_group()
-
 
 def aggregate_process_returncode(processes: Set[subprocess.Popen]) -> int:
     for process in processes:
+        process.poll()
         if process.returncode is None:
             print(f"Subprocess {process.pid} has still not exited; return exit code 1.")
             return 1
@@ -206,10 +232,14 @@ def main():
                                  master_port=args.master_port,
                                  module_mode=args.module_mode,
                                  training_script=args.training_script,
+                                 run_directory=args.run_directory,
                                  training_script_args=args.training_script_args)
 
     try:
         monitor_processes(processes)
+    except KeyboardInterrupt:
+        print("Caught Ctrl+C; killing processes")
+        raise
     finally:
         cleanup_processes(processes)
         return aggregate_process_returncode(processes)

@@ -18,16 +18,17 @@ class ChannelsLast(Algorithm):
     """Changes the memory format of the model to ``torch.channels_last``.
     This usually yields improved GPU utilization.
 
-    Runs on ``Event.TRAINING_START`` and has no hyperparameters.
+    Runs on ``Event.INIT``, so it can set the memory format before the model is DDP wrapped. Has no hyperparameters.
     """
 
     def match(self, event: Event, state: State) -> bool:
-        """Runs on ``Event.TRAINING_START``"""
-        return event == Event.TRAINING_START
+        """Runs on ``Event.INIT``"""
+        del state  # unused
+        return event == Event.INIT
 
     def apply(self, event: Event, state: State, logger: Logger) -> Optional[int]:
         """Changes the memory format of the model to ``torch.channels_last``"""
-        assert state.model is not None, 'Channels Last cannot be applied to None'
+        del event, logger  # unused
         # TODO: Double check model is moved to cuda with device type
         state.model.to(memory_format=torch.channels_last)  # type: ignore
 

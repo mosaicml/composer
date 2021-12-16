@@ -1,19 +1,17 @@
 train_dataset:
-  synthetic:
-    total_dataset_size: 4096
-    data_shape: [3, 224, 224]
-    num_classes: 1000
-    device: cpu
-    memory_format: CONTIGUOUS_FORMAT
+  imagenet:
+    resize_size: -1
+    crop_size: 224
+    is_train: true
+    use_synthetic: true
     shuffle: true
     drop_last: true
 val_dataset:
-  synthetic:
-    total_dataset_size: 2000
-    data_shape: [3, 224, 224]
-    num_classes: 1000
-    device: cpu
-    memory_format: CONTIGUOUS_FORMAT
+  imagenet:
+    resize_size: 256
+    crop_size: 224
+    is_train: false
+    use_synthetic: true
     shuffle: true
     drop_last: true
 optimizer:
@@ -44,8 +42,10 @@ model:
 loggers:
   - tqdm: {}
 max_epochs: 90
-total_batch_size: 2048
+train_batch_size: 2048
 eval_batch_size: 1000
+train_subset_num_batches: 10
+eval_subset_num_batches: 10
 seed: 17
 device:
   gpu: {}

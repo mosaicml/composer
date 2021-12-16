@@ -1,6 +1,11 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
+import collections.abc
+
+import torch.utils.data
 from torchvision import transforms
+
+from composer.core.types import Dataset
 
 
 def add_dataset_transform(dataset, transform):
@@ -24,4 +29,23 @@ def add_dataset_transform(dataset, transform):
     else:  # transform is some other basic transform, join using Compose
         dataset.transform = transforms.Compose([dataset.transform, transform])
 
+    return dataset
+
+
+def get_subset_dataset(size: int, dataset: Dataset):
+    """Returns a subset dataset
+
+    Args:
+        size (int): Maximum szie of the dataset
+        dataset (Dataset): The dataset to subset
+
+    Raises:
+        ValueError: If the ``size`` is greater than ``len(dataset)``
+
+    Returns:
+        Dataset: The subset dataset
+    """
+    if isinstance(dataset, collections.abc.Sized) and len(dataset) < size:
+        raise ValueError(f"The dataset length ({len(dataset)}) is less than the requested size ({size}).")
+    dataset = torch.utils.data.Subset(dataset, list(range(size)))
     return dataset
