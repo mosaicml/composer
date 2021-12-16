@@ -38,7 +38,7 @@ class WandBLoggerBackend(BaseLoggerBackend):
             init_params = {}
         self._init_params = init_params
 
-    def _log_metric(self, epoch: int, step: int, log_level: LogLevel, data: TLogData):
+    def log_metric(self, epoch: int, step: int, log_level: LogLevel, data: TLogData):
         del epoch, log_level  # unused
         if ddp.get_local_rank() == 0:
             wandb.log(data, step=step)
