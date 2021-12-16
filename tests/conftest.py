@@ -13,16 +13,16 @@ import _pytest.fixtures
 import _pytest.mark
 import pytest
 import torch.distributed
+from _pytest.monkeypatch import MonkeyPatch
 
 import composer
-from composer.utils.run_directory import get_relative_to_run_directory
+from composer.utils import run_directory
 
 # Allowed options for pytest.mark.world_size()
 # Important: when updating this list, make sure to also up scripts/test.sh
 # so tests of all world sizes will be executed
 WORLD_SIZE_OPTIONS = (1, 2)
 
-PYTEST_DDP_LOCKFILE_DIR = get_relative_to_run_directory(os.path.join("pytest_lockfiles"))
 DDP_TIMEOUT = datetime.timedelta(seconds=5)
 
 # Add the path of any pytest fixture files you want to make global
@@ -112,12 +112,13 @@ def set_loglevels():
     logging.getLogger(composer.__name__).setLevel(logging.DEBUG)
 
 
-@pytest.fixture
-def ddp_tmpdir(tmpdir: pathlib.Path) -> str:
+@pytest.fixture(autouse=True)
+def subfolder_run_directory(tmpdir: pathlib.Path, monkeypatch: MonkeyPatch) -> None:
     tmpdir_test_folder_name = os.path.basename(os.path.normpath(str(tmpdir)))
-    test_folder_tmpdir = get_relative_to_run_directory(tmpdir_test_folder_name, base=os.path.join(str(tmpdir), ".."))
+    test_folder_tmpdir = run_directory.get_relative_to_run_directory(tmpdir_test_folder_name,
+                                                                     base=os.path.join(str(tmpdir), ".."))
+    monkeypatch.setenv(run_directory._RUN_DIRECTORY_KEY, test_folder_tmpdir)
     os.makedirs(test_folder_tmpdir, exist_ok=True)
-    return os.path.abspath(test_folder_tmpdir)
 
 
 @pytest.fixture(autouse=True)
@@ -139,24 +140,24 @@ def configure_ddp(request: pytest.FixtureRequest):
 
 
 @pytest.fixture(autouse=True)
-def wait_for_all_procs(ddp_tmpdir: str):
+def wait_for_all_procs(subfolder_run_directory: None):
     yield
     if not 'RANK' in os.environ:
         # Not running in a DDP environment
         return
     global_rank = int(os.environ['RANK'])
     world_size = int(os.environ['WORLD_SIZE'])
-    proc_lockfile = os.path.join(ddp_tmpdir, f"{global_rank}_finished")
+    proc_lockfile = run_directory.get_relative_to_run_directory(f"{global_rank}_finished")
     pathlib.Path(proc_lockfile).touch(exist_ok=False)
     # other processes shouldn't be (too) far behind the current one
     end_time = datetime.datetime.now() + datetime.timedelta(seconds=15)
     for rank in range(world_size):
-        if not os.path.exists(os.path.join(ddp_tmpdir, f"{rank}_finished")):
+        if not os.path.exists(run_directory.get_relative_to_run_directory(f"{rank}_finished")):
             # sleep for the other procs to write their finished file
             if datetime.datetime.now() < end_time:
                 time.sleep(0.1)
             else:
-                test_name = os.path.basename(os.path.normpath(ddp_tmpdir))
+                test_name = os.path.basename(os.path.normpath(str(run_directory.get_run_directory())))
                 raise RuntimeError(f"Rank {rank} did not finish test {test_name}")
 
 

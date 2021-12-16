@@ -18,7 +18,7 @@ from composer.core.types import Logger, StateDict
 from composer.trainer.devices import CPUDeviceHparams, DeviceHparams, GPUDeviceHparams
 from composer.trainer.trainer import Trainer
 from composer.trainer.trainer_hparams import TrainerHparams, callback_registry
-from composer.utils import ddp
+from composer.utils import ddp, run_directory
 from tests.test_state import assert_state_equivalent
 from tests.utils.deep_compare import deep_compare
 
@@ -139,7 +139,6 @@ def test_checkpoint(
     checkpoint_filename: str,
     validate_every_n_batches: int,
     validate_every_n_epochs: int,
-    ddp_tmpdir: str,
 ):
     """strategy:
     - train two epochs. capture checkpoints after `checkpoint_interval` and ep2.
@@ -147,32 +146,28 @@ def test_checkpoint(
     - assert that the checkpoint from the new trainer at the end is the same as the checkpoint from the first trainer at the end.
     """
     del world_size  # unused. Read via env variable
-    checkpoint_a_folder = os.path.join(ddp_tmpdir, "first")
-    checkpointing_trainer_hparams.checkpoint_folder = checkpoint_a_folder
 
+    checkpointing_trainer_hparams.device = device_hparams
+
+    checkpoint_a_folder = "first"
+    checkpointing_trainer_hparams.checkpoint_folder = checkpoint_a_folder
     checkpointing_trainer_hparams.checkpoint_interval_unit = "ep" if checkpoint_filename.startswith("ep") else "it"
     checkpointing_trainer_hparams.validate_every_n_batches = validate_every_n_batches
     checkpointing_trainer_hparams.validate_every_n_epochs = validate_every_n_epochs
     final_checkpoint = "ep2.pt" if checkpoint_filename.startswith("ep") else "it8.pt"
-
-    checkpointing_trainer_hparams.device = device_hparams
-
     _test_checkpoint_trainer(checkpointing_trainer_hparams)
     checkpoint_a_file_path = os.path.join(checkpoint_a_folder, f"{checkpoint_filename}.pt")
-    checkpoint_b_file_path = os.path.join(checkpoint_a_folder, final_checkpoint)
-    trainer_1_hparams_filepath = os.path.join(checkpoint_a_folder, "hparams.yaml")
+    checkpoint_b_file_path = run_directory.get_relative_to_run_directory(checkpoint_a_folder, final_checkpoint)
+    trainer_1_hparams_filepath = run_directory.get_relative_to_run_directory(checkpoint_a_folder, "hparams.yaml")
 
     second_trainer_hparams = TrainerHparams.create(trainer_1_hparams_filepath, cli_args=False)
-    checkpoint_b_folder = os.path.join(ddp_tmpdir, "second")
+    checkpoint_b_folder = "second"
     second_trainer_hparams.checkpoint_folder = checkpoint_b_folder
-    second_trainer_hparams.checkpoint_filepath = checkpoint_a_file_path
+    second_trainer_hparams.checkpoint_filepath = run_directory.get_relative_to_run_directory(checkpoint_a_file_path)
     _test_checkpoint_trainer(second_trainer_hparams)
 
-    checkpoint_c_file_path = os.path.join(ddp_tmpdir, "checkpoint_c.pt")
-    trainer_2_hparams_filepath = os.path.join(ddp_tmpdir, "trainer_2_hparams.yaml")
-
-    checkpoint_c_file_path = os.path.join(checkpoint_b_folder, final_checkpoint)
-    trainer_2_hparams_filepath = os.path.join(checkpoint_b_folder, "hparams.yaml")
+    checkpoint_c_file_path = run_directory.get_relative_to_run_directory(checkpoint_b_folder, final_checkpoint)
+    trainer_2_hparams_filepath = run_directory.get_relative_to_run_directory(checkpoint_b_folder, "hparams.yaml")
 
     if ddp.get_global_rank() == 0:
 
