@@ -9,6 +9,7 @@ from typing import Any, Dict, Optional
 import numpy as np
 import torch
 import yaml
+from torch.nn.parallel import DistributedDataParallel
 
 from composer.core import Event, State
 from composer.core.types import StateDict
@@ -47,7 +48,7 @@ class CheckpointLoader:
             state.load_model_state(self.state_dict['state'], strict=self.strict_model_weights)
         else:
             state.load_state_dict(self.state_dict["state"])
-            self.checkpoint_rng_state = self._get_checkpoint_rng_state(state, self.state_dict["rng"])
+        self.checkpoint_rng_state = self._get_checkpoint_rng_state(state, self.state_dict["rng"])
 
             if "seed" in self.state_dict:
                 world_size = ddp.get_world_size()
