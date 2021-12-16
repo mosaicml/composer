@@ -69,7 +69,7 @@ class CheckpointLoader:
 
         assert ddp.get_world_size() == len(
             self.checkpoint_rng_state['torch']
-        ), f"invariant violation: if the rng state is being restored, then" \
+        ), "invariant violation: if the rng state is being restored, then" \
             "the world size should be the same as in the checkpoint."
 
         torch.set_rng_state(self.checkpoint_rng_state['torch'][ddp.get_global_rank()])
