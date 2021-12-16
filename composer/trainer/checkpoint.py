@@ -17,7 +17,6 @@ from composer.utils import ddp, seed_all
 
 log = logging.getLogger(__name__)
 
-
 class CheckpointLoader:
     """Manager for initializing state and restoring RNG state from existing checkpoints.
 
@@ -25,8 +24,10 @@ class CheckpointLoader:
         checkpoint_filepath (str): The path to an existing checkpoint file.
     """
 
-    def __init__(self, checkpoint_filepath: str):
+    def __init__(self, checkpoint_filepath: str, load_weights_only: bool = False, strict: bool = False):
         self.state_dict = torch.load(checkpoint_filepath, map_location='cpu')
+        self.load_weights_only = load_weights_only
+        self.strict = strict
 
     def load_checkpoint(self, state: State):
         """Initialize state from the loaded checkpoint's data.
@@ -38,8 +39,16 @@ class CheckpointLoader:
             The seed that was loaded from the checkpoint if it exists otherwise `None`.
         """
 
-        state.load_state_dict(self.state_dict["state"])
-        self.checkpoint_rng_state = self._get_checkpoint_rng_state(state, self.state_dict["rng"])
+        if self.load_weights_only:
+            missing_keys, unexpected_keys = state.model.load_state_dict(self.state_dict['state']['model'],
+                                                                        strict=self.strict)
+            if len(missing_keys) > 0:
+                log.warning(f"Found these missing keys in the checkpoint: {', '.join(missing_keys)}")
+            if len(unexpected_keys) > 0:
+                log.warning(f"Found these unexpected keys in the checkpoint: {', '.join(unexpected_keys)}")
+        else:
+            state.load_state_dict(self.state_dict["state"])
+            self.checkpoint_rng_state = self._get_checkpoint_rng_state(state, self.state_dict["rng"])
 
         if "seed" in self.state_dict:
             world_size = ddp.get_world_size()

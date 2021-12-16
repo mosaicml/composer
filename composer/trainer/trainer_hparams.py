@@ -26,6 +26,7 @@ from composer.models import (CIFARResNetHparams, EfficientNetB0Hparams, GPT2Hpar
                              ModelHparams, ResNet18Hparams, ResNet50Hparams, ResNet101Hparams, UnetHparams)
 from composer.optim import (AdamHparams, AdamWHparams, DecoupledAdamWHparams, DecoupledSGDWHparams, OptimizerHparams,
                             RAdamHparams, RMSPropHparams, SchedulerHparams, SGDHparams, scheduler)
+from composer.trainer.checkpoint_hparams import CheckpointLoaderHparams
 from composer.trainer.deepspeed import DeepSpeedHparams
 from composer.trainer.devices import CPUDeviceHparams, DeviceHparams, GPUDeviceHparams
 from composer.utils import ddp
@@ -169,9 +170,7 @@ class TrainerHparams(hp.Hparams):
         default=-1)
     callbacks: List[CallbackHparams] = hp.optional(doc="Callback hparams", default_factory=list)
 
-    checkpoint_filepath: Optional[str] = hp.optional(doc="Path to an existing checkpoint file to load from.",
-                                                     default=None)
-
+    checkpoint_loader: Optional[CheckpointLoaderHparams] = hp.optional(doc="Checkpointing Hparams", default=None)
     checkpoint_interval_unit: Optional[str] = hp.optional(
         doc=
         "Unit for the checkpoint save interval -- should be 'ep' for epochs; 'ba' for batches, or None to disable checkpointing",

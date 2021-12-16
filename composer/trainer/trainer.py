@@ -31,6 +31,7 @@ from composer.optim import (ComposedScheduler, CosineAnnealingLRHparams, Decoupl
                             SchedulerHparams, WarmUpLRHparams)
 from composer.optim.scheduler import ensure_warmup_last
 from composer.trainer.checkpoint import Checkpointer, CheckpointLoader
+from composer.trainer.checkpoint_hparams import CheckpointLoaderHparams
 from composer.trainer.deepspeed import DeepSpeedHparams
 from composer.trainer.devices.device import Device
 from composer.trainer.devices.device_cpu import DeviceCPU
@@ -93,9 +94,6 @@ class Trainer:
         log_destinations (List[BaseLoggerBackend], optional): The destinations to log training information to.
             (default ``[TQDMLoggerBackend()]``).
         callbacks (Sequence[Callback], optional): The callbacks to run during training. (default: ``[]``)
-        checkpoint_filepath (str, optional): The path to a trainer checkpoint file. If provided
-            the trainer will load the state (along with it's associated attributes) during initialization.
-            (default: ``None``)
         checkpoint_interval_unit (int, optional): Unit for the checkpoint save interval -- should be 'ep'
             for epochs, 'it' for iterations, or None to disable checkpointing. (default: ``None``).
         checkpoint_folder (str, optional): The folder to save checkpoints to. Relative to `os.environ.get('RUN_DIRECTORY', '.')`,
@@ -151,7 +149,7 @@ class Trainer:
             callbacks: Sequence[Callback] = tuple(),
 
             # Checkpoint hparams
-            checkpoint_filepath: Optional[str] = None,
+            checkpoint_loader: Optional[CheckpointLoaderHparams] = None,
             checkpoint_interval_unit: Optional[str] = None,
             checkpoint_folder: Optional[str] = "checkpoints",
             checkpoint_interval: Optional[int] = 1,
@@ -304,9 +302,12 @@ class Trainer:
                                              checkpoint_interval=checkpoint_interval,
                                              checkpoint_interval_unit=checkpoint_interval_unit)
 
-        self.checkpoint_loader = None
+        print("Before loading:", self.checkpoint_loader)
+        self.checkpoint_loader = CheckpointLoaderHparams().initialize_object()
+        print("Checkpoint Loader:", self.checkpoint_loader)
+        input("Press any key to continue..")
         # TODO(#121): get checkpointing working with DeepSpeed.
-        if checkpoint_filepath:
+        if self.checkpoint_loader:
             if self.deepspeed_enabled:
                 raise NotImplementedError("Checkpointing is not yet supported with DeepSpeed.")
             self.checkpoint_loader = CheckpointLoader(checkpoint_filepath=checkpoint_filepath)
@@ -401,7 +402,6 @@ class Trainer:
             callbacks=tuple(callbacks),
 
             # Checkpointing hparams
-            checkpoint_filepath=hparams.checkpoint_filepath,
             checkpoint_interval_unit=hparams.checkpoint_interval_unit,
             checkpoint_folder=hparams.checkpoint_folder,
             checkpoint_interval=hparams.checkpoint_interval,
