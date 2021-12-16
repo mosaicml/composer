@@ -505,6 +505,7 @@ class Trainer:
         if self.deepspeed_enabled:
             import deepspeed
 
+            assert self.deepspeed_hparams is not None
             deepspeed_config = self.deepspeed_hparams.initialize_object(state, self.grad_clip_norm)
             optimizer = ensure_tuple(state.optimizers)[0]
             (state.model, state.optimizers, _, _) = deepspeed.initialize(
@@ -527,6 +528,8 @@ class Trainer:
                      ' This doubles the number of forward passes and may lead'
                      ' to a throughput degradation.')
             train_metrics = self._get_metrics_as_collection(is_train=True)
+        else:
+            train_metrics = None
 
         self.engine.run_event(Event.TRAINING_START)
 
@@ -576,6 +579,7 @@ class Trainer:
 
                     if self.compute_training_metrics:
                         # compute metrics on the training set
+                        assert train_metrics is not None
                         state.model.eval()
                         with torch.no_grad():
                             eval_microbatches = self.train_dl_spec.split_fn(state.batch, state.grad_accum)
@@ -629,6 +633,7 @@ class Trainer:
                         self.logger.metric_batch({'loss/train': full_loss / ddp.get_world_size()})
 
                     if self.compute_training_metrics:
+                        assert train_metrics is not None
                         self._compute_and_log_metrics(train_metrics, is_train=True, is_batch=True)
 
                     self.engine.run_event(Event.BATCH_END)
