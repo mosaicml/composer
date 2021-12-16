@@ -8,8 +8,7 @@ from typing import Any, Dict, Optional
 
 from composer.core.logging import BaseLoggerBackend, LogLevel, TLogData
 from composer.core.types import Logger, State, StateDict
-from composer.utils import ddp
-from composer.utils.run_directory import get_run_directory
+from composer.utils import ddp, run_directory
 
 import wandb  # isort: skip
 
@@ -34,6 +33,7 @@ class WandBLoggerBackend(BaseLoggerBackend):
         super().__init__()
         self._log_artifacts = log_artifacts
         self._log_artifacts_every_n_batches = log_artifacts_every_n_batches
+        self._last_upload_timestamp = 0.0
         if init_params is None:
             init_params = {}
         self._init_params = init_params
@@ -77,20 +77,22 @@ class WandBLoggerBackend(BaseLoggerBackend):
         # so uploads will not block the training loop
         # slowdown is likely from extra I/O of scanning the directory and/or
         # scheduling uploads
-        run_directory = get_run_directory()
+        run_directory_name = run_directory.get_run_directory()
+        if run_directory_name is None:
+            return
         # barrier that every process has reached this point and that
         # previous callbacks are finished writing to the run directory
         ddp.barrier()
         if ddp.get_local_rank() == 0:
-            if run_directory is not None:
-                for subfile in os.listdir(run_directory):
-                    artifact = wandb.Artifact(name=subfile, type=subfile)
-                    full_path = os.path.join(run_directory, subfile)
-                    if os.path.isdir(full_path):
-                        artifact.add_dir(full_path)
-                    else:
-                        artifact.add_file(full_path)
-                    wandb.log_artifact(artifact)
+            modified_files = run_directory.get_modified_files(self._last_upload_timestamp)
+            for modified_file in modified_files:
+                file_type = modified_file.split(".")[-1]
+                relpath = os.path.relpath(modified_file, run_directory_name)
+                relpath = relpath.replace("/", "-")
+                artifact = wandb.Artifact(name=relpath, type=file_type)
+                artifact.add_file(os.path.abspath(modified_file))
+                wandb.log_artifact(artifact)
+            self._last_upload_timestamp = run_directory.get_run_directory_timestamp()
         # barrier to ensure that other processes do not continue to other callbacks
         # that could start writing to the run directory
         ddp.barrier()
