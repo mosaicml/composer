@@ -149,7 +149,7 @@ class Trainer:
             callbacks: Sequence[Callback] = tuple(),
 
             # Checkpoint hparams
-            checkpoint_loader: Optional[CheckpointLoaderHparams] = None,
+            checkpoint_loader: Optional[CheckpointLoader] = None,
             checkpoint_interval_unit: Optional[str] = None,
             checkpoint_folder: Optional[str] = "checkpoints",
             checkpoint_interval: Optional[int] = 1,
@@ -302,12 +302,9 @@ class Trainer:
                                              checkpoint_interval=checkpoint_interval,
                                              checkpoint_interval_unit=checkpoint_interval_unit)
 
-        print("Before loading:", self.checkpoint_loader)
-        self.checkpoint_loader = CheckpointLoaderHparams().initialize_object()
-        print("Checkpoint Loader:", self.checkpoint_loader)
-        input("Press any key to continue..")
+        self.checkpoint_loader = checkpoint_loader
         # TODO(#121): get checkpointing working with DeepSpeed.
-        if self.checkpoint_loader:
+        if checkpoint_loader:
             if self.deepspeed_enabled:
                 raise NotImplementedError("Checkpointing is not yet supported with DeepSpeed.")
             self.checkpoint_loader = CheckpointLoader(checkpoint_filepath=checkpoint_filepath)
@@ -368,6 +365,7 @@ class Trainer:
             (set to {hparams.eval_subset_num_batches}), val_dataset.shuffle should be set to False. Otherwise,
             each evaluation epoch may load a different subset of samples."""))
         eval_dataloader = hparams.val_dataset.initialize_object(eval_device_batch_size, hparams.dataloader)
+        checkpoint_loader = hparams.checkpoint_loader.initialize_object()
 
         trainer = cls(
             model=model,
@@ -402,6 +400,7 @@ class Trainer:
             callbacks=tuple(callbacks),
 
             # Checkpointing hparams
+            checkpoint_loader=checkpoint_loader,
             checkpoint_interval_unit=hparams.checkpoint_interval_unit,
             checkpoint_folder=hparams.checkpoint_folder,
             checkpoint_interval=hparams.checkpoint_interval,

@@ -33,7 +33,6 @@ class CheckpointLoaderHparams(hp.Hparams):
         doc="Ensure that the set of weights in the checkpoint and model must exactly match.", default=True)
 
     def initialize_object(self) -> CheckpointLoader:
-        print(self.checkpoint_filepath, "filepath")
         if self.checkpoint_filepath:
             return CheckpointLoader(checkpoint_filepath=self.checkpoint_filepath,
                                     load_weights_only=self.load_weights_only,
