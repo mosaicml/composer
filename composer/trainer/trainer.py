@@ -321,6 +321,8 @@ class Trainer:
         """
 
         hparams.validate()
+        import composer
+        logging.getLogger(composer.__name__).setLevel(hparams.log_level)
 
         # devices and systems
         device = hparams.device.initialize_object()
@@ -336,6 +338,10 @@ class Trainer:
         callbacks = [x.initialize_object() for x in hparams.callbacks]
         dict_config = hparams.to_dict()
         log_destinations = [x.initialize_object(config=dict_config) for x in hparams.loggers]
+
+        if hparams.datadir is not None:
+            hparams.train_dataset.datadir = hparams.datadir
+            hparams.val_dataset.datadir = hparams.datadir
 
         train_device_batch_size = hparams.train_batch_size // ddp.get_world_size()
         if hparams.train_dataset.shuffle and hparams.train_subset_num_batches:
