@@ -2,7 +2,6 @@
 
 import pathlib
 import random
-from dataclasses import Field, fields
 
 import torch
 import torch.nn.functional as F
@@ -14,7 +13,6 @@ from composer.core.state import DIRECT_SERIALIZATION_FIELDS, SKIP_SERIALIZATION_
 from composer.datasets.dataloader import DataloaderHparams
 from composer.datasets.hparams import DataloaderSpec, DatasetHparams
 from composer.models.base import BaseMosaicModel
-from composer.utils import ensure_tuple
 from tests.fixtures.models import SimpleBatchPairModel
 
 
@@ -25,53 +23,49 @@ def random_tensor(size=(4, 10)):
 def get_dummy_state(model: BaseMosaicModel, train_dataloader: types.DataLoader, val_dataloader: types.DataLoader):
     optimizers = torch.optim.Adadelta(model.parameters())
 
-    return State(model=model,
-                 train_batch_size=random.randint(0, 100),
-                 eval_batch_size=random.randint(0, 100),
-                 grad_accum=random.randint(0, 100),
-                 precision=types.Precision.AMP,
-                 max_epochs=random.randint(0, 100),
-                 epoch=random.randint(0, 100),
-                 step=random.randint(0, 100),
-                 loss=random_tensor(),
-                 batch=(random_tensor(), random_tensor()),
-                 outputs=random_tensor(),
-                 train_dataloader=train_dataloader,
-                 eval_dataloader=val_dataloader,
-                 optimizers=optimizers,
-                 schedulers=torch.optim.lr_scheduler.StepLR(optimizers, step_size=3),
-                 algorithms=[DummyHparams().initialize_object()])
+    state = State(model=model,
+                  grad_accum=random.randint(0, 100),
+                  precision=types.Precision.AMP,
+                  max_epochs=random.randint(0, 100),
+                  train_dataloader=train_dataloader,
+                  eval_dataloader=val_dataloader,
+                  optimizers=optimizers,
+                  schedulers=torch.optim.lr_scheduler.StepLR(optimizers, step_size=3),
+                  algorithms=[DummyHparams().initialize_object()])
+    state.epoch = random.randint(0, 100)
+    state.step = random.randint(0, 100)
+    state.loss = random_tensor()
+    state.batch = (random_tensor(), random_tensor())
+    state.outputs = random_tensor()
+    return state
 
 
-def is_field_serialized(f: Field) -> bool:
-    if f.name in STATE_DICT_SERIALIZATION_FIELDS or f.name in DIRECT_SERIALIZATION_FIELDS:
+def is_field_serialized(field_name: str) -> bool:
+    if field_name in STATE_DICT_SERIALIZATION_FIELDS or field_name in DIRECT_SERIALIZATION_FIELDS:
         return True
-    elif f.name in SKIP_SERIALIZATION_FIELDS:
+    elif field_name in SKIP_SERIALIZATION_FIELDS:
         return False
     else:
-        raise RuntimeError(f"Serialization method for field {f.name} not specified")
+        raise RuntimeError(f"Serialization method for field {field_name} not specified")
 
 
 def assert_state_equivalent(state1: State, state2: State):
     # tested separately
     IGNORE_FIELDS = [
-        'optimizers',
-        'schedulers',
-        'train_dataloader',
-        'eval_dataloader',
-        'algorithms',
-        'callbacks',
-        'precision_context',
+        '_optimizers',
+        '_schedulers',
+        '_algorithms',
+        '_callbacks',
     ]
 
-    for f in fields(state1):
-        if f.name in IGNORE_FIELDS or not is_field_serialized(f):
+    for field_name in state1.__dict__.keys():
+        if field_name in IGNORE_FIELDS or not is_field_serialized(field_name):
             continue
 
-        var1 = getattr(state1, f.name)
-        var2 = getattr(state2, f.name)
+        var1 = getattr(state1, field_name)
+        var2 = getattr(state2, field_name)
 
-        if f.name == "model":
+        if field_name == "model":
             for p, q in zip(state1.model.parameters(), state2.model.parameters()):
                 torch.testing.assert_allclose(p, q, atol=1e-2, rtol=1e-2)
         elif isinstance(var1, types.Tensor):
@@ -89,11 +83,9 @@ def train_one_step(state: State, batch: types.Batch) -> None:
 
     state.loss = F.cross_entropy(state.outputs, y)
     state.loss.backward()
-    assert state.optimizers is not None
-    assert state.schedulers is not None
-    for optimizer in ensure_tuple(state.optimizers):
+    for optimizer in state.optimizers:
         optimizer.step()
-    for scheduler in ensure_tuple(state.schedulers):
+    for scheduler in state.schedulers:
         scheduler.step()
     state.step += 1
 
