@@ -83,20 +83,33 @@ class Checkpointer:
                  checkpoint_folder: str = "checkpoints",
                  checkpoint_interval: int = 1,
                  checkpoint_interval_unit: Optional[str] = None):
-        self.checkpoint_interval_unit = checkpoint_interval_unit
+        self._save_event = None
+        self.checkpoint_interval_unit = checkpoint_interval_unit  # sets the save event
         self.checkpoint_folder = checkpoint_folder
-        self.save_interval = checkpoint_interval
+        self.checkpoint_interval = checkpoint_interval
 
     @property
-    def _save_event(self):
-        if self.checkpoint_interval_unit is None:
-            raise RuntimeError("Checkpointing is diabled")
-        if self.checkpoint_interval_unit.lower() == "ep":
-            return Event.EPOCH_END
-        elif self.checkpoint_interval_unit.lower() == "it":
-            return Event.BATCH_END
-        else:
-            raise RuntimeError(f"Unknown checkpointing interval: {self.checkpoint_interval_unit}")
+    def checkpoint_interval_unit(self):
+        if self._save_event is None:
+            return None
+        if self._save_event == Event.EPOCH_END:
+            return "ep"
+        if self._save_event == Event.BATCH_END:
+            return "it"
+        raise RuntimeError(f"Invalid save event: {self._save_event}")
+
+    @checkpoint_interval_unit.setter
+    def checkpoint_interval_unit(self, checkpoint_interval_unit: Optional[str]):
+        if checkpoint_interval_unit is None:
+            self._save_event = None
+            return
+        if checkpoint_interval_unit.lower() == "ep":
+            self._save_event = Event.EPOCH_END
+            return
+        if checkpoint_interval_unit.lower() == "it":
+            self._save_event = Event.BATCH_END
+            return
+        raise RuntimeError(f"Invalid checkpoint_interval_unit: {checkpoint_interval_unit}")
 
     def should_checkpoint(self, state: State, event: Event) -> bool:
         """Given the current state and event, determine whether a checkpoint needs to be created.
@@ -112,9 +125,9 @@ class Checkpointer:
         if event != self._save_event:
             return False
         if self._save_event == Event.EPOCH_END:
-            return state.epoch % self.save_interval == 0
+            return state.epoch % self.checkpoint_interval == 0
         if self._save_event == Event.BATCH_END:
-            return state.step % self.save_interval == 0
+            return state.step % self.checkpoint_interval == 0
         return False
 
     def save_checkpoint(self, state: State, seed: int, device: Device, config: Optional[Dict[str, Any]] = None) -> None:

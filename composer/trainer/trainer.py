@@ -477,6 +477,11 @@ class Trainer:
         # No setter for device since it wouldn't make sense to change it
         return self._device
 
+    @device.setter
+    def device(self, device: None):
+        del device  # unused
+        raise AttributeError("To change the training device, instead create a new Trainer.")
+
     @property
     def grad_accum(self):
         """Gradient Accumulation"""
@@ -535,11 +540,11 @@ class Trainer:
 
     @property
     def checkpoint_interval(self):
-        return self._checkpointer.save_interval
+        return self._checkpointer.checkpoint_interval
 
     @checkpoint_interval.setter
     def checkpoint_interval(self, checkpoint_interval: int):
-        self._checkpointer.save_interval = checkpoint_interval
+        self._checkpointer.checkpoint_interval = checkpoint_interval
 
     @property
     def checkpoint_interval_unit(self):
