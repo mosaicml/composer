@@ -35,4 +35,5 @@ class GPT2Hparams(TransformerHparams):
             module=model,
             config=config,  #type: ignore (thirdparty)
             tokenizer_name=self.tokenizer_name,
+            gradient_checkpointing=self.gradient_checkpointing,
         )

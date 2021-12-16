@@ -28,11 +28,12 @@ class GPT2Model(MosaicTransformer):
             necessary to assert required model inputs.
     """
 
-    def __init__(self, module: transformers.GPT2Model, config: transformers.GPT2Config, tokenizer_name: str) -> None:
+    def __init__(self, module: transformers.GPT2Model, config: transformers.GPT2Config, tokenizer_name: str, gradient_checkpointing: bool = False) -> None:
         super().__init__(
             module=module,  #type: ignore (thirdparty)
             config=config,
-            tokenizer_name=tokenizer_name)
+            tokenizer_name=tokenizer_name,
+            gradient_checkpointing=gradient_checkpointing)
 
         # If we ever have algorithms that modify the loss function, then this might be a bit inefficient
         #  because it'll compute the expensive softmax operation twice.
