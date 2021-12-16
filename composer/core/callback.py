@@ -21,7 +21,7 @@ if TYPE_CHECKING:
 
 class Callback(Serializable, abc.ABC):
     """Base class for callbacks.
-    
+
     A callback is similar to an
     :class:`Algorithm`, in that
     they are run on specific events. By convention, Callbacks should not
@@ -30,7 +30,7 @@ class Callback(Serializable, abc.ABC):
     Callbacks can be implemented in two ways:
 
     #. Override the individual methods named for each :class:`Event`.
-        
+
     #. Override :meth:`_run_event` (**not** :meth:`run_event`) to run in response
        to all events. If this method is overridden, then the individual methods
        corresponding to each event name will not be automatically called (however,
@@ -56,12 +56,21 @@ class Callback(Serializable, abc.ABC):
         event_cb = getattr(self, event.value)
         return event_cb(state, logger)
 
+    def after_hparams(self, state: State, logger: Logger) -> None:
+        """Called on the :attr:`~Event.AFTER_HPARAMS` event.
+        Args:
+            state (State): The global state.
+            logger (Logger): The logger.
+        """
+        del state, logger  # unused
+        pass
+
     def init(self, state: State, logger: Logger) -> None:
         """Called on the :attr:`~Event.INIT` event.
         Args:
             state (State): The global state.
             logger (Logger): The logger.
-        
+
         """
         del state, logger  # unused
         pass
@@ -72,7 +81,7 @@ class Callback(Serializable, abc.ABC):
         Args:
             state (State): The global state.
             logger (Logger): The logger.
-        
+
         """
         del state, logger  # unused
         pass
@@ -83,7 +92,7 @@ class Callback(Serializable, abc.ABC):
         Args:
             state (State): The global state.
             logger (Logger): The logger.
-        
+
         """
         del state, logger  # unused
         pass
@@ -94,7 +103,7 @@ class Callback(Serializable, abc.ABC):
         Args:
             state (State): The global state.
             logger (Logger): The logger.
-        
+
         """
         del state, logger  # unused
         pass
@@ -105,7 +114,7 @@ class Callback(Serializable, abc.ABC):
         Args:
             state (State): The global state.
             logger (Logger): The logger.
-        
+
         """
         del state, logger  # unused
         pass
@@ -116,7 +125,7 @@ class Callback(Serializable, abc.ABC):
         Args:
             state (State): The global state.
             logger (Logger): The logger.
-        
+
         """
         del state, logger  # unused
         pass
@@ -127,7 +136,7 @@ class Callback(Serializable, abc.ABC):
         Args:
             state (State): The global state.
             logger (Logger): The logger.
-        
+
         """
         del state, logger  # unused
         pass
@@ -138,7 +147,7 @@ class Callback(Serializable, abc.ABC):
         Args:
             state (State): The global state.
             logger (Logger): The logger.
-        
+
         """
         del state, logger  # unused
         pass
@@ -149,7 +158,7 @@ class Callback(Serializable, abc.ABC):
         Args:
             state (State): The global state.
             logger (Logger): The logger.
-        
+
         """
         del state, logger  # unused
         pass
@@ -160,7 +169,7 @@ class Callback(Serializable, abc.ABC):
         Args:
             state (State): The global state.
             logger (Logger): The logger.
-        
+
         """
         del state, logger  # unused
         pass
@@ -171,7 +180,7 @@ class Callback(Serializable, abc.ABC):
         Args:
             state (State): The global state.
             logger (Logger): The logger.
-        
+
         """
         del state, logger  # unused
         pass
@@ -182,7 +191,7 @@ class Callback(Serializable, abc.ABC):
         Args:
             state (State): The global state.
             logger (Logger): The logger.
-        
+
         """
         del state, logger  # unused
         pass
@@ -193,7 +202,7 @@ class Callback(Serializable, abc.ABC):
         Args:
             state (State): The global state.
             logger (Logger): The logger.
-        
+
         """
         del state, logger  # unused
         pass
@@ -204,7 +213,7 @@ class Callback(Serializable, abc.ABC):
         Args:
             state (State): The global state.
             logger (Logger): The logger.
-        
+
         """
         del state, logger  # unused
         pass
@@ -215,7 +224,7 @@ class Callback(Serializable, abc.ABC):
         Args:
             state (State): The global state.
             logger (Logger): The logger.
-        
+
         """
         del state, logger  # unused
         pass
@@ -226,7 +235,7 @@ class Callback(Serializable, abc.ABC):
         Args:
             state (State): The global state.
             logger (Logger): The logger.
-        
+
         """
         del state, logger  # unused
         pass
@@ -237,7 +246,7 @@ class Callback(Serializable, abc.ABC):
         Args:
             state (State): The global state.
             logger (Logger): The logger.
-        
+
         """
         del state, logger  # unused
         pass
@@ -248,7 +257,7 @@ class Callback(Serializable, abc.ABC):
         Args:
             state (State): The global state.
             logger (Logger): The logger.
-        
+
         """
         del state, logger  # unused
         pass
@@ -259,7 +268,7 @@ class Callback(Serializable, abc.ABC):
         Args:
             state (State): The global state.
             logger (Logger): The logger.
-        
+
         """
         del state, logger  # unused
         pass
@@ -270,7 +279,7 @@ class Callback(Serializable, abc.ABC):
         Args:
             state (State): The global state.
             logger (Logger): The logger.
-        
+
         """
         del state, logger  # unused
         pass
@@ -281,7 +290,7 @@ class Callback(Serializable, abc.ABC):
         Args:
             state (State): The global state.
             logger (Logger): The logger.
-        
+
         """
         del state, logger  # unused
         pass
@@ -292,7 +301,7 @@ class Callback(Serializable, abc.ABC):
         Args:
             state (State): The global state.
             logger (Logger): The logger.
-        
+
         """
         del state, logger  # unused
         pass
@@ -324,7 +333,7 @@ class RankZeroCallback(Callback, abc.ABC):
 
     #. Override the individual methods named for each :class:`Event`. (See
        the parent class, :class:`Callback`.)
-        
+
     #. Override :meth:`_run_event` (**not** :meth:`run_event`) to run in response
        to all events. If this method is overridden, then the individual methods
        corresponding to each event name will not be automatically called (however,
