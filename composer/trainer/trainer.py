@@ -499,50 +499,14 @@ class Trainer:
                                       f"found {len(ensure_tuple(state.optimizers))} optimizers")
 
         assert isinstance(state.model, BaseMosaicModel)
-        #self.original_model = state.model
+        self.original_model = state.model
 
         # place the state, model in the proper devices
         if self.deepspeed_enabled:
             import deepspeed
 
+            deepspeed_config = self.deepspeed_hparams.initialize_object(state, self.grad_clip_norm)
             optimizer = ensure_tuple(state.optimizers)[0]
-
-            deepspeed_config: dict[str, Any] = {
-                "train_batch_size": state.train_batch_size,
-                "gradient_accumulation_steps": state.grad_accum,
-                "zero_optimization": {
-                    "stage": self.deepspeed_hparams.zero_stage,
-                    "allgather_bucket_size": self.deepspeed_hparams.zero2_bucket_size,
-                    "reduce_bucket_size": self.deepspeed_hparams.zero2_bucket_size,
-                    "overlap_comm": self.deepspeed_hparams.overlap_comm,
-                    #"stage3_max_live_parameters": 1e7,
-                    #"stage3_max_reuse_distance": 1e7,
-                    #"stage3_prefetch_bucket_size": 5e6,
-                    #"stage3_param_persistence_threshold": 1e4,
-                },
-            }
-
-            if self.deepspeed_hparams.optimizer_offload:
-                deepspeed_config["zero_optimization"]["offload_optimizer"] = {
-                    "device": "cpu",
-                }
-
-            if self.deepspeed_hparams.parameter_offload:
-                deepspeed_config["zero_optimization"]["offload_param"] = {
-                    "device": "cpu",
-                }
-
-            if self.deepspeed_hparams.gradient_checkpointing:
-                state.model.module.gradient_checkpointing_enable()
-
-            if state.precision == Precision.AMP:
-                deepspeed_config["amp"] = {"enabled": True}
-            elif state.precision == Precision.FP16:
-                deepspeed_config["fp16"] = {"enabled": True}
-
-            if self.grad_clip_norm:
-                deepspeed_config["gradient_clipping"] = self.grad_clip_norm
-
             (state.model, state.optimizers, _, _) = deepspeed.initialize(
                 config=deepspeed_config,
                 model=state.model,
@@ -757,10 +721,8 @@ class Trainer:
                 # loss
                 self.engine.run_event(Event.BEFORE_LOSS)
 
-                #with state.precision_context(state.precision):
-                #    state.loss = self.original_model.loss(state.outputs, state.batch)
-
-                state.loss = state.outputs['loss']
+                with state.precision_context(state.precision):
+                    state.loss = self.original_model.loss(state.outputs, state.batch)
 
                 # We always want to scale loss by the grad_accum before the backwards pass and
                 # also for sake of metrics. Complicating matters, the DeepSpeed engine does its
