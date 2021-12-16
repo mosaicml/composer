@@ -566,9 +566,6 @@ class Trainer:
                 assert state.train_dataloader, "Train Dataloader must be set"
                 for batch_idx, state.batch in enumerate(state.train_dataloader):
 
-                    if batch_idx > 50:
-                        break
-
                     # if resuming, skip dataloader forward to the minibatch index
                     if batch_idx < self.state.batch_idx:
                         if self.checkpoint_loader:
@@ -799,11 +796,7 @@ class Trainer:
 
             assert state.eval_dataloader is not None
 
-            i = 0
             for state.batch in state.eval_dataloader:
-                i += 1
-                if i > 50:
-                    break
                 self.engine.run_event(Event.EVAL_BATCH_START)
 
                 self.engine.run_event(Event.EVAL_BEFORE_FORWARD)
