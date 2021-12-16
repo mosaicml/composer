@@ -16,6 +16,8 @@ from composer.algorithms.cutmix import CutMix as CutMix
 from composer.algorithms.cutmix import CutMixHparams as CutMixHparams
 from composer.algorithms.cutout import CutOut as CutOut
 from composer.algorithms.cutout import CutOutHparams as CutOutHparams
+from composer.algorithms.dropblock import DropBlock as DropBlock
+from composer.algorithms.dropblock import DropBlockHparams as DropBlockHparams
 from composer.algorithms.dummy import Dummy as Dummy
 from composer.algorithms.dummy import DummyHparams as DummyHparams
 from composer.algorithms.ghost_batchnorm import GhostBatchNorm as GhostBatchNorm
