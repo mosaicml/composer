@@ -119,7 +119,6 @@ class Checkpointer:
         # to all processes on checkpoint resume.
         # This will be fixed by: https://github.com/mosaicml/composer/issues/12
         state_dict = {
-            'state': state.state_dict(),  # should be the same across all ranks. per-rank state not stored
             'rng': self._get_rng_state(device=device),  # stored across all ranks
             'seed': seed,
         }
@@ -127,6 +126,9 @@ class Checkpointer:
             # only rank 0 saves checkpoints
             # Need the check down here so all the DDP syncs will work for generating the checkpoint
             return
+
+        # we add the state only on rank 0 since other processes don't have loggers to serialize
+        state_dict['state'] = state.state_dict()  # should be the same across all ranks. per-rank state not stored
 
         if config:
             hparams_path = os.path.join(self.checkpoint_folder, "hparams.yaml")

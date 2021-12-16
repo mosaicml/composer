@@ -13,7 +13,8 @@ from composer.core.event import Event
 from composer.core.logging import Logger, LogLevel
 from composer.core.state import State
 from composer.loggers.file_logger import FileLoggerBackend
-from composer.loggers.logger_hparams import FileLoggerBackendHparams, TQDMLoggerBackendHparams
+from composer.loggers.logger_hparams import (FileLoggerBackendHparams, TQDMLoggerBackendHparams,
+                                             WandBLoggerBackendHparams)
 from composer.trainer.trainer_hparams import TrainerHparams
 
 
@@ -88,5 +89,17 @@ def test_tqdm_logger(mosaic_trainer_hparams: TrainerHparams, monkeypatch: Monkey
         assert mock_tqdm.update.call_count == trainer.state.steps_per_epoch
         mock_tqdm.close.assert_called_once()
     for mock_tqdm in is_train_to_mock_tqdms[False]:
-        assert mock_tqdm.update.call_count == len(trainer.state.eval_dataloader)
+        assert mock_tqdm.update.call_count == trainer._eval_subset_num_batches
         mock_tqdm.close.assert_called_once()
+
+
+@pytest.mark.parametrize("world_size", [
+    pytest.param(1),
+    pytest.param(2, marks=pytest.mark.world_size(2)),
+])
+@pytest.mark.timeout(10)
+def test_wandb_logger(mosaic_trainer_hparams: TrainerHparams, world_size: int, monkeypatch: MonkeyPatch):
+    del world_size  # unused. Set via launcher script
+    mosaic_trainer_hparams.loggers = [WandBLoggerBackendHparams(log_artifacts=True, log_artifacts_every_n_batches=1)]
+    trainer = mosaic_trainer_hparams.initialize_object()
+    trainer.fit()

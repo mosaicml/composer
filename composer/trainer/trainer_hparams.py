@@ -6,20 +6,22 @@ Example usage and definition of hparams
 from __future__ import annotations
 
 import os
+import textwrap
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, List, Optional
 
 import yahp as hp
 
 import composer
-import composer.datasets as datasets
+from composer import datasets
 from composer.algorithms import AlgorithmHparams, get_algorithm_registry
 from composer.callbacks import (BenchmarkerHparams, CallbackHparams, GradMonitorHparams, LRMonitorHparams,
-                                MemoryMonitorHparams, SpeedMonitorHparams, TorchProfilerHparams)
+                                MemoryMonitorHparams, RunDirectoryUploaderHparams, SpeedMonitorHparams,
+                                TorchProfilerHparams)
 from composer.core.types import Precision
 from composer.datasets import DataloaderHparams
-from composer.loggers import (BaseLoggerBackendHparams, FileLoggerBackendHparams, TQDMLoggerBackendHparams,
-                              WandBLoggerBackendHparams)
+from composer.loggers import (BaseLoggerBackendHparams, FileLoggerBackendHparams, MosaicMLLoggerBackendHparams,
+                              TQDMLoggerBackendHparams, WandBLoggerBackendHparams)
 from composer.models import (CIFARResNetHparams, EfficientNetB0Hparams, GPT2Hparams, MnistClassifierHparams,
                              ModelHparams, ResNet18Hparams, ResNet50Hparams, ResNet101Hparams, UnetHparams)
 from composer.optim import (AdamHparams, AdamWHparams, DecoupledAdamWHparams, DecoupledSGDWHparams, OptimizerHparams,
@@ -45,6 +47,7 @@ scheduler_registry = {
     "step": scheduler.StepLRHparams,
     "multistep": scheduler.MultiStepLRHparams,
     "exponential": scheduler.ExponentialLRHparams,
+    "linear_decay": scheduler.LinearLRHparams,
     "cosine_decay": scheduler.CosineAnnealingLRHparams,
     "cosine_warmrestart": scheduler.CosineAnnealingWarmRestartsHparams,
     "warmup": scheduler.WarmUpLRHparams,
@@ -66,7 +69,6 @@ dataset_registry = {
     "brats": datasets.BratsDatasetHparams,
     "imagenet": datasets.ImagenetDatasetHparams,
     "cifar10": datasets.CIFAR10DatasetHparams,
-    "synthetic": datasets.SyntheticDatasetHparams,
     "mnist": datasets.MNISTDatasetHparams,
     "lm": datasets.LMDatasetHparams,
 }
@@ -80,12 +82,14 @@ callback_registry = {
     "lr_monitor": LRMonitorHparams,
     "grad_monitor": GradMonitorHparams,
     "memory_monitor": MemoryMonitorHparams,
+    "run_directory_uploader": RunDirectoryUploaderHparams,
 }
 
 logger_registry = {
     "file": FileLoggerBackendHparams,
     "wandb": WandBLoggerBackendHparams,
     "tqdm": TQDMLoggerBackendHparams,
+    "mosaicml": MosaicMLLoggerBackendHparams,
 }
 
 device_registry = {
@@ -126,10 +130,11 @@ class TrainerHparams(hp.Hparams):
         template_default=10,
     )
 
-    total_batch_size: int = hp.required(
+    train_batch_size: int = hp.required(
         doc="batch size for each optimization step, across all devices and gradient accumulations.",
         template_default=2048,
     )
+
     eval_batch_size: int = hp.required(
         doc="batch size to use for each evaluation step",
         template_default=2048,
@@ -177,6 +182,13 @@ class TrainerHparams(hp.Hparams):
         "Defaults to `checkpoints`.",
         default="checkpoints")
 
+    train_subset_num_batches: Optional[int] = hp.optional(textwrap.dedent("""If specified,
+        finish every epoch early after training on this many batches."""),
+                                                          default=None)
+    eval_subset_num_batches: Optional[int] = hp.optional(textwrap.dedent("""If specified,
+        stop each evaluation after this many batches."""),
+                                                         default=None)
+
     deterministic_mode: bool = hp.optional(doc="Run the model deterministically. Experimental. Performance"
                                            "degradations expected. Certain Torch modules may not have"
                                            "deterministic implementations, which will result in a crash.",
@@ -201,9 +213,9 @@ class TrainerHparams(hp.Hparams):
 
         world_size = ddp.get_world_size()
 
-        if self.total_batch_size % world_size != 0:
+        if self.train_batch_size % world_size != 0:
             raise ValueError(
-                f"Batch size ({self.total_batch_size}) not divisible by the total number of processes ({world_size}).")
+                f"Batch size ({self.train_batch_size}) not divisible by the total number of processes ({world_size}).")
 
         if self.eval_batch_size % world_size != 0:
             raise ValueError(
@@ -219,15 +231,9 @@ class TrainerHparams(hp.Hparams):
 
         Args:
             datadir (str): The datadir
-        
-        Raises
-            AttributeError: Raised if either :attr:`train_dataset` or :attr:`val_dataset` do not
-            have a ``datadir`` property.
         """
-        if not hasattr(self.train_dataset, 'datadir') or not hasattr(self.val_dataset, 'datadir'):
-            raise AttributeError('Both the train and val dataset hparams must have the datadir attribute.')
-        setattr(self.train_dataset, 'datadir', datadir)
-        setattr(self.val_dataset, 'datadir', datadir)
+        self.train_dataset.datadir = datadir
+        self.val_dataset.datadir = datadir
 
     @classmethod
     def load(cls, model: str) -> TrainerHparams:
