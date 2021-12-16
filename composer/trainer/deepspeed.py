@@ -83,3 +83,5 @@ class DeepSpeedHparams(hp.Hparams):
 
         if grad_clip_norm:
             deepspeed_config["gradient_clipping"] = grad_clip_norm
+
+        return deepspeed_config

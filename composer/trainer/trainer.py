@@ -796,7 +796,11 @@ class Trainer:
 
             assert state.eval_dataloader is not None
 
+            i = 0
             for state.batch in state.eval_dataloader:
+                i += 1
+                if i > 50:
+                    break
                 self.engine.run_event(Event.EVAL_BATCH_START)
 
                 self.engine.run_event(Event.EVAL_BEFORE_FORWARD)
