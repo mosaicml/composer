@@ -28,7 +28,11 @@ class GPT2Model(MosaicTransformer):
             necessary to assert required model inputs.
     """
 
-    def __init__(self, module: transformers.GPT2Model, config: transformers.GPT2Config, tokenizer_name: str, gradient_checkpointing: bool = False) -> None:
+    def __init__(self,
+                 module: transformers.GPT2Model,
+                 config: transformers.GPT2Config,
+                 tokenizer_name: str,
+                 gradient_checkpointing: bool = False) -> None:
         super().__init__(
             module=module,  #type: ignore (thirdparty)
             config=config,
