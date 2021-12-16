@@ -27,6 +27,12 @@ class CheckpointLoaderHparams(hp.Hparams):
                 "Strict cannot be used when load_weights_only is true. Restoring a checkpoint from previous state assumes that the checkpoint should perfectly match the model."
             )
 
+    def validate(self):
+        if not self.load_weights_only and self.strict:
+            raise ValueError(
+                "Strict cannot be used when load_weights_only is true. Otherwise, restoring a checkpoint from previous state assumes that the checkpoint should perfectly match the model."
+            )
+
     def initialize_object(self) -> CheckpointLoader:
         return CheckpointLoader(checkpoint_filepath=self.filepath,
                                 load_weights_only=self.load_weights_only,
