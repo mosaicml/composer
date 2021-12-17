@@ -51,7 +51,7 @@ class BERTModel(MosaicTransformer):
             self.train_metrics.extend([self.train_f1])
             self.val_metrics.extend([self.val_f1])
 
-        if config.num_labels > 1:
+        if config.num_labels > 1 and config.num_labels != len(self.tokenizer):
             self.train_acc = Accuracy()
             self.val_acc = Accuracy()
 
@@ -60,6 +60,12 @@ class BERTModel(MosaicTransformer):
 
             self.train_metrics.extend([self.train_acc, self.train_matthews])
             self.val_metrics.extend([self.val_acc, self.val_matthews])
+
+        # if config.num_labels == len(self.tokenizer):
+        # self.train_acc = Accuracy(ignore_index=-100)
+        # self.val_acc = Accuracy(ignore_index=-100)
+        # self.train_metrics.extend([self.train_acc])
+        # self.val_metrics.extend([self.val_acc])
 
     def loss(self, outputs: Mapping, batch: Batch) -> Tensors:
         if outputs.get('loss', None) is not None:
@@ -81,16 +87,23 @@ class BERTModel(MosaicTransformer):
 
         assert self.training is False, "For validation, model must be in eval mode"
 
-        # we remove the loss from the forward pass inputs so we can calculate it independently
-        labels = batch.pop('labels')
+        # temporary hack until eval on multiple datasets is finished
+        if self.config.num_labels != len(self.tokenizer):
+            # we remove the loss from the forward pass inputs so we can calculate it independently
+            labels = batch.pop('labels')
         output = self.forward(batch)
-        output = output['logits']
 
-        # if we are in the single class case, then remove the dimension for downstream metrics
-        if output.shape[1] == 1:
-            output = output.squeeze()
+        # temporary hack until eval on multiple datasets is finished
+        if self.config.num_labels != len(self.tokenizer):
+            output = output['logits']
 
-        return (output, labels)
+            # if we are in the single class case, then remove the dimension for downstream metrics
+            if output.shape[1] == 1:
+                output = output.squeeze()
+
+            return (output, labels)
+        else:
+            return (output, None)
 
     def metrics(self, train: bool = False) -> Metrics:
         return MetricCollection(self.train_metrics) if train else MetricCollection(self.val_metrics)

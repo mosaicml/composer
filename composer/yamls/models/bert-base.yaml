@@ -30,28 +30,28 @@ val_dataset:
     val_sequence_length: 128 
 model:
   bert:
-    task: masked_lm
     use_pretrained: false
     tokenizer_name: bert-base-uncased
     pretrained_model_name: bert-base-uncased
 optimizer:
-  adamw:
-    lr: 1.0e-3
+  decoupled_adamw:  # TODO: use decoupled-adamw
+    lr: 1.0e-3  # ABlATE
     betas:
       - 0.9
-      - 0.999
+      - 0.98
     eps: 1.0e-06
-    weight_decay: 1.0e-2 
+    weight_decay: 1.0e-5 
 schedulers:
   - warmup:
       warmup_method: linear
+      warmup_iters: 0.06dur
       warmup_factor: 0
       interval: step
-      warmup_iters: 630ba
-  - cosine_decay:
-      T_max: 63000ba 
+  - linear_decay:
+      start_factor: 1.0
+      end_factor: 0.0
+      total_iters: 0.94dur
       interval: step
-      eta_min: 0
       verbose: false
 loggers:
   - file:
@@ -65,13 +65,13 @@ loggers:
       project: bert
       name: bert-base
       extra_init_params: {}
-max_epochs: 4
-total_batch_size: 2000 
-eval_batch_size: 2000
+  - tqdm: {}
+max_epochs: 6  # Baseline is 256M samples, 6 epochs is ~240M samples
+train_batch_size: 2000  # sweep these: 1024, 2048, 4096 
+eval_batch_size: 2000  # sweep these: 1024, 2048, 4096
 seed: 19
 device:
-  gpu:
-    prefetch_in_cuda_stream: false
+  gpu: {}
 dataloader:
   pin_memory: true
   persistent_workers: true
@@ -81,5 +81,8 @@ dataloader:
 grad_accum: 1
 precision: amp
 grad_clip_norm: None
-validate_every_n_batches: 1000 
+validate_every_n_batches: 1000  # TODO: fix this to every 1% of training 
 validate_every_n_epochs: 1
+checkpoint_folder: bert_checkpoints
+checkpoint_interval: 1
+checkpoint_interval_unit: ep 
