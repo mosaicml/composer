@@ -310,7 +310,10 @@ class Trainer:
             if self.deepspeed_enabled:
                 raise NotImplementedError("Checkpointing is not yet supported with DeepSpeed.")
             self.checkpoint_loader = CheckpointLoader(checkpoint_filepath=checkpoint_filepath)
-            self.checkpoint_loader.load_checkpoint(state=self.state)
+            restored_seed = self.checkpoint_loader.load_checkpoint(state=self.state)
+            if restored_seed is not None:
+                # Set the restored seed so that the correct seed will be saved in future checkpoints
+                self.seed = restored_seed
 
     @classmethod
     def create_from_hparams(cls, hparams: TrainerHparams) -> Trainer:

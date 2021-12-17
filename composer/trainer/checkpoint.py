@@ -36,11 +36,15 @@ class CheckpointLoader:
         self.checkpoint_rng_state = self._get_checkpoint_rng_state(state, self.state_dict["rng"])
 
         if "seed" in self.state_dict:
-            assert ddp.get_world_size() == len(self.state_dict["seed"]), \
-                f"invariant violation: if the seed is being restored, then" \
-                "the world size should be the same as in the checkpoint."
-
-            seed_all(self.state_dict["seed"][ddp.get_global_rank()])
+            world_size = ddp.get_world_size()
+            checkpointed_world_size = len(self.state_dict["seed"])
+            if world_size != checkpointed_world_size:
+                warnings.warn(f"Current world size {world_size} does not match the checkpointed world size "
+                              f"{checkpointed_world_size}. The seed will not be restored.")
+                return
+            seed_to_restore = self.state_dict["seed"][ddp.get_global_rank()]
+            seed_all(seed_to_restore)
+            return seed_to_restore
 
     def restore_checkpoint_rng_state(self, state: State, device: Device):
         """Restore the state of all RNG objects in this context from the loaded checkpoint's data.
@@ -112,6 +116,7 @@ class Checkpointer:
 
         Args:
             state (State): The current State of the trainer.
+            seed (int): The seed used for random number generation.
             device (Device): The Device in use by this process.
             ddp (DDP): The DDP engine in use by this trainer.
             config (Optional[Dict[str, Any]]): The hparams used to initialize this trainer, if any.
