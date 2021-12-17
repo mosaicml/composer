@@ -39,13 +39,13 @@ def test_load(model_name: str):
     if not isinstance(trainer_hparams.train_dataset, SyntheticHparamsMixin):
         pytest.skip(f"Model {model_name} uses a train dataset that doesn't support synthetic")
     assert isinstance(trainer_hparams.train_dataset, SyntheticHparamsMixin)
-    trainer_hparams.train_dataset.subset_num_batches = 1
+    trainer_hparams.train_subset_num_batches = 1
     trainer_hparams.train_dataset.use_synthetic = True
 
     if not isinstance(trainer_hparams.val_dataset, SyntheticHparamsMixin):
         pytest.skip(f"Model {model_name} uses a val dataset that doesn't support synthetic")
     assert isinstance(trainer_hparams.val_dataset, SyntheticHparamsMixin)
-    trainer_hparams.val_dataset.subset_num_batches = 1
+    trainer_hparams.eval_subset_num_batches = 1
     trainer_hparams.val_dataset.use_synthetic = True
 
     trainer_hparams.device = CPUDeviceHparams()
@@ -61,11 +61,11 @@ def test_scale_schedule_load(ssr: str):
     algs = [f"scale_schedule/{ssr}"]
     trainer_hparams.algorithms = algorithms.load_multiple(*algs)
     assert isinstance(trainer_hparams.train_dataset, SyntheticHparamsMixin)
-    trainer_hparams.train_dataset.subset_num_batches = 1
+    trainer_hparams.train_subset_num_batches = 1
     trainer_hparams.train_dataset.use_synthetic = True
 
     assert isinstance(trainer_hparams.val_dataset, SyntheticHparamsMixin)
-    trainer_hparams.val_dataset.subset_num_batches = 1
+    trainer_hparams.eval_subset_num_batches = 1
     trainer_hparams.val_dataset.use_synthetic = True
     trainer_hparams.device = CPUDeviceHparams()
     assert len(trainer_hparams.algorithms) == 1

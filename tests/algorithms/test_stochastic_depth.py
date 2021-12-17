@@ -22,7 +22,6 @@ def dummy_state(dummy_dataloader_hparams: DataloaderHparams):
     model = ResNet50Hparams(num_classes=100).initialize_object()
     dataset_hparams = ImagenetDatasetHparams(
         use_synthetic=True,
-        subset_num_batches=10000,
         drop_last=True,
         shuffle=False,
         resize_size=256,
@@ -31,16 +30,15 @@ def dummy_state(dummy_dataloader_hparams: DataloaderHparams):
     train_dataloader = dataset_hparams.initialize_object(batch_size=100, dataloader_hparams=dummy_dataloader_hparams)
     if isinstance(train_dataloader, DataloaderSpec):
         train_dataloader = train_dataloader.dataloader
-    return State(epoch=50,
-                 step=50,
-                 train_dataloader=train_dataloader,
-                 train_batch_size=100,
-                 eval_batch_size=100,
-                 grad_accum=1,
-                 max_epochs=100,
-                 model=model,
-                 eval_dataloader=train_dataloader,
-                 precision=Precision.FP32)
+    state = State(train_dataloader=train_dataloader,
+                  grad_accum=1,
+                  max_epochs=100,
+                  model=model,
+                  eval_dataloader=train_dataloader,
+                  precision=Precision.FP32)
+    state.epoch = 50
+    state.step = 50
+    return state
 
 
 @pytest.mark.parametrize('stochastic_method', ['block', 'sample'])

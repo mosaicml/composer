@@ -6,6 +6,7 @@ Example usage and definition of hparams
 from __future__ import annotations
 
 import os
+import textwrap
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, List, Optional
 
@@ -19,8 +20,8 @@ from composer.callbacks import (BenchmarkerHparams, CallbackHparams, GradMonitor
                                 TorchProfilerHparams)
 from composer.core.types import Precision
 from composer.datasets import DataloaderHparams
-from composer.loggers import (BaseLoggerBackendHparams, FileLoggerBackendHparams, TQDMLoggerBackendHparams,
-                              WandBLoggerBackendHparams)
+from composer.loggers import (BaseLoggerBackendHparams, FileLoggerBackendHparams, MosaicMLLoggerBackendHparams,
+                              TQDMLoggerBackendHparams, WandBLoggerBackendHparams)
 from composer.models import (CIFARResNetHparams, DeepLabV3Hparams, EfficientNetB0Hparams, GPT2Hparams,
                              MnistClassifierHparams, ModelHparams, ResNet18Hparams, ResNet50Hparams, ResNet101Hparams,
                              UnetHparams)
@@ -47,6 +48,7 @@ scheduler_registry = {
     "step": scheduler.StepLRHparams,
     "multistep": scheduler.MultiStepLRHparams,
     "exponential": scheduler.ExponentialLRHparams,
+    "linear_decay": scheduler.LinearLRHparams,
     "cosine_decay": scheduler.CosineAnnealingLRHparams,
     "cosine_warmrestart": scheduler.CosineAnnealingWarmRestartsHparams,
     "warmup": scheduler.WarmUpLRHparams,
@@ -90,6 +92,7 @@ logger_registry = {
     "file": FileLoggerBackendHparams,
     "wandb": WandBLoggerBackendHparams,
     "tqdm": TQDMLoggerBackendHparams,
+    "mosaicml": MosaicMLLoggerBackendHparams,
 }
 
 device_registry = {
@@ -130,10 +133,11 @@ class TrainerHparams(hp.Hparams):
         template_default=10,
     )
 
-    total_batch_size: int = hp.required(
+    train_batch_size: int = hp.required(
         doc="batch size for each optimization step, across all devices and gradient accumulations.",
         template_default=2048,
     )
+
     eval_batch_size: int = hp.required(
         doc="batch size to use for each evaluation step",
         template_default=2048,
@@ -181,13 +185,24 @@ class TrainerHparams(hp.Hparams):
         "Defaults to `checkpoints`.",
         default="checkpoints")
 
+    train_subset_num_batches: Optional[int] = hp.optional(textwrap.dedent("""If specified,
+        finish every epoch early after training on this many batches."""),
+                                                          default=None)
+    eval_subset_num_batches: Optional[int] = hp.optional(textwrap.dedent("""If specified,
+        stop each evaluation after this many batches."""),
+                                                         default=None)
+
     deterministic_mode: bool = hp.optional(doc="Run the model deterministically. Experimental. Performance"
                                            "degradations expected. Certain Torch modules may not have"
                                            "deterministic implementations, which will result in a crash.",
                                            default=False)
 
     compute_training_metrics: bool = hp.optional(doc="Log validation metrics on training data", default=False)
-    log_level: str = hp.optional(doc="Python loglevel to use composer", default="INFO")
+    log_level: str = hp.optional(doc="Python loglevel to use composer", default="WARNING")
+    datadir: Optional[str] = hp.optional(doc=textwrap.dedent("""
+        Datadir to apply for both the training and validation datasets. If specified,
+        it will override train_dataset.datadir and val_dataset.datadir"""),
+                                         default=None)
 
     def validate(self):
         super().validate()
@@ -205,9 +220,9 @@ class TrainerHparams(hp.Hparams):
 
         world_size = ddp.get_world_size()
 
-        if self.total_batch_size % world_size != 0:
+        if self.train_batch_size % world_size != 0:
             raise ValueError(
-                f"Batch size ({self.total_batch_size}) not divisible by the total number of processes ({world_size}).")
+                f"Batch size ({self.train_batch_size}) not divisible by the total number of processes ({world_size}).")
 
         if self.eval_batch_size % world_size != 0:
             raise ValueError(
@@ -217,15 +232,6 @@ class TrainerHparams(hp.Hparams):
     def initialize_object(self) -> Trainer:
         from composer.trainer.trainer import Trainer
         return Trainer.create_from_hparams(hparams=self)
-
-    def set_datadir(self, datadir: str) -> None:
-        """Override the ``datadir`` property in the :attr:`train_dataset` and :attr:`val_dataset`.
-
-        Args:
-            datadir (str): The datadir
-        """
-        self.train_dataset.datadir = datadir
-        self.val_dataset.datadir = datadir
 
     @classmethod
     def load(cls, model: str) -> TrainerHparams:

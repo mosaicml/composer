@@ -56,9 +56,8 @@ def dummy_train_dataset_hparams(dummy_model: SimpleBatchPairModel,
                                 SimpleDatasetHparams: Type[_SimpleDatasetHparams]) -> DatasetHparams:
     return SimpleDatasetHparams(
         use_synthetic=True,
-        subset_num_batches=4,
         drop_last=True,
-        shuffle=True,
+        shuffle=False,
         num_classes=dummy_model.num_classes,
         data_shape=list(dummy_model.in_shape),
     )
@@ -69,7 +68,6 @@ def dummy_val_dataset_hparams(dummy_model: SimpleBatchPairModel,
                               SimpleDatasetHparams: Type[_SimpleDatasetHparams]) -> DatasetHparams:
     return SimpleDatasetHparams(
         use_synthetic=True,
-        subset_num_batches=4,
         drop_last=False,
         shuffle=False,
         num_classes=dummy_model.num_classes,
@@ -78,20 +76,19 @@ def dummy_val_dataset_hparams(dummy_model: SimpleBatchPairModel,
 
 
 @pytest.fixture()
-def dummy_state_without_rank(dummy_model: SimpleBatchPairModel, dummy_train_batch_size: int, dummy_val_batch_size: int,
-                             dummy_train_dataloader: DataLoader, dummy_val_dataloader: DataLoader) -> State:
+def dummy_state_without_rank(dummy_model: SimpleBatchPairModel, dummy_train_dataloader: DataLoader,
+                             dummy_val_dataloader: DataLoader) -> State:
     state = State(
         model=dummy_model,
-        epoch=5,
-        step=50,
         precision=Precision.FP32,
         grad_accum=1,
-        train_batch_size=dummy_train_batch_size,
-        eval_batch_size=dummy_val_batch_size,
         train_dataloader=dummy_train_dataloader,
         eval_dataloader=dummy_val_dataloader,
         max_epochs=10,
     )
+    state.epoch = 5
+    state.step = 50
+
     return state
 
 
@@ -175,7 +172,7 @@ def mosaic_trainer_hparams(
         schedulers=[ExponentialLRHparams(gamma=0.1)],
         max_epochs=2,
         precision=Precision.FP32,
-        total_batch_size=dummy_train_batch_size,
+        train_batch_size=dummy_train_batch_size,
         eval_batch_size=dummy_val_batch_size,
         dataloader=DataloaderHparams(
             num_workers=0,
@@ -190,6 +187,8 @@ def mosaic_trainer_hparams(
         val_dataset=dummy_val_dataset_hparams,
         train_dataset=dummy_train_dataset_hparams,
         grad_accum=1,
+        train_subset_num_batches=3,
+        eval_subset_num_batches=3,
     )
 
 
@@ -201,10 +200,6 @@ def simple_conv_model_input():
 @pytest.fixture()
 def state_with_model(simple_conv_model: Model, dummy_train_dataloader: DataLoader, dummy_val_dataloader: DataLoader):
     state = State(
-        epoch=50,
-        step=50,
-        train_batch_size=100,
-        eval_batch_size=100,
         grad_accum=1,
         max_epochs=100,
         model=simple_conv_model,
@@ -212,6 +207,8 @@ def state_with_model(simple_conv_model: Model, dummy_train_dataloader: DataLoade
         train_dataloader=dummy_train_dataloader,
         eval_dataloader=dummy_val_dataloader,
     )
+    state.epoch = 50
+    state.step = 50
     return state
 
 

@@ -44,9 +44,9 @@ def test_trainer_init_additional_args(dummy_train_dataloader: DataLoader, dummy_
     )
 
     assert isinstance(trainer, Trainer)
-    assert isinstance(trainer.state.optimizers, Adam)
+    assert isinstance(trainer.state.optimizers[0], Adam)
 
-    assert isinstance(trainer.state.schedulers, ComposedScheduler)
+    assert isinstance(trainer.state.schedulers[0], ComposedScheduler)
 
     assert len(trainer.logger.backends) == 1
     assert isinstance(trainer.logger.backends[0], TQDMLoggerBackend)
@@ -100,17 +100,14 @@ def test_trainer_determinism(mosaic_trainer_hparams: TrainerHparams):
     pytest.param(1),
     pytest.param(2, marks=pytest.mark.world_size(2)),
 ])
-@pytest.mark.parametrize("device_hparams", [
-    pytest.param(CPUDeviceHparams(), id="cpu"),
-    pytest.param(GPUDeviceHparams(), id="gpu", marks=pytest.mark.gpu),
+@pytest.mark.parametrize("device_hparams,precision", [
+    pytest.param(CPUDeviceHparams(), Precision.FP32, id="cpu"),
+    pytest.param(GPUDeviceHparams(), Precision.FP32, id="gpu-fp32", marks=pytest.mark.gpu),
+    pytest.param(GPUDeviceHparams(), Precision.AMP, id="gpu-amp", marks=pytest.mark.gpu),
 ])
 @pytest.mark.parametrize("grad_accum", [
     pytest.param(1, id="ga1"),
     pytest.param(2, id="ga2"),
-])
-@pytest.mark.parametrize("precision", [
-    pytest.param(Precision.FP32, id="fp32"),
-    pytest.param(Precision.AMP, id="amp"),
 ])
 def test_trainer_fit(mosaic_trainer_hparams: TrainerHparams, device_hparams: DeviceHparams, world_size: int,
                      grad_accum: int, precision: Precision):
@@ -118,9 +115,5 @@ def test_trainer_fit(mosaic_trainer_hparams: TrainerHparams, device_hparams: Dev
     mosaic_trainer_hparams.device = device_hparams
     mosaic_trainer_hparams.grad_accum = grad_accum
     mosaic_trainer_hparams.precision = precision
-
-    # Not supported
-    if precision == Precision.AMP and isinstance(device_hparams, CPUDeviceHparams):
-        return
 
     train_model(mosaic_trainer_hparams, max_epochs=2, run_loss_check=True)

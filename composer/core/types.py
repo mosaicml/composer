@@ -140,9 +140,9 @@ class DataLoader(Protocol):
 Metrics = Union[Metric, MetricCollection]
 
 Optimizer = torch.optim.Optimizer
-Optimizers = Union[Optimizer, Tuple[Optimizer, ...]]
+Optimizers = Union[Optimizer, Tuple[Optimizer, ...], List[Optimizer]]
 Scheduler = torch.optim.lr_scheduler._LRScheduler
-Schedulers = Union[Scheduler, Tuple[Scheduler, ...]]
+Schedulers = Union[Scheduler, Tuple[Scheduler, ...], List[Scheduler]]
 
 Scaler = torch.cuda.amp.grad_scaler.GradScaler
 
