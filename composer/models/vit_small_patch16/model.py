@@ -2,8 +2,8 @@
 
 from typing import List, Optional
 
-from composer.models.model_hparams import Initializer
 from composer.models.base import MosaicClassifier
+from composer.models.model_hparams import Initializer
 
 
 class ViTSmallPatch16(MosaicClassifier):
@@ -28,5 +28,6 @@ class ViTSmallPatch16(MosaicClassifier):
                     depth=12,  # layers
                     heads=6,
                     mlp_dim=1536,
+                    dropout=0.1
                     )
         super().__init__(module=model)

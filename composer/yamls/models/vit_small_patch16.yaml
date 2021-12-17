@@ -15,21 +15,22 @@ val_dataset:
     shuffle: false
     drop_last: false
 optimizer:
-  decoupled_sgdw:
-    lr: 2.048
-    momentum: 0.875
-    weight_decay: 5.0e-4
-    dampening: 0
-    nesterov: false
+  adamw:
+    lr: 3e-3
+    betas:
+      - 0.9
+      - 0.999
+    eps: 1.0e-08
+    weight_decay: 0.3
 schedulers:
   - warmup:
-      warmup_iters: "8ep"
+      warmup_iters: "30ep"
       warmup_method: linear
       warmup_factor: 0
       verbose: false
       interval: step
   - cosine_decay:
-      T_max: "82ep"
+      T_max: "270ep"
       eta_min: 0
       verbose: false
       interval: step
@@ -38,10 +39,10 @@ model:
     num_classes: 1000
 loggers:
   - tqdm: {}
-max_epochs: 1
-total_batch_size: 2048
-eval_batch_size: 2048
-seed: 17
+max_epochs: 300
+total_batch_size: 512
+eval_batch_size: 512
+seed: 1337
 device:
   gpu: {}
 dataloader:
@@ -51,5 +52,6 @@ dataloader:
   persistent_workers: true
   num_workers: 8
 validate_every_n_epochs: 1
-grad_accum: 1
+grad_accum: 8
+grad_clip_norm: 1.0
 precision: amp
