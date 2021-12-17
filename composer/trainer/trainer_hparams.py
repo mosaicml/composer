@@ -21,7 +21,7 @@ from composer.core.types import Precision
 from composer.datasets import DataloaderHparams
 from composer.loggers import (BaseLoggerBackendHparams, FileLoggerBackendHparams, TQDMLoggerBackendHparams,
                               WandBLoggerBackendHparams)
-from composer.models import (CIFARResNetHparams, DeepLabv3Hparams, EfficientNetB0Hparams, GPT2Hparams,
+from composer.models import (CIFARResNetHparams, DeepLabV3Hparams, EfficientNetB0Hparams, GPT2Hparams,
                              MnistClassifierHparams, ModelHparams, ResNet18Hparams, ResNet50Hparams, ResNet101Hparams,
                              UnetHparams)
 from composer.optim import (AdamHparams, AdamWHparams, DecoupledAdamWHparams, DecoupledSGDWHparams, OptimizerHparams,
@@ -55,7 +55,7 @@ scheduler_registry = {
 
 model_registry = {
     "unet": UnetHparams,
-    "deeplabv3": DeepLabv3Hparams,
+    "deeplabv3": DeepLabV3Hparams,
     "efficientnetb0": EfficientNetB0Hparams,
     "resnet56_cifar10": CIFARResNetHparams,
     "resnet101": ResNet101Hparams,

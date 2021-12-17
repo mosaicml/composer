@@ -6,7 +6,7 @@ from composer.models.model_hparams import ModelHparams
 
 
 @dataclass
-class DeepLabv3Hparams(ModelHparams):
+class DeepLabV3Hparams(ModelHparams):
     """This class specifies arguments for a DeepLabV3 model and can instantiate a DeepLabV3 model.
     """
     backbone_arch: str = hp.optional("The backbone architecture to use. Must be either ['resnet50', resnet101']",
