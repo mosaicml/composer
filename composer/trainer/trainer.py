@@ -378,7 +378,7 @@ class Trainer:
             (set to {hparams.eval_subset_num_batches}), val_dataset.shuffle should be set to False. Otherwise,
             each evaluation epoch may load a different subset of samples."""))
         eval_dataloader = hparams.val_dataset.initialize_object(eval_device_batch_size, hparams.dataloader)
-        checkpoint_loader = hparams.checkpoint_loader.initialize_object()
+        checkpoint_loader = hparams.checkpoint_loader.initialize_object() if hparams.checkpoint_loader else None
 
         # Checkpoint loading hparams
         checkpoint_filepath = hparams.load_checkpoint.filepath if hparams.load_checkpoint is not None else None
