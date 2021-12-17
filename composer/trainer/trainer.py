@@ -172,6 +172,7 @@ class Trainer:
         self.config = config
 
         self.deepspeed_enabled = deepspeed_hparams and deepspeed_hparams.enabled
+        self.deepspeed_hparams = deepspeed_hparams
 
         if not device:
             device = DeviceCPU() if not self.deepspeed_enabled else DeviceGPU()
@@ -522,21 +523,9 @@ class Trainer:
         if self.deepspeed_enabled:
             import deepspeed
 
+            assert self.deepspeed_hparams is not None
+            deepspeed_config = self.deepspeed_hparams.initialize_object(state, self.grad_clip_norm)
             optimizer = ensure_tuple(state.optimizers)[0]
-
-            deepspeed_config: dict[str, Any] = {
-                "train_batch_size": state.train_batch_size,
-                "gradient_accumulation_steps": state.grad_accum,
-            }
-
-            if state.precision == Precision.AMP:
-                deepspeed_config["amp"] = {"enabled": True}
-            elif state.precision == Precision.FP16:
-                deepspeed_config["fp16"] = {"enabled": True}
-
-            if self.grad_clip_norm:
-                deepspeed_config["gradient_clipping"] = self.grad_clip_norm
-
             (state.model, state.optimizers, _, _) = deepspeed.initialize(
                 config=deepspeed_config,
                 model=state.model,
@@ -556,7 +545,9 @@ class Trainer:
             log.warn('Computing model evaluation metrics during training.'
                      ' This doubles the number of forward passes and may lead'
                      ' to a throughput degradation.')
-        train_metrics = self._get_metrics_as_collection(is_train=True)
+            train_metrics = self._get_metrics_as_collection(is_train=True)
+        else:
+            train_metrics = None
 
         self.engine.run_event(Event.TRAINING_START)
 
@@ -609,6 +600,7 @@ class Trainer:
 
                     if self.compute_training_metrics:
                         # compute metrics on the training set
+                        assert train_metrics is not None
                         state.model.eval()
                         with torch.no_grad():
                             eval_microbatches = self.train_split_fn(state.batch, state.grad_accum)
@@ -662,6 +654,7 @@ class Trainer:
                         self.logger.metric_batch({'loss/train': full_loss / ddp.get_world_size()})
 
                     if self.compute_training_metrics:
+                        assert train_metrics is not None
                         self._compute_and_log_metrics(train_metrics, is_train=True, is_batch=True)
 
                     self.engine.run_event(Event.BATCH_END)

@@ -30,8 +30,11 @@ class MosaicTransformer(BaseMosaicModel):
             necessary to assert required model inputs.
     """
 
-    def __init__(self, module: transformers.PreTrainedModel, config: transformers.PretrainedConfig,
-                 tokenizer_name: str) -> None:
+    def __init__(self,
+                 module: transformers.PreTrainedModel,
+                 config: transformers.PretrainedConfig,
+                 tokenizer_name: str,
+                 gradient_checkpointing: bool = False) -> None:
         super().__init__()
         import transformers
 
@@ -51,6 +54,9 @@ class MosaicTransformer(BaseMosaicModel):
         # define metrics for measurements
         self.train_loss = LanguageCrossEntropyLoss()
         self.val_loss = LanguageCrossEntropyLoss()
+
+        if gradient_checkpointing:
+            self.module.gradient_checkpointing_enable()  # type: ignore
 
     def loss(self, outputs: Mapping, batch: Batch) -> Tensors:
         """Computes the loss of the tensor from the output.
