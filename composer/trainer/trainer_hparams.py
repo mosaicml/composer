@@ -195,7 +195,11 @@ class TrainerHparams(hp.Hparams):
                                            default=False)
 
     compute_training_metrics: bool = hp.optional(doc="Log validation metrics on training data", default=False)
-    log_level: str = hp.optional(doc="Python loglevel to use composer", default="INFO")
+    log_level: str = hp.optional(doc="Python loglevel to use composer", default="WARNING")
+    datadir: Optional[str] = hp.optional(doc=textwrap.dedent("""
+        Datadir to apply for both the training and validation datasets. If specified,
+        it will override train_dataset.datadir and val_dataset.datadir"""),
+                                         default=None)
 
     def validate(self):
         super().validate()
@@ -225,15 +229,6 @@ class TrainerHparams(hp.Hparams):
     def initialize_object(self) -> Trainer:
         from composer.trainer.trainer import Trainer
         return Trainer.create_from_hparams(hparams=self)
-
-    def set_datadir(self, datadir: str) -> None:
-        """Override the ``datadir`` property in the :attr:`train_dataset` and :attr:`val_dataset`.
-
-        Args:
-            datadir (str): The datadir
-        """
-        self.train_dataset.datadir = datadir
-        self.val_dataset.datadir = datadir
 
     @classmethod
     def load(cls, model: str) -> TrainerHparams:

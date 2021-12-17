@@ -73,7 +73,7 @@ Here are several ways to use the trainer:
        # edit other properties in the hparams object
        hparams.precision = Precision.FP32
        hparams.grad_accum = 2
-       hparams.set_datadir("~/datasets")
+       hparams.datadir = "~/datasets"
 
        trainer = Trainer.create_from_hparams(hparams)
        trainer.fit()
@@ -97,7 +97,7 @@ Here are several ways to use the trainer:
         from composer.trainer import TrainerHparams, Trainer
 
         hparams = TrainerHparams.create('composer/yamls/models/classify_mnist_cpu.yaml')
-        hparams.set_datadir("~/datasets")
+        hparams.datadir = "~/datasets"
         trainer = Trainer.create_from_hparams(hparams)
 
         trainer.fit()
