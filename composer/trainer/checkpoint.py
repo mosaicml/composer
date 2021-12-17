@@ -36,7 +36,11 @@ class CheckpointLoader:
         self.checkpoint_rng_state = self._get_checkpoint_rng_state(state, self.state_dict["rng"])
 
         if "seed" in self.state_dict:
-            seed_all(self.state_dict["seed"])
+            assert ddp.get_world_size() == len(self.state_dict["seed"]), \
+                f"invariant violation: if the seed is being restored, then" \
+                "the world size should be the same as in the checkpoint."
+
+            seed_all(self.state_dict["seed"][ddp.get_global_rank()])
 
     def restore_checkpoint_rng_state(self, state: State, device: Device):
         """Restore the state of all RNG objects in this context from the loaded checkpoint's data.
@@ -112,15 +116,9 @@ class Checkpointer:
             ddp (DDP): The DDP engine in use by this trainer.
             config (Optional[Dict[str, Any]]): The hparams used to initialize this trainer, if any.
         """
-
-        # Store the rank0 seed, if the seed was provided on trainer init
-        # then this is the same seed on all processes
-        # If the seed was not provided, then the rank0 seed will be copied
-        # to all processes on checkpoint resume.
-        # This will be fixed by: https://github.com/mosaicml/composer/issues/12
         state_dict = {
             'rng': self._get_rng_state(device=device),  # stored across all ranks
-            'seed': seed,
+            'seed': ddp.all_gather_object(seed),
         }
         if ddp.get_global_rank() != 0:
             # only rank 0 saves checkpoints
