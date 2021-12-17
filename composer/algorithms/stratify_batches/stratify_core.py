@@ -6,9 +6,6 @@ from typing import Iterable, List, Optional, Sequence, Tuple
 import numpy as np
 from torch.utils.data import DistributedSampler
 
-# if TYPE_CHECKING:
-#     from composer.core.types import Dataset
-
 
 def groupby_ints(targets: Iterable):
     """Given a sequence of integers, returns a dict mapping unique integers to
@@ -35,6 +32,7 @@ class BalancedSampler:
 
     def __init__(self, data: np.array, replace: bool = False, rng: Optional[np.random.Generator] = None):
         self.data = data.copy()
+        self.replace = replace
         self.rng = rng or np.random.default_rng()
         self.reset()
 
@@ -52,6 +50,9 @@ class BalancedSampler:
     def sample(self, count: int) -> List:
         if count < 1:
             return []
+        num_unsampled = self.num_unsampled_elements()
+        if count > num_unsampled and not self.replace:
+                raise ValueError(f"Cannot sample {count} elements when 'replace=False' and only {num_unsampled} unsampled elements remain")
 
         n = len(self.data)
         ret = []
@@ -87,11 +88,10 @@ class BalancedSampler:
         return self._num_elements_unsampled_at_epoch(0)
 
 
-def _sample_batches_stratified(samplers: Sequence[BalancedSampler],
-                               batch_size: int,
-                               num_batches: int,
-                               rng: Optional[np.random.Generator] = None) -> List:
-    rng = rng or np.random.default_rng()
+def _sample_batches_match(samplers: Sequence[BalancedSampler],
+                          batch_size: int,
+                          num_batches: int,
+                          rng: np.random.Generator) -> List:
     batches = []
     num_classes = len(samplers)
     for b in range(num_batches):
@@ -108,17 +108,26 @@ def _sample_batches_stratified(samplers: Sequence[BalancedSampler],
 
         # now randomly sample from elems that won't evenly fit into a batch
         straggler_counts = np.array([s.num_unsampled_elements() % num_remaining_batches for s in samplers])
+        # print("straggler counts: ", straggler_counts)
         num_stragglers = straggler_counts.sum()
-        probs = straggler_counts / num_stragglers if num_stragglers > 0 else None
+        if num_stragglers > 0:
+            probs = straggler_counts / num_stragglers
+            straggler_take_num = min(remaining_batch_size, sum(probs > 0))
+            use_classes = rng.choice(num_classes, replace=False, p=probs, size=straggler_take_num)
+            for c in use_classes:
+                batch += samplers[c].sample(1)
+            remaining_batch_size -= straggler_take_num
 
-        replace_threshold = num_classes
-        if probs is not None:
-            replace_threshold = min(replace_threshold, (probs > 0).sum())
-        replace = num_stragglers > replace_threshold
-        use_classes = rng.choice(num_classes, replace=replace, p=probs, size=remaining_batch_size)
+        # possible that there weren't enough stragglers; this can happen if the
+        # deterministic sampling turns the num_unsampled counts to be even
+        # multiples of the remaining batch size for enough samplers
+        tail_counts = np.array([s.num_unsampled_elements() for s in samplers])
+        probs = tail_counts / tail_counts.sum()
+        if remaining_batch_size > 0:
+            use_classes = rng.choice(num_classes, replace=False, p=probs, size=remaining_batch_size)
+            for c in use_classes:
+                batch += samplers[c].sample(1)
 
-        for c in use_classes:
-            batch += samplers[c].sample(1)
         batches.append(batch)
     return batches
 
@@ -126,8 +135,7 @@ def _sample_batches_stratified(samplers: Sequence[BalancedSampler],
 def _sample_batches_balanced(samplers: Sequence[BalancedSampler],
                              batch_size: int,
                              num_batches: int,
-                             rng: Optional[np.random.Generator] = None) -> List:
-    rng = rng or np.random.default_rng()
+                             rng: np.random.Generator) -> List:
     batches = []
     num_classes = len(samplers)
     for _ in range(num_batches):
@@ -151,9 +159,8 @@ def _sample_batches_balanced(samplers: Sequence[BalancedSampler],
 def sample_stragglers(samplers: Sequence[BalancedSampler],
                       batch_size: int,
                       total_num_samples: int,
-                      full_batch=True,
-                      rng: Optional[np.random.Generator] = None) -> List:
-    rng = rng or np.random.default_rng()
+                      rng: np.random.Generator,
+                      full_batch=True) -> List:
     batch = []
     remaining_batch_size = batch_size
     shuffled_samplers = rng.permutation(samplers)  # shuffle a copy
@@ -173,10 +180,10 @@ def sample_stragglers(samplers: Sequence[BalancedSampler],
     return batch
 
 
-def create_samplers(targets) -> Tuple[np.array, np.array]:
+def create_samplers(targets: Sequence[int], replace: bool, rng: np.random.Generator) -> Tuple[np.array, np.array]:
     _class_to_idxs = groupby_ints(targets)
     classes = list(_class_to_idxs.keys())
-    samplers = [BalancedSampler(_class_to_idxs[c]) for c in classes]
+    samplers = [BalancedSampler(_class_to_idxs[c], replace=replace, rng=rng) for c in classes]
     return np.array(samplers), np.array(classes)
 
 
@@ -205,7 +212,8 @@ class StratifiedBatchSampler(DistributedSampler):
                  shuffle: bool = True,
                  drop_last: bool = False,
                  stratify_how: str = 'balance',
-                 targets_attr: Optional[str] = None):
+                 targets_attr: Optional[str] = None,
+                 rng: Optional[np.random.Generator] = None):
         self.batch_size = batch_size
 
         if targets is None:
@@ -220,10 +228,12 @@ class StratifiedBatchSampler(DistributedSampler):
         if stratify_how not in allowed_stratify_hows:
             raise ValueError(f"stratify_how must be one of {allowed_stratify_hows}, not {stratify_how}")
         self.stratify_how = stratify_how
+        self.rng = rng
         self._set_targets(targets)
 
     def _set_targets(self, targets: Iterable):
-        self.samplers, self.classes = create_samplers(targets)
+        replace = self.stratify_how == 'balance'
+        self.samplers, self.classes = create_samplers(targets, replace=replace, rng=self.rng)
         self.num_classes = len(self.classes)
 
     def _reset_samplers(self):
@@ -236,12 +246,12 @@ class StratifiedBatchSampler(DistributedSampler):
         has_stragglers = num_batches * self.batch_size < total_num_samples
         self._reset_samplers()  # reset sampling for each epoch
 
-        f_sample = {'balance': _sample_batches_balanced, 'match': _sample_batches_stratified}[self.stratify_how]
-        batches = f_sample(self.samplers, batch_size=self.batch_size, num_batches=num_batches)
+        f_sample = {'balance': _sample_batches_balanced, 'match': _sample_batches_match}[self.stratify_how]
+        batches = f_sample(self.samplers, batch_size=self.batch_size, num_batches=num_batches, rng=self.rng)
 
         if has_stragglers and not self.drop_last:
             batches.append(
-                sample_stragglers(self.samplers, batch_size=self.batch_size, total_num_samples=total_num_samples))
+                sample_stragglers(self.samplers, batch_size=self.batch_size, total_num_samples=total_num_samples, rng=self.rng))
         return iter(batches)
 
     def __len__(self):
