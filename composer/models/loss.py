@@ -15,21 +15,30 @@ if TYPE_CHECKING:
 
 
 class mIoU(Metric):
+    """Torchmetric mean Intersection-over-Union (mIoU) implementation.
 
-    def __init__(self, num_classes, ignore_index):
+    IoU calculates the intersection area between the predicted class mask and the label class mask.
+    The intersection is then divided by the union area of the predicted and label masks. This measures
+    the quality of predicted class mask with respect to the label. The IoU for each class is then averaged
+    and the final result is the mIoU score.
+
+    Args:
+        num_classes (int): the number of classes in the segmentation task.
+        ignore_index (int): the index to ignore when computing mIoU.
+
+    """
+
+    def __init__(self, num_classes, ignore_index: int = -1):
         super().__init__(dist_sync_on_step=True)
         self.num_classes = num_classes
         self.ignore_index = ignore_index
         self.add_state("total_intersect", default=torch.zeros(num_classes, dtype=torch.float64), dist_reduce_fx="sum")
         self.add_state("total_union", default=torch.zeros(num_classes, dtype=torch.float64), dist_reduce_fx="sum")
 
-    def update(self, pred, target):
-        self.compute_stats(pred, target)
-
-    def compute(self):
-        return 100 * (self.total_intersect / self.total_union).mean()
-
-    def compute_stats(self, preds, targets):
+    def update(self, probs, targets):
+        """Update the state with new predictions and targets.
+        """
+        preds = probs.argmax(dim=1)
         for pred, target in zip(preds, targets):
             mask = (target != self.ignore_index)
             pred = pred[mask]
@@ -42,6 +51,11 @@ class mIoU(Metric):
 
             self.total_intersect += area_intersect
             self.total_union += area_prediction + area_target - area_intersect
+
+    def compute(self):
+        """Aggregate state across all processes and compute final metric.
+        """
+        return 100 * (self.total_intersect / self.total_union).mean()  # type: ignore
 
 
 class Dice(Metric):
@@ -180,9 +194,9 @@ class CrossEntropyLoss(Metric):
     function in :class:`BaseMosaicModel`.
     """
 
-    def __init__(self, dist_sync_on_step=False):
+    def __init__(self, ignore_index: int = -100, dist_sync_on_step=False):
         super().__init__(dist_sync_on_step=dist_sync_on_step)
-
+        self.ignore_index = ignore_index
         self.add_state("sum_loss", default=torch.tensor(0.), dist_reduce_fx="sum")
         self.add_state("total_batches", default=torch.tensor(0), dist_reduce_fx="sum")
 
@@ -190,7 +204,7 @@ class CrossEntropyLoss(Metric):
         """Update the state with new predictions and targets.
         """
         # Loss calculated over samples/batch, accumulate loss over all batches
-        self.sum_loss += soft_cross_entropy(preds, target)
+        self.sum_loss += soft_cross_entropy(preds, target, ignore_index=self.ignore_index)
         assert isinstance(self.total_batches, Tensor)
         self.total_batches += 1
 

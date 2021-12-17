@@ -17,9 +17,9 @@ from composer.utils import ddp
 
 
 class TransformationFn:
-    """ Normalizes input data and removes the background class from target data if desired.
+    """Normalizes input data and removes the background class from target data if desired.
 
-    Parameters:
+    Args:
         ignore_background (bool): Whether or not to ignore the background class when calculating the training loss.
     """
 
@@ -49,6 +49,8 @@ class TransformationFn:
 
 
 def fast_collate(batch: List[Tuple[Image.Image, Tensor]], memory_format: torch.memory_format = torch.contiguous_format):
+    """Constructs a batch for training from individual samples.
+    """
     imgs = [sample[0] for sample in batch]
     targets = [sample[1] for sample in batch]
     w = imgs[0].size[0]
@@ -72,36 +74,26 @@ def fast_collate(batch: List[Tuple[Image.Image, Tensor]], memory_format: torch.m
     return image_tensor, target_tensor
 
 
-class ResizePair(torch.nn.Module):
-
-    def __init__(self, size: int):
-        super().__init__()
-        self.size = size
-
-    def forward(self, sample: Tuple[Image.Image, Image.Image]):
-        image, target = sample
-        image = TF.resize(image, (self.size, self.size), interpolation=TF.InterpolationMode.BILINEAR)  # type: ignore
-        target = TF.resize(target, (self.size, self.size), interpolation=TF.InterpolationMode.NEAREST)  # type: ignore
-        return image, target
-
-
 class RandomResizePair(torch.nn.Module):
-    """Randomly select the scale to resize both the image and target.
+    """Randomly select the scale to increase a base size for resizing both the image and target.
 
-    Parameters:
+    Args:
         min_scale (float): the minimum value the samples can be rescaled.
         max_scale (float): the maximum value the samples can be rescaled.
+        base_size (Tuple[int, int]): a specified base size to scale for the resized dimensions.
     """
 
-    def __init__(self, min_scale: float, max_scale: float):
+    def __init__(self, min_scale: float, max_scale: float, base_size: Optional[Tuple[int, int]] = None):
         super().__init__()
         self.min_scale = min_scale
         self.max_scale = max_scale
+        self.base_size = base_size
 
     def forward(self, sample: Tuple[Image.Image, Image.Image]):
         image, target = sample
-        resize_ratio = np.random.random_sample() * (self.max_scale - self.min_scale) + self.min_scale
-        resized_dims = (int(image.width * resize_ratio), int(image.height * resize_ratio))  # TODO: flip these?
+        resize_scale = np.random.random_sample() * (self.max_scale - self.min_scale) + self.min_scale
+        width, height = self.base_size if self.base_size else image.size
+        resized_dims = (int(height * resize_scale), int(width * resize_scale))
         resized_image = TF.resize(image, resized_dims, interpolation=TF.InterpolationMode.BILINEAR)  # type: ignore
         resized_target = TF.resize(target, resized_dims, interpolation=TF.InterpolationMode.NEAREST)  # type: ignore
         return resized_image, resized_target
@@ -110,7 +102,7 @@ class RandomResizePair(torch.nn.Module):
 class RandomCropPair(torch.nn.Module):
     """Randomly position a fixed crop for both the image and target.
 
-    Parameters:
+    Args:
         crop_size (Tuple[int, int]): the size of the image and target after cropping.
     """
 
@@ -130,7 +122,7 @@ class RandomCropPair(torch.nn.Module):
 class RandomHFlipPair(torch.nn.Module):
     """Randomly flip the image and target horizontally with a specified probability.
 
-    Parameters:
+    Args:
         probability (float): the probability of flipping the image and target.
     """
 
@@ -149,7 +141,7 @@ class RandomHFlipPair(torch.nn.Module):
 class PadToSize(torch.nn.Module):
     """Pad an image to a specified size.
 
-    Parameters:
+    Args:
         size (Tuple[int, int]): the final size of the image after padding.
         fill (Union[int, Tuple[int, int, int]]): the value to use for the padded pixels.
     """
@@ -169,7 +161,10 @@ class PadToSize(torch.nn.Module):
 class PhotometricDistoration(torch.nn.Module):
     """Applies a combination of brightness, contrast, saturation, and hue jitters with random intensity.
 
-    Parameters:
+    This is a less intense form of PyTorch's ColorJitter used by the mmsegmentation library here:
+    https://github.com/open-mmlab/mmsegmentation/blob/master/mmseg/datasets/pipelines/transforms.py#L835
+
+    Args:
         brightness (float): how much to jitter brightness.
         contrast (float): how much to jitter contrast.
         saturation (float): how much to jitter saturation.
@@ -211,9 +206,9 @@ class PhotometricDistoration(torch.nn.Module):
 class ADE20k(Dataset):
     """PyTorch Dataset for ADE20k.
 
-    Parameters:
+    Args:
         datadir (str): the path to the ADE20k folder.
-        split (str): the dataset split to use, either train, val, or test.
+        split (str): the dataset split to use, either 'train', 'val', or 'test'.
         both_transforms (torch.nn.Module): transformations to apply to the image and target simultaneously.
         image_transforms (torch.nn.Module): transformations to apply to the image only.
         target_transforms (torch.nn.Module): transformations to apply to the target only.
@@ -272,7 +267,7 @@ class ADE20k(Dataset):
 class ADE20kDatasetHparams(DatasetHparams):
     """ Defines an instance of the ADE20k dataset for semantic segmentation.
 
-    Parameters:
+    Args:
         split (str): the dataset split to use, either train, val, or test.
         base_size (int): initial size of the image and target before other augmentations.
         min_resize_scale (float): the minimum value the samples can be rescaled.
@@ -283,9 +278,9 @@ class ADE20kDatasetHparams(DatasetHparams):
     """
 
     split: str = hp.optional("Which split of the dataset to use. Either ['train', 'val', 'test']", default='train')
-    base_size: int = hp.optional("Initial size of the image before other augmentations", default=512)
-    min_resize_scale: float = hp.optional("Minimum scale that the samples can be rescaled", default=0.5)
-    max_resize_scale: float = hp.optional("Maximum scale that the samples can be rescaled", default=2.0)
+    base_size: int = hp.optional("Size of the image to apply random scaling to", default=512)
+    min_resize_scale: float = hp.optional("Minimum scale that the image can be randomly scaled by", default=0.5)
+    max_resize_scale: float = hp.optional("Maximum scale that the image can be randomly scaled by", default=2.0)
     crop_size: int = hp.optional("Size of image after cropping", default=512)
     ignore_background: bool = hp.optional("Whether or not to include the background class in training loss",
                                           default=True)
@@ -312,12 +307,12 @@ class ADE20kDatasetHparams(DatasetHparams):
         # Define data transformations based on data split
         if self.split == 'train':
             both_transforms = transforms.Compose([
-                ResizePair(size=self.base_size),
-                RandomResizePair(self.min_resize_scale, self.max_resize_scale),
+                RandomResizePair(min_scale=self.min_resize_scale,
+                                 max_scale=self.max_resize_scale,
+                                 base_size=(self.base_size, self.base_size)),
                 RandomCropPair((self.crop_size, self.crop_size)),
                 RandomHFlipPair(),
             ])
-
             image_transforms = transforms.Compose([
                 PhotometricDistoration(brightness=32. / 255, contrast=0.5, saturation=0.5, hue=18. / 255),
                 PadToSize((self.crop_size, self.crop_size), fill=(int(0.485 * 255), int(0.456 * 255), int(0.406 * 255)))

@@ -6,16 +6,13 @@ from torchmetrics.collections import MetricCollection
 from torchvision.models import _utils, resnet
 from torchvision.models.segmentation.deeplabv3 import ASPP, DeepLabV3
 
-from composer.core.surgery import replace_module_classes
-from composer.core.types import Batch, Tensor, Tensors
+from composer.core.types import Batch
 from composer.models.base import BaseMosaicModel
-from composer.models.deeplabv3.deeplabv3_hparams import DeepLabv3Hparams
 from composer.models.loss import CrossEntropyLoss, mIoU, soft_cross_entropy
-from composer.models.model_hparams import Initializer
 
 
 def deeplabv3_builder(backbone_arch: str, is_backbone_pretrained: bool, num_classes: int, sync_bn: bool):
-    """Helper function to build a DeepLabV3 model"""
+    """Helper function to build a torchvision DeepLabV3 model with a 3x3 convolution layer and dropout removed."""
 
     # Instantiate backbone module
     if backbone_arch == 'resnet50':
@@ -41,45 +38,59 @@ def deeplabv3_builder(backbone_arch: str, is_backbone_pretrained: bool, num_clas
 
 
 class MosaicDeepLabV3(BaseMosaicModel):
+    """DeepLabV3 model extending the :class:`MosaicClassifier`.
+    
+    See `<arxiv.org/abs/1706.05587>`_ for more details on the DeepLabV3 architecture.
+    
+    Args:
+        num_classes (int): the number of classes in the segmentation task.
+        backbone_arch (str): the backbone architecture to use, either 'resnet50', 'resnet101'.
+        is_backbone_pretrained (bool): if true, use pre-trained weights for backbone.
+        sync_bn (bool): if true, use SyncBatchNorm to sync batch norm statistics across GPUs.
+        
+    """
 
-    def __init__(self, hparams: DeepLabv3Hparams):
+    def __init__(self,
+                 num_classes: int,
+                 backbone_arch: str = 'resnet101',
+                 is_backbone_pretrained: bool = True,
+                 sync_bn: bool = True):
+
         super().__init__()
-        self.hparams = hparams
+        self.num_classes = num_classes
         self.model = deeplabv3_builder(
-            backbone_arch=self.hparams.backbone_arch,
-            is_backbone_pretrained=self.hparams.is_backbone_pretrained,
-            num_classes=self.hparams.num_classes,  # type: ignore
-            sync_bn=self.hparams.sync_bn)
+            backbone_arch=backbone_arch,
+            is_backbone_pretrained=is_backbone_pretrained,
+            num_classes=num_classes,  # type: ignore
+            sync_bn=sync_bn)
 
         # TODO: do I need initializer if pretrained is not specified?
 
     def forward(self, batch: Batch):
         x = batch[0]  # type: ignore
 
-        context = contextlib.nullcontext if self.training else torch.no_grad  # is this necessary?
-
+        context = contextlib.nullcontext if self.training else torch.no_grad  # TODO: is this necessary?
         with context():
             logits = self.model(x)['out']
 
         return logits
 
     def loss(self, outputs: Any, batch: Batch):
+        """Calculate the specified loss for training.
+        """
         _, target = batch
-
-        loss = torch.nn.functional.cross_entropy(outputs, target, ignore_index=-1)
+        loss = soft_cross_entropy(outputs, target, ignore_index=-1)  # type: ignore
         return loss
 
     def metrics(self, train: bool = False):
+        """Metrics to compute during validation.
         """
-
-        """
-        #return MetricCollection([mIoU(self.hparams.num_classes, self.hparams.ignore_index), CrossEntropyLoss()])
-        return mIoU(self.hparams.num_classes, -1)
+        return MetricCollection([mIoU(self.num_classes, ignore_index=-1), CrossEntropyLoss(ignore_index=-1)])
 
     def validate(self, batch: Batch):
+        """Generate outputs used during validation.
+        """
         assert self.training is False, "For validation, model must be in eval mode"
-
-        image, label = batch
-        prediction = self.forward(batch).argmax(dim=1)
-
-        return prediction, label
+        _, target = batch
+        prediction = self.forward(batch)
+        return prediction, target
