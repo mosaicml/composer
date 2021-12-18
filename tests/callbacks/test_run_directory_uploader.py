@@ -12,12 +12,7 @@ from composer.core.state import State
 from composer.utils.run_directory import get_run_directory
 
 
-# This test is flaky see: https://github.com/mosaicml/composer/issues/176
 @pytest.mark.parametrize("use_procs", [False, True])
-# TODO(ravi) -- remove the pytest.in #110. The TRAINING_END event is likely slow as it has to copy many
-# files created by the ddp test. #110 grately reduces the number of files from the DDP test.
-@pytest.mark.timeout(15)
-@pytest.mark.xfail
 def test_run_directory_uploader(tmpdir: pathlib.Path, use_procs: bool, dummy_state: State, dummy_logger: Logger):
     dummy_state.epoch = 0
     dummy_state.step = 0
