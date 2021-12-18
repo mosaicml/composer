@@ -184,7 +184,6 @@ class TrainerHparams(hp.Hparams):
         doc="Folder in which to save checkpoint files. Relative to the run directory, if set."
         "Defaults to `checkpoints`.",
         default="checkpoints")
-
     train_subset_num_batches: Optional[int] = hp.optional(textwrap.dedent("""If specified,
         finish every epoch early after training on this many batches."""),
                                                           default=None)
