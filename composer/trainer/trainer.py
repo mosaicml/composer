@@ -426,7 +426,6 @@ class Trainer:
             log_destinations=log_destinations,
             callbacks=tuple(callbacks),
 
-            # Checkpoint loading hparams
             checkpoint_filepath=checkpoint_filepath,
             checkpoint_load_weights_only=checkpoint_load_weights_only,
             checkpoint_strict_model_weights=checkpoint_strict_model_weights,
