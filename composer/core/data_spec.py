@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import collections.abc
 import textwrap
-from typing import List, Optional, Sequence, TYPE_CHECKING
+from typing import TYPE_CHECKING, List, Optional, Sequence
 
 import torch
 
