@@ -225,6 +225,7 @@ class State(Serializable):
             torch.nn.modules.utils.consume_prefix_in_state_dict_if_present(state_dict['model'], "module.")
 
             missing_keys, unexpected_keys = self.model.load_state_dict(state_dict['model'], strict=strict)
+
             if len(missing_keys) > 0:
                 logger.warning(f"Found these missing keys in the checkpoint: {', '.join(missing_keys)}")
             if len(unexpected_keys) > 0:

@@ -28,6 +28,32 @@ class CheckpointLoaderHparams(hp.Hparams):
             )
 
     def initialize_object(self) -> CheckpointLoader:
+        return CheckpointLoader(checkpoint_filepath=self.checkpoint_filepath,
+                                load_weights_only=self.load_weights_only,
+                                strict=self.strict)
+
+
+@dataclass
+class CheckpointerHparams(hp.Hparams):
+    """Hparams for the :class:`Checkpointer`.
+
+    See the documentation for the :class:`Checkpointer`.
+    """
+    checkpoint_interval_unit: Optional[str] = hp.required(
+        doc="Unit for the checkpoint save interval -- should be 'ep' for epochs; 'it' for iterations")
+    checkpoint_interval: int = hp.required(doc="Interval for checkpointing.")
+    checkpoint_folder: str = hp.optional(
+        doc="Folder in which to save checkpoint files. Relative to the run directory, if set."
+        "Defaults to `checkpoints`.",
+        default="checkpoints")
+
+    def validate(self):
+        if self.checkpoint_interval > 0:
+            raise ValueError("Checkpointing interval must be greater than zero.")
+        if self.checkpoint_interval_unit not in ['ep', 'it']:
+            raise ValueError("Checkpointing interval unit must be one of 'ep' for epochs, or 'it' for iterations.")
+
+    def initialize_object(self) -> CheckpointLoader:
         return CheckpointLoader(checkpoint_filepath=self.filepath,
                                 load_weights_only=self.load_weights_only,
                                 strict_model_weights=self.strict_model_weights)
