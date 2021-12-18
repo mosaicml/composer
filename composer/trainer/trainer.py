@@ -311,8 +311,10 @@ class Trainer:
                 raise NotImplementedError("Checkpointing is not yet supported with DeepSpeed.")
             self.checkpoint_loader = CheckpointLoader(checkpoint_filepath=checkpoint_filepath)
             restored_seed = self.checkpoint_loader.load_checkpoint(state=self.state)
+            # Set the restored seed so that the correct seed will be saved in future checkpoints
+            # Used to handle the case where another checkpoint is saved after resuming from checkpoint.
+            # In this case, self.seed is stored in the second checkpoint so it must have the correct value.
             if restored_seed is not None:
-                # Set the restored seed so that the correct seed will be saved in future checkpoints
                 self.seed = restored_seed
 
     @classmethod

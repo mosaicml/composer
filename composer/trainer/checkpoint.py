@@ -30,6 +30,12 @@ class CheckpointLoader:
 
     def load_checkpoint(self, state: State):
         """Initialize state from the loaded checkpoint's data.
+
+        Args:
+            state (`~composer.core.State`): The state to load the checkpoint into.
+
+        Returns:
+            The seed that was loaded from the checkpoint if it exists otherwise `None`.
         """
 
         state.load_state_dict(self.state_dict["state"])
