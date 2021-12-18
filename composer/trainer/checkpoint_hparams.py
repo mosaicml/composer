@@ -44,10 +44,9 @@ class CheckpointerHparams(hp.Hparams):
     interval_unit: str = hp.required(
         doc="Unit for the checkpoint save interval -- should be 'ep' for epochs; 'it' for iterations")
     interval: int = hp.required(doc="Interval for checkpointing.")
-    folder: str = hp.optional(
-        doc="Folder in which to save checkpoint files. Relative to the run directory, if set."
-        "Defaults to `checkpoints`.",
-        default="checkpoints")
+    folder: str = hp.optional(doc="Folder in which to save checkpoint files. Relative to the run directory, if set."
+                              "Defaults to `checkpoints`.",
+                              default="checkpoints")
 
     def validate(self):
         if self.interval < 0:
