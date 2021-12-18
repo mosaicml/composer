@@ -30,7 +30,6 @@ DIRECT_SERIALIZATION_FIELDS = [
     "max_epochs",
     "epoch",
     "step",
-    "seed",
 ]
 
 # These fields will be serialized using .state_dict(), and loaded with .load_state_dict()
