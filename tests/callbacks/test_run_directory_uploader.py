@@ -13,6 +13,7 @@ from composer.utils.run_directory import get_run_directory
 
 
 @pytest.mark.parametrize("use_procs", [False, True])
+@pytest.mark.timeout(15)
 def test_run_directory_uploader(tmpdir: pathlib.Path, use_procs: bool, dummy_state: State, dummy_logger: Logger):
     dummy_state.epoch = 0
     dummy_state.step = 0

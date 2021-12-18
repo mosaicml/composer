@@ -308,7 +308,6 @@ def _upload_worker(
         retry_counter = 0
         while True:
             try:
-                assert os.path.exists(file_path_to_upload)
                 provider.upload_object(
                     file_path=file_path_to_upload,
                     container=container,
