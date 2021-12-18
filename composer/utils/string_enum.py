@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import textwrap
 import warnings
 from enum import Enum
 
@@ -23,8 +24,16 @@ class StringEnum(Enum):
     def __init__(self, *args: object) -> None:
         if self.name.upper() != self.name:
             raise ValueError(
-                f"{self.__class__.__name__}.{self.name} is invalid. All keys in {self.__class__.__name__} must be uppercase. "
-                f"To fix, rename to '{self.name.upper()}'.")
+                textwrap.dedent(f"""
+                {self.__class__.__name__}.{self.name} is invalid.
+                All keys in {self.__class__.__name__} must be uppercase.
+                To fix, rename to '{self.name.upper()}'."""))
+        if self.value.lower() != self.value:
+            raise ValueError(
+                textwrap.dedent(f"""
+                The value for {self.__class__.__name__}.{self.name}={self.value} is invalid.
+                All values in {self.__class__.__name__} must be lowercase. "
+                To fix, rename to '{self.value.lower()}'."""))
 
     @classmethod
     def _missing_(cls, value: object) -> StringEnum:
@@ -36,5 +45,7 @@ class StringEnum(Enum):
             try:
                 return cls[value.upper()]
             except KeyError:
-                return cls(value)
+                if value.lower() != value:
+                    return cls(value.lower())
+                raise ValueError(f"Value {value} not found in {cls.__name__}")
         raise TypeError(f"Unable to convert value({value}) of type {type(value)} into {cls.__name__}")
