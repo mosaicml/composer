@@ -8,3 +8,5 @@ from composer.core.engine import Trace as Trace
 from composer.core.event import Event as Event
 from composer.core.logging import Logger as Logger
 from composer.core.state import State as State
+from composer.core.time import Time as Time
+from composer.core.time import Timer as Timer
