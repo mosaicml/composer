@@ -17,7 +17,7 @@ class CheckpointLoaderHparams(hp.Hparams):
 
     See the documentation for the :class:`CheckpointLoader`.
     """
-    checkpoint_filepath: str = hp.required(doc="Path to the serialized state_dict to recover state from.")
+    filepath: str = hp.required(doc="Path to the serialized state_dict to recover state from.")
     load_weights_only: Optional[bool] = hp.optional(doc="Whether to only load the weights from the model.",
                                                     default=False)
     strict: Optional[bool] = hp.optional(
@@ -30,7 +30,7 @@ class CheckpointLoaderHparams(hp.Hparams):
             )
 
     def initialize_object(self) -> CheckpointLoader:
-        return CheckpointLoader(checkpoint_filepath=self.checkpoint_filepath,
+        return CheckpointLoader(checkpoint_filepath=self.filepath,
                                 load_weights_only=self.load_weights_only,
                                 strict=self.strict)
 
@@ -41,21 +41,21 @@ class CheckpointerHparams(hp.Hparams):
 
     See the documentation for the :class:`Checkpointer`.
     """
-    checkpoint_interval_unit: str = hp.required(
+    interval_unit: str = hp.required(
         doc="Unit for the checkpoint save interval -- should be 'ep' for epochs; 'it' for iterations")
-    checkpoint_interval: int = hp.required(doc="Interval for checkpointing.")
-    checkpoint_folder: str = hp.optional(
+    interval: int = hp.required(doc="Interval for checkpointing.")
+    folder: str = hp.optional(
         doc="Folder in which to save checkpoint files. Relative to the run directory, if set."
         "Defaults to `checkpoints`.",
         default="checkpoints")
 
     def validate(self):
-        if self.checkpoint_interval < 0:
+        if self.interval < 0:
             raise ValueError("Checkpointing interval must be greater than zero.")
-        if self.checkpoint_interval_unit not in ['ep', 'it']:
+        if self.interval_unit not in ['ep', 'it']:
             raise ValueError("Checkpointing interval unit must be one of 'ep' for epochs, or 'it' for iterations.")
 
     def initialize_object(self) -> Checkpointer:
-        return Checkpointer(checkpoint_interval_unit=self.checkpoint_interval_unit,
-                            checkpoint_interval=self.checkpoint_interval,
-                            checkpoint_folder=self.checkpoint_folder)
+        return Checkpointer(checkpoint_interval_unit=self.interval_unit,
+                            checkpoint_interval=self.interval,
+                            checkpoint_folder=self.folder)
