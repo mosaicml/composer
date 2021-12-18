@@ -1,20 +1,12 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
 import logging
-import os
-import random
-import warnings
 from dataclasses import dataclass
-from typing import Any, Dict, Optional
+from typing import Optional
 
-import numpy as np
-import torch
 import yahp as hp
-import yaml
 
-from composer.core.types import StateDict
-from composer.trainer.checkpoint import CheckpointLoader, Checkpointer
-from composer.trainer.devices.device import Device
+from composer.trainer.checkpoint import Checkpointer, CheckpointLoader
 
 log = logging.getLogger(__name__)
 
@@ -42,13 +34,15 @@ class CheckpointLoaderHparams(hp.Hparams):
                                 load_weights_only=self.load_weights_only,
                                 strict=self.strict)
 
+
 @dataclass
 class CheckpointerHparams(hp.Hparams):
     """Hparams for the :class:`Checkpointer`.
 
     See the documentation for the :class:`Checkpointer`.
     """
-    checkpoint_interval_unit: Optional[str] = hp.required(doc="Unit for the checkpoint save interval -- should be 'ep' for epochs; 'it' for iterations")
+    checkpoint_interval_unit: str = hp.required(
+        doc="Unit for the checkpoint save interval -- should be 'ep' for epochs; 'it' for iterations")
     checkpoint_interval: int = hp.required(doc="Interval for checkpointing.")
     checkpoint_folder: str = hp.optional(
         doc="Folder in which to save checkpoint files. Relative to the run directory, if set."
@@ -61,7 +55,7 @@ class CheckpointerHparams(hp.Hparams):
         if self.checkpoint_interval_unit not in ['ep', 'it']:
             raise ValueError("Checkpointing interval unit must be one of 'ep' for epochs, or 'it' for iterations.")
 
-    def initialize_object(self) -> CheckpointLoader:
+    def initialize_object(self) -> Checkpointer:
         return Checkpointer(checkpoint_interval_unit=self.checkpoint_interval_unit,
-                checkpoint_interval=self.checkpoint_interval,
-                checkpoint_folder=self.checkpoint_folder)
+                            checkpoint_interval=self.checkpoint_interval,
+                            checkpoint_folder=self.checkpoint_folder)

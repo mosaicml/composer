@@ -31,7 +31,6 @@ from composer.optim import (ComposedScheduler, CosineAnnealingLRHparams, Decoupl
                             SchedulerHparams, WarmUpLRHparams)
 from composer.optim.scheduler import ensure_warmup_last
 from composer.trainer.checkpoint import Checkpointer, CheckpointLoader
-from composer.trainer.checkpoint_hparams import CheckpointLoaderHparams
 from composer.trainer.deepspeed import DeepSpeedHparams
 from composer.trainer.devices.device import Device
 from composer.trainer.devices.device_cpu import DeviceCPU
@@ -39,7 +38,6 @@ from composer.trainer.devices.device_gpu import DeviceGPU
 from composer.trainer.scaler import ClosureGradScaler
 from composer.trainer.trainer_hparams import TrainerHparams
 from composer.utils import ddp, ensure_tuple, get_random_seed, map_collection, seed_all
-from composer.utils.run_directory import get_relative_to_run_directory
 
 log = logging.getLogger(__name__)
 
@@ -398,7 +396,7 @@ class Trainer:
             # Checkpointing hparams
             checkpoint_loader=checkpoint_loader,
             checkpointer=checkpointer,
-            
+
             # Subset parameters
             train_subset_num_batches=hparams.train_subset_num_batches,
             eval_subset_num_batches=hparams.eval_subset_num_batches,

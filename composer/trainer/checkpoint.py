@@ -9,7 +9,6 @@ from typing import Any, Dict, Optional
 import numpy as np
 import torch
 import yaml
-from torch.nn.parallel import DistributedDataParallel
 
 from composer.core import Event, State
 from composer.core.types import StateDict
@@ -26,7 +25,10 @@ class CheckpointLoader:
         checkpoint_filepath (str): The path to an existing checkpoint file.
     """
 
-    def __init__(self, checkpoint_filepath: str, load_weights_only: bool = False, strict: bool = False):
+    def __init__(self,
+                 checkpoint_filepath: str,
+                 load_weights_only: Optional[bool] = False,
+                 strict: Optional[bool] = False):
         self.state_dict = torch.load(checkpoint_filepath, map_location='cpu')
         self.load_weights_only = load_weights_only
         self.strict = strict
