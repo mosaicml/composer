@@ -293,15 +293,12 @@ class Trainer:
         self.state.optimizers = optimizer
         self.state.schedulers = ComposedScheduler(schedulers=schedulers)
 
-        self.checkpointer = None
+        self.checkpointer = checkpointer 
         # TODO(#121): get checkpointing working with DeepSpeed.
-        if checkpoint_folder and checkpoint_interval and checkpoint_interval_unit:
+        if self.checkpointer: 
             if self.deepspeed_enabled:
                 raise NotImplementedError("Checkpointing is not yet supported with DeepSpeed.")
-            self.checkpointer = Checkpointer(checkpoint_folder=get_relative_to_run_directory(checkpoint_folder),
-                                             checkpoint_interval=checkpoint_interval,
-                                             checkpoint_interval_unit=checkpoint_interval_unit)
-
+            
         self.checkpoint_loader = checkpoint_loader
         # TODO(#121): get checkpointing working with DeepSpeed.
         if checkpoint_loader:
@@ -365,7 +362,7 @@ class Trainer:
             (set to {hparams.eval_subset_num_batches}), val_dataset.shuffle should be set to False. Otherwise,
             each evaluation epoch may load a different subset of samples."""))
         eval_dataloader = hparams.val_dataset.initialize_object(eval_device_batch_size, hparams.dataloader)
-        checkpoint_loader = hparams.checkpoint_loader.initialize_object()
+        checkpoint_loader = hparams.checkpoint_loader.initialize_object() if hparams.checkpoint_loader else None
 
         trainer = cls(
             model=model,

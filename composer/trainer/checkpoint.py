@@ -42,17 +42,7 @@ class CheckpointLoader:
         """
 
         if self.load_weights_only:
-
-            if self.state_dict['state']["_is_model_ddp_wrapped"] and not isinstance(state.model,
-                                                                                    DistributedDataParallel):
-                torch.nn.modules.utils.consume_prefix_in_state_dict_if_present(self.state_dict['state']['model'],
-                                                                               "module.")
-
-            missing_keys, unexpected_keys = state.model.load_state_dict(self.state_dict['state']['model'], strict=False)
-            if len(missing_keys) > 0:
-                log.warning(f"Found these missing keys in the checkpoint: {', '.join(missing_keys)}")
-            if len(unexpected_keys) > 0:
-                log.warning(f"Found these unexpected keys in the checkpoint: {', '.join(unexpected_keys)}")
+            state.load_model_state(self.state_dict, strict=self.strict)
         else:
             state.load_state_dict(self.state_dict["state"])
         self.checkpoint_rng_state = self._get_checkpoint_rng_state(state, self.state_dict["rng"])
