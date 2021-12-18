@@ -5,11 +5,13 @@ from __future__ import annotations
 import re
 import textwrap
 import warnings
-from typing import Optional, Tuple, Union
+from typing import TYPE_CHECKING, Optional, Tuple, Union
 
 from composer.core.serializable import Serializable
-from composer.core.types import StateDict
 from composer.utils.string_enum import StringEnum
+
+if TYPE_CHECKING:
+    from composer.core.types import StateDict
 
 
 class TimeUnit(StringEnum):
