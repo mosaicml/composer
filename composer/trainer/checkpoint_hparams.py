@@ -56,7 +56,7 @@ class CheckpointerHparams(hp.Hparams):
         default="checkpoints")
 
     def validate(self):
-        if self.checkpoint_interval > 0:
+        if self.checkpoint_interval < 0:
             raise ValueError("Checkpointing interval must be greater than zero.")
         if self.checkpoint_interval_unit not in ['ep', 'it']:
             raise ValueError("Checkpointing interval unit must be one of 'ep' for epochs, or 'it' for iterations.")

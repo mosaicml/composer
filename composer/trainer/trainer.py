@@ -150,9 +150,7 @@ class Trainer:
 
             # Checkpoint hparams
             checkpoint_loader: Optional[CheckpointLoader] = None,
-            checkpoint_interval_unit: Optional[str] = None,
-            checkpoint_folder: Optional[str] = "checkpoints",
-            checkpoint_interval: Optional[int] = 1,
+            checkpointer: Optional[Checkpointer] = None,
 
             # Subset parameters
             train_subset_num_batches: Optional[int] = None,
@@ -293,12 +291,12 @@ class Trainer:
         self.state.optimizers = optimizer
         self.state.schedulers = ComposedScheduler(schedulers=schedulers)
 
-        self.checkpointer = checkpointer 
+        self.checkpointer = checkpointer
         # TODO(#121): get checkpointing working with DeepSpeed.
-        if self.checkpointer: 
+        if self.checkpointer:
             if self.deepspeed_enabled:
                 raise NotImplementedError("Checkpointing is not yet supported with DeepSpeed.")
-            
+
         self.checkpoint_loader = checkpoint_loader
         # TODO(#121): get checkpointing working with DeepSpeed.
         if checkpoint_loader:
@@ -362,7 +360,8 @@ class Trainer:
             (set to {hparams.eval_subset_num_batches}), val_dataset.shuffle should be set to False. Otherwise,
             each evaluation epoch may load a different subset of samples."""))
         eval_dataloader = hparams.val_dataset.initialize_object(eval_device_batch_size, hparams.dataloader)
-        checkpoint_loader = hparams.checkpoint_loader.initialize_object() if hparams.checkpoint_loader else None
+        checkpoint_loader = hparams.load_checkpoint.initialize_object() if hparams.load_checkpoint else None
+        checkpointer = hparams.save_checkpoint.initialize_object() if hparams.save_checkpoint else None
 
         trainer = cls(
             model=model,
@@ -398,10 +397,8 @@ class Trainer:
 
             # Checkpointing hparams
             checkpoint_loader=checkpoint_loader,
-            checkpoint_interval_unit=hparams.checkpoint_interval_unit,
-            checkpoint_folder=hparams.checkpoint_folder,
-            checkpoint_interval=hparams.checkpoint_interval,
-
+            checkpointer=checkpointer,
+            
             # Subset parameters
             train_subset_num_batches=hparams.train_subset_num_batches,
             eval_subset_num_batches=hparams.eval_subset_num_batches,
