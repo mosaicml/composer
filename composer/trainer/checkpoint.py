@@ -9,7 +9,6 @@ from typing import Any, Dict, Optional
 import numpy as np
 import torch
 import yaml
-from torch.nn.parallel import DistributedDataParallel
 
 from composer.core import Event, State
 from composer.core.types import StateDict
