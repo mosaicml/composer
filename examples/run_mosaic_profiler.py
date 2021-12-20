@@ -5,6 +5,9 @@ This example is interchangable with run_mosaic_trainer.py
 """
 import argparse
 import logging
+import warnings
+import sys
+from typing import Type
 
 import composer
 from composer.profiler import ProfilerHparams
@@ -13,17 +16,19 @@ from composer.trainer import Trainer, TrainerHparams
 
 logger = logging.getLogger(__name__)
 
+def warning_on_one_line(message: str, category: Type[Warning], filename: str, lineno: int, file=None, line=None):
+    # From https://stackoverflow.com/questions/26430861/make-pythons-warnings-warn-not-mention-itself
+    return f'{category.__name__}: {message} (source: {filename}:{lineno})\n'
+
 
 def main() -> None:
-    logging.basicConfig()
-    logging.captureWarnings(True)
+    warnings.formatwarning = warning_on_one_line
+
+    if len(sys.argv) == 1:
+        sys.argv = [sys.argv[0], "--help"]
+    
 
     parser = argparse.ArgumentParser(parents=[TrainerHparams.get_argparse(cli_args=True)])
-    parser.add_argument(
-        '--datadir',
-        default=None,
-        help='set the datadir for the train dataset',
-    )
     parser.add_argument("--detailed",
                         default=False,
                         action="store_true",
@@ -32,9 +37,6 @@ def main() -> None:
     args, _ = parser.parse_known_args()
     hparams = TrainerHparams.create(cli_args=True)  # reads cli args from sys.argv
     logging.getLogger(composer.__name__).setLevel(hparams.log_level)
-    if args.datadir is not None:
-        hparams.set_datadir(args.datadir)
-        logger.info(f'Set dataset dirs in hparams to: {args.datadir}')
 
     # Configure the mosaic profiler
     if hparams.profiler is None:

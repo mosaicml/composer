@@ -193,13 +193,11 @@ class RunDirectoryUploader(Callback):
 
     def post_close(self):
         # Cleaning up on post_close to ensure that all artifacts are uploaded
-        log.info("Uploading remaining files")
         self._trigger_upload(logger=None, log_level=None)
         if not ddp.get_local_rank() == 0:
             return
         if self._finished is not None:
             self._finished.set()
-        log.info("Waiting for upload workers to shutdown")
         for worker in self._workers:
             worker.join()
         if self._tempdir is not None:
