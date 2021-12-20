@@ -28,6 +28,7 @@ class ViTSmallPatch16(MosaicClassifier):
                     depth=12,  # layers
                     heads=6,
                     mlp_dim=1536,
-                    dropout=0.1
+                    dropout=0.1,
+                    emb_dropout=0.1
                     )
         super().__init__(module=model)
