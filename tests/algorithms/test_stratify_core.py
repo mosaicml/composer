@@ -85,7 +85,7 @@ def test_balanced_sampler_balances_sample_counts(uniq_elems, batch_size, num_bat
     # setup so we can easily increment counts and compare largest and smallest counts
     largest_elem = uniq_elems.max()
     counts = np.zeros(largest_elem + 1)
-    elem_present_mask = np.zeros(largest_elem + 1, dtype=np.bool)
+    elem_present_mask = np.zeros(largest_elem + 1, dtype=bool)
     elem_present_mask[uniq_elems] = True
 
     for _ in range(num_batches):
@@ -151,7 +151,7 @@ def test_sample_batches_correctness(num_classes: int, batch_size: int, num_batch
     class_counts = _construct_class_counts(batches, targets, num_classes=num_classes)
     # not all classes necessarily show up in the targets, so we need to not
     # throw because of these classes having counts of zero
-    nonzero_counts_mask = np.zeros(num_classes, dtype=np.bool)
+    nonzero_counts_mask = np.zeros(num_classes, dtype=bool)
     nonzero_counts_mask[targets] = True
     class_counts = class_counts[:, nonzero_counts_mask]
     if stratify_how == 'balance':
@@ -159,7 +159,7 @@ def test_sample_batches_correctness(num_classes: int, batch_size: int, num_batch
             assert counts.max() - counts.min() <= 1
     elif stratify_how == 'match' and num_batches > 2:
         # every idx should be sampled exactly once
-        idx_appeared = np.zeros(len(targets), dtype=np.bool)
+        idx_appeared = np.zeros(len(targets), dtype=bool)
         taken_idxs = batches.ravel()
         idx_appeared[taken_idxs] = 1
         if add_stragglers:
