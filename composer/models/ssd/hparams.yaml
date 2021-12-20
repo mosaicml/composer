@@ -33,7 +33,7 @@ max_epochs: 800
 total_batch_size: 32
 eval_batch_size: 32
 seed: 0
-validate_every_n_epochs: 5
+validate_every_n_epochs: 1
 grad_accum: 1
 device:
   gpu: {}

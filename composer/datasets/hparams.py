@@ -15,10 +15,10 @@ def _split_fn(batch: Batch, n_microbatches: int) -> List[Batch]:
         raise ValueError(f'split_fn requires batch be a tuple pair of tensors, got {type(batch)}')
     x, y, a, b, c = batch
     nm = n_microbatches
-    if isinstance(x, Tensor) and isinstance(y, Tensor):
-        import pdb; pdb.set_trace()
-        return list(zip(x.chunk(n_microbatches), y.chunk(n_microbatches), a.chunk(nm), b.chunk(nm), c.chunk(nm)))
-    if isinstance(x, List) and isinstance(y, List):
+    if isinstance(x, Tensor) and isinstance(y, Tensor):# and isinstance(a, Tensor) and isinstance(b, Tensor) and isinstance(c, Tensor):
+        #simport pdb; pdb.set_trace()
+        return list(zip(x.chunk(n_microbatches), y.chunk(n_microbatches), [a[i::nm] for i in range(nm)], b.chunk(nm), c.chunk(nm)))
+    if isinstance(x, List) and isinstance(y, List) and isinstance(a, List) and isinstance(b, List) and isinstance(c, List):
         return list(
             zip(
                 [x[i::n_microbatches] for i in range(n_microbatches)],
@@ -27,6 +27,7 @@ def _split_fn(batch: Batch, n_microbatches: int) -> List[Batch]:
                 [b[i::nm] for i in range(nm)],
                 [c[i::nm] for i in range(nm)],
             ))
+    #import pdb; pdb.set_trace()
     raise NotImplementedError('The default split_fn is unable to split the output of this'
                               'dataloader. Please define a split_fn in your dataloader spec.')
 

@@ -19,6 +19,7 @@ from torchmetrics.classification.accuracy import Accuracy
 from composer.models.ssd.ssd_hparams import SSDHparams
 from composer.models.ssd.ssd300 import SSD300
 from PIL import Image
+import contextlib
 
 _BASE_LR = 2.5e-3
 
@@ -59,12 +60,15 @@ class SSD(BaseMosaicModel):
         context = contextlib.nullcontext if self.training else torch.no_grad
 
         img = Variable(img, requires_grad=True)
-        ploc, plabel = self.module(fimg)
+        ploc, plabel = self.module(img)
 
         return ploc, plabel
         
     def validate(self, batch: BatchPair) -> Tuple[Any, Any]:
-        inv_map = {v: k for k, v in val_coco.label_map.items()}
+        
+        #val_coco = COCODetection(val_coco_root, val_annotate, val_trans)
+
+        #inv_map = {v: k for k, v in batch.label_map.items()}
         
         (img, img_id, img_size, bbox, label) = batch
         ret = []
@@ -72,18 +76,19 @@ class SSD(BaseMosaicModel):
         overlap_threshold = 0.50
         nms_max_detections = 200
 
-        ploc, plabel = ...
-        with torch.no_grad():
-            try:
-                results = encoder.decode_batch(ploc,
-                                               plabel,
-                                               overlap_threshold,
-                                               nms_max_detections,
-                                               nms_valid_thresh=nms_valid_thresh)
-            except:
-                #raise
-                print("")
+        ploc, plabel = self.module(img)
+        dboxes = dboxes300_coco()
 
+        encoder = Encoder(dboxes)
+
+        with torch.no_grad():
+
+            results = encoder.decode_batch(ploc,
+                                           plabel,
+                                           overlap_threshold,
+                                           nms_max_detections,
+                                           nms_valid_thresh=0.05)
+            
             (htot, wtot) = [d.cpu().numpy() for d in img_size]
             img_id = img_id.cpu().numpy()
             # Iterate over batch elements
