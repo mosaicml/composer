@@ -9,7 +9,6 @@ from composer.core.time import Time, Timer, TimeUnit
 
 _INVALID_CONVERSIONS = [
     # from_unit,      to_unit,       drop_last
-    (TimeUnit.EPOCH, TimeUnit.TOKEN, True),
     (TimeUnit.BATCH, TimeUnit.TOKEN, True),
     (TimeUnit.BATCH, TimeUnit.TOKEN, False),
     (TimeUnit.SAMPLE, TimeUnit.TOKEN, True),
@@ -18,7 +17,6 @@ _INVALID_CONVERSIONS = [
     (TimeUnit.TOKEN, TimeUnit.BATCH, False),
     (TimeUnit.TOKEN, TimeUnit.SAMPLE, True),
     (TimeUnit.TOKEN, TimeUnit.SAMPLE, False),
-    (TimeUnit.TOKEN, TimeUnit.EPOCH, True),
 ]
 
 
@@ -45,7 +43,7 @@ def test_time_convert(from_unit: TimeUnit, to_unit: TimeUnit, drop_last: bool):
             time_size * batches_per_epoch,
         (TimeUnit.EPOCH, TimeUnit.SAMPLE, drop_last):
             time_size * samples_per_epoch,
-        (TimeUnit.EPOCH, TimeUnit.TOKEN, False):
+        (TimeUnit.EPOCH, TimeUnit.TOKEN, drop_last):
             time_size * dataset_num_tokens,
         (TimeUnit.BATCH, TimeUnit.EPOCH, drop_last):
             time_size // batches_per_epoch,
@@ -63,7 +61,7 @@ def test_time_convert(from_unit: TimeUnit, to_unit: TimeUnit, drop_last: bool):
             (time_size // samples_per_epoch) * batches_per_epoch + (time_size % samples_per_epoch) // batch_size,
         (TimeUnit.SAMPLE, TimeUnit.SAMPLE, drop_last):
             time_size,
-        (TimeUnit.TOKEN, TimeUnit.EPOCH, False):
+        (TimeUnit.TOKEN, TimeUnit.EPOCH, drop_last):
             time_size // dataset_num_tokens,
         (TimeUnit.TOKEN, TimeUnit.TOKEN, drop_last):
             time_size,

@@ -366,14 +366,10 @@ class Time:
             # if the desired unit is duration, then the logic is the same regardless of the from unit
             if max_training_duration is None:
                 raise ValueError("max_training_duration is required to convert to or from DURATION")
-            if isinstance(max_training_duration, str):
-                max_training_duration = Time.from_timestring(max_training_duration)
             if unit == TimeUnit.DURATION:
-                # converting to duration
-                return self / max_training_duration
+                return self.convert_to_duration(max_training_duration=max_training_duration)
             else:
-                # converting from druation
-                return self * max_training_duration
+                return self.convert_from_duration(max_training_duration=max_training_duration)
 
         if self.unit == TimeUnit.EPOCH:
             if unit == TimeUnit.BATCH:
@@ -383,33 +379,21 @@ class Time:
                     raise ValueError("drop_last is required to convert from EPOCH to BATCH")
                 if dataset_num_samples is None:
                     raise ValueError("dataset_num_samples is required to convert from EPOCH to BATCH")
-                if drop_last:
-                    num_batches_per_epoch = dataset_num_samples // batch_size
-                else:
-                    num_batches_per_epoch = (dataset_num_samples - 1) // batch_size + 1
-                return Time(self.value * num_batches_per_epoch, TimeUnit.BATCH)
+                return self.convert_epoch_to_batch(batch_size=batch_size,
+                                                   drop_last=drop_last,
+                                                   dataset_num_samples=dataset_num_samples)
             if unit == TimeUnit.SAMPLE:
                 if dataset_num_samples is None:
                     raise ValueError("dataset_num_samples is required to convert from EPOCH to SAMPLE")
                 if drop_last is None:
                     raise ValueError("drop_last is required to convert from EPOCH to SAMPLE")
-                if drop_last:
-                    if batch_size is None:
-                        raise ValueError("batch_size is required to convert from EPOCH to SAMPLE when drop_last=True")
-                    num_batches_per_epoch = dataset_num_samples // batch_size
-                    num_samples_per_epoch = num_batches_per_epoch * batch_size
-                    return Time(self.value * num_samples_per_epoch, TimeUnit.SAMPLE)
-                else:
-                    return Time(self.value * dataset_num_samples, TimeUnit.SAMPLE)
+                return self.convert_epoch_to_sample(drop_last=drop_last,
+                                                    dataset_num_samples=dataset_num_samples,
+                                                    batch_size=batch_size)
             if unit == TimeUnit.TOKEN:
                 if dataset_num_tokens is None:
                     raise ValueError("dataset_num_tokens is required to convert from EPOCH to TOKEN")
-                if drop_last is None:
-                    raise ValueError("drop_last is required to convert from EPOCH to TOKEN")
-                if drop_last is True:
-                    raise ValueError("Cannot convert from EPOCH to TOKEN when drop_last=True")
-                return Time(self.value * dataset_num_tokens, TimeUnit.TOKEN)
-            raise ValueError(f"invalid unit: {unit}")
+                return self.convert_epoch_to_token(dataset_num_tokens=dataset_num_tokens)
         if self.unit == TimeUnit.BATCH:
             if unit == TimeUnit.EPOCH:
                 if batch_size is None:
@@ -418,78 +402,283 @@ class Time:
                     raise ValueError("drop_last is required to convert from EPOCH to BATCH")
                 if dataset_num_samples is None:
                     raise ValueError("dataset_num_samples is required to convert from EPOCH to BATCH")
-                if drop_last:
-                    num_batches_per_epoch = dataset_num_samples // batch_size
-                else:
-                    num_batches_per_epoch = (dataset_num_samples - 1) // batch_size + 1
-                return Time(self.value // num_batches_per_epoch, TimeUnit.EPOCH)
+                return self.convert_batch_to_epoch(batch_size=batch_size,
+                                                   drop_last=drop_last,
+                                                   dataset_num_samples=dataset_num_samples)
             if unit == TimeUnit.SAMPLE:
                 if batch_size is None:
                     raise ValueError("batch_size is required to convert from BATCH to SAMPLE")
                 if drop_last is None:
                     raise ValueError("drop_last is required to convert from BATCH to SAMPLE")
-                if drop_last:
-                    return Time(self.value * batch_size, TimeUnit.SAMPLE)
-                else:
-                    if dataset_num_samples is None:
-                        raise ValueError(
-                            "dataset_num_samples is required to convert from EPOCH to BATCH when drop_last=False")
-                    num_batches_per_epoch = (dataset_num_samples - 1) // batch_size + 1
-                    samples_from_complete_epochs = (self.value // num_batches_per_epoch) * dataset_num_samples
-                    remaining_batches = self.value % num_batches_per_epoch
-                    samples_from_incomplete_epochs = remaining_batches * batch_size
-                    return Time(samples_from_complete_epochs + samples_from_incomplete_epochs, TimeUnit.SAMPLE)
-            if unit == TimeUnit.TOKEN:
-                raise ValueError("Cannot convert from BATCH to TOKEN")
-            raise ValueError(f"invalid unit: {unit}")
+                return self.convert_batch_to_sample(batch_size=batch_size,
+                                                    drop_last=drop_last,
+                                                    dataset_num_samples=dataset_num_samples)
         if self.unit == TimeUnit.SAMPLE:
             if unit == TimeUnit.EPOCH:
                 if drop_last is None:
                     raise ValueError("drop_last is required to convert from SAMPLE to EPOCH")
                 if dataset_num_samples is None:
                     raise ValueError("dataset_num_samples is required to convert from SAMPLE to SAMPLE")
-                if drop_last:
-                    if batch_size is None:
-                        raise ValueError("batch_size is required to convert from SAMPLE to SAMPLE when drop_last=True")
-                    num_batches_per_epoch = dataset_num_samples // batch_size
-                    num_samples_per_epoch = num_batches_per_epoch * batch_size
-                    return Time(self.value // num_samples_per_epoch, TimeUnit.EPOCH)
-                else:
-                    return Time(self.value // dataset_num_samples, TimeUnit.EPOCH)
+                return self.convert_sample_to_epoch(drop_last=drop_last,
+                                                    dataset_num_samples=dataset_num_samples,
+                                                    batch_size=batch_size)
             if unit == TimeUnit.BATCH:
                 if drop_last is None:
                     raise ValueError("drop_last is required to convert from BATCH to SAMPLE")
                 if batch_size is None:
                     raise ValueError("batch_size is required to convert from BATCH to SAMPLE")
-                if drop_last:
-                    return Time(self.value // batch_size, TimeUnit.BATCH)
-                else:
-                    if dataset_num_samples is None:
-                        raise ValueError(
-                            "dataset_num_samples is required to convert from SAMPLE to BATCH when drop_last=False")
-                    num_batches_per_epoch = (dataset_num_samples - 1) // batch_size + 1
-                    num_samples_per_epoch = num_batches_per_epoch * batch_size
-                    batches_from_complete_epochs = (self.value // dataset_num_samples) * num_batches_per_epoch
-                    batches_from_incomplete_epoch = (self.value % dataset_num_samples) // batch_size
-                    return Time(batches_from_complete_epochs + batches_from_incomplete_epoch, TimeUnit.BATCH)
-            if unit == TimeUnit.TOKEN:
-                raise ValueError("Cannot convert from SAMPLE to TOKEN")
-            raise ValueError(f"invalid unit: {unit}")
+                return self.convert_sample_to_batch(batch_size=batch_size,
+                                                    drop_last=drop_last,
+                                                    dataset_num_samples=dataset_num_samples)
         if self.unit == TimeUnit.TOKEN:
             if unit == TimeUnit.EPOCH:
                 if dataset_num_tokens is None:
                     raise ValueError("dataset_num_tokens is required to convert from TOKEN to EPOCH")
-                if drop_last is None:
-                    raise ValueError("drop_last is required to convert from TOKEN to EPOCH")
-                if drop_last is True:
-                    raise ValueError("Cannot convert from TOKEN to EPOCH when drop_last=True")
-                return Time(self.value // dataset_num_tokens, TimeUnit.EPOCH)
-            if unit == TimeUnit.BATCH:
-                raise ValueError("Cannot convert from TOKEN to BATCH")
-            if unit == TimeUnit.SAMPLE:
-                raise ValueError("Cannot convert from TOKEN to SAMPLE")
-            raise ValueError(f"invalid unit: {unit}")
-        raise RuntimeError("invalid from unit")
+                return self.convert_token_to_epoch(dataset_num_tokens=dataset_num_tokens)
+
+        raise ValueError(f"Unable to convert from {self.unit} to {unit}")
+
+    def convert_epoch_to_batch(self, *, batch_size: int, drop_last: bool, dataset_num_samples: int) -> Time:
+        """Convert ``self`` into :attr:`TimeUnit.BATCH`. Requires that ``self.unit == TimeUnit.EPOCH``.
+
+        Args:
+            batch_size (int): The optimization batch size.
+            drop_last (bool): Whether the dataloader is dropping last (incomplete) batches.
+            dataset_num_samples (int): The number of samples in the dataset.
+
+        Raises:
+            RuntimeError: Raised if ``self.unit != TimeUnit.EPOCH``
+
+        Returns:
+            Time: The time, in :attr:`TimeUnit.BATCH`.
+        """
+        if self.unit != TimeUnit.EPOCH:
+            raise RuntimeError(f"Time {self} units are not epochs.")
+        if drop_last:
+            num_batches_per_epoch = dataset_num_samples // batch_size
+        else:
+            num_batches_per_epoch = (dataset_num_samples - 1) // batch_size + 1
+        return Time(self.value * num_batches_per_epoch, TimeUnit.BATCH)
+
+    def convert_epoch_to_sample(self,
+                                *,
+                                drop_last: bool,
+                                dataset_num_samples: int,
+                                batch_size: Optional[int] = None) -> Time:
+        """Convert ``self`` into :attr:`TimeUnit.SAMPLE`. Requires that ``self.unit == TimeUnit.EPOCH``.
+
+        Args:
+            drop_last (bool): Whether the dataloader is dropping last (incomplete) batches.
+            dataset_num_samples (int): The number of samples in the dataset.
+            batch_size (int, optional): The optimization batch size. Required if ``drop_last`` is ``True``.
+
+        Raises:
+            RuntimeError: Raised if ``self.unit != TimeUnit.EPOCH``
+
+        Returns:
+            Time: The time, in :attr:`TimeUnit.SAMPLE`.
+        """
+        if self.unit != TimeUnit.EPOCH:
+            raise RuntimeError(f"Time {self} units are not epochs.")
+        if drop_last:
+            if batch_size is None:
+                raise ValueError("batch_size is required to convert from EPOCH to SAMPLE when drop_last=True")
+            num_batches_per_epoch = dataset_num_samples // batch_size
+            num_samples_per_epoch = num_batches_per_epoch * batch_size
+            return Time(self.value * num_samples_per_epoch, TimeUnit.SAMPLE)
+        else:
+            return Time(self.value * dataset_num_samples, TimeUnit.SAMPLE)
+
+    def convert_epoch_to_token(self, *, dataset_num_tokens: int) -> Time:
+        """Convert ``self`` into :attr:`TimeUnit.TOKEN`. Requires that ``self.unit == TimeUnit.EPOCH``.
+
+        .. note::
+
+            The conversion is valid only if the dataloader yields all batches (i.e. ``drop_last`` is ``False``).
+
+        Args:
+            dataset_num_tokens (int): The number of tokens in the dataset.
+
+        Raises:
+            RuntimeError: Raised if ``self.unit != TimeUnit.EPOCH``
+
+        Returns:
+            Time: The time, in :attr:`TimeUnit.TOKEN`.
+        """
+        if self.unit != TimeUnit.EPOCH:
+            raise RuntimeError(f"Time {self} units are not epochs.")
+        return Time(self.value * dataset_num_tokens, TimeUnit.TOKEN)
+
+    def convert_batch_to_epoch(self, *, batch_size: int, drop_last: bool, dataset_num_samples: int):
+        """Convert ``self`` into :attr:`TimeUnit.EPOCH`. Requires that ``self.unit == TimeUnit.BATCH``.
+
+        Args:
+            batch_size (int): The optimization batch size.
+            drop_last (bool): Whether the dataloader is dropping last (incomplete) batches.
+            dataset_num_samples (int): The number of samples in the dataset.
+
+        Raises:
+            RuntimeError: Raised if ``self.unit != TimeUnit.BATCH``
+
+        Returns:
+            Time: The time, in :attr:`TimeUnit.EPOCH`.
+        """
+        if self.unit != TimeUnit.BATCH:
+            raise RuntimeError(f"Time {self} units are not batches.")
+        if drop_last:
+            num_batches_per_epoch = dataset_num_samples // batch_size
+        else:
+            num_batches_per_epoch = (dataset_num_samples - 1) // batch_size + 1
+        return Time(self.value // num_batches_per_epoch, TimeUnit.EPOCH)
+
+    def convert_batch_to_sample(
+        self,
+        *,
+        batch_size: int,
+        drop_last: bool,
+        dataset_num_samples: Optional[int] = None,
+    ) -> Time:
+        """Convert ``self`` into :attr:`TimeUnit.SAMPLE`. Requires that ``self.unit == TimeUnit.BATCH``.
+
+        Args:
+            batch_size (int): The optimization batch size.
+            drop_last (bool): Whether the dataloader is dropping last (incomplete) batches.
+            dataset_num_samples (int, optional): The number of samples in the dataset. Required if ``drop_last`` is ``False``.
+
+        Raises:
+            RuntimeError: Raised if ``self.unit != TimeUnit.BATCH``
+
+        Returns:
+            Time: The time, in :attr:`TimeUnit.SAMPLE`.
+        """
+        if self.unit != TimeUnit.BATCH:
+            raise RuntimeError(f"Time {self} units are not batches.")
+        if drop_last:
+            return Time(self.value * batch_size, TimeUnit.SAMPLE)
+        else:
+            if dataset_num_samples is None:
+                raise ValueError("dataset_num_samples is required to convert from EPOCH to BATCH when drop_last=False")
+            num_batches_per_epoch = (dataset_num_samples - 1) // batch_size + 1
+            samples_from_complete_epochs = (self.value // num_batches_per_epoch) * dataset_num_samples
+            remaining_batches = self.value % num_batches_per_epoch
+            samples_from_incomplete_epochs = remaining_batches * batch_size
+            return Time(samples_from_complete_epochs + samples_from_incomplete_epochs, TimeUnit.SAMPLE)
+
+    def convert_sample_to_epoch(self,
+                                *,
+                                drop_last: bool,
+                                dataset_num_samples: int,
+                                batch_size: Optional[int] = None) -> Time:
+        """Convert ``self`` into :attr:`TimeUnit.EPOCH`. Requires that ``self.unit == TimeUnit.SAMPLE``.
+
+        Args:
+            drop_last (bool): Whether the dataloader is dropping last (incomplete) batches.
+            dataset_num_samples (int): The number of samples in the dataset.
+            batch_size (int, optional): The optimization batch size. Required if ``drop_last`` is ``True``.
+
+        Raises:
+            RuntimeError: Raised if ``self.unit != TimeUnit.SAMPLE``
+
+        Returns:
+            Time: The time, in :attr:`TimeUnit.EPOCH`.
+        """
+        if self.unit != TimeUnit.SAMPLE:
+            raise RuntimeError(f"Time {self} units are not samples.")
+        if drop_last:
+            if batch_size is None:
+                raise ValueError("batch_size is required to convert from SAMPLE to SAMPLE when drop_last=True")
+            num_batches_per_epoch = dataset_num_samples // batch_size
+            num_samples_per_epoch = num_batches_per_epoch * batch_size
+            return Time(self.value // num_samples_per_epoch, TimeUnit.EPOCH)
+        else:
+            return Time(self.value // dataset_num_samples, TimeUnit.EPOCH)
+
+    def convert_sample_to_batch(
+        self,
+        *,
+        batch_size: int,
+        drop_last: bool,
+        dataset_num_samples: Optional[int] = None,
+    ) -> Time:
+        """Convert ``self`` into :attr:`TimeUnit.BATCH`. Requires that ``self.unit == TimeUnit.SAMPLE``.
+
+        Args:
+            batch_size (int): The optimization batch size.
+            drop_last (bool): Whether the dataloader is dropping last (incomplete) batches.
+            dataset_num_samples (int, optional): The number of samples in the dataset. Required if ``drop_last`` is ``False``.
+
+        Raises:
+            RuntimeError: Raised if ``self.unit != TimeUnit.SAMPLE``
+
+        Returns:
+            Time: The time, in :attr:`TimeUnit.BATCH`.
+        """
+        if self.unit != TimeUnit.SAMPLE:
+            raise RuntimeError(f"Time {self} units are not samples.")
+        if drop_last:
+            return Time(self.value // batch_size, TimeUnit.BATCH)
+        else:
+            if dataset_num_samples is None:
+                raise ValueError("dataset_num_samples is required to convert from SAMPLE to BATCH when drop_last=False")
+            num_batches_per_epoch = (dataset_num_samples - 1) // batch_size + 1
+            batches_from_complete_epochs = (self.value // dataset_num_samples) * num_batches_per_epoch
+            batches_from_incomplete_epoch = (self.value % dataset_num_samples) // batch_size
+            return Time(batches_from_complete_epochs + batches_from_incomplete_epoch, TimeUnit.BATCH)
+
+    def convert_token_to_epoch(self, *, dataset_num_tokens: int) -> Time:
+        """Convert ``self`` into :attr:`TimeUnit.EPOCH`. Requires that ``self.unit == TimeUnit.TOKEN``.
+
+        .. note::
+
+            The conversion is valid only if the dataloader yields all batches (i.e. ``drop_last`` == ``False``).
+
+        Args:
+            dataset_num_tokens (int): The number of tokens in the dataset.
+
+        Raises:
+            RuntimeError: Raised if ``self.unit != TimeUnit.TOKEN``
+
+        Returns:
+            Time: The time, in :attr:`TimeUnit.EPOCH`.
+        """
+        if self.unit != TimeUnit.TOKEN:
+            raise RuntimeError(f"Time {self} units are not tokens.")
+        return Time(self.value // dataset_num_tokens, TimeUnit.EPOCH)
+
+    def convert_to_duration(self, *, max_training_duration: Union[str, Time]) -> Time:
+        """Convert ``self`` into :attr:`TimeUnit.DURATION`.
+
+        Args:
+            max_training_duration (str or Time): The total training duration.
+
+        Returns:
+            Time: The time, in :attr:`TimeUnit.DURATION`.
+        """
+        if self.unit == TimeUnit.DURATION:
+            return Time(self.value, self.unit)
+        if isinstance(max_training_duration, str):
+            max_training_duration = Time.from_timestring(max_training_duration)
+        return self / max_training_duration
+
+    def convert_from_duration(self, *, max_training_duration: Union[str, Time]) -> Time:
+        """Convert ``self`` into the units of ``max_training_duration``.
+
+        Args:
+            max_training_duration (str or Time): The total training duration.
+
+        Raises:
+            RuntimeError: Raised if ``self.unit != TimeUnit.DURATION``
+
+        Returns:
+            Time: The time, in the units of ``max_training_duration``.
+        """
+        if self.unit != TimeUnit.DURATION:
+            raise RuntimeError(f"Time {self} units is not duration.")
+        if isinstance(max_training_duration, str):
+            max_training_duration = Time.from_timestring(max_training_duration)
+        if max_training_duration.unit == TimeUnit.DURATION:
+            return Time(self.value, self.unit)
+        return self * max_training_duration
 
 
 class Timer(Serializable):
