@@ -129,7 +129,9 @@ def test_sample_batches_correctness(num_classes: int, batch_size: int, num_batch
                             rng=rng)
     dataset = np.zeros(len(targets))
 
-    batches = iter(core.StratifiedBatchSampler(dataset, targets=targets, batch_size=batch_size, stratify_how=stratify_how, rng=rng))
+    batches = iter(
+        core.StratifiedBatchSampler(dataset, targets=targets, batch_size=batch_size, stratify_how=stratify_how,
+                                    rng=rng))
     batches = np.array(list(batches))
 
     # check stragglers if applicable
