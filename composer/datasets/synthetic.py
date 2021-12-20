@@ -68,6 +68,7 @@ class SyntheticBatchPairDataset(torch.utils.data.Dataset):
         # The synthetic data
         self.input_data = None
         self.input_target = None
+        self._generate_data()
 
     def _validate_label_inputs(self, label_type: SyntheticDataLabelType, num_classes: Optional[int],
                                label_shape: Optional[Sequence[int]]):
@@ -80,53 +81,48 @@ class SyntheticBatchPairDataset(torch.utils.data.Dataset):
     def __len__(self) -> int:
         return self.total_dataset_size
 
+    def _generate_data(self):
+        # generating samples so all values for the sample are the sample index
+        # e.g. all(input_data[1] == 1). Helps with debugging.
+        assert self.input_target is None
+        input_data = torch.randn(self.num_unique_samples_to_create, *self.data_shape, device=self.device)
+
+        input_data = torch.clone(input_data)  # allocate actual memory
+        input_data = input_data.contiguous(memory_format=getattr(torch, self.memory_format.value))
+
+        if self.label_type == SyntheticDataLabelType.CLASSIFICATION_ONE_HOT:
+            assert self.num_classes is not None
+            input_target = torch.zeros((self.num_unique_samples_to_create, self.num_classes), device=self.device)
+            input_target[:, 0] = 1.0
+        elif self.label_type == SyntheticDataLabelType.CLASSIFICATION_INT:
+            assert self.num_classes is not None
+            input_target = torch.randint(0, self.num_classes, (self.num_unique_samples_to_create,), device=self.device)
+        elif self.label_type == SyntheticDataLabelType.RANDOM_INT:
+            assert self.label_shape is not None
+            # use a dummy value for max int value
+            dummy_max = 10
+            input_target = torch.randint(0,
+                                         dummy_max, (self.num_unique_samples_to_create, *self.label_shape),
+                                         device=self.device)
+        else:
+            raise ValueError(f"Unsupported label type {self.data_type}")
+
+        # If separable, force the positive examples to have a higher mean than the negative examples
+        if self.data_type == SyntheticDataType.SEPARABLE:
+            assert self.label_type == SyntheticDataLabelType.CLASSIFICATION_INT, \
+                "SyntheticDataType.SEPARABLE requires integer classes."
+            assert max(input_target) == 1 and min(input_target) == 0, \
+                "SyntheticDataType.SEPARABLE only supports binary labels"
+            # Make positive examples have mean = 3 and negative examples have mean = -3
+            # so they are easier to separate with a classifier
+            input_data[input_target == 0] -= 3
+            input_data[input_target == 1] += 3
+
+        self.input_data = input_data
+        self.input_target = input_target
+
     def __getitem__(self, idx: int):
         idx = idx % self.num_unique_samples_to_create
-        if self.input_data is None:
-            # Generating data on the first call to __getitem__ so that data is stored on the correct gpu,
-            # after DeviceSingleGPU calls torch.cuda.set_device
-            # This does mean that the first batch will be slower
-            # generating samples so all values for the sample are the sample index
-            # e.g. all(input_data[1] == 1). Helps with debugging.
-            assert self.input_target is None
-            input_data = torch.randn(self.num_unique_samples_to_create, *self.data_shape, device=self.device)
-
-            input_data = torch.clone(input_data)  # allocate actual memory
-            input_data = input_data.contiguous(memory_format=getattr(torch, self.memory_format.value))
-
-            if self.label_type == SyntheticDataLabelType.CLASSIFICATION_ONE_HOT:
-                assert self.num_classes is not None
-                input_target = torch.zeros((self.num_unique_samples_to_create, self.num_classes), device=self.device)
-                input_target[:, 0] = 1.0
-            elif self.label_type == SyntheticDataLabelType.CLASSIFICATION_INT:
-                assert self.num_classes is not None
-                input_target = torch.randint(0,
-                                             self.num_classes, (self.num_unique_samples_to_create,),
-                                             device=self.device)
-            elif self.label_type == SyntheticDataLabelType.RANDOM_INT:
-                assert self.label_shape is not None
-                # use a dummy value for max int value
-                dummy_max = 10
-                input_target = torch.randint(0,
-                                             dummy_max, (self.num_unique_samples_to_create, *self.label_shape),
-                                             device=self.device)
-            else:
-                raise ValueError(f"Unsupported label type {self.data_type}")
-
-            # If separable, force the positive examples to have a higher mean than the negative examples
-            if self.data_type == SyntheticDataType.SEPARABLE:
-                assert self.label_type == SyntheticDataLabelType.CLASSIFICATION_INT, \
-                    "SyntheticDataType.SEPARABLE requires integer classes."
-                assert max(input_target) == 1 and min(input_target) == 0, \
-                    "SyntheticDataType.SEPARABLE only supports binary labels"
-                # Make positive examples have mean = 3 and negative examples have mean = -3
-                # so they are easier to separate with a classifier
-                input_data[input_target == 0] -= 3
-                input_data[input_target == 1] += 3
-
-            self.input_data = input_data
-            self.input_target = input_target
-
         assert self.input_target is not None
 
         if self.transform is not None:
