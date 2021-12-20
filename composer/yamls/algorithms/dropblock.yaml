@@ -1,0 +1,5 @@
+drop_prob: 0.1
+block_size: 7
+batchwise: true
+
+
