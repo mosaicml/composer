@@ -27,6 +27,7 @@ def get_model_algs(model_name: str) -> List[str]:
     if model_name in ("unet", "gpt2_52m", "gpt2_83m", 'gpt2_125m'):
         algs.remove("mixup")
         algs.remove("cutmix")
+    algs.remove('stratify_batches')  # needs dataset object to have a targets attribute
     return algs
 
 
