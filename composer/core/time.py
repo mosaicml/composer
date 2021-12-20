@@ -5,7 +5,7 @@ from __future__ import annotations
 import re
 import textwrap
 import warnings
-from typing import TYPE_CHECKING, Optional, Tuple, Union
+from typing import TYPE_CHECKING, Optional, Union
 
 from composer.core.serializable import Serializable
 from composer.utils.string_enum import StringEnum
@@ -22,7 +22,7 @@ class TimeUnit(StringEnum):
         BATCH (str): Batchs (i.e. number of optimization steps)
         SAMPLE (str): Samples.
         TOKEN (str): Tokens. Applicable for natural language processing (NLP) models.
-        DURATION (str): Fraction of the training process complete, on ``[0.0; 1.0]``
+        DURATION (str): Fraction of the training process complete, on ``[0.0, 1.0)``
     """
     EPOCH = "ep"
     BATCH = "ba"
@@ -40,105 +40,132 @@ _TIME_STR_REGEX = re.compile(r'^(?:' + r'|'.join(fr"(?:({_NUM_REGEX})({time_unit
 
 
 class Time:
-    """Time describes the progress of a training run, in terms of a :class:`TimeUnit` (epochs, batches,
-    samples, tokens, or duration).
+    """Time represents static durations of training time or points in the training process in terms of a 
+    :class:`TimeUnit` enum (epochs, batches, samples, tokens, or duration).
 
     To construct an instance of :class:`Time`, you can either:
-
-        #. Use a time string. A time string is a numerical value followed by the value of a
-            :class:`TimeUnit` enum. For example:
-
-            >>> Time("5ep")  # describes 5 epochs.
-            >>> Time("3e4tok")  # describes 30,000 tokens.
-            >>> Time("0.5dur")  # describes 50% of the training process.
         
         #. Use a value followed by a :class:`TimeUnit` enum or string. For example,
 
             >>> Time(5, TimeUnit.EPOCH)  # describes 5 epochs.
             >>> Time(3e4, "tok")  # describes 30,000 tokens.
             >>> Time(0.5, "dur")  # describes 50% of the training process.
-        
-        #. Use a keyword argument for the unit. For example,
 
-            >>> Time(epoch=5)  # describes 5 epochs.
-            >>> Time(token=3e4)  # describes 30,000 tokens.
-            >>> Time(dur=0.5)  # describes 50% of the training process.
+        #. Use one of the helper methods. See:
+
+            - :meth:`Time.from_epoch`
+            - :meth:`Time.from_batch`
+            - :meth:`Time.from_sample`
+            - :meth:`Time.from_token`
+            - :meth:`Time.from_duration`
+            - :meth:`Time.from_timestring`.
 
     :class:`Time` supports addition and subtraction with other :class:`Time` instances that share the same
     :class:`TimeUnit`. For example:
-    >>> Time(epoch=1) + Time(epoch=2) == Time("3ep")
 
-    :class:`Time` supports multiplication when the multiplier or multiplicand is in units :attr:`TimeUnit.DURATION`.
+    >>> Time(1, TimeUnit.EPOCH) + Time(2, TimeUnit.EPOCH) == Time(3, TimeUnit.EPOCH)
+
+    :class:`Time` supports multiplication. The multiplier must be either a number or have units of
+    :attr:`TimeUnit.DURATION`. The multiplicand is scaled, and its units are kept.
+
+    >>> Time(2, TimeUnit.EPOCH) * 0.5 == Time(1, TimeUnit.EPOCH)
+    >>> Time(2, TimeUnit.EPOCH) * Time(0.5, TimeUnit.DURATION) == Time(1, TimeUnit.EPOCH)
+
+
+    :class:`Time` supports division. If the divisor is an instance of :class:`Time`, then it
+    must have the same units as the dividend, and the result has units of :attr:`TimeUnit.DURATION`.
     For example:
-    >>> Time(epoch=2) * Time(0.5, "dur) == Time("1ep")
 
-    :class:`Time` also supports division when both units are the same type. The result is in :attr:`TimeUnit.DURATION`.
-    For example:
-    >>> Time(epoch=2) / Time(epoch=4) == Time("0.5dur")
+    >>> Time(4, TimeUnit.EPOCH) / Time(2, TimeUnit.EPOCH) == Time(2.0, TimeUnit.DURATION)
 
+    If the divisor is number, then the dividend is scaled, and it keeps its units. For example:
 
+    >>> Time(4, TimeUnit.EPOCH) / 2 == Time(2, TimeUnit.EPOCH)
 
     Args:
-        time (str, Time, int, or float, optional): If spcified, a time string, existing :class:`Time` instance,
-            or number.
-            If a time string or existing instance, then all other arguments should be left blank.
-            If a number, then ``unit`` must also be specifed.
-        unit (str | TimeUnit, optional): If ``time`` is number, the :class:`TimeUnit` corresponding to it.
-        epoch (int, optional): Number of epochs. If specified, all other arguments should be left blank.
-        batch (int, optional): Number of batches. If specified, all other arguments should be left blank.
-        sample (int, optional): Number of samples. If specified, all other arguments should be left blank.
-        token (int, optional): Number of tokens. If specified, all other arguments should be left blank.
-        duration (float, optional): Fraction of the total training duration, on ``[0;1]``.
-            If specified, all other arguments should be left blank.
+        value (int or float): The amount of time.
+        unit (str or TimeUnit): The :class:`TimeUnit` for ``value``.
     """
 
     def __init__(
         self,
-        time: Optional[Union[str, Time, int, float]] = None,
-        unit: Optional[Union[str, TimeUnit]] = None,
-        *,
-        epoch: Optional[int] = None,
-        batch: Optional[int] = None,
-        sample: Optional[int] = None,
-        token: Optional[int] = None,
-        duration: float = None,
+        value: Union[int, float],
+        unit: Union[str, TimeUnit],
     ):
-
-        if (time is not None) + (epoch is not None) + (batch is not None) + (sample is not None) + (
-                token is not None) + (duration is not None) != 1:
-            raise ValueError("Exactly one argument should be speciifed")
-
-        if time is not None:
-            if isinstance(time, str):
-                self._value, self._unit = self._parse_time_string(time)
-            elif isinstance(time, Time):
-                self._value, self._unit = time.value, time.unit
-            else:
-                if unit is None:
-                    raise ValueError("when time is an integer, then unit must be specified")
-                self._value, self._unit = time, TimeUnit(unit)
-
-        elif epoch is not None:
-            self._value = epoch
-            self._unit = TimeUnit.EPOCH
-
-        elif batch is not None:
-            self._value = batch
-            self._unit = TimeUnit.BATCH
-
-        elif sample is not None:
-            self._value = sample
-            self._unit = TimeUnit.SAMPLE
-
-        elif token is not None:
-            self._value = token
-            self._unit = TimeUnit.TOKEN
-
-        elif duration is not None:
-            self._value = duration
-            self._unit = TimeUnit.DURATION
+        unit = TimeUnit(unit)
+        if unit == TimeUnit.DURATION:
+            value = float(value)
         else:
-            raise ValueError("No value specified")
+            if not isinstance(value, int):
+                raise TypeError(f"value {value} is of type {type(value)}. Units {unit} require integer values.")
+        self._value, self._unit = value, TimeUnit(unit)
+
+    @classmethod
+    def from_epoch(cls, epoch: int) -> Time:
+        """Create a :class:`Time` with units of :attr:`TimeUnit.EPOCH`.
+        Equivalent to ``Time(epoch, TimeUnit.EPOCH)``.
+
+        Args:
+            epoch (int): Number of epochs.
+
+        Returns:
+            Time: :class:`Time` instance, in epochs.
+        """
+        return cls(epoch, TimeUnit.EPOCH)
+
+    @classmethod
+    def from_batch(cls, batch: int) -> Time:
+        """Create a :class:`Time` with units of :attr:`TimeUnit.BATCH`.
+        Equivalent to ``Time(batch, TimeUnit.BATCH)``.
+
+        Args:
+            batch (int): Number of batches.
+
+        Returns:
+            Time: :class:`Time` instance, in batches.
+        """
+        return cls(batch, TimeUnit.BATCH)
+
+    @classmethod
+    def from_sample(cls, sample: int) -> Time:
+        """Create a :class:`Time` with units of :attr:`TimeUnit.SAMPLE`.
+        Equivalent to ``Time(sample, TimeUnit.SAMPLE)``.
+
+        Args:
+            sample (int): Number of samples.
+
+        Returns:
+            Time: :class:`Time` instance, in samples.
+        """
+        return cls(sample, TimeUnit.SAMPLE)
+
+    @classmethod
+    def from_token(cls, token: int) -> Time:
+        """Create a :class:`Time` with units of :attr:`TimeUnit.TOKEN`.
+        Equivalent to ``Time(sample, TimeUnit.TOKEN)``.
+
+        Args:
+            token (int): Number of tokens.
+
+        Returns:
+            Time: :class:`Time` instance, in tokens.
+        """
+        return cls(token, TimeUnit.TOKEN)
+
+    @classmethod
+    def from_duration(cls, duration: float) -> Time:
+        """Create a :class:`Time` with units of :attr:`TimeUnit.DURATION`.
+        Equivalent to ``Time(duration, TimeUnit.DURATION)``.
+
+        Args:
+            duration (float): Duration of the training process. Should be on ``[0, 1)``
+                where ``0`` represents the beginning of the training process and ``1``
+                represents a completed training process.
+
+        Returns:
+            Time: :class:`Time` instance, in duration.
+        """
+        return cls(duration, TimeUnit.DURATION)
 
     @property
     def value(self) -> Union[int, float]:
@@ -151,32 +178,24 @@ class Time:
         return self._unit
 
     def __repr__(self) -> str:
-        return f"{self.__class__.__name__}({self.unit.name.lower()}={self.value})"
+        return f"{self.__class__.__name__}({self.value}, {self.unit})"
 
-    def _convert(self, other: object) -> Time:
+    def _parse(self, other: object) -> Time:
+        # parse ``other`` into a Time object
         if isinstance(other, Time):
             return other
-
-        if isinstance(other, (int, float)):
-            other_converted = Time(f"{other}{self.unit.value}")
-            warnings.warn(
-                textwrap.dedent(f"""TimeImplicitIntegerConversion:
-                Implciitely converting {other} to {other_converted}. Assuming that the unit is {self.unit.name}.
-                To eliminate this warning, replace {other} with {other_converted}."""))
-            return other_converted
-
         if isinstance(other, str):
-            other_converted = Time(other)
+            other_parsed = Time.from_timestring(other)
             warnings.warn(
                 textwrap.dedent(f"""TimeImplicitStringConversion:
-                Implciitely converting {other} to {other_converted}.
-                To fix this warning, replace {other} with {other_converted}."""))
-            return other_converted
+                Implicitly converting {other} to {other_parsed}.
+                To fix this warning, replace {other} with {other_parsed}."""))
+            return other_parsed
 
         raise NotImplementedError(f"Cannot convert type {other} to {self.__class__.__name__}")
 
     def _cmp(self, other: object) -> int:
-        other = self._convert(other)
+        other = self._parse(other)
         if self.unit != other.unit:
             raise RuntimeError(f"Cannot compare {self} to {other} since they have different units.")
         if self.value < other.value:
@@ -205,7 +224,7 @@ class Time:
         return self._cmp(other) >= 0
 
     def __add__(self, other: object):
-        other = self._convert(other)
+        other = self._parse(other)
         if self.unit != other.unit:
             raise RuntimeError(f"Cannot add {self} to {other} since they have different units.")
         return Time(self.value + other.value, self.unit)
@@ -214,7 +233,7 @@ class Time:
         return self + other
 
     def __sub__(self, other: object):
-        other = self._convert(other)
+        other = self._parse(other)
         if self.unit != other.unit:
             raise RuntimeError(f"Cannot subtract {other} from {self} since they have different units.")
         return Time(self.value - other.value, self.unit)
@@ -226,7 +245,7 @@ class Time:
         return Time(-self.value, self.unit)
 
     def __pos__(self):
-        return Time(self)
+        return Time(self.value, self.unit)
 
     def __int__(self):
         return int(self.value)
@@ -235,24 +254,39 @@ class Time:
         return float(self.value)
 
     def __truediv__(self, other: object):
-        other = self._convert(other)
+        if isinstance(other, (float, int)):
+            return Time(type(self.value)(self.value / other), self.unit)
+        other = self._parse(other)
         if self.unit != other.unit:
             raise RuntimeError(f"Cannot divide {self} by {other} since they have different units.")
         return Time(self.value / other.value, TimeUnit.DURATION)
 
     def __mul__(self, other: object):
-        other = self._convert(other)
+        if isinstance(other, (float, int)):
+            # Scale by the value.
+            return Time(type(self.value)(self.value * other), self.unit)
+        other = self._parse(other)
         if other.unit != TimeUnit.DURATION and self.unit != TimeUnit.DURATION:
             raise RuntimeError(f"Multiplication is supported only if one of the units is Duration")
         real_unit = self.unit if other.unit == TimeUnit.DURATION else other.unit
-        return Time(self.value * other.value, real_unit)
+        real_type = float if real_unit == TimeUnit.DURATION else int
+        return Time(real_type(self.value * other.value), real_unit)
 
     def __rmul__(self, other: object):
         return self * other
 
-    @staticmethod
-    def _parse_time_string(timestring: str) -> Tuple[Union[int, float], TimeUnit]:
-        # Parses a time string into a (value, TimeUnit) tuple
+    @classmethod
+    def from_timestring(cls, timestring: str) -> Time:
+        """Parse a time string into a :class:`Time` instance.
+        A time string is a numerical value followed by the value of a :class:`TimeUnit` enum. For example:
+
+        >>> Time("5ep")  # describes 5 epochs.
+        >>> Time("3e4tok")  # describes 30,000 tokens.
+        >>> Time("0.5dur")  # describes 50% of the training process.
+
+        Returns:
+            Time: An instance of :class:`Time`.
+        """
         match = _TIME_STR_REGEX.findall(timestring)
         if len(match) != 1:
             raise ValueError(f"Invalid time string: {timestring}")
@@ -264,35 +298,57 @@ class Time:
         value = float(value)  # always parsing first as float b/c it could be scientific notation
         if unit != TimeUnit.DURATION:
             value = int(value)
-        return value, unit
+        return Time(value, unit)
 
     def convert(
         self,
         unit: Union[TimeUnit, str],
         *,
+        batch_size: Optional[int] = None,
+        drop_last: Optional[bool] = None,
         dataset_num_samples: Optional[int] = None,
         dataset_num_tokens: Optional[int] = None,
         max_training_duration: Optional[Union[str, Time]] = None,
-        batch_size: Optional[int] = None,
-        drop_last: Optional[bool] = None,
     ) -> Time:
-        """Convert a :class:`Time` instance into the specified ``unit``.
+        r"""Convert a :class:`Time` instance into the specified ``unit``.
 
-        Only ``unit`` is always required. Other parameters may be required, depending on the conversion
-        being performed.
+        Parameter ``unit`` is always required. The following table lists the additional required parameters
+        to perform the conversion:
+
+        +-----------------------------------------------------+-------------------------------------------------+-----------------------------------------------------------+-----------------------------------------------------------+-----------------------------------+-----------------------------+
+        | From Unit |:arrow_down:| \\ To Unit |:arrow_right:| | :attr:`~TimeUnit.EPOCH`                         | :attr:`~TimeUnit.BATCH`                                   | :attr:`~TimeUnit.SAMPLE`                                  | :attr:`~TimeUnit.TOKEN`           | :attr:`~TimeUnit.DURATION`  |
+        +-----------------------------------------------------+-------------------------------------------------+-----------------------------------------------------------+-----------------------------------------------------------+-----------------------------------+-----------------------------+
+        | :attr:`~TimeUnit.EPOCH`                             | No required parameters.                         | - ``batch_size``                                          | - ``drop_last``                                           | - ``dataset_num_tokens``          | - ``max_training_duration`` |
+        |                                                     |                                                 | - ``drop_last``                                           | - ``dataset_num_samples``                                 | - ``drop_last`` must be ``False`` |                             |
+        |                                                     |                                                 | - ``dataset_num_samples``                                 | - ``batch_size`` (if ``drop_last`` is ``True``)           |                                   |                             |
+        +-----------------------------------------------------+-------------------------------------------------+-----------------------------------------------------------+-----------------------------------------------------------+-----------------------------------+-----------------------------+
+        | :attr:`~TimeUnit.BATCH`                             | - ``batch_size``                                | No required parameters.                                   | - ``batch_size``                                          | Unsupported conversion.           | - ``max_training_duration`` |
+        |                                                     | - ``drop_last``                                 |                                                           | - ``drop_last``                                           |                                   |                             |
+        |                                                     | - ``dataset_num_samples``                       |                                                           | - ``dataset_num_samples`` (if ``drop_last`` is ``False``) |                                   |                             |
+        +-----------------------------------------------------+-------------------------------------------------+-----------------------------------------------------------+-----------------------------------------------------------+-----------------------------------+-----------------------------+
+        | :attr:`~TimeUnit.SAMPLE`                            | - ``drop_last``                                 | - ``batch_size``                                          | No required parameters.                                   | Unsupported conversion.           | - ``max_training_duration`` |
+        |                                                     | - ``dataset_num_samples``                       | - ``drop_last``                                           |                                                           |                                   |                             |
+        |                                                     | - ``batch_size`` (if ``drop_last`` is ``True``) | - ``dataset_num_samples`` (if ``drop_last`` is ``False``) |                                                           |                                   |                             |
+        +-----------------------------------------------------+-------------------------------------------------+-----------------------------------------------------------+-----------------------------------------------------------+-----------------------------------+-----------------------------+
+        | :attr:`~TimeUnit.TOKEN`                             | - ``dataset_num_tokens``                        | Unsupported conversion.                                   | Unsupported conversion.                                   | No required parameters.           | - ``max_training_duration`` |
+        |                                                     | - ``drop_last`` must be ``False``               |                                                           |                                                           |                                   |                             |
+        +-----------------------------------------------------+-------------------------------------------------+-----------------------------------------------------------+-----------------------------------------------------------+-----------------------------------+-----------------------------+
+        | :attr:`~TimeUnit.DURATION`                          | - ``max_training_duration``                     | - ``max_training_duration``                               | - ``max_training_duration``                               | - ``max_training_duration``       | No required parameters.     |
+        +-----------------------------------------------------+-------------------------------------------------+-----------------------------------------------------------+-----------------------------------------------------------+-----------------------------------+-----------------------------+
 
         For example:
-        >>> Time("2ep").convert(TimeUnit.BATCH, dataset_num_samples=100, batch_size=50, drop_last=True) == Time("4ba")
+
+        >>> Time(2, "ep").convert(TimeUnit.BATCH, dataset_num_samples=100, batch_size=50, drop_last=True) == Time("4ba")
 
         Args:
             unit (Union[TimeUnit, str]): The desired unit to convert the time instance into.
-            dataset_num_samples (int, optional): The number of samples in the dataset.
-            dataset_num_tokens (int, optional): The number of tokens in the dataset. Required only if
-                converting to or from :attr;`TimeUnit.TOKEN`.
-            max_training_duration (str or Time, optional): The total training duration. Required only
-                if converting to or from :attr:`TimeUnit.DURATION`.
             batch_size (int, optional): The optimization batch size.
             drop_last (bool, optional): Whether the dataloader is dropping last (incomplete) batches.
+            dataset_num_samples (int, optional): The number of samples in the dataset.
+            dataset_num_tokens (int, optional): The number of tokens in the dataset. Required only if
+                converting to or from :attr:`TimeUnit.TOKEN`.
+            max_training_duration (str or Time, optional): The total training duration. Required only
+                if converting to or from :attr:`TimeUnit.DURATION`.
         
         Raises:
             ValueError: If it is not possible to perform the conversion. 
@@ -302,13 +358,16 @@ class Time:
         """
         unit = TimeUnit(unit)
 
+        if unit == self.unit:
+            # No conversion required
+            return Time(self.value, self.unit)
+
         if unit == TimeUnit.DURATION or self.unit == TimeUnit.DURATION:
             # if the desired unit is duration, then the logic is the same regardless of the from unit
-            if self.unit == TimeUnit.DURATION and unit == TimeUnit.DURATION:
-                return Time(self)
             if max_training_duration is None:
                 raise ValueError("max_training_duration is required to convert to or from DURATION")
-            max_training_duration = Time(max_training_duration)
+            if isinstance(max_training_duration, str):
+                max_training_duration = Time.from_timestring(max_training_duration)
             if unit == TimeUnit.DURATION:
                 # converting to duration
                 return self / max_training_duration
@@ -317,8 +376,6 @@ class Time:
                 return self * max_training_duration
 
         if self.unit == TimeUnit.EPOCH:
-            if unit == TimeUnit.EPOCH:
-                return Time(self)
             if unit == TimeUnit.BATCH:
                 if batch_size is None:
                     raise ValueError("batch_size is required to convert from EPOCH to BATCH")
@@ -366,8 +423,6 @@ class Time:
                 else:
                     num_batches_per_epoch = (dataset_num_samples - 1) // batch_size + 1
                 return Time(self.value // num_batches_per_epoch, TimeUnit.EPOCH)
-            if unit == TimeUnit.BATCH:
-                return Time(self)
             if unit == TimeUnit.SAMPLE:
                 if batch_size is None:
                     raise ValueError("batch_size is required to convert from BATCH to SAMPLE")
@@ -417,8 +472,6 @@ class Time:
                     batches_from_complete_epochs = (self.value // dataset_num_samples) * num_batches_per_epoch
                     batches_from_incomplete_epoch = (self.value % dataset_num_samples) // batch_size
                     return Time(batches_from_complete_epochs + batches_from_incomplete_epoch, TimeUnit.BATCH)
-            if unit == TimeUnit.SAMPLE:
-                return Time(self)
             if unit == TimeUnit.TOKEN:
                 raise ValueError("Cannot convert from SAMPLE to TOKEN")
             raise ValueError(f"invalid unit: {unit}")
@@ -435,8 +488,6 @@ class Time:
                 raise ValueError("Cannot convert from TOKEN to BATCH")
             if unit == TimeUnit.SAMPLE:
                 raise ValueError("Cannot convert from TOKEN to SAMPLE")
-            if unit == TimeUnit.TOKEN:
-                return Time(self)
             raise ValueError(f"invalid unit: {unit}")
         raise RuntimeError("invalid from unit")
 
@@ -465,22 +516,22 @@ class Timer(Serializable):
         self._token = Time(state["token"], TimeUnit.TOKEN)
 
     @property
-    def epoch(self):
+    def epoch(self) -> Time:
         """The current epoch."""
         return self._epoch
 
     @property
-    def batch(self):
+    def batch(self) -> Time:
         """The current batch."""
         return self._batch
 
     @property
-    def sample(self):
+    def sample(self) -> Time:
         """The current sample."""
         return self._sample
 
     @property
-    def token(self):
+    def token(self) -> Time:
         """The current token."""
         return self._token
 
@@ -493,13 +544,17 @@ class Timer(Serializable):
             samples and/or tokens trained across all ranks before invoking this function. 
 
         Args:
-            samples (int or Time, optional). The number of samples trained in the batch. Defaults to 0.
+            samples (int or Time, optional): The number of samples trained in the batch. Defaults to 0.
             tokens (int or Time, optional): The number of tokens trained in the batch. Defaults to 0.
         """
-        self._batch += 1
-        self._sample += Time(samples, TimeUnit.SAMPLE)
-        self._token += Time(tokens, TimeUnit.TOKEN)
+        self._batch += Time(1, TimeUnit.BATCH)
+        if isinstance(samples, int):
+            samples = Time(samples, TimeUnit.SAMPLE)
+        if isinstance(tokens, int):
+            tokens = Time(tokens, TimeUnit.TOKEN)
+        self._sample += samples
+        self._token += tokens
 
     def on_epoch_complete(self):
         """Called by the trainer at the end of an epoch."""
-        self._epoch += 1
+        self._epoch += Time(1, TimeUnit.EPOCH)

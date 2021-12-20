@@ -58,6 +58,7 @@ Our documentation is organized into a few sections:
    core/logger.rst
    core/state.rst
    core/surgery.rst
+   core/time.rst
    core/types.rst
 
 .. toctree::
