@@ -10,32 +10,35 @@ from composer.algorithms.stochastic_depth.stochastic_depth import STOCHASTIC_LAY
 from composer.algorithms.stochastic_depth.stochastic_layers import StochasticBottleneck, _sample_bernoulli
 from composer.core import Event, Logger, State, surgery
 from composer.core.types import Precision
-from composer.datasets import SyntheticDatasetHparams
 from composer.datasets.dataloader import DataloaderHparams
+from composer.datasets.hparams import DataloaderSpec
+from composer.datasets.imagenet import ImagenetDatasetHparams
 from composer.loggers import Logger
 from composer.models import ResNet50Hparams
-from tests.fixtures.dummy_fixtures import get_dataloader
 
 
 @pytest.fixture()
 def dummy_state(dummy_dataloader_hparams: DataloaderHparams):
     model = ResNet50Hparams(num_classes=100).initialize_object()
-    dataset_hparams = SyntheticDatasetHparams(total_dataset_size=1000000,
-                                              data_shape=[3, 32, 32],
-                                              num_classes=10,
-                                              device="cpu",
-                                              drop_last=True,
-                                              shuffle=False)
-    train_dataloader = get_dataloader(dataset_hparams.initialize_object(), dummy_dataloader_hparams, batch_size=100)
-    return State(epoch=50,
-                 step=50,
-                 train_dataloader=train_dataloader,
-                 train_batch_size=100,
-                 eval_batch_size=100,
-                 grad_accum=1,
-                 max_epochs=100,
-                 model=model,
-                 precision=Precision.FP32)
+    dataset_hparams = ImagenetDatasetHparams(
+        use_synthetic=True,
+        drop_last=True,
+        shuffle=False,
+        resize_size=256,
+        crop_size=224,
+    )
+    train_dataloader = dataset_hparams.initialize_object(batch_size=100, dataloader_hparams=dummy_dataloader_hparams)
+    if isinstance(train_dataloader, DataloaderSpec):
+        train_dataloader = train_dataloader.dataloader
+    state = State(train_dataloader=train_dataloader,
+                  grad_accum=1,
+                  max_epochs=100,
+                  model=model,
+                  eval_dataloader=train_dataloader,
+                  precision=Precision.FP32)
+    state.epoch = 50
+    state.step = 50
+    return state
 
 
 @pytest.mark.parametrize('stochastic_method', ['block', 'sample'])

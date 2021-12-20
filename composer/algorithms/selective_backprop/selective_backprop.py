@@ -227,8 +227,12 @@ class SelectiveBackprop(Algorithm):
         def loss(p, y, reduction="none"):
             return state.model.module.loss(p, (None, y), reduction=reduction)  # type: ignore
 
-        with state.precision_context(state.precision):
+        with state.precision_context:
             new_input, new_target = selective_backprop(
-                input, target, model, loss, self.hparams.keep,
-                self.hparams.scale_factor)  # type: ignore - ditto because of loss
+                input,
+                target,
+                model,  # type: ignore - ditto because of loss
+                loss,
+                self.hparams.keep,
+                self.hparams.scale_factor)
         state.batch = (new_input, new_target)

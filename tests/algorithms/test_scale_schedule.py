@@ -91,7 +91,7 @@ class TestScaleScheduleAlgorithm():
         algorithm = ScaleSchedule(ratio=ssr)
         algorithm.apply(Event.TRAINING_START, dummy_state, noop_dummy_logger)
         assert dummy_state.max_epochs == int(10 * ssr)
-        assert dummy_state.schedulers.milestones == Counter([int(30 * ssr), int(50 * ssr)])  # type: ignore
+        assert scheduler.milestones == Counter([int(30 * ssr), int(50 * ssr)])  # type: ignore
 
     @pytest.mark.xfail
     def test_scale_schedule_compose1(self, optimizer: Optimizer, ssr: float):

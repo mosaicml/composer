@@ -5,12 +5,12 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING, Mapping, Tuple
 
-import transformers
-
 from composer.models.base import BaseMosaicModel
 from composer.models.nlp_metrics import LanguageCrossEntropyLoss
 
 if TYPE_CHECKING:
+    import transformers
+
     from composer.core.types import Batch, Metrics, Tensors
 
 log = logging.getLogger(__name__)
@@ -30,9 +30,14 @@ class MosaicTransformer(BaseMosaicModel):
             necessary to assert required model inputs.
     """
 
-    def __init__(self, module: transformers.PreTrainedModel, config: transformers.PretrainedConfig,
-                 tokenizer_name: str) -> None:
+    def __init__(self,
+                 module: transformers.PreTrainedModel,
+                 config: transformers.PretrainedConfig,
+                 tokenizer_name: str,
+                 gradient_checkpointing: bool = False) -> None:
         super().__init__()
+        import transformers
+
         self.module = module
         self.config = config
         self.tokenizer = transformers.AutoTokenizer.from_pretrained(tokenizer_name)
@@ -49,6 +54,9 @@ class MosaicTransformer(BaseMosaicModel):
         # define metrics for measurements
         self.train_loss = LanguageCrossEntropyLoss()
         self.val_loss = LanguageCrossEntropyLoss()
+
+        if gradient_checkpointing:
+            self.module.gradient_checkpointing_enable()  # type: ignore
 
     def loss(self, outputs: Mapping, batch: Batch) -> Tensors:
         """Computes the loss of the tensor from the output.

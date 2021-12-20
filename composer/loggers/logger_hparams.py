@@ -11,9 +11,11 @@ import yahp as hp
 
 from composer.core.logging import BaseLoggerBackend, LogLevel
 from composer.core.types import JSON
+from composer.loggers.mosaicml_logger import RunType
 
 if TYPE_CHECKING:
     from composer.loggers.file_logger import FileLoggerBackend
+    from composer.loggers.mosaicml_logger import MosaicMLLoggerBackend
     from composer.loggers.tqdm_logger import TQDMLoggerBackend
     from composer.loggers.wandb_logger import WandBLoggerBackend
 
@@ -22,7 +24,7 @@ if TYPE_CHECKING:
 class BaseLoggerBackendHparams(hp.Hparams, ABC):
     """
     Base class for logger backend hyperparameters.
-    
+
     Logger parameters that are added to
     :class:`~composer.trainer.trainer_hparams.TrainerHparams`
     (e.g. via YAML or the CLI) are initialized in the training loop.
@@ -82,6 +84,9 @@ class WandBLoggerBackendHparams(BaseLoggerBackendHparams):
         name (str, optional): Weights and Biases run name.
         entity (str, optional): Weights and Biases entity name.
         tags (str, optional): Comma-seperated list of tags to add to the run.
+        log_artifacts (bool, optional): Whether to log artifacts. Defaults to False.
+        log_artifacts_every_n_batches (int, optional). How frequently to log artifacts. Defaults to 100.
+            Only applicable if `log_artifacts` is True.
 
         extra_init_params (JSON Dictionary, optional): Extra parameters to pass into :func:`wandb.init`.
     """
@@ -90,11 +95,13 @@ class WandBLoggerBackendHparams(BaseLoggerBackendHparams):
     name: Optional[str] = hp.optional(doc="wandb run name", default=None)
     entity: Optional[str] = hp.optional(doc="wandb entity", default=None)
     tags: str = hp.optional(doc="wandb tags comma separated", default="")
+    log_artifacts: bool = hp.optional(doc="Whether to log artifacts", default=False)
+    log_artifacts_every_n_batches: int = hp.optional(doc="interval, in batches, to log artifacts", default=100)
     extra_init_params: Dict[str, JSON] = hp.optional(doc="wandb parameters", default_factory=dict)
 
     def initialize_object(self, config: Optional[Dict[str, Any]] = None) -> WandBLoggerBackend:
         """Initializes the logger.
-        
+
         The ``config`` is flattened and stored as :attr:`wandb.run.config`.
         The list of algorithms in the ``config`` are appended to :attr:`wandb.run.tags`.
 
@@ -181,17 +188,21 @@ class WandBLoggerBackendHparams(BaseLoggerBackendHparams):
                 self.extra_init_params["config"] = {}
             self.extra_init_params["config"].update(flattened_config)  # type: ignore
 
-        kwargs = {
+        init_params = {
             "project": self.project,
             "name": self.name,
             "entity": self.entity,
             "tags": tags,
         }
 
-        kwargs.update(self.extra_init_params)
+        init_params.update(self.extra_init_params)
 
         from composer.loggers.wandb_logger import WandBLoggerBackend
-        return WandBLoggerBackend(**kwargs)
+        return WandBLoggerBackend(
+            log_artifacts=self.log_artifacts,
+            log_artifacts_every_n_batches=self.log_artifacts_every_n_batches,
+            init_params=init_params,
+        )
 
 
 @dataclass
@@ -206,3 +217,35 @@ class TQDMLoggerBackendHparams(BaseLoggerBackendHparams):
     def initialize_object(self, config: Optional[Dict[str, Any]] = None) -> TQDMLoggerBackend:
         from composer.loggers.tqdm_logger import TQDMLoggerBackend
         return TQDMLoggerBackend(config=config)
+
+
+@dataclass
+class MosaicMLLoggerBackendHparams(BaseLoggerBackendHparams):
+    """:class:`~composer.loggers.mosaicml_logger.MosaicMLLoggerBackend`
+    hyperparameters.
+
+    See :class:`~composer.loggers.mosaicml_logger.MosaicMLLoggerBackend`
+    for documentation.
+    """
+    run_name: str = hp.required("The name of the run to write logs for.")
+    run_type: RunType = hp.required("The type of the run.")
+    run_id: Optional[str] = hp.optional(
+        "The name of the run to write logs for. If not provided, a random id "
+        "is created.", default=None)
+    experiment_name: Optional[str] = hp.optional(
+        "The name of the experiment to associate the run with. If "
+        "not provided, a random name is created.",
+        default=None)
+    creds_file: Optional[str] = hp.optional(
+        "A file containing the MosaicML api_key. If not provided "
+        "will default to the environment variable MOSAIC_API_KEY.",
+        default=None)
+    flush_every_n_batches: int = hp.optional("Flush the log data buffer every n batches.", default=100)
+    max_logs_in_buffer: int = hp.optional(
+        "The maximum number of log entries allowed in the buffer "
+        "before a forced flush.", default=1000)
+    log_level: LogLevel = hp.optional("The maximum verbosity to log. Default: EPOCH", default=LogLevel.EPOCH)
+
+    def initialize_object(self, config: Optional[Dict[str, Any]] = None) -> MosaicMLLoggerBackend:
+        from composer.loggers.mosaicml_logger import MosaicMLLoggerBackend
+        return MosaicMLLoggerBackend(**asdict(self), config=config)

@@ -22,23 +22,27 @@ with open("README.md", "r", encoding="utf-8") as fh:
 install_requires = [
     "pyyaml>=5.4.1",
     "tqdm>=4.62.3",
-    "torchmetrics>=0.5.1",
+    "torchmetrics>=0.6.0",
     "torch_optimizer==0.1.0",
     "torchvision>=0.9.0",
     "torch>=1.9",
-    "argparse>=1.4.0",
-    "yahp>=0.0.10",
+    "yahp>=0.0.14",
 ]
 extra_deps = {}
 
 extra_deps['base'] = []
 
 extra_deps['dev'] = [
+    "custom_inherit==2.3.2",
     'junitparser>=2.1.1',
     'coverage[toml]>=6.1.1',
+    'fasteners>=0.16.3',  # run_directory_uploader tests require fasteners
     'pytest>=6.2.0',
     'yapf>=0.13.0',
     'isort>=5.9.3',
+    'ipython>=7.29.0',
+    'ipykernel>=6.5.0',
+    'jupyter>=1.0.0',
     'yamllint>=1.26.2',
     'pytest-timeout>=1.4.2',
     'recommonmark>=0.7.1',
@@ -49,9 +53,10 @@ extra_deps['dev'] = [
     'sphinxcontrib.katex>=0.8.6',
     'sphinxext.opengraph>=0.4.2',
     'sphinx_rtd_theme>=1.0.0',
+    'testbook>=0.4.2',
     'myst-parser>=0.15.2',
 ]
-extra_deps['wandb'] = ['wandb>=0.12.2']
+extra_deps['logging'] = ['wandb>=0.12.2', 'apache-libcloud>=3.4.1']
 
 extra_deps['nlp'] = [
     'transformers>=4.11.3',
@@ -59,20 +64,19 @@ extra_deps['nlp'] = [
 ]
 
 extra_deps['unet'] = [
-    'medpy==0.4.0',
     'monai>=0.7.0',
     'scikit-learn>=1.0.1',
 ]
 
-extra_deps['all'] = set(dep for deps in extra_deps.values() for dep in deps)
+extra_deps['deepspeed'] = [
+    'deepspeed>=0.5.5',
+]
 
-# TODO fix deferred loading in composer.functional
-install_requires.extend(extra_deps['unet'])
-install_requires.extend(extra_deps['nlp'])
+extra_deps['all'] = set(dep for deps in extra_deps.values() for dep in deps)
 
 setup(
     name="mosaicml",
-    version="0.2.4",
+    version="0.3.1",
     author="MosaicML",
     author_email="team@mosaicml.com",
     description="composing methods for ML training efficiency",
@@ -84,7 +88,7 @@ setup(
         "composer": ['py.typed'],
         "": package_files('composer/yamls'),
     },
-    packages=setuptools.find_packages(include=["composer"]),
+    packages=setuptools.find_packages(exclude=["tests*"]),
     classifiers=[
         "Programming Language :: Python :: 3",
     ],

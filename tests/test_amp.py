@@ -31,8 +31,8 @@ def run_and_measure_memory(precision: Precision) -> int:
 
 
 @pytest.mark.timeout(60)
-@pytest.mark.n_gpus(1)
-def test_fp16_mixed(ddp_tmpdir: str):
+@pytest.mark.gpu
+def test_fp16_mixed():
     memory_full = run_and_measure_memory(Precision.FP32)
     memory_amp = run_and_measure_memory(Precision.AMP)
     assert memory_amp < 0.7 * memory_full

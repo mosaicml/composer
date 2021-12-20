@@ -5,11 +5,11 @@ import dataclasses
 import pytest
 
 from composer.algorithms import (AlgorithmHparams, AlibiHparams, AugMixHparams, BlurPoolHparams, ChannelsLastHparams,
-                                 ColOutHparams, CutOutHparams, DummyHparams, FactorizeHparams, GhostBatchNormHparams,
-                                 LabelSmoothingHparams, LayerFreezingHparams, MixUpHparams, NoOpModelHparams,
-                                 ProgressiveResizingHparams, RandAugmentHparams, SAMHparams, ScaleScheduleHparams,
-                                 SelectiveBackpropHparams, SeqLengthWarmupHparams, SqueezeExciteHparams,
-                                 StochasticDepthHparams, SWAHparams, algorithm_registry)
+                                 ColOutHparams, CutMixHparams, CutOutHparams, DummyHparams, FactorizeHparams,
+                                 GhostBatchNormHparams, LabelSmoothingHparams, LayerFreezingHparams, MixUpHparams,
+                                 NoOpModelHparams, ProgressiveResizingHparams, RandAugmentHparams, SAMHparams,
+                                 ScaleScheduleHparams, SelectiveBackpropHparams, SeqLengthWarmupHparams,
+                                 SqueezeExciteHparams, StochasticDepthHparams, SWAHparams, algorithm_registry)
 from composer.core.algorithm import Algorithm
 
 default_required_fields = {
@@ -48,6 +48,9 @@ default_required_fields = {
         "max_seq_length": 1024,
         "step_size": 8,
         "truncate": True,
+    },
+    CutMixHparams: {
+        'alpha': 1.0
     },
     CutOutHparams: {
         'n_holes': 1,
