@@ -1,4 +1,4 @@
-# Copyright 2020 MosaicML. All Rights Reserved.
+# Copyright 2021 MosaicML. All Rights Reserved.
 
 import logging
 from dataclasses import asdict, dataclass
