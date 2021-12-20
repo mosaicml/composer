@@ -1,13 +1,14 @@
 # Copyright 2020 MosaicML. All Rights Reserved.
 
+import logging
 from dataclasses import asdict, dataclass
 from functools import reduce
-import logging
 from operator import mul
-import torch
-from torch.nn import functional as F
 from typing import Optional
+
+import torch
 import yahp as hp
+from torch.nn import functional as F
 
 from composer.algorithms import AlgorithmHparams
 from composer.core.types import Algorithm, Event, Logger, State, Tensor

@@ -1,8 +1,8 @@
-import torch
-from torch.autograd import Function
-from torch import nn
-from torch import Tensor
 from typing import Tuple
+
+import torch
+from torch import Tensor, nn
+from torch.autograd import Function
 
 
 class ShakeDropFunction(Function):

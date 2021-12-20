@@ -1,7 +1,6 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
-from torch import nn
-from torch import Tensor
+from torch import Tensor, nn
 
 from composer.algorithms.dropblock.dropblock import dropblock
 
