@@ -220,14 +220,13 @@ class Trainer:
         self._eval_device_transformation_fn = eval_dataloader_spec.device_transform_fn
         self.eval_split_fn = eval_dataloader_spec.split_fn
 
-        device_train_batch_size = train_dataloader_spec.dataloader.batch_size
-
+        device_train_batch_size = train_dataloader_spec.batch_size
         if device_train_batch_size is None:
             raise ValueError("train dataloader batch size is None")
 
         train_batch_size = device_train_batch_size * ddp.get_world_size()
 
-        device_eval_batch_size = eval_dataloader_spec.dataloader.batch_size
+        device_eval_batch_size = eval_dataloader_spec.batch_size
         if device_eval_batch_size is None:
             raise ValueError("eval dataloader batch size is None")
 
