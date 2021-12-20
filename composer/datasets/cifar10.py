@@ -62,4 +62,5 @@ class CIFAR10DatasetHparams(DatasetHparams, SyntheticHparamsMixin):
         return dataloader_hparams.initialize_object(dataset,
                                                     batch_size=batch_size,
                                                     drop_last=self.drop_last,
+                                                    split='train' if self.is_train else 'val',
                                                     shuffle=self.shuffle)
