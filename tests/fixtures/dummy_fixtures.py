@@ -55,6 +55,7 @@ def dummy_model(dummy_model_hparams: _SimpleBatchPairModelHparams) -> SimpleBatc
 def dummy_train_dataset_hparams(dummy_model: SimpleBatchPairModel,
                                 SimpleDatasetHparams: Type[_SimpleDatasetHparams]) -> DatasetHparams:
     return SimpleDatasetHparams(
+        is_train=True,
         use_synthetic=True,
         drop_last=True,
         shuffle=False,
@@ -67,6 +68,7 @@ def dummy_train_dataset_hparams(dummy_model: SimpleBatchPairModel,
 def dummy_val_dataset_hparams(dummy_model: SimpleBatchPairModel,
                               SimpleDatasetHparams: Type[_SimpleDatasetHparams]) -> DatasetHparams:
     return SimpleDatasetHparams(
+        is_train=False,
         use_synthetic=True,
         drop_last=False,
         shuffle=False,
