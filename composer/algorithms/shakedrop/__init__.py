@@ -2,7 +2,6 @@
 
 from composer.algorithms.shakedrop.shakedrop import ShakeDrop as ShakeDrop
 
-
 _name = 'ShakeDrop'
 _class_name = 'ShakeDrop'
 _functional = ''

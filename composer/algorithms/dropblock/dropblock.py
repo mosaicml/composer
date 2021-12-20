@@ -12,7 +12,6 @@ import yahp as hp
 from composer.algorithms import AlgorithmHparams
 from composer.core.types import Algorithm, Event, Logger, State, Tensor
 
-
 log = logging.getLogger(__name__)
 
 
@@ -29,7 +28,7 @@ def dropblock(x: Tensor, drop_prob: float = 0.1, block_size: int = 7, batchwise:
 
     space = reduce(mul, x.shape[2:])
     valid_space = reduce(mul, map(lambda d: d - block_size + 1, x.shape[2:]))
-    gamma = drop_prob / block_size ** 2 * space / valid_space
+    gamma = drop_prob / block_size**2 * space / valid_space
 
     mask_shape = (1,) + x.shape[1:] if batchwise else x.shape
     mask = torch.rand(mask_shape, dtype=x.dtype, device=x.device) < gamma

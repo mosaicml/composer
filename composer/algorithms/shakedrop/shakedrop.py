@@ -9,8 +9,12 @@ class ShakeDropFunction(Function):
     '''See `ShakeDrop`.'''
 
     @staticmethod
-    def forward(ctx, x: Tensor, training: bool = True, drop_prob: float = 0.5,
-                alpha_min: float = -1, alpha_max: float = 1) -> Tensor:
+    def forward(ctx,
+                x: Tensor,
+                training: bool = True,
+                drop_prob: float = 0.5,
+                alpha_min: float = -1,
+                alpha_max: float = 1) -> Tensor:
         if not training:
             return (1 - drop_prob) * x
 
@@ -51,5 +55,4 @@ class ShakeDrop(nn.Module):
         self.alpha_max = alpha_max
 
     def forward(self, x: Tensor) -> Tensor:
-        return ShakeDropFunction.apply(x, self.training, self.drop_prob, self.alpha_min,
-                                       self.alpha_max)
+        return ShakeDropFunction.apply(x, self.training, self.drop_prob, self.alpha_min, self.alpha_max)

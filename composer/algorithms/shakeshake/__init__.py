@@ -2,7 +2,6 @@
 
 from composer.algorithms.shakeshake.shakeshake import ShakeShake as ShakeShake
 
-
 _name = 'ShakeShake'
 _class_name = 'ShakeShake'
 _functional = ''
