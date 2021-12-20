@@ -124,9 +124,9 @@ def _sample_batches_match(samplers: Sequence[BalancedSampler], batch_size: int, 
         # possible that there weren't enough stragglers; this can happen if the
         # deterministic sampling turns the num_unsampled counts to be even
         # multiples of the remaining batch size for enough samplers
-        tail_counts = np.array([s.num_unsampled_elements() for s in samplers])
-        probs = tail_counts / tail_counts.sum()
         if remaining_batch_size > 0:
+            tail_counts = np.array([s.num_unsampled_elements() for s in samplers])
+            probs = tail_counts / tail_counts.sum()
             use_classes = rng.choice(num_classes, replace=False, p=probs, size=remaining_batch_size)
             for c in use_classes:
                 batch += samplers[c].sample(1)
