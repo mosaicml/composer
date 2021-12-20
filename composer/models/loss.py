@@ -18,9 +18,11 @@ class mIoU(Metric):
     """Torchmetric mean Intersection-over-Union (mIoU) implementation.
 
     IoU calculates the intersection area between the predicted class mask and the label class mask.
-    The intersection is then divided by the union area of the predicted and label masks. This measures
-    the quality of predicted class mask with respect to the label. The IoU for each class is then averaged
-    and the final result is the mIoU score.
+    The intersection is then divided by the area of the union of the predicted and label masks.
+    This measures the quality of predicted class mask with respect to the label. The IoU for each
+    class is then averaged and the final result is the mIoU score. Implementation is primarily 
+    based on mmsegmentation:
+    https://github.com/open-mmlab/mmsegmentation/blob/master/mmseg/core/evaluation/metrics.py#L132
 
     Args:
         num_classes (int): the number of classes in the segmentation task.
@@ -35,10 +37,10 @@ class mIoU(Metric):
         self.add_state("total_intersect", default=torch.zeros(num_classes, dtype=torch.float64), dist_reduce_fx="sum")
         self.add_state("total_union", default=torch.zeros(num_classes, dtype=torch.float64), dist_reduce_fx="sum")
 
-    def update(self, probs, targets):
+    def update(self, logits, targets):
         """Update the state with new predictions and targets.
         """
-        preds = probs.argmax(dim=1)
+        preds = logits.argmax(dim=1)
         for pred, target in zip(preds, targets):
             mask = (target != self.ignore_index)
             pred = pred[mask]

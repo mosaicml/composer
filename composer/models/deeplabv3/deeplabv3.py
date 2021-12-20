@@ -1,4 +1,3 @@
-import contextlib
 from typing import Any
 
 import torch
@@ -11,25 +10,34 @@ from composer.models.base import BaseMosaicModel
 from composer.models.loss import CrossEntropyLoss, mIoU, soft_cross_entropy
 
 
-def deeplabv3_builder(backbone_arch: str, is_backbone_pretrained: bool, num_classes: int, sync_bn: bool):
-    """Helper function to build a torchvision DeepLabV3 model with a 3x3 convolution layer and dropout removed."""
+def deeplabv3_builder(num_classes: int, backbone_arch: str = 'resnet101', is_backbone_pretrained: bool = True, sync_bn: bool = True):
+    """Helper function to build a torchvision DeepLabV3 model with a 3x3 convolution layer and dropout removed.
+
+    Args:
+        num_classes (int): number of classes in the segmentation task.
+        backbone_arch (str): the architecture to use for the backbone. Must be either ['resnet50', 'resnet101'].
+        is_backbone_pretrained (bool): if true, use pretrained weights for the backbone.
+        sync_bn (bool): if true, replace all BatchNorm layers with SyncBatchNorm layers.
+    """
 
     # Instantiate backbone module
     if backbone_arch == 'resnet50':
         resnet.model_urls[backbone_arch] = "https://download.pytorch.org/models/resnet50-f46c3f97.pth"
     elif backbone_arch == 'resnet101':
         resnet.model_urls[backbone_arch] = "https://download.pytorch.org/models/resnet101-cd907fc2.pth"
+    else:
+        raise ValueError(f"backbone_arch must be one of ['resnet50', 'resnet101'] not {backbone_arch}")
     backbone = resnet.__dict__[backbone_arch](pretrained=is_backbone_pretrained,
                                               replace_stride_with_dilation=[False, True, True])
     backbone = _utils.IntermediateLayerGetter(backbone, return_layers={'layer4': 'out'})
 
     # Instantiate head module
     feat_extractor = ASPP(in_channels=2048, atrous_rates=[12, 24, 36], out_channels=256)
-    feat_extractor.project = feat_extractor.project[:3]  # Remove dropout due to more variance in results
+    feat_extractor.project = feat_extractor.project[:3]  # Remove dropout due to higher standard deviation
     classifier = torch.nn.Conv2d(in_channels=256, out_channels=num_classes, kernel_size=1)
     head = torch.nn.Sequential(feat_extractor, classifier)
 
-    model = DeepLabV3(backbone, head, None)
+    model = DeepLabV3(backbone, head, aux_classifier=None)
 
     if sync_bn:
         model = torch.nn.SyncBatchNorm.convert_sync_batchnorm(model)
@@ -64,33 +72,34 @@ class MosaicDeepLabV3(BaseMosaicModel):
             num_classes=num_classes,  # type: ignore
             sync_bn=sync_bn)
 
-        # TODO: do I need initializer if pretrained is not specified?
+        # Metrics
+        self.train_miou = mIoU(self.num_classes, ignore_index=-1)
+        self.train_ce = CrossEntropyLoss(ignore_index=-1)
+        self.val_miou = mIoU(self.num_classes, ignore_index=-1)
+        self.val_ce = CrossEntropyLoss(ignore_index=-1)
 
     def forward(self, batch: Batch):
         x = batch[0]  # type: ignore
-
-        context = contextlib.nullcontext if self.training else torch.no_grad  # TODO: is this necessary?
-        with context():
-            logits = self.model(x)['out']
-
+        logits = self.model(x)['out']
         return logits
 
     def loss(self, outputs: Any, batch: Batch):
         """Calculate the specified loss for training.
         """
-        _, target = batch
+        target = batch[1] # type: ignore
         loss = soft_cross_entropy(outputs, target, ignore_index=-1)  # type: ignore
         return loss
 
     def metrics(self, train: bool = False):
         """Metrics to compute during validation.
         """
-        return MetricCollection([mIoU(self.num_classes, ignore_index=-1), CrossEntropyLoss(ignore_index=-1)])
+        metric_list = [self.train_miou, self.train_ce] if train else [self.val_miou, self.val_ce]
+        return MetricCollection(metric_list)
 
     def validate(self, batch: Batch):
         """Generate outputs used during validation.
         """
         assert self.training is False, "For validation, model must be in eval mode"
-        _, target = batch
-        prediction = self.forward(batch)
-        return prediction, target
+        target = batch[1] # type: ignore
+        logits = self.forward(batch)
+        return logits, target

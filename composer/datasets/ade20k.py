@@ -20,7 +20,7 @@ class TransformationFn:
     """Normalizes input data and removes the background class from target data if desired.
 
     Args:
-        ignore_background (bool): Whether or not to ignore the background class when calculating the training loss.
+        ignore_background (bool): if true, ignore the background class when calculating the training loss.
     """
 
     def __init__(self, ignore_background: bool = True) -> None:
@@ -55,6 +55,7 @@ def fast_collate(batch: List[Tuple[Image.Image, Tensor]], memory_format: torch.m
     targets = [sample[1] for sample in batch]
     w = imgs[0].size[0]
     h = imgs[0].size[1]
+    print('Image sizes:', w, h)
     image_tensor = torch.zeros((len(imgs), 3, h, w), dtype=torch.uint8).contiguous(memory_format=memory_format)
     target_tensor = torch.zeros((len(targets), h, w), dtype=torch.int64).contiguous(memory_format=memory_format)
     for i, img in enumerate(imgs):
@@ -75,12 +76,12 @@ def fast_collate(batch: List[Tuple[Image.Image, Tensor]], memory_format: torch.m
 
 
 class RandomResizePair(torch.nn.Module):
-    """Randomly select the scale to increase a base size for resizing both the image and target.
+    """Resize the image and target to `base_size` scaled by a randomly sampled value.
 
     Args:
         min_scale (float): the minimum value the samples can be rescaled.
         max_scale (float): the maximum value the samples can be rescaled.
-        base_size (Tuple[int, int]): a specified base size to scale for the resized dimensions.
+        base_size (Tuple[int, int]): a specified base size (height x width) to scale to get the resized dimensions.
     """
 
     def __init__(self, min_scale: float, max_scale: float, base_size: Optional[Tuple[int, int]] = None):
@@ -92,18 +93,18 @@ class RandomResizePair(torch.nn.Module):
     def forward(self, sample: Tuple[Image.Image, Image.Image]):
         image, target = sample
         resize_scale = np.random.random_sample() * (self.max_scale - self.min_scale) + self.min_scale
-        width, height = self.base_size if self.base_size else image.size
-        resized_dims = (int(height * resize_scale), int(width * resize_scale))
+        base_height, base_width = self.base_size if self.base_size else (image.height, image.width)
+        resized_dims = (int(base_height * resize_scale), int(base_width * resize_scale))
         resized_image = TF.resize(image, resized_dims, interpolation=TF.InterpolationMode.BILINEAR)  # type: ignore
         resized_target = TF.resize(target, resized_dims, interpolation=TF.InterpolationMode.NEAREST)  # type: ignore
         return resized_image, resized_target
 
 
 class RandomCropPair(torch.nn.Module):
-    """Randomly position a fixed crop for both the image and target.
+    """Crop the image and target at a randomly sampled position.
 
     Args:
-        crop_size (Tuple[int, int]): the size of the image and target after cropping.
+        crop_size (Tuple[int, int]): the size (height x width) of the crop.
     """
 
     def __init__(self, crop_size: Tuple[int, int]):
@@ -112,7 +113,7 @@ class RandomCropPair(torch.nn.Module):
 
     def forward(self, sample: Tuple[Image.Image, Image.Image]):
         image, target = sample
-        if image.width > self.crop_size[0] or image.height > self.crop_size[1]:
+        if image.height > self.crop_size[0] or image.width > self.crop_size[1]:
             i, j, h, w = transforms.RandomCrop.get_params(image, output_size=self.crop_size)  # type: ignore
             image = TF.crop(image, i, j, h, w)  # type: ignore
             target = TF.crop(target, i, j, h, w)  # type: ignore
@@ -120,7 +121,7 @@ class RandomCropPair(torch.nn.Module):
 
 
 class RandomHFlipPair(torch.nn.Module):
-    """Randomly flip the image and target horizontally with a specified probability.
+    """Flip the image and target horizontally with a specified probability.
 
     Args:
         probability (float): the probability of flipping the image and target.
@@ -142,7 +143,7 @@ class PadToSize(torch.nn.Module):
     """Pad an image to a specified size.
 
     Args:
-        size (Tuple[int, int]): the final size of the image after padding.
+        size (Tuple[int, int]): the size (height x width) of the image after padding.
         fill (Union[int, Tuple[int, int, int]]): the value to use for the padded pixels.
     """
 
@@ -152,8 +153,8 @@ class PadToSize(torch.nn.Module):
         self.fill = fill
 
     def forward(self, image: Image.Image):
-        padding = max(self.size[0] - image.width, 0), max(self.size[1] - image.height, 0)
-        padding = (padding[0] // 2, padding[1] // 2, ceil(padding[0] / 2), ceil(padding[1] / 2))
+        padding = max(self.size[0] - image.height, 0), max(self.size[1] - image.width, 0)
+        padding = (padding[1] // 2, padding[0] // 2, ceil(padding[1] / 2), ceil(padding[0] / 2))
         image = TF.pad(image, padding, fill=self.fill)  # type: ignore
         return image
 
@@ -161,14 +162,14 @@ class PadToSize(torch.nn.Module):
 class PhotometricDistoration(torch.nn.Module):
     """Applies a combination of brightness, contrast, saturation, and hue jitters with random intensity.
 
-    This is a less intense form of PyTorch's ColorJitter used by the mmsegmentation library here:
+    This is a less severe form of PyTorch's ColorJitter used by the mmsegmentation library here:
     https://github.com/open-mmlab/mmsegmentation/blob/master/mmseg/datasets/pipelines/transforms.py#L835
 
     Args:
-        brightness (float): how much to jitter brightness.
-        contrast (float): how much to jitter contrast.
-        saturation (float): how much to jitter saturation.
-        hue (float): how much to jitter hue.
+        brightness (float): max and min to jitter brightness.
+        contrast (float): max and min to jitter contrast.
+        saturation (float): max and min to jitter saturation.
+        hue (float): max and min to jitter hue.
     """
 
     def __init__(self, brightness: float, contrast: float, saturation: float, hue: float):
@@ -214,8 +215,12 @@ class ADE20k(Dataset):
         target_transforms (torch.nn.Module): transformations to apply to the target only.
     """
 
-    def __init__(self, datadir: str, split: str, both_transforms: torch.nn.Module, image_transforms: torch.nn.Module,
-                 target_transforms: torch.nn.Module):
+    def __init__(self,
+                 datadir: str,
+                 split: str = 'train',
+                 both_transforms: torch.nn.Module = None,
+                 image_transforms: torch.nn.Module = None,
+                 target_transforms: torch.nn.Module = None):
         super().__init__()
         self.datadir = datadir
         self.split = split
@@ -223,7 +228,21 @@ class ADE20k(Dataset):
         self.image_transforms = image_transforms
         self.target_transforms = target_transforms
 
-        self.image_files = os.listdir(os.path.join(self.datadir, 'images', self.split))
+        # Check datadir value
+        if self.datadir is None:
+            raise ValueError("datadir must be specified")
+        elif not os.path.exists(self.datadir):
+            raise FileNotFoundError(f"datadir path does not exist: {self.datadir}")
+
+        # Check split value
+        if self.split not in ["train", "val", "test"]:
+            raise ValueError(f"split must be one of [`train`, `val`, `test`] but is: {self.split}")
+
+        self.image_dir = os.path.join(self.datadir, 'images', self.split)
+        if not os.path.exists(self.image_dir):
+            raise FileNotFoundError(f"ADE20k directory structure is not as expected: {self.image_dir} does not exist")
+
+        self.image_files = os.listdir(self.image_dir)
 
         # Filter for ADE files
         self.image_files = [f for f in self.image_files if f[:3] == 'ADE']
@@ -232,12 +251,14 @@ class ADE20k(Dataset):
         if self.split == 'train':
             corrupted_samples = ['00003020', '00001701', '00013508', '00008455']
             for sample in corrupted_samples:
-                self.image_files.remove(f'ADE_train_{sample}.jpg')
+                sample_file = f'ADE_train_{sample}.jpg'
+                if sample_file in self.image_files:
+                    self.image_files.remove(sample_file)
 
     def __getitem__(self, index):
         # Load image
         image_file = self.image_files[index]
-        image_path = os.path.join(self.datadir, 'images', self.split, image_file)
+        image_path = os.path.join(self.image_dir, image_file)
         image = Image.open(image_path)
 
         # Load annotation target if using either train or val splits
@@ -265,25 +286,24 @@ class ADE20k(Dataset):
 
 @dataclass
 class ADE20kDatasetHparams(DatasetHparams):
-    """ Defines an instance of the ADE20k dataset for semantic segmentation.
+    """Defines an instance of the ADE20k dataset for semantic segmentation.
 
     Args:
-        split (str): the dataset split to use, either train, val, or test.
+        split (str): the dataset split to use either 'train', 'val', or 'test'.
         base_size (int): initial size of the image and target before other augmentations.
         min_resize_scale (float): the minimum value the samples can be rescaled.
         max_resize_scale (float): the maximum value the samples can be rescaled.
-        crop_size (int): size of the image and target after cropping.
-        ignore_background (bool): whether or not to include the background class in training loss.
+        final_size (int): the final size of the image and target.
+        ignore_background (bool): if true, ignore the background class when calculating the training loss.
 
     """
 
     split: str = hp.optional("Which split of the dataset to use. Either ['train', 'val', 'test']", default='train')
-    base_size: int = hp.optional("Size of the image to apply random scaling to", default=512)
-    min_resize_scale: float = hp.optional("Minimum scale that the image can be randomly scaled by", default=0.5)
-    max_resize_scale: float = hp.optional("Maximum scale that the image can be randomly scaled by", default=2.0)
-    crop_size: int = hp.optional("Size of image after cropping", default=512)
-    ignore_background: bool = hp.optional("Whether or not to include the background class in training loss",
-                                          default=True)
+    base_size: int = hp.optional("Initial size of the image and target before other augmentations", default=512)
+    min_resize_scale: float = hp.optional("Minimum value that the image and target can be scaled", default=0.5)
+    max_resize_scale: float = hp.optional("Maximum value that the image and target can be scaled", default=2.0)
+    final_size: int = hp.optional("Final size of the image and target", default=512)
+    ignore_background: bool = hp.optional("If true, ignore the background class in training loss", default=True)
 
     def validate(self):
         if self.datadir is None:
@@ -310,20 +330,21 @@ class ADE20kDatasetHparams(DatasetHparams):
                 RandomResizePair(min_scale=self.min_resize_scale,
                                  max_scale=self.max_resize_scale,
                                  base_size=(self.base_size, self.base_size)),
-                RandomCropPair((self.crop_size, self.crop_size)),
+                RandomCropPair(crop_size=(self.final_size, self.final_size)),
                 RandomHFlipPair(),
             ])
             image_transforms = transforms.Compose([
                 PhotometricDistoration(brightness=32. / 255, contrast=0.5, saturation=0.5, hue=18. / 255),
-                PadToSize((self.crop_size, self.crop_size), fill=(int(0.485 * 255), int(0.456 * 255), int(0.406 * 255)))
+                PadToSize(size=(self.final_size, self.final_size),
+                          fill=(int(0.485 * 255), int(0.456 * 255), int(0.406 * 255)))
             ])
 
-            target_transforms = PadToSize((self.crop_size, self.crop_size), fill=0)
+            target_transforms = PadToSize(size=(self.final_size, self.final_size), fill=0)
         else:
             both_transforms = None
-            image_transforms = transforms.Resize(size=(self.base_size, self.base_size),
+            image_transforms = transforms.Resize(size=(self.final_size, self.final_size),
                                                  interpolation=TF.InterpolationMode.BILINEAR)
-            target_transforms = transforms.Resize(size=(self.base_size, self.base_size),
+            target_transforms = transforms.Resize(size=(self.final_size, self.final_size),
                                                   interpolation=TF.InterpolationMode.NEAREST)
 
         dataset = ADE20k(self.datadir, self.split, both_transforms, image_transforms, target_transforms)  # type: ignore

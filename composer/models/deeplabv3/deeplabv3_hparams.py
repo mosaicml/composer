@@ -8,11 +8,16 @@ from composer.models.model_hparams import ModelHparams
 @dataclass
 class DeepLabV3Hparams(ModelHparams):
     """This class specifies arguments for a DeepLabV3 model and can instantiate a DeepLabV3 model.
+
+    Args:
+        backbone_arch (str): the backbone architecture to use, either ['resnet50', 'resnet101'].
+        is_backbone_pretrained (bool): if true, use pre-trained weights for backbone.
+        sync_bn (bool): if true, use SyncBatchNorm to sync batch norm statistics across GPUs.
     """
-    backbone_arch: str = hp.optional("The backbone architecture to use. Must be either ['resnet50', resnet101']",
+    backbone_arch: str = hp.optional("The backbone architecture to use. Must be either ['resnet50', resnet101'].",
                                      default='resnet101')
-    is_backbone_pretrained: bool = hp.optional("Whether or not to use a pretrained backbone", default=True)
-    sync_bn: bool = hp.optional("Whether or not to sync the batch statistics across devices", default=False)
+    is_backbone_pretrained: bool = hp.optional("If true, use pre-trained weights for backbone.", default=True)
+    sync_bn: bool = hp.optional("If true, use SyncBatchNorm to sync batch norm statistics across GPUs.", default=True)
 
     def validate(self):
         if self.num_classes is None:

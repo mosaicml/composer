@@ -117,7 +117,7 @@ class ImagenetDatasetHparams(DatasetHparams, SyntheticHparamsMixin):
             collate_fn = fast_collate
 
             if self.datadir is None:
-                raise ValueError("datadir must be specified is self.synthetic is False")
+                raise ValueError("datadir must be specified if self.synthetic is False")
             dataset = ImageFolder(os.path.join(self.datadir, split), transformation)
         sampler = ddp.get_sampler(dataset, drop_last=self.drop_last, shuffle=self.shuffle)
 

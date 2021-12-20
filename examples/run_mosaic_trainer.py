@@ -16,8 +16,11 @@ import sys
 import warnings
 from typing import Type
 
+import composer
 from composer.trainer.trainer import Trainer
 from composer.trainer.trainer_hparams import TrainerHparams
+
+print(composer.__file__)
 
 
 def warning_on_one_line(message: str, category: Type[Warning], filename: str, lineno: int, file=None, line=None):
