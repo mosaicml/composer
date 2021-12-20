@@ -99,7 +99,7 @@ class Trainer:
             (default: ``None``)
         checkpoint_interval_unit (int, optional): Unit for the checkpoint save interval -- should be 'ep'
             for epochs, 'it' for iterations, or None to disable checkpointing. (default: ``None``).
-        checkpoint_folder (str, optional): The folder to save checkpoints to. Relative to `os.environ.get('RUN_DIRECTORY', '.')`, 
+        checkpoint_folder (str, optional): The folder to save checkpoints to. Relative to `os.environ.get('RUN_DIRECTORY', '.')`,
             (default: ``checkpoints``)
         checkpoint_interval (int, optional): The frequency with which to checkpoint. (default: ``1``)
         train_subset_num_batches (int, optional): If specified, finish every epoch early after training
@@ -181,16 +181,19 @@ class Trainer:
         self.config = config
 
         self.deepspeed_enabled = deepspeed_hparams and deepspeed_hparams.enabled
+        self.deepspeed_hparams = deepspeed_hparams
 
         if not device:
             device = DeviceCPU() if not self.deepspeed_enabled else DeviceGPU()
         self.device = device
 
         if not seed:
-            # Set a deterministic seed in the hparams
-            # This seed will be dumped in the hparams that are saved with checkpoints
             seed = get_random_seed()
             log.info(f"Seed was None. Setting seed to random value: {seed}")
+
+        # Assure that each process has a different seed, necessary if a seed is passed to init
+        seed += ddp.get_global_rank()
+
         # If hparams is used to create the Trainer this function is called twice
         # which is okay because all runs with the hparams codepath will do this
         seed_all(seed)
@@ -229,19 +232,6 @@ class Trainer:
         self._eval_device_transformation_fn = eval_dataloader_spec.device_transform_fn
         self.eval_split_fn = eval_dataloader_spec.split_fn
 
-        device_train_batch_size = train_dataloader_spec.dataloader.batch_size
-
-        if device_train_batch_size is None:
-            raise ValueError("train dataloader batch size is None")
-
-        train_batch_size = device_train_batch_size * ddp.get_world_size()
-
-        device_eval_batch_size = eval_dataloader_spec.dataloader.batch_size
-        if device_eval_batch_size is None:
-            raise ValueError("eval dataloader batch size is None")
-
-        eval_batch_size = device_eval_batch_size * ddp.get_world_size()
-
         # TODO(#123): DeepSpeed still needs a precision context, but it's not completely clear how to
         # handle this with our version of Pytorch
         precision_context = self.device.precision_context if not self.deepspeed_enabled else cast(
@@ -256,10 +246,8 @@ class Trainer:
 
         self.state = State(
             max_epochs=max_epochs,
-            train_batch_size=train_batch_size,
-            eval_batch_size=eval_batch_size,
-            model=model,
             algorithms=algorithms,
+            model=model,
             callbacks=callbacks,
             grad_accum=grad_accum,
             precision=precision,
@@ -350,7 +338,12 @@ class Trainer:
             if self.deepspeed_enabled:
                 raise NotImplementedError("Checkpointing is not yet supported with DeepSpeed.")
             self.checkpoint_loader = CheckpointLoader(checkpoint_filepath=checkpoint_filepath)
-            self.checkpoint_loader.load_checkpoint(state=self.state)
+            restored_seed = self.checkpoint_loader.load_checkpoint(state=self.state)
+            # Set the restored seed so that the correct seed will be saved in future checkpoints
+            # Used to handle the case where another checkpoint is saved after resuming from checkpoint.
+            # In this case, self.seed is stored in the second checkpoint so it must have the correct value.
+            if restored_seed is not None:
+                self.seed = restored_seed
 
     @classmethod
     def create_from_hparams(cls, hparams: TrainerHparams) -> Trainer:
@@ -364,12 +357,15 @@ class Trainer:
         """
 
         hparams.validate()
+        import composer
+        logging.getLogger(composer.__name__).setLevel(hparams.log_level)
 
         # devices and systems
         device = hparams.device.initialize_object()
 
         seed = hparams.seed if hparams.seed else get_random_seed()
         # need to set seed before model initialization for determinism
+        # don't need to set different seeds per process since only the rank 0 initialization is used
         seed_all(seed)
 
         model = hparams.model.initialize_object()
@@ -379,6 +375,10 @@ class Trainer:
         dict_config = hparams.to_dict()
         log_destinations = [x.initialize_object(config=dict_config) for x in hparams.loggers]
         callbacks = [x.initialize_object() for x in hparams.callbacks]
+
+        if hparams.datadir is not None:
+            hparams.train_dataset.datadir = hparams.datadir
+            hparams.val_dataset.datadir = hparams.datadir
 
         train_device_batch_size = hparams.train_batch_size // ddp.get_world_size()
         if hparams.train_dataset.shuffle and hparams.train_subset_num_batches is not None:
@@ -582,21 +582,9 @@ class Trainer:
         if self.deepspeed_enabled:
             import deepspeed
 
+            assert self.deepspeed_hparams is not None
+            deepspeed_config = self.deepspeed_hparams.initialize_object(state, self.grad_clip_norm)
             optimizer = ensure_tuple(state.optimizers)[0]
-
-            deepspeed_config: dict[str, Any] = {
-                "train_batch_size": state.train_batch_size,
-                "gradient_accumulation_steps": state.grad_accum,
-            }
-
-            if state.precision == Precision.AMP:
-                deepspeed_config["amp"] = {"enabled": True}
-            elif state.precision == Precision.FP16:
-                deepspeed_config["fp16"] = {"enabled": True}
-
-            if self.grad_clip_norm:
-                deepspeed_config["gradient_clipping"] = self.grad_clip_norm
-
             (state.model, state.optimizers, _, _) = deepspeed.initialize(
                 config=deepspeed_config,
                 model=state.model,
@@ -616,7 +604,9 @@ class Trainer:
             log.warn('Computing model evaluation metrics during training.'
                      ' This doubles the number of forward passes and may lead'
                      ' to a throughput degradation.')
-        train_metrics = self._get_metrics_as_collection(is_train=True)
+            train_metrics = self._get_metrics_as_collection(is_train=True)
+        else:
+            train_metrics = None
 
         self.engine.run_event(Event.TRAINING_START)
 
@@ -669,6 +659,7 @@ class Trainer:
 
                     if self.compute_training_metrics:
                         # compute metrics on the training set
+                        assert train_metrics is not None
                         state.model.eval()
                         with torch.no_grad():
                             eval_microbatches = self.train_split_fn(state.batch, state.grad_accum)
@@ -694,7 +685,7 @@ class Trainer:
                         total_loss = self._train_batch(microbatches)
                     elif self._use_closures():
                         closure = lambda **kwargs: self._train_batch(microbatches, **kwargs)
-                        for optimizer in ensure_tuple(state.optimizers):
+                        for optimizer in state.optimizers:
                             if use_grad_scaling:
                                 total_loss = state.scaler.step(optimizer, closure=closure)
                             else:
@@ -703,7 +694,7 @@ class Trainer:
                                 total_loss = optimizer.step(closure=closure)  # type: ignore
                     else:
                         total_loss = self._train_batch(microbatches)
-                        for optimizer in ensure_tuple(state.optimizers):
+                        for optimizer in state.optimizers:
                             if use_grad_scaling:
                                 state.scaler.step(optimizer)
                             else:
@@ -722,11 +713,13 @@ class Trainer:
                         self.logger.metric_batch({'loss/train': full_loss / ddp.get_world_size()})
 
                     if self.compute_training_metrics:
+                        assert train_metrics is not None
                         self._compute_and_log_metrics(train_metrics, is_train=True, is_batch=True)
 
                     self.engine.run_event(Event.BATCH_END)
 
-                    state.schedulers.step(interval='batch')  # type: ignore
+                    for scheduler in state.schedulers:
+                        scheduler.step(interval='batch')  # type: ignore
 
                     if self.validate_every_n_batches > 0 and (state.step + 1) % self.validate_every_n_batches == 0:
                         self.eval(is_batch=True)
@@ -740,7 +733,9 @@ class Trainer:
             except BreakEpochException:
                 log.info(f'Skipping the rest of Epoch {state.epoch}')
 
-            state.schedulers.step(interval='epoch')  # type: ignore
+            for scheduler in state.schedulers:
+                scheduler.step(interval='epoch')  # type: ignore
+
             self.engine.run_event(Event.EPOCH_END)
 
             if self.validate_every_n_epochs > 0 and (state.epoch + 1) % self.validate_every_n_epochs == 0:
@@ -786,7 +781,7 @@ class Trainer:
         use_grad_scaling = self._use_grad_scaling(state.precision, state.scaler)
 
         if not self.deepspeed_enabled:
-            for optimizer in ensure_tuple(state.optimizers):
+            for optimizer in state.optimizers:
                 optimizer.zero_grad()
 
         # tracker for gradient accumulation
@@ -803,7 +798,7 @@ class Trainer:
                 # forward pass
                 self.engine.run_event(Event.BEFORE_FORWARD)
 
-                with state.precision_context(state.precision):
+                with state.precision_context:
                     state.outputs = state.model.forward(state.batch)
 
                 self.engine.run_event(Event.AFTER_FORWARD)
@@ -811,7 +806,7 @@ class Trainer:
                 # loss
                 self.engine.run_event(Event.BEFORE_LOSS)
 
-                with state.precision_context(state.precision):
+                with state.precision_context:
                     state.loss = self.original_model.loss(state.outputs, state.batch)
 
                 # We always want to scale loss by the grad_accum before the backwards pass and

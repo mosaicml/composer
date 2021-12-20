@@ -24,6 +24,7 @@ class TransformerHparams(ModelHparams, ABC):
     model_config: Dict[str, JSON] = hp.optional(doc="A dictionary providing a HuggingFace model configuration.",
                                                 default_factory=dict)
     use_pretrained: bool = hp.optional("Whether to initialize the model with the pretrained weights.", default=False)
+    gradient_checkpointing: bool = hp.optional("Whether to enable gradient checkpointing.", default=False)
 
     def validate(self):
         if self.tokenizer_name is None:

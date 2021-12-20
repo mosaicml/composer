@@ -12,15 +12,16 @@ import sys
 import tempfile
 import threading
 import time
+import uuid
 import warnings
-from typing import Any, Callable, Dict, Optional, Type, Union
+from typing import Any, Callable, Dict, Optional, Tuple, Type, Union
 
 from composer.core.callback import Callback
 from composer.core.logging import Logger
 from composer.core.logging.logger import LogLevel
 from composer.core.state import State
 from composer.utils import ddp
-from composer.utils.run_directory import get_run_directory
+from composer.utils.run_directory import get_modified_files, get_run_directory
 
 log = logging.getLogger(__name__)
 
@@ -136,8 +137,8 @@ class RunDirectoryUploader(Callback):
 
         if use_procs:
             mp_ctx = multiprocessing.get_context('spawn')
-            self._file_upload_queue: Union[queue.Queue[str],
-                                           multiprocessing.JoinableQueue[str]] = mp_ctx.JoinableQueue()
+            self._file_upload_queue: Union[queue.Queue[Tuple[str, str]],
+                                           multiprocessing.JoinableQueue[Tuple[str, str]]] = mp_ctx.JoinableQueue()
             self._finished_cls: Union[Callable[[], multiprocessing._EventType], Type[threading.Event]] = mp_ctx.Event
             self._proc_class = mp_ctx.Process
         else:
@@ -163,7 +164,6 @@ class RunDirectoryUploader(Callback):
                              kwargs={
                                  "file_queue": self._file_upload_queue,
                                  "is_finished": self._finished,
-                                 "upload_staging_dir": self._upload_staging_folder,
                                  "provider_name": self._provider,
                                  "container_name": self._container,
                                  "object_name_prefix": self._object_name_prefix,
@@ -202,53 +202,51 @@ class RunDirectoryUploader(Callback):
         log.info("Waiting for upload workers to shutdown")
         for worker in self._workers:
             worker.join()
+        if self._tempdir is not None:
+            self._tempdir.cleanup()
 
     def _trigger_upload(self, logger: Optional[Logger], log_level: Optional[LogLevel]) -> None:
         # Ensure that every rank is at this point
         # Assuming only the main thread on each rank writes to the run directory, then the barrier here will ensure
         # that the run directory is not being modified after we pass this barrier
         ddp.barrier()
-        if not ddp.get_local_rank() == 0:
-            return
-        run_directory = get_run_directory()
-        assert run_directory is not None, "invariant error"
-        # the disk time can differ from system time, so going to touch a file and then read the timestamp from it to get the real time
-        python_time = time.time()
-        touch_file = (pathlib.Path(run_directory) / f".{python_time}")
-        touch_file.touch()
-        new_last_uploaded_timestamp = os.path.getmtime(str(touch_file))
+        if ddp.get_local_rank() == 0:
+            run_directory = get_run_directory()
+            assert run_directory is not None, "invariant error"
+            # the disk time can differ from system time, so going to touch a file and then read the timestamp from it to get the real time
+            python_time = time.time()
+            touch_file = (pathlib.Path(run_directory) / f".{python_time}")
+            touch_file.touch()
+            new_last_uploaded_timestamp = os.path.getmtime(str(touch_file))
 
-        # Now, for each file that was modified since self._last_upload_timestamp, copy it to the temporary directory
-        files_to_be_uploaded = []
+            # Now, for each file that was modified since self._last_upload_timestamp, copy it to the temporary directory
+            files_to_be_uploaded = []
 
-        # check if any upload threads have crashed. if so, then shutdown the training process
-        for worker in self._workers:
-            if not worker.is_alive():
-                assert self._finished is not None, "invariant error"
-                self._finished.set()
-                raise RuntimeError("Upload worker crashed unexpectedly")
-        for root, dirs, files in os.walk(run_directory):
-            del dirs  # unused
-            for file in files:
-                if any(x.startswith(".") for x in file.split(os.path.sep)):
-                    # skip hidden files and folders
-                    continue
-                filepath = os.path.join(root, file)
+            # check if any upload threads have crashed. if so, then shutdown the training process
+            for worker in self._workers:
+                if not worker.is_alive():
+                    assert self._finished is not None, "invariant error"
+                    self._finished.set()
+                    raise RuntimeError("Upload worker crashed unexpectedly")
+            modified_files = get_modified_files(self._last_upload_timestamp)
+            for filepath in modified_files:
                 relpath = os.path.relpath(filepath, run_directory)  # chop off the run directory
-                modified_time = os.path.getmtime(filepath)
-                if modified_time > self._last_upload_timestamp:
-                    copied_path = os.path.join(self._upload_staging_folder, str(new_last_uploaded_timestamp), relpath)
-                    files_to_be_uploaded.append(relpath)
-                    copied_path_dirname = os.path.dirname(copied_path)
-                    os.makedirs(copied_path_dirname, exist_ok=True)
-                    shutil.copy2(filepath, copied_path)
-                    self._file_upload_queue.put_nowait(copied_path)
-        self._last_upload_timestamp = new_last_uploaded_timestamp
-        if logger is not None and log_level is not None:
-            # now log which files are being uploaded. OK to do, since we're done reading the directory,
-            # and any logfiles will now have their last modified timestamp
-            # incremented past self._last_upload_timestamp
-            logger.metric(log_level, {"run_directory/uploaded_files": files_to_be_uploaded})
+                copied_path = os.path.join(self._upload_staging_folder, str(uuid.uuid4()))
+                files_to_be_uploaded.append(relpath)
+                copied_path_dirname = os.path.dirname(copied_path)
+                os.makedirs(copied_path_dirname, exist_ok=True)
+                shutil.copy2(filepath, copied_path)
+                self._file_upload_queue.put_nowait((copied_path, relpath))
+
+            self._last_upload_timestamp = new_last_uploaded_timestamp
+            if logger is not None and log_level is not None:
+                # now log which files are being uploaded. OK to do, since we're done reading the directory,
+                # and any logfiles will now have their last modified timestamp
+                # incremented past self._last_upload_timestamp
+                logger.metric(log_level, {"run_directory/uploaded_files": files_to_be_uploaded})
+
+        # Ensure that other callbacks do not start writing to the run directory until we copying everything
+        ddp.barrier()
 
 
 def _validate_credentials(
@@ -272,7 +270,6 @@ def _validate_credentials(
 def _upload_worker(
     file_queue: Union[queue.Queue[str], multiprocessing.JoinableQueue[str]],
     is_finished: Union[multiprocessing._EventType, threading.Event],
-    upload_staging_dir: str,
     provider_name: str,
     container_name: str,
     object_name_prefix: str,
@@ -287,7 +284,6 @@ def _upload_worker(
             set when training is finished and no new files will be added to the queue.
             The worker will continue to upload existing files that are in the queue.
             When the queue is empty, the worker will exit.
-        upload_staging_dir (str): The upload staging directory.
         provider_name (str): The cloud provider name.
         container_name (str): The container name (e.g. s3 bucket) for the provider
             where files will be uploaded.
@@ -303,14 +299,12 @@ def _upload_worker(
     container = provider.get_container(container_name)
     while True:
         try:
-            file_path_to_upload = file_queue.get(block=True, timeout=0.5)
+            file_path_to_upload, obj_name = file_queue.get(block=True, timeout=0.5)
         except queue.Empty:
             if is_finished.is_set():
                 break
             else:
                 continue
-        obj_name = os.path.sep.join(os.path.relpath(file_path_to_upload, upload_staging_dir).split(
-            os.path.sep)[1:])  # the first folder is the upload timestamp. Chop that off.
         log.info("Uploading file %s to %s://%s/%s%s", file_path_to_upload, provider_name, container_name,
                  object_name_prefix, obj_name)
         retry_counter = 0
