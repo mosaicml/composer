@@ -54,14 +54,6 @@ class DataloaderSpec(NamedTuple):
     device_transform_fn: Optional[TDeviceTransformFn] = None
     split_fn: Callable[[Batch, int], List[Batch]] = _split_fn
 
-    @property
-    def batch_size(self):
-        try:
-            return self.dataloader.batch_sampler.batch_size
-        except AttributeError:
-            pass
-        return self.dataloader.batch_size
-
 
 @dataclasses.dataclass
 class SyntheticHparamsMixin(hp.Hparams, abc.ABC):

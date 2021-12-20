@@ -78,20 +78,19 @@ def dummy_val_dataset_hparams(dummy_model: SimpleBatchPairModel,
 
 
 @pytest.fixture()
-def dummy_state_without_rank(dummy_model: SimpleBatchPairModel, dummy_train_batch_size: int, dummy_val_batch_size: int,
-                             dummy_train_dataloader: DataLoader, dummy_val_dataloader: DataLoader) -> State:
+def dummy_state_without_rank(dummy_model: SimpleBatchPairModel, dummy_train_dataloader: DataLoader,
+                             dummy_val_dataloader: DataLoader) -> State:
     state = State(
         model=dummy_model,
-        epoch=5,
-        step=50,
         precision=Precision.FP32,
         grad_accum=1,
-        train_batch_size=dummy_train_batch_size,
-        eval_batch_size=dummy_val_batch_size,
         train_dataloader=dummy_train_dataloader,
         eval_dataloader=dummy_val_dataloader,
         max_epochs=10,
     )
+    state.epoch = 5
+    state.step = 50
+
     return state
 
 
@@ -203,10 +202,6 @@ def simple_conv_model_input():
 @pytest.fixture()
 def state_with_model(simple_conv_model: Model, dummy_train_dataloader: DataLoader, dummy_val_dataloader: DataLoader):
     state = State(
-        epoch=50,
-        step=50,
-        train_batch_size=100,
-        eval_batch_size=100,
         grad_accum=1,
         max_epochs=100,
         model=simple_conv_model,
@@ -214,6 +209,8 @@ def state_with_model(simple_conv_model: Model, dummy_train_dataloader: DataLoade
         train_dataloader=dummy_train_dataloader,
         eval_dataloader=dummy_val_dataloader,
     )
+    state.epoch = 50
+    state.step = 50
     return state
 
 

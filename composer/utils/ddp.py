@@ -13,7 +13,6 @@ import torch.distributed as dist
 import torch.utils.data
 from torch.nn.parallel import DistributedDataParallel
 
-from composer.utils.iter_helpers import ensure_tuple
 from composer.utils.string_enum import StringEnum
 
 if TYPE_CHECKING:
@@ -271,7 +270,7 @@ def sync_context(state: State, is_final_microbatch: bool, sync_strategy: Union[s
                 yield
         finally:
             if is_final_microbatch:
-                for optimizer in ensure_tuple(state.optimizers):
+                for optimizer in state.optimizers:
                     for group in optimizer.param_groups:
                         for p in group["params"]:
                             if p.grad is not None:
