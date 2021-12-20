@@ -12,33 +12,26 @@ Example that trains MNIST with label smoothing::
     --algorithms label_smoothing --alpha 0.1
     --datadir ~/datasets
 """
-import argparse
-import logging
+import sys
+import warnings
+from typing import Type
 
-import composer
 from composer.trainer.trainer import Trainer
 from composer.trainer.trainer_hparams import TrainerHparams
 
-logger = logging.getLogger(__name__)
+
+def warning_on_one_line(message: str, category: Type[Warning], filename: str, lineno: int, file=None, line=None):
+    # From https://stackoverflow.com/questions/26430861/make-pythons-warnings-warn-not-mention-itself
+    return f'{category.__name__}: {message} (source: {filename}:{lineno})\n'
 
 
 def main() -> None:
-    logging.basicConfig()
-    logging.captureWarnings(True)
+    warnings.formatwarning = warning_on_one_line
 
-    parser = argparse.ArgumentParser(parents=[TrainerHparams.get_argparse(cli_args=True)])
-    parser.add_argument(
-        '--datadir',
-        default=None,
-        help='set the datadir for both train and eval datasets',
-    )
+    if len(sys.argv) == 1:
+        sys.argv = [sys.argv[0], "--help"]
 
-    args, _ = parser.parse_known_args()
     hparams = TrainerHparams.create(cli_args=True)  # reads cli args from sys.argv
-    logging.getLogger(composer.__name__).setLevel(hparams.log_level)
-    if args.datadir is not None:
-        hparams.set_datadir(args.datadir)
-        logger.info(f'Set dataset dirs in hparams to: {args.datadir}')
     trainer = Trainer.create_from_hparams(hparams=hparams)
     trainer.fit()
 

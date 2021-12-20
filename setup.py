@@ -22,20 +22,21 @@ with open("README.md", "r", encoding="utf-8") as fh:
 install_requires = [
     "pyyaml>=5.4.1",
     "tqdm>=4.62.3",
-    "torchmetrics>=0.5.1",
+    "torchmetrics>=0.6.0",
     "torch_optimizer==0.1.0",
     "torchvision>=0.9.0",
     "torch>=1.9",
-    "argparse>=1.4.0",
-    "yahp>=0.0.13",
+    "yahp>=0.0.14",
 ]
 extra_deps = {}
 
 extra_deps['base'] = []
 
 extra_deps['dev'] = [
+    "custom_inherit==2.3.2",
     'junitparser>=2.1.1',
     'coverage[toml]>=6.1.1',
+    'fasteners>=0.16.3',  # run_directory_uploader tests require fasteners
     'pytest>=6.2.0',
     'yapf>=0.13.0',
     'isort>=5.9.3',
@@ -55,7 +56,7 @@ extra_deps['dev'] = [
     'testbook>=0.4.2',
     'myst-parser>=0.15.2',
 ]
-extra_deps['wandb'] = ['wandb>=0.12.2']
+extra_deps['logging'] = ['wandb>=0.12.2', 'apache-libcloud>=3.4.1']
 
 extra_deps['nlp'] = [
     'transformers>=4.11.3',
@@ -65,6 +66,10 @@ extra_deps['nlp'] = [
 extra_deps['unet'] = [
     'monai>=0.7.0',
     'scikit-learn>=1.0.1',
+]
+
+extra_deps['deepspeed'] = [
+    'deepspeed>=0.5.5',
 ]
 
 extra_deps['all'] = set(dep for deps in extra_deps.values() for dep in deps)

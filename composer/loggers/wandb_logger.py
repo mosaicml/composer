@@ -6,14 +6,14 @@ import os
 import sys
 from typing import Any, Dict, Optional
 
-from composer.core.logging import LogLevel, RankZeroLoggerBackend, TLogData
+from composer.core.logging import BaseLoggerBackend, LogLevel, TLogData
 from composer.core.types import Logger, State, StateDict
-from composer.utils.run_directory import get_run_directory
+from composer.utils import ddp, run_directory
 
 import wandb  # isort: skip
 
 
-class WandBLoggerBackend(RankZeroLoggerBackend):
+class WandBLoggerBackend(BaseLoggerBackend):
     """Log to Weights and Biases (https://wandb.ai/)
 
     Args:
@@ -33,21 +33,26 @@ class WandBLoggerBackend(RankZeroLoggerBackend):
         super().__init__()
         self._log_artifacts = log_artifacts
         self._log_artifacts_every_n_batches = log_artifacts_every_n_batches
+        self._last_upload_timestamp = 0.0
         if init_params is None:
             init_params = {}
         self._init_params = init_params
 
-    def _log_metric(self, epoch: int, step: int, log_level: LogLevel, data: TLogData):
+    def log_metric(self, epoch: int, step: int, log_level: LogLevel, data: TLogData):
         del epoch, log_level  # unused
-        wandb.log(data, step=step)
+        if ddp.get_local_rank() == 0:
+            wandb.log(data, step=step)
 
     def state_dict(self) -> StateDict:
         # Storing these fields in the state dict to support run resuming in the future.
+        if ddp.get_local_rank() != 0:
+            raise RuntimeError("WandB can only be checkpointed on rank 0")
         return {"name": wandb.run.name, "project": wandb.run.project, "entity": wandb.run.entity, "id": wandb.run.id}
 
     def init(self, state: State, logger: Logger) -> None:
         del state, logger  # unused
-        wandb.init(**self._init_params)
+        if ddp.get_local_rank() == 0:
+            wandb.init(**self._init_params)
 
     def batch_end(self, state: State, logger: Logger) -> None:
         del logger  # unused
@@ -72,16 +77,25 @@ class WandBLoggerBackend(RankZeroLoggerBackend):
         # so uploads will not block the training loop
         # slowdown is likely from extra I/O of scanning the directory and/or
         # scheduling uploads
-        run_directory = get_run_directory()
-        if run_directory is not None:
-            for subfile in os.listdir(run_directory):
-                artifact = wandb.Artifact(name=subfile, type=subfile)
-                full_path = os.path.join(run_directory, subfile)
-                if os.path.isdir(full_path):
-                    artifact.add_dir(full_path)
-                else:
-                    artifact.add_file(full_path)
+        run_directory_name = run_directory.get_run_directory()
+        if run_directory_name is None:
+            return
+        # barrier that every process has reached this point and that
+        # previous callbacks are finished writing to the run directory
+        ddp.barrier()
+        if ddp.get_local_rank() == 0:
+            modified_files = run_directory.get_modified_files(self._last_upload_timestamp)
+            for modified_file in modified_files:
+                file_type = modified_file.split(".")[-1]
+                relpath = os.path.relpath(modified_file, run_directory_name)
+                relpath = relpath.replace("/", "-")
+                artifact = wandb.Artifact(name=relpath, type=file_type)
+                artifact.add_file(os.path.abspath(modified_file))
                 wandb.log_artifact(artifact)
+            self._last_upload_timestamp = run_directory.get_run_directory_timestamp()
+        # barrier to ensure that other processes do not continue to other callbacks
+        # that could start writing to the run directory
+        ddp.barrier()
 
     def post_close(self) -> None:
         # Cleaning up on post_close so all artifacts are uploaded
@@ -90,8 +104,9 @@ class WandBLoggerBackend(RankZeroLoggerBackend):
 
         exc_tpe, exc_info, tb = sys.exc_info()
 
-        if (exc_tpe, exc_info, tb) == (None, None, None):
-            wandb.finish(0)
-        else:
-            # record there was an error
-            wandb.finish(1)
+        if ddp.get_local_rank() == 0:
+            if (exc_tpe, exc_info, tb) == (None, None, None):
+                wandb.finish(0)
+            else:
+                # record there was an error
+                wandb.finish(1)

@@ -53,7 +53,7 @@ A summary of available attributes and properties is given below:
       - Index of the batch in the current epoch. Not mutable.
     * - ``steps_per_epoch``
       - ``int``
-      - Number of optimization steps per epoch. Not mutable.
+      - Number of optimization steps per epoch.
     * - **Training Loop Tensors**
       -
       -
