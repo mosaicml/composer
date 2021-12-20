@@ -1,14 +1,14 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
 from dataclasses import asdict, dataclass
-from functools import partial
-from typing import Any, Optional, cast
+from typing import Any, Callable, Optional, cast
 
 import yahp as hp
 
 from composer.algorithms import AlgorithmHparams
 from composer.algorithms.stratify_batches.stratify_core import StratifiedBatchSampler
 from composer.core import Algorithm, Event, Logger, State
+from composer.core.types import SamplerFactory
 
 
 @dataclass
@@ -46,6 +46,13 @@ class StratifyBatches(Algorithm):
         # TODO resolve circular import better
         from composer.trainer.trainer_hparams import TrainerHparams
         hparams = cast(TrainerHparams, hparams)
-        hparams.dataloader.batch_sampler_factory = partial(StratifiedBatchSampler,
-                                                           stratify_how=self.stratify_how,
-                                                           targets_attr=self.targets_attr)
+        hparams.dataloader.batch_sampler_factory = self._make_batch_sampler_factory()
+
+    def _make_batch_sampler_factory(self) -> Callable[[], SamplerFactory]:
+
+        def make_sampler(*args, split: str, **kwargs):
+            if split.lower() == 'train':
+                return StratifiedBatchSampler(stratify_how=self.stratify_how, targets_attr=self.targets_attr, **kwargs)
+            return None  # default sampler for other splits
+
+        return make_sampler

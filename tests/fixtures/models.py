@@ -80,15 +80,12 @@ class _SimpleDatasetHparams(DatasetHparams, SyntheticHparamsMixin):
                                             memory_format=self.synthetic_memory_format,
                                             num_unique_samples_to_create=self.synthetic_num_unique_samples,
                                             device=self.synthetic_device)
-        if self.shuffle:
-            sampler = torch.utils.data.RandomSampler(dataset)
-        else:
-            sampler = torch.utils.data.SequentialSampler(dataset)
         return dataloader_hparams.initialize_object(
             dataset=dataset,
             batch_size=batch_size,
-            sampler=sampler,
+            shuffle=self.shuffle,
             drop_last=self.drop_last,
+            split='train' if self.is_train else 'val',
         )
 
 
