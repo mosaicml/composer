@@ -32,7 +32,7 @@ def test_correct_sampler_created(mosaic_trainer_hparams: TrainerHparams, algo_hp
     assert not isinstance(trainer.state.eval_dataloader.batch_sampler, StratifiedBatchSampler)
 
 
-# @pytest.mark.timeout(5)
-# def test_algo_trains(mosaic_trainer_hparams: TrainerHparams, algo_hparams_instance: StratifyBatchesHparams):
-#     mosaic_trainer_hparams.algorithms = [algo_hparams_instance]
-#     train_model(mosaic_trainer_hparams, run_loss_check=True)
+@pytest.mark.timeout(5)
+def test_algo_trains(mosaic_trainer_hparams: TrainerHparams, algo_hparams_instance: StratifyBatchesHparams):
+    mosaic_trainer_hparams.algorithms = [algo_hparams_instance]
+    train_model(mosaic_trainer_hparams, run_loss_check=True)
