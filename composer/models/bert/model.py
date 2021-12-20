@@ -61,7 +61,10 @@ class BERTModel(MosaicTransformer):
             self.train_metrics.extend([self.train_acc, self.train_matthews])
             self.val_metrics.extend([self.val_acc, self.val_matthews])
 
-        # if config.num_labels == len(self.tokenizer):
+        if config.num_labels == len(self.tokenizer):  # tests for MLM pre-training
+            self.train_metrics.extend([self.train_loss])
+            self.val_metrics.extend([self.val_loss])
+
         # self.train_acc = Accuracy(ignore_index=-100)
         # self.val_acc = Accuracy(ignore_index=-100)
         # self.train_metrics.extend([self.train_acc])
