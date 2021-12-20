@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import functools
 import textwrap
 import warnings
 from dataclasses import dataclass
@@ -21,14 +20,6 @@ from composer.utils import ddp
 class WrappedDataLoader(DataLoader):
 
     def __init__(self, dataloader: DataLoader) -> None:
-        self.dataset = dataloader.dataset
-        self.batch_size = dataloader.batch_size
-        self.num_workers = dataloader.num_workers
-        self.pin_memory = dataloader.pin_memory
-        self.drop_last = dataloader.drop_last
-        self.timeout = dataloader.timeout
-        self.sampler = dataloader.sampler
-        self.prefetch_factor = dataloader.prefetch_factor
         self.dataloader = dataloader
 
     def __len__(self) -> int:
@@ -41,10 +32,17 @@ class WrappedDataLoader(DataLoader):
         return True
 
     def __setattr__(self, name: str, value: Any) -> None:
-        if hasattr(self, name) and name in ("dataset", "batch_size", "num_workers", "pin_memory", "drop_last",
-                                            "timeout", "sampler", "prefetch_factor", "dataloader"):
+        if name == 'dataloader' and not hasattr(self, 'dataloader'):
+            return super().__setattr__(name, value)
+        if name in ("dataset", "batch_sampler", "batch_size", "num_workers", "pin_memory", "drop_last", "timeout",
+                    "sampler", "prefetch_factor", "dataloader"):
             raise RuntimeError(f"Property {name} cannot be set after initialization in a DataLoader")
-        return super().__setattr__(name, value)
+        return setattr(self.dataloader, name, value)
+
+    def __getattribute__(self, name: str) -> Any:
+        if name == 'dataloader':
+            return super().__getattribute__(name)
+        return getattr(self.dataloader, name)
 
 
 class DDPDataLoader(WrappedDataLoader):
@@ -121,6 +119,7 @@ class DataloaderHparams(hp.Hparams):
         *,
         batch_size: int,
         drop_last: bool,
+        split: str = 'train',
         shuffle: bool = True,
         sampler: Optional[torch.utils.data.Sampler] = None,
         collate_fn: Optional[Callable] = None,
@@ -149,6 +148,7 @@ class DataloaderHparams(hp.Hparams):
                 drop_last=drop_last,
                 shuffle=shuffle,
                 batch_size=batch_size,
+                split=split,
                 factory=self.batch_sampler_factory,
             )
             sampler_dependent_kwargs = dict(batch_sampler=batch_sampler)
