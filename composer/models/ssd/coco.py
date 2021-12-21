@@ -5,14 +5,13 @@ import os
 import sys
 import time
 from collections import defaultdict
+from urllib.request import urlretrieve
 
 import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.collections import PatchCollection
 from matplotlib.patches import Polygon
 from pycocotools import mask as maskUtils
-from urllib.request import urlretrieve
-
 
 
 def _isArrayLike(obj):
@@ -111,6 +110,7 @@ class COCODetection(data.Dataset):
         else:
             pass
         return img, img_id, (htot, wtot), bbox_sizes, bbox_labels
+
 
 class COCO:
 

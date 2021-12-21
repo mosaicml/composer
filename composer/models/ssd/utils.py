@@ -473,8 +473,6 @@ class SSDTransformer(object):
         return img, img_size, bbox, label
 
 
-
-
 def draw_patches(img, bboxes, labels, order="xywh", label_map={}):
     import matplotlib.patches as patches
     import matplotlib.pyplot as plt
@@ -508,5 +506,3 @@ def draw_patches(img, bboxes, labels, order="xywh", label_map={}):
         bbox_props = dict(boxstyle="round", fc="y", ec="0.5", alpha=0.3)
         ax.text(cx - 0.5 * w, cy - 0.5 * h, label, ha="center", va="center", size=15, bbox=bbox_props)
     plt.show()
-
-

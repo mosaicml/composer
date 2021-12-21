@@ -1,50 +1,53 @@
+import contextlib
 import logging
 import os
 import random
 import time
 from argparse import ArgumentParser
 from typing import Any, Optional, Tuple
+
 import numpy as np
 import torch
-from composer.models.ssd.base_model import Loss
-from composer.models.ssd.ssd300 import SSD300
+from PIL import Image
 from torch.autograd import Variable
 from torch.utils.data import DataLoader
+from torchmetrics.detection import MAP
 
-from composer.models.ssd.utils import  DefaultBoxes, Encoder, SSDTransformer
-from composer.datasets.coco import COCODetection
 from composer.core.types import BatchPair, Metrics, Tensor, Tensors
+from composer.datasets.coco import COCODetection, COCO
 from composer.models.base import BaseMosaicModel
-from torchmetrics.classification.accuracy import Accuracy
-from composer.models.ssd.ssd_hparams import SSDHparams
+from composer.models.ssd.base_model import Loss
 from composer.models.ssd.ssd300 import SSD300
-from PIL import Image
-import contextlib
+from composer.models.ssd.ssd_hparams import SSDHparams
+from composer.models.ssd.utils import DefaultBoxes, Encoder, SSDTransformer
 
 _BASE_LR = 2.5e-3
 
 
 class SSD(BaseMosaicModel):
+
     def __init__(self, hparams: SSDHparams) -> None:
         super().__init__()
 
         self.hparams = hparams
         ln = COCODetection.labelnum
-        self.module = SSD300(80, model_path="/mnt/cota/laura/composer/composer/models/ssd/resnet34-333f7ec4.pth")#args.pretrained_backbone)
+        self.module = SSD300(
+            80,
+            model_path="/mnt/cota/laura/composer/composer/models/ssd/resnet34-333f7ec4.pth")  #args.pretrained_backbone)
         dboxes = dboxes300_coco()
-        
+
         self.loss_func = Loss(dboxes)
-        #self.mAP = mAP()
+        self.MAP = MAP()
 
     def loss(self, outputs: Any, batch: BatchPair) -> Tensors:
-        
+
         (img, img_id, img_size, bbox, label) = batch
         trans_bbox = bbox.transpose(1, 2).contiguous()
-        
+
         ploc, plabel = outputs
         gloc, glabel = Variable(trans_bbox, requires_grad=False), \
                         Variable(label, requires_grad=False)
-        
+
         loss = self.loss_func(ploc, plabel, gloc, glabel)
         '''
         if not np.isinf(loss.item()):
@@ -53,7 +56,7 @@ class SSD(BaseMosaicModel):
         return loss
 
     def metrics(self, train: bool = False) -> Metrics:
-        return Accuracy()#self.mAP
+        return self.MAP
 
     def forward(self, batch: BatchPair) -> Tensor:
         (img, img_id, img_size, bbox, label) = batch
@@ -63,13 +66,22 @@ class SSD(BaseMosaicModel):
         ploc, plabel = self.module(img)
 
         return ploc, plabel
-        
-    def validate(self, batch: BatchPair) -> Tuple[Any, Any]:
-        
-        #val_coco = COCODetection(val_coco_root, val_annotate, val_trans)
 
-        #inv_map = {v: k for k, v in batch.label_map.items()}
-        
+    def validate(self, batch: BatchPair) -> Tuple[Any, Any]:
+
+        dboxes = dboxes300_coco()
+        input_size = 300
+        val_trans = SSDTransformer(dboxes, (input_size, input_size), val=True)
+        data = "/mnt/cota/datasets/coco"
+
+        val_annotate = os.path.join(data, "annotations/instances_val2017.json")
+        val_coco_root = os.path.join(data, "val2017")
+        train_annotate = os.path.join(data, "annotations/instances_train2017.json")
+        train_coco_root = os.path.join(data, "train2017")
+        val_coco = COCODetection(val_coco_root, val_annotate, val_trans)
+
+        inv_map = {v: k for k, v in val_coco.label_map.items()}
+
         (img, img_id, img_size, bbox, label) = batch
         ret = []
 
@@ -83,18 +95,14 @@ class SSD(BaseMosaicModel):
 
         with torch.no_grad():
 
-            results = encoder.decode_batch(ploc,
-                                           plabel,
-                                           overlap_threshold,
-                                           nms_max_detections,
-                                           nms_valid_thresh=0.05)
-            
+            results = encoder.decode_batch(ploc, plabel, overlap_threshold, nms_max_detections, nms_valid_thresh=0.05)
+
             (htot, wtot) = [d.cpu().numpy() for d in img_size]
             img_id = img_id.cpu().numpy()
             # Iterate over batch elements
             for img_id_, wtot_, htot_, result in zip(img_id, wtot, htot, results):
                 loc, label, prob = [r.cpu().numpy() for r in result]
-                
+
                 # Iterate over image detections
                 for loc_, label_, prob_ in zip(loc, label, prob):
                     ret.append([img_id_, loc_[0]*wtot_, \
@@ -104,27 +112,13 @@ class SSD(BaseMosaicModel):
                                          prob_,
                                          inv_map[label_]])
 
-    
-        return ret
+
+
+        import pdb; pdb.set_trace()
+        return ret, COCO(annotation_file=val_annotate)
 
 
 from torchmetrics import Metric
-
-def mAP(Metric):
-    
-    
-    cocoDt = cocoGt.loadRes(np.array(ret))
-
-    E = COCOeval(cocoGt, cocoDt, iouType='bbox')
-    E.evaluate()
-    E.accumulate()
-    E.summarize()
-
-    current_accuracy = E.stats[0]
-
-    return current_accuracy# >= threshold
-        
-
 
 
 def dboxes300_coco():
@@ -138,8 +132,6 @@ def dboxes300_coco():
     return dboxes
 
 
-
-
 def lr_warmup(optim, wb, iter_num, base_lr, args):
     if iter_num < wb:
         # mlperf warmup rule
@@ -150,8 +142,4 @@ def lr_warmup(optim, wb, iter_num, base_lr, args):
             param_group['lr'] = new_lr
 
 
-
-
-
 #torch.backends.cudnn.benchmark = True
-

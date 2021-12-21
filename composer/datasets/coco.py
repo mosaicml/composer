@@ -6,21 +6,23 @@ import sys
 import time
 from collections import defaultdict
 from dataclasses import dataclass
-import yahp as hp
-import torch.utils.data as data
+from urllib.request import urlretrieve
 
 import matplotlib.pyplot as plt
 import numpy as np
+import torch
+import torch.utils.data as data
+import yahp as hp
 from matplotlib.collections import PatchCollection
 from matplotlib.patches import Polygon
-from pycocotools import mask as maskUtils
-from urllib.request import urlretrieve
-
-from composer.datasets.hparams import DataloaderSpec, DatasetHparams
-from composer.models.ssd.utils import SSDTransformer, DefaultBoxes
 #from composer.models.ssd.ssd import dboxes
 from PIL import Image
-import torch
+from pycocotools import mask as maskUtils
+
+from composer.datasets.dataloader import DataloaderHparams
+from composer.datasets.hparams import DataloaderSpec, DatasetHparams
+from composer.models.ssd.utils import DefaultBoxes, SSDTransformer
+
 
 def dboxes300_coco():
     figsize = 300
@@ -31,6 +33,7 @@ def dboxes300_coco():
     aspect_ratios = [[2], [2, 3], [2, 3], [2, 3], [2], [2]]
     dboxes = DefaultBoxes(figsize, feat_size, steps, scales, aspect_ratios)
     return dboxes
+
 
 @dataclass
 class COCODatasetHparams(DatasetHparams):
@@ -46,23 +49,20 @@ class COCODatasetHparams(DatasetHparams):
     """
 
     is_train: bool = hp.required("whether to load the training or validation dataset")
+    drop_last: bool = hp.required("Whether to drop the last samples for the last batch")
     datadir: str = hp.required("data directory")
+    shuffle: bool = hp.required("Whether to shuffle the dataset for each epoch")
     download: bool = hp.required("whether to download the dataset, if needed")
-    drop_last: bool = hp.optional("Whether to drop the last samples for the last batch", default=True)
-    shuffle: bool = hp.optional("Whether to shuffle the dataset for each epoch", default=True)
 
-
-    def initialize_object(self) -> DataloaderSpec:
+    def initialize_object(self, batch_size: int, dataloader_hparams: DataloaderHparams) -> DataloaderSpec:
 
         dboxes = dboxes300_coco()
 
         input_size = 300
-        train_trans = SSDTransformer(dboxes, (input_size, input_size),
-                                     val=False,
-                                     num_cropping_iterations=1)
+        train_trans = SSDTransformer(dboxes, (input_size, input_size), val=False, num_cropping_iterations=1)
         val_trans = SSDTransformer(dboxes, (input_size, input_size), val=True)
         data = "/mnt/cota/datasets/coco"
-        
+
         val_annotate = os.path.join(data, "annotations/instances_val2017.json")
         val_coco_root = os.path.join(data, "val2017")
         train_annotate = os.path.join(data, "annotations/instances_train2017.json")
@@ -71,20 +71,22 @@ class COCODatasetHparams(DatasetHparams):
         cocoGt = COCO(annotation_file=val_annotate)
         train_coco = COCODetection(train_coco_root, train_annotate, train_trans)
         val_coco = COCODetection(val_coco_root, val_annotate, val_trans)
-    
-        
+
         if self.is_train:
-            return DataloaderSpec(
+            return DataloaderSpec(dataloader=dataloader_hparams.initialize_object(
                 dataset=train_coco,
+                batch_size=batch_size,
+                sampler=None,
                 drop_last=self.drop_last,
-                shuffle=self.shuffle,
-            )
+            ))
         else:
-            return DataloaderSpec(
+            return DataloaderSpec(dataloader=dataloader_hparams.initialize_object(
                 dataset=val_coco,
                 drop_last=self.drop_last,
-                shuffle=False,
-            )
+                batch_size=batch_size,
+                sampler=None,
+            ))
+
 
 def _isArrayLike(obj):
     return hasattr(obj, '__iter__') and hasattr(obj, '__len__')
@@ -182,6 +184,7 @@ class COCODetection(data.Dataset):
         else:
             pass
         return img, img_id, (htot, wtot), bbox_sizes, bbox_labels
+
 
 class COCO:
 
