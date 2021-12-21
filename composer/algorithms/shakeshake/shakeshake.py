@@ -8,7 +8,7 @@ from torch.autograd import Function
 
 
 class ShakeShakeFunction(Function):
-    '''See `ShakeShake`.'''
+    '''See :class:`~composer.algorithms.shakeshake.shakeshake:ShakeShake`.'''
 
     @staticmethod
     def forward(ctx, x1: Tensor, x2: Tensor, training: bool = True) -> Tensor:

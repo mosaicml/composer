@@ -17,13 +17,15 @@ log = logging.getLogger(__name__)
 
 
 def dropblock(x: Tensor, drop_prob: float = 0.1, block_size: int = 7, batchwise: bool = True):
-    '''
-    See :class:`DropBlock`.
+    '''See :class:`~composer.algorithms.dropblock.dropblock:DropBlock`.
 
     Args:
+        x (Tensor): Original data
         drop_prob (float): Drop probability
         block_size (int): Size of blocks to drop out
         batchwise (bool): Whether to mask per batch (faster) or per sample
+    Returns:
+        y (Tensor): Data with dropblock applied
     '''
     block_size = min((block_size,) + x.shape[2:])
 
@@ -42,7 +44,7 @@ def dropblock(x: Tensor, drop_prob: float = 0.1, block_size: int = 7, batchwise:
 
 @dataclass
 class DropBlockHparams(AlgorithmHparams):
-    '''See :class:`DropBlock`.'''
+    '''See :class:`~composer.algorithms.dropblock.dropblock:DropBlock`.'''
 
     drop_prob: float = hp.required('Drop probability', template_default=0.1)
     block_size: int = hp.required('Size of blocks to drop out', template_default=7)
@@ -70,6 +72,7 @@ class DropBlock(Algorithm):
 
     def apply(self, event: Event, state: State, logger: Logger) -> Optional[int]:
         x, y = state.batch_pair
-        assert isinstance(x, Tensor), 'Multiple tensors not supported for DropBlock.'
+        if not isinstance(x, Tensor):
+            raise RuntimeError('Multiple tensors not supported for DropBlock.')
         new_x = dropblock(x, **asdict(self.hparams))
         state.batch = new_x, y

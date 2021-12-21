@@ -8,7 +8,7 @@ from torch.autograd import Function
 
 
 class ShakeDropFunction(Function):
-    '''See `ShakeDrop`.'''
+    '''See :class:`~composer.algorithms.shakedrop.shakedrop:ShakeDrop`.'''
 
     @staticmethod
     def forward(ctx,
