@@ -226,6 +226,8 @@ def aggregate_process_returncode(processes: Set[subprocess.Popen]) -> int:
             log.warn("Subprocess %s has still not exited; return exit code 1.", process.pid)
             return 1
         if process.returncode != 0:
+            log.warn("Subprocess %s exited with code %s; exiting with code %s", process.pid, process.returncode,
+                     process.returncode)
             return process.returncode
 
     return 0
