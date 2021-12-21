@@ -120,7 +120,7 @@ def dockerImagePostBuild(stagingImageTag) {
 
 stage('Build') {
     def jobs = [:]
-    // pytorchChanged = false // TODO remove this line once docker matrix builds are fixed.
+    pytorchChanged = false // TODO remove this line once docker matrix builds are fixed.
     if (pytorchChanged) {
         jobs << expandDockerMatrix(
             P_CLOUD: groovyLoadLabel,
