@@ -20,12 +20,12 @@ def dropblock(x: Tensor, drop_prob: float = 0.1, block_size: int = 7, batchwise:
     '''See :class:`~composer.algorithms.dropblock.dropblock:DropBlock`.
 
     Args:
-        x (Tensor): Original data
-        drop_prob (float): Drop probability
-        block_size (int): Size of blocks to drop out
-        batchwise (bool): Whether to mask per batch (faster) or per sample
+        x (Tensor): Original data.
+        drop_prob (float, optional): Drop probability. (default: 0.1)
+        block_size (int, optional): Size of blocks to drop out. (default: 7)
+        batchwise (bool, optional): Whether to mask per batch (faster) or per sample. (default: True)
     Returns:
-        y (Tensor): Data with dropblock applied
+        y (Tensor): Data with dropblock applied.
     '''
     block_size = min((block_size,) + x.shape[2:])
 
@@ -59,9 +59,9 @@ class DropBlock(Algorithm):
     in a contiguous region of a feature map are dropped together.
 
     Args:
-        drop_prob (float): Drop probability
-        block_size (int): Size of blocks to drop out
-        batchwise (bool): Whether to mask per batch (faster) or per sample
+        drop_prob (float): Drop probability.
+        block_size (int): Size of blocks to drop out.
+        batchwise (bool): Whether to mask per batch (faster) or per sample.
     '''
 
     def __init__(self, drop_prob: float, block_size: int, batchwise: bool):

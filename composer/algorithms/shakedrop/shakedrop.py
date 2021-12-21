@@ -45,9 +45,9 @@ class ShakeDrop(nn.Module):
     scales the gradients.
 
     Args:
-        drop_prob (float): Drop probability
-        alpha_min (float): Minimum of alpha range
-        alpha_max (float): Maximum of alpha range
+        drop_prob (float, optional): Drop probability. (default: 0.5)
+        alpha_min (float, optional): Minimum of alpha range. (default: -1)
+        alpha_max (float, optional): Maximum of alpha range. (default: 1)
     '''
 
     def __init__(self, drop_prob: float = 0.5, alpha_min: float = -1, alpha_max: float = 1):
