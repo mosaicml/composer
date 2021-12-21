@@ -78,6 +78,8 @@ class ImagenetDatasetHparams(DatasetHparams, SyntheticHparamsMixin):
 
     def initialize_object(self, batch_size: int, dataloader_hparams: DataloaderHparams) -> DataloaderSpec:
 
+        split = 'train' if self.is_train else 'val'
+
         if self.use_synthetic:
             total_dataset_size = 1_281_167 if self.is_train else 50_000
             dataset = SyntheticBatchPairDataset(
@@ -105,13 +107,11 @@ class ImagenetDatasetHparams(DatasetHparams, SyntheticHparamsMixin):
                     transforms.RandomHorizontalFlip()
                 ]
                 transformation = transforms.Compose(train_transforms)
-                split = "train"
             else:
                 transformation = transforms.Compose([
                     transforms.Resize(self.resize_size),
                     transforms.CenterCrop(self.crop_size),
                 ])
-                split = "val"
 
             device_transform_fn = TransformationFn()
             collate_fn = fast_collate
@@ -124,6 +124,7 @@ class ImagenetDatasetHparams(DatasetHparams, SyntheticHparamsMixin):
             dataset=dataset,
             batch_size=batch_size,
             drop_last=self.drop_last,
+            split=split,
             shuffle=self.shuffle,
             collate_fn=collate_fn,
         ),
