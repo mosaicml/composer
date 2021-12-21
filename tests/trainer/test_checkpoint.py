@@ -3,7 +3,7 @@
 import os
 import random
 from logging import Logger
-from typing import Dict
+from typing import Dict, Optional
 
 import pytest
 import torch
@@ -128,6 +128,7 @@ def inject_stateful_callback_hparams(monkeypatch: MonkeyPatch):
     pytest.param(GPUDeviceHparams(), id="gpu", marks=pytest.mark.gpu),
 ])
 @pytest.mark.parametrize("checkpoint_filename", ["ep1", "it4", "it1", "it6"])
+@pytest.mark.parametrize("seed", [None, 42])
 @pytest.mark.parametrize("validate_every_n_batches,validate_every_n_epochs", [
     (0, 1),
     (1, 0),
@@ -137,6 +138,7 @@ def test_checkpoint(
     world_size: int,
     checkpointing_trainer_hparams: TrainerHparams,
     checkpoint_filename: str,
+    seed: Optional[int],
     validate_every_n_batches: int,
     validate_every_n_epochs: int,
 ):
@@ -152,6 +154,7 @@ def test_checkpoint(
     checkpoint_a_folder = "first"
     checkpointing_trainer_hparams.checkpoint_folder = checkpoint_a_folder
     checkpointing_trainer_hparams.checkpoint_interval_unit = "ep" if checkpoint_filename.startswith("ep") else "it"
+    checkpointing_trainer_hparams.seed = seed
     checkpointing_trainer_hparams.validate_every_n_batches = validate_every_n_batches
     checkpointing_trainer_hparams.validate_every_n_epochs = validate_every_n_epochs
     final_checkpoint = "ep2.pt" if checkpoint_filename.startswith("ep") else "it8.pt"

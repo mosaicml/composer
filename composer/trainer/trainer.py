@@ -98,7 +98,7 @@ class Trainer:
             (default: ``None``)
         checkpoint_interval_unit (int, optional): Unit for the checkpoint save interval -- should be 'ep'
             for epochs, 'it' for iterations, or None to disable checkpointing. (default: ``None``).
-        checkpoint_folder (str, optional): The folder to save checkpoints to. Relative to `os.environ.get('RUN_DIRECTORY', '.')`, 
+        checkpoint_folder (str, optional): The folder to save checkpoints to. Relative to `os.environ.get('RUN_DIRECTORY', '.')`,
             (default: ``checkpoints``)
         checkpoint_interval (int, optional): The frequency with which to checkpoint. (default: ``1``)
         train_subset_num_batches (int, optional): If specified, finish every epoch early after training
@@ -179,10 +179,12 @@ class Trainer:
         self.device = device
 
         if not seed:
-            # Set a deterministic seed in the hparams
-            # This seed will be dumped in the hparams that are saved with checkpoints
             seed = get_random_seed()
             log.info(f"Seed was None. Setting seed to random value: {seed}")
+
+        # Assure that each process has a different seed, necessary if a seed is passed to init
+        seed += ddp.get_global_rank()
+
         # If hparams is used to create the Trainer this function is called twice
         # which is okay because all runs with the hparams codepath will do this
         seed_all(seed)
@@ -308,7 +310,12 @@ class Trainer:
             if self.deepspeed_enabled:
                 raise NotImplementedError("Checkpointing is not yet supported with DeepSpeed.")
             self.checkpoint_loader = CheckpointLoader(checkpoint_filepath=checkpoint_filepath)
-            self.checkpoint_loader.load_checkpoint(state=self.state)
+            restored_seed = self.checkpoint_loader.load_checkpoint(state=self.state)
+            # Set the restored seed so that the correct seed will be saved in future checkpoints
+            # Used to handle the case where another checkpoint is saved after resuming from checkpoint.
+            # In this case, self.seed is stored in the second checkpoint so it must have the correct value.
+            if restored_seed is not None:
+                self.seed = restored_seed
 
     @classmethod
     def create_from_hparams(cls, hparams: TrainerHparams) -> Trainer:
@@ -330,6 +337,7 @@ class Trainer:
 
         seed = hparams.seed if hparams.seed else get_random_seed()
         # need to set seed before model initialization for determinism
+        # don't need to set different seeds per process since only the rank 0 initialization is used
         seed_all(seed)
 
         model = hparams.model.initialize_object()
