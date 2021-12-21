@@ -10,6 +10,7 @@ RUN apt-get update && \
     apt-get install -y --no-install-recommends \
         libgomp1 \
         curl \
+        sudo \
         build-essential \
         software-properties-common \
         # For PILLOW:
@@ -88,7 +89,10 @@ RUN rm -rf /tmp/*
 # Configure non-root user
 #########################
 RUN echo "export PATH=\$PATH:~/.local/bin" >> /etc/skel/.bashrc && \
-    useradd -rm -d /home/mosaicml -s /bin/bash -u 1000 -U -s /bin/bash mosaicml
+    useradd -rm -d /home/mosaicml -s /bin/bash -u 1000 -U -s /bin/bash mosaicml && \
+    usermod -a -G sudo mosaicml && \
+    echo '%sudo ALL=(ALL) NOPASSWD:ALL' >> /etc/sudoers
+
 WORKDIR /home/mosaicml
 
 USER mosaicml

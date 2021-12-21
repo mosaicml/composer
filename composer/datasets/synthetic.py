@@ -58,7 +58,7 @@ class SyntheticBatchPairDataset(torch.utils.data.Dataset):
         self.num_classes = num_classes
         self.label_shape = label_shape
         self.device = device
-        self.memory_format = getattr(torch, MemoryFormat(memory_format).value)
+        self.memory_format = MemoryFormat(memory_format)
         self.transform = transform
 
         self._validate_label_inputs(label_type=self.label_type,
@@ -92,7 +92,7 @@ class SyntheticBatchPairDataset(torch.utils.data.Dataset):
             input_data = torch.randn(self.num_unique_samples_to_create, *self.data_shape, device=self.device)
 
             input_data = torch.clone(input_data)  # allocate actual memory
-            input_data = input_data.contiguous(memory_format=self.memory_format)
+            input_data = input_data.contiguous(memory_format=getattr(torch, self.memory_format.value))
 
             if self.label_type == SyntheticDataLabelType.CLASSIFICATION_ONE_HOT:
                 assert self.num_classes is not None

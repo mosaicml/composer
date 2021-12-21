@@ -143,7 +143,6 @@ class ScaleSchedule(Algorithm):
             NotImplementedError: If ``self.method == 'samples'``.
         """
         assert self.activated is False, "Scale Schedule should only be run once, check your control flow."
-        assert state.schedulers is not None
 
         orig_max_epochs = state.max_epochs
         new_max_epochs = int(state.max_epochs * self.hparams.ratio)
@@ -152,10 +151,12 @@ class ScaleSchedule(Algorithm):
         if state.max_epochs == 0:
             raise ValueError('Scale schedule has reduced the max_epochs to 0. Set a higher ratio or more epochs.')
 
-        if hasattr(state.schedulers, 'schedulers'):
-            schedulers = state.schedulers.schedulers
-        else:
-            schedulers = ensure_tuple(state.schedulers)
+        schedulers = []
+        for scheduler in state.schedulers:
+            if hasattr(scheduler, 'schedulers'):
+                schedulers.extend(scheduler.schedulers)
+            else:
+                schedulers.append(scheduler)
 
         if self.hparams.method == 'epoch':
             for scheduler in schedulers:
