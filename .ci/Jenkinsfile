@@ -27,11 +27,21 @@ def runPytest(pythonVersion, extraDeps, gpu = false) {
     def name = "pytest/python${pythonVersion}-extraDeps_${extraDeps}"
     def title = "Pytest - Python ${pythonVersion}, composer[${extraDeps}]"
     def summary = "Pytest - Python ${pythonVersion}, composer[${extraDeps}]"
+    def nodeSelector = "c5.large"
+    def pCloud = "aws-next-01"
+    def pDockerImage = "mosaicml/pytorch:1.10.0_cpu-python${pythonVersion}-ubuntu20.04")
+    def pytestCliArgs = '--test_duration all'
+    def nGpus = "0"
 
     if (gpu){
         name = "$name-gpu"
         title = "$title, GPU"
         summary = "$summary, GPU"
+        pCloud = "colo-research-01"
+        nGpus = "2"
+        nodeSelector = "mosaicml.com/node-class=mml-nv3090"
+        pDockerImage = "mosaicml/pytorch:1.10.0_cu113-python${pythonVersion}-ubuntu20.04")
+        pytestCliArgs = "$pytestCliArgs -m gpu"
     }
     runWithChecks(
         name: name,
@@ -42,15 +52,16 @@ def runPytest(pythonVersion, extraDeps, gpu = false) {
         builds << build(
             job: 'scratch/pytest',
             parameters: [
-                string(name: 'P_CLOUD', value: "aws-next-01"),
+                string(name: 'P_CLOUD', value: pCloud),
                 string(name: 'P_GIT_REPO', value: gitUrl),
                 string(name: 'P_GIT_COMMIT', value: gitCommit),
-                string(name: 'P_DOCKER_IMAGE', value: "ravimosaicml/pytorch:1.10.0_cpu-python${pythonVersion}-ubuntu20.04"), // TODO: change ravi to mosaicml/pytorch
+                string(name: 'P_DOCKER_IMAGE', value: pDockerImage),
                 string(name: 'P_TIMEOUT', value: '1800'),
                 string(name: 'PIP_EXTRA_DEPS', value: extraDeps),
                 string(name: 'PYTEST_COMMAND', value: './scripts/test.sh'),
-                string(name: 'PYTEST_CLI_ARGS', value: '--test_duration all'),
-                string(name: 'P_NODE_SELECTOR', value: gpu ? "p2.xlarge": "c5.large"),
+                string(name: 'PYTEST_CLI_ARGS', value: pytestCliArgs),
+                string(name: 'P_NODE_SELECTOR', value: nodeSelector),
+                string(name: 'P_N_GPUS', value: nGpus),
             ]
         )
     }
@@ -139,7 +150,7 @@ stage('Build') {
                             string(name: 'P_CLOUD', value: groovyLoadLabel),
                             string(name: 'P_GIT_REPO', value: gitUrl),
                             string(name: 'P_GIT_COMMIT', value: gitCommit),
-                            string(name: 'P_DOCKER_IMAGE', value: "ravimosaicml/pytorch:1.10.0_cpu-python3.9-ubuntu20.04"), // TODO: change ravimosaicml/pytorch to mosaicml/pytorch
+                            string(name: 'P_DOCKER_IMAGE', value: "mosaicml/pytorch:1.10.0_cpu-python3.9-ubuntu20.04"),
                             string(name: 'P_TIMEOUT', value: '1800'),
                             string(name: 'PIP_EXTRA_DEPS', value: 'all'),
                         ]
@@ -150,7 +161,7 @@ stage('Build') {
             'Python 3.8 - All': { -> runPytest("3.8", "all") },
             'Python 3.9 - All': { -> runPytest("3.9", "all") },
             'Python 3.9 - Dev': { -> runPytest("3.9", "dev") },
-            // 'Python 3.9 - All (GPU)': { -> runPytest("3.9", "all", true) },
+            'Python 3.9 - All (GPU)': { -> runPytest("3.9", "all", true) },
         ]        
     }
     try {
