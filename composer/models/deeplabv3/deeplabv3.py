@@ -15,9 +15,10 @@ def deeplabv3_builder(num_classes: int, backbone_arch: str = 'resnet101', is_bac
 
     Args:
         num_classes (int): number of classes in the segmentation task.
-        backbone_arch (str): the architecture to use for the backbone. Must be either ['resnet50', 'resnet101'].
-        is_backbone_pretrained (bool): if true, use pretrained weights for the backbone.
-        sync_bn (bool): if true, replace all BatchNorm layers with SyncBatchNorm layers.
+        backbone_arch (str): the architecture to use for the backbone. Must be either ['resnet50', 'resnet101']. 
+            Default is 'resnet101'.
+        is_backbone_pretrained (bool): if true (default), use pretrained weights for the backbone.
+        sync_bn (bool): if true (default), replace all BatchNorm layers with SyncBatchNorm layers.
     """
 
     # Instantiate backbone module
@@ -52,9 +53,9 @@ class MosaicDeepLabV3(BaseMosaicModel):
     
     Args:
         num_classes (int): the number of classes in the segmentation task.
-        backbone_arch (str): the backbone architecture to use, either 'resnet50', 'resnet101'.
-        is_backbone_pretrained (bool): if true, use pre-trained weights for backbone.
-        sync_bn (bool): if true, use SyncBatchNorm to sync batch norm statistics across GPUs.
+        backbone_arch (str): the backbone architecture to use, either 'resnet50', 'resnet101'. Default is 'resnet101'.
+        is_backbone_pretrained (bool): if true (default), use pre-trained weights for backbone.
+        sync_bn (bool): if true (default), use SyncBatchNorm to sync batch norm statistics across GPUs.
         
     """
 

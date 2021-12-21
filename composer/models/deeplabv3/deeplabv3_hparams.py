@@ -11,8 +11,9 @@ class DeepLabV3Hparams(ModelHparams):
 
     Args:
         backbone_arch (str): the backbone architecture to use, either ['resnet50', 'resnet101'].
-        is_backbone_pretrained (bool): if true, use pre-trained weights for backbone.
-        sync_bn (bool): if true, use SyncBatchNorm to sync batch norm statistics across GPUs.
+            Default is 'resnet101'.
+        is_backbone_pretrained (bool): if true (default), use pre-trained weights for backbone.
+        sync_bn (bool): if true (default), use SyncBatchNorm to sync batch norm statistics across GPUs.
     """
     backbone_arch: str = hp.optional("The backbone architecture to use. Must be either ['resnet50', resnet101'].",
                                      default='resnet101')

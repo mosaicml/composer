@@ -1,7 +1,7 @@
 import os
 from dataclasses import dataclass
 from math import ceil
-from typing import List, Optional, Tuple, Union
+from typing import Optional, Tuple, Union
 
 import numpy as np
 import torch
@@ -11,68 +11,9 @@ from PIL import Image
 from torch.utils.data import Dataset
 from torchvision import transforms
 
-from composer.core.types import Batch, Tensor
 from composer.datasets.hparams import DataloaderSpec, DatasetHparams
 from composer.utils import ddp
-
-
-class TransformationFn:
-    """Normalizes input data and removes the background class from target data if desired.
-
-    Args:
-        ignore_background (bool): if true, ignore the background class when calculating the training loss.
-    """
-
-    def __init__(self, ignore_background: bool = True) -> None:
-        self.mean: Optional[Tensor] = None
-        self.std: Optional[Tensor] = None
-        self.ignore_background = ignore_background
-
-    def __call__(self, batch: Batch):
-        xs, ys = batch
-        assert isinstance(xs, Tensor)
-        assert isinstance(ys, Tensor)
-        device = xs.device
-
-        if self.mean is None:
-            self.mean = torch.tensor([0.485 * 255, 0.456 * 255, 0.406 * 255], device=device)
-            self.mean = self.mean.view(1, 3, 1, 1)
-        if self.std is None:
-            self.std = torch.tensor([0.229 * 255, 0.224 * 255, 0.225 * 255], device=device)
-            self.std = self.std.view(1, 3, 1, 1)
-
-        xs = xs.float()
-        xs = xs.sub_(self.mean).div_(self.std)
-        if self.ignore_background:
-            ys = ys.sub_(1)
-        return xs, ys
-
-
-def fast_collate(batch: List[Tuple[Image.Image, Tensor]], memory_format: torch.memory_format = torch.contiguous_format):
-    """Constructs a batch for training from individual samples.
-    """
-    imgs = [sample[0] for sample in batch]
-    targets = [sample[1] for sample in batch]
-    w = imgs[0].size[0]
-    h = imgs[0].size[1]
-    image_tensor = torch.zeros((len(imgs), 3, h, w), dtype=torch.uint8).contiguous(memory_format=memory_format)
-    target_tensor = torch.zeros((len(targets), h, w), dtype=torch.int64).contiguous(memory_format=memory_format)
-    for i, img in enumerate(imgs):
-        nump_array = np.asarray(img, dtype=np.uint8)
-        if nump_array.ndim < 3:
-            nump_array = np.expand_dims(nump_array, axis=-1)
-
-        nump_array = np.rollaxis(nump_array, 2).copy()
-        if nump_array.shape[0] != 3:
-            assert nump_array.shape[0] == 1, "unexpected shape"
-            nump_array = np.resize(nump_array, (3, h, w))
-        assert image_tensor.shape[1:] == nump_array.shape, "shape mismatch"
-
-        image_tensor[i] += torch.from_numpy(nump_array)
-        target_tensor[i] += torch.from_numpy(np.array(targets[i], dtype=np.int64))
-
-    return image_tensor, target_tensor
-
+from composer.utils.data import TransformationFn, fast_collate
 
 class RandomResizePair(torch.nn.Module):
     """Resize the image and target to `base_size` scaled by a randomly sampled value.
@@ -81,6 +22,7 @@ class RandomResizePair(torch.nn.Module):
         min_scale (float): the minimum value the samples can be rescaled.
         max_scale (float): the maximum value the samples can be rescaled.
         base_size (Tuple[int, int]): a specified base size (height x width) to scale to get the resized dimensions.
+            When this is None (default), use the input image size.
     """
 
     def __init__(self, min_scale: float, max_scale: float, base_size: Optional[Tuple[int, int]] = None):
@@ -123,7 +65,7 @@ class RandomHFlipPair(torch.nn.Module):
     """Flip the image and target horizontally with a specified probability.
 
     Args:
-        probability (float): the probability of flipping the image and target.
+        probability (float): the probability of flipping the image and target. Default is 0.5.
     """
 
     def __init__(self, probability: float = 0.5):
@@ -143,7 +85,7 @@ class PadToSize(torch.nn.Module):
 
     Args:
         size (Tuple[int, int]): the size (height x width) of the image after padding.
-        fill (Union[int, Tuple[int, int, int]]): the value to use for the padded pixels.
+        fill (Union[int, Tuple[int, int, int]]): the value to use for the padded pixels. Default is 0.
     """
 
     def __init__(self, size: Tuple[int, int], fill: Union[int, Tuple[int, int, int]] = 0):
@@ -208,10 +150,11 @@ class ADE20k(Dataset):
 
     Args:
         datadir (str): the path to the ADE20k folder.
-        split (str): the dataset split to use, either 'train', 'val', or 'test'.
+        split (str): the dataset split to use, either 'train', 'val', or 'test'. Default is 'train'.
         both_transforms (torch.nn.Module): transformations to apply to the image and target simultaneously.
-        image_transforms (torch.nn.Module): transformations to apply to the image only.
-        target_transforms (torch.nn.Module): transformations to apply to the target only.
+            Default is None.
+        image_transforms (torch.nn.Module): transformations to apply to the image only. Default is None.
+        target_transforms (torch.nn.Module): transformations to apply to the target only. Default is None.
     """
 
     def __init__(self,
@@ -288,12 +231,13 @@ class ADE20kDatasetHparams(DatasetHparams):
     """Defines an instance of the ADE20k dataset for semantic segmentation.
 
     Args:
-        split (str): the dataset split to use either 'train', 'val', or 'test'.
-        base_size (int): initial size of the image and target before other augmentations.
-        min_resize_scale (float): the minimum value the samples can be rescaled.
-        max_resize_scale (float): the maximum value the samples can be rescaled.
-        final_size (int): the final size of the image and target.
-        ignore_background (bool): if true, ignore the background class when calculating the training loss.
+        split (str): the dataset split to use either 'train', 'val', or 'test'. Default is `train`.
+        base_size (int): initial size of the image and target before other augmentations. Default is 512.
+        min_resize_scale (float): the minimum value the samples can be rescaled. Default is 0.5.
+        max_resize_scale (float): the maximum value the samples can be rescaled. Default is 2.0.
+        final_size (int): the final size of the image and target. Default is 512.
+        ignore_background (bool): if true, ignore the background class when calculating the training loss. 
+            Default is true.
 
     """
 

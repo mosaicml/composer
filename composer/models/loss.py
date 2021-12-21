@@ -26,7 +26,7 @@ class mIoU(Metric):
 
     Args:
         num_classes (int): the number of classes in the segmentation task.
-        ignore_index (int): the index to ignore when computing mIoU.
+        ignore_index (int): the index to ignore when computing mIoU. Default is -1.
 
     """
 

@@ -2,69 +2,18 @@
 
 import os
 from dataclasses import dataclass
-from typing import List, Optional, Tuple
-
-import numpy as np
+from typing import List
 import torch
 import torch.utils.data
 import yahp as hp
-from PIL import Image
 from torchvision import transforms
 from torchvision.datasets import ImageFolder
 
-from composer.core.types import Batch, Tensor
 from composer.datasets.dataloader import DataloaderHparams
 from composer.datasets.hparams import DataloaderSpec, DatasetHparams, SyntheticHparamsMixin
 from composer.datasets.synthetic import SyntheticBatchPairDataset
 from composer.utils import ddp
-
-
-class TransformationFn:
-
-    def __init__(self) -> None:
-        self.mean: Optional[Tensor] = None
-        self.std: Optional[Tensor] = None
-
-    def __call__(self, batch: Batch):
-        xs, ys = batch
-        assert isinstance(xs, Tensor)
-        assert isinstance(ys, Tensor)
-        device = xs.device
-
-        if self.mean is None:
-            self.mean = torch.tensor([0.485 * 255, 0.456 * 255, 0.406 * 255], device=device)
-            self.mean = self.mean.view(1, 3, 1, 1)
-        if self.std is None:
-            self.std = torch.tensor([0.229 * 255, 0.224 * 255, 0.225 * 255], device=device)
-            self.std = self.std.view(1, 3, 1, 1)
-
-        xs = xs.float()
-        xs = xs.sub_(self.mean).div_(self.std)
-        return xs, ys
-
-
-def fast_collate(batch: List[Tuple[Image.Image, Tensor]], memory_format: torch.memory_format = torch.contiguous_format):
-    imgs = [img[0] for img in batch]
-    targets = torch.tensor([target[1] for target in batch], dtype=torch.int64)
-    w = imgs[0].size[0]
-    h = imgs[0].size[1]
-    tensor = torch.zeros((len(imgs), 3, h, w), dtype=torch.uint8).contiguous(memory_format=memory_format)
-    for i, img in enumerate(imgs):
-        nump_array = np.asarray(img, dtype=np.uint8)
-        if nump_array.ndim < 3:
-            nump_array = np.expand_dims(nump_array, axis=-1)
-
-        nump_array = np.rollaxis(nump_array, 2).copy()
-        if nump_array.shape[0] != 3:
-            assert nump_array.shape[0] == 1, "unexpected shape"
-            nump_array = np.resize(nump_array, (3, h, w))
-        assert tuple(tensor.shape)[1:] == nump_array.shape, "shape mismatch"
-
-        tensor[i] += torch.from_numpy(nump_array)
-
-    return tensor, targets
-
-
+from composer.utils.data import TransformationFn, fast_collate
 @dataclass
 class ImagenetDatasetHparams(DatasetHparams, SyntheticHparamsMixin):
     """Defines an instance of the ImageNet dataset for image classification.
