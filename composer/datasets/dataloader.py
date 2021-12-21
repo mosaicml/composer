@@ -119,7 +119,7 @@ class DataloaderHparams(hp.Hparams):
         *,
         batch_size: int,
         drop_last: bool,
-        split: str = 'train',
+        split: str,
         shuffle: bool = True,
         sampler: Optional[torch.utils.data.Sampler] = None,
         collate_fn: Optional[Callable] = None,
@@ -139,7 +139,7 @@ class DataloaderHparams(hp.Hparams):
         Returns:
             DataLoader: The dataloader.
         """
-        if self.batch_sampler_factory is not None:
+        if self.batch_sampler_factory:
             if sampler is not None:
                 raise RuntimeError("Can't specify both sampler and batch_sampler!")
             self.batch_sampler_factory = cast(SamplerFactory, self.batch_sampler_factory)
@@ -153,11 +153,12 @@ class DataloaderHparams(hp.Hparams):
             )
             sampler_dependent_kwargs = dict(batch_sampler=batch_sampler)
 
-            # total hack to avoid logging error from yaml being unable to
+            # total hack to avoid logging error from yaml dump being unable to
             # dump objects:
             # File ".../composer/composer/loggers/file_logger.py", line 99, in init
             #     yaml.safe_dump(self.config, stream=self.file)
-            self.batch_sampler_factory = None
+            self.batch_sampler_factory = ""
+            del self.batch_sampler_factory
 
         else:
             if sampler is None:
