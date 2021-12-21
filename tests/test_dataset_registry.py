@@ -5,7 +5,7 @@ from typing import Callable, Dict, Type
 
 import pytest
 
-from composer.datasets import (BratsDatasetHparams, CIFAR10DatasetHparams, DataloaderHparams, DataloaderSpec,
+from composer.datasets import (ADE20kDatasetHparams, BratsDatasetHparams, CIFAR10DatasetHparams, DataloaderHparams, DataloaderSpec,
                                DatasetHparams, ImagenetDatasetHparams, LMDatasetHparams, MNISTDatasetHparams,
                                SyntheticHparamsMixin)
 from composer.trainer.trainer_hparams import dataset_registry
@@ -18,6 +18,7 @@ default_required_fields: Dict[Type[DatasetHparams], Callable[[], DatasetHparams]
         is_train=False,
         download=False,
     ),
+    ADE20kDatasetHparams: lambda: ADE20kDatasetHparams(is_train=False),
     BratsDatasetHparams: lambda: BratsDatasetHparams(is_train=False,),
     ImagenetDatasetHparams: lambda: ImagenetDatasetHparams(
         is_train=False,

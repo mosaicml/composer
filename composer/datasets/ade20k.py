@@ -55,7 +55,6 @@ def fast_collate(batch: List[Tuple[Image.Image, Tensor]], memory_format: torch.m
     targets = [sample[1] for sample in batch]
     w = imgs[0].size[0]
     h = imgs[0].size[1]
-    print('Image sizes:', w, h)
     image_tensor = torch.zeros((len(imgs), 3, h, w), dtype=torch.uint8).contiguous(memory_format=memory_format)
     target_tensor = torch.zeros((len(targets), h, w), dtype=torch.int64).contiguous(memory_format=memory_format)
     for i, img in enumerate(imgs):

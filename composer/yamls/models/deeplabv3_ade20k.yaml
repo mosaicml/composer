@@ -3,7 +3,7 @@ train_dataset:
     datadir: null
     split: train
     base_size: 512
-    crop_size: 512
+    final_size: 512
     drop_last: true
     shuffle: true
 val_dataset:
@@ -11,7 +11,7 @@ val_dataset:
     datadir: null
     split: val
     base_size: 512
-    crop_size: 512
+    final_size: 512
     drop_last: false
     shuffle: false
 optimizer:
