@@ -82,6 +82,7 @@ class TrackedDatasetHparams(DatasetHparams, SyntheticHparamsMixin):
         return dataloader_hparams.initialize_object(
             dataset=tracked_dataset,
             batch_size=batch_size,
+            split='train' if self.is_train else 'val',
             sampler=sampler,
             drop_last=drop_last,
         )
