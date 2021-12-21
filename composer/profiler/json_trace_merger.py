@@ -77,6 +77,7 @@ def merge_traces(output_file: str, *trace_files: str):
 
     ranks_to_clock_sync = _get_rank_to_clock_syncs(trace_files)
     rank_to_backwards_thread = {}
+    rank_to_seen_threads = {rank: set() for rank in ranks_to_clock_sync.keys()}
 
     rank_zero_clock_sync = ranks_to_clock_sync[0]
 
@@ -100,11 +101,35 @@ def merge_traces(output_file: str, *trace_files: str):
                     if "pid" not in event:
                         # we need the pid to merge
                         continue
+                    if "tid" not in event:
+                        continue
+                    if "PyTorch Profiler" in str(event["tid"]):
+                        # skip this line; it pollutes the UI
+                        continue
                     if "ts" in event:
                         event["ts"] = event["ts"] + clock_sync_diff
                     event["pid"] = rank
+                    if event["tid"] not in rank_to_seen_threads[rank]:
+                        # By default, make all threads display last
+                        # The training loop thread later sets itself as thread 0
+                        # and the backwards pass thread is set as thread 1
+                        if not is_first_line:
+                            output_f.write(",")
+                        output_f.write("\n    ")
+                        json.dump(
+                            {
+                                "name": "thread_sort_index",
+                                "ph": "M",
+                                "pid": rank,
+                                "tid": event["tid"],
+                                "args": {
+                                    "sort_index": 99999,
+                                }
+                            }, output_f)
+                        rank_to_seen_threads[rank].add(event['tid'])
+                        is_first_line = False
                     if event["name"] == "MulBackward0":
-                        rank_to_backwards_thread = event["tid"]
+                        rank_to_backwards_thread[rank] = event["tid"]
                     if not is_first_line:
                         output_f.write(",")
                     is_first_line = False
