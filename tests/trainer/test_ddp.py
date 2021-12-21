@@ -209,6 +209,10 @@ def test_ddp(device: DeviceHparams, world_size: int, mosaic_trainer_hparams: Tra
 
     is_train_to_pickles: Dict[bool, List[Dict[str, types.Tensor]]] = {True: [], False: []}
 
+    if deepspeed:
+        # it is not possible to save individual batches when using deepspeed
+        return
+
     for epoch in range(hparams.max_epochs):
         for local_rank in range(ddp.get_local_world_size()):
             for is_train in (True, False):
