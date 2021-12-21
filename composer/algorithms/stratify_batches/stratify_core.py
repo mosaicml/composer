@@ -34,12 +34,16 @@ class BalancedSampler:
     """
 
     def __init__(self, data: np.array, replace: bool = False, rng: Optional[np.random.Generator] = None):
+        self.original_data = data.copy()  # decoupled for determinism after reset
         self.data = data.copy()
         self.replace = replace
         self.rng = rng or np.random.default_rng()
         self.reset()
 
-    def reset(self) -> None:
+    def reset(self, rng: Optional[np.random.Generator] = None) -> None:
+        if rng is not None:
+            self.rng = rng
+        self.data = self.original_data.copy()
         self.rng.shuffle(self.data)
         self.tail = self.data
         self.num_epochs_completed = 0
@@ -181,10 +185,10 @@ def sample_stragglers(samplers: Sequence[BalancedSampler],
     return batch
 
 
-def create_samplers(targets: Sequence[int], replace: bool, rng: np.random.Generator) -> Tuple[np.array, np.array]:
+def create_samplers(targets: Sequence[int], replace: bool) -> Tuple[np.array, np.array]:
     _class_to_idxs = groupby_ints(targets)
     classes = list(_class_to_idxs.keys())
-    samplers = [BalancedSampler(_class_to_idxs[c], replace=replace, rng=rng) for c in classes]
+    samplers = [BalancedSampler(_class_to_idxs[c], replace=replace) for c in classes]
     return np.array(samplers), np.array(classes)
 
 
@@ -218,8 +222,7 @@ class StratifiedBatchSampler(DistributedSampler[T_co]):
                  drop_last: bool = False,
                  stratify_how: str = 'balance',
                  targets_attr: Optional[str] = None,
-                 seed: Optional[int] = None,
-                 rng: Optional[np.random.Generator] = None,
+                 seed: int = 42,
                  **kwargs):
         super().__init__(dataset=dataset, shuffle=shuffle, drop_last=drop_last, seed=seed, **kwargs)
         self.batch_size = batch_size
@@ -236,36 +239,40 @@ class StratifiedBatchSampler(DistributedSampler[T_co]):
         if stratify_how not in allowed_stratify_hows:
             raise ValueError(f"stratify_how must be one of {allowed_stratify_hows}, not {stratify_how}")
         self.stratify_how = stratify_how
-        if rng is None:
-            rng = np.random.default_rng(seed)
-        self.rng = rng
         self._set_targets(targets)
 
     def _set_targets(self, targets: Iterable):
         replace = self.stratify_how == 'balance'
-        self.samplers, self.classes = create_samplers(targets, replace=replace, rng=self.rng)
+        self.samplers, self.classes = create_samplers(targets, replace=replace)
         self.num_classes = len(self.classes)
 
-    def _reset_samplers(self):
+    def _reset_samplers(self, rng: np.random.Generator) -> None:
         for sampler in self.samplers:
-            sampler.reset()
+            sampler.reset(rng)
 
     def __iter__(self) -> Iterator[T_co]:
         total_num_samples = len(self.targets)
         num_batches = total_num_samples // self.batch_size
         has_stragglers = num_batches * self.batch_size < total_num_samples
-        self._reset_samplers()  # reset sampling for each epoch
+
+        rng = np.random.default_rng(self.seed + self.epoch)
+        self._reset_samplers(rng)  # reset sampling for each epoch
 
         f_sample = {'balance': _sample_batches_balanced, 'match': _sample_batches_match}[self.stratify_how]
-        batches = f_sample(self.samplers, batch_size=self.batch_size, num_batches=num_batches, rng=self.rng)
+        batches = f_sample(self.samplers, batch_size=self.batch_size, num_batches=num_batches, rng=rng)
 
         if has_stragglers and not self.drop_last:
             batches.append(
                 sample_stragglers(self.samplers,
                                   batch_size=self.batch_size,
                                   total_num_samples=total_num_samples,
-                                  rng=self.rng))
-        return iter(batches)
+                                  rng=rng))
+
+        # after every replica has constructed the same batches, evenly divide them;
+        # similar approach to default DistributedSampler, except with batches;
+        # see https://github.com/pytorch/pytorch/blob/d5988c5eca0221e9ef58918e4f0b504940cb926a/torch/utils/data/distributed.py#L94  # noqa
+        my_batch_idxs = np.arange(self.rank, len(batches), self.num_replicas)
+        return iter([batches[idx] for idx in my_batch_idxs])
 
     def __len__(self):
         return int(math.ceil(len(self.dataset) / self.batch_size))
