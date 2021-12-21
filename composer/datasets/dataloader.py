@@ -152,6 +152,13 @@ class DataloaderHparams(hp.Hparams):
                 factory=self.batch_sampler_factory,
             )
             sampler_dependent_kwargs = dict(batch_sampler=batch_sampler)
+
+            # total hack to avoid logging error from yaml being unable to
+            # dump objects:
+            # File ".../composer/composer/loggers/file_logger.py", line 99, in init
+            #     yaml.safe_dump(self.config, stream=self.file)
+            self.batch_sampler_factory = None
+
         else:
             if sampler is None:
                 sampler = ddp.get_sampler(dataset, drop_last=drop_last, shuffle=shuffle)
