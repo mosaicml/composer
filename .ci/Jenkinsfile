@@ -29,7 +29,7 @@ def runPytest(pythonVersion, extraDeps, gpu = false) {
     def summary = "Pytest - Python ${pythonVersion}, composer[${extraDeps}]"
     def nodeSelector = "c5.large"
     def pCloud = "aws-next-01"
-    def pDockerImage = "mosaicml/pytorch:1.10.0_cpu-python${pythonVersion}-ubuntu20.04")
+    def pDockerImage = "mosaicml/pytorch:1.10.0_cpu-python${pythonVersion}-ubuntu20.04"
     def pytestCliArgs = '--test_duration all'
     def nGpus = "0"
 
@@ -40,7 +40,7 @@ def runPytest(pythonVersion, extraDeps, gpu = false) {
         pCloud = "colo-research-01"
         nGpus = "2"
         nodeSelector = "mosaicml.com/node-class=mml-nv3090"
-        pDockerImage = "mosaicml/pytorch:1.10.0_cu113-python${pythonVersion}-ubuntu20.04")
+        pDockerImage = "mosaicml/pytorch:1.10.0_cu113-python${pythonVersion}-ubuntu20.04"
         pytestCliArgs = "$pytestCliArgs -m gpu"
     }
     runWithChecks(
