@@ -32,6 +32,8 @@ def runPytest(pythonVersion, extraDeps, gpu = false) {
     def pDockerImage = "mosaicml/pytorch:1.10.0_cpu-python${pythonVersion}-ubuntu20.04"
     def pytestCliArgs = '--test_duration all'
     def nGpus = "0"
+    def memLimit = "3Gi"
+    def cpuLimit = "1500m"
 
     if (gpu){
         name = "$name-gpu"
@@ -39,7 +41,9 @@ def runPytest(pythonVersion, extraDeps, gpu = false) {
         summary = "$summary, GPU"
         pCloud = "colo-research-01"
         nGpus = "2"
-        nodeSelector = "mosaicml.com/node-class=mml-nv3090"
+        cpuLimit = "8000m" // 4 cpu per gpu
+        memLimit = "16Gi"  // 8gb per gpu
+        nodeSelector = "mosaicml.com/node-class=mml-nv3090" // TODO(ravi) use nodeAffinity to run on 3080s or 3090s
         pDockerImage = "mosaicml/pytorch:1.10.0_cu113-python${pythonVersion}-ubuntu20.04"
         pytestCliArgs = "$pytestCliArgs -m gpu"
     }
@@ -56,7 +60,8 @@ def runPytest(pythonVersion, extraDeps, gpu = false) {
                 string(name: 'P_GIT_REPO', value: gitUrl),
                 string(name: 'P_GIT_COMMIT', value: gitCommit),
                 string(name: 'P_DOCKER_IMAGE', value: pDockerImage),
-                string(name: 'P_CPU_LIMIT', value: '3000m'),
+                string(name: 'P_CPU_LIMIT', value: cpuLimit),
+                string(name: 'P_MEM_LIMIT', value: memLimit),
                 string(name: 'P_TIMEOUT', value: '1800'),
                 string(name: 'PIP_EXTRA_DEPS', value: extraDeps),
                 string(name: 'PYTEST_COMMAND', value: './scripts/test.sh'),

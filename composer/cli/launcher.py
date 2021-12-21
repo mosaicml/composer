@@ -220,7 +220,7 @@ def cleanup_processes(processes: Set[subprocess.Popen]):
     for process in processes:
         process.poll()
         if process.returncode is None:
-            log.warn("Failed to kill subprocess %s with SIGTERM; using SIGKILL instead", process.pid)
+            log.warning("Failed to kill subprocess %s with SIGTERM; using SIGKILL instead", process.pid)
             try:
                 os.killpg(process.pid, signal.SIGKILL)
             except ProcessLookupError:
@@ -237,11 +237,10 @@ def aggregate_process_returncode(processes: Set[subprocess.Popen]) -> int:
     for process in processes:
         process.poll()
         if process.returncode is None:
-            log.warn("Subprocess %s has still not exited; return exit code 1.", process.pid)
+            log.error("Subprocess %s has still not exited; return exit code 1.", process.pid)
             return 1
         if process.returncode != 0:
-            log.warn("Subprocess %s exited with code %s; exiting with code %s", process.pid, process.returncode,
-                     process.returncode)
+            log.error("Subprocess %s exited with code %s", process.pid, process.returncode)
             return process.returncode
 
     return 0
