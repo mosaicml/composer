@@ -43,19 +43,17 @@ def _get_rank_to_clock_syncs(trace_files: Tuple[str, ...]) -> Dict[int, int]:
     rank_to_clock_sync: Dict[int, int] = {}
     for filename in trace_files:
         rank = _get_global_rank_from_file(filename)
-        with open(filename, "r") as f:
-            # TODO convert to valid JSON if the file isn't valid json
-            trace_json = json.load(f)
-            if isinstance(trace_json, list):
-                for event in trace_json:
-                    if event["ph"] == "M" and event["name"] == "clock_sync_timestamp_us":
-                        clock_sync = event["args"]["value"]
-                        rank_to_clock_sync[rank] = clock_sync
-                        break
-            else:
-                assert isinstance(trace_json, dict)
-                if trace_json.get("clock_sync_timestamp_us") is not None:
-                    rank_to_clock_sync[rank] = trace_json["clock_sync_timestamp_us"]
+        trace_json = _load_trace(filename)
+        if isinstance(trace_json, list):
+            for event in trace_json:
+                if event["ph"] == "M" and event["name"] == "clock_sync_timestamp_us":
+                    clock_sync = event["args"]["value"]
+                    rank_to_clock_sync[rank] = clock_sync
+                    break
+        else:
+            assert isinstance(trace_json, dict)
+            if trace_json.get("clock_sync_timestamp_us") is not None:
+                rank_to_clock_sync[rank] = trace_json["clock_sync_timestamp_us"]
 
     return rank_to_clock_sync
 
@@ -70,6 +68,7 @@ def merge_traces(output_file: str, *trace_files: str):
 
     - The ``pid`` will be set to the global rank.
     - The ``ts`` is syncronized with that of the rank 0 process.
+    - Ensures that the backward process is one below the forward process
 
     Args:
         output_file (str): The file to write the merged trace to
@@ -77,6 +76,7 @@ def merge_traces(output_file: str, *trace_files: str):
     """
 
     ranks_to_clock_sync = _get_rank_to_clock_syncs(trace_files)
+    rank_to_backwards_thread = {}
 
     rank_zero_clock_sync = ranks_to_clock_sync[0]
 
@@ -103,11 +103,25 @@ def merge_traces(output_file: str, *trace_files: str):
                     if "ts" in event:
                         event["ts"] = event["ts"] + clock_sync_diff
                     event["pid"] = rank
+                    if event["name"] == "MulBackward0":
+                        rank_to_backwards_thread = event["tid"]
                     if not is_first_line:
                         output_f.write(",")
                     is_first_line = False
                     output_f.write(f"\n    ")
                     json.dump(event, output_f)
+        for pid, tid in rank_to_backwards_thread.items():
+            output_f.write(",\n    ")
+            json.dump({
+                "name": "thread_sort_index",
+                "ph": "M",
+                "pid": pid,
+                "tid": tid,
+                "args": {
+                    "sort_index": 1
+                }
+            }, output_f)
+
         output_f.write("\n]\n")
 
 

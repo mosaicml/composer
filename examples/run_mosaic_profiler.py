@@ -5,8 +5,8 @@ This example is interchangable with run_mosaic_trainer.py
 """
 import argparse
 import logging
-import warnings
 import sys
+import warnings
 from typing import Type
 
 import composer
@@ -15,6 +15,7 @@ from composer.profiler.profiler_hparams import DataloaderProfilerHparams, System
 from composer.trainer import Trainer, TrainerHparams
 
 logger = logging.getLogger(__name__)
+
 
 def warning_on_one_line(message: str, category: Type[Warning], filename: str, lineno: int, file=None, line=None):
     # From https://stackoverflow.com/questions/26430861/make-pythons-warnings-warn-not-mention-itself
@@ -26,7 +27,6 @@ def main() -> None:
 
     if len(sys.argv) == 1:
         sys.argv = [sys.argv[0], "--help"]
-    
 
     parser = argparse.ArgumentParser(parents=[TrainerHparams.get_argparse(cli_args=True)])
     parser.add_argument("--detailed",
