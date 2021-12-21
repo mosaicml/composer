@@ -14,14 +14,12 @@ from torch.utils.data import DataLoader
 from torchmetrics.detection import MAP
 
 from composer.core.types import BatchPair, Metrics, Tensor, Tensors
-from composer.datasets.coco import COCODetection, COCO
+from composer.datasets.coco import COCO, COCODetection
 from composer.models.base import BaseMosaicModel
 from composer.models.ssd.base_model import Loss
 from composer.models.ssd.ssd300 import SSD300
 from composer.models.ssd.ssd_hparams import SSDHparams
 from composer.models.ssd.utils import DefaultBoxes, Encoder, SSDTransformer
-
-_BASE_LR = 2.5e-3
 
 
 class SSD(BaseMosaicModel):
@@ -112,9 +110,8 @@ class SSD(BaseMosaicModel):
                                          prob_,
                                          inv_map[label_]])
 
-
-
-        import pdb; pdb.set_trace()
+        import pdb
+        pdb.set_trace()
         return ret, COCO(annotation_file=val_annotate)
 
 

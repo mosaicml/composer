@@ -839,7 +839,6 @@ class Trainer:
                 self.engine.run_event(Event.EVAL_BATCH_START)
 
                 self.engine.run_event(Event.EVAL_BEFORE_FORWARD)
-                #state.outputs, targets = self.original_model.validate(state.batch)
                 state.outputs, targets = self.original_model.validate(state.batch)
                 self.engine.run_event(Event.EVAL_AFTER_FORWARD)
 
