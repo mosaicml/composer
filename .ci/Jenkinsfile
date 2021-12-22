@@ -29,6 +29,7 @@ def runPytest(pythonVersion, extraDeps, gpu = false) {
     def summary = "Pytest - Python ${pythonVersion}, composer[${extraDeps}]"
     def nodeSelector = "c5.large"
     def pCloud = "aws-next-01"
+    def ubuntuVersion = pythonVersion == "3.7" ? "18.04" : "20.04"
     def pDockerImage = "mosaicml/pytorch:1.10.0_cpu-python${pythonVersion}-ubuntu20.04"
     def pytestCliArgs = '--test_duration all'
     def nGpus = "0"
