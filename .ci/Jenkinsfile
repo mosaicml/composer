@@ -170,7 +170,7 @@ stage('Build') {
             'Python 3.8 - All': { -> runPytest("3.8", "all") },
             'Python 3.9 - All': { -> runPytest("3.9", "all") },
             'Python 3.9 - Dev': { -> runPytest("3.9", "dev") },
-            'Python 3.7 - All (GPU)': { -> runPytest("3.9", "all", true) },
+            'Python 3.7 - All (GPU)': { -> runPytest("3.7", "all", true) },
         ]        
     }
     try {
