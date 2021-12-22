@@ -3,6 +3,9 @@ ARG BASE_IMAGE
 FROM ${BASE_IMAGE}
 ARG DEBIAN_FRONTEND=noninteractive
 
+# remove a bad symlink
+RUN rm -f /usr/local/cuda-11.3/cuda-11.3  
+
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
         libgomp1 \
@@ -21,26 +24,6 @@ RUN apt-get update && \
     apt-get autoclean && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
-
-# # Upgrade NCCL to fix NVLink errors
-# # No Need to install, as the cuda 11.3 image already contains a late enough version
-# RUN DISTRO="$(lsb_release -si | tr '[:upper:]' '[:lower:]')$(lsb_release -sr | sed 's/\.//')" &&  \
-#     apt-get update && \
-#     apt-get install -y --no-install-recommends \
-#         dirmngr \
-#         gpg-agent && \
-#     apt-key adv --fetch-keys https://developer.download.nvidia.com/compute/cuda/repos/${DISTRO}/x86_64/7fa2af80.pub && \
-#     add-apt-repository "deb https://developer.download.nvidia.com/compute/cuda/repos/${DISTRO}/x86_64/ /" && \
-#     apt-get install -y --no-install-recommends --allow-change-held-packages \
-#         libnccl2 \
-#         libnccl-dev && \
-#     apt-get autoclean && \
-#     apt-get clean && \
-#     rm -rf /var/lib/apt/lists/*
-
-# # Use system installed NCCL per update above, point to library
-# ENV USE_SYSTEM_NCCL=1
-# ENV LD_PRELOAD=/usr/lib/x86_64-linux-gnu/libnccl.so.2.9.6
 
 ##############################
 # Install NodeJS (for Pyright)
@@ -105,14 +88,15 @@ RUN rm -rf /tmp/*
 ################################################
 # Create a virtualenv and activate it by default
 ################################################
-RUN python${PYTHON_VERSION} -m venv ~/mosaicml-venv --system-site-packages --without-pip && \
+RUN python${PYTHON_VERSION} -m venv --system-site-packages ~/mosaicml-venv && \
+    python${PYTHON_VERSION} -m venv --upgrade ~/mosaicml-venv && \
     echo "source ~/mosaicml-venv/bin/activate" >> ~/.bashrc
 
 #########################
 # Configure non-root user
 #########################
 RUN echo "export PATH=\$PATH:~/.local/bin" >> /etc/skel/.bashrc && \
-    echo "[ ! -d \"~/mosaicml-venv\" ] && python${PYTHON_VERSION} -m venv ~/mosaicml-venv --system-site-packages --without-pip" >> /etc/skel/.bashrc && \
+    echo "[ ! -d \"~/mosaicml-venv\" ] && python${PYTHON_VERSION} -m venv --system-site-packages ~/mosaicml-venv && python${PYTHON_VERSION} -m venv --upgrade ~/mosaicml-venv" >> /etc/skel/.bashrc && \
     echo 'source ~/mosaicml-venv/bin/activate' >> /etc/skel/.bashrc && \
     echo "export PATH=\$PATH:~/.local/bin" >> /etc/skel/.bashrc && \
     echo "export PATH=\$PATH:~/.local/bin" >> /etc/skel/.bashrc && \
