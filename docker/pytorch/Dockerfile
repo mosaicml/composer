@@ -107,6 +107,11 @@ RUN pip${PYTHON_VERSION} install --no-cache-dir --find-links https://download.py
 RUN rm -rf /tmp/*
 
 
+#######################
+# Set the shell to bash
+#######################
+SHELL ["/bin/bash", "-c"]
+
 ################################################
 # Create a virtualenv and activate it by default
 ################################################
@@ -117,7 +122,7 @@ RUN python${PYTHON_VERSION} -m venv --system-site-packages ~/mosaicml-venv && \
 #########################
 # Configure non-root user
 #########################
-RUN echo "[ ! -d \"~/mosaicml-venv\" ] && python${PYTHON_VERSION} -m venv --system-site-packages ~/mosaicml-venv && ~/mosaicml-venv/bin/python -m pip install --upgrade pip setuptools" >> /etc/skel/.bashrc && \
+RUN echo "[ ! -d ~/mosaicml-venv ] && python${PYTHON_VERSION} -m venv --system-site-packages ~/mosaicml-venv && ~/mosaicml-venv/bin/python -m pip install --upgrade pip setuptools" >> /etc/skel/.bashrc && \
     echo 'source ~/mosaicml-venv/bin/activate' >> /etc/skel/.bashrc && \
     useradd -rm -d /home/mosaicml -s /bin/bash -u 1000 -U -s /bin/bash mosaicml && \
     usermod -a -G sudo mosaicml && \
@@ -127,4 +132,4 @@ WORKDIR /home/mosaicml
 
 USER mosaicml
 
-RUN ~/.bashrc
+RUN python${PYTHON_VERSION} -m venv --system-site-packages ~/mosaicml-venv && ~/mosaicml-venv/bin/python -m pip install --upgrade pip setuptools
