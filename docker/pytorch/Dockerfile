@@ -119,7 +119,7 @@ RUN python${PYTHON_VERSION} -m venv --system-site-packages ~/mosaicml-venv && \
     ~/mosaicml-venv/bin/python -m pip install --upgrade pip setuptools && \
     echo "source ~/mosaicml-venv/bin/activate" >> ~/.bashrc
 
-ENV PATH="~/mosaicml-venv/bin:${PATH}""
+ENV PATH="~/mosaicml-venv/bin:${PATH}"
 
 #########################
 # Configure non-root user
