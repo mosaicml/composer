@@ -36,7 +36,7 @@ RUN DISTRO="$(lsb_release -si | tr '[:upper:]' '[:lower:]')$(lsb_release -sr | s
         gpg-agent && \
     apt-key adv --fetch-keys https://developer.download.nvidia.com/compute/cuda/repos/${DISTRO}/x86_64/7fa2af80.pub && \
     add-apt-repository "deb https://developer.download.nvidia.com/compute/cuda/repos/${DISTRO}/x86_64/ /" && \
-    apt-get install -y --no-install-recommends --allow-change-held-packages \
+    apt-get install -y --no-install-recommends --allow-change-held-packages --allow-downgrades \
         libnccl2=2.9.6-1+cuda11.0 \
         libnccl-dev=2.9.6-1+cuda11.0 && \
     apt-get autoclean && \
@@ -118,6 +118,8 @@ SHELL ["/bin/bash", "-c"]
 RUN python${PYTHON_VERSION} -m venv --system-site-packages ~/mosaicml-venv && \
     ~/mosaicml-venv/bin/python -m pip install --upgrade pip setuptools && \
     echo "source ~/mosaicml-venv/bin/activate" >> ~/.bashrc
+
+ENV PATH="~/mosaicml-venv/bin:${PATH}""
 
 #########################
 # Configure non-root user
