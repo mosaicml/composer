@@ -105,14 +105,14 @@ RUN rm -rf /tmp/*
 ################################################
 # Create a virtualenv and activate it by default
 ################################################
-RUN python${PYTHON_VERSION} -m venv ~/mosaicml-venv --system-site-packages && \
+RUN python${PYTHON_VERSION} -m venv ~/mosaicml-venv --system-site-packages --without-pip && \
     echo "source ~/mosaicml-venv/bin/activate" >> ~/.bashrc
 
 #########################
 # Configure non-root user
 #########################
 RUN echo "export PATH=\$PATH:~/.local/bin" >> /etc/skel/.bashrc && \
-    echo "[ ! -d \"~/mosaicml-venv\" ] && python${PYTHON_VERSION} -m venv ~/mosaicml-venv --system-site-packages" >> /etc/skel/.bashrc && \
+    echo "[ ! -d \"~/mosaicml-venv\" ] && python${PYTHON_VERSION} -m venv ~/mosaicml-venv --system-site-packages --without-pip" >> /etc/skel/.bashrc && \
     echo 'source ~/mosaicml-venv/bin/activate' >> /etc/skel/.bashrc && \
     echo "export PATH=\$PATH:~/.local/bin" >> /etc/skel/.bashrc && \
     echo "export PATH=\$PATH:~/.local/bin" >> /etc/skel/.bashrc && \
