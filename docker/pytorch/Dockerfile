@@ -9,6 +9,7 @@ RUN apt-get update && \
         curl \
         sudo \
         build-essential \
+        git \
         software-properties-common \
         # For PILLOW:
         zlib1g-dev \
