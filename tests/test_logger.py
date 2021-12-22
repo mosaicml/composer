@@ -98,7 +98,12 @@ def test_tqdm_logger(mosaic_trainer_hparams: TrainerHparams, monkeypatch: Monkey
     pytest.param(2, marks=pytest.mark.world_size(2)),
 ])
 @pytest.mark.timeout(10)
-def test_wandb_logger(mosaic_trainer_hparams: TrainerHparams, world_size: int, monkeypatch: MonkeyPatch):
+def test_wandb_logger(mosaic_trainer_hparams: TrainerHparams, world_size: int):
+    try:
+        import wandb
+        del wandb
+    except ImportError:
+        pytest.skip("wandb is not installed")
     del world_size  # unused. Set via launcher script
     mosaic_trainer_hparams.loggers = [WandBLoggerBackendHparams(log_artifacts=True, log_artifacts_every_n_batches=1)]
     trainer = mosaic_trainer_hparams.initialize_object()
