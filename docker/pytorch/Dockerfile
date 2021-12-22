@@ -37,8 +37,8 @@ RUN DISTRO="$(lsb_release -si | tr '[:upper:]' '[:lower:]')$(lsb_release -sr | s
     apt-key adv --fetch-keys https://developer.download.nvidia.com/compute/cuda/repos/${DISTRO}/x86_64/7fa2af80.pub && \
     add-apt-repository "deb https://developer.download.nvidia.com/compute/cuda/repos/${DISTRO}/x86_64/ /" && \
     apt-get install -y --no-install-recommends --allow-change-held-packages \
-        libnccl2 \
-        libnccl-dev && \
+        libnccl2=2.9.6-1+cuda11.0 \
+        libnccl-dev=2.9.6-1+cuda11.0 && \
     apt-get autoclean && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
@@ -117,11 +117,8 @@ RUN python${PYTHON_VERSION} -m venv --system-site-packages ~/mosaicml-venv && \
 #########################
 # Configure non-root user
 #########################
-RUN echo "export PATH=\$PATH:~/.local/bin" >> /etc/skel/.bashrc && \
-    echo "[ ! -d \"~/mosaicml-venv\" ] && python${PYTHON_VERSION} -m venv --system-site-packages ~/mosaicml-venv && ~/mosaicml-venv/bin/python -m pip install --upgrade pip setuptools" >> /etc/skel/.bashrc && \
+RUN echo "[ ! -d \"~/mosaicml-venv\" ] && python${PYTHON_VERSION} -m venv --system-site-packages ~/mosaicml-venv && ~/mosaicml-venv/bin/python -m pip install --upgrade pip setuptools" >> /etc/skel/.bashrc && \
     echo 'source ~/mosaicml-venv/bin/activate' >> /etc/skel/.bashrc && \
-    echo "export PATH=\$PATH:~/.local/bin" >> /etc/skel/.bashrc && \
-    echo "export PATH=\$PATH:~/.local/bin" >> /etc/skel/.bashrc && \
     useradd -rm -d /home/mosaicml -s /bin/bash -u 1000 -U -s /bin/bash mosaicml && \
     usermod -a -G sudo mosaicml && \
     echo '%sudo ALL=(ALL) NOPASSWD:ALL' >> /etc/sudoers
@@ -129,3 +126,5 @@ RUN echo "export PATH=\$PATH:~/.local/bin" >> /etc/skel/.bashrc && \
 WORKDIR /home/mosaicml
 
 USER mosaicml
+
+RUN ~/.bashrc
