@@ -1,5 +1,5 @@
 # Base image to use for the docker build.
-BASE_IMAGE ?= 'nvidia/cuda:11.3.1-cudnn8-runtime-ubuntu20.04'
+BASE_IMAGE ?= 'nvidia/cuda:11.3.1-cudnn8-devel-ubuntu20.04'
 
 # Python version to install. Composer requires python>=3.7
 PYTHON_VERSION ?='3.9'
