@@ -29,9 +29,8 @@ def runPytest(pythonVersion, extraDeps, gpu = false) {
     def summary = "Pytest - Python ${pythonVersion}, composer[${extraDeps}]"
     def nodeSelector = "c5.large"
     def pCloud = "aws-next-01"
-    def ubuntuVersion = pythonVersion == "3.7" ? "18.04" : "20.04"
     def pytorchVersion = pythonVersion == "3.9" ? "1.10.0" : "1.9.1"
-    def pDockerImage = "mosaicml/pytorch:${pytorchVersion}_cpu-python${pythonVersion}-ubuntu${ubuntuVersion}"
+    def pDockerImage = "mosaicml/pytorch:${pytorchVersion}_cpu-python${pythonVersion}-ubuntu20.04"
     def pytestCliArgs = '--test_duration all'
     def nGpus = "0"
     def memLimit = "3Gi"
@@ -47,7 +46,7 @@ def runPytest(pythonVersion, extraDeps, gpu = false) {
         memLimit = "16Gi"  // 8gb per gpu
         nodeSelector = "mosaicml.com/node-class=mml-nv3090" // TODO(ravi) use nodeAffinity to run on 3080s or 3090s
         def cudaVersion = pythonVersion == "3.9" ? "cu113" : "cu111"
-        pDockerImage = "mosaicml/pytorch:${pytorchVersion}_${cudaVersion}-python${pythonVersion}-ubuntu${ubuntuVersion}"
+        pDockerImage = "mosaicml/pytorch:${pytorchVersion}_${cudaVersion}-python${pythonVersion}-ubuntu20.04"
         pytestCliArgs = "$pytestCliArgs -m gpu"
     }
     runWithChecks(
