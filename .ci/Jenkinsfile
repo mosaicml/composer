@@ -69,6 +69,7 @@ def runPytest(pythonVersion, extraDeps, gpu = false) {
                 string(name: 'PYTEST_COMMAND', value: './scripts/test.sh'),
                 string(name: 'PYTEST_CLI_ARGS', value: pytestCliArgs),
                 string(name: 'P_NODE_SELECTOR', value: nodeSelector),
+                string(name: 'PYTHON_VIRTUALENV', value: '~/mosaicml-venv'),
                 string(name: 'P_N_GPUS', value: nGpus),
             ]
         )
@@ -120,6 +121,7 @@ def dockerImagePostBuild(stagingImageTag) {
                     string(name: 'PIP_EXTRA_DEPS', value: 'all'),
                     string(name: 'PYTEST_COMMAND', value: './scripts/test.sh'),
                     string(name: 'PYTEST_CLI_ARGS', value: '--test_duration all'),
+                    string(name: 'PYTHON_VIRTUALENV', value: '~/mosaicml-venv'),
                 ]
             )
         }
@@ -161,6 +163,7 @@ stage('Build') {
                             string(name: 'P_DOCKER_IMAGE', value: "mosaicml/pytorch:1.10.0_cpu-python3.9-ubuntu20.04"),
                             string(name: 'P_TIMEOUT', value: '1800'),
                             string(name: 'PIP_EXTRA_DEPS', value: 'all'),
+                            string(name: 'PYTHON_VIRTUALENV', value: '~/mosaicml-venv'),
                         ]
                     )
                 }
