@@ -27,7 +27,7 @@ def runPytest(pythonVersion, extraDeps, gpu = false) {
     def name = "pytest/python${pythonVersion}-extraDeps_${extraDeps}"
     def title = "Pytest - Python ${pythonVersion}, composer[${extraDeps}]"
     def summary = "Pytest - Python ${pythonVersion}, composer[${extraDeps}]"
-    def nodeSelector = "c5.large"
+    def nodeSelector = ""
     def pCloud = "aws-next-01"
     def pytorchVersion = pythonVersion == "3.9" ? "1.10.0" : "1.9.1"
     def pDockerImage = "mosaicml/pytorch:${pytorchVersion}_cpu-python${pythonVersion}-ubuntu20.04"
