@@ -6,7 +6,7 @@ from composer.datasets.photo_classification import PhotoClassificationDatasetHpa
 
 
 @dataclass
-class ImagenetDatasetHparams(PhotoClassificationDatasetHparams):
+class PlacesDatasetHparams(PhotoClassificationDatasetHparams):
     """Defines an instance of the Places365 small dataset for scene classification.
 
     Parameters:

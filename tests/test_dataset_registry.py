@@ -7,7 +7,7 @@ import pytest
 
 from composer.datasets import (BratsDatasetHparams, CIFAR10DatasetHparams, DataloaderHparams, DataloaderSpec,
                                DatasetHparams, ImagenetDatasetHparams, LMDatasetHparams, MNISTDatasetHparams,
-                               SyntheticHparamsMixin)
+                               PlacesDatasetHparams, SyntheticHparamsMixin)
 from composer.trainer.trainer_hparams import dataset_registry
 
 # for testing, we provide values for required hparams fields
@@ -32,7 +32,12 @@ default_required_fields: Dict[Type[DatasetHparams], Callable[[], DatasetHparams]
         datadir=["hello"],
         split='train',
         tokenizer_name='gpt2',
-    )
+    ),
+    PlacesDatasetHparams: lambda: PlacesDatasetHparams(
+        is_train=False,
+        crop_size=224,
+        resize_size=-1,
+    ),
 }
 
 
