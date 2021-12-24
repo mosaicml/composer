@@ -7,7 +7,7 @@ from composer.datasets.photo_classification import PhotoClassificationDatasetHpa
 
 @dataclass
 class ImagenetDatasetHparams(PhotoClassificationDatasetHparams):
-    """Defines an instance of the ImageNet dataset for image classification.
+    """Defines an instance of the Places365 small dataset for scene classification.
 
     Parameters:
         resize_size (int, optional): The resize size to use. Defaults to -1 to not resize.

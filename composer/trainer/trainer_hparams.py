@@ -68,6 +68,7 @@ model_registry = {
 dataset_registry = {
     "brats": datasets.BratsDatasetHparams,
     "imagenet": datasets.ImagenetDatasetHparams,
+    "places": datasets.PlacesDatasetHparams,
     "cifar10": datasets.CIFAR10DatasetHparams,
     "mnist": datasets.MNISTDatasetHparams,
     "lm": datasets.LMDatasetHparams,
