@@ -112,24 +112,20 @@ RUN rm -rf /tmp/*
 #######################
 SHELL ["/bin/bash", "-c"]
 
-################################################
-# Create a virtualenv and activate it by default
-################################################
-RUN python${PYTHON_VERSION} -m venv --system-site-packages ~/mosaicml-venv && \
-    ~/mosaicml-venv/bin/python -m pip install --upgrade pip setuptools && \
-    echo "source ~/mosaicml-venv/bin/activate" >> ~/.bashrc
+####################################################
+# Create a default virtualenv and add it to the path
+####################################################
+RUN python${PYTHON_VERSION} -m venv --system-site-packages /mosaicml-venv && \
+    /mosaicml-venv/bin/python -m pip install --upgrade pip setuptools && \
+    echo "export PATH=~/.local/bin:/mosaicml-venv/bin:$PATH" >> /etc/bash.bashrc
 
 #########################
 # Configure non-root user
 #########################
-RUN echo "[ ! -d ~/mosaicml-venv ] && python${PYTHON_VERSION} -m venv --system-site-packages ~/mosaicml-venv && ~/mosaicml-venv/bin/python -m pip install --upgrade pip setuptools" >> /etc/skel/.bashrc && \
-    echo 'source ~/mosaicml-venv/bin/activate' >> /etc/skel/.bashrc && \
-    useradd -rm -d /home/mosaicml -s /bin/bash -u 1000 -U -s /bin/bash mosaicml && \
+RUN useradd -rm -d /home/mosaicml -s /bin/bash -u 1000 -U -s /bin/bash mosaicml && \
     usermod -a -G sudo mosaicml && \
     echo '%sudo ALL=(ALL) NOPASSWD:ALL' >> /etc/sudoers
 
 WORKDIR /home/mosaicml
 
 USER mosaicml
-
-RUN python${PYTHON_VERSION} -m venv --system-site-packages ~/mosaicml-venv && ~/mosaicml-venv/bin/python -m pip install --upgrade pip setuptools
