@@ -104,7 +104,6 @@ def test_wandb_logger(mosaic_trainer_hparams: TrainerHparams, world_size: int):
         del wandb
     except ImportError:
         pytest.skip("wandb is not installed")
-
     del world_size  # unused. Set via launcher script
     mosaic_trainer_hparams.loggers = [WandBLoggerBackendHparams(log_artifacts=True, log_artifacts_every_n_batches=1)]
     trainer = mosaic_trainer_hparams.initialize_object()
