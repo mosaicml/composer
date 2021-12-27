@@ -36,9 +36,9 @@ RUN DISTRO="$(lsb_release -si | tr '[:upper:]' '[:lower:]')$(lsb_release -sr | s
         gpg-agent && \
     apt-key adv --fetch-keys https://developer.download.nvidia.com/compute/cuda/repos/${DISTRO}/x86_64/7fa2af80.pub && \
     add-apt-repository "deb https://developer.download.nvidia.com/compute/cuda/repos/${DISTRO}/x86_64/ /" && \
-    apt-get install -y --no-install-recommends --allow-change-held-packages \
-        libnccl2 \
-        libnccl-dev && \
+    apt-get install -y --no-install-recommends --allow-change-held-packages --allow-downgrades \
+        libnccl2=2.9.6-1+cuda11.0 \
+        libnccl-dev=2.9.6-1+cuda11.0 && \
     apt-get autoclean && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
@@ -107,22 +107,22 @@ RUN pip${PYTHON_VERSION} install --no-cache-dir --find-links https://download.py
 RUN rm -rf /tmp/*
 
 
-################################################
-# Create a virtualenv and activate it by default
-################################################
-RUN python${PYTHON_VERSION} -m venv --system-site-packages ~/mosaicml-venv && \
-    ~/mosaicml-venv/bin/python -m pip install --upgrade pip setuptools && \
-    echo "source ~/mosaicml-venv/bin/activate" >> ~/.bashrc
+#######################
+# Set the shell to bash
+#######################
+SHELL ["/bin/bash", "-c"]
+
+####################################################
+# Create a default virtualenv and add it to the path
+####################################################
+RUN python${PYTHON_VERSION} -m venv --system-site-packages /mosaicml-venv && \
+    /mosaicml-venv/bin/python -m pip install --upgrade pip setuptools && \
+    echo "export PATH=~/.local/bin:/mosaicml-venv/bin:$PATH" >> /etc/bash.bashrc
 
 #########################
 # Configure non-root user
 #########################
-RUN echo "export PATH=\$PATH:~/.local/bin" >> /etc/skel/.bashrc && \
-    echo "[ ! -d \"~/mosaicml-venv\" ] && python${PYTHON_VERSION} -m venv --system-site-packages ~/mosaicml-venv && ~/mosaicml-venv/bin/python -m pip install --upgrade pip setuptools" >> /etc/skel/.bashrc && \
-    echo 'source ~/mosaicml-venv/bin/activate' >> /etc/skel/.bashrc && \
-    echo "export PATH=\$PATH:~/.local/bin" >> /etc/skel/.bashrc && \
-    echo "export PATH=\$PATH:~/.local/bin" >> /etc/skel/.bashrc && \
-    useradd -rm -d /home/mosaicml -s /bin/bash -u 1000 -U -s /bin/bash mosaicml && \
+RUN useradd -rm -d /home/mosaicml -s /bin/bash -u 1000 -U -s /bin/bash mosaicml && \
     usermod -a -G sudo mosaicml && \
     echo '%sudo ALL=(ALL) NOPASSWD:ALL' >> /etc/sudoers
 
