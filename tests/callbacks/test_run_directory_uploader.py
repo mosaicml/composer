@@ -15,6 +15,11 @@ from composer.utils.run_directory import get_run_directory
 @pytest.mark.parametrize("use_procs", [False, True])
 @pytest.mark.timeout(15)
 def test_run_directory_uploader(tmpdir: pathlib.Path, use_procs: bool, dummy_state: State, dummy_logger: Logger):
+    try:
+        import libcloud
+        del libcloud
+    except ImportError:
+        pytest.skip("Run directory uploader test won't work without libcloud")
     dummy_state.epoch = 0
     dummy_state.step = 0
     remote_dir = str(tmpdir / "run_directory_copy")
