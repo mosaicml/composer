@@ -23,8 +23,8 @@ from tests.utils.trainer_fit import get_total_loss, train_model
 def test_trainer_init_all_defaults(dummy_train_dataloader: DataLoader, dummy_val_dataloader: DataLoader,
                                    dummy_model: BaseMosaicModel):
     trainer = Trainer(model=dummy_model,
-                      train_dataloader=dummy_train_dataloader,
-                      eval_dataloader=dummy_val_dataloader,
+                      train_data=dummy_train_dataloader,
+                      eval_data=dummy_val_dataloader,
                       max_epochs=10)
 
     assert isinstance(trainer, Trainer)
@@ -34,8 +34,8 @@ def test_trainer_init_additional_args(dummy_train_dataloader: DataLoader, dummy_
                                       dummy_model: BaseMosaicModel):
     trainer = Trainer(
         model=dummy_model,
-        train_dataloader=dummy_train_dataloader,
-        eval_dataloader=dummy_val_dataloader,
+        train_data=dummy_train_dataloader,
+        eval_data=dummy_val_dataloader,
         max_epochs=10,
         optimizer_hparams=AdamHparams(),
         schedulers_hparams=[ExponentialLRHparams(gamma=0.1)],

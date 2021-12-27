@@ -4,25 +4,27 @@ import logging
 import tempfile
 from dataclasses import dataclass
 from os.path import join
-from typing import List, Optional
+from typing import List, Optional, Sequence
 
 import yahp as hp
 
-from composer.core.types import Batch
+from composer.core.types import Batch, DataSpec
 from composer.datasets.dataloader import DataloaderHparams
-from composer.datasets.hparams import DataloaderSpec, DatasetHparams
+from composer.datasets.hparams import DatasetHparams
 from composer.utils import ddp
 
 log = logging.getLogger(__name__)
 
 
-def _split_dict_fn(batch: Batch, n_microbatches: int) -> List[Batch]:
-    if isinstance(batch, dict):
-        chunked = {k: v.chunk(n_microbatches) for k, v in batch.items()}
-        num_chunks = len(list(chunked.values())[0])
-        return [{k: v[idx] for k, v in chunked.items()} for idx in range(num_chunks)]
-    else:
-        raise ValueError(f'Expect batch from dataloader to be of type Dict[str, Tensor], but got {type(batch)}')
+class LMDataSpec(DataSpec):
+
+    def batch_split_fn(self, batch: Batch, num_microbatches: int) -> Sequence[Batch]:
+        if isinstance(batch, dict):
+            chunked = {k: v.chunk(num_microbatches) for k, v in batch.items()}
+            num_chunks = len(list(chunked.values())[0])
+            return [{k: v[idx] for k, v in chunked.items()} for idx in range(num_chunks)]
+        else:
+            raise ValueError(f'Expect batch from dataloader to be of type Dict[str, Tensor], but got {type(batch)}')
 
 
 @dataclass
@@ -42,7 +44,7 @@ class LMDatasetHparams(DatasetHparams):
     val_sequence_length: int = hp.optional(
         default=1024, doc='Optionally, the ability to set a custom sequence length for the validation dataset.')
 
-    def initialize_object(self, batch_size: int, dataloader_hparams: DataloaderHparams) -> DataloaderSpec:
+    def initialize_object(self, batch_size: int, dataloader_hparams: DataloaderHparams) -> DataSpec:
         try:
             import datasets
             import transformers
@@ -101,11 +103,10 @@ class LMDatasetHparams(DatasetHparams):
 
         sampler = ddp.get_sampler(dataset, drop_last=self.drop_last, shuffle=self.shuffle)
 
-        return DataloaderSpec(dataloader=dataloader_hparams.initialize_object(
+        return LMDataSpec(dataloader=dataloader_hparams.initialize_object(
             dataset=dataset,
             batch_size=batch_size,
             sampler=sampler,
             drop_last=self.drop_last,
             collate_fn=data_collator,
-        ),
-                              split_fn=_split_dict_fn)
+        ))

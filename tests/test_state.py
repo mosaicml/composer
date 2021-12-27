@@ -8,10 +8,10 @@ import torch.nn.functional as F
 from torch.functional import Tensor
 
 from composer.algorithms.dummy import DummyHparams
-from composer.core import State, types
+from composer.core import DataSpec, State, types
 from composer.core.state import DIRECT_SERIALIZATION_FIELDS, SKIP_SERIALIZATION_FIELDS, STATE_DICT_SERIALIZATION_FIELDS
 from composer.datasets.dataloader import DataloaderHparams
-from composer.datasets.hparams import DataloaderSpec, DatasetHparams
+from composer.datasets.hparams import DatasetHparams
 from composer.models.base import BaseMosaicModel
 from tests.fixtures.models import SimpleBatchPairModel
 
@@ -27,8 +27,8 @@ def get_dummy_state(model: BaseMosaicModel, train_dataloader: types.DataLoader, 
                   grad_accum=random.randint(0, 100),
                   precision=types.Precision.AMP,
                   max_epochs=random.randint(0, 100),
-                  train_dataloader=train_dataloader,
-                  eval_dataloader=val_dataloader,
+                  train_data=train_dataloader,
+                  eval_data=val_dataloader,
                   optimizers=optimizers,
                   schedulers=torch.optim.lr_scheduler.StepLR(optimizers, step_size=3),
                   algorithms=[DummyHparams().initialize_object()])
@@ -92,7 +92,7 @@ def train_one_step(state: State, batch: types.Batch) -> None:
 
 def get_batch(dataset_hparams: DatasetHparams, dataloader_hparams: DataloaderHparams) -> types.Batch:
     dataloader = dataset_hparams.initialize_object(batch_size=2, dataloader_hparams=dataloader_hparams)
-    if isinstance(dataloader, DataloaderSpec):
+    if isinstance(dataloader, DataSpec):
         dataloader = dataloader.dataloader
     for batch in dataloader:
         return batch

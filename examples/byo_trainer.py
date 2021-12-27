@@ -81,8 +81,8 @@ def train():
     # to use our algorithms, create and maintain the trainer state
     state = composer.State(
         model=model,
-        train_dataloader=train_dataloader,
-        eval_dataloader=val_dataloader,
+        train_data=train_dataloader,
+        eval_data=val_dataloader,
         max_epochs=args.epochs,
         grad_accum=1,
         precision=Precision.FP32,
