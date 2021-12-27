@@ -117,7 +117,14 @@ SHELL ["/bin/bash", "-c"]
 ####################################################
 RUN python${PYTHON_VERSION} -m venv --system-site-packages /mosaicml-venv && \
     /mosaicml-venv/bin/python -m pip install --upgrade pip setuptools && \
+    # Set the path for non-interactive shells
+    sed -i 's/PATH=\"/PATH=\"~\/.local\/bin:\/mosaicml-venv\/bin:\/usr\/local\/nvidia\/bin:\/usr\/local\/cuda\/bin:/g' /etc/environment && \
+    echo "export PATH=~/.local/bin:/mosaicml-venv/bin:$PATH" >> /etc/profile && \
+    # And for interactive shells
     echo "export PATH=~/.local/bin:/mosaicml-venv/bin:$PATH" >> /etc/bash.bashrc
+
+# Ensure that non-interactive shells load /etc/profile
+ENV BASH_ENV=/etc/profile
 
 #########################
 # Configure non-root user
