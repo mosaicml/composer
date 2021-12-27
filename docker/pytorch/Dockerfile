@@ -3,12 +3,16 @@ ARG BASE_IMAGE
 FROM ${BASE_IMAGE}
 ARG DEBIAN_FRONTEND=noninteractive
 
+# remove a bad symlink
+RUN rm -f /usr/local/cuda-11.3/cuda-11.3  
+
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
         libgomp1 \
         curl \
         sudo \
         build-essential \
+        git \
         software-properties-common \
         # For PILLOW:
         zlib1g-dev \
@@ -21,25 +25,27 @@ RUN apt-get update && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
-# # Upgrade NCCL to fix NVLink errors
-# # No Need to install, as the cuda 11.3 image already contains a late enough version
-# RUN DISTRO="$(lsb_release -si | tr '[:upper:]' '[:lower:]')$(lsb_release -sr | sed 's/\.//')" &&  \
-#     apt-get update && \
-#     apt-get install -y --no-install-recommends \
-#         dirmngr \
-#         gpg-agent && \
-#     apt-key adv --fetch-keys https://developer.download.nvidia.com/compute/cuda/repos/${DISTRO}/x86_64/7fa2af80.pub && \
-#     add-apt-repository "deb https://developer.download.nvidia.com/compute/cuda/repos/${DISTRO}/x86_64/ /" && \
-#     apt-get install -y --no-install-recommends --allow-change-held-packages \
-#         libnccl2 \
-#         libnccl-dev && \
-#     apt-get autoclean && \
-#     apt-get clean && \
-#     rm -rf /var/lib/apt/lists/*
+##################################################
+# Change the NCCL version to fix NVLink errors
+# This is required to train on Nvidia A100s in GCP
+##################################################
+RUN DISTRO="$(lsb_release -si | tr '[:upper:]' '[:lower:]')$(lsb_release -sr | sed 's/\.//')" &&  \
+    apt-get update && \
+    apt-get install -y --no-install-recommends \
+        dirmngr \
+        gpg-agent && \
+    apt-key adv --fetch-keys https://developer.download.nvidia.com/compute/cuda/repos/${DISTRO}/x86_64/7fa2af80.pub && \
+    add-apt-repository "deb https://developer.download.nvidia.com/compute/cuda/repos/${DISTRO}/x86_64/ /" && \
+    apt-get install -y --no-install-recommends --allow-change-held-packages --allow-downgrades \
+        libnccl2=2.9.6-1+cuda11.0 \
+        libnccl-dev=2.9.6-1+cuda11.0 && \
+    apt-get autoclean && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
 
-# # Use system installed NCCL per update above, point to library
-# ENV USE_SYSTEM_NCCL=1
-# ENV LD_PRELOAD=/usr/lib/x86_64-linux-gnu/libnccl.so.2.9.6
+# Use system installed NCCL per update above, point to library
+ENV USE_SYSTEM_NCCL=1
+ENV LD_PRELOAD=/usr/lib/x86_64-linux-gnu/libnccl.so.2.9.6
 
 ##############################
 # Install NodeJS (for Pyright)
@@ -101,21 +107,29 @@ RUN pip${PYTHON_VERSION} install --no-cache-dir --find-links https://download.py
 RUN rm -rf /tmp/*
 
 
-################################################
-# Create a virtualenv and activate it by default
-################################################
-RUN python${PYTHON_VERSION} -m venv ~/mosaicml-venv --system-site-packages && \
-    echo "source ~/mosaicml-venv/bin/activate" >> ~/.bashrc
+#######################
+# Set the shell to bash
+#######################
+SHELL ["/bin/bash", "-c"]
+
+####################################################
+# Create a default virtualenv and add it to the path
+####################################################
+RUN python${PYTHON_VERSION} -m venv --system-site-packages /mosaicml-venv && \
+    /mosaicml-venv/bin/python -m pip install --upgrade pip setuptools && \
+    # Set the path for non-interactive shells
+    sed -i 's/PATH=\"/PATH=\"~\/.local\/bin:\/mosaicml-venv\/bin:\/usr\/local\/nvidia\/bin:\/usr\/local\/cuda\/bin:/g' /etc/environment && \
+    echo "export PATH=~/.local/bin:/mosaicml-venv/bin:$PATH" >> /etc/profile && \
+    # And for interactive shells
+    echo "export PATH=~/.local/bin:/mosaicml-venv/bin:$PATH" >> /etc/bash.bashrc
+
+# Ensure that non-interactive shells load /etc/profile
+ENV BASH_ENV=/etc/profile
 
 #########################
 # Configure non-root user
 #########################
-RUN echo "export PATH=\$PATH:~/.local/bin" >> /etc/skel/.bashrc && \
-    echo "[ ! -d \"~/mosaicml-venv\" ] && python${PYTHON_VERSION} -m venv ~/mosaicml-venv --system-site-packages" >> /etc/skel/.bashrc && \
-    echo 'source ~/mosaicml-venv/bin/activate' >> /etc/skel/.bashrc && \
-    echo "export PATH=\$PATH:~/.local/bin" >> /etc/skel/.bashrc && \
-    echo "export PATH=\$PATH:~/.local/bin" >> /etc/skel/.bashrc && \
-    useradd -rm -d /home/mosaicml -s /bin/bash -u 1000 -U -s /bin/bash mosaicml && \
+RUN useradd -rm -d /home/mosaicml -s /bin/bash -u 1000 -U -s /bin/bash mosaicml && \
     usermod -a -G sudo mosaicml && \
     echo '%sudo ALL=(ALL) NOPASSWD:ALL' >> /etc/sudoers
 
