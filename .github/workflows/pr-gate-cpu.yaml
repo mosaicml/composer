@@ -29,7 +29,7 @@ jobs:
 
           python -m pip install -e .[all]
 
-          python -m pip uninstall pillow
+          python -m pip uninstall -y pillow
           python -m pip install pillow-simd==7.0.0.post3
       - name: Disable WandB
         run: wandb disabled
