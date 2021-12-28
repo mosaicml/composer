@@ -13,6 +13,7 @@ from _pytest.monkeypatch import MonkeyPatch
 from composer.callbacks.callback_hparams import CallbackHparams
 from composer.core.callback import Callback
 from composer.core.event import Event
+from composer.core.precision import Precision
 from composer.core.state import State
 from composer.core.types import Logger, StateDict
 from composer.datasets import SyntheticHparamsMixin
@@ -143,8 +144,13 @@ def test_checkpoint(
 
     if model_name is not None:
         if not isinstance(device_hparams, GPUDeviceHparams):
-            pytest.skip("Checkpointing a real model requires a GPU")
-        mosaic_trainer_hparams = TrainerHparams.load(model_name)
+            pytest.skip("Real models require a GPU -- otherwise they take too long")
+        model_hparams = TrainerHparams.load(model_name)
+        mosaic_trainer_hparams.train_dataset = model_hparams.train_dataset
+        mosaic_trainer_hparams.val_dataset = model_hparams.val_dataset
+        mosaic_trainer_hparams.model = model_hparams.model
+        mosaic_trainer_hparams.optimizer = model_hparams.optimizer
+        mosaic_trainer_hparams.schedulers = model_hparams.schedulers
     if not isinstance(mosaic_trainer_hparams.train_dataset, SyntheticHparamsMixin):
         pytest.skip("Checkpointing tests require synthetic data")
         return
@@ -152,12 +158,17 @@ def test_checkpoint(
         pytest.skip("Checkpointing tests require synthetic data")
         return
     mosaic_trainer_hparams.train_dataset.use_synthetic = True
+    mosaic_trainer_hparams.train_dataset.shuffle = False
     mosaic_trainer_hparams.val_dataset.use_synthetic = True
+    mosaic_trainer_hparams.val_dataset.shuffle = False
     mosaic_trainer_hparams.grad_accum = 2
+    mosaic_trainer_hparams.loggers = []
     mosaic_trainer_hparams.checkpoint_interval = 1
+    mosaic_trainer_hparams.train_batch_size = 8
+    mosaic_trainer_hparams.eval_batch_size = 16
     mosaic_trainer_hparams.max_epochs = 2
-    mosaic_trainer_hparams.callbacks.append(DummyStatefulCallbackHparams())
-    mosaic_trainer_hparams.callbacks.append(EventCounterCallbackHparams())
+    mosaic_trainer_hparams.precision = Precision.FP32
+    mosaic_trainer_hparams.callbacks = [DummyStatefulCallbackHparams(), EventCounterCallbackHparams()]
     mosaic_trainer_hparams.train_subset_num_batches = 5
     mosaic_trainer_hparams.device = device_hparams
 
