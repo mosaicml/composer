@@ -52,6 +52,7 @@ extra_deps['dev'] = [
     'sphinx-argparse>=0.3.1',
     'sphinxcontrib.katex>=0.8.6',
     'sphinxext.opengraph>=0.4.2',
+    'sphinxemoji>=0.2.0',
     'sphinx_rtd_theme>=1.0.0',
     'testbook>=0.4.2',
     'myst-parser>=0.15.2',
