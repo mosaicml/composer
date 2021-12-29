@@ -49,7 +49,7 @@ class StratifyBatches(Algorithm):
         from composer.trainer.trainer_hparams import TrainerHparams
         hparams = cast(TrainerHparams, hparams)
         hparams.dataloader.batch_sampler_factory = self._make_batch_sampler_factory()
-        hparams.decoupled_sgdw.lr *= self.lr_multiplier
+        hparams.optimizer.lr *= self.lr_multiplier
 
     def _make_batch_sampler_factory(self) -> Callable[[], SamplerFactory]:
 
