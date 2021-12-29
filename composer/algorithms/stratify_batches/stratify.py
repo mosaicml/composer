@@ -23,6 +23,7 @@ class StratifyBatchesHparams(AlgorithmHparams):
     targets_attr: Optional[str] = hp.optional(doc='Name of DataLoader attribute '
                                               'providing class labels.',
                                               default=None)
+    lr_multiplier: float = hp.optional(doc="TODO", default=1.0)
 
     def initialize_object(self) -> "StratifyBatches":
         return StratifyBatches(**asdict(self))
@@ -30,9 +31,10 @@ class StratifyBatchesHparams(AlgorithmHparams):
 
 class StratifyBatches(Algorithm):
 
-    def __init__(self, stratify_how: str = 'match', targets_attr: Optional[str] = None):
+    def __init__(self, stratify_how: str = 'match', targets_attr: Optional[str] = None, lr_multiplier: float = 1.0):
         self.stratify_how = stratify_how
         self.targets_attr = targets_attr
+        self.lr_multiplier = lr_multiplier
 
     def match(self, event: Event, state: State) -> bool:
         """Apply on Event.AFTER_HPARAMS"""
@@ -47,6 +49,7 @@ class StratifyBatches(Algorithm):
         from composer.trainer.trainer_hparams import TrainerHparams
         hparams = cast(TrainerHparams, hparams)
         hparams.dataloader.batch_sampler_factory = self._make_batch_sampler_factory()
+        hparams.decoupled_sgdw.lr *= self.lr_multiplier
 
     def _make_batch_sampler_factory(self) -> Callable[[], SamplerFactory]:
 
