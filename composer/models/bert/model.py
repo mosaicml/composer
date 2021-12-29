@@ -6,7 +6,7 @@ import transformers
 from torchmetrics import Accuracy, MatthewsCorrcoef, MeanSquaredError, SpearmanCorrcoef
 from torchmetrics.collections import MetricCollection
 
-from composer.models.nlp_metrics import BinaryF1Score
+from composer.models.nlp_metrics import BinaryF1Score, CrossEntropyLoss, MaskedAccuracy
 from composer.models.transformer_shared import MosaicTransformer
 
 if TYPE_CHECKING:
@@ -28,10 +28,11 @@ class BERTModel(MosaicTransformer):
         # since we will handle metric calculation with TorchMetrics instead of HuggingFace.
         self.model_inputs.remove("labels")
 
-        # if config.num_labels=1, then we are training a regression task, so we should update our loss functions
         self.train_metrics = []
         self.val_metrics = []
 
+        # TODO (Moin): make sure this is moved to be dataset-specific
+        # if config.num_labels=1, then we are training a regression task, so we should update our loss functions
         if config.num_labels == 1:
             self.train_loss = MeanSquaredError()
             self.val_loss = MeanSquaredError()
@@ -43,8 +44,6 @@ class BERTModel(MosaicTransformer):
             self.val_metrics.extend([self.val_loss, self.val_spearman])
 
         if config.num_labels == 2:
-            # due to how F1 is calculated in TorchMetrics, we force multiclass = False to examine binary F1.
-            # TODO (Moin): make sure this is moved to be dataset-specific
             self.train_f1 = BinaryF1Score()
             self.val_f1 = BinaryF1Score()
 
@@ -62,13 +61,15 @@ class BERTModel(MosaicTransformer):
             self.val_metrics.extend([self.val_acc, self.val_matthews])
 
         if config.num_labels == len(self.tokenizer):  # tests for MLM pre-training
-            self.train_metrics.extend([self.train_loss])
-            self.val_metrics.extend([self.val_loss])
+            ignore_index = -100
+            self.train_loss = CrossEntropyLoss(ignore_index=ignore_index, vocab_size=config.num_labels)
+            self.val_loss = CrossEntropyLoss(ignore_index=ignore_index, vocab_size=config.num_labels)
 
-        # self.train_acc = Accuracy(ignore_index=-100)
-        # self.val_acc = Accuracy(ignore_index=-100)
-        # self.train_metrics.extend([self.train_acc])
-        # self.val_metrics.extend([self.val_acc])
+            self.train_acc = MaskedAccuracy(ignore_index=ignore_index)
+            self.val_acc = MaskedAccuracy(ignore_index=ignore_index)
+
+            self.train_metrics.extend([self.train_loss, self.train_acc])
+            self.val_metrics.extend([self.val_loss, self.val_acc])
 
     def loss(self, outputs: Mapping, batch: Batch) -> Tensors:
         if outputs.get('loss', None) is not None:
@@ -91,22 +92,15 @@ class BERTModel(MosaicTransformer):
         assert self.training is False, "For validation, model must be in eval mode"
 
         # temporary hack until eval on multiple datasets is finished
-        if self.config.num_labels != len(self.tokenizer):
-            # we remove the loss from the forward pass inputs so we can calculate it independently
-            labels = batch.pop('labels')
+        labels = batch.pop('labels')
         output = self.forward(batch)
+        output = output['logits']
 
-        # temporary hack until eval on multiple datasets is finished
-        if self.config.num_labels != len(self.tokenizer):
-            output = output['logits']
+        # if we are in the single class case, then remove the dimension for downstream metrics
+        if output.shape[1] == 1:
+            output = output.squeeze()
 
-            # if we are in the single class case, then remove the dimension for downstream metrics
-            if output.shape[1] == 1:
-                output = output.squeeze()
-
-            return (output, labels)
-        else:
-            return (output, None)
+        return (output, labels)
 
     def metrics(self, train: bool = False) -> Metrics:
         return MetricCollection(self.train_metrics) if train else MetricCollection(self.val_metrics)
