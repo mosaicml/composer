@@ -16,6 +16,7 @@ class ResNet9(nn.Module):
     A 9-layer residual network, excluding BatchNorms and activation functions,
     as described in this blog post: https://myrtle.ai/learn/how-to-train-your-resnet-4-architecture/
     """
+
     def __init__(self, num_classes: int):
         super().__init__()
 
@@ -72,5 +73,3 @@ class CIFAR10_ResNet9(MosaicClassifier):
 
         model = ResNet9(num_classes)
         super().__init__(module=model)
-
-
