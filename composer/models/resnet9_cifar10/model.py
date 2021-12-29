@@ -6,7 +6,7 @@ import torch.nn as nn
 
 from composer.models.base import MosaicClassifier
 from composer.models.model_hparams import Initializer
-from composer.models.resnets import BasicBlock, CIFAR_ResNet
+from composer.models.resnets import BasicBlock
 
 
 # adapted from https://raw.githubusercontent.com/matthias-wright/cifar10-resnet/master/model.py
