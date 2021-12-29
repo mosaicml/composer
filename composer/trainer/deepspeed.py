@@ -4,10 +4,13 @@ import warnings
 from dataclasses import dataclass
 from typing import Any, Optional
 
+import torch
 import yahp as hp
 
+from composer.composer.core.precision import Precision
+from composer.composer.utils.iter_helpers import map_collection
 from composer.core import State
-from composer.core.types import Precision
+from composer.core.types import Batch, Precision, Tensor
 
 
 @dataclass
@@ -85,3 +88,21 @@ class DeepSpeedHparams(hp.Hparams):
             deepspeed_config["gradient_clipping"] = grad_clip_norm
 
         return deepspeed_config
+
+
+def fix_batch_precision_for_deepspeed(batch: Batch, precision: Precision) -> Batch:
+    """Ensures that a batch is properly formatted for DeepSpeed FP16, if active.
+
+    This is more finnicky than it may sound. Just because we're in FP16 doesn't mean
+    we can convert the entire batch to FP16 too. For example, integer tensors are common
+    in inputs and outputs of various models, and these must not be converted. We make a
+    big assumption that a tensor should only be converted to FP16 if it was given in FP32.
+    """
+
+    def convert_tensor(tensor: Tensor):
+        print(tensor.dtype)
+        if precision == Precision.FP16 and tensor.dtype == torch.float32:
+            return tensor.half()
+        return tensor
+
+    return map_collection(batch, convert_tensor)

@@ -32,7 +32,7 @@ from composer.optim import (ComposedScheduler, CosineAnnealingLRHparams, Decoupl
 from composer.optim.scheduler import ensure_warmup_last
 from composer.trainer.checkpoint import CheckpointLoader, CheckpointSaver
 from composer.trainer.ddp import DDPSyncStrategy, ddp_sync_context, prepare_ddp_module
-from composer.trainer.deepspeed import DeepSpeedHparams
+from composer.trainer.deepspeed import DeepSpeedHparams, fix_batch_precision_for_deepspeed
 from composer.trainer.devices.device import Device
 from composer.trainer.devices.device_cpu import DeviceCPU
 from composer.trainer.devices.device_gpu import DeviceGPU
@@ -612,6 +612,10 @@ class Trainer:
                     if self._train_device_transformation_fn is not None:
                         state.batch = self._train_device_transformation_fn(state.batch)
 
+                    if self.deepspeed_enabled:
+                        state.batch = fix_batch_precision_for_deepspeed(state.batch, state.precision)
+                    print('foo')
+
                     if self.compute_training_metrics:
                         # compute metrics on the training set
                         assert train_metrics is not None
@@ -757,6 +761,20 @@ class Trainer:
                 # forward pass
                 self.engine.run_event(Event.BEFORE_FORWARD)
 
+                # state.batch = (state.batch[0].half(), state.batch[1])
+                def print_batch_dtypes(b, prefix='root'):
+                    if isinstance(b, torch.Tensor):
+                        print(prefix, b.dtype)
+                    else:
+                        if isinstance(b, dict):
+                            for k, bb in b.items():
+                                print_batch_dtypes(bb, f'{prefix}.{k}')
+                        else:
+                            for i, bb in enumerate(b):
+                                print_batch_dtypes(bb, f'{prefix}[{i}]')
+
+                print_batch_dtypes(state.batch)
+
                 with state.precision_context:
                     state.outputs = state.model.forward(state.batch)
 
@@ -845,6 +863,8 @@ class Trainer:
                 state.batch = self.device.batch_to_device(state.batch)
                 if self._eval_device_transformation_fn is not None:
                     state.batch = self._eval_device_transformation_fn(state.batch)
+
+                state.batch = (state.batch[0].half(), state.batch[1])
 
                 self.engine.run_event(Event.EVAL_BATCH_START)
 
