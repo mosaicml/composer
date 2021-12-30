@@ -92,10 +92,15 @@ class Trainer:
         log_destinations (List[BaseLoggerBackend], optional): The destinations to log training information to.
             (default ``[TQDMLoggerBackend()]``).
         callbacks (Sequence[Callback], optional): The callbacks to run during training. (default: ``[]``)
-        checkpoint_loader (CheckpointLoader, optional): The CheckpointLoader used to load checkpoints of state
-            from disk. (default: ``None``)
-        checkpoint_saver (CheckpointSaver, optional): The CheckpointSaver used to save checkpoints of state
-            to disk. (default: ``None``)
+        checkpoint_filepath (str): For loading checkpoints, the path to an existing checkpoint file.
+        load_weights_only (bool): Whether to only restore the weights from the checkpoint without
+            restoring the associated state.
+        strict_model_weights (bool, optional): Whether to force that the checkpointed weights must exactly
+            match the model weights.
+        checkpoint_folder (str): The path to store checkpoints in.
+        checkpoint_interval (int): The amount of time units to wait between creating checkpoints.
+        checkpoint_interval_unit (str): The unit (`"ep"` or `"it"`) that
+            `checkpoint_interval` should be measured in.
         train_subset_num_batches (int, optional): If specified, finish every epoch early after training
             on this many batches. This parameter has no effect if it is greater than ``len(train_dataloader)``.
             If None (the default), then the entire dataloader will be iterated over.
@@ -311,6 +316,7 @@ class Trainer:
             self.checkpoint_loader = CheckpointLoader(checkpoint_filepath=checkpoint_filepath,
                                                       load_weights_only=checkpoint_load_weights_only,
                                                       strict_model_weights=checkpoint_strict_model_weights)
+
             restored_seed = self.checkpoint_loader.load_checkpoint(state=self.state)
             # Set the restored seed so that the correct seed will be saved in future checkpoints
             # Used to handle the case where another checkpoint is saved after resuming from checkpoint.
@@ -369,6 +375,19 @@ class Trainer:
             each evaluation epoch may load a different subset of samples."""))
         eval_dataloader = hparams.val_dataset.initialize_object(eval_device_batch_size, hparams.dataloader)
 
+        # Checkpoint loading hparams
+        checkpoint_filepath = hparams.load_checkpoint.filepath if hparams.load_checkpoint is not None else None
+        checkpoint_load_weights_only = hparams.load_checkpoint.load_weights_only \
+                                       if hparams.load_checkpoint is not None else None
+        checkpoint_strict_model_weights = hparams.load_checkpoint.strict_model_weights \
+                                          if hparams.load_checkpoint is not None else None
+
+        # Checkpoint saving hparams
+        checkpoint_interval_unit = hparams.save_checkpoint.interval_unit \
+                                   if hparams.save_checkpoint is not None else None
+        checkpoint_interval = hparams.save_checkpoint.interval if hparams.save_checkpoint is not None else None
+        checkpoint_folder = hparams.save_checkpoint.folder if hparams.save_checkpoint is not None else None
+
         trainer = cls(
             model=model,
             train_dataloader=train_dataloader,
@@ -402,14 +421,14 @@ class Trainer:
             callbacks=tuple(callbacks),
 
             # Checkpoint loading hparams
-            checkpoint_filepath=hparams.load_checkpoint.filepath,
-            checkpoint_load_weights_only=hparams.load_checkpoint.load_weights_only,
-            checkpoint_strict_model_weights=hparams.load_checkpoint.strict_model_weights,
+            checkpoint_filepath=checkpoint_filepath,
+            checkpoint_load_weights_only=checkpoint_load_weights_only,
+            checkpoint_strict_model_weights=checkpoint_strict_model_weights,
 
             # Checkpoint saving hparams
-            checkpoint_interval_unit=hparams.save_checkpoint.interval_unit,
-            checkpoint_interval=hparams.save_checkpoint.interval,
-            checkpoint_folder=hparams.save_checkpoint.folder,
+            checkpoint_interval_unit=checkpoint_interval_unit,
+            checkpoint_interval=checkpoint_interval,
+            checkpoint_folder=checkpoint_folder,
 
             # Subset parameters
             train_subset_num_batches=hparams.train_subset_num_batches,
