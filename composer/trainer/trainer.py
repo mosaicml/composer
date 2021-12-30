@@ -320,7 +320,6 @@ class Trainer:
             self.checkpoint_loader = CheckpointLoader(checkpoint_filepath=checkpoint_filepath,
                                                       load_weights_only=checkpoint_load_weights_only,
                                                       strict_model_weights=checkpoint_strict_model_weights)
-
             restored_seed = self.checkpoint_loader.load_checkpoint(state=self.state)
             # Set the restored seed so that the correct seed will be saved in future checkpoints
             # Used to handle the case where another checkpoint is saved after resuming from checkpoint.
@@ -378,8 +377,6 @@ class Trainer:
             (set to {hparams.eval_subset_num_batches}), val_dataset.shuffle should be set to False. Otherwise,
             each evaluation epoch may load a different subset of samples."""))
         eval_dataloader = hparams.val_dataset.initialize_object(eval_device_batch_size, hparams.dataloader)
-        checkpoint_loader = hparams.load_checkpoint.initialize_object() if hparams.load_checkpoint else None
-        checkpoint_saver = hparams.save_checkpoint.initialize_object() if hparams.save_checkpoint else None
 
         # Checkpoint loading hparams
         checkpoint_filepath = hparams.load_checkpoint.filepath if hparams.load_checkpoint is not None else None
