@@ -30,7 +30,7 @@ from composer.models.base import BaseMosaicModel
 from composer.optim import (ComposedScheduler, CosineAnnealingLRHparams, DecoupledSGDWHparams, OptimizerHparams,
                             SchedulerHparams, WarmUpLRHparams)
 from composer.optim.scheduler import ensure_warmup_last
-from composer.trainer.checkpoint import Checkpointer, CheckpointLoader
+from composer.trainer.checkpoint import CheckpointLoader, CheckpointSaver
 from composer.trainer.deepspeed import DeepSpeedHparams
 from composer.trainer.devices.device import Device
 from composer.trainer.devices.device_cpu import DeviceCPU
@@ -92,11 +92,10 @@ class Trainer:
         log_destinations (List[BaseLoggerBackend], optional): The destinations to log training information to.
             (default ``[TQDMLoggerBackend()]``).
         callbacks (Sequence[Callback], optional): The callbacks to run during training. (default: ``[]``)
-        checkpoint_interval_unit (int, optional): Unit for the checkpoint save interval -- should be 'ep'
-            for epochs, 'it' for iterations, or None to disable checkpointing. (default: ``None``).
-        checkpoint_folder (str, optional): The folder to save checkpoints to. Relative to `os.environ.get('RUN_DIRECTORY', '.')`,
-            (default: ``checkpoints``)
-        checkpoint_interval (int, optional): The frequency with which to checkpoint. (default: ``1``)
+        checkpoint_loader (CheckpointLoader, optional): The CheckpointLoaderHparams used to load checkpoints of state
+            from disk. (default: ``None``)
+        checkpoint_saver (CheckpointSaver, optional): The CheckpointSaverHparams used to save checkpoints of state
+            to disk. (default: ``None``)
         train_subset_num_batches (int, optional): If specified, finish every epoch early after training
             on this many batches. This parameter has no effect if it is greater than ``len(train_dataloader)``.
             If None (the default), then the entire dataloader will be iterated over.
@@ -148,7 +147,7 @@ class Trainer:
 
             # Checkpoint hparams
             checkpoint_loader: Optional[CheckpointLoader] = None,
-            checkpointer: Optional[Checkpointer] = None,
+            checkpoint_saver: Optional[CheckpointSaver] = None,
 
             # Subset parameters
             train_subset_num_batches: Optional[int] = None,
@@ -289,9 +288,9 @@ class Trainer:
         self.state.optimizers = optimizer
         self.state.schedulers = ComposedScheduler(schedulers=schedulers)
 
-        self.checkpointer = checkpointer
+        self.checkpoint_saver = checkpoint_saver
         # TODO(#121): get checkpointing working with DeepSpeed.
-        if self.checkpointer:
+        if self.checkpoint_saver:
             if self.deepspeed_enabled:
                 raise NotImplementedError("Checkpointing is not yet supported with DeepSpeed.")
 
@@ -359,7 +358,7 @@ class Trainer:
             each evaluation epoch may load a different subset of samples."""))
         eval_dataloader = hparams.val_dataset.initialize_object(eval_device_batch_size, hparams.dataloader)
         checkpoint_loader = hparams.load_checkpoint.initialize_object() if hparams.load_checkpoint else None
-        checkpointer = hparams.save_checkpoint.initialize_object() if hparams.save_checkpoint else None
+        checkpoint_saver = hparams.save_checkpoint.initialize_object() if hparams.save_checkpoint else None
 
         trainer = cls(
             model=model,
@@ -395,7 +394,7 @@ class Trainer:
 
             # Checkpointing hparams
             checkpoint_loader=checkpoint_loader,
-            checkpointer=checkpointer,
+            checkpoint_saver=checkpoint_saver,
 
             # Subset parameters
             train_subset_num_batches=hparams.train_subset_num_batches,
@@ -665,11 +664,12 @@ class Trainer:
                         self.eval(is_batch=True)
 
                     state.step += 1
-                    if self.checkpointer and self.checkpointer.should_checkpoint(state=state, event=Event.BATCH_END):
-                        self.checkpointer.save_checkpoint(state=state,
-                                                          seed=self.seed,
-                                                          device=self.device,
-                                                          config=self.config)
+                    if self.checkpoint_saver and self.checkpoint_saver.should_checkpoint(state=state,
+                                                                                         event=Event.BATCH_END):
+                        self.checkpoint_saver.save_checkpoint(state=state,
+                                                              seed=self.seed,
+                                                              device=self.device,
+                                                              config=self.config)
             except BreakEpochException:
                 log.info(f'Skipping the rest of Epoch {state.epoch}')
 
@@ -683,8 +683,11 @@ class Trainer:
 
             state.epoch += 1
 
-            if self.checkpointer and self.checkpointer.should_checkpoint(state=state, event=Event.EPOCH_END):
-                self.checkpointer.save_checkpoint(state=state, seed=self.seed, device=self.device, config=self.config)
+            if self.checkpoint_saver and self.checkpoint_saver.should_checkpoint(state=state, event=Event.EPOCH_END):
+                self.checkpoint_saver.save_checkpoint(state=state,
+                                                      seed=self.seed,
+                                                      device=self.device,
+                                                      config=self.config)
 
         self.engine.run_event(Event.TRAINING_END)
 
