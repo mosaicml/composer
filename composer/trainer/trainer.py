@@ -38,6 +38,7 @@ from composer.trainer.devices.device_gpu import DeviceGPU
 from composer.trainer.scaler import ClosureGradScaler
 from composer.trainer.trainer_hparams import TrainerHparams
 from composer.utils import ddp, ensure_tuple, get_random_seed, map_collection, seed_all
+from composer.utils.run_directory import get_relative_to_run_directory
 
 log = logging.getLogger(__name__)
 
@@ -310,7 +311,6 @@ class Trainer:
                                                     checkpoint_interval=checkpoint_interval,
                                                     checkpoint_folder=get_relative_to_run_directory(checkpoint_folder))
 
-            
         # TODO(#121): get checkpointing working with DeepSpeed.
         self.checkpoint_loader = None
         if checkpoint_filepath is not None:
@@ -391,7 +391,6 @@ class Trainer:
                                    if hparams.save_checkpoint is not None else None
         checkpoint_interval = hparams.save_checkpoint.interval if hparams.save_checkpoint is not None else None
         checkpoint_folder = hparams.save_checkpoint.folder if hparams.save_checkpoint is not None else "checkpoints"
-
 
         trainer = cls(
             model=model,
