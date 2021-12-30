@@ -23,15 +23,14 @@ class CheckpointLoader:
 
     Args:
         checkpoint_filepath (str): The path to an existing checkpoint file.
+        load_weights_only (bool): Whether to only restore the weights from the checkpoint without restoring the associated state.
+        strict_model_weights (bool): Whether to force that the checkpointed weights must exactly match the model weights.
     """
 
-    def __init__(self,
-                 checkpoint_filepath: str,
-                 load_weights_only: Optional[bool] = False,
-                 strict: Optional[bool] = False):
+    def __init__(self, checkpoint_filepath: str, load_weights_only: bool = False, strict_model_weights: bool = False):
         self.state_dict = torch.load(checkpoint_filepath, map_location='cpu')
         self.load_weights_only = load_weights_only
-        self.strict = strict
+        self.strict_model_weights = strict_model_weights
 
     def load_checkpoint(self, state: State):
         """Initialize state from the loaded checkpoint's data.
@@ -44,7 +43,7 @@ class CheckpointLoader:
         """
 
         if self.load_weights_only:
-            state.load_model_state(self.state_dict, strict=self.strict)
+            state.load_model_state(self.state_dict, strict=self.strict_model_weights)
         else:
             state.load_state_dict(self.state_dict["state"])
         self.checkpoint_rng_state = self._get_checkpoint_rng_state(state, self.state_dict["rng"])
@@ -89,7 +88,7 @@ class CheckpointLoader:
                           f"RNG state will not be restored.")
 
 
-class Checkpointer:
+class CheckpointSaver:
     """Manager for saving state to checkpoint files.
 
     Args:
