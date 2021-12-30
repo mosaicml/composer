@@ -38,6 +38,7 @@ from composer.trainer.devices.device_gpu import DeviceGPU
 from composer.trainer.scaler import ClosureGradScaler
 from composer.trainer.trainer_hparams import TrainerHparams
 from composer.utils import ddp, ensure_tuple, get_random_seed, map_collection, seed_all
+from composer.utils.run_directory import get_relative_to_run_directory
 
 log = logging.getLogger(__name__)
 
@@ -300,15 +301,17 @@ class Trainer:
         self.state.schedulers = ComposedScheduler(schedulers=schedulers)
 
         # TODO(#121): get checkpointing working with DeepSpeed.
+        self.checkpoint_saver = None
         if checkpoint_interval is not None and checkpoint_interval_unit is not None:
             self.checkpoint_saver = CheckpointSaver(checkpoint_interval_unit=checkpoint_interval_unit,
                                                     checkpoint_interval=checkpoint_interval,
-                                                    checkpoint_folder=checkpoint_folder)
+                                                    checkpoint_folder=get_relative_to_run_directory(checkpoint_folder))
 
             if self.deepspeed_enabled:
                 raise NotImplementedError("Checkpointing is not yet supported with DeepSpeed.")
 
         # TODO(#121): get checkpointing working with DeepSpeed.
+        self.checkpoint_loader = None
         if checkpoint_filepath is not None:
             if self.deepspeed_enabled:
                 raise NotImplementedError("Checkpointing is not yet supported with DeepSpeed.")
