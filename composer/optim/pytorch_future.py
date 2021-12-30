@@ -70,6 +70,7 @@ class WarmUpLR(_LRScheduler):
                  interval='step'):
         if warmup_method not in ("constant", "linear"):
             raise ValueError("Only 'constant' or 'linear' warmup_method accepted, but got {}".format(warmup_method))
+
         self.warmup_factor = warmup_factor
         self.warmup_iters = warmup_iters
         self.warmup_method = warmup_method
