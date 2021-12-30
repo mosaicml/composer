@@ -92,9 +92,9 @@ class Trainer:
         log_destinations (List[BaseLoggerBackend], optional): The destinations to log training information to.
             (default ``[TQDMLoggerBackend()]``).
         callbacks (Sequence[Callback], optional): The callbacks to run during training. (default: ``[]``)
-        checkpoint_loader (CheckpointLoader, optional): The CheckpointLoaderHparams used to load checkpoints of state
+        checkpoint_loader (CheckpointLoader, optional): The CheckpointLoader used to load checkpoints of state
             from disk. (default: ``None``)
-        checkpoint_saver (CheckpointSaver, optional): The CheckpointSaverHparams used to save checkpoints of state
+        checkpoint_saver (CheckpointSaver, optional): The CheckpointSaver used to save checkpoints of state
             to disk. (default: ``None``)
         train_subset_num_batches (int, optional): If specified, finish every epoch early after training
             on this many batches. This parameter has no effect if it is greater than ``len(train_dataloader)``.
