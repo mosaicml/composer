@@ -92,6 +92,7 @@ class Trainer:
         log_destinations (List[BaseLoggerBackend], optional): The destinations to log training information to.
             (default ``[TQDMLoggerBackend()]``).
         callbacks (Sequence[Callback], optional): The callbacks to run during training. (default: ``[]``)
+<<<<<<< HEAD
         checkpoint_filepath (str): For loading checkpoints, the path to an existing checkpoint file.
         load_weights_only (bool): Whether to only restore the weights from the checkpoint without
             restoring the associated state.
@@ -101,6 +102,12 @@ class Trainer:
         checkpoint_interval (int): The amount of time units to wait between creating checkpoints.
         checkpoint_interval_unit (str, optional): The unit (`"ep"` or `"it"`) that
             `checkpoint_interval` should be measured in. Set to ``None`` disables checkpointing. (default: ``None``)
+=======
+        checkpoint_loader (CheckpointLoader, optional): The CheckpointLoaderHparams used to load checkpoints of state
+            from disk. (default: ``None``)
+        checkpoint_saver (CheckpointSaver, optional): The CheckpointSaverHparams used to save checkpoints of state
+            to disk. (default: ``None``)
+>>>>>>> renaming Checkpointer -> CheckpointSaver
         train_subset_num_batches (int, optional): If specified, finish every epoch early after training
             on this many batches. This parameter has no effect if it is greater than ``len(train_dataloader)``.
             If None (the default), then the entire dataloader will be iterated over.
@@ -150,6 +157,7 @@ class Trainer:
             log_destinations: Optional[List[BaseLoggerBackend]] = None,
             callbacks: Sequence[Callback] = tuple(),
 
+<<<<<<< HEAD
             # Checkpoint loading hparams
             checkpoint_filepath: Optional[str] = None,
             checkpoint_load_weights_only: bool = False,
@@ -159,6 +167,11 @@ class Trainer:
             checkpoint_interval_unit: Optional[str] = None,
             checkpoint_interval: Optional[int] = None,
             checkpoint_folder: str = "checkpoints",
+=======
+            # Checkpoint hparams
+            checkpoint_loader: Optional[CheckpointLoader] = None,
+            checkpoint_saver: Optional[CheckpointSaver] = None,
+>>>>>>> renaming Checkpointer -> CheckpointSaver
 
             # Subset parameters
             train_subset_num_batches: Optional[int] = None,
@@ -303,13 +316,14 @@ class Trainer:
         # TODO(#121): get checkpointing working with DeepSpeed.
         self.checkpoint_saver = None
         if checkpoint_interval is not None and checkpoint_interval_unit is not None:
+            if self.deepspeed_enabled:
+                raise NotImplementedError("Checkpointing is not yet supported with DeepSpeed.")
+
             self.checkpoint_saver = CheckpointSaver(checkpoint_interval_unit=checkpoint_interval_unit,
                                                     checkpoint_interval=checkpoint_interval,
                                                     checkpoint_folder=get_relative_to_run_directory(checkpoint_folder))
 
-            if self.deepspeed_enabled:
-                raise NotImplementedError("Checkpointing is not yet supported with DeepSpeed.")
-
+            
         # TODO(#121): get checkpointing working with DeepSpeed.
         self.checkpoint_loader = None
         if checkpoint_filepath is not None:
@@ -378,7 +392,7 @@ class Trainer:
             each evaluation epoch may load a different subset of samples."""))
         eval_dataloader = hparams.val_dataset.initialize_object(eval_device_batch_size, hparams.dataloader)
         checkpoint_loader = hparams.load_checkpoint.initialize_object() if hparams.load_checkpoint else None
-        checkpointer = hparams.save_checkpoint.initialize_object() if hparams.save_checkpoint else None
+        checkpoint_saver = hparams.save_checkpoint.initialize_object() if hparams.save_checkpoint else None
 
         # Checkpoint loading hparams
         checkpoint_filepath = hparams.load_checkpoint.filepath if hparams.load_checkpoint is not None else None
@@ -425,6 +439,7 @@ class Trainer:
             log_destinations=log_destinations,
             callbacks=tuple(callbacks),
 
+<<<<<<< HEAD
             # Checkpoint loading hparams
             checkpoint_filepath=checkpoint_filepath,
             checkpoint_load_weights_only=checkpoint_load_weights_only,
@@ -434,6 +449,11 @@ class Trainer:
             checkpoint_interval_unit=checkpoint_interval_unit,
             checkpoint_interval=checkpoint_interval,
             checkpoint_folder=checkpoint_folder,
+=======
+            # Checkpointing hparams
+            checkpoint_loader=checkpoint_loader,
+            checkpoint_saver=checkpoint_saver,
+>>>>>>> renaming Checkpointer -> CheckpointSaver
 
             # Subset parameters
             train_subset_num_batches=hparams.train_subset_num_batches,
