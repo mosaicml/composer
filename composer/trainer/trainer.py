@@ -145,9 +145,15 @@ class Trainer:
             log_destinations: Optional[List[BaseLoggerBackend]] = None,
             callbacks: Sequence[Callback] = tuple(),
 
-            # Checkpoint hparams
-            checkpoint_loader: Optional[CheckpointLoader] = None,
-            checkpoint_saver: Optional[CheckpointSaver] = None,
+            # Checkpoint loading hparams
+            checkpoint_filepath: Optional[str] = None,
+            checkpoint_load_weights_only: bool = False,
+            checkpoint_strict_model_weights: bool = False,
+
+            # Checkpoint saving hparams
+            checkpoint_interval_unit: Optional[str] = None,
+            checkpoint_interval: Optional[int] = None,
+            checkpoint_folder: str = "checkpoints",
 
             # Subset parameters
             train_subset_num_batches: Optional[int] = None,
@@ -288,18 +294,23 @@ class Trainer:
         self.state.optimizers = optimizer
         self.state.schedulers = ComposedScheduler(schedulers=schedulers)
 
-        self.checkpoint_saver = checkpoint_saver
         # TODO(#121): get checkpointing working with DeepSpeed.
-        if self.checkpoint_saver:
+        if checkpoint_interval is not None and checkpoint_interval_unit is not None:
+            self.checkpoint_saver = CheckpointSaver(checkpoint_interval_unit=checkpoint_interval_unit,
+                                                    checkpoint_interval=checkpoint_interval,
+                                                    checkpoint_folder=checkpoint_folder)
+
             if self.deepspeed_enabled:
                 raise NotImplementedError("Checkpointing is not yet supported with DeepSpeed.")
 
-        self.checkpoint_loader = checkpoint_loader
         # TODO(#121): get checkpointing working with DeepSpeed.
-        if checkpoint_loader:
+        if checkpoint_filepath is not None:
             if self.deepspeed_enabled:
                 raise NotImplementedError("Checkpointing is not yet supported with DeepSpeed.")
-            self.checkpoint_loader = CheckpointLoader(checkpoint_filepath=checkpoint_filepath)
+
+            self.checkpoint_loader = CheckpointLoader(checkpoint_filepath=checkpoint_filepath,
+                                                      load_weights_only=checkpoint_load_weights_only,
+                                                      strict_model_weights=checkpoint_strict_model_weights)
             restored_seed = self.checkpoint_loader.load_checkpoint(state=self.state)
             # Set the restored seed so that the correct seed will be saved in future checkpoints
             # Used to handle the case where another checkpoint is saved after resuming from checkpoint.
@@ -357,8 +368,6 @@ class Trainer:
             (set to {hparams.eval_subset_num_batches}), val_dataset.shuffle should be set to False. Otherwise,
             each evaluation epoch may load a different subset of samples."""))
         eval_dataloader = hparams.val_dataset.initialize_object(eval_device_batch_size, hparams.dataloader)
-        checkpoint_loader = hparams.load_checkpoint.initialize_object() if hparams.load_checkpoint else None
-        checkpoint_saver = hparams.save_checkpoint.initialize_object() if hparams.save_checkpoint else None
 
         trainer = cls(
             model=model,
@@ -392,9 +401,15 @@ class Trainer:
             log_destinations=log_destinations,
             callbacks=tuple(callbacks),
 
-            # Checkpointing hparams
-            checkpoint_loader=checkpoint_loader,
-            checkpoint_saver=checkpoint_saver,
+            # Checkpoint loading hparams
+            checkpoint_filepath=hparams.load_checkpoint.filepath,
+            checkpoint_load_weights_only=hparams.load_checkpoint.load_weights_only,
+            checkpoint_strict_model_weights=hparams.load_checkpoint.strict_model_weights,
+
+            # Checkpoint saving hparams
+            checkpoint_interval_unit=hparams.save_checkpoint.interval_unit,
+            checkpoint_interval=hparams.save_checkpoint.interval,
+            checkpoint_folder=hparams.save_checkpoint.folder,
 
             # Subset parameters
             train_subset_num_batches=hparams.train_subset_num_batches,
