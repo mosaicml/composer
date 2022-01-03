@@ -10,7 +10,7 @@ from setuptools import setup
 def package_files(directory):
     # from https://stackoverflow.com/a/36693250
     paths = []
-    for (path, directories, filenames) in os.walk(directory):
+    for (path, _, filenames) in os.walk(directory):
         for filename in filenames:
             paths.append(os.path.join('..', path, filename))
     return paths

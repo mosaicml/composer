@@ -12,7 +12,7 @@ runs:
       working-directory: ${{ inputs.working_directory }}
       run: |
         set -ex
-        sudo npm install -g pyright@1.1.173
+        sudo npm install -g pyright@1.1.202
 
     - name: Run Pyright
       shell: bash

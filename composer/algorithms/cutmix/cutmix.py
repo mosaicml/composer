@@ -225,6 +225,10 @@ class CutMix(Algorithm):
 
     def __init__(self, alpha: float):
         self.hparams = CutMixHparams(alpha=alpha)
+        self._indices = torch.Tensor()
+        self._cutmix_lambda = 0.0
+        self._bbox = tuple()
+
 
     def match(self, event: Event, state: State) -> bool:
         """Runs on Event.INIT and Event.AFTER_DATALOADER
@@ -254,11 +258,11 @@ class CutMix(Algorithm):
         self._cutmix_lambda = new_lambda
 
     @property
-    def bbox(self) -> tuple:
+    def bbox(self) -> Tuple[int, int, int, int]:
         return self._bbox
 
     @bbox.setter
-    def bbox(self, new_bbox: tuple) -> None:
+    def bbox(self, new_bbox: Tuple[int, int, int, int]) -> None:
         self._bbox = new_bbox
 
     def apply(self, event: Event, state: State, logger: Logger) -> None:

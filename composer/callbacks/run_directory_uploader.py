@@ -99,7 +99,7 @@ class RunDirectoryUploader(Callback):
         upload_staging_folder: Optional[str] = None,
         use_procs: bool = True,
         upload_every_n_batches: int = 100,
-        provider_init_kwargs: Dict[str, Any] = None,
+        provider_init_kwargs: Optional[Dict[str, Any]] = None,
     ) -> None:
         run_directory = get_run_directory()
         if run_directory is None:
