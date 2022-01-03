@@ -141,7 +141,7 @@ def all_reduce(
                        "The mosaic trainer will automatically do this for you.")
 
 
-def broadcast(tensor: torch.Tensor, src: int = 0) -> None:
+def broadcast(tensor: torch.Tensor, src: int) -> None:
     """Broadcasts the tensor to the whole group.
 
     ``tensor`` must have the same number of elements in all processes participating in the collective.
@@ -150,7 +150,7 @@ def broadcast(tensor: torch.Tensor, src: int = 0) -> None:
     Args:
         tensor (torch.Tensor): Data to be sent if ``src`` is the rank of current process,
             and tensor to be used to save received data otherwise.
-        src (int, optional): Source rank (default: ``0``)
+        src (int): Source rank
     """
     if dist.is_available() and dist.is_initialized():
         dist.broadcast(tensor, src)
