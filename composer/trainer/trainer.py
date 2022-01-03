@@ -614,7 +614,6 @@ class Trainer:
 
                     if self.deepspeed_enabled:
                         state.batch = fix_batch_precision_for_deepspeed(state.batch, state.precision)
-                    print('foo')
 
                     if self.compute_training_metrics:
                         # compute metrics on the training set
@@ -760,20 +759,6 @@ class Trainer:
 
                 # forward pass
                 self.engine.run_event(Event.BEFORE_FORWARD)
-
-                # state.batch = (state.batch[0].half(), state.batch[1])
-                def print_batch_dtypes(b, prefix='root'):
-                    if isinstance(b, torch.Tensor):
-                        print(prefix, b.dtype)
-                    else:
-                        if isinstance(b, dict):
-                            for k, bb in b.items():
-                                print_batch_dtypes(bb, f'{prefix}.{k}')
-                        else:
-                            for i, bb in enumerate(b):
-                                print_batch_dtypes(bb, f'{prefix}[{i}]')
-
-                print_batch_dtypes(state.batch)
 
                 with state.precision_context:
                     state.outputs = state.model.forward(state.batch)

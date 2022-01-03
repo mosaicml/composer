@@ -7,10 +7,9 @@ from typing import Any, Optional
 import torch
 import yahp as hp
 
-from composer.composer.core.precision import Precision
-from composer.composer.utils.iter_helpers import map_collection
 from composer.core import State
 from composer.core.types import Batch, Precision, Tensor
+from composer.utils.iter_helpers import map_collection
 
 
 @dataclass
