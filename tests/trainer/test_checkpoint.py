@@ -13,8 +13,10 @@ from _pytest.monkeypatch import MonkeyPatch
 from composer.callbacks.callback_hparams import CallbackHparams
 from composer.core.callback import Callback
 from composer.core.event import Event
+from composer.core.precision import Precision
 from composer.core.state import State
 from composer.core.types import Logger, StateDict
+from composer.datasets import SyntheticHparamsMixin
 from composer.optim import AdamWHparams
 from composer.optim.scheduler import ConstantLRHparams, CosineAnnealingLRHparams
 from composer.trainer.checkpoint_hparams import CheckpointLoaderHparams, CheckpointSaverHparams
@@ -212,7 +214,7 @@ def test_load_weights(
     second_trainer_hparams.optimizer = AdamWHparams()
 
     # setup a new LR scheduler
-    scheduler_options = [ConstantLRHparams(), CosineAnnealingLRHparams(T_max=second_trainer_hparams.max_epochs)]
+    scheduler_options = [ConstantLRHparams(), CosineAnnealingLRHparams(T_max=f"{second_trainer_hparams.max_epochs}ep")]
     second_trainer_hparams.schedulers = [random.choice(scheduler_options)]
 
     # ensure our new choice of scheduler is different than the original scheduler
@@ -244,14 +246,16 @@ def test_load_weights(
     (0, 1),
     (1, 0),
 ])
+@pytest.mark.parametrize("model_name", [None, "resnet50_synthetic", "gpt2_52m"])
 def test_checkpoint(
     device_hparams: DeviceHparams,
     world_size: int,
-    checkpointing_trainer_hparams: TrainerHparams,
+    mosaic_trainer_hparams: TrainerHparams,
     checkpoint_filename: str,
     seed: Optional[int],
     validate_every_n_batches: int,
     validate_every_n_epochs: int,
+    model_name: Optional[str],
 ):
     """strategy:
     - train two epochs. capture checkpoints after `checkpoint_interval` and ep2.
@@ -260,23 +264,52 @@ def test_checkpoint(
     """
     del world_size  # unused. Read via env variable
 
-    checkpointing_trainer_hparams.device = device_hparams
+    if model_name is not None:
+        if not isinstance(device_hparams, GPUDeviceHparams):
+            pytest.skip("Real models require a GPU -- otherwise they take too long")
+        model_hparams = TrainerHparams.load(model_name)
+        mosaic_trainer_hparams.train_dataset = model_hparams.train_dataset
+        mosaic_trainer_hparams.val_dataset = model_hparams.val_dataset
+        mosaic_trainer_hparams.model = model_hparams.model
+        mosaic_trainer_hparams.optimizer = model_hparams.optimizer
+        mosaic_trainer_hparams.schedulers = model_hparams.schedulers
+    if not isinstance(mosaic_trainer_hparams.train_dataset, SyntheticHparamsMixin):
+        pytest.skip("Checkpointing tests require synthetic data")
+        return
+    if not isinstance(mosaic_trainer_hparams.val_dataset, SyntheticHparamsMixin):
+        pytest.skip("Checkpointing tests require synthetic data")
+        return
+    mosaic_trainer_hparams.train_dataset.use_synthetic = True
+    mosaic_trainer_hparams.train_dataset.shuffle = False
+    mosaic_trainer_hparams.val_dataset.use_synthetic = True
+    mosaic_trainer_hparams.val_dataset.shuffle = False
+    mosaic_trainer_hparams.grad_accum = 2
+    mosaic_trainer_hparams.loggers = []
+    mosaic_trainer_hparams.train_batch_size = 8
+    mosaic_trainer_hparams.eval_batch_size = 16
+    mosaic_trainer_hparams.max_epochs = 2
+    mosaic_trainer_hparams.precision = Precision.FP32
+    mosaic_trainer_hparams.callbacks = [DummyStatefulCallbackHparams(), EventCounterCallbackHparams()]
+    mosaic_trainer_hparams.train_subset_num_batches = 5
+    mosaic_trainer_hparams.device = device_hparams
 
     checkpoint_a_folder = "first"
-    assert checkpointing_trainer_hparams.save_checkpoint is not None
-    checkpointing_trainer_hparams.save_checkpoint.folder = checkpoint_a_folder
-    checkpointing_trainer_hparams.save_checkpoint.interval_unit = "ep" if checkpoint_filename.startswith("ep") else "it"
-    checkpointing_trainer_hparams.seed = seed
-    checkpointing_trainer_hparams.validate_every_n_batches = validate_every_n_batches
-    checkpointing_trainer_hparams.validate_every_n_epochs = validate_every_n_epochs
+    assert mosaic_trainer_hparams.save_checkpoint is not None
+    mosaic_trainer_hparams.save_checkpoint.folder = checkpoint_a_folder
+    mosaic_trainer_hparams.save_checkpoint.interval = 1
+    mosaic_trainer_hparams.save_checkpoint.interval_unit = "ep" if checkpoint_filename.startswith("ep") else "it"
+    mosaic_trainer_hparams.seed = seed
+    mosaic_trainer_hparams.validate_every_n_batches = validate_every_n_batches
+    mosaic_trainer_hparams.validate_every_n_epochs = validate_every_n_epochs
     final_checkpoint = "ep2.pt" if checkpoint_filename.startswith("ep") else "it8.pt"
-    _test_checkpoint_trainer(checkpointing_trainer_hparams)
+    _test_checkpoint_trainer(mosaic_trainer_hparams)
     checkpoint_a_file_path = os.path.join(checkpoint_a_folder, f"{checkpoint_filename}.pt")
     checkpoint_b_file_path = run_directory.get_relative_to_run_directory(checkpoint_a_folder, final_checkpoint)
     trainer_1_hparams_filepath = run_directory.get_relative_to_run_directory(checkpoint_a_folder, "hparams.yaml")
 
     second_trainer_hparams = TrainerHparams.create(trainer_1_hparams_filepath, cli_args=False)
     checkpoint_b_folder = "second"
+    assert second_trainer_hparams.save_checkpoint is not None
     second_trainer_hparams.save_checkpoint.folder = checkpoint_b_folder
     second_trainer_filepath = run_directory.get_relative_to_run_directory(checkpoint_a_file_path)
     second_trainer_hparams.load_checkpoint = CheckpointLoaderHparams(filepath=second_trainer_filepath,
