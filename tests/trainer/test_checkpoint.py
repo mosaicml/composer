@@ -98,6 +98,44 @@ def assert_weights_equivalent(original_trainer_hparams: TrainerHparams, new_trai
         assert (p1.data.ne(p2.data).sum() == 0)
 
 
+@pytest.fixture
+def checkpointing_trainer_hparams(mosaic_trainer_hparams: TrainerHparams) -> TrainerHparams:
+    checkpointing_interval_unit = "it"
+    checkpointing_interval = 1
+    checkpointing_folder = "checkpoints"
+
+    checkpoint_saver = CheckpointSaverHparams(interval_unit=checkpointing_interval_unit,
+                                              interval=checkpointing_interval,
+                                              folder=checkpointing_folder)
+    mosaic_trainer_hparams.grad_accum = 2
+    mosaic_trainer_hparams.max_epochs = 2
+    mosaic_trainer_hparams.save_checkpoint = checkpoint_saver
+    mosaic_trainer_hparams.callbacks.append(DummyStatefulCallbackHparams())
+    mosaic_trainer_hparams.callbacks.append(EventCounterCallbackHparams())
+    mosaic_trainer_hparams.train_subset_num_batches = 5
+    return mosaic_trainer_hparams
+
+
+def assert_weights_equivalent(original_trainer_hparams, new_trainer_hparams) -> None:
+    """
+    Strategy: get the weights from a new trainer
+    Then assert that they are equivalent to the weights from the original model.
+    """
+
+    # load_weights_only is False since the original Trainer is testing full checkpoint recovery
+    original_trainer_hparams.load_checkpoint = CheckpointLoaderHparams(
+        filepath=new_trainer_hparams.load_checkpoint.filepath, load_weights_only=False, strict_model_weights=False)
+
+    original_trainer = Trainer.create_from_hparams(original_trainer_hparams)
+    original_weights = original_trainer.state.model.parameters()
+
+    new_trainer = Trainer.create_from_hparams(new_trainer_hparams)
+    recovered_weights = new_trainer.state.model.parameters()
+
+    for p1, p2 in zip(original_weights, recovered_weights):
+        assert (p1.data.ne(p2.data).sum() == 0)
+
+
 def assert_checkpoints_equivalent(hparams_file_a: str, checkpoint_file_a: str, hparams_file_b: str,
                                   checkpoint_file_b: str) -> None:
     checkpoint_a = torch.load(checkpoint_file_a, map_location='cpu')
@@ -303,6 +341,7 @@ def test_checkpoint(
     mosaic_trainer_hparams.seed = seed
     mosaic_trainer_hparams.validate_every_n_batches = validate_every_n_batches
     mosaic_trainer_hparams.validate_every_n_epochs = validate_every_n_epochs
+
     final_checkpoint = "ep2.pt" if checkpoint_filename.startswith("ep") else "it8.pt"
     _test_checkpoint_trainer(mosaic_trainer_hparams)
     checkpoint_a_file_path = os.path.join(checkpoint_a_folder, f"{checkpoint_filename}.pt")
@@ -311,6 +350,7 @@ def test_checkpoint(
 
     second_trainer_hparams = TrainerHparams.create(trainer_1_hparams_filepath, cli_args=False)
     checkpoint_b_folder = "second"
+
     assert second_trainer_hparams.save_checkpoint is not None
     second_trainer_hparams.save_checkpoint.folder = checkpoint_b_folder
     second_trainer_filepath = run_directory.get_relative_to_run_directory(checkpoint_a_file_path)
