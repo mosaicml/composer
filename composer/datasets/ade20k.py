@@ -1,3 +1,5 @@
+# Copyright 2021 MosaicML. All Rights Reserved.
+
 import os
 from dataclasses import dataclass
 from math import ceil
@@ -161,9 +163,9 @@ class ADE20k(Dataset):
     def __init__(self,
                  datadir: str,
                  split: str = 'train',
-                 both_transforms: torch.nn.Module = None,
-                 image_transforms: torch.nn.Module = None,
-                 target_transforms: torch.nn.Module = None):
+                 both_transforms: Optional[torch.nn.Module] = None,
+                 image_transforms: Optional[torch.nn.Module] = None,
+                 target_transforms: Optional[torch.nn.Module] = None):
         super().__init__()
         self.datadir = datadir
         self.split = split
