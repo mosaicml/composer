@@ -46,18 +46,18 @@ class CheckpointLoader:
             state.load_model_state(self.state_dict['state'], strict=self.strict_model_weights)
         else:
             state.load_state_dict(self.state_dict["state"])
-        self.checkpoint_rng_state = self._get_checkpoint_rng_state(state, self.state_dict["rng"])
+            self.checkpoint_rng_state = self._get_checkpoint_rng_state(state, self.state_dict["rng"])
 
-        if "seed" in self.state_dict:
-            world_size = ddp.get_world_size()
-            checkpointed_world_size = len(self.state_dict["seed"])
-            if world_size != checkpointed_world_size:
-                warnings.warn(f"Current world size {world_size} does not match the checkpointed world size "
-                              f"{checkpointed_world_size}. The seed will not be restored.")
-                return
-            seed_to_restore = self.state_dict["seed"][ddp.get_global_rank()]
-            seed_all(seed_to_restore)
-            return seed_to_restore
+            if "seed" in self.state_dict:
+                world_size = ddp.get_world_size()
+                checkpointed_world_size = len(self.state_dict["seed"])
+                if world_size != checkpointed_world_size:
+                    warnings.warn(f"Current world size {world_size} does not match the checkpointed world size "
+                                  f"{checkpointed_world_size}. The seed will not be restored.")
+                    return
+                seed_to_restore = self.state_dict["seed"][ddp.get_global_rank()]
+                seed_all(seed_to_restore)
+                return seed_to_restore
 
     def restore_checkpoint_rng_state(self, state: State, device: Device):
         """Restore the state of all RNG objects in this context from the loaded checkpoint's data.
