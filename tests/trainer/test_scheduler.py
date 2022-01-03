@@ -114,7 +114,7 @@ class TestComposedScheduler():
 
     def test_composed(self, optimizer):
         epochs = 9
-        targets = [[1 * 0.2 for x in range(4)] + [1 * 0.9**x for x in range(7)]]
+        targets = [[1 * 0.2 for _ in range(4)] + [1 * 0.9**x for x in range(7)]]
         schedulers = [
             ExponentialLR(optimizer, gamma=0.9),
             WarmUpLR(optimizer, warmup_factor=0.2, warmup_iters=4, warmup_method="constant")

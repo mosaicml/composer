@@ -525,7 +525,7 @@ class Trainer:
                                       f"found {len(ensure_tuple(state.optimizers))} optimizers")
 
         assert isinstance(state.model, BaseMosaicModel)
-        self.original_model = state.model
+        self.original_model = state.model  # type: ignore  # TODO(ravi) -- update the state to add an original model helper
 
         # place the state, model in the proper devices
         if self.deepspeed_enabled:
@@ -831,7 +831,7 @@ class Trainer:
 
             metrics = self._get_metrics_as_collection(is_train=False)
 
-            for i, state.batch in enumerate(itertools.islice(state.eval_dataloader, self._eval_subset_num_batches)):
+            for state.batch in itertools.islice(state.eval_dataloader, self._eval_subset_num_batches):
                 state.batch = self.device.batch_to_device(state.batch)
                 if self._eval_device_transformation_fn is not None:
                     state.batch = self._eval_device_transformation_fn(state.batch)

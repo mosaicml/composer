@@ -4,7 +4,7 @@
 # https://github.com/rwightman/gen-efficientnet-pytorch
 import math
 import re
-from typing import Any, Callable, Dict
+from typing import Any, Callable, Dict, Optional
 
 import torch
 import torch.nn as nn
@@ -14,7 +14,7 @@ def round_channels(
     channels: float,
     width_multiplier: float,
     divisor: int = 8,
-    min_value: int = None,
+    min_value: Optional[int] = None,
 ) -> int:
     """Round number of channels after scaling with width multiplier. This 
        function ensures that channel integers halfway inbetween divisors 
@@ -24,7 +24,8 @@ def round_channels(
         channels (float): Number to round.
         width_multiplier (float): Amount to scale `channels`.
         divisor (int): Number to make the output divisible by.
-        min_value (int): Minimum value the output can be.
+        min_value (int, optional): Minimum value the output can be. If not specified, defaults
+            to the ``divisor``.
     """
 
     if not width_multiplier:

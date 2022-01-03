@@ -10,7 +10,6 @@ from composer.core import Event, engine
 
 @pytest.fixture
 def always_match_algorithms():
-    attrs = {'match.return_value': True}
     return [
         Mock(**{
             'match.return.value': True,
