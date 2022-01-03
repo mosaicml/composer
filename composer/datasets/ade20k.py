@@ -294,18 +294,18 @@ class ADE20kDatasetHparams(DatasetHparams, SyntheticHparamsMixin):
         else:
             # Define data transformations based on data split
             if self.split == 'train':
-                both_transforms = transforms.Compose([
+                both_transforms = torch.nn.Sequential(
                     RandomResizePair(min_scale=self.min_resize_scale,
                                      max_scale=self.max_resize_scale,
                                      base_size=(self.base_size, self.base_size)),
                     RandomCropPair(crop_size=(self.final_size, self.final_size)),
                     RandomHFlipPair(),
-                ])
-                image_transforms = transforms.Compose([
+                )
+                image_transforms = torch.nn.Sequential(
                     PhotometricDistoration(brightness=32. / 255, contrast=0.5, saturation=0.5, hue=18. / 255),
                     PadToSize(size=(self.final_size, self.final_size),
                               fill=(int(0.485 * 255), int(0.456 * 255), int(0.406 * 255)))
-                ])
+                )
 
                 target_transforms = PadToSize(size=(self.final_size, self.final_size), fill=0)
             else:
@@ -317,8 +317,11 @@ class ADE20kDatasetHparams(DatasetHparams, SyntheticHparamsMixin):
             collate_fn = pil_image_collate
             device_transform_fn = NormalizationFn(self.ignore_background)
 
-            dataset = ADE20k(self.datadir, self.split, both_transforms, image_transforms,  # type: ignore
-                             target_transforms)
+            dataset = ADE20k(datadir=self.datadir,  # type: ignore
+                             split=self.split,
+                             both_transforms=both_transforms,
+                             image_transforms=image_transforms,
+                             target_transforms=target_transforms)
         sampler = ddp.get_sampler(dataset, drop_last=self.drop_last, shuffle=self.shuffle)
         return DataloaderSpec(dataloader=dataloader_hparams.initialize_object(dataset=dataset,
                                                                               batch_size=batch_size,
