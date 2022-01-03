@@ -317,11 +317,12 @@ class ADE20kDatasetHparams(DatasetHparams, SyntheticHparamsMixin):
             collate_fn = pil_image_collate
             device_transform_fn = NormalizationFn(self.ignore_background)
 
-            dataset = ADE20k(datadir=self.datadir,  # type: ignore
-                             split=self.split,
-                             both_transforms=both_transforms,
-                             image_transforms=image_transforms,
-                             target_transforms=target_transforms)
+            dataset = ADE20k(
+                datadir=self.datadir,  # type: ignore
+                split=self.split,
+                both_transforms=both_transforms,
+                image_transforms=image_transforms,
+                target_transforms=target_transforms)
         sampler = ddp.get_sampler(dataset, drop_last=self.drop_last, shuffle=self.shuffle)
         return DataloaderSpec(dataloader=dataloader_hparams.initialize_object(dataset=dataset,
                                                                               batch_size=batch_size,
