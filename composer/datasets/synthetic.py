@@ -17,7 +17,6 @@ class SyntheticDataType(StringEnum):
 class SyntheticDataLabelType(StringEnum):
     CLASSIFICATION_INT = "classification_int"
     CLASSIFICATION_ONE_HOT = "classification_one_hot"
-    RANDOM_INT = "random_int"
 
 
 class SyntheticBatchPairDataset(torch.utils.data.Dataset):
@@ -74,8 +73,6 @@ class SyntheticBatchPairDataset(torch.utils.data.Dataset):
         if label_type == SyntheticDataLabelType.CLASSIFICATION_INT or label_type == SyntheticDataLabelType.CLASSIFICATION_ONE_HOT:
             if num_classes is None or num_classes <= 0:
                 raise ValueError("classification label_types require num_classes > 0")
-        if label_type == SyntheticDataLabelType.RANDOM_INT and label_shape is None:
-            raise ValueError("label_type random_int requires label_shape to be specified")
 
     def __len__(self) -> int:
         return self.total_dataset_size
@@ -105,13 +102,6 @@ class SyntheticBatchPairDataset(torch.utils.data.Dataset):
                 else:
                     label_batch_shape = (self.num_unique_samples_to_create,)
                 input_target = torch.randint(0, self.num_classes, label_batch_shape, device=self.device)
-            elif self.label_type == SyntheticDataLabelType.RANDOM_INT:
-                assert self.label_shape is not None
-                # use a dummy value for max int value
-                dummy_max = 10
-                input_target = torch.randint(0,
-                                             dummy_max, (self.num_unique_samples_to_create, *self.label_shape),
-                                             device=self.device)
             else:
                 raise ValueError(f"Unsupported label type {self.data_type}")
 
