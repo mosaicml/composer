@@ -77,31 +77,14 @@ class EventCounterCallbackHparams(CallbackHparams):
         return EventCounterCallback()
 
 
-@pytest.fixture
-def checkpointing_trainer_hparams(mosaic_trainer_hparams: TrainerHparams) -> TrainerHparams:
-    checkpointing_interval_unit = "it"
-    checkpointing_interval = 1
-    checkpointing_folder = "checkpoints"
-
-    checkpoint_saver = CheckpointSaverHparams(interval_unit=checkpointing_interval_unit,
-                                              interval=checkpointing_interval,
-                                              folder=checkpointing_folder)
-    mosaic_trainer_hparams.grad_accum = 2
-    mosaic_trainer_hparams.max_epochs = 2
-    mosaic_trainer_hparams.save_checkpoint = checkpoint_saver
-    mosaic_trainer_hparams.callbacks.append(DummyStatefulCallbackHparams())
-    mosaic_trainer_hparams.callbacks.append(EventCounterCallbackHparams())
-    mosaic_trainer_hparams.train_subset_num_batches = 5
-    return mosaic_trainer_hparams
-
-
-def assert_weights_equivalent(original_trainer_hparams, new_trainer_hparams) -> None:
+def assert_weights_equivalent(original_trainer_hparams: TrainerHparams, new_trainer_hparams: TrainerHparams) -> None:
     """
     Strategy: get the weights from a new trainer
     Then assert that they are equivalent to the weights from the original model.
     """
 
     # load_weights_only is False since the original Trainer is testing full checkpoint recovery
+    assert new_trainer_hparams.load_checkpoint is not None
     original_trainer_hparams.load_checkpoint = CheckpointLoaderHparams(
         filepath=new_trainer_hparams.load_checkpoint.filepath, load_weights_only=False, strict_model_weights=False)
 
@@ -173,7 +156,7 @@ def inject_stateful_callback_hparams(monkeypatch: MonkeyPatch):
 def test_load_weights(
     device_hparams: DeviceHparams,
     world_size: int,
-    checkpointing_trainer_hparams: TrainerHparams,
+    mosaic_trainer_hparams: TrainerHparams,
     checkpoint_filename: str,
     seed: Optional[int],
     validate_every_n_batches: int,
@@ -185,19 +168,37 @@ def test_load_weights(
     - assert that the model weights are the original model, even though the optimizer and scheduler are different.
     """
     del world_size  # unused. Read via env variable
-
-    checkpointing_trainer_hparams.device = device_hparams
-
+    if not isinstance(mosaic_trainer_hparams.train_dataset, SyntheticHparamsMixin):
+        pytest.skip("Checkpointing tests require synthetic data")
+        return
+    if not isinstance(mosaic_trainer_hparams.val_dataset, SyntheticHparamsMixin):
+        pytest.skip("Checkpointing tests require synthetic data")
+        return
+    mosaic_trainer_hparams.device = device_hparams
+    mosaic_trainer_hparams.train_dataset.use_synthetic = True
+    mosaic_trainer_hparams.train_dataset.shuffle = False
+    mosaic_trainer_hparams.val_dataset.use_synthetic = True
+    mosaic_trainer_hparams.val_dataset.shuffle = False
+    mosaic_trainer_hparams.grad_accum = 2
+    mosaic_trainer_hparams.loggers = []
+    mosaic_trainer_hparams.train_batch_size = 8
+    mosaic_trainer_hparams.eval_batch_size = 16
+    mosaic_trainer_hparams.max_epochs = 2
+    mosaic_trainer_hparams.precision = Precision.FP32
+    mosaic_trainer_hparams.callbacks = [DummyStatefulCallbackHparams(), EventCounterCallbackHparams()]
+    mosaic_trainer_hparams.train_subset_num_batches = 5
+    mosaic_trainer_hparams.device = device_hparams
     checkpoint_a_folder = "first"
-    assert checkpointing_trainer_hparams.save_checkpoint is not None
-    checkpointing_trainer_hparams.save_checkpoint.folder = checkpoint_a_folder
-    checkpointing_trainer_hparams.save_checkpoint.interval_unit = "ep" if checkpoint_filename.startswith("ep") else "it"
-    checkpointing_trainer_hparams.seed = seed
-    checkpointing_trainer_hparams.validate_every_n_batches = validate_every_n_batches
-    checkpointing_trainer_hparams.validate_every_n_epochs = validate_every_n_epochs
+    mosaic_trainer_hparams.save_checkpoint = CheckpointSaverHparams(
+        interval_unit="ep" if checkpoint_filename.startswith("ep") else "it",
+        interval=1,
+        folder=checkpoint_a_folder,
+    )
+    mosaic_trainer_hparams.seed = seed
+    mosaic_trainer_hparams.validate_every_n_batches = validate_every_n_batches
+    mosaic_trainer_hparams.validate_every_n_epochs = validate_every_n_epochs
     final_checkpoint = "ep2.pt" if checkpoint_filename.startswith("ep") else "it8.pt"
-    _test_checkpoint_trainer(checkpointing_trainer_hparams)
-    print(checkpointing_trainer_hparams.schedulers)
+    _test_checkpoint_trainer(mosaic_trainer_hparams)
 
     trainer_1_hparams_filepath = run_directory.get_relative_to_run_directory(checkpoint_a_folder, "hparams.yaml")
 
@@ -219,14 +220,14 @@ def test_load_weights(
 
     # ensure our new choice of scheduler is different than the original scheduler
     for idx in range(len(second_trainer_hparams.schedulers)):
-        if idx < len(checkpointing_trainer_hparams.schedulers):
-            assert second_trainer_hparams.schedulers[idx] != checkpointing_trainer_hparams.schedulers[idx]
+        if idx < len(mosaic_trainer_hparams.schedulers):
+            assert second_trainer_hparams.schedulers[idx] != mosaic_trainer_hparams.schedulers[idx]
 
     if ddp.get_global_rank() == 0:
 
         # pass in the two trainers, verify that the weights are the same
         assert_weights_equivalent(
-            original_trainer_hparams=checkpointing_trainer_hparams,
+            original_trainer_hparams=mosaic_trainer_hparams,
             new_trainer_hparams=second_trainer_hparams,
         )
 
@@ -294,10 +295,11 @@ def test_checkpoint(
     mosaic_trainer_hparams.device = device_hparams
 
     checkpoint_a_folder = "first"
-    assert mosaic_trainer_hparams.save_checkpoint is not None
-    mosaic_trainer_hparams.save_checkpoint.folder = checkpoint_a_folder
-    mosaic_trainer_hparams.save_checkpoint.interval = 1
-    mosaic_trainer_hparams.save_checkpoint.interval_unit = "ep" if checkpoint_filename.startswith("ep") else "it"
+    mosaic_trainer_hparams.save_checkpoint = CheckpointSaverHparams(
+        interval_unit="ep" if checkpoint_filename.startswith("ep") else "it",
+        interval=1,
+        folder=checkpoint_a_folder,
+    )
     mosaic_trainer_hparams.seed = seed
     mosaic_trainer_hparams.validate_every_n_batches = validate_every_n_batches
     mosaic_trainer_hparams.validate_every_n_epochs = validate_every_n_epochs
