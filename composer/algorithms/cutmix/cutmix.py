@@ -229,7 +229,6 @@ class CutMix(Algorithm):
         self._cutmix_lambda = 0.0
         self._bbox = tuple()
 
-
     def match(self, event: Event, state: State) -> bool:
         """Runs on Event.INIT and Event.AFTER_DATALOADER
 
