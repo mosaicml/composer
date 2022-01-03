@@ -11,7 +11,7 @@ from torchvision import transforms
 
 from composer.core.types import Dataset, Tensor, Batch
 
-class TransformationFn:
+class NormalizationFn:
     """Normalizes input data and removes the background class from target data if desired.
 
     Args:
@@ -31,6 +31,7 @@ class TransformationFn:
         assert isinstance(ys, Tensor)
         device = xs.device
 
+        # ImageNet normalization values from torchvision: https://pytorch.org/vision/stable/models.html
         if self.mean is None:
             self.mean = torch.tensor([0.485 * 255, 0.456 * 255, 0.406 * 255], device=device)
             self.mean = self.mean.view(1, 3, 1, 1)
@@ -45,9 +46,19 @@ class TransformationFn:
         return xs, ys
 
 
-def fast_collate(batch: List[Tuple[Image.Image, Union[Image.Image, Tensor]]],
-                 memory_format: torch.memory_format = torch.contiguous_format):
-    """Constructs a batch for training from individual samples.
+def pil_image_collate(batch: List[Tuple[Image.Image, Union[Image.Image, Tensor]]],
+                 memory_format: torch.memory_format = torch.contiguous_format) -> Tuple[Tensor, Tensor]:
+    """Constructs a torch tensor batch for training from samples in PIL image format.
+
+    Args:
+        batch (List[Tuple[Image.Image, Union[Image.Image, torch.Tensor]]]): list of input-target pairs to be separated
+            and aggregated into batches.
+        memory_format (torch.memory_format): the memory format for the input and target tensors.
+
+    Returns:
+        image_tensor (torch.Tensor): torch tensor containing a batch of images.
+        target_tensor (torch.Tensor): torch tensor containing a batch of targets.
+
     """
     imgs = [sample[0] for sample in batch]
     w, h = imgs[0].size

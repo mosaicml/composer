@@ -11,9 +11,10 @@ from PIL import Image
 from torch.utils.data import Dataset
 from torchvision import transforms
 
-from composer.datasets.hparams import DataloaderSpec, DatasetHparams
+from composer.datasets.hparams import DataloaderSpec, DatasetHparams, SyntheticHparamsMixin
+from composer.datasets.synthetic import SyntheticBatchPairDataset
 from composer.utils import ddp
-from composer.utils.data import TransformationFn, fast_collate
+from composer.utils.data import NormalizationFn, pil_image_collate
 
 class RandomResizePair(torch.nn.Module):
     """Resize the image and target to `base_size` scaled by a randomly sampled value.
@@ -227,7 +228,7 @@ class ADE20k(Dataset):
 
 
 @dataclass
-class ADE20kDatasetHparams(DatasetHparams):
+class ADE20kDatasetHparams(DatasetHparams, SyntheticHparamsMixin):
     """Defines an instance of the ADE20k dataset for semantic segmentation.
 
     Args:
@@ -249,7 +250,7 @@ class ADE20kDatasetHparams(DatasetHparams):
     ignore_background: bool = hp.optional("If true, ignore the background class in training loss", default=True)
 
     def validate(self):
-        if self.datadir is None:
+        if self.datadir is None and not self.use_synthetic:
             raise ValueError("datadir must specify the path to the ADE20k dataset.")
 
         if self.split not in ['train', 'val', 'test']:
@@ -267,34 +268,57 @@ class ADE20kDatasetHparams(DatasetHparams):
     def initialize_object(self, batch_size, dataloader_hparams) -> DataloaderSpec:
         self.validate()
 
-        # Define data transformations based on data split
-        if self.split == 'train':
-            both_transforms = transforms.Compose([
-                RandomResizePair(min_scale=self.min_resize_scale,
-                                 max_scale=self.max_resize_scale,
-                                 base_size=(self.base_size, self.base_size)),
-                RandomCropPair(crop_size=(self.final_size, self.final_size)),
-                RandomHFlipPair(),
-            ])
-            image_transforms = transforms.Compose([
-                PhotometricDistoration(brightness=32. / 255, contrast=0.5, saturation=0.5, hue=18. / 255),
-                PadToSize(size=(self.final_size, self.final_size),
-                          fill=(int(0.485 * 255), int(0.456 * 255), int(0.406 * 255)))
-            ])
+        if self.use_synthetic:
+            if self.split == 'train':
+                total_dataset_size = 20_206
+            elif self.split == 'val':
+                total_dataset_size = 2_000
+            else:
+                total_dataset_size = 3_352
 
-            target_transforms = PadToSize(size=(self.final_size, self.final_size), fill=0)
+            dataset = SyntheticBatchPairDataset(
+                total_dataset_size=total_dataset_size,
+                data_shape=[3, self.final_size, self.final_size],
+                label_shape=[self.final_size, self.final_size],
+                num_classes=150,
+                num_unique_samples_to_create=self.synthetic_num_unique_samples,
+                device=self.synthetic_device,
+                memory_format=self.synthetic_memory_format,
+            )
+            collate_fn = None
+            device_transform_fn = None
+
         else:
-            both_transforms = None
-            image_transforms = transforms.Resize(size=(self.final_size, self.final_size),
-                                                 interpolation=TF.InterpolationMode.BILINEAR)
-            target_transforms = transforms.Resize(size=(self.final_size, self.final_size),
-                                                  interpolation=TF.InterpolationMode.NEAREST)
+            # Define data transformations based on data split
+            if self.split == 'train':
+                both_transforms = transforms.Compose([
+                    RandomResizePair(min_scale=self.min_resize_scale,
+                                    max_scale=self.max_resize_scale,
+                                    base_size=(self.base_size, self.base_size)),
+                    RandomCropPair(crop_size=(self.final_size, self.final_size)),
+                    RandomHFlipPair(),
+                ])
+                image_transforms = transforms.Compose([
+                    PhotometricDistoration(brightness=32. / 255, contrast=0.5, saturation=0.5, hue=18. / 255),
+                    PadToSize(size=(self.final_size, self.final_size),
+                            fill=(int(0.485 * 255), int(0.456 * 255), int(0.406 * 255)))
+                ])
 
-        dataset = ADE20k(self.datadir, self.split, both_transforms, image_transforms, target_transforms)  # type: ignore
+                target_transforms = PadToSize(size=(self.final_size, self.final_size), fill=0)
+            else:
+                both_transforms = None
+                image_transforms = transforms.Resize(size=(self.final_size, self.final_size),
+                                                    interpolation=TF.InterpolationMode.BILINEAR)
+                target_transforms = transforms.Resize(size=(self.final_size, self.final_size),
+                                                    interpolation=TF.InterpolationMode.NEAREST)
+            collate_fn = pil_image_collate
+            device_transform_fn = NormalizationFn(self.ignore_background)
+
+            dataset = ADE20k(self.datadir, self.split, both_transforms, image_transforms, target_transforms)  # type: ignore
         sampler = ddp.get_sampler(dataset, drop_last=self.drop_last, shuffle=self.shuffle)
         return DataloaderSpec(dataloader=dataloader_hparams.initialize_object(dataset=dataset,
                                                                               batch_size=batch_size,
                                                                               sampler=sampler,
-                                                                              collate_fn=fast_collate,
+                                                                              collate_fn=collate_fn,
                                                                               drop_last=self.drop_last),
-                              device_transform_fn=TransformationFn(self.ignore_background))
+                              device_transform_fn=device_transform_fn)

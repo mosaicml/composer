@@ -100,9 +100,11 @@ class SyntheticBatchPairDataset(torch.utils.data.Dataset):
                 input_target[:, 0] = 1.0
             elif self.label_type == SyntheticDataLabelType.CLASSIFICATION_INT:
                 assert self.num_classes is not None
-                input_target = torch.randint(0,
-                                             self.num_classes, (self.num_unique_samples_to_create,),
-                                             device=self.device)
+                if self.label_shape:
+                    label_batch_shape = (self.num_unique_samples_to_create, *self.label_shape)
+                else:
+                    label_batch_shape = (self.num_unique_samples_to_create,)
+                input_target = torch.randint(0, self.num_classes, label_batch_shape, device=self.device)
             elif self.label_type == SyntheticDataLabelType.RANDOM_INT:
                 assert self.label_shape is not None
                 # use a dummy value for max int value

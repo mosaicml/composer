@@ -168,7 +168,7 @@ def monitor_processes(processes: Set[subprocess.Popen]):
                         output=output,
                         stderr=stderr,
                     )
-                    error_msg = [f"Process {process.pid} excited with code {process.returncode}"]
+                    error_msg = [f"Process {process.pid} exited with code {process.returncode}"]
                     if output is not None:
                         error_msg.extend([
                             "----------Begin subprocess STDOUT----------",

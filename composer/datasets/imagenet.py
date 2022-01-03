@@ -13,7 +13,7 @@ from composer.datasets.dataloader import DataloaderHparams
 from composer.datasets.hparams import DataloaderSpec, DatasetHparams, SyntheticHparamsMixin
 from composer.datasets.synthetic import SyntheticBatchPairDataset
 from composer.utils import ddp
-from composer.utils.data import TransformationFn, fast_collate
+from composer.utils.data import NormalizationFn, pil_image_collate
 @dataclass
 class ImagenetDatasetHparams(DatasetHparams, SyntheticHparamsMixin):
     """Defines an instance of the ImageNet dataset for image classification.
@@ -62,8 +62,8 @@ class ImagenetDatasetHparams(DatasetHparams, SyntheticHparamsMixin):
                 ])
                 split = "val"
 
-            device_transform_fn = TransformationFn()
-            collate_fn = fast_collate
+            device_transform_fn = NormalizationFn()
+            collate_fn = pil_image_collate
 
             if self.datadir is None:
                 raise ValueError("datadir must be specified if self.synthetic is False")
