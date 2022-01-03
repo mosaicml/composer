@@ -271,8 +271,22 @@ class StratifiedBatchSampler(DistributedSampler[T_co]):
         # after every replica has constructed the same batches, evenly divide them;
         # similar approach to default DistributedSampler, except with batches;
         # see https://github.com/pytorch/pytorch/blob/d5988c5eca0221e9ef58918e4f0b504940cb926a/torch/utils/data/distributed.py#L94  # noqa
-        my_batch_idxs = np.arange(self.rank, len(batches), self.num_replicas)
-        return iter([batches[idx] for idx in my_batch_idxs])
+        num_batches = len(batches)
+        my_batch_idxs = np.arange(self.rank, num_batches, self.num_replicas)
+        my_batches = [batches[idx] for idx in my_batch_idxs]
+
+        min_num_batches = num_batches // self.num_replicas
+        max_num_batches = int(math.ceil(num_batches / self.num_replicas))
+        if self.drop_last:
+            my_batches = my_batches[:min_num_batches]
+        elif len(my_batches) < max_num_batches:
+            # construct a new batch of random idxs to balance the batch counts;
+            # these idxs *shouldn't* be the same across all replicas
+            my_rng = np.random.default_rng(self.seed + self.epoch + self.rank)
+            sample_idxs = my_rng.choice(total_num_samples, size=self.batch_size, replace=False)
+            my_batches.append(sample_idxs)
+
+        return iter(my_batches)
 
     def __len__(self):
         return int(math.ceil(len(self.dataset) / self.batch_size))
