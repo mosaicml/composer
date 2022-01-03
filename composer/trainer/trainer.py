@@ -229,8 +229,6 @@ class Trainer:
         self._eval_device_transformation_fn = eval_dataloader_spec.device_transform_fn
         self.eval_split_fn = eval_dataloader_spec.split_fn
 
-        # TODO(#123): DeepSpeed still needs a precision context, but it's not completely clear how to
-        # handle this with our version of Pytorch
         precision_context = self.device.precision_context if not self.deepspeed_enabled else cast(
             Callable[..., ContextManager], contextlib.nullcontext)
 
@@ -849,7 +847,8 @@ class Trainer:
                 if self._eval_device_transformation_fn is not None:
                     state.batch = self._eval_device_transformation_fn(state.batch)
 
-                state.batch = (state.batch[0].half(), state.batch[1])
+                if self.deepspeed_enabled:
+                    state.batch = fix_batch_precision_for_deepspeed(state.batch, state.precision)
 
                 self.engine.run_event(Event.EVAL_BATCH_START)
 

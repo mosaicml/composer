@@ -62,6 +62,7 @@ class DeepSpeedHparams(hp.Hparams):
                 "reduce_bucket_size": self.zero2_bucket_size,
                 "overlap_comm": self.overlap_comm,
             },
+            "zero_allow_untested_optimizer": True,
         }
 
         if self.optimizer_offload:
@@ -99,7 +100,6 @@ def fix_batch_precision_for_deepspeed(batch: Batch, precision: Precision) -> Bat
     """
 
     def convert_tensor(tensor: Tensor):
-        print(tensor.dtype)
         if precision == Precision.FP16 and tensor.dtype == torch.float32:
             return tensor.half()
         return tensor
