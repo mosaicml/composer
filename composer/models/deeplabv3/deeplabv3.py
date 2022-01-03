@@ -12,7 +12,10 @@ from composer.models.base import BaseMosaicModel
 from composer.models.loss import CrossEntropyLoss, mIoU, soft_cross_entropy
 
 
-def deeplabv3_builder(num_classes: int, backbone_arch: str = 'resnet101', is_backbone_pretrained: bool = True, sync_bn: bool = True):
+def deeplabv3_builder(num_classes: int,
+                      backbone_arch: str = 'resnet101',
+                      is_backbone_pretrained: bool = True,
+                      sync_bn: bool = True):
     """Helper function to build a torchvision DeepLabV3 model with a 3x3 convolution layer and dropout removed.
 
     Args:
@@ -89,7 +92,7 @@ class MosaicDeepLabV3(BaseMosaicModel):
     def loss(self, outputs: Any, batch: Batch):
         """Calculate the specified loss for training.
         """
-        target = batch[1] # type: ignore
+        target = batch[1]  # type: ignore
         loss = soft_cross_entropy(outputs, target, ignore_index=-1)  # type: ignore
         return loss
 
@@ -103,6 +106,6 @@ class MosaicDeepLabV3(BaseMosaicModel):
         """Generate outputs used during validation.
         """
         assert self.training is False, "For validation, model must be in eval mode"
-        target = batch[1] # type: ignore
+        target = batch[1]  # type: ignore
         logits = self.forward(batch)
         return logits, target

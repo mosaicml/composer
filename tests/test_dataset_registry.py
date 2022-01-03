@@ -5,9 +5,9 @@ from typing import Callable, Dict, Type
 
 import pytest
 
-from composer.datasets import (ADE20kDatasetHparams, BratsDatasetHparams, CIFAR10DatasetHparams, DataloaderHparams, DataloaderSpec,
-                               DatasetHparams, ImagenetDatasetHparams, LMDatasetHparams, MNISTDatasetHparams,
-                               SyntheticHparamsMixin)
+from composer.datasets import (ADE20kDatasetHparams, BratsDatasetHparams, CIFAR10DatasetHparams, DataloaderHparams,
+                               DataloaderSpec, DatasetHparams, ImagenetDatasetHparams, LMDatasetHparams,
+                               MNISTDatasetHparams, SyntheticHparamsMixin)
 from composer.trainer.trainer_hparams import dataset_registry
 
 # for testing, we provide values for required hparams fields

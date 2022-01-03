@@ -18,6 +18,7 @@ from composer.datasets.synthetic import SyntheticBatchPairDataset
 from composer.utils import ddp
 from composer.utils.data import NormalizationFn, pil_image_collate
 
+
 class RandomResizePair(torch.nn.Module):
     """Resize the image and target to `base_size` scaled by a randomly sampled value.
 
@@ -295,28 +296,29 @@ class ADE20kDatasetHparams(DatasetHparams, SyntheticHparamsMixin):
             if self.split == 'train':
                 both_transforms = transforms.Compose([
                     RandomResizePair(min_scale=self.min_resize_scale,
-                                    max_scale=self.max_resize_scale,
-                                    base_size=(self.base_size, self.base_size)),
+                                     max_scale=self.max_resize_scale,
+                                     base_size=(self.base_size, self.base_size)),
                     RandomCropPair(crop_size=(self.final_size, self.final_size)),
                     RandomHFlipPair(),
                 ])
                 image_transforms = transforms.Compose([
                     PhotometricDistoration(brightness=32. / 255, contrast=0.5, saturation=0.5, hue=18. / 255),
                     PadToSize(size=(self.final_size, self.final_size),
-                            fill=(int(0.485 * 255), int(0.456 * 255), int(0.406 * 255)))
+                              fill=(int(0.485 * 255), int(0.456 * 255), int(0.406 * 255)))
                 ])
 
                 target_transforms = PadToSize(size=(self.final_size, self.final_size), fill=0)
             else:
                 both_transforms = None
                 image_transforms = transforms.Resize(size=(self.final_size, self.final_size),
-                                                    interpolation=TF.InterpolationMode.BILINEAR)
+                                                     interpolation=TF.InterpolationMode.BILINEAR)
                 target_transforms = transforms.Resize(size=(self.final_size, self.final_size),
-                                                    interpolation=TF.InterpolationMode.NEAREST)
+                                                      interpolation=TF.InterpolationMode.NEAREST)
             collate_fn = pil_image_collate
             device_transform_fn = NormalizationFn(self.ignore_background)
 
-            dataset = ADE20k(self.datadir, self.split, both_transforms, image_transforms, target_transforms)  # type: ignore
+            dataset = ADE20k(self.datadir, self.split, both_transforms, image_transforms,  # type: ignore
+                             target_transforms)
         sampler = ddp.get_sampler(dataset, drop_last=self.drop_last, shuffle=self.shuffle)
         return DataloaderSpec(dataloader=dataloader_hparams.initialize_object(dataset=dataset,
                                                                               batch_size=batch_size,

@@ -11,6 +11,7 @@ from torchvision import transforms
 
 from composer.core.types import Dataset, Tensor, Batch
 
+
 class NormalizationFn:
     """Normalizes input data and removes the background class from target data if desired.
 
@@ -47,7 +48,7 @@ class NormalizationFn:
 
 
 def pil_image_collate(batch: List[Tuple[Image.Image, Union[Image.Image, Tensor]]],
-                 memory_format: torch.memory_format = torch.contiguous_format) -> Tuple[Tensor, Tensor]:
+                      memory_format: torch.memory_format = torch.contiguous_format) -> Tuple[Tensor, Tensor]:
     """Constructs a torch tensor batch for training from samples in PIL image format.
 
     Args:
@@ -67,7 +68,7 @@ def pil_image_collate(batch: List[Tuple[Image.Image, Union[Image.Image, Tensor]]
     # Check if the targets are images
     targets = [sample[1] for sample in batch]
     if isinstance(targets[0], Image.Image):
-        target_dims = (len(targets), targets[0].size[1], targets[0].size[0]) # type: ignore
+        target_dims = (len(targets), targets[0].size[1], targets[0].size[0])  # type: ignore
     else:
         target_dims = (len(targets),)
     target_tensor = torch.zeros(target_dims, dtype=torch.int64).contiguous(memory_format=memory_format)

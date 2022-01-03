@@ -14,6 +14,8 @@ from composer.datasets.hparams import DataloaderSpec, DatasetHparams, SyntheticH
 from composer.datasets.synthetic import SyntheticBatchPairDataset
 from composer.utils import ddp
 from composer.utils.data import NormalizationFn, pil_image_collate
+
+
 @dataclass
 class ImagenetDatasetHparams(DatasetHparams, SyntheticHparamsMixin):
     """Defines an instance of the ImageNet dataset for image classification.
