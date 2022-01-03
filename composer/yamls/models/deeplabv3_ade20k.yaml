@@ -16,14 +16,14 @@ val_dataset:
     shuffle: false
 optimizer:
   decoupled_sgdw:
-    lr: 0.01
+    lr: 0.04
     momentum: 0.9
     weight_decay: 5.0e-5
     dampening: 0
     nesterov: false
 schedulers:
   cosine_decay:
-    T_max: "64ep"
+    T_max: "127ep"
     eta_min: 0
     verbose: false
     interval: step
@@ -33,11 +33,14 @@ model:
       - kaiming_normal
       - bn_uniform
     num_classes: 150
+    backbone_arch: resnet101
+    is_backbone_pretrained: true
+    sync_bn: true
 loggers:
   - tqdm: {}
-max_epochs: 64
-train_batch_size: 16
-eval_batch_size: 16
+max_epochs: 127
+train_batch_size: 128
+eval_batch_size: 32
 seed: 17
 device:
   gpu: {}
@@ -48,5 +51,6 @@ dataloader:
   persistent_workers: true
   num_workers: 8
 validate_every_n_epochs: 1
-grad_accum: 1
+grad_accum: 4
 precision: amp
+ddp_timeout: 60
