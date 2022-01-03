@@ -28,7 +28,7 @@ install_requires = [
     "torchvision>=0.9.0",
     "torch>=1.9",
     "yahp>=0.0.14",
-    "numpy>=1.21.5",
+    "numpy==1.21.5",
 ]
 extra_deps = {}
 
