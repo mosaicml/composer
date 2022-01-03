@@ -123,9 +123,12 @@ def assert_checkpoints_equivalent(hparams_file_a: str, checkpoint_file_a: str, h
     hparams_b = TrainerHparams.create(hparams_file_b, cli_args=False)
     assert isinstance(hparams_b, TrainerHparams)
 
+    assert hparams_b.load_checkpoint is not None
+    assert hparams_b.save_checkpoint is not None
     hparams_a.load_checkpoint = CheckpointLoaderHparams(filepath=hparams_b.load_checkpoint.filepath,
                                                         load_weights_only=False,
                                                         strict_model_weights=False)
+    assert hparams_a.save_checkpoint is not None
     hparams_a.save_checkpoint.folder = hparams_b.save_checkpoint.folder
 
     assert hparams_a.to_dict() == hparams_b.to_dict()
@@ -184,6 +187,7 @@ def test_load_weights(
     checkpointing_trainer_hparams.device = device_hparams
 
     checkpoint_a_folder = "first"
+    assert checkpointing_trainer_hparams.save_checkpoint is not None
     checkpointing_trainer_hparams.save_checkpoint.folder = checkpoint_a_folder
     checkpointing_trainer_hparams.save_checkpoint.interval_unit = "ep" if checkpoint_filename.startswith("ep") else "it"
     checkpointing_trainer_hparams.seed = seed
@@ -259,6 +263,7 @@ def test_checkpoint(
     checkpointing_trainer_hparams.device = device_hparams
 
     checkpoint_a_folder = "first"
+    assert checkpointing_trainer_hparams.save_checkpoint is not None
     checkpointing_trainer_hparams.save_checkpoint.folder = checkpoint_a_folder
     checkpointing_trainer_hparams.save_checkpoint.interval_unit = "ep" if checkpoint_filename.startswith("ep") else "it"
     checkpointing_trainer_hparams.seed = seed
