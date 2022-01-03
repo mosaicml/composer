@@ -116,13 +116,13 @@ class MosaicClassifier(BaseMosaicModel):
         return self.train_acc if train else MetricCollection([self.val_acc, self.val_loss])
 
     def forward(self, batch: BatchPair) -> Tensor:
-        x, y = batch
+        x, _ = batch
         logits = self.module(x)
 
         return logits
 
     def validate(self, batch: BatchPair) -> Tuple[Any, Any]:
         assert self.training is False, "For validation, model must be in eval mode"
-        inputs, targets = batch
+        _, targets = batch
         logits = self.forward(batch)
         return logits, targets

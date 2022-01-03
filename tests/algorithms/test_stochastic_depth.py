@@ -1,5 +1,7 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
+from typing import List, Optional
+
 import pytest
 import torch
 import torch.nn.functional as F
@@ -180,11 +182,13 @@ def dummy_hparams(stochastic_method, target_layer_name, drop_rate, drop_distribu
                                   use_same_gpu_seed)
 
 
-def get_drop_rate_list(module: torch.nn.Module, drop_rates=[]):
+def get_drop_rate_list(module: torch.nn.Module, drop_rates: Optional[List] = None):
+    if drop_rates is None:
+        drop_rates = []
     if (len(list(module.children())) == 0 and len(list(module.parameters())) > 0):
         return
     else:
-        for name, child in module.named_children():
+        for _, child in module.named_children():
             if hasattr(child, 'drop_rate'):
                 drop_rates.append(child.drop_rate)
             get_drop_rate_list(child, drop_rates)

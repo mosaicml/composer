@@ -33,7 +33,10 @@ class LMDatasetHparams(DatasetHparams):
     Defines a generic dataset class for autoregressive language models.
     """
 
-    datadir: List[str] = hp.optional("Path to the Huggingface Datasets directory.", default_factory=list)
+    # TODO(moin): Switch datadir to be a string, rather than a list of strings, to be similar to the
+    # other datasets
+    datadir: List[str] = hp.optional(  # type: ignore
+        "Path to the Huggingface Datasets directory.", default_factory=list)
     split: Optional[str] = hp.optional("Whether to use 'train', 'validation' or 'test' split.", default=None)
     tokenizer_name: Optional[str] = hp.optional("The name of the tokenizer to preprocess text with.", default=None)
     num_tokens: int = hp.optional(doc='If desired, the number of tokens to truncate the dataset to.', default=0)

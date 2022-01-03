@@ -21,6 +21,8 @@ from composer.core.logging import Logger as Logger
 from composer.core.precision import Precision as Precision
 from composer.core.serializable import Serializable as Serializable
 from composer.core.state import State as State
+from composer.core.time import Time as Time
+from composer.core.time import Timer as Timer
 from composer.utils.string_enum import StringEnum
 
 try:

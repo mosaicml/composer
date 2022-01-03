@@ -21,6 +21,40 @@ from composer.core.types import DataLoader, DataSpec, MemoryFormat
 from composer.datasets.dataloader import DataloaderHparams
 
 
+def _split_fn(batch: Batch, n_microbatches: int) -> List[Batch]:
+    if not isinstance(batch, Sequence):
+        raise ValueError(f'split_fn requires batch be a tuple pair of tensors, got {type(batch)}')
+    x, y = batch
+    if isinstance(x, Tensor) and isinstance(y, Tensor):
+        return list(zip(x.chunk(n_microbatches), y.chunk(n_microbatches)))
+    if isinstance(x, List) and isinstance(y, List):
+        return list(
+            zip(
+                [x[i::n_microbatches] for i in range(n_microbatches)],
+                [y[i::n_microbatches] for i in range(n_microbatches)],
+            ))
+    raise NotImplementedError('The default split_fn is unable to split the output of this'
+                              'dataloader. Please define a split_fn in your dataloader spec.')
+
+
+class DataloaderSpec(NamedTuple):
+    """Specification for initializing a dataloader when a device transformation function or split function
+    is required
+
+    Parameters:
+        dataloader (DataLoader): The initialized dataloader.
+        device_transform_fn (TDeviceTransformFn, optional):
+            A function to modify the data once it has been loaded onto the device (for example, GPU-based batch normalization)
+            This function is invoked with a batch of data after it has been moved onto the device,
+            and it is expected to return a batch.
+        split_fn (Batch, int -> List[Batch]): A function to
+            run to split batches into microbatches.
+    """
+    dataloader: DataLoader
+    device_transform_fn: Optional[TDeviceTransformFn] = None
+    split_fn: Callable[[Batch, int], List[Batch]] = _split_fn
+
+
 @dataclasses.dataclass
 class SyntheticHparamsMixin(hp.Hparams, abc.ABC):
     """Synthetic dataset parameter mixin for :class:`DatasetHparams`.
@@ -69,12 +103,12 @@ class DatasetHparams(hp.Hparams, abc.ABC, metaclass=metaclass):
     @abc.abstractmethod
     def initialize_object(self, batch_size: int, dataloader_hparams: DataloaderHparams) -> Union[DataLoader, DataSpec]:
         """Creates a :class:`DataLoader` or :class:`DataloaderSpec` for this dataset.
-        
+
         Parameters:
             batch_size (int): The size of the batch the dataloader should yield. This batch size is
                 device-specific and already incorporates the world size.
             dataloader_hparams (DataloaderHparams): The dataset-independent hparams for the dataloader
-        
+
         Returns:
             Dataloader or DataSpec: The dataloader, or if the dataloader yields batches of custom types,
             a subclass of :class:`DataSpec`.
