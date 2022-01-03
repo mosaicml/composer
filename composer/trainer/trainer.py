@@ -381,15 +381,15 @@ class Trainer:
         # Checkpoint loading hparams
         checkpoint_filepath = hparams.load_checkpoint.filepath if hparams.load_checkpoint is not None else None
         checkpoint_load_weights_only = hparams.load_checkpoint.load_weights_only \
-                                       if hparams.load_checkpoint is not None else None
+                                       if hparams.load_checkpoint is not None else False
         checkpoint_strict_model_weights = hparams.load_checkpoint.strict_model_weights \
-                                          if hparams.load_checkpoint is not None else None
+                                          if hparams.load_checkpoint is not None else False
 
         # Checkpoint saving hparams
         checkpoint_interval_unit = hparams.save_checkpoint.interval_unit \
                                    if hparams.save_checkpoint is not None else None
         checkpoint_interval = hparams.save_checkpoint.interval if hparams.save_checkpoint is not None else None
-        checkpoint_folder = hparams.save_checkpoint.folder if hparams.save_checkpoint is not None else None
+        checkpoint_folder = hparams.save_checkpoint.folder if hparams.save_checkpoint is not None else "checkpoints"
 
         trainer = cls(
             model=model,
