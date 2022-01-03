@@ -11,7 +11,6 @@ import torch.nn.modules.utils
 from torch.nn.parallel import DistributedDataParallel
 
 import composer.core.types as types
-from composer.core.data_spec import DataSpec
 from composer.core.precision import Precision
 from composer.core.serializable import Serializable
 from composer.utils import ddp, ensure_tuple
@@ -45,13 +44,7 @@ STATE_DICT_SERIALIZATION_FIELDS = [
 
 # These fields will not be serialized
 SKIP_SERIALIZATION_FIELDS = [
-    "loss",
-    "batch",
-    "outputs",
-    "train_data",
-    "eval_data",
-    "_steps_per_epoch",
-    "_precision_context",
+    "loss", "batch", "outputs", "train_dataloader", "eval_dataloader", "_steps_per_epoch", "_precision_context"
 ]
 
 
@@ -63,32 +56,30 @@ class State(Serializable):
     so that it can be used restore the trainer and continue training from a
     checkpoint. Algorithms are able to modify this object in-place.
 
-    Args:
+    Attributes:
         model (types.Model, often BaseMosaicModel): The model, typically as a subclass of :class:`BaseMosaicModel`.
         grad_accum (int): The number of gradient accumulation steps to use. The size of each microbatch is ``train_batch_size / num_gpus / grad_accum``.
-        train_data (types.DataLoader or types.DataSpec):
-            The :class:`types.DataLoader` or :class:`types.DataSpec` to used for training.
-        eval_dataloader (types.DataLoader or types.DataSpec):
-            The :class:`types.DataLoader` or :class:`types.DataSpec` to used for evaluation.
         max_epochs (int): The maximum number of epochs to train for.
-
         precision (str | Precision): The numerical precision to use for training. Should be one of ``[fp32, amp]``.
         precision_context ((precision: Precision) -> ContextManager): Function to produce a context manager to mandate precision.
+
+        epoch (int): The index of the current epoch.
+        step (int): The index of the current step/batch (measured globally).
+
+        batch (types.Batch): The most recently retrieved batch.
+        loss (types.Tensors): The most recently computed loss.
+        last_batch_size (int): The size of the batch last returned from the dataloader. This can be different from the current size of ``batch`` if algorithms have modified the ``batch``.
+        outputs (types.Tensors): The most recently computed output from the model's forward pass.
 
         optimizers (types.Optimizers): The optimizers being used to train the model. Multiple optimizers are not currently supported.
         schedulers (types.Schedulers): The learning rate schedulers, typically wrapped in :class:`ComposableScheduler`.
         scaler (torch.cuda.amp.GradScaler, optional): The gradient scaler in use for mixed precision training.
 
+        train_dataloader (types.DataLoader): The dataloader used for training.
+        eval_dataloader (types.DataLoader): The dataloader used for evaluation.
+
         algorithms (Sequence[Algorithm]): The algorithms used for training.
         callbacks (Sequence[Callback]): The callbacks used for training.
-
-    Attributes:
-        epoch (int): The index of the current epoch.
-        step (int): The index of the current step/batch (measured globally).
-        batch (types.Batch): The most recently retrieved batch.
-        last_batch_size (int): The size of the batch last returned from the dataloader. This can be different from the current size of ``batch`` if algorithms have modified the ``batch``.
-        loss (types.Tensors): The most recently computed loss.
-        outputs (types.Tensors): The most recently computed output from the model's forward pass.
     """
 
     def __init__(
@@ -98,14 +89,15 @@ class State(Serializable):
 
             # data configurations
             grad_accum: int,
-            train_data: Union[types.DataLoader, types.DataSpec],
-            eval_data: Union[types.DataLoader, types.DataSpec],
+            train_dataloader: types.DataLoader,
+            eval_dataloader: types.DataLoader,
 
             # stopping conditions
             max_epochs: int,
 
             # precision
             precision: Union[str, types.Precision],
+            steps_per_epoch: Optional[int] = None,
             precision_context: Callable[[Precision], ContextManager] = default_precision_factory(),
 
             # optimizers
@@ -121,22 +113,18 @@ class State(Serializable):
     ):
         self.model = model
         self.grad_accum = grad_accum
-        if not isinstance(train_data, DataSpec):
-            train_data = DataSpec(train_data)
-        self.train_data = train_data
-        if not isinstance(eval_data, DataSpec):
-            eval_data = DataSpec(eval_data)
-        self.eval_data = eval_data
+        self.train_dataloader = train_dataloader
+        self.eval_dataloader = eval_dataloader
+        self.last_batch_size = 0
         self.max_epochs = max_epochs
         self.step = 0
         self.epoch = 0
         self._precision = Precision(precision)
-        self._steps_per_epoch = None
+        self._steps_per_epoch = steps_per_epoch
         self._precision_context = precision_context
 
-        self.batch: types.Batch = {}
-        self.last_batch_size = 0
         self.loss: types.Tensors = torch.zeros(size=(1,))
+        self.batch: types.Batch = {}
         self.outputs: types.Tensors = torch.zeros(size=(1,))
 
         if optimizers is None:
@@ -152,22 +140,6 @@ class State(Serializable):
         self.scaler = scaler
         self._algorithms = list(algorithms)
         self._callbacks = list(callbacks)
-
-    @property
-    def train_dataloader(self):
-        return self.train_data.dataloader
-
-    @train_dataloader.setter
-    def train_dataloader(self, dataloader: types.DataLoader):
-        self.train_data = DataSpec(dataloader)
-
-    @property
-    def eval_dataloader(self):
-        return self.eval_data.dataloader
-
-    @eval_dataloader.setter
-    def eval_dataloader(self, dataloader: types.DataLoader):
-        self.eval_data = DataSpec(dataloader)
 
     @property
     def optimizers(self):
@@ -204,16 +176,16 @@ class State(Serializable):
     @property
     def train_batch_size(self):
         """The global batch size used for training."""
-        if self.train_data.dataloader.batch_size is None:
+        if self.train_dataloader.batch_size is None:
             raise RuntimeError("train dataloader batch size is undefined")
-        return self.train_data.dataloader.batch_size * ddp.get_world_size()
+        return self.train_dataloader.batch_size * ddp.get_world_size()
 
     @property
     def eval_batch_size(self):
         """The batch size used for evaluation."""
-        if self.eval_data.dataloader.batch_size is None:
+        if self.eval_dataloader.batch_size is None:
             raise RuntimeError("eval dataloader batch size is undefined")
-        return self.eval_data.dataloader.batch_size * ddp.get_world_size()
+        return self.eval_dataloader.batch_size * ddp.get_world_size()
 
     def state_dict(self) -> types.StateDict:
         """Returns the state as a :class:`dict`."""
@@ -298,7 +270,7 @@ class State(Serializable):
     def steps_per_epoch(self):
         """int: The maximum number of steps (batches) per epoch."""
         if self._steps_per_epoch is None:
-            return len(self.train_data.dataloader)
+            return len(self.train_dataloader)
         return self._steps_per_epoch
 
     @steps_per_epoch.setter

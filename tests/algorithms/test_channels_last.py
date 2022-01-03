@@ -37,8 +37,8 @@ def state(simple_conv_model: Model, dummy_train_dataloader: DataLoader, dummy_va
         precision=Precision.FP32,
         grad_accum=1,
         max_epochs=10,
-        train_data=dummy_train_dataloader,
-        eval_data=dummy_val_dataloader,
+        train_dataloader=dummy_train_dataloader,
+        eval_dataloader=dummy_val_dataloader,
     )
 
 

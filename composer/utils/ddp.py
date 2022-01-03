@@ -6,7 +6,7 @@ import datetime
 import os
 import warnings
 from contextlib import contextmanager, nullcontext
-from typing import TYPE_CHECKING, Any, Callable, ContextManager, List, Optional, Sequence, TypeVar, Union, cast
+from typing import TYPE_CHECKING, Callable, ContextManager, List, Optional, Sequence, TypeVar, Union, cast
 
 import torch
 import torch.distributed as dist

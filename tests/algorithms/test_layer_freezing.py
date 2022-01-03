@@ -20,8 +20,8 @@ def _generate_state(epoch: int, max_epochs: int, model: Model, train_dataloader:
         model=model,
         optimizers=(torch.optim.SGD(model.parameters(), lr=0.01, momentum=0.99),),
         precision=Precision.FP32,
-        train_data=train_dataloader,
-        eval_data=val_dataloader,
+        train_dataloader=train_dataloader,
+        eval_dataloader=val_dataloader,
     )
     state.epoch = epoch
     state.step = epoch

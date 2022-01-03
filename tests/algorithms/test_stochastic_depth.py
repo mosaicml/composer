@@ -11,8 +11,9 @@ from composer.algorithms.stochastic_depth.sample_stochastic_layers import Sample
 from composer.algorithms.stochastic_depth.stochastic_depth import STOCHASTIC_LAYER_MAPPING
 from composer.algorithms.stochastic_depth.stochastic_layers import StochasticBottleneck, _sample_bernoulli
 from composer.core import Event, Logger, State, surgery
-from composer.core.types import DataSpec, Precision
+from composer.core.types import Precision
 from composer.datasets.dataloader import DataloaderHparams
+from composer.datasets.hparams import DataloaderSpec
 from composer.datasets.imagenet import ImagenetDatasetHparams
 from composer.loggers import Logger
 from composer.models import ResNet50Hparams
@@ -29,13 +30,13 @@ def dummy_state(dummy_dataloader_hparams: DataloaderHparams):
         crop_size=224,
     )
     train_dataloader = dataset_hparams.initialize_object(batch_size=100, dataloader_hparams=dummy_dataloader_hparams)
-    if isinstance(train_dataloader, DataSpec):
+    if isinstance(train_dataloader, DataloaderSpec):
         train_dataloader = train_dataloader.dataloader
-    state = State(train_data=train_dataloader,
+    state = State(train_dataloader=train_dataloader,
                   grad_accum=1,
                   max_epochs=100,
                   model=model,
-                  eval_data=train_dataloader,
+                  eval_dataloader=train_dataloader,
                   precision=Precision.FP32)
     state.epoch = 50
     state.step = 50

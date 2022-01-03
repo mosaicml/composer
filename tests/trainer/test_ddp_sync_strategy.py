@@ -54,8 +54,8 @@ def test_ddp_sync_strategy(ddp_sync_strategy: str, expected_grads: List[Optional
                   optimizers=optimizer,
                   grad_accum=2,
                   max_epochs=1,
-                  train_data=dummy_train_dataloader,
-                  eval_data=dummy_val_dataloader,
+                  train_dataloader=dummy_train_dataloader,
+                  eval_dataloader=dummy_val_dataloader,
                   precision='fp32')
 
     batches = [[(1, Tensor([1])), (1, Tensor([2]))], [(2, Tensor([1])), (2, Tensor([2]))]]

@@ -5,7 +5,7 @@ from __future__ import annotations
 import abc
 import dataclasses
 import textwrap
-from typing import Optional, Union
+from typing import Callable, List, NamedTuple, Optional, Sequence, Union
 
 try:
     import custom_inherit
@@ -17,7 +17,7 @@ else:
 
 import yahp as hp
 
-from composer.core.types import DataLoader, DataSpec, MemoryFormat
+from composer.core.types import Batch, DataLoader, MemoryFormat, TDeviceTransformFn, Tensor
 from composer.datasets.dataloader import DataloaderHparams
 
 
@@ -101,7 +101,8 @@ class DatasetHparams(hp.Hparams, abc.ABC, metaclass=metaclass):
     datadir: Optional[str] = hp.optional("The path to the data directory", default=None)
 
     @abc.abstractmethod
-    def initialize_object(self, batch_size: int, dataloader_hparams: DataloaderHparams) -> Union[DataLoader, DataSpec]:
+    def initialize_object(self, batch_size: int,
+                          dataloader_hparams: DataloaderHparams) -> Union[DataLoader, DataloaderSpec]:
         """Creates a :class:`DataLoader` or :class:`DataloaderSpec` for this dataset.
 
         Parameters:
@@ -110,7 +111,7 @@ class DatasetHparams(hp.Hparams, abc.ABC, metaclass=metaclass):
             dataloader_hparams (DataloaderHparams): The dataset-independent hparams for the dataloader
 
         Returns:
-            Dataloader or DataSpec: The dataloader, or if the dataloader yields batches of custom types,
-            a subclass of :class:`DataSpec`.
+            Dataloader or DataloaderSpec: The dataloader, or if a custom device transformation
+                or split function is required, a :class:`DataloaderSpec` tuple
         """
         pass
