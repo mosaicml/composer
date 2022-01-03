@@ -52,7 +52,7 @@ class Engine():
                  state: State,
                  algorithms: Sequence[Algorithm],
                  logger: Optional[Logger] = None,
-                 callbacks: Sequence[Callback] = None):
+                 callbacks: Sequence[Callback] = tuple()):
         if logger is None:
             log.warning("No logger passed to the engine.  Defaulting to an empty logger")
             logger = Logger(state=state, backends=[])

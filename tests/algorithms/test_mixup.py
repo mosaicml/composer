@@ -49,7 +49,7 @@ class TestMixUp:
         interpolation_lambda = gen_interpolation_lambda(alpha)
 
         # Apply mixup
-        x_mix, y_mix, _ = mixup_batch(
+        x_mix, _, _ = mixup_batch(
             x=x_fake,
             y=y_fake,
             interpolation_lambda=interpolation_lambda,

@@ -31,6 +31,7 @@ class CheckpointLoader:
         self.state_dict = torch.load(checkpoint_filepath, map_location='cpu')
         self.load_weights_only = load_weights_only
         self.strict_model_weights = strict_model_weights
+        self.checkpoint_rng_state = None
 
     def load_checkpoint(self, state: State):
         """Initialize state from the loaded checkpoint's data.

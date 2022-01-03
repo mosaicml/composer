@@ -92,7 +92,8 @@ def apply_alibi(model: torch.nn.Module, heads_per_layer: int, max_sequence_lengt
                                                new_embedding_length=max_sequence_length)
     log.info(f" Position embedding expanded to sequence length {max_sequence_length}, zeroed, and frozen")
 
-    def convert_attention(module: torch.nn.Module, module_index: int = None):
+    def convert_attention(module: torch.nn.Module, module_index: Optional[int] = None):
+        del module_index  # unused
         module = register_alibi(module=module, n_heads=heads_per_layer, max_token_length=max_sequence_length)
         setattr(module, attr_to_replace, MethodType(alibi_attention, module))
         if mask_replacement_function:
