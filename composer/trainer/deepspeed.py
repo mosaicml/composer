@@ -62,6 +62,11 @@ class DeepSpeedHparams(hp.Hparams):
                 "reduce_bucket_size": self.zero2_bucket_size,
                 "overlap_comm": self.overlap_comm,
             },
+
+            # Without this, DeepSpeed throws errors when ZeRO is used in combination with
+            # non-standard optimizers. Most likely, this will trigger when one of the decoupled
+            # weight decay optimizers is used, but it has been verified that those optimizers work
+            # in combination with DeepSpeed.
             "zero_allow_untested_optimizer": True,
         }
 
