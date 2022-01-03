@@ -43,7 +43,7 @@ class CheckpointLoader:
         """
 
         if self.load_weights_only:
-            state.load_model_state(self.state_dict, strict=self.strict_model_weights)
+            state.load_model_state(self.state_dict['state'], strict=self.strict_model_weights)
         else:
             state.load_state_dict(self.state_dict["state"])
         self.checkpoint_rng_state = self._get_checkpoint_rng_state(state, self.state_dict["rng"])

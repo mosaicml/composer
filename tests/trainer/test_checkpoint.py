@@ -15,6 +15,9 @@ from composer.core.callback import Callback
 from composer.core.event import Event
 from composer.core.state import State
 from composer.core.types import Logger, StateDict
+from composer.optim import AdamWHparams
+from composer.optim.scheduler import ConstantLRHparams, CosineAnnealingLRHparams
+from composer.trainer.checkpoint_hparams import CheckpointLoaderHparams, CheckpointSaverHparams
 from composer.trainer.devices import CPUDeviceHparams, DeviceHparams, GPUDeviceHparams
 from composer.trainer.trainer import Trainer
 from composer.trainer.trainer_hparams import TrainerHparams, callback_registry
@@ -74,13 +77,40 @@ class EventCounterCallbackHparams(CallbackHparams):
 
 @pytest.fixture
 def checkpointing_trainer_hparams(mosaic_trainer_hparams: TrainerHparams) -> TrainerHparams:
+    checkpointing_interval_unit = "it"
+    checkpointing_interval = 1
+    checkpointing_folder = "checkpoints"
+
+    checkpoint_saver = CheckpointSaverHparams(interval_unit=checkpointing_interval_unit,
+                                              interval=checkpointing_interval,
+                                              folder=checkpointing_folder)
     mosaic_trainer_hparams.grad_accum = 2
-    mosaic_trainer_hparams.checkpoint_interval = 1
     mosaic_trainer_hparams.max_epochs = 2
+    mosaic_trainer_hparams.save_checkpoint = checkpoint_saver
     mosaic_trainer_hparams.callbacks.append(DummyStatefulCallbackHparams())
     mosaic_trainer_hparams.callbacks.append(EventCounterCallbackHparams())
     mosaic_trainer_hparams.train_subset_num_batches = 5
     return mosaic_trainer_hparams
+
+
+def assert_weights_equivalent(original_trainer_hparams, new_trainer_hparams) -> None:
+    """
+    Strategy: get the weights from a new trainer
+    Then assert that they are equivalent to the weights from the original model.
+    """
+
+    # load_weights_only is False since the original Trainer is testing full checkpoint recovery
+    original_trainer_hparams.load_checkpoint = CheckpointLoaderHparams(
+        filepath=new_trainer_hparams.load_checkpoint.filepath, load_weights_only=False, strict_model_weights=False)
+
+    original_trainer = Trainer.create_from_hparams(original_trainer_hparams)
+    original_weights = original_trainer.state.model.parameters()
+
+    new_trainer = Trainer.create_from_hparams(new_trainer_hparams)
+    recovered_weights = new_trainer.state.model.parameters()
+
+    for p1, p2 in zip(original_weights, recovered_weights):
+        assert (p1.data.ne(p2.data).sum() == 0)
 
 
 def assert_checkpoints_equivalent(hparams_file_a: str, checkpoint_file_a: str, hparams_file_b: str,
@@ -93,13 +123,15 @@ def assert_checkpoints_equivalent(hparams_file_a: str, checkpoint_file_a: str, h
     hparams_b = TrainerHparams.create(hparams_file_b, cli_args=False)
     assert isinstance(hparams_b, TrainerHparams)
 
-    hparams_a.checkpoint_filepath = hparams_b.checkpoint_filepath
-    hparams_a.checkpoint_folder = hparams_b.checkpoint_folder
+    hparams_a.load_checkpoint = CheckpointLoaderHparams(filepath=hparams_b.load_checkpoint.filepath,
+                                                        load_weights_only=False,
+                                                        strict_model_weights=False)
+    hparams_a.save_checkpoint.folder = hparams_b.save_checkpoint.folder
 
     assert hparams_a.to_dict() == hparams_b.to_dict()
 
-    hparams_a.checkpoint_filepath = checkpoint_file_a
-    hparams_b.checkpoint_filepath = checkpoint_file_b
+    hparams_a.load_checkpoint.filepath = checkpoint_file_a
+    hparams_b.load_checkpoint.filepath = checkpoint_file_b
 
     trainer_a = Trainer.create_from_hparams(hparams=hparams_a)
     state_a = trainer_a.state
@@ -116,6 +148,81 @@ def assert_checkpoints_equivalent(hparams_file_a: str, checkpoint_file_a: str, h
 def inject_stateful_callback_hparams(monkeypatch: MonkeyPatch):
     monkeypatch.setitem(callback_registry, "dummy", DummyStatefulCallbackHparams)
     monkeypatch.setitem(callback_registry, "event_counter", EventCounterCallbackHparams)
+
+
+@pytest.mark.timeout(90)
+@pytest.mark.parametrize("world_size", [
+    pytest.param(1),
+    pytest.param(2, marks=pytest.mark.world_size(2)),
+])
+@pytest.mark.parametrize("device_hparams", [
+    pytest.param(CPUDeviceHparams(), id="cpu"),
+    pytest.param(GPUDeviceHparams(), id="gpu", marks=pytest.mark.gpu),
+])
+@pytest.mark.parametrize("checkpoint_filename", ["ep1", "it4", "it1", "it6"])
+@pytest.mark.parametrize("seed", [None, 42])
+@pytest.mark.parametrize("validate_every_n_batches,validate_every_n_epochs", [
+    (0, 1),
+    (1, 0),
+])
+def test_load_weights(
+    device_hparams: DeviceHparams,
+    world_size: int,
+    checkpointing_trainer_hparams: TrainerHparams,
+    checkpoint_filename: str,
+    seed: Optional[int],
+    validate_every_n_batches: int,
+    validate_every_n_epochs: int,
+):
+    """strategy:
+    - train two epochs. capture checkpoints after `checkpoint_interval` and ep2.
+    - create a new trainer from the `checkpoint_interval` checkpoint, but with a new optimizer and scheduler.
+    - assert that the model weights are the original model, even though the optimizer and scheduler are different.
+    """
+    del world_size  # unused. Read via env variable
+
+    checkpointing_trainer_hparams.device = device_hparams
+
+    checkpoint_a_folder = "first"
+    checkpointing_trainer_hparams.save_checkpoint.folder = checkpoint_a_folder
+    checkpointing_trainer_hparams.save_checkpoint.interval_unit = "ep" if checkpoint_filename.startswith("ep") else "it"
+    checkpointing_trainer_hparams.seed = seed
+    checkpointing_trainer_hparams.validate_every_n_batches = validate_every_n_batches
+    checkpointing_trainer_hparams.validate_every_n_epochs = validate_every_n_epochs
+    final_checkpoint = "ep2.pt" if checkpoint_filename.startswith("ep") else "it8.pt"
+    _test_checkpoint_trainer(checkpointing_trainer_hparams)
+    print(checkpointing_trainer_hparams.schedulers)
+
+    trainer_1_hparams_filepath = run_directory.get_relative_to_run_directory(checkpoint_a_folder, "hparams.yaml")
+
+    # re-create the trainer from the YAML
+    second_trainer_hparams = TrainerHparams.create(trainer_1_hparams_filepath, cli_args=False)
+
+    checkpoint_a_file_path = run_directory.get_relative_to_run_directory(checkpoint_a_folder, final_checkpoint)
+
+    # load only model weights
+    second_trainer_hparams.load_checkpoint = CheckpointLoaderHparams(filepath=checkpoint_a_file_path,
+                                                                     load_weights_only=True,
+                                                                     strict_model_weights=True)
+    # setup a new optimizer
+    second_trainer_hparams.optimizer = AdamWHparams()
+
+    # setup a new LR scheduler
+    scheduler_options = [ConstantLRHparams(), CosineAnnealingLRHparams(T_max=second_trainer_hparams.max_epochs)]
+    second_trainer_hparams.schedulers = [random.choice(scheduler_options)]
+
+    # ensure our new choice of scheduler is different than the original scheduler
+    for idx in range(len(second_trainer_hparams.schedulers)):
+        if idx < len(checkpointing_trainer_hparams.schedulers):
+            assert second_trainer_hparams.schedulers[idx] != checkpointing_trainer_hparams.schedulers[idx]
+
+    if ddp.get_global_rank() == 0:
+
+        # pass in the two trainers, verify that the weights are the same
+        assert_weights_equivalent(
+            original_trainer_hparams=checkpointing_trainer_hparams,
+            new_trainer_hparams=second_trainer_hparams,
+        )
 
 
 @pytest.mark.timeout(90)
@@ -152,8 +259,8 @@ def test_checkpoint(
     checkpointing_trainer_hparams.device = device_hparams
 
     checkpoint_a_folder = "first"
-    checkpointing_trainer_hparams.checkpoint_folder = checkpoint_a_folder
-    checkpointing_trainer_hparams.checkpoint_interval_unit = "ep" if checkpoint_filename.startswith("ep") else "it"
+    checkpointing_trainer_hparams.save_checkpoint.folder = checkpoint_a_folder
+    checkpointing_trainer_hparams.save_checkpoint.interval_unit = "ep" if checkpoint_filename.startswith("ep") else "it"
     checkpointing_trainer_hparams.seed = seed
     checkpointing_trainer_hparams.validate_every_n_batches = validate_every_n_batches
     checkpointing_trainer_hparams.validate_every_n_epochs = validate_every_n_epochs
@@ -165,8 +272,12 @@ def test_checkpoint(
 
     second_trainer_hparams = TrainerHparams.create(trainer_1_hparams_filepath, cli_args=False)
     checkpoint_b_folder = "second"
-    second_trainer_hparams.checkpoint_folder = checkpoint_b_folder
-    second_trainer_hparams.checkpoint_filepath = run_directory.get_relative_to_run_directory(checkpoint_a_file_path)
+    second_trainer_hparams.save_checkpoint.folder = checkpoint_b_folder
+    second_trainer_filepath = run_directory.get_relative_to_run_directory(checkpoint_a_file_path)
+    second_trainer_hparams.load_checkpoint = CheckpointLoaderHparams(filepath=second_trainer_filepath,
+                                                                     load_weights_only=False,
+                                                                     strict_model_weights=False)
+
     _test_checkpoint_trainer(second_trainer_hparams)
 
     checkpoint_c_file_path = run_directory.get_relative_to_run_directory(checkpoint_b_folder, final_checkpoint)

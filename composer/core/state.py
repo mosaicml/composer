@@ -221,10 +221,10 @@ class State(Serializable):
             state_dict (types.StateDict): object returned from call to :meth:`state_dict`.
             strict (bool): whether the keys in the state_dict should perfectly match the keys in the model.
         """
-        if state_dict['state']["_is_model_ddp_wrapped"] and not isinstance(self.model, DistributedDataParallel):
-            torch.nn.modules.utils.consume_prefix_in_state_dict_if_present(state_dict['state']['model'], "module.")
+        if state_dict["_is_model_ddp_wrapped"] and not isinstance(self.model, DistributedDataParallel):
+            torch.nn.modules.utils.consume_prefix_in_state_dict_if_present(state_dict['model'], "module.")
 
-            missing_keys, unexpected_keys = self.model.load_state_dict(state_dict['state']['model'], strict=strict)
+            missing_keys, unexpected_keys = self.model.load_state_dict(state_dict['model'], strict=strict)
             if len(missing_keys) > 0:
                 logger.warning(f"Found these missing keys in the checkpoint: {', '.join(missing_keys)}")
             if len(unexpected_keys) > 0:
@@ -246,7 +246,7 @@ class State(Serializable):
                 serialized_value = state[state_field_name]
 
                 if state_field_name == "model":
-                    self.load_model_state(serialized_value, strict=strict)
+                    self.load_model_state(state, strict=strict)
                 else:
                     for target in ensure_tuple(state_field_value):
                         if target is None:
