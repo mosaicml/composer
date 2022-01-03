@@ -2,7 +2,7 @@ import logging
 import tempfile
 from dataclasses import dataclass
 from os.path import join
-from typing import List, Optional
+from typing import List
 
 import yahp as hp
 

@@ -6,7 +6,6 @@ from typing import TYPE_CHECKING
 import yahp as hp
 
 from composer.models.transformer_hparams import TransformerHparams
-from composer.utils.string_enum import StringEnum
 
 if TYPE_CHECKING:
     from composer.models.transformer_shared import MosaicTransformer

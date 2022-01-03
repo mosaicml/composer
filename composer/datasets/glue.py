@@ -2,10 +2,7 @@ import logging
 from dataclasses import dataclass
 from multiprocessing import cpu_count
 
-import numpy as np
-import transformers
 import yahp as hp
-from tqdm import tqdm
 
 from composer.datasets.dataloader import DataloaderHparams
 from composer.datasets.hparams import DataloaderSpec, DatasetHparams
