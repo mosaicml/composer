@@ -100,8 +100,8 @@ class Trainer:
             match the model weights.
         checkpoint_folder (str): The path to store checkpoints in.
         checkpoint_interval (int): The amount of time units to wait between creating checkpoints.
-        checkpoint_interval_unit (str): The unit (`"ep"` or `"it"`) that
-            `checkpoint_interval` should be measured in.
+        checkpoint_interval_unit (str, optional): The unit (`"ep"` or `"it"`) that
+            `checkpoint_interval` should be measured in. Set to ``None`` disables checkpointing. (default: ``None``)
         train_subset_num_batches (int, optional): If specified, finish every epoch early after training
             on this many batches. This parameter has no effect if it is greater than ``len(train_dataloader)``.
             If None (the default), then the entire dataloader will be iterated over.
