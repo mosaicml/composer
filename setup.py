@@ -2,12 +2,13 @@
 
 import os
 import sys
+import textwrap
 
 import setuptools
 from setuptools import setup
 
 
-def package_files(directory):
+def package_files(directory: str):
     # from https://stackoverflow.com/a/36693250
     paths = []
     for (path, _, filenames) in os.walk(directory):
@@ -107,9 +108,8 @@ setup(
 # only visible if user installs with verbose -v flag
 # Printing to stdout as not to interfere with setup.py CLI flags (e.g. --version)
 print("*" * 20, file=sys.stderr)
-print(
-    "\nNOTE: For best performance, we recommend installing Pillow-SIMD "
-    "\nfor accelerated image processing operations. To install:"
-    "\n\n\t pip uninstall pillow && pip install pillow-simd\n",
-    file=sys.stderr)
+print(textwrap.dedent("""NOTE: For best performance, we recommend installing Pillow-SIMD
+    for accelerated image processing operations. To install:
+    \t pip uninstall pillow && pip install pillow-simd"""),
+      file=sys.stderr)
 print("*" * 20, file=sys.stderr)
