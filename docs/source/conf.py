@@ -37,6 +37,7 @@ extensions = [
     'sphinxcontrib.katex',
     "sphinx.ext.viewcode",
     "sphinx.ext.intersphinx",
+    'sphinxemoji.sphinxemoji',
     "sphinxext.opengraph",
     "sphinx_copybutton",
     "sphinx_rtd_theme",

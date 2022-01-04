@@ -71,7 +71,7 @@ class SyntheticHparamsMixin(hp.Hparams, abc.ABC):
             Ignored if :attr:`use_synthetic` is False. (Default: ``CONTIGUOUS_FORMAT``)
     """
 
-    use_synthetic: bool = hp.optional("Whether to use synthetic data. Defaults to False." "", default=False)
+    use_synthetic: bool = hp.optional("Whether to use synthetic data. Defaults to False.", default=False)
     synthetic_num_unique_samples: int = hp.optional("The number of unique samples to allocate memory for.", default=100)
     synthetic_device: str = hp.optional("Device to store the sample pool. Should be `cuda` or `cpu`. Defauls to `cpu`.",
                                         default="cpu")

@@ -145,55 +145,63 @@ def launch_processes(nproc: int, world_size: int, base_rank: int, master_addr: s
 
 def monitor_processes(processes: Set[subprocess.Popen]):
     while len(processes) > 0:
+        process_has_crashed = False
         for process in processes:
             if process.poll() is None:
                 # the process is still running
                 continue
             else:
                 # return code of 0 implies clean exit
-                # return code of -9 implies sigkill, presumably from cleanup_processes()
-                if process.returncode not in (0, -9):
-                    if process.stdout is None:
-                        output = None
-                    else:
-                        output = process.stdout.read()
-
-                    if process.stderr is None:
-                        stderr = None
-                    else:
-                        stderr = process.stderr.read()
-                    exc = subprocess.CalledProcessError(
-                        process.returncode,
-                        cmd=process.args,
-                        output=output,
-                        stderr=stderr,
-                    )
-                    error_msg = [f"Process {process.pid} excited with code {process.returncode}"]
-                    if output is not None:
-                        error_msg.extend([
-                            "----------Begin subprocess STDOUT----------",
-                            output,
-                            "----------End subprocess STDOUT----------",
-                        ])
-                    if stderr is not None:
-                        error_msg.extend([
-                            "----------Begin subprocess STDERR----------",
-                            exc.stderr,
-                            "----------End subprocess STDERR----------",
-                        ])
-                    print("\n".join(error_msg))
-                    sys.exit(process.returncode)
+                if process.returncode != 0:
+                    process_has_crashed = True
+                    break
                 else:
                     # exited cleanly
                     processes.remove(process)
                     break
+        if process_has_crashed:
+            break
         time.sleep(1)
 
 
+def print_process_exit_status(process: subprocess.Popen):
+    if process.stdout is None:
+        output = None
+    else:
+        output = process.stdout.read()
+
+    if process.stderr is None:
+        stderr = None
+    else:
+        stderr = process.stderr.read()
+    exc = subprocess.CalledProcessError(
+        process.returncode,
+        cmd=process.args,
+        output=output,
+        stderr=stderr,
+    )
+    error_msg = [f"Process {process.pid} excited with code {process.returncode}"]
+    if output is not None:
+        error_msg.extend([
+            "----------Begin subprocess STDOUT----------",
+            output,
+            "----------End subprocess STDOUT----------",
+        ])
+    if stderr is not None:
+        error_msg.extend([
+            "----------Begin subprocess STDERR----------",
+            exc.stderr,
+            "----------End subprocess STDERR----------",
+        ])
+    print("\n".join(error_msg))
+
+
 def cleanup_processes(processes: Set[subprocess.Popen]):
+    living_processes_at_end = set()
     for process in processes:
         process.poll()
         if process.returncode is None:
+            living_processes_at_end.add(process)
             log.info("Killing subprocess %s with SIGTERM", process.pid)
             try:
                 os.killpg(process.pid, signal.SIGTERM)
@@ -212,20 +220,27 @@ def cleanup_processes(processes: Set[subprocess.Popen]):
     for process in processes:
         process.poll()
         if process.returncode is None:
-            log.warn("Failed to kill subprocess %s with SIGTERM; using SIGKILL instead", process.pid)
+            log.warning("Failed to kill subprocess %s with SIGTERM; using SIGKILL instead", process.pid)
             try:
                 os.killpg(process.pid, signal.SIGKILL)
             except ProcessLookupError:
                 pass
+    for process in processes:
+        process.poll()
+        if process.returncode != 0 and process not in living_processes_at_end:
+            # only print the processes that have actually crashed,
+            # not the ones we killed
+            print_process_exit_status(process)
 
 
 def aggregate_process_returncode(processes: Set[subprocess.Popen]) -> int:
     for process in processes:
         process.poll()
         if process.returncode is None:
-            log.warn("Subprocess %s has still not exited; return exit code 1.", process.pid)
+            log.error("Subprocess %s has still not exited; return exit code 1.", process.pid)
             return 1
         if process.returncode != 0:
+            log.error("Subprocess %s exited with code %s", process.pid, process.returncode)
             return process.returncode
 
     return 0

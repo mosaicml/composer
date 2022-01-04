@@ -75,7 +75,7 @@ def assert_state_equivalent(state1: State, state2: State):
 
 
 def train_one_step(state: State, batch: types.Batch) -> None:
-    x, y = batch
+    _, y = batch
     state.batch = batch
 
     state.outputs = state.model(state.batch_pair)
