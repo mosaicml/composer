@@ -22,8 +22,9 @@ from composer.core.types import Precision
 from composer.datasets import DataloaderHparams
 from composer.loggers import (BaseLoggerBackendHparams, FileLoggerBackendHparams, MosaicMLLoggerBackendHparams,
                               TQDMLoggerBackendHparams, WandBLoggerBackendHparams)
-from composer.models import (CIFARResNetHparams, EfficientNetB0Hparams, GPT2Hparams, MnistClassifierHparams,
-                             ModelHparams, ResNet18Hparams, ResNet50Hparams, ResNet101Hparams, UnetHparams)
+from composer.models import (CIFARResNet9Hparams, CIFARResNetHparams, EfficientNetB0Hparams, GPT2Hparams,
+                             MnistClassifierHparams, ModelHparams, ResNet18Hparams, ResNet50Hparams, ResNet101Hparams,
+                             UnetHparams)
 from composer.optim import (AdamHparams, AdamWHparams, DecoupledAdamWHparams, DecoupledSGDWHparams, OptimizerHparams,
                             RAdamHparams, RMSPropHparams, SchedulerHparams, SGDHparams, scheduler)
 from composer.trainer.checkpoint_hparams import CheckpointLoaderHparams, CheckpointSaverHparams
@@ -59,6 +60,7 @@ model_registry = {
     "unet": UnetHparams,
     "efficientnetb0": EfficientNetB0Hparams,
     "resnet56_cifar10": CIFARResNetHparams,
+    "resnet9_cifar10": CIFARResNet9Hparams,
     "resnet101": ResNet101Hparams,
     "resnet50": ResNet50Hparams,
     "resnet18": ResNet18Hparams,
