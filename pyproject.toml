@@ -49,7 +49,7 @@ reportUnusedCoroutine = "error"
 
 # Pytest
 [tool.pytest.ini_options]
-addopts = "--strict-markers -m 'not daily_regression and not weekly_regression and not gpu'"
+addopts = "--strict-markers -m 'not daily_regression and not weekly_regression and not gpu and not deepspeed'"
 
 # by default, tests should be fast.
 # for slower tests, use @pytest.mark.timeout with a higher timeout (specified in seconds)
@@ -63,6 +63,8 @@ markers = [
     # Specify -m daily_regression to run daily_regression tests
     "weekly_regression",
     # Specify -m weekly_regression to run weekly_regression tests.
+    "deepspeed",
+    # Whether the test needs to initialize the DeepSpeed engine.
 ]
 filterwarnings = [
     # "error",  # warnings should be treated like errors, but still need to fix some warnings

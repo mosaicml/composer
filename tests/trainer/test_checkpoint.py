@@ -17,6 +17,7 @@ from composer.core.precision import Precision
 from composer.core.state import State
 from composer.core.types import Logger, StateDict
 from composer.datasets import SyntheticHparamsMixin
+from composer.trainer.deepspeed import DeepSpeedHparams
 from composer.trainer.devices import CPUDeviceHparams, DeviceHparams, GPUDeviceHparams
 from composer.trainer.trainer import Trainer
 from composer.trainer.trainer_hparams import TrainerHparams, callback_registry
@@ -267,6 +268,7 @@ def validate_events_called_expected_number_of_times(trainer: Trainer):
     pytest.param(2, marks=pytest.mark.world_size(2)),
 ])
 @pytest.mark.gpu
+@pytest.mark.deepspeed
 @pytest.mark.parametrize("checkpoint_filename", ["ep1", "it4", "it1", "it6"])
 @pytest.mark.parametrize("seed", [None, 42])
 @pytest.mark.parametrize("validate_every_n_batches,validate_every_n_epochs", [
@@ -305,10 +307,10 @@ def test_checkpoint_deepspeed(
     mosaic_trainer_hparams.train_subset_num_batches = 5
     mosaic_trainer_hparams.device = GPUDeviceHparams()
 
-    mosaic_trainer_hparams.deepspeed = {
-        "enabled": True,
-        "zero_stage": zero_stage,
-    }
+    mosaic_trainer_hparams.deepspeed = DeepSpeedHparams(
+        enabled=True,
+        zero_stage=zero_stage,
+    )
 
     checkpoint_a_folder = "first"
     mosaic_trainer_hparams.checkpoint_folder = checkpoint_a_folder
