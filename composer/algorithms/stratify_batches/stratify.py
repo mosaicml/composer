@@ -24,6 +24,7 @@ class StratifyBatchesHparams(AlgorithmHparams):
                                               'providing class labels.',
                                               default=None)
     lr_multiplier: float = hp.optional(doc="TODO", default=1.0)
+    imbalance: float = hp.optional(doc="TODO", default=0.5)
 
     def initialize_object(self) -> "StratifyBatches":
         return StratifyBatches(**asdict(self))
@@ -31,10 +32,15 @@ class StratifyBatchesHparams(AlgorithmHparams):
 
 class StratifyBatches(Algorithm):
 
-    def __init__(self, stratify_how: str = 'match', targets_attr: Optional[str] = None, lr_multiplier: float = 1.0):
+    def __init__(self,
+                 stratify_how: str = 'match',
+                 targets_attr: Optional[str] = None,
+                 lr_multiplier: float = 1.0,
+                 imbalance: float = 0.5):
         self.stratify_how = stratify_how
         self.targets_attr = targets_attr
         self.lr_multiplier = lr_multiplier
+        self.imbalance = imbalance
 
     def match(self, event: Event, state: State) -> bool:
         """Apply on Event.AFTER_HPARAMS"""
@@ -55,7 +61,10 @@ class StratifyBatches(Algorithm):
 
         def make_sampler(*args, split: str, **kwargs):
             if split.lower() == 'train':
-                return StratifiedBatchSampler(stratify_how=self.stratify_how, targets_attr=self.targets_attr, **kwargs)
+                return StratifiedBatchSampler(stratify_how=self.stratify_how,
+                                              targets_attr=self.targets_attr,
+                                              imbalance=self.imbalance,
+                                              **kwargs)
             return None  # default sampler for other splits
 
         return make_sampler

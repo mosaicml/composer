@@ -98,7 +98,7 @@ class BalancedSampler:
 
 
 def _sample_batches_match(samplers: Sequence[BalancedSampler], batch_size: int, num_batches: int,
-                          rng: np.random.Generator) -> List:
+                          rng: np.random.Generator, **_) -> List:
     batches = []
     num_classes = len(samplers)
     for b in range(num_batches):
@@ -140,7 +140,7 @@ def _sample_batches_match(samplers: Sequence[BalancedSampler], batch_size: int, 
 
 
 def _sample_batches_balanced(samplers: Sequence[BalancedSampler], batch_size: int, num_batches: int,
-                             rng: np.random.Generator) -> List:
+                             rng: np.random.Generator, **_) -> List:
     batches = []
     num_classes = len(samplers)
     for _ in range(num_batches):
@@ -156,6 +156,41 @@ def _sample_batches_balanced(samplers: Sequence[BalancedSampler], batch_size: in
         use_classes = rng.choice(num_classes, size=remaining_batch_size, replace=False)
         for sampler in samplers[use_classes]:
             batch += sampler.sample(1)
+        batches.append(batch)
+
+    return batches
+
+
+def _sample_batches_imbalanced(samplers: Sequence[BalancedSampler], batch_size: int, num_batches: int,
+                               rng: np.random.Generator, imbalance: float) -> List:
+    assert 0. <= imbalance <= 1.
+    batches = []
+    num_classes = len(samplers)
+    taken_counts = np.zeros(num_classes)
+
+    def compute_p_proportional(samplers):
+        # prob of each class is proportional to its number of unsampled
+        # elements; this results in uniform sampling of elements
+        unsampled_counts = np.array([s.num_unsampled_elements() for s in samplers])
+        return unsampled_counts / (unsampled_counts.sum() + 1e-10)
+
+    for _ in range(num_batches):
+        batch = []
+        taken_counts[:] = 0
+        p_proportional = compute_p_proportional(samplers)
+        take_class = rng.choice(num_classes, size=1, p=p_proportional)[0]
+        taken_counts[take_class] = 1
+        batch.append(samplers[take_class].sample(1)[0])
+        for _ in range(batch_size - 1):
+            p_proportional = compute_p_proportional(samplers)
+            # handle a previously taken class having no more new samples
+            p_self_excite = (taken_counts + 1e-10) * (p_proportional > 0)
+            # sample based on convex combo of uniform and self-exiciting distro
+            p_self_excite /= p_self_excite.sum()
+            probs = imbalance * p_self_excite + (1. - imbalance) * p_proportional
+            take_class = rng.choice(num_classes, size=1, p=probs)[0]
+            taken_counts[take_class] += 1
+            batch.append(samplers[take_class].sample(1)[0])
         batches.append(batch)
 
     return batches
@@ -221,6 +256,7 @@ class StratifiedBatchSampler(DistributedSampler[T_co]):
                  shuffle: bool = True,
                  drop_last: bool = False,
                  stratify_how: str = 'balance',
+                 imbalance: float = .5,
                  targets_attr: Optional[str] = None,
                  seed: int = 42,
                  **kwargs):
@@ -235,10 +271,11 @@ class StratifiedBatchSampler(DistributedSampler[T_co]):
         if not shuffle:
             raise NotImplementedError("Sampling with shuffle=False is not yet supported")
         self.drop_last = drop_last
-        allowed_stratify_hows = ('balance', 'match')
+        allowed_stratify_hows = ('balance', 'match', 'imbalance')
         if stratify_how not in allowed_stratify_hows:
             raise ValueError(f"stratify_how must be one of {allowed_stratify_hows}, not {stratify_how}")
         self.stratify_how = stratify_how
+        self.imbalance = imbalance
         self._set_targets(targets)
 
     def _set_targets(self, targets: Iterable):
@@ -258,8 +295,16 @@ class StratifiedBatchSampler(DistributedSampler[T_co]):
         rng = np.random.default_rng(self.seed + self.epoch)
         self._reset_samplers(rng)  # reset sampling for each epoch
 
-        f_sample = {'balance': _sample_batches_balanced, 'match': _sample_batches_match}[self.stratify_how]
-        batches = f_sample(self.samplers, batch_size=self.batch_size, num_batches=num_batches, rng=rng)
+        f_sample = {
+            'balance': _sample_batches_balanced,
+            'match': _sample_batches_match,
+            'imbalance': _sample_batches_imbalanced,
+        }[self.stratify_how]
+        batches = f_sample(self.samplers,
+                           batch_size=self.batch_size,
+                           num_batches=num_batches,
+                           rng=rng,
+                           imbalance=self.imbalance)
 
         if has_stragglers and not self.drop_last:
             batches.append(

@@ -1,22 +1,14 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
-import itertools
-
 import pytest
-import torch
 
-from composer.algorithms.stratify_batches import StratifiedBatchSampler, StratifyBatches, StratifyBatchesHparams
-from composer.core import Event, Logger, State, surgery
-from composer.core.algorithm import Algorithm
-from composer.core.types import Tensors
-from composer.datasets.dataloader import DataloaderHparams
+from composer.algorithms.stratify_batches import StratifiedBatchSampler, StratifyBatchesHparams
 from composer.trainer import Trainer
 from composer.trainer.trainer_hparams import TrainerHparams
 from tests.utils.trainer_fit import train_model
 
 
-@pytest.fixture(params=['match', 'balance'])
-# @pytest.fixture(params=['balance'])
+@pytest.fixture(params=['match', 'balance', 'imbalance'])
 def algo_hparams_instance(request):
     return StratifyBatchesHparams(stratify_how=request.param, targets_attr='input_target')
 
