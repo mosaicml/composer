@@ -134,7 +134,7 @@ def configure_ddp(request: pytest.FixtureRequest):
             backend = "gloo"
         if deepspeed_marker is not None:
             use_deepspeed = True
-    """if use_deepspeed:
+    if use_deepspeed:
         if not "RANK" in os.environ:
             os.environ["RANK"] = str(0)
             os.environ["LOCAL_RANK"] = str(0)
@@ -142,8 +142,8 @@ def configure_ddp(request: pytest.FixtureRequest):
             os.environ["MASTER_ADDR"] = "127.0.0.1"
             os.environ["MASTER_PORT"] = str(29500)
         import deepspeed
-        deepspeed.init_distributed(timeout=DDP_TIMEOUT)"""
-    if not torch.distributed.is_initialized():
+        deepspeed.init_distributed(timeout=DDP_TIMEOUT)
+    elif not torch.distributed.is_initialized():
         if "RANK" in os.environ and "WORLD_SIZE" in os.environ:
             torch.distributed.init_process_group(backend, timeout=DDP_TIMEOUT)
         else:
