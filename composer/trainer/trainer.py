@@ -94,7 +94,7 @@ class Trainer:
             (default ``[TQDMLoggerBackend()]``).
         callbacks (Sequence[Callback], optional): The callbacks to run during training. (default: ``[]``)
         checkpoint_filepath (str, optional): The path to a trainer checkpoint file. If provided
-            the trainer will load the state (along with it's associated attributes) during initialization.
+            the trainer will load the state (along with its associated attributes) during initialization.
             (default: ``None``)
         checkpoint_interval_unit (int, optional): Unit for the checkpoint save interval -- should be 'ep'
             for epochs, 'it' for iterations, or None to disable checkpointing. (default: ``None``).
@@ -296,19 +296,13 @@ class Trainer:
         self.state.schedulers = ComposedScheduler(schedulers=schedulers)
 
         self.checkpointer = None
-        # TODO(#121): get checkpointing working with DeepSpeed.
         if checkpoint_folder and checkpoint_interval and checkpoint_interval_unit:
-            if self.deepspeed_enabled:
-                raise NotImplementedError("Checkpointing is not yet supported with DeepSpeed.")
             self.checkpointer = Checkpointer(checkpoint_folder=get_relative_to_run_directory(checkpoint_folder),
                                              checkpoint_interval=checkpoint_interval,
                                              checkpoint_interval_unit=checkpoint_interval_unit)
 
         self.checkpoint_loader = None
-        # TODO(#121): get checkpointing working with DeepSpeed.
         if checkpoint_filepath:
-            if self.deepspeed_enabled:
-                raise NotImplementedError("Checkpointing is not yet supported with DeepSpeed.")
             self.checkpoint_loader = CheckpointLoader(checkpoint_filepath=checkpoint_filepath)
             restored_seed = self.checkpoint_loader.load_checkpoint(state=self.state)
             # Set the restored seed so that the correct seed will be saved in future checkpoints

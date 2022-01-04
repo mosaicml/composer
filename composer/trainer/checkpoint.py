@@ -5,10 +5,12 @@ import os
 import random
 import warnings
 from typing import Any, Dict, Optional
+import re
 
 import numpy as np
 import torch
 import yaml
+from deepspeed.runtime.engine import DeepSpeedEngine
 
 from composer.core import Event, State
 from composer.core.types import StateDict
@@ -16,6 +18,26 @@ from composer.trainer.devices.device import Device
 from composer.utils import ddp, seed_all
 
 log = logging.getLogger(__name__)
+
+
+def parse_checkpoint_filepath(checkpoint_filepath: str):
+    """Parse a checkpoint filepath to obtain the root checkpoints folder and the checkpoint tag.
+    
+    The checkpoint tag, in this case, is just the name of a subdirectory within the root checkpoints
+    folder.
+
+    If a checkpoint file is provided, we assume the encompassing directory should be parsed instead.
+    """
+
+    folder, tag = os.path.split(checkpoint_filepath)
+    if tag.endswith(".pt"):
+        folder, tag = os.path.split(folder)
+
+    return folder, tag
+    
+
+def get_mosaic_checkpoint_filepath(checkpoint_folder: str, checkpoint_tag: str):
+    return os.path.join(checkpoint_folder, checkpoint_tag, "mosaic_states.pt")
 
 
 class CheckpointLoader:
@@ -26,7 +48,10 @@ class CheckpointLoader:
     """
 
     def __init__(self, checkpoint_filepath: str):
-        self.state_dict = torch.load(checkpoint_filepath, map_location='cpu')
+        self.checkpoint_folder, self.checkpoint_tag = parse_checkpoint_filepath(checkpoint_filepath)
+        mosaic_checkpoint_filepath = get_mosaic_checkpoint_filepath(self.checkpoint_folder, self.checkpoint_tag)
+
+        self.state_dict = torch.load(mosaic_checkpoint_filepath, map_location='cpu')
         self.checkpoint_rng_state = None
 
     def load_checkpoint(self, state: State):
@@ -53,7 +78,12 @@ class CheckpointLoader:
             seed_all(seed_to_restore)
             return seed_to_restore
 
-    def restore_checkpoint_rng_state(self, state: State, device: Device):
+        if isinstance(state.model, DeepSpeedEngine):
+            load_path, _ = state.model.load_checkpoint(self.checkpoint_folder, self.checkpoint_tag)
+            if load_path is None:
+                raise RuntimeError(f"Failed to load DeepSpeed checkpoint from {checkpoint_filepath}")
+
+    def restore_checkpoint_rng_state(self, device: Device):
         """Restore the state of all RNG objects in this context from the loaded checkpoint's data.
         """
 
@@ -72,7 +102,7 @@ class CheckpointLoader:
 
         self.checkpoint_rng_state = None
 
-    def _get_checkpoint_rng_state(self, state: State, checkpoint_rng_state: StateDict) -> Optional[StateDict]:
+    def _get_checkpoint_rng_state(self, checkpoint_rng_state: StateDict) -> Optional[StateDict]:
         original_world_size = len(checkpoint_rng_state["torch"])
         if original_world_size == ddp.get_world_size():
             return checkpoint_rng_state
@@ -132,6 +162,17 @@ class Checkpointer:
             'rng': self._get_rng_state(device=device),  # stored across all ranks
             'seed': ddp.all_gather_object(seed),
         }
+
+        if self.save_event == Event.EPOCH_END:
+            tag = f"ep{state.epoch}"
+        elif self.save_event == Event.BATCH_END:
+            tag = f"it{state.step}"
+        else:
+            raise ValueError(f"Invalid checkpoint event: {self.save_event}")
+
+        if isinstance(state.model, DeepSpeedEngine):
+            state.model.save_checkpoint(self.checkpoint_folder, tag)
+
         if ddp.get_global_rank() != 0:
             # only rank 0 saves checkpoints
             # Need the check down here so all the DDP syncs will work for generating the checkpoint
@@ -155,13 +196,8 @@ class Checkpointer:
                         raise RuntimeError(f"The hparams in the existing checkpoint folder {self.checkpoint_folder} "
                                            "differ from those being used in the current training run. "
                                            "Please specify a new checkpoint folder.") from e
-        if self.save_event == Event.EPOCH_END:
-            filename = f"ep{state.epoch}.pt"
-        elif self.save_event == Event.BATCH_END:
-            filename = f"it{state.step}.pt"
-        else:
-            raise ValueError(f"Invalid checkpoint event: {self.save_event}")
-        save_file = os.path.join(self.checkpoint_folder, filename)
+        checkpoint_filepath = get_mosaic_checkpoint_filepath(self.checkpoint_folder, tag)
+        save_file = os.path.join(self.checkpoint_folder, checkpoint_filepath)
         with open(save_file, 'xb') as f:
             torch.save(state_dict, f)
         log.info(f'Trainer checkpoint saved to {save_file}')

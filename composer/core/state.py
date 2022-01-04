@@ -5,6 +5,7 @@ from __future__ import annotations
 import logging
 import warnings
 from typing import TYPE_CHECKING, Callable, ContextManager, Optional, Sequence, Union
+from deepspeed.runtime.engine import DeepSpeedEngine
 
 import torch
 import torch.nn.modules.utils
@@ -199,6 +200,9 @@ class State(Serializable):
                 continue
             elif state_field_name in STATE_DICT_SERIALIZATION_FIELDS:
                 if state_field_name == "model":
+                    if isinstance(state_field_value, DeepSpeedEngine):
+                        state_dict["_is_model_deepspeed"] = True
+                        continue
                     # Save model directly instead of by class name, since model may be wrapped by DistributedDataParallel
                     serialized_value = state_field_value.state_dict()
                 else:
@@ -222,6 +226,8 @@ class State(Serializable):
         """
         for state_field_name, state_field_value in self.__dict__.items():
             if state_field_name in SKIP_SERIALIZATION_FIELDS:
+                continue
+            elif state_field_name == "model" and state["_is_model_deepspeed"]:
                 continue
             elif state_field_name in DIRECT_SERIALIZATION_FIELDS:
                 setattr(self, state_field_name, state[state_field_name])
