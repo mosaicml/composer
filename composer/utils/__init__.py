@@ -7,6 +7,8 @@ from composer.utils.determinism import seed_all as seed_all
 from composer.utils.iter_helpers import ensure_tuple as ensure_tuple
 from composer.utils.iter_helpers import map_collection as map_collection
 from composer.utils.iter_helpers import zip_collection as zip_collection
+from composer.utils.object_store import ObjectStoreProvider as ObjectStoreProvider
+from composer.utils.object_store import ObjectStoreProviderHparams as ObjectStoreProviderHparams
 from composer.utils.string_enum import StringEnum as StringEnum
 from composer.utils.tables import assert_attributes_exist as assert_attributes_exist
 from composer.utils.tables import build_markdown_table as build_markdown_table
