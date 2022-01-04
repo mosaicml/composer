@@ -45,4 +45,8 @@ class TestHparamsCreate:
         _configure_dataset_for_synthetic(hparams.val_dataset)
         hparams.device = CPUDeviceHparams()
 
+        # Manually set is_backbone_pretrained to false to prevent downloading pretrained weights during test
+        if hasattr(hparams, "model") and hasattr(hparams.model, "is_backbone_pretrained"):
+            hparams.model.is_backbone_pretrained = False
+
         hparams.initialize_object()

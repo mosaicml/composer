@@ -26,6 +26,9 @@ def test_model_registry(model_name, request):
     if model_name in requires_num_classes:
         model_hparams.num_classes = 10
 
+    if model_name == "deeplabv3":
+        model_hparams.is_backbone_pretrained = False
+
     assert isinstance(model_hparams, ModelHparams)
 
     try:

@@ -1,7 +1,7 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
 import collections.abc
-from typing import Optional, List, Union, Tuple
+from typing import List, Optional, Tuple, Union
 
 import numpy as np
 import torch
@@ -9,7 +9,7 @@ import torch.utils.data
 from PIL import Image
 from torchvision import transforms
 
-from composer.core.types import Dataset, Tensor, Batch
+from composer.core.types import Batch, Dataset, Tensor
 
 
 class NormalizationFn:
