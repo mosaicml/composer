@@ -48,11 +48,6 @@ loggers:
       flush_every_n_batches: 100
       every_n_batches: 100
       every_n_epochs: 1
-  - wandb:
-      project: bert
-      name: qnli
-      extra_init_params: {}
-  - tqdm: {}
 max_epochs: 10
 train_batch_size: 16
 eval_batch_size: 16

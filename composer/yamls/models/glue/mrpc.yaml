@@ -22,7 +22,7 @@ model:
     pretrained_model_name: bert-base-uncased
 optimizer:
   adamw:
-    lr: 5.0e-5
+    lr: 8.0e-5
     betas:
       - 0.9
       - 0.98
@@ -48,14 +48,9 @@ loggers:
       flush_every_n_batches: 100
       every_n_batches: 100
       every_n_epochs: 1
-  - wandb:
-      project: bert
-      name: mrpc 
-      extra_init_params: {}
-  - tqdm: {}
 max_epochs: 10
-train_batch_size: 16 
-eval_batch_size: 16 
+train_batch_size: 32
+eval_batch_size: 32
 seed: 19
 device:
   gpu: {}
