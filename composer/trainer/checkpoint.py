@@ -3,6 +3,8 @@
 import logging
 import os
 import random
+import tempfile
+import textwrap
 import warnings
 from typing import Any, Dict, Optional
 
@@ -13,7 +15,7 @@ import yaml
 from composer.core import Event, State
 from composer.core.types import StateDict
 from composer.trainer.devices.device import Device
-from composer.utils import ddp, seed_all
+from composer.utils import ObjectStoreProviderHparams, ddp, run_directory, seed_all
 
 log = logging.getLogger(__name__)
 
@@ -22,13 +24,30 @@ class CheckpointLoader:
     """Manager for initializing state and restoring RNG state from existing checkpoints.
 
     Args:
-        checkpoint_filepath (str): The path to an existing checkpoint file.
-        load_weights_only (bool): Whether to only restore the weights from the checkpoint without restoring the associated state.
-        strict_model_weights (bool): Whether to force that the checkpointed weights must exactly match the model weights.
+        checkpoint (str): The path to an existing checkpoint file (if the checkpoint is on the local disk)
+            or the object name for the checkpoint (if the checkpoint is in a cloud bucket).
+        object_store_hparams (ObjectStoreProviderHparams, optional): If the ``checkpoint`` is in an object store
+            (i.e. AWS S3 or Google Cloud Storage), the parameters for connecting to the cloud provider object store.
+            Otherwise, if the checkpoint is a local filepath, set to ``None``. (default: ``None``).
+        load_weights_only (bool): Whether to only restore the weights from the checkpoint without
+            restoring the associated state.
+        strict_model_weights (bool): Whether to force that the checkpointed weights must exactly match the model
+            weights.
     """
 
-    def __init__(self, checkpoint_filepath: str, load_weights_only: bool = False, strict_model_weights: bool = False):
-        self.state_dict = torch.load(checkpoint_filepath, map_location='cpu')
+    def __init__(self,
+                 checkpoint: str,
+                 object_store_hparams: Optional[ObjectStoreProviderHparams] = None,
+                 load_weights_only: bool = False,
+                 strict_model_weights: bool = False):
+        if object_store_hparams is not None:
+            provider = object_store_hparams.initialize_object()
+            with tempfile.TemporaryDirectory() as tempdir:
+                downloaded_checkpoint_filepath = os.path.join(tempdir, "checkpoint.pt")
+                provider.download_object(checkpoint, downloaded_checkpoint_filepath)
+                self.state_dict = torch.load(downloaded_checkpoint_filepath, map_location='cpu')
+        else:
+            self.state_dict = torch.load(checkpoint, map_location='cpu')
         self.load_weights_only = load_weights_only
         self.strict_model_weights = strict_model_weights
         self.checkpoint_rng_state = None
@@ -37,7 +56,7 @@ class CheckpointLoader:
         """Initialize state from the loaded checkpoint's data.
 
         Args:
-            state (`~composer.core.State`): The state to load the checkpoint into.
+            state (State): The state to load the checkpoint into.
 
         Returns:
             The seed that was loaded from the checkpoint if it exists otherwise `None`.
@@ -53,24 +72,23 @@ class CheckpointLoader:
                 world_size = ddp.get_world_size()
                 checkpointed_world_size = len(self.state_dict["seed"])
                 if world_size != checkpointed_world_size:
-                    warnings.warn(f"Current world size {world_size} does not match the checkpointed world size "
-                                  f"{checkpointed_world_size}. The seed will not be restored.")
+                    warnings.warn(
+                        textwrap.dedent(f"""Current world size {world_size} does not match the checkpointed world size
+                        {checkpointed_world_size}. The seed will not be restored."""))
                     return
                 seed_to_restore = self.state_dict["seed"][ddp.get_global_rank()]
                 seed_all(seed_to_restore)
                 return seed_to_restore
 
     def restore_checkpoint_rng_state(self, state: State, device: Device):
-        """Restore the state of all RNG objects in this context from the loaded checkpoint's data.
-        """
+        """Restore the state of all RNG objects in this context from the loaded checkpoint's data."""
 
         if self.checkpoint_rng_state is None:
             return
 
-        assert ddp.get_world_size() == len(
-            self.checkpoint_rng_state['torch']
-        ), f"invariant violation: if the rng state is being restored, then" \
-            "the world size should be the same as in the checkpoint."
+        assert ddp.get_world_size() == len(self.checkpoint_rng_state['torch']), textwrap.dedent(
+            """invariant violation: if the rng state is being restored, then
+            the world size should be the same as in the checkpoint.""")
 
         torch.set_rng_state(self.checkpoint_rng_state['torch'][ddp.get_global_rank()])
         device.load_state_dict(self.checkpoint_rng_state['device'][ddp.get_global_rank()])
@@ -84,9 +102,10 @@ class CheckpointLoader:
         if original_world_size == ddp.get_world_size():
             return checkpoint_rng_state
         else:
-            warnings.warn(f"The checkpoint was created with world_size({original_world_size}), "
-                          f"which differs from the current world_size({ddp.get_world_size()})."
-                          f"RNG state will not be restored.")
+            warnings.warn(
+                textwrap.dedent(f"""The checkpoint was created with world_size({original_world_size}),
+                which differs from the current world_size({ddp.get_world_size()}).
+                RNG state will not be restored."""))
 
 
 class CheckpointSaver:
@@ -106,7 +125,7 @@ class CheckpointSaver:
             self.save_event = Event.BATCH_END
         else:
             raise ValueError(f"Unknown checkpointing interval: {checkpoint_interval_unit}")
-        self.checkpoint_folder = checkpoint_folder
+        self.checkpoint_folder = run_directory.get_relative_to_run_directory(checkpoint_folder)
         self.save_interval = checkpoint_interval
 
     def should_checkpoint(self, state: State, event: Event) -> bool:
@@ -159,9 +178,10 @@ class CheckpointSaver:
                 with open(hparams_path, "r") as f:
                     # comparing the parsed hparams to ignore whitespace and formatting differences
                     if yaml.safe_load(config_yaml_str) != yaml.safe_load(f):
-                        raise RuntimeError(f"The hparams in the existing checkpoint folder {self.checkpoint_folder} "
-                                           "differ from those being used in the current training run. "
-                                           "Please specify a new checkpoint folder.") from e
+                        raise RuntimeError(
+                            textwrap.dedent(f"""The hparams in the existing checkpoint folder {self.checkpoint_folder}
+                            differ from those being used in the current training run.
+                            Please specify a new checkpoint folder.""")) from e
         if self.save_event == Event.EPOCH_END:
             filename = f"ep{state.epoch}.pt"
         elif self.save_event == Event.BATCH_END:

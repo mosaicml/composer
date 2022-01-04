@@ -8,19 +8,19 @@ import os
 import pathlib
 import queue
 import shutil
-import sys
 import tempfile
 import threading
 import time
 import uuid
 import warnings
-from typing import Any, Callable, Dict, Optional, Tuple, Type, Union
+from typing import Callable, Optional, Tuple, Type, Union
 
 from composer.core.callback import Callback
 from composer.core.logging import Logger
 from composer.core.logging.logger import LogLevel
 from composer.core.state import State
 from composer.utils import ddp
+from composer.utils.object_store import ObjectStoreProviderHparams
 from composer.utils.run_directory import get_modified_files, get_run_directory
 
 log = logging.getLogger(__name__)
@@ -92,23 +92,19 @@ class RunDirectoryUploader(Callback):
 
     def __init__(
         self,
-        provider: str,
-        container: str,
+        object_store_provider_hparams: ObjectStoreProviderHparams,
         object_name_prefix: Optional[str] = None,
         num_concurrent_uploads: int = 4,
         upload_staging_folder: Optional[str] = None,
         use_procs: bool = True,
         upload_every_n_batches: int = 100,
-        provider_init_kwargs: Optional[Dict[str, Any]] = None,
     ) -> None:
         run_directory = get_run_directory()
         if run_directory is None:
             warnings.warn("NoRunDirectory: The run directory is not set, so the RunDirectoryUploader will be a no-op")
             return
 
-        if provider_init_kwargs is None:
-            provider_init_kwargs = {}
-        self._provider_init_kwargs = provider_init_kwargs
+        self._object_store_provider_hparams = object_store_provider_hparams
         self._upload_every_n_batches = upload_every_n_batches
         if object_name_prefix is None:
             self._object_name_prefix = f"{run_directory}"
@@ -132,8 +128,6 @@ class RunDirectoryUploader(Callback):
         if num_concurrent_uploads < 1:
             raise ValueError("num_concurrent_uploads must be >= 1. Blocking uploads are not supported.")
         self._num_concurrent_uploads = num_concurrent_uploads
-        self._provider = provider
-        self._container = container
 
         if use_procs:
             mp_ctx = multiprocessing.get_context('spawn')
@@ -149,7 +143,7 @@ class RunDirectoryUploader(Callback):
         self._workers = []
 
         if ddp.get_local_rank() == 0:
-            _validate_credentials(provider, container, self._object_name_prefix, provider_init_kwargs)
+            _validate_credentials(object_store_provider_hparams, self._object_name_prefix)
 
     def init(self, state: State, logger: Logger) -> None:
         if get_run_directory() is None:
@@ -164,10 +158,8 @@ class RunDirectoryUploader(Callback):
                              kwargs={
                                  "file_queue": self._file_upload_queue,
                                  "is_finished": self._finished,
-                                 "provider_name": self._provider,
-                                 "container_name": self._container,
+                                 "object_store_provider_hparams": self._object_store_provider_hparams,
                                  "object_name_prefix": self._object_name_prefix,
-                                 "init_kwargs": self._provider_init_kwargs,
                              }) for _ in range(self._num_concurrent_uploads)
         ]
         for worker in self._workers:
@@ -248,19 +240,13 @@ class RunDirectoryUploader(Callback):
 
 
 def _validate_credentials(
-    provider_name: str,
-    container_name: str,
+    object_store_provider_hparams: ObjectStoreProviderHparams,
     object_name_prefix: str,
-    init_kwargs: Dict[str, Any],
 ) -> None:
     # Validates the credentails by attempting to touch a file in the bucket
-    from libcloud.storage.providers import get_driver
-    provider_cls = get_driver(provider_name)
-    provider = provider_cls(**init_kwargs)
-    container = provider.get_container(container_name)
+    provider = object_store_provider_hparams.initialize_object()
     provider.upload_object_via_stream(
-        iterator=iter([i.to_bytes(1, sys.byteorder) for i in b"validate_credentials"]),
-        container=container,
+        obj=b"validate_credentials",
         object_name=f"{object_name_prefix}.validate_credentials_success",
     )
 
@@ -268,10 +254,8 @@ def _validate_credentials(
 def _upload_worker(
     file_queue: Union[queue.Queue[str], multiprocessing.JoinableQueue[str]],
     is_finished: Union[multiprocessing._EventType, threading.Event],
-    provider_name: str,
-    container_name: str,
+    object_store_provider_hparams: ObjectStoreProviderHparams,
     object_name_prefix: str,
-    init_kwargs: Dict[str, Any],
 ):
     """A long-running function to handle uploading files.
 
@@ -282,19 +266,13 @@ def _upload_worker(
             set when training is finished and no new files will be added to the queue.
             The worker will continue to upload existing files that are in the queue.
             When the queue is empty, the worker will exit.
-        provider_name (str): The cloud provider name.
-        container_name (str): The container name (e.g. s3 bucket) for the provider
-            where files will be uploaded.
+        object_store_provider_hparams (ObjectStoreProviderHparams): The configuration
+            for the underlying object store provider.
         object_name_prefix (str): Prefix to prepend to the object names
              before they are uploaded to the blob store.
-        init_kwargs (Dict[str, Any]): Arguments to pass in to the
-            :class:`~libcloud.storage.providers.Provider` constructor.
     """
     from libcloud.common.types import LibcloudError
-    from libcloud.storage.providers import get_driver
-    provider_cls = get_driver(provider_name)
-    provider = provider_cls(**init_kwargs)
-    container = provider.get_container(container_name)
+    provider = object_store_provider_hparams.initialize_object()
     while True:
         try:
             file_path_to_upload, obj_name = file_queue.get(block=True, timeout=0.5)
@@ -303,15 +281,15 @@ def _upload_worker(
                 break
             else:
                 continue
-        log.info("Uploading file %s to %s://%s/%s%s", file_path_to_upload, provider_name, container_name,
-                 object_name_prefix, obj_name)
+        obj_name = object_name_prefix + obj_name
+        log.info("Uploading file %s to %s://%s/%s", file_path_to_upload, provider.provider_name,
+                 provider.container_name, obj_name)
         retry_counter = 0
         while True:
             try:
                 provider.upload_object(
                     file_path=file_path_to_upload,
-                    container=container,
-                    object_name=object_name_prefix + obj_name,
+                    object_name=obj_name,
                 )
             except LibcloudError as e:
                 # The S3 driver does not encode the error code in an easy-to-parse manner
