@@ -5,6 +5,7 @@ import random
 
 import torch
 import torch.nn.functional as F
+from deepspeed.runtime.engine import DeepSpeedEngine
 from torch.functional import Tensor
 
 from composer.algorithms.dummy import DummyHparams
@@ -14,7 +15,6 @@ from composer.datasets.dataloader import DataloaderHparams
 from composer.datasets.hparams import DataloaderSpec, DatasetHparams
 from composer.models.base import BaseMosaicModel
 from tests.fixtures.models import SimpleBatchPairModel
-from deepspeed.runtime.engine import DeepSpeedEngine
 
 
 def random_tensor(size=(4, 10)):
