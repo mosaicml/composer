@@ -31,6 +31,7 @@ from composer.optim import (ComposedScheduler, CosineAnnealingLRHparams, Decoupl
                             SchedulerHparams, WarmUpLRHparams)
 from composer.optim.scheduler import ensure_warmup_last
 from composer.trainer.checkpoint import CheckpointLoader, CheckpointSaver
+from composer.trainer.ddp import DDPSyncStrategy, ddp_sync_context, prepare_ddp_module
 from composer.trainer.deepspeed import DeepSpeedHparams
 from composer.trainer.devices.device import Device
 from composer.trainer.devices.device_cpu import DeviceCPU
@@ -39,8 +40,6 @@ from composer.trainer.scaler import ClosureGradScaler
 from composer.trainer.trainer_hparams import TrainerHparams
 from composer.utils import dist, ensure_tuple, get_random_seed, map_collection, seed_all
 from composer.utils.run_directory import get_relative_to_run_directory
-
-from composer.trainer.ddp import DDPSyncStrategy, ddp_sync_context, prepare_ddp_module
 
 log = logging.getLogger(__name__)
 

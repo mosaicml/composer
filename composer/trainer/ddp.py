@@ -1,10 +1,10 @@
 from contextlib import contextmanager, nullcontext
 from typing import TYPE_CHECKING, Callable, ContextManager, Union, cast
+
 from torch.nn.parallel import DistributedDataParallel
 
-from composer.utils.string_enum import StringEnum
-
 from composer.utils import dist
+from composer.utils.string_enum import StringEnum
 
 if TYPE_CHECKING:
     from composer.core.state import State

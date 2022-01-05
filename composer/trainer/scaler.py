@@ -7,9 +7,8 @@ import torch
 from torch.cuda.amp.grad_scaler import GradScaler, OptState, _refresh_per_optimizer_state
 from torch.optim import Optimizer
 
-from composer.utils import dist
-
 from composer.core.types import Tensor
+from composer.utils import dist
 
 
 class ClosureGradScaler(GradScaler):

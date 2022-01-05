@@ -28,10 +28,10 @@ from composer.models import (CIFARResNet9Hparams, CIFARResNetHparams, EfficientN
 from composer.optim import (AdamHparams, AdamWHparams, DecoupledAdamWHparams, DecoupledSGDWHparams, OptimizerHparams,
                             RAdamHparams, RMSPropHparams, SchedulerHparams, SGDHparams, scheduler)
 from composer.trainer.checkpoint_hparams import CheckpointLoaderHparams, CheckpointSaverHparams
+from composer.trainer.ddp import DDPSyncStrategy
 from composer.trainer.deepspeed import DeepSpeedHparams
 from composer.trainer.devices import CPUDeviceHparams, DeviceHparams, GPUDeviceHparams
 from composer.utils import dist
-from composer.trainer.ddp import DDPSyncStrategy
 
 if TYPE_CHECKING:
     from composer.trainer.trainer import Trainer
