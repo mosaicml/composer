@@ -31,6 +31,7 @@ from composer.trainer.checkpoint_hparams import CheckpointLoaderHparams, Checkpo
 from composer.trainer.deepspeed import DeepSpeedHparams
 from composer.trainer.devices import CPUDeviceHparams, DeviceHparams, GPUDeviceHparams
 from composer.utils import dist
+from composer.trainer.ddp import DDPSyncStrategy
 
 if TYPE_CHECKING:
     from composer.trainer.trainer import Trainer
@@ -151,7 +152,7 @@ class TrainerHparams(hp.Hparams):
         "Determines the number of microbatches to split a per-gpu batch into, used to compensate for low-memory-capacity devices."
     )
     precision: Precision = hp.required(doc="Precision to use for training", template_default=Precision.AMP)
-    ddp_sync_strategy: Optional[dist.DDPSyncStrategy] = hp.optional(
+    ddp_sync_strategy: Optional[DDPSyncStrategy] = hp.optional(
         doc="The strategy for synchronizing DDP. Default value ``None`` causes the "
         "trainer to auto-select a value depending on what algorithms are used.",
         default=None)

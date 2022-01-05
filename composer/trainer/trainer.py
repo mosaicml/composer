@@ -40,6 +40,8 @@ from composer.trainer.trainer_hparams import TrainerHparams
 from composer.utils import dist, ensure_tuple, get_random_seed, map_collection, seed_all
 from composer.utils.run_directory import get_relative_to_run_directory
 
+from composer.trainer.ddp import DDPSyncStrategy, ddp_sync_context, prepare_ddp_module
+
 log = logging.getLogger(__name__)
 
 
@@ -208,11 +210,11 @@ class Trainer:
             import deepspeed
             deepspeed.init_distributed()
         else:
-            dist.initialize_ddp(device.ddp_backend, datetime.timedelta(seconds=ddp_timeout))
+            dist.initialize_dist(device.dist_backend, datetime.timedelta(seconds=ddp_timeout))
             if ddp_sync_strategy is None:
-                self.ddp_sync_strategy = dist.DDPSyncStrategy.SINGLE_AUTO_SYNC if not find_unused_parameters else dist.DDPSyncStrategy.FORCED_SYNC
+                self.ddp_sync_strategy = DDPSyncStrategy.SINGLE_AUTO_SYNC if not find_unused_parameters else DDPSyncStrategy.FORCED_SYNC
             else:
-                self.ddp_sync_strategy = dist.DDPSyncStrategy(ddp_sync_strategy)
+                self.ddp_sync_strategy = DDPSyncStrategy(ddp_sync_strategy)
 
         if isinstance(train_dataloader, DataloaderSpec):
             train_dataloader_spec = train_dataloader
@@ -571,7 +573,7 @@ class Trainer:
             state.optimizers = map_collection(state.optimizers, self.device.optimizer_to_device)
 
             # wrap model with DDP
-            state.model = dist.prepare_module(state.model, self.find_unused_parameters)
+            state.model = prepare_ddp_module(state.model, self.find_unused_parameters)
 
         # print training start
         self.logger.metric_fit({"trainer/algorithms": [str(algo) for algo in self.engine.algorithms]})
@@ -586,23 +588,7 @@ class Trainer:
 
         self.engine.run_event(Event.TRAINING_START)
 
-        if self._use_closures():
-
-            def _ddp_reduce_scalar_and(flag: bool) -> bool:
-                value = 1 if flag else 0
-                flag_tensor = self.device.tensor_to_device(torch.tensor(value).int())
-                dist.all_reduce(flag_tensor, reduce_operation='PRODUCT')
-                return flag_tensor.item() == 1
-
-            def _ddp_reduce_tensor_sum(tensor: Tensor) -> Tensor:
-                # Happens in-place; that's fine
-                dist.all_reduce(tensor, reduce_operation="SUM")
-                return tensor
-
-            state.scaler = ClosureGradScaler(ddp_reduce_scalar_and=_ddp_reduce_scalar_and,
-                                             ddp_reduce_tensor_sum=_ddp_reduce_tensor_sum)
-        else:
-            state.scaler = GradScaler()
+        state.scaler = ClosureGradScaler() if self._use_closures() else GradScaler()
         use_grad_scaling = self._use_grad_scaling(state.precision, state.scaler)
 
         self._spin_dataloaders()
@@ -770,7 +756,7 @@ class Trainer:
 
         for microbatch_idx, state.batch in enumerate(microbatches):
             is_final_microbatch = microbatch_idx + 1 == len(microbatches)
-            sync_context = contextlib.nullcontext() if self.deepspeed_enabled else dist.sync_context(
+            sync_context = contextlib.nullcontext() if self.deepspeed_enabled else ddp_sync_context(
                 state, is_final_microbatch, self.ddp_sync_strategy)
             with sync_context:
                 last_microbatch_size = self._get_batch_size(state.batch)

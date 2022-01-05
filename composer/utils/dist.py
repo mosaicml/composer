@@ -5,50 +5,13 @@ from __future__ import annotations
 import datetime
 import os
 import warnings
-from contextlib import contextmanager, nullcontext
-from typing import TYPE_CHECKING, Any, Callable, ContextManager, List, Optional, Sequence, TypeVar, Union, cast
+from typing import Any, List, Optional, Sequence, TypeVar, cast
 
 import torch
 import torch.distributed as dist
 import torch.utils.data
-from torch.nn.parallel import DistributedDataParallel
-
-from composer.utils.string_enum import StringEnum
-
-if TYPE_CHECKING:
-    from composer.core.state import State
-    from composer.core.types import Model
 
 TObj = TypeVar("TObj")
-
-
-class DDPSyncStrategy(StringEnum):
-    """How and when DDP gradient synchronization should happen.
-
-    Attributes:
-        SINGLE_AUTO_SYNC: The default behavior for DDP. Gradients are synchronized as they
-            computed, for only the final microbatch of a batch. This is the most efficient
-            strategy, but can lead to errors when ``find_unused_parameters`` is set, since
-            it is possible different microbatches may use different sets of parameters,
-            leading to an incomplete sync.
-        MULTI_AUTO_SYNC: The default behavior for DDP when ``find_unused_parameters`` is set.
-            Gradients are synchronized as they are computed for all microbatches. This ensures
-            complete synchronization, but is less efficient than :attr:`SINGLE_AUTO_SYNC`. This
-            efficiency gap is usually small, as long as either DDP syncs are a small portion
-            of the trainer's overall runtime, or the number of microbatches per batch is
-            relatively small.
-        FORCED_SYNC: Gradients are manually synchronized only after all gradients have been
-            computed for the final microbatch of a batch. Like :attr:`MULTI_AUTO_SYNC`, this
-            strategy ensures complete gradient synchronization, but this tends to be slower than
-            :attr:`MULTI_AUTO_SYNC`. This is because ordinarily syncs can happen in parallel
-            with the ``loss.backward()`` computation, meaning syncs can be mostly complete by
-            the time that function finishes. However, in certain circumstances, syncs may take
-            a very long time to complete - if there are also a lot of microbatches per batch,
-            this strategy may be optimal.
-    """
-    SINGLE_AUTO_SYNC = "single_auto_sync"
-    MULTI_AUTO_SYNC = "multi_auto_sync"
-    FORCED_SYNC = "forced_sync"
 
 
 def _get_distributed_config_var(env_var: str,
@@ -57,11 +20,11 @@ def _get_distributed_config_var(env_var: str,
                                 fetch_fn_name: Optional[str] = None) -> int:
     if not dist.is_available():
         warnings.warn(
-            f"DDPDefaultValueWarning: Torch distributed is not available; returning {default} for {human_name}")
+            f"DistributedDefaultValueWarning: Torch distributed is not available; returning {default} for {human_name}")
         return default
 
     if not env_var in os.environ:
-        warnings.warn(f"DDPDefaultValueWarning: {env_var} env var not set"
+        warnings.warn(f"DistributedDefaultValueWarning: {env_var} env var not set"
                       f"{' and process group not initialized' if fetch_fn_name is not None else ''}; "
                       f"returning {default} for {human_name}.")
         env_value = default
@@ -75,7 +38,7 @@ def _get_distributed_config_var(env_var: str,
 
 
 def get_world_size() -> int:
-    """Returns the DDP world size
+    """Returns the world size, which is the number of processes participating in this training run.
 
     Returns:
         int: The world size
@@ -122,8 +85,10 @@ def barrier() -> None:
     world_size = get_world_size()
     if world_size == 1:
         return
-    raise RuntimeError(f"Since the world_size({world_size}) > 1, please configure DDP to use ddp.barrier(). "
-                       "The mosaic trainer will automatically do this for you.")
+    raise RuntimeError(f"The world_size({world_size}) > 1, but the distributed package is not "
+                       "available or has not been initialized. Please check you have initialized "
+                       "the distributed runtime and that PyTorch has been built with distributed "
+                       "support.")
 
 
 def all_reduce(
@@ -137,8 +102,10 @@ def all_reduce(
     world_size = get_world_size()
     if world_size == 1:
         return
-    raise RuntimeError(f"Since the world_size({world_size}) > 1, please configure DDP to use ddp.all_reduce(). "
-                       "The mosaic trainer will automatically do this for you.")
+    raise RuntimeError(f"The world_size({world_size}) > 1, but the distributed package is not "
+                       "available or has not been initialized. Please check you have initialized "
+                       "the distributed runtime and that PyTorch has been built with distributed "
+                       "support.")
 
 
 def broadcast(tensor: torch.Tensor, src: int) -> None:
@@ -157,8 +124,10 @@ def broadcast(tensor: torch.Tensor, src: int) -> None:
     world_size = get_world_size()
     if world_size == 1:
         return
-    raise RuntimeError(f"Since the world_size({world_size}) > 1, please configure DDP to use ddp.broadcast(). "
-                       "The mosaic trainer will automatically do this for you.")
+    raise RuntimeError(f"The world_size({world_size}) > 1, but the distributed package is not "
+                       "available or has not been initialized. Please check you have initialized "
+                       "the distributed runtime and that PyTorch has been built with distributed "
+                       "support.")
 
 
 def broadcast_object_list(object_list: List[Any], src: int = 0) -> None:
@@ -180,8 +149,10 @@ def broadcast_object_list(object_list: List[Any], src: int = 0) -> None:
     world_size = get_world_size()
     if world_size == 1:
         return
-    raise RuntimeError(f"Since the world_size({world_size}) > 1, please configure DDP to use ddp.all_gather_object(). "
-                       "The mosaic trainer will automatically do this for you.")
+    raise RuntimeError(f"The world_size({world_size}) > 1, but the distributed package is not "
+                       "available or has not been initialized. Please check you have initialized "
+                       "the distributed runtime and that PyTorch has been built with distributed "
+                       "support.")
 
 
 def all_gather(tensor: torch.Tensor) -> Sequence[torch.Tensor]:
@@ -200,8 +171,10 @@ def all_gather(tensor: torch.Tensor) -> Sequence[torch.Tensor]:
     world_size = get_world_size()
     if world_size == 1:
         return [tensor]
-    raise RuntimeError(f"Since the world_size({world_size}) > 1, please configure DDP to use ddp.all_gather(). "
-                       "The mosaic trainer will automatically do this for you.")
+    raise RuntimeError(f"The world_size({world_size}) > 1, but the distributed package is not "
+                       "available or has not been initialized. Please check you have initialized "
+                       "the distributed runtime and that PyTorch has been built with distributed "
+                       "support.")
 
 
 def all_gather_object(obj: TObj) -> List[TObj]:
@@ -223,15 +196,18 @@ def all_gather_object(obj: TObj) -> List[TObj]:
     world_size = get_world_size()
     if world_size == 1:
         return [obj]
-    raise RuntimeError(f"Since the world_size({world_size}) > 1, please configure DDP to use ddp.all_gather_object(). "
-                       "The mosaic trainer will automatically do this for you.")
+    raise RuntimeError(f"The world_size({world_size}) > 1, but the distributed package is not "
+                       "available or has not been initialized. Please check you have initialized "
+                       "the distributed runtime and that PyTorch has been built with distributed "
+                       "support.")
 
 
-def initialize_ddp(backend: str, timeout: datetime.timedelta):
+def initialize_dist(backend: str, timeout: datetime.timedelta):
     if not dist.is_available():
         if get_world_size() != 1:
-            raise RuntimeError("When the world size is > 1, DDP must be used. However, it is not available in your "
-                               "installation of PyTorch. Please install or build PyTorch with DDP support.")
+            raise RuntimeError("When the world size is > 1, ``torch.distributed`` must be used. However, it is "
+                               "not available in your installation of PyTorch. Please install or build PyTorch "
+                               "with distributed support.")
         return
     if dist.is_initialized():
 
@@ -247,7 +223,7 @@ def initialize_ddp(backend: str, timeout: datetime.timedelta):
         dist.init_process_group(backend, timeout=timeout)
         return
 
-    warnings.warn("NoDDPWarning: RANK and WORLD_SIZE env vars not set; assuming no parallelization. "
+    warnings.warn("NoDistributedWarning: RANK and WORLD_SIZE env vars not set; assuming no parallelization. "
                   "If this is unexpected, make sure you are running your training script with the "
                   "composer executable.")
     store = dist.HashStore()
@@ -255,21 +231,7 @@ def initialize_ddp(backend: str, timeout: datetime.timedelta):
     dist.init_process_group(backend, timeout=timeout, store=store, world_size=1, rank=0)
 
 
-def prepare_module(module: Model, find_unused_parameters: bool) -> Model:
-    if dist.is_available() and dist.is_initialized():
-        if any((p.requires_grad for p in module.parameters())):
-            ddp_model = DistributedDataParallel(module, find_unused_parameters=find_unused_parameters)
-            return ddp_model
-        return module
-    if get_world_size() == 1:
-        return module
-    if dist.is_available():
-        raise RuntimeError("Please call ddp.initialize_ddp() before calling ddp.prepare_module()")
-    raise RuntimeError("When the world size is > 1, DDP must be used. However, it is not available in your "
-                       "installation of PyTorch. Please install or build PyTorch with DDP support.")
-
-
-def get_sampler(dataset, *, drop_last: bool, shuffle: bool) -> torch.utils.data.Sampler:
+def get_distributed_sampler(dataset, *, drop_last: bool, shuffle: bool) -> torch.utils.data.Sampler:
     return torch.utils.data.DistributedSampler[int](
         dataset,
         drop_last=drop_last,
@@ -277,41 +239,3 @@ def get_sampler(dataset, *, drop_last: bool, shuffle: bool) -> torch.utils.data.
         num_replicas=get_world_size(),
         rank=get_global_rank(),
     )
-
-
-@contextmanager
-def sync_context(state: State, is_final_microbatch: bool, sync_strategy: Union[str, DDPSyncStrategy]):
-    if not isinstance(state.model, DistributedDataParallel):
-        yield
-        return
-
-    assert state.optimizers is not None, "optimizers have not been initialized"
-    sync_strategy = DDPSyncStrategy(sync_strategy)
-
-    no_sync_context = cast(Callable[[], ContextManager], state.model.no_sync)
-    auto_sync_context = nullcontext
-
-    if sync_strategy == DDPSyncStrategy.SINGLE_AUTO_SYNC:
-        context = auto_sync_context if is_final_microbatch else no_sync_context
-        with context():
-            yield
-
-    elif sync_strategy == DDPSyncStrategy.MULTI_AUTO_SYNC:
-        with auto_sync_context():
-            yield
-
-    elif sync_strategy == DDPSyncStrategy.FORCED_SYNC:
-        try:
-            with no_sync_context():
-                yield
-        finally:
-            if is_final_microbatch:
-                for optimizer in state.optimizers:
-                    for group in optimizer.param_groups:
-                        for p in group["params"]:
-                            if p.grad is not None:
-                                all_reduce(p.grad)
-                                p.grad = p.grad / get_world_size()
-
-    else:
-        raise ValueError("Unknown sync strategy", sync_strategy)
