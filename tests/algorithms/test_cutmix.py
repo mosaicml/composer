@@ -89,7 +89,7 @@ class TestCutMix:
 
     def test_cutmix_algorithm(self, fake_data, alpha, dummy_state, dummy_logger):
         # Generate fake data
-        x_fake, y_fake, _, n_classes = fake_data
+        x_fake, y_fake, _, _ = fake_data
 
         algorithm = CutMixHparams(alpha=alpha).initialize_object()
         state = dummy_state

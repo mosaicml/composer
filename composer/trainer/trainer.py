@@ -30,7 +30,7 @@ from composer.models.base import BaseMosaicModel
 from composer.optim import (ComposedScheduler, CosineAnnealingLRHparams, DecoupledSGDWHparams, OptimizerHparams,
                             SchedulerHparams, WarmUpLRHparams)
 from composer.optim.scheduler import ensure_warmup_last
-from composer.trainer.checkpoint import Checkpointer, CheckpointLoader
+from composer.trainer.checkpoint import CheckpointLoader, CheckpointSaver
 from composer.trainer.deepspeed import DeepSpeedHparams
 from composer.trainer.devices.device import Device
 from composer.trainer.devices.device_cpu import DeviceCPU
@@ -93,14 +93,15 @@ class Trainer:
         log_destinations (List[BaseLoggerBackend], optional): The destinations to log training information to.
             (default ``[TQDMLoggerBackend()]``).
         callbacks (Sequence[Callback], optional): The callbacks to run during training. (default: ``[]``)
-        checkpoint_filepath (str, optional): The path to a trainer checkpoint file. If provided
-            the trainer will load the state (along with it's associated attributes) during initialization.
-            (default: ``None``)
-        checkpoint_interval_unit (int, optional): Unit for the checkpoint save interval -- should be 'ep'
-            for epochs, 'it' for iterations, or None to disable checkpointing. (default: ``None``).
-        checkpoint_folder (str, optional): The folder to save checkpoints to. Relative to `os.environ.get('RUN_DIRECTORY', '.')`,
-            (default: ``checkpoints``)
-        checkpoint_interval (int, optional): The frequency with which to checkpoint. (default: ``1``)
+        checkpoint_filepath (str): For loading checkpoints, the path to an existing checkpoint file.
+        load_weights_only (bool): Whether to only restore the weights from the checkpoint without
+            restoring the associated state.
+        strict_model_weights (bool, optional): Whether to force that the checkpointed weights must exactly
+            match the model weights.
+        checkpoint_folder (str): The path to store checkpoints in.
+        checkpoint_interval (int): The amount of time units to wait between creating checkpoints.
+        checkpoint_interval_unit (str, optional): The unit (`"ep"` or `"it"`) that
+            `checkpoint_interval` should be measured in. Set to ``None`` disables checkpointing. (default: ``None``)
         train_subset_num_batches (int, optional): If specified, finish every epoch early after training
             on this many batches. This parameter has no effect if it is greater than ``len(train_dataloader)``.
             If None (the default), then the entire dataloader will be iterated over.
@@ -150,11 +151,15 @@ class Trainer:
             log_destinations: Optional[List[BaseLoggerBackend]] = None,
             callbacks: Sequence[Callback] = tuple(),
 
-            # Checkpoint hparams
+            # Checkpoint loading hparams
             checkpoint_filepath: Optional[str] = None,
+            checkpoint_load_weights_only: bool = False,
+            checkpoint_strict_model_weights: bool = False,
+
+            # Checkpoint saving hparams
             checkpoint_interval_unit: Optional[str] = None,
-            checkpoint_folder: Optional[str] = "checkpoints",
-            checkpoint_interval: Optional[int] = 1,
+            checkpoint_interval: Optional[int] = None,
+            checkpoint_folder: str = "checkpoints",
 
             # Subset parameters
             train_subset_num_batches: Optional[int] = None,
@@ -295,21 +300,26 @@ class Trainer:
         self.state.optimizers = optimizer
         self.state.schedulers = ComposedScheduler(schedulers=schedulers)
 
-        self.checkpointer = None
         # TODO(#121): get checkpointing working with DeepSpeed.
-        if checkpoint_folder and checkpoint_interval and checkpoint_interval_unit:
-            if self.deepspeed_enabled:
-                raise NotImplementedError("Checkpointing is not yet supported with DeepSpeed.")
-            self.checkpointer = Checkpointer(checkpoint_folder=get_relative_to_run_directory(checkpoint_folder),
-                                             checkpoint_interval=checkpoint_interval,
-                                             checkpoint_interval_unit=checkpoint_interval_unit)
+        self.checkpoint_saver = None
+        if checkpoint_interval is not None and checkpoint_interval_unit is not None:
+            self.checkpoint_saver = CheckpointSaver(checkpoint_interval_unit=checkpoint_interval_unit,
+                                                    checkpoint_interval=checkpoint_interval,
+                                                    checkpoint_folder=get_relative_to_run_directory(checkpoint_folder))
 
-        self.checkpoint_loader = None
-        # TODO(#121): get checkpointing working with DeepSpeed.
-        if checkpoint_filepath:
             if self.deepspeed_enabled:
                 raise NotImplementedError("Checkpointing is not yet supported with DeepSpeed.")
-            self.checkpoint_loader = CheckpointLoader(checkpoint_filepath=checkpoint_filepath)
+
+        # TODO(#121): get checkpointing working with DeepSpeed.
+        self.checkpoint_loader = None
+        if checkpoint_filepath is not None:
+            if self.deepspeed_enabled:
+                raise NotImplementedError("Checkpointing is not yet supported with DeepSpeed.")
+
+            self.checkpoint_loader = CheckpointLoader(checkpoint_filepath=checkpoint_filepath,
+                                                      load_weights_only=checkpoint_load_weights_only,
+                                                      strict_model_weights=checkpoint_strict_model_weights)
+
             restored_seed = self.checkpoint_loader.load_checkpoint(state=self.state)
             # Set the restored seed so that the correct seed will be saved in future checkpoints
             # Used to handle the case where another checkpoint is saved after resuming from checkpoint.
@@ -368,6 +378,19 @@ class Trainer:
             each evaluation epoch may load a different subset of samples."""))
         eval_dataloader = hparams.val_dataset.initialize_object(eval_device_batch_size, hparams.dataloader)
 
+        # Checkpoint loading hparams
+        checkpoint_filepath = hparams.load_checkpoint.filepath if hparams.load_checkpoint is not None else None
+        checkpoint_load_weights_only = hparams.load_checkpoint.load_weights_only \
+                                       if hparams.load_checkpoint is not None else False
+        checkpoint_strict_model_weights = hparams.load_checkpoint.strict_model_weights \
+                                          if hparams.load_checkpoint is not None else False
+
+        # Checkpoint saving hparams
+        checkpoint_interval_unit = hparams.save_checkpoint.interval_unit \
+                                   if hparams.save_checkpoint is not None else None
+        checkpoint_interval = hparams.save_checkpoint.interval if hparams.save_checkpoint is not None else None
+        checkpoint_folder = hparams.save_checkpoint.folder if hparams.save_checkpoint is not None else "checkpoints"
+
         trainer = cls(
             model=model,
             train_dataloader=train_dataloader,
@@ -400,11 +423,15 @@ class Trainer:
             log_destinations=log_destinations,
             callbacks=tuple(callbacks),
 
-            # Checkpointing hparams
-            checkpoint_filepath=hparams.checkpoint_filepath,
-            checkpoint_interval_unit=hparams.checkpoint_interval_unit,
-            checkpoint_folder=hparams.checkpoint_folder,
-            checkpoint_interval=hparams.checkpoint_interval,
+            # Checkpoint loading hparams
+            checkpoint_filepath=checkpoint_filepath,
+            checkpoint_load_weights_only=checkpoint_load_weights_only,
+            checkpoint_strict_model_weights=checkpoint_strict_model_weights,
+
+            # Checkpoint saving hparams
+            checkpoint_interval_unit=checkpoint_interval_unit,
+            checkpoint_interval=checkpoint_interval,
+            checkpoint_folder=checkpoint_folder,
 
             # Subset parameters
             train_subset_num_batches=hparams.train_subset_num_batches,
@@ -525,7 +552,7 @@ class Trainer:
                                       f"found {len(ensure_tuple(state.optimizers))} optimizers")
 
         assert isinstance(state.model, BaseMosaicModel)
-        self.original_model = state.model
+        self.original_model = state.model  # type: ignore  # TODO(ravi) -- update the state to add an original model helper
 
         # place the state, model in the proper devices
         if self.deepspeed_enabled:
@@ -674,11 +701,12 @@ class Trainer:
                         self.eval(is_batch=True)
 
                     state.step += 1
-                    if self.checkpointer and self.checkpointer.should_checkpoint(state=state, event=Event.BATCH_END):
-                        self.checkpointer.save_checkpoint(state=state,
-                                                          seed=self.seed,
-                                                          device=self.device,
-                                                          config=self.config)
+                    if self.checkpoint_saver and self.checkpoint_saver.should_checkpoint(state=state,
+                                                                                         event=Event.BATCH_END):
+                        self.checkpoint_saver.save_checkpoint(state=state,
+                                                              seed=self.seed,
+                                                              device=self.device,
+                                                              config=self.config)
             except BreakEpochException:
                 log.info(f'Skipping the rest of Epoch {state.epoch}')
 
@@ -692,8 +720,11 @@ class Trainer:
 
             state.epoch += 1
 
-            if self.checkpointer and self.checkpointer.should_checkpoint(state=state, event=Event.EPOCH_END):
-                self.checkpointer.save_checkpoint(state=state, seed=self.seed, device=self.device, config=self.config)
+            if self.checkpoint_saver and self.checkpoint_saver.should_checkpoint(state=state, event=Event.EPOCH_END):
+                self.checkpoint_saver.save_checkpoint(state=state,
+                                                      seed=self.seed,
+                                                      device=self.device,
+                                                      config=self.config)
 
         self.engine.run_event(Event.TRAINING_END)
 
@@ -831,7 +862,7 @@ class Trainer:
 
             metrics = self._get_metrics_as_collection(is_train=False)
 
-            for i, state.batch in enumerate(itertools.islice(state.eval_dataloader, self._eval_subset_num_batches)):
+            for state.batch in itertools.islice(state.eval_dataloader, self._eval_subset_num_batches):
                 state.batch = self.device.batch_to_device(state.batch)
                 if self._eval_device_transformation_fn is not None:
                     state.batch = self._eval_device_transformation_fn(state.batch)
