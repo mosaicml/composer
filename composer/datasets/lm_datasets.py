@@ -38,7 +38,7 @@ class LMDatasetHparams(DatasetHparams):
 
     split: Optional[str] = hp.optional("Whether to use 'train', 'validation' or 'test' split.", default=None)
     tokenizer_name: Optional[str] = hp.optional("The name of the tokenizer to preprocess text with.", default=None)
-    use_masked_lm: Optional[bool] = hp.optional(
+    use_masked_lm: bool = hp.optional(
         "Whether the dataset shoud be encoded with masked language modeling or not.", default=None)
     num_tokens: int = hp.optional(doc='If desired, the number of tokens to truncate the dataset to.', default=0)
     mlm_probability: float = hp.optional("If using masked language modeling, the probability to mask tokens with.",
@@ -82,6 +82,7 @@ class LMDatasetHparams(DatasetHparams):
             raise ImportError('transformers and datasets are not installed. '
                               'Please install with `pip install mosaicml-composer[nlp]`') from e
 
+        self.validate()
         self.tokenizer = transformers.AutoTokenizer.from_pretrained(self.tokenizer_name)  #type: ignore (thirdparty)
         self.config = transformers.AutoConfig.from_pretrained(self.tokenizer_name)  #type: ignore (thirdparty)
         lm_datasets = [datasets.load_from_disk(i) for i in self.datadir]  #type: ignore (thirdparty)

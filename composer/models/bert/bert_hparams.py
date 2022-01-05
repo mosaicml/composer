@@ -41,11 +41,11 @@ class BERTForClassificationHparams(TransformerHparams):
 
         if self.use_pretrained:
             # TODO (Moin): handle the warnings on not using the seq_relationship head
-            model = transformers.AutoModelForSequenceClassification.from_pretrained(self.pretrained_model_name,
-                                                                                    **model_hparams)
+            model = transformers.AutoModelForSequenceClassification.from_pretrained(
+                self.pretrained_model_name, **model_hparams) 
         else:
-            model = transformers.AutoModelForSequenceClassification.from_config(
-                config, **model_hparams)  #type: ignore (thirdparty)
+            model = transformers.AutoModelForSequenceClassification.from_config (#type: ignore (thirdparty)
+                config, **model_hparams)  
 
         return BERTModel(
             module=model,

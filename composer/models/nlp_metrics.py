@@ -47,6 +47,8 @@ class MaskedAccuracy(Metric):
         self.total += mask.sum()
 
     def compute(self):
+        assert isinstance(self.correct, Tensor)
+        assert isinstance(self.total, Tensor)
         return self.correct.float() / self.total
 
 
@@ -58,14 +60,14 @@ class CrossEntropyLoss(Metric):
         vocab_size (int): the size of the tokenizer vocabulary.
         dist_sync_on_step (bool): Synchronize metric state across processes at
             each forward() before returning the value at the step.
-        ignore_index (int): The class index to ignore. Must be between 0 and num_classes.
+        ignore_index (int): The class index to ignore. Defaults to -100.
 
     State:
         sum_loss (float): the sum of the per-example loss in the batch.
         total_batches (float): the number of batches to average across.
     """
 
-    def __init__(self, vocab_size: int, dist_sync_on_step=False, ignore_index: int = None):
+    def __init__(self, vocab_size: int, dist_sync_on_step=False, ignore_index: int = -100):
         super().__init__(dist_sync_on_step=dist_sync_on_step)
 
         self.vocab_size = vocab_size
@@ -136,17 +138,20 @@ class BinaryF1Score(Metric):
                 either the Tensor or a Mapping type that contains the loss or model logits.
             target (Tensor): A Tensor of ground-truth values to compare against.
         """
+        assert isinstance(self.predictions, list)
+        assert isinstance(self.labels, list)
         self.predictions.append(output)
         self.labels.append(target)
 
-    def compute(self) -> Tensor:
+    def compute(self) -> float:
         """Aggregate the state over all processes to compute the metric.
 
         Returns:
             loss (Tensor): The loss averaged across all batches.
         """
         # take the argmax to get label indicies
-        predictions = torch.argmax(self.predictions, dim=1).cpu()
+        predictions = torch.Tensor(self.predictions)
+        predictions = torch.argmax(predictions, dim=1).cpu()
         labels = self.labels.cpu()
         return float(f1_score(y_pred=predictions, y_true=labels))
 

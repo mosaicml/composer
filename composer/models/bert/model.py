@@ -12,7 +12,7 @@ from composer.models.nlp_metrics import BinaryF1Score, CrossEntropyLoss, MaskedA
 from composer.models.transformer_shared import MosaicTransformer
 
 if TYPE_CHECKING:
-    from composer.core.types import Batch, Metrics, Tensors
+    from composer.core.types import Batch, BatchDict, Metrics, Tensors
 
 
 class BERTModel(MosaicTransformer):
@@ -79,15 +79,15 @@ class BERTModel(MosaicTransformer):
         else:
             raise NotImplementedError('Calculating loss directly not supported yet.')
 
-    def validate(self, batch: Batch) -> Tuple[Mapping, None]:
+    def validate(self, batch: BatchDict) -> Tuple[Tensors, Tensors]:
         """Runs the validation step.
 
         Args:
-            batch (Batch): a dictionary of Dict[str, Tensor] of inputs
+            batch (BatchDict): a dictionary of Dict[str, Tensor] of inputs
                 that the model expects, as found in MosaicTransformer.get_model_inputs().
 
         Returns:
-            A tuple of (Mapping, None) with the output from the forward pass.
+            A tuple of (Tensor, Tensor) with the output from the forward pass and the correct labels.
             This is fed into directly into the output of :meth:`metrics`.
         """
 
