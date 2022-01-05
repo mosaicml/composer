@@ -4,7 +4,7 @@ import logging
 import tempfile
 from dataclasses import dataclass
 from os.path import join
-from typing import List, Optional, Sequence
+from typing import List, Optional
 
 import yahp as hp
 
@@ -16,15 +16,13 @@ from composer.utils import ddp
 log = logging.getLogger(__name__)
 
 
-class LMDataSpec(DataSpec):
-
-    def batch_split_fn(self, batch: Batch, num_microbatches: int) -> Sequence[Batch]:
-        if isinstance(batch, dict):
-            chunked = {k: v.chunk(num_microbatches) for k, v in batch.items()}
-            num_chunks = len(list(chunked.values())[0])
-            return [{k: v[idx] for k, v in chunked.items()} for idx in range(num_chunks)]
-        else:
-            raise ValueError(f'Expect batch from dataloader to be of type Dict[str, Tensor], but got {type(batch)}')
+def _split_dict_fn(batch: Batch, n_microbatches: int) -> List[Batch]:
+    if isinstance(batch, dict):
+        chunked = {k: v.chunk(n_microbatches) for k, v in batch.items()}
+        num_chunks = len(list(chunked.values())[0])
+        return [{k: v[idx] for k, v in chunked.items()} for idx in range(num_chunks)]
+    else:
+        raise ValueError(f'Expect batch from dataloader to be of type Dict[str, Tensor], but got {type(batch)}')
 
 
 @dataclass
@@ -106,10 +104,11 @@ class LMDatasetHparams(DatasetHparams):
 
         sampler = ddp.get_sampler(dataset, drop_last=self.drop_last, shuffle=self.shuffle)
 
-        return LMDataSpec(dataloader=dataloader_hparams.initialize_object(
+        return DataSpec(dataloader=dataloader_hparams.initialize_object(
             dataset=dataset,
             batch_size=batch_size,
             sampler=sampler,
             drop_last=self.drop_last,
             collate_fn=data_collator,
-        ))
+        ),
+                        split_batch=_split_dict_fn)

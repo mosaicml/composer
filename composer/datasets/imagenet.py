@@ -12,21 +12,20 @@ from PIL import Image
 from torchvision import transforms
 from torchvision.datasets import ImageFolder
 
-from composer.core.types import Batch, DataLoader, DataSpec, Tensor
+from composer.core.types import Batch, DataSpec, Tensor
 from composer.datasets.dataloader import DataloaderHparams
 from composer.datasets.hparams import DatasetHparams, SyntheticHparamsMixin
 from composer.datasets.synthetic import SyntheticBatchPairDataset
 from composer.utils import ddp
 
 
-class ImagenetDataSpec(DataSpec):
+class TransformationFn:
 
-    def __init__(self, dataloader: DataLoader) -> None:
-        super().__init__(dataloader)
+    def __init__(self) -> None:
         self.mean: Optional[Tensor] = None
         self.std: Optional[Tensor] = None
 
-    def device_transformation_fn(self, batch: Batch):
+    def __call__(self, batch: Batch):
         xs, ys = batch
         assert isinstance(xs, Tensor)
         assert isinstance(ys, Tensor)
@@ -89,16 +88,8 @@ class ImagenetDatasetHparams(DatasetHparams, SyntheticHparamsMixin):
                 device=self.synthetic_device,
                 memory_format=self.synthetic_memory_format,
             )
-
-            sampler = ddp.get_sampler(dataset, drop_last=self.drop_last, shuffle=self.shuffle)
-
-            return dataloader_hparams.initialize_object(
-                dataset=dataset,
-                batch_size=batch_size,
-                sampler=sampler,
-                drop_last=self.drop_last,
-            )
-
+            collate_fn = None
+            device_transform_fn = None
         else:
 
             if self.is_train:
@@ -122,15 +113,19 @@ class ImagenetDatasetHparams(DatasetHparams, SyntheticHparamsMixin):
                 ])
                 split = "val"
 
+            device_transform_fn = TransformationFn()
+            collate_fn = fast_collate
+
             if self.datadir is None:
                 raise ValueError("datadir must be specified is self.synthetic is False")
             dataset = ImageFolder(os.path.join(self.datadir, split), transformation)
         sampler = ddp.get_sampler(dataset, drop_last=self.drop_last, shuffle=self.shuffle)
 
-        return ImagenetDataSpec(dataloader=dataloader_hparams.initialize_object(
+        return DataSpec(dataloader=dataloader_hparams.initialize_object(
             dataset=dataset,
             batch_size=batch_size,
             sampler=sampler,
             drop_last=self.drop_last,
-            collate_fn=fast_collate,
-        ))
+            collate_fn=collate_fn,
+        ),
+                        device_transforms=device_transform_fn)

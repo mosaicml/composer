@@ -49,21 +49,22 @@ class DataSpec:
             This function must be specified to track tokens.
     """
 
-    def __init__(self,
-                 dataloader: DataLoader,
-                 num_samples: Optional[int] = None,
-                 num_tokens: Optional[int] = None,
-                 device_transforms: Optional[Callable[[Batch], Batch]] = None,
-                 split_batch: Optional[Callable[[Batch, int], Sequence[Batch]]] = None,
-                 get_num_samples_in_batch: Optional[Callable[[Batch], int]] = None,
-                 get_num_tokens_in_batch: Optional[Callable[[Batch], int]] = None,
-                 ) -> None:
+    def __init__(
+        self,
+        dataloader: DataLoader,
+        num_samples: Optional[int] = None,
+        num_tokens: Optional[int] = None,
+        device_transforms: Optional[Callable[[Batch], Batch]] = None,
+        split_batch: Optional[Callable[[Batch, int], Sequence[Batch]]] = None,
+        get_num_samples_in_batch: Optional[Callable[[Batch], int]] = None,
+        get_num_tokens_in_batch: Optional[Callable[[Batch], int]] = None,
+    ) -> None:
         self.dataloader = dataloader
         self.num_tokens = num_tokens
-        self.device_transforms = device_transforms
-        self.split_batch = split_batch
-        self.get_num_samples_in_batch = get_num_samples_in_batch
-        self.get_num_tokens_in_batch = get_num_tokens_in_batch
+        self._device_transforms = self._default_device_transforms if device_transforms is None else device_transforms
+        self._split_batch = self._default_split_batch if split_batch is None else split_batch
+        self._get_num_samples_in_batch = self._default_get_num_samples_in_batch if get_num_samples_in_batch is None else get_num_samples_in_batch
+        self._get_num_tokens_in_batch = self._default_get_num_tokens_in_batch if get_num_tokens_in_batch is None else get_num_tokens_in_batch
         if num_samples is not None:
             self.num_samples = num_samples
 
@@ -79,13 +80,10 @@ class DataSpec:
     @property
     def device_transforms(self):
         return self._device_transforms
-    
+
     @device_transforms.setter
     def device_transforms(self, device_transforms: Optional[Callable[[Batch], Batch]] = None):
-        if device_transforms is None:
-            self._device_transforms = self._default_device_transforms
-        else:
-            self._device_transforms = device_transforms 
+        self._device_transforms = self._default_device_transforms if device_transforms is None else device_transforms
 
     def _default_device_transforms(self, batch: Batch):
         return batch
@@ -93,13 +91,10 @@ class DataSpec:
     @property
     def split_batch(self):
         return self._split_batch
-    
+
     @split_batch.setter
     def split_batch(self, split_batch: Optional[Callable[[Batch, int], Sequence[Batch]]] = None):
-        if split_batch is None:
-            self._split_batch = self._default_split_batch
-        else:
-            self._split_batch = split_batch
+        self._split_batch = self._default_split_batch if split_batch is None else split_batch
 
     def _default_split_batch(self, batch: Batch, num_microbatches: int) -> Sequence[Batch]:
         if not isinstance(batch, Sequence):
@@ -113,19 +108,17 @@ class DataSpec:
                     [x[i::num_microbatches] for i in range(num_microbatches)],
                     [y[i::num_microbatches] for i in range(num_microbatches)],
                 ))
-        raise NotImplementedError('The default split_fn is unable to split the output of this'
-                                  'dataloader. Please define a split_fn in your dataloader spec.')
+        raise NotImplementedError(
+            textwrap.dedent("""The default split_fn is unable to split the output of this
+            dataloader. Please use a DataSpec and specify `split_batch`."""))
 
     @property
     def get_num_samples_in_batch(self):
         return self._get_num_samples_in_batch
-    
+
     @get_num_samples_in_batch.setter
     def get_num_samples_in_batch(self, get_num_samples_in_batch: Optional[Callable[[Batch], int]] = None):
-        if get_num_samples_in_batch is None:
-            self._get_num_samples_in_batch = self._default_get_num_samples_in_batch
-        else:
-            self._get_num_samples_in_batch = get_num_samples_in_batch
+        self._get_num_samples_in_batch = self._default_get_num_samples_in_batch if get_num_samples_in_batch is None else get_num_samples_in_batch
 
     def _default_get_num_samples_in_batch(self, batch: Batch) -> int:
         """Returns the number of samples in the provided batch.
@@ -155,20 +148,17 @@ class DataSpec:
             return dim0_sizes[0]
         else:
             raise NotImplementedError(
-                textwrap.dedent(f"""Cannot determine the batch size,
-                as multiple Tensors of different lengths were found in the batch: sizes in batch:
-                {dim0_sizes}"""))
+                textwrap.dedent(f"""Cannot determine the batch size, as multiple Tensors of
+                different lengths were found in the batch: sizes in batch: {dim0_sizes}.
+                Please use a DataSpec and specify `get_num_samples_in_batch`."""))
 
     @property
     def get_num_tokens_in_batch(self):
         return self._get_num_tokens_in_batch
-    
+
     @get_num_tokens_in_batch.setter
     def get_num_tokens_in_batch(self, get_num_tokens_in_batch: Optional[Callable[[Batch], int]] = None):
-        if get_num_tokens_in_batch is None:
-            self._get_num_tokens_in_batch = self._default_get_num_tokens_in_batch
-        else:
-            self._get_num_tokens_in_batch = get_num_tokens_in_batch
+        self._get_num_tokens_in_batch = self._default_get_num_tokens_in_batch if get_num_tokens_in_batch is None else get_num_tokens_in_batch
 
     def _default_get_num_tokens_in_batch(self, batch: Batch) -> int:
         del batch  # unused
