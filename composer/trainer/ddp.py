@@ -1,7 +1,7 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
 from contextlib import contextmanager, nullcontext
-from typing import TYPE_CHECKING, Callable, ContextManager, Union, cast
+from typing import Callable, ContextManager, Union, cast
 
 from torch.nn.parallel import DistributedDataParallel
 
