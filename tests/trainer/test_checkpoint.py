@@ -252,11 +252,13 @@ def test_load_weights(
     (0, 1),
     (1, 0),
 ])
-@pytest.mark.parametrize("model_name", [
-    None, 
-    # "resnet50_synthetic", 
-    # "gpt2_52m",
-])
+@pytest.mark.parametrize(
+    "model_name",
+    [
+        None,
+        # "resnet50_synthetic",
+        # "gpt2_52m",
+    ])
 def test_checkpoint(
     device_hparams: DeviceHparams,
     world_size: int,

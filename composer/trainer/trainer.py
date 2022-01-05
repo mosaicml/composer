@@ -306,8 +306,8 @@ class Trainer:
         self.checkpoint_saver = None
         if checkpoint_folder and checkpoint_interval and checkpoint_interval_unit:
             self.checkpoint_saver = CheckpointSaver(checkpoint_folder=get_relative_to_run_directory(checkpoint_folder),
-                                             checkpoint_interval=checkpoint_interval,
-                                             checkpoint_interval_unit=checkpoint_interval_unit)
+                                                    checkpoint_interval=checkpoint_interval,
+                                                    checkpoint_interval_unit=checkpoint_interval_unit)
 
         self.checkpoint_loader = None
         if checkpoint_filepath:

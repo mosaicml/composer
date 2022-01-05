@@ -32,7 +32,7 @@ def parse_checkpoint_filepath(checkpoint_filepath: str):
         folder, tag = os.path.split(folder)
 
     return folder, tag
-    
+
 
 def get_mosaic_checkpoint_filepath(checkpoint_folder: str, checkpoint_tag: str):
     return os.path.join(checkpoint_folder, checkpoint_tag, "mosaic_states.pt")
@@ -81,7 +81,7 @@ class CheckpointLoader:
                 checkpointed_world_size = len(self.state_dict["seed"])
                 if world_size != checkpointed_world_size:
                     warnings.warn(f"Current world size {world_size} does not match the checkpointed world size "
-                                f"{checkpointed_world_size}. The seed will not be restored.")
+                                  f"{checkpointed_world_size}. The seed will not be restored.")
                 else:
                     seed_to_restore = self.state_dict["seed"][ddp.get_global_rank()]
                     seed_all(seed_to_restore)

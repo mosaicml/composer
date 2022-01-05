@@ -217,7 +217,8 @@ class State(Serializable):
                     serialized_value = {
                         obj.__class__.__qualname__: obj.state_dict()
                         for obj in ensure_tuple(state_field_value)
-                        if obj is not None                    }
+                        if obj is not None
+                    }
                 state_dict[state_field_name] = serialized_value
 
             else:
