@@ -152,11 +152,13 @@ class TrainerHparams(hp.Hparams):
         "Determines the number of microbatches to split a per-gpu batch into, used to compensate for low-memory-capacity devices."
     )
     precision: Precision = hp.required(doc="Precision to use for training", template_default=Precision.AMP)
+
+    dist_timeout: float = hp.optional(doc="Timeout, in seconds, for initializing the dsitributed process group.",
+                                      default=5.0)
     ddp_sync_strategy: Optional[DDPSyncStrategy] = hp.optional(
         doc="The strategy for synchronizing DDP. Default value ``None`` causes the "
         "trainer to auto-select a value depending on what algorithms are used.",
         default=None)
-    ddp_timeout: float = hp.optional(doc="Timeout, in seconds, for initializing the DDP process group.", default=5.0)
 
     deepspeed: Optional[DeepSpeedHparams] = hp.optional(doc="Configuration for DeepSpeed.", default=None)
 

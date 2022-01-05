@@ -1,13 +1,11 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
 from collections import defaultdict
-from typing import Callable
 
 import torch
 from torch.cuda.amp.grad_scaler import GradScaler, OptState, _refresh_per_optimizer_state
 from torch.optim import Optimizer
 
-from composer.core.types import Tensor
 from composer.utils import dist
 
 

@@ -82,10 +82,10 @@ class Trainer:
         compute_training_metrics (bool, optional): True to compute metrics on training data and False to not.
             (default: ``False``)
         precision (Precision, optional): Numerical precision to use for training. (default: ``Precision.FP32``).
+        dist_timeout (float, optional): Timeout, in seconds, for initializing the distributed process group.
+            (default: ``5.0``)
         ddp_sync_strategy (DDPSyncStrategy, optional): The strategy to use for synchronizing gradients.
             Leave unset to let the trainer auto-configure this.
-        ddp_timeout (float, optional): Timeout, in seconds, for initializing the DDP process group.
-            (default: ``5.0``)
         seed (int, optional): The seed used in randomization. When not provided a random seed
             will be created. (default: ``None``)
         deterministic_mode (bool, optional): Run the model deterministically. Experimental. Performance
@@ -140,9 +140,9 @@ class Trainer:
             compute_training_metrics: bool = False,
             precision: Precision = Precision.FP32,
 
-            # ddp hparams
+            # dist hparams
+            dist_timeout: float = 5.0,
             ddp_sync_strategy: Optional[Union[str, DDPSyncStrategy]] = None,
-            ddp_timeout: float = 5.0,
 
             # Randomness
             seed: Optional[int] = None,
@@ -412,9 +412,9 @@ class Trainer:
             compute_training_metrics=hparams.compute_training_metrics,
             precision=hparams.precision,
 
-            # ddp hparams
+            # dist hparams
+            dist_timeout=hparams.dist_timeout,
             ddp_sync_strategy=hparams.ddp_sync_strategy,
-            ddp_timeout=hparams.ddp_timeout,
 
             # Randomness
             seed=seed,
