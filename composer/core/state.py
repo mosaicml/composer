@@ -43,6 +43,12 @@ STATE_DICT_SERIALIZATION_FIELDS = [
     "scaler",
 ]
 
+# These fields will be serialized using .state_dict(), but will be skipped if DeepSpeed is enabled.
+STATE_DICT_SERIALIZATION_FIELDS_SKIP_DEEPSPEED = [
+    "model",
+    "_optimizers",
+]
+
 # These fields will not be serialized
 SKIP_SERIALIZATION_FIELDS = [
     "loss", "batch", "outputs", "train_dataloader", "eval_dataloader", "_steps_per_epoch", "_precision_context"
@@ -192,6 +198,10 @@ class State(Serializable):
         """Returns the state as a :class:`dict`."""
         state_dict: types.StateDict = {}
 
+        # The "proper" form of this check would be something like ``isinstance(self.model, DeepSpeedEngine)``,
+        # but we don't want to need to import DeepSpeed when it's not needed.
+        deepspeed_enabled = self.model.__class__.__qualname__ == "DeepSpeedEngine"
+
         for state_field_name, state_field_value in self.__dict__.items():
             if state_field_name in SKIP_SERIALIZATION_FIELDS:
                 continue
@@ -199,22 +209,23 @@ class State(Serializable):
                 state_dict[state_field_name] = state_field_value
                 continue
             elif state_field_name in STATE_DICT_SERIALIZATION_FIELDS:
+                if deepspeed_enabled and state_field_name in STATE_DICT_SERIALIZATION_FIELDS_SKIP_DEEPSPEED:
+                    continue
                 if state_field_name == "model":
-                    if isinstance(state_field_value, DeepSpeedEngine):
-                        state_dict["_is_model_deepspeed"] = True
-                        continue
                     # Save model directly instead of by class name, since model may be wrapped by DistributedDataParallel
                     serialized_value = state_field_value.state_dict()
                 else:
                     serialized_value = {
                         obj.__class__.__qualname__: obj.state_dict()
                         for obj in ensure_tuple(state_field_value)
-                        if obj is not None
-                    }
+                        if obj is not None                    }
                 state_dict[state_field_name] = serialized_value
+
             else:
                 raise RuntimeError(f"Unable to serialize field {state_field_name}")
         state_dict["_is_model_ddp_wrapped"] = isinstance(self.model, DistributedDataParallel)
+        if deepspeed_enabled:
+            state_dict["_deepspeed_enabled"] = True
         return state_dict
 
     def load_state_dict(self, state: types.StateDict):
@@ -224,16 +235,19 @@ class State(Serializable):
             state_dict (types.StateDict): object returned from call to :meth:`state_dict`.
 
         """
+
+        deepspeed_enabled = False
+        if "_deepspeed_enabled" in state:
+            deepspeed_enabled = state["_deepspeed_enabled"]
+
         for state_field_name, state_field_value in self.__dict__.items():
             if state_field_name in SKIP_SERIALIZATION_FIELDS:
-                continue
-            elif state_field_name == "model" and state["_is_model_deepspeed"]:
-                continue
-            elif state_field_name == "_optimizers" and state["_is_model_deepspeed"]:
                 continue
             elif state_field_name in DIRECT_SERIALIZATION_FIELDS:
                 setattr(self, state_field_name, state[state_field_name])
             elif state_field_name in STATE_DICT_SERIALIZATION_FIELDS:
+                if deepspeed_enabled and state_field_name in STATE_DICT_SERIALIZATION_FIELDS_SKIP_DEEPSPEED:
+                    continue
                 serialized_value = state[state_field_name]
 
                 if state_field_name == "model":

@@ -202,6 +202,8 @@ class Checkpointer:
                                            "differ from those being used in the current training run. "
                                            "Please specify a new checkpoint folder.") from e
         checkpoint_filepath = get_mosaic_checkpoint_filepath(self.checkpoint_folder, tag)
+        if not os.path.exists(os.path.join(self.checkpoint_folder, tag)):
+            os.makedirs(os.path.join(self.checkpoint_folder, tag))
         with open(checkpoint_filepath, 'xb') as f:
             torch.save(state_dict, f)
         log.info(f'Trainer checkpoint saved to {checkpoint_filepath}')
