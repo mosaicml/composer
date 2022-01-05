@@ -318,9 +318,9 @@ def test_checkpoint_deepspeed(
     mosaic_trainer_hparams.seed = seed
     mosaic_trainer_hparams.validate_every_n_batches = validate_every_n_batches
     mosaic_trainer_hparams.validate_every_n_epochs = validate_every_n_epochs
-    final_checkpoint = "ep2.pt" if checkpoint_filename.startswith("ep") else "it8.pt"
+    final_checkpoint = ("ep2" if checkpoint_filename.startswith("ep") else "it8") + "/mosaic_states.pt"
     _test_checkpoint_trainer(mosaic_trainer_hparams)
-    checkpoint_a_file_path = os.path.join(checkpoint_a_folder, f"{checkpoint_filename}.pt")
+    checkpoint_a_file_path = os.path.join(checkpoint_a_folder, checkpoint_filename)
     checkpoint_b_file_path = run_directory.get_relative_to_run_directory(checkpoint_a_folder, final_checkpoint)
     trainer_1_hparams_filepath = run_directory.get_relative_to_run_directory(checkpoint_a_folder, "hparams.yaml")
 
@@ -333,13 +333,11 @@ def test_checkpoint_deepspeed(
     checkpoint_c_file_path = run_directory.get_relative_to_run_directory(checkpoint_b_folder, final_checkpoint)
     trainer_2_hparams_filepath = run_directory.get_relative_to_run_directory(checkpoint_b_folder, "hparams.yaml")
 
-    if ddp.get_global_rank() == 0:
-
-        assert_checkpoints_equivalent(
-            hparams_file_a=trainer_1_hparams_filepath,
-            checkpoint_file_a=checkpoint_b_file_path,
-            hparams_file_b=trainer_2_hparams_filepath,
-            checkpoint_file_b=checkpoint_c_file_path,
-        )
+    assert_checkpoints_equivalent(
+        hparams_file_a=trainer_1_hparams_filepath,
+        checkpoint_file_a=checkpoint_b_file_path,
+        hparams_file_b=trainer_2_hparams_filepath,
+        checkpoint_file_b=checkpoint_c_file_path,
+    )
 
 

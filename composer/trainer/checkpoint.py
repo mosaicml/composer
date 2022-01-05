@@ -48,6 +48,7 @@ class CheckpointLoader:
     """
 
     def __init__(self, checkpoint_filepath: str):
+        self.checkpoint_filepath = checkpoint_filepath
         self.checkpoint_folder, self.checkpoint_tag = parse_checkpoint_filepath(checkpoint_filepath)
         mosaic_checkpoint_filepath = get_mosaic_checkpoint_filepath(self.checkpoint_folder, self.checkpoint_tag)
 
@@ -65,7 +66,12 @@ class CheckpointLoader:
         """
 
         state.load_state_dict(self.state_dict["state"])
-        self.checkpoint_rng_state = self._get_checkpoint_rng_state(state, self.state_dict["rng"])
+        self.checkpoint_rng_state = self._get_checkpoint_rng_state(self.state_dict["rng"])
+
+        if isinstance(state.model, DeepSpeedEngine):
+            load_path, _ = state.model.load_checkpoint(self.checkpoint_folder, self.checkpoint_tag)
+            if load_path is None:
+                raise RuntimeError(f"Failed to load DeepSpeed checkpoint from {self.checkpoint_filepath}")
 
         if "seed" in self.state_dict:
             world_size = ddp.get_world_size()
@@ -77,11 +83,6 @@ class CheckpointLoader:
             seed_to_restore = self.state_dict["seed"][ddp.get_global_rank()]
             seed_all(seed_to_restore)
             return seed_to_restore
-
-        if isinstance(state.model, DeepSpeedEngine):
-            load_path, _ = state.model.load_checkpoint(self.checkpoint_folder, self.checkpoint_tag)
-            if load_path is None:
-                raise RuntimeError(f"Failed to load DeepSpeed checkpoint from {checkpoint_filepath}")
 
     def restore_checkpoint_rng_state(self, device: Device):
         """Restore the state of all RNG objects in this context from the loaded checkpoint's data.
@@ -176,6 +177,10 @@ class Checkpointer:
         if ddp.get_global_rank() != 0:
             # only rank 0 saves checkpoints
             # Need the check down here so all the DDP syncs will work for generating the checkpoint
+
+            # Sync before exiting so that even the non rank 0 processes cannot exit before the
+            # checkpoint has been saved.
+            ddp.barrier()
             return
 
         # we add the state only on rank 0 since other processes don't have loggers to serialize
@@ -197,10 +202,12 @@ class Checkpointer:
                                            "differ from those being used in the current training run. "
                                            "Please specify a new checkpoint folder.") from e
         checkpoint_filepath = get_mosaic_checkpoint_filepath(self.checkpoint_folder, tag)
-        save_file = os.path.join(self.checkpoint_folder, checkpoint_filepath)
-        with open(save_file, 'xb') as f:
+        with open(checkpoint_filepath, 'xb') as f:
             torch.save(state_dict, f)
-        log.info(f'Trainer checkpoint saved to {save_file}')
+        log.info(f'Trainer checkpoint saved to {checkpoint_filepath}')
+
+        # Sync with the non rank 0 processes, which are still waiting to return
+        ddp.barrier()
 
     def _get_rng_state(self, device: Device) -> StateDict:
         rng_state = {

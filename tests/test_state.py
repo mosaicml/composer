@@ -14,6 +14,7 @@ from composer.datasets.dataloader import DataloaderHparams
 from composer.datasets.hparams import DataloaderSpec, DatasetHparams
 from composer.models.base import BaseMosaicModel
 from tests.fixtures.models import SimpleBatchPairModel
+from deepspeed.runtime.engine import DeepSpeedEngine
 
 
 def random_tensor(size=(4, 10)):
@@ -66,6 +67,8 @@ def assert_state_equivalent(state1: State, state2: State):
         var2 = getattr(state2, field_name)
 
         if field_name == "model":
+            if isinstance(state1.model, DeepSpeedEngine):
+                assert isinstance(state2.model, DeepSpeedEngine)
             for p, q in zip(state1.model.parameters(), state2.model.parameters()):
                 torch.testing.assert_allclose(p, q, atol=1e-2, rtol=1e-2)
         elif isinstance(var1, types.Tensor):

@@ -295,6 +295,9 @@ class Trainer:
         self.state.optimizers = optimizer
         self.state.schedulers = ComposedScheduler(schedulers=schedulers)
 
+        assert isinstance(self.state.model, BaseMosaicModel)
+        self.original_model = self.state.model  # type: ignore  # TODO(ravi) -- update the state to add an original model helper
+
         self.checkpointer = None
         if checkpoint_folder and checkpoint_interval and checkpoint_interval_unit:
             self.checkpointer = Checkpointer(checkpoint_folder=get_relative_to_run_directory(checkpoint_folder),
@@ -304,12 +307,35 @@ class Trainer:
         self.checkpoint_loader = None
         if checkpoint_filepath:
             self.checkpoint_loader = CheckpointLoader(checkpoint_filepath=checkpoint_filepath)
-            restored_seed = self.checkpoint_loader.load_checkpoint(state=self.state)
-            # Set the restored seed so that the correct seed will be saved in future checkpoints
-            # Used to handle the case where another checkpoint is saved after resuming from checkpoint.
-            # In this case, self.seed is stored in the second checkpoint so it must have the correct value.
-            if restored_seed is not None:
-                self.seed = restored_seed
+
+        # place the state, model in the proper devices, and initialize from a checkpoint if provided
+        if self.deepspeed_enabled:
+            import deepspeed
+
+            assert self.deepspeed_hparams is not None
+            deepspeed_config = self.deepspeed_hparams.initialize_object(self.state, self.grad_clip_norm)
+            optimizer = ensure_tuple(self.state.optimizers)[0]
+            (self.state.model, self.state.optimizers, _, _) = deepspeed.initialize(
+                config=deepspeed_config,
+                model=self.state.model,
+                optimizer=optimizer,
+            )
+
+            if self.checkpoint_loader:
+                restored_seed = self.checkpoint_loader.load_checkpoint(state=self.state)
+                if restored_seed is not None:
+                    self.seed = restored_seed
+        else:
+            if self.checkpoint_loader:
+                restored_seed = self.checkpoint_loader.load_checkpoint(state=self.state)
+                if restored_seed is not None:
+                    self.seed = restored_seed
+
+            self.state.model = self.device.module_to_device(self.state.model)
+            self.state.optimizers = map_collection(self.state.optimizers, self.device.optimizer_to_device)
+
+            # wrap model with DDP
+            self.state.model = ddp.prepare_module(self.state.model, self.find_unused_parameters)
 
     @classmethod
     def create_from_hparams(cls, hparams: TrainerHparams) -> Trainer:
@@ -518,28 +544,6 @@ class Trainer:
             raise NotImplementedError("The Mosaic trainer only supports one optimizer; "
                                       f"found {len(ensure_tuple(state.optimizers))} optimizers")
 
-        assert isinstance(state.model, BaseMosaicModel)
-        self.original_model = state.model  # type: ignore  # TODO(ravi) -- update the state to add an original model helper
-
-        # place the state, model in the proper devices
-        if self.deepspeed_enabled:
-            import deepspeed
-
-            assert self.deepspeed_hparams is not None
-            deepspeed_config = self.deepspeed_hparams.initialize_object(state, self.grad_clip_norm)
-            optimizer = ensure_tuple(state.optimizers)[0]
-            (state.model, state.optimizers, _, _) = deepspeed.initialize(
-                config=deepspeed_config,
-                model=state.model,
-                optimizer=optimizer,
-            )
-        else:
-            state.model = self.device.module_to_device(state.model)
-            state.optimizers = map_collection(state.optimizers, self.device.optimizer_to_device)
-
-            # wrap model with DDP
-            state.model = ddp.prepare_module(state.model, self.find_unused_parameters)
-
         # print training start
         self.logger.metric_fit({"trainer/algorithms": [str(algo) for algo in self.engine.algorithms]})
 
@@ -576,7 +580,7 @@ class Trainer:
 
         if self.state.batch_idx == 0 and self.checkpoint_loader:
             # only restore the rng state here if the step in the current epoch is zero.
-            self.checkpoint_loader.restore_checkpoint_rng_state(self.state, self.device)
+            self.checkpoint_loader.restore_checkpoint_rng_state(self.device)
 
         for _ in range(state.epoch, state.max_epochs):
             try:
@@ -592,7 +596,7 @@ class Trainer:
                     # if resuming, skip dataloader forward to the minibatch index
                     if batch_idx < self.state.batch_idx:
                         if self.checkpoint_loader:
-                            self.checkpoint_loader.restore_checkpoint_rng_state(self.state, self.device)
+                            self.checkpoint_loader.restore_checkpoint_rng_state(self.device)
                         continue
 
                     state.last_batch_size = self._get_batch_size(state.batch)

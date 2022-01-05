@@ -229,6 +229,8 @@ class State(Serializable):
                 continue
             elif state_field_name == "model" and state["_is_model_deepspeed"]:
                 continue
+            elif state_field_name == "_optimizers" and state["_is_model_deepspeed"]:
+                continue
             elif state_field_name in DIRECT_SERIALIZATION_FIELDS:
                 setattr(self, state_field_name, state[state_field_name])
             elif state_field_name in STATE_DICT_SERIALIZATION_FIELDS:
