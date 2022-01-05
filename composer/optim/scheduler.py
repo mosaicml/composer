@@ -92,14 +92,19 @@ def _convert_time(time: Time,
 
     duration, epochs, batches = _parse_time_string(time)
     if interval in ('batches', 'batch', 'steps', 'step'):
-        total_duration = max_epochs * steps_per_epoch
-        new_time = (total_duration * duration) + batches + epochs * steps_per_epoch
+        new_time = batches + epochs * steps_per_epoch
+
+        if duration > 0: 
+            total_duration = max_epochs * steps_per_epoch
+            new_time += (total_duration * duration)
+
         new_time = round(new_time)
         log.info(f'Converting {time}, {interval} to {new_time}')
         return new_time
     elif interval in ('epochs', 'epoch'):
-        # convert the duration term into batches for ease of calculation
-        batches += (steps_per_epoch * max_epochs * duration)
+        if duration > 0: 
+            # convert the duration term into batches for ease of calculation
+            batches += (steps_per_epoch * max_epochs * duration)
         epochs = epochs + batches // steps_per_epoch
         batches = batches % steps_per_epoch
         if batches != 0:

@@ -174,16 +174,10 @@ class TrainerHparams(hp.Hparams):
         doc="Validate every N batches. Set to -1 to never validate on a batchwise frequency. Defaults to -1.",
         default=-1)
     callbacks: List[CallbackHparams] = hp.optional(doc="Callback hparams", default_factory=list)
-    checkpoint_loader: Optional[CheckpointLoaderHparams] = hp.optional(doc="Checkpointing Hparams", default=None)
-    checkpoint_interval_unit: Optional[str] = hp.optional(
-        doc=
-        "Unit for the checkpoint save interval -- should be 'ep' for epochs; 'ba' for batches, or None to disable checkpointing",
-        default=None)
-    checkpoint_interval: int = hp.optional(doc="Interval for checkpointing.", default=1)
-    checkpoint_folder: str = hp.optional(
-        doc="Folder in which to save checkpoint files. Relative to the run directory, if set."
-        "Defaults to `checkpoints`.",
-        default="checkpoints")
+
+    load_checkpoint: Optional[CheckpointLoaderHparams] = hp.optional(doc="Checkpoint loading hparams", default=None)
+    save_checkpoint: Optional[CheckpointSaverHparams] = hp.optional(doc="Checkpointing hparams", default=None)
+
     train_subset_num_batches: Optional[int] = hp.optional(textwrap.dedent("""If specified,
         finish every epoch early after training on this many batches."""),
                                                           default=None)
