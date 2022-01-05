@@ -22,10 +22,12 @@ from composer.core.types import Precision
 from composer.datasets import DataloaderHparams
 from composer.loggers import (BaseLoggerBackendHparams, FileLoggerBackendHparams, MosaicMLLoggerBackendHparams,
                               TQDMLoggerBackendHparams, WandBLoggerBackendHparams)
-from composer.models import (CIFARResNetHparams, EfficientNetB0Hparams, GPT2Hparams, MnistClassifierHparams,
-                             ModelHparams, ResNet18Hparams, ResNet50Hparams, ResNet101Hparams, UnetHparams)
+from composer.models import (CIFARResNet9Hparams, CIFARResNetHparams, EfficientNetB0Hparams, GPT2Hparams,
+                             MnistClassifierHparams, ModelHparams, ResNet18Hparams, ResNet50Hparams, ResNet101Hparams,
+                             UnetHparams)
 from composer.optim import (AdamHparams, AdamWHparams, DecoupledAdamWHparams, DecoupledSGDWHparams, OptimizerHparams,
                             RAdamHparams, RMSPropHparams, SchedulerHparams, SGDHparams, scheduler)
+from composer.trainer.checkpoint_hparams import CheckpointLoaderHparams, CheckpointSaverHparams
 from composer.trainer.deepspeed import DeepSpeedHparams
 from composer.trainer.devices import CPUDeviceHparams, DeviceHparams, GPUDeviceHparams
 from composer.utils import ddp
@@ -58,6 +60,7 @@ model_registry = {
     "unet": UnetHparams,
     "efficientnetb0": EfficientNetB0Hparams,
     "resnet56_cifar10": CIFARResNetHparams,
+    "resnet9_cifar10": CIFARResNet9Hparams,
     "resnet101": ResNet101Hparams,
     "resnet50": ResNet50Hparams,
     "resnet18": ResNet18Hparams,
@@ -169,18 +172,8 @@ class TrainerHparams(hp.Hparams):
         default=-1)
     callbacks: List[CallbackHparams] = hp.optional(doc="Callback hparams", default_factory=list)
 
-    checkpoint_filepath: Optional[str] = hp.optional(doc="Path to an existing checkpoint file to load from.",
-                                                     default=None)
-
-    checkpoint_interval_unit: Optional[str] = hp.optional(
-        doc=
-        "Unit for the checkpoint save interval -- should be 'ep' for epochs; 'ba' for batches, or None to disable checkpointing",
-        default=None)
-    checkpoint_interval: int = hp.optional(doc="Interval for checkpointing.", default=1)
-    checkpoint_folder: str = hp.optional(
-        doc="Folder in which to save checkpoint files. Relative to the run directory, if set."
-        "Defaults to `checkpoints`.",
-        default="checkpoints")
+    load_checkpoint: Optional[CheckpointLoaderHparams] = hp.optional(doc="Checkpoint loading hparams", default=None)
+    save_checkpoint: Optional[CheckpointSaverHparams] = hp.optional(doc="Checkpointing hparams", default=None)
 
     train_subset_num_batches: Optional[int] = hp.optional(textwrap.dedent("""If specified,
         finish every epoch early after training on this many batches."""),

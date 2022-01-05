@@ -6,7 +6,7 @@ import datetime
 import os
 import warnings
 from contextlib import contextmanager, nullcontext
-from typing import TYPE_CHECKING, Callable, ContextManager, List, Optional, Sequence, TypeVar, Union, cast
+from typing import TYPE_CHECKING, Any, Callable, ContextManager, List, Optional, Sequence, TypeVar, Union, cast
 
 import torch
 import torch.distributed as dist
@@ -138,6 +138,49 @@ def all_reduce(
     if world_size == 1:
         return
     raise RuntimeError(f"Since the world_size({world_size}) > 1, please configure DDP to use ddp.all_reduce(). "
+                       "The mosaic trainer will automatically do this for you.")
+
+
+def broadcast(tensor: torch.Tensor, src: int) -> None:
+    """Broadcasts the tensor to the whole group.
+
+    ``tensor`` must have the same number of elements in all processes participating in the collective.
+    See :meth:`torch.distributed.broadcast`.
+
+    Args:
+        tensor (torch.Tensor): Data to be sent if ``src`` is the rank of current process,
+            and tensor to be used to save received data otherwise.
+        src (int): Source rank
+    """
+    if dist.is_available() and dist.is_initialized():
+        dist.broadcast(tensor, src)
+    world_size = get_world_size()
+    if world_size == 1:
+        return
+    raise RuntimeError(f"Since the world_size({world_size}) > 1, please configure DDP to use ddp.broadcast(). "
+                       "The mosaic trainer will automatically do this for you.")
+
+
+def broadcast_object_list(object_list: List[Any], src: int = 0) -> None:
+    """Broadcasts picklable objects in ``object_list`` to the whole group.
+    Similar to :meth:`broadcast`, but Python objects can be passed in.
+    Note that all objects in ``object_list`` must be picklable in order to be broadcasted.
+    See :meth:`torch.distributed.broadcast`.
+
+    Args:
+        object_list (torch.Tensor): List of input objects to broadcast.
+            Each object must be picklable. Only objects on the ``src`` rank will be broadcast,
+            but each rank must provide lists of equal sizes.
+        src (int, optional): Source rank (default: ``0``)
+    """
+    if dist.is_available():
+        dist.broadcast_object_list(object_list, src)
+        # torch.distributed will replace the None's in obj_gather_list with the gathered objects on rank 0
+        # or will just be None on non-rank-0
+    world_size = get_world_size()
+    if world_size == 1:
+        return
+    raise RuntimeError(f"Since the world_size({world_size}) > 1, please configure DDP to use ddp.all_gather_object(). "
                        "The mosaic trainer will automatically do this for you.")
 
 

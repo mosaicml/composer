@@ -45,10 +45,15 @@ class CheckpointLoader:
 
     Args:
         checkpoint_filepath (str): The path to an existing checkpoint file.
+        load_weights_only (bool): Whether to only restore the weights from the checkpoint without restoring the associated state.
+        strict_model_weights (bool): Whether to force that the checkpointed weights must exactly match the model weights.
     """
 
-    def __init__(self, checkpoint_filepath: str):
+    def __init__(self, checkpoint_filepath: str, load_weights_only: bool = False, strict_model_weights: bool = False):
         self.checkpoint_filepath = checkpoint_filepath
+        self.load_weights_only = load_weights_only
+        self.strict_model_weights = strict_model_weights
+
         self.checkpoint_folder, self.checkpoint_tag = parse_checkpoint_filepath(checkpoint_filepath)
         mosaic_checkpoint_filepath = get_mosaic_checkpoint_filepath(self.checkpoint_folder, self.checkpoint_tag)
 
@@ -65,24 +70,30 @@ class CheckpointLoader:
             The seed that was loaded from the checkpoint if it exists otherwise `None`.
         """
 
-        state.load_state_dict(self.state_dict["state"])
-        self.checkpoint_rng_state = self._get_checkpoint_rng_state(self.state_dict["rng"])
+        seed_to_restore = None
 
-        if isinstance(state.model, DeepSpeedEngine):
+        if self.load_weights_only:
+            state.load_model_state(self.state_dict['state'], strict=self.strict_model_weights)
+        else:
+            state.load_state_dict(self.state_dict["state"])
+            self.checkpoint_rng_state = self._get_checkpoint_rng_state(self.state_dict["rng"])
+
+            if "seed" in self.state_dict:
+                world_size = ddp.get_world_size()
+                checkpointed_world_size = len(self.state_dict["seed"])
+                if world_size != checkpointed_world_size:
+                    warnings.warn(f"Current world size {world_size} does not match the checkpointed world size "
+                                f"{checkpointed_world_size}. The seed will not be restored.")
+                else:
+                    seed_to_restore = self.state_dict["seed"][ddp.get_global_rank()]
+                    seed_all(seed_to_restore)
+
+        if state.model.__class__.__qualname__ == 'DeepSpeedEngine':
             load_path, _ = state.model.load_checkpoint(self.checkpoint_folder, self.checkpoint_tag)
             if load_path is None:
                 raise RuntimeError(f"Failed to load DeepSpeed checkpoint from {self.checkpoint_filepath}")
 
-        if "seed" in self.state_dict:
-            world_size = ddp.get_world_size()
-            checkpointed_world_size = len(self.state_dict["seed"])
-            if world_size != checkpointed_world_size:
-                warnings.warn(f"Current world size {world_size} does not match the checkpointed world size "
-                              f"{checkpointed_world_size}. The seed will not be restored.")
-                return
-            seed_to_restore = self.state_dict["seed"][ddp.get_global_rank()]
-            seed_all(seed_to_restore)
-            return seed_to_restore
+        return seed_to_restore
 
     def restore_checkpoint_rng_state(self, device: Device):
         """Restore the state of all RNG objects in this context from the loaded checkpoint's data.
@@ -113,11 +124,11 @@ class CheckpointLoader:
                           f"RNG state will not be restored.")
 
 
-class Checkpointer:
+class CheckpointSaver:
     """Manager for saving state to checkpoint files.
 
     Args:
-        checkpoint_folder (str): The path to the folder to store checkpoints in.
+        checkpoint_folder (str): The path to store checkpoints in.
         checkpoint_interval (int): The amount of time units to wait between checkpoints.
         checkpoint_interval_unit (str): The unit (`"ep"` or `"it"`) that
             `checkpoint_interval` should be measured in.
