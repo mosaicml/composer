@@ -15,6 +15,7 @@ def test_model_registry(model_name, request):
     model_hparams = model_registry[model_name]()
 
     requires_num_classes = set([
+        "resnet9_cifar10",
         "resnet56_cifar10",
         "efficientnetb0",
         "resnet101",

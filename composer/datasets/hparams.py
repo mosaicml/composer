@@ -37,7 +37,7 @@ class SyntheticHparamsMixin(hp.Hparams, abc.ABC):
             Ignored if :attr:`use_synthetic` is False. (Default: ``CONTIGUOUS_FORMAT``)
     """
 
-    use_synthetic: bool = hp.optional("Whether to use synthetic data. Defaults to False." "", default=False)
+    use_synthetic: bool = hp.optional("Whether to use synthetic data. Defaults to False.", default=False)
     synthetic_num_unique_samples: int = hp.optional("The number of unique samples to allocate memory for.", default=100)
     synthetic_device: str = hp.optional("Device to store the sample pool. Should be `cuda` or `cpu`. Defauls to `cpu`.",
                                         default="cpu")
@@ -69,12 +69,12 @@ class DatasetHparams(hp.Hparams, abc.ABC, metaclass=metaclass):
     @abc.abstractmethod
     def initialize_object(self, batch_size: int, dataloader_hparams: DataloaderHparams) -> Union[DataLoader, DataSpec]:
         """Creates a :class:`DataLoader` or :class:`DataloaderSpec` for this dataset.
-        
+
         Parameters:
             batch_size (int): The size of the batch the dataloader should yield. This batch size is
                 device-specific and already incorporates the world size.
             dataloader_hparams (DataloaderHparams): The dataset-independent hparams for the dataloader
-        
+
         Returns:
             Dataloader or DataSpec: The dataloader, or if the dataloader yields batches of custom types,
             a :class:`DataSpec`.

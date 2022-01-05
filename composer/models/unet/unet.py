@@ -61,7 +61,7 @@ class UNet(BaseMosaicModel):
         return self.dice
 
     def forward(self, batch: BatchPair) -> Tensor:
-        x, y = batch
+        x, _ = batch
         context = contextlib.nullcontext if self.training else torch.no_grad
 
         x = x.squeeze(1)  # type: ignore
