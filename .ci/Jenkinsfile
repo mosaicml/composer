@@ -44,7 +44,7 @@ def runPytest(pythonVersion, extraDeps, gpu = false) {
         nGpus = "2"
         cpuLimit = "8000m" // 4 cpu per gpu
         memLimit = "16Gi"  // 8gb per gpu
-        nodeSelector = "mosaicml.com/node-class=mml-nv3090" // TODO(ravi) use nodeAffinity to run on 3080s or 3090s
+        nodeSelector = "mosaicml.com/node-class=mml-nv3080" // TODO(ravi) use nodeAffinity to run on 3080s or 3090s
         def cudaVersion = pythonVersion == "3.9" ? "cu113" : "cu111"
         pDockerImage = "mosaicml/pytorch:${pytorchVersion}_${cudaVersion}-python${pythonVersion}-ubuntu20.04"
         pytestCliArgs = "$pytestCliArgs -m gpu"
@@ -128,7 +128,7 @@ def dockerImagePostBuild(stagingImageTag) {
 
 stage('Build') {
     def jobs = [:]
-    pytorchChanged = false // TODO remove this line once docker matrix builds are fixed.
+    // pytorchChanged = false // TODO remove this line once docker matrix builds are fixed.
     if (pytorchChanged) {
         jobs << expandDockerMatrix(
             P_CLOUD: groovyLoadLabel,
