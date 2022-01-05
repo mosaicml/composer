@@ -23,7 +23,7 @@ from composer.trainer.checkpoint_hparams import CheckpointLoaderHparams, Checkpo
 from composer.trainer.devices import CPUDeviceHparams, DeviceHparams, GPUDeviceHparams
 from composer.trainer.trainer import Trainer
 from composer.trainer.trainer_hparams import TrainerHparams, callback_registry
-from composer.utils import ddp, run_directory
+from composer.utils import dist, run_directory
 from tests.test_state import assert_state_equivalent
 from tests.utils.deep_compare import deep_compare
 
@@ -223,7 +223,7 @@ def test_load_weights(
         if idx < len(mosaic_trainer_hparams.schedulers):
             assert second_trainer_hparams.schedulers[idx] != mosaic_trainer_hparams.schedulers[idx]
 
-    if ddp.get_global_rank() == 0:
+    if dist.get_global_rank() == 0:
 
         # pass in the two trainers, verify that the weights are the same
         assert_weights_equivalent(
@@ -323,7 +323,7 @@ def test_checkpoint(
     checkpoint_c_file_path = run_directory.get_relative_to_run_directory(checkpoint_b_folder, final_checkpoint)
     trainer_2_hparams_filepath = run_directory.get_relative_to_run_directory(checkpoint_b_folder, "hparams.yaml")
 
-    if ddp.get_global_rank() == 0:
+    if dist.get_global_rank() == 0:
 
         assert_checkpoints_equivalent(
             hparams_file_a=trainer_1_hparams_filepath,

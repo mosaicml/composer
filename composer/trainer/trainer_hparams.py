@@ -30,7 +30,7 @@ from composer.optim import (AdamHparams, AdamWHparams, DecoupledAdamWHparams, De
 from composer.trainer.checkpoint_hparams import CheckpointLoaderHparams, CheckpointSaverHparams
 from composer.trainer.deepspeed import DeepSpeedHparams
 from composer.trainer.devices import CPUDeviceHparams, DeviceHparams, GPUDeviceHparams
-from composer.utils import ddp
+from composer.utils import dist
 
 if TYPE_CHECKING:
     from composer.trainer.trainer import Trainer
@@ -151,7 +151,7 @@ class TrainerHparams(hp.Hparams):
         "Determines the number of microbatches to split a per-gpu batch into, used to compensate for low-memory-capacity devices."
     )
     precision: Precision = hp.required(doc="Precision to use for training", template_default=Precision.AMP)
-    ddp_sync_strategy: Optional[ddp.DDPSyncStrategy] = hp.optional(
+    ddp_sync_strategy: Optional[dist.DDPSyncStrategy] = hp.optional(
         doc="The strategy for synchronizing DDP. Default value ``None`` causes the "
         "trainer to auto-select a value depending on what algorithms are used.",
         default=None)
@@ -208,7 +208,7 @@ class TrainerHparams(hp.Hparams):
         if deepspeed_enabled and isinstance(self.device, CPUDeviceHparams):
             raise ValueError("Training on CPUs is not supported with DeepSpeed.")
 
-        world_size = ddp.get_world_size()
+        world_size = dist.get_world_size()
 
         if self.train_batch_size % world_size != 0:
             raise ValueError(

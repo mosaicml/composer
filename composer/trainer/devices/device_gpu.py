@@ -11,7 +11,7 @@ import torch.utils.data
 
 from composer.core.types import Precision, StateDict, Tensor
 from composer.trainer.devices.device import Device, T_nnModule
-from composer.utils import ddp
+from composer.utils import dist
 
 
 class DeviceGPU(Device):
@@ -20,7 +20,7 @@ class DeviceGPU(Device):
     ddp_backend = "nccl"
 
     def __init__(self):
-        gpu = ddp.get_local_rank()
+        gpu = dist.get_local_rank()
         self._device = torch.device(f"cuda:{gpu}")
         torch.cuda.set_device(self._device)
         assert torch.cuda.current_device() == gpu
