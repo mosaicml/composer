@@ -81,8 +81,8 @@ def dummy_state_without_rank(dummy_model: SimpleBatchPairModel, dummy_train_data
         model=dummy_model,
         precision=Precision.FP32,
         grad_accum=1,
-        train_data=dummy_train_dataloader,
-        eval_data=dummy_val_dataloader,
+        train_dataloader=dummy_train_dataloader,
+        eval_dataloader=dummy_val_dataloader,
         max_epochs=10,
     )
     state.epoch = 5
@@ -197,8 +197,8 @@ def state_with_model(simple_conv_model: Model, dummy_train_dataloader: DataLoade
         max_epochs=100,
         model=simple_conv_model,
         precision=Precision.FP32,
-        train_data=dummy_train_dataloader,
-        eval_data=dummy_val_dataloader,
+        train_dataloader=dummy_train_dataloader,
+        eval_dataloader=dummy_val_dataloader,
     )
     state.epoch = 50
     state.step = 50

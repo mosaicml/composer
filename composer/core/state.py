@@ -48,8 +48,8 @@ SKIP_SERIALIZATION_FIELDS = [
     "loss",
     "batch",
     "outputs",
-    "train_data",
-    "eval_data",
+    "train_dataloader",
+    "eval_dataloader",
     "_steps_per_epoch",
     "_precision_context",
 ]
@@ -66,7 +66,7 @@ class State(Serializable):
     Args:
         model (types.Model, often BaseMosaicModel): The model, typically as a subclass of :class:`BaseMosaicModel`.
         grad_accum (int): The number of gradient accumulation steps to use. The size of each microbatch is ``train_batch_size / num_gpus / grad_accum``.
-        train_data (types.DataLoader or types.DataSpec):
+        train_dataloader (types.DataLoader or types.DataSpec):
             The :class:`types.DataLoader` or :class:`types.DataSpec` to used for training.
         eval_dataloader (types.DataLoader or types.DataSpec):
             The :class:`types.DataLoader` or :class:`types.DataSpec` to used for evaluation.
@@ -98,8 +98,8 @@ class State(Serializable):
 
             # data configurations
             grad_accum: int,
-            train_data: Union[types.DataLoader, types.DataSpec],
-            eval_data: Union[types.DataLoader, types.DataSpec],
+            train_dataloader: Union[types.DataLoader, types.DataSpec],
+            eval_dataloader: Union[types.DataLoader, types.DataSpec],
 
             # stopping conditions
             max_epochs: int,
@@ -121,12 +121,12 @@ class State(Serializable):
     ):
         self.model = model
         self.grad_accum = grad_accum
-        if not isinstance(train_data, DataSpec):
-            train_data = DataSpec(train_data)
-        self.train_data = train_data
-        if not isinstance(eval_data, DataSpec):
-            eval_data = DataSpec(eval_data)
-        self.eval_data = eval_data
+        if not isinstance(train_dataloader, DataSpec):
+            train_dataloader = DataSpec(train_dataloader)
+        self.train_data = train_dataloader
+        if not isinstance(eval_dataloader, DataSpec):
+            eval_dataloader = DataSpec(eval_dataloader)
+        self.eval_data = eval_dataloader
         self.max_epochs = max_epochs
         self.step = 0
         self.epoch = 0
@@ -204,16 +204,16 @@ class State(Serializable):
     @property
     def train_batch_size(self):
         """The global batch size used for training."""
-        if self.train_data.dataloader.batch_size is None:
+        if self.train_dataloader.batch_size is None:
             raise RuntimeError("train dataloader batch size is undefined")
-        return self.train_data.dataloader.batch_size * ddp.get_world_size()
+        return self.train_dataloader.batch_size * ddp.get_world_size()
 
     @property
     def eval_batch_size(self):
         """The batch size used for evaluation."""
-        if self.eval_data.dataloader.batch_size is None:
+        if self.eval_dataloader.batch_size is None:
             raise RuntimeError("eval dataloader batch size is undefined")
-        return self.eval_data.dataloader.batch_size * ddp.get_world_size()
+        return self.eval_dataloader.batch_size * ddp.get_world_size()
 
     def state_dict(self) -> types.StateDict:
         """Returns the state as a :class:`dict`."""
@@ -283,7 +283,7 @@ class State(Serializable):
     def steps_per_epoch(self):
         """int: The maximum number of steps (batches) per epoch."""
         if self._steps_per_epoch is None:
-            return len(self.train_data.dataloader)
+            return len(self.train_dataloader)
         return self._steps_per_epoch
 
     @steps_per_epoch.setter

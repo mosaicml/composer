@@ -51,8 +51,8 @@ class Trainer:
 
     Args:
         model (BaseMosaicModel): The model to train.
-        train_data (DataLoader or DataSpec): The :class:`DataLoader` or :class:`DataSpec` for the training data.
-        eval_data (DataLoader or DataSpec): The :class:`DataLoader` or :class:`DataSpec` for the evaluation data.
+        train_dataloader (DataLoader or DataSpec): The :class:`DataLoader` or :class:`DataSpec` for the training data.
+        eval_dataloader (DataLoader or DataSpec): The :class:`DataLoader` or :class:`DataSpec` for the evaluation data.
         max_epochs (int): The maxmimum number of epochs to train for.
         algorithms (List[Algorithm], optional): The algorithms to use during training.
             (default: ``[]``)
@@ -119,8 +119,8 @@ class Trainer:
             self,
             *,
             model: BaseMosaicModel,
-            train_data: Union[DataLoader, DataSpec],
-            eval_data: Union[DataLoader, DataSpec],
+            train_dataloader: Union[DataLoader, DataSpec],
+            eval_dataloader: Union[DataLoader, DataSpec],
             max_epochs: int,
             algorithms: Optional[List[Algorithm]] = None,
             optimizer_hparams: Optional[OptimizerHparams] = None,
@@ -213,12 +213,12 @@ class Trainer:
         precision_context = self.device.precision_context if not self.deepspeed_enabled else cast(
             Callable[..., ContextManager], contextlib.nullcontext)
 
-        if not isinstance(train_data, DataSpec):
-            train_data = DataSpec(train_data)
-        train_data.dataloader = DDPDataLoader(train_data.dataloader)
-        if not isinstance(eval_data, DataSpec):
-            eval_data = DataSpec(eval_data)
-        eval_data.dataloader = DDPDataLoader(eval_data.dataloader)
+        if not isinstance(train_dataloader, DataSpec):
+            train_dataloader = DataSpec(train_dataloader)
+        train_dataloader.dataloader = DDPDataLoader(train_dataloader.dataloader)
+        if not isinstance(eval_dataloader, DataSpec):
+            eval_dataloader = DataSpec(eval_dataloader)
+        eval_dataloader.dataloader = DDPDataLoader(eval_dataloader.dataloader)
 
         self.state = State(
             max_epochs=max_epochs,
@@ -228,8 +228,8 @@ class Trainer:
             grad_accum=grad_accum,
             precision=precision,
             precision_context=precision_context,
-            train_data=train_data,
-            eval_data=eval_data,
+            train_dataloader=train_dataloader,
+            eval_dataloader=eval_dataloader,
         )
 
         # Steps per epoch
@@ -350,7 +350,7 @@ class Trainer:
                 textwrap.dedent(f"""SubsetNumBatchesWarning: When specifying train_subset_num_batches,
             (set to {hparams.train_subset_num_batches}), train_datset.shuffle should be set to False. Otherwise,
             each training epoch may load a different subset of samples."""))
-        train_data = hparams.train_dataset.initialize_object(train_device_batch_size, hparams.dataloader)
+        train_dataloader = hparams.train_dataset.initialize_object(train_device_batch_size, hparams.dataloader)
 
         eval_device_batch_size = hparams.eval_batch_size // ddp.get_world_size()
         if hparams.val_dataset.shuffle and hparams.eval_subset_num_batches:
@@ -358,12 +358,12 @@ class Trainer:
                 textwrap.dedent(f"""SubsetNumBatchesWarning: When specifying eval_subset_num_batches,
             (set to {hparams.eval_subset_num_batches}), val_dataset.shuffle should be set to False. Otherwise,
             each evaluation epoch may load a different subset of samples."""))
-        eval_data = hparams.val_dataset.initialize_object(eval_device_batch_size, hparams.dataloader)
+        eval_dataloader = hparams.val_dataset.initialize_object(eval_device_batch_size, hparams.dataloader)
 
         trainer = cls(
             model=model,
-            train_data=train_data,
-            eval_data=eval_data,
+            train_dataloader=train_dataloader,
+            eval_dataloader=eval_dataloader,
             max_epochs=hparams.max_epochs,
             algorithms=algorithms,
             optimizer_hparams=hparams.optimizer,
@@ -577,14 +577,14 @@ class Trainer:
 
                     state.last_batch_size = state.train_data.get_num_samples_in_batch(state.batch)
                     state.batch = self.device.batch_to_device(state.batch)
-                    state.batch = state.train_data.device_transformation_fn(state.batch)
+                    state.batch = state.train_data.device_transforms(state.batch)
 
                     if self.compute_training_metrics:
                         # compute metrics on the training set
                         assert train_metrics is not None
                         state.model.eval()
                         with torch.no_grad():
-                            eval_microbatches = state.train_data.batch_split_fn(state.batch, state.grad_accum)
+                            eval_microbatches = state.train_data.split_batch(state.batch, state.grad_accum)
                             for eval_microbatch in eval_microbatches:
                                 # TODO: Detect if self.run_event(Event.AFTER_DATALOADER) changes the training
                                 # data and if so print a warning that metrics may return unexpected results
@@ -595,7 +595,7 @@ class Trainer:
 
                     self.engine.run_event(Event.AFTER_DATALOADER)
 
-                    microbatches = state.train_data.batch_split_fn(state.batch, state.grad_accum)
+                    microbatches = state.train_data.split_batch(state.batch, state.grad_accum)
 
                     self.engine.run_event(Event.BATCH_START)
                     self.logger.metric_batch({
@@ -806,7 +806,7 @@ class Trainer:
 
             for i, state.batch in enumerate(itertools.islice(state.eval_dataloader, self._eval_subset_num_batches)):
                 state.batch = self.device.batch_to_device(state.batch)
-                state.batch = state.eval_data.device_transformation_fn(state.batch)
+                state.batch = state.eval_data.device_transforms(state.batch)
 
                 self.engine.run_event(Event.EVAL_BATCH_START)
 

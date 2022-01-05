@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import collections.abc
 import textwrap
-from typing import TYPE_CHECKING, List, Optional, Sequence
+from typing import TYPE_CHECKING, Callable, List, Optional, Sequence
 
 import torch
 
@@ -16,26 +16,57 @@ if TYPE_CHECKING:
 class DataSpec:
     """Specification for describing how to train and operate on data.
 
-    The MosaicML trainer sometimes needs to operate on the batch that is returned by the dataloader.
-    This class contains methods to perform such operations. Dataloaders that yield batches of custom
-    types should override this class and the applicable methods.
-    
     Args:
         dataloader (DataLoader): The dataloader.
+
         num_samples (int, optional). If specified, the total number of samples in the dataset, across all ranks.
             If not specified, then ``len(dataloader.dataset)`` is used (if this property is available).
             Otherwise, the dataset is assumed to be unsized.
+
         num_tokens (int, optional): If specified, the total number of tokens in the dataset.
+
+        device_transforms ((Batch) -> Batch, optional): Function that is called by the trainer to modify the batch
+            once it has been moved onto the device. For example, this function can be used for GPU-based normalization.
+            It can modify the batch in-place, and it should return the modified batch. If omitted, the batch is not
+            modified.
+
+        split_batch ((Batch, int) -> Sequence[Batch], optional): Function that is called by the trainer to split a
+            batch (the first parameter) into the number of microbatches specified by the second parameter.
+            By default, batches of type :class:`BatchPair` can be split automatically. If the
+            :attr:`dataloader` yields batches of a different type, then this function must be specified.
+
+        get_num_samples_in_batch ((Batch) -> int, optional): Function that is called by the trainer to
+            get the number of samples in the provided batch.
+            
+            By default, if the batch contains tensors that all have the same length, then that
+            length will be returned. If the batch contains tensors where the lengths differ,
+            then this function must be specified.
+        
+        get_num_tokens_in_batch ((Batch) -> int, optional): Function that is called by the trainer to
+            get the number of tokens in the provided batch.
+
+            By default, it returns 0, meaning that tokens will not be tracked.
+            This function must be specified to track tokens.
     """
 
     def __init__(self,
                  dataloader: DataLoader,
                  num_samples: Optional[int] = None,
-                 num_tokens: Optional[int] = None) -> None:
+                 num_tokens: Optional[int] = None,
+                 device_transforms: Optional[Callable[[Batch], Batch]] = None,
+                 split_batch: Optional[Callable[[Batch, int], Sequence[Batch]]] = None,
+                 get_num_samples_in_batch: Optional[Callable[[Batch], int]] = None,
+                 get_num_tokens_in_batch: Optional[Callable[[Batch], int]] = None,
+                 ) -> None:
         self.dataloader = dataloader
         self.num_tokens = num_tokens
+        self.device_transforms = device_transforms
+        self.split_batch = split_batch
+        self.get_num_samples_in_batch = get_num_samples_in_batch
+        self.get_num_tokens_in_batch = get_num_tokens_in_batch
         if num_samples is not None:
             self.num_samples = num_samples
+
         else:
             if isinstance(dataloader.dataset, collections.abc.Sized):
                 try:
@@ -45,35 +76,32 @@ class DataSpec:
             else:
                 self.num_samples = None
 
-    def device_transformation_fn(self, batch: Batch):
-        """Called by the trainer to modify the batch once it has been moved onto the device.
-        For example, this function can be used for GPU-based normalization. It can modify the batch
-        in-place, and it should return the modified batch. By default, it returns the batch as-is.
+    @property
+    def device_transforms(self):
+        return self._device_transforms
+    
+    @device_transforms.setter
+    def device_transforms(self, device_transforms: Optional[Callable[[Batch], Batch]] = None):
+        if device_transforms is None:
+            self._device_transforms = self._default_device_transforms
+        else:
+            self._device_transforms = device_transforms 
 
-        Args:
-            batch (Batch): The batch
-
-        Returns:
-            Batch: The batch, after transformations have been applied.
-        """
+    def _default_device_transforms(self, batch: Batch):
         return batch
 
-    def batch_split_fn(self, batch: Batch, num_microbatches: int) -> Sequence[Batch]:
-        """Called by the trainer to split a batch into microbatches.
+    @property
+    def split_batch(self):
+        return self._split_batch
+    
+    @split_batch.setter
+    def split_batch(self, split_batch: Optional[Callable[[Batch, int], Sequence[Batch]]] = None):
+        if split_batch is None:
+            self._split_batch = self._default_split_batch
+        else:
+            self._split_batch = split_batch
 
-        By default, batches of type :class:`BatchPair` can be split automatically. If the
-        :attr:`dataloader` yields batches of a different type, then this function must be overridden.
-
-        Args:
-            batch (Batch): The batch, after :meth:`device_transformation_fn` has been applied,
-                to split.
-            num_microbatches (int): The number of microbatches to return. This parameter
-                will usually be set to the gradient accumulation parameter. The returned sequence
-                should have this length.
-
-        Returns:
-            Sequence[Batch]: A sequence (of length ``num_splits``) of minibatches.
-        """
+    def _default_split_batch(self, batch: Batch, num_microbatches: int) -> Sequence[Batch]:
         if not isinstance(batch, Sequence):
             raise ValueError(f'split_fn requires batch be a tuple pair of tensors, got {type(batch)}')
         x, y = batch
@@ -88,7 +116,18 @@ class DataSpec:
         raise NotImplementedError('The default split_fn is unable to split the output of this'
                                   'dataloader. Please define a split_fn in your dataloader spec.')
 
-    def get_num_samples_in_batch(self, batch: Batch) -> int:
+    @property
+    def get_num_samples_in_batch(self):
+        return self._get_num_samples_in_batch
+    
+    @get_num_samples_in_batch.setter
+    def get_num_samples_in_batch(self, get_num_samples_in_batch: Optional[Callable[[Batch], int]] = None):
+        if get_num_samples_in_batch is None:
+            self._get_num_samples_in_batch = self._default_get_num_samples_in_batch
+        else:
+            self._get_num_samples_in_batch = get_num_samples_in_batch
+
+    def _default_get_num_samples_in_batch(self, batch: Batch) -> int:
         """Returns the number of samples in the provided batch.
 
         By default, if the batch contains tensors that all have the same length, then that
@@ -120,16 +159,17 @@ class DataSpec:
                 as multiple Tensors of different lengths were found in the batch: sizes in batch:
                 {dim0_sizes}"""))
 
-    def get_num_tokens_in_batch(self, batch: Batch) -> int:
-        """Returns the number of tokens in the provided batch.
+    @property
+    def get_num_tokens_in_batch(self):
+        return self._get_num_tokens_in_batch
+    
+    @get_num_tokens_in_batch.setter
+    def get_num_tokens_in_batch(self, get_num_tokens_in_batch: Optional[Callable[[Batch], int]] = None):
+        if get_num_tokens_in_batch is None:
+            self._get_num_tokens_in_batch = self._default_get_num_tokens_in_batch
+        else:
+            self._get_num_tokens_in_batch = get_num_tokens_in_batch
 
-        By default, it returns 0, meaning that tokens will not be tracked.
-        This function must be overridden to track tokens.
-
-        Args:
-            batch (Batch): The batch.
-
-        Returns:
-            int: The number of tokens in the batch.
-        """
+    def _default_get_num_tokens_in_batch(self, batch: Batch) -> int:
+        del batch  # unused
         return 0
