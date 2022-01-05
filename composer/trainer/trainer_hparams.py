@@ -75,6 +75,7 @@ dataset_registry = {
     "cifar10": datasets.CIFAR10DatasetHparams,
     "mnist": datasets.MNISTDatasetHparams,
     "lm": datasets.LMDatasetHparams,
+    "streaming_lm": datasets.StreamingLMDatasetHparams,
 }
 
 algorithms_registry = get_algorithm_registry()
