@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 class DeviceCPU(Device):
     """An extension of :class:`~composer.trainer.devices.device.Device` for CPUs."""
 
-    ddp_backend = "gloo"
+    dist_backend = "gloo"
 
     def module_to_device(self, module: T_nnModule) -> T_nnModule:
         return module
