@@ -5,12 +5,10 @@ import os
 import random
 import warnings
 from typing import Any, Dict, Optional
-import re
 
 import numpy as np
 import torch
 import yaml
-from deepspeed.runtime.engine import DeepSpeedEngine
 
 from composer.core import Event, State
 from composer.core.types import StateDict
@@ -182,7 +180,7 @@ class CheckpointSaver:
         else:
             raise ValueError(f"Invalid checkpoint event: {self.save_event}")
 
-        if isinstance(state.model, DeepSpeedEngine):
+        if state.model.__class__.__qualname__ == 'DeepSpeedEngine':
             state.model.save_checkpoint(self.checkpoint_folder, tag)
 
         if ddp.get_global_rank() != 0:

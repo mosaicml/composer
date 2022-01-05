@@ -5,7 +5,6 @@ from __future__ import annotations
 import logging
 import warnings
 from typing import TYPE_CHECKING, Callable, ContextManager, Optional, Sequence, Union
-from deepspeed.runtime.engine import DeepSpeedEngine
 
 import torch
 import torch.nn.modules.utils
