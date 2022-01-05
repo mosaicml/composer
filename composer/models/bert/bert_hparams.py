@@ -74,7 +74,7 @@ class BERTHparams(TransformerHparams):
         else:
             raise ValueError('One of pretrained_model_name or model_config needed.')
 
-        # set the number of labels ot the voacb size, used for measuring MLM accuracy
+        # set the number of labels to the voacb size, used for measuring MLM accuracy
         config.num_labels = config.vocab_size
 
         if self.use_pretrained:
