@@ -30,17 +30,17 @@ val_dataset:
     val_sequence_length: 128 
 model:
   bert:
-    use_pretrained: true 
-    tokenizer_name: bert-large-uncased
-    pretrained_model_name: bert-large-uncased
+    use_pretrained: false
+    tokenizer_name: bert-base-uncased
+    pretrained_model_name: bert-base-uncased
 optimizer:
   decoupled_adamw:
-    lr: 1.0e-3  # ABlATE
+    lr: 5.0e-4
     betas:
       - 0.9
       - 0.98
     eps: 1.0e-06
-    weight_decay: 1.0e-5 
+    weight_decay: 1.0e-5
 schedulers:
   - warmup:
       warmup_method: linear
@@ -61,14 +61,9 @@ loggers:
       flush_every_n_batches: 100
       every_n_batches: 100
       every_n_epochs: 1
-  - wandb:
-      project: bert
-      name: bert-base
-      extra_init_params: {}
-  - tqdm: {}
-max_epochs: 7  # Baseline is 256M samples, 6 epochs is ~240M samples
-train_batch_size: 4000  # sweep these: 1024, 2048, 4096 
-eval_batch_size: 2000  # sweep these: 1024, 2048, 4096
+max_epochs: 7  # Baseline is 256M samples, 6 epochs is ~270M samples
+train_batch_size: 4000
+eval_batch_size: 2000
 seed: 19
 device:
   gpu: {}
@@ -78,16 +73,12 @@ dataloader:
   num_workers: 8
   timeout: 0
   prefetch_factor: 2
-grad_accum: 5
+grad_accum: 2
 precision: amp
 grad_clip_norm: None
-validate_every_n_batches: 100
+validate_every_n_batches: 1000
 validate_every_n_epochs: 1
 save_checkpoint:
   folder: bert_checkpoints
-  interval: 50
-  interval_unit: it
-#load_checkpoint:
-  #filepath: /mnt/gcp/moin/best_bert_sweep_7/bert_checkpoints/ep7.pt
-  #strict: false
-  #load_weights_only: true
+  interval: 1
+  interval_unit: ep
