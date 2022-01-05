@@ -41,8 +41,8 @@ eval_dataloader = torch.utils.data.DataLoader(
 
 # Initialize Trainer with custom model, custom train and eval datasets, and algorithms to train with
 trainer = Trainer(model=SimpleModel(num_hidden=128, num_classes=10),
-                  train_data=train_dataloader,
-                  eval_data=eval_dataloader,
+                  train_dataloader=train_dataloader,
+                  eval_dataloader=eval_dataloader,
                   max_epochs=3,
                   algorithms=[CutOut(n_holes=1, length=10), LabelSmoothing(alpha=0.1)])
 

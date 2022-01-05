@@ -29,11 +29,11 @@ def dummy_state(dummy_dataloader_hparams: DataloaderHparams):
     train_dataloader = dataset_hparams.initialize_object(batch_size=100, dataloader_hparams=dummy_dataloader_hparams)
     if isinstance(train_dataloader, DataSpec):
         train_dataloader = train_dataloader.dataloader
-    state = State(train_data=train_dataloader,
+    state = State(train_dataloader=train_dataloader,
                   grad_accum=1,
                   max_epochs=100,
                   model=model,
-                  eval_data=train_dataloader,
+                  eval_dataloader=train_dataloader,
                   precision=Precision.FP32)
     state.epoch = 50
     state.step = 50
