@@ -5,12 +5,10 @@ from typing import TYPE_CHECKING, Callable, ContextManager, Union, cast
 
 from torch.nn.parallel import DistributedDataParallel
 
+from composer.core.state import State
+from composer.core.types import Model
 from composer.utils import dist
 from composer.utils.string_enum import StringEnum
-
-if TYPE_CHECKING:
-    from composer.core.state import State
-    from composer.core.types import Model
 
 
 class DDPSyncStrategy(StringEnum):
