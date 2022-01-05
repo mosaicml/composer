@@ -115,6 +115,12 @@ def inject_stateful_callback_hparams(monkeypatch: MonkeyPatch):
     pytest.param(1),
     pytest.param(2, marks=pytest.mark.world_size(2)),
 ])
+@pytest.mark.parametrize("deepspeed_enabled,zero_stage", [
+    pytest.param(False, None, id="ddp"),
+    pytest.param(True, 0, id="deepspeed-zero0", marks=pytest.mark.deepspeed),
+    pytest.param(True, 1, id="deepspeed-zero1", marks=pytest.mark.deepspeed),
+    pytest.param(True, 2, id="deepspeed-zero2", marks=pytest.mark.deepspeed),
+])
 @pytest.mark.parametrize("device_hparams", [
     pytest.param(CPUDeviceHparams(), id="cpu"),
     pytest.param(GPUDeviceHparams(), id="gpu", marks=pytest.mark.gpu),
@@ -125,10 +131,16 @@ def inject_stateful_callback_hparams(monkeypatch: MonkeyPatch):
     (0, 1),
     (1, 0),
 ])
-@pytest.mark.parametrize("model_name", [None, "resnet50_synthetic", "gpt2_52m"])
+@pytest.mark.parametrize("model_name", [
+    None, 
+    # "resnet50_synthetic", 
+    # "gpt2_52m",
+])
 def test_checkpoint(
     device_hparams: DeviceHparams,
     world_size: int,
+    deepspeed_enabled: bool,
+    zero_stage: Optional[int],
     mosaic_trainer_hparams: TrainerHparams,
     checkpoint_filename: str,
     seed: Optional[int],
@@ -142,6 +154,9 @@ def test_checkpoint(
     - assert that the checkpoint from the new trainer at the end is the same as the checkpoint from the first trainer at the end.
     """
     del world_size  # unused. Read via env variable
+
+    if not isinstance(device_hparams, GPUDeviceHparams) and deepspeed_enabled:
+        pytest.skip("DeepSpeed tests must be ran on GPU")
 
     if model_name is not None:
         if not isinstance(device_hparams, GPUDeviceHparams):
@@ -172,6 +187,12 @@ def test_checkpoint(
     mosaic_trainer_hparams.callbacks = [DummyStatefulCallbackHparams(), EventCounterCallbackHparams()]
     mosaic_trainer_hparams.train_subset_num_batches = 5
     mosaic_trainer_hparams.device = device_hparams
+
+    if deepspeed_enabled:
+        mosaic_trainer_hparams.deepspeed = DeepSpeedHparams(
+            enabled=True,
+            zero_stage=zero_stage,
+        )
 
     checkpoint_a_folder = "first"
     mosaic_trainer_hparams.checkpoint_folder = checkpoint_a_folder
@@ -259,83 +280,3 @@ def validate_events_called_expected_number_of_times(trainer: Trainer):
                 assert expected == actual, f"Event {event} expected to be called {expected} times, but instead it was called {actual} times"
             return
     assert False, "EventCounterCallback not found in callbacks"
-
-@pytest.mark.timeout(90)
-@pytest.mark.parametrize("world_size", [
-    pytest.param(1),
-    pytest.param(2, marks=pytest.mark.world_size(2)),
-])
-@pytest.mark.gpu
-@pytest.mark.deepspeed
-@pytest.mark.parametrize("checkpoint_filename", ["ep1", "it4", "it1", "it6"])
-@pytest.mark.parametrize("seed", [None, 42])
-@pytest.mark.parametrize("validate_every_n_batches,validate_every_n_epochs", [
-    (0, 1),
-    (1, 0),
-])
-@pytest.mark.parametrize("zero_stage", [0, 1, 2])
-def test_checkpoint_deepspeed(
-    mosaic_trainer_hparams: TrainerHparams,
-    world_size: int,
-    checkpoint_filename: str,
-    seed: Optional[int],
-    validate_every_n_batches: int,
-    validate_every_n_epochs: int,
-    zero_stage: int,
-):
-    """strategy:
-    - train two epochs. capture checkpoints after `checkpoint_interval` and ep2.
-    - create a new trainer from the `checkpoint_interval` checkpoint, and train until end. checkpoint again.
-    - assert that the checkpoint from the new trainer at the end is the same as the checkpoint from the first trainer at the end.
-    """
-    del world_size  # unused. Read via env variable
-
-    mosaic_trainer_hparams.train_dataset.use_synthetic = True
-    mosaic_trainer_hparams.train_dataset.shuffle = False
-    mosaic_trainer_hparams.val_dataset.use_synthetic = True
-    mosaic_trainer_hparams.val_dataset.shuffle = False
-    mosaic_trainer_hparams.grad_accum = 2
-    mosaic_trainer_hparams.loggers = []
-    mosaic_trainer_hparams.checkpoint_interval = 1
-    mosaic_trainer_hparams.train_batch_size = 8
-    mosaic_trainer_hparams.eval_batch_size = 16
-    mosaic_trainer_hparams.max_epochs = 2
-    mosaic_trainer_hparams.precision = Precision.FP32
-    mosaic_trainer_hparams.callbacks = [DummyStatefulCallbackHparams(), EventCounterCallbackHparams()]
-    mosaic_trainer_hparams.train_subset_num_batches = 5
-    mosaic_trainer_hparams.device = GPUDeviceHparams()
-
-    mosaic_trainer_hparams.deepspeed = DeepSpeedHparams(
-        enabled=True,
-        zero_stage=zero_stage,
-    )
-
-    checkpoint_a_folder = "first"
-    mosaic_trainer_hparams.checkpoint_folder = checkpoint_a_folder
-    mosaic_trainer_hparams.checkpoint_interval_unit = "ep" if checkpoint_filename.startswith("ep") else "it"
-    mosaic_trainer_hparams.seed = seed
-    mosaic_trainer_hparams.validate_every_n_batches = validate_every_n_batches
-    mosaic_trainer_hparams.validate_every_n_epochs = validate_every_n_epochs
-    final_checkpoint = ("ep2" if checkpoint_filename.startswith("ep") else "it8") + "/mosaic_states.pt"
-    _test_checkpoint_trainer(mosaic_trainer_hparams)
-    checkpoint_a_file_path = os.path.join(checkpoint_a_folder, checkpoint_filename)
-    checkpoint_b_file_path = run_directory.get_relative_to_run_directory(checkpoint_a_folder, final_checkpoint)
-    trainer_1_hparams_filepath = run_directory.get_relative_to_run_directory(checkpoint_a_folder, "hparams.yaml")
-
-    second_trainer_hparams = TrainerHparams.create(trainer_1_hparams_filepath, cli_args=False)
-    checkpoint_b_folder = "second"
-    second_trainer_hparams.checkpoint_folder = checkpoint_b_folder
-    second_trainer_hparams.checkpoint_filepath = run_directory.get_relative_to_run_directory(checkpoint_a_file_path)
-    _test_checkpoint_trainer(second_trainer_hparams)
-
-    checkpoint_c_file_path = run_directory.get_relative_to_run_directory(checkpoint_b_folder, final_checkpoint)
-    trainer_2_hparams_filepath = run_directory.get_relative_to_run_directory(checkpoint_b_folder, "hparams.yaml")
-
-    assert_checkpoints_equivalent(
-        hparams_file_a=trainer_1_hparams_filepath,
-        checkpoint_file_a=checkpoint_b_file_path,
-        hparams_file_b=trainer_2_hparams_filepath,
-        checkpoint_file_b=checkpoint_c_file_path,
-    )
-
-
