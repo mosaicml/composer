@@ -2,7 +2,7 @@ import logging
 import tempfile
 from dataclasses import dataclass
 from os.path import join
-from typing import List
+from typing import List, Optional
 
 import yahp as hp
 
@@ -26,7 +26,7 @@ def _split_dict_fn(batch: Batch, n_microbatches: int) -> List[Batch]:
 @dataclass
 class LMDatasetHparams(DatasetHparams):
     """
-    Defines a generic dataset class for autoregressive and masked language models.
+    Defines a generic dataset class for autoregressive and masked language models trained with self-supervised learning.
     """
 
     # TODO(moin): Switch datadir to be a string, rather than a list of strings, to be similar to the
@@ -59,8 +59,9 @@ class LMDatasetHparams(DatasetHparams):
             raise ValueError("A tokenizer name must be specified to tokenize the dataset.")
 
         if self.use_masked_lm is None:
-            raise ValueError("use_masked_lm must be manually set.")
-        elif self.use_masked_lm:
+            raise ValueError("To determine masking, use_masked_lm must be specified.")
+
+        if self.use_masked_lm:
             if self.mlm_probability <= 0.0:
                 raise ValueError(
                     "If using Masked Language Modeling, you must replace tokens with a non-zero probability.")
@@ -76,8 +77,9 @@ class LMDatasetHparams(DatasetHparams):
             import datasets
             import transformers
         except ImportError as e:
-            raise ImportError('huggingface transformers and datasets are not installed. '
+            raise ImportError('transformers and datasets are not installed. '
                               'Please install with `pip install mosaicml-composer[nlp]`') from e
+
         self.tokenizer = transformers.AutoTokenizer.from_pretrained(self.tokenizer_name)  #type: ignore (thirdparty)
         self.config = transformers.AutoConfig.from_pretrained(self.tokenizer_name)  #type: ignore (thirdparty)
         lm_datasets = [datasets.load_from_disk(i) for i in self.datadir]  #type: ignore (thirdparty)

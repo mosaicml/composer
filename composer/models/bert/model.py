@@ -96,7 +96,7 @@ class BERTModel(MosaicTransformer):
         output = self.forward(batch)
         output = output['logits']
 
-        # if we are in the single class case, then remove the dimension for downstream metrics
+        # if we are in the single class case, then remove the classes dimension
         if output.shape[1] == 1:
             output = output.squeeze()
 

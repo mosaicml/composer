@@ -20,7 +20,11 @@ class BERTForClassificationHparams(TransformerHparams):
             raise ValueError("The number of target labels must be at least one.")
 
     def initialize_object(self) -> "MosaicTransformer":
-        import transformers
+        try:
+            import transformers
+        except ImportError as e:
+            raise ImportError('transformers is not installed. '
+                              'Please install with `pip install mosaicml-composer[nlp]`') from e
 
         from composer.models.bert.model import BERTModel
         self.validate()
@@ -54,7 +58,11 @@ class BERTForClassificationHparams(TransformerHparams):
 class BERTHparams(TransformerHparams):
 
     def initialize_object(self) -> "MosaicTransformer":
-        import transformers
+        try:
+            import transformers
+        except ImportError as e:
+            raise ImportError('transformers is not installed. '
+                              'Please install with `pip install mosaicml-composer[nlp]`') from e
 
         from composer.models.bert.model import BERTModel
         self.validate()

@@ -1,6 +1,6 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
-from typing import Any, Mapping, Optional, Union
+from typing import Mapping, Union
 
 import torch
 from sklearn.metrics import f1_score
@@ -12,10 +12,20 @@ from composer.models.loss import soft_cross_entropy
 
 # TODO (Moin): write tests for this!
 class MaskedAccuracy(Metric):
+    """
+    Computes accuracy with support for masked indicies.
 
-    def __init__(self, ignore_index, dist_sync_on_step=False):
-        # call `self.add_state`for every internal state that is needed for the metrics computations
-        # dist_reduce_fx indicates the function that should be used to reduce
+    Args:
+        ignore_index (int): The class index to ignore. Must be between 0 and num_classes.
+        dist_sync_on_step (bool): Synchronize metric state across processes at
+            each forward() before returning the value at the step.
+
+    State:
+        correct (float): the number of instances where the prediction masked the target
+        total (float): the number of total instances that were predicted.
+    """
+
+    def __init__(self, ignore_index: int, dist_sync_on_step=False):
         # state from multiple processes
         super().__init__(dist_sync_on_step=dist_sync_on_step)
         self.ignore_index = ignore_index
@@ -24,20 +34,19 @@ class MaskedAccuracy(Metric):
         self.add_state("total", default=torch.tensor(0), dist_reduce_fx="sum")
 
     def update(self, preds: torch.Tensor, target: torch.Tensor):
-        # update metric states
+        # predictions is a batch x num_classes tensor, take the argmax to get class indicies
         preds = torch.argmax(preds, dim=-1)
         assert preds.shape == target.shape
 
+        # mask out the padded indicies
         mask = target != self.ignore_index
         masked_target = target[mask]
         masked_preds = preds[mask]
 
         self.correct += torch.sum(masked_preds == masked_target)
-        # self.correct += torch.sum(preds == target)
         self.total += mask.sum()
 
     def compute(self):
-        # compute final result
         return self.correct.float() / self.total
 
 
@@ -46,15 +55,17 @@ class CrossEntropyLoss(Metric):
     """Computes cross entropy loss.
 
     Args:
+        vocab_size (int): the size of the tokenizer vocabulary.
         dist_sync_on_step (bool): Synchronize metric state across processes at
             each forward() before returning the value at the step.
+        ignore_index (int): The class index to ignore. Must be between 0 and num_classes.
 
     State:
         sum_loss (float): the sum of the per-example loss in the batch.
         total_batches (float): the number of batches to average across.
     """
 
-    def __init__(self, vocab_size, dist_sync_on_step=False, ignore_index=None):
+    def __init__(self, vocab_size: int, dist_sync_on_step=False, ignore_index: int = None):
         super().__init__(dist_sync_on_step=dist_sync_on_step)
 
         self.vocab_size = vocab_size
@@ -76,6 +87,7 @@ class CrossEntropyLoss(Metric):
         output = output.view(-1, self.vocab_size)
         target = target.view(-1)
         losses = self.loss_fn(output, target)
+
         if self.ignore_index:
             mask = target != self.ignore_index
             total_batches = mask.sum()
@@ -95,6 +107,48 @@ class CrossEntropyLoss(Metric):
         """
         # Return average loss over entire dataset
         return self.sum_loss / self.total_batches  #type: ignore (third-party)
+
+
+# TODO (Moin): write tests for this!
+class BinaryF1Score(Metric):
+    """Implements F1 Scores for binary classification tasks via sklearn.
+
+    Args:
+        dist_sync_on_step (bool): Synchronize metric state across processes at
+            each forward() before returning the value at the step.
+
+    State:
+        sum_loss (float): the sum of the per-example loss in the batch.
+        total_batches (float): the number of batches to average across.
+    """
+
+    def __init__(self, dist_sync_on_step=False):
+        super().__init__(dist_sync_on_step=dist_sync_on_step)
+
+        self.add_state("predictions", default=[], dist_reduce_fx="cat")
+        self.add_state("labels", default=[], dist_reduce_fx="cat")
+
+    def update(self, output: Union[Mapping, Tensor], target: Tensor) -> None:
+        """Updates the internal state with results from a new batch.
+
+        Args:
+            output (Mapping): The output from the model, which must contain
+                either the Tensor or a Mapping type that contains the loss or model logits.
+            target (Tensor): A Tensor of ground-truth values to compare against.
+        """
+        self.predictions.append(output)
+        self.labels.append(target)
+
+    def compute(self) -> Tensor:
+        """Aggregate the state over all processes to compute the metric.
+
+        Returns:
+            loss (Tensor): The loss averaged across all batches.
+        """
+        # take the argmax to get label indicies
+        predictions = torch.argmax(self.predictions, dim=1).cpu()
+        labels = self.labels.cpu()
+        return float(f1_score(y_pred=predictions, y_true=labels))
 
 
 class LanguageCrossEntropyLoss(Metric):
@@ -165,44 +219,3 @@ class Perplexity(LanguageCrossEntropyLoss):
         """
         avg_loss = super().compute()
         return torch.exp(avg_loss)
-
-
-class BinaryF1Score(Metric):
-    """Hugging Face compatible cross entropy loss.
-
-    Args:
-        dist_sync_on_step (bool): Synchronize metric state across processes at
-            each forward() before returning the value at the step.
-
-    State:
-        sum_loss (float): the sum of the per-example loss in the batch.
-        total_batches (float): the number of batches to average across.
-    """
-
-    def __init__(self, dist_sync_on_step=False):
-        super().__init__(dist_sync_on_step=dist_sync_on_step)
-
-        self.add_state("predictions", default=[], dist_reduce_fx="cat")
-        self.add_state("labels", default=[], dist_reduce_fx="cat")
-
-    def update(self, output: Union[Mapping, Tensor], target: Tensor) -> None:
-        """Updates the internal state with results from a new batch.
-
-        Args:
-            output (Mapping): The output from the model, which must contain
-                either the Tensor or a Mapping type that contains the loss or model logits.
-            target (Tensor): A Tensor of ground-truth values to compare against.
-        """
-        self.predictions.append(output)
-        self.labels.append(target)
-
-    def compute(self) -> Tensor:
-        """Aggregate the state over all processes to compute the metric.
-
-        Returns:
-            loss (Tensor): The loss averaged across all batches.
-        """
-        # Return average loss over entire dataset
-        predictions = torch.argmax(self.predictions, dim=1).cpu()
-        labels = self.labels.cpu()
-        return float(f1_score(y_pred=predictions, y_true=labels))

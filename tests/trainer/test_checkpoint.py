@@ -116,26 +116,6 @@ def checkpointing_trainer_hparams(mosaic_trainer_hparams: TrainerHparams) -> Tra
     return mosaic_trainer_hparams
 
 
-def assert_weights_equivalent(original_trainer_hparams, new_trainer_hparams) -> None:
-    """
-    Strategy: get the weights from a new trainer
-    Then assert that they are equivalent to the weights from the original model.
-    """
-
-    # load_weights_only is False since the original Trainer is testing full checkpoint recovery
-    original_trainer_hparams.load_checkpoint = CheckpointLoaderHparams(
-        filepath=new_trainer_hparams.load_checkpoint.filepath, load_weights_only=False, strict_model_weights=False)
-
-    original_trainer = Trainer.create_from_hparams(original_trainer_hparams)
-    original_weights = original_trainer.state.model.parameters()
-
-    new_trainer = Trainer.create_from_hparams(new_trainer_hparams)
-    recovered_weights = new_trainer.state.model.parameters()
-
-    for p1, p2 in zip(original_weights, recovered_weights):
-        assert (p1.data.ne(p2.data).sum() == 0)
-
-
 def assert_checkpoints_equivalent(hparams_file_a: str, checkpoint_file_a: str, hparams_file_b: str,
                                   checkpoint_file_b: str) -> None:
     checkpoint_a = torch.load(checkpoint_file_a, map_location='cpu')
