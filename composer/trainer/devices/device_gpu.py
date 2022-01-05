@@ -17,7 +17,7 @@ from composer.utils import dist
 class DeviceGPU(Device):
     """An extension of :class:`~composer.trainer.devices.device.Device` for GPUs.
     """
-    ddp_backend = "nccl"
+    dist_backend = "nccl"
 
     def __init__(self):
         gpu = dist.get_local_rank()

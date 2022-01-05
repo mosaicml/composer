@@ -202,6 +202,14 @@ def all_gather_object(obj: TObj) -> List[TObj]:
                        "support.")
 
 
+def is_available():
+    return dist.is_available()
+
+
+def is_initialized():
+    return dist.is_initialized()
+
+
 def initialize_dist(backend: str, timeout: datetime.timedelta):
     if not dist.is_available():
         if get_world_size() != 1:
@@ -231,7 +239,7 @@ def initialize_dist(backend: str, timeout: datetime.timedelta):
     dist.init_process_group(backend, timeout=timeout, store=store, world_size=1, rank=0)
 
 
-def get_distributed_sampler(dataset, *, drop_last: bool, shuffle: bool) -> torch.utils.data.Sampler:
+def get_sampler(dataset, *, drop_last: bool, shuffle: bool) -> torch.utils.data.Sampler:
     return torch.utils.data.DistributedSampler[int](
         dataset,
         drop_last=drop_last,

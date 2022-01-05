@@ -141,7 +141,7 @@ class Trainer:
             precision: Precision = Precision.FP32,
 
             # ddp hparams
-            ddp_sync_strategy: Optional[Union[str, dist.DDPSyncStrategy]] = None,
+            ddp_sync_strategy: Optional[Union[str, DDPSyncStrategy]] = None,
             ddp_timeout: float = 5.0,
 
             # Randomness
@@ -209,7 +209,7 @@ class Trainer:
             import deepspeed
             deepspeed.init_distributed()
         else:
-            dist.initialize_dist(device.dist_backend, datetime.timedelta(seconds=ddp_timeout))
+            dist.initialize_dist(device.dist_backend, datetime.timedelta(seconds=dist_timeout))
             if ddp_sync_strategy is None:
                 self.ddp_sync_strategy = DDPSyncStrategy.SINGLE_AUTO_SYNC if not find_unused_parameters else DDPSyncStrategy.FORCED_SYNC
             else:

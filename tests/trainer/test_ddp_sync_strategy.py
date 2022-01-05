@@ -8,6 +8,7 @@ import torch.nn as nn
 
 from composer.core.state import State
 from composer.core.types import DataLoader, Tensor
+from composer.trainer.ddp import ddp_sync_context, prepare_ddp_module
 from composer.utils import dist
 
 
@@ -59,11 +60,11 @@ def test_ddp_sync_strategy(ddp_sync_strategy: str, expected_grads: List[Optional
                   precision='fp32')
 
     batches = [[(1, Tensor([1])), (1, Tensor([2]))], [(2, Tensor([1])), (2, Tensor([2]))]]
-    state.model = dist.prepare_module(state.model, find_unused_parameters=True)
+    state.model = prepare_ddp_module(state.model, find_unused_parameters=True)
     optimizer.zero_grad()
 
     for microbatch_idx in range(2):
-        with dist.sync_context(state, microbatch_idx == 1, sync_strategy=ddp_sync_strategy):
+        with ddp_sync_context(state, microbatch_idx == 1, sync_strategy=ddp_sync_strategy):
             input, target = batches[microbatch_idx][dist.get_local_rank()]
 
             output = state.model.forward(input)

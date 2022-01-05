@@ -31,12 +31,6 @@ class ClosureGradScaler(GradScaler):
 
     """
 
-    def __init__(self, ddp_reduce_scalar_and: Callable[[bool], bool], ddp_reduce_tensor_sum: Callable[[Tensor], Tensor],
-                 **kwargs):
-        self.ddp_reduce_scalar_and = ddp_reduce_scalar_and
-        self.ddp_reduce_tensor_sum = ddp_reduce_tensor_sum
-        super().__init__(**kwargs)
-
     def _force_scaler_ready(self, optimizer: Optimizer):
         optimizer_state = self._per_optimizer_states[id(optimizer)]
         optimizer_state["stage"] = OptState.READY
