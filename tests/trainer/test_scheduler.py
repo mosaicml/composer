@@ -15,13 +15,14 @@ from composer.optim.scheduler import (ComposedScheduler, ConstantLRHparams, Cosi
 from composer.trainer.trainer_hparams import scheduler_registry
 
 # for testing, we provide values for required hparams fields
+MAX_EPOCHS = 1000
 schedulers: Dict[Type[SchedulerHparams], SchedulerHparams] = {
     StepLRHparams: StepLRHparams(step_size="5ep",),
     MultiStepLRHparams: MultiStepLRHparams(milestones=["5ep", "10ep"],),
     ExponentialLRHparams: ExponentialLRHparams(gamma=0.5,),
-    CosineAnnealingLRHparams: CosineAnnealingLRHparams(T_max="1000ep",),
-    LinearLRHparams: LinearLRHparams(total_iters="1000ep",),
-    CosineAnnealingWarmRestartsHparams: CosineAnnealingWarmRestartsHparams(T_0="1000ep",),
+    CosineAnnealingLRHparams: CosineAnnealingLRHparams(T_max=f"{MAX_EPOCHS}ep",),
+    LinearLRHparams: LinearLRHparams(total_iters=f"{MAX_EPOCHS}ep",),
+    CosineAnnealingWarmRestartsHparams: CosineAnnealingWarmRestartsHparams(T_0=f"{MAX_EPOCHS}ep",),
     WarmUpLRHparams: WarmUpLRHparams(),
     ConstantLRHparams: ConstantLRHparams()
 }
@@ -53,6 +54,41 @@ EXPECTED_RESULTS_TIME_CONVERSION = {
     42: {
         'steps': 42,
         'epochs': 42
+    },
+    '0.05dur': {
+        'steps': 5000,
+        'epochs': 50,
+    },
+    '0.95dur': {
+        'steps': 95000,
+        'epochs': 950,
+    }
+}
+
+TIME_HPARAMS = {
+    '33ep12ba': {
+        'max_epochs': MAX_EPOCHS,
+        'steps_per_epoch': 100,
+    },
+    '17ep': {
+        'max_epochs': MAX_EPOCHS,
+        'steps_per_epoch': 100,
+    },
+    '5050ba': {
+        'max_epochs': MAX_EPOCHS,
+        'steps_per_epoch': 100,
+    },
+    42: {
+        'max_epochs': MAX_EPOCHS,
+        'steps_per_epoch': 100,
+    },
+    '0.05dur': {
+        'max_epochs': MAX_EPOCHS,
+        'steps_per_epoch': 100,
+    },
+    '0.95dur': {
+        'max_epochs': MAX_EPOCHS,
+        'steps_per_epoch': 100,
     }
 }
 
@@ -87,13 +123,17 @@ class TestSchedulerInit():
     def test_scheduler_time_conversion(self, scheduler_name, dummy_optimizer, timestrings, interval):
         expected = EXPECTED_RESULTS_TIME_CONVERSION[timestrings][interval]
         obj: Type[SchedulerHparams] = scheduler_registry[scheduler_name]
+        steps_per_epoch = TIME_HPARAMS[timestrings]['steps_per_epoch']
+        max_epochs = TIME_HPARAMS[timestrings]['max_epochs']
 
         if time_field[obj]:
             scheduler_hparams = schedulers[obj]
             with mock.patch.object(scheduler_hparams, time_field[obj], timestrings), \
                 mock.patch.object(scheduler_hparams, 'interval', interval):
 
-                scheduler, interval = scheduler_hparams.initialize_object(dummy_optimizer, steps_per_epoch=100)
+                scheduler, interval = scheduler_hparams.initialize_object(dummy_optimizer,
+                                                                          steps_per_epoch=steps_per_epoch,
+                                                                          max_epochs=max_epochs)
 
                 assert getattr(scheduler, time_field[obj]) == expected
 

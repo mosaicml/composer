@@ -85,7 +85,7 @@ def _convert_time(time: Time,
                   max_epochs: Optional[int] = None,
                   interval: str = 'epoch') -> int:
     """Convert time to either batches or epochs (based on interval argument)."""
-    if isinstance(time, int):
+    if isinstance(time, int) or isinstance(time, float):
         return time
     if steps_per_epoch is None:
         raise ValueError('steps_per_epoch must be provided to parse time string.')
@@ -98,13 +98,14 @@ def _convert_time(time: Time,
             total_duration = max_epochs * steps_per_epoch
             new_time += (total_duration * duration)
 
-        new_time = round(new_time)
+        new_time = int(round(new_time))
         log.info(f'Converting {time}, {interval} to {new_time}')
         return new_time
     elif interval in ('epochs', 'epoch'):
         if duration > 0:
             # convert the duration term into batches for ease of calculation
-            batches += (steps_per_epoch * max_epochs * duration)
+            # round batches to the nearest term
+            batches += int(round(steps_per_epoch * max_epochs * duration))
         epochs = epochs + batches // steps_per_epoch
         batches = batches % steps_per_epoch
         if batches != 0:
