@@ -48,8 +48,8 @@ SKIP_SERIALIZATION_FIELDS = [
     "loss",
     "batch",
     "outputs",
-    "train_dataloader",
-    "eval_dataloader",
+    "train_data",
+    "eval_data",
     "_steps_per_epoch",
     "_precision_context",
 ]
