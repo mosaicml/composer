@@ -1,3 +1,5 @@
+# Copyright 2021 MosaicML. All Rights Reserved.
+
 import logging
 from dataclasses import dataclass
 from multiprocessing import cpu_count
