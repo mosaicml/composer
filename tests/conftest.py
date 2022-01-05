@@ -140,7 +140,7 @@ def configure_ddp(request: pytest.FixtureRequest):
             os.environ["LOCAL_RANK"] = str(0)
             os.environ["WORLD_SIZE"] = str(1)
             os.environ["MASTER_ADDR"] = "127.0.0.1"
-            os.environ["MASTER_PORT"] = str(29500)
+            os.environ["MASTER_PORT"] = str(26000)
         import deepspeed
         deepspeed.init_distributed(timeout=DDP_TIMEOUT)
     elif not torch.distributed.is_initialized():
