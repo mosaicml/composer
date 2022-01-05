@@ -87,7 +87,7 @@ class CheckpointLoader:
                     seed_all(seed_to_restore)
 
         if state.model.__class__.__qualname__ == 'DeepSpeedEngine':
-            load_path, _ = state.model.load_checkpoint(self.checkpoint_folder, self.checkpoint_tag)
+            load_path, _ = state.model.load_checkpoint(self.checkpoint_folder, self.checkpoint_tag)  # type: ignore
             if load_path is None:
                 raise RuntimeError(f"Failed to load DeepSpeed checkpoint from {self.checkpoint_filepath}")
 
@@ -181,7 +181,7 @@ class CheckpointSaver:
             raise ValueError(f"Invalid checkpoint event: {self.save_event}")
 
         if state.model.__class__.__qualname__ == 'DeepSpeedEngine':
-            state.model.save_checkpoint(self.checkpoint_folder, tag)
+            state.model.save_checkpoint(self.checkpoint_folder, tag)  # type: ignore
 
         if ddp.get_global_rank() != 0:
             # only rank 0 saves checkpoints

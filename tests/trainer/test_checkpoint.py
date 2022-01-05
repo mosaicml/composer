@@ -24,7 +24,7 @@ from composer.trainer.checkpoint_hparams import CheckpointLoaderHparams, Checkpo
 from composer.trainer.devices import CPUDeviceHparams, DeviceHparams, GPUDeviceHparams
 from composer.trainer.trainer import Trainer
 from composer.trainer.trainer_hparams import TrainerHparams, callback_registry
-from composer.utils import ddp, run_directory
+from composer.utils import run_directory
 from tests.test_state import assert_state_equivalent
 from tests.utils.deep_compare import deep_compare
 
