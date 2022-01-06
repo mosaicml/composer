@@ -100,6 +100,7 @@ def _convert_fp32_tensor_to_fp16(tensor: Tensor):
         return tensor.half()
     return tensor
 
+
 def fix_batch_precision_for_deepspeed(batch: Batch, precision: Precision) -> Batch:
     """Ensures that a batch is properly formatted for DeepSpeed FP16, if active.
 
