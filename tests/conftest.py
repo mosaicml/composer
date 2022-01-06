@@ -12,6 +12,8 @@ import _pytest.config.argparsing
 import _pytest.fixtures
 import _pytest.mark
 import pytest
+import torch
+import torch.backends.cudnn
 import torch.distributed
 from _pytest.monkeypatch import MonkeyPatch
 
@@ -24,6 +26,14 @@ from composer.utils import run_directory
 WORLD_SIZE_OPTIONS = (1, 2)
 
 DDP_TIMEOUT = datetime.timedelta(seconds=5)
+
+torch.use_deterministic_algorithms(True)
+torch.backends.cudnn.benchmark = False
+torch.backends.cudnn.deterministic = True
+# See https://pytorch.org/docs/stable/generated/torch.use_deterministic_algorithms.html
+# and https://docs.nvidia.com/cuda/cublas/index.html#cublasApi_reproducibility
+os.environ["CUBLAS_WORKSPACE_CONFIG"] = ":4096:8"
+
 
 # Add the path of any pytest fixture files you want to make global
 pytest_plugins = [
@@ -123,20 +133,25 @@ def subfolder_run_directory(tmpdir: pathlib.Path, monkeypatch: MonkeyPatch) -> N
 
 @pytest.fixture(autouse=True)
 def configure_ddp(request: pytest.FixtureRequest):
-    backend = None
-    use_deepspeed = False
+    is_deepspeed = None
+    is_gpu = None
+    
     for item in request.session.items:
-        gpu_marker = item.get_closest_marker('gpu')
-        deepspeed_marker = item.get_closest_marker('deepspeed')
-        if deepspeed_marker and not gpu_marker:
-            pytest.fail('Tests that use DeepSpeed must also use GPUs.')
-        if gpu_marker is not None:
-            backend = "nccl"
-        else:
-            backend = "gloo"
-        if deepspeed_marker is not None:
-            use_deepspeed = True
-    if use_deepspeed:
+        item_is_gpu = item.get_closest_marker('gpu') is not None
+        if is_gpu is None:
+            is_gpu = item_is_gpu
+        assert is_gpu == item_is_gpu
+        item_is_deepspeed = item.get_closest_marker('deepspeed') is not None
+        if is_deepspeed is None:
+            is_deepspeed = item_is_deepspeed
+        assert is_deepspeed == item_is_deepspeed
+
+    if is_deepspeed and is_gpu:
+        pytest.fail('Tests should be marked as deepspeed or gpu, not both. Deepspeed tests will run on a gpu.')
+
+
+    if is_deepspeed:
+        assert not is_gpu
         if not "RANK" in os.environ:
             os.environ["RANK"] = str(0)
             os.environ["LOCAL_RANK"] = str(0)
@@ -145,13 +160,16 @@ def configure_ddp(request: pytest.FixtureRequest):
             os.environ["MASTER_PORT"] = str(26000)
         import deepspeed
         deepspeed.init_distributed(timeout=DDP_TIMEOUT)
-    elif not torch.distributed.is_initialized():
-        if "RANK" in os.environ and "WORLD_SIZE" in os.environ:
-            torch.distributed.init_process_group(backend, timeout=DDP_TIMEOUT)
-        else:
-            store = torch.distributed.HashStore()
-            torch.distributed.init_process_group(backend, timeout=DDP_TIMEOUT, store=store, world_size=1, rank=0)
 
+    if is_gpu:
+        assert not is_deepspeed
+        backend = "nccl" if is_gpu else "gloo"
+        if not torch.distributed.is_initialized():
+            if "RANK" in os.environ and "WORLD_SIZE" in os.environ:
+                torch.distributed.init_process_group(backend, timeout=DDP_TIMEOUT)
+            else:
+                store = torch.distributed.HashStore()
+                torch.distributed.init_process_group(backend, timeout=DDP_TIMEOUT, store=store, world_size=1, rank=0)
 
 @pytest.fixture(autouse=True)
 def wait_for_all_procs(subfolder_run_directory: None):

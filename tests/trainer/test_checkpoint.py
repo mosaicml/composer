@@ -240,9 +240,9 @@ def test_load_weights(
 @pytest.mark.parametrize("device_hparams,deepspeed_enabled,zero_stage", [
     pytest.param(CPUDeviceHparams(), False, None, id="cpu-ddp"),
     pytest.param(GPUDeviceHparams(), False, None, id="gpu-ddp", marks=pytest.mark.gpu),
-    pytest.param(GPUDeviceHparams(), True, 0, id="deepspeed-zero0", marks=[pytest.mark.gpu, pytest.mark.deepspeed]),
-    pytest.param(GPUDeviceHparams(), True, 1, id="deepspeed-zero1", marks=[pytest.mark.gpu, pytest.mark.deepspeed]),
-    pytest.param(GPUDeviceHparams(), True, 2, id="deepspeed-zero2", marks=[pytest.mark.gpu, pytest.mark.deepspeed]),
+    pytest.param(GPUDeviceHparams(), True, 0, id="deepspeed-zero0", marks=pytest.mark.deepspeed),
+    pytest.param(GPUDeviceHparams(), True, 1, id="deepspeed-zero1", marks=pytest.mark.deepspeed),
+    pytest.param(GPUDeviceHparams(), True, 2, id="deepspeed-zero2", marks=pytest.mark.deepspeed),
 ])
 @pytest.mark.parametrize("checkpoint_filename", ["ep1.tgz", "it4.tgz", "it1.tgz", "it6.tgz"])
 @pytest.mark.parametrize("seed", [None, 42])
@@ -295,10 +295,9 @@ def test_checkpoint(
     mosaic_trainer_hparams.callbacks = [DummyStatefulCallbackHparams(), EventCounterCallbackHparams()]
     mosaic_trainer_hparams.train_subset_num_batches = 5
     mosaic_trainer_hparams.device = device_hparams
-    assert mosaic_trainer_hparams.deterministic_mode, "deterministic mode is required"
-
     if deepspeed_enabled:
         assert zero_stage is not None
+        mosaic_trainer_hparams.deterministic_mode = False
         mosaic_trainer_hparams.deepspeed = DeepSpeedHparams(
             enabled=True,
             zero_stage=zero_stage,

@@ -60,6 +60,7 @@ class DeepSpeedHparams(hp.Hparams):
                 "reduce_bucket_size": self.zero2_bucket_size,
                 "overlap_comm": self.overlap_comm,
             },
+            "zero_allow_untested_optimizer": True,
         }
 
         if self.optimizer_offload:
