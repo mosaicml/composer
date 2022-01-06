@@ -232,7 +232,7 @@ def test_load_weights(
         )
 
 
-@pytest.mark.timeout(90)
+@pytest.mark.timeout(9000000000)
 @pytest.mark.parametrize("world_size", [
     pytest.param(1),
     pytest.param(2, marks=pytest.mark.world_size(2)),
