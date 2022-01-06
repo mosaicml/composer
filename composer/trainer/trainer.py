@@ -6,6 +6,7 @@ import contextlib
 import datetime
 import itertools
 import logging
+import os
 import textwrap
 import warnings
 from typing import Any, Callable, ContextManager, Dict, List, Optional, Sequence, Union, cast
@@ -35,6 +36,7 @@ from composer.trainer.deepspeed import DeepSpeedHparams
 from composer.trainer.devices.device import Device
 from composer.trainer.devices.device_cpu import DeviceCPU
 from composer.trainer.devices.device_gpu import DeviceGPU
+from composer.trainer.devices.device_hparams import GPUDeviceHparams
 from composer.trainer.scaler import ClosureGradScaler
 from composer.trainer.trainer_hparams import TrainerHparams
 from composer.utils import ddp, ensure_tuple, get_random_seed, map_collection, seed_all
@@ -282,6 +284,12 @@ class Trainer:
             cudnn.benchmark = False
             warnings.warn("Deterministic mode is activated. This will negatively impact performance.",
                           category=UserWarning)
+            if isinstance(device, GPUDeviceHparams):
+                if "CUBLAS_WORKSPACE_CONFIG" not in os.environ:
+                    raise RuntimeError(
+                        textwrap.dedent("""To use deterministic mode on a GPU,
+                        please set the environment variable CUBLAS_WORKSPACE_CONFIG=:4096:8. For more information, see
+                        https://pytorch.org/docs/stable/generated/torch.use_deterministic_algorithms.html"""))
 
         # run INIT event before optimizers and schedulers are created
         self.engine.run_event(Event.INIT)
