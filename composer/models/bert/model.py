@@ -100,7 +100,7 @@ class BERTModel(MosaicTransformer):
 
         # if we are in the single class case, then remove the classes dimension
         if output.shape[1] == 1:
-            output = output.squeeze()
+            output = output.squeeze(dim=1)
 
         return (output, labels)
 

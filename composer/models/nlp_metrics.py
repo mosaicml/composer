@@ -145,8 +145,8 @@ class BinaryF1Score(Metric):
             loss (Tensor): The loss averaged across all batches.
         """
         # take the argmax to get label indicies
-        predictions = torch.Tensor(self.predictions)
-        predictions = torch.argmax(predictions, dim=1).cpu()
+        assert isinstance(self.predictions, Tensor)
+        predictions = torch.argmax(self.predictions, dim=1).cpu()
         labels = self.labels.cpu()
         return float(f1_score(y_pred=predictions, y_true=labels))
 
