@@ -241,21 +241,11 @@ def test_load_weights(
         if idx < len(mosaic_trainer_hparams.schedulers):
             assert second_trainer_hparams.schedulers[idx] != mosaic_trainer_hparams.schedulers[idx]
 
-<<<<<<< HEAD
-    if dist.get_global_rank() == 0:
-
-        # pass in the two trainers, verify that the weights are the same
-        assert_weights_equivalent(
-            original_trainer_hparams=mosaic_trainer_hparams,
-            new_trainer_hparams=second_trainer_hparams,
-        )
-=======
     # pass in the two trainers, verify that the weights are the same
     assert_weights_equivalent(
         original_trainer_hparams=mosaic_trainer_hparams,
         new_trainer_hparams=second_trainer_hparams,
     )
->>>>>>> dev
 
 
 @pytest.mark.timeout(90)
@@ -369,23 +359,12 @@ def test_checkpoint(
     checkpoint_c_file_path = run_directory.get_relative_to_run_directory(checkpoint_b_folder, final_checkpoint)
     trainer_2_hparams_filepath = run_directory.get_relative_to_run_directory(checkpoint_b_folder, "hparams.yaml")
 
-<<<<<<< HEAD
-    if dist.get_global_rank() == 0:
-
-        assert_checkpoints_equivalent(
-            hparams_file_a=trainer_1_hparams_filepath,
-            checkpoint_file_a=checkpoint_b_file_path,
-            hparams_file_b=trainer_2_hparams_filepath,
-            checkpoint_file_b=checkpoint_c_file_path,
-        )
-=======
     assert_checkpoints_equivalent(
         hparams_file_a=trainer_1_hparams_filepath,
         checkpoint_file_a=checkpoint_b_file_path,
         hparams_file_b=trainer_2_hparams_filepath,
         checkpoint_file_b=checkpoint_c_file_path,
     )
->>>>>>> dev
 
 
 def _test_checkpoint_trainer(trainer_hparams: TrainerHparams):

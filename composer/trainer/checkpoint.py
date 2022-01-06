@@ -166,13 +166,6 @@ class CheckpointSaver:
             'rng': self._get_rng_state(device=device),  # stored across all ranks
             'seed': dist.all_gather_object(seed),
         }
-<<<<<<< HEAD
-        if dist.get_global_rank() != 0:
-            # only rank 0 saves checkpoints
-            # Need the check down here so all the DDP syncs will work for generating the checkpoint
-            return
-=======
->>>>>>> dev
 
         if self.save_event == Event.EPOCH_END:
             tag = f"ep{state.epoch}"
@@ -188,7 +181,7 @@ class CheckpointSaver:
         except ImportError:
             pass
 
-        if ddp.get_global_rank() == 0:
+        if dist.get_global_rank() == 0:
             # only rank 0 saves checkpoints
 
             # we add the state only on rank 0 since other processes don't have loggers to serialize
@@ -226,7 +219,7 @@ class CheckpointSaver:
             log.info(f'Trainer checkpoint saved to {checkpoint_archive_filepath}')
 
         # Ensure that the non-rank 0 processes don't exit before the checkpoint is saved.
-        ddp.barrier()
+        dist.barrier()
 
     def _get_rng_state(self, device: Device) -> StateDict:
         rng_state = {
