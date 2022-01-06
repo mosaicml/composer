@@ -12,7 +12,7 @@ import torch.distributed
 
 from composer.utils import run_directory
 
-DIST_TIMEOUT = datetime.timedelta(seconds=5)
+DIST_TIMEOUT = datetime.timedelta(seconds=15)
 
 
 @pytest.fixture(autouse=True)
