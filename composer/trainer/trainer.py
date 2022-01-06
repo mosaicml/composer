@@ -265,7 +265,7 @@ class Trainer:
 
         self._eval_subset_num_batches = eval_subset_num_batches
 
-        if not log_destinations:
+        if log_destinations is None:
             log_destinations = [TQDMLoggerBackend()]
         self.logger = Logger(self.state, log_destinations)
         self.state.callbacks = [*log_destinations, *callbacks]

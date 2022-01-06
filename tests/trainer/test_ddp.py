@@ -187,7 +187,6 @@ def test_ddp(device: DeviceHparams, world_size: int, mosaic_trainer_hparams: Tra
     hparams.callbacks.append(CheckBatch0Hparams())
     if deepspeed:
         hparams.deepspeed = DeepSpeedHparams(enabled=True)
-        hparams.deterministic_mode = False
     trainer = hparams.initialize_object()
     assert isinstance(trainer.state.train_dataloader.dataset, collections.abc.Sized)
     assert isinstance(trainer.state.eval_dataloader.dataset, collections.abc.Sized)

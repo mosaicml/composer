@@ -210,8 +210,8 @@ class CheckpointSaver:
             with open(mosaic_states_filepath, 'xb') as f:
                 torch.save(state_dict, f)
 
-            checkpoint_archive_filepath = os.path.join(self.checkpoint_folder, f'{tag}.tgz')
-            with tarfile.open(checkpoint_archive_filepath, "w:gz") as tarball:
+            checkpoint_archive_filepath = os.path.join(self.checkpoint_folder, f'{tag}.tz')
+            with tarfile.open(checkpoint_archive_filepath, "w") as tarball:
                 tarball.add(checkpoint_filepath, arcname=tag)
 
             shutil.rmtree(checkpoint_filepath)

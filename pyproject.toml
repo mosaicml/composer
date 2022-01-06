@@ -3,7 +3,7 @@
 [tool.isort]
 multi_line_output = 0
 line_length = 120
-skip = [ "env", "wandb" ]
+skip = [ "env", "wandb", "runs", "build" ]
 
 # Pyright
 [tool.pyright]
@@ -477,3 +477,10 @@ split_penalty_logical_operator = 300
 
 # Use the Tab character for indentation.
 use_tabs = false
+
+# Ignore directories
+ignore_patterns = [
+    "runs/**/*.py",
+    "wandb/**/*.py",
+    "build/**/*.py",
+]

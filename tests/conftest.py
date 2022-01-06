@@ -27,13 +27,10 @@ WORLD_SIZE_OPTIONS = (1, 2)
 
 DDP_TIMEOUT = datetime.timedelta(seconds=5)
 
-torch.use_deterministic_algorithms(True)
-torch.backends.cudnn.benchmark = False
-torch.backends.cudnn.deterministic = True
-# See https://pytorch.org/docs/stable/generated/torch.use_deterministic_algorithms.html
-# and https://docs.nvidia.com/cuda/cublas/index.html#cublasApi_reproducibility
+# Set this before running any tests, since it won't take effect if there are any cudnn operations
+# in a previous test and then this variable is set by a latter test
+# see composer.utils.reproducibility.configure_deterministic_mode
 os.environ["CUBLAS_WORKSPACE_CONFIG"] = ":4096:8"
-
 
 # Add the path of any pytest fixture files you want to make global
 pytest_plugins = [
@@ -135,7 +132,7 @@ def subfolder_run_directory(tmpdir: pathlib.Path, monkeypatch: MonkeyPatch) -> N
 def configure_ddp(request: pytest.FixtureRequest):
     is_deepspeed = None
     is_gpu = None
-    
+
     for item in request.session.items:
         item_is_gpu = item.get_closest_marker('gpu') is not None
         if is_gpu is None:
@@ -148,7 +145,6 @@ def configure_ddp(request: pytest.FixtureRequest):
 
     if is_deepspeed and is_gpu:
         pytest.fail('Tests should be marked as deepspeed or gpu, not both. Deepspeed tests will run on a gpu.')
-
 
     if is_deepspeed:
         assert not is_gpu
@@ -170,6 +166,7 @@ def configure_ddp(request: pytest.FixtureRequest):
             else:
                 store = torch.distributed.HashStore()
                 torch.distributed.init_process_group(backend, timeout=DDP_TIMEOUT, store=store, world_size=1, rank=0)
+
 
 @pytest.fixture(autouse=True)
 def wait_for_all_procs(subfolder_run_directory: None):

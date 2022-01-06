@@ -199,7 +199,7 @@ def test_load_weights(
     mosaic_trainer_hparams.seed = None
     mosaic_trainer_hparams.validate_every_n_batches = 1
     mosaic_trainer_hparams.validate_every_n_epochs = 0
-    final_checkpoint = "ep2.pt"
+    final_checkpoint = "ep2.tz"
     _test_checkpoint_trainer(mosaic_trainer_hparams)
 
     trainer_1_hparams_filepath = run_directory.get_relative_to_run_directory(checkpoint_a_folder, "hparams.yaml")
@@ -244,7 +244,7 @@ def test_load_weights(
     pytest.param(GPUDeviceHparams(), True, 1, id="deepspeed-zero1", marks=pytest.mark.deepspeed),
     pytest.param(GPUDeviceHparams(), True, 2, id="deepspeed-zero2", marks=pytest.mark.deepspeed),
 ])
-@pytest.mark.parametrize("checkpoint_filename", ["ep1.tgz", "it4.tgz", "it1.tgz", "it6.tgz"])
+@pytest.mark.parametrize("checkpoint_filename", ["ep1.tz", "it4.tz", "it1.tz", "it6.tz"])
 @pytest.mark.parametrize("seed", [None, 42])
 @pytest.mark.parametrize("model_name", [None, "resnet50_synthetic", "gpt2_52m"])
 def test_checkpoint(
@@ -294,6 +294,7 @@ def test_checkpoint(
     mosaic_trainer_hparams.precision = Precision.FP32
     mosaic_trainer_hparams.callbacks = [DummyStatefulCallbackHparams(), EventCounterCallbackHparams()]
     mosaic_trainer_hparams.train_subset_num_batches = 5
+    mosaic_trainer_hparams.eval_subset_num_batches = 5
     mosaic_trainer_hparams.device = device_hparams
     if deepspeed_enabled:
         assert zero_stage is not None
@@ -310,9 +311,9 @@ def test_checkpoint(
         folder=checkpoint_a_folder,
     )
     mosaic_trainer_hparams.seed = seed
-    mosaic_trainer_hparams.validate_every_n_batches = 1
-    mosaic_trainer_hparams.validate_every_n_epochs = 0
-    final_checkpoint = ("ep2" if checkpoint_filename.startswith("ep") else "it8") + ".tgz"
+    mosaic_trainer_hparams.validate_every_n_batches = 0 if checkpoint_filename.startswith("it") else 1
+    mosaic_trainer_hparams.validate_every_n_epochs = 0 if checkpoint_filename.startswith("ep") else 1
+    final_checkpoint = ("ep2" if checkpoint_filename.startswith("ep") else "it8") + ".tz"
     _test_checkpoint_trainer(mosaic_trainer_hparams)
     checkpoint_a_file_path = os.path.join(checkpoint_a_folder, checkpoint_filename)
     checkpoint_b_file_path = run_directory.get_relative_to_run_directory(checkpoint_a_folder, final_checkpoint)

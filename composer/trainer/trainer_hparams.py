@@ -205,9 +205,6 @@ class TrainerHparams(hp.Hparams):
         if not deepspeed_enabled and Precision(self.precision) == Precision.FP16:
             raise ValueError("FP16 precision is only supported when training with DeepSpeed.")
 
-        if deepspeed_enabled and self.deterministic_mode:
-            raise ValueError("Deterministic mode is not supported with DeepSpeed.")
-
         if deepspeed_enabled and isinstance(self.device, CPUDeviceHparams):
             raise ValueError("Training on CPUs is not supported with DeepSpeed.")
 
