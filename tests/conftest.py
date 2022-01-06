@@ -124,14 +124,28 @@ def subfolder_run_directory(tmpdir: pathlib.Path, monkeypatch: MonkeyPatch) -> N
 @pytest.fixture(autouse=True)
 def configure_ddp(request: pytest.FixtureRequest):
     backend = None
+    use_deepspeed = False
     for item in request.session.items:
-        marker = item.get_closest_marker('gpu')
-        if marker is not None:
+        gpu_marker = item.get_closest_marker('gpu')
+        deepspeed_marker = item.get_closest_marker('deepspeed')
+        if deepspeed_marker and not gpu_marker:
+            pytest.fail('Tests that use DeepSpeed must also use GPUs.')
+        if gpu_marker is not None:
             backend = "nccl"
         else:
             backend = "gloo"
-        break
-    if not torch.distributed.is_initialized():
+        if deepspeed_marker is not None:
+            use_deepspeed = True
+    if use_deepspeed:
+        if not "RANK" in os.environ:
+            os.environ["RANK"] = str(0)
+            os.environ["LOCAL_RANK"] = str(0)
+            os.environ["WORLD_SIZE"] = str(1)
+            os.environ["MASTER_ADDR"] = "127.0.0.1"
+            os.environ["MASTER_PORT"] = str(26000)
+        import deepspeed
+        deepspeed.init_distributed(timeout=DDP_TIMEOUT)
+    elif not torch.distributed.is_initialized():
         if "RANK" in os.environ and "WORLD_SIZE" in os.environ:
             torch.distributed.init_process_group(backend, timeout=DDP_TIMEOUT)
         else:
