@@ -43,6 +43,7 @@ STATE_DICT_SERIALIZATION_FIELDS = [
 ]
 
 # These fields will be serialized using .state_dict(), but will be skipped if DeepSpeed is enabled.
+# When DeepSpeed is being used, model and optimizer states are serialized directly by the DeepSpeed engine.
 STATE_DICT_SERIALIZATION_FIELDS_SKIP_DEEPSPEED = [
     "model",
     "_optimizers",
@@ -197,9 +198,12 @@ class State(Serializable):
         """Returns the state as a :class:`dict`."""
         state_dict: types.StateDict = {}
 
-        # The "proper" form of this check would be something like ``isinstance(self.model, DeepSpeedEngine)``,
-        # but we don't want to need to import DeepSpeed when it's not needed.
-        deepspeed_enabled = self.model.__class__.__qualname__ == "DeepSpeedEngine"
+        deepspeed_enabled = False
+        try:
+            import deepspeed
+            deepspeed_enabled = isinstance(self.model, deepspeed.DeepSpeedEngine)
+        except ImportError:
+            pass
 
         for state_field_name, state_field_value in self.__dict__.items():
             if state_field_name in SKIP_SERIALIZATION_FIELDS:

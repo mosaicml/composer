@@ -328,16 +328,15 @@ class Trainer:
                 optimizer=optimizer,
             )
 
-            if self.checkpoint_loader:
-                restored_seed = self.checkpoint_loader.load_checkpoint(state=self.state)
-                if restored_seed is not None:
-                    self.seed = restored_seed
-        else:
-            if self.checkpoint_loader:
-                restored_seed = self.checkpoint_loader.load_checkpoint(state=self.state)
-                if restored_seed is not None:
-                    self.seed = restored_seed
+        # If using DeepSpeed, the model must be loaded from checkpoint after the engine has been
+        # initialized, but if using PyTorch DDP, the model must be loaded before it is wrapped with
+        # DDP.
+        if self.checkpoint_loader:
+            restored_seed = self.checkpoint_loader.load_checkpoint(state=self.state)
+            if restored_seed is not None:
+                self.seed = restored_seed
 
+        if not self.deepspeed_enabled:
             self.state.model = self.device.module_to_device(self.state.model)
             self.state.optimizers = map_collection(self.state.optimizers, self.device.optimizer_to_device)
 

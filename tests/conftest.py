@@ -128,6 +128,8 @@ def configure_ddp(request: pytest.FixtureRequest):
     for item in request.session.items:
         gpu_marker = item.get_closest_marker('gpu')
         deepspeed_marker = item.get_closest_marker('deepspeed')
+        if deepspeed_marker and not gpu_marker:
+            pytest.fail('Tests that use DeepSpeed must also use GPUs.')
         if gpu_marker is not None:
             backend = "nccl"
         else:

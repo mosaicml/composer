@@ -195,8 +195,6 @@ class TrainerHparams(hp.Hparams):
                                          default=None)
 
     def validate(self):
-
-        print(self.deepspeed)
         super().validate()
 
         deepspeed_enabled = self.deepspeed and self.deepspeed.enabled
