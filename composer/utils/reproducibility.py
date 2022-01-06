@@ -1,6 +1,6 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
-import os
+# import os
 import random
 import warnings
 
@@ -11,8 +11,8 @@ import torch.backends.cudnn
 _DETERMINISTIC_MODE_KEY = "COMPOSER_USE_DETERMINISTIC_MODE"
 
 
-def use_deterministic_mode():
-    return bool(int(os.environ.get(_DETERMINISTIC_MODE_KEY, "0")))
+# def use_deterministic_mode():
+#     return bool(int(os.environ.get(_DETERMINISTIC_MODE_KEY, "0")))
 
 
 def configure_deterministic_mode():

@@ -88,6 +88,9 @@ class Trainer:
             will be created. (default: ``None``)
         log_destinations (List[BaseLoggerBackend], optional): The destinations to log training information to.
             (default ``[TQDMLoggerBackend()]``).
+        deterministic_mode (bool, optional): Run the model deterministically. Experimental. Performance
+            degradations expected. Certain Torch modules may not have deterministic implementations,
+            which will result in a crash. (default: ``False``)
         callbacks (Sequence[Callback], optional): The callbacks to run during training. (default: ``[]``)
         checkpoint_filepath (str): For loading checkpoints, the path to an existing checkpoint file.
         load_weights_only (bool): Whether to only restore the weights from the checkpoint without
@@ -141,6 +144,7 @@ class Trainer:
 
             # Randomness
             seed: Optional[int] = None,
+            deterministic_mode: bool = False,
 
             # Logging and callbacks
             log_destinations: Optional[List[BaseLoggerBackend]] = None,
@@ -272,7 +276,7 @@ class Trainer:
         self.compute_training_metrics = compute_training_metrics
         self.grad_clip_norm = grad_clip_norm
 
-        if reproducibility.use_deterministic_mode():
+        if deterministic_mode:
             reproducibility.configure_deterministic_mode()
 
         # run INIT event before optimizers and schedulers are created
