@@ -10,6 +10,8 @@ from composer.models.gpt2 import GPT2Hparams as GPT2Hparams
 from composer.models.gpt2 import GPT2Model as GPT2Model
 from composer.models.model_hparams import Initializer as Initializer
 from composer.models.model_hparams import ModelHparams as ModelHparams
+from composer.models.resnet9_cifar10 import CIFAR10_ResNet9 as CIFAR10_ResNet9
+from composer.models.resnet9_cifar10 import CIFARResNet9Hparams as CIFARResNet9Hparams
 from composer.models.resnet18 import ResNet18 as ResNet18
 from composer.models.resnet18 import ResNet18Hparams as ResNet18Hparams
 from composer.models.resnet50 import ResNet50 as ResNet50

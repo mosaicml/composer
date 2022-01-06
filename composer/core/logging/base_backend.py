@@ -6,7 +6,7 @@ from abc import ABC
 from typing import TYPE_CHECKING
 
 from composer.core.callback import Callback, RankZeroCallback
-from composer.utils import ddp
+from composer.utils import dist
 
 if TYPE_CHECKING:
     from composer.core.logging.logger import LogLevel, TLogData
@@ -104,7 +104,7 @@ class RankZeroLoggerBackend(BaseLoggerBackend, RankZeroCallback, ABC):
 
     @final
     def will_log(self, state: State, log_level: LogLevel) -> bool:
-        if ddp.get_local_rank() != 0:
+        if dist.get_local_rank() != 0:
             return False
         return self._will_log(state, log_level)
 
@@ -126,6 +126,6 @@ class RankZeroLoggerBackend(BaseLoggerBackend, RankZeroCallback, ABC):
 
     @final
     def log_metric(self, epoch: int, step: int, log_level: LogLevel, data: TLogData) -> None:
-        if ddp.get_local_rank() != 0:
+        if dist.get_local_rank() != 0:
             return
         return self._log_metric(epoch, step, log_level, data)
