@@ -200,13 +200,16 @@ class TrainerHparams(hp.Hparams):
     def validate(self):
         super().validate()
 
-        deepspeed_enabled = self.deepspeed and self.deepspeed.enabled
+        if self.deepspeed is not None:
 
-        if not deepspeed_enabled and Precision(self.precision) == Precision.FP16:
-            raise ValueError("FP16 precision is only supported when training with DeepSpeed.")
+            if self.precision == Precision.FP16:
+                raise ValueError("FP16 precision is only supported when training with DeepSpeed.")
 
-        if deepspeed_enabled and isinstance(self.device, CPUDeviceHparams):
-            raise ValueError("Training on CPUs is not supported with DeepSpeed.")
+            if isinstance(self.device, CPUDeviceHparams):
+                raise ValueError("Training on CPUs is not supported with DeepSpeed.")
+
+            if self.deterministic_mode and self.deepspeed.zero_stage > 0:
+                raise ValueError("Deepspeed with zero stage > 0 is not compatible with deterministic mode")
 
         world_size = dist.get_world_size()
 

@@ -4,6 +4,7 @@ import os
 import random
 import tarfile
 import tempfile
+import textwrap
 from logging import Logger
 from typing import Dict, Optional
 
@@ -244,8 +245,7 @@ def test_load_weights(
     pytest.param(GPUDeviceHparams(), True, 1, id="deepspeed-zero1", marks=pytest.mark.deepspeed),
     pytest.param(GPUDeviceHparams(), True, 2, id="deepspeed-zero2", marks=pytest.mark.deepspeed),
 ])
-@pytest.mark.parametrize("checkpoint_filename", ["ep1.tz", "it4.tz", "it1.tz", "it6.tz"])
-@pytest.mark.parametrize("seed", [None, 42])
+@pytest.mark.parametrize("seed,checkpoint_filename", [[None, "ep1.tz"], [42, "ep1.tz"], [42, "it4.tz"], [42, "it6.tz"]])
 @pytest.mark.parametrize("model_name", [None, "resnet50_synthetic", "gpt2_52m"])
 def test_checkpoint(
     device_hparams: DeviceHparams,
@@ -298,16 +298,19 @@ def test_checkpoint(
     mosaic_trainer_hparams.device = device_hparams
     if deepspeed_enabled:
         assert zero_stage is not None
-        mosaic_trainer_hparams.deterministic_mode = False
-        mosaic_trainer_hparams.deepspeed = DeepSpeedHparams(
-            enabled=True,
-            zero_stage=zero_stage,
-        )
+        if zero_stage > 0:
+            mosaic_trainer_hparams.deterministic_mode = False
+            if model_name is not None:
+                pytest.skip(
+                    textwrap.dedent(f"""Skipping test since deterministic mode is required for
+                    non-trivial models, but deterministic mode isn't compatible with deepspeed
+                    zero stage {zero_stage}"""))
+        mosaic_trainer_hparams.deepspeed = DeepSpeedHparams(zero_stage=zero_stage,)
 
     checkpoint_a_folder = "first"
     mosaic_trainer_hparams.save_checkpoint = CheckpointSaverHparams(
         interval_unit="ep" if checkpoint_filename.startswith("ep") else "it",
-        interval=1,
+        interval=1 if checkpoint_filename.startswith("ep") else 2,
         folder=checkpoint_a_folder,
     )
     mosaic_trainer_hparams.seed = seed

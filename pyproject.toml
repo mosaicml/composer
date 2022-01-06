@@ -479,6 +479,7 @@ split_penalty_logical_operator = 300
 use_tabs = false
 
 # Ignore directories
+[tool.yapfignore]
 ignore_patterns = [
     "runs/**/*.py",
     "wandb/**/*.py",

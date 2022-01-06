@@ -176,7 +176,6 @@ class Trainer:
 
         self.config = config
 
-        self.deepspeed_enabled = deepspeed_hparams and deepspeed_hparams.enabled
         self.deepspeed_hparams = deepspeed_hparams
 
         if not device:
@@ -457,6 +456,10 @@ class Trainer:
             config=hparams.to_dict())
 
         return trainer
+
+    @property
+    def deepspeed_enabled(self):
+        return self.deepspeed_hparams is not None
 
     def fit(self):
         """Train and evaluate the model on the provided data."""

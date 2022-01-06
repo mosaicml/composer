@@ -14,8 +14,6 @@ from composer.core.types import Precision
 class DeepSpeedHparams(hp.Hparams):
     """Params for configuration of DeepSpeed."""
 
-    enabled: bool = hp.required("Whether to use DeepSpeed.")
-
     zero_stage: int = hp.optional("The ZeRO memory optimization stage to use.", default=0)
 
     optimizer_offload: bool = hp.optional(
