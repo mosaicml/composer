@@ -31,7 +31,7 @@ from composer.optim import (ComposedScheduler, CosineAnnealingLRHparams, Decoupl
 from composer.optim.scheduler import ensure_warmup_last
 from composer.trainer.checkpoint import CheckpointLoader, CheckpointSaver
 from composer.trainer.ddp import DDPSyncStrategy, ddp_sync_context, prepare_ddp_module
-from composer.trainer.deepspeed import DeepSpeedHparams
+from composer.trainer.deepspeed import DeepSpeedHparams, fix_batch_precision_for_deepspeed
 from composer.trainer.devices.device import Device
 from composer.trainer.devices.device_cpu import DeviceCPU
 from composer.trainer.devices.device_gpu import DeviceGPU
@@ -227,8 +227,6 @@ class Trainer:
         self._eval_device_transformation_fn = eval_dataloader_spec.device_transform_fn
         self.eval_split_fn = eval_dataloader_spec.split_fn
 
-        # TODO(#123): DeepSpeed still needs a precision context, but it's not completely clear how to
-        # handle this with our version of Pytorch
         precision_context = self.device.precision_context if not self.deepspeed_enabled else cast(
             Callable[..., ContextManager], contextlib.nullcontext)
 
@@ -611,6 +609,9 @@ class Trainer:
                     if self._train_device_transformation_fn is not None:
                         state.batch = self._train_device_transformation_fn(state.batch)
 
+                    if self.deepspeed_enabled:
+                        state.batch = fix_batch_precision_for_deepspeed(state.batch, state.precision)
+
                     if self.compute_training_metrics:
                         # compute metrics on the training set
                         assert train_metrics is not None
@@ -844,6 +845,9 @@ class Trainer:
                 state.batch = self.device.batch_to_device(state.batch)
                 if self._eval_device_transformation_fn is not None:
                     state.batch = self._eval_device_transformation_fn(state.batch)
+
+                if self.deepspeed_enabled:
+                    state.batch = fix_batch_precision_for_deepspeed(state.batch, state.precision)
 
                 self.engine.run_event(Event.EVAL_BATCH_START)
 

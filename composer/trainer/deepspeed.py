@@ -4,10 +4,12 @@ import warnings
 from dataclasses import dataclass
 from typing import Any, Optional
 
+import torch
 import yahp as hp
 
 from composer.core import State
-from composer.core.types import Precision
+from composer.core.types import Batch, Precision, Tensor
+from composer.utils.iter_helpers import map_collection
 
 
 @dataclass
@@ -58,6 +60,11 @@ class DeepSpeedHparams(hp.Hparams):
                 "reduce_bucket_size": self.zero2_bucket_size,
                 "overlap_comm": self.overlap_comm,
             },
+
+            # Without this, DeepSpeed throws errors when ZeRO is used in combination with
+            # non-standard optimizers. Most likely, this will trigger when one of the decoupled
+            # weight decay optimizers is used, but it has been verified that those optimizers work
+            # in combination with DeepSpeed.
             "zero_allow_untested_optimizer": True,
         }
 
@@ -84,3 +91,24 @@ class DeepSpeedHparams(hp.Hparams):
             deepspeed_config["gradient_clipping"] = grad_clip_norm
 
         return deepspeed_config
+
+
+def _convert_fp32_tensor_to_fp16(tensor: Tensor):
+    if tensor.dtype == torch.float32:
+        return tensor.half()
+    return tensor
+
+
+def fix_batch_precision_for_deepspeed(batch: Batch, precision: Precision) -> Batch:
+    """Ensures that a batch is properly formatted for DeepSpeed FP16, if active.
+
+    This is more finnicky than it may sound. Just because we're in FP16 doesn't mean
+    we can convert the entire batch to FP16 too. For example, integer tensors are common
+    in inputs and outputs of various models, and these must not be converted. We make a
+    big assumption that a tensor should only be converted to FP16 if it was given in FP32.
+    """
+
+    if precision != Precision.FP16:
+        return batch
+
+    return map_collection(batch, _convert_fp32_tensor_to_fp16)  # type: ignore
