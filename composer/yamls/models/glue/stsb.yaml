@@ -68,10 +68,10 @@ validate_every_n_epochs: 1
 callbacks:
   - lr_monitor: {}
 load_checkpoint:
-  filepath: /mnt/gcp/moin/best_mnli_model/glue_checkpoints/ep3_no_classifier.pt
+  filepath: https://storage.googleapis.com/llm_checkpoints/bert_checkpoint/bert_checkpoints/ep7.pt 
   load_weights_only: true
   strict_model_weights: false
 save_checkpoint:
-  folder: glue_checkpoints
+  folder: stsb_checkpoints
   interval: 1
   interval_unit: ep
