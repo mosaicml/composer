@@ -13,7 +13,7 @@ from torch.nn.parallel import DistributedDataParallel
 import composer.core.types as types
 from composer.core.precision import Precision
 from composer.core.serializable import Serializable
-from composer.utils import ddp, ensure_tuple
+from composer.utils import dist, ensure_tuple
 from composer.utils.precision import default_precision_factory
 
 if TYPE_CHECKING:
@@ -185,14 +185,14 @@ class State(Serializable):
         """The global batch size used for training."""
         if self.train_dataloader.batch_size is None:
             raise RuntimeError("train dataloader batch size is undefined")
-        return self.train_dataloader.batch_size * ddp.get_world_size()
+        return self.train_dataloader.batch_size * dist.get_world_size()
 
     @property
     def eval_batch_size(self):
         """The batch size used for evaluation."""
         if self.eval_dataloader.batch_size is None:
             raise RuntimeError("eval dataloader batch size is undefined")
-        return self.eval_dataloader.batch_size * ddp.get_world_size()
+        return self.eval_dataloader.batch_size * dist.get_world_size()
 
     def state_dict(self) -> types.StateDict:
         """Returns the state as a :class:`dict`."""

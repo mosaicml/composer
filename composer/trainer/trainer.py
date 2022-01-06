@@ -31,13 +31,14 @@ from composer.optim import (ComposedScheduler, CosineAnnealingLRHparams, Decoupl
                             SchedulerHparams, WarmUpLRHparams)
 from composer.optim.scheduler import ensure_warmup_last
 from composer.trainer.checkpoint import CheckpointLoader, CheckpointSaver
+from composer.trainer.ddp import DDPSyncStrategy, ddp_sync_context, prepare_ddp_module
 from composer.trainer.deepspeed import DeepSpeedHparams
 from composer.trainer.devices.device import Device
 from composer.trainer.devices.device_cpu import DeviceCPU
 from composer.trainer.devices.device_gpu import DeviceGPU
 from composer.trainer.scaler import ClosureGradScaler
 from composer.trainer.trainer_hparams import TrainerHparams
-from composer.utils import ddp, ensure_tuple, get_random_seed, map_collection, seed_all
+from composer.utils import dist, ensure_tuple, get_random_seed, map_collection, seed_all
 from composer.utils.run_directory import get_relative_to_run_directory
 
 log = logging.getLogger(__name__)
@@ -81,10 +82,10 @@ class Trainer:
         compute_training_metrics (bool, optional): True to compute metrics on training data and False to not.
             (default: ``False``)
         precision (Precision, optional): Numerical precision to use for training. (default: ``Precision.FP32``).
+        dist_timeout (float, optional): Timeout, in seconds, for initializing the distributed process group.
+            (default: ``5.0``)
         ddp_sync_strategy (DDPSyncStrategy, optional): The strategy to use for synchronizing gradients.
             Leave unset to let the trainer auto-configure this.
-        ddp_timeout (float, optional): Timeout, in seconds, for initializing the DDP process group.
-            (default: ``5.0``)
         seed (int, optional): The seed used in randomization. When not provided a random seed
             will be created. (default: ``None``)
         deterministic_mode (bool, optional): Run the model deterministically. Experimental. Performance
@@ -139,9 +140,9 @@ class Trainer:
             compute_training_metrics: bool = False,
             precision: Precision = Precision.FP32,
 
-            # ddp hparams
-            ddp_sync_strategy: Optional[Union[str, ddp.DDPSyncStrategy]] = None,
-            ddp_timeout: float = 5.0,
+            # dist hparams
+            dist_timeout: float = 5.0,
+            ddp_sync_strategy: Optional[Union[str, DDPSyncStrategy]] = None,
 
             # Randomness
             seed: Optional[int] = None,
@@ -188,7 +189,7 @@ class Trainer:
             log.info(f"Seed was None. Setting seed to random value: {seed}")
 
         # Assure that each process has a different seed, necessary if a seed is passed to init
-        seed += ddp.get_global_rank()
+        seed += dist.get_global_rank()
 
         # If hparams is used to create the Trainer this function is called twice
         # which is okay because all runs with the hparams codepath will do this
@@ -208,11 +209,11 @@ class Trainer:
             import deepspeed
             deepspeed.init_distributed()
         else:
-            ddp.initialize_ddp(device.ddp_backend, datetime.timedelta(seconds=ddp_timeout))
+            dist.initialize_dist(device.dist_backend, datetime.timedelta(seconds=dist_timeout))
             if ddp_sync_strategy is None:
-                self.ddp_sync_strategy = ddp.DDPSyncStrategy.SINGLE_AUTO_SYNC if not find_unused_parameters else ddp.DDPSyncStrategy.FORCED_SYNC
+                self.ddp_sync_strategy = DDPSyncStrategy.SINGLE_AUTO_SYNC if not find_unused_parameters else DDPSyncStrategy.FORCED_SYNC
             else:
-                self.ddp_sync_strategy = ddp.DDPSyncStrategy(ddp_sync_strategy)
+                self.ddp_sync_strategy = DDPSyncStrategy(ddp_sync_strategy)
 
         if isinstance(train_dataloader, DataloaderSpec):
             train_dataloader_spec = train_dataloader
@@ -341,7 +342,7 @@ class Trainer:
             self.state.optimizers = map_collection(self.state.optimizers, self.device.optimizer_to_device)
 
             # wrap model with DDP
-            self.state.model = ddp.prepare_module(self.state.model, self.find_unused_parameters)
+            self.state.model = prepare_ddp_module(self.state.model, self.find_unused_parameters)
 
     @classmethod
     def create_from_hparams(cls, hparams: TrainerHparams) -> Trainer:
@@ -378,7 +379,7 @@ class Trainer:
             hparams.train_dataset.datadir = hparams.datadir
             hparams.val_dataset.datadir = hparams.datadir
 
-        train_device_batch_size = hparams.train_batch_size // ddp.get_world_size()
+        train_device_batch_size = hparams.train_batch_size // dist.get_world_size()
         if hparams.train_dataset.shuffle and hparams.train_subset_num_batches:
             warnings.warn(
                 textwrap.dedent(f"""SubsetNumBatchesWarning: When specifying train_subset_num_batches,
@@ -386,7 +387,7 @@ class Trainer:
             each training epoch may load a different subset of samples."""))
         train_dataloader = hparams.train_dataset.initialize_object(train_device_batch_size, hparams.dataloader)
 
-        eval_device_batch_size = hparams.eval_batch_size // ddp.get_world_size()
+        eval_device_batch_size = hparams.eval_batch_size // dist.get_world_size()
         if hparams.val_dataset.shuffle and hparams.eval_subset_num_batches:
             warnings.warn(
                 textwrap.dedent(f"""SubsetNumBatchesWarning: When specifying eval_subset_num_batches,
@@ -427,9 +428,9 @@ class Trainer:
             compute_training_metrics=hparams.compute_training_metrics,
             precision=hparams.precision,
 
-            # ddp hparams
+            # dist hparams
+            dist_timeout=hparams.dist_timeout,
             ddp_sync_strategy=hparams.ddp_sync_strategy,
-            ddp_timeout=hparams.ddp_timeout,
 
             # Randomness
             seed=seed,
@@ -580,23 +581,7 @@ class Trainer:
 
         self.engine.run_event(Event.TRAINING_START)
 
-        if self._use_closures():
-
-            def _ddp_reduce_scalar_and(flag: bool) -> bool:
-                value = 1 if flag else 0
-                flag_tensor = self.device.tensor_to_device(torch.tensor(value).int())
-                ddp.all_reduce(flag_tensor, reduce_operation='PRODUCT')
-                return flag_tensor.item() == 1
-
-            def _ddp_reduce_tensor_sum(tensor: Tensor) -> Tensor:
-                # Happens in-place; that's fine
-                ddp.all_reduce(tensor, reduce_operation="SUM")
-                return tensor
-
-            state.scaler = ClosureGradScaler(ddp_reduce_scalar_and=_ddp_reduce_scalar_and,
-                                             ddp_reduce_tensor_sum=_ddp_reduce_tensor_sum)
-        else:
-            state.scaler = GradScaler()
+        state.scaler = ClosureGradScaler() if self._use_closures() else GradScaler()
         use_grad_scaling = self._use_grad_scaling(state.precision, state.scaler)
 
         self._spin_dataloaders()
@@ -677,10 +662,10 @@ class Trainer:
                         assert isinstance(total_loss, Tensor)
 
                         # total_loss can be None if gradient scaling failed
-                        ddp.all_reduce(total_loss, reduce_operation="SUM")
-                        ddp.barrier()
+                        dist.all_reduce(total_loss, reduce_operation="SUM")
+                        dist.barrier()
                         full_loss = total_loss.cpu().item()
-                        self.logger.metric_batch({'loss/train': full_loss / ddp.get_world_size()})
+                        self.logger.metric_batch({'loss/train': full_loss / dist.get_world_size()})
 
                     if self.compute_training_metrics:
                         assert train_metrics is not None
@@ -764,7 +749,7 @@ class Trainer:
 
         for microbatch_idx, state.batch in enumerate(microbatches):
             is_final_microbatch = microbatch_idx + 1 == len(microbatches)
-            sync_context = contextlib.nullcontext() if self.deepspeed_enabled else ddp.sync_context(
+            sync_context = contextlib.nullcontext() if self.deepspeed_enabled else ddp_sync_context(
                 state, is_final_microbatch, self.ddp_sync_strategy)
             with sync_context:
                 last_microbatch_size = self._get_batch_size(state.batch)

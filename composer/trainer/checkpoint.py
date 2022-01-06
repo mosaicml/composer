@@ -16,7 +16,7 @@ import yaml
 from composer.core import Event, State
 from composer.core.types import StateDict
 from composer.trainer.devices.device import Device
-from composer.utils import ddp, seed_all
+from composer.utils import dist, seed_all
 
 log = logging.getLogger(__name__)
 
@@ -67,13 +67,13 @@ class CheckpointLoader:
                 self.checkpoint_rng_state = self._get_checkpoint_rng_state(state_dict["rng"])
 
                 if "seed" in state_dict:
-                    world_size = ddp.get_world_size()
+                    world_size = dist.get_world_size()
                     checkpointed_world_size = len(state_dict["seed"])
                     if world_size != checkpointed_world_size:
                         warnings.warn(f"Current world size {world_size} does not match the checkpointed world size "
                                       f"{checkpointed_world_size}. The seed will not be restored.")
                     else:
-                        seed_to_restore = state_dict["seed"][ddp.get_global_rank()]
+                        seed_to_restore = state_dict["seed"][dist.get_global_rank()]
                         seed_all(seed_to_restore)
 
             try:
@@ -94,25 +94,25 @@ class CheckpointLoader:
         if self.checkpoint_rng_state is None:
             return
 
-        assert ddp.get_world_size() == len(
+        assert dist.get_world_size() == len(
             self.checkpoint_rng_state['torch']
         ), f"invariant violation: if the rng state is being restored, then" \
             "the world size should be the same as in the checkpoint."
 
-        torch.set_rng_state(self.checkpoint_rng_state['torch'][ddp.get_global_rank()])
-        device.load_state_dict(self.checkpoint_rng_state['device'][ddp.get_global_rank()])
-        random.setstate(self.checkpoint_rng_state['python'][ddp.get_global_rank()])
-        np.random.set_state(self.checkpoint_rng_state['numpy'][ddp.get_global_rank()])
+        torch.set_rng_state(self.checkpoint_rng_state['torch'][dist.get_global_rank()])
+        device.load_state_dict(self.checkpoint_rng_state['device'][dist.get_global_rank()])
+        random.setstate(self.checkpoint_rng_state['python'][dist.get_global_rank()])
+        np.random.set_state(self.checkpoint_rng_state['numpy'][dist.get_global_rank()])
 
         self.checkpoint_rng_state = None
 
     def _get_checkpoint_rng_state(self, checkpoint_rng_state: StateDict) -> Optional[StateDict]:
         original_world_size = len(checkpoint_rng_state["torch"])
-        if original_world_size == ddp.get_world_size():
+        if original_world_size == dist.get_world_size():
             return checkpoint_rng_state
         else:
             warnings.warn(f"The checkpoint was created with world_size({original_world_size}), "
-                          f"which differs from the current world_size({ddp.get_world_size()})."
+                          f"which differs from the current world_size({dist.get_world_size()})."
                           f"RNG state will not be restored.")
 
 
@@ -164,7 +164,7 @@ class CheckpointSaver:
         """
         state_dict = {
             'rng': self._get_rng_state(device=device),  # stored across all ranks
-            'seed': ddp.all_gather_object(seed),
+            'seed': dist.all_gather_object(seed),
         }
 
         if self.save_event == Event.EPOCH_END:
@@ -181,7 +181,7 @@ class CheckpointSaver:
         except ImportError:
             pass
 
-        if ddp.get_global_rank() == 0:
+        if dist.get_global_rank() == 0:
             # only rank 0 saves checkpoints
 
             # we add the state only on rank 0 since other processes don't have loggers to serialize
@@ -219,14 +219,14 @@ class CheckpointSaver:
             log.info(f'Trainer checkpoint saved to {checkpoint_archive_filepath}')
 
         # Ensure that the non-rank 0 processes don't exit before the checkpoint is saved.
-        ddp.barrier()
+        dist.barrier()
 
     def _get_rng_state(self, device: Device) -> StateDict:
         rng_state = {
-            "python": ddp.all_gather_object(random.getstate()),
-            "numpy": ddp.all_gather_object(np.random.get_state()),
-            "torch": ddp.all_gather_object(torch.random.get_rng_state()),
-            "device": ddp.all_gather_object(device.state_dict()),
+            "python": dist.all_gather_object(random.getstate()),
+            "numpy": dist.all_gather_object(np.random.get_state()),
+            "torch": dist.all_gather_object(torch.random.get_rng_state()),
+            "device": dist.all_gather_object(device.state_dict()),
         }
         # casting the state dict as on non-rank-0, entries will be None-like
         return rng_state

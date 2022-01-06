@@ -12,7 +12,7 @@ from torch.profiler.profiler import ProfilerAction
 from composer.callbacks.callback_hparams import TorchProfilerHparams
 from composer.core import Callback, Logger, State
 from composer.core.types import StateDict
-from composer.utils.ddp import get_global_rank
+from composer.utils.dist import get_global_rank
 from composer.utils.run_directory import get_relative_to_run_directory
 
 _PROFILE_MISSING_ERROR = "The profiler has not been setup. Please call profiler.training_start() before training starts."
