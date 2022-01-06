@@ -86,11 +86,11 @@ class Trainer:
             (default: ``5.0``)
         seed (int, optional): The seed used in randomization. When not provided a random seed
             will be created. (default: ``None``)
-        log_destinations (List[BaseLoggerBackend], optional): The destinations to log training information to.
-            (default ``[TQDMLoggerBackend()]``).
         deterministic_mode (bool, optional): Run the model deterministically. Experimental. Performance
             degradations expected. Certain Torch modules may not have deterministic implementations,
             which will result in a crash. (default: ``False``)
+        log_destinations (List[BaseLoggerBackend], optional): The destinations to log training information to.
+            (default ``[TQDMLoggerBackend()]``).
         callbacks (Sequence[Callback], optional): The callbacks to run during training. (default: ``[]``)
         checkpoint_filepath (str): For loading checkpoints, the path to an existing checkpoint file.
         load_weights_only (bool): Whether to only restore the weights from the checkpoint without
