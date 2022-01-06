@@ -1,8 +1,8 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
 from composer.utils import augmentation_primitives as augmentation_primitives
-from composer.utils import ddp as ddp
 from composer.utils import reproducibility as reproducibility
+from composer.utils import dist as dist
 from composer.utils.iter_helpers import ensure_tuple as ensure_tuple
 from composer.utils.iter_helpers import map_collection as map_collection
 from composer.utils.iter_helpers import zip_collection as zip_collection

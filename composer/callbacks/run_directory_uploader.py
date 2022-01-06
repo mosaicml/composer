@@ -20,7 +20,7 @@ from composer.core.callback import Callback
 from composer.core.logging import Logger
 from composer.core.logging.logger import LogLevel
 from composer.core.state import State
-from composer.utils import ddp
+from composer.utils import dist
 from composer.utils.run_directory import get_modified_files, get_run_directory
 
 log = logging.getLogger(__name__)
@@ -148,13 +148,13 @@ class RunDirectoryUploader(Callback):
         self._finished: Union[None, multiprocessing._EventType, threading.Event] = None
         self._workers = []
 
-        if ddp.get_local_rank() == 0:
+        if dist.get_local_rank() == 0:
             _validate_credentials(provider, container, self._object_name_prefix, provider_init_kwargs)
 
     def init(self, state: State, logger: Logger) -> None:
         if get_run_directory() is None:
             return
-        if not ddp.get_local_rank() == 0:
+        if not dist.get_local_rank() == 0:
             return
         del state, logger  # unused
         self._finished = self._finished_cls()
@@ -194,7 +194,7 @@ class RunDirectoryUploader(Callback):
     def post_close(self):
         # Cleaning up on post_close to ensure that all artifacts are uploaded
         self._trigger_upload(logger=None, log_level=None)
-        if not ddp.get_local_rank() == 0:
+        if not dist.get_local_rank() == 0:
             return
         if self._finished is not None:
             self._finished.set()
@@ -207,8 +207,8 @@ class RunDirectoryUploader(Callback):
         # Ensure that every rank is at this point
         # Assuming only the main thread on each rank writes to the run directory, then the barrier here will ensure
         # that the run directory is not being modified after we pass this barrier
-        ddp.barrier()
-        if ddp.get_local_rank() == 0:
+        dist.barrier()
+        if dist.get_local_rank() == 0:
             run_directory = get_run_directory()
             assert run_directory is not None, "invariant error"
             # the disk time can differ from system time, so going to touch a file and then read the timestamp from it to get the real time
@@ -244,7 +244,7 @@ class RunDirectoryUploader(Callback):
                 logger.metric(log_level, {"run_directory/uploaded_files": files_to_be_uploaded})
 
         # Ensure that other callbacks do not start writing to the run directory until we copying everything
-        ddp.barrier()
+        dist.barrier()
 
 
 def _validate_credentials(

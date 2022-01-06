@@ -11,7 +11,7 @@ import yahp as hp
 from composer.core.types import Batch
 from composer.datasets.dataloader import DataloaderHparams
 from composer.datasets.hparams import DataloaderSpec, DatasetHparams
-from composer.utils import ddp
+from composer.utils import dist
 
 log = logging.getLogger(__name__)
 
@@ -102,7 +102,7 @@ class LMDatasetHparams(DatasetHparams):
         dataset = lm_datasets
         data_collator = transformers.default_data_collator
 
-        sampler = ddp.get_sampler(dataset, drop_last=self.drop_last, shuffle=self.shuffle)
+        sampler = dist.get_sampler(dataset, drop_last=self.drop_last, shuffle=self.shuffle)
 
         return DataloaderSpec(dataloader=dataloader_hparams.initialize_object(
             dataset=dataset,

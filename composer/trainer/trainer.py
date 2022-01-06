@@ -30,13 +30,14 @@ from composer.optim import (ComposedScheduler, CosineAnnealingLRHparams, Decoupl
                             SchedulerHparams, WarmUpLRHparams)
 from composer.optim.scheduler import ensure_warmup_last
 from composer.trainer.checkpoint import CheckpointLoader, CheckpointSaver
+from composer.trainer.ddp import DDPSyncStrategy, ddp_sync_context, prepare_ddp_module
 from composer.trainer.deepspeed import DeepSpeedHparams
 from composer.trainer.devices.device import Device
 from composer.trainer.devices.device_cpu import DeviceCPU
 from composer.trainer.devices.device_gpu import DeviceGPU
 from composer.trainer.scaler import ClosureGradScaler
 from composer.trainer.trainer_hparams import TrainerHparams
-from composer.utils import ddp, ensure_tuple, map_collection, reproducibility
+from composer.utils import dist, ensure_tuple, map_collection, reproducibility
 from composer.utils.run_directory import get_relative_to_run_directory
 
 log = logging.getLogger(__name__)
@@ -80,10 +81,10 @@ class Trainer:
         compute_training_metrics (bool, optional): True to compute metrics on training data and False to not.
             (default: ``False``)
         precision (Precision, optional): Numerical precision to use for training. (default: ``Precision.FP32``).
+        dist_timeout (float, optional): Timeout, in seconds, for initializing the distributed process group.
+            (default: ``5.0``)
         ddp_sync_strategy (DDPSyncStrategy, optional): The strategy to use for synchronizing gradients.
             Leave unset to let the trainer auto-configure this.
-        ddp_timeout (float, optional): Timeout, in seconds, for initializing the DDP process group.
-            (default: ``5.0``)
         seed (int, optional): The seed used in randomization. When not provided a random seed
             will be created. (default: ``None``)
         deterministic_mode (bool, optional): Run the model deterministically. Experimental. Performance
@@ -92,7 +93,7 @@ class Trainer:
         log_destinations (List[BaseLoggerBackend], optional): The destinations to log training information to.
             (default ``[TQDMLoggerBackend()]``).
         callbacks (Sequence[Callback], optional): The callbacks to run during training. (default: ``[]``)
-        checkpoint_filepath (str): For loading checkpoints, the path to an existing checkpoint file.
+        checkpoint_filepath (str): For loading checkpoints, the path to an existing checkpoint.
         load_weights_only (bool): Whether to only restore the weights from the checkpoint without
             restoring the associated state.
         strict_model_weights (bool, optional): Whether to force that the checkpointed weights must exactly
@@ -138,9 +139,9 @@ class Trainer:
             compute_training_metrics: bool = False,
             precision: Precision = Precision.FP32,
 
-            # ddp hparams
-            ddp_sync_strategy: Optional[Union[str, ddp.DDPSyncStrategy]] = None,
-            ddp_timeout: float = 5.0,
+            # dist hparams
+            dist_timeout: float = 5.0,
+            ddp_sync_strategy: Optional[Union[str, DDPSyncStrategy]] = None,
 
             # Randomness
             seed: Optional[int] = None,
@@ -187,7 +188,7 @@ class Trainer:
             log.info(f"Seed was None. Setting seed to random value: {seed}")
 
         # Assure that each process has a different seed, necessary if a seed is passed to init
-        seed += ddp.get_global_rank()
+        seed += dist.get_global_rank()
 
         # If hparams is used to create the Trainer this function is called twice
         # which is okay because all runs with the hparams codepath will do this
@@ -207,11 +208,11 @@ class Trainer:
             import deepspeed
             deepspeed.init_distributed()
         else:
-            ddp.initialize_ddp(device.ddp_backend, datetime.timedelta(seconds=ddp_timeout))
+            dist.initialize_dist(device.dist_backend, datetime.timedelta(seconds=dist_timeout))
             if ddp_sync_strategy is None:
-                self.ddp_sync_strategy = ddp.DDPSyncStrategy.SINGLE_AUTO_SYNC if not find_unused_parameters else ddp.DDPSyncStrategy.FORCED_SYNC
+                self.ddp_sync_strategy = DDPSyncStrategy.SINGLE_AUTO_SYNC if not find_unused_parameters else DDPSyncStrategy.FORCED_SYNC
             else:
-                self.ddp_sync_strategy = ddp.DDPSyncStrategy(ddp_sync_strategy)
+                self.ddp_sync_strategy = DDPSyncStrategy(ddp_sync_strategy)
 
         if isinstance(train_dataloader, DataloaderSpec):
             train_dataloader_spec = train_dataloader
@@ -296,32 +297,48 @@ class Trainer:
         self.state.optimizers = optimizer
         self.state.schedulers = ComposedScheduler(schedulers=schedulers)
 
-        # TODO(#121): get checkpointing working with DeepSpeed.
+        assert isinstance(self.state.model, BaseMosaicModel)
+        self.original_model = self.state.model  # type: ignore  # TODO(ravi) -- update the state to add an original model helper
+
         self.checkpoint_saver = None
-        if checkpoint_interval is not None and checkpoint_interval_unit is not None:
-            self.checkpoint_saver = CheckpointSaver(checkpoint_interval_unit=checkpoint_interval_unit,
+        if checkpoint_folder and checkpoint_interval and checkpoint_interval_unit:
+            self.checkpoint_saver = CheckpointSaver(checkpoint_folder=get_relative_to_run_directory(checkpoint_folder),
                                                     checkpoint_interval=checkpoint_interval,
-                                                    checkpoint_folder=get_relative_to_run_directory(checkpoint_folder))
+                                                    checkpoint_interval_unit=checkpoint_interval_unit)
 
-            if self.deepspeed_enabled:
-                raise NotImplementedError("Checkpointing is not yet supported with DeepSpeed.")
-
-        # TODO(#121): get checkpointing working with DeepSpeed.
         self.checkpoint_loader = None
-        if checkpoint_filepath is not None:
-            if self.deepspeed_enabled:
-                raise NotImplementedError("Checkpointing is not yet supported with DeepSpeed.")
-
+        if checkpoint_filepath:
             self.checkpoint_loader = CheckpointLoader(checkpoint_filepath=checkpoint_filepath,
                                                       load_weights_only=checkpoint_load_weights_only,
                                                       strict_model_weights=checkpoint_strict_model_weights)
 
+        # place the state, model in the proper devices, and initialize from a checkpoint if provided
+        if self.deepspeed_enabled:
+            import deepspeed
+
+            assert self.deepspeed_hparams is not None
+            deepspeed_config = self.deepspeed_hparams.initialize_object(self.state, self.grad_clip_norm)
+            optimizer = ensure_tuple(self.state.optimizers)[0]
+            (self.state.model, self.state.optimizers, _, _) = deepspeed.initialize(
+                config=deepspeed_config,
+                model=self.state.model,
+                optimizer=optimizer,
+            )
+
+        # If using DeepSpeed, the model must be loaded from checkpoint after the engine has been
+        # initialized, but if using PyTorch DDP, the model must be loaded before it is wrapped with
+        # DDP.
+        if self.checkpoint_loader:
             restored_seed = self.checkpoint_loader.load_checkpoint(state=self.state)
-            # Set the restored seed so that the correct seed will be saved in future checkpoints
-            # Used to handle the case where another checkpoint is saved after resuming from checkpoint.
-            # In this case, self.seed is stored in the second checkpoint so it must have the correct value.
             if restored_seed is not None:
                 self.seed = restored_seed
+
+        if not self.deepspeed_enabled:
+            self.state.model = self.device.module_to_device(self.state.model)
+            self.state.optimizers = map_collection(self.state.optimizers, self.device.optimizer_to_device)
+
+            # wrap model with DDP
+            self.state.model = prepare_ddp_module(self.state.model, self.find_unused_parameters)
 
     @classmethod
     def create_from_hparams(cls, hparams: TrainerHparams) -> Trainer:
@@ -358,7 +375,7 @@ class Trainer:
             hparams.train_dataset.datadir = hparams.datadir
             hparams.val_dataset.datadir = hparams.datadir
 
-        train_device_batch_size = hparams.train_batch_size // ddp.get_world_size()
+        train_device_batch_size = hparams.train_batch_size // dist.get_world_size()
         if hparams.train_dataset.shuffle and hparams.train_subset_num_batches:
             warnings.warn(
                 textwrap.dedent(f"""SubsetNumBatchesWarning: When specifying train_subset_num_batches,
@@ -366,7 +383,7 @@ class Trainer:
             each training epoch may load a different subset of samples."""))
         train_dataloader = hparams.train_dataset.initialize_object(train_device_batch_size, hparams.dataloader)
 
-        eval_device_batch_size = hparams.eval_batch_size // ddp.get_world_size()
+        eval_device_batch_size = hparams.eval_batch_size // dist.get_world_size()
         if hparams.val_dataset.shuffle and hparams.eval_subset_num_batches:
             warnings.warn(
                 textwrap.dedent(f"""SubsetNumBatchesWarning: When specifying eval_subset_num_batches,
@@ -407,9 +424,9 @@ class Trainer:
             compute_training_metrics=hparams.compute_training_metrics,
             precision=hparams.precision,
 
-            # ddp hparams
+            # dist hparams
+            dist_timeout=hparams.dist_timeout,
             ddp_sync_strategy=hparams.ddp_sync_strategy,
-            ddp_timeout=hparams.ddp_timeout,
 
             # Randomness
             seed=seed,
@@ -546,28 +563,6 @@ class Trainer:
             raise NotImplementedError("The Mosaic trainer only supports one optimizer; "
                                       f"found {len(ensure_tuple(state.optimizers))} optimizers")
 
-        assert isinstance(state.model, BaseMosaicModel)
-        self.original_model = state.model  # type: ignore  # TODO(ravi) -- update the state to add an original model helper
-
-        # place the state, model in the proper devices
-        if self.deepspeed_enabled:
-            import deepspeed
-
-            assert self.deepspeed_hparams is not None
-            deepspeed_config = self.deepspeed_hparams.initialize_object(state, self.grad_clip_norm)
-            optimizer = ensure_tuple(state.optimizers)[0]
-            (state.model, state.optimizers, _, _) = deepspeed.initialize(
-                config=deepspeed_config,
-                model=state.model,
-                optimizer=optimizer,
-            )
-        else:
-            state.model = self.device.module_to_device(state.model)
-            state.optimizers = map_collection(state.optimizers, self.device.optimizer_to_device)
-
-            # wrap model with DDP
-            state.model = ddp.prepare_module(state.model, self.find_unused_parameters)
-
         # print training start
         self.logger.metric_fit({"trainer/algorithms": [str(algo) for algo in self.engine.algorithms]})
 
@@ -581,30 +576,14 @@ class Trainer:
 
         self.engine.run_event(Event.TRAINING_START)
 
-        if self._use_closures():
-
-            def _ddp_reduce_scalar_and(flag: bool) -> bool:
-                value = 1 if flag else 0
-                flag_tensor = self.device.tensor_to_device(torch.tensor(value).int())
-                ddp.all_reduce(flag_tensor, reduce_operation='PRODUCT')
-                return flag_tensor.item() == 1
-
-            def _ddp_reduce_tensor_sum(tensor: Tensor) -> Tensor:
-                # Happens in-place; that's fine
-                ddp.all_reduce(tensor, reduce_operation="SUM")
-                return tensor
-
-            state.scaler = ClosureGradScaler(ddp_reduce_scalar_and=_ddp_reduce_scalar_and,
-                                             ddp_reduce_tensor_sum=_ddp_reduce_tensor_sum)
-        else:
-            state.scaler = GradScaler()
+        state.scaler = ClosureGradScaler() if self._use_closures() else GradScaler()
         use_grad_scaling = self._use_grad_scaling(state.precision, state.scaler)
 
         self._spin_dataloaders()
 
         if self.state.batch_idx == 0 and self.checkpoint_loader:
             # only restore the rng state here if the step in the current epoch is zero.
-            self.checkpoint_loader.restore_checkpoint_rng_state(self.state, self.device)
+            self.checkpoint_loader.restore_checkpoint_rng_state(self.device)
 
         for _ in range(state.epoch, state.max_epochs):
             try:
@@ -620,7 +599,7 @@ class Trainer:
                     # if resuming, skip dataloader forward to the minibatch index
                     if batch_idx < self.state.batch_idx:
                         if self.checkpoint_loader:
-                            self.checkpoint_loader.restore_checkpoint_rng_state(self.state, self.device)
+                            self.checkpoint_loader.restore_checkpoint_rng_state(self.device)
                         continue
 
                     state.last_batch_size = self._get_batch_size(state.batch)
@@ -678,10 +657,10 @@ class Trainer:
                         assert isinstance(total_loss, Tensor)
 
                         # total_loss can be None if gradient scaling failed
-                        ddp.all_reduce(total_loss, reduce_operation="SUM")
-                        ddp.barrier()
+                        dist.all_reduce(total_loss, reduce_operation="SUM")
+                        dist.barrier()
                         full_loss = total_loss.cpu().item()
-                        self.logger.metric_batch({'loss/train': full_loss / ddp.get_world_size()})
+                        self.logger.metric_batch({'loss/train': full_loss / dist.get_world_size()})
 
                     if self.compute_training_metrics:
                         assert train_metrics is not None
@@ -765,7 +744,7 @@ class Trainer:
 
         for microbatch_idx, state.batch in enumerate(microbatches):
             is_final_microbatch = microbatch_idx + 1 == len(microbatches)
-            sync_context = contextlib.nullcontext() if self.deepspeed_enabled else ddp.sync_context(
+            sync_context = contextlib.nullcontext() if self.deepspeed_enabled else ddp_sync_context(
                 state, is_final_microbatch, self.ddp_sync_strategy)
             with sync_context:
                 last_microbatch_size = self._get_batch_size(state.batch)
