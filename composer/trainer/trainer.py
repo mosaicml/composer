@@ -286,11 +286,13 @@ class Trainer:
                           category=UserWarning)
             if isinstance(device, GPUDeviceHparams):
                 if "CUBLAS_WORKSPACE_CONFIG" not in os.environ:
-                    os.environ["CUBLAS_WORKSPACE_CONFIG"] = ":4096:8"
-                    # raise RuntimeError(
-                    #     textwrap.dedent("""To use deterministic mode on a GPU,
-                    #     please set the environment variable CUBLAS_WORKSPACE_CONFIG=:4096:8. For more information, see
-                    #     https://pytorch.org/docs/stable/generated/torch.use_deterministic_algorithms.html"""))
+                    # This variable must be set for the process, not simply in python, so can't monkeypatch
+                    # os.environ
+                    # TODO(ravi) -- move the determinsim setting to the DDP launch script
+                    raise RuntimeError(
+                        textwrap.dedent("""To use deterministic mode on a GPU,
+                        please set the environment variable CUBLAS_WORKSPACE_CONFIG=:4096:8. For more information, see
+                        https://pytorch.org/docs/stable/generated/torch.use_deterministic_algorithms.html"""))
 
         # run INIT event before optimizers and schedulers are created
         self.engine.run_event(Event.INIT)
