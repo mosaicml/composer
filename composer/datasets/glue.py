@@ -16,13 +16,26 @@ log = logging.getLogger(__name__)
 
 @dataclass
 class GLUEHparams(DatasetHparams):
-    task: str = hp.optional("The GLUE task to train on.", default=None)
+    """
+    Sets up a generic GLUE dataset loader.
+
+    Args:
+        task (str): the GLUE task to train on, choose one from: CoLA, MNLI, MRPC, QNLI, QQP, RTE, SST-2, and STS-B.
+        tokenizer_name (str): The name of the HuggingFace tokenizer to preprocess text with.
+        split (str): Whether to use 'train', 'validation' or 'test' split.
+        max_seq_length (int): Optionally, the ability to set a custom sequence length for the training dataset.
+            Default: 256
+
+    Returns:
+        A :class:`~composer.datasets.hparams.DataloaderSpec` object
+    """
+
+    task: str = hp.optional(
+        "The GLUE task to train on, choose one from: CoLA, MNLI, MRPC, QNLI, QQP, RTE, SST-2, and STS-B.", default=None)
     tokenizer_name: str = hp.optional("The name of the tokenizer to preprocess text with.", default=None)
     split: str = hp.optional("Whether to use 'train', 'validation' or 'test' split.", default=None)
     max_seq_length: int = hp.optional(
         default=256, doc='Optionally, the ability to set a custom sequence length for the training dataset.')
-    shuffle: bool = hp.optional("Whether to shuffle the dataset for each epoch.", default=True)
-    drop_last: bool = hp.optional("Whether to drop the last samples for the last batch.", default=False)
 
     def validate(self):
         self.task_to_keys = {
@@ -34,14 +47,19 @@ class GLUEHparams(DatasetHparams):
             "rte": ("sentence1", "sentence2"),
             "sst2": ("sentence", None),
             "stsb": ("sentence1", "sentence2"),
-            "wnli": ("sentence1", "sentence2"),
         }
 
-        if (self.max_seq_length % 8) != 0:
-            raise ValueError("For best performance, please ensure that sequence lengths are a multiple of eight.")
-
         if self.task not in self.task_to_keys.keys():
-            raise ValueError("The task must be a valid GLUE task, optiosn are {' ,'.join(self.task_to_keys.keys())}.")
+            raise ValueError(f"The task must be a valid GLUE task, options are {' ,'.join(self.task_to_keys.keys())}.")
+
+        if (self.max_seq_length % 8) != 0:
+            log.warning("For best hardware acceleration, it is recommended that sequence lengths be multiples of 8.")
+
+        if self.tokenizer_name is None:
+            raise ValueError("A tokenizer name must be specified to tokenize the dataset.")
+
+        if self.split is None:
+            raise ValueError("A dataset split must be specified.")
 
     def initialize_object(self, batch_size: int, dataloader_hparams: DataloaderHparams) -> DataloaderSpec:
         # TODO (Moin): I think this code is copied verbatim in a few different places. Move this into a function.
@@ -52,10 +70,11 @@ class GLUEHparams(DatasetHparams):
             raise ImportError('huggingface transformers and datasets are not installed. '
                               'Please install with `pip install mosaicml-composer[nlp]`')
 
+        self.validate()
         self.tokenizer = transformers.AutoTokenizer.from_pretrained(self.tokenizer_name)  #type: ignore (thirdparty)
 
+        log.info(f"Loading {self.task.upper()}...")
         self.dataset = datasets.load_dataset("glue", self.task, split=self.split)
-        print(f"Loading {self.task.upper()}...")
 
         n_cpus = cpu_count()
         log.info(f"Starting tokenization step by preprocessing over {n_cpus} threads!")

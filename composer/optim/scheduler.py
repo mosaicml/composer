@@ -46,7 +46,7 @@ INTERVAL_MAP = {
 
 
 def _parse_time_string(timestring: str) -> Tuple[float, int, int]:
-    """Parse timestring to (epoch, batches).
+    """Parse timestring to (duration, epoch, batches).
 
     Args:
         timestring (str): String in the format 'XXdurYYepZZba'.
@@ -61,11 +61,11 @@ def _parse_time_string(timestring: str) -> Tuple[float, int, int]:
         >>> _parse_time_string('0.98dur32ep173ba')
         (0.98, 32, 173)
         >>> _parse_time_string('32ep173ba')
-        (32, 173)
+        (0, 32, 173)
         >>> _parse_time_string('12ep')
-        (12, 0)
+        (0, 12, 0)
         >>> _parse_time_string('1024ba')
-        (0, 1024)
+        (0, 0, 1024)
     """
 
     match = STR_REGEX.findall(timestring)
@@ -91,11 +91,14 @@ def _convert_time(time: Time,
         raise ValueError('steps_per_epoch must be provided to parse time string.')
 
     duration, epochs, batches = _parse_time_string(time)
+
+    if duration > 0:
+        assert max_epochs is not None
+
     if interval in ('batches', 'batch', 'steps', 'step'):
         new_time = batches + epochs * steps_per_epoch
 
         if duration > 0:
-            assert max_epochs is not None
             total_duration = max_epochs * steps_per_epoch
             new_time += (total_duration * duration)
 
@@ -105,8 +108,6 @@ def _convert_time(time: Time,
     elif interval in ('epochs', 'epoch'):
         if duration > 0:
             # convert the duration term into batches for ease of calculation
-            assert max_epochs is not None
-
             # round batches to the nearest term
             batches += int(round(steps_per_epoch * max_epochs * duration))
         epochs = epochs + batches // steps_per_epoch

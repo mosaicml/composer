@@ -16,7 +16,7 @@ class MaskedAccuracy(Metric):
     Computes accuracy with support for masked indicies.
 
     Args:
-        ignore_index (int): The class index to ignore. Must be between 0 and num_classes.
+        ignore_index (int): The class index to ignore.
         dist_sync_on_step (bool): Synchronize metric state across processes at
             each forward() before returning the value at the step.
 
@@ -64,7 +64,7 @@ class CrossEntropyLoss(Metric):
 
     State:
         sum_loss (float): the sum of the per-example loss in the batch.
-        total_batches (float): the number of batches to average across.
+        total_items (float): the number of batches to average across.
     """
 
     def __init__(self, vocab_size: int, dist_sync_on_step=False, ignore_index: int = -100):
@@ -74,7 +74,7 @@ class CrossEntropyLoss(Metric):
         self.ignore_index = ignore_index
         self.loss_fn = torch.nn.CrossEntropyLoss(ignore_index=ignore_index, reduction="sum")
         self.add_state("sum_loss", default=torch.tensor(0.), dist_reduce_fx="sum")
-        self.add_state("total_batches", default=torch.tensor(0), dist_reduce_fx="sum")
+        self.add_state("total_items", default=torch.tensor(0), dist_reduce_fx="sum")
 
     def update(self, output: Union[Mapping, Tensor], target: Tensor) -> None:
         """Updates the internal state with results from a new batch.
@@ -90,13 +90,8 @@ class CrossEntropyLoss(Metric):
         target = target.view(-1)
         losses = self.loss_fn(output, target)
 
-        if self.ignore_index:
-            mask = target != self.ignore_index
-            total_batches = mask.sum()
-        else:
-            total_batches = target.shape[0]
-
-        self.total_batches += total_batches  #type: ignore (third-party)
+        total_items = (target != self.ignore_index).sum()
+        self.total_items += total_items  #type: ignore (third-party)
 
         # accmulate loss over all batches
         self.sum_loss += losses
@@ -108,7 +103,7 @@ class CrossEntropyLoss(Metric):
             loss (Tensor): The loss averaged across all batches.
         """
         # Return average loss over entire dataset
-        return self.sum_loss / self.total_batches  #type: ignore (third-party)
+        return self.sum_loss / self.total_items  #type: ignore (third-party)
 
 
 # TODO (Moin): write tests for this!
@@ -120,8 +115,8 @@ class BinaryF1Score(Metric):
             each forward() before returning the value at the step.
 
     State:
-        sum_loss (float): the sum of the per-example loss in the batch.
-        total_batches (float): the number of batches to average across.
+        predictions (list): predicted classes from the model
+        labels (list): ground-truth labels on the data
     """
 
     def __init__(self, dist_sync_on_step=False):

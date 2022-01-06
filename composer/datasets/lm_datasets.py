@@ -79,18 +79,13 @@ class LMDatasetHparams(DatasetHparams):
             import datasets
             import transformers
         except ImportError as e:
-            raise ImportError('transformers and datasets are not installed. '
+            raise ImportError('huggingface transformers and datasets are not installed. '
                               'Please install with `pip install mosaicml-composer[nlp]`') from e
 
         self.validate()
         self.tokenizer = transformers.AutoTokenizer.from_pretrained(self.tokenizer_name)  #type: ignore (thirdparty)
         self.config = transformers.AutoConfig.from_pretrained(self.tokenizer_name)  #type: ignore (thirdparty)
         lm_datasets = [datasets.load_from_disk(i) for i in self.datadir]  #type: ignore (thirdparty)
-
-        # TODO (Moin): this re-loads a large dataset into memory three times -- can the REng team permit
-        # returning a dataloader for a particular split?
-        if self.split not in ['train', 'validation', 'test']:
-            raise ValueError("The dataset split must be one of 'train', 'validation', or 'test'.")
 
         # merge the dataset to re-sample from
         if self.split is None:
@@ -105,9 +100,6 @@ class LMDatasetHparams(DatasetHparams):
 
         # shuffle the dataset
         lm_datasets = lm_datasets.shuffle(indices_cache_file_name=indices_cache_file_name, seed=self.seed)
-
-        if self.num_tokens > 0 and self.subsample_ratio < 1.0:
-            raise Exception("Must specify one of num_tokens OR subsample_ratio, cannot specify both.")
 
         total_num_samples = len(lm_datasets)
         tokens_per_sample = len(lm_datasets[0]['input_ids'])
