@@ -430,6 +430,7 @@ class Trainer:
 
             # Randomness
             seed=seed,
+            deterministic_mode=hparams.deterministic_mode,
 
             # Callbacks and logging
             log_destinations=log_destinations,

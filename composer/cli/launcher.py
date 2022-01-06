@@ -55,14 +55,6 @@ def get_parser():
                         default=None,
                         help=textwrap.dedent("""Directory to store run artifcats. 
                             Defaults to runs/{datetime.datetime.now().isoformat()}/""")),
-
-    # parser.add_argument("-d",
-    #                     "--deterministic_mode",
-    #                     action="store_true",
-    #                     help=textwrap.dedent("""If set,
-    #     enable deterministic mode. Performance degradations expected. Certain Torch modules may not have
-    #     deterministic implementations, which will result in a crash."""))
-
     parser.add_argument("-m",
                         "--module_mode",
                         action="store_true",
@@ -132,12 +124,7 @@ def launch_processes(nproc: int, world_size: int, base_rank: int, master_addr: s
         current_env["LOCAL_WORLD_SIZE"] = str(nproc)
         current_env["MASTER_ADDR"] = master_addr
         current_env["MASTER_PORT"] = str(master_port)
-        current_env["COMPOSER_RUN_DIRECTORY"] = run_directory
-        # if deterministic_mode:
-        #     # See https://pytorch.org/docs/stable/generated/torch.use_deterministic_algorithms.html
-        #     # and https://docs.nvidia.com/cuda/cublas/index.html#cublasApi_reproducibility
-        #     current_env["CUBLAS_WORKSPACE_CONFIG"] = ":4096:8"
-        #     current_env["COMPOSER_USE_DETERMINISTIC_MODE"] = "1"
+        current_env["RUN_DIRECTORY"] = run_directory
 
         log.info("Launching process for local_rank(%s), global_rank(%s)", local_rank, global_rank)
 
@@ -271,7 +258,6 @@ def main():
                                  master_addr=args.master_addr,
                                  master_port=args.master_port,
                                  module_mode=args.module_mode,
-                                #  deterministic_mode=args.deterministic_mode,
                                  training_script=args.training_script,
                                  run_directory=args.run_directory,
                                  training_script_args=args.training_script_args)
