@@ -58,28 +58,28 @@ class CheckpointLoader:
             checkpoint_tag = os.listdir(checkpoint_folder)[0]
             mosaic_checkpoint_filepath = get_mosaic_checkpoint_filepath(checkpoint_folder, checkpoint_tag)
 
-            self.state_dict = torch.load(mosaic_checkpoint_filepath, map_location='cpu')
+            state_dict = torch.load(mosaic_checkpoint_filepath, map_location='cpu')
 
             if self.load_weights_only:
-                state.load_model_state(self.state_dict['state'], strict=self.strict_model_weights)
+                state.load_model_state(state_dict['state'], strict=self.strict_model_weights)
             else:
-                state.load_state_dict(self.state_dict["state"])
-                self.checkpoint_rng_state = self._get_checkpoint_rng_state(self.state_dict["rng"])
+                state.load_state_dict(state_dict["state"])
+                self.checkpoint_rng_state = self._get_checkpoint_rng_state(state_dict["rng"])
 
-                if "seed" in self.state_dict:
+                if "seed" in state_dict:
                     world_size = ddp.get_world_size()
-                    checkpointed_world_size = len(self.state_dict["seed"])
+                    checkpointed_world_size = len(state_dict["seed"])
                     if world_size != checkpointed_world_size:
                         warnings.warn(f"Current world size {world_size} does not match the checkpointed world size "
                                       f"{checkpointed_world_size}. The seed will not be restored.")
                     else:
-                        seed_to_restore = self.state_dict["seed"][ddp.get_global_rank()]
+                        seed_to_restore = state_dict["seed"][ddp.get_global_rank()]
                         seed_all(seed_to_restore)
 
             try:
                 import deepspeed
                 if isinstance(state.model, deepspeed.DeepSpeedEngine):
-                    load_path, _ = state.model.load_checkpoint(checkpoint_folder, checkpoint_tag)
+                    load_path, _ = state.model.load_checkpoint(checkpoint_folder, checkpoint_tag)  # type: ignore
                     if load_path is None:
                         raise RuntimeError(f"Failed to load DeepSpeed checkpoint from {self.checkpoint_filepath}")
             except ImportError:
@@ -177,7 +177,7 @@ class CheckpointSaver:
         try:
             import deepspeed
             if isinstance(state.model, deepspeed.DeepSpeedEngine):
-                state.model.save_checkpoint(self.checkpoint_folder, tag)
+                state.model.save_checkpoint(self.checkpoint_folder, tag)  # type: ignore
         except ImportError:
             pass
 
