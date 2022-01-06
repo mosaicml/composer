@@ -3,7 +3,7 @@
 [tool.isort]
 multi_line_output = 0
 line_length = 120
-skip = [ "env", "wandb" ]
+skip = [ "env", "wandb", "runs", "build" ]
 
 # Pyright
 [tool.pyright]
@@ -71,6 +71,7 @@ filterwarnings = [
     'ignore:ExtraArgumentWarning',  # extra arguments originate from pytest-specific CLI args
     'ignore:DistributedDefaultValueWarning',  # default distributed values are fine
     'ignore:NoDistributedWarning',  # running without distributed is fine
+    'ignore:Deterministic mode is activated:UserWarning',  # all tests run with deterministic mode
 ]
 
 # Coverage
@@ -476,3 +477,11 @@ split_penalty_logical_operator = 300
 
 # Use the Tab character for indentation.
 use_tabs = false
+
+# Ignore directories
+[tool.yapfignore]
+ignore_patterns = [
+    "runs/**/*.py",
+    "wandb/**/*.py",
+    "build/**/*.py",
+]

@@ -13,7 +13,6 @@ from typing import Any, Callable, ContextManager, Dict, List, Optional, Sequence
 import torch
 import torch.distributed
 import torch.utils.data
-from torch.backends import cudnn
 from torch.cuda.amp.grad_scaler import GradScaler
 from torch.nn.parallel import DistributedDataParallel
 from torchmetrics.collections import MetricCollection
@@ -38,7 +37,7 @@ from composer.trainer.devices.device_cpu import DeviceCPU
 from composer.trainer.devices.device_gpu import DeviceGPU
 from composer.trainer.scaler import ClosureGradScaler
 from composer.trainer.trainer_hparams import TrainerHparams
-from composer.utils import dist, ensure_tuple, get_random_seed, map_collection, seed_all
+from composer.utils import dist, ensure_tuple, map_collection, reproducibility
 from composer.utils.run_directory import get_relative_to_run_directory
 
 log = logging.getLogger(__name__)
@@ -83,7 +82,7 @@ class Trainer:
             (default: ``False``)
         precision (Precision, optional): Numerical precision to use for training. (default: ``Precision.FP32``).
         dist_timeout (float, optional): Timeout, in seconds, for initializing the distributed process group.
-            (default: ``5.0``)
+            (default: ``15.0``)
         ddp_sync_strategy (DDPSyncStrategy, optional): The strategy to use for synchronizing gradients.
             Leave unset to let the trainer auto-configure this.
         seed (int, optional): The seed used in randomization. When not provided a random seed
@@ -141,7 +140,7 @@ class Trainer:
             precision: Precision = Precision.FP32,
 
             # dist hparams
-            dist_timeout: float = 5.0,
+            dist_timeout: float = 15.0,
             ddp_sync_strategy: Optional[Union[str, DDPSyncStrategy]] = None,
 
             # Randomness
@@ -177,7 +176,6 @@ class Trainer:
 
         self.config = config
 
-        self.deepspeed_enabled = deepspeed_hparams and deepspeed_hparams.enabled
         self.deepspeed_hparams = deepspeed_hparams
 
         if not device:
@@ -185,7 +183,7 @@ class Trainer:
         self.device = device
 
         if not seed:
-            seed = get_random_seed()
+            seed = reproducibility.get_random_seed()
             log.info(f"Seed was None. Setting seed to random value: {seed}")
 
         # Assure that each process has a different seed, necessary if a seed is passed to init
@@ -193,7 +191,7 @@ class Trainer:
 
         # If hparams is used to create the Trainer this function is called twice
         # which is okay because all runs with the hparams codepath will do this
-        seed_all(seed)
+        reproducibility.seed_all(seed)
         self.seed = seed
 
         if not algorithms:
@@ -264,7 +262,7 @@ class Trainer:
 
         self._eval_subset_num_batches = eval_subset_num_batches
 
-        if not log_destinations:
+        if log_destinations is None:
             log_destinations = [TQDMLoggerBackend()]
         self.logger = Logger(self.state, log_destinations)
         self.state.callbacks = [*log_destinations, *callbacks]
@@ -277,10 +275,7 @@ class Trainer:
         self.grad_clip_norm = grad_clip_norm
 
         if deterministic_mode:
-            torch.use_deterministic_algorithms(True)
-            cudnn.benchmark = False
-            warnings.warn("Deterministic mode is activated. This will negatively impact performance.",
-                          category=UserWarning)
+            reproducibility.configure_deterministic_mode()
 
         # run INIT event before optimizers and schedulers are created
         self.engine.run_event(Event.INIT)
@@ -360,10 +355,10 @@ class Trainer:
         # devices and systems
         device = hparams.device.initialize_object()
 
-        seed = hparams.seed if hparams.seed else get_random_seed()
+        seed = hparams.seed if hparams.seed else reproducibility.get_random_seed()
         # need to set seed before model initialization for determinism
         # don't need to set different seeds per process since only the rank 0 initialization is used
-        seed_all(seed)
+        reproducibility.seed_all(seed)
 
         model = hparams.model.initialize_object()
         algorithms = [x.initialize_object() for x in hparams.algorithms]
@@ -459,6 +454,10 @@ class Trainer:
             config=hparams.to_dict())
 
         return trainer
+
+    @property
+    def deepspeed_enabled(self):
+        return self.deepspeed_hparams is not None
 
     def fit(self):
         """Train and evaluate the model on the provided data."""

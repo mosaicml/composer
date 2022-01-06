@@ -154,7 +154,7 @@ class TrainerHparams(hp.Hparams):
     precision: Precision = hp.required(doc="Precision to use for training", template_default=Precision.AMP)
 
     dist_timeout: float = hp.optional(doc="Timeout, in seconds, for initializing the dsitributed process group.",
-                                      default=5.0)
+                                      default=15.0)
     ddp_sync_strategy: Optional[DDPSyncStrategy] = hp.optional(
         doc="The strategy for synchronizing DDP. Default value ``None`` causes the "
         "trainer to auto-select a value depending on what algorithms are used.",
@@ -200,16 +200,16 @@ class TrainerHparams(hp.Hparams):
     def validate(self):
         super().validate()
 
-        deepspeed_enabled = self.deepspeed and self.deepspeed.enabled
+        if self.deepspeed is not None:
 
-        if not deepspeed_enabled and Precision(self.precision) == Precision.FP16:
-            raise ValueError("FP16 precision is only supported when training with DeepSpeed.")
+            if self.precision == Precision.FP16:
+                raise ValueError("FP16 precision is only supported when training with DeepSpeed.")
 
-        if deepspeed_enabled and self.deterministic_mode:
-            raise ValueError("Deterministic mode is not supported with DeepSpeed.")
+            if isinstance(self.device, CPUDeviceHparams):
+                raise ValueError("Training on CPUs is not supported with DeepSpeed.")
 
-        if deepspeed_enabled and isinstance(self.device, CPUDeviceHparams):
-            raise ValueError("Training on CPUs is not supported with DeepSpeed.")
+            if self.deterministic_mode and self.deepspeed.zero_stage > 0:
+                raise ValueError("Deepspeed with zero stage > 0 is not compatible with deterministic mode")
 
         world_size = dist.get_world_size()
 
