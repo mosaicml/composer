@@ -95,6 +95,11 @@ class DeepSpeedHparams(hp.Hparams):
         return deepspeed_config
 
 
+def _convert_fp32_tensor_to_fp16(tensor: Tensor):
+    if tensor.dtype == torch.float32:
+        return tensor.half()
+    return tensor
+
 def fix_batch_precision_for_deepspeed(batch: Batch, precision: Precision) -> Batch:
     """Ensures that a batch is properly formatted for DeepSpeed FP16, if active.
 
@@ -104,9 +109,7 @@ def fix_batch_precision_for_deepspeed(batch: Batch, precision: Precision) -> Bat
     big assumption that a tensor should only be converted to FP16 if it was given in FP32.
     """
 
-    def convert_tensor(tensor: Tensor):
-        if precision == Precision.FP16 and tensor.dtype == torch.float32:
-            return tensor.half()
-        return tensor
+    if precision != Precision.FP16:
+        return batch
 
-    return map_collection(batch, convert_tensor)
+    return map_collection(batch, _convert_fp32_tensor_to_fp16)
