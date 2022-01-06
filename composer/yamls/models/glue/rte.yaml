@@ -72,6 +72,6 @@ save_checkpoint:
   interval: 1
   interval_unit: ep
 load_checkpoint:
-  filepath: https://storage.googleapis.com/llm_checkpoints/bert_checkpoint/bert_checkpoints/ep7.pt 
+  checkpoint: https://storage.googleapis.com/llm_checkpoints/bert_checkpoint/bert_checkpoints/ep7.pt 
   load_weights_only: true
   strict_model_weights: false

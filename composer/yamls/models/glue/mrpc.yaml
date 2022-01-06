@@ -67,11 +67,8 @@ validate_every_n_batches: 100
 validate_every_n_epochs: 1
 callbacks:
   - lr_monitor: {}
-save_checkpoint:
-  folder: mrpc_checkpoints
-  interval: 1
-  interval_unit: ep
 load_checkpoint:
-  filepath: https://storage.googleapis.com/llm_checkpoints/bert_checkpoint/bert_checkpoints/ep7.pt 
+  #checkpoint: /mnt/gcp/moin/best_mnli_model/glue_checkpoints/ep3_no_classifier.pt
+  checkpoint: /mnt/gcp/moin/composer/ep7.pt
   load_weights_only: true
   strict_model_weights: false
