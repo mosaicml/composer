@@ -113,4 +113,4 @@ def fix_batch_precision_for_deepspeed(batch: Batch, precision: Precision) -> Bat
     if precision != Precision.FP16:
         return batch
 
-    return map_collection(batch, _convert_fp32_tensor_to_fp16)
+    return map_collection(batch, _convert_fp32_tensor_to_fp16)  # type: ignore
