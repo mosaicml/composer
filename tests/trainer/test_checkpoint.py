@@ -139,35 +139,19 @@ def inject_stateful_callback_hparams(monkeypatch: MonkeyPatch):
 
 
 @pytest.mark.timeout(90)
-@pytest.mark.parametrize("world_size", [
-    pytest.param(1),
-    pytest.param(2, marks=pytest.mark.world_size(2)),
-])
 @pytest.mark.parametrize("device_hparams", [
     pytest.param(CPUDeviceHparams(), id="cpu"),
     pytest.param(GPUDeviceHparams(), id="gpu", marks=pytest.mark.gpu),
 ])
-@pytest.mark.parametrize("checkpoint_filename", ["ep1", "it4", "it1", "it6"])
-@pytest.mark.parametrize("seed", [None, 42])
-@pytest.mark.parametrize("validate_every_n_batches,validate_every_n_epochs", [
-    (0, 1),
-    (1, 0),
-])
 def test_load_weights(
     device_hparams: DeviceHparams,
-    world_size: int,
     mosaic_trainer_hparams: TrainerHparams,
-    checkpoint_filename: str,
-    seed: Optional[int],
-    validate_every_n_batches: int,
-    validate_every_n_epochs: int,
 ):
     """strategy:
     - train two epochs. capture checkpoints after `checkpoint_interval` and ep2.
     - create a new trainer from the `checkpoint_interval` checkpoint, but with a new optimizer and scheduler.
     - assert that the model weights are the original model, even though the optimizer and scheduler are different.
     """
-    del world_size  # unused. Read via env variable
     if not isinstance(mosaic_trainer_hparams.train_dataset, SyntheticHparamsMixin):
         pytest.skip("Checkpointing tests require synthetic data")
         return
@@ -190,14 +174,14 @@ def test_load_weights(
     mosaic_trainer_hparams.device = device_hparams
     checkpoint_a_folder = "first"
     mosaic_trainer_hparams.save_checkpoint = CheckpointSaverHparams(
-        interval_unit="ep" if checkpoint_filename.startswith("ep") else "it",
+        interval_unit="ep",
         interval=1,
         folder=checkpoint_a_folder,
     )
-    mosaic_trainer_hparams.seed = seed
-    mosaic_trainer_hparams.validate_every_n_batches = validate_every_n_batches
-    mosaic_trainer_hparams.validate_every_n_epochs = validate_every_n_epochs
-    final_checkpoint = "ep2.pt" if checkpoint_filename.startswith("ep") else "it8.pt"
+    mosaic_trainer_hparams.seed = None
+    mosaic_trainer_hparams.validate_every_n_batches = 1
+    mosaic_trainer_hparams.validate_every_n_epochs = 0
+    final_checkpoint = "ep2.pt"
     _test_checkpoint_trainer(mosaic_trainer_hparams)
 
     trainer_1_hparams_filepath = run_directory.get_relative_to_run_directory(checkpoint_a_folder, "hparams.yaml")
@@ -237,25 +221,20 @@ def test_load_weights(
     pytest.param(1),
     pytest.param(2, marks=pytest.mark.world_size(2)),
 ])
-@pytest.mark.parametrize("device_hparams", [
-    pytest.param(CPUDeviceHparams(), id="cpu"),
-    pytest.param(GPUDeviceHparams(), id="gpu", marks=pytest.mark.gpu),
+@pytest.mark.parametrize("device_hparams,model_name", [
+    pytest.param(CPUDeviceHparams(), None),
+    pytest.param(GPUDeviceHparams(), None, marks=pytest.mark.gpu),
+    pytest.param(GPUDeviceHparams(), "resnet50_synthetic", marks=pytest.mark.gpu),
+    pytest.param(GPUDeviceHparams(), "gpt2_52m", marks=pytest.mark.gpu),
 ])
 @pytest.mark.parametrize("checkpoint_filename", ["ep1", "it4", "it1", "it6"])
 @pytest.mark.parametrize("seed", [None, 42])
-@pytest.mark.parametrize("validate_every_n_batches,validate_every_n_epochs", [
-    (0, 1),
-    (1, 0),
-])
-@pytest.mark.parametrize("model_name", [None, "resnet50_synthetic", "gpt2_52m"])
 def test_checkpoint(
     device_hparams: DeviceHparams,
     world_size: int,
     mosaic_trainer_hparams: TrainerHparams,
     checkpoint_filename: str,
     seed: Optional[int],
-    validate_every_n_batches: int,
-    validate_every_n_epochs: int,
     model_name: Optional[str],
 ):
     """strategy:
@@ -293,6 +272,7 @@ def test_checkpoint(
     mosaic_trainer_hparams.callbacks = [DummyStatefulCallbackHparams(), EventCounterCallbackHparams()]
     mosaic_trainer_hparams.train_subset_num_batches = 5
     mosaic_trainer_hparams.device = device_hparams
+    assert mosaic_trainer_hparams.deterministic_mode, "deterministic mode is required"
 
     checkpoint_a_folder = "first"
     mosaic_trainer_hparams.save_checkpoint = CheckpointSaverHparams(
@@ -301,8 +281,8 @@ def test_checkpoint(
         folder=checkpoint_a_folder,
     )
     mosaic_trainer_hparams.seed = seed
-    mosaic_trainer_hparams.validate_every_n_batches = validate_every_n_batches
-    mosaic_trainer_hparams.validate_every_n_epochs = validate_every_n_epochs
+    mosaic_trainer_hparams.validate_every_n_batches = 1
+    mosaic_trainer_hparams.validate_every_n_epochs = 0
     final_checkpoint = "ep2.pt" if checkpoint_filename.startswith("ep") else "it8.pt"
     _test_checkpoint_trainer(mosaic_trainer_hparams)
     checkpoint_a_file_path = os.path.join(checkpoint_a_folder, f"{checkpoint_filename}.pt")

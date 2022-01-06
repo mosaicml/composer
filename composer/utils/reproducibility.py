@@ -8,12 +8,6 @@ import numpy as np
 import torch
 import torch.backends.cudnn
 
-_DETERMINISTIC_MODE_KEY = "COMPOSER_USE_DETERMINISTIC_MODE"
-
-
-# def use_deterministic_mode():
-#     return bool(int(os.environ.get(_DETERMINISTIC_MODE_KEY, "0")))
-
 
 def configure_deterministic_mode():
     torch.use_deterministic_algorithms(True)
