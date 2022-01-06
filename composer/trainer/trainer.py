@@ -82,7 +82,7 @@ class Trainer:
             (default: ``False``)
         precision (Precision, optional): Numerical precision to use for training. (default: ``Precision.FP32``).
         dist_timeout (float, optional): Timeout, in seconds, for initializing the distributed process group.
-            (default: ``5.0``)
+            (default: ``15.0``)
         ddp_sync_strategy (DDPSyncStrategy, optional): The strategy to use for synchronizing gradients.
             Leave unset to let the trainer auto-configure this.
         seed (int, optional): The seed used in randomization. When not provided a random seed
@@ -140,7 +140,7 @@ class Trainer:
             precision: Precision = Precision.FP32,
 
             # dist hparams
-            dist_timeout: float = 5.0,
+            dist_timeout: float = 15.0,
             ddp_sync_strategy: Optional[Union[str, DDPSyncStrategy]] = None,
 
             # Randomness

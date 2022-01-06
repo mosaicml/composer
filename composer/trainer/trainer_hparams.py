@@ -154,7 +154,7 @@ class TrainerHparams(hp.Hparams):
     precision: Precision = hp.required(doc="Precision to use for training", template_default=Precision.AMP)
 
     dist_timeout: float = hp.optional(doc="Timeout, in seconds, for initializing the dsitributed process group.",
-                                      default=5.0)
+                                      default=15.0)
     ddp_sync_strategy: Optional[DDPSyncStrategy] = hp.optional(
         doc="The strategy for synchronizing DDP. Default value ``None`` causes the "
         "trainer to auto-select a value depending on what algorithms are used.",
