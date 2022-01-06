@@ -12,9 +12,9 @@ class DropBlock(nn.Module):
     This module is like a Dropout for Conv layers.
 
     Args:
-        drop_prob (float): Drop probability
-        block_size (int): Size of blocks to drop out
-        batchwise (bool): Whether to reuse masks across batch (faster)
+        drop_prob (float, optional): Drop probability. (default: 0.1)
+        block_size (int, optional): Size of blocks to drop out. (default: 7)
+        batchwise (bool, optional): Whether to reuse masks across batch (faster). (default: True)
     '''
 
     def __init__(self, drop_prob: float = 0.1, block_size: int = 7, batchwise: bool = True):
