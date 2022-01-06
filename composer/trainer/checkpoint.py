@@ -13,7 +13,7 @@ import yaml
 from composer.core import Event, State
 from composer.core.types import StateDict
 from composer.trainer.devices.device import Device
-from composer.utils import ddp, seed_all
+from composer.utils import ddp, reproducibility
 
 log = logging.getLogger(__name__)
 
@@ -57,7 +57,7 @@ class CheckpointLoader:
                                   f"{checkpointed_world_size}. The seed will not be restored.")
                     return
                 seed_to_restore = self.state_dict["seed"][ddp.get_global_rank()]
-                seed_all(seed_to_restore)
+                reproducibility.seed_all(seed_to_restore)
                 return seed_to_restore
 
     def restore_checkpoint_rng_state(self, state: State, device: Device):

@@ -1,9 +1,25 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
+import os
 import random
+import warnings
 
 import numpy as np
 import torch
+import torch.backends.cudnn
+
+_DETERMINISTIC_MODE_KEY = "COMPOSER_USE_DETERMINISTIC_MODE"
+
+
+def use_deterministic_mode():
+    return bool(int(os.environ.get(_DETERMINISTIC_MODE_KEY, "0")))
+
+
+def configure_deterministic_mode():
+    torch.use_deterministic_algorithms(True)
+    torch.backends.cudnn.benchmark = False
+    torch.backends.cudnn.deterministic = True
+    warnings.warn("Deterministic mode is activated. This will negatively impact performance.", category=UserWarning)
 
 
 def get_random_seed() -> int:

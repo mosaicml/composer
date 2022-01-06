@@ -69,6 +69,7 @@ filterwarnings = [
     'ignore:ExtraArgumentWarning',  # extra arguments originate from pytest-specific CLI args
     'ignore:DDPDefaultValueWarning',  # default DDP values are fine
     'ignore:NoDDPWarning',  # default DDP values are fine
+    'ignore:Deterministic mode is activated:UserWarning',  # all tests run with deterministic mode
 ]
 
 # Coverage

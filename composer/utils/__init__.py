@@ -2,8 +2,7 @@
 
 from composer.utils import augmentation_primitives as augmentation_primitives
 from composer.utils import ddp as ddp
-from composer.utils.determinism import get_random_seed as get_random_seed
-from composer.utils.determinism import seed_all as seed_all
+from composer.utils import reproducibility as reproducibility
 from composer.utils.iter_helpers import ensure_tuple as ensure_tuple
 from composer.utils.iter_helpers import map_collection as map_collection
 from composer.utils.iter_helpers import zip_collection as zip_collection

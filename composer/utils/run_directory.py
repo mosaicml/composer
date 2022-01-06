@@ -7,7 +7,7 @@ import time
 
 log = logging.getLogger(__name__)
 
-_RUN_DIRECTORY_KEY = "RUN_DIRECTORY"
+_RUN_DIRECTORY_KEY = "COMPOSER_RUN_DIRECTORY"
 
 
 def get_run_directory():

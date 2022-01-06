@@ -30,7 +30,7 @@ from composer.optim import (AdamHparams, AdamWHparams, DecoupledAdamWHparams, De
 from composer.trainer.checkpoint_hparams import CheckpointLoaderHparams, CheckpointSaverHparams
 from composer.trainer.deepspeed import DeepSpeedHparams
 from composer.trainer.devices import CPUDeviceHparams, DeviceHparams, GPUDeviceHparams
-from composer.utils import ddp
+from composer.utils import ddp, reproducibility
 
 if TYPE_CHECKING:
     from composer.trainer.trainer import Trainer
@@ -182,11 +182,6 @@ class TrainerHparams(hp.Hparams):
         stop each evaluation after this many batches."""),
                                                          default=None)
 
-    deterministic_mode: bool = hp.optional(doc="Run the model deterministically. Experimental. Performance"
-                                           "degradations expected. Certain Torch modules may not have"
-                                           "deterministic implementations, which will result in a crash.",
-                                           default=False)
-
     compute_training_metrics: bool = hp.optional(doc="Log validation metrics on training data", default=False)
     log_level: str = hp.optional(doc="Python loglevel to use composer", default="WARNING")
     datadir: Optional[str] = hp.optional(doc=textwrap.dedent("""
@@ -202,7 +197,7 @@ class TrainerHparams(hp.Hparams):
         if not deepspeed_enabled and Precision(self.precision) == Precision.FP16:
             raise ValueError("FP16 precision is only supported when training with DeepSpeed.")
 
-        if deepspeed_enabled and self.deterministic_mode:
+        if deepspeed_enabled and reproducibility.use_deterministic_mode():
             raise ValueError("Deterministic mode is not supported with DeepSpeed.")
 
         if deepspeed_enabled and isinstance(self.device, CPUDeviceHparams):
