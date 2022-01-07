@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import abc
+import dataclasses
 import textwrap
 from dataclasses import asdict, dataclass
 from typing import TYPE_CHECKING, List, Optional
@@ -159,7 +160,7 @@ class TorchProfilerHparams(CallbackHparams):
 
 
 @dataclass
-class RunDirectoryUploaderHparams(ObjectStoreProviderHparams):
+class RunDirectoryUploaderHparams(ObjectStoreProviderHparams, CallbackHparams):
     """:class:`~composer.callbacks.torch_profiler.RunDirectoryUploader` hyperparameters.
 
     See :class:`~composer.callbacks.torch_profiler.RunDirectoryUploader` for documentation.
@@ -185,7 +186,8 @@ class RunDirectoryUploaderHparams(ObjectStoreProviderHparams):
     def initialize_object(self) -> RunDirectoryUploader:
         from composer.callbacks.run_directory_uploader import RunDirectoryUploader
         return RunDirectoryUploader(
-            object_store_provider_hparams=self,
+            object_store_provider_hparams=ObjectStoreProviderHparams(
+                **{f.name: getattr(self, f.name) for f in dataclasses.fields(ObjectStoreProviderHparams)}),
             object_name_prefix=self.object_name_prefix,
             num_concurrent_uploads=self.num_concurrent_uploads,
             upload_staging_folder=self.upload_staging_folder,
