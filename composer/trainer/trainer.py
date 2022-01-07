@@ -29,7 +29,7 @@ from composer.models.base import BaseMosaicModel
 from composer.optim import (ComposedScheduler, CosineAnnealingLRHparams, DecoupledSGDWHparams, OptimizerHparams,
                             SchedulerHparams, WarmUpLRHparams)
 from composer.optim.scheduler import ensure_warmup_last
-from composer.trainer.checkpoint import CheckpointLoader, CheckpointSaver
+from composer.trainer.checkpoint_hparams import CheckpointLoaderHparams, CheckpointSaverHparams
 from composer.trainer.ddp import DDPSyncStrategy, ddp_sync_context, prepare_ddp_module
 from composer.trainer.deepspeed import DeepSpeedHparams, fix_batch_precision_for_deepspeed
 from composer.trainer.devices.device import Device
@@ -38,7 +38,6 @@ from composer.trainer.devices.device_gpu import DeviceGPU
 from composer.trainer.scaler import ClosureGradScaler
 from composer.trainer.trainer_hparams import TrainerHparams
 from composer.utils import dist, ensure_tuple, map_collection, reproducibility
-from composer.utils.run_directory import get_relative_to_run_directory
 
 log = logging.getLogger(__name__)
 
@@ -91,17 +90,12 @@ class Trainer:
             degradations expected. Certain Torch modules may not have deterministic implementations,
             which will result in a crash. (default: ``False``)
         log_destinations (List[BaseLoggerBackend], optional): The destinations to log training information to.
-            (default ``[TQDMLoggerBackend()]``).
+            (default: ``[TQDMLoggerBackend()]``).
         callbacks (Sequence[Callback], optional): The callbacks to run during training. (default: ``[]``)
-        checkpoint_filepath (str): For loading checkpoints, the path to an existing checkpoint.
-        load_weights_only (bool): Whether to only restore the weights from the checkpoint without
-            restoring the associated state.
-        strict_model_weights (bool, optional): Whether to force that the checkpointed weights must exactly
-            match the model weights.
-        checkpoint_folder (str): The path to store checkpoints in.
-        checkpoint_interval (int): The amount of time units to wait between creating checkpoints.
-        checkpoint_interval_unit (str, optional): The unit (`"ep"` or `"it"`) that
-            `checkpoint_interval` should be measured in. Set to ``None`` disables checkpointing. (default: ``None``)
+        checkpoint_loader (CheckpointLoaderHparams, optional): If specified, load the specified checkpoint.
+            (default: ``None``)
+        checkpoint_saver (CheckpointSaverHparams, optional): If specified, save checkpoints according to
+            the given parameters (default: ``None``)
         train_subset_num_batches (int, optional): If specified, finish every epoch early after training
             on this many batches. This parameter has no effect if it is greater than ``len(train_dataloader)``.
             If None (the default), then the entire dataloader will be iterated over.
@@ -151,15 +145,9 @@ class Trainer:
             log_destinations: Optional[List[BaseLoggerBackend]] = None,
             callbacks: Sequence[Callback] = tuple(),
 
-            # Checkpoint loading hparams
-            checkpoint_filepath: Optional[str] = None,
-            checkpoint_load_weights_only: bool = False,
-            checkpoint_strict_model_weights: bool = False,
-
-            # Checkpoint saving hparams
-            checkpoint_interval_unit: Optional[str] = None,
-            checkpoint_interval: Optional[int] = None,
-            checkpoint_folder: str = "checkpoints",
+            # Checkpoint hparams
+            checkpoint_loader: Optional[CheckpointLoaderHparams] = None,
+            checkpoint_saver: Optional[CheckpointSaverHparams] = None,
 
             # Subset parameters
             train_subset_num_batches: Optional[int] = None,
@@ -298,16 +286,12 @@ class Trainer:
         self.original_model = self.state.model  # type: ignore  # TODO(ravi) -- update the state to add an original model helper
 
         self.checkpoint_saver = None
-        if checkpoint_folder and checkpoint_interval and checkpoint_interval_unit:
-            self.checkpoint_saver = CheckpointSaver(checkpoint_folder=get_relative_to_run_directory(checkpoint_folder),
-                                                    checkpoint_interval=checkpoint_interval,
-                                                    checkpoint_interval_unit=checkpoint_interval_unit)
+        if checkpoint_saver is not None:
+            self.checkpoint_saver = checkpoint_saver.initialize_object()
 
         self.checkpoint_loader = None
-        if checkpoint_filepath:
-            self.checkpoint_loader = CheckpointLoader(checkpoint_filepath=checkpoint_filepath,
-                                                      load_weights_only=checkpoint_load_weights_only,
-                                                      strict_model_weights=checkpoint_strict_model_weights)
+        if checkpoint_loader is not None:
+            self.checkpoint_loader = checkpoint_loader.initialize_object()
 
         # place the state, model in the proper devices, and initialize from a checkpoint if provided
         if self.deepspeed_enabled:
@@ -388,19 +372,6 @@ class Trainer:
             each evaluation epoch may load a different subset of samples."""))
         eval_dataloader = hparams.val_dataset.initialize_object(eval_device_batch_size, hparams.dataloader)
 
-        # Checkpoint loading hparams
-        checkpoint_filepath = hparams.load_checkpoint.filepath if hparams.load_checkpoint is not None else None
-        checkpoint_load_weights_only = hparams.load_checkpoint.load_weights_only \
-                                       if hparams.load_checkpoint is not None else False
-        checkpoint_strict_model_weights = hparams.load_checkpoint.strict_model_weights \
-                                          if hparams.load_checkpoint is not None else False
-
-        # Checkpoint saving hparams
-        checkpoint_interval_unit = hparams.save_checkpoint.interval_unit \
-                                   if hparams.save_checkpoint is not None else None
-        checkpoint_interval = hparams.save_checkpoint.interval if hparams.save_checkpoint is not None else None
-        checkpoint_folder = hparams.save_checkpoint.folder if hparams.save_checkpoint is not None else "checkpoints"
-
         trainer = cls(
             model=model,
             train_dataloader=train_dataloader,
@@ -433,15 +404,9 @@ class Trainer:
             log_destinations=log_destinations,
             callbacks=tuple(callbacks),
 
-            # Checkpoint loading hparams
-            checkpoint_filepath=checkpoint_filepath,
-            checkpoint_load_weights_only=checkpoint_load_weights_only,
-            checkpoint_strict_model_weights=checkpoint_strict_model_weights,
-
-            # Checkpoint saving hparams
-            checkpoint_interval_unit=checkpoint_interval_unit,
-            checkpoint_interval=checkpoint_interval,
-            checkpoint_folder=checkpoint_folder,
+            # Checkpoint hparams
+            checkpoint_loader=hparams.load_checkpoint,
+            checkpoint_saver=hparams.save_checkpoint,
 
             # Subset parameters
             train_subset_num_batches=hparams.train_subset_num_batches,

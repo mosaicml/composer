@@ -112,3 +112,20 @@ def fix_batch_precision_for_deepspeed(batch: Batch, precision: Precision) -> Bat
         return batch
 
     return map_collection(batch, _convert_fp32_tensor_to_fp16)  # type: ignore
+
+
+def is_module_deepspeed(module: torch.nn.Module) -> bool:
+    """Returns whether the module is an instance of a deepspeed module.
+
+    Args:
+        module (torch.nn.Module): The module to check.
+
+    Returns:
+        bool: Whether the module is a deepspeed module.
+    """
+    try:
+        import deepspeed
+    except ImportError:
+        return False
+    else:
+        return isinstance(module, deepspeed.DeepSpeedEngine)
