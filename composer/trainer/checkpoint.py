@@ -147,9 +147,7 @@ class CheckpointLoader:
             state_dict = torch.load(mosaic_checkpoint_filepath, map_location='cpu')
 
             if is_module_deepspeed(state.model):
-                import deepspeed
-                assert isinstance(state.model, deepspeed.DeepSpeedEngine)
-                load_path, _ = state.model.load_checkpoint(
+                load_path, _ = cast(deepspeed.DeepSpeedEngine, state.model).load_checkpoint(
                     checkpoint_folder,
                     load_module_only=self.hparams.load_weights_only,
                     load_module_strict=self.hparams.strict_model_weights,
