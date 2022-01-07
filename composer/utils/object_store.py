@@ -165,6 +165,17 @@ class ObjectStoreProvider:
     def _get_object(self, object_name: str):
         return self._provider.get_object(self._container.name, object_name)
 
+    def get_object_size(self, object_name: str) -> int:
+        """Get the size of an object, in bytes.
+
+        Args:
+            object_name (str): The name of the object.
+
+        Returns:
+            int: The object size, in bytes.
+        """
+        return self._get_object(object_name).size
+
     def download_object(self,
                         object_name: str,
                         destination_path: str,

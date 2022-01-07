@@ -34,6 +34,13 @@ class CheckpointLoaderHparams(hp.Hparams):
     strict_model_weights: bool = hp.optional(
         doc="Ensure that the set of weights in the checkpoint and model must exactly match.", default=False)
 
+    chunk_size: int = hp.optional(doc=textwrap.dedent("""Chunk size (in bytes) to use when downloading checkpoints.
+        Ignored if the checkpoint is a local file path."""),
+                                  default=1_048_576)
+    progress_bar: bool = hp.optional(doc=textwrap.dedent("""Whether to show a progress bar when downloading checkpoints.
+        Ignored if the checkpoint is a local file path"""),
+                                     default=True)
+
     def validate(self):
         if not self.load_weights_only and self.strict_model_weights:
             raise ValueError(
@@ -43,10 +50,14 @@ class CheckpointLoaderHparams(hp.Hparams):
     def initialize_object(self) -> CheckpointLoader:
         from composer.trainer.checkpoint import CheckpointLoader
 
-        return CheckpointLoader(checkpoint=self.checkpoint,
-                                object_store_hparams=self.object_store,
-                                load_weights_only=self.load_weights_only,
-                                strict_model_weights=self.strict_model_weights)
+        return CheckpointLoader(
+            checkpoint=self.checkpoint,
+            object_store_hparams=self.object_store,
+            load_weights_only=self.load_weights_only,
+            strict_model_weights=self.strict_model_weights,
+            chunk_size=self.chunk_size,
+            progress_bar=self.progress_bar,
+        )
 
 
 @dataclass

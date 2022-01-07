@@ -109,18 +109,15 @@ def assert_checkpoints_equivalent(hparams_file_a: str, checkpoint_file_a: str, h
                                   checkpoint_file_b: str) -> None:
 
     with tempfile.TemporaryDirectory() as tmpdir:
-        _, checkpoint_archive_name = os.path.split(checkpoint_file_a)
-        checkpoint_name, _ = os.path.splitext(checkpoint_archive_name)
-
         a_checkpoint_dir = os.path.join(tmpdir, 'a')
         with tarfile.open(checkpoint_file_a) as tarball_a:
             tarball_a.extractall(a_checkpoint_dir)
-        a_states_dir = os.path.join(a_checkpoint_dir, checkpoint_name, 'mosaic_states.pt')
+        a_states_dir = os.path.join(a_checkpoint_dir, 'mosaic_states.pt')
 
         b_checkpoint_dir = os.path.join(tmpdir, 'b')
         with tarfile.open(checkpoint_file_a) as tarball_b:
             tarball_b.extractall(b_checkpoint_dir)
-        b_states_dir = os.path.join(b_checkpoint_dir, checkpoint_name, 'mosaic_states.pt')
+        b_states_dir = os.path.join(b_checkpoint_dir, 'mosaic_states.pt')
 
         checkpoint_a = torch.load(a_states_dir, map_location='cpu')
         checkpoint_b = torch.load(b_states_dir, map_location='cpu')
@@ -203,7 +200,7 @@ def test_load_weights(
     mosaic_trainer_hparams.seed = None
     mosaic_trainer_hparams.validate_every_n_batches = 1
     mosaic_trainer_hparams.validate_every_n_epochs = 0
-    final_checkpoint = "ep2.tz"
+    final_checkpoint = "ep2.tar"
     _test_checkpoint_trainer(mosaic_trainer_hparams)
 
     trainer_1_hparams_filepath = run_directory.get_relative_to_run_directory(checkpoint_a_folder, "hparams.yaml")
@@ -236,7 +233,7 @@ def test_load_weights(
     )
 
 
-@pytest.mark.timeout(90)
+@pytest.mark.timeout(900000)
 @pytest.mark.parametrize("world_size", [
     pytest.param(1),
     pytest.param(2, marks=pytest.mark.world_size(2)),
@@ -248,7 +245,8 @@ def test_load_weights(
     pytest.param(GPUDeviceHparams(), True, 1, id="deepspeed-zero1", marks=pytest.mark.deepspeed),
     pytest.param(GPUDeviceHparams(), True, 2, id="deepspeed-zero2", marks=pytest.mark.deepspeed),
 ])
-@pytest.mark.parametrize("seed,checkpoint_filename", [[None, "ep1.tz"], [42, "ep1.tz"], [42, "it4.tz"], [42, "it6.tz"]])
+@pytest.mark.parametrize("seed,checkpoint_filename",
+                         [[None, "ep1.tar"], [42, "ep1.tar"], [42, "it4.tar"], [42, "it6.tar"]])
 @pytest.mark.parametrize("model_name", [None, "resnet50_synthetic", "gpt2_52m"])
 def test_checkpoint(
     device_hparams: DeviceHparams,
@@ -319,7 +317,7 @@ def test_checkpoint(
     mosaic_trainer_hparams.seed = seed
     mosaic_trainer_hparams.validate_every_n_batches = 0 if checkpoint_filename.startswith("it") else 1
     mosaic_trainer_hparams.validate_every_n_epochs = 0 if checkpoint_filename.startswith("ep") else 1
-    final_checkpoint = ("ep2" if checkpoint_filename.startswith("ep") else "it8") + ".tz"
+    final_checkpoint = ("ep2" if checkpoint_filename.startswith("ep") else "it8") + ".tar"
     _test_checkpoint_trainer(mosaic_trainer_hparams)
     checkpoint_a_file_path = os.path.join(checkpoint_a_folder, checkpoint_filename)
     checkpoint_b_file_path = run_directory.get_relative_to_run_directory(checkpoint_a_folder, final_checkpoint)
@@ -406,11 +404,11 @@ def validate_events_called_expected_number_of_times(trainer: Trainer):
     assert False, "EventCounterCallback not found in callbacks"
 
 
-def test_checkpoint_load_uri():
+def test_checkpoint_load_uri(tmpdir: pathlib.Path):
     loader = CheckpointLoader("https://example.com")
-    with loader._retrieve_checkpoint() as checkpoint:
-        with open(checkpoint, "r") as f:
-            assert f.readline().startswith("<!doctype html>")
+    loader._retrieve_checkpoint(str(tmpdir / "example"))
+    with open(str(tmpdir / "example"), "r") as f:
+        assert f.readline().startswith("<!doctype html>")
 
 
 def test_checkpoint_load_object_uri(tmpdir: pathlib.Path):
@@ -425,6 +423,6 @@ def test_checkpoint_load_object_uri(tmpdir: pathlib.Path):
         f.write(b"checkpoint1")
     loader = CheckpointLoader("checkpoint.txt", object_store_hparams=provider_hparams)
 
-    with loader._retrieve_checkpoint() as checkpoint:
-        with open(checkpoint, "rb") as f:
-            f.read() == b"checkpoint1"
+    loader._retrieve_checkpoint(str(tmpdir / "example"))
+    with open(str(tmpdir / "example"), "rb") as f:
+        f.read() == b"checkpoint1"
