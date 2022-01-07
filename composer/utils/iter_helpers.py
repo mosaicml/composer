@@ -47,7 +47,7 @@ def zip_collection(item, *others):
     return zip(item, *others)
 
 
-def iterate_with_pbar(progress_bar, iterator):
+def iterate_with_pbar(iterator, progress_bar=None):
     with progress_bar if progress_bar is not None else contextlib.nullcontext(None) as pb:
         for x in iterator:
             yield x

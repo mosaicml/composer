@@ -26,9 +26,9 @@ def test_run_directory_uploader(tmpdir: pathlib.Path, use_procs: bool, dummy_sta
     os.makedirs(remote_dir, exist_ok=True)
     hparams = RunDirectoryUploaderHparams(
         provider='local',
+        upload_every_n_batches=1,
         key=remote_dir,  # for the local option, the key is the path
         container=".",
-        upload_every_n_batches=1,
         num_concurrent_uploads=1,
         use_procs=use_procs,
     )
