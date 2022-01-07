@@ -8,7 +8,7 @@ from typing import Any, Dict, Optional
 
 from composer.core.logging import BaseLoggerBackend, LogLevel, TLogData
 from composer.core.types import Logger, State, StateDict
-from composer.utils import ddp, run_directory
+from composer.utils import dist, run_directory
 
 import wandb  # isort: skip
 
@@ -40,18 +40,18 @@ class WandBLoggerBackend(BaseLoggerBackend):
 
     def log_metric(self, epoch: int, step: int, log_level: LogLevel, data: TLogData):
         del epoch, log_level  # unused
-        if ddp.get_local_rank() == 0:
+        if dist.get_local_rank() == 0:
             wandb.log(data, step=step)
 
     def state_dict(self) -> StateDict:
         # Storing these fields in the state dict to support run resuming in the future.
-        if ddp.get_local_rank() != 0:
+        if dist.get_local_rank() != 0:
             raise RuntimeError("WandB can only be checkpointed on rank 0")
         return {"name": wandb.run.name, "project": wandb.run.project, "entity": wandb.run.entity, "id": wandb.run.id}
 
     def init(self, state: State, logger: Logger) -> None:
         del state, logger  # unused
-        if ddp.get_local_rank() == 0:
+        if dist.get_local_rank() == 0:
             wandb.init(**self._init_params)
 
     def batch_end(self, state: State, logger: Logger) -> None:
@@ -82,8 +82,8 @@ class WandBLoggerBackend(BaseLoggerBackend):
             return
         # barrier that every process has reached this point and that
         # previous callbacks are finished writing to the run directory
-        ddp.barrier()
-        if ddp.get_local_rank() == 0:
+        dist.barrier()
+        if dist.get_local_rank() == 0:
             modified_files = run_directory.get_modified_files(self._last_upload_timestamp)
             for modified_file in modified_files:
                 file_type = modified_file.split(".")[-1]
@@ -95,7 +95,7 @@ class WandBLoggerBackend(BaseLoggerBackend):
             self._last_upload_timestamp = run_directory.get_run_directory_timestamp()
         # barrier to ensure that other processes do not continue to other callbacks
         # that could start writing to the run directory
-        ddp.barrier()
+        dist.barrier()
 
     def post_close(self) -> None:
         # Cleaning up on post_close so all artifacts are uploaded
@@ -104,7 +104,7 @@ class WandBLoggerBackend(BaseLoggerBackend):
 
         exc_tpe, exc_info, tb = sys.exc_info()
 
-        if ddp.get_local_rank() == 0:
+        if dist.get_local_rank() == 0:
             if (exc_tpe, exc_info, tb) == (None, None, None):
                 wandb.finish(0)
             else:
