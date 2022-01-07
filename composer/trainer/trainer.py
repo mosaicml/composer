@@ -31,13 +31,13 @@ from composer.optim import (ComposedScheduler, CosineAnnealingLRHparams, Decoupl
 from composer.optim.scheduler import ensure_warmup_last
 from composer.trainer.checkpoint_hparams import CheckpointLoaderHparams, CheckpointSaverHparams
 from composer.trainer.ddp import DDPSyncStrategy, ddp_sync_context, prepare_ddp_module
-from composer.trainer.deepspeed import DeepSpeedHparams
+from composer.trainer.deepspeed import DeepSpeedHparams, fix_batch_precision_for_deepspeed
 from composer.trainer.devices.device import Device
 from composer.trainer.devices.device_cpu import DeviceCPU
 from composer.trainer.devices.device_gpu import DeviceGPU
 from composer.trainer.scaler import ClosureGradScaler
 from composer.trainer.trainer_hparams import TrainerHparams
-from composer.utils import dist, ensure_tuple, reproducibility, map_collection
+from composer.utils import dist, ensure_tuple, map_collection, reproducibility
 
 log = logging.getLogger(__name__)
 

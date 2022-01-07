@@ -1,14 +1,17 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
+from __future__ import annotations
 
 import logging
 import textwrap
 from dataclasses import dataclass
-from typing import Optional
+from typing import TYPE_CHECKING, Optional
 
 import yahp as hp
 
-from composer.trainer.checkpoint import CheckpointLoader, CheckpointSaver
 from composer.utils.object_store import ObjectStoreProviderHparams
+
+if TYPE_CHECKING:
+    from composer.trainer.checkpoint import CheckpointLoader, CheckpointSaver
 
 log = logging.getLogger(__name__)
 
@@ -38,6 +41,8 @@ class CheckpointLoaderHparams(hp.Hparams):
             )
 
     def initialize_object(self) -> CheckpointLoader:
+        from composer.trainer.checkpoint import CheckpointLoader
+
         return CheckpointLoader(checkpoint=self.checkpoint,
                                 object_store_hparams=self.object_store,
                                 load_weights_only=self.load_weights_only,
@@ -64,6 +69,7 @@ class CheckpointSaverHparams(hp.Hparams):
             raise ValueError("Checkpointing interval unit must be one of 'ep' for epochs, or 'it' for iterations.")
 
     def initialize_object(self) -> CheckpointSaver:
+        from composer.trainer.checkpoint import CheckpointSaver
         return CheckpointSaver(checkpoint_interval_unit=self.interval_unit,
                                checkpoint_interval=self.interval,
                                checkpoint_folder=self.folder)
