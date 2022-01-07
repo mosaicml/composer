@@ -135,6 +135,7 @@ class CheckpointLoader:
             checkpoint_archive_name = self.hparams.checkpoint.split(os.path.sep)[-1]
             checkpoint_archive_filepath = os.path.join(checkpoint_folder, checkpoint_archive_name)
             self._retrieve_checkpoint(destination_filepath=checkpoint_archive_filepath)
+            extracted_checkpoint_folder = None
             if checkpoint_archive_filepath.endswith(".pt"):
                 # it's not an archive; it's just the mosaic state dict
                 mosaic_checkpoint_filepath = checkpoint_archive_filepath
@@ -147,8 +148,11 @@ class CheckpointLoader:
             state_dict = torch.load(mosaic_checkpoint_filepath, map_location='cpu')
 
             if is_module_deepspeed(state.model):
-                load_path, _ = cast(deepspeed.DeepSpeedEngine, state.model).load_checkpoint(
-                    checkpoint_folder,
+                if extracted_checkpoint_folder is None:
+                    raise RuntimeError("Deepspeed checkpoints require a tarball, not a weights file.")
+                load_path, _ = cast("deepspeed.DeepSpeedEngine", state.model).load_checkpoint(
+                    extracted_checkpoint_folder,
+                    tag=_DEEPSPEED_TAG,
                     load_module_only=self.hparams.load_weights_only,
                     load_module_strict=self.hparams.strict_model_weights,
                 )
@@ -263,7 +267,7 @@ class CheckpointSaver:
 
         with tempfile.TemporaryDirectory() as tmpdir:
             if is_module_deepspeed(state.model):
-                model = cast(deepspeed.DeepSpeedEngine, state.model)
+                model = cast("deepspeed.DeepSpeedEngine", state.model)
                 model.save_checkpoint(tmpdir, _DEEPSPEED_TAG)
 
             if dist.get_global_rank() == 0:
