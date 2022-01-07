@@ -1,21 +1,20 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
-from glob import glob
 import os
 import random
 from dataclasses import dataclass
+from glob import glob
 
 import numpy as np
 import torch
+import torch.nn as nn
 import torchvision
 import yahp as hp
 from torch.utils.data import Dataset
+from torchmetrics import Metric
 
 from composer.datasets.hparams import DataloaderSpec, DatasetHparams
 
-from torchmetrics import Metric
-import torch
-import torch.nn as nn
 
 @dataclass
 class XBDDatasetHparams(DatasetHparams):
@@ -27,23 +26,25 @@ class XBDDatasetHparams(DatasetHparams):
 
     def initialize_object(self) -> DataloaderSpec:
 
-        train_dataset, val_dataset = xBDTrainDataset(os.path.join(self.datadir, "train")), xBDValDataset(os.path.join(self.datadir, "test"))
+        train_dataset, val_dataset = xBDTrainDataset(os.path.join(self.datadir, "train")), xBDValDataset(
+            os.path.join(self.datadir, "test"))
         if self.is_train:
             return DataloaderSpec(
                 dataset=train_dataset,
                 drop_last=self.drop_last,
                 shuffle=self.shuffle,
             )
-        
+
         else:
             return DataloaderSpec(
                 dataset=val_dataset,
                 drop_last=self.drop_last,
                 shuffle=self.shuffle,
             )
-        
+
 
 class F1(Metric):
+
     def __init__(self):
         super().__init__(dist_sync_on_step=False)
         self.add_state("tp", default=torch.zeros((1,)), dist_reduce_fx="sum")
@@ -66,16 +67,19 @@ class F1(Metric):
         false_neg = torch.logical_and(pred != class_idx, targ == class_idx).sum()
         false_pos = torch.logical_and(pred == class_idx, targ != class_idx).sum()
         return true_pos, false_neg, false_pos
-    
-from torch.utils.data import DataLoader, Dataset
+
+
 import albumentations as A
-import numpy as np
 import cv2
+import numpy as np
+from torch.utils.data import DataLoader, Dataset
+
 
 class xBDTrainDataset(Dataset):
+
     def __init__(self, path):
         self.imgs = sorted(glob(os.path.join(path, "images", f"*pre*")))
-        self.lbls = sorted(glob(os.path.join(path, "targets", f"*pre*"))) 
+        self.lbls = sorted(glob(os.path.join(path, "targets", f"*pre*")))
         assert len(self.imgs) == len(self.lbls)
         self.zoom = A.RandomScale(p=0.2, scale_limit=(0, 0.3), interpolation=cv2.INTER_CUBIC)
         self.crop = A.CropNonEmptyMaskIfExists(p=1, width=512, height=512)
@@ -103,16 +107,18 @@ class xBDTrainDataset(Dataset):
         img = self.normalize(image=img)["image"]
         lbl = np.expand_dims(lbl, 0)
         return {"image": np.transpose(img, (2, 0, 1)), "label": lbl}
-    
+
     def load_pair(self, idx):
         img = cv2.imread(self.imgs[idx])
         lbl = cv2.imread(self.lbls[idx], cv2.IMREAD_UNCHANGED)
         return img, lbl
-    
+
+
 class xBDValDataset(Dataset):
+
     def __init__(self, path):
         self.imgs = sorted(glob(os.path.join(path, "images", f"*pre*")))
-        self.lbls = sorted(glob(os.path.join(path, "targets", f"*pre*"))) 
+        self.lbls = sorted(glob(os.path.join(path, "targets", f"*pre*")))
         assert len(self.imgs) == len(self.lbls)
         self.normalize = A.Normalize()
 
@@ -124,9 +130,8 @@ class xBDValDataset(Dataset):
         img = self.normalize(image=img)["image"]
         lbl = np.expand_dims(lbl, 0)
         return {"image": np.transpose(img, (2, 0, 1)), "label": lbl}
-    
+
     def load_pair(self, idx):
         img = cv2.imread(self.imgs[idx])
         lbl = cv2.imread(self.lbls[idx], cv2.IMREAD_UNCHANGED)
-        return img, lbl   
-    
+        return img, lbl
