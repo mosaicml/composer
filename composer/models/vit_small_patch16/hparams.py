@@ -1,6 +1,6 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
-from dataclasses import asdict, dataclass
+from dataclasses import dataclass
 import yahp as hp
 
 
@@ -10,6 +10,8 @@ from composer.models.model_hparams import ModelHparams
 @dataclass
 class ViTSmallPatch16Hparams(ModelHparams):
     
+    image_size: int = hp.required("input image size. If you have rectangular images, make sure your image size is the maximum of the width and height")
+    channels: int = hp.required("number of  image channels")
     dropout: float = hp.optional("dropout rate", default=0.0)
     embedding_dropout: float = hp.optional("embedding dropout rate", default=0.0)
 
@@ -23,4 +25,9 @@ class ViTSmallPatch16Hparams(ModelHparams):
 
     def initialize_object(self):
         from composer.models import ViTSmallPatch16
-        return ViTSmallPatch16(**asdict(self))
+        return ViTSmallPatch16(num_classes=self.num_classes,
+                               image_size=self.image_size,
+                               channels=self.channels,
+                               dropout=self.dropout,
+                               embedding_dropout=self.embedding_dropout)
+
