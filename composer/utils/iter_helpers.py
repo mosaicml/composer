@@ -4,6 +4,8 @@
 # All typing annotations are in there
 # All methods signatures must be defined in there.
 
+import contextlib
+
 
 def map_collection(collection, map_fn):
     """map takes a single element, or a collection of elements, and applies `map_fn` on the element (or each
@@ -43,3 +45,11 @@ def zip_collection(item, *others):
         item = [item]
         others = [[other] for other in others]
     return zip(item, *others)
+
+
+def iterate_with_pbar(progress_bar, iterator):
+    with progress_bar if progress_bar is not None else contextlib.nullcontext(None) as pb:
+        for x in iterator:
+            yield x
+            if pb is not None:
+                pb.update(len(x))
