@@ -154,7 +154,7 @@ class CheckpointLoader:
                 )
                 if load_path is None:
                     raise RuntimeError(f"Failed to load DeepSpeed checkpoint from {self.hparams.checkpoint}")
-            else:
+            elif self.hparams.load_weights_only:
                 state.load_model_state(state_dict['state'], strict=self.hparams.strict_model_weights)
 
             if not self.hparams.load_weights_only:
