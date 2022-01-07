@@ -13,7 +13,7 @@ from torch.nn.parallel import DistributedDataParallel
 import composer.core.types as types
 from composer.core.precision import Precision
 from composer.core.serializable import Serializable
-from composer.utils import ddp, ensure_tuple
+from composer.utils import dist, ensure_tuple
 from composer.utils.precision import default_precision_factory
 
 if TYPE_CHECKING:
@@ -40,6 +40,13 @@ STATE_DICT_SERIALIZATION_FIELDS = [
     "_algorithms",
     "_callbacks",
     "scaler",
+]
+
+# These fields will be serialized using .state_dict(), but will be skipped if DeepSpeed is enabled.
+# When DeepSpeed is being used, model and optimizer states are serialized directly by the DeepSpeed engine.
+STATE_DICT_SERIALIZATION_FIELDS_SKIP_DEEPSPEED = [
+    "model",
+    "_optimizers",
 ]
 
 # These fields will not be serialized
@@ -178,18 +185,25 @@ class State(Serializable):
         """The global batch size used for training."""
         if self.train_dataloader.batch_size is None:
             raise RuntimeError("train dataloader batch size is undefined")
-        return self.train_dataloader.batch_size * ddp.get_world_size()
+        return self.train_dataloader.batch_size * dist.get_world_size()
 
     @property
     def eval_batch_size(self):
         """The batch size used for evaluation."""
         if self.eval_dataloader.batch_size is None:
             raise RuntimeError("eval dataloader batch size is undefined")
-        return self.eval_dataloader.batch_size * ddp.get_world_size()
+        return self.eval_dataloader.batch_size * dist.get_world_size()
 
     def state_dict(self) -> types.StateDict:
         """Returns the state as a :class:`dict`."""
         state_dict: types.StateDict = {}
+
+        deepspeed_enabled = False
+        try:
+            import deepspeed
+            deepspeed_enabled = isinstance(self.model, deepspeed.DeepSpeedEngine)
+        except ImportError:
+            pass
 
         for state_field_name, state_field_value in self.__dict__.items():
             if state_field_name in SKIP_SERIALIZATION_FIELDS:
@@ -198,6 +212,8 @@ class State(Serializable):
                 state_dict[state_field_name] = state_field_value
                 continue
             elif state_field_name in STATE_DICT_SERIALIZATION_FIELDS:
+                if deepspeed_enabled and state_field_name in STATE_DICT_SERIALIZATION_FIELDS_SKIP_DEEPSPEED:
+                    continue
                 if state_field_name == "model":
                     # Save model directly instead of by class name, since model may be wrapped by DistributedDataParallel
                     serialized_value = state_field_value.state_dict()
@@ -208,9 +224,12 @@ class State(Serializable):
                         if obj is not None
                     }
                 state_dict[state_field_name] = serialized_value
+
             else:
                 raise RuntimeError(f"Unable to serialize field {state_field_name}")
         state_dict["_is_model_ddp_wrapped"] = isinstance(self.model, DistributedDataParallel)
+        if deepspeed_enabled:
+            state_dict["_deepspeed_enabled"] = True
         return state_dict
 
     def load_model_state(self, state_dict: types.StateDict, strict: bool):
@@ -237,12 +256,19 @@ class State(Serializable):
             state_dict (types.StateDict): object returned from call to :meth:`state_dict`.
 
         """
+
+        deepspeed_enabled = False
+        if "_deepspeed_enabled" in state:
+            deepspeed_enabled = state["_deepspeed_enabled"]
+
         for state_field_name, state_field_value in self.__dict__.items():
             if state_field_name in SKIP_SERIALIZATION_FIELDS:
                 continue
             elif state_field_name in DIRECT_SERIALIZATION_FIELDS:
                 setattr(self, state_field_name, state[state_field_name])
             elif state_field_name in STATE_DICT_SERIALIZATION_FIELDS:
+                if deepspeed_enabled and state_field_name in STATE_DICT_SERIALIZATION_FIELDS_SKIP_DEEPSPEED:
+                    continue
                 serialized_value = state[state_field_name]
 
                 if state_field_name == "model":
