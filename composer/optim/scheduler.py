@@ -92,13 +92,11 @@ def _convert_time(time: Time,
 
     duration, epochs, batches = _parse_time_string(time)
 
-    if duration > 0:
-        assert max_epochs is not None
-
     if interval in ('batches', 'batch', 'steps', 'step'):
         new_time = batches + epochs * steps_per_epoch
 
         if duration > 0:
+            assert max_epochs is not None
             total_duration = max_epochs * steps_per_epoch
             new_time += (total_duration * duration)
 
@@ -107,6 +105,7 @@ def _convert_time(time: Time,
         return new_time
     elif interval in ('epochs', 'epoch'):
         if duration > 0:
+            assert max_epochs is not None
             # convert the duration term into batches for ease of calculation
             # round batches to the nearest term
             batches += int(round(steps_per_epoch * max_epochs * duration))
