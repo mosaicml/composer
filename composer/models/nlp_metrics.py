@@ -138,7 +138,7 @@ class BinaryF1Score(Metric):
         self.false_positive += (predictions[(target == 1)] == 0).sum()
         self.false_negative += (predictions[(target == 0)] == 1).sum()
 
-    def compute(self) -> float:
+    def compute(self) -> Tensor:
         """Aggregate the state over all processes to compute the metric.
 
         Returns:
