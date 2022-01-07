@@ -159,13 +159,12 @@ class TorchProfilerHparams(CallbackHparams):
 
 
 @dataclass
-class RunDirectoryUploaderHparams(CallbackHparams):
+class RunDirectoryUploaderHparams(ObjectStoreProviderHparams):
     """:class:`~composer.callbacks.torch_profiler.RunDirectoryUploader` hyperparameters.
 
     See :class:`~composer.callbacks.torch_profiler.RunDirectoryUploader` for documentation.
     """
 
-    provider: ObjectStoreProviderHparams = hp.required("Object store provider parameters")
     object_name_prefix: Optional[str] = hp.optional(textwrap.dedent("""A prefix to prepend to all object keys.
             An object's key is this prefix combined with its path relative to the run directory.
             If the container prefix is non-empty, a trailing slash ('/') will
@@ -186,7 +185,7 @@ class RunDirectoryUploaderHparams(CallbackHparams):
     def initialize_object(self) -> RunDirectoryUploader:
         from composer.callbacks.run_directory_uploader import RunDirectoryUploader
         return RunDirectoryUploader(
-            object_store_provider_hparams=self.provider,
+            object_store_provider_hparams=self,
             object_name_prefix=self.object_name_prefix,
             num_concurrent_uploads=self.num_concurrent_uploads,
             upload_staging_folder=self.upload_staging_folder,
