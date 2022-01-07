@@ -10,7 +10,6 @@ from torchmetrics import Metric
 from composer.models.loss import soft_cross_entropy
 
 
-# TODO (Moin): write tests for this!
 class MaskedAccuracy(Metric):
     """
     Computes accuracy with support for masked indicies.
@@ -39,7 +38,7 @@ class MaskedAccuracy(Metric):
         assert preds.shape == target.shape
 
         # mask out the padded indicies
-        mask = target != self.ignore_index
+        mask = (target != self.ignore_index)
         masked_target = target[mask]
         masked_preds = preds[mask]
 
@@ -115,15 +114,17 @@ class BinaryF1Score(Metric):
             each forward() before returning the value at the step.
 
     State:
-        predictions (list): predicted classes from the model
-        labels (list): ground-truth labels on the data
+        true_positive (float): a counter of how many items were correctly classified as positives
+        false_positive (float): a counter of how many items were incorrectly classified as positives
+        false_negative (float): a counter of how many items were incorrectly classified as negatives
     """
 
     def __init__(self, dist_sync_on_step=False):
         super().__init__(dist_sync_on_step=dist_sync_on_step)
 
-        self.add_state("predictions", default=[], dist_reduce_fx="cat")
-        self.add_state("labels", default=[], dist_reduce_fx="cat")
+        self.add_state("true_positive", default=torch.tensor(0.), dist_reduce_fx="sum")
+        self.add_state("false_positive", default=torch.tensor(0), dist_reduce_fx="sum")
+        self.add_state("false_negative", default=torch.tensor(0), dist_reduce_fx="sum")
 
     def update(self, output: Union[Mapping, Tensor], target: Tensor) -> None:
         """Updates the internal state with results from a new batch.
@@ -133,10 +134,10 @@ class BinaryF1Score(Metric):
                 either the Tensor or a Mapping type that contains the loss or model logits.
             target (Tensor): A Tensor of ground-truth values to compare against.
         """
-        assert isinstance(self.predictions, list)
-        assert isinstance(self.labels, list)
-        self.predictions.append(output)
-        self.labels.append(target)
+        predictions = torch.argmax(output, dim=1)
+        self.true_positive += predictions[(target == 1)].sum()
+        self.false_positive += (predictions[(target == 1)] == 0).sum()
+        self.false_negative += (predictions[(target == 0)] == 1).sum()
 
     def compute(self) -> float:
         """Aggregate the state over all processes to compute the metric.
@@ -144,11 +145,8 @@ class BinaryF1Score(Metric):
         Returns:
             loss (Tensor): The loss averaged across all batches.
         """
-        # take the argmax to get label indicies
-        assert isinstance(self.predictions, Tensor)
-        predictions = torch.argmax(self.predictions, dim=1).cpu()
-        labels = self.labels.cpu()
-        return float(f1_score(y_pred=predictions, y_true=labels))
+        f1 = (self.true_positive) / (self.true_positive + (0.5 * (self.false_negative + self.false_positive)))
+        return f1
 
 
 class LanguageCrossEntropyLoss(Metric):
