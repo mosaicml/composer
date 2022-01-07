@@ -61,10 +61,10 @@ class DataSpec:
     ) -> None:
         self.dataloader = dataloader
         self.num_tokens = num_tokens
-        self._device_transforms = self._default_device_transforms if device_transforms is None else device_transforms
-        self._split_batch = self._default_split_batch if split_batch is None else split_batch
-        self._get_num_samples_in_batch = self._default_get_num_samples_in_batch if get_num_samples_in_batch is None else get_num_samples_in_batch
-        self._get_num_tokens_in_batch = self._default_get_num_tokens_in_batch if get_num_tokens_in_batch is None else get_num_tokens_in_batch
+        self.device_transforms = self._default_device_transforms if device_transforms is None else device_transforms
+        self.split_batch = self._default_split_batch if split_batch is None else split_batch
+        self.get_num_samples_in_batch = self._default_get_num_samples_in_batch if get_num_samples_in_batch is None else get_num_samples_in_batch
+        self.get_num_tokens_in_batch = self._default_get_num_tokens_in_batch if get_num_tokens_in_batch is None else get_num_tokens_in_batch
         if num_samples is not None:
             self.num_samples = num_samples
 
@@ -77,24 +77,8 @@ class DataSpec:
             else:
                 self.num_samples = None
 
-    @property
-    def device_transforms(self):
-        return self._device_transforms
-
-    @device_transforms.setter
-    def device_transforms(self, device_transforms: Optional[Callable[[Batch], Batch]] = None):
-        self._device_transforms = self._default_device_transforms if device_transforms is None else device_transforms
-
     def _default_device_transforms(self, batch: Batch):
         return batch
-
-    @property
-    def split_batch(self):
-        return self._split_batch
-
-    @split_batch.setter
-    def split_batch(self, split_batch: Optional[Callable[[Batch, int], Sequence[Batch]]] = None):
-        self._split_batch = self._default_split_batch if split_batch is None else split_batch
 
     def _default_split_batch(self, batch: Batch, num_microbatches: int) -> Sequence[Batch]:
         if not isinstance(batch, Sequence):
@@ -112,27 +96,7 @@ class DataSpec:
             textwrap.dedent("""The default split_fn is unable to split the output of this
                 dataloader. Please use a DataSpec and specify `split_batch`."""))
 
-    @property
-    def get_num_samples_in_batch(self):
-        return self._get_num_samples_in_batch
-
-    @get_num_samples_in_batch.setter
-    def get_num_samples_in_batch(self, get_num_samples_in_batch: Optional[Callable[[Batch], int]] = None):
-        self._get_num_samples_in_batch = self._default_get_num_samples_in_batch if get_num_samples_in_batch is None else get_num_samples_in_batch
-
     def _default_get_num_samples_in_batch(self, batch: Batch) -> int:
-        """Returns the number of samples in the provided batch.
-
-        By default, if the batch contains tensors that all have the same length, then that
-        length will be returned. If the batch contains tensors where the lengths differ,
-        then this function must be overridden.
-
-        Args:
-            batch (Batch): The batch.
-
-        Returns:
-            int: The number of samples in the batch.
-        """
         if isinstance(batch, torch.Tensor):
             return batch.shape[0]
 
@@ -151,14 +115,6 @@ class DataSpec:
                 textwrap.dedent(f"""Cannot determine the batch size, as multiple Tensors of
                 different lengths were found in the batch: sizes in batch: {dim0_sizes}.
                 Please use a DataSpec and specify `get_num_samples_in_batch`."""))
-
-    @property
-    def get_num_tokens_in_batch(self):
-        return self._get_num_tokens_in_batch
-
-    @get_num_tokens_in_batch.setter
-    def get_num_tokens_in_batch(self, get_num_tokens_in_batch: Optional[Callable[[Batch], int]] = None):
-        self._get_num_tokens_in_batch = self._default_get_num_tokens_in_batch if get_num_tokens_in_batch is None else get_num_tokens_in_batch
 
     def _default_get_num_tokens_in_batch(self, batch: Batch) -> int:
         del batch  # unused
