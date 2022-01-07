@@ -67,7 +67,7 @@ class CheckpointLoader:
         chunk_size: int = 1_048_576,
         progress_bar: bool = True,
     ):
-      
+
         checkpoint_uri_parsed = urllib.parse.urlparse(checkpoint)
         if checkpoint_uri_parsed.scheme != "":
             if object_store_hparams is not None:

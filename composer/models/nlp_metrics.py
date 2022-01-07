@@ -3,7 +3,6 @@
 from typing import Mapping, Union
 
 import torch
-from sklearn.metrics import f1_score
 from torch import Tensor
 from torchmetrics import Metric
 
@@ -126,7 +125,7 @@ class BinaryF1Score(Metric):
         self.add_state("false_positive", default=torch.tensor(0), dist_reduce_fx="sum")
         self.add_state("false_negative", default=torch.tensor(0), dist_reduce_fx="sum")
 
-    def update(self, output: Union[Mapping, Tensor], target: Tensor) -> None:
+    def update(self, output: Tensor, target: Tensor) -> None:
         """Updates the internal state with results from a new batch.
 
         Args:
@@ -145,6 +144,10 @@ class BinaryF1Score(Metric):
         Returns:
             loss (Tensor): The loss averaged across all batches.
         """
+        assert isinstance(self.true_positive, Tensor)
+        assert isinstance(self.false_positive, Tensor)
+        assert isinstance(self.false_negative, Tensor)
+
         f1 = (self.true_positive) / (self.true_positive + (0.5 * (self.false_negative + self.false_positive)))
         return f1
 
