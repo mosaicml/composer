@@ -10,7 +10,7 @@ from composer.models.model_hparams import ModelHparams
 @dataclass
 class ViTSmallPatch16Hparams(ModelHparams):
     
-    dropout: float = hp.optional("dropout rate", default=0.0),
+    dropout: float = hp.optional("dropout rate", default=0.0)
     embedding_dropout: float = hp.optional("embedding dropout rate", default=0.0)
 
     def validate(self):
