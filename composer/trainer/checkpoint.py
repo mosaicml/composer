@@ -1,25 +1,27 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
+import contextlib
 import logging
 import os
 import random
-import tempfile
-import textwrap
 import shutil
 import tarfile
-import warnings
+import tempfile
+import textwrap
 import urllib.parse
-import requests
+import warnings
 from typing import Any, Dict, Optional
 
 import numpy as np
+import requests
 import torch
 import yaml
 
 from composer.core import Event, State
 from composer.core.types import StateDict
+from composer.trainer.checkpoint_hparams import CheckpointLoaderHparams
 from composer.trainer.devices.device import Device
-from composer.utils import ObjectStoreProviderHparams, dist, run_directory, reproducibility
+from composer.utils import ObjectStoreProviderHparams, dist, reproducibility, run_directory
 
 log = logging.getLogger(__name__)
 
@@ -49,39 +51,52 @@ class CheckpointLoader:
                  load_weights_only: bool = False,
                  strict_model_weights: bool = False):
         checkpoint_uri_parsed = urllib.parse.urlparse(checkpoint)
-
-        with tempfile.TemporaryDirectory() as tempdir:
-            if checkpoint_uri_parsed.scheme != "":
-                if object_store_hparams is not None:
-                    raise ValueError(textwrap.dedent("""When specifying `object_store_hparams`,
-                        the `checkpoint` parameter must be the key for the checkpoint in the bucket, NOT a uri."""))
-
-                if checkpoint_uri_parsed.scheme.lower() in ("http", "https"):
-                    with tempfile.TemporaryDirectory() as tempdir:
-                        checkpoint_filepath = os.path.join(tempdir, "checkpoint.pt")
-                        with requests.get(checkpoint, stream=True) as r:
-                            r.raise_for_status()
-                            with open(checkpoint_filepath, "wb") as f:
-                                for chunk in r.iter_content():
-                                    f.write(chunk)
-                else:
-                    object_store_hparams = ObjectStoreProviderHparams(
-                        provider=checkpoint_uri_parsed.scheme,
-                        container=checkpoint_uri_parsed.netloc,
-                    )
-                    checkpoint = checkpoint_uri_parsed.path
-
+        if checkpoint_uri_parsed.scheme != "":
             if object_store_hparams is not None:
-                provider = object_store_hparams.initialize_object()
-                checkpoint_filepath = os.path.join(tempdir, "checkpoint.pt")
-                provider.download_object(checkpoint, checkpoint_filepath)
-            else:
-                checkpoint_filepath = checkpoint
-            self.state_dict = torch.load(checkpoint_filepath, map_location='cpu')
+                raise ValueError(
+                    textwrap.dedent("""When specifying `object_store_hparams`,
+                    the `checkpoint` parameter must be the key for the checkpoint in the bucket, NOT a uri."""))
+        if checkpoint_uri_parsed.scheme.lower() not in ("http", "https"):
+            # assuming it is a cloud storage scheme then
+            object_store_hparams = ObjectStoreProviderHparams(
+                provider=checkpoint_uri_parsed.scheme,
+                container=checkpoint_uri_parsed.netloc,
+            )
+            checkpoint = checkpoint_uri_parsed.path
 
-        self.load_weights_only = load_weights_only
-        self.strict_model_weights = strict_model_weights
+        self.hparams = CheckpointLoaderHparams(
+            checkpoint=checkpoint,
+            object_store=object_store_hparams,
+            load_weights_only=load_weights_only,
+            strict_model_weights=strict_model_weights,
+        )
         self.checkpoint_rng_state = None
+
+    @contextlib.contextmanager
+    def _retrieve_checkpoint(self):
+        if self.hparams.object_store is not None:
+            provider = self.hparams.object_store.initialize_object()
+            with tempfile.TemporaryDirectory() as tempdir:
+                checkpoint_filepath = os.path.join(tempdir, "checkpoint.pt")
+                provider.download_object(self.hparams.checkpoint, checkpoint_filepath)
+                yield checkpoint_filepath
+                return
+        checkpoint_uri_parsed = urllib.parse.urlparse(self.hparams.checkpoint)
+
+        if checkpoint_uri_parsed.scheme == "":
+            # assume it's a local file
+            yield self.hparams.checkpoint
+            return
+
+        # it must be a http/https url
+        with requests.get(self.hparams.checkpoint, stream=True) as r:
+            r.raise_for_status()
+            with tempfile.TemporaryDirectory() as tempdir:
+                checkpoint_filepath = os.path.join(tempdir, "checkpoint.pt")
+                with open(checkpoint_filepath, "wb") as f:
+                    for chunk in r.iter_content():
+                        f.write(chunk)
+                yield checkpoint_filepath
 
     def load_checkpoint(self, state: State):
         """Initialize state from the loaded checkpoint's data.
@@ -95,16 +110,17 @@ class CheckpointLoader:
         seed_to_restore = None
 
         with tempfile.TemporaryDirectory() as checkpoint_folder:
-            with tarfile.open(self.checkpoint_filepath) as tarball:
-                tarball.extractall(checkpoint_folder)
+            with self._retrieve_checkpoint() as checkpoint_filepath:
+                with tarfile.open(checkpoint_filepath) as tarball:
+                    tarball.extractall(checkpoint_folder)
 
             checkpoint_tag = os.listdir(checkpoint_folder)[0]
             mosaic_checkpoint_filepath = get_mosaic_checkpoint_filepath(checkpoint_folder, checkpoint_tag)
 
             state_dict = torch.load(mosaic_checkpoint_filepath, map_location='cpu')
 
-            if self.load_weights_only:
-                state.load_model_state(state_dict['state'], strict=self.strict_model_weights)
+            if self.hparams.load_weights_only:
+                state.load_model_state(state_dict['state'], strict=self.hparams.strict_model_weights)
             else:
                 state.load_state_dict(state_dict["state"])
                 self.checkpoint_rng_state = self._get_checkpoint_rng_state(state_dict["rng"])
@@ -124,7 +140,7 @@ class CheckpointLoader:
                 if isinstance(state.model, deepspeed.DeepSpeedEngine):
                     load_path, _ = state.model.load_checkpoint(checkpoint_folder, checkpoint_tag)  # type: ignore
                     if load_path is None:
-                        raise RuntimeError(f"Failed to load DeepSpeed checkpoint from {self.checkpoint_filepath}")
+                        raise RuntimeError(f"Failed to load DeepSpeed checkpoint from {checkpoint_filepath}")
             except ImportError:
                 pass
 
@@ -137,7 +153,7 @@ class CheckpointLoader:
         if self.checkpoint_rng_state is None:
             return
 
-        assert ddp.get_world_size() == len(self.checkpoint_rng_state['torch']), textwrap.dedent(
+        assert dist.get_world_size() == len(self.checkpoint_rng_state['torch']), textwrap.dedent(
             """invariant violation: if the rng state is being restored, then
             the world size should be the same as in the checkpoint.""")
 
