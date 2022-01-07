@@ -56,13 +56,6 @@ class CheckpointLoader:
                 raise ValueError(
                     textwrap.dedent("""When specifying `object_store_hparams`,
                     the `checkpoint` parameter must be the key for the checkpoint in the bucket, NOT a uri."""))
-        if checkpoint_uri_parsed.scheme.lower() not in ("http", "https"):
-            # assuming it is a cloud storage scheme then
-            object_store_hparams = ObjectStoreProviderHparams(
-                provider=checkpoint_uri_parsed.scheme,
-                container=checkpoint_uri_parsed.netloc,
-            )
-            checkpoint = checkpoint_uri_parsed.path
 
         self.hparams = CheckpointLoaderHparams(
             checkpoint=checkpoint,
