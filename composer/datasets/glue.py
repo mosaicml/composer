@@ -9,7 +9,7 @@ import yahp as hp
 from composer.datasets.dataloader import DataloaderHparams
 from composer.datasets.hparams import DataloaderSpec, DatasetHparams
 from composer.datasets.lm_datasets import _split_dict_fn
-from composer.utils import ddp
+from composer.utils import dist
 
 log = logging.getLogger(__name__)
 
@@ -106,7 +106,7 @@ class GLUEHparams(DatasetHparams):
         )
 
         data_collator = transformers.data.data_collator.default_data_collator
-        sampler = ddp.get_sampler(dataset, drop_last=self.drop_last, shuffle=self.shuffle)
+        sampler = dist.get_sampler(dataset, drop_last=self.drop_last, shuffle=self.shuffle)
 
         return DataloaderSpec(
             dataloader=dataloader_hparams.initialize_object(
