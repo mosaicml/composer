@@ -35,5 +35,5 @@ def ensure_tuple(x: Union[T, Tuple[T, ...], List[T], Dict[Any, T]]) -> Tuple[T, 
 def zip_collection(singleton: Any, *others: Any) -> Generator[Tuple[Any, ...], None, None]:
     ...
 
-def iterate_with_pbar(progress_bar: Optional[tqdm.tqdm], iterator: Iterator[TSized]) -> Iterator[TSized]:
+def iterate_with_pbar(iterator: Iterator[TSized], progress_bar: Optional[tqdm.tqdm] = ...) -> Iterator[TSized]:
     ...

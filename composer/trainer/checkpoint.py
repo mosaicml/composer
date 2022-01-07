@@ -117,7 +117,7 @@ class CheckpointLoader:
         else:
             pbar = None
         with open(destination_filepath, "wb") as fp:
-            for chunk in iterate_with_pbar(pbar, iterator):
+            for chunk in iterate_with_pbar(iterator, pbar):
                 fp.write(chunk)
 
     def load_checkpoint(self, state: State):
@@ -274,8 +274,8 @@ class CheckpointSaver:
                 # only rank 0 saves checkpoints
 
                 # we add the state only on rank 0 since other processes don't have loggers to serialize
-                state_dict['state'] = state.state_dict(
-                )  # should be the same across all ranks. per-rank state not stored
+                # it should be the same across all ranks. per-rank state not stored
+                state_dict['state'] = state.state_dict()
 
                 if config:
                     hparams_path = os.path.join(self.checkpoint_folder, "hparams.yaml")
