@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 import warnings
-from typing import TYPE_CHECKING, Callable, ContextManager, Optional, Sequence, Union
+from typing import TYPE_CHECKING, Any, Callable, ContextManager, Dict, Optional, Sequence, Union
 
 import torch
 import torch.nn.modules.utils
@@ -73,10 +73,10 @@ class State(Serializable):
     Args:
         model (types.Model, often BaseMosaicModel): The model, typically as a subclass of :class:`BaseMosaicModel`.
         grad_accum (int): The number of gradient accumulation steps to use. The size of each microbatch is ``train_batch_size / num_gpus / grad_accum``.
-        train_dataloader (types.DataLoader or types.DataSpec):
-            The :class:`types.DataLoader` or :class:`types.DataSpec` to used for training.
-        eval_dataloader (types.DataLoader or types.DataSpec):
-            The :class:`types.DataLoader` or :class:`types.DataSpec` to used for evaluation.
+        train_dataloader (types.DataLoader, types.DataSpec, or dict):
+            The :class:`types.DataLoader`, :class:`types.DataSpec`, or dict of :class:`types.DataSpec` kwargs to used for training.
+        eval_dataloader (types.DataLoader, types.DataSpec, or dict):
+            The :class:`types.DataLoader`, :class:`types.DataSpec`, or dict of :class:`types.DataSpec` kwargs to used for evaluation.
         max_epochs (int): The maximum number of epochs to train for.
 
         precision (str | Precision): The numerical precision to use for training. Should be one of ``[fp32, amp]``.
@@ -105,8 +105,8 @@ class State(Serializable):
 
             # data configurations
             grad_accum: int,
-            train_dataloader: Union[types.DataLoader, types.DataSpec],
-            eval_dataloader: Union[types.DataLoader, types.DataSpec],
+            train_dataloader: Union[types.DataLoader, types.DataSpec, Dict[str, Any]],
+            eval_dataloader: Union[types.DataLoader, types.DataSpec, Dict[str, Any]],
 
             # stopping conditions
             max_epochs: int,
@@ -129,10 +129,16 @@ class State(Serializable):
         self.model = model
         self.grad_accum = grad_accum
         if not isinstance(train_dataloader, DataSpec):
-            train_dataloader = DataSpec(train_dataloader)
+            if isinstance(train_dataloader, dict):
+                train_dataloader = DataSpec(**train_dataloader)
+            else:
+                train_dataloader = DataSpec(train_dataloader)
         self.train_data = train_dataloader
         if not isinstance(eval_dataloader, DataSpec):
-            eval_dataloader = DataSpec(eval_dataloader)
+            if isinstance(eval_dataloader, dict):
+                eval_dataloader = DataSpec(**eval_dataloader)
+            else:
+                eval_dataloader = DataSpec(eval_dataloader)
         self.eval_data = eval_dataloader
         self.max_epochs = max_epochs
         self.step = 0

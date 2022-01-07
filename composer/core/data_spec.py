@@ -110,7 +110,7 @@ class DataSpec:
                 ))
         raise NotImplementedError(
             textwrap.dedent("""The default split_fn is unable to split the output of this
-            dataloader. Please use a DataSpec and specify `split_batch`."""))
+                dataloader. Please use a DataSpec and specify `split_batch`."""))
 
     @property
     def get_num_samples_in_batch(self):

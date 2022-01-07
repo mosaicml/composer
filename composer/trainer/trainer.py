@@ -51,8 +51,10 @@ class Trainer:
 
     Args:
         model (BaseMosaicModel): The model to train.
-        train_dataloader (DataLoader or DataSpec): The :class:`DataLoader` or :class:`DataSpec` for the training data.
-        eval_dataloader (DataLoader or DataSpec): The :class:`DataLoader` or :class:`DataSpec` for the evaluation data.
+        train_dataloader (DataLoader, DataSpec, or dict): The :class:`DataLoader`, :class:`DataSpec`,
+            or dict of :class:`DataSpec` kwargs for the training data.
+        eval_dataloader (DataLoader, DataSpec, or dict): The :class:`DataLoader`, :class:`DataSpec`,
+            or dict of :class:`DataSpec` kwargs for the evaluation data.
         max_epochs (int): The maxmimum number of epochs to train for.
         algorithms (List[Algorithm], optional): The algorithms to use during training.
             (default: ``[]``)
