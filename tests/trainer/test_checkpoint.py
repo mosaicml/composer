@@ -1,6 +1,7 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
 import os
+import pathlib
 import random
 import tarfile
 import tempfile
@@ -22,12 +23,14 @@ from composer.core.types import Logger, StateDict
 from composer.datasets import SyntheticHparamsMixin
 from composer.optim import AdamWHparams
 from composer.optim.scheduler import ConstantLRHparams, CosineAnnealingLRHparams
+from composer.trainer.checkpoint import CheckpointLoader
 from composer.trainer.checkpoint_hparams import CheckpointLoaderHparams, CheckpointSaverHparams
 from composer.trainer.deepspeed import DeepSpeedHparams
 from composer.trainer.devices import CPUDeviceHparams, DeviceHparams, GPUDeviceHparams
 from composer.trainer.trainer import Trainer
 from composer.trainer.trainer_hparams import TrainerHparams, callback_registry
 from composer.utils import run_directory
+from composer.utils.object_store import ObjectStoreProviderHparams
 from tests.test_state import assert_state_equivalent
 from tests.utils.deep_compare import deep_compare
 
@@ -422,3 +425,27 @@ def validate_events_called_expected_number_of_times(trainer: Trainer):
                 assert expected == actual, f"Event {event} expected to be called {expected} times, but instead it was called {actual} times"
             return
     assert False, "EventCounterCallback not found in callbacks"
+
+
+def test_checkpoint_load_uri():
+    loader = CheckpointLoader("https://example.com")
+    with loader._retrieve_checkpoint() as checkpoint:
+        with open(checkpoint, "r") as f:
+            assert f.readline().startswith("<!doctype html>")
+
+
+def test_checkpoint_load_object_uri(tmpdir: pathlib.Path):
+    remote_dir = tmpdir / "remote_dir"
+    os.makedirs(remote_dir)
+    provider_hparams = ObjectStoreProviderHparams(
+        provider='local',
+        key=str(remote_dir),  # for the local option, the key is the path
+        container=".",
+    )
+    with open(str(remote_dir / "checkpoint.txt"), 'wb') as f:
+        f.write(b"checkpoint1")
+    loader = CheckpointLoader("checkpoint.txt", object_store_hparams=provider_hparams)
+
+    with loader._retrieve_checkpoint() as checkpoint:
+        with open(checkpoint, "rb") as f:
+            f.read() == b"checkpoint1"
