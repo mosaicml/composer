@@ -58,11 +58,15 @@ class CheckpointLoader:
             is a local file path. (default: ``True``)
     """
 
-    def __init__(self,
-                 checkpoint: str,
-                 object_store_hparams: Optional[ObjectStoreProviderHparams] = None,
-                 load_weights_only: bool = False,
-                 strict_model_weights: bool = False):
+    def __init__(
+        self,
+        checkpoint: str,
+        object_store_hparams: Optional[ObjectStoreProviderHparams] = None,
+        load_weights_only: bool = False,
+        strict_model_weights: bool = False,
+        chunk_size: int = 1_048_576,
+        progress_bar: bool = True,
+    ):
 
         checkpoint_uri_parsed = urllib.parse.urlparse(checkpoint)
         if checkpoint_uri_parsed.scheme != "":
