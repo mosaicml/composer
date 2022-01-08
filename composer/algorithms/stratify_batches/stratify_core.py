@@ -1,9 +1,10 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
 import math
-from typing import Iterable, Iterator, List, Optional, Sequence, Tuple, TypeVar
+from typing import Any, Iterable, Iterator, List, Optional, Sequence, Tuple, TypeVar
 
 import numpy as np
+from numpy.typing import ArrayLike
 from torch.utils.data import DistributedSampler
 
 
@@ -39,6 +40,9 @@ class BalancedSampler:
         self.replace = replace
         self.rng = rng or np.random.default_rng()
         self.reset()
+        # redundant logic, but fixes pyright errors
+        self.tail = self.data
+        self.num_epochs_completed = 0
 
     def reset(self, rng: Optional[np.random.Generator] = None) -> None:
         if rng is not None:
@@ -161,6 +165,13 @@ def _sample_batches_balanced(samplers: Sequence[BalancedSampler], batch_size: in
     return batches
 
 
+def _compute_p_proportional(samplers):
+    # prob of each class is proportional to its number of unsampled
+    # elements; this results in uniform sampling of elements
+    unsampled_counts = np.array([s.num_unsampled_elements() for s in samplers])
+    return unsampled_counts / (unsampled_counts.sum() + 1e-10)
+
+
 def _sample_batches_imbalanced(samplers: Sequence[BalancedSampler], batch_size: int, num_batches: int,
                                rng: np.random.Generator, imbalance: float) -> List:
     assert 0. <= imbalance <= 1.
@@ -168,21 +179,15 @@ def _sample_batches_imbalanced(samplers: Sequence[BalancedSampler], batch_size: 
     num_classes = len(samplers)
     taken_counts = np.zeros(num_classes)
 
-    def compute_p_proportional(samplers):
-        # prob of each class is proportional to its number of unsampled
-        # elements; this results in uniform sampling of elements
-        unsampled_counts = np.array([s.num_unsampled_elements() for s in samplers])
-        return unsampled_counts / (unsampled_counts.sum() + 1e-10)
-
     for _ in range(num_batches):
         batch = []
         taken_counts[:] = 0
-        p_proportional = compute_p_proportional(samplers)
+        p_proportional = _compute_p_proportional(samplers)
         take_class = rng.choice(num_classes, size=1, p=p_proportional)[0]
         taken_counts[take_class] = 1
         batch.append(samplers[take_class].sample(1)[0])
         for _ in range(batch_size - 1):
-            p_proportional = compute_p_proportional(samplers)
+            p_proportional = _compute_p_proportional(samplers)
             # handle a previously taken class having no more new samples
             p_self_excite = (taken_counts + 1e-10) * (p_proportional > 0)
             # sample based on convex combo of uniform and self-exiciting distro
@@ -193,6 +198,21 @@ def _sample_batches_imbalanced(samplers: Sequence[BalancedSampler], batch_size: 
             batch.append(samplers[take_class].sample(1)[0])
         batches.append(batch)
 
+    return batches
+
+
+# experimental control that should be equivalent to uniform sampling without replacement
+def _sample_batches_baseline(samplers: Sequence[BalancedSampler], batch_size: int, num_batches: int,
+                          rng: np.random.Generator, **_) -> List:
+    batches = []
+    num_classes = len(samplers)
+    for b in range(num_batches):
+        batch = []
+        for _ in range(batch_size):
+            p_proportional = _compute_p_proportional(samplers)
+            take_class = rng.choice(num_classes, size=1, p=p_proportional)[0]
+            batch.append(samplers[take_class].sample(1)[0])
+        batches.append(batch)
     return batches
 
 
@@ -220,7 +240,9 @@ def sample_stragglers(samplers: Sequence[BalancedSampler],
     return batch
 
 
-def create_samplers(targets: Sequence[int], replace: bool) -> Tuple[np.array, np.array]:
+# def create_samplers(targets: np.array, replace: bool) -> Tuple[np.array, np.array]:
+# def create_samplers(targets: Any, replace: Any) -> Tuple[ArrayLike, ArrayLike]:
+def create_samplers(targets: Any, replace: bool) -> Tuple[ArrayLike, ArrayLike]:
     _class_to_idxs = groupby_ints(targets)
     classes = list(_class_to_idxs.keys())
     samplers = [BalancedSampler(_class_to_idxs[c], replace=replace) for c in classes]
@@ -243,6 +265,13 @@ def extract_targets_from_dataset(dataset: Sequence, targets_attr: Optional[str] 
     return targets
 
 
+_NAME_TO_SAMPLING_FUNC = {
+    'balance': _sample_batches_balanced,
+    'match': _sample_batches_match,
+    'imbalance': _sample_batches_imbalanced,
+    'baseline': _sample_batches_baseline,
+}
+
 T_co = TypeVar('T_co', covariant=True)
 
 
@@ -255,14 +284,13 @@ class StratifiedBatchSampler(DistributedSampler[T_co]):
                  targets: Optional[Sequence] = None,
                  shuffle: bool = True,
                  drop_last: bool = False,
-                 stratify_how: str = 'balance',
+                 stratify_how: str = 'match',
                  imbalance: float = .5,
                  targets_attr: Optional[str] = None,
                  seed: int = 42,
                  **kwargs):
         super().__init__(dataset=dataset, shuffle=shuffle, drop_last=drop_last, seed=seed, **kwargs)
         self.batch_size = batch_size
-
         if targets is None:
             targets = extract_targets_from_dataset(dataset, targets_attr=targets_attr)
 
@@ -271,11 +299,12 @@ class StratifiedBatchSampler(DistributedSampler[T_co]):
         if not shuffle:
             raise NotImplementedError("Sampling with shuffle=False is not yet supported")
         self.drop_last = drop_last
-        allowed_stratify_hows = ('balance', 'match', 'imbalance')
+        allowed_stratify_hows = _NAME_TO_SAMPLING_FUNC.keys()
         if stratify_how not in allowed_stratify_hows:
             raise ValueError(f"stratify_how must be one of {allowed_stratify_hows}, not {stratify_how}")
         self.stratify_how = stratify_how
         self.imbalance = imbalance
+        self.total_batch_size = batch_size * self.num_replicas
         self._set_targets(targets)
 
     def _set_targets(self, targets: Iterable):
@@ -289,19 +318,15 @@ class StratifiedBatchSampler(DistributedSampler[T_co]):
 
     def __iter__(self) -> Iterator[T_co]:
         total_num_samples = len(self.targets)
-        num_batches = total_num_samples // self.batch_size
-        has_stragglers = num_batches * self.batch_size < total_num_samples
+        num_batches = total_num_samples // self.total_batch_size
+        has_stragglers = num_batches * self.total_batch_size < total_num_samples
 
         rng = np.random.default_rng(self.seed + self.epoch)
         self._reset_samplers(rng)  # reset sampling for each epoch
 
-        f_sample = {
-            'balance': _sample_batches_balanced,
-            'match': _sample_batches_match,
-            'imbalance': _sample_batches_imbalanced,
-        }[self.stratify_how]
+        f_sample = _NAME_TO_SAMPLING_FUNC[self.stratify_how]
         batches = f_sample(self.samplers,
-                           batch_size=self.batch_size,
+                           batch_size=self.total_batch_size,
                            num_batches=num_batches,
                            rng=rng,
                            imbalance=self.imbalance)
@@ -309,7 +334,7 @@ class StratifiedBatchSampler(DistributedSampler[T_co]):
         if has_stragglers and not self.drop_last:
             batches.append(
                 sample_stragglers(self.samplers,
-                                  batch_size=self.batch_size,
+                                  batch_size=self.total_batch_size,
                                   total_num_samples=total_num_samples,
                                   rng=rng))
 
@@ -317,19 +342,21 @@ class StratifiedBatchSampler(DistributedSampler[T_co]):
         # similar approach to default DistributedSampler, except with batches;
         # see https://github.com/pytorch/pytorch/blob/d5988c5eca0221e9ef58918e4f0b504940cb926a/torch/utils/data/distributed.py#L94  # noqa
         num_batches = len(batches)
-        my_batch_idxs = np.arange(self.rank, num_batches, self.num_replicas)
-        my_batches = [batches[idx] for idx in my_batch_idxs]
 
-        min_num_batches = num_batches // self.num_replicas
-        max_num_batches = int(math.ceil(num_batches / self.num_replicas))
-        if self.drop_last:
-            my_batches = my_batches[:min_num_batches]
-        elif len(my_batches) < max_num_batches:
-            # construct a new batch of random idxs to balance the batch counts;
-            # these idxs *shouldn't* be the same across all replicas
-            my_rng = np.random.default_rng(self.seed + self.epoch + self.rank)
-            sample_idxs = my_rng.choice(total_num_samples, size=self.batch_size, replace=False)
-            my_batches.append(sample_idxs)
+        # shard each batch across the workers. We can't allocate whole batches
+        # across them since these batches use the logical batch size, not the
+        # per-worker batch size. We can't use the per-worker batch size because
+        # this is smaller and can make balancing them meaningless,
+        # if the class count is greater than the per-worker batch size.
+        my_start_idx = self.rank * self.batch_size
+        my_end_idx = my_start_idx + self.batch_size
+        my_batches = [b[my_start_idx:my_end_idx] for b in batches]
+
+        # our logic differs from DistributedSampler, so make sure that
+        # these public attributes reflect what's actually going on
+        # TODO move to __init__?
+        self.num_samples = self.batch_size * num_batches
+        self.total_size = self.num_samples * self.num_replicas
 
         return iter(my_batches)
 
