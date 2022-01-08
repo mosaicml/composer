@@ -17,7 +17,7 @@ from transformers.testing_utils import CaptureLogger
 from composer.core.types import Batch
 from composer.datasets.dataloader import DataloaderHparams
 from composer.datasets.hparams import DataloaderSpec, DatasetHparams
-from composer.utils import ddp
+from composer.utils import dist
 from composer.utils.data import get_subset_dataset
 
 log = logging.getLogger(__name__)
@@ -96,8 +96,8 @@ class StreamingLMDatasetHparams(DatasetHparams):
 
     def _shard_dataset(self, dataset):
         # Select a subset of filepaths for sharded DDP training
-        world_size = ddp.get_world_size()
-        rank = ddp.get_global_rank()
+        world_size = dist.get_world_size()
+        rank = dist.get_global_rank()
         filepaths = dataset._ex_iterable.kwargs['filepaths']
         # If subsampling using 'max_shards', determimistically choose shards
         if self.max_shards > 0:
@@ -212,7 +212,7 @@ class StreamingLMDatasetHparams(DatasetHparams):
 
         # Maybe limit the number of post-processed samples
         if self.max_samples > 0:
-            token_dataset = token_dataset.take(self.max_samples // ddp.get_world_size())
+            token_dataset = token_dataset.take(self.max_samples // dist.get_world_size())
 
         # Add approx num samples and create a SizedIterableDataset
         sized_iterable_dataset = SizedIterableDataset(token_dataset, self._get_approx_num_samples())

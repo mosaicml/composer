@@ -12,7 +12,7 @@ train_dataset:
     tokenizer_name: gpt2
     use_masked_lm: false
     seed: 17
-    shuffle: false
+    shuffle: true
     drop_last: true
 val_dataset:
   streaming_lm:
@@ -103,10 +103,8 @@ dataloader:
   num_workers: 1
   timeout: 0
   prefetch_factor: 2
-precision: fp16
+precision: amp
 grad_clip_norm: 1.0
 grad_accum: 22
 validate_every_n_batches: 1000
 validate_every_n_epochs: 1
-deepspeed:
-  enabled: true
