@@ -3,6 +3,7 @@
 from composer.core import types as types
 from composer.core.algorithm import Algorithm as Algorithm
 from composer.core.callback import Callback as Callback
+from composer.core.data_spec import DataSpec as DataSpec
 from composer.core.engine import Engine as Engine
 from composer.core.engine import Trace as Trace
 from composer.core.event import Event as Event
