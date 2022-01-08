@@ -4,7 +4,7 @@ train_dataset:
     dataset_config_name: en
     split: train
     max_shards: -1
-    max_samples: 39312985
+    max_samples: 34398861 # there's a bug, this is currently per-device 
     max_seq_len: 128 
     group_method: truncate # TODO: check that the code for this one is right
     tokenizer_name: bert-base-uncased
@@ -19,7 +19,7 @@ val_dataset:
     dataset_config_name: en
     split: validation
     max_shards: -1
-    max_samples: 32000 # TODO: fix this one
+    max_samples: 4000 # there's a bug, this is currently per-device 
     max_seq_len: 128 
     group_method: truncate # TODO: check that the code for this one is right
     tokenizer_name: bert-base-uncased 
@@ -55,13 +55,14 @@ schedulers:
       verbose: false
 loggers:
   - file:
-      log_level: batch
+      log_level: batch 
       filename: stdout
       buffer_size: 1
       flush_every_n_batches: 100
       every_n_batches: 100
       every_n_epochs: 1
-max_epochs: 7  # Baseline is 256M samples, 7 epochs is ~280M samples
+max_epochs: 1  # Baseline is 256M samples, 7 epochs is ~280M samples
+log_level: INFO 
 train_batch_size: 4000
 eval_batch_size: 2000
 seed: 19
