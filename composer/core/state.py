@@ -11,10 +11,10 @@ import torch.nn.modules.utils
 from torch.nn.parallel import DistributedDataParallel
 
 import composer.core.types as types
-from composer.models.base import BaseMosaicModel
 from composer.core.data_spec import DataSpec
 from composer.core.precision import Precision
 from composer.core.serializable import Serializable
+from composer.models.base import BaseMosaicModel
 from composer.utils import dist, ensure_tuple
 from composer.utils.precision import default_precision_factory
 
