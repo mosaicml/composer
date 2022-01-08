@@ -16,16 +16,16 @@ from composer.core.types import Algorithm, Event, Logger, State, Tensor
 
 
 def do_selective_backprop(
-    epoch: int,
+    current_duration: float,
     batch_idx: int,
-    start_epoch: int,
-    end_epoch: int,
+    start: float,
+    end: float,
     interrupt: int,
 ) -> bool:
     """Decide if selective backprop should be run based on time in training.
 
-    Returns true if the current ``epoch`` is between ``start_epoch`` and
-    ``end_epoch``. Recommend that SB be applied during the later stages of
+    Returns true if the ``current_duration`` is between ``start`` and
+    ``end``. Recommend that SB be applied during the later stages of
     a training run, once the model has already "learned" easy examples.
 
     To preserve convergence, SB can be interrupted with vanilla minibatch
@@ -34,16 +34,16 @@ def do_selective_backprop(
     alternate with vanilla minibatch steps.
 
     Args:
-        epoch: The current epoch during training
+        current_duration (float): The elapsed training duration, on [0.0; 1.0)
         batch_idx: The current batch within the epoch
-        start_epoch: The epoch at which selective backprop should be enabled
-        end_epoch: The epoch at which selective backprop should be disabled
+        start: The duration at which selective backprop should be enabled
+        end: The duration at which selective backprop should be disabled
         interrupt: The number of batches between vanilla minibatch gradient updates
 
     Returns:
         bool: If selective backprop should be performed on this batch.
     """
-    is_interval = ((epoch >= start_epoch) and (epoch < end_epoch))
+    is_interval = ((current_duration >= start) and (current_duration < end))
     is_step = ((interrupt == 0) or ((batch_idx + 1) % interrupt != 0))
 
     return is_interval and is_step
@@ -205,10 +205,10 @@ class SelectiveBackprop(Algorithm):
             return False
 
         is_chosen = do_selective_backprop(
-            epoch=state.epoch,
-            batch_idx=state.batch_idx,
-            start_epoch=int(state.max_epochs * self.hparams.start),
-            end_epoch=int(state.max_epochs * self.hparams.end),
+            current_duration=state.get_elapsed_duration().value,
+            batch_idx=state.timer.batch_in_epoch.value,
+            start=self.hparams.start,
+            end=self.hparams.end,
             interrupt=self.hparams.interrupt,
         )
         return is_chosen
