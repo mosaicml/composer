@@ -11,6 +11,7 @@ import torch.nn.modules.utils
 from torch.nn.parallel import DistributedDataParallel
 
 import composer.core.types as types
+from composer.models.base import BaseMosaicModel
 from composer.core.data_spec import DataSpec
 from composer.core.precision import Precision
 from composer.core.serializable import Serializable
@@ -165,6 +166,15 @@ class State(Serializable):
         self.scaler = scaler
         self._algorithms = list(algorithms)
         self._callbacks = list(callbacks)
+
+    @property
+    def original_model(self) -> BaseMosaicModel:
+        model = self.model
+        if isinstance(model, DistributedDataParallel):
+            model = model.module
+        if isinstance(model, BaseMosaicModel):
+            return model
+        raise RuntimeError(f"model is not of type {BaseMosaicModel.__name__}; instead it is {type(model).__name__}")
 
     @property
     def train_dataloader(self):
