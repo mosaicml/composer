@@ -37,7 +37,11 @@ class MaskedAccuracy(Metric):
         assert preds.shape == target.shape
 
         # mask out the padded indicies
-        mask = (target != self.ignore_index)
+        if self.ignore_index is not None:
+            mask = (target != self.ignore_index)
+        else:
+            mask = torch.ones_like(target).bool()
+
         masked_target = target[mask]
         masked_preds = preds[mask]
 

@@ -34,6 +34,7 @@ def _split_dict_fn(batch: Batch, n_microbatches: int) -> List[Batch]:
 
 CACHED_DATASET_SIZES = {"c4": {"en": {"train": (1024, 356317), "validation": (8, 45576)}}}
 
+
 @dataclass
 class StreamingLMDatasetHparams(DatasetHparams):
     """
@@ -45,7 +46,8 @@ class StreamingLMDatasetHparams(DatasetHparams):
         "If required, the specific configuration of the dataset that you would like to use.", default=None)
     split: str = hp.optional("What split of the dataset to use (e.g. 'train' or 'validation' or 'test')", default=None)
     max_shards: int = hp.optional("Max number of shards, used to deterministically reduce dataset size.", default=-1)
-    max_samples: int = hp.optional("Max number of post-processed samples, note that the subset will depend on seed and world size.", default=-1)
+    max_samples: int = hp.optional(
+        "Max number of post-processed samples, note that the subset will depend on seed and world size.", default=-1)
     tokenizer_name: str = hp.optional("The name of the tokenizer to preprocess text with.", default=None)
     max_seq_len: int = hp.optional("The max sequence length of each token sample.", default=None)
     group_method: str = hp.optional("How to group text samples into token samples.", default=None)
@@ -78,13 +80,16 @@ class StreamingLMDatasetHparams(DatasetHparams):
             if self.max_samples > 0:
                 return self.max_samples
             else:
-                n_shards, samples_per_shard = CACHED_DATASET_SIZES[self.dataset_name][self.dataset_config_name][self.split]
+                # NOTE for abhi: I think the number of samples is actually provided in DatasetInfo
+                n_shards, samples_per_shard = CACHED_DATASET_SIZES[self.dataset_name][self.dataset_config_name][
+                    self.split]
                 n_shards = self.max_shards if self.max_shards > 0 else n_shards
                 return n_shards * samples_per_shard
         except:
             raise NotImplementedError
 
     def _get_approx_num_tokens(self):
+        # note for Abhi: is this hardcoded for C4?
         return 1e12
 
     def _subsample(self, device_offset, text_batch):
@@ -137,7 +142,7 @@ class StreamingLMDatasetHparams(DatasetHparams):
             truncation = False
             padding = False
             max_length = None
-        return self.tokenizer(text_batch["text"], truncation=truncation, padding=padding, max_length=max_length)
+        return self.tokenizer(text=text_batch["text"], truncation=truncation, padding=padding, max_length=max_length)
 
     def _group_tokens(self, token_batch):
         if self.group_method == "concat":
@@ -159,7 +164,8 @@ class StreamingLMDatasetHparams(DatasetHparams):
 
             # Split into token samples of size max_seq_len.
             result = {
-                k: [v[i:i + self.max_seq_len] for i in range(0, num_tokens, self.max_seq_len)] for k, v in concat_tokens.items()
+                k: [v[i:i + self.max_seq_len] for i in range(0, num_tokens, self.max_seq_len)
+                   ] for k, v in concat_tokens.items()
             }
             result["labels"] = result["input_ids"].copy()
             return result
@@ -184,6 +190,7 @@ class StreamingLMDatasetHparams(DatasetHparams):
 
         # Shuffle
         if self.shuffle:
+            # note for abhi: this should be a hparam
             text_dataset = text_dataset.shuffle(buffer_size=10000, seed=self.seed)
 
         # Map text samples to token samples
@@ -216,15 +223,14 @@ class StreamingLMDatasetHparams(DatasetHparams):
         # Add approx num samples and create a SizedIterableDataset
         sized_iterable_dataset = SizedIterableDataset(token_dataset, self._get_approx_num_samples())
 
-
         # Get collate_fn
         if self.tokenizer_name in ["gpt2"]:
             # Really annoying but GPT2 tokenizer has no padding token which causes bugs
             collate_fn = transformers.default_data_collator
         else:
             collate_fn = transformers.DataCollatorForLanguageModeling(tokenizer=self.tokenizer,
-                                                                  mlm=self.use_masked_lm,
-                                                                  mlm_probability=self.mlm_probability)
+                                                                      mlm=self.use_masked_lm,
+                                                                      mlm_probability=self.mlm_probability)
         # Return DataloaderSpec
         return DataloaderSpec(dataloader=dataloader_hparams.initialize_object(
             dataset=sized_iterable_dataset,
