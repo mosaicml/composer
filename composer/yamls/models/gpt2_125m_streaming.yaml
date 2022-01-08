@@ -1,0 +1,110 @@
+# GPT2-125m with streaming C4 dataset
+
+train_dataset:
+  streaming_lm:
+    dataset_name: c4
+    dataset_config_name: en
+    split: train
+    max_shards: -1
+    max_samples: 7168000
+    max_seq_len: 1024
+    group_method: concat
+    tokenizer_name: gpt2
+    use_masked_lm: false
+    seed: 17
+    shuffle: true
+    drop_last: true
+val_dataset:
+  streaming_lm:
+    dataset_name: c4
+    dataset_config_name: en
+    split: validation
+    max_shards: -1
+    max_samples: 128000
+    max_seq_len: 1024
+    group_method: concat
+    tokenizer_name: gpt2
+    use_masked_lm: false
+    seed: 17
+    shuffle: false
+    drop_last: true
+
+model:
+  gpt2:
+    use_pretrained: false
+    tokenizer_name: gpt2
+    model_config:
+      activation_function: gelu_new
+      architectures:
+        - GPT2LMHeadModel
+      attn_pdrop: 0.1
+      bos_token_id: 50256
+      embd_pdrop: 0.1
+      eos_token_id: 50256
+      initializer_range: 0.02
+      layer_norm_epsilon: 1.0e-05
+      model_type: gpt2
+      n_ctx: 1024
+      n_embd: 768
+      n_head: 12
+      n_inner: 3072
+      n_layer: 12
+      n_positions: 1024
+      resid_pdrop: 0.1
+      scale_attn_weights: true
+      summary_activation: null
+      summary_first_dropout: 0.1
+      summary_proj_to_labels: true
+      summary_type: cls_index
+      summary_use_proj: true
+      task_specific_params:
+        text-generation:
+          do_sample: true
+          max_length: 50
+      transformers_version: 4.11.0.dev0
+      use_cache: true
+      vocab_size: 50257
+optimizer:
+  adamw:
+    lr: 6.0e-4
+    betas:
+      - 0.9
+      - 0.999
+    eps: 1.0e-08
+    weight_decay: 0.0
+schedulers:
+  - warmup:
+      warmup_method: linear
+      warmup_factor: 0
+      interval: step
+      warmup_iters: 140ba
+  - cosine_decay:
+      interval: step
+      eta_min: 0
+      verbose: false
+      T_max: 13860ba
+loggers:
+  - file:
+      log_level: batch
+      filename: stdout
+      buffer_size: 1
+      flush_every_n_batches: 100
+      every_n_batches: 100
+      every_n_epochs: 1
+max_epochs: 1
+train_batch_size: 512
+eval_batch_size: 8 # use micro_bs_per_gpu = 1 to accomodate 10GB limit
+seed: 17
+device:
+  gpu: {}
+dataloader:
+  pin_memory: true
+  persistent_workers: true
+  num_workers: 1
+  timeout: 0
+  prefetch_factor: 2
+precision: amp
+grad_clip_norm: 1.0
+grad_accum: 22
+validate_every_n_batches: 1000
+validate_every_n_epochs: 1
