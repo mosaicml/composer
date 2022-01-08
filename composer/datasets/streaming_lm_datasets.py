@@ -75,13 +75,12 @@ class StreamingLMDatasetHparams(DatasetHparams):
 
     def _get_approx_num_samples(self):
         try:
-            n_shards, samples_per_shard = CACHED_DATASET_SIZES[self.dataset_name][self.dataset_config_name][self.split]
-            n_shards = self.max_shards if self.max_shards > 0 else n_shards
-            total_samples = n_shards * samples_per_shard
             if self.max_samples > 0:
                 return self.max_samples
             else:
-                return total_samples
+                n_shards, samples_per_shard = CACHED_DATASET_SIZES[self.dataset_name][self.dataset_config_name][self.split]
+                n_shards = self.max_shards if self.max_shards > 0 else n_shards
+                return n_shards * samples_per_shard
         except:
             raise NotImplementedError
 
