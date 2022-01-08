@@ -14,13 +14,13 @@ import composer.core.types as types
 from composer.core.data_spec import DataSpec
 from composer.core.precision import Precision
 from composer.core.serializable import Serializable
-from composer.models.base import BaseMosaicModel
 from composer.utils import dist, ensure_tuple
 from composer.utils.precision import default_precision_factory
 
 if TYPE_CHECKING:
     from composer.core.callback import Callback
     from composer.core.types import Algorithm
+    from composer.models.base import BaseMosaicModel
 
 logger = logging.getLogger(__name__)
 
@@ -169,6 +169,7 @@ class State(Serializable):
 
     @property
     def original_model(self) -> BaseMosaicModel:
+        from composer.models.base import BaseMosaicModel
         model = self.model
         if isinstance(model, DistributedDataParallel):
             model = model.module
