@@ -34,7 +34,6 @@ def _split_dict_fn(batch: Batch, n_microbatches: int) -> List[Batch]:
 
 CACHED_DATASET_SIZES = {"c4": {"en": {"train": (1024, 356317), "validation": (8, 45576)}}}
 
-
 @dataclass
 class StreamingLMDatasetHparams(DatasetHparams):
     """
@@ -45,6 +44,8 @@ class StreamingLMDatasetHparams(DatasetHparams):
     dataset_config_name: Optional[str] = hp.optional(
         "If required, the specific configuration of the dataset that you would like to use.", default=None)
     split: str = hp.optional("What split of the dataset to use (e.g. 'train' or 'validation' or 'test')", default=None)
+    max_shards: int = hp.optional("Max number of shards, used to deterministically reduce dataset size.", default=-1)
+    max_samples: int = hp.optional("Max number of post-processed samples, note that the subset will depend on seed and world size.", default=-1)
     tokenizer_name: str = hp.optional("The name of the tokenizer to preprocess text with.", default=None)
     max_seq_len: int = hp.optional("The max sequence length of each token sample.", default=None)
     group_method: str = hp.optional("How to group text samples into token samples.", default=None)
@@ -57,36 +58,37 @@ class StreamingLMDatasetHparams(DatasetHparams):
     drop_last: bool = hp.optional("Whether to drop the last samples for the last batch.", default=False)
 
     def validate(self):
-        assert self.group_method in ["crop", "concat"], f"Unknown group_method: '{self.group_method}'"
-
+        assert self.group_method in ["truncate", "concat"], f"Unknown group_method: '{self.group_method}'"
+        assert self.drop_last == True, "No support for 'drop_last'=False currently."
+        if self.group_method == "concat":
+            assert self.max_samples > 0, f"Must provide 'max_samples' if 'group_method'='concat'"
         if self.use_masked_lm:
             if self.mlm_probability <= 0.0:
                 raise ValueError(
                     "If using Masked Language Modeling, you must replace tokens with a non-zero probability.")
-            raise NotImplementedError
 
-    def load_dataset(self):
+    def _load_dataset(self):
         return datasets.load_dataset(path=self.dataset_name,
                                      name=self.dataset_config_name,
                                      split=self.split,
                                      streaming=True)
 
-    def get_approx_num_samples(self):
+    def _get_approx_num_samples(self):
         try:
             n_shards, samples_per_shard = CACHED_DATASET_SIZES[self.dataset_name][self.dataset_config_name][self.split]
-            return n_shards * samples_per_shard
+            n_shards = self.max_shards if self.max_shards > 0 else n_shards
+            total_samples = n_shards * samples_per_shard
+            if self.max_samples > 0:
+                return self.max_samples
+            else:
+                return total_samples
         except:
-            log.info("Iterating over dataset to determine # samples")
-            dataset = self.load_dataset()
-            samples = 0
-            for _ in iter(dataset):
-                samples += 1
-            return samples
+            raise NotImplementedError
 
-    def get_approx_num_tokens(self):
+    def _get_approx_num_tokens(self):
         return 1e12
 
-    def _subsample(device_offset, text_batch):
+    def _subsample(self, device_offset, text_batch):
         # Only return the i-th item out of N sequential items
         for k, v in text_batch.items():
             text_batch[k] = v[device_offset:device_offset + 1]
@@ -97,6 +99,9 @@ class StreamingLMDatasetHparams(DatasetHparams):
         world_size = ddp.get_world_size()
         rank = ddp.get_global_rank()
         filepaths = dataset._ex_iterable.kwargs['filepaths']
+        # If subsampling using 'max_shards', determimistically choose shards
+        if self.max_shards > 0:
+            filepaths = filepaths[:self.max_shards]
         num_shards = len(filepaths)
 
         devices_per_shard = 1
@@ -123,18 +128,20 @@ class StreamingLMDatasetHparams(DatasetHparams):
             )
         return dataset
 
-    def _tokenize(text_batch):
+    def _tokenize(self, text_batch):
         # Convert a text batch to a token batch
-        return self.tokenizer(text_batch["text"])
+        if self.group_method == "truncate":
+            truncation = True
+            padding = 'max_length'
+            max_length = self.max_seq_len
+        else:
+            truncation = False
+            padding = False
+            max_length = None
+        return self.tokenizer(text_batch["text"], truncation=truncation, padding=padding, max_length=max_length)
 
-    def _group_tokens(max_seq_len, group_method, token_batch):
-        # Convert a batch of variable-length token samples to a grouped batch with fixed-length token samples
-        # Every new token sample will have length 'max_seq_len'
-        # Some tokens at the end of the original batch may be dropped.
-        if group_method == "crop":
-            raise NotImplementedError
-
-        elif group_method == "concat":
+    def _group_tokens(self, token_batch):
+        if self.group_method == "concat":
             # Concatenate all tokens.
             concat_tokens = {}
             num_tokens = None
@@ -148,12 +155,12 @@ class StreamingLMDatasetHparams(DatasetHparams):
 
             # We drop the small remainder of tokens at the end of the batch,
             # In the future we could support padding.
-            if num_tokens >= max_seq_len:
-                num_tokens = (num_tokens // max_seq_len) * max_seq_len
+            if num_tokens >= self.max_seq_len:
+                num_tokens = (num_tokens // self.max_seq_len) * self.max_seq_len
 
             # Split into token samples of size max_seq_len.
             result = {
-                k: [v[i:i + max_seq_len] for i in range(0, num_tokens, max_seq_len)] for k, v in concat_tokens.items()
+                k: [v[i:i + self.max_seq_len] for i in range(0, num_tokens, self.max_seq_len)] for k, v in concat_tokens.items()
             }
             result["labels"] = result["input_ids"].copy()
             return result
@@ -162,19 +169,19 @@ class StreamingLMDatasetHparams(DatasetHparams):
 
     def initialize_object(self, batch_size: int, dataloader_hparams: DataloaderHparams) -> DataloaderSpec:
         assert dataloader_hparams.num_workers == 1, "LM Streaming Dataloader only supports num_workers=1"
+
         try:
             import datasets
             import transformers
         except ImportError:
             raise ImportError('huggingface transformers and datasets are not installed. '
                               'Please install with `pip install mosaicml-composer[nlp]`')
-        self.tokenizer = transformers.AutoTokenizer.from_pretrained(
-            self.tokenizer_name, max_model_input_sizes=None)  #type: ignore (thirdparty)
+        self.tokenizer = transformers.AutoTokenizer.from_pretrained(self.tokenizer_name)  #type: ignore (thirdparty)
         self.config = transformers.AutoConfig.from_pretrained(self.tokenizer_name)  #type: ignore (thirdparty)
 
         # Load and shard dataset
-        text_dataset = self.load_dataset()
-        text_dataset = self.shard_dataset(text_dataset)
+        text_dataset = self._load_dataset()
+        text_dataset = self._shard_dataset(text_dataset)
 
         # Shuffle
         if self.shuffle:
@@ -190,39 +197,54 @@ class StreamingLMDatasetHparams(DatasetHparams):
             batch_size=text_sample_batch_size,
         )
 
-        # Map variable-length token samples to fixed-length token samples
-        # NOTE: Mapping is executed in batched mode for better CPU utilization,
-        # but the returned dataset is still an iterable over tokenized samples.
-        # NOTE: Depending on the 'group_method', this step may alter the number of
-        # token samples in the dataset, and may mix neighboring token samples together.
-        token_sample_batch_size = 1000
-        grouped_token_dataset = token_dataset.map(
-            partial(self._group_tokens, self.max_seq_len, self.group_method),
-            batched=True,
-            batch_size=token_sample_batch_size,
-        )
+        if self.group_method != "truncate":
+            # Map variable-length token samples to fixed-length token samples
+            # NOTE: Mapping is executed in batched mode for better CPU utilization,
+            # but the returned dataset is still an iterable over tokenized samples.
+            # NOTE: Depending on the 'group_method', this step may alter the number of
+            # token samples in the dataset, and may mix neighboring token samples together.
+            token_sample_batch_size = 1000
+            token_dataset = token_dataset.map(
+                self._group_tokens,
+                batched=True,
+                batch_size=token_sample_batch_size,
+            )
 
+        # Maybe limit the number of post-processed samples
+        if self.max_samples > 0:
+            token_dataset = token_dataset.take(self.max_samples // ddp.get_world_size())
+
+        # Add approx num samples and create a SizedIterableDataset
+        sized_iterable_dataset = SizedIterableDataset(token_dataset, self._get_approx_num_samples())
+
+
+        # Get collate_fn
+        if self.tokenizer_name in ["gpt2"]:
+            # Really annoying but GPT2 tokenizer has no padding token which causes bugs
+            collate_fn = transformers.default_data_collator
+        else:
+            collate_fn = transformers.DataCollatorForLanguageModeling(tokenizer=self.tokenizer,
+                                                                  mlm=self.use_masked_lm,
+                                                                  mlm_probability=self.mlm_probability)
         # Return DataloaderSpec
         return DataloaderSpec(dataloader=dataloader_hparams.initialize_object(
-            dataset=SizedIterableDataset(grouped_token_dataset),
+            dataset=sized_iterable_dataset,
             batch_size=batch_size,
-            batch_sampler=None,
+            sampler=None,
             drop_last=self.drop_last,
-            collate_fn=transformers.data.data_collator.default_data_collator,
+            collate_fn=collate_fn,
         ),
                               split_fn=_split_dict_fn)
 
 
-class SizedIterableDataset(datasets.IterableDataset):
+class SizedIterableDataset(torch.utils.data.IterableDataset):
 
-    def __init__(self, dataset):
-        super().__init__(
-            ex_iterable=dataset._ex_iterable,
-            info=copy.deepcopy(dataset._info),
-            split=dataset._split,
-            format_type=dataset._format_type,
-            shuffling=copy.deepcopy(dataset._shuffling),
-        )
+    def __init__(self, hf_iterable_dataset, num_samples):
+        self.hf_iterable_dataset = hf_iterable_dataset
+        self.num_samples = num_samples
+
+    def __iter__(self):
+        return iter(self.hf_iterable_dataset)
 
     def __len__(self):
-        return 1e12  # HACK: iterable dataset size is not known
+        return self.num_samples
