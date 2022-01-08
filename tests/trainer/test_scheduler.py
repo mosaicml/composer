@@ -1,6 +1,6 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
-from typing import Dict, Type
+from typing import Dict, Type, Union
 from unittest import mock
 
 import pytest
@@ -38,10 +38,6 @@ time_field: Dict[Type[SchedulerHparams], str] = {
 }
 
 EXPECTED_RESULTS_TIME_CONVERSION = {
-    '33ep12ba': {
-        'steps': 3312,
-        'epochs': 33
-    },
     '17ep': {
         'steps': 1700,
         'epochs': 17
@@ -71,7 +67,7 @@ def dummy_optimizer(dummy_parameters) -> torch.optim.Optimizer:
 @pytest.mark.parametrize("scheduler_name", scheduler_registry.keys())
 class TestSchedulerInit():
 
-    def test_scheduler_initialization(self, scheduler_name, dummy_optimizer):
+    def test_scheduler_initialization(self, scheduler_name: str, dummy_optimizer):
 
         # create the scheduler hparams object
         obj: Type[SchedulerHparams] = scheduler_registry[scheduler_name]
@@ -84,7 +80,8 @@ class TestSchedulerInit():
 
     @pytest.mark.parametrize('timestrings', EXPECTED_RESULTS_TIME_CONVERSION.keys())
     @pytest.mark.parametrize('interval', ['steps', 'epochs'])
-    def test_scheduler_time_conversion(self, scheduler_name, dummy_optimizer, timestrings, interval):
+    def test_scheduler_time_conversion(self, scheduler_name: str, dummy_optimizer, timestrings: Union[str, int],
+                                       interval: str):
         expected = EXPECTED_RESULTS_TIME_CONVERSION[timestrings][interval]
         obj: Type[SchedulerHparams] = scheduler_registry[scheduler_name]
 

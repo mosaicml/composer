@@ -37,8 +37,10 @@ def log_destination(log_file_name: str) -> FileLoggerBackend:
 
 def test_file_logger(dummy_state: State, log_destination: FileLoggerBackend, monkeypatch: MonkeyPatch,
                      log_file_name: str):
-    dummy_state.step = 2
-    dummy_state.epoch = 2
+    dummy_state.timer.on_batch_complete()
+    dummy_state.timer.on_batch_complete()
+    dummy_state.timer.on_epoch_complete()
+    dummy_state.timer.on_epoch_complete()
     logger = Logger(dummy_state, backends=[log_destination])
     monkeypatch.setattr(dist, "get_rank", lambda: 0)
     log_destination.run_event(Event.INIT, dummy_state, logger)
@@ -46,10 +48,10 @@ def test_file_logger(dummy_state: State, log_destination: FileLoggerBackend, mon
     logger.metric_epoch({"metric": "epoch"})  # should print
     logger.metric_batch({"metric": "batch"})  # should print
     logger.metric_verbose({"metric": "verbose"})  # should NOT print, since we're on the BATCH log level
-    dummy_state.epoch = 3
+    dummy_state.timer.on_epoch_complete()
     logger.metric_epoch({"metric": "epoch1"})  # should NOT print, since we print every 2 epochs
-    dummy_state.epoch = 4
-    dummy_state.step = 3
+    dummy_state.timer.on_epoch_complete()
+    dummy_state.timer.on_batch_complete()
     log_destination.run_event(Event.BATCH_END, dummy_state, logger)
     logger.metric_epoch({"metric": "epoch2"})  # should print
     logger.metric_batch({"metric": "batch1"})  # should NOT print, since we print every 3 steps
@@ -78,13 +80,14 @@ def test_tqdm_logger(mosaic_trainer_hparams: TrainerHparams, monkeypatch: Monkey
         return mock_tqdm
 
     monkeypatch.setattr(tqdm, "tqdm", get_mock_tqdm)
+    max_epochs = 2
+    mosaic_trainer_hparams.max_duration = f"{max_epochs}ep"
     mosaic_trainer_hparams.loggers = [TQDMLoggerBackendHparams()]
     trainer = mosaic_trainer_hparams.initialize_object()
     trainer.fit()
-    assert len(is_train_to_mock_tqdms[True]) == mosaic_trainer_hparams.max_epochs
+    assert len(is_train_to_mock_tqdms[True]) == max_epochs
     assert mosaic_trainer_hparams.validate_every_n_batches < 0
-    assert len(is_train_to_mock_tqdms[False]
-              ) == mosaic_trainer_hparams.validate_every_n_epochs * mosaic_trainer_hparams.max_epochs
+    assert len(is_train_to_mock_tqdms[False]) == mosaic_trainer_hparams.validate_every_n_epochs * max_epochs
     for mock_tqdm in is_train_to_mock_tqdms[True]:
         assert mock_tqdm.update.call_count == trainer.state.steps_per_epoch
         mock_tqdm.close.assert_called_once()

@@ -5,7 +5,7 @@ from __future__ import annotations
 import re
 import textwrap
 import warnings
-from typing import TYPE_CHECKING, Union
+from typing import TYPE_CHECKING, Generic, TypeVar, Union, cast
 
 from composer.core.serializable import Serializable
 from composer.utils.string_enum import StringEnum
@@ -38,8 +38,10 @@ _TIME_STR_REGEX = re.compile(r'^(?:' + r'|'.join(fr"(?:({_NUM_REGEX})({time_unit
                              r')$',
                              flags=re.IGNORECASE)
 
+TValue = TypeVar("TValue", int, float)
 
-class Time:
+
+class Time(Generic[TValue]):
     """Time represents static durations of training time or points in the training process in terms of a 
     :class:`TimeUnit` enum (epochs, batches, samples, tokens, or duration).
 
@@ -89,12 +91,12 @@ class Time:
 
     def __init__(
         self,
-        value: Union[int, float],
+        value: TValue,
         unit: Union[str, TimeUnit],
     ):
         unit = TimeUnit(unit)
         if unit == TimeUnit.DURATION:
-            value = float(value)
+            value = cast(TValue, float(value))
         else:
             if not isinstance(value, int):
                 raise TypeError(f"value {value} is of type {type(value)}. Units {unit} require integer values.")
@@ -168,7 +170,7 @@ class Time:
         return cls(duration, TimeUnit.DURATION)
 
     @property
-    def value(self) -> Union[int, float]:
+    def value(self) -> TValue:
         """The value of the time, as a number."""
         return self._value
 
@@ -195,6 +197,12 @@ class Time:
         raise NotImplementedError(f"Cannot convert type {other} to {self.__class__.__name__}")
 
     def _cmp(self, other: object) -> int:
+        # When doing comparisions, and other is an integer (or float), we can safely infer
+        # the unit from self.unit
+        # E.g. calls like this should be allowed: if batch < 42: do_something()
+        # This eliminates the need to call .value everywhere
+        if isinstance(other, (int, float)):
+            other = type(self)(other, self.unit)
         other = self._parse(other)
         if self.unit != other.unit:
             raise RuntimeError(f"Cannot compare {self} to {other} since they have different units.")
@@ -298,7 +306,7 @@ class Time:
         value = float(value)  # always parsing first as float b/c it could be scientific notation
         if unit != TimeUnit.DURATION:
             value = int(value)
-        return Time(value, unit)
+        return cls(value, unit)
 
 
 class Timer(Serializable):
@@ -309,6 +317,9 @@ class Timer(Serializable):
         self._batch = Time(0, TimeUnit.BATCH)
         self._sample = Time(0, TimeUnit.SAMPLE)
         self._token = Time(0, TimeUnit.TOKEN)
+        self._batch_in_epoch = Time(0, TimeUnit.BATCH)
+        self._sample_in_epoch = Time(0, TimeUnit.SAMPLE)
+        self._token_in_epoch = Time(0, TimeUnit.TOKEN)
 
     def state_dict(self) -> StateDict:
         return {
@@ -316,6 +327,9 @@ class Timer(Serializable):
             "batch": self.batch.value,
             "sample": self.sample.value,
             "token": self.token.value,
+            "batch_in_epoch": self.batch_in_epoch.value,
+            "sample_in_epoch": self.sample_in_epoch.value,
+            "token_in_epoch": self.token_in_epoch.value,
         }
 
     def load_state_dict(self, state: StateDict) -> None:
@@ -323,28 +337,46 @@ class Timer(Serializable):
         self._batch = Time(state["batch"], TimeUnit.BATCH)
         self._sample = Time(state["sample"], TimeUnit.SAMPLE)
         self._token = Time(state["token"], TimeUnit.TOKEN)
+        self._batch_in_epoch = Time(state["batch_in_epoch"], TimeUnit.BATCH)
+        self._sample_in_epoch = Time(state["sample_in_epoch"], TimeUnit.SAMPLE)
+        self._token_in_epoch = Time(state["token_in_epoch"], TimeUnit.TOKEN)
 
     @property
-    def epoch(self) -> Time:
+    def epoch(self) -> Time[int]:
         """The current epoch."""
         return self._epoch
 
     @property
-    def batch(self) -> Time:
+    def batch(self) -> Time[int]:
         """The current batch."""
         return self._batch
 
     @property
-    def sample(self) -> Time:
+    def sample(self) -> Time[int]:
         """The current sample."""
         return self._sample
 
     @property
-    def token(self) -> Time:
+    def token(self) -> Time[int]:
         """The current token."""
         return self._token
 
-    def get(self, unit: Union[str, TimeUnit]) -> Time:
+    @property
+    def batch_in_epoch(self) -> Time[int]:
+        """The number of batches seen in the current epoch (resets at 0 at the beginning of every epoch)."""
+        return self._batch_in_epoch
+
+    @property
+    def sample_in_epoch(self) -> Time[int]:
+        """The number of samples seen in the current epoch (resets at 0 at the beginning of every epoch)."""
+        return self._sample_in_epoch
+
+    @property
+    def token_in_epoch(self) -> Time[int]:
+        """The number of tokens seen in the current epoch (resets at 0 at the beginning of every epoch)."""
+        return self._token_in_epoch
+
+    def get(self, unit: Union[str, TimeUnit]) -> Time[int]:
         """Returns the current time in the specified unit.
 
         Args:
@@ -377,13 +409,67 @@ class Timer(Serializable):
             tokens (int or Time, optional): The number of tokens trained in the batch. Defaults to 0.
         """
         self._batch += Time(1, TimeUnit.BATCH)
+        self._batch_in_epoch += Time(1, TimeUnit.BATCH)
         if isinstance(samples, int):
             samples = Time(samples, TimeUnit.SAMPLE)
         if isinstance(tokens, int):
             tokens = Time(tokens, TimeUnit.TOKEN)
         self._sample += samples
+        self._sample_in_epoch += samples
         self._token += tokens
+        self._token_in_epoch += tokens
 
     def on_epoch_complete(self):
         """Called by the trainer at the end of an epoch."""
         self._epoch += Time(1, TimeUnit.EPOCH)
+        self._batch_in_epoch = Time(0, TimeUnit.BATCH)
+        self._sample_in_epoch = Time(0, TimeUnit.SAMPLE)
+        self._token_in_epoch = Time(0, TimeUnit.TOKEN)
+
+    def _parse(self, other: object) -> Time:
+        # parse ``other`` into a Time object
+        if isinstance(other, Time):
+            return other
+        if isinstance(other, str):
+            other_parsed = Time.from_timestring(other)
+            warnings.warn(
+                textwrap.dedent(f"""TimeImplicitStringConversion:
+                Implicitly converting {other} to {other_parsed}.
+                To fix this warning, replace {other} with {other_parsed}."""))
+            return other_parsed
+
+        raise NotImplementedError(f"Cannot convert type {other} to {self.__class__.__name__}")
+
+    def __eq__(self, other: object):
+        if isinstance(other, Timer):
+            return self.state_dict() == other.state_dict()
+        other = self._parse(other)
+        self_counter = self.get(other.unit)
+        return self_counter == other
+
+    def __ne__(self, other: object):
+        if isinstance(other, Timer):
+            return self.state_dict() != other.state_dict()
+        other = self._parse(other)
+        self_counter = self.get(other.unit)
+        return self_counter != other
+
+    def __lt__(self, other: object):
+        other = self._parse(other)
+        self_counter = self.get(other.unit)
+        return self_counter < other
+
+    def __le__(self, other: object):
+        other = self._parse(other)
+        self_counter = self.get(other.unit)
+        return self_counter <= other
+
+    def __gt__(self, other: object):
+        other = self._parse(other)
+        self_counter = self.get(other.unit)
+        return self_counter > other
+
+    def __ge__(self, other: object):
+        other = self._parse(other)
+        self_counter = self.get(other.unit)
+        return self_counter >= other

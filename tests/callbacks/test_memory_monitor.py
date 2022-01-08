@@ -15,7 +15,8 @@ def _do_trainer_fit(mosaic_trainer_hparams: TrainerHparams, testing_with_gpu: bo
     memory_monitor_hparams = MemoryMonitorHparams()
     mosaic_trainer_hparams.callbacks.append(memory_monitor_hparams)
 
-    mosaic_trainer_hparams.max_epochs = 1
+    max_epochs = 1
+    mosaic_trainer_hparams.max_duration = f"{max_epochs}ep"
 
     mosaic_trainer_hparams.train_batch_size = 50
 
@@ -33,7 +34,7 @@ def _do_trainer_fit(mosaic_trainer_hparams: TrainerHparams, testing_with_gpu: bo
     num_train_steps = mosaic_trainer_hparams.train_subset_num_batches
     assert isinstance(num_train_steps, int)
 
-    expected_calls = num_train_steps * mosaic_trainer_hparams.max_epochs
+    expected_calls = num_train_steps * max_epochs
 
     return log_destination, expected_calls
 
