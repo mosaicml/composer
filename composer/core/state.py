@@ -22,6 +22,7 @@ from composer.utils.precision import default_precision_factory
 if TYPE_CHECKING:
     from composer.core.callback import Callback
     from composer.core.types import Algorithm
+    from composer.models.base import BaseMosaicModel
 
 logger = logging.getLogger(__name__)
 
@@ -211,6 +212,15 @@ class State(Serializable):
         warnings.warn("state.max_epochs is deprecated. Please use state.max_duration", category=DeprecationWarning)
         assert self.max_duration.unit == TimeUnit.EPOCH, "invariant violation -- max duration must be epochs for now"
         return self.max_duration.value
+
+    def original_model(self) -> BaseMosaicModel:
+        from composer.models.base import BaseMosaicModel
+        model = self.model
+        if isinstance(model, DistributedDataParallel):
+            model = model.module
+        if isinstance(model, BaseMosaicModel):
+            return model
+        raise RuntimeError(f"model is not of type {BaseMosaicModel.__name__}; instead it is {type(model).__name__}")
 
     @property
     def train_dataloader(self):
