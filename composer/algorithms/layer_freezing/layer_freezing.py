@@ -3,9 +3,11 @@
 from __future__ import annotations
 
 import logging
+import textwrap
 from dataclasses import asdict, dataclass
-from typing import Optional
+from typing import List, Optional, Tuple
 
+import torch
 import yahp as hp
 
 from composer.algorithms import AlgorithmHparams
@@ -26,48 +28,29 @@ class LayerFreezingHparams(AlgorithmHparams):
         return LayerFreezing(**asdict(self))
 
 
-def _freeze_schedule(current_epoch: int, max_epochs: int, freeze_start: float, freeze_level: float):
-    """Implements a linear schedule for freezing.
-
-    The schedule is linear and begins with no freezing and
-    linearly increases the fraction of layers frozen, reaching
-    the fraction specified by 'freeze_level' at the final epoch.
-    The start of freezing is given as a fraction of the total
-    number of epochs, and is set with 'freeze_start'.
-
-    Args:
-        current_epoch: Integer specifying the current epoch.
-        max_epochs: The max number of epochs training will run for.
-        freeze_start: The fraction of epochs to run before freezing begins.
-        freeze_level: The maximum fraction of levels to freeze.
-    """
-    # Calculate the epoch to start freezing
-    freeze_start_epoch = int(freeze_start * max_epochs)
+def _freeze_schedule(current_duration: float, freeze_start: float, freeze_level: float) -> float:
     # No freezing if the current epoch is less than this
-    if current_epoch <= freeze_start_epoch:
-        freeze_percentage = 0
-    else:
-        # Calculate the total time for freezing to occur
-        reduced_time = max_epochs - freeze_start_epoch
-        # Calculate the amount of freezing time that has elapsed
-        time_elapsed = current_epoch - freeze_start_epoch
-        # Calculate the fraction of the freezing time elapsed.
-        scaling = time_elapsed / reduced_time
-        # Scale this fraction by the amount of freezing to do.
-        freeze_percentage = freeze_level * scaling
-
-    return freeze_percentage
+    if current_duration <= freeze_start:
+        return 0.0
+    # `Calculate the total time for freezing to occur
+    total_freezing_time = 1.0 - freeze_start
+    # Calculate the amount of freezing time that has elapsed
+    freezing_time_elapsed = current_duration - freeze_start
+    # Calculate the fraction of the freezing time elapsed.
+    freezing_time_elapsed_frac = freezing_time_elapsed / total_freezing_time
+    # Scale this fraction by the amount of freezing to do.
+    return freeze_level * freezing_time_elapsed_frac
 
 
-def _get_layers(module, flat_children):
+def _get_layers(module: Model, flat_children: List[Model]):
     """Helper function to get all submodules.
 
     Does a depth first search to flatten out modules which
     contain parameters.
 
     Args:
-        module: Current module to search.
-        flat_children: List containing modules.
+        module (Model): Current module to search.
+        flat_children (List[Model]): List containing modules.
     """
     # Check if given module has no children and parameters.
     if (len(list(module.children())) == 0 and len(list(module.parameters())) > 0):
@@ -78,7 +61,7 @@ def _get_layers(module, flat_children):
             _get_layers(child, flat_children)
 
 
-def _remove_param_from_optimizers(p, optimizers):
+def _remove_param_from_optimizers(p: torch.nn.Parameter, optimizers: Optimizers):
     """Helper function to freeze the training of a parameter.
 
     To freeze a parameter, it must be removed from the optimizer,
@@ -102,29 +85,28 @@ def _remove_param_from_optimizers(p, optimizers):
 def freeze_layers(
     model: Model,
     optimizers: Optimizers,
-    current_epoch: int,
-    max_epochs: int,
+    current_duration: float,
     freeze_start: float,
     freeze_level: float,
-    logger: Optional[Logger] = None,
-) -> Model:
-    """Progressively freeze the layers of the network during training, starting
+) -> Tuple[int, float]:
+    """Progressively freeze the layers of the network in-place during training, starting
     with the earlier layers.
 
     Args:
-        model: an instance of the model being trained
-        optimizers: the optimizers used during training
-        current_epoch: integer specifying the current epoch
-        max_epochs: the max number of epochs training will run for
-        freeze_start: the fraction of epochs to run before freezing begins
-        freeze_level: the maximum fraction of layers to freeze
+        model (Model): The model being trained.
+        optimizers (Optimizers): The optimizers used during training
+        current_duration (float): The fraction on [0; 1) of the training process complete.
+        freeze_start (float): The fraction of the training process on [0; 1) to run before freezing begins.
+        freeze_level (float): The maximum fraction of layers on [0; 1) to freeze
+
+    Return:
+        (int, float): The number of layers frozen, and the percentage of the total model frozen.
     """
     # Flatten out the layers
     flat_children = []
     _get_layers(model, flat_children)
     # Determine how many layers to freeze
-    freeze_percentage = _freeze_schedule(current_epoch=current_epoch,
-                                         max_epochs=max_epochs,
+    freeze_percentage = _freeze_schedule(current_duration=current_duration,
                                          freeze_start=freeze_start,
                                          freeze_level=freeze_level)
     freeze_depth = int(freeze_percentage * len(flat_children[0:-1]))
@@ -138,18 +120,11 @@ def freeze_layers(
                 p.requires_grad = False
 
     # Log results
-    log.info(f'Applied Layer Freezing'
-             f' with freeze_start={freeze_start}, '
-             f'freeze_level={freeze_level}. '
-             f'Froze {freeze_depth} layers in the model which'
-             f' equates to {freeze_percentage * 100}% of all layers.')
-    if logger is not None:
-        logger.metric_epoch({
-            'layer_freezing/layers_frozen': freeze_depth,
-            'layer_freezing/percentage_frozen': freeze_percentage
-        })
-
-    return model
+    log.info(
+        textwrap.dedent(f"""Applied Layer Freezing with freeze_start={freeze_start},
+        freeze_level={freeze_level}. Froze {freeze_depth} layers in the model which
+        equates to {freeze_percentage * 100}% of all layers."""))
+    return freeze_depth, freeze_percentage
 
 
 class LayerFreezing(Algorithm):
@@ -167,8 +142,8 @@ class LayerFreezing(Algorithm):
     Runs on ``Event.EPOCH_END``.
 
     Args:
-        freeze_start: the fraction of epochs to run before freezing begins
-        freeze_level: the maximum fraction of layers to freeze
+        freeze_start (float): the fraction of epochs to run before freezing begins
+        freeze_level (float): the maximum fraction of layers to freeze
     """
 
     def __init__(self, freeze_start: float = 0.5, freeze_level: float = 1.0):
@@ -184,18 +159,22 @@ class LayerFreezing(Algorithm):
 
     def match(self, event: Event, state: State) -> bool:
         """Run on ``Event.EPOCH_END``."""
+        del state  # unused
         return event == Event.EPOCH_END
 
     def apply(self, event: Event, state: State, logger: Logger) -> Optional[int]:
         """Freeze layers in the model"""
+        del event  # unused
         optimizers = state.optimizers
         assert optimizers is not None
-        state.model = freeze_layers(
+        freeze_depth, freeze_percentage = freeze_layers(
             model=state.model,
             optimizers=optimizers,
-            current_epoch=state.timer.epoch.value,
-            max_epochs=state.max_epochs,
+            current_duration=float(state.timer.get(state.max_duration.unit) / state.max_duration),
             freeze_start=self.hparams.freeze_start,
             freeze_level=self.hparams.freeze_level,
-            logger=logger,
         )
+        logger.metric_epoch({
+            'layer_freezing/layers_frozen': freeze_depth,
+            'layer_freezing/percentage_frozen': freeze_percentage
+        })
