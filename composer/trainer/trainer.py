@@ -7,7 +7,6 @@ import datetime
 import itertools
 import logging
 import textwrap
-import time
 import warnings
 from typing import Any, Callable, ContextManager, Dict, List, Optional, Sequence, Union, cast
 
@@ -519,28 +518,6 @@ class Trainer:
             raise ValueError('The default _get_batch_size function found ',
                              f'multiple Tensor sizes in batch: {dim0_sizes}')
 
-    def _get_seq_len(self, batch: Batch) -> int:
-        if isinstance(batch, Tensor) and batch.ndim > 1:
-            return batch.shape[1]
-
-        dim1_sizes = []
-        if isinstance(batch, (list, tuple)):
-            for tensors in batch:
-                for t in ensure_tuple(tensors):
-                    if t.ndim > 1:
-                        dim1_sizes.append(t.shape[1])
-        elif isinstance(batch, dict):
-            dim1_sizes = []
-            for t in batch.values():
-                if t.ndim > 1:
-                    dim1_sizes.append(t.shape[1])
-
-        if len(set(dim1_sizes)) == 1:
-            return dim1_sizes[0]
-        else:
-            raise ValueError('The default _get_seq_len function found ',
-                             f'multiple Tensor sizes in batch: {dim1_sizes}')
-
     def _train_loop(self) -> None:
         """Run training for the specified number of epochs and log results."""
         # shorthand
@@ -852,46 +829,6 @@ class Trainer:
 
         if restore_model_train:
             model.train()
-
-    def profile_dataloader(self, split="train", profile_time=10, warmup_time=2):
-        """Measure the throughput of the dataloaders
-        Args: none
-        """
-        if split == "train":
-            dataloader = self.state.train_dataloader
-        elif split == "eval":
-            dataloader = self.state.eval_dataloader
-        else:
-            raise ValueError(f"Split must be either 'train' or 'eval'")
-
-        log.info(f"Profiling {split}_dataloader for {profile_time} sec (+warmup {warmup_time} sec).")
-
-        start = time.time()
-        warmup_end = None
-        profile_end = None
-        samples = 0
-        tokens = 0
-        for batch_idx, batch in enumerate(dataloader):
-            if batch_idx == 0:
-                log.info(f"Example batch:\n{batch}")
-            now = time.time()
-            if warmup_end is None:
-                if (now - start) > warmup_time:
-                    warmup_end = now
-            else:
-                cur_batch_size = self._get_batch_size(batch)
-                cur_seq_len = self._get_seq_len(batch)
-                samples += cur_batch_size
-                tokens += cur_batch_size * cur_seq_len
-                if (now - warmup_end) > profile_time:
-                    profile_end = now
-                    break
-
-        world_size = ddp.get_world_size()
-        throughput_samples = world_size * samples / (profile_end - warmup_end)
-        throughput_tokens = world_size * tokens / (profile_end - warmup_end)
-        log.info(f"Aggregate {split}_dataloader throughput: {throughput_samples:.2f} samples/sec")
-        log.info(f"Aggregate {split}_dataloader throughput: {throughput_tokens:.2f} tokens/sec")
 
     def _use_grad_scaling(self, precision: Union[str, Precision], scaler: Optional[GradScaler]) -> bool:
         """Determines based on precision when to use grad scaling.
