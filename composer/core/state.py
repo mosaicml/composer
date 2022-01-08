@@ -197,6 +197,14 @@ class State(Serializable):
             raise ValueError("TimeUnit.DURATION is not allowed as a unit for max_duration")
         self._max_duration = max_duration
 
+    def get_elapsed_duration(self) -> Time[float]:
+        """Get the elapsed training duration
+
+        Returns:
+            Time: The elapsed duration, in ``TimeUnit.DURATION``.
+        """
+        return self.timer.get(self.max_duration.unit) / self.max_duration
+
     @property
     def max_epochs(self):
         """The maximum number of epochs to train for."""

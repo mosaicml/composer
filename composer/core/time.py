@@ -231,28 +231,28 @@ class Time(Generic[TValue]):
     def __ge__(self, other: object):
         return self._cmp(other) >= 0
 
-    def __add__(self, other: object):
+    def __add__(self, other: object) -> Time[TValue]:
         other = self._parse(other)
         if self.unit != other.unit:
             raise RuntimeError(f"Cannot add {self} to {other} since they have different units.")
         return Time(self.value + other.value, self.unit)
 
-    def __radd__(self, other: object):
+    def __radd__(self, other: object) -> Time[TValue]:
         return self + other
 
-    def __sub__(self, other: object):
+    def __sub__(self, other: object) -> Time[TValue]:
         other = self._parse(other)
         if self.unit != other.unit:
             raise RuntimeError(f"Cannot subtract {other} from {self} since they have different units.")
         return Time(self.value - other.value, self.unit)
 
-    def __rsub__(self, other: object):
+    def __rsub__(self, other: object) -> Time[TValue]:
         return (-self) + other
 
-    def __neg__(self):
-        return Time(-self.value, self.unit)
+    def __neg__(self) -> Time[TValue]:
+        return Time(cast(TValue, -self.value), self.unit)
 
-    def __pos__(self):
+    def __pos__(self) -> Time[TValue]:
         return Time(self.value, self.unit)
 
     def __int__(self):
@@ -261,7 +261,7 @@ class Time(Generic[TValue]):
     def __float__(self):
         return float(self.value)
 
-    def __truediv__(self, other: object):
+    def __truediv__(self, other: object) -> Time[float]:
         if isinstance(other, (float, int)):
             return Time(type(self.value)(self.value / other), self.unit)
         other = self._parse(other)
