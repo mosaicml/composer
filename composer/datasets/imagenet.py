@@ -13,9 +13,9 @@ from PIL import Image
 from torchvision import transforms
 from torchvision.datasets import ImageFolder
 
-from composer.core.types import Batch, Tensor
+from composer.core.types import Batch, DataSpec, Tensor
 from composer.datasets.dataloader import DataloaderHparams
-from composer.datasets.hparams import DataloaderSpec, DatasetHparams, SyntheticHparamsMixin
+from composer.datasets.hparams import DatasetHparams, SyntheticHparamsMixin
 from composer.datasets.synthetic import SyntheticBatchPairDataset
 
 
@@ -76,7 +76,7 @@ class ImagenetDatasetHparams(DatasetHparams, SyntheticHparamsMixin):
     resize_size: int = hp.optional("resize size. Set to -1 to not resize", default=-1)
     crop_size: int = hp.optional("crop size", default=224)
 
-    def initialize_object(self, batch_size: int, dataloader_hparams: DataloaderHparams) -> DataloaderSpec:
+    def initialize_object(self, batch_size: int, dataloader_hparams: DataloaderHparams):
 
         split = 'train' if self.is_train else 'val'
 
@@ -120,7 +120,7 @@ class ImagenetDatasetHparams(DatasetHparams, SyntheticHparamsMixin):
                 raise ValueError("datadir must be specified is self.synthetic is False")
             dataset = ImageFolder(os.path.join(self.datadir, split), transformation)
 
-        return DataloaderSpec(dataloader=dataloader_hparams.initialize_object(
+        return DataSpec(dataloader=dataloader_hparams.initialize_object(
             dataset=dataset,
             batch_size=batch_size,
             drop_last=self.drop_last,
@@ -128,4 +128,4 @@ class ImagenetDatasetHparams(DatasetHparams, SyntheticHparamsMixin):
             shuffle=self.shuffle,
             collate_fn=collate_fn,
         ),
-                              device_transform_fn=device_transform_fn)
+                        device_transforms=device_transform_fn)

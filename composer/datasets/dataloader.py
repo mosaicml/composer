@@ -14,7 +14,7 @@ import yahp as hp
 from torch.utils.data.distributed import DistributedSampler
 
 from composer.core.types import Batch, DataLoader, Dataset, SamplerFactory
-from composer.utils import ddp
+from composer.utils import dist
 
 
 class WrappedDataLoader(DataLoader):
@@ -143,7 +143,7 @@ class DataloaderHparams(hp.Hparams):
             if sampler is not None:
                 raise RuntimeError("Can't specify both sampler and batch_sampler!")
             self.batch_sampler_factory = cast(SamplerFactory, self.batch_sampler_factory)
-            batch_sampler = ddp.get_sampler(
+            batch_sampler = dist.get_sampler(
                 dataset,
                 drop_last=drop_last,
                 shuffle=shuffle,
@@ -162,7 +162,7 @@ class DataloaderHparams(hp.Hparams):
 
         else:
             if sampler is None:
-                sampler = ddp.get_sampler(dataset, drop_last=drop_last, shuffle=shuffle)
+                sampler = dist.get_sampler(dataset, drop_last=drop_last, shuffle=shuffle)
             sampler_dependent_kwargs = dict(batch_size=batch_size, drop_last=drop_last, sampler=sampler)
 
         return torch.utils.data.DataLoader(dataset,

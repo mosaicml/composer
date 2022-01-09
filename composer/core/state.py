@@ -4,16 +4,17 @@ from __future__ import annotations
 
 import logging
 import warnings
-from typing import TYPE_CHECKING, Callable, ContextManager, Optional, Sequence, Union
+from typing import TYPE_CHECKING, Any, Callable, ContextManager, Dict, Optional, Sequence, Union
 
 import torch
 import torch.nn.modules.utils
 from torch.nn.parallel import DistributedDataParallel
 
 import composer.core.types as types
+from composer.core.data_spec import DataSpec
 from composer.core.precision import Precision
 from composer.core.serializable import Serializable
-from composer.utils import ddp, ensure_tuple
+from composer.utils import dist, ensure_tuple
 from composer.utils.precision import default_precision_factory
 
 if TYPE_CHECKING:
@@ -42,9 +43,22 @@ STATE_DICT_SERIALIZATION_FIELDS = [
     "scaler",
 ]
 
+# These fields will be serialized using .state_dict(), but will be skipped if DeepSpeed is enabled.
+# When DeepSpeed is being used, model and optimizer states are serialized directly by the DeepSpeed engine.
+STATE_DICT_SERIALIZATION_FIELDS_SKIP_DEEPSPEED = [
+    "model",
+    "_optimizers",
+]
+
 # These fields will not be serialized
 SKIP_SERIALIZATION_FIELDS = [
-    "loss", "batch", "outputs", "train_dataloader", "eval_dataloader", "_steps_per_epoch", "_precision_context"
+    "loss",
+    "batch",
+    "outputs",
+    "train_data",
+    "eval_data",
+    "_steps_per_epoch",
+    "_precision_context",
 ]
 
 
@@ -56,30 +70,32 @@ class State(Serializable):
     so that it can be used restore the trainer and continue training from a
     checkpoint. Algorithms are able to modify this object in-place.
 
-    Attributes:
+    Args:
         model (types.Model, often BaseMosaicModel): The model, typically as a subclass of :class:`BaseMosaicModel`.
         grad_accum (int): The number of gradient accumulation steps to use. The size of each microbatch is ``train_batch_size / num_gpus / grad_accum``.
+        train_dataloader (types.DataLoader, types.DataSpec, or dict):
+            The :class:`types.DataLoader`, :class:`types.DataSpec`, or dict of :class:`types.DataSpec` kwargs to used for training.
+        eval_dataloader (types.DataLoader, types.DataSpec, or dict):
+            The :class:`types.DataLoader`, :class:`types.DataSpec`, or dict of :class:`types.DataSpec` kwargs to used for evaluation.
         max_epochs (int): The maximum number of epochs to train for.
+
         precision (str | Precision): The numerical precision to use for training. Should be one of ``[fp32, amp]``.
         precision_context ((precision: Precision) -> ContextManager): Function to produce a context manager to mandate precision.
-
-        epoch (int): The index of the current epoch.
-        step (int): The index of the current step/batch (measured globally).
-
-        batch (types.Batch): The most recently retrieved batch.
-        loss (types.Tensors): The most recently computed loss.
-        last_batch_size (int): The size of the batch last returned from the dataloader. This can be different from the current size of ``batch`` if algorithms have modified the ``batch``.
-        outputs (types.Tensors): The most recently computed output from the model's forward pass.
 
         optimizers (types.Optimizers): The optimizers being used to train the model. Multiple optimizers are not currently supported.
         schedulers (types.Schedulers): The learning rate schedulers, typically wrapped in :class:`ComposableScheduler`.
         scaler (torch.cuda.amp.GradScaler, optional): The gradient scaler in use for mixed precision training.
 
-        train_dataloader (types.DataLoader): The dataloader used for training.
-        eval_dataloader (types.DataLoader): The dataloader used for evaluation.
-
         algorithms (Sequence[Algorithm]): The algorithms used for training.
         callbacks (Sequence[Callback]): The callbacks used for training.
+
+    Attributes:
+        epoch (int): The index of the current epoch.
+        step (int): The index of the current step/batch (measured globally).
+        batch (types.Batch): The most recently retrieved batch.
+        last_batch_size (int): The size of the batch last returned from the dataloader. This can be different from the current size of ``batch`` if algorithms have modified the ``batch``.
+        loss (types.Tensors): The most recently computed loss.
+        outputs (types.Tensors): The most recently computed output from the model's forward pass.
     """
 
     def __init__(
@@ -89,15 +105,14 @@ class State(Serializable):
 
             # data configurations
             grad_accum: int,
-            train_dataloader: types.DataLoader,
-            eval_dataloader: types.DataLoader,
+            train_dataloader: Union[types.DataLoader, types.DataSpec, Dict[str, Any]],
+            eval_dataloader: Union[types.DataLoader, types.DataSpec, Dict[str, Any]],
 
             # stopping conditions
             max_epochs: int,
 
             # precision
             precision: Union[str, types.Precision],
-            steps_per_epoch: Optional[int] = None,
             precision_context: Callable[[Precision], ContextManager] = default_precision_factory(),
 
             # optimizers
@@ -113,18 +128,28 @@ class State(Serializable):
     ):
         self.model = model
         self.grad_accum = grad_accum
-        self.train_dataloader = train_dataloader
-        self.eval_dataloader = eval_dataloader
-        self.last_batch_size = 0
+        if not isinstance(train_dataloader, DataSpec):
+            if isinstance(train_dataloader, dict):
+                train_dataloader = DataSpec(**train_dataloader)
+            else:
+                train_dataloader = DataSpec(train_dataloader)
+        self.train_data = train_dataloader
+        if not isinstance(eval_dataloader, DataSpec):
+            if isinstance(eval_dataloader, dict):
+                eval_dataloader = DataSpec(**eval_dataloader)
+            else:
+                eval_dataloader = DataSpec(eval_dataloader)
+        self.eval_data = eval_dataloader
         self.max_epochs = max_epochs
         self.step = 0
         self.epoch = 0
         self._precision = Precision(precision)
-        self._steps_per_epoch = steps_per_epoch
+        self._steps_per_epoch = None
         self._precision_context = precision_context
 
-        self.loss: types.Tensors = torch.zeros(size=(1,))
         self.batch: types.Batch = {}
+        self.last_batch_size = 0
+        self.loss: types.Tensors = torch.zeros(size=(1,))
         self.outputs: types.Tensors = torch.zeros(size=(1,))
 
         if optimizers is None:
@@ -140,6 +165,22 @@ class State(Serializable):
         self.scaler = scaler
         self._algorithms = list(algorithms)
         self._callbacks = list(callbacks)
+
+    @property
+    def train_dataloader(self):
+        return self.train_data.dataloader
+
+    @train_dataloader.setter
+    def train_dataloader(self, dataloader: types.DataLoader):
+        self.train_data = DataSpec(dataloader)
+
+    @property
+    def eval_dataloader(self):
+        return self.eval_data.dataloader
+
+    @eval_dataloader.setter
+    def eval_dataloader(self, dataloader: types.DataLoader):
+        self.eval_data = DataSpec(dataloader)
 
     @property
     def optimizers(self):
@@ -178,18 +219,25 @@ class State(Serializable):
         """The global batch size used for training."""
         if self.train_dataloader.batch_size is None:
             raise RuntimeError("train dataloader batch size is undefined")
-        return self.train_dataloader.batch_size * ddp.get_world_size()
+        return self.train_dataloader.batch_size * dist.get_world_size()
 
     @property
     def eval_batch_size(self):
         """The batch size used for evaluation."""
         if self.eval_dataloader.batch_size is None:
             raise RuntimeError("eval dataloader batch size is undefined")
-        return self.eval_dataloader.batch_size * ddp.get_world_size()
+        return self.eval_dataloader.batch_size * dist.get_world_size()
 
     def state_dict(self) -> types.StateDict:
         """Returns the state as a :class:`dict`."""
         state_dict: types.StateDict = {}
+
+        deepspeed_enabled = False
+        try:
+            import deepspeed
+            deepspeed_enabled = isinstance(self.model, deepspeed.DeepSpeedEngine)
+        except ImportError:
+            pass
 
         for state_field_name, state_field_value in self.__dict__.items():
             if state_field_name in SKIP_SERIALIZATION_FIELDS:
@@ -198,6 +246,8 @@ class State(Serializable):
                 state_dict[state_field_name] = state_field_value
                 continue
             elif state_field_name in STATE_DICT_SERIALIZATION_FIELDS:
+                if deepspeed_enabled and state_field_name in STATE_DICT_SERIALIZATION_FIELDS_SKIP_DEEPSPEED:
+                    continue
                 if state_field_name == "model":
                     # Save model directly instead of by class name, since model may be wrapped by DistributedDataParallel
                     serialized_value = state_field_value.state_dict()
@@ -208,9 +258,12 @@ class State(Serializable):
                         if obj is not None
                     }
                 state_dict[state_field_name] = serialized_value
+
             else:
                 raise RuntimeError(f"Unable to serialize field {state_field_name}")
         state_dict["_is_model_ddp_wrapped"] = isinstance(self.model, DistributedDataParallel)
+        if deepspeed_enabled:
+            state_dict["_deepspeed_enabled"] = True
         return state_dict
 
     def load_model_state(self, state_dict: types.StateDict, strict: bool):
@@ -237,12 +290,19 @@ class State(Serializable):
             state_dict (types.StateDict): object returned from call to :meth:`state_dict`.
 
         """
+
+        deepspeed_enabled = False
+        if "_deepspeed_enabled" in state:
+            deepspeed_enabled = state["_deepspeed_enabled"]
+
         for state_field_name, state_field_value in self.__dict__.items():
             if state_field_name in SKIP_SERIALIZATION_FIELDS:
                 continue
             elif state_field_name in DIRECT_SERIALIZATION_FIELDS:
                 setattr(self, state_field_name, state[state_field_name])
             elif state_field_name in STATE_DICT_SERIALIZATION_FIELDS:
+                if deepspeed_enabled and state_field_name in STATE_DICT_SERIALIZATION_FIELDS_SKIP_DEEPSPEED:
+                    continue
                 serialized_value = state[state_field_name]
 
                 if state_field_name == "model":

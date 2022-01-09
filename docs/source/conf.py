@@ -55,14 +55,6 @@ source_suffix = ['.rst', '.md']
 # This pattern also affects html_static_path and html_extra_path.
 exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store']
 
-intersphinx_mapping = {
-    'python': ('https://docs.python.org/3/', None),
-    'numpy': ('http://docs.scipy.org/doc/numpy/', None),
-    'torch': ('https://pytorch.org/docs/stable/', None),
-    'torchvision': ('https://pytorch.org/vision/stable/', None),
-    'torchtext': ('https://pytorch.org/text/stable/', None)
-}
-
 napoleon_custom_sections = [('Returns', 'params_style')]
 
 # -- Options for HTML output -------------------------------------------------
@@ -113,10 +105,14 @@ autodoc_type_aliases = {
 }
 
 intersphinx_mapping = {
-    'python': ('https://docs.python.org/3.8', None),
-    'torch': ('https://pytorch.org/docs/1.9.1', None),
-    'yapf': ('https://mosaicml-yahp.readthedocs-hosted.com/en/stable', None),
-    'torchmetrics': ('https://torchmetrics.readthedocs.io/en/v0.5.1/', None),
+    'python': ('https://docs.python.org/3/', None),
+    'numpy': ('https://numpy.org/doc/stable/', None),
+    'torch': ('https://pytorch.org/docs/stable/', None),
+    'yapf': ('https://docs.mosaicml.com/projects/yahp/en/stable/', None),
+    'torchvision': ('https://pytorch.org/vision/stable/', None),
+    'torchtext': ('https://pytorch.org/text/stable/', None),
+    'torchmetrics': ('https://torchmetrics.readthedocs.io/en/latest/', None),
+    'libcloud': ('https://libcloud.readthedocs.io/en/stable/', None),
 }
 
 nitpicky = False  # warn on broken links

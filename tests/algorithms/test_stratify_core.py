@@ -134,7 +134,9 @@ def test_sample_batches_correctness(num_classes: int, batch_size: int, num_batch
                                     targets=targets,
                                     batch_size=batch_size,
                                     stratify_how=stratify_how,
-                                    seed=seed))
+                                    seed=seed,
+                                    num_replicas=1,
+                                    rank=0))
     batches = list(batches)
 
     # check batch sizes and shapes

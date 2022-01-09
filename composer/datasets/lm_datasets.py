@@ -8,10 +8,9 @@ from typing import List, Optional
 
 import yahp as hp
 
-from composer.core.types import Batch
+from composer.core.types import Batch, DataSpec
 from composer.datasets.dataloader import DataloaderHparams
-from composer.datasets.hparams import DataloaderSpec, DatasetHparams
-from composer.utils import ddp
+from composer.datasets.hparams import DatasetHparams
 
 log = logging.getLogger(__name__)
 
@@ -45,7 +44,7 @@ class LMDatasetHparams(DatasetHparams):
     val_sequence_length: int = hp.optional(
         default=1024, doc='Optionally, the ability to set a custom sequence length for the validation dataset.')
 
-    def initialize_object(self, batch_size: int, dataloader_hparams: DataloaderHparams) -> DataloaderSpec:
+    def initialize_object(self, batch_size: int, dataloader_hparams: DataloaderHparams) -> DataSpec:
         try:
             import datasets
             import transformers
@@ -102,7 +101,7 @@ class LMDatasetHparams(DatasetHparams):
         dataset = lm_datasets
         data_collator = transformers.default_data_collator
 
-        return DataloaderSpec(dataloader=dataloader_hparams.initialize_object(
+        return DataSpec(dataloader=dataloader_hparams.initialize_object(
             dataset=dataset,
             batch_size=batch_size,
             drop_last=self.drop_last,
@@ -110,4 +109,4 @@ class LMDatasetHparams(DatasetHparams):
             shuffle=self.shuffle,
             collate_fn=data_collator,
         ),
-                              split_fn=_split_dict_fn)
+                        split_batch=_split_dict_fn)

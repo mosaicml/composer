@@ -1,10 +1,8 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
-import datetime
 import logging
 import os
 import pathlib
-import time
 from typing import List, Optional
 
 import _pytest.config
@@ -12,7 +10,6 @@ import _pytest.config.argparsing
 import _pytest.fixtures
 import _pytest.mark
 import pytest
-import torch.distributed
 from _pytest.monkeypatch import MonkeyPatch
 
 import composer
@@ -23,11 +20,15 @@ from composer.utils import run_directory
 # so tests of all world sizes will be executed
 WORLD_SIZE_OPTIONS = (1, 2)
 
-DDP_TIMEOUT = datetime.timedelta(seconds=5)
+# Set this before running any tests, since it won't take effect if there are any cudnn operations
+# in a previous test and then this variable is set by a latter test
+# see composer.utils.reproducibility.configure_deterministic_mode
+os.environ["CUBLAS_WORKSPACE_CONFIG"] = ":4096:8"
 
 # Add the path of any pytest fixture files you want to make global
 pytest_plugins = [
     "tests.fixtures.dummy_fixtures",
+    "tests.fixtures.distributed_fixtures",
     "tests.algorithms.algorithm_fixtures",
 ]
 
@@ -121,46 +122,6 @@ def subfolder_run_directory(tmpdir: pathlib.Path, monkeypatch: MonkeyPatch) -> N
     os.makedirs(test_folder_tmpdir, exist_ok=True)
 
 
-@pytest.fixture(autouse=True)
-def configure_ddp(request: pytest.FixtureRequest):
-    backend = None
-    for item in request.session.items:
-        marker = item.get_closest_marker('gpu')
-        if marker is not None:
-            backend = "nccl"
-        else:
-            backend = "gloo"
-        break
-    if not torch.distributed.is_initialized():
-        if "RANK" in os.environ and "WORLD_SIZE" in os.environ:
-            torch.distributed.init_process_group(backend, timeout=DDP_TIMEOUT)
-        else:
-            store = torch.distributed.HashStore()
-            torch.distributed.init_process_group(backend, timeout=DDP_TIMEOUT, store=store, world_size=1, rank=0)
-
-
-@pytest.fixture(autouse=True)
-def wait_for_all_procs(subfolder_run_directory: None):
-    yield
-    if not 'RANK' in os.environ:
-        # Not running in a DDP environment
-        return
-    global_rank = int(os.environ['RANK'])
-    world_size = int(os.environ['WORLD_SIZE'])
-    proc_lockfile = run_directory.get_relative_to_run_directory(f"{global_rank}_finished")
-    pathlib.Path(proc_lockfile).touch(exist_ok=False)
-    # other processes shouldn't be (too) far behind the current one
-    end_time = datetime.datetime.now() + datetime.timedelta(seconds=15)
-    for rank in range(world_size):
-        if not os.path.exists(run_directory.get_relative_to_run_directory(f"{rank}_finished")):
-            # sleep for the other procs to write their finished file
-            if datetime.datetime.now() < end_time:
-                time.sleep(0.1)
-            else:
-                test_name = os.path.basename(os.path.normpath(str(run_directory.get_run_directory())))
-                raise RuntimeError(f"Rank {rank} did not finish test {test_name}")
-
-
-def pytest_sessionfinish(session, exitstatus):
+def pytest_sessionfinish(session: pytest.Session, exitstatus: int):
     if exitstatus == 5:
         session.exitstatus = 0  # Ignore no-test-ran errors

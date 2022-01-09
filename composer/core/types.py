@@ -15,6 +15,7 @@ from torchmetrics.collections import MetricCollection
 from torchmetrics.metric import Metric
 
 from composer.core.algorithm import Algorithm as Algorithm
+from composer.core.data_spec import DataSpec as DataSpec
 from composer.core.event import Event as Event
 from composer.core.logging import Logger as Logger
 from composer.core.precision import Precision as Precision
@@ -152,8 +153,6 @@ Model = torch.nn.Module
 ModelParameters = Union[Iterable[Tensor], Iterable[Dict[str, Tensor]]]
 
 JSON = Union[str, float, int, None, List['JSON'], Dict[str, 'JSON']]
-
-TDeviceTransformFn = Callable[[Batch], Batch]
 
 StateDict = Dict[str, Any]
 
