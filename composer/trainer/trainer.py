@@ -26,8 +26,8 @@ from composer.datasets import DataloaderSpec
 from composer.datasets.dataloader import DDPDataLoader
 from composer.loggers.tqdm_logger import TQDMLoggerBackend
 from composer.models.base import BaseMosaicModel
-from composer.optim import (ComposedScheduler, CosineAnnealingLRHparams, DecoupledSGDWHparams, OptimizerHparams,
-                            SchedulerHparams, WarmUpLRHparams)
+from composer.optim import (ComposedScheduler, CosineAnnealingLRHparams, DecoupledSGDWHparams, LinearLRHparams,
+                            OptimizerHparams, SchedulerHparams, WarmUpLRHparams)
 from composer.optim.scheduler import ensure_warmup_last
 from composer.trainer.checkpoint_hparams import CheckpointLoaderHparams, CheckpointSaverHparams
 from composer.trainer.ddp import DDPSyncStrategy, ddp_sync_context, prepare_ddp_module
@@ -148,6 +148,9 @@ class Trainer:
             # Checkpoint hparams
             checkpoint_loader: Optional[CheckpointLoaderHparams] = None,
             checkpoint_saver: Optional[CheckpointSaverHparams] = None,
+
+            # Warmup hparams
+            warmup_ratio: float = None,
 
             # Subset parameters
             train_subset_num_batches: Optional[int] = None,
@@ -276,6 +279,17 @@ class Trainer:
         if not isinstance(schedulers_hparams, list):
             schedulers_hparams = [schedulers_hparams]
         optimizer = optimizer_hparams.initialize_object(param_group=self.state.model.parameters())
+
+        if warmup_ratio is not None:
+            decay_ratio = 1.0 - warmup_ratio
+            for scheduler in schedulers_hparams:
+                if isinstance(scheduler, WarmUpLRHparams):
+                    print(f"Overriding warmup_ratio via trainer hparam: {scheduler.warmup_iters} to {warmup_ratio}dur")
+                    scheduler.warmup_iters = f"{warmup_ratio}dur"
+                elif isinstance(scheduler, LinearLRHparams):
+                    print(f"Overriding decay_ratio via trainer hparam: {scheduler.total_iters} to {decay_ratio}dur")
+                    scheduler.total_iters = f"{decay_ratio}dur"
+
         schedulers = [
             x.initialize_object(optimizer, self.state.steps_per_epoch, max_epochs=max_epochs)
             for x in ensure_warmup_last(schedulers_hparams)
@@ -408,6 +422,9 @@ class Trainer:
             # Checkpoint hparams
             checkpoint_loader=hparams.load_checkpoint,
             checkpoint_saver=hparams.save_checkpoint,
+
+            # warmup hparams
+            warmup_ratio=hparams.warmup_ratio,
 
             # Subset parameters
             train_subset_num_batches=hparams.train_subset_num_batches,

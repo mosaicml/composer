@@ -101,7 +101,7 @@ def _convert_time(time: Time,
             new_time += (total_duration * duration)
 
         new_time = int(round(new_time))
-        log.info(f'Converting {time}, {interval} to {new_time}')
+        print(f'Converting {time}, {interval} to {new_time}')
         return new_time
     elif interval in ('epochs', 'epoch'):
         if duration > 0:

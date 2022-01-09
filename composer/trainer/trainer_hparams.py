@@ -181,6 +181,7 @@ class TrainerHparams(hp.Hparams):
 
     load_checkpoint: Optional[CheckpointLoaderHparams] = hp.optional(doc="Checkpoint loading hparams", default=None)
     save_checkpoint: Optional[CheckpointSaverHparams] = hp.optional(doc="Checkpointing hparams", default=None)
+    warmup_ratio: Optional[float] = hp.optional(doc="Warmup Ratio", default=None)
 
     train_subset_num_batches: Optional[int] = hp.optional(textwrap.dedent("""If specified,
         finish every epoch early after training on this many batches."""),

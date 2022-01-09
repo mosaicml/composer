@@ -17,6 +17,7 @@ from composer.optim.scheduler import ConstantLRHparams as ConstantLRHparams
 from composer.optim.scheduler import CosineAnnealingLRHparams as CosineAnnealingLRHparams
 from composer.optim.scheduler import CosineAnnealingWarmRestartsHparams as CosineAnnealingWarmRestartsHparams
 from composer.optim.scheduler import ExponentialLRHparams as ExponentialLRHparams
+from composer.optim.scheduler import LinearLRHparams as LinearLRHparams
 from composer.optim.scheduler import MultiStepLRHparams as MultiStepLRHparams
 from composer.optim.scheduler import SchedulerHparams as SchedulerHparams
 from composer.optim.scheduler import StepLRHparams as StepLRHparams
