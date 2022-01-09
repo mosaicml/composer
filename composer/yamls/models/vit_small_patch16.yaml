@@ -38,7 +38,7 @@ model:
   vit_small_patch16:
     num_classes: 1000
     image_size: 224
-    num_channels: 3
+    channels: 3
     dropout: 0.1
 loggers:
   - tqdm: {}
