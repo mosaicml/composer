@@ -19,7 +19,7 @@ class ViTSmallPatch16(MosaicClassifier):
 
     """
     def __init__(self,
-                 num_classes: int,
+                 num_classes: int = 1000,
                  image_size: int = 224,
                  channels: int = 3,
                  dropout: Optional[float] = 0.0,

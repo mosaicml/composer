@@ -3,12 +3,11 @@
 from dataclasses import dataclass
 import yahp as hp
 
-
-from composer.models.model_hparams import ModelHparams
+from abc import ABC
 
 
 @dataclass
-class ViTSmallPatch16Hparams(ModelHparams):
+class ViTSmallPatch16Hparams(hp.Hparams, ABC):
     
     image_size: int = hp.required("input image size. If you have rectangular images, make sure your image size is the maximum of the width and height")
     channels: int = hp.required("number of  image channels")
