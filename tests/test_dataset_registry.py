@@ -5,9 +5,9 @@ from typing import Callable, Dict, Type
 
 import pytest
 
-from composer.datasets import (BratsDatasetHparams, CIFAR10DatasetHparams, DataloaderHparams, DataloaderSpec,
-                               DatasetHparams, GLUEHparams, ImagenetDatasetHparams, LMDatasetHparams,
-                               MNISTDatasetHparams, SyntheticHparamsMixin)
+from composer.core import DataSpec
+from composer.datasets import (BratsDatasetHparams, CIFAR10DatasetHparams, DataloaderHparams, DatasetHparams,
+                               GLUEHparams, ImagenetDatasetHparams, LMDatasetHparams, MNISTDatasetHparams, SyntheticHparamsMixin)
 from composer.trainer.trainer_hparams import dataset_registry
 
 # for testing, we provide values for required hparams fields
@@ -72,5 +72,5 @@ def test_mnist_real_dataset(world_size: int, dummy_dataloader_hparams: Dataloade
     batch_size = 10
     device_batch_size = batch_size // world_size
     dataloader = hparams.initialize_object(batch_size=device_batch_size, dataloader_hparams=dummy_dataloader_hparams)
-    assert not isinstance(dataloader, DataloaderSpec)
+    assert not isinstance(dataloader, DataSpec)
     assert len(dataloader) == 10_000 // batch_size  # mnist has 10_000 validation images
