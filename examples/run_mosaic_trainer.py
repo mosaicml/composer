@@ -20,8 +20,6 @@ import composer
 from composer.trainer.trainer import Trainer
 from composer.trainer.trainer_hparams import TrainerHparams
 
-print(composer.__file__)
-
 
 def warning_on_one_line(message: str, category: Type[Warning], filename: str, lineno: int, file=None, line=None):
     # From https://stackoverflow.com/questions/26430861/make-pythons-warnings-warn-not-mention-itself

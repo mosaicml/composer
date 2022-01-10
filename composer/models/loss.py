@@ -14,7 +14,7 @@ if TYPE_CHECKING:
     from composer.core.types import Tensor
 
 
-class mIoU(Metric):
+class MIoU(Metric):
     """Torchmetric mean Intersection-over-Union (mIoU) implementation.
 
     IoU calculates the intersection area between the predicted class mask and the label class mask.

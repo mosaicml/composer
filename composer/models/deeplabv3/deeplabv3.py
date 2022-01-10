@@ -9,7 +9,7 @@ from torchvision.models.segmentation.deeplabv3 import ASPP, DeepLabV3
 
 from composer.core.types import Batch
 from composer.models.base import BaseMosaicModel
-from composer.models.loss import CrossEntropyLoss, mIoU, soft_cross_entropy
+from composer.models.loss import CrossEntropyLoss, MIoU, soft_cross_entropy
 
 
 def deeplabv3_builder(num_classes: int,
@@ -79,9 +79,9 @@ class MosaicDeepLabV3(BaseMosaicModel):
             sync_bn=sync_bn)
 
         # Metrics
-        self.train_miou = mIoU(self.num_classes, ignore_index=-1)
+        self.train_miou = MIoU(self.num_classes, ignore_index=-1)
         self.train_ce = CrossEntropyLoss(ignore_index=-1)
-        self.val_miou = mIoU(self.num_classes, ignore_index=-1)
+        self.val_miou = MIoU(self.num_classes, ignore_index=-1)
         self.val_ce = CrossEntropyLoss(ignore_index=-1)
 
     def forward(self, batch: Batch):
