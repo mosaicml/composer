@@ -1,3 +1,4 @@
+pCloud = "colo-research-01"
 gitUrl = null
 gitBranch = null
 gitCommit = null
@@ -27,7 +28,6 @@ def runPytest(pythonVersion, extraDeps, gpu = false, marker = null) {
     def title = "Pytest - Python ${pythonVersion}, composer[${extraDeps}]"
     def summary = "Pytest - Python ${pythonVersion}, composer[${extraDeps}]"
     def nodeSelector = "mosaicml.com/node-class=mml-nv3090" // TODO set to an aws instance type
-    def pCloud = "colo-research-01"  // TODO set to aws-next-01 when that works
     def pytorchVersion = pythonVersion == "3.9" ? "1.10.0" : "1.9.1"
     def pDockerImage = "mosaicml/pytorch:${pytorchVersion}_cpu-python${pythonVersion}-ubuntu20.04"
     def pytestCliArgs = '--test_duration all'
@@ -39,7 +39,6 @@ def runPytest(pythonVersion, extraDeps, gpu = false, marker = null) {
         name = "$name-gpu"
         title = "$title, GPU"
         summary = "$summary, GPU"
-        pCloud = "colo-research-01"
         nGpus = "2"
         cpuLimit = "8000m" // 4 cpu per gpu
         memLimit = "16Gi"  // 8gb per gpu
@@ -77,7 +76,7 @@ def runPytest(pythonVersion, extraDeps, gpu = false, marker = null) {
 }
 
 stage('Prepare') {
-    node {
+    node (pCloud) {
         // In order to print the env and get the commit url and hash, we must be on a real agent
         sh 'printenv'
 
@@ -182,7 +181,7 @@ stage('Build') {
     }
     finally {
         stage('Merge Artifcats') {
-            node {
+            node (pCloud) {
                 checkout scm  // checking out the SCM so the coverage report can load the source
                 builds.each { item -> 
                     copyArtifacts(
