@@ -203,7 +203,7 @@ def _sample_batches_imbalanced(samplers: Sequence[BalancedSampler], batch_size: 
 
 # experimental control that should be equivalent to uniform sampling without replacement
 def _sample_batches_baseline(samplers: Sequence[BalancedSampler], batch_size: int, num_batches: int,
-                          rng: np.random.Generator, **_) -> List:
+                             rng: np.random.Generator, **_) -> List:
     batches = []
     num_classes = len(samplers)
     for b in range(num_batches):
@@ -307,6 +307,16 @@ class StratifiedBatchSampler(DistributedSampler[T_co]):
         self.total_batch_size = batch_size * self.num_replicas
         self._set_targets(targets)
 
+        self.total_num_samples = len(self.targets)
+        self.num_full_batches = self.total_num_samples // self.total_batch_size
+        has_stragglers = self.num_full_batches * self.total_batch_size < self.total_num_samples
+        self.add_stragglers = has_stragglers and not self.drop_last
+
+        # our logic differs from DistributedSampler, so make sure that
+        # these public attributes reflect what's actually going on
+        self.num_samples = self.batch_size * self.num_full_batches
+        self.total_size = self.num_samples * self.num_replicas
+
     def _set_targets(self, targets: Iterable):
         replace = self.stratify_how == 'balance'
         self.samplers, self.classes = create_samplers(targets, replace=replace)
@@ -317,31 +327,22 @@ class StratifiedBatchSampler(DistributedSampler[T_co]):
             sampler.reset(rng)
 
     def __iter__(self) -> Iterator[T_co]:
-        total_num_samples = len(self.targets)
-        num_batches = total_num_samples // self.total_batch_size
-        has_stragglers = num_batches * self.total_batch_size < total_num_samples
-
         rng = np.random.default_rng(self.seed + self.epoch)
         self._reset_samplers(rng)  # reset sampling for each epoch
 
         f_sample = _NAME_TO_SAMPLING_FUNC[self.stratify_how]
         batches = f_sample(self.samplers,
                            batch_size=self.total_batch_size,
-                           num_batches=num_batches,
+                           num_batches=self.num_full_batches,
                            rng=rng,
                            imbalance=self.imbalance)
 
-        if has_stragglers and not self.drop_last:
+        if self.add_stragglers:
             batches.append(
                 sample_stragglers(self.samplers,
                                   batch_size=self.total_batch_size,
-                                  total_num_samples=total_num_samples,
+                                  total_num_samples=self.total_num_samples,
                                   rng=rng))
-
-        # after every replica has constructed the same batches, evenly divide them;
-        # similar approach to default DistributedSampler, except with batches;
-        # see https://github.com/pytorch/pytorch/blob/d5988c5eca0221e9ef58918e4f0b504940cb926a/torch/utils/data/distributed.py#L94  # noqa
-        num_batches = len(batches)
 
         # shard each batch across the workers. We can't allocate whole batches
         # across them since these batches use the logical batch size, not the
@@ -352,13 +353,9 @@ class StratifiedBatchSampler(DistributedSampler[T_co]):
         my_end_idx = my_start_idx + self.batch_size
         my_batches = [b[my_start_idx:my_end_idx] for b in batches]
 
-        # our logic differs from DistributedSampler, so make sure that
-        # these public attributes reflect what's actually going on
-        # TODO move to __init__?
-        self.num_samples = self.batch_size * num_batches
-        self.total_size = self.num_samples * self.num_replicas
-
         return iter(my_batches)
 
     def __len__(self):
-        return int(math.ceil(len(self.dataset) / self.batch_size))
+        # batch sampler needs to return number of batches, not number
+        # of samples; see https://github.com/pytorch/pytorch/blob/fca8a0acaa5b058249324ca399e22d29fda25722/torch/utils/data/sampler.py#L237 # noqa
+        return self.num_full_batches + (1 if self.add_stragglers else 0)
