@@ -6,7 +6,6 @@ import contextlib
 import datetime
 import itertools
 import logging
-import os
 import textwrap
 import warnings
 from typing import Any, Callable, ContextManager, Dict, List, Optional, Sequence, Union, cast
@@ -35,7 +34,6 @@ from composer.trainer.deepspeed import DeepSpeedHparams, fix_batch_precision_for
 from composer.trainer.devices.device import Device
 from composer.trainer.devices.device_cpu import DeviceCPU
 from composer.trainer.devices.device_gpu import DeviceGPU
-from composer.trainer.devices.device_hparams import GPUDeviceHparams
 from composer.trainer.scaler import ClosureGradScaler
 from composer.trainer.trainer_hparams import TrainerHparams
 from composer.utils import dist, ensure_tuple, map_collection, reproducibility
