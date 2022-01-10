@@ -50,7 +50,6 @@ class MaskedAccuracy(Metric):
         return self.correct.float() / self.total
 
 
-# TODO (Moin): write tests for this!
 class CrossEntropyLoss(Metric):
     """Computes cross entropy loss.
 
@@ -104,7 +103,6 @@ class CrossEntropyLoss(Metric):
         return self.sum_loss / self.total_items  #type: ignore (third-party)
 
 
-# TODO (Moin): write tests for this!
 class BinaryF1Score(Metric):
     """Implements F1 Scores for binary classification tasks via sklearn.
 
