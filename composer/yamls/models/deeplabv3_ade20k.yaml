@@ -15,18 +15,19 @@ val_dataset:
     drop_last: false
     shuffle: false
 optimizer:
-  decoupled_sgdw:
-    lr: 0.04
+  sgd:
+    lr: 0.01
     momentum: 0.9
-    weight_decay: 5.0e-5
+    weight_decay: 5.0e-4
     dampening: 0
     nesterov: false
 schedulers:
-  - cosine_decay:
+  - polynomial:
       T_max: "127ep"
-      eta_min: 0
+      eta_min: 1e-4
       verbose: false
       interval: step
+      power: 0.9
 model:
   deeplabv3:
     initializers:
@@ -39,8 +40,8 @@ model:
 loggers:
   - tqdm: {}
 max_epochs: 127
-train_batch_size: 128
-eval_batch_size: 32
+train_batch_size: 16
+eval_batch_size: 16
 seed: 17
 device:
   gpu: {}
@@ -51,6 +52,6 @@ dataloader:
   persistent_workers: true
   num_workers: 8
 validate_every_n_epochs: 1
-grad_accum: 4
+grad_accum: 1
 precision: amp
 ddp_timeout: 60

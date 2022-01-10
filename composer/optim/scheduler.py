@@ -208,6 +208,38 @@ class ConstantLR(_LRScheduler):
         return [base_lr for base_lr in self.base_lrs]  # type: ignore
 
 
+class PolynomialLR(_LRScheduler):
+
+    def __init__(self,
+                 optimizer: Optimizer,
+                 T_max,
+                 power: float,
+                 eta_min=0,
+                 last_epoch: int = -1,
+                 verbose: int = False):
+
+        self.optimizer = optimizer
+        self.T_max = T_max
+        self.power = power
+        self.eta_min = eta_min
+        super(PolynomialLR, self).__init__(optimizer, last_epoch, verbose)
+
+    def get_lr(self):
+        coeff = (1 - self.last_epoch / self.T_max)**self.power
+        return [(base_lr - self.eta_min) * coeff + self.eta_min
+                for base_lr, group in zip(self.base_lrs, self.optimizer.param_groups)]
+
+
+@dataclass
+class PolynomialLRHparams(SchedulerHparams):
+    T_max: Time = hp.required(doc='Maximum number of iterations')
+    power: float = hp.required(doc='Power of LR schedule')
+    eta_min: float = hp.optional(default=0.0, doc='Minimum learning rate')
+    verbose: bool = hp.optional(default=False, doc='prints message to stdout')
+    interval: str = hp.optional(default='epoch', doc=_interval_doc)
+
+    scheduler_object = PolynomialLR
+
 @dataclass
 class ConstantLRHparams(SchedulerHparams):
     """Hyperparameters for the :class:`ConstantLR` scheduler."""
