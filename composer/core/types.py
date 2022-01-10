@@ -8,7 +8,7 @@ See :doc:`/core/types` for documentation.
 from __future__ import annotations
 from dataclasses import dataclass
 
-from typing import TYPE_CHECKING, Any, Callable, Dict, Iterable, Iterator, List, NamedTuple, Optional, Sequence, Tuple, Union
+from typing import TYPE_CHECKING, Any, Dict, Iterable, Iterator, List, Optional, Sequence, Tuple, Union
 
 import torch
 import torch.utils.data
@@ -16,11 +16,14 @@ from torchmetrics.collections import MetricCollection
 from torchmetrics.metric import Metric
 
 from composer.core.algorithm import Algorithm as Algorithm
+from composer.core.data_spec import DataSpec as DataSpec
 from composer.core.event import Event as Event
 from composer.core.logging import Logger as Logger
 from composer.core.precision import Precision as Precision
 from composer.core.serializable import Serializable as Serializable
 from composer.core.state import State as State
+from composer.core.time import Time as Time
+from composer.core.time import Timer as Timer
 from composer.utils.string_enum import StringEnum
 
 try:
@@ -153,23 +156,6 @@ class DataLoader(Protocol):
         """
         ...
 
-class DataloaderSpec(NamedTuple):
-    """Specification for initializing a dataloader when a device transformation function or split function
-    is required
-    
-    Parameters:
-        dataloader (DataLoader): The initialized dataloader.
-        device_transform_fn (TDeviceTransformFn, optional):
-            A function to modify the data once it has been loaded onto the device (for example, GPU-based batch normalization)
-            This function is invoked with a batch of data after it has been moved onto the device,
-            and it is expected to return a batch.
-        split_fn (Batch, int -> List[Batch]): A function to
-            run to split batches into microbatches.
-    """
-    dataloader: DataLoader
-    device_transform_fn: Optional[TDeviceTransformFn] = None
-    split_fn: Callable[[Batch, int], List[Batch]] = _split_fn
-
 
 @dataclass
 class Evaluator:
@@ -190,20 +176,19 @@ class Evaluator:
     """
 
     label: str
-    dataloader: Union[DataLoader, DataloaderSpec]
+    dataloader: Union[DataLoader, DataSpec]
     metrics: Metrics
     validate_every_n_epochs: int = 1
     validate_every_n_batches: int = -1
     metric_names: Optional[List[str]] = None
-    device_transform_fn: Optional[TDeviceTransformFn] = None
 
 
 Metrics = Union[Metric, MetricCollection]
 
 Optimizer = torch.optim.Optimizer
-Optimizers = Union[Optimizer, Tuple[Optimizer, ...]]
+Optimizers = Union[Optimizer, Tuple[Optimizer, ...], List[Optimizer]]
 Scheduler = torch.optim.lr_scheduler._LRScheduler
-Schedulers = Union[Scheduler, Tuple[Scheduler, ...]]
+Schedulers = Union[Scheduler, Tuple[Scheduler, ...], List[Scheduler]]
 
 Scaler = torch.cuda.amp.grad_scaler.GradScaler
 
@@ -211,8 +196,6 @@ Model = torch.nn.Module
 ModelParameters = Union[Iterable[Tensor], Iterable[Dict[str, Tensor]]]
 
 JSON = Union[str, float, int, None, List['JSON'], Dict[str, 'JSON']]
-
-TDeviceTransformFn = Callable[[Batch], Batch]
 
 StateDict = Dict[str, Any]
 

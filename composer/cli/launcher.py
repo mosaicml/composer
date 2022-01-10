@@ -1,6 +1,7 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
 import datetime
+import logging
 import os
 import signal
 import socket
@@ -13,6 +14,8 @@ from argparse import ArgumentParser
 from typing import Any, List, Optional, Set
 
 CLEANUP_TIMEOUT = datetime.timedelta(seconds=30)
+
+log = logging.getLogger(__name__)
 
 
 def get_parser():
@@ -56,6 +59,7 @@ def get_parser():
                         "--module_mode",
                         action="store_true",
                         help="If set, run the training script as a module instead of as a script.")
+    parser.add_argument("-v", "--verbose", action="store_true", help="If set, print verbose messages")
     parser.add_argument("training_script",
                         type=str,
                         help="The path to the training script used to initialize a single training "
@@ -90,7 +94,7 @@ def parse_args():
 def launch_processes(nproc: int, world_size: int, base_rank: int, master_addr: str, master_port: Optional[int],
                      module_mode: bool, run_directory: Optional[str], training_script: str,
                      training_script_args: List[Any]) -> Set[subprocess.Popen]:
-    print(f"Starting DDP on local node for global_rank({base_rank}-{base_rank+nproc-1})")
+    log.info("Starting DDP on local node for global_rank(%s-%s)", base_rank, base_rank + nproc - 1)
     processes = []
 
     if run_directory is None:
@@ -104,7 +108,7 @@ def launch_processes(nproc: int, world_size: int, base_rank: int, master_addr: s
                       "This may lead to race conditions when launching multiple training processes simultaneously. "
                       "To eliminate this race condition, explicitely specify a port with --master_port PORT_NUMBER")
         master_port = get_free_tcp_port()
-    print(f"DDP Store: tcp://{master_addr}:{master_port}")
+    log.info("DDP Store: tcp://%s:%s", master_addr, master_port)
 
     for local_rank in range(nproc):
         global_rank = base_rank + local_rank
@@ -122,7 +126,7 @@ def launch_processes(nproc: int, world_size: int, base_rank: int, master_addr: s
         current_env["MASTER_PORT"] = str(master_port)
         current_env["RUN_DIRECTORY"] = run_directory
 
-        print(f"Launching process for local_rank({local_rank}), global_rank({global_rank})")
+        log.info("Launching process for local_rank(%s), global_rank(%s)", local_rank, global_rank)
 
         if local_rank == 0:
             process = subprocess.Popen(cmd, env=current_env, text=True)
@@ -141,58 +145,71 @@ def launch_processes(nproc: int, world_size: int, base_rank: int, master_addr: s
 
 def monitor_processes(processes: Set[subprocess.Popen]):
     while len(processes) > 0:
+        process_has_crashed = False
         for process in processes:
             if process.poll() is None:
                 # the process is still running
                 continue
             else:
                 # return code of 0 implies clean exit
-                # return code of -9 implies sigkill, presumably from cleanup_processes()
-                if process.returncode not in (0, -9):
-                    if process.stdout is None:
-                        output = ""
-                    else:
-                        output = process.stdout.read()
-
-                    if process.stderr is None:
-                        stderr = ""
-                    else:
-                        stderr = process.stderr.read()
-                    exc = subprocess.CalledProcessError(
-                        process.returncode,
-                        cmd=process.args,
-                        output=output,
-                        stderr=stderr,
-                    )
-                    error_msg = [
-                        "Error in subprocess",
-                        "----------Subprocess STDOUT----------",
-                        exc.output,
-                        "----------Subprocess STDERR----------",
-                        exc.stderr,
-                    ]
-                    print("\n".join(error_msg))
-                    print(exc)
-                    sys.exit(process.returncode)
+                if process.returncode != 0:
+                    process_has_crashed = True
+                    break
                 else:
                     # exited cleanly
                     processes.remove(process)
                     break
+        if process_has_crashed:
+            break
         time.sleep(1)
 
 
+def print_process_exit_status(process: subprocess.Popen):
+    if process.stdout is None:
+        output = None
+    else:
+        output = process.stdout.read()
+
+    if process.stderr is None:
+        stderr = None
+    else:
+        stderr = process.stderr.read()
+    exc = subprocess.CalledProcessError(
+        process.returncode,
+        cmd=process.args,
+        output=output,
+        stderr=stderr,
+    )
+    error_msg = [f"Process {process.pid} excited with code {process.returncode}"]
+    if output is not None:
+        error_msg.extend([
+            "----------Begin subprocess STDOUT----------",
+            output,
+            "----------End subprocess STDOUT----------",
+        ])
+    if stderr is not None:
+        error_msg.extend([
+            "----------Begin subprocess STDERR----------",
+            exc.stderr,
+            "----------End subprocess STDERR----------",
+        ])
+    print("\n".join(error_msg))
+
+
 def cleanup_processes(processes: Set[subprocess.Popen]):
+    living_processes_at_end = set()
     for process in processes:
         process.poll()
         if process.returncode is None:
-            print(f"Killing subprocess {process.pid} with SIGTERM")
+            living_processes_at_end.add(process)
+            log.info("Killing subprocess %s with SIGTERM", process.pid)
             try:
                 os.killpg(process.pid, signal.SIGTERM)
             except ProcessLookupError:
                 pass
 
     current_time = datetime.datetime.now()
-    print(f"Waiting {CLEANUP_TIMEOUT.seconds} seconds for processes to terminate...")
+    print(f"Waiting up to {CLEANUP_TIMEOUT.seconds} seconds for all training processes to terminate...")
     while datetime.datetime.now() - current_time < CLEANUP_TIMEOUT:
         for process in processes:
             process.poll()
@@ -203,20 +220,27 @@ def cleanup_processes(processes: Set[subprocess.Popen]):
     for process in processes:
         process.poll()
         if process.returncode is None:
-            print(f"Failed to kill subprocess {process.pid} with SIGTERM; using SIGKILL instead")
+            log.warning("Failed to kill subprocess %s with SIGTERM; using SIGKILL instead", process.pid)
             try:
                 os.killpg(process.pid, signal.SIGKILL)
             except ProcessLookupError:
                 pass
+    for process in processes:
+        process.poll()
+        if process.returncode != 0 and process not in living_processes_at_end:
+            # only print the processes that have actually crashed,
+            # not the ones we killed
+            print_process_exit_status(process)
 
 
 def aggregate_process_returncode(processes: Set[subprocess.Popen]) -> int:
     for process in processes:
         process.poll()
         if process.returncode is None:
-            print(f"Subprocess {process.pid} has still not exited; return exit code 1.")
+            log.error("Subprocess %s has still not exited; return exit code 1.", process.pid)
             return 1
         if process.returncode != 0:
+            log.error("Subprocess %s exited with code %s", process.pid, process.returncode)
             return process.returncode
 
     return 0
@@ -224,6 +248,9 @@ def aggregate_process_returncode(processes: Set[subprocess.Popen]) -> int:
 
 def main():
     args = parse_args()
+
+    logging.basicConfig()
+    log.setLevel(logging.INFO if args.verbose else logging.WARN)
 
     processes = launch_processes(nproc=args.nproc,
                                  world_size=args.world_size,
@@ -238,7 +265,7 @@ def main():
     try:
         monitor_processes(processes)
     except KeyboardInterrupt:
-        print("Caught Ctrl+C; killing processes")
+        print("Caught Ctrl+C; killing training processes")
         raise
     finally:
         cleanup_processes(processes)

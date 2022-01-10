@@ -276,7 +276,7 @@ def test_selective_backprop_interp_dim_error(X: torch.Tensor, y: torch.Tensor, m
     """Ensure that ValueError is raised when input tensor can't be scaled
     """
     with pytest.raises(ValueError):
-        X_scaled, y_scaled = selective_backprop(X, y, model, loss_fun, 1, 0.5)
+        selective_backprop(X, y, model, loss_fun, 1, 0.5)
 
 
 def test_selective_backprop_bad_loss_error(X: torch.Tensor, y: torch.Tensor, model: torch.nn.Module,
@@ -284,7 +284,7 @@ def test_selective_backprop_bad_loss_error(X: torch.Tensor, y: torch.Tensor, mod
     """Ensure that ValueError is raised when loss function doesn't have `reduction` kwarg
     """
     with pytest.raises(TypeError) as execinfo:
-        X_scaled, y_scaled = selective_backprop(X, y, model, bad_loss, 1, 1)
+        selective_backprop(X, y, model, bad_loss, 1, 1)
     MATCH = "must take a keyword argument `reduction`."
     assert MATCH in str(execinfo.value)
 

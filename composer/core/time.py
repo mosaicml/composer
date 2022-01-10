@@ -1,0 +1,389 @@
+# Copyright 2021 MosaicML. All Rights Reserved.
+
+from __future__ import annotations
+
+import re
+import textwrap
+import warnings
+from typing import TYPE_CHECKING, Union
+
+from composer.core.serializable import Serializable
+from composer.utils.string_enum import StringEnum
+
+if TYPE_CHECKING:
+    from composer.core.types import StateDict
+
+
+class TimeUnit(StringEnum):
+    """Units of time for the training process.
+
+    Attributes:
+        EPOCH (str): Epochs.
+        BATCH (str): Batchs (i.e. number of optimization steps)
+        SAMPLE (str): Samples.
+        TOKEN (str): Tokens. Applicable for natural language processing (NLP) models.
+        DURATION (str): Fraction of the training process complete, on ``[0.0, 1.0)``
+    """
+    EPOCH = "ep"
+    BATCH = "ba"
+    SAMPLE = "sp"
+    TOKEN = "tok"
+    DURATION = "dur"
+
+
+_NUM_REGEX = r'-?[\d.]+(?:e-?\d+)?'  # regex for parsing integers / decimals / scientific notation
+
+# regex for parsing a time string.
+_TIME_STR_REGEX = re.compile(r'^(?:' + r'|'.join(fr"(?:({_NUM_REGEX})({time_unit.value}))" for time_unit in TimeUnit) +
+                             r')$',
+                             flags=re.IGNORECASE)
+
+
+class Time:
+    """Time represents static durations of training time or points in the training process in terms of a 
+    :class:`TimeUnit` enum (epochs, batches, samples, tokens, or duration).
+
+    To construct an instance of :class:`Time`, you can either:
+        
+        #. Use a value followed by a :class:`TimeUnit` enum or string. For example,
+
+            >>> Time(5, TimeUnit.EPOCH)  # describes 5 epochs.
+            >>> Time(3e4, "tok")  # describes 30,000 tokens.
+            >>> Time(0.5, "dur")  # describes 50% of the training process.
+
+        #. Use one of the helper methods. See:
+
+            - :meth:`Time.from_epoch`
+            - :meth:`Time.from_batch`
+            - :meth:`Time.from_sample`
+            - :meth:`Time.from_token`
+            - :meth:`Time.from_duration`
+            - :meth:`Time.from_timestring`.
+
+    :class:`Time` supports addition and subtraction with other :class:`Time` instances that share the same
+    :class:`TimeUnit`. For example:
+
+    >>> Time(1, TimeUnit.EPOCH) + Time(2, TimeUnit.EPOCH) == Time(3, TimeUnit.EPOCH)
+
+    :class:`Time` supports multiplication. The multiplier must be either a number or have units of
+    :attr:`TimeUnit.DURATION`. The multiplicand is scaled, and its units are kept.
+
+    >>> Time(2, TimeUnit.EPOCH) * 0.5 == Time(1, TimeUnit.EPOCH)
+    >>> Time(2, TimeUnit.EPOCH) * Time(0.5, TimeUnit.DURATION) == Time(1, TimeUnit.EPOCH)
+
+
+    :class:`Time` supports division. If the divisor is an instance of :class:`Time`, then it
+    must have the same units as the dividend, and the result has units of :attr:`TimeUnit.DURATION`.
+    For example:
+
+    >>> Time(4, TimeUnit.EPOCH) / Time(2, TimeUnit.EPOCH) == Time(2.0, TimeUnit.DURATION)
+
+    If the divisor is number, then the dividend is scaled, and it keeps its units. For example:
+
+    >>> Time(4, TimeUnit.EPOCH) / 2 == Time(2, TimeUnit.EPOCH)
+
+    Args:
+        value (int or float): The amount of time.
+        unit (str or TimeUnit): The :class:`TimeUnit` for ``value``.
+    """
+
+    def __init__(
+        self,
+        value: Union[int, float],
+        unit: Union[str, TimeUnit],
+    ):
+        unit = TimeUnit(unit)
+        if unit == TimeUnit.DURATION:
+            value = float(value)
+        else:
+            if not isinstance(value, int):
+                raise TypeError(f"value {value} is of type {type(value)}. Units {unit} require integer values.")
+        self._value, self._unit = value, TimeUnit(unit)
+
+    @classmethod
+    def from_epoch(cls, epoch: int) -> Time:
+        """Create a :class:`Time` with units of :attr:`TimeUnit.EPOCH`.
+        Equivalent to ``Time(epoch, TimeUnit.EPOCH)``.
+
+        Args:
+            epoch (int): Number of epochs.
+
+        Returns:
+            Time: :class:`Time` instance, in epochs.
+        """
+        return cls(epoch, TimeUnit.EPOCH)
+
+    @classmethod
+    def from_batch(cls, batch: int) -> Time:
+        """Create a :class:`Time` with units of :attr:`TimeUnit.BATCH`.
+        Equivalent to ``Time(batch, TimeUnit.BATCH)``.
+
+        Args:
+            batch (int): Number of batches.
+
+        Returns:
+            Time: :class:`Time` instance, in batches.
+        """
+        return cls(batch, TimeUnit.BATCH)
+
+    @classmethod
+    def from_sample(cls, sample: int) -> Time:
+        """Create a :class:`Time` with units of :attr:`TimeUnit.SAMPLE`.
+        Equivalent to ``Time(sample, TimeUnit.SAMPLE)``.
+
+        Args:
+            sample (int): Number of samples.
+
+        Returns:
+            Time: :class:`Time` instance, in samples.
+        """
+        return cls(sample, TimeUnit.SAMPLE)
+
+    @classmethod
+    def from_token(cls, token: int) -> Time:
+        """Create a :class:`Time` with units of :attr:`TimeUnit.TOKEN`.
+        Equivalent to ``Time(sample, TimeUnit.TOKEN)``.
+
+        Args:
+            token (int): Number of tokens.
+
+        Returns:
+            Time: :class:`Time` instance, in tokens.
+        """
+        return cls(token, TimeUnit.TOKEN)
+
+    @classmethod
+    def from_duration(cls, duration: float) -> Time:
+        """Create a :class:`Time` with units of :attr:`TimeUnit.DURATION`.
+        Equivalent to ``Time(duration, TimeUnit.DURATION)``.
+
+        Args:
+            duration (float): Duration of the training process. Should be on ``[0, 1)``
+                where ``0`` represents the beginning of the training process and ``1``
+                represents a completed training process.
+
+        Returns:
+            Time: :class:`Time` instance, in duration.
+        """
+        return cls(duration, TimeUnit.DURATION)
+
+    @property
+    def value(self) -> Union[int, float]:
+        """The value of the time, as a number."""
+        return self._value
+
+    @property
+    def unit(self) -> TimeUnit:
+        """The unit of the time."""
+        return self._unit
+
+    def __repr__(self) -> str:
+        return f"{self.__class__.__name__}({self.value}, {self.unit})"
+
+    def _parse(self, other: object) -> Time:
+        # parse ``other`` into a Time object
+        if isinstance(other, Time):
+            return other
+        if isinstance(other, str):
+            other_parsed = Time.from_timestring(other)
+            warnings.warn(
+                textwrap.dedent(f"""TimeImplicitStringConversion:
+                Implicitly converting {other} to {other_parsed}.
+                To fix this warning, replace {other} with {other_parsed}."""))
+            return other_parsed
+
+        raise NotImplementedError(f"Cannot convert type {other} to {self.__class__.__name__}")
+
+    def _cmp(self, other: object) -> int:
+        other = self._parse(other)
+        if self.unit != other.unit:
+            raise RuntimeError(f"Cannot compare {self} to {other} since they have different units.")
+        if self.value < other.value:
+            return -1
+        if self.value == other.value:
+            return 0
+        assert self.value > other.value
+        return 1
+
+    def __eq__(self, other: object):
+        return self._cmp(other) == 0
+
+    def __ne__(self, other: object):
+        return self._cmp(other) != 0
+
+    def __lt__(self, other: object):
+        return self._cmp(other) < 0
+
+    def __le__(self, other: object):
+        return self._cmp(other) <= 0
+
+    def __gt__(self, other: object):
+        return self._cmp(other) > 0
+
+    def __ge__(self, other: object):
+        return self._cmp(other) >= 0
+
+    def __add__(self, other: object):
+        other = self._parse(other)
+        if self.unit != other.unit:
+            raise RuntimeError(f"Cannot add {self} to {other} since they have different units.")
+        return Time(self.value + other.value, self.unit)
+
+    def __radd__(self, other: object):
+        return self + other
+
+    def __sub__(self, other: object):
+        other = self._parse(other)
+        if self.unit != other.unit:
+            raise RuntimeError(f"Cannot subtract {other} from {self} since they have different units.")
+        return Time(self.value - other.value, self.unit)
+
+    def __rsub__(self, other: object):
+        return (-self) + other
+
+    def __neg__(self):
+        return Time(-self.value, self.unit)
+
+    def __pos__(self):
+        return Time(self.value, self.unit)
+
+    def __int__(self):
+        return int(self.value)
+
+    def __float__(self):
+        return float(self.value)
+
+    def __truediv__(self, other: object):
+        if isinstance(other, (float, int)):
+            return Time(type(self.value)(self.value / other), self.unit)
+        other = self._parse(other)
+        if self.unit != other.unit:
+            raise RuntimeError(f"Cannot divide {self} by {other} since they have different units.")
+        return Time(self.value / other.value, TimeUnit.DURATION)
+
+    def __mul__(self, other: object):
+        if isinstance(other, (float, int)):
+            # Scale by the value.
+            return Time(type(self.value)(self.value * other), self.unit)
+        other = self._parse(other)
+        if other.unit != TimeUnit.DURATION and self.unit != TimeUnit.DURATION:
+            raise RuntimeError(f"Multiplication is supported only if one of the units is Duration")
+        real_unit = self.unit if other.unit == TimeUnit.DURATION else other.unit
+        real_type = float if real_unit == TimeUnit.DURATION else int
+        return Time(real_type(self.value * other.value), real_unit)
+
+    def __rmul__(self, other: object):
+        return self * other
+
+    @classmethod
+    def from_timestring(cls, timestring: str) -> Time:
+        """Parse a time string into a :class:`Time` instance.
+        A time string is a numerical value followed by the value of a :class:`TimeUnit` enum. For example:
+
+        >>> Time("5ep")  # describes 5 epochs.
+        >>> Time("3e4tok")  # describes 30,000 tokens.
+        >>> Time("0.5dur")  # describes 50% of the training process.
+
+        Returns:
+            Time: An instance of :class:`Time`.
+        """
+        match = _TIME_STR_REGEX.findall(timestring)
+        if len(match) != 1:
+            raise ValueError(f"Invalid time string: {timestring}")
+        match = match[0]
+        match = [x for x in match if x != '']
+        assert len(match) == 2, "each match should have a number followed by the key"
+        value = match[0]
+        unit = TimeUnit(match[1])
+        value = float(value)  # always parsing first as float b/c it could be scientific notation
+        if unit != TimeUnit.DURATION:
+            value = int(value)
+        return Time(value, unit)
+
+
+class Timer(Serializable):
+    """Timer tracks the current training progress, in terms of epochs, batches, samples, and tokens."""
+
+    def __init__(self):
+        self._epoch = Time(0, TimeUnit.EPOCH)
+        self._batch = Time(0, TimeUnit.BATCH)
+        self._sample = Time(0, TimeUnit.SAMPLE)
+        self._token = Time(0, TimeUnit.TOKEN)
+
+    def state_dict(self) -> StateDict:
+        return {
+            "epoch": self.epoch.value,
+            "batch": self.batch.value,
+            "sample": self.sample.value,
+            "token": self.token.value,
+        }
+
+    def load_state_dict(self, state: StateDict) -> None:
+        self._epoch = Time(state["epoch"], TimeUnit.EPOCH)
+        self._batch = Time(state["batch"], TimeUnit.BATCH)
+        self._sample = Time(state["sample"], TimeUnit.SAMPLE)
+        self._token = Time(state["token"], TimeUnit.TOKEN)
+
+    @property
+    def epoch(self) -> Time:
+        """The current epoch."""
+        return self._epoch
+
+    @property
+    def batch(self) -> Time:
+        """The current batch."""
+        return self._batch
+
+    @property
+    def sample(self) -> Time:
+        """The current sample."""
+        return self._sample
+
+    @property
+    def token(self) -> Time:
+        """The current token."""
+        return self._token
+
+    def get(self, unit: Union[str, TimeUnit]) -> Time:
+        """Returns the current time in the specified unit.
+
+        Args:
+            unit (str or TimeUnit): The desired unit.
+
+        Returns:
+            Time: The current time, in the specified unit.
+        """
+        unit = TimeUnit(unit)
+        if unit == TimeUnit.EPOCH:
+            return self.epoch
+        if unit == TimeUnit.BATCH:
+            return self.batch
+        if unit == TimeUnit.SAMPLE:
+            return self.sample
+        if unit == TimeUnit.TOKEN:
+            return self.token
+        raise ValueError(f"Invalid unit: {unit}")
+
+    def on_batch_complete(self, samples: Union[int, Time] = 0, tokens: Union[int, Time] = 0):
+        """Called by the trainer at the end of every optimization batch.
+
+        .. note::
+
+            For accurate time tracking, the trainer is responsible for accumulating the total number of
+            samples and/or tokens trained across all ranks before invoking this function. 
+
+        Args:
+            samples (int or Time, optional): The number of samples trained in the batch. Defaults to 0.
+            tokens (int or Time, optional): The number of tokens trained in the batch. Defaults to 0.
+        """
+        self._batch += Time(1, TimeUnit.BATCH)
+        if isinstance(samples, int):
+            samples = Time(samples, TimeUnit.SAMPLE)
+        if isinstance(tokens, int):
+            tokens = Time(tokens, TimeUnit.TOKEN)
+        self._sample += samples
+        self._token += tokens
+
+    def on_epoch_complete(self):
+        """Called by the trainer at the end of an epoch."""
+        self._epoch += Time(1, TimeUnit.EPOCH)

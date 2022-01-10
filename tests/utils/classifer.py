@@ -22,8 +22,6 @@ def _get_state(train_dataloader: DataLoader, eval_dataloader: DataLoader, steps_
         model=model,
         optimizers=optim.SGD(model.parameters(), lr=.001, momentum=0.0),
         max_epochs=1,
-        train_batch_size=2,
-        eval_batch_size=2,
         train_dataloader=train_dataloader,
         evaluators=evaluators,
         grad_accum=1,

@@ -88,7 +88,7 @@ def dummy_algorithm(dummy_hparams):
 
 def test_resize_noop(X, y, mode):
     """ Tests that no operation is performed when scale_factor == 1"""
-    Xc, yc = resize_inputs(X, y, 1.0, mode, resize_targets=False)
+    Xc, _ = resize_inputs(X, y, 1.0, mode, resize_targets=False)
     assert X is Xc
 
 
@@ -96,7 +96,7 @@ def test_resize_noop(X, y, mode):
 def test_without_target(X, y):
     """ Test that resizing works properly with no target present"""
     try:
-        Xc, yc = resize_inputs(X, y, 1.0, "crop", resize_targets=False)
+        resize_inputs(X, y, 1.0, "crop", resize_targets=False)
     except:
         pytest.fail("apply_progressive_resizing failed with y == None")
 
@@ -105,14 +105,14 @@ def test_without_target(X, y):
 def test_resize_inputs_shape(X, y, mode, scale_factor):
     """ Test scaling works for different input shapes"""
 
-    Xc, yc = resize_inputs(X, y, scale_factor, mode, resize_targets=False)
+    Xc, _ = resize_inputs(X, y, scale_factor, mode, resize_targets=False)
     assert check_scaled_shape(X, Xc, scale_factor)
 
 
 def test_resize_outputs_shape(X, y, mode, scale_factor):
     """ Test that resizing outputs works """
 
-    Xc, yc = resize_inputs(X, y, scale_factor, mode, resize_targets=True)
+    _, yc = resize_inputs(X, y, scale_factor, mode, resize_targets=True)
     assert check_scaled_shape(y, yc, scale_factor)
 
 
@@ -120,7 +120,7 @@ def test_resize_outputs_shape(X, y, mode, scale_factor):
 def test_resize_outputs_different_shape(X, y, scale_factor, mode):
     """ Test that resizing works when X and y have different shapes"""
 
-    Xc, yc = resize_inputs(X, y, scale_factor, mode, resize_targets=True)
+    _, yc = resize_inputs(X, y, scale_factor, mode, resize_targets=True)
     assert check_scaled_shape(y, yc, scale_factor)
 
 

@@ -10,9 +10,8 @@ from torchmetrics.classification.accuracy import Accuracy
 from torchmetrics.collections import MetricCollection
 
 from composer import Logger, State
-from composer.core.types import DataLoader, Model, Precision, Evaluator
+from composer.core.types import DataLoader, DataSpec, Model, Precision, Evaluator
 from composer.datasets import DataloaderHparams, DatasetHparams
-from composer.datasets.hparams import DataloaderSpec
 from composer.models import ModelHparams, MosaicClassifier
 from composer.optim import AdamHparams, ExponentialLRHparams
 from composer.trainer import TrainerHparams
@@ -78,23 +77,22 @@ def dummy_val_dataset_hparams(dummy_model: SimpleBatchPairModel,
 
 
 @pytest.fixture()
-def dummy_state_without_rank(dummy_model: SimpleBatchPairModel, dummy_train_batch_size: int, dummy_val_batch_size: int,
-                             dummy_train_dataloader: DataLoader, dummy_val_dataloader: DataLoader) -> State:
+def dummy_state_without_rank(dummy_model: SimpleBatchPairModel, dummy_train_dataloader: DataLoader,
+                             dummy_val_dataloader: DataLoader) -> State:
     evaluators = [
         Evaluator(label="dummy_label", dataloader=dummy_val_dataloader, metrics=dummy_model.metrics(train=False))
     ]
     state = State(
         model=dummy_model,
-        epoch=5,
-        step=50,
         precision=Precision.FP32,
         grad_accum=1,
-        train_batch_size=dummy_train_batch_size,
-        eval_batch_size=dummy_val_batch_size,
         train_dataloader=dummy_train_dataloader,
         evaluators=evaluators,
         max_epochs=10,
     )
+    state.epoch = 5
+    state.step = 50
+
     return state
 
 
@@ -111,25 +109,19 @@ def dummy_dataloader_hparams() -> DataloaderHparams:
 
 @pytest.fixture
 def dummy_train_dataloader(dummy_train_dataset_hparams: DatasetHparams, dummy_train_batch_size: int,
-                           dummy_dataloader_hparams: DataloaderHparams) -> Union[DataLoader, DataloaderSpec]:
+                           dummy_dataloader_hparams: DataloaderHparams) -> Union[DataLoader, DataSpec]:
     return dummy_train_dataset_hparams.initialize_object(dummy_train_batch_size, dummy_dataloader_hparams)
 
 
 @pytest.fixture
 def dummy_val_dataloader(dummy_train_dataset_hparams: DatasetHparams, dummy_val_batch_size: int,
-                         dummy_dataloader_hparams: DataloaderHparams) -> Union[DataLoader, DataloaderSpec]:
+                         dummy_dataloader_hparams: DataloaderHparams) -> Union[DataLoader, DataSpec]:
     return dummy_train_dataset_hparams.initialize_object(dummy_val_batch_size, dummy_dataloader_hparams)
 
 
 @pytest.fixture()
 def dummy_state(dummy_state_without_rank: State) -> State:
     return dummy_state_without_rank
-
-
-@pytest.fixture()
-def dummy_state_dl(dummy_state: State, dummy_train_dataloader: DataLoader) -> State:
-    dummy_state.train_dataloader = dummy_train_dataloader
-    return dummy_state
 
 
 @pytest.fixture()
@@ -188,6 +180,7 @@ def mosaic_trainer_hparams(
             timeout=0.0,
         ),
         device=CPUDeviceHparams(),
+        deterministic_mode=True,
         loggers=[],
         model=dummy_model_hparams,
         val_dataset=dummy_val_dataset_hparams,
@@ -210,10 +203,6 @@ def state_with_model(simple_conv_model: Model, dummy_train_dataloader: DataLoade
         Evaluator(label="dummy_label", dataloader=dummy_val_dataloader, metrics=metric_coll)
     ]
     state = State(
-        epoch=50,
-        step=50,
-        train_batch_size=100,
-        eval_batch_size=100,
         grad_accum=1,
         max_epochs=100,
         model=simple_conv_model,
@@ -221,6 +210,8 @@ def state_with_model(simple_conv_model: Model, dummy_train_dataloader: DataLoade
         train_dataloader=dummy_train_dataloader,
         evaluators=evaluators,
     )
+    state.epoch = 50
+    state.step = 50
     return state
 
 

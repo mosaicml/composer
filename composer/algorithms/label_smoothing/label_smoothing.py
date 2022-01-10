@@ -3,6 +3,7 @@
 from dataclasses import asdict, dataclass
 from typing import Optional
 
+import torch
 import yahp as hp
 
 from composer.algorithms.algorithm_hparams import AlgorithmHparams
@@ -37,6 +38,7 @@ class LabelSmoothing(Algorithm):
 
     def __init__(self, alpha: float):
         self.hparams = LabelSmoothingHparams(alpha=alpha)
+        self.original_labels = torch.Tensor()
 
     def match(self, event: Event, state: State) -> bool:
         return event in [Event.BEFORE_LOSS, Event.AFTER_LOSS]

@@ -10,7 +10,7 @@ import yahp as hp
 from composer.algorithms import AlgorithmHparams
 from composer.core.types import Algorithm, Batch, Event, Logger, State, Tensor
 from composer.models.transformer_shared import MosaicTransformer
-from composer.utils import ddp, ensure_tuple
+from composer.utils import dist, ensure_tuple
 
 
 def apply_seq_length_warmup(batch: Dict[str, Tensor], curr_seq_len: int, truncate: bool) -> Batch:
@@ -180,8 +180,8 @@ class SeqLengthWarmup(Algorithm):
             # all of the parameters
             device = next(state.model.parameters()).device
 
-            assert (state.train_batch_size % ddp.get_world_size()) == 0
-            per_gpu_batch = math.ceil(state.train_batch_size / (ddp.get_world_size() * state.grad_accum))
+            assert (state.train_batch_size % dist.get_world_size()) == 0
+            per_gpu_batch = math.ceil(state.train_batch_size / (dist.get_world_size() * state.grad_accum))
             input_ids = torch.randint(low=0,
                                       high=vocab_size - 1,
                                       size=(per_gpu_batch, self.hparams.max_seq_length),
@@ -196,7 +196,7 @@ class SeqLengthWarmup(Algorithm):
 
             # start by running a forward and backward pass
             # of the maximum sequence length to allocate cache.
-            with state.precision_context(state.precision):
+            with state.precision_context:
                 outputs = state.model.forward(model_inputs)
                 loss = original_model.loss(outputs, model_inputs)
 
@@ -209,7 +209,7 @@ class SeqLengthWarmup(Algorithm):
             assert state.optimizers is not None, \
                 "optimizers are set before TRAINING_START"
 
-            for optimizer in ensure_tuple(state.optimizers):
+            for optimizer in state.optimizers:
                 optimizer.zero_grad()
         else:
             num_optimization_steps = state.steps_per_epoch * state.max_epochs

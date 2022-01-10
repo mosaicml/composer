@@ -40,8 +40,6 @@ def state(simple_conv_model: Model, dummy_train_dataloader: DataLoader, dummy_va
     ]
     return State(
         model=simple_conv_model,
-        train_batch_size=100,
-        eval_batch_size=100,
         precision=Precision.FP32,
         grad_accum=1,
         max_epochs=10,

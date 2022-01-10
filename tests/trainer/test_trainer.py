@@ -44,9 +44,9 @@ def test_trainer_init_additional_args(dummy_train_dataloader: DataLoader, dummy_
     )
 
     assert isinstance(trainer, Trainer)
-    assert isinstance(trainer.state.optimizers, Adam)
+    assert isinstance(trainer.state.optimizers[0], Adam)
 
-    assert isinstance(trainer.state.schedulers, ComposedScheduler)
+    assert isinstance(trainer.state.schedulers[0], ComposedScheduler)
 
     assert len(trainer.logger.backends) == 1
     assert isinstance(trainer.logger.backends[0], TQDMLoggerBackend)
@@ -69,11 +69,11 @@ def test_trainer_validation(mosaic_trainer_hparams: TrainerHparams, invalid_hpar
         mosaic_trainer_hparams.validate()
 
 
-@pytest.mark.filterwarnings("ignore:Deterministic mode is activated:UserWarning")
 @pytest.mark.timeout(90)
-def test_trainer_determinism(mosaic_trainer_hparams: TrainerHparams):
+@pytest.mark.parametrize("device", [CPUDeviceHparams(), pytest.param(GPUDeviceHparams(), marks=pytest.mark.gpu)])
+def test_trainer_determinism(mosaic_trainer_hparams: TrainerHparams, device: DeviceHparams):
     mosaic_trainer_hparams.seed = 10
-    mosaic_trainer_hparams.deterministic_mode = True
+    mosaic_trainer_hparams.device = device
     mosaic_trainer_hparams.max_epochs = 2
 
     first_trainer = Trainer.create_from_hparams(mosaic_trainer_hparams)
@@ -81,7 +81,7 @@ def test_trainer_determinism(mosaic_trainer_hparams: TrainerHparams):
     first_model = first_trainer.state.model.module
     assert isinstance(first_model, BaseMosaicModel)
     assert first_trainer.state.train_dataloader is not None
-    first_loss = get_total_loss(first_model, first_trainer.state.train_dataloader)
+    first_loss = get_total_loss(first_model, first_trainer.state.train_dataloader, first_trainer.device)
 
     # Second trainer must be created after fitting the first so that the
     # seeds get fully reset for the second training run
@@ -90,7 +90,7 @@ def test_trainer_determinism(mosaic_trainer_hparams: TrainerHparams):
     second_model = second_trainer.state.model.module
     assert isinstance(second_model, BaseMosaicModel)
     assert second_trainer.state.train_dataloader is not None
-    second_loss = get_total_loss(second_model, second_trainer.state.train_dataloader)
+    second_loss = get_total_loss(second_model, second_trainer.state.train_dataloader, second_trainer.device)
 
     torch.testing.assert_allclose(second_loss, first_loss)
 

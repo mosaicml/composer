@@ -68,7 +68,7 @@ class SqueezeExcite2d(torch.nn.Module):
 class SqueezeExciteConv2d(torch.nn.Module):
     """Helper class used to add a :class:`SqueezeExcite2d` module after a :class:`~torch.nn.Conv2d`."""
 
-    def __init__(self, *args, latent_channels=.125, conv: torch.nn.Conv2d = None, **kwargs):
+    def __init__(self, *args, latent_channels: float = 0.125, conv: Optional[torch.nn.Conv2d] = None, **kwargs):
         super().__init__()
         self.conv = torch.nn.Conv2d(*args, **kwargs) if conv is None else conv
         self.se = SqueezeExcite2d(num_features=self.conv.out_channels, latent_channels=latent_channels)
