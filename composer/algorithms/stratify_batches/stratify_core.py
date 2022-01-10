@@ -101,8 +101,8 @@ class BalancedSampler:
         return self._num_elements_unsampled_at_epoch(0)
 
 
-def _sample_batches_match(samplers: Sequence[BalancedSampler], batch_size: int, num_batches: int,
-                          rng: np.random.Generator, **_) -> List:
+def _sample_batches_match_old(samplers: Sequence[BalancedSampler], batch_size: int, num_batches: int,
+                              rng: np.random.Generator, **_) -> List:
     batches = []
     num_classes = len(samplers)
     for b in range(num_batches):
@@ -141,6 +141,58 @@ def _sample_batches_match(samplers: Sequence[BalancedSampler], batch_size: int, 
 
         batches.append(batch)
     return batches
+
+
+def _sample_batches_uniform(samplers: Sequence[BalancedSampler], batch_size: int, num_batches: int,
+                            rng: np.random.Generator, **_) -> List:
+    unsampled_counts = [s.num_unsampled_elements() for s in samplers]
+    # unsampled_counts = [len(s.tail) for s in samplers]
+    total_unsampled_count = sum(unsampled_counts)
+    requested_count = batch_size * num_batches
+    if total_unsampled_count < requested_count:
+        raise ValueError(f"Can't sample {requested_count} unique elements from a set of size {total_unsampled_count}")
+
+    # choose how many elems to take from each sampler
+    labels = np.empty(total_unsampled_count, dtype=np.int)
+    label_write_ptr = labels
+    for c in range(len(samplers)):
+        count = unsampled_counts[c]
+        label_write_ptr[:count] = c
+        label_write_ptr = label_write_ptr[count:]
+    shuffled_labels = rng.permutation(labels)[:requested_count]
+    uniqs, counts = np.unique(shuffled_labels, return_counts=True)
+
+    # now sample the correct number of elems from each sampler
+    flat_batches = np.empty(requested_count, dtype=np.int)
+    write_ptr = flat_batches
+    for c, count in zip(uniqs, counts):
+        write_ptr[:count] = samplers[c].sample(count)
+        write_ptr = write_ptr[count:]
+    batches = flat_batches.reshape(num_batches, batch_size)
+
+    return [list(batch) for batch in batches]  # convert to lists for consistency
+
+
+def _sample_batches_match(samplers: Sequence[BalancedSampler], batch_size: int, num_batches: int,
+                          rng: np.random.Generator, **_) -> List:
+    batches = [[] for _ in range(num_batches)]
+    num_classes = len(samplers)
+    # evenly spread samples from a given class across batches as much as possible
+    for sampler in samplers:
+        take_num = sampler.num_unsampled_elements() // num_batches
+        take_num = min(take_num, batch_size // num_classes)  # requesting few batches
+        for batch in batches:
+            batch += sampler.sample(take_num)
+
+    tail_size = batch_size - len(batches[0])  # same for all batches
+    if tail_size == 0:
+        return batches
+    assert tail_size > 0, f"tail size = {tail_size}"
+
+    # sample uniformly at random for remaining entries
+    tail_batches = _sample_batches_uniform(samplers=samplers, batch_size=tail_size, num_batches=num_batches, rng=rng)
+
+    return [batches[b] + tail_batches[b] for b in range(num_batches)]
 
 
 def _sample_batches_balanced(samplers: Sequence[BalancedSampler], batch_size: int, num_batches: int,
@@ -201,19 +253,19 @@ def _sample_batches_imbalanced(samplers: Sequence[BalancedSampler], batch_size: 
     return batches
 
 
-# experimental control that should be equivalent to uniform sampling without replacement
-def _sample_batches_baseline(samplers: Sequence[BalancedSampler], batch_size: int, num_batches: int,
-                             rng: np.random.Generator, **_) -> List:
-    batches = []
-    num_classes = len(samplers)
-    for b in range(num_batches):
-        batch = []
-        for _ in range(batch_size):
-            p_proportional = _compute_p_proportional(samplers)
-            take_class = rng.choice(num_classes, size=1, p=p_proportional)[0]
-            batch.append(samplers[take_class].sample(1)[0])
-        batches.append(batch)
-    return batches
+# # experimental control that should be equivalent to uniform sampling without replacement
+# def _sample_batches_baseline(samplers: Sequence[BalancedSampler], batch_size: int, num_batches: int,
+#                              rng: np.random.Generator, **_) -> List:
+#     batches = []
+#     num_classes = len(samplers)
+#     for _ in range(num_batches):
+#         batch = []
+#         for _ in range(batch_size):
+#             p_proportional = _compute_p_proportional(samplers)
+#             take_class = rng.choice(num_classes, size=1, p=p_proportional)[0]
+#             batch.append(samplers[take_class].sample(1)[0])
+#         batches.append(batch)
+#     return batches
 
 
 def sample_stragglers(samplers: Sequence[BalancedSampler],
@@ -269,7 +321,7 @@ _NAME_TO_SAMPLING_FUNC = {
     'balance': _sample_batches_balanced,
     'match': _sample_batches_match,
     'imbalance': _sample_batches_imbalanced,
-    'baseline': _sample_batches_baseline,
+    'baseline': _sample_batches_uniform,
 }
 
 T_co = TypeVar('T_co', covariant=True)

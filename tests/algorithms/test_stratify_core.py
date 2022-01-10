@@ -96,11 +96,27 @@ def test_balanced_sampler_balances_sample_counts(uniq_elems, batch_size, num_bat
         assert valid_counts.max() - valid_counts.min() <= 1
 
 
-def _make_targets(num_classes: int, batch_size: int, num_batches: int, add_stragglers: bool, rng: np.random.Generator):
+def _make_targets(num_classes: int, batch_size: int, num_batches: int, add_stragglers: bool, balance: bool,
+                  rng: np.random.Generator):
     num_targets = batch_size * num_batches
     if add_stragglers:
         num_targets += int(math.ceil(batch_size / 2))
-    return rng.choice(num_classes, size=num_targets, replace=True)
+
+    if not balance:
+        return rng.choice(num_classes, size=num_targets, replace=True)
+
+    # balance the number of targets generated for each class as well as possible
+    num_per_class = num_targets // num_classes
+    if num_per_class >= 1:
+        targets = np.zeros((num_per_class, num_classes), dtype=np.int)
+        targets += np.arange(num_classes)
+        targets = list(targets.ravel())
+    else:
+        targets = []
+    need_num_targets = num_targets - len(targets)
+    targets += list(rng.choice(num_classes, size=need_num_targets, replace=False))
+
+    return np.array(targets)
 
 
 def _construct_class_counts(batches: List[List], targets: Sequence[int], num_classes: int):
@@ -113,30 +129,50 @@ def _construct_class_counts(batches: List[List], targets: Sequence[int], num_cla
     return class_counts
 
 
+# @pytest.mark.parametrize('num_classes', [8])
+# @pytest.mark.parametrize('batch_size', [2])
+# @pytest.mark.parametrize('num_batches', [1])
+# @pytest.mark.parametrize('add_stragglers', [True])
+# @pytest.mark.parametrize('add_stragglers', [False])
+# @pytest.mark.parametrize('stratify_how', ['balance', 'match'])
+# @pytest.mark.parametrize('stratify_how', ['match'])
+# @pytest.mark.parametrize('stratify_how', ['baseline'])
+# @pytest.mark.parametrize('num_replicas', [1])
 @pytest.mark.parametrize('num_classes', [2, 4, 7, 8])
 @pytest.mark.parametrize('batch_size', [1, 2, 4, 7, 8])
 @pytest.mark.parametrize('num_batches', [1, 2, 3])
 @pytest.mark.parametrize('add_stragglers', [False, True])
 @pytest.mark.parametrize('stratify_how', ['balance', 'match', 'imbalance'])
+@pytest.mark.parametrize('num_replicas', [1, 2])
 @pytest.mark.parametrize('seed', [123])
 def test_sample_batches_correctness(num_classes: int, batch_size: int, num_batches: int, add_stragglers: bool,
-                                    stratify_how: str, seed: int):
+                                    stratify_how: str, num_replicas: int, seed: int):
+    if batch_size % num_replicas != 0:
+        return
     rng = np.random.default_rng(seed)
+    balance_targets = (batch_size % num_classes == 0) and not add_stragglers
     targets = _make_targets(num_classes=num_classes,
                             batch_size=batch_size,
                             num_batches=num_batches,
                             add_stragglers=add_stragglers,
+                            balance=balance_targets,
                             rng=rng)
     dataset = np.zeros(len(targets))
 
-    batches = iter(
-        core.StratifiedBatchSampler(dataset,
-                                    targets=targets,
-                                    batch_size=batch_size,
-                                    stratify_how=stratify_how,
-                                    seed=seed,
-                                    num_replicas=1,
-                                    rank=0))
+    batches = []
+    for r in range(num_replicas):
+        sampler = core.StratifiedBatchSampler(dataset,
+                                              targets=targets,
+                                              batch_size=batch_size // num_replicas,
+                                              stratify_how=stratify_how,
+                                              seed=seed,
+                                              num_replicas=num_replicas,
+                                              rank=r)
+        for b, batch in enumerate(iter(sampler)):
+            if len(batches) == b:
+                batches.append([])
+            batches[b] += batch
+
     batches = list(batches)
 
     # check batch sizes and shapes
@@ -165,8 +201,9 @@ def test_sample_batches_correctness(num_classes: int, batch_size: int, num_batch
     nonzero_counts_mask = np.zeros(num_classes, dtype=bool)
     nonzero_counts_mask[targets] = True
     class_counts = class_counts[:, nonzero_counts_mask]
+
     if stratify_how == 'balance':
-        for b, counts in enumerate(class_counts):
+        for counts in class_counts:
             assert counts.max() - counts.min() <= 1
     elif stratify_how in ('match', 'imbalance'):
         # every idx should be sampled exactly once
@@ -176,3 +213,8 @@ def test_sample_batches_correctness(num_classes: int, batch_size: int, num_batch
         if add_stragglers:
             idx_appeared[last_batch] = 1
         assert all(idx_appeared)
+
+    # we ensured that there could be an equal number of each class in each batch
+    if balance_targets and stratify_how in ('match', 'balance'):
+        for counts in class_counts:
+            assert counts.min() == counts.max()
