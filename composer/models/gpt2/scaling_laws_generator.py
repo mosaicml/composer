@@ -331,8 +331,6 @@ def configure_mosaic_yaml(model, scaling_law_predictions):
     template_yaml['schedulers'][1]['cosine_decay']['T_max'] = f"{decay_steps}ba"
     template_yaml['model']['gpt2']['model_config'] = model
 
-    validation_freq = math.floor(final_serial_steps * args.validation_freq)
-
     return template_yaml
 
 

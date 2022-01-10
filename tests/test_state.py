@@ -5,13 +5,14 @@ import random
 
 import torch
 import torch.nn.functional as F
+from deepspeed.runtime.engine import DeepSpeedEngine
 from torch.functional import Tensor
 
 from composer.algorithms.dummy import DummyHparams
-from composer.core import State, types
+from composer.core import DataSpec, State, types
 from composer.core.state import DIRECT_SERIALIZATION_FIELDS, SKIP_SERIALIZATION_FIELDS, STATE_DICT_SERIALIZATION_FIELDS
 from composer.datasets.dataloader import DataloaderHparams
-from composer.datasets.hparams import DataloaderSpec, DatasetHparams
+from composer.datasets.hparams import DatasetHparams
 from composer.models.base import BaseMosaicModel
 from tests.fixtures.models import SimpleBatchPairModel
 
@@ -66,6 +67,8 @@ def assert_state_equivalent(state1: State, state2: State):
         var2 = getattr(state2, field_name)
 
         if field_name == "model":
+            if isinstance(state1.model, DeepSpeedEngine):
+                assert isinstance(state2.model, DeepSpeedEngine)
             for p, q in zip(state1.model.parameters(), state2.model.parameters()):
                 torch.testing.assert_allclose(p, q, atol=1e-2, rtol=1e-2)
         elif isinstance(var1, types.Tensor):
@@ -75,7 +78,7 @@ def assert_state_equivalent(state1: State, state2: State):
 
 
 def train_one_step(state: State, batch: types.Batch) -> None:
-    x, y = batch
+    _, y = batch
     state.batch = batch
 
     state.outputs = state.model(state.batch_pair)
@@ -92,7 +95,7 @@ def train_one_step(state: State, batch: types.Batch) -> None:
 
 def get_batch(dataset_hparams: DatasetHparams, dataloader_hparams: DataloaderHparams) -> types.Batch:
     dataloader = dataset_hparams.initialize_object(batch_size=2, dataloader_hparams=dataloader_hparams)
-    if isinstance(dataloader, DataloaderSpec):
+    if isinstance(dataloader, DataSpec):
         dataloader = dataloader.dataloader
     for batch in dataloader:
         return batch

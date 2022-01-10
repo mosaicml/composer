@@ -4,13 +4,15 @@
 from __future__ import annotations
 
 import abc
+import dataclasses
 import textwrap
 from dataclasses import asdict, dataclass
-from typing import TYPE_CHECKING, Any, Dict, List, Optional
+from typing import TYPE_CHECKING, List, Optional
 
 import yahp as hp
 
 from composer.core.callback import Callback
+from composer.utils.object_store import ObjectStoreProviderHparams
 
 if TYPE_CHECKING:
     from composer.callbacks.benchmarker import Benchmarker
@@ -158,39 +160,24 @@ class TorchProfilerHparams(CallbackHparams):
 
 
 @dataclass
-class RunDirectoryUploaderHparams(CallbackHparams):
+class RunDirectoryUploaderHparams(ObjectStoreProviderHparams, CallbackHparams):
     """:class:`~composer.callbacks.torch_profiler.RunDirectoryUploader` hyperparameters.
 
     See :class:`~composer.callbacks.torch_profiler.RunDirectoryUploader` for documentation.
     """
 
-    provider: str = hp.required("Cloud provider to use.")
-    container: str = hp.required("The name of the container (i.e. bucket) to use.")
     object_name_prefix: Optional[str] = hp.optional(textwrap.dedent("""A prefix to prepend to all object keys.
             An object's key is this prefix combined with its path relative to the run directory.
             If the container prefix is non-empty, a trailing slash ('/') will
             be added if necessary. If not specified, then the prefix defaults to the run directory. To disable prefixing,
             set to the empty string."""),
                                                     default=None)
-    key: Optional[str] = hp.optional(textwrap.dedent(
-        """API key or username to use to connect to the provider. For security. do NOT hardcode the key in the YAML.
-        Instead, please specify via CLI arguments, or even better, environment variables."""),
-                                     default=None)
-    secret: Optional[str] = hp.optional(textwrap.dedent(
-        """API secret to use to connect to the provider. For security. do NOT hardcode the key in the YAML.
-Instead, please specify via CLI arguments, or even better, environment variables."""),
-                                        default=None)
-    region: Optional[str] = hp.optional("Cloud region to use", default=None)
-    host: Optional[str] = hp.optional("Override hostname for connections", default=None)
-    port: Optional[int] = hp.optional("Override port for connections", default=None)
     num_concurrent_uploads: int = hp.optional("Maximum number of concurrent uploads. Defaults to 4.", default=4)
     use_procs: bool = hp.optional(
         "Whether to perform file uploads in background processes (as opposed to threads). Defaults to True.",
         default=True)
     upload_staging_folder: Optional[str] = hp.optional(
         "Staging folder for uploads. If not specified, will use a temporary directory.", default=None)
-    extra_init_kwargs: Dict[str, Any] = hp.optional(
-        "Extra keyword arguments to pass into the constructor for the specified provider.", default_factory=dict)
     upload_every_n_batches: int = hp.optional(
         textwrap.dedent("""Interval at which to scan the run directory for changes and to
             queue uploads of files. Uploads are also queued at the end of the epoch. Defaults to every 100 batches."""),
@@ -198,19 +185,12 @@ Instead, please specify via CLI arguments, or even better, environment variables
 
     def initialize_object(self) -> RunDirectoryUploader:
         from composer.callbacks.run_directory_uploader import RunDirectoryUploader
-        init_kwargs = {}
-        for key in ("key", "secret", "host", "port", "region"):
-            kwarg = getattr(self, key)
-            if getattr(self, key) is not None:
-                init_kwargs[key] = kwarg
-        init_kwargs.update(self.extra_init_kwargs)
         return RunDirectoryUploader(
-            provider=self.provider,
-            container=self.container,
+            object_store_provider_hparams=ObjectStoreProviderHparams(
+                **{f.name: getattr(self, f.name) for f in dataclasses.fields(ObjectStoreProviderHparams)}),
             object_name_prefix=self.object_name_prefix,
             num_concurrent_uploads=self.num_concurrent_uploads,
             upload_staging_folder=self.upload_staging_folder,
             use_procs=self.use_procs,
-            provider_init_kwargs=init_kwargs,
             upload_every_n_batches=self.upload_every_n_batches,
         )

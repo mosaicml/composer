@@ -8,7 +8,7 @@ import abc
 from typing import TYPE_CHECKING
 
 from composer.core.serializable import Serializable
-from composer.utils import ddp
+from composer.utils import dist
 
 try:
     from typing import final
@@ -333,6 +333,6 @@ class RankZeroCallback(Callback, abc.ABC):
 
     @final
     def run_event(self, event: Event, state: State, logger: Logger) -> None:
-        if ddp.get_local_rank() != 0:
+        if dist.get_local_rank() != 0:
             return
         return self._run_event(event, state, logger)

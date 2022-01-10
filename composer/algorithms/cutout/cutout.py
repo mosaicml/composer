@@ -44,7 +44,7 @@ def cutout(X: Tensor, n_holes: int, length: int) -> Tensor:
     w = X.size(3)
 
     mask = torch.ones_like(X)
-    for n in range(n_holes):
+    for _ in range(n_holes):
         y = np.random.randint(h)
         x = np.random.randint(w)
 

@@ -1,5 +1,7 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
+from typing import List, Optional
+
 import pytest
 import torch
 import torch.nn.functional as F
@@ -9,9 +11,8 @@ from composer.algorithms.stochastic_depth.sample_stochastic_layers import Sample
 from composer.algorithms.stochastic_depth.stochastic_depth import STOCHASTIC_LAYER_MAPPING
 from composer.algorithms.stochastic_depth.stochastic_layers import StochasticBottleneck, _sample_bernoulli
 from composer.core import Event, Logger, State, surgery
-from composer.core.types import Precision
+from composer.core.types import DataSpec, Precision
 from composer.datasets.dataloader import DataloaderHparams
-from composer.datasets.hparams import DataloaderSpec
 from composer.datasets.imagenet import ImagenetDatasetHparams
 from composer.loggers import Logger
 from composer.models import ResNet50Hparams
@@ -28,7 +29,7 @@ def dummy_state(dummy_dataloader_hparams: DataloaderHparams):
         crop_size=224,
     )
     train_dataloader = dataset_hparams.initialize_object(batch_size=100, dataloader_hparams=dummy_dataloader_hparams)
-    if isinstance(train_dataloader, DataloaderSpec):
+    if isinstance(train_dataloader, DataSpec):
         train_dataloader = train_dataloader.dataloader
     state = State(train_dataloader=train_dataloader,
                   grad_accum=1,
@@ -181,11 +182,13 @@ def dummy_hparams(stochastic_method, target_layer_name, drop_rate, drop_distribu
                                   use_same_gpu_seed)
 
 
-def get_drop_rate_list(module: torch.nn.Module, drop_rates=[]):
+def get_drop_rate_list(module: torch.nn.Module, drop_rates: Optional[List] = None):
+    if drop_rates is None:
+        drop_rates = []
     if (len(list(module.children())) == 0 and len(list(module.parameters())) > 0):
         return
     else:
-        for name, child in module.named_children():
+        for _, child in module.named_children():
             if hasattr(child, 'drop_rate'):
                 drop_rates.append(child.drop_rate)
             get_drop_rate_list(child, drop_rates)

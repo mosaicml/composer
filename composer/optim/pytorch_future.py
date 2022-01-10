@@ -84,8 +84,7 @@ class WarmUpLR(_LRScheduler):
         """
 
         if not self._get_lr_called_within_step:
-            warnings.warn("To get the last learning rate computed by the scheduler, "
-                          "please use `get_last_lr()`.")
+            warnings.warn("To get the last learning rate computed by the scheduler, please use `get_last_lr()`.")
 
         if self.last_epoch == 0:
             return [group['lr'] * self.warmup_factor for group in self.optimizer.param_groups]
