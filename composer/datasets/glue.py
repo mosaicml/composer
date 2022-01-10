@@ -6,9 +6,9 @@ from multiprocessing import cpu_count
 
 import yahp as hp
 
+from composer.core import DataSpec
 from composer.datasets.dataloader import DataloaderHparams
 from composer.datasets.hparams import DatasetHparams
-from composer.core import DataSpec
 from composer.datasets.lm_datasets import _split_dict_fn
 from composer.utils import dist
 
