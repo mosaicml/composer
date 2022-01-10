@@ -8,9 +8,8 @@ import torch
 import torch.utils.data
 
 from composer import Logger, State
-from composer.core.types import DataLoader, Model, Precision
+from composer.core.types import DataLoader, DataSpec, Model, Precision
 from composer.datasets import DataloaderHparams, DatasetHparams
-from composer.datasets.hparams import DataloaderSpec
 from composer.models import ModelHparams, MosaicClassifier
 from composer.optim import AdamHparams, ExponentialLRHparams
 from composer.trainer import TrainerHparams
@@ -105,25 +104,19 @@ def dummy_dataloader_hparams() -> DataloaderHparams:
 
 @pytest.fixture
 def dummy_train_dataloader(dummy_train_dataset_hparams: DatasetHparams, dummy_train_batch_size: int,
-                           dummy_dataloader_hparams: DataloaderHparams) -> Union[DataLoader, DataloaderSpec]:
+                           dummy_dataloader_hparams: DataloaderHparams) -> Union[DataLoader, DataSpec]:
     return dummy_train_dataset_hparams.initialize_object(dummy_train_batch_size, dummy_dataloader_hparams)
 
 
 @pytest.fixture
 def dummy_val_dataloader(dummy_train_dataset_hparams: DatasetHparams, dummy_val_batch_size: int,
-                         dummy_dataloader_hparams: DataloaderHparams) -> Union[DataLoader, DataloaderSpec]:
+                         dummy_dataloader_hparams: DataloaderHparams) -> Union[DataLoader, DataSpec]:
     return dummy_train_dataset_hparams.initialize_object(dummy_val_batch_size, dummy_dataloader_hparams)
 
 
 @pytest.fixture()
 def dummy_state(dummy_state_without_rank: State) -> State:
     return dummy_state_without_rank
-
-
-@pytest.fixture()
-def dummy_state_dl(dummy_state: State, dummy_train_dataloader: DataLoader) -> State:
-    dummy_state.train_dataloader = dummy_train_dataloader
-    return dummy_state
 
 
 @pytest.fixture()

@@ -19,18 +19,17 @@ from torch.nn.parallel import DistributedDataParallel
 from torchmetrics.collections import MetricCollection
 from torchmetrics.metric import Metric
 
-from composer.core import Callback, Engine, Event, Logger, State
+from composer.core import Callback, DataSpec, Engine, Event, Logger, State
 from composer.core.algorithm import Algorithm
 from composer.core.logging import BaseLoggerBackend, LogLevel
 from composer.core.types import Batch, BreakEpochException, DataLoader, Metrics, Precision, Tensor
-from composer.datasets import DataloaderSpec
 from composer.datasets.dataloader import DDPDataLoader
 from composer.loggers.tqdm_logger import TQDMLoggerBackend
 from composer.models.base import BaseMosaicModel
 from composer.optim import (ComposedScheduler, CosineAnnealingLRHparams, DecoupledSGDWHparams, OptimizerHparams,
                             SchedulerHparams, WarmUpLRHparams)
 from composer.optim.scheduler import ensure_warmup_last
-from composer.trainer.checkpoint import CheckpointLoader, CheckpointSaver
+from composer.trainer.checkpoint_hparams import CheckpointLoaderHparams, CheckpointSaverHparams
 from composer.trainer.ddp import DDPSyncStrategy, ddp_sync_context, prepare_ddp_module
 from composer.trainer.deepspeed import DeepSpeedHparams, fix_batch_precision_for_deepspeed
 from composer.trainer.devices.device import Device
@@ -40,7 +39,6 @@ from composer.trainer.devices.device_hparams import GPUDeviceHparams
 from composer.trainer.scaler import ClosureGradScaler
 from composer.trainer.trainer_hparams import TrainerHparams
 from composer.utils import dist, ensure_tuple, map_collection, reproducibility
-from composer.utils.run_directory import get_relative_to_run_directory
 
 log = logging.getLogger(__name__)
 
@@ -54,8 +52,10 @@ class Trainer:
 
     Args:
         model (BaseMosaicModel): The model to train.
-        train_dataloader (DataLoader or DataloaderSpec): The dataloader or dataloader spec for the training data.
-        eval_dataloader (DataLoader or DataloaderSpec): The dataloader or dataloader spec for the evaluation data.
+        train_dataloader (DataLoader, DataSpec, or dict): The :class:`DataLoader`, :class:`DataSpec`,
+            or dict of :class:`DataSpec` kwargs for the training data.
+        eval_dataloader (DataLoader, DataSpec, or dict): The :class:`DataLoader`, :class:`DataSpec`,
+            or dict of :class:`DataSpec` kwargs for the evaluation data.
         max_epochs (int): The maxmimum number of epochs to train for.
         algorithms (List[Algorithm], optional): The algorithms to use during training.
             (default: ``[]``)
@@ -93,17 +93,12 @@ class Trainer:
             degradations expected. Certain Torch modules may not have deterministic implementations,
             which will result in a crash. (default: ``False``)
         log_destinations (List[BaseLoggerBackend], optional): The destinations to log training information to.
-            (default ``[TQDMLoggerBackend()]``).
+            (default: ``[TQDMLoggerBackend()]``).
         callbacks (Sequence[Callback], optional): The callbacks to run during training. (default: ``[]``)
-        checkpoint_filepath (str): For loading checkpoints, the path to an existing checkpoint.
-        load_weights_only (bool): Whether to only restore the weights from the checkpoint without
-            restoring the associated state.
-        strict_model_weights (bool, optional): Whether to force that the checkpointed weights must exactly
-            match the model weights.
-        checkpoint_folder (str): The path to store checkpoints in.
-        checkpoint_interval (int): The amount of time units to wait between creating checkpoints.
-        checkpoint_interval_unit (str, optional): The unit (`"ep"` or `"it"`) that
-            `checkpoint_interval` should be measured in. Set to ``None`` disables checkpointing. (default: ``None``)
+        checkpoint_loader (CheckpointLoaderHparams, optional): If specified, load the specified checkpoint.
+            (default: ``None``)
+        checkpoint_saver (CheckpointSaverHparams, optional): If specified, save checkpoints according to
+            the given parameters (default: ``None``)
         train_subset_num_batches (int, optional): If specified, finish every epoch early after training
             on this many batches. This parameter has no effect if it is greater than ``len(train_dataloader)``.
             If None (the default), then the entire dataloader will be iterated over.
@@ -123,8 +118,8 @@ class Trainer:
             self,
             *,
             model: BaseMosaicModel,
-            train_dataloader: Union[DataLoader, DataloaderSpec],
-            eval_dataloader: Union[DataLoader, DataloaderSpec],
+            train_dataloader: Union[DataLoader, DataSpec],
+            eval_dataloader: Union[DataLoader, DataSpec],
             max_epochs: int,
             algorithms: Optional[List[Algorithm]] = None,
             optimizer_hparams: Optional[OptimizerHparams] = None,
@@ -153,15 +148,9 @@ class Trainer:
             log_destinations: Optional[List[BaseLoggerBackend]] = None,
             callbacks: Sequence[Callback] = tuple(),
 
-            # Checkpoint loading hparams
-            checkpoint_filepath: Optional[str] = None,
-            checkpoint_load_weights_only: bool = False,
-            checkpoint_strict_model_weights: bool = False,
-
-            # Checkpoint saving hparams
-            checkpoint_interval_unit: Optional[str] = None,
-            checkpoint_interval: Optional[int] = None,
-            checkpoint_folder: str = "checkpoints",
+            # Checkpoint hparams
+            checkpoint_loader: Optional[CheckpointLoaderHparams] = None,
+            checkpoint_saver: Optional[CheckpointSaverHparams] = None,
 
             # Subset parameters
             train_subset_num_batches: Optional[int] = None,
@@ -215,22 +204,17 @@ class Trainer:
             else:
                 self.ddp_sync_strategy = DDPSyncStrategy(ddp_sync_strategy)
 
-        if isinstance(train_dataloader, DataloaderSpec):
-            train_dataloader_spec = train_dataloader
-        else:
-            train_dataloader_spec = DataloaderSpec(train_dataloader)
-        self._train_device_transformation_fn = train_dataloader_spec.device_transform_fn
-        self.train_split_fn = train_dataloader_spec.split_fn
-
-        if isinstance(eval_dataloader, DataloaderSpec):
-            eval_dataloader_spec = eval_dataloader
-        else:
-            eval_dataloader_spec = DataloaderSpec(eval_dataloader)
-        self._eval_device_transformation_fn = eval_dataloader_spec.device_transform_fn
-        self.eval_split_fn = eval_dataloader_spec.split_fn
-
+        # TODO(#123): DeepSpeed still needs a precision context, but it's not completely clear how to
+        # handle this with our version of Pytorch
         precision_context = self.device.precision_context if not self.deepspeed_enabled else cast(
             Callable[..., ContextManager], contextlib.nullcontext)
+
+        if not isinstance(train_dataloader, DataSpec):
+            train_dataloader = DataSpec(train_dataloader)
+        train_dataloader.dataloader = DDPDataLoader(train_dataloader.dataloader)
+        if not isinstance(eval_dataloader, DataSpec):
+            eval_dataloader = DataSpec(eval_dataloader)
+        eval_dataloader.dataloader = DDPDataLoader(eval_dataloader.dataloader)
 
         self.state = State(
             max_epochs=max_epochs,
@@ -240,8 +224,8 @@ class Trainer:
             grad_accum=grad_accum,
             precision=precision,
             precision_context=precision_context,
-            train_dataloader=DDPDataLoader(train_dataloader_spec.dataloader),
-            eval_dataloader=DDPDataLoader(eval_dataloader_spec.dataloader),
+            train_dataloader=train_dataloader,
+            eval_dataloader=eval_dataloader,
         )
 
         # Steps per epoch
@@ -300,16 +284,12 @@ class Trainer:
         self.original_model = self.state.model  # type: ignore  # TODO(ravi) -- update the state to add an original model helper
 
         self.checkpoint_saver = None
-        if checkpoint_folder and checkpoint_interval and checkpoint_interval_unit:
-            self.checkpoint_saver = CheckpointSaver(checkpoint_folder=get_relative_to_run_directory(checkpoint_folder),
-                                                    checkpoint_interval=checkpoint_interval,
-                                                    checkpoint_interval_unit=checkpoint_interval_unit)
+        if checkpoint_saver is not None:
+            self.checkpoint_saver = checkpoint_saver.initialize_object()
 
         self.checkpoint_loader = None
-        if checkpoint_filepath:
-            self.checkpoint_loader = CheckpointLoader(checkpoint_filepath=checkpoint_filepath,
-                                                      load_weights_only=checkpoint_load_weights_only,
-                                                      strict_model_weights=checkpoint_strict_model_weights)
+        if checkpoint_loader is not None:
+            self.checkpoint_loader = checkpoint_loader.initialize_object()
 
         # place the state, model in the proper devices, and initialize from a checkpoint if provided
         if self.deepspeed_enabled:
@@ -390,19 +370,6 @@ class Trainer:
             each evaluation epoch may load a different subset of samples."""))
         eval_dataloader = hparams.val_dataset.initialize_object(eval_device_batch_size, hparams.dataloader)
 
-        # Checkpoint loading hparams
-        checkpoint_filepath = hparams.load_checkpoint.filepath if hparams.load_checkpoint is not None else None
-        checkpoint_load_weights_only = hparams.load_checkpoint.load_weights_only \
-                                       if hparams.load_checkpoint is not None else False
-        checkpoint_strict_model_weights = hparams.load_checkpoint.strict_model_weights \
-                                          if hparams.load_checkpoint is not None else False
-
-        # Checkpoint saving hparams
-        checkpoint_interval_unit = hparams.save_checkpoint.interval_unit \
-                                   if hparams.save_checkpoint is not None else None
-        checkpoint_interval = hparams.save_checkpoint.interval if hparams.save_checkpoint is not None else None
-        checkpoint_folder = hparams.save_checkpoint.folder if hparams.save_checkpoint is not None else "checkpoints"
-
         trainer = cls(
             model=model,
             train_dataloader=train_dataloader,
@@ -435,15 +402,9 @@ class Trainer:
             log_destinations=log_destinations,
             callbacks=tuple(callbacks),
 
-            # Checkpoint loading hparams
-            checkpoint_filepath=checkpoint_filepath,
-            checkpoint_load_weights_only=checkpoint_load_weights_only,
-            checkpoint_strict_model_weights=checkpoint_strict_model_weights,
-
-            # Checkpoint saving hparams
-            checkpoint_interval_unit=checkpoint_interval_unit,
-            checkpoint_interval=checkpoint_interval,
-            checkpoint_folder=checkpoint_folder,
+            # Checkpoint hparams
+            checkpoint_loader=hparams.load_checkpoint,
+            checkpoint_saver=hparams.save_checkpoint,
 
             # Subset parameters
             train_subset_num_batches=hparams.train_subset_num_batches,
@@ -537,24 +498,6 @@ class Trainer:
             for _ in self.state.train_dataloader:
                 break
 
-    def _get_batch_size(self, batch: Batch) -> int:
-        if isinstance(batch, Tensor):
-            return batch.shape[0]
-
-        dim0_sizes = []
-        if isinstance(batch, (list, tuple)):
-            for tensors in batch:
-                for t in ensure_tuple(tensors):
-                    dim0_sizes.append(t.shape[0])
-        elif isinstance(batch, dict):
-            dim0_sizes = [t.shape[0] for t in batch.values()]
-
-        if len(set(dim0_sizes)) == 1:
-            return dim0_sizes[0]
-        else:
-            raise ValueError('The default _get_batch_size function found ',
-                             f'multiple Tensor sizes in batch: {dim0_sizes}')
-
     def _train_loop(self) -> None:
         """Run training for the specified number of epochs and log results."""
         # shorthand
@@ -606,10 +549,9 @@ class Trainer:
                             self.checkpoint_loader.restore_checkpoint_rng_state(self.device)
                         continue
 
-                    state.last_batch_size = self._get_batch_size(state.batch)
+                    state.last_batch_size = state.train_data.get_num_samples_in_batch(state.batch)
                     state.batch = self.device.batch_to_device(state.batch)
-                    if self._train_device_transformation_fn is not None:
-                        state.batch = self._train_device_transformation_fn(state.batch)
+                    state.batch = state.train_data.device_transforms(state.batch)
 
                     if self.deepspeed_enabled:
                         state.batch = fix_batch_precision_for_deepspeed(state.batch, state.precision)
@@ -619,7 +561,7 @@ class Trainer:
                         assert train_metrics is not None
                         state.model.eval()
                         with torch.no_grad():
-                            eval_microbatches = self.train_split_fn(state.batch, state.grad_accum)
+                            eval_microbatches = state.train_data.split_batch(state.batch, state.grad_accum)
                             for eval_microbatch in eval_microbatches:
                                 # TODO: Detect if self.run_event(Event.AFTER_DATALOADER) changes the training
                                 # data and if so print a warning that metrics may return unexpected results
@@ -630,7 +572,7 @@ class Trainer:
 
                     self.engine.run_event(Event.AFTER_DATALOADER)
 
-                    microbatches = self.train_split_fn(state.batch, state.grad_accum)
+                    microbatches = state.train_data.split_batch(state.batch, state.grad_accum)
 
                     self.engine.run_event(Event.BATCH_START)
                     self.logger.metric_batch({
@@ -747,14 +689,14 @@ class Trainer:
 
         # tracker for gradient accumulation
         total_loss = self.device.tensor_to_device(torch.zeros(size=(1,)))
-        current_batch_size = sum([self._get_batch_size(batch) for batch in microbatches])
+        current_batch_size = sum([state.train_data.get_num_samples_in_batch(batch) for batch in microbatches])
 
         for microbatch_idx, state.batch in enumerate(microbatches):
             is_final_microbatch = microbatch_idx + 1 == len(microbatches)
             sync_context = contextlib.nullcontext() if self.deepspeed_enabled else ddp_sync_context(
                 state, is_final_microbatch, self.ddp_sync_strategy)
             with sync_context:
-                last_microbatch_size = self._get_batch_size(state.batch)
+                last_microbatch_size = state.train_data.get_num_samples_in_batch(state.batch)
 
                 # forward pass
                 self.engine.run_event(Event.BEFORE_FORWARD)
@@ -845,8 +787,7 @@ class Trainer:
 
             for state.batch in itertools.islice(state.eval_dataloader, self._eval_subset_num_batches):
                 state.batch = self.device.batch_to_device(state.batch)
-                if self._eval_device_transformation_fn is not None:
-                    state.batch = self._eval_device_transformation_fn(state.batch)
+                state.batch = state.eval_data.device_transforms(state.batch)
 
                 if self.deepspeed_enabled:
                     state.batch = fix_batch_precision_for_deepspeed(state.batch, state.precision)
