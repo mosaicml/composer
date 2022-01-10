@@ -7,7 +7,8 @@ import pytest
 
 from composer.core import DataSpec
 from composer.datasets import (BratsDatasetHparams, CIFAR10DatasetHparams, DataloaderHparams, DatasetHparams,
-                               GLUEHparams, ImagenetDatasetHparams, LMDatasetHparams, MNISTDatasetHparams, SyntheticHparamsMixin)
+                               GLUEHparams, ImagenetDatasetHparams, LMDatasetHparams, MNISTDatasetHparams,
+                               SyntheticHparamsMixin)
 from composer.trainer.trainer_hparams import dataset_registry
 
 # for testing, we provide values for required hparams fields
