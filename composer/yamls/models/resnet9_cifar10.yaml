@@ -13,9 +13,8 @@ val_dataset:
     shuffle: false
     drop_last: false
 optimizer:
-  decoupled_sgdw:
+  decoupled_adamw:
     lr: 1.2
-    momentum: 0.9
     weight_decay: 2.0e-3
 schedulers:
   - warmup:
@@ -26,8 +25,8 @@ schedulers:
       interval: step
   - multistep:
       milestones:
-        - "80ep"
-        - "120ep"
+        - "50ep"
+        - "75ep"
       gamma: 0.1
       interval: epoch
 model:
@@ -44,7 +43,7 @@ loggers:
       flush_every_n_batches: 100
       every_n_epochs: 1
       every_n_batches: 100
-max_epochs: 160
+max_epochs: 100
 train_batch_size: 1024
 eval_batch_size: 1000
 seed: 17
