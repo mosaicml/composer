@@ -319,8 +319,8 @@ _NAME_TO_SAMPLING_FUNC = {
     'balance': _sample_batches_balanced,
     'match': _sample_batches_match,
     'imbalance': _sample_batches_imbalanced,
-    # 'baseline': _sample_batches_uniform,
-    'baseline': _sample_batches_baseline,
+    'baseline': _sample_batches_uniform,
+    'naive_baseline': _sample_batches_baseline,  # uniform with simple, slow code
 }
 
 T_co = TypeVar('T_co', covariant=True)
