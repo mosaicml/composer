@@ -23,7 +23,7 @@ def cloneJenkinsfilesRepo() {
     }
 }
 
-def runPytest(pythonVersion, extraDeps, gpu = false) {
+def runPytest(pythonVersion, extraDeps, gpu = false, marker = null) {
     def name = "pytest/python${pythonVersion}-extraDeps_${extraDeps}"
     def title = "Pytest - Python ${pythonVersion}, composer[${extraDeps}]"
     def summary = "Pytest - Python ${pythonVersion}, composer[${extraDeps}]"
@@ -47,7 +47,9 @@ def runPytest(pythonVersion, extraDeps, gpu = false) {
         nodeSelector = "mosaicml.com/node-class=mml-nv3090" // TODO(ravi) use nodeAffinity to run on 3080s or 3090s
         def cudaVersion = pythonVersion == "3.9" ? "cu113" : "cu111"
         pDockerImage = "mosaicml/pytorch:${pytorchVersion}_${cudaVersion}-python${pythonVersion}-ubuntu20.04"
-        pytestCliArgs = "$pytestCliArgs -m gpu"
+    }
+    if (marker) {
+        pytestCliArgs = "$pytestCliArgs -m $marker"
     }
     runWithChecks(
         name: name,
@@ -172,7 +174,8 @@ stage('Build') {
             'Python 3.8 - All': { -> runPytest("3.8", "all") },
             'Python 3.9 - All': { -> runPytest("3.9", "all") },
             'Python 3.9 - Dev': { -> runPytest("3.9", "dev") },
-            'Python 3.7 - All (GPU)': { -> runPytest("3.7", "all", true) },
+            'Python 3.9 - All (GPU)': { -> runPytest("3.9", "all", true, "gpu") },
+            'Python 3.9 - All (GPU-Deepspeed)': { -> runPytest("3.9", "all", true, "deepspeed") },
         ]        
     }
     try {
