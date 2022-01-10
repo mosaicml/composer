@@ -142,7 +142,7 @@ def _construct_class_counts(batches: List[List], targets: Sequence[int], num_cla
 @pytest.mark.parametrize('batch_size', [1, 2, 4, 7, 8])
 @pytest.mark.parametrize('num_batches', [1, 2, 3])
 @pytest.mark.parametrize('add_stragglers', [False, True])
-@pytest.mark.parametrize('stratify_how', ['balance', 'match', 'imbalance'])
+@pytest.mark.parametrize('stratify_how', ['balance', 'match', 'imbalance', 'baseline'])
 @pytest.mark.parametrize('num_replicas', [1, 2])
 @pytest.mark.parametrize('seed', [123])
 def test_sample_batches_correctness(num_classes: int, batch_size: int, num_batches: int, add_stragglers: bool,
@@ -172,8 +172,6 @@ def test_sample_batches_correctness(num_classes: int, batch_size: int, num_batch
             if len(batches) == b:
                 batches.append([])
             batches[b] += batch
-
-    batches = list(batches)
 
     # check batch sizes and shapes
     assert all([len(b) == batch_size for b in batches])
@@ -205,14 +203,17 @@ def test_sample_batches_correctness(num_classes: int, batch_size: int, num_batch
     if stratify_how == 'balance':
         for counts in class_counts:
             assert counts.max() - counts.min() <= 1
-    elif stratify_how in ('match', 'imbalance'):
+    elif stratify_how in ('match', 'imbalance', 'baseline'):
         # every idx should be sampled exactly once
-        idx_appeared = np.zeros(len(targets), dtype=bool)
+        idx_appeared = np.zeros(len(targets), dtype=np.int)
         taken_idxs = batches.ravel()
-        idx_appeared[taken_idxs] = 1
+        idx_appeared[taken_idxs] += 1
         if add_stragglers:
-            idx_appeared[last_batch] = 1
-        assert all(idx_appeared)
+            idx_appeared[last_batch] += 1
+
+        assert np.all(idx_appeared >= 1)
+        idx_appeared.max() <= 2
+        assert idx_appeared.sum() <= len(targets) + batch_size - 1
 
     # we ensured that there could be an equal number of each class in each batch
     if balance_targets and stratify_how in ('match', 'balance'):

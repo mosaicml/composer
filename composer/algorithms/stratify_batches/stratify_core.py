@@ -253,19 +253,19 @@ def _sample_batches_imbalanced(samplers: Sequence[BalancedSampler], batch_size: 
     return batches
 
 
-# # experimental control that should be equivalent to uniform sampling without replacement
-# def _sample_batches_baseline(samplers: Sequence[BalancedSampler], batch_size: int, num_batches: int,
-#                              rng: np.random.Generator, **_) -> List:
-#     batches = []
-#     num_classes = len(samplers)
-#     for _ in range(num_batches):
-#         batch = []
-#         for _ in range(batch_size):
-#             p_proportional = _compute_p_proportional(samplers)
-#             take_class = rng.choice(num_classes, size=1, p=p_proportional)[0]
-#             batch.append(samplers[take_class].sample(1)[0])
-#         batches.append(batch)
-#     return batches
+# experimental control that should be equivalent to uniform sampling without replacement
+def _sample_batches_baseline(samplers: Sequence[BalancedSampler], batch_size: int, num_batches: int,
+                             rng: np.random.Generator, **_) -> List:
+    batches = []
+    num_classes = len(samplers)
+    for _ in range(num_batches):
+        batch = []
+        for _ in range(batch_size):
+            p_proportional = _compute_p_proportional(samplers)
+            take_class = rng.choice(num_classes, size=1, p=p_proportional)[0]
+            batch.append(samplers[take_class].sample(1)[0])
+        batches.append(batch)
+    return batches
 
 
 def sample_stragglers(samplers: Sequence[BalancedSampler],
@@ -292,8 +292,6 @@ def sample_stragglers(samplers: Sequence[BalancedSampler],
     return batch
 
 
-# def create_samplers(targets: np.array, replace: bool) -> Tuple[np.array, np.array]:
-# def create_samplers(targets: Any, replace: Any) -> Tuple[ArrayLike, ArrayLike]:
 def create_samplers(targets: Any, replace: bool) -> Tuple[ArrayLike, ArrayLike]:
     _class_to_idxs = groupby_ints(targets)
     classes = list(_class_to_idxs.keys())
@@ -321,7 +319,8 @@ _NAME_TO_SAMPLING_FUNC = {
     'balance': _sample_batches_balanced,
     'match': _sample_batches_match,
     'imbalance': _sample_batches_imbalanced,
-    'baseline': _sample_batches_uniform,
+    # 'baseline': _sample_batches_uniform,
+    'baseline': _sample_batches_baseline,
 }
 
 T_co = TypeVar('T_co', covariant=True)
