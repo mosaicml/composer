@@ -8,9 +8,9 @@ from typing import List, Optional
 
 import yahp as hp
 
-from composer.core.types import Batch
+from composer.core.types import Batch, DataSpec
 from composer.datasets.dataloader import DataloaderHparams
-from composer.datasets.hparams import DataloaderSpec, DatasetHparams
+from composer.datasets.hparams import DatasetHparams
 from composer.utils import dist
 
 log = logging.getLogger(__name__)
@@ -73,8 +73,8 @@ class LMDatasetHparams(DatasetHparams):
 
         if (self.train_sequence_length % 8 != 0) or (self.val_sequence_length % 8 != 0):
             log.warning("For best hardware acceleration, it is recommended that sequence lengths be multiples of 8.")
-
-    def initialize_object(self, batch_size: int, dataloader_hparams: DataloaderHparams) -> DataloaderSpec:
+            
+    def initialize_object(self, batch_size: int, dataloader_hparams: DataloaderHparams) -> DataSpec:
         try:
             import datasets
             import transformers
@@ -133,11 +133,11 @@ class LMDatasetHparams(DatasetHparams):
                                                                      mlm_probability=self.mlm_probability)
         sampler = dist.get_sampler(dataset, drop_last=self.drop_last, shuffle=self.shuffle)
 
-        return DataloaderSpec(dataloader=dataloader_hparams.initialize_object(
+        return DataSpec(dataloader=dataloader_hparams.initialize_object(
             dataset=dataset,
             batch_size=batch_size,
             sampler=sampler,
             drop_last=self.drop_last,
             collate_fn=data_collator,
         ),
-                              split_fn=_split_dict_fn)
+                        split_batch=_split_dict_fn)
