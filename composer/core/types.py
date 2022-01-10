@@ -6,8 +6,9 @@ See :doc:`/core/types` for documentation.
 """
 
 from __future__ import annotations
+from dataclasses import dataclass
 
-from typing import TYPE_CHECKING, Any, Callable, Dict, Iterable, Iterator, List, Optional, Tuple, Union, NamedTuple
+from typing import TYPE_CHECKING, Any, Callable, Dict, Iterable, Iterator, List, NamedTuple, Optional, Sequence, Tuple, Union
 
 import torch
 import torch.utils.data
@@ -74,6 +75,22 @@ def as_batch_pair(batch: Batch) -> BatchPair:
     return batch
 
 
+def _split_fn(batch: Batch, n_microbatches: int) -> List[Batch]:
+    if not isinstance(batch, Sequence):
+        raise ValueError(f'split_fn requires batch be a tuple pair of tensors, got {type(batch)}')
+    x, y = batch
+    if isinstance(x, Tensor) and isinstance(y, Tensor):
+        return list(zip(x.chunk(n_microbatches), y.chunk(n_microbatches)))
+    if isinstance(x, List) and isinstance(y, List):
+        return list(
+            zip(
+                [x[i::n_microbatches] for i in range(n_microbatches)],
+                [y[i::n_microbatches] for i in range(n_microbatches)],
+            ))
+    raise NotImplementedError('The default split_fn is unable to split the output of this'
+                              'dataloader. Please define a split_fn in your dataloader spec.')
+
+
 Dataset = torch.utils.data.Dataset[Batch]
 
 
@@ -136,25 +153,52 @@ class DataLoader(Protocol):
         """
         ...
 
+class DataloaderSpec(NamedTuple):
+    """Specification for initializing a dataloader when a device transformation function or split function
+    is required
+    
+    Parameters:
+        dataloader (DataLoader): The initialized dataloader.
+        device_transform_fn (TDeviceTransformFn, optional):
+            A function to modify the data once it has been loaded onto the device (for example, GPU-based batch normalization)
+            This function is invoked with a batch of data after it has been moved onto the device,
+            and it is expected to return a batch.
+        split_fn (Batch, int -> List[Batch]): A function to
+            run to split batches into microbatches.
+    """
+    dataloader: DataLoader
+    device_transform_fn: Optional[TDeviceTransformFn] = None
+    split_fn: Callable[[Batch, int], List[Batch]] = _split_fn
+
+
+@dataclass
+class Evaluator:
+    """Wrapper for a dataloader to include metrics that apply to a specific
+    dataset.
+
+    Attributes:
+        label (str): Name of the Evaluator
+        dataloader (DataLoader): Dataloader for evaluation data
+        metrics (Metrics): Metrics to use for the dataset
+        validate_every_n_epochs: (int)
+        validate_every_n_batches: (int)
+        metric_names: (Optional[List[str]])
+        device_transform_fn (TDeviceTransformFn, optional):
+            A function to modify the data once it has been loaded onto the device (for example, GPU-based batch normalization)
+            This function is invoked with a batch of data after it has been moved onto the device,
+            and it is expected to return a batch.
+    """
+
+    label: str
+    dataloader: Union[DataLoader, DataloaderSpec]
+    metrics: Metrics
+    validate_every_n_epochs: int = 1
+    validate_every_n_batches: int = -1
+    metric_names: Optional[List[str]] = None
+    device_transform_fn: Optional[TDeviceTransformFn] = None
+
 
 Metrics = Union[Metric, MetricCollection]
-
-Evaluator = NamedTuple('Evaluator', label=str, dataloader=DataLoader, metrics=Metrics)
-
-# class Evaluator:
-#     """Wrapper for a dataloader to include metrics that apply to a specific
-#     dataset.
-
-#     Attributes:
-#         label (str): Name of the Evaluator for 
-#         dataloader (DataLoader): Dataloader for evaluation data
-#         metrics (Metrics): Metrics to use for the dataset
-#     """
-
-#     label: str
-#     dataloader: DataLoader
-#     metrics: Metrics
-
 
 Optimizer = torch.optim.Optimizer
 Optimizers = Union[Optimizer, Tuple[Optimizer, ...]]

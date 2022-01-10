@@ -197,9 +197,10 @@ def test_ddp(device: DeviceHparams, world_size: int, ddp_tmpdir: str, mosaic_tra
     if deepspeed:
         hparams.deepspeed = DeepSpeedHparams(enabled=True)
     trainer = hparams.initialize_object()
-    # TODO Anis add this - seems problematics
     assert isinstance(trainer.state.train_dataloader.dataset, collections.abc.Sized)
-    assert isinstance(trainer.state.eval_dataloader.dataset, collections.abc.Sized)
+
+    for evaluator in trainer.evaluators:
+        assert isinstance(evaluator.dataloader.dataset, collections.abc.Sized)
     trainer.fit()
 
     expected_train_num_loads = hparams.max_epochs * hparams.train_batch_size * hparams.train_subset_num_batches

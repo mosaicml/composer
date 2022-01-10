@@ -7,8 +7,6 @@ from composer.datasets.dataloader import DDPDataLoader as DDPDataLoader
 from composer.datasets.dataloader import WrappedDataLoader as WrappedDataLoader
 from composer.datasets.dataset_registry import get_dataset_registry as get_dataset_registry
 from composer.datasets.evaluator import EvaluatorHparams as EvaluatorHparams
-from composer.datasets.evaluator import EvaluatorSpec as EvaluatorSpec
-from composer.datasets.hparams import DataloaderSpec as DataloaderSpec
 from composer.datasets.hparams import DatasetHparams as DatasetHparams
 from composer.datasets.hparams import SyntheticHparamsMixin as SyntheticHparamsMixin
 from composer.datasets.imagenet import ImagenetDatasetHparams as ImagenetDatasetHparams

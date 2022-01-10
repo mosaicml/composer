@@ -223,7 +223,7 @@ class TrainerHparams(hp.Hparams):
             )
 
         # There should be at least one structure for validation - evaluators or ordinary validation dataset
-        if self.val_dataset is None and not self.evaluators:
+        if self.val_dataset is None and self.evaluators is None:
             raise ValueError("val_dataset and evaluators can't both be empty")
 
     def initialize_object(self) -> Trainer:

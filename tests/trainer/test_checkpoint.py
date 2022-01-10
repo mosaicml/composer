@@ -205,18 +205,11 @@ def validate_events_called_expected_number_of_times(trainer: Trainer):
     if trainer.validate_every_n_epochs > 0:
         num_evals = num_epochs // trainer.validate_every_n_epochs
 
-        
-    # TODO Anis - fix this
     assert state.evaluators is not None
-    eval_samples = 0
     for evaluator in state.evaluators:
         assert evaluator.dataloader is not None
-        eval_samples += len(evaluator.dataloader)
-    num_eval_steps = num_evals * eval_samples
-    # TODO Anis - fix this
-    assert state.eval_dataloader is not None
     assert trainer._eval_subset_num_batches is not None
-    num_eval_steps = num_evals * trainer._eval_subset_num_batches
+    num_eval_steps = num_evals * trainer._eval_subset_num_batches * len(state.evaluators)
 
     event_to_num_expected_invocations = {
         Event.INIT: 1,

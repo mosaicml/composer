@@ -7,20 +7,16 @@ from dataclasses import dataclass
 from typing import List
 
 import yahp as hp
-from torchmetrics.classification.accuracy import Accuracy
-from torchmetrics.classification.f_beta import F1
-from torchmetrics.classification.matthews_corrcoef import MatthewsCorrcoef
 from torchmetrics.collections import MetricCollection
-from torchmetrics.metric import Metric
-from torchmetrics.regression.pearson import PearsonCorrcoef
-from torchmetrics.regression.spearman import SpearmanCorrcoef
 
-from composer.core.types import Metrics
+from composer.core.types import Evaluator
 from composer.datasets.dataset_registry import get_dataset_registry
-from composer.datasets.hparams import DataloaderSpec, DatasetHparams
-from composer.models.loss import CrossEntropyLoss
+from composer.datasets.hparams import DatasetHparams
+from composer.datasets import DataloaderHparams
+from typing import Optional
 
 log = logging.getLogger(__name__)
+
 
 
 @dataclass
@@ -29,46 +25,18 @@ class EvaluatorHparams(hp.Hparams):
         "eval_dataset": get_dataset_registry(),
     }
 
-    metric_registry = {
-        "Accuracy": Accuracy,
-        "MatthewsCorrcoef": MatthewsCorrcoef,
-        "F1": F1,
-        "PearsonCorrcoef": PearsonCorrcoef,
-        "SpearmanCorrcoef": SpearmanCorrcoef,
-        "CrossEntropyLoss": CrossEntropyLoss,
-    }
+    label: str = hp.required(doc="Name of the Evaluator object. Used for logging/reporting metrics")
+    eval_dataset: DatasetHparams = hp.required(doc="Evaluator dataset for the Evaluator")
+    validate_every_n_epochs: int = hp.optional(
+        doc="Validate every N epochs. Set to -1 to never validate on a epochwise frequency. Defaults to 1", default=1)
+    validate_every_n_batches: int = hp.optional(
+        doc="Validate every N batches. Set to -1 to never validate on a batchwise frequency. Defaults to -1.",
+        default=-1)
+    metric_names: Optional[List[str]] = hp.optional(doc="Name of the metrics for the evaluator.Use the torchmetrics"
+                    "metric name for torchmetrics and use the classname for custom metrics.", default_factory=list)
 
-    label: str = hp.required(doc="label")
-    eval_dataset: DatasetHparams = hp.required(doc="Training dataset hparams")
-    metrics: List[str] = hp.required(doc="metrics", template_default=list)
+    def initialize_object(self, batch_size: int, dataloader_hparams: DataloaderHparams):
+        dataloader = self.eval_dataset.initialize_object(batch_size=batch_size, dataloader_hparams=dataloader_hparams)
 
-    def initialize_object(self):
-        dataset = self.eval_dataset.initialize_object()
-
-        def resolve_metric_list(metric_names: List[str]) -> List[Metric]:
-            resolved_metrics = []
-            for metric_name in metric_names:
-                if metric_name in self.metric_registry:
-                    metric_instance = self.metric_registry[metric_name]()
-                    resolved_metrics.append(metric_instance)
-                else:
-                    log.warning(f"The metric {metric_name} is not a registered metric. Add it to the metric registry.")
-            return resolved_metrics
-
-        metric_list = resolve_metric_list(self.metrics)
-        return EvaluatorSpec(label=self.label, dataloader_spec=dataset, metrics=MetricCollection(metric_list))
-
-
-@dataclass
-class EvaluatorSpec:
-    """Wrapper class to contain DataLoaderSpecs and relevant metrics to use during evaluation.
-
-    Args:
-        label (str): This is the evaluator/dataset label that gets used for reporting metrics
-        dataloader_spec (DataloaderSpec): DataloaderSpec specifying the dataset to use for
-            the evaluator.
-        metric_list: (List[Metric]) 
-    """
-    label: str
-    dataloader_spec: DataloaderSpec
-    metrics: Metrics
+        # Populate the metrics later in the trainer initialization
+        return Evaluator(label=self.label, dataloader=dataloader, metrics=MetricCollection([]), metric_names=self.metric_names, validate_every_n_batches=self.validate_every_n_batches, validate_every_n_epochs=self.validate_every_n_epochs)
