@@ -1,10 +1,11 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
 import torch
+import pytest
 
 from composer.models.efficientnets import EfficientNet
 
-
+@pytest.mark.timeout(15)
 def test_efficientb0_activate_shape():
     random_input = torch.rand(2, 3, 224, 224)
 
