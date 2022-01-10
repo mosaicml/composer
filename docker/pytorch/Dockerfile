@@ -3,7 +3,9 @@ ARG BASE_IMAGE
 FROM ${BASE_IMAGE}
 ARG DEBIAN_FRONTEND=noninteractive
 
-# remove a bad symlink
+# remove a bad symlink from the base composer image
+# If this file is present after the first command, kaniko
+# won't be able to build the docker image.
 RUN rm -f /usr/local/cuda-11.3/cuda-11.3  
 
 RUN apt-get update && \
@@ -116,12 +118,19 @@ SHELL ["/bin/bash", "-c"]
 # Create a default virtualenv and add it to the path
 ####################################################
 RUN python${PYTHON_VERSION} -m venv --system-site-packages /mosaicml-venv && \
-    /mosaicml-venv/bin/python -m pip install --upgrade pip setuptools && \
+    /mosaicml-venv/bin/python -m pip install --upgrade --no-cache-dir pip setuptools && \
     # Set the path for non-interactive shells
     sed -i 's/PATH=\"/PATH=\"~\/.local\/bin:\/mosaicml-venv\/bin:\/usr\/local\/nvidia\/bin:\/usr\/local\/cuda\/bin:/g' /etc/environment && \
+    echo "export VIRTUAL_ENV=/mosaicml-venv" >> /etc/environment && \
     echo "export PATH=~/.local/bin:/mosaicml-venv/bin:$PATH" >> /etc/profile && \
+    echo "export VIRTUAL_ENV=/mosaicml-venv" >> /etc/profile && \
     # And for interactive shells
-    echo "export PATH=~/.local/bin:/mosaicml-venv/bin:$PATH" >> /etc/bash.bashrc
+    echo "export PATH=~/.local/bin:/mosaicml-venv/bin:$PATH" >> /etc/bash.bashrc && \
+    echo "export VIRTUAL_ENV=/mosaicml-venv" >> /etc/bash.bashrc && \
+    echo "export PATH=~/.local/bin:/mosaicml-venv/bin:$PATH" >> /etc/zshenv && \
+    echo "export VIRTUAL_ENV=/mosaicml-venv" >> /etc/zshenv
+
+ENV VIRTUAL_ENV=/mosaicml-venv
 
 # Ensure that non-interactive shells load /etc/profile
 ENV BASH_ENV=/etc/profile
