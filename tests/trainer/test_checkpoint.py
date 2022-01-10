@@ -289,7 +289,6 @@ def test_checkpoint(
     mosaic_trainer_hparams.val_dataset.shuffle = False
     mosaic_trainer_hparams.grad_accum = 2
     mosaic_trainer_hparams.loggers = []
-    mosaic_trainer_hparams.deterministic_mode = True
     mosaic_trainer_hparams.train_batch_size = 8
     mosaic_trainer_hparams.eval_batch_size = 16
     mosaic_trainer_hparams.max_epochs = 2

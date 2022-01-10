@@ -73,7 +73,6 @@ extra_deps['unet'] = [
 
 extra_deps['deepspeed'] = [
     'deepspeed>=0.5.5',
-    'ninja>=1.10.2.3',
 ]
 
 extra_deps['all'] = set(dep for deps in extra_deps.values() for dep in deps)
