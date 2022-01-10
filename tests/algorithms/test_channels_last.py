@@ -35,9 +35,7 @@ def _infer_memory_format(tensor: Tensor) -> str:
 @pytest.fixture()
 def state(simple_conv_model: Model, dummy_train_dataloader: DataLoader, dummy_val_dataloader: DataLoader):
     metric_coll = MetricCollection([Accuracy()])
-    evaluators = [
-        Evaluator(label="dummy_label", dataloader=dummy_val_dataloader, metrics=metric_coll)
-    ]
+    evaluators = [Evaluator(label="dummy_label", dataset=dummy_val_dataloader, metrics=metric_coll)]
     return State(
         model=simple_conv_model,
         precision=Precision.FP32,

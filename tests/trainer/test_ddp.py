@@ -191,7 +191,7 @@ def test_ddp(device: DeviceHparams, world_size: int, mosaic_trainer_hparams: Tra
     assert isinstance(trainer.state.train_dataloader.dataset, collections.abc.Sized)
 
     for evaluator in trainer.evaluators:
-        assert isinstance(evaluator.dataloader.dataset, collections.abc.Sized)
+        assert isinstance(evaluator.dataset.dataloader, collections.abc.Sized)
     trainer.fit()
 
     expected_train_num_loads = hparams.max_epochs * hparams.train_batch_size * hparams.train_subset_num_batches

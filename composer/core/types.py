@@ -164,7 +164,7 @@ class Evaluator:
 
     Attributes:
         label (str): Name of the Evaluator
-        dataloader (DataLoader): Dataloader for evaluation data
+        dataset (Union[DataLoader, DataSpec]): Dataloader for evaluation data
         metrics (Metrics): Metrics to use for the dataset
         validate_every_n_epochs: (int)
         validate_every_n_batches: (int)
@@ -176,7 +176,7 @@ class Evaluator:
     """
 
     label: str
-    dataloader: Union[DataLoader, DataSpec]
+    dataset: Union[DataLoader, DataSpec]
     metrics: Metrics
     validate_every_n_epochs: int = 1
     validate_every_n_batches: int = -1

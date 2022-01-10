@@ -18,7 +18,6 @@ from typing import Optional
 log = logging.getLogger(__name__)
 
 
-
 @dataclass
 class EvaluatorHparams(hp.Hparams):
     hparams_registry = {  # type: ignore
@@ -32,11 +31,18 @@ class EvaluatorHparams(hp.Hparams):
     validate_every_n_batches: int = hp.optional(
         doc="Validate every N batches. Set to -1 to never validate on a batchwise frequency. Defaults to -1.",
         default=-1)
-    metric_names: Optional[List[str]] = hp.optional(doc="Name of the metrics for the evaluator.Use the torchmetrics"
-                    "metric name for torchmetrics and use the classname for custom metrics.", default_factory=list)
+    metric_names: Optional[List[str]] = hp.optional(
+        doc="Name of the metrics for the evaluator.Use the torchmetrics"
+        "metric name for torchmetrics and use the classname for custom metrics.",
+        default_factory=list)
 
     def initialize_object(self, batch_size: int, dataloader_hparams: DataloaderHparams):
         dataloader = self.eval_dataset.initialize_object(batch_size=batch_size, dataloader_hparams=dataloader_hparams)
 
         # Populate the metrics later in the trainer initialization
-        return Evaluator(label=self.label, dataloader=dataloader, metrics=MetricCollection([]), metric_names=self.metric_names, validate_every_n_batches=self.validate_every_n_batches, validate_every_n_epochs=self.validate_every_n_epochs)
+        return Evaluator(label=self.label,
+                         dataloader=dataloader,
+                         metrics=MetricCollection([]),
+                         metric_names=self.metric_names,
+                         validate_every_n_batches=self.validate_every_n_batches,
+                         validate_every_n_epochs=self.validate_every_n_epochs)

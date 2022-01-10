@@ -21,9 +21,7 @@ from tests.fixtures.models import SimpleConvModel
 @pytest.fixture
 def state(simple_conv_model: Model, dummy_train_dataloader: DataLoader, dummy_val_dataloader: DataLoader):
     metric_coll = MetricCollection([Accuracy()])
-    evaluators = [
-        Evaluator(label="dummy_label", dataloader=dummy_val_dataloader, metrics=metric_coll)
-    ]
+    evaluators = [Evaluator(label="dummy_label", dataset=dummy_val_dataloader, metrics=metric_coll)]
     state = State(
         grad_accum=1,
         max_epochs=100,

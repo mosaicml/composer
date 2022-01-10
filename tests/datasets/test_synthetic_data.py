@@ -25,7 +25,7 @@ def test_synthetic_data_creation(data_type: SyntheticDataType, label_type: Synth
     else:
         num_classes = 10
         label_shape = (1, 10, 12)
-        # run run 
+        # run run
         return
 
     dataset_size = 1000

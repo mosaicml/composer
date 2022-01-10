@@ -119,7 +119,7 @@ class TQDMLoggerBackend(RankZeroLoggerBackend):
         assert self.is_train is not None, "self.is_train should be set by the callback"
         assert state.evaluators is not None
         total_steps = len(state.train_dataloader) if self.is_train else sum(
-            len(evaluator.dataloader) for evaluator in state.evaluators)
+            len(evaluator.dataset.dataloader) for evaluator in state.evaluators)
         # TODO(anis) -- in #120, len(state.eval_dataloader) is inaccurate, as it does not incorporate
         # trainer._eval_subset_num_batches. The evaluator spec should fix this.
         #total_steps = state.steps_per_epoch if self.is_train else len(state.eval_dataloader)

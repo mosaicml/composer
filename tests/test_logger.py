@@ -63,6 +63,7 @@ def test_file_logger(dummy_state: State, log_destination: FileLoggerBackend, mon
             '[EPOCH][step=3]: { "metric": "epoch2", }\n',
         ]
 
+
 def test_tqdm_logger(mosaic_trainer_hparams: TrainerHparams, monkeypatch: MonkeyPatch):
     is_train_to_mock_tqdms = {
         True: [],

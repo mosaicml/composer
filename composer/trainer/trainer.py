@@ -208,29 +208,32 @@ class Trainer:
 
         if evaluators is not None:
             for evaluator in evaluators:
-                if isinstance(evaluator.dataloader, DataSpec):
-                    dataloader_spec = evaluator.dataloader
+                if isinstance(evaluator.dataset, DataSpec):
+                    dataloader_spec = evaluator.dataset
                 else:
-                    dataloader_spec = DataSpec(evaluator.dataloader)
-                evaluator.dataloader = DDPDataLoader(dataloader_spec.dataloader)
+                    dataloader_spec = DataSpec(evaluator.dataset)
+                evaluator.dataset = DDPDataLoader(dataloader_spec.dataloader)
         self.evaluators = evaluators
-        
+
         if eval_dataloader is not None:
             if isinstance(eval_dataloader, DataSpec):
                 eval_dataloader_spec = eval_dataloader
             else:
                 eval_dataloader_spec = DataSpec(eval_dataloader)
-            default_evaluator = Evaluator(label="eval_dataset", dataloader=DDPDataLoader(eval_dataloader_spec.dataloader),
-                metrics=None, validate_every_n_batches=validate_every_n_batches, validate_every_n_epochs=validate_every_n_epochs) 
+            default_evaluator = Evaluator(label="eval_dataset",
+                                          dataset=DDPDataLoader(eval_dataloader_spec.dataloader),
+                                          metrics=None,
+                                          validate_every_n_batches=validate_every_n_batches,
+                                          validate_every_n_epochs=validate_every_n_epochs)
             if self.evaluators is not None:
                 self.evaluators.append(default_evaluator)
             else:
                 self.evaluators = [default_evaluator]
-        
+
         if not isinstance(train_dataloader, DataSpec):
             train_dataloader = DataSpec(train_dataloader)
         train_dataloader.dataloader = DDPDataLoader(train_dataloader.dataloader)
-        
+
         # do a check here to make sure there is at least one validation set
         if self.evaluators is None or len(self.evaluators) == 0:
             raise ValueError('At least one validation set should be used and passed in through ',
@@ -241,17 +244,15 @@ class Trainer:
         precision_context = self.device.precision_context if not self.deepspeed_enabled else cast(
             Callable[..., ContextManager], contextlib.nullcontext)
 
-        self.state = State(
-            max_epochs=max_epochs,
-            algorithms=algorithms,
-            callbacks=callbacks,
-            model=model,
-            grad_accum=grad_accum,
-            precision=precision,
-            precision_context=precision_context,
-            train_dataloader=train_dataloader,
-            evaluators=self.evaluators
-        )
+        self.state = State(max_epochs=max_epochs,
+                           algorithms=algorithms,
+                           callbacks=callbacks,
+                           model=model,
+                           grad_accum=grad_accum,
+                           precision=precision,
+                           precision_context=precision_context,
+                           train_dataloader=train_dataloader,
+                           evaluators=self.evaluators)
 
         # Create Metrics for the evaluators
         for evaluator in self.evaluators:
@@ -271,11 +272,13 @@ class Trainer:
 
         if eval_subset_num_batches is not None:
             for evaluator in self.evaluators:
-                if eval_subset_num_batches > len(evaluator.dataloader):
+                assert isinstance(evaluator.dataset, DataSpec)
+                eval_dataspec = evaluator.dataset.dataloader
+                if eval_subset_num_batches > len(eval_dataspec):
                     warnings.warn(
-                        textwrap.dedent(f"""SubsetNumBatchesWarning: The eval_subset_num_batches({eval_subset_num_batches})
+                        textwrap.dedent(
+                            f"""SubsetNumBatchesWarning: The eval_subset_num_batches({eval_subset_num_batches})
                             is greater than the number of batches in an evaluation dataloader)"""))
-        
 
         self._eval_subset_num_batches = eval_subset_num_batches
 
@@ -405,7 +408,10 @@ class Trainer:
             eval_dataloader = None
 
         if hparams.evaluators is not None:
-            evaluators = [evaluator.initialize_object(eval_device_batch_size, hparams.dataloader) for evaluator in hparams.evaluators]
+            evaluators = [
+                evaluator.initialize_object(eval_device_batch_size, hparams.dataloader)
+                for evaluator in hparams.evaluators
+            ]
             for evaluator in hparams.evaluators:
                 if evaluator.eval_dataset.shuffle and hparams.eval_subset_num_batches:
                     warnings.warn(
@@ -413,7 +419,7 @@ class Trainer:
                     (set to {hparams.eval_subset_num_batches}), evaluator.eval_dataset.shuffle should be set to False. Otherwise,
                     each evaluation epoch may load a different subset of samples."""))
                     break
-            
+
         else:
             evaluators = None
 
@@ -517,7 +523,7 @@ class Trainer:
             metric.set_dtype(torch.float32)  # type: ignore
 
         return metrics
-    
+
     def _create_evaluator_metrics(self, evaluator: Evaluator = None) -> MetricCollection:
         """Get metrics compatible with a model and deepcopy them to store in an Evaluator.
         
@@ -550,18 +556,19 @@ class Trainer:
         elif evaluator.metric_names is not None:
             evaluator_metrics = MetricCollection([])
             for metric_name in evaluator.metric_names:
-                if metric_name in metrics.keys(): 
+                if metric_name in metrics.keys():
                     evaluator_metrics.add_metrics(copy.deepcopy(metrics[metric_name]))
                 else:
-                    warnings.warn(f"No metric found with the name {metric_name}. Check if this"
+                    warnings.warn(
+                        f"No metric found with the name {metric_name}. Check if this"
                         "metric is compatible/listed in your model.",
-                          category=UserWarning)
+                        category=UserWarning)
             if len(evaluator_metrics) == 0:
                 raise RuntimeError("No metrics compatible with your model were added to this evaluator."
-                "Check that the metrics you specified are compatible/listed in your model.")
+                                   "Check that the metrics you specified are compatible/listed in your model.")
         else:
             raise RuntimeError("There are no valid metrics for an evaluator.")
-        
+
         # Safety check to ensure the metric and data are on the same device. Normally not
         # needed because the metric is automatically on the same device as the model.
         # See https://torchmetrics.readthedocs.io/en/latest/pages/overview.html for details.
@@ -571,7 +578,7 @@ class Trainer:
         # running with FP16, this tends to result in overflows. Let's assume FP32 is good enough.
         for _, metric in evaluator_metrics.items():
             metric.set_dtype(torch.float32)  # type: ignore
-        
+
         return evaluator_metrics
 
     def _compute_and_log_metrics(self, metrics: Metrics, *, is_train: bool, is_batch: bool, logging_label: str = ''):
@@ -612,10 +619,11 @@ class Trainer:
         assert self.state.evaluators is not None
         for evaluator in self.state.evaluators:
 
-            assert evaluator.dataloader is not None, f"{evaluator.label} dataloader should be set"
+            assert evaluator.dataset is not None, f"{evaluator.label} dataloader should be set"
             # spin the eval dataloader once to initialize its sampler deterministically
             # so it does not affect any other RNG reads
-            for _ in evaluator.dataloader:
+            assert isinstance(evaluator.dataset, DataSpec)
+            for _ in evaluator.dataset.dataloader:
                 break
 
         # spin the train dataloader's sampler to get to the state of the desired epoch
@@ -907,11 +915,12 @@ class Trainer:
         with torch.no_grad():
 
             self.engine.run_event(Event.EVAL_START)
-            
+
             for evaluator in state.evaluators:
-                for state.batch in itertools.islice(evaluator.dataloader, self._eval_subset_num_batches):
+                assert isinstance(evaluator.dataset, DataSpec)
+                for state.batch in itertools.islice(evaluator.dataset.dataloader, self._eval_subset_num_batches):
                     state.batch = self.device.batch_to_device(state.batch)
-                    state.batch = state.eval_data.device_transforms(state.batch)
+                    state.batch = evaluator.dataset.device_transforms(state.batch)
                     if self.deepspeed_enabled:
                         state.batch = fix_batch_precision_for_deepspeed(state.batch, state.precision)
 
@@ -926,9 +935,9 @@ class Trainer:
                     self.engine.run_event(Event.EVAL_BATCH_END)
 
                 self._compute_and_log_metrics(evaluator.metrics,
-                                                is_train=False,
-                                                is_batch=is_batch,
-                                                logging_label=evaluator.label)
+                                              is_train=False,
+                                              is_batch=is_batch,
+                                              logging_label=evaluator.label)
 
             self.engine.run_event(Event.EVAL_END)
 

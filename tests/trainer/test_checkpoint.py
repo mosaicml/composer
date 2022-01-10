@@ -368,7 +368,7 @@ def validate_events_called_expected_number_of_times(trainer: Trainer):
 
     assert state.evaluators is not None
     for evaluator in state.evaluators:
-        assert evaluator.dataloader is not None
+        assert evaluator.dataset is not None
     assert trainer._eval_subset_num_batches is not None
     num_eval_steps = num_evals * trainer._eval_subset_num_batches * len(state.evaluators)
 

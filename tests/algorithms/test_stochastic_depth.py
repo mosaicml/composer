@@ -31,15 +31,16 @@ def dummy_state(dummy_dataloader_hparams: DataloaderHparams):
     train_dataloader = dataset_hparams.initialize_object(batch_size=100, dataloader_hparams=dummy_dataloader_hparams)
     if isinstance(train_dataloader, DataSpec):
         train_dataloader = train_dataloader.dataloader
-    evaluators = [Evaluator(label="dummy_label", dataloader=train_dataloader, metrics=model.metrics(train=False))]
-    state = State(train_dataloader=train_dataloader,
-                  grad_accum=1,
-                  max_epochs=100,
-                  model=model,
-                  # TODO Anis fix later
-                  # eval_dataloader=train_dataloader,
-                  evaluators=evaluators,
-                  precision=Precision.FP32)
+    evaluators = [Evaluator(label="dummy_label", dataset=train_dataloader, metrics=model.metrics(train=False))]
+    state = State(
+        train_dataloader=train_dataloader,
+        grad_accum=1,
+        max_epochs=100,
+        model=model,
+        # TODO Anis fix later
+        # eval_dataloader=train_dataloader,
+        evaluators=evaluators,
+        precision=Precision.FP32)
     state.epoch = 50
     state.step = 50
     return state

@@ -56,7 +56,7 @@ SKIP_SERIALIZATION_FIELDS = [
     "batch",
     "outputs",
     "train_data",
-    "evaluators",
+    "evaluator_data",
     "_steps_per_epoch",
     "_precision_context",
 ]
@@ -135,12 +135,12 @@ class State(Serializable):
                 train_dataloader = DataSpec(train_dataloader)
         self.train_data = train_dataloader
         for evaluator in evaluators:
-            if not isinstance(evaluator.dataloader, DataSpec):
-                if isinstance(evaluator.dataloader, dict):
-                    evaluator.dataloader = DataSpec(**evaluator.dataloader)
+            if not isinstance(evaluator.dataset, DataSpec):
+                if isinstance(evaluator.dataset, dict):
+                    evaluator.dataset = DataSpec(**evaluator.dataset)
                 else:
-                    evaluator.dataloader = DataSpec(evaluator.dataloader)
-        self.evaluators = evaluators
+                    evaluator.dataset = DataSpec(evaluator.dataset)
+        self.evaluator_data = evaluators
         self.max_epochs = max_epochs
         self.step = 0
         self.epoch = 0
@@ -177,17 +177,17 @@ class State(Serializable):
 
     @property
     def evaluators(self):
-        return self.evaluators
+        return self.evaluator_data
 
     @evaluators.setter
-    def eval_dataloader(self, evaluators: Sequence[types.Evaluator]):
+    def evaluators(self, evaluators: Sequence[types.Evaluator]):
         for evaluator in evaluators:
             if not isinstance(evaluator.dataloader, DataSpec):
                 if isinstance(evaluator.dataloader, dict):
                     evaluator.dataloader = DataSpec(**evaluator.dataloader)
                 else:
                     evaluator.dataloader = DataSpec(evaluator.dataloader)
-        self.evaluators = evaluators
+        self.evaluator_data = evaluators
 
     @property
     def optimizers(self):
