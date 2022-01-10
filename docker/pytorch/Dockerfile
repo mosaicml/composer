@@ -118,7 +118,7 @@ SHELL ["/bin/bash", "-c"]
 # Create a default virtualenv and add it to the path
 ####################################################
 RUN python${PYTHON_VERSION} -m venv --system-site-packages /mosaicml-venv && \
-    /mosaicml-venv/bin/python -m pip install --upgrade pip setuptools && \
+    /mosaicml-venv/bin/python -m pip install --upgrade --no-cache-dir pip setuptools && \
     # Set the path for non-interactive shells
     sed -i 's/PATH=\"/PATH=\"~\/.local\/bin:\/mosaicml-venv\/bin:\/usr\/local\/nvidia\/bin:\/usr\/local\/cuda\/bin:/g' /etc/environment && \
     echo "export VIRTUAL_ENV=/mosaicml-venv" >> /etc/environment && \
