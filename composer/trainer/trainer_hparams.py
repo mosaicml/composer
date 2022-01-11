@@ -22,9 +22,9 @@ from composer.core.types import Precision
 from composer.datasets import DataloaderHparams
 from composer.loggers import (BaseLoggerBackendHparams, FileLoggerBackendHparams, MosaicMLLoggerBackendHparams,
                               TQDMLoggerBackendHparams, WandBLoggerBackendHparams)
-from composer.models import (CIFARResNet9Hparams, CIFARResNetHparams, EfficientNetB0Hparams, GPT2Hparams,
-                             MnistClassifierHparams, ModelHparams, ResNet18Hparams, ResNet50Hparams, ResNet101Hparams,
-                             UnetHparams)
+from composer.models import (BERTForClassificationHparams, BERTHparams, CIFARResNet9Hparams, CIFARResNetHparams,
+                             EfficientNetB0Hparams, GPT2Hparams, MnistClassifierHparams, ModelHparams, ResNet18Hparams,
+                             ResNet50Hparams, ResNet101Hparams, UnetHparams)
 from composer.optim import (AdamHparams, AdamWHparams, DecoupledAdamWHparams, DecoupledSGDWHparams, OptimizerHparams,
                             RAdamHparams, RMSPropHparams, SchedulerHparams, SGDHparams, scheduler)
 from composer.trainer.checkpoint_hparams import CheckpointLoaderHparams, CheckpointSaverHparams
@@ -67,6 +67,8 @@ model_registry = {
     "resnet18": ResNet18Hparams,
     "mnist_classifier": MnistClassifierHparams,
     "gpt2": GPT2Hparams,
+    "bert": BERTHparams,
+    "bert_classification": BERTForClassificationHparams,
 }
 
 dataset_registry = {
@@ -75,6 +77,7 @@ dataset_registry = {
     "cifar10": datasets.CIFAR10DatasetHparams,
     "mnist": datasets.MNISTDatasetHparams,
     "lm": datasets.LMDatasetHparams,
+    "glue": datasets.GLUEHparams,
 }
 
 algorithms_registry = get_algorithm_registry()

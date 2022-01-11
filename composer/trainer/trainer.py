@@ -272,8 +272,18 @@ class Trainer:
         if not isinstance(schedulers_hparams, list):
             schedulers_hparams = [schedulers_hparams]
         optimizer = optimizer_hparams.initialize_object(param_group=self.state.model.parameters())
+        if self.state.train_data.num_samples is None:
+            samples_per_epoch = None
+        else:
+            samples_per_epoch = min(self.state.steps_per_epoch * self.state.train_batch_size,
+                                    self.state.train_data.num_samples)
         schedulers = [
-            x.initialize_object(optimizer, self.state.steps_per_epoch) for x in ensure_warmup_last(schedulers_hparams)
+            x.initialize_object(optimizer=optimizer,
+                                max_training_duration=self.state.max_duration,
+                                steps_per_epoch=self.state.steps_per_epoch,
+                                samples_per_epoch=samples_per_epoch,
+                                dataset_num_tokens=self.state.train_data.num_tokens)
+            for x in ensure_warmup_last(schedulers_hparams)
         ]
         self.state.optimizers = optimizer
         self.state.schedulers = ComposedScheduler(schedulers=schedulers)
