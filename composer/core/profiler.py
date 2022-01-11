@@ -214,6 +214,11 @@ class Profiler:
             return ProfilerAction.WARMUP
         return ProfilerAction.ACTIVE
 
+    @property
+    def event_handlers(self):
+        """Profiler event handlers"""
+        return self._event_handlers
+
     def merge_traces(self):
         """Merge traces together
 
