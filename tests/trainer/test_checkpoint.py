@@ -115,7 +115,7 @@ def checkpointing_trainer_hparams(mosaic_trainer_hparams: TrainerHparams) -> Tra
                                               interval=checkpointing_interval,
                                               folder=checkpointing_folder)
     mosaic_trainer_hparams.grad_accum = 2
-    mosaic_trainer_hparams.max_epochs = 2
+    mosaic_trainer_hparams.max_duration = "2ep"
     mosaic_trainer_hparams.save_checkpoint = checkpoint_saver
     mosaic_trainer_hparams.callbacks.append(DummyStatefulCallbackHparams())
     mosaic_trainer_hparams.callbacks.append(EventCounterCallbackHparams())
@@ -204,7 +204,7 @@ def test_load_weights(
     mosaic_trainer_hparams.loggers = []
     mosaic_trainer_hparams.train_batch_size = 8
     mosaic_trainer_hparams.eval_batch_size = 16
-    mosaic_trainer_hparams.max_epochs = 2
+    mosaic_trainer_hparams.max_duration = "2ep"
     mosaic_trainer_hparams.precision = Precision.FP32
     mosaic_trainer_hparams.callbacks = [DummyStatefulCallbackHparams(), EventCounterCallbackHparams()]
     mosaic_trainer_hparams.train_subset_num_batches = 5
@@ -236,7 +236,7 @@ def test_load_weights(
     second_trainer_hparams.optimizer = AdamWHparams()
 
     # setup a new LR scheduler
-    scheduler_options = [ConstantLRHparams(), CosineAnnealingLRHparams(T_max=f"{second_trainer_hparams.max_epochs}ep")]
+    scheduler_options = [ConstantLRHparams(), CosineAnnealingLRHparams(T_max=second_trainer_hparams.max_duration)]
     second_trainer_hparams.schedulers = [random.choice(scheduler_options)]
 
     # ensure our new choice of scheduler is different than the original scheduler
@@ -251,7 +251,7 @@ def test_load_weights(
     )
 
 
-@pytest.mark.timeout(90)
+@pytest.mark.timeout(90000)
 @pytest.mark.parametrize("world_size", [
     pytest.param(1),
     pytest.param(2, marks=pytest.mark.world_size(2)),
@@ -309,7 +309,7 @@ def test_checkpoint(
     mosaic_trainer_hparams.loggers = []
     mosaic_trainer_hparams.train_batch_size = 8
     mosaic_trainer_hparams.eval_batch_size = 16
-    mosaic_trainer_hparams.max_epochs = 2
+    mosaic_trainer_hparams.max_duration = "2ep"
     mosaic_trainer_hparams.precision = Precision.FP32
     mosaic_trainer_hparams.callbacks = [DummyStatefulCallbackHparams(), EventCounterCallbackHparams()]
     mosaic_trainer_hparams.train_subset_num_batches = 5
