@@ -77,7 +77,7 @@ RUN add-apt-repository ppa:deadsnakes/ppa && \
     rm -rf /var/lib/apt/lists/*
 
 RUN curl -fsSL https://bootstrap.pypa.io/get-pip.py | python${PYTHON_VERSION} - && \
-    pip${PYTHON_VERSION} install --no-cache-dir --upgrade pip
+    pip${PYTHON_VERSION} install --no-cache-dir --upgrade pip setuptools
 
 #####################
 # Install pillow-simd
@@ -114,23 +114,27 @@ RUN rm -rf /tmp/*
 #######################
 SHELL ["/bin/bash", "-c"]
 
-####################################################
-# Create a default virtualenv and add it to the path
-####################################################
-RUN python${PYTHON_VERSION} -m venv --system-site-packages /mosaicml-venv && \
-    /mosaicml-venv/bin/python -m pip install --upgrade --no-cache-dir pip setuptools && \
-    # Set the path for non-interactive shells
-    sed -i 's/PATH=\"/PATH=\"~\/.local\/bin:\/mosaicml-venv\/bin:\/usr\/local\/nvidia\/bin:\/usr\/local\/cuda\/bin:/g' /etc/environment && \
-    echo "export VIRTUAL_ENV=/mosaicml-venv" >> /etc/environment && \
-    echo "export PATH=~/.local/bin:/mosaicml-venv/bin:$PATH" >> /etc/profile && \
-    echo "export VIRTUAL_ENV=/mosaicml-venv" >> /etc/profile && \
-    # And for interactive shells
-    echo "export PATH=~/.local/bin:/mosaicml-venv/bin:$PATH" >> /etc/bash.bashrc && \
-    echo "export VIRTUAL_ENV=/mosaicml-venv" >> /etc/bash.bashrc && \
-    echo "export PATH=~/.local/bin:/mosaicml-venv/bin:$PATH" >> /etc/zshenv && \
-    echo "export VIRTUAL_ENV=/mosaicml-venv" >> /etc/zshenv
 
-ENV VIRTUAL_ENV=/mosaicml-venv
+################################
+# Use the correct python version
+################################
+
+# Set the default python by creating our own folder and hacking the path
+# We don't want to use upgrade-alternatives as that will break system packages
+
+ARG COMPOSER_PYTHON_BIN=/composer-python
+
+RUN mkdir -p ${COMPOSER_PYTHON_BIN} && \
+    ln -s $(which python${PYTHON_VERSION}) ${COMPOSER_PYTHON_BIN}/python && \
+    ln -s $(which python${PYTHON_VERSION}) ${COMPOSER_PYTHON_BIN}/python3 && \
+    ln -s $(which python${PYTHON_VERSION}) ${COMPOSER_PYTHON_BIN}/python${PYTHON_VERSION} && \
+    ln -s $(which pip${PYTHON_VERSION}) ${COMPOSER_PYTHON_BIN}/pip && \
+    ln -s $(which pip${PYTHON_VERSION}) ${COMPOSER_PYTHON_BIN}/pip3 && \
+    ln -s $(which pip${PYTHON_VERSION}) ${COMPOSER_PYTHON_BIN}/pip${PYTHON_VERSION} && \
+    # Include this folder, and the local bin folder, on the path 
+    echo "export PATH=~/.local/bin:$COMPOSER_PYTHON_BIN:$PATH" >> /etc/profile && \
+    echo "export PATH=~/.local/bin:$COMPOSER_PYTHON_BIN:$PATH" >> /etc/bash.bashrc && \
+    echo "export PATH=~/.local/bin:$COMPOSER_PYTHON_BIN:$PATH" >> /etc/zshenv
 
 # Ensure that non-interactive shells load /etc/profile
 ENV BASH_ENV=/etc/profile
