@@ -184,7 +184,7 @@ class State(Serializable):
         return self.timer.batch.value
 
     @property
-    def max_duration(self):
+    def max_duration(self) -> Time[int]:
         return self._max_duration
 
     @max_duration.setter
