@@ -35,4 +35,5 @@ class DeepLabV3Hparams(ModelHparams):
             num_classes=self.num_classes,  # type: ignore
             backbone_arch=self.backbone_arch,
             is_backbone_pretrained=self.is_backbone_pretrained,
-            sync_bn=self.sync_bn)
+            sync_bn=self.sync_bn,
+            initializers=self.initializers)

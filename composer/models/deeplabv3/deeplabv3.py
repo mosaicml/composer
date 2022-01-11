@@ -1,6 +1,6 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
-from typing import Any
+from typing import Any, List, Optional
 
 import torch
 from torchmetrics.collections import MetricCollection
@@ -8,6 +8,7 @@ from torchvision.models import _utils, resnet
 from torchvision.models.segmentation.deeplabv3 import ASPP, DeepLabV3
 
 from composer.core.types import Batch
+from composer.models.model_hparams import Initializer
 from composer.models.base import BaseMosaicModel
 from composer.models.loss import CrossEntropyLoss, MIoU, soft_cross_entropy
 
@@ -15,7 +16,8 @@ from composer.models.loss import CrossEntropyLoss, MIoU, soft_cross_entropy
 def deeplabv3_builder(num_classes: int,
                       backbone_arch: str = 'resnet101',
                       is_backbone_pretrained: bool = True,
-                      sync_bn: bool = True):
+                      sync_bn: bool = True,
+                      initializers: Optional[List[str]] = None):
     """Helper function to build a torchvision DeepLabV3 model with a 3x3 convolution layer and dropout removed.
 
     Args:
@@ -45,6 +47,13 @@ def deeplabv3_builder(num_classes: int,
 
     model = DeepLabV3(backbone, head, aux_classifier=None)
 
+    assert initializers is not None
+
+    if initializers:
+        for initializer in initializers:
+            initializer_fn = Initializer(initializer).get_initializer()
+            model.apply(initializer_fn)
+
     if sync_bn:
         model = torch.nn.SyncBatchNorm.convert_sync_batchnorm(model)
 
@@ -68,7 +77,8 @@ class MosaicDeepLabV3(BaseMosaicModel):
                  num_classes: int,
                  backbone_arch: str = 'resnet101',
                  is_backbone_pretrained: bool = True,
-                 sync_bn: bool = True):
+                 sync_bn: bool = True,
+                 initializers: Optional[List[str]] = None):
 
         super().__init__()
         self.num_classes = num_classes
@@ -76,7 +86,8 @@ class MosaicDeepLabV3(BaseMosaicModel):
             backbone_arch=backbone_arch,
             is_backbone_pretrained=is_backbone_pretrained,
             num_classes=num_classes,  # type: ignore
-            sync_bn=sync_bn)
+            sync_bn=sync_bn,
+            initializers=initializers)
 
         # Metrics
         self.train_miou = MIoU(self.num_classes, ignore_index=-1)
