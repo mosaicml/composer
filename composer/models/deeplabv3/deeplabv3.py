@@ -52,7 +52,10 @@ def deeplabv3_builder(num_classes: int,
     if initializers:
         for initializer in initializers:
             initializer_fn = Initializer(initializer).get_initializer()
-            model.apply(initializer_fn)
+            if is_backbone_pretrained:
+                model.classifier.apply(initializer_fn)
+            else:
+                model.apply(initializer_fn)
 
     if sync_bn:
         model = torch.nn.SyncBatchNorm.convert_sync_batchnorm(model)
