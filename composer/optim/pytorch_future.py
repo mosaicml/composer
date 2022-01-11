@@ -64,14 +64,17 @@ class WarmUpLR(_LRScheduler):
                  optimizer,
                  warmup_factor=1.0 / 3,
                  warmup_iters=5,
+                 warmup_ratio=None,
                  warmup_method="linear",
                  last_epoch=-1,
                  verbose=False,
                  interval='step'):
         if warmup_method not in ("constant", "linear"):
-            raise ValueError("Only 'constant' or 'linear' warmup_method accepted, but " "got {}".format(warmup_method))
+            raise ValueError("Only 'constant' or 'linear' warmup_method accepted, but got {}".format(warmup_method))
+
         self.warmup_factor = warmup_factor
         self.warmup_iters = warmup_iters
+        self.warmup_ratio = warmup_ratio
         self.warmup_method = warmup_method
         self.interval = interval
         super(WarmUpLR, self).__init__(optimizer, last_epoch, verbose)
@@ -84,7 +87,7 @@ class WarmUpLR(_LRScheduler):
         """
 
         if not self._get_lr_called_within_step:
-            warnings.warn("To get the last learning rate computed by the scheduler, " "please use `get_last_lr()`.")
+            warnings.warn("To get the last learning rate computed by the scheduler, please use `get_last_lr()`.")
 
         if self.last_epoch == 0:
             return [group['lr'] * self.warmup_factor for group in self.optimizer.param_groups]

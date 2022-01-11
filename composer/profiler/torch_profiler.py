@@ -14,7 +14,7 @@ from torch.profiler.profiler import ProfilerAction as TorchProfilerAction
 from composer.core import Callback, Logger, State
 from composer.core.profiler import ProfilerAction
 from composer.profiler.profiler_hparams import TorchProfilerHparams
-from composer.utils import ddp
+from composer.utils import dist
 from composer.utils.run_directory import get_relative_to_run_directory
 
 _PROFILE_MISSING_ERROR = "The profiler has not been setup. Please call profiler.init() before training starts."
@@ -123,7 +123,7 @@ class TorchProfiler(Callback):
             # close() call of the JSONTraceHandler.
             on_trace_ready=torch.profiler.tensorboard_trace_handler(
                 dir_name=self.hparams.tensorboard_trace_handler_dir,
-                worker_name=f"torch_profiler_{ddp.get_global_rank()}",
+                worker_name=f"torch_profiler_{dist.get_global_rank()}",
                 use_gzip=self.hparams.tensorboard_use_gzip,
             ),
             record_shapes=self.hparams.record_shapes,
@@ -136,7 +136,7 @@ class TorchProfiler(Callback):
     def batch_end(self, state: State, logger: Logger) -> None:
         del state, logger  # unused
         assert self.profiler is not None, _PROFILE_MISSING_ERROR
-        self.profiler.add_metadata_json("global_rank", json.dumps(ddp.get_global_rank()))
+        self.profiler.add_metadata_json("global_rank", json.dumps(dist.get_global_rank()))
         self.profiler.step()
 
     def batch_start(self, state: State, logger: Logger) -> None:
