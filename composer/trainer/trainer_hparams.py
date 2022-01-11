@@ -78,6 +78,7 @@ dataset_registry = {
     "mnist": datasets.MNISTDatasetHparams,
     "lm": datasets.LMDatasetHparams,
     "glue": datasets.GLUEHparams,
+    "streaming_lm": datasets.StreamingLMDatasetHparams,
 }
 
 algorithms_registry = get_algorithm_registry()
