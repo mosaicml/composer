@@ -21,7 +21,6 @@ from torchmetrics.metric import Metric
 from composer.core import Callback, DataSpec, Engine, Event, Logger, State
 from composer.core.algorithm import Algorithm
 from composer.core.logging import BaseLoggerBackend, LogLevel
-from composer.profiler.profiler_hparams import ProfilerHparams
 from composer.core.types import Batch, BreakEpochException, DataLoader, Metrics, Precision, Tensor
 from composer.datasets.dataloader import DDPDataLoader
 from composer.loggers.tqdm_logger import TQDMLoggerBackend
@@ -29,6 +28,7 @@ from composer.models.base import BaseMosaicModel
 from composer.optim import (ComposedScheduler, CosineAnnealingLRHparams, DecoupledSGDWHparams, OptimizerHparams,
                             SchedulerHparams, WarmUpLRHparams)
 from composer.optim.scheduler import ensure_warmup_last
+from composer.profiler.profiler_hparams import ProfilerHparams
 from composer.trainer.checkpoint_hparams import CheckpointLoaderHparams, CheckpointSaverHparams
 from composer.trainer.ddp import DDPSyncStrategy, ddp_sync_context, prepare_ddp_module
 from composer.trainer.deepspeed import DeepSpeedHparams, fix_batch_precision_for_deepspeed
@@ -258,7 +258,7 @@ class Trainer:
         if log_destinations is None:
             log_destinations = [TQDMLoggerBackend()]
         self.logger = Logger(self.state, log_destinations)
-        self.state.callbacks.extend(log_destinations)
+        self.state.callbacks = list(cast(List[Callback], log_destinations)) + self.state.callbacks
 
         self.engine = Engine(
             state=self.state,
