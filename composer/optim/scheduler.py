@@ -166,7 +166,7 @@ class MultiStepLRHparams(SchedulerHparams):
     scheduler.
     """
 
-    milestones: List[str] = hp.required(doc='List of epoch indices')
+    milestones: List[str] = hp.required(doc='List of milestone time strings')
     gamma: float = hp.optional(default=0.1, doc='multiplicative factor of decay')
     verbose: bool = hp.optional(default=False, doc='prints message to stdout')
     interval: str = hp.optional(default='epoch', doc=_interval_doc)
@@ -193,7 +193,7 @@ class CosineAnnealingLRHparams(SchedulerHparams):
     scheduler.
     """
 
-    T_max: str = hp.required(doc="Maximum number of iterations.")
+    T_max: str = hp.required(doc="Maximum scheduler duration.")
     eta_min: float = hp.optional(default=0.0, doc='minimum learning rate.')
     verbose: bool = hp.optional(default=False, doc='prints message to stdout')
     interval: str = hp.optional(default='epoch', doc=_interval_doc)
@@ -207,7 +207,7 @@ class CosineAnnealingWarmRestartsHparams(SchedulerHparams):
     scheduler.
     """
 
-    T_0: str = hp.required("Number of iterations for the first restart.")
+    T_0: str = hp.required("Duration for the first restart.")
     eta_min: float = hp.optional(default=0.0, doc='minimum learning rate.')
     verbose: bool = hp.optional(default=False, doc='prints message to stdout')
     interval: str = hp.optional(default='epoch', doc=_interval_doc)
@@ -224,7 +224,7 @@ class LinearLRHparams(SchedulerHparams):
 
     start_factor: float = hp.optional("Number to multiply learning rate at the start.", default=1.0 / 3)
     end_factor: float = hp.optional("Number to multiply learning rate at the end .", default=1.0)
-    total_iters: str = hp.optional("Number of linear decay steps. Default: 5 iterations.", default="5ba")
+    total_iters: str = hp.optional("Duration of linear decay steps. Default: 5 iterations.", default="5ba")
     verbose: bool = hp.optional('Prints message to stdout', default=False)
     interval: str = hp.optional(default='epoch', doc=_interval_doc)
 
@@ -239,7 +239,7 @@ class WarmUpLRHparams(SchedulerHparams):
     """
 
     warmup_factor: float = hp.optional("Number to multiply learning rate at start.", default=1.0 / 3)
-    warmup_iters: str = hp.optional("Number of warmup step. Default: 5 iterations.", default="5ba")
+    warmup_iters: str = hp.optional("Warmup duration. Default: 5 iterations.", default="5ba")
     warmup_method: str = hp.optional("Warmup method (linear or constant)", default='linear')
     verbose: bool = hp.optional('Prints message to stdout', default=False)
     interval: str = hp.optional('Warmup the LR every step or epoch. Default: epoch', default='epoch')
