@@ -14,9 +14,10 @@ import torch
 import yahp as hp
 from transformers.testing_utils import CaptureLogger
 
+from composer.core import DataSpec
 from composer.core.types import Batch
 from composer.datasets.dataloader import DataloaderHparams
-from composer.datasets.hparams import DataloaderSpec, DatasetHparams
+from composer.datasets.hparams import DatasetHparams
 from composer.utils import dist
 from composer.utils.data import get_subset_dataset
 
@@ -172,7 +173,7 @@ class StreamingLMDatasetHparams(DatasetHparams):
         else:
             raise ValueError(f"Unknown group_method: '{group_method}'")
 
-    def initialize_object(self, batch_size: int, dataloader_hparams: DataloaderHparams) -> DataloaderSpec:
+    def initialize_object(self, batch_size: int, dataloader_hparams: DataloaderHparams) -> DataSpec:
         assert dataloader_hparams.num_workers == 1, "LM Streaming Dataloader only supports num_workers=1"
 
         try:
@@ -232,14 +233,14 @@ class StreamingLMDatasetHparams(DatasetHparams):
                                                                       mlm=self.use_masked_lm,
                                                                       mlm_probability=self.mlm_probability)
         # Return DataloaderSpec
-        return DataloaderSpec(dataloader=dataloader_hparams.initialize_object(
+        return DataSpec(dataloader=dataloader_hparams.initialize_object(
             dataset=sized_iterable_dataset,
             batch_size=batch_size,
             sampler=None,
             drop_last=self.drop_last,
             collate_fn=collate_fn,
         ),
-                              split_fn=_split_dict_fn)
+                        split_batch=_split_dict_fn)
 
 
 class SizedIterableDataset(torch.utils.data.IterableDataset):

@@ -213,6 +213,11 @@ class Trainer:
         if not isinstance(train_dataloader, DataSpec):
             train_dataloader = DataSpec(train_dataloader)
         train_dataloader.dataloader = DDPDataLoader(train_dataloader.dataloader)
+        for batch_idx, batch in enumerate(train_dataloader.dataloader):
+            print(batch)
+
+        print(f"All batches consumed, there were {batch_idx} batches")
+
         if not isinstance(eval_dataloader, DataSpec):
             eval_dataloader = DataSpec(eval_dataloader)
         eval_dataloader.dataloader = DDPDataLoader(eval_dataloader.dataloader)
