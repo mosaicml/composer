@@ -4,7 +4,7 @@ train_dataset:
     dataset_config_name: en
     split: train
     max_shards: -1
-    max_samples: 95738161
+    max_samples: 275184000 
     max_seq_len: 128 
     group_method: truncate # TODO: check that the code for this one is right
     tokenizer_name: bert-base-uncased
