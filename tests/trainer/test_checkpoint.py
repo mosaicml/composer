@@ -105,6 +105,24 @@ def assert_weights_equivalent(original_trainer_hparams: TrainerHparams, new_trai
         assert (p1.data.ne(p2.data).sum() == 0)
 
 
+@pytest.fixture
+def checkpointing_trainer_hparams(mosaic_trainer_hparams: TrainerHparams) -> TrainerHparams:
+    checkpointing_interval_unit = "it"
+    checkpointing_interval = 1
+    checkpointing_folder = "checkpoints"
+
+    checkpoint_saver = CheckpointSaverHparams(interval_unit=checkpointing_interval_unit,
+                                              interval=checkpointing_interval,
+                                              folder=checkpointing_folder)
+    mosaic_trainer_hparams.grad_accum = 2
+    mosaic_trainer_hparams.max_duration = "2ep"
+    mosaic_trainer_hparams.save_checkpoint = checkpoint_saver
+    mosaic_trainer_hparams.callbacks.append(DummyStatefulCallbackHparams())
+    mosaic_trainer_hparams.callbacks.append(EventCounterCallbackHparams())
+    mosaic_trainer_hparams.train_subset_num_batches = 5
+    return mosaic_trainer_hparams
+
+
 def assert_checkpoints_equivalent(hparams_file_a: str, checkpoint_file_a: str, hparams_file_b: str,
                                   checkpoint_file_b: str) -> None:
 
@@ -315,6 +333,7 @@ def test_checkpoint(
         folder=checkpoint_a_folder,
     )
     mosaic_trainer_hparams.seed = seed
+
     mosaic_trainer_hparams.validate_every_n_batches = 0 if checkpoint_filename.startswith("it") else 1
     mosaic_trainer_hparams.validate_every_n_epochs = 0 if checkpoint_filename.startswith("ep") else 1
     final_checkpoint = ("ep2" if checkpoint_filename.startswith("ep") else "it8") + ".tar"
@@ -325,6 +344,7 @@ def test_checkpoint(
 
     second_trainer_hparams = TrainerHparams.create(trainer_1_hparams_filepath, cli_args=False)
     checkpoint_b_folder = "second"
+
     assert second_trainer_hparams.save_checkpoint is not None
     second_trainer_hparams.save_checkpoint.folder = checkpoint_b_folder
     second_trainer_filepath = run_directory.get_relative_to_run_directory(checkpoint_a_file_path)

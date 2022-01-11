@@ -95,7 +95,10 @@ class State(Serializable):
         last_batch_size (int): The size of the batch last returned from the dataloader. This can be different from the current size of ``batch`` if algorithms have modified the ``batch``.
         loss (types.Tensors): The most recently computed loss.
         outputs (types.Tensors): The most recently computed output from the model's forward pass.
+        timer (types.Timer): The timer that tracks training loop progress.
     """
+
+    _max_duration: Time[int]
 
     def __init__(
             self,
@@ -139,13 +142,7 @@ class State(Serializable):
             else:
                 eval_dataloader = DataSpec(eval_dataloader)
         self.eval_data = eval_dataloader
-        max_duration = max_duration if isinstance(max_duration, Time) else Time.from_timestring(max_duration)
-        if max_duration.unit != TimeUnit.EPOCH:
-            raise NotImplementedError("Max duration must be specified in epochs. Other units are not yet supported.")
-        if max_duration.unit == TimeUnit.DURATION:
-            raise ValueError("TimeUnit.DURATION is not allowed as a unit for max_duration")
-
-        self._max_duration = max_duration
+        self.max_duration = max_duration
 
         self.timer = Timer()
         self._precision = Precision(precision)
@@ -174,13 +171,15 @@ class State(Serializable):
     @property
     def epoch(self) -> int:
         """The index of the current epoch."""
-        warnings.warn("state.epoch is deprecated. Please use state.timer.epoch", category=DeprecationWarning)
+        warnings.warn("TimeDeprecationWarning: state.epoch is deprecated. Please use state.timer.epoch",
+                      category=DeprecationWarning)
         return self.timer.epoch.value
 
     @property
     def step(self) -> int:
         """The index of the current step/batch (measured globally)."""
-        warnings.warn("state.step is deprecated. Please use state.timer.batch", category=DeprecationWarning)
+        warnings.warn("TimeDeprecationWarning: state.step is deprecated. Please use state.timer.batch",
+                      category=DeprecationWarning)
         return self.timer.batch.value
 
     @property
@@ -197,10 +196,19 @@ class State(Serializable):
             raise ValueError("TimeUnit.DURATION is not allowed as a unit for max_duration")
         self._max_duration = max_duration
 
+    def get_elapsed_duration(self) -> Time[float]:
+        """Get the elapsed training duration
+
+        Returns:
+            Time: The elapsed duration, in ``TimeUnit.DURATION``.
+        """
+        return self.timer.get(self.max_duration.unit) / self.max_duration
+
     @property
     def max_epochs(self):
         """The maximum number of epochs to train for."""
-        warnings.warn("state.max_epochs is deprecated. Please use state.max_duration", category=DeprecationWarning)
+        warnings.warn("TimeDeprecationWarning: state.max_epochs is deprecated. Please use state.max_duration",
+                      category=DeprecationWarning)
         assert self.max_duration.unit == TimeUnit.EPOCH, "invariant violation -- max duration must be epochs for now"
         return self.max_duration.value
 
@@ -314,7 +322,6 @@ class State(Serializable):
         """
         if state_dict["_is_model_ddp_wrapped"] and not isinstance(self.model, DistributedDataParallel):
             torch.nn.modules.utils.consume_prefix_in_state_dict_if_present(state_dict['model'], "module.")
-
             missing_keys, unexpected_keys = self.model.load_state_dict(state_dict['model'], strict=strict)
             if len(missing_keys) > 0:
                 logger.warning(f"Found these missing keys in the checkpoint: {', '.join(missing_keys)}")
@@ -362,17 +369,17 @@ class State(Serializable):
     @property
     def batch_idx(self) -> int:
         """int: batch_idx is the index of the batch in the current epoch."""
-        warnings.warn("state.batch_idx is deprecated. Please use state.timer.batch_in_epoch",
+        warnings.warn("TimeDeprecationWarning: state.batch_idx is deprecated. Please use state.timer.batch_in_epoch",
                       category=DeprecationWarning)
         return self.timer.batch_in_epoch.value
 
     @property
     def steps_per_epoch(self):
         """int: The maximum number of steps (batches) per epoch."""
-        warnings.warn(
-            textwrap.dedent("""state.steps_per_epoch is deprecated. Please transition to using stateless functions
+        warnings.warn(textwrap.dedent(
+            """TimeDeprecationWarning: state.steps_per_epoch is deprecated. Please transition to using stateless functions
             "that do not depends on the number of steps per epoch"""),
-            category=DeprecationWarning)
+                      category=DeprecationWarning)
         if self._steps_per_epoch is None:
             return len(self.train_dataloader)
         return self._steps_per_epoch
