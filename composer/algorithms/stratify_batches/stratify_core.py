@@ -168,6 +168,7 @@ def _sample_batches_uniform(samplers: Sequence[BalancedSampler], batch_size: int
     for c, count in zip(uniqs, counts):
         write_ptr[:count] = samplers[c].sample(count)
         write_ptr = write_ptr[count:]
+    flat_batches = rng.permutation(flat_batches)
     batches = flat_batches.reshape(num_batches, batch_size)
 
     return [list(batch) for batch in batches]  # convert to lists for consistency
