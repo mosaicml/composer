@@ -95,7 +95,10 @@ class State(Serializable):
         last_batch_size (int): The size of the batch last returned from the dataloader. This can be different from the current size of ``batch`` if algorithms have modified the ``batch``.
         loss (types.Tensors): The most recently computed loss.
         outputs (types.Tensors): The most recently computed output from the model's forward pass.
+        timer (types.Timer): The timer that tracks training loop progress.
     """
+
+    _max_duration: Time[int]
 
     def __init__(
             self,
@@ -139,13 +142,7 @@ class State(Serializable):
             else:
                 eval_dataloader = DataSpec(eval_dataloader)
         self.eval_data = eval_dataloader
-        max_duration = max_duration if isinstance(max_duration, Time) else Time.from_timestring(max_duration)
-        if max_duration.unit != TimeUnit.EPOCH:
-            raise NotImplementedError("Max duration must be specified in epochs. Other units are not yet supported.")
-        if max_duration.unit == TimeUnit.DURATION:
-            raise ValueError("TimeUnit.DURATION is not allowed as a unit for max_duration")
-
-        self._max_duration = max_duration
+        self.max_duration = max_duration
 
         self.timer = Timer()
         self._precision = Precision(precision)
@@ -184,7 +181,7 @@ class State(Serializable):
         return self.timer.batch.value
 
     @property
-    def max_duration(self) -> Time[int]:
+    def max_duration(self):
         return self._max_duration
 
     @max_duration.setter
