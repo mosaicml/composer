@@ -12,7 +12,7 @@ from composer.core.time import Time, Timer, TimeUnit
     ["4tok", 4, TimeUnit.TOKEN],
     ["0.5dur", 0.5, TimeUnit.DURATION],
 ])
-def test_time_parse(time_string, expected_value, expected_unit):
+def test_time_parse(time_string: str, expected_value: int, expected_unit: TimeUnit):
     time = Time.from_timestring(time_string)
     assert time.value == expected_value
     assert time.unit == expected_unit
@@ -50,7 +50,10 @@ def test_timer():
     timer.on_batch_complete(10, 20)
     timer.on_epoch_complete()
     timer.on_batch_complete(5)
-    assert timer.epoch.value == 1
-    assert timer.batch.value == 2
-    assert timer.sample.value == 15
-    assert timer.token.value == 20
+    assert timer.epoch == 1
+    assert timer.batch == 2
+    assert timer.batch_in_epoch == 1
+    assert timer.sample == 15
+    assert timer.sample_in_epoch == 5
+    assert timer.token == 20
+    assert timer.token_in_epoch == 0

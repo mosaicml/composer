@@ -131,9 +131,9 @@ class TrainerHparams(hp.Hparams):
     model: ModelHparams = hp.required(doc="model")
     loggers: List[BaseLoggerBackendHparams] = hp.required(doc="loggers to use")
 
-    max_epochs: int = hp.required(
-        doc="training time in epochs and/or batches (e.g., 90ep5ba)",
-        template_default=10,
+    max_duration: str = hp.required(
+        doc="Time string for the maximum training duration (e.g., 90ep)",
+        template_default="10ep",
     )
 
     train_batch_size: int = hp.required(

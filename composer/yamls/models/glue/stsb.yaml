@@ -48,7 +48,7 @@ loggers:
       flush_every_n_batches: 100
       every_n_batches: 100
       every_n_epochs: 1
-max_epochs: 10
+max_duration: 10ep
 train_batch_size: 32
 eval_batch_size: 32
 seed: 19

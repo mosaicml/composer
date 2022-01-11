@@ -3,8 +3,9 @@
 from __future__ import annotations
 
 import logging
+import textwrap
 import warnings
-from typing import TYPE_CHECKING, Any, Callable, ContextManager, Dict, Optional, Sequence, Union
+from typing import TYPE_CHECKING, Any, Callable, ContextManager, Dict, Optional, Sequence, Union, cast
 
 import torch
 import torch.nn.modules.utils
@@ -15,6 +16,7 @@ from composer.core.data_spec import DataSpec
 from composer.core.precision import Precision
 from composer.core.profiler import Profiler
 from composer.core.serializable import Serializable
+from composer.core.time import Time, Timer, TimeUnit
 from composer.utils import dist, ensure_tuple
 from composer.utils.precision import default_precision_factory
 
@@ -29,9 +31,7 @@ DIRECT_SERIALIZATION_FIELDS = [
     "last_batch_size",
     "grad_accum",
     "_precision",
-    "max_epochs",
-    "epoch",
-    "step",
+    "_max_duration",
 ]
 
 # These fields will be serialized using .state_dict(), and loaded with .load_state_dict()
@@ -42,6 +42,7 @@ STATE_DICT_SERIALIZATION_FIELDS = [
     "_algorithms",
     "_callbacks",
     "scaler",
+    "timer",
 ]
 
 # These fields will be serialized using .state_dict(), but will be skipped if DeepSpeed is enabled.
@@ -79,7 +80,7 @@ class State(Serializable):
             The :class:`types.DataLoader`, :class:`types.DataSpec`, or dict of :class:`types.DataSpec` kwargs to used for training.
         eval_dataloader (types.DataLoader, types.DataSpec, or dict):
             The :class:`types.DataLoader`, :class:`types.DataSpec`, or dict of :class:`types.DataSpec` kwargs to used for evaluation.
-        max_epochs (int): The maximum number of epochs to train for.
+        max_duration (str or Time): The maximum duration to train for.
 
         precision (str | Precision): The numerical precision to use for training. Should be one of ``[fp32, amp]``.
         precision_context ((precision: Precision) -> ContextManager): Function to produce a context manager to mandate precision.
@@ -94,13 +95,14 @@ class State(Serializable):
         profiler (Optional[Profiler]): The mosaic profiler.
 
     Attributes:
-        epoch (int): The index of the current epoch.
-        step (int): The index of the current step/batch (measured globally).
         batch (types.Batch): The most recently retrieved batch.
         last_batch_size (int): The size of the batch last returned from the dataloader. This can be different from the current size of ``batch`` if algorithms have modified the ``batch``.
         loss (types.Tensors): The most recently computed loss.
         outputs (types.Tensors): The most recently computed output from the model's forward pass.
+        timer (types.Timer): The timer that tracks training loop progress.
     """
+
+    _max_duration: Time[int]
 
     def __init__(
             self,
@@ -113,7 +115,7 @@ class State(Serializable):
             eval_dataloader: Union[types.DataLoader, types.DataSpec, Dict[str, Any]],
 
             # stopping conditions
-            max_epochs: int,
+            max_duration: Union[str, Time[int]],
 
             # precision
             precision: Union[str, types.Precision],
@@ -144,9 +146,9 @@ class State(Serializable):
             else:
                 eval_dataloader = DataSpec(eval_dataloader)
         self.eval_data = eval_dataloader
-        self.max_epochs = max_epochs
-        self.step = 0
-        self.epoch = 0
+        self.max_duration = max_duration
+
+        self.timer = Timer()
         self._precision = Precision(precision)
         self._steps_per_epoch = None
         self._precision_context = precision_context
@@ -171,6 +173,50 @@ class State(Serializable):
         self._callbacks = list(callbacks)
 
         self.profiler: Optional[Profiler] = None
+
+    @property
+    def epoch(self) -> int:
+        """The index of the current epoch."""
+        warnings.warn("TimeDeprecationWarning: state.epoch is deprecated. Please use state.timer.epoch",
+                      category=DeprecationWarning)
+        return self.timer.epoch.value
+
+    @property
+    def step(self) -> int:
+        """The index of the current step/batch (measured globally)."""
+        warnings.warn("TimeDeprecationWarning: state.step is deprecated. Please use state.timer.batch",
+                      category=DeprecationWarning)
+        return self.timer.batch.value
+
+    @property
+    def max_duration(self):
+        return self._max_duration
+
+    @max_duration.setter
+    def max_duration(self, max_duration: Union[str, Time[int]]):
+        if isinstance(max_duration, str):
+            max_duration = cast(Time[int], Time.from_timestring(max_duration))
+        if max_duration.unit != TimeUnit.EPOCH:
+            raise NotImplementedError("Max duration must be specified in epochs. Other units are not yet supported.")
+        if max_duration.unit == TimeUnit.DURATION:
+            raise ValueError("TimeUnit.DURATION is not allowed as a unit for max_duration")
+        self._max_duration = max_duration
+
+    def get_elapsed_duration(self) -> Time[float]:
+        """Get the elapsed training duration
+
+        Returns:
+            Time: The elapsed duration, in ``TimeUnit.DURATION``.
+        """
+        return self.timer.get(self.max_duration.unit) / self.max_duration
+
+    @property
+    def max_epochs(self):
+        """The maximum number of epochs to train for."""
+        warnings.warn("TimeDeprecationWarning: state.max_epochs is deprecated. Please use state.max_duration",
+                      category=DeprecationWarning)
+        assert self.max_duration.unit == TimeUnit.EPOCH, "invariant violation -- max duration must be epochs for now"
+        return self.max_duration.value
 
     @property
     def train_dataloader(self):
@@ -329,11 +375,17 @@ class State(Serializable):
     @property
     def batch_idx(self) -> int:
         """int: batch_idx is the index of the batch in the current epoch."""
-        return self.step - self.epoch * self.steps_per_epoch
+        warnings.warn("TimeDeprecationWarning: state.batch_idx is deprecated. Please use state.timer.batch_in_epoch",
+                      category=DeprecationWarning)
+        return self.timer.batch_in_epoch.value
 
     @property
     def steps_per_epoch(self):
         """int: The maximum number of steps (batches) per epoch."""
+        warnings.warn(textwrap.dedent(
+            """TimeDeprecationWarning: state.steps_per_epoch is deprecated. Please transition to using stateless functions
+            "that do not depends on the number of steps per epoch"""),
+                      category=DeprecationWarning)
         if self._steps_per_epoch is None:
             return len(self.train_dataloader)
         return self._steps_per_epoch
