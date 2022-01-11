@@ -7,6 +7,7 @@ train_dataset:
     shuffle: false
     drop_last: false
     num_tokens: 7340032000 # 7000 (batches) * 1024 (batch_size) * 1024 (seq_len)
+    use_masked_lm: false
 val_dataset:
   lm:
     split: validation
@@ -16,6 +17,7 @@ val_dataset:
     shuffle: false
     drop_last: false
     num_tokens: 102400000 # 100000 (seq) * 1024 (seq_len)
+    use_masked_lm: false
 model:
   gpt2:
     use_pretrained: false

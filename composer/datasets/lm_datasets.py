@@ -115,7 +115,6 @@ class LMDatasetHparams(DatasetHparams):
         elif self.subsample_ratio < 1.0:
             num_samples = round(total_num_samples * self.subsample_ratio)
             self.num_tokens = num_samples * tokens_per_sample
-        # TODO (Moin): think through these edge cases a little more
         elif self.subsample_ratio == 1.0 and self.num_tokens == 0:
             self.num_tokens = total_num_tokens
         else:
