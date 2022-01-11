@@ -131,9 +131,9 @@ class LayerFreezing(Algorithm):
     """Progressively freeze the layers of the network during training, starting
     with the earlier layers.
 
-    Freezing starts after the fraction of epochs specified by ``freeze_start``
-    have run. The fraction of layers frozen increases linearly until it
-    reaches ``freeze_level`` at the final epoch.
+    Freezing starts after the fraction of training specified by ``freeze_start``
+    has elapsed. The fraction of layers frozen increases linearly until it
+    reaches ``freeze_level`` at the end of training.
 
     This freezing schedule is most similar to
     `FreezeOut <https://arxiv.org/abs/1706.04983>`_ and
@@ -142,7 +142,7 @@ class LayerFreezing(Algorithm):
     Runs on ``Event.EPOCH_END``.
 
     Args:
-        freeze_start (float): the fraction of epochs to run before freezing begins
+        freeze_start (float): the fraction of training to run before freezing begins
         freeze_level (float): the maximum fraction of layers to freeze
     """
 
