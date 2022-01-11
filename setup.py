@@ -1,8 +1,8 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
 import os
-import sys
 import site
+import sys
 import textwrap
 
 import setuptools
