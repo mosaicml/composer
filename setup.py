@@ -2,15 +2,16 @@
 
 import os
 import sys
+import textwrap
 
 import setuptools
 from setuptools import setup
 
 
-def package_files(directory):
+def package_files(directory: str):
     # from https://stackoverflow.com/a/36693250
     paths = []
-    for (path, directories, filenames) in os.walk(directory):
+    for (path, _, filenames) in os.walk(directory):
         for filename in filenames:
             paths.append(os.path.join('..', path, filename))
     return paths
@@ -27,6 +28,7 @@ install_requires = [
     "torchvision>=0.9.0",
     "torch>=1.9",
     "yahp>=0.0.14",
+    "numpy==1.21.5",
 ]
 extra_deps = {}
 
@@ -52,6 +54,7 @@ extra_deps['dev'] = [
     'sphinx-argparse>=0.3.1',
     'sphinxcontrib.katex>=0.8.6',
     'sphinxext.opengraph>=0.4.2',
+    'sphinxemoji>=0.2.0',
     'sphinx_rtd_theme>=1.0.0',
     'testbook>=0.4.2',
     'myst-parser>=0.15.2',
@@ -105,9 +108,8 @@ setup(
 # only visible if user installs with verbose -v flag
 # Printing to stdout as not to interfere with setup.py CLI flags (e.g. --version)
 print("*" * 20, file=sys.stderr)
-print(
-    "\nNOTE: For best performance, we recommend installing Pillow-SIMD "
-    "\nfor accelerated image processing operations. To install:"
-    "\n\n\t pip uninstall pillow && pip install pillow-simd\n",
-    file=sys.stderr)
+print(textwrap.dedent("""NOTE: For best performance, we recommend installing Pillow-SIMD
+    for accelerated image processing operations. To install:
+    \t pip uninstall pillow && pip install pillow-simd"""),
+      file=sys.stderr)
 print("*" * 20, file=sys.stderr)

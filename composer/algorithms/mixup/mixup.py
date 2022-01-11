@@ -129,6 +129,8 @@ class MixUp(Algorithm):
 
     def __init__(self, alpha: float):
         self.hparams = MixUpHparams(alpha=alpha)
+        self._interpolation_lambda = 0.0
+        self._indices = torch.Tensor()
 
     def match(self, event: Event, state: State) -> bool:
         """Runs on Event.INIT and Event.AFTER_DATALOADER
@@ -146,7 +148,7 @@ class MixUp(Algorithm):
         return self._interpolation_lambda
 
     @interpolation_lambda.setter
-    def interpolation_lambda(self, new_int_lamb) -> None:
+    def interpolation_lambda(self, new_int_lamb: float) -> None:
         self._interpolation_lambda = new_int_lamb
 
     @property

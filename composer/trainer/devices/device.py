@@ -17,13 +17,13 @@ class Device(Serializable, ABC):
     """Abstract class for a device on which a model runs.
 
     Attributes:
-        ddp_backend (str): DDP backend to use.
+        dist_backend (str): Distributed backend to use.
             Should be `gloo`, `mpi`, or `nccl`.
             See `the pytorch docs <https://pytorch.org/docs/stable/distributed.html>`_
             for details.
     """
 
-    ddp_backend: str
+    dist_backend: str
 
     @abstractmethod
     def module_to_device(self, module: T_nnModule) -> T_nnModule:
