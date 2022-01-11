@@ -133,7 +133,7 @@ class SpeedMonitorHparams(CallbackHparams):
 
 
 @dataclass
-class RunDirectoryUploaderHparams(CallbackHparams):
+class RunDirectoryUploaderHparams(CallbackHparams, ObjectStoreProviderHparams):
     """:class:`~composer.callbacks.torch_profiler.RunDirectoryUploader` hyperparameters.
 
     See :class:`~composer.callbacks.torch_profiler.RunDirectoryUploader` for documentation.

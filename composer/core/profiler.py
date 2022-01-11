@@ -14,7 +14,7 @@ from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Sequence,
 import yahp as hp
 
 from composer.core.callback import Callback
-from composer.utils import ddp
+from composer.utils import dist
 from composer.utils.run_directory import get_relative_to_run_directory
 from composer.utils.string_enum import StringEnum
 
@@ -226,8 +226,8 @@ class Profiler:
 
             This method is invoked by the engine. Do not invoke this method directly.
         """
-        ddp.barrier()
-        if not ddp.get_local_rank() == 0:
+        dist.barrier()
+        if not dist.get_local_rank() == 0:
             return
         from composer.profiler.json_trace import JSONTraceHandler
         from composer.profiler.json_trace_merger import merge_traces
@@ -463,7 +463,7 @@ class Marker:
                 wall_clock_time_ns=wall_clock_time,
                 epoch=epoch,
                 step=step,
-                process_id=ddp.get_global_rank(),
+                process_id=dist.get_global_rank(),
                 thread_id=os.getpid(),
             )
             if self.record_instant_on_start:
@@ -472,7 +472,7 @@ class Marker:
                     epoch=epoch,
                     step=step,
                     wall_clock_time_ns=wall_clock_time,
-                    process_id=ddp.get_global_rank(),
+                    process_id=dist.get_global_rank(),
                     thread_id=os.getpid(),
                 )
         self._started = True
@@ -493,7 +493,7 @@ class Marker:
                 epoch=epoch,
                 step=step,
                 wall_clock_time_ns=wall_clock_time,
-                process_id=ddp.get_global_rank(),
+                process_id=dist.get_global_rank(),
                 thread_id=os.getpid(),
             )
             if self.record_instant_on_finish:
@@ -502,7 +502,7 @@ class Marker:
                     wall_clock_time_ns=wall_clock_time,
                     epoch=epoch,
                     step=step,
-                    process_id=ddp.get_global_rank(),
+                    process_id=dist.get_global_rank(),
                     thread_id=os.getpid(),
                 )
         self._started = False
@@ -518,7 +518,7 @@ class Marker:
                 wall_clock_time_ns=time.time_ns(),
                 epoch=epoch,
                 step=step,
-                process_id=ddp.get_global_rank(),
+                process_id=dist.get_global_rank(),
                 thread_id=os.getpid(),
             )
 
@@ -529,7 +529,7 @@ class Marker:
             self.profiler.record_counter_event(
                 self,
                 wall_clock_time_ns=time.time_ns(),
-                process_id=ddp.get_global_rank(),
+                process_id=dist.get_global_rank(),
                 thread_id=os.getpid(),
                 values=values,
             )
@@ -540,6 +540,7 @@ class Marker:
 
     def __exit__(self, exc_type: Optional[Type[BaseException]], exc: Optional[BaseException],
                  traceback: Optional[TracebackType]) -> None:
+        del exc_type, exc, traceback  # unused
         self.finish()
 
     def __call__(self, func: Optional[Callable[..., Any]] = None) -> Callable[..., Any]:
@@ -549,7 +550,7 @@ class Marker:
             return self
 
         @wraps(func)
-        def wrapped(*args, **kwargs):
+        def wrapped(*args: Any, **kwargs: Any):
             with self:
                 func(*args, **kwargs)
 

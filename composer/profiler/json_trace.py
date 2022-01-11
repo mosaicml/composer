@@ -11,7 +11,7 @@ from typing import IO, Dict, List, Optional, Tuple, Union
 from composer.core.profiler import ProfilerEventHandler
 from composer.core.state import State
 from composer.core.types import Logger
-from composer.utils import ddp
+from composer.utils import dist
 from composer.utils.run_directory import get_relative_to_run_directory
 
 
@@ -42,7 +42,7 @@ class JSONTraceHandler(ProfilerEventHandler):
     def init(self, state: State, logger: Logger) -> None:
         del state, logger  # unused
         os.makedirs(self.output_directory, exist_ok=True)
-        trace_file_name = os.path.join(self.output_directory, f"rank_{ddp.get_global_rank()}.trace.json")
+        trace_file_name = os.path.join(self.output_directory, f"rank_{dist.get_global_rank()}.trace.json")
         self._file = open(trace_file_name, "x", buffering=self.buffering)
         self._file.write("[\n")
         wall_clock_ns = time.time_ns()
@@ -51,42 +51,42 @@ class JSONTraceHandler(ProfilerEventHandler):
             ph="M",  # metadata
             wall_clock_ns=wall_clock_ns,
             tid=os.getpid(),
-            pid=ddp.get_global_rank(),
-            args={"name": f"Rank {ddp.get_global_rank()} training loop process"})
+            pid=dist.get_global_rank(),
+            args={"name": f"Rank {dist.get_global_rank()} training loop process"})
         self._record_event(
             name="thread_name",
             ph="M",  # metadata
             wall_clock_ns=wall_clock_ns,
             tid=os.getpid(),
-            pid=ddp.get_global_rank(),
+            pid=dist.get_global_rank(),
             args={"name": f"Training Loop"})
         self._record_event(
             name="thread_sort_index",
             ph="M",  # metadata
             wall_clock_ns=wall_clock_ns,
             tid=os.getpid(),
-            pid=ddp.get_global_rank(),
+            pid=dist.get_global_rank(),
             args={"sort_index": 0})  # training loop thread should be first
         self._record_event(
             name="global_rank",
             ph="M",  # metadata
             wall_clock_ns=wall_clock_ns,
             tid=os.getpid(),
-            pid=ddp.get_global_rank(),
-            args={"value": ddp.get_global_rank()})
+            pid=dist.get_global_rank(),
+            args={"value": dist.get_global_rank()})
         self._record_event(
             name="process_sort_index",
             ph="M",  # metadata
             wall_clock_ns=wall_clock_ns,
             tid=os.getpid(),
-            pid=ddp.get_global_rank(),
-            args={"sort_index": ddp.get_global_rank()})  # sort index for processes should be the global rank
+            pid=dist.get_global_rank(),
+            args={"sort_index": dist.get_global_rank()})  # sort index for processes should be the global rank
         # Syncronize the clocks
         # Each rank will record a timestamp at approxmately the same real world time
         clock_sync_a = time.time_ns()
-        ddp.barrier()  # syncronize all ranks
+        dist.barrier()  # syncronize all ranks
         clock_sync_time_ns = time.time_ns()
-        ddp.barrier()  # another barrier to bound the error
+        dist.barrier()  # another barrier to bound the error
         clock_sync_b = time.time_ns()
         clock_sync_error_bound = clock_sync_b - clock_sync_a
         self._record_event(
@@ -94,7 +94,7 @@ class JSONTraceHandler(ProfilerEventHandler):
             ph="M",  # metadata
             wall_clock_ns=wall_clock_ns,
             tid=os.getpid(),
-            pid=ddp.get_global_rank(),
+            pid=dist.get_global_rank(),
             args={"value": clock_sync_time_ns // 1000})
 
         self._record_event(
@@ -102,7 +102,7 @@ class JSONTraceHandler(ProfilerEventHandler):
             ph="M",  # metadata
             wall_clock_ns=wall_clock_ns,
             tid=os.getpid(),
-            pid=ddp.get_global_rank(),
+            pid=dist.get_global_rank(),
             args={"value": clock_sync_error_bound // 1000})
 
     def batch_end(self, state: State, logger: Logger) -> None:
