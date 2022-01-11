@@ -4,7 +4,7 @@ train_dataset:
     dataset_config_name: en
     split: train
     max_shards: -1
-    max_samples: 34398861 # there's a bug, this is currently per-device 
+    max_samples: 95738161
     max_seq_len: 128 
     group_method: truncate # TODO: check that the code for this one is right
     tokenizer_name: bert-base-uncased
@@ -19,7 +19,7 @@ val_dataset:
     dataset_config_name: en
     split: validation
     max_shards: -1
-    max_samples: 4000 # there's a bug, this is currently per-device 
+    max_samples: 32000 # there's a bug, this is currently per-device 
     max_seq_len: 128 
     group_method: truncate # TODO: check that the code for this one is right
     tokenizer_name: bert-base-uncased 

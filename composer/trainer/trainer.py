@@ -17,6 +17,7 @@ from torch.cuda.amp.grad_scaler import GradScaler
 from torch.nn.parallel import DistributedDataParallel
 from torchmetrics.collections import MetricCollection
 from torchmetrics.metric import Metric
+from tqdm import tqdm
 
 from composer.core import Callback, DataSpec, Engine, Event, Logger, State
 from composer.core.algorithm import Algorithm
@@ -213,10 +214,7 @@ class Trainer:
         if not isinstance(train_dataloader, DataSpec):
             train_dataloader = DataSpec(train_dataloader)
         train_dataloader.dataloader = DDPDataLoader(train_dataloader.dataloader)
-        for batch_idx, batch in enumerate(train_dataloader.dataloader):
-            print(batch)
-
-        print(f"All batches consumed, there were {batch_idx} batches")
+        print("Dataloader Length:", len(train_dataloader.dataloader))
 
         if not isinstance(eval_dataloader, DataSpec):
             eval_dataloader = DataSpec(eval_dataloader)
@@ -253,6 +251,7 @@ class Trainer:
                         ({len(self.state.eval_dataloader)})"""))
 
         self._eval_subset_num_batches = eval_subset_num_batches
+        print("Steps per epoch:", self.state.steps_per_epoch)
 
         if log_destinations is None:
             log_destinations = [TQDMLoggerBackend()]

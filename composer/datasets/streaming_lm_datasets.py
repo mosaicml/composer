@@ -222,7 +222,8 @@ class StreamingLMDatasetHparams(DatasetHparams):
             token_dataset = token_dataset.take(self.max_samples // dist.get_world_size())
 
         # Add approx num samples and create a SizedIterableDataset
-        sized_iterable_dataset = SizedIterableDataset(token_dataset, self._get_approx_num_samples())
+        sized_iterable_dataset = SizedIterableDataset(token_dataset,
+                                                      self._get_approx_num_samples() // dist.get_world_size())
 
         # Get collate_fn
         if self.tokenizer_name in ["gpt2"]:
