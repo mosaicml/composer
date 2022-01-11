@@ -375,11 +375,11 @@ class CheckpointSaver:
                 with open(mosaic_states_filepath, 'xb') as f:
                     torch.save(state_dict, f)
 
-                checkpoint_archive_filepath = os.path.join(self.checkpoint_folder, f'{tag}.tar')
-                with tarfile.open(checkpoint_archive_filepath, "w") as tarball:
-                    tarball.add(tmpdir, arcname="")  # add files flat to the tarball
+            checkpoint_archive_filepath = os.path.join(self.checkpoint_folder, f'{tag}.tar')
+            with tarfile.open(checkpoint_archive_filepath, "w") as tarball:
+                tarball.add(tmpdir, arcname="")  # add files flat to the tarball
 
-                log.info(f'Trainer checkpoint saved to {checkpoint_archive_filepath}')
+            log.info(f'Trainer checkpoint saved to {checkpoint_archive_filepath}')
 
         # Ensure that the non-rank 0 processes don't exit before the checkpoint is saved.
         dist.barrier()
