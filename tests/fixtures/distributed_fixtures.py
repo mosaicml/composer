@@ -2,15 +2,13 @@
 
 import datetime
 import os
-import pathlib
-import time
 
 import pytest
 import torch
 import torch.backends.cudnn
 import torch.distributed
 
-from composer.utils import run_directory
+from composer.utils import dist
 
 DIST_TIMEOUT = datetime.timedelta(seconds=15)
 
@@ -43,35 +41,22 @@ def configure_dist(request: pytest.FixtureRequest):
             os.environ["MASTER_PORT"] = str(26000)
         import deepspeed
         deepspeed.init_distributed(timeout=DIST_TIMEOUT)
+        return
 
-    if is_gpu:
-        assert not is_deepspeed
-        backend = "nccl" if is_gpu else "gloo"
-        if not torch.distributed.is_initialized():
-            if "RANK" in os.environ and "WORLD_SIZE" in os.environ:
-                torch.distributed.init_process_group(backend, timeout=DIST_TIMEOUT)
-            else:
-                store = torch.distributed.HashStore()
-                torch.distributed.init_process_group(backend, timeout=DIST_TIMEOUT, store=store, world_size=1, rank=0)
+    assert not is_deepspeed
+    backend = "nccl" if is_gpu else "gloo"
+    if not torch.distributed.is_initialized():
+        if "RANK" in os.environ and "WORLD_SIZE" in os.environ:
+            torch.distributed.init_process_group(backend, timeout=DIST_TIMEOUT)
+        else:
+            store = torch.distributed.HashStore()
+            torch.distributed.init_process_group(backend, timeout=DIST_TIMEOUT, store=store, world_size=1, rank=0)
 
 
 @pytest.fixture(autouse=True)
-def wait_for_all_procs(subfolder_run_directory: None):
+def wait_for_all_procs(configure_dist: None):
     yield
     if not 'RANK' in os.environ:
         # Not running in a DDP environment
         return
-    global_rank = int(os.environ['RANK'])
-    world_size = int(os.environ['WORLD_SIZE'])
-    proc_lockfile = run_directory.get_relative_to_run_directory(f"{global_rank}_finished")
-    pathlib.Path(proc_lockfile).touch(exist_ok=False)
-    # other processes shouldn't be (too) far behind the current one
-    end_time = datetime.datetime.now() + datetime.timedelta(seconds=15)
-    for rank in range(world_size):
-        if not os.path.exists(run_directory.get_relative_to_run_directory(f"{rank}_finished")):
-            # sleep for the other procs to write their finished file
-            if datetime.datetime.now() < end_time:
-                time.sleep(0.1)
-            else:
-                test_name = os.path.basename(os.path.normpath(str(run_directory.get_run_directory())))
-                raise RuntimeError(f"Rank {rank} did not finish test {test_name}")
+    dist.barrier()

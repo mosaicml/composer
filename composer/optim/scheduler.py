@@ -20,8 +20,11 @@ Time = str
 """
 Time: For scheduler hparams, we support providing time (e.g. milestones) as
 both integers, which will be interpreted as epochs, or as a string in format:
+* '0.98dur' -- 98% of the entire training duration
+* '0.98dur12ep' -- 98% of the entire training duration and 12 epochs
 * '12ep' -- 12 epochs
 * '1024ba' -- 1024 batches
+* '0.98dur12ep5ba' -- 98% of the entire training duration, 12 epochs, and 5 batches
 * '12ep32ba' -- 12 epochs and 32 batches
 
 The provided time is converted and represented internally.
@@ -29,7 +32,7 @@ The provided time is converted and represented internally.
 
 _interval_doc = 'frequency of step() calls, either "batch" or "epoch". Default: "epoch"'
 
-STR_REGEX = re.compile(r'^(?:([0-9]*)(ep))?(?:([0-9]*)(ba))?$', flags=re.IGNORECASE)
+STR_REGEX = re.compile(r'^(?:(0\.\d+?|1\.0+?)?(dur))?(?:([0-9]*)(ep))?(?:([0-9]*)(ba))?$', flags=re.IGNORECASE)
 
 # Allow (batch, batches) or (epoch, epochs). Also accept "step" ~ "batch"
 INTERVAL_MAP = {
@@ -42,55 +45,75 @@ INTERVAL_MAP = {
 }
 
 
-def _parse_time_string(timestring: str) -> Tuple[int, int]:
-    """Parse timestring to (epoch, batches).
+def _parse_time_string(timestring: str) -> Tuple[float, int, int]:
+    """Parse timestring to (duration, epoch, batches).
 
     Args:
-        timestring (str): String in the format 'XXepYYba'.
+        timestring (str): String in the format 'XXdurYYepZZba'.
 
     Returns:
-        tuple: (epochs, batches)
+        tuple: (duration, epochs, batches)
 
     Raises:
         ValueError: The timestring is invalid
 
     Examples:
+        >>> _parse_time_string('0.98dur32ep173ba')
+        (0.98, 32, 173)
         >>> _parse_time_string('32ep173ba')
-        (32, 173)
+        (0, 32, 173)
         >>> _parse_time_string('12ep')
-        (12, 0)
+        (0, 12, 0)
         >>> _parse_time_string('1024ba')
-        (0, 1024)
+        (0, 0, 1024)
     """
 
     match = STR_REGEX.findall(timestring)
     if len(match) != 1:
-        raise ValueError(f'Invalid timestring: {timestring}. Should be of format 32ep15ba, or 99ba or 7ep')
+        raise ValueError(f'Invalid timestring: {timestring}. Should be of format 0.98dur32ep15ba, or subsets thereof.')
     match = match[0]
 
+    duration = 0 if 'dur' not in match else float(match[match.index('dur') - 1])
     epochs = 0 if 'ep' not in match else int(match[match.index('ep') - 1])
     batches = 0 if 'ba' not in match else int(match[match.index('ba') - 1])
 
-    return epochs, batches
+    return duration, epochs, batches
 
 
-def _convert_time(time: Time, steps_per_epoch: Optional[int] = None, interval: str = 'epoch') -> int:
+def _convert_time(time: Time,
+                  steps_per_epoch: Optional[int] = None,
+                  max_epochs: Optional[int] = None,
+                  interval: str = 'epoch') -> int:
     """Convert time to either batches or epochs (based on interval argument)."""
     if isinstance(time, int):
         return time
     if steps_per_epoch is None:
         raise ValueError('steps_per_epoch must be provided to parse time string.')
 
-    epochs, batches = _parse_time_string(time)
+    duration, epochs, batches = _parse_time_string(time)
+
     if interval in ('batches', 'batch', 'steps', 'step'):
-        log.info(f'Converting {time}, {interval} to {batches + epochs * steps_per_epoch}')
-        return batches + epochs * steps_per_epoch
+        new_time = batches + epochs * steps_per_epoch
+
+        if duration > 0:
+            assert max_epochs is not None
+            total_duration = max_epochs * steps_per_epoch
+            new_time += (total_duration * duration)
+
+        new_time = int(round(new_time))
+        log.info(f'Converting {time}, {interval} to {new_time}')
+        return new_time
     elif interval in ('epochs', 'epoch'):
+        if duration > 0:
+            assert max_epochs is not None
+            # convert the duration term into batches for ease of calculation
+            # round batches to the nearest term
+            batches += int(round(steps_per_epoch * max_epochs * duration))
         epochs = epochs + batches // steps_per_epoch
         batches = batches % steps_per_epoch
         if batches != 0:
             log.warning('Scheduler is stepping every epoch, but provided timestring '
-                        f'{time} had batches. Ignoring the batches term.')
+                        f'{time} had extra batches. Ignoring the extra batches.')
         log.info(f'Converting {time}, {interval} to {epochs}')
         return epochs
     else:
@@ -103,7 +126,7 @@ class SchedulerHparams(hp.Hparams, ABC):
     scheduler_object = None  # type: Optional[Callable[..., Scheduler]]
     interval = 'epochs'  # type: str
 
-    def convert_time_fields(self, steps_per_epoch: Optional[int] = None) -> None:
+    def convert_time_fields(self, steps_per_epoch: Optional[int] = None, max_epochs: Optional[int] = None) -> None:
         """Convert time fields into integers.
 
         Converts all fields that were provided as timestrings (e.g. "32ep11ba") into
@@ -143,16 +166,19 @@ class SchedulerHparams(hp.Hparams, ABC):
             if field.name not in ('interval', 'warmup_method') and field.type == Time or field.type == List[Time]:
                 time = getattr(self, field.name)
                 if isinstance(time, list):
-                    result = [_convert_time(t, steps_per_epoch, self.interval) for t in time]
+                    result = [
+                        _convert_time(t, steps_per_epoch, max_epochs=max_epochs, interval=self.interval) for t in time
+                    ]
                 else:
-                    result = _convert_time(time, steps_per_epoch, self.interval)
+                    result = _convert_time(time, steps_per_epoch, max_epochs=max_epochs, interval=self.interval)
 
                 setattr(self, field.name, result)
 
     def initialize_object(  # type: ignore
-            self,
-            optimizer: Optimizer,
-            steps_per_epoch: Optional[int] = None,
+        self,
+        optimizer: Optimizer,
+        steps_per_epoch: Optional[int] = None,
+        max_epochs: Optional[int] = None,
     ) -> Tuple[Scheduler, str]:
         """Create the scheduler object from the current hparams.
 
@@ -166,7 +192,8 @@ class SchedulerHparams(hp.Hparams, ABC):
 
         assert self.scheduler_object is not None, "Scheduler Hparams needs scheduler_object to initialize."
         assert hasattr(self, 'interval'), "Scheduler Hparams needs an interval (str) parameter."
-        self.convert_time_fields(steps_per_epoch)
+
+        self.convert_time_fields(steps_per_epoch=steps_per_epoch, max_epochs=max_epochs)
 
         # we pass the interval to the trainer directly
         kwargs = {k: v for k, v in asdict(self).items() if k not in ['interval']}
@@ -271,8 +298,11 @@ class CosineAnnealingLRHparams(SchedulerHparams):
 
     scheduler_object = torch.optim.lr_scheduler.CosineAnnealingLR
 
-    def initialize_object(self, optimizer: Optimizer, steps_per_epoch: Optional[int] = None):
-        self.convert_time_fields(steps_per_epoch)
+    def initialize_object(self,
+                          optimizer: Optimizer,
+                          steps_per_epoch: Optional[int] = None,
+                          max_epochs: Optional[int] = None):
+        self.convert_time_fields(steps_per_epoch=steps_per_epoch, max_epochs=max_epochs)
         return super().initialize_object(optimizer, steps_per_epoch)
 
 
@@ -290,8 +320,11 @@ class CosineAnnealingWarmRestartsHparams(SchedulerHparams):
 
     scheduler_object = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts
 
-    def initialize_object(self, optimizer: Optimizer, steps_per_epoch: Optional[int] = None):
-        self.convert_time_fields(steps_per_epoch)
+    def initialize_object(self,
+                          optimizer: Optimizer,
+                          steps_per_epoch: Optional[int] = None,
+                          max_epochs: Optional[int] = None):
+        self.convert_time_fields(steps_per_epoch=steps_per_epoch, max_epochs=max_epochs)
         return super().initialize_object(optimizer, steps_per_epoch)
 
 

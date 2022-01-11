@@ -12,6 +12,7 @@ import yahp as hp
 from composer.core.logging import BaseLoggerBackend, LogLevel
 from composer.core.types import JSON
 from composer.loggers.mosaicml_logger import RunType
+from composer.utils import dist
 
 if TYPE_CHECKING:
     from composer.loggers.file_logger import FileLoggerBackend
@@ -92,7 +93,7 @@ class WandBLoggerBackendHparams(BaseLoggerBackendHparams):
     """
 
     project: Optional[str] = hp.optional(doc="wandb project name", default=None)
-    name: Optional[str] = hp.optional(doc="wandb run name", default=None)
+    name: Optional[str] = hp.optional(doc="wandb group name", default=None)
     entity: Optional[str] = hp.optional(doc="wandb entity", default=None)
     tags: str = hp.optional(doc="wandb tags comma separated", default="")
     log_artifacts: bool = hp.optional(doc="Whether to log artifacts", default=False)
@@ -190,7 +191,8 @@ class WandBLoggerBackendHparams(BaseLoggerBackendHparams):
 
         init_params = {
             "project": self.project,
-            "name": self.name,
+            "name": f"Rank {dist.get_global_rank()}",
+            "group": self.name,
             "entity": self.entity,
             "tags": tags,
         }
