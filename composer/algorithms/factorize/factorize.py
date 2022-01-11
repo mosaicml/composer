@@ -22,7 +22,7 @@ LOG_NUM_LINEAR_REPLACEMENTS_KEY = 'factorize/num_linear_replacements'
 
 def _python_log_surgery_result(model: torch.nn.Module, new_class: Type[torch.nn.Module]):
     num_replaced_modules = surgery.count_module_instances(model, new_class)
-    log.info(f'Applied factorization to model {model.__class__.__name__}. '
+    log.info(f'Applied factorization to model {model.__class__.__name__}. ' +
              f'Model now has {num_replaced_modules} {new_class.__name__} modules')
 
 
@@ -68,8 +68,8 @@ class FactorizeHparams(AlgorithmHparams):
         default=True,
     )
     min_channels: int = hp.optional(
-        doc='Minimum number of channels in a Conv2d module'
-        ' for it to be factorized.',
+        doc=('Minimum number of channels in a Conv2d module' +
+        ' for it to be factorized.'),
         default=256,
     )
     latent_channels: float = hp.optional(
@@ -77,8 +77,8 @@ class FactorizeHparams(AlgorithmHparams):
         default=128,
     )
     min_features: int = hp.optional(
-        doc='Minimum number of features in a Linear module'
-        ' for it to be factorized.',
+        doc=('Minimum number of features in a Linear module' +
+        ' for it to be factorized.'),
         default=256,
     )
     latent_features: float = hp.optional(
@@ -86,7 +86,7 @@ class FactorizeHparams(AlgorithmHparams):
         default=128,
     )
 
-    def initialize_object(self) -> 'Factorize':
+    def initialize_object(self) -> Factorize:
         return Factorize(**asdict(self))
 
 

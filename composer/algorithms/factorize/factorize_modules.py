@@ -1,5 +1,7 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
+from __future__ import annotations
+
 import abc
 import math
 from typing import Optional, Tuple, Union, cast
@@ -314,7 +316,7 @@ class FactorizedConv2d(_FactorizedModule):
         return max_rank_with_possible_speedup(in_features, out_features, kernel_size=kernel_size)
 
     @staticmethod
-    def from_conv2d(module: torch.nn.Conv2d, module_ix: int = -1, **kwargs) -> 'FactorizedConv2d':
+    def from_conv2d(module: torch.nn.Conv2d, module_ix: int = -1, **kwargs) -> FactorizedConv2d:
         conv = FactorizedConv2d(
             in_channels=module.in_channels,
             out_channels=module.out_channels,
@@ -432,7 +434,7 @@ class FactorizedLinear(_FactorizedModule):
         return max_rank_with_possible_speedup(in_features, out_features)
 
     @staticmethod
-    def from_linear(module: torch.nn.Linear, module_ix: int = -1, **kwargs) -> 'FactorizedLinear':
+    def from_linear(module: torch.nn.Linear, module_ix: int = -1, **kwargs) -> FactorizedLinear:
         ret = FactorizedLinear(in_features=module.in_features,
                                out_features=module.out_features,
                                bias=((module.bias is not None) and (module.bias is not False)),
