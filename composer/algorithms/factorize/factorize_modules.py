@@ -13,10 +13,8 @@ from torch.nn.common_types import _size_2_t
 
 from composer.algorithms.factorize.factorize_core import LowRankSolution, factorize_conv2d, factorize_matrix
 
-FractionOrInt = Union[int, float]
 
-
-def clean_latent_size(latent_size: FractionOrInt, in_size: int, out_size: int) -> int:
+def clean_latent_size(latent_size: Union[int, float], in_size: int, out_size: int) -> int:
     if latent_size < 1:  # fraction of input or output channels
         latent_channels = int(latent_size * min(in_size, out_size))
         return max(1, latent_channels)
@@ -32,7 +30,7 @@ def max_rank_with_possible_speedup(in_channels: int, out_channels: int, kernel_s
     return int(math.ceil(breakeven - 1))  # round down, or 1 lower if divides evenly
 
 
-def factorizing_could_speedup(module: torch.nn.Module, latent_size: FractionOrInt):
+def factorizing_could_speedup(module: torch.nn.Module, latent_size: Union[int, float]):
     if isinstance(module, _FactorizedModule):
         return module.should_factorize(latent_size)
     elif isinstance(module, torch.nn.Conv2d):
@@ -76,7 +74,7 @@ def _apply_solution_to_module_parameters(solution: LowRankSolution, module0: tor
 
 class _FactorizedModule(nn.Module, abc.ABC):
 
-    def __init__(self, in_size: int, out_size: int, latent_size: FractionOrInt, kernel_size: _size_2_t = 1):
+    def __init__(self, in_size: int, out_size: int, latent_size: Union[int, float], kernel_size: _size_2_t = 1):
         super().__init__()
         self.in_size = in_size
         self.out_size = out_size
@@ -125,7 +123,7 @@ class _FactorizedModule(nn.Module, abc.ABC):
         soln = self.solution_for_rank(input, rank)
         self.apply_solution(soln)
 
-    def _clean_latent_size(self, latent_size: FractionOrInt):
+    def _clean_latent_size(self, latent_size: Union[int, float]):
         return clean_latent_size(latent_size, self.in_size, self.out_size)
 
     def _max_rank_with_speedup(self):
@@ -136,7 +134,7 @@ class _FactorizedModule(nn.Module, abc.ABC):
             # not factorized yet; has to factorize enough to be worthwhile
             return max_rank_with_possible_speedup(self.in_size, self.out_size, kernel_size=self.kernel_size)
 
-    def should_factorize(self, proposed_rank: FractionOrInt) -> bool:
+    def should_factorize(self, proposed_rank: Union[int, float]) -> bool:
         """Whether factorizing with a given rank would reduce the number of multiply-add operations."""
         proposed_rank = self._clean_latent_size(proposed_rank)
         return proposed_rank <= self._max_rank_with_speedup()
@@ -236,7 +234,7 @@ class FactorizedConv2d(_FactorizedModule):
                  in_channels: int,
                  out_channels: int,
                  kernel_size: _size_2_t,
-                 latent_channels: FractionOrInt = .25,
+                 latent_channels: Union[int, float] = .25,
                  **kwargs):
         super().__init__(in_size=in_channels,
                          out_size=out_channels,
@@ -372,7 +370,11 @@ class FactorizedLinear(_FactorizedModule):
             this.
     """
 
-    def __init__(self, in_features: int, out_features: int, bias: bool = True, latent_features: FractionOrInt = .25):
+    def __init__(self,
+                 in_features: int,
+                 out_features: int,
+                 bias: bool = True,
+                 latent_features: Union[int, float] = .25):
         super().__init__(in_size=in_features, out_size=out_features, latent_size=latent_features)
         self.bias = bias
         self.module0, self.module1 = self._create_child_modules()

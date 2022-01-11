@@ -10,7 +10,7 @@ import torch
 import yahp as hp
 
 from composer.algorithms import AlgorithmHparams
-from composer.algorithms.factorize.factorize_modules import (FactorizedConv2d, FactorizedLinear, FractionOrInt,
+from composer.algorithms.factorize.factorize_modules import (FactorizedConv2d, FactorizedLinear,
                                                              factorizing_could_speedup)
 from composer.core import Algorithm, Event, Logger, State, surgery
 
@@ -26,7 +26,7 @@ def _python_log_surgery_result(model: torch.nn.Module, new_class: Type[torch.nn.
              f'Model now has {num_replaced_modules} {new_class.__name__} modules')
 
 
-def factorize_conv2d_modules(model: torch.nn.Module, min_channels: int, latent_channels: FractionOrInt):
+def factorize_conv2d_modules(model: torch.nn.Module, min_channels: int, latent_channels: Union[int, float]):
     """Replaces :class:`torch.nn.Conv2d` modules in ``model`` with :class:`~composer.algorithms.factorize.FactorizedConv2d` modules. See :class:`Factorize` for details."""
 
     def _maybe_replace_conv2d(module: torch.nn.Module, module_index: int) -> Optional[torch.nn.Module]:
@@ -41,7 +41,7 @@ def factorize_conv2d_modules(model: torch.nn.Module, min_channels: int, latent_c
     return ret
 
 
-def factorize_linear_modules(model: torch.nn.Module, min_features: int, latent_features: FractionOrInt):
+def factorize_linear_modules(model: torch.nn.Module, min_features: int, latent_features: Union[int, float]):
     """Replaces :class:`torch.nn.Linear` modules in ``model`` with :class:`~composer.algorithms.factorize.FactorizedLinear` modules. See :class:`Factorize` for details."""
 
     def _maybe_replace_linear(module: torch.nn.Module, module_index: int) -> Optional[torch.nn.Module]:
@@ -68,8 +68,7 @@ class FactorizeHparams(AlgorithmHparams):
         default=True,
     )
     min_channels: int = hp.optional(
-        doc=('Minimum number of channels in a Conv2d module' +
-        ' for it to be factorized.'),
+        doc=('Minimum number of channels in a Conv2d module' + ' for it to be factorized.'),
         default=256,
     )
     latent_channels: float = hp.optional(
@@ -77,8 +76,7 @@ class FactorizeHparams(AlgorithmHparams):
         default=128,
     )
     min_features: int = hp.optional(
-        doc=('Minimum number of features in a Linear module' +
-        ' for it to be factorized.'),
+        doc=('Minimum number of features in a Linear module' + ' for it to be factorized.'),
         default=256,
     )
     latent_features: float = hp.optional(
@@ -143,9 +141,9 @@ class Factorize(Algorithm):
                  factorize_convs: bool = True,
                  factorize_linears: bool = True,
                  min_channels: int = 256,
-                 latent_channels: FractionOrInt = 128,
+                 latent_channels: Union[int, float] = 128,
                  min_features: int = 256,
-                 latent_features: FractionOrInt = 128):
+                 latent_features: Union[int, float] = 128):
         self.hparams = FactorizeHparams(factorize_convs=factorize_convs,
                                         factorize_linears=factorize_linears,
                                         min_channels=min_channels,

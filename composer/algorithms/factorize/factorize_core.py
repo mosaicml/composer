@@ -45,11 +45,11 @@ class LowRankSolution:
 
 def _lstsq(A: torch.Tensor, B: torch.Tensor) -> torch.Tensor:
     if A.shape[0] != B.shape[0]:
-        raise IndexError(f"A has different number of rows than B! A.shape = {A.shape}, B.shape = {B.shape}")
-    if len(A.shape) != 2:
-        raise IndexError("A is not rank 2 tensor: has shape", A.shape)
-    if len(B.shape) != 2:
-        raise IndexError("B is not rank 2 tensor: has shape", A.shape)
+        raise RuntimeError(f"A has different number of rows than B! A.shape = {A.shape}, B.shape = {B.shape}")
+    if A.ndim != 2:
+        raise RuntimeError("A is not a rank 2 tensor: has shape", A.shape)
+    if B.ndim != 2:
+        raise RuntimeError("B is not a rank 2 tensor: has shape", A.shape)
 
     # TODO more intelligence regarding choice of lstsq `driver` arg
     return torch.linalg.lstsq(A, B).solution
