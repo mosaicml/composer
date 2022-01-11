@@ -83,10 +83,8 @@ def dummy_state_without_rank(dummy_model: SimpleBatchPairModel, dummy_train_data
         grad_accum=1,
         train_dataloader=dummy_train_dataloader,
         eval_dataloader=dummy_val_dataloader,
-        max_epochs=10,
+        max_duration="10ep",
     )
-    state.epoch = 5
-    state.step = 50
 
     return state
 
@@ -163,7 +161,7 @@ def mosaic_trainer_hparams(
         algorithms=[],
         optimizer=AdamHparams(),
         schedulers=[ExponentialLRHparams(gamma=0.1)],
-        max_epochs=2,
+        max_duration="2ep",
         precision=Precision.FP32,
         train_batch_size=dummy_train_batch_size,
         eval_batch_size=dummy_val_batch_size,
@@ -195,14 +193,12 @@ def simple_conv_model_input():
 def state_with_model(simple_conv_model: Model, dummy_train_dataloader: DataLoader, dummy_val_dataloader: DataLoader):
     state = State(
         grad_accum=1,
-        max_epochs=100,
+        max_duration="100ep",
         model=simple_conv_model,
         precision=Precision.FP32,
         train_dataloader=dummy_train_dataloader,
         eval_dataloader=dummy_val_dataloader,
     )
-    state.epoch = 50
-    state.step = 50
     return state
 
 
