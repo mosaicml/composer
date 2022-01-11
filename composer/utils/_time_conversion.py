@@ -36,8 +36,7 @@ def convert(
     +-----------------------------------------------------+-----------------------------+------------------------------+-----------------------------+-----------------------------------+-----------------------------+
     Args:
         unit (Union[TimeUnit, str]): The desired unit to convert the time instance into.
-        batch_size (int, optional): The optimization batch size.
-        drop_last (bool, optional): Whether the dataloader is dropping last (incomplete) batches.
+        steps_per_epoch (int, optional): The number of optimization steps per epoch.
         samples_per_epoch (int, optional): The number of samples per epoch.
         dataset_num_tokens (int, optional): The number of tokens in the dataset. Required only if
             converting to or from :attr:`TimeUnit.TOKEN`.
@@ -66,10 +65,23 @@ def convert(
         # if the desired unit is duration, then the logic is the same regardless of the from unit
         if max_training_duration is None:
             raise ValueError("max_training_duration is required to convert to or from DURATION")
+        if isinstance(max_training_duration, str):
+            max_training_duration = Time.from_timestring(max_training_duration)
+        max_training_duration_unit = max_training_duration.unit
         if unit == TimeUnit.DURATION:
-            return _convert_to_duration(time, max_training_duration=max_training_duration)
+            time_in_max_duration_unit = convert(time,
+                                                max_training_duration_unit,
+                                                steps_per_epoch=steps_per_epoch,
+                                                samples_per_epoch=samples_per_epoch,
+                                                dataset_num_tokens=dataset_num_tokens)
+            return _convert_to_duration(time_in_max_duration_unit, max_training_duration=max_training_duration)
         else:
-            return _convert_from_duration(time, max_training_duration=max_training_duration)
+            converted_time = _convert_from_duration(time, max_training_duration=max_training_duration)
+            return convert(converted_time,
+                           unit,
+                           steps_per_epoch=steps_per_epoch,
+                           samples_per_epoch=samples_per_epoch,
+                           dataset_num_tokens=dataset_num_tokens)
 
     if time.unit == TimeUnit.EPOCH:
         if unit == TimeUnit.BATCH:
