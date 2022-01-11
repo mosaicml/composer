@@ -17,7 +17,7 @@ def _get_state(train_dataloader: DataLoader, eval_dataloader: DataLoader, steps_
     return State(
         model=model,
         optimizers=optim.SGD(model.parameters(), lr=.001, momentum=0.0),
-        max_epochs=1,
+        max_duration="1ep",
         train_dataloader=train_dataloader,
         eval_dataloader=eval_dataloader,
         grad_accum=1,

@@ -25,7 +25,7 @@ Callbacks can be implemented in two ways:
         class MyCallback(Callback)
 
             def epoch_start(self, state: State, logger: Logger):
-                print(f'Epoch {state.epoch}/{state.max_epochs}')
+                print(f'Epoch {state.timer.epoch}')
 
         
 #.  Override :meth:`_run_event` (**not** :meth:`run_event`) to run in response

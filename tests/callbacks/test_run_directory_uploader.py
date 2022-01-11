@@ -20,8 +20,6 @@ def test_run_directory_uploader(tmpdir: pathlib.Path, use_procs: bool, dummy_sta
         del libcloud
     except ImportError:
         pytest.skip("Run directory uploader test won't work without libcloud")
-    dummy_state.epoch = 0
-    dummy_state.step = 0
     remote_dir = str(tmpdir / "run_directory_copy")
     os.makedirs(remote_dir, exist_ok=True)
     hparams = RunDirectoryUploaderHparams(
