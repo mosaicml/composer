@@ -485,7 +485,3 @@ ignore_patterns = [
     "wandb/**/*.py",
     "build/**/*.py",
 ]
-
-[build-system]
-requires = ["setuptools>=41.0", "wheel"]
-build-backend = "setuptools.build_meta"

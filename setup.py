@@ -2,10 +2,14 @@
 
 import os
 import sys
+import site
 import textwrap
 
 import setuptools
 from setuptools import setup
+
+# From https://github.com/pypa/pip/issues/7953#issuecomment-645133255
+site.ENABLE_USER_SITE = "--user" in sys.argv[1:]
 
 
 def package_files(directory: str):
