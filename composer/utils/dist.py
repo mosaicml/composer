@@ -78,6 +78,16 @@ def get_local_rank() -> int:
     return local_rank
 
 
+def get_node_id() -> int:
+    """Returns the node ID for the current rank. For example, if there are 2 nodes, and 2 ranks per node, then
+    global ranks 0-1 will have a node ID of 0, and global ranks 2-3 will have a node ID of 1.
+
+    Returns:
+        int: The node ID for the current rank, starting at 0.
+    """
+    return get_global_rank() // get_local_world_size()
+
+
 def barrier() -> None:
     if dist.is_available() and dist.is_initialized():
         dist.barrier()
@@ -142,10 +152,11 @@ def broadcast_object_list(object_list: List[Any], src: int = 0) -> None:
             but each rank must provide lists of equal sizes.
         src (int, optional): Source rank (default: ``0``)
     """
-    if dist.is_available():
+    if dist.is_available() and dist.is_initialized():
         dist.broadcast_object_list(object_list, src)
         # torch.distributed will replace the None's in obj_gather_list with the gathered objects on rank 0
         # or will just be None on non-rank-0
+        return
     world_size = get_world_size()
     if world_size == 1:
         return
