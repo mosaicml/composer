@@ -4,7 +4,7 @@ import os
 import random
 import time
 from argparse import ArgumentParser
-from typing import Any, Optional, Tuple
+from typing import Any, Optional, Tuple, Sequence
 
 import numpy as np
 import torch
@@ -111,10 +111,43 @@ class SSD(BaseMosaicModel):
                                          inv_map[label_]])
 
         import pdb
-        pdb.set_trace()
-        return ret, COCO(annotation_file=val_annotate)
 
 
+        grt = transform_d(val_annotate)
+        pdb.set_trace()        
+        return ret, grt
+
+
+def transform_d(val_annotate):
+    from pycocotools.coco import COCO
+    our_coco = COCO(annotation_file=val_annotate)
+    import json
+    json_file = "/mnt/cota/datasets/coco/annotations/instances_val2017.json"
+    with open(json_file,'r') as COCO:
+        js = json.loads(COCO.read())
+        cat_names = json.dumps(js['categories'])
+    cat_ids = our_coco.getCatIds(catNms=cat_names)
+    target = []
+    for cat_id in cat_ids:
+        # get annotations for a specific class
+        ann_ids = our_coco.getAnnIds(catIds= cat_id)
+        anns = our_coco.loadAnns(ann_ids)
+
+        for ann in anns:
+            x_topleft   = ann['bbox'][0]
+            y_topleft   = ann['bbox'][1]
+            bbox_width  = ann['bbox'][2]
+            bbox_height = ann['bbox'][3]
+
+            img_id = ann['image_id']
+            target.append(dict(boxes=torch.Tensor([[x_topleft, y_topleft, bbox_width, bbox_height]]), labels=torch.Tensor([img_id])))
+
+
+    return target
+    #create sequence
+
+
+        
 from torchmetrics import Metric
 
 
