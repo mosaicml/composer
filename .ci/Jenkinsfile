@@ -31,16 +31,16 @@ def runPytest(pythonVersion, extraDeps, gpu = false, marker = null) {
     def pDockerImage = "mosaicml/pytorch:${pytorchVersion}_cpu-python${pythonVersion}-ubuntu20.04"
     def pytestCliArgs = '--test_duration all'
     def nGpus = "0"
-    def memLimit = "16Gi"
-    def cpuLimit = "8000m"
+    def memLimit = "7Gi"
+    def cpuLimit = "2000m"
 
     if (gpu){
         name = "$name-gpu"
         title = "$title, GPU"
         summary = "$summary, GPU"
         nGpus = "2"
-        cpuLimit = "8000m" // 4 cpu per gpu
-        memLimit = "16Gi"  // 8gb per gpu
+        cpuLimit = "4000m" // 2 cpu per gpu
+        memLimit = "15Gi"  // 7.5Gb per gpu
         def cudaVersion = pythonVersion == "3.9" ? "cu113" : "cu111"
         pDockerImage = "mosaicml/pytorch:${pytorchVersion}_${cudaVersion}-python${pythonVersion}-ubuntu20.04"
     }
@@ -113,6 +113,8 @@ def dockerImagePostBuild(stagingImageTag) {
                     string(name: 'P_GIT_REPO', value: gitUrl),
                     string(name: 'P_GIT_COMMIT', value: gitCommit),
                     string(name: 'P_DOCKER_IMAGE', value: stagingImageTag),
+                    string(name: 'P_CPU_LIMIT', value: cpuLimit),
+                    string(name: 'P_MEM_LIMIT', value: memLimit),
                     string(name: 'P_TIMEOUT', value: '1800'),
                     string(name: 'PIP_EXTRA_DEPS', value: 'all'),
                     string(name: 'PYTEST_COMMAND', value: './scripts/test.sh'),
@@ -135,6 +137,8 @@ stage('Build') {
             P_BUILD_CONTEXT: './docker/pytorch',
             P_GIT_REPO: gitUrl,
             P_GIT_COMMIT: gitCommit,
+            P_CPU_LIMIT: '4000m',
+            P_MEM_LIMIT: '15Gi'
             P_TIMEOUT: '3600',
             P_KANIKO_PUSH_FINAL: gitBranch == "main", // only push if we're on the main branch
         ) { stagingImage -> dockerImagePostBuild(stagingImage) }
