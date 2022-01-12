@@ -50,6 +50,8 @@ def deeplabv3_builder(num_classes: int,
     if initializers:
         for initializer in initializers:
             initializer_fn = Initializer(initializer).get_initializer()
+
+            # Only apply initialization to classifier head if pre-trained weights are used
             if is_backbone_pretrained:
                 model.classifier.apply(initializer_fn)
             else:

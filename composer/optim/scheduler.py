@@ -213,8 +213,8 @@ class PolynomialLR(_LRScheduler):
 
     Args:
         optimizer (Optimizer): the optimizer associated with this scheduler.
-        T_max (Time): the number of iterations to perform either in terms of epochs or batches.
-        power (float): the power to use on the remaining train time percentage for schedule coeffecient.
+        T_max (Time): the number of iterations to perform, either in terms of epochs or batches.
+        power (float): the power to use on the remaining train time percentage for the current schedule coeffecient.
         eta_min (float): the minimum learning rate to decay to. Default is ``0``.
         last_epoch (int): the index of the last epoch. Can be used to restore the learning rate schedule state.
             Default: ``-1``
@@ -243,10 +243,10 @@ class PolynomialLR(_LRScheduler):
 @dataclass
 class PolynomialLRHparams(SchedulerHparams):
     """Hyperparameters for the :class:`PolynomialLR` scheduler."""
-    T_max: Time = hp.required(doc='Maximum number of iterations')
-    power: float = hp.required(doc='Power of LR schedule')
-    eta_min: float = hp.optional(default=0.0, doc='Minimum learning rate')
-    verbose: bool = hp.optional(default=False, doc='prints message to stdout')
+    T_max: Time = hp.required(doc='Maximum number of iterations.')
+    power: float = hp.required(doc='Power of LR schedule.')
+    eta_min: float = hp.optional(default=0.0, doc='Minimum learning rate.')
+    verbose: bool = hp.optional(default=False, doc='Prints message to stdout.')
     interval: str = hp.optional(default='epoch', doc=_interval_doc)
 
     scheduler_object = PolynomialLR
