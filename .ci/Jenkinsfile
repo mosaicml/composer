@@ -143,7 +143,7 @@ stage('Build') {
             P_KANIKO_PUSH_FINAL: gitBranch == "main", // only push if we're on the main branch
         ) { stagingImage -> dockerImagePostBuild(stagingImage) }
     }
-    if (gitBranch != "main" and gitBranch != "dev") {
+    if (gitBranch != "main" && gitBranch != "dev") {
         // if not on main or dev, run the pytest again.
         jobs << [
             'Lint': { -> 
