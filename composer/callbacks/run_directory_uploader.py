@@ -5,23 +5,20 @@ from __future__ import annotations
 import logging
 import multiprocessing
 import os
-import pathlib
 import queue
 import shutil
 import tempfile
 import threading
 import time
 import uuid
-import warnings
 from typing import Callable, Optional, Tuple, Type, Union
 
 from composer.core.callback import Callback
 from composer.core.logging import Logger
 from composer.core.logging.logger import LogLevel
 from composer.core.state import State
-from composer.utils import dist
+from composer.utils import dist, run_directory
 from composer.utils.object_store import ObjectStoreProviderHparams
-from composer.utils.run_directory import get_modified_files, get_run_directory
 
 log = logging.getLogger(__name__)
 
@@ -99,15 +96,10 @@ class RunDirectoryUploader(Callback):
         use_procs: bool = True,
         upload_every_n_batches: int = 100,
     ) -> None:
-        run_directory = get_run_directory()
-        if run_directory is None:
-            warnings.warn("NoRunDirectory: The run directory is not set, so the RunDirectoryUploader will be a no-op")
-            return
-
         self._object_store_provider_hparams = object_store_provider_hparams
         self._upload_every_n_batches = upload_every_n_batches
         # get the name of the run directory, without the rank
-        run_directory_name = run_directory.split(os.path.sep)[-2]
+        run_directory_name = os.path.basename(run_directory.get_node_run_directory())
         if object_name_prefix is None:
             self._object_name_prefix = f"{run_directory_name}/"
         else:
@@ -147,8 +139,6 @@ class RunDirectoryUploader(Callback):
         _validate_credentials(object_store_provider_hparams, self._object_name_prefix)
 
     def init(self, state: State, logger: Logger) -> None:
-        if get_run_directory() is None:
-            return
         del state, logger  # unused
         self._finished = self._finished_cls()
         self._last_upload_timestamp = 0.0
@@ -165,21 +155,15 @@ class RunDirectoryUploader(Callback):
             worker.start()
 
     def batch_end(self, state: State, logger: Logger) -> None:
-        if get_run_directory() is None:
-            return
         if (state.batch_idx + 1) % self._upload_every_n_batches == 0:
             self._trigger_upload(logger, LogLevel.BATCH)
 
     def epoch_end(self, state: State, logger: Logger) -> None:
         del state  # unused
-        if get_run_directory() is None:
-            return
         self._trigger_upload(logger, LogLevel.EPOCH)
 
     def training_end(self, state: State, logger: Logger) -> None:
         del state  # unused
-        if get_run_directory() is None:
-            return
         self._trigger_upload(logger, LogLevel.FIT)
 
     def post_close(self):
@@ -193,13 +177,8 @@ class RunDirectoryUploader(Callback):
             self._tempdir.cleanup()
 
     def _trigger_upload(self, logger: Optional[Logger], log_level: Optional[LogLevel]) -> None:
-        run_directory = get_run_directory()
         assert run_directory is not None, "invariant error"
-        # the disk time can differ from system time, so going to touch a file and then read the timestamp from it to get the real time
-        python_time = time.time()
-        touch_file = (pathlib.Path(run_directory) / f".{python_time}")
-        touch_file.touch()
-        new_last_uploaded_timestamp = os.path.getmtime(str(touch_file))
+        new_last_uploaded_timestamp = run_directory.get_run_directory_timestamp()
 
         # Now, for each file that was modified since self._last_upload_timestamp, copy it to the temporary directory
         files_to_be_uploaded = []
@@ -210,9 +189,9 @@ class RunDirectoryUploader(Callback):
                 assert self._finished is not None, "invariant error"
                 self._finished.set()
                 raise RuntimeError("Upload worker crashed unexpectedly")
-        modified_files = get_modified_files(self._last_upload_timestamp)
+        modified_files = run_directory.get_modified_files(self._last_upload_timestamp)
         for filepath in modified_files:
-            relpath = os.path.relpath(filepath, run_directory)  # chop off the run directory
+            relpath = os.path.relpath(filepath, run_directory.get_run_directory())  # chop off the run directory
             copied_path = os.path.join(self._upload_staging_folder, str(uuid.uuid4()))
             files_to_be_uploaded.append(relpath)
             copied_path_dirname = os.path.dirname(copied_path)

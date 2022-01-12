@@ -34,7 +34,7 @@ def test_run_directory_uploader(tmpdir: pathlib.Path, use_procs: bool, dummy_sta
 
     uploader = hparams.initialize_object()
     uploader.run_event(Event.INIT, dummy_state, dummy_logger)
-    with open(run_directory.get_relative_to_run_directory("dummy_file"), "w+") as f:
+    with open(os.path.join(run_directory.get_run_directory(), "dummy_file"), "w+") as f:
         f.write("Hello, world!")
     uploader.run_event(Event.BATCH_END, dummy_state, dummy_logger)
     uploader.run_event(Event.TRAINING_END, dummy_state, dummy_logger)

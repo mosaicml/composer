@@ -78,9 +78,14 @@ def get_local_rank() -> int:
     return local_rank
 
 
-def get_node_id() -> int:
+def get_node_rank() -> int:
     """Returns the node ID for the current rank. For example, if there are 2 nodes, and 2 ranks per node, then
     global ranks 0-1 will have a node ID of 0, and global ranks 2-3 will have a node ID of 1.
+
+    .. note::
+
+        This function assumes an equal number of ranks (processes) per node, as determined by
+        :meth:`get_local_world_size`.
 
     Returns:
         int: The node ID for the current rank, starting at 0.
