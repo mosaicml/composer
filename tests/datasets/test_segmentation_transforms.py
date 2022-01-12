@@ -4,7 +4,8 @@ import numpy as np
 import pytest
 from PIL import Image
 
-from composer.datasets.ade20k import PadToSize, PhotometricDistoration, RandomCropPair, RandomHFlipPair, RandomResizePair
+from composer.datasets.ade20k import (PadToSize, PhotometricDistoration, RandomCropPair, RandomHFlipPair,
+                                      RandomResizePair)
 
 
 @pytest.fixture
