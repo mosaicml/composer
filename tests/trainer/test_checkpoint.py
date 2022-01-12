@@ -339,9 +339,9 @@ def test_checkpoint(
     final_checkpoint = ("ep2" if checkpoint_filename.startswith("ep") else "it8") + ".tar"
     _test_checkpoint_trainer(mosaic_trainer_hparams)
     checkpoint_a_file_path = os.path.join(checkpoint_a_folder, checkpoint_filename)
-    checkpoint_b_file_path = run_directory.get_relative_to_run_directory("..", "rank_{RANK}", checkpoint_a_folder,
+    checkpoint_b_file_path = os.path.join(run_directory.get_node_run_directory(), "rank_{RANK}", checkpoint_a_folder,
                                                                          final_checkpoint)
-    trainer_1_hparams_filepath = run_directory.get_relative_to_run_directory("..", "rank_0", checkpoint_a_folder,
+    trainer_1_hparams_filepath = os.path.join(run_directory.get_node_run_directory(), "rank_0", checkpoint_a_folder,
                                                                              "hparams.yaml")
 
     second_trainer_hparams = TrainerHparams.create(trainer_1_hparams_filepath, cli_args=False)
@@ -349,16 +349,16 @@ def test_checkpoint(
 
     assert second_trainer_hparams.save_checkpoint is not None
     second_trainer_hparams.save_checkpoint.folder = checkpoint_b_folder
-    second_trainer_filepath = run_directory.get_relative_to_run_directory("..", "rank_{RANK}", checkpoint_a_file_path)
+    second_trainer_filepath = os.path.join(run_directory.get_node_run_directory(), "rank_{RANK}", checkpoint_a_file_path)
     second_trainer_hparams.load_checkpoint = CheckpointLoaderHparams(checkpoint=second_trainer_filepath,
                                                                      load_weights_only=False,
                                                                      strict_model_weights=False)
 
     _test_checkpoint_trainer(second_trainer_hparams)
 
-    checkpoint_c_file_path = run_directory.get_relative_to_run_directory("..", "rank_{RANK}", checkpoint_b_folder,
+    checkpoint_c_file_path = os.path.join(run_directory.get_node_run_directory(), "rank_{RANK}", checkpoint_b_folder,
                                                                          final_checkpoint)
-    trainer_2_hparams_filepath = run_directory.get_relative_to_run_directory("..", "rank_0", checkpoint_b_folder,
+    trainer_2_hparams_filepath = os.path.join(run_directory.get_relative_to_run_directory(), "rank_0", checkpoint_b_folder,
                                                                              "hparams.yaml")
 
     assert_checkpoints_equivalent(

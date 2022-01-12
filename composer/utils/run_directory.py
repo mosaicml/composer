@@ -1,24 +1,36 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
+import datetime
 import logging
 import os
 import pathlib
 import time
 
+from composer.utils import dist
+
 log = logging.getLogger(__name__)
 
-_RUN_DIRECTORY_KEY = "RUN_DIRECTORY"
+_RUN_DIRECTORY_KEY = "COMPOSER_RUN_DIRECTORY"
+
+_start_time_str = datetime.datetime.now().isoformat()
+
+
+def get_node_run_directory():
+    node_run_directory = os.environ.get(_RUN_DIRECTORY_KEY, os.path.join("runs", _start_time_str))
+    if node_run_directory.endswith(os.path.sep):
+        node_run_directory = node_run_directory[:-1]
+    os.makedirs(node_run_directory, exist_ok=True)
+    return os.path.abspath(node_run_directory)
 
 
 def get_run_directory():
-    return os.environ.get(_RUN_DIRECTORY_KEY)
+    run_dir = os.path.join(get_node_run_directory(), f"rank_{dist.get_global_rank()}")
+    os.makedirs(run_dir, exist_ok=True)
+    return run_dir
 
 
-def get_relative_to_run_directory(*path: str, base: str = ".") -> str:
-    run_directory = get_run_directory()
-    if run_directory is None:
-        return os.path.join(base, *path)
-    return os.path.join(run_directory, *path)
+def get_relative_to_run_directory(*path: str) -> str:
+    return os.path.join(get_run_directory(), *path)
 
 
 def get_modified_files(modified_since_timestamp: float, *, ignore_hidden: bool = True):

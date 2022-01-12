@@ -44,7 +44,13 @@ class WandBLoggerBackend(BaseLoggerBackend):
 
     def state_dict(self) -> StateDict:
         # Storing these fields in the state dict to support run resuming in the future.
-        return {"name": wandb.run.name, "project": wandb.run.project, "entity": wandb.run.entity, "id": wandb.run.id}
+        return {
+            "name": wandb.run.name,
+            "project": wandb.run.project,
+            "entity": wandb.run.entity,
+            "id": wandb.run.id,
+            "group": wandb.run.group
+        }
 
     def init(self, state: State, logger: Logger) -> None:
         del state, logger  # unused
