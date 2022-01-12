@@ -1,38 +1,23 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
 import logging
-import re
 from abc import ABC
 from dataclasses import asdict, dataclass, fields
-from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple
+from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple, Union
 
 import torch
 import yahp as hp
 from torch.optim.lr_scheduler import (CosineAnnealingLR, CosineAnnealingWarmRestarts, ExponentialLR, MultiStepLR,
                                       StepLR, _LRScheduler)
 
-from composer.core.types import Optimizer, Scheduler
+from composer.core.time import TimeUnit
+from composer.core.types import Optimizer, Scheduler, Time
 from composer.optim.pytorch_future import LinearLR, WarmUpLR
+from composer.utils._time_conversion import convert as convert_time
 
 log = logging.getLogger(__name__)
 
-Time = str
-"""
-Time: For scheduler hparams, we support providing time (e.g. milestones) as
-both integers, which will be interpreted as epochs, or as a string in format:
-* '0.98dur' -- 98% of the entire training duration
-* '0.98dur12ep' -- 98% of the entire training duration and 12 epochs
-* '12ep' -- 12 epochs
-* '1024ba' -- 1024 batches
-* '0.98dur12ep5ba' -- 98% of the entire training duration, 12 epochs, and 5 batches
-* '12ep32ba' -- 12 epochs and 32 batches
-
-The provided time is converted and represented internally.
-"""
-
 _interval_doc = 'frequency of step() calls, either "batch" or "epoch". Default: "epoch"'
-
-STR_REGEX = re.compile(r'^(?:(0\.\d+?|1\.0+?)?(dur))?(?:([0-9]*)(ep))?(?:([0-9]*)(ba))?$', flags=re.IGNORECASE)
 
 # Allow (batch, batches) or (epoch, epochs). Also accept "step" ~ "batch"
 INTERVAL_MAP = {
@@ -126,74 +111,66 @@ class SchedulerHparams(hp.Hparams, ABC):
     scheduler_object = None  # type: Optional[Callable[..., Scheduler]]
     interval = 'epochs'  # type: str
 
-    def convert_time_fields(self, steps_per_epoch: Optional[int] = None, max_epochs: Optional[int] = None) -> None:
-        """Convert time fields into integers.
-
-        Converts all fields that were provided as timestrings (e.g. "32ep11ba") into
+    def _convert_time_fields(self,
+                             max_training_duration: Optional[Union[str, Time[int]]] = None,
+                             steps_per_epoch: Optional[int] = None,
+                             samples_per_epoch: Optional[int] = None,
+                             dataset_num_tokens: Optional[int] = None) -> None:
+        """Converts all fields that were provided as timestrings (e.g. "32ep") into
         integers, representing either epochs or batches, depending on the
-        scheduler's interval attribute.
-
-        Examples:
-            >>> hp = StepLRHparams(step_size='32ep77ba', interval='batch')
-            >>> hp.convert_time_fields(steps_per_epoch=100)
-            >>> hp.step_size
-            3277
-            >>> hp = StepLRHparams(step_size='32ep77ba', interval='epoch')
-            >>> hp.convert_time_fields(steps_per_epoch=100)
-            >>> hp.step_size
-            32
-            >>> hp = StepLRHparams(step_size=5, interval='epoch')
-            >>> hp.convert_time_fields()  # steps_per_epoch not needed
-            >>> hp.step_size
-            5
-            >>> hp = MultiStepLRHParams(milestones=['50ep', '8050ba'], interval='batch')
-            >>> hp.convert_time_fields(steps_per_epoch=100)
-            >>> hp.milestones
-            [5000, 8050]
-            >>> hp = MultiStepLRHParams(milestones=['50ep', '8050ba'], interval='epoch')
-            >>> hp.convert_time_fields(steps_per_epoch=100)
-            >>> hp.milestones
-            [50, 80]
-
-        Args:
-            steps_per_epoch (int): used to convert between epochs <-> batches. Need not be
-                                   provided if all fields are provided as integers.
-        """
-        assert hasattr(self, 'interval'), "Scheduler Hparams needs an interval (str) parameter."
+        :attr:`interval`. Updates the fields in-place."""
+        interval_unit = TimeUnit(INTERVAL_MAP[self.interval])
 
         for field in fields(self):
-            # TODO: switch Time back to Union[int, str]
-            if field.name not in ('interval', 'warmup_method') and field.type == Time or field.type == List[Time]:
+            field_value = getattr(self, field.name)
+
+            if field.name not in ('interval', 'warmup_method') and isinstance(field_value, str):
                 time = getattr(self, field.name)
                 if isinstance(time, list):
                     result = [
-                        _convert_time(t, steps_per_epoch, max_epochs=max_epochs, interval=self.interval) for t in time
+                        convert_time(t,
+                                     unit=interval_unit,
+                                     steps_per_epoch=steps_per_epoch,
+                                     max_training_duration=max_training_duration,
+                                     samples_per_epoch=samples_per_epoch,
+                                     dataset_num_tokens=dataset_num_tokens).value for t in time
                     ]
                 else:
-                    result = _convert_time(time, steps_per_epoch, max_epochs=max_epochs, interval=self.interval)
+                    result = convert_time(time,
+                                          unit=interval_unit,
+                                          steps_per_epoch=steps_per_epoch,
+                                          max_training_duration=max_training_duration,
+                                          samples_per_epoch=samples_per_epoch,
+                                          dataset_num_tokens=dataset_num_tokens).value
 
                 setattr(self, field.name, result)
 
-    def initialize_object(  # type: ignore
+    def initialize_object(
         self,
         optimizer: Optimizer,
         steps_per_epoch: Optional[int] = None,
-        max_epochs: Optional[int] = None,
+        samples_per_epoch: Optional[int] = None,
+        dataset_num_tokens: Optional[int] = None,
+        max_training_duration: Optional[Union[str, Time[int]]] = None,
     ) -> Tuple[Scheduler, str]:
         """Create the scheduler object from the current hparams.
 
         Args:
             optimizer (Optimizer): the optimizer associated with this scheduler
-            steps_per_epoch (Optional[int], optional): number of steps per epoch. Default: ``None``.
-
+            steps_per_epoch (int, optional): The number of optimization steps per epoch.
+            samples_per_epoch (int, optional): The number of samples trained per epoch.
+            dataset_num_tokens (int, optional): The number of tokens in the dataset.
+            max_training_duration (str or Time, optional): The total training duration.
         Returns:
             (Scheduler, str): (The parametrized scheduler instance, schedule step interval)
         """
 
         assert self.scheduler_object is not None, "Scheduler Hparams needs scheduler_object to initialize."
-        assert hasattr(self, 'interval'), "Scheduler Hparams needs an interval (str) parameter."
 
-        self.convert_time_fields(steps_per_epoch=steps_per_epoch, max_epochs=max_epochs)
+        self._convert_time_fields(max_training_duration=max_training_duration,
+                                  steps_per_epoch=steps_per_epoch,
+                                  samples_per_epoch=samples_per_epoch,
+                                  dataset_num_tokens=dataset_num_tokens)
 
         # we pass the interval to the trainer directly
         kwargs = {k: v for k, v in asdict(self).items() if k not in ['interval']}
@@ -250,7 +227,7 @@ class StepLRHparams(SchedulerHparams):
     scheduler.
     """
 
-    step_size: Time = hp.required(doc='Period of learning rate decay')
+    step_size: str = hp.required(doc='Period of learning rate decay')
     gamma: float = hp.optional(default=0.1, doc='multiplicative factor of decay')
     verbose: bool = hp.optional(default=False, doc='prints message to stdout')
     interval: str = hp.optional(default='epoch', doc=_interval_doc)
@@ -264,7 +241,7 @@ class MultiStepLRHparams(SchedulerHparams):
     scheduler.
     """
 
-    milestones: List[Time] = hp.required(doc='List of epoch indices')
+    milestones: List[str] = hp.required(doc='List of milestone time strings')
     gamma: float = hp.optional(default=0.1, doc='multiplicative factor of decay')
     verbose: bool = hp.optional(default=False, doc='prints message to stdout')
     interval: str = hp.optional(default='epoch', doc=_interval_doc)
@@ -291,19 +268,12 @@ class CosineAnnealingLRHparams(SchedulerHparams):
     scheduler.
     """
 
-    T_max: Time = hp.required(doc="Maximum number of iterations.")
+    T_max: str = hp.required(doc="Maximum scheduler duration.")
     eta_min: float = hp.optional(default=0.0, doc='minimum learning rate.')
     verbose: bool = hp.optional(default=False, doc='prints message to stdout')
     interval: str = hp.optional(default='epoch', doc=_interval_doc)
 
     scheduler_object = torch.optim.lr_scheduler.CosineAnnealingLR
-
-    def initialize_object(self,
-                          optimizer: Optimizer,
-                          steps_per_epoch: Optional[int] = None,
-                          max_epochs: Optional[int] = None):
-        self.convert_time_fields(steps_per_epoch=steps_per_epoch, max_epochs=max_epochs)
-        return super().initialize_object(optimizer, steps_per_epoch)
 
 
 @dataclass
@@ -312,20 +282,13 @@ class CosineAnnealingWarmRestartsHparams(SchedulerHparams):
     scheduler.
     """
 
-    T_0: Time = hp.required("Number of iterations for the first restart.")
+    T_0: str = hp.required("Duration for the first restart.")
     eta_min: float = hp.optional(default=0.0, doc='minimum learning rate.')
     verbose: bool = hp.optional(default=False, doc='prints message to stdout')
     interval: str = hp.optional(default='epoch', doc=_interval_doc)
     T_mult: int = hp.optional("A factor increases :math:`T_{i}` after a restart. Default: 1.", default=1)
 
     scheduler_object = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts
-
-    def initialize_object(self,
-                          optimizer: Optimizer,
-                          steps_per_epoch: Optional[int] = None,
-                          max_epochs: Optional[int] = None):
-        self.convert_time_fields(steps_per_epoch=steps_per_epoch, max_epochs=max_epochs)
-        return super().initialize_object(optimizer, steps_per_epoch)
 
 
 @dataclass
@@ -336,7 +299,7 @@ class LinearLRHparams(SchedulerHparams):
 
     start_factor: float = hp.optional("Number to multiply learning rate at the start.", default=1.0 / 3)
     end_factor: float = hp.optional("Number to multiply learning rate at the end .", default=1.0)
-    total_iters: Time = hp.optional("Number of linear decay steps. Default: 5 iterations.", default="5ba")
+    total_iters: str = hp.optional("Duration of linear decay steps. Default: 5 iterations.", default="5ba")
     verbose: bool = hp.optional('Prints message to stdout', default=False)
     interval: str = hp.optional(default='epoch', doc=_interval_doc)
 
@@ -351,7 +314,7 @@ class WarmUpLRHparams(SchedulerHparams):
     """
 
     warmup_factor: float = hp.optional("Number to multiply learning rate at start.", default=1.0 / 3)
-    warmup_iters: Time = hp.optional("Number of warmup step. Default: 5 iterations.", default="5ba")
+    warmup_iters: str = hp.optional("Warmup duration. Default: 5 iterations.", default="5ba")
     warmup_method: str = hp.optional("Warmup method (linear or constant)", default='linear')
     verbose: bool = hp.optional('Prints message to stdout', default=False)
     interval: str = hp.optional('Warmup the LR every step or epoch. Default: epoch', default='epoch')
@@ -387,11 +350,12 @@ def get_num_warmup_batches(scheduler_hparams: Sequence[SchedulerHparams], steps_
     if len(warmup_scheduler_hparams):
         warmup_iters = warmup_scheduler_hparams[0].warmup_iters
         if isinstance(warmup_iters, str):
-            return _convert_time(
+            interval_unit = TimeUnit(INTERVAL_MAP[warmup_scheduler_hparams[0].interval])
+            return convert_time(
                 time=warmup_iters,
+                unit=interval_unit,
                 steps_per_epoch=steps_per_epoch,
-                interval=warmup_scheduler_hparams[0].interval,
-            )
+            ).value
         else:
             return warmup_iters
     return 0

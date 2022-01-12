@@ -20,14 +20,12 @@ from tests.fixtures.models import SimpleConvModel
 def state(simple_conv_model: Model, dummy_train_dataloader: DataLoader, dummy_val_dataloader: DataLoader):
     state = State(
         grad_accum=1,
-        max_epochs=100,
+        max_duration="100ep",
         model=simple_conv_model,
         precision=Precision.FP32,
         train_dataloader=dummy_train_dataloader,
         eval_dataloader=dummy_val_dataloader,
     )
-    state.epoch = 50
-    state.step = 50
     return state
 
 

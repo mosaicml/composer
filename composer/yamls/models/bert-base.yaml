@@ -61,7 +61,7 @@ loggers:
       flush_every_n_batches: 100
       every_n_batches: 100
       every_n_epochs: 1
-max_epochs: 7  # Baseline is 256M samples, 7 epochs is ~280M samples
+max_duration: 7ep  # Baseline is 256M samples, 7 epochs is ~280M samples
 train_batch_size: 4000
 eval_batch_size: 2000
 seed: 19

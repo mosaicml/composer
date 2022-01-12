@@ -19,7 +19,7 @@ from torchmetrics.collections import MetricCollection
 from torchmetrics.metric import Metric
 from tqdm import tqdm
 
-from composer.core import Callback, DataSpec, Engine, Event, Logger, State
+from composer.core import Callback, DataSpec, Engine, Event, Logger, State, Time
 from composer.core.algorithm import Algorithm
 from composer.core.logging import BaseLoggerBackend, LogLevel
 from composer.core.types import Batch, BreakEpochException, DataLoader, Metrics, Precision, Tensor
@@ -119,7 +119,7 @@ class Trainer:
             model: BaseMosaicModel,
             train_dataloader: Union[DataLoader, DataSpec],
             eval_dataloader: Union[DataLoader, DataSpec],
-            max_epochs: int,
+            max_duration: Union[str, Time],
             algorithms: Optional[List[Algorithm]] = None,
             optimizer_hparams: Optional[OptimizerHparams] = None,
             schedulers_hparams: Optional[Union[SchedulerHparams, List[SchedulerHparams]]] = None,
@@ -221,7 +221,7 @@ class Trainer:
         eval_dataloader.dataloader = DDPDataLoader(eval_dataloader.dataloader)
 
         self.state = State(
-            max_epochs=max_epochs,
+            max_duration=max_duration,
             algorithms=algorithms,
             callbacks=callbacks,
             model=model,
@@ -275,7 +275,7 @@ class Trainer:
         if not optimizer_hparams:
             optimizer_hparams = DecoupledSGDWHparams(lr=0.1, momentum=0.9, weight_decay=1.0e-4)
         if not schedulers_hparams:
-            schedulers_hparams = [CosineAnnealingLRHparams(T_max=f"{max_epochs}ep"), WarmUpLRHparams()]
+            schedulers_hparams = [CosineAnnealingLRHparams(T_max=str(max_duration)), WarmUpLRHparams()]
         if not isinstance(schedulers_hparams, list):
             schedulers_hparams = [schedulers_hparams]
         optimizer = optimizer_hparams.initialize_object(param_group=self.state.model.parameters())
@@ -290,8 +290,18 @@ class Trainer:
                     print(f"Overriding decay_ratio via trainer hparam: {scheduler.total_iters} to {decay_ratio}dur")
                     scheduler.total_iters = f"{decay_ratio}dur"
 
+        if self.state.train_data.num_samples is None:
+            samples_per_epoch = None
+        else:
+            samples_per_epoch = min(self.state.steps_per_epoch * self.state.train_batch_size,
+                                    self.state.train_data.num_samples)
+
         schedulers = [
-            x.initialize_object(optimizer, self.state.steps_per_epoch, max_epochs=max_epochs)
+            x.initialize_object(optimizer=optimizer,
+                                max_training_duration=self.state.max_duration,
+                                steps_per_epoch=self.state.steps_per_epoch,
+                                samples_per_epoch=samples_per_epoch,
+                                dataset_num_tokens=self.state.train_data.num_tokens)
             for x in ensure_warmup_last(schedulers_hparams)
         ]
         self.state.optimizers = optimizer
@@ -391,7 +401,7 @@ class Trainer:
             model=model,
             train_dataloader=train_dataloader,
             eval_dataloader=eval_dataloader,
-            max_epochs=hparams.max_epochs,
+            max_duration=hparams.max_duration,
             algorithms=algorithms,
             optimizer_hparams=hparams.optimizer,
             schedulers_hparams=hparams.schedulers,
@@ -548,15 +558,15 @@ class Trainer:
 
         self._spin_dataloaders()
 
-        if self.state.batch_idx == 0 and self.checkpoint_loader:
+        if self.state.timer.batch_in_epoch == 0 and self.checkpoint_loader:
             # only restore the rng state here if the step in the current epoch is zero.
             self.checkpoint_loader.restore_checkpoint_rng_state(self.device)
 
-        for _ in range(state.epoch, state.max_epochs):
+        while state.timer < state.max_duration:
             try:
                 state.model.train()
 
-                if self.state.batch_idx == 0:
+                if self.state.timer.batch_in_epoch == 0:
                     self.engine.run_event(Event.EPOCH_START)
                     self.logger.metric_epoch({"epoch": self.state.epoch})
 
@@ -564,7 +574,7 @@ class Trainer:
                         itertools.islice(state.train_dataloader, self.state.steps_per_epoch)):
 
                     # if resuming, skip dataloader forward to the minibatch index
-                    if batch_idx < self.state.batch_idx:
+                    if batch_idx < self.state.timer.batch_in_epoch:
                         if self.checkpoint_loader:
                             self.checkpoint_loader.restore_checkpoint_rng_state(self.device)
                         continue
@@ -597,7 +607,7 @@ class Trainer:
                     self.engine.run_event(Event.BATCH_START)
                     self.logger.metric_batch({
                         "trainer/global_step": self.state.step,
-                        "trainer/batch_idx": self.state.batch_idx,
+                        "trainer/batch_idx": self.state.timer.batch_in_epoch.value,
                     })
                     total_loss = None
                     if self.deepspeed_enabled:
@@ -643,7 +653,10 @@ class Trainer:
                     if self.validate_every_n_batches > 0 and (state.step + 1) % self.validate_every_n_batches == 0:
                         self.eval(is_batch=True)
 
-                    state.step += 1
+                    state.timer.on_batch_complete(
+                        samples=state.train_data.get_num_samples_in_batch(state.batch),
+                        tokens=state.train_data.get_num_tokens_in_batch(state.batch),
+                    )
                     if self.checkpoint_saver and self.checkpoint_saver.should_checkpoint(state=state,
                                                                                          event=Event.BATCH_END):
                         self.checkpoint_saver.save_checkpoint(state=state,
@@ -661,7 +674,7 @@ class Trainer:
             if self.validate_every_n_epochs > 0 and (state.epoch + 1) % self.validate_every_n_epochs == 0:
                 self.eval(is_batch=False)
 
-            state.epoch += 1
+            state.timer.on_epoch_complete()
 
             if self.checkpoint_saver and self.checkpoint_saver.should_checkpoint(state=state, event=Event.EPOCH_END):
                 self.checkpoint_saver.save_checkpoint(state=state,

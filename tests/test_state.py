@@ -27,14 +27,12 @@ def get_dummy_state(model: BaseMosaicModel, train_dataloader: types.DataLoader, 
     state = State(model=model,
                   grad_accum=random.randint(0, 100),
                   precision=types.Precision.AMP,
-                  max_epochs=random.randint(0, 100),
+                  max_duration=f"{random.randint(0, 100)}ep",
                   train_dataloader=train_dataloader,
                   eval_dataloader=val_dataloader,
                   optimizers=optimizers,
                   schedulers=torch.optim.lr_scheduler.StepLR(optimizers, step_size=3),
                   algorithms=[DummyHparams().initialize_object()])
-    state.epoch = random.randint(0, 100)
-    state.step = random.randint(0, 100)
     state.loss = random_tensor()
     state.batch = (random_tensor(), random_tensor())
     state.outputs = random_tensor()
@@ -90,7 +88,7 @@ def train_one_step(state: State, batch: types.Batch) -> None:
         optimizer.step()
     for scheduler in state.schedulers:
         scheduler.step()
-    state.step += 1
+    state.timer.on_batch_complete(len(batch))
 
 
 def get_batch(dataset_hparams: DatasetHparams, dataloader_hparams: DataloaderHparams) -> types.Batch:
