@@ -61,7 +61,7 @@ def _apply_solution_to_module_parameters(solution: LowRankSolution, module0: tor
         if module0.bias is not None:
             assert isinstance(module0.bias, torch.Tensor)
             module0.bias = torch.nn.parameter.Parameter(
-                torch.zeros(solution.rank, dtype=module0.bias.dtype).to(module0.bias.device))
+                torch.zeros(solution.rank, dtype=module0.bias.dtype).to(device=module0.bias.device))  # type: ignore
         assert isinstance(module1.bias, torch.Tensor)
         module1.bias.copy_(solution.bias)
         Wa = solution.Wa
@@ -69,8 +69,8 @@ def _apply_solution_to_module_parameters(solution: LowRankSolution, module0: tor
         if transpose:
             Wa = torch.transpose(Wa, 0, 1)
             Wb = torch.transpose(Wb, 0, 1)
-        module0.weight = torch.nn.parameter.Parameter(Wa.to(module0.weight.device))
-        module1.weight = torch.nn.parameter.Parameter(Wb.to(module1.weight.device))
+        module0.weight = torch.nn.parameter.Parameter(Wa.to(device=module0.weight.device))  # type: ignore
+        module1.weight = torch.nn.parameter.Parameter(Wb.to(device=module1.weight.device))  # type: ignore
 
 
 class _FactorizedModule(nn.Module, abc.ABC):

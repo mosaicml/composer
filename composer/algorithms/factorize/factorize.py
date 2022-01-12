@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import asdict, dataclass
-from typing import Optional, Type, cast
+from typing import Optional, Type, Union, cast
 
 import torch
 import yahp as hp
