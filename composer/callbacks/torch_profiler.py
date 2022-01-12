@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 import warnings
 from dataclasses import asdict, dataclass
 from typing import Optional
@@ -12,8 +13,8 @@ from torch.profiler.profiler import ProfilerAction
 from composer.callbacks.callback_hparams import TorchProfilerHparams
 from composer.core import Callback, Logger, State
 from composer.core.types import StateDict
+from composer.utils import run_directory
 from composer.utils.dist import get_global_rank
-from composer.utils.run_directory import get_relative_to_run_directory
 
 _PROFILE_MISSING_ERROR = "The profiler has not been setup. Please call profiler.training_start() before training starts."
 
@@ -81,7 +82,8 @@ class TorchProfiler(Callback):
             warmup=warmup,
             active=active,
             wait=wait,
-            tensorboard_trace_handler_dir=get_relative_to_run_directory(tensorboard_trace_handler_dir),
+            tensorboard_trace_handler_dir=os.path.join(run_directory.get_run_directory(),
+                                                       tensorboard_trace_handler_dir),
             tensorboard_use_gzip=tensorboard_use_gzip,
             record_shapes=record_shapes,
             profile_memory=profile_memory,

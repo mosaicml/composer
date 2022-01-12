@@ -29,10 +29,6 @@ def get_run_directory():
     return run_dir
 
 
-def get_relative_to_run_directory(*path: str) -> str:
-    return os.path.join(get_run_directory(), *path)
-
-
 def get_modified_files(modified_since_timestamp: float, *, ignore_hidden: bool = True):
     """Returns a list of files (recursively) in the run directory that have been modified since
     ``modified_since_timestamp``.

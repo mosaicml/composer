@@ -340,7 +340,7 @@ class CheckpointSaver:
             self.save_event = Event.BATCH_END
         else:
             raise ValueError(f"Unknown checkpointing interval: {checkpoint_interval_unit}")
-        self.checkpoint_folder = run_directory.get_relative_to_run_directory(checkpoint_folder)
+        self.checkpoint_folder = os.path.join(run_directory.get_run_directory(), checkpoint_folder)
         os.makedirs(self.checkpoint_folder, mode=0o775, exist_ok=True)
         self.save_interval = checkpoint_interval
 
