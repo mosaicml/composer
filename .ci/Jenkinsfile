@@ -23,10 +23,10 @@ def cloneJenkinsfilesRepo() {
     }
 }
 
-def runPytest(pythonVersion, extraDeps, gpu = false, marker = null) {
-    def name = "pytest/python${pythonVersion}-extraDeps_${extraDeps}"
-    def title = "Pytest - Python ${pythonVersion}, composer[${extraDeps}]"
-    def summary = "Pytest - Python ${pythonVersion}, composer[${extraDeps}]"
+def runPytest(pythonVersion, extraDeps, gpu = false, marker = "") {
+    def name = "pytest/python${pythonVersion}-extraDeps_${extraDeps}-$marker"
+    def title = "Pytest - Python ${pythonVersion}, composer[${extraDeps}] ($marker)"
+    def summary = title
     def pytorchVersion = pythonVersion == "3.9" ? "1.10.0" : "1.9.1"
     def pDockerImage = "mosaicml/pytorch:${pytorchVersion}_cpu-python${pythonVersion}-ubuntu20.04"
     def pytestCliArgs = '--test_duration all'
@@ -35,9 +35,6 @@ def runPytest(pythonVersion, extraDeps, gpu = false, marker = null) {
     def cpuLimit = "2"
 
     if (gpu){
-        name = "$name-gpu"
-        title = "$title, GPU"
-        summary = "$summary, GPU"
         nGpus = "2"
         cpuLimit = "16" // 8 cpu per gpu
         memLimit = "15Gi"  // 7.5Gb per gpu
