@@ -1,5 +1,8 @@
+# Copyright 2021 MosaicML. All Rights Reserved.
+
 import pytest
 import torch
+import torch.nn.functional as F
 
 from composer.models.loss import MIoU
 
@@ -19,7 +22,7 @@ def test_miou(block_2D_targets):
 
     # Test if predictions identical to target equal 1.0
     # TODO: convert to prediction to one-hot
-    accurate_prediction = torch.nn.functional.one_hot(block_2D_targets, num_classes=4).permute(0, 3, 1, 2)
+    accurate_prediction = F.one_hot(block_2D_targets, num_classes=4).permute(0, 3, 1, 2)
     miou.update(accurate_prediction, block_2D_targets)
     assert miou.compute() == 100.
     miou.reset()

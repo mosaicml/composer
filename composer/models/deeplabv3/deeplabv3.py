@@ -8,9 +8,9 @@ from torchvision.models import _utils, resnet
 from torchvision.models.segmentation.deeplabv3 import ASPP, DeepLabV3
 
 from composer.core.types import Batch
-from composer.models.model_hparams import Initializer
 from composer.models.base import BaseMosaicModel
 from composer.models.loss import CrossEntropyLoss, MIoU, soft_cross_entropy
+from composer.models.model_hparams import Initializer
 
 
 def deeplabv3_builder(num_classes: int,

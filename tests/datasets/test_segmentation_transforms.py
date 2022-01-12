@@ -1,11 +1,10 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
-import pytest
-
 import numpy as np
+import pytest
 from PIL import Image
 
-from composer.datasets.ade20k import RandomResizePair, RandomCropPair, RandomHFlipPair, PadToSize, PhotometricDistoration
+from composer.datasets.ade20k import PadToSize, PhotometricDistoration, RandomCropPair, RandomHFlipPair, RandomResizePair
 
 
 @pytest.fixture
