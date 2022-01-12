@@ -11,7 +11,8 @@ from composer.core.types import ModelParameters
 from composer.optim.pytorch_future import WarmUpLR
 from composer.optim.scheduler import (ComposedScheduler, ConstantLRHparams, CosineAnnealingLRHparams,
                                       CosineAnnealingWarmRestartsHparams, ExponentialLRHparams, LinearLRHparams,
-                                      MultiStepLRHparams, SchedulerHparams, StepLRHparams, WarmUpLRHparams)
+                                      MultiStepLRHparams, PolynomialLRHparams, SchedulerHparams, StepLRHparams,
+                                      WarmUpLRHparams)
 from composer.trainer.trainer_hparams import scheduler_registry
 
 # for testing, we provide values for required hparams fields
@@ -23,7 +24,8 @@ schedulers: Dict[Type[SchedulerHparams], SchedulerHparams] = {
     LinearLRHparams: LinearLRHparams(total_iters="1000ep",),
     CosineAnnealingWarmRestartsHparams: CosineAnnealingWarmRestartsHparams(T_0="1000ep",),
     WarmUpLRHparams: WarmUpLRHparams(),
-    ConstantLRHparams: ConstantLRHparams()
+    ConstantLRHparams: ConstantLRHparams(),
+    PolynomialLRHparams: PolynomialLRHparams(T_max="100ep", power=0.9)
 }
 
 time_field: Dict[Type[SchedulerHparams], str] = {
@@ -34,7 +36,8 @@ time_field: Dict[Type[SchedulerHparams], str] = {
     LinearLRHparams: 'total_iters',
     CosineAnnealingWarmRestartsHparams: 'T_0',
     WarmUpLRHparams: 'warmup_iters',
-    ConstantLRHparams: ''
+    ConstantLRHparams: '',
+    PolynomialLRHparams: 'T_max'
 }
 
 EXPECTED_RESULTS_TIME_CONVERSION = {

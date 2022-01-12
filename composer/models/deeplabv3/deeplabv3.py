@@ -47,8 +47,6 @@ def deeplabv3_builder(num_classes: int,
 
     model = DeepLabV3(backbone, head, aux_classifier=None)
 
-    assert initializers is not None
-
     if initializers:
         for initializer in initializers:
             initializer_fn = Initializer(initializer).get_initializer()
