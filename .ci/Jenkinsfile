@@ -114,7 +114,7 @@ def dockerImagePostBuild(stagingImageTag) {
                     string(name: 'P_GIT_COMMIT', value: gitCommit),
                     string(name: 'P_DOCKER_IMAGE', value: stagingImageTag),
                     string(name: 'P_CPU_LIMIT', value: "2000m"),
-                    string(name: 'P_MEM_LIMIT', value: "7gi"),
+                    string(name: 'P_MEM_LIMIT', value: "7Gi"),
                     string(name: 'P_TIMEOUT', value: '1800'),
                     string(name: 'PIP_EXTRA_DEPS', value: 'all'),
                     string(name: 'PYTEST_COMMAND', value: './scripts/test.sh'),
@@ -161,7 +161,7 @@ stage('Build') {
                             string(name: 'P_DOCKER_IMAGE', value: "mosaicml/pytorch:1.10.0_cpu-python3.9-ubuntu20.04"),
                             string(name: 'P_TIMEOUT', value: '1800'),
                             string(name: 'P_CPU_LIMIT', value: "2000m"),
-                            string(name: 'P_MEM_LIMIT', value: "7gi"),
+                            string(name: 'P_MEM_LIMIT', value: "7Gi"),
                             string(name: 'PIP_EXTRA_DEPS', value: 'all'),
                         ]
                     )
