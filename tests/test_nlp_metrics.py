@@ -10,9 +10,8 @@ from composer.models.nlp_metrics import BinaryF1Score, CrossEntropyLoss, MaskedA
 
 
 @pytest.mark.parametrize("ignore_index", [-100])
-@pytest.mark.parametrize("batch_size", [1e4, 1e5, 1e6])
 @pytest.mark.parametrize("num_classes", [2, 3, 4, 5])
-def test_masked_accuracy(batch_size, ignore_index, num_classes):
+def test_masked_accuracy(ignore_index, num_classes):
     """
     Sanity check to make sure that masked accuracy has reasonable performance.
 
@@ -24,7 +23,7 @@ def test_masked_accuracy(batch_size, ignore_index, num_classes):
         ignore_index (Optional[int]): if present, the class index to ignore in accuracy calculations.
         num_classes (int): the number of classes in the classification task
     """
-    batch_size = int(batch_size)
+    batch_size = int(1e4)
     torchmetrics_masked_acc = MaskedAccuracy(ignore_index=ignore_index)
     # we're only testing binary accuracy -- expecteed accuracy should be 50%
     generated_preds = torch.rand((batch_size, num_classes))
@@ -50,7 +49,8 @@ def test_masked_accuracy(batch_size, ignore_index, num_classes):
 @pytest.mark.parametrize("sequence_length", [128])
 @pytest.mark.parametrize("num_classes", [2, 10])
 @pytest.mark.parametrize("minibatch_size", [56, 256, 768])
-def test_cross_entropy(batch_size: float, ignore_index: int, sequence_length: int, num_classes: int, minibatch_size: int):
+def test_cross_entropy(batch_size: float, ignore_index: int, sequence_length: int, num_classes: int,
+                       minibatch_size: int):
     """
     Sanity check to make sure that batched CrossEntropyLoss matches the expected performance.
 
