@@ -14,9 +14,9 @@ import torch
 import yahp as hp
 from transformers.testing_utils import CaptureLogger
 
-from composer.core.types import Batch
+from composer.core.types import Batch, DataSpec
 from composer.datasets.dataloader import DataloaderHparams
-from composer.datasets.hparams import DataloaderSpec, DatasetHparams
+from composer.datasets.hparams import DatasetHparams
 from composer.utils import dist
 from composer.utils.data import get_subset_dataset
 
@@ -73,18 +73,18 @@ class StreamingLMDatasetHparams(DatasetHparams):
                                      split=self.split,
                                      streaming=True)
 
-    def _get_approx_num_samples(self):
+    def _get_approx_num_samples_per_device(self):
         try:
             if self.max_samples > 0:
-                return self.max_samples
+                return self.max_samples // dist.get_world_size()
             else:
                 n_shards, samples_per_shard = CACHED_DATASET_SIZES[self.dataset_name][self.dataset_config_name][self.split]
                 n_shards = self.max_shards if self.max_shards > 0 else n_shards
-                return n_shards * samples_per_shard
+                return n_shards * samples_per_shard // dist.get_world_size()
         except:
             raise NotImplementedError
 
-    def _get_approx_num_tokens(self):
+    def _get_approx_num_tokens_per_device(self):
         return 1e12
 
     def _subsample(self, device_offset, text_batch):
@@ -166,7 +166,7 @@ class StreamingLMDatasetHparams(DatasetHparams):
         else:
             raise ValueError(f"Unknown group_method: '{group_method}'")
 
-    def initialize_object(self, batch_size: int, dataloader_hparams: DataloaderHparams) -> DataloaderSpec:
+    def initialize_object(self, batch_size: int, dataloader_hparams: DataloaderHparams) -> DataSpec:
         assert dataloader_hparams.num_workers == 1, "LM Streaming Dataloader only supports num_workers=1"
 
         try:
@@ -209,13 +209,12 @@ class StreamingLMDatasetHparams(DatasetHparams):
                 batch_size=token_sample_batch_size,
             )
 
-        # Maybe limit the number of post-processed samples
-        if self.max_samples > 0:
-            token_dataset = token_dataset.take(self.max_samples // dist.get_world_size())
+        # Limit the number of post-processed samples
+        num_samples_per_device = self._get_approx_num_samples_per_device()
+        token_dataset = token_dataset.take(num_samples_per_device)
 
-        # Add approx num samples and create a SizedIterableDataset
-        sized_iterable_dataset = SizedIterableDataset(token_dataset, self._get_approx_num_samples())
-
+        # HACK: create a SizedIterableDataset
+        sized_iterable_dataset = SizedIterableDataset(token_dataset, num_samples_per_device)
 
         # Get collate_fn
         if self.tokenizer_name in ["gpt2"]:
@@ -225,25 +224,25 @@ class StreamingLMDatasetHparams(DatasetHparams):
             collate_fn = transformers.DataCollatorForLanguageModeling(tokenizer=self.tokenizer,
                                                                   mlm=self.use_masked_lm,
                                                                   mlm_probability=self.mlm_probability)
-        # Return DataloaderSpec
-        return DataloaderSpec(dataloader=dataloader_hparams.initialize_object(
+        # Return DataSpec
+        return DataSpec(dataloader=dataloader_hparams.initialize_object(
             dataset=sized_iterable_dataset,
             batch_size=batch_size,
             sampler=None,
             drop_last=self.drop_last,
             collate_fn=collate_fn,
         ),
-                              split_fn=_split_dict_fn)
+                              split_batch=_split_dict_fn)
 
 
 class SizedIterableDataset(torch.utils.data.IterableDataset):
 
-    def __init__(self, hf_iterable_dataset, num_samples):
+    def __init__(self, hf_iterable_dataset, num_samples_per_device):
         self.hf_iterable_dataset = hf_iterable_dataset
-        self.num_samples = num_samples
+        self.num_samples_per_device = num_samples_per_device
 
     def __iter__(self):
         return iter(self.hf_iterable_dataset)
 
     def __len__(self):
-        return self.num_samples
+        return self.num_samples_per_device

@@ -42,9 +42,9 @@ def convert(
             converting to or from :attr:`TimeUnit.TOKEN`.
         max_training_duration (str or Time, optional): The total training duration. Required only
             if converting to or from :attr:`TimeUnit.DURATION`.
-    
+
     Raises:
-        ValueError: If it is not possible to perform the conversion. 
+        ValueError: If it is not possible to perform the conversion.
 
     Returns:
         Time: The time, in the specified ``unit``.
@@ -76,12 +76,13 @@ def convert(
                                                 dataset_num_tokens=dataset_num_tokens)
             return _convert_to_duration(time_in_max_duration_unit, max_training_duration=max_training_duration)
         else:
-            converted_time = _convert_from_duration(time, max_training_duration=max_training_duration)
-            return convert(converted_time,
-                           unit,
-                           steps_per_epoch=steps_per_epoch,
-                           samples_per_epoch=samples_per_epoch,
-                           dataset_num_tokens=dataset_num_tokens)
+            max_training_duration_in_unit = convert(max_training_duration,
+                                            unit,
+                                            steps_per_epoch=steps_per_epoch,
+                                            samples_per_epoch=samples_per_epoch,
+                                            dataset_num_tokens=dataset_num_tokens)
+            converted_time = _convert_from_duration(time, max_training_duration=max_training_duration_in_unit)
+            return converted_time
 
     if time.unit == TimeUnit.EPOCH:
         if unit == TimeUnit.BATCH:
@@ -260,7 +261,7 @@ def _convert_sample_to_batch(
         time (Time): The time
         steps_per_epoch (int): The number of optimization steps per epoch.
         samples_per_epoch (int): The number of samples per epoch.
-    
+
     Raises:
         RuntimeError: Raised if ``time.unit != TimeUnit.SAMPLE``
 

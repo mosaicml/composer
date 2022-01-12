@@ -83,7 +83,7 @@ class DeepSpeedHparams(hp.Hparams):
         elif state.precision == Precision.FP16:
             deepspeed_config["fp16"] = {
                 "enabled": True,
-                "initial_scale_power": 16,
+                "initial_scale_power": 0,
                 "loss_scale_window": 2000,
             }
 

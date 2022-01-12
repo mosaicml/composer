@@ -204,11 +204,10 @@ class TrainerHparams(hp.Hparams):
     def validate(self):
         super().validate()
 
-        if self.deepspeed is not None:
-
+        if self.deepspeed is None:
             if self.precision == Precision.FP16:
                 raise ValueError("FP16 precision is only supported when training with DeepSpeed.")
-
+        else:
             if isinstance(self.device, CPUDeviceHparams):
                 raise ValueError("Training on CPUs is not supported with DeepSpeed.")
 
