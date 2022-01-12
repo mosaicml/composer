@@ -138,7 +138,7 @@ stage('Build') {
             P_GIT_REPO: gitUrl,
             P_GIT_COMMIT: gitCommit,
             P_CPU_LIMIT: '4000m',
-            P_MEM_LIMIT: '15Gi'
+            P_MEM_LIMIT: '15Gi',
             P_TIMEOUT: '3600',
             P_KANIKO_PUSH_FINAL: gitBranch == "main", // only push if we're on the main branch
         ) { stagingImage -> dockerImagePostBuild(stagingImage) }
