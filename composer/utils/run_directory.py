@@ -15,15 +15,26 @@ _RUN_DIRECTORY_KEY = "COMPOSER_RUN_DIRECTORY"
 _start_time_str = datetime.datetime.now().isoformat()
 
 
-def get_node_run_directory():
+def get_node_run_directory() -> str:
+    """Returns the run directory for the node. This folder is shared by all ranks on the node.
+    
+    Returns:
+        str: The node run directory.
+    """
     node_run_directory = os.environ.get(_RUN_DIRECTORY_KEY, os.path.join("runs", _start_time_str))
     if node_run_directory.endswith(os.path.sep):
+        # chop off the training slash so os.path.basename would work as expected
         node_run_directory = node_run_directory[:-1]
     os.makedirs(node_run_directory, exist_ok=True)
     return os.path.abspath(node_run_directory)
 
 
-def get_run_directory():
+def get_run_directory() -> str:
+    """Returns the run directory for the current rank.
+    
+    Returns:
+        str: The run directory.
+    """
     run_dir = os.path.join(get_node_run_directory(), f"rank_{dist.get_global_rank()}")
     os.makedirs(run_dir, exist_ok=True)
     return run_dir
