@@ -242,15 +242,16 @@ class CheckpointSaver:
             event (Event): The current Event being executed.
         """
 
+        # if we're at the end of training, ensure that we checkpoint regardless of save_event frequency
+        if state.get_elapsed_duration() >= 1.0:
+            return True
+
         if event != self.save_event:
             return False
         if self.save_event == Event.EPOCH_END:
             return state.epoch % self.save_interval == 0
         if self.save_event == Event.BATCH_END:
             return state.step % self.save_interval == 0
-        # if we're at the end of training, ensure that we checkpoint
-        if self.state.get_elapsed_duration() == self.state.max_duration():
-            return True
 
         return False
 
