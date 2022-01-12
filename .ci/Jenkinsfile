@@ -32,14 +32,14 @@ def runPytest(pythonVersion, extraDeps, gpu = false, marker = null) {
     def pytestCliArgs = '--test_duration all'
     def nGpus = "0"
     def memLimit = "7Gi"
-    def cpuLimit = "2000m"
+    def cpuLimit = "8"
 
     if (gpu){
         name = "$name-gpu"
         title = "$title, GPU"
         summary = "$summary, GPU"
         nGpus = "2"
-        cpuLimit = "4000m" // 2 cpu per gpu
+        cpuLimit = "16" // 8 cpu per gpu
         memLimit = "15Gi"  // 7.5Gb per gpu
         def cudaVersion = pythonVersion == "3.9" ? "cu113" : "cu111"
         pDockerImage = "mosaicml/pytorch:${pytorchVersion}_${cudaVersion}-python${pythonVersion}-ubuntu20.04"
@@ -113,7 +113,7 @@ def dockerImagePostBuild(stagingImageTag) {
                     string(name: 'P_GIT_REPO', value: gitUrl),
                     string(name: 'P_GIT_COMMIT', value: gitCommit),
                     string(name: 'P_DOCKER_IMAGE', value: stagingImageTag),
-                    string(name: 'P_CPU_LIMIT', value: "2000m"),
+                    string(name: 'P_CPU_LIMIT', value: "8"),
                     string(name: 'P_MEM_LIMIT', value: "7Gi"),
                     string(name: 'P_TIMEOUT', value: '1800'),
                     string(name: 'PIP_EXTRA_DEPS', value: 'all'),
@@ -137,14 +137,14 @@ stage('Build') {
             P_BUILD_CONTEXT: './docker/pytorch',
             P_GIT_REPO: gitUrl,
             P_GIT_COMMIT: gitCommit,
-            P_CPU_LIMIT: '4000m',
+            P_CPU_LIMIT: '4',
             P_MEM_LIMIT: '15Gi',
             P_TIMEOUT: '3600',
             P_KANIKO_PUSH_FINAL: gitBranch == "main", // only push if we're on the main branch
         ) { stagingImage -> dockerImagePostBuild(stagingImage) }
     }
-    if (gitBranch != "main") {
-        // if not on main, run the pytest again.
+    if (gitBranch != "main" and gitBranch != "dev") {
+        // if not on main or dev, run the pytest again.
         jobs << [
             'Lint': { -> 
                 runWithChecks(
@@ -160,7 +160,7 @@ stage('Build') {
                             string(name: 'P_GIT_COMMIT', value: gitCommit),
                             string(name: 'P_DOCKER_IMAGE', value: "mosaicml/pytorch:1.10.0_cpu-python3.9-ubuntu20.04"),
                             string(name: 'P_TIMEOUT', value: '1800'),
-                            string(name: 'P_CPU_LIMIT', value: "2000m"),
+                            string(name: 'P_CPU_LIMIT', value: "8"),
                             string(name: 'P_MEM_LIMIT', value: "7Gi"),
                             string(name: 'PIP_EXTRA_DEPS', value: 'all'),
                         ]
