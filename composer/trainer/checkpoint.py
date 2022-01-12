@@ -67,6 +67,7 @@ class CheckpointLoader:
         chunk_size: int = 1_048_576,
         progress_bar: bool = True,
     ):
+
         checkpoint_uri_parsed = urllib.parse.urlparse(checkpoint)
         if checkpoint_uri_parsed.scheme != "":
             if object_store_hparams is not None:
@@ -238,12 +239,17 @@ class CheckpointSaver:
             event (Event): The current Event being executed.
         """
 
+        # if we're at the end of training, ensure that we checkpoint regardless of save_event frequency
+        if state.get_elapsed_duration() >= 1.0:
+            return True
+
         if event != self.save_event:
             return False
         if self.save_event == Event.EPOCH_END:
             return state.epoch % self.save_interval == 0
         if self.save_event == Event.BATCH_END:
             return state.step % self.save_interval == 0
+
         return False
 
     def save_checkpoint(self, state: State, seed: int, device: Device, config: Optional[Dict[str, Any]] = None) -> None:
