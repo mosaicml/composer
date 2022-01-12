@@ -7,6 +7,7 @@ from composer.models.efficientnets import EfficientNet
 
 
 @pytest.mark.timeout(15)
+@pytest.mark.gpu
 def test_efficientb0_activate_shape():
     random_input = torch.rand(2, 3, 224, 224)
 
@@ -14,7 +15,7 @@ def test_efficientb0_activate_shape():
         'efficientnet-b0',
         num_classes=1000,
         drop_connect_rate=0.2,
-    )
+    ).cuda()
     # Test Stem
     out = model.conv_stem(random_input)
     out = model.bn1(out)
