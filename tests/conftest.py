@@ -118,7 +118,8 @@ def subfolder_run_directory(tmpdir: pathlib.Path, monkeypatch: MonkeyPatch) -> N
     tmpdir_test_folder_name = os.path.basename(os.path.normpath(str(tmpdir)))
     test_folder_tmpdir = os.path.join(run_directory.get_node_run_directory(), tmpdir_test_folder_name)
     monkeypatch.setenv(run_directory._RUN_DIRECTORY_KEY, test_folder_tmpdir)
-    os.makedirs(test_folder_tmpdir, exist_ok=True)
+    run_directory.get_run_directory()
+    run_directory.get_node_run_directory()
 
 
 def pytest_sessionfinish(session: pytest.Session, exitstatus: int):
