@@ -248,6 +248,10 @@ class CheckpointSaver:
             return state.epoch % self.save_interval == 0
         if self.save_event == Event.BATCH_END:
             return state.step % self.save_interval == 0
+        # if we're at the end of training, ensure that we checkpoint
+        if self.state.get_elapsed_duration() == self.state.max_duration():
+            return True
+
         return False
 
     def save_checkpoint(self, state: State, seed: int, device: Device, config: Optional[Dict[str, Any]] = None) -> None:

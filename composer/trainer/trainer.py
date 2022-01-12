@@ -669,12 +669,6 @@ class Trainer:
                                                       device=self.device,
                                                       config=self.config)
 
-        # Training has completed, but if we didn't save a checkpoint at the last epoch and batch
-        if self.checkpoint_saver and (
-            (not self.checkpoint_saver.should_checkpoint(state=state, event=Event.EPOCH_END)) and
-            (not self.checkpoint_saver.should_checkpoint(state=state, event=Event.BATCH_END))):
-            self.checkpoint_saver.save_checkpoint(state=state, seed=self.seed, device=self.device, config=self.config)
-
         self.engine.run_event(Event.TRAINING_END)
 
     def _train_batch(self, microbatches: Sequence[Batch], ddp_sync: bool = True):
