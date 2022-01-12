@@ -48,7 +48,7 @@ def main() -> None:
             ])
         else:
             hparams.profiler = ProfilerHparams()
-    hparams.max_epochs = 2
+    hparams.max_duration = "2ep"
     if hparams.profiler.repeat != 0 and hparams.train_subset_num_batches is None:
         cycle_len = hparams.profiler.wait + hparams.profiler.warmup + hparams.profiler.active
         num_profiling_batches = hparams.profiler.skip_first + cycle_len * hparams.profiler.repeat

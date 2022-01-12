@@ -24,7 +24,7 @@ def test_json_trace_profiler_hanlder(mosaic_trainer_hparams: TrainerHparams):
     )
 
     mosaic_trainer_hparams.profiler = profiler_hparams
-    mosaic_trainer_hparams.max_epochs = 2
+    mosaic_trainer_hparams.max_duration = "2ep"
 
     trainer = mosaic_trainer_hparams.initialize_object()
     trainer.fit()

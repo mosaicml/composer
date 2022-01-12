@@ -25,20 +25,24 @@ def test_profiler_get_action(dummy_state: State, repeat: int):
         repeat=repeat,
     )
 
-    dummy_state.epoch = 0
-    dummy_state.step = 0
     assert profiler.get_action(dummy_state.batch_idx) == ProfilerAction.SKIP  # skip first epoch
 
-    dummy_state.step = skip_first
+    for _ in range(skip_first):
+        dummy_state.timer.on_batch_complete()
     assert profiler.get_action(dummy_state.batch_idx) == ProfilerAction.SKIP
 
-    dummy_state.step = skip_first + wait
+    for _ in range(wait):
+        dummy_state.timer.on_batch_complete()
+
     assert profiler.get_action(dummy_state.batch_idx) == ProfilerAction.WARMUP
 
-    dummy_state.step = skip_first + wait + warmup
+    for _ in range(warmup):
+        dummy_state.timer.on_batch_complete()
+
     assert profiler.get_action(dummy_state.batch_idx) == ProfilerAction.ACTIVE
 
-    dummy_state.step = skip_first + wait + warmup + active + wait + warmup
+    for _ in range(active + wait + warmup):
+        dummy_state.timer.on_batch_complete()
 
     if repeat == 0:
         assert profiler.get_action(dummy_state.batch_idx) == ProfilerAction.ACTIVE
