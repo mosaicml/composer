@@ -172,7 +172,7 @@ class PolynomialLR(_LRScheduler):
 @dataclass
 class PolynomialLRHparams(SchedulerHparams):
     """Hyperparameters for the :class:`PolynomialLR` scheduler."""
-    T_max: Time = hp.required(doc='Maximum number of iterations.')
+    T_max: str = hp.required(doc='Maximum number of iterations.')
     power: float = hp.required(doc='Power of LR schedule.')
     eta_min: float = hp.optional(default=0.0, doc='Minimum learning rate.')
     verbose: bool = hp.optional(default=False, doc='Prints message to stdout.')

@@ -46,8 +46,8 @@ class TestHparamsCreate:
         _configure_dataset_for_synthetic(hparams.val_dataset)
         hparams.device = CPUDeviceHparams()
 
-        # Manually set is_backbone_pretrained to false to prevent downloading pretrained weights during test
         if isinstance(hparams.model, DeepLabV3Hparams):
-            hparams.model.is_backbone_pretrained = False
+            hparams.model.is_backbone_pretrained = False  # prevent downloading pretrained weights during test
+            hparams.model.sync_bn = False  # sync_bn throws an error when run on CPU
 
         hparams.initialize_object()

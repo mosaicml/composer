@@ -39,7 +39,7 @@ model:
     sync_bn: true
 loggers:
   - tqdm: {}
-max_epochs: 127
+max_duration: 127ep
 train_batch_size: 16
 eval_batch_size: 16
 seed: 17
@@ -54,4 +54,4 @@ dataloader:
 validate_every_n_epochs: 1
 grad_accum: 1
 precision: amp
-ddp_timeout: 60
+dist_timeout: 60
