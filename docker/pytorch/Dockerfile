@@ -140,38 +140,6 @@ RUN mkdir -p ${COMPOSER_PYTHON_BIN} && \
 ENV BASH_ENV=/etc/profile
 
 #########################
-#  VSCode Install
-#########################
-RUN pip install importmagic isort epc yapf
-
-RUN wget -q https://packages.microsoft.com/keys/microsoft.asc -O- | apt-key add - && \
-    add-apt-repository -r "deb [arch=amd64] https://packages.microsoft.com/repos/vscode stable main" && \
-    add-apt-repository "deb [arch=amd64] https://packages.microsoft.com/repos/vscode stable main" && \
-    apt-get --no-install-recommends -y install code libxshmfence1 libasound2
-
-RUN mkdir /root/.vscode-server && \
-    code --user-data-dir="/root/.vscode-server" --install-extension ms-python.python  && \
-    code --user-data-dir="/root/.vscode-server" --install-extension ms-kubernetes-tools.vscode-kubernetes-tools && \
-    code --user-data-dir="/root/.vscode-server" --install-extension ms-vscode-remote.remote-containers && \
-    code --user-data-dir="/root/.vscode-server" --install-extension samuelcolvin.jinjahtml && \
-    code --user-data-dir="/root/.vscode-server" --install-extension ms-python.vscode-pylance && \
-    code --user-data-dir="/root/.vscode-server" --install-extension streetsidesoftware.code-spell-checker && \
-    code --user-data-dir="/root/.vscode-server" --install-extension ms-azuretools.vscode-docker && \
-    code --user-data-dir="/root/.vscode-server" --install-extension streetsidesoftware.code-spell-checker && \
-    code --user-data-dir="/root/.vscode-server" --install-extension eamodio.gitlens && \
-    code --user-data-dir="/root/.vscode-server" --install-extension trond-snekvik.simple-rst && \
-    code --user-data-dir="/root/.vscode-server" --install-extension lextudio.restructuredtext && \
-    code --user-data-dir="/root/.vscode-server" --install-extension lextudio.restructuredtext-pack && \
-    code --user-data-dir="/root/.vscode-server" --install-extension ExecutableBookProject.myst-highlight
-
-RUN mkdir -p /root/.vscode-server/data/Machine && \
-    cp -r /root/.vscode/extensions /root/.vscode-server/extensions && \
-    mkdir /root/.vscode-server/data/Machine/.vscode
-
-COPY vscode-settings.json /root/.vscode-server/data/Machine/settings.json
-
-
-#########################
 # Configure non-root user
 #########################
 RUN useradd -rm -d /home/mosaicml -s /bin/bash -u 1000 -U -s /bin/bash mosaicml && \
