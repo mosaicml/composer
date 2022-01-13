@@ -193,7 +193,7 @@ class LayerFreezing(Algorithm):
         state.model = freeze_layers(
             model=state.model,
             optimizers=optimizers,
-            current_epoch=state.timer.epoch.value,
+            current_epoch=state.epoch,
             max_epochs=state.max_epochs,
             freeze_start=self.hparams.freeze_start,
             freeze_level=self.hparams.freeze_level,
