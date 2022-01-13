@@ -1,0 +1,13 @@
+{
+    "python.formatting.provider": "yapf",
+    "editor.formatOnSave": true,
+    "editor.tabSize": 4,
+    "python.languageServer": "Pylance",
+    "[python]": {
+        "editor.codeActionsOnSave": {
+            "source.organizeImports": true
+        }
+    },
+    "python.pythonPath": "/opt/conda/bin/python"
+} 
+
