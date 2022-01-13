@@ -127,9 +127,14 @@ class LMDatasetHparams(DatasetHparams):
         log.info(f"Total number of tokens: {self.num_tokens:e}")
         dataset = lm_datasets
 
-        data_collator = transformers.DataCollatorForLanguageModeling(tokenizer=self.tokenizer,
-                                                                     mlm=self.use_masked_lm,
-                                                                     mlm_probability=self.mlm_probability)
+        # for some tokenizers, e.g. GPT-2, they don't have padding tokens. Hence, we cannot use the LM collator.
+        if self.tokenizer.pad_token_id is None:
+            data_collator = transformers.default_data_collator
+        else:
+            data_collator = transformers.DataCollatorForLanguageModeling(tokenizer=self.tokenizer,
+                                                                         mlm=self.use_masked_lm,
+                                                                         mlm_probability=self.mlm_probability)
+
         sampler = dist.get_sampler(dataset, drop_last=self.drop_last, shuffle=self.shuffle)
 
         return DataSpec(dataloader=dataloader_hparams.initialize_object(
