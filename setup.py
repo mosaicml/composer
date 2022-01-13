@@ -7,17 +7,21 @@ import textwrap
 
 import setuptools
 from setuptools import setup
+from setuptools.command.develop import develop as develop_orig
 
-_IS_EDITABLE = "-e" in sys.argv[1:] or "--editable" in sys.argv[1:]
 _IS_ROOT = os.getuid() == 0
 _IS_USER = "--user" in sys.argv[1:]
 _IS_VIRTUALENV = "VIRTUAL_ENV" in os.environ
 
-if _IS_EDITABLE and _IS_ROOT and (not _IS_VIRTUALENV) and (not _IS_USER):
-    raise RuntimeError(
-        textwrap.dedent("""When installing in editable mode as root outside of a virtual environment,
-        please specify `--user`. Editable installs as the root user outside of a virtual environment
-        do not work without the `--user` flag. Please instead run something like: `pip install --user -e .`"""))
+class develop(develop_orig):
+
+    def run(self):
+        if _IS_ROOT and (not _IS_VIRTUALENV) and (not _IS_USER):
+            raise RuntimeError(
+                textwrap.dedent("""When installing in editable mode as root outside of a virtual environment,
+                please specify `--user`. Editable installs as the root user outside of a virtual environment
+                do not work without the `--user` flag. Please instead run something like: `pip install --user -e .`"""))
+        super().run()
 
 # From https://github.com/pypa/pip/issues/7953#issuecomment-645133255
 site.ENABLE_USER_SITE = _IS_USER
@@ -118,6 +122,7 @@ setup(
     dependency_links=['https://developer.download.nvidia.com/compute/redist'],
     python_requires='>=3.7',
     ext_package="composer",
+    cmdclass={'develop': develop}
 )
 
 # only visible if user installs with verbose -v flag
