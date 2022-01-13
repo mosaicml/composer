@@ -219,7 +219,7 @@ class SelectiveBackprop(Algorithm):
         assert isinstance(input, Tensor) and isinstance(target, Tensor), \
             "Multiple tensors not supported for this method yet."
 
-        assert callable(state.model.module.loss) # type: ignore - type not found
+        assert callable(state.model.module.loss)  # type: ignore - type not found
 
         # Model expected to only take in input, not the full batch
         model = lambda X: state.model((X, None))
