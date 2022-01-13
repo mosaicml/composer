@@ -8,8 +8,19 @@ import textwrap
 import setuptools
 from setuptools import setup
 
+_IS_EDITABLE = "-e" in sys.argv[1:] or "--editable" in sys.argv[1:]
+_IS_ROOT = os.getuid() == 0
+_IS_USER = "--user" in sys.argv[1:]
+_IS_VIRTUALENV = "VIRTUAL_ENV" in os.environ
+
+if _IS_EDITABLE and _IS_ROOT and (not _IS_VIRTUALENV) and (not _IS_USER):
+    raise RuntimeError(
+        textwrap.dedent("""When installing in editable mode as root outside of a virtual environment,
+        please specify `--user`. Editable installs as the root user outside of a virtual environment
+        do not work without the `--user` flag. Please instead run something like: `pip install --user -e .`"""))
+
 # From https://github.com/pypa/pip/issues/7953#issuecomment-645133255
-site.ENABLE_USER_SITE = "--user" in sys.argv[1:]
+site.ENABLE_USER_SITE = _IS_USER
 
 
 def package_files(directory: str):
