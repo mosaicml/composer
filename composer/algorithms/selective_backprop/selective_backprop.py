@@ -223,7 +223,7 @@ class SelectiveBackprop(Algorithm):
         model = lambda X: state.model((X, None))
 
         def loss(p, y, reduction="none"):
-            return state.original_model.loss(p, (None, y), reduction=reduction)
+            return state.model.module.loss(p, (None, y), reduction=reduction)  # type: ignore
 
         with state.precision_context:
             new_input, new_target = selective_backprop(
