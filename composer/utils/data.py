@@ -16,14 +16,19 @@ class NormalizationFn:
     """Normalizes input data and removes the background class from target data if desired.
 
     Args:
+        mean (Tuple[float, float, float]): the mean pixel value for each channel (RGB) for the dataset.
+        std (Tuple[float, float, float]): the standard deviation pixel value for each channel (RGB) for the dataset.
         ignore_background (bool): if true, ignore the background class in the training loss. Only used in semantic
             segmentation. Default is False.
 
     """
 
-    def __init__(self, ignore_background: bool = False) -> None:
-        self.mean: Optional[Tensor] = None
-        self.std: Optional[Tensor] = None
+    def __init__(self, 
+                 mean: Tuple[float, float, float], 
+                 std: Tuple[float, float, float], 
+                 ignore_background: bool = False):
+        self.mean = mean
+        self.std = std
         self.ignore_background = ignore_background
 
     def __call__(self, batch: Batch):
@@ -32,12 +37,11 @@ class NormalizationFn:
         assert isinstance(ys, Tensor)
         device = xs.device
 
-        # ImageNet normalization values from torchvision: https://pytorch.org/vision/stable/models.html
-        if self.mean is None:
-            self.mean = torch.tensor([0.485 * 255, 0.456 * 255, 0.406 * 255], device=device)
+        if not isinstance(self.mean, torch.Tensor):
+            self.mean = torch.tensor(self.mean, device=device)
             self.mean = self.mean.view(1, 3, 1, 1)
-        if self.std is None:
-            self.std = torch.tensor([0.229 * 255, 0.224 * 255, 0.225 * 255], device=device)
+        if not isinstance(self.std, torch.Tensor):
+            self.std = torch.tensor(self.std, device=device)
             self.std = self.std.view(1, 3, 1, 1)
 
         xs = xs.float()

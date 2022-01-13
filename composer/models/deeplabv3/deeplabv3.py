@@ -1,13 +1,13 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
-from typing import Any, List, Optional
+from typing import Any, List
 
 import torch
 from torchmetrics.collections import MetricCollection
 from torchvision.models import _utils, resnet
 from torchvision.models.segmentation.deeplabv3 import ASPP, DeepLabV3
 
-from composer.core.types import Batch
+from composer.core.types import BatchPair
 from composer.models.base import BaseMosaicModel
 from composer.models.loss import CrossEntropyLoss, MIoU, soft_cross_entropy
 from composer.models.model_hparams import Initializer
@@ -17,7 +17,7 @@ def deeplabv3_builder(num_classes: int,
                       backbone_arch: str = 'resnet101',
                       is_backbone_pretrained: bool = True,
                       sync_bn: bool = True,
-                      initializers: Optional[List[str]] = None):
+                      initializers: List[Initializer] = []):
     """Helper function to build a torchvision DeepLabV3 model with a 3x3 convolution layer and dropout removed.
 
     Args:
@@ -35,7 +35,7 @@ def deeplabv3_builder(num_classes: int,
         resnet.model_urls[backbone_arch] = "https://download.pytorch.org/models/resnet101-cd907fc2.pth"
     else:
         raise ValueError(f"backbone_arch must be one of ['resnet50', 'resnet101'] not {backbone_arch}")
-    backbone = resnet.__dict__[backbone_arch](pretrained=is_backbone_pretrained,
+    backbone = getattr(resnet, backbone_arch)(pretrained=is_backbone_pretrained,
                                               replace_stride_with_dilation=[False, True, True])
     backbone = _utils.IntermediateLayerGetter(backbone, return_layers={'layer4': 'out'})
 
@@ -81,14 +81,14 @@ class MosaicDeepLabV3(BaseMosaicModel):
                  backbone_arch: str = 'resnet101',
                  is_backbone_pretrained: bool = True,
                  sync_bn: bool = True,
-                 initializers: Optional[List[str]] = None):
+                 initializers: List[Initializer] = []):
 
         super().__init__()
         self.num_classes = num_classes
         self.model = deeplabv3_builder(
             backbone_arch=backbone_arch,
             is_backbone_pretrained=is_backbone_pretrained,
-            num_classes=num_classes,  # type: ignore
+            num_classes=num_classes,
             sync_bn=sync_bn,
             initializers=initializers)
 
@@ -98,15 +98,15 @@ class MosaicDeepLabV3(BaseMosaicModel):
         self.val_miou = MIoU(self.num_classes, ignore_index=-1)
         self.val_ce = CrossEntropyLoss(ignore_index=-1)
 
-    def forward(self, batch: Batch):
-        x = batch[0]  # type: ignore
+    def forward(self, batch: BatchPair):
+        x = batch[0]
         logits = self.model(x)['out']
         return logits
 
-    def loss(self, outputs: Any, batch: Batch):
+    def loss(self, outputs: Any, batch: BatchPair):
         """Calculate the specified loss for training.
         """
-        target = batch[1]  # type: ignore
+        target = batch[1]
         loss = soft_cross_entropy(outputs, target, ignore_index=-1)  # type: ignore
         return loss
 
@@ -116,10 +116,10 @@ class MosaicDeepLabV3(BaseMosaicModel):
         metric_list = [self.train_miou, self.train_ce] if train else [self.val_miou, self.val_ce]
         return MetricCollection(metric_list)
 
-    def validate(self, batch: Batch):
+    def validate(self, batch: BatchPair):
         """Generate outputs used during validation.
         """
         assert self.training is False, "For validation, model must be in eval mode"
-        target = batch[1]  # type: ignore
+        target = batch[1]
         logits = self.forward(batch)
         return logits, target

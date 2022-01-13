@@ -6,6 +6,7 @@ import pytest
 
 import composer
 from composer.datasets.hparams import DatasetHparams, SyntheticHparamsMixin
+from composer.models import DeepLabV3Hparams
 from composer.trainer import TrainerHparams
 from composer.trainer.devices import CPUDeviceHparams
 
@@ -46,7 +47,7 @@ class TestHparamsCreate:
         hparams.device = CPUDeviceHparams()
 
         # Manually set is_backbone_pretrained to false to prevent downloading pretrained weights during test
-        if hasattr(hparams, "model") and hasattr(hparams.model, "is_backbone_pretrained"):
+        if isinstance(hparams.model, DeepLabV3Hparams):
             hparams.model.is_backbone_pretrained = False
 
         hparams.initialize_object()

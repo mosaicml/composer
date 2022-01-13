@@ -14,6 +14,7 @@ from torch.utils.data import Dataset
 from torchvision import transforms
 
 from composer.datasets.hparams import DataloaderSpec, DatasetHparams, SyntheticHparamsMixin
+from composer.datasets.imagenet import IMAGENET_CHANNEL_MEAN, IMAGENET_CHANNEL_STD
 from composer.datasets.synthetic import SyntheticBatchPairDataset
 from composer.utils import ddp
 from composer.utils.data import NormalizationFn, pil_image_collate
@@ -59,9 +60,9 @@ class RandomCropPair(torch.nn.Module):
     def forward(self, sample: Tuple[Image.Image, Image.Image]):
         image, target = sample
         if image.height > self.crop_size[0] or image.width > self.crop_size[1]:
-            i, j, h, w = transforms.RandomCrop.get_params(image, output_size=self.crop_size)  # type: ignore
-            image = TF.crop(image, i, j, h, w)  # type: ignore
-            target = TF.crop(target, i, j, h, w)  # type: ignore
+            i, j, h, w = transforms.RandomCrop.get_params(image, output_size=self.crop_size)  # type: ignore - transform typing does not include PIL.Image
+            image = TF.crop(image, i, j, h, w)  # type: ignore - transform typing does not include PIL.Image
+            target = TF.crop(target, i, j, h, w)  # type: ignore - transform typing does not include PIL.Image
         return image, target
 
 
@@ -79,8 +80,8 @@ class RandomHFlipPair(torch.nn.Module):
     def forward(self, sample: Tuple[Image.Image, Image.Image]):
         image, target = sample
         if np.random.random_sample() > self.probability:
-            image = TF.hflip(image)  # type: ignore
-            target = TF.hflip(target)  # type: ignore
+            image = TF.hflip(image)  # type: ignore - transform typing does not include PIL.Image
+            target = TF.hflip(target)  # type: ignore - transform typing does not include PIL.Image
         return image, target
 
 
@@ -100,7 +101,7 @@ class PadToSize(torch.nn.Module):
     def forward(self, image: Image.Image):
         padding = max(self.size[0] - image.height, 0), max(self.size[1] - image.width, 0)
         padding = (padding[1] // 2, padding[0] // 2, ceil(padding[1] / 2), ceil(padding[0] / 2))
-        image = TF.pad(image, padding, fill=self.fill)  # type: ignore
+        image = TF.pad(image, padding, fill=self.fill)  # type: ignore - transform typing does not include PIL.Image
         return image
 
 
@@ -108,7 +109,7 @@ class PhotometricDistoration(torch.nn.Module):
     """Applies a combination of brightness, contrast, saturation, and hue jitters with random intensity.
 
     This is a less severe form of PyTorch's ColorJitter used by the mmsegmentation library here:
-    https://github.com/open-mmlab/mmsegmentation/blob/master/mmseg/datasets/pipelines/transforms.py#L835
+    https://github.com/open-mmlab/mmsegmentation/blob/master/mmseg/datasets/pipelines/transforms.py#L837
 
     Args:
         brightness (float): max and min to jitter brightness.
@@ -127,24 +128,24 @@ class PhotometricDistoration(torch.nn.Module):
     def forward(self, image: Image.Image):
         if np.random.randint(2):
             brightness_factor = np.random.uniform(1 - self.brightness, 1 + self.brightness)
-            image = TF.adjust_brightness(image, brightness_factor)  # type: ignore
+            image = TF.adjust_brightness(image, brightness_factor)  # type: ignore - transform typing does not include PIL.Image
 
         contrast_mode = np.random.randint(2)
         if contrast_mode == 1 and np.random.randint(2):
             contrast_factor = np.random.uniform(1 - self.contrast, 1 + self.contrast)
-            image = TF.adjust_contrast(image, contrast_factor)  # type: ignore
+            image = TF.adjust_contrast(image, contrast_factor)  # type: ignore - transform typing does not include PIL.Image
 
         if np.random.randint(2):
             saturation_factor = np.random.uniform(1 - self.saturation, 1 + self.saturation)
-            image = TF.adjust_saturation(image, saturation_factor)  # type: ignore
+            image = TF.adjust_saturation(image, saturation_factor)  # type: ignore - transform typing does not include PIL.Image
 
         if np.random.randint(2):
             hue_factor = np.random.uniform(-self.hue, self.hue)
-            image = TF.adjust_hue(image, hue_factor)  # type: ignore
+            image = TF.adjust_hue(image, hue_factor)  # type: ignore - transform typing does not include PIL.Image
 
         if contrast_mode == 0 and np.random.randint(2):
             contrast_factor = np.random.uniform(1 - self.contrast, 1 + self.contrast)
-            image = TF.adjust_contrast(image, contrast_factor)  # type: ignore
+            image = TF.adjust_contrast(image, contrast_factor)  # type: ignore - transform typing does not include PIL.Image
 
         return image
 
@@ -301,10 +302,13 @@ class ADE20kDatasetHparams(DatasetHparams, SyntheticHparamsMixin):
                     RandomCropPair(crop_size=(self.final_size, self.final_size)),
                     RandomHFlipPair(),
                 )
+
+                # Photometric distoration values come from mmsegmentation: https://github.com/open-mmlab/mmsegmentation/blob/master/mmseg/datasets/pipelines/transforms.py#L837
+                r_mean, g_mean, b_mean = IMAGENET_CHANNEL_MEAN
                 image_transforms = torch.nn.Sequential(
                     PhotometricDistoration(brightness=32. / 255, contrast=0.5, saturation=0.5, hue=18. / 255),
                     PadToSize(size=(self.final_size, self.final_size),
-                              fill=(int(0.485 * 255), int(0.456 * 255), int(0.406 * 255))))
+                              fill=(int(r_mean * 255), int(g_mean * 255), int(b_mean * 255))))
 
                 target_transforms = PadToSize(size=(self.final_size, self.final_size), fill=0)
             else:
@@ -314,10 +318,16 @@ class ADE20kDatasetHparams(DatasetHparams, SyntheticHparamsMixin):
                 target_transforms = transforms.Resize(size=(self.final_size, self.final_size),
                                                       interpolation=TF.InterpolationMode.NEAREST)
             collate_fn = pil_image_collate
-            device_transform_fn = NormalizationFn(self.ignore_background)
+            device_transform_fn = NormalizationFn(mean=IMAGENET_CHANNEL_MEAN,
+                                                  std=IMAGENET_CHANNEL_STD,
+                                                  ignore_background=self.ignore_background)
+
+            # Add check to avoid type ignore below
+            if self.datadir is None:
+                raise ValueError("datadir must specify the path to the ADE20k dataset.")
 
             dataset = ADE20k(
-                datadir=self.datadir,  # type: ignore
+                datadir=self.datadir,
                 split=self.split,
                 both_transforms=both_transforms,
                 image_transforms=image_transforms,

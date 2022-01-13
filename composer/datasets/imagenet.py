@@ -16,6 +16,9 @@ from composer.datasets.synthetic import SyntheticBatchPairDataset
 from composer.utils import ddp
 from composer.utils.data import NormalizationFn, pil_image_collate
 
+# ImageNet normalization values from torchvision: https://pytorch.org/vision/stable/models.html
+IMAGENET_CHANNEL_MEAN = (0.485 * 255, 0.456 * 255, 0.406 * 255)
+IMAGENET_CHANNEL_STD = (0.229 * 255, 0.224 * 255, 0.225 * 255)
 
 @dataclass
 class ImagenetDatasetHparams(DatasetHparams, SyntheticHparamsMixin):
@@ -65,7 +68,7 @@ class ImagenetDatasetHparams(DatasetHparams, SyntheticHparamsMixin):
                 ])
                 split = "val"
 
-            device_transform_fn = NormalizationFn()
+            device_transform_fn = NormalizationFn(mean=IMAGENET_CHANNEL_MEAN, std=IMAGENET_CHANNEL_STD)
             collate_fn = pil_image_collate
 
             if self.datadir is None:

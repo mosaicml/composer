@@ -30,14 +30,14 @@ class MIoU(Metric):
 
     """
 
-    def __init__(self, num_classes, ignore_index: int = -1):
+    def __init__(self, num_classes: int, ignore_index: int = -1):
         super().__init__(dist_sync_on_step=True)
         self.num_classes = num_classes
         self.ignore_index = ignore_index
         self.add_state("total_intersect", default=torch.zeros(num_classes, dtype=torch.float64), dist_reduce_fx="sum")
         self.add_state("total_union", default=torch.zeros(num_classes, dtype=torch.float64), dist_reduce_fx="sum")
 
-    def update(self, logits, targets):
+    def update(self, logits: Tensor, targets: Tensor):
         """Update the state with new predictions and targets.
         """
         preds = logits.argmax(dim=1)
@@ -57,7 +57,7 @@ class MIoU(Metric):
     def compute(self):
         """Aggregate state across all processes and compute final metric.
         """
-        return 100 * (self.total_intersect / self.total_union).mean()  # type: ignore
+        return 100 * (self.total_intersect / self.total_union).mean()
 
 
 class Dice(Metric):
