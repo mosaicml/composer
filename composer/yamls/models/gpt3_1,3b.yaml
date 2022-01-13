@@ -1,4 +1,4 @@
-# GPT3-125m with streaming C4 dataset
+# GPT3-1,3b with streaming C4 dataset
 
 train_dataset:
   streaming_lm:
@@ -6,7 +6,7 @@ train_dataset:
     dataset_config_name: en
     split: train
     max_shards: -1
-    max_samples: 5120  # 512sa * 10ba
+    max_samples: 10240000 # 512sa * 20000ba
     max_seq_len: 2048
     group_method: concat
     tokenizer_name: gpt2
@@ -20,14 +20,14 @@ val_dataset:
     dataset_config_name: en
     split: validation
     max_shards: -1
-    max_samples: 100
+    max_samples: 100000
     max_seq_len: 2048
     group_method: concat
     tokenizer_name: gpt2
     use_masked_lm: false
     seed: 17
     shuffle: false
-    drop_last: true
+    drop_last: false
 
 model:
   gpt2:
@@ -37,11 +37,11 @@ model:
       activation_function: gelu_new
       architectures:
         - GPT2LMHeadModel
-      attn_pdrop: 0.1
+      attn_pdrop: 0.0 # no regularization
       bos_token_id: 50256
-      embd_pdrop: 0.1
+      embd_pdrop: 0.0 # no regularization
       eos_token_id: 50256
-      initializer_range: 0.02
+      initializer_range: 0.01 # based on BigScience recommendation of sqrt(2/(n_embd*5))
       layer_norm_epsilon: 1.0e-05
       model_type: gpt2
       n_embd: 2048
@@ -49,10 +49,10 @@ model:
       n_inner: 8192
       n_layer: 24
       n_positions: 2048
-      resid_pdrop: 0.1
+      resid_pdrop: 0.0 # no regularization
       scale_attn_weights: true
       summary_activation: null
-      summary_first_dropout: 0.1
+      summary_first_dropout: 0.0 # no regularization
       summary_proj_to_labels: true
       summary_type: cls_index
       summary_use_proj: true
@@ -61,48 +61,40 @@ model:
           do_sample: true
           max_length: 50
       transformers_version: 4.11.0.dev0
-      use_cache: true
+      use_cache: false
       vocab_size: 50257
 optimizer:
   decoupled_adamw:
     lr: 2.0e-4
     betas:
       - 0.9
-      - 0.95
+      - 0.95 # for stability
     eps: 1.0e-08
-    weight_decay: 0.0
+    weight_decay: 0.0 # no regularization
 schedulers:
   - warmup:
       warmup_method: linear
-      warmup_iters: 0.2dur
+      warmup_iters: 0.01dur
       warmup_factor: 0
       interval: batch
-  - linear_decay:
-      start_factor: 1.0
-      end_factor: 0.0
-      total_iters: 0.8dur
+  - constant:
       interval: batch
-      verbose: false
 loggers:
   - file:
       log_level: batch
       filename: stdout
       buffer_size: 1
       flush_every_n_batches: 100
-      every_n_batches: 1
+      every_n_batches: 100
       every_n_epochs: 1
 max_duration: 1ep
-train_batch_size: 512
-eval_batch_size: 8 # use micro_bs_per_gpu = 1 to accomodate 10GB limit
+train_batch_size: 512 # 512sa * 2048tok ~= 1M tok
+eval_batch_size: 8 # micro_bs_per_gpu = 1 for safety
 seed: 17
 device:
   gpu: {}
 deepspeed:
-  zero_stage: 0
-  # optimizer_offload: true
-  # parameter_offload: true
-  # overlap_comm: false
-  # gradient_checkpointing: false
+  zero_stage: 1
 dataloader:
   pin_memory: true
   persistent_workers: true
@@ -111,6 +103,6 @@ dataloader:
   prefetch_factor: 2
 precision: fp16
 grad_clip_norm: 1.0
-grad_accum: 1
-validate_every_n_batches: 3
+grad_accum: 32 # micro_bs=2 for A100-80GB
+validate_every_n_batches: 1000
 validate_every_n_epochs: 1
