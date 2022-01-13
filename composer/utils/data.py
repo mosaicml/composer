@@ -65,10 +65,11 @@ def get_device_of_batch(batch: Batch) -> torch.device:
     if isinstance(batch, Tensor):
         return batch.device
     if isinstance(batch, (tuple, list)):  # BatchPair
-        if isinstance(batch, Tensor):
-            return batch.device
-        for x in ensure_tuple(batch):
-            return get_device_of_batch(x)
+        for sample in ensure_tuple(batch):
+            for x in ensure_tuple(sample):
+                for tensor in ensure_tuple(x):
+                    return tensor.device
+
     if isinstance(batch, dict):  # BatchDict
         for x in batch.values():
             return x.device
