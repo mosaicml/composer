@@ -35,9 +35,8 @@ class DeepLabV3Hparams(ModelHparams):
         if self.num_classes is None:
             raise ValueError("num_classes must be specified")
 
-        return MosaicDeepLabV3(
-            num_classes=self.num_classes,
-            backbone_arch=self.backbone_arch,
-            is_backbone_pretrained=self.is_backbone_pretrained,
-            sync_bn=self.sync_bn,
-            initializers=self.initializers)
+        return MosaicDeepLabV3(num_classes=self.num_classes,
+                               backbone_arch=self.backbone_arch,
+                               is_backbone_pretrained=self.is_backbone_pretrained,
+                               sync_bn=self.sync_bn,
+                               initializers=self.initializers)

@@ -42,7 +42,7 @@ def test_masked_accuracy(batch_size, ignore_index, num_classes):
 
     torchmetrics_masked_acc.update(generated_preds, true_labels)
     final_acc = torchmetrics_masked_acc.compute()
-    assert abs(final_acc - (1.0 / num_classes)) < 0.01
+    assert abs(final_acc - (1.0 / num_classes)) < 0.02
 
 
 @pytest.mark.parametrize("ignore_index", [-100])

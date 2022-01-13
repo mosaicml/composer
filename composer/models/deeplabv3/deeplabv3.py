@@ -85,12 +85,11 @@ class MosaicDeepLabV3(BaseMosaicModel):
 
         super().__init__()
         self.num_classes = num_classes
-        self.model = deeplabv3_builder(
-            backbone_arch=backbone_arch,
-            is_backbone_pretrained=is_backbone_pretrained,
-            num_classes=num_classes,
-            sync_bn=sync_bn,
-            initializers=initializers)
+        self.model = deeplabv3_builder(backbone_arch=backbone_arch,
+                                       is_backbone_pretrained=is_backbone_pretrained,
+                                       num_classes=num_classes,
+                                       sync_bn=sync_bn,
+                                       initializers=initializers)
 
         # Metrics
         self.train_miou = MIoU(self.num_classes, ignore_index=-1)
