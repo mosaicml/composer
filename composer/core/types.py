@@ -7,7 +7,7 @@ See :doc:`/core/types` for documentation.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Callable, Dict, Iterable, Iterator, List, Optional, Tuple, Union
+from typing import TYPE_CHECKING, Any, Dict, Iterable, Iterator, List, Optional, Tuple, Union
 
 import torch
 import torch.utils.data
@@ -15,6 +15,7 @@ from torchmetrics.collections import MetricCollection
 from torchmetrics.metric import Metric
 
 from composer.core.algorithm import Algorithm as Algorithm
+from composer.core.data_spec import DataSpec as DataSpec
 from composer.core.event import Event as Event
 from composer.core.logging import Logger as Logger
 from composer.core.precision import Precision as Precision
@@ -22,6 +23,7 @@ from composer.core.serializable import Serializable as Serializable
 from composer.core.state import State as State
 from composer.core.time import Time as Time
 from composer.core.time import Timer as Timer
+from composer.core.time import TimeUnit as TimeUnit
 from composer.utils.string_enum import StringEnum
 
 try:
@@ -152,8 +154,6 @@ Model = torch.nn.Module
 ModelParameters = Union[Iterable[Tensor], Iterable[Dict[str, Tensor]]]
 
 JSON = Union[str, float, int, None, List['JSON'], Dict[str, 'JSON']]
-
-TDeviceTransformFn = Callable[[Batch], Batch]
 
 StateDict = Dict[str, Any]
 

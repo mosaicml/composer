@@ -10,15 +10,17 @@ import yahp as hp
 from torchvision import transforms
 from torchvision.datasets import ImageFolder
 
+from composer.core.types import DataSpec
 from composer.datasets.dataloader import DataloaderHparams
-from composer.datasets.hparams import DataloaderSpec, DatasetHparams, SyntheticHparamsMixin
+from composer.datasets.hparams import DatasetHparams, SyntheticHparamsMixin
 from composer.datasets.synthetic import SyntheticBatchPairDataset
-from composer.utils import ddp
+from composer.utils import dist
 from composer.utils.data import NormalizationFn, pil_image_collate
 
 # ImageNet normalization values from torchvision: https://pytorch.org/vision/stable/models.html
 IMAGENET_CHANNEL_MEAN = (0.485 * 255, 0.456 * 255, 0.406 * 255)
 IMAGENET_CHANNEL_STD = (0.229 * 255, 0.224 * 255, 0.225 * 255)
+
 
 @dataclass
 class ImagenetDatasetHparams(DatasetHparams, SyntheticHparamsMixin):
@@ -31,7 +33,7 @@ class ImagenetDatasetHparams(DatasetHparams, SyntheticHparamsMixin):
     resize_size: int = hp.optional("resize size. Set to -1 to not resize", default=-1)
     crop_size: int = hp.optional("crop size", default=224)
 
-    def initialize_object(self, batch_size: int, dataloader_hparams: DataloaderHparams) -> DataloaderSpec:
+    def initialize_object(self, batch_size: int, dataloader_hparams: DataloaderHparams):
 
         if self.use_synthetic:
             total_dataset_size = 1_281_167 if self.is_train else 50_000
@@ -74,13 +76,13 @@ class ImagenetDatasetHparams(DatasetHparams, SyntheticHparamsMixin):
             if self.datadir is None:
                 raise ValueError("datadir must be specified if self.synthetic is False")
             dataset = ImageFolder(os.path.join(self.datadir, split), transformation)
-        sampler = ddp.get_sampler(dataset, drop_last=self.drop_last, shuffle=self.shuffle)
+        sampler = dist.get_sampler(dataset, drop_last=self.drop_last, shuffle=self.shuffle)
 
-        return DataloaderSpec(dataloader=dataloader_hparams.initialize_object(
+        return DataSpec(dataloader=dataloader_hparams.initialize_object(
             dataset=dataset,
             batch_size=batch_size,
             sampler=sampler,
             drop_last=self.drop_last,
             collate_fn=collate_fn,
         ),
-                              device_transform_fn=device_transform_fn)
+                        device_transforms=device_transform_fn)

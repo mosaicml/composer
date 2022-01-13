@@ -8,7 +8,8 @@ from composer.trainer.trainer_hparams import model_registry
 
 @pytest.mark.parametrize("model_name", model_registry.keys())
 def test_model_registry(model_name, request):
-    if model_name == 'gpt2':  # do not pull from HF model hub
+    # TODO (Moin + Ravi): create dummy versions of these models to pass unit tests
+    if model_name in ['gpt2', 'bert', 'bert_classification']:  # do not pull from HF model hub
         request.applymarker(pytest.mark.xfail())
 
     # create the model hparams object
@@ -16,6 +17,7 @@ def test_model_registry(model_name, request):
 
     requires_num_classes = set([
         "deeplabv3",
+        "resnet9_cifar10",
         "resnet56_cifar10",
         "efficientnetb0",
         "resnet101",

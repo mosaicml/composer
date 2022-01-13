@@ -1,7 +1,7 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
 import collections.abc
-from typing import List, Optional, Tuple, Union
+from typing import List, Tuple, Union
 
 import numpy as np
 import torch
@@ -23,9 +23,9 @@ class NormalizationFn:
 
     """
 
-    def __init__(self, 
-                 mean: Tuple[float, float, float], 
-                 std: Tuple[float, float, float], 
+    def __init__(self,
+                 mean: Tuple[float, float, float],
+                 std: Tuple[float, float, float],
                  ignore_background: bool = False):
         self.mean = mean
         self.std = std

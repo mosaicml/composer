@@ -15,7 +15,7 @@ from composer.trainer.devices.device import Device
 from composer.trainer.devices.device_gpu import DeviceGPU
 from composer.trainer.trainer import Trainer
 from composer.trainer.trainer_hparams import TrainerHparams
-from composer.utils import ddp, ensure_tuple
+from composer.utils import dist, ensure_tuple
 
 
 def get_total_loss(model: BaseMosaicModel, dataloader: DataLoader, device: Device):
@@ -29,8 +29,8 @@ def get_total_loss(model: BaseMosaicModel, dataloader: DataLoader, device: Devic
                 total_loss += l.item()
 
         total_loss_tensor = device.tensor_to_device(torch.Tensor([total_loss]))
-        ddp.all_reduce(total_loss_tensor)
-        return total_loss_tensor.item() / ddp.get_world_size()
+        dist.all_reduce(total_loss_tensor)
+        return total_loss_tensor.item() / dist.get_world_size()
 
 
 def train_model(mosaic_trainer_hparams: TrainerHparams, max_epochs: int = 2, run_loss_check: bool = False):
@@ -43,7 +43,7 @@ def train_model(mosaic_trainer_hparams: TrainerHparams, max_epochs: int = 2, run
     mosaic_trainer_hparams.model = MnistClassifierHparams(num_classes=10)
     mosaic_trainer_hparams.optimizer = SGDHparams(lr=1e-2)
     mosaic_trainer_hparams.train_batch_size = total_dataset_size  # one batch per epoch
-    mosaic_trainer_hparams.max_epochs = max_epochs
+    mosaic_trainer_hparams.max_duration = f"{max_epochs}ep"
     # Don't validate
     mosaic_trainer_hparams.validate_every_n_epochs = max_epochs + 1
 

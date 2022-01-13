@@ -2,6 +2,9 @@
 
 from composer.models.base import BaseMosaicModel as BaseMosaicModel
 from composer.models.base import MosaicClassifier as MosaicClassifier
+from composer.models.bert import BERTForClassificationHparams as BERTForClassificationHparams
+from composer.models.bert import BERTHparams as BERTHparams
+from composer.models.bert import BERTModel as BERTModel
 from composer.models.classify_mnist import MNIST_Classifier as MNIST_Classifier
 from composer.models.classify_mnist import MnistClassifierHparams as MnistClassifierHparams
 from composer.models.deeplabv3 import DeepLabV3Hparams as DeepLabV3Hparams
@@ -12,6 +15,8 @@ from composer.models.gpt2 import GPT2Hparams as GPT2Hparams
 from composer.models.gpt2 import GPT2Model as GPT2Model
 from composer.models.model_hparams import Initializer as Initializer
 from composer.models.model_hparams import ModelHparams as ModelHparams
+from composer.models.resnet9_cifar10 import CIFAR10_ResNet9 as CIFAR10_ResNet9
+from composer.models.resnet9_cifar10 import CIFARResNet9Hparams as CIFARResNet9Hparams
 from composer.models.resnet18 import ResNet18 as ResNet18
 from composer.models.resnet18 import ResNet18Hparams as ResNet18Hparams
 from composer.models.resnet50 import ResNet50 as ResNet50

@@ -1,6 +1,6 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
-from typing import List, Optional
+from typing import List, Optional, Sequence
 
 import pytest
 import torch
@@ -13,7 +13,6 @@ from composer.algorithms.stochastic_depth.stochastic_layers import StochasticBot
 from composer.core import Event, Logger, State, surgery
 from composer.core.types import Precision
 from composer.datasets.dataloader import DataloaderHparams
-from composer.datasets.hparams import DataloaderSpec
 from composer.datasets.imagenet import ImagenetDatasetHparams
 from composer.loggers import Logger
 from composer.models import ResNet50Hparams
@@ -29,23 +28,21 @@ def dummy_state(dummy_dataloader_hparams: DataloaderHparams):
         resize_size=256,
         crop_size=224,
     )
-    train_dataloader = dataset_hparams.initialize_object(batch_size=100, dataloader_hparams=dummy_dataloader_hparams)
-    if isinstance(train_dataloader, DataloaderSpec):
-        train_dataloader = train_dataloader.dataloader
+    train_dataloader = dataset_hparams.initialize_object(batch_size=100,
+                                                         dataloader_hparams=dummy_dataloader_hparams).dataloader
     state = State(train_dataloader=train_dataloader,
                   grad_accum=1,
-                  max_epochs=100,
+                  max_duration="100ep",
                   model=model,
                   eval_dataloader=train_dataloader,
                   precision=Precision.FP32)
-    state.epoch = 50
-    state.step = 50
     return state
 
 
 @pytest.mark.parametrize('stochastic_method', ['block', 'sample'])
 @pytest.mark.parametrize('target_layer_name', ['ResNetBottleneck'])
-def test_stochastic_depth_bottleneck_replacement(dummy_state, stochastic_method, target_layer_name, noop_dummy_logger):
+def test_stochastic_depth_bottleneck_replacement(dummy_state: State, stochastic_method: str, target_layer_name: str,
+                                                 noop_dummy_logger: Logger):
     target_layer, stochastic_layer = STOCHASTIC_LAYER_MAPPING[stochastic_method][target_layer_name]
     target_block_count = surgery.count_module_instances(dummy_state.model, target_layer)
 
@@ -76,7 +73,7 @@ def probability():
     return 0.5
 
 
-def test_sample_bernoulli_use_same_gpu_seed(probability, device_ids, module_ids):
+def test_sample_bernoulli_use_same_gpu_seed(probability: float, device_ids, module_ids):
     mask_matrix = torch.zeros(len(device_ids), len(module_ids))
     for device_id in device_ids:
         torch.manual_seed(0)  # Simulates each device having the same random_seed as is the case with DDP
@@ -93,15 +90,16 @@ def test_sample_bernoulli_use_same_gpu_seed(probability, device_ids, module_ids)
     assert torch.unique(mask_matrix, dim=0).size(0) == 1
 
 
-def test_sample_bernoulli_devices_not_same_gpu(probability, device_ids, module_ids):
+def test_sample_bernoulli_devices_not_same_gpu(probability: float, device_ids: Sequence[torch.Tensor],
+                                               module_ids: Sequence[torch.Tensor]):
     mask_matrix = torch.zeros(len(device_ids), len(module_ids))
     for device_id in device_ids:
         torch.manual_seed(0)  # Simulates each device having the same random_seed as is the case with DDP
         for module_id in module_ids:
             generator = torch.Generator().manual_seed(144385)
             mask_matrix[device_id, module_id] = _sample_bernoulli(probability=torch.tensor(probability),
-                                                                  device_id=device_id.item(),
-                                                                  module_id=module_id.item(),
+                                                                  device_id=int(device_id.item()),
+                                                                  module_id=int(module_id.item()),
                                                                   num_modules=len(module_ids),
                                                                   generator=generator,
                                                                   use_same_gpu_seed=False,
@@ -200,11 +198,12 @@ def get_drop_rate_list(module: torch.nn.Module, drop_rates: Optional[List] = Non
 @pytest.mark.parametrize("drop_distribution", ['uniform', 'linear'])
 @pytest.mark.parametrize("use_same_gpu_seed", [True])
 @pytest.mark.parametrize("drop_warmup", [0.1])
-def test_drop_rate_warmup(step, dummy_hparams, dummy_state, noop_dummy_logger: Logger):
+def test_drop_rate_warmup(step: int, dummy_hparams: StochasticDepthHparams, dummy_state: State,
+                          noop_dummy_logger: Logger):
     dummy_algorithm = dummy_hparams.initialize_object()
     old_drop_rates = []
     get_drop_rate_list(dummy_state.model, drop_rates=old_drop_rates)
-    dummy_state.step = step
+    dummy_state.timer._batch._value = step
     dummy_algorithm.apply(Event.BATCH_START, dummy_state, noop_dummy_logger)
     new_drop_rates = []
     get_drop_rate_list(dummy_state.model, drop_rates=new_drop_rates)
@@ -214,21 +213,21 @@ def test_drop_rate_warmup(step, dummy_hparams, dummy_state, noop_dummy_logger: L
 
 
 @pytest.mark.parametrize("stochastic_method", ['nonsense'])
-def test_invalid_method_name(stochastic_method, target_layer_name):
+def test_invalid_method_name(stochastic_method: str, target_layer_name: str):
     with pytest.raises(ValueError):
         sd_hparams = StochasticDepthHparams(stochastic_method=stochastic_method, target_layer_name=target_layer_name)
         sd_hparams.validate()
 
 
 @pytest.mark.parametrize("target_layer_name", ['nonsense_pt2'])
-def test_invalid_layer_name(stochastic_method, target_layer_name):
+def test_invalid_layer_name(stochastic_method: str, target_layer_name: str):
     with pytest.raises(ValueError):
         sd_hparams = StochasticDepthHparams(stochastic_method=stochastic_method, target_layer_name=target_layer_name)
         sd_hparams.validate()
 
 
 @pytest.mark.parametrize("drop_rate", [-0.5, 1.7])
-def test_invalid_drop_rate(stochastic_method, target_layer_name, drop_rate):
+def test_invalid_drop_rate(stochastic_method: str, target_layer_name: str, drop_rate: float):
     with pytest.raises(ValueError):
         sd_hparams = StochasticDepthHparams(stochastic_method=stochastic_method,
                                             target_layer_name=target_layer_name,
@@ -237,7 +236,7 @@ def test_invalid_drop_rate(stochastic_method, target_layer_name, drop_rate):
 
 
 @pytest.mark.parametrize("drop_distribution", ['nonsense_pt3'])
-def test_invalid_drop_distribution(stochastic_method, target_layer_name, drop_distribution):
+def test_invalid_drop_distribution(stochastic_method: str, target_layer_name: str, drop_distribution: str):
     with pytest.raises(ValueError):
         sd_hparams = StochasticDepthHparams(stochastic_method=stochastic_method,
                                             target_layer_name=target_layer_name,
@@ -246,7 +245,7 @@ def test_invalid_drop_distribution(stochastic_method, target_layer_name, drop_di
 
 
 @pytest.mark.parametrize("drop_warmup", [-0.5, 1.7])
-def test_invalid_drop_warmup(stochastic_method, target_layer_name, drop_warmup):
+def test_invalid_drop_warmup(stochastic_method: str, target_layer_name: str, drop_warmup: float):
     with pytest.raises(ValueError):
         sd_hparams = StochasticDepthHparams(stochastic_method,
                                             target_layer_name=target_layer_name,

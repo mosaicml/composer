@@ -1,13 +1,12 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
 from collections import defaultdict
-from typing import Callable
 
 import torch
 from torch.cuda.amp.grad_scaler import GradScaler, OptState, _refresh_per_optimizer_state
 from torch.optim import Optimizer
 
-from composer.core.types import Tensor
+from composer.utils import dist
 
 
 class ClosureGradScaler(GradScaler):
@@ -29,12 +28,6 @@ class ClosureGradScaler(GradScaler):
             `inf/nan` information stored in tensors across devices.
 
     """
-
-    def __init__(self, ddp_reduce_scalar_and: Callable[[bool], bool], ddp_reduce_tensor_sum: Callable[[Tensor], Tensor],
-                 **kwargs):
-        self.ddp_reduce_scalar_and = ddp_reduce_scalar_and
-        self.ddp_reduce_tensor_sum = ddp_reduce_tensor_sum
-        super().__init__(**kwargs)
 
     def _force_scaler_ready(self, optimizer: Optimizer):
         optimizer_state = self._per_optimizer_states[id(optimizer)]
@@ -77,9 +70,9 @@ class ClosureGradScaler(GradScaler):
             retval: float = closure(**kwargs)
 
             should_continue = self._unscale_grads_and_continue(optimizer)
-            should_continue = self.ddp_reduce_scalar_and(should_continue)
+            other_should_continue = dist.all_gather_object(should_continue)
 
-            return retval if should_continue else None
+            return retval if all(other_should_continue) else None
 
         return optimizer.step(closure=_amp_closure)  # type: ignore
 
@@ -136,7 +129,7 @@ class ClosureGradScaler(GradScaler):
                     found_inf_combined += found_infs[i]
 
             # This is the only line changed from original grad_scaler implementation
-            found_inf_combined = self.ddp_reduce_tensor_sum(found_inf_combined)
+            dist.all_reduce(found_inf_combined, reduce_operation="SUM")
 
             torch._amp_update_scale_(_scale, _growth_tracker, found_inf_combined, self._growth_factor,
                                      self._backoff_factor, self._growth_interval)

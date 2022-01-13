@@ -13,10 +13,11 @@ from PIL import Image
 from torch.utils.data import Dataset
 from torchvision import transforms
 
-from composer.datasets.hparams import DataloaderSpec, DatasetHparams, SyntheticHparamsMixin
+from composer.core.types import DataSpec
+from composer.datasets.hparams import DatasetHparams, SyntheticHparamsMixin
 from composer.datasets.imagenet import IMAGENET_CHANNEL_MEAN, IMAGENET_CHANNEL_STD
 from composer.datasets.synthetic import SyntheticBatchPairDataset
-from composer.utils import ddp
+from composer.utils import dist
 from composer.utils.data import NormalizationFn, pil_image_collate
 
 
@@ -60,7 +61,8 @@ class RandomCropPair(torch.nn.Module):
     def forward(self, sample: Tuple[Image.Image, Image.Image]):
         image, target = sample
         if image.height > self.crop_size[0] or image.width > self.crop_size[1]:
-            i, j, h, w = transforms.RandomCrop.get_params(image, output_size=self.crop_size)  # type: ignore - transform typing does not include PIL.Image
+            i, j, h, w = transforms.RandomCrop.get_params(
+                image, output_size=self.crop_size)  # type: ignore - transform typing does not include PIL.Image
             image = TF.crop(image, i, j, h, w)  # type: ignore - transform typing does not include PIL.Image
             target = TF.crop(target, i, j, h, w)  # type: ignore - transform typing does not include PIL.Image
         return image, target
@@ -128,16 +130,20 @@ class PhotometricDistoration(torch.nn.Module):
     def forward(self, image: Image.Image):
         if np.random.randint(2):
             brightness_factor = np.random.uniform(1 - self.brightness, 1 + self.brightness)
-            image = TF.adjust_brightness(image, brightness_factor)  # type: ignore - transform typing does not include PIL.Image
+            image = TF.adjust_brightness(
+                image, brightness_factor)  # type: ignore - transform typing does not include PIL.Image
 
         contrast_mode = np.random.randint(2)
         if contrast_mode == 1 and np.random.randint(2):
             contrast_factor = np.random.uniform(1 - self.contrast, 1 + self.contrast)
-            image = TF.adjust_contrast(image, contrast_factor)  # type: ignore - transform typing does not include PIL.Image
+            image = TF.adjust_contrast(
+                image,  # type: ignore - transform typing does not include PIL.Image
+                contrast_factor)
 
         if np.random.randint(2):
             saturation_factor = np.random.uniform(1 - self.saturation, 1 + self.saturation)
-            image = TF.adjust_saturation(image, saturation_factor)  # type: ignore - transform typing does not include PIL.Image
+            image = TF.adjust_saturation(
+                image, saturation_factor)  # type: ignore - transform typing does not include PIL.Image
 
         if np.random.randint(2):
             hue_factor = np.random.uniform(-self.hue, self.hue)
@@ -145,7 +151,9 @@ class PhotometricDistoration(torch.nn.Module):
 
         if contrast_mode == 0 and np.random.randint(2):
             contrast_factor = np.random.uniform(1 - self.contrast, 1 + self.contrast)
-            image = TF.adjust_contrast(image, contrast_factor)  # type: ignore - transform typing does not include PIL.Image
+            image = TF.adjust_contrast(
+                image,  # type: ignore - transform typing does not include PIL.Image
+                contrast_factor)
 
         return image
 
@@ -269,7 +277,7 @@ class ADE20kDatasetHparams(DatasetHparams, SyntheticHparamsMixin):
         if self.max_resize_scale < self.min_resize_scale:
             raise ValueError("max_resize_scale cannot be less than min_resize_scale")
 
-    def initialize_object(self, batch_size, dataloader_hparams) -> DataloaderSpec:
+    def initialize_object(self, batch_size, dataloader_hparams) -> DataSpec:
         self.validate()
 
         if self.use_synthetic:
@@ -326,16 +334,15 @@ class ADE20kDatasetHparams(DatasetHparams, SyntheticHparamsMixin):
             if self.datadir is None:
                 raise ValueError("datadir must specify the path to the ADE20k dataset.")
 
-            dataset = ADE20k(
-                datadir=self.datadir,
-                split=self.split,
-                both_transforms=both_transforms,
-                image_transforms=image_transforms,
-                target_transforms=target_transforms)
-        sampler = ddp.get_sampler(dataset, drop_last=self.drop_last, shuffle=self.shuffle)
-        return DataloaderSpec(dataloader=dataloader_hparams.initialize_object(dataset=dataset,
-                                                                              batch_size=batch_size,
-                                                                              sampler=sampler,
-                                                                              collate_fn=collate_fn,
-                                                                              drop_last=self.drop_last),
-                              device_transform_fn=device_transform_fn)
+            dataset = ADE20k(datadir=self.datadir,
+                             split=self.split,
+                             both_transforms=both_transforms,
+                             image_transforms=image_transforms,
+                             target_transforms=target_transforms)
+        sampler = dist.get_sampler(dataset, drop_last=self.drop_last, shuffle=self.shuffle)
+        return DataSpec(dataloader=dataloader_hparams.initialize_object(dataset=dataset,
+                                                                        batch_size=batch_size,
+                                                                        sampler=sampler,
+                                                                        collate_fn=collate_fn,
+                                                                        drop_last=self.drop_last),
+                        device_transforms=device_transform_fn)

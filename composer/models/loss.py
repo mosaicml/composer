@@ -57,7 +57,7 @@ class MIoU(Metric):
     def compute(self):
         """Aggregate state across all processes and compute final metric.
         """
-        return 100 * (self.total_intersect / self.total_union).mean()
+        return 100 * (self.total_intersect / self.total_union).mean()  # type: ignore - / unsupported for Tensor|Module
 
 
 class Dice(Metric):

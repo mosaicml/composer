@@ -11,7 +11,7 @@ from composer.callbacks.callback_hparams import BenchmarkerHparams
 from composer.core import Logger, State
 from composer.core.callback import Callback
 from composer.core.types import BreakEpochException
-from composer.utils import ddp
+from composer.utils import dist
 
 log = logging.getLogger(__name__)
 
@@ -45,8 +45,7 @@ class Benchmarker(Callback):
 
     Args:
         min_steps (int, optional):
-            Maximum number of steps to profile per epoch, regardless of the length of
-            regardless of the length of :attr:`step_list`.
+            Maximum number of steps to profile per epoch, regardless of the length of :attr:`step_list`.
             Defaults to 50.
         epoch_list (Sequence[int], optional).
             List of epochs at which to measure throughput.
@@ -128,7 +127,7 @@ class Benchmarker(Callback):
             self.epoch_list = list(range(state.max_epochs))
             log.info(f"all_epochs=True, overriding epoch_list to be every epoch from 0 to {state.max_epochs}")
         self.wct_dict = {e: {s: -1.0 for s in self.step_list} for e in self.epoch_list}
-        state.max_epochs = len(self.epoch_list)
+        state.max_duration = f"{len(self.epoch_list)}ep"
 
     def epoch_end(self, state: State, logger: Logger):
         prev_epoch = self.epoch_list[self.epoch_ix]
@@ -139,8 +138,8 @@ class Benchmarker(Callback):
         else:
             next_epoch = self.original_max_epochs
 
-        state.epoch = next_epoch - 1
-        state.step = next_epoch * state.steps_per_epoch
+        state.timer.epoch._value = next_epoch - 1
+        state.timer.batch._value = next_epoch * state.steps_per_epoch
         n_epochs = next_epoch - prev_epoch
 
         self.wall_clock_train += self._compute_elapsed_wct(epoch_wct_dict, state.steps_per_epoch, n_epochs)
@@ -159,7 +158,7 @@ class Benchmarker(Callback):
             now = time.time()
             elapsed = now - self.current_time
             self.current_time = now
-            self.profile_examples += state.last_batch_size * ddp.get_world_size()
+            self.profile_examples += state.last_batch_size * dist.get_world_size()
             self.profile_steps += 1
             self.profile_time += elapsed
 
@@ -177,4 +176,5 @@ class Benchmarker(Callback):
                     self.step_ix = 0
                     raise BreakEpochException
                 else:
-                    state.step = state.epoch * state.steps_per_epoch + self.step_list[self.step_ix]
+                    state.timer.batch._value = state.epoch * state.steps_per_epoch + self.step_list[self.step_ix]
+                    state.timer.batch_in_epoch._value = self.step_list[self.step_ix]

@@ -25,7 +25,7 @@ def test_trainer_init_all_defaults(dummy_train_dataloader: DataLoader, dummy_val
     trainer = Trainer(model=dummy_model,
                       train_dataloader=dummy_train_dataloader,
                       eval_dataloader=dummy_val_dataloader,
-                      max_epochs=10)
+                      max_duration="10ep")
 
     assert isinstance(trainer, Trainer)
 
@@ -36,7 +36,7 @@ def test_trainer_init_additional_args(dummy_train_dataloader: DataLoader, dummy_
         model=dummy_model,
         train_dataloader=dummy_train_dataloader,
         eval_dataloader=dummy_val_dataloader,
-        max_epochs=10,
+        max_duration="10ep",
         optimizer_hparams=AdamHparams(),
         schedulers_hparams=[ExponentialLRHparams(gamma=0.1)],
         log_destinations=[TQDMLoggerBackend()],
@@ -69,12 +69,12 @@ def test_trainer_validation(mosaic_trainer_hparams: TrainerHparams, invalid_hpar
         mosaic_trainer_hparams.validate()
 
 
-@pytest.mark.filterwarnings("ignore:Deterministic mode is activated:UserWarning")
 @pytest.mark.timeout(90)
-def test_trainer_determinism(mosaic_trainer_hparams: TrainerHparams):
+@pytest.mark.parametrize("device", [CPUDeviceHparams(), pytest.param(GPUDeviceHparams(), marks=pytest.mark.gpu)])
+def test_trainer_determinism(mosaic_trainer_hparams: TrainerHparams, device: DeviceHparams):
     mosaic_trainer_hparams.seed = 10
-    mosaic_trainer_hparams.deterministic_mode = True
-    mosaic_trainer_hparams.max_epochs = 2
+    mosaic_trainer_hparams.device = device
+    mosaic_trainer_hparams.max_duration = "2ep"
 
     first_trainer = Trainer.create_from_hparams(mosaic_trainer_hparams)
     first_trainer.fit()
