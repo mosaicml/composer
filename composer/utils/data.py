@@ -2,10 +2,12 @@
 
 import collections.abc
 
+import torch
 import torch.utils.data
 from torchvision import transforms
 
-from composer.core.types import Dataset
+from composer.core.types import Batch, Dataset, Tensor
+from composer.utils.iter_helpers import ensure_tuple
 
 
 def add_dataset_transform(dataset, transform):
@@ -49,3 +51,25 @@ def get_subset_dataset(size: int, dataset: Dataset):
         raise ValueError(f"The dataset length ({len(dataset)}) is less than the requested size ({size}).")
     dataset = torch.utils.data.Subset(dataset, list(range(size)))
     return dataset
+
+
+def get_device_of_batch(batch: Batch) -> torch.device:
+    """Returns the :class:`torch.device` of the batch.
+
+    Args:
+        batch (Batch): The batch to determine the device of.
+
+    Returns:
+        torch.device: The device that the batch is on.
+    """
+    if isinstance(batch, Tensor):
+        return batch.device
+    if isinstance(batch, (tuple, list)):  # BatchPair
+        if isinstance(batch, Tensor):
+            return batch.device
+        for x in ensure_tuple(batch):
+            return get_device_of_batch(x)
+    if isinstance(batch, dict):  # BatchDict
+        for x in batch.values():
+            return x.device
+    raise TypeError(f"Unsupported type for batch: {type(batch)}")
