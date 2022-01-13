@@ -3,14 +3,14 @@
 from dataclasses import dataclass
 import yahp as hp
 
-from composer.models.model_hparams import ModelHparams
-
 
 @dataclass
-class ViTSmallPatch16Hparams(ModelHparams):
+class ViTSmallPatch16Hparams(hp.Hparams):
     
     image_size: int = hp.required("input image size. If you have rectangular images, make sure your image size is the maximum of the width and height")
     channels: int = hp.required("number of  image channels")
+    num_classes: int = hp.required("The number of classes.  Needed for classification tasks")
+    
     dropout: float = hp.optional("dropout rate", default=0.0)
     embedding_dropout: float = hp.optional("embedding dropout rate", default=0.0)
 
