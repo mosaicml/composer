@@ -41,16 +41,16 @@ def configure_dist(request: pytest.FixtureRequest):
             os.environ["MASTER_PORT"] = str(26000)
         import deepspeed
         deepspeed.init_distributed(timeout=DIST_TIMEOUT)
+        return
 
-    if is_gpu:
-        assert not is_deepspeed
-        backend = "nccl" if is_gpu else "gloo"
-        if not torch.distributed.is_initialized():
-            if "RANK" in os.environ and "WORLD_SIZE" in os.environ:
-                torch.distributed.init_process_group(backend, timeout=DIST_TIMEOUT)
-            else:
-                store = torch.distributed.HashStore()
-                torch.distributed.init_process_group(backend, timeout=DIST_TIMEOUT, store=store, world_size=1, rank=0)
+    assert not is_deepspeed
+    backend = "nccl" if is_gpu else "gloo"
+    if not torch.distributed.is_initialized():
+        if "RANK" in os.environ and "WORLD_SIZE" in os.environ:
+            torch.distributed.init_process_group(backend, timeout=DIST_TIMEOUT)
+        else:
+            store = torch.distributed.HashStore()
+            torch.distributed.init_process_group(backend, timeout=DIST_TIMEOUT, store=store, world_size=1, rank=0)
 
 
 @pytest.fixture(autouse=True)
