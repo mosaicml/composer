@@ -41,6 +41,10 @@ class TestHparamsCreate:
 
     def test_trainer_initialize(self, hparams_file: str):
         hparams = TrainerHparams.create(hparams_file, cli_args=False)
+        hparams.dataloader.num_workers = 0
+        hparams.dataloader.persistent_workers = False
+        hparams.dataloader.pin_memory = False
+        hparams.dataloader.prefetch_factor = 2
 
         _configure_dataset_for_synthetic(hparams.train_dataset)
         _configure_dataset_for_synthetic(hparams.val_dataset)
