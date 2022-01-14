@@ -5,7 +5,6 @@ import random
 
 import torch
 import torch.nn.functional as F
-from deepspeed.runtime.engine import DeepSpeedEngine
 from torch.functional import Tensor
 
 from composer.algorithms.dummy import DummyHparams
@@ -14,6 +13,7 @@ from composer.core.state import DIRECT_SERIALIZATION_FIELDS, SKIP_SERIALIZATION_
 from composer.datasets.dataloader import DataloaderHparams
 from composer.datasets.hparams import DatasetHparams
 from composer.models.base import BaseMosaicModel
+from composer.trainer import deepspeed
 from tests.fixtures.models import SimpleBatchPairModel
 
 
@@ -49,6 +49,7 @@ def is_field_serialized(field_name: str) -> bool:
 
 
 def assert_state_equivalent(state1: State, state2: State):
+
     # tested separately
     IGNORE_FIELDS = [
         '_optimizers',
@@ -65,8 +66,8 @@ def assert_state_equivalent(state1: State, state2: State):
         var2 = getattr(state2, field_name)
 
         if field_name == "model":
-            if isinstance(state1.model, DeepSpeedEngine):
-                assert isinstance(state2.model, DeepSpeedEngine)
+            if deepspeed.is_module_deepspeed(state1.model):
+                assert deepspeed.is_module_deepspeed(state2.model)
             for p, q in zip(state1.model.parameters(), state2.model.parameters()):
                 torch.testing.assert_allclose(p, q, atol=1e-2, rtol=1e-2)
         elif isinstance(var1, types.Tensor):

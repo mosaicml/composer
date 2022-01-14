@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Mapping, Tuple
 
-import transformers
 from torchmetrics import Accuracy, MatthewsCorrcoef, MeanSquaredError, SpearmanCorrcoef
 from torchmetrics.collections import MetricCollection
 
@@ -12,6 +11,8 @@ from composer.models.nlp_metrics import BinaryF1Score, CrossEntropyLoss, MaskedA
 from composer.models.transformer_shared import MosaicTransformer
 
 if TYPE_CHECKING:
+    import transformers
+
     from composer.core.types import Batch, BatchDict, Metrics, Tensors
 
 
