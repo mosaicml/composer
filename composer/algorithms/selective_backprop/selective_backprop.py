@@ -35,10 +35,10 @@ def do_selective_backprop(
 
     Args:
         current_duration (float): The elapsed training duration, on [0.0; 1.0)
-        batch_idx: The current batch within the epoch
-        start: The duration at which selective backprop should be enabled
-        end: The duration at which selective backprop should be disabled
-        interrupt: The number of batches between vanilla minibatch gradient updates
+        batch_idx (int): The current batch within the epoch
+        start (float): The duration at which selective backprop should be enabled
+        end (float): The duration at which selective backprop should be disabled
+        interrupt (int): The number of batches between vanilla minibatch gradient updates
 
     Returns:
         bool: If selective backprop should be performed on this batch.
@@ -205,7 +205,7 @@ class SelectiveBackprop(Algorithm):
             return False
 
         is_chosen = do_selective_backprop(
-            current_duration=state.get_elapsed_duration().value,
+            current_duration=float(state.get_elapsed_duration()),
             batch_idx=state.timer.batch_in_epoch.value,
             start=self.hparams.start,
             end=self.hparams.end,
