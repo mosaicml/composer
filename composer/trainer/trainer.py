@@ -807,9 +807,9 @@ class Trainer:
 
             for state.batch in itertools.islice(state.eval_dataloader, self._eval_subset_num_batches):
                 state.batch = self.device.batch_to_device(state.batch)
-                state.batch = self._eval_data_spoc.device_transforms(state.batch)
-                state.batch_num_samples = self._eval_data_spoc.get_num_samples_in_batch(state.batch)
-                state.batch_num_tokens = self._eval_data_spoc.get_num_tokens_in_batch(state.batch)
+                state.batch = self._eval_data_spec.device_transforms(state.batch)
+                state.batch_num_samples = self._eval_data_spec.get_num_samples_in_batch(state.batch)
+                state.batch_num_tokens = self._eval_data_spec.get_num_tokens_in_batch(state.batch)
 
                 if self.deepspeed_enabled:
                     state.batch = fix_batch_precision_for_deepspeed(state.batch, state.precision)
