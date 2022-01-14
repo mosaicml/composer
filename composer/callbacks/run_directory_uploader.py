@@ -177,7 +177,6 @@ class RunDirectoryUploader(Callback):
             self._tempdir.cleanup()
 
     def _trigger_upload(self, logger: Optional[Logger], log_level: Optional[LogLevel]) -> None:
-        assert run_directory is not None, "invariant error"
         new_last_uploaded_timestamp = run_directory.get_run_directory_timestamp()
 
         # Now, for each file that was modified since self._last_upload_timestamp, copy it to the temporary directory

@@ -215,9 +215,6 @@ class CheckpointLoader:
                     tarball.extractall(extracted_checkpoint_folder)
 
         # Wait for all checkpoints on the node to finish downloading
-        # technically, for this barrier, we only need to wait for the
-        # global rank zero checkpoint, but putting the barrier here
-        # allows for other ranks to begin downloading their checkpoints
         dist.barrier()
 
         return mosaic_checkpoint_filepath, extracted_checkpoint_folder
@@ -283,9 +280,7 @@ class CheckpointLoader:
             The seed that was loaded from the checkpoint if it exists otherwise `None`.
         """
 
-        # download the checkpoint to the node-local run directory
-        # since the run directory is sub-foldered by rank,
-        # the node-local run directory is just the parent folder
+        # download the checkpoint to the node-local folder
         tempdir_ctx = tempfile.TemporaryDirectory() if dist.get_local_rank() == 0 else contextlib.nullcontext(None)
         with tempdir_ctx as tempdir:
             node_checkpoint_folder = self._get_node_checkpoint_download_folder(tempdir)
