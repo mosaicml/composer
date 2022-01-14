@@ -12,10 +12,14 @@ RUN apt-get update && \
     apt-get install -y --no-install-recommends \
         libgomp1 \
         curl \
+        wget \
         sudo \
         build-essential \
         git \
         software-properties-common \
+        dirmngr \
+        apt-utils \
+        gpg-agent \
         # For PILLOW:
         zlib1g-dev \
         libtiff-dev \
@@ -31,23 +35,19 @@ RUN apt-get update && \
 # Change the NCCL version to fix NVLink errors
 # This is required to train on Nvidia A100s in GCP
 ##################################################
-RUN DISTRO="$(lsb_release -si | tr '[:upper:]' '[:lower:]')$(lsb_release -sr | sed 's/\.//')" &&  \
-    apt-get update && \
-    apt-get install -y --no-install-recommends \
-        dirmngr \
-        gpg-agent && \
-    apt-key adv --fetch-keys https://developer.download.nvidia.com/compute/cuda/repos/${DISTRO}/x86_64/7fa2af80.pub && \
-    add-apt-repository "deb https://developer.download.nvidia.com/compute/cuda/repos/${DISTRO}/x86_64/ /" && \
-    apt-get install -y --no-install-recommends --allow-change-held-packages --allow-downgrades \
-        libnccl2=2.9.6-1+cuda11.0 \
-        libnccl-dev=2.9.6-1+cuda11.0 && \
-    apt-get autoclean && \
-    apt-get clean && \
-    rm -rf /var/lib/apt/lists/*
+RUN if [ -n "$CUDA_VERSION" ] ; then \
+        apt-get update && \
+        apt-get install -y --no-install-recommends --allow-change-held-packages --allow-downgrades \
+            libnccl2=2.9.6-1+cuda11.0 \
+            libnccl-dev=2.9.6-1+cuda11.0 && \
+        apt-get autoclean && \
+        apt-get clean && \
+        rm -rf /var/lib/apt/lists/* ; \
+    fi
 
-# Use system installed NCCL per update above, point to library
-ENV USE_SYSTEM_NCCL=1
-ENV LD_PRELOAD=/usr/lib/x86_64-linux-gnu/libnccl.so.2.9.6
+# If using CUDA_VERSION, then use system installed NCCL per update above and point to library
+ENV USE_SYSTEM_NCCL=${CUDA_VERSION:+1}
+ENV LD_PRELOAD=${CUDA_VERSION:+/usr/lib/x86_64-linux-gnu/libnccl.so.2.9.6}
 
 ##############################
 # Install NodeJS (for Pyright)
