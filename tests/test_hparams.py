@@ -6,6 +6,7 @@ import pytest
 
 import composer
 from composer.datasets.hparams import DatasetHparams, SyntheticHparamsMixin
+from composer.models import DeepLabV3Hparams
 from composer.trainer import TrainerHparams
 from composer.trainer.devices import CPUDeviceHparams
 
@@ -44,5 +45,9 @@ class TestHparamsCreate:
         _configure_dataset_for_synthetic(hparams.train_dataset)
         _configure_dataset_for_synthetic(hparams.val_dataset)
         hparams.device = CPUDeviceHparams()
+
+        if isinstance(hparams.model, DeepLabV3Hparams):
+            hparams.model.is_backbone_pretrained = False  # prevent downloading pretrained weights during test
+            hparams.model.sync_bn = False  # sync_bn throws an error when run on CPU
 
         hparams.initialize_object()
