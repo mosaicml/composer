@@ -20,14 +20,14 @@ val_dataset:
     dataset_config_name: en
     split: validation
     max_shards: -1
-    max_samples: 100000
+    max_samples: 102400
     max_seq_len: 2048
     group_method: concat
     tokenizer_name: gpt2
     use_masked_lm: false
     seed: 17
     shuffle: false
-    drop_last: false
+    drop_last: true
 
 model:
   gpt2:
@@ -37,11 +37,11 @@ model:
       activation_function: gelu_new
       architectures:
         - GPT2LMHeadModel
-      attn_pdrop: 0.0 # no regularization
+      attn_pdrop: 0.1
       bos_token_id: 50256
-      embd_pdrop: 0.0 # no regularization
+      embd_pdrop: 0.1
       eos_token_id: 50256
-      initializer_range: 0.01 # based on BigScience recommendation of sqrt(2/(n_embd*5))
+      initializer_range: 0.02
       layer_norm_epsilon: 1.0e-05
       model_type: gpt2
       n_embd: 2048
@@ -49,10 +49,11 @@ model:
       n_inner: 8192
       n_layer: 24
       n_positions: 2048
-      resid_pdrop: 0.0 # no regularization
+      n_ctx: 2048 # redundancy
+      resid_pdrop: 0.1
       scale_attn_weights: true
       summary_activation: null
-      summary_first_dropout: 0.0 # no regularization
+      summary_first_dropout: 0.1
       summary_proj_to_labels: true
       summary_type: cls_index
       summary_use_proj: true
