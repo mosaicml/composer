@@ -115,31 +115,6 @@ class WandBLoggerBackendHparams(BaseLoggerBackendHparams):
         tags = list(set([x.strip() for x in self.tags.split(",") if x.strip() != ""]))
 
         if config is not None:
-            if "algorithms" in config:
-                algos_dict = config.get("algorithms", {})
-                algorithm_names = []
-                for algo_dict in algos_dict_list:
-                    if len(algo_dict.keys()) != 0:
-                        algorithm_names.append(list(algo_dict.keys())[0])
-
-                tags += algorithm_names
-                algorithms_str = "-".join(algorithm_names)
-                config["algorithms_str"] = algorithms_str
-
-                # TODO(@averylamp): Remove special algos config columns after data_collection
-                # This format is to keep runs standardized for data collection runs
-                for algo in algos_dict_list:  # type: ignore
-                    for algo_name, algo_params in algo.items():
-                        for param_name, param_value in algo_params.items():
-                            name = ".".join(["algo", algo_name, param_name])
-                            config[name] = param_value
-
-            if "model" in config:
-                model_dict = config.get("model", {"unknown": None})
-                model_name = "unknown"
-                if len(model_dict) == 1:
-                    model_name = list(model_dict.keys())[0]
-                config["model"] = model_name
 
             def get_flattened_dict(data: Dict[str, Any], _prefix: List[str] = []) -> Dict[str, Any]:
                 """
