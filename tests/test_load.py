@@ -47,6 +47,10 @@ def test_load(model_name: str):
     assert isinstance(trainer_hparams.val_dataset, SyntheticHparamsMixin)
     trainer_hparams.eval_subset_num_batches = 1
     trainer_hparams.val_dataset.use_synthetic = True
+    trainer_hparams.dataloader.num_workers = 0
+    trainer_hparams.dataloader.pin_memory = False
+    trainer_hparams.dataloader.prefetch_factor = 2
+    trainer_hparams.dataloader.persistent_workers = False
 
     trainer_hparams.device = CPUDeviceHparams()
     my_trainer = trainer_hparams.initialize_object()

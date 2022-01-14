@@ -30,12 +30,12 @@ def dummy_num_classes() -> int:
 
 @pytest.fixture()
 def dummy_train_batch_size() -> int:
-    return 64
+    return 16
 
 
 @pytest.fixture()
 def dummy_val_batch_size() -> int:
-    return 128
+    return 32
 
 
 @pytest.fixture

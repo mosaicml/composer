@@ -42,7 +42,6 @@ class SpeedMonitor(RankZeroCallback):
         self.batch_num_samples: Deque[int] = deque(maxlen=window_size)  # rolling list of num samples in batch.
         self.hparams = SpeedMonitorHparams(window_size=window_size)
         self.loaded_state: Optional[StateDict] = None
-        self.current_batch_num_samples = torch.tensor(0)
 
     def state_dict(self) -> StateDict:
         current_time = time.time()

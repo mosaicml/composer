@@ -218,7 +218,7 @@ class Trainer:
         eval_dataloader.dataloader = DDPDataLoader(eval_dataloader.dataloader)
 
         self._train_data_spec = train_dataloader
-        self._eval_data_spoc = eval_dataloader
+        self._eval_data_spec = eval_dataloader
 
         self.state = State(
             max_duration=max_duration,
@@ -621,7 +621,8 @@ class Trainer:
                         state.scaler.update()
 
                     if total_loss is not None:
-                        total_loss = self.device.tensor_to_device(torch.tensor([total_loss]))
+                        if not isinstance(total_loss, torch.Tensor):
+                            total_loss = self.device.tensor_to_device(torch.tensor([total_loss]))
 
                         # total_loss can be None if gradient scaling failed
                         dist.all_reduce(total_loss, reduce_operation="SUM")
