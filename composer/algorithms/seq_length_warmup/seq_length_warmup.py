@@ -179,9 +179,12 @@ class SeqLengthWarmup(Algorithm):
             # all of the parameters
             device = next(state.model.parameters()).device
 
-            per_gpu_batch = state.train_dataloader.batch_size
-            if per_gpu_batch is None:
+            per_gpu_macrobatch = state.train_dataloader.batch_size
+            if per_gpu_macrobatch is None:
                 raise RuntimeError("seq_length_warmup requires constant batch sizing")
+            assert per_gpu_macrobatch % state.grad_accum == 0, "grad accum should evenly divide the batch"
+            per_gpu_batch = per_gpu_macrobatch // state.grad_accum
+
             input_ids = torch.randint(low=0,
                                       high=vocab_size - 1,
                                       size=(per_gpu_batch, self.hparams.max_seq_length),
