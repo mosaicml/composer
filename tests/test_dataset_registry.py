@@ -6,9 +6,9 @@ from typing import Callable, Dict, Type
 import pytest
 
 from composer.core import DataSpec
-from composer.datasets import (BratsDatasetHparams, CIFAR10DatasetHparams, DataloaderHparams, DatasetHparams,
-                               GLUEHparams, ImagenetDatasetHparams, LMDatasetHparams, MNISTDatasetHparams,
-                               SyntheticHparamsMixin)
+from composer.datasets import (ADE20kDatasetHparams, BratsDatasetHparams, CIFAR10DatasetHparams, DataloaderHparams,
+                               DatasetHparams, GLUEHparams, ImagenetDatasetHparams, LMDatasetHparams,
+                               MNISTDatasetHparams, SyntheticHparamsMixin)
 from composer.trainer.trainer_hparams import dataset_registry
 
 # for testing, we provide values for required hparams fields
@@ -19,6 +19,7 @@ default_required_fields: Dict[Type[DatasetHparams], Callable[[], DatasetHparams]
         is_train=False,
         download=False,
     ),
+    ADE20kDatasetHparams: lambda: ADE20kDatasetHparams(is_train=False),
     BratsDatasetHparams: lambda: BratsDatasetHparams(is_train=False,),
     ImagenetDatasetHparams: lambda: ImagenetDatasetHparams(
         is_train=False,

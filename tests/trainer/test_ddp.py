@@ -120,7 +120,7 @@ def patch_registries(monkeypatch: MonkeyPatch):
 @pytest.mark.parametrize("device,deepspeed", [
     pytest.param(CPUDeviceHparams(), False, id="cpu"),
     pytest.param(GPUDeviceHparams(), False, id="gpu", marks=pytest.mark.gpu),
-    pytest.param(GPUDeviceHparams(), True, id="deepspeed", marks=pytest.mark.gpu),
+    pytest.param(GPUDeviceHparams(), True, id="deepspeed", marks=pytest.mark.deepspeed),
 ])
 @pytest.mark.parametrize("world_size", [
     pytest.param(1),

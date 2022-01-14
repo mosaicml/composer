@@ -56,7 +56,10 @@ def configure_dist(request: pytest.FixtureRequest):
 @pytest.fixture(autouse=True)
 def wait_for_all_procs(configure_dist: None):
     yield
-    if not 'RANK' in os.environ:
+    if not 'WORLD_SIZE' in os.environ:
         # Not running in a DDP environment
+        return
+    if int(os.environ['WORLD_SIZE']) == 1:
+        # With just one proc, no need for the barrier
         return
     dist.barrier()
