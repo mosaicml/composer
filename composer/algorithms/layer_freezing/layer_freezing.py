@@ -29,6 +29,18 @@ class LayerFreezingHparams(AlgorithmHparams):
 
 
 def _freeze_schedule(current_duration: float, freeze_start: float, freeze_level: float) -> float:
+    """Implements a linear schedule for freezing.
+    The schedule is linear and begins with no freezing and
+    linearly increases the fraction of layers frozen, reaching
+    the fraction specified by 'freeze_level' at the end of training.
+    The start of freezing is given as a fraction of the total training duration,
+    and is set with 'freeze_start'.
+
+    Args:
+        current_duration (float): The elapsed training duration.
+        freeze_start (float): The fraction of training to run before freezing begins.
+        freeze_level (float): The maximum fraction of levels to freeze.
+    """
     # No freezing if the current epoch is less than this
     if current_duration <= freeze_start:
         return 0.0
@@ -68,8 +80,8 @@ def _remove_param_from_optimizers(p: torch.nn.Parameter, optimizers: Optimizers)
     otherwise momentum and weight decay may still be applied.
 
     Args:
-        p: The parameter being frozen.
-        optimizers: The optimizers used during training.
+        p (torch.nn.Parameter): The parameter being frozen.
+        optimizers (Optimizers): The optimizers used during training.
     """
     # Force optimizers to be iterable
     if not isinstance(optimizers, (list, tuple)):
@@ -94,10 +106,10 @@ def freeze_layers(
 
     Args:
         model (Model): The model being trained.
-        optimizers (Optimizers): The optimizers used during training
+        optimizers (Optimizers): The optimizers used during training.
         current_duration (float): The fraction on [0; 1) of the training process complete.
         freeze_start (float): The fraction of the training process on [0; 1) to run before freezing begins.
-        freeze_level (float): The maximum fraction of layers on [0; 1) to freeze
+        freeze_level (float): The maximum fraction of layers on [0; 1) to freeze.
 
     Return:
         (int, float): The number of layers frozen, and the percentage of the total model frozen.
@@ -142,8 +154,8 @@ class LayerFreezing(Algorithm):
     Runs on ``Event.EPOCH_END``.
 
     Args:
-        freeze_start (float): the fraction of training to run before freezing begins
-        freeze_level (float): the maximum fraction of layers to freeze
+        freeze_start (float): The fraction of training to run before freezing begins.
+        freeze_level (float): The maximum fraction of layers to freeze.
     """
 
     def __init__(self, freeze_start: float = 0.5, freeze_level: float = 1.0):
@@ -170,7 +182,7 @@ class LayerFreezing(Algorithm):
         freeze_depth, freeze_percentage = freeze_layers(
             model=state.model,
             optimizers=optimizers,
-            current_duration=float(state.timer.get(state.max_duration.unit) / state.max_duration),
+            current_duration=float(state.get_elapsed_duration()),
             freeze_start=self.hparams.freeze_start,
             freeze_level=self.hparams.freeze_level,
         )
