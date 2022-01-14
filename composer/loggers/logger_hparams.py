@@ -116,7 +116,7 @@ class WandBLoggerBackendHparams(BaseLoggerBackendHparams):
 
         if config is not None:
             if "algorithms" in config:
-                algos_dict_list = config.get("algorithms", [])
+                algos_dict = config.get("algorithms", {})
                 algorithm_names = []
                 for algo_dict in algos_dict_list:
                     if len(algo_dict.keys()) != 0:
