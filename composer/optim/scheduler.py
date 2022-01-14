@@ -137,6 +137,50 @@ class ConstantLR(_LRScheduler):
         return [base_lr for base_lr in self.base_lrs]  # type: ignore
 
 
+class PolynomialLR(_LRScheduler):
+    """PolynomialLR scales the learning rate by the remaining train time percentage raised to a specific power.
+
+    Args:
+        optimizer (Optimizer): the optimizer associated with this scheduler.
+        T_max (Time): the number of iterations to perform, either in terms of epochs or batches.
+        power (float): the power to use on the remaining train time percentage for the current schedule coeffecient.
+        eta_min (float): the minimum learning rate to decay to. Default is ``0``.
+        last_epoch (int): the index of the last epoch. Can be used to restore the learning rate schedule state.
+            Default: ``-1``
+        verbose (bool): If ``True``, prints a message to stdout for each update. Default: ``False``.
+    """
+
+    def __init__(self,
+                 optimizer: Optimizer,
+                 T_max: Time,
+                 power: float,
+                 eta_min: float = 0,
+                 last_epoch: int = -1,
+                 verbose: bool = False):
+
+        self.optimizer = optimizer
+        self.T_max = T_max
+        self.power = power
+        self.eta_min = eta_min
+        super(PolynomialLR, self).__init__(optimizer, last_epoch, verbose)  # type: ignore
+
+    def get_lr(self):
+        coeff = (1 - self.last_epoch / self.T_max)**self.power  # type: ignore
+        return [(base_lr - self.eta_min) * coeff + self.eta_min for base_lr in self.base_lrs]  # type: ignore
+
+
+@dataclass
+class PolynomialLRHparams(SchedulerHparams):
+    """Hyperparameters for the :class:`PolynomialLR` scheduler."""
+    T_max: str = hp.required(doc='Maximum number of iterations.')
+    power: float = hp.required(doc='Power of LR schedule.')
+    eta_min: float = hp.optional(default=0.0, doc='Minimum learning rate.')
+    verbose: bool = hp.optional(default=False, doc='Prints message to stdout.')
+    interval: str = hp.optional(default='epoch', doc=_interval_doc)
+
+    scheduler_object = PolynomialLR
+
+
 @dataclass
 class ConstantLRHparams(SchedulerHparams):
     """Hyperparameters for the :class:`ConstantLR` scheduler."""
