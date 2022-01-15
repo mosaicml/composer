@@ -338,6 +338,7 @@ class Trainer:
             restored_seed = self.checkpoint_loader.load_checkpoint(state=self.state)
             if restored_seed is not None:
                 self.seed = restored_seed
+            dist.barrier()
 
         if not self.deepspeed_enabled:
             self.state.model = self.device.module_to_device(self.state.model)
