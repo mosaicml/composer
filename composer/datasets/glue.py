@@ -77,7 +77,7 @@ class GLUEHparams(DatasetHparams):
         print(f"Loading {self.task.upper()}...")
         self.dataset = datasets.load_dataset("glue", self.task, split=self.split)
 
-        n_cpus = cpu_count()
+        n_cpus = cpu_count() // dist.get_world_size()
         print(f"Starting tokenization step by preprocessing over {n_cpus} threads!")
         text_column_names = self.task_to_keys[self.task]
 
