@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from multiprocessing import cpu_count
 
 import yahp as hp
+from datetime import datetime
 
 from composer.core import DataSpec
 from composer.datasets.dataloader import DataloaderHparams
@@ -74,7 +75,7 @@ class GLUEHparams(DatasetHparams):
         self.validate()
         self.tokenizer = transformers.AutoTokenizer.from_pretrained(self.tokenizer_name)  #type: ignore (thirdparty)
 
-        print(f"Loading {self.task.upper()} on rank ", dist.get_global_rank())
+        print(f"Loading {self.task.upper()} on rank ", dist.get_global_rank(), "at time", datetime.now().time())
         self.dataset = datasets.load_dataset("glue", self.task, split=self.split)
 
         n_cpus = cpu_count() // dist.get_world_size()
