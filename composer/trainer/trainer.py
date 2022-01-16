@@ -372,10 +372,12 @@ class Trainer:
         reproducibility.seed_all(seed)
 
         model = hparams.model.initialize_object()
+        print("Finished initializing model!")
         algorithms = [x.initialize_object() for x in hparams.algorithms]
 
         # callbacks, loggers, and seed
         callbacks = [x.initialize_object() for x in hparams.callbacks]
+        print("Finished initializing callbacks!")
         dict_config = hparams.to_dict()
         log_destinations = [x.initialize_object(config=dict_config) for x in hparams.loggers]
 
@@ -390,6 +392,7 @@ class Trainer:
             (set to {hparams.train_subset_num_batches}), train_datset.shuffle should be set to False. Otherwise,
             each training epoch may load a different subset of samples."""))
         train_dataloader = hparams.train_dataset.initialize_object(train_device_batch_size, hparams.dataloader)
+        print("Finished initializing train dataset!")
 
         eval_device_batch_size = hparams.eval_batch_size // dist.get_world_size()
         if hparams.val_dataset.shuffle and hparams.eval_subset_num_batches:
@@ -398,6 +401,7 @@ class Trainer:
             (set to {hparams.eval_subset_num_batches}), val_dataset.shuffle should be set to False. Otherwise,
             each evaluation epoch may load a different subset of samples."""))
         eval_dataloader = hparams.val_dataset.initialize_object(eval_device_batch_size, hparams.dataloader)
+        print("Finished initializing val dataset!")
 
         trainer = cls(
             model=model,
