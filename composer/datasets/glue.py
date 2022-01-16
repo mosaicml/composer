@@ -109,6 +109,7 @@ class GLUEHparams(DatasetHparams):
         data_collator = transformers.data.data_collator.default_data_collator
         sampler = dist.get_sampler(dataset, drop_last=self.drop_last, shuffle=self.shuffle)
 
+        print("Finished dataset construction!")
         return DataSpec(
             dataloader=dataloader_hparams.initialize_object(
                 dataset=dataset,  #type: ignore (thirdparty)
