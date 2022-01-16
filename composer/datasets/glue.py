@@ -74,11 +74,11 @@ class GLUEHparams(DatasetHparams):
         self.validate()
         self.tokenizer = transformers.AutoTokenizer.from_pretrained(self.tokenizer_name)  #type: ignore (thirdparty)
 
-        log.info(f"Loading {self.task.upper()}...")
+        print(f"Loading {self.task.upper()}...")
         self.dataset = datasets.load_dataset("glue", self.task, split=self.split)
 
         n_cpus = cpu_count()
-        log.info(f"Starting tokenization step by preprocessing over {n_cpus} threads!")
+        print(f"Starting tokenization step by preprocessing over {n_cpus} threads!")
         text_column_names = self.task_to_keys[self.task]
 
         def tokenize_function(inp):
