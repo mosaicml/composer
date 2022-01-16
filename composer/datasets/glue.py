@@ -74,7 +74,7 @@ class GLUEHparams(DatasetHparams):
         self.validate()
         self.tokenizer = transformers.AutoTokenizer.from_pretrained(self.tokenizer_name)  #type: ignore (thirdparty)
 
-        print(f"Loading {self.task.upper()}...")
+        print(f"Loading {self.task.upper()} on rank ", dist.get_global_rank())
         self.dataset = datasets.load_dataset("glue", self.task, split=self.split)
 
         n_cpus = cpu_count() // dist.get_world_size()
