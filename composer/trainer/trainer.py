@@ -402,6 +402,7 @@ class Trainer:
             each evaluation epoch may load a different subset of samples."""))
         eval_dataloader = hparams.val_dataset.initialize_object(eval_device_batch_size, hparams.dataloader)
         print("Finished initializing val dataset!")
+        dist.barrier()  # ensure model and dataset are initialized before proceeding
 
         trainer = cls(
             model=model,
