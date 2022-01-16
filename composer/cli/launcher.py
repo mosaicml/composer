@@ -128,16 +128,17 @@ def launch_processes(nproc: int, world_size: int, base_rank: int, master_addr: s
 
         log.info("Launching process for local_rank(%s), global_rank(%s)", local_rank, global_rank)
 
-        if local_rank == 0:
-            process = subprocess.Popen(cmd, env=current_env, text=True)
-        else:
-            process = subprocess.Popen(
-                cmd,
-                env=current_env,
-                stdout=open(os.path.join(logs_dir, f"rank_{global_rank}.stdout.txt"), "x"),
-                stderr=open(os.path.join(logs_dir, f"rank_{global_rank}.stderr.txt"), "x"),
-                text=True,
-            )
+        process = subprocess.Popen(cmd, env=current_env, text=True)
+        # if local_rank == 0:
+            # process = subprocess.Popen(cmd, env=current_env, text=True)
+        # else:
+            # process = subprocess.Popen(
+                # cmd,
+                # env=current_env,
+                # stdout=open(os.path.join(logs_dir, f"rank_{global_rank}.stdout.txt"), "x"),
+                # stderr=open(os.path.join(logs_dir, f"rank_{global_rank}.stderr.txt"), "x"),
+                # text=True,
+            # )
         processes.append(process)
 
     return set(processes)
