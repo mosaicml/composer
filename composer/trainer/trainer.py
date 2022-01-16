@@ -196,6 +196,7 @@ class Trainer:
 
         self.find_unused_parameters = find_unused_parameters
 
+        print("Dist init location has been changed!")
         if self.deepspeed_enabled:
             import deepspeed
             deepspeed.init_distributed()
@@ -363,6 +364,7 @@ class Trainer:
         # devices and systems
         device = hparams.device.initialize_object()
         assert device is not None  # temp hack from Moin
+        dist.initialize_dist(device.dist_backend, datetime.timedelta(seconds=hparams.dist_timeout))
 
         seed = hparams.seed if hparams.seed else reproducibility.get_random_seed()
         # need to set seed before model initialization for determinism
@@ -396,7 +398,6 @@ class Trainer:
             (set to {hparams.eval_subset_num_batches}), val_dataset.shuffle should be set to False. Otherwise,
             each evaluation epoch may load a different subset of samples."""))
         eval_dataloader = hparams.val_dataset.initialize_object(eval_device_batch_size, hparams.dataloader)
-        dist.initialize_dist(device.dist_backend, datetime.timedelta(seconds=hparams.dist_timeout))
 
         trainer = cls(
             model=model,
