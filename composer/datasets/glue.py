@@ -5,7 +5,6 @@ from dataclasses import dataclass
 from multiprocessing import cpu_count
 
 import yahp as hp
-from datetime import datetime
 
 from composer.core import DataSpec
 from composer.datasets.dataloader import DataloaderHparams
@@ -75,7 +74,7 @@ class GLUEHparams(DatasetHparams):
         self.validate()
         self.tokenizer = transformers.AutoTokenizer.from_pretrained(self.tokenizer_name)  #type: ignore (thirdparty)
 
-        print(f"Loading {self.task.upper()} on rank ", dist.get_global_rank(), "at time", datetime.now().time())
+        print(f"Loading {self.task.upper()} on rank ", dist.get_global_rank())
         download_config = datasets.utils.DownloadConfig(max_retries=10)
         self.dataset = datasets.load_dataset("glue", self.task, split=self.split, download_config=download_config)
 
@@ -111,7 +110,6 @@ class GLUEHparams(DatasetHparams):
         data_collator = transformers.data.data_collator.default_data_collator
         sampler = dist.get_sampler(dataset, drop_last=self.drop_last, shuffle=self.shuffle)
 
-        print("Finished dataset construction!")
         return DataSpec(
             dataloader=dataloader_hparams.initialize_object(
                 dataset=dataset,  #type: ignore (thirdparty)

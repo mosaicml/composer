@@ -196,11 +196,11 @@ class Trainer:
 
         self.find_unused_parameters = find_unused_parameters
 
-        print("Dist init location has been changed!")
         if self.deepspeed_enabled:
             import deepspeed
             deepspeed.init_distributed()
         else:
+            dist.initialize_dist(device.dist_backend, datetime.timedelta(seconds=dist_timeout))
             if ddp_sync_strategy is None:
                 self.ddp_sync_strategy = DDPSyncStrategy.SINGLE_AUTO_SYNC if not find_unused_parameters else DDPSyncStrategy.FORCED_SYNC
             else:
@@ -363,8 +363,6 @@ class Trainer:
 
         # devices and systems
         device = hparams.device.initialize_object()
-        assert device is not None  # temp hack from Moin
-        dist.initialize_dist(device.dist_backend, datetime.timedelta(seconds=hparams.dist_timeout))
 
         seed = hparams.seed if hparams.seed else reproducibility.get_random_seed()
         # need to set seed before model initialization for determinism
@@ -372,12 +370,10 @@ class Trainer:
         reproducibility.seed_all(seed)
 
         model = hparams.model.initialize_object()
-        print("Finished initializing model!")
         algorithms = [x.initialize_object() for x in hparams.algorithms]
 
         # callbacks, loggers, and seed
         callbacks = [x.initialize_object() for x in hparams.callbacks]
-        print("Finished initializing callbacks!")
         dict_config = hparams.to_dict()
         log_destinations = [x.initialize_object(config=dict_config) for x in hparams.loggers]
 
@@ -392,7 +388,6 @@ class Trainer:
             (set to {hparams.train_subset_num_batches}), train_datset.shuffle should be set to False. Otherwise,
             each training epoch may load a different subset of samples."""))
         train_dataloader = hparams.train_dataset.initialize_object(train_device_batch_size, hparams.dataloader)
-        print("Finished initializing train dataset!")
 
         eval_device_batch_size = hparams.eval_batch_size // dist.get_world_size()
         if hparams.val_dataset.shuffle and hparams.eval_subset_num_batches:
@@ -401,8 +396,6 @@ class Trainer:
             (set to {hparams.eval_subset_num_batches}), val_dataset.shuffle should be set to False. Otherwise,
             each evaluation epoch may load a different subset of samples."""))
         eval_dataloader = hparams.val_dataset.initialize_object(eval_device_batch_size, hparams.dataloader)
-        print("Finished initializing val dataset!")
-        dist.barrier()  # ensure model and dataset are initialized before proceeding
 
         trainer = cls(
             model=model,
