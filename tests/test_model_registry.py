@@ -16,6 +16,7 @@ def test_model_registry(model_name, request):
     model_hparams = model_registry[model_name]()
 
     requires_num_classes = set([
+        "deeplabv3",
         "resnet9_cifar10",
         "resnet56_cifar10",
         "efficientnetb0",
@@ -26,6 +27,9 @@ def test_model_registry(model_name, request):
     ])
     if model_name in requires_num_classes:
         model_hparams.num_classes = 10
+
+    if model_name == "deeplabv3":
+        model_hparams.is_backbone_pretrained = False
 
     assert isinstance(model_hparams, ModelHparams)
 

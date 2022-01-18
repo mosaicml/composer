@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import functools
 import json
+import os
 import textwrap
 import warnings
 from typing import Optional
@@ -14,8 +15,7 @@ from torch.profiler.profiler import ProfilerAction as TorchProfilerAction
 from composer.core import Callback, Logger, State
 from composer.core.profiler import ProfilerAction
 from composer.profiler.profiler_hparams import TorchProfilerHparams
-from composer.utils import dist
-from composer.utils.run_directory import get_relative_to_run_directory
+from composer.utils import dist, run_directory
 
 _PROFILE_MISSING_ERROR = "The profiler has not been setup. Please call profiler.init() before training starts."
 
@@ -65,7 +65,8 @@ class TorchProfiler(Callback):
     ) -> None:
         super().__init__()
         self.hparams = TorchProfilerHparams(
-            tensorboard_trace_handler_dir=get_relative_to_run_directory(tensorboard_trace_handler_dir),
+            tensorboard_trace_handler_dir=os.path.join(run_directory.get_run_directory(),
+                                                       tensorboard_trace_handler_dir),
             tensorboard_use_gzip=tensorboard_use_gzip,
             record_shapes=record_shapes,
             profile_memory=profile_memory,
@@ -78,8 +79,10 @@ class TorchProfiler(Callback):
             del torch_tb_profiler
         except ModuleNotFoundError:
             warnings.warn(
-                "TorchTBProfilerNotFound: torch_tb_profiler not found. You will not be able to visualize torch profiler results."
-                "To visualize, run `pip install torch-tb-profiler`")
+                textwrap.dedent("""
+                TorchTBProfilerNotFound: torch_tb_profiler not found.
+                You will not be able to visualize torch profiler results.
+                To visualize, run `pip install torch-tb-profiler`"""))
 
     def _scheduler_fn(self, profiler_step: int, state: State) -> TorchProfilerAction:
         # Invoked on every batch, at the batch end
@@ -89,7 +92,7 @@ class TorchProfiler(Callback):
 
         # adding 1 since this is called before the step is incremented
 
-        next_batch_in_epoch = state.batch_idx + 1
+        next_batch_in_epoch = int(state.timer.batch_in_epoch) + 1
         if profiler_step == 0:
             next_batch_in_epoch = 0
         assert state.profiler is not None, "mosaic profiler should be defined"

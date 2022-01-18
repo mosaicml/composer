@@ -7,9 +7,27 @@ import textwrap
 
 import setuptools
 from setuptools import setup
+from setuptools.command.develop import develop as develop_orig
+
+_IS_ROOT = os.getuid() == 0
+_IS_USER = "--user" in sys.argv[1:]
+_IS_VIRTUALENV = "VIRTUAL_ENV" in os.environ
+
+
+# From https://stackoverflow.com/questions/51292333/how-to-tell-from-setup-py-if-the-module-is-being-installed-in-editable-mode
+class develop(develop_orig):
+
+    def run(self):
+        if _IS_ROOT and (not _IS_VIRTUALENV) and (not _IS_USER):
+            raise RuntimeError(
+                textwrap.dedent("""When installing in editable mode as root outside of a virtual environment,
+                please specify `--user`. Editable installs as the root user outside of a virtual environment
+                do not work without the `--user` flag. Please instead run something like: `pip install --user -e .`"""))
+        super().run()
+
 
 # From https://github.com/pypa/pip/issues/7953#issuecomment-645133255
-site.ENABLE_USER_SITE = "--user" in sys.argv[1:]
+site.ENABLE_USER_SITE = _IS_USER
 
 
 def package_files(directory: str):
@@ -44,7 +62,7 @@ extra_deps['dev'] = [
     'coverage[toml]>=6.1.1',
     'fasteners>=0.16.3',  # run_directory_uploader tests require fasteners
     'pytest>=6.2.0',
-    'yapf>=0.13.0',
+    'yapf>=0.32.0',
     'isort>=5.9.3',
     'ipython>=7.29.0',
     'ipykernel>=6.5.0',
@@ -84,33 +102,32 @@ extra_deps['deepspeed'] = [
 
 extra_deps['all'] = set(dep for deps in extra_deps.values() for dep in deps)
 
-setup(
-    name="mosaicml",
-    version="0.3.1",
-    author="MosaicML",
-    author_email="team@mosaicml.com",
-    description="composing methods for ML training efficiency",
-    long_description=long_description,
-    long_description_content_type="text/markdown",
-    url="https://github.com/mosaicml/composer",
-    include_package_data=True,
-    package_data={
-        "composer": ['py.typed'],
-        "": package_files('composer/yamls'),
-    },
-    packages=setuptools.find_packages(exclude=["tests*"]),
-    classifiers=[
-        "Programming Language :: Python :: 3",
-    ],
-    install_requires=install_requires,
-    entry_points={
-        'console_scripts': ['composer = composer.cli.launcher:main',],
-    },
-    extras_require=extra_deps,
-    dependency_links=['https://developer.download.nvidia.com/compute/redist'],
-    python_requires='>=3.7',
-    ext_package="composer",
-)
+setup(name="mosaicml",
+      version="0.3.1",
+      author="MosaicML",
+      author_email="team@mosaicml.com",
+      description="composing methods for ML training efficiency",
+      long_description=long_description,
+      long_description_content_type="text/markdown",
+      url="https://github.com/mosaicml/composer",
+      include_package_data=True,
+      package_data={
+          "composer": ['py.typed'],
+          "": package_files('composer/yamls'),
+      },
+      packages=setuptools.find_packages(exclude=["tests*"]),
+      classifiers=[
+          "Programming Language :: Python :: 3",
+      ],
+      install_requires=install_requires,
+      entry_points={
+          'console_scripts': ['composer = composer.cli.launcher:main',],
+      },
+      extras_require=extra_deps,
+      dependency_links=['https://developer.download.nvidia.com/compute/redist'],
+      python_requires='>=3.7',
+      ext_package="composer",
+      cmdclass={'develop': develop})
 
 # only visible if user installs with verbose -v flag
 # Printing to stdout as not to interfere with setup.py CLI flags (e.g. --version)

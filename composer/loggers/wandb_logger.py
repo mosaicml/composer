@@ -40,19 +40,21 @@ class WandBLoggerBackend(BaseLoggerBackend):
 
     def log_metric(self, epoch: int, step: int, log_level: LogLevel, data: TLogData):
         del epoch, log_level  # unused
-        if dist.get_local_rank() == 0:
-            wandb.log(data, step=step)
+        wandb.log(data, step=step)
 
     def state_dict(self) -> StateDict:
         # Storing these fields in the state dict to support run resuming in the future.
-        if dist.get_local_rank() != 0:
-            raise RuntimeError("WandB can only be checkpointed on rank 0")
-        return {"name": wandb.run.name, "project": wandb.run.project, "entity": wandb.run.entity, "id": wandb.run.id}
+        return {
+            "name": wandb.run.name,
+            "project": wandb.run.project,
+            "entity": wandb.run.entity,
+            "id": wandb.run.id,
+            "group": wandb.run.group
+        }
 
     def init(self, state: State, logger: Logger) -> None:
         del state, logger  # unused
-        if dist.get_local_rank() == 0:
-            wandb.init(**self._init_params)
+        wandb.init(**self._init_params)
 
     def batch_end(self, state: State, logger: Logger) -> None:
         del logger  # unused
@@ -80,22 +82,16 @@ class WandBLoggerBackend(BaseLoggerBackend):
         run_directory_name = run_directory.get_run_directory()
         if run_directory_name is None:
             return
-        # barrier that every process has reached this point and that
-        # previous callbacks are finished writing to the run directory
-        dist.barrier()
-        if dist.get_local_rank() == 0:
-            modified_files = run_directory.get_modified_files(self._last_upload_timestamp)
-            for modified_file in modified_files:
-                file_type = modified_file.split(".")[-1]
-                relpath = os.path.relpath(modified_file, run_directory_name)
-                relpath = relpath.replace("/", "-")
-                artifact = wandb.Artifact(name=relpath, type=file_type)
-                artifact.add_file(os.path.abspath(modified_file))
-                wandb.log_artifact(artifact)
-            self._last_upload_timestamp = run_directory.get_run_directory_timestamp()
-        # barrier to ensure that other processes do not continue to other callbacks
-        # that could start writing to the run directory
-        dist.barrier()
+
+        modified_files = run_directory.get_modified_files(self._last_upload_timestamp)
+        for modified_file in modified_files:
+            file_type = modified_file.split(".")[-1]
+            relpath = os.path.relpath(modified_file, run_directory_name)
+            relpath = f"rank_{dist.get_global_rank()}-" + relpath.replace("/", "-")
+            artifact = wandb.Artifact(name=relpath, type=file_type)
+            artifact.add_file(os.path.abspath(modified_file))
+            wandb.log_artifact(artifact)
+        self._last_upload_timestamp = run_directory.get_run_directory_timestamp()
 
     def post_close(self) -> None:
         # Cleaning up on post_close so all artifacts are uploaded
@@ -104,9 +100,8 @@ class WandBLoggerBackend(BaseLoggerBackend):
 
         exc_tpe, exc_info, tb = sys.exc_info()
 
-        if dist.get_local_rank() == 0:
-            if (exc_tpe, exc_info, tb) == (None, None, None):
-                wandb.finish(0)
-            else:
-                # record there was an error
-                wandb.finish(1)
+        if (exc_tpe, exc_info, tb) == (None, None, None):
+            wandb.finish(0)
+        else:
+            # record there was an error
+            wandb.finish(1)
