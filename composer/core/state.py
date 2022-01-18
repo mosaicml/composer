@@ -5,18 +5,17 @@ from __future__ import annotations
 import logging
 import textwrap
 import warnings
-from typing import TYPE_CHECKING, Any, Callable, ContextManager, Dict, Optional, Sequence, Union, cast
+from typing import TYPE_CHECKING, Callable, ContextManager, Optional, Sequence, Union, cast
 
 import torch
 import torch.nn.modules.utils
 from torch.nn.parallel import DistributedDataParallel
 
 import composer.core.types as types
-from composer.core.data_spec import DataSpec
 from composer.core.precision import Precision
 from composer.core.serializable import Serializable
 from composer.core.time import Time, Timer, TimeUnit
-from composer.utils import dist, ensure_tuple
+from composer.utils import ensure_tuple
 from composer.utils.precision import default_precision_factory
 
 if TYPE_CHECKING:
@@ -55,9 +54,13 @@ STATE_DICT_SERIALIZATION_FIELDS_SKIP_DEEPSPEED = [
 SKIP_SERIALIZATION_FIELDS = [
     "loss",
     "batch",
+    "batch_num_samples",
+    "batch_num_tokens",
+    "microbatches",
+    "microbatch_idx",
     "outputs",
-    "train_data",
-    "eval_data",
+    "train_dataloader",
+    "eval_dataloader",
     "_steps_per_epoch",
     "_precision_context",
 ]
@@ -91,14 +94,26 @@ class State(Serializable):
         callbacks (Sequence[Callback]): The callbacks used for training.
 
     Attributes:
-        batch (types.Batch): The most recently retrieved batch.
-        last_batch_size (int): The size of the batch last returned from the dataloader. This can be different from the current size of ``batch`` if algorithms have modified the ``batch``.
+        batch (types.Batch): The batch. This will be the entire batch during the :attr:`Event.AFTER_DATALOADER`, or a
+            microbatch between :attr:`Event.BATCH_START` and :attr:`Event.BATCH_END`.
+        batch_num_samples (int): The number of samples in the :attr:`batch`.
+        batch_num_tokens (int): The number of tokens in the :attr:`batch`.
+        microbatches (Sequence[type.Batch]): The batch, split into ``grad_accum`` microbatches.
+        microbatch_idx (int): The current microbatch index, which will be on [0, ``grad_accum``).
+
         loss (types.Tensors): The most recently computed loss.
         outputs (types.Tensors): The most recently computed output from the model's forward pass.
         timer (types.Timer): The timer that tracks training loop progress.
     """
 
     _max_duration: Time[int]
+    batch: types.Batch
+    batch_num_samples: int
+    batch_num_tokens: int
+    microbatches: Sequence[types.Batch]
+    microbatch_idx: int
+    loss: types.Tensors
+    outputs: types.Tensors
 
     def __init__(
             self,
@@ -107,8 +122,8 @@ class State(Serializable):
 
             # data configurations
             grad_accum: int,
-            train_dataloader: Union[types.DataLoader, types.DataSpec, Dict[str, Any]],
-            eval_dataloader: Union[types.DataLoader, types.DataSpec, Dict[str, Any]],
+            train_dataloader: types.DataLoader,
+            eval_dataloader: types.DataLoader,
 
             # stopping conditions
             max_duration: Union[str, Time[int]],
@@ -130,29 +145,14 @@ class State(Serializable):
     ):
         self.model = model
         self.grad_accum = grad_accum
-        if not isinstance(train_dataloader, DataSpec):
-            if isinstance(train_dataloader, dict):
-                train_dataloader = DataSpec(**train_dataloader)
-            else:
-                train_dataloader = DataSpec(train_dataloader)
-        self.train_data = train_dataloader
-        if not isinstance(eval_dataloader, DataSpec):
-            if isinstance(eval_dataloader, dict):
-                eval_dataloader = DataSpec(**eval_dataloader)
-            else:
-                eval_dataloader = DataSpec(eval_dataloader)
-        self.eval_data = eval_dataloader
+        self.train_dataloader = train_dataloader
+        self.eval_dataloader = eval_dataloader
         self.max_duration = max_duration
 
         self.timer = Timer()
         self._precision = Precision(precision)
         self._steps_per_epoch = None
         self._precision_context = precision_context
-
-        self.batch: types.Batch = {}
-        self.last_batch_size = 0
-        self.loss: types.Tensors = torch.zeros(size=(1,))
-        self.outputs: types.Tensors = torch.zeros(size=(1,))
 
         if optimizers is None:
             self._optimizers = []
@@ -213,22 +213,6 @@ class State(Serializable):
         return self.max_duration.value
 
     @property
-    def train_dataloader(self):
-        return self.train_data.dataloader
-
-    @train_dataloader.setter
-    def train_dataloader(self, dataloader: types.DataLoader):
-        self.train_data = DataSpec(dataloader)
-
-    @property
-    def eval_dataloader(self):
-        return self.eval_data.dataloader
-
-    @eval_dataloader.setter
-    def eval_dataloader(self, dataloader: types.DataLoader):
-        self.eval_data = DataSpec(dataloader)
-
-    @property
     def optimizers(self):
         return self._optimizers
 
@@ -259,20 +243,6 @@ class State(Serializable):
     @algorithms.setter
     def algorithms(self, algorithms: Sequence[Algorithm]):
         self._algorithms[:] = algorithms
-
-    @property
-    def train_batch_size(self):
-        """The global batch size used for training."""
-        if self.train_dataloader.batch_size is None:
-            raise RuntimeError("train dataloader batch size is undefined")
-        return self.train_dataloader.batch_size * dist.get_world_size()
-
-    @property
-    def eval_batch_size(self):
-        """The batch size used for evaluation."""
-        if self.eval_dataloader.batch_size is None:
-            raise RuntimeError("eval dataloader batch size is undefined")
-        return self.eval_dataloader.batch_size * dist.get_world_size()
 
     def state_dict(self) -> types.StateDict:
         """Returns the state as a :class:`dict`."""
