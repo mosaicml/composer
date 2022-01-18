@@ -11,8 +11,8 @@ import torch
 from PIL import Image
 from torch.autograd import Variable
 from torch.utils.data import DataLoader
-from torchmetrics.detection import MAP
-
+#from torchmetrics.detection.map. import MAP
+from torchmetrics.detection.map import MeanAveragePrecision as MAP
 from composer.core.types import BatchPair, Metrics, Tensor, Tensors
 from composer.datasets.coco import COCO, COCODetection
 from composer.models.base import BaseMosaicModel
@@ -66,7 +66,8 @@ class SSD(BaseMosaicModel):
         return ploc, plabel
 
     def validate(self, batch: BatchPair) -> Tuple[Any, Any]:
-
+        #self.model.eval()
+        
         dboxes = dboxes300_coco()
         input_size = 300
         val_trans = SSDTransformer(dboxes, (input_size, input_size), val=True)
@@ -80,17 +81,50 @@ class SSD(BaseMosaicModel):
 
         inv_map = {v: k for k, v in val_coco.label_map.items()}
 
-        (img, img_id, img_size, bbox, label) = batch
+        #(img, img_id, img_size, bbox, label) = batch
+        #import pdb; pdb.set_trace()
+        
         ret = []
 
         overlap_threshold = 0.50
         nms_max_detections = 200
 
-        ploc, plabel = self.module(img)
+        #ploc, plabel = self.module(img)
         dboxes = dboxes300_coco()
 
         encoder = Encoder(dboxes)
 
+        for nbatch, (img, img_id, img_size, _, _) in enumerate(val_coco):
+            with torch.no_grad():
+                inp = img.cuda()
+                with torch.cuda.amp.autocast(enabled=args.amp):
+                    ploc, plabel = self.module(inp)
+                ploc, plabel = ploc.float(), plabel.float()
+
+                for idx in range(ploc.shape[0]):
+                    ploc_i = ploc[idx, :, :].unsqueeze(0)
+                    plabel_i = plabel[idx, :, :].unsqueeze(0)
+
+                    try:
+                        result = encoder.decode_batch(ploc_i, plabel_i, 0.50, 200)[0]
+                    except:
+                        continue
+
+                    htot, wtot = img_size[0][idx].item(), img_size[1][idx].item()
+                    loc, label, prob = [r.cpu().numpy() for r in result]
+                    for loc_, label_, prob_ in zip(loc, label, prob):
+                        ret.append(boxes=torch.Tensor([[loc_[0] * wtot, \
+                                    loc_[1] * htot,
+                                    (loc_[2] - loc_[0]) * wtot,
+                                    (loc_[3] - loc_[1]) * htot]]),
+                                   scores=torch.Tensor([prob_]),
+                                   labels=torch.IntTensor([img_id[idx]]),
+                                   )
+
+
+
+        
+        '''
         with torch.no_grad():
 
             results = encoder.decode_batch(ploc, plabel, overlap_threshold, nms_max_detections, nms_valid_thresh=0.05)
@@ -109,7 +143,8 @@ class SSD(BaseMosaicModel):
                                          (loc_[3] - loc_[1])*htot_,
                                          prob_,
                                          inv_map[label_]])
-
+        '''
+        
         import pdb
 
         grt = transform_d(val_annotate)
@@ -117,7 +152,7 @@ class SSD(BaseMosaicModel):
         return ret, grt
 
 
-def transform_d(val_annotate):
+def transform_d(val_annotate, batch):
     from pycocotools.coco import COCO
     our_coco = COCO(annotation_file=val_annotate)
     import json
@@ -149,6 +184,24 @@ def transform_d(val_annotate):
 
 from torchmetrics import Metric
 
+class mapp(Metric):
+
+    def __init__(self):
+        super().__init__(dist_sync_on_step=True)
+        self.add_state("n_updates", default=torch.zeros(1), dist_reduce_fx="sum")
+        self.add_state("mapp", default=torch.zeros((nclass,)), dist_reduce_fx="sum")
+
+    def update(self, pred, target):
+        """Update the state based on new predictions and targets."""
+        self.n_updates += 1  # type: ignore
+        self.dice += self.compute_stats(pred, target)
+
+    def compute(self):
+        """Aggregate the state over all processes to compute the metric."""
+        dice = 100 * self.dice / self.n_updates  # type: ignore
+        best_sum_dice = dice[:]
+        top_dice = round(torch.mean(best_sum_dice).item(), 2)
+        return top_dice
 
 def dboxes300_coco():
     figsize = 300
