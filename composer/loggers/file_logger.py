@@ -32,9 +32,12 @@ class FileLoggerBackend(BaseLoggerBackend):
         log_level (LogLevel, optional): Maximum
             :class:`~composer.core.logging.logger.LogLevel`. to record.
             (default: :attr:`~composer.core.logging.logger.LogLevel.EPOCH`)
-        every_n_epochs (int, optional):
-            Frequency to print :attr:`~composer.core.logging.logger.LogLevel.EPOCH` logs.
-            (default: ``1``)
+        log_interval (int, optional):
+            Frequency to print logs. If ``log_level` is :attr:`~composer.core.logging.logger.LogLevel.EPOCH`,
+            logs will only be recorded every n epochs. If ``log_level` is
+            :attr:`~composer.core.logging.logger.LogLevel.BATCH`, logs will be printed every n batches.
+            Otherwise, if ``log_level` is :attr:`~composer.core.logging.logger.LogLevel.FIT`, this parameter is
+            ignored, as calls at the fit log level are always recorded. (default: ``1``)
         every_n_batches (int, optional):
             Frequency to print :attr:`~composer.core.logging.logger.LogLevel.BATCH` logs.
             (default: ``1``)
@@ -48,8 +51,7 @@ class FileLoggerBackend(BaseLoggerBackend):
         *,
         buffer_size: int = 1,
         log_level: LogLevel = LogLevel.EPOCH,
-        every_n_epochs: int = 1,
-        every_n_batches: int = 1,
+        log_interval: int = 1,
         flush_every_n_batches: int = 1,
         config: Optional[Dict[str, Any]] = None,
     ) -> None:
@@ -57,20 +59,27 @@ class FileLoggerBackend(BaseLoggerBackend):
         self.filename = filename
         self.buffer_size = buffer_size
         self.log_level = log_level
-        self.every_n_epochs = every_n_epochs
-        self.every_n_batches = every_n_batches
+        self.log_interval = log_interval
         self.flush_every_n_batches = flush_every_n_batches
         self.file: Optional[TextIO] = None
         self.config = config
 
     def will_log(self, state: State, log_level: LogLevel) -> bool:
-        if log_level > self.log_level:
-            return False
-        if log_level >= LogLevel.EPOCH and int(state.timer.epoch) % self.every_n_epochs != 0:
-            return False
-        if log_level >= LogLevel.BATCH and int(state.timer.batch) % self.every_n_batches != 0:
-            return False
-        return True
+        if log_level == LogLevel.FIT:
+            return True  # fit is always logged
+        if log_level == LogLevel.EPOCH:
+            if self.log_level < LogLevel.EPOCH:
+                return False
+            if self.log_level > LogLevel.EPOCH:
+                return True
+            return (int(state.timer.epoch) + 1) % self.log_interval == 0
+        if log_level == LogLevel.BATCH:
+            if self.log_level < LogLevel.BATCH:
+                return False
+            if self.log_level > LogLevel.BATCH:
+                return True
+            return (int(state.timer.batch) + 1) % self.log_interval == 0
+        raise ValueError(f"Unknown log level: {log_level}")
 
     def log_metric(self, epoch: int, step: int, log_level: LogLevel, data: TLogData):
         data_str = format_log_data_value(data)

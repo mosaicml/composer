@@ -60,14 +60,7 @@ class FileLoggerBackendHparams(BaseLoggerBackendHparams):
         "Even if the buffer is not full, write to the file after this many steps. "
         "Defaults to 1 (every step).",
         default=1)
-    every_n_epochs: int = hp.optional(
-        "Frequency of logging messages for messages of LogLevel.EPOCH and higher."
-        "Defaults to 1 (every epoch).",
-        default=1)
-    every_n_batches: int = hp.optional(
-        "Frequency of logging messages for messages of LogLevel.BATCH and higher."
-        "Defaults to 1 (every batch).",
-        default=1)
+    log_interval: int = hp.optional("Frequency to record log messages. Defaults to 1 (record all messages).", default=1)
 
     def initialize_object(self, config: Optional[Dict[str, Any]] = None) -> FileLoggerBackend:
 
@@ -98,6 +91,7 @@ class WandBLoggerBackendHparams(BaseLoggerBackendHparams):
     tags: str = hp.optional(doc="wandb tags comma separated", default="")
     log_artifacts: bool = hp.optional(doc="Whether to log artifacts", default=False)
     log_artifacts_every_n_batches: int = hp.optional(doc="interval, in batches, to log artifacts", default=100)
+    rank_zero_only: bool = hp.optional("Whether to log on rank zero only", default=False)
     extra_init_params: Dict[str, JSON] = hp.optional(doc="wandb parameters", default_factory=dict)
 
     def initialize_object(self, config: Optional[Dict[str, Any]] = None) -> WandBLoggerBackend:
@@ -202,6 +196,7 @@ class WandBLoggerBackendHparams(BaseLoggerBackendHparams):
         from composer.loggers.wandb_logger import WandBLoggerBackend
         return WandBLoggerBackend(
             log_artifacts=self.log_artifacts,
+            rank_zero_only=self.rank_zero_only,
             log_artifacts_every_n_batches=self.log_artifacts_every_n_batches,
             init_params=init_params,
         )
