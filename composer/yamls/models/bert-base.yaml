@@ -54,13 +54,7 @@ schedulers:
       interval: step
       verbose: false
 loggers:
-  - file:
-      log_level: batch
-      filename: stdout
-      buffer_size: 1
-      flush_every_n_batches: 100
-      every_n_batches: 100
-      every_n_epochs: 1
+  - tqdm: {}
 max_duration: 7ep  # Baseline is 256M samples, 7 epochs is ~280M samples
 train_batch_size: 4000
 eval_batch_size: 2000

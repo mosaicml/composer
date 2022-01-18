@@ -28,7 +28,7 @@ def test_file_logger(dummy_state: State, log_level: LogLevel, log_file_name: str
         log_level=log_level,
         filename=log_file_name,
         buffer_size=1,
-        flush_every_n_batches=1,
+        flush_interval=1,
     ).initialize_object()
     dummy_state.timer.on_batch_complete()
     dummy_state.timer.on_batch_complete()
