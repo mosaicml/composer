@@ -14,8 +14,7 @@ from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Sequence,
 import yahp as hp
 
 from composer.core.callback import Callback
-from composer.utils import dist
-from composer.utils.run_directory import get_relative_to_run_directory
+from composer.utils import dist, run_directory
 from composer.utils.string_enum import StringEnum
 
 if TYPE_CHECKING:
@@ -187,7 +186,7 @@ class Profiler:
         self.warmup = warmup
         self.active = active
         self.repeat = repeat
-        self.merged_trace_file = get_relative_to_run_directory(merged_trace_file)
+        self.merged_trace_file = os.path.join(run_directory.get_run_directory(), merged_trace_file)
         self._action = ProfilerAction.SKIP
 
     def get_action(self, batch_idx: int) -> ProfilerAction:

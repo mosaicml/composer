@@ -7,7 +7,7 @@ import pytest
 
 from composer.profiler import JSONTraceHandlerHparams, ProfilerHparams
 from composer.trainer import TrainerHparams
-from composer.utils.run_directory import get_relative_to_run_directory
+from composer.utils import run_directory
 
 
 @pytest.mark.timeout(10)
@@ -29,7 +29,7 @@ def test_json_trace_profiler_hanlder(mosaic_trainer_hparams: TrainerHparams):
     trainer = mosaic_trainer_hparams.initialize_object()
     trainer.fit()
 
-    profiler_file = get_relative_to_run_directory(os.path.join("mosaic_profiler", "rank_0.trace.json"))
+    profiler_file = os.path.join(run_directory.get_run_directory(), "mosaic_profiler", "rank_0.trace.json")
 
     with open(profiler_file, "r") as f:
         trace_json = json.load(f)

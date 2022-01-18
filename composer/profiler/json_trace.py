@@ -11,8 +11,7 @@ from typing import IO, Dict, List, Optional, Tuple, Union
 from composer.core.profiler import ProfilerEventHandler
 from composer.core.state import State
 from composer.core.types import Logger
-from composer.utils import dist
-from composer.utils.run_directory import get_relative_to_run_directory
+from composer.utils import dist, run_directory
 
 
 class JSONTraceHandler(ProfilerEventHandler):
@@ -34,7 +33,7 @@ class JSONTraceHandler(ProfilerEventHandler):
                  output_directory: str = "mosaic_profiler") -> None:
         self.buffering = buffering
         self.flush_every_n_batches = flush_every_n_batches
-        self.output_directory = get_relative_to_run_directory(output_directory)
+        self.output_directory = os.path.join(run_directory.get_run_directory(), output_directory)
         self._file: Optional[IO] = None
         self._is_first_line = True
         self._buffer = queue.SimpleQueue()
