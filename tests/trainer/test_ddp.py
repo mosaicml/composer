@@ -215,6 +215,8 @@ def test_ddp(device: DeviceHparams, world_size: int, mosaic_trainer_hparams: Tra
     for epoch in range(max_epochs):
         for local_rank in range(dist.get_local_world_size()):
             for is_train in (True, False):
+                if not is_train:
+                    epoch += 1
                 data: Dict[str, types.Tensor] = torch.load(  # type: ignore
                     get_batch_file_path(rank=local_rank, epoch=epoch, is_train=is_train),
                     map_location='cpu',

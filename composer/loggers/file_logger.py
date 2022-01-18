@@ -42,7 +42,7 @@ class FileLoggerBackend(BaseLoggerBackend):
             For example, if the ``log_level`` is :attr:`~composer.core.logging.logger.LogLevel.EPOCH`,
             then the logfile will be flushed every n epochs.
             If the ``log_level`` is :attr:`~composer.core.logging.logger.LogLevel.BATCH`, then the logfile will be flushed
-            every n batches. (default: ``1``)
+            every n batches. (default: ``100``)
     """
 
     def __init__(
@@ -52,7 +52,7 @@ class FileLoggerBackend(BaseLoggerBackend):
         buffer_size: int = 1,
         log_level: LogLevel = LogLevel.EPOCH,
         log_interval: int = 1,
-        flush_interval: int = 1,
+        flush_interval: int = 100,
         config: Optional[Dict[str, Any]] = None,
     ) -> None:
         super().__init__()

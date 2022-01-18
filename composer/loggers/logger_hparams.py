@@ -57,10 +57,13 @@ class FileLoggerBackendHparams(BaseLoggerBackendHparams):
                                    "See https://docs.python.org/3/library/functions.html#open",
                                    default=1)  # line buffering. Python's default is -1.
     flush_interval: int = hp.optional(
-        "Frequency to flush the file, relative to the ``log_interval``. "
-        "Defaults to 1 (flush every ``log_interval``)",
+        "Frequency to flush the file, relative to the ``log_level``. "
+        "Defaults to 100 of the unit of ``log_level``.",
+        default=100)
+    log_interval: int = hp.optional(
+        "Frequency to record log messages, relative to the ``log_level``."
+        "Defaults to 1 (record all messages).",
         default=1)
-    log_interval: int = hp.optional("Frequency to record log messages. Defaults to 1 (record all messages).", default=1)
 
     def initialize_object(self, config: Optional[Dict[str, Any]] = None) -> FileLoggerBackend:
 
@@ -237,7 +240,7 @@ class MosaicMLLoggerBackendHparams(BaseLoggerBackendHparams):
         "A file containing the MosaicML api_key. If not provided "
         "will default to the environment variable MOSAIC_API_KEY.",
         default=None)
-    flush_interval: int = hp.optional("Flush the log data buffer every n batches.", default=100)
+    flush_every_n_batches: int = hp.optional("Flush the log data buffer every n batches.", default=100)
     max_logs_in_buffer: int = hp.optional(
         "The maximum number of log entries allowed in the buffer "
         "before a forced flush.", default=1000)
