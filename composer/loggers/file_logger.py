@@ -8,13 +8,12 @@ from typing import Any, Dict, Optional, TextIO
 
 import yaml
 
-from composer.core.logging import Logger, LogLevel, RankZeroLoggerBackend, TLogData, format_log_data_value
+from composer.core.logging import BaseLoggerBackend, Logger, LogLevel, TLogData, format_log_data_value
 from composer.core.state import State
-from composer.loggers.logger_hparams import FileLoggerBackendHparams
 from composer.utils import run_directory
 
 
-class FileLoggerBackend(RankZeroLoggerBackend):
+class FileLoggerBackend(BaseLoggerBackend):
     """Logs to a file or to the terminal.
 
     Example output::
@@ -55,27 +54,25 @@ class FileLoggerBackend(RankZeroLoggerBackend):
         config: Optional[Dict[str, Any]] = None,
     ) -> None:
         super().__init__()
-        self.hparams = FileLoggerBackendHparams(
-            filename=filename,
-            buffer_size=buffer_size,
-            log_level=log_level,
-            every_n_epochs=every_n_epochs,
-            every_n_batches=every_n_batches,
-            flush_every_n_batches=flush_every_n_batches,
-        )
+        self.filename = filename
+        self.buffer_size = buffer_size
+        self.log_level = log_level
+        self.every_n_epochs = every_n_epochs
+        self.every_n_batches = every_n_batches
+        self.flush_every_n_batches = flush_every_n_batches
         self.file: Optional[TextIO] = None
         self.config = config
 
-    def _will_log(self, state: State, log_level: LogLevel) -> bool:
-        if log_level > self.hparams.log_level:
+    def will_log(self, state: State, log_level: LogLevel) -> bool:
+        if log_level > self.log_level:
             return False
-        if log_level >= LogLevel.EPOCH and state.epoch % self.hparams.every_n_epochs != 0:
+        if log_level >= LogLevel.EPOCH and int(state.timer.epoch) % self.every_n_epochs != 0:
             return False
-        if log_level >= LogLevel.BATCH and (state.step + 1) % self.hparams.every_n_batches != 0:
+        if log_level >= LogLevel.BATCH and int(state.timer.batch) % self.every_n_batches != 0:
             return False
         return True
 
-    def _log_metric(self, epoch: int, step: int, log_level: LogLevel, data: TLogData):
+    def log_metric(self, epoch: int, step: int, log_level: LogLevel, data: TLogData):
         data_str = format_log_data_value(data)
         if self.file is None:
             raise RuntimeError("Attempted to log before self.init() or after self.close()")
@@ -85,14 +82,14 @@ class FileLoggerBackend(RankZeroLoggerBackend):
         del state, logger  # unused
         if self.file is not None:
             raise RuntimeError("The file logger is already initialized")
-        if self.hparams.filename == "stdout":
+        if self.filename == "stdout":
             self.file = sys.stdout
-        elif self.hparams.filename == "stderr":
+        elif self.filename == "stderr":
             self.file = sys.stderr
         else:
-            self.file = open(os.path.join(run_directory.get_run_directory(), self.hparams.filename),
+            self.file = open(os.path.join(run_directory.get_run_directory(), self.filename),
                              "x+",
-                             buffering=self.hparams.buffer_size)
+                             buffering=self.buffer_size)
         if self.config is not None:
             print("Config", file=self.file)
             print("-" * 30, file=self.file)
@@ -103,7 +100,7 @@ class FileLoggerBackend(RankZeroLoggerBackend):
     def batch_end(self, state: State, logger: Logger) -> None:
         del logger  # unused
         assert self.file is not None
-        if (state.step + 1) % self.hparams.flush_every_n_batches == 0:
+        if (int(state.timer.batch) + 1) % self.flush_every_n_batches == 0:
             self._flush_file()
 
     def epoch_end(self, state: State, logger: Logger) -> None:
