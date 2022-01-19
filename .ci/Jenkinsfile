@@ -30,7 +30,7 @@ def runPytest(Map args) {
     // extraDeps (str, optional): The pip extra deps to install -- e.g. pip install mosaicml[$extraDeps]. (default: `all`)
     // pythonVersion (str, optional): The python version (should be 3.7, 3.8, or 3.9).
     //    Required if `pDockerImage` is left blank
-    // gpu (bool, optional): Whether to run tests on a gpu (default: `False`)
+    // gpu (bool, optional): Whether to run tests on a gpu (default: `false`)
     // pDockerImage (str, optional): Base docker image to use. Required if `pythonVersion` is left blank
     def extraDeps = args.extraDeps ?: 'all'
     def pythonVersion = args.pythonVersion
@@ -72,10 +72,10 @@ EXTRA_DEPS=$extraDeps
 MARKERS=($markers)
 
 # Install dependencies
-if [ -z "\$EXTRA_DEPS" ]; then
+if [ -z "\${EXTRA_DEPS}" ]; then
     pip install .
 else
-    pip install .[\$EXTRA_DEPS]
+    pip install .[\${EXTRA_DEPS}]
 fi
 
 # Disable WandB. Since WandB may not be installed, ignoring errors
@@ -85,24 +85,21 @@ set -e
 
 # For each marker, run pytest
 I=0
-for marker in \${MARKERS[@]}; do
-    if [ -n "\$marker" ]; then
-        EXTRA="-m \$marker"
-    else
-        EXTRA=""
-    fi
-
-    # Run the tests
-    JUNIT_PREFIX=build/output/\$BUILD_NUMBER_\$I" ./scripts/test.sh --test_duration all -v \$EXTRA
+if [ -n "\${MARKERS}"]; then
+    echo JUNIT_PREFIX=build/output/\${BUILD_NUMBER}_\${I} ./scripts/test.sh --test_duration all -v
     ((I=I+1))
-done
-
+else
+    for marker in \${MARKERS[@]}; do
+        # Run the tests
+        echo JUNIT_PREFIX=build/output/\${BUILD_NUMBER}_\${I} ./scripts/test.sh --test_duration all -v -m \$marker
+        ((I=I+1))
+    done
+fi
 
 # Combine the coverage reports
 python -m coverage combine
-python -m coverage xml -o build/output/\$BUILD_NUMBER.coverage.xml"""
+python -m coverage xml -o build/output/\${BUILD_NUMBER}.coverage.xml"""
 
-    echo "PYTEST COMMAND: $pytestCommand"
     def closure = { ->
         builds << build(
             job: "${jenkinsJobBasePath}/command",
@@ -137,7 +134,6 @@ python -m coverage xml -o build/output/\$BUILD_NUMBER.coverage.xml"""
 
 stage('Prepare') {
     node (pCloud) {
-        // ITo get the commit url and hash, we must be on a real agent
         def loadedSCM = checkout scm
 
         gitUrl = loadedSCM.GIT_URL
@@ -208,11 +204,11 @@ stage('Build') {
                     )
                 }
             },
-            'Python 3.7 - All': { -> runPytest(pythonVersion: "3.7", extraDeps: "all") },
-            'Python 3.8 - All': { -> runPytest(pythonVersion: "3.8", extraDeps: "all") },
-            'Python 3.9 - All': { -> runPytest(pythonVersion: "3.9", extraDeps: "all") },
+            'Python 3.7 - All': { -> runPytest(pythonVersion: "3.7") },
+            'Python 3.8 - All': { -> runPytest(pythonVersion: "3.8") },
+            'Python 3.9 - All': { -> runPytest(pythonVersion: "3.9") },
             'Python 3.9 - Dev': { -> runPytest(pythonVersion: "3.9", extraDeps: "dev") },
-            'Python 3.9 - All (GPU)': { -> runPytest(pythonVersion: "3.9", extraDeps: "all", gpu: True) },
+            'Python 3.9 - All (GPU)': { -> runPytest(pythonVersion: "3.9", gpu: true) },
         ]        
     }
     try {
