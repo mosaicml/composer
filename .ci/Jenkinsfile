@@ -86,12 +86,12 @@ set -e
 # For each marker, run pytest
 I=0
 if [ -n "\${MARKERS}"]; then
-    echo JUNIT_PREFIX=build/output/\${BUILD_NUMBER}_\${I} ./scripts/test.sh --test_duration all -v
+    JUNIT_PREFIX=build/output/\${BUILD_NUMBER}_\${I} ./scripts/test.sh --test_duration all -v
     ((I=I+1))
 else
     for marker in \${MARKERS[@]}; do
         # Run the tests
-        echo JUNIT_PREFIX=build/output/\${BUILD_NUMBER}_\${I} ./scripts/test.sh --test_duration all -v -m \$marker
+        JUNIT_PREFIX=build/output/\${BUILD_NUMBER}_\${I} ./scripts/test.sh --test_duration all -v -m \$marker
         ((I=I+1))
     done
 fi
