@@ -56,7 +56,7 @@ def runPytest(Map args) {
         }
         def pytorchVersion = pythonVersion == "3.9" ? "1.10.0" : "1.9.1"
         name = "pytest/python${pythonVersion}-extraDeps_${extraDeps}-gpu_$gpu"
-        tile = "Pytest - Python ${pythonVersion}, composer[${extraDeps}] (GPU $gpu)"
+        title = "Pytest - Python ${pythonVersion}, composer[${extraDeps}] (GPU $gpu)"
         def cudaVersion = "cpu"
         if (gpu) {
             cudaVersion = pythonVersion == "3.9" ? "cu113" : "cu111"
