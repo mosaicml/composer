@@ -115,9 +115,9 @@ python -m coverage xml -o build/output/\$BUILD_NUMBER.coverage.xml"""
                 string(name: 'P_TIMEOUT', value: pTimeout),
                 string(name: 'P_N_GPUS', value: nGpus),
                 text(name: 'P_COMMAND', value: pytestCommand),
-                string(name: 'P_ARTIFACTS_GLOB', value: "build/output/*.xml")
-                string(name: 'P_JUNIT_GLOB', value: "build/output/*.junit.xml")
-                string(name: 'P_COVERAGE_GLOB', value: "build/output/*.coverage.xml")
+                string(name: 'P_ARTIFACTS_GLOB', value: "build/output/*.xml"),
+                string(name: 'P_JUNIT_GLOB', value: "build/output/*.junit.xml"),
+                string(name: 'P_COVERAGE_GLOB', value: "build/output/*.coverage.xml"),
             ]
         )
     }
@@ -126,8 +126,9 @@ python -m coverage xml -o build/output/\$BUILD_NUMBER.coverage.xml"""
             name: name,
             title: title,
             summary: summary,
-            closure
-        )
+        ) {
+            closure()
+        }
     } else {
         closure()
     }
