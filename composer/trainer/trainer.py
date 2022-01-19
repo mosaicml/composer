@@ -28,6 +28,7 @@ from composer.models.base import BaseMosaicModel
 from composer.optim import (ComposedScheduler, CosineAnnealingLRHparams, DecoupledSGDWHparams, OptimizerHparams,
                             SchedulerHparams, WarmUpLRHparams)
 from composer.optim.scheduler import ensure_warmup_last
+from composer.profiler.profiler_hparams import ProfilerHparams
 from composer.trainer.checkpoint_hparams import CheckpointLoaderHparams, CheckpointSaverHparams
 from composer.trainer.ddp import DDPSyncStrategy, ddp_sync_context, prepare_ddp_module
 from composer.trainer.deepspeed import DeepSpeedHparams, fix_batch_precision_for_deepspeed
@@ -146,12 +147,15 @@ class Trainer:
             deterministic_mode: bool = False,
 
             # Logging and callbacks
-            log_destinations: Optional[List[BaseLoggerBackend]] = None,
+            log_destinations: Optional[Sequence[BaseLoggerBackend]] = None,
             callbacks: Sequence[Callback] = tuple(),
 
             # Checkpoint hparams
             checkpoint_loader: Optional[CheckpointLoaderHparams] = None,
             checkpoint_saver: Optional[CheckpointSaverHparams] = None,
+
+            # Profiling
+            profiler: Optional[ProfilerHparams] = None,
 
             # Subset parameters
             train_subset_num_batches: Optional[int] = None,
@@ -171,7 +175,7 @@ class Trainer:
         self.deepspeed_hparams = deepspeed_hparams
 
         if not device:
-            device = DeviceCPU() if not self.deepspeed_enabled else DeviceGPU()
+            device = DeviceCPU() if not self.deepspeed_hparams is not None else DeviceGPU()
         self.device = device
 
         if not seed:
@@ -223,14 +227,19 @@ class Trainer:
         self.state = State(
             max_duration=max_duration,
             algorithms=algorithms,
-            callbacks=callbacks,
             model=model,
+            callbacks=callbacks,
             grad_accum=grad_accum,
             precision=precision,
             precision_context=precision_context,
             train_dataloader=train_dataloader.dataloader,
             eval_dataloader=eval_dataloader.dataloader,
         )
+
+        # Configure the profiler
+        if profiler is not None:
+            self.state.profiler = profiler.initialize_object(self.state)
+            self.state.callbacks.extend(self.state.profiler.event_handlers)
 
         # Steps per epoch
         if train_subset_num_batches is not None:
@@ -255,9 +264,12 @@ class Trainer:
         if log_destinations is None:
             log_destinations = [TQDMLoggerBackend()]
         self.logger = Logger(self.state, log_destinations)
-        self.state.callbacks = [*log_destinations, *callbacks]
+        self.state.callbacks = list(cast(List[Callback], log_destinations)) + self.state.callbacks
 
-        self.engine = Engine(self.state, self.state.algorithms, self.logger, self.state.callbacks)
+        self.engine = Engine(
+            state=self.state,
+            logger=self.logger,
+        )
 
         self.validate_every_n_batches = validate_every_n_batches
         self.validate_every_n_epochs = validate_every_n_epochs
@@ -361,16 +373,16 @@ class Trainer:
         algorithms = [x.initialize_object() for x in hparams.algorithms]
 
         # callbacks, loggers, and seed
-        callbacks = [x.initialize_object() for x in hparams.callbacks]
         dict_config = hparams.to_dict()
         log_destinations = [x.initialize_object(config=dict_config) for x in hparams.loggers]
+        callbacks = [x.initialize_object() for x in hparams.callbacks]
 
         if hparams.datadir is not None:
             hparams.train_dataset.datadir = hparams.datadir
             hparams.val_dataset.datadir = hparams.datadir
 
         train_device_batch_size = hparams.train_batch_size // dist.get_world_size()
-        if hparams.train_dataset.shuffle and hparams.train_subset_num_batches:
+        if hparams.train_dataset.shuffle and hparams.train_subset_num_batches is not None:
             warnings.warn(
                 textwrap.dedent(f"""SubsetNumBatchesWarning: When specifying train_subset_num_batches,
             (set to {hparams.train_subset_num_batches}), train_datset.shuffle should be set to False. Otherwise,
@@ -378,7 +390,7 @@ class Trainer:
         train_dataloader = hparams.train_dataset.initialize_object(train_device_batch_size, hparams.dataloader)
 
         eval_device_batch_size = hparams.eval_batch_size // dist.get_world_size()
-        if hparams.val_dataset.shuffle and hparams.eval_subset_num_batches:
+        if hparams.val_dataset.shuffle and hparams.eval_subset_num_batches is not None:
             warnings.warn(
                 textwrap.dedent(f"""SubsetNumBatchesWarning: When specifying eval_subset_num_batches,
             (set to {hparams.eval_subset_num_batches}), val_dataset.shuffle should be set to False. Otherwise,
@@ -415,7 +427,10 @@ class Trainer:
 
             # Callbacks and logging
             log_destinations=log_destinations,
-            callbacks=tuple(callbacks),
+            callbacks=callbacks,
+
+            # Profiler
+            profiler=hparams.profiler,
 
             # Checkpoint hparams
             checkpoint_loader=hparams.load_checkpoint,
@@ -526,7 +541,7 @@ class Trainer:
                                       f"found {len(ensure_tuple(state.optimizers))} optimizers")
 
         # print training start
-        self.logger.metric_fit({"trainer/algorithms": [str(algo) for algo in self.engine.algorithms]})
+        self.logger.metric_fit({"trainer/algorithms": [str(algo) for algo in self.state.algorithms]})
 
         if self.compute_training_metrics:
             log.warn('Computing model evaluation metrics during training.'

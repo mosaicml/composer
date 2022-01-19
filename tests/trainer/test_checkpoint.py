@@ -420,7 +420,7 @@ def validate_events_called_expected_number_of_times(trainer: Trainer):
         Event.TRAINING_END: 1,
     }
 
-    for callback in trainer.engine.callbacks:
+    for callback in trainer.state.callbacks:
         if isinstance(callback, EventCounterCallback):
             for event, expected in event_to_num_expected_invocations.items():
                 actual = callback.event_to_num_calls[event]
