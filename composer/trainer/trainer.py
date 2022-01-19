@@ -495,11 +495,6 @@ class Trainer:
         since only the first batch is being loaded, the dataloader may
         not be completely iterated through.
         """
-        # surpressing this multiple iteration warning -- it is OK to ignore
-        warnings.filterwarnings(action="ignore", message=r"^DataloaderMultipleIterationWarning", append=True)
-        assert self.state.train_dataloader is not None, "train dataloader should be set"
-        assert self.state.eval_dataloader is not None, "eval dataloader should be set"
-
         # spin the eval dataloader once to initialize its sampler deterministically
         # so it does not affect any other RNG reads
         if isinstance(self.state.eval_dataloader.sampler, torch.utils.data.DistributedSampler):
