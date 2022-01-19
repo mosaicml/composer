@@ -82,7 +82,12 @@ class SqueezeExciteConv2d(torch.nn.Module):
         return SqueezeExciteConv2d(conv=module, latent_channels=latent_channels)
 
 
-def apply_se(model: torch.nn.Module, latent_channels: float, min_channels: int, optimizers: Optional[Optimizers] = None, ):
+def apply_se(
+    model: torch.nn.Module,
+    latent_channels: float,
+    min_channels: int,
+    optimizers: Optional[Optimizers] = None,
+):
     """See :class:`SqueezeExcite`"""
 
     def convert_module(module: torch.nn.Module, module_index: int):

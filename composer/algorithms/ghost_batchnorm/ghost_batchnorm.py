@@ -100,8 +100,9 @@ class GhostBatchNorm3d(_GhostBatchNorm):
     pass
 
 
-def apply_ghost_batchnorm(model: torch.nn.Module, 
-                          ghost_batch_size: int, optimizers: Optional[Optimizers] = None) -> torch.nn.Module:
+def apply_ghost_batchnorm(model: torch.nn.Module,
+                          ghost_batch_size: int,
+                          optimizers: Optional[Optimizers] = None) -> torch.nn.Module:
     """Replace batch normalization modules with ghost batch normalization modules.
 
     Must be run before the model has been moved to accelerators and before
