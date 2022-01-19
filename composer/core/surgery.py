@@ -3,7 +3,7 @@
 import collections
 import logging
 import textwrap
-from typing import (TYPE_CHECKING, Any, Dict, Iterable, List, Mapping, Optional, OrderedDict, Tuple, Type)
+from typing import TYPE_CHECKING, Any, Dict, Iterable, List, Mapping, Optional, OrderedDict, Tuple, Type
 
 from composer.utils.iter_helpers import ensure_tuple
 
