@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import os
 import sys
+import textwrap
+import warnings
 from typing import Any, Dict, Optional
 
 from composer.core.logging import BaseLoggerBackend, LogLevel, TLogData
@@ -23,14 +25,25 @@ class WandBLoggerBackend(BaseLoggerBackend):
             was realized when logging and uploading artifacts, so it is recommended to
             do so infrequently. Only applicable when `log_artifacts` is True
             (default: ``100``)
+        rank_zero_only (bool, optional): Whether to log only on the rank-zero process (default: ``False``).
+            When logging artifacts, it is highly recommended to log on all ranks. Artifacts from ranks 1+
+            will not be stored, which may discard pertinent information. For example, when using Deepspeed
+            ZeRO, it would be impossible to restore from checkpoints without artifacts from all ranks.
         init_params (Dict[str, Any], optional): Parameters to pass into :meth:`wandb.init`.
     """
 
     def __init__(self,
                  log_artifacts: bool = False,
                  log_artifacts_every_n_batches: int = 100,
+                 rank_zero_only: bool = False,
                  init_params: Optional[Dict[str, Any]] = None) -> None:
-        super().__init__()
+        if log_artifacts and rank_zero_only:
+            warnings.warn(
+                textwrap.dedent("""When logging artifacts, `rank_zero_only` should be set to False.
+                Artifacts from other ranks will not be collected, leading to a loss of information required to
+                restore from checkpoints."""))
+        self._enabled = (not rank_zero_only) or dist.get_global_rank() == 0
+
         self._log_artifacts = log_artifacts
         self._log_artifacts_every_n_batches = log_artifacts_every_n_batches
         self._last_upload_timestamp = 0.0
@@ -40,35 +53,40 @@ class WandBLoggerBackend(BaseLoggerBackend):
 
     def log_metric(self, epoch: int, step: int, log_level: LogLevel, data: TLogData):
         del epoch, log_level  # unused
-        wandb.log(data, step=step)
+        if self._enabled:
+            wandb.log(data, step=step)
 
     def state_dict(self) -> StateDict:
         # Storing these fields in the state dict to support run resuming in the future.
-        return {
-            "name": wandb.run.name,
-            "project": wandb.run.project,
-            "entity": wandb.run.entity,
-            "id": wandb.run.id,
-            "group": wandb.run.group
-        }
+        if self._enabled:
+            return {
+                "name": wandb.run.name,
+                "project": wandb.run.project,
+                "entity": wandb.run.entity,
+                "id": wandb.run.id,
+                "group": wandb.run.group
+            }
+        else:
+            return {}
 
     def init(self, state: State, logger: Logger) -> None:
         del state, logger  # unused
-        wandb.init(**self._init_params)
+        if self._enabled:
+            wandb.init(**self._init_params)
 
     def batch_end(self, state: State, logger: Logger) -> None:
         del logger  # unused
-        if self._log_artifacts and (state.step + 1) % self._log_artifacts_every_n_batches == 0:
+        if self._enabled and self._log_artifacts and (state.step + 1) % self._log_artifacts_every_n_batches == 0:
             self._upload_artifacts()
 
     def epoch_end(self, state: State, logger: Logger) -> None:
         del state, logger  # unused
-        if self._log_artifacts:
+        if self._enabled and self._log_artifacts:
             self._upload_artifacts()
 
     def training_end(self, state: State, logger: Logger) -> None:
         del state, logger  # unused
-        if self._log_artifacts:
+        if self._enabled and self._log_artifacts:
             self._upload_artifacts()
 
     def _upload_artifacts(self):
@@ -79,14 +97,10 @@ class WandBLoggerBackend(BaseLoggerBackend):
         # so uploads will not block the training loop
         # slowdown is likely from extra I/O of scanning the directory and/or
         # scheduling uploads
-        run_directory_name = run_directory.get_run_directory()
-        if run_directory_name is None:
-            return
-
         modified_files = run_directory.get_modified_files(self._last_upload_timestamp)
         for modified_file in modified_files:
             file_type = modified_file.split(".")[-1]
-            relpath = os.path.relpath(modified_file, run_directory_name)
+            relpath = os.path.relpath(modified_file, run_directory.get_run_directory())
             relpath = f"rank_{dist.get_global_rank()}-" + relpath.replace("/", "-")
             artifact = wandb.Artifact(name=relpath, type=file_type)
             artifact.add_file(os.path.abspath(modified_file))
@@ -95,6 +109,9 @@ class WandBLoggerBackend(BaseLoggerBackend):
 
     def post_close(self) -> None:
         # Cleaning up on post_close so all artifacts are uploaded
+        if not self._enabled:
+            return
+
         if self._log_artifacts:
             self._upload_artifacts()
 

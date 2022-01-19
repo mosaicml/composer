@@ -8,7 +8,7 @@ import itertools
 import logging
 import textwrap
 import warnings
-from typing import Any, Callable, ContextManager, Dict, List, Optional, Sequence, Union, cast
+from typing import TYPE_CHECKING, Any, Callable, ContextManager, Dict, List, Optional, Sequence, Union, cast
 
 import torch
 import torch.distributed
@@ -22,7 +22,7 @@ from tqdm import tqdm
 from composer.core import Callback, DataSpec, Engine, Event, Logger, State, Time
 from composer.core.algorithm import Algorithm
 from composer.core.logging import BaseLoggerBackend, LogLevel
-from composer.core.types import Batch, BreakEpochException, DataLoader, Metrics, Precision, Tensor
+from composer.core.types import BreakEpochException, DataLoader, Metrics, Precision
 from composer.datasets.dataloader import DDPDataLoader
 from composer.loggers.tqdm_logger import TQDMLoggerBackend
 from composer.models.base import BaseMosaicModel
@@ -38,6 +38,9 @@ from composer.trainer.devices.device_gpu import DeviceGPU
 from composer.trainer.scaler import ClosureGradScaler
 from composer.trainer.trainer_hparams import TrainerHparams
 from composer.utils import dist, ensure_tuple, map_collection, reproducibility
+
+if TYPE_CHECKING:
+    import deepspeed
 
 log = logging.getLogger(__name__)
 
@@ -220,6 +223,9 @@ class Trainer:
             eval_dataloader = DataSpec(eval_dataloader)
         eval_dataloader.dataloader = DDPDataLoader(eval_dataloader.dataloader)
 
+        self._train_data_spec = train_dataloader
+        self._eval_data_spec = eval_dataloader
+
         self.state = State(
             max_duration=max_duration,
             algorithms=algorithms,
@@ -228,8 +234,8 @@ class Trainer:
             grad_accum=grad_accum,
             precision=precision,
             precision_context=precision_context,
-            train_dataloader=train_dataloader,
-            eval_dataloader=eval_dataloader,
+            train_dataloader=train_dataloader.dataloader,
+            eval_dataloader=eval_dataloader.dataloader,
         )
 
         # Steps per epoch
@@ -290,18 +296,19 @@ class Trainer:
                     print(f"Overriding decay_ratio via trainer hparam: {scheduler.total_iters} to {decay_ratio}dur")
                     scheduler.total_iters = f"{decay_ratio}dur"
 
-        if self.state.train_data.num_samples is None:
+        if self._train_data_spec.num_samples is None or self.state.train_dataloader.batch_size is None:
             samples_per_epoch = None
         else:
-            samples_per_epoch = min(self.state.steps_per_epoch * self.state.train_batch_size,
-                                    self.state.train_data.num_samples)
+            batch_size = self.state.train_dataloader.batch_size * dist.get_world_size()
+
+            samples_per_epoch = min(self.state.steps_per_epoch * batch_size, self._train_data_spec.num_samples)
 
         schedulers = [
             x.initialize_object(optimizer=optimizer,
                                 max_training_duration=self.state.max_duration,
                                 steps_per_epoch=self.state.steps_per_epoch,
                                 samples_per_epoch=samples_per_epoch,
-                                dataset_num_tokens=self.state.train_data.num_tokens)
+                                dataset_num_tokens=self._train_data_spec.num_tokens)
             for x in ensure_warmup_last(schedulers_hparams)
         ]
         self.state.optimizers = optimizer
@@ -579,9 +586,11 @@ class Trainer:
                             self.checkpoint_loader.restore_checkpoint_rng_state(self.device)
                         continue
 
-                    state.last_batch_size = state.train_data.get_num_samples_in_batch(state.batch)
                     state.batch = self.device.batch_to_device(state.batch)
-                    state.batch = state.train_data.device_transforms(state.batch)
+                    state.batch = self._train_data_spec.device_transforms(state.batch)
+                    state.batch_num_samples = self._train_data_spec.get_num_samples_in_batch(state.batch)
+                    state.batch_num_tokens = self._train_data_spec.get_num_tokens_in_batch(state.batch)
+                    state.microbatches = self._train_data_spec.split_batch(state.batch, state.grad_accum)
 
                     if self.deepspeed_enabled:
                         state.batch = fix_batch_precision_for_deepspeed(state.batch, state.precision)
@@ -591,8 +600,7 @@ class Trainer:
                         assert train_metrics is not None
                         state.model.eval()
                         with torch.no_grad():
-                            eval_microbatches = state.train_data.split_batch(state.batch, state.grad_accum)
-                            for eval_microbatch in eval_microbatches:
+                            for eval_microbatch in state.microbatches:
                                 # TODO: Detect if self.run_event(Event.AFTER_DATALOADER) changes the training
                                 # data and if so print a warning that metrics may return unexpected results
                                 outputs, targets = self.original_model.validate(eval_microbatch)
@@ -602,7 +610,12 @@ class Trainer:
 
                     self.engine.run_event(Event.AFTER_DATALOADER)
 
-                    microbatches = state.train_data.split_batch(state.batch, state.grad_accum)
+                    num_samples_in_batch = self.device.tensor_to_device(
+                        torch.tensor([state.batch_num_samples], dtype=torch.int))
+                    num_tokens_in_batch = self.device.tensor_to_device(
+                        torch.tensor([state.batch_num_tokens], dtype=torch.int))
+                    dist.all_reduce(num_samples_in_batch, reduce_operation="SUM")
+                    dist.all_reduce(num_tokens_in_batch, reduce_operation="SUM")
 
                     self.engine.run_event(Event.BATCH_START)
                     self.logger.metric_batch({
@@ -611,18 +624,15 @@ class Trainer:
                     })
                     total_loss = None
                     if self.deepspeed_enabled:
-                        total_loss = self._train_batch(microbatches)
+                        total_loss = self._train_batch()
                     elif self._use_closures():
-                        closure = lambda **kwargs: self._train_batch(microbatches, **kwargs)
                         for optimizer in state.optimizers:
                             if use_grad_scaling:
-                                total_loss = state.scaler.step(optimizer, closure=closure)
+                                total_loss = state.scaler.step(optimizer, closure=self._train_batch)
                             else:
-                                # Torch optimizers technically expect closures to return a float, not a Tensor.
-                                # In practice, this doesn't seem to actually matter.
-                                total_loss = optimizer.step(closure=closure)  # type: ignore
+                                total_loss = optimizer.step(closure=lambda: self._train_batch().item())
                     else:
-                        total_loss = self._train_batch(microbatches)
+                        total_loss = self._train_batch()
                         for optimizer in state.optimizers:
                             if use_grad_scaling:
                                 state.scaler.step(optimizer)
@@ -633,7 +643,8 @@ class Trainer:
                         state.scaler.update()
 
                     if total_loss is not None:
-                        assert isinstance(total_loss, Tensor)
+                        if not isinstance(total_loss, torch.Tensor):
+                            total_loss = self.device.tensor_to_device(torch.tensor([total_loss]))
 
                         # total_loss can be None if gradient scaling failed
                         dist.all_reduce(total_loss, reduce_operation="SUM")
@@ -650,13 +661,15 @@ class Trainer:
                     for scheduler in state.schedulers:
                         scheduler.step(interval='batch')  # type: ignore
 
-                    if self.validate_every_n_batches > 0 and (state.step + 1) % self.validate_every_n_batches == 0:
+                    state.timer.on_batch_complete(
+                        samples=int(num_samples_in_batch.item()),
+                        tokens=int(num_tokens_in_batch.item()),
+                    )
+
+                    if self.validate_every_n_batches > 0 and int(
+                            state.timer.batch) % self.validate_every_n_batches == 0:
                         self.eval(is_batch=True)
 
-                    state.timer.on_batch_complete(
-                        samples=state.train_data.get_num_samples_in_batch(state.batch),
-                        tokens=state.train_data.get_num_tokens_in_batch(state.batch),
-                    )
                     if self.checkpoint_saver and self.checkpoint_saver.should_checkpoint(state=state,
                                                                                          event=Event.BATCH_END):
                         self.checkpoint_saver.save_checkpoint(state=state,
@@ -671,10 +684,10 @@ class Trainer:
 
             self.engine.run_event(Event.EPOCH_END)
 
-            if self.validate_every_n_epochs > 0 and (state.epoch + 1) % self.validate_every_n_epochs == 0:
-                self.eval(is_batch=False)
-
             state.timer.on_epoch_complete()
+
+            if self.validate_every_n_epochs > 0 and int(state.timer.epoch) % self.validate_every_n_epochs == 0:
+                self.eval(is_batch=False)
 
             if self.checkpoint_saver and self.checkpoint_saver.should_checkpoint(state=state, event=Event.EPOCH_END):
                 self.checkpoint_saver.save_checkpoint(state=state,
@@ -684,7 +697,7 @@ class Trainer:
 
         self.engine.run_event(Event.TRAINING_END)
 
-    def _train_batch(self, microbatches: Sequence[Batch], ddp_sync: bool = True):
+    def _train_batch(self, ddp_sync: bool = True):
         """Run training on a full batch of data.
 
         Args:
@@ -699,14 +712,11 @@ class Trainer:
             context = self.state.model.no_sync
 
         with context():  # type: ignore - Pyright apparently doesn't recognize no_sync
-            return self._train_batch_inner(microbatches)
+            return self._train_batch_inner()
 
-    def _train_batch_inner(self, microbatches: Sequence[Batch]):
+    def _train_batch_inner(self):
         """Iterate over microbatches and compute the loss that will be used to step
         the optimizer.
-
-        Args:
-            microbatches (Sequence[Batch]): The microbatches which make up the batch.
         """
         self.engine.run_event(Event.BEFORE_TRAIN_BATCH)
 
@@ -722,15 +732,16 @@ class Trainer:
 
         # tracker for gradient accumulation
         total_loss = self.device.tensor_to_device(torch.zeros(size=(1,)))
-        current_batch_size = sum([state.train_data.get_num_samples_in_batch(batch) for batch in microbatches])
+        current_batch_size = sum(
+            [self._train_data_spec.get_num_samples_in_batch(batch) for batch in state.microbatches])
 
-        for microbatch_idx, state.batch in enumerate(microbatches):
-            is_final_microbatch = microbatch_idx + 1 == len(microbatches)
+        for state.microbatch_idx, state.batch in enumerate(state.microbatches):
+            state.batch_num_tokens = self._train_data_spec.get_num_tokens_in_batch(state.batch)
+            state.batch_num_samples = self._train_data_spec.get_num_samples_in_batch(state.batch)
+            is_final_microbatch = state.microbatch_idx + 1 == len(state.microbatches)
             sync_context = contextlib.nullcontext() if self.deepspeed_enabled else ddp_sync_context(
                 state, is_final_microbatch, self.ddp_sync_strategy)
             with sync_context:
-                last_microbatch_size = state.train_data.get_num_samples_in_batch(state.batch)
-
                 # forward pass
                 self.engine.run_event(Event.BEFORE_FORWARD)
 
@@ -754,7 +765,7 @@ class Trainer:
                 # Likely need to look into the performance impact
                 if not self.deepspeed_enabled:
                     for loss in ensure_tuple(state.loss):
-                        loss.mul_(last_microbatch_size / current_batch_size)
+                        loss.mul_(state.batch_num_samples / current_batch_size)
                         total_loss += loss.detach().clone()
 
                 assert state.loss is not None
@@ -767,11 +778,11 @@ class Trainer:
                     state.loss = state.scaler.scale(state.loss)
 
                 if self.deepspeed_enabled:
-                    state.model.backward(state.loss)  # type: ignore
+                    cast("deepspeed.DeepSpeedEngine", state.model).backward(state.loss)
 
                     # This is the same loss scaling and reporting we skipped earlier.
                     for loss in ensure_tuple(state.loss):
-                        loss.mul_(last_microbatch_size / current_batch_size)
+                        loss.mul_(state.batch_num_samples / current_batch_size)
                         total_loss += loss.detach().clone()
                 else:
                     for loss in ensure_tuple(state.loss):
@@ -780,7 +791,7 @@ class Trainer:
                 self.engine.run_event(Event.AFTER_BACKWARD)
 
             if self.deepspeed_enabled:
-                state.model.step()  # type: ignore
+                cast("deepspeed.DeepSpeedEngine", state.model).step()
 
         # Unscale gradients before `Event.AFTER_TRAIN_BATCH`
         if use_grad_scaling:
@@ -820,7 +831,9 @@ class Trainer:
 
             for state.batch in itertools.islice(state.eval_dataloader, self._eval_subset_num_batches):
                 state.batch = self.device.batch_to_device(state.batch)
-                state.batch = state.eval_data.device_transforms(state.batch)
+                state.batch = self._eval_data_spec.device_transforms(state.batch)
+                state.batch_num_samples = self._eval_data_spec.get_num_samples_in_batch(state.batch)
+                state.batch_num_tokens = self._eval_data_spec.get_num_tokens_in_batch(state.batch)
 
                 if self.deepspeed_enabled:
                     state.batch = fix_batch_precision_for_deepspeed(state.batch, state.precision)
