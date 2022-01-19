@@ -66,7 +66,7 @@ def runPytest(Map args) {
         markers = '"gpu" "deepspeed"'  // interpreted as a bash array
     }
 
-    def pytestCommand """#!/bin/bash
+    def pytestCommand = """#!/bin/bash
 set -euxo pipefail
 
 EXTRA_DEPS=$extraDeps
@@ -114,7 +114,7 @@ python -m coverage xml -o build/output/\$BUILD_NUMBER.coverage.xml"""
                 string(name: 'P_MEM_LIMIT', value: memLimit),
                 string(name: 'P_TIMEOUT', value: pTimeout),
                 string(name: 'P_N_GPUS', value: nGpus),
-                text(name: 'P_COMMAND', value: pyestCommand),
+                text(name: 'P_COMMAND', value: pytestCommand),
                 string(name: 'P_ARTIFACTS_GLOB', value: "build/output/*.xml")
                 string(name: 'P_JUNIT_GLOB', value: "build/output/*.junit.xml")
                 string(name: 'P_COVERAGE_GLOB', value: "build/output/*.coverage.xml")
