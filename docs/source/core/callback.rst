@@ -56,4 +56,3 @@ Callbacks can be implemented in two ways:
     :nosignatures:
 
     ~composer.Callback
-    ~composer.core.callback.RankZeroCallback

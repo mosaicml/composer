@@ -13,9 +13,11 @@ from typing import Dict, List, Optional
 
 import requests
 
-from composer.core.logging import LogLevel, RankZeroLoggerBackend, TLogData
+from composer.core.logging import LogLevel, TLogData
+from composer.core.logging.base_backend import BaseLoggerBackend
 from composer.core.logging.logger import format_log_data_as_json
 from composer.core.types import JSON, Logger, State, StateDict
+from composer.utils import dist
 from composer.utils.string_enum import StringEnum
 
 _MOSAICML_API_KEY_ENV = "MOSAICML_LOGGER_API_KEY"
@@ -92,7 +94,7 @@ def _upsert_run(run_id: str,
         sys.exit(1)
 
 
-class MosaicMLLoggerBackend(RankZeroLoggerBackend):
+class MosaicMLLoggerBackend(BaseLoggerBackend):
     """Log to the MosaicML backend.
 
     Args:
@@ -125,7 +127,7 @@ class MosaicMLLoggerBackend(RankZeroLoggerBackend):
                  config: Optional[Dict[str, JSON]] = None) -> None:
 
         super().__init__()
-        self.skip_logging = False
+        self.skip_logging = dist.get_global_rank() != 0
         self.log_level = log_level
         self.run_name = run_name
         self.run_type = run_type
@@ -153,11 +155,11 @@ class MosaicMLLoggerBackend(RankZeroLoggerBackend):
         self.queue = Queue()
         self.thread = Thread(target=self._listen_to_queue, daemon=True, name="mosaicml-logger-thread")
 
-    def _will_log(self, state: State, log_level: LogLevel) -> bool:
+    def will_log(self, state: State, log_level: LogLevel) -> bool:
         del state  # unused
         return log_level <= self.log_level
 
-    def _log_metric(self, epoch: int, step: int, log_level: LogLevel, data: TLogData):
+    def log_metric(self, epoch: int, step: int, log_level: LogLevel, data: TLogData):
         del log_level  # unused
 
         if self.skip_logging:
