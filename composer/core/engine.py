@@ -9,6 +9,7 @@ from composer.core.algorithm import Algorithm
 from composer.core.callback import Callback
 from composer.core.event import Event
 from composer.core.logging import Logger
+from composer.core.logging.logger import LogLevel
 from composer.core.state import State
 
 log = logging.getLogger(__name__)
@@ -126,7 +127,15 @@ class Engine():
             trace[trace_key] = Trace(exit_code=exit_code, order=order, run=True)
 
         if self.logger is not None:
-            self.logger.metric_verbose(data={key: 1 if tr.run else 0 for key, tr in trace.items()})
+            if event in (Event.INIT, Event.TRAINING_START, Event.TRAINING_END):
+                log_level = LogLevel.FIT
+            if event in (Event.EPOCH_START, Event.EPOCH_END):
+                log_level = LogLevel.EPOCH
+            else:
+                # algs don't run on eval events, so don't have to worry about
+                # batch-frequency vs epoch-frequency evaluators
+                log_level = LogLevel.BATCH
+            self.logger.metric(log_level=log_level, data={key: 1 if tr.run else 0 for key, tr in trace.items()})
 
         return trace
 

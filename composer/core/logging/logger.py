@@ -30,14 +30,10 @@ class LogLevel(IntEnum):
         FIT: Logged once per training run.
         EPOCH: Logged once per epoch.
         BATCH: Logged once per batch.
-        MICROBATCH: Logged once per microbatch (e.g. forward pass).
-        VERBOSE: Logged for debugging.
     """
     FIT = 1
     EPOCH = 2
     BATCH = 3
-    MICROBATCH = 4
-    VERBOSE = 5
 
 
 class Logger:
@@ -108,14 +104,6 @@ class Logger:
     def metric_batch(self, data: Union[TLogData, Callable[[], TLogData]]) -> None:
         """Helper function for ``self.metric(LogLevel.BATCH, data)``"""
         self.metric(LogLevel.BATCH, data)
-
-    def metric_microbatch(self, data: Union[TLogData, Callable[[], TLogData]]) -> None:
-        """Helper function for ``self.metric(LogLevel.MICROBATCH, data)``"""
-        self.metric(LogLevel.MICROBATCH, data)
-
-    def metric_verbose(self, data: Union[TLogData, Callable[[], TLogData]]) -> None:
-        """Helper function for ``self.metric(LogLevel.VERBOSE, data)``"""
-        self.metric(LogLevel.VERBOSE, data)
 
 
 def format_log_data_value(data: TLogDataValue) -> str:
