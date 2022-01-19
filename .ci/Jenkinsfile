@@ -25,35 +25,86 @@ def cloneJenkinsfilesRepo() {
     }
 }
 
-def runPytest(pythonVersion, extraDeps, gpu = false, marker = "") {
-    def name = "pytest/python${pythonVersion}-extraDeps_${extraDeps}-$marker"
-    def title = "Pytest - Python ${pythonVersion}, composer[${extraDeps}] ($marker)"
+def runPytest(Map args) {
+    // Run pytest. Parameters
+    // extraDeps (str, optional): The pip extra deps to install -- e.g. pip install mosaicml[$extraDeps]. (default: `all`)
+    // pythonVersion (str, optional): The python version (should be 3.7, 3.8, or 3.9).
+    //    Required if `pDockerImage` is left blank
+    // gpu (bool, optional): Whether to run tests on a gpu (default: `False`)
+    // pDockerImage (str, optional): Base docker image to use. Required if `pythonVersion` is left blank
+    def extraDeps = args.extraDeps ?: 'all'
+    def pythonVersion = args.pythonVersion
+    def gpu = args.gpu ?: false
+    def pDockerImage = args.pDockerImage
+    def name = null 
+    def title = null
     def summary = title
-    def pytorchVersion = pythonVersion == "3.9" ? "1.10.0" : "1.9.1"
-    def pDockerImage = "mosaicml/pytorch:${pytorchVersion}_cpu-python${pythonVersion}-ubuntu20.04"
+    if (!pDockerImage) {
+        if (!pythonVersion) {
+            error ("pDockerImage or pythonVersion must be specified")
+        }
+        def pytorchVersion = pythonVersion == "3.9" ? "1.10.0" : "1.9.1"
+        name = "pytest/python${pythonVersion}-extraDeps_${extraDeps}-gpu_$gpu"
+        tile = "Pytest - Python ${pythonVersion}, composer[${extraDeps}] (GPU $gpu)"
+        pDockerImage = "mosaicml/pytorch:${pytorchVersion}_cpu-python${pythonVersion}-ubuntu20.04"
+    }
     def pytestCliArgs = '--test_duration all'
     def nGpus = "0"
     def memLimit = "7Gi"
     def cpuLimit = "2"
+    def markers = '""' // no markers. interpreted as a bash array
 
     if (gpu){
         nGpus = "2"
         cpuLimit = "16" // 8 cpu per gpu
         memLimit = "15Gi"  // 7.5Gb per gpu
-        def cudaVersion = pythonVersion == "3.9" ? "cu113" : "cu111"
-        pDockerImage = "mosaicml/pytorch:${pytorchVersion}_${cudaVersion}-python${pythonVersion}-ubuntu20.04"
+        if (!pDockerImage) {
+            def pytorchVersion = pythonVersion == "3.9" ? "1.10.0" : "1.9.1"
+            def cudaVersion = pythonVersion == "3.9" ? "cu113" : "cu111"
+            pDockerImage = "mosaicml/pytorch:${pytorchVersion}_${cudaVersion}-python${pythonVersion}-ubuntu20.04"
+        }
+        markers = '"gpu" "deepspeed"'  // interpreted as a bash array
     }
-    if (marker) {
-        pytestCliArgs = "$pytestCliArgs -m $marker"
-    }
-    runWithChecks(
-        name: name,
-        title: title,
-        summary: summary,
-    ) {
-        echo "$title"
+
+    def pytestCommand """#!/bin/bash
+set -euxo pipefail
+
+EXTRA_DEPS=$extraDeps
+MARKERS=($markers)
+
+# Install dependencies
+if [ -z "\$EXTRA_DEPS" ]; then
+    pip install .
+else
+    pip install .[\$EXTRA_DEPS]
+fi
+
+# Disable WandB. Since WandB may not be installed, ignoring errors
+set +e
+python -m wandb disabled || true
+set -e
+
+# For each marker, run pytest
+I=0
+for marker in \${MARKERS[@]}; do
+    if [ -n "\$marker" ]; then
+        EXTRA="-m $marker"
+    else
+        EXTRA=""
+    fi
+
+    # Run the tests
+    JUNIT_PREFIX=build/output/\$BUILD_NUMBER_\$I" ./scripts/test.sh --test_duration all -v \$EXTRA
+    ((I=I+1))
+done
+
+
+# Combine the coverage reports
+python -m coverage combine
+python -m coverage xml -o build/output/\$BUILD_NUMBER.coverage.xml"""
+    def closure = { -> {
         builds << build(
-            job: "${jenkinsJobBasePath}/pytest",
+            job: "${jenkinsJobBasePath}/command",
             parameters: [
                 string(name: 'P_CLOUD', value: pCloud),
                 string(name: 'P_GIT_REPO', value: gitUrl),
@@ -62,12 +113,23 @@ def runPytest(pythonVersion, extraDeps, gpu = false, marker = "") {
                 string(name: 'P_CPU_LIMIT', value: cpuLimit),
                 string(name: 'P_MEM_LIMIT', value: memLimit),
                 string(name: 'P_TIMEOUT', value: pTimeout),
-                string(name: 'PIP_EXTRA_DEPS', value: extraDeps),
-                string(name: 'PYTEST_COMMAND', value: './scripts/test.sh'),
-                string(name: 'PYTEST_CLI_ARGS', value: pytestCliArgs),
                 string(name: 'P_N_GPUS', value: nGpus),
+                text(name: 'P_COMMAND', value: pyestCommand),
+                string(name: 'P_ARTIFACTS_GLOB', value: "build/output/*.xml")
+                string(name: 'P_JUNIT_GLOB', value: "build/output/*.junit.xml")
+                string(name: 'P_COVERAGE_GLOB', value: "build/output/*.coverage.xml")
             ]
         )
+    }}
+    if (name && title && summary) {
+        runWithChecks(
+            name: name,
+            title: title,
+            summary: summary,
+            closure
+        )
+    } else {
+        closure()
     }
 }
 
@@ -99,25 +161,7 @@ def dockerImagePostBuild(stagingImageTag) {
         // no need to run tests again
         return
     }
-    parallel([
-        "$stagingImageTag - all": { ->
-            build(
-                job: "${jenkinsJobBasePath}/pytest",
-                parameters: [
-                    string(name: 'P_CLOUD', value: pCloud),
-                    string(name: 'P_GIT_REPO', value: gitUrl),
-                    string(name: 'P_GIT_COMMIT', value: gitCommit),
-                    string(name: 'P_DOCKER_IMAGE', value: stagingImageTag),
-                    string(name: 'P_CPU_LIMIT', value: "2"),
-                    string(name: 'P_MEM_LIMIT', value: "7Gi"),
-                    string(name: 'P_TIMEOUT', value: pTimeout),
-                    string(name: 'PIP_EXTRA_DEPS', value: 'all'),
-                    string(name: 'PYTEST_COMMAND', value: './scripts/test.sh'),
-                    string(name: 'PYTEST_CLI_ARGS', value: '--test_duration all'),
-                ]
-            )
-        }
-    ])
+    runPytest(pDockerImage: stagingImageTag)
 }
 
 stage('Build') {
@@ -135,7 +179,7 @@ stage('Build') {
             P_CPU_LIMIT: '4',
             P_MEM_LIMIT: '15Gi',
             P_TIMEOUT: pTimeout,
-            P_KANIKO_PUSH_FINAL: gitBranch == "main", // only push if we're on the main branch
+            P_KANIKO_PUSH_FINAL: gitBranch == "dev" or gitBranch == "main", // only push if we're on the main or dev branch
         ) { stagingImage -> dockerImagePostBuild(stagingImage) }
     }
     if (gitBranch != "main" && gitBranch != "dev") {
@@ -148,7 +192,7 @@ stage('Build') {
                     summary: 'Static Analysis Checks',
                 ) {
                     builds << build(
-                        job: "${jenkinsJobBasePath}/lint",
+                        job: "${jenkinsJobBasePath}/command",
                         parameters: [
                             string(name: 'P_CLOUD', value: pCloud),
                             string(name: 'P_GIT_REPO', value: gitUrl),
@@ -157,17 +201,16 @@ stage('Build') {
                             string(name: 'P_TIMEOUT', value: pTimeout),
                             string(name: 'P_CPU_LIMIT', value: "2"),
                             string(name: 'P_MEM_LIMIT', value: "7Gi"),
-                            string(name: 'PIP_EXTRA_DEPS', value: 'all'),
+                            string(name: 'P_COMMAND', value: './scripts/lint.sh'),
                         ]
                     )
                 }
             },
-            'Python 3.7 - All': { -> runPytest("3.7", "all") },
-            'Python 3.8 - All': { -> runPytest("3.8", "all") },
-            'Python 3.9 - All': { -> runPytest("3.9", "all") },
-            'Python 3.9 - Dev': { -> runPytest("3.9", "dev") },
-            'Python 3.9 - All (GPU)': { -> runPytest("3.9", "all", true, "gpu") },
-            'Python 3.9 - All (GPU-Deepspeed)': { -> runPytest("3.9", "all", true, "deepspeed") },
+            'Python 3.7 - All': { -> runPytest(pythonVersion: "3.7", extraDeps: "all") },
+            'Python 3.8 - All': { -> runPytest(pythonVersion: "3.8", extraDeps: "all") },
+            'Python 3.9 - All': { -> runPytest(pythonVersion: "3.9", extraDeps: "all") },
+            'Python 3.9 - Dev': { -> runPytest(pythonVersion: "3.9", extraDeps: "dev") },
+            'Python 3.9 - All (GPU)': { -> runPytest(pythonVersion: "3.9", extraDeps: "all", gpu: True) },
         ]        
     }
     try {
