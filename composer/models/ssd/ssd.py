@@ -66,7 +66,6 @@ class SSD(BaseMosaicModel):
         return ploc, plabel
 
     def validate(self, batch: BatchPair) -> Tuple[Any, Any]:
-        #self.model.eval()
         
         dboxes = dboxes300_coco()
         input_size = 300
@@ -87,17 +86,69 @@ class SSD(BaseMosaicModel):
         nms_max_detections = 200
 
         dboxes = dboxes300_coco()
+        encoder = Encoder(dboxes)
 
+        val_coco_dl = DataLoader(val_coco,
+                                    batch_size=32,
+                                    shuffle=False,
+                                    sampler=None,
+                                    num_workers=8)
+
+        for nbatch, (img, img_id, img_size, _, _) in enumerate(val_coco_dl):
+            with torch.no_grad():
+                inp = img.cuda()
+                ploc, plabel = model(inp)
+                ploc, plabel = ploc.float(), plabel.float()
+
+                for idx in range(ploc.shape[0]):
+                    ploc_i = ploc[idx, :, :].unsqueeze(0)
+                    plabel_i = plabel[idx, :, :].unsqueeze(0)
+
+                    try:
+                        result = encoder.decode_batch(ploc_i, plabel_i, 0.50, 200)[0]
+                    except:
+                        # raise
+                        print("")
+                        print("No object detected in idx: {}".format(idx))
+                        continue
+
+                    htot, wtot = img_size[0][idx].item(), img_size[1][idx].item()
+                    loc, label, prob = [r.cpu().numpy() for r in result]
+                    for loc_, label_, prob_ in zip(loc, label, prob):
+                        ret.append([img_id[idx], loc_[0] * wtot, \
+                                    loc_[1] * htot,
+                                    (loc_[2] - loc_[0]) * wtot,
+                                    (loc_[3] - loc_[1]) * htot,
+                                    prob_,
+                                    inv_map[label_]])
+
+        ret = np.array(ret).astype(np.float32)
+
+        final_results = ret
+        #cocoGt = get_coco_ground_truth(args)
+        cocoGt = COCO(annotation_file=val_annotate, use_ext=True)
+
+        cocoDt = cocoGt.loadRes(final_results, use_ext=True)
+
+        E = COCOeval(cocoGt, cocoDt, iouType='bbox', use_ext=True)
+        E.evaluate()
+        E.accumulate()
+        E.summarize()
+
+        # put your model in training mode back on
+        #model.train()
+
+        print('map', E.stats[0])
+        
+        '''
         val_dataloader = DataLoader(val_coco,
                                     batch_size=32,
                                     shuffle=False,
                                     sampler=None,
                                     num_workers=8)
 
-
-        encoder = Encoder(dboxes)
-
         for nbatch, (img, img_id, img_size, _, _) in enumerate(val_dataloader):
+            #print(nbatch)
             with torch.no_grad():
                 img = img.cuda()
 
@@ -115,7 +166,10 @@ class SSD(BaseMosaicModel):
 
                     htot, wtot = img_size[0][idx].item(), img_size[1][idx].item()
                     loc, label, prob = [r.cpu().numpy() for r in result]
+                    i = 0
                     for loc_, label_, prob_ in zip(loc, label, prob):
+                        i+=1
+                        print(i)
                         ret.append(dict(boxes=torch.Tensor([[loc_[0] * wtot, \
                                     loc_[1] * htot,
                                     (loc_[2] - loc_[0]) * wtot,
@@ -124,17 +178,15 @@ class SSD(BaseMosaicModel):
                                    labels=torch.IntTensor([img_id[idx]]),
                                    ))
 
-
-
-                
         import pdb
 
         grt = transform_d(val_annotate)
         pdb.set_trace()
         return ret, grt
+        '''
 
 
-def transform_d(val_annotate, batch):
+def transform_d(val_annotate):
     from pycocotools.coco import COCO
     our_coco = COCO(annotation_file=val_annotate)
     import json
