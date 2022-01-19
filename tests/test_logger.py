@@ -14,6 +14,7 @@ from composer.core.state import State
 from composer.loggers.logger_hparams import (FileLoggerBackendHparams, TQDMLoggerBackendHparams,
                                              WandBLoggerBackendHparams)
 from composer.trainer.trainer_hparams import TrainerHparams
+from composer.utils import dist
 
 
 @pytest.fixture
@@ -69,7 +70,6 @@ def test_file_logger(dummy_state: State, log_level: LogLevel, log_file_name: str
     pytest.param(2, marks=pytest.mark.world_size(2)),
 ])
 def test_tqdm_logger(mosaic_trainer_hparams: TrainerHparams, monkeypatch: MonkeyPatch, world_size: int):
-    del world_size  # unused. Set via launcher script
     is_train_to_mock_tqdms = {
         True: [],
         False: [],
@@ -88,6 +88,8 @@ def test_tqdm_logger(mosaic_trainer_hparams: TrainerHparams, monkeypatch: Monkey
     mosaic_trainer_hparams.loggers = [TQDMLoggerBackendHparams()]
     trainer = mosaic_trainer_hparams.initialize_object()
     trainer.fit()
+    if dist.get_global_rank() == 1:
+        return
     assert len(is_train_to_mock_tqdms[True]) == max_epochs
     assert mosaic_trainer_hparams.validate_every_n_batches < 0
     assert len(is_train_to_mock_tqdms[False]) == mosaic_trainer_hparams.validate_every_n_epochs * max_epochs
