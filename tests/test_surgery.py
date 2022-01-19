@@ -1,6 +1,6 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
-from typing import Mapping, Type
+from typing import List, Mapping, Tuple, Type, cast
 from unittest.mock import Mock
 
 import pytest
@@ -8,12 +8,13 @@ import torch
 from torch import nn
 
 from composer.core import surgery
+from composer.core.types import Optimizer
 from tests.fixtures.models import SimpleBatchPairModel
 
 
 class RecursiveLinear(nn.Linear):
 
-    def __init__(self, in_features, out_features):
+    def __init__(self, in_features: int, out_features: int):
         super().__init__(in_features, out_features)
 
         # submodule has modified out_features to prevent infinite recursion during test
@@ -31,15 +32,16 @@ class SimpleReplacementPolicy(nn.Module):
         self.fc2 = nn.Linear(in_features=32, out_features=10)
 
     @staticmethod
-    def maybe_replace_linear(module, module_index):
-        if module.out_features in (10, 9):
-            return RecursiveLinear(module.in_features, module.out_features)
+    def maybe_replace_linear(module: torch.nn.Module, module_index: int):
+        del module_index  # unused
+        if module.out_features in (10, 9) and not isinstance(module, RecursiveLinear):
+            return RecursiveLinear(cast(int, module.in_features), cast(int, module.out_features))
         return None
 
-    def policy(self):
+    def policy(self) -> Mapping[Type[torch.nn.Module], surgery.ReplacementFunction]:
         return {nn.Linear: self.maybe_replace_linear}
 
-    def validate_replacements(self, recurse_on_replacements):
+    def validate_replacements(self, recurse_on_replacements: bool):
         assert type(self.fc1) is nn.Linear
         assert type(self.fc2) is RecursiveLinear
 
@@ -56,12 +58,13 @@ class ModuleIdxReplacementPolicy(SimpleReplacementPolicy):
     """
 
     @staticmethod
-    def maybe_replace_linear(module, module_index):
+    def maybe_replace_linear(module: torch.nn.Module, module_index: int):
         if module_index == 0:
-            return RecursiveLinear(module.in_features, module.out_features)
+            return RecursiveLinear(cast(int, module.in_features), cast(int, module.out_features))
         return None
 
-    def validate_replacements(self, recurse_on_replacements):
+    def validate_replacements(self, recurse_on_replacements: bool):
+        del recurse_on_replacements  # unused
         assert type(self.fc1) is RecursiveLinear
         assert type(self.fc2) is nn.Linear
         assert type(self.fc1.submodule) is nn.Linear
@@ -72,19 +75,20 @@ class NoOpReplacementPolicy(SimpleReplacementPolicy):
     def policy(self):
         return {nn.Conv2d: Mock(side_effect=AssertionError('test should not match on this layer'))}
 
-    def validate_replacements(self, recurse_on_replacements):
+    def validate_replacements(self, recurse_on_replacements: bool):
+        del recurse_on_replacements  # unused
         assert type(self.fc1) is nn.Linear
         assert type(self.fc2) is nn.Linear
 
 
 @pytest.mark.parametrize('recurse_on_replacements', [True, False])
-@pytest.mark.parametrize('model', [
+@pytest.mark.parametrize('model_cls', [
     SimpleReplacementPolicy,
     ModuleIdxReplacementPolicy,
     NoOpReplacementPolicy,
 ])
-def test_module_replacement(model, recurse_on_replacements):
-    model = model()
+def test_module_replacement(model_cls: Type[SimpleReplacementPolicy], recurse_on_replacements: bool):
+    model = model_cls()
     surgery.replace_module_classes(
         model,
         optimizers=None,
@@ -101,7 +105,7 @@ class _CopyLinear(torch.nn.Module):
         super().__init__()
         self.in_features = in_features
         self.out_features = out_features
-        self.weight = torch.nn.Parameter(torch.empty((out_features, in_features)))
+        self.weight = torch.nn.parameter.Parameter(torch.empty((out_features, in_features)))
         self.bias = None
 
     @staticmethod
@@ -127,7 +131,8 @@ def optimizer_surgury_state():
     return orig_linear_modules, new_linear_modules, opt
 
 
-def test_optimizer_surgery_no_duplicate_params(optimizer_surgury_state):
+def test_optimizer_surgery_no_duplicate_params(optimizer_surgury_state: Tuple[List[torch.nn.Module],
+                                                                              List[torch.nn.Module], Optimizer]):
     _, _, opt = optimizer_surgury_state
     params_list = opt.param_groups[0]['params']
     params_set = set(params_list)
@@ -138,21 +143,29 @@ def _param_in_optimizer(param: torch.nn.parameter.Parameter, opt: torch.optim.Op
     return surgery._find_param_in_optimizer(param, opt)
 
 
-def test_optimizer_surgery_removed_params_gone(optimizer_surgury_state):
+def test_optimizer_surgery_removed_params_gone(optimizer_surgury_state: Tuple[List[torch.nn.Module],
+                                                                              List[torch.nn.Module], Optimizer]):
     orig_linear_modules, _, opt = optimizer_surgury_state
     for module in orig_linear_modules:
         with pytest.raises(RuntimeError):
+            assert isinstance(module.weight, torch.nn.parameter.Parameter)
             _param_in_optimizer(module.weight, opt)
 
 
-def test_optimizer_surgery_new_params_present(optimizer_surgury_state):
+def test_optimizer_surgery_new_params_present(optimizer_surgury_state: Tuple[List[torch.nn.Module],
+                                                                             List[torch.nn.Module], Optimizer]):
     _, new_linear_modules, opt = optimizer_surgury_state
     for module in new_linear_modules:
+        assert isinstance(module.weight, torch.nn.parameter.Parameter)
         assert _param_in_optimizer(module.weight, opt) >= 0
+        assert isinstance(module.bias, torch.nn.parameter.Parameter)
         assert _param_in_optimizer(module.bias, opt) >= 0
 
 
-def test_optimizer_surgery_params_not_removed_still_there(optimizer_surgury_state):
+def test_optimizer_surgery_params_not_removed_still_there(optimizer_surgury_state: Tuple[List[torch.nn.Module],
+                                                                                         List[torch.nn.Module],
+                                                                                         Optimizer]):
     orig_linear_modules, _, opt = optimizer_surgury_state
     for module in orig_linear_modules:
+        assert isinstance(module.bias, torch.nn.parameter.Parameter)
         assert _param_in_optimizer(module.bias, opt) >= 0

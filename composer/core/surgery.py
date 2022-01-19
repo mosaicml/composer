@@ -1,8 +1,9 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
+import collections
 import logging
 import textwrap
-from typing import TYPE_CHECKING, Any, Dict, Iterable, List, Mapping, Optional, Type
+from typing import TYPE_CHECKING, Any, Dict, Iterable, List, Mapping, Optional, OrderedDict, Tuple, Type
 
 from composer.utils.iter_helpers import ensure_tuple
 
@@ -39,6 +40,19 @@ class ReplacementFunction(Protocol):
 
     def __call__(self, module: torch.nn.Module, module_index: int) -> Optional[torch.nn.Module]:
         ...
+
+
+def _add_children_recursive(
+    module: torch.nn.Module,
+    children_to_parents_and_names: OrderedDict[torch.nn.Module, List[Tuple[torch.nn.Module, str]]],
+) -> None:
+    # recursively build up children_to_parents_and_names so it maps a module to the list of
+    # (parent_module, attribute name)
+    for name, child in module.named_children():
+        if child not in children_to_parents_and_names:
+            children_to_parents_and_names[child] = []
+            _add_children_recursive(child, children_to_parents_and_names)
+        children_to_parents_and_names[child].append((module, name))
 
 
 # adapted from https://github.com/microsoft/DeepSpeed/blob/master/deepspeed/module_inject/replace_module.py#L408
@@ -98,46 +112,31 @@ def replace_module_classes(
             `torch.nn.parallel.DistributedDataParallel` Instead, please preform surgery on the underlying
             `module.module` and re-wrap the `module.module` with `torch.nn.parallel.DistributedDataParallel`"""))
     replaced_pairs: Dict[torch.nn.Module, torch.nn.Module] = {}
+    children_to_parents_and_names: OrderedDict[torch.nn.Module, List[Tuple[torch.nn.Module,
+                                                                           str]]] = collections.OrderedDict()
+    _add_children_recursive(module, children_to_parents_and_names)
     indices = indices if indices is not None else {c: 0 for c in policies}
-    for name, child in module.named_children():
-        already_recursed = False
-        if child in replaced_pairs:
-            continue
+    while len(children_to_parents_and_names) > 0:
+        child, parents = children_to_parents_and_names.popitem(last=False)
         for policy_class, replacement_fn in policies.items():
             if not isinstance(child, policy_class):
                 continue
-            module_index = indices[type(child)]
+            module_index = indices[policy_class]
             replacement = replacement_fn(
                 child,
                 module_index=module_index,
             )
-            indices[type(child)] += 1
+            indices[policy_class] += 1
             if replacement is not None:
+                assert child not in replaced_pairs
                 replaced_pairs[child] = replacement
                 if recurse_on_replacements:
                     # recurse on new child object
-                    replaced_pairs.update({
-                        k: v for (k, v) in replace_module_classes(
-                            replacement,
-                            policies=policies,
-                            recurse_on_replacements=recurse_on_replacements,
-                            indices=indices,
-                            optimizers=None,
-                        ).items() if k not in replaced_pairs
-                    })
-                already_recursed = True
-                setattr(module, name, replacement)
-
-        if not already_recursed:
-            replaced_pairs.update({
-                k: v for (k, v) in replace_module_classes(
-                    child,
-                    policies=policies,
-                    recurse_on_replacements=recurse_on_replacements,
-                    indices=indices,
-                    optimizers=None,
-                ).items() if k not in replaced_pairs
-            })
+                    children_to_parents_and_names[replacement] = list(parents)  # copy the parents list
+                    _add_children_recursive(replacement, children_to_parents_and_names)
+                for parent, name in parents:
+                    # update each parent with the replaced child
+                    setattr(parent, name, replacement)
     if optimizers:
         for old_module, new_module in replaced_pairs.items():
             update_params_in_optimizer(old_params=old_module.parameters(),
@@ -264,15 +263,22 @@ def update_params_in_optimizer(old_params: Iterable[torch.nn.parameter.Parameter
         if _tensor_in(p, opt.state):  # only true after training starts
             opt.state.pop(p)
 
-    # rip out the removed_params from param groups, and add the
-    # provided added_params to the same group
-    old_group_idxs = [_find_param_in_optimizer(p, opt) for p in removed_params]
-    if min(old_group_idxs) != max(old_group_idxs) and len(added_params):
-        raise RuntimeError(
-            textwrap.dedent("""Not all removed parameters are in the same parameter group.
-                           This makes it unclear where to add the new parameters."""))
+    if len(opt.param_groups) == 1:
+        group_idx = 0
+    else:
+        # if there is more than one group, use the ripped out parameters to infer the group
+        # to add the new parameters into
+        old_group_idxs = [_find_param_in_optimizer(p, opt) for p in removed_params]
 
-    group_idx = old_group_idxs[0]
+        if len(old_group_idxs) == 0:
+            raise RuntimeError("No parameters were removed, so unable to infer the group into which to add parameters.")
+
+        if min(old_group_idxs) != max(old_group_idxs) and len(added_params):
+            raise RuntimeError(
+                textwrap.dedent("""Not all removed parameters are in the same parameter group.
+                            This makes it unclear where to add the new parameters."""))
+        group_idx = old_group_idxs[0]
+
     param_group = opt.param_groups[group_idx]
     new_param_list = [p for p in param_group['params'] if not _tensor_in(p, removed_params)]
     new_param_list += list(added_params)

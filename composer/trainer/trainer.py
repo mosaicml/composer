@@ -15,18 +15,20 @@ import torch.distributed
 import torch.utils.data
 from torch.cuda.amp.grad_scaler import GradScaler
 from torch.nn.parallel import DistributedDataParallel
+from torch.optim.lr_scheduler import CosineAnnealingLR
 from torchmetrics.collections import MetricCollection
 from torchmetrics.metric import Metric
 
-from composer.core import Callback, DataSpec, Engine, Event, Logger, State, Time
+from composer.core import Callback, DataSpec, Engine, Event, Logger, State, Time, surgery
 from composer.core.algorithm import Algorithm
 from composer.core.logging import BaseLoggerBackend, LogLevel
-from composer.core.types import BreakEpochException, DataLoader, Metrics, Precision
+from composer.core.time import TimeUnit
+from composer.core.types import BreakEpochException, DataLoader, Metrics, Optimizers, Precision, Schedulers
 from composer.datasets.dataloader import DDPDataLoader
 from composer.loggers.tqdm_logger import TQDMLoggerBackend
 from composer.models.base import BaseMosaicModel
-from composer.optim import (ComposedScheduler, CosineAnnealingLRHparams, DecoupledSGDWHparams, OptimizerHparams,
-                            SchedulerHparams, WarmUpLRHparams)
+from composer.optim import ComposedScheduler
+from composer.optim.decoupled_weight_decay import DecoupledSGDW
 from composer.optim.scheduler import ensure_warmup_last
 from composer.trainer.checkpoint_hparams import CheckpointLoaderHparams, CheckpointSaverHparams
 from composer.trainer.ddp import DDPSyncStrategy, ddp_sync_context, prepare_ddp_module
@@ -57,20 +59,13 @@ class Trainer:
             or dict of :class:`DataSpec` kwargs for the training data.
         eval_dataloader (DataLoader, DataSpec, or dict): The :class:`DataLoader`, :class:`DataSpec`,
             or dict of :class:`DataSpec` kwargs for the evaluation data.
-        max_epochs (int): The maxmimum number of epochs to train for.
+        max_duration (Time or str): The maximum duration to train.
         algorithms (List[Algorithm], optional): The algorithms to use during training.
             (default: ``[]``)
-        optimizer_hparams: (OptimizerHparams, optional): The OptimizerHparams for constructing
-            the optimizer for training. Must pass OptimizerHparams instead of a `torch.optim.Optimizer`
-            object because the optimizer has to be constructed after certain algorithms which modify
-            the model architecture have run on the model. (default:
-            ``MosaicMLSGDWHparams(lr=0.1, momentum=0.9, weight_decay=1.0e-4)``)
-        schedulers_hparams: (Union[SchedulerHparams, List[SchedulerHparams]], optional): The
-            SchedulerHparams for constructing the one or more learning rate schedulers used
-            during training. Must pass SchedulerHparams instead of a `torch.optim.lr_scheduler._LRScheduler`
-            object because the scheduler needs an optimizer to be constructed and we construct the optimizer
-            in `__init__`. (default:
-            ``[CosineAnnealingLRHparams(T_max=f"{max_epochs}ep"), WarmUpLRHparams()]``).
+        optimizers: (Optimizers, optional): The optimizers.
+            (default: ``DecoupledSGDW(model.parameters(), lr=0.1)``)
+        schedulers: (Schedulers, optional): The schedulers.
+            (default: ``[CosineAnnealingLR()]``).
         device (Device, optional): The device to use for training. Either `DeviceCPU` or `DeviceGPU`.
             (default ``DeviceCPU(n_cpus=1)``)
         grad_accum (int, optional): The number of microbatches to split a per-device batch into. Gradients
@@ -123,8 +118,8 @@ class Trainer:
             eval_dataloader: Union[DataLoader, DataSpec],
             max_duration: Union[str, Time],
             algorithms: Optional[List[Algorithm]] = None,
-            optimizer_hparams: Optional[OptimizerHparams] = None,
-            schedulers_hparams: Optional[Union[SchedulerHparams, List[SchedulerHparams]]] = None,
+            optimizers: Optional[Optimizers] = None,
+            schedulers: Optional[Schedulers] = None,
 
             # device
             device: Optional[Device] = None,
@@ -165,6 +160,9 @@ class Trainer:
         # surpressing GradScaler warnings as they are always created
         # self._use_grad_scaling() will raise a RuntimeError if grad scaling is not available when it is required
         warnings.filterwarnings(action="ignore", message="torch.cuda.amp.GradScaler")
+
+        if isinstance(max_duration, str):
+            max_duration = Time.from_timestring(max_duration)
 
         self.config = config
 
@@ -220,6 +218,39 @@ class Trainer:
         self._train_data_spec = train_dataloader
         self._eval_data_spec = eval_dataloader
 
+        if eval_subset_num_batches is not None:
+            try:
+                eval_dataloader_len = len(eval_dataloader.dataloader)
+            except (NotImplementedError, TypeError):
+                pass
+            else:
+                if eval_subset_num_batches > eval_dataloader_len:
+                    warnings.warn(
+                        textwrap.dedent(
+                            f"""SubsetNumBatchesWarning: The eval_subset_num_batches({eval_subset_num_batches})
+                            is greater than the number of batches in the evaluation dataloader
+                            ({len(eval_dataloader.dataloader)})"""))
+        self._eval_subset_num_batches = eval_subset_num_batches
+
+        if not optimizers:
+            optimizers = DecoupledSGDW(list(model.parameters()), lr=0.1)
+            warnings.warn(f"No optimizer was specified. Defaulting to {repr(optimizers)}")
+
+        num_optimizers = len(ensure_tuple(optimizers))
+
+        if num_optimizers != 1:
+            raise NotImplementedError(f"Only one optimizer is supported; found {num_optimizers} optimizers")
+
+        if not schedulers:
+            optimizer = ensure_tuple(optimizers)[0]
+            if not max_duration.unit == TimeUnit.EPOCH:
+                raise ValueError("If a scheduler is not provided, max duration must be in epochs")
+            schedulers = CosineAnnealingLR(optimizer, T_max=max_duration.value)
+            warnings.warn(f"No scheduler was specified. Defaulting to {repr(schedulers)}")
+        if not isinstance(schedulers, (tuple, list)):
+            schedulers = [schedulers]
+        schedulers = ComposedScheduler(schedulers)
+
         self.state = State(
             max_duration=max_duration,
             algorithms=algorithms,
@@ -230,27 +261,10 @@ class Trainer:
             precision_context=precision_context,
             train_dataloader=train_dataloader.dataloader,
             eval_dataloader=eval_dataloader.dataloader,
+            optimizers=optimizers,
+            steps_per_epoch=train_subset_num_batches,
+            schedulers=schedulers,
         )
-
-        # Steps per epoch
-        if train_subset_num_batches is not None:
-            if train_subset_num_batches > self.state.steps_per_epoch:
-                warnings.warn(
-                    textwrap.dedent(
-                        f"""SubsetNumBatchesWarning: The train_subset_num_batches({train_subset_num_batches})
-                        is greater than the number of batches in the training dataloader
-                        ({self.state.steps_per_epoch})"""))
-            else:
-                self.state.steps_per_epoch = train_subset_num_batches
-
-        if eval_subset_num_batches is not None:
-            if eval_subset_num_batches > len(self.state.eval_dataloader):
-                warnings.warn(
-                    textwrap.dedent(f"""SubsetNumBatchesWarning: The eval_subset_num_batches({eval_subset_num_batches})
-                        is greater than the number of batches in the evaluation dataloader
-                        ({len(self.state.eval_dataloader)})"""))
-
-        self._eval_subset_num_batches = eval_subset_num_batches
 
         if log_destinations is None:
             log_destinations = [TQDMLoggerBackend()]
@@ -267,36 +281,10 @@ class Trainer:
         if deterministic_mode:
             reproducibility.configure_deterministic_mode()
 
-        # run INIT event before optimizers and schedulers are created
         self.engine.run_event(Event.INIT)
 
-        # Need to use hparams here because optimizer and schedulers need to be created after Event.INIT
-        if not optimizer_hparams:
-            optimizer_hparams = DecoupledSGDWHparams(lr=0.1, momentum=0.9, weight_decay=1.0e-4)
-        if not schedulers_hparams:
-            schedulers_hparams = [CosineAnnealingLRHparams(T_max=str(max_duration)), WarmUpLRHparams()]
-        if not isinstance(schedulers_hparams, list):
-            schedulers_hparams = [schedulers_hparams]
-        optimizer = optimizer_hparams.initialize_object(param_group=self.state.model.parameters())
-        if self._train_data_spec.num_samples is None or self.state.train_dataloader.batch_size is None:
-            samples_per_epoch = None
-        else:
-            batch_size = self.state.train_dataloader.batch_size * dist.get_world_size()
-
-            samples_per_epoch = min(self.state.steps_per_epoch * batch_size, self._train_data_spec.num_samples)
-        schedulers = [
-            x.initialize_object(optimizer=optimizer,
-                                max_training_duration=self.state.max_duration,
-                                steps_per_epoch=self.state.steps_per_epoch,
-                                samples_per_epoch=samples_per_epoch,
-                                dataset_num_tokens=self._train_data_spec.num_tokens)
-            for x in ensure_warmup_last(schedulers_hparams)
-        ]
-        self.state.optimizers = optimizer
-        self.state.schedulers = ComposedScheduler(schedulers=schedulers)
-
         assert isinstance(self.state.model, BaseMosaicModel)
-        self.original_model = self.state.model  # type: ignore  # TODO(ravi) -- update the state to add an original model helper
+        self.original_model = self.state.model  # TODO(ravi) -- update the state to add an original model helper
 
         self.checkpoint_saver = None
         if checkpoint_saver is not None:
@@ -328,7 +316,17 @@ class Trainer:
                 self.seed = restored_seed
 
         if not self.deepspeed_enabled:
+            host_model_params = self.state.model.parameters()
             self.state.model = self.device.module_to_device(self.state.model)
+            device_model_params = self.state.model.parameters()
+
+            # use surgery to update the parameters of the optimizers, now that the model is on the device
+            # see https://pytorch.org/docs/stable/optim.html#constructing-it
+            surgery.update_params_in_optimizer(old_params=host_model_params,
+                                               new_params=device_model_params,
+                                               optimizers=self.state.optimizers)
+
+            # Move any remaining optimizer parameters onto the device
             self.state.optimizers = map_collection(self.state.optimizers, self.device.optimizer_to_device)
 
             # wrap model with DDP
@@ -375,7 +373,7 @@ class Trainer:
                 textwrap.dedent(f"""SubsetNumBatchesWarning: When specifying train_subset_num_batches,
             (set to {hparams.train_subset_num_batches}), train_datset.shuffle should be set to False. Otherwise,
             each training epoch may load a different subset of samples."""))
-        train_dataloader = hparams.train_dataset.initialize_object(train_device_batch_size, hparams.dataloader)
+        train_data = hparams.train_dataset.initialize_object(train_device_batch_size, hparams.dataloader)
 
         eval_device_batch_size = hparams.eval_batch_size // dist.get_world_size()
         if hparams.val_dataset.shuffle and hparams.eval_subset_num_batches:
@@ -383,16 +381,49 @@ class Trainer:
                 textwrap.dedent(f"""SubsetNumBatchesWarning: When specifying eval_subset_num_batches,
             (set to {hparams.eval_subset_num_batches}), val_dataset.shuffle should be set to False. Otherwise,
             each evaluation epoch may load a different subset of samples."""))
-        eval_dataloader = hparams.val_dataset.initialize_object(eval_device_batch_size, hparams.dataloader)
+        eval_data = hparams.val_dataset.initialize_object(eval_device_batch_size, hparams.dataloader)
+
+        optimizers = hparams.optimizer.initialize_object(model.parameters())
+
+        train_dataloader = train_data
+
+        samples_per_epoch = None
+        tokens_per_epoch = None
+
+        if isinstance(train_dataloader, DataSpec):
+            if train_dataloader.num_samples is not None:
+                samples_per_epoch = train_dataloader.num_samples
+                tokens_per_epoch = train_dataloader.num_tokens
+            train_dataloader = train_dataloader.dataloader
+
+        try:
+            steps_per_epoch = len(train_dataloader)
+        except (AttributeError, NotImplementedError):
+            steps_per_epoch = None
+
+        batch_size = None
+        if train_dataloader.batch_size is not None:
+            batch_size = train_dataloader.batch_size * dist.get_world_size()
+
+        if samples_per_epoch is None and steps_per_epoch is not None and batch_size is not None:
+            samples_per_epoch = steps_per_epoch * batch_size
+
+        schedulers = [
+            x.initialize_object(optimizer=optimizers,
+                                max_training_duration=hparams.max_duration,
+                                steps_per_epoch=steps_per_epoch,
+                                samples_per_epoch=samples_per_epoch,
+                                dataset_num_tokens=tokens_per_epoch) for x in ensure_warmup_last(hparams.schedulers)
+        ]
 
         trainer = cls(
             model=model,
-            train_dataloader=train_dataloader,
-            eval_dataloader=eval_dataloader,
+            train_dataloader=train_data,
+            eval_dataloader=eval_data,
             max_duration=hparams.max_duration,
             algorithms=algorithms,
-            optimizer_hparams=hparams.optimizer,
-            schedulers_hparams=hparams.schedulers,
+            optimizers=optimizers,
+            schedulers=schedulers,
 
             # device
             device=device,
@@ -517,13 +548,6 @@ class Trainer:
         """Run training for the specified number of epochs and log results."""
         # shorthand
         state = self.state
-
-        assert state.optimizers is not None
-        assert state.schedulers is not None
-
-        if len(ensure_tuple(state.optimizers)) != 1:
-            raise NotImplementedError("The Mosaic trainer only supports one optimizer; "
-                                      f"found {len(ensure_tuple(state.optimizers))} optimizers")
 
         # print training start
         self.logger.metric_fit({"trainer/algorithms": [str(algo) for algo in self.engine.algorithms]})

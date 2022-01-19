@@ -11,9 +11,10 @@ import pytest
 import torch
 
 from composer.algorithms import BlurPool, BlurPoolHparams
+from composer.algorithms.blurpool import apply_blurpool
 from composer.algorithms.blurpool.blurpool_layers import BlurConv2d, BlurMaxPool2d
 from composer.core import Event, State, surgery
-from composer.core.types import DataLoader, Model, Precision
+from composer.core.types import DataLoader, Logger, Model, Precision
 from tests.fixtures.models import SimpleConvModel
 
 
@@ -46,7 +47,7 @@ def dummy_logger():
     return MagicMock()
 
 
-def test_blurconv(state, blurpool_instance, dummy_logger):
+def test_blurconv(state: State, blurpool_instance: BlurPool, dummy_logger: Logger):
     blurpool_instance.apply(Event.INIT, state, dummy_logger)
     assert isinstance(state.model.module, SimpleConvModel)
 
@@ -56,21 +57,21 @@ def test_blurconv(state, blurpool_instance, dummy_logger):
         assert type(state.model.module.conv1) is torch.nn.Conv2d
 
 
-def test_maybe_replace_strided_conv_stride(state, blurpool_instance, dummy_logger):
+def test_maybe_replace_strided_conv_stride(state: State, blurpool_instance: BlurPool, dummy_logger: Logger):
     blurpool_instance.apply(Event.INIT, state, dummy_logger)
     assert isinstance(state.model.module, SimpleConvModel)
 
     assert type(state.model.module.conv3) is torch.nn.Conv2d  # stride = 1, should be no replacement
 
 
-def test_maybe_replace_strided_conv_channels(state, blurpool_instance, dummy_logger):
+def test_maybe_replace_strided_conv_channels(state: State, blurpool_instance: BlurPool, dummy_logger: Logger):
     blurpool_instance.apply(Event.INIT, state, dummy_logger)
     assert isinstance(state.model.module, SimpleConvModel)
 
     assert type(state.model.module.conv2) is torch.nn.Conv2d  # channels < 16, should be no replacement
 
 
-def test_blurconv_weights_preserved(state, blurpool_instance, dummy_logger):
+def test_blurconv_weights_preserved(state: State, blurpool_instance: BlurPool, dummy_logger: Logger):
     assert isinstance(state.model.module, SimpleConvModel)
 
     original_weights = state.model.module.conv1.weight.clone()
@@ -85,7 +86,7 @@ def test_blurconv_weights_preserved(state, blurpool_instance, dummy_logger):
     assert torch.allclose(original_weights, new_weights)
 
 
-def test_blurpool(state, blurpool_instance, dummy_logger):
+def test_blurpool(state: State, blurpool_instance: BlurPool, dummy_logger: Logger):
     blurpool_instance.apply(Event.INIT, state, dummy_logger)
     assert isinstance(state.model.module, SimpleConvModel)
 
@@ -95,15 +96,15 @@ def test_blurpool(state, blurpool_instance, dummy_logger):
         assert type(state.model.module.pool1) is torch.nn.MaxPool2d
 
 
-def test_blurpool_wrong_event(state, blurpool_instance):
+def test_blurpool_wrong_event(state: State, blurpool_instance: BlurPool):
     assert blurpool_instance.match(Event.BATCH_START, state) == False
 
 
-def test_blurpool_correct_event(state, blurpool_instance):
+def test_blurpool_correct_event(state: State, blurpool_instance: BlurPool):
     assert blurpool_instance.match(Event.INIT, state) == True
 
 
-def test_blurpool_algorithm_logging(state, blurpool_instance, dummy_logger):
+def test_blurpool_algorithm_logging(state: State, blurpool_instance: BlurPool, dummy_logger: Logger):
     blurpool_instance.apply(Event.INIT, state, dummy_logger)
 
     dummy_logger.metric_fit.assert_called_once_with({
@@ -112,26 +113,22 @@ def test_blurpool_algorithm_logging(state, blurpool_instance, dummy_logger):
     })
 
 
-def test_blurconv2d_optimizer_params_updated(blurpool_instance):
+def test_blurconv2d_optimizer_params_updated():
     model = SimpleConvModel()
     orig_conv = model.conv2
     assert orig_conv.stride == (2, 2)  # fail fast if test model changes
     opt = torch.optim.SGD(model.parameters(), lr=.01)
-    blurpool_instance.apply_blurpool(model, optimizers=opt)
+    apply_blurpool(model, optimizers=opt)
     new_conv = model.conv2
+    assert new_conv.weight is not orig_conv.weight
     param_list: List[torch.Tensor] = opt.param_groups[0]['params']
 
     # old params removed
-    assert orig_conv.bias is not None
     assert not surgery._tensor_in(orig_conv.weight, param_list)
-    assert not surgery._tensor_in(orig_conv.bias, param_list)
 
     # new params added
     new_conv2d = new_conv.conv
     assert isinstance(new_conv2d, torch.nn.Module)
     new_weight = new_conv2d.weight
     assert isinstance(new_weight, torch.Tensor)
-    new_bias = new_conv2d.bias
-    assert isinstance(new_bias, torch.Tensor)
     assert surgery._tensor_in(new_weight, param_list)
-    assert surgery._tensor_in(new_bias, param_list)
