@@ -2,11 +2,13 @@ pCloud = "colo-research-01"
 gitUrl = null
 gitBranch = null
 gitCommit = null
+pTimeout = '1800' // in seconds
 pytorchDockerChanged = null
 runWithChecks = null
 expandDockerMatrix = null
 prChangeset = null
 builds = []
+jenkinsJobBasePath = "scratch"
 
 def cloneJenkinsfilesRepo() {
     // Clone the remote jenkins file in WORKSPACE_TMP
@@ -51,7 +53,7 @@ def runPytest(pythonVersion, extraDeps, gpu = false, marker = "") {
     ) {
         echo "$title"
         builds << build(
-            job: 'scratch/pytest',
+            job: "${jenkinsJobBasePath}/pytest",
             parameters: [
                 string(name: 'P_CLOUD', value: pCloud),
                 string(name: 'P_GIT_REPO', value: gitUrl),
@@ -59,7 +61,7 @@ def runPytest(pythonVersion, extraDeps, gpu = false, marker = "") {
                 string(name: 'P_DOCKER_IMAGE', value: pDockerImage),
                 string(name: 'P_CPU_LIMIT', value: cpuLimit),
                 string(name: 'P_MEM_LIMIT', value: memLimit),
-                string(name: 'P_TIMEOUT', value: '1800'),
+                string(name: 'P_TIMEOUT', value: pTimeout),
                 string(name: 'PIP_EXTRA_DEPS', value: extraDeps),
                 string(name: 'PYTEST_COMMAND', value: './scripts/test.sh'),
                 string(name: 'PYTEST_CLI_ARGS', value: pytestCliArgs),
@@ -71,12 +73,8 @@ def runPytest(pythonVersion, extraDeps, gpu = false, marker = "") {
 
 stage('Prepare') {
     node (pCloud) {
-        // In order to print the env and get the commit url and hash, we must be on a real agent
-        sh 'printenv'
-
+        // ITo get the commit url and hash, we must be on a real agent
         def loadedSCM = checkout scm
-
-        sh 'printenv'
 
         gitUrl = loadedSCM.GIT_URL
         gitBranch = loadedSCM.GIT_BRANCH
@@ -104,7 +102,7 @@ def dockerImagePostBuild(stagingImageTag) {
     parallel([
         "$stagingImageTag - all": { ->
             build(
-                job: 'scratch/pytest',
+                job: "${jenkinsJobBasePath}/pytest",
                 parameters: [
                     string(name: 'P_CLOUD', value: pCloud),
                     string(name: 'P_GIT_REPO', value: gitUrl),
@@ -112,7 +110,7 @@ def dockerImagePostBuild(stagingImageTag) {
                     string(name: 'P_DOCKER_IMAGE', value: stagingImageTag),
                     string(name: 'P_CPU_LIMIT', value: "2"),
                     string(name: 'P_MEM_LIMIT', value: "7Gi"),
-                    string(name: 'P_TIMEOUT', value: '1800'),
+                    string(name: 'P_TIMEOUT', value: pTimeout),
                     string(name: 'PIP_EXTRA_DEPS', value: 'all'),
                     string(name: 'PYTEST_COMMAND', value: './scripts/test.sh'),
                     string(name: 'PYTEST_CLI_ARGS', value: '--test_duration all'),
@@ -136,7 +134,7 @@ stage('Build') {
             P_GIT_COMMIT: gitCommit,
             P_CPU_LIMIT: '4',
             P_MEM_LIMIT: '15Gi',
-            P_TIMEOUT: '3600',
+            P_TIMEOUT: pTimeout,
             P_KANIKO_PUSH_FINAL: gitBranch == "main", // only push if we're on the main branch
         ) { stagingImage -> dockerImagePostBuild(stagingImage) }
     }
@@ -150,13 +148,13 @@ stage('Build') {
                     summary: 'Static Analysis Checks',
                 ) {
                     builds << build(
-                        job: 'scratch/lint',
+                        job: "${jenkinsJobBasePath}/lint",
                         parameters: [
                             string(name: 'P_CLOUD', value: pCloud),
                             string(name: 'P_GIT_REPO', value: gitUrl),
                             string(name: 'P_GIT_COMMIT', value: gitCommit),
                             string(name: 'P_DOCKER_IMAGE', value: "mosaicml/pytorch:1.10.0_cpu-python3.9-ubuntu20.04"),
-                            string(name: 'P_TIMEOUT', value: '1800'),
+                            string(name: 'P_TIMEOUT', value: pTimeout),
                             string(name: 'P_CPU_LIMIT', value: "2"),
                             string(name: 'P_MEM_LIMIT', value: "7Gi"),
                             string(name: 'PIP_EXTRA_DEPS', value: 'all'),
@@ -176,7 +174,7 @@ stage('Build') {
         parallel(jobs)
     }
     finally {
-        stage('Merge Artifcats') {
+        stage('Merge Artifacts') {
             node (pCloud) {
                 checkout scm  // checking out the SCM so the coverage report can load the source
                 builds.each { item -> 
@@ -188,11 +186,8 @@ stage('Build') {
                     )
                 }
 
-                sh 'ls -al'
-
                 sh 'mkdir -p build/output/'
 
-                sh 'ls -al build/output/'
                 archiveArtifacts(artifacts: "build/output/*.xml", fingerprint: true, allowEmptyArchive: true)
                 junit(allowEmptyResults: true, testResults: "build/output/*.junit.xml")
                 publishCoverage(
