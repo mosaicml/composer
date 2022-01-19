@@ -38,7 +38,6 @@ def runPytest(Map args) {
     def pDockerImage = args.pDockerImage
     def name = null 
     def title = null
-    def summary = title
     if (!pDockerImage) {
         if (!pythonVersion) {
             error ("pDockerImage or pythonVersion must be specified")
@@ -48,7 +47,7 @@ def runPytest(Map args) {
         tile = "Pytest - Python ${pythonVersion}, composer[${extraDeps}] (GPU $gpu)"
         pDockerImage = "mosaicml/pytorch:${pytorchVersion}_cpu-python${pythonVersion}-ubuntu20.04"
     }
-    def pytestCliArgs = '--test_duration all'
+    def summary = title
     def nGpus = "0"
     def memLimit = "7Gi"
     def cpuLimit = "2"
@@ -88,7 +87,7 @@ set -e
 I=0
 for marker in \${MARKERS[@]}; do
     if [ -n "\$marker" ]; then
-        EXTRA="-m $marker"
+        EXTRA="-m \$marker"
     else
         EXTRA=""
     fi
@@ -102,6 +101,8 @@ done
 # Combine the coverage reports
 python -m coverage combine
 python -m coverage xml -o build/output/\$BUILD_NUMBER.coverage.xml"""
+
+    echo "PYTEST COMMAND: $pytestCommand"
     def closure = { ->
         builds << build(
             job: "${jenkinsJobBasePath}/command",

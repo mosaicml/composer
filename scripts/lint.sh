@@ -26,4 +26,4 @@ find . -type f -not -path '*/\.*' \( -iname \*.py -o -iname \*.pyi \) -print0 | 
 
 npm install pyright@1.1.204
 
-pyright
+./node_modules/.bin/pyright .
