@@ -3,7 +3,7 @@
 import collections
 import logging
 import textwrap
-from typing import TYPE_CHECKING, Any, Dict, Iterable, List, Mapping, Optional, OrderedDict, Tuple, Type
+from typing import TYPE_CHECKING, Any, Dict, Iterable, List, Literal, Mapping, Optional, OrderedDict, Tuple, Type, Union, overload
 
 from composer.utils.iter_helpers import ensure_tuple
 
@@ -54,15 +54,43 @@ def _add_children_recursive(
             _add_children_recursive(child, children_to_parents_and_names)
         children_to_parents_and_names[child].append((module, name))
 
+@overload
+def replace_module_classes(
+    module: torch.nn.Module,
+    optimizers: Optional[Optimizers],
+    policies: Mapping[Type[torch.nn.Module], ReplacementFunction],
+    *,
+    replace_each_usage: Literal[True],
+    recurse_on_replacements: bool = ...,
+    indices: Optional[Dict[Any, int]] = ...,
+) -> Dict[torch.nn.Module, List[torch.nn.Module]]:
+    pass
+
+@overload
+def replace_module_classes(
+    module: torch.nn.Module,
+    optimizers: Optional[Optimizers],
+    policies: Mapping[Type[torch.nn.Module], ReplacementFunction],
+    *,
+    replace_each_usage: Literal[False] = ...,
+    recurse_on_replacements: bool = ...,
+    indices: Optional[Dict[Any, int]] = ...,
+) -> Dict[torch.nn.Module, torch.nn.Module]:
+    pass
 
 # adapted from https://github.com/microsoft/DeepSpeed/blob/master/deepspeed/module_inject/replace_module.py#L408
 def replace_module_classes(
     module: torch.nn.Module,
     optimizers: Optional[Optimizers],
     policies: Mapping[Type[torch.nn.Module], ReplacementFunction],
+    *,
+    replace_each_usage: bool = False,
     recurse_on_replacements: bool = False,
     indices: Optional[Dict[Any, int]] = None,
-) -> Dict[torch.nn.Module, torch.nn.Module]:
+) -> Union[
+        Dict[torch.nn.Module, torch.nn.Module],
+        Dict[torch.nn.Module, List[torch.nn.Module]],
+    ]:
     """Modify model in-place by recursively applying replacement policies. Replacement policies are a mapping
     of source classes and :class:`ReplacementFunction`.
 
@@ -84,6 +112,24 @@ def replace_module_classes(
         policies (Mapping[torch.nn.Module, ReplacementFunction]): Mapping of source class to replacement function. The
             replacement may be either another module or ``None``. If the latter,
             this replacement is skipped.
+        replace_each_usage (bool): If True, the replacement function will be called
+            for each time a :class:`torch.nn.Module` appears in the ``module``, rather than once per
+            :class:`torch.nn.Module` instance. Consider the following:
+
+            .. code-block:: python
+
+                class Net(torch.nn.Module):
+                    def __init__(self):
+                        super().__init__()
+                        self.linear = nn.Linear(2, 2)
+                        self.relu = nn.ReLU()
+                        self.net = nn.Sequential(self.linear, self.relu, self.linear)
+            
+
+            If ``True``, then a replacement policy matching on :class:`torch.nn.Linear` will be called three times
+            -- once for ``Net.linear`` and twice for the usages of ``self.linear`` in ``self.net``. If False
+            (the default), then the replacement policy would be called once, since all usages share the same
+            underlying instance of :class:`torch.nn.Linear`.
         recurse_on_replacements (bool): If true, policies will be applied to any module returned
             by another policy. E.g., if one replaces a ``Conv2d`` with a module containing
             another ``Conv2d``, this new child ``Conv2d`` might also be replaced. This can recurse
@@ -96,14 +142,19 @@ def replace_module_classes(
             on the i-th instance of the module_class. Note that these indices
             may not correspond to the order in which modules get called in the
             forward pass.
-        optimizers (Optimizers,): One or more :class:`~torch.optim.Optimizer` objects. If provided,
+        optimizers (Optimizers, optional): One or more :class:`~torch.optim.Optimizer` objects. If provided,
             this function will attempt to remove parameters in replaced modules
             from these optimizers, and add parameters from the newly-created
             modules. See :func:`update_params_in_optimizer` for more information.
 
     Returns:
-        Dict[torch.nn.Module, torch.nnModule]: a dictionary of {original module: replacement module},
-            reflecting the replacements applied to ``module`` and its children.
+        Dict[torch.nn.Module, Union[List[torch.nn.Module], torch.nn.Module]:
+            A dictionary of ``{original_module: replacement_module}``
+            reflecting the replacements applied to ``module`` and its children. 
+            If ``replace_each_usage`` is True,
+            then the dictionary have a list of replacement modules --
+            e.g. ``{original_module: [replacement_modules]}``.
+
 
     """
     if isinstance(module, torch.nn.parallel.DistributedDataParallel):
@@ -111,7 +162,17 @@ def replace_module_classes(
             textwrap.dedent("""Surgery is not supported after a module is wrapped with
             `torch.nn.parallel.DistributedDataParallel` Instead, please preform surgery on the underlying
             `module.module` and re-wrap the `module.module` with `torch.nn.parallel.DistributedDataParallel`"""))
-    replaced_pairs: Dict[torch.nn.Module, torch.nn.Module] = {}
+    try:
+        import deepspeed
+    except ImportError:
+        pass
+    else:
+        if isinstance(module, deepspeed.DeepSpeedEngine):
+            raise TypeError(
+                textwrap.dedent("""Surgery is not supported after a module is wrapped with
+                `deepspeed.DeepSpeedEngine` Instead, please preform surgery on the underlying module`,
+                and re-wrap it with `deepspeed.DeepSpeedEngine`"""))
+    replaced_pairs: Dict[torch.nn.Module, Union[List[torch.nn.Module], torch.nn.Module]] = {}
     children_to_parents_and_names: OrderedDict[torch.nn.Module, List[Tuple[torch.nn.Module,
                                                                            str]]] = collections.OrderedDict()
     _add_children_recursive(module, children_to_parents_and_names)
@@ -121,22 +182,39 @@ def replace_module_classes(
         for policy_class, replacement_fn in policies.items():
             if not isinstance(child, policy_class):
                 continue
-            module_index = indices[policy_class]
-            replacement = replacement_fn(
-                child,
-                module_index=module_index,
-            )
-            indices[policy_class] += 1
-            if replacement is not None:
+            if replace_each_usage:
                 assert child not in replaced_pairs
-                replaced_pairs[child] = replacement
-                if recurse_on_replacements:
-                    # recurse on new child object
+                replaced_pairs[child] = []
+                for parent, name in parents:
+                    module_index = indices[policy_class]
+                    replacement = replacement_fn(
+                        child,
+                        module_index=module_index,
+                    )
+                    indices[policy_class] += 1
+                    if replacement is not None:
+                        replaced_pairs[child].append(replacement)
+                        # update the parent with its replaced child
+                        setattr(parent, name, replacement)
+            else:
+                module_index = indices[policy_class]
+                replacement = replacement_fn(
+                    child,
+                    module_index=module_index,
+                )
+                indices[policy_class] += 1
+                if replacement is not None:
+                    assert child not in replaced_pairs
+                    replaced_pairs[child] = replacement
+
+                    for parent, name in parents:
+                        # update each parent with the replaced child
+                        setattr(parent, name, replacement)
+            if child in replaced_pairs and recurse_on_replacements:
+                # recurse on new child object
+                for replacement in ensure_tuple(replaced_pairs[child]):
                     children_to_parents_and_names[replacement] = list(parents)  # copy the parents list
                     _add_children_recursive(replacement, children_to_parents_and_names)
-                for parent, name in parents:
-                    # update each parent with the replaced child
-                    setattr(parent, name, replacement)
     if optimizers:
         for old_module, new_module in replaced_pairs.items():
             update_params_in_optimizer(old_params=old_module.parameters(),

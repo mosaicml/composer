@@ -466,7 +466,7 @@ class ComposedScheduler(_LRScheduler):
     def _validate_same_optimizers(self, schedulers: Schedulers):
         """Verify that all schedulers correspond to the same optimizer."""
         schedulers = ensure_tuple(schedulers)
-        for scheduler_idx in range(1, len(schedulers)):
-            if (getattr(schedulers[scheduler_idx], "optimizer") != getattr(schedulers[0], "optimizer")):
+        for i, scheduler in enumerate(schedulers):
+            if (getattr(scheduler, "optimizer") != getattr(schedulers[0], "optimizer")):
                 raise ValueError("ComposedScheduler expects all schedulers to belong to the same optimizer, but "
-                                 f"got schedulers at index 0 and {scheduler_idx} to be different")
+                                 f"got schedulers at index 0 and {i} to be different")

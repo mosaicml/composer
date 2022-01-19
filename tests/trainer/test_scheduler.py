@@ -7,7 +7,7 @@ import pytest
 import torch
 from torch.optim.lr_scheduler import ExponentialLR, MultiStepLR, StepLR
 
-from composer.core.types import ModelParameters, Optimizer, Scheduler
+from composer.core.types import Optimizer, Scheduler
 from composer.optim.pytorch_future import WarmUpLR
 from composer.optim.scheduler import (ComposedScheduler, ConstantLRHparams, CosineAnnealingLRHparams,
                                       CosineAnnealingWarmRestartsHparams, ExponentialLRHparams, LinearLRHparams,
@@ -91,13 +91,6 @@ TIME_HPARAMS = {
     }
 }
 
-
-@pytest.fixture
-def dummy_parameters() -> ModelParameters:
-    net = torch.nn.Sequential(torch.nn.Linear(5, 2), torch.nn.ReLU())
-    return net.parameters()
-
-
 @pytest.mark.parametrize("scheduler_name", scheduler_registry.keys())
 class TestSchedulerInit():
 
@@ -132,6 +125,10 @@ class TestSchedulerInit():
                 assert getattr(scheduler, time_field[obj]) == expected
 
 
+@pytest.fixture
+def optimizer(dummy_model: torch.nn.Module):
+    return torch.optim.SGD(dummy_model.parameters(), lr=1)
+
 class TestComposedScheduler():
 
     def _test(self,
@@ -146,78 +143,78 @@ class TestComposedScheduler():
             optimizer.step()
             scheduler.step(interval)  # type: ignore
 
-    def test_composed(self, dummy_optimizer: Optimizer):
+    def test_composed(self, optimizer: Optimizer):
         epochs = 9
         targets = [[1 * 0.2 for _ in range(4)] + [1 * 0.9**x for x in range(7)]]
         schedulers = [
-            ExponentialLR(dummy_optimizer, gamma=0.9),
-            WarmUpLR(dummy_optimizer, warmup_factor=0.2, warmup_iters=4, warmup_method="constant")
-        ]
-        scheduler = ComposedScheduler(schedulers)
-        self._test(scheduler, targets, epochs, dummy_optimizer)
-
-    def test_composed_linear(self, dummy_optimizer: Optimizer):
-        epochs = 9
-        targets = [[1 * 0.5 + (x/4 * 0.5) for x in range(4)] + [1 * 0.9**x for x in range(2)] + \
-                   [1 * 0.9**x for x in range(2, 7)]]
-        schedulers = [
-            ExponentialLR(dummy_optimizer, gamma=0.9),
-            WarmUpLR(dummy_optimizer, warmup_factor=0.5, warmup_iters=4, warmup_method="linear")
-        ]
-        scheduler = ComposedScheduler(schedulers)
-        self._test(scheduler, targets, epochs, dummy_optimizer)
-
-    def test_composed_linear2(self, dummy_optimizer: Optimizer):
-        epochs = 9
-        targets = [[1 * 0.5 + (x/4 * 0.5) for x in range(4)] + \
-                   [1 * 0.9**x for x in range(2)] + [1 * 0.9**x * 0.1 for x in range(2, 7)]]
-        schedulers = [
-            ExponentialLR(dummy_optimizer, gamma=0.9),
-            MultiStepLR(dummy_optimizer, milestones=[6], gamma=0.1),
-            WarmUpLR(dummy_optimizer, warmup_factor=0.5, warmup_iters=4, warmup_method="linear")
+            ExponentialLR(optimizer, gamma=0.9),
+            WarmUpLR(optimizer, warmup_factor=0.2, warmup_iters=4, warmup_method="constant")
         ]
         scheduler = ComposedScheduler(schedulers)
         self._test(scheduler, targets, epochs, optimizer)
 
-    def test_composed_linear_from_zero(self, dummy_optimizer: Optimizer):
+    def test_composed_linear(self, optimizer: Optimizer):
+        epochs = 9
+        targets = [[1 * 0.5 + (x/4 * 0.5) for x in range(4)] + [1 * 0.9**x for x in range(2)] + \
+                   [1 * 0.9**x for x in range(2, 7)]]
+        schedulers = [
+            ExponentialLR(optimizer, gamma=0.9),
+            WarmUpLR(optimizer, warmup_factor=0.5, warmup_iters=4, warmup_method="linear")
+        ]
+        scheduler = ComposedScheduler(schedulers)
+        self._test(scheduler, targets, epochs, optimizer)
+
+    def test_composed_linear2(self, optimizer: Optimizer):
+        epochs = 9
+        targets = [[1 * 0.5 + (x/4 * 0.5) for x in range(4)] + \
+                   [1 * 0.9**x for x in range(2)] + [1 * 0.9**x * 0.1 for x in range(2, 7)]]
+        schedulers = [
+            ExponentialLR(optimizer, gamma=0.9),
+            MultiStepLR(optimizer, milestones=[6], gamma=0.1),
+            WarmUpLR(optimizer, warmup_factor=0.5, warmup_iters=4, warmup_method="linear")
+        ]
+        scheduler = ComposedScheduler(schedulers)
+        self._test(scheduler, targets, epochs, optimizer)
+
+    def test_composed_linear_from_zero(self, optimizer: Optimizer):
         epochs = 9
         targets = [[1 * 0.0 + (x / 4 * 1.0) for x in range(4)] + [1 * 0.9**x for x in range(7)]]
         schedulers = [
-            ExponentialLR(dummy_optimizer, gamma=0.9),
-            WarmUpLR(dummy_optimizer, warmup_factor=0, warmup_iters=4, warmup_method="linear")
+            ExponentialLR(optimizer, gamma=0.9),
+            WarmUpLR(optimizer, warmup_factor=0, warmup_iters=4, warmup_method="linear")
         ]
         scheduler = ComposedScheduler(schedulers)
-        self._test(scheduler, targets, epochs, dummy_optimizer)
+        self._test(scheduler, targets, epochs, optimizer)
 
-    def test_composed_linear_from_zero_step(self, dummy_optimizer: Optimizer):
+    def test_composed_linear_from_zero_step(self, optimizer: Optimizer):
         epochs = 9
         targets = [[x / 4 for x in range(4)] + [1.0 for _ in range(7)]]
         schedulers = [
-            ExponentialLR(dummy_optimizer, gamma=0.9),
-            WarmUpLR(dummy_optimizer, warmup_factor=0, warmup_iters=4, warmup_method="linear"),
+            ExponentialLR(optimizer, gamma=0.9),
+            WarmUpLR(optimizer, warmup_factor=0, warmup_iters=4, warmup_method="linear"),
         ]
         schedulers[0].interval = 'epoch'  # should never trigger
         schedulers[1].interval = 'batch'
         scheduler = ComposedScheduler(schedulers)
-        self._test(scheduler, targets, epochs, dummy_optimizer, interval='batch')
+        self._test(scheduler, targets, epochs, optimizer, interval='batch')
 
     @pytest.mark.xfail
-    def test_validate_compose_multistep(self, dummy_optimizer: Optimizer):
+    def test_validate_compose_multistep(self, optimizer: Optimizer):
         schedulers = [
-            ExponentialLR(dummy_optimizer, gamma=0.9),
-            WarmUpLR(dummy_optimizer, warmup_factor=0, warmup_iters=4, warmup_method="linear"),
-            MultiStepLR(dummy_optimizer, milestones=[3], gamma=0.1)
+            ExponentialLR(optimizer, gamma=0.9),
+            WarmUpLR(optimizer, warmup_factor=0, warmup_iters=4, warmup_method="linear"),
+            MultiStepLR(optimizer, milestones=[3], gamma=0.1)
         ]
 
         with pytest.raises(ValueError):
             ComposedScheduler(schedulers)
 
     @pytest.mark.xfail
-    def test_validate_compose_step(self, dummy_optimizer: Optimizer):
+    def test_validate_compose_step(self, optimizer: Optimizer):
         schedulers = [
-            ExponentialLR(dummy_optimizer, gamma=0.9),
-            WarmUpLR(dummy_optimizer, warmup_factor=0, warmup_iters=4, warmup_method="linear"),
-            StepLR(dummy_optimizer, step_size=2, gamma=0.1)
+            ExponentialLR(optimizer, gamma=0.9),
+            WarmUpLR(optimizer, warmup_factor=0, warmup_iters=4, warmup_method="linear"),
+            StepLR(optimizer, step_size=2, gamma=0.1)
         ]
 
         with pytest.raises(ValueError):
