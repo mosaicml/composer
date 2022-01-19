@@ -2,7 +2,7 @@
 
 import torch
 
-from composer.models.resnets import Bottleneck
+from composer.algorithms.stochastic_depth.bottleneck import Bottleneck
 
 
 def _sample_bernoulli(probability: torch.Tensor,

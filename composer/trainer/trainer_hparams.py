@@ -22,9 +22,10 @@ from composer.core.types import Precision
 from composer.datasets import DataloaderHparams
 from composer.loggers import (BaseLoggerBackendHparams, FileLoggerBackendHparams, MosaicMLLoggerBackendHparams,
                               TQDMLoggerBackendHparams, WandBLoggerBackendHparams)
-from composer.models import (BERTForClassificationHparams, BERTHparams, CIFARResNet9Hparams, CIFARResNetHparams,
-                             DeepLabV3Hparams, EfficientNetB0Hparams, GPT2Hparams, MnistClassifierHparams, ModelHparams,
-                             ResNet18Hparams, ResNet50Hparams, ResNet101Hparams, UnetHparams)
+from composer.models import ModelHparams
+# from composer.models import (BERTForClassificationHparams, BERTHparams, CIFARResNet9Hparams, CIFARResNetHparams,
+#                              DeepLabV3Hparams, EfficientNetB0Hparams, GPT2Hparams, MnistClassifierHparams, ModelHparams,
+#                              ResNet18Hparams, ResNet50Hparams, ResNet101Hparams, UnetHparams)
 from composer.optim import (AdamHparams, AdamWHparams, DecoupledAdamWHparams, DecoupledSGDWHparams, OptimizerHparams,
                             RAdamHparams, RMSPropHparams, SchedulerHparams, SGDHparams, scheduler)
 from composer.trainer.checkpoint_hparams import CheckpointLoaderHparams, CheckpointSaverHparams
@@ -58,20 +59,21 @@ scheduler_registry = {
     "polynomial": scheduler.PolynomialLRHparams,
 }
 
-model_registry = {
-    "unet": UnetHparams,
-    "deeplabv3": DeepLabV3Hparams,
-    "efficientnetb0": EfficientNetB0Hparams,
-    "resnet56_cifar10": CIFARResNetHparams,
-    "resnet9_cifar10": CIFARResNet9Hparams,
-    "resnet101": ResNet101Hparams,
-    "resnet50": ResNet50Hparams,
-    "resnet18": ResNet18Hparams,
-    "mnist_classifier": MnistClassifierHparams,
-    "gpt2": GPT2Hparams,
-    "bert": BERTHparams,
-    "bert_classification": BERTForClassificationHparams,
-}
+# model_registry = {
+#     "unet": UnetHparams,
+#     "deeplabv3": DeepLabV3Hparams,
+#     "efficientnetb0": EfficientNetB0Hparams,
+#     "resnet56_cifar10": CIFARResNetHparams,
+#     "resnet9_cifar10": CIFARResNet9Hparams,
+#     "resnet101": ResNet101Hparams,
+#     "resnet50": ResNet50Hparams,
+#     "resnet18": ResNet18Hparams,
+#     "mnist_classifier": MnistClassifierHparams,
+#     "gpt2": GPT2Hparams,
+#     "bert": BERTHparams,
+#     "bert_classification": BERTForClassificationHparams,
+# }
+model_registry = {}
 
 dataset_registry = {
     "ade20k": datasets.ADE20kDatasetHparams,

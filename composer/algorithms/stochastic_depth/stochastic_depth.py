@@ -14,7 +14,7 @@ from composer.algorithms import AlgorithmHparams
 from composer.algorithms.stochastic_depth.sample_stochastic_layers import SampleStochasticBottleneck
 from composer.algorithms.stochastic_depth.stochastic_layers import StochasticBottleneck
 from composer.core import Algorithm, Event, Logger, State, surgery
-from composer.models.resnets import Bottleneck
+from composer.algorithms.stochastic_depth.bottleneck import Bottleneck
 
 log = logging.getLogger(__name__)
 

@@ -2,7 +2,7 @@
 
 import torch
 
-from composer.models.resnets import Bottleneck
+from composer.algorithms.stochastic_depth.bottleneck import Bottleneck
 
 
 def _sample_drop(x: torch.Tensor, sample_drop_rate: float, is_training: bool):
