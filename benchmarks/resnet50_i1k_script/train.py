@@ -30,7 +30,7 @@ nesterov= False
 # Scheduler configs - warmup
 warmup_iters =  "8ep"
 warmup_method =  'linear'
-warmup_factor =  10
+warmup_factor =  0
 
 # cosine
 T_max =  "82ep"
@@ -108,12 +108,12 @@ lr_schedule = [WarmUpLRHparams(warmup_iters=warmup_iters, warmup_method=warmup_m
 
 model = ResNet(num_classes=num_classes)
 # Initialize Trainer with custom model, custom train and eval datasets, and algorithms to train with
-trainer = Trainer(model=ResNet(num_classes=num_classes),
+trainer = Trainer(model=model,
                   train_dataloader=train_dataloader,
                   eval_dataloader=eval_dataloader,
                   max_duration=max_duration,
                   optimizer_hparams=optimizer,
-                  schedulers_hparams=lr_schedule
+                  schedulers_hparams=lr_schedule,
                   seed=seed,
                   grad_accum=grad_accum,
                   precision=precision,
