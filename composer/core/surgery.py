@@ -3,7 +3,8 @@
 import collections
 import logging
 import textwrap
-from typing import TYPE_CHECKING, Any, Dict, Iterable, List, Literal, Mapping, Optional, OrderedDict, Tuple, Type, Union, overload
+from typing import (TYPE_CHECKING, Any, Dict, Iterable, List, Literal, Mapping, Optional, OrderedDict, Tuple, Type,
+                    Union, overload)
 
 from composer.utils.iter_helpers import ensure_tuple
 
@@ -54,6 +55,7 @@ def _add_children_recursive(
             _add_children_recursive(child, children_to_parents_and_names)
         children_to_parents_and_names[child].append((module, name))
 
+
 @overload
 def replace_module_classes(
     module: torch.nn.Module,
@@ -65,6 +67,7 @@ def replace_module_classes(
     indices: Optional[Dict[Any, int]] = ...,
 ) -> Dict[torch.nn.Module, List[torch.nn.Module]]:
     pass
+
 
 @overload
 def replace_module_classes(
@@ -78,6 +81,7 @@ def replace_module_classes(
 ) -> Dict[torch.nn.Module, torch.nn.Module]:
     pass
 
+
 # adapted from https://github.com/microsoft/DeepSpeed/blob/master/deepspeed/module_inject/replace_module.py#L408
 def replace_module_classes(
     module: torch.nn.Module,
@@ -87,10 +91,7 @@ def replace_module_classes(
     replace_each_usage: bool = False,
     recurse_on_replacements: bool = False,
     indices: Optional[Dict[Any, int]] = None,
-) -> Union[
-        Dict[torch.nn.Module, torch.nn.Module],
-        Dict[torch.nn.Module, List[torch.nn.Module]],
-    ]:
+) -> Union[Dict[torch.nn.Module, torch.nn.Module], Dict[torch.nn.Module, List[torch.nn.Module]],]:
     """Modify model in-place by recursively applying replacement policies. Replacement policies are a mapping
     of source classes and :class:`ReplacementFunction`.
 
@@ -172,7 +173,7 @@ def replace_module_classes(
                 textwrap.dedent("""Surgery is not supported after a module is wrapped with
                 `deepspeed.DeepSpeedEngine` Instead, please preform surgery on the underlying module`,
                 and re-wrap it with `deepspeed.DeepSpeedEngine`"""))
-    replaced_pairs: Dict[torch.nn.Module, Union[List[torch.nn.Module], torch.nn.Module]] = {}
+    replaced_pairs = {}
     children_to_parents_and_names: OrderedDict[torch.nn.Module, List[Tuple[torch.nn.Module,
                                                                            str]]] = collections.OrderedDict()
     _add_children_recursive(module, children_to_parents_and_names)
@@ -184,7 +185,7 @@ def replace_module_classes(
                 continue
             if replace_each_usage:
                 assert child not in replaced_pairs
-                replaced_pairs[child] = []
+                child_replacements = []
                 for parent, name in parents:
                     module_index = indices[policy_class]
                     replacement = replacement_fn(
@@ -193,9 +194,10 @@ def replace_module_classes(
                     )
                     indices[policy_class] += 1
                     if replacement is not None:
-                        replaced_pairs[child].append(replacement)
+                        child_replacements.append(replacement)
                         # update the parent with its replaced child
                         setattr(parent, name, replacement)
+                    replaced_pairs[child] = child_replacements
             else:
                 module_index = indices[policy_class]
                 replacement = replacement_fn(
@@ -216,10 +218,9 @@ def replace_module_classes(
                     children_to_parents_and_names[replacement] = list(parents)  # copy the parents list
                     _add_children_recursive(replacement, children_to_parents_and_names)
     if optimizers:
-        for old_module, new_module in replaced_pairs.items():
-            update_params_in_optimizer(old_params=old_module.parameters(),
-                                       new_params=new_module.parameters(),
-                                       optimizers=optimizers)
+        for old_module, new_modules in replaced_pairs.items():
+            new_params = sum((list(x.parameters()) for x in ensure_tuple(new_modules)), start=[])
+            update_params_in_optimizer(old_params=old_module.parameters(), new_params=new_params, optimizers=optimizers)
     elif len(replaced_pairs) > 0:
         log.info(
             f"optimizers was not provided. Be sure to either create the optimizer after invoking this method, or manually add new parameters to the existing optimizer."

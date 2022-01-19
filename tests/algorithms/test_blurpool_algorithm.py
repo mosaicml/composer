@@ -115,12 +115,11 @@ def test_blurpool_algorithm_logging(state: State, blurpool_instance: BlurPool, d
 
 def test_blurconv2d_optimizer_params_updated():
     model = SimpleConvModel()
-    orig_conv = model.conv2
+    orig_conv = model.conv1
     assert orig_conv.stride == (2, 2)  # fail fast if test model changes
     opt = torch.optim.SGD(model.parameters(), lr=.01)
     apply_blurpool(model, optimizers=opt)
-    new_conv = model.conv2
-    assert new_conv.weight is not orig_conv.weight
+    new_conv = model.conv1
     param_list: List[torch.Tensor] = opt.param_groups[0]['params']
 
     # old params removed
@@ -130,5 +129,6 @@ def test_blurconv2d_optimizer_params_updated():
     new_conv2d = new_conv.conv
     assert isinstance(new_conv2d, torch.nn.Module)
     new_weight = new_conv2d.weight
+    assert new_weight is not orig_conv.weight
     assert isinstance(new_weight, torch.Tensor)
     assert surgery._tensor_in(new_weight, param_list)

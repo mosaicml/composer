@@ -91,6 +91,7 @@ TIME_HPARAMS = {
     }
 }
 
+
 @pytest.mark.parametrize("scheduler_name", scheduler_registry.keys())
 class TestSchedulerInit():
 
@@ -128,6 +129,7 @@ class TestSchedulerInit():
 @pytest.fixture
 def optimizer(dummy_model: torch.nn.Module):
     return torch.optim.SGD(dummy_model.parameters(), lr=1)
+
 
 class TestComposedScheduler():
 

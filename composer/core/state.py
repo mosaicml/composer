@@ -133,12 +133,12 @@ class State(Serializable):
             precision: Union[str, types.Precision],
             precision_context: Callable[[Precision], ContextManager] = default_precision_factory(),
 
-            # scaler
-            scaler: Optional[types.Scaler] = None,
-
             # optimizers
             optimizers: Optional[types.Optimizers] = None,
             schedulers: Optional[types.Schedulers] = None,
+
+            # scaler
+            scaler: Optional[types.Scaler] = None,
 
             # algorithms and callbacks
             algorithms: Sequence[Algorithm] = tuple(),

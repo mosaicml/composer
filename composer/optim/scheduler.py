@@ -358,7 +358,7 @@ class ComposedScheduler(_LRScheduler):
         >>> # lr = 0.729    if epoch == 4
         >>> scheduler1 = WarmUpLR(self.opt, warmup_factor=0.1, warmup_iters=2, warmup_method="constant")
         >>> scheduler2 = ExponentialLR(self.opt, gamma=0.9)
-        >>> scheduler = ComposedScheduler(zip([scheduler1, scheduler2], ["epoch", "epoch"]))
+        >>> scheduler = ComposedScheduler([scheduler1, scheduler2])
         >>> for epoch in range(100):
         >>>     train(...)
         >>>     validate(...)
@@ -372,7 +372,7 @@ class ComposedScheduler(_LRScheduler):
         >>> # lr = 0.2    if epoch == 4 . # MultiStepLR effect starts here
         >>> scheduler1 = WarmUpLR(self.opt, warmup_factor=0.1, warmup_iters=2, warmup_method="constant")
         >>> scheduler2 = MultiStepLR(optimizer, milestones=[4], gamma=0.2)
-        >>> scheduler = ComposedScheduler(zip([scheduler1, scheduler2], ["epoch", "epoch"]))
+        >>> scheduler = ComposedScheduler([scheduler1, scheduler2])
         >>> for epoch in range(100):
         >>>     train(...)
         >>>     validate(...)
