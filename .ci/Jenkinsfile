@@ -180,7 +180,7 @@ stage('Build') {
             P_CPU_LIMIT: '4',
             P_MEM_LIMIT: '15Gi',
             P_TIMEOUT: pTimeout,
-            P_KANIKO_PUSH_FINAL: gitBranch == "dev" or gitBranch == "main", // only push if we're on the main or dev branch
+            P_KANIKO_PUSH_FINAL: gitBranch == "dev" || gitBranch == "main", // only push if we're on the main or dev branch
         ) { stagingImage -> dockerImagePostBuild(stagingImage) }
     }
     if (gitBranch != "main" && gitBranch != "dev") {
