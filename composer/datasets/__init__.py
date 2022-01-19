@@ -4,7 +4,6 @@ from composer.datasets.ade20k import ADE20kDatasetHparams as ADE20kDatasetHparam
 from composer.datasets.brats import BratsDatasetHparams as BratsDatasetHparams
 from composer.datasets.cifar10 import CIFAR10DatasetHparams as CIFAR10DatasetHparams
 from composer.datasets.dataloader import DataloaderHparams as DataloaderHparams
-from composer.datasets.dataloader import DDPDataLoader as DDPDataLoader
 from composer.datasets.dataloader import WrappedDataLoader as WrappedDataLoader
 from composer.datasets.glue import GLUEHparams as GLUEHparams
 from composer.datasets.hparams import DatasetHparams as DatasetHparams

@@ -22,7 +22,6 @@ from composer.core import Callback, DataSpec, Engine, Event, Logger, State, Time
 from composer.core.algorithm import Algorithm
 from composer.core.logging import BaseLoggerBackend, LogLevel
 from composer.core.types import BreakEpochException, DataLoader, Metrics, Precision
-from composer.datasets.dataloader import DDPDataLoader
 from composer.loggers.tqdm_logger import TQDMLoggerBackend
 from composer.models.base import BaseMosaicModel
 from composer.optim import (ComposedScheduler, CosineAnnealingLRHparams, DecoupledSGDWHparams, OptimizerHparams,
@@ -212,10 +211,8 @@ class Trainer:
 
         if not isinstance(train_dataloader, DataSpec):
             train_dataloader = DataSpec(train_dataloader)
-        train_dataloader.dataloader = DDPDataLoader(train_dataloader.dataloader)
         if not isinstance(eval_dataloader, DataSpec):
             eval_dataloader = DataSpec(eval_dataloader)
-        eval_dataloader.dataloader = DDPDataLoader(eval_dataloader.dataloader)
 
         self._train_data_spec = train_dataloader
         self._eval_data_spec = eval_dataloader
@@ -505,11 +502,15 @@ class Trainer:
 
         # spin the eval dataloader once to initialize its sampler deterministically
         # so it does not affect any other RNG reads
+        if isinstance(self.state.eval_dataloader.sampler, torch.utils.data.DistributedSampler):
+            self.state.eval_dataloader.sampler.set_epoch(0)
         for _ in self.state.eval_dataloader:
             break
 
         # spin the train dataloader's sampler to get to the state of the desired epoch
-        for _ in range(self.state.epoch):
+        for epoch in range(int(self.state.timer.epoch)):
+            if isinstance(self.state.train_dataloader.sampler, torch.utils.data.DistributedSampler):
+                self.state.train_dataloader.sampler.set_epoch(epoch)
             for _ in self.state.train_dataloader:
                 break
 
@@ -554,6 +555,9 @@ class Trainer:
                 if self.state.timer.batch_in_epoch == 0:
                     self.engine.run_event(Event.EPOCH_START)
                     self.logger.metric_epoch({"epoch": self.state.epoch})
+
+                if isinstance(self.state.train_dataloader.sampler, torch.utils.data.DistributedSampler):
+                    self.state.train_dataloader.sampler.set_epoch(int(self.state.timer.epoch))
 
                 for batch_idx, state.batch in enumerate(
                         itertools.islice(state.train_dataloader, self.state.steps_per_epoch)):
@@ -806,6 +810,11 @@ class Trainer:
             self.engine.run_event(Event.EVAL_START)
 
             metrics = self._get_metrics_as_collection(is_train=False)
+
+            if isinstance(self.state.eval_dataloader.sampler, torch.utils.data.DistributedSampler):
+                # using the batch as the epoch, as the evaluator may be running every batch
+                # instead of every epoch
+                self.state.eval_dataloader.sampler.set_epoch(int(self.state.timer.batch))
 
             for state.batch in itertools.islice(state.eval_dataloader, self._eval_subset_num_batches):
                 state.batch = self.device.batch_to_device(state.batch)
