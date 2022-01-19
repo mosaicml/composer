@@ -1,7 +1,6 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
-import math
-from typing import Any, Iterable, Iterator, List, Optional, Sequence, Tuple, TypeVar
+from typing import Any, Iterable, Iterator, List, Optional, Sequence, Tuple, TypeVar, Union
 
 import numpy as np
 from numpy.typing import ArrayLike
@@ -143,12 +142,18 @@ def _sample_batches_match_old(samplers: Sequence[BalancedSampler], batch_size: i
     return batches
 
 
-def _sample_batches_uniform(samplers: Sequence[BalancedSampler], batch_size: int, num_batches: int,
+def _sample_batches_uniform(samplers: Sequence[BalancedSampler], batch_size: Union[int, Sequence], num_batches: int,
                             rng: np.random.Generator, **_) -> List:
     unsampled_counts = [s.num_unsampled_elements() for s in samplers]
     # unsampled_counts = [len(s.tail) for s in samplers]
     total_unsampled_count = sum(unsampled_counts)
-    requested_count = batch_size * num_batches
+
+    batch_sizes = batch_size
+    if isinstance(batch_size, (int, float)):
+        batch_sizes = np.full(shape=num_batches, fill_value=batch_size)
+    batch_sizes = np.asarray(batch_sizes)
+    requested_count = batch_sizes.sum()
+
     if total_unsampled_count < requested_count:
         raise ValueError(f"Can't sample {requested_count} unique elements from a set of size {total_unsampled_count}")
 
@@ -169,9 +174,16 @@ def _sample_batches_uniform(samplers: Sequence[BalancedSampler], batch_size: int
         write_ptr[:count] = samplers[c].sample(count)
         write_ptr = write_ptr[count:]
     flat_batches = rng.permutation(flat_batches)
-    batches = flat_batches.reshape(num_batches, batch_size)
 
-    return [list(batch) for batch in batches]  # convert to lists for consistency
+    # pull out correct number of samples for each batch; we allow variable
+    # numbers so that this function can be used to handle straggler sampling
+    # within other sampling functions
+    batches = []
+    for b in range(num_batches):
+        batch_size = batch_sizes[b]
+        batches.append(list(flat_batches[:batch_size]))
+        flat_batches = flat_batches[batch_size:]
+    return batches
 
 
 def _sample_batches_match(samplers: Sequence[BalancedSampler], batch_size: int, num_batches: int,
@@ -226,7 +238,7 @@ def _compute_p_proportional(samplers):
 
 
 def _sample_batches_imbalanced(samplers: Sequence[BalancedSampler], batch_size: int, num_batches: int,
-                               rng: np.random.Generator, imbalance: float) -> List:
+                               rng: np.random.Generator, imbalance: float, **_) -> List:
     assert 0. <= imbalance <= 1.
     batches = []
     num_classes = len(samplers)
@@ -255,8 +267,8 @@ def _sample_batches_imbalanced(samplers: Sequence[BalancedSampler], batch_size: 
 
 
 # experimental control that should be equivalent to uniform sampling without replacement
-def _sample_batches_baseline(samplers: Sequence[BalancedSampler], batch_size: int, num_batches: int,
-                             rng: np.random.Generator, **_) -> List:
+def _sample_batches_naive_uniform(samplers: Sequence[BalancedSampler], batch_size: int, num_batches: int,
+                                  rng: np.random.Generator, **_) -> List:
     batches = []
     num_classes = len(samplers)
     for _ in range(num_batches):
@@ -267,6 +279,61 @@ def _sample_batches_baseline(samplers: Sequence[BalancedSampler], batch_size: in
             batch.append(samplers[take_class].sample(1)[0])
         batches.append(batch)
     return batches
+
+
+def _sample_batches_echo_classes(samplers: Sequence[BalancedSampler],
+                                 batch_size: int,
+                                 num_batches: int,
+                                 rng: np.random.Generator,
+                                 targets: Sequence,
+                                 echo_classes_factor: int = 2,
+                                 stratify_how: str = 'uniform',
+                                 **kwargs) -> List:
+    num_classes = len(samplers)
+    initial_batch_size = batch_size // echo_classes_factor
+    if initial_batch_size < 1:
+        raise ValueError(f"Total batch size {batch_size} does not exceed echo factor {echo_classes_factor}")
+    if stratify_how == 'echo_classes':
+        raise ValueError(f"Cannot use {stratify_how} as inner sampler for {stratify_how}")
+
+    # construct initial batches based on inner sampling function
+    f_sample = _NAME_TO_SAMPLING_FUNC[stratify_how]
+    batches = f_sample(samplers=samplers, batch_size=initial_batch_size, num_batches=num_batches, rng=rng, **kwargs)
+
+    if echo_classes_factor < 2:  # no echoing, so initial sampling suffices
+        return batches
+
+    # now take more samples in each batch with the same distribution as the
+    # batch-so-far; if any classes run out of samples, take remaining samples
+    # from whichever sampler(s) have the most unsampled elems
+    flat_batches = np.array(batches).ravel()
+    flat_labels = targets[flat_batches]
+    labels = flat_labels.reshape(num_batches, initial_batch_size)
+    unsampled_counts = np.array([s.num_unsampled_elements() for s in samplers])
+    for batch, batch_labels in zip(batches, labels):
+        class_counts = np.bincount(batch_labels, minlength=num_classes)
+        take_nums = class_counts * (echo_classes_factor - 1)
+        take_nums = np.minimum(take_nums, unsampled_counts)
+        nonzero_classes = np.where(take_nums > 0)[0]
+        for c in nonzero_classes:
+            sampler = samplers[c]
+            take_num = take_nums[c]
+            batch += sampler.sample(take_num)
+            unsampled_counts[c] -= take_num
+        # permute at this point so that samples from a given class aren't
+        # all consecutive; this would result in higher-number replicas loading
+        # batches that consist of only a few classes, which might mess up the
+        # batchnorms, or at least introduce ordering as a lurking variable when
+        # comparing this approach to echoing individual samples
+        batch = list(rng.permutation(batch))
+
+    # finish off batches with uniform sampling; batches end up incomplete
+    # if any of their classes run out of samples
+    tail_sizes = np.array([batch_size - len(batch) for batch in batches])
+    assert (tail_sizes >= 0).all(), "Something is wrong with class echoing logic!"
+    # tail_sizes = np.maximum(tail_sizes, 0)
+    batch_tails = _sample_batches_uniform(samplers=samplers, batch_size=tail_sizes, num_batches=num_batches, rng=rng)
+    return [head + tail for head, tail in zip(batches, batch_tails)]
 
 
 def sample_stragglers(samplers: Sequence[BalancedSampler],
@@ -320,8 +387,9 @@ _NAME_TO_SAMPLING_FUNC = {
     'balance': _sample_batches_balanced,
     'match': _sample_batches_match,
     'imbalance': _sample_batches_imbalanced,
-    'baseline': _sample_batches_uniform,
-    'naive_baseline': _sample_batches_baseline,  # uniform with simple, slow code
+    'uniform': _sample_batches_uniform,
+    'naive_uniform': _sample_batches_naive_uniform,
+    'echo_classes': _sample_batches_echo_classes,
 }
 
 T_co = TypeVar('T_co', covariant=True)
@@ -337,7 +405,9 @@ class StratifiedBatchSampler(DistributedSampler[T_co]):
                  shuffle: bool = True,
                  drop_last: bool = False,
                  stratify_how: str = 'match',
-                 imbalance: float = .5,
+                 echo_samples_factor: int = 1,
+                 echo_classes_factor: int = 1,
+                 imbalance: float = .1,
                  targets_attr: Optional[str] = None,
                  seed: int = 42,
                  **kwargs):
@@ -346,7 +416,11 @@ class StratifiedBatchSampler(DistributedSampler[T_co]):
         if targets is None:
             targets = extract_targets_from_dataset(dataset, targets_attr=targets_attr)
 
-        self.targets = np.asarray(targets).ravel()
+        # map original targets to ints 0 thru len(unique(targets)); this is okay
+        # because we only ever return sample indices, not their associated labels
+        raw_targets = np.asarray(targets).ravel()
+        _, self.targets = np.unique(raw_targets, return_inverse=True)
+
         self.shuffle = shuffle
         if not shuffle:
             raise NotImplementedError("Sampling with shuffle=False is not yet supported")
@@ -355,6 +429,8 @@ class StratifiedBatchSampler(DistributedSampler[T_co]):
         if stratify_how not in allowed_stratify_hows:
             raise ValueError(f"stratify_how must be one of {allowed_stratify_hows}, not {stratify_how}")
         self.stratify_how = stratify_how
+        self.echo_samples_factor = int(echo_samples_factor)
+        self.echo_classes_factor = int(echo_classes_factor)
         self.imbalance = imbalance
         self.total_batch_size = batch_size * self.num_replicas
         self._set_targets(targets)
@@ -382,17 +458,43 @@ class StratifiedBatchSampler(DistributedSampler[T_co]):
         rng = np.random.default_rng(self.seed + self.epoch)
         self._reset_samplers(rng)  # reset sampling for each epoch
 
-        f_sample = _NAME_TO_SAMPLING_FUNC[self.stratify_how]
-        batches = f_sample(self.samplers,
-                           batch_size=self.total_batch_size,
-                           num_batches=self.num_full_batches,
-                           rng=rng,
-                           imbalance=self.imbalance)
+        sample_total_batch_size = self.total_batch_size // self.echo_samples_factor
+        # echo_classes sampling func calls other sampling funcs
+        batches = _sample_batches_echo_classes(
+            self.samplers,
+            batch_size=sample_total_batch_size,
+            num_batches=self.num_full_batches,
+            rng=rng,
+            imbalance=self.imbalance,
+            echo_classes_factor=self.echo_classes_factor,
+            targets=self.targets,
+            stratify_how=self.stratify_how,
+        )
+
+        # make multiple copies of each batch if requested; important to append
+        # them one after another so that a given idx tends to get spread across
+        # replicas, instead of showing up many times for one replica;
+        # apparently matters for batchnorms
+        if self.echo_samples_factor > 1:
+            new_batches = []
+            for batch in batches:
+                new_batch = batch[:]
+                for _ in range(self.echo_samples_factor - 1):
+                    new_batch += batch
+                new_batches.append(new_batch)
+            tail_sizes = [self.total_batch_size - len(batch) for batch in new_batches]
+            batch_tails = _sample_batches_uniform(
+                self.samplers,
+                batch_size=tail_sizes,
+                num_batches=len(batches),
+                rng=rng,
+            )
+            batches = [head + tail for head, tail in zip(new_batches, batch_tails)]
 
         if self.add_stragglers:
             batches.append(
                 sample_stragglers(self.samplers,
-                                  batch_size=self.total_batch_size,
+                                  batch_size=sample_total_batch_size,
                                   total_num_samples=self.total_num_samples,
                                   rng=rng))
 

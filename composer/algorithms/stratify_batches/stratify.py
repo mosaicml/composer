@@ -13,7 +13,7 @@ from composer.core import Algorithm, Event, Logger, State
 @dataclass
 class StratifyBatchesHparams(AlgorithmHparams):
     """See :class:`StratifyBatches`"""
-    stratify_how: str = hp.optional(doc="One of {'match', 'balance'}. "
+    stratify_how: str = hp.optional(doc="One of {'match', 'balance', 'imbalance', 'uniform'}. "
                                     "'match' attempts to have class distribution in each batch match "
                                     "the overall class distribution. 'balance' upsamples rare classes such "
                                     "that the number of samples from each class is as close to equal as "
@@ -24,6 +24,8 @@ class StratifyBatchesHparams(AlgorithmHparams):
                                               default=None)
     lr_multiplier: float = hp.optional(doc="TODO", default=1.0)
     imbalance: float = hp.optional(doc="TODO", default=0.5)
+    echo_samples_factor: int = hp.optional(doc="TODO", default=1)
+    echo_classes_factor: int = hp.optional(doc="TODO", default=1)
 
     def initialize_object(self) -> "StratifyBatches":
         return StratifyBatches(**asdict(self))
@@ -35,11 +37,15 @@ class StratifyBatches(Algorithm):
                  stratify_how: str = 'match',
                  targets_attr: Optional[str] = None,
                  lr_multiplier: float = 1.0,
-                 imbalance: float = 0.5):
+                 imbalance: float = 0.5,
+                 echo_samples_factor: int = 1,
+                 echo_classes_factor: int = 1):
         self.stratify_how = stratify_how
         self.targets_attr = targets_attr
         self.lr_multiplier = lr_multiplier
         self.imbalance = imbalance
+        self.echo_samples_factor = echo_samples_factor
+        self.echo_classes_factor = echo_classes_factor
 
     def match(self, event: Event, state: State) -> bool:
         """Apply on Event.AFTER_HPARAMS"""
@@ -60,6 +66,8 @@ class StratifyBatches(Algorithm):
                                               stratify_how=self.stratify_how,
                                               targets_attr=self.targets_attr,
                                               imbalance=self.imbalance,
+                                              echo_samples_factor=self.echo_samples_factor,
+                                              echo_classes_factor=self.echo_classes_factor,
                                               **kwargs)
             return None  # default sampler for other splits
 

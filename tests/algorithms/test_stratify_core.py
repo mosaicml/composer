@@ -129,20 +129,17 @@ def _construct_class_counts(batches: List[List], targets: Sequence[int], num_cla
     return class_counts
 
 
-# @pytest.mark.parametrize('num_classes', [8])
+# @pytest.mark.parametrize('num_classes', [2])
 # @pytest.mark.parametrize('batch_size', [2])
 # @pytest.mark.parametrize('num_batches', [1])
 # @pytest.mark.parametrize('add_stragglers', [True])
-# @pytest.mark.parametrize('add_stragglers', [False])
-# @pytest.mark.parametrize('stratify_how', ['balance', 'match'])
-# @pytest.mark.parametrize('stratify_how', ['match'])
-# @pytest.mark.parametrize('stratify_how', ['baseline'])
+# @pytest.mark.parametrize('stratify_how', ['echo_classes'])
 # @pytest.mark.parametrize('num_replicas', [1])
 @pytest.mark.parametrize('num_classes', [2, 4, 7, 8])
 @pytest.mark.parametrize('batch_size', [1, 2, 4, 7, 8])
 @pytest.mark.parametrize('num_batches', [1, 2, 3])
 @pytest.mark.parametrize('add_stragglers', [False, True])
-@pytest.mark.parametrize('stratify_how', ['balance', 'match', 'imbalance', 'baseline'])
+@pytest.mark.parametrize('stratify_how', ['balance', 'match', 'imbalance', 'uniform'])
 @pytest.mark.parametrize('num_replicas', [1, 2])
 @pytest.mark.parametrize('seed', [123])
 def test_sample_batches_correctness(num_classes: int, batch_size: int, num_batches: int, add_stragglers: bool,
