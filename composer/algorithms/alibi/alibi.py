@@ -57,17 +57,16 @@ class AlibiHparams(AlgorithmHparams):
         return Alibi(**asdict(self))
 
 
-def apply_alibi(model: torch.nn.Module, optimizers: Optional[Optimizers], heads_per_layer: int,
+def apply_alibi(model: torch.nn.Module, heads_per_layer: int,
                 max_sequence_length: int, position_embedding_attribute: str, attention_module: Type[torch.nn.Module],
                 attr_to_replace: str, alibi_attention: Callable, mask_replacement_function: Union[Callable,
-                                                                                                  None]) -> None:
+                                                                                                  None], optimizers: Optional[Optimizers] = None, ) -> None:
     """
     Removes position embeddings and replaces the attention function and attention mask
     according to `AliBi <https://arxiv.org/abs/2108.12409>`_.
 
     Args:
         model: model to transform
-        optimizers: optimizers to transform
         heads_per_layer: number of attention heads per layer
         max_sequence_length: maximum sequence length that the
             model will be able to accept without returning an error
@@ -88,6 +87,7 @@ def apply_alibi(model: torch.nn.Module, optimizers: Optional[Optimizers], heads_
             attention mask. This is sometimes necessary for evaluating
             on sequence lengths longer than the model was initialized to
             accommodate.
+        optimizers: optimizers to transform
     """
 
     zero_and_freeze_expand_position_embeddings(model=model,

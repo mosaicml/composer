@@ -28,7 +28,7 @@ def _log_surgery_result(model: torch.nn.Module):
 
 
 def apply_blurpool(model: torch.nn.Module,
-                   optimizers: Optional[Optimizers],
+                   optimizers: Optional[Optimizers] = None,
                    replace_convs: bool = True,
                    replace_maxpools: bool = True,
                    blur_first: bool = True) -> None:

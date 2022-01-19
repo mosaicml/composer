@@ -91,9 +91,9 @@ class StochasticDepthHparams(AlgorithmHparams):
 
 
 def apply_stochastic_depth(model: torch.nn.Module,
-                           optimizers: Optional[Optimizers],
                            stochastic_method: str,
                            target_layer_name: str,
+                           optimizers: Optional[Optimizers] = None,
                            drop_rate: float = 0.2,
                            drop_distribution: str = 'linear',
                            use_same_gpu_seed: bool = True) -> None:
@@ -115,6 +115,7 @@ def apply_stochastic_depth(model: torch.nn.Module,
             equivalent. The name must be registered in ``STOCHASTIC_LAYER_MAPPING``
             dictionary with the target layer class and the stochastic layer class.
             Currently, only ``'ResNetBottleneck'`` is supported.
+        optimizers: optimizers to transform
         drop_rate: The base probability of dropping a layer or sample. Must be
             between 0.0 and 1.0.
         drop_distribution: How ``drop_rate`` is distributed across
