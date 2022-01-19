@@ -14,6 +14,7 @@ import yahp as hp
 from composer.algorithms import AlgorithmHparams
 from composer.algorithms.blurpool.blurpool_layers import BlurConv2d, BlurMaxPool2d
 from composer.core import Algorithm, Event, Logger, State, surgery
+from composer.core.types import Optimizers
 
 log = logging.getLogger(__name__)
 
@@ -27,6 +28,7 @@ def _log_surgery_result(model: torch.nn.Module):
 
 
 def apply_blurpool(model: torch.nn.Module,
+                   optimizers: Optional[Optimizers],
                    replace_convs: bool = True,
                    replace_maxpools: bool = True,
                    blur_first: bool = True) -> None:
@@ -38,6 +40,7 @@ def apply_blurpool(model: torch.nn.Module,
 
     Args:
         model: model to modify
+        optimizers: optimizers to modify,
         replace_convs: replace strided :class:`torch.nn.Conv2d` modules with
             :class:`BlurConv2d` modules
         replace_maxpools: replace eligible :class:`torch.nn.MaxPool2d` modules
@@ -57,7 +60,7 @@ def apply_blurpool(model: torch.nn.Module,
             _maybe_replace_strided_conv2d,
             blur_first=blur_first,
         )
-    surgery.replace_module_classes(model, policies=transforms)
+    surgery.replace_module_classes(model, optimizers=optimizers, policies=transforms)
     _log_surgery_result(model)
 
 
@@ -133,7 +136,7 @@ class BlurPool(Algorithm):
         """
         assert state.model is not None
 
-        apply_blurpool(state.model, **asdict(self.hparams))
+        apply_blurpool(state.model, optimizers=state.optimizers, **asdict(self.hparams))
         self._log_results(event, state, logger)
 
     def _log_results(self, event: Event, state: State, logger: Logger) -> None:

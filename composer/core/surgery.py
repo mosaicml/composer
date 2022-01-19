@@ -1,7 +1,10 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
 import logging
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Type
+import textwrap
+from typing import TYPE_CHECKING, Any, Dict, Iterable, List, Mapping, Optional, Type
+
+from composer.utils.iter_helpers import ensure_tuple
 
 try:
     from typing import Protocol
@@ -12,6 +15,9 @@ if TYPE_CHECKING:
     from typing import Protocol
 
 import torch
+import torch.distributed
+
+from composer.core.types import Optimizers
 
 log = logging.getLogger(__name__)
 
@@ -37,13 +43,14 @@ class ReplacementFunction(Protocol):
 
 # adapted from https://github.com/microsoft/DeepSpeed/blob/master/deepspeed/module_inject/replace_module.py#L408
 def replace_module_classes(
-    model: torch.nn.Module,
-    policies: Dict[Any, ReplacementFunction],
+    module: torch.nn.Module,
+    optimizers: Optional[Optimizers],
+    policies: Mapping[Type[torch.nn.Module], ReplacementFunction],
     recurse_on_replacements: bool = False,
     indices: Optional[Dict[Any, int]] = None,
-) -> List[Tuple[torch.nn.Module, torch.nn.Module]]:
+) -> Dict[torch.nn.Module, torch.nn.Module]:
     """Modify model in-place by recursively applying replacement policies. Replacement policies are a mapping
-    of source classes and `ReplacementFunction`.
+    of source classes and :class:`ReplacementFunction`.
 
     Examples:
         The following policy::
@@ -59,61 +66,87 @@ def replace_module_classes(
 
 
     Arguments:
-        module: Model to modify.
-        policies: Mapping of source class to replacement function. The
-            replacement may be either another module or `None`. If the latter,
+        module (torch.nn.Module): Model to modify.
+        policies (Mapping[torch.nn.Module, ReplacementFunction]): Mapping of source class to replacement function. The
+            replacement may be either another module or ``None``. If the latter,
             this replacement is skipped.
-        recurse_on_replacements: If true, policies will be applied to any module returned
-            by another policy. E.g., if one replaces a `Conv2d` with a module containing
-            another `Conv2d`, this new child `Conv2d` might also be replaced. This can recurse
+        recurse_on_replacements (bool): If true, policies will be applied to any module returned
+            by another policy. E.g., if one replaces a ``Conv2d`` with a module containing
+            another ``Conv2d``, this new child ``Conv2d`` might also be replaced. This can recurse
             infinitely if the replacement policies are not conditioned on
             module properties that change over the course of the recursion.
-        indices: A dictionary mapping module types to the number of times
+        indices (Dict[Any, int], optional): A dictionary mapping module types to the number of times
             they've occurred so far in the recursive traversal of
-            `model` and its child modules. Allows us to pass `module_index`
+            ``module`` and its child modules. Allows us to pass ``module_index``
             to the replacement policies, so that a policy may switch behavior
             on the i-th instance of the module_class. Note that these indices
             may not correspond to the order in which modules get called in the
             forward pass.
+        optimizers (Optimizers,): One or more :class:`~torch.optim.Optimizer` objects. If provided,
+            this function will attempt to remove parameters in replaced modules
+            from these optimizers, and add parameters from the newly-created
+            modules. See :func:`update_params_in_optimizer` for more information.
 
     Returns:
-        replaced_pairs: a list of pairs of
-            (original module, replacement module), reflecting the replacements
-            applied to `module` and its children.
+        Dict[torch.nn.Module, torch.nnModule]: a dictionary of {original module: replacement module},
+            reflecting the replacements applied to ``module`` and its children.
 
     """
-    replaced_pairs = []
+    if isinstance(module, torch.nn.parallel.DistributedDataParallel):
+        raise TypeError(
+            textwrap.dedent("""Surgery is not supported after a module is wrapped with
+            `torch.nn.parallel.DistributedDataParallel` Instead, please preform surgery on the underlying
+            `module.module` and re-wrap the `module.module` with `torch.nn.parallel.DistributedDataParallel`"""))
+    replaced_pairs: Dict[torch.nn.Module, torch.nn.Module] = {}
     indices = indices if indices is not None else {c: 0 for c in policies}
-    for name, child in model.named_children():
+    for name, child in module.named_children():
         already_recursed = False
-        child_class = child.__class__
-        if child_class in policies:
-            module_index = indices[child_class]
-            replacement = policies[child_class](
+        if child in replaced_pairs:
+            continue
+        for policy_class, replacement_fn in policies.items():
+            if not isinstance(child, policy_class):
+                continue
+            module_index = indices[type(child)]
+            replacement = replacement_fn(
                 child,
                 module_index=module_index,
             )
-            indices[child_class] += 1
+            indices[type(child)] += 1
             if replacement is not None:
-                replaced_pairs.append((child, replacement))
+                replaced_pairs[child] = replacement
                 if recurse_on_replacements:
                     # recurse on new child object
-                    replaced_pairs += replace_module_classes(
-                        replacement,
-                        policies,
-                        recurse_on_replacements=recurse_on_replacements,
-                        indices=indices,
-                    )
+                    replaced_pairs.update({
+                        k: v for (k, v) in replace_module_classes(
+                            replacement,
+                            policies=policies,
+                            recurse_on_replacements=recurse_on_replacements,
+                            indices=indices,
+                            optimizers=None,
+                        ).items() if k not in replaced_pairs
+                    })
                 already_recursed = True
-                setattr(model, name, replacement)
+                setattr(module, name, replacement)
 
         if not already_recursed:
-            replaced_pairs += replace_module_classes(
-                child,
-                policies,
-                recurse_on_replacements=recurse_on_replacements,
-                indices=indices,
-            )
+            replaced_pairs.update({
+                k: v for (k, v) in replace_module_classes(
+                    child,
+                    policies=policies,
+                    recurse_on_replacements=recurse_on_replacements,
+                    indices=indices,
+                    optimizers=None,
+                ).items() if k not in replaced_pairs
+            })
+    if optimizers:
+        for old_module, new_module in replaced_pairs.items():
+            update_params_in_optimizer(old_params=old_module.parameters(),
+                                       new_params=new_module.parameters(),
+                                       optimizers=optimizers)
+    elif len(replaced_pairs) > 0:
+        log.info(
+            f"optimizers was not provided. Be sure to either create the optimizer after invoking this method, or manually add new parameters to the existing optimizer."
+        )
 
     return replaced_pairs
 
@@ -142,3 +175,106 @@ def count_module_instances(model: torch.nn.Module, module_class: Type[torch.nn.M
         count += count_module_instances(child, module_class)
 
     return count
+
+
+def _tensor_in(tensor: torch.Tensor, iterable: Iterable[torch.Tensor]):
+    """Returns whether `tensor is element` for any element in `iterable`
+    This function is necessary because `tensor in iterable` does not work
+    reliably for `Tensor`s.
+    See https://discuss.pytorch.org/t/how-to-judge-a-tensor-is-in-a-list/15998/4
+    for further discussion.
+    """
+    return any(tensor is elem for elem in iterable)
+
+
+def _find_param_in_optimizer(param: torch.nn.parameter.Parameter, optimizer: torch.optim.Optimizer) -> int:
+    """Returns the index of the optimizer ``param_group`` containing ``param``
+    Optimizers store their parameters within an iterable of ``dict``s called
+    :attr:`~torch.optim.Optimizer.param_groups`.
+    By default, there is only one group in :attr:`~torch.optim.Optimizer.param_groups`
+    that containing all the parameters, but there can be more than one. This
+    function is a simple utility to identify which parameter group in
+    :attr:`~torch.optim.Optimizer.param_groups` contains a given parameter, if any. The information
+    might be desirable to, e.g., inspect the optimizer settings being used
+    for a given parameter, or to remove unused parameter tensors from
+    the optimizer.
+
+    Args:
+        param (torch.nn.parameter.Parameter): The parameter to search for.
+        optimizer (torch.optim.Optimizer): The optimizer to search within.
+    
+    Returns:
+        int: The index within `opt.param_groups` of the first group containing ``param``.
+
+    Raises:
+        RuntimeError: If the ``param`` is not in the ``opt`.
+    """
+    for i, group in enumerate(optimizer.param_groups):
+        param_list: List[torch.nn.parameter.Parameter] = group['params']
+        if _tensor_in(param, param_list):
+            return i
+
+    raise RuntimeError(f"Couldn't find the parameter in the optimizer")
+
+
+def update_params_in_optimizer(old_params: Iterable[torch.nn.parameter.Parameter],
+                               new_params: Iterable[torch.nn.parameter.Parameter], optimizers: Optimizers) -> None:
+    """Removes old parameters from an optimizer and adds in new parameters
+    Parameters found in `old_params` but not `new_params` will be removed
+    from the optimizers. Similarly, parameters found in `new_params` but not
+    `old_params` will be added to the optimizer. Newly added parameters will
+    be added to the same optimizer `param_group` as the removed parameters
+    on a best-effort basis. If different removed parameters for a given
+    module are in different `param_group`s a RuntimeError will be thrown.
+    Dynamically removing parameters from an optimizer and adding parameters
+    to an existing `param_group` are not officially supported, so this
+    function may fail when PyTorch is updated. The recommended practice is
+    to instead recreate the optimizer when the parameter set changes if
+    possible. See https://github.com/pytorch/pytorch/issues/1489#issuecomment-355301737.
+    To simply add new parameters without replacing existing ones, use
+    :meth:`~torch.optim.Optimizer.add_param_group`.
+    Args:
+        old_params: Parameters in this iterable should be removed if they are
+            not present in `new_params`.
+        new_params: Parameters in this iterable should be added if they are
+            not present in `old_params`.
+        optimizers (Optimizers): One or more `torch.optim.Optimizer` objects
+    Raises:
+        NotImplementedError: If `optimizers` contains more than one optimizer
+        RuntimeError: If any removed parameters are not all found in one
+            parameter group, or if any of them are not found at all
+    """
+    if len(ensure_tuple(optimizers)) > 1:
+        raise NotImplementedError(
+            textwrap.dedent("""Surgery with multiple optimizers
+            is not yet supported."""))
+    opt = ensure_tuple(optimizers)[0]
+
+    # diff the two sets of parameters to find what needs to be removed or added
+    old_values = set(old_params)
+    new_values = set(new_params)
+    removed_params = old_values - new_values
+    added_params = new_values - old_values
+
+    if len(removed_params) == 0 and len(added_params) == 0:
+        return  # nothing to do
+
+    # rip out the removed_params' states from the optimizer
+    for p in removed_params:
+        if _tensor_in(p, opt.state):  # only true after training starts
+            opt.state.pop(p)
+
+    # rip out the removed_params from param groups, and add the
+    # provided added_params to the same group
+    old_group_idxs = [_find_param_in_optimizer(p, opt) for p in removed_params]
+    if min(old_group_idxs) != max(old_group_idxs) and len(added_params):
+        raise RuntimeError(
+            textwrap.dedent("""Not all removed parameters are in the same parameter group.
+                           This makes it unclear where to add the new parameters."""))
+
+    group_idx = old_group_idxs[0]
+    param_group = opt.param_groups[group_idx]
+    new_param_list = [p for p in param_group['params'] if not _tensor_in(p, removed_params)]
+    new_param_list += list(added_params)
+    log.info(f'adding {len(added_params)} new parameters to parameter group #{group_idx}')
+    param_group['params'] = new_param_list

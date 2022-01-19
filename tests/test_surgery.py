@@ -1,5 +1,6 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
+from typing import Mapping, Type
 from unittest.mock import Mock
 
 import pytest
@@ -7,6 +8,7 @@ import torch
 from torch import nn
 
 from composer.core import surgery
+from tests.fixtures.models import SimpleBatchPairModel
 
 
 class RecursiveLinear(nn.Linear):
@@ -85,7 +87,8 @@ def test_module_replacement(model, recurse_on_replacements):
     model = model()
     surgery.replace_module_classes(
         model,
-        model.policy(),
+        optimizers=None,
+        policies=model.policy(),
         recurse_on_replacements=recurse_on_replacements,
     )
 
@@ -109,3 +112,47 @@ class _CopyLinear(torch.nn.Module):
             ret.weight.copy_(module.weight)  # type: ignore
             ret.bias = module.bias  # same param object
         return ret
+
+
+@pytest.fixture
+def optimizer_surgury_state():
+    input_shape = (1, 18, 18)
+    n_classes = 10
+    model = SimpleBatchPairModel(input_shape, n_classes)
+    policy: Mapping[Type[torch.nn.Module], surgery.ReplacementFunction] = {torch.nn.Linear: _CopyLinear.from_linear}
+    opt = torch.optim.SGD(model.parameters(), lr=.001)
+    orig_linear_modules = [model.fc1, model.fc2]
+    surgery.replace_module_classes(model, policies=policy, optimizers=opt)
+    new_linear_modules = [model.fc1, model.fc2]
+    return orig_linear_modules, new_linear_modules, opt
+
+
+def test_optimizer_surgery_no_duplicate_params(optimizer_surgury_state):
+    _, _, opt = optimizer_surgury_state
+    params_list = opt.param_groups[0]['params']
+    params_set = set(params_list)
+    assert len(params_list) == len(params_set)
+
+
+def _param_in_optimizer(param: torch.nn.parameter.Parameter, opt: torch.optim.Optimizer):
+    return surgery._find_param_in_optimizer(param, opt)
+
+
+def test_optimizer_surgery_removed_params_gone(optimizer_surgury_state):
+    orig_linear_modules, _, opt = optimizer_surgury_state
+    for module in orig_linear_modules:
+        with pytest.raises(RuntimeError):
+            _param_in_optimizer(module.weight, opt)
+
+
+def test_optimizer_surgery_new_params_present(optimizer_surgury_state):
+    _, new_linear_modules, opt = optimizer_surgury_state
+    for module in new_linear_modules:
+        assert _param_in_optimizer(module.weight, opt) >= 0
+        assert _param_in_optimizer(module.bias, opt) >= 0
+
+
+def test_optimizer_surgery_params_not_removed_still_there(optimizer_surgury_state):
+    orig_linear_modules, _, opt = optimizer_surgury_state
+    for module in orig_linear_modules:
+        assert _param_in_optimizer(module.bias, opt) >= 0

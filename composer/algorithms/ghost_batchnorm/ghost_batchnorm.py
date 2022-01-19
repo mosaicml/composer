@@ -12,6 +12,7 @@ import yahp as hp
 
 from composer.algorithms import AlgorithmHparams
 from composer.core import Algorithm, Event, Logger, State, surgery
+from composer.core.types import Optimizers
 
 log = logging.getLogger(__name__)
 
@@ -99,7 +100,8 @@ class GhostBatchNorm3d(_GhostBatchNorm):
     pass
 
 
-def apply_ghost_batchnorm(model: torch.nn.Module, ghost_batch_size: int) -> torch.nn.Module:
+def apply_ghost_batchnorm(model: torch.nn.Module, optimizers: Optional[Optimizers],
+                          ghost_batch_size: int) -> torch.nn.Module:
     """Replace batch normalization modules with ghost batch normalization modules.
 
     Must be run before the model has been moved to accelerators and before
@@ -107,6 +109,7 @@ def apply_ghost_batchnorm(model: torch.nn.Module, ghost_batch_size: int) -> torc
 
     Args:
         model: model to transform
+        optimizers: optimizers to transform
         ghost_batch_size: size of sub-batches to normalize over
     """
 
@@ -117,7 +120,7 @@ def apply_ghost_batchnorm(model: torch.nn.Module, ghost_batch_size: int) -> torc
     # we have to specify class names explicitly because replace_module_classes
     # now checks if `module.__class__ == cls`, rather than `isinstance(module, cls)`
     transforms = {cls: maybe_replace for cls in [torch.nn.BatchNorm1d, torch.nn.BatchNorm2d, torch.nn.BatchNorm3d]}
-    surgery.replace_module_classes(model, policies=transforms)
+    surgery.replace_module_classes(model, optimizers=optimizers, policies=transforms)
     return model
 
 
@@ -162,7 +165,7 @@ class GhostBatchNorm(Algorithm):
         """
         assert state.model is not None, "Model must be in state"
 
-        apply_ghost_batchnorm(model=state.model, ghost_batch_size=self.ghost_batch_size)
+        apply_ghost_batchnorm(model=state.model, optimizers=state.optimizers, ghost_batch_size=self.ghost_batch_size)
         self._log_results(event, state, logger)
 
     def _log_results(self, event: Event, state: State, logger: Optional[Logger] = None) -> None:

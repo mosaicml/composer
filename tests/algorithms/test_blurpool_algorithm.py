@@ -4,6 +4,7 @@
 Test the blurpool algorithm. Primitives are tested in test_blurpool.py
 """
 import itertools
+from typing import List
 from unittest.mock import MagicMock
 
 import pytest
@@ -11,7 +12,7 @@ import torch
 
 from composer.algorithms import BlurPool, BlurPoolHparams
 from composer.algorithms.blurpool.blurpool_layers import BlurConv2d, BlurMaxPool2d
-from composer.core import Event, State
+from composer.core import Event, State, surgery
 from composer.core.types import DataLoader, Model, Precision
 from tests.fixtures.models import SimpleConvModel
 
@@ -109,3 +110,28 @@ def test_blurpool_algorithm_logging(state, blurpool_instance, dummy_logger):
         'blurpool/num_blurpool_layers': 1 if blurpool_instance.hparams.replace_maxpools else 0,
         'blurpool/num_blurconv_layers': 1 if blurpool_instance.hparams.replace_convs else 0,
     })
+
+
+def test_blurconv2d_optimizer_params_updated(blurpool_instance):
+    model = SimpleConvModel()
+    orig_conv = model.conv2
+    assert orig_conv.stride == (2, 2)  # fail fast if test model changes
+    opt = torch.optim.SGD(model.parameters(), lr=.01)
+    blurpool_instance.apply_blurpool(model, optimizers=opt)
+    new_conv = model.conv2
+    param_list: List[torch.Tensor] = opt.param_groups[0]['params']
+
+    # old params removed
+    assert orig_conv.bias is not None
+    assert not surgery._tensor_in(orig_conv.weight, param_list)
+    assert not surgery._tensor_in(orig_conv.bias, param_list)
+
+    # new params added
+    new_conv2d = new_conv.conv
+    assert isinstance(new_conv2d, torch.nn.Module)
+    new_weight = new_conv2d.weight
+    assert isinstance(new_weight, torch.Tensor)
+    new_bias = new_conv2d.bias
+    assert isinstance(new_bias, torch.Tensor)
+    assert surgery._tensor_in(new_weight, param_list)
+    assert surgery._tensor_in(new_bias, param_list)

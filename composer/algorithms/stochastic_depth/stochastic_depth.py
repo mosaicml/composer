@@ -14,6 +14,7 @@ from composer.algorithms import AlgorithmHparams
 from composer.algorithms.stochastic_depth.sample_stochastic_layers import SampleStochasticBottleneck
 from composer.algorithms.stochastic_depth.stochastic_layers import StochasticBottleneck
 from composer.core import Algorithm, Event, Logger, State, surgery
+from composer.core.types import Optimizers
 from composer.models.resnets import Bottleneck
 
 log = logging.getLogger(__name__)
@@ -90,6 +91,7 @@ class StochasticDepthHparams(AlgorithmHparams):
 
 
 def apply_stochastic_depth(model: torch.nn.Module,
+                           optimizers: Optional[Optimizers],
                            stochastic_method: str,
                            target_layer_name: str,
                            drop_rate: float = 0.2,
@@ -145,7 +147,7 @@ def apply_stochastic_depth(model: torch.nn.Module,
         raise ValueError(f"stochastic_method {stochastic_method} is not supported."
                          f" Must be one of {list(STOCHASTIC_LAYER_MAPPING.keys())}")
     transforms[target_layer] = stochastic_from_target_layer
-    surgery.replace_module_classes(model, policies=transforms)
+    surgery.replace_module_classes(model, optimizers=optimizers, policies=transforms)
 
 
 def _update_drop_rate(module: torch.nn.Module, stochastic_block: Type[torch.nn.Module], drop_rate: float,
@@ -258,6 +260,7 @@ class StochasticDepth(Algorithm):
                 log.warning(f'No {self.hparams.target_layer_name} found in model! Algorithm will function as a no-op.')
 
             apply_stochastic_depth(state.model,
+                                   optimizers=state.optimizers,
                                    stochastic_method=self.hparams.stochastic_method,
                                    target_layer_name=self.hparams.target_layer_name,
                                    drop_rate=self.hparams.drop_rate,

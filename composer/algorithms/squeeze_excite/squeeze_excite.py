@@ -11,6 +11,7 @@ import yahp as hp
 
 from composer.algorithms.algorithm_hparams import AlgorithmHparams
 from composer.core import Algorithm, Event, Logger, State, surgery
+from composer.core.types import Optimizers
 
 log = logging.getLogger(__name__)
 
@@ -81,16 +82,17 @@ class SqueezeExciteConv2d(torch.nn.Module):
         return SqueezeExciteConv2d(conv=module, latent_channels=latent_channels)
 
 
-def apply_se(model: torch.nn.Module, latent_channels: float, min_channels: int):
+def apply_se(model: torch.nn.Module, optimizers: Optional[Optimizers], latent_channels: float, min_channels: int):
     """See :class:`SqueezeExcite`"""
 
-    def convert_module(module: torch.nn.Conv2d, module_index: int):
+    def convert_module(module: torch.nn.Module, module_index: int):
+        assert isinstance(module, torch.nn.Conv2d), "should only be called with conv2d"
         if min(module.in_channels, module.out_channels) < min_channels:
             return None
         return SqueezeExciteConv2d.from_conv2d(module, module_index, latent_channels=latent_channels)
 
-    transforms = {torch.nn.Conv2d: convert_module}
-    surgery.replace_module_classes(model, transforms)  # type: ignore
+    surgery.replace_module_classes(model, optimizers=optimizers, policies={torch.nn.Conv2d: convert_module})
+
     return model
 
 
@@ -142,6 +144,7 @@ class SqueezeExcite(Algorithm):
             logger (Logger): the training logger        
         """
         state.model = apply_se(state.model,
+                               optimizers=state.optimizers,
                                latent_channels=self.hparams.latent_channels,
                                min_channels=self.hparams.min_channels)
         layer_count = surgery.count_module_instances(state.model, SqueezeExciteConv2d)

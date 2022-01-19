@@ -8,13 +8,14 @@ import math
 from dataclasses import asdict, dataclass
 from operator import attrgetter
 from types import MethodType, ModuleType
-from typing import Any, Callable, Optional, Union
+from typing import Any, Callable, Optional, Type, Union, cast
 
 import torch
 import yahp as hp
 
 from composer.algorithms import AlgorithmHparams
 from composer.core import Algorithm, Event, Logger, State, surgery
+from composer.core.types import Optimizers
 
 log = logging.getLogger(__name__)
 
@@ -56,15 +57,17 @@ class AlibiHparams(AlgorithmHparams):
         return Alibi(**asdict(self))
 
 
-def apply_alibi(model: torch.nn.Module, heads_per_layer: int, max_sequence_length: int,
-                position_embedding_attribute: str, attention_module: torch.nn.Module, attr_to_replace: str,
-                alibi_attention: Callable, mask_replacement_function: Union[Callable, None]) -> None:
+def apply_alibi(model: torch.nn.Module, optimizers: Optional[Optimizers], heads_per_layer: int,
+                max_sequence_length: int, position_embedding_attribute: str, attention_module: Type[torch.nn.Module],
+                attr_to_replace: str, alibi_attention: Callable, mask_replacement_function: Union[Callable,
+                                                                                                  None]) -> None:
     """
     Removes position embeddings and replaces the attention function and attention mask
     according to `AliBi <https://arxiv.org/abs/2108.12409>`_.
 
     Args:
         model: model to transform
+        optimizers: optimizers to transform
         heads_per_layer: number of attention heads per layer
         max_sequence_length: maximum sequence length that the
             model will be able to accept without returning an error
@@ -100,8 +103,9 @@ def apply_alibi(model: torch.nn.Module, heads_per_layer: int, max_sequence_lengt
             module = mask_replacement_function(module, max_sequence_length)
         return module
 
-    transforms = {attention_module: convert_attention}
-    replaced_pairs = surgery.replace_module_classes(model, transforms)  # type: ignore
+    replaced_pairs = surgery.replace_module_classes(model,
+                                                    optimizers=optimizers,
+                                                    policies={attention_module: convert_attention})
 
     count = len(replaced_pairs)
     log.info(f" {count} instances of ALiBi added")
@@ -183,7 +187,8 @@ class Alibi(Algorithm):
 
             apply_alibi(
                 state.model,
-                heads_per_layer=self.hparams.heads_per_layer,  # type: ignore
+                optimizers=state.optimizers,
+                heads_per_layer=cast(int, self.hparams.heads_per_layer),
                 max_sequence_length=self.hparams.max_sequence_length,
                 position_embedding_attribute=self.hparams.position_embedding_attribute,
                 attr_to_replace=self.hparams.attr_to_replace,

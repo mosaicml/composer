@@ -34,11 +34,15 @@ class SimpleBatchPairModel(BaseMosaicModel):
         self.train_acc = torchmetrics.Accuracy()
         self.val_acc = torchmetrics.Accuracy()
 
+        self.fc1 = torch.nn.Linear(in_features_flattened, 5)
+
+        self.fc2 = torch.nn.Linear(5, num_classes)
+
         self.net = torch.nn.Sequential(
             torch.nn.Flatten(),
-            torch.nn.Linear(in_features_flattened, 5),
+            self.fc1,
             torch.nn.ReLU(),
-            torch.nn.Linear(5, num_classes),
+            self.fc2,
             torch.nn.Softmax(dim=-1),
         )
 
