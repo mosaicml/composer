@@ -43,7 +43,7 @@ model:
 loggers:
   - tqdm: {}
 max_epochs: 300
-total_batch_size: 512
+total_batch_size: 4096
 eval_batch_size: 512
 seed: 1337
 device:
