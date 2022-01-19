@@ -64,7 +64,7 @@ def test_batchnorm_gets_replaced_functional(num_dims: int):
     """GhostBatchNorm{1,2,3}d should work, but other ints should throw"""
     module = ModuleWithBatchnorm(num_dims)
     assert surgery.count_module_instances(module, _GHOSTBN_MODULE_CLASS) == 0
-    ghostbn.apply_ghost_batchnorm(module, optimizers=None, ghost_batch_size=1)
+    ghostbn.apply_ghost_batchnorm(module, ghost_batch_size=1)
     assert surgery.count_module_instances(module, _GHOSTBN_MODULE_CLASS) == 1
 
 
@@ -92,7 +92,7 @@ class TestGhostBatchesNormalized:
 
     def test_normalization_correct_functional(self, num_dims: int, ghost_batch_size: int, batch_size: int) -> None:
         module = ModuleWithBatchnorm(num_dims=num_dims)
-        ghostbn.apply_ghost_batchnorm(module, optimizers=None, ghost_batch_size=ghost_batch_size)
+        ghostbn.apply_ghost_batchnorm(module, ghost_batch_size=ghost_batch_size)
         self._assert_ghost_batches_normalized(module=module, ghost_batch_size=ghost_batch_size, batch_size=batch_size)
 
     def test_normalization_correct_algorithm(self, state, algo_instance, num_dims: int, ghost_batch_size: int,

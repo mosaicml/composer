@@ -102,12 +102,9 @@ def replace_module_classes(
             modules. See :func:`update_params_in_optimizer` for more information.
 
     Returns:
-        Dict[torch.nn.Module, Union[List[torch.nn.Module], torch.nn.Module]:
+        Dict[torch.nn.Module, torch.nn.Module]:
             A dictionary of ``{original_module: replacement_module}``
-            reflecting the replacements applied to ``module`` and its children. 
-            If ``replace_each_usage`` is True,
-            then the dictionary have a list of replacement modules --
-            e.g. ``{original_module: [replacement_modules]}``.
+            reflecting the replacements applied to ``module`` and its children.
 
 
     """
