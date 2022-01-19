@@ -10,13 +10,13 @@ import torch
 
 from composer.callbacks.callback_hparams import SpeedMonitorHparams
 from composer.core import Logger, State
-from composer.core.callback import RankZeroCallback
+from composer.core.callback import Callback
 from composer.core.types import StateDict
 from composer.utils import dist
 from composer.utils.data import get_device_of_batch
 
 
-class SpeedMonitor(RankZeroCallback):
+class SpeedMonitor(Callback):
     """Logs the training throughput.
 
     It logs:

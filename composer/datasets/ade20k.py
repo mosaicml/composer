@@ -315,8 +315,7 @@ class ADE20kDatasetHparams(DatasetHparams, SyntheticHparamsMixin):
                 r_mean, g_mean, b_mean = IMAGENET_CHANNEL_MEAN
                 image_transforms = torch.nn.Sequential(
                     PhotometricDistoration(brightness=32. / 255, contrast=0.5, saturation=0.5, hue=18. / 255),
-                    PadToSize(size=(self.final_size, self.final_size),
-                              fill=(int(r_mean * 255), int(g_mean * 255), int(b_mean * 255))))
+                    PadToSize(size=(self.final_size, self.final_size), fill=(int(r_mean), int(g_mean), int(b_mean))))
 
                 target_transforms = PadToSize(size=(self.final_size, self.final_size), fill=0)
             else:

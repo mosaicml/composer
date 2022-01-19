@@ -8,7 +8,6 @@ import abc
 from typing import TYPE_CHECKING
 
 from composer.core.serializable import Serializable
-from composer.utils import dist
 
 try:
     from typing import final
@@ -315,24 +314,3 @@ class Callback(Serializable, abc.ABC):
         callbacks during :meth:`close`.
         """
         pass
-
-
-class RankZeroCallback(Callback, abc.ABC):
-    """Base class for callbacks that only run on the local rank zero process.
-
-    Callbacks can be implemented in two ways:
-
-    #. Override the individual methods named for each :class:`Event`. (See
-       the parent class, :class:`Callback`.)
-        
-    #. Override :meth:`_run_event` (**not** :meth:`run_event`) to run in response
-       to all events. If this method is overridden, then the individual methods
-       corresponding to each event name will not be automatically called (however,
-       the subclass implementation can invoke these methods as it wishes.)
-    """
-
-    @final
-    def run_event(self, event: Event, state: State, logger: Logger) -> None:
-        if dist.get_local_rank() != 0:
-            return
-        return self._run_event(event, state, logger)
