@@ -28,7 +28,24 @@ def map_collection(dict_of_elements: Dict[KT, T], map_fn: Callable[[T], V], /) -
 def map_collection(singleton: T, map_fn: Callable[[T], V], /) -> V:
     ...
 
-def ensure_tuple(x: Union[T, Tuple[T, ...], List[T], Dict[Any, T]]) -> Tuple[T, ...]:
+@overload
+def ensure_tuple(x: None) -> Tuple:
+    ...
+
+@overload
+def ensure_tuple(x: Tuple[T, ...]) -> Tuple[T, ...]:
+    ...
+
+@overload
+def ensure_tuple(x: List[T]) -> Tuple[T, ...]:
+    ...
+
+@overload
+def ensure_tuple(x: Dict[Any, T]) -> Tuple[T, ...]:
+    ...
+
+@overload
+def ensure_tuple(x: Union[T, None, Tuple[T, ...], List[T], Dict[Any, T]]) -> Tuple[T, ...]:
     ...
 
 

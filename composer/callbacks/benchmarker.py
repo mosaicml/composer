@@ -7,11 +7,14 @@ import time
 import warnings
 from typing import Sequence
 
+import torch
+
 from composer.callbacks.callback_hparams import BenchmarkerHparams
 from composer.core import Logger, State
 from composer.core.callback import Callback
 from composer.core.types import BreakEpochException
 from composer.utils import dist
+from composer.utils.data import get_device_of_batch
 
 log = logging.getLogger(__name__)
 
@@ -158,7 +161,9 @@ class Benchmarker(Callback):
             now = time.time()
             elapsed = now - self.current_time
             self.current_time = now
-            self.profile_examples += state.last_batch_size * dist.get_world_size()
+            batch_num_samples = torch.tensor([int(state.batch_num_samples)], device=get_device_of_batch(state.batch))
+            dist.all_reduce(batch_num_samples, reduce_operation="SUM")
+            self.profile_examples += int(batch_num_samples.item())
             self.profile_steps += 1
             self.profile_time += elapsed
 
