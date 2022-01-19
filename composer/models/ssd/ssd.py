@@ -80,25 +80,28 @@ class SSD(BaseMosaicModel):
         val_coco = COCODetection(val_coco_root, val_annotate, val_trans)
 
         inv_map = {v: k for k, v in val_coco.label_map.items()}
-
-        #(img, img_id, img_size, bbox, label) = batch
-        #import pdb; pdb.set_trace()
         
         ret = []
 
         overlap_threshold = 0.50
         nms_max_detections = 200
 
-        #ploc, plabel = self.module(img)
         dboxes = dboxes300_coco()
+
+        val_dataloader = DataLoader(val_coco,
+                                    batch_size=32,
+                                    shuffle=False,
+                                    sampler=None,
+                                    num_workers=8)
+
 
         encoder = Encoder(dboxes)
 
-        for nbatch, (img, img_id, img_size, _, _) in enumerate(val_coco):
+        for nbatch, (img, img_id, img_size, _, _) in enumerate(val_dataloader):
             with torch.no_grad():
-                inp = img.cuda()
-                with torch.cuda.amp.autocast(enabled=args.amp):
-                    ploc, plabel = self.module(inp)
+                img = img.cuda()
+
+                ploc, plabel = self.module(img)
                 ploc, plabel = ploc.float(), plabel.float()
 
                 for idx in range(ploc.shape[0]):
@@ -113,38 +116,17 @@ class SSD(BaseMosaicModel):
                     htot, wtot = img_size[0][idx].item(), img_size[1][idx].item()
                     loc, label, prob = [r.cpu().numpy() for r in result]
                     for loc_, label_, prob_ in zip(loc, label, prob):
-                        ret.append(boxes=torch.Tensor([[loc_[0] * wtot, \
+                        ret.append(dict(boxes=torch.Tensor([[loc_[0] * wtot, \
                                     loc_[1] * htot,
                                     (loc_[2] - loc_[0]) * wtot,
                                     (loc_[3] - loc_[1]) * htot]]),
                                    scores=torch.Tensor([prob_]),
                                    labels=torch.IntTensor([img_id[idx]]),
-                                   )
+                                   ))
 
 
 
-        
-        '''
-        with torch.no_grad():
-
-            results = encoder.decode_batch(ploc, plabel, overlap_threshold, nms_max_detections, nms_valid_thresh=0.05)
-
-            (htot, wtot) = [d.cpu().numpy() for d in img_size]
-            img_id = img_id.cpu().numpy()
-            # Iterate over batch elements
-            for img_id_, wtot_, htot_, result in zip(img_id, wtot, htot, results):
-                loc, label, prob = [r.cpu().numpy() for r in result]
-
-                # Iterate over image detections
-                for loc_, label_, prob_ in zip(loc, label, prob):
-                    ret.append([img_id_, loc_[0]*wtot_, \
-                                         loc_[1]*htot_,
-                                         (loc_[2] - loc_[0])*wtot_,
-                                         (loc_[3] - loc_[1])*htot_,
-                                         prob_,
-                                         inv_map[label_]])
-        '''
-        
+                
         import pdb
 
         grt = transform_d(val_annotate)
@@ -184,24 +166,6 @@ def transform_d(val_annotate, batch):
 
 from torchmetrics import Metric
 
-class mapp(Metric):
-
-    def __init__(self):
-        super().__init__(dist_sync_on_step=True)
-        self.add_state("n_updates", default=torch.zeros(1), dist_reduce_fx="sum")
-        self.add_state("mapp", default=torch.zeros((nclass,)), dist_reduce_fx="sum")
-
-    def update(self, pred, target):
-        """Update the state based on new predictions and targets."""
-        self.n_updates += 1  # type: ignore
-        self.dice += self.compute_stats(pred, target)
-
-    def compute(self):
-        """Aggregate the state over all processes to compute the metric."""
-        dice = 100 * self.dice / self.n_updates  # type: ignore
-        best_sum_dice = dice[:]
-        top_dice = round(torch.mean(best_sum_dice).item(), 2)
-        return top_dice
 
 def dboxes300_coco():
     figsize = 300
