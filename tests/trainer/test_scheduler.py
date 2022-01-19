@@ -1,13 +1,13 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
-from typing import Dict, Type, Union
+from typing import Dict, List, Type, Union
 from unittest import mock
 
 import pytest
 import torch
 from torch.optim.lr_scheduler import ExponentialLR, MultiStepLR, StepLR
 
-from composer.core.types import ModelParameters
+from composer.core.types import ModelParameters, Optimizer, Scheduler
 from composer.optim.pytorch_future import WarmUpLR
 from composer.optim.scheduler import (ComposedScheduler, ConstantLRHparams, CosineAnnealingLRHparams,
                                       CosineAnnealingWarmRestartsHparams, ExponentialLRHparams, LinearLRHparams,
@@ -98,29 +98,23 @@ def dummy_parameters() -> ModelParameters:
     return net.parameters()
 
 
-@pytest.fixture
-def dummy_optimizer(dummy_parameters) -> torch.optim.Optimizer:
-    return torch.optim.SGD(dummy_parameters, 0.1)
-
-
 @pytest.mark.parametrize("scheduler_name", scheduler_registry.keys())
 class TestSchedulerInit():
 
-    def test_scheduler_initialization(self, scheduler_name: str, dummy_optimizer):
+    def test_scheduler_initialization(self, scheduler_name: str, dummy_optimizer: Optimizer):
 
         # create the scheduler hparams object
         obj: Type[SchedulerHparams] = scheduler_registry[scheduler_name]
         scheduler_hparams = schedulers[obj]
 
         # create the scheduler object using the hparams
-        scheduler, interval = scheduler_hparams.initialize_object(dummy_optimizer, steps_per_epoch=1)
+        scheduler = scheduler_hparams.initialize_object(dummy_optimizer, steps_per_epoch=1)
         assert isinstance(scheduler, scheduler_hparams.scheduler_object)  # type: ignore
-        assert interval == scheduler_hparams.interval  # type: ignore
 
     @pytest.mark.parametrize('timestrings', EXPECTED_RESULTS_TIME_CONVERSION.keys())
     @pytest.mark.parametrize('interval', ['steps', 'epochs'])
-    def test_scheduler_time_conversion(self, scheduler_name: str, dummy_optimizer, timestrings: Union[str, int],
-                                       interval: str):
+    def test_scheduler_time_conversion(self, scheduler_name: str, dummy_optimizer: Optimizer,
+                                       timestrings: Union[str, int], interval: str):
         expected = EXPECTED_RESULTS_TIME_CONVERSION[timestrings][interval]
         obj: Type[SchedulerHparams] = scheduler_registry[scheduler_name]
         steps_per_epoch = TIME_HPARAMS[timestrings]['steps_per_epoch']
@@ -131,104 +125,100 @@ class TestSchedulerInit():
             with mock.patch.object(scheduler_hparams, time_field[obj], timestrings), \
                 mock.patch.object(scheduler_hparams, 'interval', interval):
 
-                scheduler, interval = scheduler_hparams.initialize_object(dummy_optimizer,
-                                                                          steps_per_epoch=steps_per_epoch,
-                                                                          max_training_duration=f"{max_epochs}ep")
+                scheduler = scheduler_hparams.initialize_object(dummy_optimizer,
+                                                                steps_per_epoch=steps_per_epoch,
+                                                                max_training_duration=f"{max_epochs}ep")
 
                 assert getattr(scheduler, time_field[obj]) == expected
 
 
-@pytest.fixture
-def optimizer(dummy_model):
-    return torch.optim.SGD(dummy_model.parameters(), lr=1)
-
-
 class TestComposedScheduler():
 
-    def _test(self, scheduler, targets, epochs, optimizer, interval='epoch'):
+    def _test(self,
+              scheduler: Scheduler,
+              targets: List[List[float]],
+              epochs: int,
+              optimizer: Optimizer,
+              interval: str = 'epoch'):
         for epoch in range(epochs):
             for param_group, target in zip(optimizer.param_groups, targets):
                 torch.testing.assert_allclose(target[epoch], param_group['lr'])
             optimizer.step()
-            scheduler.step(interval)
+            scheduler.step(interval)  # type: ignore
 
-    def test_composed(self, optimizer):
+    def test_composed(self, dummy_optimizer: Optimizer):
         epochs = 9
         targets = [[1 * 0.2 for _ in range(4)] + [1 * 0.9**x for x in range(7)]]
         schedulers = [
-            ExponentialLR(optimizer, gamma=0.9),
-            WarmUpLR(optimizer, warmup_factor=0.2, warmup_iters=4, warmup_method="constant")
+            ExponentialLR(dummy_optimizer, gamma=0.9),
+            WarmUpLR(dummy_optimizer, warmup_factor=0.2, warmup_iters=4, warmup_method="constant")
         ]
-        schedulers = [(s, 'epoch') for s in schedulers]
         scheduler = ComposedScheduler(schedulers)
-        self._test(scheduler, targets, epochs, optimizer)
+        self._test(scheduler, targets, epochs, dummy_optimizer)
 
-    def test_composed_linear(self, optimizer):
+    def test_composed_linear(self, dummy_optimizer: Optimizer):
         epochs = 9
         targets = [[1 * 0.5 + (x/4 * 0.5) for x in range(4)] + [1 * 0.9**x for x in range(2)] + \
                    [1 * 0.9**x for x in range(2, 7)]]
         schedulers = [
-            ExponentialLR(optimizer, gamma=0.9),
-            WarmUpLR(optimizer, warmup_factor=0.5, warmup_iters=4, warmup_method="linear")
+            ExponentialLR(dummy_optimizer, gamma=0.9),
+            WarmUpLR(dummy_optimizer, warmup_factor=0.5, warmup_iters=4, warmup_method="linear")
         ]
-        schedulers = [(s, 'epoch') for s in schedulers]
         scheduler = ComposedScheduler(schedulers)
-        self._test(scheduler, targets, epochs, optimizer)
+        self._test(scheduler, targets, epochs, dummy_optimizer)
 
-    def test_composed_linear2(self, optimizer):
+    def test_composed_linear2(self, dummy_optimizer: Optimizer):
         epochs = 9
         targets = [[1 * 0.5 + (x/4 * 0.5) for x in range(4)] + \
                    [1 * 0.9**x for x in range(2)] + [1 * 0.9**x * 0.1 for x in range(2, 7)]]
         schedulers = [
-            ExponentialLR(optimizer, gamma=0.9),
-            MultiStepLR(optimizer, milestones=[6], gamma=0.1),
-            WarmUpLR(optimizer, warmup_factor=0.5, warmup_iters=4, warmup_method="linear")
+            ExponentialLR(dummy_optimizer, gamma=0.9),
+            MultiStepLR(dummy_optimizer, milestones=[6], gamma=0.1),
+            WarmUpLR(dummy_optimizer, warmup_factor=0.5, warmup_iters=4, warmup_method="linear")
         ]
-        schedulers = [(s, 'epoch') for s in schedulers]
         scheduler = ComposedScheduler(schedulers)
         self._test(scheduler, targets, epochs, optimizer)
 
-    def test_composed_linear_from_zero(self, optimizer):
+    def test_composed_linear_from_zero(self, dummy_optimizer: Optimizer):
         epochs = 9
         targets = [[1 * 0.0 + (x / 4 * 1.0) for x in range(4)] + [1 * 0.9**x for x in range(7)]]
         schedulers = [
-            ExponentialLR(optimizer, gamma=0.9),
-            WarmUpLR(optimizer, warmup_factor=0, warmup_iters=4, warmup_method="linear")
+            ExponentialLR(dummy_optimizer, gamma=0.9),
+            WarmUpLR(dummy_optimizer, warmup_factor=0, warmup_iters=4, warmup_method="linear")
         ]
-        schedulers = [(s, 'epoch') for s in schedulers]
         scheduler = ComposedScheduler(schedulers)
-        self._test(scheduler, targets, epochs, optimizer)
+        self._test(scheduler, targets, epochs, dummy_optimizer)
 
-    def test_composed_linear_from_zero_step(self, optimizer):
+    def test_composed_linear_from_zero_step(self, dummy_optimizer: Optimizer):
         epochs = 9
         targets = [[x / 4 for x in range(4)] + [1.0 for _ in range(7)]]
         schedulers = [
-            (ExponentialLR(optimizer, gamma=0.9), 'epoch'),  # should never trigger
-            (WarmUpLR(optimizer, warmup_factor=0, warmup_iters=4, warmup_method="linear"), 'batch')
+            ExponentialLR(dummy_optimizer, gamma=0.9),
+            WarmUpLR(dummy_optimizer, warmup_factor=0, warmup_iters=4, warmup_method="linear"),
         ]
+        schedulers[0].interval = 'epoch'  # should never trigger
+        schedulers[1].interval = 'batch'
         scheduler = ComposedScheduler(schedulers)
-        self._test(scheduler, targets, epochs, optimizer, interval='batch')
+        self._test(scheduler, targets, epochs, dummy_optimizer, interval='batch')
 
     @pytest.mark.xfail
-    def test_validate_compose_multistep(self, optimizer):
+    def test_validate_compose_multistep(self, dummy_optimizer: Optimizer):
         schedulers = [
-            ExponentialLR(optimizer, gamma=0.9),
-            WarmUpLR(optimizer, warmup_factor=0, warmup_iters=4, warmup_method="linear"),
-            MultiStepLR(optimizer, milestones=[3], gamma=0.1)
+            ExponentialLR(dummy_optimizer, gamma=0.9),
+            WarmUpLR(dummy_optimizer, warmup_factor=0, warmup_iters=4, warmup_method="linear"),
+            MultiStepLR(dummy_optimizer, milestones=[3], gamma=0.1)
         ]
-        schedulers = [(s, 'epoch') for s in schedulers]
 
         with pytest.raises(ValueError):
             ComposedScheduler(schedulers)
 
     @pytest.mark.xfail
-    def test_validate_compose_step(self, optimizer):
+    def test_validate_compose_step(self, dummy_optimizer: Optimizer):
         schedulers = [
-            ExponentialLR(optimizer, gamma=0.9),
-            WarmUpLR(optimizer, warmup_factor=0, warmup_iters=4, warmup_method="linear"),
-            StepLR(optimizer, step_size=2, gamma=0.1)
+            ExponentialLR(dummy_optimizer, gamma=0.9),
+            WarmUpLR(dummy_optimizer, warmup_factor=0, warmup_iters=4, warmup_method="linear"),
+            StepLR(dummy_optimizer, step_size=2, gamma=0.1)
         ]
-        schedulers = [(s, 'epoch') for s in schedulers]
 
         with pytest.raises(ValueError):
             ComposedScheduler(schedulers)

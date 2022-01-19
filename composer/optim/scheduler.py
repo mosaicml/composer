@@ -380,10 +380,10 @@ class ComposedScheduler(_LRScheduler):
     """
 
     def __init__(self, schedulers: Schedulers):
-
+        schedulers = ensure_tuple(schedulers)
         self._validate_same_optimizers(schedulers)
-        self.schedulers = ensure_tuple(schedulers)
-        self.intervals = [getattr(scheduler, "interval", "epoch") for scheduler in self.schedulers]
+        self.schedulers = schedulers
+        self.intervals = [getattr(scheduler, "interval", "epoch") for scheduler in schedulers]
 
         # generous with spelling (batch, batches)/(step, steps) and (epoch, epochs)
         self.intervals = [INTERVAL_MAP[interval] for interval in self.intervals]
@@ -463,9 +463,10 @@ class ComposedScheduler(_LRScheduler):
             scheduler.load_state_dict(state_dict["schedulers"][scheduler.__class__.__qualname__])
         self._warmup_counter = state_dict["_warmup_counter"]
 
-    def _validate_same_optimizers(self, schedulers):
+    def _validate_same_optimizers(self, schedulers: Schedulers):
         """Verify that all schedulers correspond to the same optimizer."""
+        schedulers = ensure_tuple(schedulers)
         for scheduler_idx in range(1, len(schedulers)):
-            if (schedulers[scheduler_idx][0].optimizer != schedulers[0][0].optimizer):  # type: ignore
+            if (getattr(schedulers[scheduler_idx], "optimizer") != getattr(schedulers[0], "optimizer")):
                 raise ValueError("ComposedScheduler expects all schedulers to belong to the same optimizer, but "
-                                 "got schedulers at index {} and {} to be different".format(0, scheduler_idx))
+                                 f"got schedulers at index 0 and {scheduler_idx} to be different")
