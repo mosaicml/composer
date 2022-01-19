@@ -36,18 +36,6 @@ def runPytest(Map args) {
     def pythonVersion = args.pythonVersion
     def gpu = args.gpu ?: false
     def pDockerImage = args.pDockerImage
-    def name = null 
-    def title = null
-    if (!pDockerImage) {
-        if (!pythonVersion) {
-            error ("pDockerImage or pythonVersion must be specified")
-        }
-        def pytorchVersion = pythonVersion == "3.9" ? "1.10.0" : "1.9.1"
-        name = "pytest/python${pythonVersion}-extraDeps_${extraDeps}-gpu_$gpu"
-        tile = "Pytest - Python ${pythonVersion}, composer[${extraDeps}] (GPU $gpu)"
-        pDockerImage = "mosaicml/pytorch:${pytorchVersion}_cpu-python${pythonVersion}-ubuntu20.04"
-    }
-    def summary = title
     def nGpus = "0"
     def memLimit = "7Gi"
     def cpuLimit = "2"
@@ -57,13 +45,26 @@ def runPytest(Map args) {
         nGpus = "2"
         cpuLimit = "16" // 8 cpu per gpu
         memLimit = "15Gi"  // 7.5Gb per gpu
-        if (!pDockerImage) {
-            def pytorchVersion = pythonVersion == "3.9" ? "1.10.0" : "1.9.1"
-            def cudaVersion = pythonVersion == "3.9" ? "cu113" : "cu111"
-            pDockerImage = "mosaicml/pytorch:${pytorchVersion}_${cudaVersion}-python${pythonVersion}-ubuntu20.04"
-        }
         markers = '"gpu" "deepspeed"'  // interpreted as a bash array
     }
+
+    def name = null 
+    def title = null
+    if (!pDockerImage) {
+        if (!pythonVersion) {
+            error ("pDockerImage or pythonVersion must be specified")
+        }
+        def pytorchVersion = pythonVersion == "3.9" ? "1.10.0" : "1.9.1"
+        name = "pytest/python${pythonVersion}-extraDeps_${extraDeps}-gpu_$gpu"
+        tile = "Pytest - Python ${pythonVersion}, composer[${extraDeps}] (GPU $gpu)"
+        def cudaVersion = "cpu"
+        if (gpu) {
+            cudaVersion = pythonVersion == "3.9" ? "cu113" : "cu111"
+            
+        }
+        pDockerImage = "mosaicml/pytorch:${pytorchVersion}_${cudaVersion}-python${pythonVersion}-ubuntu20.04"
+    }
+    def summary = title
 
     def pytestCommand = """#!/bin/bash
 set -euxo pipefail
@@ -119,7 +120,7 @@ python -m coverage xml -o build/output/\${BUILD_NUMBER}.coverage.xml"""
             ]
         )
     }
-    if (name && title && summary) {
+    if (name != null && title != null && summary != null) {
         runWithChecks(
             name: name,
             title: title,
