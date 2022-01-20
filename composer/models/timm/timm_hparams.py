@@ -1,4 +1,6 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
+from typing import Optional
+
 from dataclasses import dataclass
 import yahp as hp
 from composer.models.model_hparams import ModelHparams
@@ -17,22 +19,23 @@ class TimmHparams(ModelHparams):
         "The number of classes.  Needed for classification tasks", default=1000
     )
     drop_rate: float = hp.optional("dropout rate", default=0.0)
-    drop_path_rate: float = hp.optional(
+    drop_path_rate: Optional[float] = hp.optional(
         "drop path rate (model default if None)", default=None
     )
-    drop_block_rate: float = hp.optional(
+    drop_block_rate: Optional[float] = hp.optional(
         "drop block rate (model default if None)", default=None
     )
-    global_pool: str = hp.optional(
+    global_pool: Optional[str] = hp.optional(
         "Global pool type, one of (fast, avg, max, avgmax, avgmaxc). Model default if None.",
-        default=None,
+        default=None
     )
-    bn_momentum: float = hp.optional(
+    bn_momentum: Optional[float] = hp.optional(
         "BatchNorm momentum override (model default if not None)", default=None
     )
-    bn_eps: float = hp.optional(
+    bn_eps: Optional[float] = hp.optional(
         "BatchNorm epsilon override (model default if not None)", default=None
     )
+
     def validate(self):
         if self.model is None:
             raise ValueError(f"model must be one of {timm.models.list_models()}")
@@ -47,5 +50,4 @@ class TimmHparams(ModelHparams):
             drop_block_rate=self.drop_block_rate,
             global_pool=self.global_pool,
             bn_momentum=self.bn_momentum,
-            bn_eps=self.bn_eps,
-        )
+            bn_eps=self.bn_eps)
