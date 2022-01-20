@@ -14,14 +14,16 @@ from torch.nn.common_types import _size_2_t
 from composer.algorithms.factorize.factorize_core import LowRankSolution, factorize_conv2d, factorize_matrix
 
 
-def clean_latent_size(latent_size: Union[int, float], in_size: int, out_size: int) -> int:
+def _clean_latent_size(latent_size: Union[int, float], in_size: int, out_size: int) -> int:
     if latent_size < 1:  # fraction of input or output channels
         latent_channels = int(latent_size * min(in_size, out_size))
         return max(1, latent_channels)
     return int(latent_size)
 
 
-def max_rank_with_possible_speedup(in_channels: int, out_channels: int, kernel_size: Optional[_size_2_t] = None) -> int:
+def _max_rank_with_possible_speedup(in_channels: int,
+                                    out_channels: int,
+                                    kernel_size: Optional[_size_2_t] = None) -> int:
     # TODO less naive cost model than counting multiply-adds
     fan_in = in_channels
     if kernel_size is not None:
@@ -31,19 +33,47 @@ def max_rank_with_possible_speedup(in_channels: int, out_channels: int, kernel_s
 
 
 def factorizing_could_speedup(module: torch.nn.Module, latent_size: Union[int, float]):
+    """Whether factorizing a module a given amount could possibly yield a benefit
+
+    This computation is based on the number of multiply-add operations involved
+    in the module's current forward pass versus the number that would be involved
+    if it were factorized into two modules using the specified latent size. The
+    operations are assumed to be dense and of the same data type in all cases.
+
+    Note that this function returning true does not guarantee a wall-clock
+    speedup, since splitting one operation into two involves more data movement
+    and more per-op overhead.
+
+    Args:
+        module: a :py:class:`~torch.nn.Conv2d`, :py:class:`~torch.nn.Linear`,
+            :py:class:`~FactorizedConv2d`, or :py:class:`~FactorizedLinear`.
+        latent_size: number of channels (for convolution) or
+            features (for linear) in the latent representation. Can be
+            specified as either an integer > 1 or as float within [0, 1).
+            In the latter case, the value is interpreted as a fraction of
+            ``min(in_features, out_features)`` for a linear module or
+            ``min(in_channels, out_channels)`` for a convolution.
+
+    Returns:
+        could_speedup:
+            A ``bool`` indicating whether the provided amount of factorization
+            could accelerate the provided module. If ``module`` is not one of
+            the allowed types, always returns ``False``, since there is no
+            supported way to factorize that module.
+    """
     if isinstance(module, _FactorizedModule):
         return module.should_factorize(latent_size)
     elif isinstance(module, torch.nn.Conv2d):
         if module.groups > 1:
             return False  # can't factorize grouped convolutions yet
-        latent_size = clean_latent_size(latent_size, module.in_channels, module.out_channels)
-        max_rank = max_rank_with_possible_speedup(module.in_channels,
-                                                  module.out_channels,
-                                                  kernel_size=cast(_size_2_t, module.kernel_size))
+        latent_size = _clean_latent_size(latent_size, module.in_channels, module.out_channels)
+        max_rank = _max_rank_with_possible_speedup(module.in_channels,
+                                                   module.out_channels,
+                                                   kernel_size=cast(_size_2_t, module.kernel_size))
         return latent_size <= max_rank
     elif isinstance(module, torch.nn.Linear):
-        latent_size = clean_latent_size(latent_size, module.in_features, module.out_features)
-        max_rank = max_rank_with_possible_speedup(module.in_features, module.out_features)
+        latent_size = _clean_latent_size(latent_size, module.in_features, module.out_features)
+        max_rank = _max_rank_with_possible_speedup(module.in_features, module.out_features)
         return latent_size <= max_rank
     else:
         return False
@@ -79,7 +109,7 @@ class _FactorizedModule(nn.Module, abc.ABC):
         super().__init__()
         self.in_size = in_size
         self.out_size = out_size
-        self.latent_size = clean_latent_size(latent_size, in_size, out_size)
+        self.latent_size = _clean_latent_size(latent_size, in_size, out_size)
         self.kernel_size = kernel_size
 
     def _check_child_modules_present(self):
@@ -125,7 +155,7 @@ class _FactorizedModule(nn.Module, abc.ABC):
         self.apply_solution(soln)
 
     def _clean_latent_size(self, latent_size: Union[int, float]):
-        return clean_latent_size(latent_size, self.in_size, self.out_size)
+        return _clean_latent_size(latent_size, self.in_size, self.out_size)
 
     def _max_rank_with_speedup(self):
         if hasattr(self, 'module1') and self.module1 is not None:
@@ -133,7 +163,7 @@ class _FactorizedModule(nn.Module, abc.ABC):
             return self.latent_size - 1
         else:
             # not factorized yet; has to factorize enough to be worthwhile
-            return max_rank_with_possible_speedup(self.in_size, self.out_size, kernel_size=self.kernel_size)
+            return _max_rank_with_possible_speedup(self.in_size, self.out_size, kernel_size=self.kernel_size)
 
     def should_factorize(self, proposed_rank: Union[int, float]) -> bool:
         """Whether factorizing with a given rank would reduce the number of multiply-add operations."""
@@ -312,7 +342,7 @@ class FactorizedConv2d(_FactorizedModule):
         Returns:
             latent_channels: the largest allowable number of latent channels
         """
-        return max_rank_with_possible_speedup(in_features, out_features, kernel_size=kernel_size)
+        return _max_rank_with_possible_speedup(in_features, out_features, kernel_size=kernel_size)
 
     @staticmethod
     def from_conv2d(module: torch.nn.Conv2d, module_ix: int = -1, **kwargs) -> FactorizedConv2d:
@@ -434,7 +464,7 @@ class FactorizedLinear(_FactorizedModule):
         Returns:
             latent_features: the largest allowable number of latent features
         """
-        return max_rank_with_possible_speedup(in_features, out_features)
+        return _max_rank_with_possible_speedup(in_features, out_features)
 
     @staticmethod
     def from_linear(module: torch.nn.Linear, module_ix: int = -1, **kwargs) -> FactorizedLinear:
