@@ -2,7 +2,7 @@
 
 import logging
 from abc import ABC
-from dataclasses import asdict, dataclass, fields
+from dataclasses import asdict, dataclass
 from typing import Any, Callable, Dict, List, Optional, Sequence, Union
 
 import torch
@@ -31,45 +31,44 @@ INTERVAL_MAP = {
 }
 
 
+def _convert_time_fields(interval: str,
+                         kwargs: Dict[str, Any],
+                         max_training_duration: Optional[Union[str, Time[int]]] = None,
+                         steps_per_epoch: Optional[int] = None,
+                         samples_per_epoch: Optional[int] = None,
+                         dataset_num_tokens: Optional[int] = None) -> None:
+    """Converts all fields in ``kwargs`` that were provided as timestrings (e.g. "32ep") into
+    integers, representing either epochs or batches, depending on the
+    ``interval``. Modifies ``kwargs`` in place."""
+    interval_unit = TimeUnit(INTERVAL_MAP[interval])
+
+    for field_name, field_value in kwargs.items():
+
+        if field_name not in ('interval', 'warmup_method'):
+            if isinstance(field_value, list) and all(isinstance(x, str) for x in field_value):
+                kwargs[field_name] = [
+                    convert_time(t,
+                                 unit=interval_unit,
+                                 steps_per_epoch=steps_per_epoch,
+                                 max_training_duration=max_training_duration,
+                                 samples_per_epoch=samples_per_epoch,
+                                 dataset_num_tokens=dataset_num_tokens).value for t in field_value
+                ]
+                continue
+            if isinstance(field_value, str):
+                kwargs[field_name] = convert_time(field_value,
+                                                  unit=interval_unit,
+                                                  steps_per_epoch=steps_per_epoch,
+                                                  max_training_duration=max_training_duration,
+                                                  samples_per_epoch=samples_per_epoch,
+                                                  dataset_num_tokens=dataset_num_tokens).value
+
+
 @dataclass
 class SchedulerHparams(hp.Hparams, ABC):
 
     scheduler_object = None  # type: Optional[Callable[..., Scheduler]]
     interval = 'epochs'  # type: str
-
-    def _convert_time_fields(self,
-                             max_training_duration: Optional[Union[str, Time[int]]] = None,
-                             steps_per_epoch: Optional[int] = None,
-                             samples_per_epoch: Optional[int] = None,
-                             dataset_num_tokens: Optional[int] = None) -> None:
-        """Converts all fields that were provided as timestrings (e.g. "32ep") into
-        integers, representing either epochs or batches, depending on the
-        :attr:`interval`. Updates the fields in-place."""
-        interval_unit = TimeUnit(INTERVAL_MAP[self.interval])
-
-        for field in fields(self):
-            field_value = getattr(self, field.name)
-
-            if field.name not in ('interval', 'warmup_method') and isinstance(field_value, str):
-                time = getattr(self, field.name)
-                if isinstance(time, list):
-                    result = [
-                        convert_time(t,
-                                     unit=interval_unit,
-                                     steps_per_epoch=steps_per_epoch,
-                                     max_training_duration=max_training_duration,
-                                     samples_per_epoch=samples_per_epoch,
-                                     dataset_num_tokens=dataset_num_tokens).value for t in time
-                    ]
-                else:
-                    result = convert_time(time,
-                                          unit=interval_unit,
-                                          steps_per_epoch=steps_per_epoch,
-                                          max_training_duration=max_training_duration,
-                                          samples_per_epoch=samples_per_epoch,
-                                          dataset_num_tokens=dataset_num_tokens).value
-
-                setattr(self, field.name, result)
 
     def initialize_object(
         self,
@@ -92,14 +91,16 @@ class SchedulerHparams(hp.Hparams, ABC):
         """
 
         assert self.scheduler_object is not None, "Scheduler Hparams needs scheduler_object to initialize."
+        kwargs = {k: v for k, v in asdict(self).items() if k not in ['interval']}
 
-        self._convert_time_fields(max_training_duration=max_training_duration,
-                                  steps_per_epoch=steps_per_epoch,
-                                  samples_per_epoch=samples_per_epoch,
-                                  dataset_num_tokens=dataset_num_tokens)
+        _convert_time_fields(interval=self.interval,
+                             kwargs=kwargs,
+                             max_training_duration=max_training_duration,
+                             steps_per_epoch=steps_per_epoch,
+                             samples_per_epoch=samples_per_epoch,
+                             dataset_num_tokens=dataset_num_tokens)
 
         # we pass the interval to the trainer directly
-        kwargs = {k: v for k, v in asdict(self).items() if k not in ['interval']}
         obj = self.scheduler_object(optimizer, **kwargs)
         obj.interval = self.interval  # type: ignore
         obj.steps_per_epoch = steps_per_epoch  # type: ignore
