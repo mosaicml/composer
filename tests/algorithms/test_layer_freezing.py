@@ -16,15 +16,15 @@ def _generate_state(epoch: int, max_epochs: int, model: Model, train_dataloader:
                     val_dataloader: DataLoader):
     state = State(
         grad_accum=1,
-        max_epochs=max_epochs,
+        max_duration=f"{max_epochs}ep",
         model=model,
         optimizers=(torch.optim.SGD(model.parameters(), lr=0.01, momentum=0.99),),
         precision=Precision.FP32,
         train_dataloader=train_dataloader,
         eval_dataloader=val_dataloader,
     )
-    state.epoch = epoch
-    state.step = epoch
+    for _ in range(epoch):
+        state.timer.on_epoch_complete()
     return state
 
 

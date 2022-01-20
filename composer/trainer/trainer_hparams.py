@@ -16,17 +16,17 @@ import composer
 from composer import datasets
 from composer.algorithms import AlgorithmHparams, get_algorithm_registry
 from composer.callbacks import (BenchmarkerHparams, CallbackHparams, GradMonitorHparams, LRMonitorHparams,
-                                MemoryMonitorHparams, RunDirectoryUploaderHparams, SpeedMonitorHparams,
-                                TorchProfilerHparams)
+                                MemoryMonitorHparams, RunDirectoryUploaderHparams, SpeedMonitorHparams)
 from composer.core.types import Precision
 from composer.datasets import DataloaderHparams
 from composer.loggers import (BaseLoggerBackendHparams, FileLoggerBackendHparams, MosaicMLLoggerBackendHparams,
                               TQDMLoggerBackendHparams, WandBLoggerBackendHparams)
 from composer.models import (BERTForClassificationHparams, BERTHparams, CIFARResNet9Hparams, CIFARResNetHparams,
-                             EfficientNetB0Hparams, GPT2Hparams, MnistClassifierHparams, ModelHparams, ResNet18Hparams,
-                             ResNet50Hparams, ResNet101Hparams, UnetHparams)
+                             DeepLabV3Hparams, EfficientNetB0Hparams, GPT2Hparams, MnistClassifierHparams, ModelHparams,
+                             ResNet18Hparams, ResNet50Hparams, ResNet101Hparams, UnetHparams)
 from composer.optim import (AdamHparams, AdamWHparams, DecoupledAdamWHparams, DecoupledSGDWHparams, OptimizerHparams,
                             RAdamHparams, RMSPropHparams, SchedulerHparams, SGDHparams, scheduler)
+from composer.profiler import ProfilerHparams
 from composer.trainer.checkpoint_hparams import CheckpointLoaderHparams, CheckpointSaverHparams
 from composer.trainer.ddp import DDPSyncStrategy
 from composer.trainer.deepspeed import DeepSpeedHparams
@@ -55,10 +55,12 @@ scheduler_registry = {
     "cosine_warmrestart": scheduler.CosineAnnealingWarmRestartsHparams,
     "warmup": scheduler.WarmUpLRHparams,
     "constant": scheduler.ConstantLRHparams,
+    "polynomial": scheduler.PolynomialLRHparams,
 }
 
 model_registry = {
     "unet": UnetHparams,
+    "deeplabv3": DeepLabV3Hparams,
     "efficientnetb0": EfficientNetB0Hparams,
     "resnet56_cifar10": CIFARResNetHparams,
     "resnet9_cifar10": CIFARResNet9Hparams,
@@ -72,6 +74,7 @@ model_registry = {
 }
 
 dataset_registry = {
+    "ade20k": datasets.ADE20kDatasetHparams,
     "brats": datasets.BratsDatasetHparams,
     "imagenet": datasets.ImagenetDatasetHparams,
     "cifar10": datasets.CIFAR10DatasetHparams,
@@ -83,7 +86,6 @@ dataset_registry = {
 algorithms_registry = get_algorithm_registry()
 
 callback_registry = {
-    "torch_profiler": TorchProfilerHparams,
     "speed_monitor": SpeedMonitorHparams,
     "benchmarker": BenchmarkerHparams,
     "lr_monitor": LRMonitorHparams,
@@ -132,9 +134,9 @@ class TrainerHparams(hp.Hparams):
     model: ModelHparams = hp.required(doc="model")
     loggers: List[BaseLoggerBackendHparams] = hp.required(doc="loggers to use")
 
-    max_epochs: int = hp.required(
-        doc="training time in epochs and/or batches (e.g., 90ep5ba)",
-        template_default=10,
+    max_duration: str = hp.required(
+        doc="Time string for the maximum training duration (e.g., 90ep)",
+        template_default="10ep",
     )
 
     train_batch_size: int = hp.required(
@@ -199,6 +201,8 @@ class TrainerHparams(hp.Hparams):
         Datadir to apply for both the training and validation datasets. If specified,
         it will override train_dataset.datadir and val_dataset.datadir"""),
                                          default=None)
+
+    profiler: Optional[ProfilerHparams] = hp.optional(doc="Profiler hparams", default=None)
 
     def validate(self):
         super().validate()
