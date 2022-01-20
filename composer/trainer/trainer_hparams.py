@@ -61,7 +61,7 @@ scheduler_registry = {
 model_registry = {
     "unet": UnetHparams,
     "deeplabv3": DeepLabV3Hparams,
-    "densenet161": DenseNet161Hparams
+    "densenet161": DenseNet161Hparams,
     "efficientnetb0": EfficientNetB0Hparams,
     "resnet56_cifar10": CIFARResNetHparams,
     "resnet9_cifar10": CIFARResNet9Hparams,
