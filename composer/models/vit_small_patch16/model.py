@@ -11,7 +11,7 @@ class ViTSmallPatch16(MosaicClassifier):
     See this `paper <https://arxiv.org/pdf/2012.12877.pdf>` for details on ViT-S/16.
 
     Args:
-        num_classes (int): The number of classes for the model.
+        num_classes (int): number of classes for the model.
         image_size (int): input image size. If you have rectangular images, make sure your image size is the maximum of the width and height
         channels (int): number of  image channels.
         dropout (float): 0.0 - 1.0 dropout rate.
