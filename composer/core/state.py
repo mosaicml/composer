@@ -13,6 +13,7 @@ from torch.nn.parallel import DistributedDataParallel
 
 import composer.core.types as types
 from composer.core.precision import Precision
+from composer.core.profiler import Profiler
 from composer.core.serializable import Serializable
 from composer.core.time import Time, Timer, TimeUnit
 from composer.utils import ensure_tuple
@@ -63,6 +64,7 @@ SKIP_SERIALIZATION_FIELDS = [
     "eval_dataloader",
     "_steps_per_epoch",
     "_precision_context",
+    "profiler",
 ]
 
 
@@ -92,6 +94,8 @@ class State(Serializable):
 
         algorithms (Sequence[Algorithm]): The algorithms used for training.
         callbacks (Sequence[Callback]): The callbacks used for training.
+
+        profiler (Optional[Profiler]): The mosaic profiler.
 
     Attributes:
         batch (types.Batch): The batch. This will be the entire batch during the :attr:`Event.AFTER_DATALOADER`, or a
@@ -171,6 +175,8 @@ class State(Serializable):
         self.scaler = scaler
         self._algorithms = list(algorithms)
         self._callbacks = list(callbacks)
+
+        self.profiler: Optional[Profiler] = None
 
     @property
     def epoch(self) -> int:

@@ -52,9 +52,9 @@ def test_trainer_init_additional_args(dummy_train_dataloader: DataLoader, dummy_
     assert isinstance(trainer.logger, Logger)
 
     # log destination and lr monitor, logger destination callback must be first
-    assert len(trainer.engine.callbacks) == 2
-    assert isinstance(trainer.engine.callbacks[0], TQDMLoggerBackend)
-    assert isinstance(trainer.engine.callbacks[1], LRMonitor)
+    assert len(trainer.state.callbacks) == 2
+    assert isinstance(trainer.state.callbacks[0], TQDMLoggerBackend)
+    assert isinstance(trainer.state.callbacks[1], LRMonitor)
 
 
 def test_trainer_create_from_hparams(mosaic_trainer_hparams: TrainerHparams):
