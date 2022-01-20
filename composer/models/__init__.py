@@ -9,6 +9,8 @@ from composer.models.classify_mnist import MNIST_Classifier as MNIST_Classifier
 from composer.models.classify_mnist import MnistClassifierHparams as MnistClassifierHparams
 from composer.models.deeplabv3 import DeepLabV3Hparams as DeepLabV3Hparams
 from composer.models.deeplabv3 import MosaicDeepLabV3 as MosaicDeepLabV3
+from composer.models.densenet161 import DenseNet161 as DenseNet161
+from composer.models.densenet161 import DenseNet161Hparams as DenseNet161Hparams
 from composer.models.efficientnetb0 import EfficientNetB0 as EfficientNetB0
 from composer.models.efficientnetb0 import EfficientNetB0Hparams as EfficientNetB0Hparams
 from composer.models.gpt2 import GPT2Hparams as GPT2Hparams
