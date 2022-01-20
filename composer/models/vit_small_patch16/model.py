@@ -1,7 +1,4 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
-
-from typing import Optional
-
 from composer.models.base import MosaicClassifier
 
 
@@ -22,8 +19,8 @@ class ViTSmallPatch16(MosaicClassifier):
                  num_classes: int = 1000,
                  image_size: int = 224,
                  channels: int = 3,
-                 dropout: Optional[float] = 0.0,
-                 embedding_dropout: Optional[float] = 0.0
+                 dropout: float = 0.0,
+                 embedding_dropout: float = 0.0
                  ) -> None:
         from vit_pytorch import ViT
         model = ViT(image_size=image_size,
