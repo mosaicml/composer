@@ -34,10 +34,8 @@ schedulers:
       verbose: false
       interval: step
 model:
-  resnet50:
-    initializers:
-      - kaiming_normal
-      - bn_uniform
+  timm:
+    model: 'resnet50'
     num_classes: 1000
 loggers:
   - tqdm: {}
