@@ -822,8 +822,10 @@ class Trainer:
             metrics = self._get_metrics_as_collection(is_train=False)
 
             if isinstance(self.state.eval_dataloader.sampler, torch.utils.data.DistributedSampler):
-                # using the batch as the epoch, as the evaluator may be running every batch
-                # instead of every epoch
+                # The distributed sampler uses `set_epoch` to set the random seed
+                # Because evaluation can run on each batch, we use the batch to seed the sampler
+                # so each evaluation will get a proper shuffle.
+                # The epoch provided to `set_epoch` need not be sequential, so this is fine.
                 self.state.eval_dataloader.sampler.set_epoch(int(self.state.timer.batch))
 
             for state.batch in itertools.islice(state.eval_dataloader, self._eval_subset_num_batches):
