@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 set -exuo pipefail
 
 # CD to the root directory of the repo
