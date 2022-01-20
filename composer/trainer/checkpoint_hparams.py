@@ -4,7 +4,7 @@ from __future__ import annotations
 import logging
 import textwrap
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING, List, Optional
 
 import yahp as hp
 
@@ -34,6 +34,9 @@ class CheckpointLoaderHparams(hp.Hparams):
     strict_model_weights: bool = hp.optional(
         doc="Ensure that the set of weights in the checkpoint and model must exactly match.", default=False)
 
+    ignore_model_keys: Optional[List[str]] = hp.optional(
+        doc="List of keys to delete from the model checkpoint before loading into state.", default=None)
+
     chunk_size: int = hp.optional(doc=textwrap.dedent("""Chunk size (in bytes) to use when downloading checkpoints.
         Ignored if the checkpoint is a local file path."""),
                                   default=1_048_576)
@@ -55,6 +58,7 @@ class CheckpointLoaderHparams(hp.Hparams):
             object_store_hparams=self.object_store,
             load_weights_only=self.load_weights_only,
             strict_model_weights=self.strict_model_weights,
+            ignore_model_keys=self.ignore_model_keys,
             chunk_size=self.chunk_size,
             progress_bar=self.progress_bar,
         )

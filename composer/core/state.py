@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 import textwrap
 import warnings
-from typing import TYPE_CHECKING, Callable, ContextManager, Optional, Sequence, Union, cast
+from typing import TYPE_CHECKING, Callable, ContextManager, List, Optional, Sequence, Union, cast
 
 import torch
 import torch.nn.modules.utils
@@ -282,7 +282,7 @@ class State(Serializable):
             state_dict["_deepspeed_enabled"] = True
         return state_dict
 
-    def load_model_state(self, state_dict: types.StateDict, strict: bool):
+    def load_model_state(self, state_dict: types.StateDict, strict: bool, ignore_model_keys: List[str] = None):
         """
         Loads the model's state from a state_dict.
 
@@ -292,6 +292,10 @@ class State(Serializable):
         """
         if state_dict["_is_model_ddp_wrapped"] and not isinstance(self.model, DistributedDataParallel):
             torch.nn.modules.utils.consume_prefix_in_state_dict_if_present(state_dict['model'], "module.")
+            if ignore_model_keys is not None and len(ignore_model_keys) > 0:
+                for key in ignore_model_keys:
+                    del state_dict['model'][key]
+
             missing_keys, unexpected_keys = self.model.load_state_dict(state_dict['model'], strict=strict)
             if len(missing_keys) > 0:
                 logger.warning(f"Found these missing keys in the checkpoint: {', '.join(missing_keys)}")

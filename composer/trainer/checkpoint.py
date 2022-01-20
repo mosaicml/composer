@@ -12,7 +12,7 @@ import textwrap
 import time
 import urllib.parse
 import warnings
-from typing import TYPE_CHECKING, Any, Dict, Iterator, Optional, Tuple, cast
+from typing import TYPE_CHECKING, Any, Dict, Iterator, List, Optional, Tuple, cast
 
 import numpy as np
 import requests
@@ -48,18 +48,18 @@ class CheckpointLoader:
         checkpoint (str): The template path to an existing checkpoint file.
             It can be a path to a file on local disk, a URL, or if ``object_store_hparams`` is set, the object name
             for a checkpoint in a cloud bucket.
-            
+
             When using Deepspeed zero, the :class:`CheckpointSaver` shards checkpoints by rank. To load deepspeed checkpoints,
             specify ``{RANK}`` in in the ``checkpoint`` parameter, and this variable will be substituted with the global rank.
             For example, suppose that checkpoints are stored in the following structure:
-        
+
             .. code-block::
 
                 my_model/rank_0/ep1.tar
                 my_model/rank_1/ep1.tar
                 my_model/rank_2/ep1.tar
                 ...
-        
+
             Then, ``checkpoint`` should be set to ``my_model/rank_{RANK}/ep1.tar``, and all ranks will load the correct
             data.
 
@@ -82,6 +82,7 @@ class CheckpointLoader:
         object_store_hparams: Optional[ObjectStoreProviderHparams] = None,
         load_weights_only: bool = False,
         strict_model_weights: bool = False,
+        ignore_model_keys: Optional[List[str]] = None,
         chunk_size: int = 1_048_576,
         progress_bar: bool = True,
     ):
@@ -98,6 +99,7 @@ class CheckpointLoader:
             object_store=object_store_hparams,
             load_weights_only=load_weights_only,
             strict_model_weights=strict_model_weights,
+            ignore_model_keys=ignore_model_keys,
             chunk_size=chunk_size,
             progress_bar=progress_bar,
         )
@@ -252,7 +254,9 @@ class CheckpointLoader:
             if load_path is None:
                 raise RuntimeError(f"Failed to load DeepSpeed checkpoint from {self.hparams.checkpoint}")
         elif self.hparams.load_weights_only:
-            state.load_model_state(state_dict['state'], strict=self.hparams.strict_model_weights)
+            state.load_model_state(state_dict['state'],
+                                   strict=self.hparams.strict_model_weights,
+                                   ignore_model_keys=self.hparams.ignore_model_keys)
 
         if not self.hparams.load_weights_only:
             state.load_state_dict(state_dict["state"])
