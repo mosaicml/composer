@@ -24,6 +24,12 @@ def get_model_algs(model_name: str) -> List[str]:
     is_image_model = any(x in model_name for x in ("resnet", "mnist", "efficientnet"))
     if is_image_model:
         algs.remove("alibi")
+    if "alibi" in algs:
+        try:
+            import transformers
+            del transformers
+        except ImportError:
+            pytest.skip("Unable to import transformers; skipping alibi")
     if model_name in ("unet", "gpt2_52m", "gpt2_83m", 'gpt2_125m'):
         algs.remove("mixup")
         algs.remove("cutmix")

@@ -16,8 +16,7 @@ import composer
 from composer import datasets
 from composer.algorithms import AlgorithmHparams, get_algorithm_registry
 from composer.callbacks import (BenchmarkerHparams, CallbackHparams, GradMonitorHparams, LRMonitorHparams,
-                                MemoryMonitorHparams, RunDirectoryUploaderHparams, SpeedMonitorHparams,
-                                TorchProfilerHparams)
+                                MemoryMonitorHparams, RunDirectoryUploaderHparams, SpeedMonitorHparams)
 from composer.core.types import Precision
 from composer.datasets import DataloaderHparams
 from composer.loggers import (BaseLoggerBackendHparams, FileLoggerBackendHparams, MosaicMLLoggerBackendHparams,
@@ -27,6 +26,7 @@ from composer.models import (BERTForClassificationHparams, BERTHparams, CIFARRes
                              ResNet18Hparams, ResNet50Hparams, ResNet101Hparams, UnetHparams)
 from composer.optim import (AdamHparams, AdamWHparams, DecoupledAdamWHparams, DecoupledSGDWHparams, OptimizerHparams,
                             RAdamHparams, RMSPropHparams, SchedulerHparams, SGDHparams, scheduler)
+from composer.profiler import ProfilerHparams
 from composer.trainer.checkpoint_hparams import CheckpointLoaderHparams, CheckpointSaverHparams
 from composer.trainer.ddp import DDPSyncStrategy
 from composer.trainer.deepspeed import DeepSpeedHparams
@@ -86,7 +86,6 @@ dataset_registry = {
 algorithms_registry = get_algorithm_registry()
 
 callback_registry = {
-    "torch_profiler": TorchProfilerHparams,
     "speed_monitor": SpeedMonitorHparams,
     "benchmarker": BenchmarkerHparams,
     "lr_monitor": LRMonitorHparams,
@@ -202,6 +201,8 @@ class TrainerHparams(hp.Hparams):
         Datadir to apply for both the training and validation datasets. If specified,
         it will override train_dataset.datadir and val_dataset.datadir"""),
                                          default=None)
+
+    profiler: Optional[ProfilerHparams] = hp.optional(doc="Profiler hparams", default=None)
 
     def validate(self):
         super().validate()
