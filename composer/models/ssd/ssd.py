@@ -11,8 +11,9 @@ import torch
 from PIL import Image
 from torch.autograd import Variable
 from torch.utils.data import DataLoader
+from torchmetrics import Metric
 #from torchmetrics.detection.map. import MAP
-from torchmetrics.detection.map import MeanAveragePrecision as MAP
+#from torchmetrics.detection.map import MeanAveragePrecision as MAP
 from composer.core.types import BatchPair, Metrics, Tensor, Tensors
 from composer.datasets.coco import COCO, COCODetection
 from composer.models.base import BaseMosaicModel
@@ -20,6 +21,7 @@ from composer.models.ssd.base_model import Loss
 from composer.models.ssd.ssd300 import SSD300
 from composer.models.ssd.ssd_hparams import SSDHparams
 from composer.models.ssd.utils import DefaultBoxes, Encoder, SSDTransformer
+from pycocotools.cocoeval import COCOeval
 
 
 class SSD(BaseMosaicModel):
@@ -31,11 +33,11 @@ class SSD(BaseMosaicModel):
         ln = COCODetection.labelnum
         self.module = SSD300(
             80,
-            model_path="/mnt/cota/laura/composer/composer/models/ssd/resnet34-333f7ec4.pth")  #args.pretrained_backbone)
+            model_path="/mnt/cota/laura/composer/composer/models/ssd/resnet34-333f7ec4.pth")
         dboxes = dboxes300_coco()
 
         self.loss_func = Loss(dboxes)
-        self.MAP = MAP()
+        self.MAP = my_map()
 
     def loss(self, outputs: Any, batch: BatchPair) -> Tensors:
 
@@ -97,7 +99,7 @@ class SSD(BaseMosaicModel):
         for nbatch, (img, img_id, img_size, _, _) in enumerate(val_coco_dl):
             with torch.no_grad():
                 inp = img.cuda()
-                ploc, plabel = model(inp)
+                ploc, plabel = self.module(inp)
                 ploc, plabel = ploc.float(), plabel.float()
 
                 for idx in range(ploc.shape[0]):
@@ -125,66 +127,35 @@ class SSD(BaseMosaicModel):
         ret = np.array(ret).astype(np.float32)
 
         final_results = ret
-        #cocoGt = get_coco_ground_truth(args)
-        cocoGt = COCO(annotation_file=val_annotate, use_ext=True)
 
-        cocoDt = cocoGt.loadRes(final_results, use_ext=True)
+        return ret, ret
 
-        E = COCOeval(cocoGt, cocoDt, iouType='bbox', use_ext=True)
+
+class my_map(Metric):
+    
+    def __init__(self):
+        super().__init__(dist_sync_on_step=True)
+        self.add_state("n_updates", default=torch.zeros(1), dist_reduce_fx="sum")
+
+    def update(self, pred, target):
+        self.n_updates += 1
+        data = "/mnt/cota/datasets/coco"
+        val_annotate = os.path.join(data, "annotations/instances_val2017.json")
+        
+        self.cocogt = COCO(annotation_file=val_annotate)
+
+        
+        
+    def compute(self, pred):
+        self.cocodt = self.cocogt.loadRes(pred)
+        E = COCOeval(self.cocogt, self.cocodt, iouType='bbox')
         E.evaluate()
         E.accumulate()
         E.summarize()
 
-        # put your model in training mode back on
-        #model.train()
+        return E.stats[0]
 
-        print('map', E.stats[0])
         
-        '''
-        val_dataloader = DataLoader(val_coco,
-                                    batch_size=32,
-                                    shuffle=False,
-                                    sampler=None,
-                                    num_workers=8)
-
-        for nbatch, (img, img_id, img_size, _, _) in enumerate(val_dataloader):
-            #print(nbatch)
-            with torch.no_grad():
-                img = img.cuda()
-
-                ploc, plabel = self.module(img)
-                ploc, plabel = ploc.float(), plabel.float()
-
-                for idx in range(ploc.shape[0]):
-                    ploc_i = ploc[idx, :, :].unsqueeze(0)
-                    plabel_i = plabel[idx, :, :].unsqueeze(0)
-
-                    try:
-                        result = encoder.decode_batch(ploc_i, plabel_i, 0.50, 200)[0]
-                    except:
-                        continue
-
-                    htot, wtot = img_size[0][idx].item(), img_size[1][idx].item()
-                    loc, label, prob = [r.cpu().numpy() for r in result]
-                    i = 0
-                    for loc_, label_, prob_ in zip(loc, label, prob):
-                        i+=1
-                        print(i)
-                        ret.append(dict(boxes=torch.Tensor([[loc_[0] * wtot, \
-                                    loc_[1] * htot,
-                                    (loc_[2] - loc_[0]) * wtot,
-                                    (loc_[3] - loc_[1]) * htot]]),
-                                   scores=torch.Tensor([prob_]),
-                                   labels=torch.IntTensor([img_id[idx]]),
-                                   ))
-
-        import pdb
-
-        grt = transform_d(val_annotate)
-        pdb.set_trace()
-        return ret, grt
-        '''
-
 
 def transform_d(val_annotate):
     from pycocotools.coco import COCO
