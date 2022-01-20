@@ -28,16 +28,12 @@ from tests.fixtures.models import SimpleBatchPairModel
 
 def get_file_path(*, rank: int, is_train: bool) -> str:
     train_str = "train" if is_train else "val"
-    rundir = run_directory.get_run_directory()
-    assert rundir is not None
-    return os.path.join(rundir, f"{train_str}_rank_{rank}_num_accesses")
+    return os.path.join(run_directory.get_node_run_directory(), f"rank_{rank}", f"{train_str}_num_accesses")
 
 
 def get_batch_file_path(*, rank: int, epoch: int, is_train: bool) -> str:
     train_str = "train" if is_train else "val"
-    rundir = run_directory.get_run_directory()
-    assert rundir is not None
-    return os.path.join(rundir, f"{train_str}-rank-{rank}-epoch-{epoch}-batch0.pt")
+    return os.path.join(run_directory.get_node_run_directory(), f"rank_{rank}", f"{train_str}-epoch-{epoch}-batch0.pt")
 
 
 class TrackedDataset(types.Dataset):
@@ -125,7 +121,7 @@ def patch_registries(monkeypatch: MonkeyPatch):
 @pytest.mark.parametrize("device,deepspeed", [
     pytest.param(CPUDeviceHparams(), False, id="cpu"),
     pytest.param(GPUDeviceHparams(), False, id="gpu", marks=pytest.mark.gpu),
-    pytest.param(GPUDeviceHparams(), True, id="deepspeed", marks=pytest.mark.gpu),
+    pytest.param(GPUDeviceHparams(), True, id="deepspeed", marks=pytest.mark.deepspeed),
 ])
 @pytest.mark.parametrize("world_size", [
     pytest.param(1),
@@ -180,7 +176,8 @@ def test_ddp(device: DeviceHparams, world_size: int, mosaic_trainer_hparams: Tra
         pin_memory=False,
         timeout=0.0,
     )
-    hparams.max_epochs = 2
+    max_epochs = 2
+    hparams.max_duration = f"{max_epochs}ep"
     hparams.precision = types.Precision.FP32
     hparams.loggers = []
     hparams.validate_every_n_batches = 0
@@ -193,8 +190,8 @@ def test_ddp(device: DeviceHparams, world_size: int, mosaic_trainer_hparams: Tra
     assert isinstance(trainer.state.eval_dataloader.dataset, collections.abc.Sized)
     trainer.fit()
 
-    expected_train_num_loads = hparams.max_epochs * hparams.train_batch_size * hparams.train_subset_num_batches
-    expected_val_num_loads = hparams.max_epochs * hparams.eval_batch_size * hparams.eval_subset_num_batches
+    expected_train_num_loads = max_epochs * hparams.train_batch_size * hparams.train_subset_num_batches
+    expected_val_num_loads = max_epochs * hparams.eval_batch_size * hparams.eval_subset_num_batches
     # adding hparams.eval_batch_size to account for the extra spin of the eval dataloader
     # that is called to create a deterministic ordering for the sampler
     expected_val_num_loads += hparams.eval_batch_size
@@ -216,11 +213,12 @@ def test_ddp(device: DeviceHparams, world_size: int, mosaic_trainer_hparams: Tra
         # it is not possible to save individual batches when using deepspeed
         return
 
-    for epoch in range(hparams.max_epochs):
+    for epoch in range(max_epochs):
         for local_rank in range(dist.get_local_world_size()):
             for is_train in (True, False):
+                real_epoch = epoch if is_train else epoch + 1  # validation is 1 ahead of training
                 data: Dict[str, types.Tensor] = torch.load(  # type: ignore
-                    get_batch_file_path(rank=local_rank, epoch=epoch, is_train=is_train),
+                    get_batch_file_path(rank=local_rank, epoch=real_epoch, is_train=is_train),
                     map_location='cpu',
                 )
                 for pickle in is_train_to_pickles[is_train]:

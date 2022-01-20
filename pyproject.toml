@@ -3,7 +3,7 @@
 [tool.isort]
 multi_line_output = 0
 line_length = 120
-skip = [ "env", "wandb", "runs", "build" ]
+skip = [ "env", "wandb", "runs", "build", "node_modules" ]
 
 # Pyright
 [tool.pyright]
@@ -13,7 +13,8 @@ include = [
     "examples/**",
 ]
 exclude = [
-    "build/**"
+    "build/**",
+    "node_modules/**",
 ]
 
 reportUnnecessaryIsInstance = "warning"

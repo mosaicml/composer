@@ -74,6 +74,6 @@ class CIFAR10_ResNet9(MosaicClassifier):
         model = ResNet9(num_classes)
         for initializer in initializers:
             initializer = Initializer(initializer)
-            self.apply(initializer.get_initializer())
+            model.apply(initializer.get_initializer())
 
         super().__init__(module=model)

@@ -17,7 +17,6 @@ class SyntheticDataType(StringEnum):
 class SyntheticDataLabelType(StringEnum):
     CLASSIFICATION_INT = "classification_int"
     CLASSIFICATION_ONE_HOT = "classification_one_hot"
-    RANDOM_INT = "random_int"
 
 
 class SyntheticBatchPairDataset(torch.utils.data.Dataset):
@@ -75,8 +74,6 @@ class SyntheticBatchPairDataset(torch.utils.data.Dataset):
         if label_type == SyntheticDataLabelType.CLASSIFICATION_INT or label_type == SyntheticDataLabelType.CLASSIFICATION_ONE_HOT:
             if num_classes is None or num_classes <= 0:
                 raise ValueError("classification label_types require num_classes > 0")
-        if label_type == SyntheticDataLabelType.RANDOM_INT and label_shape is None:
-            raise ValueError("label_type random_int requires label_shape to be specified")
 
     def __len__(self) -> int:
         return self.total_dataset_size

@@ -80,3 +80,38 @@ class Event(StringEnum):
     EVAL_AFTER_FORWARD = "eval_after_forward"
     EVAL_BATCH_END = "eval_batch_end"
     EVAL_END = "eval_end"
+
+    @property
+    def is_before_event(self) -> bool:
+        """Whether the event has a corresponding `after` event"""
+        return self in _BEFORE_EVENTS
+
+    @property
+    def is_after_event(self) -> bool:
+        """Whether the event has a corresponding `before` event"""
+        return self in _AFTER_EVENTS
+
+    @property
+    def canonical_name(self) -> str:
+        """The name of the event, without before/after markers.
+
+        Events that have a corresponding "before" or "after" event share the same canonical name.
+        Example:
+            >>> Event.TRAINING_START.canonical_name == Event.TRAINING_END.canonical_name == "training"
+
+        Returns:
+            str: [description]
+        """
+        name: str = self.value
+        name = name.replace("before_", "")
+        name = name.replace("after_", "")
+        name = name.replace("_start", "")
+        name = name.replace("_end", "")
+        return name
+
+
+_BEFORE_EVENTS = (Event.TRAINING_START, Event.EPOCH_START, Event.BATCH_START, Event.BEFORE_TRAIN_BATCH,
+                  Event.BEFORE_FORWARD, Event.BEFORE_LOSS, Event.BEFORE_BACKWARD, Event.EVAL_START,
+                  Event.EVAL_BATCH_START, Event.EVAL_BEFORE_FORWARD)
+_AFTER_EVENTS = (Event.TRAINING_END, Event.EPOCH_END, Event.BATCH_END, Event.AFTER_TRAIN_BATCH, Event.AFTER_FORWARD,
+                 Event.AFTER_LOSS, Event.AFTER_BACKWARD, Event.EVAL_END, Event.EVAL_BATCH_END, Event.EVAL_AFTER_FORWARD)
