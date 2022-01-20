@@ -6,19 +6,19 @@ from composer.callbacks import GradMonitorHparams
 from composer.trainer import TrainerHparams
 
 
-def _do_trainer_fit(mosaic_trainer_hparams: TrainerHparams, log_layers=False):
+def _do_trainer_fit(mosaic_trainer_hparams: TrainerHparams, log_layers: bool = False):
     grad_monitor_hparams = GradMonitorHparams(log_layer_grad_norms=log_layers)
     mosaic_trainer_hparams.callbacks.append(grad_monitor_hparams)
-    mosaic_trainer_hparams.max_epochs = 1
+    mosaic_trainer_hparams.max_duration = "1ep"
 
-    mosaic_trainer_hparams.total_batch_size = 50
+    mosaic_trainer_hparams.train_batch_size = 50
     trainer = mosaic_trainer_hparams.initialize_object()
     log_destination = MagicMock()
     log_destination.will_log.return_value = True
     trainer.logger.backends = [log_destination]
     trainer.fit()
 
-    num_train_steps = mosaic_trainer_hparams.train_dataset.subset_num_batches
+    num_train_steps = mosaic_trainer_hparams.train_subset_num_batches
 
     return log_destination, num_train_steps
 

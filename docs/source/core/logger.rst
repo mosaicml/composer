@@ -30,6 +30,5 @@ For example, to define a new logging backend:
    
     ~composer.loggers.logger_hparams.BaseLoggerBackendHparams
     ~composer.core.logging.base_backend.BaseLoggerBackend
-    ~composer.core.logging.base_backend.RankZeroLoggerBackend
 
 .. autoclass:: Logger

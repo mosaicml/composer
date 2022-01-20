@@ -11,13 +11,13 @@ from composer.algorithms import ScaleSchedule
 from composer.algorithms.scale_schedule import scale_scheduler
 from composer.core.event import Event
 from composer.core.state import State
-from composer.core.types import Optimizer
+from composer.core.types import Optimizer, Scheduler
 from composer.loggers import Logger
 from composer.optim.pytorch_future import WarmUpLR
 
 
 @pytest.fixture
-def optimizer(dummy_model):
+def optimizer(dummy_model: torch.nn.Module):
     return torch.optim.SGD(dummy_model.parameters(), lr=1)
 
 
@@ -29,16 +29,15 @@ def flatten(lst: list):
 class TestScaleSchedule():
 
     @staticmethod
-    def _test(targets, scheduler, epochs, optimizer, ssr):
+    def _test(targets, scheduler: Scheduler, epochs: int, optimizer: Optimizer, ssr: float):
         scale_scheduler(scheduler, ssr)
-        print(targets)
         for epoch in range(epochs):
             for param_group in optimizer.param_groups:
                 print(f"target: {targets[epoch]}, actual: {param_group['lr']}")
                 torch.testing.assert_allclose(targets[epoch], param_group['lr'])
             scheduler.step()
 
-    def test_scale_schedule_step_lr(self, optimizer, ssr):
+    def test_scale_schedule_step_lr(self, optimizer: Optimizer, ssr: float):
         epochs = int(9 * ssr)
         step_size = int(3 * ssr)
         gamma = 0.1
@@ -48,7 +47,7 @@ class TestScaleSchedule():
         scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=3, gamma=0.1)
         self._test(targets, scheduler, epochs, optimizer, ssr)
 
-    def test_scale_schedule_multistep_lr(self, optimizer, ssr):
+    def test_scale_schedule_multistep_lr(self, optimizer: Optimizer, ssr: float):
         epochs = int(9 * ssr)
         milestones = np.diff([0, int(2 * ssr), int(7 * ssr), epochs])
         gamma = 0.1
@@ -58,7 +57,7 @@ class TestScaleSchedule():
         scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, [2, 7], gamma)
         self._test(targets, scheduler, epochs, optimizer, ssr)
 
-    def test_scale_schedule_exponential(self, optimizer, ssr):
+    def test_scale_schedule_exponential(self, optimizer: Optimizer, ssr: float):
         epochs = int(9 * ssr)
         targets = [1.0 * 0.1**(x / ssr) for x in range(epochs)]
         scheduler = ExponentialLR(optimizer, gamma=0.1)
@@ -87,11 +86,11 @@ class TestScaleScheduleAlgorithm():
 
         scheduler = MultiStepLR(optimizer, milestones=[30, 50], gamma=0.1)
         dummy_state.schedulers = scheduler
-        dummy_state.max_epochs = 10
+        dummy_state.max_duration = "10ep"
         algorithm = ScaleSchedule(ratio=ssr)
         algorithm.apply(Event.TRAINING_START, dummy_state, noop_dummy_logger)
         assert dummy_state.max_epochs == int(10 * ssr)
-        assert dummy_state.schedulers.milestones == Counter([int(30 * ssr), int(50 * ssr)])  # type: ignore
+        assert scheduler.milestones == Counter([int(30 * ssr), int(50 * ssr)])  # type: ignore
 
     @pytest.mark.xfail
     def test_scale_schedule_compose1(self, optimizer: Optimizer, ssr: float):
@@ -104,7 +103,7 @@ class TestScaleScheduleAlgorithm():
 
 def test_epochs_validate_zero_epochs(dummy_state: State, noop_dummy_logger: Logger):
     algorithm = ScaleSchedule(ratio=0.01)
-    dummy_state.max_epochs = 10
+    dummy_state.max_duration = "10ep"
     dummy_state.schedulers = tuple()
     with pytest.raises(ValueError):
         algorithm.apply(Event.TRAINING_START, dummy_state, noop_dummy_logger)

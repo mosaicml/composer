@@ -14,8 +14,7 @@ import yahp as hp
 from composer.core.types import DataLoader, Dataset
 from composer.datasets.dataloader import DataloaderHparams
 from composer.datasets.hparams import DatasetHparams
-from composer.utils import ddp
-from composer.utils.data import get_subset_dataset
+from composer.utils import dist
 
 PATCH_SIZE = [1, 192, 160]
 
@@ -48,11 +47,8 @@ class BratsDatasetHparams(DatasetHparams):
             raise ValueError("datadir must be specified if self.synthetic is False")
         x_train, y_train, x_val, y_val = get_data_split(self.datadir)
         dataset = PytTrain(x_train, y_train, oversampling) if self.is_train else PytVal(x_val, y_val)
-        if self.subset_num_batches is not None:
-            size = batch_size * self.subset_num_batches * ddp.get_world_size()
-            dataset = get_subset_dataset(size, dataset)
         collate_fn = None if self.is_train else _my_collate
-        sampler = ddp.get_sampler(dataset, drop_last=self.drop_last, shuffle=self.shuffle)
+        sampler = dist.get_sampler(dataset, drop_last=self.drop_last, shuffle=self.shuffle)
 
         return dataloader_hparams.initialize_object(
             dataset=dataset,
@@ -261,7 +257,6 @@ def get_split(data, idx):
 def get_data_split(path: str):
     from sklearn.model_selection import KFold
 
-    val_cases_list = []
     kfold = KFold(n_splits=5, shuffle=True, random_state=0)
     imgs = load_data(path, "*_x.npy")
     lbls = load_data(path, "*_y.npy")

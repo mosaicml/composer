@@ -154,5 +154,12 @@ generated/
 # Run directory
 runs/
 
+
 # pycharm
 .idea/
+
+# Node (for pyright)
+node_modules/
+package.json
+package-lock.json
+

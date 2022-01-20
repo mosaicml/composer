@@ -38,7 +38,7 @@ Examples
     trainer = Trainer(model=model,
                       train_dataloader=train_dataloader,
                       eval_dataloader=eval_dataloader,
-                      max_epochs=50,
+                      max_duration="50ep",
                       train_batch_size=128,
                       eval_batch_size=128,
                       checkpoint_interval_unit="ep",
@@ -107,7 +107,6 @@ You can also provide overrides at command line:
     blurpool | `BlurPoolHparams <https://github.com/mosaicml/composer/blob/main/composer/algorithms/blurpool/blurpool.py>`_
     channels_last | `ChannelsLastHparams <https://github.com/mosaicml/composer/blob/main/composer/algorithms/channels_last/channels_last.py>`_
     colout | `ColOutHparams <https://github.com/mosaicml/composer/blob/main/composer/algorithms/colout/colout.py>`_
-    curriculum_learning | `CurriculumLearningHparams <https://github.com/mosaicml/composer/blob/main/composer/algorithms/curriculum_learning/curriculum_learning.py>`_
     cutout | `CutOutHparams <https://github.com/mosaicml/composer/blob/main/composer/algorithms/cutout/cutout.py>`_
     dummy | `DummyHparams <https://github.com/mosaicml/composer/blob/main/composer/algorithms/dummy.py>`_
     ghost_batchnorm | `GhostBatchNormHparams <https://github.com/mosaicml/composer/blob/main/composer/algorithms/ghost_batchnorm/ghost_batchnorm.py>`_
@@ -120,6 +119,7 @@ You can also provide overrides at command line:
     sam | `SAMHparams <https://github.com/mosaicml/composer/blob/main/composer/algorithms/sam/sam.py>`_
     scale_schedule | `ScaleScheduleHparams <https://github.com/mosaicml/composer/blob/main/composer/algorithms/scale_schedule/scale_schedule.py>`_
     selective_backprop | `SelectiveBackpropHparams <https://github.com/mosaicml/composer/blob/main/composer/algorithms/selective_backprop/selective_backprop.py>`_
+    seq_length_warmup | `class SeqLengthWarmupHparams(AlgorithmHparams): <https://github.com/mosaicml/composer/blob/main/composer/algorithms/seq_length_warmup/seq_length_warmup.py>`_
     squeeze_excite | `SqueezeExciteHparams <https://github.com/mosaicml/composer/blob/main/composer/algorithms/squeeze_excite/squeeze_excite.py>`_
     stochastic_depth | `StochasticDepthHparams <https://github.com/mosaicml/composer/blob/main/composer/algorithms/stochastic_depth/stochastic_depth.py>`_
     swa | `SWAHparams <https://github.com/mosaicml/composer/blob/main/composer/algorithms/swa/swa.py>`_
@@ -134,7 +134,6 @@ You can also provide overrides at command line:
     benchmarker | :class:`~composer.callbacks.callback_hparams.BenchmarkerHparams`
     grad_monitor | :class:`~composer.callbacks.callback_hparams.GradMonitorHparams`
     lr_monitor | :class:`~composer.callbacks.callback_hparams.LRMonitorHparams`
-    torch_profiler | :class:`~composer.callbacks.callback_hparams.TorchProfilerHparams`
     speed_monitor | :class:`~composer.callbacks.callback_hparams.SpeedMonitorHparams`
 
 **Datasets**

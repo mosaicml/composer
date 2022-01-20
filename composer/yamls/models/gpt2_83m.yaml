@@ -9,6 +9,7 @@ train_dataset:
     shuffle: false
     drop_last: false
     num_tokens: 5767168000 # 11000 (batches) * 512 (batch_size) * 1024 (seq_len)
+    use_masked_lm: false
 val_dataset:
   lm:
     split: validation
@@ -18,6 +19,7 @@ val_dataset:
     shuffle: false
     drop_last: false
     num_tokens: 102400000 # 100000 (seq) * 1024 (seq_len)
+    use_masked_lm: false
 model:
   gpt2:
     use_pretrained: false
@@ -73,15 +75,9 @@ schedulers:
       verbose: false
       T_max: 10890ba
 loggers:
-  - file:
-      log_level: batch
-      filename: stdout
-      buffer_size: 1
-      flush_every_n_batches: 100
-      every_n_batches: 100
-      every_n_epochs: 1
-max_epochs: 1
-total_batch_size: 512
+  - tqdm: {}
+max_duration: 1ep
+train_batch_size: 512
 eval_batch_size: 16 # use micro_bs_per_gpu = 2 to accomodate 10GB limit
 seed: 17
 device:

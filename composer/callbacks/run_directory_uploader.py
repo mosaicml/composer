@@ -5,22 +5,20 @@ from __future__ import annotations
 import logging
 import multiprocessing
 import os
-import pathlib
 import queue
 import shutil
-import sys
 import tempfile
 import threading
 import time
-import warnings
-from typing import Any, Callable, Dict, Optional, Type, Union
+import uuid
+from typing import Callable, Optional, Tuple, Type, Union
 
 from composer.core.callback import Callback
 from composer.core.logging import Logger
 from composer.core.logging.logger import LogLevel
 from composer.core.state import State
-from composer.utils import ddp
-from composer.utils.run_directory import get_run_directory
+from composer.utils import dist, run_directory
+from composer.utils.object_store import ObjectStoreProviderHparams
 
 log = logging.getLogger(__name__)
 
@@ -91,28 +89,19 @@ class RunDirectoryUploader(Callback):
 
     def __init__(
         self,
-        provider: str,
-        container: str,
+        object_store_provider_hparams: ObjectStoreProviderHparams,
         object_name_prefix: Optional[str] = None,
         num_concurrent_uploads: int = 4,
         upload_staging_folder: Optional[str] = None,
         use_procs: bool = True,
         upload_every_n_batches: int = 100,
-        provider_init_kwargs: Dict[str, Any] = None,
     ) -> None:
-        run_directory = get_run_directory()
-        if run_directory is None:
-            warnings.warn("NoRunDirectory: The run directory is not set, so the RunDirectoryUploader will be a no-op")
-            return
-
-        if provider_init_kwargs is None:
-            provider_init_kwargs = {}
-        self._provider_init_kwargs = provider_init_kwargs
+        self._object_store_provider_hparams = object_store_provider_hparams
         self._upload_every_n_batches = upload_every_n_batches
+        # get the name of the run directory, without the rank
+        run_directory_name = os.path.basename(run_directory.get_node_run_directory())
         if object_name_prefix is None:
-            self._object_name_prefix = f"{run_directory}"
-            if not run_directory.endswith("/"):
-                self._object_name_prefix += "/"
+            self._object_name_prefix = f"{run_directory_name}/"
         else:
             if object_name_prefix == "":
                 self._object_name_prefix = ""
@@ -120,6 +109,8 @@ class RunDirectoryUploader(Callback):
                 if not object_name_prefix.endswith('/'):
                     object_name_prefix = f"{object_name_prefix}/"
                 self._object_name_prefix = object_name_prefix
+        # Keep the subfoldering by rank
+        self._object_name_prefix += f"rank_{dist.get_global_rank()}/"
         self._last_upload_timestamp = 0.0  # unix timestamp of last uploaded time
         if upload_staging_folder is None:
             self._tempdir = tempfile.TemporaryDirectory()
@@ -131,13 +122,11 @@ class RunDirectoryUploader(Callback):
         if num_concurrent_uploads < 1:
             raise ValueError("num_concurrent_uploads must be >= 1. Blocking uploads are not supported.")
         self._num_concurrent_uploads = num_concurrent_uploads
-        self._provider = provider
-        self._container = container
 
         if use_procs:
             mp_ctx = multiprocessing.get_context('spawn')
-            self._file_upload_queue: Union[queue.Queue[str],
-                                           multiprocessing.JoinableQueue[str]] = mp_ctx.JoinableQueue()
+            self._file_upload_queue: Union[queue.Queue[Tuple[str, str]],
+                                           multiprocessing.JoinableQueue[Tuple[str, str]]] = mp_ctx.JoinableQueue()
             self._finished_cls: Union[Callable[[], multiprocessing._EventType], Type[threading.Event]] = mp_ctx.Event
             self._proc_class = mp_ctx.Process
         else:
@@ -147,14 +136,9 @@ class RunDirectoryUploader(Callback):
         self._finished: Union[None, multiprocessing._EventType, threading.Event] = None
         self._workers = []
 
-        if ddp.get_local_rank() == 0:
-            _validate_credentials(provider, container, self._object_name_prefix, provider_init_kwargs)
+        _validate_credentials(object_store_provider_hparams, self._object_name_prefix)
 
     def init(self, state: State, logger: Logger) -> None:
-        if get_run_directory() is None:
-            return
-        if not ddp.get_local_rank() == 0:
-            return
         del state, logger  # unused
         self._finished = self._finished_cls()
         self._last_upload_timestamp = 0.0
@@ -163,58 +147,37 @@ class RunDirectoryUploader(Callback):
                              kwargs={
                                  "file_queue": self._file_upload_queue,
                                  "is_finished": self._finished,
-                                 "upload_staging_dir": self._upload_staging_folder,
-                                 "provider_name": self._provider,
-                                 "container_name": self._container,
+                                 "object_store_provider_hparams": self._object_store_provider_hparams,
                                  "object_name_prefix": self._object_name_prefix,
-                                 "init_kwargs": self._provider_init_kwargs,
                              }) for _ in range(self._num_concurrent_uploads)
         ]
         for worker in self._workers:
             worker.start()
 
     def batch_end(self, state: State, logger: Logger) -> None:
-        if get_run_directory() is None:
-            return
         if (state.batch_idx + 1) % self._upload_every_n_batches == 0:
             self._trigger_upload(logger, LogLevel.BATCH)
 
     def epoch_end(self, state: State, logger: Logger) -> None:
         del state  # unused
-        if get_run_directory() is None:
-            return
         self._trigger_upload(logger, LogLevel.EPOCH)
 
     def training_end(self, state: State, logger: Logger) -> None:
         del state  # unused
-        if get_run_directory() is None:
-            return
         self._trigger_upload(logger, LogLevel.FIT)
 
     def post_close(self):
         # Cleaning up on post_close to ensure that all artifacts are uploaded
         self._trigger_upload(logger=None, log_level=None)
-        if not ddp.get_local_rank() == 0:
-            return
         if self._finished is not None:
             self._finished.set()
         for worker in self._workers:
             worker.join()
+        if self._tempdir is not None:
+            self._tempdir.cleanup()
 
     def _trigger_upload(self, logger: Optional[Logger], log_level: Optional[LogLevel]) -> None:
-        # Ensure that every rank is at this point
-        # Assuming only the main thread on each rank writes to the run directory, then the barrier here will ensure
-        # that the run directory is not being modified after we pass this barrier
-        ddp.barrier()
-        if not ddp.get_local_rank() == 0:
-            return
-        run_directory = get_run_directory()
-        assert run_directory is not None, "invariant error"
-        # the disk time can differ from system time, so going to touch a file and then read the timestamp from it to get the real time
-        python_time = time.time()
-        touch_file = (pathlib.Path(run_directory) / f".{python_time}")
-        touch_file.touch()
-        new_last_uploaded_timestamp = os.path.getmtime(str(touch_file))
+        new_last_uploaded_timestamp = run_directory.get_run_directory_timestamp()
 
         # Now, for each file that was modified since self._last_upload_timestamp, copy it to the temporary directory
         files_to_be_uploaded = []
@@ -225,22 +188,16 @@ class RunDirectoryUploader(Callback):
                 assert self._finished is not None, "invariant error"
                 self._finished.set()
                 raise RuntimeError("Upload worker crashed unexpectedly")
-        for root, dirs, files in os.walk(run_directory):
-            del dirs  # unused
-            for file in files:
-                if any(x.startswith(".") for x in file.split(os.path.sep)):
-                    # skip hidden files and folders
-                    continue
-                filepath = os.path.join(root, file)
-                relpath = os.path.relpath(filepath, run_directory)  # chop off the run directory
-                modified_time = os.path.getmtime(filepath)
-                if modified_time > self._last_upload_timestamp:
-                    copied_path = os.path.join(self._upload_staging_folder, str(new_last_uploaded_timestamp), relpath)
-                    files_to_be_uploaded.append(relpath)
-                    copied_path_dirname = os.path.dirname(copied_path)
-                    os.makedirs(copied_path_dirname, exist_ok=True)
-                    shutil.copy2(filepath, copied_path)
-                    self._file_upload_queue.put_nowait(copied_path)
+        modified_files = run_directory.get_modified_files(self._last_upload_timestamp)
+        for filepath in modified_files:
+            relpath = os.path.relpath(filepath, run_directory.get_run_directory())  # chop off the run directory
+            copied_path = os.path.join(self._upload_staging_folder, str(uuid.uuid4()))
+            files_to_be_uploaded.append(relpath)
+            copied_path_dirname = os.path.dirname(copied_path)
+            os.makedirs(copied_path_dirname, exist_ok=True)
+            shutil.copy2(filepath, copied_path)
+            self._file_upload_queue.put_nowait((copied_path, relpath))
+
         self._last_upload_timestamp = new_last_uploaded_timestamp
         if logger is not None and log_level is not None:
             # now log which files are being uploaded. OK to do, since we're done reading the directory,
@@ -250,31 +207,22 @@ class RunDirectoryUploader(Callback):
 
 
 def _validate_credentials(
-    provider_name: str,
-    container_name: str,
+    object_store_provider_hparams: ObjectStoreProviderHparams,
     object_name_prefix: str,
-    init_kwargs: Dict[str, Any],
 ) -> None:
     # Validates the credentails by attempting to touch a file in the bucket
-    from libcloud.storage.providers import get_driver
-    provider_cls = get_driver(provider_name)
-    provider = provider_cls(**init_kwargs)
-    container = provider.get_container(container_name)
+    provider = object_store_provider_hparams.initialize_object()
     provider.upload_object_via_stream(
-        iterator=iter([i.to_bytes(1, sys.byteorder) for i in b"validate_credentials"]),
-        container=container,
-        object_name=f"{object_name_prefix}.validate_credentials_success",
+        obj=b"credentials_validated_successfully",
+        object_name=f"{object_name_prefix}.credentials_validated_successfully",
     )
 
 
 def _upload_worker(
     file_queue: Union[queue.Queue[str], multiprocessing.JoinableQueue[str]],
     is_finished: Union[multiprocessing._EventType, threading.Event],
-    upload_staging_dir: str,
-    provider_name: str,
-    container_name: str,
+    object_store_provider_hparams: ObjectStoreProviderHparams,
     object_name_prefix: str,
-    init_kwargs: Dict[str, Any],
 ):
     """A long-running function to handle uploading files.
 
@@ -285,39 +233,30 @@ def _upload_worker(
             set when training is finished and no new files will be added to the queue.
             The worker will continue to upload existing files that are in the queue.
             When the queue is empty, the worker will exit.
-        upload_staging_dir (str): The upload staging directory.
-        provider_name (str): The cloud provider name.
-        container_name (str): The container name (e.g. s3 bucket) for the provider
-            where files will be uploaded.
+        object_store_provider_hparams (ObjectStoreProviderHparams): The configuration
+            for the underlying object store provider.
         object_name_prefix (str): Prefix to prepend to the object names
              before they are uploaded to the blob store.
-        init_kwargs (Dict[str, Any]): Arguments to pass in to the
-            :class:`~libcloud.storage.providers.Provider` constructor.
     """
     from libcloud.common.types import LibcloudError
-    from libcloud.storage.providers import get_driver
-    provider_cls = get_driver(provider_name)
-    provider = provider_cls(**init_kwargs)
-    container = provider.get_container(container_name)
+    provider = object_store_provider_hparams.initialize_object()
     while True:
         try:
-            file_path_to_upload = file_queue.get(block=True, timeout=0.5)
+            file_path_to_upload, obj_name = file_queue.get(block=True, timeout=0.5)
         except queue.Empty:
             if is_finished.is_set():
                 break
             else:
                 continue
-        obj_name = os.path.sep.join(os.path.relpath(file_path_to_upload, upload_staging_dir).split(
-            os.path.sep)[1:])  # the first folder is the upload timestamp. Chop that off.
-        log.info("Uploading file %s to %s://%s/%s%s", file_path_to_upload, provider_name, container_name,
-                 object_name_prefix, obj_name)
+        obj_name = object_name_prefix + obj_name
+        log.info("Uploading file %s to %s://%s/%s", file_path_to_upload, provider.provider_name,
+                 provider.container_name, obj_name)
         retry_counter = 0
         while True:
             try:
                 provider.upload_object(
                     file_path=file_path_to_upload,
-                    container=container,
-                    object_name=object_name_prefix + obj_name,
+                    object_name=obj_name,
                 )
             except LibcloudError as e:
                 # The S3 driver does not encode the error code in an easy-to-parse manner

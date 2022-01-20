@@ -17,9 +17,7 @@ def _get_state(train_dataloader: DataLoader, eval_dataloader: DataLoader, steps_
     return State(
         model=model,
         optimizers=optim.SGD(model.parameters(), lr=.001, momentum=0.0),
-        max_epochs=1,
-        train_batch_size=2,
-        eval_batch_size=2,
+        max_duration="1ep",
         train_dataloader=train_dataloader,
         eval_dataloader=eval_dataloader,
         grad_accum=1,
@@ -41,7 +39,7 @@ def test_classifier_trains(
     model = state.model
 
     logger = Logger(state=state, backends=[])
-    engine = Engine(state=state, algorithms=algorithms, logger=logger)
+    engine = Engine(state=state, logger=logger)
 
     engine.run_event(Event.INIT)
     engine.run_event(Event.TRAINING_START)

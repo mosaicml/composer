@@ -24,6 +24,12 @@ def get_model_algs(model_name: str) -> List[str]:
     is_image_model = any(x in model_name for x in ("resnet", "mnist", "efficientnet"))
     if is_image_model:
         algs.remove("alibi")
+    if "alibi" in algs:
+        try:
+            import transformers
+            del transformers
+        except ImportError:
+            pytest.skip("Unable to import transformers; skipping alibi")
     if model_name in ("unet", "gpt2_52m", "gpt2_83m", 'gpt2_125m'):
         algs.remove("mixup")
         algs.remove("cutmix")
@@ -39,14 +45,18 @@ def test_load(model_name: str):
     if not isinstance(trainer_hparams.train_dataset, SyntheticHparamsMixin):
         pytest.skip(f"Model {model_name} uses a train dataset that doesn't support synthetic")
     assert isinstance(trainer_hparams.train_dataset, SyntheticHparamsMixin)
-    trainer_hparams.train_dataset.subset_num_batches = 1
+    trainer_hparams.train_subset_num_batches = 1
     trainer_hparams.train_dataset.use_synthetic = True
 
     if not isinstance(trainer_hparams.val_dataset, SyntheticHparamsMixin):
         pytest.skip(f"Model {model_name} uses a val dataset that doesn't support synthetic")
     assert isinstance(trainer_hparams.val_dataset, SyntheticHparamsMixin)
-    trainer_hparams.val_dataset.subset_num_batches = 1
+    trainer_hparams.eval_subset_num_batches = 1
     trainer_hparams.val_dataset.use_synthetic = True
+    trainer_hparams.dataloader.num_workers = 0
+    trainer_hparams.dataloader.pin_memory = False
+    trainer_hparams.dataloader.prefetch_factor = 2
+    trainer_hparams.dataloader.persistent_workers = False
 
     trainer_hparams.device = CPUDeviceHparams()
     my_trainer = trainer_hparams.initialize_object()
@@ -61,11 +71,11 @@ def test_scale_schedule_load(ssr: str):
     algs = [f"scale_schedule/{ssr}"]
     trainer_hparams.algorithms = algorithms.load_multiple(*algs)
     assert isinstance(trainer_hparams.train_dataset, SyntheticHparamsMixin)
-    trainer_hparams.train_dataset.subset_num_batches = 1
+    trainer_hparams.train_subset_num_batches = 1
     trainer_hparams.train_dataset.use_synthetic = True
 
     assert isinstance(trainer_hparams.val_dataset, SyntheticHparamsMixin)
-    trainer_hparams.val_dataset.subset_num_batches = 1
+    trainer_hparams.eval_subset_num_batches = 1
     trainer_hparams.val_dataset.use_synthetic = True
     trainer_hparams.device = CPUDeviceHparams()
     assert len(trainer_hparams.algorithms) == 1

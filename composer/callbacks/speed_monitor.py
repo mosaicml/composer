@@ -6,14 +6,17 @@ import time
 from collections import deque
 from typing import Deque, Optional
 
+import torch
+
 from composer.callbacks.callback_hparams import SpeedMonitorHparams
 from composer.core import Logger, State
-from composer.core.callback import RankZeroCallback
+from composer.core.callback import Callback
 from composer.core.types import StateDict
-from composer.utils import ddp
+from composer.utils import dist
+from composer.utils.data import get_device_of_batch
 
 
-class SpeedMonitor(RankZeroCallback):
+class SpeedMonitor(Callback):
     """Logs the training throughput.
 
     It logs:
@@ -78,14 +81,9 @@ class SpeedMonitor(RankZeroCallback):
 
     def batch_end(self, state: State, logger: Logger):
         self.batch_end_times.append(time.time())
-        batch_num_samples = 0
-        batch_num_samples += state.last_batch_size
-        # TODO this is a hack around not having proper syncing / reduction available in callbacks
-        # Ideally, callbacks would have a way of reducing tensors.
-        # It assumes that each process has equal batch sizing
-        # For the speed monitor, we might be able to use the static step converter with num_samples
-        batch_num_samples *= ddp.get_world_size()
-        self.batch_num_samples.append(batch_num_samples)
+        batch_num_samples = torch.tensor([int(state.batch_num_samples)], device=get_device_of_batch(state.batch))
+        dist.all_reduce(batch_num_samples, reduce_operation="SUM")
+        self.batch_num_samples.append(int(batch_num_samples.item()))
         self.train_examples_per_epoch += batch_num_samples
         if len(self.batch_end_times) == self.hparams.window_size + 1:
             throughput = sum(self.batch_num_samples) / (self.batch_end_times[-1] - self.batch_end_times[0])

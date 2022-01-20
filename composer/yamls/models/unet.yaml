@@ -26,8 +26,8 @@ model:
       - bn_ones
 loggers:
   - tqdm: {}
-max_epochs: 200
-total_batch_size: 64
+max_duration: 200ep
+train_batch_size: 64
 eval_batch_size: 8
 seed: 0
 validate_every_n_epochs: 1

@@ -34,11 +34,9 @@ def _infer_memory_format(tensor: Tensor) -> str:
 def state(simple_conv_model: Model, dummy_train_dataloader: DataLoader, dummy_val_dataloader: DataLoader):
     return State(
         model=simple_conv_model,
-        train_batch_size=100,
-        eval_batch_size=100,
         precision=Precision.FP32,
         grad_accum=1,
-        max_epochs=10,
+        max_duration="10ep",
         train_dataloader=dummy_train_dataloader,
         eval_dataloader=dummy_val_dataloader,
     )

@@ -18,7 +18,7 @@ and the Freeze Training method of:
 
 ## Hyperparameters
 
-- `freeze_start`: The fraction of epochs to run before freezing begins
+- `freeze_start`: The fraction of training to run before freezing begins
 - `freeze_level`: The fraction of the modules in the network to freeze by the end of training
 
 ## Applicable Settings

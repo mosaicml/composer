@@ -2,14 +2,12 @@ train_dataset:
   cifar10:
     use_synthetic: true
     is_train: true
-    subset_num_batches: 10
     download: false
     shuffle: true
     drop_last: true
 val_dataset:
   cifar10:
     use_synthetic: true
-    subset_num_batches: 10
     is_train: false
     download: false
     shuffle: false
@@ -39,16 +37,12 @@ model:
       - bn_uniform
     num_classes: 10
 loggers:
-  - file:
-      log_level: epoch
-      filename: stdout
-      buffer_size: 1
-      flush_every_n_batches: 100
-      every_n_epochs: 1
-      every_n_batches: 100
-max_epochs: 160
-total_batch_size: 1024
+  - tqdm: {}
+max_duration: 160ep
+train_batch_size: 1024
 eval_batch_size: 1000
+train_subset_num_batches: 10
+eval_subset_num_batches: 10
 seed: 17
 validate_every_n_epochs: 1
 grad_accum: 1

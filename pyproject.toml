@@ -3,7 +3,7 @@
 [tool.isort]
 multi_line_output = 0
 line_length = 120
-skip = [ "env", "wandb" ]
+skip = [ "env", "wandb", "runs", "build", "node_modules" ]
 
 # Pyright
 [tool.pyright]
@@ -13,31 +13,44 @@ include = [
     "examples/**",
 ]
 exclude = [
-    "build/**"
+    "build/**",
+    "node_modules/**",
 ]
 
-reportUnnecessaryIsInstance = "none"
+reportUnnecessaryIsInstance = "warning"
 reportMissingTypeStubs = "none"
 reportIncompatibleMethodOverride = "warning"
-reportIncompatibleVariableOverride = "warning"
+reportIncompatibleVariableOverride = "error"
 reportUnusedImport = "error"
 reportUnusedClass = "warning"
 reportUnusedFunction = "warning"
-reportUnusedVariable = "warning"
+reportUnusedVariable = "error"
 reportDuplicateImport = "error"
 reportWildcardImportFromLibrary = "error"
 reportUntypedFunctionDecorator = "warning"
 reportPrivateImportUsage = "warning"
 reportUndefinedVariable = "error"
-strictParameterNoneValue = "error"
+strictParameterNoneValue = true
 reportPropertyTypeMismatch = "error"
 reportUntypedNamedTuple = "error"
 reportUnnecessaryCast = "error"
 reportInvalidTypeVarUse = "error"
+reportOverlappingOverload = "error"
+reportUninitializedInstanceVariable = "error"
+reportInvalidStringEscapeSequence = "error"
+reportMissingParameterType = "warning"  # TODO: make this an error
+reportCallInDefaultInitializer = "none"  # TODO: make this an error
+reportUnnecessaryComparison = "warning"
+reportSelfClsParameterName = "error"
+reportImplicitStringConcatenation = "warning"  # TODO: make this an error
+reportInvalidStubStatement = "error"
+reportIncompleteStub = "error"
+reportUnsupportedDunderAll = "error"
+reportUnusedCoroutine = "error"
 
 # Pytest
 [tool.pytest.ini_options]
-addopts = "--strict-markers -m 'not daily_regression and not weekly_regression and not gpu'"
+addopts = "--strict-markers -m 'not daily_regression and not weekly_regression and not gpu and not deepspeed'"
 
 # by default, tests should be fast.
 # for slower tests, use @pytest.mark.timeout with a higher timeout (specified in seconds)
@@ -51,12 +64,15 @@ markers = [
     # Specify -m daily_regression to run daily_regression tests
     "weekly_regression",
     # Specify -m weekly_regression to run weekly_regression tests.
+    "deepspeed",
+    # Whether the test needs to initialize the DeepSpeed engine.
 ]
 filterwarnings = [
     # "error",  # warnings should be treated like errors, but still need to fix some warnings
     'ignore:ExtraArgumentWarning',  # extra arguments originate from pytest-specific CLI args
-    'ignore:DDPDefaultValueWarning',  # default DDP values are fine
-    'ignore:NoDDPWarning',  # default DDP values are fine
+    'ignore:DistributedDefaultValueWarning',  # default distributed values are fine
+    'ignore:NoDistributedWarning',  # running without distributed is fine
+    'ignore:Deterministic mode is activated:UserWarning',  # all tests run with deterministic mode
 ]
 
 # Coverage
@@ -462,3 +478,11 @@ split_penalty_logical_operator = 300
 
 # Use the Tab character for indentation.
 use_tabs = false
+
+# Ignore directories
+[tool.yapfignore]
+ignore_patterns = [
+    "runs/**/*.py",
+    "wandb/**/*.py",
+    "build/**/*.py",
+]

@@ -11,8 +11,9 @@ def test_speed_monitor(mosaic_trainer_hparams: TrainerHparams):
     speed_monitor_hparams = SpeedMonitorHparams(window_size=2)
     mosaic_trainer_hparams.callbacks.append(speed_monitor_hparams)
     mosaic_trainer_hparams.grad_accum = 1
-    mosaic_trainer_hparams.total_batch_size = 10
-    mosaic_trainer_hparams.max_epochs = 2
+    mosaic_trainer_hparams.train_batch_size = 10
+    max_epochs = 2
+    mosaic_trainer_hparams.max_duration = f"{max_epochs}ep"
     trainer = mosaic_trainer_hparams.initialize_object()
     log_destination = MagicMock()
     log_destination.will_log.return_value = True
@@ -32,8 +33,7 @@ def test_speed_monitor(mosaic_trainer_hparams: TrainerHparams):
             wall_clock_train_calls += 1
 
     assert isinstance(trainer.state.train_dataloader, collections.abc.Sized)
-    expected_step_calls = (len(trainer.state.train_dataloader) -
-                           speed_monitor_hparams.window_size) * mosaic_trainer_hparams.max_epochs
+    expected_step_calls = (trainer.state.steps_per_epoch - speed_monitor_hparams.window_size) * max_epochs
     assert throughput_step_calls == expected_step_calls
-    assert throughput_epoch_calls == mosaic_trainer_hparams.max_epochs
-    assert wall_clock_train_calls == mosaic_trainer_hparams.max_epochs
+    assert throughput_epoch_calls == max_epochs
+    assert wall_clock_train_calls == max_epochs

@@ -3,7 +3,6 @@ train_dataset:
     resize_size: -1
     crop_size: 224
     is_train: true
-    subset_num_batches: 10
     use_synthetic: true
     shuffle: true
     drop_last: true
@@ -12,7 +11,6 @@ val_dataset:
     resize_size: 256
     crop_size: 224
     is_train: false
-    subset_num_batches: 10
     use_synthetic: true
     shuffle: false
     drop_last: false
@@ -43,9 +41,11 @@ model:
     num_classes: 1000
 loggers:
   - tqdm: {}
-max_epochs: 90
-total_batch_size: 2048
+max_duration: 90ep
+train_batch_size: 2048
 eval_batch_size: 2048
+train_subset_num_batches: 10
+eval_subset_num_batches: 10
 seed: 17
 device:
   gpu: {}
