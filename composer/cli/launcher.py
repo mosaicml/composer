@@ -100,8 +100,6 @@ def launch_processes(nproc: int, world_size: int, base_rank: int, master_addr: s
     if run_directory is None:
         run_directory = os.path.join("runs", datetime.datetime.now().isoformat())
     os.makedirs(run_directory, exist_ok=True)
-    logs_dir = os.path.join(run_directory, "logs")
-    os.makedirs(logs_dir, exist_ok=True)
 
     if master_port is None:
         warnings.warn("AutoSelectPortWarning: The DDP port was auto-selected. "
@@ -124,13 +122,15 @@ def launch_processes(nproc: int, world_size: int, base_rank: int, master_addr: s
         current_env["LOCAL_WORLD_SIZE"] = str(nproc)
         current_env["MASTER_ADDR"] = master_addr
         current_env["MASTER_PORT"] = str(master_port)
-        current_env["RUN_DIRECTORY"] = run_directory
+        current_env["COMPOSER_RUN_DIRECTORY"] = run_directory
 
         log.info("Launching process for local_rank(%s), global_rank(%s)", local_rank, global_rank)
 
         if local_rank == 0:
             process = subprocess.Popen(cmd, env=current_env, text=True)
         else:
+            logs_dir = os.path.join(run_directory, f"rank_{global_rank}", "logs")
+            os.makedirs(logs_dir, exist_ok=True)
             process = subprocess.Popen(
                 cmd,
                 env=current_env,

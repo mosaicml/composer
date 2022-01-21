@@ -24,6 +24,7 @@ from composer.core.serializable import Serializable as Serializable
 from composer.core.state import State as State
 from composer.core.time import Time as Time
 from composer.core.time import Timer as Timer
+from composer.core.time import TimeUnit as TimeUnit
 from composer.utils.string_enum import StringEnum
 
 try:
@@ -174,15 +175,16 @@ class Evaluator:
     metric_names: Optional[Sequence[str]] = None
     eval_subset_num_batches: Optional[int] = None
     device_transforms: Optional[Callable[[Batch], Batch]] = None
+    _data_spec: Optional[DataSpec] = None
 
     def __post_init__(self):
-        from composer.datasets.dataloader import DDPDataLoader
         if isinstance(self.dataloader, DataSpec):
             dataloader_spec = self.dataloader
             self.device_transforms = dataloader_spec.device_transforms
         else:
             dataloader_spec = DataSpec(self.dataloader)
-        self.dataloader = DDPDataLoader(dataloader_spec.dataloader)
+        self.dataloader = dataloader_spec.dataloader
+        self._data_spec = dataloader_spec
 
         if self.metrics is not None:
             assert isinstance(self.metrics, (Metric, MetricCollection)), \

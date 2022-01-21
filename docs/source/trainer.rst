@@ -38,7 +38,7 @@ Examples
     trainer = Trainer(model=model,
                       train_dataloader=train_dataloader,
                       eval_dataloader=eval_dataloader,
-                      max_epochs=50,
+                      max_duration="50ep",
                       train_batch_size=128,
                       eval_batch_size=128,
                       checkpoint_interval_unit="ep",
@@ -134,7 +134,6 @@ You can also provide overrides at command line:
     benchmarker | :class:`~composer.callbacks.callback_hparams.BenchmarkerHparams`
     grad_monitor | :class:`~composer.callbacks.callback_hparams.GradMonitorHparams`
     lr_monitor | :class:`~composer.callbacks.callback_hparams.LRMonitorHparams`
-    torch_profiler | :class:`~composer.callbacks.callback_hparams.TorchProfilerHparams`
     speed_monitor | :class:`~composer.callbacks.callback_hparams.SpeedMonitorHparams`
 
 **Datasets**

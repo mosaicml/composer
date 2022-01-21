@@ -6,7 +6,7 @@ from __future__ import annotations
 import abc
 import dataclasses
 import textwrap
-from dataclasses import asdict, dataclass
+from dataclasses import dataclass
 from typing import TYPE_CHECKING, List, Optional
 
 import yahp as hp
@@ -21,7 +21,6 @@ if TYPE_CHECKING:
     from composer.callbacks.memory_monitor import MemoryMonitor
     from composer.callbacks.run_directory_uploader import RunDirectoryUploader
     from composer.callbacks.speed_monitor import SpeedMonitor
-    from composer.callbacks.torch_profiler import TorchProfiler
 
 
 @dataclass
@@ -134,33 +133,7 @@ class SpeedMonitorHparams(CallbackHparams):
 
 
 @dataclass
-class TorchProfilerHparams(CallbackHparams):
-    """:class:`~composer.callbacks.torch_profiler.TorchProfiler` hyperparameters.
-
-    See :class:`~composer.callbacks.torch_profiler.TorchProfiler` for documentation.
-    """
-
-    tensorboard_trace_handler_dir: str = hp.optional(
-        "directory to store trace results. Relative to the run directory, if set.", default="torch_profiler")
-    tensorboard_use_gzip: bool = hp.optional("Whether to use gzip for trace", default=False)
-    record_shapes: bool = hp.optional(doc="Whether to record tensor shapes", default=True)
-    profile_memory: bool = hp.optional(doc="track tensor memory allocations and frees", default=False)
-    with_stack: bool = hp.optional(doc="record stack info", default=True)
-    with_flops: bool = hp.optional(doc="estimate flops for operators", default=True)
-
-    skip: int = hp.optional("Number of batches to skip at epoch start", default=0)
-    warmup: int = hp.optional("Number of warmup batches in a cycle", default=1)
-    active: int = hp.optional("Number of batches to profile in a cycle", default=5)
-    wait: int = hp.optional("Number of batches to skip at the end of each cycle", default=0)
-    repeat: int = hp.optional("Maximum number of profiling cycle repetitions per epoch (0 for no maximum)", default=0)
-
-    def initialize_object(self) -> TorchProfiler:
-        from composer.callbacks.torch_profiler import TorchProfiler
-        return TorchProfiler(**asdict(self))
-
-
-@dataclass
-class RunDirectoryUploaderHparams(ObjectStoreProviderHparams, CallbackHparams):
+class RunDirectoryUploaderHparams(CallbackHparams, ObjectStoreProviderHparams):
     """:class:`~composer.callbacks.torch_profiler.RunDirectoryUploader` hyperparameters.
 
     See :class:`~composer.callbacks.torch_profiler.RunDirectoryUploader` for documentation.

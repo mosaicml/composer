@@ -1,8 +1,9 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
 import logging
+from typing import Dict, Union
 
-from torch.cuda import device_count, memory_stats
+import torch.cuda
 
 from composer.core import Logger, State
 from composer.core.callback import Callback
@@ -23,7 +24,7 @@ class MemoryMonitor(Callback):
         super().__init__()
         log.info(
             "Memory monitor just profiles the current GPU assuming that the memory footprint across GPUs is balanced.")
-        if device_count == 0:
+        if torch.cuda.device_count() == 0:
             log.warn("Memory monitor only works on GPU devices.")
 
     def after_train_batch(self, state: State, logger: Logger):
@@ -38,23 +39,33 @@ class MemoryMonitor(Callback):
         """
         memory_report = {}
 
-        default_stats = {
-            "allocation.all.allocated": "alloc_requests",
-            "allocation.all.freed": "free_requests",
-            "allocated_bytes.all.allocated": "allocated_mem",
-            "active_bytes.all.current": "active_mem",
-            "inactive_split_bytes.all.current": "inactive_mem",
-            "reserved_bytes.all.current": "reserved_mem",
-            "num_alloc_retries": "alloc_retries",
-        }
-
-        n_devices = device_count()
+        n_devices = torch.cuda.device_count()
         if n_devices == 0:
             return
 
-        device_stats = memory_stats()
-        for torch_stat_name, stat_alias in default_stats.items():
-            memory_report[stat_alias] = device_stats.get(torch_stat_name, 0)
+        memory_report = get_memory_report()
 
         for mem_stat, val in memory_report.items():
             logger.metric_batch({'memory/{}'.format(mem_stat): val})
+
+
+_MEMORY_STATS = {
+    "allocation.all.allocated": "alloc_requests",
+    "allocation.all.freed": "free_requests",
+    "allocated_bytes.all.allocated": "allocated_mem",
+    "active_bytes.all.current": "active_mem",
+    "inactive_split_bytes.all.current": "inactive_mem",
+    "reserved_bytes.all.current": "reserved_mem",
+    "num_alloc_retries": "alloc_retries",
+}
+
+
+def get_memory_report() -> Dict[str, Union[int, float]]:
+    if not torch.cuda.is_available():
+        log.debug("Cuda is not available. The memory report will be empty.")
+        return {}
+    device_stats = torch.cuda.memory_stats()
+    memory_report = {}
+    for torch_stat_name, stat_alias in _MEMORY_STATS.items():
+        memory_report[stat_alias] = device_stats[torch_stat_name]
+    return memory_report

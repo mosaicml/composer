@@ -2,6 +2,7 @@
 
 from composer.datasets.brats import BratsDatasetHparams
 from composer.datasets.cifar10 import CIFAR10DatasetHparams
+from composer.datasets.glue import GLUEHparams
 from composer.datasets.imagenet import ImagenetDatasetHparams
 from composer.datasets.lm_datasets import LMDatasetHparams
 from composer.datasets.mnist import MNISTDatasetHparams
@@ -12,6 +13,7 @@ registry = {
     "cifar10": CIFAR10DatasetHparams,
     "mnist": MNISTDatasetHparams,
     "lm": LMDatasetHparams,
+    "glue": GLUEHparams
 }
 
 

@@ -14,7 +14,6 @@ from composer.datasets.synthetic import SyntheticBatchPairDataset, SyntheticData
 @pytest.mark.parametrize('label_type', [
     SyntheticDataLabelType.CLASSIFICATION_ONE_HOT,
     SyntheticDataLabelType.CLASSIFICATION_INT,
-    SyntheticDataLabelType.RANDOM_INT,
 ])
 def test_synthetic_data_creation(data_type: SyntheticDataType, label_type: SyntheticDataLabelType):
     if data_type == SyntheticDataType.SEPARABLE:
@@ -49,8 +48,6 @@ def test_synthetic_data_creation(data_type: SyntheticDataType, label_type: Synth
         assert y.size() == (num_classes,)
         assert min(y) == 0
         assert max(y) == 1
-    elif label_type == SyntheticDataLabelType.RANDOM_INT:
-        assert y.size() == label_shape
 
     # check that points were allocated in memory after the first call to __getitem__
     assert dataset.input_data is not None

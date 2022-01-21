@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import contextlib
 import logging
 import os
 import random
@@ -10,7 +11,7 @@ import tempfile
 import textwrap
 import urllib.parse
 import warnings
-from typing import TYPE_CHECKING, Any, Dict, Iterator, Optional, cast
+from typing import TYPE_CHECKING, Any, Dict, Iterator, Optional, Tuple, cast
 
 import numpy as np
 import requests
@@ -43,8 +44,24 @@ class CheckpointLoader:
     """Manager for initializing state and restoring RNG state from existing checkpoints.
 
     Args:
-        checkpoint (str): The path to an existing checkpoint file. It can be a path to a file on local disk, a URL, or
-            if ``object_store_hparams`` is set, the object name for a checkpoint in a cloud bucket.
+        checkpoint (str): The template path to an existing checkpoint file.
+            It can be a path to a file on local disk, a URL, or if ``object_store_hparams`` is set, the object name
+            for a checkpoint in a cloud bucket.
+            
+            When using Deepspeed zero, the :class:`CheckpointSaver` shards checkpoints by rank. To load deepspeed checkpoints,
+            specify ``{RANK}`` in in the ``checkpoint`` parameter, and this variable will be substituted with the global rank.
+            For example, suppose that checkpoints are stored in the following structure:
+        
+            .. code-block::
+
+                my_model/rank_0/ep1.tar
+                my_model/rank_1/ep1.tar
+                my_model/rank_2/ep1.tar
+                ...
+        
+            Then, ``checkpoint`` should be set to ``my_model/rank_{RANK}/ep1.tar``, and all ranks will load the correct
+            data.
+
         object_store_hparams (ObjectStoreProviderHparams, optional): If the ``checkpoint`` is in an object store
             (i.e. AWS S3 or Google Cloud Storage), the parameters for connecting to the cloud provider object store.
             Otherwise, if the checkpoint is a local filepath, set to ``None``. (default: ``None``).
@@ -67,6 +84,7 @@ class CheckpointLoader:
         chunk_size: int = 1_048_576,
         progress_bar: bool = True,
     ):
+
         checkpoint_uri_parsed = urllib.parse.urlparse(checkpoint)
         if checkpoint_uri_parsed.scheme != "":
             if object_store_hparams is not None:
@@ -84,25 +102,30 @@ class CheckpointLoader:
         )
         self.checkpoint_rng_state = None
 
-    def _retrieve_checkpoint(self, destination_filepath: str):
+    def _retrieve_checkpoint(self, rank: int, destination_filepath: str, ignore_not_found_errors: bool):
+        checkpoint_name = self.hparams.checkpoint.format(RANK=rank)
         if self.hparams.object_store is not None:
             provider = self.hparams.object_store.initialize_object()
-            total_size_in_bytes = provider.get_object_size(self.hparams.checkpoint)
+            try:
+                total_size_in_bytes = provider.get_object_size(checkpoint_name)
+            except Exception as e:
+                if "ObjectDoesNotExistError" in str(e) and ignore_not_found_errors:
+                    return
+                raise
             self._write_to_file_with_pbar(
                 destination_filepath=destination_filepath,
                 total_size=total_size_in_bytes,
-                iterator=provider.download_object_as_stream(self.hparams.checkpoint,
-                                                            chunk_size=self.hparams.chunk_size),
+                iterator=provider.download_object_as_stream(checkpoint_name, chunk_size=self.hparams.chunk_size),
             )
             return
-        checkpoint_uri_parsed = urllib.parse.urlparse(self.hparams.checkpoint)
+        checkpoint_uri_parsed = urllib.parse.urlparse(checkpoint_name)
 
         if checkpoint_uri_parsed.scheme == "":
             # assume it's a local file
-            os.symlink(os.path.abspath(self.hparams.checkpoint), destination_filepath)
+            os.symlink(os.path.abspath(checkpoint_name), destination_filepath)
             return
         # it's a url
-        with requests.get(self.hparams.checkpoint, stream=True) as r:
+        with requests.get(checkpoint_name, stream=True) as r:
             r.raise_for_status()
             total_size_in_bytes = r.headers.get('content-length')
             if total_size_in_bytes is not None:
@@ -123,6 +146,130 @@ class CheckpointLoader:
             for chunk in iterate_with_pbar(iterator, pbar):
                 fp.write(chunk)
 
+    def _get_node_checkpoint_download_folder(self, path: Optional[str]) -> str:
+        """Broadcasts the path from the local rank zero to all ranks"""
+        local_rank_zero = dist.get_local_world_size() * dist.get_node_rank()
+        paths = dist.all_gather_object(path)
+        local_rank_zero_path = paths[local_rank_zero]
+        assert local_rank_zero_path is not None, "local rank zero provides the path"
+        return local_rank_zero_path
+
+    def _download_checkpoint(self, node_checkpoint_folder: str) -> Tuple[str, Optional[str]]:
+        """Download the checkpoint to ``node_checkpoint_folder``
+
+        Args:
+            node_checkpoint_folder (str): The folder to which to download the checkpoint
+
+        Returns:
+            Tuple[str, Optional[str]]: A tuple of ``mosaic_checkpoint_filepath``, ``extracted_checkpoint_folder``
+                The ``mosaic_checkpoint_filepath``, is the path to the mosaic states, which can be passed into
+                :meth:`torch.load`.
+
+                The ``extracted_checkpoint_folder`` is the path to the checkpoint folder, which can be passed into
+                :meth:`deepspeed.DeepSpeedEngine.load_checkpoint`.
+        """
+        checkpoint_archive_name = self.hparams.checkpoint.split(os.path.sep)[-1]
+        rank_zero_checkpoint_archive_name = "rank_0." + checkpoint_archive_name.format(rank=0)
+        rank_n_checkpoint_archive_name = f"rank_{dist.get_global_rank()}." + checkpoint_archive_name.format(
+            rank=dist.get_global_rank())
+        rank_zero_checkpoint_archive_filepath = os.path.join(node_checkpoint_folder, rank_zero_checkpoint_archive_name)
+        rank_n_checkpoint_archive_filepath = os.path.join(node_checkpoint_folder, rank_n_checkpoint_archive_name)
+        extracted_checkpoint_folder = None
+        if rank_zero_checkpoint_archive_filepath.endswith(".pt"):
+            # it's not an archive; it's just the mosaic state dict
+            # and only rank zero has this file
+            extracted_checkpoint_folder = None
+            mosaic_checkpoint_filepath = rank_zero_checkpoint_archive_filepath
+        else:
+            extracted_checkpoint_folder = os.path.join(node_checkpoint_folder, "checkpoint")
+            mosaic_checkpoint_filepath = os.path.join(extracted_checkpoint_folder, _MOSAIC_STATES_FILENAME)
+
+        if dist.get_local_rank() == 0:
+            # every NODE needs the GLOBAL rank zero checkpoint
+            self._retrieve_checkpoint(destination_filepath=rank_zero_checkpoint_archive_filepath,
+                                      rank=dist.get_global_rank(),
+                                      ignore_not_found_errors=False)
+
+            if extracted_checkpoint_folder is not None:
+                try:
+                    with tarfile.open(rank_zero_checkpoint_archive_filepath) as tarball:
+                        tarball.extractall(extracted_checkpoint_folder)
+                except FileNotFoundError as e:
+                    checkpoint_name = self.hparams.checkpoint.format(rank=dist.get_global_rank())
+                    raise RuntimeError(f"Unable to retrieve checkpoint {checkpoint_name}") from e
+
+        if rank_zero_checkpoint_archive_filepath != rank_n_checkpoint_archive_filepath:
+            # every RANK needs ITS OWN checkpoint.
+            # But, the  global rank zero is a special case -- these files are the same!
+            assert dist.get_global_rank() != 0, "invariant violation"
+
+            # Allowing not-found errors to be ignored as sometimes there won't be rank-local checkpoints
+            # (e.g. when not using deepspeed)
+            self._retrieve_checkpoint(destination_filepath=rank_n_checkpoint_archive_filepath,
+                                      rank=dist.get_global_rank(),
+                                      ignore_not_found_errors=True)
+
+            if extracted_checkpoint_folder is not None:
+                # it's an archive and needs to be extracted
+                with tarfile.open(rank_n_checkpoint_archive_filepath) as tarball:
+                    tarball.extractall(extracted_checkpoint_folder)
+
+        # Wait for all checkpoints on the node to finish downloading
+        dist.barrier()
+
+        return mosaic_checkpoint_filepath, extracted_checkpoint_folder
+
+    def _restore_checkpoint(self, state: State, mosaic_checkpoint_filepath: str,
+                            extracted_checkpoint_folder: Optional[str]) -> Optional[int]:
+        """Restore a checkpoint into ``state``.
+
+        Args:
+            state (State): The state to load the checkpoint into
+            mosaic_checkpoint_filepath (str): The filepath to the moasic states, which is passed into
+                :meth:`torch.load`
+            extracted_checkpoint_folder (Optional[str]): The path to the checkpoint folder, which is passed into
+                :meth:`deepspeed.DeepSpeedEngine.load_checkpoint`.
+
+        Returns:
+            Optional[int]: The seed that was loaded from the checkpoint if it exists otherwise `None`.
+        """
+        # Now, all ranks load the checkpoint that local rank zero downloaded
+        state_dict = torch.load(mosaic_checkpoint_filepath, map_location='cpu')
+
+        seed_to_restore = None
+
+        if is_module_deepspeed(state.model):
+            if extracted_checkpoint_folder is None:
+                raise RuntimeError("Deepspeed checkpoints require a tarball, not a weights file.")
+
+            load_path, _ = cast("deepspeed.DeepSpeedEngine", state.model).load_checkpoint(
+                extracted_checkpoint_folder,
+                tag=_DEEPSPEED_TAG,
+                load_module_only=self.hparams.load_weights_only,
+                load_module_strict=self.hparams.strict_model_weights,
+            )
+            if load_path is None:
+                raise RuntimeError(f"Failed to load DeepSpeed checkpoint from {self.hparams.checkpoint}")
+        elif self.hparams.load_weights_only:
+            state.load_model_state(state_dict['state'], strict=self.hparams.strict_model_weights)
+
+        if not self.hparams.load_weights_only:
+            state.load_state_dict(state_dict["state"])
+            self.checkpoint_rng_state = self._get_checkpoint_rng_state(state_dict["rng"])
+
+            if "seed" in state_dict:
+                world_size = dist.get_world_size()
+                checkpointed_world_size = len(state_dict["seed"])
+                if world_size != checkpointed_world_size:
+                    warnings.warn(
+                        textwrap.dedent(f"""Current world size {world_size} does not match the checkpointed
+                        world size {checkpointed_world_size}. The seed will not be restored."""))
+                else:
+                    seed_to_restore = state_dict["seed"][dist.get_global_rank()]
+                    reproducibility.seed_all(seed_to_restore)
+
+        return seed_to_restore
+
     def load_checkpoint(self, state: State):
         """Initialize state from the loaded checkpoint's data.
 
@@ -132,51 +279,13 @@ class CheckpointLoader:
         Returns:
             The seed that was loaded from the checkpoint if it exists otherwise `None`.
         """
-        seed_to_restore = None
 
-        with tempfile.TemporaryDirectory() as checkpoint_folder:
-            checkpoint_archive_name = self.hparams.checkpoint.split(os.path.sep)[-1]
-            checkpoint_archive_filepath = os.path.join(checkpoint_folder, checkpoint_archive_name)
-            self._retrieve_checkpoint(destination_filepath=checkpoint_archive_filepath)
-            extracted_checkpoint_folder = None
-            if checkpoint_archive_filepath.endswith(".pt"):
-                # it's not an archive; it's just the mosaic state dict
-                mosaic_checkpoint_filepath = checkpoint_archive_filepath
-            else:
-                extracted_checkpoint_folder = os.path.join(checkpoint_folder, "checkpoint")
-                with tarfile.open(checkpoint_archive_filepath) as tarball:
-                    tarball.extractall(extracted_checkpoint_folder)
-                mosaic_checkpoint_filepath = os.path.join(extracted_checkpoint_folder, _MOSAIC_STATES_FILENAME)
-
-            state_dict = torch.load(mosaic_checkpoint_filepath, map_location='cpu')
-
-            if is_module_deepspeed(state.model):
-                if extracted_checkpoint_folder is None:
-                    raise RuntimeError("Deepspeed checkpoints require a tarball, not a weights file.")
-                load_path, _ = cast("deepspeed.DeepSpeedEngine", state.model).load_checkpoint(
-                    extracted_checkpoint_folder,
-                    tag=_DEEPSPEED_TAG,
-                    load_module_only=self.hparams.load_weights_only,
-                    load_module_strict=self.hparams.strict_model_weights,
-                )
-                if load_path is None:
-                    raise RuntimeError(f"Failed to load DeepSpeed checkpoint from {self.hparams.checkpoint}")
-            elif self.hparams.load_weights_only:
-                state.load_model_state(state_dict['state'], strict=self.hparams.strict_model_weights)
-
-            if not self.hparams.load_weights_only:
-                state.load_state_dict(state_dict["state"])
-                self.checkpoint_rng_state = self._get_checkpoint_rng_state(state_dict["rng"])
-
-                if "seed" in state_dict:
-                    world_size = dist.get_world_size()
-                    checkpointed_world_size = len(state_dict["seed"])
-                    if world_size != checkpointed_world_size:
-                        warnings.warn(f"Current world size {world_size} does not match the checkpointed world size "
-                                      f"{checkpointed_world_size}. The seed will not be restored.")
-                    else:
-                        seed_to_restore = state_dict["seed"][dist.get_global_rank()]
-                        reproducibility.seed_all(seed_to_restore)
+        # download the checkpoint to the node-local folder
+        tempdir_ctx = tempfile.TemporaryDirectory() if dist.get_local_rank() == 0 else contextlib.nullcontext(None)
+        with tempdir_ctx as tempdir:
+            node_checkpoint_folder = self._get_node_checkpoint_download_folder(tempdir)
+            mosaic_checkpoint_filepath, extracted_checkpoint_folder = self._download_checkpoint(node_checkpoint_folder)
+            seed_to_restore = self._restore_checkpoint(state, mosaic_checkpoint_filepath, extracted_checkpoint_folder)
 
         return seed_to_restore
 
@@ -226,7 +335,7 @@ class CheckpointSaver:
             self.save_event = Event.BATCH_END
         else:
             raise ValueError(f"Unknown checkpointing interval: {checkpoint_interval_unit}")
-        self.checkpoint_folder = run_directory.get_relative_to_run_directory(checkpoint_folder)
+        self.checkpoint_folder = os.path.join(run_directory.get_run_directory(), checkpoint_folder)
         os.makedirs(self.checkpoint_folder, mode=0o775, exist_ok=True)
         self.save_interval = checkpoint_interval
 
@@ -238,12 +347,17 @@ class CheckpointSaver:
             event (Event): The current Event being executed.
         """
 
+        # if we're at the end of training, ensure that we checkpoint regardless of save_event frequency
+        if state.get_elapsed_duration() >= 1.0:
+            return True
+
         if event != self.save_event:
             return False
         if self.save_event == Event.EPOCH_END:
             return state.epoch % self.save_interval == 0
         if self.save_event == Event.BATCH_END:
             return state.step % self.save_interval == 0
+
         return False
 
     def save_checkpoint(self, state: State, seed: int, device: Device, config: Optional[Dict[str, Any]] = None) -> None:
@@ -300,11 +414,11 @@ class CheckpointSaver:
                 with open(mosaic_states_filepath, 'xb') as f:
                     torch.save(state_dict, f)
 
-                checkpoint_archive_filepath = os.path.join(self.checkpoint_folder, f'{tag}.tar')
-                with tarfile.open(checkpoint_archive_filepath, "w") as tarball:
-                    tarball.add(tmpdir, arcname="")  # add files flat to the tarball
+            checkpoint_archive_filepath = os.path.join(self.checkpoint_folder, f'{tag}.tar')
+            with tarfile.open(checkpoint_archive_filepath, "w") as tarball:
+                tarball.add(tmpdir, arcname="")  # add files flat to the tarball
 
-                log.info(f'Trainer checkpoint saved to {checkpoint_archive_filepath}')
+            log.info(f'Trainer checkpoint saved to {checkpoint_archive_filepath}')
 
         # Ensure that the non-rank 0 processes don't exit before the checkpoint is saved.
         dist.barrier()

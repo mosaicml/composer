@@ -2,8 +2,13 @@
 
 from composer.models.base import BaseMosaicModel as BaseMosaicModel
 from composer.models.base import MosaicClassifier as MosaicClassifier
+from composer.models.bert import BERTForClassificationHparams as BERTForClassificationHparams
+from composer.models.bert import BERTHparams as BERTHparams
+from composer.models.bert import BERTModel as BERTModel
 from composer.models.classify_mnist import MNIST_Classifier as MNIST_Classifier
 from composer.models.classify_mnist import MnistClassifierHparams as MnistClassifierHparams
+from composer.models.deeplabv3 import DeepLabV3Hparams as DeepLabV3Hparams
+from composer.models.deeplabv3 import MosaicDeepLabV3 as MosaicDeepLabV3
 from composer.models.efficientnetb0 import EfficientNetB0 as EfficientNetB0
 from composer.models.efficientnetb0 import EfficientNetB0Hparams as EfficientNetB0Hparams
 from composer.models.gpt2 import GPT2Hparams as GPT2Hparams
