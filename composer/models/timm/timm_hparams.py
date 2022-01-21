@@ -3,7 +3,6 @@ from typing import Optional
 
 from dataclasses import dataclass
 import yahp as hp
-import timm
 from composer.models.model_hparams import ModelHparams
 from composer.models.timm.model import Timm
 
@@ -39,6 +38,7 @@ class TimmHparams(ModelHparams):
 
     def validate(self):
         if self.model_name is None:
+            import timm
             raise ValueError(f"model must be one of {timm.models.list_models()}")
 
     def initialize_object(self):
