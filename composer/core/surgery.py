@@ -283,7 +283,7 @@ def update_params_in_optimizer(old_params: Iterable[torch.nn.parameter.Parameter
 
         if len(old_group_idxs) == 0:
             raise RuntimeError("No parameters were removed, so unable to infer the group into which to add parameters.")
-        
+
         missing_param_groups = [x for x in old_group_idxs if x < 0]
         if len(missing_param_groups) > 0:
             raise RuntimeError(f"Parameter groups {missing_param_groups} are not in the optimizer")
