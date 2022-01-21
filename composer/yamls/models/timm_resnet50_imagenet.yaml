@@ -40,7 +40,7 @@ model:
 loggers:
   - tqdm: {}
 max_duration: 90ep
-total_batch_size: 2048
+train_batch_size: 2048
 eval_batch_size: 2048
 seed: 17
 device:
