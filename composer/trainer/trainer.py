@@ -22,9 +22,8 @@ from torchmetrics.metric import Metric
 from composer.core import Callback, DataSpec, Engine, Event, Logger, State
 from composer.core.algorithm import Algorithm
 from composer.core.logging import BaseLoggerBackend, LogLevel
-from composer.core.types import Batch, BreakEpochException, DataLoader, Metrics, Precision, Tensor, Evaluator
+from composer.core.types import Batch, BreakEpochException, DataLoader, Evaluator, Metrics, Precision, Tensor
 from composer.datasets.dataloader import DDPDataLoader
-
 from composer.loggers.tqdm_logger import TQDMLoggerBackend
 from composer.models.base import BaseMosaicModel
 from composer.optim import (ComposedScheduler, CosineAnnealingLRHparams, DecoupledSGDWHparams, OptimizerHparams,
@@ -206,25 +205,15 @@ class Trainer:
             else:
                 self.ddp_sync_strategy = DDPSyncStrategy(ddp_sync_strategy)
 
-        if evaluators is not None:
-            for evaluator in evaluators:
-                if isinstance(evaluator.dataset, DataSpec):
-                    dataloader_spec = evaluator.dataset
-                else:
-                    dataloader_spec = DataSpec(evaluator.dataset)
-                evaluator.dataset = DDPDataLoader(dataloader_spec.dataloader)
         self.evaluators = evaluators
 
         if eval_dataloader is not None:
-            if isinstance(eval_dataloader, DataSpec):
-                eval_dataloader_spec = eval_dataloader
-            else:
-                eval_dataloader_spec = DataSpec(eval_dataloader)
             default_evaluator = Evaluator(label="eval_dataset",
-                                          dataset=DDPDataLoader(eval_dataloader_spec.dataloader),
+                                          dataloader=eval_dataloader,
                                           metrics=None,
                                           validate_every_n_batches=validate_every_n_batches,
-                                          validate_every_n_epochs=validate_every_n_epochs)
+                                          validate_every_n_epochs=validate_every_n_epochs,
+                                          eval_subset_num_batches=eval_subset_num_batches)
             if self.evaluators is not None:
                 self.evaluators.append(default_evaluator)
             else:
@@ -256,8 +245,7 @@ class Trainer:
 
         # Create Metrics for the evaluators
         for evaluator in self.evaluators:
-            if evaluator.metric_names is not None or evaluator.metrics is None:
-                evaluator.metrics = self._create_evaluator_metrics(evaluator)
+            evaluator.metrics = self._create_evaluator_metrics(evaluator)
 
         # Steps per epoch
         if train_subset_num_batches is not None:
@@ -272,9 +260,8 @@ class Trainer:
 
         if eval_subset_num_batches is not None:
             for evaluator in self.evaluators:
-                assert isinstance(evaluator.dataset, DataSpec)
-                eval_dataspec = evaluator.dataset.dataloader
-                if eval_subset_num_batches > len(eval_dataspec):
+                assert isinstance(evaluator.dataloader, DataLoader)
+                if eval_subset_num_batches > len(evaluator.dataloader):
                     warnings.warn(
                         textwrap.dedent(
                             f"""SubsetNumBatchesWarning: The eval_subset_num_batches({eval_subset_num_batches})
@@ -524,23 +511,19 @@ class Trainer:
 
         return metrics
 
-    def _create_evaluator_metrics(self, evaluator: Evaluator = None) -> MetricCollection:
+    def _create_evaluator_metrics(self, evaluator: Evaluator) -> MetricCollection:
         """Get metrics compatible with a model and deepcopy them to store in an Evaluator.
         
-        Get metrics relevant to a model or a particular evaluator. Metrics
-        are all implemented as subclasses of :class:`torchmetrics.Metric`. This
-        function returns metrics as a :class:`~torchmetrics.collections.MetricCollection`
-        to enable support for multiple metrics.
+        If the Evaluatormetric_names is empty or None is provided, the function returns
+        a copy of all the model's default evaluation metrics.
 
         Args:
-            evaluator (Evaluator): Evaluator to get the relevant metrics for. If the Evaluator
-                metric_names is empty or None is provided, the function returns
-                a copy of all the model's default evaluation metrics.
+            evaluator (Evaluator): Evaluator to get the relevant metrics for. 
 
         Returns:
             A :class:`~torchmetrics.collections.MetricCollection` object.
         """
-        # Get and copy all the model's associated metrics
+        # Get and copy all the model's associated evaluation metrics
         original_model = self.state.model
         assert isinstance(original_model, BaseMosaicModel)
         metrics = original_model.metrics(train=False)
@@ -551,23 +534,37 @@ class Trainer:
             metrics = MetricCollection([metrics])
 
         # Use all the metrics from the model if no metric_names are specified
-        if evaluator.metric_names is None or evaluator.metrics is None or evaluator.metrics:
-            evaluator_metrics = copy.deepcopy(metrics)
-        elif evaluator.metric_names is not None:
-            evaluator_metrics = MetricCollection([])
-            for metric_name in evaluator.metric_names:
-                if metric_name in metrics.keys():
-                    evaluator_metrics.add_metrics(copy.deepcopy(metrics[metric_name]))
-                else:
-                    warnings.warn(
-                        f"No metric found with the name {metric_name}. Check if this"
-                        "metric is compatible/listed in your model.",
-                        category=UserWarning)
-            if len(evaluator_metrics) == 0:
-                raise RuntimeError("No metrics compatible with your model were added to this evaluator."
-                                   "Check that the metrics you specified are compatible/listed in your model.")
+        if evaluator.metrics is None:
+            if evaluator.metric_names is None:
+                evaluator_metrics = copy.deepcopy(metrics)
+            else:
+                evaluator_metrics = MetricCollection([])
+                for metric_name in evaluator.metric_names:
+                    if metric_name in metrics.keys():
+                        evaluator_metrics.add_metrics(copy.deepcopy(metrics[metric_name]))
+                    else:
+                        warnings.warn(
+                            f"No metric found with the name {metric_name}. Check if this"
+                            "metric is compatible/listed in your model metrics.",
+                            category=UserWarning)
+                if len(evaluator_metrics) == 0:
+                    raise RuntimeError("No metrics compatible with your model were added to this evaluator."
+                                       "Check that the metrics you specified are compatible/listed in your model.")
         else:
-            raise RuntimeError("There are no valid metrics for an evaluator.")
+            # Go through all metrics and check if they are compatible with the model
+            assert isinstance(evaluator.metrics, (Metric, MetricCollection)), \
+            "   Error module.metrics() must return a Metric or MetricCollection object."
+            if isinstance(evaluator.metrics, Metric):
+                # Forcing metrics to be a MetricCollection simplifies logging results
+                evaluator_metrics = MetricCollection([evaluator.metrics])
+            else:
+                evaluator_metrics = evaluator.metrics
+            for metric_key in evaluator_metrics.keys():
+                if metric_key not in metrics.keys():
+                    warnings.warn(
+                        f"The metric {metric_key} might not be compatible with your model."
+                        "Check the metrics listed in your model.",
+                        category=UserWarning)
 
         # Safety check to ensure the metric and data are on the same device. Normally not
         # needed because the metric is automatically on the same device as the model.
@@ -619,11 +616,11 @@ class Trainer:
         assert self.state.evaluators is not None
         for evaluator in self.state.evaluators:
 
-            assert evaluator.dataset is not None, f"{evaluator.label} dataloader should be set"
+            assert evaluator.dataloader is not None, f"{evaluator.label} dataloader should be set"
             # spin the eval dataloader once to initialize its sampler deterministically
             # so it does not affect any other RNG reads
-            assert isinstance(evaluator.dataset, DataSpec)
-            for _ in evaluator.dataset.dataloader:
+            assert isinstance(evaluator.dataloader, DataLoader)
+            for _ in evaluator.dataloader:
                 break
 
         # spin the train dataloader's sampler to get to the state of the desired epoch
@@ -917,10 +914,11 @@ class Trainer:
             self.engine.run_event(Event.EVAL_START)
 
             for evaluator in state.evaluators:
-                assert isinstance(evaluator.dataset, DataSpec)
-                for state.batch in itertools.islice(evaluator.dataset.dataloader, self._eval_subset_num_batches):
+                assert isinstance(evaluator.dataloader, DataLoader)
+                for state.batch in itertools.islice(evaluator.dataloader, evaluator.eval_subset_num_batches):
                     state.batch = self.device.batch_to_device(state.batch)
-                    state.batch = evaluator.dataset.device_transforms(state.batch)
+                    if evaluator.device_transforms is not None:
+                        state.batch = evaluator.device_transforms(state.batch)
                     if self.deepspeed_enabled:
                         state.batch = fix_batch_precision_for_deepspeed(state.batch, state.precision)
 

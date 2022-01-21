@@ -4,16 +4,15 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
-from typing import List
+from typing import List, Optional
 
 import yahp as hp
 from torchmetrics.collections import MetricCollection
 
 from composer.core.types import Evaluator
+from composer.datasets import DataloaderHparams
 from composer.datasets.dataset_registry import get_dataset_registry
 from composer.datasets.hparams import DatasetHparams
-from composer.datasets import DataloaderHparams
-from typing import Optional
 
 log = logging.getLogger(__name__)
 
@@ -35,6 +34,7 @@ class EvaluatorHparams(hp.Hparams):
         doc="Name of the metrics for the evaluator.Use the torchmetrics"
         "metric name for torchmetrics and use the classname for custom metrics.",
         default_factory=list)
+    eval_subset_num_batches: Optional[int] = hp.optional("If specified, evaluate on this many batches.", default=None)
 
     def initialize_object(self, batch_size: int, dataloader_hparams: DataloaderHparams):
         dataloader = self.eval_dataset.initialize_object(batch_size=batch_size, dataloader_hparams=dataloader_hparams)
@@ -45,4 +45,5 @@ class EvaluatorHparams(hp.Hparams):
                          metrics=MetricCollection([]),
                          metric_names=self.metric_names,
                          validate_every_n_batches=self.validate_every_n_batches,
-                         validate_every_n_epochs=self.validate_every_n_epochs)
+                         validate_every_n_epochs=self.validate_every_n_epochs,
+                         eval_subset_num_batches=self.eval_subset_num_batches)

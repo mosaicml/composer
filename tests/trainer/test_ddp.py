@@ -191,11 +191,10 @@ def test_ddp(device: DeviceHparams, world_size: int, mosaic_trainer_hparams: Tra
     assert isinstance(trainer.state.train_dataloader.dataset, collections.abc.Sized)
 
     for evaluator in trainer.evaluators:
-        assert isinstance(evaluator.dataset.dataloader, collections.abc.Sized)
+        assert isinstance(evaluator.dataloader, collections.abc.Sized)
     trainer.fit()
 
     expected_train_num_loads = hparams.max_epochs * hparams.train_batch_size * hparams.train_subset_num_batches
-    # TODO Anis Change this
     expected_val_num_loads = hparams.max_epochs * hparams.eval_batch_size * hparams.eval_subset_num_batches
     # adding hparams.eval_batch_size to account for the extra spin of the eval dataloader
     # that is called to create a deterministic ordering for the sampler

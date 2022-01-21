@@ -6,9 +6,9 @@ See :doc:`/core/types` for documentation.
 """
 
 from __future__ import annotations
-from dataclasses import dataclass
 
-from typing import TYPE_CHECKING, Any, Dict, Iterable, Iterator, List, Optional, Sequence, Tuple, Union
+from dataclasses import dataclass
+from typing import TYPE_CHECKING, Any, Callable, Dict, Iterable, Iterator, List, Optional, Sequence, Tuple, Union
 
 import torch
 import torch.utils.data
@@ -76,22 +76,6 @@ def as_batch_pair(batch: Batch) -> BatchPair:
     if not len(batch) == 2:
         raise TypeError(f'batch has length {len(batch)}, expected length 2')
     return batch
-
-
-def _split_fn(batch: Batch, n_microbatches: int) -> List[Batch]:
-    if not isinstance(batch, Sequence):
-        raise ValueError(f'split_fn requires batch be a tuple pair of tensors, got {type(batch)}')
-    x, y = batch
-    if isinstance(x, Tensor) and isinstance(y, Tensor):
-        return list(zip(x.chunk(n_microbatches), y.chunk(n_microbatches)))
-    if isinstance(x, List) and isinstance(y, List):
-        return list(
-            zip(
-                [x[i::n_microbatches] for i in range(n_microbatches)],
-                [y[i::n_microbatches] for i in range(n_microbatches)],
-            ))
-    raise NotImplementedError('The default split_fn is unable to split the output of this'
-                              'dataloader. Please define a split_fn in your dataloader spec.')
 
 
 Dataset = torch.utils.data.Dataset[Batch]
@@ -164,23 +148,49 @@ class Evaluator:
 
     Attributes:
         label (str): Name of the Evaluator
-        dataset (Union[DataLoader, DataSpec]): Dataloader for evaluation data
-        metrics (Metrics): Metrics to use for the dataset
-        validate_every_n_epochs: (int)
-        validate_every_n_batches: (int)
-        metric_names: (Optional[List[str]])
-        device_transform_fn (TDeviceTransformFn, optional):
-            A function to modify the data once it has been loaded onto the device (for example, GPU-based batch normalization)
-            This function is invoked with a batch of data after it has been moved onto the device,
-            and it is expected to return a batch.
+        dataloader (Union[DataLoader, DataSpec]): Dataloader/DataSpec for evaluation data
+        metrics (Optional[Metrics]): Metrics to use for the dataset.
+        validate_every_n_batches (Optional[int]): Compute metrics on evaluation data every N batches.
+             Set to -1 to never validate on a batchwise frequency. (default: ``-1``)
+        validate_every_n_epochs (Optional[int]): Compute metrics on evaluation data every N epochs.
+            Set to -1 to never validate on a epochwise frequency. (default: ``1``)
+        metric_names: (Optional[List[str]]): List of string names for desired metrics in an Evaluator. If specified,
+            the trainer will look through the compatible metrics for a model and populate the metrics field
+            with torchmetrics with names appearing in metric_names.
+        eval_subset_num_batches (int, optional): If specified, evaluate on this many batches.
+            This parameter has no effect if it is greater than ``len(eval_dataloader)``.
+            If None (the default), then the entire dataloader will be iterated over.
+        device_transforms ((Batch) -> Batch, optional): Function that is called by the trainer to modify the batch
+            once it has been moved onto the device. For example, this function can be used for GPU-based normalization.
+            It can modify the batch in-place, and it should return the modified batch. If omitted, the batch is not
+            modified.
     """
 
     label: str
-    dataset: Union[DataLoader, DataSpec]
-    metrics: Metrics
+    dataloader: Union[DataLoader, DataSpec]
+    metrics: Metrics = None
     validate_every_n_epochs: int = 1
     validate_every_n_batches: int = -1
-    metric_names: Optional[List[str]] = None
+    metric_names: Optional[Sequence[str]] = None
+    eval_subset_num_batches: Optional[int] = None
+    device_transforms: Optional[Callable[[Batch], Batch]] = None
+
+    def __post_init__(self):
+        from composer.datasets.dataloader import DDPDataLoader
+        if isinstance(self.dataloader, DataSpec):
+            dataloader_spec = self.dataloader
+            self.device_transforms = dataloader_spec.device_transforms
+        else:
+            dataloader_spec = DataSpec(self.dataloader)
+        self.dataloader = DDPDataLoader(dataloader_spec.dataloader)
+
+        if self.metrics is not None:
+            assert isinstance(self.metrics, (Metric, MetricCollection)), \
+            "   Error module.metrics() must return a Metric or MetricCollection object."
+            if isinstance(self.metrics, Metric):
+                # Forcing metrics to be a MetricCollection simplifies logging results
+                self.metrics = MetricCollection([self.metrics])
+
 
 
 Metrics = Union[Metric, MetricCollection]

@@ -17,7 +17,7 @@ from tests.utils.trainer_fit import train_model
 def _generate_state(epoch: int, max_epochs: int, model: Model, train_dataloader: DataLoader,
                     val_dataloader: DataLoader):
     metric_coll = MetricCollection([Accuracy()])
-    evaluators = [Evaluator(label="dummy_label", dataset=val_dataloader, metrics=metric_coll)]
+    evaluators = [Evaluator(label="dummy_label", dataloader=val_dataloader, metrics=metric_coll)]
     state = State(
         grad_accum=1,
         max_epochs=max_epochs,

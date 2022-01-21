@@ -134,12 +134,6 @@ class State(Serializable):
             else:
                 train_dataloader = DataSpec(train_dataloader)
         self.train_data = train_dataloader
-        for evaluator in evaluators:
-            if not isinstance(evaluator.dataset, DataSpec):
-                if isinstance(evaluator.dataset, dict):
-                    evaluator.dataset = DataSpec(**evaluator.dataset)
-                else:
-                    evaluator.dataset = DataSpec(evaluator.dataset)
         self.evaluator_data = evaluators
         self.max_epochs = max_epochs
         self.step = 0
@@ -181,12 +175,6 @@ class State(Serializable):
 
     @evaluators.setter
     def evaluators(self, evaluators: Sequence[types.Evaluator]):
-        for evaluator in evaluators:
-            if not isinstance(evaluator.dataloader, DataSpec):
-                if isinstance(evaluator.dataloader, dict):
-                    evaluator.dataloader = DataSpec(**evaluator.dataloader)
-                else:
-                    evaluator.dataloader = DataSpec(evaluator.dataloader)
         self.evaluator_data = evaluators
 
     @property

@@ -10,7 +10,7 @@ from torchmetrics.classification.accuracy import Accuracy
 from torchmetrics.collections import MetricCollection
 
 from composer import Logger, State
-from composer.core.types import DataLoader, DataSpec, Model, Precision, Evaluator
+from composer.core.types import DataLoader, DataSpec, Evaluator, Model, Precision
 from composer.datasets import DataloaderHparams, DatasetHparams
 from composer.models import ModelHparams, MosaicClassifier
 from composer.optim import AdamHparams, ExponentialLRHparams
@@ -80,7 +80,7 @@ def dummy_val_dataset_hparams(dummy_model: SimpleBatchPairModel,
 def dummy_state_without_rank(dummy_model: SimpleBatchPairModel, dummy_train_dataloader: DataLoader,
                              dummy_val_dataloader: DataLoader) -> State:
     evaluators = [
-        Evaluator(label="dummy_label", dataset=dummy_val_dataloader, metrics=dummy_model.metrics(train=False))
+        Evaluator(label="dummy_label", dataloader=dummy_val_dataloader, metrics=dummy_model.metrics(train=False))
     ]
     state = State(
         model=dummy_model,
@@ -199,7 +199,7 @@ def simple_conv_model_input():
 @pytest.fixture()
 def state_with_model(simple_conv_model: Model, dummy_train_dataloader: DataLoader, dummy_val_dataloader: DataLoader):
     metric_coll = MetricCollection([Accuracy()])
-    evaluators = [Evaluator(label="dummy_label", dataset=dummy_val_dataloader, metrics=metric_coll)]
+    evaluators = [Evaluator(label="dummy_label", dataloader=dummy_val_dataloader, metrics=metric_coll)]
     state = State(
         grad_accum=1,
         max_epochs=100,

@@ -24,7 +24,7 @@ def random_tensor(size=(4, 10)):
 def get_dummy_state(model: BaseMosaicModel, train_dataloader: types.DataLoader, val_dataloader: types.DataLoader):
     optimizers = torch.optim.Adadelta(model.parameters())
 
-    evaluators = [types.Evaluator(label="dummy_label", dataset=val_dataloader, metrics=model.metrics(train=False))]
+    evaluators = [types.Evaluator(label="dummy_label", dataspec=val_dataloader, metrics=model.metrics(train=False))]
     state = State(model=model,
                   grad_accum=random.randint(0, 100),
                   precision=types.Precision.AMP,
