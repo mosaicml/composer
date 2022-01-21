@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import textwrap
-import warnings
 from dataclasses import dataclass
 from typing import Any, Callable, Iterator, Optional
 
@@ -11,7 +10,6 @@ import torch
 import torch.distributed
 import torch.utils.data
 import yahp as hp
-from torch.utils.data.distributed import DistributedSampler
 
 from composer.core.types import Batch, DataLoader, Dataset
 
@@ -43,44 +41,6 @@ class WrappedDataLoader(DataLoader):
                                             "timeout", "sampler", "prefetch_factor", "dataloader"):
             raise RuntimeError(f"Property {name} cannot be set after initialization in a DataLoader")
         return super().__setattr__(name, value)
-
-
-class DDPDataLoader(WrappedDataLoader):
-    """Wraps the dataset to ensure that, if the dataset sampler is a
-    :class:`~torch.utils.data.distributed.DistributedSampler`, then
-    :meth:`~torch.utils.data.distributed.DistributedSampler.set_epoch`
-    is called after each epoch.
-    
-    If the dataset sampler is not a :class:`~torch.utils.data.distributed.DistributedSampler`,
-    then this wrapper is a no-op.
-    """
-
-    def __init__(self, dataloader: DataLoader) -> None:
-        super().__init__(dataloader)
-        self._iterator: Optional[Iterator[Batch]] = None
-
-    def __iter__(self) -> DDPDataLoader:
-        if self._iterator is not None:
-            warnings.warn(
-                "DataloaderMultipleIterationWarning: "
-                "The dataloader detected the start of a new iteration before the previous iteration finished. "
-                "The dataloader is skipping ahead to the start of the next epoch. "
-                "Multiple simultaneous iterations through the DDP dataloader prohibited, since "
-                "it automatically tracks the current epoch.")
-            if isinstance(self.sampler, DistributedSampler):
-                self.sampler.set_epoch(epoch=self.sampler.epoch + 1)
-        self._iterator = iter(self.dataloader)
-        return self
-
-    def __next__(self) -> Batch:
-        assert self._iterator is not None
-        try:
-            return next(self._iterator)
-        except StopIteration:
-            self._iterator = None
-            if isinstance(self.sampler, DistributedSampler):
-                self.sampler.set_epoch(epoch=self.sampler.epoch + 1)
-            raise
 
 
 @dataclass
