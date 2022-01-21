@@ -190,11 +190,13 @@ class MosaicMLLoggerBackend(BaseLoggerBackend):
 
     def post_close(self):
         # Write any relevant logs from other callback's close() functions here
-        if self.skip_logging or not self.run_id:
+        if self.skip_logging:
             return
 
         # Flush any remaining logs on training end
         self._flush_buffered_data()
+
+        assert self.run_id is not None, "run ID is set in self._flush_buffered_data"
 
         log.info(f"Updating run status to {RunStatus.COMPLETED}")
         _upsert_run(run_id=self.run_id,
