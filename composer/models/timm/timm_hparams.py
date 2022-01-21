@@ -37,7 +37,7 @@ class TimmHparams(ModelHparams):
     )
 
     def validate(self):
-        if self.model is None:
+        if self.model_name is None:
             raise ValueError(f"model must be one of {timm.models.list_models()}")
 
     def initialize_object(self):
