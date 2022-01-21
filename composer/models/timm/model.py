@@ -1,6 +1,5 @@
 from typing import Optional
 from composer.models.base import MosaicClassifier
-import timm
 
 
 class Timm(MosaicClassifier):
@@ -29,7 +28,7 @@ class Timm(MosaicClassifier):
         bn_momentum: Optional[float] = None,
         bn_eps: Optional[float] = None,
     ) -> None:
-
+        import timm
         model = timm.create_model(
             model_name=model_name,
             pretrained=pretrained,
