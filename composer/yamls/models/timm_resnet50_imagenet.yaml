@@ -35,7 +35,7 @@ schedulers:
       interval: step
 model:
   timm:
-    model: 'resnet50'
+    model_name: 'resnet50'
     num_classes: 1000
 loggers:
   - tqdm: {}

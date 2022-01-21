@@ -10,8 +10,8 @@ import timm
 @dataclass
 class TimmHparams(ModelHparams):
 
-    model: str = hp.optional(
-        "timm model string e.g:  list of models can be found at https://github.com/rwightman/pytorch-image-models",
+    model_name: str = hp.optional(
+        "timm model name e.g:  list of models can be found at https://github.com/rwightman/pytorch-image-models",
         default=None,
     )
     pretrained: bool = hp.optional("imagenet pretrained", default=False)
@@ -42,7 +42,7 @@ class TimmHparams(ModelHparams):
 
     def initialize_object(self):
         return timm.create_model(
-            model=self.model,
+            model_name=self.model_name,
             pretrained=self.pretrained,
             num_classes=self.num_classes,
             drop_rate=self.drop_rate,
