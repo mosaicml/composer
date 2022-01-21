@@ -21,8 +21,7 @@ from torchmetrics.metric import Metric
 from composer.core import Callback, DataSpec, Engine, Event, Logger, State, Time
 from composer.core.algorithm import Algorithm
 from composer.core.logging import BaseLoggerBackend, LogLevel
-from composer.core.types import BreakEpochException, DataLoader, Metrics, Precision
-from composer.datasets.dataloader import DDPDataLoader
+from composer.core.types import Batch, BreakEpochException, DataLoader, Metrics, Precision
 from composer.loggers.tqdm_logger import TQDMLoggerBackend
 from composer.models.base import BaseMosaicModel
 from composer.optim import (ComposedScheduler, CosineAnnealingLRHparams, DecoupledSGDWHparams, OptimizerHparams,
@@ -216,10 +215,8 @@ class Trainer:
 
         if not isinstance(train_dataloader, DataSpec):
             train_dataloader = DataSpec(train_dataloader)
-        train_dataloader.dataloader = DDPDataLoader(train_dataloader.dataloader)
         if not isinstance(eval_dataloader, DataSpec):
             eval_dataloader = DataSpec(eval_dataloader)
-        eval_dataloader.dataloader = DDPDataLoader(eval_dataloader.dataloader)
 
         self._train_data_spec = train_dataloader
         self._eval_data_spec = eval_dataloader
@@ -513,18 +510,17 @@ class Trainer:
         since only the first batch is being loaded, the dataloader may
         not be completely iterated through.
         """
-        # surpressing this multiple iteration warning -- it is OK to ignore
-        warnings.filterwarnings(action="ignore", message=r"^DataloaderMultipleIterationWarning", append=True)
-        assert self.state.train_dataloader is not None, "train dataloader should be set"
-        assert self.state.eval_dataloader is not None, "eval dataloader should be set"
-
         # spin the eval dataloader once to initialize its sampler deterministically
         # so it does not affect any other RNG reads
+        if isinstance(self.state.eval_dataloader.sampler, torch.utils.data.DistributedSampler):
+            self.state.eval_dataloader.sampler.set_epoch(0)
         for _ in self.state.eval_dataloader:
             break
 
         # spin the train dataloader's sampler to get to the state of the desired epoch
-        for _ in range(self.state.epoch):
+        for epoch in range(int(self.state.timer.epoch)):
+            if isinstance(self.state.train_dataloader.sampler, torch.utils.data.DistributedSampler):
+                self.state.train_dataloader.sampler.set_epoch(epoch)
             for _ in self.state.train_dataloader:
                 break
 
@@ -570,6 +566,9 @@ class Trainer:
                     self.engine.run_event(Event.EPOCH_START)
                     self.logger.metric_epoch({"epoch": self.state.epoch})
 
+                if isinstance(self.state.train_dataloader.sampler, torch.utils.data.DistributedSampler):
+                    self.state.train_dataloader.sampler.set_epoch(int(self.state.timer.epoch))
+
                 for batch_idx, state.batch in enumerate(
                         itertools.islice(state.train_dataloader, self.state.steps_per_epoch)):
 
@@ -583,7 +582,6 @@ class Trainer:
                     state.batch = self._train_data_spec.device_transforms(state.batch)
                     state.batch_num_samples = self._train_data_spec.get_num_samples_in_batch(state.batch)
                     state.batch_num_tokens = self._train_data_spec.get_num_tokens_in_batch(state.batch)
-                    state.microbatches = self._train_data_spec.split_batch(state.batch, state.grad_accum)
 
                     if self.deepspeed_enabled:
                         state.batch = fix_batch_precision_for_deepspeed(state.batch, state.precision)
@@ -593,7 +591,7 @@ class Trainer:
                         assert train_metrics is not None
                         state.model.eval()
                         with torch.no_grad():
-                            for eval_microbatch in state.microbatches:
+                            for eval_microbatch in self._train_data_spec.split_batch(state.batch, state.grad_accum):
                                 # TODO: Detect if self.run_event(Event.AFTER_DATALOADER) changes the training
                                 # data and if so print a warning that metrics may return unexpected results
                                 outputs, targets = self.original_model.validate(eval_microbatch)
@@ -616,16 +614,18 @@ class Trainer:
                         "trainer/batch_idx": self.state.timer.batch_in_epoch.value,
                     })
                     total_loss = None
+                    microbatches = self._train_data_spec.split_batch(state.batch, state.grad_accum)
                     if self.deepspeed_enabled:
-                        total_loss = self._train_batch()
+                        total_loss = self._train_batch(microbatches)
                     elif self._use_closures():
                         for optimizer in state.optimizers:
                             if use_grad_scaling:
-                                total_loss = state.scaler.step(optimizer, closure=self._train_batch)
+                                total_loss = state.scaler.step(optimizer,
+                                                               closure=lambda: self._train_batch(microbatches))
                             else:
-                                total_loss = optimizer.step(closure=lambda: self._train_batch().item())
+                                total_loss = optimizer.step(closure=lambda: self._train_batch(microbatches).item())
                     else:
-                        total_loss = self._train_batch()
+                        total_loss = self._train_batch(microbatches)
                         for optimizer in state.optimizers:
                             if use_grad_scaling:
                                 state.scaler.step(optimizer)
@@ -690,7 +690,7 @@ class Trainer:
 
         self.engine.run_event(Event.TRAINING_END)
 
-    def _train_batch(self, ddp_sync: bool = True):
+    def _train_batch(self, microbatches: Sequence[Batch], ddp_sync: bool = True):
         """Run training on a full batch of data.
 
         Args:
@@ -702,12 +702,12 @@ class Trainer:
         if ddp_sync or not isinstance(self.state.model, DistributedDataParallel):
             context = contextlib.nullcontext
         else:
-            context = self.state.model.no_sync
+            context = cast(Callable[[], ContextManager], self.state.model.no_sync)
 
-        with context():  # type: ignore - Pyright apparently doesn't recognize no_sync
-            return self._train_batch_inner()
+        with context():
+            return self._train_batch_inner(microbatches)
 
-    def _train_batch_inner(self):
+    def _train_batch_inner(self, microbatches: Sequence[Batch]):
         """Iterate over microbatches and compute the loss that will be used to step
         the optimizer.
         """
@@ -725,13 +725,12 @@ class Trainer:
 
         # tracker for gradient accumulation
         total_loss = self.device.tensor_to_device(torch.zeros(size=(1,)))
-        current_batch_size = sum(
-            [self._train_data_spec.get_num_samples_in_batch(batch) for batch in state.microbatches])
+        current_batch_size = sum([self._train_data_spec.get_num_samples_in_batch(batch) for batch in microbatches])
 
-        for state.microbatch_idx, state.batch in enumerate(state.microbatches):
+        for microbatch_idx, state.batch in enumerate(microbatches):
             state.batch_num_tokens = self._train_data_spec.get_num_tokens_in_batch(state.batch)
             state.batch_num_samples = self._train_data_spec.get_num_samples_in_batch(state.batch)
-            is_final_microbatch = state.microbatch_idx + 1 == len(state.microbatches)
+            is_final_microbatch = microbatch_idx + 1 == len(microbatches)
             sync_context = contextlib.nullcontext() if self.deepspeed_enabled else ddp_sync_context(
                 state, is_final_microbatch, self.ddp_sync_strategy)
             with sync_context:
@@ -821,6 +820,13 @@ class Trainer:
             self.engine.run_event(Event.EVAL_START)
 
             metrics = self._get_metrics_as_collection(is_train=False)
+
+            if isinstance(self.state.eval_dataloader.sampler, torch.utils.data.DistributedSampler):
+                # The distributed sampler uses `set_epoch` to set the random seed
+                # Because evaluation can run on each batch, we use the batch to seed the sampler
+                # so each evaluation will get a proper shuffle.
+                # The epoch provided to `set_epoch` need not be sequential, so this is fine.
+                self.state.eval_dataloader.sampler.set_epoch(int(self.state.timer.batch))
 
             for state.batch in itertools.islice(state.eval_dataloader, self._eval_subset_num_batches):
                 state.batch = self.device.batch_to_device(state.batch)
