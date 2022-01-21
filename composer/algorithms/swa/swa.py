@@ -46,7 +46,7 @@ class SWA(Algorithm):
         self.swa_model = None
 
     def match(self, event: Event, state: State) -> bool:
-        """Run in Event.INIT, Event.TRAINING_END or if Event.EPOCH_END and epochs greater than or equal to `swa_start * max_epochs`
+        """Run on EPOCH_END if epochs greater than or equal to `swa_start * max_epochs`
 
         Args:
             event (:class:`Event`): The current event.

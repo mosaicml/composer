@@ -15,7 +15,7 @@ from composer import Engine, Event, algorithms
 
 engine = Engine(state, algorithms=[algorithms.BlurPool()])
 
-engine.run_algorithms(event=Event.TRAINING_START)  # applies blurpool to state.model
+engine.run_algorithms(event=Event.INIT)  # applies blurpool to state.model
 ```
 <!--- Table Start (below is auto generated) -->
 Name|Functional|Attribution|tl;dr|Card

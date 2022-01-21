@@ -6,9 +6,7 @@
     * - Name
       - Description
     * - ``INIT``
-      - Immediately after ``model`` initialization, and before creation of ``optimizers`` and ``schedulers``. Model surgery typically occurs here.
-    * - ``TRAINING_START``
-      - Start of training. For multi-GPU training, runs after the DDP process fork.
+      - Before training begins. Model surgery typically occurs here.
     * - ``EPOCH_START``, ``EPOCH_END``
       - Start and end of an Epoch.
     * - ``BATCH_START``, ``BATCH_END``
@@ -23,8 +21,6 @@
       - Before and after the loss computation.
     * - ``BEFORE_BACKWARD``, ``AFTER_BACKWARD``
       - Before and after the backward pass.
-    * - ``TRAINING_END``
-      - End of training.
     * - ``EVAL_START``, ``EVAL_END``
       - Start and end of evaluation through the validation dataset.
     * - ``EVAL_BATCH_START``, ``EVAL_BATCH_END``
