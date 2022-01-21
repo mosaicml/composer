@@ -3,15 +3,16 @@ from typing import Optional
 
 from dataclasses import dataclass
 import yahp as hp
-from composer.models.model_hparams import ModelHparams
 import timm
+from composer.models.model_hparams import ModelHparams
+from composer.models.timm.model import Timm
 
 
 @dataclass
 class TimmHparams(ModelHparams):
 
     model_name: str = hp.optional(
-        "timm model name e.g:  list of models can be found at https://github.com/rwightman/pytorch-image-models",
+        "timm model name e.g: 'resnet50', list of models can be found at https://github.com/rwightman/pytorch-image-models",
         default=None,
     )
     pretrained: bool = hp.optional("imagenet pretrained", default=False)
@@ -41,7 +42,7 @@ class TimmHparams(ModelHparams):
             raise ValueError(f"model must be one of {timm.models.list_models()}")
 
     def initialize_object(self):
-        return timm.create_model(
+        return Timm(
             model_name=self.model_name,
             pretrained=self.pretrained,
             num_classes=self.num_classes,
