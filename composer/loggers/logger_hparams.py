@@ -188,12 +188,13 @@ class WandBLoggerBackendHparams(BaseLoggerBackendHparams):
                 self.extra_init_params["config"] = {}
             self.extra_init_params["config"].update(flattened_config)  # type: ignore
 
-        name_suffix = f"Rank{dist.get_global_rank()}"
+        name_suffix = f"Rank {dist.get_global_rank()}"
         name = f"{self.name}_{name_suffix}" if self.name else name_suffix
+        group = self.name if (self.rank_zero_only and not self.group) else self.group
         init_params = {
             "project": self.project,
             "name": name,
-            "group": self.group,
+            "group": group,
             "entity": self.entity,
             "tags": tags,
         }
