@@ -227,8 +227,9 @@ class Trainer:
 
         # do a check here to make sure there is at least one validation set
         if self.evaluators is None or len(self.evaluators) == 0:
-            raise ValueError('At least one validation set should be used and passed in through ',
-                             'eval_dataloader or the evaluators')
+            warnings.warn(f'At least one validation set should be used and passed in through ',
+                          'eval_dataloader or the evaluators',
+                          category=UserWarning)
 
         # TODO(#123): DeepSpeed still needs a precision context, but it's not completely clear how to
         # handle this with our version of Pytorch
@@ -252,6 +253,10 @@ class Trainer:
             train_dataloader=train_dataloader.dataloader,
             evaluators=self.evaluators,
         )
+
+        if self.evaluators:
+            for evaluator in self.evaluators:
+                evaluator.metrics = self._create_evaluator_metrics(evaluator)
 
         # Configure the profiler
         if profiler is not None:

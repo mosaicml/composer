@@ -183,6 +183,7 @@ class State(Serializable):
                       category=DeprecationWarning)
         return self.timer.batch.value
 
+    @property
     def max_duration(self):
         return self._max_duration
 

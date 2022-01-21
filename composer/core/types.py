@@ -194,7 +194,6 @@ class Evaluator:
                 self.metrics = MetricCollection([self.metrics])
 
 
-
 Metrics = Union[Metric, MetricCollection]
 
 Optimizer = torch.optim.Optimizer
