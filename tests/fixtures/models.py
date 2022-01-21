@@ -34,6 +34,11 @@ class SimpleBatchPairModel(BaseMosaicModel):
         self.train_acc = torchmetrics.Accuracy()
         self.val_acc = torchmetrics.Accuracy()
 
+        # Important: It is crucial that the FC layers are bound to `self`
+        # for the optimizer surgery tests.
+        # These tests attempt to perform surgery on `fc1` layer, and we want
+        # to make sure that post-surgery, self.fc1 refers to the same parameters
+        # as self.net[1]
         self.fc1 = torch.nn.Linear(in_features_flattened, 5)
 
         self.fc2 = torch.nn.Linear(5, num_classes)

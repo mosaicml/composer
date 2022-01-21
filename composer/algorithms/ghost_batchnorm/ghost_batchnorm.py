@@ -111,7 +111,14 @@ def apply_ghost_batchnorm(model: torch.nn.Module,
     Args:
         model: model to transform
         ghost_batch_size: size of sub-batches to normalize over
-        optimizers: optimizers to transform
+        optimizers (Optimizers, optional):  Existing optimizers bound to ``model.parameters()``.
+            All optimizers that have already been constructed with,
+            ``model.parameters()`` must be specified here so they will optimize
+            the correct parameters.
+            
+            If the optimizer(s) are constructed *after* calling this function,
+            then it is safe to omit this parameter. These optimizers will see the correct
+            model parameters.
     """
 
     def maybe_replace(module: torch.nn.Module, module_index: int) -> Optional[torch.nn.Module]:

@@ -216,17 +216,15 @@ def _find_param_in_optimizer(param: torch.nn.parameter.Parameter, optimizer: tor
         optimizer (torch.optim.Optimizer): The optimizer to search within.
     
     Returns:
-        int: The index within `opt.param_groups` of the first group containing ``param``.
-
-    Raises:
-        RuntimeError: If the ``param`` is not in the ``opt`.
+        int: The index within `opt.param_groups` of the first group containing ``param``,
+        or `-1` if ``param`` is not in the ``opt`.
     """
     for i, group in enumerate(optimizer.param_groups):
         param_list: List[torch.nn.parameter.Parameter] = group['params']
         if _tensor_in(param, param_list):
             return i
 
-    raise RuntimeError(f"Couldn't find the parameter in the optimizer")
+    return -1
 
 
 def update_params_in_optimizer(old_params: Iterable[torch.nn.parameter.Parameter],
@@ -242,7 +240,7 @@ def update_params_in_optimizer(old_params: Iterable[torch.nn.parameter.Parameter
     to an existing `param_group` are not officially supported, so this
     function may fail when PyTorch is updated. The recommended practice is
     to instead recreate the optimizer when the parameter set changes if
-    possible. See https://github.com/pytorch/pytorch/issues/1489#issuecomment-355301737.
+    possible. See `recommended practice <https://github.com/pytorch/pytorch/issues/1489#issuecomment-355301737>`_.
     To simply add new parameters without replacing existing ones, use
     :meth:`~torch.optim.Optimizer.add_param_group`.
     Args:
@@ -253,8 +251,8 @@ def update_params_in_optimizer(old_params: Iterable[torch.nn.parameter.Parameter
         optimizers (Optimizers): One or more `torch.optim.Optimizer` objects
     Raises:
         NotImplementedError: If `optimizers` contains more than one optimizer
-        RuntimeError: If any removed parameters are not all found in one
-            parameter group, or if any of them are not found at all
+        RuntimeError: If not all removed parameters are found in the
+            same parameter group, or if any of them are not found at all
     """
     if len(ensure_tuple(optimizers)) > 1:
         raise NotImplementedError(
@@ -285,6 +283,10 @@ def update_params_in_optimizer(old_params: Iterable[torch.nn.parameter.Parameter
 
         if len(old_group_idxs) == 0:
             raise RuntimeError("No parameters were removed, so unable to infer the group into which to add parameters.")
+        
+        missing_param_groups = [x for x in old_group_idxs if x < 0]
+        if len(missing_param_groups) > 0:
+            raise RuntimeError(f"Parameter groups {missing_param_groups} are not in the optimizer")
 
         if min(old_group_idxs) != max(old_group_idxs) and len(added_params):
             raise RuntimeError(

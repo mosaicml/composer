@@ -94,7 +94,14 @@ def apply_alibi(
             attention mask. This is sometimes necessary for evaluating
             on sequence lengths longer than the model was initialized to
             accommodate.
-        optimizers: optimizers to transform
+        optimizers (Optimizers, optional): Existing optimizers bound to ``model.parameters()``.
+            All optimizers that have already been constructed with,
+            ``model.parameters()`` must be specified here so they will optimize
+            the correct parameters.
+            
+            If the optimizer(s) are constructed *after* calling this function,
+            then it is safe to omit this parameter. These optimizers will see the correct
+            model parameters.
     """
 
     zero_and_freeze_expand_position_embeddings(model=model,
