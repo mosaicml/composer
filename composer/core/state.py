@@ -57,8 +57,6 @@ SKIP_SERIALIZATION_FIELDS = [
     "batch",
     "batch_num_samples",
     "batch_num_tokens",
-    "microbatches",
-    "microbatch_idx",
     "outputs",
     "train_dataloader",
     "eval_dataloader",
@@ -102,8 +100,6 @@ class State(Serializable):
             microbatch between :attr:`Event.BATCH_START` and :attr:`Event.BATCH_END`.
         batch_num_samples (int): The number of samples in the :attr:`batch`.
         batch_num_tokens (int): The number of tokens in the :attr:`batch`.
-        microbatches (Sequence[type.Batch]): The batch, split into ``grad_accum`` microbatches.
-        microbatch_idx (int): The current microbatch index, which will be on [0, ``grad_accum``).
 
         loss (types.Tensors): The most recently computed loss.
         outputs (types.Tensors): The most recently computed output from the model's forward pass.
@@ -114,8 +110,6 @@ class State(Serializable):
     batch: types.Batch
     batch_num_samples: int
     batch_num_tokens: int
-    microbatches: Sequence[types.Batch]
-    microbatch_idx: int
     loss: types.Tensors
     outputs: types.Tensors
 
