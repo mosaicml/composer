@@ -27,5 +27,7 @@ from composer.models.resnet101 import ResNet101 as ResNet101
 from composer.models.resnet101 import ResNet101Hparams as ResNet101Hparams
 from composer.models.transformer_shared import MosaicTransformer as MosaicTransformer
 from composer.models.timm import TimmHparams as TimmHparams
+from composer.models.timm import Timm as Timm
+
 from composer.models.unet import UNet as UNet
 from composer.models.unet import UnetHparams as UnetHparams
