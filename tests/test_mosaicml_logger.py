@@ -82,7 +82,6 @@ def test_mosaic_logger(tmpdir: pathlib.Path, dummy_state: State, dummy_logger: L
             buffer_length = 0
             expected_log_calls += 1
 
-    logger.training_end(state=dummy_state, logger=dummy_logger)
     logger.post_close()
 
     assert num_log_calls == expected_log_calls

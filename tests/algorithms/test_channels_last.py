@@ -42,12 +42,14 @@ def state(simple_conv_model: Model, dummy_train_dataloader: DataLoader, dummy_va
     )
 
 
+@pytest.mark.gpu
 def test_channels_last_algorithm(state, dummy_logger):
     channels_last = ChannelsLastHparams().initialize_object()
 
     assert state.model is not None
     assert _infer_memory_format(state.model.module.conv1.weight) == 'nchw'
-    channels_last.apply(Event.TRAINING_START, state, dummy_logger)
+    channels_last.apply(Event.INIT, state, dummy_logger)
+    state.model = state.model.cuda()  # move the model to gpu
     assert _infer_memory_format(state.model.module.conv1.weight) == 'nhwc'
 
 

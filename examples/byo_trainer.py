@@ -78,6 +78,8 @@ def train():
         batch_size=args.train_batch_size,
         shuffle=False,
     )
+    optimizers = torch.optim.SGD(model.parameters(), lr=0.01, momentum=0.99)
+    schedulers = torch.optim.lr_scheduler.MultiStepLR(optimizers, milestones=[2, 4], gamma=0.1)
     # to use our algorithms, create and maintain the trainer state
     state = composer.State(
         model=model,
@@ -86,6 +88,8 @@ def train():
         max_duration=f"{args.epochs}ep",
         grad_accum=1,
         precision=Precision.FP32,
+        optimizers=optimizers,
+        schedulers=schedulers,
     )
 
     # define which algorithms to apply and configure the cmp engine
@@ -94,13 +98,7 @@ def train():
     engine = composer.Engine(state=state)
 
     # add two-way callbacks in the trainer loop
-    engine.run_event(
-        Event.INIT)  # Event.INIT should be run BEFORE any DDP fork and before optimizers and schedulers are created
-
-    state.optimizers = torch.optim.SGD(model.parameters(), lr=0.01, momentum=0.99)
-    state.schedulers = torch.optim.lr_scheduler.MultiStepLR(state.optimizers, milestones=[2, 4], gamma=0.1)
-
-    engine.run_event(Event.TRAINING_START)  # the Event.TRAINING_START should be run AFTER any DDP fork
+    engine.run_event(Event.INIT)  # Event.INIT should be run BEFORE any DDP fork
 
     while state.timer < state.max_duration:
         logging.info(f'Epoch {state.epoch}')
@@ -146,8 +144,6 @@ def train():
 
         engine.run_event(Event.EPOCH_END)
         state.timer.on_epoch_complete()
-
-    engine.run_event(Event.TRAINING_END)
 
 
 if __name__ == '__main__':

@@ -162,10 +162,6 @@ class RunDirectoryUploader(Callback):
         del state  # unused
         self._trigger_upload(logger, LogLevel.EPOCH)
 
-    def training_end(self, state: State, logger: Logger) -> None:
-        del state  # unused
-        self._trigger_upload(logger, LogLevel.FIT)
-
     def post_close(self):
         # Cleaning up on post_close to ensure that all artifacts are uploaded
         self._trigger_upload(logger=None, log_level=None)

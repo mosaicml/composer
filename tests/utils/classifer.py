@@ -42,7 +42,6 @@ def test_classifier_trains(
     engine = Engine(state=state, logger=logger)
 
     engine.run_event(Event.INIT)
-    engine.run_event(Event.TRAINING_START)
     engine.run_event(Event.EPOCH_START)
 
     def forward(model, X, y, state):

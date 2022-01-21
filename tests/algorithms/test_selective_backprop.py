@@ -300,10 +300,10 @@ def test_match_correct(event: Event, dummy_algorithm: SelectiveBackprop, dummy_s
     assert dummy_algorithm.match(event, dummy_state_sb)
 
 
-@pytest.mark.parametrize("event,epoch,batch", [(Event.TRAINING_START, 5, 0), (Event.AFTER_DATALOADER, 0, 0),
+@pytest.mark.parametrize("event,epoch,batch", [(Event.INIT, 5, 0), (Event.AFTER_DATALOADER, 0, 0),
                                                (Event.AFTER_DATALOADER, 5, 1)])
 def test_match_incorrect(event: Event, dummy_algorithm: SelectiveBackprop, dummy_state_sb: State) -> None:
-    """ Algo should NOT match TRAINING_START or the wrong interval
+    """ Algo should NOT match INIT or the wrong interval
     """
     dummy_state_sb.max_duration = "10ep"
 

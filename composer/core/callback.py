@@ -65,17 +65,6 @@ class Callback(Serializable, abc.ABC):
         del state, logger  # unused
         pass
 
-    def training_start(self, state: State, logger: Logger) -> None:
-        """Called on the :attr:`Event.TRAINING_START` event.
-
-        Args:
-            state (State): The global state.
-            logger (Logger): The logger.
-        
-        """
-        del state, logger  # unused
-        pass
-
     def epoch_start(self, state: State, logger: Logger) -> None:
         """Called on the :attr:`~Event.EPOCH_START` event.
 
@@ -219,17 +208,6 @@ class Callback(Serializable, abc.ABC):
         del state, logger  # unused
         pass
 
-    def training_end(self, state: State, logger: Logger) -> None:
-        """Called on the :attr:`~Event.TRAINING_END` event.
-
-        Args:
-            state (State): The global state.
-            logger (Logger): The logger.
-        
-        """
-        del state, logger  # unused
-        pass
-
     def eval_start(self, state: State, logger: Logger) -> None:
         """Called on the :attr:`~Event.EVAL_START` event.
 
@@ -297,9 +275,8 @@ class Callback(Serializable, abc.ABC):
         pass
 
     def close(self) -> None:
-        """Called whenever the trainer finishes training.
-        Unlike the :attr:`~Event.TRAINING_END` event, :meth:`close` is
-        invoked even when there was an exception.
+        """Called whenever the trainer finishes training,
+        even when there is an exception.
 
         It should be used for flushing and closing any files, etc...
         that may have been opened during the :attr:`~Event.INIT` event.

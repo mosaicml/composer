@@ -153,11 +153,11 @@ class ColOut(Algorithm):
         self.hparams = ColOutHparams(p_row, p_col, batch)
 
     def match(self, event: Event, state: State) -> bool:
-        """Apply on Event.TRAINING_START for samplewise or Event.AFTER_DATALOADER for batchwise """
+        """Apply on Event.INIT for samplewise or Event.AFTER_DATALOADER for batchwise """
         if self.hparams.batch:
             return event == Event.AFTER_DATALOADER
         else:
-            return event == Event.TRAINING_START
+            return event == Event.INIT
 
     def _apply_sample(self, state: State) -> None:
         """Add the ColOut dataset transform to the dataloader """

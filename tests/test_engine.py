@@ -67,7 +67,7 @@ class TestAlgorithms:
 
 
 @pytest.mark.parametrize('event', [
-    Event.TRAINING_START,
+    Event.EPOCH_START,
     Event.BEFORE_LOSS,
     Event.BEFORE_BACKWARD,
 ])
@@ -84,7 +84,7 @@ def test_engine_lifo_first_in(event: Event, dummy_state: State, dummy_logger: Lo
 @pytest.mark.parametrize('event', [
     Event.AFTER_LOSS,
     Event.AFTER_BACKWARD,
-    Event.TRAINING_END,
+    Event.BATCH_END,
 ])
 def test_engine_lifo_last_out(event: Event, dummy_state: State, always_match_algorithms: List[Algorithm],
                               dummy_logger: Logger):
@@ -102,7 +102,7 @@ def test_engine_with_selective_backprop(always_match_algorithms: Sequence[Algori
     sb.apply = Mock(return_value='sb')
     sb.match = Mock(return_value=True)
 
-    event = Event.TRAINING_START  # doesn't matter for this test
+    event = Event.INIT  # doesn't matter for this test
 
     algorithms = list(always_match_algorithms[0:2]) + [sb] + list(always_match_algorithms[2:])
     dummy_state.algorithms = algorithms

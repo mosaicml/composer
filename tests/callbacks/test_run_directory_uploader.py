@@ -37,7 +37,6 @@ def test_run_directory_uploader(tmpdir: pathlib.Path, use_procs: bool, dummy_sta
     with open(os.path.join(run_directory.get_run_directory(), "dummy_file"), "w+") as f:
         f.write("Hello, world!")
     uploader.run_event(Event.BATCH_END, dummy_state, dummy_logger)
-    uploader.run_event(Event.TRAINING_END, dummy_state, dummy_logger)
     uploader.close()
     uploader.post_close()
     test_name = os.path.basename(tmpdir)

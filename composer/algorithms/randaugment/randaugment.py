@@ -97,7 +97,7 @@ class RandAugment(Algorithm):
         self.hparams = RandAugmentHparams(severity=severity, depth=depth, augmentation_set=augmentation_set)
 
     def match(self, event: Event, state: State) -> bool:
-        """Runs on Event.TRAINING_START
+        """Runs on Event.INIT
         
         Args:
             event (:class:`Event`): The current event.
@@ -105,7 +105,7 @@ class RandAugment(Algorithm):
         Returns:
             bool: True if this algorithm should run now
         """
-        return event == Event.TRAINING_START
+        return event == Event.INIT
 
     def apply(self, event: Event, state: State, logger: Logger) -> None:
         """Inserts RandAugment into the list of dataloader transforms

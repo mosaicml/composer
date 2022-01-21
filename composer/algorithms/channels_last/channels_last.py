@@ -29,7 +29,6 @@ class ChannelsLast(Algorithm):
     def apply(self, event: Event, state: State, logger: Logger) -> Optional[int]:
         """Changes the memory format of the model to ``torch.channels_last``"""
         del event, logger  # unused
-        # TODO: Double check model is moved to cuda with device type
         state.model.to(memory_format=torch.channels_last)  # type: ignore
 
         log.info(f'Model {state.model.__class__.__name__} changed to channels_last format.')

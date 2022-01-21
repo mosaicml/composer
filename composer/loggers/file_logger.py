@@ -106,9 +106,10 @@ class FileLoggerBackend(BaseLoggerBackend):
             print("-" * 30, file=self.file)
             print(file=self.file)
 
-    def training_start(self, state: State, logger: Logger) -> None:
-        del state, logger  # unused
-        self._flush_file()
+    def epoch_start(self, state: State, logger: Logger) -> None:
+        if state.timer.epoch == 0:
+            # Flush any log calls that occurred during INIT
+            self._flush_file()
 
     def batch_end(self, state: State, logger: Logger) -> None:
         del logger  # unused
@@ -121,9 +122,6 @@ class FileLoggerBackend(BaseLoggerBackend):
         if self.log_level > LogLevel.EPOCH or self.log_level == LogLevel.EPOCH and (int(state.timer.epoch) +
                                                                                     1) % self.flush_interval == 0:
             self._flush_file()
-
-    def training_end(self, state: State, logger: Logger) -> None:
-        self._flush_file()
 
     def _flush_file(self) -> None:
         assert self.file is not None

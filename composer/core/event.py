@@ -15,9 +15,8 @@ class Event(StringEnum):
     Attributes:
         INIT: Immediately after ``model`` initialization,
             and before creation of ``optimizers`` and ``schedulers``.
-            Model surgery typically occurs here.
-        TRAINING_START: Start of training.
-            For multi-GPU training, runs after the DDP process fork.
+            Model surgery typically occurs here. This event is run again
+            when resuming from checkpoints.
         EPOCH_START: Start of an epoch.
         BATCH_START: Start of a batch.
         AFTER_DATALOADER: Immediately after the dataloader is called.
@@ -37,7 +36,6 @@ class Event(StringEnum):
         BATCH_END: End of a batch, which occurs after the optimizer step
             and any gradient scaling.
         EPOCH_END: End of an epoch.
-        TRAINING_END: End of training. 
 
         EVAL_START: Start of evaluation through the validation dataset.
         EVAL_BATCH_START: Before the call to ``model.validate(batch)``
@@ -49,7 +47,6 @@ class Event(StringEnum):
 
     INIT = "init"
 
-    TRAINING_START = "training_start"
     EPOCH_START = "epoch_start"
     BATCH_START = "batch_start"
 
@@ -70,8 +67,6 @@ class Event(StringEnum):
 
     BATCH_END = "batch_end"
     EPOCH_END = "epoch_end"
-
-    TRAINING_END = "training_end"
 
     EVAL_START = "eval_start"
     EVAL_BATCH_START = "eval_batch_start"
@@ -96,7 +91,7 @@ class Event(StringEnum):
 
         Events that have a corresponding "before" or "after" event share the same canonical name.
         Example:
-            >>> Event.TRAINING_START.canonical_name == Event.TRAINING_END.canonical_name == "training"
+            >>> Event.EPOCH_START.canonical_name == Event.EPOCH_END.canonical_name == "epoch"
 
         Returns:
             str: [description]
@@ -109,8 +104,8 @@ class Event(StringEnum):
         return name
 
 
-_BEFORE_EVENTS = (Event.TRAINING_START, Event.EPOCH_START, Event.BATCH_START, Event.BEFORE_TRAIN_BATCH,
-                  Event.BEFORE_FORWARD, Event.BEFORE_LOSS, Event.BEFORE_BACKWARD, Event.EVAL_START,
-                  Event.EVAL_BATCH_START, Event.EVAL_BEFORE_FORWARD)
-_AFTER_EVENTS = (Event.TRAINING_END, Event.EPOCH_END, Event.BATCH_END, Event.AFTER_TRAIN_BATCH, Event.AFTER_FORWARD,
-                 Event.AFTER_LOSS, Event.AFTER_BACKWARD, Event.EVAL_END, Event.EVAL_BATCH_END, Event.EVAL_AFTER_FORWARD)
+_BEFORE_EVENTS = (Event.EPOCH_START, Event.BATCH_START, Event.BEFORE_TRAIN_BATCH, Event.BEFORE_FORWARD,
+                  Event.BEFORE_LOSS, Event.BEFORE_BACKWARD, Event.EVAL_START, Event.EVAL_BATCH_START,
+                  Event.EVAL_BEFORE_FORWARD)
+_AFTER_EVENTS = (Event.EPOCH_END, Event.BATCH_END, Event.AFTER_TRAIN_BATCH, Event.AFTER_FORWARD, Event.AFTER_LOSS,
+                 Event.AFTER_BACKWARD, Event.EVAL_END, Event.EVAL_BATCH_END, Event.EVAL_AFTER_FORWARD)

@@ -17,7 +17,7 @@ from composer.core.state import State
 log = logging.getLogger(__name__)
 Traces = Dict[str, "Trace"]
 
-_ALWAYS_RECORD_EVENTS = [Event.INIT, Event.TRAINING_START, Event.EPOCH_START, Event.EPOCH_END, Event.TRAINING_END]
+_ALWAYS_RECORD_EVENTS = [Event.INIT, Event.EPOCH_START, Event.EPOCH_END]
 
 
 @dataclass
@@ -38,7 +38,7 @@ class Trace():
 def _setup_trace(algorithms: Sequence[Algorithm], event: Event) -> Traces:
     """
     The default traces of an entire run is an OrderedDict, with the keys
-    of format 'algorithm_name/event' (e.g. Blurpool/TRAINING_START).
+    of format 'algorithm_name/event' (e.g. Blurpool/INIT).
     """
     return OrderedDict([(f'{algo}/{event}', Trace()) for algo in algorithms])
 
@@ -74,7 +74,7 @@ class Engine():
         made internally to prevent conflicts.
 
         Returns traces of the execution, a dictionary with keys formatted as ``<algorithm_name>/<event>``
-        (e.g. ``Blurpool/TRAINING_START``), and values are the :class:`composer.core.engine.Trace` object,
+        (e.g. ``Blurpool/INIT``), and values are the :class:`composer.core.engine.Trace` object,
         which include an optional return code from the algorithm, the order of execution, and whether
         the algorithm was run.
 
@@ -150,7 +150,7 @@ class Engine():
             trace[trace_key] = Trace(exit_code=exit_code, order=order, run=True)
 
         if self.logger is not None:
-            if event in (Event.INIT, Event.TRAINING_START, Event.TRAINING_END):
+            if event == Event.INIT:
                 log_level = LogLevel.FIT
             if event in (Event.EPOCH_START, Event.EPOCH_END):
                 log_level = LogLevel.EPOCH

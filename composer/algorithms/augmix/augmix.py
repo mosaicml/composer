@@ -109,7 +109,7 @@ class AugMix(Algorithm):
     the combined augmented image and the original image is drawn from a
     ``Beta(alpha, alpha)`` distribution, using the same ``alpha``.
 
-    Runs on ``Event.TRAINING_START``.
+    Runs on ``Event.INIT``.
 
     Args:
         severity: severity of augmentations; ranges from 0
@@ -158,8 +158,8 @@ class AugMix(Algorithm):
                                      augmentation_set=augmentation_set)
 
     def match(self, event: Event, state: State) -> bool:
-        """Runs on Event.TRAINING_START"""
-        return event == Event.TRAINING_START
+        """Runs on Event.INIT"""
+        return event == Event.INIT
 
     def apply(self, event: Event, state: State, logger: Logger) -> None:
         """Inserts AugMix into the list of dataloader transforms"""

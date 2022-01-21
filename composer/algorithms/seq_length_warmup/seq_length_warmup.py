@@ -128,13 +128,12 @@ class SeqLengthWarmup(Algorithm):
                                               step_size=step_size,
                                               truncate=truncate)
         self.hparams.validate()
+        self._activated = False
 
     def match(self, event: Event, state: State) -> bool:
         """
-        Sequence Length Warmup matches on two events:
-
-        1. ``Event.TRAINING_START`` in order to run a blank forward and backward pass and allocate PyTorch cache. 
-        2. ``Event.AFTER_DATALOADER`` in order to apply the sequence length warmup before the forward pass. 
+        Sequence Length Warmup matches on ``Event.AFTER_DATALOADER`` in order to 
+        pply the sequence length warmup before the forward pass. 
 
         Args:
             event (:class:`Event`): The current event.
@@ -144,12 +143,17 @@ class SeqLengthWarmup(Algorithm):
             bool: True if this algorithm should run now.
         """
 
-        return event in (Event.TRAINING_START, Event.AFTER_DATALOADER)
+        return event == Event.AFTER_DATALOADER
 
     def apply(self, event: Event, state: State, logger: Logger) -> Optional[int]:
         """
-        Applies on ``Event.TRAINING_START`` to allocate PyTorch cache, or ``Event.AFTER_DATALOADER`` to apply the 
+        Applies on ``Event.AFTER_DATALOADER`` to apply the 
         sequence length warmup to the input batch.
+
+        .. note::
+
+            On the first call of :meth:`apply`, a dummy training pass on the 
+            full sequence length is used to preallocate the PyTorch cache.
 
         Args:
             event (:class:`Event`): The current event.
@@ -161,7 +165,7 @@ class SeqLengthWarmup(Algorithm):
         """
 
         # in order to avoid OOMs, we do a forward and a backward pass on a dummy input.
-        if event == Event.TRAINING_START:
+        if not self._activated:
             # ensure that input_ids is a valid model input. since we don't need the
             # results, we don't use all inputs.
 
@@ -208,28 +212,26 @@ class SeqLengthWarmup(Algorithm):
             for loss_item in ensure_tuple(loss):
                 loss_item.backward()
 
-            # zero out gradients and proceed to normal training
-            assert state.optimizers is not None, \
-                "optimizers are set before TRAINING_START"
-
             for optimizer in state.optimizers:
                 optimizer.zero_grad()
-        else:
-            num_optimization_steps = state.steps_per_epoch * state.max_epochs
-            num_warmup_steps = int(num_optimization_steps * self.hparams.duration)
 
-            # assume the full sequence length is the unaltered sequence length
-            num_update_steps = (self.hparams.max_seq_length - self.hparams.min_seq_length) // self.hparams.step_size
-            update_every_n_steps = num_warmup_steps // num_update_steps
+            self._activated = True
 
-            curr_seq_len = self.hparams.step_size * (state.step // update_every_n_steps)
-            curr_seq_len = max(curr_seq_len, self.hparams.min_seq_length)
-            curr_seq_len = min(curr_seq_len, self.hparams.max_seq_length)
+        num_optimization_steps = state.steps_per_epoch * state.max_epochs
+        num_warmup_steps = int(num_optimization_steps * self.hparams.duration)
 
-            state.batch = apply_seq_length_warmup(state.batch_dict, curr_seq_len, self.hparams.truncate)
+        # assume the full sequence length is the unaltered sequence length
+        num_update_steps = (self.hparams.max_seq_length - self.hparams.min_seq_length) // self.hparams.step_size
+        update_every_n_steps = num_warmup_steps // num_update_steps
 
-            batch_size = state.batch_dict['input_ids'].shape[0]
-            logger.metric_batch({
-                'seq_length_warmup/curr_seq_len': curr_seq_len,
-                'seq_length_warmup/curr_bs': batch_size,
-            })
+        curr_seq_len = self.hparams.step_size * (state.step // update_every_n_steps)
+        curr_seq_len = max(curr_seq_len, self.hparams.min_seq_length)
+        curr_seq_len = min(curr_seq_len, self.hparams.max_seq_length)
+
+        state.batch = apply_seq_length_warmup(state.batch_dict, curr_seq_len, self.hparams.truncate)
+
+        batch_size = state.batch_dict['input_ids'].shape[0]
+        logger.metric_batch({
+            'seq_length_warmup/curr_seq_len': curr_seq_len,
+            'seq_length_warmup/curr_bs': batch_size,
+        })

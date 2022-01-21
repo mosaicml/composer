@@ -84,11 +84,6 @@ class WandBLoggerBackend(BaseLoggerBackend):
         if self._enabled and self._log_artifacts:
             self._upload_artifacts()
 
-    def training_end(self, state: State, logger: Logger) -> None:
-        del state, logger  # unused
-        if self._enabled and self._log_artifacts:
-            self._upload_artifacts()
-
     def _upload_artifacts(self):
         # Scan the run directory and upload artifacts to wandb
         # On resnet50, _log_artifacts() caused a 22% throughput degradation

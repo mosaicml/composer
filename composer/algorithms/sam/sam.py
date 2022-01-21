@@ -128,7 +128,7 @@ class SAM(Algorithm):
         self.hparams = SAMHparams(rho=rho, epsilon=epsilon, interval=interval)
 
     def match(self, event: Event, state: State) -> bool:
-        """Run on Event.TRAINING_START
+        """Run on Event.INIT
         
         Args:
             event (:class:`Event`): The current event.
@@ -136,7 +136,7 @@ class SAM(Algorithm):
         Returns:
             bool: True if this algorithm should run now
         """
-        return event == Event.TRAINING_START
+        return event == Event.INIT
 
     def apply(self, event: Event, state: State, logger: Optional[Logger]) -> Optional[int]:
         """Applies SAM by wrapping the base optimizer with the SAM optimizer

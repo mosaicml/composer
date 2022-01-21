@@ -575,8 +575,6 @@ class Trainer:
         else:
             train_metrics = None
 
-        self.engine.run_event(Event.TRAINING_START)
-
         state.scaler = ClosureGradScaler() if self._use_closures() else GradScaler()
         use_grad_scaling = self._use_grad_scaling(state.precision, state.scaler)
 
@@ -712,8 +710,6 @@ class Trainer:
                                                       seed=self.seed,
                                                       device=self.device,
                                                       config=self.config)
-
-        self.engine.run_event(Event.TRAINING_END)
 
     def _train_batch(self, microbatches: Sequence[Batch], ddp_sync: bool = True):
         """Run training on a full batch of data.

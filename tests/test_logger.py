@@ -47,7 +47,7 @@ def test_file_logger(dummy_state: State, log_level: LogLevel, log_file_name: str
     logger.metric_epoch({"metric": "epoch2"})  # should print on batch level, since epoch calls are always printed
     logger.metric_batch({"metric": "batch1"})  # should NOT print
     log_destination.run_event(Event.BATCH_END, dummy_state, logger)
-    log_destination.run_event(Event.TRAINING_END, dummy_state, logger)
+    log_destination.close()
     with open(log_file_name, 'r') as f:
         if log_level == LogLevel.EPOCH:
             assert f.readlines() == [
