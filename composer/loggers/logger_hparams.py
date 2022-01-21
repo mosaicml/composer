@@ -78,6 +78,7 @@ class WandBLoggerBackendHparams(BaseLoggerBackendHparams):
 
     Args:
         project (str, optional): Weights and Biases project name.
+        group (str, optional): Weights and Biases group name.
         name (str, optional): Weights and Biases run name.
         entity (str, optional): Weights and Biases entity name.
         tags (str, optional): Comma-seperated list of tags to add to the run.
@@ -89,7 +90,8 @@ class WandBLoggerBackendHparams(BaseLoggerBackendHparams):
     """
 
     project: Optional[str] = hp.optional(doc="wandb project name", default=None)
-    name: Optional[str] = hp.optional(doc="wandb group name", default=None)
+    group: Optional[str] = hp.optional(doc="wandb group name", default=None)
+    name: Optional[str] = hp.optional(doc="wandb run name", default=None)
     entity: Optional[str] = hp.optional(doc="wandb entity", default=None)
     tags: str = hp.optional(doc="wandb tags comma separated", default="")
     log_artifacts: bool = hp.optional(doc="Whether to log artifacts", default=False)
@@ -186,10 +188,12 @@ class WandBLoggerBackendHparams(BaseLoggerBackendHparams):
                 self.extra_init_params["config"] = {}
             self.extra_init_params["config"].update(flattened_config)  # type: ignore
 
+        name_suffix = f"Rank{dist.get_global_rank()}"
+        name = f"{self.name}_{name_suffix}" if self.name else name_suffix
         init_params = {
             "project": self.project,
-            "name": f"Rank {dist.get_global_rank()}",
-            "group": self.name,
+            "name": name,
+            "group": self.group,
             "entity": self.entity,
             "tags": tags,
         }
