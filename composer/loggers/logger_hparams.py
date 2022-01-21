@@ -190,7 +190,7 @@ class WandBLoggerBackendHparams(BaseLoggerBackendHparams):
 
         name_suffix = f"Rank {dist.get_global_rank()}"
         name = f"{self.name}_{name_suffix}" if self.name else name_suffix
-        group = self.name if (self.rank_zero_only and not self.group) else self.group
+        group = self.name if (not self.group and self.rank_zero_only) else self.group
         init_params = {
             "project": self.project,
             "name": name,
