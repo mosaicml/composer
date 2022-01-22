@@ -8,7 +8,7 @@ import pytest
 from composer.utils.object_store import ObjectStoreProviderHparams
 
 
-def test_object_store(tmpdir: pathlib.Path):
+def test_object_store(tmpdir: pathlib.Path, monkeypatch: pytest.MonkeyPatch):
     try:
         import libcloud
         del libcloud
@@ -18,9 +18,10 @@ def test_object_store(tmpdir: pathlib.Path):
     os.makedirs(remote_dir)
     local_dir = str(tmpdir / "local_dir")
     os.makedirs(local_dir)
+    monkeypatch.setenv("OBJECT_STORE_KEY", remote_dir)  # for the local option, the key is the path
     provider_hparams = ObjectStoreProviderHparams(
         provider='local',
-        key=remote_dir,  # for the local option, the key is the path
+        key_environ="OBJECT_STORE_KEY",
         container=".",
     )
     provider = provider_hparams.initialize_object()
