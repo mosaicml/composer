@@ -48,14 +48,14 @@ def make_layerwise_convs(model, idx, dim_per_head, n_heads, kernel_size):
 
 
 def apply_primer(model: torch.nn.Module, act_fn_name: str) -> None:
-    act_fns = {"squared_relu": lambda x: relu(x)**2, "fast_gelu": transformers.activations.gelu_fast}
+    act_fns = {"squared_relu": lambda x: relu(x)**2, "fast_gelu": transformers.activations.gelu_fast, "relu": lambda x: relu(x), "swish": transformers.activations.silu}
     act_fn = act_fns[act_fn_name]
 
     if "gated" not in act_fn_name:
-        for idx in range(len(model.module.transformer.h)):
+        for idx in range(len(model.module.bert.encoder.layer)):
             model.module.bert.encoder.layer[idx].intermediate.intermediate_act_fn = act_fn
     else:
-        pass  
+        # TODO: implement ReLU, GeLU, GEGeLU, ReGLU, and SwiGLU
 
 
 # adapted from GPT Neo-X
@@ -85,6 +85,28 @@ class CausalDepthwiseConv(torch.nn.Module):
                 x = shift(x, 1, dim=seq_dim)
                 ret += x * self.weight[shift_distance]
         return ret
+
+class DummyBERTIntermediateOutput(torch.nn.Module):
+    def __init__(self):
+        super().__init__()
+
+    def forward(self, hidden_states):
+        return hidden_states
+
+class BERTGatedOutput(torch.nn.Module):
+    def __init__(self, d_embed, d_ff, dropout_rate, act_fn, layernorm_eps):
+        self.wi_0 = torch.nn.Linear(d_embed, d_ff)
+        self.wi_1 = torch.nn.Linear(d_embed, d_ff)
+        self.wo = torch.nn.Linear(d_ff, d_embed)
+        self.dropout = torch.nn.Dropout(dropout_rate)
+        self.act = act_fn
+        self.LayerNorm = torch.nn.LayerNorm(d_embed, eps=layernorm_eps)
+
+    def forward(self, hidden_states, input_tensor):
+        hidden_gelu = self.act(self.wi_0(hidden_states))
+        hidden_linear = self.wi_1(hidden_linear)
+        hidden_combo = hidden_gelu * hidden_linear
+        hidden_states = self.dropout(hidden_states)
 
 
 class Primer(Algorithm):
