@@ -3,32 +3,33 @@
 To simplify environment setup for the MosaicML `Composer` library, we provide a set of Docker Images that users can
 leverage.
 
-There are three flavors of the `composer` Docker image: 'latest', 'dev' and 'all'.
+## Pytorch Images
 
-The specific flavor refers to the specific `pip` packages that are pre-installed and depends on intended usage.
+We provide the following base images, which are based on our [Pytorch Dockerfile](pytorch/Dockerfile).
 
-The following table describes the various image flavors:  
-| Image  | Dep. Type | Description                                                                                              |
-| ------ | --------- | -------------------------------------------------------------------------------------------------------- |
-| latest | base      | Minimum `pip` package dependencies installed to enable usage of `composer` library                       |
-| dev    | dev       | Package dependencies required for developers.  Use this or 'all' if you plan to contribute to `composer` |
-| all    | all       | All package dependencies installed
+| Linux Distro | Pytorch Version | Cuda Version | Python Version | Docker Tag                                                          |
+| ------------ | --------------- | ------------ | -------------- | ------------------------------------------------------------------- |
+| ubuntu:20.04 | 1.10.0          | 11.3.1       | 3.9            | ``latest``, `'mosaicml/pytorch:1.10.0_cu113-python3.9-ubuntu20.04'` |
+| ubuntu:20.04 | 1.10.0          | cpu          | 3.9            | `'mosaicml/pytorch:1.10.0_cpu-python3.9-ubuntu20.04'`               |
+| ubuntu:18.04 | 1.9.1           | 11.1.1       | 3.8            | `'mosaicml/pytorch:1.9.1_cu111-python3.8-ubuntu18.04'`              |
+| ubuntu:18.04 | 1.9.1           | cpu          | 3.8            | `'mosaicml/pytorch:1.9.1_cpu-python3.8-ubuntu18.04'`                |
+| ubuntu:20.04 | 1.9.1           | 11.1.1       | 3.8            | `'mosaicml/pytorch:1.9.1_cu111-python3.8-ubuntu20.04'`              |
+| ubuntu:20.04 | 1.9.1           | cpu          | 3.8            | `'mosaicml/pytorch:1.9.1_cpu-python3.8-ubuntu20.04'`                |
+| ubuntu:20.04 | 1.9.1           | 11.1.1       | 3.7            | `'mosaicml/pytorch:1.9.1_cu111-python3.7-ubuntu20.04'`              |
+| ubuntu:20.04 | 1.9.1           | cpu          | 3.7            | `'mosaicml/pytorch:1.9.1_cpu-python3.7-ubuntu20.04'`                |
 
-For details on which specific `pip` packages are installed per flavor, please see the project `setup.py`.
+---
+**NOTE**
 
-## Pulling Images
+These images do not include Composer preinstalled. To install composer, once inside the image, run `pip install mosaicml`.
+---
 
-Pre-built images can be pulled from [MosaicML's DockerHub Repository](https://hub.docker.com/r/mosaicml/composer):
+### Pulling Images
+
+Pre-built images can be pulled from [MosaicML's DockerHub Repository](https://hub.docker.com/r/mosaicml/pytorch):
 
 ```bash
-# Pull 'base' image
-docker pull mosaicml/composer:latest
-
-# Pull 'dev' image
-docker pull mosaicml/composer:dev
-
-# Pull 'all' image
-docker pull mosaicml/composer:all
+docker pull mosaicml/pytorch
 ```
 
 ## Building Images locally
@@ -38,12 +39,9 @@ docker pull mosaicml/composer:all
 > Note: Build arguments are explained in the [Makefile](Makefile).
 
 ```bash
-# Build 'base' image
+# Build the default image
 make
 
-# Build 'dev' image
-COMPOSER_EXTRA_DEPS=dev make
-
-# Build 'all' image
-COMPOSER_EXTRA_DEPS=all make
+# Build with composer with Python 3.8
+PYTHON_VERSION=3.8 make
 ```

@@ -54,7 +54,7 @@ def configure_dist(request: pytest.FixtureRequest):
 
 
 @pytest.fixture(autouse=True)
-def wait_for_all_procs(subfolder_run_directory: None, configure_dist: None):
+def wait_for_all_procs(configure_dist: None):
     yield
     if not 'WORLD_SIZE' in os.environ:
         # Not running in a DDP environment

@@ -50,9 +50,11 @@ class DeepSpeedHparams(hp.Hparams):
             warnings.warn("ZeRO stage 3 is largely untested with composer. Certain algorithms may break.")
 
     def initialize_object(self, state: State, grad_clip_norm: Optional[float]):
+        if state.train_dataloader.batch_size is None:
+            raise RuntimeError("Deepspeed requires a dataloader with a known batch size")
 
         deepspeed_config: dict[str, Any] = {
-            "train_batch_size": state.train_batch_size,
+            "train_micro_batch_size_per_gpu": state.train_dataloader.batch_size // state.grad_accum,
             "gradient_accumulation_steps": state.grad_accum,
             "zero_optimization": {
                 "stage": self.zero_stage,

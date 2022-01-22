@@ -12,6 +12,7 @@ import yahp as hp
 from composer.core.logging import BaseLoggerBackend, LogLevel
 from composer.core.types import JSON
 from composer.loggers.mosaicml_logger import RunType
+from composer.utils import dist
 
 if TYPE_CHECKING:
     from composer.loggers.file_logger import FileLoggerBackend
@@ -55,17 +56,13 @@ class FileLoggerBackendHparams(BaseLoggerBackendHparams):
     buffer_size: int = hp.optional("Number of bytes to buffer. Defaults to 1 for line-buffering. "
                                    "See https://docs.python.org/3/library/functions.html#open",
                                    default=1)  # line buffering. Python's default is -1.
-    flush_every_n_batches: int = hp.optional(
-        "Even if the buffer is not full, write to the file after this many steps. "
-        "Defaults to 1 (every step).",
-        default=1)
-    every_n_epochs: int = hp.optional(
-        "Frequency of logging messages for messages of LogLevel.EPOCH and higher."
-        "Defaults to 1 (every epoch).",
-        default=1)
-    every_n_batches: int = hp.optional(
-        "Frequency of logging messages for messages of LogLevel.BATCH and higher."
-        "Defaults to 1 (every batch).",
+    flush_interval: int = hp.optional(
+        "Frequency to flush the file, relative to the ``log_level``. "
+        "Defaults to 100 of the unit of ``log_level``.",
+        default=100)
+    log_interval: int = hp.optional(
+        "Frequency to record log messages, relative to the ``log_level``."
+        "Defaults to 1 (record all messages).",
         default=1)
 
     def initialize_object(self, config: Optional[Dict[str, Any]] = None) -> FileLoggerBackend:
@@ -81,6 +78,7 @@ class WandBLoggerBackendHparams(BaseLoggerBackendHparams):
 
     Args:
         project (str, optional): Weights and Biases project name.
+        group (str, optional): Weights and Biases group name.
         name (str, optional): Weights and Biases run name.
         entity (str, optional): Weights and Biases entity name.
         tags (str, optional): Comma-seperated list of tags to add to the run.
@@ -92,11 +90,13 @@ class WandBLoggerBackendHparams(BaseLoggerBackendHparams):
     """
 
     project: Optional[str] = hp.optional(doc="wandb project name", default=None)
+    group: Optional[str] = hp.optional(doc="wandb group name", default=None)
     name: Optional[str] = hp.optional(doc="wandb run name", default=None)
     entity: Optional[str] = hp.optional(doc="wandb entity", default=None)
     tags: str = hp.optional(doc="wandb tags comma separated", default="")
     log_artifacts: bool = hp.optional(doc="Whether to log artifacts", default=False)
     log_artifacts_every_n_batches: int = hp.optional(doc="interval, in batches, to log artifacts", default=100)
+    rank_zero_only: bool = hp.optional("Whether to log on rank zero only", default=False)
     extra_init_params: Dict[str, JSON] = hp.optional(doc="wandb parameters", default_factory=dict)
     flatten_hparams: bool = hp.optional(doc="Whether the hparams dictionary should be flattened before uploading to WandB. This can make nested fields easier to visualize and query", default=False)
 
@@ -162,9 +162,13 @@ class WandBLoggerBackendHparams(BaseLoggerBackendHparams):
             if self.flatten_hparams:
                 config = get_flattened_dict(data=config)
 
+        name_suffix = f"Rank {dist.get_global_rank()}"
+        name = f"{self.name}_{name_suffix}" if self.name else name_suffix
+        group = self.name if (not self.group and self.rank_zero_only) else self.group
         init_params = {
             "project": self.project,
-            "name": self.name,
+            "name": name,
+            "group": group,
             "entity": self.entity,
             "tags": tags,
         }
@@ -176,6 +180,7 @@ class WandBLoggerBackendHparams(BaseLoggerBackendHparams):
         from composer.loggers.wandb_logger import WandBLoggerBackend
         return WandBLoggerBackend(
             log_artifacts=self.log_artifacts,
+            rank_zero_only=self.rank_zero_only,
             log_artifacts_every_n_batches=self.log_artifacts_every_n_batches,
             init_params=init_params,
         )
