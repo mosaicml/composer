@@ -98,6 +98,7 @@ class WandBLoggerBackendHparams(BaseLoggerBackendHparams):
     log_artifacts: bool = hp.optional(doc="Whether to log artifacts", default=False)
     log_artifacts_every_n_batches: int = hp.optional(doc="interval, in batches, to log artifacts", default=100)
     extra_init_params: Dict[str, JSON] = hp.optional(doc="wandb parameters", default_factory=dict)
+    flatten_hparams: bool = hp.optional(doc="Whether the hparams dictionary should be flattened before uploading to WandB. This can make nested fields easier to visualize and query", default=False)
 
     def initialize_object(self, config: Optional[Dict[str, Any]] = None) -> WandBLoggerBackend:
         """Initializes the logger.
@@ -158,10 +159,8 @@ class WandBLoggerBackendHparams(BaseLoggerBackendHparams):
                         all_items[key_name] = val
                 return all_items
 
-            flattened_config = get_flattened_dict(data=config)
-            if "config" not in self.extra_init_params:
-                self.extra_init_params["config"] = {}
-            self.extra_init_params["config"].update(flattened_config)  # type: ignore
+            if self.flatten_hparams:
+                config = get_flattened_dict(data=config)
 
         init_params = {
             "project": self.project,
@@ -169,6 +168,8 @@ class WandBLoggerBackendHparams(BaseLoggerBackendHparams):
             "entity": self.entity,
             "tags": tags,
         }
+        if config:
+            init_params["config"] = config
 
         init_params.update(self.extra_init_params)
 
