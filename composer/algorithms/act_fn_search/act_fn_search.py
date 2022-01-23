@@ -16,6 +16,8 @@ from torch.nn.functional import relu
 from composer.algorithms import AlgorithmHparams
 from composer.core import Algorithm, Event, Logger, State, surgery
 
+from .norms import RMSNorm
+
 log = logging.getLogger(__name__)
 
 
@@ -24,20 +26,31 @@ class ActFnSearchHparams(AlgorithmHparams):
     """See :class:`Primer`"""
     act_fn_name: str = hp.required("The name of the activation function to use.")
     use_gated: bool = hp.required("Whether to use a GLU unit or a regular unit.")
+    use_rmsnorm: bool = hp.required("Whether to use RMSNorm instead of LayerNorm.")
 
     def initialize_object(self) -> "Primer":
         return ActFnSearch(**asdict(self))
 
 
-def apply_act_fn(model: torch.nn.Module, act_fn_name: str, use_gated: bool) -> None:
-    import ipdb
+def apply_act_fn(model: torch.nn.Module, act_fn_name: str, use_gated: bool, use_rmsnorm: bool) -> None:
     act_fns = {
         "squared_relu": lambda x: relu(x)**2,
         "fast_gelu": transformers.activations.gelu_fast,
+        "gelu": torch.nn.functional.gelu,
         "relu": lambda x: relu(x),
         "swish": transformers.activations.silu
     }
     act_fn = act_fns[act_fn_name]
+    d_embeds = []
+    layernorm_eps = []
+    for idx in range(len(model.module.bert.encoder.layer)):
+        bert_layer = model.module.bert.encoder.layer[idx]
+        d_embeds.append(bert_layer.intermediate.dense.in_features)
+        layernorm_eps.append(bert_layer.output.LayerNorm.eps)
+    assert len(set(d_embeds)) == 1
+    assert len(set(layernorm_eps)) == 1
+    d_embed = d_embeds[0]
+    layernorm_eps = layernorm_eps[0]
 
     if not use_gated:
         for idx in range(len(model.module.bert.encoder.layer)):
@@ -57,7 +70,11 @@ def apply_act_fn(model: torch.nn.Module, act_fn_name: str, use_gated: bool) -> N
                                                                           dropout_rate=dropout_rate,
                                                                           act_fn=act_fn,
                                                                           layernorm_eps=layernorm_eps)
-        ipdb.set_trace()
+
+    if use_rmsnorm:
+        policy = {torch.nn.LayerNorm: lambda x, module_index: RMSNorm(dim=d_embed, eps=layernorm_eps)}
+        surgery.replace_module_classes(model=model, policies=policy)
+    print(model)
 
 
 class DummyBERTIntermediateOutput(torch.nn.Module):
@@ -96,9 +113,10 @@ class BERTGatedOutput(torch.nn.Module):
 
 class ActFnSearch(Algorithm):
 
-    def __init__(self, act_fn_name: str, use_gated: bool) -> None:
+    def __init__(self, act_fn_name: str, use_gated: bool, use_rmsnorm: bool) -> None:
         self.act_fn_name = act_fn_name
         self.use_gated = use_gated
+        self.use_rmsnorm = use_rmsnorm
 
     def match(self, event: Event, state: State) -> bool:
         """ Runs on Event.INIT
@@ -111,4 +129,7 @@ class ActFnSearch(Algorithm):
 
         if event == Event.INIT:
             assert state.model is not None
-            apply_act_fn(state.model, act_fn_name=self.act_fn_name, use_gated=self.use_gated)
+            apply_act_fn(state.model,
+                         act_fn_name=self.act_fn_name,
+                         use_gated=self.use_gated,
+                         use_rmsnorm=self.use_rmsnorm)
