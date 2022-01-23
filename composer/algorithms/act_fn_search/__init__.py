@@ -1,0 +1,3 @@
+from composer.algorithms.act_fn_search.act_fn_search import ActFnSearch as ActFnSearch
+from composer.algorithms.act_fn_search.act_fn_search import ActFnSearchHparams as ActFnSearchHparams
+from composer.algorithms.act_fn_search.act_fn_search import apply_act_fn as apply_act_fn

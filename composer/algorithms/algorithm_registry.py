@@ -25,6 +25,7 @@ from composer.algorithms.seq_length_warmup import SeqLengthWarmupHparams
 from composer.algorithms.squeeze_excite import SqueezeExciteHparams
 from composer.algorithms.stochastic_depth import StochasticDepthHparams
 from composer.algorithms.swa.hparams import SWAHparams
+from composer.algorithms.act_fn_search import ActFnSearchHparams
 from composer.core.algorithm import Algorithm
 
 registry: Dict[str, Type[AlgorithmHparams]] = {
@@ -50,6 +51,7 @@ registry: Dict[str, Type[AlgorithmHparams]] = {
     'sam': SAMHparams,
     'alibi': AlibiHparams,
     'selective_backprop': SelectiveBackpropHparams,
+    'act_fn_search': ActFnSearchHparams,
 }
 
 
