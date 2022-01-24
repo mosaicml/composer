@@ -83,15 +83,15 @@ def train():
         model=model,
         train_dataloader=train_dataloader,
         eval_dataloader=val_dataloader,
-        max_epochs=args.epochs,
+        max_duration=f"{args.epochs}ep",
         grad_accum=1,
         precision=Precision.FP32,
     )
 
     # define which algorithms to apply and configure the cmp engine
-    algorithms = [BlurPool(replace_convs=True, replace_maxpools=True, blur_first=False)]
+    state.algorithms = [BlurPool(replace_convs=True, replace_maxpools=True, blur_first=False)]
 
-    engine = composer.Engine(state=state, algorithms=algorithms)
+    engine = composer.Engine(state=state)
 
     # add two-way callbacks in the trainer loop
     engine.run_event(
@@ -102,11 +102,11 @@ def train():
 
     engine.run_event(Event.TRAINING_START)  # the Event.TRAINING_START should be run AFTER any DDP fork
 
-    for state.epoch in range(state.max_epochs):
+    while state.timer < state.max_duration:
         logging.info(f'Epoch {state.epoch}')
         engine.run_event(Event.EPOCH_START)
 
-        for state.step, (x, y) in enumerate(train_dataloader):
+        for x, y in train_dataloader:
             engine.run_event(Event.BATCH_START)
 
             state.batch = x.cuda(), y.cuda()
@@ -128,9 +128,10 @@ def train():
             for optimizer in ensure_tuple(state.optimizers):
                 optimizer.zero_grad()
 
-            if state.step % 100 == 0:
-                logging.info(f'Epoch {state.epoch}, Step: {state.step}, loss: {state.loss:.3f}')
+            if state.timer.batch.value % 100 == 0:
+                logging.info(f'Epoch {state.epoch}, Step: {state.timer.batch.value}, loss: {state.loss:.3f}')
             engine.run_event(Event.BATCH_END)
+            state.timer.on_batch_complete(len(state.batch))
 
         metric = Accuracy().cuda()
         for (x, y) in val_dataloader:
@@ -144,6 +145,7 @@ def train():
         logging.info(f'Epoch {state.epoch} complete. val/acc = {metric.compute():.5f}')
 
         engine.run_event(Event.EPOCH_END)
+        state.timer.on_epoch_complete()
 
     engine.run_event(Event.TRAINING_END)
 

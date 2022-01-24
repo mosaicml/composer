@@ -22,22 +22,18 @@ from composer.datasets.hparams import DatasetHparams
 from composer.trainer.deepspeed import DeepSpeedHparams
 from composer.trainer.devices import CPUDeviceHparams, DeviceHparams, GPUDeviceHparams
 from composer.trainer.trainer_hparams import TrainerHparams, callback_registry, dataset_registry
-from composer.utils import ddp, run_directory
+from composer.utils import dist, run_directory
 from tests.fixtures.models import SimpleBatchPairModel
 
 
 def get_file_path(*, rank: int, is_train: bool) -> str:
     train_str = "train" if is_train else "val"
-    rundir = run_directory.get_run_directory()
-    assert rundir is not None
-    return os.path.join(rundir, f"{train_str}_rank_{rank}_num_accesses")
+    return os.path.join(run_directory.get_node_run_directory(), f"rank_{rank}", f"{train_str}_num_accesses")
 
 
 def get_batch_file_path(*, rank: int, epoch: int, is_train: bool) -> str:
     train_str = "train" if is_train else "val"
-    rundir = run_directory.get_run_directory()
-    assert rundir is not None
-    return os.path.join(rundir, f"{train_str}-rank-{rank}-epoch-{epoch}-batch0.pt")
+    return os.path.join(run_directory.get_node_run_directory(), f"rank_{rank}", f"{train_str}-epoch-{epoch}-batch0.pt")
 
 
 class TrackedDataset(types.Dataset):
@@ -54,7 +50,7 @@ class TrackedDataset(types.Dataset):
 
     def __getitem__(self, idx: int):
         self.counter += 1
-        with open(get_file_path(rank=ddp.get_global_rank(), is_train=self.is_train), "w+") as f:
+        with open(get_file_path(rank=dist.get_global_rank(), is_train=self.is_train), "w+") as f:
             f.write(str(self.counter))
         return self.dataset[idx]
 
@@ -78,7 +74,7 @@ class TrackedDatasetHparams(DatasetHparams, SyntheticHparamsMixin):
         )
         drop_last = False
         tracked_dataset = TrackedDataset(is_train=self.is_train, synthetic_dataset=synthetic_dataset)
-        sampler = ddp.get_sampler(tracked_dataset, drop_last=drop_last, shuffle=True)
+        sampler = dist.get_sampler(tracked_dataset, drop_last=drop_last, shuffle=True)
         return dataloader_hparams.initialize_object(
             dataset=tracked_dataset,
             batch_size=batch_size,
@@ -94,7 +90,9 @@ class CheckBatch0(Callback):
 
     def _run_event(self, event: Event, state: State, logger: Logger) -> None:
         if event in (Event.BEFORE_FORWARD, Event.EVAL_BEFORE_FORWARD):
-            filepath = get_batch_file_path(rank=ddp.get_global_rank(), epoch=state.epoch, is_train=state.model.training)
+            filepath = get_batch_file_path(rank=dist.get_global_rank(),
+                                           epoch=state.epoch,
+                                           is_train=state.model.training)
             if os.path.exists(filepath):
                 return
             last_input, last_target = state.batch_pair
@@ -122,7 +120,7 @@ def patch_registries(monkeypatch: MonkeyPatch):
 @pytest.mark.parametrize("device,deepspeed", [
     pytest.param(CPUDeviceHparams(), False, id="cpu"),
     pytest.param(GPUDeviceHparams(), False, id="gpu", marks=pytest.mark.gpu),
-    pytest.param(GPUDeviceHparams(), True, id="deepspeed", marks=pytest.mark.gpu),
+    pytest.param(GPUDeviceHparams(), True, id="deepspeed", marks=pytest.mark.deepspeed),
 ])
 @pytest.mark.parametrize("world_size", [
     pytest.param(1),
@@ -177,21 +175,22 @@ def test_ddp(device: DeviceHparams, world_size: int, mosaic_trainer_hparams: Tra
         pin_memory=False,
         timeout=0.0,
     )
-    hparams.max_epochs = 2
+    max_epochs = 2
+    hparams.max_duration = f"{max_epochs}ep"
     hparams.precision = types.Precision.FP32
     hparams.loggers = []
     hparams.validate_every_n_batches = 0
     hparams.validate_every_n_epochs = 1
     hparams.callbacks.append(CheckBatch0Hparams())
     if deepspeed:
-        hparams.deepspeed = DeepSpeedHparams(enabled=True)
+        hparams.deepspeed = DeepSpeedHparams()
     trainer = hparams.initialize_object()
     assert isinstance(trainer.state.train_dataloader.dataset, collections.abc.Sized)
     assert isinstance(trainer.state.eval_dataloader.dataset, collections.abc.Sized)
     trainer.fit()
 
-    expected_train_num_loads = hparams.max_epochs * hparams.train_batch_size * hparams.train_subset_num_batches
-    expected_val_num_loads = hparams.max_epochs * hparams.eval_batch_size * hparams.eval_subset_num_batches
+    expected_train_num_loads = max_epochs * hparams.train_batch_size * hparams.train_subset_num_batches
+    expected_val_num_loads = max_epochs * hparams.eval_batch_size * hparams.eval_subset_num_batches
     # adding hparams.eval_batch_size to account for the extra spin of the eval dataloader
     # that is called to create a deterministic ordering for the sampler
     expected_val_num_loads += hparams.eval_batch_size
@@ -199,7 +198,7 @@ def test_ddp(device: DeviceHparams, world_size: int, mosaic_trainer_hparams: Tra
     actual_train_num_loads = 0
     actual_val_num_loads = 0
 
-    for i in range(ddp.get_world_size()):
+    for i in range(dist.get_world_size()):
         with open(get_file_path(is_train=True, rank=i), "r") as f:
             actual_train_num_loads += int(f.read())
         with open(get_file_path(is_train=False, rank=i), "r") as f:
@@ -209,11 +208,16 @@ def test_ddp(device: DeviceHparams, world_size: int, mosaic_trainer_hparams: Tra
 
     is_train_to_pickles: Dict[bool, List[Dict[str, types.Tensor]]] = {True: [], False: []}
 
-    for epoch in range(hparams.max_epochs):
-        for local_rank in range(ddp.get_local_world_size()):
+    if deepspeed:
+        # it is not possible to save individual batches when using deepspeed
+        return
+
+    for epoch in range(max_epochs):
+        for local_rank in range(dist.get_local_world_size()):
             for is_train in (True, False):
+                real_epoch = epoch if is_train else epoch + 1  # validation is 1 ahead of training
                 data: Dict[str, types.Tensor] = torch.load(  # type: ignore
-                    get_batch_file_path(rank=local_rank, epoch=epoch, is_train=is_train),
+                    get_batch_file_path(rank=local_rank, epoch=real_epoch, is_train=is_train),
                     map_location='cpu',
                 )
                 for pickle in is_train_to_pickles[is_train]:

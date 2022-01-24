@@ -58,6 +58,7 @@ Our documentation is organized into a few sections:
    core/logger.rst
    core/state.rst
    core/surgery.rst
+   core/time.rst
    core/types.rst
 
 .. toctree::
@@ -71,6 +72,7 @@ Our documentation is organized into a few sections:
    loggers.rst
    models.rst
    optim.rst
+   profiler.rst
    trainer.rst
    trainer_devices.rst
 

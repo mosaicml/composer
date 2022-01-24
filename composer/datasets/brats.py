@@ -14,7 +14,7 @@ import yahp as hp
 from composer.core.types import DataLoader, Dataset
 from composer.datasets.dataloader import DataloaderHparams
 from composer.datasets.hparams import DatasetHparams
-from composer.utils import ddp
+from composer.utils import dist
 
 PATCH_SIZE = [1, 192, 160]
 
@@ -48,7 +48,7 @@ class BratsDatasetHparams(DatasetHparams):
         x_train, y_train, x_val, y_val = get_data_split(self.datadir)
         dataset = PytTrain(x_train, y_train, oversampling) if self.is_train else PytVal(x_val, y_val)
         collate_fn = None if self.is_train else _my_collate
-        sampler = ddp.get_sampler(dataset, drop_last=self.drop_last, shuffle=self.shuffle)
+        sampler = dist.get_sampler(dataset, drop_last=self.drop_last, shuffle=self.shuffle)
 
         return dataloader_hparams.initialize_object(
             dataset=dataset,
@@ -257,7 +257,6 @@ def get_split(data, idx):
 def get_data_split(path: str):
     from sklearn.model_selection import KFold
 
-    val_cases_list = []
     kfold = KFold(n_splits=5, shuffle=True, random_state=0)
     imgs = load_data(path, "*_x.npy")
     lbls = load_data(path, "*_y.npy")

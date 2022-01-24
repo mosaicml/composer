@@ -4,17 +4,17 @@ import warnings
 from dataclasses import dataclass
 from typing import Any, Optional
 
+import torch
 import yahp as hp
 
 from composer.core import State
-from composer.core.types import Precision
+from composer.core.types import Batch, Precision, Tensor
+from composer.utils.iter_helpers import map_collection
 
 
 @dataclass
 class DeepSpeedHparams(hp.Hparams):
     """Params for configuration of DeepSpeed."""
-
-    enabled: bool = hp.required("Whether to use DeepSpeed.")
 
     zero_stage: int = hp.optional("The ZeRO memory optimization stage to use.", default=0)
 
@@ -25,7 +25,7 @@ class DeepSpeedHparams(hp.Hparams):
         "Whether to offload model parameters to CPU. Compatible only with zero_stage = 3 and optimizer_offload.",
         default=False)
 
-    zero2_bucket_size: int = hp.optional("Buffer size used by ZeRO 2 for distributed communications.", default=5e8)
+    zero2_bucket_size: int = hp.optional("Buffer size used by ZeRO 2 for distributed communications.", default=int(5e8))
     overlap_comm: bool = hp.optional("Overlap comm", default=False)
 
     gradient_checkpointing: bool = hp.optional("Whether to enable gradient checkpointing.", default=False)
@@ -50,9 +50,11 @@ class DeepSpeedHparams(hp.Hparams):
             warnings.warn("ZeRO stage 3 is largely untested with composer. Certain algorithms may break.")
 
     def initialize_object(self, state: State, grad_clip_norm: Optional[float]):
+        if state.train_dataloader.batch_size is None:
+            raise RuntimeError("Deepspeed requires a dataloader with a known batch size")
 
         deepspeed_config: dict[str, Any] = {
-            "train_batch_size": state.train_batch_size,
+            "train_micro_batch_size_per_gpu": state.train_dataloader.batch_size // state.grad_accum,
             "gradient_accumulation_steps": state.grad_accum,
             "zero_optimization": {
                 "stage": self.zero_stage,
@@ -60,6 +62,12 @@ class DeepSpeedHparams(hp.Hparams):
                 "reduce_bucket_size": self.zero2_bucket_size,
                 "overlap_comm": self.overlap_comm,
             },
+
+            # Without this, DeepSpeed throws errors when ZeRO is used in combination with
+            # non-standard optimizers. Most likely, this will trigger when one of the decoupled
+            # weight decay optimizers is used, but it has been verified that those optimizers work
+            # in combination with DeepSpeed.
+            "zero_allow_untested_optimizer": True,
         }
 
         if self.optimizer_offload:
@@ -85,3 +93,41 @@ class DeepSpeedHparams(hp.Hparams):
             deepspeed_config["gradient_clipping"] = grad_clip_norm
 
         return deepspeed_config
+
+
+def _convert_fp32_tensor_to_fp16(tensor: Tensor):
+    if tensor.dtype == torch.float32:
+        return tensor.half()
+    return tensor
+
+
+def fix_batch_precision_for_deepspeed(batch: Batch, precision: Precision) -> Batch:
+    """Ensures that a batch is properly formatted for DeepSpeed FP16, if active.
+
+    This is more finnicky than it may sound. Just because we're in FP16 doesn't mean
+    we can convert the entire batch to FP16 too. For example, integer tensors are common
+    in inputs and outputs of various models, and these must not be converted. We make a
+    big assumption that a tensor should only be converted to FP16 if it was given in FP32.
+    """
+
+    if precision != Precision.FP16:
+        return batch
+
+    return map_collection(batch, _convert_fp32_tensor_to_fp16)  # type: ignore
+
+
+def is_module_deepspeed(module: torch.nn.Module) -> bool:
+    """Returns whether the module is an instance of a deepspeed module.
+
+    Args:
+        module (torch.nn.Module): The module to check.
+
+    Returns:
+        bool: Whether the module is a deepspeed module.
+    """
+    try:
+        import deepspeed
+    except ImportError:
+        return False
+    else:
+        return isinstance(module, deepspeed.DeepSpeedEngine)

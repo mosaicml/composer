@@ -16,19 +16,22 @@ import composer
 from composer import datasets
 from composer.algorithms import AlgorithmHparams, get_algorithm_registry
 from composer.callbacks import (BenchmarkerHparams, CallbackHparams, GradMonitorHparams, LRMonitorHparams,
-                                MemoryMonitorHparams, RunDirectoryUploaderHparams, SpeedMonitorHparams,
-                                TorchProfilerHparams)
+                                MemoryMonitorHparams, RunDirectoryUploaderHparams, SpeedMonitorHparams)
 from composer.core.types import Precision
 from composer.datasets import DataloaderHparams
 from composer.loggers import (BaseLoggerBackendHparams, FileLoggerBackendHparams, MosaicMLLoggerBackendHparams,
                               TQDMLoggerBackendHparams, WandBLoggerBackendHparams)
-from composer.models import (CIFARResNetHparams, EfficientNetB0Hparams, GPT2Hparams, MnistClassifierHparams,
-                             ModelHparams, ResNet18Hparams, ResNet50Hparams, ResNet101Hparams, SSDHparams, UnetHparams)
+from composer.models import (BERTForClassificationHparams, BERTHparams, CIFARResNet9Hparams, CIFARResNetHparams, SSDHParams,
+                             DeepLabV3Hparams, EfficientNetB0Hparams, GPT2Hparams, MnistClassifierHparams, ModelHparams,
+                             ResNet18Hparams, ResNet50Hparams, ResNet101Hparams, UnetHparams)
 from composer.optim import (AdamHparams, AdamWHparams, DecoupledAdamWHparams, DecoupledSGDWHparams, OptimizerHparams,
                             RAdamHparams, RMSPropHparams, SchedulerHparams, SGDHparams, scheduler)
+from composer.profiler import ProfilerHparams
+from composer.trainer.checkpoint_hparams import CheckpointLoaderHparams, CheckpointSaverHparams
+from composer.trainer.ddp import DDPSyncStrategy
 from composer.trainer.deepspeed import DeepSpeedHparams
 from composer.trainer.devices import CPUDeviceHparams, DeviceHparams, GPUDeviceHparams
-from composer.utils import ddp
+from composer.utils import dist
 
 if TYPE_CHECKING:
     from composer.trainer.trainer import Trainer
@@ -52,33 +55,39 @@ scheduler_registry = {
     "cosine_warmrestart": scheduler.CosineAnnealingWarmRestartsHparams,
     "warmup": scheduler.WarmUpLRHparams,
     "constant": scheduler.ConstantLRHparams,
+    "polynomial": scheduler.PolynomialLRHparams,
 }
 
 model_registry = {
     "unet": UnetHparams,
     "ssd": SSDHparams,
+    "deeplabv3": DeepLabV3Hparams,
     "efficientnetb0": EfficientNetB0Hparams,
     "resnet56_cifar10": CIFARResNetHparams,
+    "resnet9_cifar10": CIFARResNet9Hparams,
     "resnet101": ResNet101Hparams,
     "resnet50": ResNet50Hparams,
     "resnet18": ResNet18Hparams,
     "mnist_classifier": MnistClassifierHparams,
     "gpt2": GPT2Hparams,
+    "bert": BERTHparams,
+    "bert_classification": BERTForClassificationHparams,
 }
 
 dataset_registry = {
+    "ade20k": datasets.ADE20kDatasetHparams,
     "brats": datasets.BratsDatasetHparams,
     "coco": datasets.COCODatasetHparams,
     "imagenet": datasets.ImagenetDatasetHparams,
     "cifar10": datasets.CIFAR10DatasetHparams,
     "mnist": datasets.MNISTDatasetHparams,
     "lm": datasets.LMDatasetHparams,
+    "glue": datasets.GLUEHparams,
 }
 
 algorithms_registry = get_algorithm_registry()
 
 callback_registry = {
-    "torch_profiler": TorchProfilerHparams,
     "speed_monitor": SpeedMonitorHparams,
     "benchmarker": BenchmarkerHparams,
     "lr_monitor": LRMonitorHparams,
@@ -127,9 +136,9 @@ class TrainerHparams(hp.Hparams):
     model: ModelHparams = hp.required(doc="model")
     loggers: List[BaseLoggerBackendHparams] = hp.required(doc="loggers to use")
 
-    max_epochs: int = hp.required(
-        doc="training time in epochs and/or batches (e.g., 90ep5ba)",
-        template_default=10,
+    max_duration: str = hp.required(
+        doc="Time string for the maximum training duration (e.g., 90ep)",
+        template_default="10ep",
     )
 
     train_batch_size: int = hp.required(
@@ -150,11 +159,13 @@ class TrainerHparams(hp.Hparams):
         "Determines the number of microbatches to split a per-gpu batch into, used to compensate for low-memory-capacity devices."
     )
     precision: Precision = hp.required(doc="Precision to use for training", template_default=Precision.AMP)
-    ddp_sync_strategy: Optional[ddp.DDPSyncStrategy] = hp.optional(
+
+    dist_timeout: float = hp.optional(doc="Timeout, in seconds, for initializing the dsitributed process group.",
+                                      default=15.0)
+    ddp_sync_strategy: Optional[DDPSyncStrategy] = hp.optional(
         doc="The strategy for synchronizing DDP. Default value ``None`` causes the "
         "trainer to auto-select a value depending on what algorithms are used.",
         default=None)
-    ddp_timeout: float = hp.optional(doc="Timeout, in seconds, for initializing the DDP process group.", default=5.0)
 
     deepspeed: Optional[DeepSpeedHparams] = hp.optional(doc="Configuration for DeepSpeed.", default=None)
 
@@ -171,18 +182,8 @@ class TrainerHparams(hp.Hparams):
         default=-1)
     callbacks: List[CallbackHparams] = hp.optional(doc="Callback hparams", default_factory=list)
 
-    checkpoint_filepath: Optional[str] = hp.optional(doc="Path to an existing checkpoint file to load from.",
-                                                     default=None)
-
-    checkpoint_interval_unit: Optional[str] = hp.optional(
-        doc=
-        "Unit for the checkpoint save interval -- should be 'ep' for epochs; 'ba' for batches, or None to disable checkpointing",
-        default=None)
-    checkpoint_interval: int = hp.optional(doc="Interval for checkpointing.", default=1)
-    checkpoint_folder: str = hp.optional(
-        doc="Folder in which to save checkpoint files. Relative to the run directory, if set."
-        "Defaults to `checkpoints`.",
-        default="checkpoints")
+    load_checkpoint: Optional[CheckpointLoaderHparams] = hp.optional(doc="Checkpoint loading hparams", default=None)
+    save_checkpoint: Optional[CheckpointSaverHparams] = hp.optional(doc="Checkpointing hparams", default=None)
 
     train_subset_num_batches: Optional[int] = hp.optional(textwrap.dedent("""If specified,
         finish every epoch early after training on this many batches."""),
@@ -203,21 +204,23 @@ class TrainerHparams(hp.Hparams):
         it will override train_dataset.datadir and val_dataset.datadir"""),
                                          default=None)
 
+    profiler: Optional[ProfilerHparams] = hp.optional(doc="Profiler hparams", default=None)
+
     def validate(self):
         super().validate()
 
-        deepspeed_enabled = self.deepspeed and self.deepspeed.enabled
+        if self.deepspeed is not None:
 
-        if not deepspeed_enabled and Precision(self.precision) == Precision.FP16:
-            raise ValueError("FP16 precision is only supported when training with DeepSpeed.")
+            if self.precision == Precision.FP16:
+                raise ValueError("FP16 precision is only supported when training with DeepSpeed.")
 
-        if deepspeed_enabled and self.deterministic_mode:
-            raise ValueError("Deterministic mode is not supported with DeepSpeed.")
+            if isinstance(self.device, CPUDeviceHparams):
+                raise ValueError("Training on CPUs is not supported with DeepSpeed.")
 
-        if deepspeed_enabled and isinstance(self.device, CPUDeviceHparams):
-            raise ValueError("Training on CPUs is not supported with DeepSpeed.")
+            if self.deterministic_mode and self.deepspeed.zero_stage > 0:
+                raise ValueError("Deepspeed with zero stage > 0 is not compatible with deterministic mode")
 
-        world_size = ddp.get_world_size()
+        world_size = dist.get_world_size()
 
         if self.train_batch_size % world_size != 0:
             raise ValueError(

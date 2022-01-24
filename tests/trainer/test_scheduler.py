@@ -1,6 +1,6 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
-from typing import Dict, Type
+from typing import Dict, Type, Union
 from unittest import mock
 
 import pytest
@@ -11,19 +11,22 @@ from composer.core.types import ModelParameters
 from composer.optim.pytorch_future import WarmUpLR
 from composer.optim.scheduler import (ComposedScheduler, ConstantLRHparams, CosineAnnealingLRHparams,
                                       CosineAnnealingWarmRestartsHparams, ExponentialLRHparams, LinearLRHparams,
-                                      MultiStepLRHparams, SchedulerHparams, StepLRHparams, WarmUpLRHparams)
+                                      MultiStepLRHparams, PolynomialLRHparams, SchedulerHparams, StepLRHparams,
+                                      WarmUpLRHparams)
 from composer.trainer.trainer_hparams import scheduler_registry
 
 # for testing, we provide values for required hparams fields
+MAX_EPOCHS = 1000
 schedulers: Dict[Type[SchedulerHparams], SchedulerHparams] = {
     StepLRHparams: StepLRHparams(step_size="5ep",),
     MultiStepLRHparams: MultiStepLRHparams(milestones=["5ep", "10ep"],),
     ExponentialLRHparams: ExponentialLRHparams(gamma=0.5,),
-    CosineAnnealingLRHparams: CosineAnnealingLRHparams(T_max="1000ep",),
-    LinearLRHparams: LinearLRHparams(total_iters="1000ep",),
-    CosineAnnealingWarmRestartsHparams: CosineAnnealingWarmRestartsHparams(T_0="1000ep",),
+    CosineAnnealingLRHparams: CosineAnnealingLRHparams(T_max=f"{MAX_EPOCHS}ep",),
+    LinearLRHparams: LinearLRHparams(total_iters=f"{MAX_EPOCHS}ep",),
+    CosineAnnealingWarmRestartsHparams: CosineAnnealingWarmRestartsHparams(T_0=f"{MAX_EPOCHS}ep",),
     WarmUpLRHparams: WarmUpLRHparams(),
-    ConstantLRHparams: ConstantLRHparams()
+    ConstantLRHparams: ConstantLRHparams(),
+    PolynomialLRHparams: PolynomialLRHparams(T_max="100ep", power=0.9)
 }
 
 time_field: Dict[Type[SchedulerHparams], str] = {
@@ -34,14 +37,11 @@ time_field: Dict[Type[SchedulerHparams], str] = {
     LinearLRHparams: 'total_iters',
     CosineAnnealingWarmRestartsHparams: 'T_0',
     WarmUpLRHparams: 'warmup_iters',
-    ConstantLRHparams: ''
+    ConstantLRHparams: '',
+    PolynomialLRHparams: 'T_max'
 }
 
 EXPECTED_RESULTS_TIME_CONVERSION = {
-    '33ep12ba': {
-        'steps': 3312,
-        'epochs': 33
-    },
     '17ep': {
         'steps': 1700,
         'epochs': 17
@@ -53,6 +53,41 @@ EXPECTED_RESULTS_TIME_CONVERSION = {
     42: {
         'steps': 42,
         'epochs': 42
+    },
+    '0.05dur': {
+        'steps': 5000,
+        'epochs': 50,
+    },
+    '0.95dur': {
+        'steps': 95000,
+        'epochs': 950,
+    }
+}
+
+TIME_HPARAMS = {
+    '33ep12ba': {
+        'max_epochs': MAX_EPOCHS,
+        'steps_per_epoch': 100,
+    },
+    '17ep': {
+        'max_epochs': MAX_EPOCHS,
+        'steps_per_epoch': 100,
+    },
+    '5050ba': {
+        'max_epochs': MAX_EPOCHS,
+        'steps_per_epoch': 100,
+    },
+    42: {
+        'max_epochs': MAX_EPOCHS,
+        'steps_per_epoch': 100,
+    },
+    '0.05dur': {
+        'max_epochs': MAX_EPOCHS,
+        'steps_per_epoch': 100,
+    },
+    '0.95dur': {
+        'max_epochs': MAX_EPOCHS,
+        'steps_per_epoch': 100,
     }
 }
 
@@ -71,7 +106,7 @@ def dummy_optimizer(dummy_parameters) -> torch.optim.Optimizer:
 @pytest.mark.parametrize("scheduler_name", scheduler_registry.keys())
 class TestSchedulerInit():
 
-    def test_scheduler_initialization(self, scheduler_name, dummy_optimizer):
+    def test_scheduler_initialization(self, scheduler_name: str, dummy_optimizer):
 
         # create the scheduler hparams object
         obj: Type[SchedulerHparams] = scheduler_registry[scheduler_name]
@@ -84,16 +119,21 @@ class TestSchedulerInit():
 
     @pytest.mark.parametrize('timestrings', EXPECTED_RESULTS_TIME_CONVERSION.keys())
     @pytest.mark.parametrize('interval', ['steps', 'epochs'])
-    def test_scheduler_time_conversion(self, scheduler_name, dummy_optimizer, timestrings, interval):
+    def test_scheduler_time_conversion(self, scheduler_name: str, dummy_optimizer, timestrings: Union[str, int],
+                                       interval: str):
         expected = EXPECTED_RESULTS_TIME_CONVERSION[timestrings][interval]
         obj: Type[SchedulerHparams] = scheduler_registry[scheduler_name]
+        steps_per_epoch = TIME_HPARAMS[timestrings]['steps_per_epoch']
+        max_epochs = TIME_HPARAMS[timestrings]['max_epochs']
 
         if time_field[obj]:
             scheduler_hparams = schedulers[obj]
             with mock.patch.object(scheduler_hparams, time_field[obj], timestrings), \
                 mock.patch.object(scheduler_hparams, 'interval', interval):
 
-                scheduler, interval = scheduler_hparams.initialize_object(dummy_optimizer, steps_per_epoch=100)
+                scheduler, interval = scheduler_hparams.initialize_object(dummy_optimizer,
+                                                                          steps_per_epoch=steps_per_epoch,
+                                                                          max_training_duration=f"{max_epochs}ep")
 
                 assert getattr(scheduler, time_field[obj]) == expected
 
@@ -114,7 +154,7 @@ class TestComposedScheduler():
 
     def test_composed(self, optimizer):
         epochs = 9
-        targets = [[1 * 0.2 for x in range(4)] + [1 * 0.9**x for x in range(7)]]
+        targets = [[1 * 0.2 for _ in range(4)] + [1 * 0.9**x for x in range(7)]]
         schedulers = [
             ExponentialLR(optimizer, gamma=0.9),
             WarmUpLR(optimizer, warmup_factor=0.2, warmup_iters=4, warmup_method="constant")

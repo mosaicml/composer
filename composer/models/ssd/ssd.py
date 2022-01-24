@@ -90,6 +90,7 @@ class SSD(BaseMosaicModel):
         dboxes = dboxes300_coco()
         encoder = Encoder(dboxes)
 
+        '''
         val_coco_dl = DataLoader(val_coco,
                                     batch_size=32,
                                     shuffle=False,
@@ -97,34 +98,35 @@ class SSD(BaseMosaicModel):
                                     num_workers=8)
 
         for nbatch, (img, img_id, img_size, _, _) in enumerate(val_coco_dl):
-            with torch.no_grad():
-                inp = img.cuda()
-                ploc, plabel = self.module(inp)
-                ploc, plabel = ploc.float(), plabel.float()
+        '''
+        (img, img_id, img_size, _, _) = batch
+        with torch.no_grad():
+            ploc, plabel = self.module(img)
+            ploc, plabel = ploc.float(), plabel.float()
 
-                for idx in range(ploc.shape[0]):
-                    ploc_i = ploc[idx, :, :].unsqueeze(0)
-                    plabel_i = plabel[idx, :, :].unsqueeze(0)
+            for idx in range(ploc.shape[0]):
+                ploc_i = ploc[idx, :, :].unsqueeze(0)
+                plabel_i = plabel[idx, :, :].unsqueeze(0)
 
-                    try:
-                        result = encoder.decode_batch(ploc_i, plabel_i, 0.50, 200)[0]
-                    except:
-                        # raise
-                        print("")
-                        print("No object detected in idx: {}".format(idx))
-                        continue
+                try:
+                    result = encoder.decode_batch(ploc_i, plabel_i, 0.50, 200)[0]
+                except:
+                    # raise
+                    print("")
+                    print("No object detected in idx: {}".format(idx))
+                    continue
 
-                    htot, wtot = img_size[0][idx].item(), img_size[1][idx].item()
-                    loc, label, prob = [r.cpu().numpy() for r in result]
-                    for loc_, label_, prob_ in zip(loc, label, prob):
-                        ret.append([img_id[idx], loc_[0] * wtot, \
-                                    loc_[1] * htot,
-                                    (loc_[2] - loc_[0]) * wtot,
-                                    (loc_[3] - loc_[1]) * htot,
-                                    prob_,
-                                    inv_map[label_]])
+                htot, wtot = img_size[0][idx].item(), img_size[1][idx].item()
+                loc, label, prob = [r.cpu().numpy() for r in result]
+                for loc_, label_, prob_ in zip(loc, label, prob):
+                    ret.append([img_id[idx], loc_[0] * wtot, \
+                                loc_[1] * htot,
+                                (loc_[2] - loc_[0]) * wtot,
+                                (loc_[3] - loc_[1]) * htot,
+                                prob_,
+                                inv_map[label_]])
 
-        ret = np.array(ret).astype(np.float32)
+        #ret = np.array(ret).astype(np.float32)
 
         final_results = ret
 
@@ -149,6 +151,7 @@ class my_map(Metric):
     def compute(self, pred):
         self.cocodt = self.cocogt.loadRes(pred)
         E = COCOeval(self.cocogt, self.cocodt, iouType='bbox')
+        print('here')
         E.evaluate()
         E.accumulate()
         E.summarize()

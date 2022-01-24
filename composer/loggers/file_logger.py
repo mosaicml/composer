@@ -8,13 +8,12 @@ from typing import Any, Dict, Optional, TextIO
 
 import yaml
 
-from composer.core.logging import Logger, LogLevel, RankZeroLoggerBackend, TLogData, format_log_data_value
+from composer.core.logging import BaseLoggerBackend, Logger, LogLevel, TLogData, format_log_data_value
 from composer.core.state import State
-from composer.loggers.logger_hparams import FileLoggerBackendHparams
-from composer.utils.run_directory import get_relative_to_run_directory
+from composer.utils import run_directory
 
 
-class FileLoggerBackend(RankZeroLoggerBackend):
+class FileLoggerBackend(BaseLoggerBackend):
     """Logs to a file or to the terminal.
 
     Example output::
@@ -33,14 +32,17 @@ class FileLoggerBackend(RankZeroLoggerBackend):
         log_level (LogLevel, optional): Maximum
             :class:`~composer.core.logging.logger.LogLevel`. to record.
             (default: :attr:`~composer.core.logging.logger.LogLevel.EPOCH`)
-        every_n_epochs (int, optional):
-            Frequency to print :attr:`~composer.core.logging.logger.LogLevel.EPOCH` logs.
-            (default: ``1``)
-        every_n_batches (int, optional):
-            Frequency to print :attr:`~composer.core.logging.logger.LogLevel.BATCH` logs.
-            (default: ``1``)
-        flush_every_n_batches (int, optional): How frequently to flush the log to the file.
-            (default: ``1``)
+        log_interval (int, optional):
+            Frequency to print logs. If ``log_level` is :attr:`~composer.core.logging.logger.LogLevel.EPOCH`,
+            logs will only be recorded every n epochs. If ``log_level` is
+            :attr:`~composer.core.logging.logger.LogLevel.BATCH`, logs will be printed every n batches.
+            Otherwise, if ``log_level` is :attr:`~composer.core.logging.logger.LogLevel.FIT`, this parameter is
+            ignored, as calls at the fit log level are always recorded. (default: ``1``)
+        flush_interval (int, optional): How frequently to flush the log to the file, relative to the ``log_level``.
+            For example, if the ``log_level`` is :attr:`~composer.core.logging.logger.LogLevel.EPOCH`,
+            then the logfile will be flushed every n epochs.
+            If the ``log_level`` is :attr:`~composer.core.logging.logger.LogLevel.BATCH`, then the logfile will be flushed
+            every n batches. (default: ``100``)
     """
 
     def __init__(
@@ -49,50 +51,54 @@ class FileLoggerBackend(RankZeroLoggerBackend):
         *,
         buffer_size: int = 1,
         log_level: LogLevel = LogLevel.EPOCH,
-        every_n_epochs: int = 1,
-        every_n_batches: int = 1,
-        flush_every_n_batches: int = 1,
+        log_interval: int = 1,
+        flush_interval: int = 100,
         config: Optional[Dict[str, Any]] = None,
     ) -> None:
         super().__init__()
-        self.hparams = FileLoggerBackendHparams(
-            filename=filename,
-            buffer_size=buffer_size,
-            log_level=log_level,
-            every_n_epochs=every_n_epochs,
-            every_n_batches=every_n_batches,
-            flush_every_n_batches=flush_every_n_batches,
-        )
+        self.filename = filename
+        self.buffer_size = buffer_size
+        self.log_level = log_level
+        self.log_interval = log_interval
+        self.flush_interval = flush_interval
         self.file: Optional[TextIO] = None
         self.config = config
 
-    def _will_log(self, state: State, log_level: LogLevel) -> bool:
-        if log_level > self.hparams.log_level:
-            return False
-        if log_level >= LogLevel.EPOCH and state.epoch % self.hparams.every_n_epochs != 0:
-            return False
-        if log_level >= LogLevel.BATCH and (state.step + 1) % self.hparams.every_n_batches != 0:
-            return False
-        return True
+    def will_log(self, state: State, log_level: LogLevel) -> bool:
+        if log_level == LogLevel.FIT:
+            return True  # fit is always logged
+        if log_level == LogLevel.EPOCH:
+            if self.log_level < LogLevel.EPOCH:
+                return False
+            if self.log_level > LogLevel.EPOCH:
+                return True
+            return (int(state.timer.epoch) + 1) % self.log_interval == 0
+        if log_level == LogLevel.BATCH:
+            if self.log_level < LogLevel.BATCH:
+                return False
+            if self.log_level > LogLevel.BATCH:
+                return True
+            return (int(state.timer.batch) + 1) % self.log_interval == 0
+        raise ValueError(f"Unknown log level: {log_level}")
 
-    def _log_metric(self, epoch: int, step: int, log_level: LogLevel, data: TLogData):
+    def log_metric(self, epoch: int, step: int, log_level: LogLevel, data: TLogData):
         data_str = format_log_data_value(data)
         if self.file is None:
             raise RuntimeError("Attempted to log before self.init() or after self.close()")
-        print(f"[{log_level.name}][step={step}]: {data_str}", file=self.file)
+        print(f"[{log_level.name}][step={step}]: {data_str}", file=self.file, flush=False)
 
     def init(self, state: State, logger: Logger) -> None:
         del state, logger  # unused
         if self.file is not None:
             raise RuntimeError("The file logger is already initialized")
-        if self.hparams.filename == "stdout":
+        if self.filename == "stdout":
             self.file = sys.stdout
-        elif self.hparams.filename == "stderr":
+        elif self.filename == "stderr":
             self.file = sys.stderr
         else:
-            self.file = open(get_relative_to_run_directory(self.hparams.filename),
+            self.file = open(os.path.join(run_directory.get_run_directory(), self.filename),
                              "x+",
-                             buffering=self.hparams.buffer_size)
+                             buffering=self.buffer_size)
         if self.config is not None:
             print("Config", file=self.file)
             print("-" * 30, file=self.file)
@@ -100,15 +106,21 @@ class FileLoggerBackend(RankZeroLoggerBackend):
             print("-" * 30, file=self.file)
             print(file=self.file)
 
+    def training_start(self, state: State, logger: Logger) -> None:
+        del state, logger  # unused
+        self._flush_file()
+
     def batch_end(self, state: State, logger: Logger) -> None:
         del logger  # unused
         assert self.file is not None
-        if (state.step + 1) % self.hparams.flush_every_n_batches == 0:
+        if self.log_level == LogLevel.BATCH and (int(state.timer.batch) + 1) % self.flush_interval == 0:
             self._flush_file()
 
     def epoch_end(self, state: State, logger: Logger) -> None:
-        del state, logger  # unused
-        self._flush_file()
+        del logger  # unused
+        if self.log_level > LogLevel.EPOCH or self.log_level == LogLevel.EPOCH and (int(state.timer.epoch) +
+                                                                                    1) % self.flush_interval == 0:
+            self._flush_file()
 
     def training_end(self, state: State, logger: Logger) -> None:
         self._flush_file()

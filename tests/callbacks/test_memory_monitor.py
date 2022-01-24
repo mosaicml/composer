@@ -8,13 +8,15 @@ from torch.cuda import device_count
 from composer.callbacks import MemoryMonitorHparams
 from composer.trainer import TrainerHparams
 from composer.trainer.devices import DeviceGPU
+from composer.trainer.devices.device_hparams import GPUDeviceHparams
 
 
 def _do_trainer_fit(mosaic_trainer_hparams: TrainerHparams, testing_with_gpu: bool = False):
     memory_monitor_hparams = MemoryMonitorHparams()
     mosaic_trainer_hparams.callbacks.append(memory_monitor_hparams)
 
-    mosaic_trainer_hparams.max_epochs = 1
+    max_epochs = 1
+    mosaic_trainer_hparams.max_duration = f"{max_epochs}ep"
 
     mosaic_trainer_hparams.train_batch_size = 50
 
@@ -32,7 +34,7 @@ def _do_trainer_fit(mosaic_trainer_hparams: TrainerHparams, testing_with_gpu: bo
     num_train_steps = mosaic_trainer_hparams.train_subset_num_batches
     assert isinstance(num_train_steps, int)
 
-    expected_calls = num_train_steps * mosaic_trainer_hparams.max_epochs
+    expected_calls = num_train_steps * max_epochs
 
     return log_destination, expected_calls
 
@@ -55,6 +57,7 @@ def test_memory_monitor_cpu(mosaic_trainer_hparams: TrainerHparams):
 @pytest.mark.gpu
 def test_memory_monitor_gpu(mosaic_trainer_hparams: TrainerHparams):
     n_cuda_devices = device_count()
+    mosaic_trainer_hparams.device = GPUDeviceHparams()
     if n_cuda_devices > 0:
         log_destination, expected_calls = _do_trainer_fit(mosaic_trainer_hparams, testing_with_gpu=True)
 

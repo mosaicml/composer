@@ -1,6 +1,7 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
 from dataclasses import asdict, dataclass
+from typing import Optional
 
 import numpy as np
 import torch
@@ -32,7 +33,7 @@ class AugMixHparams(AlgorithmHparams):
         return AugMix(**asdict(self))
 
 
-def augment_and_mix(img: ImageType = None,
+def augment_and_mix(img: Optional[ImageType] = None,
                     severity: int = 3,
                     depth: int = -1,
                     width: int = 3,

@@ -1,6 +1,7 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
 from dataclasses import asdict, dataclass
+from typing import Optional
 
 import numpy as np
 import torch
@@ -28,7 +29,7 @@ class RandAugmentHparams(AlgorithmHparams):
         return RandAugment(**asdict(self))
 
 
-def randaugment(img: ImageType = None,
+def randaugment(img: Optional[ImageType] = None,
                 severity: int = 9,
                 depth: int = 2,
                 augmentation_set: List = augmentation_sets["all"]) -> ImageType:

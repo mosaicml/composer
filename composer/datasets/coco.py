@@ -19,8 +19,9 @@ from matplotlib.patches import Polygon
 from PIL import Image
 from pycocotools import mask as maskUtils
 
+from composer.core.types import DataLoader, Dataset
 from composer.datasets.dataloader import DataloaderHparams
-from composer.datasets.hparams import DataloaderSpec, DatasetHparams
+from composer.datasets.hparams import DatasetHparams
 from composer.models.ssd.utils import DefaultBoxes, SSDTransformer
 
 
@@ -54,7 +55,8 @@ class COCODatasetHparams(DatasetHparams):
     shuffle: bool = hp.required("Whether to shuffle the dataset for each epoch")
     download: bool = hp.required("whether to download the dataset, if needed")
 
-    def initialize_object(self, batch_size: int, dataloader_hparams: DataloaderHparams) -> DataloaderSpec:
+    from composer.core.types import DataLoader
+    def initialize_object(self, batch_size: int, dataloader_hparams: DataloaderHparams) -> Dataloader:
 
         dboxes = dboxes300_coco()
 
