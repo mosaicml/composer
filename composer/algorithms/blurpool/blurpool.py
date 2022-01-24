@@ -4,14 +4,11 @@ from __future__ import annotations
 
 import functools
 import logging
-from dataclasses import asdict, dataclass
 from typing import Optional
 
 import numpy as np
 import torch
-import yahp as hp
 
-from composer.algorithms import AlgorithmHparams
 from composer.algorithms.blurpool.blurpool_layers import BlurConv2d, BlurMaxPool2d
 from composer.core import Algorithm, Event, Logger, State, surgery
 
@@ -61,25 +58,13 @@ def apply_blurpool(model: torch.nn.Module,
     _log_surgery_result(model)
 
 
-@dataclass
-class BlurPoolHparams(AlgorithmHparams):
-    """See :class:`BlurPool`"""
-
-    replace_convs: bool = hp.optional('Replace Conv2d with BlurConv2d if stride > 1', default=True)
-    replace_maxpools: bool = hp.optional('Replace MaxPool2d with BlurMaxPool2d', default=True)
-    blur_first: bool = hp.optional('Blur input before convolution', default=True)
-
-    def initialize_object(self) -> "BlurPool":
-        return BlurPool(**asdict(self))
-
-
 def _maybe_replace_strided_conv2d(module: torch.nn.Conv2d, module_index: int, blur_first: bool):
     if (np.max(module.stride) > 1 and module.in_channels >= 16):
         return BlurConv2d.from_conv2d(module, module_index, blur_first=blur_first)
     return None
 
 
-class BlurPool(Algorithm):
+class BlurPool(Algorithm, canonical_name='blurpool'):
     """`BlurPool <http://proceedings.mlr.press/v97/zhang19a.html>`_
     adds anti-aliasing filters to convolutional layers to increase accuracy
     and invariance to small shifts in the input.
@@ -100,15 +85,13 @@ class BlurPool(Algorithm):
             See :class:`~composer.algorithms.blurpool.BlurConv2d` for further discussion.
     """
 
-    def __init__(self, replace_convs: bool, replace_maxpools: bool, blur_first: bool) -> None:
-        self.hparams = BlurPoolHparams(
-            replace_convs=replace_convs,
-            replace_maxpools=replace_maxpools,
-            blur_first=blur_first,
-        )
+    def __init__(self, replace_convs: bool = True, replace_maxpools: bool = True, blur_first: bool = True) -> None:
+        self.replace_convs = replace_convs
+        self.replace_maxpools = replace_maxpools
+        self.blur_first = blur_first
 
-        if self.hparams.replace_maxpools is False and \
-             self.hparams.replace_convs is False:
+        if self.replace_maxpools is False and \
+             self.replace_convs is False:
             log.warning('Both replace_maxpool and replace_convs set to false '
                         'BlurPool will not be modifying the model.')
 
@@ -133,7 +116,10 @@ class BlurPool(Algorithm):
         """
         assert state.model is not None
 
-        apply_blurpool(state.model, **asdict(self.hparams))
+        apply_blurpool(state.model,
+                       replace_convs=self.replace_convs,
+                       replace_maxpools=self.replace_maxpools,
+                       blur_first=self.blur_first)
         self._log_results(event, state, logger)
 
     def _log_results(self, event: Event, state: State, logger: Logger) -> None:
@@ -147,8 +133,8 @@ class BlurPool(Algorithm):
 
         # python logger
         log.info(f'Applied BlurPool to model {state.model.__class__.__name__} '
-                 f'with replace_maxpools={self.hparams.replace_maxpools}, '
-                 f'replace_convs={self.hparams.replace_convs}. '
+                 f'with replace_maxpools={self.replace_maxpools}, '
+                 f'replace_convs={self.replace_convs}. '
                  f'Model now has {num_blurpool_layers} BlurMaxPool2d '
                  f'and {num_blurconv_layers} BlurConv2D layers.')
 

@@ -3,7 +3,6 @@
 from composer.algorithms.squeeze_excite.squeeze_excite import SqueezeExcite as SqueezeExcite
 from composer.algorithms.squeeze_excite.squeeze_excite import SqueezeExcite2d as SqueezeExcite2d
 from composer.algorithms.squeeze_excite.squeeze_excite import SqueezeExciteConv2d as SqueezeExciteConv2d
-from composer.algorithms.squeeze_excite.squeeze_excite import SqueezeExciteHparams as SqueezeExciteHparams
 from composer.algorithms.squeeze_excite.squeeze_excite import apply_se as apply_se
 
 _name = 'SqueezeExcite'

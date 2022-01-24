@@ -1,7 +1,6 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
 from composer.algorithms.scale_schedule.scale_schedule import ScaleSchedule as ScaleSchedule
-from composer.algorithms.scale_schedule.scale_schedule import ScaleScheduleHparams as ScaleScheduleHparams
 from composer.algorithms.scale_schedule.scale_schedule import scale_scheduler as scale_scheduler
 
 _name = 'Scale Schedule'

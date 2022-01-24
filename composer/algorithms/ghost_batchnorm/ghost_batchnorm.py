@@ -3,14 +3,11 @@
 from __future__ import annotations
 
 import logging
-from dataclasses import asdict, dataclass
 from typing import Optional
 
 import numpy as np
 import torch
-import yahp as hp
 
-from composer.algorithms import AlgorithmHparams
 from composer.core import Algorithm, Event, Logger, State, surgery
 
 log = logging.getLogger(__name__)
@@ -121,18 +118,7 @@ def apply_ghost_batchnorm(model: torch.nn.Module, ghost_batch_size: int) -> torc
     return model
 
 
-@dataclass
-class GhostBatchNormHparams(AlgorithmHparams):
-    """See :class:`GhostBatchNorm`"""
-
-    ghost_batch_size: int = hp.required(doc='Size of sub-batches to normalize over',
-                                        template_default=_DEFAULT_GHOST_BATCH_SIZE)
-
-    def initialize_object(self) -> "GhostBatchNorm":
-        return GhostBatchNorm(**asdict(self))
-
-
-class GhostBatchNorm(Algorithm):
+class GhostBatchNorm(Algorithm, canonical_name='ghost_batchnorm'):
     """Replaces batch normalization modules with
     `Ghost Batch Normalization <https://arxiv.org/abs/1705.08741>`_ modules
     that simulate the effect of using a smaller batch size.
@@ -142,7 +128,7 @@ class GhostBatchNorm(Algorithm):
     be the sample axis.
 
     Runs on ``Event.INIT`` and should be applied both before the model has
-    been moved to accelerators and before the model’s parameters have
+    been moved to accelerators and before the model's parameters have
     been passed to an optimizer.
 
     Args:

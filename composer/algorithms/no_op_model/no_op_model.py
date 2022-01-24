@@ -3,13 +3,11 @@
 from __future__ import annotations
 
 import logging
-from dataclasses import asdict, dataclass
 from typing import TYPE_CHECKING, Any, Optional, Tuple
 
 import torch
 from torchmetrics.classification.accuracy import Accuracy
 
-from composer.algorithms import AlgorithmHparams
 from composer.core import Algorithm, Event, Logger, State
 from composer.core.types import Metrics, Precision
 from composer.models.base import BaseMosaicModel
@@ -49,14 +47,7 @@ class NoOpModelClass(BaseMosaicModel):
         raise NotImplementedError("NoOpModel not supported for eval yet.")
 
 
-@dataclass
-class NoOpModelHparams(AlgorithmHparams):
-
-    def initialize_object(self) -> NoOpModel:
-        return NoOpModel(**asdict(self))
-
-
-class NoOpModel(Algorithm):
+class NoOpModel(Algorithm, canonical_name='no_op_model'):
 
     def __init__(self):
         pass

@@ -4,13 +4,10 @@
 
 import logging
 from collections import Counter
-from dataclasses import asdict, dataclass
 from typing import Optional
 
-import yahp as hp
 from torch.optim.lr_scheduler import CosineAnnealingLR, CosineAnnealingWarmRestarts, ExponentialLR, MultiStepLR, StepLR
 
-from composer.algorithms import AlgorithmHparams
 from composer.core import Algorithm, Event, Logger, State
 from composer.core.time import Time, TimeUnit
 from composer.core.types import Scheduler
@@ -69,21 +66,6 @@ def scale_scheduler(scheduler: Scheduler, ssr: float, orig_max_epochs: Optional[
                          'Please implement scale_schedule(ssr: float) method in your scheduler.')
 
 
-@dataclass
-class ScaleScheduleHparams(AlgorithmHparams):
-    """See :class:`ScaleSchedule`"""
-
-    ratio: float = hp.required('Ratio to scale the schedule.', template_default=1.0)
-    method: str = hp.optional("Method to scale the schedule, one of 'epoch' or 'samples'. Default: epoch.",
-                              default='epoch')
-
-    def __post_init__(self):
-        assert self.method in ('epoch', 'samples'), "Scale schedule method must be one of epoch or samples."
-
-    def initialize_object(self) -> "ScaleSchedule":
-        return ScaleSchedule(**asdict(self))
-
-
 class ScaleSchedule(Algorithm):
     """Makes the learning rate schedule take a different number of epochs.
 
@@ -119,7 +101,8 @@ class ScaleSchedule(Algorithm):
     """
 
     def __init__(self, ratio: float, method: str = 'epoch'):
-        self.hparams = ScaleScheduleHparams(ratio=ratio, method=method)
+        self.ratio = ratio
+        self.method = method
         self.activated = False
 
     def match(self, event: Event, state: State) -> bool:
@@ -145,7 +128,7 @@ class ScaleSchedule(Algorithm):
         assert self.activated is False, "Scale Schedule should only be run once, check your control flow."
 
         orig_max_duration = state.max_duration
-        state.max_duration = orig_max_duration * self.hparams.ratio
+        state.max_duration = orig_max_duration * self.ratio
         log.info(f'max_duration changed from {orig_max_duration} to {state.max_duration}')
         if state.max_epochs == 0:
             raise ValueError('Scale schedule has reduced the max_epochs to 0. Set a higher ratio or more epochs.')
@@ -157,13 +140,13 @@ class ScaleSchedule(Algorithm):
             else:
                 schedulers.append(scheduler)
 
-        if self.hparams.method == 'epoch':
+        if self.method == 'epoch':
             for scheduler in schedulers:
                 orig_max_epochs = None
                 if orig_max_duration.unit == TimeUnit.EPOCH:
                     orig_max_epochs = orig_max_duration.value
-                scale_scheduler(scheduler, self.hparams.ratio, orig_max_epochs)
-        elif self.hparams.method == 'samples':
+                scale_scheduler(scheduler, self.ratio, orig_max_epochs)
+        elif self.method == 'samples':
             raise NotImplementedError('Scale schedule algorithm with samples method not supported yet.')
 
         self.activated = True

@@ -1,7 +1,6 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
 from composer.algorithms.cutmix.cutmix import CutMix as CutMix
-from composer.algorithms.cutmix.cutmix import CutMixHparams as CutMixHparams
 from composer.algorithms.cutmix.cutmix import cutmix as cutmix
 
 _name = 'CutMix'

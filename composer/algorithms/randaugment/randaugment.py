@@ -1,32 +1,14 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
-from dataclasses import asdict, dataclass
 from typing import Optional
 
 import numpy as np
 import torch
-import yahp as hp
 from PIL.Image import Image as ImageType
 
-from composer.algorithms.algorithm_hparams import AlgorithmHparams
 from composer.core.types import Algorithm, Event, List, Logger, State
 from composer.utils.augmentation_primitives import augmentation_sets
 from composer.utils.data import add_dataset_transform
-
-
-@dataclass
-class RandAugmentHparams(AlgorithmHparams):
-    """See :class:`RandAugment`"""
-
-    severity: int = hp.optional(doc="Intensity of each augmentation. Ranges from 0 (none) to 10 (maximum)", default=9)
-    depth: int = hp.optional(doc="Number of augmentations to compose in a row", default=2)
-    augmentation_set: str = hp.optional(
-        doc=
-        "Set of augmentations to sample from. 'all', 'safe' (only augmentations that don't appear on CIFAR10C/ImageNet10C), or 'original'",
-        default="all")
-
-    def initialize_object(self) -> "RandAugment":
-        return RandAugment(**asdict(self))
 
 
 def randaugment(img: Optional[ImageType] = None,
@@ -65,7 +47,7 @@ class RandAugmentTransform(torch.nn.Module):
         return randaugment(img=img, severity=self.severity, depth=self.depth, augmentation_set=self.augmentation_set)
 
 
-class RandAugment(Algorithm):
+class RandAugment(Algorithm, canonical_name='randaugment'):
     """Randomly applies a sequence of image data augmentations (`Cubuk et al. 2019 <https://openaccess.thecvf.com/content_CVPRW_2020/papers/w40/Cubuk_Randaugment_Practical_Automated_Data_Augmentation_With_a_Reduced_Search_Space_CVPRW_2020_paper.pdf>`_).
 
     Args:
@@ -94,7 +76,9 @@ class RandAugment(Algorithm):
             raise ValueError("RandAugment severity value must be 0 ≤ severity ≤ 10")
         if augmentation_set not in augmentation_sets.keys():
             raise KeyError(f"randaugment_augmentation_set is not one of {augmentation_sets.keys()}")
-        self.hparams = RandAugmentHparams(severity=severity, depth=depth, augmentation_set=augmentation_set)
+        self.severity = severity
+        self.depth = depth
+        self.augmentation_set = augmentation_set
 
     def match(self, event: Event, state: State) -> bool:
         """Runs on Event.TRAINING_START
@@ -115,7 +99,7 @@ class RandAugment(Algorithm):
             state (State): the current trainer state
             logger (Logger): the training logger
         """
-        ra = RandAugmentTransform(**self.hparams.to_dict())
+        ra = RandAugmentTransform(severity=self.severity, depth=self.depth, augmentation_set=self.augmentation_set)
         assert state.train_dataloader is not None
         dataset = state.train_dataloader.dataset
         add_dataset_transform(dataset, ra)

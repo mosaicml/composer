@@ -1,6 +1,6 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
-from __future__ import annotations
+# from __future__ import annotations
 
 import contextlib
 import datetime
@@ -119,9 +119,10 @@ class Trainer:
             self,
             *,
             model: BaseMosaicModel,
-            train_dataloader: Union[DataLoader, DataSpec],
-            eval_dataloader: Union[DataLoader, DataSpec],
-            max_duration: Union[str, Time],
+            #train_dataloader: Union[DataLoader, DataSpec],
+            #eval_dataloader: Union[DataLoader, DataSpec],
+            #max_duration: Union[str, Time],
+            max_duration: str,
             algorithms: Optional[List[Algorithm]] = None,
             optimizer_hparams: Optional[OptimizerHparams] = None,
             schedulers_hparams: Optional[Union[SchedulerHparams, List[SchedulerHparams]]] = None,
@@ -344,7 +345,7 @@ class Trainer:
             self.state.model = prepare_ddp_module(self.state.model, self.find_unused_parameters)
 
     @classmethod
-    def create_from_hparams(cls, hparams: TrainerHparams) -> Trainer:
+    def create_from_hparams(cls, hparams: TrainerHparams):
         """Instantiate a Trainer using a `TrainerHparams` object.
 
         Args:
@@ -898,3 +899,8 @@ class Trainer:
         return all(
             getattr(optimizer, "_step_supports_amp_closure", False)
             for optimizer in ensure_tuple(self.state.optimizers))
+
+
+import inspect
+
+print(inspect.signature(Trainer))

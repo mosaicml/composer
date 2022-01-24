@@ -3,15 +3,12 @@
 from __future__ import annotations
 
 import inspect
-from dataclasses import asdict, dataclass
 from typing import Callable, Optional, Tuple
 
 import numpy as np
 import torch
-import yahp as hp
 from torch.nn import functional as F
 
-from composer.algorithms.algorithm_hparams import AlgorithmHparams
 from composer.core.types import Algorithm, Event, Logger, State, Tensor
 
 
@@ -142,23 +139,6 @@ def selective_backprop(X: torch.Tensor,
     return X[select_idx], y[select_idx]
 
 
-@dataclass
-class SelectiveBackpropHparams(AlgorithmHparams):
-    """See :class:`SelectiveBackprop`"""
-
-    start: float = hp.required(doc="SB interval start, as fraction of training duration", template_default=0.5)
-    end: float = hp.required(doc="SB interval end, as fraction of training duration", template_default=0.9)
-    keep: float = hp.required(doc="fraction of minibatch to select and keep for gradient computation",
-                              template_default=0.5)
-    scale_factor: float = hp.required(doc="scale for downsampling input for selection forward pass",
-                                      template_default=0.5)
-    interrupt: int = hp.required(doc="interrupt SB with a vanilla minibatch step every 'interrupt' batches",
-                                 template_default=2)
-
-    def initialize_object(self) -> SelectiveBackprop:
-        return SelectiveBackprop(**asdict(self))
-
-
 class SelectiveBackprop(Algorithm):
     """Selectively backpropagate gradients from a subset of each batch (`Jiang et al. 2019 <https://arxiv.org/abs/1910.00762>`_).
 
@@ -187,11 +167,11 @@ class SelectiveBackprop(Algorithm):
     """
 
     def __init__(self, start: float, end: float, keep: float, scale_factor: float, interrupt: int):
-        self.hparams = SelectiveBackpropHparams(start=start,
-                                                end=end,
-                                                keep=keep,
-                                                scale_factor=scale_factor,
-                                                interrupt=interrupt)
+        self.start = start
+        self.end = end
+        self.keep = keep
+        self.scale_factor = scale_factor
+        self.interrupt = interrupt
 
     def match(self, event: Event, state: State) -> bool:
         """Match on ``Event.AFTER_DATALOADER`` if time is between ``self.start`` and
@@ -200,16 +180,16 @@ class SelectiveBackprop(Algorithm):
         if not is_event:
             return False
 
-        is_keep = (self.hparams.keep < 1)
+        is_keep = (self.keep < 1)
         if not is_keep:
             return False
 
         is_chosen = do_selective_backprop(
             current_duration=float(state.get_elapsed_duration()),
             batch_idx=state.timer.batch_in_epoch.value,
-            start=self.hparams.start,
-            end=self.hparams.end,
-            interrupt=self.hparams.interrupt,
+            start=self.start,
+            end=self.end,
+            interrupt=self.interrupt,
         )
         return is_chosen
 
@@ -233,6 +213,6 @@ class SelectiveBackprop(Algorithm):
                 target,
                 model,  # type: ignore - ditto because of loss
                 loss,
-                self.hparams.keep,
-                self.hparams.scale_factor)
+                self.keep,
+                self.scale_factor)
         state.batch = (new_input, new_target)

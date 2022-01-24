@@ -10,7 +10,6 @@ import torch
 from torch.optim.lr_scheduler import CosineAnnealingLR
 from torch.optim.swa_utils import SWALR, AveragedModel
 
-from composer.algorithms.swa.hparams import SWAHparams
 from composer.core.types import Algorithm, Event, Logger, State
 
 log = logging.getLogger(__name__)
@@ -54,7 +53,7 @@ def update_bn(loader, model, device=None):
     model.train(was_training)
 
 
-class SWA(Algorithm):
+class SWA(Algorithm, canonical_name='swa'):
     """Apply Stochastic Weight Averaging (`Izmailov et al. <https://arxiv.org/abs/1803.05407>`_)
 
     Stochastic Weight Averaging (SWA) averages model weights sampled at
@@ -75,11 +74,10 @@ class SWA(Algorithm):
     """
 
     def __init__(self, swa_start: float = 0.8, anneal_epochs: int = 10, swa_lr: Optional[float] = None):
-        self.hparams = SWAHparams(
-            swa_start=swa_start,
-            anneal_epochs=anneal_epochs,
-            swa_lr=swa_lr,
-        )
+        self.swa_start = swa_start
+        self.anneal_epochs = anneal_epochs
+        self.swa_lr = swa_lr
+
         assert 0 < swa_start < 1, "swa_start must be between 0 and 1."
         assert anneal_epochs > 0, "anneal_epochs must be great than 0."
 
@@ -94,7 +92,7 @@ class SWA(Algorithm):
         Returns:
             bool: True if this algorithm should run now.
         """
-        should_start_swa = state.epoch >= int(self.hparams.swa_start * state.max_epochs)
+        should_start_swa = state.epoch >= int(self.swa_start * state.max_epochs)
         return event in (Event.TRAINING_START, Event.TRAINING_END) or \
              (event == Event.EPOCH_END and should_start_swa)
 
@@ -108,7 +106,7 @@ class SWA(Algorithm):
         """
         assert state.model is not None, 'We cannot apply SWA to None'
 
-        swa_start_epochs = int(self.hparams.swa_start * state.max_epochs)
+        swa_start_epochs = int(self.swa_start * state.max_epochs)
 
         if event == Event.TRAINING_START:
             self.swa_model = AveragedModel(state.model)
@@ -117,15 +115,15 @@ class SWA(Algorithm):
             assert self.swa_scheduler is None, "SWA Scheduler should only be set once. Another algorithm "
             "may have adjusted the max_epochs."
 
-            if self.hparams.swa_lr is None:
+            if self.swa_lr is None:
                 last_lr = state.schedulers.schedulers[0].get_last_lr()  # assumes ComposedScheduler
                 log.info(f'Setting SWA LR to {last_lr}')
-                self.hparams.swa_lr = last_lr
+                self.swa_lr = last_lr
 
             self.swa_scheduler = SWALR(
                 state.optimizers[0] if isinstance(state.optimizers, tuple) else state.optimizers,
-                swa_lr=self.hparams.swa_lr,
-                anneal_epochs=self.hparams.anneal_epochs,
+                swa_lr=self.swa_lr,
+                anneal_epochs=self.anneal_epochs,
                 anneal_strategy='cos',
             )
 

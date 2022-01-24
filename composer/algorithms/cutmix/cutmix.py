@@ -1,15 +1,12 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
 import logging
-from dataclasses import asdict, dataclass
 from typing import Optional, Tuple
 
 import numpy as np
 import torch
-import yahp as hp
 from torch.nn import functional as F
 
-from composer.algorithms import AlgorithmHparams
 from composer.core.types import Algorithm, Event, Logger, State, Tensor
 from composer.models.loss import check_for_index_targets
 
@@ -193,18 +190,7 @@ def cutmix(x: Tensor,
     return x_cutmix, y_cutmix
 
 
-@dataclass
-class CutMixHparams(AlgorithmHparams):
-    """See :class:`CutMix`"""
-
-    alpha: float = hp.required('Strength of interpolation, should be >= 0. No interpolation if alpha=0.',
-                               template_default=1.0)
-
-    def initialize_object(self) -> "CutMix":
-        return CutMix(**asdict(self))
-
-
-class CutMix(Algorithm):
+class CutMix(Algorithm, canonical_name='cutmix'):
     """`CutMix <https://arxiv.org/abs/1905.04899>`_ trains the network on
     non-overlapping combinations of pairs of examples and iterpolated targets
     rather than individual examples and targets.
@@ -224,7 +210,7 @@ class CutMix(Algorithm):
     """
 
     def __init__(self, alpha: float):
-        self.hparams = CutMixHparams(alpha=alpha)
+        self.alpha = alpha
         self._indices = torch.Tensor()
         self._cutmix_lambda = 0.0
         self._bbox = tuple()
@@ -280,7 +266,7 @@ class CutMix(Algorithm):
         input, target = state.batch_pair
         assert isinstance(input, Tensor) and isinstance(target, Tensor), \
             "Multiple tensors for inputs or targets not supported yet."
-        alpha = self.hparams.alpha
+        alpha = self.alpha
 
         self.indices = gen_indices(input)
         self.cutmix_lambda = gen_cutmix_lambda(alpha)

@@ -1,15 +1,12 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
 import logging
-from dataclasses import asdict, dataclass
 from typing import Optional, Tuple
 
 import numpy as np
 import torch
-import yahp as hp
 from torch.nn import functional as F
 
-from composer.algorithms import AlgorithmHparams
 from composer.core.types import Algorithm, Event, Logger, State, Tensor
 from composer.models.loss import check_for_index_targets
 
@@ -97,18 +94,7 @@ def mixup_batch(x: Tensor,
     return x_mix, y_mix, shuffled_idx
 
 
-@dataclass
-class MixUpHparams(AlgorithmHparams):
-    """See :class:`MixUp`"""
-
-    alpha: float = hp.required('Strength of interpolation, should be >= 0. No interpolation if alpha=0.',
-                               template_default=0.2)
-
-    def initialize_object(self) -> "MixUp":
-        return MixUp(**asdict(self))
-
-
-class MixUp(Algorithm):
+class MixUp(Algorithm, canonical_name='mixup'):
     """`MixUp <https://arxiv.org/abs/1710.09412>`_ trains the network on
     convex combinations of pairs of examples and targets rather than individual
     examples and targets.
@@ -128,7 +114,7 @@ class MixUp(Algorithm):
     """
 
     def __init__(self, alpha: float):
-        self.hparams = MixUpHparams(alpha=alpha)
+        self.alpha = alpha
         self._interpolation_lambda = 0.0
         self._indices = torch.Tensor()
 
@@ -175,7 +161,7 @@ class MixUp(Algorithm):
         input, target = state.batch_pair
         assert isinstance(input, Tensor) and isinstance(target, Tensor), \
             "Multiple tensors for inputs or targets not supported yet."
-        alpha = self.hparams.alpha
+        alpha = self.alpha
 
         self.interpolation_lambda = gen_interpolation_lambda(alpha)
 

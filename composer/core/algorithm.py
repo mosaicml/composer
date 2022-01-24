@@ -5,12 +5,14 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING, Optional
 
+import yahp as hp
+
 from composer.core.serializable import Serializable
 
 if TYPE_CHECKING:
     from composer.core import Event, Logger, State
 
-
+@hp.create_subclass_registry()
 class Algorithm(Serializable, ABC):
     """Base class for algorithms.
 

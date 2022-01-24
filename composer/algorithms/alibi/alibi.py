@@ -5,55 +5,15 @@ from __future__ import annotations
 import importlib
 import logging
 import math
-from dataclasses import asdict, dataclass
 from operator import attrgetter
 from types import MethodType, ModuleType
 from typing import Any, Callable, Optional, Union
 
 import torch
-import yahp as hp
 
-from composer.algorithms import AlgorithmHparams
 from composer.core import Algorithm, Event, Logger, State, surgery
 
 log = logging.getLogger(__name__)
-
-
-@dataclass
-class AlibiHparams(AlgorithmHparams):
-    """See :class:`Alibi`"""
-
-    position_embedding_attribute: str = hp.required("attribute name of position embeddings within the model. "
-                                                    "For example in HuggingFace's GPT2, the position "
-                                                    "embeddings are 'transformer.wpe'")
-    attention_module_name: str = hp.required("module/class that will have its self-attention "
-                                             "function replaced. For example, in HuggingFace's "
-                                             "GPT, the self-attention module is "
-                                             "'transformers.models.gpt2.modeling_gpt2.GPT2Attention'")
-    attr_to_replace: str = hp.required("model attribute that self-attention function will "
-                                       "replace. For example, in HuggingFace's "
-                                       "GPT2, the self-attention function is '_attn'")
-    alibi_attention: str = hp.required("new self-attention function in which ALiBi is "
-                                       "implemented. Used to replace "
-                                       "'{attention_module}.{attr_to_replace}'")
-    mask_replacement_function: Union[str, None] = hp.optional(
-        "function to replace model's attention mask. This is "
-        "sometimes necessary for evaluating on sequence "
-        " lengths longer than the model was initialized to accommodate.",
-        default=None)
-    heads_per_layer: Union[int, Optional[None]] = hp.optional(
-        'Number of attention heads per layer. If '
-        '"None", will attempt to determine from model.config.n_head.',
-        default=None)
-    max_sequence_length: int = hp.optional('Maximum allowable sequence length', default=8192)
-    train_sequence_length_scaling: float = hp.optional(
-        'Amount by which to scale training sequence length. One batch of training data '
-        'will be reshaped from size (sequence_length, batch) to '
-        '(sequence_length*train_sequence_length_scaling, batch/train_sequence_length_scaling)',
-        default=0.25)
-
-    def initialize_object(self) -> "Alibi":
-        return Alibi(**asdict(self))
 
 
 def apply_alibi(model: torch.nn.Module, heads_per_layer: int, max_sequence_length: int,
@@ -107,7 +67,7 @@ def apply_alibi(model: torch.nn.Module, heads_per_layer: int, max_sequence_lengt
     log.info(f" {count} instances of ALiBi added")
 
 
-class Alibi(Algorithm):
+class Alibi(Algorithm, canonical_name='alibi'):
     """
     `ALiBi <https://arxiv.org/abs/2108.12409>`_ (Attention with Linear Biases)
     dispenses with position embeddings and instead directly biases attention
@@ -122,7 +82,8 @@ class Alibi(Algorithm):
     should be applied before the model has been moved to accelerators.
 
     Args:
-        heads_per_layer: number of attention heads per layer
+        heads_per_layer: Number of attention heads per layer. If ``None``, 
+            will attempt to determine from ``model.config.n_head``.
         max_sequence_length: maximum sequence length that the
             model will be able to accept without returning an error
         position_embedding_attribute: attribute for position
@@ -147,18 +108,24 @@ class Alibi(Algorithm):
             (sequence_length*sequence_length_fraction, batch/sequence_length_fraction).
     """
 
-    def __init__(self, position_embedding_attribute: str, attention_module_name: str, attr_to_replace: str,
-                 alibi_attention: str, mask_replacement_function: str, heads_per_layer: int, max_sequence_length: int,
-                 train_sequence_length_scaling: float) -> None:
+    def __init__(self,
+                 position_embedding_attribute: str,
+                 attention_module_name: str,
+                 attr_to_replace: str,
+                 alibi_attention: str,
+                 mask_replacement_function: str,
+                 heads_per_layer: Optional[int] = None,
+                 max_sequence_length: int = 8192,
+                 train_sequence_length_scaling: float = 0.25):
 
-        self.hparams = AlibiHparams(position_embedding_attribute=position_embedding_attribute,
-                                    attention_module_name=attention_module_name,
-                                    attr_to_replace=attr_to_replace,
-                                    alibi_attention=alibi_attention,
-                                    mask_replacement_function=mask_replacement_function,
-                                    heads_per_layer=heads_per_layer,
-                                    max_sequence_length=max_sequence_length,
-                                    train_sequence_length_scaling=train_sequence_length_scaling)
+        self.position_embedding_attribute = position_embedding_attribute
+        self.attention_module_name = attention_module_name
+        self.attr_to_replace = attr_to_replace
+        self.alibi_attention = alibi_attention
+        self.mask_replacement_function = mask_replacement_function
+        self.heads_per_layer = heads_per_layer
+        self.max_sequence_length = max_sequence_length
+        self.train_sequence_length_scaling = train_sequence_length_scaling
 
     def match(self, event: Event, state: State) -> bool:
         """ Runs on Event.INIT
@@ -172,33 +139,32 @@ class Alibi(Algorithm):
         if event == Event.INIT:
             assert state.model is not None
 
-            if "heads_per_layer" not in asdict(self.hparams).keys() or \
-            not self.hparams.heads_per_layer:
+            if self.heads_per_layer is None:
                 try:
-                    self.hparams.heads_per_layer = state.model.config.n_head  # type: ignore
+                    self.heads_per_layer = state.model.config.n_head  # type: ignore
                 except AttributeError:
                     log.exception("alibi.heads_per_layer not provided, and unable to "
                                   "determine number of heads from model.config.n_head."
-                                  " Please provide alibi. heads_per_layer.")
+                                  " Please provide alibi.heads_per_layer.")
 
             apply_alibi(
                 state.model,
-                heads_per_layer=self.hparams.heads_per_layer,  # type: ignore
-                max_sequence_length=self.hparams.max_sequence_length,
-                position_embedding_attribute=self.hparams.position_embedding_attribute,
-                attr_to_replace=self.hparams.attr_to_replace,
+                heads_per_layer=self.heads_per_layer,  # type: ignore
+                max_sequence_length=self.max_sequence_length,
+                position_embedding_attribute=self.position_embedding_attribute,
+                attr_to_replace=self.attr_to_replace,
                 # Access method from string
-                attention_module=lazy_import(self.hparams.attention_module_name),
+                attention_module=lazy_import(self.attention_module_name),
                 # Access method from string
-                alibi_attention=lazy_import(self.hparams.alibi_attention),
+                alibi_attention=lazy_import(self.alibi_attention),
                 # Access method from string
-                mask_replacement_function=lazy_import(self.hparams.mask_replacement_function))
+                mask_replacement_function=lazy_import(self.mask_replacement_function))
 
         elif event == Event.AFTER_DATALOADER:
             # Change sequence length by reshaping data
-            if not self.hparams.train_sequence_length_scaling == 1 and \
+            if not self.train_sequence_length_scaling == 1 and \
             hasattr(state, "batch") and isinstance(state.batch, dict):
-                sequence_scaling = self.hparams.train_sequence_length_scaling
+                sequence_scaling = self.train_sequence_length_scaling
                 for k, v in state.batch.items():
                     batch_len, sequence_len = v.shape[0], v.shape[1]
                     state.batch[k] = v.reshape(int(batch_len / sequence_scaling), int(sequence_len * sequence_scaling))

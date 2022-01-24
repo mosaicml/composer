@@ -4,28 +4,14 @@ from __future__ import annotations
 
 import logging
 import textwrap
-from dataclasses import asdict, dataclass
 from typing import List, Optional, Tuple
 
 import torch
-import yahp as hp
 
-from composer.algorithms import AlgorithmHparams
 from composer.core import Algorithm, Event, Logger, State
 from composer.core.types import Model, Optimizers
 
 log = logging.getLogger(__name__)
-
-
-@dataclass
-class LayerFreezingHparams(AlgorithmHparams):
-    """See :class:`LayerFreezing`"""
-
-    freeze_start: float = hp.optional(doc='The percentage of epochs to run before freezing begins.', default=0.5)
-    freeze_level: float = hp.optional(doc='Scale factor for the percentage of the network to freeze.', default=1.0)
-
-    def initialize_object(self) -> LayerFreezing:
-        return LayerFreezing(**asdict(self))
 
 
 def _freeze_schedule(current_duration: float, freeze_start: float, freeze_level: float) -> float:
@@ -139,7 +125,7 @@ def freeze_layers(
     return freeze_depth, freeze_percentage
 
 
-class LayerFreezing(Algorithm):
+class LayerFreezing(Algorithm, canonical_name='layer_freezing'):
     """Progressively freeze the layers of the network during training, starting
     with the earlier layers.
 
@@ -154,12 +140,13 @@ class LayerFreezing(Algorithm):
     Runs on ``Event.EPOCH_END``.
 
     Args:
-        freeze_start (float): The fraction of training to run before freezing begins.
-        freeze_level (float): The maximum fraction of layers to freeze.
+        freeze_start (float): The percentage of epochs to run before freezing begins.
+        freeze_level (float): Scale factor for the percentage of the network to freeze.
     """
 
     def __init__(self, freeze_start: float = 0.5, freeze_level: float = 1.0):
-        self.hparams = LayerFreezingHparams(freeze_start, freeze_level)
+        self.freeze_start = freeze_start
+        self.freeze_level = freeze_level
 
     @property
     def find_unused_parameters(self) -> bool:
@@ -183,8 +170,8 @@ class LayerFreezing(Algorithm):
             model=state.model,
             optimizers=optimizers,
             current_duration=float(state.get_elapsed_duration()),
-            freeze_start=self.hparams.freeze_start,
-            freeze_level=self.hparams.freeze_level,
+            freeze_start=self.freeze_start,
+            freeze_level=self.freeze_level,
         )
         logger.metric_epoch({
             'layer_freezing/layers_frozen': freeze_depth,
