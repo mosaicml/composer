@@ -68,7 +68,7 @@ def apply_act_fn(model: torch.nn.Module, act_fn_name: str, use_gated: bool, use_
     print('Finished initializing CUDA memory.')
 
     act_fns = {
-        "squared_relu": lambda x: relu(x).square().half(),
+        "squared_relu": lambda x: relu(x).square(),
         "fast_gelu": transformers.activations.gelu_fast,
         "gelu": torch.nn.functional.gelu,
         "relu": relu,
