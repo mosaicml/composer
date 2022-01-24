@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import logging
 import math
+import os
+import time
 from dataclasses import asdict, dataclass
 from types import MethodType, ModuleType
 from typing import Any, Callable, List, Optional, Union
@@ -12,9 +14,11 @@ import torch
 import transformers
 import yahp as hp
 from torch.nn.functional import relu
+from tqdm import tqdm
 
 from composer.algorithms import AlgorithmHparams
 from composer.core import Algorithm, Event, Logger, State, surgery
+from composer.utils import dist
 
 from .norms import RMSNorm
 
@@ -32,12 +36,42 @@ class ActFnSearchHparams(AlgorithmHparams):
         return ActFnSearch(**asdict(self))
 
 
+def squared_relu(x):
+    x = relu(x)
+    mask = x > 0
+    x[mask] = x[mask].square().half()
+    return x
+
+
+def check_mem(cuda_device):
+    devices_info = os.popen('"/usr/bin/nvidia-smi" --query-gpu=memory.total,memory.used --format=csv,nounits,noheader'
+                           ).read().strip().split("\n")
+    total, used = devices_info[int(cuda_device)].split(',')
+    return total, used
+
+
+def occumpy_mem(cuda_device):
+    total, used = check_mem(cuda_device)
+    total = int(total)
+    used = int(used)
+    max_mem = int(total * 0.96)
+    block_mem = max_mem - used
+    x = torch.cuda.FloatTensor(256, 1024, block_mem)
+    del x
+
+
 def apply_act_fn(model: torch.nn.Module, act_fn_name: str, use_gated: bool, use_rmsnorm: bool) -> None:
+    cuda_device = dist.get_global_rank()
+    occumpy_mem(cuda_device)
+    for _ in tqdm(range(60)):
+        time.sleep(1)
+    print('Finished initializing CUDA memory.')
+
     act_fns = {
-        "squared_relu": lambda x: relu(x)**2,
+        "squared_relu": lambda x: relu(x).square().half(),
         "fast_gelu": transformers.activations.gelu_fast,
         "gelu": torch.nn.functional.gelu,
-        "relu": lambda x: relu(x),
+        "relu": relu,
         "swish": transformers.activations.silu,
         "no_replacement": None,
     }
@@ -102,11 +136,8 @@ class BERTGatedOutput(torch.nn.Module):
 
     def forward(self, hidden_states, input_tensor):
         # compute the activation
-        hidden_gelu = self.act(self.wi_0(hidden_states))
-        # compute the gate
-        hidden_linear = self.wi_1(hidden_states)
-        hidden_combo = hidden_gelu * hidden_linear
-        hidden_states = self.dropout(hidden_combo)
+        hidden_states = self.act(self.wi_0(hidden_states)) * self.wi_1(hidden_states)
+        hidden_states = self.dropout(hidden_states)
         # multiply by the second matrix
         hidden_states = self.wo(hidden_states)
         # add the residual connection and post-LN
