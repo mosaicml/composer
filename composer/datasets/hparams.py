@@ -20,7 +20,6 @@ import yahp as hp
 from composer.core.types import DataLoader, DataSpec, MemoryFormat
 from composer.datasets.dataloader import DataloaderHparams
 
-
 '''
 def _split_fn(batch: Batch, n_microbatches: int) -> List[Batch]:
     if not isinstance(batch, Sequence):

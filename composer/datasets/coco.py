@@ -56,7 +56,7 @@ class COCODatasetHparams(DatasetHparams):
     download: bool = hp.required("whether to download the dataset, if needed")
 
     from composer.core.types import DataLoader
-    def initialize_object(self, batch_size: int, dataloader_hparams: DataloaderHparams) -> Dataloader:
+    def initialize_object(self, batch_size: int, dataloader_hparams: DataloaderHparams) -> DataLoader:
 
         dboxes = dboxes300_coco()
 

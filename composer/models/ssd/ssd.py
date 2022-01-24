@@ -9,9 +9,11 @@ from typing import Any, Optional, Sequence, Tuple
 import numpy as np
 import torch
 from PIL import Image
+from pycocotools.cocoeval import COCOeval
 from torch.autograd import Variable
 from torch.utils.data import DataLoader
 from torchmetrics import Metric
+
 #from torchmetrics.detection.map. import MAP
 #from torchmetrics.detection.map import MeanAveragePrecision as MAP
 from composer.core.types import BatchPair, Metrics, Tensor, Tensors
@@ -21,7 +23,6 @@ from composer.models.ssd.base_model import Loss
 from composer.models.ssd.ssd300 import SSD300
 from composer.models.ssd.ssd_hparams import SSDHparams
 from composer.models.ssd.utils import DefaultBoxes, Encoder, SSDTransformer
-from pycocotools.cocoeval import COCOeval
 
 
 class SSD(BaseMosaicModel):
