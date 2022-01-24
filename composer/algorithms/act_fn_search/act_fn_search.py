@@ -38,9 +38,11 @@ def apply_act_fn(model: torch.nn.Module, act_fn_name: str, use_gated: bool, use_
         "fast_gelu": transformers.activations.gelu_fast,
         "gelu": torch.nn.functional.gelu,
         "relu": lambda x: relu(x),
-        "swish": transformers.activations.silu
+        "swish": transformers.activations.silu,
+        "no_replacement": None,
     }
     act_fn = act_fns[act_fn_name]
+
     d_embeds = []
     layernorm_eps = []
     for idx in range(len(model.module.bert.encoder.layer)):
@@ -52,24 +54,25 @@ def apply_act_fn(model: torch.nn.Module, act_fn_name: str, use_gated: bool, use_
     d_embed = d_embeds[0]
     layernorm_eps = layernorm_eps[0]
 
-    if not use_gated:
-        for idx in range(len(model.module.bert.encoder.layer)):
-            model.module.bert.encoder.layer[idx].intermediate.intermediate_act_fn = act_fn
-    else:
-        for idx in range(len(model.module.bert.encoder.layer)):
-            # TODO: implement ReLU, GeLU, GEGeLU, ReGLU, and SwiGLU
-            d_embed = model.module.bert.encoder.layer[idx].intermediate.dense.in_features
-            d_ff = model.module.bert.encoder.layer[idx].intermediate.dense.out_features
-            # scale down d_ff by 1/3 in order to maintain equal number of parameters
-            d_ff = round((2.0 / 3.0) * d_ff)
-            dropout_rate = model.module.bert.encoder.layer[idx].output.dropout.p
-            layernorm_eps = model.module.bert.encoder.layer[idx].output.LayerNorm.eps
-            model.module.bert.encoder.layer[idx].intermediate = DummyBERTIntermediateOutput()
-            model.module.bert.encoder.layer[idx].output = BERTGatedOutput(d_embed=d_embed,
-                                                                          d_ff=d_ff,
-                                                                          dropout_rate=dropout_rate,
-                                                                          act_fn=act_fn,
-                                                                          layernorm_eps=layernorm_eps)
+    if act_fn is not None:
+        if not use_gated:
+            for idx in range(len(model.module.bert.encoder.layer)):
+                model.module.bert.encoder.layer[idx].intermediate.intermediate_act_fn = act_fn
+        else:
+            for idx in range(len(model.module.bert.encoder.layer)):
+                # TODO: implement ReLU, GeLU, GEGeLU, ReGLU, and SwiGLU
+                d_embed = model.module.bert.encoder.layer[idx].intermediate.dense.in_features
+                d_ff = model.module.bert.encoder.layer[idx].intermediate.dense.out_features
+                # scale down d_ff by 1/3 in order to maintain equal number of parameters
+                d_ff = round((2.0 / 3.0) * d_ff)
+                dropout_rate = model.module.bert.encoder.layer[idx].output.dropout.p
+                layernorm_eps = model.module.bert.encoder.layer[idx].output.LayerNorm.eps
+                model.module.bert.encoder.layer[idx].intermediate = DummyBERTIntermediateOutput()
+                model.module.bert.encoder.layer[idx].output = BERTGatedOutput(d_embed=d_embed,
+                                                                              d_ff=d_ff,
+                                                                              dropout_rate=dropout_rate,
+                                                                              act_fn=act_fn,
+                                                                              layernorm_eps=layernorm_eps)
 
     if use_rmsnorm:
         policy = {torch.nn.LayerNorm: lambda x, module_index: RMSNorm(dim=d_embed, eps=layernorm_eps)}
