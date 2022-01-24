@@ -109,8 +109,15 @@ class TQDMLoggerBackend(BaseLoggerBackend):
             return
         assert self.is_train is not None, "self.is_train should be set by the callback"
         assert state.evaluators is not None
-        total_steps = state.steps_per_epoch if self.is_train else sum(
-            len(evaluator.dataloader) for evaluator in state.evaluators)
+        if self.is_train:
+            total_steps = state.steps_per_epoch
+        else:
+            total_steps = 0
+            for evaluator in state.evaluators:
+                if evaluator.eval_subset_num_batches:
+                    total_steps += evaluator.eval_subset_num_batches
+                else:
+                    total_steps += len(evaluator.dataloader)
 
         desc = f'Epoch {int(state.timer.epoch)}'
         position = 0 if self.is_train else 1

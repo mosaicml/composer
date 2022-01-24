@@ -192,7 +192,11 @@ def test_ddp(device: DeviceHparams, world_size: int, mosaic_trainer_hparams: Tra
     trainer.fit()
 
     expected_train_num_loads = max_epochs * hparams.train_batch_size * hparams.train_subset_num_batches
-    expected_val_num_loads = max_epochs * hparams.eval_batch_size * hparams.eval_subset_num_batches
+    #expected_val_num_loads = max_epochs * hparams.eval_batch_size * hparams.eval_subset_num_batches
+    expected_val_num_loads = 0
+    for evaluator in trainer.evaluators:
+        expected_val_num_loads += max_epochs * hparams.eval_batch_size * evaluator.eval_subset_num_batches
+
     # adding hparams.eval_batch_size to account for the extra spin of the evaluator dataloaders
     # that is called to create a deterministic ordering for the sampler
     for evaluator in trainer.evaluators:

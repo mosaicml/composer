@@ -430,10 +430,10 @@ class Trainer:
                 for evaluator in hparams.evaluators
             ]
             for evaluator in hparams.evaluators:
-                if evaluator.eval_dataset.shuffle and hparams.eval_subset_num_batches:
+                if evaluator.eval_dataset.shuffle and evaluator.eval_subset_num_batches:
                     warnings.warn(
                         textwrap.dedent(f"""SubsetNumBatchesWarning: When specifying eval_subset_num_batches,
-                    (set to {hparams.eval_subset_num_batches}), evaluator.eval_dataset.shuffle should be set to False. Otherwise,
+                    (set to {evaluator.eval_subset_num_batches}), evaluator.eval_dataset.shuffle should be set to False. Otherwise,
                     each evaluation epoch may load a different subset of samples."""))
                     break
 
@@ -644,6 +644,7 @@ class Trainer:
         # spin the evaluator dataloaders once to initialize its sampler deterministically
         # so it does not affect any other RNG reads
         for evaluator in self.state.evaluators:
+            assert isinstance(evaluator.dataloader, DataLoader)
             if isinstance(evaluator.dataloader.sampler, torch.utils.data.DistributedSampler):
                 evaluator.dataloader.sampler.set_epoch(0)
             for _ in evaluator.dataloader:
@@ -953,15 +954,7 @@ class Trainer:
 
             for evaluator in state.evaluators:
                 assert isinstance(evaluator.dataloader, DataLoader)
-                for state.batch in itertools.islice(evaluator.dataloader, evaluator.eval_subset_num_batches):
-                    state.batch = self.device.batch_to_device(state.batch)
-                    if evaluator.device_transforms is not None:
-                        state.batch = evaluator.device_transforms(state.batch)
-                    if self.deepspeed_enabled:
-                        state.batch = fix_batch_precision_for_deepspeed(state.batch, state.precision)
-
-            for evaluator in state.evaluators:
-
+                _evaluator_data_spec = DataSpec(evaluator.dataloader)
                 if isinstance(evaluator.dataloader.sampler, torch.utils.data.DistributedSampler):
                     # The distributed sampler uses `set_epoch` to set the random seed
                     # Because evaluation can run on each batch, we use the batch to seed the sampler
@@ -973,8 +966,11 @@ class Trainer:
                     state.batch = self.device.batch_to_device(state.batch)
                     if evaluator.device_transforms:
                         state.batch = evaluator.device_transforms(state.batch)
-                    state.batch_num_samples = evaluator._data_spec.get_num_samples_in_batch(state.batch)
-                    state.batch_num_tokens = evaluator._data_spec.get_num_tokens_in_batch(state.batch)
+                    state.batch_num_samples = _evaluator_data_spec.get_num_samples_in_batch(state.batch)
+                    state.batch_num_tokens = _evaluator_data_spec.get_num_tokens_in_batch(state.batch)
+
+                    if self.deepspeed_enabled:
+                        state.batch = fix_batch_precision_for_deepspeed(state.batch, state.precision)
 
                     self.engine.run_event(Event.EVAL_BATCH_START)
 
