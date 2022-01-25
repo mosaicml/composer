@@ -138,7 +138,7 @@ class Trainer:
             precision: Precision = Precision.FP32,
 
             # dist hparams
-            dist_timeout: float = 15.0,
+            dist_timeout: float = 300.0,
             ddp_sync_strategy: Optional[Union[str, DDPSyncStrategy]] = None,
 
             # Randomness
