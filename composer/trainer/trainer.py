@@ -57,7 +57,8 @@ class Trainer:
             or dict of :class:`DataSpec` kwargs for the training data.
         eval_dataloader (DataLoader, DataSpec, or dict): The :class:`DataLoader`, :class:`DataSpec`,
             or dict of :class:`DataSpec` kwargs for the evaluation data.
-        max_epochs (int): The maxmimum number of epochs to train for.
+        max_duration (Union[str, `~composer.core.Time`]): The maxmimum number amount of Time to train for.
+            See `~composer.core.Time` for details.
         algorithms (List[Algorithm], optional): The algorithms to use during training.
             (default: ``[]``)
         optimizer_hparams: (OptimizerHparams, optional): The OptimizerHparams for constructing
@@ -356,6 +357,7 @@ class Trainer:
 
         hparams.validate()
         import composer
+        logging.basicConfig()
         logging.getLogger(composer.__name__).setLevel(hparams.log_level)
 
         # devices and systems

@@ -43,3 +43,9 @@ dataloader:
 validate_every_n_epochs: 1
 grad_accum: 1
 precision: amp
+load_checkpoint:
+  checkpoint: mosaic_states.pt
+  # checkpoint: "runs/2022-01-25T02:51:46.406392/rank_0/checkpoints/ep10.tar"
+# save_checkpoint:
+#   interval_unit: ep
+#   interval: 10

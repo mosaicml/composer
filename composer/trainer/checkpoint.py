@@ -11,6 +11,7 @@ import tempfile
 import textwrap
 import urllib.parse
 import warnings
+from logging import INFO
 from typing import TYPE_CHECKING, Any, Dict, Iterator, Optional, Tuple, cast
 
 import numpy as np
@@ -47,18 +48,18 @@ class CheckpointLoader:
         checkpoint (str): The template path to an existing checkpoint file.
             It can be a path to a file on local disk, a URL, or if ``object_store_hparams`` is set, the object name
             for a checkpoint in a cloud bucket.
-            
+
             When using Deepspeed zero, the :class:`CheckpointSaver` shards checkpoints by rank. To load deepspeed checkpoints,
             specify ``{RANK}`` in in the ``checkpoint`` parameter, and this variable will be substituted with the global rank.
             For example, suppose that checkpoints are stored in the following structure:
-        
+
             .. code-block::
 
                 my_model/rank_0/ep1.tar
                 my_model/rank_1/ep1.tar
                 my_model/rank_2/ep1.tar
                 ...
-        
+
             Then, ``checkpoint`` should be set to ``my_model/rank_{RANK}/ep1.tar``, and all ranks will load the correct
             data.
 
@@ -189,10 +190,10 @@ class CheckpointLoader:
             self._retrieve_checkpoint(destination_filepath=rank_zero_checkpoint_archive_filepath,
                                       rank=dist.get_global_rank(),
                                       ignore_not_found_errors=False)
-
             if extracted_checkpoint_folder is not None:
                 try:
                     with tarfile.open(rank_zero_checkpoint_archive_filepath) as tarball:
+                        # with tarfile.open("ep10.tar") as tarball:
                         tarball.extractall(extracted_checkpoint_folder)
                 except FileNotFoundError as e:
                     checkpoint_name = self.hparams.checkpoint.format(rank=dist.get_global_rank())
@@ -235,7 +236,7 @@ class CheckpointLoader:
         """
         # Now, all ranks load the checkpoint that local rank zero downloaded
         state_dict = torch.load(mosaic_checkpoint_filepath, map_location='cpu')
-
+        log.debug(f"Loaded checkpoint with keys {state_dict.keys()} and state with keys {state_dict['state'].keys()}")
         seed_to_restore = None
 
         if is_module_deepspeed(state.model):
@@ -286,6 +287,9 @@ class CheckpointLoader:
             node_checkpoint_folder = self._get_node_checkpoint_download_folder(tempdir)
             mosaic_checkpoint_filepath, extracted_checkpoint_folder = self._download_checkpoint(node_checkpoint_folder)
             seed_to_restore = self._restore_checkpoint(state, mosaic_checkpoint_filepath, extracted_checkpoint_folder)
+
+        log.info(f'{"Model weights" if self.hparams.load_weights_only else "Trainer checkpoint"}'
+                 f' loaded from {self.hparams.checkpoint}.')
 
         return seed_to_restore
 
