@@ -357,7 +357,6 @@ class Trainer:
 
         hparams.validate()
         import composer
-        logging.basicConfig()
         logging.getLogger(composer.__name__).setLevel(hparams.log_level)
 
         # devices and systems
