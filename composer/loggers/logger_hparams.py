@@ -3,6 +3,7 @@
 """Logger Hyperparameters"""
 from __future__ import annotations
 
+import copy
 from abc import ABC, abstractmethod
 from dataclasses import asdict, dataclass
 from typing import TYPE_CHECKING, Any, Dict, List, Optional
@@ -164,6 +165,16 @@ class WandBLoggerBackendHparams(BaseLoggerBackendHparams):
 
             if self.flatten_hparams:
                 config = get_flattened_dict(data=config)
+            else:
+                config = copy.deepcopy(config)  # Copy since WandB parameters are part of config
+
+            if "config" not in self.extra_init_params:
+                self.extra_init_params["config"] = {}
+            if not isinstance(self.extra_init_params["config"], dict):
+                raise TypeError(
+                    f"'config' passed to WandB ``extra_init_params`` must be a dictionary. Got {type(self.extra_init_params['config'])}"
+                )
+            self.extra_init_params["config"].update(config)
 
         name_suffix = f"Rank {dist.get_global_rank()}"
         name = f"{self.name}_{name_suffix}" if self.name else name_suffix
@@ -175,14 +186,6 @@ class WandBLoggerBackendHparams(BaseLoggerBackendHparams):
             "entity": self.entity,
             "tags": tags,
         }
-        if config:
-            if "config" not in self.extra_init_params:
-                self.extra_init_params["config"] = {}
-            if not isinstance(self.extra_init_params["config"], dict):
-                raise TypeError(
-                    f"'config' passed to WandB ``extra_init_params`` must be a dictionary. Got {type(self.extra_init_params['config'])}"
-                )
-            self.extra_init_params["config"].update(config)
         init_params.update(self.extra_init_params)
 
         from composer.loggers.wandb_logger import WandBLoggerBackend
