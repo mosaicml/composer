@@ -98,7 +98,10 @@ class WandBLoggerBackendHparams(BaseLoggerBackendHparams):
     log_artifacts_every_n_batches: int = hp.optional(doc="interval, in batches, to log artifacts", default=100)
     rank_zero_only: bool = hp.optional("Whether to log on rank zero only", default=False)
     extra_init_params: Dict[str, JSON] = hp.optional(doc="wandb parameters", default_factory=dict)
-    flatten_hparams: bool = hp.optional(doc="Whether the hparams dictionary should be flattened before uploading to WandB. This can make nested fields easier to visualize and query", default=False)
+    flatten_hparams: bool = hp.optional(
+        doc=
+        "Whether the hparams dictionary should be flattened before uploading to WandB. This can make nested fields easier to visualize and query",
+        default=False)
 
     def initialize_object(self, config: Optional[Dict[str, Any]] = None) -> WandBLoggerBackend:
         """Initializes the logger.
@@ -173,8 +176,13 @@ class WandBLoggerBackendHparams(BaseLoggerBackendHparams):
             "tags": tags,
         }
         if config:
-            init_params["config"] = config
-
+            if "config" not in self.extra_init_params:
+                self.extra_init_params["config"] = {}
+            if not isinstance(self.extra_init_params["config"], dict):
+                raise TypeError(
+                    f"'config' passed to WandB ``extra_init_params`` must be a dictionary. Got {type(self.extra_init_params['config'])}"
+                )
+            self.extra_init_params["config"].update(config)
         init_params.update(self.extra_init_params)
 
         from composer.loggers.wandb_logger import WandBLoggerBackend
