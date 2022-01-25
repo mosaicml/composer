@@ -11,7 +11,6 @@ import tempfile
 import textwrap
 import urllib.parse
 import warnings
-from logging import INFO
 from typing import TYPE_CHECKING, Any, Dict, Iterator, Optional, Tuple, cast
 
 import numpy as np
@@ -193,7 +192,6 @@ class CheckpointLoader:
             if extracted_checkpoint_folder is not None:
                 try:
                     with tarfile.open(rank_zero_checkpoint_archive_filepath) as tarball:
-                        # with tarfile.open("ep10.tar") as tarball:
                         tarball.extractall(extracted_checkpoint_folder)
                 except FileNotFoundError as e:
                     checkpoint_name = self.hparams.checkpoint.format(rank=dist.get_global_rank())
