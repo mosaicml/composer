@@ -141,6 +141,11 @@ stage('Prepare') {
         gitBranch = loadedSCM.GIT_BRANCH
         gitCommit = loadedSCM.GIT_COMMIT
 
+        if (env.CHANGE_ID) {
+            // Use the origin/pr/PR_NUMBER/head to support commits in external repos
+            gitCommit = "origin/pr/${pullRequest.number}/head"
+        }
+
         echo "gitUrl: $gitUrl"
         echo "gitBranch: $gitBranch"
         echo "gitCommit: $gitCommit"
