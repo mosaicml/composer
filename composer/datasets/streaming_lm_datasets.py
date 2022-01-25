@@ -71,9 +71,11 @@ class StreamingLMDatasetHparams(DatasetHparams):
                     "If using Masked Language Modeling, you must replace tokens with a non-zero probability.")
 
     def _load_dataset(self):
+        download_config = datasets.utils.DownloadConfig(max_retries=10)
         return datasets.load_dataset(path=self.dataset_name,
                                      name=self.dataset_config_name,
                                      split=self.split,
+                                     download_config=download_config,
                                      streaming=True)
 
     def _get_approx_num_samples(self):
