@@ -23,6 +23,7 @@ from composer.core.types import DataLoader, Dataset
 from composer.datasets.dataloader import DataloaderHparams
 from composer.datasets.hparams import DatasetHparams
 from composer.models.ssd.utils import DefaultBoxes, SSDTransformer
+from composer.core.types import DataSpec
 
 
 def dboxes300_coco():
@@ -56,7 +57,7 @@ class COCODatasetHparams(DatasetHparams):
     download: bool = hp.required("whether to download the dataset, if needed")
 
     from composer.core.types import DataLoader
-    def initialize_object(self, batch_size: int, dataloader_hparams: DataloaderHparams) -> DataLoader:
+    def initialize_object(self, batch_size: int, dataloader_hparams: DataloaderHparams):
 
         dboxes = dboxes300_coco()
 
@@ -75,14 +76,14 @@ class COCODatasetHparams(DatasetHparams):
         val_coco = COCODetection(val_coco_root, val_annotate, val_trans)
 
         if self.is_train:
-            return DataloaderSpec(dataloader=dataloader_hparams.initialize_object(
+            return DataSpec(dataloader=dataloader_hparams.initialize_object(
                 dataset=train_coco,
                 batch_size=batch_size,
                 sampler=None,
                 drop_last=self.drop_last,
             ))
         else:
-            return DataloaderSpec(dataloader=dataloader_hparams.initialize_object(
+            return DataSpec(dataloader=dataloader_hparams.initialize_object(
                 dataset=val_coco,
                 drop_last=self.drop_last,
                 batch_size=batch_size,

@@ -83,6 +83,7 @@ class DataSpec:
     def _default_split_batch(self, batch: Batch, num_microbatches: int) -> Sequence[Batch]:
         if not isinstance(batch, Sequence):
             raise ValueError(f'split_fn requires batch be a tuple pair of tensors, got {type(batch)}')
+        '''
         x, y = batch
         if isinstance(x, torch.Tensor) and isinstance(y, torch.Tensor):
             return list(zip(x.chunk(num_microbatches), y.chunk(num_microbatches)))
@@ -91,6 +92,21 @@ class DataSpec:
                 zip(
                     [x[i::num_microbatches] for i in range(num_microbatches)],
                     [y[i::num_microbatches] for i in range(num_microbatches)],
+                ))
+        '''
+        x, y, a, b, c = batch
+        nm = num_microbatches
+        if isinstance(x, torch.Tensor) and isinstance(y, torch.Tensor):# and isinstance(a, Tensor) and isinstance(b, Tensor) and isinstance(c, Tensor):
+            #simport pdb; pdb.set_trace()
+            return list(zip(x.chunk(num_microbatches), y.chunk(num_microbatches), [a[i::nm] for i in range(nm)], b.chunk(nm), c.chunk(nm)))
+        if isinstance(x, List) and isinstance(y, List) and isinstance(a, List) and isinstance(b, List) and isinstance(c, List):
+            return list(
+                zip(
+                    [x[i::n_microbatches] for i in range(n_microbatches)],
+                    [y[i::n_microbatches] for i in range(n_microbatches)],
+                    [a[i::nm] for i in range(nm)],
+                    [b[i::nm] for i in range(nm)],
+                    [c[i::nm] for i in range(nm)],
                 ))
         raise NotImplementedError(
             textwrap.dedent("""The default split_fn is unable to split the output of this

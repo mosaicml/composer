@@ -91,15 +91,6 @@ class SSD(BaseMosaicModel):
         dboxes = dboxes300_coco()
         encoder = Encoder(dboxes)
 
-        '''
-        val_coco_dl = DataLoader(val_coco,
-                                    batch_size=32,
-                                    shuffle=False,
-                                    sampler=None,
-                                    num_workers=8)
-
-        for nbatch, (img, img_id, img_size, _, _) in enumerate(val_coco_dl):
-        '''
         (img, img_id, img_size, _, _) = batch
         with torch.no_grad():
             ploc, plabel = self.module(img)
@@ -127,7 +118,6 @@ class SSD(BaseMosaicModel):
                                 prob_,
                                 inv_map[label_]])
 
-        #ret = np.array(ret).astype(np.float32)
 
         final_results = ret
 
@@ -139,18 +129,20 @@ class my_map(Metric):
     def __init__(self):
         super().__init__(dist_sync_on_step=True)
         self.add_state("n_updates", default=torch.zeros(1), dist_reduce_fx="sum")
-
+        data = "/mnt/cota/datasets/coco"
+        self.val_annotate = os.path.join(data, "annotations/instances_val2017.json")
+        self.cocogt = COCO(annotation_file=self.val_annotate)
+        self.predictions = []
+        
     def update(self, pred, target):
         self.n_updates += 1
-        data = "/mnt/cota/datasets/coco"
-        val_annotate = os.path.join(data, "annotations/instances_val2017.json")
-        
-        self.cocogt = COCO(annotation_file=val_annotate)
-
+        self.predictions.append(pred)
+        #self.cocodt = self.cocogt.loadRes(pred)
         
         
-    def compute(self, pred):
-        self.cocodt = self.cocogt.loadRes(pred)
+    def compute(self):
+        import pdb; pdb.set_trace()
+        cocodt = self.cocogt.loadRes(self.predictions)
         E = COCOeval(self.cocogt, self.cocodt, iouType='bbox')
         print('here')
         E.evaluate()

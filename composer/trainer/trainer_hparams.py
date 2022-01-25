@@ -23,7 +23,7 @@ from composer.loggers import (BaseLoggerBackendHparams, FileLoggerBackendHparams
                               TQDMLoggerBackendHparams, WandBLoggerBackendHparams)
 from composer.models import (BERTForClassificationHparams, BERTHparams, CIFARResNet9Hparams, CIFARResNetHparams,
                              DeepLabV3Hparams, EfficientNetB0Hparams, GPT2Hparams, MnistClassifierHparams, ModelHparams,
-                             ResNet18Hparams, ResNet50Hparams, ResNet101Hparams, SSDHParams, UnetHparams)
+                             ResNet18Hparams, ResNet50Hparams, ResNet101Hparams, SSDHparams, UnetHparams)
 from composer.optim import (AdamHparams, AdamWHparams, DecoupledAdamWHparams, DecoupledSGDWHparams, OptimizerHparams,
                             RAdamHparams, RMSPropHparams, SchedulerHparams, SGDHparams, scheduler)
 from composer.profiler import ProfilerHparams

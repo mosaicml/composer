@@ -29,7 +29,6 @@ model:
       - bn_ones
 loggers:
   - tqdm: {}
-max_epochs: 800
 train_batch_size: 32
 eval_batch_size: 32
 seed: 0
@@ -37,6 +36,7 @@ validate_every_n_epochs: 1
 grad_accum: 1
 device:
   gpu: {}
+max_duration: 800ep
 dataloader:
   pin_memory: true
   timeout: 0
