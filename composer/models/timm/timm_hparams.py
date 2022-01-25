@@ -1,8 +1,9 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
+from dataclasses import dataclass
 from typing import Optional
 
-from dataclasses import dataclass
 import yahp as hp
+
 from composer.models.model_hparams import ModelHparams
 from composer.models.timm.model import Timm
 

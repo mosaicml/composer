@@ -1,4 +1,5 @@
 from typing import Optional
+
 from composer.models.base import MosaicClassifier
 
 
