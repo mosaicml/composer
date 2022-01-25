@@ -436,7 +436,7 @@ def test_checkpoint_load_uri(tmpdir: pathlib.Path):
         assert f.readline().startswith("<!doctype html>")
 
 
-def test_checkpoint_load_object_uri(tmpdir: pathlib.Path):
+def test_checkpoint_load_object_uri(tmpdir: pathlib.Path, monkeypatch: pytest.MonkeyPatch):
     try:
         import libcloud
         del libcloud
@@ -445,9 +445,10 @@ def test_checkpoint_load_object_uri(tmpdir: pathlib.Path):
 
     remote_dir = tmpdir / "remote_dir"
     os.makedirs(remote_dir)
+    monkeypatch.setenv("OBJECT_STORE_KEY", str(remote_dir))  # for the local option, the key is the path
     provider_hparams = ObjectStoreProviderHparams(
         provider='local',
-        key=str(remote_dir),  # for the local option, the key is the path
+        key_environ="OBJECT_STORE_KEY",
         container=".",
     )
     with open(str(remote_dir / "checkpoint.txt"), 'wb') as f:
