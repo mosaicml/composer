@@ -238,7 +238,7 @@ def initialize_dist(backend: str, timeout: datetime.timedelta):
         if not dist.get_backend() == backend.lower():
             raise RuntimeError(
                 f"The requested backend ({backend}) differs from the backend "
-                "of the current process group ({torch.distributed.get_backend()}). If you wish to change backends, "
+                f"of the current process group ({torch.distributed.get_backend()}). If you wish to change backends, "
                 "please restart the python process.")
         return
 
