@@ -150,9 +150,18 @@ class Trainer:
             log_destinations: Optional[Sequence[BaseLoggerBackend]] = None,
             callbacks: Sequence[Callback] = tuple(),
 
-            # Checkpoint hparams
-            checkpoint_loader: Optional[CheckpointLoaderHparams] = None,
-            checkpoint_saver: Optional[CheckpointSaverHparams] = None,
+            # load checkpoint
+            load_path: Optional[str] = None,
+            load_object_store_config: Optional[dict] = None,
+            load_weights_only: bool = False,
+            load_strict: bool = False,
+            load_chunk_size: int = 1_048_576,
+            load_progress_bar: bool = True,
+
+            # save_checkpoint
+            save_folder: Optional[str] = None,
+            save_interval: int = 1,
+            save_interval_unit: str = 'ep',
 
             # Profiling
             profiler: Optional[ProfilerHparams] = None,
