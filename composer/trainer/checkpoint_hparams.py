@@ -22,7 +22,7 @@ class CheckpointLoaderHparams(hp.Hparams):
 
     See the documentation for the :class:`CheckpointLoader`.
     """
-    checkpoint: str = hp.required(doc=textwrap.dedent("""The path to an existing checkpoint file
+    path: str = hp.required(doc=textwrap.dedent("""The path to an existing checkpoint file
         (if the checkpoint is on the local disk) or the object name for the checkpoint
         (if the checkpoint is in a cloud bucket)."""))
     object_store: Optional[ObjectStoreProviderHparams] = hp.optional(doc=textwrap.dedent("""
