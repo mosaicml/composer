@@ -56,10 +56,9 @@ class Trainer:
         model (BaseMosaicModel): The model to train.
         train_dataloader (DataLoader, DataSpec, or dict): The :class:`DataLoader`, :class:`DataSpec`,
             or dict of :class:`DataSpec` kwargs for the training data.
-        eval_dataloader (DataLoader, DataSpec, or dict): The :class:`DataLoader`, :class:`DataSpec`,
-            or dict of :class:`DataSpec` kwargs for the evaluation data.
-        evaluators (Optional[List[Evaluator]]): The list of evaluator objects to evaluate multiple datasets. Evaluators 
-            contain metrics relevant to the specific dataset.
+        eval_dataloader (DataLoader, DataSpec, Evaluator or dict): The :class:`DataLoader`, :class:`DataSpec`,
+            :class: `Evaluator` or dict of :class:`DataSpec` kwargs for the evaluation data. The :class:`Evaluator` 
+            class contains metrics relevant to the specific dataset.
         max_epochs (int): The maxmimum number of epochs to train for.
         algorithms (List[Algorithm], optional): The algorithms to use during training.
             (default: ``[]``)
@@ -123,8 +122,7 @@ class Trainer:
             *,
             model: BaseMosaicModel,
             train_dataloader: Union[DataLoader, DataSpec],
-            eval_dataloader: Optional[Union[DataLoader, DataSpec]] = None,
-            evaluators: Optional[List[Evaluator]] = None,
+            eval_dataloader: Union[DataLoader, DataSpec, List[Evaluator]],
             max_duration: Union[str, Time],
             algorithms: Optional[List[Algorithm]] = None,
             optimizer_hparams: Optional[OptimizerHparams] = None,
@@ -211,19 +209,18 @@ class Trainer:
             else:
                 self.ddp_sync_strategy = DDPSyncStrategy(ddp_sync_strategy)
 
-        self.evaluators = evaluators
+        if isinstance(eval_dataloader, DataLoader):
+            eval_dataloader = DataSpec(eval_dataloader)
+        if isinstance(eval_dataloader, DataSpec):
 
-        if eval_dataloader is not None:
-            default_evaluator = Evaluator(label="eval_dataset",
-                                          dataloader=eval_dataloader,
-                                          metrics=None,
-                                          validate_every_n_batches=validate_every_n_batches,
-                                          validate_every_n_epochs=validate_every_n_epochs,
-                                          eval_subset_num_batches=eval_subset_num_batches)
-            if self.evaluators is not None:
-                self.evaluators.append(default_evaluator)
-            else:
-                self.evaluators = [default_evaluator]
+            default_evaluator = Evaluator(label="eval_dataset", dataloader=eval_dataloader, metrics=None)
+            self.evaluators = [default_evaluator]
+        else:
+            self.evaluators = []
+            assert isinstance(eval_dataloader, list)
+            for evaluator in eval_dataloader:
+                assert isinstance(evaluator, Evaluator)
+                self.evaluators.append(evaluator)
 
         # do a check here to make sure there is at least one validation set
         if self.evaluators is None or len(self.evaluators) == 0:
@@ -240,7 +237,6 @@ class Trainer:
             train_dataloader = DataSpec(train_dataloader)
 
         self._train_data_spec = train_dataloader
-        # self._eval_data_spec = eval_dataloader
 
         self.state = State(
             max_duration=max_duration,
@@ -276,8 +272,8 @@ class Trainer:
 
         if eval_subset_num_batches is not None:
             for evaluator in self.evaluators:
-                assert isinstance(evaluator.dataloader, DataLoader)
-                if eval_subset_num_batches > len(evaluator.dataloader):
+                assert isinstance(evaluator.dataloader, DataSpec)
+                if eval_subset_num_batches > len(evaluator.dataloader.dataloader):
                     warnings.warn(
                         textwrap.dedent(
                             f"""SubsetNumBatchesWarning: The eval_subset_num_batches({eval_subset_num_batches})
@@ -421,30 +417,24 @@ class Trainer:
                 (set to {hparams.eval_subset_num_batches}), val_dataset.shuffle should be set to False. Otherwise,
                 each evaluation epoch may load a different subset of samples."""))
             eval_dataloader = hparams.val_dataset.initialize_object(eval_device_batch_size, hparams.dataloader)
-        else:
-            eval_dataloader = None
 
-        if hparams.evaluators is not None:
-            evaluators = [
+        if hparams.evaluators is not None and len(hparams.evaluators) > 0:
+            eval_dataloader = [
                 evaluator.initialize_object(eval_device_batch_size, hparams.dataloader)
                 for evaluator in hparams.evaluators
             ]
             for evaluator in hparams.evaluators:
-                if evaluator.eval_dataset.shuffle and evaluator.eval_subset_num_batches:
+                if evaluator.eval_dataset.shuffle and hparams.eval_subset_num_batches:
                     warnings.warn(
                         textwrap.dedent(f"""SubsetNumBatchesWarning: When specifying eval_subset_num_batches,
-                    (set to {evaluator.eval_subset_num_batches}), evaluator.eval_dataset.shuffle should be set to False. Otherwise,
+                    (set to {hparams.eval_subset_num_batches}), evaluator.dataloader.shuffle should be set to False. Otherwise,
                     each evaluation epoch may load a different subset of samples."""))
                     break
-
-        else:
-            evaluators = None
 
         trainer = cls(
             model=model,
             train_dataloader=train_dataloader,
             eval_dataloader=eval_dataloader,
-            evaluators=evaluators,
             max_duration=hparams.max_duration,
             algorithms=algorithms,
             optimizer_hparams=hparams.optimizer,
@@ -559,30 +549,28 @@ class Trainer:
         # Get and copy all the model's associated evaluation metrics
         original_model = self.state.model
         assert isinstance(original_model, BaseMosaicModel)
-        metrics = original_model.metrics(train=False)
-        assert isinstance(metrics, (Metric, MetricCollection)), \
+        model_metrics = original_model.metrics(train=False)
+        assert isinstance(model_metrics, (Metric, MetricCollection)), \
         "   Error module.metrics() must return a Metric or MetricCollection object."
-        if isinstance(metrics, Metric):
+        if isinstance(model_metrics, Metric):
             # Forcing metrics to be a MetricCollection simplifies logging results
-            metrics = MetricCollection([metrics])
+            model_metrics = MetricCollection([model_metrics])
 
         # Use all the metrics from the model if no metric_names are specified
         if evaluator.metrics is None:
-            if evaluator.metric_names is None:
-                evaluator_metrics = copy.deepcopy(metrics)
-            else:
-                evaluator_metrics = MetricCollection([])
-                for metric_name in evaluator.metric_names:
-                    if metric_name in metrics.keys():
-                        evaluator_metrics.add_metrics(copy.deepcopy(metrics[metric_name]))
-                    else:
-                        warnings.warn(
-                            f"No metric found with the name {metric_name}. Check if this"
-                            "metric is compatible/listed in your model metrics.",
-                            category=UserWarning)
-                if len(evaluator_metrics) == 0:
-                    raise RuntimeError("No metrics compatible with your model were added to this evaluator."
-                                       "Check that the metrics you specified are compatible/listed in your model.")
+            evaluator_metrics = copy.deepcopy(model_metrics)
+        elif isinstance(evaluator.metrics, list):
+            evaluator_metrics = MetricCollection([])
+            for metric_name in evaluator.metrics:
+                assert isinstance(metric_name, str)
+                if metric_name in model_metrics.keys():
+                    evaluator_metrics.add_metrics(copy.deepcopy(model_metrics[metric_name]))
+                else:
+                    raise RuntimeError(f"No metric found with the name {metric_name}. Check if this"
+                                       "metric is compatible/listed in your model metrics.")
+            if len(evaluator_metrics) == 0:
+                raise RuntimeError("No metrics compatible with your model were added to this evaluator."
+                                   "Check that the metrics you specified are compatible/listed in your model.")
         else:
             # Go through all metrics and check if they are compatible with the model
             assert isinstance(evaluator.metrics, (Metric, MetricCollection)), \
@@ -592,12 +580,11 @@ class Trainer:
                 evaluator_metrics = MetricCollection([evaluator.metrics])
             else:
                 evaluator_metrics = evaluator.metrics
-            for metric_key in evaluator_metrics.keys():
-                if metric_key not in metrics.keys():
-                    warnings.warn(
-                        f"The metric {metric_key} might not be compatible with your model."
-                        "Check the metrics listed in your model.",
-                        category=UserWarning)
+            for metric_label in evaluator_metrics.keys():
+                if metric_label not in model_metrics.keys():
+                    raise RuntimeError(
+                        f"The metric {metric_label} might not be compatible with your model."
+                        "Check the metrics listed in your model.",)
 
         # Safety check to ensure the metric and data are on the same device. Normally not
         # needed because the metric is automatically on the same device as the model.
@@ -644,10 +631,11 @@ class Trainer:
         # spin the evaluator dataloaders once to initialize its sampler deterministically
         # so it does not affect any other RNG reads
         for evaluator in self.state.evaluators:
-            assert isinstance(evaluator.dataloader, DataLoader)
-            if isinstance(evaluator.dataloader.sampler, torch.utils.data.DistributedSampler):
-                evaluator.dataloader.sampler.set_epoch(0)
-            for _ in evaluator.dataloader:
+            assert isinstance(evaluator.dataloader, DataSpec)
+            dataloader = evaluator.dataloader.dataloader
+            if isinstance(dataloader.sampler, torch.utils.data.DistributedSampler):
+                dataloader.sampler.set_epoch(0)
+            for _ in dataloader:
                 break
 
         # spin the train dataloader's sampler to get to the state of the desired epoch
@@ -953,21 +941,21 @@ class Trainer:
             self.engine.run_event(Event.EVAL_START)
 
             for evaluator in state.evaluators:
-                assert isinstance(evaluator.dataloader, DataLoader)
-                _evaluator_data_spec = DataSpec(evaluator.dataloader)
-                if isinstance(evaluator.dataloader.sampler, torch.utils.data.DistributedSampler):
+                assert isinstance(evaluator.dataloader, DataSpec)
+                dataloader = evaluator.dataloader.dataloader
+                if isinstance(dataloader.sampler, torch.utils.data.DistributedSampler):
                     # The distributed sampler uses `set_epoch` to set the random seed
                     # Because evaluation can run on each batch, we use the batch to seed the sampler
                     # so each evaluation will get a proper shuffle.
                     # The epoch provided to `set_epoch` need not be sequential, so this is fine.
-                    evaluator.dataloader.sampler.set_epoch(int(self.state.timer.batch))
+                    dataloader.sampler.set_epoch(int(self.state.timer.batch))
 
-                for state.batch in itertools.islice(evaluator.dataloader, self._eval_subset_num_batches):
+                for state.batch in itertools.islice(dataloader, self._eval_subset_num_batches):
                     state.batch = self.device.batch_to_device(state.batch)
-                    if evaluator.device_transforms:
-                        state.batch = evaluator.device_transforms(state.batch)
-                    state.batch_num_samples = _evaluator_data_spec.get_num_samples_in_batch(state.batch)
-                    state.batch_num_tokens = _evaluator_data_spec.get_num_tokens_in_batch(state.batch)
+                    if evaluator.dataloader.device_transforms:
+                        state.batch = evaluator.dataloader.device_transforms(state.batch)
+                    state.batch_num_samples = evaluator.dataloader.get_num_samples_in_batch(state.batch)
+                    state.batch_num_tokens = evaluator.dataloader.get_num_tokens_in_batch(state.batch)
 
                     if self.deepspeed_enabled:
                         state.batch = fix_batch_precision_for_deepspeed(state.batch, state.precision)

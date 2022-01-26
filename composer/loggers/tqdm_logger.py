@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import collections.abc
 import sys
 from dataclasses import asdict, dataclass
 from typing import TYPE_CHECKING, Any, Dict, List, Optional
@@ -13,6 +14,7 @@ from composer.core.logging import LogLevel, TLogData, TLogDataValue, format_log_
 from composer.core.logging.base_backend import BaseLoggerBackend
 from composer.core.state import State
 from composer.core.types import StateDict
+from composer.datasets import hparams
 from composer.utils import dist
 
 if TYPE_CHECKING:
@@ -114,9 +116,10 @@ class TQDMLoggerBackend(BaseLoggerBackend):
         else:
             total_steps = 0
             for evaluator in state.evaluators:
-                if evaluator.eval_subset_num_batches:
+                if state.t:
                     total_steps += evaluator.eval_subset_num_batches
                 else:
+                    assert isinstance(evaluator.dataloader, collections.abc.Sized)
                     total_steps += len(evaluator.dataloader)
 
         desc = f'Epoch {int(state.timer.epoch)}'

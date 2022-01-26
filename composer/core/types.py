@@ -7,8 +7,7 @@ See :doc:`/core/types` for documentation.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Callable, Dict, Iterable, Iterator, List, Optional, Sequence, Tuple, Union
+from typing import TYPE_CHECKING, Any, Dict, Iterable, Iterator, List, Optional, Tuple, Union, runtime_checkable
 
 import torch
 import torch.utils.data
@@ -91,6 +90,7 @@ class BreakEpochException(Exception):
     pass
 
 
+@runtime_checkable
 class DataLoader(Protocol):
     """Protocol for custom DataLoaders compatible with
     :class:`torch.utils.data.DataLoader`.
@@ -142,60 +142,37 @@ class DataLoader(Protocol):
         ...
 
 
-@dataclass
 class Evaluator:
     """Wrapper for a dataloader to include metrics that apply to a specific
     dataset.
 
     Attributes:
         label (str): Name of the Evaluator
-        dataloader (Union[DataLoader, DataSpec]): Dataloader/DataSpec for evaluation data
-        metrics (Optional[Metrics]): Metrics to use for the dataset.
-        validate_every_n_batches (Optional[int]): Compute metrics on evaluation data every N batches.
-             Set to -1 to never validate on a batchwise frequency. (default: ``-1``)
-        validate_every_n_epochs (Optional[int]): Compute metrics on evaluation data every N epochs.
-            Set to -1 to never validate on a epochwise frequency. (default: ``1``)
-        metric_names: (Optional[List[str]]): List of string names for desired metrics in an Evaluator. If specified,
-            the trainer will look through the compatible metrics for a model and populate the metrics field
-            with torchmetrics with names appearing in metric_names.
-        eval_subset_num_batches (int, optional): If specified, evaluate on this many batches.
-            This parameter has no effect if it is greater than ``len(eval_dataloader)``.
-            If None (the default), then the entire dataloader will be iterated over.
-        device_transforms ((Batch) -> Batch, optional): Function that is called by the trainer to modify the batch
-            once it has been moved onto the device. For example, this function can be used for GPU-based normalization.
-            It can modify the batch in-place, and it should return the modified batch. If omitted, the batch is not
-            modified.
+        dataloader (Union[DataSpec, DataLoader]): Dataloader/DataSpec for evaluation data
+        metrics (Optional[Union[Metrics, List[str]]]): Metrics to use for the dataset.
     """
 
-    label: str
-    dataloader: Union[DataLoader, DataSpec]
-    metrics: Metrics = None
-    validate_every_n_epochs: int = 1
-    validate_every_n_batches: int = -1
-    metric_names: Optional[Sequence[str]] = None
-    eval_subset_num_batches: Optional[int] = None
-    device_transforms: Optional[Callable[[Batch], Batch]] = None
-    _data_spec: Optional[DataSpec] = None
+    def __init__(
+        self,
+        *,
+        label: str,
+        dataloader: Union[DataSpec, DataLoader],
+        metrics: Optional[Union[Metrics, List[str]]] = None
 
-    def __post_init__(self):
-        if isinstance(self.dataloader, DataSpec):
-            dataloader_spec = self.dataloader
-            self.device_transforms = dataloader_spec.device_transforms
-        else:
-            dataloader_spec = DataSpec(self.dataloader)
-        self.dataloader = dataloader_spec.dataloader
-        self._data_spec = dataloader_spec
-
+    ):
+        self.label = label
+        self.dataloader = dataloader
+        if not isinstance(dataloader, DataSpec):
+            self.dataloader = DataSpec(dataloader)
+        
+        self.metrics = metrics
         if self.metrics is not None:
-            assert isinstance(self.metrics, (Metric, MetricCollection)), \
-            "   Error module.metrics() must return a Metric or MetricCollection object."
             if isinstance(self.metrics, Metric):
                 # Forcing metrics to be a MetricCollection simplifies logging results
                 self.metrics = MetricCollection([self.metrics])
 
 
 Metrics = Union[Metric, MetricCollection]
-
 Optimizer = torch.optim.Optimizer
 Optimizers = Union[Optimizer, Tuple[Optimizer, ...], List[Optimizer]]
 Scheduler = torch.optim.lr_scheduler._LRScheduler
