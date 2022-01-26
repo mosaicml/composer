@@ -331,9 +331,9 @@ class Trainer:
 
             # use surgery to update the parameters of the optimizers, now that the model is on the device
             # see https://pytorch.org/docs/stable/optim.html#constructing-it
-            surgery.update_params_in_optimizer(old_params=host_model_params,
-                                               new_params=device_model_params,
-                                               optimizers=self.state.optimizers)
+            surgery.replace_params_in_optimizer(old_params=host_model_params,
+                                                new_params=device_model_params,
+                                                optimizers=self.state.optimizers)
 
             # Move any remaining optimizer parameters onto the device
             self.state.optimizers = map_collection(self.state.optimizers, self.device.optimizer_to_device)
