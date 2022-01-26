@@ -1,6 +1,7 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
 import collections
+import itertools
 import logging
 import textwrap
 from typing import TYPE_CHECKING, Any, Dict, Iterable, List, Mapping, Optional, OrderedDict, Tuple, Type
@@ -325,9 +326,6 @@ def replace_params_in_optimizer(old_params: Iterable[torch.nn.parameter.Paramete
             textwrap.dedent("""Surgery with multiple optimizers
             is not yet supported."""))
 
-    if len(old_params) != len(new_params):
-        raise RuntimeError("old_params and new_params have different lengths.")
-
     opt = ensure_tuple(optimizers)[0]
     opt.state.clear()
 
@@ -337,7 +335,10 @@ def replace_params_in_optimizer(old_params: Iterable[torch.nn.parameter.Paramete
         for param_idx, param in enumerate(param_list):
             param_to_idxs_map[param] = (group_idx, param_idx)
 
-    for old_param, new_param in zip(old_params, new_params):
+    for old_param, new_param in itertools.zip_longest(old_params, new_params):
+        if old_params is None or new_params is None:
+            raise RuntimeError("old_params and new_params have different lengths.")
+
         if not old_param in param_to_idxs_map:
             raise RuntimeError(f"Parameter {old_param} is missing from the optimizer.")
 
