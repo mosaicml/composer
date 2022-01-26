@@ -433,7 +433,7 @@ class Trainer:
             save_checkpoint_kwargs = dict(
                 save_folder=hparams.save_checkpoint.folder,
                 save_interval=hparams.save_checkpoint.interval,
-                save_interval_unit=hparams.save_checkpoint.save_interval_unit,
+                save_interval_unit=hparams.save_checkpoint.interval_unit,
             )
         else:
             save_checkpoint_kwargs = dict()
