@@ -71,8 +71,8 @@ class Trainer:
             object because the scheduler needs an optimizer to be constructed and we construct the optimizer
             in `__init__`. (default:
             ``[CosineAnnealingLRHparams(T_max=f"{max_epochs}ep"), WarmUpLRHparams()]``).
-        device (Device, optional): The device to use for training. Either `DeviceCPU` or `DeviceGPU`.
-            (default ``DeviceCPU(n_cpus=1)``)
+        device (str or Device, optional): The device to use for training. Either `cpu` or `gpu`.
+            (default `cpu`)
         grad_accum (int, optional): The number of microbatches to split a per-device batch into. Gradients
             are summed over the microbatches per device. (default: ``1``)
         grad_clip_norm (float, optional): The norm to clip gradient magnitudes to. Set to None for no gradient
@@ -83,11 +83,12 @@ class Trainer:
             Set to -1 to never validate on a epochwise frequency. (default: ``1``)
         compute_training_metrics (bool, optional): True to compute metrics on training data and False to not.
             (default: ``False``)
-        precision (Precision, optional): Numerical precision to use for training. (default: ``Precision.FP32``).
+        precision (str or Precision, optional): Numerical precision to use for training, one of 'fp32', 'fp16'
+            for 'amp' (recommended). (default: ``Precision.FP32``).
         dist_timeout (float, optional): Timeout, in seconds, for initializing the distributed process group.
             (default: ``15.0``)
-        ddp_sync_strategy (DDPSyncStrategy, optional): The strategy to use for synchronizing gradients.
-            Leave unset to let the trainer auto-configure this.
+        ddp_sync_strategy (str or DDPSyncStrategy, optional): The strategy to use for synchronizing gradients.
+            Leave unset to let the trainer auto-configure this. For more details, see ``DDPSyncStrategy``.
         seed (int, optional): The seed used in randomization. When not provided a random seed
             will be created. (default: ``None``)
         deterministic_mode (bool, optional): Run the model deterministically. Experimental. Performance
@@ -127,7 +128,7 @@ class Trainer:
             schedulers_hparams: Optional[Union[SchedulerHparams, List[SchedulerHparams]]] = None,
 
             # device
-            device: Optional[Device] = None,
+            device: Optional[Union[str, Device]] = None,
 
             # training hparams
             grad_accum: int = 1,
@@ -135,7 +136,7 @@ class Trainer:
             validate_every_n_batches: int = -1,
             validate_every_n_epochs: int = 1,
             compute_training_metrics: bool = False,
-            precision: Precision = Precision.FP32,
+            precision: Union[str, Precision] = Precision.FP32,
 
             # dist hparams
             dist_timeout: float = 15.0,
@@ -161,7 +162,7 @@ class Trainer:
             eval_subset_num_batches: Optional[int] = None,
 
             # DeepSpeed
-            deepspeed_hparams: Optional[DeepSpeedHparams] = None,
+            deepspeed_hparams: Optional[Union[dict, DeepSpeedHparams]] = None,
 
             # Optional config (ex. an hparams yaml file)
             config: Optional[Dict[str, Any]] = None):
@@ -171,11 +172,23 @@ class Trainer:
 
         self.config = config
 
+        if isinstance(deepspeed_hparams, dict):
+            deepspeed_hparams = DeepSpeedHparams(**deepspeed_hparams)
         self.deepspeed_hparams = deepspeed_hparams
 
         if not device:
-            device = DeviceCPU() if not self.deepspeed_hparams is not None else DeviceGPU()
-        self.device = device
+            self.device = DeviceCPU() if not self.deepspeed_hparams is not None else DeviceGPU()
+        elif isinstance(device, str):
+            if device == 'cpu':
+                self.device = DeviceCPU()
+            elif device == 'gpu':
+                self.device = DeviceGPU()
+            else:
+                raise ValueError('device ({device}) must be one of (cpu, gpu).')
+        else:
+            if not isinstance(device, Device):
+                raise ValueError('device must be of class Device')
+            self.device = device
 
         if not seed:
             seed = reproducibility.get_random_seed()
@@ -212,6 +225,8 @@ class Trainer:
         # handle this with our version of Pytorch
         precision_context = self.device.precision_context if not self.deepspeed_enabled else cast(
             Callable[..., ContextManager], contextlib.nullcontext)
+        if isinstance(precision, str):
+            precision = Precision(precision)
 
         if not isinstance(train_dataloader, DataSpec):
             train_dataloader = DataSpec(train_dataloader)
