@@ -58,9 +58,8 @@ loggers:
       log_level: batch 
       filename: stdout
       buffer_size: 1
-      flush_every_n_batches: 100
-      every_n_batches: 100
-      every_n_epochs: 1
+      flush_interval: 100
+      log_interval: 100
 max_duration: 1ep  # Baseline is 256M samples, 7 epochs is ~280M samples
 log_level: INFO 
 train_batch_size: 4000
@@ -74,7 +73,7 @@ dataloader:
   num_workers: 1
   timeout: 0
   prefetch_factor: 2
-grad_accum: 2
+grad_accum: 3
 precision: amp
 grad_clip_norm: None
 validate_every_n_batches: 1000
