@@ -1,5 +1,5 @@
 # Base image to use for the docker build.
-BASE_IMAGE ?= 'nvidia/cuda:11.3.1-cudnn8-runtime-ubuntu20.04'
+BASE_IMAGE ?= 'nvidia/cuda:11.3.1-cudnn8-devel-ubuntu20.04'
 
 # Python version to install. Composer requires python>=3.7
 PYTHON_VERSION ?='3.9'
@@ -32,11 +32,11 @@ COMPOSER_EXTRA_DEPS ?= base
 # Resulting docker tag for the composer dockerimage
 COMPOSER_TAG ?= mosaicml/composer:$(COMPOSER_EXTRA_DEPS)
 
-.PHONY: build
+.PHONY: build pytorch composer
 
 build: composer
 
-base:
+pytorch:
 	cd pytorch && docker build -t $(PYTORCH_TAG) \
 		--build-arg BASE_IMAGE=$(BASE_IMAGE) \
 		--build-arg CUDA_VERSION_TAG=$(CUDA_VERSION_TAG) \
@@ -45,7 +45,7 @@ base:
 		--build-arg TORCHVISION_VERSION=$(TORCHVISION_VERSION) \
 		.
 
-composer: base
+composer: pytorch
 	cd .. && docker build -t $(COMPOSER_TAG) \
 		--build-arg BASE_IMAGE=$(PYTORCH_TAG) \
 		--build-arg COMPOSER_EXTRA_DEPS=$(COMPOSER_EXTRA_DEPS) \

@@ -21,7 +21,7 @@ def run_and_measure_memory(precision: Precision) -> int:
     hparams.precision = precision
     hparams.dataloader.num_workers = 0
     hparams.dataloader.persistent_workers = False
-    hparams.max_epochs = 2
+    hparams.max_duration = "2ep"
     assert isinstance(hparams.train_dataset, SyntheticHparamsMixin)
     hparams.train_dataset.use_synthetic = True
     assert isinstance(hparams.val_dataset, SyntheticHparamsMixin)

@@ -41,7 +41,7 @@ model:
     num_classes: 1000
 loggers:
   - tqdm: {}
-max_epochs: 90
+max_duration: 90ep
 train_batch_size: 2048
 eval_batch_size: 1000
 train_subset_num_batches: 10

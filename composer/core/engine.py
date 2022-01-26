@@ -1,18 +1,23 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
+import contextlib
 import logging
 from collections import OrderedDict
 from dataclasses import dataclass
-from typing import Dict, Optional, Sequence, Union
+from typing import ContextManager, Dict, Optional, Sequence, Union, cast
 
 from composer.core.algorithm import Algorithm
 from composer.core.callback import Callback
 from composer.core.event import Event
 from composer.core.logging import Logger
+from composer.core.logging.logger import LogLevel
+from composer.core.profiler import ProfilerAction
 from composer.core.state import State
 
 log = logging.getLogger(__name__)
 Traces = Dict[str, "Trace"]
+
+_ALWAYS_RECORD_EVENTS = [Event.INIT, Event.TRAINING_START, Event.EPOCH_START, Event.EPOCH_END, Event.TRAINING_END]
 
 
 @dataclass
@@ -43,16 +48,10 @@ class Engine():
 
     Args:
         state (State): the initial ``State`` of the trainer. Will be modified in-place.
-        algorithms (Sequence[Algorithm]): the list of algorithms for this engine to execute.
         logger (Optional[Logger]): a ``Logger`` instance to be used for logging algorithm and callback specific metrics.
-        callbacks (Sequence[Callback]): the list of callbacks for this engine to execute.
     """
 
-    def __init__(self,
-                 state: State,
-                 algorithms: Sequence[Algorithm],
-                 logger: Optional[Logger] = None,
-                 callbacks: Sequence[Callback] = tuple()):
+    def __init__(self, state: State, logger: Optional[Logger] = None):
         if logger is None:
             log.warning("No logger passed to the engine.  Defaulting to an empty logger")
             logger = Logger(state=state, backends=[])
@@ -60,8 +59,6 @@ class Engine():
         assert logger is not None
         self.logger = logger
         self.state = state
-        self.algorithms = algorithms
-        self.callbacks = callbacks or []
 
     def run_event(
         self,
@@ -96,6 +93,22 @@ class Engine():
         Returns:
             Dict[str, Trace]: dictionary of trace for each algorithm.
         """
+        duration_marker = None
+        event = Event(event)
+
+        if self.state.profiler is not None:
+            name = f"event/{event.canonical_name}"
+            if (event.is_before_event or event.is_after_event):
+                # if not part of an event pair (e.g. init or after dataloader), then don't record an event here
+                if event in _ALWAYS_RECORD_EVENTS:
+                    actions = [ProfilerAction.ACTIVE, ProfilerAction.WARMUP, ProfilerAction.SKIP]
+                else:
+                    actions = [ProfilerAction.ACTIVE, ProfilerAction.WARMUP]
+                duration_marker = self.state.profiler.marker(name, actions=actions, record_instant_on_start=True)
+
+        if event.is_after_event and duration_marker is not None:
+            duration_marker.finish()
+
         if event == Event.INIT:
             # For the INIT event, run the callbacks first to initialize the loggers
             # For other events, run the algorithms first, so the callbacks have the state
@@ -105,35 +118,54 @@ class Engine():
         else:
             traces = self._run_algorithms(event)
             self._run_callbacks(event)
+
+        if event.is_before_event and duration_marker is not None:
+            duration_marker.start()
+
         return traces
 
     def _run_algorithms(
         self,
-        event: Union[Event, str],
+        event: Event,
     ) -> Traces:
-        event = Event(event)
-
-        algorithms_to_run = [algo for algo in self.algorithms if algo.match(event, self.state)]
+        algorithms_to_run = [algo for algo in self.state.algorithms if algo.match(event, self.state)]
 
         # future collision resolution
         algorithms_to_run = self._compile(algorithms_to_run, event)
 
         trace = _setup_trace(algorithms_to_run, event)
         for order, algorithm in enumerate(algorithms_to_run):
-            exit_code = algorithm.apply(event, self.state, self.logger)
+            marker = None
+            if self.state.profiler is not None:
+                marker = self.state.profiler.marker(f"algorithm/{algorithm.__class__.__name__}/event/{event.value}",
+                                                    categories=[
+                                                        event.value,
+                                                        algorithm.__class__.__name__,
+                                                    ])
+            ctx = cast(ContextManager, contextlib.nullcontext()) if marker is None else marker
+            with ctx:
+                exit_code = algorithm.apply(event, self.state, self.logger)
 
             trace_key = f'{algorithm}/{event}'
             trace[trace_key] = Trace(exit_code=exit_code, order=order, run=True)
 
         if self.logger is not None:
-            self.logger.metric_verbose(data={key: 1 if tr.run else 0 for key, tr in trace.items()})
+            if event in (Event.INIT, Event.TRAINING_START, Event.TRAINING_END):
+                log_level = LogLevel.FIT
+            if event in (Event.EPOCH_START, Event.EPOCH_END):
+                log_level = LogLevel.EPOCH
+            else:
+                # algs don't run on eval events, so don't have to worry about
+                # batch-frequency vs epoch-frequency evaluators
+                log_level = LogLevel.BATCH
+            self.logger.metric(log_level=log_level, data={key: 1 if tr.run else 0 for key, tr in trace.items()})
 
         return trace
 
     def _compile(
         self,
         algorithms_to_run: Sequence[Algorithm],
-        event: Union[Event, str],
+        event: Event,
     ) -> Sequence[Algorithm]:
         """
         Runs compilation passes that modify the order and content of a list of algorithms.
@@ -155,12 +187,10 @@ class Engine():
         """
         from composer.algorithms import SelectiveBackprop
 
-        event = Event(event)
-
         # Move selective backprop to the beginning while maintaining order of other algorithms
         algorithms = sorted(algorithms_to_run, key=lambda x: not isinstance(x, SelectiveBackprop))
 
-        if event.value.startswith('after') or event.value.startswith('eval_after'):
+        if event.is_after_event:
             """Establish a FILO queue of algorithms before_ and after_ an event.
 
             before_loss: A, B, C, D
@@ -185,8 +215,17 @@ class Engine():
         """
         event = Event(event)
 
-        for cb in self.callbacks:
-            cb.run_event(event, self.state, self.logger)
+        for cb in self.state.callbacks:
+            marker = None
+            if self.state.profiler is not None:
+                marker = self.state.profiler.marker(f"callback/{cb.__class__.__name__}/event/{event.value}",
+                                                    categories=[
+                                                        event.value,
+                                                        cb.__class__.__name__,
+                                                    ])
+            ctx = cast(ContextManager, contextlib.nullcontext()) if marker is None else marker
+            with ctx:
+                cb.run_event(event, self.state, self.logger)
 
     def close(self) -> None:
         """Invoke :meth:`~Callback.close` and :meth:`~Callback.post_close` for each callback.
@@ -199,7 +238,7 @@ class Engine():
         Instead, these exceptions are logged.
         """
         callback_to_has_exception: Dict[Callback, bool] = {}
-        for callback in self.callbacks:
+        for callback in self.state.callbacks:
             try:
                 callback.close()
             except Exception as e:
@@ -210,7 +249,12 @@ class Engine():
                 callback_to_has_exception[callback] = True
             else:
                 callback_to_has_exception[callback] = False
-        for callback in self.callbacks:
+
+        if self.state.profiler is not None:
+            # Merge traces after close, but before post_close, so the merged file will be uploaded
+            self.state.profiler.merge_traces()
+
+        for callback in self.state.callbacks:
             if callback_to_has_exception[callback] is False:
                 try:
                     callback.post_close()

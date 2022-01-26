@@ -30,8 +30,8 @@ A summary of available attributes and properties is given below:
     * - ``grad_accum``
       - ``int``
       - Gradient accumulation steps. The size of each **microbatch** would be ``train_batch_size / num_gpus / grad_accum``
-    * - ``max_epochs``
-      - ``int``
+    * - ``max_duration``
+      - ``Time[str]``
       - Maximum number of epochs
     * - ``precision``
       - ``str | Precision``

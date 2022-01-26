@@ -75,14 +75,8 @@ schedulers:
       verbose: false
       T_max: 8910ba
 loggers:
-  - file:
-      log_level: batch
-      filename: stdout
-      buffer_size: 1
-      flush_every_n_batches: 100
-      every_n_batches: 100
-      every_n_epochs: 1
-max_epochs: 1
+  - tqdm: {}
+max_duration: 1ep
 train_batch_size: 512
 eval_batch_size: 16 # use micro_bs_per_gpu = 2 to accomodate 10GB limit
 seed: 17

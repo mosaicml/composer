@@ -54,7 +54,7 @@ def test_ddp_sync_strategy(ddp_sync_strategy: str, expected_grads: List[Optional
     state = State(model=original_model,
                   optimizers=optimizer,
                   grad_accum=2,
-                  max_epochs=1,
+                  max_duration="1ep",
                   train_dataloader=dummy_train_dataloader,
                   eval_dataloader=dummy_val_dataloader,
                   precision='fp32')
