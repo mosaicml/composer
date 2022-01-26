@@ -184,7 +184,7 @@ class Trainer:
             elif device == 'gpu':
                 self.device = DeviceGPU()
             else:
-                raise ValueError('device ({device}) must be one of (cpu, gpu).')
+                raise ValueError(f'device ({device}) must be one of (cpu, gpu).')
         else:
             if not isinstance(device, Device):
                 raise ValueError('device must be of class Device')
@@ -215,7 +215,7 @@ class Trainer:
             import deepspeed
             deepspeed.init_distributed()
         else:
-            dist.initialize_dist(device.dist_backend, datetime.timedelta(seconds=dist_timeout))
+            dist.initialize_dist(self.device.dist_backend, datetime.timedelta(seconds=dist_timeout))
             if ddp_sync_strategy is None:
                 self.ddp_sync_strategy = DDPSyncStrategy.SINGLE_AUTO_SYNC if not find_unused_parameters else DDPSyncStrategy.FORCED_SYNC
             else:
