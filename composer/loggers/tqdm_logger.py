@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import collections.abc
 import sys
 from dataclasses import asdict, dataclass
 from typing import TYPE_CHECKING, Any, Dict, List, Optional
@@ -117,6 +118,7 @@ class TQDMLoggerBackend(BaseLoggerBackend):
                 if evaluator.eval_subset_num_batches:
                     total_steps += evaluator.eval_subset_num_batches
                 else:
+                    assert isinstance(evaluator.dataloader, collections.abc.Sized)
                     total_steps += len(evaluator.dataloader)
 
         desc = f'Epoch {int(state.timer.epoch)}'

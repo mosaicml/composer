@@ -79,7 +79,7 @@ class State(Serializable):
         grad_accum (int): The number of gradient accumulation steps to use. The size of each microbatch is ``train_batch_size / num_gpus / grad_accum``.
         train_dataloader (types.DataLoader, types.DataSpec, or dict):
             The :class:`types.DataLoader`, :class:`types.DataSpec`, or dict of :class:`types.DataSpec` kwargs to used for training.
-        evaluators (types.Evaluator):
+        evaluators (Sequence[types.Evaluator]):
             The :class:`types.Evaluator` is the evaluation dataset used for evaluation with specific metrics.
         max_epochs (int): The maximum number of epochs to train for.
         max_duration (str or Time): The maximum duration to train for.

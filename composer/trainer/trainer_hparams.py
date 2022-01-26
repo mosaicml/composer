@@ -8,7 +8,7 @@ from __future__ import annotations
 import os
 import textwrap
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, List, Optional
+from typing import TYPE_CHECKING, List, Optional, Sequence
 
 import yahp as hp
 
@@ -153,7 +153,7 @@ class TrainerHparams(hp.Hparams):
 
     val_dataset: Optional[datasets.DatasetHparams] = hp.optional(doc="Validation dataset hparams", default=None)
 
-    evaluators: Optional[List[EvaluatorHparams]] = hp.optional(doc="Evaluators", default_factory=list)
+    evaluators: Optional[Sequence[EvaluatorHparams]] = hp.optional(doc="Evaluators", default_factory=list)
 
     dist_timeout: float = hp.optional(doc="Timeout, in seconds, for initializing the dsitributed process group.",
                                       default=15.0)
@@ -229,6 +229,10 @@ class TrainerHparams(hp.Hparams):
         # There should be at least one structure for validation - evaluators or ordinary validation dataset
         if self.val_dataset is None and self.evaluators is None:
             raise ValueError("val_dataset and evaluators can't both be empty")
+
+        if self.val_dataset is not None and self.evaluators is not None:
+            raise ValueError(
+                "val_dataset and evaluators shouldn't both be specified. Only one can be passed in to the trainer.")
 
     def initialize_object(self) -> Trainer:
         from composer.trainer.trainer import Trainer
