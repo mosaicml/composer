@@ -51,7 +51,7 @@ class CheckpointLoaderHparams(hp.Hparams):
         from composer.trainer.checkpoint import CheckpointLoader
 
         return CheckpointLoader(
-            checkpoint=self.checkpoint,
+            path=self.path,
             object_store_hparams=self.object_store,
             load_weights_only=self.load_weights_only,
             strict_model_weights=self.strict_model_weights,
@@ -69,9 +69,10 @@ class CheckpointSaverHparams(hp.Hparams):
     interval_unit: str = hp.required(
         doc="Unit for the checkpoint save interval -- should be 'ep' for epochs; 'it' for iterations")
     interval: int = hp.required(doc="Interval for checkpointing.")
-    folder: str = hp.optional(doc="Folder in which to save checkpoint files. Relative to the run directory, if set."
-                              "Defaults to `checkpoints`.",
-                              default="checkpoints")
+    save_folder: str = hp.optional(
+        doc="Folder in which to save checkpoint files. Relative to the run directory, if set."
+        "Defaults to `checkpoints`.",
+        default="checkpoints")
 
     def validate(self):
         if self.interval < 0:
@@ -81,6 +82,4 @@ class CheckpointSaverHparams(hp.Hparams):
 
     def initialize_object(self) -> CheckpointSaver:
         from composer.trainer.checkpoint import CheckpointSaver
-        return CheckpointSaver(checkpoint_interval_unit=self.interval_unit,
-                               checkpoint_interval=self.interval,
-                               checkpoint_folder=self.folder)
+        return CheckpointSaver(interval_unit=self.interval_unit, interval=self.interval, save_folder=self.save_folder)
