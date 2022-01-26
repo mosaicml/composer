@@ -67,7 +67,7 @@ def smooth_labels(logits: Tensor, targets: Tensor, alpha: float):
     as in `Szegedy et al. <https://arxiv.org/abs/1512.00567>`_.
 
     This is computed by ``(1 - alpha) * targets + alpha * smoothed_targets``
-    where ``smoothed_targets`` is a vector of ones.
+    where ``smoothed_targets`` is a uniform distribution.
 
     Args:
         logits: Output of the model. Tensor of shape (N, C, d1, ..., dn) for
