@@ -8,6 +8,7 @@ import itertools
 import logging
 import textwrap
 import warnings
+from dataclasses import asdict
 from typing import TYPE_CHECKING, Any, Callable, ContextManager, Dict, List, Optional, Sequence, Union, cast
 
 import torch
@@ -28,7 +29,7 @@ from composer.optim import (ComposedScheduler, CosineAnnealingLRHparams, Decoupl
                             SchedulerHparams, WarmUpLRHparams)
 from composer.optim.scheduler import ensure_warmup_last
 from composer.profiler.profiler_hparams import ProfilerHparams
-from composer.trainer.checkpoint_hparams import CheckpointLoaderHparams, CheckpointSaverHparams
+from composer.trainer.checkpoint import CheckpointLoader, CheckpointSaver
 from composer.trainer.ddp import DDPSyncStrategy, ddp_sync_context, prepare_ddp_module
 from composer.trainer.deepspeed import DeepSpeedHparams, fix_batch_precision_for_deepspeed
 from composer.trainer.devices.device import Device
@@ -37,6 +38,7 @@ from composer.trainer.devices.device_gpu import DeviceGPU
 from composer.trainer.scaler import ClosureGradScaler
 from composer.trainer.trainer_hparams import TrainerHparams
 from composer.utils import dist, ensure_tuple, map_collection, reproducibility
+from composer.utils.object_store import ObjectStoreProviderHparams
 
 if TYPE_CHECKING:
     import deepspeed
@@ -318,12 +320,23 @@ class Trainer:
         self.original_model = self.state.model  # type: ignore  # TODO(ravi) -- update the state to add an original model helper
 
         self.checkpoint_saver = None
-        if checkpoint_saver is not None:
-            self.checkpoint_saver = checkpoint_saver.initialize_object()
+        if save_folder is not None:
+            self.checkpoint_saver = CheckpointSaver(
+                save_folder=save_folder,
+                interval=save_interval,
+                interval_unit=save_interval_unit,
+            )
 
         self.checkpoint_loader = None
-        if checkpoint_loader is not None:
-            self.checkpoint_loader = checkpoint_loader.initialize_object()
+        if load_path is not None:
+            if load_object_store_config is not None:
+                load_object_store_config = ObjectStoreProviderHparams(**load_object_store_config)
+            self.checkpoint_loader = CheckpointLoader(path=load_path,
+                                                      object_store_hparams=load_object_store_config,
+                                                      load_weights_only=load_weights_only,
+                                                      strict_model_weights=load_strict,
+                                                      chunk_size=load_chunk_size,
+                                                      progress_bar=load_progress_bar)
 
         # place the state, model in the proper devices, and initialize from a checkpoint if provided
         if self.deepspeed_enabled:
@@ -404,6 +417,27 @@ class Trainer:
             each evaluation epoch may load a different subset of samples."""))
         eval_dataloader = hparams.val_dataset.initialize_object(eval_device_batch_size, hparams.dataloader)
 
+        if hparams.load_checkpoint is not None:
+            load_checkpoint_kwargs = dict(
+                load_path=hparams.load_checkpoint.path,
+                load_object_store_config=asdict(hparams.load_checkpoint.object_store),
+                load_weights_only=hparams.load_checkpoint.load_weights_only,
+                load_strict=hparams.load_checkpoint.strict_model_weights,
+                load_chunk_size=hparams.load_checkpoint.chunk_size,
+                load_progress_bar=hparams.load_checkpoint.progress_bar,
+            )
+        else:
+            load_checkpoint_kwargs = dict()
+
+        if hparams.save_checkpoint is not None:
+            save_checkpoint_kwargs = dict(
+                save_folder=hparams.save_checkpoint.folder,
+                save_interval=hparams.save_checkpoint.interval,
+                save_interval_unit=hparams.save_checkpoint.save_interval_unit,
+            )
+        else:
+            save_checkpoint_kwargs = dict()
+
         trainer = cls(
             model=model,
             train_dataloader=train_dataloader,
@@ -439,9 +473,9 @@ class Trainer:
             # Profiler
             profiler=hparams.profiler,
 
-            # Checkpoint hparams
-            checkpoint_loader=hparams.load_checkpoint,
-            checkpoint_saver=hparams.save_checkpoint,
+            # Checkpoint parameters
+            **load_checkpoint_kwargs,
+            **save_checkpoint_kwargs,
 
             # Subset parameters
             train_subset_num_batches=hparams.train_subset_num_batches,
