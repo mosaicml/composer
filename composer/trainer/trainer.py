@@ -330,9 +330,12 @@ class Trainer:
         self.checkpoint_loader = None
         if load_path is not None:
             if load_object_store_config is not None:
-                load_object_store_config = ObjectStoreProviderHparams(**load_object_store_config)
+                object_store_hparams = ObjectStoreProviderHparams(**load_object_store_config)
+            else:
+                object_store_hparams = None
+
             self.checkpoint_loader = CheckpointLoader(path=load_path,
-                                                      object_store_hparams=load_object_store_config,
+                                                      object_store_hparams=object_store_hparams,
                                                       load_weights_only=load_weights_only,
                                                       strict_model_weights=load_strict,
                                                       chunk_size=load_chunk_size,
