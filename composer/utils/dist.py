@@ -233,13 +233,8 @@ def initialize_dist(backend: str, timeout: datetime.timedelta):
                                "not available in your installation of PyTorch. Please install or build PyTorch "
                                "with distributed support.")
         return
-    if dist.is_initialized():
 
-        if not dist.get_backend() == backend.lower():
-            raise RuntimeError(
-                f"The requested backend ({backend}) differs from the backend "
-                "of the current process group ({torch.distributed.get_backend()}). If you wish to change backends, "
-                "please restart the python process.")
+    if dist.is_initialized():
         return
 
     if "RANK" in os.environ and "WORLD_SIZE" in os.environ:
