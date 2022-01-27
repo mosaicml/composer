@@ -82,7 +82,7 @@ extra_deps['dev'] = [
     'testbook>=0.4.2',
     'myst-parser>=0.15.2',
     'torch-tb-profiler>=0.3.1',
-    'psutil>=5.8.0', 
+    'psutil>=5.8.0',
     'tensorboard>=2.7.0',
 ]
 
