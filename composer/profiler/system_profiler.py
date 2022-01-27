@@ -45,7 +45,7 @@ class SystemProfiler(Callback):
             import psutil
             del psutil
         except ImportError as e:
-            raise ImportError("Please install composer with pip install composer[perf] to use the profiler") from e
+            raise ImportError("Please install composer with pip install composer[dev] to use the profiler") from e
 
     def init(self, state: State, logger: Logger):
         del logger  # unused

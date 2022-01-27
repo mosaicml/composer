@@ -81,11 +81,12 @@ extra_deps['dev'] = [
     'sphinx_rtd_theme>=1.0.0',
     'testbook>=0.4.2',
     'myst-parser>=0.15.2',
+    'torch-tb-profiler>=0.3.1',
+    'psutil>=5.8.0', 
+    'tensorboard>=2.7.0',
 ]
 
 extra_deps['logging'] = ['wandb>=0.12.2', 'apache-libcloud>=3.4.1']
-
-extra_deps['perf'] = ['torch-tb-profiler>=0.3.1', 'psutil>=5.8.0', 'tensorboard>=2.7.0']
 
 extra_deps['nlp'] = [
     'transformers>=4.11.3',
