@@ -147,9 +147,8 @@ def test_optimizer_surgery_removed_params_gone(optimizer_surgery_state: Tuple[Li
                                                                               List[torch.nn.Module], Optimizer]):
     orig_linear_modules, _, opt = optimizer_surgery_state
     for module in orig_linear_modules:
-        with pytest.raises(RuntimeError):
-            assert isinstance(module.weight, torch.nn.parameter.Parameter)
-            _param_in_optimizer(module.weight, opt)
+        assert isinstance(module.weight, torch.nn.parameter.Parameter)
+        assert _param_in_optimizer(module.weight, opt) < 0
 
 
 def test_optimizer_surgery_new_params_present(optimizer_surgery_state: Tuple[List[torch.nn.Module],
