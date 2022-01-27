@@ -128,6 +128,10 @@ class SimpleConvModel(torch.nn.Module):
         self.conv3 = torch.nn.Conv2d(in_channels=32, out_channels=64, stride=1, bias=False, **conv_args)  # stride = 1
 
         self.pool1 = torch.nn.MaxPool2d(kernel_size=(2, 2), stride=2, padding=1)
+        self.pool2 = torch.nn.AdaptiveAvgPool2d(1)
+        self.flatten = torch.nn.Flatten()
+        self.linear1 = torch.nn.Linear(64, 48)
+        self.linear2 = torch.nn.Linear(48, 10)
 
     def forward(self, x: Tensors) -> Tensors:
 
@@ -135,4 +139,8 @@ class SimpleConvModel(torch.nn.Module):
         out = self.conv2(out)
         out = self.conv3(out)
         out = self.pool1(out)
+        out = self.pool2(out)
+        out = self.flatten(out)
+        out = self.linear1(out)
+        out = self.linear2(out)
         return out
