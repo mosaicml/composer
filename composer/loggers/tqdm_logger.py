@@ -15,7 +15,6 @@ from composer.core.logging import LogLevel, TLogData, TLogDataValue, format_log_
 from composer.core.logging.base_backend import BaseLoggerBackend
 from composer.core.state import State
 from composer.core.types import StateDict
-from composer.datasets import hparams
 from composer.utils import dist
 
 if TYPE_CHECKING:

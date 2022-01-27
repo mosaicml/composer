@@ -558,7 +558,11 @@ class Trainer:
 
         # Use all the metrics from the model if no metric_names are specified
         if evaluator.metrics is None:
-            evaluator_metrics = copy.deepcopy(model_metrics)
+            try:
+                evaluator_metrics = copy.deepcopy(model_metrics)
+            except:
+                warnings.warn(f'Model metrics failed to deepcopy and were not added to Evaluators',
+                              category=UserWarning)
         elif isinstance(evaluator.metrics, list):
             evaluator_metrics = MetricCollection([])
             for metric_name in evaluator.metrics:

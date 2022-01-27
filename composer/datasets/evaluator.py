@@ -18,6 +18,10 @@ log = logging.getLogger(__name__)
 
 @dataclass
 class EvaluatorHparams(hp.Hparams):
+    """Params for the :class:`Evaluator`.
+
+    See the documentation for the :class:`Evaluator`.
+    """
     hparams_registry = {  # type: ignore
         "eval_dataset": get_dataset_registry(),
     }

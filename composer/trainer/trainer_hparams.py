@@ -8,7 +8,7 @@ from __future__ import annotations
 import os
 import textwrap
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, List, Optional, Sequence
+from typing import TYPE_CHECKING, List, Optional
 
 import yahp as hp
 
@@ -153,7 +153,7 @@ class TrainerHparams(hp.Hparams):
 
     val_dataset: Optional[datasets.DatasetHparams] = hp.optional(doc="Validation dataset hparams", default=None)
 
-    evaluators: Optional[Sequence[EvaluatorHparams]] = hp.optional(doc="Evaluators", default_factory=list)
+    evaluators: Optional[List[EvaluatorHparams]] = hp.optional(doc="Evaluators", default_factory=list)
 
     dist_timeout: float = hp.optional(doc="Timeout, in seconds, for initializing the dsitributed process group.",
                                       default=15.0)
@@ -231,10 +231,6 @@ class TrainerHparams(hp.Hparams):
             if self.val_dataset is None:
                 raise ValueError("val_dataset and evaluators can't both be empty")
         elif self.val_dataset is not None:
-            raise ValueError(
-                "val_dataset and evaluators shouldn't both be specified. Only one can be passed in to the trainer.")
-
-        if self.val_dataset is not None and self.evaluators is not None:
             raise ValueError(
                 "val_dataset and evaluators shouldn't both be specified. Only one can be passed in to the trainer.")
 

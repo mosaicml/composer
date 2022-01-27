@@ -152,19 +152,16 @@ class Evaluator:
         metrics (Optional[Union[Metrics, List[str]]]): Metrics to use for the dataset.
     """
 
-    def __init__(
-        self,
-        *,
-        label: str,
-        dataloader: Union[DataSpec, DataLoader],
-        metrics: Optional[Union[Metrics, List[str]]] = None
-
-    ):
+    def __init__(self,
+                 *,
+                 label: str,
+                 dataloader: Union[DataSpec, DataLoader],
+                 metrics: Optional[Union[Metrics, List[str]]] = None):
         self.label = label
         self.dataloader = dataloader
         if not isinstance(dataloader, DataSpec):
             self.dataloader = DataSpec(dataloader)
-        
+
         self.metrics = metrics
         if self.metrics is not None:
             if isinstance(self.metrics, Metric):
