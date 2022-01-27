@@ -238,6 +238,7 @@ class Trainer:
         if profiler is not None:
             self.state.profiler = profiler.initialize_object(self.state)
             self.state.callbacks.extend(self.state.profiler.event_handlers)
+            self.state.callbacks.extend(x.initialize_object() for x in profiler.profilers)
 
         # Steps per epoch
         if train_subset_num_batches is not None:
