@@ -10,10 +10,12 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional
 import tqdm
 import yaml
 
+from composer.core.data_spec import DataSpec
 from composer.core.logging import LogLevel, TLogData, TLogDataValue, format_log_data_value
 from composer.core.logging.base_backend import BaseLoggerBackend
 from composer.core.state import State
 from composer.core.types import StateDict
+from composer.datasets import hparams
 from composer.utils import dist
 
 if TYPE_CHECKING:
@@ -115,11 +117,10 @@ class TQDMLoggerBackend(BaseLoggerBackend):
         else:
             total_steps = 0
             for evaluator in state.evaluators:
-                if evaluator.eval_subset_num_batches:
-                    total_steps += evaluator.eval_subset_num_batches
-                else:
-                    assert isinstance(evaluator.dataloader, collections.abc.Sized)
-                    total_steps += len(evaluator.dataloader)
+                dataloader_spec = evaluator.dataloader
+                assert isinstance(dataloader_spec, DataSpec)
+                assert isinstance(dataloader_spec.dataloader, collections.abc.Sized)
+                total_steps += len(dataloader_spec.dataloader)
 
         desc = f'Epoch {int(state.timer.epoch)}'
         position = 0 if self.is_train else 1

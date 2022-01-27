@@ -272,8 +272,8 @@ class Trainer:
 
         if eval_subset_num_batches is not None:
             for evaluator in self.evaluators:
-                assert isinstance(evaluator.dataloader, DataLoader)
-                if eval_subset_num_batches > len(evaluator.dataloader):
+                assert isinstance(evaluator.dataloader, DataSpec)
+                if eval_subset_num_batches > len(evaluator.dataloader.dataloader):
                     warnings.warn(
                         textwrap.dedent(
                             f"""SubsetNumBatchesWarning: The eval_subset_num_batches({eval_subset_num_batches})
@@ -418,8 +418,7 @@ class Trainer:
                 each evaluation epoch may load a different subset of samples."""))
             eval_dataloader = hparams.val_dataset.initialize_object(eval_device_batch_size, hparams.dataloader)
 
-
-        if hparams.evaluators is not None:
+        if hparams.evaluators is not None and len(hparams.evaluators) > 0:
             eval_dataloader = [
                 evaluator.initialize_object(eval_device_batch_size, hparams.dataloader)
                 for evaluator in hparams.evaluators
