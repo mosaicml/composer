@@ -235,6 +235,10 @@ def initialize_dist(backend: str, timeout: datetime.timedelta):
         return
 
     if dist.is_initialized():
+        if not dist.get_backend() == backend.lower():
+            warnings.warn(f"The requested backend ({backend}) differs from the backend "
+                          f"of the current process group ({torch.distributed.get_backend()})."
+                          "If you wish to change backends, please restart the python process.")
         return
 
     if "RANK" in os.environ and "WORLD_SIZE" in os.environ:
