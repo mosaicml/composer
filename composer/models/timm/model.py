@@ -1,3 +1,4 @@
+# Copyright 2021 MosaicML. All Rights Reserved.
 from typing import Optional
 
 from composer.models.base import MosaicClassifier
