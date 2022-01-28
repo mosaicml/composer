@@ -436,9 +436,13 @@ class Trainer:
         eval_dataloader = hparams.val_dataset.initialize_object(eval_device_batch_size, hparams.dataloader)
 
         if hparams.load_checkpoint is not None:
+            object_store_config = None
+            if hparams.load_checkpoint.object_store is not None:
+                object_store_config = asdict(hparams.load_checkpoint.object_store)
+
             load_checkpoint_kwargs = dict(
                 load_path=hparams.load_checkpoint.path,
-                load_object_store_config=asdict(hparams.load_checkpoint.object_store),
+                load_object_store_config=object_store_config,
                 load_weights_only=hparams.load_checkpoint.load_weights_only,
                 load_strict=hparams.load_checkpoint.strict_model_weights,
                 load_chunk_size=hparams.load_checkpoint.chunk_size,
