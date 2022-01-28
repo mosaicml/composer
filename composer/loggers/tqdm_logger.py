@@ -6,7 +6,7 @@ import sys
 from dataclasses import asdict, dataclass
 from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
-import tqdm
+from tqdm.auto import tqdm
 import yaml
 
 from composer.core.logging import LogLevel, TLogData, TLogDataValue, format_log_data_value
@@ -35,10 +35,10 @@ class _TQDMLoggerInstance:
 
     def __init__(self, state: _TQDMLoggerInstanceState) -> None:
         self.state = state
-        self.pbar = tqdm.tqdm(total=state.total,
-                              desc=state.description,
-                              position=state.position,
-                              bar_format="{l_bar}{bar:10}{r_bar}{bar:-10b}")
+        self.pbar = tqdm(total=state.total,
+                         desc=state.description,
+                         position=state.position,
+                         bar_format="{l_bar}{bar:10}{r_bar}{bar:-10b}")
         self.pbar.set_postfix(state.epoch_metrics)
 
     def log_metric(self, data: TLogData):
