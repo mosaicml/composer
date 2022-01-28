@@ -1,5 +1,6 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
+import dataclasses
 from typing import TYPE_CHECKING
 
 from composer.models.transformer_hparams import TransformerHparams
@@ -8,6 +9,7 @@ if TYPE_CHECKING:
     from composer.models.transformer_shared import MosaicTransformer
 
 
+@dataclasses.dataclass
 class GPT2Hparams(TransformerHparams):
     """
     Overrides TransformerHparams to create GPT-2 specific models and configs.
@@ -35,4 +37,5 @@ class GPT2Hparams(TransformerHparams):
             module=model,
             config=config,  #type: ignore (thirdparty)
             tokenizer_name=self.tokenizer_name,
+            gradient_checkpointing=self.gradient_checkpointing,
         )

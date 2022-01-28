@@ -30,8 +30,8 @@ A summary of available attributes and properties is given below:
     * - ``grad_accum``
       - ``int``
       - Gradient accumulation steps. The size of each **microbatch** would be ``train_batch_size / num_gpus / grad_accum``
-    * - ``max_epochs``
-      - ``int``
+    * - ``max_duration``
+      - ``Time[str]``
       - Maximum number of epochs
     * - ``precision``
       - ``str | Precision``
@@ -53,7 +53,7 @@ A summary of available attributes and properties is given below:
       - Index of the batch in the current epoch. Not mutable.
     * - ``steps_per_epoch``
       - ``int``
-      - Number of optimization steps per epoch. Not mutable.
+      - Number of optimization steps per epoch.
     * - **Training Loop Tensors**
       -
       -

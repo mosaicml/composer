@@ -11,8 +11,8 @@ import composer.algorithms as algorithms
 import composer.trainer as trainer
 from composer.algorithms.scale_schedule.scale_schedule import ScaleScheduleHparams
 from composer.core.precision import Precision
-from composer.datasets import SyntheticDatasetHparams
-from composer.trainer.devices.device_hparams import CPUDeviceHparams
+from composer.datasets.hparams import SyntheticHparamsMixin
+from composer.trainer.devices import CPUDeviceHparams
 
 modeldir_path = os.path.join(os.path.dirname(composer.__file__), 'yamls', 'models')
 model_names = glob.glob(os.path.join(modeldir_path, '*.yaml'))
@@ -24,6 +24,12 @@ def get_model_algs(model_name: str) -> List[str]:
     is_image_model = any(x in model_name for x in ("resnet", "mnist", "efficientnet"))
     if is_image_model:
         algs.remove("alibi")
+    if "alibi" in algs:
+        try:
+            import transformers
+            del transformers
+        except ImportError:
+            pytest.skip("Unable to import transformers; skipping alibi")
     if model_name in ("unet", "gpt2_52m", "gpt2_83m", 'gpt2_125m'):
         algs.remove("mixup")
         algs.remove("cutmix")
@@ -34,16 +40,24 @@ def get_model_algs(model_name: str) -> List[str]:
 @pytest.mark.timeout(15)
 def test_load(model_name: str):
     trainer_hparams = trainer.load(model_name)
-    dummy_dataset_hparams = SyntheticDatasetHparams(
-        total_dataset_size=4096,
-        data_shape=[1, 28, 28],  # TODO(ravi) -- add a getModelInputShape
-        num_classes=2,  # TODO(ravi) -- add a getModelOutputShape
-        device="cpu",
-    )
     trainer_hparams.precision = Precision.FP32
     trainer_hparams.algorithms = algorithms.load_multiple(*get_model_algs(model_name))
-    trainer_hparams.train_dataset = dummy_dataset_hparams
-    trainer_hparams.val_dataset = dummy_dataset_hparams
+    if not isinstance(trainer_hparams.train_dataset, SyntheticHparamsMixin):
+        pytest.skip(f"Model {model_name} uses a train dataset that doesn't support synthetic")
+    assert isinstance(trainer_hparams.train_dataset, SyntheticHparamsMixin)
+    trainer_hparams.train_subset_num_batches = 1
+    trainer_hparams.train_dataset.use_synthetic = True
+
+    if not isinstance(trainer_hparams.val_dataset, SyntheticHparamsMixin):
+        pytest.skip(f"Model {model_name} uses a val dataset that doesn't support synthetic")
+    assert isinstance(trainer_hparams.val_dataset, SyntheticHparamsMixin)
+    trainer_hparams.eval_subset_num_batches = 1
+    trainer_hparams.val_dataset.use_synthetic = True
+    trainer_hparams.dataloader.num_workers = 0
+    trainer_hparams.dataloader.pin_memory = False
+    trainer_hparams.dataloader.prefetch_factor = 2
+    trainer_hparams.dataloader.persistent_workers = False
+
     trainer_hparams.device = CPUDeviceHparams()
     my_trainer = trainer_hparams.initialize_object()
 
@@ -53,18 +67,16 @@ def test_load(model_name: str):
 @pytest.mark.parametrize("ssr", ["0.25", "0.33", "0.50", "0.67", "0.75", "1.00", "1.25"])
 def test_scale_schedule_load(ssr: str):
     trainer_hparams = trainer.load("classify_mnist")
-    # TODO(ravi) -- add a get_synthetic_dataset(num_samples) on BaseMosaicModel
-    dummy_dataset_hparams = SyntheticDatasetHparams(
-        total_dataset_size=4096,
-        data_shape=[1, 28, 28],  # mnist input shape
-        num_classes=trainer_hparams.model.num_classes,
-        device="cpu",
-    )
     trainer_hparams.precision = Precision.FP32
     algs = [f"scale_schedule/{ssr}"]
     trainer_hparams.algorithms = algorithms.load_multiple(*algs)
-    trainer_hparams.train_dataset = dummy_dataset_hparams
-    trainer_hparams.val_dataset = dummy_dataset_hparams
+    assert isinstance(trainer_hparams.train_dataset, SyntheticHparamsMixin)
+    trainer_hparams.train_subset_num_batches = 1
+    trainer_hparams.train_dataset.use_synthetic = True
+
+    assert isinstance(trainer_hparams.val_dataset, SyntheticHparamsMixin)
+    trainer_hparams.eval_subset_num_batches = 1
+    trainer_hparams.val_dataset.use_synthetic = True
     trainer_hparams.device = CPUDeviceHparams()
     assert len(trainer_hparams.algorithms) == 1
     alg = trainer_hparams.algorithms[0]

@@ -1,69 +1,82 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
-from abc import ABC, abstractmethod
-from dataclasses import dataclass
-from typing import Any, Callable, List, NamedTuple, Optional, Sequence
+from __future__ import annotations
 
-import torch
+import abc
+import dataclasses
+import textwrap
+from typing import Optional, Union
+
+try:
+    import custom_inherit
+except ImportError:
+    # if custom_inherit is not installed, then the docstrings will be incomplete. That's fine.
+    metaclass = abc.ABCMeta
+else:
+    metaclass = custom_inherit.DocInheritMeta(style="google_with_merge", abstract_base_class=True)
+
 import yahp as hp
 
-from composer.core.types import Batch, Dataset, Tensor, TPrefetchFn
+from composer.core.types import DataLoader, DataSpec, MemoryFormat
+from composer.datasets.dataloader import DataloaderHparams
 
 
-def _split_fn(batch: Batch, n_microbatches: int) -> List[Batch]:
-    if not isinstance(batch, Sequence):
-        raise ValueError(f'split_fn requires batch be a tuple pair of tensors, got {type(batch)}')
-    x, y = batch
-    if isinstance(x, Tensor) and isinstance(y, Tensor):
-        return list(zip(x.chunk(n_microbatches), y.chunk(n_microbatches)))
-    if isinstance(x, List) and isinstance(y, List):
-        return list(
-            zip(
-                [x[i::n_microbatches] for i in range(n_microbatches)],
-                [y[i::n_microbatches] for i in range(n_microbatches)],
-            ))
-    raise NotImplementedError('The default split_fn is unable to split the output of this'
-                              'dataloader. Please define a split_fn in your dataloader spec.')
+@dataclasses.dataclass
+class SyntheticHparamsMixin(hp.Hparams, abc.ABC):
+    """Synthetic dataset parameter mixin for :class:`DatasetHparams`.
 
-
-class DataloaderSpec(NamedTuple):
-    """Specification for initializing a dataloader.
-    
-    Attributes:
-        dataset (Dataset): The initialized dataset from which to load data.
-        drop_last (bool): Whether the final batch of an epoch should be discarded
-            if there are fewer samples than the batch size.
-        shuffle (bool): Whether the data should be shuffled.
-        collate_fn (List[Any] -> Batch, optional): A function to collate
-            data before returning it from the dataloader.
-        worker_init_fn (int -> None, optional): A function to be ran
-            on each worker before dataloading begins.
-        multiprocessing_context (Any, optional): The context to use for multiprocessing.
-        generator (torch.Generator, optional): An RNG to be used for seeding workers.
-        prefetch_fn (TPrefetchFn, optional): A function to run for prefetching data.
-        split_fn (Batch, int -> List[Batch]): A function to
-            run to split batches into microbatches.
+    Parameters:
+        use_synthetic (bool, optional): Whether to use synthetic data. (Default: ``False``)
+        synthetic_num_unique_samples (int, optional): The number of unique samples to allocate memory for.
+            Ignored if :attr:`use_synthetic` is False. (Default: ``100``)
+        synthetic_device (str, optonal): The device to store the sample pool.
+            Set to ``cuda`` to store samples on the GPU and eliminate PCI-e bandwidth with the dataloader.
+            Set to ``cpu`` to move data between host memory and the device on every batch.
+            Ignored if :attr:`use_synthetic` is False. (Default: ``cpu``)
+        synthetic_memory_format: The :class:`MemoryFormat` to use.
+            Ignored if :attr:`use_synthetic` is False. (Default: ``CONTIGUOUS_FORMAT``)
     """
 
-    dataset: Dataset
-    drop_last: bool
-    shuffle: bool
-    collate_fn: Optional[Callable[[List[Any]], Batch]] = None
-    worker_init_fn: Optional[Callable[[int], None]] = None
-    multiprocessing_context: Any = None
-    generator: Optional[torch.Generator] = None
-    prefetch_fn: Optional[TPrefetchFn] = None
-    split_fn: Callable[[Batch, int], List[Batch]] = _split_fn
+    use_synthetic: bool = hp.optional("Whether to use synthetic data. Defaults to False.", default=False)
+    synthetic_num_unique_samples: int = hp.optional("The number of unique samples to allocate memory for.", default=100)
+    synthetic_device: str = hp.optional("Device to store the sample pool. Should be `cuda` or `cpu`. Defauls to `cpu`.",
+                                        default="cpu")
+    synthetic_memory_format: MemoryFormat = hp.optional("Memory format. Defaults to contiguous format.",
+                                                        default=MemoryFormat.CONTIGUOUS_FORMAT)
 
 
-@dataclass
-class DatasetHparams(hp.Hparams, ABC):
-    """Abstract base class for hyperparameters to initialize a dataset."""
+@dataclasses.dataclass
+class DatasetHparams(hp.Hparams, abc.ABC, metaclass=metaclass):
+    """Abstract base class for hyperparameters to initialize a dataset.
 
-    pass
+    Parameters:
+        datadir (str): The path to the data directory.
+        is_train (bool): Whether to load the training data (the default) or validation data.
+        drop_last (bool):
+            If the number of samples is not divisible by the batch size, whether
+            to drop the last batch (the default) or pad the last batch with zeros.
+        shuffle (bool): Whether to shuffle the dataset. Defaults to True.
+    """
 
-    @abstractmethod
-    def initialize_object(self) -> DataloaderSpec:
-        """Initializes a :class:`DataloaderSpec` for this dataset."""
+    is_train: bool = hp.optional("Whether to load the training data (the default) or validation data.", default=True)
+    drop_last: bool = hp.optional(textwrap.dedent("""If the number of samples is not divisible by the batch size,
+        whether to drop the last batch (the default) or pad the last batch with zeros."""),
+                                  default=True)
+    shuffle: bool = hp.optional("Whether to shuffle the dataset for each epoch. Defaults to True.", default=True)
 
+    datadir: Optional[str] = hp.optional("The path to the data directory", default=None)
+
+    @abc.abstractmethod
+    def initialize_object(self, batch_size: int, dataloader_hparams: DataloaderHparams) -> Union[DataLoader, DataSpec]:
+        """Creates a :class:`DataLoader` or :class:`DataloaderSpec` for this dataset.
+
+        Parameters:
+            batch_size (int): The size of the batch the dataloader should yield. This batch size is
+                device-specific and already incorporates the world size.
+            dataloader_hparams (DataloaderHparams): The dataset-independent hparams for the dataloader
+
+        Returns:
+            Dataloader or DataSpec: The dataloader, or if the dataloader yields batches of custom types,
+            a :class:`DataSpec`.
+        """
         pass

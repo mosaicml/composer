@@ -7,16 +7,19 @@ from dataclasses import dataclass
 
 import numpy as np
 import torch
+import torch.utils.data
 import torchvision
 import yahp as hp
-from torch.utils.data import Dataset
 
-from composer.datasets.hparams import DataloaderSpec, DatasetHparams
+from composer.core.types import DataLoader, Dataset
+from composer.datasets.dataloader import DataloaderHparams
+from composer.datasets.hparams import DatasetHparams
+from composer.utils import dist
 
 PATCH_SIZE = [1, 192, 160]
 
 
-def my_collate(batch):
+def _my_collate(batch):
     """Custom collate function to handle images with different depths.
 
     """
@@ -31,42 +34,29 @@ class BratsDatasetHparams(DatasetHparams):
     """Defines an instance of the BraTS dataset for image segmentation.
     
     Parameters:
-        is_train (bool): Whether to load the training or validation dataset.
-        datadir (str): Data directory to use.
-        download (bool): Whether to download the dataset, if needed.
-        drop_last (bool): Whether to drop the last samples for the last batch.
-        shuffle (bool): Whether to shuffle the dataset for each epoch.
         oversampling (float): The oversampling ratio to use.
     """
 
-    is_train: bool = hp.required("whether to load the training or validation dataset")
-    datadir: str = hp.required("data directory")
-    download: bool = hp.required("whether to download the dataset, if needed")
-    drop_last: bool = hp.optional("Whether to drop the last samples for the last batch", default=True)
-    shuffle: bool = hp.optional("Whether to shuffle the dataset for each epoch", default=True)
     oversampling: float = hp.optional("oversampling", default=0.33)
 
-    def initialize_object(self) -> DataloaderSpec:
+    def initialize_object(self, batch_size: int, dataloader_hparams: DataloaderHparams) -> DataLoader:
 
-        datadir = self.datadir
         oversampling = self.oversampling
 
-        x_train, y_train, x_val, y_val = get_data_split(datadir)
-        train_dataset = PytTrain(x_train, y_train, oversampling)
-        val_dataset = PytVal(x_val, y_val)
-        if self.is_train:
-            return DataloaderSpec(
-                dataset=train_dataset,
-                drop_last=self.drop_last,
-                shuffle=self.shuffle,
-            )
-        else:
-            return DataloaderSpec(
-                dataset=val_dataset,
-                drop_last=self.drop_last,
-                shuffle=self.shuffle,
-                collate_fn=my_collate,  # type: ignore
-            )
+        if self.datadir is None:
+            raise ValueError("datadir must be specified if self.synthetic is False")
+        x_train, y_train, x_val, y_val = get_data_split(self.datadir)
+        dataset = PytTrain(x_train, y_train, oversampling) if self.is_train else PytVal(x_val, y_val)
+        collate_fn = None if self.is_train else _my_collate
+        sampler = dist.get_sampler(dataset, drop_last=self.drop_last, shuffle=self.shuffle)
+
+        return dataloader_hparams.initialize_object(
+            dataset=dataset,
+            batch_size=batch_size,
+            sampler=sampler,
+            drop_last=self.drop_last,
+            collate_fn=collate_fn,
+        )
 
 
 def coin_flip(prob):
@@ -267,7 +257,6 @@ def get_split(data, idx):
 def get_data_split(path: str):
     from sklearn.model_selection import KFold
 
-    val_cases_list = []
     kfold = KFold(n_splits=5, shuffle=True, random_state=0)
     imgs = load_data(path, "*_x.npy")
     lbls = load_data(path, "*_y.npy")

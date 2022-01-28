@@ -2,16 +2,19 @@
 
 import os
 import pathlib
+from unittest.mock import MagicMock
 
 import pytest
-import torch.distributed as dist
+import tqdm
 from _pytest.monkeypatch import MonkeyPatch
 
+from composer.core.event import Event
 from composer.core.logging import Logger, LogLevel
 from composer.core.state import State
-from composer.loggers.file_logger import FileLoggerBackend
-from composer.loggers.logger_hparams import FileLoggerBackendHparams
-from composer.utils.ddp import is_rank_zero
+from composer.loggers.logger_hparams import (FileLoggerBackendHparams, TQDMLoggerBackendHparams,
+                                             WandBLoggerBackendHparams)
+from composer.trainer.trainer_hparams import TrainerHparams
+from composer.utils import dist
 
 
 @pytest.fixture
@@ -19,87 +22,101 @@ def log_file_name(tmpdir: pathlib.Path) -> str:
     return os.path.join(tmpdir, "output.log")
 
 
-@pytest.fixture
-def log_destination(log_file_name: str) -> FileLoggerBackend:
-    return FileLoggerBackendHparams(
-        every_n_batches=3,
-        every_n_epochs=2,
-        log_level=LogLevel.BATCH,
+@pytest.mark.parametrize("log_level", [LogLevel.EPOCH, LogLevel.BATCH])
+def test_file_logger(dummy_state: State, log_level: LogLevel, log_file_name: str):
+    log_destination = FileLoggerBackendHparams(
+        log_interval=3,
+        log_level=log_level,
         filename=log_file_name,
         buffer_size=1,
-        flush_every_n_batches=1,
+        flush_interval=1,
     ).initialize_object()
-
-
-def test_file_logger(dummy_state: State, log_destination: FileLoggerBackend, monkeypatch: MonkeyPatch,
-                     log_file_name: str):
-    dummy_state.step = 2
-    dummy_state.epoch = 2
+    dummy_state.timer.on_batch_complete()
+    dummy_state.timer.on_batch_complete()
+    dummy_state.timer.on_epoch_complete()
     logger = Logger(dummy_state, backends=[log_destination])
-    monkeypatch.setattr(dist, "get_rank", lambda: 0)
-    log_destination.training_start(dummy_state, logger)
+    log_destination.run_event(Event.INIT, dummy_state, logger)
     logger.metric_fit({"metric": "fit"})  # should print
-    logger.metric_epoch({"metric": "epoch"})  # should print
-    logger.metric_batch({"metric": "batch"})  # should print
-    logger.metric_verbose({"metric": "verbose"})  # should NOT print, since we're on the BATCH log level
-    dummy_state.epoch = 3
-    logger.metric_epoch({"metric": "epoch1"})  # should NOT print, since we print every 2 epochs
-    dummy_state.epoch = 4
-    dummy_state.step = 3
-    log_destination.batch_end(dummy_state, logger)
-    logger.metric_epoch({"metric": "epoch2"})  # should print
-    logger.metric_batch({"metric": "batch1"})  # should NOT print, since we print every 3 steps
-    log_destination.batch_end(dummy_state, logger)
-    log_destination.training_end(dummy_state, logger)
+    logger.metric_epoch({"metric": "epoch"})  # should print on batch level, since epoch calls are always printed
+    logger.metric_batch({"metric": "batch"})  # should print on batch level, since we print every 3 steps
+    dummy_state.timer.on_epoch_complete()
+    logger.metric_epoch({"metric": "epoch1"})  # should print, since we log every 3 epochs
+    dummy_state.timer.on_epoch_complete()
+    dummy_state.timer.on_batch_complete()
+    log_destination.run_event(Event.BATCH_END, dummy_state, logger)
+    logger.metric_epoch({"metric": "epoch2"})  # should print on batch level, since epoch calls are always printed
+    logger.metric_batch({"metric": "batch1"})  # should NOT print
+    log_destination.run_event(Event.BATCH_END, dummy_state, logger)
+    log_destination.run_event(Event.TRAINING_END, dummy_state, logger)
     with open(log_file_name, 'r') as f:
-        assert f.readlines() == [
-            '[FIT][step=2]: { "metric": "fit", }\n',
-            '[EPOCH][step=2]: { "metric": "epoch", }\n',
-            '[BATCH][step=2]: { "metric": "batch", }\n',
-            '[EPOCH][step=3]: { "metric": "epoch2", }\n',
-        ]
-
-
-class TestCoreLogger:
-
-    @pytest.mark.world_size(2)
-    def test_deferred(self, dummy_state_without_rank: State, log_file_name: str, log_destination: FileLoggerBackend):
-        dummy_state = dummy_state_without_rank
-        dummy_state.step = 2
-        dummy_state.epoch = 0
-        logger = Logger(dummy_state, backends=[log_destination])
-        logger.metric_batch({"metric": "before_training_start"})
-        log_destination.training_start(dummy_state, logger)
-        logger.metric_batch({"metric": "after_training_start"})
-        log_destination.batch_end(dummy_state, logger)
-        log_destination.training_end(dummy_state, logger)
-        if is_rank_zero():
-            with open(log_file_name, 'r') as f:
-                assert f.readlines() == [
-                    '[BATCH][step=2]: { "metric": "before_training_start", }\n',
-                    '[BATCH][step=2]: { "metric": "after_training_start", }\n',
-                ]
-            return
-        else:
-            assert not os.path.exists(log_file_name), "nothing should be logged on rank 1"
-
-    def test_deep_copy(self, dummy_state_without_rank: State, log_destination: FileLoggerBackend,
-                       monkeypatch: MonkeyPatch, log_file_name: str):
-        # This test ensures that the logger deepcopies the logged metric when using deferred logging
-        dummy_state = dummy_state_without_rank
-        dummy_state.step = 2
-        dummy_state.epoch = 0
-        logger = Logger(dummy_state, backends=[log_destination])
-        metric_data = [["hello"]]
-        logger.metric_batch({"metric": metric_data})
-        metric_data[0] = ["world"]
-        monkeypatch.setattr(dist, "get_rank", lambda: 0)
-        log_destination.training_start(dummy_state, logger)
-        logger.metric_batch({"metric": metric_data})
-        log_destination.batch_end(dummy_state, logger)
-        log_destination.training_end(dummy_state, logger)
-        with open(log_file_name, 'r') as f:
+        if log_level == LogLevel.EPOCH:
             assert f.readlines() == [
-                '[BATCH][step=2]: { "metric": [["hello"]], }\n',
-                '[BATCH][step=2]: { "metric": [["world"]], }\n',
+                '[FIT][step=2]: { "metric": "fit", }\n',
+                '[EPOCH][step=2]: { "metric": "epoch1", }\n',
             ]
+        else:
+            assert log_level == LogLevel.BATCH
+            assert f.readlines() == [
+                '[FIT][step=2]: { "metric": "fit", }\n',
+                '[EPOCH][step=2]: { "metric": "epoch", }\n',
+                '[BATCH][step=2]: { "metric": "batch", }\n',
+                '[EPOCH][step=2]: { "metric": "epoch1", }\n',
+                '[EPOCH][step=3]: { "metric": "epoch2", }\n',
+            ]
+
+
+@pytest.mark.parametrize("world_size", [
+    pytest.param(1),
+    pytest.param(2, marks=pytest.mark.world_size(2)),
+])
+def test_tqdm_logger(mosaic_trainer_hparams: TrainerHparams, monkeypatch: MonkeyPatch, world_size: int):
+    is_train_to_mock_tqdms = {
+        True: [],
+        False: [],
+    }
+
+    def get_mock_tqdm(position: int, *args, **kwargs):
+        del args, kwargs  # unused
+        is_train = position == 0
+        mock_tqdm = MagicMock()
+        is_train_to_mock_tqdms[is_train].append(mock_tqdm)
+        return mock_tqdm
+
+    monkeypatch.setattr(tqdm, "tqdm", get_mock_tqdm)
+    max_epochs = 2
+    mosaic_trainer_hparams.max_duration = f"{max_epochs}ep"
+    mosaic_trainer_hparams.loggers = [TQDMLoggerBackendHparams()]
+    trainer = mosaic_trainer_hparams.initialize_object()
+    trainer.fit()
+    if dist.get_global_rank() == 1:
+        return
+    assert len(is_train_to_mock_tqdms[True]) == max_epochs
+    assert mosaic_trainer_hparams.validate_every_n_batches < 0
+    assert len(is_train_to_mock_tqdms[False]) == mosaic_trainer_hparams.validate_every_n_epochs * max_epochs
+    for mock_tqdm in is_train_to_mock_tqdms[True]:
+        assert mock_tqdm.update.call_count == trainer.state.steps_per_epoch
+        mock_tqdm.close.assert_called_once()
+    for mock_tqdm in is_train_to_mock_tqdms[False]:
+        assert mock_tqdm.update.call_count == trainer._eval_subset_num_batches
+        mock_tqdm.close.assert_called_once()
+
+
+@pytest.mark.parametrize("world_size", [
+    pytest.param(1),
+    pytest.param(2, marks=pytest.mark.world_size(2)),
+])
+@pytest.mark.timeout(10)
+def test_wandb_logger(mosaic_trainer_hparams: TrainerHparams, world_size: int):
+    try:
+        import wandb
+        del wandb
+    except ImportError:
+        pytest.skip("wandb is not installed")
+    del world_size  # unused. Set via launcher script
+    mosaic_trainer_hparams.loggers = [
+        WandBLoggerBackendHparams(log_artifacts=True,
+                                  log_artifacts_every_n_batches=1,
+                                  extra_init_params={"mode": "disabled"})
+    ]
+    trainer = mosaic_trainer_hparams.initialize_object()
+    trainer.fit()

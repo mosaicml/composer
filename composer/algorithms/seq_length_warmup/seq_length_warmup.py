@@ -1,6 +1,5 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
-import math
 from dataclasses import asdict, dataclass
 from typing import Dict, Mapping, Optional
 
@@ -180,8 +179,12 @@ class SeqLengthWarmup(Algorithm):
             # all of the parameters
             device = next(state.model.parameters()).device
 
-            assert (state.train_batch_size % state.world_size) == 0
-            per_gpu_batch = math.ceil(state.train_batch_size / (state.world_size * state.grad_accum))
+            per_gpu_macrobatch = state.train_dataloader.batch_size
+            if per_gpu_macrobatch is None:
+                raise RuntimeError("seq_length_warmup requires constant batch sizing")
+            assert per_gpu_macrobatch % state.grad_accum == 0, "grad accum should evenly divide the batch"
+            per_gpu_batch = per_gpu_macrobatch // state.grad_accum
+
             input_ids = torch.randint(low=0,
                                       high=vocab_size - 1,
                                       size=(per_gpu_batch, self.hparams.max_seq_length),
@@ -196,7 +199,7 @@ class SeqLengthWarmup(Algorithm):
 
             # start by running a forward and backward pass
             # of the maximum sequence length to allocate cache.
-            with state.precision_context(state.precision):
+            with state.precision_context:
                 outputs = state.model.forward(model_inputs)
                 loss = original_model.loss(outputs, model_inputs)
 
@@ -209,7 +212,7 @@ class SeqLengthWarmup(Algorithm):
             assert state.optimizers is not None, \
                 "optimizers are set before TRAINING_START"
 
-            for optimizer in ensure_tuple(state.optimizers):
+            for optimizer in state.optimizers:
                 optimizer.zero_grad()
         else:
             num_optimization_steps = state.steps_per_epoch * state.max_epochs

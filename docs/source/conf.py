@@ -13,6 +13,8 @@
 import os
 import sys
 
+import yahp as hp
+
 sys.path.insert(0, os.path.abspath('..'))
 
 # -- Project information -----------------------------------------------------
@@ -35,6 +37,7 @@ extensions = [
     'sphinxcontrib.katex',
     "sphinx.ext.viewcode",
     "sphinx.ext.intersphinx",
+    'sphinxemoji.sphinxemoji',
     "sphinxext.opengraph",
     "sphinx_copybutton",
     "sphinx_rtd_theme",
@@ -51,14 +54,6 @@ source_suffix = ['.rst', '.md']
 # directories to ignore when looking for source files.
 # This pattern also affects html_static_path and html_extra_path.
 exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store']
-
-intersphinx_mapping = {
-    'python': ('https://docs.python.org/3/', None),
-    'numpy': ('http://docs.scipy.org/doc/numpy/', None),
-    'torch': ('https://pytorch.org/docs/stable/', None),
-    'torchvision': ('https://pytorch.org/vision/stable/', None),
-    'torchtext': ('https://pytorch.org/text/stable/', None)
-}
 
 napoleon_custom_sections = [('Returns', 'params_style')]
 
@@ -105,15 +100,19 @@ autodoc_type_aliases = {
     'BatchPair': 'composer.core.types.BatchPair',
     'BatchDict': 'composer.core.types.BatchDict',
     'StateDict': 'composer.core.types.StateDict',
-    'TPrefetchFn': 'composer.core.types.TPrefetchFn',
+    'TDeviceTransformFn': 'composer.core.types.TDeviceTransformFn',
     'Hparams': 'yahp.hparams.Hparams',
 }
 
 intersphinx_mapping = {
-    'python': ('https://docs.python.org/3.8', None),
-    'torch': ('https://pytorch.org/docs/1.9.1', None),
-    'yapf': ('https://mosaicml-yahp.readthedocs-hosted.com/en/stable', None),
-    'torchmetrics': ('https://torchmetrics.readthedocs.io/en/v0.5.1/', None),
+    'python': ('https://docs.python.org/3/', None),
+    'numpy': ('https://numpy.org/doc/stable/', None),
+    'torch': ('https://pytorch.org/docs/stable/', None),
+    'yapf': ('https://docs.mosaicml.com/projects/yahp/en/stable/', None),
+    'torchvision': ('https://pytorch.org/vision/stable/', None),
+    'torchtext': ('https://pytorch.org/text/stable/', None),
+    'torchmetrics': ('https://torchmetrics.readthedocs.io/en/latest/', None),
+    'libcloud': ('https://libcloud.readthedocs.io/en/stable/', None),
 }
 
 nitpicky = False  # warn on broken links
@@ -132,3 +131,19 @@ nitpick_ignore = [
 ]
 
 python_use_unqualified_type_names = True
+autodoc_inherit_docstrings = True
+
+# monkeypatch hparams docs so we don't get hparams_registry docstrings everywhere
+hp.Hparams.__doc__ = ""
+hp.Hparams.initialize_object.__doc__ = ""
+
+
+def maybe_skip_member(app, what: str, name: str, obj, skip: bool, options):
+    # Hide the default, duplicate attirubtes for named tuples
+    if '_tuplegetter' in obj.__class__.__name__:
+        return True
+    return None
+
+
+def setup(app):
+    app.connect('autodoc-skip-member', maybe_skip_member)

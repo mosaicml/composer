@@ -1,23 +1,21 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
-from typing import Tuple
+from typing import Tuple, Type, Union
 from unittest.mock import MagicMock, Mock
 
 import pytest
 import torch
-import torch.distributed as dist
 import torch.utils.data
-from _pytest.monkeypatch import MonkeyPatch
 
 from composer import Logger, State
-from composer.core.types import DataLoader, Model, Precision
-from composer.datasets import DataloaderHparams, DataloaderSpec, DatasetHparams, SyntheticDatasetHparams
+from composer.core.types import DataLoader, DataSpec, Model, Precision
+from composer.datasets import DataloaderHparams, DatasetHparams
 from composer.models import ModelHparams, MosaicClassifier
 from composer.optim import AdamHparams, ExponentialLRHparams
 from composer.trainer import TrainerHparams
 from composer.trainer.devices import CPUDeviceHparams
-from tests.fixtures.models import SimpleBatchPairModel, SimpleBatchPairModelHparams, SimpleConvModel
-from tests.utils.dataloader import get_dataloader
+from tests.fixtures.models import (SimpleBatchPairModel, SimpleConvModel, _SimpleBatchPairModelHparams,
+                                   _SimpleDatasetHparams)
 
 
 @pytest.fixture
@@ -32,57 +30,62 @@ def dummy_num_classes() -> int:
 
 @pytest.fixture()
 def dummy_train_batch_size() -> int:
-    return 64
+    return 16
 
 
 @pytest.fixture()
 def dummy_val_batch_size() -> int:
-    return 128
+    return 32
 
 
 @pytest.fixture
-def dummy_model_hparams(dummy_in_shape: Tuple[int, ...], dummy_num_classes: int) -> SimpleBatchPairModelHparams:
+def dummy_model_hparams(
+        dummy_in_shape: Tuple[int, ...], dummy_num_classes: int,
+        SimpleBatchPairModelHparams: Type[_SimpleBatchPairModelHparams]) -> _SimpleBatchPairModelHparams:
     return SimpleBatchPairModelHparams(in_shape=list(dummy_in_shape), num_classes=dummy_num_classes)
 
 
 @pytest.fixture
-def dummy_model(dummy_model_hparams: SimpleBatchPairModelHparams) -> SimpleBatchPairModel:
+def dummy_model(dummy_model_hparams: _SimpleBatchPairModelHparams) -> SimpleBatchPairModel:
     return dummy_model_hparams.initialize_object()
 
 
 @pytest.fixture
-def dummy_train_dataset_hparams(dummy_model: SimpleBatchPairModel) -> SyntheticDatasetHparams:
-    return dummy_model.get_dataset_hparams(total_dataset_size=300, drop_last=True, shuffle=True)
+def dummy_train_dataset_hparams(dummy_model: SimpleBatchPairModel,
+                                SimpleDatasetHparams: Type[_SimpleDatasetHparams]) -> DatasetHparams:
+    return SimpleDatasetHparams(
+        use_synthetic=True,
+        drop_last=True,
+        shuffle=False,
+        num_classes=dummy_model.num_classes,
+        data_shape=list(dummy_model.in_shape),
+    )
 
 
 @pytest.fixture
-def dummy_val_dataset_hparams(dummy_model: SimpleBatchPairModel) -> SyntheticDatasetHparams:
-    return dummy_model.get_dataset_hparams(total_dataset_size=100, drop_last=False, shuffle=False)
-
-
-@pytest.fixture
-def dummy_train_dataloader_spec(dummy_train_dataset_hparams: SyntheticDatasetHparams) -> DataloaderSpec:
-    return dummy_train_dataset_hparams.initialize_object()
-
-
-@pytest.fixture
-def dummy_val_dataloader_spec(dummy_train_dataset_hparams: SyntheticDatasetHparams) -> DataloaderSpec:
-    return dummy_train_dataset_hparams.initialize_object()
+def dummy_val_dataset_hparams(dummy_model: SimpleBatchPairModel,
+                              SimpleDatasetHparams: Type[_SimpleDatasetHparams]) -> DatasetHparams:
+    return SimpleDatasetHparams(
+        use_synthetic=True,
+        drop_last=False,
+        shuffle=False,
+        num_classes=dummy_model.num_classes,
+        data_shape=list(dummy_model.in_shape),
+    )
 
 
 @pytest.fixture()
-def dummy_state_without_rank(dummy_model: SimpleBatchPairModel, dummy_train_batch_size: int,
-                             dummy_val_batch_size: int) -> State:
+def dummy_state_without_rank(dummy_model: SimpleBatchPairModel, dummy_train_dataloader: DataLoader,
+                             dummy_val_dataloader: DataLoader) -> State:
     state = State(
         model=dummy_model,
-        epoch=5,
-        step=50,
         precision=Precision.FP32,
         grad_accum=1,
-        train_batch_size=dummy_train_batch_size,
-        eval_batch_size=dummy_val_batch_size,
-        max_epochs=10,
+        train_dataloader=dummy_train_dataloader,
+        eval_dataloader=dummy_val_dataloader,
+        max_duration="10ep",
     )
+
     return state
 
 
@@ -93,32 +96,25 @@ def dummy_dataloader_hparams() -> DataloaderHparams:
         prefetch_factor=2,
         persistent_workers=False,
         pin_memory=False,
-        timeout=0,
+        timeout=0.0,
     )
 
 
 @pytest.fixture
-def dummy_train_dataloader(dummy_dataloader_hparams: DataloaderHparams, dummy_train_dataloader_spec: DataloaderSpec,
-                           dummy_train_batch_size: int) -> DataLoader:
-    return get_dataloader(dummy_train_dataloader_spec, dummy_dataloader_hparams, dummy_train_batch_size)
+def dummy_train_dataloader(dummy_train_dataset_hparams: DatasetHparams, dummy_train_batch_size: int,
+                           dummy_dataloader_hparams: DataloaderHparams) -> Union[DataLoader, DataSpec]:
+    return dummy_train_dataset_hparams.initialize_object(dummy_train_batch_size, dummy_dataloader_hparams)
 
 
 @pytest.fixture
-def dummy_val_dataloader(dummy_dataloader_hparams: DataloaderHparams, dummy_val_dataloader_spec: DataloaderSpec,
-                         dummy_val_batch_size: int) -> DataLoader:
-    return get_dataloader(dummy_val_dataloader_spec, dummy_dataloader_hparams, dummy_val_batch_size)
+def dummy_val_dataloader(dummy_train_dataset_hparams: DatasetHparams, dummy_val_batch_size: int,
+                         dummy_dataloader_hparams: DataloaderHparams) -> Union[DataLoader, DataSpec]:
+    return dummy_train_dataset_hparams.initialize_object(dummy_val_batch_size, dummy_dataloader_hparams)
 
 
 @pytest.fixture()
-def dummy_state(dummy_state_without_rank: State, monkeypatch: MonkeyPatch) -> State:
-    monkeypatch.setattr(dist, "get_rank", lambda: 0)
+def dummy_state(dummy_state_without_rank: State) -> State:
     return dummy_state_without_rank
-
-
-@pytest.fixture()
-def dummy_state_dl(dummy_state: State, dummy_train_dataloader: DataLoader) -> State:
-    dummy_state.train_dataloader = dummy_train_dataloader
-    return dummy_state
 
 
 @pytest.fixture()
@@ -165,23 +161,26 @@ def mosaic_trainer_hparams(
         algorithms=[],
         optimizer=AdamHparams(),
         schedulers=[ExponentialLRHparams(gamma=0.1)],
-        max_epochs=2,
+        max_duration="2ep",
         precision=Precision.FP32,
-        total_batch_size=dummy_train_batch_size,
+        train_batch_size=dummy_train_batch_size,
         eval_batch_size=dummy_val_batch_size,
         dataloader=DataloaderHparams(
             num_workers=0,
             prefetch_factor=2,
             persistent_workers=False,
             pin_memory=False,
-            timeout=0,
+            timeout=0.0,
         ),
         device=CPUDeviceHparams(),
+        deterministic_mode=True,
         loggers=[],
         model=dummy_model_hparams,
         val_dataset=dummy_val_dataset_hparams,
         train_dataset=dummy_train_dataset_hparams,
         grad_accum=1,
+        train_subset_num_batches=3,
+        eval_subset_num_batches=3,
     )
 
 
@@ -191,16 +190,14 @@ def simple_conv_model_input():
 
 
 @pytest.fixture()
-def state_with_model(simple_conv_model: Model):
+def state_with_model(simple_conv_model: Model, dummy_train_dataloader: DataLoader, dummy_val_dataloader: DataLoader):
     state = State(
-        epoch=50,
-        step=50,
-        train_batch_size=100,
-        eval_batch_size=100,
         grad_accum=1,
-        max_epochs=100,
+        max_duration="100ep",
         model=simple_conv_model,
         precision=Precision.FP32,
+        train_dataloader=dummy_train_dataloader,
+        eval_dataloader=dummy_val_dataloader,
     )
     return state
 
@@ -208,3 +205,15 @@ def state_with_model(simple_conv_model: Model):
 @pytest.fixture()
 def simple_conv_model():
     return MosaicClassifier(SimpleConvModel())
+
+
+@pytest.fixture(scope="session")
+def SimpleBatchPairModelHparams():
+    TrainerHparams.register_class("model", _SimpleBatchPairModelHparams, "simple_batch_pair_model")
+    return _SimpleBatchPairModelHparams
+
+
+@pytest.fixture(scope="session")
+def SimpleDatasetHparams():
+    TrainerHparams.register_class("train_dataset", _SimpleDatasetHparams, "simple_dataset")
+    return _SimpleDatasetHparams

@@ -39,8 +39,8 @@ model:
     num_classes: 1000
 loggers:
   - tqdm: {}
-max_epochs: 400
-total_batch_size: 4096
+max_duration: 400ep
+train_batch_size: 4096
 eval_batch_size: 2048
 seed: 17
 device:
