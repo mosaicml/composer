@@ -3,6 +3,7 @@
 """Logger Hyperparameters"""
 from __future__ import annotations
 
+import copy
 from abc import ABC, abstractmethod
 from dataclasses import asdict, dataclass
 from typing import TYPE_CHECKING, Any, Dict, List, Optional
@@ -78,6 +79,7 @@ class WandBLoggerBackendHparams(BaseLoggerBackendHparams):
 
     Args:
         project (str, optional): Weights and Biases project name.
+        group (str, optional): Weights and Biases group name.
         name (str, optional): Weights and Biases run name.
         entity (str, optional): Weights and Biases entity name.
         tags (str, optional): Comma-seperated list of tags to add to the run.
@@ -89,13 +91,18 @@ class WandBLoggerBackendHparams(BaseLoggerBackendHparams):
     """
 
     project: Optional[str] = hp.optional(doc="wandb project name", default=None)
-    name: Optional[str] = hp.optional(doc="wandb group name", default=None)
+    group: Optional[str] = hp.optional(doc="wandb group name", default=None)
+    name: Optional[str] = hp.optional(doc="wandb run name", default=None)
     entity: Optional[str] = hp.optional(doc="wandb entity", default=None)
     tags: str = hp.optional(doc="wandb tags comma separated", default="")
     log_artifacts: bool = hp.optional(doc="Whether to log artifacts", default=False)
     log_artifacts_every_n_batches: int = hp.optional(doc="interval, in batches, to log artifacts", default=100)
     rank_zero_only: bool = hp.optional("Whether to log on rank zero only", default=False)
     extra_init_params: Dict[str, JSON] = hp.optional(doc="wandb parameters", default_factory=dict)
+    flatten_hparams: bool = hp.optional(
+        doc=
+        "Whether the hparams dictionary should be flattened before uploading to WandB. This can make nested fields easier to visualize and query",
+        default=False)
 
     def initialize_object(self, config: Optional[Dict[str, Any]] = None) -> WandBLoggerBackend:
         """Initializes the logger.
@@ -113,31 +120,6 @@ class WandBLoggerBackendHparams(BaseLoggerBackendHparams):
         tags = list(set([x.strip() for x in self.tags.split(",") if x.strip() != ""]))
 
         if config is not None:
-            if "algorithms" in config:
-                algos_dict_list = config.get("algorithms", [])
-                algorithm_names = []
-                for algo_dict in algos_dict_list:
-                    if len(algo_dict.keys()) != 0:
-                        algorithm_names.append(list(algo_dict.keys())[0])
-
-                tags += algorithm_names
-                algorithms_str = "-".join(algorithm_names)
-                config["algorithms_str"] = algorithms_str
-
-                # TODO(@averylamp): Remove special algos config columns after data_collection
-                # This format is to keep runs standardized for data collection runs
-                for algo in algos_dict_list:  # type: ignore
-                    for algo_name, algo_params in algo.items():
-                        for param_name, param_value in algo_params.items():
-                            name = ".".join(["algo", algo_name, param_name])
-                            config[name] = param_value
-
-            if "model" in config:
-                model_dict = config.get("model", {"unknown": None})
-                model_name = "unknown"
-                if len(model_dict) == 1:
-                    model_name = list(model_dict.keys())[0]
-                config["model"] = model_name
 
             def get_flattened_dict(data: Dict[str, Any], _prefix: List[str] = []) -> Dict[str, Any]:
                 """
@@ -184,19 +166,29 @@ class WandBLoggerBackendHparams(BaseLoggerBackendHparams):
                         all_items[key_name] = val
                 return all_items
 
-            flattened_config = get_flattened_dict(data=config)
+            if self.flatten_hparams:
+                config = get_flattened_dict(data=config)
+            else:
+                config = copy.deepcopy(config)  # Copy since WandB parameters are part of config
+
             if "config" not in self.extra_init_params:
                 self.extra_init_params["config"] = {}
-            self.extra_init_params["config"].update(flattened_config)  # type: ignore
+            if not isinstance(self.extra_init_params["config"], dict):
+                raise TypeError(
+                    f"'config' passed to WandB ``extra_init_params`` must be a dictionary. Got {type(self.extra_init_params['config'])}"
+                )
+            self.extra_init_params["config"].update(config)
 
+        name_suffix = f"Rank {dist.get_global_rank()}"
+        name = f"{self.name}_{name_suffix}" if self.name else name_suffix
+        group = self.name if (not self.group and self.rank_zero_only) else self.group
         init_params = {
             "project": self.project,
-            "name": f"Rank {dist.get_global_rank()}",
-            "group": self.name,
+            "name": name,
+            "group": group,
             "entity": self.entity,
             "tags": tags,
         }
-
         init_params.update(self.extra_init_params)
 
         from composer.loggers.wandb_logger import WandBLoggerBackend

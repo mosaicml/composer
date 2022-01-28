@@ -73,7 +73,7 @@ def test_freeze_layers_with_freeze(simple_conv_model: Model, noop_dummy_logger: 
 
     expected_param_groups = deepcopy(first_optimizer.param_groups)
     # The first group should be removed due to freezing
-    expected_param_groups[0]['params'] = expected_param_groups[0]['params'][1:]
+    expected_param_groups[0]['params'] = []
     freezing = LayerFreezing(freeze_start=0.05, freeze_level=1.0)
     freezing.apply(event=Event.EPOCH_END, state=state, logger=noop_dummy_logger)
     updated_param_groups = first_optimizer.param_groups

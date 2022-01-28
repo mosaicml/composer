@@ -193,7 +193,7 @@ class TrainerHparams(hp.Hparams):
                                            default=False)
 
     compute_training_metrics: bool = hp.optional(doc="Log validation metrics on training data", default=False)
-    log_level: str = hp.optional(doc="Python loglevel to use composer", default="WARNING")
+    log_level: str = hp.optional(doc="Python loglevel to use composer", default="INFO")
     datadir: Optional[str] = hp.optional(doc=textwrap.dedent("""
         Datadir to apply for both the training and validation datasets. If specified,
         it will override train_dataset.datadir and val_dataset.datadir"""),
