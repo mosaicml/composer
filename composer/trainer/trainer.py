@@ -636,10 +636,11 @@ class Trainer:
                     elif self._use_closures():
                         for optimizer in state.optimizers:
                             if use_grad_scaling:
-                                total_loss = state.scaler.step(optimizer,
-                                                               closure=lambda: self._train_batch(microbatches))
+                                total_loss = state.scaler.step(
+                                    optimizer, closure=lambda **kwargs: self._train_batch(microbatches, **kwargs))
                             else:
-                                total_loss = optimizer.step(closure=lambda: self._train_batch(microbatches).item())
+                                total_loss = optimizer.step(
+                                    closure=lambda **kwargs: self._train_batch(microbatches, **kwargs).item())
                     else:
                         total_loss = self._train_batch(microbatches)
                         for optimizer in state.optimizers:
