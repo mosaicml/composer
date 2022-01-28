@@ -6,6 +6,7 @@ from composer.models.base import MosaicClassifier
 class Timm(MosaicClassifier):
     """A wrapper around timm.create_model() used to create mosaic classifiers from timm models
     Args:
+<<<<<<< HEAD
         model_name (str): timm model name e.g:'resnet50'list of models can be found at https://github.com/rwightman/pytorch-image-models
         pretrained (bool): imagenet pretrained. default: False
         num_classes (int): The number of classes.  Needed for classification tasks. default: 1000
@@ -15,6 +16,17 @@ class Timm(MosaicClassifier):
         global_pool (str): Global pool type, one of (fast, avg, max, avgmax, avgmaxc). Model default if None. default: None
         bn_momentum (float): BatchNorm momentum override (model default if not None). default: None
         bn_eps (float): BatchNorm epsilon override (model default if not None). default: None
+=======
+        model_name (str): timm model name e.g. 'resnet50', list of models can be found at https://github.com/rwightman/pytorch-image-models.
+        pretrained (bool) imagenet pretrained. default: False
+        num_classes (int) The number of classes.  Needed for classification tasks. default: 1000
+        drop_rate (float) dropout rate. default: 0.0
+        drop_path_rate (float) drop path rate (model default if None). default: None
+        drop_block_rate (float) drop block rate (model default if None). default: None
+        global_pool (str) Global pool type, one of (fast, avg, max, avgmax, avgmaxc). Model default if None. default: None
+        bn_momentum (float) BatchNorm momentum override (model default if not None). default: None
+        bn_eps (float) BatchNorm epsilon override (model default if not None). default: None
+>>>>>>> 549cad9a185c448335004344dbe207b9cb3fb1bd
     """
 
     def __init__(
