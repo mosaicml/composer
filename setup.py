@@ -92,9 +92,7 @@ extra_deps['nlp'] = [
     'datasets>=1.14.0',
 ]
 
-extra_deps['vision'] = [
-    'timm>=0.5.4'
-]
+extra_deps['vision'] = ['timm>=0.5.4']
 
 extra_deps['unet'] = [
     'monai>=0.7.0',
