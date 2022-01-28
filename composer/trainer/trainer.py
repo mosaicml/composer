@@ -634,12 +634,13 @@ class Trainer:
                     if self.deepspeed_enabled:
                         total_loss = self._train_batch(microbatches)
                     elif self._use_closures():
-                        closure = lambda **kwargs: self._train_batch(microbatches, **kwargs)
                         for optimizer in state.optimizers:
                             if use_grad_scaling:
-                                total_loss = state.scaler.step(optimizer, closure=closure)
+                                total_loss = state.scaler.step(
+                                    optimizer, closure=lambda **kwargs: self._train_batch(microbatches, **kwargs))
                             else:
-                                total_loss = optimizer.step(closure=closure)
+                                total_loss = optimizer.step(
+                                    closure=lambda **kwargs: self._train_batch(microbatches, **kwargs).item())
                     else:
                         total_loss = self._train_batch(microbatches)
                         for optimizer in state.optimizers:
