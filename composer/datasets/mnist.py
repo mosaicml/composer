@@ -4,10 +4,11 @@ from dataclasses import dataclass
 
 import yahp as hp
 from torchvision import datasets, transforms
+from webdataset import WebDataset
 
 from composer.core.types import DataLoader
 from composer.datasets.dataloader import DataloaderHparams
-from composer.datasets.hparams import DatasetHparams, SyntheticHparamsMixin
+from composer.datasets.hparams import DatasetHparams, SyntheticHparamsMixin, WebDatasetHparams
 from composer.datasets.synthetic import SyntheticBatchPairDataset
 from composer.utils import dist
 
@@ -47,4 +48,53 @@ class MNISTDatasetHparams(DatasetHparams, SyntheticHparamsMixin):
         return dataloader_hparams.initialize_object(dataset=dataset,
                                                     batch_size=batch_size,
                                                     sampler=sampler,
+                                                    drop_last=self.drop_last)
+
+
+@dataclass
+class WebMNISTDatasetHparams(WebDatasetHparams, SyntheticHparamsMixin):
+    """Defines an instance of the MNIST WebDataset for image classification.
+
+    Parameters:
+        #download (bool): Whether to download the dataset, if needed.
+    """
+    train_shards: int = hp.optional('Training split shards', default=16)
+    val_shards: int = hp.optional('Validation split shards', default=8)
+
+    def initialize_object(self, batch_size: int, dataloader_hparams: DataloaderHparams) -> DataLoader:
+        if self.is_train:
+            split = 'train'
+            size = 60_000
+            n_shards = self.train_shards
+        else:
+            split = 'val'
+            size = 10_000
+            n_shards = self.val_shards
+        size = size - size % n_shards
+
+        if self.use_synthetic:
+            dataset = SyntheticBatchPairDataset(
+                total_dataset_size=size,
+                data_shape=[1, 28, 28],
+                num_classes=10,
+                num_unique_samples_to_create=self.synthetic_num_unique_samples,
+                device=self.synthetic_device,
+                memory_format=self.synthetic_memory_format,
+            )
+        else:
+            transform = transforms.Compose([
+                transforms.Grayscale(),
+                transforms.ToTensor(),
+            ])
+
+            urls = ['/datasets/web_mnist/%s_%05d.tar' % (split, i) for i in range(n_shards)]
+            size_per_device = size // dist.get_world_size()
+            dataset = WebDataset(urls, cache_dir=self.dataset_cache_dir,
+                                 cache_verbose=self.dataset_cache_verbose)
+            dataset = dataset.decode('pil').map_dict(jpg=transform).to_tuple('jpg', 'cls')
+            dataset = dataset.with_epoch(size_per_device).with_length(size_per_device)
+
+        return dataloader_hparams.initialize_object(dataset=dataset,
+                                                    batch_size=batch_size,
+                                                    sampler=None,
                                                     drop_last=self.drop_last)

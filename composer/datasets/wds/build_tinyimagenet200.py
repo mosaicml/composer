@@ -23,7 +23,7 @@ Directory layout:
         wnids.txt  # 200 rows of (wnid)
         words.txt  # 82115 rows of (wnid, wordnet category name)
 
-    web_tinyimagenet/
+    web_tinyimagenet200/
         train_{shard}.tar
         val_{shard}.tar
 '''
@@ -33,8 +33,8 @@ def parse_args():
     x = ArgumentParser()
     x.add_argument('--in_root', type=str, required=True)
     x.add_argument('--out_root', type=str, required=True)
-    x.add_argument('--train_shards', type=int, default=16)
-    x.add_argument('--val_shards', type=int, default=8)
+    x.add_argument('--train_shards', type=int, default=128)
+    x.add_argument('--val_shards', type=int, default=16)
     return x.parse_args()
 
 

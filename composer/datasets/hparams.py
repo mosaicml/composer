@@ -80,3 +80,42 @@ class DatasetHparams(hp.Hparams, abc.ABC, metaclass=metaclass):
             a :class:`DataSpec`.
         """
         pass
+
+
+@dataclasses.dataclass
+class WebDatasetHparams(DatasetHparams, abc.ABC, metaclass=metaclass):
+    """Abstract base class for hyperparameters to initialize a dataset.
+
+    Parameters:
+        is_train (bool): Whether to load the training data (the default) or validation data.
+        drop_last (bool):
+            If the number of samples is not divisible by the batch size, whether
+            to drop the last batch (the default) or pad the last batch with zeros.
+        shuffle (bool): Whether to shuffle the dataset. Defaults to True.
+        dataset_cache_dir (str): WebDataset cache directory.
+        dataset_cache_verbose (str): WebDataset cache verbosity.
+    """
+
+    is_train: bool = hp.optional("Whether to load the training data (the default) or validation data.", default=True)
+    drop_last: bool = hp.optional(textwrap.dedent("""If the number of samples is not divisible by the batch size,
+        whether to drop the last batch (the default) or pad the last batch with zeros."""),
+                                  default=True)
+    shuffle: bool = hp.optional("Whether to shuffle the dataset for each epoch. Defaults to True.", default=True)
+
+    dataset_cache_dir: str = hp.optional('WebDataset cache directory', default='/tmp/dataset_cache/')
+    dataset_cache_verbose: bool = hp.optional('WebDataset cache verbosity', default=False)
+
+    @abc.abstractmethod
+    def initialize_object(self, batch_size: int, dataloader_hparams: DataloaderHparams) -> Union[DataLoader, DataSpec]:
+        """Creates a :class:`DataLoader` or :class:`DataloaderSpec` for this dataset.
+
+        Parameters:
+            batch_size (int): The size of the batch the dataloader should yield. This batch size is
+                device-specific and already incorporates the world size.
+            dataloader_hparams (DataloaderHparams): The dataset-independent hparams for the dataloader
+
+        Returns:
+            Dataloader or DataSpec: The dataloader, or if the dataloader yields batches of custom types,
+            a :class:`DataSpec`.
+        """
+        pass

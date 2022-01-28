@@ -19,7 +19,7 @@ def parse_args():
 def get_shuffled(dataset):
     indices = np.random.permutation(len(dataset))
     images = dataset.data[indices].numpy()
-    classes = dataset.targets[indices]
+    classes = dataset.targets[indices].numpy()
     return images, classes
 
 
