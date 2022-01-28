@@ -31,6 +31,9 @@ def test_model_registry(model_name, request):
     if model_name == "deeplabv3":
         model_hparams.is_backbone_pretrained = False
 
+    if model_name == "timm":
+        model_hparams.model_name = 'resnet18'
+
     assert isinstance(model_hparams, ModelHparams)
 
     try:
