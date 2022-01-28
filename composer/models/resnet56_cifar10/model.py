@@ -22,7 +22,7 @@ class CIFAR10_ResNet56(MosaicClassifier):
 
     def __init__(
         self,
-        num_classes: int,
+        num_classes: int = 10,
         initializers: Optional[List[Initializer]] = None,
     ) -> None:
         if initializers is None:
