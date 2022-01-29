@@ -8,7 +8,7 @@ from composer.trainer.trainer_hparams import model_registry
 
 @pytest.mark.parametrize("model_name", model_registry.keys())
 def test_model_registry(model_name, request):
-    timm = pytest.importorskip("timm")  # yapf: disable
+    pytest.importorskip("timm")
 
     # TODO (Moin + Ravi): create dummy versions of these models to pass unit tests
     if model_name in ['gpt2', 'bert', 'bert_classification']:  # do not pull from HF model hub
