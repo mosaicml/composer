@@ -34,7 +34,7 @@ def _configure_dataset_for_synthetic(dataset_hparams: DatasetHparams) -> None:
 
 @pytest.mark.parametrize("hparams_file", walk_model_yamls())
 class TestHparamsCreate:
-    timm = pytest.importorskip("timm")  # yapf: disable
+    pytest.importorskip("timm")  # yapf: disable
 
     def test_hparams_create(self, hparams_file: str):
         hparams = TrainerHparams.create(hparams_file, cli_args=False)
