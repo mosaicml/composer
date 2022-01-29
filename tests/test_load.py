@@ -39,7 +39,7 @@ def get_model_algs(model_name: str) -> List[str]:
 @pytest.mark.parametrize('model_name', model_names)
 @pytest.mark.timeout(15)
 def test_load(model_name: str):
-    timm = pytest.importorskip("timm")
+    timm = pytest.importorskip("timm")  # yapf: disable
     trainer_hparams = trainer.load(model_name)
     trainer_hparams.precision = Precision.FP32
     trainer_hparams.algorithms = algorithms.load_multiple(*get_model_algs(model_name))
