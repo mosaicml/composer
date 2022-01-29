@@ -8,6 +8,8 @@ from composer.trainer.trainer_hparams import model_registry
 
 @pytest.mark.parametrize("model_name", model_registry.keys())
 def test_model_registry(model_name, request):
+    timm = pytest.importorskip("timm")
+
     # TODO (Moin + Ravi): create dummy versions of these models to pass unit tests
     if model_name in ['gpt2', 'bert', 'bert_classification']:  # do not pull from HF model hub
         request.applymarker(pytest.mark.xfail())
@@ -32,7 +34,7 @@ def test_model_registry(model_name, request):
         model_hparams.is_backbone_pretrained = False
 
     if model_name == "timm":
-        model_hparams.model_name = 'resnet18'
+        model_hparams.model_name = "resnet18"
 
     assert isinstance(model_hparams, ModelHparams)
 
@@ -41,6 +43,6 @@ def test_model_registry(model_name, request):
         model = model_hparams.initialize_object()
         assert isinstance(model, BaseMosaicModel)
     except ModuleNotFoundError as e:
-        if model_name == "unet" and e.name == 'monai':
+        if model_name == "unet" and e.name == 'monai' or model_name == "timm" and e.name == "timm":
             pytest.skip("Unet not installed -- skipping")
         raise e
