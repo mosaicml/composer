@@ -32,6 +32,7 @@ Documentation
 Our documentation is organized into a few sections:
 
 * :doc:`Getting Started </getting_started/installation>` covers installation, a quick tour and explains how to use ``Composer``.
+* :doc:`Using our Trainer </trainer/examples>` covers the many functionalities of our trainer and includes examples for how to use them.
 * :doc:`Core </core/algorithm>` covers the core components of the library.
 * :doc:`composer </algorithms>` contains the library's API reference.
 * :doc:`Methods Library </method_cards/alibi>` details our implemented efficiency methods.
@@ -45,7 +46,30 @@ Our documentation is organized into a few sections:
    getting_started/using_composer.rst
    getting_started/welcome_tour.rst
    tutorials/adding_models_datasets.rst
-   getting_started/distributed.rst
+
+.. toctree::
+   :maxdepth: 1
+   :caption: Using our Trainer
+
+   trainer/examples.rst
+   trainer/mosaic_model.rst
+   trainer/algorithms.rst
+   trainer/checkpointing.rst
+   trainer/logging.rst
+   trainer/numerics.rst
+   trainer/time.rst
+   trainer/distributed_training.rst
+   trainer/optim_lrsched.rst
+   trainer/deepspeed.rst
+   trainer/profiling.rst
+   trainer/callbacks.rst
+   trainer/functional_api.rst
+
+.. toctree::
+   :maxdepth: 1
+   :caption: Notebook Examples
+
+   notebooks/summary.rst
 
 .. toctree::
    :maxdepth: 1
@@ -75,6 +99,12 @@ Our documentation is organized into a few sections:
    profiler.rst
    trainer.rst
    trainer_devices.rst
+
+.. toctree::
+   :maxdepth: 1
+   :caption: Hparams System (YAHP)
+
+   yahp/getting_started.rst
 
 .. toctree::
    :maxdepth: 1
