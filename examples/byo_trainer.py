@@ -130,8 +130,8 @@ def train():
 
             if state.timer.batch.value % 100 == 0:
                 logging.info(f'Epoch {state.epoch}, Step: {state.timer.batch.value}, loss: {state.loss:.3f}')
-            engine.run_event(Event.BATCH_END)
             state.timer.on_batch_complete(len(state.batch))
+            engine.run_event(Event.BATCH_END)
 
         metric = Accuracy().cuda()
         for (x, y) in val_dataloader:
@@ -143,9 +143,9 @@ def train():
 
             metric(prediction, y)
         logging.info(f'Epoch {state.epoch} complete. val/acc = {metric.compute():.5f}')
+        state.timer.on_epoch_complete()
 
         engine.run_event(Event.EPOCH_END)
-        state.timer.on_epoch_complete()
 
     engine.run_event(Event.TRAINING_END)
 

@@ -7,14 +7,10 @@ import time
 import warnings
 from typing import Sequence
 
-import torch
-
 from composer.callbacks.callback_hparams import BenchmarkerHparams
 from composer.core import Logger, State
 from composer.core.callback import Callback
 from composer.core.types import BreakEpochException
-from composer.utils import dist
-from composer.utils.data import get_device_of_batch
 
 log = logging.getLogger(__name__)
 
@@ -92,6 +88,7 @@ class Benchmarker(Callback):
         step_list = list(sorted(step_list))
 
         self.current_time = None
+        self.batch_start_num_samples = None
         self.profile_examples = 0
         self.profile_steps = 0
         self.profile_time = 0
@@ -149,21 +146,22 @@ class Benchmarker(Callback):
         logger.metric_epoch({'wall_clock_train': self.wall_clock_train})
 
     def batch_start(self, state: State, logger: Logger):
-        del state, logger  # Unused
+        del logger  # Unused
         if self.current_time is None:
             self.current_time = time.time()
             self.profile_examples = 0
             self.profile_steps = 0
             self.profile_time = 0.0
+            self.batch_start_num_samples = state.timer.sample
 
     def batch_end(self, state: State, logger: Logger):
         if self.current_time is not None:
             now = time.time()
             elapsed = now - self.current_time
             self.current_time = now
-            batch_num_samples = torch.tensor([int(state.batch_num_samples)], device=get_device_of_batch(state.batch))
-            dist.all_reduce(batch_num_samples, reduce_operation="SUM")
-            self.profile_examples += int(batch_num_samples.item())
+            new_num_samples = state.timer.sample
+            batch_num_samples = new_num_samples - self.batch_start_num_samples
+            self.profile_examples += int(batch_num_samples)
             self.profile_steps += 1
             self.profile_time += elapsed
 
