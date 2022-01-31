@@ -34,13 +34,21 @@ def _configure_dataset_for_synthetic(dataset_hparams: DatasetHparams) -> None:
 
 @pytest.mark.parametrize("hparams_file", walk_model_yamls())
 class TestHparamsCreate:
-    pytest.importorskip("timm")  # yapf: disable
 
     def test_hparams_create(self, hparams_file: str):
+        if hparams_file in ["timm_resnet50_imagenet.yaml"]:
+            pytest.importorskip("timm")
+        if hparams_file in ["unet.yaml"]:
+            pytest.importorskip("monai")
+
         hparams = TrainerHparams.create(hparams_file, cli_args=False)
         assert isinstance(hparams, TrainerHparams)
 
     def test_trainer_initialize(self, hparams_file: str):
+        if hparams_file in ["timm_resnet50_imagenet.yaml"]:
+            pytest.importorskip("timm")
+        if hparams_file in ["unet.yaml"]:
+            pytest.importorskip("monai")
         hparams = TrainerHparams.create(hparams_file, cli_args=False)
         hparams.dataloader.num_workers = 0
         hparams.dataloader.persistent_workers = False

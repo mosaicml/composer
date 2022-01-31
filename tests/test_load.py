@@ -25,11 +25,7 @@ def get_model_algs(model_name: str) -> List[str]:
     if is_image_model:
         algs.remove("alibi")
     if "alibi" in algs:
-        try:
-            import transformers
-            del transformers
-        except ImportError:
-            pytest.skip("Unable to import transformers; skipping alibi")
+        pytest.importorskip("transformers")
     if model_name in ("unet", "gpt2_52m", "gpt2_83m", 'gpt2_125m'):
         algs.remove("mixup")
         algs.remove("cutmix")
@@ -39,7 +35,10 @@ def get_model_algs(model_name: str) -> List[str]:
 @pytest.mark.parametrize('model_name', model_names)
 @pytest.mark.timeout(15)
 def test_load(model_name: str):
-    pytest.importorskip("timm")
+    if model_name in ['timm']:
+        pytest.importorskip("timm")
+    if model_name in ['unet']:
+        pytest.importorskip("monai")
     trainer_hparams = trainer.load(model_name)
     trainer_hparams.precision = Precision.FP32
     trainer_hparams.algorithms = algorithms.load_multiple(*get_model_algs(model_name))

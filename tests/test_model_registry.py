@@ -2,13 +2,16 @@
 
 import pytest
 
-from composer.models import BaseMosaicModel, ModelHparams
+from composer.models import ModelHparams
 from composer.trainer.trainer_hparams import model_registry
 
 
 @pytest.mark.parametrize("model_name", model_registry.keys())
 def test_model_registry(model_name, request):
-    pytest.importorskip("timm")
+    if model_name in ['timm']:
+        pytest.importorskip("timm")
+    if model_name in ['unet']:
+        pytest.importorskip("monai")
 
     # TODO (Moin + Ravi): create dummy versions of these models to pass unit tests
     if model_name in ['gpt2', 'bert', 'bert_classification']:  # do not pull from HF model hub
@@ -37,12 +40,3 @@ def test_model_registry(model_name, request):
         model_hparams.model_name = "resnet18"
 
     assert isinstance(model_hparams, ModelHparams)
-
-    try:
-        # create the model object using the hparams
-        model = model_hparams.initialize_object()
-        assert isinstance(model, BaseMosaicModel)
-    except ModuleNotFoundError as e:
-        if model_name == "unet" and e.name == 'monai' or model_name == "timm" and e.name == "timm":
-            pytest.skip("Unet not installed -- skipping")
-        raise e
