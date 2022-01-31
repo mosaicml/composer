@@ -79,11 +79,7 @@ def train():
         batch_size=args.train_batch_size,
         shuffle=False,
     )
-
-    # Wrap your validation set in an Evaluator with relevant metrics
-    # Leaving metrics as None will use the default validation metrics in your model
     evaluator = Evaluator(label='eval_dataset', dataloader=val_dataloader, metrics=torchmetrics.Accuracy())
-
     # to use our algorithms, create and maintain the trainer state
     state = composer.State(
         model=model,
