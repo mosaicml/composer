@@ -19,6 +19,8 @@ from composer.models.resnet9_cifar10 import CIFAR10_ResNet9 as CIFAR10_ResNet9
 from composer.models.resnet9_cifar10 import CIFARResNet9Hparams as CIFARResNet9Hparams
 from composer.models.resnet18 import ResNet18 as ResNet18
 from composer.models.resnet18 import ResNet18Hparams as ResNet18Hparams
+from composer.models.resnet20_cifar10 import CIFAR10_ResNet20 as CIFAR10_ResNet20
+from composer.models.resnet20_cifar10 import CIFARResNet20Hparams as CIFARResNet20Hparams
 from composer.models.resnet50 import ResNet50 as ResNet50
 from composer.models.resnet50 import ResNet50Hparams as ResNet50Hparams
 from composer.models.resnet56_cifar10 import CIFAR10_ResNet56 as CIFAR10_ResNet56
