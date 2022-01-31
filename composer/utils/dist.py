@@ -74,7 +74,6 @@ def get_local_rank() -> int:
         int: The local world size
     """
     local_rank = _get_distributed_config_var(env_var="LOCAL_RANK", human_name="local rank", default=0)
-    assert local_rank == get_global_rank() % get_local_world_size(), "invariant violation"
     return local_rank
 
 
@@ -235,23 +234,18 @@ def initialize_dist(backend: str, timeout: datetime.timedelta):
         return
 
     if dist.is_initialized():
-        if not dist.get_backend() == backend.lower():
+        if dist.get_backend() != backend.lower() and get_world_size() > 1:
             warnings.warn(f"The requested backend ({backend}) differs from the backend "
                           f"of the current process group ({dist.get_backend()})."
                           "If you wish to change backends, please restart the python process.")
         return
 
-    if "RANK" in os.environ and "WORLD_SIZE" in os.environ:
-        # Assume we can initialize based off of env vars
+    if "RANK" not in os.environ or "WORLD_SIZE" not in os.environ:
+        warnings.warn("NoDistributedWarning: RANK and WORLD_SIZE env vars not set; assuming no "
+                      "parallelization. If this is unexpected, make sure you are running your "
+                      "training script with the composer CLI tool.")
+    elif get_world_size() > 1:
         dist.init_process_group(backend, timeout=timeout)
-        return
-
-    warnings.warn("NoDistributedWarning: RANK and WORLD_SIZE env vars not set; assuming no parallelization. "
-                  "If this is unexpected, make sure you are running your training script with the "
-                  "composer executable.")
-    store = dist.HashStore()
-
-    dist.init_process_group(backend, timeout=timeout, store=store, world_size=1, rank=0)
 
 
 def get_sampler(dataset, *, drop_last: bool, shuffle: bool) -> torch.utils.data.Sampler:
