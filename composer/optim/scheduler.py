@@ -67,7 +67,7 @@ def _convert_time_fields(interval: str,
 class SchedulerHparams(hp.Hparams, ABC):
 
     scheduler_object = None  # type: Optional[Callable[..., Scheduler]]
-    interval = 'epochs'  # type: str
+    interval = 'step'  # type: str
 
     def initialize_object(
         self,
@@ -177,7 +177,7 @@ class PolynomialLRHparams(SchedulerHparams):
     power: float = hp.required(doc='Power of LR schedule.')
     eta_min: float = hp.optional(default=0.0, doc='Minimum learning rate.')
     verbose: bool = hp.optional(default=False, doc='Prints message to stdout.')
-    interval: str = hp.optional(default='epoch', doc=_interval_doc)
+    interval: str = hp.optional(default='step', doc=_interval_doc)
 
     scheduler_object = PolynomialLR
 
@@ -186,7 +186,7 @@ class PolynomialLRHparams(SchedulerHparams):
 class ConstantLRHparams(SchedulerHparams):
     """Hyperparameters for the :class:`ConstantLR` scheduler."""
     verbose: bool = hp.optional(default=False, doc='prints message to stdout')
-    interval: str = hp.optional(default='epoch', doc=_interval_doc)
+    interval: str = hp.optional(default='step', doc=_interval_doc)
 
     scheduler_object = ConstantLR
 
@@ -200,7 +200,7 @@ class StepLRHparams(SchedulerHparams):
     step_size: str = hp.required(doc='Period of learning rate decay')
     gamma: float = hp.optional(default=0.1, doc='multiplicative factor of decay')
     verbose: bool = hp.optional(default=False, doc='prints message to stdout')
-    interval: str = hp.optional(default='epoch', doc=_interval_doc)
+    interval: str = hp.optional(default='step', doc=_interval_doc)
 
     scheduler_object = torch.optim.lr_scheduler.StepLR
 
@@ -214,7 +214,7 @@ class MultiStepLRHparams(SchedulerHparams):
     milestones: List[str] = hp.required(doc='List of milestone time strings')
     gamma: float = hp.optional(default=0.1, doc='multiplicative factor of decay')
     verbose: bool = hp.optional(default=False, doc='prints message to stdout')
-    interval: str = hp.optional(default='epoch', doc=_interval_doc)
+    interval: str = hp.optional(default='step', doc=_interval_doc)
 
     scheduler_object = torch.optim.lr_scheduler.MultiStepLR
 
@@ -227,7 +227,7 @@ class ExponentialLRHparams(SchedulerHparams):
 
     gamma: float = hp.required(doc='multiplicative factor of decay')
     verbose: bool = hp.optional(default=False, doc='prints message to stdout')
-    interval: str = hp.optional(default='epoch', doc=_interval_doc)
+    interval: str = hp.optional(default='step', doc=_interval_doc)
 
     scheduler_object = torch.optim.lr_scheduler.ExponentialLR
 
@@ -241,7 +241,7 @@ class CosineAnnealingLRHparams(SchedulerHparams):
     T_max: str = hp.required(doc="Maximum scheduler duration.")
     eta_min: float = hp.optional(default=0.0, doc='minimum learning rate.')
     verbose: bool = hp.optional(default=False, doc='prints message to stdout')
-    interval: str = hp.optional(default='epoch', doc=_interval_doc)
+    interval: str = hp.optional(default='step', doc=_interval_doc)
 
     scheduler_object = torch.optim.lr_scheduler.CosineAnnealingLR
 
@@ -255,7 +255,7 @@ class CosineAnnealingWarmRestartsHparams(SchedulerHparams):
     T_0: str = hp.required("Duration for the first restart.")
     eta_min: float = hp.optional(default=0.0, doc='minimum learning rate.')
     verbose: bool = hp.optional(default=False, doc='prints message to stdout')
-    interval: str = hp.optional(default='epoch', doc=_interval_doc)
+    interval: str = hp.optional(default='step', doc=_interval_doc)
     T_mult: int = hp.optional("A factor increases :math:`T_{i}` after a restart. Default: 1.", default=1)
 
     scheduler_object = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts
@@ -271,7 +271,7 @@ class LinearLRHparams(SchedulerHparams):
     end_factor: float = hp.optional("Number to multiply learning rate at the end .", default=1.0)
     total_iters: str = hp.optional("Duration of linear decay steps. Default: 5 iterations.", default="5ba")
     verbose: bool = hp.optional('Prints message to stdout', default=False)
-    interval: str = hp.optional(default='epoch', doc=_interval_doc)
+    interval: str = hp.optional(default='step', doc=_interval_doc)
 
     scheduler_object = LinearLR
 
@@ -287,7 +287,7 @@ class WarmUpLRHparams(SchedulerHparams):
     warmup_iters: str = hp.optional("Warmup duration. Default: 5 iterations.", default="5ba")
     warmup_method: str = hp.optional("Warmup method (linear or constant)", default='linear')
     verbose: bool = hp.optional('Prints message to stdout', default=False)
-    interval: str = hp.optional('Warmup the LR every step or epoch. Default: epoch', default='epoch')
+    interval: str = hp.optional('Warmup the LR every step or epoch. Default: epoch', default='step')
 
     scheduler_object = WarmUpLR
 
