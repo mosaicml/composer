@@ -19,22 +19,29 @@ def _get_distributed_config_var(env_var: str,
                                 default: int,
                                 fetch_fn_name: Optional[str] = None) -> int:
     if not dist.is_available():
-        warnings.warn(
-            f"DistributedDefaultValueWarning: Torch distributed is not available; returning {default} for {human_name}")
+        warnings.warn("DistributedDefaultValueWarning: Torch distributed is not available; "
+                      f"returning {default} for {human_name}")
         return default
 
-    if not env_var in os.environ:
-        warnings.warn(f"DistributedDefaultValueWarning: {env_var} env var not set"
-                      f"{' and process group not initialized' if fetch_fn_name is not None else ''}; "
-                      f"returning {default} for {human_name}.")
-        env_value = default
-    else:
-        env_value = int(os.environ[env_var])
-
     if dist.is_initialized() and fetch_fn_name is not None:
-        assert env_value == int(getattr(dist, fetch_fn_name)()), "invariant violation"
+        dist_value = int(getattr(dist, fetch_fn_name))
+        if env_var in os.environ:
+            env_value = int(os.environ[env_var])
+            if dist_value != env_value:
+                raise RuntimeError("Torch distributed has been initialized with a value of "
+                                   f"{dist_value} for {human_name}, but environment variable "
+                                   f"{env_var} has value {env_value}.")
 
-    return env_value
+    if env_var in os.environ:
+        return int(os.environ[env_var])
+
+    if dist.is_initialized():
+        raise RuntimeError("Torch distributed is initialized but environment variable "
+                           f"{env_var} is not set.")
+
+    warnings.warn(f"DistributedDefaultValueWarning: {env_var} env var not set and Torch "
+                  f"distributed not initialized; returning {default} for {human_name}.")
+    return default
 
 
 def get_world_size() -> int:
@@ -73,23 +80,17 @@ def get_local_rank() -> int:
     Returns:
         int: The local world size
     """
-    local_rank = _get_distributed_config_var(env_var="LOCAL_RANK", human_name="local rank", default=0)
-    return local_rank
+    return _get_distributed_config_var(env_var="LOCAL_RANK", human_name="local rank", default=0)
 
 
 def get_node_rank() -> int:
     """Returns the node rank. For example, if there are 2 nodes, and 2 ranks per node, then
     global ranks 0-1 will have a node rank of 0, and global ranks 2-3 will have a node rank of 1.
 
-    .. note::
-
-        This function assumes an equal number of ranks (processes) per node, as determined by
-        :meth:`get_local_world_size`.
-
     Returns:
         int: The node rank, starting at 0.
     """
-    return get_global_rank() // get_local_world_size()
+    return _get_distributed_config_var(env_var="NODE_RANK", human_name="node rank", default=0)
 
 
 def barrier() -> None:
