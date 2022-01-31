@@ -24,7 +24,7 @@ def _get_distributed_config_var(env_var: str,
         return default
 
     if dist.is_initialized() and fetch_fn_name is not None:
-        dist_value = int(getattr(dist, fetch_fn_name))
+        dist_value = int(getattr(dist, fetch_fn_name)())
         if env_var in os.environ:
             env_value = int(os.environ[env_var])
             if dist_value != env_value:
