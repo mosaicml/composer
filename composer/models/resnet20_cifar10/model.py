@@ -7,8 +7,8 @@ from composer.models.model_hparams import Initializer
 from composer.models.resnets import CIFAR_ResNet
 
 
-class CIFAR10_ResNet56(MosaicClassifier):
-    """A ResNet-56 model extending :class:`MosaicClassifier`.
+class CIFAR10_ResNet20(MosaicClassifier):
+    """A ResNet-20 model extending :class:`MosaicClassifier`.
 
     See this `paper <https://arxiv.org/abs/1512.03385>`_ for details
     on the residual network architecture.
@@ -29,7 +29,7 @@ class CIFAR10_ResNet56(MosaicClassifier):
             initializers = []
 
         model = CIFAR_ResNet.get_model_from_name(
-            "cifar_resnet_56",
+            "cifar_resnet_20",
             initializers,
             num_classes,
         )
