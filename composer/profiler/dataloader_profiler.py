@@ -50,4 +50,5 @@ class DataloaderProfiler(Callback):
                 Make sure to run composer with the profiler -- i.e. with the `--profiler` CLI flag."""))
         state.train_dataloader = ProfiledDataLoader(state.profiler, state.train_dataloader, "train")
         for evaluator in state.evaluators:
-            evaluator.dataloader = ProfiledDataLoader(state.profiler, evaluator.dataloader, "eval")
+            evaluator.dataloader.dataloader = ProfiledDataLoader(state.profiler, evaluator.dataloader.dataloader,
+                                                                 evaluator.label)

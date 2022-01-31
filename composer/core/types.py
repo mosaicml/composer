@@ -7,7 +7,7 @@ See :doc:`/core/types` for documentation.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Dict, Iterable, Iterator, List, Optional, Tuple, Union, runtime_checkable
+from typing import TYPE_CHECKING, Any, Dict, Iterable, Iterator, List, Optional, Tuple, Union
 
 import torch
 import torch.utils.data
@@ -16,6 +16,7 @@ from torchmetrics.metric import Metric
 
 from composer.core.algorithm import Algorithm as Algorithm
 from composer.core.data_spec import DataSpec as DataSpec
+from composer.core.evaluator import Evaluator as Evaluator
 from composer.core.event import Event as Event
 from composer.core.logging import Logger as Logger
 from composer.core.precision import Precision as Precision
@@ -90,7 +91,6 @@ class BreakEpochException(Exception):
     pass
 
 
-@runtime_checkable
 class DataLoader(Protocol):
     """Protocol for custom DataLoaders compatible with
     :class:`torch.utils.data.DataLoader`.
@@ -142,33 +142,7 @@ class DataLoader(Protocol):
         ...
 
 
-class Evaluator:
-    """Wrapper for a dataloader to include metrics that apply to a specific
-    dataset.
-
-    Attributes:
-        label (str): Name of the Evaluator
-        dataloader (Union[DataSpec, DataLoader]): Dataloader/DataSpec for evaluation data
-        metrics (Optional[Union[Metrics, List[str]]]): Metrics to use for the dataset.
-    """
-
-    def __init__(self,
-                 *,
-                 label: str,
-                 dataloader: Union[DataSpec, DataLoader],
-                 metrics: Optional[Union[Metrics, List[str]]] = None):
-        self.label = label
-        self.dataloader = dataloader
-        if not isinstance(dataloader, DataSpec):
-            self.dataloader = DataSpec(dataloader)
-
-        self.metrics = metrics
-        if self.metrics is not None:
-            if isinstance(self.metrics, Metric):
-                # Forcing metrics to be a MetricCollection simplifies logging results
-                self.metrics = MetricCollection([self.metrics])
-
-
+Evaluators = Union[Evaluator, List[Evaluator], Tuple[Evaluator, ...]]
 Metrics = Union[Metric, MetricCollection]
 Optimizer = torch.optim.Optimizer
 Optimizers = Union[Optimizer, Tuple[Optimizer, ...], List[Optimizer]]

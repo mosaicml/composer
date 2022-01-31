@@ -47,7 +47,8 @@ class TestHparamsCreate:
         hparams.dataloader.prefetch_factor = 2
 
         _configure_dataset_for_synthetic(hparams.train_dataset)
-        _configure_dataset_for_synthetic(hparams.val_dataset)
+        if hparams.val_dataset is not None:
+            _configure_dataset_for_synthetic(hparams.val_dataset)
         hparams.device = CPUDeviceHparams()
 
         if isinstance(hparams.model, DeepLabV3Hparams):

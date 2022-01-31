@@ -53,7 +53,7 @@ def test_ddp_sync_strategy(ddp_sync_strategy: str, expected_grads: List[Optional
     # ddp = DDP(backend="gloo", find_unused_parameters=True, sync_strategy=ddp_sync_strategy, timeout=5.)
     optimizer = torch.optim.SGD(original_model.parameters(), 0.1)
     metric_coll = MetricCollection([Accuracy()])
-    evaluators = [Evaluator(label="dummy_label", dataset=dummy_val_dataloader, metrics=metric_coll)]
+    evaluators = [Evaluator(label="dummy_label", dataloader=dummy_val_dataloader, metrics=metric_coll)]
     state = State(model=original_model,
                   optimizers=optimizer,
                   grad_accum=2,

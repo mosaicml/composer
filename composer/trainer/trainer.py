@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import contextlib
-import copy
 import datetime
 import itertools
 import logging
@@ -22,7 +21,7 @@ from torchmetrics.metric import Metric
 from composer.core import Callback, DataSpec, Engine, Event, Logger, State, Time
 from composer.core.algorithm import Algorithm
 from composer.core.logging import BaseLoggerBackend, LogLevel
-from composer.core.types import Batch, BreakEpochException, DataLoader, Evaluator, Metrics, Precision
+from composer.core.types import Batch, BreakEpochException, DataLoader, Evaluator, Evaluators, Metrics, Precision
 from composer.loggers.tqdm_logger import TQDMLoggerBackend
 from composer.models.base import BaseMosaicModel
 from composer.optim import (ComposedScheduler, CosineAnnealingLRHparams, DecoupledSGDWHparams, OptimizerHparams,
@@ -56,9 +55,9 @@ class Trainer:
         model (BaseMosaicModel): The model to train.
         train_dataloader (DataLoader, DataSpec, or dict): The :class:`DataLoader`, :class:`DataSpec`,
             or dict of :class:`DataSpec` kwargs for the training data.
-        eval_dataloader (DataLoader, DataSpec, Evaluator or dict): The :class:`DataLoader`, :class:`DataSpec`,
-            :class: `Evaluator` or dict of :class:`DataSpec` kwargs for the evaluation data. The :class:`Evaluator` 
-            class contains metrics relevant to the specific dataset.
+        eval_dataloader (DataLoader, DataSpec, Evaluators, or dict): The :class:`DataLoader`, :class:`DataSpec`,
+            :class:`Evaluators` or dict of :class:`DataSpec` kwargs for the evaluation data. The :class:`Evaluator` 
+            class contains metrics relevant to the specific dataset. Set to ``None`` for no evaluation.
         max_duration (Union[str, `~composer.core.Time`]): The maxmimum number amount of Time to train for.
             See `~composer.core.Time` for details.
         algorithms (List[Algorithm], optional): The algorithms to use during training.
@@ -124,7 +123,7 @@ class Trainer:
             *,
             model: BaseMosaicModel,
             train_dataloader: Union[DataLoader, DataSpec],
-            eval_dataloader: Union[DataLoader, DataSpec, List[Evaluator]],
+            eval_dataloader: Optional[Union[DataLoader, DataSpec, Evaluators, dict]],
             max_duration: Union[str, Time],
             algorithms: Optional[List[Algorithm]] = None,
             optimizer_hparams: Optional[OptimizerHparams] = None,
@@ -223,24 +222,25 @@ class Trainer:
             else:
                 self.ddp_sync_strategy = DDPSyncStrategy(ddp_sync_strategy)
 
-        self.evaluators = []
-        if isinstance(eval_dataloader, DataLoader):
-            eval_dataloader = DataSpec(eval_dataloader)
-        if isinstance(eval_dataloader, DataSpec):
-            default_evaluator = Evaluator(label="eval_dataset", dataloader=eval_dataloader, metrics=None)
-            self.evaluators = [default_evaluator]
-        else:
-            self.evaluators = []
-            assert isinstance(eval_dataloader, list)
-            for evaluator in eval_dataloader:
-                assert isinstance(evaluator, Evaluator)
+        # `eval_dataloader` could be a dataloader, dataspec, evaluator, List[Evaluator], Tuple[Evaluator, ...], or dict of Dataspec hparams
+        # convert it to `List[Evaluator]`
+        self.evaluators: List[Evaluator] = []
+        if isinstance(eval_dataloader, dict):
+            eval_dataloader = DataSpec(**eval_dataloader)
+        for evaluator in ensure_tuple(eval_dataloader):
+            if isinstance(evaluator, Evaluator):
                 self.evaluators.append(evaluator)
+            else:
+                metrics = model.metrics(train=False)
+                default_evaluator = Evaluator(label="eval_dataset", dataloader=evaluator, metrics=metrics)
+                self.evaluators.append(default_evaluator)
 
         # do a check here to make sure there is at least one validation set
         if len(self.evaluators) == 0:
-            warnings.warn(f'At least one validation set should be used and passed in through ',
-                          'eval_dataloader or the evaluators',
-                          category=UserWarning)
+            warnings.warn(
+                textwrap.dedent("""No evaluation dataset was specified. Please specify `eval_dataloader` to periodically
+                evaluate your model while training."""),
+                category=UserWarning)
 
         # TODO(#123): DeepSpeed still needs a precision context, but it's not completely clear how to
         # handle this with our version of Pytorch
@@ -265,10 +265,6 @@ class Trainer:
             train_dataloader=train_dataloader.dataloader,
             evaluators=self.evaluators,
         )
-
-        if self.evaluators:
-            for evaluator in self.evaluators:
-                evaluator.metrics = self._create_evaluator_metrics(evaluator)
 
         # Configure the profiler
         if profiler is not None:
@@ -415,7 +411,8 @@ class Trainer:
 
         if hparams.datadir is not None:
             hparams.train_dataset.datadir = hparams.datadir
-            hparams.val_dataset.datadir = hparams.datadir
+            if hparams.val_dataset is not None:
+                hparams.val_dataset.datadir = hparams.datadir
 
         train_device_batch_size = hparams.train_batch_size // dist.get_world_size()
         if hparams.train_dataset.shuffle and hparams.train_subset_num_batches is not None:
@@ -426,6 +423,11 @@ class Trainer:
         train_dataloader = hparams.train_dataset.initialize_object(train_device_batch_size, hparams.dataloader)
 
         eval_device_batch_size = hparams.eval_batch_size // dist.get_world_size()
+        if hparams.val_dataset is not None and hparams.evaluators is not None:
+            raise ValueError("Ether val_dataset or evaluators should be set, but not both.")
+
+        eval_dataloader = None
+
         if hparams.val_dataset is not None:
             if hparams.val_dataset.shuffle and hparams.eval_subset_num_batches:
                 warnings.warn(
@@ -436,7 +438,7 @@ class Trainer:
 
         if hparams.evaluators is not None and len(hparams.evaluators) > 0:
             eval_dataloader = [
-                evaluator.initialize_object(eval_device_batch_size, hparams.dataloader)
+                evaluator.initialize_object(model, eval_device_batch_size, hparams.dataloader)
                 for evaluator in hparams.evaluators
             ]
             for evaluator in hparams.evaluators:
@@ -509,35 +511,7 @@ class Trainer:
         finally:
             self.engine.close()
 
-    def _get_metrics_as_collection(self, *, is_train: bool, evaluator: Evaluator = None) -> MetricCollection:
-        """Get metrics relevant to a model or a particular evaluator. Metrics
-        are all implemented as subclasses of :class:`torchmetrics.Metric`. This
-        function returns metrics as a :class:`~torchmetrics.collections.MetricCollection`
-        to enable support for multiple metrics.
-
-        Args:
-            is_train (bool): True to get training metrics and false to get
-                evaluation metrics.
-            evaluator (Evaluator): Evaluator to get the relevant metric from. If the Evaluator
-                has an empty list of metrics, or if no Evaluator is provided, the function returns
-                the model's default evaluation metrics.
-
-        Returns:
-            A :class:`~torchmetrics.collections.MetricCollection` object.
-        """
-        if evaluator is not None:
-            metrics = evaluator.metrics
-        else:
-            original_model = self.state.model.module
-            assert isinstance(original_model, BaseMosaicModel)
-
-            metrics = original_model.metrics(train=is_train)
-            assert isinstance(metrics, (Metric, MetricCollection)), \
-            "   Error module.metrics() must return a Metric or MetricCollection object."
-        if isinstance(metrics, Metric):
-            # Forcing metrics to be a MetricCollection simplifies logging results
-            metrics = MetricCollection([metrics])
-
+    def _ensure_metrics_device_and_dtype(self, metrics: MetricCollection):
         # Safety check to ensure the metric and data are on the same device. Normally not
         # needed because the metric is automatically on the same device as the model.
         # See https://torchmetrics.readthedocs.io/en/latest/pages/overview.html for details.
@@ -549,74 +523,6 @@ class Trainer:
             metric.set_dtype(torch.float32)  # type: ignore
 
         return metrics
-
-    def _create_evaluator_metrics(self, evaluator: Evaluator) -> MetricCollection:
-        """Get metrics compatible with a model and deepcopy them to store in an Evaluator.
-        
-        If the Evaluatormetric_names is empty or None is provided, the function returns
-        a copy of all the model's default evaluation metrics.
-
-        Args:
-            evaluator (Evaluator): Evaluator to get the relevant metrics for. 
-
-        Returns:
-            A :class:`~torchmetrics.collections.MetricCollection` object.
-        """
-        # Get and copy all the model's associated evaluation metrics
-        original_model = self.state.model
-        assert isinstance(original_model, BaseMosaicModel)
-        model_metrics = original_model.metrics(train=False)
-        assert isinstance(model_metrics, (Metric, MetricCollection)), \
-        "   Error module.metrics() must return a Metric or MetricCollection object."
-        if isinstance(model_metrics, Metric):
-            # Forcing metrics to be a MetricCollection simplifies logging results
-            model_metrics = MetricCollection([model_metrics])
-
-        # Use all the metrics from the model if no metric_names are specified
-        if evaluator.metrics is None:
-            try:
-                evaluator_metrics = copy.deepcopy(model_metrics)
-            except:
-                warnings.warn(f'Model metrics failed to deepcopy and were not added to Evaluators',
-                              category=UserWarning)
-        elif isinstance(evaluator.metrics, list):
-            evaluator_metrics = MetricCollection([])
-            for metric_name in evaluator.metrics:
-                assert isinstance(metric_name, str)
-                if metric_name in model_metrics.keys():
-                    evaluator_metrics.add_metrics(copy.deepcopy(model_metrics[metric_name]))
-                else:
-                    raise RuntimeError(f"No metric found with the name {metric_name}. Check if this"
-                                       "metric is compatible/listed in your model metrics.")
-            if len(evaluator_metrics) == 0:
-                raise RuntimeError("No metrics compatible with your model were added to this evaluator."
-                                   "Check that the metrics you specified are compatible/listed in your model.")
-        else:
-            # Go through all metrics and check if they are compatible with the model
-            assert isinstance(evaluator.metrics, (Metric, MetricCollection)), \
-            "   Error module.metrics() must return a Metric or MetricCollection object."
-            if isinstance(evaluator.metrics, Metric):
-                # Forcing metrics to be a MetricCollection simplifies logging results
-                evaluator_metrics = MetricCollection([evaluator.metrics])
-            else:
-                evaluator_metrics = evaluator.metrics
-            for metric_label in evaluator_metrics.keys():
-                if metric_label not in model_metrics.keys():
-                    raise RuntimeError(
-                        f"The metric {metric_label} might not be compatible with your model."
-                        "Check the metrics listed in your model.",)
-
-        # Safety check to ensure the metric and data are on the same device. Normally not
-        # needed because the metric is automatically on the same device as the model.
-        # See https://torchmetrics.readthedocs.io/en/latest/pages/overview.html for details.
-        evaluator_metrics = self.device.module_to_device(evaluator_metrics)
-
-        # HACK: DeepSpeed somehow manages to convert metric internal states to its own dtype. When
-        # running with FP16, this tends to result in overflows. Let's assume FP32 is good enough.
-        for _, metric in evaluator_metrics.items():
-            metric.set_dtype(torch.float32)  # type: ignore
-
-        return evaluator_metrics
 
     def _compute_and_log_metrics(self, metrics: Metrics, *, is_train: bool, is_batch: bool, logging_label: str = ''):
         """Computes metrics, logs the results, and resets the metrics.
@@ -651,7 +557,6 @@ class Trainer:
         # spin the evaluator dataloaders once to initialize its sampler deterministically
         # so it does not affect any other RNG reads
         for evaluator in self.state.evaluators:
-            assert isinstance(evaluator.dataloader, DataSpec)
             dataloader = evaluator.dataloader.dataloader
             if isinstance(dataloader.sampler, torch.utils.data.DistributedSampler):
                 dataloader.sampler.set_epoch(0)
@@ -684,7 +589,12 @@ class Trainer:
             log.warn('Computing model evaluation metrics during training.'
                      ' This doubles the number of forward passes and may lead'
                      ' to a throughput degradation.')
-            train_metrics = self._get_metrics_as_collection(is_train=True)
+            train_metrics = self.original_model.metrics(train=False)
+            if isinstance(train_metrics, Metric):
+                # Forcing metrics to be a MetricCollection simplifies logging results
+                train_metrics = MetricCollection([train_metrics])
+
+            train_metrics = self._ensure_metrics_device_and_dtype(train_metrics)
         else:
             train_metrics = None
 
@@ -961,8 +871,8 @@ class Trainer:
             self.engine.run_event(Event.EVAL_START)
 
             for evaluator in state.evaluators:
-                assert isinstance(evaluator.dataloader, DataSpec)
                 dataloader = evaluator.dataloader.dataloader
+                metrics = self._ensure_metrics_device_and_dtype(evaluator.metrics)
                 if isinstance(dataloader.sampler, torch.utils.data.DistributedSampler):
                     # The distributed sampler uses `set_epoch` to set the random seed
                     # Because evaluation can run on each batch, we use the batch to seed the sampler
@@ -986,14 +896,11 @@ class Trainer:
                     state.outputs, targets = self.original_model.validate(state.batch)
                     self.engine.run_event(Event.EVAL_AFTER_FORWARD)
 
-                    evaluator.metrics.update(state.outputs, targets)
+                    metrics.update(state.outputs, targets)
 
                     self.engine.run_event(Event.EVAL_BATCH_END)
 
-                self._compute_and_log_metrics(evaluator.metrics,
-                                              is_train=False,
-                                              is_batch=is_batch,
-                                              logging_label=evaluator.label)
+                self._compute_and_log_metrics(metrics, is_train=False, is_batch=is_batch, logging_label=evaluator.label)
 
             self.engine.run_event(Event.EVAL_END)
 
