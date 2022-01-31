@@ -238,9 +238,10 @@ class Trainer:
 
         # do a check here to make sure there is at least one validation set
         if len(self.evaluators) == 0:
-            warnings.warn(f'At least one validation set should be used and passed in through ',
-                          'eval_dataloader or the evaluators',
-                          category=UserWarning)
+            warnings.warn(
+                f'At least one validation set should be used and passed in through '
+                'eval_dataloader or the evaluators',
+                category=UserWarning)
 
         # TODO(#123): DeepSpeed still needs a precision context, but it's not completely clear how to
         # handle this with our version of Pytorch
@@ -415,7 +416,8 @@ class Trainer:
 
         if hparams.datadir is not None:
             hparams.train_dataset.datadir = hparams.datadir
-            hparams.val_dataset.datadir = hparams.datadir
+            if hparams.val_dataset is not None:
+                hparams.val_dataset.datadir = hparams.datadir
 
         train_device_batch_size = hparams.train_batch_size // dist.get_world_size()
         if hparams.train_dataset.shuffle and hparams.train_subset_num_batches is not None:
@@ -426,6 +428,7 @@ class Trainer:
         train_dataloader = hparams.train_dataset.initialize_object(train_device_batch_size, hparams.dataloader)
 
         eval_device_batch_size = hparams.eval_batch_size // dist.get_world_size()
+        eval_dataloader = None
         if hparams.val_dataset is not None:
             if hparams.val_dataset.shuffle and hparams.eval_subset_num_batches:
                 warnings.warn(
@@ -509,31 +512,24 @@ class Trainer:
         finally:
             self.engine.close()
 
-    def _get_metrics_as_collection(self, *, is_train: bool, evaluator: Evaluator = None) -> MetricCollection:
-        """Get metrics relevant to a model or a particular evaluator. Metrics
-        are all implemented as subclasses of :class:`torchmetrics.Metric`. This
-        function returns metrics as a :class:`~torchmetrics.collections.MetricCollection`
-        to enable support for multiple metrics.
+    def _get_metrics_as_collection(self, *, is_train: bool) -> MetricCollection:
+        """Get metrics relevant to a model. Metricsare all implemented as subclasses of
+        :class:`torchmetrics.Metric`. This function returns metrics as a 
+        :class:`~torchmetrics.collections.MetricCollection` to enable support for multiple metrics.
 
         Args:
             is_train (bool): True to get training metrics and false to get
                 evaluation metrics.
-            evaluator (Evaluator): Evaluator to get the relevant metric from. If the Evaluator
-                has an empty list of metrics, or if no Evaluator is provided, the function returns
-                the model's default evaluation metrics.
 
         Returns:
             A :class:`~torchmetrics.collections.MetricCollection` object.
         """
-        if evaluator is not None:
-            metrics = evaluator.metrics
-        else:
-            original_model = self.state.model.module
-            assert isinstance(original_model, BaseMosaicModel)
+        original_model = self.state.model.module
+        assert isinstance(original_model, BaseMosaicModel)
 
-            metrics = original_model.metrics(train=is_train)
-            assert isinstance(metrics, (Metric, MetricCollection)), \
-            "   Error module.metrics() must return a Metric or MetricCollection object."
+        metrics = original_model.metrics(train=is_train)
+        assert isinstance(metrics, (Metric, MetricCollection)), \
+        "   Error module.metrics() must return a Metric or MetricCollection object."
         if isinstance(metrics, Metric):
             # Forcing metrics to be a MetricCollection simplifies logging results
             metrics = MetricCollection([metrics])
@@ -577,13 +573,17 @@ class Trainer:
             try:
                 evaluator_metrics = copy.deepcopy(model_metrics)
             except:
-                warnings.warn(f'Model metrics failed to deepcopy and were not added to Evaluators',
-                              category=UserWarning)
+                raise RuntimeError(f'Model metrics failed to deepcopy and were not added to Evaluators')
+
         elif isinstance(evaluator.metrics, list):
             evaluator_metrics = MetricCollection([])
             for metric_name in evaluator.metrics:
                 assert isinstance(metric_name, str)
                 if metric_name in model_metrics.keys():
+                    try:
+                        copy.deepcopy(model_metrics[metric_name])
+                    except:
+                        warnings.warn(f'The metric {metric_name} failed to deepcopy and was not added to the Evaluator')
                     evaluator_metrics.add_metrics(copy.deepcopy(model_metrics[metric_name]))
                 else:
                     raise RuntimeError(f"No metric found with the name {metric_name}. Check if this"
@@ -986,6 +986,7 @@ class Trainer:
                     state.outputs, targets = self.original_model.validate(state.batch)
                     self.engine.run_event(Event.EVAL_AFTER_FORWARD)
 
+                    assert isinstance(evaluator.metrics, MetricCollection)
                     evaluator.metrics.update(state.outputs, targets)
 
                     self.engine.run_event(Event.EVAL_BATCH_END)

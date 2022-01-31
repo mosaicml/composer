@@ -21,7 +21,7 @@ from torchvision import datasets, transforms
 import composer
 from composer import Event
 from composer.algorithms import BlurPool
-from composer.core.types import Precision
+from composer.core.types import Evaluator, Precision
 from composer.utils import ensure_tuple
 
 logging.basicConfig()
@@ -78,11 +78,16 @@ def train():
         batch_size=args.train_batch_size,
         shuffle=False,
     )
+
+    # Wrap your validation set in an Evaluator with relevant metrics
+    # Leaving metrics as None will use the default validation metrics in your model
+    evaluators = Evaluator(label="validation", dataloader=val_dataloader, metrics=None)
+
     # to use our algorithms, create and maintain the trainer state
     state = composer.State(
         model=model,
         train_dataloader=train_dataloader,
-        eval_dataloader=val_dataloader,
+        eval_dataloader=evaluators,
         max_duration=f"{args.epochs}ep",
         grad_accum=1,
         precision=Precision.FP32,
