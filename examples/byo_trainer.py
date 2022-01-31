@@ -13,6 +13,7 @@ import logging
 
 import torch
 import torch.utils.data
+import torchmetrics
 from torch import nn
 from torch.nn import functional as F
 from torchmetrics.classification.accuracy import Accuracy
@@ -81,13 +82,13 @@ def train():
 
     # Wrap your validation set in an Evaluator with relevant metrics
     # Leaving metrics as None will use the default validation metrics in your model
-    evaluators = Evaluator(label="validation", dataloader=val_dataloader, metrics=None)
+    evaluator = Evaluator(label='eval_dataset', dataloader=val_dataloader, metrics=torchmetrics.Accuracy())
 
     # to use our algorithms, create and maintain the trainer state
     state = composer.State(
         model=model,
         train_dataloader=train_dataloader,
-        eval_dataloader=evaluators,
+        evaluators=[evaluator],
         max_duration=f"{args.epochs}ep",
         grad_accum=1,
         precision=Precision.FP32,

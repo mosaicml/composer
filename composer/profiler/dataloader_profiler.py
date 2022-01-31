@@ -6,7 +6,6 @@ import textwrap
 from typing import Iterator, Optional
 
 from composer.core.callback import Callback
-from composer.core.data_spec import DataSpec
 from composer.core.profiler import Profiler
 from composer.core.state import State
 from composer.core.types import Batch, DataLoader, Logger
@@ -51,8 +50,5 @@ class DataloaderProfiler(Callback):
                 Make sure to run composer with the profiler -- i.e. with the `--profiler` CLI flag."""))
         state.train_dataloader = ProfiledDataLoader(state.profiler, state.train_dataloader, "train")
         for evaluator in state.evaluators:
-            if isinstance(evaluator.dataloader, DataSpec):
-                eval_dataloader = evaluator.dataloader.dataloader
-            else:
-                eval_dataloader = evaluator.dataloader
-            evaluator.dataloader = ProfiledDataLoader(state.profiler, eval_dataloader, "eval")
+            evaluator.dataloader.dataloader = ProfiledDataLoader(state.profiler, evaluator.dataloader.dataloader,
+                                                                 evaluator.label)
