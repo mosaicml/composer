@@ -191,8 +191,6 @@ class Engine():
         algorithms = sorted(algorithms_to_run,
                             key=lambda x: not isinstance(x, SelectiveBackprop) and not isinstance(x, StochasticDepth))
 
-        print(event, algorithms)
-
         if event.is_after_event:
             """Establish a FILO queue of algorithms before_ and after_ an event.
 
