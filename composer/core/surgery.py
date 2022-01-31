@@ -314,7 +314,7 @@ def replace_params_in_optimizer(old_params: Iterable[torch.nn.parameter.Paramete
     Args:
         old_params: Current parameters of the optimizer.
         new_params: New parameters of the optimizer, given in the same order as
-            `old_params`.
+            `old_params`. Must be the same length as `old_params`.
         optimizers (Optimizers): One or more `torch.optim.Optimizer` objects.
     Raises:
         NotImplementedError: If `optimizers` contains more than one optimizer
