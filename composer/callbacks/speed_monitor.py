@@ -80,8 +80,8 @@ class SpeedMonitor(Callback):
     def batch_end(self, state: State, logger: Logger):
         self.batch_end_times.append(time.time())
         new_num_samples = state.timer.sample
-        batch_num_samples = new_num_samples - self.batch_start_num_samples
-        self.batch_num_samples.append(int(batch_num_samples))
+        batch_num_samples = int(new_num_samples - self.batch_start_num_samples)
+        self.batch_num_samples.append(batch_num_samples)
         self.train_examples_per_epoch += batch_num_samples
         if len(self.batch_end_times) == self.hparams.window_size + 1:
             throughput = sum(self.batch_num_samples) / (self.batch_end_times[-1] - self.batch_end_times[0])
