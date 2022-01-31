@@ -31,6 +31,7 @@ def _get_distributed_config_var(env_var: str,
                 raise RuntimeError("Torch distributed has been initialized with a value of "
                                    f"{dist_value} for {human_name}, but environment variable "
                                    f"{env_var} has value {env_value}.")
+        return dist_value
 
     if env_var in os.environ:
         return int(os.environ[env_var])
