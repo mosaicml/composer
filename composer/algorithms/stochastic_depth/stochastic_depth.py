@@ -9,12 +9,12 @@ from typing import Optional, Type
 
 import torch
 import yahp as hp
+from torchvision.models.resnet import Bottleneck
 
 from composer.algorithms import AlgorithmHparams
 from composer.algorithms.stochastic_depth.sample_stochastic_layers import SampleStochasticBottleneck
 from composer.algorithms.stochastic_depth.stochastic_layers import StochasticBottleneck
 from composer.core import Algorithm, Event, Logger, State, surgery
-from composer.models.resnets import Bottleneck
 
 log = logging.getLogger(__name__)
 
@@ -236,13 +236,13 @@ class StochasticDepth(Algorithm):
             event (:class:`Event`): The current event.
             state (:class:`State`): The current state.
         Returns:
-            bool: True if this algorithm should run now.        
+            bool: True if this algorithm should run now.
         """
 
         return (event == Event.INIT) or (event == Event.BATCH_START and self.hparams.drop_warmup > 0.0)
 
     def apply(self, event: Event, state: State, logger: Logger) -> Optional[int]:
-        """Applies StochasticDepth modification to the state's model 
+        """Applies StochasticDepth modification to the state's model
 
         Args:
             event (Event): the current event

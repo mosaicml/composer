@@ -15,12 +15,12 @@ from composer.core.types import Precision
 from composer.datasets.dataloader import DataloaderHparams
 from composer.datasets.imagenet import ImagenetDatasetHparams
 from composer.loggers import Logger
-from composer.models import ResNet50Hparams
+from composer.models import ResNetHparams
 
 
 @pytest.fixture()
 def dummy_state(dummy_dataloader_hparams: DataloaderHparams):
-    model = ResNet50Hparams(num_classes=100).initialize_object()
+    model = ResNetHparams(model_name='resnet50', num_classes=100).initialize_object()
     dataset_hparams = ImagenetDatasetHparams(
         use_synthetic=True,
         drop_last=True,
