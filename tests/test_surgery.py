@@ -140,7 +140,7 @@ def test_optimizer_surgery_no_duplicate_params(optimizer_surgery_state: Tuple[Li
 
 
 def _param_in_optimizer(param: torch.nn.parameter.Parameter, opt: torch.optim.Optimizer):
-    return surgery._find_param_in_optimizer(param, opt)
+    return surgery._find_param_in_optimizer(param, opt) >= 0
 
 
 def test_optimizer_surgery_removed_params_gone(optimizer_surgery_state: Tuple[List[torch.nn.Module],
@@ -148,7 +148,7 @@ def test_optimizer_surgery_removed_params_gone(optimizer_surgery_state: Tuple[Li
     orig_linear_modules, _, opt = optimizer_surgery_state
     for module in orig_linear_modules:
         assert isinstance(module.weight, torch.nn.parameter.Parameter)
-        assert _param_in_optimizer(module.weight, opt) < 0
+        assert not _param_in_optimizer(module.weight, opt)
 
 
 def test_optimizer_surgery_new_params_present(optimizer_surgery_state: Tuple[List[torch.nn.Module],
@@ -156,9 +156,9 @@ def test_optimizer_surgery_new_params_present(optimizer_surgery_state: Tuple[Lis
     _, new_linear_modules, opt = optimizer_surgery_state
     for module in new_linear_modules:
         assert isinstance(module.weight, torch.nn.parameter.Parameter)
-        assert _param_in_optimizer(module.weight, opt) >= 0
+        assert _param_in_optimizer(module.weight, opt)
         assert isinstance(module.bias, torch.nn.parameter.Parameter)
-        assert _param_in_optimizer(module.bias, opt) >= 0
+        assert _param_in_optimizer(module.bias, opt)
 
 
 def test_optimizer_surgery_params_not_removed_still_there(optimizer_surgery_state: Tuple[List[torch.nn.Module],
@@ -167,4 +167,4 @@ def test_optimizer_surgery_params_not_removed_still_there(optimizer_surgery_stat
     orig_linear_modules, _, opt = optimizer_surgery_state
     for module in orig_linear_modules:
         assert isinstance(module.bias, torch.nn.parameter.Parameter)
-        assert _param_in_optimizer(module.bias, opt) >= 0
+        assert _param_in_optimizer(module.bias, opt)

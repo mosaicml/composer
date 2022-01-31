@@ -304,7 +304,7 @@ def update_params_in_optimizer(old_params: Iterable[torch.nn.parameter.Parameter
 
 def replace_params_in_optimizer(old_params: Iterable[torch.nn.parameter.Parameter],
                                 new_params: Iterable[torch.nn.parameter.Parameter], optimizers: Optimizers) -> None:
-    """Fully replaces parameters from an optimizer.
+    """Fully replaces an optimizer's parameters.
     
     This differs from `update_params_in_optimizer` in that this method is capable
     of replacing parameters spanning multiple param groups. To accomplish this,
@@ -312,10 +312,10 @@ def replace_params_in_optimizer(old_params: Iterable[torch.nn.parameter.Paramete
     param group of the corresponding parameter from `old_params`. Thus, this
     function also assumes that `old_params` and `new_params` have the same length.
     Args:
-        old_params: Existing parameters of this optimizer.
+        old_params: Current parameters of the optimizer.
         new_params: New parameters of the optimizer, given in the same order as
             `old_params`.
-        optimizers (Optimizers): One or more `torch.optim.Optimizer` objects
+        optimizers (Optimizers): One or more `torch.optim.Optimizer` objects.
     Raises:
         NotImplementedError: If `optimizers` contains more than one optimizer
         RuntimeError: If `old_params` and `new_params` have different lengths, or
