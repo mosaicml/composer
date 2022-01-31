@@ -8,7 +8,7 @@ import torch
 import torch.utils.data
 
 from composer import Logger, State
-from composer.core.types import DataLoader, DataSpec, Model, Precision
+from composer.core.types import DataLoader, DataSpec, Model, Optimizer, Precision, Scheduler
 from composer.datasets import DataloaderHparams, DatasetHparams
 from composer.models import ModelHparams, MosaicClassifier
 from composer.optim import AdamHparams, ExponentialLRHparams
@@ -74,8 +74,19 @@ def dummy_val_dataset_hparams(dummy_model: SimpleBatchPairModel,
     )
 
 
+@pytest.fixture
+def dummy_optimizer(dummy_model: SimpleBatchPairModel):
+    return torch.optim.SGD(dummy_model.parameters(), lr=0.001)
+
+
+@pytest.fixture
+def dummy_scheduler(dummy_optimizer: Optimizer):
+    return torch.optim.lr_scheduler.LambdaLR(dummy_optimizer, lambda _: 1.0)
+
+
 @pytest.fixture()
 def dummy_state_without_rank(dummy_model: SimpleBatchPairModel, dummy_train_dataloader: DataLoader,
+                             dummy_optimizer: Optimizer, dummy_scheduler: Scheduler,
                              dummy_val_dataloader: DataLoader) -> State:
     state = State(
         model=dummy_model,
@@ -83,6 +94,8 @@ def dummy_state_without_rank(dummy_model: SimpleBatchPairModel, dummy_train_data
         grad_accum=1,
         train_dataloader=dummy_train_dataloader,
         eval_dataloader=dummy_val_dataloader,
+        optimizers=dummy_optimizer,
+        schedulers=dummy_scheduler,
         max_duration="10ep",
     )
 
