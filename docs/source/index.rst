@@ -54,16 +54,8 @@ Our documentation is organized into a few sections:
    trainer/examples.rst
    trainer/mosaic_model.rst
    trainer/algorithms.rst
-   trainer/checkpointing.rst
-   trainer/logging.rst
-   trainer/numerics.rst
-   trainer/time.rst
-   trainer/distributed_training.rst
-   trainer/optim_lrsched.rst
-   trainer/deepspeed.rst
-   trainer/profiling.rst
-   trainer/callbacks.rst
-   trainer/functional_api.rst
+   trainer/detailed_usage.rst
+
 
 .. toctree::
    :maxdepth: 1
