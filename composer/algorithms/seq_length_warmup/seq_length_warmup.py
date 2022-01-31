@@ -69,14 +69,6 @@ class SeqLengthWarmupHparams(AlgorithmHparams):
     step_size: int = hp.optional("Sequence length step size", default=8)
     truncate: bool = hp.optional("Truncate tensors or reshape extra tokens to new examples.", default=True)
 
-    def validate(self):
-        if self.duration < 0 or self.duration > 1:
-            raise ValueError(f'Duration must be getween 0 and 1, got: {self.duration}')
-
-        if self.max_seq_length < self.min_seq_length:
-            raise ValueError(f'max_seq_length={self.max_seq_length} must be '
-                             f'greater than min_seq_length={self.min_seq_length}')
-
     def initialize_object(self) -> "SeqLengthWarmup":
         return SeqLengthWarmup(**asdict(self))
 
@@ -122,12 +114,18 @@ class SeqLengthWarmup(Algorithm):
         step_size: int = 8,
         truncate: bool = True,
     ):
-        self.hparams = SeqLengthWarmupHparams(duration=duration,
-                                              min_seq_length=min_seq_length,
-                                              max_seq_length=max_seq_length,
-                                              step_size=step_size,
-                                              truncate=truncate)
-        self.hparams.validate()
+        self.duration = duration
+        self.min_seq_length = min_seq_length
+        self.max_seq_length = max_seq_length
+        self.step_size = step_size
+        self.truncate = truncate
+
+        if self.duration < 0 or self.duration > 1:
+            raise ValueError(f'Duration must be getween 0 and 1, got: {self.duration}')
+
+        if self.max_seq_length < self.min_seq_length:
+            raise ValueError(f'max_seq_length={self.max_seq_length} must be '
+                             f'greater than min_seq_length={self.min_seq_length}')
 
     def match(self, event: Event, state: State) -> bool:
         """

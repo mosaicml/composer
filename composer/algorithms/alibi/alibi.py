@@ -169,14 +169,14 @@ class Alibi(Algorithm):
                  alibi_attention: str, mask_replacement_function: str, heads_per_layer: int, max_sequence_length: int,
                  train_sequence_length_scaling: float) -> None:
 
-        self.hparams = AlibiHparams(position_embedding_attribute=position_embedding_attribute,
-                                    attention_module_name=attention_module_name,
-                                    attr_to_replace=attr_to_replace,
-                                    alibi_attention=alibi_attention,
-                                    mask_replacement_function=mask_replacement_function,
-                                    heads_per_layer=heads_per_layer,
-                                    max_sequence_length=max_sequence_length,
-                                    train_sequence_length_scaling=train_sequence_length_scaling)
+        self.position_embedding_attribute = position_embedding_attribute
+        self.attention_module_name = attention_module_name
+        self.attr_to_replace = attr_to_replace
+        self.alibi_attention = alibi_attention
+        self.mask_replacement_function = mask_replacement_function
+        self.heads_per_layer = heads_per_layer
+        self.max_sequence_length = max_sequence_length
+        self.train_sequence_length_scaling = train_sequence_length_scaling
 
     def match(self, event: Event, state: State) -> bool:
         """ Runs on Event.INIT
@@ -191,9 +191,9 @@ class Alibi(Algorithm):
             assert state.model is not None
 
             if "heads_per_layer" not in asdict(self.hparams).keys() or \
-            not self.hparams.heads_per_layer:
+            not self.heads_per_layer:
                 try:
-                    self.hparams.heads_per_layer = state.model.config.n_head  # type: ignore
+                    self.heads_per_layer = state.model.config.n_head  # type: ignore
                 except AttributeError:
                     log.exception("alibi.heads_per_layer not provided, and unable to "
                                   "determine number of heads from model.config.n_head."
@@ -202,22 +202,22 @@ class Alibi(Algorithm):
             apply_alibi(
                 state.model,
                 optimizers=state.optimizers,
-                heads_per_layer=cast(int, self.hparams.heads_per_layer),
-                max_sequence_length=self.hparams.max_sequence_length,
-                position_embedding_attribute=self.hparams.position_embedding_attribute,
-                attr_to_replace=self.hparams.attr_to_replace,
+                heads_per_layer=cast(int, self.heads_per_layer),
+                max_sequence_length=self.max_sequence_length,
+                position_embedding_attribute=self.position_embedding_attribute,
+                attr_to_replace=self.attr_to_replace,
                 # Access method from string
-                attention_module=lazy_import(self.hparams.attention_module_name),
+                attention_module=lazy_import(self.attention_module_name),
                 # Access method from string
-                alibi_attention=lazy_import(self.hparams.alibi_attention),
+                alibi_attention=lazy_import(self.alibi_attention),
                 # Access method from string
-                mask_replacement_function=lazy_import(self.hparams.mask_replacement_function))
+                mask_replacement_function=lazy_import(self.mask_replacement_function))
 
         elif event == Event.AFTER_DATALOADER:
             # Change sequence length by reshaping data
-            if not self.hparams.train_sequence_length_scaling == 1 and \
+            if not self.train_sequence_length_scaling == 1 and \
             hasattr(state, "batch") and isinstance(state.batch, dict):
-                sequence_scaling = self.hparams.train_sequence_length_scaling
+                sequence_scaling = self.train_sequence_length_scaling
                 for k, v in state.batch.items():
                     batch_len, sequence_len = v.shape[0], v.shape[1]
                     state.batch[k] = v.reshape(int(batch_len / sequence_scaling), int(sequence_len * sequence_scaling))
