@@ -236,7 +236,7 @@ def initialize_dist(backend: str, timeout: datetime.timedelta):
         return
 
     if dist.is_initialized():
-        if dist.get_backend() != backend.lower() and get_world_size() > 1:
+        if dist.get_backend() != backend.lower():
             raise RuntimeError(f"The requested backend ({backend}) differs from the backend "
                                f"of the current process group ({dist.get_backend()}). If you "
                                "wish to change backends, please restart the python process.")
