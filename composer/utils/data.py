@@ -1,6 +1,7 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
 import collections.abc
+import logging
 import textwrap
 from typing import List, Tuple, Union
 
@@ -12,6 +13,9 @@ from torchvision import datasets, transforms
 
 from composer.core.types import Batch, Dataset, Tensor
 from composer.utils.iter_helpers import ensure_tuple
+
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
 
 
 class NormalizationFn:
@@ -96,14 +100,20 @@ def pil_image_collate(batch: List[Tuple[Image.Image, Union[Image.Image, Tensor]]
     return image_tensor, target_tensor
 
 
-def add_dataset_transform(dataset: Dataset, transform, location="end"):
+def add_dataset_transform(dataset: Dataset, transform, location="end", pre_post: str = "pre") -> Dataset:
     """Flexibly add a transform to the dataset's collection of transforms.
 
     Args:
         dataset: A torchvision-like dataset
         transform: Function to be added to the dataset's collection of transforms
-        location [str]: Where to insert the transform in the sequence of transforms. "end"
-        will append to the end, "before_totensor" will insert before ToTensor().
+        location (str, torchvision transform), optional: Where to insert the transform in
+            the sequence of transforms. "end" will append to the end or "start" will
+            insert at index 0, a transform (e.g. torchvision.transforms.ToTensor) will
+            insert pre- or post- the first instance of `location`, determined by the
+            `pre_post` argument. Default = "end". If `location` is not in list of
+            transforms, will append to end.
+        pre_post (str), optional: Whether to insert before ("pre") or after ("post") the
+            transform string passed in 'location'. Ignored if transform = "start" or "end". Default = "pre".
 
     Returns:
         The original dataset. The transform is added in-place.
@@ -112,24 +122,41 @@ def add_dataset_transform(dataset: Dataset, transform, location="end"):
     if not isinstance(dataset, datasets.VisionDataset):
         raise ValueError(
             textwrap.dedent(f"""Dataset of type {type(dataset)} is not a {datasets.VisionDataset.__name__}.
-            A {datasets.VisionDataset.__name__} is required to insert additional transformations."""))
-    assert location in ["end", "before_totensor"]
+            A {datasets.VisionDataset.__name__} is required to insert additional
+            transformations."""))
+
+    valid_non_transform_locations = ["start", "end"]
+    valid_pre_post_values = ["pre", "post"]
+    if location not in valid_non_transform_locations and pre_post not in valid_pre_post_values:
+        raise ValueError(
+            f"Invalid value combination for argument `pre_post`: `{pre_post} and `location`: {location}. If location is not one of ['start', 'end'], `pre_post` must be one of ['pre', 'post']."
+        )
 
     if dataset.transform is None:
         dataset.transform = transform
-    elif isinstance(dataset.transform, transforms.Compose):
-        insertion_index = len(dataset.transform.transforms)
-        if location == "before_totensor":
+    # Check if dataset.transform is of type transforms.Compose and ensure idempotency by not adding transform if it's already present
+    elif isinstance(dataset.transform,
+                    transforms.Compose) and type(transform) not in [type(t) for t in dataset.transform.transforms]:
+        if location == "end":
+            dataset.transform.transforms.append(transform)
+        elif location == "start":
+            dataset.transform.transforms.insert(0, transform)
+        else:
+            insertion_index = len(dataset.transform.transforms)
             for i, t in enumerate(dataset.transform.transforms):
-                if isinstance(t, transforms.ToTensor):
+                if type(t) == location:
                     insertion_index = i
                     break
-        dataset.transform.transforms.insert(insertion_index, transform)
+            if pre_post == "post":
+                insertion_index += 1
+            dataset.transform.transforms.insert(insertion_index, transform)
     else:  # transform is some other basic transform, join using Compose
-        if isinstance(dataset.transform, transforms.ToTensor) and location == "before_totensor":
-            dataset.transform = transforms.Compose([transform, dataset.transform])
-        else:
-            dataset.transform = transforms.Compose([dataset.transform, transform])
+        # Ensure idempotency by not adding transform if it's already present
+        if not type(dataset.transform) == type(transform):
+            if type(dataset.transform) == location and pre_post == "pre":
+                dataset.transform = transforms.Compose([transform, dataset.transform])
+            else:
+                dataset.transform = transforms.Compose([dataset.transform, transform])
 
     return dataset
 

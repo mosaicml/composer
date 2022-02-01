@@ -7,6 +7,7 @@ import numpy as np
 import torch
 import yahp as hp
 from PIL.Image import Image as ImageType
+from torchvision.transforms import ToTensor
 
 from composer.algorithms.algorithm_hparams import AlgorithmHparams
 from composer.core.types import Algorithm, Event, List, Logger, State
@@ -118,4 +119,4 @@ class RandAugment(Algorithm):
         ra = RandAugmentTransform(**self.hparams.to_dict())
         assert state.train_dataloader is not None
         dataset = state.train_dataloader.dataset
-        add_dataset_transform(dataset, ra, location="before_totensor")
+        add_dataset_transform(dataset, ra, location=ToTensor, pre_post="pre")

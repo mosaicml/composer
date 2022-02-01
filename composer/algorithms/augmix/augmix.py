@@ -8,6 +8,7 @@ import torch
 import yahp as hp
 from PIL import Image
 from PIL.Image import Image as ImageType
+from torchvision.transforms import ToTensor
 
 from composer.algorithms.algorithm_hparams import AlgorithmHparams
 from composer.core.event import Event
@@ -166,4 +167,4 @@ class AugMix(Algorithm):
         am = AugmentAndMixTransform(**self.hparams.to_dict())
         assert state.train_dataloader is not None, "Train Dataloader is not initialized."
         dataset = state.train_dataloader.dataset
-        add_dataset_transform(dataset, am, location="before_totensor")
+        add_dataset_transform(dataset, am, location=ToTensor, pre_post="pre")
