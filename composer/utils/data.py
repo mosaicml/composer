@@ -121,13 +121,16 @@ def add_dataset_transform(dataset: Dataset, transform, location="end", pre_post:
             textwrap.dedent(f"""Dataset of type {type(dataset)} is not a {datasets.VisionDataset.__name__}.
             A {datasets.VisionDataset.__name__} is required to insert additional
             transformations."""))
+    if not hasattr(dataset, transform):
+        raise AttributeError(textwrap.dedent(f"""Dataset must have attribute transform."""))
 
     valid_non_transform_locations = ["start", "end"]
     valid_pre_post_values = ["pre", "post"]
     if location not in valid_non_transform_locations and pre_post not in valid_pre_post_values:
         raise ValueError(
-            f"Invalid value combination for argument `pre_post`: `{pre_post} and `location`: {location}. If location is not one of ['start', 'end'], `pre_post` must be one of ['pre', 'post']."
-        )
+            textwrap.dedent(
+                f"Invalid value combination for argument `pre_post`: `{pre_post} and `location`: {location}. If location is not one of ['start', 'end'], `pre_post` must be one of ['pre', 'post']."
+            ))
 
     if dataset.transform is None:
         dataset.transform = transform
