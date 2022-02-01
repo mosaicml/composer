@@ -133,7 +133,7 @@ def freeze_layers(
 
     # Log results
     log.info(
-        textwrap.dedent(f"""
+        textwrap.dedent(f"""\
             Applied Layer Freezing with freeze_start={freeze_start},
             freeze_level={freeze_level}. Froze {freeze_depth} layers in the model which
             equates to {freeze_percentage * 100}% of all layers."""))

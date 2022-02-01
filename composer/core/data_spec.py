@@ -113,7 +113,7 @@ class DataSpec:
             return dim0_sizes[0]
         else:
             raise NotImplementedError(
-                textwrap.dedent(f"""
+                textwrap.dedent(f"""\
                     Cannot determine the batch size, as multiple Tensors of
                     different lengths were found in the batch: sizes in batch: {dim0_sizes}.
                     Please use a DataSpec and specify `get_num_samples_in_batch`."""))

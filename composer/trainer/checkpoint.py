@@ -262,7 +262,7 @@ class CheckpointLoader:
                 checkpointed_world_size = len(state_dict["seed"])
                 if world_size != checkpointed_world_size:
                     warnings.warn(
-                        textwrap.dedent(f"""
+                        textwrap.dedent(f"""\
                             Current world size {world_size} does not match the checkpointed
                             world size {checkpointed_world_size}. The seed will not be restored."""))
                 else:
@@ -317,7 +317,7 @@ class CheckpointLoader:
             return checkpoint_rng_state
         else:
             warnings.warn(
-                textwrap.dedent(f"""
+                textwrap.dedent(f"""\
                     The checkpoint was created with world_size({original_world_size}),
                     which differs from the current world_size({dist.get_world_size()}).
                     RNG state will not be restored."""))

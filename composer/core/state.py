@@ -366,7 +366,7 @@ class State(Serializable):
             dataloader_len = None
         if dataloader_len is not None and steps_per_epoch is not None and steps_per_epoch > dataloader_len:
             warnings.warn(
-                textwrap.dedent(f"""
+                textwrap.dedent(f"""\
                     SubsetNumBatchesWarning: The steps_per_epoch({steps_per_epoch})
                     is greater than the number of batches in the training dataloader
                     ({dataloader_len})"""))

@@ -322,7 +322,7 @@ def test_checkpoint(
             mosaic_trainer_hparams.deterministic_mode = False
             if model_name is not None:
                 pytest.skip(
-                    textwrap.dedent(f"""
+                    textwrap.dedent(f"""\
                         Skipping test since deterministic mode is required for
                         non-trivial models, but deterministic mode isn't compatible with deepsped
                         zero stage {zero_stage}"""))

@@ -189,7 +189,7 @@ class Time(Generic[TValue]):
         if isinstance(other, str):
             other_parsed = Time.from_timestring(other)
             warnings.warn(
-                textwrap.dedent(f"""
+                textwrap.dedent(f"""\
                     TimeImplicitStringConversion:
                     Implicitly converting {other} to {other_parsed}.
                     To fix this warning, replace {other} with {other_parsed}."""))
@@ -434,7 +434,7 @@ class Timer(Serializable):
         if isinstance(other, str):
             other_parsed = Time.from_timestring(other)
             warnings.warn(
-                textwrap.dedent(f"""
+                textwrap.dedent(f"""\
                     TimeImplicitStringConversion:
                     Implicitly converting {other} to {other_parsed}.
                     To fix this warning, replace {other} with {other_parsed}."""))
