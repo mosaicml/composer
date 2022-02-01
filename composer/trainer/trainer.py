@@ -112,6 +112,9 @@ class Trainer:
         eval_subset_num_batches (int, optional): If specified, evaluate on this many batches.
             This parameter has no effect if it is greater than ``len(eval_dataloader)``.
             If None (the default), then the entire dataloader will be iterated over.
+        deepspeed_config (Dict[str, Any], optional): Configuration for DeepSpeed, formatted as a JSON
+            according to `DeepSpeed's documentation <https://www.deepspeed.ai/docs/config-json/>`_. If any
+            non-None value is provided, the trainer will initialize the DeepSpeed engine. (default: ``None``)
         config (Dict[str, Any], optional): Extra user-provided trainer configuration. Will be persisted
             along with the trainer state during checkpointing. (default: ``None``)
 
@@ -176,7 +179,7 @@ class Trainer:
             eval_subset_num_batches: Optional[int] = None,
 
             # DeepSpeed
-            deepspeed_config: Optional[dict] = None,
+            deepspeed_config: Optional[Dict[str, Any]] = None,
 
             # Optional config (ex. an hparams yaml file)
             config: Optional[Dict[str, Any]] = None):

@@ -210,6 +210,9 @@ class TrainerHparams(hp.Hparams):
 
         if self.deepspeed is not None:
 
+            if self.deterministic_mode and self.deepspeed.get("zero_stage", 0) > 0:
+                raise ValueError("Deepspeed with zero stage > 0 is not compatible with deterministic mode")
+
             if isinstance(self.device, CPUDeviceHparams):
                 raise ValueError("Training on CPUs is not supported with DeepSpeed.")
 

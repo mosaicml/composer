@@ -12,7 +12,7 @@ from composer.utils import dist
 from composer.utils.iter_helpers import map_collection
 
 
-def parse_batch_settings(config: Dict[str, Any], state: State):
+def _add_batch_config(config: Dict[str, Any], state: State):
     if state.train_dataloader.batch_size is None:
         raise RuntimeError("DeepSpeed requires a dataloader with a known batch size.")
 
@@ -51,7 +51,7 @@ def parse_batch_settings(config: Dict[str, Any], state: State):
     config["train_micro_batch_size_per_gpu"] = per_gpu_microbatch_size
 
 
-def parse_unsupported_settings(config: Dict[str, Any]):
+def _ensure_no_optim_in_config(config: Dict[str, Any]):
     if "optimizer" in config:
         raise ValueError("The DeepSpeed configuration specifies an optimizer, but the Mosaic "
                          "trainer will override this setting.")
@@ -61,7 +61,7 @@ def parse_unsupported_settings(config: Dict[str, Any]):
                          "trainer will override this setting.")
 
 
-def parse_precision_settings(config: Dict[str, Any], state: State):
+def _add_precision_config(config: Dict[str, Any], state: State):
     precision = state.precision
 
     ds_precision = None
@@ -89,7 +89,7 @@ def parse_precision_settings(config: Dict[str, Any], state: State):
         fp16_config.setdefault("loss_scale_window", 2000)
 
 
-def parse_misc_settings(config: Dict[str, Any], grad_clip_norm: Optional[float]):
+def _add_other_config(config: Dict[str, Any], grad_clip_norm: Optional[float]):
     if "gradient_clipping" in config:
         ds_grad_clip_norm = config["gradient_clipping"]
         if ds_grad_clip_norm != grad_clip_norm:
@@ -111,10 +111,19 @@ def parse_misc_settings(config: Dict[str, Any], grad_clip_norm: Optional[float])
 def parse_deepspeed_config(config: Dict[str, Any],
                            state: State,
                            grad_clip_norm: Optional[float] = None) -> Dict[str, Any]:
+    """Parses the provided DeepSpeed config for compatibility with the Mosaic trainer.
+    
+    Broadly speaking, this function does three things.
+    1. Check for settings that are unsupported, like DeepSpeed optimizers.
+    2. Check for inconsistencies between Mosaic trainer config and DeepSpeed config.
+    3. Use Mosaic trainer config to fill in some defaults for DeepSpeed config.
+    """
+
     new_config = copy.deepcopy(config)
-    parse_batch_settings(new_config, state)
-    parse_precision_settings(new_config, state)
-    parse_misc_settings(new_config, grad_clip_norm)
+    _add_batch_config(new_config, state)
+    _ensure_no_optim_in_config(new_config)
+    _add_precision_config(new_config, state)
+    _add_other_config(new_config, grad_clip_norm)
     return new_config
 
 
