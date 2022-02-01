@@ -25,7 +25,6 @@ from composer.optim import AdamWHparams
 from composer.optim.scheduler import ConstantLRHparams, CosineAnnealingLRHparams
 from composer.trainer.checkpoint import CheckpointLoader
 from composer.trainer.checkpoint_hparams import CheckpointLoaderHparams, CheckpointSaverHparams
-from composer.trainer.deepspeed import DeepSpeedHparams
 from composer.trainer.devices import CPUDeviceHparams, DeviceHparams, GPUDeviceHparams
 from composer.trainer.trainer import Trainer
 from composer.trainer.trainer_hparams import TrainerHparams, callback_registry
@@ -326,7 +325,7 @@ def test_checkpoint(
                         Skipping test since deterministic mode is required for
                         non-trivial models, but deterministic mode isn't compatible with deepsped
                         zero stage {zero_stage}"""))
-        composer_trainer_hparams.deepspeed = DeepSpeedHparams(zero_stage=zero_stage,)
+        composer_trainer_hparams.deepspeed = {"zero_stage": zero_stage}
 
     checkpoint_a_folder = "first"
     composer_trainer_hparams.save_checkpoint = CheckpointSaverHparams(
