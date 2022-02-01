@@ -22,10 +22,11 @@ class CheckpointLoaderHparams(hp.Hparams):
 
     See the documentation for the :class:`CheckpointLoader`.
     """
-    path: str = hp.required(doc=textwrap.dedent("""The path to an existing checkpoint file
+    path: str = hp.required(doc=textwrap.dedent("""\
+        The path to an existing checkpoint file
         (if the checkpoint is on the local disk) or the object name for the checkpoint
         (if the checkpoint is in a cloud bucket)."""))
-    object_store: Optional[ObjectStoreProviderHparams] = hp.optional(doc=textwrap.dedent("""
+    object_store: Optional[ObjectStoreProviderHparams] = hp.optional(doc=textwrap.dedent("""\
         If the checkpoint is in an object store (i.e. AWS S3 or Google Cloud Storage), the parameters for
         connecting to the cloud provider object store. Otherwise, if the checkpoint is a local filepath,
         leave blank."""),
@@ -34,10 +35,12 @@ class CheckpointLoaderHparams(hp.Hparams):
     strict_model_weights: bool = hp.optional(
         doc="Ensure that the set of weights in the checkpoint and model must exactly match.", default=False)
 
-    chunk_size: int = hp.optional(doc=textwrap.dedent("""Chunk size (in bytes) to use when downloading checkpoints.
+    chunk_size: int = hp.optional(doc=textwrap.dedent("""\
+        Chunk size (in bytes) to use when downloading checkpoints.
         Ignored if the checkpoint is a local file path."""),
                                   default=1_048_576)
-    progress_bar: bool = hp.optional(doc=textwrap.dedent("""Whether to show a progress bar when downloading checkpoints.
+    progress_bar: bool = hp.optional(doc=textwrap.dedent("""\
+        Whether to show a progress bar when downloading checkpoints.
         Ignored if the checkpoint is a local file path"""),
                                      default=True)
 
