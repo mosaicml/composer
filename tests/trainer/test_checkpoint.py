@@ -92,8 +92,9 @@ def assert_weights_equivalent(original_trainer_hparams: TrainerHparams, new_trai
 
     # load_weights_only is False since the original Trainer is testing full checkpoint recovery
     assert new_trainer_hparams.load_checkpoint is not None
-    original_trainer_hparams.load_checkpoint = CheckpointLoaderHparams(
-        checkpoint=new_trainer_hparams.load_checkpoint.checkpoint, load_weights_only=False, strict_model_weights=False)
+    original_trainer_hparams.load_checkpoint = CheckpointLoaderHparams(path=new_trainer_hparams.load_checkpoint.path,
+                                                                       load_weights_only=False,
+                                                                       strict_model_weights=False)
 
     original_trainer = Trainer.create_from_hparams(original_trainer_hparams)
     original_weights = original_trainer.state.model.parameters()
@@ -149,7 +150,7 @@ def assert_checkpoints_equivalent(hparams_file_a: str, checkpoint_file_a: str, h
 
     assert hparams_b.load_checkpoint is not None
     assert hparams_b.save_checkpoint is not None
-    hparams_a.load_checkpoint = CheckpointLoaderHparams(checkpoint=hparams_b.load_checkpoint.checkpoint,
+    hparams_a.load_checkpoint = CheckpointLoaderHparams(path=hparams_b.load_checkpoint.path,
                                                         load_weights_only=False,
                                                         strict_model_weights=False)
     assert hparams_a.save_checkpoint is not None
@@ -157,8 +158,8 @@ def assert_checkpoints_equivalent(hparams_file_a: str, checkpoint_file_a: str, h
 
     assert hparams_a.to_dict() == hparams_b.to_dict()
 
-    hparams_a.load_checkpoint.checkpoint = checkpoint_file_a
-    hparams_b.load_checkpoint.checkpoint = checkpoint_file_b
+    hparams_a.load_checkpoint.path = checkpoint_file_a
+    hparams_b.load_checkpoint.path = checkpoint_file_b
 
     trainer_a = Trainer.create_from_hparams(hparams=hparams_a)
     state_a = trainer_a.state
@@ -229,7 +230,7 @@ def test_load_weights(
     checkpoint_a_file_path = os.path.join(run_directory.get_run_directory(), checkpoint_a_folder, final_checkpoint)
 
     # load only model weights
-    second_trainer_hparams.load_checkpoint = CheckpointLoaderHparams(checkpoint=checkpoint_a_file_path,
+    second_trainer_hparams.load_checkpoint = CheckpointLoaderHparams(path=checkpoint_a_file_path,
                                                                      load_weights_only=True,
                                                                      strict_model_weights=True)
     # setup a new optimizer
@@ -321,9 +322,10 @@ def test_checkpoint(
             mosaic_trainer_hparams.deterministic_mode = False
             if model_name is not None:
                 pytest.skip(
-                    textwrap.dedent(f"""Skipping test since deterministic mode is required for
-                    non-trivial models, but deterministic mode isn't compatible with deepspeed
-                    zero stage {zero_stage}"""))
+                    textwrap.dedent(f"""\
+                        Skipping test since deterministic mode is required for
+                        non-trivial models, but deterministic mode isn't compatible with deepsped
+                        zero stage {zero_stage}"""))
         mosaic_trainer_hparams.deepspeed = DeepSpeedHparams(zero_stage=zero_stage,)
 
     checkpoint_a_folder = "first"
@@ -351,7 +353,7 @@ def test_checkpoint(
     second_trainer_hparams.save_checkpoint.folder = checkpoint_b_folder
     second_trainer_filepath = os.path.join(run_directory.get_node_run_directory(), "rank_{RANK}",
                                            checkpoint_a_file_path)
-    second_trainer_hparams.load_checkpoint = CheckpointLoaderHparams(checkpoint=second_trainer_filepath,
+    second_trainer_hparams.load_checkpoint = CheckpointLoaderHparams(path=second_trainer_filepath,
                                                                      load_weights_only=False,
                                                                      strict_model_weights=False)
 
@@ -390,9 +392,12 @@ def validate_events_called_expected_number_of_times(trainer: Trainer):
         num_evals = num_total_steps // trainer.validate_every_n_batches
     if trainer.validate_every_n_epochs > 0:
         num_evals = num_epochs // trainer.validate_every_n_epochs
-    assert state.eval_dataloader is not None
+
+    assert state.evaluators is not None
+    for evaluator in state.evaluators:
+        assert evaluator.dataloader is not None
     assert trainer._eval_subset_num_batches is not None
-    num_eval_steps = num_evals * trainer._eval_subset_num_batches
+    num_eval_steps = num_evals * trainer._eval_subset_num_batches * len(state.evaluators)
 
     event_to_num_expected_invocations = {
         Event.INIT: 1,

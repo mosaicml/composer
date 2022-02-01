@@ -39,9 +39,10 @@ class WandBLoggerBackend(BaseLoggerBackend):
                  init_params: Optional[Dict[str, Any]] = None) -> None:
         if log_artifacts and rank_zero_only:
             warnings.warn(
-                textwrap.dedent("""When logging artifacts, `rank_zero_only` should be set to False.
-                Artifacts from other ranks will not be collected, leading to a loss of information required to
-                restore from checkpoints."""))
+                textwrap.dedent("""\
+                    When logging artifacts, `rank_zero_only` should be set to False.
+                    Artifacts from other ranks will not be collected, leading to a loss of information required to
+                    restore from checkpoints."""))
         self._enabled = (not rank_zero_only) or dist.get_global_rank() == 0
 
         self._log_artifacts = log_artifacts

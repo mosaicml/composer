@@ -19,12 +19,14 @@ from composer.callbacks import (BenchmarkerHparams, CallbackHparams, GradMonitor
                                 MemoryMonitorHparams, RunDirectoryUploaderHparams, SpeedMonitorHparams)
 from composer.core.types import Precision
 from composer.datasets import DataloaderHparams
+from composer.datasets.dataset_registry import get_dataset_registry
+from composer.datasets.evaluator import EvaluatorHparams
 from composer.loggers import (BaseLoggerBackendHparams, FileLoggerBackendHparams, MosaicMLLoggerBackendHparams,
                               TQDMLoggerBackendHparams, WandBLoggerBackendHparams)
-from composer.models import (BERTForClassificationHparams, BERTHparams, CIFARResNet9Hparams, CIFARResNetHparams,
-                             DeepLabV3Hparams, EfficientNetB0Hparams, GPT2Hparams, MnistClassifierHparams, ModelHparams,
-                             ResNet18Hparams, ResNet50Hparams, ResNet101Hparams, UnetHparams)
-from composer.models.resnet20_cifar10.resnet20_cifar10_hparams import CIFARResNet20Hparams
+from composer.models import (BERTForClassificationHparams, BERTHparams, CIFARResNet9Hparams, CIFARResNet20Hparams,
+                             CIFARResNetHparams, DeepLabV3Hparams, EfficientNetB0Hparams, GPT2Hparams,
+                             MnistClassifierHparams, ModelHparams, ResNet18Hparams, ResNet50Hparams, ResNet101Hparams,
+                             TimmHparams, UnetHparams)
 from composer.optim import (AdamHparams, AdamWHparams, DecoupledAdamWHparams, DecoupledSGDWHparams, OptimizerHparams,
                             RAdamHparams, RMSPropHparams, SchedulerHparams, SGDHparams, scheduler)
 from composer.profiler import ProfilerHparams
@@ -73,17 +75,10 @@ model_registry = {
     "gpt2": GPT2Hparams,
     "bert": BERTHparams,
     "bert_classification": BERTForClassificationHparams,
+    "timm": TimmHparams
 }
 
-dataset_registry = {
-    "ade20k": datasets.ADE20kDatasetHparams,
-    "brats": datasets.BratsDatasetHparams,
-    "imagenet": datasets.ImagenetDatasetHparams,
-    "cifar10": datasets.CIFAR10DatasetHparams,
-    "mnist": datasets.MNISTDatasetHparams,
-    "lm": datasets.LMDatasetHparams,
-    "glue": datasets.GLUEHparams,
-}
+dataset_registry = get_dataset_registry()
 
 algorithms_registry = get_algorithm_registry()
 
@@ -129,7 +124,6 @@ class TrainerHparams(hp.Hparams):
 
     device: DeviceHparams = hp.required(doc="Device Parameters")
     train_dataset: datasets.DatasetHparams = hp.required(doc="Training dataset hparams")
-    val_dataset: datasets.DatasetHparams = hp.required(doc="Validation dataset hparams")
 
     optimizer: OptimizerHparams = hp.required(doc="Optimizer to use")
 
@@ -160,6 +154,10 @@ class TrainerHparams(hp.Hparams):
     )
     precision: Precision = hp.required(doc="Precision to use for training", template_default=Precision.AMP)
 
+    val_dataset: Optional[datasets.DatasetHparams] = hp.optional(doc="Validation dataset hparams", default=None)
+
+    evaluators: Optional[List[EvaluatorHparams]] = hp.optional(doc="Evaluators", default_factory=list)
+
     dist_timeout: float = hp.optional(doc="Timeout, in seconds, for initializing the dsitributed process group.",
                                       default=15.0)
     ddp_sync_strategy: Optional[DDPSyncStrategy] = hp.optional(
@@ -185,21 +183,20 @@ class TrainerHparams(hp.Hparams):
     load_checkpoint: Optional[CheckpointLoaderHparams] = hp.optional(doc="Checkpoint loading hparams", default=None)
     save_checkpoint: Optional[CheckpointSaverHparams] = hp.optional(doc="Checkpointing hparams", default=None)
 
-    train_subset_num_batches: Optional[int] = hp.optional(textwrap.dedent("""If specified,
-        finish every epoch early after training on this many batches."""),
-                                                          default=None)
-    eval_subset_num_batches: Optional[int] = hp.optional(textwrap.dedent("""If specified,
-        stop each evaluation after this many batches."""),
+    train_subset_num_batches: Optional[int] = hp.optional(
+        "If specified, finish every epoch early after training on this many batches.", default=None)
+    eval_subset_num_batches: Optional[int] = hp.optional("If specified, stop each evaluation after this many batches.",
                                                          default=None)
 
-    deterministic_mode: bool = hp.optional(doc="Run the model deterministically. Experimental. Performance"
-                                           "degradations expected. Certain Torch modules may not have"
-                                           "deterministic implementations, which will result in a crash.",
+    deterministic_mode: bool = hp.optional(textwrap.dedent("""\
+        Run the model deterministically. Experimental. Performance
+        degradations expected. Certain Torch modules may not have
+        deterministic implementations, which will result in a crash."""),
                                            default=False)
 
     compute_training_metrics: bool = hp.optional(doc="Log validation metrics on training data", default=False)
     log_level: str = hp.optional(doc="Python loglevel to use composer", default="INFO")
-    datadir: Optional[str] = hp.optional(doc=textwrap.dedent("""
+    datadir: Optional[str] = hp.optional(doc=textwrap.dedent("""\
         Datadir to apply for both the training and validation datasets. If specified,
         it will override train_dataset.datadir and val_dataset.datadir"""),
                                          default=None)
@@ -230,6 +227,10 @@ class TrainerHparams(hp.Hparams):
             raise ValueError(
                 f"Eval batch size ({self.eval_batch_size}) not divisible by the total number of processes ({world_size})."
             )
+
+        if self.evaluators is not None and len(self.evaluators) > 0 and self.val_dataset is not None:
+            raise ValueError(
+                "val_dataset and evaluators shouldn't both be specified. Only one can be passed in to the trainer.")
 
     def initialize_object(self) -> Trainer:
         from composer.trainer.trainer import Trainer

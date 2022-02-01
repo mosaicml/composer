@@ -44,7 +44,7 @@ class CheckpointLoader:
     """Manager for initializing state and restoring RNG state from existing checkpoints.
 
     Args:
-        checkpoint (str): The template path to an existing checkpoint file.
+        path (str): The template path to an existing checkpoint file.
             It can be a path to a file on local disk, a URL, or if ``object_store_hparams`` is set, the object name
             for a checkpoint in a cloud bucket.
 
@@ -77,7 +77,7 @@ class CheckpointLoader:
 
     def __init__(
         self,
-        checkpoint: str,
+        path: str,
         object_store_hparams: Optional[ObjectStoreProviderHparams] = None,
         load_weights_only: bool = False,
         strict_model_weights: bool = False,
@@ -85,15 +85,16 @@ class CheckpointLoader:
         progress_bar: bool = True,
     ):
 
-        checkpoint_uri_parsed = urllib.parse.urlparse(checkpoint)
+        checkpoint_uri_parsed = urllib.parse.urlparse(path)
         if checkpoint_uri_parsed.scheme != "":
             if object_store_hparams is not None:
                 raise ValueError(
-                    textwrap.dedent("""When specifying `object_store_hparams`,
-                    the `checkpoint` parameter must be the key for the checkpoint in the bucket, NOT a uri."""))
+                    textwrap.dedent("""\
+                        When specifying `object_store_hparams`,
+                        the `checkpoint` parameter must be the key for the checkpoint in the bucket, NOT a uri."""))
 
         self.hparams = CheckpointLoaderHparams(
-            checkpoint=checkpoint,
+            path=path,
             object_store=object_store_hparams,
             load_weights_only=load_weights_only,
             strict_model_weights=strict_model_weights,
@@ -103,7 +104,7 @@ class CheckpointLoader:
         self.checkpoint_rng_state = None
 
     def _retrieve_checkpoint(self, rank: int, destination_filepath: str, ignore_not_found_errors: bool):
-        checkpoint_name = self.hparams.checkpoint.format(RANK=rank)
+        checkpoint_name = self.hparams.path.format(RANK=rank)
         if self.hparams.object_store is not None:
             provider = self.hparams.object_store.initialize_object()
             try:
@@ -136,7 +137,7 @@ class CheckpointLoader:
 
     def _write_to_file_with_pbar(self, destination_filepath: str, total_size: Optional[int], iterator: Iterator[bytes]):
         if self.hparams.progress_bar:
-            desc = f"Downloading {self.hparams.checkpoint}"
+            desc = f"Downloading {self.hparams.path}"
             if len(desc) > 60:
                 desc = desc[:42] + "..." + desc[-15:]
             pbar = tqdm.tqdm(desc=desc, total=total_size, unit='iB', unit_scale=True)
@@ -168,7 +169,7 @@ class CheckpointLoader:
                 The ``extracted_checkpoint_folder`` is the path to the checkpoint folder, which can be passed into
                 :meth:`deepspeed.DeepSpeedEngine.load_checkpoint`.
         """
-        checkpoint_archive_name = self.hparams.checkpoint.split(os.path.sep)[-1]
+        checkpoint_archive_name = self.hparams.path.split(os.path.sep)[-1]
         rank_zero_checkpoint_archive_name = "rank_0." + checkpoint_archive_name.format(rank=0)
         rank_n_checkpoint_archive_name = f"rank_{dist.get_global_rank()}." + checkpoint_archive_name.format(
             rank=dist.get_global_rank())
@@ -194,7 +195,7 @@ class CheckpointLoader:
                     with tarfile.open(rank_zero_checkpoint_archive_filepath) as tarball:
                         tarball.extractall(extracted_checkpoint_folder)
                 except FileNotFoundError as e:
-                    checkpoint_name = self.hparams.checkpoint.format(rank=dist.get_global_rank())
+                    checkpoint_name = self.hparams.path.format(rank=dist.get_global_rank())
                     raise RuntimeError(f"Unable to retrieve checkpoint {checkpoint_name}") from e
 
         if rank_zero_checkpoint_archive_filepath != rank_n_checkpoint_archive_filepath:
@@ -248,7 +249,7 @@ class CheckpointLoader:
                 load_module_strict=self.hparams.strict_model_weights,
             )
             if load_path is None:
-                raise RuntimeError(f"Failed to load DeepSpeed checkpoint from {self.hparams.checkpoint}")
+                raise RuntimeError(f"Failed to load DeepSpeed checkpoint from {self.hparams.path}")
         elif self.hparams.load_weights_only:
             state.load_model_state(state_dict['state'], strict=self.hparams.strict_model_weights)
 
@@ -261,8 +262,9 @@ class CheckpointLoader:
                 checkpointed_world_size = len(state_dict["seed"])
                 if world_size != checkpointed_world_size:
                     warnings.warn(
-                        textwrap.dedent(f"""Current world size {world_size} does not match the checkpointed
-                        world size {checkpointed_world_size}. The seed will not be restored."""))
+                        textwrap.dedent(f"""\
+                            Current world size {world_size} does not match the checkpointed
+                            world size {checkpointed_world_size}. The seed will not be restored."""))
                 else:
                     seed_to_restore = state_dict["seed"][dist.get_global_rank()]
                     reproducibility.seed_all(seed_to_restore)
@@ -287,7 +289,7 @@ class CheckpointLoader:
             seed_to_restore = self._restore_checkpoint(state, mosaic_checkpoint_filepath, extracted_checkpoint_folder)
 
         log.info(f'{"Model weights" if self.hparams.load_weights_only else "Trainer checkpoint"}'
-                 f' loaded from {self.hparams.checkpoint}.')
+                 f' loaded from {self.hparams.path}.')
 
         return seed_to_restore
 
@@ -298,8 +300,8 @@ class CheckpointLoader:
         if self.checkpoint_rng_state is None:
             return
 
-        assert dist.get_world_size() == len(self.checkpoint_rng_state['torch']), textwrap.dedent(
-            """invariant violation: if the rng state is being restored, then
+        assert dist.get_world_size() == len(self.checkpoint_rng_state['torch']), textwrap.dedent("""\
+            invariant violation: if the rng state is being restored, then
             the world size should be the same as in the checkpoint.""")
 
         torch.set_rng_state(self.checkpoint_rng_state['torch'][dist.get_global_rank()])
@@ -315,31 +317,32 @@ class CheckpointLoader:
             return checkpoint_rng_state
         else:
             warnings.warn(
-                textwrap.dedent(f"""The checkpoint was created with world_size({original_world_size}),
-                which differs from the current world_size({dist.get_world_size()}).
-                RNG state will not be restored."""))
+                textwrap.dedent(f"""\
+                    The checkpoint was created with world_size({original_world_size}),
+                    which differs from the current world_size({dist.get_world_size()}).
+                    RNG state will not be restored."""))
 
 
 class CheckpointSaver:
     """Manager for saving state to checkpoint files.
 
     Args:
-        checkpoint_folder (str): The path to store checkpoints in.
-        checkpoint_interval (int): The amount of time units to wait between checkpoints.
-        checkpoint_interval_unit (str): The unit (`"ep"` or `"it"`) that
-            `checkpoint_interval` should be measured in.
+        save_folder (str): The path to store checkpoints in.
+        interval (int): The amount of time units to wait between checkpoints.
+        interval_unit (str): The unit (`"ep"` or `"it"`) that
+            `interval` should be measured in.
     """
 
-    def __init__(self, checkpoint_folder: str, checkpoint_interval: int, checkpoint_interval_unit: str):
-        if checkpoint_interval_unit.lower() == "ep":
+    def __init__(self, save_folder: str, interval: int, interval_unit: str):
+        if interval_unit.lower() == "ep":
             self.save_event = Event.EPOCH_END
-        elif checkpoint_interval_unit.lower() == "it":
+        elif interval_unit.lower() == "it":
             self.save_event = Event.BATCH_END
         else:
-            raise ValueError(f"Unknown checkpointing interval: {checkpoint_interval_unit}")
-        self.checkpoint_folder = os.path.join(run_directory.get_run_directory(), checkpoint_folder)
+            raise ValueError(f"Unknown checkpointing interval: {interval_unit}")
+        self.checkpoint_folder = os.path.join(run_directory.get_run_directory(), save_folder)
         os.makedirs(self.checkpoint_folder, mode=0o775, exist_ok=True)
-        self.save_interval = checkpoint_interval
+        self.save_interval = interval
 
     def should_checkpoint(self, state: State, event: Event) -> bool:
         """Given the current state and event, determine whether a checkpoint needs to be created.

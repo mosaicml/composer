@@ -13,6 +13,7 @@ import logging
 
 import torch
 import torch.utils.data
+import torchmetrics
 from torch import nn
 from torch.nn import functional as F
 from torchmetrics.classification.accuracy import Accuracy
@@ -21,7 +22,7 @@ from torchvision import datasets, transforms
 import composer
 from composer import Event
 from composer.algorithms import BlurPool
-from composer.core.types import Precision
+from composer.core.types import Evaluator, Precision
 from composer.utils import ensure_tuple
 
 logging.basicConfig()
@@ -78,11 +79,12 @@ def train():
         batch_size=args.train_batch_size,
         shuffle=False,
     )
+    evaluator = Evaluator(label='eval_dataset', dataloader=val_dataloader, metrics=torchmetrics.Accuracy())
     # to use our algorithms, create and maintain the trainer state
     state = composer.State(
         model=model,
         train_dataloader=train_dataloader,
-        eval_dataloader=val_dataloader,
+        evaluators=[evaluator],
         max_duration=f"{args.epochs}ep",
         grad_accum=1,
         precision=Precision.FP32,

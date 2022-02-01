@@ -79,7 +79,7 @@ class TorchProfiler(Callback):
             del torch_tb_profiler
         except ModuleNotFoundError:
             warnings.warn(
-                textwrap.dedent("""
+                textwrap.dedent("""\
                 TorchTBProfilerNotFound: torch_tb_profiler not found.
                 You will not be able to visualize torch profiler results.
                 To visualize, run `pip install torch-tb-profiler`"""))
@@ -114,8 +114,9 @@ class TorchProfiler(Callback):
         assert self.profiler is None, "The profiler should be None upon init"
         if state.profiler is None:
             raise RuntimeError(
-                textwrap.dedent("""To use the dataloader profiler, state.profiler must be set.
-                Make sure to run composer with the profiler -- i.e. with the `--profiler` CLI flag."""))
+                textwrap.dedent("""\
+                    To use the dataloader profiler, state.profiler must be set.
+                    Make sure to run composer with the profiler -- i.e. with the `--profiler` CLI flag."""))
         self.profiler = torch.profiler.profile(
             schedule=functools.partial(self._scheduler_fn, state=state),
             # TODO(ravi): Instruct the pytorch profiler to dump trace events through our profiler,
