@@ -352,6 +352,7 @@ class Trainer:
         # place the state, model in the proper devices, and initialize from a checkpoint if provided
         if self.deepspeed_enabled:
             import deepspeed
+            assert deepspeed_config is not None
             self.deepspeed_config = parse_deepspeed_config(deepspeed_config,
                                                            state=self.state,
                                                            grad_clip_norm=self.grad_clip_norm)

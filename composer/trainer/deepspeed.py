@@ -2,7 +2,7 @@
 
 import copy
 import warnings
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, cast
 
 import torch
 
@@ -13,6 +13,9 @@ from composer.utils.iter_helpers import map_collection
 
 
 def parse_batch_settings(config: Dict[str, Any], state: State):
+    if state.train_dataloader.batch_size is None:
+        raise RuntimeError("DeepSpeed requires a dataloader with a known batch size.")
+
     if state.train_dataloader.batch_size % state.grad_accum != 0:
         # DeepSpeed will throw an error in this configuration.
         raise ValueError("The Mosaic trainer has been configured to use batch size="
@@ -77,7 +80,7 @@ def parse_precision_settings(config: Dict[str, Any], state: State):
 
     if precision == Precision.FP16:
         if "fp16" not in config:
-            config["fp16"] = {"enabled": True}
+            config["fp16"] = cast({"enabled": True}, Dict[str, Any])
         fp16_config = config["fp16"]
         assert isinstance(fp16_config, dict)
 
@@ -86,7 +89,7 @@ def parse_precision_settings(config: Dict[str, Any], state: State):
         fp16_config.setdefault("loss_scale_window", 2000)
 
 
-def parse_misc_settings(config: Dict[str, any], grad_clip_norm: Optional[float]):
+def parse_misc_settings(config: Dict[str, Any], grad_clip_norm: Optional[float]):
     if "gradient_clipping" in config:
         ds_grad_clip_norm = config["gradient_clipping"]
         if ds_grad_clip_norm != grad_clip_norm:
