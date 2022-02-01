@@ -21,6 +21,8 @@ model_names = [os.path.basename(os.path.splitext(mn)[0]) for mn in model_names]
 
 def get_model_algs(model_name: str) -> List[str]:
     algs = algorithms.list_algorithms()
+    algs.remove("dummy")
+    algs.remove("no_op_model")
     is_image_model = any(x in model_name for x in ("resnet", "mnist", "efficientnet"))
     if is_image_model:
         algs.remove("alibi")
@@ -39,6 +41,9 @@ def get_model_algs(model_name: str) -> List[str]:
 @pytest.mark.parametrize('model_name', model_names)
 @pytest.mark.timeout(15)
 def test_load(model_name: str):
+    if model_name in ['deeplabv3_ade20k']:
+        pytest.skip(f"Model {model_name} requires GPU")
+
     trainer_hparams = trainer.load(model_name)
     trainer_hparams.precision = Precision.FP32
     trainer_hparams.algorithms = algorithms.load_multiple(*get_model_algs(model_name))
