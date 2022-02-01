@@ -12,8 +12,8 @@ val_dataset:
     crop_size: 224
     is_train: false
     use_synthetic: true
-    shuffle: true
-    drop_last: true
+    shuffle: false
+    drop_last: false
 optimizer:
   decoupled_sgdw:
     lr: 2.048
@@ -35,7 +35,7 @@ schedulers:
       interval: step
 model:
   resnet:
-    model_name: resnet18
+    model_name: resnet34
     initializers:
       - kaiming_normal
       - bn_uniform
@@ -44,7 +44,7 @@ loggers:
   - tqdm: {}
 max_duration: 90ep
 train_batch_size: 2048
-eval_batch_size: 1000
+eval_batch_size: 2048
 train_subset_num_batches: 10
 eval_subset_num_batches: 10
 seed: 17
