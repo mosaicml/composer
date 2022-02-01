@@ -8,6 +8,7 @@ import itertools
 import logging
 import textwrap
 import warnings
+from dataclasses import asdict
 from typing import TYPE_CHECKING, Any, Callable, ContextManager, Dict, List, Optional, Sequence, Union, cast
 
 import torch
@@ -30,7 +31,7 @@ from composer.optim import ComposedScheduler
 from composer.optim.decoupled_weight_decay import DecoupledSGDW
 from composer.optim.scheduler import ensure_warmup_last
 from composer.profiler.profiler_hparams import ProfilerHparams
-from composer.trainer.checkpoint_hparams import CheckpointLoaderHparams, CheckpointSaverHparams
+from composer.trainer.checkpoint import CheckpointLoader, CheckpointSaver
 from composer.trainer.ddp import DDPSyncStrategy, ddp_sync_context, prepare_ddp_module
 from composer.trainer.deepspeed import DeepSpeedHparams, fix_batch_precision_for_deepspeed
 from composer.trainer.devices.device import Device
@@ -39,6 +40,7 @@ from composer.trainer.devices.device_gpu import DeviceGPU
 from composer.trainer.scaler import ClosureGradScaler
 from composer.trainer.trainer_hparams import TrainerHparams
 from composer.utils import dist, ensure_tuple, map_collection, reproducibility
+from composer.utils.object_store import ObjectStoreProviderHparams
 
 if TYPE_CHECKING:
     import deepspeed
@@ -92,10 +94,18 @@ class Trainer:
         log_destinations (List[BaseLoggerBackend], optional): The destinations to log training information to.
             (default: ``[TQDMLoggerBackend()]``).
         callbacks (Sequence[Callback], optional): The callbacks to run during training. (default: ``[]``)
-        checkpoint_loader (CheckpointLoaderHparams, optional): If specified, load the specified checkpoint.
-            (default: ``None``)
-        checkpoint_saver (CheckpointSaverHparams, optional): If specified, save checkpoints according to
-            the given parameters (default: ``None``)
+        load_path (Optional[str]): Path to a specific checkpoint to load. (default: ``None``)
+        load_object_store_config (Optional[dict]): For loading from object stores (e.g. S3), the configuration
+            as a ``dict``. (default: ``None``)
+        load_weights_only (bool): Only load the model weights. (default: ``False``)
+        load_strict (bool): Ensure that the set of weights in the checkpoint and model must exactly match.
+            (default: ``False``)
+        load_chunk_size (int): Chunk size (in bytes) to use when downloading checkpoints.
+            Ignored if the checkpoint is a local file path. (default: ``1,048,675``)
+        load_progress_bar (bool): Display the progress bar for loading file. (default: ``True``)
+        save_folder (Optional[str]): Folder path to save checkpoints
+        save_interval (int): How often to save checkpoints
+        save_interval_unit (str): Unit of ``save_interval``. Can be ``ep`` or ``steps``. (default: ``ep``).
         train_subset_num_batches (int, optional): If specified, finish every epoch early after training
             on this many batches. This parameter has no effect if it is greater than ``len(train_dataloader)``.
             If None (the default), then the entire dataloader will be iterated over.
@@ -145,9 +155,18 @@ class Trainer:
             log_destinations: Optional[Sequence[BaseLoggerBackend]] = None,
             callbacks: Sequence[Callback] = tuple(),
 
-            # Checkpoint hparams
-            checkpoint_loader: Optional[CheckpointLoaderHparams] = None,
-            checkpoint_saver: Optional[CheckpointSaverHparams] = None,
+            # load checkpoint
+            load_path: Optional[str] = None,
+            load_object_store_config: Optional[dict] = None,
+            load_weights_only: bool = False,
+            load_strict: bool = False,
+            load_chunk_size: int = 1_048_576,
+            load_progress_bar: bool = True,
+
+            # save_checkpoint
+            save_folder: Optional[str] = None,
+            save_interval: int = 1,
+            save_interval_unit: str = 'ep',
 
             # Profiling
             profiler: Optional[ProfilerHparams] = None,
@@ -311,12 +330,26 @@ class Trainer:
         self.original_model = self.state.model  # TODO(ravi) -- update the state to add an original model helper
 
         self.checkpoint_saver = None
-        if checkpoint_saver is not None:
-            self.checkpoint_saver = checkpoint_saver.initialize_object()
+        if save_folder is not None:
+            self.checkpoint_saver = CheckpointSaver(
+                save_folder=save_folder,
+                interval=save_interval,
+                interval_unit=save_interval_unit,
+            )
 
         self.checkpoint_loader = None
-        if checkpoint_loader is not None:
-            self.checkpoint_loader = checkpoint_loader.initialize_object()
+        if load_path is not None:
+            if load_object_store_config is not None:
+                object_store_hparams = ObjectStoreProviderHparams(**load_object_store_config)
+            else:
+                object_store_hparams = None
+
+            self.checkpoint_loader = CheckpointLoader(path=load_path,
+                                                      object_store_hparams=object_store_hparams,
+                                                      load_weights_only=load_weights_only,
+                                                      strict_model_weights=load_strict,
+                                                      chunk_size=load_chunk_size,
+                                                      progress_bar=load_progress_bar)
 
         # place the state, model in the proper devices, and initialize from a checkpoint if provided
         if self.deepspeed_enabled:
@@ -440,6 +473,31 @@ class Trainer:
                                 dataset_num_tokens=tokens_per_epoch) for x in ensure_warmup_last(hparams.schedulers)
         ]
 
+        if hparams.load_checkpoint is not None:
+            object_store_config = None
+            if hparams.load_checkpoint.object_store is not None:
+                object_store_config = asdict(hparams.load_checkpoint.object_store)
+
+            load_checkpoint_kwargs = dict(
+                load_path=hparams.load_checkpoint.path,
+                load_object_store_config=object_store_config,
+                load_weights_only=hparams.load_checkpoint.load_weights_only,
+                load_strict=hparams.load_checkpoint.strict_model_weights,
+                load_chunk_size=hparams.load_checkpoint.chunk_size,
+                load_progress_bar=hparams.load_checkpoint.progress_bar,
+            )
+        else:
+            load_checkpoint_kwargs = dict()
+
+        if hparams.save_checkpoint is not None:
+            save_checkpoint_kwargs = dict(
+                save_folder=hparams.save_checkpoint.folder,
+                save_interval=hparams.save_checkpoint.interval,
+                save_interval_unit=hparams.save_checkpoint.interval_unit,
+            )
+        else:
+            save_checkpoint_kwargs = dict()
+
         trainer = cls(
             model=model,
             train_dataloader=train_data,
@@ -475,9 +533,9 @@ class Trainer:
             # Profiler
             profiler=hparams.profiler,
 
-            # Checkpoint hparams
-            checkpoint_loader=hparams.load_checkpoint,
-            checkpoint_saver=hparams.save_checkpoint,
+            # Checkpoint parameters
+            **load_checkpoint_kwargs,
+            **save_checkpoint_kwargs,
 
             # Subset parameters
             train_subset_num_batches=hparams.train_subset_num_batches,
