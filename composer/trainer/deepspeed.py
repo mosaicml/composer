@@ -80,7 +80,7 @@ def _add_precision_config(config: Dict[str, Any], state: State):
 
     if precision == Precision.FP16:
         if "fp16" not in config:
-            config["fp16"] = cast({"enabled": True}, Dict[str, Any])
+            config["fp16"] = cast(Dict[str, Any], {"enabled": True})
         fp16_config = config["fp16"]
         assert isinstance(fp16_config, dict)
 

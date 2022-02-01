@@ -8,7 +8,7 @@ from __future__ import annotations
 import os
 import textwrap
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Dict, List, Optional
+from typing import TYPE_CHECKING, Dict, List, Optional, cast
 
 import yahp as hp
 
@@ -209,8 +209,9 @@ class TrainerHparams(hp.Hparams):
         super().validate()
 
         if self.deepspeed is not None:
+            zero_stage = cast(int, self.deepspeed.get("zero_stage", 0))
 
-            if self.deterministic_mode and self.deepspeed.get("zero_stage", 0) > 0:
+            if self.deterministic_mode and zero_stage > 0:
                 raise ValueError("Deepspeed with zero stage > 0 is not compatible with deterministic mode")
 
             if isinstance(self.device, CPUDeviceHparams):
