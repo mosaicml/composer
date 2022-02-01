@@ -9,16 +9,21 @@ from composer.models.model_hparams import Initializer
 
 
 class MosaicResNet(MosaicClassifier):
-    """A ResNet-50 model extending :class:`MosaicClassifier`.
+    """ResNet model family extending :class:`MosaicClassifier`.
 
     See this `paper <https://arxiv.org/abs/1512.03385>`_ for details
     on the residual network architecture.
 
     Args:
-        num_classes (int): The number of classes for the model.
-        initializers (List[Initializer], optional): Initializers
-            for the model. ``None`` for no initialization.
-            (default: ``None``)
+        model_name (str): Name of the ResNet model instance. Either ["resnet18", "resnet34", "resnet50", "resnet101",
+            "resnet152"].
+        num_classes (int): Number of classes for the model.
+        pretrained (bool): If true, use ImageNet pretrained weights. (default: ``False``).
+        groups (int): Number of filter groups for the 3x3 convolution layer in bottleneck blocks. (default: ``1``).
+        width_per_group (int): Initial width for each convolution group. Width doubles after each stage.
+            (default:  ``64``).
+        initializers (List[Initializer], optional): Initializers for the model. ``None`` for no initialization.
+            (default: ``None``).
     """
 
     valid_model_names = ["resnet18", "resnet34", "resnet50", "resnet101", "resnet152"]
