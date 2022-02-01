@@ -39,6 +39,7 @@ class SystemProfiler(Callback):
             profile_net=profile_net,
             stats_thread_interval_seconds=stats_thread_interval_seconds,
         )
+        self._stats_thread = None
 
         try:
             # Attempt an import of psutil in init to ensure it is installed
@@ -49,15 +50,18 @@ class SystemProfiler(Callback):
 
     def init(self, state: State, logger: Logger):
         del logger  # unused
+        if self._stats_thread is None:
+            return
         if state.profiler is None:
             raise RuntimeError(
                 textwrap.dedent("""To use the dataloader profiler, state.profiler must be set.
                 Make sure to run composer with the profiler -- i.e. with the `--profiler` CLI flag."""))
 
         # Start the stats thread
-        threading.Thread(target=self._stats_thread, daemon=True, args=[state.profiler]).start()
+        self._stats_thread = threading.Thread(target=self._monitor_status, daemon=True, args=[state.profiler])
+        self._stats_thread.start()
 
-    def _stats_thread(self, profiler: Profiler):
+    def _monitor_status(self, profiler: Profiler):
         import psutil  # already checked that it's installed in init
         psutil.disk_io_counters.cache_clear()
         psutil.net_io_counters.cache_clear()

@@ -48,5 +48,9 @@ class DataloaderProfiler(Callback):
             raise RuntimeError(
                 textwrap.dedent("""To use the dataloader profiler, state.profiler must be set.
                 Make sure to run composer with the profiler -- i.e. with the `--profiler` CLI flag."""))
-        state.train_dataloader = ProfiledDataLoader(state.profiler, state.train_dataloader, "train")
-        state.eval_dataloader = ProfiledDataLoader(state.profiler, state.eval_dataloader, "eval")
+
+        if not ProfiledDataLoader.is_dataloader_already_wrapped(state.train_dataloader):
+            state.train_dataloader = ProfiledDataLoader(state.profiler, state.train_dataloader, "train")
+
+        if not ProfiledDataLoader.is_dataloader_already_wrapped(state.eval_dataloader):
+            state.eval_dataloader = ProfiledDataLoader(state.profiler, state.eval_dataloader, "eval")

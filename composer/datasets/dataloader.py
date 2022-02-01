@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import textwrap
 from dataclasses import dataclass
 from typing import Any, Callable, Iterator, Optional
@@ -13,10 +14,14 @@ import yahp as hp
 
 from composer.core.types import Batch, DataLoader, Dataset
 
+log = logging.getLogger(__name__)
+
 
 class WrappedDataLoader(DataLoader):
 
     def __init__(self, dataloader: DataLoader) -> None:
+        if self.is_dataloader_already_wrapped(dataloader):
+            log.debug("The dataloader is already wrapped with %s; it will be wrapped again.", self.__class__.__name__)
         self.dataset = dataloader.dataset
         self.batch_size = dataloader.batch_size
         self.num_workers = dataloader.num_workers
@@ -41,6 +46,25 @@ class WrappedDataLoader(DataLoader):
                                             "timeout", "sampler", "prefetch_factor", "dataloader"):
             raise RuntimeError(f"Property {name} cannot be set after initialization in a DataLoader")
         return super().__setattr__(name, value)
+
+    @classmethod
+    def is_dataloader_already_wrapped(cls, dataloader: DataLoader):
+        """Returns whether the ``dataloader`` is wrapped with ``cls``. This helper method checks recursively through
+        all wrappings until the underlying dataloader is reached.
+
+        Args:
+            dataloader (DataLoader): The dataloader to check
+
+        Returns:
+            bool: Whether the ``dataloader`` is wrapped recursively with ``cls``.
+        """
+        if isinstance(dataloader, cls):
+            return True
+        if not isinstance(dataloader, WrappedDataLoader):
+            return False
+        if not isinstance(dataloader.dataloader, WrappedDataLoader):
+            return False
+        return cls.is_dataloader_already_wrapped(dataloader.dataloader)
 
 
 @dataclass

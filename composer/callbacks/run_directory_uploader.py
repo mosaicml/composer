@@ -134,12 +134,15 @@ class RunDirectoryUploader(Callback):
             self._finished_cls = threading.Event
             self._proc_class = threading.Thread
         self._finished: Union[None, multiprocessing._EventType, threading.Event] = None
-        self._workers = []
+        self._workers = None
 
         _validate_credentials(object_store_provider_hparams, self._object_name_prefix)
 
     def init(self, state: State, logger: Logger) -> None:
         del state, logger  # unused
+        if self._workers is not None:
+            # Already initialized
+            return
         self._finished = self._finished_cls()
         self._last_upload_timestamp = 0.0
         self._workers = [
@@ -167,6 +170,7 @@ class RunDirectoryUploader(Callback):
         self._trigger_upload(logger=None, log_level=None)
         if self._finished is not None:
             self._finished.set()
+        assert self._workers is not None, "workers should be created on init()"
         for worker in self._workers:
             worker.join()
         if self._tempdir is not None:
@@ -179,6 +183,7 @@ class RunDirectoryUploader(Callback):
         files_to_be_uploaded = []
 
         # check if any upload threads have crashed. if so, then shutdown the training process
+        assert self._workers is not None, "workers should be created on init()"
         for worker in self._workers:
             if not worker.is_alive():
                 assert self._finished is not None, "invariant error"

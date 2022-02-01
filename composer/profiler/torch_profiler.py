@@ -113,7 +113,8 @@ class TorchProfiler(Callback):
 
     def init(self, state: State, logger: Logger) -> None:
         del logger  # unused
-        assert self.profiler is None, "The profiler should be None upon init"
+        if self.profiler is not None:
+            return
         if state.profiler is None:
             raise RuntimeError(
                 textwrap.dedent("""To use the dataloader profiler, state.profiler must be set.

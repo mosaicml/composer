@@ -188,7 +188,6 @@ class Alibi(Algorithm):
         """
 
         if event == Event.INIT:
-            assert state.model is not None
 
             if "heads_per_layer" not in asdict(self.hparams).keys() or \
             not self.hparams.heads_per_layer:

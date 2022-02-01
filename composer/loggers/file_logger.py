@@ -90,7 +90,7 @@ class FileLoggerBackend(BaseLoggerBackend):
     def init(self, state: State, logger: Logger) -> None:
         del state, logger  # unused
         if self.file is not None:
-            raise RuntimeError("The file logger is already initialized")
+            return
         if self.filename == "stdout":
             self.file = sys.stdout
         elif self.filename == "stderr":
