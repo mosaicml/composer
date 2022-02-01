@@ -25,13 +25,14 @@ def test_model_registry(model_name, request):
         "resnet9_cifar10",
         "resnet56_cifar10",
         "efficientnetb0",
-        "resnet101",
-        "resnet50",
-        "resnet18",
+        "resnet",
         "mnist_classifier",
     ])
     if model_name in requires_num_classes:
         model_hparams.num_classes = 10
+
+    if model_name == "resnet":
+        model_hparams.model_name = 'resnet50'
 
     if model_name == "deeplabv3":
         model_hparams.is_backbone_pretrained = False
