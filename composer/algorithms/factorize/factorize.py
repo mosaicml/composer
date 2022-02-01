@@ -14,6 +14,7 @@ from composer.algorithms.factorize.factorize_modules import (FactorizedConv2d, F
                                                              factorizing_could_speedup)
 from composer.core import Algorithm, Event, Logger, State, surgery
 from composer.core.types import Optimizers
+from composer.models.base import BaseMosaicModel
 
 log = logging.getLogger(__name__)
 
@@ -161,6 +162,7 @@ class Factorize(Algorithm):
                                         latent_channels=latent_channels,
                                         min_features=min_features,
                                         latent_features=latent_features)
+        self._applied = False
 
     def match(self, event: Event, state: State) -> bool:
         """Run on Event.INIT
@@ -182,7 +184,15 @@ class Factorize(Algorithm):
             state: the current trainer state
             logger: the training logger
         """
-        assert state.model is not None, "Model must be part of state!"
+        if self._applied:
+            return
+        if not isinstance(state.model, BaseMosaicModel) and not self._applied:
+            # We do NOT want to apply this algorithm after deepspeed or DDP wrapping
+            # the module.
+            # Hence, we raise an error if the model is already wrapped (i.e. it is no longer a BaseMosaicModel)
+            # when the algorithm is not yet applied
+            raise RuntimeError(f"Unable to apply {type(self).__name__} on model of type {type(state.model)}; expected state.model to be {BaseMosaicModel.__name__}")
+        self._applied = True
         if self.hparams.factorize_convs:
             factorize_conv2d_modules(state.model,
                                      min_channels=self.hparams.min_channels,
