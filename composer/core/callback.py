@@ -202,8 +202,10 @@ class Callback(Serializable, abc.ABC):
 
         .. note::
 
-            The :attr:`state.timer.batch` is incremented between `:attr:`~Event.BATCH_START` and
-            :attr:`~Event.BATCH_END`.
+            :attr:`state.timer.batch`, :attr:`state.timer.batch_in_epoch`,
+            :attr:`state.timer.sample`, :attr:`state.timer.sample_in_epoch`,
+            :attr:`state.timer.token`, and :attr:`state.timer.token_in_epoch`
+            are incremented immediately before :attr:`~Event.BATCH_END`.
 
         Args:
             state (State): The global state.
@@ -219,8 +221,7 @@ class Callback(Serializable, abc.ABC):
 
         .. note::
 
-            The :attr:`state.timer.epoch` is incremented between `:attr:`~Event.EPOCH_START` and
-            :attr:`~Event.EPOCH_END`.
+            :attr:`state.timer.epoch` is incremented immediately before :attr:`~Event.EPOCH_END`.
 
         Args:
             state (State): The global state.
