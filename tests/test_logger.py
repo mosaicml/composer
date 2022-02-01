@@ -5,8 +5,8 @@ import pathlib
 from unittest.mock import MagicMock
 
 import pytest
-import tqdm
 from _pytest.monkeypatch import MonkeyPatch
+from tqdm import auto
 
 from composer.core.event import Event
 from composer.core.logging import Logger, LogLevel
@@ -82,7 +82,8 @@ def test_tqdm_logger(mosaic_trainer_hparams: TrainerHparams, monkeypatch: Monkey
         is_train_to_mock_tqdms[is_train].append(mock_tqdm)
         return mock_tqdm
 
-    monkeypatch.setattr(tqdm, "tqdm", get_mock_tqdm)
+    monkeypatch.setattr(auto, "tqdm", get_mock_tqdm)
+
     max_epochs = 2
     mosaic_trainer_hparams.max_duration = f"{max_epochs}ep"
     mosaic_trainer_hparams.loggers = [TQDMLoggerBackendHparams()]

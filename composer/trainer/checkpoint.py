@@ -44,21 +44,21 @@ class CheckpointLoader:
     """Manager for initializing state and restoring RNG state from existing checkpoints.
 
     Args:
-        checkpoint (str): The template path to an existing checkpoint file.
+        path (str): The template path to an existing checkpoint file.
             It can be a path to a file on local disk, a URL, or if ``object_store_hparams`` is set, the object name
             for a checkpoint in a cloud bucket.
-            
+
             When using Deepspeed zero, the :class:`CheckpointSaver` shards checkpoints by rank. To load deepspeed checkpoints,
             specify ``{RANK}`` in in the ``checkpoint`` parameter, and this variable will be substituted with the global rank.
             For example, suppose that checkpoints are stored in the following structure:
-        
+
             .. code-block::
 
                 my_model/rank_0/ep1.tar
                 my_model/rank_1/ep1.tar
                 my_model/rank_2/ep1.tar
                 ...
-        
+
             Then, ``checkpoint`` should be set to ``my_model/rank_{RANK}/ep1.tar``, and all ranks will load the correct
             data.
 
@@ -77,7 +77,7 @@ class CheckpointLoader:
 
     def __init__(
         self,
-        checkpoint: str,
+        path: str,
         object_store_hparams: Optional[ObjectStoreProviderHparams] = None,
         load_weights_only: bool = False,
         strict_model_weights: bool = False,
@@ -85,7 +85,7 @@ class CheckpointLoader:
         progress_bar: bool = True,
     ):
 
-        checkpoint_uri_parsed = urllib.parse.urlparse(checkpoint)
+        checkpoint_uri_parsed = urllib.parse.urlparse(path)
         if checkpoint_uri_parsed.scheme != "":
             if object_store_hparams is not None:
                 raise ValueError(
@@ -93,7 +93,7 @@ class CheckpointLoader:
                     the `checkpoint` parameter must be the key for the checkpoint in the bucket, NOT a uri."""))
 
         self.hparams = CheckpointLoaderHparams(
-            checkpoint=checkpoint,
+            path=path,
             object_store=object_store_hparams,
             load_weights_only=load_weights_only,
             strict_model_weights=strict_model_weights,
@@ -103,7 +103,7 @@ class CheckpointLoader:
         self.checkpoint_rng_state = None
 
     def _retrieve_checkpoint(self, rank: int, destination_filepath: str, ignore_not_found_errors: bool):
-        checkpoint_name = self.hparams.checkpoint.format(RANK=rank)
+        checkpoint_name = self.hparams.path.format(RANK=rank)
         if self.hparams.object_store is not None:
             provider = self.hparams.object_store.initialize_object()
             try:
@@ -136,7 +136,7 @@ class CheckpointLoader:
 
     def _write_to_file_with_pbar(self, destination_filepath: str, total_size: Optional[int], iterator: Iterator[bytes]):
         if self.hparams.progress_bar:
-            desc = f"Downloading {self.hparams.checkpoint}"
+            desc = f"Downloading {self.hparams.path}"
             if len(desc) > 60:
                 desc = desc[:42] + "..." + desc[-15:]
             pbar = tqdm.tqdm(desc=desc, total=total_size, unit='iB', unit_scale=True)
@@ -168,7 +168,7 @@ class CheckpointLoader:
                 The ``extracted_checkpoint_folder`` is the path to the checkpoint folder, which can be passed into
                 :meth:`deepspeed.DeepSpeedEngine.load_checkpoint`.
         """
-        checkpoint_archive_name = self.hparams.checkpoint.split(os.path.sep)[-1]
+        checkpoint_archive_name = self.hparams.path.split(os.path.sep)[-1]
         rank_zero_checkpoint_archive_name = "rank_0." + checkpoint_archive_name.format(rank=0)
         rank_n_checkpoint_archive_name = f"rank_{dist.get_global_rank()}." + checkpoint_archive_name.format(
             rank=dist.get_global_rank())
@@ -189,13 +189,12 @@ class CheckpointLoader:
             self._retrieve_checkpoint(destination_filepath=rank_zero_checkpoint_archive_filepath,
                                       rank=dist.get_global_rank(),
                                       ignore_not_found_errors=False)
-
             if extracted_checkpoint_folder is not None:
                 try:
                     with tarfile.open(rank_zero_checkpoint_archive_filepath) as tarball:
                         tarball.extractall(extracted_checkpoint_folder)
                 except FileNotFoundError as e:
-                    checkpoint_name = self.hparams.checkpoint.format(rank=dist.get_global_rank())
+                    checkpoint_name = self.hparams.path.format(rank=dist.get_global_rank())
                     raise RuntimeError(f"Unable to retrieve checkpoint {checkpoint_name}") from e
 
         if rank_zero_checkpoint_archive_filepath != rank_n_checkpoint_archive_filepath:
@@ -235,7 +234,7 @@ class CheckpointLoader:
         """
         # Now, all ranks load the checkpoint that local rank zero downloaded
         state_dict = torch.load(mosaic_checkpoint_filepath, map_location='cpu')
-
+        log.debug(f"Loaded checkpoint with keys {state_dict.keys()} and state with keys {state_dict['state'].keys()}")
         seed_to_restore = None
 
         if is_module_deepspeed(state.model):
@@ -249,7 +248,7 @@ class CheckpointLoader:
                 load_module_strict=self.hparams.strict_model_weights,
             )
             if load_path is None:
-                raise RuntimeError(f"Failed to load DeepSpeed checkpoint from {self.hparams.checkpoint}")
+                raise RuntimeError(f"Failed to load DeepSpeed checkpoint from {self.hparams.path}")
         elif self.hparams.load_weights_only:
             state.load_model_state(state_dict['state'], strict=self.hparams.strict_model_weights)
 
@@ -287,6 +286,9 @@ class CheckpointLoader:
             mosaic_checkpoint_filepath, extracted_checkpoint_folder = self._download_checkpoint(node_checkpoint_folder)
             seed_to_restore = self._restore_checkpoint(state, mosaic_checkpoint_filepath, extracted_checkpoint_folder)
 
+        log.info(f'{"Model weights" if self.hparams.load_weights_only else "Trainer checkpoint"}'
+                 f' loaded from {self.hparams.path}.')
+
         return seed_to_restore
 
     def restore_checkpoint_rng_state(self, device: Device):
@@ -322,22 +324,22 @@ class CheckpointSaver:
     """Manager for saving state to checkpoint files.
 
     Args:
-        checkpoint_folder (str): The path to store checkpoints in.
-        checkpoint_interval (int): The amount of time units to wait between checkpoints.
-        checkpoint_interval_unit (str): The unit (`"ep"` or `"it"`) that
-            `checkpoint_interval` should be measured in.
+        save_folder (str): The path to store checkpoints in.
+        interval (int): The amount of time units to wait between checkpoints.
+        interval_unit (str): The unit (`"ep"` or `"it"`) that
+            `interval` should be measured in.
     """
 
-    def __init__(self, checkpoint_folder: str, checkpoint_interval: int, checkpoint_interval_unit: str):
-        if checkpoint_interval_unit.lower() == "ep":
+    def __init__(self, save_folder: str, interval: int, interval_unit: str):
+        if interval_unit.lower() == "ep":
             self.save_event = Event.EPOCH_END
-        elif checkpoint_interval_unit.lower() == "it":
+        elif interval_unit.lower() == "it":
             self.save_event = Event.BATCH_END
         else:
-            raise ValueError(f"Unknown checkpointing interval: {checkpoint_interval_unit}")
-        self.checkpoint_folder = os.path.join(run_directory.get_run_directory(), checkpoint_folder)
+            raise ValueError(f"Unknown checkpointing interval: {interval_unit}")
+        self.checkpoint_folder = os.path.join(run_directory.get_run_directory(), save_folder)
         os.makedirs(self.checkpoint_folder, mode=0o775, exist_ok=True)
-        self.save_interval = checkpoint_interval
+        self.save_interval = interval
 
     def should_checkpoint(self, state: State, event: Event) -> bool:
         """Given the current state and event, determine whether a checkpoint needs to be created.

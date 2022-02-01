@@ -24,6 +24,7 @@ from composer.loggers import (BaseLoggerBackendHparams, FileLoggerBackendHparams
 from composer.models import (BERTForClassificationHparams, BERTHparams, CIFARResNet9Hparams, CIFARResNetHparams,
                              DeepLabV3Hparams, EfficientNetB0Hparams, GPT2Hparams, MnistClassifierHparams, ModelHparams,
                              ResNet18Hparams, ResNet50Hparams, ResNet101Hparams, UnetHparams)
+from composer.models.resnet20_cifar10.resnet20_cifar10_hparams import CIFARResNet20Hparams
 from composer.optim import (AdamHparams, AdamWHparams, DecoupledAdamWHparams, DecoupledSGDWHparams, OptimizerHparams,
                             RAdamHparams, RMSPropHparams, SchedulerHparams, SGDHparams, scheduler)
 from composer.profiler import ProfilerHparams
@@ -63,6 +64,7 @@ model_registry = {
     "deeplabv3": DeepLabV3Hparams,
     "efficientnetb0": EfficientNetB0Hparams,
     "resnet56_cifar10": CIFARResNetHparams,
+    "resnet20_cifar10": CIFARResNet20Hparams,
     "resnet9_cifar10": CIFARResNet9Hparams,
     "resnet101": ResNet101Hparams,
     "resnet50": ResNet50Hparams,
@@ -196,7 +198,7 @@ class TrainerHparams(hp.Hparams):
                                            default=False)
 
     compute_training_metrics: bool = hp.optional(doc="Log validation metrics on training data", default=False)
-    log_level: str = hp.optional(doc="Python loglevel to use composer", default="WARNING")
+    log_level: str = hp.optional(doc="Python loglevel to use composer", default="INFO")
     datadir: Optional[str] = hp.optional(doc=textwrap.dedent("""
         Datadir to apply for both the training and validation datasets. If specified,
         it will override train_dataset.datadir and val_dataset.datadir"""),

@@ -303,7 +303,7 @@ class CIFAR_ResNet(nn.Module):
     @staticmethod
     def is_valid_model_name(model_name):
         return (model_name.startswith('cifar_resnet_') and 4 >= len(model_name.split('_')) >= 3 and
-                model_name.split('_')[2].isdigit() and int(model_name.split('_')[2]) in [56])
+                model_name.split('_')[2].isdigit() and int(model_name.split('_')[2]) in [20,56])
 
     @staticmethod
     def get_model_from_name(model_name, initializers: List[Initializer], outputs=10):
@@ -327,6 +327,7 @@ class CIFAR_ResNet(nn.Module):
 
         model_arch = {
             56: [(width, num_blocks), (2 * width, num_blocks), (4 * width, num_blocks)],
+            20: [(width, num_blocks), (2 * width, num_blocks), (4 * width, num_blocks)],
         }
 
         return CIFAR_ResNet(model_arch[depth], initializers, outputs)

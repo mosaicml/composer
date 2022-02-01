@@ -40,7 +40,14 @@ def apply_blurpool(model: torch.nn.Module,
 
     Args:
         model: model to modify
-        optimizers: optimizers to modify,
+        optimizers (Optimizers, optional): Existing optimizers bound to ``model.parameters()``.
+            All optimizers that have already been constructed with,
+            ``model.parameters()`` must be specified here so they will optimize
+            the correct parameters.
+            
+            If the optimizer(s) are constructed *after* calling this function,
+            then it is safe to omit this parameter. These optimizers will see the correct
+            model parameters.
         replace_convs: replace strided :class:`torch.nn.Conv2d` modules with
             :class:`BlurConv2d` modules
         replace_maxpools: replace eligible :class:`torch.nn.MaxPool2d` modules

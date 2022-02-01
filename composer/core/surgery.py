@@ -1,6 +1,7 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
 import collections
+import itertools
 import logging
 import textwrap
 from typing import TYPE_CHECKING, Any, Dict, Iterable, List, Mapping, Optional, OrderedDict, Tuple, Type
@@ -121,7 +122,7 @@ def replace_module_classes(
         if isinstance(module, deepspeed.DeepSpeedEngine):
             raise TypeError(
                 textwrap.dedent("""Surgery is not supported after a module is wrapped with
-                `deepspeed.DeepSpeedEngine` Instead, please preform surgery on the underlying module`,
+                `deepspeed.DeepSpeedEngine` Instead, please perform surgery on the underlying module`,
                 and re-wrap it with `deepspeed.DeepSpeedEngine`"""))
     replaced_pairs = {}
     children_to_parents_and_names: OrderedDict[torch.nn.Module, List[Tuple[torch.nn.Module,
@@ -216,17 +217,15 @@ def _find_param_in_optimizer(param: torch.nn.parameter.Parameter, optimizer: tor
         optimizer (torch.optim.Optimizer): The optimizer to search within.
     
     Returns:
-        int: The index within `opt.param_groups` of the first group containing ``param``.
-
-    Raises:
-        RuntimeError: If the ``param`` is not in the ``opt`.
+        int: The index within `opt.param_groups` of the first group containing ``param``,
+        or `-1` if ``param`` is not in the ``opt`.
     """
     for i, group in enumerate(optimizer.param_groups):
         param_list: List[torch.nn.parameter.Parameter] = group['params']
         if _tensor_in(param, param_list):
             return i
 
-    raise RuntimeError(f"Couldn't find the parameter in the optimizer")
+    return -1
 
 
 def update_params_in_optimizer(old_params: Iterable[torch.nn.parameter.Parameter],
@@ -242,7 +241,7 @@ def update_params_in_optimizer(old_params: Iterable[torch.nn.parameter.Parameter
     to an existing `param_group` are not officially supported, so this
     function may fail when PyTorch is updated. The recommended practice is
     to instead recreate the optimizer when the parameter set changes if
-    possible. See https://github.com/pytorch/pytorch/issues/1489#issuecomment-355301737.
+    possible. See `recommended practice <https://github.com/pytorch/pytorch/issues/1489#issuecomment-355301737>`_.
     To simply add new parameters without replacing existing ones, use
     :meth:`~torch.optim.Optimizer.add_param_group`.
     Args:
@@ -253,8 +252,8 @@ def update_params_in_optimizer(old_params: Iterable[torch.nn.parameter.Parameter
         optimizers (Optimizers): One or more `torch.optim.Optimizer` objects
     Raises:
         NotImplementedError: If `optimizers` contains more than one optimizer
-        RuntimeError: If any removed parameters are not all found in one
-            parameter group, or if any of them are not found at all
+        RuntimeError: If not all removed parameters are found in the
+            same parameter group, or if any of them are not found at all
     """
     if len(ensure_tuple(optimizers)) > 1:
         raise NotImplementedError(
@@ -286,6 +285,10 @@ def update_params_in_optimizer(old_params: Iterable[torch.nn.parameter.Parameter
         if len(old_group_idxs) == 0:
             raise RuntimeError("No parameters were removed, so unable to infer the group into which to add parameters.")
 
+        missing_param_groups = [x for x in old_group_idxs if x < 0]
+        if len(missing_param_groups) > 0:
+            raise RuntimeError(f"Parameter groups {missing_param_groups} are not in the optimizer")
+
         if min(old_group_idxs) != max(old_group_idxs) and len(added_params):
             raise RuntimeError(
                 textwrap.dedent("""Not all removed parameters are in the same parameter group.
@@ -297,3 +300,47 @@ def update_params_in_optimizer(old_params: Iterable[torch.nn.parameter.Parameter
     new_param_list += list(added_params)
     log.info(f'adding {len(added_params)} new parameters to parameter group #{group_idx}')
     param_group['params'] = new_param_list
+
+
+def replace_params_in_optimizer(old_params: Iterable[torch.nn.parameter.Parameter],
+                                new_params: Iterable[torch.nn.parameter.Parameter], optimizers: Optimizers) -> None:
+    """Fully replaces an optimizer's parameters.
+    
+    This differs from `update_params_in_optimizer` in that this method is capable
+    of replacing parameters spanning multiple param groups. To accomplish this,
+    this function assumes that parameters in `new_params` should inherit the
+    param group of the corresponding parameter from `old_params`. Thus, this
+    function also assumes that `old_params` and `new_params` have the same length.
+    Args:
+        old_params: Current parameters of the optimizer.
+        new_params: New parameters of the optimizer, given in the same order as
+            `old_params`. Must be the same length as `old_params`.
+        optimizers (Optimizers): One or more `torch.optim.Optimizer` objects.
+    Raises:
+        NotImplementedError: If `optimizers` contains more than one optimizer
+        RuntimeError: If `old_params` and `new_params` have different lengths, or
+            if a param from `old_params` cannot be found.
+    """
+    if len(ensure_tuple(optimizers)) > 1:
+        raise NotImplementedError(
+            textwrap.dedent("""Surgery with multiple optimizers
+            is not yet supported."""))
+
+    opt = ensure_tuple(optimizers)[0]
+    opt.state.clear()
+
+    param_to_idxs_map = {}
+    for group_idx, param_group in enumerate(opt.param_groups):
+        param_list = param_group["params"]
+        for param_idx, param in enumerate(param_list):
+            param_to_idxs_map[param] = (group_idx, param_idx)
+
+    for old_param, new_param in itertools.zip_longest(old_params, new_params):
+        if old_params is None or new_params is None:
+            raise RuntimeError("old_params and new_params have different lengths.")
+
+        if not old_param in param_to_idxs_map:
+            raise RuntimeError(f"Parameter {old_param} is missing from the optimizer.")
+
+        group_idx, param_idx = param_to_idxs_map[old_param]
+        opt.param_groups[group_idx]["params"][param_idx] = new_param
