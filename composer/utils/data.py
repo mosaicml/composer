@@ -102,8 +102,8 @@ def add_dataset_transform(dataset: Dataset, transform, location="end"):
     Args:
         dataset: A torchvision-like dataset
         transform: Function to be added to the dataset's collection of transforms
-        location [str]: Where to insert the transform in the sequence of transforms. "end"
-        will append to the end, "before_totensor" will insert before ToTensor().
+        location (str): Where to insert the transform in the sequence of transforms. "end"
+        will append to the end, "before_totensor" will insert before ToTensor(). Default: "end".
 
     Returns:
         The original dataset. The transform is added in-place.
