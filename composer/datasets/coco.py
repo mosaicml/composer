@@ -65,7 +65,7 @@ class COCODatasetHparams(DatasetHparams):
         input_size = 300
         train_trans = SSDTransformer(dboxes, (input_size, input_size), val=False, num_cropping_iterations=1)
         val_trans = SSDTransformer(dboxes, (input_size, input_size), val=True)
-        data = "/mnt/cota/datasets/coco"
+        data = "/localdisk/coco"
 
         val_annotate = os.path.join(data, "annotations/instances_val2017.json")
         val_coco_root = os.path.join(data, "val2017")

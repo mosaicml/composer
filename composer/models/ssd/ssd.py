@@ -30,7 +30,7 @@ class SSD(BaseMosaicModel):
 
         self.hparams = hparams
         ln = COCODetection.labelnum
-        self.module = SSD300(80, model_path="/mnt/cota/laura/composer/composer/models/ssd/resnet34-333f7ec4.pth")
+        self.module = SSD300(80, model_path="/mnt/r1z1/resnet34-333f7ec4.pth")
         ##todo(laura): fix weights path
         dboxes = dboxes300_coco()
 
@@ -66,7 +66,7 @@ class SSD(BaseMosaicModel):
         dboxes = dboxes300_coco()
         input_size = 300
         val_trans = SSDTransformer(dboxes, (input_size, input_size), val=True)
-        data = "/mnt/cota/datasets/coco"
+        data = "/localdisk/coco"
 
         val_annotate = os.path.join(data, "annotations/instances_val2017.json")
         val_coco_root = os.path.join(data, "val2017")
@@ -119,7 +119,7 @@ class my_map(Metric):
     def __init__(self):
         super().__init__(dist_sync_on_step=True)
         self.add_state("n_updates", default=torch.zeros(1), dist_reduce_fx="sum")
-        data = "/mnt/cota/datasets/coco"
+        data = "/localdisk/coco"
         self.val_annotate = os.path.join(data, "annotations/instances_val2017.json")
         self.cocogt = COCO(annotation_file=self.val_annotate)
         self.predictions = []

@@ -8,16 +8,26 @@ train_dataset:
 val_dataset:
   coco:
     is_train: false
-    datadir: /datasets/01_2d
+    datadir: /datasets/coco
     download: false
     shuffle: false
-    drop_last: false
+    drop_last: true
 optimizer:
   sgd:
     lr: 2.5e-3
     weight_decay: 5e-4
+    momentum: 0.9
 schedulers:
-  - constant:
+  - multistep:
+      milestones:
+        - "40ep"
+        - "50ep"
+      interval: epoch
+  - warmup:
+      warmup_iters: "300"
+      warmup_method: linear
+      warmup_factor: 2.619685
+      verbose: false
       interval: step
 model:
   ssd:
@@ -26,18 +36,14 @@ model:
       - bn_ones
 loggers:
   - tqdm: {}
-total_batch_size: 32
-eval_batch_size: 32
+train_batch_size: 128
+eval_batch_size: 128
 seed: 0
-threshold: 0.23
-validate_every_n_epochs: 5
+validate_every_n_epochs: 1
 grad_accum: 1
-warmup_factor: 0
-nms_valid_thresh: 0.05
-num_cropping_iterations: 1
 device:
-  gpu:
-    n_gpus: 8
+  gpu: {}
+max_duration: 70ep
 dataloader:
   pin_memory: true
   timeout: 0
@@ -45,3 +51,4 @@ dataloader:
   persistent_workers: true
   num_workers: 8
 precision: amp
+
