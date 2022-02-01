@@ -9,7 +9,6 @@ from typing import Optional
 import yahp as hp
 
 from composer.algorithms.algorithm_hparams import AlgorithmHparams
-from composer.algorithms.swa import SWA
 
 log = logging.getLogger(__name__)
 
@@ -33,4 +32,5 @@ class SWAHparams(AlgorithmHparams):
     )
 
     def initialize_object(self):
+        from composer.algorithms.swa import SWA
         return SWA(**asdict(self))
