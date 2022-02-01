@@ -36,7 +36,10 @@ class EvaluatorHparams(hp.Hparams):
         doc=textwrap.dedent("""Name of the metrics for the evaluator. Can be a torchmetrics metric name or the
         class name of a metric returned by model.metrics(). If None (the default), uses all metrics in the model"""),
         default=None)
-    eval_subset_num_batches: Optional[int] = hp.optional("If specified, evaluate on this many batches.", default=None)
+    eval_batch_size: Optional[int] = hp.optional(
+        doc="batch size to use for each evaluation step",
+        default=None,
+    )
 
     def initialize_object(self, model: BaseMosaicModel, batch_size: int, dataloader_hparams: DataloaderHparams):
         """Initialize an :class:`Evaluator`
@@ -52,7 +55,9 @@ class EvaluatorHparams(hp.Hparams):
         Returns:
             Evaluator: The evaluator
         """
-        dataloader = self.eval_dataset.initialize_object(batch_size=batch_size, dataloader_hparams=dataloader_hparams)
+        evaluator_batch_size = self.eval_batch_size if self.eval_batch_size is not None else batch_size
+        dataloader = self.eval_dataset.initialize_object(batch_size=evaluator_batch_size,
+                                                         dataloader_hparams=dataloader_hparams)
 
         # Get and copy all the model's associated evaluation metrics
         model_metrics = model.metrics(train=False)

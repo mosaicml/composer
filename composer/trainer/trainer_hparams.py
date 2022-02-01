@@ -231,7 +231,7 @@ class TrainerHparams(hp.Hparams):
         # There should be at least one structure for validation - evaluators or ordinary validation dataset
         if self.evaluators is None or len(self.evaluators) == 0:
             if self.val_dataset is None:
-                raise ValueError("val_dataset and evaluators can't both be empty")
+                raise ValueError("val_dataset and evaluators shouldn't both be empty")
         elif self.val_dataset is not None:
             raise ValueError(
                 "val_dataset and evaluators shouldn't both be specified. Only one can be passed in to the trainer.")
