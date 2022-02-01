@@ -38,7 +38,7 @@ class MosaicResNet(MosaicClassifier):
         initializers: Optional[List[Initializer]] = None,
     ) -> None:
 
-        if model_name not in resnet.__all__:
+        if model_name not in self.valid_model_names:
             raise ValueError(f"model_name must be one of {self.valid_model_names} instead of {model_name}.")
 
         if initializers is None:

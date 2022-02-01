@@ -83,8 +83,8 @@ class CIFAR_ResNet(nn.Module):
 
     @staticmethod
     def is_valid_model_name(model_name: str):
-        return (model_name.startswith('cifar_resnet_') and 4 >= len(model_name.split('_')) >= 3 and
-                model_name.split('_')[2].isdigit() and int(model_name.split('_')[2]) in [20, 56])
+        valid_model_names = [f"cifar_resnet_{layers}" for layers in (20, 56)]
+        return (model_name in valid_model_names)
 
     @staticmethod
     def get_model_from_name(model_name: str, initializers: List[Initializer], outputs: int = 10):
