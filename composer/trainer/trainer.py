@@ -189,8 +189,6 @@ class Trainer:
 
         self.config = config
 
-        if deepspeed_config is not None:
-            deepspeed_config = parse_deepspeed_config(deepspeed_config)
         self.deepspeed_config = deepspeed_config
 
         if not device:
@@ -354,6 +352,9 @@ class Trainer:
         # place the state, model in the proper devices, and initialize from a checkpoint if provided
         if self.deepspeed_enabled:
             import deepspeed
+            self.deepspeed_config = parse_deepspeed_config(deepspeed_config,
+                                                           state=self.state,
+                                                           grad_clip_norm=self.grad_clip_norm)
             optimizer = ensure_tuple(self.state.optimizers)[0]
             (self.state.model, self.state.optimizers, _, _) = deepspeed.initialize(
                 config=self.deepspeed_config,
@@ -539,7 +540,7 @@ class Trainer:
             eval_subset_num_batches=hparams.eval_subset_num_batches,
 
             # DeepSpeed
-            deepspeed_hparams=hparams.deepspeed,
+            deepspeed_config=hparams.deepspeed,
 
             # Optional config
             config=hparams.to_dict())

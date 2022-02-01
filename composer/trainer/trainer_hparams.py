@@ -8,7 +8,7 @@ from __future__ import annotations
 import os
 import textwrap
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, List, Optional
+from typing import TYPE_CHECKING, Dict, List, Optional
 
 import yahp as hp
 
@@ -17,7 +17,7 @@ from composer import datasets
 from composer.algorithms import AlgorithmHparams, get_algorithm_registry
 from composer.callbacks import (BenchmarkerHparams, CallbackHparams, GradMonitorHparams, LRMonitorHparams,
                                 MemoryMonitorHparams, RunDirectoryUploaderHparams, SpeedMonitorHparams)
-from composer.core.types import Precision
+from composer.core.types import JSON, Precision
 from composer.datasets import DataloaderHparams
 from composer.loggers import (BaseLoggerBackendHparams, FileLoggerBackendHparams, MosaicMLLoggerBackendHparams,
                               TQDMLoggerBackendHparams, WandBLoggerBackendHparams)
@@ -30,7 +30,6 @@ from composer.optim import (AdamHparams, AdamWHparams, DecoupledAdamWHparams, De
 from composer.profiler import ProfilerHparams
 from composer.trainer.checkpoint_hparams import CheckpointLoaderHparams, CheckpointSaverHparams
 from composer.trainer.ddp import DDPSyncStrategy
-from composer.trainer.deepspeed import DeepSpeedHparams
 from composer.trainer.devices import CPUDeviceHparams, DeviceHparams, GPUDeviceHparams
 from composer.utils import dist
 
@@ -167,7 +166,7 @@ class TrainerHparams(hp.Hparams):
         "trainer to auto-select a value depending on what algorithms are used.",
         default=None)
 
-    deepspeed: Optional[DeepSpeedHparams] = hp.optional(doc="Configuration for DeepSpeed.", default=None)
+    deepspeed: Optional[Dict[str, JSON]] = hp.optional(doc="Configuration for DeepSpeed.", default=None)
 
     grad_clip_norm: Optional[float] = hp.optional(
         default=None, doc='the norm to clip gradient magnitudes to. Default: None (no clip)')
@@ -211,14 +210,14 @@ class TrainerHparams(hp.Hparams):
 
         if self.deepspeed is not None:
 
-            if self.precision == Precision.FP16:
-                raise ValueError("FP16 precision is only supported when training with DeepSpeed.")
-
             if isinstance(self.device, CPUDeviceHparams):
                 raise ValueError("Training on CPUs is not supported with DeepSpeed.")
 
             if self.deterministic_mode and self.deepspeed.zero_stage > 0:
                 raise ValueError("Deepspeed with zero stage > 0 is not compatible with deterministic mode")
+
+        elif self.precision == Precision.FP16:
+            raise ValueError("FP16 precision is only supported when training with DeepSpeed.")
 
         world_size = dist.get_world_size()
 
