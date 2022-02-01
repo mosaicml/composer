@@ -15,6 +15,7 @@ from composer.algorithms import AlgorithmHparams
 from composer.algorithms.stochastic_depth.sample_stochastic_layers import SampleStochasticBottleneck
 from composer.algorithms.stochastic_depth.stochastic_layers import StochasticBottleneck
 from composer.core import Algorithm, Event, Logger, State, surgery
+from composer.core.types import Optimizers
 
 log = logging.getLogger(__name__)
 
@@ -92,6 +93,7 @@ class StochasticDepthHparams(AlgorithmHparams):
 def apply_stochastic_depth(model: torch.nn.Module,
                            stochastic_method: str,
                            target_layer_name: str,
+                           optimizers: Optional[Optimizers] = None,
                            drop_rate: float = 0.2,
                            drop_distribution: str = 'linear',
                            use_same_gpu_seed: bool = True) -> None:
@@ -113,6 +115,14 @@ def apply_stochastic_depth(model: torch.nn.Module,
             equivalent. The name must be registered in ``STOCHASTIC_LAYER_MAPPING``
             dictionary with the target layer class and the stochastic layer class.
             Currently, only ``'ResNetBottleneck'`` is supported.
+        optimizers (Optimizers, optional):  Existing optimizers bound to ``model.parameters()``.
+            All optimizers that have already been constructed with,
+            ``model.parameters()`` must be specified here so they will optimize
+            the correct parameters.
+
+            If the optimizer(s) are constructed *after* calling this function,
+            then it is safe to omit this parameter. These optimizers will see the correct
+            model parameters.
         drop_rate: The base probability of dropping a layer or sample. Must be
             between 0.0 and 1.0.
         drop_distribution: How ``drop_rate`` is distributed across
@@ -145,7 +155,7 @@ def apply_stochastic_depth(model: torch.nn.Module,
         raise ValueError(f"stochastic_method {stochastic_method} is not supported."
                          f" Must be one of {list(STOCHASTIC_LAYER_MAPPING.keys())}")
     transforms[target_layer] = stochastic_from_target_layer
-    surgery.replace_module_classes(model, policies=transforms)
+    surgery.replace_module_classes(model, optimizers=optimizers, policies=transforms)
 
 
 def _update_drop_rate(module: torch.nn.Module, stochastic_block: Type[torch.nn.Module], drop_rate: float,
@@ -258,6 +268,7 @@ class StochasticDepth(Algorithm):
                 log.warning(f'No {self.hparams.target_layer_name} found in model! Algorithm will function as a no-op.')
 
             apply_stochastic_depth(state.model,
+                                   optimizers=state.optimizers,
                                    stochastic_method=self.hparams.stochastic_method,
                                    target_layer_name=self.hparams.target_layer_name,
                                    drop_rate=self.hparams.drop_rate,
