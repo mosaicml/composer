@@ -77,7 +77,8 @@ class WandBLoggerBackend(BaseLoggerBackend):
 
     def batch_end(self, state: State, logger: Logger) -> None:
         del logger  # unused
-        if self._enabled and self._log_artifacts and (state.step + 1) % self._log_artifacts_every_n_batches == 0:
+        if self._enabled and self._log_artifacts and int(
+                state.timer.batch_in_epoch) % self._log_artifacts_every_n_batches == 0:
             self._upload_artifacts()
 
     def epoch_end(self, state: State, logger: Logger) -> None:

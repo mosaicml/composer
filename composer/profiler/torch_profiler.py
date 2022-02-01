@@ -90,9 +90,7 @@ class TorchProfiler(Callback):
         # Wrapping the default scheduling function to deal with epoch boundaries
         # Giving the torch scheduler the batch in the epoch, not the global step
 
-        # adding 1 since this is called before the step is incremented
-
-        next_batch_in_epoch = int(state.timer.batch_in_epoch) + 1
+        next_batch_in_epoch = int(state.timer.batch_in_epoch)
         if profiler_step == 0:
             next_batch_in_epoch = 0
         assert state.profiler is not None, "mosaic profiler should be defined"
