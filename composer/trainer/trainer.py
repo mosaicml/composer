@@ -285,7 +285,7 @@ class Trainer:
                             textwrap.dedent(
                                 f"""SubsetNumBatchesWarning: The eval_subset_num_batches({eval_subset_num_batches})
                                 is greater than the number of batches in the evaluator ({evaluator.label}) dataloader
-                                ({len(eval_dataloader.dataloader)})"""))
+                                ({len(evaluator.dataloader.dataloader)})"""))
         self._eval_subset_num_batches = eval_subset_num_batches
 
         if not optimizers:
