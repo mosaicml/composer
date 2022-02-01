@@ -1,7 +1,6 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
 import collections.abc
-import logging
 import textwrap
 from typing import List, Tuple, Union
 
