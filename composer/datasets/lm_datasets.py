@@ -80,7 +80,7 @@ class LMDatasetHparams(DatasetHparams):
             import transformers
         except ImportError as e:
             raise ImportError('huggingface transformers and datasets are not installed. '
-                              'Please install with `pip install mosaicml[nlp]`') from e
+                              'Please install with `pip install \'mosaicml[nlp]\'`') from e
 
         self.validate()
         self.tokenizer = transformers.AutoTokenizer.from_pretrained(self.tokenizer_name)  #type: ignore (thirdparty)
