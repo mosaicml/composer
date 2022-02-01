@@ -8,7 +8,6 @@ from typing import Deque, Optional
 
 import torch
 
-from composer.callbacks.callback_hparams import SpeedMonitorHparams
 from composer.core import Logger, State
 from composer.core.callback import Callback
 from composer.core.types import StateDict

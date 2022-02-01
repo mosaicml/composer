@@ -51,7 +51,7 @@ def test_blurconv(state: State, blurpool_instance: BlurPool, dummy_logger: Logge
     blurpool_instance.apply(Event.INIT, state, dummy_logger)
     assert isinstance(state.model.module, SimpleConvModel)
 
-    if blurpool_instance.hparams.replace_convs:
+    if blurpool_instance.replace_convs:
         assert type(state.model.module.conv1) is BlurConv2d
     else:
         assert type(state.model.module.conv1) is torch.nn.Conv2d
@@ -90,7 +90,7 @@ def test_blurpool(state: State, blurpool_instance: BlurPool, dummy_logger: Logge
     blurpool_instance.apply(Event.INIT, state, dummy_logger)
     assert isinstance(state.model.module, SimpleConvModel)
 
-    if blurpool_instance.hparams.replace_maxpools:
+    if blurpool_instance.replace_maxpools:
         assert type(state.model.module.pool1) is BlurMaxPool2d
     else:
         assert type(state.model.module.pool1) is torch.nn.MaxPool2d
@@ -108,8 +108,8 @@ def test_blurpool_algorithm_logging(state: State, blurpool_instance: BlurPool, d
     blurpool_instance.apply(Event.INIT, state, dummy_logger)
 
     dummy_logger.metric_fit.assert_called_once_with({
-        'blurpool/num_blurpool_layers': 1 if blurpool_instance.hparams.replace_maxpools else 0,
-        'blurpool/num_blurconv_layers': 1 if blurpool_instance.hparams.replace_convs else 0,
+        'blurpool/num_blurpool_layers': 1 if blurpool_instance.replace_maxpools else 0,
+        'blurpool/num_blurconv_layers': 1 if blurpool_instance.replace_convs else 0,
     })
 
 

@@ -21,7 +21,6 @@ import yaml
 
 from composer.core import Event, State
 from composer.core.types import StateDict
-from composer.trainer.checkpoint_hparams import CheckpointLoaderHparams
 from composer.trainer.deepspeed import is_module_deepspeed
 from composer.trainer.devices.device import Device
 from composer.utils import ObjectStoreProviderHparams, dist, iterate_with_pbar, reproducibility, run_directory

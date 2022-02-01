@@ -8,15 +8,13 @@ from typing import Optional
 import torch
 from torch.optim.swa_utils import SWALR, AveragedModel
 
-from composer.core.types import Algorithm, Event, Logger, State
+from composer.core.types import Algorithm, DataLoader, Event, Logger, State
 
 log = logging.getLogger(__name__)
 
-import torch
-
 
 @torch.no_grad()
-def update_bn(loader, model, device=None):
+def update_bn(loader: DataLoader, model: torch.nn.Module):
     """
     Updates BatchNorm running_mean, running_var buffers in the model.
     It performs one pass over data in `loader` to estimate the activation
@@ -27,7 +25,9 @@ def update_bn(loader, model, device=None):
     momenta = {}
     for module in model.modules():
         if isinstance(module, torch.nn.modules.batchnorm._BatchNorm):
+            assert module.running_mean is not None
             module.running_mean = torch.zeros_like(module.running_mean)
+            assert module.running_var is not None
             module.running_var = torch.ones_like(module.running_var)
             momenta[module] = module.momentum
 
@@ -40,7 +40,7 @@ def update_bn(loader, model, device=None):
         module.momentum = None
         module.num_batches_tracked *= 0
 
-    for i, data in enumerate(loader):
+    for _, data in enumerate(loader):
         model(data)
 
     for bn_module in momenta.keys():
@@ -72,6 +72,7 @@ class SWA(Algorithm):
         self.swa_start = swa_start
         self.anneal_epochs = anneal_epochs
         self.swa_lr = swa_lr
+        self.swa_model: Optional[torch.nn.Module] = None
 
         assert 0 < swa_start < 1, "swa_start must be between 0 and 1."
         assert anneal_epochs > 0, "anneal_epochs must be great than 0."
@@ -111,12 +112,12 @@ class SWA(Algorithm):
             "may have adjusted the max_epochs."
 
             if self.swa_lr is None:
-                last_lr = state.schedulers.schedulers[0].get_last_lr()  # assumes ComposedScheduler
+                last_lr = state.schedulers[0].get_last_lr()  # assumes ComposedScheduler
                 log.info(f'Setting SWA LR to {last_lr}')
                 self.swa_lr = last_lr
 
             self.swa_scheduler = SWALR(
-                state.optimizers[0] if isinstance(state.optimizers, tuple) else state.optimizers,
+                state.optimizers[0],
                 swa_lr=self.swa_lr,
                 anneal_epochs=self.anneal_epochs,
                 anneal_strategy='cos',
