@@ -52,9 +52,9 @@ def test_layer_replacement(state_with_model: State, simple_conv_model_input: Ten
     )
 
     # verify that layer replacements have happened
-    if algo_instance.hparams.factorize_convs:
+    if algo_instance.factorize_convs:
         assert original_conv_count == surgery.count_module_instances(state_with_model.model, FactorizedConv2d)
-    if algo_instance.hparams.factorize_linears:
+    if algo_instance.factorize_linears:
         assert original_linear_count == surgery.count_module_instances(state_with_model.model, FactorizedLinear)
 
 
@@ -76,8 +76,8 @@ def test_algorithm_logging(state_with_model: State, logger_mock: Logger, algo_in
     linear_count = surgery.count_module_instances(state_with_model.model, torch.nn.Linear)
     algo_instance.apply(Event.INIT, state_with_model, logger=logger_mock)
 
-    factorize_convs = algo_instance.hparams.factorize_convs
-    factorize_linears = algo_instance.hparams.factorize_linears
+    factorize_convs = algo_instance.factorize_convs
+    factorize_linears = algo_instance.factorize_linears
     mock_obj = logger_mock.metric_fit
 
     if factorize_convs:
