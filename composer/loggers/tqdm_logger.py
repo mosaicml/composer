@@ -7,8 +7,8 @@ import sys
 from dataclasses import asdict, dataclass
 from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
-import tqdm
 import yaml
+from tqdm import auto
 
 from composer.core.logging import LogLevel, TLogData, TLogDataValue, format_log_data_value
 from composer.core.logging.base_backend import BaseLoggerBackend
@@ -36,7 +36,7 @@ class _TQDMLoggerInstance:
 
     def __init__(self, state: _TQDMLoggerInstanceState) -> None:
         self.state = state
-        self.pbar = tqdm.tqdm(total=state.total,
+        self.pbar = auto.tqdm(total=state.total,
                               desc=state.description,
                               position=state.position,
                               bar_format="{l_bar}{bar:10}{r_bar}{bar:-10b}")
@@ -66,12 +66,12 @@ class TQDMLoggerBackend(BaseLoggerBackend):
 
     Example output::
 
-        Epoch 1: 100%|██████████| 64/64 [00:01<00:00, 53.17it/s, loss/train=2.3023]                                                                                 
-        Epoch 1 (val): 100%|██████████| 20/20 [00:00<00:00, 100.96it/s, accuracy/val=0.0995]  
+        Epoch 1: 100%|██████████| 64/64 [00:01<00:00, 53.17it/s, loss/train=2.3023]
+        Epoch 1 (val): 100%|██████████| 20/20 [00:00<00:00, 100.96it/s, accuracy/val=0.0995]
 
     .. note::
 
-        It is currently not possible to show additional metrics. 
+        It is currently not possible to show additional metrics.
         Custom metrics for the TQDM progress bar will be supported in a future version.
 
     Args:

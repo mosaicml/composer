@@ -5,16 +5,14 @@ from unittest.mock import patch
 import pytest
 import torch
 import torch.distributed
-from torch.optim import Adam
 
 from composer.callbacks.lr_monitor import LRMonitor
 from composer.core.logging.logger import Logger
 from composer.core.precision import Precision
-from composer.core.types import DataLoader
+from composer.core.types import DataLoader, Optimizer, Scheduler
 from composer.loggers.tqdm_logger import TQDMLoggerBackend
 from composer.models.base import BaseMosaicModel
-from composer.optim.optimizer_hparams import AdamHparams
-from composer.optim.scheduler import ComposedScheduler, ExponentialLRHparams
+from composer.optim.scheduler import ComposedScheduler
 from composer.trainer import Trainer, TrainerHparams
 from composer.trainer.devices.device_hparams import CPUDeviceHparams, DeviceHparams, GPUDeviceHparams
 from tests.utils.trainer_fit import get_total_loss, train_model
@@ -31,20 +29,21 @@ def test_trainer_init_all_defaults(dummy_train_dataloader: DataLoader, dummy_val
 
 
 def test_trainer_init_additional_args(dummy_train_dataloader: DataLoader, dummy_val_dataloader: DataLoader,
+                                      dummy_optimizer: Optimizer, dummy_scheduler: Scheduler,
                                       dummy_model: BaseMosaicModel):
     trainer = Trainer(
         model=dummy_model,
         train_dataloader=dummy_train_dataloader,
         eval_dataloader=dummy_val_dataloader,
         max_duration="10ep",
-        optimizer_hparams=AdamHparams(),
-        schedulers_hparams=[ExponentialLRHparams(gamma=0.1)],
+        optimizers=dummy_optimizer,
+        schedulers=dummy_scheduler,
         log_destinations=[TQDMLoggerBackend()],
         callbacks=(LRMonitor(),),
     )
 
     assert isinstance(trainer, Trainer)
-    assert isinstance(trainer.state.optimizers[0], Adam)
+    assert trainer.state.optimizers[0] == dummy_optimizer
 
     assert isinstance(trainer.state.schedulers[0], ComposedScheduler)
 
