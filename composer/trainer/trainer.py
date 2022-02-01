@@ -61,8 +61,8 @@ class Trainer:
         model (BaseMosaicModel): The model to train.
         train_dataloader (DataLoader, DataSpec, or dict): The :class:`DataLoader`, :class:`DataSpec`,
             or dict of :class:`DataSpec` kwargs for the training data.
-        eval_dataloader (DataLoader, DataSpec, Evaluators, or dict): The :class:`DataLoader`, :class:`DataSpec`,
-            :class:`Evaluators` or dict of :class:`DataSpec` kwargs for the evaluation data. The :class:`Evaluator` 
+        eval_dataloader (DataLoader, DataSpec, Evaluators): The :class:`DataLoader`, :class:`DataSpec`,
+            :class:`Evaluators` for the evaluation data. The :class:`Evaluator` 
             class contains metrics relevant to the specific dataset. Set to ``None`` for no evaluation.
         max_duration (Time or str): The maximum duration to train. See `~composer.core.Time` for details.
         algorithms (List[Algorithm], optional): The algorithms to use during training.
@@ -129,7 +129,7 @@ class Trainer:
             *,
             model: BaseMosaicModel,
             train_dataloader: Union[DataLoader, DataSpec],
-            eval_dataloader: Optional[Union[DataLoader, DataSpec, Evaluators, dict]],
+            eval_dataloader: Optional[Union[DataLoader, DataSpec, Evaluators]],
             max_duration: Union[str, Time],
             algorithms: Optional[List[Algorithm]] = None,
             optimizers: Optional[Optimizers] = None,
@@ -244,8 +244,6 @@ class Trainer:
         # `eval_dataloader` could be a dataloader, dataspec, evaluator, List[Evaluator], Tuple[Evaluator, ...], or dict of Dataspec hparams
         # convert it to `List[Evaluator]`
         self.evaluators: List[Evaluator] = []
-        if isinstance(eval_dataloader, dict):
-            eval_dataloader = DataSpec(**eval_dataloader)
         for evaluator in ensure_tuple(eval_dataloader):
             if isinstance(evaluator, Evaluator):
                 self.evaluators.append(evaluator)
