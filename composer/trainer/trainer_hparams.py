@@ -23,10 +23,10 @@ from composer.datasets.dataset_registry import get_dataset_registry
 from composer.datasets.evaluator import EvaluatorHparams
 from composer.loggers import (BaseLoggerBackendHparams, FileLoggerBackendHparams, MosaicMLLoggerBackendHparams,
                               TQDMLoggerBackendHparams, WandBLoggerBackendHparams)
-from composer.models import (BERTForClassificationHparams, BERTHparams, CIFARResNet9Hparams, CIFARResNetHparams,
-                             DeepLabV3Hparams, EfficientNetB0Hparams, GPT2Hparams, MnistClassifierHparams, ModelHparams,
-                             ResNet18Hparams, ResNet50Hparams, ResNet101Hparams, UnetHparams)
-from composer.models.resnet20_cifar10.resnet20_cifar10_hparams import CIFARResNet20Hparams
+from composer.models import (BERTForClassificationHparams, BERTHparams, CIFARResNet9Hparams, CIFARResNet20Hparams,
+                             CIFARResNetHparams, DeepLabV3Hparams, EfficientNetB0Hparams, GPT2Hparams,
+                             MnistClassifierHparams, ModelHparams, ResNet18Hparams, ResNet50Hparams, ResNet101Hparams,
+                             TimmHparams, UnetHparams)
 from composer.optim import (AdamHparams, AdamWHparams, DecoupledAdamWHparams, DecoupledSGDWHparams, OptimizerHparams,
                             RAdamHparams, RMSPropHparams, SchedulerHparams, SGDHparams, scheduler)
 from composer.profiler import ProfilerHparams
@@ -75,6 +75,7 @@ model_registry = {
     "gpt2": GPT2Hparams,
     "bert": BERTHparams,
     "bert_classification": BERTForClassificationHparams,
+    "timm": TimmHparams
 }
 
 dataset_registry = get_dataset_registry()
