@@ -113,7 +113,9 @@ def add_dataset_transform(dataset: Dataset, transform, location="end"):
         raise ValueError(
             textwrap.dedent(f"""Dataset of type {type(dataset)} is not a {datasets.VisionDataset.__name__}.
             A {datasets.VisionDataset.__name__} is required to insert additional transformations."""))
-    assert location in ["end", "before_totensor"]
+
+    if location not in ["end", "before_totensor"]:
+        raise ValueError(f"location ({location}) must be one of (end, before_totensor).")
 
     if dataset.transform is None:
         dataset.transform = transform
