@@ -59,7 +59,7 @@ SKIP_SERIALIZATION_FIELDS = [
     "batch_num_tokens",
     "outputs",
     "train_dataloader",
-    "eval_dataloader",
+    "evaluators",
     "_steps_per_epoch",
     "_precision_context",
     "profiler",
@@ -79,8 +79,8 @@ class State(Serializable):
         grad_accum (int): The number of gradient accumulation steps to use. The size of each microbatch is ``train_batch_size / num_gpus / grad_accum``.
         train_dataloader (types.DataLoader, types.DataSpec, or dict):
             The :class:`types.DataLoader`, :class:`types.DataSpec`, or dict of :class:`types.DataSpec` kwargs to used for training.
-        eval_dataloader (types.DataLoader, types.DataSpec, or dict):
-            The :class:`types.DataLoader`, :class:`types.DataSpec`, or dict of :class:`types.DataSpec` kwargs to used for evaluation.
+        evaluators (Evaluators):
+            The :class:`types.Evaluators` contain the evaluation datasets used for evaluation with specific metrics.
         max_duration (str or Time): The maximum duration to train for.
 
         precision (str | Precision): The numerical precision to use for training. Should be one of ``[fp32, amp]``.
@@ -122,7 +122,7 @@ class State(Serializable):
             # data configurations
             grad_accum: int,
             train_dataloader: types.DataLoader,
-            eval_dataloader: types.DataLoader,
+            evaluators: types.Evaluators,
 
             # stopping conditions
             max_duration: Union[str, Time[int]],
@@ -148,7 +148,7 @@ class State(Serializable):
         self.model = model
         self.grad_accum = grad_accum
         self.train_dataloader = train_dataloader
-        self.eval_dataloader = eval_dataloader
+        self.evaluators = list(ensure_tuple(evaluators))
         self.max_duration = max_duration
         self.steps_per_epoch = steps_per_epoch
 

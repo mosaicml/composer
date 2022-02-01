@@ -16,6 +16,7 @@ from torchmetrics.metric import Metric
 
 from composer.core.algorithm import Algorithm as Algorithm
 from composer.core.data_spec import DataSpec as DataSpec
+from composer.core.evaluator import Evaluator as Evaluator
 from composer.core.event import Event as Event
 from composer.core.logging import Logger as Logger
 from composer.core.precision import Precision as Precision
@@ -141,8 +142,8 @@ class DataLoader(Protocol):
         ...
 
 
+Evaluators = Union[Evaluator, List[Evaluator], Tuple[Evaluator, ...]]
 Metrics = Union[Metric, MetricCollection]
-
 Optimizer = torch.optim.Optimizer
 Optimizers = Union[Optimizer, Tuple[Optimizer, ...], List[Optimizer]]
 Scheduler = torch.optim.lr_scheduler._LRScheduler
