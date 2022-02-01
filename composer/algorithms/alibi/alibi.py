@@ -189,8 +189,7 @@ class Alibi(Algorithm):
 
         if event == Event.INIT:
 
-            if "heads_per_layer" not in asdict(self.hparams).keys() or \
-            not self.hparams.heads_per_layer:
+            if not self.hparams.heads_per_layer:
                 try:
                     self.hparams.heads_per_layer = state.model.config.n_head  # type: ignore
                 except AttributeError:

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import functools
 import logging
+import textwrap
 from dataclasses import asdict, dataclass
 from typing import Optional, Type
 
@@ -15,6 +16,7 @@ from composer.algorithms.stochastic_depth.sample_stochastic_layers import Sample
 from composer.algorithms.stochastic_depth.stochastic_layers import StochasticBottleneck
 from composer.core import Algorithm, Event, Logger, State, surgery
 from composer.core.types import Optimizers
+from composer.models.base import BaseMosaicModel
 from composer.models.resnets import Bottleneck
 
 log = logging.getLogger(__name__)
@@ -233,6 +235,8 @@ class StochasticDepth(Algorithm):
                                               drop_warmup=drop_warmup,
                                               use_same_gpu_seed=use_same_gpu_seed)
 
+        self._applied = False
+
     @property
     def find_unused_parameters(self) -> bool:
         """DDP parameter to notify that parameters may not have gradients if it is dropped during the forward pass."""
@@ -249,7 +253,8 @@ class StochasticDepth(Algorithm):
             bool: True if this algorithm should run now.        
         """
 
-        return (event == Event.INIT) or (event == Event.BATCH_START and self.hparams.drop_warmup > 0.0)
+        return (event == Event.INIT and not self._applied) or (event == Event.BATCH_START and
+                                                               self.hparams.drop_warmup > 0.0)
 
     def apply(self, event: Event, state: State, logger: Logger) -> Optional[int]:
         """Applies StochasticDepth modification to the state's model 
@@ -259,11 +264,20 @@ class StochasticDepth(Algorithm):
             state (State): the current trainer state
             logger (Logger): the training logger
         """
-        assert state.model is not None
         target_layer, stochastic_layer = STOCHASTIC_LAYER_MAPPING[self.hparams.stochastic_method][
             self.hparams.target_layer_name]
 
         if event == Event.INIT:
+            if not isinstance(state.model, BaseMosaicModel):
+                # We do NOT want to apply this algorithm after deepspeed or DDP wrapping
+                # the module.
+                # Hence, we raise an error if the model is already wrapped (i.e. it is no longer a BaseMosaicModel)
+                # when the algorithm is not yet applied
+                raise RuntimeError(
+                    textwrap.dedent(f"""\
+                    Unable to apply {type(self).__name__} on model of type {type(state.model)};
+                    expected state.model to be {BaseMosaicModel.__name__}"""))
+            self._applied = True
             if surgery.count_module_instances(state.model, target_layer) == 0:
                 log.warning(f'No {self.hparams.target_layer_name} found in model! Algorithm will function as a no-op.')
 

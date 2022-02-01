@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import textwrap
 from dataclasses import asdict, dataclass
 from typing import Optional
 
@@ -12,6 +13,7 @@ import yahp as hp
 from composer.algorithms.algorithm_hparams import AlgorithmHparams
 from composer.core import Algorithm, Event, Logger, State, surgery
 from composer.core.types import Optimizers
+from composer.models.base import BaseMosaicModel
 
 log = logging.getLogger(__name__)
 
@@ -128,6 +130,7 @@ class SqueezeExcite(Algorithm):
             latent_channels=latent_channels,
             min_channels=min_channels,
         )
+        self._applied = False
 
     def match(self, event: Event, state: State) -> bool:
         """Run on Event.INIT
@@ -138,7 +141,7 @@ class SqueezeExcite(Algorithm):
         Returns:
             bool: True if this algorithm should run no         
         """
-        return event == Event.INIT
+        return event == Event.INIT and not self._applied
 
     def apply(self, event: Event, state: State, logger: Logger) -> Optional[int]:
         """Apply the Squeeze-and-Excitation layer replacement.
@@ -148,6 +151,16 @@ class SqueezeExcite(Algorithm):
             state (State): the current trainer state
             logger (Logger): the training logger        
         """
+        if not isinstance(state.model, BaseMosaicModel):
+            # We do NOT want to apply this algorithm after deepspeed or DDP wrapping
+            # the module.
+            # Hence, we raise an error if the model is already wrapped (i.e. it is no longer a BaseMosaicModel)
+            # when the algorithm is not yet applied
+            raise RuntimeError(
+                textwrap.dedent(f"""\
+                Unable to apply {type(self).__name__} on model of type {type(state.model)};
+                expected state.model to be {BaseMosaicModel.__name__}"""))
+        self._applied = True
         state.model = apply_se(state.model,
                                optimizers=state.optimizers,
                                latent_channels=self.hparams.latent_channels,
