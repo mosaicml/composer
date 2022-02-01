@@ -187,11 +187,11 @@ class SelectiveBackprop(Algorithm):
     """
 
     def __init__(self, start: float, end: float, keep: float, scale_factor: float, interrupt: int):
-        self.hparams = SelectiveBackpropHparams(start=start,
-                                                end=end,
-                                                keep=keep,
-                                                scale_factor=scale_factor,
-                                                interrupt=interrupt)
+        self.start = start
+        self.end = end
+        self.keep = keep
+        self.scale_factor = scale_factor
+        self.interrupt = interrupt
 
     def match(self, event: Event, state: State) -> bool:
         """Match on ``Event.AFTER_DATALOADER`` if time is between ``self.start`` and
@@ -200,16 +200,16 @@ class SelectiveBackprop(Algorithm):
         if not is_event:
             return False
 
-        is_keep = (self.hparams.keep < 1)
+        is_keep = (self.keep < 1)
         if not is_keep:
             return False
 
         is_chosen = do_selective_backprop(
             current_duration=float(state.get_elapsed_duration()),
             batch_idx=state.timer.batch_in_epoch.value,
-            start=self.hparams.start,
-            end=self.hparams.end,
-            interrupt=self.hparams.interrupt,
+            start=self.start,
+            end=self.end,
+            interrupt=self.interrupt,
         )
         return is_chosen
 
@@ -233,6 +233,6 @@ class SelectiveBackprop(Algorithm):
                 target,
                 model,  # type: ignore - ditto because of loss
                 loss,
-                self.hparams.keep,
-                self.hparams.scale_factor)
+                self.keep,
+                self.scale_factor)
         state.batch = (new_input, new_target)

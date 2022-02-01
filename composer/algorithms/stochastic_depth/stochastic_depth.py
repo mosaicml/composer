@@ -226,18 +226,18 @@ class StochasticDepth(Algorithm):
         if stochastic_method == "sample" and not use_same_gpu_seed:
             log.warning('use_same_gpu_seed=false has no effect when using the "sample" method')
 
-        self.hparams = StochasticDepthHparams(stochastic_method=stochastic_method,
-                                              target_layer_name=target_layer_name,
-                                              drop_rate=drop_rate,
-                                              drop_distribution=drop_distribution,
-                                              drop_warmup=drop_warmup,
-                                              use_same_gpu_seed=use_same_gpu_seed)
+        self.stochastic_method = stochastic_method
+        self.target_layer_name = target_layer_name
+        self.drop_rate = drop_rate
+        self.drop_distribution = drop_distribution
+        self.drop_warmup = drop_warmup
+        self.use_same_gpu_seed = use_same_gpu_seed
 
     @property
     def find_unused_parameters(self) -> bool:
         """DDP parameter to notify that parameters may not have gradients if it is dropped during the forward pass."""
 
-        return (self.hparams.stochastic_method == "block")
+        return (self.stochastic_method == "block")
 
     def match(self, event: Event, state: State) -> bool:
         """Apply on Event.INIT and Event.BATCH_START if drop_warmup is > 0.0
@@ -249,7 +249,7 @@ class StochasticDepth(Algorithm):
             bool: True if this algorithm should run now.        
         """
 
-        return (event == Event.INIT) or (event == Event.BATCH_START and self.hparams.drop_warmup > 0.0)
+        return (event == Event.INIT) or (event == Event.BATCH_START and self.drop_warmup > 0.0)
 
     def apply(self, event: Event, state: State, logger: Logger) -> Optional[int]:
         """Applies StochasticDepth modification to the state's model 
@@ -260,28 +260,27 @@ class StochasticDepth(Algorithm):
             logger (Logger): the training logger
         """
         assert state.model is not None
-        target_layer, stochastic_layer = STOCHASTIC_LAYER_MAPPING[self.hparams.stochastic_method][
-            self.hparams.target_layer_name]
+        target_layer, stochastic_layer = STOCHASTIC_LAYER_MAPPING[self.stochastic_method][self.target_layer_name]
 
         if event == Event.INIT:
             if surgery.count_module_instances(state.model, target_layer) == 0:
-                log.warning(f'No {self.hparams.target_layer_name} found in model! Algorithm will function as a no-op.')
+                log.warning(f'No {self.target_layer_name} found in model! Algorithm will function as a no-op.')
 
             apply_stochastic_depth(state.model,
                                    optimizers=state.optimizers,
-                                   stochastic_method=self.hparams.stochastic_method,
-                                   target_layer_name=self.hparams.target_layer_name,
-                                   drop_rate=self.hparams.drop_rate,
-                                   drop_distribution=self.hparams.drop_distribution,
-                                   use_same_gpu_seed=self.hparams.use_same_gpu_seed)
+                                   stochastic_method=self.stochastic_method,
+                                   target_layer_name=self.target_layer_name,
+                                   drop_rate=self.drop_rate,
+                                   drop_distribution=self.drop_distribution,
+                                   use_same_gpu_seed=self.use_same_gpu_seed)
             num_stochastic_layers = surgery.count_module_instances(state.model, stochastic_layer)
             logger.metric_epoch({'stochastic_depth/num_stochastic_layers': num_stochastic_layers})
 
         elif event == Event.BATCH_START:
-            drop_warmup_iters = state.steps_per_epoch * state.max_epochs * self.hparams.drop_warmup
+            drop_warmup_iters = state.steps_per_epoch * state.max_epochs * self.drop_warmup
             if state.step < drop_warmup_iters:
-                current_drop_rate = (state.step / drop_warmup_iters) * self.hparams.drop_rate
-                _update_drop_rate(state.model, stochastic_layer, current_drop_rate, self.hparams.drop_distribution)
+                current_drop_rate = (state.step / drop_warmup_iters) * self.drop_rate
+                _update_drop_rate(state.model, stochastic_layer, current_drop_rate, self.drop_distribution)
             else:
-                current_drop_rate = self.hparams.drop_rate
+                current_drop_rate = self.drop_rate
             logger.metric_batch({'stochastic_depth/drop_rate': current_drop_rate})
