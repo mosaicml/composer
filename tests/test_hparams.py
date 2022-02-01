@@ -25,7 +25,7 @@ def walk_model_yamls():
 
 def _configure_dataset_for_synthetic(dataset_hparams: DatasetHparams) -> None:
     if not isinstance(dataset_hparams, SyntheticHparamsMixin):
-        pytest.xfail(f"{dataset_hparams.__class__.__name__} does not support synthetic data or num_total_batchjes")
+        pytest.xfail(f"{dataset_hparams.__class__.__name__} does not support synthetic data or num_total_batches")
 
     assert isinstance(dataset_hparams, SyntheticHparamsMixin)
 
@@ -36,10 +36,19 @@ def _configure_dataset_for_synthetic(dataset_hparams: DatasetHparams) -> None:
 class TestHparamsCreate:
 
     def test_hparams_create(self, hparams_file: str):
+        if "timm" in hparams_file:
+            pytest.importorskip("timm")
+        if hparams_file in ["unet.yaml"]:
+            pytest.importorskip("monai")
+
         hparams = TrainerHparams.create(hparams_file, cli_args=False)
         assert isinstance(hparams, TrainerHparams)
 
     def test_trainer_initialize(self, hparams_file: str):
+        if "timm" in hparams_file:
+            pytest.importorskip("timm")
+        if hparams_file in ["unet.yaml"]:
+            pytest.importorskip("monai")
         hparams = TrainerHparams.create(hparams_file, cli_args=False)
         hparams.dataloader.num_workers = 0
         hparams.dataloader.persistent_workers = False
