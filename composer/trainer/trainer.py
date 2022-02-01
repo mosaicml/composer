@@ -100,10 +100,18 @@ class Trainer:
         log_destinations (List[BaseLoggerBackend], optional): The destinations to log training information to.
             (default: ``[TQDMLoggerBackend()]``).
         callbacks (Sequence[Callback], optional): The callbacks to run during training. (default: ``[]``)
-        checkpoint_loader (CheckpointLoaderHparams, optional): If specified, load the specified checkpoint.
-            (default: ``None``)
-        checkpoint_saver (CheckpointSaverHparams, optional): If specified, save checkpoints according to
-            the given parameters (default: ``None``)
+        load_path (Optional[str]): Path to a specific checkpoint to load. (default: ``None``)
+        load_object_store_config (Optional[dict]): For loading from object stores (e.g. S3), the configuration
+            as a ``dict``. (default: ``None``)
+        load_weights_only (bool): Only load the model weights. (default: ``False``)
+        load_strict (bool): Ensure that the set of weights in the checkpoint and model must exactly match.
+            (default: ``False``)
+        load_chunk_size (int): Chunk size (in bytes) to use when downloading checkpoints.
+            Ignored if the checkpoint is a local file path. (default: ``1,048,675``)
+        load_progress_bar (bool): Display the progress bar for loading file. (default: ``True``)
+        save_folder (Optional[str]): Folder path to save checkpoints
+        save_interval (int): How often to save checkpoints
+        save_interval_unit (str): Unit of ``save_interval``. Can be ``ep`` or ``steps``. (default: ``ep``).
         train_subset_num_batches (int, optional): If specified, finish every epoch early after training
             on this many batches. This parameter has no effect if it is greater than ``len(train_dataloader)``.
             If None (the default), then the entire dataloader will be iterated over.
