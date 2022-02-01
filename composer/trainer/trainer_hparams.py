@@ -28,11 +28,11 @@ from composer.models.resnet20_cifar10.resnet20_cifar10_hparams import CIFARResNe
 from composer.optim import (AdamHparams, AdamWHparams, DecoupledAdamWHparams, DecoupledSGDWHparams, OptimizerHparams,
                             RAdamHparams, RMSPropHparams, SchedulerHparams, SGDHparams, scheduler)
 from composer.profiler import ProfilerHparams
-from composer.trainer.checkpoint_hparams import CheckpointLoaderHparams, CheckpointSaverHparams
 from composer.trainer.ddp import DDPSyncStrategy
 from composer.trainer.deepspeed import DeepSpeedHparams
 from composer.trainer.devices import CPUDeviceHparams, DeviceHparams, GPUDeviceHparams
 from composer.utils import dist
+from composer.utils.object_store import ObjectStoreProviderHparams
 
 if TYPE_CHECKING:
     from composer.trainer.trainer import Trainer
@@ -182,8 +182,35 @@ class TrainerHparams(hp.Hparams):
         default=-1)
     callbacks: List[CallbackHparams] = hp.optional(doc="Callback hparams", default_factory=list)
 
-    load_checkpoint: Optional[CheckpointLoaderHparams] = hp.optional(doc="Checkpoint loading hparams", default=None)
-    save_checkpoint: Optional[CheckpointSaverHparams] = hp.optional(doc="Checkpointing hparams", default=None)
+    load_path: Optional[str] = hp.optional(doc=textwrap.dedent("""If specified, the path to an existing checkpoint file
+        (if the checkpoint is on the local disk) or the object name for the checkpoint
+        (if the checkpoint is in a cloud bucket). Set to None (the default) to skip loading from a checkpoint."""),
+                                           default=None)
+    load_object_store: Optional[ObjectStoreProviderHparams] = hp.optional(doc=textwrap.dedent("""
+        If the checkpoint is in an object store (i.e. AWS S3 or Google Cloud Storage), the parameters for
+        connecting to the cloud provider object store. Otherwise, if the checkpoint is a local filepath,
+        leave blank."""),
+                                                                          default=None)
+    load_weights_only: bool = hp.optional(doc="Whether to only load the weights from the model.", default=False)
+    load_strict_model_weights: bool = hp.optional(
+        doc="Ensure that the set of wcheckpoint_eights in the checkpoint and model must exactly match.", default=False)
+
+    load_chunk_size: int = hp.optional(doc=textwrap.dedent("""Chunk size (in bytes) to use when downloading checkpoints.
+        Ignored if the checkpoint is a local file path."""),
+                                       default=1_048_576)
+    load_progress_bar: bool = hp.optional(
+        doc=textwrap.dedent("""Whether to show a progress bar when downloading checkpoints.
+        Ignored if the checkpoint is a local file path"""),
+        default=True)
+
+    save_folder: Optional[str] = hp.optional(
+        doc="If set, save ave checkpoint files. Relative to the run directory, if set."
+        "Defaults to `checkpoints`.",
+        default="checkpoints")
+    save_interval: str = hp.optional(doc=textwrap.dedent("""The time string interval representing how
+        frequently checkpoints should be saved. For example, set to "1ep" to save checkpoints every epoch, or "10ba"
+        to save checkpoints every 10 batches. Set to None (the default) to disable capturing checkpoints"""),
+                                     default=None)
 
     train_subset_num_batches: Optional[int] = hp.optional(textwrap.dedent("""If specified,
         finish every epoch early after training on this many batches."""),
