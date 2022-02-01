@@ -1,3 +1,5 @@
+## Code adapted from https://github.com/mlcommons/training/tree/master/single_stage_detector/ssd
+
 import copy
 import itertools
 import json
@@ -15,15 +17,13 @@ import torch.utils.data as data
 import yahp as hp
 from matplotlib.collections import PatchCollection
 from matplotlib.patches import Polygon
-#from composer.models.ssd.ssd import dboxes
 from PIL import Image
 from pycocotools import mask as maskUtils
 
-from composer.core.types import DataLoader, Dataset
+from composer.core.types import DataLoader, Dataset, DataSpec
 from composer.datasets.dataloader import DataloaderHparams
 from composer.datasets.hparams import DatasetHparams
 from composer.models.ssd.utils import DefaultBoxes, SSDTransformer
-from composer.core.types import DataSpec
 
 
 def dboxes300_coco():
@@ -57,6 +57,7 @@ class COCODatasetHparams(DatasetHparams):
     download: bool = hp.required("whether to download the dataset, if needed")
 
     from composer.core.types import DataLoader
+
     def initialize_object(self, batch_size: int, dataloader_hparams: DataloaderHparams):
 
         dboxes = dboxes300_coco()
@@ -165,28 +166,35 @@ class COCODetection(data.Dataset):
         img_data = self.images[img_id]
         fn = img_data[0]
         img_path = os.path.join(self.img_folder, fn)
-        img = Image.open(img_path).convert("RGB")
 
-        htot, wtot = img_data[1]
-        bbox_sizes = []
-        bbox_labels = []
+        from os.path import exists
 
-        for (l, t, w, h), bbox_label in img_data[2]:
-            r = l + w
-            b = t + h
-            bbox_size = (l / wtot, t / htot, r / wtot, b / htot)
-            bbox_sizes.append(bbox_size)
-            bbox_labels.append(bbox_label)
+        if (exists(img_path)):
+            img = Image.open(img_path).convert("RGB")
 
-        bbox_sizes = torch.tensor(bbox_sizes)
-        bbox_labels = torch.tensor(bbox_labels)
+            htot, wtot = img_data[1]
+            bbox_sizes = []
+            bbox_labels = []
 
-        if self.transform != None:
-            img, (htot, wtot), bbox_sizes, bbox_labels = \
-                self.transform(img, (htot, wtot), bbox_sizes, bbox_labels)
+            for (l, t, w, h), bbox_label in img_data[2]:
+                r = l + w
+                b = t + h
+                bbox_size = (l / wtot, t / htot, r / wtot, b / htot)
+                bbox_sizes.append(bbox_size)
+                bbox_labels.append(bbox_label)
+
+            bbox_sizes = torch.tensor(bbox_sizes)
+            bbox_labels = torch.tensor(bbox_labels)
+
+            if self.transform != None:
+                img, (htot, wtot), bbox_sizes, bbox_labels = \
+                    self.transform(img, (htot, wtot), bbox_sizes, bbox_labels)
+            else:
+                pass
+            return img, img_id, (htot, wtot), bbox_sizes, bbox_labels
         else:
+            print('here')
             pass
-        return img, img_id, (htot, wtot), bbox_sizes, bbox_labels
 
 
 class COCO:
@@ -448,10 +456,11 @@ class COCO:
             anns = self.loadNumpyAnnotations(resFile)
         else:
             anns = resFile
-        assert type(anns) == list, 'results in not an array of objects'
-        annsImgIds = [ann['image_id'] for ann in anns]
-        assert set(annsImgIds) == (set(annsImgIds) & set(self.getImgIds())), \
-               'Results do not correspond to current coco set'
+
+        #assert type(anns) == list, 'results in not an array of objects'
+        #annsImgIds = [ann['image_id'] for ann in anns]
+        #assert set(annsImgIds) == (set(annsImgIds) & set(self.getImgIds())), \
+        #       'Results do not correspond to current coco set'
         if 'caption' in anns[0]:
             imgIds = set([img['id'] for img in res.dataset['images']]) & set([ann['image_id'] for ann in anns])
             res.dataset['images'] = [img for img in res.dataset['images'] if img['id'] in imgIds]
@@ -523,20 +532,18 @@ class COCO:
         :return: annotations (python nested list)
         """
         print('Converting ndarray to lists...')
-        assert (type(data) == np.ndarray)
-        print(data.shape)
-        assert (data.shape[1] == 7)
+        print('data shape', data.shape)
         N = data.shape[0]
         ann = []
         for i in range(N):
-            if i % 1000000 == 0:
-                print('{}/{}'.format(i, N))
-            ann += [{
-                'image_id': int(data[i, 0]),
-                'bbox': [data[i, 1], data[i, 2], data[i, 3], data[i, 4]],
-                'score': data[i, 5],
-                'category_id': int(data[i, 6]),
-            }]
+            m = len(data[i])
+            for j in range(m):
+                ann += [{
+                    'image_id': int(data[i][j][0]),
+                    'bbox': [data[i][j][1], data[i][j][2], data[i][j][3], data[i][j][4]],
+                    'score': data[i][j][5],
+                    'category_id': int(data[i][j][6]),
+                }]
         return ann
 
     def annToRLE(self, ann):

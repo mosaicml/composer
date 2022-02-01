@@ -14,8 +14,6 @@ from torch.autograd import Variable
 from torch.utils.data import DataLoader
 from torchmetrics import Metric
 
-#from torchmetrics.detection.map. import MAP
-#from torchmetrics.detection.map import MeanAveragePrecision as MAP
 from composer.core.types import BatchPair, Metrics, Tensor, Tensors
 from composer.datasets.coco import COCO, COCODetection
 from composer.models.base import BaseMosaicModel
@@ -32,9 +30,8 @@ class SSD(BaseMosaicModel):
 
         self.hparams = hparams
         ln = COCODetection.labelnum
-        self.module = SSD300(
-            80,
-            model_path="/mnt/cota/laura/composer/composer/models/ssd/resnet34-333f7ec4.pth")
+        self.module = SSD300(80, model_path="/mnt/cota/laura/composer/composer/models/ssd/resnet34-333f7ec4.pth")
+        ##todo(laura): fix weights path
         dboxes = dboxes300_coco()
 
         self.loss_func = Loss(dboxes)
@@ -50,10 +47,6 @@ class SSD(BaseMosaicModel):
                         Variable(label, requires_grad=False)
 
         loss = self.loss_func(ploc, plabel, gloc, glabel)
-        '''
-        if not np.isinf(loss.item()):
-            avg_loss = 0.999 * avg_loss + 0.001 * loss.item()
-        '''
         return loss
 
     def metrics(self, train: bool = False) -> Metrics:
@@ -69,7 +62,7 @@ class SSD(BaseMosaicModel):
         return ploc, plabel
 
     def validate(self, batch: BatchPair) -> Tuple[Any, Any]:
-        
+
         dboxes = dboxes300_coco()
         input_size = 300
         val_trans = SSDTransformer(dboxes, (input_size, input_size), val=True)
@@ -82,7 +75,7 @@ class SSD(BaseMosaicModel):
         val_coco = COCODetection(val_coco_root, val_annotate, val_trans)
 
         inv_map = {v: k for k, v in val_coco.label_map.items()}
-        
+
         ret = []
 
         overlap_threshold = 0.50
@@ -111,21 +104,18 @@ class SSD(BaseMosaicModel):
                 htot, wtot = img_size[0][idx].item(), img_size[1][idx].item()
                 loc, label, prob = [r.cpu().numpy() for r in result]
                 for loc_, label_, prob_ in zip(loc, label, prob):
-                    ret.append([img_id[idx], loc_[0] * wtot, \
+                    ret.append([int(img_id[idx].detach().cpu()), loc_[0] * wtot, \
                                 loc_[1] * htot,
                                 (loc_[2] - loc_[0]) * wtot,
                                 (loc_[3] - loc_[1]) * htot,
                                 prob_,
                                 inv_map[label_]])
 
-
-        final_results = ret
-
         return ret, ret
 
 
 class my_map(Metric):
-    
+
     def __init__(self):
         super().__init__(dist_sync_on_step=True)
         self.add_state("n_updates", default=torch.zeros(1), dist_reduce_fx="sum")
@@ -133,57 +123,21 @@ class my_map(Metric):
         self.val_annotate = os.path.join(data, "annotations/instances_val2017.json")
         self.cocogt = COCO(annotation_file=self.val_annotate)
         self.predictions = []
-        
+
     def update(self, pred, target):
         self.n_updates += 1
         self.predictions.append(pred)
-        #self.cocodt = self.cocogt.loadRes(pred)
-        
-        
+
     def compute(self):
-        import pdb; pdb.set_trace()
-        cocodt = self.cocogt.loadRes(self.predictions)
-        E = COCOeval(self.cocogt, self.cocodt, iouType='bbox')
-        print('here')
+        ret = np.asarray(self.predictions)
+
+        cocodt = self.cocogt.loadRes(ret)
+        E = COCOeval(self.cocogt, cocodt, iouType='bbox')
         E.evaluate()
         E.accumulate()
         E.summarize()
 
         return E.stats[0]
-
-        
-
-def transform_d(val_annotate):
-    from pycocotools.coco import COCO
-    our_coco = COCO(annotation_file=val_annotate)
-    import json
-    json_file = "/mnt/cota/datasets/coco/annotations/instances_val2017.json"
-    with open(json_file, 'r') as COCO:
-        js = json.loads(COCO.read())
-        cat_names = json.dumps(js['categories'])
-    cat_ids = our_coco.getCatIds(catNms=cat_names)
-    target = []
-    for cat_id in cat_ids:
-        # get annotations for a specific class
-        ann_ids = our_coco.getAnnIds(catIds=cat_id)
-        anns = our_coco.loadAnns(ann_ids)
-
-        for ann in anns:
-            x_topleft = ann['bbox'][0]
-            y_topleft = ann['bbox'][1]
-            bbox_width = ann['bbox'][2]
-            bbox_height = ann['bbox'][3]
-
-            img_id = ann['image_id']
-            target.append(
-                dict(boxes=torch.Tensor([[x_topleft, y_topleft, bbox_width, bbox_height]]),
-                     labels=torch.Tensor([img_id])))
-
-    return target
-    #create sequence
-
-
-from torchmetrics import Metric
 
 
 def dboxes300_coco():
@@ -205,6 +159,3 @@ def lr_warmup(optim, wb, iter_num, base_lr, args):
 
         for param_group in optim.param_groups:
             param_group['lr'] = new_lr
-
-
-#torch.backends.cudnn.benchmark = True

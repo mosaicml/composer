@@ -1,3 +1,5 @@
+## Code adapted from https://github.com/mlcommons/training/tree/master/single_stage_detector/ssd
+
 import bz2
 import glob
 import itertools

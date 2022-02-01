@@ -1,3 +1,5 @@
+## Code adapted from https://github.com/mlcommons/training/tree/master/single_stage_detector/ssd
+
 import torch
 import torch.nn as nn
 
