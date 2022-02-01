@@ -152,8 +152,8 @@ def test_apply(epoch_frac: float, X: torch.Tensor, y: torch.Tensor, dummy_algori
                dummy_state: State, dummy_logger: Logger):
     """ Test apply at different epoch fractions (fraction of max epochs) """
     dummy_state.timer.epoch._value = int(epoch_frac * dummy_state.max_epochs)
-    s = dummy_algorithm.hparams.initial_scale
-    f = dummy_algorithm.hparams.finetune_fraction
+    s = dummy_algorithm.initial_scale
+    f = dummy_algorithm.finetune_fraction
     scale_factor = min([s + (1 - s) / (1 - f) * epoch_frac, 1.0])
     dummy_state.batch = (X, y)
     dummy_algorithm.apply(Event.AFTER_DATALOADER, dummy_state, dummy_logger)

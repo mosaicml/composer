@@ -21,7 +21,7 @@ class DummyHparams(AlgorithmHparams):
 class Dummy(Algorithm):
 
     def __init__(self, dummy_argument: str = 'default'):
-        self.hparams = DummyHparams(dummy_argument)
+        self.dummy_argument = dummy_argument
 
     def match(self, event: Event, state: State) -> bool:
         return True

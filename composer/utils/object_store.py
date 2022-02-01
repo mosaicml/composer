@@ -68,10 +68,12 @@ class ObjectStoreProviderHparams(hp.Hparams):
 
     provider: str = hp.required("Cloud provider to use.")
     container: str = hp.required("The name of the container (i.e. bucket) to use.")
-    key_environ: Optional[str] = hp.optional(textwrap.dedent("""The name of an environment variable containing
+    key_environ: Optional[str] = hp.optional(textwrap.dedent("""\
+        The name of an environment variable containing
         an API key or username to use to connect to the provider."""),
                                              default=None)
-    secret_environ: Optional[str] = hp.optional(textwrap.dedent("""The name of an environment variable containing
+    secret_environ: Optional[str] = hp.optional(textwrap.dedent("""\
+        The name of an environment variable containing
         an API secret or password to use to connect to the provider."""),
                                                 default=None)
     region: Optional[str] = hp.optional("Cloud region to use", default=None)
@@ -122,8 +124,9 @@ class ObjectStoreProvider:
             from libcloud.storage.providers import get_driver
         except ImportError as e:
             raise ImportError(
-                textwrap.dedent("""libcloud is not installed.
-                To install composer with libcloud, please run `pip install mosaicml[logging]`.""")) from e
+                textwrap.dedent("""\
+                    libcloud is not installed.
+                    To install composer with libcloud, please run `pip install mosaicml[logging]`.""")) from e
         provider_cls = get_driver(provider)
         if provider_init_kwargs is None:
             provider_init_kwargs = {}
