@@ -33,7 +33,7 @@ from composer.optim.scheduler import ensure_warmup_last
 from composer.profiler.profiler_hparams import ProfilerHparams
 from composer.trainer.checkpoint import CheckpointLoader, CheckpointSaver
 from composer.trainer.ddp import DDPSyncStrategy, ddp_sync_context, prepare_ddp_module
-from composer.trainer.deepspeed import DeepSpeedHparams, fix_batch_precision_for_deepspeed
+from composer.trainer.deepspeed import fix_batch_precision_for_deepspeed, parse_deepspeed_config
 from composer.trainer.devices.device import Device
 from composer.trainer.devices.device_cpu import DeviceCPU
 from composer.trainer.devices.device_gpu import DeviceGPU
@@ -176,7 +176,7 @@ class Trainer:
             eval_subset_num_batches: Optional[int] = None,
 
             # DeepSpeed
-            deepspeed_hparams: Optional[Union[dict, DeepSpeedHparams]] = None,
+            deepspeed_config: Optional[dict] = None,
 
             # Optional config (ex. an hparams yaml file)
             config: Optional[Dict[str, Any]] = None):
@@ -189,12 +189,12 @@ class Trainer:
 
         self.config = config
 
-        if isinstance(deepspeed_hparams, dict):
-            deepspeed_hparams = DeepSpeedHparams(**deepspeed_hparams)
-        self.deepspeed_hparams = deepspeed_hparams
+        if deepspeed_config is not None:
+            deepspeed_config = parse_deepspeed_config(deepspeed_config)
+        self.deepspeed_config = deepspeed_config
 
         if not device:
-            self.device = DeviceCPU() if not self.deepspeed_hparams is not None else DeviceGPU()
+            self.device = DeviceCPU() if not self.deepspeed_enabled else DeviceGPU()
         elif isinstance(device, str):
             if device == 'cpu':
                 self.device = DeviceCPU()
@@ -354,12 +354,9 @@ class Trainer:
         # place the state, model in the proper devices, and initialize from a checkpoint if provided
         if self.deepspeed_enabled:
             import deepspeed
-
-            assert self.deepspeed_hparams is not None
-            deepspeed_config = self.deepspeed_hparams.initialize_object(self.state, self.grad_clip_norm)
             optimizer = ensure_tuple(self.state.optimizers)[0]
             (self.state.model, self.state.optimizers, _, _) = deepspeed.initialize(
-                config=deepspeed_config,
+                config=self.deepspeed_config,
                 model=self.state.model,
                 optimizer=optimizer,
             )
@@ -551,7 +548,7 @@ class Trainer:
 
     @property
     def deepspeed_enabled(self):
-        return self.deepspeed_hparams is not None
+        return self.deepspeed_config is not None
 
     def fit(self):
         """Train and evaluate the model on the provided data."""

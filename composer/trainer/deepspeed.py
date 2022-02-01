@@ -1,98 +1,108 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
+import copy
 import warnings
-from dataclasses import dataclass
-from typing import Any, Optional
+from typing import Any, Dict, Optional
 
 import torch
-import yahp as hp
 
 from composer.core import State
 from composer.core.types import Batch, Precision, Tensor
+from composer.utils import dist
 from composer.utils.iter_helpers import map_collection
 
 
-@dataclass
-class DeepSpeedHparams(hp.Hparams):
-    """Params for configuration of DeepSpeed."""
+def parse_batch_settings(config: Dict[str, Any], state: State):
+    if state.train_dataloader.batch_size % state.grad_accum != 0:
+        # DeepSpeed will throw an error in this configuration.
+        raise ValueError("The Mosaic trainer has been configured to use batch size="
+                         f"{state.train_dataloader.batch_size}, but this is not divisible by the "
+                         f"grad accum={state.grad_accum}. This is unsupported when using DeepSpeed.")
 
-    zero_stage: int = hp.optional("The ZeRO memory optimization stage to use.", default=0)
+    if "train_batch_size" in config:
+        ds_train_batch_size = config["train_batch_size"]
+        train_batch_size = state.train_dataloader.batch_size * dist.get_world_size()
+        if ds_train_batch_size != train_batch_size:
+            raise ValueError(f"Provided DeepSpeed configuration specifies batch size={ds_train_batch_size}, "
+                             f"but the Mosaic trainer has been configured with batch size={train_batch_size}.")
 
-    optimizer_offload: bool = hp.optional(
-        "Whether to offload the optimizer to CPU. Compatible only with zero_stage >= 2.", default=False)
+    if "gradient_accumulation_steps" in config:
+        ds_grad_accum = config["gradient_accumulation_steps"]
+        grad_accum = state.grad_accum
+        if ds_grad_accum != grad_accum:
+            raise ValueError(f"Provided DeepSpeed configuration specifies grad accum={ds_grad_accum}, "
+                             f"but the Mosaic trainer has been configured with grad accum={grad_accum}.")
 
-    parameter_offload: bool = hp.optional(
-        "Whether to offload model parameters to CPU. Compatible only with zero_stage = 3 and optimizer_offload.",
-        default=False)
+    if "train_micro_batch_size_per_gpu" in config:
+        ds_per_gpu_microbatch_size = config["train_micro_batch_size_per_gpu"]
+        # Per the check at the start of this function, the following division is always clean.
+        per_gpu_microbatch_size = state.train_dataloader.batch_size // state.grad_accum
+        if ds_per_gpu_microbatch_size != per_gpu_microbatch_size:
+            raise ValueError("Provided DeepSpeed configuration specifies per-GPU microbatch size="
+                             f"{ds_per_gpu_microbatch_size}, but the Mosaic trainer has been "
+                             f"configured with per-GPU microbatch size={per_gpu_microbatch_size}.")
 
-    zero2_bucket_size: int = hp.optional("Buffer size used by ZeRO 2 for distributed communications.", default=int(5e8))
-    overlap_comm: bool = hp.optional("Overlap comm", default=False)
 
-    gradient_checkpointing: bool = hp.optional("Whether to enable gradient checkpointing.", default=False)
+def parse_unsupported_settings(config: Dict[str, Any]):
+    if "optimizer" in config:
+        raise ValueError("The DeepSpeed configuration specifies an optimizer, but the Mosaic "
+                         "trainer will override this setting.")
 
-    def validate(self):
-        super().validate()
+    if "scheduler" in config:
+        raise ValueError("The DeepSpeed configuration specifies a scheduler, but the Mosaic "
+                         "trainer will override this setting.")
 
-        if self.zero_stage not in [0, 1, 2, 3]:
-            raise ValueError("DeepSpeed ZeRO stage must be one of [0, 1, 2, 3].")
 
-        if self.optimizer_offload and self.zero_stage < 2:
-            raise ValueError("DeepSpeed optimizer offloading is only compatible with ZeRO stage >= 2.")
+def parse_precision_settings(config: Dict[str, Any], state: State):
+    precision = state.precision
 
-        if self.parameter_offload and self.zero_stage != 3:
-            raise ValueError("DeepSpeed parameter offloading is only compatible with ZeRO stage = 3.")
+    ds_precision = Precision.FP32
+    if "fp16" in config and "enabled" in config["fp16"] and config["fp16"]["enabled"]:
+        ds_precision = Precision.FP16
+    if "bf16" in config and "enabled" in config["bf16"] and config["bf16"]["enabled"]:
+        raise ValueError("DeepSpeed is configured to use BFLOAT16, but this is unsupported by the "
+                         "Mosaic trainer.")
+    if "amp" in config and "enabled" in config["amp"] and config["amp"]["enabled"]:
+        raise ValueError("DeepSpeed is configured to use Apex AMP, but this is unsupported by the "
+                         "Mosaic trainer.")
 
-        if self.parameter_offload and not self.optimizer_offload:
-            raise ValueError(
-                "DeepSpeed parameter offloading is only supported when optimizer offloading is also enabled.")
+    if ds_precision != precision:
+        raise ValueError(f"Provided DeepSpeed configuration specifies precision={ds_precision}, "
+                         f"but the Mosaic trainer has been configured with precision={precision}.")
 
-        if self.zero_stage == 3:
-            warnings.warn("ZeRO stage 3 is largely untested with composer. Certain algorithms may break.")
+    if precision == Precision.FP16:
+        fp16_config = config["fp16"]
+        assert fp16_config is dict
 
-    def initialize_object(self, state: State, grad_clip_norm: Optional[float]):
-        if state.train_dataloader.batch_size is None:
-            raise RuntimeError("Deepspeed requires a dataloader with a known batch size")
+        # For equivalence with the non-DeepSpeed defaults of the Mosaic trainer.
+        fp16_config.setdefault("initial_scale_power", 16)
+        fp16_config.setdefault("loss_scale_window", 2000)
 
-        deepspeed_config: dict[str, Any] = {
-            "train_micro_batch_size_per_gpu": state.train_dataloader.batch_size // state.grad_accum,
-            "gradient_accumulation_steps": state.grad_accum,
-            "zero_optimization": {
-                "stage": self.zero_stage,
-                "allgather_bucket_size": self.zero2_bucket_size,
-                "reduce_bucket_size": self.zero2_bucket_size,
-                "overlap_comm": self.overlap_comm,
-            },
 
-            # Without this, DeepSpeed throws errors when ZeRO is used in combination with
-            # non-standard optimizers. Most likely, this will trigger when one of the decoupled
-            # weight decay optimizers is used, but it has been verified that those optimizers work
-            # in combination with DeepSpeed.
-            "zero_allow_untested_optimizer": True,
-        }
+def parse_misc_settings(config: Dict[str, any], grad_clip_norm: Optional[float]):
+    if "gradient_clipping" in config:
+        ds_grad_clip_norm = config["gradient_clipping"]
+        if ds_grad_clip_norm != grad_clip_norm:
+            raise ValueError("Provided DeepSpeed configuration specifies grad clip norm="
+                             f"{ds_grad_clip_norm}, but the Mosaic trainer has been configured "
+                             f"with grad clip norm={grad_clip_norm}")
 
-        if self.optimizer_offload:
-            deepspeed_config["zero_optimization"]["offload_optimizer"] = {
-                "device": "cpu",
-            }
+    config["gradient_clipping"] = grad_clip_norm
 
-        if self.parameter_offload:
-            deepspeed_config["zero_optimization"]["offload_param"] = {
-                "device": "cpu",
-            }
+    if "zero_allow_untested_optimizer" in config and not config["zero_allow_untested_optimizer"]:
+        warnings.warn("Provided DeepSpeed configuration specifies zero_allow_untested_optimizer=False. "
+                      "This causes DeepSpeed to reject certain Mosaic optimizers that are known to "
+                      "work well with DeepSpeed.")
 
-        if state.precision == Precision.AMP:
-            deepspeed_config["amp"] = {"enabled": True}
-        elif state.precision == Precision.FP16:
-            deepspeed_config["fp16"] = {
-                "enabled": True,
-                "initial_scale_power": 16,
-                "loss_scale_window": 2000,
-            }
+    config["zero_allow_untested_optimizer"] = True
 
-        if grad_clip_norm:
-            deepspeed_config["gradient_clipping"] = grad_clip_norm
 
-        return deepspeed_config
+def parse_deepspeed_config(config: Dict[str, Any], state: State, grad_clip_norm: Optional[float]) -> Dict[str, Any]:
+    new_config = copy.deepcopy(config)
+    parse_batch_settings(new_config, state)
+    parse_precision_settings(new_config, state)
+    parse_misc_settings(new_config, grad_clip_norm)
+    return new_config
 
 
 def _convert_fp32_tensor_to_fp16(tensor: Tensor):
