@@ -45,7 +45,7 @@ class TestHparamsCreate:
         assert isinstance(hparams, TrainerHparams)
 
     def test_trainer_initialize(self, hparams_file: str):
-        if hparams_file in ["timm_resnet50_imagenet.yaml"]:
+        if "timm" in hparams_file:
             pytest.importorskip("timm")
         if hparams_file in ["unet.yaml"]:
             pytest.importorskip("monai")
