@@ -209,7 +209,7 @@ def test_drop_rate_warmup(step: int, dummy_hparams: StochasticDepthHparams, dumm
     new_drop_rates = []
     get_drop_rate_list(dummy_state.model, drop_rates=new_drop_rates)
 
-    drop_warmup_iters = dummy_state.steps_per_epoch * dummy_state.max_epochs * dummy_algorithm.hparams.drop_warmup
+    drop_warmup_iters = dummy_state.steps_per_epoch * dummy_state.max_epochs * dummy_algorithm.drop_warmup
     assert torch.all(torch.tensor(new_drop_rates) == ((step / drop_warmup_iters) * torch.tensor(old_drop_rates)))
 
 

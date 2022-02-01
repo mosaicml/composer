@@ -124,10 +124,8 @@ class SqueezeExcite(Algorithm):
         latent_channels: float = 64,
         min_channels: int = 128,
     ):
-        self.hparams = SqueezeExciteHparams(
-            latent_channels=latent_channels,
-            min_channels=min_channels,
-        )
+        self.latent_channels = latent_channels
+        self.min_channels = min_channels
 
     def match(self, event: Event, state: State) -> bool:
         """Run on Event.INIT
@@ -150,13 +148,13 @@ class SqueezeExcite(Algorithm):
         """
         state.model = apply_se(state.model,
                                optimizers=state.optimizers,
-                               latent_channels=self.hparams.latent_channels,
-                               min_channels=self.hparams.min_channels)
+                               latent_channels=self.latent_channels,
+                               min_channels=self.min_channels)
         layer_count = surgery.count_module_instances(state.model, SqueezeExciteConv2d)
 
         log.info(f'Applied SqueezeExcite to model {state.model.__class__.__name__} '
-                 f'with latent_channels={self.hparams.latent_channels}, '
-                 f'min_channels={self.hparams.min_channels}. '
+                 f'with latent_channels={self.latent_channels}, '
+                 f'min_channels={self.min_channels}. '
                  f'Model now has {layer_count} SqueezeExcite layers.')
 
         logger.metric_fit({
