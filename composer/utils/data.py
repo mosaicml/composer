@@ -6,7 +6,6 @@ from typing import List, Tuple, Union
 import numpy as np
 import torch
 import torch.utils.data
-from attr import ib
 from PIL import Image
 from torchvision import transforms
 
