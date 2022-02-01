@@ -3,11 +3,13 @@
 import numpy as np
 import pytest
 import torch
+from torchmetrics.classification.accuracy import Accuracy
+from torchmetrics.collections import MetricCollection
 
 from composer.algorithms import ChannelsLastHparams
 from composer.core.event import Event
 from composer.core.state import State
-from composer.core.types import DataLoader, Model, Precision, Tensor
+from composer.core.types import DataLoader, Evaluator, Model, Precision, Tensor
 
 
 def _has_singleton_dimension(tensor: Tensor) -> bool:
@@ -32,13 +34,15 @@ def _infer_memory_format(tensor: Tensor) -> str:
 
 @pytest.fixture()
 def state(simple_conv_model: Model, dummy_train_dataloader: DataLoader, dummy_val_dataloader: DataLoader):
+    metric_coll = MetricCollection([Accuracy()])
+    evaluators = [Evaluator(label="dummy_label", dataloader=dummy_val_dataloader, metrics=metric_coll)]
     return State(
         model=simple_conv_model,
         precision=Precision.FP32,
         grad_accum=1,
         max_duration="10ep",
         train_dataloader=dummy_train_dataloader,
-        eval_dataloader=dummy_val_dataloader,
+        evaluators=evaluators,
     )
 
 
