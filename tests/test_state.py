@@ -24,12 +24,13 @@ def random_tensor(size=(4, 10)):
 def get_dummy_state(model: BaseMosaicModel, train_dataloader: types.DataLoader, val_dataloader: types.DataLoader):
     optimizers = torch.optim.Adadelta(model.parameters())
 
+    evaluators = [types.Evaluator(label="dummy_label", dataloader=val_dataloader, metrics=model.metrics(train=False))]
     state = State(model=model,
                   grad_accum=random.randint(0, 100),
                   precision=types.Precision.AMP,
                   max_duration=f"{random.randint(0, 100)}ep",
                   train_dataloader=train_dataloader,
-                  eval_dataloader=val_dataloader,
+                  evaluators=evaluators,
                   optimizers=optimizers,
                   schedulers=torch.optim.lr_scheduler.StepLR(optimizers, step_size=3),
                   algorithms=[DummyHparams().initialize_object()])

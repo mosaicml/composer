@@ -19,6 +19,8 @@ from composer.callbacks import (BenchmarkerHparams, CallbackHparams, GradMonitor
                                 MemoryMonitorHparams, RunDirectoryUploaderHparams, SpeedMonitorHparams)
 from composer.core.types import Precision
 from composer.datasets import DataloaderHparams
+from composer.datasets.dataset_registry import get_dataset_registry
+from composer.datasets.evaluator import EvaluatorHparams
 from composer.loggers import (BaseLoggerBackendHparams, FileLoggerBackendHparams, MosaicMLLoggerBackendHparams,
                               TQDMLoggerBackendHparams, WandBLoggerBackendHparams)
 from composer.models import (BERTForClassificationHparams, BERTHparams, CIFARResNet9Hparams, CIFARResNet20Hparams,
@@ -76,15 +78,7 @@ model_registry = {
     "timm": TimmHparams
 }
 
-dataset_registry = {
-    "ade20k": datasets.ADE20kDatasetHparams,
-    "brats": datasets.BratsDatasetHparams,
-    "imagenet": datasets.ImagenetDatasetHparams,
-    "cifar10": datasets.CIFAR10DatasetHparams,
-    "mnist": datasets.MNISTDatasetHparams,
-    "lm": datasets.LMDatasetHparams,
-    "glue": datasets.GLUEHparams,
-}
+dataset_registry = get_dataset_registry()
 
 algorithms_registry = get_algorithm_registry()
 
@@ -130,7 +124,6 @@ class TrainerHparams(hp.Hparams):
 
     device: DeviceHparams = hp.required(doc="Device Parameters")
     train_dataset: datasets.DatasetHparams = hp.required(doc="Training dataset hparams")
-    val_dataset: datasets.DatasetHparams = hp.required(doc="Validation dataset hparams")
 
     optimizer: OptimizerHparams = hp.required(doc="Optimizer to use")
 
@@ -160,6 +153,10 @@ class TrainerHparams(hp.Hparams):
         "Determines the number of microbatches to split a per-gpu batch into, used to compensate for low-memory-capacity devices."
     )
     precision: Precision = hp.required(doc="Precision to use for training", template_default=Precision.AMP)
+
+    val_dataset: Optional[datasets.DatasetHparams] = hp.optional(doc="Validation dataset hparams", default=None)
+
+    evaluators: Optional[List[EvaluatorHparams]] = hp.optional(doc="Evaluators", default_factory=list)
 
     dist_timeout: float = hp.optional(doc="Timeout, in seconds, for initializing the dsitributed process group.",
                                       default=15.0)
@@ -231,6 +228,10 @@ class TrainerHparams(hp.Hparams):
             raise ValueError(
                 f"Eval batch size ({self.eval_batch_size}) not divisible by the total number of processes ({world_size})."
             )
+
+        if self.evaluators is not None and len(self.evaluators) > 0 and self.val_dataset is not None:
+            raise ValueError(
+                "val_dataset and evaluators shouldn't both be specified. Only one can be passed in to the trainer.")
 
     def initialize_object(self) -> Trainer:
         from composer.trainer.trainer import Trainer
