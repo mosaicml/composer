@@ -37,7 +37,7 @@ def get_model_algs(model_name: str) -> List[str]:
 @pytest.mark.parametrize('model_name', model_names)
 @pytest.mark.timeout(15)
 def test_load(model_name: str):
-    if model_name in ['timm']:
+    if 'timm' in model_name:
         pytest.importorskip("timm")
     if model_name in ['unet']:
         pytest.importorskip("monai")

@@ -36,7 +36,7 @@ def _configure_dataset_for_synthetic(dataset_hparams: DatasetHparams) -> None:
 class TestHparamsCreate:
 
     def test_hparams_create(self, hparams_file: str):
-        if hparams_file in ["timm_resnet50_imagenet.yaml"]:
+        if "timm" in hparams_file:
             pytest.importorskip("timm")
         if hparams_file in ["unet.yaml"]:
             pytest.importorskip("monai")
