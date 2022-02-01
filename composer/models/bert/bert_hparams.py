@@ -24,7 +24,7 @@ class BERTForClassificationHparams(TransformerHparams):
             import transformers
         except ImportError as e:
             raise ImportError('transformers is not installed. '
-                              'Please install with `pip install mosaicml-composer[nlp]`') from e
+                              'Please install with `pip install mosaicml[nlp]`') from e
 
         from composer.models.bert.model import BERTModel
         self.validate()
@@ -62,7 +62,7 @@ class BERTHparams(TransformerHparams):
             import transformers
         except ImportError as e:
             raise ImportError('transformers is not installed. '
-                              'Please install with `pip install mosaicml-composer[nlp]`') from e
+                              'Please install with `pip install mosaicml[nlp]`') from e
 
         from composer.models.bert.model import BERTModel
         self.validate()
