@@ -1,13 +1,14 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
 import collections.abc
+import textwrap
 from typing import List, Tuple, Union
 
 import numpy as np
 import torch
 import torch.utils.data
 from PIL import Image
-from torchvision import transforms
+from torchvision import datasets, transforms
 
 from composer.core.types import Batch, Dataset, Tensor
 from composer.utils.iter_helpers import ensure_tuple
@@ -95,7 +96,7 @@ def pil_image_collate(batch: List[Tuple[Image.Image, Union[Image.Image, Tensor]]
     return image_tensor, target_tensor
 
 
-def add_dataset_transform(dataset, transform, location="end"):
+def add_dataset_transform(dataset: Dataset, transform, location="end"):
     """Flexibly add a transform to the dataset's collection of transforms.
 
     Args:
@@ -108,13 +109,15 @@ def add_dataset_transform(dataset, transform, location="end"):
         The original dataset. The transform is added in-place.
     """
 
-    if not hasattr(dataset, "transform"):
-        raise ValueError(f"Dataset of type {type(dataset)} has no attribute 'transform'. Expected TorchVision dataset.")
+    if not isinstance(dataset, datasets.VisionDataset):
+        raise ValueError(
+            textwrap.dedent(f"""Dataset of type {type(dataset)} is not a {datasets.VisionDataset.__name__}.
+            A {datasets.VisionDataset.__name__} is required to insert additional transformations."""))
     assert location in ["end", "before_totensor"]
 
     if dataset.transform is None:
         dataset.transform = transform
-    elif hasattr(dataset.transform, "transforms"):  # transform is a Compose
+    elif isinstance(dataset.transform, transforms.Compose):
         insertion_index = len(dataset.transform.transforms)
         if location == "before_totensor":
             for i, t in enumerate(dataset.transform.transforms):
