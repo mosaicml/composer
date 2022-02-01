@@ -20,7 +20,6 @@ from composer.core.logging import Logger
 from composer.core.state import State
 from composer.datasets import DataloaderHparams, SyntheticBatchPairDataset, SyntheticHparamsMixin
 from composer.datasets.hparams import DatasetHparams
-from composer.trainer.deepspeed import DeepSpeedHparams
 from composer.trainer.devices import CPUDeviceHparams, DeviceHparams, GPUDeviceHparams
 from composer.trainer.trainer_hparams import TrainerHparams, callback_registry, dataset_registry
 from composer.utils import dist, run_directory
@@ -184,7 +183,7 @@ def test_ddp(device: DeviceHparams, world_size: int, mosaic_trainer_hparams: Tra
     hparams.validate_every_n_epochs = 1
     hparams.callbacks.append(CheckBatch0Hparams())
     if deepspeed:
-        hparams.deepspeed = DeepSpeedHparams()
+        hparams.deepspeed = {}
     trainer = hparams.initialize_object()
     assert isinstance(trainer.state.train_dataloader.dataset, collections.abc.Sized)
 

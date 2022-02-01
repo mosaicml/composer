@@ -34,7 +34,7 @@ from composer.optim.scheduler import ensure_warmup_last
 from composer.profiler.profiler_hparams import ProfilerHparams
 from composer.trainer.checkpoint import CheckpointLoader, CheckpointSaver
 from composer.trainer.ddp import DDPSyncStrategy, ddp_sync_context, prepare_ddp_module
-from composer.trainer.deepspeed import DeepSpeedHparams, fix_batch_precision_for_deepspeed
+from composer.trainer.deepspeed import fix_batch_precision_for_deepspeed, parse_deepspeed_config
 from composer.trainer.devices.device import Device
 from composer.trainer.devices.device_cpu import DeviceCPU
 from composer.trainer.devices.device_gpu import DeviceGPU
@@ -120,6 +120,9 @@ class Trainer:
         eval_subset_num_batches (int, optional): If specified, evaluate on this many batches.
             This parameter has no effect if it is greater than ``len(eval_dataloader)``.
             If None (the default), then the entire dataloader will be iterated over.
+        deepspeed_config (Dict[str, Any], optional): Configuration for DeepSpeed, formatted as a JSON
+            according to `DeepSpeed's documentation <https://www.deepspeed.ai/docs/config-json/>`_. If any
+            non-None value is provided, the trainer will initialize the DeepSpeed engine. (default: ``None``)
         config (Dict[str, Any], optional): Extra user-provided trainer configuration. Will be persisted
             along with the trainer state during checkpointing. (default: ``None``)
 
@@ -183,7 +186,7 @@ class Trainer:
             eval_subset_num_batches: Optional[int] = None,
 
             # DeepSpeed
-            deepspeed_hparams: Optional[Union[dict, DeepSpeedHparams]] = None,
+            deepspeed_config: Optional[Dict[str, Any]] = None,
 
             # Optional config (ex. an hparams yaml file)
             config: Optional[Dict[str, Any]] = None):
@@ -196,12 +199,10 @@ class Trainer:
 
         self.config = config
 
-        if isinstance(deepspeed_hparams, dict):
-            deepspeed_hparams = DeepSpeedHparams(**deepspeed_hparams)
-        self.deepspeed_hparams = deepspeed_hparams
+        self.deepspeed_config = deepspeed_config
 
         if not device:
-            self.device = DeviceCPU() if not self.deepspeed_hparams is not None else DeviceGPU()
+            self.device = DeviceCPU() if not self.deepspeed_enabled else DeviceGPU()
         elif isinstance(device, str):
             if device == 'cpu':
                 self.device = DeviceCPU()
@@ -371,12 +372,13 @@ class Trainer:
         # place the state, model in the proper devices, and initialize from a checkpoint if provided
         if self.deepspeed_enabled:
             import deepspeed
-
-            assert self.deepspeed_hparams is not None
-            deepspeed_config = self.deepspeed_hparams.initialize_object(self.state, self.grad_clip_norm)
+            assert deepspeed_config is not None
+            self.deepspeed_config = parse_deepspeed_config(deepspeed_config,
+                                                           state=self.state,
+                                                           grad_clip_norm=self.grad_clip_norm)
             optimizer = ensure_tuple(self.state.optimizers)[0]
             (self.state.model, self.state.optimizers, _, _) = deepspeed.initialize(
-                config=deepspeed_config,
+                config=self.deepspeed_config,
                 model=self.state.model,
                 optimizer=optimizer,
             )
@@ -563,7 +565,7 @@ class Trainer:
             eval_subset_num_batches=hparams.eval_subset_num_batches,
 
             # DeepSpeed
-            deepspeed_hparams=hparams.deepspeed,
+            deepspeed_config=hparams.deepspeed,
 
             # Optional config
             config=hparams.to_dict())
@@ -572,7 +574,7 @@ class Trainer:
 
     @property
     def deepspeed_enabled(self):
-        return self.deepspeed_hparams is not None
+        return self.deepspeed_config is not None
 
     def fit(self):
         """Train and evaluate the model on the provided data."""
@@ -756,7 +758,6 @@ class Trainer:
 
                         # total_loss can be None if gradient scaling failed
                         dist.all_reduce(total_loss, reduce_operation="SUM")
-                        dist.barrier()
                         full_loss = total_loss.cpu().item()
                         self.logger.metric_batch({'loss/train': full_loss / dist.get_world_size()})
 
@@ -764,15 +765,15 @@ class Trainer:
                         assert train_metrics is not None
                         self._compute_and_log_metrics(train_metrics, is_train=True, is_batch=True)
 
-                    self.engine.run_event(Event.BATCH_END)
-
-                    for scheduler in state.schedulers:
-                        scheduler.step(interval='batch')  # type: ignore
-
                     state.timer.on_batch_complete(
                         samples=int(num_samples_in_batch.item()),
                         tokens=int(num_tokens_in_batch.item()),
                     )
+
+                    for scheduler in state.schedulers:
+                        scheduler.step(interval='batch')  # type: ignore
+
+                    self.engine.run_event(Event.BATCH_END)
 
                     if self.validate_every_n_batches > 0 and int(
                             state.timer.batch) % self.validate_every_n_batches == 0:
@@ -787,12 +788,12 @@ class Trainer:
             except BreakEpochException:
                 log.info(f'Skipping the rest of Epoch {state.epoch}')
 
+            state.timer.on_epoch_complete()
+
             for scheduler in state.schedulers:
                 scheduler.step(interval='epoch')  # type: ignore
 
             self.engine.run_event(Event.EPOCH_END)
-
-            state.timer.on_epoch_complete()
 
             if self.validate_every_n_epochs > 0 and int(state.timer.epoch) % self.validate_every_n_epochs == 0:
                 self.eval(is_batch=False)

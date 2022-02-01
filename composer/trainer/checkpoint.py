@@ -183,37 +183,45 @@ class CheckpointLoader:
             extracted_checkpoint_folder = os.path.join(node_checkpoint_folder, "checkpoint")
             mosaic_checkpoint_filepath = os.path.join(extracted_checkpoint_folder, _MOSAIC_STATES_FILENAME)
 
-        if dist.get_local_rank() == 0:
-            # every NODE needs the GLOBAL rank zero checkpoint
-            self._retrieve_checkpoint(destination_filepath=rank_zero_checkpoint_archive_filepath,
-                                      rank=dist.get_global_rank(),
-                                      ignore_not_found_errors=False)
-            if extracted_checkpoint_folder is not None:
-                try:
-                    with tarfile.open(rank_zero_checkpoint_archive_filepath) as tarball:
+        try:
+            if dist.get_local_rank() == 0:
+                # every NODE needs the GLOBAL rank zero checkpoint
+                self._retrieve_checkpoint(destination_filepath=rank_zero_checkpoint_archive_filepath,
+                                          rank=dist.get_global_rank(),
+                                          ignore_not_found_errors=False)
+                if extracted_checkpoint_folder is not None:
+                    try:
+                        with tarfile.open(rank_zero_checkpoint_archive_filepath) as tarball:
+                            tarball.extractall(extracted_checkpoint_folder)
+                    except FileNotFoundError:
+                        checkpoint_name = self.path.format(rank=dist.get_global_rank())
+                        # Not re-raising the file-not-found error as that is irrelevant;
+                        # the underlying issue is that the checkpoint file does not exist on the disk
+                        # or could not be downloaded
+                        raise RuntimeError(f"Checkpoint {checkpoint_name} does not exist")
+
+            if rank_zero_checkpoint_archive_filepath != rank_n_checkpoint_archive_filepath:
+                # every RANK needs ITS OWN checkpoint.
+                # But, the  global rank zero is a special case -- these files are the same!
+                assert dist.get_global_rank() != 0, "invariant violation"
+
+                # Allowing not-found errors to be ignored as sometimes there won't be rank-local checkpoints
+                # (e.g. when not using deepspeed)
+                self._retrieve_checkpoint(destination_filepath=rank_n_checkpoint_archive_filepath,
+                                          rank=dist.get_global_rank(),
+                                          ignore_not_found_errors=True)
+
+                if extracted_checkpoint_folder is not None:
+                    # it's an archive and needs to be extracted
+                    with tarfile.open(rank_n_checkpoint_archive_filepath) as tarball:
                         tarball.extractall(extracted_checkpoint_folder)
-                except FileNotFoundError as e:
-                    checkpoint_name = self.path.format(rank=dist.get_global_rank())
-                    raise RuntimeError(f"Unable to retrieve checkpoint {checkpoint_name}") from e
-
-        if rank_zero_checkpoint_archive_filepath != rank_n_checkpoint_archive_filepath:
-            # every RANK needs ITS OWN checkpoint.
-            # But, the  global rank zero is a special case -- these files are the same!
-            assert dist.get_global_rank() != 0, "invariant violation"
-
-            # Allowing not-found errors to be ignored as sometimes there won't be rank-local checkpoints
-            # (e.g. when not using deepspeed)
-            self._retrieve_checkpoint(destination_filepath=rank_n_checkpoint_archive_filepath,
-                                      rank=dist.get_global_rank(),
-                                      ignore_not_found_errors=True)
-
-            if extracted_checkpoint_folder is not None:
-                # it's an archive and needs to be extracted
-                with tarfile.open(rank_n_checkpoint_archive_filepath) as tarball:
-                    tarball.extractall(extracted_checkpoint_folder)
-
-        # Wait for all checkpoints on the node to finish downloading
-        dist.barrier()
+        finally:
+            # Wait for all checkpoints on the node to finish downloading
+            # Putting the barrier in a finally so the rank will always block on the barrier,
+            # even if it has an exception.
+            # Any exception will be re-raised after the barrier passes. The launcher script
+            # will detect the process crash and terminate the other ranks
+            dist.barrier()
 
         return mosaic_checkpoint_filepath, extracted_checkpoint_folder
 

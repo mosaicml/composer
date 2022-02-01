@@ -6,13 +6,9 @@ import time
 from collections import deque
 from typing import Deque, Optional
 
-import torch
-
 from composer.core import Logger, State
 from composer.core.callback import Callback
 from composer.core.types import StateDict
-from composer.utils import dist
-from composer.utils.data import get_device_of_batch
 
 
 class SpeedMonitor(Callback):
@@ -37,6 +33,7 @@ class SpeedMonitor(Callback):
         self.train_examples_per_epoch = 0
         self.wall_clock_train = 0.0
         self.epoch_start_time = 0.0
+        self.batch_start_num_samples = None
         self.batch_end_times: Deque[float] = deque(maxlen=window_size + 1)  # rolling list of batch end times
         self.batch_num_samples: Deque[int] = deque(maxlen=window_size)  # rolling list of num samples in batch.
         self.window_size = window_size
@@ -67,8 +64,9 @@ class SpeedMonitor(Callback):
             self.loaded_state = None
 
     def batch_start(self, state: State, logger: Logger) -> None:
-        del state, logger  # unused
+        del logger  # unused
         self._load_state()
+        self.batch_start_num_samples = state.timer.sample
 
     def epoch_start(self, state: State, logger: Logger):
         del state, logger  # unused
@@ -80,9 +78,9 @@ class SpeedMonitor(Callback):
 
     def batch_end(self, state: State, logger: Logger):
         self.batch_end_times.append(time.time())
-        batch_num_samples = torch.tensor([int(state.batch_num_samples)], device=get_device_of_batch(state.batch))
-        dist.all_reduce(batch_num_samples, reduce_operation="SUM")
-        self.batch_num_samples.append(int(batch_num_samples.item()))
+        new_num_samples = state.timer.sample
+        batch_num_samples = int(new_num_samples - self.batch_start_num_samples)
+        self.batch_num_samples.append(batch_num_samples)
         self.train_examples_per_epoch += batch_num_samples
         if len(self.batch_end_times) == self.window_size + 1:
             throughput = sum(self.batch_num_samples) / (self.batch_end_times[-1] - self.batch_end_times[0])
