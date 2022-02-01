@@ -6,6 +6,7 @@ from typing import List, Tuple, Union
 import numpy as np
 import torch
 import torch.utils.data
+from attr import ib
 from PIL import Image
 from torchvision import transforms
 
@@ -95,12 +96,14 @@ def pil_image_collate(batch: List[Tuple[Image.Image, Union[Image.Image, Tensor]]
     return image_tensor, target_tensor
 
 
-def add_dataset_transform(dataset, transform):
+def add_dataset_transform(dataset, transform, location="end"):
     """Flexibly add a transform to the dataset's collection of transforms.
 
     Args:
         dataset: A torchvision-like dataset
         transform: Function to be added to the dataset's collection of transforms
+        location [str]: Where to insert the transform in the sequence of transforms. "end"
+        will append to the end, "before_totensor" will insert before ToTensor().
 
     Returns:
         The original dataset. The transform is added in-place.
@@ -108,13 +111,23 @@ def add_dataset_transform(dataset, transform):
 
     if not hasattr(dataset, "transform"):
         raise ValueError(f"Dataset of type {type(dataset)} has no attribute 'transform'. Expected TorchVision dataset.")
+    assert location in ["end", "before_totensor"]
 
     if dataset.transform is None:
         dataset.transform = transform
     elif hasattr(dataset.transform, "transforms"):  # transform is a Compose
-        dataset.transform.transforms.append(transform)
+        insertion_index = len(dataset.transform.transforms)
+        if location == "before_totensor":
+            for i, t in enumerate(dataset.transform.transforms):
+                if isinstance(t, transforms.ToTensor):
+                    insertion_index = i
+                    break
+        dataset.transform.transforms.insert(insertion_index, transform)
     else:  # transform is some other basic transform, join using Compose
-        dataset.transform = transforms.Compose([dataset.transform, transform])
+        if isinstance(dataset.transform, transforms.ToTensor) and location == "before_totensor":
+            dataset.transform = transforms.Compose([transform, dataset.transform])
+        else:
+            dataset.transform = transforms.Compose([dataset.transform, transform])
 
     return dataset
 

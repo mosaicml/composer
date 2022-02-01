@@ -118,4 +118,4 @@ class RandAugment(Algorithm):
         ra = RandAugmentTransform(**self.hparams.to_dict())
         assert state.train_dataloader is not None
         dataset = state.train_dataloader.dataset
-        add_dataset_transform(dataset, ra)
+        add_dataset_transform(dataset, ra, location="before_totensor")
