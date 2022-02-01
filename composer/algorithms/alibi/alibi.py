@@ -37,12 +37,12 @@ class AlibiHparams(AlgorithmHparams):
     alibi_attention: str = hp.required("new self-attention function in which ALiBi is "
                                        "implemented. Used to replace "
                                        "'{attention_module}.{attr_to_replace}'")
-    mask_replacement_function: Union[str, None] = hp.optional(
+    mask_replacement_function: Optional[str] = hp.optional(
         "function to replace model's attention mask. This is "
         "sometimes necessary for evaluating on sequence "
         " lengths longer than the model was initialized to accommodate.",
         default=None)
-    heads_per_layer: Union[int, Optional[None]] = hp.optional(
+    heads_per_layer: Optional[int] = hp.optional(
         'Number of attention heads per layer. If '
         '"None", will attempt to determine from model.config.n_head.',
         default=None)
@@ -165,9 +165,15 @@ class Alibi(Algorithm):
             (sequence_length*sequence_length_fraction, batch/sequence_length_fraction).
     """
 
-    def __init__(self, position_embedding_attribute: str, attention_module_name: str, attr_to_replace: str,
-                 alibi_attention: str, mask_replacement_function: str, heads_per_layer: int, max_sequence_length: int,
-                 train_sequence_length_scaling: float) -> None:
+    def __init__(self,
+                 position_embedding_attribute: str,
+                 attention_module_name: str,
+                 attr_to_replace: str,
+                 alibi_attention: str,
+                 mask_replacement_function: Optional[str] = None,
+                 heads_per_layer: Optional[int] = None,
+                 max_sequence_length: int = 8192,
+                 train_sequence_length_scaling: float = 0.25) -> None:
 
         self.position_embedding_attribute = position_embedding_attribute
         self.attention_module_name = attention_module_name
@@ -190,8 +196,7 @@ class Alibi(Algorithm):
         if event == Event.INIT:
             assert state.model is not None
 
-            if "heads_per_layer" not in asdict(self.hparams).keys() or \
-            not self.heads_per_layer:
+            if self.heads_per_layer is None:
                 try:
                     self.heads_per_layer = state.model.config.n_head  # type: ignore
                 except AttributeError:
@@ -275,7 +280,7 @@ def get_alibi_head_slopes(n_heads: int):
             2 * closest_power_of_2)[0::2][:n_heads - closest_power_of_2]
 
 
-def lazy_import(name: Union[str, None]) -> Any[Callable, ModuleType, None]:
+def lazy_import(name: Optional[str]) -> Any[Callable, ModuleType, None]:
     if not name:
         return None
     components = name.split('.')

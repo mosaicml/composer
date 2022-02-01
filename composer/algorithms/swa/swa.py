@@ -112,7 +112,7 @@ class SWA(Algorithm):
             "may have adjusted the max_epochs."
 
             if self.swa_lr is None:
-                last_lr = state.schedulers[0].get_last_lr()  # assumes ComposedScheduler
+                last_lr = state.schedulers[0].get_last_lr()[0]  # assumes ComposedScheduler and one param group
                 log.info(f'Setting SWA LR to {last_lr}')
                 self.swa_lr = last_lr
 
@@ -124,7 +124,8 @@ class SWA(Algorithm):
             )
 
         if event == Event.EPOCH_END and state.epoch >= swa_start_epochs:
-            self.swa_model.update_parameters(state.model)
+            assert self.swa_model is not None
+            self.swa_model.update_parameters(state.model)  # type: ignore
 
             if self.swa_scheduler is None:
                 raise ValueError('SWA LR scheduler was not set.')
@@ -132,6 +133,7 @@ class SWA(Algorithm):
 
         ## end of training
         if event == Event.TRAINING_END:
+            assert self.swa_model is not None
             update_bn(state.train_dataloader, self.swa_model)
             state.model = self.swa_model
             log.info('Updated BN and set model to the averaged model')

@@ -73,4 +73,4 @@ class MyAlgorithm(Algorithm):
         """
         Implement your algorithm's state change here.
         """
-        state.model = my_algorithm(state.model, self.hparams.alpha, self.hparams.beta)
+        state.model = my_algorithm(state.model, self.alpha, self.beta)
