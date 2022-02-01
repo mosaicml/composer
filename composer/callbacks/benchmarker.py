@@ -9,7 +9,6 @@ from typing import Sequence
 
 import torch
 
-from composer.callbacks.callback_hparams import BenchmarkerHparams
 from composer.core import Logger, State
 from composer.core.callback import Callback
 from composer.core.types import BreakEpochException
@@ -73,10 +72,6 @@ class Benchmarker(Callback):
                  step_list: Sequence[int] = (0, 50),
                  all_epochs: bool = False):
         super().__init__()
-        self.hparams = BenchmarkerHparams(min_steps=min_steps,
-                                          epoch_list=list(epoch_list),
-                                          step_list=list(step_list),
-                                          all_epochs=all_epochs)
         if not all_epochs:
             if len(epoch_list) == 0:
                 raise ValueError("'epoch_list'  must be non-empty.")

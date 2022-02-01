@@ -160,7 +160,8 @@ class LayerFreezing(Algorithm):
     """
 
     def __init__(self, freeze_start: float = 0.5, freeze_level: float = 1.0):
-        self.hparams = LayerFreezingHparams(freeze_start, freeze_level)
+        self.freeze_start = freeze_start
+        self.freeze_level = freeze_level
 
     @property
     def find_unused_parameters(self) -> bool:
@@ -184,8 +185,8 @@ class LayerFreezing(Algorithm):
             model=state.model,
             optimizers=optimizers,
             current_duration=float(state.get_elapsed_duration()),
-            freeze_start=self.hparams.freeze_start,
-            freeze_level=self.hparams.freeze_level,
+            freeze_start=self.freeze_start,
+            freeze_level=self.freeze_level,
         )
         logger.metric_epoch({
             'layer_freezing/layers_frozen': freeze_depth,
