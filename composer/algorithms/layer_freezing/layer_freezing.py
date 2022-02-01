@@ -133,9 +133,10 @@ def freeze_layers(
 
     # Log results
     log.info(
-        textwrap.dedent(f"""Applied Layer Freezing with freeze_start={freeze_start},
-        freeze_level={freeze_level}. Froze {freeze_depth} layers in the model which
-        equates to {freeze_percentage * 100}% of all layers."""))
+        textwrap.dedent(f"""\
+            Applied Layer Freezing with freeze_start={freeze_start},
+            freeze_level={freeze_level}. Froze {freeze_depth} layers in the model which
+            equates to {freeze_percentage * 100}% of all layers."""))
     return freeze_depth, freeze_percentage
 
 
@@ -159,7 +160,8 @@ class LayerFreezing(Algorithm):
     """
 
     def __init__(self, freeze_start: float = 0.5, freeze_level: float = 1.0):
-        self.hparams = LayerFreezingHparams(freeze_start, freeze_level)
+        self.freeze_start = freeze_start
+        self.freeze_level = freeze_level
 
     @property
     def find_unused_parameters(self) -> bool:
@@ -183,8 +185,8 @@ class LayerFreezing(Algorithm):
             model=state.model,
             optimizers=optimizers,
             current_duration=float(state.get_elapsed_duration()),
-            freeze_start=self.hparams.freeze_start,
-            freeze_level=self.hparams.freeze_level,
+            freeze_start=self.freeze_start,
+            freeze_level=self.freeze_level,
         )
         logger.metric_epoch({
             'layer_freezing/layers_frozen': freeze_depth,
