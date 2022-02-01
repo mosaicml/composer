@@ -186,21 +186,20 @@ class TrainerHparams(hp.Hparams):
     load_checkpoint: Optional[CheckpointLoaderHparams] = hp.optional(doc="Checkpoint loading hparams", default=None)
     save_checkpoint: Optional[CheckpointSaverHparams] = hp.optional(doc="Checkpointing hparams", default=None)
 
-    train_subset_num_batches: Optional[int] = hp.optional(textwrap.dedent("""If specified,
-        finish every epoch early after training on this many batches."""),
-                                                          default=None)
-    eval_subset_num_batches: Optional[int] = hp.optional(textwrap.dedent("""If specified,
-        stop each evaluation after this many batches."""),
+    train_subset_num_batches: Optional[int] = hp.optional(
+        "If specified, finish every epoch early after training on this many batches.", default=None)
+    eval_subset_num_batches: Optional[int] = hp.optional("If specified, stop each evaluation after this many batches.",
                                                          default=None)
 
-    deterministic_mode: bool = hp.optional(doc="Run the model deterministically. Experimental. Performance"
-                                           "degradations expected. Certain Torch modules may not have"
-                                           "deterministic implementations, which will result in a crash.",
+    deterministic_mode: bool = hp.optional(textwrap.dedent("""\
+        Run the model deterministically. Experimental. Performance
+        degradations expected. Certain Torch modules may not have
+        deterministic implementations, which will result in a crash."""),
                                            default=False)
 
     compute_training_metrics: bool = hp.optional(doc="Log validation metrics on training data", default=False)
     log_level: str = hp.optional(doc="Python loglevel to use composer", default="INFO")
-    datadir: Optional[str] = hp.optional(doc=textwrap.dedent("""
+    datadir: Optional[str] = hp.optional(doc=textwrap.dedent("""\
         Datadir to apply for both the training and validation datasets. If specified,
         it will override train_dataset.datadir and val_dataset.datadir"""),
                                          default=None)

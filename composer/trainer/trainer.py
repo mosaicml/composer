@@ -427,17 +427,19 @@ class Trainer:
         train_device_batch_size = hparams.train_batch_size // dist.get_world_size()
         if hparams.train_dataset.shuffle and hparams.train_subset_num_batches is not None:
             warnings.warn(
-                textwrap.dedent(f"""SubsetNumBatchesWarning: When specifying train_subset_num_batches,
-            (set to {hparams.train_subset_num_batches}), train_datset.shuffle should be set to False. Otherwise,
-            each training epoch may load a different subset of samples."""))
+                textwrap.dedent(f"""
+                SubsetNumBatchesWarning: When specifying train_subset_num_batches,
+                (set to {hparams.train_subset_num_batches}), train_datset.shuffle should be set to False. Otherwise,
+                each training epoch may load a different subset of samples."""))
         train_data = hparams.train_dataset.initialize_object(train_device_batch_size, hparams.dataloader)
 
         eval_device_batch_size = hparams.eval_batch_size // dist.get_world_size()
         if hparams.val_dataset.shuffle and hparams.eval_subset_num_batches is not None:
             warnings.warn(
-                textwrap.dedent(f"""SubsetNumBatchesWarning: When specifying eval_subset_num_batches,
-            (set to {hparams.eval_subset_num_batches}), val_dataset.shuffle should be set to False. Otherwise,
-            each evaluation epoch may load a different subset of samples."""))
+                textwrap.dedent(f"""
+                SubsetNumBatchesWarning: When specifying eval_subset_num_batches,
+                (set to {hparams.eval_subset_num_batches}), val_dataset.shuffle should be set to False. Otherwise,
+                each evaluation epoch may load a different subset of samples."""))
         eval_data = hparams.val_dataset.initialize_object(eval_device_batch_size, hparams.dataloader)
 
         optimizers = hparams.optimizer.initialize_object(model.parameters())

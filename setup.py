@@ -20,9 +20,11 @@ class develop(develop_orig):
     def run(self):
         if _IS_ROOT and (not _IS_VIRTUALENV) and (not _IS_USER):
             raise RuntimeError(
-                textwrap.dedent("""When installing in editable mode as root outside of a virtual environment,
-                please specify `--user`. Editable installs as the root user outside of a virtual environment
-                do not work without the `--user` flag. Please instead run something like: `pip install --user -e .`"""))
+                textwrap.dedent("""\
+                    When installing in editable mode as root outside of a virtual environment,
+                    please specify `--user`. Editable installs as the root user outside of a virtual environment
+                    do not work without the `--user` flag. Please instead run something like: `pip install --user -e .`"""
+                               ))
         super().run()
 
 
@@ -138,7 +140,8 @@ setup(name="mosaicml",
 # only visible if user installs with verbose -v flag
 # Printing to stdout as not to interfere with setup.py CLI flags (e.g. --version)
 print("*" * 20, file=sys.stderr)
-print(textwrap.dedent("""NOTE: For best performance, we recommend installing Pillow-SIMD
+print(textwrap.dedent("""\
+    NOTE: For best performance, we recommend installing Pillow-SIMD
     for accelerated image processing operations. To install:
     \t pip uninstall pillow && pip install pillow-simd"""),
       file=sys.stderr)
