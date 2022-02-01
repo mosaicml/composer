@@ -189,9 +189,10 @@ class Time(Generic[TValue]):
         if isinstance(other, str):
             other_parsed = Time.from_timestring(other)
             warnings.warn(
-                textwrap.dedent(f"""TimeImplicitStringConversion:
-                Implicitly converting {other} to {other_parsed}.
-                To fix this warning, replace {other} with {other_parsed}."""))
+                textwrap.dedent(f"""\
+                    TimeImplicitStringConversion:
+                    Implicitly converting {other} to {other_parsed}.
+                    To fix this warning, replace {other} with {other_parsed}."""))
             return other_parsed
 
         raise NotImplementedError(f"Cannot convert type {other} to {self.__class__.__name__}")
@@ -433,9 +434,10 @@ class Timer(Serializable):
         if isinstance(other, str):
             other_parsed = Time.from_timestring(other)
             warnings.warn(
-                textwrap.dedent(f"""TimeImplicitStringConversion:
-                Implicitly converting {other} to {other_parsed}.
-                To fix this warning, replace {other} with {other_parsed}."""))
+                textwrap.dedent(f"""\
+                    TimeImplicitStringConversion:
+                    Implicitly converting {other} to {other_parsed}.
+                    To fix this warning, replace {other} with {other_parsed}."""))
             return other_parsed
 
         raise NotImplementedError(f"Cannot convert type {other} to {self.__class__.__name__}")

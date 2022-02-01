@@ -310,9 +310,10 @@ def test_checkpoint(
             mosaic_trainer_hparams.deterministic_mode = False
             if model_name is not None:
                 pytest.skip(
-                    textwrap.dedent(f"""Skipping test since deterministic mode is required for
-                    non-trivial models, but deterministic mode isn't compatible with deepspeed
-                    zero stage {zero_stage}"""))
+                    textwrap.dedent(f"""\
+                        Skipping test since deterministic mode is required for
+                        non-trivial models, but deterministic mode isn't compatible with deepsped
+                        zero stage {zero_stage}"""))
         mosaic_trainer_hparams.deepspeed = DeepSpeedHparams(zero_stage=zero_stage,)
 
     checkpoint_a_folder = "first"
@@ -375,9 +376,12 @@ def validate_events_called_expected_number_of_times(trainer: Trainer):
         num_evals = num_total_steps // trainer.validate_every_n_batches
     if trainer.validate_every_n_epochs > 0:
         num_evals = num_epochs // trainer.validate_every_n_epochs
-    assert state.eval_dataloader is not None
+
+    assert state.evaluators is not None
+    for evaluator in state.evaluators:
+        assert evaluator.dataloader is not None
     assert trainer._eval_subset_num_batches is not None
-    num_eval_steps = num_evals * trainer._eval_subset_num_batches
+    num_eval_steps = num_evals * trainer._eval_subset_num_batches * len(state.evaluators)
 
     event_to_num_expected_invocations = {
         Event.INIT: 1,

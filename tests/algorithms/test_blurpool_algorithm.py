@@ -9,24 +9,29 @@ from unittest.mock import MagicMock
 
 import pytest
 import torch
+from torchmetrics.classification.accuracy import Accuracy
+from torchmetrics.collections import MetricCollection
 
 from composer.algorithms import BlurPool, BlurPoolHparams
 from composer.algorithms.blurpool import apply_blurpool
 from composer.algorithms.blurpool.blurpool_layers import BlurConv2d, BlurMaxPool2d
 from composer.core import Event, State, surgery
+from composer.core.evaluator import Evaluator
 from composer.core.types import DataLoader, Logger, Model, Precision
 from tests.fixtures.models import SimpleConvModel
 
 
 @pytest.fixture
 def state(simple_conv_model: Model, dummy_train_dataloader: DataLoader, dummy_val_dataloader: DataLoader):
+    metric_coll = MetricCollection([Accuracy()])
+    evaluators = [Evaluator(label="dummy_label", dataloader=dummy_val_dataloader, metrics=metric_coll)]
     state = State(
         grad_accum=1,
         max_duration="100ep",
         model=simple_conv_model,
         precision=Precision.FP32,
         train_dataloader=dummy_train_dataloader,
-        eval_dataloader=dummy_val_dataloader,
+        evaluators=evaluators,
     )
     return state
 
