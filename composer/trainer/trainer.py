@@ -786,15 +786,15 @@ class Trainer:
                         assert train_metrics is not None
                         self._compute_and_log_metrics(train_metrics, is_train=True, is_batch=True)
 
-                    self.engine.run_event(Event.BATCH_END)
-
-                    for scheduler in state.schedulers:
-                        scheduler.step(interval='batch')  # type: ignore
-
                     state.timer.on_batch_complete(
                         samples=int(num_samples_in_batch.item()),
                         tokens=int(num_tokens_in_batch.item()),
                     )
+
+                    for scheduler in state.schedulers:
+                        scheduler.step(interval='batch')  # type: ignore
+
+                    self.engine.run_event(Event.BATCH_END)
 
                     if self.validate_every_n_batches > 0 and int(
                             state.timer.batch) % self.validate_every_n_batches == 0:
@@ -809,12 +809,12 @@ class Trainer:
             except BreakEpochException:
                 log.info(f'Skipping the rest of Epoch {state.epoch}')
 
+            state.timer.on_epoch_complete()
+
             for scheduler in state.schedulers:
                 scheduler.step(interval='epoch')  # type: ignore
 
             self.engine.run_event(Event.EPOCH_END)
-
-            state.timer.on_epoch_complete()
 
             if self.validate_every_n_epochs > 0 and int(state.timer.epoch) % self.validate_every_n_epochs == 0:
                 self.eval(is_batch=False)
