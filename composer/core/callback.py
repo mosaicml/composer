@@ -200,6 +200,13 @@ class Callback(Serializable, abc.ABC):
     def batch_end(self, state: State, logger: Logger) -> None:
         """Called on the :attr:`~Event.BATCH_END` event.
 
+        .. note::
+
+            :attr:`state.timer.batch`, :attr:`state.timer.batch_in_epoch`,
+            :attr:`state.timer.sample`, :attr:`state.timer.sample_in_epoch`,
+            :attr:`state.timer.token`, and :attr:`state.timer.token_in_epoch`
+            are incremented immediately before :attr:`~Event.BATCH_END`.
+
         Args:
             state (State): The global state.
             logger (Logger): The logger.
@@ -210,6 +217,11 @@ class Callback(Serializable, abc.ABC):
 
     def epoch_end(self, state: State, logger: Logger) -> None:
         """Called on the :attr:`~Event.EPOCH_END` event.
+
+
+        .. note::
+
+            :attr:`state.timer.epoch` is incremented immediately before :attr:`~Event.EPOCH_END`.
 
         Args:
             state (State): The global state.
