@@ -4,7 +4,7 @@ from typing import List, Optional
 
 import torch.nn as nn
 
-from composer.models.base import MosaicClassifier
+from composer.models.base import ComposerClassifier
 from composer.models.model_hparams import Initializer
 from composer.models.resnets import BasicBlock
 
@@ -50,8 +50,8 @@ class ResNet9(nn.Module):
         return out
 
 
-class CIFAR10_ResNet9(MosaicClassifier):
-    """A ResNet-9 model extending :class:`MosaicClassifier`.
+class CIFAR10_ResNet9(ComposerClassifier):
+    """A ResNet-9 model extending :class:`ComposerClassifier`.
 
     See this blog post for details regarding the architecture:
     https://myrtle.ai/learn/how-to-train-your-resnet-4-architecture/

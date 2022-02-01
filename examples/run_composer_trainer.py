@@ -1,6 +1,6 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
-"""Entrypoint that runs the mosaic trainer on a provided YAML hparams file.
+"""Entrypoint that runs the Composer trainer on a provided YAML hparams file.
 
 Adds a --datadir flag to conveniently set a common
 data directory for both train and validation datasets.

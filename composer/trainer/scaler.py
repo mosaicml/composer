@@ -57,7 +57,7 @@ class ClosureGradScaler(GradScaler):
         """Step the optimizer with amp.
 
         Always called before the optimizer step.
-        Checks if the optimizer can handle AMP closures (currently only MosaicML's SAM optimizer)
+        Checks if the optimizer can handle AMP closures (currently only Composer's SAM optimizer)
         If so, it passes an AMP-modified closure to the optimizer.
         """
 

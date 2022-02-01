@@ -1,7 +1,7 @@
 Welcome Tour
 ============
 
-Welcome to the MosaicML *Composer* library! This guide will walk you through the basics of how the MosaicML trainer works, and how it interacts with our methods libary. This guide will assume you've already gone through the installation instructions.
+Welcome to the MosaicML *Composer* library! This guide will walk you through the basics of how the Composer trainer works, and how it interacts with our methods libary. This guide will assume you've already gone through the installation instructions.
 
 Our First Method!
 -----------------
@@ -51,7 +51,7 @@ This works, and is recommend if you want to quickly modify an existing training 
 Introducing... Events, Engines, and State
 -----------------------------------------
 
-The core principle of the MosaicML trainer is to avoid the need to introduce algorithm-specific logic to the trainer by insteading relying on callbacks tied to *events*. Events describe specific stages of the training lifecycle, such as ``BATCH_START``, ``BEFORE_FORWARD``, and ``TRAINING_END``. We could instrument our training loop with events as follows:
+The core principle of the Composer trainer is to avoid the need to introduce algorithm-specific logic to the trainer by insteading relying on callbacks tied to *events*. Events describe specific stages of the training lifecycle, such as ``BATCH_START``, ``BEFORE_FORWARD``, and ``TRAINING_END``. We could instrument our training loop with events as follows:
 
 .. code-block:: python
 
@@ -135,7 +135,7 @@ Putting all the pieces together, our trainer looks something like this:
 
 That's it! Our training loop is now taking full advantage of MixUp, and we can easily start using new algorithms! For more information on events, state, and engines, check out :doc:`/core/event`, :doc:`/core/state`, and :doc:`/core/engine`.
 
-Next: The MosaicML Trainer
+Next: The Composer Trainer
 --------------------------
 
 For advanced experimentation, we recommend using our provided trainer. Our trainer takes care of all the state management and event callbacks from above, and adds a bunch of advanced features, including hyperparameter management, gradient accumulation, and closure support. For more information, check out our trainer documentation at :doc:`/trainer`.

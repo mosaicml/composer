@@ -84,4 +84,4 @@ Next, train a small classifier on MNIST with the label smoothing algorithm:
     git clone https://github.com/mosaicml/composer.git
     cd composer
     pip install -e .
-    python examples/run_mosaic_trainer.py -f composer/yamls/models/classify_mnist_cpu.yaml --datadir ~/datasets/ --algorithms label_smoothing --alpha 0.1
+    python examples/run_composer_trainer.py -f composer/yamls/models/classify_mnist_cpu.yaml --datadir ~/datasets/ --algorithms label_smoothing --alpha 0.1

@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING
 from composer.models.transformer_hparams import TransformerHparams
 
 if TYPE_CHECKING:
-    from composer.models.transformer_shared import MosaicTransformer
+    from composer.models.transformer_shared import ComposerTransformer
 
 
 @dataclasses.dataclass
@@ -15,7 +15,7 @@ class GPT2Hparams(TransformerHparams):
     Overrides TransformerHparams to create GPT-2 specific models and configs.
     """
 
-    def initialize_object(self) -> "MosaicTransformer":
+    def initialize_object(self) -> "ComposerTransformer":
         import transformers
 
         from composer.models.gpt2.model import GPT2Model

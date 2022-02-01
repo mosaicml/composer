@@ -95,20 +95,20 @@ class TorchProfiler(Callback):
         next_batch_in_epoch = int(state.timer.batch_in_epoch) + 1
         if profiler_step == 0:
             next_batch_in_epoch = 0
-        assert state.profiler is not None, "mosaic profiler should be defined"
-        mosaic_profiler_action = state.profiler.get_action(next_batch_in_epoch)
-        next_mosaic_profiler_action = state.profiler.get_action(next_batch_in_epoch + 1)
+        assert state.profiler is not None, "composer profiler should be defined"
+        composer_profiler_action = state.profiler.get_action(next_batch_in_epoch)
+        next_composer_profiler_action = state.profiler.get_action(next_batch_in_epoch + 1)
         if next_batch_in_epoch == state.steps_per_epoch:
-            if mosaic_profiler_action == ProfilerAction.ACTIVE:
+            if composer_profiler_action == ProfilerAction.ACTIVE:
                 # force saving at epoch boundaries
                 return TorchProfilerAction.RECORD_AND_SAVE
-        if mosaic_profiler_action == ProfilerAction.ACTIVE and next_mosaic_profiler_action != ProfilerAction.ACTIVE:
+        if composer_profiler_action == ProfilerAction.ACTIVE and next_composer_profiler_action != ProfilerAction.ACTIVE:
             return TorchProfilerAction.RECORD_AND_SAVE
-        if mosaic_profiler_action == ProfilerAction.ACTIVE:
+        if composer_profiler_action == ProfilerAction.ACTIVE:
             return TorchProfilerAction.RECORD
-        if mosaic_profiler_action == ProfilerAction.WARMUP:
+        if composer_profiler_action == ProfilerAction.WARMUP:
             return TorchProfilerAction.WARMUP
-        assert mosaic_profiler_action == ProfilerAction.SKIP, "invariant error"
+        assert composer_profiler_action == ProfilerAction.SKIP, "invariant error"
         return TorchProfilerAction.NONE
 
     def init(self, state: State, logger: Logger) -> None:

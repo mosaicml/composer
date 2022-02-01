@@ -127,7 +127,7 @@ def patch_registries(monkeypatch: MonkeyPatch):
     pytest.param(1),
     pytest.param(2, marks=pytest.mark.world_size(2)),
 ])
-def test_ddp(device: DeviceHparams, world_size: int, mosaic_trainer_hparams: TrainerHparams, deepspeed: bool) -> None:
+def test_ddp(device: DeviceHparams, world_size: int, composer_trainer_hparams: TrainerHparams, deepspeed: bool) -> None:
     """
     test strategy for ddp:
     1) Train a dummy model on two gps, for two epochs, using the tracked dataset.
@@ -142,7 +142,7 @@ def test_ddp(device: DeviceHparams, world_size: int, mosaic_trainer_hparams: Tra
     """
     del world_size  # unused. Set via env variables
 
-    hparams = mosaic_trainer_hparams
+    hparams = composer_trainer_hparams
     model_hparams = hparams.model
     model = model_hparams.initialize_object()
     assert isinstance(model, SimpleBatchPairModel)

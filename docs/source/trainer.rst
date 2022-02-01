@@ -92,7 +92,7 @@ You can also provide overrides at command line:
 
 .. code-block:: bash
 
-    python examples/run_mosaic_trainer.py -f composer/yamls/models/classify_mnist_cpu.yaml --algorithms blurpool layer_freezing --datadir ~/datasets
+    python examples/run_composer_trainer.py -f composer/yamls/models/classify_mnist_cpu.yaml --algorithms blurpool layer_freezing --datadir ~/datasets
 
 
 **Algorithms**

@@ -2,13 +2,13 @@
 
 from typing import List, Optional
 
-from composer.models.base import MosaicClassifier
+from composer.models.base import ComposerClassifier
 from composer.models.model_hparams import Initializer
 from composer.models.resnets import ImageNet_ResNet
 
 
-class ResNet101(MosaicClassifier):
-    """A ResNet-101 model extending :class:`MosaicClassifier`.
+class ResNet101(ComposerClassifier):
+    """A ResNet-101 model extending :class:`ComposerClassifier`.
 
     See this `paper <https://arxiv.org/abs/1512.03385>`_ for details
     on the residual network architecture.

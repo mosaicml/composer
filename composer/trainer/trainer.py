@@ -28,7 +28,7 @@ from composer.core.time import TimeUnit
 from composer.core.types import (Batch, BreakEpochException, DataLoader, Evaluators, Metrics, Optimizers, Precision,
                                  Schedulers)
 from composer.loggers.tqdm_logger import TQDMLoggerBackend
-from composer.models.base import BaseMosaicModel
+from composer.models.base import ComposerModel
 from composer.optim import ComposedScheduler
 from composer.optim.decoupled_weight_decay import DecoupledSGDW
 from composer.optim.scheduler import ensure_warmup_last
@@ -58,7 +58,7 @@ class Trainer:
     (see :meth:`~composer.trainer.Trainer.create_from_hparams`).
 
     Args:
-        model (BaseMosaicModel): The model to train.
+        model (ComposerModel): The model to train.
         train_dataloader (DataLoader, DataSpec, or dict): The :class:`DataLoader`, :class:`DataSpec`,
             or dict of :class:`DataSpec` kwargs for the training data.
         eval_dataloader (DataLoader, DataSpec, Evaluators): The :class:`DataLoader`, :class:`DataSpec`,
@@ -127,7 +127,7 @@ class Trainer:
     def __init__(
             self,
             *,
-            model: BaseMosaicModel,
+            model: ComposerModel,
             train_dataloader: Union[DataLoader, DataSpec],
             eval_dataloader: Optional[Union[DataLoader, DataSpec, Evaluators]],
             max_duration: Union[str, Time],
@@ -345,7 +345,7 @@ class Trainer:
 
         self.engine.run_event(Event.INIT)
 
-        assert isinstance(self.state.model, BaseMosaicModel)
+        assert isinstance(self.state.model, ComposerModel)
         self.original_model = self.state.model  # TODO(ravi) -- update the state to add an original model helper
 
         self.checkpoint_saver = None
