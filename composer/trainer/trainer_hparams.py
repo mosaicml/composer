@@ -23,7 +23,7 @@ from composer.loggers import (BaseLoggerBackendHparams, FileLoggerBackendHparams
                               TQDMLoggerBackendHparams, WandBLoggerBackendHparams)
 from composer.models import (BERTForClassificationHparams, BERTHparams, CIFARResNet9Hparams, CIFARResNetHparams,
                              DeepLabV3Hparams, EfficientNetB0Hparams, GPT2Hparams, MnistClassifierHparams, ModelHparams,
-                             ResNetHparams, UnetHparams)
+                             ResNetHparams, TimmHparams, UnetHparams)
 from composer.models.resnet20_cifar10.resnet20_cifar10_hparams import CIFARResNet20Hparams
 from composer.optim import (AdamHparams, AdamWHparams, DecoupledAdamWHparams, DecoupledSGDWHparams, OptimizerHparams,
                             RAdamHparams, RMSPropHparams, SchedulerHparams, SGDHparams, scheduler)
@@ -71,6 +71,7 @@ model_registry = {
     "gpt2": GPT2Hparams,
     "bert": BERTHparams,
     "bert_classification": BERTForClassificationHparams,
+    "timm": TimmHparams
 }
 
 dataset_registry = {

@@ -23,6 +23,8 @@ from composer.models.resnet56_cifar10 import CIFAR10_ResNet56 as CIFAR10_ResNet5
 from composer.models.resnet56_cifar10 import CIFARResNetHparams as CIFARResNetHparams
 from composer.models.resnet.model import MosaicResNet as MosaicResNet
 from composer.models.resnet.resnet_hparams import ResNetHparams as ResNetHparams
+from composer.models.timm import Timm as Timm
+from composer.models.timm import TimmHparams as TimmHparams
 from composer.models.transformer_shared import MosaicTransformer as MosaicTransformer
 from composer.models.unet import UNet as UNet
 from composer.models.unet import UnetHparams as UnetHparams
