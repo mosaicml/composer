@@ -109,7 +109,6 @@ class TQDMLoggerBackend(BaseLoggerBackend):
         if dist.get_global_rank() != 0:
             return
         assert self.is_train is not None, "self.is_train should be set by the callback"
-        assert state.evaluators is not None
         if self.is_train:
             total_steps = state.steps_per_epoch
         else:

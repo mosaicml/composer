@@ -81,7 +81,6 @@ class State(Serializable):
             The :class:`types.DataLoader`, :class:`types.DataSpec`, or dict of :class:`types.DataSpec` kwargs to used for training.
         evaluators (Evaluators):
             The :class:`types.Evaluators` contain the evaluation datasets used for evaluation with specific metrics.
-        max_epochs (int): The maximum number of epochs to train for.
         max_duration (str or Time): The maximum duration to train for.
 
         precision (str | Precision): The numerical precision to use for training. Should be one of ``[fp32, amp]``.

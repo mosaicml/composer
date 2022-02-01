@@ -67,7 +67,7 @@ class EvaluatorHparams(hp.Hparams):
 
         # Use all the metrics from the model if no metric_names are specified
         if self.metric_names is None:
-            evaluator_metrics = model_metrics
+            evaluator_metrics = copy.deepcopy(model_metrics)
         else:
             evaluator_metrics = MetricCollection([])
             for metric_name in self.metric_names:

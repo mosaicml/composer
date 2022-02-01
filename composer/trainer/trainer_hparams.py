@@ -228,11 +228,7 @@ class TrainerHparams(hp.Hparams):
                 f"Eval batch size ({self.eval_batch_size}) not divisible by the total number of processes ({world_size})."
             )
 
-        # There should be at least one structure for validation - evaluators or ordinary validation dataset
-        if self.evaluators is None or len(self.evaluators) == 0:
-            if self.val_dataset is None:
-                raise ValueError("val_dataset and evaluators shouldn't both be empty")
-        elif self.val_dataset is not None:
+        if self.evaluators is not None and len(self.evaluators) > 0 and self.val_dataset is not None:
             raise ValueError(
                 "val_dataset and evaluators shouldn't both be specified. Only one can be passed in to the trainer.")
 
