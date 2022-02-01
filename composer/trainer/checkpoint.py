@@ -21,7 +21,6 @@ import yaml
 
 from composer.core import Event, State
 from composer.core.types import StateDict
-from composer.trainer.checkpoint_hparams import CheckpointLoaderHparams
 from composer.trainer.deepspeed import is_module_deepspeed
 from composer.trainer.devices.device import Device
 from composer.utils import ObjectStoreProviderHparams, dist, iterate_with_pbar, reproducibility, run_directory
@@ -93,20 +92,18 @@ class CheckpointLoader:
                         When specifying `object_store_hparams`,
                         the `checkpoint` parameter must be the key for the checkpoint in the bucket, NOT a uri."""))
 
-        self.hparams = CheckpointLoaderHparams(
-            path=path,
-            object_store=object_store_hparams,
-            load_weights_only=load_weights_only,
-            strict_model_weights=strict_model_weights,
-            chunk_size=chunk_size,
-            progress_bar=progress_bar,
-        )
+        self.path = path
+        self.object_store = object_store_hparams
+        self.load_weights_only = load_weights_only
+        self.strict_model_weights = strict_model_weights
+        self.chunk_size = chunk_size
+        self.progress_bar = progress_bar
         self.checkpoint_rng_state = None
 
     def _retrieve_checkpoint(self, rank: int, destination_filepath: str, ignore_not_found_errors: bool):
-        checkpoint_name = self.hparams.path.format(RANK=rank)
-        if self.hparams.object_store is not None:
-            provider = self.hparams.object_store.initialize_object()
+        checkpoint_name = self.path.format(RANK=rank)
+        if self.object_store is not None:
+            provider = self.object_store.initialize_object()
             try:
                 total_size_in_bytes = provider.get_object_size(checkpoint_name)
             except Exception as e:
@@ -116,7 +113,7 @@ class CheckpointLoader:
             self._write_to_file_with_pbar(
                 destination_filepath=destination_filepath,
                 total_size=total_size_in_bytes,
-                iterator=provider.download_object_as_stream(checkpoint_name, chunk_size=self.hparams.chunk_size),
+                iterator=provider.download_object_as_stream(checkpoint_name, chunk_size=self.chunk_size),
             )
             return
         checkpoint_uri_parsed = urllib.parse.urlparse(checkpoint_name)
@@ -133,11 +130,11 @@ class CheckpointLoader:
                 total_size_in_bytes = int(total_size_in_bytes)
             self._write_to_file_with_pbar(destination_filepath,
                                           total_size=total_size_in_bytes,
-                                          iterator=r.iter_content(self.hparams.chunk_size))
+                                          iterator=r.iter_content(self.chunk_size))
 
     def _write_to_file_with_pbar(self, destination_filepath: str, total_size: Optional[int], iterator: Iterator[bytes]):
-        if self.hparams.progress_bar:
-            desc = f"Downloading {self.hparams.path}"
+        if self.progress_bar:
+            desc = f"Downloading {self.path}"
             if len(desc) > 60:
                 desc = desc[:42] + "..." + desc[-15:]
             pbar = tqdm.tqdm(desc=desc, total=total_size, unit='iB', unit_scale=True)
@@ -169,7 +166,7 @@ class CheckpointLoader:
                 The ``extracted_checkpoint_folder`` is the path to the checkpoint folder, which can be passed into
                 :meth:`deepspeed.DeepSpeedEngine.load_checkpoint`.
         """
-        checkpoint_archive_name = self.hparams.path.split(os.path.sep)[-1]
+        checkpoint_archive_name = self.path.split(os.path.sep)[-1]
         rank_zero_checkpoint_archive_name = "rank_0." + checkpoint_archive_name.format(rank=0)
         rank_n_checkpoint_archive_name = f"rank_{dist.get_global_rank()}." + checkpoint_archive_name.format(
             rank=dist.get_global_rank())
@@ -195,7 +192,7 @@ class CheckpointLoader:
                     with tarfile.open(rank_zero_checkpoint_archive_filepath) as tarball:
                         tarball.extractall(extracted_checkpoint_folder)
                 except FileNotFoundError as e:
-                    checkpoint_name = self.hparams.path.format(rank=dist.get_global_rank())
+                    checkpoint_name = self.path.format(rank=dist.get_global_rank())
                     raise RuntimeError(f"Unable to retrieve checkpoint {checkpoint_name}") from e
 
         if rank_zero_checkpoint_archive_filepath != rank_n_checkpoint_archive_filepath:
@@ -245,15 +242,15 @@ class CheckpointLoader:
             load_path, _ = cast("deepspeed.DeepSpeedEngine", state.model).load_checkpoint(
                 extracted_checkpoint_folder,
                 tag=_DEEPSPEED_TAG,
-                load_module_only=self.hparams.load_weights_only,
-                load_module_strict=self.hparams.strict_model_weights,
+                load_module_only=self.load_weights_only,
+                load_module_strict=self.strict_model_weights,
             )
             if load_path is None:
-                raise RuntimeError(f"Failed to load DeepSpeed checkpoint from {self.hparams.path}")
-        elif self.hparams.load_weights_only:
-            state.load_model_state(state_dict['state'], strict=self.hparams.strict_model_weights)
+                raise RuntimeError(f"Failed to load DeepSpeed checkpoint from {self.path}")
+        elif self.load_weights_only:
+            state.load_model_state(state_dict['state'], strict=self.strict_model_weights)
 
-        if not self.hparams.load_weights_only:
+        if not self.load_weights_only:
             state.load_state_dict(state_dict["state"])
             self.checkpoint_rng_state = self._get_checkpoint_rng_state(state_dict["rng"])
 
@@ -288,8 +285,8 @@ class CheckpointLoader:
             mosaic_checkpoint_filepath, extracted_checkpoint_folder = self._download_checkpoint(node_checkpoint_folder)
             seed_to_restore = self._restore_checkpoint(state, mosaic_checkpoint_filepath, extracted_checkpoint_folder)
 
-        log.info(f'{"Model weights" if self.hparams.load_weights_only else "Trainer checkpoint"}'
-                 f' loaded from {self.hparams.path}.')
+        log.info(f'{"Model weights" if self.load_weights_only else "Trainer checkpoint"}'
+                 f' loaded from {self.path}.')
 
         return seed_to_restore
 

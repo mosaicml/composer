@@ -63,7 +63,8 @@ class MyAlgorithm(Algorithm):
         """
         __init__ is constructed from the same fields as in hparams.
         """
-        self.hparams = MyAlgorithmHparams(alpha, beta)
+        self.alpha = alpha
+        self.beta = beta
 
     def match(self, event: Event, state: State) -> bool:
         return True
@@ -72,4 +73,4 @@ class MyAlgorithm(Algorithm):
         """
         Implement your algorithm's state change here.
         """
-        state.model = my_algorithm(state.model, self.hparams.alpha, self.hparams.beta)
+        state.model = my_algorithm(state.model, self.alpha, self.beta)
