@@ -150,11 +150,13 @@ class ColOut(Algorithm):
         if not (0 <= p_row <= 1):
             raise ValueError("p_row must be between 0 and 1")
 
-        self.hparams = ColOutHparams(p_row, p_col, batch)
+        self.p_row = p_row
+        self.p_col = p_col
+        self.batch = batch
 
     def match(self, event: Event, state: State) -> bool:
         """Apply on Event.TRAINING_START for samplewise or Event.AFTER_DATALOADER for batchwise """
-        if self.hparams.batch:
+        if self.batch:
             return event == Event.AFTER_DATALOADER
         else:
             return event == Event.TRAINING_START
@@ -164,7 +166,7 @@ class ColOut(Algorithm):
         assert state.train_dataloader is not None
         dataset = state.train_dataloader.dataset
 
-        transform = ColOutTransform(p_row=self.hparams.p_row, p_col=self.hparams.p_col)
+        transform = ColOutTransform(p_row=self.p_row, p_col=self.p_col)
 
         if hasattr(dataset, "transform"):
             add_dataset_transform(dataset, transform)
@@ -176,7 +178,7 @@ class ColOut(Algorithm):
         """Transform a batch of images using the ColOut augmentation """
         inputs, labels = state.batch_pair
         assert isinstance(inputs, Tensor), "Multiple Tensors not supported yet for ColOut"
-        new_inputs = batch_colout(inputs, p_row=self.hparams.p_row, p_col=self.hparams.p_col)
+        new_inputs = batch_colout(inputs, p_row=self.p_row, p_col=self.p_col)
 
         state.batch = (new_inputs, labels)
 
@@ -188,7 +190,7 @@ class ColOut(Algorithm):
             state (State): the current trainer state
             logger (Optional[Logger], optional): the training logger. Defaults to None.
         """
-        if self.hparams.batch:
+        if self.batch:
             self._apply_batch(state)
         else:
             self._apply_sample(state)

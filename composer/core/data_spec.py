@@ -93,7 +93,8 @@ class DataSpec:
                     [y[i::num_microbatches] for i in range(num_microbatches)],
                 ))
         raise NotImplementedError(
-            textwrap.dedent("""The default split_fn is unable to split the output of this
+            textwrap.dedent("""\
+                The default split_fn is unable to split the output of this
                 dataloader. Please use a DataSpec and specify `split_batch`."""))
 
     def _default_get_num_samples_in_batch(self, batch: Batch) -> int:
@@ -112,9 +113,10 @@ class DataSpec:
             return dim0_sizes[0]
         else:
             raise NotImplementedError(
-                textwrap.dedent(f"""Cannot determine the batch size, as multiple Tensors of
-                different lengths were found in the batch: sizes in batch: {dim0_sizes}.
-                Please use a DataSpec and specify `get_num_samples_in_batch`."""))
+                textwrap.dedent(f"""\
+                    Cannot determine the batch size, as multiple Tensors of
+                    different lengths were found in the batch: sizes in batch: {dim0_sizes}.
+                    Please use a DataSpec and specify `get_num_samples_in_batch`."""))
 
     def _default_get_num_tokens_in_batch(self, batch: Batch) -> int:
         del batch  # unused

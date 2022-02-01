@@ -125,7 +125,9 @@ class SAM(Algorithm):
         """
         __init__ is constructed from the same fields as in hparams.
         """
-        self.hparams = SAMHparams(rho=rho, epsilon=epsilon, interval=interval)
+        self.rho = rho
+        self.epsilon = epsilon
+        self.interval = interval
 
     def match(self, event: Event, state: State) -> bool:
         """Run on Event.TRAINING_START
@@ -151,7 +153,7 @@ class SAM(Algorithm):
         state.optimizers = tuple(
             SAMOptimizer(
                 base_optimizer=optimizer,
-                rho=self.hparams.rho,
-                epsilon=self.hparams.epsilon,
-                interval=self.hparams.interval,
+                rho=self.rho,
+                epsilon=self.epsilon,
+                interval=self.interval,
             ) for optimizer in ensure_tuple(state.optimizers))

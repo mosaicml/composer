@@ -8,7 +8,6 @@ from typing import Deque, Optional
 
 import torch
 
-from composer.callbacks.callback_hparams import SpeedMonitorHparams
 from composer.core import Logger, State
 from composer.core.callback import Callback
 from composer.core.types import StateDict
@@ -40,7 +39,7 @@ class SpeedMonitor(Callback):
         self.epoch_start_time = 0.0
         self.batch_end_times: Deque[float] = deque(maxlen=window_size + 1)  # rolling list of batch end times
         self.batch_num_samples: Deque[int] = deque(maxlen=window_size)  # rolling list of num samples in batch.
-        self.hparams = SpeedMonitorHparams(window_size=window_size)
+        self.window_size = window_size
         self.loaded_state: Optional[StateDict] = None
 
     def state_dict(self) -> StateDict:
@@ -63,7 +62,7 @@ class SpeedMonitor(Callback):
             self.wall_clock_train = self.loaded_state["wall_clock_train"]
             self.epoch_start_time = current_time - self.loaded_state["epoch_duration"]
             self.batch_end_times = deque([current_time - x for x in self.loaded_state["batch_durations"]],
-                                         maxlen=self.hparams.window_size + 1)
+                                         maxlen=self.window_size + 1)
             self.batch_num_samples = self.loaded_state["batch_num_samples"]
             self.loaded_state = None
 
@@ -85,7 +84,7 @@ class SpeedMonitor(Callback):
         dist.all_reduce(batch_num_samples, reduce_operation="SUM")
         self.batch_num_samples.append(int(batch_num_samples.item()))
         self.train_examples_per_epoch += batch_num_samples
-        if len(self.batch_end_times) == self.hparams.window_size + 1:
+        if len(self.batch_end_times) == self.window_size + 1:
             throughput = sum(self.batch_num_samples) / (self.batch_end_times[-1] - self.batch_end_times[0])
             logger.metric_batch({'throughput/step': throughput})
 
