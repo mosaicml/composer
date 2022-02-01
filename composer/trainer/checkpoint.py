@@ -330,7 +330,7 @@ class CheckpointSaver:
             `checkpoint_interval` should be measured in.
     """
 
-    def __init__(self, checkpoint_folder: str, checkpoint_interval: int, checkpoint_interval_unit: str):
+    def __init__(self, checkpoint_folder: str, checkpoint_interval: int, checkpoint_interval_unit: str, compression: str):
         if checkpoint_interval_unit.lower() == "ep":
             self.save_event = Event.EPOCH_END
         elif checkpoint_interval_unit.lower() == "it":
@@ -340,6 +340,13 @@ class CheckpointSaver:
         self.checkpoint_folder = os.path.join(run_directory.get_run_directory(), checkpoint_folder)
         os.makedirs(self.checkpoint_folder, mode=0o775, exist_ok=True)
         self.save_interval = checkpoint_interval
+        self.write_mode = "w"
+        if compression == "gzip":
+            self.write_mode = "w:gz"
+        elif compression == "bzip2":
+            self.write_mode = "w:bz2"
+        elif compression == "lzma":
+            self.write_mode = "w:xz"
 
     def should_checkpoint(self, state: State, event: Event) -> bool:
         """Given the current state and event, determine whether a checkpoint needs to be created.
@@ -417,7 +424,7 @@ class CheckpointSaver:
                     torch.save(state_dict, f)
 
             checkpoint_archive_filepath = os.path.join(self.checkpoint_folder, f'{tag}.tar')
-            with tarfile.open(checkpoint_archive_filepath, "w") as tarball:
+            with tarfile.open(checkpoint_archive_filepath, self.write_mode) as tarball:
                 tarball.add(tmpdir, arcname="")  # add files flat to the tarball
 
             log.info(f'Trainer checkpoint saved to {checkpoint_archive_filepath}')

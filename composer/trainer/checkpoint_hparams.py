@@ -72,15 +72,20 @@ class CheckpointSaverHparams(hp.Hparams):
     folder: str = hp.optional(doc="Folder in which to save checkpoint files. Relative to the run directory, if set."
                               "Defaults to `checkpoints`.",
                               default="checkpoints")
+    compression: str = hp.optional(doc="Compression algorithm to run on checkpoints. Must be one of `None`, `gzip`, `bzip2`, or `lzma`.",
+                                   default="None")
 
     def validate(self):
         if self.interval < 0:
             raise ValueError("Checkpointing interval must be greater than zero.")
         if self.interval_unit not in ['ep', 'it']:
             raise ValueError("Checkpointing interval unit must be one of 'ep' for epochs, or 'it' for iterations.")
+        if self.compression not in ["None", "gzip", "bzip2", "lzma"]:
+            raise ValueError("Compression type must be one of `None`, `gzip`, `bzip2`, or `lzma`.")
 
     def initialize_object(self) -> CheckpointSaver:
         from composer.trainer.checkpoint import CheckpointSaver
         return CheckpointSaver(checkpoint_interval_unit=self.interval_unit,
                                checkpoint_interval=self.interval,
-                               checkpoint_folder=self.folder)
+                               checkpoint_folder=self.folder,
+                               compression=self.compression)
