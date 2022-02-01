@@ -185,7 +185,7 @@ class SeqLengthWarmup(Algorithm):
 
             input_ids = torch.randint(low=0,
                                       high=vocab_size - 1,
-                                      size=(per_gpu_batch, self.hparams.max_seq_length),
+                                      size=(per_gpu_batch, self.max_seq_length),
                                       device=device).long()
             labels = input_ids.clone()
             attn_mask = torch.ones_like(labels)
@@ -214,17 +214,17 @@ class SeqLengthWarmup(Algorithm):
                 optimizer.zero_grad()
         else:
             num_optimization_steps = state.steps_per_epoch * state.max_epochs
-            num_warmup_steps = int(num_optimization_steps * self.hparams.duration)
+            num_warmup_steps = int(num_optimization_steps * self.duration)
 
             # assume the full sequence length is the unaltered sequence length
-            num_update_steps = (self.hparams.max_seq_length - self.hparams.min_seq_length) // self.hparams.step_size
+            num_update_steps = (self.max_seq_length - self.min_seq_length) // self.step_size
             update_every_n_steps = num_warmup_steps // num_update_steps
 
-            curr_seq_len = self.hparams.step_size * (state.step // update_every_n_steps)
-            curr_seq_len = max(curr_seq_len, self.hparams.min_seq_length)
-            curr_seq_len = min(curr_seq_len, self.hparams.max_seq_length)
+            curr_seq_len = self.step_size * (state.step // update_every_n_steps)
+            curr_seq_len = max(curr_seq_len, self.min_seq_length)
+            curr_seq_len = min(curr_seq_len, self.max_seq_length)
 
-            state.batch = apply_seq_length_warmup(state.batch_dict, curr_seq_len, self.hparams.truncate)
+            state.batch = apply_seq_length_warmup(state.batch_dict, curr_seq_len, self.truncate)
 
             batch_size = state.batch_dict['input_ids'].shape[0]
             logger.metric_batch({
