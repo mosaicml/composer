@@ -92,6 +92,8 @@ extra_deps['nlp'] = [
     'datasets>=1.14.0',
 ]
 
+extra_deps['vision'] = ['timm>=0.5.4']
+
 extra_deps['unet'] = [
     'monai>=0.7.0',
     'scikit-learn>=1.0.1',
@@ -119,6 +121,9 @@ setup(name="mosaicml",
       packages=setuptools.find_packages(exclude=["tests*"]),
       classifiers=[
           "Programming Language :: Python :: 3",
+          "Programming Language :: Python :: 3.7",
+          "Programming Language :: Python :: 3.8",
+          "Programming Language :: Python :: 3.9",
       ],
       install_requires=install_requires,
       entry_points={

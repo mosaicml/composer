@@ -106,6 +106,7 @@ def add_dataset_transform(dataset: Dataset, transform, location="end", pre_post:
     Args:
         dataset: A torchvision-like dataset
         transform: Function to be added to the dataset's collection of transforms
+<<<<<<< HEAD
         location (str, torchvision transform), optional: Where to insert the transform in
             the sequence of transforms. "end" will append to the end or "start" will
             insert at index 0, a transform (e.g. torchvision.transforms.ToTensor) will
@@ -114,6 +115,10 @@ def add_dataset_transform(dataset: Dataset, transform, location="end", pre_post:
             transforms, will append to end.
         pre_post (str), optional: Whether to insert before ("pre") or after ("post") the
             transform string passed in 'location'. Ignored if transform = "start" or "end". Default = "pre".
+=======
+        location (str): Where to insert the transform in the sequence of transforms. "end"
+        will append to the end, "before_totensor" will insert before ToTensor(). Default: "end".
+>>>>>>> 826365928b43c191b0f71e15f8056e6315b9aaa5
 
     Returns:
         The original dataset. The transform is added in-place.
@@ -122,6 +127,7 @@ def add_dataset_transform(dataset: Dataset, transform, location="end", pre_post:
     if not isinstance(dataset, datasets.VisionDataset):
         raise ValueError(
             textwrap.dedent(f"""Dataset of type {type(dataset)} is not a {datasets.VisionDataset.__name__}.
+<<<<<<< HEAD
             A {datasets.VisionDataset.__name__} is required to insert additional
             transformations."""))
 
@@ -131,6 +137,12 @@ def add_dataset_transform(dataset: Dataset, transform, location="end", pre_post:
         raise ValueError(
             f"Invalid value combination for argument `pre_post`: `{pre_post} and `location`: {location}. If location is not one of ['start', 'end'], `pre_post` must be one of ['pre', 'post']."
         )
+=======
+            A {datasets.VisionDataset.__name__} is required to insert additional transformations."""))
+
+    if location not in ["end", "before_totensor"]:
+        raise ValueError(f"location ({location}) must be one of (end, before_totensor).")
+>>>>>>> 826365928b43c191b0f71e15f8056e6315b9aaa5
 
     if dataset.transform is None:
         dataset.transform = transform
