@@ -203,14 +203,13 @@ class TrainerHparams(hp.Hparams):
         Ignored if the checkpoint is a local file path"""),
         default=True)
 
-    save_folder: Optional[str] = hp.optional(
-        doc="If set, save ave checkpoint files. Relative to the run directory, if set."
-        "Defaults to `checkpoints`.",
-        default="checkpoints")
+    save_folder: Optional[str] = hp.optional(doc=textwrap.dedent(f"""If set, folder to save checkpoint files.
+        Relative to the run directory. Defaults to None, meaning checkpoints will not be saved."""),
+                                             default=None)
     save_interval: str = hp.optional(doc=textwrap.dedent("""The time string interval representing how
         frequently checkpoints should be saved. For example, set to "1ep" to save checkpoints every epoch, or "10ba"
-        to save checkpoints every 10 batches. Set to None (the default) to disable capturing checkpoints"""),
-                                     default=None)
+        to save checkpoints every 10 batches.. """),
+                                     default="1ep")
 
     train_subset_num_batches: Optional[int] = hp.optional(textwrap.dedent("""If specified,
         finish every epoch early after training on this many batches."""),
