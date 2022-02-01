@@ -61,10 +61,6 @@ validate_every_n_batches: 100
 validate_every_n_epochs: 1
 callbacks:
   - lr_monitor: {}
-save_checkpoint:
-  folder: mrpc_checkpoints
-  interval: 1
-  interval_unit: ep
 load_checkpoint:
   path: https://storage.googleapis.com/llm_checkpoints/bert_checkpoint/bert_checkpoints/ep7.pt
   load_weights_only: true
