@@ -3,17 +3,18 @@ from glob import glob
 import os
 from PIL import Image
 from random import shuffle
-from tqdm import tqdm
-from webdataset import ShardWriter
+
+from composer.datasets.webdataset import create_webdataset
 
 
 def parse_args():
-    x = ArgumentParser()
-    x.add_argument('--in_root', type=str, required=True)
-    x.add_argument('--out_root', type=str, required=True)
-    x.add_argument('--train_shards', type=int, default=1024)
-    x.add_argument('--val_shards', type=int, default=128)
-    return x.parse_args()
+    args = ArgumentParser()
+    args.add_argument('--in_root', type=str, required=True)
+    args.add_argument('--out_root', type=str, required=True)
+    args.add_argument('--train_shards', type=int, default=1024)
+    args.add_argument('--val_shards', type=int, default=128)
+    args.add_argument('--tqdm', type=int, default=1)
+    return args.parse_args()
 
 
 def find(in_root, split):
@@ -33,30 +34,24 @@ def find(in_root, split):
     return pairs
 
 
-def save(pairs, out_dir, split, shard_size):
-    if not os.path.exists(out_dir):
-        os.makedirs(out_dir)
-    pattern = os.path.join(out_dir, f'{split}_%05d.tar')
-    writer = ShardWriter(pattern, maxcount=shard_size)
-    for sample_idx, (filename, klass) in enumerate(tqdm(pairs, leave=False)):
-        image = Image.open(filename).convert('RGB')
-        x = {
-            '__key__': '%05d' % sample_idx,
-            'jpg': image,
-            'cls': klass,
+def each_sample(pairs):
+    for idx, (img_file, cls) in enumerate(pairs):
+        img = Image.open(img_file).convert('RGB')
+        yield {
+            '__key__': f'{idx:05d}',
+            'jpg': img,
+            'cls': cls,
         }
-        writer.write(x)
-    writer.close()
 
 
 def main(args):
     pairs = find(args.in_root, 'train')
-    shard_size = len(pairs) // args.train_shards
-    save(pairs, args.out_root, 'train', shard_size)
+    create_webdataset(each_sample(pairs), args.out_root, 'train', len(pairs), args.train_shards,
+                      args.tqdm)
 
     pairs = find(args.in_root, 'val')
-    shard_size = len(pairs) // args.val_shards
-    save(pairs, args.out_root, 'val', shard_size)
+    create_webdataset(each_sample(pairs), args.out_root, 'val', len(pairs), args.val_shards,
+                      args.tqdm)
 
 
 if __name__ == '__main__':

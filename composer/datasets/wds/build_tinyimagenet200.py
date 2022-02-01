@@ -1,9 +1,10 @@
 from argparse import ArgumentParser
 import os
 from PIL import Image
-import random
+from random import shuffle
 from tqdm import tqdm
-from webdataset import ShardWriter
+
+from composer.datasets.webdataset import create_webdataset
 
 
 '''
@@ -30,12 +31,13 @@ Directory layout:
 
 
 def parse_args():
-    x = ArgumentParser()
-    x.add_argument('--in_root', type=str, required=True)
-    x.add_argument('--out_root', type=str, required=True)
-    x.add_argument('--train_shards', type=int, default=128)
-    x.add_argument('--val_shards', type=int, default=16)
-    return x.parse_args()
+    args = ArgumentParser()
+    args.add_argument('--in_root', type=str, required=True)
+    args.add_argument('--out_root', type=str, required=True)
+    args.add_argument('--train_shards', type=int, default=128)
+    args.add_argument('--val_shards', type=int, default=16)
+    args.add_argument('--tqdm', type=int, default=1)
+    return args.parse_args()
 
 
 def get_train(in_root, wnids):
@@ -45,7 +47,7 @@ def get_train(in_root, wnids):
         for basename in os.listdir(in_dir):
             filename = os.path.join(in_dir, basename)
             pairs.append((filename, wnid_idx))
-    random.shuffle(pairs)
+    shuffle(pairs)
     return pairs
 
 
@@ -58,24 +60,18 @@ def get_val(in_root, wnid2idx):
         filename = os.path.join(in_root, 'val', 'images', basename)
         wnid_idx = wnid2idx[wnid]
         pairs.append((filename, wnid_idx))
-    random.shuffle(pairs)
+    shuffle(pairs)
     return pairs
 
 
-def save(pairs, out_dir, split, shard_size):
-    if not os.path.exists(out_dir):
-        os.makedirs(out_dir)
-    pattern = os.path.join(out_dir, f'{split}_%05d.tar')
-    writer = ShardWriter(pattern, maxcount=shard_size)
-    for sample_idx, (filename, wnid_idx) in enumerate(pairs):
-        image = Image.open(filename)
-        x = {
-            '__key__': '%05d' % sample_idx,
-            'jpg': image,
-            'cls': wnid_idx,
+def each_sample(pairs):
+    for idx, (img_file, cls) in enumerate(pairs):
+        img = Image.open(img_file)
+        yield {
+            '__key__': f'{idx:05d}',
+            'image': img,
+            'class': cls,
         }
-        writer.write(x)
-    writer.close()
 
 
 def main(args):
@@ -84,12 +80,12 @@ def main(args):
     wnid2idx = dict(zip(wnids, range(len(wnids))))
 
     pairs = get_train(args.in_root, wnids)
-    shard_size = len(pairs) // args.train_shards
-    save(pairs, args.out_root, 'train', shard_size)
+    create_webdataset(each_sample(pairs), args.out_root, 'train', len(pairs),
+                      args.train_shards, args.tqdm)
 
     pairs = get_val(args.in_root, wnid2idx)
-    shard_size = len(pairs) // args.val_shards
-    save(pairs, args.out_root, 'val', shard_size)
+    create_webdataset(each_sample(pairs), args.out_root, 'val', len(pairs),
+                      args.val_shards, args.tqdm)
 
 
 if __name__ == '__main__':
