@@ -341,12 +341,16 @@ class CheckpointSaver:
         os.makedirs(self.checkpoint_folder, mode=0o775, exist_ok=True)
         self.save_interval = checkpoint_interval
         self.write_mode = "w"
+        self.file_extension = ".tar"
         if compression == "gzip":
             self.write_mode = "w:gz"
+            self.file_extension = ".tar.gz"
         elif compression == "bzip2":
             self.write_mode = "w:bz2"
+            self.file_extension = ".tar.bz2"
         elif compression == "lzma":
             self.write_mode = "w:xz"
+            self.file_extension = ".tar.lzma"
 
     def should_checkpoint(self, state: State, event: Event) -> bool:
         """Given the current state and event, determine whether a checkpoint needs to be created.
@@ -423,7 +427,7 @@ class CheckpointSaver:
                 with open(mosaic_states_filepath, 'xb') as f:
                     torch.save(state_dict, f)
 
-            checkpoint_archive_filepath = os.path.join(self.checkpoint_folder, f'{tag}.tar')
+            checkpoint_archive_filepath = os.path.join(self.checkpoint_folder, f'{tag}{self.file_extension}')
             with tarfile.open(checkpoint_archive_filepath, self.write_mode) as tarball:
                 tarball.add(tmpdir, arcname="")  # add files flat to the tarball
 
