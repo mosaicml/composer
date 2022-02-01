@@ -111,9 +111,10 @@ def replace_module_classes(
     """
     if isinstance(module, torch.nn.parallel.DistributedDataParallel):
         raise TypeError(
-            textwrap.dedent("""Surgery is not supported after a module is wrapped with
-            `torch.nn.parallel.DistributedDataParallel` Instead, please preform surgery on the underlying
-            `module.module` and re-wrap the `module.module` with `torch.nn.parallel.DistributedDataParallel`"""))
+            textwrap.dedent("""\
+                Surgery is not supported after a module is wrapped with
+                `torch.nn.parallel.DistributedDataParallel` Instead, please preform surgery on the underlying
+                `module.module` and re-wrap the `module.module` with `torch.nn.parallel.DistributedDataParallel`"""))
     try:
         import deepspeed
     except ImportError:
@@ -121,9 +122,10 @@ def replace_module_classes(
     else:
         if isinstance(module, deepspeed.DeepSpeedEngine):
             raise TypeError(
-                textwrap.dedent("""Surgery is not supported after a module is wrapped with
-                `deepspeed.DeepSpeedEngine` Instead, please perform surgery on the underlying module`,
-                and re-wrap it with `deepspeed.DeepSpeedEngine`"""))
+                textwrap.dedent("""\
+                    Surgery is not supported after a module is wrapped with
+                    `deepspeed.DeepSpeedEngine` Instead, please perform surgery on the underlying module`,
+                    and re-wrap it with `deepspeed.DeepSpeedEngine`"""))
     replaced_pairs = {}
     children_to_parents_and_names: OrderedDict[torch.nn.Module, List[Tuple[torch.nn.Module,
                                                                            str]]] = collections.OrderedDict()
@@ -256,9 +258,7 @@ def update_params_in_optimizer(old_params: Iterable[torch.nn.parameter.Parameter
             same parameter group, or if any of them are not found at all
     """
     if len(ensure_tuple(optimizers)) > 1:
-        raise NotImplementedError(
-            textwrap.dedent("""Surgery with multiple optimizers
-            is not yet supported."""))
+        raise NotImplementedError("Surgery with multiple optimizers is not yet supported.")
     opt = ensure_tuple(optimizers)[0]
 
     # diff the two sets of parameters to find what needs to be removed or added
@@ -291,8 +291,9 @@ def update_params_in_optimizer(old_params: Iterable[torch.nn.parameter.Parameter
 
         if min(old_group_idxs) != max(old_group_idxs) and len(added_params):
             raise RuntimeError(
-                textwrap.dedent("""Not all removed parameters are in the same parameter group.
-                            This makes it unclear where to add the new parameters."""))
+                textwrap.dedent("""\
+                    Not all removed parameters are in the same parameter group.
+                    This makes it unclear where to add the new parameters."""))
         group_idx = old_group_idxs[0]
 
     param_group = opt.param_groups[group_idx]
@@ -322,9 +323,7 @@ def replace_params_in_optimizer(old_params: Iterable[torch.nn.parameter.Paramete
             if a param from `old_params` cannot be found.
     """
     if len(ensure_tuple(optimizers)) > 1:
-        raise NotImplementedError(
-            textwrap.dedent("""Surgery with multiple optimizers
-            is not yet supported."""))
+        raise NotImplementedError("Surgery with multiple optimizers is not yet supported.")
 
     opt = ensure_tuple(optimizers)[0]
     opt.state.clear()

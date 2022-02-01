@@ -89,8 +89,9 @@ class CheckpointLoader:
         if checkpoint_uri_parsed.scheme != "":
             if object_store_hparams is not None:
                 raise ValueError(
-                    textwrap.dedent("""When specifying `object_store_hparams`,
-                    the `checkpoint` parameter must be the key for the checkpoint in the bucket, NOT a uri."""))
+                    textwrap.dedent("""\
+                        When specifying `object_store_hparams`,
+                        the `checkpoint` parameter must be the key for the checkpoint in the bucket, NOT a uri."""))
 
         self.hparams = CheckpointLoaderHparams(
             path=path,
@@ -261,8 +262,9 @@ class CheckpointLoader:
                 checkpointed_world_size = len(state_dict["seed"])
                 if world_size != checkpointed_world_size:
                     warnings.warn(
-                        textwrap.dedent(f"""Current world size {world_size} does not match the checkpointed
-                        world size {checkpointed_world_size}. The seed will not be restored."""))
+                        textwrap.dedent(f"""\
+                            Current world size {world_size} does not match the checkpointed
+                            world size {checkpointed_world_size}. The seed will not be restored."""))
                 else:
                     seed_to_restore = state_dict["seed"][dist.get_global_rank()]
                     reproducibility.seed_all(seed_to_restore)
@@ -298,8 +300,8 @@ class CheckpointLoader:
         if self.checkpoint_rng_state is None:
             return
 
-        assert dist.get_world_size() == len(self.checkpoint_rng_state['torch']), textwrap.dedent(
-            """invariant violation: if the rng state is being restored, then
+        assert dist.get_world_size() == len(self.checkpoint_rng_state['torch']), textwrap.dedent("""\
+            invariant violation: if the rng state is being restored, then
             the world size should be the same as in the checkpoint.""")
 
         torch.set_rng_state(self.checkpoint_rng_state['torch'][dist.get_global_rank()])
@@ -315,9 +317,10 @@ class CheckpointLoader:
             return checkpoint_rng_state
         else:
             warnings.warn(
-                textwrap.dedent(f"""The checkpoint was created with world_size({original_world_size}),
-                which differs from the current world_size({dist.get_world_size()}).
-                RNG state will not be restored."""))
+                textwrap.dedent(f"""\
+                    The checkpoint was created with world_size({original_world_size}),
+                    which differs from the current world_size({dist.get_world_size()}).
+                    RNG state will not be restored."""))
 
 
 class CheckpointSaver:

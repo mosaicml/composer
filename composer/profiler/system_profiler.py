@@ -51,8 +51,9 @@ class SystemProfiler(Callback):
         del logger  # unused
         if state.profiler is None:
             raise RuntimeError(
-                textwrap.dedent("""To use the dataloader profiler, state.profiler must be set.
-                Make sure to run composer with the profiler -- i.e. with the `--profiler` CLI flag."""))
+                textwrap.dedent("""\
+                    To use the dataloader profiler, state.profiler must be set.
+                    Make sure to run composer with the profiler -- i.e. with the `--profiler` CLI flag."""))
 
         # Start the stats thread
         threading.Thread(target=self._stats_thread, daemon=True, args=[state.profiler]).start()
