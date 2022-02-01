@@ -22,7 +22,7 @@ class CheckpointLoaderHparams(hp.Hparams):
 
     See the documentation for the :class:`CheckpointLoader`.
     """
-    checkpoint: str = hp.required(doc=textwrap.dedent("""The path to an existing checkpoint file
+    path: str = hp.required(doc=textwrap.dedent("""The path to an existing checkpoint file
         (if the checkpoint is on the local disk) or the object name for the checkpoint
         (if the checkpoint is in a cloud bucket)."""))
     object_store: Optional[ObjectStoreProviderHparams] = hp.optional(doc=textwrap.dedent("""
@@ -51,7 +51,7 @@ class CheckpointLoaderHparams(hp.Hparams):
         from composer.trainer.checkpoint import CheckpointLoader
 
         return CheckpointLoader(
-            checkpoint=self.checkpoint,
+            path=self.path,
             object_store_hparams=self.object_store,
             load_weights_only=self.load_weights_only,
             strict_model_weights=self.strict_model_weights,
@@ -81,6 +81,4 @@ class CheckpointSaverHparams(hp.Hparams):
 
     def initialize_object(self) -> CheckpointSaver:
         from composer.trainer.checkpoint import CheckpointSaver
-        return CheckpointSaver(checkpoint_interval_unit=self.interval_unit,
-                               checkpoint_interval=self.interval,
-                               checkpoint_folder=self.folder)
+        return CheckpointSaver(interval_unit=self.interval_unit, interval=self.interval, save_folder=self.folder)
