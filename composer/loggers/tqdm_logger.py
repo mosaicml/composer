@@ -10,7 +10,6 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional
 import tqdm
 import yaml
 
-from composer.core.data_spec import DataSpec
 from composer.core.logging import LogLevel, TLogData, TLogDataValue, format_log_data_value
 from composer.core.logging.base_backend import BaseLoggerBackend
 from composer.core.state import State
@@ -117,7 +116,6 @@ class TQDMLoggerBackend(BaseLoggerBackend):
             total_steps = 0
             for evaluator in state.evaluators:
                 dataloader_spec = evaluator.dataloader
-                assert isinstance(dataloader_spec, DataSpec)
                 assert isinstance(dataloader_spec.dataloader, collections.abc.Sized)
                 total_steps += len(dataloader_spec.dataloader)
 

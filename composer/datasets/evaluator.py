@@ -79,7 +79,6 @@ class EvaluatorHparams(hp.Hparams):
                     textwrap.dedent(f"""No metrics compatible with your model were added to this evaluator.
                     Check that the metrics you specified are compatible/listed in your model."""))
 
-        # Populate the metrics later in the trainer initialization
         return Evaluator(
             label=self.label,
             dataloader=dataloader,

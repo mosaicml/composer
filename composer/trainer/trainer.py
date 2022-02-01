@@ -445,9 +445,8 @@ class Trainer:
                 if evaluator.eval_dataset.shuffle and hparams.eval_subset_num_batches:
                     warnings.warn(
                         textwrap.dedent(f"""SubsetNumBatchesWarning: When specifying eval_subset_num_batches,
-                    (set to {hparams.eval_subset_num_batches}), evaluator.dataloader.shuffle should be set to False. Otherwise,
+                    (set to {hparams.eval_subset_num_batches}), evaluator.dataloader.shuffle (for Evaluator: "{evaluator.label}") should be set to False. Otherwise,
                     each evaluation epoch may load a different subset of samples."""))
-                    break
 
         trainer = cls(
             model=model,
