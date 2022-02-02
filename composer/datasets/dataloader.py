@@ -42,6 +42,20 @@ class WrappedDataLoader(DataLoader):
         return super().__setattr__(name, value)
 
 
+def unwrap_data_loader(dataloader: DataLoader) -> DataLoader:
+    """Recursively unwraps a dataloader if it is of type :class:`WrappedDataLoader`.
+
+    Args:
+        dataloader (DataLoader): The dataloader to unwrap
+
+    Returns:
+        DataLoader: The underlying dataloader
+    """
+    if isinstance(dataloader, WrappedDataLoader):
+        return unwrap_data_loader(dataloader.dataloader)
+    return dataloader
+
+
 @dataclass
 class DataloaderHparams(hp.Hparams):
     """Hyperparameters to initialize a :class:`~torch.utils.data.Dataloader`.
