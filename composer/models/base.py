@@ -14,7 +14,7 @@ from composer.core.types import Batch, BatchPair, Metrics, Tensors
 from composer.models.loss import CrossEntropyLoss, soft_cross_entropy
 
 
-class BaseMosaicModel(torch.nn.Module, abc.ABC):
+class ComposerModel(torch.nn.Module, abc.ABC):
     """The minimal interface needed to use a model with :class:`composer.trainer.Trainer`.
     """
 
@@ -84,14 +84,14 @@ class BaseMosaicModel(torch.nn.Module, abc.ABC):
         pass
 
 
-class MosaicClassifier(BaseMosaicModel):
+class ComposerClassifier(ComposerModel):
     """Implements the base logic that all classifiers can build on top of.
 
-    Inherits from :class:`~composer.models.BaseMosaicModel`.
+    Inherits from :class:`~composer.models.ComposerModel`.
 
     Args:
         module (torch.nn.Module): The neural network module to wrap with
-            :class:`~composer.models.MosaicClassifier`.
+            :class:`~composer.models.ComposerClassifier`.
     """
 
     num_classes: Optional[int] = None

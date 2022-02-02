@@ -8,7 +8,7 @@ Algorithms can be used directly through our functions-based API.
     from composer import functional as CF
     from torchvision import models
 
-    model = models.resnet50()
+    model = models.resnet(model_name='resnet50')
 
     # replace some layers with blurpool
     CF.apply_blurpool(model)
