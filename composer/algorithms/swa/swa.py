@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import logging
 from typing import Optional
-import torch
 
+import torch
 from torch.optim.swa_utils import SWALR, AveragedModel, update_bn
 
 from composer.core.types import Algorithm, Event, Logger, State
