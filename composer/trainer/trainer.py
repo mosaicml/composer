@@ -27,6 +27,7 @@ from composer.core.logging import BaseLoggerBackend, LogLevel
 from composer.core.time import TimeUnit
 from composer.core.types import (Batch, BreakEpochException, DataLoader, Evaluators, Metrics, Optimizers, Precision,
                                  Schedulers)
+from composer.datasets.dataloader import unwrap_data_loader
 from composer.loggers.tqdm_logger import TQDMLoggerBackend
 from composer.models.base import ComposerModel
 from composer.optim import ComposedScheduler
@@ -271,6 +272,19 @@ class Trainer:
             train_dataloader = DataSpec(train_dataloader)
 
         self._train_data_spec = train_dataloader
+        unwrapped_data_loader = unwrap_data_loader(self._train_data_spec.dataloader)
+        if isinstance(unwrapped_data_loader, torch.utils.data.DataLoader):
+            if unwrapped_data_loader._iterator is not None:
+                raise ValueError(
+                    textwrap.dedent("""\
+                    The `train_dataloader` has an active iterator. This could occur
+                    if `persistent_workers=True` and the dataloader has already been iterated,
+                    or if the dataloader is mid-epoch. It is required that the training dataloader
+                    does not have an active iterator, so CPU dataset augmentations can be
+                    correctly inserted.
+
+                    To fix, please do not iterate over the dataloader before passing it into
+                    the trainer."""))
 
         if eval_subset_num_batches is not None:
             for evaluator in self.evaluators:
