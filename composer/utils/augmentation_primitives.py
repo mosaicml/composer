@@ -2,9 +2,10 @@
 
 # Modified from https://github.com/google-research/augmix/blob/master/augmentations.py
 
-"""Augmentation primitives for use in AugMix and RandAugment. Augmentation intensities
-    are normalized on a scale of 1-10, where 10 is the strongest and maximum value an
-    augmentation function will accept.
+"""Augmentation primitives for use in AugMix and RandAugment.
+
+Augmentation intensities are normalized on a scale of 1-10, where 10 is the strongest and maximum value an augmentation
+function will accept.
 """
 
 import numpy as np
@@ -13,25 +14,27 @@ from PIL import Image, ImageEnhance, ImageOps
 
 def int_parameter(level, maxval):
     """Helper function to scale a value between 0 and maxval and return as an int.
-  Args:
-    level: Level of the operation that will be between [0, `PARAMETER_MAX`].
-    maxval: Maximum value that the operation can have. This will be scaled to
-      level/PARAMETER_MAX.
-  Returns:
-    An int that results from scaling `maxval` according to `level`.
-  """
+
+    Args:
+      level: Level of the operation that will be between [0, `PARAMETER_MAX`].
+      maxval: Maximum value that the operation can have. This will be scaled to
+        level/PARAMETER_MAX.
+    Returns:
+      An int that results from scaling `maxval` according to `level`.
+    """
     return int(level * maxval / 10)
 
 
 def float_parameter(level, maxval):
     """Helper function to scale a value between 0 and maxval and return as a float.
-  Args:
-    level: Level of the operation that will be between [0, `PARAMETER_MAX`].
-    maxval: Maximum value that the operation can have. This will be scaled to
-        level/PARAMETER_MAX.
-  Returns:
-    A float that results from scaling `maxval` according to `level`.
-  """
+
+    Args:
+      level: Level of the operation that will be between [0, `PARAMETER_MAX`].
+      maxval: Maximum value that the operation can have. This will be scaled to
+          level/PARAMETER_MAX.
+    Returns:
+      A float that results from scaling `maxval` according to `level`.
+    """
     return float(level) * maxval / 10.
 
 
@@ -41,10 +44,11 @@ def sample_level(n):
 
 
 def symmetric_sample(level):
-    """Helper function to sample from a distribution over the domain [0.1, 10] with
-        median == 1 and uniform probability of x | 0.1 ≤ x ≤ 1, and x | 1 ≤ x ≤ 10. Used
-        for sampling transforms that can range from intensity 0 to infinity, and for
-        which an intensity of 1 == no change.
+    """Helper function to sample from a distribution over the domain [0.1, 10] with median == 1 and uniform probability
+    of x | 0.1 ≤ x ≤ 1, and x | 1 ≤ x ≤ 10.
+
+    Used for sampling transforms that can range from intensity 0 to infinity, and for which an intensity of 1 == no
+    change.
     """
     if np.random.uniform() > 0.5:
         return np.random.uniform(1, level)

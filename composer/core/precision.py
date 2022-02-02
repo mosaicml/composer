@@ -5,7 +5,7 @@ from composer.utils.string_enum import StringEnum
 
 class Precision(StringEnum):
     """Enum class for the numerical precision to be used by the model.
-    
+
     Attributes:
         AMP: Use :mod:`torch.cuda.amp`. Only compatible with GPUs.
         FP16: Use 16-bit floating-point precision. Currently only

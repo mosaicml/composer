@@ -1,8 +1,7 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
-"""Entrypoint that performs a profiling run on the provided yahp hparams file
-This example is interchangable with run_composer_trainer.py
-"""
+"""Entrypoint that performs a profiling run on the provided yahp hparams file This example is interchangable with
+run_composer_trainer.py."""
 import argparse
 import logging
 import sys

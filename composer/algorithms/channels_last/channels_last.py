@@ -15,8 +15,7 @@ log = logging.getLogger(__name__)
 
 
 class ChannelsLast(Algorithm):
-    """Changes the memory format of the model to ``torch.channels_last``.
-    This usually yields improved GPU utilization.
+    """Changes the memory format of the model to ``torch.channels_last``. This usually yields improved GPU utilization.
 
     Runs on ``Event.INIT``, so it can set the memory format before the model is DDP wrapped. Has no hyperparameters.
     """
@@ -37,7 +36,7 @@ class ChannelsLast(Algorithm):
 
 @dataclass
 class ChannelsLastHparams(AlgorithmHparams):
-    """ChannelsLast has no hyperparameters, so this class has no member variables"""
+    """ChannelsLast has no hyperparameters, so this class has no member variables."""
     pass
 
     def initialize_object(self) -> ChannelsLast:

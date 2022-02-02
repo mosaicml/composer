@@ -10,7 +10,7 @@ from composer.core.precision import Precision
 
 
 def default_precision_factory() -> Callable[[Union[str, Precision]], ContextManager]:
-    """Returns a context manager to automatically cast to a specific precision
+    """Returns a context manager to automatically cast to a specific precision.
 
     Args:
         precision (str or Precision): Precision for the context

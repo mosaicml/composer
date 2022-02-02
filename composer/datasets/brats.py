@@ -20,9 +20,7 @@ PATCH_SIZE = [1, 192, 160]
 
 
 def _my_collate(batch):
-    """Custom collate function to handle images with different depths.
-
-    """
+    """Custom collate function to handle images with different depths."""
     data = [item[0] for item in batch]
     target = [item[1] for item in batch]
 
@@ -32,7 +30,7 @@ def _my_collate(batch):
 @dataclass
 class BratsDatasetHparams(DatasetHparams):
     """Defines an instance of the BraTS dataset for image segmentation.
-    
+
     Parameters:
         oversampling (float): The oversampling ratio to use.
     """

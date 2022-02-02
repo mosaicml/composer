@@ -17,7 +17,7 @@ log = logging.getLogger(__name__)
 
 
 def gen_interpolation_lambda(alpha: float) -> float:
-    """Generates ``Beta(alpha, alpha)`` distribution"""
+    """Generates ``Beta(alpha, alpha)`` distribution."""
     # First check if alpha is positive.
     assert alpha >= 0
     # Draw the interpolation parameter from a beta distribution.
@@ -73,7 +73,6 @@ def mixup_batch(x: Tensor,
 
             pred = model(X)
             loss = loss_fun(pred, y)  # loss_fun must accept dense labels (ie NOT indices)
-
     """
     # Create shuffled versions of x and y in preparation for interpolation
     # Use given indices if there are any.
@@ -109,9 +108,8 @@ class MixUpHparams(AlgorithmHparams):
 
 
 class MixUp(Algorithm):
-    """`MixUp <https://arxiv.org/abs/1710.09412>`_ trains the network on
-    convex combinations of pairs of examples and targets rather than individual
-    examples and targets.
+    """`MixUp <https://arxiv.org/abs/1710.09412>`_ trains the network on convex combinations of pairs of examples and
+    targets rather than individual examples and targets.
 
     This is done by taking a convex combination of a given batch X with a
     randomly permuted copy of X. The mixing coefficient is drawn from a
@@ -133,7 +131,7 @@ class MixUp(Algorithm):
         self._indices = torch.Tensor()
 
     def match(self, event: Event, state: State) -> bool:
-        """Runs on Event.INIT and Event.AFTER_DATALOADER
+        """Runs on Event.INIT and Event.AFTER_DATALOADER.
 
         Args:
             event (:class:`Event`): The current event.
@@ -160,13 +158,12 @@ class MixUp(Algorithm):
         self._indices = new_indices
 
     def apply(self, event: Event, state: State, logger: Logger) -> None:
-        """Applies MixUp augmentation on State input
+        """Applies MixUp augmentation on State input.
 
         Args:
             event (Event): the current event
             state (State): the current trainer state
             logger (Logger): the training logger
-
         """
         if event == Event.INIT:
             self.num_classes: int = state.model.num_classes  # type: ignore
