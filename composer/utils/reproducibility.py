@@ -26,7 +26,7 @@ def get_random_seed() -> int:
 
 
 def seed_all(seed: int):
-    """Seed all rng objects
+    """Seed all rng objects.
 
     Args:
         seed (int): random seed

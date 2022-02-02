@@ -15,10 +15,7 @@ from tests.utils.trainer_fit import train_model
 
 
 def _generate_tensors_classification(batch_size: int, num_classes: int):
-    """
-    Helper functions to generate input, target pairs
-    for image classification (1d indices)
-    """
+    """Helper functions to generate input, target pairs for image classification (1d indices)"""
     N = batch_size
     C = num_classes
 
@@ -30,10 +27,7 @@ def _generate_tensors_classification(batch_size: int, num_classes: int):
 
 
 def _generate_tensors_segmentation(batch_size: int, num_classes: int, H: int, W: int):
-    """
-    Helper functions to generate input, target pairs
-    for image segmentation (2d indices)
-    """
+    """Helper functions to generate input, target pairs for image segmentation (2d indices)"""
     N = batch_size
     C = num_classes
 
@@ -45,9 +39,7 @@ def _generate_tensors_segmentation(batch_size: int, num_classes: int, H: int, W:
 
 
 def xfail(val):
-    """
-    shorthand to mark xfail parameters
-    """
+    """shorthand to mark xfail parameters."""
     return pytest.param(val, marks=pytest.mark.xfail)
 
 

@@ -13,8 +13,8 @@ from composer.datasets.dataloader import WrappedDataLoader
 
 
 class ProfiledDataLoader(WrappedDataLoader):
-    """Wraps a dataloader to record the duration it takes to yield a batch.
-    This class should not be instantiated directly.
+    """Wraps a dataloader to record the duration it takes to yield a batch. This class should not be instantiated
+    directly.
 
     Args:
         profiler (Profiler): The profiler instance.

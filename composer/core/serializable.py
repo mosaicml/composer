@@ -13,9 +13,9 @@ class Serializable:
 
     def state_dict(self) -> StateDict:
         """Returns a dictionary representing the internal state.
-    
+
         The returned dictionary must be pickale-able via :meth:`torch.save`.
-    
+
         Returns:
             StateDict: The state of the object
         """
