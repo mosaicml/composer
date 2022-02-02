@@ -92,7 +92,7 @@ You can also provide overrides at command line:
 
 .. code-block:: bash
 
-    python examples/run_mosaic_trainer.py -f composer/yamls/models/classify_mnist_cpu.yaml --algorithms blurpool layer_freezing --datadir ~/datasets
+    python examples/run_composer_trainer.py -f composer/yamls/models/classify_mnist_cpu.yaml --algorithms blurpool layer_freezing --datadir ~/datasets
 
 
 **Algorithms**
@@ -180,10 +180,8 @@ You can also provide overrides at command line:
     efficientnetb0 | `EfficientNetB0Hparams <https://github.com/mosaicml/composer/tree/main/composer/models/efficientnetb0/efficientnetb0_hparams.py>`_
     gpt2 | `GPT2Hparams <https://github.com/mosaicml/composer/blob/main/composer/models/gpt2/gpt2_hparams.py>`_
     mnist_classifier | `MnistClassifierHparams <https://github.com/mosaicml/composer/blob/main/composer/models/classify_mnist/mnist_hparams.py>`_
-    resnet18 | `ResNet18Hparams <https://github.com/mosaicml/composer/tree/main/composer/models/resnet18/resnet18_hparams.py>`_
+    resnet | `ResNetHparams <https://github.com/mosaicml/composer/tree/main/composer/models/resnet/resnet_hparams.py>`_
     resnet56_cifar10 | `CIFARResNetHparams <https://github.com/mosaicml/composer/tree/main/composer/models/resnet56_cifar10/resnet56_cifar10_hparams.py>`_
-    resnet50 | `ResNet50Hparams <https://github.com/mosaicml/composer/tree/main/composer/models/resnet50/resnet50_hparams.py>`_
-    resnet101 | `ResNet101Hparams <https://github.com/mosaicml/composer/tree/main/composer/models/resnet101/resnet101_hparams.py>`_
     unet | `UnetHparams <https://github.com/mosaicml/composer/tree/main/composer/models/unet/unet_hparams.py>`_
 
 **Optimizers**

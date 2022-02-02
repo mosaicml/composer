@@ -9,13 +9,13 @@ from typing import Optional, Type
 
 import torch
 import yahp as hp
+from torchvision.models.resnet import Bottleneck
 
 from composer.algorithms import AlgorithmHparams
 from composer.algorithms.stochastic_depth.sample_stochastic_layers import SampleStochasticBottleneck
 from composer.algorithms.stochastic_depth.stochastic_layers import StochasticBottleneck
 from composer.core import Algorithm, Event, Logger, State, surgery
 from composer.core.types import Optimizers
-from composer.models.resnets import Bottleneck
 
 log = logging.getLogger(__name__)
 
@@ -119,7 +119,7 @@ def apply_stochastic_depth(model: torch.nn.Module,
             All optimizers that have already been constructed with,
             ``model.parameters()`` must be specified here so they will optimize
             the correct parameters.
-            
+
             If the optimizer(s) are constructed *after* calling this function,
             then it is safe to omit this parameter. These optimizers will see the correct
             model parameters.
@@ -246,13 +246,13 @@ class StochasticDepth(Algorithm):
             event (:class:`Event`): The current event.
             state (:class:`State`): The current state.
         Returns:
-            bool: True if this algorithm should run now.        
+            bool: True if this algorithm should run now.
         """
 
         return (event == Event.INIT) or (event == Event.BATCH_START and self.drop_warmup > 0.0)
 
     def apply(self, event: Event, state: State, logger: Logger) -> Optional[int]:
-        """Applies StochasticDepth modification to the state's model 
+        """Applies StochasticDepth modification to the state's model
 
         Args:
             event (Event): the current event

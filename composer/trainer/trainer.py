@@ -27,8 +27,9 @@ from composer.core.logging import BaseLoggerBackend, LogLevel
 from composer.core.time import TimeUnit
 from composer.core.types import (Batch, BreakEpochException, DataLoader, Evaluators, Metrics, Optimizers, Precision,
                                  Schedulers)
+from composer.datasets.dataloader import unwrap_data_loader
 from composer.loggers.tqdm_logger import TQDMLoggerBackend
-from composer.models.base import BaseMosaicModel
+from composer.models.base import ComposerModel
 from composer.optim import ComposedScheduler
 from composer.optim.decoupled_weight_decay import DecoupledSGDW
 from composer.optim.scheduler import ensure_warmup_last
@@ -58,7 +59,7 @@ class Trainer:
     (see :meth:`~composer.trainer.Trainer.create_from_hparams`).
 
     Args:
-        model (BaseMosaicModel): The model to train.
+        model (ComposerModel): The model to train.
         train_dataloader (DataLoader, DataSpec, or dict): The :class:`DataLoader`, :class:`DataSpec`,
             or dict of :class:`DataSpec` kwargs for the training data.
         eval_dataloader (DataLoader, DataSpec, Evaluators): The :class:`DataLoader`, :class:`DataSpec`,
@@ -130,7 +131,7 @@ class Trainer:
     def __init__(
             self,
             *,
-            model: BaseMosaicModel,
+            model: ComposerModel,
             train_dataloader: Union[DataLoader, DataSpec],
             eval_dataloader: Optional[Union[DataLoader, DataSpec, Evaluators]],
             max_duration: Union[str, Time],
@@ -271,6 +272,19 @@ class Trainer:
             train_dataloader = DataSpec(train_dataloader)
 
         self._train_data_spec = train_dataloader
+        unwrapped_data_loader = unwrap_data_loader(self._train_data_spec.dataloader)
+        if isinstance(unwrapped_data_loader, torch.utils.data.DataLoader):
+            if unwrapped_data_loader._iterator is not None:
+                raise ValueError(
+                    textwrap.dedent("""\
+                    The `train_dataloader` has an active iterator. This could occur
+                    if `persistent_workers=True` and the dataloader has already been iterated,
+                    or if the dataloader is mid-epoch. It is required that the training dataloader
+                    does not have an active iterator, so CPU dataset augmentations can be
+                    correctly inserted.
+
+                    To fix, please do not iterate over the dataloader before passing it into
+                    the trainer."""))
 
         if eval_subset_num_batches is not None:
             for evaluator in self.evaluators:
@@ -346,7 +360,7 @@ class Trainer:
 
         self.engine.run_event(Event.INIT)
 
-        assert isinstance(self.state.model, BaseMosaicModel)
+        assert isinstance(self.state.model, ComposerModel)
         self.original_model = self.state.model  # TODO(ravi) -- update the state to add an original model helper
 
         self.checkpoint_saver = None
@@ -778,7 +792,6 @@ class Trainer:
 
                         # total_loss can be None if gradient scaling failed
                         dist.all_reduce(total_loss, reduce_operation="SUM")
-                        dist.barrier()
                         full_loss = total_loss.cpu().item()
                         self.logger.metric_batch({'loss/train': full_loss / dist.get_world_size()})
 
