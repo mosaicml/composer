@@ -115,11 +115,6 @@ def add_dataset_transform(dataset, transform, location="end", pre_post: str = "p
         The original dataset. The transform is added in-place.
     """
 
-    if not isinstance(dataset, datasets.VisionDataset):
-        raise ValueError(
-            textwrap.dedent(f"""Dataset of type {type(dataset)} is not a {datasets.VisionDataset.__name__}.
-            A {datasets.VisionDataset.__name__} is required to insert additional
-            transformations."""))
     if not hasattr(dataset, transform):
         raise AttributeError(textwrap.dedent(f"""Dataset must have attribute `transform`."""))
 
