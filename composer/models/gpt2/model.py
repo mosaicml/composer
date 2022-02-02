@@ -4,18 +4,19 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Mapping
 
-import transformers
 from torchmetrics.collections import MetricCollection
 
 from composer.models.nlp_metrics import Perplexity
-from composer.models.transformer_shared import MosaicTransformer
+from composer.models.transformer_shared import ComposerTransformer
 
 if TYPE_CHECKING:
+    import transformers
+
     from composer.core.types import Batch, Metrics, Tensors
 
 
-class GPT2Model(MosaicTransformer):
-    """Implements a GPT-2 wrapper around a MosaicTransformer.
+class GPT2Model(ComposerTransformer):
+    """Implements a GPT-2 wrapper around a ComposerTransformer.
 
     See this `paper <https://d4mucfpksywv.cloudfront.net/better-language-models/language-models.pdf>`_
     for details on the GPT-2 architecutre.
@@ -27,11 +28,16 @@ class GPT2Model(MosaicTransformer):
             necessary to assert required model inputs.
     """
 
-    def __init__(self, module: transformers.GPT2Model, config: transformers.GPT2Config, tokenizer_name: str) -> None:
+    def __init__(self,
+                 module: transformers.GPT2Model,
+                 config: transformers.GPT2Config,
+                 tokenizer_name: str,
+                 gradient_checkpointing: bool = False) -> None:
         super().__init__(
             module=module,  #type: ignore (thirdparty)
             config=config,
-            tokenizer_name=tokenizer_name)
+            tokenizer_name=tokenizer_name,
+            gradient_checkpointing=gradient_checkpointing)
 
         # If we ever have algorithms that modify the loss function, then this might be a bit inefficient
         #  because it'll compute the expensive softmax operation twice.

@@ -12,10 +12,14 @@ from composer.algorithms.channels_last import ChannelsLast as ChannelsLast
 from composer.algorithms.channels_last import ChannelsLastHparams as ChannelsLastHparams
 from composer.algorithms.colout import ColOut as ColOut
 from composer.algorithms.colout import ColOutHparams as ColOutHparams
+from composer.algorithms.cutmix import CutMix as CutMix
+from composer.algorithms.cutmix import CutMixHparams as CutMixHparams
 from composer.algorithms.cutout import CutOut as CutOut
 from composer.algorithms.cutout import CutOutHparams as CutOutHparams
 from composer.algorithms.dummy import Dummy as Dummy
 from composer.algorithms.dummy import DummyHparams as DummyHparams
+from composer.algorithms.factorize import Factorize as Factorize
+from composer.algorithms.factorize import FactorizeHparams as FactorizeHparams
 from composer.algorithms.ghost_batchnorm import GhostBatchNorm as GhostBatchNorm
 from composer.algorithms.ghost_batchnorm import GhostBatchNormHparams as GhostBatchNormHparams
 from composer.algorithms.label_smoothing import LabelSmoothing as LabelSmoothing

@@ -11,7 +11,7 @@ from composer.core import Event
 from composer.core.logging.logger import Logger
 from composer.core.state import State
 from composer.core.types import DataLoader
-from composer.models import MosaicClassifier
+from composer.models import ComposerClassifier
 from composer.trainer.trainer_hparams import TrainerHparams
 from tests.utils.trainer_fit import train_model
 
@@ -191,21 +191,22 @@ def batch() -> int:
 
 
 @pytest.fixture
-def conv_model(Ximage: torch.Tensor, D: int) -> MosaicClassifier:
+def conv_model(Ximage: torch.Tensor, D: int) -> ComposerClassifier:
     """Dummy conv model
     """
-    return MosaicClassifier(torch.nn.Conv2d(Ximage.shape[1], D, 3))
+    return ComposerClassifier(torch.nn.Conv2d(Ximage.shape[1], D, 3))
 
 
 @pytest.fixture
-def dummy_state_sb(dummy_state: State, dummy_train_dataloader: DataLoader, conv_model: MosaicClassifier,
+def dummy_state_sb(dummy_state: State, dummy_train_dataloader: DataLoader, conv_model: ComposerClassifier,
                    loss_fun_tuple: Callable, epoch: int, batch: int) -> State:
     """Dummy state with required values set for Selective Backprop
     """
 
     dummy_state.train_dataloader = dummy_train_dataloader
-    dummy_state.epoch = epoch
-    dummy_state.step = epoch * len(dummy_train_dataloader) + batch
+    dummy_state.timer.epoch._value = epoch
+    dummy_state.timer.batch._value = epoch * dummy_state.steps_per_epoch + batch
+    dummy_state.timer.batch_in_epoch._value = batch
     dummy_state.model = conv_model
     dummy_state.model.module.loss = loss_fun_tuple
 
@@ -261,7 +262,7 @@ def test_selective_output_shape(X: torch.Tensor, y: torch.Tensor, model: torch.n
 
 @pytest.mark.parametrize("keep", [0.5, 0.75, 1])
 @pytest.mark.parametrize("scale_factor", [0.5, 0.75])
-def test_selective_output_shape_scaled(Ximage: torch.Tensor, y: torch.Tensor, conv_model: MosaicClassifier,
+def test_selective_output_shape_scaled(Ximage: torch.Tensor, y: torch.Tensor, conv_model: ComposerClassifier,
                                        loss_fun: Callable, keep: float, scale_factor: float) -> None:
     """Test functional selection on 4D inputs
     """
@@ -276,7 +277,7 @@ def test_selective_backprop_interp_dim_error(X: torch.Tensor, y: torch.Tensor, m
     """Ensure that ValueError is raised when input tensor can't be scaled
     """
     with pytest.raises(ValueError):
-        X_scaled, y_scaled = selective_backprop(X, y, model, loss_fun, 1, 0.5)
+        selective_backprop(X, y, model, loss_fun, 1, 0.5)
 
 
 def test_selective_backprop_bad_loss_error(X: torch.Tensor, y: torch.Tensor, model: torch.nn.Module,
@@ -284,7 +285,7 @@ def test_selective_backprop_bad_loss_error(X: torch.Tensor, y: torch.Tensor, mod
     """Ensure that ValueError is raised when loss function doesn't have `reduction` kwarg
     """
     with pytest.raises(TypeError) as execinfo:
-        X_scaled, y_scaled = selective_backprop(X, y, model, bad_loss, 1, 1)
+        selective_backprop(X, y, model, bad_loss, 1, 1)
     MATCH = "must take a keyword argument `reduction`."
     assert MATCH in str(execinfo.value)
 
@@ -294,7 +295,7 @@ def test_selective_backprop_bad_loss_error(X: torch.Tensor, y: torch.Tensor, mod
 def test_match_correct(event: Event, dummy_algorithm: SelectiveBackprop, dummy_state_sb: State) -> None:
     """ Algo should match AFTER_DATALOADER in the right interval
     """
-    dummy_state_sb.max_epochs = 10
+    dummy_state_sb.max_duration = "10ep"
 
     assert dummy_algorithm.match(event, dummy_state_sb)
 
@@ -304,7 +305,7 @@ def test_match_correct(event: Event, dummy_algorithm: SelectiveBackprop, dummy_s
 def test_match_incorrect(event: Event, dummy_algorithm: SelectiveBackprop, dummy_state_sb: State) -> None:
     """ Algo should NOT match TRAINING_START or the wrong interval
     """
-    dummy_state_sb.max_epochs = 10
+    dummy_state_sb.max_duration = "10ep"
 
     assert not dummy_algorithm.match(event, dummy_state_sb)
 
@@ -318,7 +319,7 @@ def test_apply(Ximage: torch.Tensor, y: torch.Tensor, dummy_algorithm: Selective
     """
     N, C, H, W = Ximage.shape
 
-    dummy_state_sb.max_epochs = 10
+    dummy_state_sb.max_duration = "10ep"
     dummy_state_sb.batch = (Ximage, y)
     dummy_algorithm.apply(Event.AFTER_DATALOADER, dummy_state_sb, dummy_logger)
 
@@ -327,8 +328,8 @@ def test_apply(Ximage: torch.Tensor, y: torch.Tensor, dummy_algorithm: Selective
     assert y_scaled.shape == (int(N * keep),)
 
 
-def test_selective_backprop_trains(mosaic_trainer_hparams: TrainerHparams):
-    mosaic_trainer_hparams.algorithms = [
+def test_selective_backprop_trains(composer_trainer_hparams: TrainerHparams):
+    composer_trainer_hparams.algorithms = [
         SelectiveBackpropHparams(start=0.3, end=0.9, keep=0.75, scale_factor=0.5, interrupt=1)
     ]
-    train_model(mosaic_trainer_hparams, max_epochs=6)
+    train_model(composer_trainer_hparams, max_epochs=6)

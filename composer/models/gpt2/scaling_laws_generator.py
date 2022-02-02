@@ -173,14 +173,11 @@ template_yaml = {
         },
     ],
     'max_epochs': 1,
-    'total_batch_size': 8,
+    'train_batch_size': 8,
     'eval_batch_size': 8,
     'seed': 17,
     'accelerator': {
-        'gpu': {
-            'n_gpus': 1,
-            'prefetch_in_cuda_stream': False,
-        }
+        'gpu': {}
     },
     'dataloader': {
         'pin_memory': True,
@@ -283,7 +280,7 @@ def generate_architecture(args, model):
     return model, scaling_law_predictions
 
 
-def configure_mosaic_yaml(model, scaling_law_predictions):
+def configure_composer_yaml(model, scaling_law_predictions):
     template_yaml['optimizer']['adamw']['lr'] = scaling_law_predictions['pred_lr']
 
     logger.info("----------------- OPTIMIZATION INFORMATION -----------------")
@@ -295,7 +292,7 @@ def configure_mosaic_yaml(model, scaling_law_predictions):
     batch_size = args.per_device_batch_size * args.num_devices
     curr_serial_steps = math.ceil(curr_num_batches / batch_size)
 
-    # we ignore the grad accum paramters to make Mosaic Trainer easier to work with
+    # we ignore the grad accum paramters to make the Composer Trainer easier to work with
     if args.no_grad_accum:
         lr_scaling_factor = math.floor(curr_serial_steps / min_serial_steps)
         template_yaml['optimizer']['adamw']['lr'] = template_yaml['optimizer']['adamw']['lr'] / lr_scaling_factor
@@ -323,7 +320,7 @@ def configure_mosaic_yaml(model, scaling_law_predictions):
     logger.info(f"Minumum possible serial optimization steps before SSR: {min_serial_steps:,}")
     logger.info(f"Minumum possible serial optimization steps after SSR: {math.ceil(args.ssr * min_serial_steps):,}")
     logger.info(f"Current serial optimization steps: {final_serial_steps:,}")
-    template_yaml['total_batch_size'] = batch_size
+    template_yaml['train_batch_size'] = batch_size
     assert math.floor(batch_size / curr_grad_accum) == (batch_size / curr_grad_accum)
     template_yaml['eval_batch_size'] = math.floor(batch_size / curr_grad_accum)
     template_yaml['grad_accum'] = curr_grad_accum
@@ -334,14 +331,12 @@ def configure_mosaic_yaml(model, scaling_law_predictions):
     template_yaml['schedulers'][1]['cosine_decay']['T_max'] = f"{decay_steps}ba"
     template_yaml['model']['gpt2']['model_config'] = model
 
-    validation_freq = math.floor(final_serial_steps * args.validation_freq)
-
     return template_yaml
 
 
 if __name__ == "__main__":
     model, scaling_law_predictions = generate_architecture(args, model)
-    template_yaml = configure_mosaic_yaml(model, scaling_law_predictions)
+    template_yaml = configure_composer_yaml(model, scaling_law_predictions)
 
     with open(args.output_file, "w+") as f:
         yaml.dump(template_yaml, f, sort_keys=False)

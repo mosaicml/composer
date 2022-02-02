@@ -6,10 +6,9 @@ from typing import Any, Optional, Tuple
 
 import torch
 import torch.nn as nn
-from monai.losses import DiceLoss
 
 from composer.core.types import BatchPair, Metrics, Tensor, Tensors
-from composer.models.base import BaseMosaicModel
+from composer.models.base import ComposerModel
 from composer.models.loss import Dice
 from composer.models.unet.model import UNet as UNetModel
 from composer.models.unet.unet_hparams import UnetHparams
@@ -17,8 +16,8 @@ from composer.models.unet.unet_hparams import UnetHparams
 log = logging.getLogger(__name__)
 
 
-class UNet(BaseMosaicModel):
-    """A U-Net model extending :class:`MosaicClassifier`.
+class UNet(ComposerModel):
+    """A U-Net model extending :class:`ComposerClassifier`.
 
     See this `paper <https://arxiv.org/abs/1505.04597>`_ for details on the
     U-Net architecture.
@@ -31,6 +30,9 @@ class UNet(BaseMosaicModel):
 
     def __init__(self, hparams: UnetHparams) -> None:
         super().__init__()
+
+        from monai.losses import DiceLoss
+
         self.hparams = hparams
         self.module = self.build_nnunet()
 
@@ -59,7 +61,7 @@ class UNet(BaseMosaicModel):
         return self.dice
 
     def forward(self, batch: BatchPair) -> Tensor:
-        x, y = batch
+        x, _ = batch
         context = contextlib.nullcontext if self.training else torch.no_grad
 
         x = x.squeeze(1)  # type: ignore

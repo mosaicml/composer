@@ -11,6 +11,7 @@ from torch.nn import functional as F
 
 from composer.algorithms import AlgorithmHparams
 from composer.core.types import Algorithm, Event, Logger, State, Tensor
+from composer.models.loss import check_for_index_targets
 
 log = logging.getLogger(__name__)
 
@@ -85,10 +86,14 @@ def mixup_batch(x: Tensor,
     # Interpolate between the inputs
     x_mix = (1 - interpolation_lambda) * x + interpolation_lambda * x_shuffled
 
-    y_onehot = F.one_hot(y, num_classes=n_classes)
-    y_shuffled_onehot = F.one_hot(y_shuffled, num_classes=n_classes)
-    y_mix = ((1. - interpolation_lambda) * y_onehot + interpolation_lambda * y_shuffled_onehot)
-
+    # First check if labels are indices. If so, convert them to onehots.
+    # This is under the assumption that the loss expects torch.LongTensor, which is true for pytorch cross_entropy
+    if check_for_index_targets(y):
+        y_onehot = F.one_hot(y, num_classes=n_classes)
+        y_shuffled_onehot = F.one_hot(y_shuffled, num_classes=n_classes)
+        y_mix = ((1. - interpolation_lambda) * y_onehot + interpolation_lambda * y_shuffled_onehot)
+    else:
+        y_mix = ((1. - interpolation_lambda) * y + interpolation_lambda * y_shuffled)
     return x_mix, y_mix, shuffled_idx
 
 
@@ -123,7 +128,9 @@ class MixUp(Algorithm):
     """
 
     def __init__(self, alpha: float):
-        self.hparams = MixUpHparams(alpha=alpha)
+        self.alpha = alpha
+        self._interpolation_lambda = 0.0
+        self._indices = torch.Tensor()
 
     def match(self, event: Event, state: State) -> bool:
         """Runs on Event.INIT and Event.AFTER_DATALOADER
@@ -141,7 +148,7 @@ class MixUp(Algorithm):
         return self._interpolation_lambda
 
     @interpolation_lambda.setter
-    def interpolation_lambda(self, new_int_lamb) -> None:
+    def interpolation_lambda(self, new_int_lamb: float) -> None:
         self._interpolation_lambda = new_int_lamb
 
     @property
@@ -168,7 +175,7 @@ class MixUp(Algorithm):
         input, target = state.batch_pair
         assert isinstance(input, Tensor) and isinstance(target, Tensor), \
             "Multiple tensors for inputs or targets not supported yet."
-        alpha = self.hparams.alpha
+        alpha = self.alpha
 
         self.interpolation_lambda = gen_interpolation_lambda(alpha)
 

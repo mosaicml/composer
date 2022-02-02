@@ -8,7 +8,7 @@ import torch
 import torch.nn as nn
 import yahp as hp
 
-from composer.models.base import BaseMosaicModel
+from composer.models.base import ComposerModel
 from composer.utils.string_enum import StringEnum
 
 
@@ -35,7 +35,7 @@ class Initializer(StringEnum):
 
         def bn_ones(w: nn.Module):
             if isinstance(w, torch.nn.BatchNorm2d):
-                w.weight.data = torch.ones_like(w.weight.data.shape)
+                w.weight.data = torch.ones_like(w.weight.data)
                 w.bias.data = torch.zeros_like(w.bias.data)
 
         def bn_uniform(w: nn.Module):
@@ -69,5 +69,5 @@ class ModelHparams(hp.Hparams, ABC):
     )
 
     @abstractmethod
-    def initialize_object(self) -> BaseMosaicModel:
+    def initialize_object(self) -> ComposerModel:
         pass

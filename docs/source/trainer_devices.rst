@@ -13,14 +13,3 @@ Devices
     ~device.Device
     ~device_cpu.DeviceCPU
     ~device_gpu.DeviceGPU
-
-Device Dataloaders
-------------------
-
-.. autosummary::
-    :toctree: generated
-    :nosignatures:
-
-    ~device_gpu.CudaDataLoader
-
-

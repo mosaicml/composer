@@ -6,13 +6,12 @@ import time
 from collections import deque
 from typing import Deque, Optional
 
-from composer import Logger, State
-from composer.callbacks.callback_hparams import SpeedMonitorHparams
-from composer.core.callback import RankZeroCallback
+from composer.core import Logger, State
+from composer.core.callback import Callback
 from composer.core.types import StateDict
 
 
-class SpeedMonitor(RankZeroCallback):
+class SpeedMonitor(Callback):
     """Logs the training throughput.
 
     It logs:
@@ -34,9 +33,10 @@ class SpeedMonitor(RankZeroCallback):
         self.train_examples_per_epoch = 0
         self.wall_clock_train = 0.0
         self.epoch_start_time = 0.0
+        self.batch_start_num_samples = None
         self.batch_end_times: Deque[float] = deque(maxlen=window_size + 1)  # rolling list of batch end times
         self.batch_num_samples: Deque[int] = deque(maxlen=window_size)  # rolling list of num samples in batch.
-        self.hparams = SpeedMonitorHparams(window_size=window_size)
+        self.window_size = window_size
         self.loaded_state: Optional[StateDict] = None
 
     def state_dict(self) -> StateDict:
@@ -59,13 +59,14 @@ class SpeedMonitor(RankZeroCallback):
             self.wall_clock_train = self.loaded_state["wall_clock_train"]
             self.epoch_start_time = current_time - self.loaded_state["epoch_duration"]
             self.batch_end_times = deque([current_time - x for x in self.loaded_state["batch_durations"]],
-                                         maxlen=self.hparams.window_size + 1)
+                                         maxlen=self.window_size + 1)
             self.batch_num_samples = self.loaded_state["batch_num_samples"]
             self.loaded_state = None
 
     def batch_start(self, state: State, logger: Logger) -> None:
-        del state, logger  # unused
+        del logger  # unused
         self._load_state()
+        self.batch_start_num_samples = state.timer.sample
 
     def epoch_start(self, state: State, logger: Logger):
         del state, logger  # unused
@@ -77,16 +78,11 @@ class SpeedMonitor(RankZeroCallback):
 
     def batch_end(self, state: State, logger: Logger):
         self.batch_end_times.append(time.time())
-        batch_num_samples = 0
-        batch_num_samples += state.last_batch_size
-        # TODO this is a hack around not having proper syncing / reduction available in callbacks
-        # Ideally, callbacks would have a way of reducing tensors.
-        # It assumes that each process has equal batch sizing
-        # For the speed monitor, we might be able to use the static step converter with num_samples
-        batch_num_samples *= state.world_size
+        new_num_samples = state.timer.sample
+        batch_num_samples = int(new_num_samples - self.batch_start_num_samples)
         self.batch_num_samples.append(batch_num_samples)
         self.train_examples_per_epoch += batch_num_samples
-        if len(self.batch_end_times) == self.hparams.window_size + 1:
+        if len(self.batch_end_times) == self.window_size + 1:
             throughput = sum(self.batch_num_samples) / (self.batch_end_times[-1] - self.batch_end_times[0])
             logger.metric_batch({'throughput/step': throughput})
 

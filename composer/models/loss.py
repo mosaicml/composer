@@ -14,6 +14,52 @@ if TYPE_CHECKING:
     from composer.core.types import Tensor
 
 
+class MIoU(Metric):
+    """Torchmetric mean Intersection-over-Union (mIoU) implementation.
+
+    IoU calculates the intersection area between the predicted class mask and the label class mask.
+    The intersection is then divided by the area of the union of the predicted and label masks.
+    This measures the quality of predicted class mask with respect to the label. The IoU for each
+    class is then averaged and the final result is the mIoU score. Implementation is primarily 
+    based on mmsegmentation:
+    https://github.com/open-mmlab/mmsegmentation/blob/master/mmseg/core/evaluation/metrics.py#L132
+
+    Args:
+        num_classes (int): the number of classes in the segmentation task.
+        ignore_index (int): the index to ignore when computing mIoU. Default is -1.
+
+    """
+
+    def __init__(self, num_classes: int, ignore_index: int = -1):
+        super().__init__(dist_sync_on_step=True)
+        self.num_classes = num_classes
+        self.ignore_index = ignore_index
+        self.add_state("total_intersect", default=torch.zeros(num_classes, dtype=torch.float64), dist_reduce_fx="sum")
+        self.add_state("total_union", default=torch.zeros(num_classes, dtype=torch.float64), dist_reduce_fx="sum")
+
+    def update(self, logits: Tensor, targets: Tensor):
+        """Update the state with new predictions and targets.
+        """
+        preds = logits.argmax(dim=1)
+        for pred, target in zip(preds, targets):
+            mask = (target != self.ignore_index)
+            pred = pred[mask]
+            target = target[mask]
+
+            intersect = pred[pred == target]
+            area_intersect = torch.histc(intersect.float(), bins=self.num_classes, min=0, max=self.num_classes - 1)
+            area_prediction = torch.histc(pred.float(), bins=self.num_classes, min=0, max=self.num_classes - 1)
+            area_target = torch.histc(target.float(), bins=self.num_classes, min=0, max=self.num_classes - 1)
+
+            self.total_intersect += area_intersect
+            self.total_union += area_prediction + area_target - area_intersect
+
+    def compute(self):
+        """Aggregate state across all processes and compute final metric.
+        """
+        return 100 * (self.total_intersect / self.total_union).mean()  # type: ignore - / unsupported for Tensor|Module
+
+
 class Dice(Metric):
     """The Dice Coefficient for evaluating image segmentation.
 
@@ -98,6 +144,12 @@ def ensure_targets_one_hot(input: Tensor, targets: Tensor) -> Tensor:
     return targets
 
 
+def check_for_index_targets(targets: Tensor) -> bool:
+    """Checks if a given set of targets are indices by looking at the type"""
+    index_types = ['torch.LongTensor', 'torch.cuda.LongTensor']
+    return targets.type() in index_types
+
+
 def soft_cross_entropy(input: Tensor,
                        target: Tensor,
                        weight: Optional[Tensor] = None,
@@ -140,13 +192,13 @@ class CrossEntropyLoss(Metric):
     """Torchmetric cross entropy loss implementation.
 
     This class implements cross entropy loss as a `torchmetric` so that
-    it can be returned by the :meth:`~composer.models.BaseMosaicModel.metric`
-    function in :class:`BaseMosaicModel`.
+    it can be returned by the :meth:`~composer.models.ComposerModel.metric`
+    function in :class:`ComposerModel`.
     """
 
-    def __init__(self, dist_sync_on_step=False):
+    def __init__(self, ignore_index: int = -100, dist_sync_on_step=False):
         super().__init__(dist_sync_on_step=dist_sync_on_step)
-
+        self.ignore_index = ignore_index
         self.add_state("sum_loss", default=torch.tensor(0.), dist_reduce_fx="sum")
         self.add_state("total_batches", default=torch.tensor(0), dist_reduce_fx="sum")
 
@@ -154,7 +206,7 @@ class CrossEntropyLoss(Metric):
         """Update the state with new predictions and targets.
         """
         # Loss calculated over samples/batch, accumulate loss over all batches
-        self.sum_loss += soft_cross_entropy(preds, target)
+        self.sum_loss += soft_cross_entropy(preds, target, ignore_index=self.ignore_index)
         assert isinstance(self.total_batches, Tensor)
         self.total_batches += 1
 

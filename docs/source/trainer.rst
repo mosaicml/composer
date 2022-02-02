@@ -16,12 +16,19 @@ Examples
     from composer.datasets import MNISTDatasetHparams
     from composer.models.mnist import MnistClassifierHparams
     model = MnistClassifierHparams(num_classes=10).initialize_objeect()
-    train_dataloader_spec = MNISTDatasetHparams(is_train=True,
-                                                datadir="./mymnist",
-                                                download=True).initialize_object()
-    train_dataloader_spec = MNISTDatasetHparams(is_train=False,
-                                                datadir="./mymnist",
-                                                download=True).initialize_object()
+    train_dataloader = DataLoader(
+        datasets.MNIST('~/datasets/', train=True, transform=transforms.ToTensor(), download=True),
+        drop_last=True,
+        shuffle=True,
+        batch_size=256,
+    )
+
+    eval_dataloader = DataLoader(
+        datasets.MNIST('~/datasets/', train=True, transform=transforms.ToTensor(), download=True),
+        drop_last=False,
+        shuffle=False,
+        batch_size=256,
+    )
 
 
 .. code-block:: python
@@ -29,9 +36,9 @@ Examples
     # Create a trainer that will checkpoint every epoch
     # and train the model
     trainer = Trainer(model=model,
-                      train_dataloader_spec=train_dataloader_spec,
-                      eval_dataloader_spec=eval_dataloader_spec,
-                      max_epochs=50,
+                      train_dataloader=train_dataloader,
+                      eval_dataloader=eval_dataloader,
+                      max_duration="50ep",
                       train_batch_size=128,
                       eval_batch_size=128,
                       checkpoint_interval_unit="ep",
@@ -44,8 +51,8 @@ Examples
 
     # Load a trainer from the saved checkpoint and resume training
     trainer = Trainer(model=model,
-                      train_dataloader_spec=train_dataloader_spec,
-                      eval_dataloader_spec=eval_dataloader_spec,
+                      train_dataloader=train_dataloader,
+                      eval_dataloader=eval_dataloader,
                       max_epochs=50,
                       train_batch_size=128,
                       eval_batch_size=128,
@@ -85,7 +92,7 @@ You can also provide overrides at command line:
 
 .. code-block:: bash
 
-    python examples/run_mosaic_trainer.py -f composer/yamls/models/classify_mnist_cpu.yaml --algorithms blurpool layer_freezing --datadir ~/datasets
+    python examples/run_composer_trainer.py -f composer/yamls/models/classify_mnist_cpu.yaml --algorithms blurpool layer_freezing --datadir ~/datasets
 
 
 **Algorithms**
@@ -100,7 +107,6 @@ You can also provide overrides at command line:
     blurpool | `BlurPoolHparams <https://github.com/mosaicml/composer/blob/main/composer/algorithms/blurpool/blurpool.py>`_
     channels_last | `ChannelsLastHparams <https://github.com/mosaicml/composer/blob/main/composer/algorithms/channels_last/channels_last.py>`_
     colout | `ColOutHparams <https://github.com/mosaicml/composer/blob/main/composer/algorithms/colout/colout.py>`_
-    curriculum_learning | `CurriculumLearningHparams <https://github.com/mosaicml/composer/blob/main/composer/algorithms/curriculum_learning/curriculum_learning.py>`_
     cutout | `CutOutHparams <https://github.com/mosaicml/composer/blob/main/composer/algorithms/cutout/cutout.py>`_
     dummy | `DummyHparams <https://github.com/mosaicml/composer/blob/main/composer/algorithms/dummy.py>`_
     ghost_batchnorm | `GhostBatchNormHparams <https://github.com/mosaicml/composer/blob/main/composer/algorithms/ghost_batchnorm/ghost_batchnorm.py>`_
@@ -113,6 +119,7 @@ You can also provide overrides at command line:
     sam | `SAMHparams <https://github.com/mosaicml/composer/blob/main/composer/algorithms/sam/sam.py>`_
     scale_schedule | `ScaleScheduleHparams <https://github.com/mosaicml/composer/blob/main/composer/algorithms/scale_schedule/scale_schedule.py>`_
     selective_backprop | `SelectiveBackpropHparams <https://github.com/mosaicml/composer/blob/main/composer/algorithms/selective_backprop/selective_backprop.py>`_
+    seq_length_warmup | `class SeqLengthWarmupHparams(AlgorithmHparams): <https://github.com/mosaicml/composer/blob/main/composer/algorithms/seq_length_warmup/seq_length_warmup.py>`_
     squeeze_excite | `SqueezeExciteHparams <https://github.com/mosaicml/composer/blob/main/composer/algorithms/squeeze_excite/squeeze_excite.py>`_
     stochastic_depth | `StochasticDepthHparams <https://github.com/mosaicml/composer/blob/main/composer/algorithms/stochastic_depth/stochastic_depth.py>`_
     swa | `SWAHparams <https://github.com/mosaicml/composer/blob/main/composer/algorithms/swa/swa.py>`_
@@ -127,7 +134,6 @@ You can also provide overrides at command line:
     benchmarker | :class:`~composer.callbacks.callback_hparams.BenchmarkerHparams`
     grad_monitor | :class:`~composer.callbacks.callback_hparams.GradMonitorHparams`
     lr_monitor | :class:`~composer.callbacks.callback_hparams.LRMonitorHparams`
-    pytorch_profiler | :class:`~composer.callbacks.callback_hparams.TorchProfilerHparams`
     speed_monitor | :class:`~composer.callbacks.callback_hparams.SpeedMonitorHparams`
 
 **Datasets**
@@ -142,7 +148,6 @@ You can also provide overrides at command line:
     imagenet | :class:`~composer.datasets.ImagenetDatasetHparams`
     lm | :class:`~composer.datasets.LMDatasetHparams`
     mnist | :class:`~composer.datasets.MNISTDatasetHparams`
-    synthetic | :class:`~composer.datasets.SyntheticDatasetHparams`
 
 **Devices**
 
@@ -175,10 +180,8 @@ You can also provide overrides at command line:
     efficientnetb0 | `EfficientNetB0Hparams <https://github.com/mosaicml/composer/tree/main/composer/models/efficientnetb0/efficientnetb0_hparams.py>`_
     gpt2 | `GPT2Hparams <https://github.com/mosaicml/composer/blob/main/composer/models/gpt2/gpt2_hparams.py>`_
     mnist_classifier | `MnistClassifierHparams <https://github.com/mosaicml/composer/blob/main/composer/models/classify_mnist/mnist_hparams.py>`_
-    resnet18 | `ResNet18Hparams <https://github.com/mosaicml/composer/tree/main/composer/models/resnet18/resnet18_hparams.py>`_
+    resnet | `ResNetHparams <https://github.com/mosaicml/composer/tree/main/composer/models/resnet/resnet_hparams.py>`_
     resnet56_cifar10 | `CIFARResNetHparams <https://github.com/mosaicml/composer/tree/main/composer/models/resnet56_cifar10/resnet56_cifar10_hparams.py>`_
-    resnet50 | `ResNet50Hparams <https://github.com/mosaicml/composer/tree/main/composer/models/resnet50/resnet50_hparams.py>`_
-    resnet101 | `ResNet101Hparams <https://github.com/mosaicml/composer/tree/main/composer/models/resnet101/resnet101_hparams.py>`_
     unet | `UnetHparams <https://github.com/mosaicml/composer/tree/main/composer/models/unet/unet_hparams.py>`_
 
 **Optimizers**

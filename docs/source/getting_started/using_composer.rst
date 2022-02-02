@@ -47,10 +47,10 @@ For more details, please see :doc:`/functional`.
 
 .. _using_composer_trainer:
 
-MosaicML Trainer
+Composer Trainer
 ~~~~~~~~~~~~~~~~
 
-The previous approach is easy to get started and experiment with methods. However, the key to Composer is the ability to quickly configure and compose multiple methods together. For this, use the MosaicML Trainer. Our trainer is designed to be minimally more opinionated than other libraries in order to achieve our composition goals.
+The previous approach is easy to get started and experiment with methods. However, the key to Composer is the ability to quickly configure and compose multiple methods together. For this, use the Composer Trainer. The trainer is designed to be minimally more opinionated than other libraries in order to achieve our composition goals.
 
 Our trainer features:
 
@@ -73,7 +73,7 @@ Here are several ways to use the trainer:
        # edit other properties in the hparams object
        hparams.precision = Precision.FP32
        hparams.grad_accum = 2
-       hparams.set_datadir("~/datasets")
+       hparams.datadir = "~/datasets"
 
        trainer = Trainer.create_from_hparams(hparams)
        trainer.fit()
@@ -82,13 +82,13 @@ Here are several ways to use the trainer:
 
 2. (Configurable): Provide a ``yaml`` file, either from our defaults or customized yourself.
 
-    With our ``run_mosaic_trainer.py`` entrypoint:
+    With our ``run_composer_trainer.py`` entrypoint:
 
    .. code-block::
 
        git clone https://github.com/mosaicml/composer.git
        cd composer && pip install -e .
-       python examples/run_mosaic_trainer.py -f composer/yamls/models/classify_mnist_cpu.yaml  --datadir ~/datasets
+       python examples/run_composer_trainer.py -f composer/yamls/models/classify_mnist_cpu.yaml  --datadir ~/datasets
 
    Or, in Python,
 
@@ -97,7 +97,7 @@ Here are several ways to use the trainer:
         from composer.trainer import TrainerHparams, Trainer
 
         hparams = TrainerHparams.create('composer/yamls/models/classify_mnist_cpu.yaml')
-        hparams.set_datadir("~/datasets")
+        hparams.datadir = "~/datasets"
         trainer = Trainer.create_from_hparams(hparams)
 
         trainer.fit()
@@ -109,28 +109,28 @@ Here are several ways to use the trainer:
    .. code-block:: python
 
         from composer import Trainer
-        from composer import models, DataloaderSpec
+        from torch.utils.data import DataLoader
         from torchvision import datasets, transforms
 
-        train_dataloader_spec = DataloaderSpec(
-            dataset=datasets.MNIST('~/datasets/', train=True, transform=transforms.ToTensor(), download=True),
-            drop_last=False,
+        train_dataloader = DataLoader(
+            datasets.MNIST('~/datasets/', train=True, transform=transforms.ToTensor(), download=True),
+            drop_last=True,
             shuffle=True,
+            batch_size=256,
         )
 
-        eval_dataloader_spec = DataloaderSpec(
-            dataset=datasets.MNIST('~/datasets/', train=False, transform=transforms.ToTensor()),
+        eval_dataloader = DataLoader(
+            datasets.MNIST('~/datasets/', train=True, transform=transforms.ToTensor(), download=True),
             drop_last=False,
             shuffle=False,
+            batch_size=256,
         )
 
         trainer = Trainer(
             model=models.MNIST_Classifier(num_classes=10),
-            train_dataloader_spec=train_dataloader_spec,
-            eval_dataloader_spec=eval_dataloader_spec,
+            train_dataloader=train_dataloader,
+            eval_dataloader=eval_dataloader,
             max_epochs=3,
-            train_batch_size=256,
-            eval_batch_size=256,
         )
 
         trainer.fit()
@@ -139,4 +139,3 @@ Here are several ways to use the trainer:
 
 
 .. _yahp: https://github.com/mosaicml/yahp
-

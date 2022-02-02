@@ -114,7 +114,7 @@ Miscellaneous Types
 .. autoclass:: Precision
     :members:
 
-.. py:class:: TPrefetchFn
+.. py:class:: TDeviceTransformFn
 
     Type alias for prefetch functions used for initializing dataloaders.
 

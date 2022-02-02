@@ -13,6 +13,7 @@ import logging
 
 import torch
 import torch.utils.data
+import torchmetrics
 from torch import nn
 from torch.nn import functional as F
 from torchmetrics.classification.accuracy import Accuracy
@@ -21,7 +22,7 @@ from torchvision import datasets, transforms
 import composer
 from composer import Event
 from composer.algorithms import BlurPool
-from composer.core.types import Precision
+from composer.core.types import Evaluator, Precision
 from composer.utils import ensure_tuple
 
 logging.basicConfig()
@@ -31,7 +32,7 @@ logging.getLogger().setLevel(logging.INFO)
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--datadir', type=str, required=True, help='data dir for MNIST')
-parser.add_argument('--total_batch_size', type=int, default=256, help='batch size')
+parser.add_argument('--train_batch_size', type=int, default=256, help='batch size')
 parser.add_argument('--epochs', type=int, default=5, help='epochs')
 
 args = parser.parse_args()
@@ -70,30 +71,29 @@ def train():
 
     train_dataloader = torch.utils.data.DataLoader(
         dataset=train_dataset,
-        batch_size=args.total_batch_size,
+        batch_size=args.train_batch_size,
         shuffle=True,
     )
     val_dataloader = torch.utils.data.DataLoader(
         dataset=val_dataset,
-        batch_size=args.total_batch_size,
+        batch_size=args.train_batch_size,
         shuffle=False,
     )
+    evaluator = Evaluator(label='eval_dataset', dataloader=val_dataloader, metrics=torchmetrics.Accuracy())
     # to use our algorithms, create and maintain the trainer state
     state = composer.State(
         model=model,
         train_dataloader=train_dataloader,
-        eval_dataloader=val_dataloader,
-        train_batch_size=args.total_batch_size,
-        max_epochs=args.epochs,
-        eval_batch_size=100,
+        evaluators=[evaluator],
+        max_duration=f"{args.epochs}ep",
         grad_accum=1,
         precision=Precision.FP32,
     )
 
     # define which algorithms to apply and configure the cmp engine
-    algorithms = [BlurPool(replace_convs=True, replace_maxpools=True, blur_first=False)]
+    state.algorithms = [BlurPool(replace_convs=True, replace_maxpools=True, blur_first=False)]
 
-    engine = composer.Engine(state=state, algorithms=algorithms)
+    engine = composer.Engine(state=state)
 
     # add two-way callbacks in the trainer loop
     engine.run_event(
@@ -104,11 +104,11 @@ def train():
 
     engine.run_event(Event.TRAINING_START)  # the Event.TRAINING_START should be run AFTER any DDP fork
 
-    for state.epoch in range(state.max_epochs):
+    while state.timer < state.max_duration:
         logging.info(f'Epoch {state.epoch}')
         engine.run_event(Event.EPOCH_START)
 
-        for state.step, (x, y) in enumerate(train_dataloader):
+        for x, y in train_dataloader:
             engine.run_event(Event.BATCH_START)
 
             state.batch = x.cuda(), y.cuda()
@@ -130,8 +130,9 @@ def train():
             for optimizer in ensure_tuple(state.optimizers):
                 optimizer.zero_grad()
 
-            if state.step % 100 == 0:
-                logging.info(f'Epoch {state.epoch}, Step: {state.step}, loss: {state.loss:.3f}')
+            if state.timer.batch.value % 100 == 0:
+                logging.info(f'Epoch {state.epoch}, Step: {state.timer.batch.value}, loss: {state.loss:.3f}')
+            state.timer.on_batch_complete(len(state.batch))
             engine.run_event(Event.BATCH_END)
 
         metric = Accuracy().cuda()
@@ -144,6 +145,7 @@ def train():
 
             metric(prediction, y)
         logging.info(f'Epoch {state.epoch} complete. val/acc = {metric.compute():.5f}')
+        state.timer.on_epoch_complete()
 
         engine.run_event(Event.EPOCH_END)
 

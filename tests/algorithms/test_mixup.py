@@ -6,7 +6,7 @@ import torch
 from composer.algorithms import MixUpHparams
 from composer.algorithms.mixup.mixup import gen_interpolation_lambda, mixup_batch
 from composer.core.types import Event
-from composer.models.base import MosaicClassifier
+from composer.models.base import ComposerClassifier
 from composer.trainer.trainer_hparams import TrainerHparams
 from tests.utils.trainer_fit import train_model
 
@@ -49,7 +49,7 @@ class TestMixUp:
         interpolation_lambda = gen_interpolation_lambda(alpha)
 
         # Apply mixup
-        x_mix, y_mix, _ = mixup_batch(
+        x_mix, _, _ = mixup_batch(
             x=x_fake,
             y=y_fake,
             interpolation_lambda=interpolation_lambda,
@@ -65,7 +65,7 @@ class TestMixUp:
 
         algorithm = MixUpHparams(alpha=alpha).initialize_object()
         state = dummy_state
-        state.model = MosaicClassifier
+        state.model = ComposerClassifier
         state.model.num_classes = x_fake.size(1)  # Grab C
         state.batch = (x_fake, y_fake)
 
@@ -82,12 +82,12 @@ class TestMixUp:
 def test_mixup_nclasses(dummy_state, dummy_logger):
     algorithm = MixUpHparams(alpha=0.2).initialize_object()
     state = dummy_state
-    state.model = MosaicClassifier
+    state.model = ComposerClassifier
     state.model.num_classes = None  # This should flag AttributeError
 
     algorithm.apply(Event.AFTER_DATALOADER, state, dummy_logger)
 
 
-def test_mixup_trains(mosaic_trainer_hparams: TrainerHparams):
-    mosaic_trainer_hparams.algorithms = [MixUpHparams(alpha=0.2)]
-    train_model(mosaic_trainer_hparams)
+def test_mixup_trains(composer_trainer_hparams: TrainerHparams):
+    composer_trainer_hparams.algorithms = [MixUpHparams(alpha=0.2)]
+    train_model(composer_trainer_hparams)

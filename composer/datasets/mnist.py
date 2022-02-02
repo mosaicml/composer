@@ -5,37 +5,46 @@ from dataclasses import dataclass
 import yahp as hp
 from torchvision import datasets, transforms
 
-from composer.datasets.hparams import DataloaderSpec, DatasetHparams
+from composer.core.types import DataLoader
+from composer.datasets.dataloader import DataloaderHparams
+from composer.datasets.hparams import DatasetHparams, SyntheticHparamsMixin
+from composer.datasets.synthetic import SyntheticBatchPairDataset
+from composer.utils import dist
 
 
 @dataclass
-class MNISTDatasetHparams(DatasetHparams):
+class MNISTDatasetHparams(DatasetHparams, SyntheticHparamsMixin):
     """Defines an instance of the MNIST dataset for image classification.
-    
+
     Parameters:
-        is_train (bool): Whether to load the training or validation dataset.
-        datadir (str): Data directory to use.
         download (bool): Whether to download the dataset, if needed.
-        drop_last (bool): Whether to drop the last samples for the last batch.
-        shuffle (bool): Whether to shuffle the dataset for each epoch.
     """
+    download: bool = hp.optional("whether to download the dataset, if needed", default=True)
 
-    is_train: bool = hp.required("whether to load the training or validation dataset")
-    datadir: str = hp.required("data directory")
-    download: bool = hp.required("whether to download the dataset, if needed")
-    drop_last: bool = hp.optional("Whether to drop the last samples for the last batch", default=True)
-    shuffle: bool = hp.optional("Whether to shuffle the dataset for each epoch", default=True)
+    def initialize_object(self, batch_size: int, dataloader_hparams: DataloaderHparams) -> DataLoader:
+        if self.use_synthetic:
+            dataset = SyntheticBatchPairDataset(
+                total_dataset_size=60_000 if self.is_train else 10_000,
+                data_shape=[1, 28, 28],
+                num_classes=10,
+                num_unique_samples_to_create=self.synthetic_num_unique_samples,
+                device=self.synthetic_device,
+                memory_format=self.synthetic_memory_format,
+            )
 
-    def initialize_object(self) -> DataloaderSpec:
-        transform = transforms.Compose([transforms.ToTensor()])
-        dataset = datasets.MNIST(
-            self.datadir,
-            train=self.is_train,
-            download=self.download,
-            transform=transform,
-        )
-        return DataloaderSpec(
-            dataset=dataset,
-            drop_last=self.drop_last,
-            shuffle=self.shuffle,
-        )
+        else:
+            if self.datadir is None:
+                raise ValueError("datadir is required if synthetic is False")
+
+            transform = transforms.Compose([transforms.ToTensor()])
+            dataset = datasets.MNIST(
+                self.datadir,
+                train=self.is_train,
+                download=self.download,
+                transform=transform,
+            )
+        sampler = dist.get_sampler(dataset, drop_last=self.drop_last, shuffle=self.shuffle)
+        return dataloader_hparams.initialize_object(dataset=dataset,
+                                                    batch_size=batch_size,
+                                                    sampler=sampler,
+                                                    drop_last=self.drop_last)

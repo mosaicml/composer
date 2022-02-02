@@ -7,7 +7,7 @@ See :doc:`/core/types` for documentation.
 
 from __future__ import annotations
 
-from typing import Any, Callable, Dict, Iterable, Iterator, List, Optional, Protocol, Tuple, Union
+from typing import TYPE_CHECKING, Any, Dict, Iterable, Iterator, List, Optional, Tuple, Union
 
 import torch
 import torch.utils.data
@@ -15,11 +15,25 @@ from torchmetrics.collections import MetricCollection
 from torchmetrics.metric import Metric
 
 from composer.core.algorithm import Algorithm as Algorithm
+from composer.core.data_spec import DataSpec as DataSpec
+from composer.core.evaluator import Evaluator as Evaluator
 from composer.core.event import Event as Event
 from composer.core.logging import Logger as Logger
 from composer.core.precision import Precision as Precision
 from composer.core.serializable import Serializable as Serializable
 from composer.core.state import State as State
+from composer.core.time import Time as Time
+from composer.core.time import Timer as Timer
+from composer.core.time import TimeUnit as TimeUnit
+from composer.utils.string_enum import StringEnum
+
+try:
+    from typing import Protocol
+except ImportError:
+    Protocol = object  # Protocol is not available in python 3.7
+
+if TYPE_CHECKING:
+    from typing import Protocol
 
 Tensor = torch.Tensor
 Tensors = Union[Tensor, Tuple[Tensor, ...], List[Tensor]]
@@ -33,7 +47,7 @@ Batch = Union[BatchPair, BatchDict, Tensor]
 
 def as_batch_dict(batch: Batch) -> BatchDict:
     """Casts a :class:`Batch` as a :class:`BatchDict`.
-    
+
     Args:
         batch (Batch): A batch.
     Raises:
@@ -70,7 +84,7 @@ Dataset = torch.utils.data.Dataset[Batch]
 
 class BreakEpochException(Exception):
     """Raising this exception will immediately end the current epoch.
-    
+
     If you're wondering whether you should use this, the answer is no.
     """
 
@@ -83,8 +97,8 @@ class DataLoader(Protocol):
 
     Attributes:
         dataset (Dataset): Dataset from which to load the data.
-        batch_size (int, optional): How many samples per batch to load
-            (default: ``1``).
+        batch_size (int, optional): How many samples per batch to load for a
+            single device (default: ``1``).
         num_workers (int): How many subprocesses to use for data loading.
             ``0`` means that the data will be loaded in the main process.
         pin_memory (bool): If ``True``, the data loader will copy Tensors
@@ -128,12 +142,12 @@ class DataLoader(Protocol):
         ...
 
 
+Evaluators = Union[Evaluator, List[Evaluator], Tuple[Evaluator, ...]]
 Metrics = Union[Metric, MetricCollection]
-
 Optimizer = torch.optim.Optimizer
-Optimizers = Union[Optimizer, Tuple[Optimizer, ...]]
+Optimizers = Union[Optimizer, Tuple[Optimizer, ...], List[Optimizer]]
 Scheduler = torch.optim.lr_scheduler._LRScheduler
-Schedulers = Union[Scheduler, Tuple[Scheduler, ...]]
+Schedulers = Union[Scheduler, Tuple[Scheduler, ...], List[Scheduler]]
 
 Scaler = torch.cuda.amp.grad_scaler.GradScaler
 
@@ -142,6 +156,11 @@ ModelParameters = Union[Iterable[Tensor], Iterable[Dict[str, Tensor]]]
 
 JSON = Union[str, float, int, None, List['JSON'], Dict[str, 'JSON']]
 
-TPrefetchFn = Callable[[Batch], Batch]
-
 StateDict = Dict[str, Any]
+
+
+class MemoryFormat(StringEnum):
+    CONTIGUOUS_FORMAT = "contiguous_format"
+    CHANNELS_LAST = "channels_last"
+    CHANNELS_LAST_3D = "channels_last_3d"
+    PRESERVE_FORMAT = "preserve_format"

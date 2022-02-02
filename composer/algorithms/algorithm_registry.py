@@ -8,8 +8,10 @@ from composer.algorithms.augmix import AugMixHparams
 from composer.algorithms.blurpool import BlurPoolHparams
 from composer.algorithms.channels_last import ChannelsLastHparams
 from composer.algorithms.colout import ColOutHparams
+from composer.algorithms.cutmix import CutMixHparams
 from composer.algorithms.cutout import CutOutHparams
 from composer.algorithms.dummy import DummyHparams
+from composer.algorithms.factorize import FactorizeHparams
 from composer.algorithms.ghost_batchnorm import GhostBatchNormHparams
 from composer.algorithms.grad_ckpt import GradCkptHparams
 from composer.algorithms.label_smoothing import LabelSmoothingHparams
@@ -32,7 +34,9 @@ registry: Dict[str, Type[AlgorithmHparams]] = {
     'blurpool': BlurPoolHparams,
     'channels_last': ChannelsLastHparams,
     'seq_length_warmup': SeqLengthWarmupHparams,
+    'cutmix': CutMixHparams,
     'cutout': CutOutHparams,
+    'factorize': FactorizeHparams,
     'ghost_batchnorm': GhostBatchNormHparams,
     'grad_ckpt': GradCkptHparams,
     'label_smoothing': LabelSmoothingHparams,

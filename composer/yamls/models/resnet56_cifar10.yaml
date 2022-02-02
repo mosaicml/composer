@@ -35,24 +35,16 @@ model:
     initializers:
       - kaiming_normal
       - bn_uniform
-    num_classes: 10
 loggers:
-  - file:
-      log_level: epoch
-      filename: stdout
-      buffer_size: 1
-      flush_every_n_batches: 100
-      every_n_epochs: 1
-      every_n_batches: 100
-max_epochs: 160
-total_batch_size: 1024
+  - tqdm: {}
+max_duration: 160ep
+train_batch_size: 1024
 eval_batch_size: 1000
 seed: 17
 validate_every_n_epochs: 1
 grad_accum: 1
 device:
-  gpu:
-    n_gpus: 1
+  gpu: {}
 dataloader:
   pin_memory: true
   timeout: 0

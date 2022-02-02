@@ -2,14 +2,12 @@ train_dataset:
   brats:
     is_train: true
     datadir: /datasets/01_2d
-    download: false
     shuffle: true
     drop_last: true
 val_dataset:
   brats:
     is_train: false
     datadir: /datasets/01_2d
-    download: false
     shuffle: false
     drop_last: false
 optimizer:
@@ -28,15 +26,14 @@ model:
       - bn_ones
 loggers:
   - tqdm: {}
-max_epochs: 200
-total_batch_size: 64
+max_duration: 200ep
+train_batch_size: 64
 eval_batch_size: 8
 seed: 0
 validate_every_n_epochs: 10
 grad_accum: 1
 device:
-  gpu:
-    n_gpus: 8
+  gpu: {}
 dataloader:
   pin_memory: true
   timeout: 0

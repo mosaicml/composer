@@ -3,6 +3,7 @@
 from dataclasses import asdict, dataclass
 from typing import Optional
 
+import torch
 import yahp as hp
 
 from composer.algorithms.algorithm_hparams import AlgorithmHparams
@@ -36,7 +37,8 @@ class LabelSmoothing(Algorithm):
     """
 
     def __init__(self, alpha: float):
-        self.hparams = LabelSmoothingHparams(alpha=alpha)
+        self.alpha = alpha
+        self.original_labels = torch.Tensor()
 
     def match(self, event: Event, state: State) -> bool:
         return event in [Event.BEFORE_LOSS, Event.AFTER_LOSS]
@@ -52,7 +54,7 @@ class LabelSmoothing(Algorithm):
             smoothed_labels = smooth_labels(
                 state.outputs,
                 labels,
-                alpha=self.hparams.alpha,
+                alpha=self.alpha,
             )
             state.batch = (input, smoothed_labels)
         elif event == Event.AFTER_LOSS:
@@ -65,7 +67,7 @@ def smooth_labels(logits: Tensor, targets: Tensor, alpha: float):
     as in `Szegedy et al. <https://arxiv.org/abs/1512.00567>`_.
 
     This is computed by ``(1 - alpha) * targets + alpha * smoothed_targets``
-    where ``smoothed_targets`` is a vector of ones.
+    where ``smoothed_targets`` is a uniform distribution.
 
     Args:
         logits: Output of the model. Tensor of shape (N, C, d1, ..., dn) for

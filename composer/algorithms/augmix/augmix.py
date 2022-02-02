@@ -1,6 +1,7 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
 from dataclasses import asdict, dataclass
+from typing import Optional
 
 import numpy as np
 import torch
@@ -32,7 +33,7 @@ class AugMixHparams(AlgorithmHparams):
         return AugMix(**asdict(self))
 
 
-def augment_and_mix(img: ImageType = None,
+def augment_and_mix(img: Optional[ImageType] = None,
                     severity: int = 3,
                     depth: int = -1,
                     width: int = 3,
@@ -150,11 +151,11 @@ class AugMix(Algorithm):
             raise ValueError("AugMix width must be ≥ 1")
         if augmentation_set not in augmentation_sets.keys():
             raise KeyError(f"AugMix augmentation_set is not one of {augmentation_sets.keys()}")
-        self.hparams = AugMixHparams(severity=severity,
-                                     depth=depth,
-                                     width=width,
-                                     alpha=alpha,
-                                     augmentation_set=augmentation_set)
+        self.severity = severity
+        self.depth = depth
+        self.width = width
+        self.alpha = alpha
+        self.augmentation_set = augmentation_set
 
     def match(self, event: Event, state: State) -> bool:
         """Runs on Event.TRAINING_START"""
@@ -162,7 +163,11 @@ class AugMix(Algorithm):
 
     def apply(self, event: Event, state: State, logger: Logger) -> None:
         """Inserts AugMix into the list of dataloader transforms"""
-        am = AugmentAndMixTransform(**self.hparams.to_dict())
+        am = AugmentAndMixTransform(severity=self.severity,
+                                    depth=self.depth,
+                                    width=self.width,
+                                    alpha=self.alpha,
+                                    augmentation_set=self.augmentation_set)
         assert state.train_dataloader is not None, "Train Dataloader is not initialized."
         dataset = state.train_dataloader.dataset
         add_dataset_transform(dataset, am)

@@ -1,7 +1,7 @@
 Custom Models and Datasets
 ==========================
 
-The MosaicML :class:`~composer.trainer.Trainer` can easily be extended to use your own models and datasets. We walk through two ways to get started and experiment with algorithms on your machine learning projects.
+The Composer :class:`~composer.trainer.Trainer` can easily be extended to use your own models and datasets. We walk through two ways to get started and experiment with algorithms on your machine learning projects.
 
 .. seealso::
 
@@ -10,11 +10,11 @@ The MosaicML :class:`~composer.trainer.Trainer` can easily be extended to use yo
 Models
 ------
 
-Models provided to :class:`~composer.trainer.Trainer` use the minimal interface in :class:`~composer.models.BaseMosaicModel`:
+Models provided to :class:`~composer.trainer.Trainer` use the minimal interface in :class:`~composer.models.ComposerModel`:
 
 .. code-block:: python
 
-    class BaseMosaicModel(torch.nn.Module, ABC):
+    class ComposerModel(torch.nn.Module, ABC):
 
         def forward(self, batch: Batch) -> Tensors:
         # computes the forward pass given a batch of data.
@@ -35,8 +35,8 @@ Models provided to :class:`~composer.trainer.Trainer` use the minimal interface 
 
 For convenience, we've provided a few base classes that are task-specific:
 
-* Classification: :class:`~composer.models.MosaicClassifier`. Uses cross entropy loss and `torchmetrics.Accuracy`.
-* Transformers: :class:`~composer.models.MosaicTransformer`. For use with HuggingFace Transformers.
+* Classification: :class:`~composer.models.ComposerClassifier`. Uses cross entropy loss and `torchmetrics.Accuracy`.
+* Transformers: :class:`~composer.models.ComposerTransformer`. For use with HuggingFace Transformers.
 * Segmentation: :class:`~composer.models.unet.UNet`. Uses a Dice and CE loss.
 
 In this tutorial, we start with a simple image classification model:
@@ -46,7 +46,7 @@ In this tutorial, we start with a simple image classification model:
     import torch
     import composer
 
-    class SimpleModel(composer.models.MosaicClassifier):
+    class SimpleModel(composer.models.ComposerClassifier):
         def __init__(self, num_hidden: int, num_classes: int):
             module = torch.nn.Sequential(
                 torch.nn.Flatten(start_dim=1),
@@ -59,24 +59,26 @@ In this tutorial, we start with a simple image classification model:
 Datasets
 --------
 
-Provide the trainer with your :class:`torch.utils.data.Dataset` by configuring a :class:`DataloaderSpec` for
-both train and validation datasets. Here, we create the :class:`DataloaderSpec` with the ``MNIST`` dataset:
+Provide the trainer with :class:`~torch.utils.data.DataLoader` for both 
+train and validation datasets. Here, we create a :class:`~torch.utils.data.DataLoader` with the ``MNIST`` dataset:
 
 .. code-block:: python
 
-     from composer import DataloaderSpec
      from torchvision import datasets, transforms
+     from torch.utils.data import DataLoader
 
-     train_dataloader_spec = DataloaderSpec(
+     train_dataloader = DataLoader(
          dataset=datasets.MNIST('/datasets/', train=True, transform=transforms.ToTensor(), download=True),
          drop_last=False,
          shuffle=True,
+         batch_size=256,
      )
 
-     eval_dataloader_spec = DataloaderSpec(
+     eval_dataloader = DataLoader(
          dataset=datasets.MNIST('/datasets/', train=False, transform=transforms.ToTensor()),
          drop_last=False,
          shuffle=False,
+         batch_size=256,
      )
 
 Trainer init
@@ -91,11 +93,9 @@ Now that your ``Dataset`` and ``Model`` are ready, you can initialize the :class
 
     trainer = Trainer(
         model=SimpleModel(num_hidden=128, num_classes=10),
-        train_dataloader_spec=train_dataloader_spec,
-        eval_dataloader_spec=eval_dataloader_spec,
+        train_dataloader=train_dataloader,
+        eval_dataloader=eval_dataloader,
         max_epochs=3,
-        train_batch_size=256,
-        eval_batch_size=256,
         algorithms=[
             CutOut(n_holes=1, length=10),
             LabelSmoothing(alpha=0.1),
@@ -189,13 +189,4 @@ or via the command line, e.g.
 
 .. code-block::
 
-    python examples/run_mosaic_trainer.py -f my_config.yaml --model my_model --num_classes 10 --num_hidden 128
-
-
-
-
-
-
-
-
-
+    python examples/run_composer_trainer.py -f my_config.yaml --model my_model --num_classes 10 --num_hidden 128

@@ -5,23 +5,25 @@ from typing import Optional, Sequence
 import torch
 import torch.nn.functional as F
 from torch import optim
+from torchmetrics.classification.accuracy import Accuracy
+from torchmetrics.collections import MetricCollection
 
 from composer import Algorithm, Engine, Event, Logger, State
-from composer.core.types import DataLoader, Optimizer, Precision
+from composer.core.types import DataLoader, Evaluator, Optimizer, Precision
 from tests.utils.model import SimpleModel
 
 
 def _get_state(train_dataloader: DataLoader, eval_dataloader: DataLoader, steps_per_epoch: int = 1):
     model = SimpleModel()
     steps_per_epoch = steps_per_epoch
+    metric_coll = MetricCollection([Accuracy()])
+    evaluators = [Evaluator(label="dummy_label", dataloader=eval_dataloader, metrics=metric_coll)]
     return State(
         model=model,
         optimizers=optim.SGD(model.parameters(), lr=.001, momentum=0.0),
-        max_epochs=1,
-        train_batch_size=2,
-        eval_batch_size=2,
+        max_duration="1ep",
         train_dataloader=train_dataloader,
-        eval_dataloader=eval_dataloader,
+        evaluators=evaluators,
         grad_accum=1,
         precision=Precision.FP32,
     )
@@ -41,7 +43,7 @@ def test_classifier_trains(
     model = state.model
 
     logger = Logger(state=state, backends=[])
-    engine = Engine(state=state, algorithms=algorithms, logger=logger)
+    engine = Engine(state=state, logger=logger)
 
     engine.run_event(Event.INIT)
     engine.run_event(Event.TRAINING_START)

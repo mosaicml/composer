@@ -8,13 +8,14 @@ import math
 from dataclasses import asdict, dataclass
 from operator import attrgetter
 from types import MethodType, ModuleType
-from typing import Any, Callable, Optional, Union
+from typing import Any, Callable, Optional, Type, Union, cast
 
 import torch
 import yahp as hp
 
 from composer.algorithms import AlgorithmHparams
 from composer.core import Algorithm, Event, Logger, State, surgery
+from composer.core.types import Optimizers
 
 log = logging.getLogger(__name__)
 
@@ -36,12 +37,12 @@ class AlibiHparams(AlgorithmHparams):
     alibi_attention: str = hp.required("new self-attention function in which ALiBi is "
                                        "implemented. Used to replace "
                                        "'{attention_module}.{attr_to_replace}'")
-    mask_replacement_function: Union[str, None] = hp.optional(
+    mask_replacement_function: Optional[str] = hp.optional(
         "function to replace model's attention mask. This is "
         "sometimes necessary for evaluating on sequence "
         " lengths longer than the model was initialized to accommodate.",
         default=None)
-    heads_per_layer: Union[int, Optional[None]] = hp.optional(
+    heads_per_layer: Optional[int] = hp.optional(
         'Number of attention heads per layer. If '
         '"None", will attempt to determine from model.config.n_head.',
         default=None)
@@ -56,9 +57,17 @@ class AlibiHparams(AlgorithmHparams):
         return Alibi(**asdict(self))
 
 
-def apply_alibi(model: torch.nn.Module, heads_per_layer: int, max_sequence_length: int,
-                position_embedding_attribute: str, attention_module: torch.nn.Module, attr_to_replace: str,
-                alibi_attention: Callable, mask_replacement_function: Union[Callable, None]) -> None:
+def apply_alibi(
+    model: torch.nn.Module,
+    heads_per_layer: int,
+    max_sequence_length: int,
+    position_embedding_attribute: str,
+    attention_module: Type[torch.nn.Module],
+    attr_to_replace: str,
+    alibi_attention: Callable,
+    mask_replacement_function: Union[Callable, None],
+    optimizers: Optional[Optimizers] = None,
+) -> None:
     """
     Removes position embeddings and replaces the attention function and attention mask
     according to `AliBi <https://arxiv.org/abs/2108.12409>`_.
@@ -85,22 +94,32 @@ def apply_alibi(model: torch.nn.Module, heads_per_layer: int, max_sequence_lengt
             attention mask. This is sometimes necessary for evaluating
             on sequence lengths longer than the model was initialized to
             accommodate.
+        optimizers (Optimizers, optional): Existing optimizers bound to ``model.parameters()``.
+            All optimizers that have already been constructed with,
+            ``model.parameters()`` must be specified here so they will optimize
+            the correct parameters.
+            
+            If the optimizer(s) are constructed *after* calling this function,
+            then it is safe to omit this parameter. These optimizers will see the correct
+            model parameters.
     """
 
     zero_and_freeze_expand_position_embeddings(model=model,
                                                attribute=position_embedding_attribute,
                                                new_embedding_length=max_sequence_length)
-    log.info(f" Position embedding expanded to sequence " f"length {max_sequence_length}, zeroed, and frozen")
+    log.info(f" Position embedding expanded to sequence length {max_sequence_length}, zeroed, and frozen")
 
-    def convert_attention(module: torch.nn.Module, module_index: int = None):
+    def convert_attention(module: torch.nn.Module, module_index: Optional[int] = None):
+        del module_index  # unused
         module = register_alibi(module=module, n_heads=heads_per_layer, max_token_length=max_sequence_length)
         setattr(module, attr_to_replace, MethodType(alibi_attention, module))
         if mask_replacement_function:
             module = mask_replacement_function(module, max_sequence_length)
         return module
 
-    transforms = {attention_module: convert_attention}
-    replaced_pairs = surgery.replace_module_classes(model, transforms)  # type: ignore
+    replaced_pairs = surgery.replace_module_classes(model,
+                                                    optimizers=optimizers,
+                                                    policies={attention_module: convert_attention})
 
     count = len(replaced_pairs)
     log.info(f" {count} instances of ALiBi added")
@@ -146,18 +165,24 @@ class Alibi(Algorithm):
             (sequence_length*sequence_length_fraction, batch/sequence_length_fraction).
     """
 
-    def __init__(self, position_embedding_attribute: str, attention_module_name: str, attr_to_replace: str,
-                 alibi_attention: str, mask_replacement_function: str, heads_per_layer: int, max_sequence_length: int,
-                 train_sequence_length_scaling: float) -> None:
+    def __init__(self,
+                 position_embedding_attribute: str,
+                 attention_module_name: str,
+                 attr_to_replace: str,
+                 alibi_attention: str,
+                 mask_replacement_function: Optional[str] = None,
+                 heads_per_layer: Optional[int] = None,
+                 max_sequence_length: int = 8192,
+                 train_sequence_length_scaling: float = 0.25) -> None:
 
-        self.hparams = AlibiHparams(position_embedding_attribute=position_embedding_attribute,
-                                    attention_module_name=attention_module_name,
-                                    attr_to_replace=attr_to_replace,
-                                    alibi_attention=alibi_attention,
-                                    mask_replacement_function=mask_replacement_function,
-                                    heads_per_layer=heads_per_layer,
-                                    max_sequence_length=max_sequence_length,
-                                    train_sequence_length_scaling=train_sequence_length_scaling)
+        self.position_embedding_attribute = position_embedding_attribute
+        self.attention_module_name = attention_module_name
+        self.attr_to_replace = attr_to_replace
+        self.alibi_attention = alibi_attention
+        self.mask_replacement_function = mask_replacement_function
+        self.heads_per_layer = heads_per_layer
+        self.max_sequence_length = max_sequence_length
+        self.train_sequence_length_scaling = train_sequence_length_scaling
 
     def match(self, event: Event, state: State) -> bool:
         """ Runs on Event.INIT
@@ -171,10 +196,9 @@ class Alibi(Algorithm):
         if event == Event.INIT:
             assert state.model is not None
 
-            if "heads_per_layer" not in asdict(self.hparams).keys() or \
-            not self.hparams.heads_per_layer:
+            if self.heads_per_layer is None:
                 try:
-                    self.hparams.heads_per_layer = state.model.config.n_head  # type: ignore
+                    self.heads_per_layer = state.model.config.n_head  # type: ignore
                 except AttributeError:
                     log.exception("alibi.heads_per_layer not provided, and unable to "
                                   "determine number of heads from model.config.n_head."
@@ -182,22 +206,23 @@ class Alibi(Algorithm):
 
             apply_alibi(
                 state.model,
-                heads_per_layer=self.hparams.heads_per_layer,  # type: ignore
-                max_sequence_length=self.hparams.max_sequence_length,
-                position_embedding_attribute=self.hparams.position_embedding_attribute,
-                attr_to_replace=self.hparams.attr_to_replace,
+                optimizers=state.optimizers,
+                heads_per_layer=cast(int, self.heads_per_layer),
+                max_sequence_length=self.max_sequence_length,
+                position_embedding_attribute=self.position_embedding_attribute,
+                attr_to_replace=self.attr_to_replace,
                 # Access method from string
-                attention_module=lazy_import(self.hparams.attention_module_name),
+                attention_module=lazy_import(self.attention_module_name),
                 # Access method from string
-                alibi_attention=lazy_import(self.hparams.alibi_attention),
+                alibi_attention=lazy_import(self.alibi_attention),
                 # Access method from string
-                mask_replacement_function=lazy_import(self.hparams.mask_replacement_function))
+                mask_replacement_function=lazy_import(self.mask_replacement_function))
 
         elif event == Event.AFTER_DATALOADER:
             # Change sequence length by reshaping data
-            if not self.hparams.train_sequence_length_scaling == 1 and \
+            if not self.train_sequence_length_scaling == 1 and \
             hasattr(state, "batch") and isinstance(state.batch, dict):
-                sequence_scaling = self.hparams.train_sequence_length_scaling
+                sequence_scaling = self.train_sequence_length_scaling
                 for k, v in state.batch.items():
                     batch_len, sequence_len = v.shape[0], v.shape[1]
                     state.batch[k] = v.reshape(int(batch_len / sequence_scaling), int(sequence_len * sequence_scaling))
@@ -255,7 +280,7 @@ def get_alibi_head_slopes(n_heads: int):
             2 * closest_power_of_2)[0::2][:n_heads - closest_power_of_2]
 
 
-def lazy_import(name: Union[str, None]) -> Any[Callable, ModuleType, None]:
+def lazy_import(name: Optional[str]) -> Any[Callable, ModuleType, None]:
     if not name:
         return None
     components = name.split('.')
@@ -265,10 +290,12 @@ def lazy_import(name: Union[str, None]) -> Any[Callable, ModuleType, None]:
         log.exception(f"Module {components[0]} not found when attempting "
                       f"to import {name}. Please confirm the name and "
                       f"module path you're attempting to import.")
+        raise
     try:
-        mod = attrgetter('.'.join(components[1:]))(mod)  # type: ignore
+        mod = attrgetter('.'.join(components[1:]))(mod)
     except (ValueError, AttributeError):
         log.exception(f"Unable to import {name}. "
                       f"Please confirm the name and module "
                       f" path you're attempting to import.")
-    return mod  # type: ignore
+        raise
+    return mod

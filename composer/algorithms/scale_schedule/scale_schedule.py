@@ -12,9 +12,9 @@ from torch.optim.lr_scheduler import CosineAnnealingLR, CosineAnnealingWarmResta
 
 from composer.algorithms import AlgorithmHparams
 from composer.core import Algorithm, Event, Logger, State
+from composer.core.time import Time, TimeUnit
 from composer.core.types import Scheduler
 from composer.optim.scheduler import ConstantLR
-from composer.utils import ensure_tuple
 
 log = logging.getLogger(__name__)
 
@@ -119,7 +119,8 @@ class ScaleSchedule(Algorithm):
     """
 
     def __init__(self, ratio: float, method: str = 'epoch'):
-        self.hparams = ScaleScheduleHparams(ratio=ratio, method=method)
+        self.ratio = ratio
+        self.method = method
         self.activated = False
 
     def match(self, event: Event, state: State) -> bool:
@@ -143,24 +144,27 @@ class ScaleSchedule(Algorithm):
             NotImplementedError: If ``self.method == 'samples'``.
         """
         assert self.activated is False, "Scale Schedule should only be run once, check your control flow."
-        assert state.schedulers is not None
 
-        orig_max_epochs = state.max_epochs
-        new_max_epochs = int(state.max_epochs * self.hparams.ratio)
-        log.info(f'max_epochs changed from {state.max_epochs} to {new_max_epochs}')
-        state.max_epochs = new_max_epochs
+        orig_max_duration = state.max_duration
+        state.max_duration = orig_max_duration * self.ratio
+        log.info(f'max_duration changed from {orig_max_duration} to {state.max_duration}')
         if state.max_epochs == 0:
             raise ValueError('Scale schedule has reduced the max_epochs to 0. Set a higher ratio or more epochs.')
 
-        if hasattr(state.schedulers, 'schedulers'):
-            schedulers = state.schedulers.schedulers
-        else:
-            schedulers = ensure_tuple(state.schedulers)
+        schedulers = []
+        for scheduler in state.schedulers:
+            if hasattr(scheduler, 'schedulers'):
+                schedulers.extend(scheduler.schedulers)
+            else:
+                schedulers.append(scheduler)
 
-        if self.hparams.method == 'epoch':
+        if self.method == 'epoch':
             for scheduler in schedulers:
-                scale_scheduler(scheduler, self.hparams.ratio, orig_max_epochs)
-        elif self.hparams.method == 'samples':
+                orig_max_epochs = None
+                if orig_max_duration.unit == TimeUnit.EPOCH:
+                    orig_max_epochs = orig_max_duration.value
+                scale_scheduler(scheduler, self.ratio, orig_max_epochs)
+        elif self.method == 'samples':
             raise NotImplementedError('Scale schedule algorithm with samples method not supported yet.')
 
         self.activated = True

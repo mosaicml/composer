@@ -14,6 +14,7 @@ import torch
 if TYPE_CHECKING:
     from composer.core.logging.base_backend import BaseLoggerBackend
     from composer.core.state import State
+    from composer.core.types import JSON
 
 TLogDataValue = Union[str, float, int, torch.Tensor, Sequence["TLogDataValue"], Mapping[str, "TLogDataValue"]]
 TLogData = Mapping[str, TLogDataValue]
@@ -29,14 +30,10 @@ class LogLevel(IntEnum):
         FIT: Logged once per training run.
         EPOCH: Logged once per epoch.
         BATCH: Logged once per batch.
-        MICROBATCH: Logged once per microbatch (e.g. forward pass).
-        VERBOSE: Logged for debugging.
     """
     FIT = 1
     EPOCH = 2
     BATCH = 3
-    MICROBATCH = 4
-    VERBOSE = 5
 
 
 class Logger:
@@ -48,13 +45,13 @@ class Logger:
             The global :class:`~composer.core.state.State` object.
         backends (Sequence[BaseLoggerBackend]):
             A sequence of
-            :class:`~composer.core.logging.base_backend.BaseLoggerBackend`\s
+            :class:`~composer.core.logging.base_backend.BaseLoggerBackend`\\s
             to which logging calls will be sent.
 
     Attributes:
         backends (Sequence[BaseLoggerBackend]):
             A sequence of
-            :class:`~composer.core.logging.base_backend.BaseLoggerBackend`\s
+            :class:`~composer.core.logging.base_backend.BaseLoggerBackend`\\s
             to which logging calls will be sent.
     """
 
@@ -108,14 +105,6 @@ class Logger:
         """Helper function for ``self.metric(LogLevel.BATCH, data)``"""
         self.metric(LogLevel.BATCH, data)
 
-    def metric_microbatch(self, data: Union[TLogData, Callable[[], TLogData]]) -> None:
-        """Helper function for ``self.metric(LogLevel.MICROBATCH, data)``"""
-        self.metric(LogLevel.MICROBATCH, data)
-
-    def metric_verbose(self, data: Union[TLogData, Callable[[], TLogData]]) -> None:
-        """Helper function for ``self.metric(LogLevel.VERBOSE, data)``"""
-        self.metric(LogLevel.VERBOSE, data)
-
 
 def format_log_data_value(data: TLogDataValue) -> str:
     """Recursively formats a given log data value into a string.
@@ -149,3 +138,28 @@ def format_log_data_value(data: TLogDataValue) -> str:
     if isinstance(data, collections.abc.Iterable):
         return "[" + ", ".join(format_log_data_value(v) for v in data) + "]"
     raise NotImplementedError(f"Unable to format variable of type: {type(data)} with value {data}")
+
+
+def format_log_data_as_json(data: TLogDataValue) -> JSON:
+    """Recursively formats a given log data value into a JSON object.
+
+    Args:
+        data: Data to format.
+
+    Returns:
+        str: The data, as JSON.
+    """
+    if isinstance(data, (str, int, float)):
+        return data
+    if isinstance(data, torch.Tensor):
+        return format_log_data_as_json(data.cpu().item())
+    if isinstance(data, collections.abc.Mapping):
+        data_dict = {}
+        for k in data.keys():
+            assert isinstance(k, str), f"Expected data key {k} to be a string"
+            data_dict[k] = format_log_data_as_json(data[k])
+        return data_dict
+    if isinstance(data, collections.abc.Iterable):
+        return [format_log_data_as_json(val) for val in data]
+    raise NotImplementedError(f"Unable to format variable of type: {type(data)} "
+                              "with value {data} into JSON for logging")
