@@ -64,8 +64,8 @@ def replace_module_classes(
     recurse_on_replacements: bool = False,
     indices: Optional[Dict[Any, int]] = None,
 ) -> Dict[torch.nn.Module, torch.nn.Module]:
-    """Modify model in-place by recursively applying replacement policies. Replacement policies are a mapping
-    of source classes and :class:`ReplacementFunction`.
+    """Modify model in-place by recursively applying replacement policies. Replacement policies are a mapping of source
+    classes and :class:`ReplacementFunction`.
 
     Examples:
         The following policy::
@@ -106,8 +106,6 @@ def replace_module_classes(
         Dict[torch.nn.Module, torch.nn.Module]:
             A dictionary of ``{original_module: replacement_module}``
             reflecting the replacements applied to ``module`` and its children.
-
-
     """
     if isinstance(module, torch.nn.parallel.DistributedDataParallel):
         raise TypeError(
@@ -193,9 +191,9 @@ def count_module_instances(model: torch.nn.Module, module_class: Type[torch.nn.M
 
 
 def _tensor_in(tensor: torch.Tensor, iterable: Iterable[torch.Tensor]):
-    """Returns whether `tensor is element` for any element in `iterable`
-    This function is necessary because `tensor in iterable` does not work
-    reliably for `Tensor`s.
+    """Returns whether `tensor is element` for any element in `iterable` This function is necessary because `tensor in
+    iterable` does not work reliably for `Tensor`s.
+
     See https://discuss.pytorch.org/t/how-to-judge-a-tensor-is-in-a-list/15998/4
     for further discussion.
     """
@@ -232,9 +230,10 @@ def _find_param_in_optimizer(param: torch.nn.parameter.Parameter, optimizer: tor
 
 def update_params_in_optimizer(old_params: Iterable[torch.nn.parameter.Parameter],
                                new_params: Iterable[torch.nn.parameter.Parameter], optimizers: Optimizers) -> None:
-    """Removes old parameters from an optimizer and adds in new parameters
-    Parameters found in `old_params` but not `new_params` will be removed
-    from the optimizers. Similarly, parameters found in `new_params` but not
+    """Removes old parameters from an optimizer and adds in new parameters Parameters found in `old_params` but not
+    `new_params` will be removed from the optimizers.
+
+    Similarly, parameters found in `new_params` but not
     `old_params` will be added to the optimizer. Newly added parameters will
     be added to the same optimizer `param_group` as the removed parameters
     on a best-effort basis. If different removed parameters for a given
@@ -306,7 +305,7 @@ def update_params_in_optimizer(old_params: Iterable[torch.nn.parameter.Parameter
 def replace_params_in_optimizer(old_params: Iterable[torch.nn.parameter.Parameter],
                                 new_params: Iterable[torch.nn.parameter.Parameter], optimizers: Optimizers) -> None:
     """Fully replaces an optimizer's parameters.
-    
+
     This differs from `update_params_in_optimizer` in that this method is capable
     of replacing parameters spanning multiple param groups. To accomplish this,
     this function assumes that parameters in `new_params` should inherit the

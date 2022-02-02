@@ -33,7 +33,7 @@ def _max_rank_with_possible_speedup(in_channels: int,
 
 
 def factorizing_could_speedup(module: torch.nn.Module, latent_size: Union[int, float]):
-    """Whether factorizing a module a given amount could possibly yield a benefit
+    """Whether factorizing a module a given amount could possibly yield a benefit.
 
     This computation is based on the number of multiply-add operations involved
     in the module's current forward pass versus the number that would be involved
@@ -131,7 +131,7 @@ class _FactorizedModule(nn.Module, abc.ABC):
         cast(torch.nn.Module, self.module1).reset_parameters()  # type: ignore reportGeneralTypeIssues
 
     def set_rank(self, input: torch.Tensor, rank: int) -> None:
-        """Makes the module factorize using a ``rank``-dimensional latent representation
+        """Makes the module factorize using a ``rank``-dimensional latent representation.
 
         ``rank`` can be large enough that the factorization increases the
         number of multiply-add operations, but not larger than the current
@@ -172,9 +172,8 @@ class _FactorizedModule(nn.Module, abc.ABC):
 
     @abc.abstractmethod
     def _create_child_modules(self) -> Tuple[torch.nn.Module, torch.nn.Module]:
-        """This is used to populate the self.module0 and self.module1 attributes;
-        it's not part of __init__ because the logic to initialize them is
-        subclass-specific and might depend on the shared logic in __init__"""
+        """This is used to populate the self.module0 and self.module1 attributes; it's not part of __init__ because the
+        logic to initialize them is subclass-specific and might depend on the shared logic in __init__"""
         ...
 
     @abc.abstractmethod
@@ -309,7 +308,8 @@ class FactorizedConv2d(_FactorizedModule):
 
     @property
     def latent_channels(self) -> int:
-        """The number of of output channels for the first convolution, which is also the number of input channels for the second convolution"""
+        """The number of of output channels for the first convolution, which is also the number of input channels for
+        the second convolution."""
         return self.latent_size
 
     def solution_for_rank(self, input: torch.Tensor, rank: int) -> LowRankSolution:
@@ -332,7 +332,7 @@ class FactorizedConv2d(_FactorizedModule):
 
     @staticmethod
     def max_allowed_latent_features(in_features: int, out_features: int, kernel_size: _size_2_t) -> int:
-        """Returns the largest latent channel count that reduces the number of multiply-adds
+        """Returns the largest latent channel count that reduces the number of multiply-adds.
 
         Args:
             in_channels: number of channels in the input image
@@ -433,7 +433,8 @@ class FactorizedLinear(_FactorizedModule):
 
     @property
     def latent_features(self) -> int:
-        """The dimensionality of the space into which the input is projected by the first matrix in the factorization"""
+        """The dimensionality of the space into which the input is projected by the first matrix in the
+        factorization."""
         return self.latent_size
 
     def solution_for_rank(self, input: torch.Tensor, rank: int) -> LowRankSolution:
@@ -455,7 +456,7 @@ class FactorizedLinear(_FactorizedModule):
 
     @staticmethod
     def max_allowed_latent_channels(in_features: int, out_features: int) -> int:
-        """Returns the largest latent feature count that reduces the number of multiply-adds
+        """Returns the largest latent feature count that reduces the number of multiply-adds.
 
         Args:
             in_features: size of each input sample

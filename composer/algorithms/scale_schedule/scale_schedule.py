@@ -124,8 +124,8 @@ class ScaleSchedule(Algorithm):
         self.activated = False
 
     def match(self, event: Event, state: State) -> bool:
-        """Run on Event.INIT
-        
+        """Run on Event.INIT.
+
         Args:
             event (:class:`Event`): The current event.
             state (:class:`State`): The current state.

@@ -1,4 +1,5 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
+import textwrap
 from dataclasses import dataclass
 from typing import Optional
 
@@ -12,7 +13,9 @@ from composer.models.timm.model import Timm
 class TimmHparams(ModelHparams):
 
     model_name: str = hp.optional(
-        "timm model name e.g: 'resnet50', list of models can be found at https://github.com/rwightman/pytorch-image-models",
+        textwrap.dedent("""\
+        timm model name e.g: 'resnet50', list of models can be found at
+        https://github.com/rwightman/pytorch-image-models"""),
         default=None,
     )
     pretrained: bool = hp.optional("imagenet pretrained", default=False)

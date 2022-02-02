@@ -13,8 +13,7 @@ from composer.utils import ensure_tuple
 
 
 def apply_seq_length_warmup(batch: Dict[str, Tensor], curr_seq_len: int, truncate: bool) -> Batch:
-    """
-    Progressively increases the sequence length during training.
+    """Progressively increases the sequence length during training.
 
     Changes the sequence length of all tensors in the provided dictionary
     to ``curr_seq_len``, by either truncating the tensors (``truncate=True``)
@@ -129,9 +128,8 @@ class SeqLengthWarmup(Algorithm):
         self._activated = False
 
     def match(self, event: Event, state: State) -> bool:
-        """
-        Sequence Length Warmup matches on ``Event.AFTER_DATALOADER`` in order to 
-        pply the sequence length warmup before the forward pass. 
+        """Sequence Length Warmup matches on ``Event.AFTER_DATALOADER`` in order to pply the sequence length warmup
+        before the forward pass.
 
         Args:
             event (:class:`Event`): The current event.
@@ -144,13 +142,11 @@ class SeqLengthWarmup(Algorithm):
         return event == Event.AFTER_DATALOADER
 
     def apply(self, event: Event, state: State, logger: Logger) -> Optional[int]:
-        """
-        Applies on ``Event.AFTER_DATALOADER`` to apply the 
-        sequence length warmup to the input batch.
+        """Applies on ``Event.AFTER_DATALOADER`` to apply the sequence length warmup to the input batch.
 
         .. note::
 
-            On the first call of :meth:`apply`, a dummy training pass on the 
+            On the first call of :meth:`apply`, a dummy training pass on the
             full sequence length is used to preallocate the PyTorch cache.
 
         Args:
@@ -159,7 +155,6 @@ class SeqLengthWarmup(Algorithm):
             logger (:class:`Logger`): A logger to use for logging algorithm-specific metrics.
         Returns:
             int or None: exit code that is stored in :class:`Trace` and made accessible for debugging.
-
         """
 
         # in order to avoid OOMs, we do a forward and a backward pass on a dummy input.

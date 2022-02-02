@@ -21,7 +21,6 @@ class NormalizationFn:
         std (Tuple[float, float, float]): the standard deviation pixel value for each channel (RGB) for the dataset.
         ignore_background (bool): if true, ignore the background class in the training loss. Only used in semantic
             segmentation. Default is False.
-
     """
 
     def __init__(self,
@@ -64,7 +63,6 @@ def pil_image_collate(batch: List[Tuple[Image.Image, Union[Image.Image, Tensor]]
     Returns:
         image_tensor (torch.Tensor): torch tensor containing a batch of images.
         target_tensor (torch.Tensor): torch tensor containing a batch of targets.
-
     """
     imgs = [sample[0] for sample in batch]
     w, h = imgs[0].size
@@ -120,7 +118,7 @@ def add_dataset_transform(dataset, transform):
 
 
 def get_subset_dataset(size: int, dataset: Dataset):
-    """Returns a subset dataset
+    """Returns a subset dataset.
 
     Args:
         size (int): Maximum szie of the dataset

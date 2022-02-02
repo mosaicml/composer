@@ -62,7 +62,7 @@ class Trainer:
         train_dataloader (DataLoader, DataSpec, or dict): The :class:`DataLoader`, :class:`DataSpec`,
             or dict of :class:`DataSpec` kwargs for the training data.
         eval_dataloader (DataLoader, DataSpec, Evaluators): The :class:`DataLoader`, :class:`DataSpec`,
-            :class:`Evaluators` for the evaluation data. The :class:`Evaluator` 
+            :class:`Evaluators` for the evaluation data. The :class:`Evaluator`
             class contains metrics relevant to the specific dataset. Set to ``None`` for no evaluation.
         max_duration (Time or str): The maximum duration to train. See `~composer.core.Time` for details.
         algorithms (List[Algorithm], optional): The algorithms to use during training.
@@ -636,9 +636,8 @@ class Trainer:
     def _spin_dataloaders(self):
         """Spin the dataloaders to restore sampler state.
 
-        Only one batch must be loaded to seed the sampler's generator.
-        since only the first batch is being loaded, the dataloader may
-        not be completely iterated through.
+        Only one batch must be loaded to seed the sampler's generator. since only the first batch is being loaded, the
+        dataloader may not be completely iterated through.
         """
         # spin the evaluator dataloaders once to initialize its sampler deterministically
         # so it does not affect any other RNG reads
@@ -834,9 +833,7 @@ class Trainer:
             return self._train_batch_inner(microbatches)
 
     def _train_batch_inner(self, microbatches: Sequence[Batch]):
-        """Iterate over microbatches and compute the loss that will be used to step
-        the optimizer.
-        """
+        """Iterate over microbatches and compute the loss that will be used to step the optimizer."""
         self.engine.run_event(Event.BEFORE_TRAIN_BATCH)
 
         state = self.state
@@ -928,8 +925,7 @@ class Trainer:
         return total_loss
 
     def eval(self, is_batch: bool):
-        """Evaluate the model on the provided evaluation data and log
-        appropriate metrics. 
+        """Evaluate the model on the provided evaluation data and log appropriate metrics.
 
         Args:
             is_batch (bool): True to log metrics with ``LogLevel.BATCH``
@@ -1012,8 +1008,8 @@ class Trainer:
     def _use_closures(self) -> bool:
         """Determines based on precision and optimizers whether to use closures.
 
-        We default to using closures unless AMP is enabled, in which case we only allow
-        closures when using optimizers with the _step_supports_amp_closure flag.
+        We default to using closures unless AMP is enabled, in which case we only allow closures when using optimizers
+        with the _step_supports_amp_closure flag.
         """
         if self.deepspeed_enabled:
             return False

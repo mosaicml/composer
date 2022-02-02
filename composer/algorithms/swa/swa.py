@@ -58,7 +58,7 @@ class SWA(Algorithm):
         return event == Event.EPOCH_END and should_start_swa
 
     def apply(self, event: Event, state: State, logger: Logger) -> None:
-        """Apply SWA to weights towards the end of training
+        """Apply SWA to weights towards the end of training.
 
         Args:
             event (Event): the current event

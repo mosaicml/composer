@@ -11,7 +11,10 @@ from composer.models.model_hparams import Initializer
 
 
 class Model(nn.Module):
-    """Toy classifier for MNIST. Should not be used to evaluate any method."""
+    """Toy classifier for MNIST.
+
+    Should not be used to evaluate any method.
+    """
 
     def __init__(self, initializers: Sequence[Union[str, Initializer]], outputs: int):
         super().__init__()

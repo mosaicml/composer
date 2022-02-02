@@ -11,8 +11,9 @@ def _sample_bernoulli(probability: torch.Tensor,
                       generator: torch.Generator,
                       use_same_depth_across_gpus: bool,
                       use_same_gpu_seed: bool = False):
-    """Gets a sample from a Bernoulli distribution. Provides functionality to
-       have different seeds across GPUs and to have the same set of seeds across GPUs.
+    """Gets a sample from a Bernoulli distribution.
+
+    Provides functionality to have different seeds across GPUs and to have the same set of seeds across GPUs.
     """
 
     if use_same_gpu_seed:
@@ -35,24 +36,25 @@ def _sample_bernoulli(probability: torch.Tensor,
 
 
 class StochasticBottleneck(Bottleneck):
-    """Stochastic ResNet Bottleneck block. This block has a probability of skipping
-       the transformation section of the layer and scales the transformation section
-       output by ``(1 - drop probability)`` during inference.
+    """Stochastic ResNet Bottleneck block. This block has a probability of skipping the transformation section of the
+    layer and scales the transformation section.
 
-       Args:
-            drop_rate: Probability of dropping the block. Must be between 0.0 and 1.0.
-            module_id: The placement of the block within a network e.g. 0
-                for the first layer in the network.
-            module_count: The total number of blocks of this type in the network
-            use_same_gpu_seed: Set to ``True`` to have the same layers dropped
-                across GPUs when using multi-GPU training. Set to ``False`` to
-                have each GPU drop a different set of layers. Only used
-                with ``"block"`` stochastic method.
-            use_same_depth_across_gpus: Set to ``True`` to have the same number
-                of blocks dropped across GPUs. Should be set to ``True`` when
-                ``drop_distribution`` is ``"uniform"`` and set to ``False``
-                for ``"linear"``.
-       """
+    output by ``(1 - drop probability)`` during inference.
+
+    Args:
+         drop_rate: Probability of dropping the block. Must be between 0.0 and 1.0.
+         module_id: The placement of the block within a network e.g. 0
+             for the first layer in the network.
+         module_count: The total number of blocks of this type in the network
+         use_same_gpu_seed: Set to ``True`` to have the same layers dropped
+             across GPUs when using multi-GPU training. Set to ``False`` to
+             have each GPU drop a different set of layers. Only used
+             with ``"block"`` stochastic method.
+         use_same_depth_across_gpus: Set to ``True`` to have the same number
+             of blocks dropped across GPUs. Should be set to ``True`` when
+             ``drop_distribution`` is ``"uniform"`` and set to ``False``
+             for ``"linear"``.
+    """
 
     def __init__(self, drop_rate: float, module_id: int, module_count: int, use_same_gpu_seed: bool,
                  use_same_depth_across_gpus: bool, rand_generator: torch.Generator, **kwargs):
@@ -110,8 +112,7 @@ class StochasticBottleneck(Bottleneck):
                           drop_distribution: str,
                           rand_generator: torch.Generator,
                           use_same_gpu_seed: bool = False):
-        """Helper function to convert a ResNet bottleneck block into a stochastic block.
-        """
+        """Helper function to convert a ResNet bottleneck block into a stochastic block."""
         if drop_distribution == 'linear':
             drop_rate = ((module_index + 1) / module_count) * drop_rate
         use_same_depth_across_gpus = (drop_distribution == 'uniform')
