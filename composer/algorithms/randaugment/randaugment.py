@@ -94,7 +94,9 @@ class RandAugment(Algorithm):
             raise ValueError("RandAugment severity value must be 0 ≤ severity ≤ 10")
         if augmentation_set not in augmentation_sets.keys():
             raise KeyError(f"randaugment_augmentation_set is not one of {augmentation_sets.keys()}")
-        self.hparams = RandAugmentHparams(severity=severity, depth=depth, augmentation_set=augmentation_set)
+        self.severity = severity
+        self.depth = depth
+        self.augmentation_set = augmentation_set
 
     def match(self, event: Event, state: State) -> bool:
         """Runs on Event.TRAINING_START
@@ -115,7 +117,7 @@ class RandAugment(Algorithm):
             state (State): the current trainer state
             logger (Logger): the training logger
         """
-        ra = RandAugmentTransform(**self.hparams.to_dict())
+        ra = RandAugmentTransform(severity=self.severity, depth=self.depth, augmentation_set=self.augmentation_set)
         assert state.train_dataloader is not None
         dataset = state.train_dataloader.dataset
         add_dataset_transform(dataset, ra)

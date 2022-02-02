@@ -15,11 +15,11 @@ from _pytest.monkeypatch import MonkeyPatch
 import composer.core.types as types
 from composer import Callback, Event
 from composer.callbacks import CallbackHparams
+from composer.core.data_spec import DataSpec
 from composer.core.logging import Logger
 from composer.core.state import State
 from composer.datasets import DataloaderHparams, SyntheticBatchPairDataset, SyntheticHparamsMixin
 from composer.datasets.hparams import DatasetHparams
-from composer.trainer.deepspeed import DeepSpeedHparams
 from composer.trainer.devices import CPUDeviceHparams, DeviceHparams, GPUDeviceHparams
 from composer.trainer.trainer_hparams import TrainerHparams, callback_registry, dataset_registry
 from composer.utils import dist, run_directory
@@ -183,17 +183,25 @@ def test_ddp(device: DeviceHparams, world_size: int, mosaic_trainer_hparams: Tra
     hparams.validate_every_n_epochs = 1
     hparams.callbacks.append(CheckBatch0Hparams())
     if deepspeed:
-        hparams.deepspeed = DeepSpeedHparams()
+        hparams.deepspeed = {}
     trainer = hparams.initialize_object()
     assert isinstance(trainer.state.train_dataloader.dataset, collections.abc.Sized)
-    assert isinstance(trainer.state.eval_dataloader.dataset, collections.abc.Sized)
+
+    for evaluator in trainer.evaluators:
+        assert isinstance(evaluator.dataloader, DataSpec)
+        assert isinstance(evaluator.dataloader.dataloader, collections.abc.Sized)
     trainer.fit()
 
     expected_train_num_loads = max_epochs * hparams.train_batch_size * hparams.train_subset_num_batches
-    expected_val_num_loads = max_epochs * hparams.eval_batch_size * hparams.eval_subset_num_batches
-    # adding hparams.eval_batch_size to account for the extra spin of the eval dataloader
+    #expected_val_num_loads = max_epochs * hparams.eval_batch_size * hparams.eval_subset_num_batches
+    expected_val_num_loads = 0
+    for evaluator in trainer.evaluators:
+        expected_val_num_loads += max_epochs * hparams.eval_batch_size * hparams.eval_subset_num_batches
+
+    # adding hparams.eval_batch_size to account for the extra spin of the evaluator dataloaders
     # that is called to create a deterministic ordering for the sampler
-    expected_val_num_loads += hparams.eval_batch_size
+    for evaluator in trainer.evaluators:
+        expected_val_num_loads += hparams.eval_batch_size
 
     actual_train_num_loads = 0
     actual_val_num_loads = 0

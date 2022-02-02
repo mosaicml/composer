@@ -49,7 +49,8 @@ def convert(
     Returns:
         Time: The time, in the specified ``unit``.
     """
-    warnings.warn(textwrap.dedent("""TimeDeprecationWarning: Time conversion is deprecated.
+    warnings.warn(textwrap.dedent("""\
+        TimeDeprecationWarning: Time conversion is deprecated.
         Instead, please use closed-loop calculations that depend on the current training progress
         (available via state.timer) and the total training duration (available via state.max_duration)"""),
                   category=DeprecationWarning)
