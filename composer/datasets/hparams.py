@@ -3,10 +3,11 @@
 from __future__ import annotations
 
 import abc
-from dataclasses import dataclass
 import textwrap
-from torchvision import transforms
+from dataclasses import dataclass
 from typing import Optional, Union
+
+from torchvision import transforms
 
 try:
     import custom_inherit

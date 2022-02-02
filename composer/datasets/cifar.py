@@ -9,7 +9,7 @@ from webdataset import WebDataset
 
 from composer.core.types import DataLoader
 from composer.datasets.dataloader import DataloaderHparams
-from composer.datasets.hparams import DatasetHparams, SyntheticHparamsMixin, JpgClsWebDatasetHparams
+from composer.datasets.hparams import DatasetHparams, JpgClsWebDatasetHparams, SyntheticHparamsMixin
 from composer.datasets.synthetic import SyntheticBatchPairDataset
 from composer.datasets.webdataset import load_webdataset
 from composer.utils import dist

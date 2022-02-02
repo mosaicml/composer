@@ -13,12 +13,10 @@ from webdataset import WebDataset
 
 from composer.core.types import DataLoader, DataSpec
 from composer.datasets.dataloader import DataloaderHparams
-from composer.datasets.hparams import (DatasetHparams, SyntheticHparamsMixin, WebDatasetHparams,
-                                       JpgClsWebDatasetHparams)
+from composer.datasets.hparams import DatasetHparams, JpgClsWebDatasetHparams, SyntheticHparamsMixin, WebDatasetHparams
 from composer.datasets.synthetic import SyntheticBatchPairDataset
 from composer.utils import dist
 from composer.utils.data import NormalizationFn, pil_image_collate
-
 
 # ImageNet normalization values from torchvision: https://pytorch.org/vision/stable/models.html
 IMAGENET_CHANNEL_MEAN = (0.485 * 255, 0.456 * 255, 0.406 * 255)
