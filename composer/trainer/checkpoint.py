@@ -348,8 +348,9 @@ class CheckpointSaver:
         self.checkpoint_folder = os.path.join(run_directory.get_run_directory(), save_folder)
         os.makedirs(self.checkpoint_folder, mode=0o775, exist_ok=True)
         self.save_interval = interval
-        self.write_mode = "w"
-        self.file_extension = ".tar"
+        if compression == "":
+            self.write_mode = "w"
+            self.file_extension = ".tar"
         if compression == "gzip":
             self.write_mode = "w:gz"
             self.file_extension = ".tar.gz"
@@ -359,6 +360,8 @@ class CheckpointSaver:
         elif compression == "lzma":
             self.write_mode = "w:xz"
             self.file_extension = ".tar.lzma"
+        else:
+            raise ValueError(f"Unknown encryption mode: {compression}")
 
     def should_checkpoint(self, state: State, event: Event) -> bool:
         """Given the current state and event, determine whether a checkpoint needs to be created.
