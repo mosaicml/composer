@@ -275,7 +275,8 @@ class Trainer:
         unwrapped_data_loader = unwrap_data_loader(self._train_data_spec.dataloader)
         if isinstance(unwrapped_data_loader, torch.utils.data.DataLoader):
             if unwrapped_data_loader._iterator is not None:
-                raise ValueError(textwrap.dedent("""\
+                raise ValueError(
+                    textwrap.dedent("""\
                     The `train_dataloader` has an active iterator. This could occur
                     if `persistent_workers=True` and the dataloader has already been iterated,
                     or if the dataloader is mid-epoch. It is required that the training dataloader
