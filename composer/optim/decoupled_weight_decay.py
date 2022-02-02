@@ -16,10 +16,12 @@ log = logging.getLogger(__name__)
 class DecoupledSGDW(SGD):
     """SGD optimizer with the weight decay term decoupled from the learning rate.
 
-    The standard `SGD <https://pytorch.org/docs/stable/generated/torch.optim.SGD.html?highlight=sgd#torch.optim.SGD>`_
+    The standard `SGD
+    <https://pytorch.org/docs/stable/generated/torch.optim.SGD.html?highlight=sgd#torch.optim.SGD>`_
     optimizer couples the weight decay term with the gradient calculation. This ties the optimal value
-    of :attr:`weight_decay` to :attr:`lr` and can also hurt generalization in practice. For more details on why decoupling might be
-    desirable, see `"Decoupled Weight Decay Regularization" <https://arxiv.org/abs/1711.05101>`_.
+    of :attr:`weight_decay` to :attr:`lr` and can also hurt generalization in practice. For more details
+    on why decoupling might be desirable, see `"Decoupled Weight Decay Regularization"
+    <https://arxiv.org/abs/1711.05101>`_.
 
     Args:
         params (list): List of parameters to optimize or dicts defining parameter groups.
@@ -85,6 +87,7 @@ class DecoupledSGDW(SGD):
     @torch.no_grad()
     def step(self, closure=None):
         """Performs a single optimization step.
+
         Args:
             closure (callable, optional): A closure that reevaluates the model
                 and returns the loss.
@@ -140,7 +143,8 @@ class DecoupledAdamW(AdamW):
     The standard `AdamW <https://pytorch.org/docs/stable/generated/torch.optim.AdamW.html#torch.optim.AdamW>`_
     optimizer explicitly couples the weight decay term with the learning rate. This ties the
     optimal value of :attr:`weight_decay` to :attr:`lr` and can also hurt generalization in practice. For more details on
-    why decoupling might be desirable, see `"Decoupled Weight Decay Regularization" <https://arxiv.org/abs/1711.05101>`_.
+    why decoupling might be desirable, see `"Decoupled Weight Decay Regularization"
+    <https://arxiv.org/abs/1711.05101>`_.
 
     Args:
         params (list): List of parameters to update.

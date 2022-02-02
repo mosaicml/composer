@@ -64,8 +64,8 @@ def replace_module_classes(
     recurse_on_replacements: bool = False,
     indices: Optional[Dict[Any, int]] = None,
 ) -> Dict[torch.nn.Module, torch.nn.Module]:
-    """Modify model in-place by recursively applying replacement policies. Replacement policies are a mapping
-    of source classes and :class:`ReplacementFunction`.
+    """Modify model in-place by recursively applying replacement policies. Replacement policies are a mapping of source
+    classes and :class:`ReplacementFunction`.
 
     Examples:
         The following policy::
@@ -106,14 +106,13 @@ def replace_module_classes(
         Dict[torch.nn.Module, torch.nn.Module]:
             A dictionary of ``{original_module: replacement_module}``
             reflecting the replacements applied to ``module`` and its children.
-
-
     """
     if isinstance(module, torch.nn.parallel.DistributedDataParallel):
         raise TypeError(
-            textwrap.dedent("""Surgery is not supported after a module is wrapped with
-            `torch.nn.parallel.DistributedDataParallel` Instead, please preform surgery on the underlying
-            `module.module` and re-wrap the `module.module` with `torch.nn.parallel.DistributedDataParallel`"""))
+            textwrap.dedent("""\
+                Surgery is not supported after a module is wrapped with
+                `torch.nn.parallel.DistributedDataParallel` Instead, please preform surgery on the underlying
+                `module.module` and re-wrap the `module.module` with `torch.nn.parallel.DistributedDataParallel`"""))
     try:
         import deepspeed
     except ImportError:
@@ -121,9 +120,10 @@ def replace_module_classes(
     else:
         if isinstance(module, deepspeed.DeepSpeedEngine):
             raise TypeError(
-                textwrap.dedent("""Surgery is not supported after a module is wrapped with
-                `deepspeed.DeepSpeedEngine` Instead, please perform surgery on the underlying module`,
-                and re-wrap it with `deepspeed.DeepSpeedEngine`"""))
+                textwrap.dedent("""\
+                    Surgery is not supported after a module is wrapped with
+                    `deepspeed.DeepSpeedEngine` Instead, please perform surgery on the underlying module`,
+                    and re-wrap it with `deepspeed.DeepSpeedEngine`"""))
     replaced_pairs = {}
     children_to_parents_and_names: OrderedDict[torch.nn.Module, List[Tuple[torch.nn.Module,
                                                                            str]]] = collections.OrderedDict()
@@ -191,9 +191,9 @@ def count_module_instances(model: torch.nn.Module, module_class: Type[torch.nn.M
 
 
 def _tensor_in(tensor: torch.Tensor, iterable: Iterable[torch.Tensor]):
-    """Returns whether `tensor is element` for any element in `iterable`
-    This function is necessary because `tensor in iterable` does not work
-    reliably for `Tensor`s.
+    """Returns whether `tensor is element` for any element in `iterable` This function is necessary because `tensor in
+    iterable` does not work reliably for `Tensor`s.
+
     See https://discuss.pytorch.org/t/how-to-judge-a-tensor-is-in-a-list/15998/4
     for further discussion.
     """
@@ -230,9 +230,10 @@ def _find_param_in_optimizer(param: torch.nn.parameter.Parameter, optimizer: tor
 
 def update_params_in_optimizer(old_params: Iterable[torch.nn.parameter.Parameter],
                                new_params: Iterable[torch.nn.parameter.Parameter], optimizers: Optimizers) -> None:
-    """Removes old parameters from an optimizer and adds in new parameters
-    Parameters found in `old_params` but not `new_params` will be removed
-    from the optimizers. Similarly, parameters found in `new_params` but not
+    """Removes old parameters from an optimizer and adds in new parameters Parameters found in `old_params` but not
+    `new_params` will be removed from the optimizers.
+
+    Similarly, parameters found in `new_params` but not
     `old_params` will be added to the optimizer. Newly added parameters will
     be added to the same optimizer `param_group` as the removed parameters
     on a best-effort basis. If different removed parameters for a given
@@ -256,9 +257,7 @@ def update_params_in_optimizer(old_params: Iterable[torch.nn.parameter.Parameter
             same parameter group, or if any of them are not found at all
     """
     if len(ensure_tuple(optimizers)) > 1:
-        raise NotImplementedError(
-            textwrap.dedent("""Surgery with multiple optimizers
-            is not yet supported."""))
+        raise NotImplementedError("Surgery with multiple optimizers is not yet supported.")
     opt = ensure_tuple(optimizers)[0]
 
     # diff the two sets of parameters to find what needs to be removed or added
@@ -291,8 +290,9 @@ def update_params_in_optimizer(old_params: Iterable[torch.nn.parameter.Parameter
 
         if min(old_group_idxs) != max(old_group_idxs) and len(added_params):
             raise RuntimeError(
-                textwrap.dedent("""Not all removed parameters are in the same parameter group.
-                            This makes it unclear where to add the new parameters."""))
+                textwrap.dedent("""\
+                    Not all removed parameters are in the same parameter group.
+                    This makes it unclear where to add the new parameters."""))
         group_idx = old_group_idxs[0]
 
     param_group = opt.param_groups[group_idx]
@@ -305,7 +305,7 @@ def update_params_in_optimizer(old_params: Iterable[torch.nn.parameter.Parameter
 def replace_params_in_optimizer(old_params: Iterable[torch.nn.parameter.Parameter],
                                 new_params: Iterable[torch.nn.parameter.Parameter], optimizers: Optimizers) -> None:
     """Fully replaces an optimizer's parameters.
-    
+
     This differs from `update_params_in_optimizer` in that this method is capable
     of replacing parameters spanning multiple param groups. To accomplish this,
     this function assumes that parameters in `new_params` should inherit the
@@ -322,9 +322,7 @@ def replace_params_in_optimizer(old_params: Iterable[torch.nn.parameter.Paramete
             if a param from `old_params` cannot be found.
     """
     if len(ensure_tuple(optimizers)) > 1:
-        raise NotImplementedError(
-            textwrap.dedent("""Surgery with multiple optimizers
-            is not yet supported."""))
+        raise NotImplementedError("Surgery with multiple optimizers is not yet supported.")
 
     opt = ensure_tuple(optimizers)[0]
     opt.state.clear()

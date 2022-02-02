@@ -15,7 +15,7 @@ from composer.algorithms.factorize.factorize_modules import (FactorizedConv2d, F
                                                              factorizing_could_speedup)
 from composer.core import Algorithm, Event, Logger, State, surgery
 from composer.core.types import Optimizers
-from composer.models.base import BaseMosaicModel
+from composer.models.base import ComposerModel
 
 log = logging.getLogger(__name__)
 
@@ -33,7 +33,11 @@ def factorize_conv2d_modules(model: torch.nn.Module,
                              min_channels: int,
                              latent_channels: Union[int, float],
                              optimizers: Optional[Optimizers] = None):
-    """Replaces :class:`torch.nn.Conv2d` modules in ``model`` with :class:`~composer.algorithms.factorize.FactorizedConv2d` modules. See :class:`Factorize` for details."""
+    """Replaces :class:`torch.nn.Conv2d` modules in ``model`` with
+    :class:`~composer.algorithms.factorize.FactorizedConv2d` modules.
+
+    See :class:`Factorize` for details.
+    """
 
     def _maybe_replace_conv2d(module: torch.nn.Module, module_index: int) -> Optional[torch.nn.Module]:
         module = cast(torch.nn.Conv2d, module)
@@ -53,7 +57,11 @@ def factorize_linear_modules(model: torch.nn.Module,
                              min_features: int,
                              latent_features: Union[int, float],
                              optimizers: Optional[Optimizers] = None):
-    """Replaces :class:`torch.nn.Linear` modules in ``model`` with :class:`~composer.algorithms.factorize.FactorizedLinear` modules. See :class:`Factorize` for details."""
+    """Replaces :class:`torch.nn.Linear` modules in ``model`` with
+    :class:`~composer.algorithms.factorize.FactorizedLinear` modules.
+
+    See :class:`Factorize` for details.
+    """
 
     def _maybe_replace_linear(module: torch.nn.Module, module_index: int) -> Optional[torch.nn.Module]:
         module = cast(torch.nn.Linear, module)
@@ -157,16 +165,16 @@ class Factorize(Algorithm):
                  latent_channels: Union[int, float] = 128,
                  min_features: int = 256,
                  latent_features: Union[int, float] = 128):
-        self.hparams = FactorizeHparams(factorize_convs=factorize_convs,
-                                        factorize_linears=factorize_linears,
-                                        min_channels=min_channels,
-                                        latent_channels=latent_channels,
-                                        min_features=min_features,
-                                        latent_features=latent_features)
+        self.factorize_convs = factorize_convs
+        self.factorize_linears = factorize_linears
+        self.min_channels = min_channels
+        self.latent_channels = latent_channels
+        self.min_features = min_features
+        self.latent_features = latent_features
         self._applied = False
 
     def match(self, event: Event, state: State) -> bool:
-        """Run on Event.INIT
+        """Run on Event.INIT.
 
         Args:
             event: The current event.
@@ -178,36 +186,36 @@ class Factorize(Algorithm):
         return event == Event.INIT and not self._applied
 
     def apply(self, event: Event, state: State, logger: Logger) -> Optional[int]:
-        """Factorize convolutional and linear layers
+        """Factorize convolutional and linear layers.
 
         Args:
             event: the current event
             state: the current trainer state
             logger: the training logger
         """
-        if not isinstance(state.model, BaseMosaicModel):
+        if not isinstance(state.model, ComposerModel):
             # We do NOT want to apply this algorithm after deepspeed or DDP wrapping
             # the module.
-            # Hence, we raise an error if the model is already wrapped (i.e. it is no longer a BaseMosaicModel)
+            # Hence, we raise an error if the model is already wrapped (i.e. it is no longer a ComposerModel)
             # when the algorithm is not yet applied
             raise RuntimeError(
                 textwrap.dedent(f"""\
                 Unable to apply {type(self).__name__} on model of type {type(state.model)};
-                expected state.model to be {BaseMosaicModel.__name__}"""))
+                expected state.model to be {ComposerModel.__name__}"""))
         self._applied = True
-        if self.hparams.factorize_convs:
+        if self.factorize_convs:
             factorize_conv2d_modules(state.model,
-                                     min_channels=self.hparams.min_channels,
-                                     latent_channels=self.hparams.latent_channels,
+                                     min_channels=self.min_channels,
+                                     latent_channels=self.latent_channels,
                                      optimizers=state.optimizers)
             num_factorized = surgery.count_module_instances(state.model, FactorizedConv2d)
             logger.metric_fit({
                 LOG_NUM_CONV2D_REPLACEMENTS_KEY: num_factorized,
             })
-        if self.hparams.factorize_linears:
+        if self.factorize_linears:
             factorize_linear_modules(state.model,
-                                     min_features=self.hparams.min_features,
-                                     latent_features=self.hparams.latent_features,
+                                     min_features=self.min_features,
+                                     latent_features=self.latent_features,
                                      optimizers=state.optimizers)
             num_factorized = surgery.count_module_instances(state.model, FactorizedLinear)
             logger.metric_fit({

@@ -3,7 +3,7 @@ composer.Algorithm
 
 .. currentmodule:: composer
 
-Algorithms are implemented in both a standalone functional form (see :doc:`../functional`) and as subclasses of :class:`Algorithm` for integration in the MosaicML :class:`Trainer`. This section describes the latter form.
+Algorithms are implemented in both a standalone functional form (see :doc:`../functional`) and as subclasses of :class:`Algorithm` for integration in the Composer :class:`Trainer`. This section describes the latter form.
 
 For ease of composability, algorithms in our Trainer are based on the two-way callbacks concept from `Howard et al., 2020 <https://arxiv.org/abs/2002.04688>`_. Each algorithm implements two methods:
 

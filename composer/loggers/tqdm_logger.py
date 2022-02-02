@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import collections.abc
 import sys
 from dataclasses import asdict, dataclass
 from typing import TYPE_CHECKING, Any, Dict, List, Optional
@@ -109,9 +110,15 @@ class TQDMLoggerBackend(BaseLoggerBackend):
         if dist.get_global_rank() != 0:
             return
         assert self.is_train is not None, "self.is_train should be set by the callback"
-        # TODO(anis) -- in #120, len(state.eval_dataloader) is inaccurate, as it does not incorporate
-        # trainer._eval_subset_num_batches. The evaluator spec should fix this.
-        total_steps = state.steps_per_epoch if self.is_train else len(state.eval_dataloader)
+        if self.is_train:
+            total_steps = state.steps_per_epoch
+        else:
+            total_steps = 0
+            for evaluator in state.evaluators:
+                dataloader_spec = evaluator.dataloader
+                assert isinstance(dataloader_spec.dataloader, collections.abc.Sized)
+                total_steps += len(dataloader_spec.dataloader)
+
         desc = f'Epoch {int(state.timer.epoch)}'
         position = 0 if self.is_train else 1
         if not self.is_train:

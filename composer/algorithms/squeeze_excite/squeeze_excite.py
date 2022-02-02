@@ -13,7 +13,7 @@ import yahp as hp
 from composer.algorithms.algorithm_hparams import AlgorithmHparams
 from composer.core import Algorithm, Event, Logger, State, surgery
 from composer.core.types import Optimizers
-from composer.models.base import BaseMosaicModel
+from composer.models.base import ComposerModel
 
 log = logging.getLogger(__name__)
 
@@ -104,7 +104,8 @@ def apply_se(
 
 
 class SqueezeExcite(Algorithm):
-    """Adds Squeeze-and-Excitation blocks (`Hu et al. 2019 <https://arxiv.org/abs/1709.01507>`_) after the :class:`~torch.nn.Conv2d` modules in a neural network.
+    """Adds Squeeze-and-Excitation blocks (`Hu et al. 2019 <https://arxiv.org/abs/1709.01507>`_) after the
+    :class:`~torch.nn.Conv2d` modules in a neural network.
 
     See :class:`SqueezeExcite2d` for more information.
 
@@ -126,20 +127,18 @@ class SqueezeExcite(Algorithm):
         latent_channels: float = 64,
         min_channels: int = 128,
     ):
-        self.hparams = SqueezeExciteHparams(
-            latent_channels=latent_channels,
-            min_channels=min_channels,
-        )
+        self.latent_channels = latent_channels
+        self.min_channels = min_channels
         self._applied = False
 
     def match(self, event: Event, state: State) -> bool:
-        """Run on Event.INIT
+        """Run on Event.INIT.
 
         Args:
             event (:class:`Event`): The current event.
             state (:class:`State`): The current state.
         Returns:
-            bool: True if this algorithm should run no         
+            bool: True if this algorithm should run no
         """
         return event == Event.INIT and not self._applied
 
@@ -149,27 +148,27 @@ class SqueezeExcite(Algorithm):
         Args:
             event (Event): the current event
             state (State): the current trainer state
-            logger (Logger): the training logger        
+            logger (Logger): the training logger
         """
-        if not isinstance(state.model, BaseMosaicModel):
+        if not isinstance(state.model, ComposerModel):
             # We do NOT want to apply this algorithm after deepspeed or DDP wrapping
             # the module.
-            # Hence, we raise an error if the model is already wrapped (i.e. it is no longer a BaseMosaicModel)
+            # Hence, we raise an error if the model is already wrapped (i.e. it is no longer a ComposerModel)
             # when the algorithm is not yet applied
             raise RuntimeError(
                 textwrap.dedent(f"""\
                 Unable to apply {type(self).__name__} on model of type {type(state.model)};
-                expected state.model to be {BaseMosaicModel.__name__}"""))
+                expected state.model to be {ComposerModel.__name__}"""))
         self._applied = True
         state.model = apply_se(state.model,
                                optimizers=state.optimizers,
-                               latent_channels=self.hparams.latent_channels,
-                               min_channels=self.hparams.min_channels)
+                               latent_channels=self.latent_channels,
+                               min_channels=self.min_channels)
         layer_count = surgery.count_module_instances(state.model, SqueezeExciteConv2d)
 
         log.info(f'Applied SqueezeExcite to model {state.model.__class__.__name__} '
-                 f'with latent_channels={self.hparams.latent_channels}, '
-                 f'min_channels={self.hparams.min_channels}. '
+                 f'with latent_channels={self.latent_channels}, '
+                 f'min_channels={self.min_channels}. '
                  f'Model now has {layer_count} SqueezeExcite layers.')
 
         logger.metric_fit({

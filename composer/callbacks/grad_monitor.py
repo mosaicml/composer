@@ -6,7 +6,7 @@ from composer.core.callback import Callback
 
 class GradMonitor(Callback):
     """Logs the L2 norm.
-    
+
     This callback logs the L2 norm of all the parameters in the model,
     and optionally, the L2 norm of the parameters by each layer.
 
@@ -25,12 +25,10 @@ class GradMonitor(Callback):
         self.log_layer_grad_norms = log_layer_grad_norms
 
     def after_train_batch(self, state: State, logger: Logger):
-        """Compute the gradient L2 norm after the reduction of the
-        backwards pass across GPUs. This function iterates over the
-        parameters of the model and hence may cause a reduction in
-        throughput while training large models. In order to ensure
-        correctness, this function should be called after gradient
-        unscaling in cases where gradients are scaled.
+        """Compute the gradient L2 norm after the reduction of the backwards pass across GPUs. This function iterates
+        over the parameters of the model and hence may cause a reduction in throughput while training large models. In
+        order to ensure correctness, this function should be called after gradient unscaling in cases where gradients
+        are scaled.
 
         Args:
             state (State): The :class:`~composer.core.State` object

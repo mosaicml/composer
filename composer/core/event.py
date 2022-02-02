@@ -13,10 +13,8 @@ class Event(StringEnum):
 
 
     Attributes:
-        INIT: Immediately after ``model`` initialization,
-            and before creation of ``optimizers`` and ``schedulers``.
-            Model surgery typically occurs here. This event is run again
-            when resuming from checkpoints.
+        INIT: Invoked during :meth:`Trainer.__init__`. Useful for model
+            and dataloader transformations.
         EPOCH_START: Start of an epoch.
         BATCH_START: Start of a batch.
         AFTER_DATALOADER: Immediately after the dataloader is called.
@@ -77,12 +75,12 @@ class Event(StringEnum):
 
     @property
     def is_before_event(self) -> bool:
-        """Whether the event has a corresponding `after` event"""
+        """Whether the event has a corresponding `after` event."""
         return self in _BEFORE_EVENTS
 
     @property
     def is_after_event(self) -> bool:
-        """Whether the event has a corresponding `before` event"""
+        """Whether the event has a corresponding `before` event."""
         return self in _AFTER_EVENTS
 
     @property

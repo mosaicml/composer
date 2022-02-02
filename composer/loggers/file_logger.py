@@ -61,8 +61,18 @@ class FileLoggerBackend(BaseLoggerBackend):
         self.log_level = log_level
         self.log_interval = log_interval
         self.flush_interval = flush_interval
+        self.is_batch_interval = False
+        self.is_epoch_interval = False
         self.file: Optional[TextIO] = None
         self.config = config
+
+    def batch_start(self, state: State, logger: Logger) -> None:
+        self.is_batch_interval = (int(state.timer.batch) + 1) % self.log_interval == 0
+
+    def epoch_start(self, state: State, logger: Logger) -> None:
+        self.is_epoch_interval = (int(state.timer.epoch) + 1) % self.log_interval == 0
+        # Flush any log calls that occurred during INIT
+        self._flush_file()
 
     def will_log(self, state: State, log_level: LogLevel) -> bool:
         if log_level == LogLevel.FIT:
@@ -72,13 +82,13 @@ class FileLoggerBackend(BaseLoggerBackend):
                 return False
             if self.log_level > LogLevel.EPOCH:
                 return True
-            return (int(state.timer.epoch) + 1) % self.log_interval == 0
+            return self.is_epoch_interval
         if log_level == LogLevel.BATCH:
             if self.log_level < LogLevel.BATCH:
                 return False
             if self.log_level > LogLevel.BATCH:
                 return True
-            return (int(state.timer.batch) + 1) % self.log_interval == 0
+            return self.is_batch_interval
         raise ValueError(f"Unknown log level: {log_level}")
 
     def log_metric(self, epoch: int, step: int, log_level: LogLevel, data: TLogData):
@@ -106,21 +116,20 @@ class FileLoggerBackend(BaseLoggerBackend):
             print("-" * 30, file=self.file)
             print(file=self.file)
 
-    def epoch_start(self, state: State, logger: Logger) -> None:
-        if state.timer.epoch == 0:
-            # Flush any log calls that occurred during INIT
-            self._flush_file()
-
     def batch_end(self, state: State, logger: Logger) -> None:
         del logger  # unused
         assert self.file is not None
-        if self.log_level == LogLevel.BATCH and (int(state.timer.batch) + 1) % self.flush_interval == 0:
+        if self.log_level == LogLevel.BATCH and int(state.timer.batch) % self.flush_interval == 0:
             self._flush_file()
+
+    def eval_start(self, state: State, logger: Logger) -> None:
+        # Flush any log calls that occurred during INIT when using the trainer in eval-only mode
+        self._flush_file()
 
     def epoch_end(self, state: State, logger: Logger) -> None:
         del logger  # unused
-        if self.log_level > LogLevel.EPOCH or self.log_level == LogLevel.EPOCH and (int(state.timer.epoch) +
-                                                                                    1) % self.flush_interval == 0:
+        if self.log_level > LogLevel.EPOCH or self.log_level == LogLevel.EPOCH and int(
+                state.timer.epoch) % self.flush_interval == 0:
             self._flush_file()
 
     def _flush_file(self) -> None:

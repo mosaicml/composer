@@ -39,8 +39,9 @@ def augment_and_mix(img: Optional[ImageType] = None,
                     width: int = 3,
                     alpha: float = 1.0,
                     augmentation_set: List = augmentation_sets["all"]) -> ImageType:
-    """Applies AugMix (`Hendrycks et al. <http://arxiv.org/abs/1912.02781>`_) data augmentation to an image.
-    See :class:`AugMix` for details.
+    """Applies AugMix (`Hendrycks et al.
+
+    <http://arxiv.org/abs/1912.02781>`_) data augmentation to an image. See :class:`AugMix` for details.
     """
 
     assert isinstance(img, ImageType) or isinstance(img, np.ndarray), "img must be a PIL.Image"
@@ -99,10 +100,9 @@ class AugmentAndMixTransform(torch.nn.Module):
 
 
 class AugMix(Algorithm):
-    """`AugMix <http://arxiv.org/abs/1912.02781>`_ creates ``width`` sequences
-    of ``depth`` image augmentations, applies each sequence with random
-    intensity, and returns a convex combination of the ``width`` augmented
-    images and the original image.
+    """`AugMix <http://arxiv.org/abs/1912.02781>`_ creates ``width`` sequences of ``depth`` image augmentations, applies
+    each sequence with random intensity, and returns a convex combination of the ``width`` augmented images and the
+    original image.
 
     The coefficients for mixing the augmented images are drawn from a uniform
     ``Dirichlet(alpha, alpha, ...)`` distribution. The coefficient for mixing
@@ -133,7 +133,6 @@ class AugMix(Algorithm):
                 are identical to the original Github repository, which contains
                 implementation specificities for the augmentations
                 ``"color"``, ``"contrast"``, ``"sharpness"``, and ``"brightness"``.
-
     """
 
     # TODO document each value of augmentation_set in more detail; i.e.,
@@ -151,19 +150,23 @@ class AugMix(Algorithm):
             raise ValueError("AugMix width must be ≥ 1")
         if augmentation_set not in augmentation_sets.keys():
             raise KeyError(f"AugMix augmentation_set is not one of {augmentation_sets.keys()}")
-        self.hparams = AugMixHparams(severity=severity,
-                                     depth=depth,
-                                     width=width,
-                                     alpha=alpha,
-                                     augmentation_set=augmentation_set)
+        self.severity = severity
+        self.depth = depth
+        self.width = width
+        self.alpha = alpha
+        self.augmentation_set = augmentation_set
 
     def match(self, event: Event, state: State) -> bool:
-        """Runs on Event.INIT"""
+        """Runs on Event.INIT."""
         return event == Event.INIT
 
     def apply(self, event: Event, state: State, logger: Logger) -> None:
-        """Inserts AugMix into the list of dataloader transforms"""
-        am = AugmentAndMixTransform(**self.hparams.to_dict())
+        """Inserts AugMix into the list of dataloader transforms."""
+        am = AugmentAndMixTransform(severity=self.severity,
+                                    depth=self.depth,
+                                    width=self.width,
+                                    alpha=self.alpha,
+                                    augmentation_set=self.augmentation_set)
         assert state.train_dataloader is not None, "Train Dataloader is not initialized."
         dataset = state.train_dataloader.dataset
         add_dataset_transform(dataset, am)

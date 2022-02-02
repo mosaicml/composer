@@ -13,8 +13,8 @@ from composer.datasets.dataloader import WrappedDataLoader
 
 
 class ProfiledDataLoader(WrappedDataLoader):
-    """Wraps a dataloader to record the duration it takes to yield a batch.
-    This class should not be instantiated directly.
+    """Wraps a dataloader to record the duration it takes to yield a batch. This class should not be instantiated
+    directly.
 
     Args:
         profiler (Profiler): The profiler instance.
@@ -52,5 +52,7 @@ class DataloaderProfiler(Callback):
         if not ProfiledDataLoader.is_dataloader_already_wrapped(state.train_dataloader):
             state.train_dataloader = ProfiledDataLoader(state.profiler, state.train_dataloader, "train")
 
-        if not ProfiledDataLoader.is_dataloader_already_wrapped(state.eval_dataloader):
-            state.eval_dataloader = ProfiledDataLoader(state.profiler, state.eval_dataloader, "eval")
+        for evaluator in state.evaluators:
+            
+            if not ProfiledDataLoader.is_dataloader_already_wrapped(evaluator.dataloader.dataloader):
+                evaluator.dataloader.dataloader = ProfiledDataLoader(state.profiler, evaluator.dataloader.dataloader, evaluator.label)

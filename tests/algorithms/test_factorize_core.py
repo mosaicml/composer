@@ -12,7 +12,7 @@ from composer.algorithms import factorize
 
 @dataclass
 class _RankReduce(object):
-    """This is just here for convenience when testing"""
+    """This is just here for convenience when testing."""
     batch_size: int = 100
     C_out: int = 64
     C_in: int = 32
@@ -40,7 +40,7 @@ class _RankReduce(object):
 
 @dataclass
 class _RankReduceConv2d(object):
-    """This is just here for convenience when testing"""
+    """This is just here for convenience when testing."""
     batch_size: int = 1
     H: int = 4
     W: int = 4
@@ -144,7 +144,7 @@ def _check_factorization(f: Union[_RankReduce, _RankReduceConv2d],
     ])
 @pytest.mark.parametrize('already_factorized', [False, True])
 def test_factorize_edge_cases(shapes, factorize_task, already_factorized):
-    """Test edge cases regarding current and requested matrix shapes"""
+    """Test edge cases regarding current and requested matrix shapes."""
     C_in, C_latent_now, C_latent_new, C_out = shapes
     factorize_task.C_in = C_in
     factorize_task.C_latent_now = C_latent_now
@@ -155,7 +155,7 @@ def test_factorize_edge_cases(shapes, factorize_task, already_factorized):
 
 @pytest.mark.parametrize('already_factorized', [False, True])
 def test_factorize_more_dims_better(factorize_task, already_factorized):
-    """More latent dimensions should yield nonincreasing error"""
+    """More latent dimensions should yield nonincreasing error."""
     prev_nmse = np.inf
     for C_latent_new in [1, 4, 16, 32]:
         factorize_task.C_latent_new = C_latent_new
@@ -165,7 +165,7 @@ def test_factorize_more_dims_better(factorize_task, already_factorized):
 
 @pytest.mark.parametrize('already_factorized', [False, True])
 def test_factorize_more_iters_better(factorize_task, already_factorized):
-    """More optimization iters should yield nonincreasing error"""
+    """More optimization iters should yield nonincreasing error."""
     prev_nmse = np.inf
     for n_iters in [0, 1, 2, 4]:
         factorize_task.n_iters = n_iters

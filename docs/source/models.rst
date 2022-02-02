@@ -2,9 +2,9 @@ composer.models
 ===============
 
 Models provided to :class:`~composer.trainer.Trainer` must use the basic
-interface specified by :class:`~composer.models.BaseMosaicModel`.
+interface specified by :class:`~composer.models.ComposerModel`.
 
-Additionally, for convience we provide a number of extensions of :class:`~composer.models.BaseMosaicModel`
+Additionally, for convenience we provide a number of extensions of :class:`~composer.models.ComposerModel`
 as detailed below.
 
 .. currentmodule:: composer.models
@@ -16,9 +16,9 @@ Base Models
     :toctree: generated
     :nosignatures:
 
-    BaseMosaicModel
-    MosaicClassifier
-    MosaicTransformer
+    ComposerModel
+    ComposerClassifier
+    ComposerTransformer
 
 Image Models
 -------------
@@ -50,7 +50,7 @@ Metrics and Loss Functions
 
 Evaluation metrics for common tasks are
 in `torchmetrics <https://torchmetrics.readthedocs.io/en/latest/references/modules.html>`_
-and are directly compatible with :class:`BaseMosaicModel`.
+and are directly compatible with :class:`ComposerModel`.
 Additionally, we provide implementations of the following metrics and loss functions.
 
 .. autosummary::

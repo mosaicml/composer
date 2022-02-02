@@ -17,8 +17,7 @@ log = logging.getLogger(__name__)
 
 @dataclass
 class GLUEHparams(DatasetHparams):
-    """
-    Sets up a generic GLUE dataset loader.
+    """Sets up a generic GLUE dataset loader.
 
     Args:
         task (str): the GLUE task to train on, choose one from: CoLA, MNLI, MRPC, QNLI, QQP, RTE, SST-2, and STS-B.
@@ -69,7 +68,7 @@ class GLUEHparams(DatasetHparams):
             import transformers
         except ImportError:
             raise ImportError('huggingface transformers and datasets are not installed. '
-                              'Please install with `pip install mosaicml-composer[nlp]`')
+                              'Please install with `pip install \'mosaicml[nlp]\'`')
 
         self.validate()
         self.tokenizer = transformers.AutoTokenizer.from_pretrained(self.tokenizer_name)  #type: ignore (thirdparty)

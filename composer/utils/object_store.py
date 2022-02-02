@@ -68,10 +68,12 @@ class ObjectStoreProviderHparams(hp.Hparams):
 
     provider: str = hp.required("Cloud provider to use.")
     container: str = hp.required("The name of the container (i.e. bucket) to use.")
-    key_environ: Optional[str] = hp.optional(textwrap.dedent("""The name of an environment variable containing
+    key_environ: Optional[str] = hp.optional(textwrap.dedent("""\
+        The name of an environment variable containing
         an API key or username to use to connect to the provider."""),
                                              default=None)
-    secret_environ: Optional[str] = hp.optional(textwrap.dedent("""The name of an environment variable containing
+    secret_environ: Optional[str] = hp.optional(textwrap.dedent("""\
+        The name of an environment variable containing
         an API secret or password to use to connect to the provider."""),
                                                 default=None)
     region: Optional[str] = hp.optional("Cloud region to use", default=None)
@@ -97,8 +99,7 @@ class ObjectStoreProviderHparams(hp.Hparams):
 
 
 class ObjectStoreProvider:
-    """Utility for uploading to and downloading from object (blob) stores,
-    such as AWS S3 or Google Cloud Storage.
+    """Utility for uploading to and downloading from object (blob) stores, such as AWS S3 or Google Cloud Storage.
 
     .. note::
 
@@ -115,15 +116,17 @@ class ObjectStoreProvider:
         container (str): The name of the container (i.e. bucket) to use.
         provider_init_kwargs (Dict[str, Any], optional): Parameters to pass into the constructor for the
             :class:`~libcloud.storage.providers.Provider` constructor. These arguments would usually include the cloud region
-            and credentials. Defaults to None, which is equivalent to an empty dictionary."""
+            and credentials. Defaults to None, which is equivalent to an empty dictionary.
+    """
 
     def __init__(self, provider: str, container: str, provider_init_kwargs: Optional[Dict[str, Any]] = None) -> None:
         try:
             from libcloud.storage.providers import get_driver
         except ImportError as e:
             raise ImportError(
-                textwrap.dedent("""libcloud is not installed.
-                To install composer with libcloud, please run `pip install mosaicml[logging]`.""")) from e
+                textwrap.dedent("""\
+                    libcloud is not installed.
+                    To install composer with libcloud, please run `pip install mosaicml[logging]`.""")) from e
         provider_cls = get_driver(provider)
         if provider_init_kwargs is None:
             provider_init_kwargs = {}
@@ -132,12 +135,12 @@ class ObjectStoreProvider:
 
     @property
     def provider_name(self):
-        """The name of the cloud provider"""
+        """The name of the cloud provider."""
         return self._provider.name
 
     @property
     def container_name(self):
-        """The name of the object storage container"""
+        """The name of the object storage container."""
         return self._container.name
 
     def upload_object(self,
