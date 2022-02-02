@@ -157,10 +157,10 @@ class TrainerHparams(hp.Hparams):
 
     dist_timeout: float = hp.optional(doc="Timeout, in seconds, for initializing the dsitributed process group.",
                                       default=15.0)
-    ddp_sync_strategy: Optional[DDPSyncStrategy] = hp.optional(
-        doc="The strategy for synchronizing DDP. Default value ``None`` causes the "
-        "trainer to auto-select a value depending on what algorithms are used.",
-        default=None)
+    ddp_sync_strategy: Optional[DDPSyncStrategy] = hp.optional(doc=textwrap.dedent("""\
+            The strategy for synchronizing DDP. Default value ``None`` causes the
+            trainer to auto-select a value depending on what algorithms are used."""),
+                                                               default=None)
 
     deepspeed: Optional[Dict[str, JSON]] = hp.optional(doc="Configuration for DeepSpeed.", default=None)
 
@@ -177,33 +177,43 @@ class TrainerHparams(hp.Hparams):
         default=-1)
     callbacks: List[CallbackHparams] = hp.optional(doc="Callback hparams", default_factory=list)
 
-    load_path: Optional[str] = hp.optional(doc=textwrap.dedent("""If specified, the path to an existing checkpoint file
+    load_path: Optional[str] = hp.optional(doc=textwrap.dedent("""\
+        If specified, the path to an existing checkpoint file
         (if the checkpoint is on the local disk) or the object name for the checkpoint
         (if the checkpoint is in a cloud bucket). Set to None (the default) to skip loading from a checkpoint."""),
                                            default=None)
-    load_object_store: Optional[ObjectStoreProviderHparams] = hp.optional(doc=textwrap.dedent("""
+    load_object_store: Optional[ObjectStoreProviderHparams] = hp.optional(doc=textwrap.dedent("""\
         If the checkpoint is in an object store (i.e. AWS S3 or Google Cloud Storage), the parameters for
         connecting to the cloud provider object store. Otherwise, if the checkpoint is a local filepath,
-        leave blank."""),
+        leave blank. This parameter has no effect if `load_path` is not specified."""),
                                                                           default=None)
-    load_weights_only: bool = hp.optional(doc="Whether to only load the weights from the model.", default=False)
-    load_strict_model_weights: bool = hp.optional(
-        doc="Ensure that the set of wcheckpoint_eights in the checkpoint and model must exactly match.", default=False)
+    load_weights_only: bool = hp.optional(doc=textwrap.dedent("""\
+        Whether to only load the weights from the model.
+        This parameter has no effect if `load_path`is not specified."""),
+                                          default=False)
+    load_strict_model_weights: bool = hp.optional(doc=textwrap.dedent("""\
+        Ensure that the set of checkpoint weights in the checkpoint and model must exactly match.
+        This parameter has no effect if `load_path` is not specified."""),
+                                                  default=False)
 
-    load_chunk_size: int = hp.optional(doc=textwrap.dedent("""Chunk size (in bytes) to use when downloading checkpoints.
-        Ignored if the checkpoint is a local file path."""),
+    load_chunk_size: int = hp.optional(doc=textwrap.dedent("""\
+        Chunk size (in bytes) to use when downloading checkpoints.
+        This parameter has no effect if `load_path` is not specified or it is a local file path."""),
                                        default=1_048_576)
-    load_progress_bar: bool = hp.optional(
-        doc=textwrap.dedent("""Whether to show a progress bar when downloading checkpoints.
-        Ignored if the checkpoint is a local file path"""),
-        default=True)
+    load_progress_bar: bool = hp.optional(doc=textwrap.dedent("""\
+        Whether to show a progress bar when downloading checkpoints.
+        This parameter has no effect if `load_path` is not specified or it is a local file path."""),
+                                          default=True)
 
-    save_folder: Optional[str] = hp.optional(doc=textwrap.dedent(f"""If set, folder to save checkpoint files.
-        Relative to the run directory. Defaults to None, meaning checkpoints will not be saved."""),
+    save_folder: Optional[str] = hp.optional(doc=textwrap.dedent(f"""\
+        Folder to save checkpoint files, relative to the run directory.
+        Defaults to None, meaning checkpoints will not be saved."""),
                                              default=None)
-    save_interval: str = hp.optional(doc=textwrap.dedent("""The time string interval representing how
-        frequently checkpoints should be saved. For example, set to "1ep" to save checkpoints every epoch, or "10ba"
-        to save checkpoints every 10 batches.. """),
+    save_interval: str = hp.optional(doc=textwrap.dedent("""\
+        The time string interval representing how frequently checkpoints should be saved.
+        For example, set to "1ep" to save checkpoints every epoch, or "10ba"
+        to save checkpoints every 10 batches.
+        This parameter has no effect if `save_folder` is not specified."""),
                                      default="1ep")
 
     train_subset_num_batches: Optional[int] = hp.optional(

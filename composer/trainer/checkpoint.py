@@ -85,13 +85,12 @@ class CheckpointLoader:
         chunk_size: int = 1_048_576,
         progress_bar: bool = True,
     ):
-
         checkpoint_uri_parsed = urllib.parse.urlparse(path)
         if checkpoint_uri_parsed.scheme != "":
             if object_store is not None:
                 raise ValueError(
                     textwrap.dedent("""\
-                        When specifying `object_store_hparams`,
+                        When specifying `object_store`,
                         the `checkpoint` parameter must be the key for the checkpoint in the bucket, NOT a uri."""))
 
         self.path = path
