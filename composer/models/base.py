@@ -15,8 +15,7 @@ from composer.models.loss import CrossEntropyLoss, soft_cross_entropy
 
 
 class ComposerModel(torch.nn.Module, abc.ABC):
-    """The minimal interface needed to use a model with :class:`composer.trainer.Trainer`.
-    """
+    """The minimal interface needed to use a model with :class:`composer.trainer.Trainer`."""
 
     @abc.abstractmethod
     def loss(self, outputs: Any, batch: Batch, *args, **kwargs) -> Tensors:

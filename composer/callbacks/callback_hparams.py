@@ -1,6 +1,6 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
-"""Callback Hyperparameters"""
+"""Callback Hyperparameters."""
 from __future__ import annotations
 
 import abc
@@ -26,7 +26,7 @@ if TYPE_CHECKING:
 @dataclass
 class CallbackHparams(hp.Hparams, abc.ABC):
     """Base class for callback hyperparameters.
-    
+
     Callback parameters that are added to
     :attr:`composer.trainer.trainer_hparams.TrainerHparams.callbacks`
     (e.g. via YAML or the CLI) are initialized in the training loop.

@@ -17,9 +17,7 @@ if TYPE_CHECKING:
 
 
 class BERTModel(ComposerTransformer):
-    """
-    Implements a BERT wrapper around a ComposerTransformer.
-    """
+    """Implements a BERT wrapper around a ComposerTransformer."""
 
     def __init__(self, module: transformers.BertModel, config: transformers.BertConfig, tokenizer_name: str) -> None:
         super().__init__(

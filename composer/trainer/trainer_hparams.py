@@ -1,8 +1,6 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
-"""
-Example usage and definition of hparams
-"""
+"""Example usage and definition of hparams."""
 from __future__ import annotations
 
 import os
