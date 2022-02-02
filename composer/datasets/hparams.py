@@ -143,8 +143,7 @@ class JpgClsWebDatasetHparams(WebDatasetHparams, SyntheticHparamsMixin):
             if self.is_train:
                 split = 'train'
                 transform = transforms.Compose([
-                    transforms.RandomCrop((self.height, self.width),
-                                          (self.height // 8, self.width // 8)),
+                    transforms.RandomCrop((self.height, self.width), (self.height // 8, self.width // 8)),
                     transforms.RandomHorizontalFlip(),
                     transforms.ToTensor(),
                     transforms.Normalize(self.channel_means, self.channel_stds),

@@ -33,13 +33,11 @@ def each_sample(images, classes):
 def main(args):
     dataset = MNIST(root='/datasets/mnist', train=True, download=True)
     images, classes = shuffle(dataset)
-    create_webdataset(each_sample(images, classes), args.out_root, 'train', len(images),
-                      args.train_shards, args.tqdm)
+    create_webdataset(each_sample(images, classes), args.out_root, 'train', len(images), args.train_shards, args.tqdm)
 
     dataset = MNIST(root='/datasets/mnist', train=False, download=True)
     images, classes = shuffle(dataset)
-    create_webdataset(each_sample(images, classes), args.out_root, 'val', len(images),
-                      args.val_shards, args.tqdm)
+    create_webdataset(each_sample(images, classes), args.out_root, 'val', len(images), args.val_shards, args.tqdm)
 
 
 if __name__ == '__main__':

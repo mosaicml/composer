@@ -137,8 +137,7 @@ class Imagenet1KWebDatasetHparams(WebDatasetHparams, SyntheticHparamsMixin):
                     train_transforms.append(transforms.Resize(train_resize_size))
                 # always include RandomResizedCrop and RandomHorizontalFlip
                 train_transforms += [
-                    transforms.RandomResizedCrop(self.crop_size, scale=(0.08, 1.0),
-                                                 ratio=(0.75, 4.0 / 3.0)),
+                    transforms.RandomResizedCrop(self.crop_size, scale=(0.08, 1.0), ratio=(0.75, 4.0 / 3.0)),
                     transforms.RandomHorizontalFlip()
                 ]
                 transform = transforms.Compose(train_transforms)
@@ -154,8 +153,7 @@ class Imagenet1KWebDatasetHparams(WebDatasetHparams, SyntheticHparamsMixin):
             size = meta['n_shards'] * meta['samples_per_shard'] // dist.get_world_size()
             dataset = dataset.with_epoch(size_per_device).with_length(size_per_device)
             collate_fn = pil_image_collate
-            device_transform_fn = NormalizationFn(mean=IMAGENET_CHANNEL_MEAN,
-                                                  std=IMAGENET_CHANNEL_STD)
+            device_transform_fn = NormalizationFn(mean=IMAGENET_CHANNEL_MEAN, std=IMAGENET_CHANNEL_STD)
         return DataSpec(dataloader=dataloader_hparams.initialize_object(
             dataset=dataset,
             batch_size=batch_size,

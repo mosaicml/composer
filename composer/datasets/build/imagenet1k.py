@@ -46,12 +46,10 @@ def each_sample(pairs):
 
 def main(args):
     pairs = find(args.in_root, 'train')
-    create_webdataset(each_sample(pairs), args.out_root, 'train', len(pairs), args.train_shards,
-                      args.tqdm)
+    create_webdataset(each_sample(pairs), args.out_root, 'train', len(pairs), args.train_shards, args.tqdm)
 
     pairs = find(args.in_root, 'val')
-    create_webdataset(each_sample(pairs), args.out_root, 'val', len(pairs), args.val_shards,
-                      args.tqdm)
+    create_webdataset(each_sample(pairs), args.out_root, 'val', len(pairs), args.val_shards, args.tqdm)
 
 
 if __name__ == '__main__':
