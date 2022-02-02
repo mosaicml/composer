@@ -75,7 +75,7 @@ class State(Serializable):
     checkpoint. Algorithms are able to modify this object in-place.
 
     Args:
-        model (types.Model, often BaseMosaicModel): The model, typically as a subclass of :class:`BaseMosaicModel`.
+        model (types.Model, often ComposerModel): The model, typically as a subclass of :class:`ComposerModel`.
         grad_accum (int): The number of gradient accumulation steps to use. The size of each microbatch is ``train_batch_size / num_gpus / grad_accum``.
         train_dataloader (types.DataLoader, types.DataSpec, or dict):
             The :class:`types.DataLoader`, :class:`types.DataSpec`, or dict of :class:`types.DataSpec` kwargs to used for training.
@@ -93,7 +93,7 @@ class State(Serializable):
         algorithms (Sequence[Algorithm]): The algorithms used for training.
         callbacks (Sequence[Callback]): The callbacks used for training.
 
-        profiler (Optional[Profiler]): The mosaic profiler.
+        profiler (Optional[Profiler]): The Composer profiler.
 
     Attributes:
         batch (types.Batch): The batch. This will be the entire batch during the :attr:`Event.AFTER_DATALOADER`, or a

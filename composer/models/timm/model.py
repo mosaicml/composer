@@ -1,11 +1,11 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 from typing import Optional
 
-from composer.models.base import MosaicClassifier
+from composer.models.base import ComposerClassifier
 
 
-class Timm(MosaicClassifier):
-    """A wrapper around timm.create_model() used to create mosaic classifiers from timm models
+class Timm(ComposerClassifier):
+    """A wrapper around timm.create_model() used to create ComposerClassifiers from timm models
     Args:
         model_name (str): timm model name e.g:'resnet50'list of models can be found at https://github.com/rwightman/pytorch-image-models
         pretrained (bool): imagenet pretrained. default: False

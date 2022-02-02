@@ -8,7 +8,7 @@ import yahp as hp
 
 from composer.algorithms import AlgorithmHparams
 from composer.core.types import Algorithm, Batch, Event, Logger, State, Tensor
-from composer.models.transformer_shared import MosaicTransformer
+from composer.models.transformer_shared import ComposerTransformer
 from composer.utils import ensure_tuple
 
 
@@ -164,7 +164,7 @@ class SeqLengthWarmup(Algorithm):
             # results, we don't use all inputs.
 
             original_model = state.model.module
-            assert isinstance(original_model, MosaicTransformer)
+            assert isinstance(original_model, ComposerTransformer)
             model_inputs = original_model.get_model_inputs()  # type: ignore
             assert 'input_ids' in model_inputs
             assert 'labels' in model_inputs

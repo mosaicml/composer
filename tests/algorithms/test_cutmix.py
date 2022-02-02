@@ -8,7 +8,7 @@ import torch.nn.functional as F
 from composer.algorithms import CutMixHparams
 from composer.algorithms.cutmix.cutmix import cutmix, rand_bbox
 from composer.core.types import Event
-from composer.models.base import MosaicClassifier
+from composer.models.base import ComposerClassifier
 from composer.trainer.trainer_hparams import TrainerHparams
 from tests.fixtures.models import SimpleConvModel
 from tests.utils.trainer_fit import train_model
@@ -93,7 +93,7 @@ class TestCutMix:
 
         algorithm = CutMixHparams(alpha=alpha).initialize_object()
         state = dummy_state
-        state.model = MosaicClassifier
+        state.model = ComposerClassifier
         state.model.num_classes = x_fake.size(1)  # Grab C
         state.batch = (x_fake, y_fake)
 
@@ -116,7 +116,7 @@ class TestCutMix:
 def test_cutmix_nclasses(dummy_state, dummy_logger):
     algorithm = CutMixHparams(alpha=1.0).initialize_object()
     state = dummy_state
-    state.model = MosaicClassifier(SimpleConvModel())
+    state.model = ComposerClassifier(SimpleConvModel())
     state.model.num_classes = 10
     state.batch = (torch.ones((1, 1, 1, 1)), torch.Tensor([2]))
 
@@ -124,6 +124,6 @@ def test_cutmix_nclasses(dummy_state, dummy_logger):
     algorithm.apply(Event.AFTER_DATALOADER, state, dummy_logger)
 
 
-def test_cutmix_trains(mosaic_trainer_hparams: TrainerHparams):
-    mosaic_trainer_hparams.algorithms = [CutMixHparams(alpha=1.0)]
-    train_model(mosaic_trainer_hparams)
+def test_cutmix_trains(composer_trainer_hparams: TrainerHparams):
+    composer_trainer_hparams.algorithms = [CutMixHparams(alpha=1.0)]
+    train_model(composer_trainer_hparams)

@@ -42,7 +42,7 @@ class SAMOptimizer(torch.optim.Optimizer):
         self.base_optimizer = base_optimizer
         self.global_step = 0
         self.interval = interval
-        self._step_supports_amp_closure = True  # Flag for Mosaic trainer
+        self._step_supports_amp_closure = True  # Flag for Composer trainer
         defaults = dict(rho=rho, epsilon=epsilon, **kwargs)
         super(SAMOptimizer, self).__init__(self.base_optimizer.param_groups, defaults)
 

@@ -162,8 +162,8 @@ def test_apply(epoch_frac: float, X: torch.Tensor, y: torch.Tensor, dummy_algori
     assert check_scaled_shape(X, last_input, scale_factor)
 
 
-def test_progressive_resizing_trains(mosaic_trainer_hparams: TrainerHparams):
-    mosaic_trainer_hparams.algorithms = [
+def test_progressive_resizing_trains(composer_trainer_hparams: TrainerHparams):
+    composer_trainer_hparams.algorithms = [
         ProgressiveResizingHparams(mode="resize", initial_scale=0.5, finetune_fraction=0.2, resize_targets=False)
     ]
-    train_model(mosaic_trainer_hparams)
+    train_model(composer_trainer_hparams)
