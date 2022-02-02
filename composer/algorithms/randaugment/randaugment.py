@@ -33,7 +33,9 @@ def randaugment(img: Optional[ImageType] = None,
                 severity: int = 9,
                 depth: int = 2,
                 augmentation_set: List = augmentation_sets["all"]) -> ImageType:
-    """Randomly applies a sequence of image data augmentations (`Cubuk et al. 2019 <https://openaccess.thecvf.com/content_CVPRW_2020/papers/w40/Cubuk_Randaugment_Practical_Automated_Data_Augmentation_With_a_Reduced_Search_Space_CVPRW_2020_paper.pdf>`_).
+    """Randomly applies a sequence of image data augmentations (`Cubuk et al.
+
+    2019 <https://openaccess.thecvf.com/content_CVPRW_2020/papers/w40/Cubuk_Randaugment_Practical_Automated_Data_Augmentation_With_a_Reduced_Search_Space_CVPRW_2020_paper.pdf>`_).
     See :class:`RandAugment` for details.
     """
 
@@ -46,7 +48,7 @@ def randaugment(img: Optional[ImageType] = None,
 
 
 class RandAugmentTransform(torch.nn.Module):
-    """Wraps :func:`randaugment` in a ``torchvision``-compatible transform"""
+    """Wraps :func:`randaugment` in a ``torchvision``-compatible transform."""
 
     def __init__(self, severity: int = 9, depth: int = 2, augmentation_set: str = "all"):
         super().__init__()
@@ -66,7 +68,9 @@ class RandAugmentTransform(torch.nn.Module):
 
 
 class RandAugment(Algorithm):
-    """Randomly applies a sequence of image data augmentations (`Cubuk et al. 2019 <https://openaccess.thecvf.com/content_CVPRW_2020/papers/w40/Cubuk_Randaugment_Practical_Automated_Data_Augmentation_With_a_Reduced_Search_Space_CVPRW_2020_paper.pdf>`_).
+    """Randomly applies a sequence of image data augmentations (`Cubuk et al. 2019 <https://openaccess.thecvf.com/conten
+    t_CVPRW_2020/papers/w40/Cubuk_Randaugment_Practical_Automated_Data_Augmentation_With_a_Reduced_Search_Space_CVPRW_20
+    20_paper.pdf>`_).
 
     Args:
         severity (int): Severity of augmentation operators (between 1 to 10). M in the
@@ -81,11 +85,11 @@ class RandAugment(Algorithm):
             to contain implementation specificities for the augmentations "color",
             "contrast", "sharpness", and "brightness". The original implementations
             have an intensity sampling scheme that samples a value bounded by 0.118
-            at a minimum, and a maximum value of intensity*0.18 + .1, which ranges 
-            from 0.28 (intensity = 1) to 1.9 (intensity 10). These augmentations 
-            have different effects depending on whether they are < 0 or > 0 (or 
-            < 1 or > 1). "augmentations_all" uses implementations of "color", 
-            "contrast", "sharpness", and "brightness" that account for diverging 
+            at a minimum, and a maximum value of intensity*0.18 + .1, which ranges
+            from 0.28 (intensity = 1) to 1.9 (intensity 10). These augmentations
+            have different effects depending on whether they are < 0 or > 0 (or
+            < 1 or > 1). "augmentations_all" uses implementations of "color",
+            "contrast", "sharpness", and "brightness" that account for diverging
             effects around 0 (or 1).
     """
 
@@ -99,8 +103,8 @@ class RandAugment(Algorithm):
         self.augmentation_set = augmentation_set
 
     def match(self, event: Event, state: State) -> bool:
-        """Runs on Event.TRAINING_START
-        
+        """Runs on Event.TRAINING_START.
+
         Args:
             event (:class:`Event`): The current event.
             state (:class:`State`): The current state.
@@ -110,8 +114,8 @@ class RandAugment(Algorithm):
         return event == Event.TRAINING_START
 
     def apply(self, event: Event, state: State, logger: Logger) -> None:
-        """Inserts RandAugment into the list of dataloader transforms
-        
+        """Inserts RandAugment into the list of dataloader transforms.
+
         Args:
             event (Event): the current event
             state (State): the current trainer state

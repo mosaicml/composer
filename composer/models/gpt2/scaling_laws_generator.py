@@ -9,8 +9,7 @@ import yaml
 
 
 def teraflops_for_accelerator(accel):
-    """
-    Stores the number of TFLOPs available to a few accelerators, including driver handicaps.
+    """Stores the number of TFLOPs available to a few accelerators, including driver handicaps.
 
     Args:
         accel (str): A string descriptor of which accelerator to use. Must be either "3090" or "V100".
@@ -23,9 +22,7 @@ def teraflops_for_accelerator(accel):
 
 
 def parse_args():
-    """
-    ArgParse parser.
-    """
+    """ArgParse parser."""
     parser = argparse.ArgumentParser()
     parser.add_argument("--hours",
                         type=float,
@@ -193,9 +190,8 @@ template_yaml = {
 
 
 def generate_architecture(args, model):
-    """
-    Given the desired training budget and a template model, configure the model archtiecture according to
-    "Scaling Laws for Neural Language Models" by Kaplan et al.
+    """Given the desired training budget and a template model, configure the model archtiecture according to "Scaling
+    Laws for Neural Language Models" by Kaplan et al.
 
     Args:
         args (argparse.Namespace): the Namespace object holding the parsed arguments.
