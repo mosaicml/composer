@@ -48,8 +48,8 @@ class WrappedDataLoader(DataLoader):
 
     @classmethod
     def is_dataloader_already_wrapped(cls, dataloader: DataLoader):
-        """Returns whether the ``dataloader`` is wrapped with ``cls``. This helper method checks recursively through
-        all wrappings until the underlying dataloader is reached.
+        """Returns whether the ``dataloader`` is wrapped with ``cls``. This helper method checks recursively through all
+        wrappings until the underlying dataloader is reached.
 
         Args:
             dataloader (DataLoader): The dataloader to check

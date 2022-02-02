@@ -166,13 +166,11 @@ class GhostBatchNorm(Algorithm):
         self._applied = False
 
     def match(self, event: Event, state: State) -> bool:
-        """ Runs on Event.INIT
-        """
+        """Runs on Event.INIT."""
         return event == Event.INIT and not self._applied
 
     def apply(self, event: Event, state: State, logger: Optional[Logger] = None) -> None:
-        """ Applies GhostBatchNorm by wrapping existing BatchNorm modules
-        """
+        """Applies GhostBatchNorm by wrapping existing BatchNorm modules."""
         if not isinstance(state.model, ComposerModel):
             # We do NOT want to apply this algorithm after deepspeed or DDP wrapping
             # the module.
