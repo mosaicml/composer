@@ -33,9 +33,9 @@ The dataset can be obtained from _________.
 Expected Format
 ----------------
 
-The Mosaic ML library expects this dataset to be stored as ________.
+The Composer library expects this dataset to be stored as ________.
 
-.. What format does the MosaicML library expect this data to be stored in? E.g. JPEGs in folders for each class, TFRecords with a particular schema, etc.
+.. What format does the Composer library expect this data to be stored in? E.g. JPEGs in folders for each class, TFRecords with a particular schema, etc.
 
 Steps to Obtain and Prepare Dataset
 ------------------------------------

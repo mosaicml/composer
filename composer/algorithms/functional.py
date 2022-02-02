@@ -1,14 +1,11 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
-"""
-Functional API
+"""Functional API.
 
 Functional forms of methods are available here via::
 
     from composer import functional as CF
     my_model = CF.apply_blurpool(my_model)
-
-
 """
 from composer.algorithms.alibi.alibi import apply_alibi as apply_alibi
 from composer.algorithms.augmix import augment_and_mix as augment_and_mix

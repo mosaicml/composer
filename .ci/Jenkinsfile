@@ -217,6 +217,7 @@ stage('Build') {
             'Python 3.9 - All (GPU)': { -> runPytest(pythonVersion: "3.9", gpu: true) },
         ]        
     }
+    jobs.failFast = true
     try {
         parallel(jobs)
     }

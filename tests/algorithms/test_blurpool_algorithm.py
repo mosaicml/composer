@@ -1,7 +1,8 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
-"""
-Test the blurpool algorithm. Primitives are tested in test_blurpool.py
+"""Test the blurpool algorithm.
+
+Primitives are tested in test_blurpool.py
 """
 import itertools
 from typing import List
@@ -9,24 +10,29 @@ from unittest.mock import MagicMock
 
 import pytest
 import torch
+from torchmetrics.classification.accuracy import Accuracy
+from torchmetrics.collections import MetricCollection
 
 from composer.algorithms import BlurPool, BlurPoolHparams
 from composer.algorithms.blurpool import apply_blurpool
 from composer.algorithms.blurpool.blurpool_layers import BlurConv2d, BlurMaxPool2d
 from composer.core import Event, State, surgery
+from composer.core.evaluator import Evaluator
 from composer.core.types import DataLoader, Logger, Model, Precision
 from tests.fixtures.models import SimpleConvModel
 
 
 @pytest.fixture
 def state(simple_conv_model: Model, dummy_train_dataloader: DataLoader, dummy_val_dataloader: DataLoader):
+    metric_coll = MetricCollection([Accuracy()])
+    evaluators = [Evaluator(label="dummy_label", dataloader=dummy_val_dataloader, metrics=metric_coll)]
     state = State(
         grad_accum=1,
         max_duration="100ep",
         model=simple_conv_model,
         precision=Precision.FP32,
         train_dataloader=dummy_train_dataloader,
-        eval_dataloader=dummy_val_dataloader,
+        evaluators=evaluators,
     )
     return state
 
@@ -51,7 +57,7 @@ def test_blurconv(state: State, blurpool_instance: BlurPool, dummy_logger: Logge
     blurpool_instance.apply(Event.INIT, state, dummy_logger)
     assert isinstance(state.model.module, SimpleConvModel)
 
-    if blurpool_instance.hparams.replace_convs:
+    if blurpool_instance.replace_convs:
         assert type(state.model.module.conv1) is BlurConv2d
     else:
         assert type(state.model.module.conv1) is torch.nn.Conv2d
@@ -90,7 +96,7 @@ def test_blurpool(state: State, blurpool_instance: BlurPool, dummy_logger: Logge
     blurpool_instance.apply(Event.INIT, state, dummy_logger)
     assert isinstance(state.model.module, SimpleConvModel)
 
-    if blurpool_instance.hparams.replace_maxpools:
+    if blurpool_instance.replace_maxpools:
         assert type(state.model.module.pool1) is BlurMaxPool2d
     else:
         assert type(state.model.module.pool1) is torch.nn.MaxPool2d
@@ -108,8 +114,8 @@ def test_blurpool_algorithm_logging(state: State, blurpool_instance: BlurPool, d
     blurpool_instance.apply(Event.INIT, state, dummy_logger)
 
     dummy_logger.metric_fit.assert_called_once_with({
-        'blurpool/num_blurpool_layers': 1 if blurpool_instance.hparams.replace_maxpools else 0,
-        'blurpool/num_blurconv_layers': 1 if blurpool_instance.hparams.replace_convs else 0,
+        'blurpool/num_blurpool_layers': 1 if blurpool_instance.replace_maxpools else 0,
+        'blurpool/num_blurconv_layers': 1 if blurpool_instance.replace_convs else 0,
     })
 
 

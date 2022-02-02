@@ -20,7 +20,7 @@ A summary of available attributes and properties is given below:
       -
     * - ``model``
       - ``torch.nn.Module``
-      - Model, typically as a subclass of :class:`BaseMosaicModel`.
+      - Model, typically as a subclass of :class:`ComposerModel`.
     * - ``train_batch_size``
       - ``int``
       - Global batch size for training
