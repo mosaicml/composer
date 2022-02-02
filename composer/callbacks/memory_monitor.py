@@ -28,8 +28,7 @@ class MemoryMonitor(Callback):
             log.warn("Memory monitor only works on GPU devices.")
 
     def after_train_batch(self, state: State, logger: Logger):
-        """This function calls the torch cuda memory stats and reports basic memory
-        statistics.
+        """This function calls the torch cuda memory stats and reports basic memory statistics.
 
         Args:
             state (State): The :class:`~composer.core.State` object

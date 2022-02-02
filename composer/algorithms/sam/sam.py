@@ -31,9 +31,11 @@ class SAMHparams(AlgorithmHparams):
 
 
 class SAMOptimizer(torch.optim.Optimizer):
-    """Wraps an optimizer with sharpness-aware minimization (`Foret et al. 2020 <https://arxiv.org/abs/2010.01412>`_). See :class:`SAM` for details.
+    """Wraps an optimizer with sharpness-aware minimization (`Foret et al. 2020 <https://arxiv.org/abs/2010.01412>`_).
+    See :class:`SAM` for details.
 
-    Implementation based on https://github.com/davda54/sam"""
+    Implementation based on https://github.com/davda54/sam
+    """
 
     # TODO(license) code linked above is MIT license
 
@@ -42,7 +44,7 @@ class SAMOptimizer(torch.optim.Optimizer):
         self.base_optimizer = base_optimizer
         self.global_step = 0
         self.interval = interval
-        self._step_supports_amp_closure = True  # Flag for Mosaic trainer
+        self._step_supports_amp_closure = True  # Flag for Composer trainer
         defaults = dict(rho=rho, epsilon=epsilon, **kwargs)
         super(SAMOptimizer, self).__init__(self.base_optimizer.param_groups, defaults)
 
@@ -106,7 +108,8 @@ class SAMOptimizer(torch.optim.Optimizer):
 
 
 class SAM(Algorithm):
-    """Adds sharpness-aware minimization (`Foret et al. 2020 <https://arxiv.org/abs/2010.01412>`_) by wrapping an existing optimizer with a :class:`SAMOptimizer`.
+    """Adds sharpness-aware minimization (`Foret et al. 2020 <https://arxiv.org/abs/2010.01412>`_) by wrapping an
+    existing optimizer with a :class:`SAMOptimizer`.
 
     Args:
         rho: The neighborhood size parameter of SAM. Must be greater than 0.
@@ -122,16 +125,14 @@ class SAM(Algorithm):
         epsilon: float = 1.0e-12,
         interval: int = 1,
     ):
-        """
-        __init__ is constructed from the same fields as in hparams.
-        """
+        """__init__ is constructed from the same fields as in hparams."""
         self.rho = rho
         self.epsilon = epsilon
         self.interval = interval
 
     def match(self, event: Event, state: State) -> bool:
-        """Run on Event.TRAINING_START
-        
+        """Run on Event.TRAINING_START.
+
         Args:
             event (:class:`Event`): The current event.
             state (:class:`State`): The current state.
@@ -141,8 +142,8 @@ class SAM(Algorithm):
         return event == Event.TRAINING_START
 
     def apply(self, event: Event, state: State, logger: Optional[Logger]) -> Optional[int]:
-        """Applies SAM by wrapping the base optimizer with the SAM optimizer
-        
+        """Applies SAM by wrapping the base optimizer with the SAM optimizer.
+
         Args:
             event (Event): the current event
             state (State): the current trainer state

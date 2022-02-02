@@ -102,7 +102,8 @@ def apply_se(
 
 
 class SqueezeExcite(Algorithm):
-    """Adds Squeeze-and-Excitation blocks (`Hu et al. 2019 <https://arxiv.org/abs/1709.01507>`_) after the :class:`~torch.nn.Conv2d` modules in a neural network.
+    """Adds Squeeze-and-Excitation blocks (`Hu et al. 2019 <https://arxiv.org/abs/1709.01507>`_) after the
+    :class:`~torch.nn.Conv2d` modules in a neural network.
 
     See :class:`SqueezeExcite2d` for more information.
 
@@ -128,13 +129,13 @@ class SqueezeExcite(Algorithm):
         self.min_channels = min_channels
 
     def match(self, event: Event, state: State) -> bool:
-        """Run on Event.INIT
+        """Run on Event.INIT.
 
         Args:
             event (:class:`Event`): The current event.
             state (:class:`State`): The current state.
         Returns:
-            bool: True if this algorithm should run no         
+            bool: True if this algorithm should run no
         """
         return event == Event.INIT
 
@@ -144,7 +145,7 @@ class SqueezeExcite(Algorithm):
         Args:
             event (Event): the current event
             state (State): the current trainer state
-            logger (Logger): the training logger        
+            logger (Logger): the training logger
         """
         state.model = apply_se(state.model,
                                optimizers=state.optimizers,

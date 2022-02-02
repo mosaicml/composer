@@ -8,13 +8,12 @@ import yahp as hp
 
 from composer.algorithms import AlgorithmHparams
 from composer.core.types import Algorithm, Batch, Event, Logger, State, Tensor
-from composer.models.transformer_shared import MosaicTransformer
+from composer.models.transformer_shared import ComposerTransformer
 from composer.utils import ensure_tuple
 
 
 def apply_seq_length_warmup(batch: Dict[str, Tensor], curr_seq_len: int, truncate: bool) -> Batch:
-    """
-    Progressively increases the sequence length during training.
+    """Progressively increases the sequence length during training.
 
     Changes the sequence length of all tensors in the provided dictionary
     to ``curr_seq_len``, by either truncating the tensors (``truncate=True``)
@@ -128,11 +127,10 @@ class SeqLengthWarmup(Algorithm):
                              f'greater than min_seq_length={self.min_seq_length}')
 
     def match(self, event: Event, state: State) -> bool:
-        """
-        Sequence Length Warmup matches on two events:
+        """Sequence Length Warmup matches on two events:
 
-        1. ``Event.TRAINING_START`` in order to run a blank forward and backward pass and allocate PyTorch cache. 
-        2. ``Event.AFTER_DATALOADER`` in order to apply the sequence length warmup before the forward pass. 
+        1. ``Event.TRAINING_START`` in order to run a blank forward and backward pass and allocate PyTorch cache.
+        2. ``Event.AFTER_DATALOADER`` in order to apply the sequence length warmup before the forward pass.
 
         Args:
             event (:class:`Event`): The current event.
@@ -145,8 +143,7 @@ class SeqLengthWarmup(Algorithm):
         return event in (Event.TRAINING_START, Event.AFTER_DATALOADER)
 
     def apply(self, event: Event, state: State, logger: Logger) -> Optional[int]:
-        """
-        Applies on ``Event.TRAINING_START`` to allocate PyTorch cache, or ``Event.AFTER_DATALOADER`` to apply the 
+        """Applies on ``Event.TRAINING_START`` to allocate PyTorch cache, or ``Event.AFTER_DATALOADER`` to apply the
         sequence length warmup to the input batch.
 
         Args:
@@ -155,7 +152,6 @@ class SeqLengthWarmup(Algorithm):
             logger (:class:`Logger`): A logger to use for logging algorithm-specific metrics.
         Returns:
             int or None: exit code that is stored in :class:`Trace` and made accessible for debugging.
-
         """
 
         # in order to avoid OOMs, we do a forward and a backward pass on a dummy input.
@@ -164,7 +160,7 @@ class SeqLengthWarmup(Algorithm):
             # results, we don't use all inputs.
 
             original_model = state.model.module
-            assert isinstance(original_model, MosaicTransformer)
+            assert isinstance(original_model, ComposerTransformer)
             model_inputs = original_model.get_model_inputs()  # type: ignore
             assert 'input_ids' in model_inputs
             assert 'labels' in model_inputs

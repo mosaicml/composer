@@ -8,7 +8,7 @@ from torchmetrics import Accuracy, MatthewsCorrcoef, MeanSquaredError, SpearmanC
 from torchmetrics.collections import MetricCollection
 
 from composer.models.nlp_metrics import BinaryF1Score, CrossEntropyLoss, MaskedAccuracy
-from composer.models.transformer_shared import MosaicTransformer
+from composer.models.transformer_shared import ComposerTransformer
 
 if TYPE_CHECKING:
     import transformers
@@ -16,10 +16,8 @@ if TYPE_CHECKING:
     from composer.core.types import Batch, BatchDict, Metrics, Tensors
 
 
-class BERTModel(MosaicTransformer):
-    """
-    Implements a BERT wrapper around a MosaicTransformer.
-    """
+class BERTModel(ComposerTransformer):
+    """Implements a BERT wrapper around a ComposerTransformer."""
 
     def __init__(self, module: transformers.BertModel, config: transformers.BertConfig, tokenizer_name: str) -> None:
         super().__init__(
@@ -85,7 +83,7 @@ class BERTModel(MosaicTransformer):
 
         Args:
             batch (BatchDict): a dictionary of Dict[str, Tensor] of inputs
-                that the model expects, as found in MosaicTransformer.get_model_inputs().
+                that the model expects, as found in ComposerTransformer.get_model_inputs().
 
         Returns:
             A tuple of (Tensor, Tensor) with the output from the forward pass and the correct labels.

@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING, Mapping
 from torchmetrics.collections import MetricCollection
 
 from composer.models.nlp_metrics import Perplexity
-from composer.models.transformer_shared import MosaicTransformer
+from composer.models.transformer_shared import ComposerTransformer
 
 if TYPE_CHECKING:
     import transformers
@@ -15,8 +15,8 @@ if TYPE_CHECKING:
     from composer.core.types import Batch, Metrics, Tensors
 
 
-class GPT2Model(MosaicTransformer):
-    """Implements a GPT-2 wrapper around a MosaicTransformer.
+class GPT2Model(ComposerTransformer):
+    """Implements a GPT-2 wrapper around a ComposerTransformer.
 
     See this `paper <https://d4mucfpksywv.cloudfront.net/better-language-models/language-models.pdf>`_
     for details on the GPT-2 architecutre.

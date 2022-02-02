@@ -17,8 +17,7 @@ log = logging.getLogger(__name__)
 
 @dataclass
 class GLUEHparams(DatasetHparams):
-    """
-    Sets up a generic GLUE dataset loader.
+    """Sets up a generic GLUE dataset loader.
 
     Args:
         task (str): the GLUE task to train on, choose one from: CoLA, MNLI, MRPC, QNLI, QQP, RTE, SST-2, and STS-B.

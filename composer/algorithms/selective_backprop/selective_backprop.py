@@ -95,7 +95,6 @@ def selective_backprop(X: torch.Tensor,
 
         with torch.cuda.amp.autocast(True):
             X_new, y_new = selective_backprop(X, y, model, loss_fun, keep, scale_factor)
-
     """
     INTERPOLATE_MODES = {3: "linear", 4: "bilinear", 5: "trilinear"}
 
@@ -160,7 +159,9 @@ class SelectiveBackpropHparams(AlgorithmHparams):
 
 
 class SelectiveBackprop(Algorithm):
-    """Selectively backpropagate gradients from a subset of each batch (`Jiang et al. 2019 <https://arxiv.org/abs/1910.00762>`_).
+    """Selectively backpropagate gradients from a subset of each batch (`Jiang et al. 2019.
+
+    <https://arxiv.org/abs/1910.00762>`_).
 
     Selective Backprop (SB) prunes minibatches according to the difficulty
     of the individual training examples, and only computes weight gradients
@@ -194,8 +195,7 @@ class SelectiveBackprop(Algorithm):
         self.interrupt = interrupt
 
     def match(self, event: Event, state: State) -> bool:
-        """Match on ``Event.AFTER_DATALOADER`` if time is between ``self.start`` and
-        ``self.end``."""
+        """Match on ``Event.AFTER_DATALOADER`` if time is between ``self.start`` and ``self.end``."""
         is_event = (event == Event.AFTER_DATALOADER)
         if not is_event:
             return False

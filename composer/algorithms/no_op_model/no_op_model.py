@@ -12,7 +12,7 @@ from torchmetrics.classification.accuracy import Accuracy
 from composer.algorithms import AlgorithmHparams
 from composer.core import Algorithm, Event, Logger, State
 from composer.core.types import Metrics, Precision
-from composer.models.base import BaseMosaicModel
+from composer.models.base import ComposerModel
 
 if TYPE_CHECKING:
     from composer.core.types import Batch, Tensors
@@ -23,7 +23,7 @@ log = logging.getLogger(__name__)
 # TODO: enable for mixed precision
 # TODO: enable for DDP
 # TODO: enable for eval
-class NoOpModelClass(BaseMosaicModel):
+class NoOpModelClass(ComposerModel):
 
     def __init__(self, original_model: torch.nn.Module):
         super().__init__()

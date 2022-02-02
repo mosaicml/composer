@@ -4,7 +4,7 @@ Category of Task: `Vision`
 
 Kind of Task: `Segmentation`
 
-Link to Code: [https://github.com/mosaicml/mosaicml/tree/main/composer/models/unet](https://github.com/mosaicml/mosaicml/tree/main/composer/models/unet)
+Link to Code: [https://github.com/mosaicml/composer/tree/main/composer/models/unet](https://github.com/mosaicml/composer/tree/main/composer/models/unet)
 
 ## Overview
 
