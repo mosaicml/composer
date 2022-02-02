@@ -96,7 +96,7 @@ def pil_image_collate(batch: List[Tuple[Image.Image, Union[Image.Image, Tensor]]
     return image_tensor, target_tensor
 
 
-def add_dataset_transform(dataset: Dataset, transform, location="end", pre_post: str = "pre") -> Dataset:
+def add_dataset_transform(dataset, transform, location="end", pre_post: str = "pre") -> Dataset:
     """Flexibly add a transform to the dataset's collection of transforms.
 
     Args:
@@ -121,7 +121,7 @@ def add_dataset_transform(dataset: Dataset, transform, location="end", pre_post:
             A {datasets.VisionDataset.__name__} is required to insert additional
             transformations."""))
     if not hasattr(dataset, transform):
-        raise AttributeError(textwrap.dedent(f"""Dataset must have attribute transform."""))
+        raise AttributeError(textwrap.dedent(f"""Dataset must have attribute `transform`."""))
 
     valid_non_transform_locations = ["start", "end"]
     valid_pre_post_values = ["pre", "post"]
