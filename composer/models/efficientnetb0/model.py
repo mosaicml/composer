@@ -1,11 +1,11 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
-from composer.models.base import MosaicClassifier
+from composer.models.base import ComposerClassifier
 from composer.models.efficientnets import EfficientNet
 
 
-class EfficientNetB0(MosaicClassifier):
-    """An EfficientNet-b0 model extending :class:`MosaicClassifier`.
+class EfficientNetB0(ComposerClassifier):
+    """An EfficientNet-b0 model extending :class:`ComposerClassifier`.
 
     Based off of this `paper <https://arxiv.org/abs/1905.11946>`_.
 

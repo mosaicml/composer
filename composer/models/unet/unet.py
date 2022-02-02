@@ -8,7 +8,7 @@ import torch
 import torch.nn as nn
 
 from composer.core.types import BatchPair, Metrics, Tensor, Tensors
-from composer.models.base import BaseMosaicModel
+from composer.models.base import ComposerModel
 from composer.models.loss import Dice
 from composer.models.unet.model import UNet as UNetModel
 from composer.models.unet.unet_hparams import UnetHparams
@@ -16,8 +16,8 @@ from composer.models.unet.unet_hparams import UnetHparams
 log = logging.getLogger(__name__)
 
 
-class UNet(BaseMosaicModel):
-    """A U-Net model extending :class:`MosaicClassifier`.
+class UNet(ComposerModel):
+    """A U-Net model extending :class:`ComposerClassifier`.
 
     See this `paper <https://arxiv.org/abs/1505.04597>`_ for details on the
     U-Net architecture.

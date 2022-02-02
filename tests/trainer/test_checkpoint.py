@@ -104,15 +104,15 @@ def assert_weights_equivalent(original_trainer_hparams: TrainerHparams, new_trai
 
 
 @pytest.fixture
-def checkpointing_trainer_hparams(mosaic_trainer_hparams: TrainerHparams) -> TrainerHparams:
-    mosaic_trainer_hparams.grad_accum = 2
-    mosaic_trainer_hparams.max_duration = "2ep"
-    mosaic_trainer_hparams.save_folder = "checkpoints"
-    mosaic_trainer_hparams.save_interval = "1ba"
-    mosaic_trainer_hparams.callbacks.append(DummyStatefulCallbackHparams())
-    mosaic_trainer_hparams.callbacks.append(EventCounterCallbackHparams())
-    mosaic_trainer_hparams.train_subset_num_batches = 5
-    return mosaic_trainer_hparams
+def checkpointing_trainer_hparams(composer_trainer_hparams: TrainerHparams) -> TrainerHparams:
+    composer_trainer_hparams.grad_accum = 2
+    composer_trainer_hparams.max_duration = "2ep"
+    composer_trainer_hparams.save_folder = "checkpoints"
+    composer_trainer_hparams.save_interval = "1ba"
+    composer_trainer_hparams.callbacks.append(DummyStatefulCallbackHparams())
+    composer_trainer_hparams.callbacks.append(EventCounterCallbackHparams())
+    composer_trainer_hparams.train_subset_num_batches = 5
+    return composer_trainer_hparams
 
 
 def assert_checkpoints_equivalent(hparams_file_a: str, checkpoint_file_a: str, hparams_file_b: str,
@@ -122,12 +122,12 @@ def assert_checkpoints_equivalent(hparams_file_a: str, checkpoint_file_a: str, h
         a_checkpoint_dir = os.path.join(tmpdir, 'a')
         with tarfile.open(checkpoint_file_a.format(RANK=0)) as tarball_a:
             tarball_a.extractall(a_checkpoint_dir)
-        a_states_dir = os.path.join(a_checkpoint_dir, 'mosaic_states.pt')
+        a_states_dir = os.path.join(a_checkpoint_dir, 'composer_states.pt')
 
         b_checkpoint_dir = os.path.join(tmpdir, 'b')
         with tarfile.open(checkpoint_file_b.format(RANK=0)) as tarball_b:
             tarball_b.extractall(b_checkpoint_dir)
-        b_states_dir = os.path.join(b_checkpoint_dir, 'mosaic_states.pt')
+        b_states_dir = os.path.join(b_checkpoint_dir, 'composer_states.pt')
 
         checkpoint_a = torch.load(a_states_dir, map_location='cpu')
         checkpoint_b = torch.load(b_states_dir, map_location='cpu')
@@ -173,41 +173,41 @@ def inject_stateful_callback_hparams(monkeypatch: MonkeyPatch):
 ])
 def test_load_weights(
     device_hparams: DeviceHparams,
-    mosaic_trainer_hparams: TrainerHparams,
+    composer_trainer_hparams: TrainerHparams,
 ):
     """strategy:
     - train two epochs. capture checkpoints after `checkpoint_interval` and ep2.
     - create a new trainer from the `checkpoint_interval` checkpoint, but with a new optimizer and scheduler.
     - assert that the model weights are the original model, even though the optimizer and scheduler are different.
     """
-    if not isinstance(mosaic_trainer_hparams.train_dataset, SyntheticHparamsMixin):
+    if not isinstance(composer_trainer_hparams.train_dataset, SyntheticHparamsMixin):
         pytest.skip("Checkpointing tests require synthetic data")
         return
-    if not isinstance(mosaic_trainer_hparams.val_dataset, SyntheticHparamsMixin):
+    if not isinstance(composer_trainer_hparams.val_dataset, SyntheticHparamsMixin):
         pytest.skip("Checkpointing tests require synthetic data")
         return
-    mosaic_trainer_hparams.device = device_hparams
-    mosaic_trainer_hparams.train_dataset.use_synthetic = True
-    mosaic_trainer_hparams.train_dataset.shuffle = False
-    mosaic_trainer_hparams.val_dataset.use_synthetic = True
-    mosaic_trainer_hparams.val_dataset.shuffle = False
-    mosaic_trainer_hparams.grad_accum = 2
-    mosaic_trainer_hparams.loggers = []
-    mosaic_trainer_hparams.train_batch_size = 8
-    mosaic_trainer_hparams.eval_batch_size = 16
-    mosaic_trainer_hparams.max_duration = "2ep"
-    mosaic_trainer_hparams.precision = Precision.FP32
-    mosaic_trainer_hparams.callbacks = [DummyStatefulCallbackHparams(), EventCounterCallbackHparams()]
-    mosaic_trainer_hparams.train_subset_num_batches = 5
-    mosaic_trainer_hparams.device = device_hparams
+    composer_trainer_hparams.device = device_hparams
+    composer_trainer_hparams.train_dataset.use_synthetic = True
+    composer_trainer_hparams.train_dataset.shuffle = False
+    composer_trainer_hparams.val_dataset.use_synthetic = True
+    composer_trainer_hparams.val_dataset.shuffle = False
+    composer_trainer_hparams.grad_accum = 2
+    composer_trainer_hparams.loggers = []
+    composer_trainer_hparams.train_batch_size = 8
+    composer_trainer_hparams.eval_batch_size = 16
+    composer_trainer_hparams.max_duration = "2ep"
+    composer_trainer_hparams.precision = Precision.FP32
+    composer_trainer_hparams.callbacks = [DummyStatefulCallbackHparams(), EventCounterCallbackHparams()]
+    composer_trainer_hparams.train_subset_num_batches = 5
+    composer_trainer_hparams.device = device_hparams
     checkpoint_a_folder = "first"
-    mosaic_trainer_hparams.save_folder = checkpoint_a_folder
-    mosaic_trainer_hparams.save_interval = "1ep"
-    mosaic_trainer_hparams.seed = None
-    mosaic_trainer_hparams.validate_every_n_batches = 1
-    mosaic_trainer_hparams.validate_every_n_epochs = 0
+    composer_trainer_hparams.save_folder = checkpoint_a_folder
+    composer_trainer_hparams.save_interval = "1ep"
+    composer_trainer_hparams.seed = None
+    composer_trainer_hparams.validate_every_n_batches = 1
+    composer_trainer_hparams.validate_every_n_epochs = 0
     final_checkpoint = "ep2.tar"
-    _test_checkpoint_trainer(mosaic_trainer_hparams)
+    _test_checkpoint_trainer(composer_trainer_hparams)
 
     trainer_1_hparams_filepath = os.path.join(run_directory.get_run_directory(), checkpoint_a_folder, "hparams.yaml")
 
@@ -229,12 +229,12 @@ def test_load_weights(
 
     # ensure our new choice of scheduler is different than the original scheduler
     for idx in range(len(second_trainer_hparams.schedulers)):
-        if idx < len(mosaic_trainer_hparams.schedulers):
-            assert second_trainer_hparams.schedulers[idx] != mosaic_trainer_hparams.schedulers[idx]
+        if idx < len(composer_trainer_hparams.schedulers):
+            assert second_trainer_hparams.schedulers[idx] != composer_trainer_hparams.schedulers[idx]
 
     # pass in the two trainers, verify that the weights are the same
     assert_weights_equivalent(
-        original_trainer_hparams=mosaic_trainer_hparams,
+        original_trainer_hparams=composer_trainer_hparams,
         new_trainer_hparams=second_trainer_hparams,
     )
 
@@ -259,7 +259,7 @@ def test_checkpoint(
     world_size: int,
     deepspeed_enabled: bool,
     zero_stage: Optional[int],
-    mosaic_trainer_hparams: TrainerHparams,
+    composer_trainer_hparams: TrainerHparams,
     checkpoint_filename: str,
     seed: Optional[int],
     model_name: Optional[str],
@@ -278,52 +278,52 @@ def test_checkpoint(
         if not isinstance(device_hparams, GPUDeviceHparams):
             pytest.skip("Real models require a GPU -- otherwise they take too long")
         model_hparams = TrainerHparams.load(model_name)
-        mosaic_trainer_hparams.train_dataset = model_hparams.train_dataset
-        mosaic_trainer_hparams.val_dataset = model_hparams.val_dataset
-        mosaic_trainer_hparams.model = model_hparams.model
-        mosaic_trainer_hparams.optimizer = model_hparams.optimizer
-        mosaic_trainer_hparams.schedulers = model_hparams.schedulers
-    if not isinstance(mosaic_trainer_hparams.train_dataset, SyntheticHparamsMixin):
+        composer_trainer_hparams.train_dataset = model_hparams.train_dataset
+        composer_trainer_hparams.val_dataset = model_hparams.val_dataset
+        composer_trainer_hparams.model = model_hparams.model
+        composer_trainer_hparams.optimizer = model_hparams.optimizer
+        composer_trainer_hparams.schedulers = model_hparams.schedulers
+    if not isinstance(composer_trainer_hparams.train_dataset, SyntheticHparamsMixin):
         pytest.skip("Checkpointing tests require synthetic data")
         return
-    if not isinstance(mosaic_trainer_hparams.val_dataset, SyntheticHparamsMixin):
+    if not isinstance(composer_trainer_hparams.val_dataset, SyntheticHparamsMixin):
         pytest.skip("Checkpointing tests require synthetic data")
         return
-    mosaic_trainer_hparams.train_dataset.use_synthetic = True
-    mosaic_trainer_hparams.train_dataset.shuffle = False
-    mosaic_trainer_hparams.val_dataset.use_synthetic = True
-    mosaic_trainer_hparams.val_dataset.shuffle = False
-    mosaic_trainer_hparams.grad_accum = 2
-    mosaic_trainer_hparams.loggers = []
-    mosaic_trainer_hparams.train_batch_size = 8
-    mosaic_trainer_hparams.eval_batch_size = 16
-    mosaic_trainer_hparams.max_duration = "2ep"
-    mosaic_trainer_hparams.precision = Precision.FP32
-    mosaic_trainer_hparams.callbacks = [DummyStatefulCallbackHparams(), EventCounterCallbackHparams()]
-    mosaic_trainer_hparams.train_subset_num_batches = 5
-    mosaic_trainer_hparams.eval_subset_num_batches = 5
-    mosaic_trainer_hparams.device = device_hparams
+    composer_trainer_hparams.train_dataset.use_synthetic = True
+    composer_trainer_hparams.train_dataset.shuffle = False
+    composer_trainer_hparams.val_dataset.use_synthetic = True
+    composer_trainer_hparams.val_dataset.shuffle = False
+    composer_trainer_hparams.grad_accum = 2
+    composer_trainer_hparams.loggers = []
+    composer_trainer_hparams.train_batch_size = 8
+    composer_trainer_hparams.eval_batch_size = 16
+    composer_trainer_hparams.max_duration = "2ep"
+    composer_trainer_hparams.precision = Precision.FP32
+    composer_trainer_hparams.callbacks = [DummyStatefulCallbackHparams(), EventCounterCallbackHparams()]
+    composer_trainer_hparams.train_subset_num_batches = 5
+    composer_trainer_hparams.eval_subset_num_batches = 5
+    composer_trainer_hparams.device = device_hparams
     if deepspeed_enabled:
         assert zero_stage is not None
         if zero_stage > 0:
-            mosaic_trainer_hparams.deterministic_mode = False
+            composer_trainer_hparams.deterministic_mode = False
             if model_name is not None:
                 pytest.skip(
                     textwrap.dedent(f"""\
                         Skipping test since deterministic mode is required for
                         non-trivial models, but deterministic mode isn't compatible with deepsped
                         zero stage {zero_stage}"""))
-        mosaic_trainer_hparams.deepspeed = {"zero_stage": zero_stage}
+        composer_trainer_hparams.deepspeed = {"zero_stage": zero_stage}
 
     checkpoint_a_folder = "first"
-    mosaic_trainer_hparams.save_folder = checkpoint_a_folder
-    mosaic_trainer_hparams.save_interval = "1ep" if checkpoint_filename.startswith("ep") else "2ba"
-    mosaic_trainer_hparams.seed = seed
+    composer_trainer_hparams.save_folder = checkpoint_a_folder
+    composer_trainer_hparams.save_interval = "1ep" if checkpoint_filename.startswith("ep") else "2ba"
+    composer_trainer_hparams.seed = seed
 
-    mosaic_trainer_hparams.validate_every_n_batches = 0 if checkpoint_filename.startswith("it") else 1
-    mosaic_trainer_hparams.validate_every_n_epochs = 0 if checkpoint_filename.startswith("ep") else 1
+    composer_trainer_hparams.validate_every_n_batches = 0 if checkpoint_filename.startswith("it") else 1
+    composer_trainer_hparams.validate_every_n_epochs = 0 if checkpoint_filename.startswith("ep") else 1
     final_checkpoint = ("ep2" if checkpoint_filename.startswith("ep") else "it8") + ".tar"
-    _test_checkpoint_trainer(mosaic_trainer_hparams)
+    _test_checkpoint_trainer(composer_trainer_hparams)
     checkpoint_a_file_path = os.path.join(checkpoint_a_folder, checkpoint_filename)
     checkpoint_b_file_path = os.path.join(run_directory.get_node_run_directory(), "rank_{RANK}", checkpoint_a_folder,
                                           final_checkpoint)

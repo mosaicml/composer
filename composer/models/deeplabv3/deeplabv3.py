@@ -8,7 +8,7 @@ from torchvision.models import _utils, resnet
 from torchvision.models.segmentation.deeplabv3 import ASPP, DeepLabV3
 
 from composer.core.types import BatchPair
-from composer.models.base import BaseMosaicModel
+from composer.models.base import ComposerModel
 from composer.models.loss import CrossEntropyLoss, MIoU, soft_cross_entropy
 from composer.models.model_hparams import Initializer
 
@@ -63,8 +63,8 @@ def deeplabv3_builder(num_classes: int,
     return model
 
 
-class MosaicDeepLabV3(BaseMosaicModel):
-    """DeepLabV3 model extending the :class:`MosaicClassifier`.
+class ComposerDeepLabV3(ComposerModel):
+    """DeepLabV3 model extending the :class:`ComposerClassifier`.
     
     See `<arxiv.org/abs/1706.05587>`_ for more details on the DeepLabV3 architecture.
     

@@ -92,8 +92,8 @@ def test_algorithm_logging(state_with_model: State, logger_mock: Logger, algo_in
 
 
 # not marked run_long because takes a fraction of a second
-def test_factorize_trains(mosaic_trainer_hparams: TrainerHparams):
-    mosaic_trainer_hparams.algorithms = [
+def test_factorize_trains(composer_trainer_hparams: TrainerHparams):
+    composer_trainer_hparams.algorithms = [
         FactorizeHparams(factorize_convs=True,
                          factorize_linears=True,
                          min_channels=8,
@@ -101,4 +101,4 @@ def test_factorize_trains(mosaic_trainer_hparams: TrainerHparams):
                          min_features=8,
                          latent_features=4)
     ]
-    train_model(mosaic_trainer_hparams, run_loss_check=True)
+    train_model(composer_trainer_hparams, run_loss_check=True)
