@@ -5,6 +5,12 @@ torch.manual_seed(42)
 
 import matplotlib.pyplot as plt
 from pl_bolts.datamodules import CIFAR10DataModule
+from pl_bolts.transforms.dataset_normalizations import cifar10_normalization
+
+PATH_DATASETS = os.environ.get("PATH_DATASETS", ".")
+AVAIL_GPUS = min(1, torch.cuda.device_count())
+BATCH_SIZE = 256 if AVAIL_GPUS else 64
+NUM_WORKERS = int(os.cpu_count() / 2)
 
 def create_model():
     model = torchvision.models.resnet18(pretrained=False, num_classes=10)
@@ -28,11 +34,19 @@ test_transforms = torchvision.transforms.Compose(
     ]
 )
 
-train_dataset = datasets.CIFAR10('../data', train=True, download=True, transform=train_transforms)
-test_dataset = datasets.CIFAR10('../data', train=False, download=True, transform=test_transforms)
+cifar10_dm = CIFAR10DataModule(
+    data_dir=PATH_DATASETS,
+    batch_size=BATCH_SIZE,
+    num_workers=NUM_WORKERS,
+    train_transforms=train_transforms,
+    test_transforms=test_transforms,
+    val_transforms=test_transforms,
+)
 
-train_dataloader = torch.utils.data.DataLoader(train_dataset, batch_size=1024, shuffle=True)
-test_dataloader = torch.utils.data.DataLoader(test_dataset, batch_size=1024, shuffle=True)
+## up to here all PTL code
+
+train_dataloader = cifar10_dm.train_dataloader()
+test_dataloader = cifar10_dm.test_dataloader()
 
 from composer import Trainer
 
@@ -40,14 +54,41 @@ from composer import Trainer
 from composer.models import MosaicResNet
 
 module = create_model()
-model = LitResnet(lr=0.05)
+PTLmodel = LitResnet(lr=0.05)
 
+
+## The MosaicClassifier needs 5 functions: __init__, loss, metrics, forward and validate. Everything else is under the hood.
 ## change model to composer version
+class Mosaicmodel(BaseMosaicModel):
 
-model = models.CIFAR10_ResNet56(num_classes=10)
+    def __init__(self, module: torch.nn.Module) -> None:
+        super().__init__()
+
+    def loss(self, outputs: Any, batch: BatchPair, *args, **kwargs) -> Tensors:
+        ## loss from PTL.training_step()
+        return F.nll_loss(logits, y)
+
+    def metrics(self, train: bool = False) -> Metrics:
+        ## acc from PTL.evaluate()
+        from torchmetrics.classification.accuracy import Accuracy
+        return Accuracy()
+
+    def forward(self, batch: BatchPair) -> Tensor:
+        ## from PTL.forward()
+        x, _ = batch
+        return PTLmodel.forward(x)
+
+    def validate(self, batch: BatchPair) -> Tuple[Any, Any]:
+        ## from PTL.evaluate()
+        return PTLmodel.evaluate(batch, "val")
 
 
-trainer = Trainer(model=model,
+
+#model = models.CIFAR10_ResNet56(num_classes=10)
+
+
+## COMPOSER TRAINER
+trainer = Trainer(model=Mosaicmodel,
                   train_dataloader=train_dataloader,
                   eval_dataloader=test_dataloader,
                   max_duration='1ep',
