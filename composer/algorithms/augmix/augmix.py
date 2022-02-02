@@ -39,8 +39,9 @@ def augment_and_mix(img: Optional[ImageType] = None,
                     width: int = 3,
                     alpha: float = 1.0,
                     augmentation_set: List = augmentation_sets["all"]) -> ImageType:
-    """Applies AugMix (`Hendrycks et al. <http://arxiv.org/abs/1912.02781>`_) data augmentation to an image.
-    See :class:`AugMix` for details.
+    """Applies AugMix (`Hendrycks et al.
+
+    <http://arxiv.org/abs/1912.02781>`_) data augmentation to an image. See :class:`AugMix` for details.
     """
 
     assert isinstance(img, ImageType) or isinstance(img, np.ndarray), "img must be a PIL.Image"
@@ -99,10 +100,9 @@ class AugmentAndMixTransform(torch.nn.Module):
 
 
 class AugMix(Algorithm):
-    """`AugMix <http://arxiv.org/abs/1912.02781>`_ creates ``width`` sequences
-    of ``depth`` image augmentations, applies each sequence with random
-    intensity, and returns a convex combination of the ``width`` augmented
-    images and the original image.
+    """`AugMix <http://arxiv.org/abs/1912.02781>`_ creates ``width`` sequences of ``depth`` image augmentations, applies
+    each sequence with random intensity, and returns a convex combination of the ``width`` augmented images and the
+    original image.
 
     The coefficients for mixing the augmented images are drawn from a uniform
     ``Dirichlet(alpha, alpha, ...)`` distribution. The coefficient for mixing
@@ -133,7 +133,6 @@ class AugMix(Algorithm):
                 are identical to the original Github repository, which contains
                 implementation specificities for the augmentations
                 ``"color"``, ``"contrast"``, ``"sharpness"``, and ``"brightness"``.
-
     """
 
     # TODO document each value of augmentation_set in more detail; i.e.,
@@ -158,11 +157,11 @@ class AugMix(Algorithm):
         self.augmentation_set = augmentation_set
 
     def match(self, event: Event, state: State) -> bool:
-        """Runs on Event.TRAINING_START"""
+        """Runs on Event.TRAINING_START."""
         return event == Event.TRAINING_START
 
     def apply(self, event: Event, state: State, logger: Logger) -> None:
-        """Inserts AugMix into the list of dataloader transforms"""
+        """Inserts AugMix into the list of dataloader transforms."""
         am = AugmentAndMixTransform(severity=self.severity,
                                     depth=self.depth,
                                     width=self.width,

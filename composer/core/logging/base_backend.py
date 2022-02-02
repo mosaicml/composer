@@ -13,15 +13,13 @@ if TYPE_CHECKING:
 
 
 class BaseLoggerBackend(Callback, ABC):
-    """Base class for logging backends.
-    """
+    """Base class for logging backends."""
 
     def __init__(self):
         super().__init__()
 
     def will_log(self, state: State, log_level: LogLevel) -> bool:
-        """Called by the :class:`~composer.core.logging.logger.Logger`
-        to determine whether to log a metric.
+        """Called by the :class:`~composer.core.logging.logger.Logger` to determine whether to log a metric.
 
         By default, it always returns ``True``, but this method
         can be overridden.
@@ -39,8 +37,8 @@ class BaseLoggerBackend(Callback, ABC):
         return True
 
     def log_metric(self, epoch: int, step: int, log_level: LogLevel, data: TLogData):
-        """Called by the :class:`~composer.core.logging.logger.Logger`
-        for metrics where :func:`will_log` returned ``True``.
+        """Called by the :class:`~composer.core.logging.logger.Logger` for metrics where :func:`will_log` returned
+        ``True``.
 
         The logging backend should override this function to log the data
         (e.g. write it to a file, send it to a server, etc...).

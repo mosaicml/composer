@@ -144,7 +144,7 @@ class CheckpointLoader:
                 fp.write(chunk)
 
     def _get_node_checkpoint_download_folder(self, path: Optional[str]) -> str:
-        """Broadcasts the path from the local rank zero to all ranks"""
+        """Broadcasts the path from the local rank zero to all ranks."""
         local_rank_zero = dist.get_local_world_size() * dist.get_node_rank()
         paths = dist.all_gather_object(path)
         local_rank_zero_path = paths[local_rank_zero]
@@ -299,8 +299,7 @@ class CheckpointLoader:
         return seed_to_restore
 
     def restore_checkpoint_rng_state(self, device: Device):
-        """Restore the state of all RNG objects in this context from the loaded checkpoint's data.
-        """
+        """Restore the state of all RNG objects in this context from the loaded checkpoint's data."""
 
         if self.checkpoint_rng_state is None:
             return

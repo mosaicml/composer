@@ -46,7 +46,7 @@ class RunDirectoryUploader(Callback):
           since data from the last upload may be lost.
 
         * Set `use_procs=True` (the default) to use background processes,
-          instead of threads, to perform the file uploads. Processes are recommended to 
+          instead of threads, to perform the file uploads. Processes are recommended to
           ensure that the GIL is not blocking the training loop when performance CPU
           operations on uploaded files (e.g. comparing and computing checksums).
           Network I/O happens always occurs in the background.

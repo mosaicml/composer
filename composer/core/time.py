@@ -104,8 +104,7 @@ class Time(Generic[TValue]):
 
     @classmethod
     def from_epoch(cls, epoch: int) -> Time:
-        """Create a :class:`Time` with units of :attr:`TimeUnit.EPOCH`.
-        Equivalent to ``Time(epoch, TimeUnit.EPOCH)``.
+        """Create a :class:`Time` with units of :attr:`TimeUnit.EPOCH`. Equivalent to ``Time(epoch, TimeUnit.EPOCH)``.
 
         Args:
             epoch (int): Number of epochs.
@@ -117,8 +116,7 @@ class Time(Generic[TValue]):
 
     @classmethod
     def from_batch(cls, batch: int) -> Time:
-        """Create a :class:`Time` with units of :attr:`TimeUnit.BATCH`.
-        Equivalent to ``Time(batch, TimeUnit.BATCH)``.
+        """Create a :class:`Time` with units of :attr:`TimeUnit.BATCH`. Equivalent to ``Time(batch, TimeUnit.BATCH)``.
 
         Args:
             batch (int): Number of batches.
@@ -130,8 +128,8 @@ class Time(Generic[TValue]):
 
     @classmethod
     def from_sample(cls, sample: int) -> Time:
-        """Create a :class:`Time` with units of :attr:`TimeUnit.SAMPLE`.
-        Equivalent to ``Time(sample, TimeUnit.SAMPLE)``.
+        """Create a :class:`Time` with units of :attr:`TimeUnit.SAMPLE`. Equivalent to ``Time(sample,
+        TimeUnit.SAMPLE)``.
 
         Args:
             sample (int): Number of samples.
@@ -143,8 +141,7 @@ class Time(Generic[TValue]):
 
     @classmethod
     def from_token(cls, token: int) -> Time:
-        """Create a :class:`Time` with units of :attr:`TimeUnit.TOKEN`.
-        Equivalent to ``Time(sample, TimeUnit.TOKEN)``.
+        """Create a :class:`Time` with units of :attr:`TimeUnit.TOKEN`. Equivalent to ``Time(sample, TimeUnit.TOKEN)``.
 
         Args:
             token (int): Number of tokens.
@@ -156,8 +153,8 @@ class Time(Generic[TValue]):
 
     @classmethod
     def from_duration(cls, duration: float) -> Time:
-        """Create a :class:`Time` with units of :attr:`TimeUnit.DURATION`.
-        Equivalent to ``Time(duration, TimeUnit.DURATION)``.
+        """Create a :class:`Time` with units of :attr:`TimeUnit.DURATION`. Equivalent to ``Time(duration,
+        TimeUnit.DURATION)``.
 
         Args:
             duration (float): Duration of the training process. Should be on ``[0, 1)``
@@ -286,8 +283,8 @@ class Time(Generic[TValue]):
 
     @classmethod
     def from_timestring(cls, timestring: str) -> Time:
-        """Parse a time string into a :class:`Time` instance.
-        A time string is a numerical value followed by the value of a :class:`TimeUnit` enum. For example:
+        """Parse a time string into a :class:`Time` instance. A time string is a numerical value followed by the value
+        of a :class:`TimeUnit` enum. For example:
 
         >>> Time("5ep")  # describes 5 epochs.
         >>> Time("3e4tok")  # describes 30,000 tokens.
@@ -403,7 +400,7 @@ class Timer(Serializable):
         .. note::
 
             For accurate time tracking, the trainer is responsible for accumulating the total number of
-            samples and/or tokens trained across all ranks before invoking this function. 
+            samples and/or tokens trained across all ranks before invoking this function.
 
         Args:
             samples (int or Time, optional): The number of samples trained in the batch. Defaults to 0.

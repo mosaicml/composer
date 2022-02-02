@@ -1,9 +1,6 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
-"""
-Helper function to generate the README table
-
-"""
+"""Helper function to generate the README table."""
 import os
 from pathlib import Path
 

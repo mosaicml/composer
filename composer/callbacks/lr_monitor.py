@@ -6,8 +6,7 @@ from composer.core import Callback, Logger, State
 class LRMonitor(Callback):
     """Logs the learning rate.
 
-    Learning rates for each optimizer is logged on each batch
-    under the ``lr-{OPTIMIZER_NAME}/group{GROUP_NUMBER}`` key.
+    Learning rates for each optimizer is logged on each batch under the ``lr-{OPTIMIZER_NAME}/group{GROUP_NUMBER}`` key.
     """
 
     def __init__(self) -> None:

@@ -15,8 +15,7 @@ log = logging.getLogger(__name__)
 
 
 class Benchmarker(Callback):
-    """Fast-forward the training loop to record 
-    throughput for specific epochs and/or steps.
+    """Fast-forward the training loop to record throughput for specific epochs and/or steps.
 
     It modifies the :attr:`~composer.core.state.State.step` and
     :attr:`~composer.core.state.State.epoch` to fast-forward the training loop,
@@ -53,7 +52,7 @@ class Benchmarker(Callback):
             Defaults to [0, 50].
         all_epochs (bool, optional).
             Whether to override epoch_list and profile at all epochs.
-    
+
             If False (the default), then it fast-forwards to
             the steps and epochs being profiled (specified by ``epoch_list``
             and ``step_list``, respectively).
