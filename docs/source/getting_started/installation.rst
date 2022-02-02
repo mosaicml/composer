@@ -67,7 +67,7 @@ Test ``Composer`` was installed properly by opening a ``python`` prompt, and run
     import torchvision.models as models
 
     logging.basicConfig(level=logging.INFO)
-    model = models.resnet50()
+    model = models.resnet(model_name='resnet50')
 
     CF.apply_blurpool(model)
 

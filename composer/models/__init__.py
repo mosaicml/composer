@@ -1,14 +1,14 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
-from composer.models.base import ComposerModel as ComposerModel
 from composer.models.base import ComposerClassifier as ComposerClassifier
+from composer.models.base import ComposerModel as ComposerModel
 from composer.models.bert import BERTForClassificationHparams as BERTForClassificationHparams
 from composer.models.bert import BERTHparams as BERTHparams
 from composer.models.bert import BERTModel as BERTModel
 from composer.models.classify_mnist import MNIST_Classifier as MNIST_Classifier
 from composer.models.classify_mnist import MnistClassifierHparams as MnistClassifierHparams
-from composer.models.deeplabv3 import DeepLabV3Hparams as DeepLabV3Hparams
 from composer.models.deeplabv3 import ComposerDeepLabV3 as ComposerDeepLabV3
+from composer.models.deeplabv3 import DeepLabV3Hparams as DeepLabV3Hparams
 from composer.models.efficientnetb0 import EfficientNetB0 as EfficientNetB0
 from composer.models.efficientnetb0 import EfficientNetB0Hparams as EfficientNetB0Hparams
 from composer.models.gpt2 import GPT2Hparams as GPT2Hparams
@@ -17,16 +17,12 @@ from composer.models.model_hparams import Initializer as Initializer
 from composer.models.model_hparams import ModelHparams as ModelHparams
 from composer.models.resnet9_cifar10 import CIFAR10_ResNet9 as CIFAR10_ResNet9
 from composer.models.resnet9_cifar10 import CIFARResNet9Hparams as CIFARResNet9Hparams
-from composer.models.resnet18 import ResNet18 as ResNet18
-from composer.models.resnet18 import ResNet18Hparams as ResNet18Hparams
 from composer.models.resnet20_cifar10 import CIFAR10_ResNet20 as CIFAR10_ResNet20
 from composer.models.resnet20_cifar10 import CIFARResNet20Hparams as CIFARResNet20Hparams
-from composer.models.resnet50 import ResNet50 as ResNet50
-from composer.models.resnet50 import ResNet50Hparams as ResNet50Hparams
 from composer.models.resnet56_cifar10 import CIFAR10_ResNet56 as CIFAR10_ResNet56
 from composer.models.resnet56_cifar10 import CIFARResNetHparams as CIFARResNetHparams
-from composer.models.resnet101 import ResNet101 as ResNet101
-from composer.models.resnet101 import ResNet101Hparams as ResNet101Hparams
+from composer.models.resnet.model import ComposerResNet as ComposerResNet
+from composer.models.resnet.resnet_hparams import ResNetHparams as ResNetHparams
 from composer.models.timm import Timm as Timm
 from composer.models.timm import TimmHparams as TimmHparams
 from composer.models.transformer_shared import ComposerTransformer as ComposerTransformer

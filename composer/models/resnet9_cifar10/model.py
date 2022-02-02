@@ -3,10 +3,10 @@
 from typing import List, Optional
 
 import torch.nn as nn
+from torchvision.models.resnet import BasicBlock
 
 from composer.models.base import ComposerClassifier
 from composer.models.model_hparams import Initializer
-from composer.models.resnets import BasicBlock
 
 
 # adapted from https://raw.githubusercontent.com/matthias-wright/cifar10-resnet/master/model.py
