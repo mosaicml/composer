@@ -4,10 +4,11 @@ from __future__ import annotations
 
 import logging
 from dataclasses import asdict, dataclass
-from typing import Optional
+from typing import Optional, TypeVar
 
 import numpy as np
 import torch
+import torch.nn.functional as F
 import yahp as hp
 
 from composer.algorithms import AlgorithmHparams
@@ -31,7 +32,10 @@ def _corresponding_ghost_batchnorm_type(batchnorm: torch.nn.Module):
                      "torch.nn.BatchNorm1d, torch.nn.BatchNorm2d, torch.nn.BatchNorm3d")
 
 
-class _GhostBatchNorm(torch.nn.Module):
+T = TypeVar('T', bound='_GhostBatchNorm')
+
+# class _GhostBatchNorm(torch.nn.Module):
+class _GhostBatchNorm(torch.nn.batchnorm._BatchNorm):
     """`Ghost batch normalization <https://arxiv.org/abs/1705.08741>`_ layer.
 
     Works by spliting input into chunks of ``ghost_batch_size`` samples and
@@ -52,34 +56,129 @@ class _GhostBatchNorm(torch.nn.Module):
             data-parallel training, because the per-worker batch size is usually
             much smaller than the overall batch size.
     """
-
-    def __init__(self, base_batchnorm: _TORCH_BATCHNORM_BASE_CLASS, ghost_batch_size: int = _DEFAULT_GHOST_BATCH_SIZE):
-        super().__init__()
+    # def __init__(self, num_features: int, ghost_batch_size: int = _DEFAULT_GHOST_BATCH_SIZE,
+    #              affine: bool = True, track_running_stats: bool = True, ) -> None:
+    def __init__(self,
+                 num_features: int,
+                 ghost_batch_size: int = _DEFAULT_GHOST_BATCH_SIZE,
+                 eps: float = 1e-5,
+                 momentum: float = 0.1,
+                 affine: bool = True,
+                 track_running_stats: bool = True,
+                 device=None,
+                 dtype=None):
+        super().__init__(num_features=num_features,
+                         eps=eps,
+                         momentum=momentum,
+                         affine=affine,
+                         track_running_stats=track_running_stats,
+                         device=device,
+                         dtype=dtype)
+        # self.num_features = num_features
         self.ghost_batch_size = ghost_batch_size
-        self.batchnorm = base_batchnorm
+        # self.affine = affine
+        # self.track_running_stats = track_running_stats
 
-    def _has_momentum(self) -> bool:
-        return hasattr(self.batchnorm, 'momentum') and self.batchnorm.momentum is not None
+        # if track_running_stats:
+        #     self.register_buffer('running_mean', torch.zeros(self.num_features))
+        #     self.register_buffer('running_var', torch.ones(self.num_features))
+        # else:
 
-    def forward(self, input: torch.Tensor) -> torch.Tensor:  # type: ignore
+
+    # def _has_momentum(self) -> bool:
+    #     return hasattr(self.batchnorm, 'momentum') and self.batchnorm.momentum is not None
+
+    # def train(self: T, mode: bool = True) -> T:
+
+    def forward(self, input: torch.Tensor) -> torch.Tensor:
+        self._check_input_dim(input)
+        if not self.training:  # for inference, behave like a normal batchnorm
+            return super().forward(input)
+
+        # The exponential average logic below is taken verbatim from torch batchnorm
+        # https://pytorch.org/docs/stable/_modules/torch/nn/modules/batchnorm.html
+
+        # exponential_average_factor is set to self.momentum
+        # (when it is available) only so that it gets updated
+        # in ONNX graph when this node is exported to ONNX.
+        if self.momentum is None:
+            exponential_average_factor = 0.0
+        else:
+            exponential_average_factor = self.momentum
+
+        if self.training and self.track_running_stats:
+            # TODO: if statement only here to tell the jit to skip emitting this when it is None
+            if self.num_batches_tracked is not None:  # type: ignore[has-type]
+                self.num_batches_tracked = self.num_batches_tracked + 1  # type: ignore[has-type]
+                if self.momentum is None:  # use cumulative moving average
+                    exponential_average_factor = 1.0 / float(self.num_batches_tracked)
+                else:  # use exponential moving average
+                    exponential_average_factor = self.momentum
+
+        # from here down is (mostly) new logic; we reshape the tensor so that
+        # different samples are treated as different channels, then call a
+        # regular batchnorm function, and then aggregate the running stats
+        # from all the corresponding channels
         batch_size = input.shape[0]
-        if batch_size < self.ghost_batch_size:
-            raise ValueError(f"Worker batch size {batch_size} < ghost_batch_size {self.ghost_batch_size}")
+        has_stragglers = batch_size % self.ghost_batch_size != 0
+        if has_stragglers:
+            raise ValueError(f"Ghost batch size {self.ghost_batch_size} does not evenly divide per-device batch size {batch_size}")
+        num_ghost_batches = batch_size // self.ghost_batch_size
 
-        nchunks = int(np.ceil(batch_size / self.ghost_batch_size))
-        has_momentum = self._has_momentum()
-        if has_momentum:
-            # applying the same batchnorm multiple times greatly increases
-            # the variance of the moving average statistics; reduce the
-            # exponential moving average constant proportionally
-            # to partially compensate for this
-            original_momentum = self.batchnorm.momentum
-            self.batchnorm.momentum = float(original_momentum) / nchunks  # type: ignore
-        normalized_chunks = [self.batchnorm(chunk) for chunk in input.chunk(nchunks, 0)]
-        if has_momentum:
-            self.batchnorm.momentum = original_momentum  # type: ignore
+        strides = input.stride()
+        is_nchw = smallest_stride = np.min(strides)
 
-        return torch.cat(normalized_chunks, dim=0)
+        running_mean, running_var = None, None
+        if self.track_running_stats:
+            running_mean = self.running_mean
+            running_var = self.running_var
+            if is_nchw:
+                running_mean.repeat(num_ghost_batches)
+                running_var.repeat(num_ghost_batches)
+
+        if not is_nchw:
+            input = input.to(memory_format=torch.contiguous_format)
+        X = input.reshape(self.ghost_batch_size, num_ghost_batches * input.shape[1], *input.shape[2:])
+
+        # if is_nchw:  # nchw layout or equivalent lets us use F.batch_norm
+        #     X = input.reshape(self.ghost_batch_size, num_ghost_batches * input.shape[1], *input.shape[2:])
+        # elif strides[-1] == smallest_stride:
+
+            # # reshaping yields the wrong layout, so do the batchnorm ourselves
+            # X = input.reshape(self.ghost_batch_size, num_ghost_batches, *input.shape[2:])
+            # # e.g., for nchw -> g, n/g, c, h, w
+            # dim = [1] + list(range(1, X.ndim))
+            # var, mean = torch.var_mean(X, dim=dim, unbiased=False, keepdim=True)
+            # X = X - mean
+            # X /= var
+            # if self.track_running_stats and self.exponential_average_factor:
+            #     self.running_mean
+
+
+        r"""
+        Buffers are only updated if they are to be tracked and we are in training mode. Thus they only need to be
+        passed when the update should occur (i.e. in training mode when they are tracked), or when buffer stats are
+        used for normalization (i.e. in eval mode when buffers are not None).
+        """
+        ret = F.batch_norm(
+            X,
+            running_mean,
+            running_var,
+            self.weight,
+            self.bias,
+            True,  # whether training; always True if we got to here
+            exponential_average_factor,
+            self.eps,
+        )
+        if self.track_running_stats and num_ghost_batches > 1:
+            # average stats from all ghost batches; the tensors we passed
+            # in were updated in place by F.batch_norm
+            self.running_mean.copy_(running_mean.reshape(num_ghost_batches, self.num_features)).mean(dim=0)
+            self.running_var.copy_(running_mean.reshape(num_ghost_batches, self.num_features)).mean(dim=0)
+        if not is_nchw:  # XXX tensor could be in a format other than NCHW or NHWC
+            ret = ret.to(memory_format=torch.channels_last)
+        return ret.reshape(input.shape)
+
 
     @staticmethod
     def from_batchnorm(module: torch.nn.Module, ghost_batch_size: int) -> _GhostBatchNorm:
@@ -89,15 +188,24 @@ class _GhostBatchNorm(torch.nn.Module):
 
 
 class GhostBatchNorm1d(_GhostBatchNorm):
-    pass
+
+    def _check_input_dim(self, input):  # copied from torch BatchNorm1d
+        if input.dim() != 2 and input.dim() != 3:
+            raise ValueError("expected 2D or 3D input (got {}D input)".format(input.dim()))
 
 
 class GhostBatchNorm2d(_GhostBatchNorm):
-    pass
+
+    def _check_input_dim(self, input):  # copied from torch BatchNorm2d
+        if input.dim() != 4:
+            raise ValueError("expected 4D input (got {}D input)".format(input.dim()))
 
 
 class GhostBatchNorm3d(_GhostBatchNorm):
-    pass
+
+    def _check_input_dim(self, input):  # copied from torch BatchNorm3d
+        if input.dim() != 5:
+            raise ValueError("expected 5D input (got {}D input)".format(input.dim()))
 
 
 def apply_ghost_batchnorm(model: torch.nn.Module,
