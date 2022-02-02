@@ -226,6 +226,7 @@ class CutMix(Algorithm):
         self._indices = torch.Tensor()
         self._cutmix_lambda = 0.0
         self._bbox = tuple()
+        self.num_classes = None  # set on INIT
 
     def match(self, event: Event, state: State) -> bool:
         """Runs on Event.INIT and Event.AFTER_DATALOADER.
@@ -271,8 +272,13 @@ class CutMix(Algorithm):
             logger (Logger): the training logger
         """
         if event == Event.INIT:
-            self.num_classes: int = state.model.num_classes  # type: ignore
+            num_classes = state.model.num_classes
+            if not isinstance(num_classes, int):
+                raise RuntimeError(f"{type(self).__name__} requires model.num_classes to be an integer")
+            self.num_classes = num_classes
             return
+
+        assert self.num_classes is not None, "num classes is set on Event.INIT"
 
         input, target = state.batch_pair
         assert isinstance(input, Tensor) and isinstance(target, Tensor), \

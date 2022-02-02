@@ -181,10 +181,11 @@ class Alibi(Algorithm):
         self.heads_per_layer = heads_per_layer
         self.max_sequence_length = max_sequence_length
         self.train_sequence_length_scaling = train_sequence_length_scaling
+        self._applied = False
 
     def match(self, event: Event, state: State) -> bool:
         """Runs on Event.INIT."""
-        return event in (Event.INIT, Event.AFTER_DATALOADER)
+        return (event == Event.INIT and not self._applied) or event == Event.AFTER_DATALOADER
 
     def apply(self, event: Event, state: State, logger: Logger) -> Optional[int]:
         """Replace model's existing attention mechanism with AliBi."""
@@ -212,6 +213,8 @@ class Alibi(Algorithm):
                 alibi_attention=lazy_import(self.alibi_attention),
                 # Access method from string
                 mask_replacement_function=lazy_import(self.mask_replacement_function))
+
+            self._applied = True
 
         elif event == Event.AFTER_DATALOADER:
             # Change sequence length by reshaping data
