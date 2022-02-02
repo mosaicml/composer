@@ -122,7 +122,7 @@ autodoc_type_aliases = {
 pygments_style = "manni"
 pygments_dark_style = "monokai"
 
-html_permalinks = False
+html_add_permalinks = "#"
 
 intersphinx_mapping = {
     'python': ('https://docs.python.org/3/', None),
