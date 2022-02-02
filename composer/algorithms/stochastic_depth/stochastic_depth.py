@@ -253,8 +253,7 @@ class StochasticDepth(Algorithm):
             bool: True if this algorithm should run now.
         """
 
-        return (event == Event.INIT and not self._applied) or (event == Event.BATCH_START and
-                                                               self.drop_warmup > 0.0)
+        return (event == Event.INIT and not self._applied) or (event == Event.BATCH_START and self.drop_warmup > 0.0)
 
     def apply(self, event: Event, state: State, logger: Logger) -> Optional[int]:
         """Applies StochasticDepth modification to the state's model.

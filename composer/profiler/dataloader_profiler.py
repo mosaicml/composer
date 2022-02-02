@@ -53,6 +53,7 @@ class DataloaderProfiler(Callback):
             state.train_dataloader = ProfiledDataLoader(state.profiler, state.train_dataloader, "train")
 
         for evaluator in state.evaluators:
-            
+
             if not ProfiledDataLoader.is_dataloader_already_wrapped(evaluator.dataloader.dataloader):
-                evaluator.dataloader.dataloader = ProfiledDataLoader(state.profiler, evaluator.dataloader.dataloader, evaluator.label)
+                evaluator.dataloader.dataloader = ProfiledDataLoader(state.profiler, evaluator.dataloader.dataloader,
+                                                                     evaluator.label)

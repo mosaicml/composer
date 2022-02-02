@@ -68,15 +68,15 @@ class NoOpModel(Algorithm):
     def apply(self, event: Event, state: State, logger: Logger) -> Optional[int]:
         # replace model with dummy model
 
-        if not isinstance(state.model, BaseMosaicModel):
+        if not isinstance(state.model, ComposerModel):
             # We do NOT want to apply this algorithm after deepspeed or DDP wrapping
             # the module.
-            # Hence, we raise an error if the model is already wrapped (i.e. it is no longer a BaseMosaicModel)
+            # Hence, we raise an error if the model is already wrapped (i.e. it is no longer a ComposerModel)
             # when the algorithm is not yet applied
             raise RuntimeError(
                 textwrap.dedent(f"""\
                 Unable to apply {type(self).__name__} on model of type {type(state.model)};
-                expected state.model to be {BaseMosaicModel.__name__}"""))
+                expected state.model to be {ComposerModel.__name__}"""))
         self._applied = True
 
         if state.precision == Precision.AMP:
