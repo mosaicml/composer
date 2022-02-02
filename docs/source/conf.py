@@ -122,6 +122,8 @@ autodoc_type_aliases = {
 pygments_style = "manni"
 pygments_dark_style = "monokai"
 
+html_permalinks = False
+
 intersphinx_mapping = {
     'python': ('https://docs.python.org/3/', None),
     'numpy': ('https://numpy.org/doc/stable/', None),
