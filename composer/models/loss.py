@@ -192,8 +192,8 @@ class CrossEntropyLoss(Metric):
     """Torchmetric cross entropy loss implementation.
 
     This class implements cross entropy loss as a `torchmetric` so that
-    it can be returned by the :meth:`~composer.models.BaseMosaicModel.metric`
-    function in :class:`BaseMosaicModel`.
+    it can be returned by the :meth:`~composer.models.ComposerModel.metric`
+    function in :class:`ComposerModel`.
     """
 
     def __init__(self, ignore_index: int = -100, dist_sync_on_step=False):

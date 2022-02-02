@@ -185,10 +185,11 @@ class Engine():
         Returns:
             algorithms_to_run(Sequence[Algorithm]): modified sequence of algorithms
         """
-        from composer.algorithms import SelectiveBackprop
+        from composer.algorithms import SelectiveBackprop, StochasticDepth
 
         # Move selective backprop to the beginning while maintaining order of other algorithms
-        algorithms = sorted(algorithms_to_run, key=lambda x: not isinstance(x, SelectiveBackprop))
+        algorithms = sorted(algorithms_to_run,
+                            key=lambda x: not isinstance(x, SelectiveBackprop) and not isinstance(x, StochasticDepth))
 
         if event.is_after_event:
             """Establish a FILO queue of algorithms before_ and after_ an event.

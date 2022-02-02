@@ -32,7 +32,7 @@ class WarmUpLR(_LRScheduler):
             learning rate schedule. Default: ``-1``.
         verbose (bool): If ``True``, prints a message to stdout for
             each update. Default: ``False``.
-        interval (str): Frequency of ``step()`` calls, either ``step`` or ``epoch``. Default: ``step``.
+        interval (str): Frequency of ``step()`` calls, either ``step`` or ``epoch``. Default: ``epoch``.
 
     Example:
         >>> # Assuming optimizer uses lr = 0.05 for all groups
@@ -68,7 +68,7 @@ class WarmUpLR(_LRScheduler):
                  warmup_method="linear",
                  last_epoch=-1,
                  verbose=False,
-                 interval='step'):
+                 interval='epoch'):
         if warmup_method not in ("constant", "linear"):
             raise ValueError("Only 'constant' or 'linear' warmup_method accepted, but got {}".format(warmup_method))
 

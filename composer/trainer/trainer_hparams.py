@@ -8,7 +8,7 @@ from __future__ import annotations
 import os
 import textwrap
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, List, Optional
+from typing import TYPE_CHECKING, Dict, List, Optional, cast
 
 import yahp as hp
 
@@ -17,19 +17,21 @@ from composer import datasets
 from composer.algorithms import AlgorithmHparams, get_algorithm_registry
 from composer.callbacks import (BenchmarkerHparams, CallbackHparams, GradMonitorHparams, LRMonitorHparams,
                                 MemoryMonitorHparams, RunDirectoryUploaderHparams, SpeedMonitorHparams)
-from composer.core.types import Precision
+from composer.core.types import JSON, Precision
 from composer.datasets import DataloaderHparams
+from composer.datasets.dataset_registry import get_dataset_registry
+from composer.datasets.evaluator import EvaluatorHparams
 from composer.loggers import (BaseLoggerBackendHparams, FileLoggerBackendHparams, MosaicMLLoggerBackendHparams,
                               TQDMLoggerBackendHparams, WandBLoggerBackendHparams)
 from composer.models import (BERTForClassificationHparams, BERTHparams, CIFARResNet9Hparams, CIFARResNetHparams,
                              DeepLabV3Hparams, EfficientNetB0Hparams, GPT2Hparams, MnistClassifierHparams, ModelHparams,
-                             ResNet18Hparams, ResNet50Hparams, ResNet101Hparams, UnetHparams)
+                             ResNetHparams, TimmHparams, UnetHparams)
+from composer.models.resnet20_cifar10.resnet20_cifar10_hparams import CIFARResNet20Hparams
 from composer.optim import (AdamHparams, AdamWHparams, DecoupledAdamWHparams, DecoupledSGDWHparams, OptimizerHparams,
                             RAdamHparams, RMSPropHparams, SchedulerHparams, SGDHparams, scheduler)
 from composer.profiler import ProfilerHparams
 from composer.trainer.checkpoint_hparams import CheckpointLoaderHparams, CheckpointSaverHparams
 from composer.trainer.ddp import DDPSyncStrategy
-from composer.trainer.deepspeed import DeepSpeedHparams
 from composer.trainer.devices import CPUDeviceHparams, DeviceHparams, GPUDeviceHparams
 from composer.utils import dist
 
@@ -63,25 +65,17 @@ model_registry = {
     "deeplabv3": DeepLabV3Hparams,
     "efficientnetb0": EfficientNetB0Hparams,
     "resnet56_cifar10": CIFARResNetHparams,
+    "resnet20_cifar10": CIFARResNet20Hparams,
     "resnet9_cifar10": CIFARResNet9Hparams,
-    "resnet101": ResNet101Hparams,
-    "resnet50": ResNet50Hparams,
-    "resnet18": ResNet18Hparams,
+    "resnet": ResNetHparams,
     "mnist_classifier": MnistClassifierHparams,
     "gpt2": GPT2Hparams,
     "bert": BERTHparams,
     "bert_classification": BERTForClassificationHparams,
+    "timm": TimmHparams
 }
 
-dataset_registry = {
-    "ade20k": datasets.ADE20kDatasetHparams,
-    "brats": datasets.BratsDatasetHparams,
-    "imagenet": datasets.ImagenetDatasetHparams,
-    "cifar10": datasets.CIFAR10DatasetHparams,
-    "mnist": datasets.MNISTDatasetHparams,
-    "lm": datasets.LMDatasetHparams,
-    "glue": datasets.GLUEHparams,
-}
+dataset_registry = get_dataset_registry()
 
 algorithms_registry = get_algorithm_registry()
 
@@ -127,7 +121,6 @@ class TrainerHparams(hp.Hparams):
 
     device: DeviceHparams = hp.required(doc="Device Parameters")
     train_dataset: datasets.DatasetHparams = hp.required(doc="Training dataset hparams")
-    val_dataset: datasets.DatasetHparams = hp.required(doc="Validation dataset hparams")
 
     optimizer: OptimizerHparams = hp.required(doc="Optimizer to use")
 
@@ -158,6 +151,10 @@ class TrainerHparams(hp.Hparams):
     )
     precision: Precision = hp.required(doc="Precision to use for training", template_default=Precision.AMP)
 
+    val_dataset: Optional[datasets.DatasetHparams] = hp.optional(doc="Validation dataset hparams", default=None)
+
+    evaluators: Optional[List[EvaluatorHparams]] = hp.optional(doc="Evaluators", default_factory=list)
+
     dist_timeout: float = hp.optional(doc="Timeout, in seconds, for initializing the dsitributed process group.",
                                       default=15.0)
     ddp_sync_strategy: Optional[DDPSyncStrategy] = hp.optional(
@@ -165,7 +162,7 @@ class TrainerHparams(hp.Hparams):
         "trainer to auto-select a value depending on what algorithms are used.",
         default=None)
 
-    deepspeed: Optional[DeepSpeedHparams] = hp.optional(doc="Configuration for DeepSpeed.", default=None)
+    deepspeed: Optional[Dict[str, JSON]] = hp.optional(doc="Configuration for DeepSpeed.", default=None)
 
     grad_clip_norm: Optional[float] = hp.optional(
         default=None, doc='the norm to clip gradient magnitudes to. Default: None (no clip)')
@@ -183,21 +180,20 @@ class TrainerHparams(hp.Hparams):
     load_checkpoint: Optional[CheckpointLoaderHparams] = hp.optional(doc="Checkpoint loading hparams", default=None)
     save_checkpoint: Optional[CheckpointSaverHparams] = hp.optional(doc="Checkpointing hparams", default=None)
 
-    train_subset_num_batches: Optional[int] = hp.optional(textwrap.dedent("""If specified,
-        finish every epoch early after training on this many batches."""),
-                                                          default=None)
-    eval_subset_num_batches: Optional[int] = hp.optional(textwrap.dedent("""If specified,
-        stop each evaluation after this many batches."""),
+    train_subset_num_batches: Optional[int] = hp.optional(
+        "If specified, finish every epoch early after training on this many batches.", default=None)
+    eval_subset_num_batches: Optional[int] = hp.optional("If specified, stop each evaluation after this many batches.",
                                                          default=None)
 
-    deterministic_mode: bool = hp.optional(doc="Run the model deterministically. Experimental. Performance"
-                                           "degradations expected. Certain Torch modules may not have"
-                                           "deterministic implementations, which will result in a crash.",
+    deterministic_mode: bool = hp.optional(textwrap.dedent("""\
+        Run the model deterministically. Experimental. Performance
+        degradations expected. Certain Torch modules may not have
+        deterministic implementations, which will result in a crash."""),
                                            default=False)
 
     compute_training_metrics: bool = hp.optional(doc="Log validation metrics on training data", default=False)
     log_level: str = hp.optional(doc="Python loglevel to use composer", default="INFO")
-    datadir: Optional[str] = hp.optional(doc=textwrap.dedent("""
+    datadir: Optional[str] = hp.optional(doc=textwrap.dedent("""\
         Datadir to apply for both the training and validation datasets. If specified,
         it will override train_dataset.datadir and val_dataset.datadir"""),
                                          default=None)
@@ -208,15 +204,16 @@ class TrainerHparams(hp.Hparams):
         super().validate()
 
         if self.deepspeed is not None:
+            zero_stage = cast(int, self.deepspeed.get("zero_stage", 0))
 
-            if self.precision == Precision.FP16:
-                raise ValueError("FP16 precision is only supported when training with DeepSpeed.")
+            if self.deterministic_mode and zero_stage > 0:
+                raise ValueError("Deepspeed with zero stage > 0 is not compatible with deterministic mode")
 
             if isinstance(self.device, CPUDeviceHparams):
                 raise ValueError("Training on CPUs is not supported with DeepSpeed.")
 
-            if self.deterministic_mode and self.deepspeed.zero_stage > 0:
-                raise ValueError("Deepspeed with zero stage > 0 is not compatible with deterministic mode")
+        elif self.precision == Precision.FP16:
+            raise ValueError("FP16 precision is only supported when training with DeepSpeed.")
 
         world_size = dist.get_world_size()
 
@@ -228,6 +225,10 @@ class TrainerHparams(hp.Hparams):
             raise ValueError(
                 f"Eval batch size ({self.eval_batch_size}) not divisible by the total number of processes ({world_size})."
             )
+
+        if self.evaluators is not None and len(self.evaluators) > 0 and self.val_dataset is not None:
+            raise ValueError(
+                "val_dataset and evaluators shouldn't both be specified. Only one can be passed in to the trainer.")
 
     def initialize_object(self) -> Trainer:
         from composer.trainer.trainer import Trainer

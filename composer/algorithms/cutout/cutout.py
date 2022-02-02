@@ -79,7 +79,8 @@ class CutOut(Algorithm):
     """
 
     def __init__(self, n_holes: int, length: int):
-        self.hparams = CutOutHparams(n_holes=n_holes, length=length)
+        self.n_holes = n_holes
+        self.length = length
 
     def match(self, event: Event, state: State) -> bool:
         """Runs on Event.AFTER_DATALOADER"""
@@ -90,5 +91,5 @@ class CutOut(Algorithm):
         x, y = state.batch_pair
         assert isinstance(x, Tensor), "Multiple tensors not supported for Cutout."
 
-        new_x = cutout(X=x, **asdict(self.hparams))
+        new_x = cutout(X=x, n_holes=self.n_holes, length=self.length)
         state.batch = (new_x, y)

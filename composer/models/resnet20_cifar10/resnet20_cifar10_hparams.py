@@ -6,8 +6,8 @@ from composer.models.model_hparams import ModelHparams
 
 
 @dataclass
-class ResNet50Hparams(ModelHparams):
+class CIFARResNet20Hparams(ModelHparams):
 
     def initialize_object(self):
-        from composer.models import ResNet50
-        return ResNet50(**asdict(self))
+        from composer.models import CIFAR10_ResNet20
+        return CIFAR10_ResNet20(**asdict(self))
