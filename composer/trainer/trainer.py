@@ -541,7 +541,7 @@ class Trainer:
                 save_folder=hparams.save_checkpoint.folder,
                 save_interval=hparams.save_checkpoint.interval,
                 save_interval_unit=hparams.save_checkpoint.interval_unit,
-                save_compression=hparams.save_compression,
+                save_compression=hparams.save_checkpoint.compression,
             )
         else:
             save_checkpoint_kwargs = dict()
