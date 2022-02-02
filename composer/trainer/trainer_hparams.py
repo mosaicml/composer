@@ -28,7 +28,6 @@ from composer.models import (BERTForClassificationHparams, BERTHparams, CIFARRes
                              ResNetHparams, SSDHparams, TimmHparams, UnetHparams)
 from composer.models.resnet20_cifar10.resnet20_cifar10_hparams import CIFARResNet20Hparams
 
->>>>>>> origin/dev
 from composer.optim import (AdamHparams, AdamWHparams, DecoupledAdamWHparams, DecoupledSGDWHparams, OptimizerHparams,
                             RAdamHparams, RMSPropHparams, SchedulerHparams, SGDHparams, scheduler)
 from composer.profiler import ProfilerHparams
