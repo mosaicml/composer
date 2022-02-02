@@ -1,4 +1,7 @@
-.wy-nav-side {
+.related-information {
+    display: none;
+}
+/* .wy-nav-side {
     background: #fcfafa;
 }
 
@@ -99,4 +102,4 @@ body {
 
 footer {
     display: none;
-}
+} */

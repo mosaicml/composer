@@ -20,7 +20,7 @@ sys.path.insert(0, os.path.abspath('..'))
 # -- Project information -----------------------------------------------------
 
 project = 'MosaicML'
-copyright = '2021, MosaicML, Inc.'
+copyright = '2022, MosaicML, Inc.'
 author = 'MosaicML'
 
 # -- General configuration ---------------------------------------------------
@@ -62,7 +62,9 @@ napoleon_custom_sections = [('Returns', 'params_style')]
 # The theme to use for HTML and HTML Help pages.  See the documentation for
 # a list of builtin themes.
 #
-html_theme = 'sphinx_rtd_theme'
+# html_theme = 'sphinx_rtd_theme'
+# html_theme = 'sphinx_book_theme'
+html_theme = "furo"
 
 html_theme_options = {
     # Toc options
@@ -82,12 +84,25 @@ autosectionlabel_maxdepth = 1
 # relative to this directory. They are copied after the builtin static files,
 # so a file named "default.css" will overwrite the builtin "default.css".
 html_static_path = ['_static']
+html_title = " "
 
 # Customize CSS
 html_css_files = ['css/custom.css']
 
 # Mosaic logo
-html_logo = 'https://storage.googleapis.com/docs.mosaicml.com/images/logo-dark-bg.png'
+# html_logo = 'https://storage.googleapis.com/docs.mosaicml.com/images/logo-dark-bg.png'
+html_theme_options = {
+    "light_logo": "logo-light-mode.png",
+    "dark_logo": "logo-dark-mode.png",
+    "light_css_variables": {
+        "color-brand-primary": "#343434",
+        "color-brand-content": "#343434",
+    },
+    "dark_css_variables": {
+        "color-brand-primary": "#f9f9f9",
+        "color-brand-content": "#f9f9f9",
+    },
+}
 
 # Favicon
 html_favicon = 'https://mosaic-ml-staging.cdn.prismic.io/mosaic-ml-staging/b1f1a2a0-2b54-4b43-9b76-bfa2e24d6fdf_favicon.svg'
@@ -103,6 +118,9 @@ autodoc_type_aliases = {
     'TDeviceTransformFn': 'composer.core.types.TDeviceTransformFn',
     'Hparams': 'yahp.hparams.Hparams',
 }
+
+pygments_style = "manni"
+pygments_dark_style = "monokai"
 
 intersphinx_mapping = {
     'python': ('https://docs.python.org/3/', None),
