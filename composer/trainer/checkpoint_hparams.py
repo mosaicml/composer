@@ -84,7 +84,7 @@ class CheckpointSaverHparams(hp.Hparams):
         if self.interval_unit not in ['ep', 'it']:
             raise ValueError("Checkpointing interval unit must be one of 'ep' for epochs, or 'it' for iterations.")
         if self.compression not in ["None", "gzip", "bzip2", "lzma"]:
-            raise ValueError("Compression type must be one of `None`, `gzip`, `bzip2`, or `lzma`.")
+            raise ValueError("If set, compression type must be one of `gzip`, `bzip2`, or `lzma`.")
 
     def initialize_object(self) -> CheckpointSaver:
         from composer.trainer.checkpoint import CheckpointSaver
