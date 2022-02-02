@@ -1,12 +1,13 @@
-from argparse import ArgumentParser
+from argparse import ArgumentParser, Namespace
 import numpy as np
 from torchvision.datasets import CIFAR100
+from typing import Any, Generator, Tuple
 from wurlitzer import pipes
 
 from composer.datasets.webdataset import create_webdataset
 
 
-def parse_args():
+def parse_args() -> Namespace:
     args = ArgumentParser()
     args.add_argument('--out_root', type=str, required=True)
     args.add_argument('--train_shards', type=int, default=128)
@@ -15,14 +16,14 @@ def parse_args():
     return args.parse_args()
 
 
-def shuffle(dataset):
+def shuffle(dataset: CIFAR100) -> Tuple[np.ndarray, np.ndarray]:
     indices = np.random.permutation(len(dataset))
     images = dataset.data[indices]
     classes = np.array(dataset.targets)[indices]
     return images, classes
 
 
-def each_sample(images, classes):
+def each_sample(images: np.ndarray, classes: np.ndarray) -> Generator[dict[str, Any], None, None]:
     for idx, (img, cls) in enumerate(zip(images, classes)):
         yield {
             '__key__': f'{idx:05d}',
@@ -31,7 +32,7 @@ def each_sample(images, classes):
         }
 
 
-def main(args):
+def main(args: Namespace) -> None:
     with pipes():
         dataset = CIFAR100(root="/datasets/cifar100", train=True, download=True)
     images, classes = shuffle(dataset)

@@ -5,13 +5,11 @@ from dataclasses import dataclass
 import yahp as hp
 from torchvision import transforms
 from torchvision.datasets import CIFAR10
-from webdataset import WebDataset
 
 from composer.core.types import DataLoader
 from composer.datasets.dataloader import DataloaderHparams
 from composer.datasets.hparams import DatasetHparams, JpgClsWebDatasetHparams, SyntheticHparamsMixin
 from composer.datasets.synthetic import SyntheticBatchPairDataset
-from composer.datasets.webdataset import load_webdataset
 from composer.utils import dist
 
 

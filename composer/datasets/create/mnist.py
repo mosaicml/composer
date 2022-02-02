@@ -1,11 +1,12 @@
-from argparse import ArgumentParser
+from argparse import ArgumentParser, Namespace
 import numpy as np
 from torchvision.datasets import MNIST
+from typing import Any, Generator
 
 from composer.datasets.webdataset import create_webdataset
 
 
-def parse_args():
+def parse_args() -> Namespace:
     args = ArgumentParser()
     args.add_argument('--out_root', type=str, required=True)
     args.add_argument('--train_shards', type=int, default=128)
@@ -14,14 +15,14 @@ def parse_args():
     return args.parse_args()
 
 
-def shuffle(dataset):
+def shuffle(dataset: MNIST) -> tuple[np.ndarray, np.ndarray]:
     indices = np.random.permutation(len(dataset))
     images = dataset.data[indices].numpy()
     classes = dataset.targets[indices].numpy()
     return images, classes
 
 
-def each_sample(images, classes):
+def each_sample(images: np.ndarray, classes: np.ndarray) -> Generator[dict[str, Any], None, None]:
     for idx, (img, cls) in enumerate(zip(images, classes)):
         yield {
             '__key__': f'{idx:05d}',
@@ -30,7 +31,7 @@ def each_sample(images, classes):
         }
 
 
-def main(args):
+def main(args: Namespace) -> None:
     dataset = MNIST(root='/datasets/mnist', train=True, download=True)
     images, classes = shuffle(dataset)
     create_webdataset(each_sample(images, classes), args.out_root, 'train', len(images), args.train_shards, args.tqdm)

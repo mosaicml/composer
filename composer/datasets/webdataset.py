@@ -1,13 +1,14 @@
 import json
 import os
 import subprocess
+from typing import Any, Dict, Iterable, Optional, Tuple
 
 from tqdm import tqdm
 from webdataset import ShardWriter, WebDataset
 from wurlitzer import pipes
 
 
-def create_webdataset_meta(split_dir, n_samples, n_shards):
+def create_webdataset_meta(split_dir: str, n_samples: int, n_shards: int) -> None:
     '''Write a WebDataset meta file.'''
     samples_per_shard = n_samples // n_shards
     n_leftover = n_samples % samples_per_shard
@@ -20,7 +21,8 @@ def create_webdataset_meta(split_dir, n_samples, n_shards):
     json.dump(obj, open(filename, 'w'), sort_keys=True)
 
 
-def create_webdataset(samples, dataset_dir, split, n_samples, n_shards, use_tqdm=1):
+def create_webdataset(samples: Iterable[Dict[str, Any]], dataset_dir: str, split: str, n_samples: int,
+                      n_shards: int, use_tqdm: int = 1) -> None:
     '''Write an entire WebDataset to a local directory, given an iterable of samples.'''
     split_dir = os.path.join(dataset_dir, split)
     os.makedirs(split_dir)
@@ -37,14 +39,15 @@ def create_webdataset(samples, dataset_dir, split, n_samples, n_shards, use_tqdm
     create_webdataset_meta(split_dir, n_samples, n_shards)
 
 
-def download_webdataset_meta(dataset_name, split):
+def download_webdataset_meta(dataset_name: str, split: str) -> bytes:
     '''Download a WebDataset meta file from S3.'''
     url = f's3://mosaicml-internal-dataset-{dataset_name}/{split}/meta.json'
     cmd = 'aws', 's3', 'cp', url, '-'
     return subprocess.run(cmd, capture_output=True).stdout
 
 
-def load_webdataset(dataset_name, split, cache_dir=None, cache_verbose=False):
+def load_webdataset(dataset_name: str, split: str, cache_dir: Optional[str] = None,
+                    cache_verbose: bool = False) -> Tuple[WebDataset, dict]:
     '''Initialize a WebDataset pointed at S3 with an optional local cache dir.'''
     if cache_dir:
         split_dir = os.path.join(cache_dir, dataset_name, split)

@@ -9,12 +9,12 @@ import torch.utils.data
 import yahp as hp
 from torchvision import transforms
 from torchvision.datasets import ImageFolder
-from webdataset import WebDataset
 
 from composer.core.types import DataLoader, DataSpec
 from composer.datasets.dataloader import DataloaderHparams
 from composer.datasets.hparams import DatasetHparams, JpgClsWebDatasetHparams, SyntheticHparamsMixin, WebDatasetHparams
 from composer.datasets.synthetic import SyntheticBatchPairDataset
+from composer.datasets.webdataset import load_webdataset
 from composer.utils import dist
 from composer.utils.data import NormalizationFn, pil_image_collate
 
@@ -150,7 +150,7 @@ class Imagenet1KWebDatasetHparams(WebDatasetHparams, SyntheticHparamsMixin):
             dataset, meta = load_webdataset('imagenet1k', split, self.webdataset_cache_dir,
                                             self.webdataset_cache_verbose)
             dataset = dataset.decode('pil').map_dict(jpg=transform).to_tuple('jpg', 'cls')
-            size = meta['n_shards'] * meta['samples_per_shard'] // dist.get_world_size()
+            size_per_device = meta['n_shards'] * meta['samples_per_shard'] // dist.get_world_size()
             dataset = dataset.with_epoch(size_per_device).with_length(size_per_device)
             collate_fn = pil_image_collate
             device_transform_fn = NormalizationFn(mean=IMAGENET_CHANNEL_MEAN, std=IMAGENET_CHANNEL_STD)

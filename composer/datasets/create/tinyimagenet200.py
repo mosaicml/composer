@@ -1,13 +1,14 @@
-from argparse import ArgumentParser
+from argparse import ArgumentParser, Namespace
 import os
 from PIL import Image
 from random import shuffle
 from tqdm import tqdm
+from typing import Any, Generator, Tuple
 
 from composer.datasets.webdataset import create_webdataset
 
 
-def parse_args():
+def parse_args() -> Namespace:
     args = ArgumentParser()
     args.add_argument('--in_root', type=str, required=True)
     args.add_argument('--out_root', type=str, required=True)
@@ -17,7 +18,7 @@ def parse_args():
     return args.parse_args()
 
 
-def get_train(in_root, wnids):
+def get_train(in_root: str, wnids: list) -> list[Tuple[str, int]]:
     pairs = []
     for wnid_idx, wnid in tqdm(enumerate(wnids), leave=False):
         in_dir = os.path.join(in_root, 'train', wnid, 'images')
@@ -28,7 +29,7 @@ def get_train(in_root, wnids):
     return pairs
 
 
-def get_val(in_root, wnid2idx):
+def get_val(in_root: str, wnid2idx: dict[str, int]) -> list[Tuple[str, int]]:
     pairs = []
     filename = os.path.join(in_root, 'val', 'val_annotations.txt')
     lines = open(filename).read().strip().split('\n')
@@ -41,7 +42,7 @@ def get_val(in_root, wnid2idx):
     return pairs
 
 
-def each_sample(pairs):
+def each_sample(pairs: list[Tuple[str, int]]) -> Generator[dict[str, Any], None, None]:
     for idx, (img_file, cls) in enumerate(pairs):
         img = Image.open(img_file)
         yield {
@@ -51,7 +52,7 @@ def each_sample(pairs):
         }
 
 
-def main(args):
+def main(args: Namespace) -> None:
     '''
     Directory layout:
 

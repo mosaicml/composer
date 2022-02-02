@@ -4,7 +4,6 @@ from dataclasses import dataclass
 
 import yahp as hp
 from torchvision import datasets, transforms
-from webdataset import WebDataset
 
 from composer.core.types import DataLoader
 from composer.datasets.dataloader import DataloaderHparams
