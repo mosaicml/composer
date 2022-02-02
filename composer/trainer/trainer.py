@@ -109,6 +109,8 @@ class Trainer:
         save_folder (Optional[str]): Folder path to save checkpoints
         save_interval (int): How often to save checkpoints
         save_interval_unit (str): Unit of ``save_interval``. Can be ``ep`` or ``steps``. (default: ``ep``).
+        save_compression (str): Compression algorithm to run on checkpoints. Can be `None`, `gzip`, `bzip2`,
+            or `lzma`. (default: ``None``).
         train_subset_num_batches (int, optional): If specified, finish every epoch early after training
             on this many batches. This parameter has no effect if it is greater than ``len(train_dataloader)``.
             If None (the default), then the entire dataloader will be iterated over.
@@ -173,6 +175,7 @@ class Trainer:
             save_folder: Optional[str] = None,
             save_interval: int = 1,
             save_interval_unit: str = 'ep',
+            save_compression: str = 'None',
 
             # Profiling
             profiler: Optional[ProfilerHparams] = None,
@@ -355,6 +358,7 @@ class Trainer:
                 save_folder=save_folder,
                 interval=save_interval,
                 interval_unit=save_interval_unit,
+                compression=save_compression,
             )
 
         self.checkpoint_loader = None
@@ -537,6 +541,7 @@ class Trainer:
                 save_folder=hparams.save_checkpoint.folder,
                 save_interval=hparams.save_checkpoint.interval,
                 save_interval_unit=hparams.save_checkpoint.interval_unit,
+                save_compression=hparams.save_compression,
             )
         else:
             save_checkpoint_kwargs = dict()
