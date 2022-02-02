@@ -3,8 +3,9 @@
 from __future__ import annotations
 
 import abc
-import dataclasses
+from dataclasses import dataclass
 import textwrap
+from torchvision import transforms
 from typing import Optional, Union
 
 try:
@@ -19,9 +20,11 @@ import yahp as hp
 
 from composer.core.types import DataLoader, DataSpec, MemoryFormat
 from composer.datasets.dataloader import DataloaderHparams
+from composer.datasets.webdataset import load_webdataset
+from composer.utils import dist
 
 
-@dataclasses.dataclass
+@dataclass
 class SyntheticHparamsMixin(hp.Hparams, abc.ABC):
     """Synthetic dataset parameter mixin for :class:`DatasetHparams`.
 
@@ -45,7 +48,7 @@ class SyntheticHparamsMixin(hp.Hparams, abc.ABC):
                                                         default=MemoryFormat.CONTIGUOUS_FORMAT)
 
 
-@dataclasses.dataclass
+@dataclass
 class DatasetHparams(hp.Hparams, abc.ABC, metaclass=metaclass):
     """Abstract base class for hyperparameters to initialize a dataset.
 
@@ -82,28 +85,17 @@ class DatasetHparams(hp.Hparams, abc.ABC, metaclass=metaclass):
         pass
 
 
-@dataclasses.dataclass
+@dataclass
 class WebDatasetHparams(DatasetHparams, abc.ABC, metaclass=metaclass):
     """Abstract base class for hyperparameters to initialize a dataset.
 
     Parameters:
-        is_train (bool): Whether to load the training data (the default) or validation data.
-        drop_last (bool):
-            If the number of samples is not divisible by the batch size, whether
-            to drop the last batch (the default) or pad the last batch with zeros.
-        shuffle (bool): Whether to shuffle the dataset. Defaults to True.
         dataset_cache_dir (str): WebDataset cache directory.
         dataset_cache_verbose (str): WebDataset cache verbosity.
     """
 
-    is_train: bool = hp.optional("Whether to load the training data (the default) or validation data.", default=True)
-    drop_last: bool = hp.optional(textwrap.dedent("""If the number of samples is not divisible by the batch size,
-        whether to drop the last batch (the default) or pad the last batch with zeros."""),
-                                  default=True)
-    shuffle: bool = hp.optional("Whether to shuffle the dataset for each epoch. Defaults to True.", default=True)
-
-    dataset_cache_dir: str = hp.optional('WebDataset cache directory', default='/tmp/dataset_cache/')
-    dataset_cache_verbose: bool = hp.optional('WebDataset cache verbosity', default=False)
+    webdataset_cache_dir: str = hp.optional('WebDataset cache directory', default='/tmp/webdataset_cache/')
+    webdataset_cache_verbose: bool = hp.optional('WebDataset cache verbosity', default=False)
 
     @abc.abstractmethod
     def initialize_object(self, batch_size: int, dataloader_hparams: DataloaderHparams) -> Union[DataLoader, DataSpec]:
@@ -119,3 +111,55 @@ class WebDatasetHparams(DatasetHparams, abc.ABC, metaclass=metaclass):
             a :class:`DataSpec`.
         """
         pass
+
+
+@dataclass
+class JpgClsWebDatasetHparams(WebDatasetHparams, SyntheticHparamsMixin):
+    """Common functionality for (jpg, cls) WebDatasets.
+
+    Parameters:
+        dataset_name (str): Key used to determine where the dataset is stored.
+        n_train_samples (int): Number of training samples.
+        n_val_samples (int): Number of validation samples.
+        height (int): Sample image height in pixels.
+        width (int): Sample image width in pixels.
+        n_classes (int): Number of output classes.
+        channel_means (list of float): Channel means for normalization.
+        channel_stds (list of float): Channel stds for normalization.
+    """
+
+    def initialize_object(self, batch_size: int, dataloader_hparams: DataloaderHparams) -> DataLoader:
+        if self.use_synthetic:
+            dataset = SyntheticBatchPairDataset(
+                total_dataset_size=self.n_train_samples if self.is_train else self.n_val_samples,
+                data_shape=[3, self.height, self.width],
+                num_classes=self.n_classes,
+                num_unique_samples_to_create=self.synthetic_num_unique_samples,
+                device=self.synthetic_device,
+                memory_format=self.synthetic_memory_format,
+            )
+        else:
+            if self.is_train:
+                split = 'train'
+                transform = transforms.Compose([
+                    transforms.RandomCrop((self.height, self.width),
+                                          (self.height // 8, self.width // 8)),
+                    transforms.RandomHorizontalFlip(),
+                    transforms.ToTensor(),
+                    transforms.Normalize(self.channel_means, self.channel_stds),
+                ])
+            else:
+                split = 'val'
+                transform = transforms.Compose([
+                    transforms.ToTensor(),
+                    transforms.Normalize(self.channel_means, self.channel_stds),
+                ])
+            dataset, meta = load_webdataset(self.dataset_name, split, self.webdataset_cache_dir,
+                                            self.webdataset_cache_verbose)
+            dataset = dataset.decode('pil').map_dict(jpg=transform).to_tuple('jpg', 'cls')
+            size_per_device = meta['n_shards'] * meta['samples_per_shard'] // dist.get_world_size()
+            dataset = dataset.with_epoch(size_per_device).with_length(size_per_device)
+        return dataloader_hparams.initialize_object(dataset,
+                                                    batch_size=batch_size,
+                                                    sampler=None,
+                                                    drop_last=self.drop_last)

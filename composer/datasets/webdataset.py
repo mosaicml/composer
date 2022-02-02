@@ -1,7 +1,8 @@
 import json
 import os
+import subprocess
 from tqdm import tqdm
-from webdataset import ShardWriter
+from webdataset import ShardWriter, WebDataset
 from wurlitzer import pipes
 
 
@@ -37,8 +38,9 @@ def create_webdataset(samples, dataset_dir, split, n_samples, n_shards, use_tqdm
 
 def download_webdataset_meta(dataset_name, split):
     '''Download a WebDataset meta file from S3.'''
-    cmd = f'aws s3 cp s3://mosaicml-internal-dataset-{dataset_name}/{split}/meta.json -'
-    return subprocess.run(cmd).stdout
+    url = f's3://mosaicml-internal-dataset-{dataset_name}/{split}/meta.json'
+    cmd = 'aws', 's3', 'cp', url, '-'
+    return subprocess.run(cmd, capture_output=True).stdout
 
 
 def load_webdataset(dataset_name, split, cache_dir=None, cache_verbose=False):
@@ -52,13 +54,13 @@ def load_webdataset(dataset_name, split, cache_dir=None, cache_verbose=False):
             text = download_webdataset_meta(dataset_name, split)
             if not os.path.exists(split_dir):
                 os.makedirs(split_dir)
-            with open(meta_file, 'w') as out:
+            with open(meta_file, 'wb') as out:
                 out.write(text)
     else:
         text = download_webdataset_meta(dataset_name, split)
     meta = json.loads(text)
-    urls = (f'aws s3 cp s3://mosaicml-internal-dataset-{dataset_name}/split/'
-             '{00000..{meta["n_shards"] - 1}}.tar -')
+    max_shard = meta['n_shards'] - 1
+    shards = f'{{{0:05d}..{max_shard:05d}}}.tar'
+    urls = f'pipe: aws s3 cp s3://mosaicml-internal-dataset-{dataset_name}/{split}/{shards} -'
     dataset = WebDataset(urls, cache_dir=cache_dir, cache_verbose=cache_verbose)
-    dataset.meta = meta
-    return dataset
+    return dataset, meta

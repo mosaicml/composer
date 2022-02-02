@@ -1,7 +1,6 @@
 from argparse import ArgumentParser
 import numpy as np
-from torchvision.datasets import CIFAR100
-from wurlitzer import pipes
+from torchvision.datasets import MNIST
 
 from composer.datasets.webdataset import create_webdataset
 
@@ -17,37 +16,27 @@ def parse_args():
 
 def shuffle(dataset):
     indices = np.random.permutation(len(dataset))
-    images = dataset.data[indices]
-    classes = np.array(dataset.targets)[indices]
+    images = dataset.data[indices].numpy()
+    classes = dataset.targets[indices].numpy()
     return images, classes
-
-
-c100_to_c20 = np.array([
-    4, 1, 14, 8, 0, 6, 7, 7, 18, 3, 3, 14, 9, 18, 7, 11, 3, 9, 7, 11, 6, 11, 5, 10, 7, 6, 13, 15,
-    3, 15, 0, 11, 1, 10, 12, 14, 16, 9, 11, 5, 5, 19, 8, 8, 15, 13, 14, 17, 18, 10, 16, 4, 17, 4,
-    2, 0, 17, 4, 18, 17, 10, 3, 2, 12, 12, 16, 12, 1, 9, 19, 2, 10, 0, 1, 16, 12, 9, 13, 15, 13,
-    16, 19, 2, 4, 6, 19, 5, 5, 8, 19, 18, 1, 2, 15, 6, 0, 17, 8, 14, 13
-])
 
 
 def each_sample(images, classes):
     for idx, (img, cls) in enumerate(zip(images, classes)):
         yield {
             '__key__': f'{idx:05d}',
-            'image': img,
-            'class': c100_to_c20[cls],
+            'jpg': img,
+            'cls': cls,
         }
 
 
 def main(args):
-    with pipes():
-        dataset = CIFAR100(root="/datasets/cifar100", train=True, download=True)
+    dataset = MNIST(root='/datasets/mnist', train=True, download=True)
     images, classes = shuffle(dataset)
     create_webdataset(each_sample(images, classes), args.out_root, 'train', len(images),
                       args.train_shards, args.tqdm)
 
-    with pipes():
-        dataset = CIFAR100(root="/datasets/cifar100", train=False, download=True)
+    dataset = MNIST(root='/datasets/mnist', train=False, download=True)
     images, classes = shuffle(dataset)
     create_webdataset(each_sample(images, classes), args.out_root, 'val', len(images),
                       args.val_shards, args.tqdm)

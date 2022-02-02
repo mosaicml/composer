@@ -81,12 +81,12 @@ dataset_registry = {
     "mnist": datasets.MNISTDatasetHparams,
     "lm": datasets.LMDatasetHparams,
     "glue": datasets.GLUEHparams,
-    'web_mnist': datasets.WebMNISTDatasetHparams,
-    'web_cifar10': datasets.WebCIFAR10DatasetHparams,
-    'web_cifar20': datasets.WebCIFAR20DatasetHparams,
-    'web_cifar100': datasets.WebCIFAR100DatasetHparams,
-    'web_tinyimagenet200': datasets.WebTinyImagenet200DatasetHparams,
-    'web_imagenet1k': datasets.WebImagenet1KDatasetHparams,
+    'web_mnist': datasets.MNISTWebDatasetHparams,
+    'web_cifar10': datasets.CIFAR10WebDatasetHparams,
+    'web_cifar20': datasets.CIFAR20WebDatasetHparams,
+    'web_cifar100': datasets.CIFAR100WebDatasetHparams,
+    'web_tinyimagenet200': datasets.TinyImagenet200WebDatasetHparams,
+    'web_imagenet1k': datasets.Imagenet1KWebDatasetHparams,
 }
 
 algorithms_registry = get_algorithm_registry()

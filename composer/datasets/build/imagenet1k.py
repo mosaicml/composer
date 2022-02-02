@@ -39,8 +39,8 @@ def each_sample(pairs):
         img = Image.open(img_file).convert('RGB')
         yield {
             '__key__': f'{idx:05d}',
-            'image': img,
-            'class': cls,
+            'jpg': img,
+            'cls': cls,
         }
 
 

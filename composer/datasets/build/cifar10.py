@@ -26,8 +26,8 @@ def each_sample(images, classes):
     for idx, (img, cls) in enumerate(zip(images, classes)):
         yield {
             '__key__': f'{idx:05d}',
-            'image': img,
-            'class': cls,
+            'jpg': img,
+            'cls': cls,
         }
 
 
