@@ -17,8 +17,7 @@ from composer.models import ComposerModel, ModelHparams
 
 
 class SimpleBatchPairModel(ComposerModel):
-    """A small model that has a really fast forward pass.
-    """
+    """A small model that has a really fast forward pass."""
 
     def __init__(self, in_shape: Tuple[int, ...], num_classes: int) -> None:
         super().__init__()
@@ -114,9 +113,8 @@ class _SimpleBatchPairModelHparams(ModelHparams):
 
 
 class SimpleConvModel(torch.nn.Module):
-    """Very basic forward operation with no activation functions
-    Used just to test that model surgery doesn't create forward prop bugs.
-    """
+    """Very basic forward operation with no activation functions Used just to test that model surgery doesn't create
+    forward prop bugs."""
 
     def __init__(self):
         super().__init__()

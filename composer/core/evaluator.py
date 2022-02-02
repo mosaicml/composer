@@ -13,8 +13,7 @@ if TYPE_CHECKING:
 
 
 class Evaluator:
-    """Wrapper for a dataloader to include metrics that apply to a specific
-    dataset.
+    """Wrapper for a dataloader to include metrics that apply to a specific dataset.
 
     Attributes:
         label (str): Name of the Evaluator

@@ -36,7 +36,7 @@ def validate_stochastic_hparams(stochastic_method: str,
                                 drop_rate: float,
                                 drop_distribution: str,
                                 drop_warmup: float = 0.0):
-    """Helper function to validate the Stochastic Depth hyperparameter values"""
+    """Helper function to validate the Stochastic Depth hyperparameter values."""
 
     if stochastic_method and (stochastic_method not in STOCHASTIC_LAYER_MAPPING):
         raise ValueError(f"stochastic_method {stochastic_method} is not supported."
@@ -160,7 +160,7 @@ def apply_stochastic_depth(model: torch.nn.Module,
 
 def _update_drop_rate(module: torch.nn.Module, stochastic_block: Type[torch.nn.Module], drop_rate: float,
                       drop_distribution: str):
-    """Recursively updates a module's drop_rate attributes with a new value"""
+    """Recursively updates a module's drop_rate attributes with a new value."""
 
     if (len(list(module.children())) == 0 and len(list(module.parameters())) > 0):
         return
@@ -240,7 +240,7 @@ class StochasticDepth(Algorithm):
         return (self.stochastic_method == "block")
 
     def match(self, event: Event, state: State) -> bool:
-        """Apply on Event.INIT and Event.BATCH_START if drop_warmup is > 0.0
+        """Apply on Event.INIT and Event.BATCH_START if drop_warmup is > 0.0.
 
         Args:
             event (:class:`Event`): The current event.
@@ -252,7 +252,7 @@ class StochasticDepth(Algorithm):
         return (event == Event.INIT) or (event == Event.BATCH_START and self.drop_warmup > 0.0)
 
     def apply(self, event: Event, state: State, logger: Logger) -> Optional[int]:
-        """Applies StochasticDepth modification to the state's model
+        """Applies StochasticDepth modification to the state's model.
 
         Args:
             event (Event): the current event

@@ -37,11 +37,11 @@ class DataSpec:
 
         get_num_samples_in_batch ((Batch) -> int, optional): Function that is called by the trainer to
             get the number of samples in the provided batch.
-            
+
             By default, if the batch contains tensors that all have the same length, then that
             length will be returned. If the batch contains tensors where the lengths differ,
             then this function must be specified.
-        
+
         get_num_tokens_in_batch ((Batch) -> int, optional): Function that is called by the trainer to
             get the number of tokens in the provided batch.
 

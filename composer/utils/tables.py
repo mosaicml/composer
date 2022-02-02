@@ -1,8 +1,6 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
-"""
-Helper functions for auto-generating tables from metadata
-"""
+"""Helper functions for auto-generating tables from metadata."""
 import importlib
 import os
 import shutil
@@ -123,7 +121,6 @@ def index_tag_in_lines(lines, tag):
     Args:
         lines (list): List of lines to check.
         tag (str): Tag to find.
-
     """
     for index, line in enumerate(lines):
         if tag in line:

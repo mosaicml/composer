@@ -32,8 +32,8 @@ def apply_blurpool(model: torch.nn.Module,
                    replace_convs: bool = True,
                    replace_maxpools: bool = True,
                    blur_first: bool = True) -> None:
-    """Add anti-aliasing filters to the strided :class:`torch.nn.Conv2d`
-    and/or :class:`torch.nn.MaxPool2d` modules within `model`.
+    """Add anti-aliasing filters to the strided :class:`torch.nn.Conv2d` and/or :class:`torch.nn.MaxPool2d` modules
+    within `model`.
 
     Must be run before the model has been moved to accelerators and before
     the model's parameters have been passed to an optimizer.
@@ -44,7 +44,7 @@ def apply_blurpool(model: torch.nn.Module,
             All optimizers that have already been constructed with,
             ``model.parameters()`` must be specified here so they will optimize
             the correct parameters.
-            
+
             If the optimizer(s) are constructed *after* calling this function,
             then it is safe to omit this parameter. These optimizers will see the correct
             model parameters.
@@ -90,9 +90,8 @@ def _maybe_replace_strided_conv2d(module: torch.nn.Conv2d, module_index: int, bl
 
 
 class BlurPool(Algorithm):
-    """`BlurPool <http://proceedings.mlr.press/v97/zhang19a.html>`_
-    adds anti-aliasing filters to convolutional layers to increase accuracy
-    and invariance to small shifts in the input.
+    """`BlurPool <http://proceedings.mlr.press/v97/zhang19a.html>`_ adds anti-aliasing filters to convolutional layers
+    to increase accuracy and invariance to small shifts in the input.
 
     Runs on ``Event.INIT`` and should be applied both before the model has
     been moved to accelerators and before the model’s parameters have
@@ -121,8 +120,8 @@ class BlurPool(Algorithm):
                         'BlurPool will not be modifying the model.')
 
     def match(self, event: Event, state: State) -> bool:
-        """Runs on Event.INIT
-        
+        """Runs on Event.INIT.
+
         Args:
             event (:class:`Event`): The current event.
             state (:class:`State`): The current state.
@@ -132,8 +131,8 @@ class BlurPool(Algorithm):
         return event == Event.INIT
 
     def apply(self, event: Event, state: State, logger: Logger) -> Optional[int]:
-        """Adds anti-aliasing filters to the maxpools and/or convolutions
-        
+        """Adds anti-aliasing filters to the maxpools and/or convolutions.
+
         Args:
             event (Event): the current event
             state (State): the current trainer state
@@ -149,9 +148,7 @@ class BlurPool(Algorithm):
         self._log_results(event, state, logger)
 
     def _log_results(self, event: Event, state: State, logger: Logger) -> None:
-        """ Logs the result of BlurPool application, including the number
-        of layers that have been replaced.
-        """
+        """Logs the result of BlurPool application, including the number of layers that have been replaced."""
         assert state.model is not None
 
         num_blurpool_layers = surgery.count_module_instances(state.model, BlurMaxPool2d)

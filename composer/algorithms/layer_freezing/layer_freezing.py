@@ -29,12 +29,9 @@ class LayerFreezingHparams(AlgorithmHparams):
 
 
 def _freeze_schedule(current_duration: float, freeze_start: float, freeze_level: float) -> float:
-    """Implements a linear schedule for freezing.
-    The schedule is linear and begins with no freezing and
-    linearly increases the fraction of layers frozen, reaching
-    the fraction specified by 'freeze_level' at the end of training.
-    The start of freezing is given as a fraction of the total training duration,
-    and is set with 'freeze_start'.
+    """Implements a linear schedule for freezing. The schedule is linear and begins with no freezing and linearly
+    increases the fraction of layers frozen, reaching the fraction specified by 'freeze_level' at the end of training.
+    The start of freezing is given as a fraction of the total training duration, and is set with 'freeze_start'.
 
     Args:
         current_duration (float): The elapsed training duration.
@@ -101,8 +98,7 @@ def freeze_layers(
     freeze_start: float,
     freeze_level: float,
 ) -> Tuple[int, float]:
-    """Progressively freeze the layers of the network in-place during training, starting
-    with the earlier layers.
+    """Progressively freeze the layers of the network in-place during training, starting with the earlier layers.
 
     Args:
         model (Model): The model being trained.
@@ -141,8 +137,7 @@ def freeze_layers(
 
 
 class LayerFreezing(Algorithm):
-    """Progressively freeze the layers of the network during training, starting
-    with the earlier layers.
+    """Progressively freeze the layers of the network during training, starting with the earlier layers.
 
     Freezing starts after the fraction of training specified by ``freeze_start``
     has elapsed. The fraction of layers frozen increases linearly until it
@@ -165,10 +160,8 @@ class LayerFreezing(Algorithm):
 
     @property
     def find_unused_parameters(self) -> bool:
-        """
-        Override in order to tell DDP that some parameters will not
-        have gradients computed for them after layer freezing is applied.
-        """
+        """Override in order to tell DDP that some parameters will not have gradients computed for them after layer
+        freezing is applied."""
         return True
 
     def match(self, event: Event, state: State) -> bool:
@@ -177,7 +170,7 @@ class LayerFreezing(Algorithm):
         return event == Event.EPOCH_END
 
     def apply(self, event: Event, state: State, logger: Logger) -> Optional[int]:
-        """Freeze layers in the model"""
+        """Freeze layers in the model."""
         del event  # unused
         optimizers = state.optimizers
         assert optimizers is not None

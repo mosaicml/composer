@@ -16,7 +16,7 @@ from composer.utils import dist
 @dataclass
 class CIFAR10DatasetHparams(DatasetHparams, SyntheticHparamsMixin):
     """Defines an instance of the CIFAR-10 dataset for image classification.
-    
+
     Parameters:
         download (bool): Whether to download the dataset, if needed.
     """

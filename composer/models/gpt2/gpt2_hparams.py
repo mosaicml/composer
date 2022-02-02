@@ -11,9 +11,7 @@ if TYPE_CHECKING:
 
 @dataclasses.dataclass
 class GPT2Hparams(TransformerHparams):
-    """
-    Overrides TransformerHparams to create GPT-2 specific models and configs.
-    """
+    """Overrides TransformerHparams to create GPT-2 specific models and configs."""
 
     def initialize_object(self) -> "ComposerTransformer":
         import transformers

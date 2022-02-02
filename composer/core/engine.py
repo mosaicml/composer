@@ -36,10 +36,8 @@ class Trace():
 
 
 def _setup_trace(algorithms: Sequence[Algorithm], event: Event) -> Traces:
-    """
-    The default traces of an entire run is an OrderedDict, with the keys
-    of format 'algorithm_name/event' (e.g. Blurpool/TRAINING_START).
-    """
+    """The default traces of an entire run is an OrderedDict, with the keys of format 'algorithm_name/event' (e.g.
+    Blurpool/TRAINING_START)."""
     return OrderedDict([(f'{algo}/{event}', Trace()) for algo in algorithms])
 
 
@@ -167,8 +165,7 @@ class Engine():
         algorithms_to_run: Sequence[Algorithm],
         event: Event,
     ) -> Sequence[Algorithm]:
-        """
-        Runs compilation passes that modify the order and content of a list of algorithms.
+        """Runs compilation passes that modify the order and content of a list of algorithms.
 
         Currently, runs the algorithms in a FILO queue for the before_ and after_ events. For example,
         algorithms will run in order ABCD during before_loss, and in DCBA during after_loss. The motivation
@@ -234,7 +231,7 @@ class Engine():
         :meth:`~Callback.close` is invoked for each callback.
         For all callbacks where :meth:`~Callback.close` did not raise an exception, then
         :meth:`~Callback.post_close` is invoked.
-        
+
         Does not re-raise any exceptions from :meth:`~Callback.close` and :meth:`~Callback.post_close`.
         Instead, these exceptions are logged.
         """
