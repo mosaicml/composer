@@ -10,6 +10,7 @@ from composer.core.types import DataLoader
 from composer.datasets.dataloader import DataloaderHparams
 from composer.datasets.hparams import DatasetHparams, SyntheticHparamsMixin, WebDatasetHparams
 from composer.datasets.synthetic import SyntheticBatchPairDataset
+from composer.datasets.webdataset import load_webdataset
 from composer.utils import dist
 
 
