@@ -141,6 +141,6 @@ def test_label_smoothing_match():
     assert algorithm.match(Event.AFTER_LOSS, Mock())
 
 
-def test_label_smoothing_trains(mosaic_trainer_hparams: TrainerHparams):
-    mosaic_trainer_hparams.algorithms = [LabelSmoothingHparams(alpha=0.1)]
-    train_model(mosaic_trainer_hparams)
+def test_label_smoothing_trains(composer_trainer_hparams: TrainerHparams):
+    composer_trainer_hparams.algorithms = [LabelSmoothingHparams(alpha=0.1)]
+    train_model(composer_trainer_hparams)

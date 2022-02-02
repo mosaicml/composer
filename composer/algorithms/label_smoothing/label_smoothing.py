@@ -37,7 +37,7 @@ class LabelSmoothing(Algorithm):
     """
 
     def __init__(self, alpha: float):
-        self.hparams = LabelSmoothingHparams(alpha=alpha)
+        self.alpha = alpha
         self.original_labels = torch.Tensor()
 
     def match(self, event: Event, state: State) -> bool:
@@ -54,7 +54,7 @@ class LabelSmoothing(Algorithm):
             smoothed_labels = smooth_labels(
                 state.outputs,
                 labels,
-                alpha=self.hparams.alpha,
+                alpha=self.alpha,
             )
             state.batch = (input, smoothed_labels)
         elif event == Event.AFTER_LOSS:

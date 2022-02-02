@@ -15,5 +15,8 @@ class EfficientNetB0Hparams(ModelHparams):
     )
 
     def initialize_object(self):
-        from composer.models import EfficientNetB0
-        return EfficientNetB0(self)
+        if self.num_classes is None:
+            raise ValueError("EfficientNet requires num_classes to be specified.")
+
+        from composer.models.efficientnetb0.model import EfficientNetB0
+        return EfficientNetB0(num_classes=self.num_classes, drop_connect_rate=self.drop_connect_rate)

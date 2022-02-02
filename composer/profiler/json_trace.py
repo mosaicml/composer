@@ -24,13 +24,13 @@ class JSONTraceHandler(ProfilerEventHandler):
         output_directory (str): Directory, relative to the run directory, to store traces.
             Each trace will be called ``rank_XXX.trace.json`` within this directory,
             where ``XXX`` is the global rank.
-            (Default: ``mosaic_profiler`` within the run directory)
+            (Default: ``composer_profiler`` within the run directory)
     """
 
     def __init__(self,
                  flush_every_n_batches: int = 100,
                  buffering: int = -1,
-                 output_directory: str = "mosaic_profiler") -> None:
+                 output_directory: str = "composer_profiler") -> None:
         self.buffering = buffering
         self.flush_every_n_batches = flush_every_n_batches
         self.output_directory = os.path.join(run_directory.get_run_directory(), output_directory)
@@ -106,7 +106,7 @@ class JSONTraceHandler(ProfilerEventHandler):
 
     def batch_end(self, state: State, logger: Logger) -> None:
         del logger  # unused
-        if (state.batch_idx + 1) % self.flush_every_n_batches == 0:
+        if int(state.timer.batch_in_epoch) % self.flush_every_n_batches == 0:
             self._flush()
 
     def training_end(self, state: State, logger: Logger) -> None:

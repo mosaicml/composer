@@ -213,7 +213,7 @@ class MosaicMLLoggerBackend(BaseLoggerBackend):
         if self.skip_logging:
             return
 
-        if (state.step + 1) % self.flush_every_n_batches == 0:
+        if int(state.timer.batch) % self.flush_every_n_batches == 0:
             self._flush_buffered_data()
 
     def training_end(self, state: State, logger: Logger):

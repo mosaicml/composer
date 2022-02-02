@@ -30,13 +30,13 @@ class DeepLabV3Hparams(ModelHparams):
             raise ValueError(f"backbone_arch must be one of ['resnet50', 'resnet101']: not {self.backbone_arch}")
 
     def initialize_object(self):
-        from composer.models.deeplabv3.deeplabv3 import MosaicDeepLabV3
+        from composer.models.deeplabv3.deeplabv3 import ComposerDeepLabV3
 
         if self.num_classes is None:
             raise ValueError("num_classes must be specified")
 
-        return MosaicDeepLabV3(num_classes=self.num_classes,
-                               backbone_arch=self.backbone_arch,
-                               is_backbone_pretrained=self.is_backbone_pretrained,
-                               sync_bn=self.sync_bn,
-                               initializers=self.initializers)
+        return ComposerDeepLabV3(num_classes=self.num_classes,
+                                 backbone_arch=self.backbone_arch,
+                                 is_backbone_pretrained=self.is_backbone_pretrained,
+                                 sync_bn=self.sync_bn,
+                                 initializers=self.initializers)

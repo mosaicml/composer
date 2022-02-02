@@ -156,7 +156,10 @@ class WandBLoggerBackendHparams(BaseLoggerBackendHparams):
                             if isinstance(item, dict):
                                 found_sub_dicts = True
                                 for sub_key, sub_val in item.items():
-                                    all_items.update(get_flattened_dict(sub_val, key_items + [sub_key]))
+                                    if isinstance(sub_val, dict):
+                                        all_items.update(get_flattened_dict(sub_val, key_items + [sub_key]))
+                                    else:
+                                        all_items.update({sub_key: sub_val})
                         if not found_sub_dicts:
                             all_items[key_name] = val
                     else:
