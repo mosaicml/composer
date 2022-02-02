@@ -4,12 +4,12 @@ from typing import List, Optional
 
 from torchvision.models import resnet
 
-from composer.models.base import MosaicClassifier
+from composer.models.base import ComposerClassifier
 from composer.models.model_hparams import Initializer
 
 
-class MosaicResNet(MosaicClassifier):
-    """ResNet model family extending :class:`MosaicClassifier`.
+class ComposerResNet(ComposerClassifier):
+    """ResNet model family extending :class:`ComposerClassifier`.
 
     See this `paper <https://arxiv.org/abs/1512.03385>`_ for details
     on the residual network architecture.

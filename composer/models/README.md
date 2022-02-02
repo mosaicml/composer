@@ -1,6 +1,6 @@
 # Models
 
-Models are implemented both as a standalone `torch.nn.Module`, or as a `MosaicModel` that is compatible with the MosaicTrainer.
+Models are implemented both as a standalone `torch.nn.Module`, or as a `ComposerModel` that is compatible with the Composer trainer.
 
 <!--- Table Start (automatically generated) --->
 Task|Dataset|Name|Quality|Metric|TTT|Hparams

@@ -13,10 +13,10 @@ from composer.core.types import BatchPair, DataLoader, Metrics, Tensor, Tensors
 from composer.datasets.dataloader import DataloaderHparams
 from composer.datasets.hparams import DatasetHparams, SyntheticHparamsMixin
 from composer.datasets.synthetic import SyntheticBatchPairDataset, SyntheticDataLabelType
-from composer.models import BaseMosaicModel, ModelHparams
+from composer.models import ComposerModel, ModelHparams
 
 
-class SimpleBatchPairModel(BaseMosaicModel):
+class SimpleBatchPairModel(ComposerModel):
     """A small model that has a really fast forward pass.
     """
 

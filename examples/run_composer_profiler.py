@@ -1,7 +1,7 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
 """Entrypoint that performs a profiling run on the provided yahp hparams file
-This example is interchangable with run_mosaic_trainer.py
+This example is interchangable with run_composer_trainer.py
 """
 import argparse
 import logging
@@ -38,7 +38,7 @@ def main() -> None:
     hparams = TrainerHparams.create(cli_args=True)  # reads cli args from sys.argv
     logging.getLogger(composer.__name__).setLevel(hparams.log_level)
 
-    # Configure the mosaic profiler
+    # Configure the Composer profiler
     if hparams.profiler is None:
         if args.detailed:
             hparams.profiler = ProfilerHparams(profilers=[  # type: ignore

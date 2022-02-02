@@ -13,7 +13,7 @@ from composer import Logger, State
 from composer.core.evaluator import Evaluator
 from composer.core.types import DataLoader, DataSpec, Model, Optimizer, Precision, Scheduler
 from composer.datasets import DataloaderHparams, DatasetHparams
-from composer.models import ModelHparams, MosaicClassifier
+from composer.models import ComposerClassifier, ModelHparams
 from composer.optim import AdamHparams, ExponentialLRHparams
 from composer.trainer import TrainerHparams
 from composer.trainer.devices import CPUDeviceHparams
@@ -169,7 +169,7 @@ def never_match_algorithms():
 
 
 @pytest.fixture
-def mosaic_trainer_hparams(
+def composer_trainer_hparams(
     dummy_model_hparams: ModelHparams,
     dummy_train_dataset_hparams: DatasetHparams,
     dummy_val_dataset_hparams: DatasetHparams,
@@ -225,7 +225,7 @@ def state_with_model(simple_conv_model: Model, dummy_train_dataloader: DataLoade
 
 @pytest.fixture()
 def simple_conv_model():
-    return MosaicClassifier(SimpleConvModel())
+    return ComposerClassifier(SimpleConvModel())
 
 
 @pytest.fixture(scope="session")
