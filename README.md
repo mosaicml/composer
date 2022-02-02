@@ -5,7 +5,7 @@ MosaicML `Composer` contains a library of methods, and ways to compose them toge
 The library features:
 * Implementation of 20+ efficiency methods curated from the research community
 * Standardized approach to implement and compose efficiency methods, extended from two-way callbacks ([Howard et al, 2020](https://arxiv.org/abs/2002.04688))
-* Easy way to access our methods either directly for your trainer loops, or through the MosaicML Trainer.
+* Easy way to access our methods either directly for your trainer loops, or through the Composer Trainer.
 
 [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/mosaicml/composer/blob/main/examples/composer.ipynb)
 
@@ -42,7 +42,7 @@ for epoch in range(max_epochs):
 
 We have a growing collection of deeply characterized methods, see [Methods](https://www.mosaicml.com/methods).
 
-2. Compose methods together using our `Trainer`:
+2. Compose methods together using the Composer `Trainer`:
 
 ```python
 from composer import trainer, algorithms, Trainer
@@ -64,7 +64,7 @@ To compose methods together, we used the excellent two-way callbacks system ([Ho
 
 ## Documentation
 
-See [our documentation](https://mosaicml-composer.readthedocs-hosted.com/en/stable/) for installation instructions and how to get started.
+See [our documentation](https://docs.mosaicml.com/en/stable/) for installation instructions and how to get started.
 
 ## Community
 

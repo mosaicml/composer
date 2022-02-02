@@ -8,7 +8,7 @@ import yahp as hp
 from composer.models.transformer_hparams import TransformerHparams
 
 if TYPE_CHECKING:
-    from composer.models.transformer_shared import MosaicTransformer
+    from composer.models.transformer_shared import ComposerTransformer
 
 
 @dataclass
@@ -19,7 +19,7 @@ class BERTForClassificationHparams(TransformerHparams):
         if self.num_labels < 1:
             raise ValueError("The number of target labels must be at least one.")
 
-    def initialize_object(self) -> "MosaicTransformer":
+    def initialize_object(self) -> "ComposerTransformer":
         try:
             import transformers
         except ImportError as e:
@@ -57,7 +57,7 @@ class BERTForClassificationHparams(TransformerHparams):
 @dataclass
 class BERTHparams(TransformerHparams):
 
-    def initialize_object(self) -> "MosaicTransformer":
+    def initialize_object(self) -> "ComposerTransformer":
         try:
             import transformers
         except ImportError as e:

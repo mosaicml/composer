@@ -11,7 +11,7 @@ import tempfile
 import textwrap
 import urllib.parse
 import warnings
-from typing import TYPE_CHECKING, Any, Dict, Iterator, Optional, Tuple, cast
+from typing import TYPE_CHECKING, Any, Dict, Iterator, Optional, Tuple, Union, cast
 
 import numpy as np
 import requests
@@ -20,23 +20,23 @@ import tqdm
 import yaml
 
 from composer.core import Event, State
+from composer.core.time import Time, TimeUnit
 from composer.core.types import StateDict
 from composer.trainer.deepspeed import is_module_deepspeed
 from composer.trainer.devices.device import Device
-from composer.utils import ObjectStoreProviderHparams, dist, iterate_with_pbar, reproducibility, run_directory
+from composer.utils import ObjectStoreProvider, dist, iterate_with_pbar, reproducibility, run_directory
 
 log = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
     import deepspeed
 
-
-def get_mosaic_checkpoint_filepath(checkpoint_folder: str):
-    return os.path.join(checkpoint_folder, "mosaic_states.pt")
-
-
-_MOSAIC_STATES_FILENAME = "mosaic_states.pt"
+_COMPOSER_STATES_FILENAME = "composer_states.pt"
 _DEEPSPEED_TAG = "deepspeed"  # always tag with the same, deterministic name. We'll rename the tarball to the appropriate name.
+
+
+def get_composer_checkpoint_filepath(checkpoint_folder: str):
+    return os.path.join(checkpoint_folder, _COMPOSER_STATES_FILENAME)
 
 
 class CheckpointLoader:
@@ -61,9 +61,10 @@ class CheckpointLoader:
             Then, ``checkpoint`` should be set to ``my_model/rank_{RANK}/ep1.tar``, and all ranks will load the correct
             data.
 
-        object_store_hparams (ObjectStoreProviderHparams, optional): If the ``checkpoint`` is in an object store
-            (i.e. AWS S3 or Google Cloud Storage), the parameters for connecting to the cloud provider object store.
-            Otherwise, if the checkpoint is a local filepath, set to ``None``. (default: ``None``).
+        object_store (ObjectStoreProvider, optional): If the ``checkpoint`` is in an object store
+            (i.e. AWS S3 or Google Cloud Storage), an instance of :class:`ObjectStoreProvider` which will be used
+            to retreive the checkpoint. Otherwise, if the checkpoint is a local filepath, set to ``None``.
+            (default: ``None``).
         load_weights_only (bool): Whether to only restore the weights from the checkpoint without
             restoring the associated state.
         strict_model_weights (bool): Whether to force that the checkpointed weights must exactly match the model
@@ -77,23 +78,22 @@ class CheckpointLoader:
     def __init__(
         self,
         path: str,
-        object_store_hparams: Optional[ObjectStoreProviderHparams] = None,
+        object_store: Optional[ObjectStoreProvider] = None,
         load_weights_only: bool = False,
         strict_model_weights: bool = False,
         chunk_size: int = 1_048_576,
         progress_bar: bool = True,
     ):
-
         checkpoint_uri_parsed = urllib.parse.urlparse(path)
         if checkpoint_uri_parsed.scheme != "":
-            if object_store_hparams is not None:
+            if object_store is not None:
                 raise ValueError(
                     textwrap.dedent("""\
-                        When specifying `object_store_hparams`,
+                        When specifying `object_store`,
                         the `checkpoint` parameter must be the key for the checkpoint in the bucket, NOT a uri."""))
 
         self.path = path
-        self.object_store = object_store_hparams
+        self.object_store = object_store
         self.load_weights_only = load_weights_only
         self.strict_model_weights = strict_model_weights
         self.chunk_size = chunk_size
@@ -103,9 +103,8 @@ class CheckpointLoader:
     def _retrieve_checkpoint(self, rank: int, destination_filepath: str, ignore_not_found_errors: bool):
         checkpoint_name = self.path.format(RANK=rank)
         if self.object_store is not None:
-            provider = self.object_store.initialize_object()
             try:
-                total_size_in_bytes = provider.get_object_size(checkpoint_name)
+                total_size_in_bytes = self.object_store.get_object_size(checkpoint_name)
             except Exception as e:
                 if "ObjectDoesNotExistError" in str(e) and ignore_not_found_errors:
                     return
@@ -113,7 +112,7 @@ class CheckpointLoader:
             self._write_to_file_with_pbar(
                 destination_filepath=destination_filepath,
                 total_size=total_size_in_bytes,
-                iterator=provider.download_object_as_stream(checkpoint_name, chunk_size=self.chunk_size),
+                iterator=self.object_store.download_object_as_stream(checkpoint_name, chunk_size=self.chunk_size),
             )
             return
         checkpoint_uri_parsed = urllib.parse.urlparse(checkpoint_name)
@@ -145,7 +144,7 @@ class CheckpointLoader:
                 fp.write(chunk)
 
     def _get_node_checkpoint_download_folder(self, path: Optional[str]) -> str:
-        """Broadcasts the path from the local rank zero to all ranks"""
+        """Broadcasts the path from the local rank zero to all ranks."""
         local_rank_zero = dist.get_local_world_size() * dist.get_node_rank()
         paths = dist.all_gather_object(path)
         local_rank_zero_path = paths[local_rank_zero]
@@ -159,8 +158,8 @@ class CheckpointLoader:
             node_checkpoint_folder (str): The folder to which to download the checkpoint
 
         Returns:
-            Tuple[str, Optional[str]]: A tuple of ``mosaic_checkpoint_filepath``, ``extracted_checkpoint_folder``
-                The ``mosaic_checkpoint_filepath``, is the path to the mosaic states, which can be passed into
+            Tuple[str, Optional[str]]: A tuple of ``composer_checkpoint_filepath``, ``extracted_checkpoint_folder``
+                The ``composer_checkpoint_filepath``, is the path to the composer states, which can be passed into
                 :meth:`torch.load`.
 
                 The ``extracted_checkpoint_folder`` is the path to the checkpoint folder, which can be passed into
@@ -174,13 +173,13 @@ class CheckpointLoader:
         rank_n_checkpoint_archive_filepath = os.path.join(node_checkpoint_folder, rank_n_checkpoint_archive_name)
         extracted_checkpoint_folder = None
         if rank_zero_checkpoint_archive_filepath.endswith(".pt"):
-            # it's not an archive; it's just the mosaic state dict
+            # it's not an archive; it's just the composer state dict
             # and only rank zero has this file
             extracted_checkpoint_folder = None
-            mosaic_checkpoint_filepath = rank_zero_checkpoint_archive_filepath
+            composer_checkpoint_filepath = rank_zero_checkpoint_archive_filepath
         else:
             extracted_checkpoint_folder = os.path.join(node_checkpoint_folder, "checkpoint")
-            mosaic_checkpoint_filepath = os.path.join(extracted_checkpoint_folder, _MOSAIC_STATES_FILENAME)
+            composer_checkpoint_filepath = os.path.join(extracted_checkpoint_folder, _COMPOSER_STATES_FILENAME)
 
         try:
             if dist.get_local_rank() == 0:
@@ -222,15 +221,15 @@ class CheckpointLoader:
             # will detect the process crash and terminate the other ranks
             dist.barrier()
 
-        return mosaic_checkpoint_filepath, extracted_checkpoint_folder
+        return composer_checkpoint_filepath, extracted_checkpoint_folder
 
-    def _restore_checkpoint(self, state: State, mosaic_checkpoint_filepath: str,
+    def _restore_checkpoint(self, state: State, composer_checkpoint_filepath: str,
                             extracted_checkpoint_folder: Optional[str]) -> Optional[int]:
         """Restore a checkpoint into ``state``.
 
         Args:
             state (State): The state to load the checkpoint into
-            mosaic_checkpoint_filepath (str): The filepath to the moasic states, which is passed into
+            composer_checkpoint_filepath (str): The filepath to the moasic states, which is passed into
                 :meth:`torch.load`
             extracted_checkpoint_folder (Optional[str]): The path to the checkpoint folder, which is passed into
                 :meth:`deepspeed.DeepSpeedEngine.load_checkpoint`.
@@ -239,7 +238,7 @@ class CheckpointLoader:
             Optional[int]: The seed that was loaded from the checkpoint if it exists otherwise `None`.
         """
         # Now, all ranks load the checkpoint that local rank zero downloaded
-        state_dict = torch.load(mosaic_checkpoint_filepath, map_location='cpu')
+        state_dict = torch.load(composer_checkpoint_filepath, map_location='cpu')
         log.debug(f"Loaded checkpoint with keys {state_dict.keys()} and state with keys {state_dict['state'].keys()}")
         seed_to_restore = None
 
@@ -290,8 +289,9 @@ class CheckpointLoader:
         tempdir_ctx = tempfile.TemporaryDirectory() if dist.get_local_rank() == 0 else contextlib.nullcontext(None)
         with tempdir_ctx as tempdir:
             node_checkpoint_folder = self._get_node_checkpoint_download_folder(tempdir)
-            mosaic_checkpoint_filepath, extracted_checkpoint_folder = self._download_checkpoint(node_checkpoint_folder)
-            seed_to_restore = self._restore_checkpoint(state, mosaic_checkpoint_filepath, extracted_checkpoint_folder)
+            composer_checkpoint_filepath, extracted_checkpoint_folder = self._download_checkpoint(
+                node_checkpoint_folder)
+            seed_to_restore = self._restore_checkpoint(state, composer_checkpoint_filepath, extracted_checkpoint_folder)
 
         log.info(f'{"Model weights" if self.load_weights_only else "Trainer checkpoint"}'
                  f' loaded from {self.path}.')
@@ -299,8 +299,7 @@ class CheckpointLoader:
         return seed_to_restore
 
     def restore_checkpoint_rng_state(self, device: Device):
-        """Restore the state of all RNG objects in this context from the loaded checkpoint's data.
-        """
+        """Restore the state of all RNG objects in this context from the loaded checkpoint's data."""
 
         if self.checkpoint_rng_state is None:
             return
@@ -333,18 +332,18 @@ class CheckpointSaver:
 
     Args:
         save_folder (str): The path to store checkpoints in.
-        interval (int): The amount of time units to wait between checkpoints.
-        interval_unit (str): The unit (`"ep"` or `"it"`) that
-            `interval` should be measured in.
+        interval (Time or str): The amount of time units to wait between checkpoints.
     """
 
-    def __init__(self, save_folder: str, interval: int, interval_unit: str):
-        if interval_unit.lower() == "ep":
+    def __init__(self, save_folder: str, interval: Union[Time, str]):
+        if not isinstance(interval, Time):
+            interval = Time.from_timestring(interval)
+        if interval.unit == TimeUnit.EPOCH:
             self.save_event = Event.EPOCH_END
-        elif interval_unit.lower() == "it":
+        elif interval.unit == TimeUnit.BATCH:
             self.save_event = Event.BATCH_END
         else:
-            raise ValueError(f"Unknown checkpointing interval: {interval_unit}")
+            raise ValueError(f"Unknown checkpointing interval: {interval.unit}. Must be epochs or batches.")
         self.checkpoint_folder = os.path.join(run_directory.get_run_directory(), save_folder)
         os.makedirs(self.checkpoint_folder, mode=0o775, exist_ok=True)
         self.save_interval = interval
@@ -364,9 +363,9 @@ class CheckpointSaver:
         if event != self.save_event:
             return False
         if self.save_event == Event.EPOCH_END:
-            return state.epoch % self.save_interval == 0
+            return int(state.timer.epoch) % int(self.save_interval) == 0
         if self.save_event == Event.BATCH_END:
-            return state.step % self.save_interval == 0
+            return int(state.timer.batch) % int(self.save_interval) == 0
 
         return False
 
@@ -420,8 +419,8 @@ class CheckpointSaver:
                                     "differ from those being used in the current training run. "
                                     "Please specify a new checkpoint folder.") from e
 
-                mosaic_states_filepath = os.path.join(tmpdir, _MOSAIC_STATES_FILENAME)
-                with open(mosaic_states_filepath, 'xb') as f:
+                composer_states_filepath = os.path.join(tmpdir, _COMPOSER_STATES_FILENAME)
+                with open(composer_states_filepath, 'xb') as f:
                     torch.save(state_dict, f)
 
             checkpoint_archive_filepath = os.path.join(self.checkpoint_folder, f'{tag}.tar')

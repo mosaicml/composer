@@ -15,8 +15,8 @@ log = logging.getLogger(__name__)
 
 @torch.no_grad()
 def update_bn(loader: DataLoader, model: torch.nn.Module):
-    """
-    Updates BatchNorm running_mean, running_var buffers in the model.
+    """Updates BatchNorm running_mean, running_var buffers in the model.
+
     It performs one pass over data in `loader` to estimate the activation
     statistics for BatchNorm layers in the model.
     Adapted from https://github.com/pytorch/pytorch/blob/master/torch/optim/swa_utils.py
@@ -93,7 +93,7 @@ class SWA(Algorithm):
              (event == Event.EPOCH_END and should_start_swa)
 
     def apply(self, event: Event, state: State, logger: Logger) -> None:
-        """Apply SWA to weights towards the end of training
+        """Apply SWA to weights towards the end of training.
 
         Args:
             event (Event): the current event

@@ -37,10 +37,10 @@ def get_batch_file_path(*, rank: int, epoch: int, is_train: bool) -> str:
 
 
 class TrackedDataset(types.Dataset):
-    """
-    TrackedDataset atomically writes a file every time a record is accessed.
-    It is thread-safe and subprocess-safe, and is useful to measure how many times a sample is accessed.
-    Because of atomic file writes, it is slow and should not be used in any performance measurements.
+    """TrackedDataset atomically writes a file every time a record is accessed.
+
+    It is thread-safe and subprocess-safe, and is useful to measure how many times a sample is accessed. Because of
+    atomic file writes, it is slow and should not be used in any performance measurements.
     """
 
     def __init__(self, is_train: bool, synthetic_dataset: SyntheticBatchPairDataset):
@@ -126,22 +126,21 @@ def patch_registries(monkeypatch: MonkeyPatch):
     pytest.param(1),
     pytest.param(2, marks=pytest.mark.world_size(2)),
 ])
-def test_ddp(device: DeviceHparams, world_size: int, mosaic_trainer_hparams: TrainerHparams, deepspeed: bool) -> None:
-    """
-    test strategy for ddp:
-    1) Train a dummy model on two gps, for two epochs, using the tracked dataset.
-    2) The tracked dataset should record two -- and only two -- accesses for each sample -- one for each epoch
-       If each sample is accessed more than this number of times, then the distributed sampler isn't working properly
-       If each sample is accessed less than this number of times, then either the sample pool size isn't a multiple of
-       the batch size (and samples are getting dropped), or not all processes are working
-    3) We use a callback to save the (x, y) for the first batch in each epoch on each process
-        ({train, eval} * {epoch 1, epoch 2} * {ddp 1, ddp2})
-       We assert that each of these tensors are different to ensure that 1) random seeding works properly,
-       and 2) each ddp process is indeed getting different data.
+def test_ddp(device: DeviceHparams, world_size: int, composer_trainer_hparams: TrainerHparams, deepspeed: bool) -> None:
+    """test strategy for ddp: 1) Train a dummy model on two gps, for two epochs, using the tracked dataset. 2) The
+    tracked dataset should record two -- and only two -- accesses for each sample -- one for each epoch If each sample
+    is accessed more than this number of times, then the distributed sampler isn't working properly If each sample is
+    accessed less than this number of times, then either the sample pool size isn't a multiple of the batch size (and
+    samples are getting dropped), or not all processes are working 3) We use a callback to save the (x, y) for the first
+    batch in each epoch on each process.
+
+     ({train, eval} * {epoch 1, epoch 2} * {ddp 1, ddp2})
+    We assert that each of these tensors are different to ensure that 1) random seeding works properly,
+    and 2) each ddp process is indeed getting different data.
     """
     del world_size  # unused. Set via env variables
 
-    hparams = mosaic_trainer_hparams
+    hparams = composer_trainer_hparams
     model_hparams = hparams.model
     model = model_hparams.initialize_object()
     assert isinstance(model, SimpleBatchPairModel)

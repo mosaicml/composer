@@ -22,9 +22,7 @@ class RecursiveLinear(nn.Linear):
 
 
 class SimpleReplacementPolicy(nn.Module):
-    """
-    Bundle the model, replacement function, and validation into one class
-    """
+    """Bundle the model, replacement function, and validation into one class."""
 
     def __init__(self):
         super().__init__()
@@ -53,9 +51,7 @@ class SimpleReplacementPolicy(nn.Module):
 
 
 class ModuleIdxReplacementPolicy(SimpleReplacementPolicy):
-    """
-    Test replacing only the first instance of a Linear layer
-    """
+    """Test replacing only the first instance of a Linear layer."""
 
     @staticmethod
     def maybe_replace_linear(module: torch.nn.Module, module_index: int):
