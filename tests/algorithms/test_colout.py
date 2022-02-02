@@ -201,8 +201,8 @@ def test_match_incorrect(event, dummy_algorithm, dummy_state):
 @pytest.mark.parametrize("batch", [True])
 def test_apply_batch(fake_image_batch, dummy_algorithm, dummy_state, dummy_logger):
     """ Apply the algorithm to a fake batch """
-    p_row = dummy_algorithm.hparams.p_row
-    p_col = dummy_algorithm.hparams.p_col
+    p_row = dummy_algorithm.p_row
+    p_col = dummy_algorithm.p_col
 
     dummy_state.batch = (fake_image_batch, None)
     dummy_algorithm.apply(Event.AFTER_DATALOADER, dummy_state, dummy_logger)
@@ -213,8 +213,8 @@ def test_apply_batch(fake_image_batch, dummy_algorithm, dummy_state, dummy_logge
 @pytest.mark.parametrize("batch", [False])
 def test_apply_sample(dummy_algorithm, dummy_state, dummy_train_dataloader, dummy_logger):
     """ Test that augmentation is added to dataset and functioning properly """
-    p_row = dummy_algorithm.hparams.p_row
-    p_col = dummy_algorithm.hparams.p_col
+    p_row = dummy_algorithm.p_row
+    p_col = dummy_algorithm.p_col
 
     dset = dummy_train_dataloader.dataset
     orig, _ = dset[0]
@@ -226,6 +226,6 @@ def test_apply_sample(dummy_algorithm, dummy_state, dummy_train_dataloader, dumm
     verify_shape_tensor(orig, new, p_row, p_col)
 
 
-def test_colout_trains(mosaic_trainer_hparams: TrainerHparams):
-    mosaic_trainer_hparams.algorithms = [ColOutHparams(p_row=0.15, p_col=0.15, batch=True)]
-    train_model(mosaic_trainer_hparams)
+def test_colout_trains(composer_trainer_hparams: TrainerHparams):
+    composer_trainer_hparams.algorithms = [ColOutHparams(p_row=0.15, p_col=0.15, batch=True)]
+    train_model(composer_trainer_hparams)

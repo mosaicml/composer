@@ -11,7 +11,7 @@ from composer.core import Event
 from composer.core.logging.logger import Logger
 from composer.core.state import State
 from composer.core.types import DataLoader
-from composer.models import MosaicClassifier
+from composer.models import ComposerClassifier
 from composer.trainer.trainer_hparams import TrainerHparams
 from tests.utils.trainer_fit import train_model
 
@@ -191,14 +191,14 @@ def batch() -> int:
 
 
 @pytest.fixture
-def conv_model(Ximage: torch.Tensor, D: int) -> MosaicClassifier:
+def conv_model(Ximage: torch.Tensor, D: int) -> ComposerClassifier:
     """Dummy conv model
     """
-    return MosaicClassifier(torch.nn.Conv2d(Ximage.shape[1], D, 3))
+    return ComposerClassifier(torch.nn.Conv2d(Ximage.shape[1], D, 3))
 
 
 @pytest.fixture
-def dummy_state_sb(dummy_state: State, dummy_train_dataloader: DataLoader, conv_model: MosaicClassifier,
+def dummy_state_sb(dummy_state: State, dummy_train_dataloader: DataLoader, conv_model: ComposerClassifier,
                    loss_fun_tuple: Callable, epoch: int, batch: int) -> State:
     """Dummy state with required values set for Selective Backprop
     """
@@ -262,7 +262,7 @@ def test_selective_output_shape(X: torch.Tensor, y: torch.Tensor, model: torch.n
 
 @pytest.mark.parametrize("keep", [0.5, 0.75, 1])
 @pytest.mark.parametrize("scale_factor", [0.5, 0.75])
-def test_selective_output_shape_scaled(Ximage: torch.Tensor, y: torch.Tensor, conv_model: MosaicClassifier,
+def test_selective_output_shape_scaled(Ximage: torch.Tensor, y: torch.Tensor, conv_model: ComposerClassifier,
                                        loss_fun: Callable, keep: float, scale_factor: float) -> None:
     """Test functional selection on 4D inputs
     """
@@ -328,8 +328,8 @@ def test_apply(Ximage: torch.Tensor, y: torch.Tensor, dummy_algorithm: Selective
     assert y_scaled.shape == (int(N * keep),)
 
 
-def test_selective_backprop_trains(mosaic_trainer_hparams: TrainerHparams):
-    mosaic_trainer_hparams.algorithms = [
+def test_selective_backprop_trains(composer_trainer_hparams: TrainerHparams):
+    composer_trainer_hparams.algorithms = [
         SelectiveBackpropHparams(start=0.3, end=0.9, keep=0.75, scale_factor=0.5, interrupt=1)
     ]
-    train_model(mosaic_trainer_hparams, max_epochs=6)
+    train_model(composer_trainer_hparams, max_epochs=6)

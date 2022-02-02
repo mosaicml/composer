@@ -224,7 +224,7 @@ class CutMix(Algorithm):
     """
 
     def __init__(self, alpha: float):
-        self.hparams = CutMixHparams(alpha=alpha)
+        self.alpha = alpha
         self._indices = torch.Tensor()
         self._cutmix_lambda = 0.0
         self._bbox = tuple()
@@ -280,7 +280,7 @@ class CutMix(Algorithm):
         input, target = state.batch_pair
         assert isinstance(input, Tensor) and isinstance(target, Tensor), \
             "Multiple tensors for inputs or targets not supported yet."
-        alpha = self.hparams.alpha
+        alpha = self.alpha
 
         self.indices = gen_indices(input)
         self.cutmix_lambda = gen_cutmix_lambda(alpha)

@@ -1,8 +1,7 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
 import torch
-
-from composer.models.resnets import Bottleneck
+from torchvision.models.resnet import Bottleneck
 
 
 def _sample_bernoulli(probability: torch.Tensor,

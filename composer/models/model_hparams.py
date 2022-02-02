@@ -8,7 +8,7 @@ import torch
 import torch.nn as nn
 import yahp as hp
 
-from composer.models.base import BaseMosaicModel
+from composer.models.base import ComposerModel
 from composer.utils.string_enum import StringEnum
 
 
@@ -69,5 +69,5 @@ class ModelHparams(hp.Hparams, ABC):
     )
 
     @abstractmethod
-    def initialize_object(self) -> BaseMosaicModel:
+    def initialize_object(self) -> ComposerModel:
         pass

@@ -155,7 +155,7 @@ class RunDirectoryUploader(Callback):
             worker.start()
 
     def batch_end(self, state: State, logger: Logger) -> None:
-        if (state.batch_idx + 1) % self._upload_every_n_batches == 0:
+        if int(state.timer.batch_in_epoch) % self._upload_every_n_batches == 0:
             self._trigger_upload(logger, LogLevel.BATCH)
 
     def epoch_end(self, state: State, logger: Logger) -> None:

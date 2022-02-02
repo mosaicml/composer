@@ -34,7 +34,8 @@ schedulers:
       verbose: false
       interval: step
 model:
-  resnet101:
+  resnet:
+    model_name: resnet101
     initializers:
       - kaiming_normal
       - bn_uniform

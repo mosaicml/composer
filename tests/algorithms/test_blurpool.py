@@ -91,6 +91,6 @@ def test_blurpool_blurconv2d_params_match_original_params():
     assert blurconv.conv.bias.requires_grad
 
 
-def test_blurpool_trains(mosaic_trainer_hparams: TrainerHparams):
-    mosaic_trainer_hparams.algorithms = [BlurPoolHparams(replace_convs=True, replace_maxpools=True, blur_first=True)]
-    train_model(mosaic_trainer_hparams, run_loss_check=True)
+def test_blurpool_trains(composer_trainer_hparams: TrainerHparams):
+    composer_trainer_hparams.algorithms = [BlurPoolHparams(replace_convs=True, replace_maxpools=True, blur_first=True)]
+    train_model(composer_trainer_hparams, run_loss_check=True)

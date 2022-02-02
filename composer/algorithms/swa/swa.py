@@ -4,10 +4,10 @@ from __future__ import annotations
 
 import logging
 from typing import Optional
+import torch
 
 from torch.optim.swa_utils import SWALR, AveragedModel, update_bn
 
-from composer.algorithms.swa.hparams import SWAHparams
 from composer.core.types import Algorithm, Event, Logger, State
 
 log = logging.getLogger(__name__)
@@ -34,11 +34,11 @@ class SWA(Algorithm):
     """
 
     def __init__(self, swa_start: float = 0.8, anneal_epochs: int = 10, swa_lr: Optional[float] = None):
-        self.hparams = SWAHparams(
-            swa_start=swa_start,
-            anneal_epochs=anneal_epochs,
-            swa_lr=swa_lr,
-        )
+        self.swa_start = swa_start
+        self.anneal_epochs = anneal_epochs
+        self.swa_lr = swa_lr
+        self.swa_model: Optional[torch.nn.Module] = None
+
         assert 0 < swa_start < 1, "swa_start must be between 0 and 1."
         assert anneal_epochs > 0, "anneal_epochs must be great than 0."
 
@@ -46,7 +46,7 @@ class SWA(Algorithm):
         self.swa_model = None
 
     def match(self, event: Event, state: State) -> bool:
-        """Run on EPOCH_END if epochs greater than or equal to `swa_start * max_epochs`
+        """Run on EPOCH_END if training duration is greater than `swa_start`
 
         Args:
             event (:class:`Event`): The current event.
@@ -54,7 +54,7 @@ class SWA(Algorithm):
         Returns:
             bool: True if this algorithm should run now.
         """
-        should_start_swa = state.epoch >= int(self.hparams.swa_start * state.max_epochs)
+        should_start_swa = float(state.get_elapsed_duration()) >= self.swa_start
         return event == Event.EPOCH_END and should_start_swa
 
     def apply(self, event: Event, state: State, logger: Logger) -> None:
@@ -68,7 +68,7 @@ class SWA(Algorithm):
 
         if self.swa_scheduler is None:
 
-            if self.hparams.swa_lr is None:
+            if self.swa_lr is None:
                 if len(state.schedulers) != 1:
                     raise RuntimeError("SWA supports only one scheduler")
                 scheduler = state.schedulers[0]
@@ -77,29 +77,29 @@ class SWA(Algorithm):
                 if len(last_lr) != 1:
                     raise RuntimeError("SWA supports only one LR")
                 log.info(f'Setting SWA LR to {last_lr}')
-                self.hparams.swa_lr = last_lr[0]
+                self.swa_lr = last_lr[0]
 
             if len(state.optimizers) != 1:
                 raise RuntimeError("SWA supports one and only one optimizer")
 
             self.swa_scheduler = SWALR(
                 state.optimizers[0],
-                swa_lr=self.hparams.swa_lr,
-                anneal_epochs=self.hparams.anneal_epochs,
+                swa_lr=self.swa_lr,
+                anneal_epochs=self.anneal_epochs,
                 anneal_strategy='cos',
             )
 
         if self.swa_model is None:
             self.swa_model = AveragedModel(state.model)
 
-        self.swa_model.update_parameters(state.model)
+        self.swa_model.update_parameters(state.model)  # type: ignore
 
         if self.swa_scheduler is None:
             raise ValueError('SWA LR scheduler was not set.')
         self.swa_scheduler.step()
 
         ## end of training
-        if state.epoch == state.max_epochs - 1:
+        if float(state.get_elapsed_duration()) >= 1.0:
             device = next(self.swa_model.parameters()).device
             # TODO(laura) this does not apply the batch split fn. This may result in cuda OOM
             update_bn(state.train_dataloader, model=self.swa_model, device=device)

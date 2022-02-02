@@ -39,9 +39,10 @@ class WandBLoggerBackend(BaseLoggerBackend):
                  init_params: Optional[Dict[str, Any]] = None) -> None:
         if log_artifacts and rank_zero_only:
             warnings.warn(
-                textwrap.dedent("""When logging artifacts, `rank_zero_only` should be set to False.
-                Artifacts from other ranks will not be collected, leading to a loss of information required to
-                restore from checkpoints."""))
+                textwrap.dedent("""\
+                    When logging artifacts, `rank_zero_only` should be set to False.
+                    Artifacts from other ranks will not be collected, leading to a loss of information required to
+                    restore from checkpoints."""))
         self._enabled = (not rank_zero_only) or dist.get_global_rank() == 0
 
         self._log_artifacts = log_artifacts
@@ -76,7 +77,8 @@ class WandBLoggerBackend(BaseLoggerBackend):
 
     def batch_end(self, state: State, logger: Logger) -> None:
         del logger  # unused
-        if self._enabled and self._log_artifacts and (state.step + 1) % self._log_artifacts_every_n_batches == 0:
+        if self._enabled and self._log_artifacts and int(
+                state.timer.batch_in_epoch) % self._log_artifacts_every_n_batches == 0:
             self._upload_artifacts()
 
     def epoch_end(self, state: State, logger: Logger) -> None:
