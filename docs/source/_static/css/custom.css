@@ -1,6 +1,11 @@
 .related-information {
     display: none;
 }
+
+.related-pages {
+    height: 4rem;
+}
+
 /* .wy-nav-side {
     background: #fcfafa;
 }
