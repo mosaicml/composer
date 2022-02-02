@@ -6,17 +6,30 @@ For general python styling questions not covered in this document, consult Googl
 
 ## 1. Code Formatting
 
-Composer uses the [yapf](https://github.com/google/yapf) formatter for general styling and
-[isort](https://github.com/PyCQA/isort) to sort imports.
+Composer uses the [yapf](https://github.com/google/yapf) formatter for general formatting,
+[isort](https://github.com/PyCQA/isort) to sort imports,
+[docformatter](https://github.com/myint/docformatter) to format docstrings, and
+[pylint](https://github.com/PyCQA/pylint) as the general style checker.
 
-To format code, run
+To (auto)format code, run
 
 ```bash
-yapf -rip .  # for yapf
-isort .  # for isort
+yapf -rip .  # for yapf, auto-formats in place
+isort .  # for isort, auto-formats in place
+
+# for docformatter, auto-formats in place
+docformatter -ri --wrap-summaries 120 --wrap-descriptions 120 composer tests examples
+
+pylint composer tests examples  # for pylint, does NOT auto-format
+
 ```
 
 The configuration is stored in [pyproject.toml](pyproject.toml).
+
+All modified files must have their pylint errors addressed
+(eventually, the entire codebase will become pylint compliant).
+Please do NOT address pylint errors in unrelated, unmodified files,
+as that will clutter the PR.
 
 
 ## 2. Type Annotations and Typechecking
@@ -42,27 +55,32 @@ Here are some suggestions to deal with pyright errors:
 
 1. Suppose a variable could be one of multiple types, like the following:
 
-```python
-def foo(x: Union[int, None]):
-    """
-    Args:
-        x (int or None): Foo parameter
-    """
-    return x + 5  # type error -- None + 5 is not allowed!
-```
+    ```python
+    def foo(x: Union[int, None]):
+        """
+        Args:
+            x (int or None): Foo parameter
+        """
+        return x + 5  # type error -- None + 5 is not allowed!
+    ```
 
-Pyright will complain since `None + 5` is not a valid operation. Instead, add a check to ensure that `x is not None`:
+    Pyright will complain since `None + 5` is not a valid operation.
+    Instead, add a check to ensure that `x is not None`:
 
-```python
-def foo(x: Union[int, None]):
-    """
-    Args:
-        x (int or None): Foo parameter
-    """
-    if x is None:
-        raise TypeError("x must be an integer, not None!")
-    return x + 5  # type error -- None + 5 is not allowed!
-```
+    ```python
+    def foo(x: Union[int, None]):
+        if x is None:
+            raise TypeError("x must be an integer, not None!")
+        return x + 5  # valid
+    ```
+
+    Assert statements also work. However, assert statements should NOT be used for data validation
+    (see the assert statement section below).
+    ```python
+    def foo(x: Union[int, None]):
+        assert x is not None, "x should never be None"
+        return x + 5  # valid
+    ```
 
 1. For variables where it is impossible for pyright to infer the correct type, use
 [cast](https://docs.python.org/3/library/typing.html#typing.cast).
@@ -106,12 +124,23 @@ The following rules apply to public APIs:
             ...
     ```
 
-    This signature allows a user to pass a string for a device, rather than having to import our custom device class.
+    This signature allows a user to pass a string for a device,
+    rather than having to import our custom device class.
 
-    For complex parameters, 
-* Parameters that could take a sequence of elements should also allow `None` or a singleton.
+    Parameters that are for power users (such as `load_object_store`) in the Trainer are exempt from this rule.
+    These parameters can require custom imports.
+
+1. Parameters that could take a sequence of elements should also allow `None` or a singleton.
     This simplifies the user API by not having to construct a list (or tuple) to hold a single element
-    (or no element). The `composer.utils.ensure_tuple` helper method can be helpful.
+    (or no element). For example, `Tensors = Union[Tensor, Tuple[Tensor, ...], List[Tensor]]`.
+
+    The `composer.utils.ensure_tuple` helper method can convert a singleton, list, or tuple into a tuple.
+    For example
+
+    ```python
+    def foo(x: Optional[Tensors]) -> Tuple[Tensor, ...]:
+        return ensure_tuple(x)  # ensures that the result is always a (potentially empty) tuple of tensors
+    ```
 
 
 ## 4. Use of `assert`
