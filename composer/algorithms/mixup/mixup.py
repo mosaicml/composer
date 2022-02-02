@@ -128,7 +128,7 @@ class MixUp(Algorithm):
     """
 
     def __init__(self, alpha: float):
-        self.hparams = MixUpHparams(alpha=alpha)
+        self.alpha = alpha
         self._interpolation_lambda = 0.0
         self._indices = torch.Tensor()
 
@@ -175,7 +175,7 @@ class MixUp(Algorithm):
         input, target = state.batch_pair
         assert isinstance(input, Tensor) and isinstance(target, Tensor), \
             "Multiple tensors for inputs or targets not supported yet."
-        alpha = self.hparams.alpha
+        alpha = self.alpha
 
         self.interpolation_lambda = gen_interpolation_lambda(alpha)
 

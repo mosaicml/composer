@@ -83,7 +83,6 @@ class DataSpec:
     def _default_split_batch(self, batch: Batch, num_microbatches: int) -> Sequence[Batch]:
         if not isinstance(batch, Sequence):
             raise ValueError(f'split_fn requires batch be a tuple pair of tensors, got {type(batch)}')
-        '''
         x, y = batch
         if isinstance(x, torch.Tensor) and isinstance(y, torch.Tensor):
             return list(zip(x.chunk(num_microbatches), y.chunk(num_microbatches)))
@@ -93,23 +92,9 @@ class DataSpec:
                     [x[i::num_microbatches] for i in range(num_microbatches)],
                     [y[i::num_microbatches] for i in range(num_microbatches)],
                 ))
-        '''
-        x, y, a, b, c = batch
-        nm = num_microbatches
-        if isinstance(x, torch.Tensor) and isinstance(y, torch.Tensor):# and isinstance(a, Tensor) and isinstance(b, Tensor) and isinstance(c, Tensor):
-            #simport pdb; pdb.set_trace()
-            return list(zip(x.chunk(num_microbatches), y.chunk(num_microbatches), [a[i::nm] for i in range(nm)], b.chunk(nm), c.chunk(nm)))
-        if isinstance(x, List) and isinstance(y, List) and isinstance(a, List) and isinstance(b, List) and isinstance(c, List):
-            return list(
-                zip(
-                    [x[i::n_microbatches] for i in range(n_microbatches)],
-                    [y[i::n_microbatches] for i in range(n_microbatches)],
-                    [a[i::nm] for i in range(nm)],
-                    [b[i::nm] for i in range(nm)],
-                    [c[i::nm] for i in range(nm)],
-                ))
         raise NotImplementedError(
-            textwrap.dedent("""The default split_fn is unable to split the output of this
+            textwrap.dedent("""\
+                The default split_fn is unable to split the output of this
                 dataloader. Please use a DataSpec and specify `split_batch`."""))
 
     def _default_get_num_samples_in_batch(self, batch: Batch) -> int:
@@ -128,9 +113,10 @@ class DataSpec:
             return dim0_sizes[0]
         else:
             raise NotImplementedError(
-                textwrap.dedent(f"""Cannot determine the batch size, as multiple Tensors of
-                different lengths were found in the batch: sizes in batch: {dim0_sizes}.
-                Please use a DataSpec and specify `get_num_samples_in_batch`."""))
+                textwrap.dedent(f"""\
+                    Cannot determine the batch size, as multiple Tensors of
+                    different lengths were found in the batch: sizes in batch: {dim0_sizes}.
+                    Please use a DataSpec and specify `get_num_samples_in_batch`."""))
 
     def _default_get_num_tokens_in_batch(self, batch: Batch) -> int:
         del batch  # unused

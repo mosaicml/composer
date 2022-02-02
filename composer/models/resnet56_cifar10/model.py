@@ -14,7 +14,7 @@ class CIFAR10_ResNet56(MosaicClassifier):
     on the residual network architecture.
 
     Args:
-        num_classes (int): The number of classes for the model.
+        num_classes (int): The number of classes for the model. Default = 10.
         initializers (List[Initializer], optional): Initializers
             for the model. ``None`` for no initialization.
             (default: ``None``)
@@ -22,7 +22,7 @@ class CIFAR10_ResNet56(MosaicClassifier):
 
     def __init__(
         self,
-        num_classes: int,
+        num_classes: int = 10,
         initializers: Optional[List[Initializer]] = None,
     ) -> None:
         if initializers is None:

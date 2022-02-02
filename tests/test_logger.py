@@ -5,8 +5,8 @@ import pathlib
 from unittest.mock import MagicMock
 
 import pytest
-import tqdm
 from _pytest.monkeypatch import MonkeyPatch
+from tqdm import auto
 
 from composer.core.event import Event
 from composer.core.logging import Logger, LogLevel
@@ -31,18 +31,26 @@ def test_file_logger(dummy_state: State, log_level: LogLevel, log_file_name: str
         buffer_size=1,
         flush_interval=1,
     ).initialize_object()
-    dummy_state.timer.on_batch_complete()
-    dummy_state.timer.on_batch_complete()
-    dummy_state.timer.on_epoch_complete()
     logger = Logger(dummy_state, backends=[log_destination])
     log_destination.run_event(Event.INIT, dummy_state, logger)
+    log_destination.run_event(Event.EPOCH_START, dummy_state, logger)
+    log_destination.run_event(Event.BATCH_START, dummy_state, logger)
+    dummy_state.timer.on_batch_complete()
+    log_destination.run_event(Event.BATCH_START, dummy_state, logger)
+    dummy_state.timer.on_batch_complete()
+    log_destination.run_event(Event.BATCH_START, dummy_state, logger)
+    dummy_state.timer.on_epoch_complete()
+    log_destination.run_event(Event.EPOCH_START, dummy_state, logger)
     logger.metric_fit({"metric": "fit"})  # should print
     logger.metric_epoch({"metric": "epoch"})  # should print on batch level, since epoch calls are always printed
     logger.metric_batch({"metric": "batch"})  # should print on batch level, since we print every 3 steps
     dummy_state.timer.on_epoch_complete()
+    log_destination.run_event(Event.EPOCH_START, dummy_state, logger)
     logger.metric_epoch({"metric": "epoch1"})  # should print, since we log every 3 epochs
     dummy_state.timer.on_epoch_complete()
+    log_destination.run_event(Event.EPOCH_START, dummy_state, logger)
     dummy_state.timer.on_batch_complete()
+    log_destination.run_event(Event.BATCH_START, dummy_state, logger)
     log_destination.run_event(Event.BATCH_END, dummy_state, logger)
     logger.metric_epoch({"metric": "epoch2"})  # should print on batch level, since epoch calls are always printed
     logger.metric_batch({"metric": "batch1"})  # should NOT print
@@ -82,7 +90,8 @@ def test_tqdm_logger(mosaic_trainer_hparams: TrainerHparams, monkeypatch: Monkey
         is_train_to_mock_tqdms[is_train].append(mock_tqdm)
         return mock_tqdm
 
-    monkeypatch.setattr(tqdm, "tqdm", get_mock_tqdm)
+    monkeypatch.setattr(auto, "tqdm", get_mock_tqdm)
+
     max_epochs = 2
     mosaic_trainer_hparams.max_duration = f"{max_epochs}ep"
     mosaic_trainer_hparams.loggers = [TQDMLoggerBackendHparams()]

@@ -46,7 +46,10 @@ class DataloaderProfiler(Callback):
         del logger  # unused
         if state.profiler is None:
             raise RuntimeError(
-                textwrap.dedent("""To use the dataloader profiler, state.profiler must be set.
-                Make sure to run composer with the profiler -- i.e. with the `--profiler` CLI flag."""))
+                textwrap.dedent("""\
+                    To use the dataloader profiler, state.profiler must be set.
+                    Make sure to run composer with the profiler -- i.e. with the `--profiler` CLI flag."""))
         state.train_dataloader = ProfiledDataLoader(state.profiler, state.train_dataloader, "train")
-        state.eval_dataloader = ProfiledDataLoader(state.profiler, state.eval_dataloader, "eval")
+        for evaluator in state.evaluators:
+            evaluator.dataloader.dataloader = ProfiledDataLoader(state.profiler, evaluator.dataloader.dataloader,
+                                                                 evaluator.label)

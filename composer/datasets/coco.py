@@ -8,6 +8,7 @@ import sys
 import time
 from collections import defaultdict
 from dataclasses import dataclass
+from typing import Sequence
 from urllib.request import urlretrieve
 
 import matplotlib.pyplot as plt
@@ -20,7 +21,7 @@ from matplotlib.patches import Polygon
 from PIL import Image
 from pycocotools import mask as maskUtils
 
-from composer.core.types import DataLoader, Dataset, DataSpec
+from composer.core.types import Batch, DataLoader, Dataset, DataSpec
 from composer.datasets.dataloader import DataloaderHparams
 from composer.datasets.hparams import DatasetHparams
 from composer.models.ssd.utils import DefaultBoxes, SSDTransformer
@@ -82,13 +83,36 @@ class COCODatasetHparams(DatasetHparams):
                 batch_size=batch_size,
                 sampler=None,
                 drop_last=self.drop_last,
-            ))
+            ),
+                            split_batch=split_dict_fn)
         else:
             return DataSpec(dataloader=dataloader_hparams.initialize_object(
                 dataset=val_coco,
                 drop_last=self.drop_last,
                 batch_size=batch_size,
                 sampler=None,
+            ),
+                            split_batch=split_dict_fn)
+
+
+def split_dict_fn(batch: Batch, num_microbatches: int) -> Sequence[Batch]:
+    if not isinstance(batch, Sequence):
+        raise ValueError(f'split_fn requires batch be a tuple pair of tensors, got {type(batch)}')
+    x, y, a, b, c = batch
+    nm = num_microbatches
+    if isinstance(x, torch.Tensor) and isinstance(y, torch.Tensor):
+        return list(
+            zip(x.chunk(num_microbatches), y.chunk(num_microbatches), [a[i::nm] for i in range(nm)], b.chunk(nm),
+                c.chunk(nm)))
+    if isinstance(x, List) and isinstance(y, List) and isinstance(a, List) and isinstance(b, List) and isinstance(
+            c, List):
+        return list(
+            zip(
+                [x[i::n_microbatches] for i in range(n_microbatches)],
+                [y[i::n_microbatches] for i in range(n_microbatches)],
+                [a[i::nm] for i in range(nm)],
+                [b[i::nm] for i in range(nm)],
+                [c[i::nm] for i in range(nm)],
             ))
 
 

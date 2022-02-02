@@ -59,7 +59,7 @@ SKIP_SERIALIZATION_FIELDS = [
     "batch_num_tokens",
     "outputs",
     "train_dataloader",
-    "eval_dataloader",
+    "evaluators",
     "_steps_per_epoch",
     "_precision_context",
     "profiler",
@@ -79,15 +79,15 @@ class State(Serializable):
         grad_accum (int): The number of gradient accumulation steps to use. The size of each microbatch is ``train_batch_size / num_gpus / grad_accum``.
         train_dataloader (types.DataLoader, types.DataSpec, or dict):
             The :class:`types.DataLoader`, :class:`types.DataSpec`, or dict of :class:`types.DataSpec` kwargs to used for training.
-        eval_dataloader (types.DataLoader, types.DataSpec, or dict):
-            The :class:`types.DataLoader`, :class:`types.DataSpec`, or dict of :class:`types.DataSpec` kwargs to used for evaluation.
+        evaluators (Evaluators):
+            The :class:`types.Evaluators` contain the evaluation datasets used for evaluation with specific metrics.
         max_duration (str or Time): The maximum duration to train for.
 
         precision (str | Precision): The numerical precision to use for training. Should be one of ``[fp32, amp]``.
         precision_context ((precision: Precision) -> ContextManager): Function to produce a context manager to mandate precision.
 
-        optimizers (types.Optimizers): The optimizers being used to train the model. Multiple optimizers are not currently supported.
-        schedulers (types.Schedulers): The learning rate schedulers, typically wrapped in :class:`ComposableScheduler`.
+        optimizers (types.Optimizers, optional): The optimizers being used to train the model. Multiple optimizers are not currently supported.
+        schedulers (types.Schedulers, optional): The learning rate schedulers, typically wrapped in :class:`ComposableScheduler`.
         scaler (torch.cuda.amp.GradScaler, optional): The gradient scaler in use for mixed precision training.
 
         algorithms (Sequence[Algorithm]): The algorithms used for training.
@@ -107,6 +107,7 @@ class State(Serializable):
     """
 
     _max_duration: Time[int]
+    _steps_per_epoch: Optional[int]
     batch: types.Batch
     batch_num_samples: int
     batch_num_tokens: int
@@ -121,7 +122,7 @@ class State(Serializable):
             # data configurations
             grad_accum: int,
             train_dataloader: types.DataLoader,
-            eval_dataloader: types.DataLoader,
+            evaluators: types.Evaluators,
 
             # stopping conditions
             max_duration: Union[str, Time[int]],
@@ -140,16 +141,19 @@ class State(Serializable):
             # algorithms and callbacks
             algorithms: Sequence[Algorithm] = tuple(),
             callbacks: Sequence[Callback] = tuple(),
+
+            # steps per epoch
+            steps_per_epoch: Optional[int] = None,
     ):
         self.model = model
         self.grad_accum = grad_accum
         self.train_dataloader = train_dataloader
-        self.eval_dataloader = eval_dataloader
+        self.evaluators = list(ensure_tuple(evaluators))
         self.max_duration = max_duration
+        self.steps_per_epoch = steps_per_epoch
 
         self.timer = Timer()
         self._precision = Precision(precision)
-        self._steps_per_epoch = None
         self._precision_context = precision_context
 
         if optimizers is None:
@@ -346,17 +350,27 @@ class State(Serializable):
     @property
     def steps_per_epoch(self):
         """int: The maximum number of steps (batches) per epoch."""
-        warnings.warn(textwrap.dedent(
-            """TimeDeprecationWarning: state.steps_per_epoch is deprecated. Please transition to using stateless functions
-            "that do not depends on the number of steps per epoch"""),
+        warnings.warn(textwrap.dedent("""\
+            TimeDeprecationWarning: state.steps_per_epoch is deprecated. Please transition to using stateless functions
+            that do not depends on the number of steps per epoch"""),
                       category=DeprecationWarning)
         if self._steps_per_epoch is None:
             return len(self.train_dataloader)
         return self._steps_per_epoch
 
     @steps_per_epoch.setter
-    def steps_per_epoch(self, val: Optional[int]):
-        self._steps_per_epoch = val
+    def steps_per_epoch(self, steps_per_epoch: Optional[int]):
+        try:
+            dataloader_len = len(self.train_dataloader)
+        except (TypeError, NotImplementedError):
+            dataloader_len = None
+        if dataloader_len is not None and steps_per_epoch is not None and steps_per_epoch > dataloader_len:
+            warnings.warn(
+                textwrap.dedent(f"""\
+                    SubsetNumBatchesWarning: The steps_per_epoch({steps_per_epoch})
+                    is greater than the number of batches in the training dataloader
+                    ({dataloader_len})"""))
+        self._steps_per_epoch = steps_per_epoch
 
     @property
     def precision(self):

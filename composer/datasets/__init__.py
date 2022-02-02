@@ -6,6 +6,8 @@ from composer.datasets.cifar10 import CIFAR10DatasetHparams as CIFAR10DatasetHpa
 from composer.datasets.coco import COCODatasetHparams as COCODatasetHparams
 from composer.datasets.dataloader import DataloaderHparams as DataloaderHparams
 from composer.datasets.dataloader import WrappedDataLoader as WrappedDataLoader
+from composer.datasets.dataset_registry import get_dataset_registry as get_dataset_registry
+from composer.datasets.evaluator import EvaluatorHparams as EvaluatorHparams
 from composer.datasets.glue import GLUEHparams as GLUEHparams
 from composer.datasets.hparams import DatasetHparams as DatasetHparams
 from composer.datasets.hparams import SyntheticHparamsMixin as SyntheticHparamsMixin
