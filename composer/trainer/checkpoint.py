@@ -350,7 +350,7 @@ class CheckpointSaver:
         if compression == "":
             self.write_mode = "w"
             self.file_extension = ".tar"
-        if compression == "gzip":
+        elif compression == "gzip":
             self.write_mode = "w:gz"
             self.file_extension = ".tar.gz"
         elif compression == "bzip2":
