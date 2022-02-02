@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import textwrap
 from dataclasses import dataclass
 from typing import Any, Callable, Iterator, Optional
 
@@ -20,7 +21,15 @@ class WrappedDataLoader(DataLoader):
 
     def __init__(self, dataloader: DataLoader) -> None:
         if self.is_dataloader_already_wrapped(dataloader):
-            log.debug("The dataloader is already wrapped with %s; it will be wrapped again.", self.__class__.__name__)
+            log.debug(
+                textwrap.dedent("""\
+                    The dataloader is already wrapped with %s; it will be wrapped again.
+                    If this is unintended behavior, guard the wrapping of the dataloader i.e. with:
+                    if not %s.is_dataloader_already_wrapped(dataloader): dataloader = %s(dataloader)"""),
+                type(self).__name__,
+                type(self).__name__,
+                type(self).__name__,
+            )
         self.dataset = dataloader.dataset
         self.batch_size = dataloader.batch_size
         self.num_workers = dataloader.num_workers

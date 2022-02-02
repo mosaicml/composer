@@ -50,7 +50,7 @@ class SystemProfiler(Callback):
 
     def init(self, state: State, logger: Logger):
         del logger  # unused
-        if self._stats_thread is None:
+        if self._stats_thread is not None:
             return
         if state.profiler is None:
             raise RuntimeError(
