@@ -1,6 +1,7 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
 import collections.abc
+import logging
 import textwrap
 from typing import List, Tuple, Union
 
@@ -8,10 +9,12 @@ import numpy as np
 import torch
 import torch.utils.data
 from PIL import Image
-from torchvision import datasets, transforms
+from torchvision import transforms
 
 from composer.core.types import Batch, Dataset, Tensor
 from composer.utils.iter_helpers import ensure_tuple
+
+log = logging.getLogger(__name__)
 
 
 class NormalizationFn:
@@ -115,7 +118,7 @@ def add_dataset_transform(dataset, transform, location="end", pre_post: str = "p
         The original dataset. The transform is added in-place.
     """
 
-    if not hasattr(dataset, transform):
+    if not hasattr(dataset, "transform"):
         raise AttributeError(textwrap.dedent(f"""Dataset must have attribute `transform`."""))
 
     valid_non_transform_locations = ["start", "end"]
@@ -151,7 +154,9 @@ def add_dataset_transform(dataset, transform, location="end", pre_post: str = "p
                 dataset.transform = transforms.Compose([transform, dataset.transform])
             else:
                 dataset.transform = transforms.Compose([dataset.transform, transform])
-
+    log.warning(
+        f"Transform {transform} added to dataset. Dataset now has the following transforms: {dataset.transform.transforms}"
+    )
     return dataset
 
 
