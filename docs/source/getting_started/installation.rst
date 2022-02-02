@@ -67,7 +67,7 @@ Test ``Composer`` was installed properly by opening a ``python`` prompt, and run
     import torchvision.models as models
 
     logging.basicConfig(level=logging.INFO)
-    model = models.resnet50()
+    model = models.resnet(model_name='resnet50')
 
     CF.apply_blurpool(model)
 
@@ -84,4 +84,4 @@ Next, train a small classifier on MNIST with the label smoothing algorithm:
     git clone https://github.com/mosaicml/composer.git
     cd composer
     pip install -e .
-    python examples/run_mosaic_trainer.py -f composer/yamls/models/classify_mnist_cpu.yaml --datadir ~/datasets/ --algorithms label_smoothing --alpha 0.1
+    python examples/run_composer_trainer.py -f composer/yamls/models/classify_mnist_cpu.yaml --datadir ~/datasets/ --algorithms label_smoothing --alpha 0.1

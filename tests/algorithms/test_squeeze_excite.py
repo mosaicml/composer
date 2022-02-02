@@ -64,6 +64,6 @@ def test_squeeze_excite_algorithm_logging(state_with_model: State, logger_mock: 
     })
 
 
-def test_squeeze_excite_trains(mosaic_trainer_hparams: TrainerHparams):
-    mosaic_trainer_hparams.algorithms = [SqueezeExciteHparams(latent_channels=32, min_channels=32)]
-    train_model(mosaic_trainer_hparams, run_loss_check=True)
+def test_squeeze_excite_trains(composer_trainer_hparams: TrainerHparams):
+    composer_trainer_hparams.algorithms = [SqueezeExciteHparams(latent_channels=32, min_channels=32)]
+    train_model(composer_trainer_hparams, run_loss_check=True)

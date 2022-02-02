@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING, Mapping, Tuple
 
-from composer.models.base import BaseMosaicModel
+from composer.models.base import ComposerModel
 from composer.models.nlp_metrics import LanguageCrossEntropyLoss
 
 if TYPE_CHECKING:
@@ -16,7 +16,7 @@ if TYPE_CHECKING:
 log = logging.getLogger(__name__)
 
 
-class MosaicTransformer(BaseMosaicModel):
+class ComposerTransformer(ComposerModel):
     """Implements the base logic that all Transformers can build on top of.
 
     Works with `Hugging Face Transformers <https://huggingface.co/transformers/>`_.
@@ -86,7 +86,7 @@ class MosaicTransformer(BaseMosaicModel):
 
         Args:
             batch (Batch): A dictionary of Dict[str, Tensor] of inputs that the
-                model expects, as found in MosaicTransformer.get_model_inputs().
+                model expects, as found in ComposerTransformer.get_model_inputs().
 
         Returns:
             A dictionary of model outputs as a ``Mapping``. It will include the loss
@@ -126,7 +126,7 @@ class MosaicTransformer(BaseMosaicModel):
 
         Args:
             batch (Batch): a dictionary of Dict[str, Tensor] of inputs
-                that the model expects, as found in MosaicTransformer.get_model_inputs().
+                that the model expects, as found in ComposerTransformer.get_model_inputs().
 
         Returns:
             Tuple[Mapping, None]: A tuple containing the output from the forward pass.

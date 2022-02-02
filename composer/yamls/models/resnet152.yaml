@@ -3,7 +3,7 @@ train_dataset:
     resize_size: -1
     crop_size: 224
     is_train: true
-    use_synthetic: true
+    datadir: /datasets/ImageNet
     shuffle: true
     drop_last: true
 val_dataset:
@@ -11,9 +11,9 @@ val_dataset:
     resize_size: 256
     crop_size: 224
     is_train: false
-    use_synthetic: true
-    shuffle: true
-    drop_last: true
+    datadir: /datasets/ImageNet
+    shuffle: false
+    drop_last: false
 optimizer:
   decoupled_sgdw:
     lr: 2.048
@@ -35,7 +35,7 @@ schedulers:
       interval: step
 model:
   resnet:
-    model_name: resnet18
+    model_name: resnet152
     initializers:
       - kaiming_normal
       - bn_uniform
@@ -44,9 +44,7 @@ loggers:
   - tqdm: {}
 max_duration: 90ep
 train_batch_size: 2048
-eval_batch_size: 1000
-train_subset_num_batches: 10
-eval_subset_num_batches: 10
+eval_batch_size: 2048
 seed: 17
 device:
   gpu: {}

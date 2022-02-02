@@ -11,7 +11,7 @@ from composer.algorithms import CutOut, LabelSmoothing
 
 
 # Your custom model
-class SimpleModel(composer.models.MosaicClassifier):
+class SimpleModel(composer.models.ComposerClassifier):
 
     def __init__(self, num_hidden: int, num_classes: int):
         module = torch.nn.Sequential(
