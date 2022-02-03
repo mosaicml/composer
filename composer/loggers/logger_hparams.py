@@ -164,11 +164,10 @@ class WandBLoggerBackendHparams(BaseLoggerBackendHparams):
                         all_items[key_name] = val
                 return all_items
 
+            # extra_init_params may be in ``config`` already. Copy it so we don't get recursive dicts.
+            self.extra_init_params = copy.deepcopy(self.extra_init_params)
             if self.flatten_hparams:
                 config = get_flattened_dict(data=config)
-            else:
-                config = copy.deepcopy(config)  # Copy since WandB parameters are part of config
-
             if "config" not in self.extra_init_params:
                 self.extra_init_params["config"] = {}
             if not isinstance(self.extra_init_params["config"], dict):

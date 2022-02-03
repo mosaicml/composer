@@ -91,13 +91,11 @@ class TestCutMix:
         # Generate fake data
         x_fake, y_fake, _, _ = fake_data
 
-        algorithm = CutMixHparams(alpha=alpha).initialize_object()
+        algorithm = CutMixHparams(alpha=alpha, num_classes=x_fake.size(1)).initialize_object()
         state = dummy_state
         state.model = ComposerClassifier(torch.nn.Flatten())
-        state.model.num_classes = x_fake.size(1)  # Grab C
         state.batch = (x_fake, y_fake)
 
-        algorithm.apply(Event.INIT, state, dummy_logger)
         # Apply algo, use test hooks to specify indices and override internally generated interpolation lambda for testability
         algorithm.apply(Event.AFTER_DATALOADER, state, dummy_logger)
 
@@ -114,10 +112,9 @@ class TestCutMix:
 
 
 def test_cutmix_nclasses(dummy_state, dummy_logger):
-    algorithm = CutMixHparams(alpha=1.0).initialize_object()
+    algorithm = CutMixHparams(alpha=1.0, num_classes=10).initialize_object()
     state = dummy_state
     state.model = ComposerClassifier(SimpleConvModel())
-    state.model.num_classes = 10
     state.batch = (torch.ones((1, 1, 1, 1)), torch.Tensor([2]))
 
     algorithm.apply(Event.INIT, state, dummy_logger)
@@ -125,5 +122,7 @@ def test_cutmix_nclasses(dummy_state, dummy_logger):
 
 
 def test_cutmix_trains(composer_trainer_hparams: TrainerHparams):
-    composer_trainer_hparams.algorithms = [CutMixHparams(alpha=1.0)]
+    num_classes = composer_trainer_hparams.model.num_classes
+    assert num_classes is not None
+    composer_trainer_hparams.algorithms = [CutMixHparams(alpha=1.0, num_classes=num_classes)]
     train_model(composer_trainer_hparams)

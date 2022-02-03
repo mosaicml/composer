@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import logging
-import textwrap
 from dataclasses import asdict, dataclass
 from typing import Optional, Tuple
 
@@ -14,7 +13,6 @@ from torch.nn import functional as F
 
 from composer.algorithms import AlgorithmHparams
 from composer.core.types import Algorithm, Event, Logger, State, Tensor
-from composer.models.base import ComposerModel
 from composer.models.loss import check_for_index_targets
 
 log = logging.getLogger(__name__)
@@ -104,7 +102,9 @@ def mixup_batch(x: Tensor,
 class MixUpHparams(AlgorithmHparams):
     """See :class:`MixUp`"""
 
-    alpha: float = hp.optional('Strength of interpolation, should be >= 0. No interpolation if alpha=0.', default=0.2)
+    num_classes: int = hp.required('Number of classes in the task labels.')
+    alpha: float = hp.optional('Strength of interpolation, should be >= 0. No interpolation if alpha=0.',
+                               default=0.2)
 
     def initialize_object(self) -> MixUp:
         return MixUp(**asdict(self))
@@ -121,18 +121,19 @@ class MixUp(Algorithm):
     Training in this fashion reduces generalization error.
 
     Args:
-        alpha: the psuedocount for the Beta distribution used to sample
+        alpha (float): the psuedocount for the Beta distribution used to sample
             interpolation parameters. As ``alpha`` grows, the two samples
             in each pair tend to be weighted more equally. As ``alpha``
             approaches 0 from above, the combination approaches only using
             one element of the pair.
+        num_classes (int): the number of classes in the task labels.
     """
 
-    def __init__(self, alpha: float):
+    def __init__(self, alpha: float, num_classes: int):
         self.alpha = alpha
+        self.num_classes = num_classes
         self._interpolation_lambda = 0.0
         self._indices = torch.Tensor()
-        self.num_classes: Optional[int] = None  # set on init
 
     def match(self, event: Event, state: State) -> bool:
         """Runs on Event.INIT and Event.AFTER_DATALOADER.
@@ -143,7 +144,7 @@ class MixUp(Algorithm):
         Returns:
             bool: True if this algorithm should run now.
         """
-        return (event == Event.INIT and self.num_classes is None) or event == Event.AFTER_DATALOADER
+        return event == Event.AFTER_DATALOADER
 
     @property
     def interpolation_lambda(self) -> float:
@@ -169,17 +170,6 @@ class MixUp(Algorithm):
             state (State): the current trainer state
             logger (Logger): the training logger
         """
-        if event == Event.INIT:
-            if not isinstance(state.model, ComposerModel):
-                raise RuntimeError(
-                    textwrap.dedent(f"""\
-                    Unable to apply {type(self).__qualname__} on model of type {type(state.model).__qualname__};
-                    expected state.model to be {ComposerModel.__qualname__}"""))
-            num_classes = state.model.num_classes
-            if not isinstance(num_classes, int):
-                raise RuntimeError(f"{type(self).__qualname__} requires model.num_classes to be an integer")
-            self.num_classes = num_classes
-            return
 
         assert self.num_classes is not None, "num classes is set on Event.INIT"
 
