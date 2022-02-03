@@ -11,13 +11,12 @@ import tempfile
 import textwrap
 import urllib.parse
 import warnings
-from typing import TYPE_CHECKING, Any, Dict, Iterator, Optional, Tuple, Union, cast
+from typing import TYPE_CHECKING, Iterator, Optional, Tuple, Union, cast
 
 import numpy as np
 import requests
 import torch
 import tqdm
-import yaml
 
 from composer.core import Event, State
 from composer.core.time import Time, TimeUnit
@@ -35,8 +34,15 @@ _COMPOSER_STATES_FILENAME = "composer_states.pt"
 _DEEPSPEED_TAG = "deepspeed"  # always tag with the same, deterministic name. We'll rename the tarball to the appropriate name.
 
 
-def get_composer_checkpoint_filepath(checkpoint_folder: str):
-    return os.path.join(checkpoint_folder, _COMPOSER_STATES_FILENAME)
+def _format_path_with_rank(path: str, rank: int):
+    """Returns the path with ``{{RANK}}`` substituted with the ``rank`` argument. See the :class:`CheckpointLoader` docs
+    for a description of how this is used.
+
+    Args:
+        path (str): Path to format
+        rank (int): The rank
+    """
+    return path.format(RANK=rank)
 
 
 class CheckpointLoader:
@@ -101,7 +107,7 @@ class CheckpointLoader:
         self.checkpoint_rng_state = None
 
     def _retrieve_checkpoint(self, rank: int, destination_filepath: str, ignore_not_found_errors: bool):
-        checkpoint_name = self.path.format(RANK=rank)
+        checkpoint_name = _format_path_with_rank(self.path, rank)
         if self.object_store is not None:
             try:
                 total_size_in_bytes = self.object_store.get_object_size(checkpoint_name)
@@ -166,9 +172,9 @@ class CheckpointLoader:
                 :meth:`deepspeed.DeepSpeedEngine.load_checkpoint`.
         """
         checkpoint_archive_name = self.path.split(os.path.sep)[-1]
-        rank_zero_checkpoint_archive_name = "rank_0." + checkpoint_archive_name.format(rank=0)
-        rank_n_checkpoint_archive_name = f"rank_{dist.get_global_rank()}." + checkpoint_archive_name.format(
-            rank=dist.get_global_rank())
+        rank_zero_checkpoint_archive_name = "rank_0." + _format_path_with_rank(checkpoint_archive_name, 0)
+        rank_n_checkpoint_archive_name = f"rank_{dist.get_global_rank()}." + _format_path_with_rank(
+            checkpoint_archive_name, dist.get_global_rank())
         rank_zero_checkpoint_archive_filepath = os.path.join(node_checkpoint_folder, rank_zero_checkpoint_archive_name)
         rank_n_checkpoint_archive_filepath = os.path.join(node_checkpoint_folder, rank_n_checkpoint_archive_name)
         extracted_checkpoint_folder = None
@@ -192,7 +198,7 @@ class CheckpointLoader:
                         with tarfile.open(rank_zero_checkpoint_archive_filepath) as tarball:
                             tarball.extractall(extracted_checkpoint_folder)
                     except FileNotFoundError:
-                        checkpoint_name = self.path.format(rank=dist.get_global_rank())
+                        checkpoint_name = _format_path_with_rank(self.path, dist.get_global_rank())
                         # Not re-raising the file-not-found error as that is irrelevant;
                         # the underlying issue is that the checkpoint file does not exist on the disk
                         # or could not be downloaded
@@ -333,6 +339,8 @@ class CheckpointSaver:
     Args:
         save_folder (str): The path to store checkpoints in.
         interval (Time or str): The amount of time units to wait between checkpoints.
+        compression (str): Compression algorithm to run on checkpoints. Can be `gzip`, `bzip2`,
+            `lzma`, or left blank for no compression.  (default: ``""`` for no compression).
     """
 
     def __init__(self, save_folder: str, interval: Union[Time, str], compression: str = ""):
@@ -383,15 +391,13 @@ class CheckpointSaver:
 
         return False
 
-    def save_checkpoint(self, state: State, seed: int, device: Device, config: Optional[Dict[str, Any]] = None) -> None:
+    def save_checkpoint(self, state: State, seed: int, device: Device) -> None:
         """Save the current state to a a new checkpoint file.
 
         Args:
             state (State): The current State of the trainer.
             seed (int): The seed used for random number generation.
             device (Device): The Device in use by this process.
-            ddp (DDP): The DDP engine in use by this trainer.
-            config (Optional[Dict[str, Any]]): The hparams used to initialize this trainer, if any.
         """
         state_dict = {
             'rng': self._get_rng_state(device=device),  # stored across all ranks
@@ -416,22 +422,6 @@ class CheckpointSaver:
                 # we add the state only on rank 0 since other processes don't have loggers to serialize
                 # it should be the same across all ranks. per-rank state not stored
                 state_dict['state'] = state.state_dict()
-
-                if config:
-                    hparams_path = os.path.join(self.checkpoint_folder, "hparams.yaml")
-                    config_yaml_str = yaml.dump(config)
-                    try:
-                        with open(hparams_path, "x") as f:
-                            # Storing the config (ex. hparams) in a separate file so they can be modified before resuming
-                            f.write(config_yaml_str)
-                    except FileExistsError as e:
-                        with open(hparams_path, "r") as f:
-                            # comparing the parsed hparams to ignore whitespace and formatting differences
-                            if yaml.safe_load(config_yaml_str) != yaml.safe_load(f):
-                                raise RuntimeError(
-                                    f"The hparams in the existing checkpoint folder {self.checkpoint_folder} "
-                                    "differ from those being used in the current training run. "
-                                    "Please specify a new checkpoint folder.") from e
 
                 composer_states_filepath = os.path.join(tmpdir, _COMPOSER_STATES_FILENAME)
                 with open(composer_states_filepath, 'xb') as f:
