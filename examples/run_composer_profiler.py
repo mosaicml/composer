@@ -11,7 +11,7 @@ from typing import Type
 import composer
 from composer.profiler import ProfilerHparams
 from composer.profiler.profiler_hparams import DataloaderProfilerHparams, SystemProfilerHparams, TorchProfilerHparams
-from composer.trainer import Trainer, TrainerHparams
+from composer.trainer import TrainerHparams
 
 logger = logging.getLogger(__name__)
 
