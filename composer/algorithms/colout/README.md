@@ -1,6 +1,8 @@
-# ColOut `Vision`
+# ColOut
 
 [\[How to Use\]](#how-to-use) &middot; [\[Suggested Hyperparameters\]](#suggested-hyperparameters) &middot; [\[Technical Details\]](#technical-details) &middot; [\[Attribution\]](#attribution)
+
+`Computer Vision`
 
 ColOut is a data augmentation technique that drops a fraction of the rows or columns of an input image for a computer vision model.
 If the fraction of rows/columns isn't too large, the image content is not significantly altered but the image size is reduced, speeding up training.
