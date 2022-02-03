@@ -39,7 +39,7 @@ class EvaluatorHparams(hp.Hparams):
 
     def initialize_object(self, model: ComposerModel, batch_size: int, dataloader_hparams: DataloaderHparams):
         """Initialize an :class:`Evaluator`
-        
+
         If the Evaluatormetric_names is empty or None is provided, the function returns
         a copy of all the model's default evaluation metrics.
 

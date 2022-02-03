@@ -66,9 +66,8 @@ class CutOutHparams(AlgorithmHparams):
 
 
 class CutOut(Algorithm):
-    """`Cutout <https://arxiv.org/abs/1708.04552>`_ is a data augmentation
-    technique that works by masking out one or more square regions of an
-    input image.
+    """`Cutout <https://arxiv.org/abs/1708.04552>`_ is a data augmentation technique that works by masking out one or
+    more square regions of an input image.
 
     This implementation cuts out the same square from all images in a batch.
 
@@ -83,11 +82,11 @@ class CutOut(Algorithm):
         self.length = length
 
     def match(self, event: Event, state: State) -> bool:
-        """Runs on Event.AFTER_DATALOADER"""
+        """Runs on Event.AFTER_DATALOADER."""
         return event == Event.AFTER_DATALOADER
 
     def apply(self, event: Event, state: State, logger: Logger) -> Optional[int]:
-        """Apply cutout on input images"""
+        """Apply cutout on input images."""
         x, y = state.batch_pair
         assert isinstance(x, Tensor), "Multiple tensors not supported for Cutout."
 
