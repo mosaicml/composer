@@ -19,7 +19,7 @@ from composer.utils.data import add_dataset_transform
 log = logging.getLogger(__name__)
 
 
-def colout(img: Union[torch.Tensor, Image], p_row: float, p_col: float) -> Union[torch.Tensor, Image]:
+def colout(img: Union[torch.Tensor, Image], p_row: float = 0.15, p_col: float = 0.15) -> Union[torch.Tensor, Image]:
     """Drops random rows and columns from a single image.
 
     Args:
@@ -73,7 +73,7 @@ class ColOutTransform:
         p_col (float): Fraction of columns to drop (drop along W).
     """
 
-    def __init__(self, p_row: float, p_col: float):
+    def __init__(self, p_row: float = 0.15, p_col: float = 0.15):
         self.p_row = p_row
         self.p_col = p_col
 
@@ -89,7 +89,7 @@ class ColOutTransform:
         return colout(img, self.p_row, self.p_col)
 
 
-def batch_colout(X: torch.Tensor, p_row: float, p_col: float) -> torch.Tensor:
+def batch_colout(X: torch.Tensor, p_row: float = 0.15, p_col: float = 0.15) -> torch.Tensor:
     """Applies ColOut augmentation to a batch of images, dropping the same random rows and columns from all images in a
     batch.
 
