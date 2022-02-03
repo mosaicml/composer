@@ -94,7 +94,7 @@ class FileLoggerBackend(BaseLoggerBackend):
         data_str = format_log_data_value(data)
         if self.file is None:
             raise RuntimeError("Attempted to log before self.init() or after self.close()")
-        print(f"[{log_level.name}][step={timestamp.batch}]: {data_str}", file=self.file, flush=False)
+        print(f"[{log_level.name}][step={int(timestamp.batch)}]: {data_str}", file=self.file, flush=False)
 
     def init(self, state: State, logger: Logger) -> None:
         del state, logger  # unused

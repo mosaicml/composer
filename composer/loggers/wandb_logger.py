@@ -60,7 +60,7 @@ class WandBLoggerBackend(BaseLoggerBackend):
         import wandb
         del log_level  # unused
         if self._enabled:
-            wandb.log(data, step=timestamp.batch)
+            wandb.log(data, step=int(timestamp.batch))
 
     def state_dict(self) -> StateDict:
         import wandb
