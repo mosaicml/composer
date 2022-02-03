@@ -1,5 +1,7 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
+from typing import cast
+
 import numpy as np
 import pytest
 import torch
@@ -48,9 +50,11 @@ def state(simple_conv_model: Model, dummy_train_dataloader: DataLoader, dummy_va
 
 
 def test_channels_last_functional(simple_conv_model: Model):
-    assert _infer_memory_format(simple_conv_model.module.conv1.weight) == 'nchw'
+    model = cast(torch.nn.Module, simple_conv_model.module)
+    conv = cast(torch.nn.Conv2d, model.conv1)
+    assert _infer_memory_format(conv.weight) == 'nchw'
     apply_channels_last(simple_conv_model)
-    assert _infer_memory_format(simple_conv_model.module.conv1.weight) == 'nhwc'
+    assert _infer_memory_format(conv.weight) == 'nhwc'
 
 
 def test_channels_last_algorithm(state, dummy_logger):
