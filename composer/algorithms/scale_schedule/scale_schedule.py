@@ -1,7 +1,6 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
 import logging
-import weakref
 from collections import Counter
 from dataclasses import asdict, dataclass
 from typing import Optional, cast
