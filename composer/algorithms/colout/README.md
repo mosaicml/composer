@@ -1,12 +1,14 @@
 # ColOut `Vision`
 
+[\[How to Use\]](#how-to-use) &middot; [\[Suggested Hyperparameters\]](#suggested-hyperparameters) &middot; [\[Technical Details\]](#technical-details) &middot; [\[Attribution\]](#attribution)
+
 ColOut is a data augmentation technique that drops a fraction of the rows or columns of an input image for a computer vision model.
 If the fraction of rows/columns isn't too large, the image content is not significantly altered but the image size is reduced, speeding up training.
 This modification modestly reduces accuracy, but it is a worthwhile tradeoff for the improved speed.
 
 | ![ColOut](col_out.png) |
 |:--:
-|*Several instances of an image of an apple from the CIFAR-100 dataset with ColOut applied.*|
+|*Several instances of an image of an apple from the CIFAR-100 dataset with ColOut applied. ColOut randomly removes different rows and columns each time it is applied.*|
 
 ## How to Use
 
@@ -29,33 +31,34 @@ def training_loop(model, train_loader):
 
 ### Composer Trainer
 
+## Suggested Hyperparameters
+
+We found that setting `p_row = 0.15` and `p_col = 0.15` strike a good balance between improving training throughput and limiting the negative impact on model accuracy. Setting `batch = True` also yields slightly lower accuracy, but we found that - in contexts that were CPU-bottlenecked - this reduction was offset by a large increase in throughput (~11% for ResNet-50 on ImageNet) because ColOut is only called once per batch and its operations are offloaded onto the GPU.
+
 ## Technical Details
 
-ALiBi dispenses with traditional position embeddings and instead adds a static, non-learned bias to the query-key attention scores (or attention weights). This bias is proportional to the distance between the query and key tokens that comprise each attention score. The distances are scaled by *m*, a head-specific scalar that is fixed during training.
+ColOut reduces the size of images, reducing the number of operations per training step and consequently the total time to train the network.
+The variability induced by randomly dropping rows and columns can negatively affect generalization performance. In our testing, we saw a decrease in accuracy of ~0.2% in some models on ImageNet and a decrease in accuracy of ~1% on CIFAR-10.
 
-Press et al. found that learning *m* did not lead to strong extrapolation. They instead set *m = (4<sup>(log<sub>2</sub> H + 3)<sup>-1</sup></sup>)<sup>-h</sup>* where *H* is the number of attention heads in a layer and *h* is the index of the current head.
-
-Press et al. report that models trained with ALiBi maintain similar performance even when tested on sequences 5-10x longer than they were trained on. ALiBi’s extrapolation capabilities can be leveraged to train on shorter sequences. This is desirable because the number of operations required to compute self-attention and the GPU memory usage required to store the resulting representations both increase with the square of the sequence length. In one example scenario, Press et al. reported training to equal perplexity in 90% of the time and utilizing 90% of the GPU memory compared to a baseline model with sinusoidal position embeddings. Our experiments showed that ALiBi could reduce perplexity by 0.2-0.6, train models 1.15x faster and utilize 1.2x less GPU memory compared to baseline models (see below).
-
-> 👍 Suggested Hyperparameters
+> 🚧 Quality/Speed Tradeoff
 > 
-> We found that `train_sequence_length_scaling=0.25` (sequence length 256) provided appreciable speed and accuracy gains for models evaluated at sequence length 1024.
+> In our experiments, ColOut presents a tradeoff in that it increases training speed at the cost of lower model quality.
+> On ResNet-50 on ImageNet and ResNet-56 on CIFAR-10, we found this tradeoff to be worthwhile: it is a pareto improvement over the standard versions of those benchmarks.
+> We also found it to be worthwhile in composition with other methods.
+> We recommend that you carefully evaluate whether ColOut is also a pareto improvement in the context of your application.
 
-We conducted experiments on the GPT-2 model family trained on OpenWebText on 8x NVIDIA A100-40GBs. We compared baseline models with learned position embeddings and training sequence length 1024 to models using ALiBi with `train_sequence_length_scaling=0.25` (i.e., train sequence length 256). Our results are shown in the table below.
+ColOut currently has two implementations.
+One implementation acts as an additional data augmentation for use in PyTorch dataloaders. It runs on the CPU and applies ColOut independently to each training example.
+A second implementation runs immediately before the training example is provided to the model. It runs on the GPU and drops the same rows and columns for all training examples in a mini-batch.
+The GPU-based, batch-wise implementation suffers a drop in validation accuracy compared to the CPU-based example-wise implementation (0.2% on CIFAR-10 and 0.1% on ImageNet)
 
-|Name|Perplexity|	&Delta;|Train Time (s)|Speedup|GPU Memory|Reduction|
-|:-|:-:|:-:|:-:|:-:|:-:|:-:|
-|GPT2-52M|30.78||9801||92.91%||
-|GPT2-52M ALiBi 0.25x|30.54|-0.24|8411|1.16x|79.79|1.16x|
-|GPT2-83M|26.57||17412||97.04||
-|GPT2-83M ALiBi 0.25x|26.19|-0.38|14733|1.18x|80.97|1.20x|
-|GPT2-125M|24.11||30176||95.96||
-|GPT2-125M ALiBi 0.25x|23.49|-0.63|25280|1.19x|74.83|1.28x|
-
-> ❗ Don't Set the Sequence Length Too Short
+> 🚧 CPU/GPU Tradeoff
 > 
->We observed that performance significantly degraded for ALiBi models trained on sequence lengths ≤128, implying that very short sequences (≤128 tokens) may be irreconcilably out-of-distribution with regard to longer sequences. Considering our results together with those of Press et al. lead to the suggestion that models with ALiBi should not be trained on sequences ≤256 or `train_sequence_length_scaling≤0.03125`, whichever is larger.
+> If the workload is CPU heavy, it may make sense to run ColOut batch-wise on GPU so that it does not bottleneck training on the CPU. If the workload is GPU-bottlenecked, it will make sense to run ColOut sample-wise on the CPU, avoiding the accuracy reduction of running it batch-wise and improving GPU throughput.
+
+ColOut will show diminishing returns when composed with other methods that change the size of images, such as Progressive Resizing and Selective Backdrop with downsampling. In addition, to the extent that ColOut serves as a form of regularization, combining regularization-based methods can lead to sublinear improvements in accuracy.
 
 ## Attribution
 
-[*Train Short, Test Long: Attention with Linear Biases Enables Input Length Extrapolation*](https://openreview.net/forum?id=R8sQPpGCv0) by Ofir Press, Noah A. Smith, and Mike Lewis. Published in ICLR 2022.
+
+*This method and the accompanying documentation were created and implemented by Cory Stephenson at MosaicML.*
