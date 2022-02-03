@@ -16,8 +16,7 @@ import sys
 import warnings
 from typing import Type
 
-from composer.trainer.trainer import Trainer
-from composer.trainer.trainer_hparams import TrainerHparams
+from composer.trainer import TrainerHparams
 
 
 def warning_on_one_line(message: str, category: Type[Warning], filename: str, lineno: int, file=None, line=None):
@@ -32,7 +31,7 @@ def main() -> None:
         sys.argv = [sys.argv[0], "--help"]
 
     hparams = TrainerHparams.create(cli_args=True)  # reads cli args from sys.argv
-    trainer = Trainer.create_from_hparams(hparams=hparams)
+    trainer = hparams.initialize_object()
     trainer.fit()
 
 
