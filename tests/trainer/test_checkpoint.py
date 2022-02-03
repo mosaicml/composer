@@ -115,7 +115,7 @@ def checkpointing_trainer_hparams(composer_trainer_hparams: TrainerHparams) -> T
     return composer_trainer_hparams
 
 
-def assert_checkpoints_equivalent(hparams_file_a: str, checkpoint_file_a: str, hparams_file_b: str,
+def assert_checkpoints_equivalent(hparams_a: TrainerHparams, checkpoint_file_a: str, hparams_b: TrainerHparams,
                                   checkpoint_file_b: str) -> None:
 
     with tempfile.TemporaryDirectory() as tmpdir:
@@ -133,11 +133,6 @@ def assert_checkpoints_equivalent(hparams_file_a: str, checkpoint_file_a: str, h
         checkpoint_b = torch.load(b_states_dir, map_location='cpu')
 
         deep_compare(checkpoint_a["rng"], checkpoint_b["rng"])
-
-    hparams_a = TrainerHparams.create(hparams_file_a, cli_args=False)
-    assert isinstance(hparams_a, TrainerHparams)
-    hparams_b = TrainerHparams.create(hparams_file_b, cli_args=False)
-    assert isinstance(hparams_b, TrainerHparams)
 
     assert hparams_b.load_path is not None
     assert hparams_b.save_folder is not None
@@ -209,10 +204,8 @@ def test_load_weights(
     final_checkpoint = "ep2.tar"
     _test_checkpoint_trainer(composer_trainer_hparams)
 
-    trainer_1_hparams_filepath = os.path.join(run_directory.get_run_directory(), checkpoint_a_folder, "hparams.yaml")
-
     # re-create the trainer from the YAML
-    second_trainer_hparams = TrainerHparams.create(trainer_1_hparams_filepath, cli_args=False)
+    second_trainer_hparams = TrainerHparams.create(data=composer_trainer_hparams.to_dict(), cli_args=False)
 
     checkpoint_a_file_path = os.path.join(run_directory.get_run_directory(), checkpoint_a_folder, final_checkpoint)
 
@@ -251,9 +244,9 @@ def test_load_weights(
     pytest.param(GPUDeviceHparams(), True, 1, id="deepspeed-zero1", marks=pytest.mark.deepspeed),
     pytest.param(GPUDeviceHparams(), True, 2, id="deepspeed-zero2", marks=pytest.mark.deepspeed),
 ])
-@pytest.mark.parametrize("seed,checkpoint_filename",
-                         [[None, "ep1.tar"], [42, "ep1.tar"], [42, "it4.tar"], [42, "it6.tar"]])
-@pytest.mark.parametrize("compression", ["", "gzip"])
+@pytest.mark.parametrize(
+    "seed,checkpoint_filename,compression",
+    [[None, "ep1.tar", ""], [42, "ep1.tar", ""], [42, "ep1.tar.gz", "gzip"], [42, "it4.tar", ""], [42, "it6.tar", ""]])
 @pytest.mark.parametrize("model_name", [None, "resnet50_synthetic", "gpt2_52m"])
 def test_checkpoint(
     device_hparams: DeviceHparams,
@@ -325,15 +318,14 @@ def test_checkpoint(
 
     composer_trainer_hparams.validate_every_n_batches = 0 if checkpoint_filename.startswith("it") else 1
     composer_trainer_hparams.validate_every_n_epochs = 0 if checkpoint_filename.startswith("ep") else 1
-    final_checkpoint = ("ep2" if checkpoint_filename.startswith("ep") else "it8") + ".tar"
+    final_checkpoint = ("ep2" if checkpoint_filename.startswith("ep") else "it8") + ".tar" + (".gz"
+                                                                                              if compression else "")
     _test_checkpoint_trainer(composer_trainer_hparams)
     checkpoint_a_file_path = os.path.join(checkpoint_a_folder, checkpoint_filename)
     checkpoint_b_file_path = os.path.join(run_directory.get_node_run_directory(), "rank_{RANK}", checkpoint_a_folder,
                                           final_checkpoint)
-    trainer_1_hparams_filepath = os.path.join(run_directory.get_node_run_directory(), "rank_0", checkpoint_a_folder,
-                                              "hparams.yaml")
 
-    second_trainer_hparams = TrainerHparams.create(trainer_1_hparams_filepath, cli_args=False)
+    second_trainer_hparams = TrainerHparams.create(data=composer_trainer_hparams.to_dict(), cli_args=False)
     checkpoint_b_folder = "second"
 
     second_trainer_hparams.save_folder = checkpoint_b_folder
@@ -347,13 +339,11 @@ def test_checkpoint(
 
     checkpoint_c_file_path = os.path.join(run_directory.get_node_run_directory(), "rank_{RANK}", checkpoint_b_folder,
                                           final_checkpoint)
-    trainer_2_hparams_filepath = os.path.join(run_directory.get_node_run_directory(), "rank_0", checkpoint_b_folder,
-                                              "hparams.yaml")
 
     assert_checkpoints_equivalent(
-        hparams_file_a=trainer_1_hparams_filepath,
+        hparams_a=composer_trainer_hparams,
         checkpoint_file_a=checkpoint_b_file_path,
-        hparams_file_b=trainer_2_hparams_filepath,
+        hparams_b=second_trainer_hparams,
         checkpoint_file_b=checkpoint_c_file_path,
     )
 
