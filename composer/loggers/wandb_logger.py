@@ -13,8 +13,6 @@ from composer.core.time import Timestamp
 from composer.core.types import Logger, State, StateDict
 from composer.utils import dist, run_directory
 
-import wandb  # isort: skip
-
 
 class WandBLoggerBackend(BaseLoggerBackend):
     """Log to Weights and Biases (https://wandb.ai/)
@@ -38,6 +36,11 @@ class WandBLoggerBackend(BaseLoggerBackend):
                  log_artifacts_every_n_batches: int = 100,
                  rank_zero_only: bool = False,
                  init_params: Optional[Dict[str, Any]] = None) -> None:
+        try:
+            import wandb
+        except ImportError as e:
+            raise ImportError("wandb is not installed. Please run `pip install mosaicml[logging]`.") from e
+        del wandb  # unused
         if log_artifacts and rank_zero_only:
             warnings.warn(
                 textwrap.dedent("""\
@@ -54,11 +57,13 @@ class WandBLoggerBackend(BaseLoggerBackend):
         self._init_params = init_params
 
     def log_metric(self, timestamp: Timestamp, log_level: LogLevel, data: TLogData):
+        import wandb
         del log_level  # unused
         if self._enabled:
             wandb.log(data, step=timestamp.batch)
 
     def state_dict(self) -> StateDict:
+        import wandb
         # Storing these fields in the state dict to support run resuming in the future.
         if self._enabled:
             return {
@@ -72,6 +77,7 @@ class WandBLoggerBackend(BaseLoggerBackend):
             return {}
 
     def init(self, state: State, logger: Logger) -> None:
+        import wandb
         del state, logger  # unused
         if self._enabled:
             wandb.init(**self._init_params)
@@ -93,6 +99,7 @@ class WandBLoggerBackend(BaseLoggerBackend):
             self._upload_artifacts()
 
     def _upload_artifacts(self):
+        import wandb
         # Scan the run directory and upload artifacts to wandb
         # On resnet50, _log_artifacts() caused a 22% throughput degradation
         # wandb.log_artifact() is async according to the docs
@@ -111,6 +118,7 @@ class WandBLoggerBackend(BaseLoggerBackend):
         self._last_upload_timestamp = run_directory.get_run_directory_timestamp()
 
     def post_close(self) -> None:
+        import wandb
         # Cleaning up on post_close so all artifacts are uploaded
         if not self._enabled:
             return
