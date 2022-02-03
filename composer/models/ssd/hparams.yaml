@@ -3,32 +3,20 @@ train_dataset:
     is_train: true
     datadir: /localdisk/coco
     download: false
-    shuffle: true
-    drop_last: true
+    shuffle: false
+    drop_last: false
 val_dataset:
   coco:
     is_train: false
     datadir: /localdisk/coco
     download: false
     shuffle: false
-    drop_last: true
+    drop_last: false
 optimizer:
   sgd:
     lr: 2.5e-3
     weight_decay: 5e-4
     momentum: 0.9
-schedulers:
-  - multistep:
-      milestones:
-        - "40ep"
-        - "50ep"
-      interval: epoch
-  - warmup:
-      warmup_iters: "300ep"
-      warmup_method: linear
-      warmup_factor: 2.619685
-      verbose: false
-      interval: step
 model:
   ssd:
     initializers:
@@ -39,7 +27,7 @@ loggers:
 train_batch_size: 128
 eval_batch_size: 128
 seed: 0
-validate_every_n_epochs: 10
+validate_every_n_epochs: 1
 grad_accum: 1
 device:
   gpu: {}

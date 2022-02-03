@@ -971,7 +971,7 @@ class Trainer:
                     state.outputs, targets = self.original_model.validate(state.batch)
                     self.engine.run_event(Event.EVAL_AFTER_FORWARD)
 
-                    metrics.update(state.outputs, targets)
+                    #metrics.update(state.outputs, targets)
 
                     self.engine.run_event(Event.EVAL_BATCH_END)
 

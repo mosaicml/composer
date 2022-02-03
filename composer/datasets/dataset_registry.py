@@ -7,6 +7,7 @@ from composer.datasets.glue import GLUEHparams
 from composer.datasets.imagenet import ImagenetDatasetHparams
 from composer.datasets.lm_datasets import LMDatasetHparams
 from composer.datasets.mnist import MNISTDatasetHparams
+from composer.datasets.coco import COCODatasetHparams
 
 registry = {
     "ade20k": ADE20kDatasetHparams,
@@ -15,7 +16,8 @@ registry = {
     "cifar10": CIFAR10DatasetHparams,
     "mnist": MNISTDatasetHparams,
     "lm": LMDatasetHparams,
-    "glue": GLUEHparams
+    "glue": GLUEHparams,
+    "coco": COCODatasetHparams
 }
 
 
