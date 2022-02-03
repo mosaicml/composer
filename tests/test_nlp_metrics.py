@@ -104,6 +104,7 @@ def test_binary_f1(batch_size, minibatch_size):
         from sklearn.metrics import f1_score
     except ImportError:
         pytest.xfail("Sklearn is not installed.")
+        raise
 
     batch_size = int(batch_size)
 
