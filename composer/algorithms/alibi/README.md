@@ -64,6 +64,4 @@ We conducted experiments on the GPT-2 model family trained on OpenWebText on 8x 
 
 [*Train Short, Test Long: Attention with Linear Biases Enables Input Length Extrapolation*](https://openreview.net/forum?id=R8sQPpGCv0) by Ofir Press, Noah A. Smith, and Mike Lewis. Published in ICLR 2022.
 
-The Composer implementation of this method and the accompanying documentation were created by Matthew Leavitt at MosaicML.
-
-
+*The Composer implementation of this method and the accompanying documentation were produced by Matthew Leavitt at MosaicML.*
