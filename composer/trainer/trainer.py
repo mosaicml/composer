@@ -424,7 +424,6 @@ class Trainer:
 
             # wrap model with DDP
             self.state.model = prepare_ddp_module(self.state.model, self.find_unused_parameters)
-        
 
     @property
     def deepspeed_enabled(self):
