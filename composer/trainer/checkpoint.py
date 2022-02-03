@@ -35,8 +35,8 @@ _DEEPSPEED_TAG = "deepspeed"  # always tag with the same, deterministic name. We
 
 
 def _format_path_with_rank(path: str, rank: int):
-    """Returns the path with ``{{RANK}}`` substituted with the ``rank`` argument.
-    See the :class:`CheckpointLoader` docs for a description of how this is used.
+    """Returns the path with ``{{RANK}}`` substituted with the ``rank`` argument. See the :class:`CheckpointLoader` docs
+    for a description of how this is used.
 
     Args:
         path (str): Path to format
