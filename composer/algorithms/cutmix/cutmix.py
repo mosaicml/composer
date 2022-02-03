@@ -91,7 +91,7 @@ def rand_bbox(W: int,
 
 
 def adjust_lambda(cutmix_lambda: float, x: Tensor, bbox: Tuple) -> float:
-    """Rescale the cutmix lambda according to the size of the clipped bounding box
+    """Rescale the cutmix lambda according to the size of the clipped bounding box.
 
     Args:
         cutmix_lambda: Lambda param from cutmix, used to set the area of the box.
@@ -152,7 +152,6 @@ def cutmix(x: Tensor,
 
             pred = model(X)
             loss = loss_fun(pred, y)  # loss_fun must accept dense labels (ie NOT indices)
-
     """
     # Create shuffled indicies across the batch in preparation for cutting and mixing.
     # Use given indices if there are any.
@@ -205,9 +204,8 @@ class CutMixHparams(AlgorithmHparams):
 
 
 class CutMix(Algorithm):
-    """`CutMix <https://arxiv.org/abs/1905.04899>`_ trains the network on
-    non-overlapping combinations of pairs of examples and iterpolated targets
-    rather than individual examples and targets.
+    """`CutMix <https://arxiv.org/abs/1905.04899>`_ trains the network on non-overlapping combinations of pairs of
+    examples and iterpolated targets rather than individual examples and targets.
 
     This is done by taking a non-overlapping combination of a given batch X with a
     randomly permuted copy of X. The area is drawn from a ``Beta(alpha, alpha)``
@@ -224,13 +222,13 @@ class CutMix(Algorithm):
     """
 
     def __init__(self, alpha: float):
-        self.hparams = CutMixHparams(alpha=alpha)
+        self.alpha = alpha
         self._indices = torch.Tensor()
         self._cutmix_lambda = 0.0
         self._bbox = tuple()
 
     def match(self, event: Event, state: State) -> bool:
-        """Runs on Event.INIT and Event.AFTER_DATALOADER
+        """Runs on Event.INIT and Event.AFTER_DATALOADER.
 
         Args:
             event (:class:`Event`): The current event.
@@ -265,13 +263,12 @@ class CutMix(Algorithm):
         self._bbox = new_bbox
 
     def apply(self, event: Event, state: State, logger: Logger) -> None:
-        """Applies CutMix augmentation on State input
+        """Applies CutMix augmentation on State input.
 
         Args:
             event (Event): the current event
             state (State): the current trainer state
             logger (Logger): the training logger
-
         """
         if event == Event.INIT:
             self.num_classes: int = state.model.num_classes  # type: ignore
@@ -280,7 +277,7 @@ class CutMix(Algorithm):
         input, target = state.batch_pair
         assert isinstance(input, Tensor) and isinstance(target, Tensor), \
             "Multiple tensors for inputs or targets not supported yet."
-        alpha = self.hparams.alpha
+        alpha = self.alpha
 
         self.indices = gen_indices(input)
         self.cutmix_lambda = gen_cutmix_lambda(alpha)

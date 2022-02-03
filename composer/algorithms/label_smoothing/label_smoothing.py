@@ -22,8 +22,9 @@ class LabelSmoothingHparams(AlgorithmHparams):
 
 
 class LabelSmoothing(Algorithm):
-    """Shrinks targets towards a uniform distribution to counteract label noise
-    as in `Szegedy et al. <https://arxiv.org/abs/1512.00567>`_.
+    """Shrinks targets towards a uniform distribution to counteract label noise as in `Szegedy et al.
+
+    <https://arxiv.org/abs/1512.00567>`_.
 
     This is computed by ``(1 - alpha) * targets + alpha * smoothed_targets``
     where ``smoothed_targets`` is a vector of ones.
@@ -37,7 +38,7 @@ class LabelSmoothing(Algorithm):
     """
 
     def __init__(self, alpha: float):
-        self.hparams = LabelSmoothingHparams(alpha=alpha)
+        self.alpha = alpha
         self.original_labels = torch.Tensor()
 
     def match(self, event: Event, state: State) -> bool:
@@ -54,7 +55,7 @@ class LabelSmoothing(Algorithm):
             smoothed_labels = smooth_labels(
                 state.outputs,
                 labels,
-                alpha=self.hparams.alpha,
+                alpha=self.alpha,
             )
             state.batch = (input, smoothed_labels)
         elif event == Event.AFTER_LOSS:
@@ -63,8 +64,9 @@ class LabelSmoothing(Algorithm):
 
 
 def smooth_labels(logits: Tensor, targets: Tensor, alpha: float):
-    """Shrinks targets towards a uniform distribution to counteract label noise
-    as in `Szegedy et al. <https://arxiv.org/abs/1512.00567>`_.
+    """Shrinks targets towards a uniform distribution to counteract label noise as in `Szegedy et al.
+
+    <https://arxiv.org/abs/1512.00567>`_.
 
     This is computed by ``(1 - alpha) * targets + alpha * smoothed_targets``
     where ``smoothed_targets`` is a uniform distribution.

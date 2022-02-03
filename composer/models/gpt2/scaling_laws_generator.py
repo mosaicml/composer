@@ -9,8 +9,7 @@ import yaml
 
 
 def teraflops_for_accelerator(accel):
-    """
-    Stores the number of TFLOPs available to a few accelerators, including driver handicaps.
+    """Stores the number of TFLOPs available to a few accelerators, including driver handicaps.
 
     Args:
         accel (str): A string descriptor of which accelerator to use. Must be either "3090" or "V100".
@@ -23,9 +22,7 @@ def teraflops_for_accelerator(accel):
 
 
 def parse_args():
-    """
-    ArgParse parser.
-    """
+    """ArgParse parser."""
     parser = argparse.ArgumentParser()
     parser.add_argument("--hours",
                         type=float,
@@ -193,9 +190,8 @@ template_yaml = {
 
 
 def generate_architecture(args, model):
-    """
-    Given the desired training budget and a template model, configure the model archtiecture according to
-    "Scaling Laws for Neural Language Models" by Kaplan et al.
+    """Given the desired training budget and a template model, configure the model archtiecture according to "Scaling
+    Laws for Neural Language Models" by Kaplan et al.
 
     Args:
         args (argparse.Namespace): the Namespace object holding the parsed arguments.
@@ -280,7 +276,7 @@ def generate_architecture(args, model):
     return model, scaling_law_predictions
 
 
-def configure_mosaic_yaml(model, scaling_law_predictions):
+def configure_composer_yaml(model, scaling_law_predictions):
     template_yaml['optimizer']['adamw']['lr'] = scaling_law_predictions['pred_lr']
 
     logger.info("----------------- OPTIMIZATION INFORMATION -----------------")
@@ -292,7 +288,7 @@ def configure_mosaic_yaml(model, scaling_law_predictions):
     batch_size = args.per_device_batch_size * args.num_devices
     curr_serial_steps = math.ceil(curr_num_batches / batch_size)
 
-    # we ignore the grad accum paramters to make Mosaic Trainer easier to work with
+    # we ignore the grad accum paramters to make the Composer Trainer easier to work with
     if args.no_grad_accum:
         lr_scaling_factor = math.floor(curr_serial_steps / min_serial_steps)
         template_yaml['optimizer']['adamw']['lr'] = template_yaml['optimizer']['adamw']['lr'] / lr_scaling_factor
@@ -336,7 +332,7 @@ def configure_mosaic_yaml(model, scaling_law_predictions):
 
 if __name__ == "__main__":
     model, scaling_law_predictions = generate_architecture(args, model)
-    template_yaml = configure_mosaic_yaml(model, scaling_law_predictions)
+    template_yaml = configure_composer_yaml(model, scaling_law_predictions)
 
     with open(args.output_file, "w+") as f:
         yaml.dump(template_yaml, f, sort_keys=False)

@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import textwrap
 from dataclasses import dataclass
 from typing import Any, Callable, Iterator, Optional
 
@@ -43,10 +42,24 @@ class WrappedDataLoader(DataLoader):
         return super().__setattr__(name, value)
 
 
+def unwrap_data_loader(dataloader: DataLoader) -> DataLoader:
+    """Recursively unwraps a dataloader if it is of type :class:`WrappedDataLoader`.
+
+    Args:
+        dataloader (DataLoader): The dataloader to unwrap
+
+    Returns:
+        DataLoader: The underlying dataloader
+    """
+    if isinstance(dataloader, WrappedDataLoader):
+        return unwrap_data_loader(dataloader.dataloader)
+    return dataloader
+
+
 @dataclass
 class DataloaderHparams(hp.Hparams):
     """Hyperparameters to initialize a :class:`~torch.utils.data.Dataloader`.
-    
+
     Parameters:
         num_workers (int): Number of CPU workers to use per device to fetch data.
         prefetch_factor (int): Number of samples loaded in advance by each worker.
@@ -54,16 +67,13 @@ class DataloaderHparams(hp.Hparams):
         persistent_workers (bool): Whether or not to shutdown workers after the dataset has been consumed once.
         pin_memory (bool): Whether or not to copy Tensors into CUDA pinned memory before returning them.
         timeout (float): Timeout, in seconds, for collecting a batch from workers. Set to 0 for no timeout.
-    
     """
 
     num_workers: int = hp.required("Number of CPU workers to use per device to fetch data.", template_default=8)
     prefetch_factor: int = hp.required("Number of samples loaded in advance by each worker", template_default=2)
-    persistent_workers: bool = hp.required(textwrap.dedent("""Whether or not to shutdown workers after the dataset
-        has been consumed once"""),
+    persistent_workers: bool = hp.required("Whether to shutdown workers after the dataset has been consumed once",
                                            template_default=True)
-    pin_memory: bool = hp.required(textwrap.dedent("""Whether or not to copy Tensors into CUDA pinned memory
-        before returning them"""),
+    pin_memory: bool = hp.required("Whether to copy Tensors into CUDA pinned memory before returning them",
                                    template_default=True)
     timeout: float = hp.required("Timeout, in seconds, for collecting a batch from workers. Set to 0 for no timeout",
                                  template_default=0)

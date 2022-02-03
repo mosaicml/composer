@@ -16,9 +16,8 @@ def round_channels(
     divisor: int = 8,
     min_value: Optional[int] = None,
 ) -> int:
-    """Round number of channels after scaling with width multiplier. This 
-       function ensures that channel integers halfway inbetween divisors 
-       is rounded up.
+    """Round number of channels after scaling with width multiplier. This function ensures that channel integers halfway
+    inbetween divisors is rounded up.
 
     Args:
         channels (float): Number to round.
@@ -46,7 +45,7 @@ def calculate_same_padding(kernel_size, dilation, stride):
 
 
 def drop_connect(inputs: torch.Tensor, drop_connect_rate: float, training: bool):
-    """ Randomly mask a set of samples. Provides similar regularization as stochastic depth.
+    """Randomly mask a set of samples. Provides similar regularization as stochastic depth.
 
     Args:
         input (torch.Tensor): Input tensor to mask.
@@ -69,8 +68,8 @@ def drop_connect(inputs: torch.Tensor, drop_connect_rate: float, training: bool)
 
 
 class SqueezeExcite(nn.Module):
-    """Squeeze Excite Layer
-    
+    """Squeeze Excite Layer.
+
     Args:
         in_channels (int): Number of channels in the input tensor.
         latent_channels (int): Number of hidden channels.
@@ -101,21 +100,21 @@ class SqueezeExcite(nn.Module):
 
 
 class DepthwiseSeparableConv(nn.Module):
-    """Depthwise Separable Convolution layer
-    
+    """Depthwise Separable Convolution layer.
+
     Args:
         in_channels (int): Number of channels in the input tensor.
         out_channels (int): Number of channels in the output tensor.
         kernel_size (int): Size of the convolving kernel.
         stride (int): Stride of the convolution.
-        se_ratio (float): How much to scale `in_channels` for the hidden layer 
+        se_ratio (float): How much to scale `in_channels` for the hidden layer
             dimensionality of the squeeze-excite module.
         drop_connect_rate (float): Probability of dropping a sample before the
             identity connection, provides regularization similar to stochastic
             depth.
         act_layer (torch.nn.Module): Activation layer to use in block.
         norm_kwargs (dict): Normalization layer's keyword arguments.
-        norm_layer (torch.nn.Module): Normalization layer to use in block.    
+        norm_layer (torch.nn.Module): Normalization layer to use in block.
     """
 
     def __init__(self,
@@ -179,9 +178,8 @@ class DepthwiseSeparableConv(nn.Module):
 
 
 class MBConvBlock(nn.Module):
-    """Mobile Inverted Residual Bottleneck Block as defined in 
-       https://arxiv.org/abs/1801.04381
-    
+    """Mobile Inverted Residual Bottleneck Block as defined in https://arxiv.org/abs/1801.04381.
+
     Args:
         in_channels (int): Number of channels in the input tensor.
         out_channels (int): Number of channels in the output tensor.
@@ -268,22 +266,21 @@ class MBConvBlock(nn.Module):
 
 
 class EfficientNet(nn.Module):
-    """EfficientNet architecture designed for ImageNet in 
-       https://arxiv.org/abs/1905.11946
+    """EfficientNet architecture designed for ImageNet in https://arxiv.org/abs/1905.11946.
 
-       Args:
-           num_classes (int): Size of the EfficientNet output, typically viewed
-                as the number of classes in a classification task.
-           width_multiplier (float): How much to scale the EfficientNet-B0 channel
-                dimension throughout the model. 
-           depth_multiplier (float): How much to scale the EFficientNet-B0 depth.
-           drop_rate (float): Dropout probability for the penultimate activations.
-           drop_connect_rate (float): Probability of dropping a sample before the
-                identity connection, provides regularization similar to stochastic
-                depth.
-           act_layer (torch.nn.Module): Activation layer to use in the model.
-           norm_kwargs (dict): Normalization layer's keyword arguments.
-           norm_layer (torch.nn.Module): Normalization layer to use in the model.
+    Args:
+        num_classes (int): Size of the EfficientNet output, typically viewed
+             as the number of classes in a classification task.
+        width_multiplier (float): How much to scale the EfficientNet-B0 channel
+             dimension throughout the model.
+        depth_multiplier (float): How much to scale the EFficientNet-B0 depth.
+        drop_rate (float): Dropout probability for the penultimate activations.
+        drop_connect_rate (float): Probability of dropping a sample before the
+             identity connection, provides regularization similar to stochastic
+             depth.
+        act_layer (torch.nn.Module): Activation layer to use in the model.
+        norm_kwargs (dict): Normalization layer's keyword arguments.
+        norm_layer (torch.nn.Module): Normalization layer to use in the model.
     """
 
     # EfficientNet-B0 architecture specification
@@ -419,7 +416,7 @@ class EfficientNet(nn.Module):
 
     @staticmethod
     def get_model_from_name(model_name: str, num_classes, drop_connect_rate: float):
-        """ Instantiate an EfficientNet model family member based on the model_name string """
+        """Instantiate an EfficientNet model family member based on the model_name string."""
 
         # Coefficients: width, depth, res, dropout
         model_arch = {
@@ -444,9 +441,8 @@ class EfficientNet(nn.Module):
                             drop_connect_rate=drop_connect_rate)
 
     def _decode_block_string(self, block_string: str):
-        """ Decodes an EfficientNet block specification string into a dictionary
-            of keyword arguments for a block in the architecture
-        """
+        """Decodes an EfficientNet block specification string into a dictionary of keyword arguments for a block in the
+        architecture."""
 
         arg_strings = block_string.split('_')
         args = {}

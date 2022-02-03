@@ -37,7 +37,7 @@ class Event(StringEnum):
         BATCH_END: End of a batch, which occurs after the optimizer step
             and any gradient scaling.
         EPOCH_END: End of an epoch.
-        TRAINING_END: End of training. 
+        TRAINING_END: End of training.
 
         EVAL_START: Start of evaluation through the validation dataset.
         EVAL_BATCH_START: Before the call to ``model.validate(batch)``
@@ -82,12 +82,12 @@ class Event(StringEnum):
 
     @property
     def is_before_event(self) -> bool:
-        """Whether the event has a corresponding `after` event"""
+        """Whether the event has a corresponding `after` event."""
         return self in _BEFORE_EVENTS
 
     @property
     def is_after_event(self) -> bool:
-        """Whether the event has a corresponding `before` event"""
+        """Whether the event has a corresponding `before` event."""
         return self in _AFTER_EVENTS
 
     @property

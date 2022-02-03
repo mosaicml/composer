@@ -1,7 +1,6 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
-"""Test Ghost Batch Normalization, both as an algorithm and module
-"""
+"""Test Ghost Batch Normalization, both as an algorithm and module."""
 
 import math
 from typing import cast
@@ -61,7 +60,7 @@ def algo_instance(ghost_batch_size: int):
     pytest.param(-1, marks=pytest.mark.xfail(raises=KeyError))
 ])
 def test_batchnorm_gets_replaced_functional(num_dims: int):
-    """GhostBatchNorm{1,2,3}d should work, but other ints should throw"""
+    """GhostBatchNorm{1,2,3}d should work, but other ints should throw."""
     module = ModuleWithBatchnorm(num_dims)
     assert surgery.count_module_instances(module, _GHOSTBN_MODULE_CLASS) == 0
     ghostbn.apply_ghost_batchnorm(module, ghost_batch_size=1)
@@ -124,6 +123,6 @@ def test_algorithm_logging(logger_mock, state, algo_instance):
     })
 
 
-def test_ghost_batchnorm_trains(mosaic_trainer_hparams: TrainerHparams):
-    mosaic_trainer_hparams.algorithms = [GhostBatchNormHparams(ghost_batch_size=16)]
-    train_model(mosaic_trainer_hparams)
+def test_ghost_batchnorm_trains(composer_trainer_hparams: TrainerHparams):
+    composer_trainer_hparams.algorithms = [GhostBatchNormHparams(ghost_batch_size=16)]
+    train_model(composer_trainer_hparams)

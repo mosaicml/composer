@@ -1,6 +1,6 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
-"""Logger Hyperparameters"""
+"""Logger Hyperparameters."""
 from __future__ import annotations
 
 import copy
@@ -24,8 +24,7 @@ if TYPE_CHECKING:
 
 @dataclass
 class BaseLoggerBackendHparams(hp.Hparams, ABC):
-    """
-    Base class for logger backend hyperparameters.
+    """Base class for logger backend hyperparameters.
 
     Logger parameters that are added to
     :class:`~composer.trainer.trainer_hparams.TrainerHparams`
@@ -122,8 +121,7 @@ class WandBLoggerBackendHparams(BaseLoggerBackendHparams):
         if config is not None:
 
             def get_flattened_dict(data: Dict[str, Any], _prefix: List[str] = []) -> Dict[str, Any]:
-                """
-                Flattens a dictionary with list or sub dicts to have dot syntax
+                """Flattens a dictionary with list or sub dicts to have dot syntax.
 
                 i.e. {
                   "sub_dict":{
@@ -156,7 +154,10 @@ class WandBLoggerBackendHparams(BaseLoggerBackendHparams):
                             if isinstance(item, dict):
                                 found_sub_dicts = True
                                 for sub_key, sub_val in item.items():
-                                    all_items.update(get_flattened_dict(sub_val, key_items + [sub_key]))
+                                    if isinstance(sub_val, dict):
+                                        all_items.update(get_flattened_dict(sub_val, key_items + [sub_key]))
+                                    else:
+                                        all_items.update({sub_key: sub_val})
                         if not found_sub_dicts:
                             all_items[key_name] = val
                     else:

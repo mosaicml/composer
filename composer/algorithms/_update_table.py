@@ -1,9 +1,6 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
-"""
-Helper function to generate the README table
-
-"""
+"""Helper function to generate the README table."""
 from pathlib import Path
 
 from composer import functional as CF

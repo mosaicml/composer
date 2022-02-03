@@ -8,9 +8,9 @@ import contextlib
 
 
 def map_collection(collection, map_fn):
-    """map takes a single element, or a collection of elements, and applies `map_fn` on the element (or each
-    element when `maybe_tuple` is a collection).
-    It returns the result of `map_fn` in the same data format as `collection` -- i.e. dicts are returned as dicts
+    """map takes a single element, or a collection of elements, and applies `map_fn` on the element (or each element
+    when `maybe_tuple` is a collection). It returns the result of `map_fn` in the same data format as `collection` --
+    i.e. dicts are returned as dicts.
 
     Args:
         collection: The element, or a tuple of elements

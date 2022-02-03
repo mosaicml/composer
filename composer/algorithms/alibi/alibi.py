@@ -37,12 +37,12 @@ class AlibiHparams(AlgorithmHparams):
     alibi_attention: str = hp.required("new self-attention function in which ALiBi is "
                                        "implemented. Used to replace "
                                        "'{attention_module}.{attr_to_replace}'")
-    mask_replacement_function: Union[str, None] = hp.optional(
+    mask_replacement_function: Optional[str] = hp.optional(
         "function to replace model's attention mask. This is "
         "sometimes necessary for evaluating on sequence "
         " lengths longer than the model was initialized to accommodate.",
         default=None)
-    heads_per_layer: Union[int, Optional[None]] = hp.optional(
+    heads_per_layer: Optional[int] = hp.optional(
         'Number of attention heads per layer. If '
         '"None", will attempt to determine from model.config.n_head.',
         default=None)
@@ -68,9 +68,9 @@ def apply_alibi(
     mask_replacement_function: Union[Callable, None],
     optimizers: Optional[Optimizers] = None,
 ) -> None:
-    """
-    Removes position embeddings and replaces the attention function and attention mask
-    according to `AliBi <https://arxiv.org/abs/2108.12409>`_.
+    """Removes position embeddings and replaces the attention function and attention mask according to `AliBi.
+
+    <https://arxiv.org/abs/2108.12409>`_.
 
     Args:
         model: model to transform
@@ -98,7 +98,7 @@ def apply_alibi(
             All optimizers that have already been constructed with,
             ``model.parameters()`` must be specified here so they will optimize
             the correct parameters.
-            
+
             If the optimizer(s) are constructed *after* calling this function,
             then it is safe to omit this parameter. These optimizers will see the correct
             model parameters.
@@ -126,10 +126,8 @@ def apply_alibi(
 
 
 class Alibi(Algorithm):
-    """
-    `ALiBi <https://arxiv.org/abs/2108.12409>`_ (Attention with Linear Biases)
-    dispenses with position embeddings and instead directly biases attention
-    matrices such that nearby tokens attend to one another more strongly.
+    """`ALiBi <https://arxiv.org/abs/2108.12409>`_ (Attention with Linear Biases) dispenses with position embeddings and
+    instead directly biases attention matrices such that nearby tokens attend to one another more strongly.
 
     ALiBi yields excellent extrapolation to unseen sequence lengths
     compared to other position embedding schemes. We leverage this
@@ -165,35 +163,38 @@ class Alibi(Algorithm):
             (sequence_length*sequence_length_fraction, batch/sequence_length_fraction).
     """
 
-    def __init__(self, position_embedding_attribute: str, attention_module_name: str, attr_to_replace: str,
-                 alibi_attention: str, mask_replacement_function: str, heads_per_layer: int, max_sequence_length: int,
-                 train_sequence_length_scaling: float) -> None:
+    def __init__(self,
+                 position_embedding_attribute: str,
+                 attention_module_name: str,
+                 attr_to_replace: str,
+                 alibi_attention: str,
+                 mask_replacement_function: Optional[str] = None,
+                 heads_per_layer: Optional[int] = None,
+                 max_sequence_length: int = 8192,
+                 train_sequence_length_scaling: float = 0.25) -> None:
 
-        self.hparams = AlibiHparams(position_embedding_attribute=position_embedding_attribute,
-                                    attention_module_name=attention_module_name,
-                                    attr_to_replace=attr_to_replace,
-                                    alibi_attention=alibi_attention,
-                                    mask_replacement_function=mask_replacement_function,
-                                    heads_per_layer=heads_per_layer,
-                                    max_sequence_length=max_sequence_length,
-                                    train_sequence_length_scaling=train_sequence_length_scaling)
+        self.position_embedding_attribute = position_embedding_attribute
+        self.attention_module_name = attention_module_name
+        self.attr_to_replace = attr_to_replace
+        self.alibi_attention = alibi_attention
+        self.mask_replacement_function = mask_replacement_function
+        self.heads_per_layer = heads_per_layer
+        self.max_sequence_length = max_sequence_length
+        self.train_sequence_length_scaling = train_sequence_length_scaling
 
     def match(self, event: Event, state: State) -> bool:
-        """ Runs on Event.INIT
-        """
+        """Runs on Event.INIT."""
         return event in (Event.INIT, Event.AFTER_DATALOADER)
 
     def apply(self, event: Event, state: State, logger: Logger) -> Optional[int]:
-        """ Replace model's existing attention mechanism with AliBi
-        """
+        """Replace model's existing attention mechanism with AliBi."""
 
         if event == Event.INIT:
             assert state.model is not None
 
-            if "heads_per_layer" not in asdict(self.hparams).keys() or \
-            not self.hparams.heads_per_layer:
+            if self.heads_per_layer is None:
                 try:
-                    self.hparams.heads_per_layer = state.model.config.n_head  # type: ignore
+                    self.heads_per_layer = state.model.config.n_head  # type: ignore
                 except AttributeError:
                     log.exception("alibi.heads_per_layer not provided, and unable to "
                                   "determine number of heads from model.config.n_head."
@@ -202,22 +203,22 @@ class Alibi(Algorithm):
             apply_alibi(
                 state.model,
                 optimizers=state.optimizers,
-                heads_per_layer=cast(int, self.hparams.heads_per_layer),
-                max_sequence_length=self.hparams.max_sequence_length,
-                position_embedding_attribute=self.hparams.position_embedding_attribute,
-                attr_to_replace=self.hparams.attr_to_replace,
+                heads_per_layer=cast(int, self.heads_per_layer),
+                max_sequence_length=self.max_sequence_length,
+                position_embedding_attribute=self.position_embedding_attribute,
+                attr_to_replace=self.attr_to_replace,
                 # Access method from string
-                attention_module=lazy_import(self.hparams.attention_module_name),
+                attention_module=lazy_import(self.attention_module_name),
                 # Access method from string
-                alibi_attention=lazy_import(self.hparams.alibi_attention),
+                alibi_attention=lazy_import(self.alibi_attention),
                 # Access method from string
-                mask_replacement_function=lazy_import(self.hparams.mask_replacement_function))
+                mask_replacement_function=lazy_import(self.mask_replacement_function))
 
         elif event == Event.AFTER_DATALOADER:
             # Change sequence length by reshaping data
-            if not self.hparams.train_sequence_length_scaling == 1 and \
+            if not self.train_sequence_length_scaling == 1 and \
             hasattr(state, "batch") and isinstance(state.batch, dict):
-                sequence_scaling = self.hparams.train_sequence_length_scaling
+                sequence_scaling = self.train_sequence_length_scaling
                 for k, v in state.batch.items():
                     batch_len, sequence_len = v.shape[0], v.shape[1]
                     state.batch[k] = v.reshape(int(batch_len / sequence_scaling), int(sequence_len * sequence_scaling))
@@ -275,7 +276,7 @@ def get_alibi_head_slopes(n_heads: int):
             2 * closest_power_of_2)[0::2][:n_heads - closest_power_of_2]
 
 
-def lazy_import(name: Union[str, None]) -> Any[Callable, ModuleType, None]:
+def lazy_import(name: Optional[str]) -> Any[Callable, ModuleType, None]:
     if not name:
         return None
     components = name.split('.')

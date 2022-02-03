@@ -23,7 +23,7 @@ and the Freeze Training method of:
 
 ## Applicable Settings
 
-Layer freezing is in principle applicable to any model with many layers, but the MosaicML implementation currently only supports vision models.
+Layer freezing is in principle applicable to any model with many layers, but the Composer implementation currently only supports vision models.
 
 ## Example Effects
 

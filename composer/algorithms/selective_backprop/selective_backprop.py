@@ -95,7 +95,6 @@ def selective_backprop(X: torch.Tensor,
 
         with torch.cuda.amp.autocast(True):
             X_new, y_new = selective_backprop(X, y, model, loss_fun, keep, scale_factor)
-
     """
     INTERPOLATE_MODES = {3: "linear", 4: "bilinear", 5: "trilinear"}
 
@@ -160,7 +159,9 @@ class SelectiveBackpropHparams(AlgorithmHparams):
 
 
 class SelectiveBackprop(Algorithm):
-    """Selectively backpropagate gradients from a subset of each batch (`Jiang et al. 2019 <https://arxiv.org/abs/1910.00762>`_).
+    """Selectively backpropagate gradients from a subset of each batch (`Jiang et al. 2019.
+
+    <https://arxiv.org/abs/1910.00762>`_).
 
     Selective Backprop (SB) prunes minibatches according to the difficulty
     of the individual training examples, and only computes weight gradients
@@ -187,29 +188,28 @@ class SelectiveBackprop(Algorithm):
     """
 
     def __init__(self, start: float, end: float, keep: float, scale_factor: float, interrupt: int):
-        self.hparams = SelectiveBackpropHparams(start=start,
-                                                end=end,
-                                                keep=keep,
-                                                scale_factor=scale_factor,
-                                                interrupt=interrupt)
+        self.start = start
+        self.end = end
+        self.keep = keep
+        self.scale_factor = scale_factor
+        self.interrupt = interrupt
 
     def match(self, event: Event, state: State) -> bool:
-        """Match on ``Event.AFTER_DATALOADER`` if time is between ``self.start`` and
-        ``self.end``."""
+        """Match on ``Event.AFTER_DATALOADER`` if time is between ``self.start`` and ``self.end``."""
         is_event = (event == Event.AFTER_DATALOADER)
         if not is_event:
             return False
 
-        is_keep = (self.hparams.keep < 1)
+        is_keep = (self.keep < 1)
         if not is_keep:
             return False
 
         is_chosen = do_selective_backprop(
             current_duration=float(state.get_elapsed_duration()),
             batch_idx=state.timer.batch_in_epoch.value,
-            start=self.hparams.start,
-            end=self.hparams.end,
-            interrupt=self.hparams.interrupt,
+            start=self.start,
+            end=self.end,
+            interrupt=self.interrupt,
         )
         return is_chosen
 
@@ -233,6 +233,6 @@ class SelectiveBackprop(Algorithm):
                 target,
                 model,  # type: ignore - ditto because of loss
                 loss,
-                self.hparams.keep,
-                self.hparams.scale_factor)
+                self.keep,
+                self.scale_factor)
         state.batch = (new_input, new_target)

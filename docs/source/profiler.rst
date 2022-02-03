@@ -6,7 +6,7 @@ Composer contains a training loop profiler, which can be added via the ``--profi
 
 .. code-block::
 
-    python examples/run_mosaic_trainer.py -f my_model.yaml --profiler
+    python examples/run_composer_trainer.py -f my_model.yaml --profiler
 
 
 .. autosummary::

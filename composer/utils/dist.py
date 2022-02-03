@@ -85,8 +85,8 @@ def get_local_rank() -> int:
 
 
 def get_node_rank() -> int:
-    """Returns the node rank. For example, if there are 2 nodes, and 2 ranks per node, then
-    global ranks 0-1 will have a node rank of 0, and global ranks 2-3 will have a node rank of 1.
+    """Returns the node rank. For example, if there are 2 nodes, and 2 ranks per node, then global ranks 0-1 will have a
+    node rank of 0, and global ranks 2-3 will have a node rank of 1.
 
     Returns:
         int: The node rank, starting at 0.
@@ -147,10 +147,9 @@ def broadcast(tensor: torch.Tensor, src: int) -> None:
 
 
 def broadcast_object_list(object_list: List[Any], src: int = 0) -> None:
-    """Broadcasts picklable objects in ``object_list`` to the whole group.
-    Similar to :meth:`broadcast`, but Python objects can be passed in.
-    Note that all objects in ``object_list`` must be picklable in order to be broadcasted.
-    See :meth:`torch.distributed.broadcast`.
+    """Broadcasts picklable objects in ``object_list`` to the whole group. Similar to :meth:`broadcast`, but Python
+    objects can be passed in. Note that all objects in ``object_list`` must be picklable in order to be broadcasted. See
+    :meth:`torch.distributed.broadcast`.
 
     Args:
         object_list (torch.Tensor): List of input objects to broadcast.
@@ -173,7 +172,7 @@ def broadcast_object_list(object_list: List[Any], src: int = 0) -> None:
 
 
 def all_gather(tensor: torch.Tensor) -> Sequence[torch.Tensor]:
-    """all_gather collects a tensor from each rank, and returns a sequence of tensors indexed by rank
+    """all_gather collects a tensor from each rank, and returns a sequence of tensors indexed by rank.
 
     Args:
         tensor (torch.Tensor): tensor from each rank to be gathered
@@ -195,8 +194,8 @@ def all_gather(tensor: torch.Tensor) -> Sequence[torch.Tensor]:
 
 
 def all_gather_object(obj: TObj) -> List[TObj]:
-    """all_gather_object collects a pickleable object from each rank, and returns a list of
-    these objects indexed by rank
+    """all_gather_object collects a pickleable object from each rank, and returns a list of these objects indexed by
+    rank.
 
     Args:
         obj (TObj): Object to be gathered
@@ -204,7 +203,7 @@ def all_gather_object(obj: TObj) -> List[TObj]:
     Returns:
         List[TObj]: A list of objects indexed by rank
     """
-    if dist.is_available():
+    if dist.is_available() and dist.is_initialized():
         obj_gather_list = [None for _ in range(get_world_size())]
         dist.all_gather_object(obj_gather_list, obj)
         # torch.distributed will replace the None's in obj_gather_list with the gathered objects on rank 0

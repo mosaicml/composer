@@ -13,12 +13,11 @@ from composer.core.types import BatchPair, DataLoader, Metrics, Tensor, Tensors
 from composer.datasets.dataloader import DataloaderHparams
 from composer.datasets.hparams import DatasetHparams, SyntheticHparamsMixin
 from composer.datasets.synthetic import SyntheticBatchPairDataset, SyntheticDataLabelType
-from composer.models import BaseMosaicModel, ModelHparams
+from composer.models import ComposerModel, ModelHparams
 
 
-class SimpleBatchPairModel(BaseMosaicModel):
-    """A small model that has a really fast forward pass.
-    """
+class SimpleBatchPairModel(ComposerModel):
+    """A small model that has a really fast forward pass."""
 
     def __init__(self, in_shape: Tuple[int, ...], num_classes: int) -> None:
         super().__init__()
@@ -114,9 +113,8 @@ class _SimpleBatchPairModelHparams(ModelHparams):
 
 
 class SimpleConvModel(torch.nn.Module):
-    """Very basic forward operation with no activation functions
-    Used just to test that model surgery doesn't create forward prop bugs.
-    """
+    """Very basic forward operation with no activation functions Used just to test that model surgery doesn't create
+    forward prop bugs."""
 
     def __init__(self):
         super().__init__()

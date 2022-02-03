@@ -59,7 +59,7 @@ SKIP_SERIALIZATION_FIELDS = [
     "batch_num_tokens",
     "outputs",
     "train_dataloader",
-    "eval_dataloader",
+    "evaluators",
     "_steps_per_epoch",
     "_precision_context",
     "profiler",
@@ -75,12 +75,12 @@ class State(Serializable):
     checkpoint. Algorithms are able to modify this object in-place.
 
     Args:
-        model (types.Model, often BaseMosaicModel): The model, typically as a subclass of :class:`BaseMosaicModel`.
+        model (types.Model, often ComposerModel): The model, typically as a subclass of :class:`ComposerModel`.
         grad_accum (int): The number of gradient accumulation steps to use. The size of each microbatch is ``train_batch_size / num_gpus / grad_accum``.
         train_dataloader (types.DataLoader, types.DataSpec, or dict):
             The :class:`types.DataLoader`, :class:`types.DataSpec`, or dict of :class:`types.DataSpec` kwargs to used for training.
-        eval_dataloader (types.DataLoader, types.DataSpec, or dict):
-            The :class:`types.DataLoader`, :class:`types.DataSpec`, or dict of :class:`types.DataSpec` kwargs to used for evaluation.
+        evaluators (Evaluators):
+            The :class:`types.Evaluators` contain the evaluation datasets used for evaluation with specific metrics.
         max_duration (str or Time): The maximum duration to train for.
 
         precision (str | Precision): The numerical precision to use for training. Should be one of ``[fp32, amp]``.
@@ -93,7 +93,7 @@ class State(Serializable):
         algorithms (Sequence[Algorithm]): The algorithms used for training.
         callbacks (Sequence[Callback]): The callbacks used for training.
 
-        profiler (Optional[Profiler]): The mosaic profiler.
+        profiler (Optional[Profiler]): The Composer profiler.
 
     Attributes:
         batch (types.Batch): The batch. This will be the entire batch during the :attr:`Event.AFTER_DATALOADER`, or a
@@ -122,7 +122,7 @@ class State(Serializable):
             # data configurations
             grad_accum: int,
             train_dataloader: types.DataLoader,
-            eval_dataloader: types.DataLoader,
+            evaluators: types.Evaluators,
 
             # stopping conditions
             max_duration: Union[str, Time[int]],
@@ -148,7 +148,7 @@ class State(Serializable):
         self.model = model
         self.grad_accum = grad_accum
         self.train_dataloader = train_dataloader
-        self.eval_dataloader = eval_dataloader
+        self.evaluators = list(ensure_tuple(evaluators))
         self.max_duration = max_duration
         self.steps_per_epoch = steps_per_epoch
 
@@ -201,7 +201,7 @@ class State(Serializable):
         self._max_duration = max_duration
 
     def get_elapsed_duration(self) -> Time[float]:
-        """Get the elapsed training duration
+        """Get the elapsed training duration.
 
         Returns:
             Time: The elapsed duration, in ``TimeUnit.DURATION``.
@@ -287,8 +287,7 @@ class State(Serializable):
         return state_dict
 
     def load_model_state(self, state_dict: types.StateDict, strict: bool):
-        """
-        Loads the model's state from a state_dict.
+        """Loads the model's state from a state_dict.
 
         Args:
             state_dict (types.StateDict): object returned from call to :meth:`state_dict`.
@@ -307,7 +306,6 @@ class State(Serializable):
 
         Args:
             state_dict (types.StateDict): object returned from call to :meth:`state_dict`.
-
         """
 
         deepspeed_enabled = False
@@ -350,9 +348,9 @@ class State(Serializable):
     @property
     def steps_per_epoch(self):
         """int: The maximum number of steps (batches) per epoch."""
-        warnings.warn(textwrap.dedent(
-            """TimeDeprecationWarning: state.steps_per_epoch is deprecated. Please transition to using stateless functions
-            "that do not depends on the number of steps per epoch"""),
+        warnings.warn(textwrap.dedent("""\
+            TimeDeprecationWarning: state.steps_per_epoch is deprecated. Please transition to using stateless functions
+            that do not depends on the number of steps per epoch"""),
                       category=DeprecationWarning)
         if self._steps_per_epoch is None:
             return len(self.train_dataloader)
@@ -366,14 +364,18 @@ class State(Serializable):
             dataloader_len = None
         if dataloader_len is not None and steps_per_epoch is not None and steps_per_epoch > dataloader_len:
             warnings.warn(
-                textwrap.dedent(f"""SubsetNumBatchesWarning: The steps_per_epoch({steps_per_epoch})
+                textwrap.dedent(f"""\
+                    SubsetNumBatchesWarning: The steps_per_epoch({steps_per_epoch})
                     is greater than the number of batches in the training dataloader
                     ({dataloader_len})"""))
         self._steps_per_epoch = steps_per_epoch
 
     @property
     def precision(self):
-        """The numerical precision to use for training. Should be one of ``[fp32, amp]``."""
+        """The numerical precision to use for training.
+
+        Should be one of ``[fp32, amp]``.
+        """
         return self._precision
 
     @precision.setter

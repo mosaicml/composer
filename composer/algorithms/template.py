@@ -16,10 +16,8 @@ log = logging.getLogger(__name__)
 
 @dataclass
 class MyAlgorithmHparams(AlgorithmHparams):
-    """
-    This hparams object is for use with our hparams system for specifying algorithms via YAML
-    and argument parser flags.
-    """
+    """This hparams object is for use with our hparams system for specifying algorithms via YAML and argument parser
+    flags."""
 
     alpha: float = hp.optional(doc='optional hparams need a default field. This field would'
                                'not be required for CLI flags, but still required for the YAML config.',
@@ -45,31 +43,25 @@ class MyAlgorithmHparams(AlgorithmHparams):
 
 
 def my_algorithm(model, alpha: float, beta: float):
-    """
-    Most of your algorithm logic should be in a functional form here, similar to
-    torch.nn.Conv2d vs torch.nn.functional.conv2d
-    """
+    """Most of your algorithm logic should be in a functional form here, similar to torch.nn.Conv2d vs
+    torch.nn.functional.conv2d."""
     return model
 
 
 class MyAlgorithm(Algorithm):
-    """
-    Add docstrings in Google style. See:
+    """Add docstrings in Google style. See:
 
     https://sphinxcontrib-napoleon.readthedocs.io/en/latest/example_google.html
     """
 
     def __init__(self, alpha: float, beta: float = 0.5):
-        """
-        __init__ is constructed from the same fields as in hparams.
-        """
-        self.hparams = MyAlgorithmHparams(alpha, beta)
+        """__init__ is constructed from the same fields as in hparams."""
+        self.alpha = alpha
+        self.beta = beta
 
     def match(self, event: Event, state: State) -> bool:
         return True
 
     def apply(self, event: Event, state: State, logger: Logger) -> Optional[int]:
-        """
-        Implement your algorithm's state change here.
-        """
-        state.model = my_algorithm(state.model, self.hparams.alpha, self.hparams.beta)
+        """Implement your algorithm's state change here."""
+        state.model = my_algorithm(state.model, self.alpha, self.beta)
