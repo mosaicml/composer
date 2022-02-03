@@ -13,14 +13,11 @@ from typing import TYPE_CHECKING, Dict, List, Optional, cast
 import yahp as hp
 
 import composer
-from composer import datasets
 from composer.algorithms import AlgorithmHparams, get_algorithm_registry
 from composer.callbacks import (BenchmarkerHparams, CallbackHparams, GradMonitorHparams, LRMonitorHparams,
                                 MemoryMonitorHparams, RunDirectoryUploaderHparams, SpeedMonitorHparams)
-from composer.core import DataSpec
 from composer.core.types import JSON, Precision
-from composer.datasets import DataloaderHparams
-from composer.datasets.dataset_registry import get_dataset_registry
+from composer.datasets import DataloaderHparams, DatasetHparams, DataSpec, get_dataset_registry
 from composer.datasets.evaluator import EvaluatorHparams
 from composer.loggers import (BaseLoggerBackendHparams, FileLoggerBackendHparams, MosaicMLLoggerBackendHparams,
                               TQDMLoggerBackendHparams, WandBLoggerBackendHparams)
@@ -123,7 +120,7 @@ class TrainerHparams(hp.Hparams):
     }
 
     device: DeviceHparams = hp.required(doc="Device Parameters")
-    train_dataset: datasets.DatasetHparams = hp.required(doc="Training dataset hparams")
+    train_dataset: DatasetHparams = hp.required(doc="Training dataset hparams")
 
     optimizer: OptimizerHparams = hp.required(doc="Optimizer to use")
 
@@ -145,7 +142,7 @@ class TrainerHparams(hp.Hparams):
                                   default=1)
     precision: Precision = hp.optional(doc="Precision to use for training", default=Precision.AMP)
 
-    val_dataset: Optional[datasets.DatasetHparams] = hp.optional(doc="Validation dataset hparams", default=None)
+    val_dataset: Optional[DatasetHparams] = hp.optional(doc="Validation dataset hparams", default=None)
 
     evaluators: Optional[List[EvaluatorHparams]] = hp.optional(doc="Evaluators", default_factory=list)
 

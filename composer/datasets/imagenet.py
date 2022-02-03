@@ -10,7 +10,7 @@ import yahp as hp
 from torchvision import transforms
 from torchvision.datasets import ImageFolder
 
-from composer.core.types import DataSpec
+from composer.datasets.data_spec import DataSpec
 from composer.datasets.dataloader import DataloaderHparams
 from composer.datasets.hparams import DatasetHparams, SyntheticHparamsMixin
 from composer.datasets.synthetic import SyntheticBatchPairDataset

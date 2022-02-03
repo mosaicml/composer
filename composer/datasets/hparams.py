@@ -17,7 +17,8 @@ else:
 
 import yahp as hp
 
-from composer.core.types import DataLoader, DataSpec, MemoryFormat
+from composer.core.types import DataLoader, MemoryFormat
+from composer.datasets.data_spec import DataSpec
 from composer.datasets.dataloader import DataloaderHparams
 
 

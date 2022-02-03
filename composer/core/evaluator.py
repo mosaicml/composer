@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING, Union
 
 from torchmetrics import Metric, MetricCollection
 
-from composer.core.data_spec import DataSpec as DataSpec
+from composer.datasets.data_spec import DataSpec as DataSpec
 
 if TYPE_CHECKING:
     from composer.core.types import DataLoader, Metrics

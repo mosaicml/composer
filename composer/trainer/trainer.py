@@ -19,14 +19,14 @@ from torch.optim.lr_scheduler import CosineAnnealingLR
 from torchmetrics.collections import MetricCollection
 from torchmetrics.metric import Metric
 
-from composer.core import Callback, DataSpec, Engine, Event, Logger, State, Time, surgery
+from composer.core import Callback, Engine, Event, Logger, State, Time, surgery
 from composer.core.algorithm import Algorithm
 from composer.core.evaluator import Evaluator
 from composer.core.logging import BaseLoggerBackend, LogLevel
 from composer.core.time import TimeUnit
 from composer.core.types import (Batch, BreakEpochException, DataLoader, Evaluators, Metrics, Optimizers, Precision,
                                  Schedulers)
-from composer.datasets.dataloader import unwrap_data_loader
+from composer.datasets import DataSpec, unwrap_data_loader
 from composer.loggers.tqdm_logger import TQDMLoggerBackend
 from composer.models.base import ComposerModel
 from composer.optim import ComposedScheduler

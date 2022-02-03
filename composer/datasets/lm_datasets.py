@@ -8,7 +8,8 @@ from typing import List, Optional
 
 import yahp as hp
 
-from composer.core.types import Batch, DataSpec
+from composer.core.types import Batch
+from composer.datasets.data_spec import DataSpec
 from composer.datasets.dataloader import DataloaderHparams
 from composer.datasets.hparams import DatasetHparams
 from composer.utils import dist

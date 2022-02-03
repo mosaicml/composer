@@ -8,10 +8,9 @@ import torch.nn.functional as F
 from torch.functional import Tensor
 
 from composer.algorithms.dummy import DummyHparams
-from composer.core import DataSpec, State, types
+from composer.core import State, types
 from composer.core.state import DIRECT_SERIALIZATION_FIELDS, SKIP_SERIALIZATION_FIELDS, STATE_DICT_SERIALIZATION_FIELDS
-from composer.datasets.dataloader import DataloaderHparams
-from composer.datasets.hparams import DatasetHparams
+from composer.datasets import DataloaderHparams, DatasetHparams, DataSpec
 from composer.models.base import ComposerModel
 from composer.trainer import deepspeed
 from tests.fixtures.models import SimpleBatchPairModel

@@ -11,8 +11,8 @@ from torchmetrics.collections import MetricCollection
 
 from composer import Logger, State
 from composer.core.evaluator import Evaluator
-from composer.core.types import DataLoader, DataSpec, Model, Optimizer, Precision, Scheduler
-from composer.datasets import DataloaderHparams, DatasetHparams
+from composer.core.types import DataLoader, Model, Optimizer, Precision, Scheduler
+from composer.datasets import DataloaderHparams, DatasetHparams, DataSpec
 from composer.models import ComposerClassifier, ModelHparams
 from composer.optim import AdamHparams, ExponentialLRHparams
 from composer.trainer import TrainerHparams
