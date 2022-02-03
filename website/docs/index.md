@@ -1,7 +1,7 @@
 ---
-position: 0
 slug: /
 title: Home
+sidebar_position: 0
 ---
 # MosaicML Composer
 

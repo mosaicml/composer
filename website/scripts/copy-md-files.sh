@@ -8,7 +8,7 @@ index_file='./docs/index.md'
 # README
 cat << EOF > $index_file
 ---
-position: 0
+sidebar_position: 0
 slug: /
 title: Home
 ---
