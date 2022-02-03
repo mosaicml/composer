@@ -3,7 +3,7 @@
 import collections.abc
 import logging
 import textwrap
-from typing import List, Tuple, Union
+from typing import Callable, List, Tuple, Union
 
 import numpy as np
 import torch
@@ -97,7 +97,10 @@ def pil_image_collate(batch: List[Tuple[Image.Image, Union[Image.Image, Tensor]]
     return image_tensor, target_tensor
 
 
-def add_dataset_transform(dataset, transform, location="end", pre_post: str = "pre") -> Dataset:
+def add_dataset_transform(dataset: torch.utils.data.Dataset,
+                          transform: Callable,
+                          location: Union[str, type] = "end",
+                          pre_post: str = "pre") -> Dataset:
     """Flexibly add a transform to the dataset's collection of transforms. Warning: this
     function will not behave as expected if a dataset's collection of transforms contains
     nested torchvision.transforms.Compose (e.g dataset.transforms =
@@ -107,7 +110,7 @@ def add_dataset_transform(dataset, transform, location="end", pre_post: str = "p
     Args:
         dataset: A torchvision-like dataset
         transform: Function to be added to the dataset's collection of transforms
-        location (str, torchvision transform), optional: Where to insert the transform in
+        location (str, type), optional: Where to insert the transform in
             the sequence of transforms. "end" will append to the end or "start" will
             insert at index 0, a transform (e.g. torchvision.transforms.ToTensor) will
             insert pre- or post- the first instance of `location`, determined by the
@@ -130,6 +133,8 @@ def add_dataset_transform(dataset, transform, location="end", pre_post: str = "p
             textwrap.dedent(
                 f"Invalid value combination for argument `pre_post`: `{pre_post} and `location`: {location}. If location is not one of ['start', 'end'], `pre_post` must be one of ['pre', 'post']."
             ))
+    if not hasattr(dataset, "transform"):
+        raise AttributeError(textwrap.dedent(f"Argument `dataset` must have attribute `transform`."))
 
     added_transform = 0
 
@@ -141,7 +146,8 @@ def add_dataset_transform(dataset, transform, location="end", pre_post: str = "p
     if dataset.transform is None:
         dataset.transform = transform
         added_transform = added_transform_warning()
-    # Check if dataset.transform is of type transforms. Compose and ensure idempotency by not adding transform if it's already present
+    # Check if dataset.transform is of type transforms.
+    # Compose and ensure idempotency by not adding transform if it's already present
     elif isinstance(dataset.transform,
                     transforms.Compose) and type(transform) not in [type(t) for t in dataset.transform.transforms]:
         if location == "end":
