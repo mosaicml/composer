@@ -10,6 +10,7 @@ from composer.algorithms import AlgorithmHparams
 from composer.algorithms.alibi.alibi import AlibiHparams
 from composer.algorithms.augmix.augmix import AugMixHparams
 from composer.algorithms.cutmix.cutmix import CutMixHparams
+from composer.algorithms.label_smoothing.label_smoothing import LabelSmoothingHparams
 from composer.algorithms.mixup.mixup import MixUpHparams
 from composer.algorithms.randaugment.randaugment import RandAugmentHparams
 from composer.algorithms.scale_schedule.scale_schedule import ScaleScheduleHparams
@@ -64,6 +65,10 @@ def test_init_idempotency(composer_trainer_hparams: TrainerHparams, dummy_num_cl
         pytest.xfail("SWA does not work with composed schedulers.")
     if issubclass(hparams_cls, (BenchmarkerHparams, MosaicMLLoggerBackendHparams)):
         pytest.xfail("Not sure why these are failing, but nobody uses these anyways so going to ignore.")
+    if issubclass(hparams_cls, (CutMixHparams, MixUpHparams, LabelSmoothingHparams)):
+        pytest.importorskip("torch",
+                            minversion="1.10",
+                            reason=f"{hparams_cls.__name__} requires Pytorch 1.10 for multi-target loss")
     instance = None
     for x in hparams_with_required_fields:
         if isinstance(x, hparams_cls):
