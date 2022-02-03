@@ -93,7 +93,7 @@ class TestCutMix:
 
         algorithm = CutMixHparams(alpha=alpha).initialize_object()
         state = dummy_state
-        state.model = ComposerClassifier
+        state.model = ComposerClassifier(torch.nn.Flatten())
         state.model.num_classes = x_fake.size(1)  # Grab C
         state.batch = (x_fake, y_fake)
 

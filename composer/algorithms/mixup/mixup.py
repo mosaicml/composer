@@ -1,6 +1,9 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
+from __future__ import annotations
+
 import logging
+import textwrap
 from dataclasses import asdict, dataclass
 from typing import Optional, Tuple
 
@@ -11,6 +14,7 @@ from torch.nn import functional as F
 
 from composer.algorithms import AlgorithmHparams
 from composer.core.types import Algorithm, Event, Logger, State, Tensor
+from composer.models.base import ComposerModel
 from composer.models.loss import check_for_index_targets
 
 log = logging.getLogger(__name__)
@@ -100,10 +104,9 @@ def mixup_batch(x: Tensor,
 class MixUpHparams(AlgorithmHparams):
     """See :class:`MixUp`"""
 
-    alpha: float = hp.required('Strength of interpolation, should be >= 0. No interpolation if alpha=0.',
-                               template_default=0.2)
+    alpha: float = hp.optional('Strength of interpolation, should be >= 0. No interpolation if alpha=0.', default=0.2)
 
-    def initialize_object(self) -> "MixUp":
+    def initialize_object(self) -> MixUp:
         return MixUp(**asdict(self))
 
 
@@ -140,7 +143,7 @@ class MixUp(Algorithm):
         Returns:
             bool: True if this algorithm should run now.
         """
-        return event in (Event.AFTER_DATALOADER, Event.INIT)
+        return (event == Event.INIT and self.num_classes is None) or event == Event.AFTER_DATALOADER
 
     @property
     def interpolation_lambda(self) -> float:
@@ -167,9 +170,14 @@ class MixUp(Algorithm):
             logger (Logger): the training logger
         """
         if event == Event.INIT:
+            if not isinstance(state.model, ComposerModel):
+                raise RuntimeError(
+                    textwrap.dedent(f"""\
+                    Unable to apply {type(self).__qualname__} on model of type {type(state.model).__qualname__};
+                    expected state.model to be {ComposerModel.__qualname__}"""))
             num_classes = state.model.num_classes
             if not isinstance(num_classes, int):
-                raise RuntimeError(f"{type(self).__name__} requires model.num_classes to be an integer")
+                raise RuntimeError(f"{type(self).__qualname__} requires model.num_classes to be an integer")
             self.num_classes = num_classes
             return
 

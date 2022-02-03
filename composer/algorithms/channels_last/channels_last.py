@@ -40,8 +40,8 @@ class ChannelsLast(Algorithm):
             # when the algorithm is not yet applied
             raise RuntimeError(
                 textwrap.dedent(f"""\
-                Unable to apply {type(self).__name__} on model of type {type(state.model)};
-                expected state.model to be {ComposerModel.__name__}"""))
+                    Unable to apply {type(self).__qualname__} on model of type {type(state.model).__qualname__};
+                    expected state.model to be {ComposerModel.__qualname__}"""))
         self._applied = True
 
         # `.to()` is missing the `memory_format` parameter in its type annotation; hence the type ignore

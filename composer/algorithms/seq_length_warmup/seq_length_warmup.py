@@ -130,7 +130,7 @@ class SeqLengthWarmup(Algorithm):
         self._original_model = None
 
     def match(self, event: Event, state: State) -> bool:
-        return event in (Event.INIT, Event.AFTER_DATALOADER)
+        return (event == Event.INIT and self._original_model is None) or event == Event.AFTER_DATALOADER
 
     def apply(self, event: Event, state: State, logger: Logger) -> Optional[int]:
         """Applies on ``Event.AFTER_DATALOADER`` to apply the sequence length warmup to the input batch.
@@ -148,13 +148,12 @@ class SeqLengthWarmup(Algorithm):
             int or None: exit code that is stored in :class:`Trace` and made accessible for debugging.
         """
         if event == Event.INIT:
-            if self._original_model is None:
-                if not isinstance(state.model, ComposerTransformer):
-                    raise RuntimeError(
-                        textwrap.dedent(f"""\
-                        {type(self).__name__} requires state.modelto be of type {ComposerTransformer.__name__},
-                        not of type {type(state.model)}"""))
-                self._original_model = state.model
+            if not isinstance(state.model, ComposerTransformer):
+                raise RuntimeError(
+                    textwrap.dedent(f"""\
+                    {type(self).__name__} requires state.model to be of type {ComposerTransformer.__name__}, not of type {type(state.model)}"""
+                                   ))
+            self._original_model = state.model
             return
 
         # in order to avoid OOMs, we do a forward and a backward pass on a dummy input.

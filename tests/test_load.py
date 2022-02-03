@@ -24,8 +24,14 @@ def get_model_algs(model_name: str) -> List[str]:
     algs.remove("dummy")
     algs.remove("no_op_model")
     is_image_model = any(x in model_name for x in ("resnet", "mnist", "efficientnet"))
+
+    if "resnet" in model_name:
+        # TODO -- see https://mosaicml.slack.com/archives/C027TL3AD0U/p1643831387441759
+        algs.remove("cutmix")
+        algs.remove("mixup")
     if is_image_model:
         algs.remove("alibi")
+        algs.remove("seq_length_warmup")
     if "alibi" in algs:
         pytest.importorskip("transformers")
     if model_name in ("unet", "gpt2_52m", "gpt2_83m", 'gpt2_125m'):

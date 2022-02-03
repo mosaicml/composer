@@ -107,11 +107,3 @@ def test_epochs_validate_zero_epochs(dummy_state: State, noop_dummy_logger: Logg
     dummy_state.schedulers = tuple()
     with pytest.raises(ValueError):
         algorithm.apply(Event.INIT, dummy_state, noop_dummy_logger)
-
-
-def test_epochs_validate_run_once(dummy_state: State, noop_dummy_logger: Logger):
-    algorithm = ScaleSchedule(ratio=0.1)
-    dummy_state.schedulers = tuple()
-    with pytest.raises(AssertionError):
-        algorithm.apply(Event.INIT, dummy_state, noop_dummy_logger)
-        algorithm.apply(Event.INIT, dummy_state, noop_dummy_logger)

@@ -148,8 +148,8 @@ class BlurPool(Algorithm):
             # when the algorithm is not yet applied
             raise RuntimeError(
                 textwrap.dedent(f"""\
-                Unable to apply {type(self).__name__} on model of type {type(state.model)};
-                expected state.model to be {ComposerModel.__name__}"""))
+                    Unable to apply {type(self).__qualname__} on model of type {type(state.model).__qualname__};
+                    expected state.model to be {ComposerModel.__qualname__}"""))
         self._applied = True
 
         apply_blurpool(state.model,
@@ -161,8 +161,6 @@ class BlurPool(Algorithm):
 
     def _log_results(self, event: Event, state: State, logger: Logger) -> None:
         """Logs the result of BlurPool application, including the number of layers that have been replaced."""
-        assert state.model is not None
-
         num_blurpool_layers = surgery.count_module_instances(state.model, BlurMaxPool2d)
         num_blurconv_layers = surgery.count_module_instances(state.model, BlurConv2d)
 

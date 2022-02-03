@@ -273,8 +273,8 @@ class StochasticDepth(Algorithm):
                 # when the algorithm is not yet applied
                 raise RuntimeError(
                     textwrap.dedent(f"""\
-                    Unable to apply {type(self).__name__} on model of type {type(state.model)};
-                    expected state.model to be {ComposerModel.__name__}"""))
+                    Unable to apply {type(self).__qualname__} on model of type {type(state.model).__qualname__};
+                    expected state.model to be {ComposerModel.__qualname__}"""))
             self._applied = True
             if surgery.count_module_instances(state.model, target_layer) == 0:
                 log.warning(f'No {self.target_layer_name} found in model! Algorithm will function as a no-op.')

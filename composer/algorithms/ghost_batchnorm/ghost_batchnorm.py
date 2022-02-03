@@ -138,10 +138,9 @@ def apply_ghost_batchnorm(model: torch.nn.Module,
 class GhostBatchNormHparams(AlgorithmHparams):
     """See :class:`GhostBatchNorm`"""
 
-    ghost_batch_size: int = hp.required(doc='Size of sub-batches to normalize over',
-                                        template_default=_DEFAULT_GHOST_BATCH_SIZE)
+    ghost_batch_size: int = hp.optional(doc='Size of sub-batches to normalize over', default=_DEFAULT_GHOST_BATCH_SIZE)
 
-    def initialize_object(self) -> "GhostBatchNorm":
+    def initialize_object(self) -> GhostBatchNorm:
         return GhostBatchNorm(**asdict(self))
 
 
@@ -178,8 +177,8 @@ class GhostBatchNorm(Algorithm):
             # when the algorithm is not yet applied
             raise RuntimeError(
                 textwrap.dedent(f"""\
-                Unable to apply {type(self).__name__} on model of type {type(state.model)};
-                expected state.model to be {ComposerModel.__name__}"""))
+                Unable to apply {type(self).__qualname__} on model of type {type(state.model).__qualname__};
+                expected state.model to be {ComposerModel.__qualname__}"""))
         self._applied = True
 
         apply_ghost_batchnorm(model=state.model, optimizers=state.optimizers, ghost_batch_size=self.ghost_batch_size)

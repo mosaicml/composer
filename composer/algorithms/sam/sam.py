@@ -129,6 +129,7 @@ class SAM(Algorithm):
         self.rho = rho
         self.epsilon = epsilon
         self.interval = interval
+        self._activated = False
 
     def match(self, event: Event, state: State) -> bool:
         """Run on Event.INIT.
@@ -139,7 +140,7 @@ class SAM(Algorithm):
         Returns:
             bool: True if this algorithm should run now
         """
-        return event == Event.INIT
+        return event == Event.INIT and not self._activated
 
     def apply(self, event: Event, state: State, logger: Optional[Logger]) -> Optional[int]:
         """Applies SAM by wrapping the base optimizer with the SAM optimizer.
@@ -149,8 +150,6 @@ class SAM(Algorithm):
             state (State): the current trainer state
             logger (Logger): the training logger
         """
-        assert state.optimizers is not None
-
         state.optimizers = tuple(
             SAMOptimizer(
                 base_optimizer=optimizer,
@@ -158,3 +157,4 @@ class SAM(Algorithm):
                 epsilon=self.epsilon,
                 interval=self.interval,
             ) for optimizer in ensure_tuple(state.optimizers))
+        self._activated = True
