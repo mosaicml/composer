@@ -83,6 +83,8 @@ extra_deps['dev'] = [
     'sphinx_rtd_theme>=1.0.0',
     'testbook>=0.4.2',
     'myst-parser>=0.15.2',
+    'pylint>=2.12.2',
+    'docformatter>=1.4',
 ]
 
 extra_deps['logging'] = ['wandb>=0.12.2', 'apache-libcloud>=3.4.1']

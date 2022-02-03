@@ -27,23 +27,19 @@ class Algorithm(Serializable, ABC):
 
     @property
     def find_unused_parameters(self) -> bool:
-        """Indicates that the effect of this algorithm may cause some model
-        parameters to be unused. Defaults to False.
+        """Indicates that the effect of this algorithm may cause some model parameters to be unused. Defaults to False.
 
-        Used to tell DDP that some parameters will be frozen during
-        training and hence it should not expect gradients from them.
-        All algorithms which do any kind of parameter freezing should
-        override this function to return True.
+        Used to tell DDP that some parameters will be frozen during training and hence it should not expect gradients
+        from them. All algorithms which do any kind of parameter freezing should override this function to return True.
         """
         return False
 
     @property
     def backwards_create_graph(self) -> bool:
-        """Indicates that this algorithm requires a second derivative
-        to be computed. Defaults to False.
+        """Indicates that this algorithm requires a second derivative to be computed. Defaults to False.
 
-        If True, create_graph=True will be passed to loss.backward()
-        which wil result in the graph of the gradient also being constructed.
+        If True, create_graph=True will be passed to loss.backward() which wil result in the graph of the gradient also
+        being constructed.
         """
         return False
 
@@ -74,7 +70,7 @@ class Algorithm(Serializable, ABC):
 
     @abstractmethod
     def apply(self, event: Event, state: State, logger: Logger) -> Optional[int]:
-        """Applies the algorithm to make an in-place change to the State
+        """Applies the algorithm to make an in-place change to the State.
 
         Can optionally return an exit code to be stored in a :class:`~composer.core.engine.Trace`.
 

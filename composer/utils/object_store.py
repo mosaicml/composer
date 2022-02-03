@@ -99,8 +99,7 @@ class ObjectStoreProviderHparams(hp.Hparams):
 
 
 class ObjectStoreProvider:
-    """Utility for uploading to and downloading from object (blob) stores,
-    such as AWS S3 or Google Cloud Storage.
+    """Utility for uploading to and downloading from object (blob) stores, such as AWS S3 or Google Cloud Storage.
 
     .. note::
 
@@ -117,7 +116,8 @@ class ObjectStoreProvider:
         container (str): The name of the container (i.e. bucket) to use.
         provider_init_kwargs (Dict[str, Any], optional): Parameters to pass into the constructor for the
             :class:`~libcloud.storage.providers.Provider` constructor. These arguments would usually include the cloud region
-            and credentials. Defaults to None, which is equivalent to an empty dictionary."""
+            and credentials. Defaults to None, which is equivalent to an empty dictionary.
+    """
 
     def __init__(self, provider: str, container: str, provider_init_kwargs: Optional[Dict[str, Any]] = None) -> None:
         try:
@@ -135,12 +135,12 @@ class ObjectStoreProvider:
 
     @property
     def provider_name(self):
-        """The name of the cloud provider"""
+        """The name of the cloud provider."""
         return self._provider.name
 
     @property
     def container_name(self):
-        """The name of the object storage container"""
+        """The name of the object storage container."""
         return self._container.name
 
     def upload_object(self,

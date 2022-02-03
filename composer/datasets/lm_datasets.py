@@ -27,9 +27,8 @@ def _split_dict_fn(batch: Batch, n_microbatches: int) -> List[Batch]:
 
 @dataclass
 class LMDatasetHparams(DatasetHparams):
-    """
-    Defines a generic dataset class for autoregressive and masked language models trained with self-supervised learning.
-    """
+    """Defines a generic dataset class for autoregressive and masked language models trained with self-supervised
+    learning."""
 
     # TODO(moin): Switch datadir to be a string, rather than a list of strings, to be similar to the
     # other datasets

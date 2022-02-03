@@ -22,7 +22,7 @@ def deeplabv3_builder(num_classes: int,
 
     Args:
         num_classes (int): number of classes in the segmentation task.
-        backbone_arch (str): the architecture to use for the backbone. Must be either ['resnet50', 'resnet101']. 
+        backbone_arch (str): the architecture to use for the backbone. Must be either ['resnet50', 'resnet101'].
             Default is 'resnet101'.
         is_backbone_pretrained (bool): if true (default), use pretrained weights for the backbone.
         sync_bn (bool): if true (default), replace all BatchNorm layers with SyncBatchNorm layers.
@@ -65,15 +65,14 @@ def deeplabv3_builder(num_classes: int,
 
 class ComposerDeepLabV3(ComposerModel):
     """DeepLabV3 model extending the :class:`ComposerClassifier`.
-    
+
     See `<arxiv.org/abs/1706.05587>`_ for more details on the DeepLabV3 architecture.
-    
+
     Args:
         num_classes (int): the number of classes in the segmentation task.
         backbone_arch (str): the backbone architecture to use, either 'resnet50', 'resnet101'. Default is 'resnet101'.
         is_backbone_pretrained (bool): if true (default), use pre-trained weights for backbone.
         sync_bn (bool): if true (default), use SyncBatchNorm to sync batch norm statistics across GPUs.
-        
     """
 
     def __init__(self,
@@ -103,21 +102,18 @@ class ComposerDeepLabV3(ComposerModel):
         return logits
 
     def loss(self, outputs: Any, batch: BatchPair):
-        """Calculate the specified loss for training.
-        """
+        """Calculate the specified loss for training."""
         target = batch[1]
         loss = soft_cross_entropy(outputs, target, ignore_index=-1)  # type: ignore
         return loss
 
     def metrics(self, train: bool = False):
-        """Metrics to compute during validation.
-        """
+        """Metrics to compute during validation."""
         metric_list = [self.train_miou, self.train_ce] if train else [self.val_miou, self.val_ce]
         return MetricCollection(metric_list)
 
     def validate(self, batch: BatchPair):
-        """Generate outputs used during validation.
-        """
+        """Generate outputs used during validation."""
         assert self.training is False, "For validation, model must be in eval mode"
         target = batch[1]
         logits = self.forward(batch)
