@@ -6,9 +6,9 @@ ALiBi (Attention with Linear Biases) dispenses with position embeddings for toke
 |:--:
 |*The matrix on the left depicts the attention score for each key-query token pair. The matrix on the right depicts the distance between each query-key token pair. m is a head-specific scalar that is fixed during training. Figure from [Press et al., 2021](https://openreview.net/forum?id=R8sQPpGCv0).*|
 
-## Code
+## How to Use
 
-### Functional Example
+### Functional Interface
 
 ```python
 def training_loop(model, train_loader):
@@ -25,7 +25,7 @@ def training_loop(model, train_loader):
           opt.zero_grad()
 ```
 
-### Composer Trainer Example
+### Composer Trainer
 
 ## Technical Details
 
