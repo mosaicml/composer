@@ -8,6 +8,7 @@ index_file='./docs/index.md'
 # README
 cat << EOF > $index_file
 ---
+position: 0
 slug: /
 title: Home
 ---
@@ -18,8 +19,8 @@ EOF
 cat $readme_file | sed -e 's#<*[/]*html>##g' | sed -e 's#<*[/]*details>##g' >> $index_file
 
 
-contrib_file='../CONTRIBUTING.md'
-to_contrib_file='./docs/contributing.md'
+# contrib_file='../CONTRIBUTING.md'
+# to_contrib_file='./docs/contributing.md'
 
-# Contributing
-cat $contrib_file > $to_contrib_file
+# # Contributing
+# cat $contrib_file > $to_contrib_file
