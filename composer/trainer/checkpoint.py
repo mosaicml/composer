@@ -335,7 +335,7 @@ class CheckpointSaver:
         interval (Time or str): The amount of time units to wait between checkpoints.
     """
 
-    def __init__(self, save_folder: str, interval: Union[Time, str]):
+    def __init__(self, save_folder: str, interval: Union[Time, str], compression: str = ""):
         if not isinstance(interval, Time):
             interval = Time.from_timestring(interval)
         if interval.unit == TimeUnit.EPOCH:
@@ -347,6 +347,20 @@ class CheckpointSaver:
         self.checkpoint_folder = os.path.join(run_directory.get_run_directory(), save_folder)
         os.makedirs(self.checkpoint_folder, mode=0o775, exist_ok=True)
         self.save_interval = interval
+        if compression == "":
+            self.write_mode = "w"
+            self.file_extension = ".tar"
+        elif compression == "gzip":
+            self.write_mode = "w:gz"
+            self.file_extension = ".tar.gz"
+        elif compression == "bzip2":
+            self.write_mode = "w:bz2"
+            self.file_extension = ".tar.bz2"
+        elif compression == "lzma":
+            self.write_mode = "w:xz"
+            self.file_extension = ".tar.lzma"
+        else:
+            raise ValueError(f"Unknown encryption mode: {compression}")
 
     def should_checkpoint(self, state: State, event: Event) -> bool:
         """Given the current state and event, determine whether a checkpoint needs to be created.
@@ -423,8 +437,8 @@ class CheckpointSaver:
                 with open(composer_states_filepath, 'xb') as f:
                     torch.save(state_dict, f)
 
-            checkpoint_archive_filepath = os.path.join(self.checkpoint_folder, f'{tag}.tar')
-            with tarfile.open(checkpoint_archive_filepath, "w") as tarball:
+            checkpoint_archive_filepath = os.path.join(self.checkpoint_folder, f'{tag}{self.file_extension}')
+            with tarfile.open(checkpoint_archive_filepath, self.write_mode) as tarball:
                 tarball.add(tmpdir, arcname="")  # add files flat to the tarball
 
             log.info(f'Trainer checkpoint saved to {checkpoint_archive_filepath}')
