@@ -51,7 +51,7 @@ trainer_hparams = trainer.load("resnet50")
 trainer_hparams.algorithms = algorithms.load_multiple("squeeze_excite", "scale_schedule")
 trainer_hparams.datadir = 'your/dataset/path/'
 
-learner = Trainer.create_from_hparams(hparams=trainer_hparams)
+learner = trainer_hparams.initialize_object()
 learner.fit()
 
 ```

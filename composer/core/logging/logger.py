@@ -91,7 +91,7 @@ class Logger:
             # this way, the flushed data will be the same as at the time of the logger call
             copied_data = deepcopy(data)
             assert isinstance(copied_data, collections.abc.Mapping)
-            destination.log_metric(self._state.epoch, self._state.step, log_level, copied_data)
+            destination.log_metric(self._state.timer.get_timestamp(), log_level, copied_data)
 
     def metric_fit(self, data: Union[TLogData, Callable[[], TLogData]]) -> None:
         """Helper function for ``metric(LogLevel.FIT, data)``"""
