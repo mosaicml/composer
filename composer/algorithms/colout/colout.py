@@ -136,7 +136,6 @@ class ColOut(Algorithm):
     large, this does not significantly alter the content of the image, but reduces its size and provides extra
     variability.
 
-
     If ``batch`` is True (the default), this algorithm runs on :attr:`Event.INIT` to insert a dataset transformation.
     It is a no-op if this algorithm already applied itself on the :attr:`State.train_dataloader.dataset`.
 
