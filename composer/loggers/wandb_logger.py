@@ -9,6 +9,7 @@ import warnings
 from typing import Any, Dict, Optional
 
 from composer.core.logging import BaseLoggerBackend, LogLevel, TLogData
+from composer.core.time import Timestamp
 from composer.core.types import Logger, State, StateDict
 from composer.utils import dist, run_directory
 
@@ -52,10 +53,10 @@ class WandBLoggerBackend(BaseLoggerBackend):
             init_params = {}
         self._init_params = init_params
 
-    def log_metric(self, epoch: int, step: int, log_level: LogLevel, data: TLogData):
-        del epoch, log_level  # unused
+    def log_metric(self, timestamp: Timestamp, log_level: LogLevel, data: TLogData):
+        del log_level  # unused
         if self._enabled:
-            wandb.log(data, step=step)
+            wandb.log(data, step=timestamp.batch)
 
     def state_dict(self) -> StateDict:
         # Storing these fields in the state dict to support run resuming in the future.

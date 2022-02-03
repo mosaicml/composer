@@ -6,6 +6,7 @@ from abc import ABC
 from typing import TYPE_CHECKING
 
 from composer.core.callback import Callback
+from composer.core.time import Timestamp
 
 if TYPE_CHECKING:
     from composer.core.logging.logger import LogLevel, TLogData
@@ -36,7 +37,7 @@ class BaseLoggerBackend(Callback, ABC):
         del state, log_level  # unused
         return True
 
-    def log_metric(self, epoch: int, step: int, log_level: LogLevel, data: TLogData):
+    def log_metric(self, timestamp: Timestamp, log_level: LogLevel, data: TLogData):
         """Called by the :class:`~composer.core.logging.logger.Logger` for metrics where :func:`will_log` returned
         ``True``.
 
@@ -49,5 +50,5 @@ class BaseLoggerBackend(Callback, ABC):
             log_level (LogLevel): The log level.
             data (TLogData): The metric to log.
         """
-        del epoch, step, log_level, data  # unused
+        del timestamp, log_level, data  # unused
         pass

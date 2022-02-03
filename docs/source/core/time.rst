@@ -24,3 +24,4 @@ supports comparisons, arithmetic, and conversions.
     ~composer.core.TimeUnit
     ~composer.core.Time
     ~composer.core.Timer
+    ~composer.core.Timestamp
