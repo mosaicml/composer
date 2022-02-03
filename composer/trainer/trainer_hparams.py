@@ -34,6 +34,7 @@ from composer.optim.scheduler import ensure_warmup_last
 from composer.profiler import ProfilerHparams
 from composer.trainer.ddp import DDPSyncStrategy
 from composer.trainer.devices import CPUDeviceHparams, DeviceHparams, GPUDeviceHparams
+from composer.trainer.trainer import Trainer
 from composer.utils import dist, reproducibility
 from composer.utils.object_store import ObjectStoreProviderHparams
 
@@ -269,8 +270,6 @@ class TrainerHparams(hp.Hparams):
                 "val_dataset and evaluators shouldn't both be specified. Only one can be passed in to the trainer.")
 
     def initialize_object(self) -> Trainer:
-        from composer.trainer import Trainer
-
         self.validate()
         import composer
         logging.getLogger(composer.__name__).setLevel(self.log_level)

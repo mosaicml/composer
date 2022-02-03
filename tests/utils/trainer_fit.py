@@ -13,7 +13,6 @@ from composer.models.classify_mnist.mnist_hparams import MnistClassifierHparams
 from composer.optim.optimizer_hparams import SGDHparams
 from composer.trainer.devices.device import Device
 from composer.trainer.devices.device_gpu import DeviceGPU
-from composer.trainer.trainer import Trainer
 from composer.trainer.trainer_hparams import TrainerHparams
 from composer.utils import dist, ensure_tuple
 
