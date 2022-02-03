@@ -24,3 +24,10 @@ cat $readme_file | sed -e 's#<*[/]*html>##g' | sed -e 's#<*[/]*details>##g' >> $
 
 # # Contributing
 # cat $contrib_file > $to_contrib_file
+
+cat << EOF > ./docs/reference/_category_.json
+{
+  "label": "API Reference",
+  "position": 3
+}
+EOF
