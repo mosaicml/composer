@@ -4,14 +4,14 @@ const darkCodeTheme = require('prism-react-renderer/themes/dracula');
 // With JSDoc @type annotations, IDEs can provide config autocompletion
 /** @type {import('@docusaurus/types').DocusaurusConfig} */
 (module.exports = {
-  title: 'spock',
-  tagline: 'Managing complex configurations any other way would be highly illogical...',
-  url: 'https://fidelity.github.io',
+  title: 'MosaicML Documentation',
+  tagline: '',
+  url: 'https://mosaicml.com',
   baseUrl: '/',
   onBrokenLinks: 'throw',
   onBrokenMarkdownLinks: 'warn',
   favicon: 'img/logo_small.png',
-  organizationName: 'fidelity',
+  organizationName: 'MosaicML',
   projectName: 'Composer',
   presets: [
     [
