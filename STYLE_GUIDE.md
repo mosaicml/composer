@@ -157,7 +157,7 @@ if parameter is None:
 
 ## 5. Imports and `__init__.py`
 
-All imports in composer should be absolute -- that is, they do not being with a period.
+All imports in composer should be absolute -- that is, they do not begin with a period.
 In addition, all imports should be added into an appropriate section of [setup.py](setup.py).
 
 ### 5.1 Optional Dependencies
@@ -170,7 +170,7 @@ def unet():
     try:
         import monai
     except ImportError:
-        raise ImportError("monai is not installed. Please run `pip install composer[unet])
+        raise ImportError("monai is not installed. Please run `pip install composer[unet]`")
 ```
 
 This style allows users to install composer without the extra dependencies. Otherwise, if the import is global
