@@ -63,7 +63,7 @@ def test_memory_monitor_gpu(composer_trainer_hparams: TrainerHparams):
 
         num_memory_monitor_calls = 0
         for log_call in log_destination.log_metric.mock_calls:
-            metrics = log_call[1][3]
+            metrics = log_call[1][2]
             if "memory/alloc_requests" in metrics:
                 if metrics["memory/alloc_requests"] > 0:
                     num_memory_monitor_calls += 1
