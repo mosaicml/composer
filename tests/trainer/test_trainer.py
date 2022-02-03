@@ -57,8 +57,8 @@ def test_trainer_init_additional_args(dummy_train_dataloader: DataLoader, dummy_
     assert isinstance(trainer.state.callbacks[1], LRMonitor)
 
 
-def test_trainer_create_from_hparams(composer_trainer_hparams: TrainerHparams):
-    trainer = Trainer.create_from_hparams(hparams=composer_trainer_hparams)
+def test_trainer_hparams_initialize_object(composer_trainer_hparams: TrainerHparams):
+    trainer = composer_trainer_hparams.initialize_object()
     assert isinstance(trainer, Trainer)
 
 
@@ -75,7 +75,7 @@ def test_trainer_determinism(composer_trainer_hparams: TrainerHparams, device: D
     composer_trainer_hparams.device = device
     composer_trainer_hparams.max_duration = "2ep"
 
-    first_trainer = Trainer.create_from_hparams(composer_trainer_hparams)
+    first_trainer = composer_trainer_hparams.initialize_object()
     first_trainer.fit()
     first_model = first_trainer.state.model.module
     assert isinstance(first_model, ComposerModel)
@@ -84,7 +84,7 @@ def test_trainer_determinism(composer_trainer_hparams: TrainerHparams, device: D
 
     # Second trainer must be created after fitting the first so that the
     # seeds get fully reset for the second training run
-    second_trainer = Trainer.create_from_hparams(composer_trainer_hparams)
+    second_trainer = composer_trainer_hparams.initialize_object()
     second_trainer.fit()
     second_model = second_trainer.state.model.module
     assert isinstance(second_model, ComposerModel)

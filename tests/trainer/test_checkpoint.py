@@ -93,10 +93,10 @@ def assert_weights_equivalent(original_trainer_hparams: TrainerHparams, new_trai
     original_trainer_hparams.load_weights_only = False
     original_trainer_hparams.load_strict_model_weights = False
 
-    original_trainer = Trainer.create_from_hparams(original_trainer_hparams)
+    original_trainer = original_trainer_hparams.initialize_object()
     original_weights = original_trainer.state.model.parameters()
 
-    new_trainer = Trainer.create_from_hparams(new_trainer_hparams)
+    new_trainer = new_trainer_hparams.initialize_object()
     recovered_weights = new_trainer.state.model.parameters()
 
     for p1, p2 in zip(original_weights, recovered_weights):
@@ -151,10 +151,10 @@ def assert_checkpoints_equivalent(hparams_file_a: str, checkpoint_file_a: str, h
     hparams_a.load_path = checkpoint_file_a
     hparams_b.load_path = checkpoint_file_b
 
-    trainer_a = Trainer.create_from_hparams(hparams=hparams_a)
+    trainer_a = hparams_a.initialize_object()
     state_a = trainer_a.state
 
-    trainer_b = Trainer.create_from_hparams(hparams=hparams_b)
+    trainer_b = hparams_b.initialize_object()
     state_b = trainer_b.state
 
     assert_state_equivalent(state_a, state_b)
@@ -362,7 +362,7 @@ def _test_checkpoint_trainer(trainer_hparams: TrainerHparams):
     callback_registry["dummy"] = DummyStatefulCallbackHparams
     callback_registry["event_counter"] = EventCounterCallbackHparams
 
-    trainer = Trainer.create_from_hparams(trainer_hparams)
+    trainer = trainer_hparams.initialize_object()
     trainer.fit()
     validate_events_called_expected_number_of_times(trainer)
 
