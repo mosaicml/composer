@@ -11,7 +11,7 @@ from typing import Type
 import composer
 from composer.profiler import ProfilerHparams
 from composer.profiler.profiler_hparams import DataloaderProfilerHparams, SystemProfilerHparams, TorchProfilerHparams
-from composer.trainer import Trainer, TrainerHparams
+from composer.trainer import TrainerHparams
 
 logger = logging.getLogger(__name__)
 
@@ -64,7 +64,7 @@ def main() -> None:
     hparams.validate_every_n_epochs = -1
 
     # Create the trainer and train
-    trainer = Trainer.create_from_hparams(hparams=hparams)
+    trainer = hparams.initialize_object()
     trainer.fit()
 
 
