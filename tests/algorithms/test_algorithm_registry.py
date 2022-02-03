@@ -50,14 +50,16 @@ default_required_fields = {
         "truncate": True,
     },
     CutMixHparams: {
-        'alpha': 1.0
+        'alpha': 1.0,
+        'num_classes': 1000
     },
     CutOutHparams: {
         'n_holes': 1,
         'length': 112
     },
     MixUpHparams: {
-        'alpha': 0.2
+        'alpha': 0.2,
+        'num_classes': 1000
     },
     DummyHparams: {},
     GhostBatchNormHparams: {
