@@ -11,6 +11,7 @@ from composer.algorithms.alibi.alibi import AlibiHparams
 from composer.algorithms.augmix.augmix import AugMixHparams
 from composer.algorithms.cutmix.cutmix import CutMixHparams
 from composer.algorithms.label_smoothing.label_smoothing import LabelSmoothingHparams
+from composer.algorithms.layer_freezing.layer_freezing import LayerFreezingHparams
 from composer.algorithms.mixup.mixup import MixUpHparams
 from composer.algorithms.randaugment.randaugment import RandAugmentHparams
 from composer.algorithms.scale_schedule.scale_schedule import ScaleScheduleHparams
@@ -87,9 +88,13 @@ def test_init_idempotency(composer_trainer_hparams: TrainerHparams, dummy_num_cl
         pytest.fail(f"Unknown hparams type: {hparams_cls.__name__}")
 
     trainer = composer_trainer_hparams.initialize_object()
-    # idempotency test 1: run the init event again
-    trainer.engine.run_event(Event.INIT)
+    # idempotency test 1: run the FIT event again
+    trainer.engine.run_event(Event.FIT_START)
+    trainer.fit(shutdown=False)
+    trainer.state.max_duration = trainer.state.max_duration + trainer.state.max_duration
+    # idempotency test 2: run FIT again. This will trigger another call to FIT_START
+    if issubclass(hparams_cls, LayerFreezingHparams):
+        pytest.xfail("Layer freezing does not work with a subsequent call to .fit")
     trainer.fit()
-    # idempotency test 2: run init event again after training
-    trainer.engine.run_event(Event.INIT)
-    # TODO once we support multiple calls to fit, run fit again
+    with pytest.raises(RuntimeError):
+        trainer.fit()  # engine should be shutdown
