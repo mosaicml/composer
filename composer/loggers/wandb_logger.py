@@ -64,6 +64,7 @@ class WandBLoggerBackend(BaseLoggerBackend):
 
     def state_dict(self) -> StateDict:
         import wandb
+
         # Storing these fields in the state dict to support run resuming in the future.
         if self._enabled:
             return {
@@ -100,6 +101,7 @@ class WandBLoggerBackend(BaseLoggerBackend):
 
     def _upload_artifacts(self):
         import wandb
+
         # Scan the run directory and upload artifacts to wandb
         # On resnet50, _log_artifacts() caused a 22% throughput degradation
         # wandb.log_artifact() is async according to the docs
@@ -119,6 +121,7 @@ class WandBLoggerBackend(BaseLoggerBackend):
 
     def post_close(self) -> None:
         import wandb
+
         # Cleaning up on post_close so all artifacts are uploaded
         if not self._enabled:
             return
