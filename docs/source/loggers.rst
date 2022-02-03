@@ -21,9 +21,10 @@ Backends
     :nosignatures:
     :recursive:
 
-    ~composer.loggers.file_logger.FileLoggerBackend
-    ~composer.loggers.tqdm_logger.TQDMLoggerBackend
-    ~composer.loggers.wandb_logger.WandBLoggerBackend
+    ~composer.loggers.FileLoggerBackend
+    ~composer.loggers.TQDMLoggerBackend
+    ~composer.loggers.WandBLoggerBackend
+    ~composer.loggers.InMemoryLogger
 
 
 Backend Hyperparameters
@@ -34,6 +35,7 @@ Backend Hyperparameters
     :nosignatures:
     :recursive:
 
-    ~composer.loggers.logger_hparams.FileLoggerBackendHparams
-    ~composer.loggers.logger_hparams.TQDMLoggerBackendHparams
-    ~composer.loggers.logger_hparams.WandBLoggerBackendHparams
+    ~composer.loggers.FileLoggerBackendHparams
+    ~composer.loggers.TQDMLoggerBackendHparams
+    ~composer.loggers.WandBLoggerBackendHparams
+    ~composer.loggers.InMemoryLoggerHparams
