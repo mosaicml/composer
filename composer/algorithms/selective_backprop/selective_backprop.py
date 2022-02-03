@@ -195,9 +195,10 @@ class SelectiveBackprop(Algorithm):
 
     def match(self, event: Event, state: State) -> bool:
         """Matches :attr:`Event.INIT` and `Event.AFTER_DATALOADER`
-        
+
         * Uses `Event.INIT` to get the loss function before the model is wrapped
-        * Uses `Event.AFTER_DATALOADER`` to apply selective backprop if time is between ``self.start`` and ``self.end``."""
+        * Uses `Event.AFTER_DATALOADER`` to apply selective backprop if time is between ``self.start`` and ``self.end``.
+        """
         if event == Event.INIT:
             return True
         if event != Event.AFTER_DATALOADER:
