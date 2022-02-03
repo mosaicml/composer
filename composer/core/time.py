@@ -478,9 +478,10 @@ class Timer(Serializable):
 
         Unlike the :class:`Timer`, the values in a :class:`Timestamp` are NOT incremented as training
         progresses.
-        
+
         Returns:
-            Timestamp: Tuple of (epoch, batch, sample, token) for the current time."""
+            Timestamp: Tuple of (epoch, batch, sample, token) for the current time.
+        """
         return Timestamp(
             epoch=self.epoch,
             batch=self.batch,
