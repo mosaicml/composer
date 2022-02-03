@@ -1,6 +1,7 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
-from typing import Any, Dict, Type, Union
+import pathlib
+from typing import Type, Union
 
 import pytest
 
@@ -8,6 +9,8 @@ from composer import Event
 from composer.algorithms import AlgorithmHparams
 from composer.algorithms.alibi.alibi import AlibiHparams
 from composer.algorithms.augmix.augmix import AugMixHparams
+from composer.algorithms.cutmix.cutmix import CutMixHparams
+from composer.algorithms.mixup.mixup import MixUpHparams
 from composer.algorithms.randaugment.randaugment import RandAugmentHparams
 from composer.algorithms.scale_schedule.scale_schedule import ScaleScheduleHparams
 from composer.algorithms.seq_length_warmup.seq_length_warmup import SeqLengthWarmupHparams
@@ -20,7 +23,7 @@ from composer.trainer import TrainerHparams
 
 
 @pytest.mark.parametrize(
-    "hparams",
+    "hparams_cls",
     [
         *TrainerHparams.hparams_registry["algorithms"].values(),
         # excluding the run directory uploader here since it needs a longer timeout -- see below
@@ -31,34 +34,43 @@ from composer.trainer import TrainerHparams
         *TrainerHparams.hparams_registry["loggers"].values(),
         pytest.param(RunDirectoryUploaderHparams, marks=pytest.mark.timeout(10)),  # this test takes longer
     ])
-def test_init_idempotency(composer_trainer_hparams: TrainerHparams,
-                          hparams: Union[Type[CallbackHparams], Type[AlgorithmHparams],
-                                         Type[BaseLoggerBackendHparams]], monkeypatch: pytest.MonkeyPatch, tmpdir):
-    default_kwargs: Dict[Type[Any], Dict[str, Any]] = {
-        ScaleScheduleHparams: {
-            "ratio": 1.0
-        },
-        RunDirectoryUploaderHparams: {
-            "provider": 'local',
-            "key_environ": "KEY_ENVIRON",
-            "container": ".",
-        },
-        StochasticDepthHparams: {
-            'stochastic_method': 'block',
-            'target_layer_name': 'ResNetBottleneck',
-        },
-    }
+def test_init_idempotency(composer_trainer_hparams: TrainerHparams, dummy_num_classes: int,
+                          hparams_cls: Union[Type[CallbackHparams], Type[AlgorithmHparams],
+                                             Type[BaseLoggerBackendHparams],], monkeypatch: pytest.MonkeyPatch,
+                          tmpdir: pathlib.Path):
+    hparams_with_required_fields = [
+        ScaleScheduleHparams(ratio=1.0),
+        RunDirectoryUploaderHparams(
+            provider='local',
+            key_environ="KEY_ENVIRON",
+            container=".",
+        ),
+        StochasticDepthHparams(
+            stochastic_method='block',
+            target_layer_name='ResNetBottleneck',
+        ),
+        CutMixHparams(num_classes=dummy_num_classes,),
+        MixUpHparams(num_classes=dummy_num_classes,)
+    ]
+    pytest.importorskip("wandb", reason="Wandb is not installed on mosaicml[dev]")
+    pytest.importorskip("libcloud", reason="libcloud is not installed on mosaicml[dev]")
     monkeypatch.setenv("KEY_ENVIRON", str(tmpdir))
-    if issubclass(hparams, (SeqLengthWarmupHparams, AlibiHparams)):
+    if issubclass(hparams_cls, (SeqLengthWarmupHparams, AlibiHparams)):
         pytest.xfail("These algorithms require a synthetic NLP dataset, which does not exist.")
-    if issubclass(hparams, (RandAugmentHparams, AugMixHparams)):
+    if issubclass(hparams_cls, (RandAugmentHparams, AugMixHparams)):
         pytest.xfail(
             "These algorithms require a synthetic Vision (i.e. PIL Image format) dataset, which does not exist")
-    if issubclass(hparams, SWAHparams):
+    if issubclass(hparams_cls, SWAHparams):
         pytest.xfail("SWA does not work with composed schedulers.")
-    if issubclass(hparams, (BenchmarkerHparams, MosaicMLLoggerBackendHparams)):
+    if issubclass(hparams_cls, (BenchmarkerHparams, MosaicMLLoggerBackendHparams)):
         pytest.xfail("Not sure why these are failing, but nobody uses these anyways so going to ignore.")
-    instance = hparams(**default_kwargs.get(hparams, {}))
+    instance = None
+    for x in hparams_with_required_fields:
+        if isinstance(x, hparams_cls):
+            instance = x
+            break
+    if instance is None:
+        instance = hparams_cls()
 
     if isinstance(instance, BaseLoggerBackendHparams):
         composer_trainer_hparams.loggers.append(instance)
@@ -67,7 +79,7 @@ def test_init_idempotency(composer_trainer_hparams: TrainerHparams,
     elif isinstance(instance, AlgorithmHparams):
         composer_trainer_hparams.algorithms.append(instance)
     else:
-        pytest.fail(f"Unknown hparams type: {hparams.__name__}")
+        pytest.fail(f"Unknown hparams type: {hparams_cls.__name__}")
 
     trainer = composer_trainer_hparams.initialize_object()
     # idempotency test 1: run the init event again
