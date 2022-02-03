@@ -13,8 +13,9 @@ class Event(StringEnum):
 
 
     Attributes:
-        INIT: Invoked during :meth:`Trainer.__init__`. Useful for model
-            and dataloader transformations.
+        INIT: Invoked during :meth:`Trainer.__init__`. Useful for model transformations.
+        FIT_START: Invoked at the beginning of each call to :meth:`Trainer.fit`.
+            Useful for dataloader transformations.
         EPOCH_START: Start of an epoch.
         BATCH_START: Start of a batch.
         AFTER_DATALOADER: Immediately after the dataloader is called.
@@ -44,6 +45,7 @@ class Event(StringEnum):
     """
 
     INIT = "init"
+    FIT_START = "fit_start"
 
     EPOCH_START = "epoch_start"
     BATCH_START = "batch_start"

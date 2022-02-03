@@ -154,11 +154,11 @@ class ColOut(Algorithm):
         self.batch = batch
 
     def match(self, event: Event, state: State) -> bool:
-        """Apply on Event.INIT for samplewise or Event.AFTER_DATALOADER for batchwise."""
+        """Apply on Event.FIT_START for samplewise or Event.AFTER_DATALOADER for batchwise."""
         if self.batch:
             return event == Event.AFTER_DATALOADER
         else:
-            return event == Event.INIT
+            return event == Event.FIT_START
 
     def _apply_sample(self, state: State) -> None:
         """Add the ColOut dataset transform to the dataloader."""

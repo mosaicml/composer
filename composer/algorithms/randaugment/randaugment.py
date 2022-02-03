@@ -103,7 +103,7 @@ class RandAugment(Algorithm):
         self.augmentation_set = augmentation_set
 
     def match(self, event: Event, state: State) -> bool:
-        """Runs on Event.INIT.
+        """Runs on Event.FIT_START.
 
         Args:
             event (:class:`Event`): The current event.
@@ -111,7 +111,7 @@ class RandAugment(Algorithm):
         Returns:
             bool: True if this algorithm should run now
         """
-        return event == Event.INIT
+        return event == Event.FIT_START
 
     def apply(self, event: Event, state: State, logger: Logger) -> None:
         """Inserts RandAugment into the list of dataloader transforms.

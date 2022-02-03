@@ -71,7 +71,7 @@ class FileLoggerBackend(BaseLoggerBackend):
 
     def epoch_start(self, state: State, logger: Logger) -> None:
         self.is_epoch_interval = (int(state.timer.epoch) + 1) % self.log_interval == 0
-        # Flush any log calls that occurred during INIT
+        # Flush any log calls that occurred during INIT or FIT_START
         self._flush_file()
 
     def will_log(self, state: State, log_level: LogLevel) -> bool:

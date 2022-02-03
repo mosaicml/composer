@@ -6,7 +6,9 @@
     * - Name
       - Description
     * - ``INIT``
-      - Before training begins. Model surgery typically occurs here.
+      - Invoked in :meth:`Trainer.__init__`. Model surgery typically occurs here.
+    * - ``FIT_START``
+      - Invoked at the beginning of every call to :meth:`Trainer.fit`. Dataset transformations typically occur here.
     * - ``EPOCH_START``, ``EPOCH_END``
       - Start and end of an Epoch.
     * - ``BATCH_START``, ``BATCH_END``

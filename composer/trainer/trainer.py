@@ -514,6 +514,8 @@ class Trainer:
         else:
             train_metrics = None
 
+        self.engine.run_event(Event.FIT_START)
+
         state.scaler = ClosureGradScaler() if self._use_closures() else GradScaler()
         use_grad_scaling = self._use_grad_scaling(state.precision, state.scaler)
 

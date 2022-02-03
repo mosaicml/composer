@@ -190,15 +190,16 @@ def test_invalid_hparams(p_row, p_col):
         ColOut(p_row, p_col, False)
 
 
-@pytest.mark.parametrize("event,batch", [(Event.AFTER_DATALOADER, True), (Event.INIT, False)])
+@pytest.mark.parametrize("event,batch", [(Event.AFTER_DATALOADER, True), (Event.FIT_START, False)])
 def test_match_correct(event, dummy_algorithm, dummy_state):
-    """Algo should match AFTER_DATALOADER if batch else INIT."""
+    """Algo should match AFTER_DATALOADER if batch else FIT_START."""
     assert dummy_algorithm.match(event, dummy_state)
 
 
-@pytest.mark.parametrize("event,batch", [(Event.INIT, True), (Event.AFTER_DATALOADER, False), (Event.EPOCH_END, True)])
+@pytest.mark.parametrize("event,batch", [(Event.FIT_START, True), (Event.AFTER_DATALOADER, False),
+                                         (Event.EPOCH_END, True)])
 def test_match_incorrect(event, dummy_algorithm, dummy_state):
-    """Algo should NOT match INIT if batch else AFTER_DATALOADER."""
+    """Algo should NOT match FIT_START if batch else AFTER_DATALOADER."""
     assert not dummy_algorithm.match(event, dummy_state)
 
 
@@ -224,7 +225,7 @@ def test_apply_sample(dummy_algorithm, dummy_state, dummy_train_dataloader, dumm
     orig, _ = dset[0]
 
     dummy_state.train_dataloader = dummy_train_dataloader
-    dummy_algorithm.apply(Event.INIT, dummy_state, dummy_logger)
+    dummy_algorithm.apply(Event.FIT_START, dummy_state, dummy_logger)
     new, _ = dset[0]
 
     verify_shape_tensor(orig, new, p_row, p_col)
