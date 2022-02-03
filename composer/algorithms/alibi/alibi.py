@@ -68,9 +68,9 @@ def apply_alibi(
     mask_replacement_function: Union[Callable, None],
     optimizers: Optional[Optimizers] = None,
 ) -> None:
-    """
-    Removes position embeddings and replaces the attention function and attention mask
-    according to `AliBi <https://arxiv.org/abs/2108.12409>`_.
+    """Removes position embeddings and replaces the attention function and attention mask according to `AliBi.
+
+    <https://arxiv.org/abs/2108.12409>`_.
 
     Args:
         model: model to transform
@@ -98,7 +98,7 @@ def apply_alibi(
             All optimizers that have already been constructed with,
             ``model.parameters()`` must be specified here so they will optimize
             the correct parameters.
-            
+
             If the optimizer(s) are constructed *after* calling this function,
             then it is safe to omit this parameter. These optimizers will see the correct
             model parameters.
@@ -126,10 +126,8 @@ def apply_alibi(
 
 
 class Alibi(Algorithm):
-    """
-    `ALiBi <https://arxiv.org/abs/2108.12409>`_ (Attention with Linear Biases)
-    dispenses with position embeddings and instead directly biases attention
-    matrices such that nearby tokens attend to one another more strongly.
+    """`ALiBi <https://arxiv.org/abs/2108.12409>`_ (Attention with Linear Biases) dispenses with position embeddings and
+    instead directly biases attention matrices such that nearby tokens attend to one another more strongly.
 
     ALiBi yields excellent extrapolation to unseen sequence lengths
     compared to other position embedding schemes. We leverage this
@@ -185,13 +183,11 @@ class Alibi(Algorithm):
         self.train_sequence_length_scaling = train_sequence_length_scaling
 
     def match(self, event: Event, state: State) -> bool:
-        """ Runs on Event.INIT
-        """
+        """Runs on Event.INIT."""
         return event in (Event.INIT, Event.AFTER_DATALOADER)
 
     def apply(self, event: Event, state: State, logger: Logger) -> Optional[int]:
-        """ Replace model's existing attention mechanism with AliBi
-        """
+        """Replace model's existing attention mechanism with AliBi."""
 
         if event == Event.INIT:
             assert state.model is not None

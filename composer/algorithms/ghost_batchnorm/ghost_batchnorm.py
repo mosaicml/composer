@@ -115,7 +115,7 @@ def apply_ghost_batchnorm(model: torch.nn.Module,
             All optimizers that have already been constructed with,
             ``model.parameters()`` must be specified here so they will optimize
             the correct parameters.
-            
+
             If the optimizer(s) are constructed *after* calling this function,
             then it is safe to omit this parameter. These optimizers will see the correct
             model parameters.
@@ -144,8 +144,7 @@ class GhostBatchNormHparams(AlgorithmHparams):
 
 
 class GhostBatchNorm(Algorithm):
-    """Replaces batch normalization modules with
-    `Ghost Batch Normalization <https://arxiv.org/abs/1705.08741>`_ modules
+    """Replaces batch normalization modules with `Ghost Batch Normalization <https://arxiv.org/abs/1705.08741>`_ modules
     that simulate the effect of using a smaller batch size.
 
     Works by spliting input into chunks of ``ghost_batch_size`` samples and
@@ -164,22 +163,18 @@ class GhostBatchNorm(Algorithm):
         self.ghost_batch_size = ghost_batch_size
 
     def match(self, event: Event, state: State) -> bool:
-        """ Runs on Event.INIT
-        """
+        """Runs on Event.INIT."""
         return event == Event.INIT
 
     def apply(self, event: Event, state: State, logger: Optional[Logger] = None) -> None:
-        """ Applies GhostBatchNorm by wrapping existing BatchNorm modules
-        """
+        """Applies GhostBatchNorm by wrapping existing BatchNorm modules."""
         assert state.model is not None, "Model must be in state"
 
         apply_ghost_batchnorm(model=state.model, optimizers=state.optimizers, ghost_batch_size=self.ghost_batch_size)
         self._log_results(event, state, logger)
 
     def _log_results(self, event: Event, state: State, logger: Optional[Logger] = None) -> None:
-        """Logs the result of GhostBatchNorm applications, including the number
-        of modules that have been replaced.
-        """
+        """Logs the result of GhostBatchNorm applications, including the number of modules that have been replaced."""
         assert state.model is not None
 
         num_new_modules = surgery.count_module_instances(state.model, _GhostBatchNorm)

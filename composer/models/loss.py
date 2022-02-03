@@ -20,14 +20,13 @@ class MIoU(Metric):
     IoU calculates the intersection area between the predicted class mask and the label class mask.
     The intersection is then divided by the area of the union of the predicted and label masks.
     This measures the quality of predicted class mask with respect to the label. The IoU for each
-    class is then averaged and the final result is the mIoU score. Implementation is primarily 
+    class is then averaged and the final result is the mIoU score. Implementation is primarily
     based on mmsegmentation:
     https://github.com/open-mmlab/mmsegmentation/blob/master/mmseg/core/evaluation/metrics.py#L132
 
     Args:
         num_classes (int): the number of classes in the segmentation task.
         ignore_index (int): the index to ignore when computing mIoU. Default is -1.
-
     """
 
     def __init__(self, num_classes: int, ignore_index: int = -1):
@@ -38,8 +37,7 @@ class MIoU(Metric):
         self.add_state("total_union", default=torch.zeros(num_classes, dtype=torch.float64), dist_reduce_fx="sum")
 
     def update(self, logits: Tensor, targets: Tensor):
-        """Update the state with new predictions and targets.
-        """
+        """Update the state with new predictions and targets."""
         preds = logits.argmax(dim=1)
         for pred, target in zip(preds, targets):
             mask = (target != self.ignore_index)
@@ -55,8 +53,7 @@ class MIoU(Metric):
             self.total_union += area_prediction + area_target - area_intersect
 
     def compute(self):
-        """Aggregate state across all processes and compute final metric.
-        """
+        """Aggregate state across all processes and compute final metric."""
         return 100 * (self.total_intersect / self.total_union).mean()  # type: ignore - / unsupported for Tensor|Module
 
 
@@ -124,8 +121,7 @@ def _stat_scores(
 def _infer_target_type(input: Tensor, targets: Tensor) -> str:
     """Infers whether the target is in indices format or one_hot format.
 
-    Example indices format: [1, 4, 7]
-    Example one_hot format [[0, 1, 0], [1, 0, 0], ...]
+    Example indices format: [1, 4, 7] Example one_hot format [[0, 1, 0], [1, 0, 0], ...]
     """
     if input.shape == targets.shape:
         return 'one_hot'
@@ -145,7 +141,7 @@ def ensure_targets_one_hot(input: Tensor, targets: Tensor) -> Tensor:
 
 
 def check_for_index_targets(targets: Tensor) -> bool:
-    """Checks if a given set of targets are indices by looking at the type"""
+    """Checks if a given set of targets are indices by looking at the type."""
     index_types = ['torch.LongTensor', 'torch.cuda.LongTensor']
     return targets.type() in index_types
 
@@ -159,8 +155,7 @@ def soft_cross_entropy(input: Tensor,
                        reduction: str = 'mean'):
     """Drop-in replacement for ``torch.CrossEntropy`` that can handle dense labels.
 
-    This function will be obsolete with
-    `this update <https://github.com/pytorch/pytorch/pull/61044>`_.
+    This function will be obsolete with `this update <https://github.com/pytorch/pytorch/pull/61044>`_.
     """
     target_type = _infer_target_type(input, target)
 
@@ -191,9 +186,8 @@ def soft_cross_entropy(input: Tensor,
 class CrossEntropyLoss(Metric):
     """Torchmetric cross entropy loss implementation.
 
-    This class implements cross entropy loss as a `torchmetric` so that
-    it can be returned by the :meth:`~composer.models.ComposerModel.metric`
-    function in :class:`ComposerModel`.
+    This class implements cross entropy loss as a `torchmetric` so that it can be returned by the
+    :meth:`~composer.models.ComposerModel.metric` function in :class:`ComposerModel`.
     """
 
     def __init__(self, ignore_index: int = -100, dist_sync_on_step=False):
@@ -203,16 +197,14 @@ class CrossEntropyLoss(Metric):
         self.add_state("total_batches", default=torch.tensor(0), dist_reduce_fx="sum")
 
     def update(self, preds: Tensor, target: Tensor) -> None:
-        """Update the state with new predictions and targets.
-        """
+        """Update the state with new predictions and targets."""
         # Loss calculated over samples/batch, accumulate loss over all batches
         self.sum_loss += soft_cross_entropy(preds, target, ignore_index=self.ignore_index)
         assert isinstance(self.total_batches, Tensor)
         self.total_batches += 1
 
     def compute(self) -> Tensor:
-        """Aggregate state over all processes and compute the metric.
-        """
+        """Aggregate state over all processes and compute the metric."""
         # Return average loss over entire validation dataset
         assert isinstance(self.total_batches, Tensor)
         assert isinstance(self.sum_loss, Tensor)

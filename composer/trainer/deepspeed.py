@@ -112,7 +112,7 @@ def parse_deepspeed_config(config: Dict[str, Any],
                            state: State,
                            grad_clip_norm: Optional[float] = None) -> Dict[str, Any]:
     """Parses the provided DeepSpeed config for compatibility with the Mosaic trainer.
-    
+
     Broadly speaking, this function does three things.
     1. Check for settings that are unsupported, like DeepSpeed optimizers.
     2. Check for inconsistencies between Mosaic trainer config and DeepSpeed config.
@@ -136,10 +136,9 @@ def _convert_fp32_tensor_to_fp16(tensor: Tensor):
 def fix_batch_precision_for_deepspeed(batch: Batch, precision: Precision) -> Batch:
     """Ensures that a batch is properly formatted for DeepSpeed FP16, if active.
 
-    This is more finnicky than it may sound. Just because we're in FP16 doesn't mean
-    we can convert the entire batch to FP16 too. For example, integer tensors are common
-    in inputs and outputs of various models, and these must not be converted. We make a
-    big assumption that a tensor should only be converted to FP16 if it was given in FP32.
+    This is more finnicky than it may sound. Just because we're in FP16 doesn't mean we can convert the entire batch to
+    FP16 too. For example, integer tensors are common in inputs and outputs of various models, and these must not be
+    converted. We make a big assumption that a tensor should only be converted to FP16 if it was given in FP32.
     """
 
     if precision != Precision.FP16:
