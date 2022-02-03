@@ -145,7 +145,7 @@ The following rules apply to public APIs:
 
 ## 4. Use of `assert`
 
-`assert` should not be used only in test cases and for verifying invariants (likely required for type checking),
+`assert` should be used only in test cases and for verifying invariants (likely required for type checking),
 not for data validation. As asserts can be disabled in python by using the `-O` flag (e.g. `python -O path/to/script.py`),
 they are not guaranteed to run. For data validation, instead use a style like the following:
 
