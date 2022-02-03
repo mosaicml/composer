@@ -100,7 +100,11 @@ def pil_image_collate(batch: List[Tuple[Image.Image, Union[Image.Image, Tensor]]
 
 
 def add_dataset_transform(dataset, transform, location="end", pre_post: str = "pre") -> Dataset:
-    """Flexibly add a transform to the dataset's collection of transforms.
+    """Flexibly add a transform to the dataset's collection of transforms. Warning: this
+    function will not behave as expected if a dataset's collection of transforms contains
+    nested torchvision.transforms.Compose (e.g dataset.transforms =
+    transforms.Compose([transform0, transform1, transforms.Compose(...)])). This function
+    should be updated to flatten nested compositions.
 
     Args:
         dataset: A torchvision-like dataset
@@ -129,9 +133,17 @@ def add_dataset_transform(dataset, transform, location="end", pre_post: str = "p
                 f"Invalid value combination for argument `pre_post`: `{pre_post} and `location`: {location}. If location is not one of ['start', 'end'], `pre_post` must be one of ['pre', 'post']."
             ))
 
+    added_transform = 0
+
+    def added_transform_warning():
+        log.warning(
+            f"Transform {transform} added to dataset. Dataset now has the following transforms: {dataset.transform}")
+        return 1
+
     if dataset.transform is None:
         dataset.transform = transform
-    # Check if dataset.transform is of type transforms.Compose and ensure idempotency by not adding transform if it's already present
+        added_transform = added_transform_warning()
+    # Check if dataset.transform is of type transforms. Compose and ensure idempotency by not adding transform if it's already present
     elif isinstance(dataset.transform,
                     transforms.Compose) and type(transform) not in [type(t) for t in dataset.transform.transforms]:
         if location == "end":
@@ -147,16 +159,20 @@ def add_dataset_transform(dataset, transform, location="end", pre_post: str = "p
             if pre_post == "post":
                 insertion_index += 1
             dataset.transform.transforms.insert(insertion_index, transform)
-    else:  # transform is some other basic transform, join using Compose
+        added_transform = added_transform_warning()
+    elif not isinstance(dataset.transform, transforms.Compose):
+        # Transform is some other basic transform, join using Compose
         # Ensure idempotency by not adding transform if it's already present
         if not type(dataset.transform) == type(transform):
             if type(dataset.transform) == location and pre_post == "pre":
                 dataset.transform = transforms.Compose([transform, dataset.transform])
             else:
                 dataset.transform = transforms.Compose([dataset.transform, transform])
-    log.warning(
-        f"Transform {transform} added to dataset. Dataset now has the following transforms: {dataset.transform.transforms}"
-    )
+            added_transform = added_transform_warning()
+    if not added_transform:
+        log.warning(
+            f"Unable to add transform {transform} added to dataset. Dataset has the following transforms: {dataset.transform}"
+        )
     return dataset
 
 
