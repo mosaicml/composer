@@ -2,6 +2,7 @@
 
 from dataclasses import asdict, dataclass
 from typing import Optional
+import weakref
 
 import numpy as np
 import torch
@@ -109,7 +110,7 @@ class AugMix(Algorithm):
     the combined augmented image and the original image is drawn from a
     ``Beta(alpha, alpha)`` distribution, using the same ``alpha``.
 
-    This algorithm runs on on :attr:`Event.INIT` to insert a dataset transformation. It is a no-op if this algorithm already
+    This algorithm runs on on :attr:`Event.FIT_START` to insert a dataset transformation. It is a no-op if this algorithm already
     applied itself on the :attr:`State.train_dataloader.dataset`.
 
     Args:
@@ -156,10 +157,10 @@ class AugMix(Algorithm):
         self.width = width
         self.alpha = alpha
         self.augmentation_set = augmentation_set
-        self._transformed_datasets = set()
+        self._transformed_datasets = weakref.WeakSet()
 
     def match(self, event: Event, state: State) -> bool:
-        return event == Event.INIT and state.train_dataloader.dataset not in self._transformed_datasets
+        return event == Event.FIT_START and state.train_dataloader.dataset not in self._transformed_datasets
 
     def apply(self, event: Event, state: State, logger: Logger) -> None:
         """Inserts AugMix into the list of dataloader transforms."""

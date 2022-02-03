@@ -2,6 +2,7 @@
 
 from dataclasses import asdict, dataclass
 from typing import Optional
+import weakref
 
 import numpy as np
 import torch
@@ -104,10 +105,10 @@ class RandAugment(Algorithm):
         self.severity = severity
         self.depth = depth
         self.augmentation_set = augmentation_set
-        self._transformed_datasets = set()
+        self._transformed_datasets = weakref.WeakSet()
 
     def match(self, event: Event, state: State) -> bool:
-        return event == Event.INIT and state.train_dataloader.dataset not in self._transformed_datasets
+        return event == Event.FIT_START and state.train_dataloader.dataset not in self._transformed_datasets
 
     def apply(self, event: Event, state: State, logger: Logger) -> None:
         """Inserts RandAugment into the list of dataloader transforms.

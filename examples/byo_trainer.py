@@ -100,7 +100,9 @@ def train():
     engine = composer.Engine(state=state)
 
     # add two-way callbacks in the trainer loop
-    engine.run_event(Event.INIT)  # Event.INIT should be run BEFORE any DDP fork
+    engine.run_event(Event.INIT)
+
+    engine.run_event(Event.FIT_START)
 
     while state.timer < state.max_duration:
         logging.info(f'Epoch {state.epoch}')

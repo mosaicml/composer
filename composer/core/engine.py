@@ -17,7 +17,7 @@ from composer.core.state import State
 log = logging.getLogger(__name__)
 Traces = Dict[str, "Trace"]
 
-_ALWAYS_RECORD_EVENTS = [Event.INIT, Event.EPOCH_START, Event.EPOCH_END]
+_ALWAYS_RECORD_EVENTS = [Event.INIT, Event.FIT_START, Event.EPOCH_START, Event.EPOCH_END]
 
 
 @dataclass
@@ -148,7 +148,7 @@ class Engine():
             trace[trace_key] = Trace(exit_code=exit_code, order=order, run=True)
 
         if self.logger is not None:
-            if event == Event.INIT:
+            if event in (Event.INIT, Event.FIT_START):
                 log_level = LogLevel.FIT
             if event in (Event.EPOCH_START, Event.EPOCH_END):
                 log_level = LogLevel.EPOCH

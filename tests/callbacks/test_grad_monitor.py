@@ -27,7 +27,7 @@ def test_grad_monitor_no_layers(composer_trainer_hparams: TrainerHparams):
     log_destination, num_train_steps = _do_trainer_fit(composer_trainer_hparams, log_layers=False)
     grad_norm_calls = 0
     for log_call in log_destination.log_metric.mock_calls:
-        metrics = log_call[1][3]
+        metrics = log_call[1][2]
         if "grad_l2_norm/step" in metrics:
             grad_norm_calls += 1
 
@@ -39,7 +39,7 @@ def test_grad_monitor_per_layer(composer_trainer_hparams: TrainerHparams):
     log_destination, num_train_steps = _do_trainer_fit(composer_trainer_hparams, log_layers=True)
     layer_norm_calls = 0
     for log_call in log_destination.log_metric.mock_calls:
-        metrics = log_call[1][3]
+        metrics = log_call[1][2]
         if not isinstance(metrics, dict):
             continue
         if any(map(lambda x: "layer_grad_l2_norm" in x, metrics.keys())):

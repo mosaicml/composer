@@ -64,6 +64,16 @@ class Callback(Serializable, abc.ABC):
         del state, logger  # unused
         pass
 
+    def fit_start(self, state: State, logger: Logger) -> None:
+        """Called on the :attr:`~Event.FIT_START` event.
+
+        Args:
+            state (State): The global state.
+            logger (Logger): The logger.
+        """
+        del state, logger  # unused
+        pass
+
     def epoch_start(self, state: State, logger: Logger) -> None:
         """Called on the :attr:`~Event.EPOCH_START` event.
 

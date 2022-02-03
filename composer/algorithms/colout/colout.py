@@ -5,6 +5,7 @@ from __future__ import annotations
 import logging
 from dataclasses import asdict, dataclass
 from typing import Union
+import weakref
 
 import torch
 import yahp as hp
@@ -157,13 +158,13 @@ class ColOut(Algorithm):
         self.p_row = p_row
         self.p_col = p_col
         self.batch = batch
-        self._transformed_datasets = set()
+        self._transformed_datasets = weakref.WeakSet()
 
     def match(self, event: Event, state: State) -> bool:
         if self.batch:
             return event == Event.AFTER_DATALOADER
         else:
-            return event == Event.INIT and state.train_dataloader.dataset not in self._transformed_datasets
+            return event == Event.FIT_START and state.train_dataloader.dataset not in self._transformed_datasets
 
     def _apply_sample(self, state: State) -> None:
         """Add the ColOut dataset transform to the dataloader."""

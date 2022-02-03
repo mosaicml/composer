@@ -56,6 +56,7 @@ The core principle of the Composer trainer is to avoid the need to introduce alg
 .. code-block:: python
 
     # <INIT>
+    # <FIT_START>
     for epoch in range(NUM_EPOCHS):
         # <EPOCH_START>
         for inputs, targets in dataloader:
@@ -106,6 +107,7 @@ Putting all the pieces together, our trainer looks something like this:
     engine = Engine(state=state, algorithms=[MixUp()])
 
     engine.run_event("init")
+    engine.run_event("fit_start")
     for epoch in range(NUM_EPOCHS):
         engine.run_event("epoch_start")
         for state.inputs, state.targets in dataloader:
