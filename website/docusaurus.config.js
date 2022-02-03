@@ -7,12 +7,12 @@ const darkCodeTheme = require('prism-react-renderer/themes/dracula');
   title: 'spock',
   tagline: 'Managing complex configurations any other way would be highly illogical...',
   url: 'https://fidelity.github.io',
-  baseUrl: '/spock/',
+  baseUrl: '/',
   onBrokenLinks: 'throw',
   onBrokenMarkdownLinks: 'warn',
   favicon: 'img/logo_small.png',
   organizationName: 'fidelity',
-  projectName: 'spock',
+  projectName: 'Composer',
   presets: [
     [
       '@docusaurus/preset-classic',
@@ -20,7 +20,6 @@ const darkCodeTheme = require('prism-react-renderer/themes/dracula');
       ({
         docs: {
           sidebarPath: require.resolve('./sidebars.js'),
-          editUrl: 'https://github.com/fidelity/spock/edit/master/website/',
           routeBasePath: '/'
         },
         theme: {
@@ -33,12 +32,7 @@ const darkCodeTheme = require('prism-react-renderer/themes/dracula');
   themeConfig:
     /** @type {import('@docusaurus/preset-classic').ThemeConfig} */
     ({
-      announcementBar: {
-        id: 'star-me',
-        content: 'If you find spock useful give us a ⭐️ on our <a target="_blank" rel="noopener noreferrer" href="https://github.com/fidelity/spock">Github</a> repo'
-      },
       navbar: {
-        // title: 'spock',
         logo: {
           alt: 'MosaicML Logo',
           src: 'img/logo.svg',
@@ -50,14 +44,8 @@ const darkCodeTheme = require('prism-react-renderer/themes/dracula');
             position: 'left',
             label: 'Docs',
           },
-          // {
-          //   type: 'doc',
-          //   docId: 'api',
-          //   position: 'left',
-          //   label: 'API'
-          // },
           {
-            href: 'https://github.com/fidelity/spock',
+            href: 'https://github.com/mosaicml/composer',
             label: 'GitHub',
             position: 'right',
           },
@@ -73,40 +61,10 @@ const darkCodeTheme = require('prism-react-renderer/themes/dracula');
                 label: 'Home',
                 to: '/',
               },
-              {
-                label: 'Quick Start',
-                to: 'Quick-Start',
-              },
-              {
-                label: 'Examples',
-                href: 'https://github.com/fidelity/spock/blob/master/examples',
-              },
-              {
-                label: 'API',
-                to: '/api'
-              },
-            ],
-          },
-          {
-            title: 'Maintainers',
-            items: [
-              {
-                label: 'ncilfone',
-                href: 'https://github.com/ncilfone',
-              },
-            ],
-          },
-          {
-            title: 'Open Source @ Fidelity',
-            items: [
-              {
-                label: 'GitHub',
-                href: 'https://github.com/fidelity',
-              },
             ],
           },
         ],
-        copyright: `Copyright © <a href="mailto: opensource@fidelity.com">FMR LLC</a>. Built with <a href="https://docusaurus.io/">Docusaurus</a>`,
+        copyright: `Copyright MosaicML © 2022`,
       },
       prism: {
         theme: lightCodeTheme,
