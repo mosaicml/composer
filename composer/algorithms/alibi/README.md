@@ -2,7 +2,7 @@
 
 [\[How to Use\]](#how-to-use) &middot; [\[Suggested Hyperparameters\]](#suggested-hyperparameters) &middot; [\[Technical Details\]](#technical-details) &middot; [\[Attribution\]](#attribution)
 
- `NLP`
+ `Natural Language Processing`
 
 ALiBi (Attention with Linear Biases) dispenses with position embeddings for tokens in transformer-based NLP models, instead encoding position information by biasing the query-key attention scores proportionally to each token pair’s distance. ALiBi yields excellent extrapolation to unseen sequence lengths compared to other position embedding schemes. We leverage this extrapolation capability by training with shorter sequence lengths, which reduces the memory and computation load.
 
