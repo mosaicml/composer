@@ -10,7 +10,7 @@ Tags: `ConvNets`, `Vision`, `Speedup`, `Best Practice`, `Increased GPU Throughpu
 
 ## TL;DR
 
-Channels Last is a systems optimization that improves the throughput of convolution operations by storing activation and weight tensors in a NHWC (batch, height, width, channels) format, rather than Pytorch's default of NCHW. 
+Channels Last is a systems optimization that improves the throughput of convolution operations by storing activation and weight tensors in a NHWC (batch, height, width, channels) format, rather than Pytorch's default of NCHW.
 
 ## Attribution
 
@@ -52,3 +52,7 @@ This method should compose with any other method.
 .. autoclass:: composer.algorithms.channels_last.ChannelsLast
     :members: match, apply
     :noindex:
+
+.. autofunction:: composer.algorithms.channels_last.apply_channels_last
+    :noindex:
+```
