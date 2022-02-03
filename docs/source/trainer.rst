@@ -65,7 +65,7 @@ Examples
     from composer.trainer import TrainerHparamms
 
     # Create a trainer from hparams and train train the model
-    trainer = Trainer.create_from_hparams(hparams=hparams)
+    trainer = hparams.initialize_object()
     trainer.fit()
 
 

@@ -13,7 +13,6 @@ from composer.models.classify_mnist.mnist_hparams import MnistClassifierHparams
 from composer.optim.optimizer_hparams import SGDHparams
 from composer.trainer.devices.device import Device
 from composer.trainer.devices.device_gpu import DeviceGPU
-from composer.trainer.trainer import Trainer
 from composer.trainer.trainer_hparams import TrainerHparams
 from composer.utils import dist, ensure_tuple
 
@@ -47,7 +46,7 @@ def train_model(composer_trainer_hparams: TrainerHparams, max_epochs: int = 2, r
     # Don't validate
     composer_trainer_hparams.validate_every_n_epochs = max_epochs + 1
 
-    trainer = Trainer.create_from_hparams(composer_trainer_hparams)
+    trainer = composer_trainer_hparams.initialize_object()
 
     original_model = deepcopy(trainer.state.model)
     assert isinstance(original_model, ComposerModel)
