@@ -218,6 +218,11 @@ class TrainerHparams(hp.Hparams):
         to save checkpoints every 10 batches.
         This parameter has no effect if `save_folder` is not specified."""),
                                      default="1ep")
+    
+    save_compression: str = hp.optional(doc=textwrap.dedent("""\
+        Compression algorithm to run on checkpoints. Can be `gzip`, `bzip2`,
+        `lzma`, or left blank for no compression.  (default: ``""`` for no compression)."""),
+                                        default="")
 
     train_subset_num_batches: Optional[int] = hp.optional(
         "If specified, finish every epoch early after training on this many batches.", default=None)
@@ -410,6 +415,7 @@ class TrainerHparams(hp.Hparams):
             load_progress_bar=self.load_progress_bar,
             save_folder=self.save_folder,
             save_interval=self.save_interval,
+            save_compression=self.save_compression,
 
             # Subset parameters
             train_subset_num_batches=self.train_subset_num_batches,
@@ -417,9 +423,7 @@ class TrainerHparams(hp.Hparams):
 
             # DeepSpeed
             deepspeed_config=self.deepspeed,
-
-            # Optional config
-            config=self.to_dict())
+        )
 
         return trainer
 

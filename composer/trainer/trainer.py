@@ -124,8 +124,6 @@ class Trainer:
         deepspeed_config (Dict[str, Any], optional): Configuration for DeepSpeed, formatted as a JSON
             according to `DeepSpeed's documentation <https://www.deepspeed.ai/docs/config-json/>`_. If any
             non-None value is provided, the trainer will initialize the DeepSpeed engine. (default: ``None``)
-        config (Dict[str, Any], optional): Extra user-provided trainer configuration. Will be persisted
-            along with the trainer state during checkpointing. (default: ``None``)
 
     Attributes:
         state (State): The :class:`State` object used to store training state.
@@ -188,18 +186,13 @@ class Trainer:
             eval_subset_num_batches: Optional[int] = None,
 
             # DeepSpeed
-            deepspeed_config: Optional[Dict[str, Any]] = None,
-
-            # Optional config (ex. an hparams yaml file)
-            config: Optional[Dict[str, Any]] = None):
+            deepspeed_config: Optional[Dict[str, Any]] = None,):
         # surpressing GradScaler warnings as they are always created
         # self._use_grad_scaling() will raise a RuntimeError if grad scaling is not available when it is required
         warnings.filterwarnings(action="ignore", message="torch.cuda.amp.GradScaler")
 
         if isinstance(max_duration, str):
             max_duration = Time.from_timestring(max_duration)
-
-        self.config = config
 
         self.deepspeed_config = deepspeed_config
 
@@ -634,8 +627,7 @@ class Trainer:
                                                                                          event=Event.BATCH_END):
                         self.checkpoint_saver.save_checkpoint(state=state,
                                                               seed=self.seed,
-                                                              device=self.device,
-                                                              config=self.config)
+                                                              device=self.device)
             except BreakEpochException:
                 log.info(f'Skipping the rest of Epoch {state.epoch}')
 
@@ -652,8 +644,7 @@ class Trainer:
             if self.checkpoint_saver and self.checkpoint_saver.should_checkpoint(state=state, event=Event.EPOCH_END):
                 self.checkpoint_saver.save_checkpoint(state=state,
                                                       seed=self.seed,
-                                                      device=self.device,
-                                                      config=self.config)
+                                                      device=self.device)
 
         self.engine.run_event(Event.TRAINING_END)
 
