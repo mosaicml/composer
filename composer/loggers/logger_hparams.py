@@ -12,6 +12,7 @@ import yahp as hp
 
 from composer.core.logging import BaseLoggerBackend, LogLevel
 from composer.core.types import JSON
+from composer.loggers.in_memory_logger import InMemoryLogger
 from composer.loggers.mosaicml_logger import RunType
 from composer.utils import dist
 
@@ -241,3 +242,17 @@ class MosaicMLLoggerBackendHparams(BaseLoggerBackendHparams):
     def initialize_object(self, config: Optional[Dict[str, Any]] = None) -> MosaicMLLoggerBackend:
         from composer.loggers.mosaicml_logger import MosaicMLLoggerBackend
         return MosaicMLLoggerBackend(**asdict(self), config=config)
+
+
+@dataclass
+class InMemoryLoggerHaparms(BaseLoggerBackendHparams):
+    """:class:`~composer.loggers.in_memory_logger.InMemoryLogger`
+    hyperparameters.
+
+    See :class:`~composer.loggers.in_memory_logger.InMemoryLogger`
+    for documentation.
+    """
+    log_level: LogLevel = hp.optional("The maximum verbosity to log. Default: BATCH", default=LogLevel.BATCH)
+
+    def initialize_object(self, config: Optional[Dict[str, Any]] = None) -> BaseLoggerBackend:
+        return InMemoryLogger(log_level=self.log_level)
