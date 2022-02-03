@@ -153,7 +153,7 @@ class GhostBatchNorm(Algorithm):
     be the sample axis.
 
     Runs on ``Event.INIT`` and should be applied both before the model has
-    been moved to accelerators and before the model’s parameters have
+    been moved to accelerators and before the model's parameters have
     been passed to an optimizer.
 
     Args:
