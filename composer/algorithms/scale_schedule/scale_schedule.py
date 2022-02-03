@@ -76,7 +76,7 @@ def scale_scheduler(scheduler: Scheduler, ssr: float, orig_max_epochs: Optional[
 class ScaleScheduleHparams(AlgorithmHparams):
     """See :class:`ScaleSchedule`"""
 
-    ratio: float = hp.required('Ratio to scale the schedule.', template_default=1.0)
+    ratio: float = hp.required('Ratio to scale the schedule.')
 
     def initialize_object(self) -> "ScaleSchedule":
         return ScaleSchedule(**asdict(self))
