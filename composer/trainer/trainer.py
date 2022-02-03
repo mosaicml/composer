@@ -132,61 +132,62 @@ class Trainer:
     """
 
     def __init__(
-            self,
-            *,
-            model: ComposerModel,
-            train_dataloader: Union[DataLoader, DataSpec],
-            eval_dataloader: Optional[Union[DataLoader, DataSpec, Evaluators]],
-            max_duration: Union[str, Time],
-            algorithms: Optional[List[Algorithm]] = None,
-            optimizers: Optional[Optimizers] = None,
-            schedulers: Optional[Schedulers] = None,
+        self,
+        *,
+        model: ComposerModel,
+        train_dataloader: Union[DataLoader, DataSpec],
+        eval_dataloader: Optional[Union[DataLoader, DataSpec, Evaluators]],
+        max_duration: Union[str, Time],
+        algorithms: Optional[List[Algorithm]] = None,
+        optimizers: Optional[Optimizers] = None,
+        schedulers: Optional[Schedulers] = None,
 
-            # device
-            device: Optional[Union[str, Device]] = None,
+        # device
+        device: Optional[Union[str, Device]] = None,
 
-            # training hparams
-            grad_accum: int = 1,
-            grad_clip_norm: Optional[float] = None,
-            validate_every_n_batches: int = -1,
-            validate_every_n_epochs: int = 1,
-            compute_training_metrics: bool = False,
-            precision: Union[str, Precision] = Precision.FP32,
+        # training hparams
+        grad_accum: int = 1,
+        grad_clip_norm: Optional[float] = None,
+        validate_every_n_batches: int = -1,
+        validate_every_n_epochs: int = 1,
+        compute_training_metrics: bool = False,
+        precision: Union[str, Precision] = Precision.FP32,
 
-            # dist hparams
-            dist_timeout: float = 300.0,
-            ddp_sync_strategy: Optional[Union[str, DDPSyncStrategy]] = None,
+        # dist hparams
+        dist_timeout: float = 300.0,
+        ddp_sync_strategy: Optional[Union[str, DDPSyncStrategy]] = None,
 
-            # Randomness
-            seed: Optional[int] = None,
-            deterministic_mode: bool = False,
+        # Randomness
+        seed: Optional[int] = None,
+        deterministic_mode: bool = False,
 
-            # Logging and callbacks
-            log_destinations: Optional[Sequence[BaseLoggerBackend]] = None,
-            callbacks: Sequence[Callback] = tuple(),
+        # Logging and callbacks
+        log_destinations: Optional[Sequence[BaseLoggerBackend]] = None,
+        callbacks: Sequence[Callback] = tuple(),
 
-            # load checkpoint
-            load_path: Optional[str] = None,
-            load_object_store: Optional[ObjectStoreProvider] = None,
-            load_weights_only: bool = False,
-            load_strict: bool = False,
-            load_chunk_size: int = 1_048_576,
-            load_progress_bar: bool = True,
+        # load checkpoint
+        load_path: Optional[str] = None,
+        load_object_store: Optional[ObjectStoreProvider] = None,
+        load_weights_only: bool = False,
+        load_strict: bool = False,
+        load_chunk_size: int = 1_048_576,
+        load_progress_bar: bool = True,
 
-            # save_checkpoint
-            save_folder: Optional[str] = None,
-            save_interval: str = "1ep",
-            save_compression: str = '',
+        # save_checkpoint
+        save_folder: Optional[str] = None,
+        save_interval: str = "1ep",
+        save_compression: str = '',
 
-            # Profiling
-            profiler: Optional[ProfilerHparams] = None,
+        # Profiling
+        profiler: Optional[ProfilerHparams] = None,
 
-            # Subset parameters
-            train_subset_num_batches: Optional[int] = None,
-            eval_subset_num_batches: Optional[int] = None,
+        # Subset parameters
+        train_subset_num_batches: Optional[int] = None,
+        eval_subset_num_batches: Optional[int] = None,
 
-            # DeepSpeed
-            deepspeed_config: Optional[Dict[str, Any]] = None,):
+        # DeepSpeed
+        deepspeed_config: Optional[Dict[str, Any]] = None,
+    ):
         # surpressing GradScaler warnings as they are always created
         # self._use_grad_scaling() will raise a RuntimeError if grad scaling is not available when it is required
         warnings.filterwarnings(action="ignore", message="torch.cuda.amp.GradScaler")
@@ -625,9 +626,7 @@ class Trainer:
 
                     if self.checkpoint_saver and self.checkpoint_saver.should_checkpoint(state=state,
                                                                                          event=Event.BATCH_END):
-                        self.checkpoint_saver.save_checkpoint(state=state,
-                                                              seed=self.seed,
-                                                              device=self.device)
+                        self.checkpoint_saver.save_checkpoint(state=state, seed=self.seed, device=self.device)
             except BreakEpochException:
                 log.info(f'Skipping the rest of Epoch {state.epoch}')
 
@@ -642,9 +641,7 @@ class Trainer:
                 self.eval(is_batch=False)
 
             if self.checkpoint_saver and self.checkpoint_saver.should_checkpoint(state=state, event=Event.EPOCH_END):
-                self.checkpoint_saver.save_checkpoint(state=state,
-                                                      seed=self.seed,
-                                                      device=self.device)
+                self.checkpoint_saver.save_checkpoint(state=state, seed=self.seed, device=self.device)
 
         self.engine.run_event(Event.TRAINING_END)
 

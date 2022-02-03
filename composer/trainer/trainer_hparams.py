@@ -218,7 +218,7 @@ class TrainerHparams(hp.Hparams):
         to save checkpoints every 10 batches.
         This parameter has no effect if `save_folder` is not specified."""),
                                      default="1ep")
-    
+
     save_compression: str = hp.optional(doc=textwrap.dedent("""\
         Compression algorithm to run on checkpoints. Can be `gzip`, `bzip2`,
         `lzma`, or left blank for no compression.  (default: ``""`` for no compression)."""),

@@ -16,8 +16,9 @@ import os
 import sys
 import textwrap
 import warnings
-import yaml
 from typing import Type
+
+import yaml
 
 from composer.trainer import TrainerHparams
 from composer.utils import run_directory
@@ -47,11 +48,11 @@ def main() -> None:
             with open(hparams_path, "r") as f:
                 # comparing the parsed hparams to ignore whitespace and formatting differences
                 if hparams.to_dict() != yaml.safe_load(f):
-                    raise RuntimeError(textwrap.dedent(f"""\
+                    raise RuntimeError(
+                        textwrap.dedent(f"""\
                         The hparams in the existing checkpoint folder {hparams_path}
                         differ from those being used in the current training run.
-                        Please specify a new checkpoint folder."""
-                    )) from e
+                        Please specify a new checkpoint folder.""")) from e
     trainer.fit()
 
 
