@@ -24,7 +24,6 @@ def get_model_algs(model_name: str) -> List[str]:
     algs.remove("dummy")
     algs.remove("no_op_model")
     is_image_model = any(x in model_name for x in ("resnet", "mnist", "efficientnet"))
-
     if is_image_model:
         algs.remove("alibi")
         algs.remove("seq_length_warmup")

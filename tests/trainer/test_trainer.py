@@ -1,18 +1,20 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
 import pathlib
-from typing import Type, Union
+from typing import Type
 from unittest.mock import patch
 
 import pytest
 import torch
 import torch.distributed
+import yahp as hp
 
 from composer.algorithms import AlgorithmHparams
 from composer.algorithms.alibi.alibi import AlibiHparams
 from composer.algorithms.augmix.augmix import AugMixHparams
 from composer.algorithms.cutmix.cutmix import CutMixHparams
 from composer.algorithms.label_smoothing.label_smoothing import LabelSmoothingHparams
+from composer.algorithms.layer_freezing.layer_freezing import LayerFreezingHparams
 from composer.algorithms.mixup.mixup import MixUpHparams
 from composer.algorithms.randaugment.randaugment import RandAugmentHparams
 from composer.algorithms.scale_schedule.scale_schedule import ScaleScheduleHparams
@@ -21,6 +23,7 @@ from composer.algorithms.stochastic_depth.stochastic_depth import StochasticDept
 from composer.algorithms.swa.hparams import SWAHparams
 from composer.callbacks.callback_hparams import BenchmarkerHparams, CallbackHparams, RunDirectoryUploaderHparams
 from composer.callbacks.lr_monitor import LRMonitor
+from composer.core.event import Event
 from composer.core.logging.logger import Logger
 from composer.core.precision import Precision
 from composer.core.profiler import ProfilerEventHandlerHparams
@@ -136,24 +139,22 @@ def test_trainer_fit(composer_trainer_hparams: TrainerHparams, device_hparams: D
     train_model(composer_trainer_hparams, max_epochs=2, run_loss_check=True)
 
 
-@pytest.mark.parametrize(
-    "hparams_cls",
-    [
-        *TrainerHparams.hparams_registry["algorithms"].values(),
-        # excluding the run directory uploader here since it needs a longer timeout -- see below
-        *[
-            x for x in TrainerHparams.hparams_registry["callbacks"].values()
-            if not issubclass(x, RunDirectoryUploaderHparams)
-        ],
-        *TrainerHparams.hparams_registry["loggers"].values(),
-        *ProfilerHparams.hparams_registry["profilers"].values(),
-        *ProfilerHparams.hparams_registry["trace_event_handlers"].values(),
-        pytest.param(RunDirectoryUploaderHparams, marks=pytest.mark.timeout(10)),  # this test takes longer
-    ])
-def test_fit_on_all_hparams_callbacks_and_loggers(composer_trainer_hparams: TrainerHparams, dummy_num_classes: int,
-                                                  hparams_cls: Union[Type[CallbackHparams], Type[AlgorithmHparams],
-                                                                     Type[BaseLoggerBackendHparams],],
-                                                  monkeypatch: pytest.MonkeyPatch, tmpdir: pathlib.Path):
+_ALL_LOGGERS_CALLBACKS_ALG_PROFILER_HPARAMS = [
+    *TrainerHparams.hparams_registry["algorithms"].values(),
+    # excluding the run directory uploader here since it needs a longer timeout -- see below
+    *[
+        x for x in TrainerHparams.hparams_registry["callbacks"].values()
+        if not issubclass(x, RunDirectoryUploaderHparams)
+    ],
+    *TrainerHparams.hparams_registry["loggers"].values(),
+    *ProfilerHparams.hparams_registry["profilers"].values(),
+    *ProfilerHparams.hparams_registry["trace_event_handlers"].values(),
+    pytest.param(RunDirectoryUploaderHparams, marks=pytest.mark.timeout(10)),  # this test takes longer
+]
+
+
+def _build_trainer(composer_trainer_hparams: TrainerHparams, dummy_num_classes: int, hparams_cls: Type[hp.Hparams],
+                   monkeypatch: pytest.MonkeyPatch, tmpdir: pathlib.Path):
     hparams_with_required_fields = [
         ScaleScheduleHparams(ratio=1.0),
         RunDirectoryUploaderHparams(
@@ -207,6 +208,35 @@ def test_fit_on_all_hparams_callbacks_and_loggers(composer_trainer_hparams: Trai
         composer_trainer_hparams.algorithms.append(instance)
     else:
         pytest.fail(f"Unknown hparams type: {hparams_cls.__name__}")
-    composer_trainer_hparams.profiler
-    trainer = composer_trainer_hparams.initialize_object()
+    return composer_trainer_hparams.initialize_object()
+
+
+@pytest.mark.parametrize("hparams_cls", _ALL_LOGGERS_CALLBACKS_ALG_PROFILER_HPARAMS)
+def test_fit_on_all_callbacks_loggers_algs_profilers(
+    composer_trainer_hparams: TrainerHparams,
+    dummy_num_classes: int,
+    hparams_cls: Type[hp.Hparams],
+    monkeypatch: pytest.MonkeyPatch,
+    tmpdir: pathlib.Path,
+):
+    trainer = _build_trainer(composer_trainer_hparams, dummy_num_classes, hparams_cls, monkeypatch, tmpdir)
     trainer.fit()
+
+
+@pytest.mark.parametrize("hparams_cls", _ALL_LOGGERS_CALLBACKS_ALG_PROFILER_HPARAMS)
+def test_multiple_calls_to_fit(
+    composer_trainer_hparams: TrainerHparams,
+    dummy_num_classes: int,
+    hparams_cls: Type[hp.Hparams],
+    monkeypatch: pytest.MonkeyPatch,
+    tmpdir: pathlib.Path,
+):
+    trainer = composer_trainer_hparams.initialize_object()
+    # idempotency test 1: run the FIT event again
+    trainer.engine.run_event(Event.FIT_START)
+    trainer._train_loop()  # using the private method so we don't shutdown the callbacks
+    trainer.state.max_duration = trainer.state.max_duration + trainer.state.max_duration
+    # idempotency test 2: run FIT again. This will trigger another call to FIT_START
+    if issubclass(hparams_cls, LayerFreezingHparams):
+        pytest.xfail("TODO: Layer freezing does not work with a subsequent call to .fit")
+    trainer.fit()  # using the public method so we do shutdown the callbacks

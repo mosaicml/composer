@@ -116,7 +116,6 @@ class ScaleSchedule(Algorithm):
 
     def __init__(self, ratio: float):
         self.ratio = ratio
-        self._activated_schedulers = weakref.WeakSet()
 
     def match(self, event: Event, state: State) -> bool:
         """Run on Event.INIT.
@@ -154,8 +153,4 @@ class ScaleSchedule(Algorithm):
                 schedulers.append(scheduler)
 
         for scheduler in schedulers:
-            if scheduler in self._activated_schedulers:
-                # don't scale the same scheduler twice!
-                continue
             scale_scheduler(scheduler, self.ratio, orig_max_epochs)
-            self._activated_schedulers.add(scheduler)
