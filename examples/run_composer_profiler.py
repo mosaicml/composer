@@ -1,8 +1,7 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
-"""Entrypoint that performs a profiling run on the provided yahp hparams file
-This example is interchangable with run_mosaic_trainer.py
-"""
+"""Entrypoint that performs a profiling run on the provided yahp hparams file This example is interchangable with
+run_composer_trainer.py."""
 import argparse
 import logging
 import sys
@@ -12,7 +11,7 @@ from typing import Type
 import composer
 from composer.profiler import ProfilerHparams
 from composer.profiler.profiler_hparams import DataloaderProfilerHparams, SystemProfilerHparams, TorchProfilerHparams
-from composer.trainer import Trainer, TrainerHparams
+from composer.trainer import TrainerHparams
 
 logger = logging.getLogger(__name__)
 
@@ -38,7 +37,7 @@ def main() -> None:
     hparams = TrainerHparams.create(cli_args=True)  # reads cli args from sys.argv
     logging.getLogger(composer.__name__).setLevel(hparams.log_level)
 
-    # Configure the mosaic profiler
+    # Configure the Composer profiler
     if hparams.profiler is None:
         if args.detailed:
             hparams.profiler = ProfilerHparams(profilers=[  # type: ignore
@@ -65,7 +64,7 @@ def main() -> None:
     hparams.validate_every_n_epochs = -1
 
     # Create the trainer and train
-    trainer = Trainer.create_from_hparams(hparams=hparams)
+    trainer = hparams.initialize_object()
     trainer.fit()
 
 

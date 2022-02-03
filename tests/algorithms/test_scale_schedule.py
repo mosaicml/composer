@@ -73,7 +73,7 @@ class TestScaleSchedule():
 
     def test_scale_schedule_warmup(self, optimizer: Optimizer, ssr: float):
         targets = [0.5] * 4 + [1.0] * 5  # no effect
-        scheduler = WarmUpLR(optimizer, warmup_factor=0.5, warmup_iters=4, warmup_method='constant')
+        scheduler = WarmUpLR(optimizer, warmup_factor=0.5, warmup_iters=4, warmup_method='constant', interval='step')
         epochs = int(9 * ssr)
         targets = targets[:epochs]
         self._test(targets, scheduler, epochs, optimizer, ssr)

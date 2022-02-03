@@ -6,28 +6,28 @@ from composer.callbacks import GradMonitorHparams
 from composer.trainer import TrainerHparams
 
 
-def _do_trainer_fit(mosaic_trainer_hparams: TrainerHparams, log_layers: bool = False):
+def _do_trainer_fit(composer_trainer_hparams: TrainerHparams, log_layers: bool = False):
     grad_monitor_hparams = GradMonitorHparams(log_layer_grad_norms=log_layers)
-    mosaic_trainer_hparams.callbacks.append(grad_monitor_hparams)
-    mosaic_trainer_hparams.max_duration = "1ep"
+    composer_trainer_hparams.callbacks.append(grad_monitor_hparams)
+    composer_trainer_hparams.max_duration = "1ep"
 
-    mosaic_trainer_hparams.train_batch_size = 50
-    trainer = mosaic_trainer_hparams.initialize_object()
+    composer_trainer_hparams.train_batch_size = 50
+    trainer = composer_trainer_hparams.initialize_object()
     log_destination = MagicMock()
     log_destination.will_log.return_value = True
     trainer.logger.backends = [log_destination]
     trainer.fit()
 
-    num_train_steps = mosaic_trainer_hparams.train_subset_num_batches
+    num_train_steps = composer_trainer_hparams.train_subset_num_batches
 
     return log_destination, num_train_steps
 
 
-def test_grad_monitor_no_layers(mosaic_trainer_hparams: TrainerHparams):
-    log_destination, num_train_steps = _do_trainer_fit(mosaic_trainer_hparams, log_layers=False)
+def test_grad_monitor_no_layers(composer_trainer_hparams: TrainerHparams):
+    log_destination, num_train_steps = _do_trainer_fit(composer_trainer_hparams, log_layers=False)
     grad_norm_calls = 0
     for log_call in log_destination.log_metric.mock_calls:
-        metrics = log_call[1][3]
+        metrics = log_call[1][2]
         if "grad_l2_norm/step" in metrics:
             grad_norm_calls += 1
 
@@ -35,11 +35,11 @@ def test_grad_monitor_no_layers(mosaic_trainer_hparams: TrainerHparams):
     assert grad_norm_calls == num_train_steps
 
 
-def test_grad_monitor_per_layer(mosaic_trainer_hparams: TrainerHparams):
-    log_destination, num_train_steps = _do_trainer_fit(mosaic_trainer_hparams, log_layers=True)
+def test_grad_monitor_per_layer(composer_trainer_hparams: TrainerHparams):
+    log_destination, num_train_steps = _do_trainer_fit(composer_trainer_hparams, log_layers=True)
     layer_norm_calls = 0
     for log_call in log_destination.log_metric.mock_calls:
-        metrics = log_call[1][3]
+        metrics = log_call[1][2]
         if not isinstance(metrics, dict):
             continue
         if any(map(lambda x: "layer_grad_l2_norm" in x, metrics.keys())):

@@ -6,11 +6,14 @@ from unittest.mock import MagicMock, Mock
 import pytest
 import torch
 import torch.utils.data
+from torchmetrics.classification.accuracy import Accuracy
+from torchmetrics.collections import MetricCollection
 
 from composer import Logger, State
-from composer.core.types import DataLoader, DataSpec, Model, Precision
+from composer.core.evaluator import Evaluator
+from composer.core.types import DataLoader, DataSpec, Model, Optimizer, Precision, Scheduler
 from composer.datasets import DataloaderHparams, DatasetHparams
-from composer.models import ModelHparams, MosaicClassifier
+from composer.models import ComposerClassifier, ModelHparams
 from composer.optim import AdamHparams, ExponentialLRHparams
 from composer.trainer import TrainerHparams
 from composer.trainer.devices import CPUDeviceHparams
@@ -74,15 +77,31 @@ def dummy_val_dataset_hparams(dummy_model: SimpleBatchPairModel,
     )
 
 
+@pytest.fixture
+def dummy_optimizer(dummy_model: SimpleBatchPairModel):
+    return torch.optim.SGD(dummy_model.parameters(), lr=0.001)
+
+
+@pytest.fixture
+def dummy_scheduler(dummy_optimizer: Optimizer):
+    return torch.optim.lr_scheduler.LambdaLR(dummy_optimizer, lambda _: 1.0)
+
+
 @pytest.fixture()
 def dummy_state_without_rank(dummy_model: SimpleBatchPairModel, dummy_train_dataloader: DataLoader,
+                             dummy_optimizer: Optimizer, dummy_scheduler: Scheduler,
                              dummy_val_dataloader: DataLoader) -> State:
+    evaluators = [
+        Evaluator(label="dummy_label", dataloader=dummy_val_dataloader, metrics=dummy_model.metrics(train=False))
+    ]
     state = State(
         model=dummy_model,
         precision=Precision.FP32,
         grad_accum=1,
         train_dataloader=dummy_train_dataloader,
-        eval_dataloader=dummy_val_dataloader,
+        evaluators=evaluators,
+        optimizers=dummy_optimizer,
+        schedulers=dummy_scheduler,
         max_duration="10ep",
     )
 
@@ -150,7 +169,7 @@ def never_match_algorithms():
 
 
 @pytest.fixture
-def mosaic_trainer_hparams(
+def composer_trainer_hparams(
     dummy_model_hparams: ModelHparams,
     dummy_train_dataset_hparams: DatasetHparams,
     dummy_val_dataset_hparams: DatasetHparams,
@@ -191,20 +210,22 @@ def simple_conv_model_input():
 
 @pytest.fixture()
 def state_with_model(simple_conv_model: Model, dummy_train_dataloader: DataLoader, dummy_val_dataloader: DataLoader):
+    metric_coll = MetricCollection([Accuracy()])
+    evaluators = [Evaluator(label="dummy_label", dataloader=dummy_val_dataloader, metrics=metric_coll)]
     state = State(
         grad_accum=1,
         max_duration="100ep",
         model=simple_conv_model,
         precision=Precision.FP32,
         train_dataloader=dummy_train_dataloader,
-        eval_dataloader=dummy_val_dataloader,
+        evaluators=evaluators,
     )
     return state
 
 
 @pytest.fixture()
 def simple_conv_model():
-    return MosaicClassifier(SimpleConvModel())
+    return ComposerClassifier(SimpleConvModel())
 
 
 @pytest.fixture(scope="session")

@@ -16,6 +16,7 @@ from torchmetrics.metric import Metric
 
 from composer.core.algorithm import Algorithm as Algorithm
 from composer.core.data_spec import DataSpec as DataSpec
+from composer.core.evaluator import Evaluator as Evaluator
 from composer.core.event import Event as Event
 from composer.core.logging import Logger as Logger
 from composer.core.precision import Precision as Precision
@@ -46,7 +47,7 @@ Batch = Union[BatchPair, BatchDict, Tensor]
 
 def as_batch_dict(batch: Batch) -> BatchDict:
     """Casts a :class:`Batch` as a :class:`BatchDict`.
-    
+
     Args:
         batch (Batch): A batch.
     Raises:
@@ -83,7 +84,7 @@ Dataset = torch.utils.data.Dataset[Batch]
 
 class BreakEpochException(Exception):
     """Raising this exception will immediately end the current epoch.
-    
+
     If you're wondering whether you should use this, the answer is no.
     """
 
@@ -96,8 +97,8 @@ class DataLoader(Protocol):
 
     Attributes:
         dataset (Dataset): Dataset from which to load the data.
-        batch_size (int, optional): How many samples per batch to load
-            (default: ``1``).
+        batch_size (int, optional): How many samples per batch to load for a
+            single device (default: ``1``).
         num_workers (int): How many subprocesses to use for data loading.
             ``0`` means that the data will be loaded in the main process.
         pin_memory (bool): If ``True``, the data loader will copy Tensors
@@ -141,8 +142,8 @@ class DataLoader(Protocol):
         ...
 
 
+Evaluators = Union[Evaluator, List[Evaluator], Tuple[Evaluator, ...]]
 Metrics = Union[Metric, MetricCollection]
-
 Optimizer = torch.optim.Optimizer
 Optimizers = Union[Optimizer, Tuple[Optimizer, ...], List[Optimizer]]
 Scheduler = torch.optim.lr_scheduler._LRScheduler

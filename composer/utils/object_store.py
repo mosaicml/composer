@@ -1,6 +1,7 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
 import dataclasses
+import os
 import sys
 import textwrap
 from typing import Any, Dict, Iterator, Optional, Union
@@ -21,14 +22,42 @@ class ObjectStoreProviderHparams(hp.Hparams):
             to use S3, specify 's3' here.
 
         container (str): The name of the container (i.e. bucket) to use.
-        key (str, optional): API key or username to use to connect to the provider. (default: ``None``)
-        secret (str, optional): API secret to use to connect to the provider.
+        key_environ (str, optional): The name of an environment variable containing the API key or username
+            to use to connect to the provider. For security reasons, composer requires that the key be specified
+            via an environment variable.
             
-            .. warning::
-                
-                For security. do NOT hardcode secrets in code. Instead, please specify via CLI arguments, or even better,
-                environment variables.
+            For example, if your key is an environment variable called ``OBJECT_STORE_KEY``, then you should set this
+            parameter equal to ``OBJECT_STORE_KEY``. Composer will read the key like this:
+            
+            .. code-block:: python
+
+                import os
+
+                params = ObjectStoreProviderHparams(key_environ="OBJECT_STORE_KEY")
+
+                key = None if params.key_environ is None else os.environ[params.key_environ]
         
+            If no key is required, then set this field to ``None``. (default: ``None``)
+
+        secret_environ (str, optional): The name of an environment variable containing the API secret  or password
+            to use for the provider. For security reasons, composer requires that the secret be specified
+            via an environment variable.
+            
+            For example, if your secret is an environment variable called ``OBJECT_STORE_SECRET``, then you should set
+            this parameter equal to ``OBJECT_STORE_SECRET``. Composer will read the key like this:
+            
+            Composer will access this environment variable like so:
+            
+            .. code-block:: python
+
+                import os
+
+                params = ObjectStoreProviderHparams(secret_environ="OBJECT_STORE_SECRET")
+
+                secret = None if params.secret_environ is None else os.environ[params.secret_environ]
+        
+            If no secret is required, then set this field to ``None``. (default: ``None``)
+
         region (str, optional): Cloud region to use for the cloud provider.
             Most providers do not require the region to be specified. (default: ``None``)
         host (str, optional): Override the hostname for the cloud provider. (default: ``None``)
@@ -39,11 +68,14 @@ class ObjectStoreProviderHparams(hp.Hparams):
 
     provider: str = hp.required("Cloud provider to use.")
     container: str = hp.required("The name of the container (i.e. bucket) to use.")
-    key: Optional[str] = hp.optional("API key or username to use to connect to the provider.", default=None)
-    secret: Optional[str] = hp.optional(textwrap.dedent(
-        """API secret to use to connect to the provider. For security. do NOT hardcode the secret in the YAML.
-Instead, please specify via CLI arguments, or even better, environment variables."""),
-                                        default=None)
+    key_environ: Optional[str] = hp.optional(textwrap.dedent("""\
+        The name of an environment variable containing
+        an API key or username to use to connect to the provider."""),
+                                             default=None)
+    secret_environ: Optional[str] = hp.optional(textwrap.dedent("""\
+        The name of an environment variable containing
+        an API secret or password to use to connect to the provider."""),
+                                                default=None)
     region: Optional[str] = hp.optional("Cloud region to use", default=None)
     host: Optional[str] = hp.optional("Override hostname for connections", default=None)
     port: Optional[int] = hp.optional("Override port for connections", default=None)
@@ -52,10 +84,12 @@ Instead, please specify via CLI arguments, or even better, environment variables
 
     def initialize_object(self):
         init_kwargs = {}
-        for key in ("key", "secret", "host", "port", "region"):
+        for key in ("host", "port", "region"):
             kwarg = getattr(self, key)
             if getattr(self, key) is not None:
                 init_kwargs[key] = kwarg
+        init_kwargs["key"] = None if self.key_environ is None else os.environ[self.key_environ]
+        init_kwargs["secret"] = None if self.secret_environ is None else os.environ[self.secret_environ]
         init_kwargs.update(self.extra_init_kwargs)
         return ObjectStoreProvider(
             provider=self.provider,
@@ -65,8 +99,7 @@ Instead, please specify via CLI arguments, or even better, environment variables
 
 
 class ObjectStoreProvider:
-    """Utility for uploading to and downloading from object (blob) stores,
-    such as AWS S3 or Google Cloud Storage.
+    """Utility for uploading to and downloading from object (blob) stores, such as AWS S3 or Google Cloud Storage.
 
     .. note::
 
@@ -83,15 +116,17 @@ class ObjectStoreProvider:
         container (str): The name of the container (i.e. bucket) to use.
         provider_init_kwargs (Dict[str, Any], optional): Parameters to pass into the constructor for the
             :class:`~libcloud.storage.providers.Provider` constructor. These arguments would usually include the cloud region
-            and credentials. Defaults to None, which is equivalent to an empty dictionary."""
+            and credentials. Defaults to None, which is equivalent to an empty dictionary.
+    """
 
     def __init__(self, provider: str, container: str, provider_init_kwargs: Optional[Dict[str, Any]] = None) -> None:
         try:
             from libcloud.storage.providers import get_driver
         except ImportError as e:
             raise ImportError(
-                textwrap.dedent("""libcloud is not installed.
-                To install composer with libcloud, please run `pip install mosaicml[logging]`.""")) from e
+                textwrap.dedent("""\
+                    libcloud is not installed.
+                    To install composer with libcloud, please run `pip install mosaicml[logging]`.""")) from e
         provider_cls = get_driver(provider)
         if provider_init_kwargs is None:
             provider_init_kwargs = {}
@@ -100,12 +135,12 @@ class ObjectStoreProvider:
 
     @property
     def provider_name(self):
-        """The name of the cloud provider"""
+        """The name of the cloud provider."""
         return self._provider.name
 
     @property
     def container_name(self):
-        """The name of the object storage container"""
+        """The name of the object storage container."""
         return self._container.name
 
     def upload_object(self,

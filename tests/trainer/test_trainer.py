@@ -5,23 +5,21 @@ from unittest.mock import patch
 import pytest
 import torch
 import torch.distributed
-from torch.optim import Adam
 
 from composer.callbacks.lr_monitor import LRMonitor
 from composer.core.logging.logger import Logger
 from composer.core.precision import Precision
-from composer.core.types import DataLoader
+from composer.core.types import DataLoader, Optimizer, Scheduler
 from composer.loggers.tqdm_logger import TQDMLoggerBackend
-from composer.models.base import BaseMosaicModel
-from composer.optim.optimizer_hparams import AdamHparams
-from composer.optim.scheduler import ComposedScheduler, ExponentialLRHparams
+from composer.models.base import ComposerModel
+from composer.optim.scheduler import ComposedScheduler
 from composer.trainer import Trainer, TrainerHparams
 from composer.trainer.devices.device_hparams import CPUDeviceHparams, DeviceHparams, GPUDeviceHparams
 from tests.utils.trainer_fit import get_total_loss, train_model
 
 
 def test_trainer_init_all_defaults(dummy_train_dataloader: DataLoader, dummy_val_dataloader: DataLoader,
-                                   dummy_model: BaseMosaicModel):
+                                   dummy_model: ComposerModel):
     trainer = Trainer(model=dummy_model,
                       train_dataloader=dummy_train_dataloader,
                       eval_dataloader=dummy_val_dataloader,
@@ -31,20 +29,21 @@ def test_trainer_init_all_defaults(dummy_train_dataloader: DataLoader, dummy_val
 
 
 def test_trainer_init_additional_args(dummy_train_dataloader: DataLoader, dummy_val_dataloader: DataLoader,
-                                      dummy_model: BaseMosaicModel):
+                                      dummy_optimizer: Optimizer, dummy_scheduler: Scheduler,
+                                      dummy_model: ComposerModel):
     trainer = Trainer(
         model=dummy_model,
         train_dataloader=dummy_train_dataloader,
         eval_dataloader=dummy_val_dataloader,
         max_duration="10ep",
-        optimizer_hparams=AdamHparams(),
-        schedulers_hparams=[ExponentialLRHparams(gamma=0.1)],
+        optimizers=dummy_optimizer,
+        schedulers=dummy_scheduler,
         log_destinations=[TQDMLoggerBackend()],
         callbacks=(LRMonitor(),),
     )
 
     assert isinstance(trainer, Trainer)
-    assert isinstance(trainer.state.optimizers[0], Adam)
+    assert trainer.state.optimizers[0] == dummy_optimizer
 
     assert isinstance(trainer.state.schedulers[0], ComposedScheduler)
 
@@ -58,37 +57,37 @@ def test_trainer_init_additional_args(dummy_train_dataloader: DataLoader, dummy_
     assert isinstance(trainer.state.callbacks[1], LRMonitor)
 
 
-def test_trainer_create_from_hparams(mosaic_trainer_hparams: TrainerHparams):
-    trainer = Trainer.create_from_hparams(hparams=mosaic_trainer_hparams)
+def test_trainer_hparams_initialize_object(composer_trainer_hparams: TrainerHparams):
+    trainer = composer_trainer_hparams.initialize_object()
     assert isinstance(trainer, Trainer)
 
 
 @pytest.mark.parametrize('invalid_hparams', [])
-def test_trainer_validation(mosaic_trainer_hparams: TrainerHparams, invalid_hparams):
-    with patch.multiple(mosaic_trainer_hparams, **invalid_hparams), pytest.raises(ValueError):
-        mosaic_trainer_hparams.validate()
+def test_trainer_validation(composer_trainer_hparams: TrainerHparams, invalid_hparams):
+    with patch.multiple(composer_trainer_hparams, **invalid_hparams), pytest.raises(ValueError):
+        composer_trainer_hparams.validate()
 
 
 @pytest.mark.timeout(90)
 @pytest.mark.parametrize("device", [CPUDeviceHparams(), pytest.param(GPUDeviceHparams(), marks=pytest.mark.gpu)])
-def test_trainer_determinism(mosaic_trainer_hparams: TrainerHparams, device: DeviceHparams):
-    mosaic_trainer_hparams.seed = 10
-    mosaic_trainer_hparams.device = device
-    mosaic_trainer_hparams.max_duration = "2ep"
+def test_trainer_determinism(composer_trainer_hparams: TrainerHparams, device: DeviceHparams):
+    composer_trainer_hparams.seed = 10
+    composer_trainer_hparams.device = device
+    composer_trainer_hparams.max_duration = "2ep"
 
-    first_trainer = Trainer.create_from_hparams(mosaic_trainer_hparams)
+    first_trainer = composer_trainer_hparams.initialize_object()
     first_trainer.fit()
     first_model = first_trainer.state.model.module
-    assert isinstance(first_model, BaseMosaicModel)
+    assert isinstance(first_model, ComposerModel)
     assert first_trainer.state.train_dataloader is not None
     first_loss = get_total_loss(first_model, first_trainer.state.train_dataloader, first_trainer.device)
 
     # Second trainer must be created after fitting the first so that the
     # seeds get fully reset for the second training run
-    second_trainer = Trainer.create_from_hparams(mosaic_trainer_hparams)
+    second_trainer = composer_trainer_hparams.initialize_object()
     second_trainer.fit()
     second_model = second_trainer.state.model.module
-    assert isinstance(second_model, BaseMosaicModel)
+    assert isinstance(second_model, ComposerModel)
     assert second_trainer.state.train_dataloader is not None
     second_loss = get_total_loss(second_model, second_trainer.state.train_dataloader, second_trainer.device)
 
@@ -109,11 +108,11 @@ def test_trainer_determinism(mosaic_trainer_hparams: TrainerHparams, device: Dev
     pytest.param(1, id="ga1"),
     pytest.param(2, id="ga2"),
 ])
-def test_trainer_fit(mosaic_trainer_hparams: TrainerHparams, device_hparams: DeviceHparams, world_size: int,
+def test_trainer_fit(composer_trainer_hparams: TrainerHparams, device_hparams: DeviceHparams, world_size: int,
                      grad_accum: int, precision: Precision):
     del world_size  # unused. Set via env vars
-    mosaic_trainer_hparams.device = device_hparams
-    mosaic_trainer_hparams.grad_accum = grad_accum
-    mosaic_trainer_hparams.precision = precision
+    composer_trainer_hparams.device = device_hparams
+    composer_trainer_hparams.grad_accum = grad_accum
+    composer_trainer_hparams.precision = precision
 
-    train_model(mosaic_trainer_hparams, max_epochs=2, run_loss_check=True)
+    train_model(composer_trainer_hparams, max_epochs=2, run_loss_check=True)

@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import textwrap
-import warnings
 from dataclasses import dataclass
 from typing import Any, Callable, Iterator, Optional
 
@@ -11,7 +9,6 @@ import torch
 import torch.distributed
 import torch.utils.data
 import yahp as hp
-from torch.utils.data.distributed import DistributedSampler
 
 from composer.core.types import Batch, DataLoader, Dataset
 
@@ -45,48 +42,24 @@ class WrappedDataLoader(DataLoader):
         return super().__setattr__(name, value)
 
 
-class DDPDataLoader(WrappedDataLoader):
-    """Wraps the dataset to ensure that, if the dataset sampler is a
-    :class:`~torch.utils.data.distributed.DistributedSampler`, then
-    :meth:`~torch.utils.data.distributed.DistributedSampler.set_epoch`
-    is called after each epoch.
-    
-    If the dataset sampler is not a :class:`~torch.utils.data.distributed.DistributedSampler`,
-    then this wrapper is a no-op.
+def unwrap_data_loader(dataloader: DataLoader) -> DataLoader:
+    """Recursively unwraps a dataloader if it is of type :class:`WrappedDataLoader`.
+
+    Args:
+        dataloader (DataLoader): The dataloader to unwrap
+
+    Returns:
+        DataLoader: The underlying dataloader
     """
-
-    def __init__(self, dataloader: DataLoader) -> None:
-        super().__init__(dataloader)
-        self._iterator: Optional[Iterator[Batch]] = None
-
-    def __iter__(self) -> DDPDataLoader:
-        if self._iterator is not None:
-            warnings.warn(
-                "DataloaderMultipleIterationWarning: "
-                "The dataloader detected the start of a new iteration before the previous iteration finished. "
-                "The dataloader is skipping ahead to the start of the next epoch. "
-                "Multiple simultaneous iterations through the DDP dataloader prohibited, since "
-                "it automatically tracks the current epoch.")
-            if isinstance(self.sampler, DistributedSampler):
-                self.sampler.set_epoch(epoch=self.sampler.epoch + 1)
-        self._iterator = iter(self.dataloader)
-        return self
-
-    def __next__(self) -> Batch:
-        assert self._iterator is not None
-        try:
-            return next(self._iterator)
-        except StopIteration:
-            self._iterator = None
-            if isinstance(self.sampler, DistributedSampler):
-                self.sampler.set_epoch(epoch=self.sampler.epoch + 1)
-            raise
+    if isinstance(dataloader, WrappedDataLoader):
+        return unwrap_data_loader(dataloader.dataloader)
+    return dataloader
 
 
 @dataclass
 class DataloaderHparams(hp.Hparams):
     """Hyperparameters to initialize a :class:`~torch.utils.data.Dataloader`.
-    
+
     Parameters:
         num_workers (int): Number of CPU workers to use per device to fetch data.
         prefetch_factor (int): Number of samples loaded in advance by each worker.
@@ -94,16 +67,13 @@ class DataloaderHparams(hp.Hparams):
         persistent_workers (bool): Whether or not to shutdown workers after the dataset has been consumed once.
         pin_memory (bool): Whether or not to copy Tensors into CUDA pinned memory before returning them.
         timeout (float): Timeout, in seconds, for collecting a batch from workers. Set to 0 for no timeout.
-    
     """
 
     num_workers: int = hp.required("Number of CPU workers to use per device to fetch data.", template_default=8)
     prefetch_factor: int = hp.required("Number of samples loaded in advance by each worker", template_default=2)
-    persistent_workers: bool = hp.required(textwrap.dedent("""Whether or not to shutdown workers after the dataset
-        has been consumed once"""),
+    persistent_workers: bool = hp.required("Whether to shutdown workers after the dataset has been consumed once",
                                            template_default=True)
-    pin_memory: bool = hp.required(textwrap.dedent("""Whether or not to copy Tensors into CUDA pinned memory
-        before returning them"""),
+    pin_memory: bool = hp.required("Whether to copy Tensors into CUDA pinned memory before returning them",
                                    template_default=True)
     timeout: float = hp.required("Timeout, in seconds, for collecting a batch from workers. Set to 0 for no timeout",
                                  template_default=0)

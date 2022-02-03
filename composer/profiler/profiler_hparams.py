@@ -32,7 +32,7 @@ class JSONTraceHandlerHparams(ProfilerEventHandlerHparams):
     flush_every_n_batches: int = hp.optional("Interval at which to flush the logfile.", default=100)
     buffering: int = hp.optional("Buffering parameter passed to :meth:`open` when opening the logfile.", default=-1)
     output_directory: str = hp.optional("Directory, relative to the run directory, to store traces.",
-                                        default="mosaic_profiler")
+                                        default="composer_profiler")
 
     def initialize_object(self) -> JSONTraceHandler:
         from composer.profiler.json_trace import JSONTraceHandler

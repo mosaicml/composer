@@ -39,6 +39,11 @@ def get_parser():
                         "Specifying a base_rank B and an nproc N will spawn processes "
                         "with global ranks [B, B+1, ... B+N-1]. Defaults to 0 (single-node "
                         "operation).")
+    parser.add_argument("--node_rank",
+                        type=int,
+                        default=-1,
+                        help="The rank of this node. Set to -1 to assume that all nodes have "
+                        "the same number of processes, and calculate accordingly. Defaults to -1.")
     parser.add_argument("--master_addr",
                         type=str,
                         default="127.0.0.1",
@@ -53,7 +58,8 @@ def get_parser():
     parser.add_argument("--run_directory",
                         type=str,
                         default=None,
-                        help=textwrap.dedent("""Directory to store run artifcats. 
+                        help=textwrap.dedent("""\
+                            Directory to store run artifcats. 
                             Defaults to runs/{datetime.datetime.now().isoformat()}/""")),
     parser.add_argument("-m",
                         "--module_mode",
@@ -88,11 +94,17 @@ def parse_args():
     if args.world_size == -1:
         args.world_size = args.nproc
 
+    if args.node_rank == -1:
+        if args.base_rank % args.nproc != 0:
+            raise ValueError("node_rank not specified, but unable to infer since nodes appear to "
+                             "have different amounts of processes.")
+        args.node_rank = args.base_rank // args.nproc
+
     return args
 
 
-def launch_processes(nproc: int, world_size: int, base_rank: int, master_addr: str, master_port: Optional[int],
-                     module_mode: bool, run_directory: Optional[str], training_script: str,
+def launch_processes(nproc: int, world_size: int, base_rank: int, node_rank: int, master_addr: str,
+                     master_port: Optional[int], module_mode: bool, run_directory: Optional[str], training_script: str,
                      training_script_args: List[Any]) -> Set[subprocess.Popen]:
     log.info("Starting DDP on local node for global_rank(%s-%s)", base_rank, base_rank + nproc - 1)
     processes = []
@@ -120,6 +132,7 @@ def launch_processes(nproc: int, world_size: int, base_rank: int, master_addr: s
         current_env["WORLD_SIZE"] = str(world_size)
         current_env["LOCAL_RANK"] = str(local_rank)
         current_env["LOCAL_WORLD_SIZE"] = str(nproc)
+        current_env["NODE_RANK"] = str(node_rank)
         current_env["MASTER_ADDR"] = master_addr
         current_env["MASTER_PORT"] = str(master_port)
         current_env["COMPOSER_RUN_DIRECTORY"] = run_directory
@@ -255,6 +268,7 @@ def main():
     processes = launch_processes(nproc=args.nproc,
                                  world_size=args.world_size,
                                  base_rank=args.base_rank,
+                                 node_rank=args.node_rank,
                                  master_addr=args.master_addr,
                                  master_port=args.master_port,
                                  module_mode=args.module_mode,

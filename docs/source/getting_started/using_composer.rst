@@ -47,10 +47,10 @@ For more details, please see :doc:`/functional`.
 
 .. _using_composer_trainer:
 
-MosaicML Trainer
+Composer Trainer
 ~~~~~~~~~~~~~~~~
 
-The previous approach is easy to get started and experiment with methods. However, the key to Composer is the ability to quickly configure and compose multiple methods together. For this, use the MosaicML Trainer. Our trainer is designed to be minimally more opinionated than other libraries in order to achieve our composition goals.
+The previous approach is easy to get started and experiment with methods. However, the key to Composer is the ability to quickly configure and compose multiple methods together. For this, use the Composer Trainer. The trainer is designed to be minimally more opinionated than other libraries in order to achieve our composition goals.
 
 Our trainer features:
 
@@ -75,20 +75,20 @@ Here are several ways to use the trainer:
        hparams.grad_accum = 2
        hparams.datadir = "~/datasets"
 
-       trainer = Trainer.create_from_hparams(hparams)
+       trainer = hparams.initialize_object()
        trainer.fit()
 
    For a list of properties, see: :doc:`/trainer`
 
 2. (Configurable): Provide a ``yaml`` file, either from our defaults or customized yourself.
 
-    With our ``run_mosaic_trainer.py`` entrypoint:
+    With our ``run_composer_trainer.py`` entrypoint:
 
    .. code-block::
 
        git clone https://github.com/mosaicml/composer.git
        cd composer && pip install -e .
-       python examples/run_mosaic_trainer.py -f composer/yamls/models/classify_mnist_cpu.yaml  --datadir ~/datasets
+       python examples/run_composer_trainer.py -f composer/yamls/models/classify_mnist_cpu.yaml  --datadir ~/datasets
 
    Or, in Python,
 
@@ -98,7 +98,7 @@ Here are several ways to use the trainer:
 
         hparams = TrainerHparams.create('composer/yamls/models/classify_mnist_cpu.yaml')
         hparams.datadir = "~/datasets"
-        trainer = Trainer.create_from_hparams(hparams)
+        trainer = hparams.initialize_object()
 
         trainer.fit()
 

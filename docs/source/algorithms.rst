@@ -27,6 +27,7 @@ The following algorithms are available in Composer:
     ~channels_last.ChannelsLast
     ~colout.ColOut
     ~cutout.CutOut
+    ~composer.algorithms.factorize.Factorize
     ~ghost_batchnorm.GhostBatchNorm
     ~label_smoothing.LabelSmoothing
     ~layer_freezing.LayerFreezing
@@ -100,6 +101,11 @@ Algorithm
 .. autoclass:: composer.algorithms.channels_last.ChannelsLast
 .. autoclass:: composer.algorithms.channels_last.ChannelsLastHparams
 
+Standalone
+^^^^^^^^^^
+
+.. autofunction:: composer.algorithms.channels_last.apply_channels_last
+
 
 ColOut
 ---------------
@@ -144,6 +150,32 @@ Standalone
 ^^^^^^^^^^
 
 .. autofunction:: composer.algorithms.ghost_batchnorm.apply_ghost_batchnorm
+
+
+Factorize
+---------------
+
+Algorithm
+^^^^^^^^^
+
+.. autoclass:: composer.algorithms.factorize.Factorize
+.. autoclass:: composer.algorithms.factorize.FactorizeHparams
+
+
+Standalone
+^^^^^^^^^^
+
+.. autoclass:: composer.algorithms.factorize.FactorizedConv2d
+    :members:
+
+.. autoclass:: composer.algorithms.factorize.FactorizedLinear
+    :members:
+
+.. autoclass:: composer.algorithms.factorize.LowRankSolution
+.. autofunction:: composer.algorithms.factorize.factorize_conv2d_modules
+.. autofunction:: composer.algorithms.factorize.factorize_linear_modules
+.. autofunction:: composer.algorithms.factorize.factorize_matrix
+.. autofunction:: composer.algorithms.factorize.factorize_conv2d
 
 
 Label Smoothing

@@ -10,6 +10,7 @@ import yaml
 
 from composer.core.logging import BaseLoggerBackend, Logger, LogLevel, TLogData, format_log_data_value
 from composer.core.state import State
+from composer.core.time import Timestamp
 from composer.utils import run_directory
 
 
@@ -61,8 +62,16 @@ class FileLoggerBackend(BaseLoggerBackend):
         self.log_level = log_level
         self.log_interval = log_interval
         self.flush_interval = flush_interval
+        self.is_batch_interval = False
+        self.is_epoch_interval = False
         self.file: Optional[TextIO] = None
         self.config = config
+
+    def batch_start(self, state: State, logger: Logger) -> None:
+        self.is_batch_interval = (int(state.timer.batch) + 1) % self.log_interval == 0
+
+    def epoch_start(self, state: State, logger: Logger) -> None:
+        self.is_epoch_interval = (int(state.timer.epoch) + 1) % self.log_interval == 0
 
     def will_log(self, state: State, log_level: LogLevel) -> bool:
         if log_level == LogLevel.FIT:
@@ -72,20 +81,20 @@ class FileLoggerBackend(BaseLoggerBackend):
                 return False
             if self.log_level > LogLevel.EPOCH:
                 return True
-            return (int(state.timer.epoch) + 1) % self.log_interval == 0
+            return self.is_epoch_interval
         if log_level == LogLevel.BATCH:
             if self.log_level < LogLevel.BATCH:
                 return False
             if self.log_level > LogLevel.BATCH:
                 return True
-            return (int(state.timer.batch) + 1) % self.log_interval == 0
+            return self.is_batch_interval
         raise ValueError(f"Unknown log level: {log_level}")
 
-    def log_metric(self, epoch: int, step: int, log_level: LogLevel, data: TLogData):
+    def log_metric(self, timestamp: Timestamp, log_level: LogLevel, data: TLogData):
         data_str = format_log_data_value(data)
         if self.file is None:
             raise RuntimeError("Attempted to log before self.init() or after self.close()")
-        print(f"[{log_level.name}][step={step}]: {data_str}", file=self.file, flush=False)
+        print(f"[{log_level.name}][step={int(timestamp.batch)}]: {data_str}", file=self.file, flush=False)
 
     def init(self, state: State, logger: Logger) -> None:
         del state, logger  # unused
@@ -113,13 +122,13 @@ class FileLoggerBackend(BaseLoggerBackend):
     def batch_end(self, state: State, logger: Logger) -> None:
         del logger  # unused
         assert self.file is not None
-        if self.log_level == LogLevel.BATCH and (int(state.timer.batch) + 1) % self.flush_interval == 0:
+        if self.log_level == LogLevel.BATCH and int(state.timer.batch) % self.flush_interval == 0:
             self._flush_file()
 
     def epoch_end(self, state: State, logger: Logger) -> None:
         del logger  # unused
-        if self.log_level > LogLevel.EPOCH or self.log_level == LogLevel.EPOCH and (int(state.timer.epoch) +
-                                                                                    1) % self.flush_interval == 0:
+        if self.log_level > LogLevel.EPOCH or self.log_level == LogLevel.EPOCH and int(
+                state.timer.epoch) % self.flush_interval == 0:
             self._flush_file()
 
     def training_end(self, state: State, logger: Logger) -> None:

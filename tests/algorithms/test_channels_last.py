@@ -1,13 +1,18 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
+from typing import cast
+
 import numpy as np
 import pytest
 import torch
+from torchmetrics.classification.accuracy import Accuracy
+from torchmetrics.collections import MetricCollection
 
 from composer.algorithms import ChannelsLastHparams
+from composer.algorithms.channels_last import apply_channels_last
 from composer.core.event import Event
 from composer.core.state import State
-from composer.core.types import DataLoader, Model, Precision, Tensor
+from composer.core.types import DataLoader, Evaluator, Model, Precision, Tensor
 
 
 def _has_singleton_dimension(tensor: Tensor) -> bool:
@@ -32,14 +37,24 @@ def _infer_memory_format(tensor: Tensor) -> str:
 
 @pytest.fixture()
 def state(simple_conv_model: Model, dummy_train_dataloader: DataLoader, dummy_val_dataloader: DataLoader):
+    metric_coll = MetricCollection([Accuracy()])
+    evaluators = [Evaluator(label="dummy_label", dataloader=dummy_val_dataloader, metrics=metric_coll)]
     return State(
         model=simple_conv_model,
         precision=Precision.FP32,
         grad_accum=1,
         max_duration="10ep",
         train_dataloader=dummy_train_dataloader,
-        eval_dataloader=dummy_val_dataloader,
+        evaluators=evaluators,
     )
+
+
+def test_channels_last_functional(simple_conv_model: Model):
+    model = cast(torch.nn.Module, simple_conv_model.module)
+    conv = cast(torch.nn.Conv2d, model.conv1)
+    assert _infer_memory_format(conv.weight) == 'nchw'
+    apply_channels_last(simple_conv_model)
+    assert _infer_memory_format(conv.weight) == 'nhwc'
 
 
 def test_channels_last_algorithm(state, dummy_logger):

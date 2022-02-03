@@ -13,12 +13,11 @@ from composer.core.types import BatchPair, DataLoader, Metrics, Tensor, Tensors
 from composer.datasets.dataloader import DataloaderHparams
 from composer.datasets.hparams import DatasetHparams, SyntheticHparamsMixin
 from composer.datasets.synthetic import SyntheticBatchPairDataset, SyntheticDataLabelType
-from composer.models import BaseMosaicModel, ModelHparams
+from composer.models import ComposerModel, ModelHparams
 
 
-class SimpleBatchPairModel(BaseMosaicModel):
-    """A small model that has a really fast forward pass.
-    """
+class SimpleBatchPairModel(ComposerModel):
+    """A small model that has a really fast forward pass."""
 
     def __init__(self, in_shape: Tuple[int, ...], num_classes: int) -> None:
         super().__init__()
@@ -34,11 +33,20 @@ class SimpleBatchPairModel(BaseMosaicModel):
         self.train_acc = torchmetrics.Accuracy()
         self.val_acc = torchmetrics.Accuracy()
 
+        # Important: It is crucial that the FC layers are bound to `self`
+        # for the optimizer surgery tests.
+        # These tests attempt to perform surgery on `fc1` layer, and we want
+        # to make sure that post-surgery, self.fc1 refers to the same parameters
+        # as self.net[1]
+        self.fc1 = torch.nn.Linear(in_features_flattened, 5)
+
+        self.fc2 = torch.nn.Linear(5, num_classes)
+
         self.net = torch.nn.Sequential(
             torch.nn.Flatten(),
-            torch.nn.Linear(in_features_flattened, 5),
+            self.fc1,
             torch.nn.ReLU(),
-            torch.nn.Linear(5, num_classes),
+            self.fc2,
             torch.nn.Softmax(dim=-1),
         )
 
@@ -105,9 +113,8 @@ class _SimpleBatchPairModelHparams(ModelHparams):
 
 
 class SimpleConvModel(torch.nn.Module):
-    """Very basic forward operation with no activation functions
-    Used just to test that model surgery doesn't create forward prop bugs.
-    """
+    """Very basic forward operation with no activation functions Used just to test that model surgery doesn't create
+    forward prop bugs."""
 
     def __init__(self):
         super().__init__()
@@ -119,6 +126,10 @@ class SimpleConvModel(torch.nn.Module):
         self.conv3 = torch.nn.Conv2d(in_channels=32, out_channels=64, stride=1, bias=False, **conv_args)  # stride = 1
 
         self.pool1 = torch.nn.MaxPool2d(kernel_size=(2, 2), stride=2, padding=1)
+        self.pool2 = torch.nn.AdaptiveAvgPool2d(1)
+        self.flatten = torch.nn.Flatten()
+        self.linear1 = torch.nn.Linear(64, 48)
+        self.linear2 = torch.nn.Linear(48, 10)
 
     def forward(self, x: Tensors) -> Tensors:
 
@@ -126,4 +137,8 @@ class SimpleConvModel(torch.nn.Module):
         out = self.conv2(out)
         out = self.conv3(out)
         out = self.pool1(out)
+        out = self.pool2(out)
+        out = self.flatten(out)
+        out = self.linear1(out)
+        out = self.linear2(out)
         return out
