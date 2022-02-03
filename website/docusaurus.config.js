@@ -42,7 +42,7 @@ const darkCodeTheme = require('prism-react-renderer/themes/dracula');
             type: 'doc',
             docId: 'index',
             position: 'left',
-            label: 'Docs',
+            label: 'Documentation',
           },
           {
             href: 'https://github.com/mosaicml/composer',
