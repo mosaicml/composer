@@ -335,7 +335,7 @@ class CheckpointSaver:
         interval (Time or str): The amount of time units to wait between checkpoints.
     """
 
-    def __init__(self, save_folder: str, interval: Union[Time, str], compression: str):
+    def __init__(self, save_folder: str, interval: Union[Time, str], compression: str = ""):
         if not isinstance(interval, Time):
             interval = Time.from_timestring(interval)
         if interval.unit == TimeUnit.EPOCH:
