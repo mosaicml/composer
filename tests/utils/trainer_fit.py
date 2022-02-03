@@ -47,7 +47,7 @@ def train_model(composer_trainer_hparams: TrainerHparams, max_epochs: int = 2, r
     # Don't validate
     composer_trainer_hparams.validate_every_n_epochs = max_epochs + 1
 
-    trainer = Trainer.create_from_hparams(composer_trainer_hparams)
+    trainer = composer_trainer_hparams.initialize_object()
 
     original_model = deepcopy(trainer.state.model)
     assert isinstance(original_model, ComposerModel)

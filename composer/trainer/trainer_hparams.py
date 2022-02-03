@@ -3,8 +3,10 @@
 """Example usage and definition of hparams."""
 from __future__ import annotations
 
+import logging
 import os
 import textwrap
+import warnings
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Dict, List, Optional, cast
 
@@ -15,6 +17,7 @@ from composer import datasets
 from composer.algorithms import AlgorithmHparams, get_algorithm_registry
 from composer.callbacks import (BenchmarkerHparams, CallbackHparams, GradMonitorHparams, LRMonitorHparams,
                                 MemoryMonitorHparams, RunDirectoryUploaderHparams, SpeedMonitorHparams)
+from composer.core import DataSpec
 from composer.core.types import JSON, Precision
 from composer.datasets import DataloaderHparams
 from composer.datasets.dataset_registry import get_dataset_registry
@@ -27,10 +30,11 @@ from composer.models import (BERTForClassificationHparams, BERTHparams, CIFARRes
 from composer.models.resnet20_cifar10.resnet20_cifar10_hparams import CIFARResNet20Hparams
 from composer.optim import (AdamHparams, AdamWHparams, DecoupledAdamWHparams, DecoupledSGDWHparams, OptimizerHparams,
                             RAdamHparams, RMSPropHparams, SchedulerHparams, SGDHparams, scheduler)
+from composer.optim.scheduler import ensure_warmup_last
 from composer.profiler import ProfilerHparams
 from composer.trainer.ddp import DDPSyncStrategy
 from composer.trainer.devices import CPUDeviceHparams, DeviceHparams, GPUDeviceHparams
-from composer.utils import dist
+from composer.utils import dist, reproducibility
 from composer.utils.object_store import ObjectStoreProviderHparams
 
 if TYPE_CHECKING:
@@ -265,8 +269,160 @@ class TrainerHparams(hp.Hparams):
                 "val_dataset and evaluators shouldn't both be specified. Only one can be passed in to the trainer.")
 
     def initialize_object(self) -> Trainer:
-        from composer.trainer.trainer import Trainer
-        return Trainer.create_from_hparams(hparams=self)
+        from composer.trainer import Trainer
+
+        self.validate()
+        import composer
+        logging.getLogger(composer.__name__).setLevel(self.log_level)
+
+        # devices and systems
+        device = self.device.initialize_object()
+
+        seed = self.seed if self.seed else reproducibility.get_random_seed()
+        # need to set seed before model initialization for determinism
+        # don't need to set different seeds per process since only the rank 0 initialization is used
+        reproducibility.seed_all(seed)
+
+        model = self.model.initialize_object()
+        algorithms = [x.initialize_object() for x in self.algorithms]
+
+        # callbacks, loggers, and seed
+        dict_config = self.to_dict()
+        log_destinations = [x.initialize_object(config=dict_config) for x in self.loggers]
+        callbacks = [x.initialize_object() for x in self.callbacks]
+
+        if self.datadir is not None:
+            self.train_dataset.datadir = self.datadir
+            if self.val_dataset is not None:
+                self.val_dataset.datadir = self.datadir
+
+        train_device_batch_size = self.train_batch_size // dist.get_world_size()
+        if self.train_dataset.shuffle and self.train_subset_num_batches is not None:
+            warnings.warn(
+                textwrap.dedent(f"""\
+                SubsetNumBatchesWarning: When specifying train_subset_num_batches,
+                (set to {self.train_subset_num_batches}), train_datset.shuffle should be set to False. Otherwise,
+                each training epoch may load a different subset of samples."""))
+        train_data = self.train_dataset.initialize_object(train_device_batch_size, self.dataloader)
+
+        eval_device_batch_size = self.eval_batch_size // dist.get_world_size()
+        if self.val_dataset is not None and self.evaluators is not None and len(self.evaluators) > 0:
+            raise ValueError("Either val_dataset or evaluators should be set, but not both.")
+
+        eval_dataloader = None
+
+        if self.val_dataset is not None:
+            if self.val_dataset.shuffle and self.eval_subset_num_batches is not None:
+                warnings.warn(
+                    textwrap.dedent(f"""\
+                        SubsetNumBatchesWarning: When specifying eval_subset_num_batches,
+                        (set to {self.eval_subset_num_batches}), val_dataset.shuffle should be
+                        set to False. Otherwise, each evaluation epoch may load a different
+                        subset of samples."""))
+            eval_dataloader = self.val_dataset.initialize_object(eval_device_batch_size, self.dataloader)
+
+        if self.evaluators is not None and len(self.evaluators) > 0:
+            eval_dataloader = [
+                evaluator.initialize_object(model, eval_device_batch_size, self.dataloader)
+                for evaluator in self.evaluators
+            ]
+            for evaluator in self.evaluators:
+                if evaluator.eval_dataset.shuffle and self.eval_subset_num_batches is not None:
+                    warnings.warn(
+                        textwrap.dedent(f"""SubsetNumBatchesWarning: When specifying eval_subset_num_batches,
+                    (set to {self.eval_subset_num_batches}), evaluator.dataloader.shuffle (for Evaluator: "{evaluator.label}") should be set to False. Otherwise,
+                    each evaluation epoch may load a different subset of samples."""))
+
+        optimizers = self.optimizer.initialize_object(model.parameters())
+
+        train_dataloader = train_data
+
+        samples_per_epoch = None
+        tokens_per_epoch = None
+
+        if isinstance(train_dataloader, DataSpec):
+            if train_dataloader.num_samples is not None:
+                samples_per_epoch = train_dataloader.num_samples
+                tokens_per_epoch = train_dataloader.num_tokens
+            train_dataloader = train_dataloader.dataloader
+
+        try:
+            steps_per_epoch = len(train_dataloader)
+        except (AttributeError, NotImplementedError):
+            steps_per_epoch = None
+
+        batch_size = None
+        if train_dataloader.batch_size is not None:
+            batch_size = train_dataloader.batch_size * dist.get_world_size()
+
+        if samples_per_epoch is None and steps_per_epoch is not None and batch_size is not None:
+            samples_per_epoch = steps_per_epoch * batch_size
+
+        schedulers = [
+            x.initialize_object(optimizer=optimizers,
+                                max_training_duration=self.max_duration,
+                                steps_per_epoch=steps_per_epoch,
+                                samples_per_epoch=samples_per_epoch,
+                                dataset_num_tokens=tokens_per_epoch) for x in ensure_warmup_last(self.schedulers)
+        ]
+
+        trainer = Trainer(
+            model=model,
+            train_dataloader=train_data,
+            eval_dataloader=eval_dataloader,
+            max_duration=self.max_duration,
+            algorithms=algorithms,
+            optimizers=optimizers,
+            schedulers=schedulers,
+
+            # device
+            device=device,
+
+            # training hparams
+            grad_accum=self.grad_accum,
+            grad_clip_norm=self.grad_clip_norm,
+            validate_every_n_batches=self.validate_every_n_batches,
+            validate_every_n_epochs=self.validate_every_n_epochs,
+            compute_training_metrics=self.compute_training_metrics,
+            precision=self.precision,
+
+            # dist hparams
+            dist_timeout=self.dist_timeout,
+            ddp_sync_strategy=self.ddp_sync_strategy,
+
+            # Randomness
+            seed=seed,
+            deterministic_mode=self.deterministic_mode,
+
+            # Callbacks and logging
+            log_destinations=log_destinations,
+            callbacks=callbacks,
+
+            # Profiler
+            profiler=self.profiler,
+
+            # Checkpoint parameters
+            load_path=self.load_path,
+            load_object_store=self.load_object_store.initialize_object()
+            if self.load_object_store is not None else None,
+            load_weights_only=self.load_weights_only,
+            load_strict=self.load_strict_model_weights,
+            load_chunk_size=self.load_chunk_size,
+            load_progress_bar=self.load_progress_bar,
+            save_folder=self.save_folder,
+            save_interval=self.save_interval,
+
+            # Subset parameters
+            train_subset_num_batches=self.train_subset_num_batches,
+            eval_subset_num_batches=self.eval_subset_num_batches,
+
+            # DeepSpeed
+            deepspeed_config=self.deepspeed,
+
+            # Optional config
+            config=self.to_dict())
+
+        return trainer
 
     @classmethod
     def load(cls, model: str) -> TrainerHparams:

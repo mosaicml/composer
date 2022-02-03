@@ -64,7 +64,7 @@ def main() -> None:
     hparams.validate_every_n_epochs = -1
 
     # Create the trainer and train
-    trainer = Trainer.create_from_hparams(hparams=hparams)
+    trainer = hparams.initialize_object()
     trainer.fit()
 
 

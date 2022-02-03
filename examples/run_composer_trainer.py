@@ -32,7 +32,7 @@ def main() -> None:
         sys.argv = [sys.argv[0], "--help"]
 
     hparams = TrainerHparams.create(cli_args=True)  # reads cli args from sys.argv
-    trainer = Trainer.create_from_hparams(hparams=hparams)
+    trainer = hparams.initialize_object()
     trainer.fit()
 
 
