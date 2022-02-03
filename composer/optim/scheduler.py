@@ -408,7 +408,6 @@ class ComposedScheduler(_LRScheduler):
         # these schedulers need to be silent during warmup
         self.delay_schedulers = [CosineAnnealingLR, CosineAnnealingWarmRestarts, ExponentialLR, LinearLR]
         self._warmup_counter = 0  # counter to track warmups
-        self._last_lr = []
 
     def step(self, interval: str = 'epoch'):
         """Step all applicable schedulers.
@@ -417,7 +416,6 @@ class ComposedScheduler(_LRScheduler):
             interval (str, optional): The interval of the current step. Must be either ``'step'`` or ``'epoch'``.
                                       Default: ``epoch``.
         """
-        self._last_lr.clear()
         for scheduler, scheduler_interval in zip(self.schedulers, self.intervals):
             if self._warmup_counter < self.warmup_iters and \
                 any(isinstance(scheduler, delay) for delay in self.delay_schedulers):
@@ -425,7 +423,6 @@ class ComposedScheduler(_LRScheduler):
 
             if interval == scheduler_interval:
                 scheduler.step()
-                self._last_lr.append(scheduler.get_last_lr())
                 if isinstance(scheduler, WarmUpLR):
                     self._warmup_counter += 1
 

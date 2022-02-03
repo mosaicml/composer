@@ -3,9 +3,9 @@
 from __future__ import annotations
 
 import logging
+import weakref
 from dataclasses import asdict, dataclass
 from typing import Union
-import weakref
 
 import torch
 import yahp as hp

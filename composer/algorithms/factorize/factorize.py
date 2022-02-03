@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import logging
-import textwrap
 from dataclasses import asdict, dataclass
 from typing import Optional, Type, Union, cast
 
@@ -15,7 +14,6 @@ from composer.algorithms.factorize.factorize_modules import (FactorizedConv2d, F
                                                              factorizing_could_speedup)
 from composer.core import Algorithm, Event, Logger, State, surgery
 from composer.core.types import Optimizers
-from composer.models.base import ComposerModel
 
 log = logging.getLogger(__name__)
 
@@ -171,7 +169,6 @@ class Factorize(Algorithm):
         self.latent_channels = latent_channels
         self.min_features = min_features
         self.latent_features = latent_features
-        self._applied = False
 
     def match(self, event: Event, state: State) -> bool:
         """Run on Event.INIT.
@@ -183,7 +180,7 @@ class Factorize(Algorithm):
         Returns:
             bool: True if this algorithm should run
         """
-        return event == Event.INIT and not self._applied
+        return event == Event.INIT
 
     def apply(self, event: Event, state: State, logger: Logger) -> Optional[int]:
         """Factorize convolutional and linear layers.
@@ -193,16 +190,7 @@ class Factorize(Algorithm):
             state: the current trainer state
             logger: the training logger
         """
-        if not isinstance(state.model, ComposerModel):
-            # We do NOT want to apply this algorithm after deepspeed or DDP wrapping
-            # the module.
-            # Hence, we raise an error if the model is already wrapped (i.e. it is no longer a ComposerModel)
-            # when the algorithm is not yet applied
-            raise RuntimeError(
-                textwrap.dedent(f"""\
-                Unable to apply {type(self).__qualname__} on model of type {type(state.model).__qualname__};
-                expected state.model to be {ComposerModel.__qualname__}"""))
-        self._applied = True
+        assert state.model is not None, "Model must be part of state!"
         if self.factorize_convs:
             factorize_conv2d_modules(state.model,
                                      min_channels=self.min_channels,

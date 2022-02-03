@@ -1,8 +1,8 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
+import weakref
 from dataclasses import asdict, dataclass
 from typing import Optional
-import weakref
 
 import numpy as np
 import torch

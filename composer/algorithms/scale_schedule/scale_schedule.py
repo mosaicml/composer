@@ -1,6 +1,7 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
 import logging
+import weakref
 from collections import Counter
 from dataclasses import asdict, dataclass
 from typing import Optional, cast
@@ -115,7 +116,7 @@ class ScaleSchedule(Algorithm):
 
     def __init__(self, ratio: float):
         self.ratio = ratio
-        self.activated_schedulers = set()
+        self._activated_schedulers = weakref.WeakSet()
 
     def match(self, event: Event, state: State) -> bool:
         """Run on Event.INIT.
@@ -153,8 +154,8 @@ class ScaleSchedule(Algorithm):
                 schedulers.append(scheduler)
 
         for scheduler in schedulers:
-            if scheduler in self.activated_schedulers:
+            if scheduler in self._activated_schedulers:
                 # don't scale the same scheduler twice!
                 continue
             scale_scheduler(scheduler, self.ratio, orig_max_epochs)
-            self.activated_schedulers.add(scheduler)
+            self._activated_schedulers.add(scheduler)

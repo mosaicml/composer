@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import functools
 import logging
-import textwrap
 from dataclasses import asdict, dataclass
 from typing import Optional
 
@@ -16,7 +15,6 @@ from composer.algorithms import AlgorithmHparams
 from composer.algorithms.blurpool.blurpool_layers import BlurConv2d, BlurMaxPool2d
 from composer.core import Algorithm, Event, Logger, State, surgery
 from composer.core.types import Optimizers
-from composer.models.base import ComposerModel
 
 log = logging.getLogger(__name__)
 
@@ -115,7 +113,6 @@ class BlurPool(Algorithm):
         self.replace_convs = replace_convs
         self.replace_maxpools = replace_maxpools
         self.blur_first = blur_first
-        self._applied = False
 
         if self.replace_maxpools is False and \
              self.replace_convs is False:
@@ -131,7 +128,7 @@ class BlurPool(Algorithm):
         Returns:
             bool: True if this algorithm should run now.
         """
-        return event == Event.INIT and not self._applied
+        return event == Event.INIT
 
     def apply(self, event: Event, state: State, logger: Logger) -> Optional[int]:
         """Adds anti-aliasing filters to the maxpools and/or convolutions.
@@ -141,16 +138,7 @@ class BlurPool(Algorithm):
             state (State): the current trainer state
             logger (Logger): the training logger
         """
-        if not isinstance(state.model, ComposerModel):
-            # We do NOT want to apply this algorithm after deepspeed or DDP wrapping
-            # the module.
-            # Hence, we raise an error if the model is already wrapped (i.e. it is no longer a ComposerModel)
-            # when the algorithm is not yet applied
-            raise RuntimeError(
-                textwrap.dedent(f"""\
-                    Unable to apply {type(self).__qualname__} on model of type {type(state.model).__qualname__};
-                    expected state.model to be {ComposerModel.__qualname__}"""))
-        self._applied = True
+        assert state.model is not None
 
         apply_blurpool(state.model,
                        optimizers=state.optimizers,
@@ -161,6 +149,8 @@ class BlurPool(Algorithm):
 
     def _log_results(self, event: Event, state: State, logger: Logger) -> None:
         """Logs the result of BlurPool application, including the number of layers that have been replaced."""
+        assert state.model is not None
+
         num_blurpool_layers = surgery.count_module_instances(state.model, BlurMaxPool2d)
         num_blurconv_layers = surgery.count_module_instances(state.model, BlurConv2d)
 

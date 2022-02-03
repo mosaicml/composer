@@ -111,8 +111,7 @@ class TorchProfiler(Callback):
 
     def init(self, state: State, logger: Logger) -> None:
         del logger  # unused
-        if self.profiler is not None:
-            return
+        assert self.profiler is None, "The profiler should be None upon init"
         if state.profiler is None:
             raise RuntimeError(
                 textwrap.dedent("""\

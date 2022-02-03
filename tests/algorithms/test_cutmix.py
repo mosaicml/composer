@@ -121,8 +121,6 @@ def test_cutmix_nclasses(dummy_state, dummy_logger):
     algorithm.apply(Event.AFTER_DATALOADER, state, dummy_logger)
 
 
-def test_cutmix_trains(composer_trainer_hparams: TrainerHparams):
-    num_classes = composer_trainer_hparams.model.num_classes
-    assert num_classes is not None
-    composer_trainer_hparams.algorithms = [CutMixHparams(alpha=1.0, num_classes=num_classes)]
+def test_cutmix_trains(dummy_num_classes: int, composer_trainer_hparams: TrainerHparams):
+    composer_trainer_hparams.algorithms = [CutMixHparams(alpha=1.0, num_classes=dummy_num_classes)]
     train_model(composer_trainer_hparams)

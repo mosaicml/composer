@@ -80,7 +80,7 @@ class WandBLoggerBackend(BaseLoggerBackend):
     def init(self, state: State, logger: Logger) -> None:
         import wandb
         del state, logger  # unused
-        if self._enabled and wandb.run is None:
+        if self._enabled:
             wandb.init(**self._init_params)
 
     def batch_end(self, state: State, logger: Logger) -> None:

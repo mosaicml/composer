@@ -105,7 +105,6 @@ class TQDMLoggerBackend(BaseLoggerBackend):
             yaml.safe_dump(self.config, stream=sys.stdout)
             print("-" * 30)
             print()
-            self.config = None
 
     def _start(self, state: State):
         if dist.get_global_rank() != 0:

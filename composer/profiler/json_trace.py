@@ -42,8 +42,6 @@ class JSONTraceHandler(ProfilerEventHandler):
 
     def init(self, state: State, logger: Logger) -> None:
         del state, logger  # unused
-        if self._file is not None:
-            return
         os.makedirs(self.output_directory, exist_ok=True)
         trace_file_name = os.path.join(self.output_directory, f"rank_{dist.get_global_rank()}.trace.json")
         self._file = open(trace_file_name, "x", buffering=self.buffering)

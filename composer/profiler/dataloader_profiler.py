@@ -42,7 +42,7 @@ class ProfiledDataLoader(WrappedDataLoader):
 
 class DataloaderProfiler(Callback):
 
-    def init(self, state: State, logger: Logger):
+    def fit_start(self, state: State, logger: Logger):
         del logger  # unused
         if state.profiler is None:
             raise RuntimeError(
