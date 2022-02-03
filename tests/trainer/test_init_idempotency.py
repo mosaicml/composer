@@ -1,3 +1,5 @@
+# Copyright 2021 MosaicML. All Rights Reserved.
+
 from typing import Any, Dict, Type, Union
 
 import pytest
