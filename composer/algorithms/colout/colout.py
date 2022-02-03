@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import weakref
 from dataclasses import asdict, dataclass
 from typing import Union
 
@@ -136,10 +137,15 @@ class ColOut(Algorithm):
     large, this does not significantly alter the content of the image, but reduces its size and provides extra
     variability.
 
+    If ``batch`` is True (the default), this algorithm runs on :attr:`Event.INIT` to insert a dataset transformation.
+    It is a no-op if this algorithm already applied itself on the :attr:`State.train_dataloader.dataset`.
+
+    Otherwise, if ``batch`` is False, then this algorithm runs on :attr:`Event.AFTER_DATALOADER` to modify the batch.
+
     Args:
-        p_row: Fraction of rows to drop (drop along H).
-        p_col: Fraction of columns to drop (drop along W).
-        batch: Run ColOut at the batch level.
+        p_row (float): Fraction of rows to drop (drop along H).
+        p_col (float): Fraction of columns to drop (drop along W).
+        batch (bool): Run ColOut at the batch level.
     """
 
     def __init__(self, p_row: float = 0.15, p_col: float = 0.15, batch: bool = True):
@@ -152,23 +158,23 @@ class ColOut(Algorithm):
         self.p_row = p_row
         self.p_col = p_col
         self.batch = batch
+        self._transformed_datasets = weakref.WeakSet()
 
     def match(self, event: Event, state: State) -> bool:
-        """Apply on Event.FIT_START for samplewise or Event.AFTER_DATALOADER for batchwise."""
         if self.batch:
             return event == Event.AFTER_DATALOADER
         else:
-            return event == Event.FIT_START
+            return event == Event.FIT_START and state.train_dataloader.dataset not in self._transformed_datasets
 
     def _apply_sample(self, state: State) -> None:
         """Add the ColOut dataset transform to the dataloader."""
-        assert state.train_dataloader is not None
         dataset = state.train_dataloader.dataset
 
         transform = ColOutTransform(p_row=self.p_row, p_col=self.p_col)
 
         if hasattr(dataset, "transform"):
             add_dataset_transform(dataset, transform)
+            self._transformed_datasets.add(dataset)
         else:
             raise ValueError(
                 f"Dataset of type {type(dataset)} has no attribute 'transform'. Expected TorchVision dataset.")

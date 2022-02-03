@@ -57,6 +57,7 @@ class Engine():
         assert logger is not None
         self.logger = logger
         self.state = state
+        self._closed = False
 
     def run_event(
         self,
@@ -235,6 +236,7 @@ class Engine():
         Does not re-raise any exceptions from :meth:`~Callback.close` and :meth:`~Callback.post_close`.
         Instead, these exceptions are logged.
         """
+        self._closed = True
         callback_to_has_exception: Dict[Callback, bool] = {}
         for callback in self.state.callbacks:
             try:
@@ -258,3 +260,8 @@ class Engine():
                     callback.post_close()
                 except Exception as e:
                     log.error(f"Error running {callback.__class__.__name__}.post_close().", exc_info=e, stack_info=True)
+
+    @property
+    def closed(self):
+        """Whether :meth:`Engine.close` was invoked"""
+        return self._closed

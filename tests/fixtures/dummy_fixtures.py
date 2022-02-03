@@ -45,7 +45,7 @@ def dummy_val_batch_size() -> int:
 def dummy_model_hparams(
         dummy_in_shape: Tuple[int, ...], dummy_num_classes: int,
         SimpleBatchPairModelHparams: Type[_SimpleBatchPairModelHparams]) -> _SimpleBatchPairModelHparams:
-    return SimpleBatchPairModelHparams(in_shape=list(dummy_in_shape), num_classes=dummy_num_classes)
+    return SimpleBatchPairModelHparams(num_channels=dummy_in_shape[0], num_classes=dummy_num_classes)
 
 
 @pytest.fixture
@@ -54,26 +54,26 @@ def dummy_model(dummy_model_hparams: _SimpleBatchPairModelHparams) -> SimpleBatc
 
 
 @pytest.fixture
-def dummy_train_dataset_hparams(dummy_model: SimpleBatchPairModel,
+def dummy_train_dataset_hparams(dummy_model: SimpleBatchPairModel, dummy_in_shape: Tuple[int],
                                 SimpleDatasetHparams: Type[_SimpleDatasetHparams]) -> DatasetHparams:
     return SimpleDatasetHparams(
         use_synthetic=True,
         drop_last=True,
         shuffle=False,
         num_classes=dummy_model.num_classes,
-        data_shape=list(dummy_model.in_shape),
+        data_shape=list(dummy_in_shape),
     )
 
 
 @pytest.fixture
-def dummy_val_dataset_hparams(dummy_model: SimpleBatchPairModel,
+def dummy_val_dataset_hparams(dummy_model: SimpleBatchPairModel, dummy_in_shape: Tuple[int],
                               SimpleDatasetHparams: Type[_SimpleDatasetHparams]) -> DatasetHparams:
     return SimpleDatasetHparams(
         use_synthetic=True,
         drop_last=False,
         shuffle=False,
         num_classes=dummy_model.num_classes,
-        data_shape=list(dummy_model.in_shape),
+        data_shape=list(dummy_in_shape),
     )
 
 

@@ -1,5 +1,6 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
+import textwrap
 from dataclasses import asdict, dataclass
 from typing import Dict, Mapping, Optional
 
@@ -126,20 +127,10 @@ class SeqLengthWarmup(Algorithm):
             raise ValueError(f'max_seq_length={self.max_seq_length} must be '
                              f'greater than min_seq_length={self.min_seq_length}')
         self._activated = False
+        self._original_model = None
 
     def match(self, event: Event, state: State) -> bool:
-        """Sequence Length Warmup matches on ``Event.AFTER_DATALOADER`` in order to pply the sequence length warmup
-        before the forward pass.
-
-        Args:
-            event (:class:`Event`): The current event.
-            state (:class:`State`): The current state.
-
-        Returns:
-            bool: True if this algorithm should run now.
-        """
-
-        return event == Event.AFTER_DATALOADER
+        return (event == Event.INIT and self._original_model is None) or event == Event.AFTER_DATALOADER
 
     def apply(self, event: Event, state: State, logger: Logger) -> Optional[int]:
         """Applies on ``Event.AFTER_DATALOADER`` to apply the sequence length warmup to the input batch.
@@ -156,20 +147,28 @@ class SeqLengthWarmup(Algorithm):
         Returns:
             int or None: exit code that is stored in :class:`Trace` and made accessible for debugging.
         """
+        if event == Event.INIT:
+            if not isinstance(state.model, ComposerTransformer):
+                raise RuntimeError(
+                    textwrap.dedent(f"""\
+                    {type(self).__name__} requires state.model to be of type {ComposerTransformer.__name__}, not of type {type(state.model)}"""
+                                   ))
+            self._original_model = state.model
+            return
 
         # in order to avoid OOMs, we do a forward and a backward pass on a dummy input.
         if not self._activated:
             # ensure that input_ids is a valid model input. since we don't need the
             # results, we don't use all inputs.
-
-            original_model = state.model.module
-            assert isinstance(original_model, ComposerTransformer)
-            model_inputs = original_model.get_model_inputs()  # type: ignore
-            assert 'input_ids' in model_inputs
-            assert 'labels' in model_inputs
+            assert self._original_model is not None, "original model should be set on Event.INIT"
+            model_inputs = self._original_model.get_model_inputs()
+            if 'input_ids' not in model_inputs:
+                raise RuntimeError("'input_ids' must be in model inputs")
+            if 'labels' not in model_inputs:
+                raise RuntimeError("'labels' must be in model inputs")
 
             # create fake inputs
-            vocab_size = len(original_model.tokenizer)  # type: ignore
+            vocab_size = len(self._original_model.tokenizer)
 
             # simplifying assumption: Composer doesn't support model-parallelism,
             # so the first parameter's device is likely the same device for
@@ -198,7 +197,7 @@ class SeqLengthWarmup(Algorithm):
             # of the maximum sequence length to allocate cache.
             with state.precision_context:
                 outputs = state.model.forward(model_inputs)
-                loss = original_model.loss(outputs, model_inputs)
+                loss = self._original_model.loss(outputs, model_inputs)
 
             # since use_grad_scaling is in the Trainer, and we
             # don't care about the loss values, skip scaling

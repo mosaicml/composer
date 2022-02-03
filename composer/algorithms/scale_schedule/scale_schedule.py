@@ -1,18 +1,17 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
-# type: ignore
-
 import logging
+import weakref
 from collections import Counter
 from dataclasses import asdict, dataclass
-from typing import Optional
+from typing import Optional, cast
 
 import yahp as hp
 from torch.optim.lr_scheduler import CosineAnnealingLR, CosineAnnealingWarmRestarts, ExponentialLR, MultiStepLR, StepLR
 
 from composer.algorithms import AlgorithmHparams
 from composer.core import Algorithm, Event, Logger, State
-from composer.core.time import Time, TimeUnit
+from composer.core.time import Time
 from composer.core.types import Scheduler
 from composer.optim.scheduler import ConstantLR
 
@@ -44,26 +43,30 @@ def scale_scheduler(scheduler: Scheduler, ssr: float, orig_max_epochs: Optional[
         ValueError: If ``scheduler`` is not an instance of one of the above types.
     """
     if isinstance(scheduler, StepLR):
-        scheduler.step_size = int(scheduler.step_size * ssr)
+        scheduler.step_size = int(scheduler.step_size * ssr)  # type: ignore  -- unknown attribute
     elif isinstance(scheduler, MultiStepLR):
-        scheduler.milestones = Counter([int(ms * ssr) for ms in scheduler.milestones])
+        milestones = scheduler.milestones  # type: ignore  -- unknown attribute
+        milestones = Counter([int(ms * ssr) for ms in milestones])
+        scheduler.milestones = milestones  # type: ignore  -- unknown attribute
     elif isinstance(scheduler, CosineAnnealingLR):
         assert orig_max_epochs is not None, "To scale Cosine decay, max_epochs must be provided."
 
-        if hasattr(scheduler, 'interval') and scheduler.interval == "step":
-            orig_max_epochs *= scheduler.steps_per_epoch
+        if hasattr(scheduler, 'interval') and scheduler.interval == "step":  # type: ignore  -- unknown attribute
+            orig_max_epochs *= scheduler.steps_per_epoch  # type: ignore  -- unknown attribute
 
-        warmup = orig_max_epochs - scheduler.T_max
-        scheduler.T_max = int(orig_max_epochs * ssr - warmup)
+        warmup = orig_max_epochs - scheduler.T_max  # type: ignore  -- unknown attribute
+        scheduler.T_max = int(orig_max_epochs * ssr - warmup)  # type: ignore  -- unknown attribute
     elif isinstance(scheduler, CosineAnnealingWarmRestarts):
-        scheduler.T_0 = int(scheduler.T_0 * ssr)  # TODO: account for warmups
+        # TODO: account for warmups
+        scheduler.T_0 = int(scheduler.T_0 * ssr)  # type: ignore  -- unknown attribute
     elif isinstance(scheduler, ExponentialLR):
         factor = 1 / ssr
-        scheduler.gamma = scheduler.gamma**factor
+        scheduler.gamma = scheduler.gamma**factor  # type: ignore  -- unknown attribute
     elif isinstance(scheduler, ConstantLR):
         return
-    elif hasattr(scheduler, 'scale_schedule') and callable(scheduler.scale_schedule):
-        scheduler.scale_schedule(ssr)
+    elif hasattr(scheduler, 'scale_schedule') and callable(
+            scheduler.scale_schedule):  # type: ignore  -- unknown attribute
+        scheduler.scale_schedule(ssr)  # type: ignore  -- unknown attribute
     else:
         raise ValueError(f'Scale schedule being applied to unrecognized Scheduler {scheduler}. '
                          'Please implement scale_schedule(ssr: float) method in your scheduler.')
@@ -74,11 +77,6 @@ class ScaleScheduleHparams(AlgorithmHparams):
     """See :class:`ScaleSchedule`"""
 
     ratio: float = hp.required('Ratio to scale the schedule.', template_default=1.0)
-    method: str = hp.optional("Method to scale the schedule, one of 'epoch' or 'samples'. Default: epoch.",
-                              default='epoch')
-
-    def __post_init__(self):
-        assert self.method in ('epoch', 'samples'), "Scale schedule method must be one of epoch or samples."
 
     def initialize_object(self) -> "ScaleSchedule":
         return ScaleSchedule(**asdict(self))
@@ -104,24 +102,21 @@ class ScaleSchedule(Algorithm):
 
     Args:
         ratio: The factor by which to scale the duration of the schedule. E.g., 0.5
-            makes the schedule take half as many epochs and 2.0 makes it
-            take twice as many epochs.
-        method: Currently only ``"epochs"`` is supported.
+            makes the schedule take half as long and 2.0 makes it
+            take twice as long.
 
     Raises:
         ValueError: Raised during ``apply`` if ``scheduler`` is not supported by :func:`scale_scheduler`.
         ValueError: Raised during ``apply`` if the resulting number of epochs after scaling the
             learning rate schedule is zero.
-        NotImplementedError: Raised during ``apply`` if ``method != "epochs"``.
 
     See also:
         :func:`scale_scheduler`
     """
 
-    def __init__(self, ratio: float, method: str = 'epoch'):
+    def __init__(self, ratio: float):
         self.ratio = ratio
-        self.method = method
-        self.activated = False
+        self._activated_schedulers = weakref.WeakSet()
 
     def match(self, event: Event, state: State) -> bool:
         """Run on Event.INIT.
@@ -143,28 +138,24 @@ class ScaleSchedule(Algorithm):
                 learning rate schedule is zero.
             NotImplementedError: If ``self.method == 'samples'``.
         """
-        assert self.activated is False, "Scale Schedule should only be run once, check your control flow."
 
         orig_max_duration = state.max_duration
-        state.max_duration = orig_max_duration * self.ratio
+        orig_max_epochs = state.max_epochs
+        state.max_duration = cast(Time[int], orig_max_duration * self.ratio)
         log.info(f'max_duration changed from {orig_max_duration} to {state.max_duration}')
-        if state.max_epochs == 0:
-            raise ValueError('Scale schedule has reduced the max_epochs to 0. Set a higher ratio or more epochs.')
+        if int(state.max_duration) == 0:
+            raise ValueError('Scale schedule has reduced the max_duration to 0. Set a higher ratio or more epochs.')
 
         schedulers = []
         for scheduler in state.schedulers:
             if hasattr(scheduler, 'schedulers'):
-                schedulers.extend(scheduler.schedulers)
+                schedulers.extend(getattr(scheduler, "schedulers"))
             else:
                 schedulers.append(scheduler)
 
-        if self.method == 'epoch':
-            for scheduler in schedulers:
-                orig_max_epochs = None
-                if orig_max_duration.unit == TimeUnit.EPOCH:
-                    orig_max_epochs = orig_max_duration.value
-                scale_scheduler(scheduler, self.ratio, orig_max_epochs)
-        elif self.method == 'samples':
-            raise NotImplementedError('Scale schedule algorithm with samples method not supported yet.')
-
-        self.activated = True
+        for scheduler in schedulers:
+            if scheduler in self._activated_schedulers:
+                # don't scale the same scheduler twice!
+                continue
+            scale_scheduler(scheduler, self.ratio, orig_max_epochs)
+            self._activated_schedulers.add(scheduler)
