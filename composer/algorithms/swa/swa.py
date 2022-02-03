@@ -72,10 +72,9 @@ class SWA(Algorithm):
                 if len(state.schedulers) != 1:
                     raise RuntimeError("SWA supports only one scheduler")
                 scheduler = state.schedulers[0]
-                scheduler.get_last_lr()
                 last_lr = scheduler.get_last_lr()
                 if len(last_lr) != 1:
-                    raise RuntimeError("SWA supports only one LR")
+                    raise RuntimeError(f"SWA supports only one LR; instead found {len(last_lr)}")
                 log.info(f'Setting SWA LR to {last_lr}')
                 self.swa_lr = last_lr[0]
 

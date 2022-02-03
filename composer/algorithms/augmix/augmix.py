@@ -1,5 +1,6 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
+import weakref
 from dataclasses import asdict, dataclass
 from typing import Optional
 
@@ -109,7 +110,8 @@ class AugMix(Algorithm):
     the combined augmented image and the original image is drawn from a
     ``Beta(alpha, alpha)`` distribution, using the same ``alpha``.
 
-    Runs on ``Event.FIT_START``.
+    This algorithm runs on on :attr:`Event.FIT_START` to insert a dataset transformation. It is a no-op if this algorithm already
+    applied itself on the :attr:`State.train_dataloader.dataset`.
 
     Args:
         severity: severity of augmentations; ranges from 0
@@ -155,10 +157,10 @@ class AugMix(Algorithm):
         self.width = width
         self.alpha = alpha
         self.augmentation_set = augmentation_set
+        self._transformed_datasets = weakref.WeakSet()
 
     def match(self, event: Event, state: State) -> bool:
-        """Runs on Event.FIT_START."""
-        return event == Event.FIT_START
+        return event == Event.FIT_START and state.train_dataloader.dataset not in self._transformed_datasets
 
     def apply(self, event: Event, state: State, logger: Logger) -> None:
         """Inserts AugMix into the list of dataloader transforms."""
@@ -167,6 +169,6 @@ class AugMix(Algorithm):
                                     width=self.width,
                                     alpha=self.alpha,
                                     augmentation_set=self.augmentation_set)
-        assert state.train_dataloader is not None, "Train Dataloader is not initialized."
         dataset = state.train_dataloader.dataset
         add_dataset_transform(dataset, am)
+        self._transformed_datasets.add(dataset)

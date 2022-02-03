@@ -1,5 +1,6 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
+import weakref
 from dataclasses import asdict, dataclass
 from typing import Optional
 
@@ -72,6 +73,9 @@ class RandAugment(Algorithm):
     t_CVPRW_2020/papers/w40/Cubuk_Randaugment_Practical_Automated_Data_Augmentation_With_a_Reduced_Search_Space_CVPRW_20
     20_paper.pdf>`_).
 
+    This algorithm runs on on :attr:`Event.INIT` to insert a dataset transformation. It is a no-op if this algorithm already
+    applied itself on the :attr:`State.train_dataloader.dataset`.
+
     Args:
         severity (int): Severity of augmentation operators (between 1 to 10). M in the
             original paper. Default = 9.
@@ -101,17 +105,10 @@ class RandAugment(Algorithm):
         self.severity = severity
         self.depth = depth
         self.augmentation_set = augmentation_set
+        self._transformed_datasets = weakref.WeakSet()
 
     def match(self, event: Event, state: State) -> bool:
-        """Runs on Event.FIT_START.
-
-        Args:
-            event (:class:`Event`): The current event.
-            state (:class:`State`): The current state.
-        Returns:
-            bool: True if this algorithm should run now
-        """
-        return event == Event.FIT_START
+        return event == Event.FIT_START and state.train_dataloader.dataset not in self._transformed_datasets
 
     def apply(self, event: Event, state: State, logger: Logger) -> None:
         """Inserts RandAugment into the list of dataloader transforms.

@@ -116,9 +116,9 @@ class _CopyLinear(torch.nn.Module):
 
 @pytest.fixture
 def optimizer_surgery_state():
-    input_shape = (1, 18, 18)
+    num_channels = 1
     n_classes = 10
-    model = SimpleBatchPairModel(input_shape, n_classes)
+    model = SimpleBatchPairModel(num_channels, n_classes)
     policy: Mapping[Type[torch.nn.Module], surgery.ReplacementFunction] = {torch.nn.Linear: _CopyLinear.from_linear}
     opt = torch.optim.SGD(model.parameters(), lr=.001)
     orig_linear_modules = [model.fc1, model.fc2]

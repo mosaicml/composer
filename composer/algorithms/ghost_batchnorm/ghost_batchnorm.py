@@ -136,10 +136,9 @@ def apply_ghost_batchnorm(model: torch.nn.Module,
 class GhostBatchNormHparams(AlgorithmHparams):
     """See :class:`GhostBatchNorm`"""
 
-    ghost_batch_size: int = hp.required(doc='Size of sub-batches to normalize over',
-                                        template_default=_DEFAULT_GHOST_BATCH_SIZE)
+    ghost_batch_size: int = hp.optional(doc='Size of sub-batches to normalize over', default=_DEFAULT_GHOST_BATCH_SIZE)
 
-    def initialize_object(self) -> "GhostBatchNorm":
+    def initialize_object(self) -> GhostBatchNorm:
         return GhostBatchNorm(**asdict(self))
 
 
@@ -152,7 +151,7 @@ class GhostBatchNorm(Algorithm):
     be the sample axis.
 
     Runs on ``Event.INIT`` and should be applied both before the model has
-    been moved to accelerators and before the model’s parameters have
+    been moved to accelerators and before the model's parameters have
     been passed to an optimizer.
 
     Args:

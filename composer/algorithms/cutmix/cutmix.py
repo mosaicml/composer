@@ -1,4 +1,5 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
+from __future__ import annotations
 
 import logging
 from dataclasses import asdict, dataclass
@@ -196,11 +197,10 @@ def cutmix(x: Tensor,
 class CutMixHparams(AlgorithmHparams):
     """See :class:`CutMix`"""
 
-    alpha: float = hp.required('Strength of interpolation, should be >= 0. No interpolation if alpha=0.',
-                               template_default=1.0)
     num_classes: int = hp.required('Number of classes in the task labels.')
+    alpha: float = hp.optional('Strength of interpolation, should be >= 0. No interpolation if alpha=0.', default=1.0)
 
-    def initialize_object(self) -> "CutMix":
+    def initialize_object(self) -> CutMix:
         return CutMix(**asdict(self))
 
 
