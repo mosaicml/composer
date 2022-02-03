@@ -474,13 +474,13 @@ class Timer(Serializable):
         return self_counter >= other
 
     def get_timestamp(self):
-        """Returns a Timestamp tuple for the current time.
+        """Returns a snapshot of the current time.
 
-        Unlike the :class:`Timer`, the values in a :class:`Timestamp` are NOT incremented as training
-        progresses.
+        Unlike the :class:`Timer`, the values in a :class:`Timestamp` are a snapshot and are NOT incremented as
+        training progresses.
 
         Returns:
-            Timestamp: Tuple of (epoch, batch, sample, token) for the current time.
+            Timestamp: A snapshot of the current training time.
         """
         return Timestamp(
             epoch=self.epoch,
@@ -494,10 +494,12 @@ class Timer(Serializable):
 
 
 class Timestamp(NamedTuple):
-    """Timestamp contains the values of all time counters from a call to :meth:`Timer.get_timestamp`.
+    """Timestamp represents a snapshot of :class:`Timer`.
 
-    Unlike the :class:`Timer`, the values in a :class:`Timestamp` are NOT incremented as training
-    progresses.
+    It is returned from a call to :meth:`Timer.get_timestamp`.
+
+    Unlike the :class:`Timer`, the values in a :class:`Timestamp` are a snapshot and are NOT incremented as
+    training progresses.
 
     .. note::
 
