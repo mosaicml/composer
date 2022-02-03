@@ -11,6 +11,7 @@ from tqdm import auto
 from composer.core.event import Event
 from composer.core.logging import Logger, LogLevel
 from composer.core.state import State
+from composer.loggers.in_memory_logger import InMemoryLogger
 from composer.loggers.logger_hparams import (FileLoggerBackendHparams, TQDMLoggerBackendHparams,
                                              WandBLoggerBackendHparams)
 from composer.trainer.trainer_hparams import TrainerHparams
@@ -129,3 +130,28 @@ def test_wandb_logger(composer_trainer_hparams: TrainerHparams, world_size: int)
     ]
     trainer = composer_trainer_hparams.initialize_object()
     trainer.fit()
+
+
+def test_in_memory_logger(dummy_state: State):
+    in_memory_logger = InMemoryLogger(LogLevel.EPOCH)
+    logger = Logger(dummy_state, backends=[in_memory_logger])
+    logger.metric_batch({"batch": "should_be_ignored"})
+    logger.metric_epoch({"epoch": "should_be_recorded"})
+    dummy_state.timer.on_batch_complete(samples=1, tokens=1)
+    logger.metric_epoch({"epoch": "should_be_recorded_and_override"})
+
+    # no batch events should be logged, since the level is epoch
+    assert "batch" not in in_memory_logger.data
+    assert len(in_memory_logger.data["epoch"]) == 2
+
+    # `in_memory_logger.data` should contain everything
+    timestamp, _, data = in_memory_logger.data["epoch"][0]
+    assert timestamp.batch == 0
+    assert data == "should_be_recorded"
+    timestamp, _, data = in_memory_logger.data["epoch"][1]
+    assert timestamp.batch == 1
+    assert data == "should_be_recorded_and_override"
+
+    # the most recent values should have just the last call to epoch
+    assert in_memory_logger.most_recent_values["epoch"] == "should_be_recorded_and_override"
+    assert in_memory_logger.most_recent_timestamps["epoch"].batch == 1

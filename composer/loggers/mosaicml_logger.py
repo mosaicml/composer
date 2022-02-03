@@ -16,6 +16,7 @@ import requests
 from composer.core.logging import LogLevel, TLogData
 from composer.core.logging.base_backend import BaseLoggerBackend
 from composer.core.logging.logger import format_log_data_as_json
+from composer.core.time import Timestamp
 from composer.core.types import JSON, Logger, State, StateDict
 from composer.utils import dist
 from composer.utils.string_enum import StringEnum
@@ -159,7 +160,7 @@ class MosaicMLLoggerBackend(BaseLoggerBackend):
         del state  # unused
         return log_level <= self.log_level
 
-    def log_metric(self, epoch: int, step: int, log_level: LogLevel, data: TLogData):
+    def log_metric(self, timestamp: Timestamp, log_level: LogLevel, data: TLogData):
         del log_level  # unused
 
         if self.skip_logging:
@@ -167,8 +168,8 @@ class MosaicMLLoggerBackend(BaseLoggerBackend):
 
         formatted_data = format_log_data_as_json(data)
         log_data = {
-            "epoch": epoch,
-            "step": step,
+            "epoch": int(timestamp.epoch),
+            "step": int(timestamp.batch),
         }
         log_data.update(formatted_data)  # type: ignore
         self.buffered_data.append(log_data)
