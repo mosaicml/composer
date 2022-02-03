@@ -36,6 +36,7 @@ const darkCodeTheme = require('prism-react-renderer/themes/dracula');
         logo: {
           alt: 'MosaicML Logo',
           src: 'img/logo.svg',
+          srcDark: 'img/dark-logo.svg'
         },
         items: [
           {
