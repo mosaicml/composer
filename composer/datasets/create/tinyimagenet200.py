@@ -3,7 +3,7 @@ import os
 from PIL import Image
 from random import shuffle
 from tqdm import tqdm
-from typing import Any, Generator, Tuple
+from typing import Any, Dict, Generator, List, Tuple
 
 from composer.datasets.webdataset import create_webdataset
 
@@ -18,7 +18,7 @@ def parse_args() -> Namespace:
     return args.parse_args()
 
 
-def get_train(in_root: str, wnids: list) -> list[Tuple[str, int]]:
+def get_train(in_root: str, wnids: List[str]) -> List[Tuple[str, int]]:
     pairs = []
     for wnid_idx, wnid in tqdm(enumerate(wnids), leave=False):
         in_dir = os.path.join(in_root, 'train', wnid, 'images')
@@ -29,7 +29,7 @@ def get_train(in_root: str, wnids: list) -> list[Tuple[str, int]]:
     return pairs
 
 
-def get_val(in_root: str, wnid2idx: dict[str, int]) -> list[Tuple[str, int]]:
+def get_val(in_root: str, wnid2idx: Dict[str, int]) -> List[Tuple[str, int]]:
     pairs = []
     filename = os.path.join(in_root, 'val', 'val_annotations.txt')
     lines = open(filename).read().strip().split('\n')
@@ -42,7 +42,7 @@ def get_val(in_root: str, wnid2idx: dict[str, int]) -> list[Tuple[str, int]]:
     return pairs
 
 
-def each_sample(pairs: list[Tuple[str, int]]) -> Generator[dict[str, Any], None, None]:
+def each_sample(pairs: List[Tuple[str, int]]) -> Generator[Dict[str, Any], None, None]:
     for idx, (img_file, cls) in enumerate(pairs):
         img = Image.open(img_file)
         yield {

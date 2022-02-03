@@ -1,7 +1,7 @@
 from argparse import ArgumentParser, Namespace
 import numpy as np
 from torchvision.datasets import CIFAR10
-from typing import Any, Generator, Tuple
+from typing import Any, Dict, Generator, Tuple
 from wurlitzer import pipes
 
 from composer.datasets.webdataset import create_webdataset
@@ -23,7 +23,7 @@ def shuffle(dataset: CIFAR10) -> Tuple[np.ndarray, np.ndarray]:
     return images, classes
 
 
-def each_sample(images: np.ndarray, classes: np.ndarray) -> Generator[dict[str, Any], None, None]:
+def each_sample(images: np.ndarray, classes: np.ndarray) -> Generator[Dict[str, Any], None, None]:
     for idx, (img, cls) in enumerate(zip(images, classes)):
         yield {
             '__key__': f'{idx:05d}',

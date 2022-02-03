@@ -3,7 +3,7 @@ from glob import glob
 import os
 from PIL import Image
 from random import shuffle
-from typing import Any, Generator, Tuple
+from typing import Any, Dict, Generator, List, Tuple
 
 from composer.datasets.webdataset import create_webdataset
 
@@ -18,7 +18,7 @@ def parse_args() -> Namespace:
     return args.parse_args()
 
 
-def find_samples(in_root: str, split: str) -> list[Tuple[str, int]]:
+def find_samples(in_root: str, split: str) -> List[Tuple[str, int]]:
     pattern = os.path.join(in_root, split, '*', '*.JPEG')
     filenames = sorted(glob(pattern))
     wnid2class = {}
@@ -35,7 +35,7 @@ def find_samples(in_root: str, split: str) -> list[Tuple[str, int]]:
     return pairs
 
 
-def each_sample(pairs: list[Tuple[str, int]]) -> Generator[dict[str, Any], None, None]:
+def each_sample(pairs: List[Tuple[str, int]]) -> Generator[Dict[str, Any], None, None]:
     for idx, (img_file, cls) in enumerate(pairs):
         img = Image.open(img_file).convert('RGB')
         yield {

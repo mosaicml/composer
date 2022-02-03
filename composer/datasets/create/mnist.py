@@ -1,7 +1,7 @@
 from argparse import ArgumentParser, Namespace
 import numpy as np
 from torchvision.datasets import MNIST
-from typing import Any, Generator
+from typing import Any, Dict, Generator, Tuple
 
 from composer.datasets.webdataset import create_webdataset
 
@@ -15,14 +15,14 @@ def parse_args() -> Namespace:
     return args.parse_args()
 
 
-def shuffle(dataset: MNIST) -> tuple[np.ndarray, np.ndarray]:
+def shuffle(dataset: MNIST) -> Tuple[np.ndarray, np.ndarray]:
     indices = np.random.permutation(len(dataset))
     images = dataset.data[indices].numpy()
     classes = dataset.targets[indices].numpy()
     return images, classes
 
 
-def each_sample(images: np.ndarray, classes: np.ndarray) -> Generator[dict[str, Any], None, None]:
+def each_sample(images: np.ndarray, classes: np.ndarray) -> Generator[Dict[str, Any], None, None]:
     for idx, (img, cls) in enumerate(zip(images, classes)):
         yield {
             '__key__': f'{idx:05d}',
