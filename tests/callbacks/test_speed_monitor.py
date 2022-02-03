@@ -24,7 +24,7 @@ def test_speed_monitor(composer_trainer_hparams: TrainerHparams):
     wall_clock_train_calls = 0
     throughput_step_calls = 0
     for call_ in log_destination.log_metric.mock_calls:
-        metrics = call_[1][3]
+        metrics = call_[1][2]
         if "throughput/step" in metrics:
             throughput_step_calls += 1
         if "throughput/epoch" in metrics:
