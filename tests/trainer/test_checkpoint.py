@@ -249,6 +249,7 @@ def test_load_weights(
 ])
 @pytest.mark.parametrize("seed,checkpoint_filename",
                          [[None, "ep1.tar"], [42, "ep1.tar"], [42, "it4.tar"], [42, "it6.tar"]])
+@pytest.mark.parametrize("compression", ["", "gzip"])
 @pytest.mark.parametrize("model_name", [None, "resnet50_synthetic", "gpt2_52m"])
 def test_checkpoint(
     device_hparams: DeviceHparams,
@@ -257,6 +258,7 @@ def test_checkpoint(
     zero_stage: Optional[int],
     composer_trainer_hparams: TrainerHparams,
     checkpoint_filename: str,
+    compression: str,
     seed: Optional[int],
     model_name: Optional[str],
 ):
@@ -314,6 +316,7 @@ def test_checkpoint(
     checkpoint_a_folder = "first"
     composer_trainer_hparams.save_folder = checkpoint_a_folder
     composer_trainer_hparams.save_interval = "1ep" if checkpoint_filename.startswith("ep") else "2ba"
+    composer_trainer_hparams.save_compression = compression
     composer_trainer_hparams.seed = seed
 
     composer_trainer_hparams.validate_every_n_batches = 0 if checkpoint_filename.startswith("it") else 1
