@@ -13,7 +13,7 @@ from PIL import Image
 from torch.utils.data import Dataset
 from torchvision import transforms
 
-from composer.core.types import DataSpec
+from composer.datasets.dataloader import ComposerDataLoader
 from composer.datasets.hparams import DatasetHparams, SyntheticHparamsMixin
 from composer.datasets.imagenet import IMAGENET_CHANNEL_MEAN, IMAGENET_CHANNEL_STD
 from composer.datasets.synthetic import SyntheticBatchPairDataset
@@ -276,7 +276,7 @@ class ADE20kDatasetHparams(DatasetHparams, SyntheticHparamsMixin):
         if self.max_resize_scale < self.min_resize_scale:
             raise ValueError("max_resize_scale cannot be less than min_resize_scale")
 
-    def initialize_object(self, batch_size, dataloader_hparams) -> DataSpec:
+    def initialize_object(self, batch_size, dataloader_hparams) -> ComposerDataLoader:
         self.validate()
 
         if self.use_synthetic:
@@ -338,9 +338,9 @@ class ADE20kDatasetHparams(DatasetHparams, SyntheticHparamsMixin):
                              image_transforms=image_transforms,
                              target_transforms=target_transforms)
         sampler = dist.get_sampler(dataset, drop_last=self.drop_last, shuffle=self.shuffle)
-        return DataSpec(dataloader=dataloader_hparams.initialize_object(dataset=dataset,
-                                                                        batch_size=batch_size,
-                                                                        sampler=sampler,
-                                                                        collate_fn=collate_fn,
-                                                                        drop_last=self.drop_last),
-                        device_transforms=device_transform_fn)
+        return ComposerDataLoader(dataloader=dataloader_hparams.initialize_object(dataset=dataset,
+                                                                                  batch_size=batch_size,
+                                                                                  sampler=sampler,
+                                                                                  collate_fn=collate_fn,
+                                                                                  drop_last=self.drop_last),
+                                  device_transforms=device_transform_fn)

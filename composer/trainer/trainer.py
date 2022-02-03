@@ -19,14 +19,14 @@ from torch.optim.lr_scheduler import CosineAnnealingLR
 from torchmetrics.collections import MetricCollection
 from torchmetrics.metric import Metric
 
-from composer.core import Callback, DataSpec, Engine, Event, Logger, State, Time, surgery
+from composer.core import Callback, Engine, Event, Logger, State, Time, surgery
 from composer.core.algorithm import Algorithm
 from composer.core.evaluator import Evaluator
 from composer.core.logging import BaseLoggerBackend, LogLevel
 from composer.core.time import TimeUnit
 from composer.core.types import (Batch, BreakEpochException, DataLoader, Evaluators, Metrics, Optimizers, Precision,
                                  Schedulers)
-from composer.datasets.dataloader import unwrap_data_loader
+from composer.datasets.dataloader import ComposerDataLoader, unwrap_data_loader
 from composer.loggers.tqdm_logger import TQDMLoggerBackend
 from composer.models.base import ComposerModel
 from composer.optim import ComposedScheduler
@@ -59,9 +59,9 @@ class Trainer:
 
     Args:
         model (ComposerModel): The model to train.
-        train_dataloader (DataLoader, DataSpec, or dict): The :class:`DataLoader`, :class:`DataSpec`,
-            or dict of :class:`DataSpec` kwargs for the training data.
-        eval_dataloader (DataLoader, DataSpec, Evaluators): The :class:`DataLoader`, :class:`DataSpec`,
+        train_dataloader (DataLoader): The :class:`DataLoader` for the training data. Can optionally be
+            provided as a :class:`ComposerDataLoader`.
+        eval_dataloader (DataLoader, Evaluators): The :class:`DataLoader` or
             :class:`Evaluators` for the evaluation data. The :class:`Evaluator`
             class contains metrics relevant to the specific dataset. Set to ``None`` for no evaluation.
         max_duration (Time or str): The maximum duration to train. See `~composer.core.Time` for details.
@@ -139,8 +139,8 @@ class Trainer:
             self,
             *,
             model: ComposerModel,
-            train_dataloader: Union[DataLoader, DataSpec],
-            eval_dataloader: Optional[Union[DataLoader, DataSpec, Evaluators]],
+            train_dataloader: DataLoader,
+            eval_dataloader: Optional[Union[DataLoader, Evaluators]],
             max_duration: Union[str, Time],
             algorithms: Optional[List[Algorithm]] = None,
             optimizers: Optional[Optimizers] = None,
@@ -250,7 +250,7 @@ class Trainer:
             else:
                 self.ddp_sync_strategy = DDPSyncStrategy(ddp_sync_strategy)
 
-        # `eval_dataloader` could be a dataloader, dataspec, evaluator, List[Evaluator], Tuple[Evaluator, ...], or dict of Dataspec hparams
+        # `eval_dataloader` could be a dataloader, evaluator, or list/tuple of evaluators
         # convert it to `List[Evaluator]`
         self.evaluators: List[Evaluator] = []
         for evaluator in ensure_tuple(eval_dataloader):
@@ -275,11 +275,11 @@ class Trainer:
         if isinstance(precision, str):
             precision = Precision(precision)
 
-        if not isinstance(train_dataloader, DataSpec):
-            train_dataloader = DataSpec(train_dataloader)
+        if not isinstance(train_dataloader, ComposerDataLoader):
+            train_dataloader = ComposerDataLoader(train_dataloader)
 
-        self._train_data_spec = train_dataloader
-        unwrapped_data_loader = unwrap_data_loader(self._train_data_spec.dataloader)
+        self._train_dataloader = train_dataloader
+        unwrapped_data_loader = unwrap_data_loader(self._train_dataloader)
         if isinstance(unwrapped_data_loader, torch.utils.data.DataLoader):
             if unwrapped_data_loader._iterator is not None:
                 raise ValueError(
@@ -506,7 +506,7 @@ class Trainer:
         samples_per_epoch = None
         tokens_per_epoch = None
 
-        if isinstance(train_dataloader, DataSpec):
+        if isinstance(train_dataloader, ComposerDataLoader):
             if train_dataloader.num_samples is not None:
                 samples_per_epoch = train_dataloader.num_samples
                 tokens_per_epoch = train_dataloader.num_tokens
@@ -646,7 +646,7 @@ class Trainer:
         # spin the evaluator dataloaders once to initialize its sampler deterministically
         # so it does not affect any other RNG reads
         for evaluator in self.state.evaluators:
-            dataloader = evaluator.dataloader.dataloader
+            dataloader = evaluator.dataloader
             if isinstance(dataloader.sampler, torch.utils.data.DistributedSampler):
                 dataloader.sampler.set_epoch(0)
             for _ in dataloader:
@@ -712,9 +712,9 @@ class Trainer:
                         continue
 
                     state.batch = self.device.batch_to_device(state.batch)
-                    state.batch = self._train_data_spec.device_transforms(state.batch)
-                    state.batch_num_samples = self._train_data_spec.get_num_samples_in_batch(state.batch)
-                    state.batch_num_tokens = self._train_data_spec.get_num_tokens_in_batch(state.batch)
+                    state.batch = self._train_dataloader.device_transforms(state.batch)
+                    state.batch_num_samples = self._train_dataloader.get_num_samples_in_batch(state.batch)
+                    state.batch_num_tokens = self._train_dataloader.get_num_tokens_in_batch(state.batch)
 
                     if self.deepspeed_enabled:
                         state.batch = fix_batch_precision_for_deepspeed(state.batch, state.precision)
@@ -724,7 +724,7 @@ class Trainer:
                         assert train_metrics is not None
                         state.model.eval()
                         with torch.no_grad():
-                            for eval_microbatch in self._train_data_spec.split_batch(state.batch, state.grad_accum):
+                            for eval_microbatch in self._train_dataloader.split_batch(state.batch, state.grad_accum):
                                 # TODO: Detect if self.run_event(Event.AFTER_DATALOADER) changes the training
                                 # data and if so print a warning that metrics may return unexpected results
                                 outputs, targets = self.original_model.validate(eval_microbatch)
@@ -747,7 +747,7 @@ class Trainer:
                         "trainer/batch_idx": self.state.timer.batch_in_epoch.value,
                     })
                     total_loss = None
-                    microbatches = self._train_data_spec.split_batch(state.batch, state.grad_accum)
+                    microbatches = self._train_dataloader.split_batch(state.batch, state.grad_accum)
                     if self.deepspeed_enabled:
                         total_loss = self._train_batch(microbatches)
                     elif self._use_closures():
@@ -856,11 +856,11 @@ class Trainer:
 
         # tracker for gradient accumulation
         total_loss = self.device.tensor_to_device(torch.zeros(size=(1,)))
-        current_batch_size = sum([self._train_data_spec.get_num_samples_in_batch(batch) for batch in microbatches])
+        current_batch_size = sum([self._train_dataloader.get_num_samples_in_batch(batch) for batch in microbatches])
 
         for microbatch_idx, state.batch in enumerate(microbatches):
-            state.batch_num_tokens = self._train_data_spec.get_num_tokens_in_batch(state.batch)
-            state.batch_num_samples = self._train_data_spec.get_num_samples_in_batch(state.batch)
+            state.batch_num_tokens = self._train_dataloader.get_num_tokens_in_batch(state.batch)
+            state.batch_num_samples = self._train_dataloader.get_num_samples_in_batch(state.batch)
             is_final_microbatch = microbatch_idx + 1 == len(microbatches)
             sync_context = contextlib.nullcontext() if self.deepspeed_enabled else ddp_sync_context(
                 state, is_final_microbatch, self.ddp_sync_strategy)
@@ -950,7 +950,9 @@ class Trainer:
             self.engine.run_event(Event.EVAL_START)
 
             for evaluator in state.evaluators:
-                dataloader = evaluator.dataloader.dataloader
+                dataloader = evaluator.dataloader
+                if not isinstance(dataloader, ComposerDataLoader):
+                    dataloader = ComposerDataLoader(dataloader)
                 metrics = self._ensure_metrics_device_and_dtype(evaluator.metrics)
                 if isinstance(dataloader.sampler, torch.utils.data.DistributedSampler):
                     # The distributed sampler uses `set_epoch` to set the random seed
@@ -961,10 +963,10 @@ class Trainer:
 
                 for state.batch in itertools.islice(dataloader, self._eval_subset_num_batches):
                     state.batch = self.device.batch_to_device(state.batch)
-                    if evaluator.dataloader.device_transforms:
-                        state.batch = evaluator.dataloader.device_transforms(state.batch)
-                    state.batch_num_samples = evaluator.dataloader.get_num_samples_in_batch(state.batch)
-                    state.batch_num_tokens = evaluator.dataloader.get_num_tokens_in_batch(state.batch)
+                    if dataloader.device_transforms:
+                        state.batch = dataloader.device_transforms(state.batch)
+                    state.batch_num_samples = dataloader.get_num_samples_in_batch(state.batch)
+                    state.batch_num_tokens = dataloader.get_num_tokens_in_batch(state.batch)
 
                     if self.deepspeed_enabled:
                         state.batch = fix_batch_precision_for_deepspeed(state.batch, state.precision)

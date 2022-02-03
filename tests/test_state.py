@@ -8,7 +8,7 @@ import torch.nn.functional as F
 from torch.functional import Tensor
 
 from composer.algorithms.dummy import DummyHparams
-from composer.core import DataSpec, State, types
+from composer.core import State, types
 from composer.core.state import DIRECT_SERIALIZATION_FIELDS, SKIP_SERIALIZATION_FIELDS, STATE_DICT_SERIALIZATION_FIELDS
 from composer.datasets.dataloader import DataloaderHparams
 from composer.datasets.hparams import DatasetHparams
@@ -95,8 +95,6 @@ def train_one_step(state: State, batch: types.Batch) -> None:
 
 def get_batch(dataset_hparams: DatasetHparams, dataloader_hparams: DataloaderHparams) -> types.Batch:
     dataloader = dataset_hparams.initialize_object(batch_size=2, dataloader_hparams=dataloader_hparams)
-    if isinstance(dataloader, DataSpec):
-        dataloader = dataloader.dataloader
     for batch in dataloader:
         return batch
     raise RuntimeError("No batch in dataloader")

@@ -77,8 +77,7 @@ class State(Serializable):
     Args:
         model (types.Model, often ComposerModel): The model, typically as a subclass of :class:`ComposerModel`.
         grad_accum (int): The number of gradient accumulation steps to use. The size of each microbatch is ``train_batch_size / num_gpus / grad_accum``.
-        train_dataloader (types.DataLoader, types.DataSpec, or dict):
-            The :class:`types.DataLoader`, :class:`types.DataSpec`, or dict of :class:`types.DataSpec` kwargs to used for training.
+        train_dataloader (types.DataLoader): The :class:`types.DataLoader` used for training.
         evaluators (Evaluators):
             The :class:`types.Evaluators` contain the evaluation datasets used for evaluation with specific metrics.
         max_duration (str or Time): The maximum duration to train for.

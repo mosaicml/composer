@@ -10,8 +10,7 @@ import yahp as hp
 from torchvision import transforms
 from torchvision.datasets import ImageFolder
 
-from composer.core.types import DataSpec
-from composer.datasets.dataloader import DataloaderHparams
+from composer.datasets.dataloader import ComposerDataLoader, DataloaderHparams
 from composer.datasets.hparams import DatasetHparams, SyntheticHparamsMixin
 from composer.datasets.synthetic import SyntheticBatchPairDataset
 from composer.utils import dist
@@ -78,11 +77,11 @@ class ImagenetDatasetHparams(DatasetHparams, SyntheticHparamsMixin):
             dataset = ImageFolder(os.path.join(self.datadir, split), transformation)
         sampler = dist.get_sampler(dataset, drop_last=self.drop_last, shuffle=self.shuffle)
 
-        return DataSpec(dataloader=dataloader_hparams.initialize_object(
+        return ComposerDataLoader(dataloader=dataloader_hparams.initialize_object(
             dataset=dataset,
             batch_size=batch_size,
             sampler=sampler,
             drop_last=self.drop_last,
             collate_fn=collate_fn,
         ),
-                        device_transforms=device_transform_fn)
+                                  device_transforms=device_transform_fn)

@@ -6,8 +6,7 @@ from multiprocessing import cpu_count
 
 import yahp as hp
 
-from composer.core import DataSpec
-from composer.datasets.dataloader import DataloaderHparams
+from composer.datasets.dataloader import ComposerDataLoader, DataloaderHparams
 from composer.datasets.hparams import DatasetHparams
 from composer.datasets.lm_datasets import _split_dict_fn
 from composer.utils import dist
@@ -27,7 +26,7 @@ class GLUEHparams(DatasetHparams):
             Default: 256
 
     Returns:
-        A :class:`~composer.core.DataSpec` object
+        A :class:`~composer.datasets.ComposerDataLoader` object
     """
 
     task: str = hp.optional(
@@ -61,7 +60,7 @@ class GLUEHparams(DatasetHparams):
         if self.split is None:
             raise ValueError("A dataset split must be specified.")
 
-    def initialize_object(self, batch_size: int, dataloader_hparams: DataloaderHparams) -> DataSpec:
+    def initialize_object(self, batch_size: int, dataloader_hparams: DataloaderHparams) -> ComposerDataLoader:
         # TODO (Moin): I think this code is copied verbatim in a few different places. Move this into a function.
         try:
             import datasets
@@ -108,7 +107,7 @@ class GLUEHparams(DatasetHparams):
         data_collator = transformers.data.data_collator.default_data_collator
         sampler = dist.get_sampler(dataset, drop_last=self.drop_last, shuffle=self.shuffle)
 
-        return DataSpec(
+        return ComposerDataLoader(
             dataloader=dataloader_hparams.initialize_object(
                 dataset=dataset,  #type: ignore (thirdparty)
                 batch_size=batch_size,

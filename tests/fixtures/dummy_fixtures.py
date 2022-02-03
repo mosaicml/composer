@@ -11,7 +11,7 @@ from torchmetrics.collections import MetricCollection
 
 from composer import Logger, State
 from composer.core.evaluator import Evaluator
-from composer.core.types import DataLoader, DataSpec, Model, Optimizer, Precision, Scheduler
+from composer.core.types import DataLoader, Model, Optimizer, Precision, Scheduler
 from composer.datasets import DataloaderHparams, DatasetHparams
 from composer.models import ComposerClassifier, ModelHparams
 from composer.optim import AdamHparams, ExponentialLRHparams
@@ -121,13 +121,13 @@ def dummy_dataloader_hparams() -> DataloaderHparams:
 
 @pytest.fixture
 def dummy_train_dataloader(dummy_train_dataset_hparams: DatasetHparams, dummy_train_batch_size: int,
-                           dummy_dataloader_hparams: DataloaderHparams) -> Union[DataLoader, DataSpec]:
+                           dummy_dataloader_hparams: DataloaderHparams) -> DataLoader:
     return dummy_train_dataset_hparams.initialize_object(dummy_train_batch_size, dummy_dataloader_hparams)
 
 
 @pytest.fixture
 def dummy_val_dataloader(dummy_train_dataset_hparams: DatasetHparams, dummy_val_batch_size: int,
-                         dummy_dataloader_hparams: DataloaderHparams) -> Union[DataLoader, DataSpec]:
+                         dummy_dataloader_hparams: DataloaderHparams) -> DataLoader:
     return dummy_train_dataset_hparams.initialize_object(dummy_val_batch_size, dummy_dataloader_hparams)
 
 

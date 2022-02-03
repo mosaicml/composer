@@ -15,10 +15,10 @@ from _pytest.monkeypatch import MonkeyPatch
 import composer.core.types as types
 from composer import Callback, Event
 from composer.callbacks import CallbackHparams
-from composer.core.data_spec import DataSpec
 from composer.core.logging import Logger
 from composer.core.state import State
 from composer.datasets import DataloaderHparams, SyntheticBatchPairDataset, SyntheticHparamsMixin
+from composer.datasets.dataloader import ComposerDataLoader
 from composer.datasets.hparams import DatasetHparams
 from composer.trainer.devices import CPUDeviceHparams, DeviceHparams, GPUDeviceHparams
 from composer.trainer.trainer_hparams import TrainerHparams, callback_registry, dataset_registry
@@ -187,7 +187,7 @@ def test_ddp(device: DeviceHparams, world_size: int, composer_trainer_hparams: T
     assert isinstance(trainer.state.train_dataloader.dataset, collections.abc.Sized)
 
     for evaluator in trainer.evaluators:
-        assert isinstance(evaluator.dataloader, DataSpec)
+        assert isinstance(evaluator.dataloader, ComposerDataLoader)
         assert isinstance(evaluator.dataloader.dataloader, collections.abc.Sized)
     trainer.fit()
 

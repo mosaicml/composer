@@ -114,9 +114,9 @@ class TQDMLoggerBackend(BaseLoggerBackend):
         else:
             total_steps = 0
             for evaluator in state.evaluators:
-                dataloader_spec = evaluator.dataloader
-                assert isinstance(dataloader_spec.dataloader, collections.abc.Sized)
-                total_steps += len(dataloader_spec.dataloader)
+                dataloader = evaluator.dataloader
+                assert isinstance(dataloader, collections.abc.Sized)
+                total_steps += len(dataloader)
 
         desc = f'Epoch {int(state.timer.epoch)}'
         position = 0 if self.is_train else 1
