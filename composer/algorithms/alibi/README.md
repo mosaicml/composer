@@ -1,5 +1,7 @@
 # ALiBi `NLP`
 
+[\[How to Use\]](#how-to-use) &middot; [\[Suggested Hyperparameters\]](#suggested-hyperparameters) &middot; [\[Technical Details\]](#technical-details) &middot; [\[Attribution\]](#attribution)
+
 ALiBi (Attention with Linear Biases) dispenses with position embeddings for tokens in transformer-based NLP models, instead encoding position information by biasing the query-key attention scores proportionally to each token pair’s distance. ALiBi yields excellent extrapolation to unseen sequence lengths compared to other position embedding schemes. We leverage this extrapolation capability by training with shorter sequence lengths, which reduces the memory and computation load.
 
 | ![Alibi](alibi.png) |
@@ -27,6 +29,12 @@ def training_loop(model, train_loader):
 
 ### Composer Trainer
 
+## Suggested Hyperparameters
+
+We found that `train_sequence_length_scaling=0.25` (sequence length 256) provided appreciable speed and accuracy gains for models evaluated at sequence length 1024.
+We observed that performance significantly degraded for ALiBi models trained on sequence lengths ≤128.
+As such, we do not recommend training models with sequence lengths ≤256 or `train_sequence_length_scaling≤0.03125`, whichever is larger.
+
 ## Technical Details
 
 ALiBi dispenses with traditional position embeddings and instead adds a static, non-learned bias to the query-key attention scores (or attention weights). This bias is proportional to the distance between the query and key tokens that comprise each attention score. The distances are scaled by *m*, a head-specific scalar that is fixed during training.
@@ -35,11 +43,7 @@ Press et al. found that learning *m* did not lead to strong extrapolation. They 
 
 Press et al. report that models trained with ALiBi maintain similar performance even when tested on sequences 5-10x longer than they were trained on. ALiBi’s extrapolation capabilities can be leveraged to train on shorter sequences. This is desirable because the number of operations required to compute self-attention and the GPU memory usage required to store the resulting representations both increase with the square of the sequence length. In one example scenario, Press et al. reported training to equal perplexity in 90% of the time and utilizing 90% of the GPU memory compared to a baseline model with sinusoidal position embeddings. Our experiments showed that ALiBi could reduce perplexity by 0.2-0.6, train models 1.15x faster and utilize 1.2x less GPU memory compared to baseline models (see below).
 
-> 👍 Suggested Hyperparameters
-> 
-> We found that `train_sequence_length_scaling=0.25` (sequence length 256) provided appreciable speed and accuracy gains for models evaluated at sequence length 1024.
-
-We conducted experiments on the GPT-2 model family trained on OpenWebText on 8x NVIDIA A100-40GBs. We compared baseline models with learned position embeddings and training sequence length 1024 to models using ALiBi with `train_sequence_length_scaling=0.25` (i.e., train sequence length 256). Our results are shown in the table below.
+We conducted experiments on the GPT-2 model family trained on OpenWebText on 8x NVIDIA A100-40GBs. We compared baseline models with learned position embeddings and training sequence length 1024 to models using ALiBi with `train_sequence_length_scaling=0.25` (i.e., train sequence length 256). We found that `train_sequence_length_scaling=0.25` (sequence length 256) provided appreciable speed and accuracy gains for models evaluated at sequence length 1024. Our results are shown in the table below.
 
 |Name|Perplexity|	&Delta;|Train Time (s)|Speedup|GPU Memory|Reduction|
 |:-|:-:|:-:|:-:|:-:|:-:|:-:|
