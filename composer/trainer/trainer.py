@@ -428,11 +428,11 @@ class Trainer:
     def deepspeed_enabled(self):
         return self.deepspeed_config is not None
 
-    def fit(self, shutdown: bool = True):
+    def fit(self, shutdown_at_end: bool = True):
         """Train and evaluate the model on the provided data.
         
         Args:
-            shutdown (bool, optional):
+            shutdown_at_end (bool, optional):
                 If ``True`` (the default), shutdown the trainer after finishing training.
                 Callbacks will perform data post-processing steps (i.e. uploading data to logging services).
                 Subsequent calls to :meth:`Trainer.fit` are not permitted. A new :class:`Trainer` instance
@@ -454,7 +454,7 @@ class Trainer:
             self.engine.close()
             raise
         else:
-            if shutdown:
+            if shutdown_at_end:
                 self.engine.close()
 
     def _ensure_metrics_device_and_dtype(self, metrics: MetricCollection):

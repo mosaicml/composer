@@ -90,7 +90,7 @@ def test_init_idempotency(composer_trainer_hparams: TrainerHparams, dummy_num_cl
     trainer = composer_trainer_hparams.initialize_object()
     # idempotency test 1: run the FIT event again
     trainer.engine.run_event(Event.FIT_START)
-    trainer.fit(shutdown=False)
+    trainer.fit(shutdown_at_end=False)
     trainer.state.max_duration = trainer.state.max_duration + trainer.state.max_duration
     # idempotency test 2: run FIT again. This will trigger another call to FIT_START
     if issubclass(hparams_cls, LayerFreezingHparams):
