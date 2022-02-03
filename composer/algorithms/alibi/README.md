@@ -4,7 +4,7 @@ ALiBi (Attention with Linear Biases) dispenses with position embeddings for toke
 
 | ![Alibi](alibi.png) |
 |:--:
-|*The matrix on the left depicts the attention score for each key-query token pair. The matrix on the right depicts the distance between each query-key token pair. m is a head-specific scalar that is fixed during training. Figure from Press et al., 2021.*|
+|*The matrix on the left depicts the attention score for each key-query token pair. The matrix on the right depicts the distance between each query-key token pair. m is a head-specific scalar that is fixed during training. Figure from [Press et al., 2021](https://openreview.net/forum?id=R8sQPpGCv0).*|
 
 ## Code
 
@@ -27,6 +27,8 @@ def training_loop(model, train_loader):
 
 ### Composer Trainer Example
 
+## Suggested Hyperparameters
+
 ## Technical Details
 
 ALiBi dispenses with traditional position embeddings and instead adds a static, non-learned bias to the query-key attention scores (or attention weights). This bias is proportional to the distance between the query and key tokens that comprise each attention score. The distances are scaled by *m*, a head-specific scalar that is fixed during training.
@@ -48,6 +50,7 @@ We conducted experiments on the GPT-2 model family trained on OpenWebText on 8x 
 |GPT2-125M|24.11||30176||95.96||
 |GPT2-125M ALiBi 0.25x|23.49|-0.63|25280|1.19x|74.83|1.28x|
 
+## Composability
 
 ## API
 
