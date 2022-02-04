@@ -19,7 +19,7 @@ from composer.utils.data import add_dataset_transform
 log = logging.getLogger(__name__)
 
 
-def colout(img: Union[torch.Tensor, Image], p_row: float, p_col: float) -> Union[torch.Tensor, Image]:
+def colout_image(img: Union[torch.Tensor, Image], p_row: float, p_col: float) -> Union[torch.Tensor, Image]:
     """Drops random rows and columns from a single image.
 
     Args:
@@ -86,10 +86,10 @@ class ColOutTransform:
         Returns:
             torch.Tensor or PIL Image: A smaller image with rows and columns dropped
         """
-        return colout(img, self.p_row, self.p_col)
+        return colout_image(img, self.p_row, self.p_col)
 
 
-def batch_colout(X: torch.Tensor, p_row: float, p_col: float) -> torch.Tensor:
+def colout_batch(X: torch.Tensor, p_row: float, p_col: float) -> torch.Tensor:
     """Applies ColOut augmentation to a batch of images, dropping the same random rows and columns from all images in a
     batch.
 
@@ -177,7 +177,7 @@ class ColOut(Algorithm):
         """Transform a batch of images using the ColOut augmentation."""
         inputs, labels = state.batch_pair
         assert isinstance(inputs, Tensor), "Multiple Tensors not supported yet for ColOut"
-        new_inputs = batch_colout(inputs, p_row=self.p_row, p_col=self.p_col)
+        new_inputs = colout_batch(inputs, p_row=self.p_row, p_col=self.p_col)
 
         state.batch = (new_inputs, labels)
 
