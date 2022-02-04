@@ -55,7 +55,7 @@ class SampleStochasticBottleneck(Bottleneck):
         if self.downsample is not None:
             identity = self.downsample(x)
 
-        if self.training and self.drop_rate:
+        if self.drop_rate:
             out = _sample_drop(out, self.drop_rate, self.training)
         out += identity
 
