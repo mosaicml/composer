@@ -35,8 +35,8 @@ def gen_interpolation_lambda(alpha: float) -> float:
 
 def mixup_batch(x: Tensor,
                 y: Tensor,
-                interpolation_lambda: float,
                 n_classes: int,
+                interpolation_lambda: float = 0.9,
                 indices: Optional[torch.Tensor] = None) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
     """Create new samples using convex combinations of pairs of samples.
 
@@ -125,7 +125,7 @@ class MixUp(Algorithm):
             one element of the pair.
     """
 
-    def __init__(self, alpha: float):
+    def __init__(self, alpha: float = 0.2):
         self.alpha = alpha
         self._interpolation_lambda = 0.0
         self._indices = torch.Tensor()
@@ -172,9 +172,8 @@ class MixUp(Algorithm):
         input, target = state.batch_pair
         assert isinstance(input, Tensor) and isinstance(target, Tensor), \
             "Multiple tensors for inputs or targets not supported yet."
-        alpha = self.alpha
 
-        self.interpolation_lambda = gen_interpolation_lambda(alpha)
+        self.interpolation_lambda = gen_interpolation_lambda(self.alpha)
 
         new_input, new_target, self.indices = mixup_batch(
             x=input,
