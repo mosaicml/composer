@@ -170,4 +170,4 @@ class AugMix(Algorithm):
                                     augmentation_set=self.augmentation_set)
         assert state.train_dataloader is not None, "Train Dataloader is not initialized."
         dataset = state.train_dataloader.dataset
-        add_dataset_transform(dataset, am, location=ToTensor, pre_post="pre")
+        add_dataset_transform(dataset, am, is_tensor_transform=False)

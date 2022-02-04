@@ -7,7 +7,7 @@ See :doc:`/core/types` for documentation.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Dict, Iterable, Iterator, List, Optional, Tuple, Union
+from typing import TYPE_CHECKING, Any, Callable, Dict, Iterable, Iterator, List, Optional, Tuple, Union
 
 import torch
 import torch.utils.data
@@ -164,3 +164,8 @@ class MemoryFormat(StringEnum):
     CHANNELS_LAST = "channels_last"
     CHANNELS_LAST_3D = "channels_last_3d"
     PRESERVE_FORMAT = "preserve_format"
+
+
+class DatasetWithTransform(Protocol):
+    """Protocol for """
+    transform: Callable

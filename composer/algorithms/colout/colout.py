@@ -168,7 +168,7 @@ class ColOut(Algorithm):
         transform = ColOutTransform(p_row=self.p_row, p_col=self.p_col)
 
         if hasattr(dataset, "transform"):
-            add_dataset_transform(dataset, transform)
+            add_dataset_transform(dataset, transform, is_tensor_transform=False)
         else:
             raise ValueError(
                 f"Dataset of type {type(dataset)} has no attribute 'transform'. Expected TorchVision dataset.")
