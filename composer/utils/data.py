@@ -107,7 +107,8 @@ def add_dataset_transform(dataset: VisionDataset,
 
     Args:
         dataset (torch.utils.data.Dataset): A torchvision-like dataset
-        transform (Callable): Function to be added to the dataset's collection of transforms
+        transform (Callable): Function to be added to the dataset's collection of
+            transforms
         is_tensor_transform (bool): Whether `transform` acts on data of the type
         torch.Tensor. If `True`, and torchvision.transforms.ToTensor() is present in
         `dataset`'s transforms, will insert the transform after ToTensor(). If `False` and
