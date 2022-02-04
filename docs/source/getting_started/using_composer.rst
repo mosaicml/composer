@@ -75,7 +75,7 @@ Here are several ways to use the trainer:
        hparams.grad_accum = 2
        hparams.datadir = "~/datasets"
 
-       trainer = Trainer.create_from_hparams(hparams)
+       trainer = hparams.initialize_object()
        trainer.fit()
 
    For a list of properties, see: :doc:`/trainer`
@@ -98,7 +98,7 @@ Here are several ways to use the trainer:
 
         hparams = TrainerHparams.create('composer/yamls/models/classify_mnist_cpu.yaml')
         hparams.datadir = "~/datasets"
-        trainer = Trainer.create_from_hparams(hparams)
+        trainer = hparams.initialize_object()
 
         trainer.fit()
 

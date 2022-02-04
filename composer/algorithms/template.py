@@ -19,13 +19,8 @@ class MyAlgorithmHparams(AlgorithmHparams):
     """This hparams object is for use with our hparams system for specifying algorithms via YAML and argument parser
     flags."""
 
-    alpha: float = hp.optional(doc='optional hparams need a default field. This field would'
-                               'not be required for CLI flags, but still required for the YAML config.',
-                               default=0.1)
-    beta: float = hp.required(doc='required fields need a template_default, which '
-                              'is used to generate templates. '
-                              'This field is still required for CLI flags.',
-                              template_default=0.5)
+    alpha: float = hp.optional(doc='optional hparams need a default field.', default=0.1)
+    beta: float = hp.required(doc='required field')
 
     def initialize_object(self) -> MyAlgorithm:
         """
