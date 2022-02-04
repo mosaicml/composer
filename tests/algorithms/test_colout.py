@@ -8,7 +8,7 @@ import torch
 from PIL import Image
 
 from composer.algorithms import ColOut, ColOutHparams
-from composer.algorithms.colout.colout import ColOutTransform, batch_colout
+from composer.algorithms.colout.colout import ColOutTransform, colout_batch
 from composer.core import Event
 from composer.trainer import TrainerHparams
 from tests.utils.trainer_fit import train_model
@@ -154,8 +154,8 @@ def test_reproducibility_image(fake_image_tensor, p_row, p_col):
 
 def test_reproducibility_batch(fake_image_batch, p_row, p_col):
     """Test that batch augmentation is reproducible given the same seed."""
-    transform_1 = functools.partial(batch_colout, p_row=p_row, p_col=p_col)
-    transform_2 = functools.partial(batch_colout, p_row=p_row, p_col=p_col)
+    transform_1 = functools.partial(colout_batch, p_row=p_row, p_col=p_col)
+    transform_2 = functools.partial(colout_batch, p_row=p_row, p_col=p_col)
 
     torch.manual_seed(42)
     new_batch_1 = transform_1(fake_image_batch)
@@ -167,7 +167,7 @@ def test_reproducibility_batch(fake_image_batch, p_row, p_col):
 
 def test_batch_drop_size(fake_image_batch, p_row, p_col):
     """Test application to a batch of images."""
-    colout = functools.partial(batch_colout, p_row=p_row, p_col=p_col)
+    colout = functools.partial(colout_batch, p_row=p_row, p_col=p_col)
     new_batch = colout(fake_image_batch)
     verify_shape_batch(fake_image_batch, new_batch, p_row, p_col)
 
@@ -175,7 +175,7 @@ def test_batch_drop_size(fake_image_batch, p_row, p_col):
 @pytest.mark.parametrize("p_col", [0.05, 0.25])
 def test_rectangle_batch_drop_size(fake_image_batch, p_row, p_col):
     """Test that unequal values of p_row and p_col work properly."""
-    colout = functools.partial(batch_colout, p_row=p_row, p_col=p_col)
+    colout = functools.partial(colout_batch, p_row=p_row, p_col=p_col)
     new_batch = colout(fake_image_batch)
     verify_shape_batch(fake_image_batch, new_batch, p_row, p_col)
 

@@ -119,7 +119,8 @@ Algorithm
 Standalone
 ^^^^^^^^^^
 
-.. autofunction:: composer.algorithms.colout.colout
+.. autofunction:: composer.algorithms.colout.colout_image
+.. autofunction:: composer.algorithms.colout.colout_batch
 
 
 CutOut

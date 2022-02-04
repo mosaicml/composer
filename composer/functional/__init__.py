@@ -11,7 +11,8 @@ from composer.algorithms.alibi.alibi import apply_alibi as apply_alibi
 from composer.algorithms.augmix import augmix_image as augmix_image
 from composer.algorithms.blurpool import apply_blurpool as apply_blurpool
 from composer.algorithms.channels_last.channels_last import apply_channels_last as apply_channels_last
-from composer.algorithms.colout.colout import colout as colout
+from composer.algorithms.colout.colout import colout_batch as colout_batch
+from composer.algorithms.colout.colout import colout_image as colout_image
 from composer.algorithms.cutmix.cutmix import cutmix as cutmix
 from composer.algorithms.cutout.cutout import cutout as cutout
 from composer.algorithms.ghost_batchnorm.ghost_batchnorm import apply_ghost_batchnorm as apply_ghost_batchnorm
