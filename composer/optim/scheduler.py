@@ -409,6 +409,8 @@ class ComposedScheduler(_LRScheduler):
         self.delay_schedulers = [CosineAnnealingLR, CosineAnnealingWarmRestarts, ExponentialLR, LinearLR]
         self._warmup_counter = 0  # counter to track warmups
 
+        self._last_lr = None
+
     def step(self, interval: str = 'epoch'):
         """Step all applicable schedulers.
 
@@ -425,6 +427,8 @@ class ComposedScheduler(_LRScheduler):
                 scheduler.step()
                 if isinstance(scheduler, WarmUpLR):
                     self._warmup_counter += 1
+                if hasattr(scheduler, "optimizer"):
+                    self._last_lr = [group['lr'] for group in scheduler.optimizer.param_groups]  # type: ignore
 
     def _validate_schedulers(self, warmup_epochs: int) -> None:
         """Verify that any stepwise schedulers do not change the LR during the desired warmup period.
