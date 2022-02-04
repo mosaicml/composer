@@ -31,10 +31,10 @@ class SyntheticBatchPairDataset(torch.utils.data.Dataset):
         num_unique_samples_to_create (int): The number of unique samples to allocate memory for.
         data_type (str or SyntheticDataType, optional), Type of synthetic data to create.
         label_type (str or SyntheticDataLabelType, optional), Type of synthetic data to create.
-        num_classes (int, optional): Number of classes to use. Required if `SyntheticDataLabelType`
-            is `CLASSIFICATION_INT` or `CLASSIFICATION_ONE_HOT`. Otherwise, should be `None`.
+        num_classes (int, optional): Number of classes to use. Required if
+            ``SyntheticDataLabelType`` is ``CLASSIFICATION_INT`` or``CLASSIFICATION_ONE_HOT``. Otherwise, should be ``None``.
         label_shape (List[int]): Shape of the tensor for each sample label.
-        device (str): Device to store the sample pool. Set to `cuda` to store samples
+        device (str): Device to store the sample pool. Set to ``cuda`` to store samples
             on the GPU and eliminate PCI-e bandwidth with the dataloader. Set to `cpu`
             to move data between host memory and the gpu on every batch.
         memory_format (MemoryFormat, optional): Memory format for the sample pool.
@@ -140,8 +140,9 @@ class SyntheticPILDataset(VisionDataset):
         num_unique_samples_to_create (int): The number of unique samples to allocate memory for.
         data_type (str or SyntheticDataType, optional), Type of synthetic data to create.
         label_type (str or SyntheticDataLabelType, optional), Type of synthetic data to create.
-        num_classes (int, optional): Number of classes to use. Required if `SyntheticDataLabelType`
-            is `CLASSIFICATION_INT` or `CLASSIFICATION_ONE_HOT`. Otherwise, should be `None`.
+        num_classes (int, optional): Number of classes to use. Required if
+            ``SyntheticDataLabelType`` is ``CLASSIFICATION_INT`` or
+            ``CLASSIFICATION_ONE_HOT``. Otherwise, should be ``None``.
         label_shape (List[int]): Shape of the tensor for each sample label.
     """
 
@@ -155,6 +156,7 @@ class SyntheticPILDataset(VisionDataset):
                  num_classes: Optional[int] = None,
                  label_shape: Optional[Sequence[int]] = None,
                  transform: Optional[Callable] = None):
+        super().__init__(root="", transform=transform)
         self.total_dataset_size = total_dataset_size
         self.data_shape = data_shape
         self.num_unique_samples_to_create = num_unique_samples_to_create

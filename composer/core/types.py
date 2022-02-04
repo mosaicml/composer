@@ -164,8 +164,3 @@ class MemoryFormat(StringEnum):
     CHANNELS_LAST = "channels_last"
     CHANNELS_LAST_3D = "channels_last_3d"
     PRESERVE_FORMAT = "preserve_format"
-
-
-class DatasetWithTransform(Protocol):
-    """Protocol for """
-    transform: Callable

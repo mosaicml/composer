@@ -106,22 +106,19 @@ def add_dataset_transform(dataset: VisionDataset,
     ToTensor() is not present.
 
     Args:
-        dataset (torch.utils.data.Dataset): A torchvision-like dataset
+        dataset (VisionDataset): A torchvision-like dataset
         transform (Callable): Function to be added to the dataset's collection of
             transforms
-        is_tensor_transform (bool): Whether `transform` acts on data of the type
-        torch.Tensor. If `True`, and torchvision.transforms.ToTensor() is present in
-        `dataset`'s transforms, will insert the transform after ToTensor(). If `False` and
-        ToTensor() is present, will insert the transform before ToTensor(). If ToTensor()
-        is not present, the transform will be appended to the end of collection of
-        transforms. Default = `False`.
+        is_tensor_transform (bool): Whether ``transform`` acts on data of the type
+            torch.Tensor. If ``True``, and torchvision.transforms.ToTensor() is present in
+            ``dataset``'s transforms, will insert the transform after ToTensor(). If
+            ``False`` and ToTensor() is present, will insert the transform before
+            ToTensor(). If ToTensor() is not present, the transform will be appended to
+            the end of collection of transforms. Default = ``False``.
 
     Returns:
         The original dataset. The transform is added in-place.
     """
-
-    if not hasattr(dataset, "transform"):
-        raise AttributeError(f"""Dataset must have attribute `transform`.""")
 
     transform_added_logstring = textwrap.dedent(f"""\
         Transform {transform} added to dataset.
@@ -140,18 +137,13 @@ def add_dataset_transform(dataset: VisionDataset,
             insertion_index += 1
         dataset.transform.transforms.insert(insertion_index, transform)
         log.warning(transform_added_logstring)
-    elif not isinstance(dataset.transform, transforms.Compose):
+    else:  # transform is some other basic transform, join using Compose
         if isinstance(dataset.transform, transforms.ToTensor) and not is_tensor_transform:
             dataset.transform = transforms.Compose([transform, dataset.transform])
             log.warning(transform_added_logstring)
         else:
             dataset.transform = transforms.Compose([dataset.transform, transform])
             log.warning(transform_added_logstring)
-    else:
-        log.warning(
-            textwrap.dedent(f"""
-                Unable to add transform {transform} to dataset {dataset}.
-                Data set has the following transforms: {dataset.transform}."""))
 
     return dataset
 
