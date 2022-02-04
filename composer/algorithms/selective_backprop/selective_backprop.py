@@ -18,9 +18,9 @@ from composer.core.types import Algorithm, Event, Logger, State, Tensor
 def do_selective_backprop(
     current_duration: float,
     batch_idx: int,
-    start: float,
-    end: float,
-    interrupt: int,
+    start: float = 0.5,
+    end: float = 0.9,
+    interrupt: int = 2,
 ) -> bool:
     """Decide if selective backprop should be run based on time in training.
 
@@ -187,7 +187,12 @@ class SelectiveBackprop(Algorithm):
             ``interrupt`` batches
     """
 
-    def __init__(self, start: float, end: float, keep: float, scale_factor: float, interrupt: int):
+    def __init__(self,
+                 start: float = 0.5,
+                 end: float = 0.9,
+                 keep: float = 0.5,
+                 scale_factor: float = 0.5,
+                 interrupt: int = 2):
         self.start = start
         self.end = end
         self.keep = keep
