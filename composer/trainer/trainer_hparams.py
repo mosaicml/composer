@@ -130,29 +130,20 @@ class TrainerHparams(hp.Hparams):
     model: ModelHparams = hp.required(doc="model")
     loggers: List[BaseLoggerBackendHparams] = hp.required(doc="loggers to use")
 
-    max_duration: str = hp.required(
-        doc="Time string for the maximum training duration (e.g., 90ep)",
-        template_default="10ep",
-    )
+    max_duration: str = hp.required(doc="Time string for the maximum training duration (e.g., 90ep)")
 
     train_batch_size: int = hp.required(
-        doc="batch size for each optimization step, across all devices and gradient accumulations.",
-        template_default=2048,
-    )
+        doc="batch size for each optimization step, across all devices and gradient accumulations.")
 
-    eval_batch_size: int = hp.required(
-        doc="batch size to use for each evaluation step",
-        template_default=2048,
-    )
+    eval_batch_size: int = hp.required(doc="batch size to use for each evaluation step")
 
     dataloader: DataloaderHparams = hp.required(doc="dataloader hparams")
 
-    grad_accum: int = hp.required(
-        template_default=1,
-        doc=
-        "Determines the number of microbatches to split a per-gpu batch into, used to compensate for low-memory-capacity devices."
-    )
-    precision: Precision = hp.required(doc="Precision to use for training", template_default=Precision.AMP)
+    grad_accum: int = hp.optional(textwrap.dedent("""\
+        Determines the number of microbatches to split a per-gpu batch into,
+        used to compensate for low-memory-capacity devices."""),
+                                  default=1)
+    precision: Precision = hp.optional(doc="Precision to use for training", default=Precision.AMP)
 
     val_dataset: Optional[datasets.DatasetHparams] = hp.optional(doc="Validation dataset hparams", default=None)
 
@@ -218,6 +209,11 @@ class TrainerHparams(hp.Hparams):
         to save checkpoints every 10 batches.
         This parameter has no effect if `save_folder` is not specified."""),
                                      default="1ep")
+
+    save_compression: str = hp.optional(doc=textwrap.dedent("""\
+        Compression algorithm to run on checkpoints. Can be `gzip`, `bzip2`,
+        `lzma`, or left blank for no compression.  (default: ``""`` for no compression)."""),
+                                        default="")
 
     train_subset_num_batches: Optional[int] = hp.optional(
         "If specified, finish every epoch early after training on this many batches.", default=None)
@@ -410,6 +406,7 @@ class TrainerHparams(hp.Hparams):
             load_progress_bar=self.load_progress_bar,
             save_folder=self.save_folder,
             save_interval=self.save_interval,
+            save_compression=self.save_compression,
 
             # Subset parameters
             train_subset_num_batches=self.train_subset_num_batches,
@@ -417,9 +414,7 @@ class TrainerHparams(hp.Hparams):
 
             # DeepSpeed
             deepspeed_config=self.deepspeed,
-
-            # Optional config
-            config=self.to_dict())
+        )
 
         return trainer
 

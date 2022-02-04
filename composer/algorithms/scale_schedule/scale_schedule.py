@@ -73,7 +73,7 @@ def scale_scheduler(scheduler: Scheduler, ssr: float, orig_max_epochs: Optional[
 class ScaleScheduleHparams(AlgorithmHparams):
     """See :class:`ScaleSchedule`"""
 
-    ratio: float = hp.required('Ratio to scale the schedule.', template_default=1.0)
+    ratio: float = hp.required('Ratio to scale the schedule.')
     method: str = hp.optional("Method to scale the schedule, one of 'epoch' or 'samples'. Default: epoch.",
                               default='epoch')
 

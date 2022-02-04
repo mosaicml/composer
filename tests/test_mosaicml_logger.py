@@ -60,9 +60,10 @@ def test_mosaic_logger(tmpdir: pathlib.Path, dummy_state: State, dummy_logger: L
     expected_data = []
     buffer_length = 0
     expected_log_calls = 0
+    dummy_state.timer.on_epoch_complete()
     for i in range(num_times_to_log):
         data_point = {f'data-{i}': 'value'}
-        logger.log_metric(epoch=1, step=i, log_level=LogLevel.BATCH, data=data_point)
+        logger.log_metric(timestamp=dummy_state.timer.get_timestamp(), log_level=LogLevel.BATCH, data=data_point)
         dummy_state.timer.on_batch_complete()
         logger.batch_end(dummy_state, dummy_logger)
 

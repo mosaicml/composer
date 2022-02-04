@@ -101,6 +101,11 @@ Algorithm
 .. autoclass:: composer.algorithms.channels_last.ChannelsLast
 .. autoclass:: composer.algorithms.channels_last.ChannelsLastHparams
 
+Standalone
+^^^^^^^^^^
+
+.. autofunction:: composer.algorithms.channels_last.apply_channels_last
+
 
 ColOut
 ---------------
