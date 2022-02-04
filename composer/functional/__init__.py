@@ -14,7 +14,7 @@ from composer.algorithms.channels_last.channels_last import apply_channels_last 
 from composer.algorithms.colout.colout import colout_batch as colout_batch
 from composer.algorithms.colout.colout import colout_image as colout_image
 from composer.algorithms.cutmix.cutmix import cutmix_batch as cutmix_batch
-from composer.algorithms.cutout.cutout import cutout as cutout
+from composer.algorithms.cutout.cutout import cutout_batch as cutout_batch
 from composer.algorithms.ghost_batchnorm.ghost_batchnorm import apply_ghost_batchnorm as apply_ghost_batchnorm
 from composer.algorithms.label_smoothing import smooth_labels as smooth_labels
 from composer.algorithms.layer_freezing import freeze_layers as freeze_layers

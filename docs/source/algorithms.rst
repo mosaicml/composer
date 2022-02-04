@@ -123,6 +123,16 @@ Standalone
 .. autofunction:: composer.algorithms.colout.colout_batch
 
 
+CutMix
+---------------
+
+Algorithm
+^^^^^^^^^
+
+.. autoclass:: composer.algorithms.cutmix.CutMix
+.. autoclass:: composer.algorithms.cutmix.CutMixHparams
+
+
 CutOut
 ---------------
 
@@ -135,17 +145,8 @@ Algorithm
 Standalone
 ^^^^^^^^^^
 
-.. autofunction:: composer.algorithms.cutout.cutout
+.. autofunction:: composer.algorithms.cutout.cutout_batch
 
-
-CutMix
----------------
-
-Algorithm
-^^^^^^^^^
-
-.. autoclass:: composer.algorithms.cutmix.CutMix
-.. autoclass:: composer.algorithms.cutmix.CutMixHparams
 
 Standalone
 ^^^^^^^^^^
