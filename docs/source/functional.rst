@@ -16,7 +16,7 @@ Algorithms can be used directly through our functions-based API.
     cf.apply_squeeze_excite(model, latent_channels=64, min_channels=128)
 
 
-.. currentmodule:: composer.algorithms
+.. currentmodule:: composer
 
 .. autosummary::
     :toctree: generated
@@ -25,8 +25,9 @@ Algorithms can be used directly through our functions-based API.
     functional.augmix_image
     functional.apply_blurpool
     functional.apply_alibi
-    functional.colout
-    functional.cutout
+    functional.colout_batch
+    functional.colout_image
+    functional.cutout_batch
     functional.smooth_labels
     functional.freeze_layers
     functional.apply_ghost_batchnorm
