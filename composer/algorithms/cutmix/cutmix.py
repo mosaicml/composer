@@ -110,8 +110,8 @@ def adjust_lambda(cutmix_lambda: float, x: Tensor, bbox: Tuple) -> float:
 
 def cutmix(x: Tensor,
            y: Tensor,
-           alpha: float,
            n_classes: int,
+           alpha: float = 1.,
            cutmix_lambda: Optional[float] = None,
            bbox: Optional[Tuple] = None,
            indices: Optional[torch.Tensor] = None) -> Tuple[torch.Tensor, torch.Tensor]:
@@ -133,8 +133,8 @@ def cutmix(x: Tensor,
             are feature dimensions.
         y: target tensor of shape (B, f1, f2, ..., fm), B is batch size, f1-fn
             are possible target dimensions.
-        alpha: parameter for the beta distribution of the cutmix region size.
         n_classes: total number of classes.
+        alpha: parameter for the beta distribution of the cutmix region size.
         cutmix_lambda: optional, fixed size of cutmix region.
         bbox: optional, predetermined (rx1, ry1, rx2, ry2) coords of the bounding box.
         indices: Permutation of the batch indices `1..B`. Used
@@ -148,7 +148,7 @@ def cutmix(x: Tensor,
         from composer import functional as CF
 
         for X, y in dataloader:
-            X, y, _, _ ,_ = CF.cutmix(X, y, alpha, nclasses)
+            X, y, _, _ ,_ = CF.cutmix(X, y, nclasses=10)
 
             pred = model(X)
             loss = loss_fun(pred, y)  # loss_fun must accept dense labels (ie NOT indices)
@@ -221,7 +221,7 @@ class CutMix(Algorithm):
             one element of the pair.
     """
 
-    def __init__(self, alpha: float):
+    def __init__(self, alpha: float = 1.):
         self.alpha = alpha
         self._indices = torch.Tensor()
         self._cutmix_lambda = 0.0
@@ -287,8 +287,8 @@ class CutMix(Algorithm):
         new_input, new_target = cutmix(
             x=input,
             y=target,
-            alpha=alpha,
             n_classes=self.num_classes,
+            alpha=alpha,
             cutmix_lambda=self.cutmix_lambda,
             bbox=self.bbox,
             indices=self.indices,
