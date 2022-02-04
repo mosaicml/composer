@@ -268,7 +268,7 @@ Algorithm
 Standalone
 ^^^^^^^^^^
 
-.. autofunction:: composer.algorithms.randaugment.randaugment
+.. autofunction:: composer.algorithms.randaugment.randaugment_image
 
 Sequence Length Warmup
 ----------------------

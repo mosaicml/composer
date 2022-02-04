@@ -32,7 +32,7 @@ Algorithms can be used directly through our functions-based API.
     functional.apply_ghost_batchnorm
     functional.mixup_batch
     functional.resize_inputs
-    functional.randaugment
+    functional.randaugment_image
     functional.scale_scheduler
     functional.selective_backprop
     functional.apply_se
