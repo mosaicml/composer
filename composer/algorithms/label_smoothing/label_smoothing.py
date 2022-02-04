@@ -1,4 +1,5 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
+from __future__ import annotations
 
 from dataclasses import asdict, dataclass
 from typing import Optional
@@ -15,9 +16,9 @@ from composer.models.loss import ensure_targets_one_hot
 class LabelSmoothingHparams(AlgorithmHparams):
     """See :class:`LabelSmoothing`"""
 
-    alpha: float = hp.required(doc='smoothing factor', template_default=0.1)
+    alpha: float = hp.optional(doc='smoothing factor', default=0.1)
 
-    def initialize_object(self) -> "LabelSmoothing":
+    def initialize_object(self) -> LabelSmoothing:
         return LabelSmoothing(**asdict(self))
 
 

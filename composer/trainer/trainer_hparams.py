@@ -130,29 +130,20 @@ class TrainerHparams(hp.Hparams):
     model: ModelHparams = hp.required(doc="model")
     loggers: List[BaseLoggerBackendHparams] = hp.required(doc="loggers to use")
 
-    max_duration: str = hp.required(
-        doc="Time string for the maximum training duration (e.g., 90ep)",
-        template_default="10ep",
-    )
+    max_duration: str = hp.required(doc="Time string for the maximum training duration (e.g., 90ep)")
 
     train_batch_size: int = hp.required(
-        doc="batch size for each optimization step, across all devices and gradient accumulations.",
-        template_default=2048,
-    )
+        doc="batch size for each optimization step, across all devices and gradient accumulations.")
 
-    eval_batch_size: int = hp.required(
-        doc="batch size to use for each evaluation step",
-        template_default=2048,
-    )
+    eval_batch_size: int = hp.required(doc="batch size to use for each evaluation step")
 
     dataloader: DataloaderHparams = hp.required(doc="dataloader hparams")
 
-    grad_accum: int = hp.required(
-        template_default=1,
-        doc=
-        "Determines the number of microbatches to split a per-gpu batch into, used to compensate for low-memory-capacity devices."
-    )
-    precision: Precision = hp.required(doc="Precision to use for training", template_default=Precision.AMP)
+    grad_accum: int = hp.optional(textwrap.dedent("""\
+        Determines the number of microbatches to split a per-gpu batch into,
+        used to compensate for low-memory-capacity devices."""),
+                                  default=1)
+    precision: Precision = hp.optional(doc="Precision to use for training", default=Precision.AMP)
 
     val_dataset: Optional[datasets.DatasetHparams] = hp.optional(doc="Validation dataset hparams", default=None)
 
