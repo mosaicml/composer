@@ -3,7 +3,7 @@
 """Test Ghost Batch Normalization, both as an algorithm and module."""
 
 import math
-from typing import cast
+from typing import Any, Tuple, cast
 from unittest.mock import MagicMock, Mock
 
 import pytest
@@ -12,6 +12,8 @@ import torch
 from composer.algorithms import ghost_batchnorm as ghostbn
 from composer.algorithms.ghost_batchnorm.ghost_batchnorm import GhostBatchNormHparams, _GhostBatchNorm
 from composer.core import Event, State, surgery
+from composer.core.types import Batch, Metrics, Tensors
+from composer.models.base import ComposerModel
 from composer.trainer import TrainerHparams
 from tests.fixtures.dummy_fixtures import logger_mock as logger_mock
 from tests.utils.trainer_fit import train_model
@@ -24,7 +26,7 @@ _TEST_GHOST_BATCH_SIZES = [1, 2, 3, 5]
 _TEST_BATCH_SIZES = [12]  # multiple of some, but not all, ghost batch sizes
 
 
-class ModuleWithBatchnorm(torch.nn.Module):
+class ModuleWithBatchnorm(ComposerModel):
 
     def __init__(self, num_dims, num_features=4):
         super().__init__()
@@ -41,6 +43,15 @@ class ModuleWithBatchnorm(torch.nn.Module):
 
     def forward(self, input: torch.Tensor):
         return self.bn(input)
+
+    def loss(self, outputs: Any, batch: Batch, *args, **kwargs) -> Tensors:
+        raise NotImplementedError()
+
+    def metrics(self, train: bool = False) -> Metrics:
+        raise NotImplementedError()
+
+    def validate(self, batch: Batch) -> Tuple[Any, Any]:
+        raise NotImplementedError()
 
 
 @pytest.fixture
