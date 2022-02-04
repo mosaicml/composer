@@ -6,7 +6,7 @@ import torch
 import torch.nn.functional as F
 
 from composer.algorithms import CutMixHparams
-from composer.algorithms.cutmix.cutmix import cutmix, rand_bbox
+from composer.algorithms.cutmix.cutmix import cutmix_batch, rand_bbox
 from composer.core.types import Event
 from composer.models.base import ComposerClassifier
 from composer.trainer.trainer_hparams import TrainerHparams
@@ -69,13 +69,13 @@ class TestCutMix:
         cutmix_lambda = 1 - ((bbx2 - bbx1) * (bby2 - bby1) / (x_fake.size()[-1] * x_fake.size()[-2]))
 
         # Apply cutmix
-        x_cutmix, y_cutmix = cutmix(x=x_fake,
-                                    y=y_fake,
-                                    alpha=1.0,
-                                    n_classes=n_classes,
-                                    cutmix_lambda=cutmix_lambda,
-                                    bbox=bbox,
-                                    indices=indices)
+        x_cutmix, y_cutmix = cutmix_batch(x=x_fake,
+                                          y=y_fake,
+                                          alpha=1.0,
+                                          n_classes=n_classes,
+                                          cutmix_lambda=cutmix_lambda,
+                                          bbox=bbox,
+                                          indices=indices)
 
         # Validate results
         validate_cutmix(x=x_fake,

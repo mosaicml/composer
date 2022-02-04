@@ -138,6 +138,21 @@ Standalone
 .. autofunction:: composer.algorithms.cutout.cutout
 
 
+CutMix
+---------------
+
+Algorithm
+^^^^^^^^^
+
+.. autoclass:: composer.algorithms.cutmix.CutMix
+.. autoclass:: composer.algorithms.cutmix.CutMixHparams
+
+Standalone
+^^^^^^^^^^
+
+.. autofunction:: composer.algorithms.cutmix.cutmix_batch
+
+
 Ghost Batch Normalization
 -------------------------
 

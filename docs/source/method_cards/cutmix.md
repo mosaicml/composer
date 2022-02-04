@@ -64,7 +64,7 @@ This method interacts with other methods (such as CutOut) that alter the inputs 
 .. autofunction:: composer.algorithms.cutmix.cutmix.adjust_lambda
   :noindex:
 
-.. autofunction:: composer.algorithms.cutmix.cutmix
+.. autofunction:: composer.algorithms.cutmix.cutmix_batch
   :noindex:
 
 ```
