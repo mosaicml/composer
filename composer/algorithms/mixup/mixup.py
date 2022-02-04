@@ -120,15 +120,15 @@ class MixUp(Algorithm):
     Training in this fashion reduces generalization error.
 
     Args:
+        num_classes (int): the number of classes in the task labels.
         alpha (float): the psuedocount for the Beta distribution used to sample
             interpolation parameters. As ``alpha`` grows, the two samples
             in each pair tend to be weighted more equally. As ``alpha``
             approaches 0 from above, the combination approaches only using
             one element of the pair.
-        num_classes (int): the number of classes in the task labels.
     """
 
-    def __init__(self, num_classes: int, alpha: float  = 0.2):
+    def __init__(self, num_classes: int, alpha: float = 0.2):
         self.num_classes = num_classes
         self.alpha = alpha
         self._interpolation_lambda = 0.0
