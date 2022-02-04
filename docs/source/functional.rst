@@ -5,18 +5,18 @@ Algorithms can be used directly through our functions-based API.
 
 .. code-block:: python
 
-    from composer import functional as CF
+    from composer import functional as cf
     from torchvision import models
 
     model = models.resnet(model_name='resnet50')
 
     # replace some layers with blurpool
-    CF.apply_blurpool(model)
+    cf.apply_blurpool(model)
     # replace some layers with squeeze-excite
-    CF.apply_se(model, latent_channels=64, min_channels=128)
+    cf.apply_se(model, latent_channels=64, min_channels=128)
 
 
-.. currentmodule:: composer.algorithms
+.. currentmodule:: composer
 
 .. autosummary::
     :toctree: generated
