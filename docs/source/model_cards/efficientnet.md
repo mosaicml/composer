@@ -1,20 +1,17 @@
 # EfficientNet
+[\[How to Use\]](#how-to-use) &middot; [\[Architecture\]](#architecture) &middot; [\[Family Members\]](#family-members) &middot; [\[Default Training Hyperparameters\]](#default-training-hyperparameters) &middot; [\[Attribution\]](#attribution) &middot; [\[API Reference\]](#api-reference)
 
-Category of Task: `Vision`
-
-Kind of Task: `Image Classification`
-
-## Overview
+`Vision` /`Image Classification`
 
 The EfficientNet model family is a set of convolutional neural networks that can be used as the basis for a variety of vision tasks, but were initially designed for image classification. The model family was designed to reach the highest accuracy for a given computation budget during inference by simultaneously scaling model depth, model width, and image resolution according to an empirically determined scaling law.
 
-## Attribution
+## How to Use
 
-Paper: [EfficientNet: Rethinking Model Scaling for Convolutional Neural Networks](https://arxiv.org/abs/1905.11946) by Mingxing Tan and Quoc V. Le
+```python
+from composer.models import EfficientNetB0
 
-Code: [gen-efficientnet-pytorch Github repository](https://github.com/rwightman/gen-efficientnet-pytorch) by Ross Wightman
-
-Hyperparameters: [DeepLearningExamples Github repository](https://github.com/NVIDIA/DeepLearningExamples/tree/master/PyTorch/Classification/ConvNets/efficientnet) by Nvidia
+model = EfficientNetB0(num_classes=1000, drop_connect_rate=0.2)
+```
 
 ## Architecture
 
@@ -43,7 +40,48 @@ Tan and Le included 8 members in their model family. The goal was for each famil
 
 ## Default Training Hyperparameters
 
-Our default hyperparameters are identical to the Nvidia Deep Learning Examples except:
+We use the following default hyperparameters from the [Nvidia Deep Learning Examples](https://github.com/NVIDIA/DeepLearningExamples/tree/master/PyTorch/Classification/ConvNets/efficientnet):
 
-- Applying weight decay to batch normalization trainable parameters
-- Batch normalization parameters are `momentum = 0.1` and `eps = 1e-5`
+```yaml
+optimizer:
+  rmsprop:
+    lr: 0.08
+    momentum: 0.9
+    alpha: 0.9
+    eps: 0.01
+    weight_decay: 1.0e-5
+schedulers:
+  - warmup:
+      warmup_iters: "16ep"
+      warmup_method: linear
+      warmup_factor: 0
+      verbose: false
+      interval: step
+  - cosine_decay:
+      T_max: "384ep"
+      eta_min: 0
+      verbose: false
+      interval: step
+train_batch_size: 4096
+max_duration: 400ep
+```
+
+Our implementation differs from the [Nvidia Deep Learning Examples](https://github.com/NVIDIA/DeepLearningExamples/tree/master/PyTorch/Classification/ConvNets/efficientnet) in that we:
+
+- Apply weight decay to batch normalization trainable parameters
+- Use `momentum = 0.1` and `eps = 1e-5` as batch normalization parameters
+
+## Attribution
+
+Paper: [EfficientNet: Rethinking Model Scaling for Convolutional Neural Networks](https://arxiv.org/abs/1905.11946) by Mingxing Tan and Quoc V. Le
+
+Code: [gen-efficientnet-pytorch Github repository](https://github.com/rwightman/gen-efficientnet-pytorch) by Ross Wightman
+
+Hyperparameters: [DeepLearningExamples Github repository](https://github.com/NVIDIA/DeepLearningExamples/tree/master/PyTorch/Classification/ConvNets/efficientnet) by Nvidia
+
+## API Reference
+
+```{eval-rst}
+.. autoclass:: composer.models.efficientnetb0.EfficientNetB0
+    :noindex:
+```

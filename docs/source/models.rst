@@ -1,10 +1,10 @@
 composer.models
 ===============
 
-Models provided to :class:`~composer.trainer.Trainer` must use the basic
-interface specified by :class:`~composer.models.ComposerModel`.
+Models provided to :class:`~composer.trainer.trainer.Trainer` must use the basic
+interface specified by :class:`ComposerModel`.
 
-Additionally, for convenience we provide a number of extensions of :class:`~composer.models.ComposerModel`
+Additionally, for convenience we provide a number of extensions of :class:`ComposerModel`
 as detailed below.
 
 .. currentmodule:: composer.models
@@ -30,9 +30,7 @@ Image Models
     CIFAR10_ResNet56
     MNIST_Classifier
     EfficientNetB0
-    ResNet18
-    ResNet50
-    ResNet101
+    ComposerResNet
     UNet
 
 Language Models

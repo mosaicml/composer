@@ -1,20 +1,21 @@
 # CIFAR ResNet
+[\[How to Use\]](#how-to-use) &middot; [\[Architecture\]](#architecture) &middot; [\[Family Members\]](#family-members) &middot; [\[Default Training Hyperparameters\]](#default-training-hyperparameters) &middot; [\[Attribution\]](#attribution) &middot; [\[API Reference\]](#api-reference)
 
-Category of Task: `Vision`
-
-Kind of Task: `Image Classification`
-
-## Overview
+`Vision` / `Image Classification`
 
 The ResNet model family is a set of convolutional neural networks that can be used as the basis for a variety of vision tasks. CIFAR ResNet models are a subset of this family designed specifically for the [CIFAR-10](https://www.cs.toronto.edu/~kriz/cifar.html) and [CIFAR-100](https://www.cs.toronto.edu/~kriz/cifar.html) datasets.
 
-## Attribution
+## How to Use
 
-Paper: [Deep Residual Learning for Image Recognition](https://arxiv.org/abs/1512.03385) by He, Zhang, Ren and Sun 2015. Note that this paper set the standard for ResNet style architectures for both CIFAR-10/100 and ImageNet
+```python
+from composer.models import CIFAR10_ResNet56
+
+model = CIFAR10_ResNet56(num_classes=10)
+```
 
 ## Architecture
 
-Residual Networks are feedforward convolutional networks with "residual" connections between non-consecutive layers.
+Residual Networks are feedforward convolutional networks with “residual” connections between non-consecutive layers.
 
 The model architecture is defined by the original paper:
 
@@ -30,7 +31,7 @@ The biggest differences between CIFAR ResNet models and ImageNet ResNet models a
 - CIFAR ResNet models use fewer filters for each convolution.
 - The ImageNet ResNets contain four stages, while the CIFAR ResNets contain three stages. In addition, CIFAR ResNets uniformly distribute blocks across each stage while ImageNet ResNets have a specific number of blocks for each stage.
 
-## Family members
+## Family Members
 
 | Model Family Members | Parameter Count | Our Accuracy | Training Time on 1x3080 |
 |----------------------|-----------------|--------------|-------------------------|
@@ -39,15 +40,33 @@ The biggest differences between CIFAR ResNet models and ImageNet ResNet models a
 | ResNet44             | 0.66M           | TBA          | TBA                     |
 | ResNet56             | 0.85M           | 93.1%        | 35 min                  |
 | ResNet110            | 1.7M            | TBA          | TBA                     |
-
 ## Default Training Hyperparameters
 
-- Optimizer: SGD
-    - Learning rate: 1.2
-    - Momentum: 0.9
-    - Weight decay: 1e-4
-- Batch size: 1024
-- LR Schedulers
-    - Linear warmup for 5 epochs
-    - Multistep decay by 0.1 at epochs 80 and 120
-- Number of epochs: 160
+```yaml
+optimizer:
+  sgd:
+    learning_rate: 1.2
+    momentum: 0.9
+    weight_decay: 1e-4
+lr_schedulers:
+  linear_warmup: "5ep"
+  multistep:
+    milestones:
+      - "80ep"
+      - "120ep"
+train_batch_size: 1024
+max_duration: 16ep
+```
+
+## Attribution
+
+Paper: [Deep Residual Learning for Image Recognition](https://arxiv.org/abs/1512.03385) by Kaiming He, Xiangyu Zhang, Shaoqing Ren, Jian Sun.
+
+Note that this paper set the standard for ResNet style architectures for both CIFAR-10/100 and ImageNet
+
+## API Reference
+
+```{eval-rst}
+.. autoclass:: composer.models.resnet56_cifar10.CIFAR10_ResNet56
+    :noindex:
+```
