@@ -69,14 +69,14 @@ class DataloaderHparams(hp.Hparams):
         timeout (float): Timeout, in seconds, for collecting a batch from workers. Set to 0 for no timeout.
     """
 
-    num_workers: int = hp.required("Number of CPU workers to use per device to fetch data.", template_default=8)
-    prefetch_factor: int = hp.required("Number of samples loaded in advance by each worker", template_default=2)
-    persistent_workers: bool = hp.required("Whether to shutdown workers after the dataset has been consumed once",
-                                           template_default=True)
-    pin_memory: bool = hp.required("Whether to copy Tensors into CUDA pinned memory before returning them",
-                                   template_default=True)
-    timeout: float = hp.required("Timeout, in seconds, for collecting a batch from workers. Set to 0 for no timeout",
-                                 template_default=0)
+    num_workers: int = hp.optional("Number of CPU workers to use per device to fetch data.", default=8)
+    prefetch_factor: int = hp.optional("Number of samples loaded in advance by each worker", default=2)
+    persistent_workers: bool = hp.optional("Whether to shutdown workers after the dataset has been consumed once",
+                                           default=True)
+    pin_memory: bool = hp.optional("Whether to copy Tensors into CUDA pinned memory before returning them",
+                                   default=True)
+    timeout: float = hp.optional("Timeout, in seconds, for collecting a batch from workers. Set to 0 for no timeout",
+                                 default=0)
 
     def initialize_object(
         self,

@@ -10,6 +10,7 @@ import yaml
 
 from composer.core.logging import BaseLoggerBackend, Logger, LogLevel, TLogData, format_log_data_value
 from composer.core.state import State
+from composer.core.time import Timestamp
 from composer.utils import run_directory
 
 
@@ -89,11 +90,11 @@ class FileLoggerBackend(BaseLoggerBackend):
             return self.is_batch_interval
         raise ValueError(f"Unknown log level: {log_level}")
 
-    def log_metric(self, epoch: int, step: int, log_level: LogLevel, data: TLogData):
+    def log_metric(self, timestamp: Timestamp, log_level: LogLevel, data: TLogData):
         data_str = format_log_data_value(data)
         if self.file is None:
             raise RuntimeError("Attempted to log before self.init() or after self.close()")
-        print(f"[{log_level.name}][step={step}]: {data_str}", file=self.file, flush=False)
+        print(f"[{log_level.name}][step={int(timestamp.batch)}]: {data_str}", file=self.file, flush=False)
 
     def init(self, state: State, logger: Logger) -> None:
         del state, logger  # unused

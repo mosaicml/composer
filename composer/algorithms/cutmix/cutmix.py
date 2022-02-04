@@ -1,4 +1,5 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
+from __future__ import annotations
 
 import logging
 from dataclasses import asdict, dataclass
@@ -196,10 +197,10 @@ def cutmix(x: Tensor,
 class CutMixHparams(AlgorithmHparams):
     """See :class:`CutMix`"""
 
-    alpha: float = hp.required('Strength of interpolation, should be >= 0. No interpolation if alpha=0.',
-                               template_default=1.0)
+    num_classes: int = hp.required('Number of classes in the task labels.')
+    alpha: float = hp.optional('Strength of interpolation, should be >= 0. No interpolation if alpha=0.', default=1.0)
 
-    def initialize_object(self) -> "CutMix":
+    def initialize_object(self) -> CutMix:
         return CutMix(**asdict(self))
 
 
@@ -214,14 +215,16 @@ class CutMix(Algorithm):
     Training in this fashion reduces generalization error.
 
     Args:
-        alpha: the psuedocount for the Beta distribution used to sample
+        alpha (float): the psuedocount for the Beta distribution used to sample
             area parameters. As ``alpha`` grows, the two samples
             in each pair tend to be weighted more equally. As ``alpha``
             approaches 0 from above, the combination approaches only using
             one element of the pair.
+        num_classes (int): the number of classes in the task labels.
     """
 
-    def __init__(self, alpha: float = 1.):
+    def __init__(self, num_classes: int, alpha: float  = 1.):
+        self.num_classes = num_classes
         self.alpha = alpha
         self._indices = torch.Tensor()
         self._cutmix_lambda = 0.0
@@ -236,7 +239,7 @@ class CutMix(Algorithm):
         Returns:
             bool: True if this algorithm should run now.
         """
-        return event in (Event.AFTER_DATALOADER, Event.INIT)
+        return event == Event.AFTER_DATALOADER
 
     @property
     def indices(self) -> Tensor:
@@ -270,9 +273,6 @@ class CutMix(Algorithm):
             state (State): the current trainer state
             logger (Logger): the training logger
         """
-        if event == Event.INIT:
-            self.num_classes: int = state.model.num_classes  # type: ignore
-            return
 
         input, target = state.batch_pair
         assert isinstance(input, Tensor) and isinstance(target, Tensor), \
