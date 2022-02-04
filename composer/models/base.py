@@ -45,7 +45,6 @@ class ComposerModel(torch.nn.Module, abc.ABC):
         """
         pass
 
-    @abc.abstractmethod
     def metrics(self, train: bool = False) -> Metrics:
         """Get metrics for evaluating the model.
 
@@ -64,7 +63,6 @@ class ComposerModel(torch.nn.Module, abc.ABC):
         """
         pass
 
-    @abc.abstractmethod
     def validate(self, batch: Batch) -> Tuple[Any, Any]:
         """Compute model outputs on provided data.
 
