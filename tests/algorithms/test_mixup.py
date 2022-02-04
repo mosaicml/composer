@@ -65,7 +65,7 @@ class TestMixUp:
 
         algorithm = MixUpHparams(alpha=alpha, num_classes=x_fake.size(1)).initialize_object()
         state = dummy_state
-        state.model = ComposerClassifier
+        state.model = ComposerClassifier(torch.nn.Flatten())
         state.batch = (x_fake, y_fake)
 
         # Apply algo, use test hooks to specify indices and override internally generated interpolation lambda for testability
@@ -76,7 +76,6 @@ class TestMixUp:
         validate_mixup_batch(x_fake, y_fake, algorithm.indices, x, algorithm.interpolation_lambda)
 
 
-def test_mixup_trains(composer_trainer_hparams: TrainerHparams):
-    num_classes = composer_trainer_hparams.model.num_classes
-    composer_trainer_hparams.algorithms = [MixUpHparams(alpha=0.2, num_classes=num_classes)]
+def test_mixup_trains(composer_trainer_hparams: TrainerHparams, dummy_num_classes: int):
+    composer_trainer_hparams.algorithms = [MixUpHparams(alpha=0.2, num_classes=dummy_num_classes)]
     train_model(composer_trainer_hparams)
