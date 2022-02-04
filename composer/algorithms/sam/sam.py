@@ -39,7 +39,7 @@ class SAMOptimizer(torch.optim.Optimizer):
 
     # TODO(license) code linked above is MIT license
 
-    def __init__(self, base_optimizer, rho, epsilon, interval, **kwargs):
+    def __init__(self, base_optimizer, rho: float = 0.05, epsilon: float = 1.0e-12, interval: int = 1, **kwargs):
         assert rho >= 0.0, f"Invalid rho, should be non-negative: {rho}"
         self.base_optimizer = base_optimizer
         self.global_step = 0
