@@ -22,7 +22,7 @@ Algorithms can be used directly through our functions-based API.
     :toctree: generated
     :nosignatures:
 
-    functional.augment_and_mix
+    functional.augmix_image
     functional.apply_blurpool
     functional.apply_alibi
     functional.colout

@@ -69,7 +69,7 @@ Algorithm
 Standalone
 ^^^^^^^^^^
 
-.. autofunction:: composer.algorithms.augmix.augment_and_mix
+.. autofunction:: composer.algorithms.augmix.augmix_image
 
 
 BlurPool

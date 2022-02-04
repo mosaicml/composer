@@ -4,11 +4,11 @@
 
 Functional forms of methods are available here via::
 
-    from composer import functional as CF
-    my_model = CF.apply_blurpool(my_model)
+    from composer import functional as cf
+    my_model = cf.apply_blurpool(my_model)
 """
 from composer.algorithms.alibi.alibi import apply_alibi as apply_alibi
-from composer.algorithms.augmix import augment_and_mix as augment_and_mix
+from composer.algorithms.augmix import augmix_image as augmix_image
 from composer.algorithms.blurpool import apply_blurpool as apply_blurpool
 from composer.algorithms.channels_last.channels_last import apply_channels_last as apply_channels_last
 from composer.algorithms.colout.colout import colout as colout
