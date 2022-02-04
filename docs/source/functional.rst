@@ -22,17 +22,18 @@ Algorithms can be used directly through our functions-based API.
     :toctree: generated
     :nosignatures:
 
-    functional.augment_and_mix
+    functional.augmix_image
     functional.apply_blurpool
     functional.apply_alibi
-    functional.colout
-    functional.cutout
+    functional.colout_batch
+    functional.colout_image
+    functional.cutout_batch
     functional.smooth_labels
     functional.freeze_layers
     functional.apply_ghost_batchnorm
     functional.mixup_batch
     functional.resize_inputs
-    functional.randaugment
+    functional.randaugment_image
     functional.scale_scheduler
     functional.selective_backprop
     functional.apply_se

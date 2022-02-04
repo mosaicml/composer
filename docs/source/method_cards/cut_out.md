@@ -40,7 +40,7 @@ Our implementation is based on that of Terrance DeVries as [posted on GitHub](ht
 
 ## Considerations
 
-As Cutout runs on GPU by default and uses some extra memory to construct the mask, out of memory errors may occur if GPU memory is severely limited. 
+As Cutout runs on GPU by default and uses some extra memory to construct the mask, out of memory errors may occur if GPU memory is severely limited.
 
 Also, since Cutout masks a portion of the input, this can alter the inherent shape/texture bias. For an example, see [The Origins and Prevalence of Texture Bias in Convolutional Neural Networks](https://arxiv.org/abs/1911.09071).
 
@@ -55,6 +55,6 @@ As general rule, combining regularization-based methods yields sublinear improve
     :members: match, apply
     :noindex:
 
-.. autofunction:: composer.algorithms.cutout.cutout
+.. autofunction:: composer.algorithms.cutout.cutout_batch
     :noindex:
 ```
