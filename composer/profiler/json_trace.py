@@ -111,10 +111,6 @@ class JSONTraceHandler(ProfilerEventHandler):
         if int(state.timer.batch_in_epoch) % self.flush_every_n_batches == 0:
             self._flush()
 
-    def training_end(self, state: State, logger: Logger) -> None:
-        del state, logger  # unused
-        self._flush()
-
     def epoch_end(self, state: State, logger: Logger) -> None:
         del state, logger  # unused
         self._flush()
