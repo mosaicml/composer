@@ -83,7 +83,7 @@ A summary of available attributes and properties is given below:
       - Optimizers. Multiple optimizers are not currently supported.
     * - ``schedulers``
       - ``Scheduler | Tuple[Scheduler]``
-      - LR schedulers, wrapped in :class:`ComposableScheduler`.
+      - LR schedulers, wrapped in :class:`ComposedScheduler`.
     * - ``scaler``
       - ``torch.cuda.amp.GradScaler``
       - Gradient scaler for mixed precision.
@@ -112,7 +112,7 @@ A summary of available attributes and properties is given below:
 
 .. note::
 
-    ``Schedulers`` are wrapped in ``ComposableScheduler``, which handles stepping either stepwise or epochwise, and also properly sets up learning rate warmups.
+    ``Schedulers`` are wrapped in ``ComposedScheduler``, which handles stepping either stepwise or epochwise, and also properly sets up learning rate warmups.
 
 .. autoclass:: State
     :members:

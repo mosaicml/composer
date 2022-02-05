@@ -458,6 +458,7 @@ class ComposedScheduler(_LRScheduler):
         state_dict = {
             "schedulers": {scheduler.__class__.__qualname__: scheduler.state_dict() for scheduler in self.schedulers},
             "_warmup_counter": self._warmup_counter,
+            "_last_lr": self._last_lr,
         }
         return state_dict
 
@@ -471,6 +472,7 @@ class ComposedScheduler(_LRScheduler):
         for scheduler in self.schedulers:
             scheduler.load_state_dict(state_dict["schedulers"][scheduler.__class__.__qualname__])
         self._warmup_counter = state_dict["_warmup_counter"]
+        self._last_lr = state_dict["_last_lr"],
 
     def _validate_same_optimizers(self, schedulers: Schedulers):
         """Verify that all schedulers correspond to the same optimizer."""
