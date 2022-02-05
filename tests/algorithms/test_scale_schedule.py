@@ -10,9 +10,9 @@ from torch.optim.lr_scheduler import ExponentialLR, MultiStepLR
 from composer.algorithms import ScaleSchedule
 from composer.algorithms.scale_schedule import scale_scheduler
 from composer.core.event import Event
+from composer.core.logging import Logger
 from composer.core.state import State
 from composer.core.types import Optimizer, Scheduler
-from composer.loggers import Logger
 from composer.optim.pytorch_future import WarmUpLR
 
 

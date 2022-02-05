@@ -1,5 +1,5 @@
-composer.Callback
-=================
+composer.callbacks
+==================
 
 .. currentmodule:: composer
 
@@ -46,13 +46,8 @@ Callbacks can be implemented in two ways:
                     print(f'Epoch {state.epoch}/{state.max_epochs}')
 
 
-.. note::
+API Reference
+*************
 
-    To use Composer's built in callbacks, see :doc:`/callbacks`.
-
-.. autosummary::
-    :recursive:
-    :toctree: generated
-    :nosignatures:
-
-    ~composer.Callback
+For the base callback class, see :mod:`composer.core.callback`.
+For a list of callbacks available in composer, see the :mod:`composer.callbacks`.

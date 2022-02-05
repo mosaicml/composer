@@ -20,29 +20,7 @@ Each :class:`DatasetHparams` is then responsible for settings such as:
 
 A :class:`DatasetHparams` is responsible for returning a :class:`torch.utils.data.dataloader` or a :class:`DataloaderSpec`.
 
+API Reference
+*************
 
-Base Classes and Hyperparameters
---------------------------------
-
-.. autosummary::
-    :toctree: generated
-    :nosignatures:
-
-    DataloaderHparams
-    DataloaderSpec
-    DatasetHparams
-    SyntheticHparamsMixin
-
-
-Datasets
---------
-
-.. autosummary::
-    :toctree: generated
-    :nosignatures:
-
-    MNISTDatasetHparams
-    CIFAR10DatasetHparams
-    ImagenetDatasetHparams
-    LMDatasetHparams
-    BratsDatasetHparams
+For a list of datasets available in composer, see the :mod:`API Reference <composer.datasets>`.
