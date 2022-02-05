@@ -8,7 +8,6 @@ import torch
 import yahp as hp
 from PIL import Image
 from PIL.Image import Image as ImageType
-from torchvision.transforms import ToTensor
 
 from composer.algorithms.algorithm_hparams import AlgorithmHparams
 from composer.core.event import Event
