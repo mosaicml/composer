@@ -7,9 +7,9 @@ from torchmetrics.classification.accuracy import Accuracy
 from torchmetrics.collections import MetricCollection
 
 from composer.algorithms import LayerFreezing, LayerFreezingHparams
+from composer.core.logging import Logger
 from composer.core.state import State
 from composer.core.types import DataLoader, Evaluator, Event, Model, Precision
-from composer.loggers import Logger
 from composer.trainer.trainer_hparams import TrainerHparams
 from tests.utils.trainer_fit import train_model
 
