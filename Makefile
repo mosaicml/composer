@@ -5,10 +5,11 @@ EXTRA_ARGS ?=  # additional arguments
 
 EXTRA_ARGS := --duration $(DURATION) $(EXTRA_ARGS)
 
-style:
+lint:
 	python -m isort . -cv
 	python -m yapf -dr .
 	python -m docformatter -rc --wrap-summaries 120 --wrap-descriptions 120 composer tests examples
+	pyright .
 
 license:
 	# TODO (ravi): Switch to https://pypi.org/project/licenseheaders/ since it can be installed via setup.py and pip
@@ -16,9 +17,6 @@ license:
     	tar -xz -C /tmp
 	find . -type f -not -path '*/\.*' \( -iname \*.py -o -iname \*.pyi \) -print0 | \
 	    xargs -0 -n1 /tmp/addlicense -check -f ./LICENSE_HEADER
-
-typing:
-	pyright .
 
 test:
 	pytest tests/ $(EXTRA_ARGS)
