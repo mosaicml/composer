@@ -1,5 +1,5 @@
 style:
-	python -m isort .
+	python -m isort . -cv
 	python -m yapf -dr .
 	python -m docformatter -rc --wrap-summaries 120 --wrap-descriptions 120 composer tests examples
 
@@ -10,7 +10,7 @@ license:
 	find . -type f -not -path '*/\.*' \( -iname \*.py -o -iname \*.pyi \) -print0 | \
 	    xargs -0 -n1 /tmp/addlicense -check -f ./LICENSE_HEADER
 
-quality:
+typing:
 	# requires pyright to be installed
 	pyright .
 
@@ -18,10 +18,17 @@ quality:
 test:
 	pytest tests/
 
+test-gpu:
+	pytest tests/ -m gpu --test_duration all
+
+test-deepspeed:
+	pytest tests/ -m deepspeed --test_duration all
+
 # run all tests, including mgpu tests
 # uses the composer launcher script to properly configure
 # mgpu cases
-test-mgpu:
+test-ddp:
 	python -m composer.cli.launcher -n 1 -m pytest --test_duration all
 	python -m composer.cli.launcher -n 2 -m pytest --test_duration all
 
+test-all: test test-gpu test-ddp

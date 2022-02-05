@@ -138,7 +138,8 @@ def test_ddp(device: DeviceHparams, world_size: int, composer_trainer_hparams: T
     We assert that each of these tensors are different to ensure that 1) random seeding works properly,
     and 2) each ddp process is indeed getting different data.
     """
-    del world_size  # unused. Set via env variables
+    if world_size == 1 and any([e not in os.environ for e in ['NODE_RANK', 'LOCAL_RANK', 'LOCAL_WORLD_SIZE']]):
+        pytest.skip('DDP envvars not set, skipping since world_size=1')
 
     hparams = composer_trainer_hparams
     model_hparams = hparams.model
