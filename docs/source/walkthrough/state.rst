@@ -114,5 +114,8 @@ A summary of available attributes and properties is given below:
 
     ``Schedulers`` are wrapped in ``ComposedScheduler``, which handles stepping either stepwise or epochwise, and also properly sets up learning rate warmups.
 
-.. autoclass:: State
-    :members:
+
+API Reference
+*************
+
+See :mod:`composer.core.state`.

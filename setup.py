@@ -81,6 +81,7 @@ extra_deps['dev'] = [
     'sphinxext.opengraph>=0.4.2',
     'sphinxemoji>=0.2.0',
     'sphinx_rtd_theme>=1.0.0',
+    'autodocsumm>=0.2.7',
     'testbook>=0.4.2',
     'myst-parser>=0.15.2',
     'pylint>=2.12.2',

@@ -117,7 +117,7 @@ class ScaleSchedule(Algorithm):
         self.ratio = ratio
 
     def match(self, event: Event, state: State) -> bool:
-        """Run on Event.TRAINING_START.
+        """Run on Event.INIT.
 
         Args:
             event (:class:`Event`): The current event.
@@ -125,7 +125,7 @@ class ScaleSchedule(Algorithm):
         Returns:
             bool: True if this algorithm should run no
         """
-        return event == Event.TRAINING_START
+        return event == Event.INIT
 
     def apply(self, event: Event, state: State, logger: Logger) -> Optional[int]:
         """Rescales the number of epochs spanned by `state`'s learning rate schedule.

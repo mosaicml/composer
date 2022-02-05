@@ -5,7 +5,7 @@ The Composer :class:`~composer.trainer.Trainer` can easily be extended to use yo
 
 .. seealso::
 
-    The :doc:`../functional` API can be used to directly call the efficiency methods into your trainer loop. The :doc:`../trainer` described imposes a minimal level of overhead to enable access to composability and configuration management.
+    The :doc:`/walkthrough/functional` API can be used to directly call the efficiency methods into your trainer loop. The :doc:`/walkthrough/trainer` described imposes a minimal level of overhead to enable access to composability and configuration management.
 
 Models
 ------

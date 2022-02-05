@@ -100,3 +100,12 @@ body {
 footer {
     display: none;
 }
+
+dl.class > dt > em:before {
+    content: ' ';
+    display: block;
+}
+
+dl.class > dt > em > span.n:first-child {
+    margin-left: 2em;
+}

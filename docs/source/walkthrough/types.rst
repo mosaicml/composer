@@ -1,5 +1,5 @@
 composer.types
-===================
+==============
 
 .. currentmodule:: composer.types
 
@@ -44,11 +44,6 @@ A batch of data can be represented in several formats, depending on the applicat
 
     Type: str to :class:`Tensor` dict
 
-We provide helper functions to cast batches in situations where the batch type is known.
-
-.. autofunction:: as_batch_dict
-
-.. autofunction:: as_batch_pair
 
 Dataset and Data Loader Types
 -----------------------------

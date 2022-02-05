@@ -1,10 +1,22 @@
-.. From https://github.com/sphinx-doc/sphinx/blob/4.x/sphinx/ext/autosummary/templates/autosummary/module.rst
+.. From https://github.com/sphinx-doc/sphinx/tree/4.x/sphinx/ext/autosummary/templates/autosummary/module.rst
 
-{{ name | escape | underline}}
+{{ fullname | escape | underline}}
 
-.. currentmodule:: {{ fullname }}
+.. List the submodules
 
+{% block modules %}
+{% if modules %}
+.. rubric:: Modules
 
+.. autosummary::
+   :toctree:
+   :recursive:
+{% for item in modules %}
+   {{ item }}
+{%- endfor %}
+{% endif %}
+{% endblock %}
+
+.. Autodoc anything defined in the module itself
 .. automodule:: {{ fullname }}
-    :members:
-    :show-inheritance:
+   :members:

@@ -7,7 +7,7 @@ import torch
 import torch.nn.functional as F
 from torch.functional import Tensor
 
-from composer.algorithms.dummy import DummyHparams
+from composer.algorithms.channels_last import ChannelsLastHparams
 from composer.core import DataSpec, State, types
 from composer.core.state import DIRECT_SERIALIZATION_FIELDS, SKIP_SERIALIZATION_FIELDS, STATE_DICT_SERIALIZATION_FIELDS
 from composer.datasets.dataloader import DataloaderHparams
@@ -33,7 +33,7 @@ def get_dummy_state(model: ComposerModel, train_dataloader: types.DataLoader, va
                   evaluators=evaluators,
                   optimizers=optimizers,
                   schedulers=torch.optim.lr_scheduler.StepLR(optimizers, step_size=3),
-                  algorithms=[DummyHparams().initialize_object()])
+                  algorithms=[ChannelsLastHparams().initialize_object()])
     state.loss = random_tensor()
     state.batch = (random_tensor(), random_tensor())
     state.outputs = random_tensor()

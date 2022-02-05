@@ -15,17 +15,21 @@ log = logging.getLogger(__name__)
 
 class SWA(Algorithm):
     """Apply Stochastic Weight Averaging (`Izmailov et al. <https://arxiv.org/abs/1803.05407>`_)
+
     Stochastic Weight Averaging (SWA) averages model weights sampled at
     different times near the end of training. This leads to better
     generalization than just using the final trained weights.
+
     Because this algorithm needs to maintain both the current value of the
     weights and the average of all of the sampled weights, it doubles the
     model's memory consumption. Note that this does not mean that the total
     memory required doubles, however, since stored activations and the
     optimizer state are not doubled.
+
     Args:
         swa_start: fraction of training completed before stochastic weight averaging is applied
         swa_lr: the final learning rate used for weight averaging
+
     Note that 'anneal_epochs' is not used in the current implementation
     """
 
@@ -43,6 +47,7 @@ class SWA(Algorithm):
 
     def match(self, event: Event, state: State) -> bool:
         """Run on EPOCH_END if training duration is greater than `swa_start`
+
         Args:
             event (:class:`Event`): The current event.
             state (:class:`State`): The current state.
@@ -54,6 +59,7 @@ class SWA(Algorithm):
 
     def apply(self, event: Event, state: State, logger: Logger) -> None:
         """Apply SWA to weights towards the end of training.
+
         Args:
             event (Event): the current event
             state (State): the current trainer state

@@ -63,10 +63,6 @@ class EventCounterCallback(Callback):
             self.event_to_num_calls[event] = 0
 
     def _run_event(self, event: Event, state: State, logger: Logger):
-        if event == Event.TRAINING_START:
-            # ignoring training start as it is called once per startup
-            # and the states otherwise won't match
-            return
         self.event_to_num_calls[event] += 1
 
     def state_dict(self) -> StateDict:
@@ -377,8 +373,6 @@ def validate_events_called_expected_number_of_times(trainer: Trainer):
 
     event_to_num_expected_invocations = {
         Event.INIT: 1,
-        # training start is being ignored, as it should be called once per startup
-        Event.TRAINING_START: 0,
         Event.EPOCH_START: num_epochs,
         Event.BATCH_START: num_total_steps,
         Event.AFTER_DATALOADER: num_total_steps,
@@ -398,7 +392,6 @@ def validate_events_called_expected_number_of_times(trainer: Trainer):
         Event.EVAL_AFTER_FORWARD: num_eval_steps,
         Event.EVAL_BATCH_END: num_eval_steps,
         Event.EVAL_END: num_evals,
-        Event.TRAINING_END: 1,
     }
 
     for callback in trainer.state.callbacks:
