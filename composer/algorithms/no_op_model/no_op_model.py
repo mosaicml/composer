@@ -25,7 +25,6 @@ class NoOpModelClass(ComposerModel):
 
     def __init__(self, original_model: torch.nn.Module):
         super().__init__()
-        torch.autograd.set_detect_anomaly(True)
         self.weights = torch.tensor([1.5], requires_grad=True, dtype=torch.float)
         try:
             # For classification

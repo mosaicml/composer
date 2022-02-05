@@ -30,10 +30,10 @@ class RandAugmentHparams(AlgorithmHparams):
         return RandAugment(**asdict(self))
 
 
-def randaugment(img: Optional[ImageType] = None,
-                severity: int = 9,
-                depth: int = 2,
-                augmentation_set: List = augmentation_sets["all"]) -> ImageType:
+def randaugment_image(img: Optional[ImageType] = None,
+                      severity: int = 9,
+                      depth: int = 2,
+                      augmentation_set: List = augmentation_sets["all"]) -> ImageType:
     """Randomly applies a sequence of image data augmentations (`Cubuk et al.
 
     2019 <https://openaccess.thecvf.com/content_CVPRW_2020/papers/w40/Cubuk_Randaugment_Practical_Automated_Data_Augmentation_With_a_Reduced_Search_Space_CVPRW_2020_paper.pdf>`_).
@@ -65,7 +65,10 @@ class RandAugmentTransform(torch.nn.Module):
 
     def forward(self, img: ImageType) -> ImageType:
 
-        return randaugment(img=img, severity=self.severity, depth=self.depth, augmentation_set=self.augmentation_set)
+        return randaugment_image(img=img,
+                                 severity=self.severity,
+                                 depth=self.depth,
+                                 augmentation_set=self.augmentation_set)
 
 
 class RandAugment(Algorithm):

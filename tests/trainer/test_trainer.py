@@ -231,7 +231,7 @@ def test_multiple_calls_to_fit(
     monkeypatch: pytest.MonkeyPatch,
     tmpdir: pathlib.Path,
 ):
-    trainer = composer_trainer_hparams.initialize_object()
+    trainer = _build_trainer(composer_trainer_hparams, dummy_num_classes, hparams_cls, monkeypatch, tmpdir)
     # idempotency test 1: run the FIT event again
     trainer.engine.run_event(Event.FIT_START)
     trainer._train_loop()  # using the private method so we don't shutdown the callbacks
