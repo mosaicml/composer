@@ -61,133 +61,6 @@ def parse_args():
     return parser.parse_args()
 
 
-args = parse_args()
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
-
-model = {
-    "activation_function": "gelu_new",
-    "architectures": ["GPT2LMHeadModel"],
-    "attn_pdrop": 0.1,
-    "bos_token_id": 50256,
-    "embd_pdrop": 0.1,
-    "eos_token_id": 50256,
-    "initializer_range": 0.02,
-    "layer_norm_epsilon": 1e-05,
-    "model_type": "gpt2",
-    "n_ctx": 1024,
-    "n_embd": 768,
-    "n_head": 12,
-    "n_inner": None,
-    "n_layer": 12,
-    "n_positions": 1024,
-    "resid_pdrop": 0.1,
-    "scale_attn_weights": True,
-    "summary_activation": None,
-    "summary_first_dropout": 0.1,
-    "summary_proj_to_labels": True,
-    "summary_type": "cls_index",
-    "summary_use_proj": True,
-    "task_specific_params": {
-        "text-generation": {
-            "do_sample": True,
-            "max_length": 50
-        }
-    },
-    "transformers_version": "4.11.0.dev0",
-    "use_cache": True,
-    "vocab_size": 50257
-}
-
-template_yaml = {
-    'train_dataset': {
-        'lm': {
-            'split': 'train',
-            'datadir': ['/datasets/openwebtext_saved'],
-            'tokenizer_name': 'gpt2',
-            'seed': 17,
-            'shuffle': False,
-            'drop_last': False
-        }
-    },
-    'val_dataset': {
-        'lm': {
-            'split': 'validation',
-            'datadir': ['/datasets/openwebtext_saved'],
-            'tokenizer_name': 'gpt2',
-            'seed': 17,
-            'shuffle': False,
-            'drop_last': False
-        }
-    },
-    'model': {
-        'gpt2': {
-            'use_pretrained': False,
-            "tokenizer_name": "gpt2",
-            'model_config': model
-        }
-    },
-    'optimizer': {
-        'adamw': {
-            'lr': 0.0003,
-            'betas': [0.9, 0.999],
-            'eps': 1e-06,
-            'weight_decay': 0.0
-        }
-    },
-    'schedulers': [{
-        'warmup': {
-            'warmup_method': 'linear',
-            'warmup_factor': 0,
-            'interval': 'step',
-            'warmup_iters': 1
-        }
-    }, {
-        'cosine_decay': {
-            'T_max': 2,
-            'interval': 'step',
-            'eta_min': 1.0e-5,
-            'verbose': False
-        }
-    }],
-    'loggers': [
-        {
-            'file': {
-                'log_level': 'BATCH',
-                'filename': 'stdout',
-                'buffer_size': 1,
-                'flush_every_n_batches': 100,
-                'every_n_epochs': 1,
-                'every_n_batches': 100
-            }
-        },
-        {
-            'wandb': {
-                "project": "gpt2",
-                "name": f"gpt2-{args.hours}-ga-{not args.no_grad_accum}",
-                'extra_init_params': {}
-            }
-        },
-    ],
-    'max_epochs': 1,
-    'train_batch_size': 8,
-    'eval_batch_size': 8,
-    'seed': 17,
-    'accelerator': {
-        'gpu': {}
-    },
-    'dataloader': {
-        'pin_memory': True,
-        'persistent_workers': True,
-        'num_workers': 8,
-        'timeout': 0,
-        'prefetch_factor': 2
-    },
-    'grad_accum': 1,
-    'precision': 'amp',
-    'grad_clip_norm': 1.0,
-}
-
 
 def generate_architecture(args, model):
     """Given the desired training budget and a template model, configure the model archtiecture according to "Scaling
@@ -277,6 +150,94 @@ def generate_architecture(args, model):
 
 
 def configure_composer_yaml(model, scaling_law_predictions):
+    template_yaml = {
+        'train_dataset': {
+            'lm': {
+                'split': 'train',
+                'datadir': ['/datasets/openwebtext_saved'],
+                'tokenizer_name': 'gpt2',
+                'seed': 17,
+                'shuffle': False,
+                'drop_last': False
+            }
+        },
+        'val_dataset': {
+            'lm': {
+                'split': 'validation',
+                'datadir': ['/datasets/openwebtext_saved'],
+                'tokenizer_name': 'gpt2',
+                'seed': 17,
+                'shuffle': False,
+                'drop_last': False
+            }
+        },
+        'model': {
+            'gpt2': {
+                'use_pretrained': False,
+                "tokenizer_name": "gpt2",
+                'model_config': model
+            }
+        },
+        'optimizer': {
+            'adamw': {
+                'lr': 0.0003,
+                'betas': [0.9, 0.999],
+                'eps': 1e-06,
+                'weight_decay': 0.0
+            }
+        },
+        'schedulers': [{
+            'warmup': {
+                'warmup_method': 'linear',
+                'warmup_factor': 0,
+                'interval': 'step',
+                'warmup_iters': 1
+            }
+        }, {
+            'cosine_decay': {
+                'T_max': 2,
+                'interval': 'step',
+                'eta_min': 1.0e-5,
+                'verbose': False
+            }
+        }],
+        'loggers': [
+            {
+                'file': {
+                    'log_level': 'BATCH',
+                    'filename': 'stdout',
+                    'buffer_size': 1,
+                    'flush_every_n_batches': 100,
+                    'every_n_epochs': 1,
+                    'every_n_batches': 100
+                }
+            },
+            {
+                'wandb': {
+                    "project": "gpt2",
+                    "name": f"gpt2-{args.hours}-ga-{not args.no_grad_accum}",
+                    'extra_init_params': {}
+                }
+            },
+        ],
+        'max_epochs': 1,
+        'train_batch_size': 8,
+        'eval_batch_size': 8,
+        'seed': 17,
+        'accelerator': {
+            'gpu': {}
+        },
+        'dataloader': {
+            'pin_memory': True,
+            'persistent_workers': True,
+            'num_workers': 8,
+            'timeout': 0,
+            'prefetch_factor': 2
+        },
+        'grad_accum': 1,
+        'precision': 'amp',
+        'grad_clip_norm': 1.0,
+    }
     template_yaml['optimizer']['adamw']['lr'] = scaling_law_predictions['pred_lr']
 
     logger.info("----------------- OPTIMIZATION INFORMATION -----------------")
@@ -331,6 +292,45 @@ def configure_composer_yaml(model, scaling_law_predictions):
 
 
 if __name__ == "__main__":
+
+    args = parse_args()
+    logging.basicConfig(level=logging.INFO)
+    logger = logging.getLogger(__name__)
+
+    model = {
+        "activation_function": "gelu_new",
+        "architectures": ["GPT2LMHeadModel"],
+        "attn_pdrop": 0.1,
+        "bos_token_id": 50256,
+        "embd_pdrop": 0.1,
+        "eos_token_id": 50256,
+        "initializer_range": 0.02,
+        "layer_norm_epsilon": 1e-05,
+        "model_type": "gpt2",
+        "n_ctx": 1024,
+        "n_embd": 768,
+        "n_head": 12,
+        "n_inner": None,
+        "n_layer": 12,
+        "n_positions": 1024,
+        "resid_pdrop": 0.1,
+        "scale_attn_weights": True,
+        "summary_activation": None,
+        "summary_first_dropout": 0.1,
+        "summary_proj_to_labels": True,
+        "summary_type": "cls_index",
+        "summary_use_proj": True,
+        "task_specific_params": {
+            "text-generation": {
+                "do_sample": True,
+                "max_length": 50
+            }
+        },
+        "transformers_version": "4.11.0.dev0",
+        "use_cache": True,
+        "vocab_size": 50257
+    }
+
     model, scaling_law_predictions = generate_architecture(args, model)
     template_yaml = configure_composer_yaml(model, scaling_law_predictions)
 

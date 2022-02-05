@@ -12,6 +12,8 @@
 #
 import os
 import sys
+import types
+from typing import List
 
 import yahp as hp
 
@@ -20,7 +22,7 @@ sys.path.insert(0, os.path.abspath('..'))
 # -- Project information -----------------------------------------------------
 
 project = 'MosaicML'
-copyright = '2021, MosaicML, Inc.'
+copyright = '2022, MosaicML, Inc.'
 author = 'MosaicML'
 
 # -- General configuration ---------------------------------------------------
@@ -44,6 +46,7 @@ extensions = [
     "myst_parser",
     "sphinx.ext.intersphinx",
     "sphinxarg.ext",
+    'autodocsumm',
 ]
 
 # Add any paths that contain templates here, relative to this directory.
@@ -62,21 +65,27 @@ napoleon_custom_sections = [('Returns', 'params_style')]
 # The theme to use for HTML and HTML Help pages.  See the documentation for
 # a list of builtin themes.
 #
+
 html_theme = 'sphinx_rtd_theme'
+
+# html_theme = 'sphinx_rtd_theme'
 
 html_theme_options = {
     # Toc options
     'collapse_navigation': False,
     'display_version': False,
-    'navigation_depth': 2,
+    'navigation_depth': 5,
     'logo_only': True,
-    'sticky_navigation': False
+    'sticky_navigation': False,
+    'globaltoc_collapse': True,
+    'globaltoc_maxdepth': -1,
 }
 
 # Make sure the target is unique
 autosectionlabel_prefix_document = True
 autosummary_imported_members = False
-autosectionlabel_maxdepth = 1
+autosectionlabel_maxdepth = 5
+autosummary_generate = True
 
 # Add any paths that contain custom static files (such as style sheets) here,
 # relative to this directory. They are copied after the builtin static files,
@@ -144,6 +153,51 @@ def maybe_skip_member(app, what: str, name: str, obj, skip: bool, options):
         return True
     return None
 
+def add_module_summary_tables(app, what: str, name: str, obj, options, lines: List[str]):
+    """This hook adds in summary tables for each module, documenting all functions, exceptions, classes, and attributes.
+
+    It links reimported imports to their original source, as not to create a duplicate, indexed toctree entry.
+    It automatically inserts itself at the end of each module docstring. 
+    """
+    functions = []
+    exceptions = []
+    classes = []
+    attributes = []
+    if len(lines) == 0:
+        # insert a stub docstring so it doesn't start with functions/exceptions/classes/attributes
+        lines.append(obj.__name__)
+    if what == "module":
+
+        for name, val in vars(obj).items():
+            if name.startswith("_"):
+                continue
+            if not hasattr(val, "__module__"):
+                continue
+            if not hasattr(val, "__name__"):
+                continue
+
+            if isinstance(val, types.FunctionType):
+                functions.append(val)
+            elif isinstance(val, type) and issubclass(val, BaseException):
+                exceptions.append(val)
+            elif isinstance(val, type) and issubclass(val, object):
+                classes.append(val)
+            elif isinstance(val, object) and not isinstance(val, types.ModuleType):
+                attributes.append(val)
+
+        for category, name in ((functions, "Functions"), (classes, "Classes"), (attributes, "Attributes"),
+                               (exceptions, "Exceptions")):
+            if len(category) > 0:
+                lines.append("")
+                lines.append(f".. rubric:: {name}")
+                lines.append("")
+                lines.append(".. autosummary::")
+                lines.append("    :nosignatures:")
+                lines.append("")
+                for item in category:
+                    lines.append(f"    ~{item.__module__}.{item.__name__}")
+
 
 def setup(app):
     app.connect('autodoc-skip-member', maybe_skip_member)
+    app.connect('autodoc-process-docstring', add_module_summary_tables)

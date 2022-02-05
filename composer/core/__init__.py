@@ -1,6 +1,4 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
-
-from composer.core import types as types
 from composer.core.algorithm import Algorithm as Algorithm
 from composer.core.callback import Callback as Callback
 from composer.core.data_spec import DataSpec as DataSpec

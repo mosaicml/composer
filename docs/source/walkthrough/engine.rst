@@ -22,10 +22,6 @@ Currently, the following passes are registered:
 
    Selective backprop runs after the dataloader returns the batch, and executes an extra forward pass to rank and prune the examples in the batch by loss. To ensure a clean estimate of the example, Selective backprop should run before any other data augmentations during ``AFTER_DATALOADER`` (e.g. such as MixUp).
 
-
-.. autoclass:: Engine
-    :members:
-
 Trace
 ~~~~~
 
@@ -45,5 +41,8 @@ For example, the algorithm ``Layer Freezing``, which runs at the end of every ep
    ...
    [STEP=3][layer_freezing/EPOCH_END=1]  # <-- ran here!
 
-.. autoclass:: composer.core.engine.Trace
-    :members:
+
+API Reference
+*************
+
+See :mod:`composer.core.engine`.
