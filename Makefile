@@ -5,11 +5,13 @@ EXTRA_ARGS ?=  # additional arguments
 
 EXTRA_ARGS := --duration $(DURATION) $(EXTRA_ARGS)
 
+dirs := composer examples tests
+
 lint:
-	python -m isort . -cv
-	python -m yapf -dr .
-	python -m docformatter -rc --wrap-summaries 120 --wrap-descriptions 120 composer tests examples
-	pyright .
+	python -m isort $(dirs) -cv
+	python -m yapf -dr $(dirs)
+	python -m docformatter -rc --wrap-summaries 120 --wrap-descriptions 120 $(dirs)
+	pyright $(dirs)
 
 license:
 	# TODO (ravi): Switch to https://pypi.org/project/licenseheaders/ since it can be installed via setup.py and pip
