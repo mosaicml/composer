@@ -1,3 +1,7 @@
+# duration is one of short, long, all
+# defines the pytest configuration
+DURATION ?= all
+
 style:
 	python -m isort . -cv
 	python -m yapf -dr .
@@ -14,21 +18,22 @@ typing:
 	# requires pyright to be installed
 	pyright .
 
-# run only short CPU tests
+# run only CPU tests
 test:
-	pytest tests/
+	pytest tests/ --duration $(DURATION)
 
 test-gpu:
-	pytest tests/ -m gpu --test_duration all
+	pytest tests/ -m gpu --duration $(DURATION)
 
 test-deepspeed:
-	pytest tests/ -m deepspeed --test_duration all
+	pytest tests/ -m deepspeed --duration $(DURATION)
 
 # run all tests, including mgpu tests
 # uses the composer launcher script to properly configure
 # mgpu cases
 test-ddp:
-	python -m composer.cli.launcher -n 1 -m pytest --test_duration all
-	python -m composer.cli.launcher -n 2 -m pytest --test_duration all
+	python -m composer.cli.launcher -n 1 -m pytest --duration $(DURATION)
+	python -m composer.cli.launcher -n 2 -m pytest --duration $(DURATION)
 
 test-all: test test-gpu test-ddp
+

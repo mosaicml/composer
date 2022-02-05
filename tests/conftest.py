@@ -34,13 +34,12 @@ pytest_plugins = [
 
 
 def pytest_addoption(parser: _pytest.config.argparsing.Parser) -> None:
-    parser.addoption(
-        "--test_duration",
-        default="short",
-        choices=["short", "long", "all"],
-        help=
-        "Whether to run short tests (the default), long tests, or all tests. A test is considered short if its timeout is "
-        "less than that specified in the config.")
+    parser.addoption("--duration",
+                     default="short",
+                     choices=["short", "long", "all"],
+                     help="""Duration of tests, one of short, long, or all.
+                             Tests are short if their timeout < 2 seconds
+                             (configurable threshold). Default: short.""")
 
 
 def _get_test_world_size(item: pytest.Item) -> int:
@@ -84,7 +83,7 @@ def _filter_items_for_world_size(items: List[pytest.Item]) -> None:
 def _filter_items_for_timeout(config: _pytest.config.Config, items: List[pytest.Item]):
     default_timeout = getattr(config, "_env_timeout")
     assert isinstance(default_timeout, float), "should be set by the toml/ini"
-    cli_test_duration = config.getoption("test_duration", default=None)
+    cli_test_duration = config.getoption("duration", default=None)
     assert cli_test_duration is not None, "should be set by argparse"
     if cli_test_duration == "all":
         return
