@@ -18,7 +18,6 @@ typing:
 	# requires pyright to be installed
 	pyright .
 
-# run only CPU tests
 test:
 	pytest tests/ --duration $(DURATION)
 
@@ -37,3 +36,4 @@ test-ddp:
 
 test-all: test test-gpu test-ddp
 
+.PHONY: test test-gpu test-ddp test-deepspeed
