@@ -1,6 +1,9 @@
-# duration is one of short, long, all
-# defines the pytest configuration
-DURATION ?= all
+# several pytest settings
+DURATION ?= all  # pytest duration, one of short, long or all
+WORLD_SIZE ?= 1  # world size for DDP tests
+EXTRA_ARGS ?=  # additional arguments
+
+EXTRA_ARGS := --duration $(DURATION) $(EXTRA_ARGS)
 
 style:
 	python -m isort . -cv
@@ -15,25 +18,22 @@ license:
 	    xargs -0 -n1 /tmp/addlicense -check -f ./LICENSE_HEADER
 
 typing:
-	# requires pyright to be installed
 	pyright .
 
 test:
-	pytest tests/ --duration $(DURATION)
+	pytest tests/ $(EXTRA_ARGS)
 
 test-gpu:
-	pytest tests/ -m gpu --duration $(DURATION)
+	pytest tests/ -m gpu $(EXTRA_ARGS)
 
 test-deepspeed:
-	pytest tests/ -m deepspeed --duration $(DURATION)
+	pytest tests/ -m deepspeed $(EXTRA_ARGS)
 
-# run all tests, including mgpu tests
-# uses the composer launcher script to properly configure
-# mgpu cases
-test-ddp:
-	python -m composer.cli.launcher -n 1 -m pytest --duration $(DURATION)
-	python -m composer.cli.launcher -n 2 -m pytest --duration $(DURATION)
+# run all tests, including multi-gpu tests
+# uses the composer launcher script
+test-with-ddp:
+	python -m composer.cli.launcher -n ${WORLD_SIZE} -m pytest $(EXTRA_ARGS)
 
-test-all: test test-gpu test-ddp
+test-all: test test-gpu test-deepspeed test-with-ddp
 
-.PHONY: test test-gpu test-ddp test-deepspeed
+.PHONY: test test-gpu test-with-ddp test-deepspeed
