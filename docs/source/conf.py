@@ -153,6 +153,7 @@ def maybe_skip_member(app, what: str, name: str, obj, skip: bool, options):
         return True
     return None
 
+
 def add_module_summary_tables(app, what: str, name: str, obj, options, lines: List[str]):
     """This hook adds in summary tables for each module, documenting all functions, exceptions, classes, and attributes.
 

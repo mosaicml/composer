@@ -61,7 +61,6 @@ def parse_args():
     return parser.parse_args()
 
 
-
 def generate_architecture(args, model):
     """Given the desired training budget and a template model, configure the model archtiecture according to "Scaling
     Laws for Neural Language Models" by Kaplan et al.

@@ -10,7 +10,6 @@ Example:
 
     from composer import functional
     my_model = CF.apply_blurpool(my_model)
-
 """
 from composer.algorithms.alibi.alibi import apply_alibi
 from composer.algorithms.augmix import augment_and_mix
@@ -27,8 +26,7 @@ from composer.algorithms.mixup.mixup import gen_interpolation_lambda
 from composer.algorithms.progressive_resizing import resize_inputs
 from composer.algorithms.randaugment import randaugment
 from composer.algorithms.scale_schedule.scale_schedule import scale_scheduler
-from composer.algorithms.selective_backprop.selective_backprop import do_selective_backprop
-from composer.algorithms.selective_backprop.selective_backprop import selective_backprop
+from composer.algorithms.selective_backprop.selective_backprop import do_selective_backprop, selective_backprop
 from composer.algorithms.seq_length_warmup.seq_length_warmup import apply_seq_length_warmup
 from composer.algorithms.squeeze_excite import apply_se
 from composer.algorithms.stochastic_depth.stochastic_depth import apply_stochastic_depth
