@@ -120,11 +120,11 @@ def test_synthetic_image_data_creation(data_type: SyntheticDataType, label_type:
         assert max(y) == 1
 
     # check that points were allocated in memory after the first call to __getitem__
-    assert dataset.input_data is not None
-    assert dataset.input_target is not None
+    assert dataset._dataset.input_data is not None
+    assert dataset._dataset.input_target is not None
     # check that the correct number of points were allocated in memory
-    assert dataset.input_data.shape[0] == num_samples_to_create
-    assert dataset.input_target.shape[0] == num_samples_to_create
+    assert dataset._dataset.input_data.shape[0] == num_samples_to_create
+    assert dataset._dataset.input_target.shape[0] == num_samples_to_create
 
     # verify that you can getch points outside the num_samples_to_create range
     # (still within the total dataset size range)

@@ -46,7 +46,7 @@ def test_mosaic_logger(tmpdir: pathlib.Path, dummy_state: State, dummy_logger: L
                          run_status: RunStatus,
                          run_config: Optional[Dict[str, JSON]] = None):
         del run_id, run_name, run_type, experiment_name, run_status, run_config  # unused
-        pass
+        return "experiment_id"
 
     # Replace the network call with a function that records logs sent
     monkeypatch.setitem(mosaicml_logger.__dict__, "_send_data", _mock_send_data)
@@ -83,7 +83,6 @@ def test_mosaic_logger(tmpdir: pathlib.Path, dummy_state: State, dummy_logger: L
             buffer_length = 0
             expected_log_calls += 1
 
-    logger.training_end(state=dummy_state, logger=dummy_logger)
     logger.post_close()
 
     assert num_log_calls == expected_log_calls
