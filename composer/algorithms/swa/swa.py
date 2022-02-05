@@ -96,5 +96,6 @@ class SWA(Algorithm):
             device = next(self.swa_model.parameters()).device
             # TODO(laura) this does not apply the batch split fn. This may result in cuda OOM
             update_bn(state.train_dataloader, model=self.swa_model, device=device)
-            state.model = self.swa_model
+            assert hasattr(self.swa_model.module, "state_dict")
+            state.model.load_state_dict(self.swa_model.module.state_dict())  # type: ignore
             log.info('Updated BN and set model to the averaged model')
