@@ -33,12 +33,12 @@ class AugMixHparams(AlgorithmHparams):
         return AugMix(**asdict(self))
 
 
-def augment_and_mix(img: Optional[ImageType] = None,
-                    severity: int = 3,
-                    depth: int = -1,
-                    width: int = 3,
-                    alpha: float = 1.0,
-                    augmentation_set: List = augmentation_sets["all"]) -> ImageType:
+def augmix_image(img: Optional[ImageType] = None,
+                 severity: int = 3,
+                 depth: int = -1,
+                 width: int = 3,
+                 alpha: float = 1.0,
+                 augmentation_set: List = augmentation_sets["all"]) -> ImageType:
     """Applies AugMix (`Hendrycks et al.
 
     <http://arxiv.org/abs/1912.02781>`_) data augmentation to an image. See :class:`AugMix` for details.
@@ -68,7 +68,7 @@ def augment_and_mix(img: Optional[ImageType] = None,
 
 
 class AugmentAndMixTransform(torch.nn.Module):
-    """Wrapper module for :func:`augment_and_mix` that can be passed to :class:`torchvision.transforms.Compose`"""
+    """Wrapper module for :func:`augmix_image` that can be passed to :class:`torchvision.transforms.Compose`"""
 
     def __init__(self,
                  severity: int = 3,
@@ -91,12 +91,12 @@ class AugmentAndMixTransform(torch.nn.Module):
 
     def forward(self, img: ImageType) -> ImageType:
 
-        return augment_and_mix(img=img,
-                               severity=self.severity,
-                               depth=self.depth,
-                               width=self.width,
-                               alpha=self.alpha,
-                               augmentation_set=self.augmentation_set)
+        return augmix_image(img=img,
+                            severity=self.severity,
+                            depth=self.depth,
+                            width=self.width,
+                            alpha=self.alpha,
+                            augmentation_set=self.augmentation_set)
 
 
 class AugMix(Algorithm):

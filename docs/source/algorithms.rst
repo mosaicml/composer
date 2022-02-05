@@ -69,7 +69,7 @@ Algorithm
 Standalone
 ^^^^^^^^^^
 
-.. autofunction:: composer.algorithms.augmix.augment_and_mix
+.. autofunction:: composer.algorithms.augmix.augmix_image
 
 
 BlurPool
@@ -119,7 +119,18 @@ Algorithm
 Standalone
 ^^^^^^^^^^
 
-.. autofunction:: composer.algorithms.colout.colout
+.. autofunction:: composer.algorithms.colout.colout_image
+.. autofunction:: composer.algorithms.colout.colout_batch
+
+
+CutMix
+---------------
+
+Algorithm
+^^^^^^^^^
+
+.. autoclass:: composer.algorithms.cutmix.CutMix
+.. autoclass:: composer.algorithms.cutmix.CutMixHparams
 
 
 CutOut
@@ -134,7 +145,13 @@ Algorithm
 Standalone
 ^^^^^^^^^^
 
-.. autofunction:: composer.algorithms.cutout.cutout
+.. autofunction:: composer.algorithms.cutout.cutout_batch
+
+
+Standalone
+^^^^^^^^^^
+
+.. autofunction:: composer.algorithms.cutmix.cutmix_batch
 
 
 Ghost Batch Normalization
@@ -251,7 +268,7 @@ Algorithm
 Standalone
 ^^^^^^^^^^
 
-.. autofunction:: composer.algorithms.randaugment.randaugment
+.. autofunction:: composer.algorithms.randaugment.randaugment_image
 
 Sequence Length Warmup
 ----------------------

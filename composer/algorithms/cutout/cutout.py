@@ -30,7 +30,7 @@ def apply_cutout(X: Tensor, mask: Tensor):
     return X * mask
 
 
-def cutout(X: Tensor, n_holes: int, length: int) -> Tensor:
+def cutout_batch(X: Tensor, n_holes: int, length: int) -> Tensor:
     """See :class:`CutOut`.
 
     Args:
@@ -91,5 +91,5 @@ class CutOut(Algorithm):
         x, y = state.batch_pair
         assert isinstance(x, Tensor), "Multiple tensors not supported for Cutout."
 
-        new_x = cutout(X=x, n_holes=self.n_holes, length=self.length)
+        new_x = cutout_batch(X=x, n_holes=self.n_holes, length=self.length)
         state.batch = (new_x, y)
