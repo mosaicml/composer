@@ -76,7 +76,17 @@ def pytest_collection_modifyitems(config: pytest.Config, items: List[pytest.Item
         conditions += [lambda item: _get_timeout(item) > timeout_threshold]
 
     # keep items that satisfy all conditions
-    items[:] = [item for item in items if all(condition(item) for condition in conditions)]
+    remaining = []
+    deselected = []
+    for item in items:
+        if all([condition(item) for condition in conditions]):
+            remaining.append(item)
+        else:
+            deselected.append(item)
+
+    if deselected:
+        config.hook.pytest_deselected(items=deselected)
+        items[:] = remaining
 
 
 @pytest.fixture(autouse=True)
