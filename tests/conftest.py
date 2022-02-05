@@ -73,7 +73,7 @@ def pytest_collection_modifyitems(config: pytest.Config, items: List[pytest.Item
     if duration == 'short':
         conditions += [lambda item: _get_timeout(item) < timeout_threshold]
     elif duration == 'long':
-        conditions += [lambda item: _get_timeout(item) + timeout_threshold]
+        conditions += [lambda item: _get_timeout(item) > timeout_threshold]
 
     # keep items that satisfy all conditions
     items[:] = [item for item in items if all(condition(item) for condition in conditions)]
