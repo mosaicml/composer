@@ -109,13 +109,13 @@ def adjust_lambda(cutmix_lambda: float, x: Tensor, bbox: Tuple) -> float:
     return adjusted_lambda
 
 
-def cutmix(x: Tensor,
-           y: Tensor,
-           alpha: float,
-           n_classes: int,
-           cutmix_lambda: Optional[float] = None,
-           bbox: Optional[Tuple] = None,
-           indices: Optional[torch.Tensor] = None) -> Tuple[torch.Tensor, torch.Tensor]:
+def cutmix_batch(x: Tensor,
+                 y: Tensor,
+                 alpha: float,
+                 n_classes: int,
+                 cutmix_lambda: Optional[float] = None,
+                 bbox: Optional[Tuple] = None,
+                 indices: Optional[torch.Tensor] = None) -> Tuple[torch.Tensor, torch.Tensor]:
     """Create new samples using combinations of pairs of samples.
 
     This is done by masking a region of x, and filling the masked region with a
@@ -284,7 +284,7 @@ class CutMix(Algorithm):
         self.bbox = rand_bbox(input.shape[2], input.shape[3], self.cutmix_lambda)
         self.cutmix_lambda = adjust_lambda(self.cutmix_lambda, input, self.bbox)
 
-        new_input, new_target = cutmix(
+        new_input, new_target = cutmix_batch(
             x=input,
             y=target,
             alpha=alpha,

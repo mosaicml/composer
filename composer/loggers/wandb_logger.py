@@ -94,11 +94,6 @@ class WandBLoggerBackend(BaseLoggerBackend):
         if self._enabled and self._log_artifacts:
             self._upload_artifacts()
 
-    def training_end(self, state: State, logger: Logger) -> None:
-        del state, logger  # unused
-        if self._enabled and self._log_artifacts:
-            self._upload_artifacts()
-
     def _upload_artifacts(self):
         import wandb
 

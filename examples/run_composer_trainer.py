@@ -7,7 +7,7 @@ data directory for both train and validation datasets.
 
 Example that trains MNIST with label smoothing::
 
-    >>> python examples/run_mosaic_trainer.py
+    >>> python examples/run_composer_trainer.py
     -f composer/yamls/models/classify_mnist_cpu.yaml
     --algorithms label_smoothing --alpha 0.1
     --datadir ~/datasets
