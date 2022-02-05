@@ -27,6 +27,6 @@ find . -type f -not -path '*/\.*' \( -iname \*.py -o -iname \*.pyi \) -print0 | 
 
 # Install and run pyright (requires nodejs to be already installed)
 
-npm install pyright@1.1.204
+npm install pyright@1.1.217
 
 ./node_modules/.bin/pyright .

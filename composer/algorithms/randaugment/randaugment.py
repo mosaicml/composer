@@ -1,5 +1,7 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
+import textwrap
+import weakref
 from dataclasses import asdict, dataclass
 from typing import Optional
 
@@ -7,6 +9,7 @@ import numpy as np
 import torch
 import yahp as hp
 from PIL.Image import Image as ImageType
+from torchvision.datasets import VisionDataset
 
 from composer.algorithms.algorithm_hparams import AlgorithmHparams
 from composer.core.types import Algorithm, Event, List, Logger, State
@@ -75,6 +78,9 @@ class RandAugment(Algorithm):
     t_CVPRW_2020/papers/w40/Cubuk_Randaugment_Practical_Automated_Data_Augmentation_With_a_Reduced_Search_Space_CVPRW_20
     20_paper.pdf>`_).
 
+    This algorithm runs on on :attr:`Event.INIT` to insert a dataset transformation. It is a no-op if this algorithm already
+    applied itself on the :attr:`State.train_dataloader.dataset`.
+
     Args:
         severity (int): Severity of augmentation operators (between 1 to 10). M in the
             original paper. Default = 9.
@@ -104,17 +110,10 @@ class RandAugment(Algorithm):
         self.severity = severity
         self.depth = depth
         self.augmentation_set = augmentation_set
+        self._transformed_datasets = weakref.WeakSet()
 
     def match(self, event: Event, state: State) -> bool:
-        """Runs on Event.TRAINING_START.
-
-        Args:
-            event (:class:`Event`): The current event.
-            state (:class:`State`): The current state.
-        Returns:
-            bool: True if this algorithm should run now
-        """
-        return event == Event.TRAINING_START
+        return event == Event.FIT_START and state.train_dataloader.dataset not in self._transformed_datasets
 
     def apply(self, event: Event, state: State, logger: Logger) -> None:
         """Inserts RandAugment into the list of dataloader transforms.
@@ -127,4 +126,9 @@ class RandAugment(Algorithm):
         ra = RandAugmentTransform(severity=self.severity, depth=self.depth, augmentation_set=self.augmentation_set)
         assert state.train_dataloader is not None
         dataset = state.train_dataloader.dataset
-        add_dataset_transform(dataset, ra)
+        if not isinstance(dataset, VisionDataset):
+            raise TypeError(
+                textwrap.dedent(f"""\
+                To use {type(self).__name__}, the dataset must be a
+                {VisionDataset.__qualname__}, not {type(dataset).__name__}"""))
+        add_dataset_transform(dataset, ra, is_tensor_transform=False)

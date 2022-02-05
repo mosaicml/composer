@@ -31,7 +31,7 @@ For example, the algorithm ``Layer Freezing``, which runs at the end of every ep
 
 .. code-block::
 
-   [STEP=0][layer_freezing/TRAINING_START=0]
+   [STEP=0][layer_freezing/INIT=0]
    [STEP=1][layer_freezing/EPOCH_START=0]
    [STEP=1][layer_freezing/BATCH_START=0]
    ...

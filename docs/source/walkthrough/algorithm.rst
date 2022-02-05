@@ -31,7 +31,7 @@ For example, a simple algorithm that shortens training:
     class ShortenTraining(Algorithm):
 
         def match(self, state: State, event: Event, logger: Logger) -> bool:
-            return event == Event.TRAINING_START
+            return event == Event.INIT
 
         def apply(self, state: State, event: Event, logger: Logger):
             state.max_duration /= 2  # cut training time in half
