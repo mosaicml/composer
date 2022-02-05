@@ -14,7 +14,7 @@ log = logging.getLogger(__name__)
 
 
 @torch.no_grad()
-def update_bn(loader: DataLoader, model: torch.nn.Module):
+def update_bn(loader: DataLoader, model: torch.nn.Module, device_str: str):
     """Updates BatchNorm running_mean, running_var buffers in the model.
 
     It performs one pass over data in `loader` to estimate the activation
@@ -40,7 +40,18 @@ def update_bn(loader: DataLoader, model: torch.nn.Module):
         module.momentum = None
         module.num_batches_tracked *= 0
 
-    for _, data in enumerate(loader):
+    for data in loader:
+        import composer.trainer.devices as devices
+        if device_str == "cuda":
+            device = devices.DeviceGPU()
+        elif device_str == "cpu":
+            device = devices.DeviceCPU()
+        else:
+            raise ValueError("`device` must be one of 'cuda', 'cpu'")
+        data = device.batch_to_device(data)
+        # Is calling eval() here going to cause problems? Are there other algorithms that
+        # will get called after that rely on the model being in the state model.train()?
+        model.eval()
         model(data)
 
     for bn_module in momenta.keys():
@@ -89,7 +100,7 @@ class SWA(Algorithm):
             bool: True if this algorithm should run now.
         """
         should_start_swa = state.epoch >= int(self.swa_start * state.max_epochs)
-        return event in (Event.TRAINING_START, Event.TRAINING_END) or \
+        return event == Event.TRAINING_START or \
              (event == Event.EPOCH_END and should_start_swa)
 
     def apply(self, event: Event, state: State, logger: Logger) -> None:
@@ -113,7 +124,7 @@ class SWA(Algorithm):
 
             if self.swa_lr is None:
                 last_lr = state.schedulers[0].get_last_lr()[0]  # assumes ComposedScheduler and one param group
-                log.info(f'Setting SWA LR to {last_lr}')
+                log.warning(f'Setting SWA LR to {last_lr}')
                 self.swa_lr = last_lr
 
             self.swa_scheduler = SWALR(
@@ -131,9 +142,14 @@ class SWA(Algorithm):
                 raise ValueError('SWA LR scheduler was not set.')
             self.swa_scheduler.step()
 
-        ## end of training
-        if event == Event.TRAINING_END:
-            assert self.swa_model is not None
-            update_bn(state.train_dataloader, self.swa_model)
-            state.model = self.swa_model
-            log.info('Updated BN and set model to the averaged model')
+            if state.epoch == state.max_epochs:
+                assert self.swa_model is not None
+                # There must be a less gross way of getting the device from the state
+                if hasattr(list(state.model.parameters())[0], "device"):
+                    device = list(state.model.parameters())[0].device.type
+                    update_bn(state.train_dataloader, self.swa_model, device)
+                    assert hasattr(self.swa_model.module, "state_dict")
+                    state.model.load_state_dict(self.swa_model.module.state_dict())  # type: ignore
+                    log.info('Updated BN and set model to the averaged model')
+                else:
+                    raise AttributeError("Unable to determine state.model's device")
