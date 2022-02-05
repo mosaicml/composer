@@ -127,4 +127,4 @@ class RandAugment(Algorithm):
         ra = RandAugmentTransform(severity=self.severity, depth=self.depth, augmentation_set=self.augmentation_set)
         assert state.train_dataloader is not None
         dataset = state.train_dataloader.dataset
-        add_dataset_transform(dataset, ra)
+        add_dataset_transform(dataset, ra, is_tensor_transform=False)

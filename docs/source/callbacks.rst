@@ -9,7 +9,7 @@ Composer contains built-in callbacks, which can be added via the ``--callbacks``
 
 .. code-block::
 
-    python examples/run_mosaic_trainer.py -f my_model.yaml --callbacks lr_monitor grad_monitor
+    python examples/run_composer_trainer.py -f my_model.yaml --callbacks lr_monitor grad_monitor
 
 
 Callbacks

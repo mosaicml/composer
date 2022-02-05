@@ -17,3 +17,4 @@ from composer.datasets.synthetic import MemoryFormat as MemoryFormat
 from composer.datasets.synthetic import SyntheticBatchPairDataset as SyntheticBatchPairDataset
 from composer.datasets.synthetic import SyntheticDataLabelType as SyntheticDataLabelType
 from composer.datasets.synthetic import SyntheticDataType as SyntheticDataType
+from composer.datasets.synthetic import SyntheticPILDataset as SyntheticPILDataset
