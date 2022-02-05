@@ -131,8 +131,8 @@ class SyntheticBatchPairDataset(torch.utils.data.Dataset):
 
 
 class SyntheticPILDataset(VisionDataset):
-    """Similar to SyntheticBatchPairDataset but subclasses VisionDataset and generates PIL
-    image data instead of torch.Tensor.
+    """Similar to SyntheticBatchPairDataset but subclasses VisionDataset and generates PIL image data instead of
+    torch.Tensor.
 
     Args:
         total_dataset_size (int): The total size of the dataset to emulate.

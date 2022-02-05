@@ -101,9 +101,8 @@ def pil_image_collate(batch: List[Tuple[Image.Image, Union[Image.Image, Tensor]]
 def add_dataset_transform(dataset: VisionDataset,
                           transform: Callable,
                           is_tensor_transform: bool = False) -> torch.utils.data.Dataset:
-    """Add a transform to a dataset's collection of transforms. Inserts the transform
-    before or after torchvision.transforms.ToTensor(), or at the end of the collection of
-    ToTensor() is not present.
+    """Add a transform to a dataset's collection of transforms. Inserts the transform before or after
+    torchvision.transforms.ToTensor(), or at the end of the collection of ToTensor() is not present.
 
     Args:
         dataset (VisionDataset): A torchvision-like dataset
