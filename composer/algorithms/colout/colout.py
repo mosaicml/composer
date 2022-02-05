@@ -6,7 +6,7 @@ import logging
 import textwrap
 import weakref
 from dataclasses import asdict, dataclass
-from typing import Union
+from typing import TypeVar
 
 import torch
 import yahp as hp
@@ -21,8 +21,10 @@ from composer.utils.data import add_dataset_transform
 
 log = logging.getLogger(__name__)
 
+TImg = TypeVar("TImg", torch.Tensor, Image)
 
-def colout_image(img: Union[torch.Tensor, Image], p_row: float, p_col: float) -> Union[torch.Tensor, Image]:
+
+def colout_image(img: TImg, p_row: float, p_col: float) -> TImg:
     """Drops random rows and columns from a single image.
 
     Args:
@@ -34,19 +36,15 @@ def colout_image(img: Union[torch.Tensor, Image], p_row: float, p_col: float) ->
         torch.Tensor or PIL Image: A smaller image with rows and columns dropped
     """
 
-    as_PIL = False
-
     # Convert image to Tensor if needed
     if isinstance(img, Image):
-        as_PIL = True
-        img = TF.to_tensor(img)
-
-    if not isinstance(img, torch.Tensor):
-        raise ValueError("Invalid input type: img must be either torch.Tensor or PIL Image.")
+        img_tensor = TF.to_tensor(img)
+    else:
+        img_tensor = img
 
     # Get the dimensions of the image
-    row_size = img.shape[1]
-    col_size = img.shape[2]
+    row_size = img_tensor.shape[1]
+    col_size = img_tensor.shape[2]
 
     # Determine how many rows and columns to keep
     kept_row_size = int((1 - p_row) * row_size)
@@ -57,14 +55,14 @@ def colout_image(img: Union[torch.Tensor, Image], p_row: float, p_col: float) ->
     kept_col_idx = sorted(torch.randperm(col_size)[:kept_col_size].numpy())
 
     # Keep only the selected row and columns
-    img = img[:, kept_row_idx, :]
-    img = img[:, :, kept_col_idx]
+    img_tensor = img_tensor[:, kept_row_idx, :]
+    img_tensor = img_tensor[:, :, kept_col_idx]
 
     # Convert back to PIL for the rest of the augmentation pipeline
-    if as_PIL:
-        return TF.to_pil_image(img)
+    if isinstance(img, Image):
+        return TF.to_pil_image(img_tensor)
     else:
-        return img
+        return img_tensor
 
 
 class ColOutTransform:
@@ -80,7 +78,7 @@ class ColOutTransform:
         self.p_row = p_row
         self.p_col = p_col
 
-    def __call__(self, img: Union[torch.Tensor, Image]) -> Union[torch.Tensor, Image]:
+    def __call__(self, img: TImg) -> TImg:
         """Drops random rows and columns from a single image.
 
         Args:

@@ -13,7 +13,7 @@ import yahp as hp
 from composer.core.types import BatchPair, DataLoader, Metrics, Tensor, Tensors
 from composer.datasets.dataloader import DataloaderHparams
 from composer.datasets.hparams import DatasetHparams, SyntheticHparamsMixin
-from composer.datasets.synthetic import SyntheticBatchPairDataset, SyntheticDataLabelType
+from composer.datasets.synthetic import SyntheticBatchPairDataset, SyntheticDataLabelType, SyntheticPILDataset
 from composer.models import ComposerModel, ModelHparams
 
 
@@ -86,6 +86,32 @@ class _SimpleDatasetHparams(DatasetHparams, SyntheticHparamsMixin):
                                             memory_format=self.synthetic_memory_format,
                                             num_unique_samples_to_create=self.synthetic_num_unique_samples,
                                             device=self.synthetic_device)
+        if self.shuffle:
+            sampler = torch.utils.data.RandomSampler(dataset)
+        else:
+            sampler = torch.utils.data.SequentialSampler(dataset)
+        return dataloader_hparams.initialize_object(
+            dataset=dataset,
+            batch_size=batch_size,
+            sampler=sampler,
+            drop_last=self.drop_last,
+        )
+
+
+@dataclasses.dataclass
+class _SimplePILDatasetHparams(DatasetHparams, SyntheticHparamsMixin):
+
+    data_shape: Optional[List[int]] = hp.optional("data shape", default=None)
+    num_classes: Optional[int] = hp.optional("num_classes", default=None)
+
+    def initialize_object(self, batch_size: int, dataloader_hparams: DataloaderHparams) -> DataLoader:
+        assert self.data_shape is not None
+        assert self.num_classes is not None
+        dataset = SyntheticPILDataset(total_dataset_size=10_000,
+                                      data_shape=tuple(self.data_shape),
+                                      label_type=SyntheticDataLabelType.CLASSIFICATION_INT,
+                                      num_classes=self.num_classes,
+                                      num_unique_samples_to_create=self.synthetic_num_unique_samples)
         if self.shuffle:
             sampler = torch.utils.data.RandomSampler(dataset)
         else:
