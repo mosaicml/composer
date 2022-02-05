@@ -21,7 +21,6 @@ model_names = [os.path.basename(os.path.splitext(mn)[0]) for mn in model_names]
 
 def get_model_algs(model_name: str) -> List[str]:
     algs = algorithms.list_algorithms()
-    algs.remove("dummy")
     algs.remove("no_op_model")
     is_image_model = any(x in model_name for x in ("resnet", "mnist", "efficientnet"))
     if is_image_model:
