@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import textwrap
 import weakref
 from dataclasses import asdict, dataclass
 from typing import Union
@@ -10,6 +11,7 @@ from typing import Union
 import torch
 import yahp as hp
 from PIL.Image import Image
+from torchvision.datasets import VisionDataset
 from torchvision.transforms import functional as TF
 
 from composer.algorithms import AlgorithmHparams
@@ -172,12 +174,13 @@ class ColOut(Algorithm):
 
         transform = ColOutTransform(p_row=self.p_row, p_col=self.p_col)
 
-        if hasattr(dataset, "transform"):
-            add_dataset_transform(dataset, transform)
-            self._transformed_datasets.add(dataset)
-        else:
-            raise ValueError(
-                f"Dataset of type {type(dataset)} has no attribute 'transform'. Expected TorchVision dataset.")
+        if not isinstance(dataset, VisionDataset):
+            raise TypeError(
+                textwrap.dedent(f"""\
+                To use {type(self).__name__}, the dataset must be a
+                {VisionDataset.__qualname__}, not {type(dataset).__name__}"""))
+        add_dataset_transform(dataset, transform, is_tensor_transform=False)
+        self._transformed_datasets.add(dataset)
 
     def _apply_batch(self, state: State) -> None:
         """Transform a batch of images using the ColOut augmentation."""

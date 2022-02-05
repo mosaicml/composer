@@ -1,5 +1,6 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
+import textwrap
 import weakref
 from dataclasses import asdict, dataclass
 from typing import Optional
@@ -9,6 +10,7 @@ import torch
 import yahp as hp
 from PIL import Image
 from PIL.Image import Image as ImageType
+from torchvision.datasets import VisionDataset
 
 from composer.algorithms.algorithm_hparams import AlgorithmHparams
 from composer.core.event import Event
@@ -170,5 +172,10 @@ class AugMix(Algorithm):
                                     alpha=self.alpha,
                                     augmentation_set=self.augmentation_set)
         dataset = state.train_dataloader.dataset
-        add_dataset_transform(dataset, am)
+        if not isinstance(dataset, VisionDataset):
+            raise TypeError(
+                textwrap.dedent(f"""\
+                To use {type(self).__name__}, the dataset must be a
+                {VisionDataset.__qualname__}, not {type(dataset).__name__}"""))
+        add_dataset_transform(dataset, am, is_tensor_transform=False)
         self._transformed_datasets.add(dataset)

@@ -2,8 +2,11 @@
 
 from typing import Callable, Optional, Sequence, Union
 
+import numpy
 import torch
 import torch.utils.data
+from PIL import Image
+from torchvision.datasets import VisionDataset
 
 from composer.core.types import MemoryFormat
 from composer.utils.string_enum import StringEnum
@@ -28,10 +31,10 @@ class SyntheticBatchPairDataset(torch.utils.data.Dataset):
         num_unique_samples_to_create (int): The number of unique samples to allocate memory for.
         data_type (str or SyntheticDataType, optional), Type of synthetic data to create.
         label_type (str or SyntheticDataLabelType, optional), Type of synthetic data to create.
-        num_classes (int, optional): Number of classes to use. Required if `SyntheticDataLabelType`
-            is `CLASSIFICATION_INT` or `CLASSIFICATION_ONE_HOT`. Otherwise, should be `None`.
+        num_classes (int, optional): Number of classes to use. Required if
+            ``SyntheticDataLabelType`` is ``CLASSIFICATION_INT`` or``CLASSIFICATION_ONE_HOT``. Otherwise, should be ``None``.
         label_shape (List[int]): Shape of the tensor for each sample label.
-        device (str): Device to store the sample pool. Set to `cuda` to store samples
+        device (str): Device to store the sample pool. Set to ``cuda`` to store samples
             on the GPU and eliminate PCI-e bandwidth with the dataloader. Set to `cpu`
             to move data between host memory and the gpu on every batch.
         memory_format (MemoryFormat, optional): Memory format for the sample pool.
@@ -125,3 +128,106 @@ class SyntheticBatchPairDataset(torch.utils.data.Dataset):
             return self.transform(self.input_data[idx]), self.input_target[idx]
         else:
             return self.input_data[idx], self.input_target[idx]
+
+
+class SyntheticPILDataset(VisionDataset):
+    """Similar to SyntheticBatchPairDataset but subclasses VisionDataset and generates PIL image data instead of
+    torch.Tensor.
+
+    Args:
+        total_dataset_size (int): The total size of the dataset to emulate.
+        data_shape (List[int]): Shape of the image for input samples. Default = [64, 64]
+        num_unique_samples_to_create (int): The number of unique samples to allocate memory for.
+        data_type (str or SyntheticDataType, optional), Type of synthetic data to create.
+        label_type (str or SyntheticDataLabelType, optional), Type of synthetic data to create.
+        num_classes (int, optional): Number of classes to use. Required if
+            ``SyntheticDataLabelType`` is ``CLASSIFICATION_INT`` or
+            ``CLASSIFICATION_ONE_HOT``. Otherwise, should be ``None``.
+        label_shape (List[int]): Shape of the tensor for each sample label.
+    """
+
+    def __init__(self,
+                 *,
+                 total_dataset_size: int,
+                 data_shape: Sequence[int] = [64, 64],
+                 num_unique_samples_to_create: int = 100,
+                 data_type: Union[str, SyntheticDataType] = SyntheticDataType.GAUSSIAN,
+                 label_type: Union[str, SyntheticDataLabelType] = SyntheticDataLabelType.CLASSIFICATION_INT,
+                 num_classes: Optional[int] = None,
+                 label_shape: Optional[Sequence[int]] = None,
+                 transform: Optional[Callable] = None):
+        super().__init__(root="", transform=transform)
+        self.total_dataset_size = total_dataset_size
+        self.data_shape = data_shape
+        self.num_unique_samples_to_create = num_unique_samples_to_create
+        self.data_type = SyntheticDataType(data_type)
+        self.label_type = SyntheticDataLabelType(label_type)
+        self.num_classes = num_classes
+        self.label_shape = label_shape
+        self.transform = transform
+
+        self._validate_label_inputs(label_type=self.label_type,
+                                    num_classes=self.num_classes,
+                                    label_shape=self.label_shape)
+
+        # The synthetic data
+        self.input_data = None
+        self.input_target = None
+
+    def _validate_label_inputs(self, label_type: SyntheticDataLabelType, num_classes: Optional[int],
+                               label_shape: Optional[Sequence[int]]):
+        if label_type == SyntheticDataLabelType.CLASSIFICATION_INT or label_type == SyntheticDataLabelType.CLASSIFICATION_ONE_HOT:
+            if num_classes is None or num_classes <= 0:
+                raise ValueError("classification label_types require num_classes > 0")
+
+    def __len__(self) -> int:
+        return self.total_dataset_size
+
+    def __getitem__(self, idx: int):
+        idx = idx % self.num_unique_samples_to_create
+        if self.input_data is None:
+            # Generating data on the first call to __getitem__
+            # This does mean that the first batch will be slower
+            # generating samples so all values for the sample are the sample index
+            # e.g. all(input_data[1] == 1). Helps with debugging.
+            assert self.input_target is None
+            input_data = numpy.random.randint(0, 256, (self.num_unique_samples_to_create, *self.data_shape, 3))
+
+            if self.label_type == SyntheticDataLabelType.CLASSIFICATION_ONE_HOT:
+                assert self.num_classes is not None
+                input_target = numpy.zeros((self.num_unique_samples_to_create, self.num_classes))
+                input_target[:, 0] = 1.0
+            elif self.label_type == SyntheticDataLabelType.CLASSIFICATION_INT:
+                assert self.num_classes is not None
+                if self.label_shape:
+                    label_batch_shape = (self.num_unique_samples_to_create, *self.label_shape)
+                else:
+                    label_batch_shape = (self.num_unique_samples_to_create,)
+                input_target = numpy.random.randint(0, self.num_classes, label_batch_shape)
+            else:
+                raise ValueError(f"Unsupported label type {self.data_type}")
+
+            # If separable, force the positive examples to have a higher mean than the negative examples
+            if self.data_type == SyntheticDataType.SEPARABLE:
+                assert self.label_type == SyntheticDataLabelType.CLASSIFICATION_INT, \
+                    "SyntheticDataType.SEPARABLE requires integer classes."
+                assert max(input_target) == 1 and min(input_target) == 0, \
+                    "SyntheticDataType.SEPARABLE only supports binary labels"
+                # Make positive examples have mean = 3 and negative examples have mean = -3
+                # so they are easier to separate with a classifier
+                input_data[input_target == 0] -= 3
+                input_data[input_target == 1] += 3
+                # Shift and scale to be [0, 255]
+                input_data = (input_data - input_data.min())
+                input_data = (input_data * (255 / input_data.max())).astype("uint8")
+
+            self.input_data = input_data
+            self.input_target = torch.tensor(input_target)
+
+        assert self.input_target is not None
+
+        current_sample = Image.fromarray(self.input_data[idx, :])
+        if self.transform is not None:
+            return self.transform(current_sample), self.input_target[idx]
+        else:
+            return current_sample, self.input_target[idx]

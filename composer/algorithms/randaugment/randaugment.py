@@ -1,5 +1,6 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
+import textwrap
 import weakref
 from dataclasses import asdict, dataclass
 from typing import Optional
@@ -8,6 +9,7 @@ import numpy as np
 import torch
 import yahp as hp
 from PIL.Image import Image as ImageType
+from torchvision.datasets import VisionDataset
 
 from composer.algorithms.algorithm_hparams import AlgorithmHparams
 from composer.core.types import Algorithm, Event, List, Logger, State
@@ -124,4 +126,9 @@ class RandAugment(Algorithm):
         ra = RandAugmentTransform(severity=self.severity, depth=self.depth, augmentation_set=self.augmentation_set)
         assert state.train_dataloader is not None
         dataset = state.train_dataloader.dataset
-        add_dataset_transform(dataset, ra)
+        if not isinstance(dataset, VisionDataset):
+            raise TypeError(
+                textwrap.dedent(f"""\
+                To use {type(self).__name__}, the dataset must be a
+                {VisionDataset.__qualname__}, not {type(dataset).__name__}"""))
+        add_dataset_transform(dataset, ra, is_tensor_transform=False)
