@@ -10,7 +10,6 @@ from composer.algorithms.channels_last import ChannelsLastHparams
 from composer.algorithms.colout import ColOutHparams
 from composer.algorithms.cutmix import CutMixHparams
 from composer.algorithms.cutout import CutOutHparams
-from composer.algorithms.dummy import DummyHparams
 from composer.algorithms.factorize import FactorizeHparams
 from composer.algorithms.ghost_batchnorm import GhostBatchNormHparams
 from composer.algorithms.label_smoothing import LabelSmoothingHparams
@@ -29,7 +28,6 @@ from composer.algorithms.swa.hparams import SWAHparams
 from composer.core.algorithm import Algorithm
 
 registry: Dict[str, Type[AlgorithmHparams]] = {
-    'dummy': DummyHparams,
     'blurpool': BlurPoolHparams,
     'channels_last': ChannelsLastHparams,
     'seq_length_warmup': SeqLengthWarmupHparams,

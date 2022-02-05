@@ -508,7 +508,7 @@ class Trainer:
         else:
             train_metrics = None
 
-        self.engine.run_event(Event.TRAINING_START)
+        self.engine.run_event(Event.FIT_START)
 
         state.scaler = ClosureGradScaler() if self._use_closures() else GradScaler()
         use_grad_scaling = self._use_grad_scaling(state.precision, state.scaler)
@@ -642,8 +642,6 @@ class Trainer:
 
             if self.checkpoint_saver and self.checkpoint_saver.should_checkpoint(state=state, event=Event.EPOCH_END):
                 self.checkpoint_saver.save_checkpoint(state=state, seed=self.seed, device=self.device)
-
-        self.engine.run_event(Event.TRAINING_END)
 
     def _train_batch(self, microbatches: Sequence[Batch], ddp_sync: bool = True):
         """Run training on a full batch of data.

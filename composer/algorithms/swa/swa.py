@@ -6,46 +6,11 @@ import logging
 from typing import Optional
 
 import torch
-from torch.optim.swa_utils import SWALR, AveragedModel
+from torch.optim.swa_utils import SWALR, AveragedModel, update_bn
 
-from composer.core.types import Algorithm, DataLoader, Event, Logger, State
+from composer.core.types import Algorithm, Event, Logger, State
 
 log = logging.getLogger(__name__)
-
-
-@torch.no_grad()
-def update_bn(loader: DataLoader, model: torch.nn.Module):
-    """Updates BatchNorm running_mean, running_var buffers in the model.
-
-    It performs one pass over data in `loader` to estimate the activation
-    statistics for BatchNorm layers in the model.
-    Adapted from https://github.com/pytorch/pytorch/blob/master/torch/optim/swa_utils.py
-    in order to work with our internal trainer.
-    """
-    momenta = {}
-    for module in model.modules():
-        if isinstance(module, torch.nn.modules.batchnorm._BatchNorm):
-            assert module.running_mean is not None
-            module.running_mean = torch.zeros_like(module.running_mean)
-            assert module.running_var is not None
-            module.running_var = torch.ones_like(module.running_var)
-            momenta[module] = module.momentum
-
-    if not momenta:
-        return
-
-    was_training = model.training
-    model.train()
-    for module in momenta.keys():
-        module.momentum = None
-        module.num_batches_tracked *= 0
-
-    for _, data in enumerate(loader):
-        model(data)
-
-    for bn_module in momenta.keys():
-        bn_module.momentum = momenta[bn_module]
-    model.train(was_training)
 
 
 class SWA(Algorithm):
@@ -78,9 +43,10 @@ class SWA(Algorithm):
         assert anneal_epochs > 0, "anneal_epochs must be great than 0."
 
         self.swa_scheduler = None
+        self.swa_model = None
 
     def match(self, event: Event, state: State) -> bool:
-        """Run in Event.TRAINING_START, Event.TRAINING_END or if Event.EPOCH_END and epochs greater than or equal to `swa_start * max_epochs`
+        """Run on EPOCH_END if training duration is greater than `swa_start`
 
         Args:
             event (:class:`Event`): The current event.
@@ -88,9 +54,8 @@ class SWA(Algorithm):
         Returns:
             bool: True if this algorithm should run now.
         """
-        should_start_swa = state.epoch >= int(self.swa_start * state.max_epochs)
-        return event in (Event.TRAINING_START, Event.TRAINING_END) or \
-             (event == Event.EPOCH_END and should_start_swa)
+        should_start_swa = float(state.get_elapsed_duration()) >= self.swa_start
+        return event == Event.EPOCH_END and should_start_swa
 
     def apply(self, event: Event, state: State, logger: Logger) -> None:
         """Apply SWA to weights towards the end of training.
@@ -100,21 +65,21 @@ class SWA(Algorithm):
             state (State): the current trainer state
             logger (Logger): the training logger
         """
-        assert state.model is not None, 'We cannot apply SWA to None'
 
-        swa_start_epochs = int(self.swa_start * state.max_epochs)
-
-        if event == Event.TRAINING_START:
-            self.swa_model = AveragedModel(state.model)
-
-        if event == Event.EPOCH_END and state.epoch == swa_start_epochs:
-            assert self.swa_scheduler is None, "SWA Scheduler should only be set once. Another algorithm "
-            "may have adjusted the max_epochs."
+        if self.swa_scheduler is None:
 
             if self.swa_lr is None:
-                last_lr = state.schedulers[0].get_last_lr()[0]  # assumes ComposedScheduler and one param group
+                if len(state.schedulers) != 1:
+                    raise RuntimeError("SWA supports only one scheduler")
+                scheduler = state.schedulers[0]
+                last_lr = scheduler.get_last_lr()
+                if len(last_lr) != 1:
+                    raise RuntimeError(f"SWA supports only one LR; instead found {len(last_lr)}")
                 log.info(f'Setting SWA LR to {last_lr}')
-                self.swa_lr = last_lr
+                self.swa_lr = last_lr[0]
+
+            if len(state.optimizers) != 1:
+                raise RuntimeError("SWA supports one and only one optimizer")
 
             self.swa_scheduler = SWALR(
                 state.optimizers[0],
@@ -123,17 +88,19 @@ class SWA(Algorithm):
                 anneal_strategy='cos',
             )
 
-        if event == Event.EPOCH_END and state.epoch >= swa_start_epochs:
-            assert self.swa_model is not None
-            self.swa_model.update_parameters(state.model)  # type: ignore
+        if self.swa_model is None:
+            self.swa_model = AveragedModel(state.model)
 
-            if self.swa_scheduler is None:
-                raise ValueError('SWA LR scheduler was not set.')
-            self.swa_scheduler.step()
+        self.swa_model.update_parameters(state.model)  # type: ignore
+
+        if self.swa_scheduler is None:
+            raise ValueError('SWA LR scheduler was not set.')
+        self.swa_scheduler.step()
 
         ## end of training
-        if event == Event.TRAINING_END:
-            assert self.swa_model is not None
-            update_bn(state.train_dataloader, self.swa_model)
+        if float(state.get_elapsed_duration()) >= 1.0:
+            device = next(self.swa_model.parameters()).device
+            # TODO(laura) this does not apply the batch split fn. This may result in cuda OOM
+            update_bn(state.train_dataloader, model=self.swa_model, device=device)
             state.model = self.swa_model
             log.info('Updated BN and set model to the averaged model')

@@ -23,4 +23,5 @@ API Reference
 ~~~~~~~~~~~~~
 
 .. autoclass:: composer.Event
+    :noindex:
     :members:
