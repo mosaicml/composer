@@ -12,12 +12,12 @@ Example:
     my_model = CF.apply_blurpool(my_model)
 """
 from composer.algorithms.alibi.alibi import apply_alibi
-from composer.algorithms.augmix import augment_and_mix
+from composer.algorithms.augmix import augmix_image
 from composer.algorithms.blurpool import apply_blurpool
 from composer.algorithms.channels_last.channels_last import apply_channels_last
-from composer.algorithms.colout.colout import colout
-from composer.algorithms.cutmix.cutmix import cutmix
-from composer.algorithms.cutout.cutout import cutout
+from composer.algorithms.colout.colout import colout_batch, colout_image
+from composer.algorithms.cutmix.cutmix import cutmix_batch
+from composer.algorithms.cutout.cutout import apply_cutout, cutout_batch
 from composer.algorithms.ghost_batchnorm.ghost_batchnorm import apply_ghost_batchnorm
 from composer.algorithms.label_smoothing import smooth_labels
 from composer.algorithms.layer_freezing import freeze_layers
@@ -34,12 +34,14 @@ from composer.algorithms.stochastic_depth.stochastic_depth import apply_stochast
 # All must be manually defined so sphinx automodule will work properly
 __all__ = [
     "apply_alibi",
-    "augment_and_mix",
+    "augmix_image",
     "apply_blurpool",
     "apply_channels_last",
-    "colout",
-    "cutmix",
-    "cutout",
+    "colout_batch",
+    "colout_image",
+    "cutmix_batch",
+    "cutout_batch",
+    "apply_cutout",
     "apply_ghost_batchnorm",
     "smooth_labels",
     "freeze_layers",
