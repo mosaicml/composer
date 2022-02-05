@@ -15,7 +15,7 @@ Algorithms can be used directly through our functions-based API.
     # replace some layers with squeeze-excite
     cf.apply_se(model, latent_channels=64, min_channels=128)
 
-.. automodule:: composer.algorithms.functional
+.. automodule:: composer.functional
     :noindex:
     :no-members:
     :autosummary-imported-members:
