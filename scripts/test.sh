@@ -11,5 +11,6 @@ JUNIT_PREFIX=${JUNIT_PREFIX:-'build/output/composer'}
 
 mkdir -p $(dirname $JUNIT_PREFIX)
 
+pytest --junitxml $JUNIT_PREFIX.n0.junit.xml $@  # identify non-ddp errors
 python -m composer.cli.launcher -n 1 --master_port 26000 -m coverage run -m pytest --junitxml $JUNIT_PREFIX.n1.junit.xml $@
 python -m composer.cli.launcher -n 2 --master_port 26000 -m coverage run -m pytest --junitxml $JUNIT_PREFIX.n2.junit.xml $@

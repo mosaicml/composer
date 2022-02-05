@@ -13,6 +13,13 @@ import torch.utils.data
 
 TObj = TypeVar("TObj")
 
+_NODE_RANK = "NODE_RANK"
+_WORLD_SIZE = "WORLD_SIZE"
+_LOCAL_WORLD_SIZE = "LOCAL_WORLD_SIZE"
+_RANK = "RANK"
+_LOCAL_RANK = "LOCAL_RANK"
+
+_DIST_ENV_VARS = [_NODE_RANK, _WORLD_SIZE, _LOCAL_WORLD_SIZE, _RANK, _LOCAL_RANK]
 
 def _get_distributed_config_var(env_var: str,
                                 human_name: str,
@@ -51,7 +58,7 @@ def get_world_size() -> int:
     Returns:
         int: The world size
     """
-    return _get_distributed_config_var(env_var="WORLD_SIZE",
+    return _get_distributed_config_var(env_var=_WORLD_SIZE,
                                        human_name="world size",
                                        default=1,
                                        fetch_fn_name="get_world_size")
@@ -63,7 +70,7 @@ def get_global_rank() -> int:
     Returns:
         int: The global rank
     """
-    return _get_distributed_config_var(env_var="RANK", human_name="global rank", default=0, fetch_fn_name="get_rank")
+    return _get_distributed_config_var(env_var=_RANK, human_name="global rank", default=0, fetch_fn_name="get_rank")
 
 
 def get_local_world_size() -> int:
@@ -72,7 +79,7 @@ def get_local_world_size() -> int:
     Returns:
         int: The local world size
     """
-    return _get_distributed_config_var(env_var="LOCAL_WORLD_SIZE", human_name="local world size", default=1)
+    return _get_distributed_config_var(env_var=_LOCAL_WORLD_SIZE, human_name="local world size", default=1)
 
 
 def get_local_rank() -> int:
@@ -81,7 +88,7 @@ def get_local_rank() -> int:
     Returns:
         int: The local world size
     """
-    return _get_distributed_config_var(env_var="LOCAL_RANK", human_name="local rank", default=0)
+    return _get_distributed_config_var(env_var=_LOCAL_RANK, human_name="local rank", default=0)
 
 
 def get_node_rank() -> int:
@@ -91,7 +98,7 @@ def get_node_rank() -> int:
     Returns:
         int: The node rank, starting at 0.
     """
-    return _get_distributed_config_var(env_var="NODE_RANK", human_name="node rank", default=0)
+    return _get_distributed_config_var(env_var=_NODE_RANK, human_name="node rank", default=0)
 
 
 def barrier() -> None:
@@ -241,9 +248,10 @@ def initialize_dist(backend: str, timeout: datetime.timedelta):
                                "wish to change backends, please restart the python process.")
         return
 
-    if "RANK" not in os.environ or "WORLD_SIZE" not in os.environ:
-        warnings.warn("NoDistributedWarning: RANK and WORLD_SIZE env vars not set; assuming no "
-                      "parallelization. If this is unexpected, make sure you are running your "
+    _missing_dist_env_vars = list(dist_env_var for dist_env_var in _DIST_ENV_VARS if dist_env_var not in os.environ)
+    if len(_missing_dist_env_vars) > 0:
+        warnings.warn(f"NoDistributedWarning: Distributed environment variables {' ,'.join(_missing_dist_env_vars)}"
+                       "not set; assuming no parallelization. If this is unexpected, make sure you are running your "
                       "training script with the composer CLI tool.")
     elif get_world_size() > 1:
         dist.init_process_group(backend, timeout=timeout)
