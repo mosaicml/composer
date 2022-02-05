@@ -63,8 +63,13 @@ def get_memory_report() -> Dict[str, Union[int, float]]:
     if not torch.cuda.is_available():
         log.debug("Cuda is not available. The memory report will be empty.")
         return {}
-    device_stats = torch.cuda.memory_stats()
-    memory_report = {}
-    for torch_stat_name, stat_alias in _MEMORY_STATS.items():
-        memory_report[stat_alias] = device_stats[torch_stat_name]
+    memory_stats = torch.cuda.memory_stats()
+
+    if len(memory_stats) == 0:
+        log.debug("No GPU memory was used, returning empty.")
+        return {}
+
+    # simplify the memory_stats
+    memory_report = {name: memory_stats[torch_name] for (name, torch_name) in _MEMORY_STATS.items()}
+
     return memory_report
