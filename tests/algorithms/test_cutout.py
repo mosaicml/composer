@@ -6,8 +6,6 @@ import torch
 from composer.algorithms import CutOutHparams
 from composer.algorithms.cutout.cutout import generate_mask
 from composer.core.types import Event, Tensor
-from composer.trainer.trainer_hparams import TrainerHparams
-from tests.utils.trainer_fit import train_model
 
 
 def _is_square(cutout_box: Tensor) -> bool:
@@ -87,7 +85,7 @@ def test_cutout_mask(tensor_sizes, cutout_length, anchors):
 @pytest.mark.parametrize('height', [32, 64])
 @pytest.mark.parametrize('width', [32, 71])
 @pytest.mark.parametrize('cutout_length', [16, 23])
-def test_cutout_algorithm(batch_size, channels, height, width, cutout_length, dummy_logger, dummy_state):
+def test_cutout_algorithm(batch_size, channels, height, width, cutout_length, empty_logger, minimal_state):
 
     # Initialize input tensor
     #   - Add bias to prevent 0. pixels, causes check_box() to fail since based on search for 0's
@@ -96,15 +94,10 @@ def test_cutout_algorithm(batch_size, channels, height, width, cutout_length, du
 
     # Fix cutout_n_holes=1, mask generation is additive and box validation isn't smart enough to detect multiple/coalesced boxes
     algorithm = CutOutHparams(n_holes=1, length=cutout_length).initialize_object()
-    state = dummy_state
+    state = minimal_state
     state.batch = (input, torch.Tensor())
 
-    algorithm.apply(Event.AFTER_DATALOADER, state, dummy_logger)
+    algorithm.apply(Event.AFTER_DATALOADER, state, empty_logger)
 
     input, _ = state.batch
     check_box(batch_size, channels, input)
-
-
-def test_cutout_trains(composer_trainer_hparams: TrainerHparams):
-    composer_trainer_hparams.algorithms = [CutOutHparams(n_holes=1, length=4)]
-    train_model(composer_trainer_hparams)
