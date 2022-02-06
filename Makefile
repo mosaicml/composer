@@ -7,18 +7,18 @@ EXTRA_ARGS := --duration $(DURATION) $(EXTRA_ARGS)
 
 dirs := composer examples tests
 
-lint:
-	python -m isort $(dirs) -cv
-	python -m yapf -dr $(dirs)
-	python -m docformatter -rc --wrap-summaries 120 --wrap-descriptions 120 $(dirs)
-	pyright $(dirs)
+# run this to autoformat your code
+style:
+	isort -i $(dirs)
+	yapf -ri $(dirs)
+	docformatter -ri --wrap-summaries 120 --wrap-descriptions 120 $(dirs)
 
-license:
-	# TODO (ravi): Switch to https://pypi.org/project/licenseheaders/ since it can be installed via setup.py and pip
-	curl -fsSL https://github.com/google/addlicense/releases/download/v1.0.0/addlicense_1.0.0_Linux_x86_64.tar.gz | \
-    	tar -xz -C /tmp
-	find . -type f -not -path '*/\.*' \( -iname \*.py -o -iname \*.pyi \) -print0 | \
-	    xargs -0 -n1 /tmp/addlicense -check -f ./LICENSE_HEADER
+# this only checks for style & pyright, makes no code changes
+lint:
+	isort $(dirs) -c
+	yapf -dr $(dirs)
+	docformatter -r --wrap-summaries 120 --wrap-descriptions 120 $(dirs)
+	pyright $(dirs)
 
 test:
 	pytest tests/ $(EXTRA_ARGS)
