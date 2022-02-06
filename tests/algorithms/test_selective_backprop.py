@@ -10,10 +10,7 @@ from composer.algorithms.selective_backprop.selective_backprop import do_selecti
 from composer.core import Event
 from composer.core.logging.logger import Logger
 from composer.core.state import State
-from composer.core.types import DataLoader
 from composer.models import ComposerClassifier
-from composer.trainer.trainer_hparams import TrainerHparams
-from tests.utils.trainer_fit import train_model
 
 
 @pytest.fixture
@@ -68,7 +65,6 @@ def loss_fun() -> Callable:
     """Fake loss function."""
 
     def loss(output, target, reduction="none"):
-        #import pdb; pdb.set_trace()
         return torch.ones_like(target)
 
     return loss
@@ -114,18 +110,6 @@ def model5D(X5D: torch.Tensor) -> torch.nn.Module:
 
 
 @pytest.fixture
-def start() -> float:
-    """start hparam."""
-    return 0.5
-
-
-@pytest.fixture
-def end() -> float:
-    """end hparam."""
-    return 0.8
-
-
-@pytest.fixture
 def keep() -> float:
     """keep hparam."""
     return 0.5
@@ -138,22 +122,14 @@ def scale_factor() -> float:
 
 
 @pytest.fixture
-def interrupt() -> int:
-    """interrupt hparams."""
-    return 2
-
-
-@pytest.fixture
-def dummy_hparams(start: float, end: float, keep: float, scale_factor: float,
-                  interrupt: int) -> SelectiveBackpropHparams:
-    """Dummy algo hparams."""
-    return SelectiveBackpropHparams(start, end, keep, scale_factor, interrupt)
-
-
-@pytest.fixture
-def dummy_algorithm(dummy_hparams: SelectiveBackpropHparams) -> SelectiveBackprop:
-    """Dummy algorithm."""
-    return dummy_hparams.initialize_object()
+def sb_algorithm(scale_factor, keep) -> SelectiveBackprop:
+    return SelectiveBackprop(
+        start=0.5,
+        end=0.8,
+        keep=keep,
+        scale_factor=scale_factor,
+        interrupt=2,
+    )
 
 
 @pytest.fixture
@@ -175,19 +151,30 @@ def conv_model(Ximage: torch.Tensor, D: int) -> ComposerClassifier:
 
 
 @pytest.fixture
-def dummy_state_sb(dummy_state: State, dummy_train_dataloader: DataLoader, conv_model: ComposerClassifier,
-                   loss_fun_tuple: Callable, epoch: int, batch: int) -> State:
-    """Dummy state with required values set for Selective Backprop."""
+def state(minimal_state: State, conv_model: ComposerClassifier, loss_fun_tuple: Callable, epoch: int,
+          batch: int) -> State:
+    """State with required values set for Selective Backprop."""
 
     conv_model.loss = loss_fun_tuple
+    minimal_state.model = conv_model
 
-    dummy_state.train_dataloader = dummy_train_dataloader
-    dummy_state.timer.epoch._value = epoch
-    dummy_state.timer.batch._value = epoch * dummy_state.steps_per_epoch + batch
-    dummy_state.timer.batch_in_epoch._value = batch
-    dummy_state.model = conv_model
+    minimal_state.timer.epoch._value = epoch
+    minimal_state.timer.batch._value = epoch * minimal_state.steps_per_epoch + batch
+    minimal_state.timer.batch_in_epoch._value = batch
 
-    return dummy_state
+    return minimal_state
+
+
+def test_sb_hparams():
+    hparams = SelectiveBackpropHparams(
+        start=0.5,
+        end=0.8,
+        keep=0.5,
+        scale_factor=0.5,
+        interrupt=2,
+    )
+    algorithm = hparams.initialize_object()
+    assert isinstance(algorithm, SelectiveBackprop)
 
 
 @pytest.mark.parametrize("epoch,batch,interrupt", [(10, 0, 0), (10, 0, 2), (10, 2, 2)])
@@ -262,41 +249,34 @@ def test_selective_backprop_bad_loss_error(X: torch.Tensor, y: torch.Tensor, mod
 
 @pytest.mark.parametrize("event", [Event.AFTER_DATALOADER])
 @pytest.mark.parametrize("epoch,batch", [(5, 0), (7, 0), (5, 2)])
-def test_match_correct(event: Event, dummy_algorithm: SelectiveBackprop, dummy_state_sb: State) -> None:
+def test_match_correct(event: Event, sb_algorithm: SelectiveBackprop, state: State) -> None:
     """Algo should match AFTER_DATALOADER in the right interval."""
-    dummy_state_sb.max_duration = "10ep"
+    state.max_duration = "10ep"
 
-    assert dummy_algorithm.match(event, dummy_state_sb)
+    assert sb_algorithm.match(event, state)
 
 
 @pytest.mark.parametrize("event,epoch,batch", [(Event.AFTER_DATALOADER, 0, 0), (Event.AFTER_DATALOADER, 5, 1)])
-def test_match_incorrect(event: Event, dummy_algorithm: SelectiveBackprop, dummy_state_sb: State) -> None:
+def test_match_incorrect(event: Event, sb_algorithm: SelectiveBackprop, state: State) -> None:
     """Algo should NOT match the wrong interval."""
-    dummy_state_sb.max_duration = "10ep"
+    state.max_duration = "10ep"
 
-    assert not dummy_algorithm.match(event, dummy_state_sb)
+    assert not sb_algorithm.match(event, state)
 
 
 @pytest.mark.parametrize("epoch,batch", [(5, 0)])
 @pytest.mark.parametrize("keep", [0.5, 0.75, 1])
 @pytest.mark.parametrize("scale_factor", [0.5, 1])
-def test_apply(Ximage: torch.Tensor, y: torch.Tensor, dummy_algorithm: SelectiveBackprop, dummy_state_sb: State,
-               dummy_logger: Logger, keep: float) -> None:
+def test_apply(Ximage: torch.Tensor, y: torch.Tensor, sb_algorithm: SelectiveBackprop, state: State,
+               empty_logger: Logger, keep: float) -> None:
     """Test apply with image inputs gives the right output shape."""
     N, C, H, W = Ximage.shape
 
-    dummy_state_sb.max_duration = "10ep"
-    dummy_state_sb.batch = (Ximage, y)
-    dummy_algorithm.apply(Event.INIT, dummy_state_sb, dummy_logger)
-    dummy_algorithm.apply(Event.AFTER_DATALOADER, dummy_state_sb, dummy_logger)
+    state.max_duration = "10ep"
+    state.batch = (Ximage, y)
+    sb_algorithm.apply(Event.INIT, state, empty_logger)
+    sb_algorithm.apply(Event.AFTER_DATALOADER, state, empty_logger)
 
-    X_scaled, y_scaled = dummy_state_sb.batch
+    X_scaled, y_scaled = state.batch
     assert X_scaled.shape == (int(N * keep), C, H, W)
     assert y_scaled.shape == (int(N * keep),)
-
-
-def test_selective_backprop_trains(composer_trainer_hparams: TrainerHparams):
-    composer_trainer_hparams.algorithms = [
-        SelectiveBackpropHparams(start=0.3, end=0.9, keep=0.75, scale_factor=0.5, interrupt=1)
-    ]
-    train_model(composer_trainer_hparams, max_epochs=6)
