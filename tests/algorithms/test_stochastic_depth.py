@@ -17,7 +17,7 @@ from composer.models import ComposerResNet
 
 @pytest.fixture()
 def state(minimal_state: State):
-    """ stochastic depth tests require ResNet model """
+    """stochastic depth tests require ResNet model."""
     minimal_state.model = ComposerResNet(model_name='resnet50', num_classes=100)
     return minimal_state
 

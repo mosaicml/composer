@@ -1,20 +1,19 @@
-"""
-Contains several commonly used objects (models, dataloaders)
-that are shared across the test suite.
-"""
+# Copyright 2021 MosaicML. All Rights Reserved.
+
+"""Contains several commonly used objects (models, dataloaders) that are shared across the test suite."""
+
 from typing import Sequence
 
-import numpy as np
 import torch
 from PIL import Image
-from torch.utils.data import DataLoader, Dataset
+from torch.utils.data import Dataset
 from torchvision.datasets import VisionDataset
 
 from composer.models import ComposerClassifier
 
 
 class SimpleModel(ComposerClassifier):
-    """ Small classification model with 10 input features and 2 classes.
+    """Small classification model with 10 input features and 2 classes.
 
     Args:
         num_features (int): number of input features (default: 10)
@@ -46,7 +45,7 @@ class SimpleModel(ComposerClassifier):
 
 
 class SimpleConvModel(ComposerClassifier):
-    """ Small convolutional classifer
+    """Small convolutional classifer.
 
     Args:
         num_channels (int): number of input channels (default: 32)
@@ -83,7 +82,7 @@ class SimpleConvModel(ComposerClassifier):
 
 
 class RandomClassificationDataset(Dataset):
-    """ Classification dataset drawn from a normal distribution
+    """Classification dataset drawn from a normal distribution.
 
     Args:
         shape (Sequence[int]): shape of features

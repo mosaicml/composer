@@ -12,8 +12,7 @@ from tests.common import SimpleConvModel
 
 
 def _generate_state(epoch: int, max_epochs: int):
-    """ Generates a state and fast forwards the timer by epochs
-    """
+    """Generates a state and fast forwards the timer by epochs."""
     model = SimpleConvModel()
 
     state = State(model=model,

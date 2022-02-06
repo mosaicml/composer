@@ -1,3 +1,4 @@
+# Copyright 2021 MosaicML. All Rights Reserved.
 import pytest
 
 
@@ -26,7 +27,7 @@ def test_myalgo_algorithm(state, empty_logger):
 
 
 def test_myalgo_logging(state):
-    """ Test that the logging is as expected.
+    """Test that the logging is as expected.
 
     Example:
 
@@ -37,13 +38,11 @@ def test_myalgo_logging(state):
         logger_mock.metric_fit.assert_called_one_with({
             'some_key': some_value
         })
-
-
     """
 
 
 def test_myalgo_hparams():
-    """ Test that the algorithm hparams can instantiate the class.
+    """Test that the algorithm hparams can instantiate the class.
 
     Example:
 
@@ -54,7 +53,6 @@ def test_myalgo_hparams():
         )
         algorithm = hparams.initialize_object()
         assert isinstance(algorithm, BlurPool)
-
     """
     ...
 

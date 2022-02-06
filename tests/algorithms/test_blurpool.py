@@ -20,9 +20,7 @@ from composer.models import ComposerClassifier
 
 
 class ConvModel(torch.nn.Module):
-    """ Convolution Model with layers designed to test different properties of
-    the blurpool algorithm.
-    """
+    """Convolution Model with layers designed to test different properties of the blurpool algorithm."""
 
     def __init__(self):
         super().__init__()

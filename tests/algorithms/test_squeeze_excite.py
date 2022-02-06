@@ -13,7 +13,7 @@ from tests.common import SimpleConvModel
 
 @pytest.fixture
 def state(minimal_state: State):
-    """ SE tests require a conv model"""
+    """SE tests require a conv model."""
     minimal_state.model = SimpleConvModel()
     return minimal_state
 
