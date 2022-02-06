@@ -8,13 +8,13 @@ cd $(dirname $0)/..
 python -m pip install .[all]
 
 # Run isort (installed via setup.py)
-python -m isort . -c -v
+python -m isort . -c
 
 # Run yapf (installed via setup.py)
 python -m yapf -dr . # not using -p since that can lead to race conditions
 
 # Run docformatter
-python -m docformatter -rc --wrap-summaries 120 --wrap-descriptions 120 composer tests examples
+python -m docformatter -r --wrap-summaries 120 --wrap-descriptions 120 composer tests examples
 
 # Install and run addlicense
 # TODO(ravi): Switch to https://pypi.org/project/licenseheaders/ since it can be installed via setup.py and pip
