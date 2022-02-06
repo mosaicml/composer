@@ -227,11 +227,14 @@ def is_initialized():
 
 
 def initialize_dist(backend: str, timeout: datetime.timedelta):
-    if not dist.is_available():
-        if get_world_size() != 1:
-            raise RuntimeError("When the world size is > 1, ``torch.distributed`` must be used. However, it is "
-                               "not available in your installation of PyTorch. Please install or build PyTorch "
-                               "with distributed support.")
+    if get_world_size() == 1:
+        warnings.warn("DistributedWarning: Initializing of torch.distributed required but the world size is 1."
+                      "This is supported, but not recommended.")
+
+    if get_world_size() > 1 and not dist.is_available():
+        raise RuntimeError("When the world size is > 1, ``torch.distributed`` must be used. However, it is "
+                           "not available in your installation of PyTorch. Please install or build PyTorch "
+                           "with distributed support.")
         return
 
     if dist.is_initialized():
@@ -245,8 +248,8 @@ def initialize_dist(backend: str, timeout: datetime.timedelta):
         warnings.warn("NoDistributedWarning: RANK and WORLD_SIZE env vars not set; assuming no "
                       "parallelization. If this is unexpected, make sure you are running your "
                       "training script with the composer CLI tool.")
-    elif get_world_size() > 1:
-        dist.init_process_group(backend, timeout=timeout)
+
+    dist.init_process_group(backend, timeout=timeout)
 
 
 def get_sampler(dataset, *, drop_last: bool, shuffle: bool) -> torch.utils.data.Sampler:
