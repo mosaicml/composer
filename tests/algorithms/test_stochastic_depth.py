@@ -12,19 +12,14 @@ from composer.algorithms.stochastic_depth.sample_stochastic_layers import Sample
 from composer.algorithms.stochastic_depth.stochastic_depth import STOCHASTIC_LAYER_MAPPING
 from composer.algorithms.stochastic_depth.stochastic_layers import StochasticBottleneck, _sample_bernoulli
 from composer.core import Event, State, surgery
-from composer.core.types import Precision
 from composer.models import ComposerResNet
 
 
 @pytest.fixture()
-def state():
-    state = State(train_dataloader=Mock(__len__=lambda x: 10),
-                  evaluators=Mock(),
-                  grad_accum=1,
-                  max_duration="100ep",
-                  model=ComposerResNet(model_name='resnet50', num_classes=100),
-                  precision=Precision.FP32)
-    return state
+def state(minimal_state: State):
+    """ stochastic depth tests require ResNet model """
+    minimal_state.model = ComposerResNet(model_name='resnet50', num_classes=100)
+    return minimal_state
 
 
 @pytest.fixture()
@@ -53,6 +48,15 @@ def test_stochastic_depth_bottleneck_replacement(state: State, stochastic_method
     stochastic_block_count = surgery.count_module_instances(state.model, stochastic_layer)
 
     assert target_block_count == stochastic_block_count
+
+
+def test_stochastic_depth_hparams(stochastic_method: str, target_layer_name: str):
+    hparams = StochasticDepthHparams(
+        stochastic_method=stochastic_method,
+        target_layer_name=target_layer_name,
+    )
+    algorithm = hparams.initialize_object()
+    assert isinstance(algorithm, StochasticDepth)
 
 
 class TestSampleBernoulli:
