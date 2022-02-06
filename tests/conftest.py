@@ -45,22 +45,19 @@ def pytest_addoption(parser: pytest.Parser) -> None:
 
 
 def _get_timeout(item: pytest.Item):
-    """Returns the timeout of a test, defaults to 0
-    """
+    """Returns the timeout of a test, defaults to 0."""
     _default = pytest.mark.timeout(0).mark
     return item.get_closest_marker("timeout", default=_default).args[0]
 
 
 def _get_world_size(item: pytest.Item):
-    """Returns the world_size of a test, defaults to 1
-    """
+    """Returns the world_size of a test, defaults to 1."""
     _default = pytest.mark.world_size(1).mark
     return item.get_closest_marker("world_size", default=_default).args[0]
 
 
 def pytest_collection_modifyitems(config: pytest.Config, items: List[pytest.Item]) -> None:
-    """Filter tests by world_size (for multi-GPU tests) and duration (short, long, or all)
-    """
+    """Filter tests by world_size (for multi-GPU tests) and duration (short, long, or all)"""
     timeout_threshold = getattr(config, "_env_timeout", 2.0)
     duration = config.getoption("duration")
     world_size = config.getoption("world_size")
@@ -91,8 +88,7 @@ def pytest_collection_modifyitems(config: pytest.Config, items: List[pytest.Item
 
 @pytest.fixture(autouse=True)
 def set_loglevels():
-    """Ensures all log levels are set to DEBUG
-    """
+    """Ensures all log levels are set to DEBUG."""
     logging.basicConfig()
     logging.getLogger(composer.__name__).setLevel(logging.DEBUG)
 
