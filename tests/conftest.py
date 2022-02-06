@@ -24,7 +24,7 @@ os.environ["CUBLAS_WORKSPACE_CONFIG"] = ":4096:8"
 pytest_plugins = [
     "tests.fixtures.dummy_fixtures",
     "tests.fixtures.distributed_fixtures",
-    "tests.fixtures.fixtures",
+    "tests.fixtures.new_fixtures",
 ]
 
 
