@@ -25,20 +25,23 @@ class SimpleModel(ComposerClassifier):
         self.num_features = num_features
         self.num_classes = num_classes
 
-        # fc1 and fc2 are bound to the model class
-        # for access during several surgery tests
-        self.fc1 = torch.nn.Linear(num_features, 5)
-        self.fc2 = torch.nn.Linear(5, num_classes)
+        fc1 = torch.nn.Linear(num_features, 5)
+        fc2 = torch.nn.Linear(5, num_classes)
 
-        self.net = torch.nn.Sequential(
+        net = torch.nn.Sequential(
             torch.nn.AdaptiveAvgPool2d(1),
             torch.nn.Flatten(),
-            self.fc1,
+            fc1,
             torch.nn.ReLU(),
-            self.fc2,
+            fc2,
             torch.nn.Softmax(dim=-1),
         )
-        super().__init__(module=self.net)
+        super().__init__(module=net)
+
+        # fc1 and fc2 are bound to the model class
+        # for access during several surgery tests
+        self.fc1 = fc1
+        self.fc2 = fc2
 
 
 class SimpleConvModel(ComposerClassifier):
@@ -54,23 +57,21 @@ class SimpleConvModel(ComposerClassifier):
         self.num_classes = num_classes
         self.num_channels = num_channels
 
-        # fc1 and fc2 are bound to the model class
-        # for access during several surgery tests
         conv_args = dict(kernel_size=(3, 3), padding=1)
-        self.conv1 = torch.nn.Conv2d(in_channels=num_channels, out_channels=8, **conv_args)
-        self.conv2 = torch.nn.Conv2d(in_channels=8, out_channels=4, **conv_args)
-        self.pool = torch.nn.AdaptiveAvgPool2d(1)
-        self.flatten = torch.nn.Flatten()
-        self.fc = torch.nn.Linear(4, num_classes)
+        conv1 = torch.nn.Conv2d(in_channels=num_channels, out_channels=8, **conv_args)
+        conv2 = torch.nn.Conv2d(in_channels=8, out_channels=4, **conv_args)
+        pool = torch.nn.AdaptiveAvgPool2d(1)
+        flatten = torch.nn.Flatten()
+        fc = torch.nn.Linear(4, num_classes)
 
-        self.net = torch.nn.Sequential(
-            self.conv1,
-            self.conv2,
-            self.pool,
-            self.flatten,
-            self.fc,
+        net = torch.nn.Sequential(
+            conv1,
+            conv2,
+            pool,
+            flatten,
+            fc,
         )
-        super().__init__(module=self.net)
+        super().__init__(module=net)
 
 
 class RandomClassificationDataset(Dataset):
