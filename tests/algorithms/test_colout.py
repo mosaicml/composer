@@ -173,16 +173,6 @@ class TestColOutFunctional:
         verify_shape_batch(fake_image_batch, new_batch, p_row, p_col)
 
 
-@pytest.mark.parametrize("p_row,p_col", [(1.5, 0.15), (0.15, 1.5)])
-def test_invalid_hparams(self, p_row: float, p_col: float):
-    """Test that invalid hyperparameters error.
-
-    Ideally this could be caught by the Hparams, but that's not yet supported in yahp.
-    """
-    with pytest.raises(ValueError):
-        ColOut(p_row, p_col, False)
-
-
 class TestColOutAlgorithm:
 
     @pytest.mark.parametrize("event,batch", [(Event.AFTER_DATALOADER, True), (Event.FIT_START, False)])
@@ -233,3 +223,13 @@ def test_colout_hparams():
     hparams = ColOutHparams()
     algorithm = hparams.initialize_object()
     assert isinstance(algorithm, ColOut)
+
+
+@pytest.mark.parametrize("p_row,p_col", [(1.5, 0.15), (0.15, 1.5)])
+def test_invalid_hparams(p_row: float, p_col: float):
+    """Test that invalid hyperparameters error.
+
+    Ideally this could be caught by the Hparams, but that's not yet supported in yahp.
+    """
+    with pytest.raises(ValueError):
+        ColOut(p_row, p_col, False)

@@ -4,8 +4,6 @@ from copy import deepcopy
 from unittest.mock import Mock
 
 import torch
-from torchmetrics.classification.accuracy import Accuracy
-from torchmetrics.collections import MetricCollection
 
 from composer.algorithms import LayerFreezing, LayerFreezingHparams
 from composer.core import Event, Logger, State

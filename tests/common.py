@@ -7,7 +7,8 @@ from typing import Sequence
 import numpy as np
 import torch
 from PIL import Image
-from torch.utils.data import Dataset
+from torch.utils.data import DataLoader, Dataset
+from torchvision.datasets import VisionDataset
 
 from composer.models import ComposerClassifier
 
@@ -48,7 +49,7 @@ class SimpleConvModel(ComposerClassifier):
     """ Small convolutional classifer
 
     Args:
-        num_channels (int): number of input channels (default: 8)
+        num_channels (int): number of input channels (default: 32)
         num_classes (int): number of classes (default: 2)
     """
 
@@ -62,16 +63,23 @@ class SimpleConvModel(ComposerClassifier):
         conv2 = torch.nn.Conv2d(in_channels=8, out_channels=4, **conv_args)
         pool = torch.nn.AdaptiveAvgPool2d(1)
         flatten = torch.nn.Flatten()
-        fc = torch.nn.Linear(4, num_classes)
+        fc1 = torch.nn.Linear(4, 16)
+        fc2 = torch.nn.Linear(16, num_classes)
 
         net = torch.nn.Sequential(
             conv1,
             conv2,
             pool,
             flatten,
-            fc,
+            fc1,
+            fc2,
         )
         super().__init__(module=net)
+
+        # bind these to class for access during
+        # surgery tests
+        self.conv1 = conv1
+        self.conv2 = conv2
 
 
 class RandomClassificationDataset(Dataset):
@@ -95,25 +103,29 @@ class RandomClassificationDataset(Dataset):
         return (self.x[index], self.y[index])
 
 
-class RandomImageDataset(RandomClassificationDataset):
+class RandomImageDataset(VisionDataset):
     """ Image Classification dataset with values drawn from a normal distribution
     Args:
-        shape (Sequence[int]): shape of features. Defaults to (64, 64, 32)
+        shape (Sequence[int]): shape of features. Defaults to (64, 64, 3)
         size (int): number of samples (default: 100)
         num_classes (int): number of classes (default: 100)
         is_PIL (bool): if true, will emit image in PIL format (default: False)
     """
 
-    def __init__(self,
-                 shape: Sequence[int] = (64, 64, 32),
-                 size: int = 100,
-                 num_classes: int = 2,
-                 is_PIL: bool = False):
+    def __init__(self, shape: Sequence[int] = (64, 64, 3), size: int = 100, num_classes: int = 2, is_PIL: bool = False):
         self.is_PIL = is_PIL
-        super().__init__(shape=shape)
+        self.size = size
+        self.x = torch.randn(size, *shape)
+        self.y = torch.randint(0, num_classes, size=(size,))
+
+        super().__init__(root='')
+
+    def __len__(self):
+        return self.size
 
     def __getitem__(self, index: int):
-        x, y = super().__getitem__(index)
+        x = self.x[index]
+        y = self.y[index]
 
         if self.is_PIL:
             x = x.numpy()
@@ -121,4 +133,7 @@ class RandomImageDataset(RandomClassificationDataset):
             x = (x * (255 / x.max())).astype("uint8")
             x = Image.fromarray(x)
 
-        return (x, y)
+        if self.transform is not None:
+            return self.transform(x), y
+        else:
+            return x, y

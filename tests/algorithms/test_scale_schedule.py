@@ -32,7 +32,6 @@ class TestScaleSchedule():
         scale_scheduler(scheduler, ssr)
         for epoch in range(epochs):
             for param_group in optimizer.param_groups:
-                print(f"target: {targets[epoch]}, actual: {param_group['lr']}")
                 torch.testing.assert_allclose(targets[epoch], param_group['lr'])
             scheduler.step()
 
