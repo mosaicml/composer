@@ -177,6 +177,11 @@ def test_sb_hparams():
     assert isinstance(algorithm, SelectiveBackprop)
 
 
+"""
+Test of selective backprop functional methods
+"""
+
+
 @pytest.mark.parametrize("epoch,batch,interrupt", [(10, 0, 0), (10, 0, 2), (10, 2, 2)])
 def test_do_selective_backprop_true(epoch: int, batch: int, interrupt: int) -> None:
     """Test functional match when epoch is within interval."""
@@ -245,6 +250,11 @@ def test_selective_backprop_bad_loss_error(X: torch.Tensor, y: torch.Tensor, mod
         selective_backprop(X, y, model, bad_loss, 1, 1)
     MATCH = "must take a keyword argument `reduction`."
     assert MATCH in str(execinfo.value)
+
+
+"""
+Test Selective Backprop Algorithm
+"""
 
 
 @pytest.mark.parametrize("event", [Event.AFTER_DATALOADER])
