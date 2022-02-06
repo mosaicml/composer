@@ -26,11 +26,24 @@ def test_myalgo_algorithm(state, empty_logger):
 
 
 def test_myalgo_logging(state):
-    ...
+    """ Test that the logging is as expected.
+
+    Example:
+
+        logger_mock = Mock()
+        algorithm = AlgorithmThatLogsSomething()
+        algorithm.apply(Event.INIT, state, logger=logger_mock)
+
+        logger_mock.metric_fit.assert_called_one_with({
+            'some_key': some_value
+        })
+
+
+    """
 
 
 def test_myalgo_hparams():
-    """ Test that the algorithm hparams can instantiate the class
+    """ Test that the algorithm hparams can instantiate the class.
 
     Example:
 
