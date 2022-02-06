@@ -134,35 +134,3 @@ class _SimpleBatchPairModelHparams(ModelHparams):
             num_channels=self.num_channels,
             num_classes=self.num_classes,
         )
-
-
-class SimpleConvModel(torch.nn.Module):
-    """Very basic forward operation with no activation functions Used just to test that model surgery doesn't create
-    forward prop bugs."""
-
-    def __init__(self):
-        super().__init__()
-
-        conv_args = dict(kernel_size=(3, 3), padding=1)
-        self.conv1 = torch.nn.Conv2d(in_channels=32, out_channels=8, stride=2, bias=False, **conv_args)  # stride > 1
-        self.conv2 = torch.nn.Conv2d(in_channels=8, out_channels=32, stride=2, bias=False,
-                                     **conv_args)  # stride > 1 but in_channels < 16
-        self.conv3 = torch.nn.Conv2d(in_channels=32, out_channels=64, stride=1, bias=False, **conv_args)  # stride = 1
-
-        self.pool1 = torch.nn.MaxPool2d(kernel_size=(2, 2), stride=2, padding=1)
-        self.pool2 = torch.nn.AdaptiveAvgPool2d(1)
-        self.flatten = torch.nn.Flatten()
-        self.linear1 = torch.nn.Linear(64, 48)
-        self.linear2 = torch.nn.Linear(48, 10)
-
-    def forward(self, x: Tensors) -> Tensors:
-
-        out = self.conv1(x)
-        out = self.conv2(out)
-        out = self.conv3(out)
-        out = self.pool1(out)
-        out = self.pool2(out)
-        out = self.flatten(out)
-        out = self.linear1(out)
-        out = self.linear2(out)
-        return out
