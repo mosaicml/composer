@@ -205,7 +205,7 @@ stage('Build') {
                             string(name: 'P_TIMEOUT', value: pTimeout),
                             string(name: 'P_CPU_LIMIT', value: "2"),
                             string(name: 'P_MEM_LIMIT', value: "7Gi"),
-                            string(name: 'P_COMMAND', value: 'make lint'),
+                            string(name: 'P_COMMAND', value: 'pip install .[all] && make lint'),
                         ]
                     )
                 }
