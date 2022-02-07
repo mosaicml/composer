@@ -160,7 +160,7 @@ class SWA(Algorithm):
         ## end of training
         if float(state.get_elapsed_duration()) >= 1.0:
             device = next(self.swa_model.parameters()).device
-            # TODO(laura) this does not apply the batch split fn. This may result in cuda OOM
+            # TODO(laura) this does not apply the batch split fn. This may result in cuda OOM.
             update_bn(state.train_dataloader, model=self.swa_model, device=device)
             assert hasattr(self.swa_model.module, "state_dict")
             state.model.load_state_dict(self.swa_model.module.state_dict())  # type: ignore
