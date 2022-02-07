@@ -3,7 +3,7 @@
 import pytest
 import torch
 
-from composer.algorithms.progressive_resizing import ProgressiveResizing, ProgressiveResizingHparams, resize_inputs
+from composer.algorithms.progressive_resizing import ProgressiveResizing, ProgressiveResizingHparams, resize_batch
 from composer.core import Event, Logger
 from composer.core.state import State
 from composer.trainer import TrainerHparams
@@ -89,7 +89,7 @@ def dummy_algorithm(dummy_hparams: ProgressiveResizingHparams):
 
 def test_resize_noop(X, y, mode):
     """Tests that no operation is performed when scale_factor == 1."""
-    Xc, _ = resize_inputs(X, y, 1.0, mode, resize_targets=False)
+    Xc, _ = resize_batch(X, y, 1.0, mode, resize_targets=False)
     assert X is Xc
 
 
@@ -97,7 +97,7 @@ def test_resize_noop(X, y, mode):
 def test_without_target(X, y):
     """Test that resizing works properly with no target present."""
     try:
-        resize_inputs(X, y, 1.0, "crop", resize_targets=False)
+        resize_batch(X, y, 1.0, "crop", resize_targets=False)
     except:
         pytest.fail("apply_progressive_resizing failed with y == None")
 
@@ -106,14 +106,14 @@ def test_without_target(X, y):
 def test_resize_inputs_shape(X: torch.Tensor, y: torch.Tensor, mode: str, scale_factor: float):
     """Test scaling works for different input shapes."""
 
-    Xc, _ = resize_inputs(X, y, scale_factor, mode, resize_targets=False)
+    Xc, _ = resize_batch(X, y, scale_factor, mode, resize_targets=False)
     assert check_scaled_shape(X, Xc, scale_factor)
 
 
 def test_resize_outputs_shape(X: torch.Tensor, y: torch.Tensor, mode: str, scale_factor: float):
     """Test that resizing outputs works."""
 
-    _, yc = resize_inputs(X, y, scale_factor, mode, resize_targets=True)
+    _, yc = resize_batch(X, y, scale_factor, mode, resize_targets=True)
     assert check_scaled_shape(y, yc, scale_factor)
 
 
@@ -121,7 +121,7 @@ def test_resize_outputs_shape(X: torch.Tensor, y: torch.Tensor, mode: str, scale
 def test_resize_outputs_different_shape(X, y, scale_factor: float, mode: str):
     """Test that resizing works when X and y have different shapes."""
 
-    _, yc = resize_inputs(X, y, scale_factor, mode, resize_targets=True)
+    _, yc = resize_batch(X, y, scale_factor, mode, resize_targets=True)
     assert check_scaled_shape(y, yc, scale_factor)
 
 

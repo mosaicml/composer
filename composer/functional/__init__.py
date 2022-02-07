@@ -20,7 +20,7 @@ from composer.algorithms.label_smoothing import smooth_labels as smooth_labels
 from composer.algorithms.layer_freezing import freeze_layers as freeze_layers
 from composer.algorithms.mixup import mixup_batch as mixup_batch
 from composer.algorithms.mixup.mixup import gen_interpolation_lambda as gen_interpolation_lambda
-from composer.algorithms.progressive_resizing import resize_inputs as resize_inputs
+from composer.algorithms.progressive_resizing import resize_batch as resize_batch
 from composer.algorithms.randaugment import randaugment_image as randaugment_image
 from composer.algorithms.scale_schedule.scale_schedule import scale_scheduler as scale_scheduler
 from composer.algorithms.selective_backprop.selective_backprop import do_selective_backprop as do_selective_backprop
