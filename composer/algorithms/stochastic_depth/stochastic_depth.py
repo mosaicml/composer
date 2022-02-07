@@ -106,6 +106,10 @@ def apply_stochastic_depth(model: torch.nn.Module,
     implementation used for EfficientNet in the
     `Tensorflow/TPU repo <https://github.com/tensorflow/tpu>`_.
 
+    .. note::
+
+        Stochastic Depth only works on instances of :class:`~composer.models.resnet.model.ComposerResNet` for now.
+
     Args:
         model: model containing modules to be replaced with stochastic versions
         stochastic_method: The version of stochastic depth to use. ``"block"``
@@ -187,6 +191,10 @@ class StochasticDepth(Algorithm):
     version follows the original paper. The sample-wise version follows the
     implementation used for EfficientNet in the
     `Tensorflow/TPU repo <https://github.com/tensorflow/tpu>`_.
+
+    .. note::
+
+        Stochastic Depth only works on instances of :class:`~composer.models.resnet.model.ComposerResNet` for now.
 
     Args:
         stochastic_method: The version of stochastic depth to use. ``"block"``
