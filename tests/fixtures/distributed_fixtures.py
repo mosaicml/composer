@@ -31,7 +31,11 @@ def configure_dist(request: pytest.FixtureRequest):
     if is_deepspeed and is_gpu:
         pytest.fail('Tests should be marked as deepspeed or gpu, not both. Deepspeed tests will run on a gpu.')
 
-    if (not any(dist_env_var in os.environ for dist_env_var in dist._DIST_ENV_VARS)) and (not is_deepspeed):
+    dist_env_variable_names = ("NODE_RANK", "WORLD_SIZE", "LOCAL_WORLD_SIZE", "RANK", "LOCAL_RANK")
+
+    is_missing_all_dist_env_vars = all(x not in os.environ for x in dist_env_variable_names)
+
+    if is_missing_all_dist_env_vars and (not is_deepspeed):
         # no distributed -- i.e. running pytest on the CLI
         # deepspeed still requires distributed
         return
