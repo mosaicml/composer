@@ -404,6 +404,7 @@ def validate_events_called_expected_number_of_times(trainer: Trainer):
 
 
 def test_checkpoint_load_uri(tmpdir: pathlib.Path):
+    pytest.xfail("example.com sometimes returns a 404. Need to mock out the actual download")
     loader = CheckpointLoader("https://example.com")
     loader._retrieve_checkpoint(destination_filepath=str(tmpdir / "example"), rank=0, ignore_not_found_errors=False)
     with open(str(tmpdir / "example"), "r") as f:
