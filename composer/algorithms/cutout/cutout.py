@@ -1,4 +1,5 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
+from __future__ import annotations
 
 import logging
 from dataclasses import asdict, dataclass
@@ -29,7 +30,7 @@ def apply_cutout(X: Tensor, mask: Tensor):
     return X * mask
 
 
-def cutout(X: Tensor, n_holes: int, length: int) -> Tensor:
+def cutout_batch(X: Tensor, n_holes: int, length: int) -> Tensor:
     """See :class:`CutOut`.
 
     Args:
@@ -58,17 +59,16 @@ def cutout(X: Tensor, n_holes: int, length: int) -> Tensor:
 class CutOutHparams(AlgorithmHparams):
     """See :class:`CutOut`"""
 
-    n_holes: int = hp.required('Number of holes to cut out', template_default=1)
-    length: int = hp.required('Side length of the square hole to cut out', template_default=112)
+    n_holes: int = hp.optional('Number of holes to cut out', default=1)
+    length: int = hp.optional('Side length of the square hole to cut out', default=112)
 
-    def initialize_object(self) -> "CutOut":
+    def initialize_object(self) -> CutOut:
         return CutOut(**asdict(self))
 
 
 class CutOut(Algorithm):
-    """`Cutout <https://arxiv.org/abs/1708.04552>`_ is a data augmentation
-    technique that works by masking out one or more square regions of an
-    input image.
+    """`Cutout <https://arxiv.org/abs/1708.04552>`_ is a data augmentation technique that works by masking out one or
+    more square regions of an input image.
 
     This implementation cuts out the same square from all images in a batch.
 
@@ -79,16 +79,17 @@ class CutOut(Algorithm):
     """
 
     def __init__(self, n_holes: int, length: int):
-        self.hparams = CutOutHparams(n_holes=n_holes, length=length)
+        self.n_holes = n_holes
+        self.length = length
 
     def match(self, event: Event, state: State) -> bool:
-        """Runs on Event.AFTER_DATALOADER"""
+        """Runs on Event.AFTER_DATALOADER."""
         return event == Event.AFTER_DATALOADER
 
     def apply(self, event: Event, state: State, logger: Logger) -> Optional[int]:
-        """Apply cutout on input images"""
+        """Apply cutout on input images."""
         x, y = state.batch_pair
         assert isinstance(x, Tensor), "Multiple tensors not supported for Cutout."
 
-        new_x = cutout(X=x, **asdict(self.hparams))
+        new_x = cutout_batch(X=x, n_holes=self.n_holes, length=self.length)
         state.batch = (new_x, y)

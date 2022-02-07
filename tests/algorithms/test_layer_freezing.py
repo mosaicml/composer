@@ -3,17 +3,21 @@
 from copy import deepcopy
 
 import torch
+from torchmetrics.classification.accuracy import Accuracy
+from torchmetrics.collections import MetricCollection
 
 from composer.algorithms import LayerFreezing, LayerFreezingHparams
+from composer.core.logging import Logger
 from composer.core.state import State
-from composer.core.types import DataLoader, Event, Model, Precision
-from composer.loggers import Logger
+from composer.core.types import DataLoader, Evaluator, Event, Model, Precision
 from composer.trainer.trainer_hparams import TrainerHparams
 from tests.utils.trainer_fit import train_model
 
 
 def _generate_state(epoch: int, max_epochs: int, model: Model, train_dataloader: DataLoader,
                     val_dataloader: DataLoader):
+    metric_coll = MetricCollection([Accuracy()])
+    evaluators = [Evaluator(label="dummy_label", dataloader=val_dataloader, metrics=metric_coll)]
     state = State(
         grad_accum=1,
         max_duration=f"{max_epochs}ep",
@@ -21,7 +25,7 @@ def _generate_state(epoch: int, max_epochs: int, model: Model, train_dataloader:
         optimizers=(torch.optim.SGD(model.parameters(), lr=0.01, momentum=0.99),),
         precision=Precision.FP32,
         train_dataloader=train_dataloader,
-        eval_dataloader=val_dataloader,
+        evaluators=evaluators,
     )
     for _ in range(epoch):
         state.timer.on_epoch_complete()
@@ -77,6 +81,6 @@ def test_freeze_layers_with_freeze(simple_conv_model: Model, noop_dummy_logger: 
     _check_param_groups(expected_param_groups, updated_param_groups)
 
 
-def test_layer_freezing_trains(mosaic_trainer_hparams: TrainerHparams):
-    mosaic_trainer_hparams.algorithms = [LayerFreezingHparams(freeze_start=.25, freeze_level=1)]
-    train_model(mosaic_trainer_hparams, max_epochs=4)
+def test_layer_freezing_trains(composer_trainer_hparams: TrainerHparams):
+    composer_trainer_hparams.algorithms = [LayerFreezingHparams(freeze_start=.25, freeze_level=1)]
+    train_model(composer_trainer_hparams, max_epochs=4)

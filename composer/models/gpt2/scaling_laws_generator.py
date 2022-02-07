@@ -9,8 +9,7 @@ import yaml
 
 
 def teraflops_for_accelerator(accel):
-    """
-    Stores the number of TFLOPs available to a few accelerators, including driver handicaps.
+    """Stores the number of TFLOPs available to a few accelerators, including driver handicaps.
 
     Args:
         accel (str): A string descriptor of which accelerator to use. Must be either "3090" or "V100".
@@ -23,9 +22,7 @@ def teraflops_for_accelerator(accel):
 
 
 def parse_args():
-    """
-    ArgParse parser.
-    """
+    """ArgParse parser."""
     parser = argparse.ArgumentParser()
     parser.add_argument("--hours",
                         type=float,
@@ -64,138 +61,9 @@ def parse_args():
     return parser.parse_args()
 
 
-args = parse_args()
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
-
-model = {
-    "activation_function": "gelu_new",
-    "architectures": ["GPT2LMHeadModel"],
-    "attn_pdrop": 0.1,
-    "bos_token_id": 50256,
-    "embd_pdrop": 0.1,
-    "eos_token_id": 50256,
-    "initializer_range": 0.02,
-    "layer_norm_epsilon": 1e-05,
-    "model_type": "gpt2",
-    "n_ctx": 1024,
-    "n_embd": 768,
-    "n_head": 12,
-    "n_inner": None,
-    "n_layer": 12,
-    "n_positions": 1024,
-    "resid_pdrop": 0.1,
-    "scale_attn_weights": True,
-    "summary_activation": None,
-    "summary_first_dropout": 0.1,
-    "summary_proj_to_labels": True,
-    "summary_type": "cls_index",
-    "summary_use_proj": True,
-    "task_specific_params": {
-        "text-generation": {
-            "do_sample": True,
-            "max_length": 50
-        }
-    },
-    "transformers_version": "4.11.0.dev0",
-    "use_cache": True,
-    "vocab_size": 50257
-}
-
-template_yaml = {
-    'train_dataset': {
-        'lm': {
-            'split': 'train',
-            'datadir': ['/datasets/openwebtext_saved'],
-            'tokenizer_name': 'gpt2',
-            'seed': 17,
-            'shuffle': False,
-            'drop_last': False
-        }
-    },
-    'val_dataset': {
-        'lm': {
-            'split': 'validation',
-            'datadir': ['/datasets/openwebtext_saved'],
-            'tokenizer_name': 'gpt2',
-            'seed': 17,
-            'shuffle': False,
-            'drop_last': False
-        }
-    },
-    'model': {
-        'gpt2': {
-            'use_pretrained': False,
-            "tokenizer_name": "gpt2",
-            'model_config': model
-        }
-    },
-    'optimizer': {
-        'adamw': {
-            'lr': 0.0003,
-            'betas': [0.9, 0.999],
-            'eps': 1e-06,
-            'weight_decay': 0.0
-        }
-    },
-    'schedulers': [{
-        'warmup': {
-            'warmup_method': 'linear',
-            'warmup_factor': 0,
-            'interval': 'step',
-            'warmup_iters': 1
-        }
-    }, {
-        'cosine_decay': {
-            'T_max': 2,
-            'interval': 'step',
-            'eta_min': 1.0e-5,
-            'verbose': False
-        }
-    }],
-    'loggers': [
-        {
-            'file': {
-                'log_level': 'BATCH',
-                'filename': 'stdout',
-                'buffer_size': 1,
-                'flush_every_n_batches': 100,
-                'every_n_epochs': 1,
-                'every_n_batches': 100
-            }
-        },
-        {
-            'wandb': {
-                "project": "gpt2",
-                "name": f"gpt2-{args.hours}-ga-{not args.no_grad_accum}",
-                'extra_init_params': {}
-            }
-        },
-    ],
-    'max_epochs': 1,
-    'train_batch_size': 8,
-    'eval_batch_size': 8,
-    'seed': 17,
-    'accelerator': {
-        'gpu': {}
-    },
-    'dataloader': {
-        'pin_memory': True,
-        'persistent_workers': True,
-        'num_workers': 8,
-        'timeout': 0,
-        'prefetch_factor': 2
-    },
-    'grad_accum': 1,
-    'precision': 'amp',
-    'grad_clip_norm': 1.0,
-}
-
-
 def generate_architecture(args, model):
-    """
-    Given the desired training budget and a template model, configure the model archtiecture according to
-    "Scaling Laws for Neural Language Models" by Kaplan et al.
+    """Given the desired training budget and a template model, configure the model archtiecture according to "Scaling
+    Laws for Neural Language Models" by Kaplan et al.
 
     Args:
         args (argparse.Namespace): the Namespace object holding the parsed arguments.
@@ -280,7 +148,95 @@ def generate_architecture(args, model):
     return model, scaling_law_predictions
 
 
-def configure_mosaic_yaml(model, scaling_law_predictions):
+def configure_composer_yaml(model, scaling_law_predictions):
+    template_yaml = {
+        'train_dataset': {
+            'lm': {
+                'split': 'train',
+                'datadir': ['/datasets/openwebtext_saved'],
+                'tokenizer_name': 'gpt2',
+                'seed': 17,
+                'shuffle': False,
+                'drop_last': False
+            }
+        },
+        'val_dataset': {
+            'lm': {
+                'split': 'validation',
+                'datadir': ['/datasets/openwebtext_saved'],
+                'tokenizer_name': 'gpt2',
+                'seed': 17,
+                'shuffle': False,
+                'drop_last': False
+            }
+        },
+        'model': {
+            'gpt2': {
+                'use_pretrained': False,
+                "tokenizer_name": "gpt2",
+                'model_config': model
+            }
+        },
+        'optimizer': {
+            'adamw': {
+                'lr': 0.0003,
+                'betas': [0.9, 0.999],
+                'eps': 1e-06,
+                'weight_decay': 0.0
+            }
+        },
+        'schedulers': [{
+            'warmup': {
+                'warmup_method': 'linear',
+                'warmup_factor': 0,
+                'interval': 'step',
+                'warmup_iters': 1
+            }
+        }, {
+            'cosine_decay': {
+                'T_max': 2,
+                'interval': 'step',
+                'eta_min': 1.0e-5,
+                'verbose': False
+            }
+        }],
+        'loggers': [
+            {
+                'file': {
+                    'log_level': 'BATCH',
+                    'filename': 'stdout',
+                    'buffer_size': 1,
+                    'flush_every_n_batches': 100,
+                    'every_n_epochs': 1,
+                    'every_n_batches': 100
+                }
+            },
+            {
+                'wandb': {
+                    "project": "gpt2",
+                    "name": f"gpt2-{args.hours}-ga-{not args.no_grad_accum}",
+                    'extra_init_params': {}
+                }
+            },
+        ],
+        'max_epochs': 1,
+        'train_batch_size': 8,
+        'eval_batch_size': 8,
+        'seed': 17,
+        'accelerator': {
+            'gpu': {}
+        },
+        'dataloader': {
+            'pin_memory': True,
+            'persistent_workers': True,
+            'num_workers': 8,
+            'timeout': 0,
+            'prefetch_factor': 2
+        },
+        'grad_accum': 1,
+        'precision': 'amp',
+        'grad_clip_norm': 1.0,
+    }
     template_yaml['optimizer']['adamw']['lr'] = scaling_law_predictions['pred_lr']
 
     logger.info("----------------- OPTIMIZATION INFORMATION -----------------")
@@ -292,7 +248,7 @@ def configure_mosaic_yaml(model, scaling_law_predictions):
     batch_size = args.per_device_batch_size * args.num_devices
     curr_serial_steps = math.ceil(curr_num_batches / batch_size)
 
-    # we ignore the grad accum paramters to make Mosaic Trainer easier to work with
+    # we ignore the grad accum paramters to make the Composer Trainer easier to work with
     if args.no_grad_accum:
         lr_scaling_factor = math.floor(curr_serial_steps / min_serial_steps)
         template_yaml['optimizer']['adamw']['lr'] = template_yaml['optimizer']['adamw']['lr'] / lr_scaling_factor
@@ -335,8 +291,47 @@ def configure_mosaic_yaml(model, scaling_law_predictions):
 
 
 if __name__ == "__main__":
+
+    args = parse_args()
+    logging.basicConfig(level=logging.INFO)
+    logger = logging.getLogger(__name__)
+
+    model = {
+        "activation_function": "gelu_new",
+        "architectures": ["GPT2LMHeadModel"],
+        "attn_pdrop": 0.1,
+        "bos_token_id": 50256,
+        "embd_pdrop": 0.1,
+        "eos_token_id": 50256,
+        "initializer_range": 0.02,
+        "layer_norm_epsilon": 1e-05,
+        "model_type": "gpt2",
+        "n_ctx": 1024,
+        "n_embd": 768,
+        "n_head": 12,
+        "n_inner": None,
+        "n_layer": 12,
+        "n_positions": 1024,
+        "resid_pdrop": 0.1,
+        "scale_attn_weights": True,
+        "summary_activation": None,
+        "summary_first_dropout": 0.1,
+        "summary_proj_to_labels": True,
+        "summary_type": "cls_index",
+        "summary_use_proj": True,
+        "task_specific_params": {
+            "text-generation": {
+                "do_sample": True,
+                "max_length": 50
+            }
+        },
+        "transformers_version": "4.11.0.dev0",
+        "use_cache": True,
+        "vocab_size": 50257
+    }
+
     model, scaling_law_predictions = generate_architecture(args, model)
-    template_yaml = configure_mosaic_yaml(model, scaling_law_predictions)
+    template_yaml = configure_composer_yaml(model, scaling_law_predictions)
 
     with open(args.output_file, "w+") as f:
         yaml.dump(template_yaml, f, sort_keys=False)

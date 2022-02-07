@@ -249,9 +249,8 @@ class ADE20kDatasetHparams(DatasetHparams, SyntheticHparamsMixin):
         min_resize_scale (float): the minimum value the samples can be rescaled. Default is 0.5.
         max_resize_scale (float): the maximum value the samples can be rescaled. Default is 2.0.
         final_size (int): the final size of the image and target. Default is 512.
-        ignore_background (bool): if true, ignore the background class when calculating the training loss. 
+        ignore_background (bool): if true, ignore the background class when calculating the training loss.
             Default is true.
-
     """
 
     split: str = hp.optional("Which split of the dataset to use. Either ['train', 'val', 'test']", default='train')

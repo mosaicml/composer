@@ -1,6 +1,6 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
-"""Callback Hyperparameters"""
+"""Callback Hyperparameters."""
 from __future__ import annotations
 
 import abc
@@ -26,7 +26,7 @@ if TYPE_CHECKING:
 @dataclass
 class CallbackHparams(hp.Hparams, abc.ABC):
     """Base class for callback hyperparameters.
-    
+
     Callback parameters that are added to
     :attr:`composer.trainer.trainer_hparams.TrainerHparams.callbacks`
     (e.g. via YAML or the CLI) are initialized in the training loop.
@@ -139,7 +139,8 @@ class RunDirectoryUploaderHparams(CallbackHparams, ObjectStoreProviderHparams):
     See :class:`~composer.callbacks.torch_profiler.RunDirectoryUploader` for documentation.
     """
 
-    object_name_prefix: Optional[str] = hp.optional(textwrap.dedent("""A prefix to prepend to all object keys.
+    object_name_prefix: Optional[str] = hp.optional(textwrap.dedent("""\
+            A prefix to prepend to all object keys.
             An object's key is this prefix combined with its path relative to the run directory.
             If the container prefix is non-empty, a trailing slash ('/') will
             be added if necessary. If not specified, then the prefix defaults to the run directory. To disable prefixing,
@@ -151,10 +152,10 @@ class RunDirectoryUploaderHparams(CallbackHparams, ObjectStoreProviderHparams):
         default=True)
     upload_staging_folder: Optional[str] = hp.optional(
         "Staging folder for uploads. If not specified, will use a temporary directory.", default=None)
-    upload_every_n_batches: int = hp.optional(
-        textwrap.dedent("""Interval at which to scan the run directory for changes and to
+    upload_every_n_batches: int = hp.optional(textwrap.dedent("""\
+            Interval at which to scan the run directory for changes and to
             queue uploads of files. Uploads are also queued at the end of the epoch. Defaults to every 100 batches."""),
-        default=100)
+                                              default=100)
 
     def initialize_object(self) -> RunDirectoryUploader:
         from composer.callbacks.run_directory_uploader import RunDirectoryUploader

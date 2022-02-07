@@ -12,7 +12,8 @@ import yahp as hp
 from torch.nn import functional as F
 
 from composer.algorithms.algorithm_hparams import AlgorithmHparams
-from composer.core.types import Algorithm, Event, Logger, State, Tensor
+from composer.core.types import Algorithm, Event, Logger, State, Tensor, Tensors
+from composer.models import ComposerModel
 
 
 def do_selective_backprop(
@@ -52,7 +53,7 @@ def do_selective_backprop(
 # TODO this function should probably be part of the public API
 def selective_backprop(X: torch.Tensor,
                        y: torch.Tensor,
-                       model: torch.nn.Module,
+                       model: Callable[[Tensors], Tensor],
                        loss_fun: Callable,
                        keep: float,
                        scale_factor: float = 1) -> Tuple[torch.Tensor, torch.Tensor]:
@@ -95,7 +96,6 @@ def selective_backprop(X: torch.Tensor,
 
         with torch.cuda.amp.autocast(True):
             X_new, y_new = selective_backprop(X, y, model, loss_fun, keep, scale_factor)
-
     """
     INTERPOLATE_MODES = {3: "linear", 4: "bilinear", 5: "trilinear"}
 
@@ -146,21 +146,20 @@ def selective_backprop(X: torch.Tensor,
 class SelectiveBackpropHparams(AlgorithmHparams):
     """See :class:`SelectiveBackprop`"""
 
-    start: float = hp.required(doc="SB interval start, as fraction of training duration", template_default=0.5)
-    end: float = hp.required(doc="SB interval end, as fraction of training duration", template_default=0.9)
-    keep: float = hp.required(doc="fraction of minibatch to select and keep for gradient computation",
-                              template_default=0.5)
-    scale_factor: float = hp.required(doc="scale for downsampling input for selection forward pass",
-                                      template_default=0.5)
-    interrupt: int = hp.required(doc="interrupt SB with a vanilla minibatch step every 'interrupt' batches",
-                                 template_default=2)
+    start: float = hp.optional(doc="SB interval start, as fraction of training duration", default=0.5)
+    end: float = hp.optional(doc="SB interval end, as fraction of training duration", default=0.9)
+    keep: float = hp.optional(doc="fraction of minibatch to select and keep for gradient computation", default=0.5)
+    scale_factor: float = hp.optional(doc="scale for downsampling input for selection forward pass", default=0.5)
+    interrupt: int = hp.optional(doc="interrupt SB with a vanilla minibatch step every 'interrupt' batches", default=2)
 
     def initialize_object(self) -> SelectiveBackprop:
         return SelectiveBackprop(**asdict(self))
 
 
 class SelectiveBackprop(Algorithm):
-    """Selectively backpropagate gradients from a subset of each batch (`Jiang et al. 2019 <https://arxiv.org/abs/1910.00762>`_).
+    """Selectively backpropagate gradients from a subset of each batch (`Jiang et al. 2019.
+
+    <https://arxiv.org/abs/1910.00762>`_).
 
     Selective Backprop (SB) prunes minibatches according to the difficulty
     of the individual training examples, and only computes weight gradients
@@ -187,52 +186,56 @@ class SelectiveBackprop(Algorithm):
     """
 
     def __init__(self, start: float, end: float, keep: float, scale_factor: float, interrupt: int):
-        self.hparams = SelectiveBackpropHparams(start=start,
-                                                end=end,
-                                                keep=keep,
-                                                scale_factor=scale_factor,
-                                                interrupt=interrupt)
+        self.start = start
+        self.end = end
+        self.keep = keep
+        self.scale_factor = scale_factor
+        self.interrupt = interrupt
+        self._loss_fn = None  # set on Event.INIT
 
     def match(self, event: Event, state: State) -> bool:
-        """Match on ``Event.AFTER_DATALOADER`` if time is between ``self.start`` and
-        ``self.end``."""
-        is_event = (event == Event.AFTER_DATALOADER)
-        if not is_event:
+        """Matches :attr:`Event.INIT` and `Event.AFTER_DATALOADER`
+
+        * Uses `Event.INIT` to get the loss function before the model is wrapped
+        * Uses `Event.AFTER_DATALOADER`` to apply selective backprop if time is between ``self.start`` and ``self.end``.
+        """
+        if event == Event.INIT:
+            return True
+        if event != Event.AFTER_DATALOADER:
             return False
 
-        is_keep = (self.hparams.keep < 1)
+        is_keep = (self.keep < 1)
         if not is_keep:
             return False
 
         is_chosen = do_selective_backprop(
             current_duration=float(state.get_elapsed_duration()),
             batch_idx=state.timer.batch_in_epoch.value,
-            start=self.hparams.start,
-            end=self.hparams.end,
-            interrupt=self.hparams.interrupt,
+            start=self.start,
+            end=self.end,
+            interrupt=self.interrupt,
         )
         return is_chosen
 
     def apply(self, event: Event, state: State, logger: Optional[Logger] = None) -> None:
         """Apply selective backprop to the current batch."""
+        if event == Event.INIT:
+            if self._loss_fn is None:
+                if not isinstance(state.model, ComposerModel):
+                    raise RuntimeError("Model must be of type ComposerModel")
+                self._loss_fn = state.model.loss
+            return
         input, target = state.batch_pair
         assert isinstance(input, Tensor) and isinstance(target, Tensor), \
             "Multiple tensors not supported for this method yet."
-
-        assert callable(state.model.module.loss)  # type: ignore - type not found
 
         # Model expected to only take in input, not the full batch
         model = lambda X: state.model((X, None))
 
         def loss(p, y, reduction="none"):
-            return state.model.module.loss(p, (None, y), reduction=reduction)  # type: ignore
+            assert self._loss_fn is not None, "loss_fn should be set on Event.INIT"
+            return self._loss_fn(p, (torch.Tensor(), y), reduction=reduction)
 
         with state.precision_context:
-            new_input, new_target = selective_backprop(
-                input,
-                target,
-                model,  # type: ignore - ditto because of loss
-                loss,
-                self.hparams.keep,
-                self.hparams.scale_factor)
+            new_input, new_target = selective_backprop(input, target, model, loss, self.keep, self.scale_factor)
         state.batch = (new_input, new_target)

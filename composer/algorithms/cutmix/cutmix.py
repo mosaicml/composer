@@ -1,4 +1,5 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
+from __future__ import annotations
 
 import logging
 from dataclasses import asdict, dataclass
@@ -91,7 +92,7 @@ def rand_bbox(W: int,
 
 
 def adjust_lambda(cutmix_lambda: float, x: Tensor, bbox: Tuple) -> float:
-    """Rescale the cutmix lambda according to the size of the clipped bounding box
+    """Rescale the cutmix lambda according to the size of the clipped bounding box.
 
     Args:
         cutmix_lambda: Lambda param from cutmix, used to set the area of the box.
@@ -108,13 +109,13 @@ def adjust_lambda(cutmix_lambda: float, x: Tensor, bbox: Tuple) -> float:
     return adjusted_lambda
 
 
-def cutmix(x: Tensor,
-           y: Tensor,
-           alpha: float,
-           n_classes: int,
-           cutmix_lambda: Optional[float] = None,
-           bbox: Optional[Tuple] = None,
-           indices: Optional[torch.Tensor] = None) -> Tuple[torch.Tensor, torch.Tensor]:
+def cutmix_batch(x: Tensor,
+                 y: Tensor,
+                 alpha: float,
+                 n_classes: int,
+                 cutmix_lambda: Optional[float] = None,
+                 bbox: Optional[Tuple] = None,
+                 indices: Optional[torch.Tensor] = None) -> Tuple[torch.Tensor, torch.Tensor]:
     """Create new samples using combinations of pairs of samples.
 
     This is done by masking a region of x, and filling the masked region with a
@@ -152,7 +153,6 @@ def cutmix(x: Tensor,
 
             pred = model(X)
             loss = loss_fun(pred, y)  # loss_fun must accept dense labels (ie NOT indices)
-
     """
     # Create shuffled indicies across the batch in preparation for cutting and mixing.
     # Use given indices if there are any.
@@ -197,17 +197,16 @@ def cutmix(x: Tensor,
 class CutMixHparams(AlgorithmHparams):
     """See :class:`CutMix`"""
 
-    alpha: float = hp.required('Strength of interpolation, should be >= 0. No interpolation if alpha=0.',
-                               template_default=1.0)
+    num_classes: int = hp.required('Number of classes in the task labels.')
+    alpha: float = hp.optional('Strength of interpolation, should be >= 0. No interpolation if alpha=0.', default=1.0)
 
-    def initialize_object(self) -> "CutMix":
+    def initialize_object(self) -> CutMix:
         return CutMix(**asdict(self))
 
 
 class CutMix(Algorithm):
-    """`CutMix <https://arxiv.org/abs/1905.04899>`_ trains the network on
-    non-overlapping combinations of pairs of examples and iterpolated targets
-    rather than individual examples and targets.
+    """`CutMix <https://arxiv.org/abs/1905.04899>`_ trains the network on non-overlapping combinations of pairs of
+    examples and iterpolated targets rather than individual examples and targets.
 
     This is done by taking a non-overlapping combination of a given batch X with a
     randomly permuted copy of X. The area is drawn from a ``Beta(alpha, alpha)``
@@ -216,21 +215,23 @@ class CutMix(Algorithm):
     Training in this fashion reduces generalization error.
 
     Args:
-        alpha: the psuedocount for the Beta distribution used to sample
+        alpha (float): the psuedocount for the Beta distribution used to sample
             area parameters. As ``alpha`` grows, the two samples
             in each pair tend to be weighted more equally. As ``alpha``
             approaches 0 from above, the combination approaches only using
             one element of the pair.
+        num_classes (int): the number of classes in the task labels.
     """
 
-    def __init__(self, alpha: float):
-        self.hparams = CutMixHparams(alpha=alpha)
+    def __init__(self, alpha: float, num_classes: int):
+        self.alpha = alpha
+        self.num_classes = num_classes
         self._indices = torch.Tensor()
         self._cutmix_lambda = 0.0
         self._bbox = tuple()
 
     def match(self, event: Event, state: State) -> bool:
-        """Runs on Event.INIT and Event.AFTER_DATALOADER
+        """Runs on Event.INIT and Event.AFTER_DATALOADER.
 
         Args:
             event (:class:`Event`): The current event.
@@ -238,7 +239,7 @@ class CutMix(Algorithm):
         Returns:
             bool: True if this algorithm should run now.
         """
-        return event in (Event.AFTER_DATALOADER, Event.INIT)
+        return event == Event.AFTER_DATALOADER
 
     @property
     def indices(self) -> Tensor:
@@ -265,29 +266,25 @@ class CutMix(Algorithm):
         self._bbox = new_bbox
 
     def apply(self, event: Event, state: State, logger: Logger) -> None:
-        """Applies CutMix augmentation on State input
+        """Applies CutMix augmentation on State input.
 
         Args:
             event (Event): the current event
             state (State): the current trainer state
             logger (Logger): the training logger
-
         """
-        if event == Event.INIT:
-            self.num_classes: int = state.model.num_classes  # type: ignore
-            return
 
         input, target = state.batch_pair
         assert isinstance(input, Tensor) and isinstance(target, Tensor), \
             "Multiple tensors for inputs or targets not supported yet."
-        alpha = self.hparams.alpha
+        alpha = self.alpha
 
         self.indices = gen_indices(input)
         self.cutmix_lambda = gen_cutmix_lambda(alpha)
         self.bbox = rand_bbox(input.shape[2], input.shape[3], self.cutmix_lambda)
         self.cutmix_lambda = adjust_lambda(self.cutmix_lambda, input, self.bbox)
 
-        new_input, new_target = cutmix(
+        new_input, new_target = cutmix_batch(
             x=input,
             y=target,
             alpha=alpha,

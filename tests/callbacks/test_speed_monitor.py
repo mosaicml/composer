@@ -7,14 +7,14 @@ from composer.callbacks import SpeedMonitorHparams
 from composer.trainer import TrainerHparams
 
 
-def test_speed_monitor(mosaic_trainer_hparams: TrainerHparams):
+def test_speed_monitor(composer_trainer_hparams: TrainerHparams):
     speed_monitor_hparams = SpeedMonitorHparams(window_size=2)
-    mosaic_trainer_hparams.callbacks.append(speed_monitor_hparams)
-    mosaic_trainer_hparams.grad_accum = 1
-    mosaic_trainer_hparams.train_batch_size = 10
+    composer_trainer_hparams.callbacks.append(speed_monitor_hparams)
+    composer_trainer_hparams.grad_accum = 1
+    composer_trainer_hparams.train_batch_size = 10
     max_epochs = 2
-    mosaic_trainer_hparams.max_duration = f"{max_epochs}ep"
-    trainer = mosaic_trainer_hparams.initialize_object()
+    composer_trainer_hparams.max_duration = f"{max_epochs}ep"
+    trainer = composer_trainer_hparams.initialize_object()
     log_destination = MagicMock()
     log_destination.will_log.return_value = True
     trainer.logger.backends = [log_destination]
@@ -24,7 +24,7 @@ def test_speed_monitor(mosaic_trainer_hparams: TrainerHparams):
     wall_clock_train_calls = 0
     throughput_step_calls = 0
     for call_ in log_destination.log_metric.mock_calls:
-        metrics = call_[1][3]
+        metrics = call_[1][2]
         if "throughput/step" in metrics:
             throughput_step_calls += 1
         if "throughput/epoch" in metrics:

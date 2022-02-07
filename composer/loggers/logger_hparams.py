@@ -1,6 +1,6 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
-"""Logger Hyperparameters"""
+"""Logger Hyperparameters."""
 from __future__ import annotations
 
 import copy
@@ -12,6 +12,7 @@ import yahp as hp
 
 from composer.core.logging import BaseLoggerBackend, LogLevel
 from composer.core.types import JSON
+from composer.loggers.in_memory_logger import InMemoryLogger
 from composer.loggers.mosaicml_logger import RunType
 from composer.utils import dist
 
@@ -24,8 +25,7 @@ if TYPE_CHECKING:
 
 @dataclass
 class BaseLoggerBackendHparams(hp.Hparams, ABC):
-    """
-    Base class for logger backend hyperparameters.
+    """Base class for logger backend hyperparameters.
 
     Logger parameters that are added to
     :class:`~composer.trainer.trainer_hparams.TrainerHparams`
@@ -122,8 +122,7 @@ class WandBLoggerBackendHparams(BaseLoggerBackendHparams):
         if config is not None:
 
             def get_flattened_dict(data: Dict[str, Any], _prefix: List[str] = []) -> Dict[str, Any]:
-                """
-                Flattens a dictionary with list or sub dicts to have dot syntax
+                """Flattens a dictionary with list or sub dicts to have dot syntax.
 
                 i.e. {
                   "sub_dict":{
@@ -156,18 +155,20 @@ class WandBLoggerBackendHparams(BaseLoggerBackendHparams):
                             if isinstance(item, dict):
                                 found_sub_dicts = True
                                 for sub_key, sub_val in item.items():
-                                    all_items.update(get_flattened_dict(sub_val, key_items + [sub_key]))
+                                    if isinstance(sub_val, dict):
+                                        all_items.update(get_flattened_dict(sub_val, key_items + [sub_key]))
+                                    else:
+                                        all_items.update({sub_key: sub_val})
                         if not found_sub_dicts:
                             all_items[key_name] = val
                     else:
                         all_items[key_name] = val
                 return all_items
 
+            # extra_init_params may be in ``config`` already. Copy it so we don't get recursive dicts.
+            self.extra_init_params = copy.deepcopy(self.extra_init_params)
             if self.flatten_hparams:
                 config = get_flattened_dict(data=config)
-            else:
-                config = copy.deepcopy(config)  # Copy since WandB parameters are part of config
-
             if "config" not in self.extra_init_params:
                 self.extra_init_params["config"] = {}
             if not isinstance(self.extra_init_params["config"], dict):
@@ -241,3 +242,17 @@ class MosaicMLLoggerBackendHparams(BaseLoggerBackendHparams):
     def initialize_object(self, config: Optional[Dict[str, Any]] = None) -> MosaicMLLoggerBackend:
         from composer.loggers.mosaicml_logger import MosaicMLLoggerBackend
         return MosaicMLLoggerBackend(**asdict(self), config=config)
+
+
+@dataclass
+class InMemoryLoggerHaparms(BaseLoggerBackendHparams):
+    """:class:`~composer.loggers.in_memory_logger.InMemoryLogger`
+    hyperparameters.
+
+    See :class:`~composer.loggers.in_memory_logger.InMemoryLogger`
+    for documentation.
+    """
+    log_level: LogLevel = hp.optional("The maximum verbosity to log. Default: BATCH", default=LogLevel.BATCH)
+
+    def initialize_object(self, config: Optional[Dict[str, Any]] = None) -> BaseLoggerBackend:
+        return InMemoryLogger(log_level=self.log_level)
