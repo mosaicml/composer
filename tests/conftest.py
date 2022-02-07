@@ -16,6 +16,9 @@ from composer.utils import run_directory
 # so tests of all world sizes will be executed
 WORLD_SIZE_OPTIONS = (1, 2)
 
+# default timout threshold is 2 seconds for determinign long and short
+DEFAULT_TIMEOUT = 2.0
+
 # Enforce use of deterministic kernels
 # see composer.utils.reproducibility.configure_deterministic_mode
 os.environ["CUBLAS_WORKSPACE_CONFIG"] = ":4096:8"
@@ -39,15 +42,17 @@ def pytest_addoption(parser: pytest.Parser) -> None:
                      default=int(os.environ.get('WORLD_SIZE', 1)),
                      type=int,
                      choices=WORLD_SIZE_OPTIONS,
-                     help="""Number of devices. Filters the tests based on their
-                            requested world size. Defaults to 1, and can also
-                            be set by the WORLD_SIZE environment variable.""")
+                     help="""Filters the tests based on their requested world size.
+                             Defaults to 1, and can also be set by the WORLD_SIZE
+                             environment variable. For world_size>1, please launch
+                             with the composer launcher.""")
 
 
-def _get_timeout(item: pytest.Item):
-    """Returns the timeout of a test, defaults to 0."""
-    _default = pytest.mark.timeout(0).mark
-    return item.get_closest_marker("timeout", default=_default).args[0]
+def _get_timeout(item: pytest.Item, default: float):
+    """Returns the timeout of a test, defaults to -1 """
+    _default = pytest.mark.timeout(default).mark
+    timeout = item.get_closest_marker("timeout", default=_default).args[0]
+    return 999 if timeout == 0 else timeout  # timeout(0) means no timeout restrictions
 
 
 def _get_world_size(item: pytest.Item):
@@ -56,11 +61,25 @@ def _get_world_size(item: pytest.Item):
     return item.get_closest_marker("world_size", default=_default).args[0]
 
 
+def _validate_world_size(world_size: int):
+    if "WORLD_SIZE" in os.environ and os.environ["WORLD_SIZE"] != world_size:
+        raise ValueError(f'--world-size ({world_size}) and WORLD_SIZE environment'
+                         'variable ({os.environ["WORLD_SIZE"]}) do not match.')
+
+
+def _validate_duration(duration: int):
+    if duration not in ('short', 'long', 'all'):
+        raise ValueError(f'duration ({duration}) must be one of short, long, all.')
+
+
 def pytest_collection_modifyitems(config: pytest.Config, items: List[pytest.Item]) -> None:
     """Filter tests by world_size (for multi-GPU tests) and duration (short, long, or all)"""
-    timeout_threshold = getattr(config, "_env_timeout", 2.0)
+    threshold = float(getattr(config, "_env_timeout", 2.0))
     duration = config.getoption("duration")
     world_size = config.getoption("world_size")
+
+    _validate_world_size(world_size)
+    _validate_duration(duration)
 
     conditions = [
         lambda item: _get_world_size(item) == world_size,
@@ -68,9 +87,9 @@ def pytest_collection_modifyitems(config: pytest.Config, items: List[pytest.Item
 
     # separate tests by whether timeout is < or > threshold.
     if duration == 'short':
-        conditions += [lambda item: _get_timeout(item) < timeout_threshold]
+        conditions += [lambda item: _get_timeout(item, default=threshold) <= threshold]
     elif duration == 'long':
-        conditions += [lambda item: _get_timeout(item) > timeout_threshold]
+        conditions += [lambda item: _get_timeout(item, default=threshold) > threshold]
 
     # keep items that satisfy all conditions
     remaining = []
