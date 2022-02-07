@@ -36,4 +36,4 @@ test-ddp:
 
 test-all: test test-gpu test-deepspeed test-ddp
 
-.PHONY: test test-gpu test-ddp test-deepspeed lint, style
+.PHONY: test test-gpu test-ddp test-deepspeed test-all lint style
