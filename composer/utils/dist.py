@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import datetime
 import os
+import textwrap
 import warnings
 from typing import Any, List, Optional, Sequence, TypeVar, cast
 
@@ -21,11 +22,19 @@ _LOCAL_RANK = "LOCAL_RANK"
 
 _DIST_ENV_VARS = [_NODE_RANK, _WORLD_SIZE, _LOCAL_WORLD_SIZE, _RANK, _LOCAL_RANK]
 
+_DIST_DEFAULTS = {
+    # default values for distributed env variables if not set
+    # Assumes single-process training
+    _NODE_RANK: 0,
+    _WORLD_SIZE: 1,
+    _LOCAL_WORLD_SIZE: 1,
+    _RANK: 0,
+    _LOCAL_RANK: 0,
+}
 
-def _get_distributed_config_var(env_var: str,
-                                human_name: str,
-                                default: int,
-                                fetch_fn_name: Optional[str] = None) -> int:
+
+def _get_distributed_config_var(env_var: str, human_name: str, fetch_fn_name: Optional[str] = None) -> int:
+    default = _DIST_DEFAULTS[env_var]
     if not dist.is_available():
         warnings.warn("DistributedDefaultValueWarning: Torch distributed is not available; "
                       f"returning {default} for {human_name}")
@@ -59,10 +68,7 @@ def get_world_size() -> int:
     Returns:
         int: The world size
     """
-    return _get_distributed_config_var(env_var=_WORLD_SIZE,
-                                       human_name="world size",
-                                       default=1,
-                                       fetch_fn_name="get_world_size")
+    return _get_distributed_config_var(env_var=_WORLD_SIZE, human_name="world size", fetch_fn_name="get_world_size")
 
 
 def get_global_rank() -> int:
@@ -71,7 +77,7 @@ def get_global_rank() -> int:
     Returns:
         int: The global rank
     """
-    return _get_distributed_config_var(env_var=_RANK, human_name="global rank", default=0, fetch_fn_name="get_rank")
+    return _get_distributed_config_var(env_var=_RANK, human_name="global rank", fetch_fn_name="get_rank")
 
 
 def get_local_world_size() -> int:
@@ -80,7 +86,7 @@ def get_local_world_size() -> int:
     Returns:
         int: The local world size
     """
-    return _get_distributed_config_var(env_var=_LOCAL_WORLD_SIZE, human_name="local world size", default=1)
+    return _get_distributed_config_var(env_var=_LOCAL_WORLD_SIZE, human_name="local world size")
 
 
 def get_local_rank() -> int:
@@ -89,7 +95,7 @@ def get_local_rank() -> int:
     Returns:
         int: The local world size
     """
-    return _get_distributed_config_var(env_var=_LOCAL_RANK, human_name="local rank", default=0)
+    return _get_distributed_config_var(env_var=_LOCAL_RANK, human_name="local rank")
 
 
 def get_node_rank() -> int:
@@ -99,7 +105,7 @@ def get_node_rank() -> int:
     Returns:
         int: The node rank, starting at 0.
     """
-    return _get_distributed_config_var(env_var=_NODE_RANK, human_name="node rank", default=0)
+    return _get_distributed_config_var(env_var=_NODE_RANK, human_name="node rank")
 
 
 def barrier() -> None:
@@ -249,11 +255,15 @@ def initialize_dist(backend: str, timeout: datetime.timedelta):
                                "wish to change backends, please restart the python process.")
         return
 
-    _missing_dist_env_vars = list(dist_env_var for dist_env_var in _DIST_ENV_VARS if dist_env_var not in os.environ)
-    if len(_missing_dist_env_vars) > 0:
-        warnings.warn(f"NoDistributedWarning: Distributed environment variables {' ,'.join(_missing_dist_env_vars)}"
-                      "not set; assuming no parallelization. If this is unexpected, make sure you are running your "
-                      "training script with the composer CLI tool.")
+    missing_dist_env_vars = list(dist_env_var for dist_env_var in _DIST_ENV_VARS if dist_env_var not in os.environ)
+    for missing_dist_env_var in missing_dist_env_vars:
+        default_value = _DIST_DEFAULTS[missing_dist_env_var]
+        os.environ[missing_dist_env_var] = str(default_value)
+        warnings.warn(
+            textwrap.dedent(f"""\
+                MissingDistributedEnvVariable: Distributed environment variable {missing_dist_env_var} is
+                not set; using a default value of {default_value} which assumes no parallelization.
+                If this is unexpected, please run the script with the composer CLI tool."""))
     dist.init_process_group(backend, timeout=timeout)
 
 
