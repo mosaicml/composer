@@ -8,6 +8,7 @@ import pytest
 import torch
 import torch.distributed
 import yahp as hp
+from torch.nn.parallel import DistributedDataParallel
 
 from composer.algorithms import AlgorithmHparams
 from composer.algorithms.alibi.alibi import AlibiHparams
@@ -99,6 +100,8 @@ def test_trainer_determinism(composer_trainer_hparams: TrainerHparams, device: D
     first_trainer = composer_trainer_hparams.initialize_object()
     first_model = first_trainer.state.model
     first_trainer.fit()
+    if isinstance(first_model, DistributedDataParallel):
+        first_model = first_model.module
     assert isinstance(first_model, ComposerModel)
     assert first_trainer.state.train_dataloader is not None
     first_loss = get_total_loss(first_model, first_trainer.state.train_dataloader, first_trainer.device)
@@ -108,6 +111,8 @@ def test_trainer_determinism(composer_trainer_hparams: TrainerHparams, device: D
     second_trainer = composer_trainer_hparams.initialize_object()
     second_model = second_trainer.state.model
     second_trainer.fit()
+    if isinstance(second_model, DistributedDataParallel):
+        second_model = second_model.module
     assert isinstance(second_model, ComposerModel)
     assert second_trainer.state.train_dataloader is not None
     second_loss = get_total_loss(second_model, second_trainer.state.train_dataloader, second_trainer.device)
