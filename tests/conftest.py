@@ -62,9 +62,9 @@ def _get_world_size(item: pytest.Item):
 
 
 def _validate_world_size(world_size: int):
-    if "WORLD_SIZE" in os.environ and os.environ["WORLD_SIZE"] != world_size:
+    if "WORLD_SIZE" in os.environ and int(os.environ["WORLD_SIZE"]) != world_size:
         raise ValueError(f'--world-size ({world_size}) and WORLD_SIZE environment'
-                         'variable ({os.environ["WORLD_SIZE"]}) do not match.')
+                         f'variable ({os.environ["WORLD_SIZE"]}) do not match.')
 
 
 def _validate_duration(duration: int):
