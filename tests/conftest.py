@@ -22,7 +22,7 @@ os.environ["CUBLAS_WORKSPACE_CONFIG"] = ":4096:8"
 
 # during the pytest refactor transition, this flag
 # indicates whether to include the deprecated fixtures
-include_deprecated_fixtures = True
+include_deprecated_fixtures = False
 
 # Add the path of any pytest fixture files you want to make global
 pytest_plugins = [

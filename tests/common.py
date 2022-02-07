@@ -1,15 +1,40 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
-"""Contains several commonly used objects (models, dataloaders) that are shared across the test suite."""
+"""
+Contains several commonly used objects (models, dataloaders) that are
+shared across the test suite.
+"""
 
 from typing import Sequence
 
+import pytest
 import torch
 from PIL import Image
 from torch.utils.data import Dataset
 from torchvision.datasets import VisionDataset
 
 from composer.models import ComposerClassifier
+from composer.trainer.devices import DeviceCPU, DeviceGPU
+
+
+# decorators for common parameterizations and marks
+def device(*args):
+
+    parameters = []
+    for arg in args:
+        if arg == 'cpu':
+            parameters += [pytest.param(DeviceCPU(), id="cpu")]
+        elif arg == 'gpu':
+            parameters += [pytest.param(DeviceGPU(), id="gpu", marks=pytest.mark.gpu)]
+        else:
+            raise ValueError(f'arguments to @device must be cpu, gpu, got {arg}')
+
+    def decorator(test):
+        if not parameters:
+            return test
+        return pytest.mark.parametrize("device", parameters)(test)
+
+    return decorator
 
 
 class SimpleModel(ComposerClassifier):
@@ -20,7 +45,7 @@ class SimpleModel(ComposerClassifier):
         num_classes (int): number of classes (default: 2)
     """
 
-    def __init__(self, num_features: int = 10, num_classes: int = 2) -> None:
+    def __init__(self, num_features: int = 5, num_classes: int = 2) -> None:
 
         self.num_features = num_features
         self.num_classes = num_classes
@@ -29,8 +54,6 @@ class SimpleModel(ComposerClassifier):
         fc2 = torch.nn.Linear(5, num_classes)
 
         net = torch.nn.Sequential(
-            torch.nn.AdaptiveAvgPool2d(1),
-            torch.nn.Flatten(),
             fc1,
             torch.nn.ReLU(),
             fc2,
@@ -85,12 +108,12 @@ class RandomClassificationDataset(Dataset):
     """Classification dataset drawn from a normal distribution.
 
     Args:
-        shape (Sequence[int]): shape of features
+        shape (Sequence[int]): shape of features (default: 5)
         size (int): number of samples (default: 100)
         num_classes (int): number of classes (default: 100)
     """
 
-    def __init__(self, shape: Sequence[int], size: int = 100, num_classes: int = 2):
+    def __init__(self, shape: Sequence[int] = (5,), size: int = 100, num_classes: int = 2):
         self.size = size
         self.x = torch.randn(size, *shape)
         self.y = torch.randint(0, num_classes, size=(size,))

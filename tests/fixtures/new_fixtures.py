@@ -2,10 +2,14 @@
 
 """These fixtures are shared globally across the test suite."""
 
+import datetime
+import os
 from unittest.mock import Mock
 
 import pytest
+import torch.distributed as dist
 
+from composer.cli.launcher import get_free_tcp_port
 from composer.core import Logger, State
 from composer.core.types import Precision
 
@@ -28,3 +32,23 @@ def minimal_state():
 def empty_logger(minimal_state: State) -> Logger:
     """Logger without any output configured."""
     return Logger(state=minimal_state, backends=[])
+
+
+@pytest.fixture
+def init_process_group(monkeypatch):
+    """Use this fixture when initializing dist is needed
+    outside of the Trainer's codepath. """
+
+    if not "RANK" in os.environ:
+        monkeypatch.setenv("RANK", "0")
+        monkeypatch.setenv("LOCAL_RANK", "0")
+        monkeypatch.setenv("WORLD_SIZE", "1")
+        monkeypatch.setenv("MASTER_ADDR", "127.0.0.1")
+        monkeypatch.setenv("MASTER_PORT", str(get_free_tcp_port()))
+
+    dist.init_process_group("gloo", timeout=datetime.timedelta(10))
+
+    yield
+
+    if dist.is_initialized() and dist.is_available():
+        dist.destroy_process_group()
