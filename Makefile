@@ -31,9 +31,9 @@ test-deepspeed:
 
 # run all tests, including multi-gpu tests
 # uses the composer launcher script
-test-with-ddp:
+test-ddp:
 	python -m composer.cli.launcher -n ${WORLD_SIZE} -m pytest $(EXTRA_ARGS)
 
-test-all: test test-gpu test-deepspeed test-with-ddp
+test-all: test test-gpu test-deepspeed test-ddp
 
-.PHONY: test test-gpu test-with-ddp test-deepspeed
+.PHONY: test test-gpu test-ddp test-deepspeed lint, style

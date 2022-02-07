@@ -35,11 +35,11 @@ pytest_plugins = [
 
 def pytest_addoption(parser: _pytest.config.argparsing.Parser) -> None:
     parser.addoption("--duration",
-                     default="short",
+                     default="all",
                      choices=["short", "long", "all"],
                      help="""Duration of tests, one of short, long, or all.
                              Tests are short if their timeout < 2 seconds
-                             (configurable threshold). Default: short.""")
+                             (configurable threshold). Default: all.""")
 
 
 def _get_test_world_size(item: pytest.Item) -> int:
