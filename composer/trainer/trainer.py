@@ -8,8 +8,6 @@ import itertools
 import logging
 import textwrap
 import warnings
-from collections.abc import Sized
-from re import I
 from typing import TYPE_CHECKING, Any, Callable, ContextManager, Dict, List, Optional, Sequence, Union, cast
 
 import torch
