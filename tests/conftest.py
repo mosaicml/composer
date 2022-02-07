@@ -49,7 +49,7 @@ def pytest_addoption(parser: pytest.Parser) -> None:
 
 
 def _get_timeout(item: pytest.Item, default: float):
-    """Returns the timeout of a test, defaults to -1 """
+    """Returns the timeout of a test, defaults to -1."""
     _default = pytest.mark.timeout(default).mark
     timeout = item.get_closest_marker("timeout", default=_default).args[0]
     return 999 if timeout == 0 else timeout  # timeout(0) means no timeout restrictions
