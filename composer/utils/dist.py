@@ -267,7 +267,7 @@ def initialize_dist(backend: str, timeout: datetime.timedelta):
         os.environ[_LOCAL_WORLD_SIZE] = "1"
         os.environ[_WORLD_SIZE] = "1"
         os.environ[_NODE_RANK] = "0"
-        dist.init_process_group(backend, store=dist.HashStore())
+        dist.init_process_group(backend, store=dist.HashStore(), world_size=1, rank=0)
         return
 
     dist.init_process_group(backend, timeout=timeout)
