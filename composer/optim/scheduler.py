@@ -12,7 +12,7 @@ from torch.optim.lr_scheduler import (CosineAnnealingLR, CosineAnnealingWarmRest
 
 from composer.core import State
 from composer.core.time import Time, Timer, TimeUnit
-from composer.core.types import Optimizer, Scheduler, Schedulers
+from composer.core.types import ComposerSchedulerFn, Optimizer, Scheduler, Schedulers
 from composer.optim.pytorch_future import LinearLR, WarmUpLR
 from composer.utils._time_conversion import convert as convert_time
 from composer.utils.iter_helpers import ensure_tuple
@@ -75,9 +75,6 @@ def _convert_time(time: Union[str, Time], state: State) -> Time[int]:
         time = convert_time(time=time, unit=state.max_duration.unit, max_training_duration=state.max_duration)
 
     return time
-
-
-ComposerSchedulerFn = Callable[[State], float]
 
 
 class ComposerScheduler(ABC):
@@ -160,6 +157,17 @@ class ExponentialScheduler(ComposerScheduler):
         current_time = state.timer.get(self.time_unit)
 
         return self.gamma**current_time.value
+
+# TODO: SequentialScheduler
+
+class CosineAnnealingLR(ComposerScheduler):
+
+    def __init__(self, T_max: Union[str, Time], min_factor: float = 0):
+        self.T_max = T_max
+        self.min_factor = min_factor
+
+    def __call__(self, state: State):
+
 
 
 @dataclass

@@ -20,17 +20,17 @@ from torchmetrics.collections import MetricCollection
 from torchmetrics.metric import Metric
 
 from composer.algorithms import ScaleSchedule
+from composer.composer.core.scheduler import should_step_scheduler
 from composer.core import Callback, DataSpec, Engine, Event, Logger, State, Time, surgery
 from composer.core.algorithm import Algorithm
 from composer.core.evaluator import Evaluator
 from composer.core.logging import LoggerCallback, LogLevel
 from composer.core.time import TimeUnit
-from composer.core.types import (Batch, BreakEpochException, DataLoader, Evaluators, Metrics, Optimizers, Precision,
-                                 Schedulers)
+from composer.core.types import (Batch, BreakEpochException, ComposerSchedulerFn, DataLoader, Evaluators, Many, Metrics,
+                                 Optimizers, Precision, Scheduler)
 from composer.datasets.dataloader import unwrap_data_loader
 from composer.loggers.tqdm_logger import TQDMLogger
 from composer.models.base import ComposerModel
-from composer.optim import ComposedScheduler
 from composer.optim.decoupled_weight_decay import DecoupledSGDW
 from composer.profiler.profiler_hparams import ProfilerHparams
 from composer.trainer.checkpoint import CheckpointLoader, CheckpointSaver
@@ -142,7 +142,7 @@ class Trainer:
         max_duration: Union[str, Time],
         algorithms: Optional[List[Algorithm]] = None,
         optimizers: Optional[Optimizers] = None,
-        schedulers: Optional[Schedulers] = None,
+        schedulers: Optional[Many[Union[Scheduler, ComposerSchedulerFn]]] = None,
 
         # device
         device: Optional[Union[str, Device]] = None,
@@ -325,8 +325,6 @@ class Trainer:
 
             for scheduler in ensure_tuple(schedulers):
                 scale_scheduler(scheduler, scale_schedule_ratio, orig_max_duration.value)
-
-        schedulers = ComposedScheduler(ensure_tuple(schedulers))
 
         self.state = State(
             max_duration=max_duration,
@@ -626,7 +624,8 @@ class Trainer:
                     )
 
                     for scheduler in state.schedulers:
-                        scheduler.step(interval='batch')  # type: ignore
+                        if should_step_scheduler(scheduler, is_epoch=False):
+                            scheduler.step()
 
                     self.engine.run_event(Event.BATCH_END)
 
@@ -643,7 +642,8 @@ class Trainer:
             state.timer.on_epoch_complete()
 
             for scheduler in state.schedulers:
-                scheduler.step(interval='epoch')  # type: ignore
+                if should_step_scheduler(scheduler, is_epoch=True):
+                    scheduler.step()
 
             self.engine.run_event(Event.EPOCH_END)
 

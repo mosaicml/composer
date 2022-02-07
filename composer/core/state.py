@@ -3,6 +3,7 @@
 """The state of the trainer."""
 from __future__ import annotations
 
+import functools
 import logging
 import textwrap
 import warnings
@@ -13,6 +14,7 @@ import torch.nn.modules.utils
 from torch.nn.parallel import DistributedDataParallel
 
 import composer.core.types as types
+from composer.composer.core.scheduler import compile_scheduler
 from composer.core.precision import Precision
 from composer.core.profiler import Profiler
 from composer.core.serializable import Serializable
@@ -149,7 +151,7 @@ class State(Serializable):
 
             # optimizers
             optimizers: Optional[types.Optimizers] = None,
-            schedulers: Optional[types.Schedulers] = None,
+            schedulers: Optional[types.Many[Union[types.Scheduler, types.ComposerSchedulerFn]]] = None,
 
             # scaler
             scaler: Optional[types.Scaler] = None,
@@ -180,7 +182,10 @@ class State(Serializable):
         if schedulers is None:
             self._schedulers = []
         else:
-            self._schedulers = list(ensure_tuple(schedulers))
+            self._schedulers = [
+                scheduler if isinstance(scheduler, types.Scheduler) else compile_scheduler(
+                    scheduler, self.optimizers, self) for scheduler in ensure_tuple(schedulers)
+            ]
 
         self.scaler = scaler
         self._algorithms = list(algorithms)
