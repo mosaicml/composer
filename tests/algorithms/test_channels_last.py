@@ -1,19 +1,15 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
-from typing import cast
-
 import numpy as np
 import pytest
 import torch
 
-from composer.algorithms import ChannelsLastHparams
 from composer.algorithms.channels_last import apply_channels_last
 from composer.algorithms.channels_last.channels_last import ChannelsLast
 from composer.core.event import Event
 from composer.core.logging import Logger
 from composer.core.state import State
-from composer.core.types import DataLoader, Evaluator, Model, Precision, Tensor
-from composer.models.base import ComposerClassifier
+from composer.core.types import Tensor
 from tests.common import SimpleConvModel
 
 

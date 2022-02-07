@@ -3,7 +3,7 @@
 import pytest
 import torch
 
-from composer.algorithms.progressive_resizing import ProgressiveResizing, ProgressiveResizingHparams, resize_inputs
+from composer.algorithms.progressive_resizing import ProgressiveResizing, resize_inputs
 from composer.core import Event, Logger
 from composer.core.state import State
 

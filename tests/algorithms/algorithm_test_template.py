@@ -40,23 +40,6 @@ def test_myalgo_logging(state):
         })
     """
 
-
-def test_myalgo_hparams():
-    """Test that the algorithm hparams can instantiate the class.
-
-    Example:
-
-        hparams = BlurPoolHparams(
-            replace_convs=True,
-            replace_maxpools=True
-            blur_first=True
-        )
-        algorithm = hparams.initialize_object()
-        assert isinstance(algorithm, BlurPool)
-    """
-    ...
-
-
 # The above is the minimal set, the
 # rest of the test suite will varying depending
 # on the exact algorithm under test.
