@@ -1,16 +1,17 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
 import logging
-from abc import ABC
+from abc import ABC, abstractmethod
 from dataclasses import asdict, dataclass
 from typing import Any, Callable, Dict, List, Optional, Sequence, Union
 
 import torch
 import yahp as hp
-from torch.optim.lr_scheduler import (CosineAnnealingLR, CosineAnnealingWarmRestarts, ExponentialLR, MultiStepLR,
-                                      StepLR, _LRScheduler)
+from torch.optim.lr_scheduler import (CosineAnnealingLR, CosineAnnealingWarmRestarts, ExponentialLR, LambdaLR,
+                                      MultiStepLR, StepLR, _LRScheduler)
 
-from composer.core.time import Time, TimeUnit
+from composer.core import State
+from composer.core.time import Time, Timer, TimeUnit
 from composer.core.types import Optimizer, Scheduler, Schedulers
 from composer.optim.pytorch_future import LinearLR, WarmUpLR
 from composer.utils._time_conversion import convert as convert_time
@@ -64,6 +65,101 @@ def _convert_time_fields(interval: str,
                                                   max_training_duration=max_training_duration,
                                                   samples_per_epoch=samples_per_epoch,
                                                   dataset_num_tokens=dataset_num_tokens).value
+
+
+def _convert_time(time: Union[str, Time], state: State) -> Time[int]:
+    if isinstance(time, str):
+        time = Time.from_timestring(time)
+
+    if time.unit == TimeUnit.DURATION:
+        time = convert_time(time=time, unit=state.max_duration.unit, max_training_duration=state.max_duration)
+
+    return time
+
+
+ComposerSchedulerFn = Callable[[State], float]
+
+
+class ComposerScheduler(ABC):
+
+    @abstractmethod
+    def __call__(self, state: State) -> float:
+        pass
+
+
+class StepScheduler(ComposerScheduler):
+
+    def __init__(self, step_size: Union[str, Time], gamma: float = 0.1):
+        self.step_size = step_size
+        self.gamma = gamma
+
+    def __call__(self, state: State) -> float:
+        step_size = _convert_time(self.step_size, state)
+        current_time = state.timer.get(step_size.unit)
+        steps = int(current_time / step_size)
+
+        return self.gamma**steps
+
+
+class MultiStepScheduler(ComposerScheduler):
+
+    def __init__(self, milestones: List[Union[str, Time]], gamma: float = 0.1):
+        self.milestones = milestones
+        self.gamma = gamma
+
+    def __call__(self, state: State):
+        milestones = [_convert_time(milestone, state) for milestone in self.milestones]
+
+        factor = 1.0
+        for milestone in milestones:
+            if state.timer >= milestone:
+                factor *= self.gamma
+
+        return factor
+
+
+class ConstantScheduler(ComposerScheduler):
+
+    def __init__(self, factor: float = 1.0 / 3, total_time: Union[str, Time] = '5ep'):
+        self.factor = factor
+        self.total_time = total_time
+
+    def __call__(self, state: State):
+        total_time = _convert_time(self.total_time, state)
+
+        if state.timer < total_time:
+            return self.factor
+
+        return 1.0
+
+
+class LinearScheduler(ComposerScheduler):
+
+    def __init__(self, start_factor: float = 1.0 / 3, end_factor: float = 1.0, total_time: Union[str, Time] = '5ep'):
+        self.start_factor = start_factor
+        self.end_factor = end_factor
+        self.total_time = total_time
+
+    def __call__(self, state: State):
+        total_time = _convert_time(self.total_time, state)
+        current_time = state.timer.get(total_time.unit)
+        frac_of_total = min(1.0, current_time / total_time)
+
+        current_factor = self.start_factor + frac_of_total * (self.end_factor - self.start_factor)
+
+        return current_factor
+
+
+class ExponentialScheduler(ComposerScheduler):
+
+    def __init__(self, gamma: float, time_unit: TimeUnit = TimeUnit.EPOCH):
+        self.gamma = gamma
+        self.time_unit = time_unit
+
+    def __call__(self, state: State):
+        current_time = state.timer.get(self.time_unit)
+
+        return self.gamma**current_time.value
 
 
 @dataclass
