@@ -40,6 +40,7 @@ def test_myalgo_logging(state):
         })
     """
 
+
 # The above is the minimal set, the
 # rest of the test suite will varying depending
 # on the exact algorithm under test.
