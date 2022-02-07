@@ -50,8 +50,8 @@ Our documentation is organized into a few sections:
    :maxdepth: 1
    :caption: Using our Trainer
 
-   trainer/examples.rst
-   trainer/mosaic_model.rst
+   trainer/summary.rst
+   trainer/composer_model.rst
    trainer/algorithms.rst
    trainer/detailed_usage.rst
 
@@ -61,31 +61,6 @@ Our documentation is organized into a few sections:
    :caption: Notebook Examples
 
    notebooks/summary.rst
-
-.. toctree::
-   :maxdepth: 1
-   :caption: Composer Walkthrough
-
-   walkthrough/algorithm.rst
-   walkthrough/callback.rst
-   walkthrough/datasets.rst
-   walkthrough/engine.rst
-   walkthrough/event.rst
-   walkthrough/functional.rst
-   walkthrough/logger.rst
-   walkthrough/models.rst
-   walkthrough/profiler.rst
-   walkthrough/state.rst
-   walkthrough/surgery.rst
-   walkthrough/time.rst
-   walkthrough/trainer.rst
-   walkthrough/types.rst
-
-.. toctree::
-   :maxdepth: 1
-   :caption: Hparams System (YAHP)
-
-   yahp/getting_started.rst
 
 .. toctree::
    :maxdepth: 1
@@ -124,6 +99,31 @@ Our documentation is organized into a few sections:
    model_cards/GPT2.md
    model_cards/imagenet_resnet.md
    model_cards/unet.md
+
+.. toctree::
+   :maxdepth: 1
+   :caption: Hparams System (YAHP)
+
+   yahp/getting_started.rst
+
+.. toctree::
+   :maxdepth: 1
+   :caption: Composer Walkthrough
+
+   walkthrough/algorithm.rst
+   walkthrough/callback.rst
+   walkthrough/datasets.rst
+   walkthrough/engine.rst
+   walkthrough/event.rst
+   walkthrough/functional.rst
+   walkthrough/logger.rst
+   walkthrough/models.rst
+   walkthrough/profiler.rst
+   walkthrough/state.rst
+   walkthrough/surgery.rst
+   walkthrough/time.rst
+   walkthrough/trainer.rst
+   walkthrough/types.rst
 
 
 .. toctree::
