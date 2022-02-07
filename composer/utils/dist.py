@@ -22,19 +22,13 @@ _LOCAL_RANK = "LOCAL_RANK"
 
 _DIST_ENV_VARS = [_NODE_RANK, _WORLD_SIZE, _LOCAL_WORLD_SIZE, _RANK, _LOCAL_RANK]
 
-_DIST_DEFAULTS = {
-    # default values for distributed env variables if not set
-    # Assumes single-process training
-    _NODE_RANK: 0,
-    _WORLD_SIZE: 1,
-    _LOCAL_WORLD_SIZE: 1,
-    _RANK: 0,
-    _LOCAL_RANK: 0,
-}
 
-
-def _get_distributed_config_var(env_var: str, human_name: str, fetch_fn_name: Optional[str] = None) -> int:
-    default = _DIST_DEFAULTS[env_var]
+def _get_distributed_config_var(
+    env_var: str,
+    human_name: str,
+    default: int,
+    fetch_fn_name: Optional[str] = None,
+) -> int:
     if not dist.is_available():
         warnings.warn("DistributedDefaultValueWarning: Torch distributed is not available; "
                       f"returning {default} for {human_name}")
@@ -68,7 +62,10 @@ def get_world_size() -> int:
     Returns:
         int: The world size
     """
-    return _get_distributed_config_var(env_var=_WORLD_SIZE, human_name="world size", fetch_fn_name="get_world_size")
+    return _get_distributed_config_var(env_var=_WORLD_SIZE,
+                                       human_name="world size",
+                                       default=1,
+                                       fetch_fn_name="get_world_size")
 
 
 def get_global_rank() -> int:
@@ -77,7 +74,7 @@ def get_global_rank() -> int:
     Returns:
         int: The global rank
     """
-    return _get_distributed_config_var(env_var=_RANK, human_name="global rank", fetch_fn_name="get_rank")
+    return _get_distributed_config_var(env_var=_RANK, human_name="global rank", default=0, fetch_fn_name="get_rank")
 
 
 def get_local_world_size() -> int:
@@ -86,7 +83,7 @@ def get_local_world_size() -> int:
     Returns:
         int: The local world size
     """
-    return _get_distributed_config_var(env_var=_LOCAL_WORLD_SIZE, human_name="local world size")
+    return _get_distributed_config_var(env_var=_LOCAL_WORLD_SIZE, default=1, human_name="local world size")
 
 
 def get_local_rank() -> int:
@@ -95,7 +92,7 @@ def get_local_rank() -> int:
     Returns:
         int: The local world size
     """
-    return _get_distributed_config_var(env_var=_LOCAL_RANK, human_name="local rank")
+    return _get_distributed_config_var(env_var=_LOCAL_RANK, default=0, human_name="local rank")
 
 
 def get_node_rank() -> int:
@@ -105,7 +102,7 @@ def get_node_rank() -> int:
     Returns:
         int: The node rank, starting at 0.
     """
-    return _get_distributed_config_var(env_var=_NODE_RANK, human_name="node rank")
+    return _get_distributed_config_var(env_var=_NODE_RANK, default=0, human_name="node rank")
 
 
 def barrier() -> None:
@@ -256,14 +253,23 @@ def initialize_dist(backend: str, timeout: datetime.timedelta):
         return
 
     missing_dist_env_vars = list(dist_env_var for dist_env_var in _DIST_ENV_VARS if dist_env_var not in os.environ)
-    for missing_dist_env_var in missing_dist_env_vars:
-        default_value = _DIST_DEFAULTS[missing_dist_env_var]
-        os.environ[missing_dist_env_var] = str(default_value)
+    if len(missing_dist_env_vars) == len(_DIST_ENV_VARS):
+        # missing all variables, in which case we should assume a single process
+        # if any variables are set, then it's likely an incomplete configuration, in which case we should not assume
+        # defaults (it would be better to let dist.init_process_group crash)
         warnings.warn(
             textwrap.dedent(f"""\
-                MissingDistributedEnvVariable: Distributed environment variable {missing_dist_env_var} is
-                not set; using a default value of {default_value} which assumes no parallelization.
-                If this is unexpected, please run the script with the composer CLI tool."""))
+                NoDistributedWarning: No distributed environment variables are set; assuming no
+                parallelization. If this is unexpected, please run the script with the composer CLI tool."""))
+        # setting the environment variables to single-rank defaults
+        os.environ[_LOCAL_RANK] = "0"
+        os.environ[_RANK] = "0"
+        os.environ[_LOCAL_WORLD_SIZE] = "1"
+        os.environ[_WORLD_SIZE] = "1"
+        os.environ[_NODE_RANK] = "0"
+        dist.init_process_group(backend, store=dist.HashStore())
+        return
+
     dist.init_process_group(backend, timeout=timeout)
 
 
