@@ -17,7 +17,7 @@ from composer.core.state import State
 log = logging.getLogger(__name__)
 Traces = Dict[str, "Trace"]
 
-_ALWAYS_RECORD_EVENTS = [Event.INIT, Event.TRAINING_START, Event.EPOCH_START, Event.EPOCH_END, Event.TRAINING_END]
+_ALWAYS_RECORD_EVENTS = [Event.INIT, Event.FIT_START, Event.EPOCH_START, Event.EPOCH_END]
 
 
 @dataclass
@@ -36,10 +36,8 @@ class Trace():
 
 
 def _setup_trace(algorithms: Sequence[Algorithm], event: Event) -> Traces:
-    """
-    The default traces of an entire run is an OrderedDict, with the keys
-    of format 'algorithm_name/event' (e.g. Blurpool/TRAINING_START).
-    """
+    """The default traces of an entire run is an OrderedDict, with the keys of format 'algorithm_name/event' (e.g.
+    Blurpool/INIT)."""
     return OrderedDict([(f'{algo}/{event}', Trace()) for algo in algorithms])
 
 
@@ -74,7 +72,7 @@ class Engine():
         made internally to prevent conflicts.
 
         Returns traces of the execution, a dictionary with keys formatted as ``<algorithm_name>/<event>``
-        (e.g. ``Blurpool/TRAINING_START``), and values are the :class:`composer.core.engine.Trace` object,
+        (e.g. ``Blurpool/INIT``), and values are the :class:`composer.core.engine.Trace` object,
         which include an optional return code from the algorithm, the order of execution, and whether
         the algorithm was run.
 
@@ -150,7 +148,7 @@ class Engine():
             trace[trace_key] = Trace(exit_code=exit_code, order=order, run=True)
 
         if self.logger is not None:
-            if event in (Event.INIT, Event.TRAINING_START, Event.TRAINING_END):
+            if event in (Event.INIT, Event.FIT_START):
                 log_level = LogLevel.FIT
             if event in (Event.EPOCH_START, Event.EPOCH_END):
                 log_level = LogLevel.EPOCH
@@ -167,8 +165,7 @@ class Engine():
         algorithms_to_run: Sequence[Algorithm],
         event: Event,
     ) -> Sequence[Algorithm]:
-        """
-        Runs compilation passes that modify the order and content of a list of algorithms.
+        """Runs compilation passes that modify the order and content of a list of algorithms.
 
         Currently, runs the algorithms in a FILO queue for the before_ and after_ events. For example,
         algorithms will run in order ABCD during before_loss, and in DCBA during after_loss. The motivation
@@ -185,10 +182,11 @@ class Engine():
         Returns:
             algorithms_to_run(Sequence[Algorithm]): modified sequence of algorithms
         """
-        from composer.algorithms import SelectiveBackprop
+        from composer.algorithms import SelectiveBackprop, StochasticDepth
 
         # Move selective backprop to the beginning while maintaining order of other algorithms
-        algorithms = sorted(algorithms_to_run, key=lambda x: not isinstance(x, SelectiveBackprop))
+        algorithms = sorted(algorithms_to_run,
+                            key=lambda x: not isinstance(x, SelectiveBackprop) and not isinstance(x, StochasticDepth))
 
         if event.is_after_event:
             """Establish a FILO queue of algorithms before_ and after_ an event.
@@ -233,7 +231,7 @@ class Engine():
         :meth:`~Callback.close` is invoked for each callback.
         For all callbacks where :meth:`~Callback.close` did not raise an exception, then
         :meth:`~Callback.post_close` is invoked.
-        
+
         Does not re-raise any exceptions from :meth:`~Callback.close` and :meth:`~Callback.post_close`.
         Instead, these exceptions are logged.
         """

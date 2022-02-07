@@ -4,6 +4,8 @@ from typing import Callable, Optional, Sequence, Union
 
 import torch
 import torch.utils.data
+from PIL import Image
+from torchvision.datasets import VisionDataset
 
 from composer.core.types import MemoryFormat
 from composer.utils.string_enum import StringEnum
@@ -28,10 +30,10 @@ class SyntheticBatchPairDataset(torch.utils.data.Dataset):
         num_unique_samples_to_create (int): The number of unique samples to allocate memory for.
         data_type (str or SyntheticDataType, optional), Type of synthetic data to create.
         label_type (str or SyntheticDataLabelType, optional), Type of synthetic data to create.
-        num_classes (int, optional): Number of classes to use. Required if `SyntheticDataLabelType`
-            is `CLASSIFICATION_INT` or `CLASSIFICATION_ONE_HOT`. Otherwise, should be `None`.
+        num_classes (int, optional): Number of classes to use. Required if
+            ``SyntheticDataLabelType`` is ``CLASSIFICATION_INT`` or``CLASSIFICATION_ONE_HOT``. Otherwise, should be ``None``.
         label_shape (List[int]): Shape of the tensor for each sample label.
-        device (str): Device to store the sample pool. Set to `cuda` to store samples
+        device (str): Device to store the sample pool. Set to ``cuda`` to store samples
             on the GPU and eliminate PCI-e bandwidth with the dataloader. Set to `cpu`
             to move data between host memory and the gpu on every batch.
         memory_format (MemoryFormat, optional): Memory format for the sample pool.
@@ -125,3 +127,60 @@ class SyntheticBatchPairDataset(torch.utils.data.Dataset):
             return self.transform(self.input_data[idx]), self.input_target[idx]
         else:
             return self.input_data[idx], self.input_target[idx]
+
+
+class SyntheticPILDataset(VisionDataset):
+    """Similar to :class:`SyntheticBatchPairDataset`, but yields samples of type :class:`~Image.Image` and supports
+    dataset transformations.
+
+    Args:
+        total_dataset_size (int): The total size of the dataset to emulate.
+        data_shape (List[int]): Shape of the image for input samples. Default = [64, 64]
+        num_unique_samples_to_create (int): The number of unique samples to allocate memory for.
+        data_type (str or SyntheticDataType, optional), Type of synthetic data to create.
+        label_type (str or SyntheticDataLabelType, optional), Type of synthetic data to create.
+        num_classes (int, optional): Number of classes to use. Required if
+            ``SyntheticDataLabelType`` is ``CLASSIFICATION_INT`` or
+            ``CLASSIFICATION_ONE_HOT``. Otherwise, should be ``None``.
+        label_shape (List[int]): Shape of the tensor for each sample label.
+        transform (Callable): Dataset transforms
+    """
+
+    def __init__(self,
+                 *,
+                 total_dataset_size: int,
+                 data_shape: Sequence[int] = (64, 64, 3),
+                 num_unique_samples_to_create: int = 100,
+                 data_type: Union[str, SyntheticDataType] = SyntheticDataType.GAUSSIAN,
+                 label_type: Union[str, SyntheticDataLabelType] = SyntheticDataLabelType.CLASSIFICATION_INT,
+                 num_classes: Optional[int] = None,
+                 label_shape: Optional[Sequence[int]] = None,
+                 transform: Optional[Callable] = None):
+        super().__init__(root="", transform=transform)
+        self._dataset = SyntheticBatchPairDataset(
+            total_dataset_size=total_dataset_size,
+            data_shape=data_shape,
+            data_type=data_type,
+            num_unique_samples_to_create=num_unique_samples_to_create,
+            label_type=label_type,
+            num_classes=num_classes,
+            label_shape=label_shape,
+        )
+
+    def __len__(self) -> int:
+        return len(self._dataset)
+
+    def __getitem__(self, idx: int):
+        input_data, target = self._dataset[idx]
+
+        input_data = input_data.numpy()
+
+        # Shift and scale to be [0, 255]
+        input_data = (input_data - input_data.min())
+        input_data = (input_data * (255 / input_data.max())).astype("uint8")
+
+        sample = Image.fromarray(input_data)
+        if self.transform is not None:
+            return self.transform(sample), target
+        else:
+            return sample, target

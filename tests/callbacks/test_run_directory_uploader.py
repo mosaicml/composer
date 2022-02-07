@@ -14,7 +14,8 @@ from composer.utils import dist, run_directory
 
 @pytest.mark.parametrize("use_procs", [False, True])
 @pytest.mark.timeout(15)
-def test_run_directory_uploader(tmpdir: pathlib.Path, use_procs: bool, dummy_state: State, dummy_logger: Logger):
+def test_run_directory_uploader(tmpdir: pathlib.Path, use_procs: bool, dummy_state: State, dummy_logger: Logger,
+                                monkeypatch: pytest.MonkeyPatch):
     try:
         import libcloud
         del libcloud
@@ -23,10 +24,11 @@ def test_run_directory_uploader(tmpdir: pathlib.Path, use_procs: bool, dummy_sta
     remote_dir = str(tmpdir / "run_directory_copy")
 
     os.makedirs(remote_dir, exist_ok=True)
+    monkeypatch.setenv("RUN_DIRECTORY_UPLOADER_KEY", remote_dir)  # for the local option, the key is the path
     hparams = RunDirectoryUploaderHparams(
         provider='local',
         upload_every_n_batches=1,
-        key=remote_dir,  # for the local option, the key is the path
+        key_environ="RUN_DIRECTORY_UPLOADER_KEY",
         container=".",
         num_concurrent_uploads=1,
         use_procs=use_procs,
@@ -37,7 +39,6 @@ def test_run_directory_uploader(tmpdir: pathlib.Path, use_procs: bool, dummy_sta
     with open(os.path.join(run_directory.get_run_directory(), "dummy_file"), "w+") as f:
         f.write("Hello, world!")
     uploader.run_event(Event.BATCH_END, dummy_state, dummy_logger)
-    uploader.run_event(Event.TRAINING_END, dummy_state, dummy_logger)
     uploader.close()
     uploader.post_close()
     test_name = os.path.basename(tmpdir)

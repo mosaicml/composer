@@ -11,16 +11,16 @@ from composer.algorithms.stochastic_depth.sample_stochastic_layers import Sample
 from composer.algorithms.stochastic_depth.stochastic_depth import STOCHASTIC_LAYER_MAPPING
 from composer.algorithms.stochastic_depth.stochastic_layers import StochasticBottleneck, _sample_bernoulli
 from composer.core import Event, Logger, State, surgery
-from composer.core.types import Precision
+from composer.core.logging import Logger
+from composer.core.types import Evaluator, Precision
 from composer.datasets.dataloader import DataloaderHparams
 from composer.datasets.imagenet import ImagenetDatasetHparams
-from composer.loggers import Logger
-from composer.models import ResNet50Hparams
+from composer.models import ResNetHparams
 
 
 @pytest.fixture()
 def dummy_state(dummy_dataloader_hparams: DataloaderHparams):
-    model = ResNet50Hparams(num_classes=100).initialize_object()
+    model = ResNetHparams(model_name='resnet50', num_classes=100).initialize_object()
     dataset_hparams = ImagenetDatasetHparams(
         use_synthetic=True,
         drop_last=True,
@@ -30,11 +30,12 @@ def dummy_state(dummy_dataloader_hparams: DataloaderHparams):
     )
     train_dataloader = dataset_hparams.initialize_object(batch_size=100,
                                                          dataloader_hparams=dummy_dataloader_hparams).dataloader
+    evaluators = [Evaluator(label="dummy_label", dataloader=train_dataloader, metrics=model.metrics(train=False))]
     state = State(train_dataloader=train_dataloader,
                   grad_accum=1,
                   max_duration="100ep",
                   model=model,
-                  eval_dataloader=train_dataloader,
+                  evaluators=evaluators,
                   precision=Precision.FP32)
     return state
 
@@ -208,7 +209,7 @@ def test_drop_rate_warmup(step: int, dummy_hparams: StochasticDepthHparams, dumm
     new_drop_rates = []
     get_drop_rate_list(dummy_state.model, drop_rates=new_drop_rates)
 
-    drop_warmup_iters = dummy_state.steps_per_epoch * dummy_state.max_epochs * dummy_algorithm.hparams.drop_warmup
+    drop_warmup_iters = dummy_state.steps_per_epoch * dummy_state.max_epochs * dummy_algorithm.drop_warmup
     assert torch.all(torch.tensor(new_drop_rates) == ((step / drop_warmup_iters) * torch.tensor(old_drop_rates)))
 
 

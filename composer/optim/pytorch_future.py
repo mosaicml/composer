@@ -8,9 +8,8 @@ from torch.optim.lr_scheduler import _LRScheduler
 
 
 class WarmUpLR(_LRScheduler):
-    """Decays the learning rate of each parameter group by either a small constant
-    or linearly increasing small warmup factor until the number of epoch reaches a
-    pre-defined milestone: :attr:`warmup_iters`.
+    """Decays the learning rate of each parameter group by either a small constant or linearly increasing small warmup
+    factor until the number of epoch reaches a pre-defined milestone: :attr:`warmup_iters`.
 
     This scheduler is adapted from PyTorch but rewritten in a non-chainable form to
     accommodate :attr:`warmup_factor=0.0`. When :attr:`last_epoch=-1`, sets initial
@@ -32,7 +31,7 @@ class WarmUpLR(_LRScheduler):
             learning rate schedule. Default: ``-1``.
         verbose (bool): If ``True``, prints a message to stdout for
             each update. Default: ``False``.
-        interval (str): Frequency of ``step()`` calls, either ``step`` or ``epoch``. Default: ``step``.
+        interval (str): Frequency of ``step()`` calls, either ``step`` or ``epoch``. Default: ``epoch``.
 
     Example:
         >>> # Assuming optimizer uses lr = 0.05 for all groups
@@ -68,7 +67,7 @@ class WarmUpLR(_LRScheduler):
                  warmup_method="linear",
                  last_epoch=-1,
                  verbose=False,
-                 interval='step'):
+                 interval='epoch'):
         if warmup_method not in ("constant", "linear"):
             raise ValueError("Only 'constant' or 'linear' warmup_method accepted, but got {}".format(warmup_method))
 
@@ -80,7 +79,7 @@ class WarmUpLR(_LRScheduler):
         super(WarmUpLR, self).__init__(optimizer, last_epoch, verbose)
 
     def get_lr(self):
-        """ Get the current learning rate for each parameter group.
+        """Get the current learning rate for each parameter group.
 
         Returns:
             List of float: The current learning rate for each parameter group.
@@ -103,7 +102,7 @@ class WarmUpLR(_LRScheduler):
         return [base_lr * self.lambda_lr() for base_lr in self.base_lrs]
 
     def lambda_lr(self) -> float:
-        """ Compute the linear warmup ramp.
+        """Compute the linear warmup ramp.
 
         Returns:
             float: Current warmup factor with which to scale the learning rate.
@@ -111,7 +110,7 @@ class WarmUpLR(_LRScheduler):
         return (1 - self.warmup_factor) * (self.last_epoch / self.warmup_iters) + self.warmup_factor
 
     def _get_closed_form_lr(self) -> List[float]:
-        """ Get the current learning rate for each parameter group.
+        """Get the current learning rate for each parameter group.
 
         Returns:
             List of float: The current learning rate for each parameter group.
@@ -128,10 +127,9 @@ class WarmUpLR(_LRScheduler):
 
 
 class LinearLR(_LRScheduler):
-    """Decays the learning rate of each parameter group by linearly changing small
-    multiplicative factor until the number of epoch reaches a pre-defined milestone: total_iters.
-    Notice that such decay can happen simultaneously with other changes to the learning rate
-    from outside this scheduler. When last_epoch=-1, sets initial lr as lr.
+    """Decays the learning rate of each parameter group by linearly changing small multiplicative factor until the
+    number of epoch reaches a pre-defined milestone: total_iters. Notice that such decay can happen simultaneously with
+    other changes to the learning rate from outside this scheduler. When last_epoch=-1, sets initial lr as lr.
 
     Args:
         optimizer (Optimizer): Wrapped optimizer.

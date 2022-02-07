@@ -1,20 +1,20 @@
 Custom Models and Datasets
 ==========================
 
-The MosaicML :class:`~composer.trainer.Trainer` can easily be extended to use your own models and datasets. We walk through two ways to get started and experiment with algorithms on your machine learning projects.
+The Composer :class:`~composer.trainer.Trainer` can easily be extended to use your own models and datasets. We walk through two ways to get started and experiment with algorithms on your machine learning projects.
 
 .. seealso::
 
-    The :doc:`../functional` API can be used to directly call the efficiency methods into your trainer loop. The :doc:`../trainer` described imposes a minimal level of overhead to enable access to composability and configuration management.
+    The :doc:`/walkthrough/functional` API can be used to directly call the efficiency methods into your trainer loop. The :doc:`/walkthrough/trainer` described imposes a minimal level of overhead to enable access to composability and configuration management.
 
 Models
 ------
 
-Models provided to :class:`~composer.trainer.Trainer` use the minimal interface in :class:`~composer.models.BaseMosaicModel`:
+Models provided to :class:`~composer.trainer.Trainer` use the minimal interface in :class:`~composer.models.ComposerModel`:
 
 .. code-block:: python
 
-    class BaseMosaicModel(torch.nn.Module, ABC):
+    class ComposerModel(torch.nn.Module, ABC):
 
         def forward(self, batch: Batch) -> Tensors:
         # computes the forward pass given a batch of data.
@@ -35,8 +35,8 @@ Models provided to :class:`~composer.trainer.Trainer` use the minimal interface 
 
 For convenience, we've provided a few base classes that are task-specific:
 
-* Classification: :class:`~composer.models.MosaicClassifier`. Uses cross entropy loss and `torchmetrics.Accuracy`.
-* Transformers: :class:`~composer.models.MosaicTransformer`. For use with HuggingFace Transformers.
+* Classification: :class:`~composer.models.ComposerClassifier`. Uses cross entropy loss and `torchmetrics.Accuracy`.
+* Transformers: :class:`~composer.models.ComposerTransformer`. For use with HuggingFace Transformers.
 * Segmentation: :class:`~composer.models.unet.UNet`. Uses a Dice and CE loss.
 
 In this tutorial, we start with a simple image classification model:
@@ -46,7 +46,7 @@ In this tutorial, we start with a simple image classification model:
     import torch
     import composer
 
-    class SimpleModel(composer.models.MosaicClassifier):
+    class SimpleModel(composer.models.ComposerClassifier):
         def __init__(self, num_hidden: int, num_classes: int):
             module = torch.nn.Sequential(
                 torch.nn.Flatten(start_dim=1),
@@ -189,4 +189,4 @@ or via the command line, e.g.
 
 .. code-block::
 
-    python examples/run_mosaic_trainer.py -f my_config.yaml --model my_model --num_classes 10 --num_hidden 128
+    python examples/run_composer_trainer.py -f my_config.yaml --model my_model --num_classes 10 --num_hidden 128

@@ -1,4 +1,4 @@
-.. mosaicml documentation master file
+.. Composer documentation master file
 
 Composer (Beta)
 ===============
@@ -9,7 +9,7 @@ The library features:
 
 * Implementation of 20+ efficiency methods curated from the research community
 * Standardized approach to implement and compose efficiency methods, extended from two-way callbacks (`Howard et al, 2020 <https://arxiv.org/abs/2002.04688>`_)
-* Easy way to access our methods either directly for your trainer loops, or through the MosaicML trainer
+* Easy way to access our methods either directly for your trainer loops, or through the Composer trainer
 
 .. note::
     MosaicML Composer is currently in **beta**, so the API is subject to change.
@@ -32,8 +32,8 @@ Documentation
 Our documentation is organized into a few sections:
 
 * :doc:`Getting Started </getting_started/installation>` covers installation, a quick tour and explains how to use ``Composer``.
-* :doc:`Core </core/algorithm>` covers the core components of the library.
-* :doc:`composer </algorithms>` contains the library's API reference.
+* :doc:`Core </walkthrough/algorithm>` covers the core components of the library.
+* :doc:`composer <//api_reference>` contains the library's API reference.
 * :doc:`Methods Library </method_cards/alibi>` details our implemented efficiency methods.
 
 
@@ -49,32 +49,22 @@ Our documentation is organized into a few sections:
 
 .. toctree::
    :maxdepth: 1
-   :caption: core
+   :caption: Composer Walkthrough
 
-   core/algorithm.rst
-   core/callback.rst
-   core/engine.rst
-   core/event.rst
-   core/logger.rst
-   core/state.rst
-   core/surgery.rst
-   core/time.rst
-   core/types.rst
-
-.. toctree::
-   :maxdepth: 1
-   :caption: composer
-
-   algorithms.rst
-   callbacks.rst
-   datasets.rst
-   functional.rst
-   loggers.rst
-   models.rst
-   optim.rst
-   profiler.rst
-   trainer.rst
-   trainer_devices.rst
+   walkthrough/algorithm.rst
+   walkthrough/callback.rst
+   walkthrough/datasets.rst
+   walkthrough/engine.rst
+   walkthrough/event.rst
+   walkthrough/functional.rst
+   walkthrough/logger.rst
+   walkthrough/models.rst
+   walkthrough/profiler.rst
+   walkthrough/state.rst
+   walkthrough/surgery.rst
+   walkthrough/time.rst
+   walkthrough/trainer.rst
+   walkthrough/types.rst
 
 .. toctree::
    :maxdepth: 1
@@ -87,6 +77,7 @@ Our documentation is organized into a few sections:
    method_cards/col_out.md
    method_cards/cut_out.md
    method_cards/decoupled_weight_decay.md
+   method_cards/factorize.md
    method_cards/ghost_batchnorm.md
    method_cards/label_smoothing.md
    method_cards/layer_freezing.md
@@ -94,10 +85,10 @@ Our documentation is organized into a few sections:
    method_cards/progressive_resizing_vision.md
    method_cards/rand_augment.md
    method_cards/scale_schedule.md
-   method_cards/scaling_laws.rst   
+   method_cards/scaling_laws.rst
    method_cards/selective_backprop.md
-   method_cards/seq_len_warmup.rst   
-   method_cards/sam.md   
+   method_cards/seq_len_warmup.rst
+   method_cards/sam.md
    method_cards/squeeze_excite.md
    method_cards/stochastic_depth_blockwise.md
    method_cards/stochastic_depth_samplewise.md
@@ -113,6 +104,12 @@ Our documentation is organized into a few sections:
    model_cards/imagenet_resnet.md
    model_cards/unet.md
 
+
+.. toctree::
+   :caption: API Reference
+   :maxdepth: 4
+
+   api_reference.rst
 
 Indices and tables
 ------------------
