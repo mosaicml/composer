@@ -254,8 +254,7 @@ def initialize_dist(backend: str, timeout: datetime.timedelta):
         warnings.warn(f"NoDistributedWarning: Distributed environment variables {' ,'.join(_missing_dist_env_vars)}"
                       "not set; assuming no parallelization. If this is unexpected, make sure you are running your "
                       "training script with the composer CLI tool.")
-    elif get_world_size() > 1:
-        dist.init_process_group(backend, timeout=timeout)
+    dist.init_process_group(backend, timeout=timeout)
 
 
 def get_sampler(dataset, *, drop_last: bool, shuffle: bool) -> torch.utils.data.Sampler:
