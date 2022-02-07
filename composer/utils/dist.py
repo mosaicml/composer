@@ -21,6 +21,7 @@ _LOCAL_RANK = "LOCAL_RANK"
 
 _DIST_ENV_VARS = [_NODE_RANK, _WORLD_SIZE, _LOCAL_WORLD_SIZE, _RANK, _LOCAL_RANK]
 
+
 def _get_distributed_config_var(env_var: str,
                                 human_name: str,
                                 default: int,
@@ -251,7 +252,7 @@ def initialize_dist(backend: str, timeout: datetime.timedelta):
     _missing_dist_env_vars = list(dist_env_var for dist_env_var in _DIST_ENV_VARS if dist_env_var not in os.environ)
     if len(_missing_dist_env_vars) > 0:
         warnings.warn(f"NoDistributedWarning: Distributed environment variables {' ,'.join(_missing_dist_env_vars)}"
-                       "not set; assuming no parallelization. If this is unexpected, make sure you are running your "
+                      "not set; assuming no parallelization. If this is unexpected, make sure you are running your "
                       "training script with the composer CLI tool.")
     elif get_world_size() > 1:
         dist.init_process_group(backend, timeout=timeout)

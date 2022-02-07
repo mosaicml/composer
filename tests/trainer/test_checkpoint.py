@@ -96,7 +96,7 @@ def assert_weights_equivalent(original_trainer_hparams: TrainerHparams, new_trai
     recovered_weights = new_trainer.state.model.parameters()
 
     for p1, p2 in zip(original_weights, recovered_weights):
-        assert (p1.data.ne(p2.data).sum() == 0)
+        assert (p1.data == p2.data).all()
 
 
 @pytest.fixture
