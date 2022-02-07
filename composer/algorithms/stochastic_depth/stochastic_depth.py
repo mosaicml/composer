@@ -108,7 +108,7 @@ def apply_stochastic_depth(model: torch.nn.Module,
 
     .. note::
 
-        Stochastic Depth only works on instances of :class:`~composer.models.resnet.model.ComposerResNet` for now.
+        Stochastic Depth only works on instances of `torchvision.models.resnet.ResNet` for now.
 
     Args:
         model: model containing modules to be replaced with stochastic versions
@@ -194,7 +194,7 @@ class StochasticDepth(Algorithm):
 
     .. note::
 
-        Stochastic Depth only works on instances of :class:`~composer.models.resnet.model.ComposerResNet` for now.
+        Stochastic Depth only works on instances of `torchvision.models.resnet.ResNet` for now.
 
     Args:
         stochastic_method: The version of stochastic depth to use. ``"block"``
