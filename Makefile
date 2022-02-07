@@ -1,6 +1,6 @@
 # several pytest settings
 DURATION ?= all  # pytest duration, one of short, long or all
-WORLD_SIZE ?= 1  # world size for DDP tests
+WORLD_SIZE ?= 1  # world size for launcher tests
 EXTRA_ARGS ?=  # additional arguments
 
 EXTRA_ARGS := --duration $(DURATION) $(EXTRA_ARGS)
@@ -29,11 +29,10 @@ test-gpu:
 test-deepspeed:
 	pytest tests/ -m deepspeed $(EXTRA_ARGS)
 
-# run all tests, including multi-gpu tests
-# uses the composer launcher script
-test-ddp:
+# runs tests with the launcher
+test-dist:
 	python -m composer.cli.launcher -n ${WORLD_SIZE} -m pytest $(EXTRA_ARGS)
 
 test-all: test test-gpu test-deepspeed test-ddp
 
-.PHONY: test test-gpu test-ddp test-deepspeed test-all lint style
+.PHONY: test test-gpu test-dist test-deepspeed test-all lint style
