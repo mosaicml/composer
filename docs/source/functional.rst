@@ -35,6 +35,7 @@ Algorithms can be used directly through our functions-based API.
     functional.cutmix_batch
     functional.cutout_batch
     functional.freeze_layers
+    functional.gen_mixup_interpolation_lambda
     functional.mixup_batch
     functional.randaugment_image
     functional.resize_batch

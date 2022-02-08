@@ -18,7 +18,7 @@ from composer.models.loss import check_for_index_targets
 log = logging.getLogger(__name__)
 
 
-def gen_interpolation_lambda(alpha: float) -> float:
+def gen_mixup_interpolation_lambda(alpha: float) -> float:
     """Generates ``Beta(alpha, alpha)`` distribution."""
     # First check if alpha is positive.
     assert alpha >= 0
@@ -175,7 +175,7 @@ class MixUp(Algorithm):
             "Multiple tensors for inputs or targets not supported yet."
         alpha = self.alpha
 
-        self.interpolation_lambda = gen_interpolation_lambda(alpha)
+        self.interpolation_lambda = gen_mixup_interpolation_lambda(alpha)
 
         new_input, new_target, self.indices = mixup_batch(
             x=input,

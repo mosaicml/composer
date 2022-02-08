@@ -236,6 +236,7 @@ Algorithm
 Standalone
 ^^^^^^^^^^
 
+.. autofunction:: composer.algorithms.mixup.gen_mixup_interpolation_lambda
 .. autofunction:: composer.algorithms.mixup.mixup_batch
 
 
