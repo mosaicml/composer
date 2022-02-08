@@ -2,7 +2,7 @@
 
 from typing import Type
 
-from composer.loggers.logger_hparams import (LoggerCallbackHparams, FileLoggerHparams, TQDMLoggerHparams,
+from composer.loggers.logger_hparams import (FileLoggerHparams, LoggerCallbackHparams, TQDMLoggerHparams,
                                              WandBLoggerHparams)
 
 logger_registry = {
