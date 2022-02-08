@@ -620,7 +620,6 @@ class Trainer:
             logging_label (str): Should be left as empty string if called for training metrics.
                 Should be the evaluator label if called on evaluator metrics.
         """
-        #import pdb; pdb.set_trace()
         computed_metrics = metrics.compute()
         for name, value in computed_metrics.items():
             log_level = LogLevel.BATCH if is_batch else LogLevel.EPOCH
@@ -972,7 +971,7 @@ class Trainer:
                     state.outputs, targets = self.original_model.validate(state.batch)
                     self.engine.run_event(Event.EVAL_AFTER_FORWARD)
 
-                    #metrics.update(state.outputs, targets)
+                    metrics.update(state.outputs, targets)
 
                     self.engine.run_event(Event.EVAL_BATCH_END)
 

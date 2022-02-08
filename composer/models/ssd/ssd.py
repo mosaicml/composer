@@ -10,7 +10,6 @@ import numpy as np
 import torch
 from PIL import Image
 from pycocotools.cocoeval import COCOeval
-from torch.autograd import Variable
 from torch.utils.data import DataLoader
 from torchmetrics import Metric
 from torchmetrics.detection.map import MeanAveragePrecision as MAP
@@ -44,8 +43,11 @@ class SSD(ComposerModel):
         trans_bbox = bbox.transpose(1, 2).contiguous()
 
         ploc, plabel = outputs
-        gloc, glabel = Variable(trans_bbox, requires_grad=False), \
+        gloc, glabel = transbbox, label
+        '''
+        Variable(trans_bbox, requires_grad=False), \
                         Variable(label, requires_grad=False)
+        '''
 
         loss = self.loss_func(ploc, plabel, gloc, glabel)
         return loss
@@ -56,15 +58,12 @@ class SSD(ComposerModel):
 
     def forward(self, batch: BatchPair) -> Tensor:
         (img, img_id, img_size, bbox, label) = batch
-        context = contextlib.nullcontext if self.training else torch.no_grad
 
-        img = Variable(img, requires_grad=True)
         ploc, plabel = self.module(img)
 
         return ploc, plabel
 
     def validate(self, batch: BatchPair) -> Tuple[Any, Any]:
-
         dboxes = dboxes300_coco()
         input_size = 300
         val_trans = SSDTransformer(dboxes, (input_size, input_size), val=True)
@@ -89,40 +88,37 @@ class SSD(ComposerModel):
         (img, img_id, img_size, _, _) = batch
         targets = get_boxes(val_annotate, img_id)
 
-        with torch.no_grad():
-            ploc, plabel = self.module(img)
-            ploc, plabel = ploc.float(), plabel.float()
+        ploc, plabel = self.module(img)
+        ploc, plabel = ploc.float(), plabel.float()
 
-            for idx in range(ploc.shape[0]):
-                ploc_i = ploc[idx, :, :].unsqueeze(0)
-                plabel_i = plabel[idx, :, :].unsqueeze(0)
+        for idx in range(ploc.shape[0]):
+            ploc_i = ploc[idx, :, :].unsqueeze(0)
+            plabel_i = plabel[idx, :, :].unsqueeze(0)
 
-                try:
-                    result = encoder.decode_batch(ploc_i, plabel_i, 0.50, 200)[0]
-                except:
-                    # raise
-                    print("")
-                    print("No object detected in idx: {}".format(idx))
-                    continue
+            try:
+                result = encoder.decode_batch(ploc_i, plabel_i, overlap_threshold, nmx_max_detections)[0]
+            except:
+                # raise
+                print("")
+                print("No object detected in idx: {}".format(idx))
+                continue
 
-                htot, wtot = img_size[0][idx].item(), img_size[1][idx].item()
-                loc, label, prob = [r.cpu().numpy() for r in result]
+            htot, wtot = img_size[0][idx].item(), img_size[1][idx].item()
+            loc, label, prob = [r.cpu().numpy() for r in result]
 
-                for loc_, label_, prob_ in zip(loc, label, prob):
+            for loc_, label_, prob_ in zip(loc, label, prob):
 
-                    ret.append([
-                    dict(
-                            boxes=torch.Tensor([[loc_[0] * wtot, \
-                                                 loc_[1] * htot,
-                                                 (loc_[2] - loc_[0]) * wtot,
-                                                 (loc_[3] - loc_[1]) * htot]]),
-                            scores=torch.Tensor([prob_]),
-                            labels=torch.IntTensor([inv_map[label_]]),
-                        )
-                    ])
+                ret.append([
+                dict(
+                        boxes=torch.Tensor([[loc_[0] * wtot, \
+                                             loc_[1] * htot,
+                                             (loc_[2] - loc_[0]) * wtot,
+                                             (loc_[3] - loc_[1]) * htot]]),
+                        scores=torch.Tensor([prob_]),
+                        labels=torch.IntTensor([inv_map[label_]]),
+                    )
+                ])
 
-        print('lengths', len(ret), len(targets))
-        #import pdb; pdb.set_trace()
         return ret, targets
 
 

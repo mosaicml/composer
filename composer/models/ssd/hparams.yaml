@@ -24,10 +24,10 @@ model:
       - bn_ones
 loggers:
   - tqdm: {}
-train_batch_size: 128
+train_batch_size: 1024
 eval_batch_size: 128
 seed: 0
-validate_every_n_epochs: 1
+validate_every_n_epochs: 5
 grad_accum: 1
 device:
   gpu: {}

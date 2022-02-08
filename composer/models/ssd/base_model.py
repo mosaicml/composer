@@ -96,44 +96,6 @@ class L2Norm(nn.Module):
         return self.scale * data * data.pow(2).sum(dim=1, keepdim=True).clamp(min=1e-12).rsqrt()
 
 
-def tailor_module(src_model, src_dir, tgt_model, tgt_dir):
-    state = torch.load(src_dir)
-    src_model.load_state_dict(state)
-    src_state = src_model.state_dict()
-    # only need features
-    keys1 = src_state.keys()
-    keys1 = [k for k in src_state.keys() if k.startswith("features")]
-    keys2 = tgt_model.state_dict().keys()
-
-    assert len(keys1) == len(keys2)
-    state = OrderedDict()
-
-    for k1, k2 in zip(keys1, keys2):
-        state[k2] = src_state[k1]
-    tgt_model.load_state_dict(state)
-    torch.save(tgt_model.state_dict(), tgt_dir)
-
-
-# Default vgg16 in pytorch seems different from ssd
-def make_layers(cfg, batch_norm=False):
-    layers = []
-    in_channels = 3
-    for v in cfg:
-        if v == 'M':
-            layers += [nn.MaxPool2d(kernel_size=2, stride=2)]
-        elif v == 'C':
-            # Notice ceil_mode is true
-            layers += [nn.MaxPool2d(kernel_size=2, stride=2, ceil_mode=True)]
-        else:
-            conv2d = nn.Conv2d(in_channels, v, kernel_size=3, padding=1)
-            if batch_norm:
-                layers += [conv2d, nn.BatchNorm2d(v), nn.ReLU(inplace=True)]
-            else:
-                layers += [conv2d, nn.ReLU(inplace=True)]
-            in_channels = v
-    return layers
-
-
 class Loss(nn.Module):
     """
         Implements the loss as the sum of the followings:
