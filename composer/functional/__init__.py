@@ -1,15 +1,18 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
-"""Functional API.
-
-Functional forms of methods are available here via::
-
-Example:
+"""Functional API for applying algorithms.
 
 .. code-block:: python
 
-    from composer import functional
-    my_model = CF.apply_blurpool(my_model)
+    from composer import functional as cf
+    from torchvision import models
+
+    model = models.resnet(model_name='resnet50')
+
+    # replace some layers with blurpool
+    cf.apply_blurpool(model)
+    # replace some layers with squeeze-excite
+    cf.apply_se(model, latent_channels=64, min_channels=128)
 """
 from composer.algorithms.alibi.alibi import apply_alibi
 from composer.algorithms.augmix import augmix_image
