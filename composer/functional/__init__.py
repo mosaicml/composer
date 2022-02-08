@@ -1,6 +1,6 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
-"""Functional API for apply algorithms.
+"""Functional API for applying algorithms.
 
 .. code-block:: python
 

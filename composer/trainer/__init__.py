@@ -2,7 +2,7 @@
 
 """Train models!
 
-The trainer supports models with :class:`Algorithm` instances.
+The trainer supports models with :class:`ComposerModel` instances.
 The :class:`Trainer` is highly customizable and can support a wide variety of workloads.
 
 Examples
@@ -66,31 +66,6 @@ Examples
     trainer = hparams.initialize_object()
     trainer.fit()
 
-
-Trainer Hparams
----------------
-
-:class:`Trainer` can be constructed via either it's ``__init__`` (see below)
-or
-`TrainerHparams <https://github.com/mosaicml/composer/blob/main/composer/trainer/trainer_hparams.py>`_.
-
-Our `yahp <https://github.com/mosaicml/yahp>`_ based system allows configuring the trainer and algorithms via either a ``yaml`` file (see `here <https://github.com/mosaicml/composer/blob/main/composer/yamls/models/classify_mnist_cpu.yaml>`_ for an example) or command-line arguments. Below is a table of all the keys that can be used.
-
-For example, the yaml for ``algorithms`` can include:
-
-.. code-block:: yaml
-
-    algorithms:
-        - blurpool
-        - layer_freezing
-
-
-You can also provide overrides at command line:
-
-
-.. code-block:: bash
-
-    python examples/run_composer_trainer.py -f composer/yamls/models/classify_mnist_cpu.yaml --algorithms blurpool layer_freezing --datadir ~/datasets
 """
 from composer.trainer import devices as devices
 from composer.trainer.trainer import Trainer as Trainer
