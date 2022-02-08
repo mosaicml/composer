@@ -20,7 +20,7 @@ from composer.utils.string_enum import StringEnum
 if TYPE_CHECKING:
     from composer.core.state import State
     from composer.core.time import Timestamp
-    from composer.profiler.event_handler import ProfilerEventHandler
+    from composer.profiler import ProfilerEventHandler
 
 log = logging.getLogger(__name__)
 
@@ -63,7 +63,7 @@ class Profiler:
     """
 
     def __init__(self,
-                 event_handlers: Sequence[ProfilerEventHandler] = None,
+                 event_handlers: Sequence[ProfilerEventHandler] = [JSONTraceHandler()],
                  skip_first: int = 0,
                  wait: int = 0,
                  warmup: int = 1,
@@ -83,12 +83,7 @@ class Profiler:
                  with_stack: bool = False,
                  with_flops: bool = True) -> None:
         self._names_to_markers: Dict[str, Marker] = {}
-
-        # Set default this way to avoid circular import
-        if event_handlers is None:
-            self._event_handlers = [JSONTraceHandler()]
-        else:
-            self._event_handlers = event_handlers
+        self._event_handlers = event_handlers
 
         # Initialize Dataloader, System and Torch profilers
         self._profilers = []
