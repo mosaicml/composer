@@ -39,6 +39,7 @@ from composer.models.base import ComposerModel
 from composer.optim.scheduler import ComposedScheduler
 from composer.profiler.profiler_hparams import ProfilerCallbackHparams, ProfilerHparams
 from composer.trainer import Trainer, TrainerHparams
+from composer.trainer.devices.device_gpu import DeviceGPU
 from composer.trainer.devices.device_hparams import CPUDeviceHparams, DeviceHparams, GPUDeviceHparams
 from composer.utils import dist
 from tests.common import RandomClassificationDataset, SimpleModel, device
@@ -48,7 +49,7 @@ from tests.utils.trainer_fit import get_total_loss, train_model
 class TestTrainerInit():
 
     @pytest.fixture
-    def config():
+    def config(self):
         return {
             'model': SimpleModel(),
             'train_dataloader': DataLoader(dataset=RandomClassificationDataset()),
@@ -86,7 +87,7 @@ class TestTrainerInit():
 
         parameters = trainer.state.optimizers[0].param_groups[0]["params"]
 
-        target_device = 'cuda' if device == 'gpu' else 'cpu'
+        target_device = 'cuda' if isinstance(device, DeviceGPU) else 'cpu'
         assert all(param.device.type == target_device for param in parameters)
 
     def test_invalid_device(self, config):
@@ -113,7 +114,7 @@ class TestTrainerInit():
 class TestTrainerEquivalence():
 
     @pytest.fixture
-    def config():
+    def config(self):
         return {
             'model': SimpleModel(),
             'train_dataloader': DataLoader(
@@ -133,6 +134,7 @@ class TestTrainerEquivalence():
 
     @pytest.fixture
     def trained_model(self, config):
+        """Trains the reference model."""
         trainer = Trainer(**config)
         trainer.fit()
 
@@ -146,7 +148,9 @@ class TestTrainerEquivalence():
     def test_determinism(self, config, trained_model, device):
         config.update({
             'seed': 777,
+            'model': SimpleModel(),
             'device': device,
+            'deterministic_mode': False,
         })
 
         trainer = Trainer(**config)
