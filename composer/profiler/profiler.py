@@ -12,10 +12,10 @@ from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Sequence,
 from composer.core.callback import Callback
 from composer.profiler.dataloader_profiler import DataloaderProfiler
 from composer.profiler.json_trace import JSONTraceHandler
+from composer.profiler.profiler_action import ProfilerAction
 from composer.profiler.system_profiler import SystemProfiler
 from composer.profiler.torch_profiler import TorchProfiler
 from composer.utils import dist, run_directory
-from composer.utils.string_enum import StringEnum
 
 if TYPE_CHECKING:
     from composer.core.state import State
@@ -23,20 +23,6 @@ if TYPE_CHECKING:
     from composer.profiler import ProfilerEventHandler
 
 log = logging.getLogger(__name__)
-
-
-class ProfilerAction(StringEnum):
-    """Action states for the :class:`Profiler`.
-
-    Attributes:
-        SKIP: Not currently recording new events at the batch level or below.
-            However, any open duration events will still be closed.
-        WARMUP: The profiler
-        ACTIVE: Record all events.
-    """
-    SKIP = "skip"
-    WARMUP = "warmup"
-    ACTIVE = "active"
 
 
 class Profiler:
