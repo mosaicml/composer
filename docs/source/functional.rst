@@ -36,6 +36,6 @@ Algorithms can be used directly through our functions-based API.
     functional.randaugment_image
     functional.scale_scheduler
     functional.selective_backprop
-    functional.apply_se
+    functional.apply_squeeze_excite
     functional.set_batch_sequence_length
     functional.apply_stochastic_depth

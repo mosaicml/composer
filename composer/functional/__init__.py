@@ -26,5 +26,5 @@ from composer.algorithms.scale_schedule.scale_schedule import scale_scheduler as
 from composer.algorithms.selective_backprop.selective_backprop import selective_backprop as selective_backprop
 from composer.algorithms.seq_length_warmup.seq_length_warmup import \
     set_batch_sequence_length as set_batch_sequence_length
-from composer.algorithms.squeeze_excite import apply_se as apply_se
+from composer.algorithms.squeeze_excite import apply_squeeze_excite as apply_squeeze_excite
 from composer.algorithms.stochastic_depth.stochastic_depth import apply_stochastic_depth as apply_stochastic_depth

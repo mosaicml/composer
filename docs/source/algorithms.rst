@@ -343,7 +343,7 @@ Standalone
 
 .. autoclass:: composer.algorithms.squeeze_excite.SqueezeExcite2d
 .. autoclass:: composer.algorithms.squeeze_excite.SqueezeExciteConv2d
-.. autofunction:: composer.algorithms.squeeze_excite.apply_se
+.. autofunction:: composer.algorithms.squeeze_excite.apply_squeeze_excite
 
 
 Stochastic Depth
