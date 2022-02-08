@@ -353,6 +353,7 @@ class TrainerHparams(hp.Hparams):
         # Adjust samples_per_epoch, tokens_per_epoch, and steps_per_epoch based on train_subset_num_batches
         if self.train_subset_num_batches is not None:
             # TODO: Calculate tokens per epoch when train_subset_num_batches is being used
+            # For now, setting to None since no value is better than an incorrect value.
             tokens_per_epoch = None
             if steps_per_epoch is None:
                 steps_per_epoch = self.train_subset_num_batches
