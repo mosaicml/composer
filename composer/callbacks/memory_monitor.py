@@ -71,7 +71,7 @@ def get_memory_report() -> Dict[str, Union[int, float]]:
 
     # simplify the memory_stats
     memory_report = {
-        name: memory_stats[torch_name] for (name, torch_name) in _MEMORY_STATS.items() if torch_name in memory_stats
+        name: memory_stats[torch_name] for (torch_name, name) in _MEMORY_STATS.items() if torch_name in memory_stats
     }
 
     return memory_report
