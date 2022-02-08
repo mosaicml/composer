@@ -229,16 +229,14 @@ class Trainer:
         find_unused_parameters = any(map(lambda x: x.find_unused_parameters, algorithms))
         self.find_unused_parameters = find_unused_parameters
 
-        # optionally initialize distributed backends
-        if self.deepspeed_enabled:
-            import deepspeed
-            deepspeed.init_distributed()
-        elif dist.get_world_size() > 1:
+        if self.deepspeed_enabled or dist.get_world_size() > 1:
+            # deepspeed requires torch.distributed to be initialized, even if the world size is 1
+            # distributed is always required with multi-rank training
             dist.initialize_dist(self.device.dist_backend, datetime.timedelta(seconds=dist_timeout))
-            if ddp_sync_strategy is None:
-                self.ddp_sync_strategy = DDPSyncStrategy.SINGLE_AUTO_SYNC if not find_unused_parameters else DDPSyncStrategy.FORCED_SYNC
-            else:
-                self.ddp_sync_strategy = DDPSyncStrategy(ddp_sync_strategy)
+        if ddp_sync_strategy is None:
+            self.ddp_sync_strategy = DDPSyncStrategy.SINGLE_AUTO_SYNC if not find_unused_parameters else DDPSyncStrategy.FORCED_SYNC
+        else:
+            self.ddp_sync_strategy = DDPSyncStrategy(ddp_sync_strategy)
 
         # convert eval_dataloader to `List[Evaluator]`
         self.evaluators: List[Evaluator] = []

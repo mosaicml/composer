@@ -106,6 +106,10 @@ def apply_stochastic_depth(model: torch.nn.Module,
     implementation used for EfficientNet in the
     `Tensorflow/TPU repo <https://github.com/tensorflow/tpu>`_.
 
+    .. note::
+
+        Stochastic Depth only works on instances of `torchvision.models.resnet.ResNet` for now.
+
     Args:
         model: model containing modules to be replaced with stochastic versions
         stochastic_method: The version of stochastic depth to use. ``"block"``
@@ -114,7 +118,7 @@ def apply_stochastic_depth(model: torch.nn.Module,
         target_layer_name: Block to replace with a stochastic block
             equivalent. The name must be registered in ``STOCHASTIC_LAYER_MAPPING``
             dictionary with the target layer class and the stochastic layer class.
-            Currently, only ``'ResNetBottleneck'`` is supported.
+            Currently, only ``torchvision.models.resnet.Bottleneck`` is supported.
         optimizers (Optimizers, optional):  Existing optimizers bound to ``model.parameters()``.
             All optimizers that have already been constructed with,
             ``model.parameters()`` must be specified here so they will optimize
@@ -188,6 +192,10 @@ class StochasticDepth(Algorithm):
     implementation used for EfficientNet in the
     `Tensorflow/TPU repo <https://github.com/tensorflow/tpu>`_.
 
+    .. note::
+
+        Stochastic Depth only works on instances of `torchvision.models.resnet.ResNet` for now.
+
     Args:
         stochastic_method: The version of stochastic depth to use. ``"block"``
             randomly drops blocks during training. ``"sample"`` randomly drops
@@ -195,7 +203,7 @@ class StochasticDepth(Algorithm):
         target_layer_name: Block to replace with a stochastic block
             equivalent. The name must be registered in ``STOCHASTIC_LAYER_MAPPING``
             dictionary with the target layer class and the stochastic layer class.
-            Currently, only ``'ResNetBottleneck'`` is supported.
+            Currently, only ``torchvision.models.resnet.Bottleneck`` is supported.
         drop_rate: The base probability of dropping a layer or sample. Must be
             between 0.0 and 1.0.
         drop_distribution: How ``drop_rate`` is distributed across

@@ -7,8 +7,6 @@ The library features:
 * Standardized approach to implement and compose efficiency methods, extended from two-way callbacks ([Howard et al, 2020](https://arxiv.org/abs/2002.04688))
 * Easy way to access our methods either directly for your trainer loops, or through the Composer Trainer.
 
-[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/mosaicml/composer/blob/main/examples/composer.ipynb)
-
 
 ## Installing Composer
 

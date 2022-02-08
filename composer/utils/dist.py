@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import datetime
 import os
+import textwrap
 import warnings
 from typing import Any, List, Optional, Sequence, TypeVar, cast
 
@@ -14,10 +15,12 @@ import torch.utils.data
 TObj = TypeVar("TObj")
 
 
-def _get_distributed_config_var(env_var: str,
-                                human_name: str,
-                                default: int,
-                                fetch_fn_name: Optional[str] = None) -> int:
+def _get_distributed_config_var(
+    env_var: str,
+    human_name: str,
+    default: int,
+    fetch_fn_name: Optional[str] = None,
+) -> int:
     if not dist.is_available():
         warnings.warn("DistributedDefaultValueWarning: Torch distributed is not available; "
                       f"returning {default} for {human_name}")
@@ -72,7 +75,7 @@ def get_local_world_size() -> int:
     Returns:
         int: The local world size
     """
-    return _get_distributed_config_var(env_var="LOCAL_WORLD_SIZE", human_name="local world size", default=1)
+    return _get_distributed_config_var(env_var="LOCAL_WORLD_SIZE", default=1, human_name="local world size")
 
 
 def get_local_rank() -> int:
@@ -81,7 +84,7 @@ def get_local_rank() -> int:
     Returns:
         int: The local world size
     """
-    return _get_distributed_config_var(env_var="LOCAL_RANK", human_name="local rank", default=0)
+    return _get_distributed_config_var(env_var="LOCAL_RANK", default=0, human_name="local rank")
 
 
 def get_node_rank() -> int:
@@ -91,7 +94,7 @@ def get_node_rank() -> int:
     Returns:
         int: The node rank, starting at 0.
     """
-    return _get_distributed_config_var(env_var="NODE_RANK", human_name="node rank", default=0)
+    return _get_distributed_config_var(env_var="NODE_RANK", default=0, human_name="node rank")
 
 
 def barrier() -> None:
@@ -244,10 +247,25 @@ def initialize_dist(backend: str, timeout: datetime.timedelta):
                                "wish to change backends, please restart the python process.")
         return
 
-    if "RANK" not in os.environ or "WORLD_SIZE" not in os.environ:
-        warnings.warn("NoDistributedWarning: RANK and WORLD_SIZE env vars not set; assuming no "
-                      "parallelization. If this is unexpected, make sure you are running your "
-                      "training script with the composer CLI tool.")
+    dist_env_variable_names = ("NODE_RANK", "WORLD_SIZE", "LOCAL_WORLD_SIZE", "RANK", "LOCAL_RANK")
+
+    is_missing_all_dist_env_vars = all(x not in os.environ for x in dist_env_variable_names)
+    if is_missing_all_dist_env_vars:
+        # missing all variables, in which case we should assume a single process
+        # if any variables are set, then it's likely an incomplete configuration, in which case we should not assume
+        # defaults (it would be better to let dist.init_process_group crash)
+        warnings.warn(
+            textwrap.dedent(f"""\
+                NoDistributedWarning: No distributed environment variables are set; assuming no
+                parallelization. If this is unexpected, please run the script with the composer CLI tool."""))
+        # setting the environment variables to single-rank defaults
+        os.environ["LOCAL_RANK"] = "0"
+        os.environ["RANK"] = "0"
+        os.environ["LOCAL_WORLD_SIZE"] = "1"
+        os.environ["WORLD_SIZE"] = "1"
+        os.environ["NODE_RANK"] = "0"
+        dist.init_process_group(backend, store=dist.HashStore(), world_size=1, rank=0)
+        return
 
     dist.init_process_group(backend, timeout=timeout)
 

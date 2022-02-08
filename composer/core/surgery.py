@@ -64,8 +64,7 @@ def replace_module_classes(
     recurse_on_replacements: bool = False,
     indices: Optional[Dict[Any, int]] = None,
 ) -> Dict[torch.nn.Module, torch.nn.Module]:
-    """Modify model in-place by recursively applying replacement policies. Replacement policies are a mapping of source
-    classes and :class:`ReplacementFunction`.
+    """Modify model in-place by recursively applying replacement policies.
 
     Examples:
         The following policy::
@@ -78,6 +77,11 @@ def replace_module_classes(
 
         will replace all convolution layers with linear layers, and all max pooling with average pooling. Linear
         layers will be optionally replaced depending on the number of input features.
+
+    .. warning:: When a module is replaced, any tensor values within the module are not copied over
+                 to the new module even when the shape is identical. For example, if model weights
+                 are initialized and prior to calling this function, the initialized weights will not
+                 be preserved in any replacements.
 
 
     Arguments:
@@ -215,7 +219,7 @@ def _find_param_in_optimizer(param: torch.nn.parameter.Parameter, optimizer: tor
     Args:
         param (torch.nn.parameter.Parameter): The parameter to search for.
         optimizer (torch.optim.Optimizer): The optimizer to search within.
-    
+
     Returns:
         int: The index within `opt.param_groups` of the first group containing ``param``,
         or `-1` if ``param`` is not in the ``opt`.
