@@ -1,7 +1,8 @@
 from argparse import ArgumentParser, Namespace
+from typing import Any, Dict, Generator, Tuple
+
 import numpy as np
 from torchvision.datasets import MNIST
-from typing import Any, Dict, Generator, Tuple
 
 from composer.datasets.webdataset import create_webdataset
 

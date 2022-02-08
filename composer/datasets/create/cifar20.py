@@ -1,7 +1,8 @@
 from argparse import ArgumentParser, Namespace
+from typing import Any, Dict, Generator, Tuple
+
 import numpy as np
 from torchvision.datasets import CIFAR100
-from typing import Any, Dict, Generator, Tuple
 from wurlitzer import pipes
 
 from composer.datasets.webdataset import create_webdataset

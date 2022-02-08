@@ -1,9 +1,10 @@
+import os
 from argparse import ArgumentParser, Namespace
 from glob import glob
-import os
-from PIL import Image
 from random import shuffle
 from typing import Any, Dict, Generator, List, Tuple
+
+from PIL import Image
 
 from composer.datasets.webdataset import create_webdataset
 

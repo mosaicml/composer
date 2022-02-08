@@ -21,8 +21,12 @@ def create_webdataset_meta(split_dir: str, n_samples: int, n_shards: int) -> Non
     json.dump(obj, open(filename, 'w'), sort_keys=True)
 
 
-def create_webdataset(samples: Iterable[Dict[str, Any]], dataset_dir: str, split: str, n_samples: int,
-                      n_shards: int, use_tqdm: int = 1) -> None:
+def create_webdataset(samples: Iterable[Dict[str, Any]],
+                      dataset_dir: str,
+                      split: str,
+                      n_samples: int,
+                      n_shards: int,
+                      use_tqdm: int = 1) -> None:
     '''Write an entire WebDataset to a local directory, given an iterable of samples.'''
     split_dir = os.path.join(dataset_dir, split)
     os.makedirs(split_dir)
@@ -46,7 +50,9 @@ def download_webdataset_meta(dataset_name: str, split: str) -> bytes:
     return subprocess.run(cmd, capture_output=True).stdout
 
 
-def load_webdataset(dataset_name: str, split: str, cache_dir: Optional[str] = None,
+def load_webdataset(dataset_name: str,
+                    split: str,
+                    cache_dir: Optional[str] = None,
                     cache_verbose: bool = False) -> Tuple[WebDataset, dict]:
     '''Initialize a WebDataset pointed at S3 with an optional local cache dir.'''
     if cache_dir:

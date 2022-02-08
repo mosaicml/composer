@@ -1,9 +1,10 @@
-from argparse import ArgumentParser, Namespace
 import os
-from PIL import Image
+from argparse import ArgumentParser, Namespace
 from random import shuffle
-from tqdm import tqdm
 from typing import Any, Dict, Generator, List, Tuple
+
+from PIL import Image
+from tqdm import tqdm
 
 from composer.datasets.webdataset import create_webdataset
 
