@@ -1,5 +1,10 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
+"""Surgery modifies model architectures.
+
+This module provides helper functions generally used by algorithms that need to modify a provided model, generally by
+substituting particular modules for optimized replacements.
+"""
 import collections
 import itertools
 import logging
@@ -315,11 +320,13 @@ def replace_params_in_optimizer(old_params: Iterable[torch.nn.parameter.Paramete
     this function assumes that parameters in `new_params` should inherit the
     param group of the corresponding parameter from `old_params`. Thus, this
     function also assumes that `old_params` and `new_params` have the same length.
+
     Args:
         old_params: Current parameters of the optimizer.
         new_params: New parameters of the optimizer, given in the same order as
             `old_params`. Must be the same length as `old_params`.
         optimizers (Optimizers): One or more `torch.optim.Optimizer` objects.
+
     Raises:
         NotImplementedError: If `optimizers` contains more than one optimizer
         RuntimeError: If `old_params` and `new_params` have different lengths, or

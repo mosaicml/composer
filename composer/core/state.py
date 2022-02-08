@@ -1,5 +1,6 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
+"""The state of the trainer."""
 from __future__ import annotations
 
 import logging
@@ -20,8 +21,10 @@ from composer.utils import ensure_tuple
 from composer.utils.precision import default_precision_factory
 
 if TYPE_CHECKING:
+    from composer.core.algorithm import Algorithm
     from composer.core.callback import Callback
-    from composer.core.types import Algorithm
+
+__all__ = ["State"]
 
 logger = logging.getLogger(__name__)
 
@@ -67,12 +70,25 @@ SKIP_SERIALIZATION_FIELDS = [
 
 
 class State(Serializable):
-    """The class used to store the state of the trainer.
+    """The state of the trainer.
 
     Contains variables that the trainer tracks throughout the training loop.
     Note that the entire state is serialized when the trainer is checkpointed
     so that it can be used restore the trainer and continue training from a
     checkpoint. Algorithms are able to modify this object in-place.
+
+
+    .. note::
+
+        To support multi-GPU training, :attr:`State.model` may be wrapped in :class:`DistributedDataParallel`,
+        and the dataloaders may be wrapped in a device-specific dataloader that handles moving tensors to device.
+
+    .. note::
+
+        ``Schedulers`` are wrapped in ``ComposedScheduler``, which handles stepping either stepwise or epochwise,
+        and also properly sets up learning rate warmups.
+
+
 
     Args:
         model (types.Model, often ComposerModel): The model, typically as a subclass of :class:`ComposerModel`.
@@ -348,10 +364,6 @@ class State(Serializable):
     @property
     def steps_per_epoch(self):
         """int: The maximum number of steps (batches) per epoch."""
-        warnings.warn(textwrap.dedent("""\
-            TimeDeprecationWarning: state.steps_per_epoch is deprecated. Please transition to using stateless functions
-            that do not depends on the number of steps per epoch"""),
-                      category=DeprecationWarning)
         if self._steps_per_epoch is None:
             return len(self.train_dataloader)
         return self._steps_per_epoch

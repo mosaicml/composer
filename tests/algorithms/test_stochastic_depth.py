@@ -178,8 +178,12 @@ def stochastic_method():
 
 @pytest.fixture
 def dummy_hparams(stochastic_method, target_layer_name, drop_rate, drop_distribution, drop_warmup, use_same_gpu_seed):
-    return StochasticDepthHparams(stochastic_method, target_layer_name, drop_rate, drop_distribution, drop_warmup,
-                                  use_same_gpu_seed)
+    return StochasticDepthHparams(target_layer_name=target_layer_name,
+                                  stochastic_method=stochastic_method,
+                                  drop_rate=drop_rate,
+                                  drop_distribution=drop_distribution,
+                                  drop_warmup=drop_warmup,
+                                  use_same_gpu_seed=use_same_gpu_seed)
 
 
 def get_drop_rate_list(module: torch.nn.Module, drop_rates: Optional[List] = None):
@@ -248,7 +252,7 @@ def test_invalid_drop_distribution(stochastic_method: str, target_layer_name: st
 @pytest.mark.parametrize("drop_warmup", [-0.5, 1.7])
 def test_invalid_drop_warmup(stochastic_method: str, target_layer_name: str, drop_warmup: float):
     with pytest.raises(ValueError):
-        sd_hparams = StochasticDepthHparams(stochastic_method,
+        sd_hparams = StochasticDepthHparams(stochastic_method=stochastic_method,
                                             target_layer_name=target_layer_name,
                                             drop_warmup=drop_warmup)
         sd_hparams.validate()
