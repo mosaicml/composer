@@ -27,7 +27,7 @@ The following algorithms are available in Composer:
     ~channels_last.ChannelsLast
     ~colout.ColOut
     ~cutout.CutOut
-    ~composer.algorithms.factorize.Factorize
+    ~factorize.Factorize
     ~ghost_batchnorm.GhostBatchNorm
     ~label_smoothing.LabelSmoothing
     ~layer_freezing.LayerFreezing
