@@ -125,9 +125,11 @@ class Engine():
         Can be called with either the Event enum, or a string of the event value.
 
         Examples:
-            >>> engine = Engine(state, algorithms, logger, callbacks)
-            >>> engine.run_event(Event.BEFORE_LOSS) # or
+            >>> engine = Engine(state, logger)
+            >>> engine.run_event(Event.BEFORE_LOSS)
+            OrderedDict()
             >>> engine.run_event('before_loss') # also works
+            OrderedDict()
 
 
         Args:
