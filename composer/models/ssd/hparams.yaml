@@ -39,5 +39,3 @@ dataloader:
   persistent_workers: true
   num_workers: 8
 precision: amp
-train_subset_num_batches: 2
-eval_subset_num_batches: 2

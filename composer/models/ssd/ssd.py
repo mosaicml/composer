@@ -50,6 +50,7 @@ class SSD(ComposerModel):
         return loss
 
     def metrics(self, train: bool = False) -> Metrics:
+
         return self.MAP
 
     def forward(self, batch: BatchPair) -> Tensor:
@@ -118,9 +119,13 @@ class SSD(ComposerModel):
                             labels=torch.IntTensor([inv_map[label_]]),
                         )
                     ])
+
+        print('lengths', len(ret), len(targets))
+        #import pdb; pdb.set_trace()
         return ret, targets
 
-def get_boxes(val_annotate, ids):
+def get_boxes(val_annotate, idss):
+    ids = idss.tolist()
     from pycocotools.coco import COCO
     our_coco = COCO(annotation_file=val_annotate)
     import json
@@ -134,7 +139,7 @@ def get_boxes(val_annotate, ids):
     anns = our_coco.loadAnns(annids)
     
     t = []
-    for a in annids:
+    for ann in anns:
         x_topleft   = ann['bbox'][0]
         y_topleft   = ann['bbox'][1]
         bbox_width  = ann['bbox'][2]
@@ -144,6 +149,7 @@ def get_boxes(val_annotate, ids):
 
         t.append(dict(boxes=torch.Tensor([[x_topleft, y_topleft, bbox_width, bbox_height]]), labels=torch.Tensor([cat])))
 
+    #
     return t
             
         
