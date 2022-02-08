@@ -289,7 +289,7 @@ Standalone
    :show-inheritance:
    :noindex:
 
-   .. autofunction:: composer.algorithms.seq_length_warmup.apply_seq_length_warmup
+   .. autofunction:: composer.algorithms.seq_length_warmup.set_batch_sequence_length
 
 
 Sharpness-Aware Minimization

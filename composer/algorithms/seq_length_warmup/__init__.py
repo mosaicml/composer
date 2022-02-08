@@ -2,11 +2,12 @@
 
 from composer.algorithms.seq_length_warmup.seq_length_warmup import SeqLengthWarmup as SeqLengthWarmup
 from composer.algorithms.seq_length_warmup.seq_length_warmup import SeqLengthWarmupHparams as SeqLengthWarmupHparams
-from composer.algorithms.seq_length_warmup.seq_length_warmup import apply_seq_length_warmup as apply_seq_length_warmup
+from composer.algorithms.seq_length_warmup.seq_length_warmup import \
+    set_batch_sequence_length as set_batch_sequence_length
 
 _name = 'Sequential Length Warmup'
 _class_name = 'SeqLengthWarmup'
-_functional = 'apply_seq_length_warmup'
+_functional = 'set_batch_sequence_length'
 _tldr = 'Progressively increase sequence length.'
 _attribution = '(Li et al, 2021)'
 _link = 'https://arxiv.org/abs/2108.06084'

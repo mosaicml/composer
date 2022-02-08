@@ -12,7 +12,7 @@ from composer.models.transformer_shared import ComposerTransformer
 from composer.utils import ensure_tuple
 
 
-def apply_seq_length_warmup(batch: Dict[str, Tensor], curr_seq_len: int, truncate: bool) -> Batch:
+def set_batch_sequence_length(batch: Dict[str, Tensor], curr_seq_len: int, truncate: bool) -> Batch:
     """Progressively increases the sequence length during training.
 
     Changes the sequence length of all tensors in the provided dictionary
@@ -220,7 +220,7 @@ class SeqLengthWarmup(Algorithm):
             curr_seq_len = max(curr_seq_len, self.min_seq_length)
             curr_seq_len = min(curr_seq_len, self.max_seq_length)
 
-            state.batch = apply_seq_length_warmup(state.batch_dict, curr_seq_len, self.truncate)
+            state.batch = set_batch_sequence_length(state.batch_dict, curr_seq_len, self.truncate)
 
             batch_size = state.batch_dict['input_ids'].shape[0]
             logger.metric_batch({

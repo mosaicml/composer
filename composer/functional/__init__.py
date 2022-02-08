@@ -24,6 +24,7 @@ from composer.algorithms.progressive_resizing import resize_batch as resize_batc
 from composer.algorithms.randaugment import randaugment_image as randaugment_image
 from composer.algorithms.scale_schedule.scale_schedule import scale_scheduler as scale_scheduler
 from composer.algorithms.selective_backprop.selective_backprop import selective_backprop as selective_backprop
-from composer.algorithms.seq_length_warmup.seq_length_warmup import apply_seq_length_warmup as apply_seq_length_warmup
+from composer.algorithms.seq_length_warmup.seq_length_warmup import \
+    set_batch_sequence_length as set_batch_sequence_length
 from composer.algorithms.squeeze_excite import apply_se as apply_se
 from composer.algorithms.stochastic_depth.stochastic_depth import apply_stochastic_depth as apply_stochastic_depth
