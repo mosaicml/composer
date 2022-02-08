@@ -83,7 +83,6 @@ extra_deps['dev'] = [
     'sphinxemoji>=0.2.0',
     'sphinx_rtd_theme>=1.0.0',
     'furo>=2022.1.2',
-    'sphinx-inline-tabs>=2022.1.2b11',
     'sphinx-copybutton>=0.4.0',
     'autodocsumm>=0.2.7',
     'testbook>=0.4.2',
