@@ -22,12 +22,12 @@ from torchmetrics.metric import Metric
 from composer.core import Callback, DataSpec, Engine, Event, Logger, State, Time, surgery
 from composer.core.algorithm import Algorithm
 from composer.core.evaluator import Evaluator
-from composer.core.logging import BaseLoggerBackend, LogLevel
+from composer.core.logging import LoggerCallback, LogLevel
 from composer.core.time import TimeUnit
 from composer.core.types import (Batch, BreakEpochException, DataLoader, Evaluators, Metrics, Optimizers, Precision,
                                  Schedulers)
 from composer.datasets.dataloader import unwrap_data_loader
-from composer.loggers.tqdm_logger import TQDMLoggerBackend
+from composer.loggers.tqdm_logger import TQDMLogger
 from composer.models.base import ComposerModel
 from composer.optim import ComposedScheduler
 from composer.optim.decoupled_weight_decay import DecoupledSGDW
@@ -90,8 +90,8 @@ class Trainer:
         deterministic_mode (bool, optional): Run the model deterministically. Experimental. Performance
             degradations expected. Certain Torch modules may not have deterministic implementations,
             which will result in a crash. (default: ``False``)
-        log_destinations (List[BaseLoggerBackend], optional): The destinations to log training information to.
-            (default: ``[TQDMLoggerBackend()]``).
+        loggers (List[LoggerCallback], optional): The destinations to log training information to.
+            (default: ``[TQDMLogger()]``).
         callbacks (Sequence[Callback], optional): The callbacks to run during training. (default: ``[]``)
         load_path (str, optional): Path to a specific checkpoint to load. If not set (the default),
             then no checkpoint will be loaded. (default: ``None``)
@@ -160,7 +160,7 @@ class Trainer:
         deterministic_mode: bool = False,
 
         # Logging and callbacks
-        log_destinations: Optional[Sequence[BaseLoggerBackend]] = None,
+        loggers: Optional[Sequence[LoggerCallback]] = None,
         callbacks: Sequence[Callback] = tuple(),
 
         # load checkpoint
@@ -320,10 +320,10 @@ class Trainer:
             self.state.profiler = profiler.initialize_object(self.state)
             self.state.callbacks.extend(self.state.profiler.event_handlers)
 
-        if log_destinations is None:
-            log_destinations = [TQDMLoggerBackend()]
-        self.logger = Logger(self.state, log_destinations)
-        self.state.callbacks = list(cast(List[Callback], log_destinations)) + self.state.callbacks
+        if loggers is None:
+            loggers = [TQDMLogger()]
+        self.logger = Logger(self.state, loggers)
+        self.state.callbacks = list(cast(List[Callback], loggers)) + self.state.callbacks
 
         self.engine = Engine(
             state=self.state,

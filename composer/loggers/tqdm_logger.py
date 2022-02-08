@@ -11,7 +11,7 @@ import yaml
 from tqdm import auto
 
 from composer.core.logging import LogLevel, TLogData, TLogDataValue, format_log_data_value
-from composer.core.logging.base_backend import BaseLoggerBackend
+from composer.core.logging.base_backend import LoggerCallback
 from composer.core.state import State
 from composer.core.time import Timestamp
 from composer.core.types import StateDict
@@ -59,7 +59,7 @@ class _TQDMLoggerInstance:
         return asdict(self.state)
 
 
-class TQDMLoggerBackend(BaseLoggerBackend):
+class TQDMLogger(LoggerCallback):
     """Shows TQDM progress bars.
 
     During training, the progress bar logs the batch and training loss.
