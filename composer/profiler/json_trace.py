@@ -13,6 +13,7 @@ from composer.utils import dist, run_directory
 
 if TYPE_CHECKING:
     from composer.core.state import State
+    from composer.core.time import Timestamp
     from composer.core.types import Logger
 
 
@@ -143,18 +144,17 @@ class JSONTraceHandler(ProfilerEventHandler):
         name: str,
         categories: Union[List[str], Tuple[str, ...]],
         is_start: bool,
-        epoch: Optional[int],
-        step: Optional[int],
+        timestamp: Optional[Timestamp],
         wall_clock_time_ns: int,
         process_id: int,
         thread_id: int,
     ) -> None:
         ph = "B" if is_start else "E"
         args = {}
-        if epoch is not None:
-            args["epoch"] = epoch
-        if step is not None:
-            args["step"] = step
+        if timestamp.epoch is not None:
+            args["epoch"] = timestamp.epoch.value
+        if timestamp.batch_in_epoch is not None:
+            args["batch"] = timestamp.batch.value
         self._record_event(
             name=name,
             categories=",".join(categories),
@@ -169,17 +169,16 @@ class JSONTraceHandler(ProfilerEventHandler):
         self,
         name: str,
         categories: Union[List[str], Tuple[str, ...]],
-        epoch: Optional[int],
-        step: Optional[int],
+        timestamp: Optional[Timestamp],
         wall_clock_time_ns: int,
         process_id: int,
         thread_id: int,
     ) -> None:
         args = {}
-        if epoch is not None:
-            args["epoch"] = epoch
-        if step is not None:
-            args["step"] = step
+        if timestamp.epoch is not None:
+            args["epoch"] = timestamp.epoch.value
+        if timestamp.batch_in_epoch is not None:
+            args["batch"] = timestamp.batch.value
         self._record_event(
             name=name,
             categories=",".join(categories),

@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import abc
 import logging
 import os
 import time
@@ -12,6 +11,7 @@ from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Sequence,
 
 from composer.core.callback import Callback
 from composer.profiler.dataloader_profiler import DataloaderProfiler
+from composer.profiler.json_trace import JSONTraceHandler
 from composer.profiler.system_profiler import SystemProfiler
 from composer.profiler.torch_profiler import TorchProfiler
 from composer.utils import dist, run_directory
@@ -19,100 +19,10 @@ from composer.utils.string_enum import StringEnum
 
 if TYPE_CHECKING:
     from composer.core.state import State
+    from composer.core.time import Timestamp
+    from composer.profiler.event_handler import ProfilerEventHandler
 
 log = logging.getLogger(__name__)
-
-
-class ProfilerEventHandler(Callback, abc.ABC):
-    """Base class for profiler event handlers.
-
-    Subclasses should implement :meth:`process_duration_event` and
-    :meth:`process_instant_event`. These methods are invoked by the :class:`Profiler`
-    whenever there is an event to record.
-
-    Since :class:`ProfilerEventHandler` subclasses :class:`~composer.Callback`,
-    event handlers can run on :class:`~composer.Event`\\s (such as on :attr:`~composer.Event.INIT` to open files or on
-    :attr:`~composer.Event.BATCH_END` to periodically dump data to files) and use :meth:`~composer.Callback.close`
-    to perform any cleanup.
-    """
-
-    def process_duration_event(
-        self,
-        name: str,
-        categories: Union[List[str], Tuple[str, ...]],
-        is_start: bool,
-        epoch: int,
-        step: int,
-        wall_clock_time_ns: int,
-        process_id: int,
-        thread_id: int,
-    ) -> None:
-        """Called by the :class:`Profiler` whenever there is a duration event to record.
-
-        This method is called twice for each duration event -- once with ``is_start = True``,
-        and then again with ``is_start = False``. Interleaving events are not permitted.
-        Specifically, for each event (identified by the ``name``), a call with ``is_start = True`` will be followed
-        by a call with ``is_start = False`` before another call with ``is_start = True``.
-
-        Args:
-            name (str): The name of the event.
-            categories (List[str] | Tuple[str, ...]): The categories for the event.
-            is_start (bool): Whether the event is a start event or end event.
-            epoch (int): The epoch corresponding to the event.
-            step (int): The step corresponding to the event.
-            wall_clock_time_ns (int): The :meth:`time.time_ns` corresponding to the event.
-            process_id (int): The process id corresponding to the event.
-            thread_id (int): The thread id corresponding to the event.
-        """
-        del name, categories, is_start, epoch, step, wall_clock_time_ns, process_id, thread_id  # unused
-        pass
-
-    def process_instant_event(
-        self,
-        name: str,
-        categories: Union[List[str], Tuple[str, ...]],
-        epoch: int,
-        step: int,
-        wall_clock_time_ns: int,
-        process_id: int,
-        thread_id: int,
-    ) -> None:
-        """Called by the :class:`Profiler` whenever there is an instant event to record.
-
-        Args:
-            name (str): The name of the event.
-            categories (List[str] | Tuple[str, ...]): The categories for the event.
-            is_start (bool): Whether the event is a start event or end event.
-            epoch (int): The epoch corresponding to the event.
-            step (int): The step corresponding to the event.
-            wall_clock_time_ns (int): The :meth:`time.time_ns` corresponding to the event.
-            process_id (int): The process id corresponding to the event.
-            thread_id (int): The thread id corresponding to the event.
-        """
-        del name, categories, epoch, step, wall_clock_time_ns, process_id, thread_id  # unused
-        pass
-
-    def process_counter_event(
-        self,
-        name: str,
-        categories: Union[List[str], Tuple[str, ...]],
-        wall_clock_time_ns: int,
-        process_id: int,
-        thread_id: int,
-        values: Dict[str, Union[int, float]],
-    ) -> None:
-        """Called by the :class:`Profiler` whenever there is an counter event to record.
-
-        Args:
-            name (str): The name of the event.
-            categories (List[str] | Tuple[str, ...]): The categories for the event.
-            wall_clock_time_ns (int): The :meth:`time.time_ns` corresponding to the event.
-            process_id (int): The process id corresponding to the event.
-            thread_id (int): The thread id corresponding to the event.
-            values (Dict[str, int | float]): The values corresponding to this counter event
-        """
-        del name, categories, wall_clock_time_ns, process_id, thread_id, values  # unused
-        pass
 
 
 class ProfilerAction(StringEnum):
@@ -176,7 +86,6 @@ class Profiler:
 
         # Set default this way to avoid circular import
         if event_handlers is None:
-            from composer.profiler.json_trace import JSONTraceHandler
             self._event_handlers = [JSONTraceHandler()]
         else:
             self._event_handlers = event_handlers
@@ -297,7 +206,7 @@ class Profiler:
         return self._names_to_markers[name]
 
     def record_duration_event(self, marker: Marker, is_start: bool, wall_clock_time_ns: int, process_id: int,
-                              thread_id: int, epoch: int, step: int):
+                              thread_id: int, timestamp: Timestamp):
         """Record a duration event.
 
         .. note::
@@ -311,23 +220,21 @@ class Profiler:
             wall_clock_time_ns (int): The :meth:`time.time_ns` corresponding to the event.
             process_id (int): The process id where the event was triggered
             thread_id (int): The thread id where the event was triggered
-            epoch (int): The epoch at which the event was triggered.
-            step (int): The step at which the event was triggered.
+            timestamp (Timestamp): The timestamp at which the event was triggered.
         """
         for handler in self._event_handlers:
             handler.process_duration_event(
                 name=marker.name,
                 categories=marker.categories,
-                epoch=epoch,
-                step=step,
+                timestamp=timestamp,
                 is_start=is_start,
                 wall_clock_time_ns=wall_clock_time_ns,
                 process_id=process_id,
                 thread_id=thread_id,
             )
 
-    def record_instant_event(self, marker: Marker, wall_clock_time_ns: int, process_id: int, thread_id: int, epoch: int,
-                             step: int):
+    def record_instant_event(self, marker: Marker, wall_clock_time_ns: int, process_id: int, thread_id: int,
+                             timestamp: Timestamp):
         """Record an instant event.
 
         .. note::
@@ -347,8 +254,7 @@ class Profiler:
             handler.process_instant_event(
                 name=marker.name,
                 categories=marker.categories,
-                epoch=epoch,
-                step=step,
+                timestamp=timestamp,
                 wall_clock_time_ns=wall_clock_time_ns,
                 process_id=process_id,
                 thread_id=thread_id,
@@ -464,8 +370,6 @@ class Marker:
             raise RuntimeError(
                 f"Attempted to start profiler event {self.name}; however, this marker is already started")
 
-        epoch = self.state.epoch
-        step = self.state.step
         batch_idx = self.state.batch_idx
         self._action_at_start = self.profiler.get_action(batch_idx)
         if self._action_at_start in self.actions:
@@ -474,16 +378,14 @@ class Marker:
                 self,
                 is_start=True,
                 wall_clock_time_ns=wall_clock_time,
-                epoch=epoch,
-                step=step,
+                timestamp=self.state.timer.get_timestamp(),
                 process_id=dist.get_global_rank(),
                 thread_id=os.getpid(),
             )
             if self.record_instant_on_start:
                 self.profiler.record_instant_event(
                     self,
-                    epoch=epoch,
-                    step=step,
+                    timestamp=self.state.timer.get_timestamp(),
                     wall_clock_time_ns=wall_clock_time,
                     process_id=dist.get_global_rank(),
                     thread_id=os.getpid(),
@@ -498,13 +400,10 @@ class Marker:
 
         if self._action_at_start in self.actions:
             wall_clock_time = time.time_ns()
-            epoch = self.state.epoch
-            step = self.state.step
             self.profiler.record_duration_event(
                 self,
                 is_start=False,
-                epoch=epoch,
-                step=step,
+                timestamp=self.state.timer.get_timestamp(),
                 wall_clock_time_ns=wall_clock_time,
                 process_id=dist.get_global_rank(),
                 thread_id=os.getpid(),
@@ -513,8 +412,7 @@ class Marker:
                 self.profiler.record_instant_event(
                     self,
                     wall_clock_time_ns=wall_clock_time,
-                    epoch=epoch,
-                    step=step,
+                    timestamp=self.state.timer.timestamp(),
                     process_id=dist.get_global_rank(),
                     thread_id=os.getpid(),
                 )
@@ -522,15 +420,12 @@ class Marker:
 
     def instant(self) -> None:
         """Record an instant event."""
-        epoch = self.state.epoch
-        step = self.state.step
         batch_idx = self.state.batch_idx
         if self.profiler.get_action(batch_idx) in self.actions:
             self.profiler.record_instant_event(
                 self,
                 wall_clock_time_ns=time.time_ns(),
-                epoch=epoch,
-                step=step,
+                timestamp=self.state.timer.get_timestamp(),
                 process_id=dist.get_global_rank(),
                 thread_id=os.getpid(),
             )
