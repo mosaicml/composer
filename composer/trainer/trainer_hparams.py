@@ -31,7 +31,7 @@ from composer.models.resnet20_cifar10.resnet20_cifar10_hparams import CIFARResNe
 from composer.optim import (AdamHparams, AdamWHparams, DecoupledAdamWHparams, DecoupledSGDWHparams, OptimizerHparams,
                             RAdamHparams, RMSPropHparams, SchedulerHparams, SGDHparams, scheduler)
 from composer.optim.scheduler import ensure_warmup_last
-from composer.profiler import ProfilerHparams
+from composer.profiler import Profiler
 from composer.trainer.ddp import DDPSyncStrategy
 from composer.trainer.devices import CPUDeviceHparams, DeviceHparams, GPUDeviceHparams
 from composer.trainer.trainer import Trainer
@@ -233,7 +233,7 @@ class TrainerHparams(hp.Hparams):
         it will override train_dataset.datadir and val_dataset.datadir"""),
                                          default=None)
 
-    profiler: Optional[ProfilerHparams] = hp.optional(doc="Profiler hparams", default=None)
+    profiler: Optional[Profiler] = hp.optional(doc="Profiler", default=None)
 
     def validate(self):
         super().validate()

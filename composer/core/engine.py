@@ -11,7 +11,6 @@ from composer.core.callback import Callback
 from composer.core.event import Event
 from composer.core.logging import Logger
 from composer.core.logging.logger import LogLevel
-from composer.core.profiler import ProfilerAction
 from composer.core.state import State
 
 log = logging.getLogger(__name__)
@@ -95,6 +94,7 @@ class Engine():
         event = Event(event)
 
         if self.state.profiler is not None:
+            from composer.profiler import ProfilerAction
             name = f"event/{event.canonical_name}"
             if (event.is_before_event or event.is_after_event):
                 # if not part of an event pair (e.g. init or after dataloader), then don't record an event here
@@ -102,7 +102,7 @@ class Engine():
                     actions = [ProfilerAction.ACTIVE, ProfilerAction.WARMUP, ProfilerAction.SKIP]
                 else:
                     actions = [ProfilerAction.ACTIVE, ProfilerAction.WARMUP]
-                duration_marker = self.state.profiler.marker(name, actions=actions, record_instant_on_start=True)
+                duration_marker = self.state.profiler.marker(name, state=self.state, actions=actions, record_instant_on_start=True)
 
         if event.is_after_event and duration_marker is not None:
             duration_marker.finish()
@@ -135,7 +135,8 @@ class Engine():
         for order, algorithm in enumerate(algorithms_to_run):
             marker = None
             if self.state.profiler is not None:
-                marker = self.state.profiler.marker(f"algorithm/{algorithm.__class__.__name__}/event/{event.value}",
+                marker = self.state.profiler.marker(f"algorithm/{algorithm.__class__.__name__}/event/{event.value}", 
+                                                    state=self.state,
                                                     categories=[
                                                         event.value,
                                                         algorithm.__class__.__name__,
@@ -217,6 +218,7 @@ class Engine():
             marker = None
             if self.state.profiler is not None:
                 marker = self.state.profiler.marker(f"callback/{cb.__class__.__name__}/event/{event.value}",
+                                                    state=self.state,
                                                     categories=[
                                                         event.value,
                                                         cb.__class__.__name__,
@@ -250,7 +252,7 @@ class Engine():
 
         if self.state.profiler is not None:
             # Merge traces after close, but before post_close, so the merged file will be uploaded
-            self.state.profiler.merge_traces()
+            self.state.profiler.merge_traces(callbacks=self.state.callbacks)
 
         for callback in self.state.callbacks:
             if callback_to_has_exception[callback] is False:

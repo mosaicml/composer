@@ -7,15 +7,16 @@ import json
 import os
 import textwrap
 import warnings
-from typing import Optional
+from typing import TYPE_CHECKING, Optional
 
 import torch.profiler
 from torch.profiler.profiler import ProfilerAction as TorchProfilerAction
 
-from composer.core import Callback, Logger, State
-from composer.core.profiler import ProfilerAction
-from composer.profiler.profiler_hparams import TorchProfilerHparams
+from composer.core import Callback
 from composer.utils import dist, run_directory
+
+if TYPE_CHECKING:
+    from composer.core import Logger, State
 
 _PROFILE_MISSING_ERROR = "The profiler has not been setup. Please call profiler.init() before training starts."
 
@@ -64,15 +65,13 @@ class TorchProfiler(Callback):
         with_flops: bool = True,
     ) -> None:
         super().__init__()
-        self.hparams = TorchProfilerHparams(
-            tensorboard_trace_handler_dir=os.path.join(run_directory.get_run_directory(),
-                                                       tensorboard_trace_handler_dir),
-            tensorboard_use_gzip=tensorboard_use_gzip,
-            record_shapes=record_shapes,
-            profile_memory=profile_memory,
-            with_stack=with_stack,
-            with_flops=with_flops,
-        )
+        self.tensorboard_trace_handler_dir = os.path.join(run_directory.get_run_directory(),
+                                                          tensorboard_trace_handler_dir)
+        self.tensorboard_use_gzip = tensorboard_use_gzip
+        self.record_shapes = record_shapes
+        self.profile_memory = profile_memory
+        self.with_stack = with_stack
+        self.with_flops = with_flops
         self.profiler: Optional[torch.profiler.profile] = None
         try:
             import torch_tb_profiler
@@ -96,6 +95,7 @@ class TorchProfiler(Callback):
         assert state.profiler is not None, "composer profiler should be defined"
         composer_profiler_action = state.profiler.get_action(next_batch_in_epoch)
         next_composer_profiler_action = state.profiler.get_action(next_batch_in_epoch + 1)
+        from composer.profiler.profiler import ProfilerAction
         if next_batch_in_epoch == state.steps_per_epoch:
             if composer_profiler_action == ProfilerAction.ACTIVE:
                 # force saving at epoch boundaries
@@ -124,14 +124,14 @@ class TorchProfiler(Callback):
             # and tensorboard_use_gzip hparams, and the JSONTraceMerger can be invoked on the
             # close() call of the JSONTraceHandler.
             on_trace_ready=torch.profiler.tensorboard_trace_handler(
-                dir_name=self.hparams.tensorboard_trace_handler_dir,
+                dir_name=self.tensorboard_trace_handler_dir,
                 worker_name=f"torch_profiler_{dist.get_global_rank()}",
-                use_gzip=self.hparams.tensorboard_use_gzip,
+                use_gzip=self.tensorboard_use_gzip,
             ),
-            record_shapes=self.hparams.record_shapes,
-            profile_memory=self.hparams.profile_memory,
-            with_stack=self.hparams.with_stack,
-            with_flops=self.hparams.with_flops,
+            record_shapes=self.record_shapes,
+            profile_memory=self.profile_memory,
+            with_stack=self.with_stack,
+            with_flops=self.with_flops,
         )
         self.profiler.__enter__()
 

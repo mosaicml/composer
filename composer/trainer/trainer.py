@@ -31,7 +31,7 @@ from composer.loggers.tqdm_logger import TQDMLoggerBackend
 from composer.models.base import ComposerModel
 from composer.optim import ComposedScheduler
 from composer.optim.decoupled_weight_decay import DecoupledSGDW
-from composer.profiler.profiler_hparams import ProfilerHparams
+from composer.profiler import Profiler
 from composer.trainer.checkpoint import CheckpointLoader, CheckpointSaver
 from composer.trainer.ddp import DDPSyncStrategy, ddp_sync_context, prepare_ddp_module
 from composer.trainer.deepspeed import fix_batch_precision_for_deepspeed, parse_deepspeed_config
@@ -179,7 +179,7 @@ class Trainer:
         save_compression: str = '',
 
         # Profiling
-        profiler: Optional[ProfilerHparams] = None,
+        profiler: Optional[Profiler] = None,
 
         # Subset parameters
         train_subset_num_batches: Optional[int] = None,
@@ -336,8 +336,8 @@ class Trainer:
 
         # Configure the profiler
         if profiler is not None:
-            self.state.profiler = profiler.initialize_object(self.state)
-            self.state.callbacks.extend(self.state.profiler.event_handlers)
+            self.state.profiler = profiler
+            self.state.callbacks.extend(self.state.profiler.handlers)
 
         if log_destinations is None:
             log_destinations = [TQDMLoggerBackend()]

@@ -6,12 +6,14 @@ import json
 import os
 import queue
 import time
-from typing import IO, Dict, List, Optional, Tuple, Union
+from typing import IO, TYPE_CHECKING, Dict, List, Optional, Tuple, Union
 
-from composer.core.profiler import ProfilerEventHandler
-from composer.core.state import State
-from composer.core.types import Logger
+from composer.profiler import ProfilerEventHandler
 from composer.utils import dist, run_directory
+
+if TYPE_CHECKING:
+    from composer.core.state import State
+    from composer.core.types import Logger
 
 
 class JSONTraceHandler(ProfilerEventHandler):

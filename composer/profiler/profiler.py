@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import abc
-import dataclasses
 import logging
 import os
 import time
@@ -11,9 +10,10 @@ from functools import wraps
 from types import TracebackType
 from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Sequence, Tuple, Type, Union
 
-import yahp as hp
-
 from composer.core.callback import Callback
+from composer.profiler.dataloader_profiler import DataloaderProfiler
+from composer.profiler.system_profiler import SystemProfiler
+from composer.profiler.torch_profiler import TorchProfiler
 from composer.utils import dist, run_directory
 from composer.utils.string_enum import StringEnum
 
@@ -21,20 +21,6 @@ if TYPE_CHECKING:
     from composer.core.state import State
 
 log = logging.getLogger(__name__)
-
-
-@dataclasses.dataclass
-class ProfilerEventHandlerHparams(hp.Hparams, abc.ABC):
-    """Base class for profile event handler hparams."""
-
-    @abc.abstractmethod
-    def initialize_object(self) -> ProfilerEventHandler:
-        """Constructs and returns an instance of the :class:`ProfilerEventHandler`.
-
-        Returns:
-            ProfilerEventHandler: The event handler.
-        """
-        pass
 
 
 class ProfilerEventHandler(Callback, abc.ABC):
@@ -157,7 +143,6 @@ class Profiler:
     The ``event_handlers`` then record and save this data to a usable trace.
 
     Args:
-        state (State): The state.
         event_handlers (Sequence[ProfilerEventHandler]): Event handlers which record and save profiling data to traces.
         skip_first (int, optional): Number of batches to skip profiling at epoch start. (Default: ``0``)
         wait (int, optional): For each profiling cycle, number of batches to skip at the beginning of the cycle. (Default: ``0``)
@@ -167,20 +152,45 @@ class Profiler:
         repeat (int, optional): Number of profiling cycles to perform per epoch. Set to ``0`` to record the entire epoch. (Default: ``1``)
     """
 
-    def __init__(
-        self,
-        state: State,
-        event_handlers: Sequence[ProfilerEventHandler],
-        skip_first: int = 0,
-        wait: int = 0,
-        warmup: int = 1,
-        active: int = 4,
-        repeat: int = 1,
-        merged_trace_file: str = "merged_profiler_trace.json",
-    ) -> None:
+    def __init__(self,
+                 event_handlers: Sequence[ProfilerEventHandler] = None,
+                 skip_first: int = 0,
+                 wait: int = 0,
+                 warmup: int = 1,
+                 active: int = 4,
+                 repeat: int = 1,
+                 merged_trace_file: str = "merged_profiler_trace.json",
+                 profile_cpu: bool = True,
+                 profile_sys_memory: bool = False,
+                 profile_disk: bool = False,
+                 profile_net: bool = False,
+                 stats_thread_interval_seconds: float = 0.5,
+                 torch_profiling: bool = True,
+                 tensorboard_trace_handler_dir: str = "torch_profiler",
+                 tensorboard_use_gzip: bool = False,
+                 record_shapes: bool = False,
+                 profile_memory: bool = True,
+                 with_stack: bool = False,
+                 with_flops: bool = True) -> None:
         self._names_to_markers: Dict[str, Marker] = {}
-        self._event_handlers = event_handlers
-        self.state = state
+
+        # Set default this way to avoid circular import
+        if event_handlers is None:
+            from composer.profiler.json_trace import JSONTraceHandler
+            self._event_handlers = [JSONTraceHandler()]
+        else:
+            self._event_handlers = event_handlers
+
+        # Initialize Dataloader, System and Torch profilers
+        self._profilers = []
+        self._profilers.append(DataloaderProfiler())
+        self._profilers.append(
+            SystemProfiler(profile_cpu, profile_sys_memory, profile_disk, profile_net, stats_thread_interval_seconds))
+        if torch_profiling:
+            self._profilers.append(
+                TorchProfiler(tensorboard_trace_handler_dir, tensorboard_use_gzip, record_shapes, profile_memory,
+                              with_stack, with_flops))
+
         self.skip_first = skip_first
         self.wait = wait
         self.warmup = warmup
@@ -214,11 +224,11 @@ class Profiler:
         return ProfilerAction.ACTIVE
 
     @property
-    def event_handlers(self):
+    def handlers(self):
         """Profiler event handlers."""
-        return self._event_handlers
+        return self._event_handlers + self._profilers
 
-    def merge_traces(self):
+    def merge_traces(self, callbacks: Callback):
         """Merge traces together.
 
         .. note::
@@ -233,11 +243,11 @@ class Profiler:
         from composer.profiler.torch_profiler import TorchProfiler
         log.info("Merging profiling trace files together")
         trace_folders = []
-        for callback in self.state.callbacks:
+        for callback in callbacks:
             if isinstance(callback, JSONTraceHandler):
                 trace_folders.append(callback.output_directory)
             if isinstance(callback, TorchProfiler):
-                trace_folders.append(callback.hparams.tensorboard_trace_handler_dir)
+                trace_folders.append(callback.tensorboard_trace_handler_dir)
 
         trace_files = []
         for trace_folder in trace_folders:
@@ -252,6 +262,7 @@ class Profiler:
     def marker(
         self,
         name: str,
+        state: State,
         actions: Sequence[ProfilerAction] = (ProfilerAction.WARMUP, ProfilerAction.ACTIVE),
         record_instant_on_start: bool = False,
         record_instant_on_finish: bool = False,
@@ -276,6 +287,7 @@ class Profiler:
             self._names_to_markers[name] = Marker(
                 self,
                 name,
+                state=state,
                 actions=actions,
                 record_instant_on_start=record_instant_on_start,
                 record_instant_on_finish=record_instant_on_finish,
@@ -427,11 +439,13 @@ class Marker:
         categories (List[str] | Tuple[str, ...]]): Categories corresponding to this event.
     """
 
-    def __init__(self, profiler: Profiler, name: str, actions: Sequence[ProfilerAction], record_instant_on_start: bool,
-                 record_instant_on_finish: bool, categories: Union[List[str], Tuple[str, ...]]) -> None:
+    def __init__(self, profiler: Profiler, name: str, state: State, actions: Sequence[ProfilerAction],
+                 record_instant_on_start: bool, record_instant_on_finish: bool,
+                 categories: Union[List[str], Tuple[str, ...]]) -> None:
 
         self.profiler = profiler
         self.name = name
+        self.state = state
         self.actions = actions
         self.categories = categories
         self.record_instant_on_start = record_instant_on_start
@@ -450,9 +464,9 @@ class Marker:
             raise RuntimeError(
                 f"Attempted to start profiler event {self.name}; however, this marker is already started")
 
-        epoch = self.profiler.state.epoch
-        step = self.profiler.state.step
-        batch_idx = self.profiler.state.batch_idx
+        epoch = self.state.epoch
+        step = self.state.step
+        batch_idx = self.state.batch_idx
         self._action_at_start = self.profiler.get_action(batch_idx)
         if self._action_at_start in self.actions:
             wall_clock_time = time.time_ns()
@@ -484,8 +498,8 @@ class Marker:
 
         if self._action_at_start in self.actions:
             wall_clock_time = time.time_ns()
-            epoch = self.profiler.state.epoch
-            step = self.profiler.state.step
+            epoch = self.state.epoch
+            step = self.state.step
             self.profiler.record_duration_event(
                 self,
                 is_start=False,
@@ -508,9 +522,9 @@ class Marker:
 
     def instant(self) -> None:
         """Record an instant event."""
-        epoch = self.profiler.state.epoch
-        step = self.profiler.state.step
-        batch_idx = self.profiler.state.batch_idx
+        epoch = self.state.epoch
+        step = self.state.step
+        batch_idx = self.state.batch_idx
         if self.profiler.get_action(batch_idx) in self.actions:
             self.profiler.record_instant_event(
                 self,
@@ -523,7 +537,7 @@ class Marker:
 
     def counter(self, values: Dict[str, Union[float, int]]) -> None:
         """Record a counter event."""
-        batch_idx = self.profiler.state.batch_idx
+        batch_idx = self.state.batch_idx
         if self.profiler.get_action(batch_idx) in self.actions:
             self.profiler.record_counter_event(
                 self,
