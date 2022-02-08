@@ -3,14 +3,10 @@
 import logging
 import os
 import pathlib
-from typing import List, Optional
+from typing import List
 
-import _pytest.config
-import _pytest.config.argparsing
-import _pytest.fixtures
-import _pytest.mark
 import pytest
-from _pytest.monkeypatch import MonkeyPatch
+from pytest import MonkeyPatch
 
 import composer
 from composer.utils import run_directory
@@ -20,8 +16,10 @@ from composer.utils import run_directory
 # so tests of all world sizes will be executed
 WORLD_SIZE_OPTIONS = (1, 2)
 
-# Set this before running any tests, since it won't take effect if there are any cudnn operations
-# in a previous test and then this variable is set by a latter test
+# default timout threshold is 2 seconds for determinign long and short
+DEFAULT_TIMEOUT = 2.0
+
+# Enforce use of deterministic kernels
 # see composer.utils.reproducibility.configure_deterministic_mode
 os.environ["CUBLAS_WORKSPACE_CONFIG"] = ":4096:8"
 
@@ -33,81 +31,83 @@ pytest_plugins = [
 ]
 
 
-def pytest_addoption(parser: _pytest.config.argparsing.Parser) -> None:
+def pytest_addoption(parser: pytest.Parser) -> None:
     parser.addoption("--duration",
-                     default="all",
+                     default="short",
                      choices=["short", "long", "all"],
                      help="""Duration of tests, one of short, long, or all.
                              Tests are short if their timeout < 2 seconds
-                             (configurable threshold). Default: all.""")
+                             (configurable threshold). Default: short.""")
+    parser.addoption("--world-size",
+                     default=int(os.environ.get('WORLD_SIZE', 1)),
+                     type=int,
+                     choices=WORLD_SIZE_OPTIONS,
+                     help="""Filters the tests based on their requested world size.
+                             Defaults to 1, and can also be set by the WORLD_SIZE
+                             environment variable. For world_size>1, please launch
+                             with the composer launcher.""")
 
 
-def _get_test_world_size(item: pytest.Item) -> int:
-    world_size_marks = tuple(item.iter_markers(name="world_size"))
-    assert len(world_size_marks) <= 1
-    if len(world_size_marks) == 1:
-        world_size_mark = world_size_marks[0]
-        return world_size_mark.args[0]
-    else:
-        return 1
+def _get_timeout(item: pytest.Item, default: float):
+    """Returns the timeout of a test, defaults to -1."""
+    _default = pytest.mark.timeout(default).mark
+    timeout = item.get_closest_marker("timeout", default=_default).args[0]
+    return float('inf') if timeout == 0 else timeout  # timeout(0) means no timeout restrictions
 
 
-def _get_timeout(item: pytest.Item) -> Optional[float]:
-    # see if it has a timeout marker
-    timeout_mark = item.get_closest_marker("timeout")
-    if timeout_mark is None:
-        return None
-    return timeout_mark.args[0]
+def _get_world_size(item: pytest.Item):
+    """Returns the world_size of a test, defaults to 1."""
+    _default = pytest.mark.world_size(1).mark
+    return item.get_closest_marker("world_size", default=_default).args[0]
 
 
-def _filter_items_for_world_size(items: List[pytest.Item]) -> None:
-    items_to_remove: List[pytest.Item] = []
-    env_world_size = int(os.environ.get('WORLD_SIZE', '1'))
+def _validate_world_size(world_size: int):
+    if "WORLD_SIZE" in os.environ and int(os.environ["WORLD_SIZE"]) != world_size:
+        raise ValueError(f'--world-size ({world_size}) and WORLD_SIZE environment'
+                         f'variable ({os.environ["WORLD_SIZE"]}) do not match.')
+
+
+def _validate_duration(duration: int):
+    if duration not in ('short', 'long', 'all'):
+        raise ValueError(f'duration ({duration}) must be one of short, long, all.')
+
+
+def pytest_collection_modifyitems(config: pytest.Config, items: List[pytest.Item]) -> None:
+    """Filter tests by world_size (for multi-GPU tests) and duration (short, long, or all)"""
+    threshold = float(getattr(config, "_env_timeout", 2.0))
+    duration = config.getoption("duration")
+    world_size = config.getoption("world_size")
+
+    _validate_world_size(world_size)
+    _validate_duration(duration)
+
+    conditions = [
+        lambda item: _get_world_size(item) == world_size,
+    ]
+
+    # separate tests by whether timeout is < or > threshold.
+    if duration == 'short':
+        conditions += [lambda item: _get_timeout(item, default=threshold) <= threshold]
+    elif duration == 'long':
+        conditions += [lambda item: _get_timeout(item, default=threshold) > threshold]
+
+    # keep items that satisfy all conditions
+    remaining = []
+    deselected = []
     for item in items:
-        test_world_size = _get_test_world_size(item)
-        if test_world_size not in WORLD_SIZE_OPTIONS:
-            name = item.name
-            raise ValueError(
-                f"Invalid option @pytest.mark.world_size({test_world_size}) for test `{name}`: @pytest.mark.world_size() must be set to one of {WORLD_SIZE_OPTIONS}"
-            )
+        if all([condition(item) for condition in conditions]):
+            remaining.append(item)
         else:
-            # if the number of gpus is explicitley specified,
-            # then ensure that it matches
-            if env_world_size != test_world_size:
-                items_to_remove.append(item)
+            deselected.append(item)
 
-    for item in items_to_remove:
-        items.remove(item)
-
-
-def _filter_items_for_timeout(config: _pytest.config.Config, items: List[pytest.Item]):
-    default_timeout = getattr(config, "_env_timeout")
-    assert isinstance(default_timeout, float), "should be set by the toml/ini"
-    cli_test_duration = config.getoption("duration", default=None)
-    assert cli_test_duration is not None, "should be set by argparse"
-    if cli_test_duration == "all":
-        return
-    items_to_remove: List[pytest.Item] = []
-    for item in items:
-        test_timeout = _get_timeout(item)
-        if test_timeout is None:
-            test_timeout = default_timeout
-        is_long_test = test_timeout == 0 or test_timeout > default_timeout
-        if is_long_test != (cli_test_duration == "long"):
-            items_to_remove.append(item)
-    for item in items_to_remove:
-        items.remove(item)
-
-
-def pytest_collection_modifyitems(session: pytest.Session, config: _pytest.config.Config,
-                                  items: List[pytest.Item]) -> None:
-    del session  # unused
-    _filter_items_for_world_size(items)
-    _filter_items_for_timeout(config, items)
+    if deselected:
+        config.hook.pytest_deselected(items=deselected)
+        items[:] = remaining
 
 
 @pytest.fixture(autouse=True)
 def set_loglevels():
+    """Ensures all log levels are set to DEBUG."""
     logging.basicConfig()
     logging.getLogger(composer.__name__).setLevel(logging.DEBUG)
 
