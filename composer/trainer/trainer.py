@@ -37,6 +37,8 @@ from composer.trainer.devices.device_gpu import DeviceGPU
 from composer.trainer.scaler import ClosureGradScaler
 from composer.trainer.trainer_hparams import TrainerHparams
 from composer.utils import dist, ensure_tuple, map_collection, reproducibility
+# Addded for debugging purposes
+from torch.profiler import profile, record_function, ProfilerActivity
 
 if TYPE_CHECKING:
     import deepspeed
@@ -600,7 +602,8 @@ class Trainer:
                     state.model.train()
 
                     self.engine.run_event(Event.AFTER_DATALOADER)
-
+                    torch.cuda.synchronize()
+                    print ("AFTER DATALOADER")
                     num_samples_in_batch = self.device.tensor_to_device(
                         torch.tensor([state.batch_num_samples], dtype=torch.int))
                     num_tokens_in_batch = self.device.tensor_to_device(
@@ -623,7 +626,7 @@ class Trainer:
                                 total_loss = state.scaler.step(optimizer,
                                                                closure=lambda: self._train_batch(microbatches))
                             else:
-                                total_loss = optimizer.step(closure=lambda: self._train_batch(microbatches).item())
+                                total_loss = optimizer.step(closure=lambda: self._train_batch(microbatches))
                     else:
                         total_loss = self._train_batch(microbatches)
                         for optimizer in state.optimizers:
@@ -741,13 +744,17 @@ class Trainer:
                     state.outputs = state.model.forward(state.batch)
 
                 self.engine.run_event(Event.AFTER_FORWARD)
-
+                
+                torch.cuda.synchronize()
+                print ("AFTER FORWARD")
                 # loss
                 self.engine.run_event(Event.BEFORE_LOSS)
 
                 with state.precision_context:
                     state.loss = self.original_model.loss(state.outputs, state.batch)
-
+                
+                torch.cuda.synchronize()
+                print ("AFTER LOSS")
                 # We always want to scale loss by the grad_accum before the backwards pass and
                 # also for sake of metrics. Complicating matters, the DeepSpeed engine does its
                 # own scaling when we call `.backward`, but this isn't in place so we still need
@@ -765,10 +772,9 @@ class Trainer:
 
                 # backward
                 self.engine.run_event(Event.BEFORE_BACKWARD)
-
                 if use_grad_scaling:
                     state.loss = state.scaler.scale(state.loss)
-
+                
                 if self.deepspeed_enabled:
                     cast("deepspeed.DeepSpeedEngine", state.model).backward(state.loss)
 
@@ -777,10 +783,22 @@ class Trainer:
                         loss.mul_(state.batch_num_samples / current_batch_size)
                         total_loss += loss.detach().clone()
                 else:
-                    for loss in ensure_tuple(state.loss):
-                        loss.backward(create_graph=self.backwards_create_graph)
+                    #start_loss_event = torch.cuda.Event(enable_timing=True)
+                    #end_loss_event = torch.cuda.Event(enable_timing=True)
+                    #start_loss_event.record()
+                    with profile(activities=[ProfilerActivity.CUDA], record_shapes=True) as prof:
+                        with record_function("model backwards"):
+                            for loss in ensure_tuple(state.loss):
+                                loss.backward(create_graph=self.backwards_create_graph)
+                                #end_loss_event.record()
+                                torch.cuda.synchronize()
+                                #print("** BACKWARD TIME: ", start_loss_event.elapsed_time(end_loss_event))
+                        
+                    print(prof.key_averages().table(sort_by="count", row_limit=100))
 
                 self.engine.run_event(Event.AFTER_BACKWARD)
+                torch.cuda.synchronize()
+                print ("AFTER BACKWARD")
 
             if self.deepspeed_enabled:
                 cast("deepspeed.DeepSpeedEngine", state.model).step()
@@ -798,7 +816,9 @@ class Trainer:
             )
 
         self.engine.run_event(Event.AFTER_TRAIN_BATCH)
-
+        
+        torch.cuda.synchronize()
+        print("RETURNING.")
         return total_loss
 
     def eval(self, is_batch: bool):
@@ -889,7 +909,7 @@ class Trainer:
         if self.deepspeed_enabled:
             return False
 
-        if self.state.precision != Precision.AMP:
+        if self.state.precision not in [Precision.AMP, Precision.BF16]:
             return True
 
         if self.state.optimizers is None:

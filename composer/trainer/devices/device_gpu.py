@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from contextlib import contextmanager
 from typing import Generator, Union
+from packaging import version
 
 import torch
 import torch.cuda.amp
@@ -34,14 +35,23 @@ class DeviceGPU(Device):
     @contextmanager
     def precision_context(self, precision: Union[str, Precision]) -> Generator[None, None, None]:
         precision = Precision(precision)
+        enabled = False
         if precision == Precision.FP32:
             enabled = False
         elif precision == Precision.AMP:
             enabled = True
+        elif precision == Precision.BF16 and version.parse(torch.__version__) >= version.parse("1.10"):
+            enabled = True
         else:
             raise ValueError(f"Precision {precision} not supported for a GPU")
-        with torch.cuda.amp.autocast(enabled):  #type: ignore
-            yield
+        if enabled and precision == Precision.BF16:
+            #with torch.cuda.amp.autocast(enabled):  #type: ignore
+            #    yield
+            with torch.cuda.amp.autocast(True, dtype=torch.bfloat16):
+                yield
+        else:
+            with torch.cuda.amp.autocast(enabled):  #type: ignore
+                yield
 
     def state_dict(self) -> StateDict:
         return {
