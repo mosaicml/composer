@@ -14,7 +14,7 @@ from typing import Dict, List, Optional
 import requests
 
 from composer.core.logging import LogLevel, TLogData
-from composer.core.logging.base_backend import BaseLoggerBackend
+from composer.core.logging.base_backend import LoggerCallback
 from composer.core.logging.logger import format_log_data_as_json
 from composer.core.time import Timestamp
 from composer.core.types import JSON, Logger, State, StateDict
@@ -95,7 +95,7 @@ def _upsert_run(run_id: str,
         sys.exit(1)
 
 
-class MosaicMLLoggerBackend(BaseLoggerBackend):
+class MosaicMLLogger(LoggerCallback):
     """Log to the MosaicML backend.
 
     Args:
