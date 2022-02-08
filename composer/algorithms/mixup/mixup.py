@@ -37,8 +37,8 @@ def gen_interpolation_lambda(alpha: float) -> float:
 
 def mixup_batch(x: Tensor,
                 y: Tensor,
-                interpolation_lambda: float,
                 n_classes: int,
+                interpolation_lambda: float = 0.9,
                 indices: Optional[torch.Tensor] = None) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
     """Create new samples using convex combinations of pairs of samples.
 
@@ -120,17 +120,17 @@ class MixUp(Algorithm):
     Training in this fashion reduces generalization error.
 
     Args:
+        num_classes (int): the number of classes in the task labels.
         alpha (float): the psuedocount for the Beta distribution used to sample
             interpolation parameters. As ``alpha`` grows, the two samples
             in each pair tend to be weighted more equally. As ``alpha``
             approaches 0 from above, the combination approaches only using
             one element of the pair.
-        num_classes (int): the number of classes in the task labels.
     """
 
-    def __init__(self, alpha: float, num_classes: int):
-        self.alpha = alpha
+    def __init__(self, num_classes: int, alpha: float = 0.2):
         self.num_classes = num_classes
+        self.alpha = alpha
         self._interpolation_lambda = 0.0
         self._indices = torch.Tensor()
 
@@ -173,9 +173,8 @@ class MixUp(Algorithm):
         input, target = state.batch_pair
         assert isinstance(input, Tensor) and isinstance(target, Tensor), \
             "Multiple tensors for inputs or targets not supported yet."
-        alpha = self.alpha
 
-        self.interpolation_lambda = gen_interpolation_lambda(alpha)
+        self.interpolation_lambda = gen_interpolation_lambda(self.alpha)
 
         new_input, new_target, self.indices = mixup_batch(
             x=input,
