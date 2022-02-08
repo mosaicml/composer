@@ -12,7 +12,7 @@ from composer.core.event import Event
 from composer.core.logging import Logger, LogLevel
 from composer.core.state import State
 from composer.loggers.in_memory_logger import InMemoryLogger
-from composer.loggers.logger_hparams import (FileLoggerHparams, TQDMLoggerHparams, WandBLoggerHparams)
+from composer.loggers.logger_hparams import FileLoggerHparams, TQDMLoggerHparams, WandBLoggerHparams
 from composer.trainer.trainer_hparams import TrainerHparams
 from composer.utils import dist
 
