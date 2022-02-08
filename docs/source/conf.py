@@ -176,7 +176,7 @@ def maybe_skip_member(app, what: str, name: str, obj, skip: bool, options):
     return None
 
 
-with open(os.path.join(os.path.dirname(__file__), "_doctest_fixtures.py"), "r") as f:
+with open(os.path.join(os.path.dirname(__file__), "doctest_fixtures.py"), "r") as f:
     doctest_global_setup = f.read()
 
 

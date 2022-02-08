@@ -12,7 +12,9 @@ JUNIT_PREFIX=${JUNIT_PREFIX:-'build/output/composer'}
 mkdir -p $(dirname $JUNIT_PREFIX)
 
 # Run doctests
-cd docs && make clean && make doctest && cd ..
+cd docs
+make clean && make doctest
+cd ..
 
 # Run single-rank tests without distributed
 python -m coverage run -m pytest --junitxml $JUNIT_PREFIX.n0.junit.xml $@
