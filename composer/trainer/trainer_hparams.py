@@ -22,8 +22,8 @@ from composer.core.types import JSON, Precision
 from composer.datasets import DataloaderHparams
 from composer.datasets.dataset_registry import get_dataset_registry
 from composer.datasets.evaluator import EvaluatorHparams
-from composer.loggers import (BaseLoggerBackendHparams, FileLoggerBackendHparams, MosaicMLLoggerBackendHparams,
-                              TQDMLoggerBackendHparams, WandBLoggerBackendHparams)
+from composer.loggers import (LoggerCallbackHparams, FileLoggerHparams, MosaicMLLoggerHparams, TQDMLoggerHparams,
+                              WandBLoggerHparams)
 from composer.models import (BERTForClassificationHparams, BERTHparams, CIFARResNet9Hparams, CIFARResNetHparams,
                              DeepLabV3Hparams, EfficientNetB0Hparams, GPT2Hparams, MnistClassifierHparams, ModelHparams,
                              ResNetHparams, TimmHparams, UnetHparams)
@@ -92,10 +92,10 @@ callback_registry = {
 }
 
 logger_registry = {
-    "file": FileLoggerBackendHparams,
-    "wandb": WandBLoggerBackendHparams,
-    "tqdm": TQDMLoggerBackendHparams,
-    "mosaicml": MosaicMLLoggerBackendHparams,
+    "file": FileLoggerHparams,
+    "wandb": WandBLoggerHparams,
+    "tqdm": TQDMLoggerHparams,
+    "mosaicml": MosaicMLLoggerHparams,
 }
 
 device_registry = {
@@ -128,7 +128,7 @@ class TrainerHparams(hp.Hparams):
     optimizer: OptimizerHparams = hp.required(doc="Optimizer to use")
 
     model: ModelHparams = hp.required(doc="model")
-    loggers: List[BaseLoggerBackendHparams] = hp.required(doc="loggers to use")
+    loggers: List[LoggerCallbackHparams] = hp.required(doc="loggers to use")
 
     max_duration: str = hp.required(doc="Time string for the maximum training duration (e.g., 90ep)")
 
@@ -283,7 +283,7 @@ class TrainerHparams(hp.Hparams):
 
         # callbacks, loggers, and seed
         dict_config = self.to_dict()
-        log_destinations = [x.initialize_object(config=dict_config) for x in self.loggers]
+        loggers = [x.initialize_object(config=dict_config) for x in self.loggers]
         callbacks = [x.initialize_object() for x in self.callbacks]
 
         if self.datadir is not None:
@@ -390,7 +390,7 @@ class TrainerHparams(hp.Hparams):
             deterministic_mode=self.deterministic_mode,
 
             # Callbacks and logging
-            log_destinations=log_destinations,
+            loggers=loggers,
             callbacks=callbacks,
 
             # Profiler

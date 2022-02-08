@@ -2,15 +2,15 @@
 
 from typing import Type
 
-from composer.loggers.logger_hparams import (BaseLoggerBackendHparams, FileLoggerBackendHparams,
-                                             TQDMLoggerBackendHparams, WandBLoggerBackendHparams)
+from composer.loggers.logger_hparams import (LoggerCallbackHparams, FileLoggerHparams, TQDMLoggerHparams,
+                                             WandBLoggerHparams)
 
 logger_registry = {
-    "file": FileLoggerBackendHparams,
-    "wandb": WandBLoggerBackendHparams,
-    "tqdm": TQDMLoggerBackendHparams,
+    "file": FileLoggerHparams,
+    "wandb": WandBLoggerHparams,
+    "tqdm": TQDMLoggerHparams,
 }
 
 
-def get_logger_hparams(name: str) -> Type[BaseLoggerBackendHparams]:
+def get_logger_hparams(name: str) -> Type[LoggerCallbackHparams]:
     return logger_registry[name]
