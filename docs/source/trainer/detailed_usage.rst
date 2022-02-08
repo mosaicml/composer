@@ -60,8 +60,3 @@ Profiling
 
 Callbacks
 ---------
-
-
-
-Funtional API
--------------
