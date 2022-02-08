@@ -348,10 +348,6 @@ class State(Serializable):
     @property
     def steps_per_epoch(self):
         """int: The maximum number of steps (batches) per epoch."""
-        warnings.warn(textwrap.dedent("""\
-            TimeDeprecationWarning: state.steps_per_epoch is deprecated. Please transition to using stateless functions
-            that do not depends on the number of steps per epoch"""),
-                      category=DeprecationWarning)
         if self._steps_per_epoch is None:
             return len(self.train_dataloader)
         return self._steps_per_epoch
