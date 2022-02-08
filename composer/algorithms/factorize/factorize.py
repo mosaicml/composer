@@ -28,9 +28,9 @@ def _python_log_surgery_result(model: torch.nn.Module, new_class: Type[torch.nn.
 
 
 def _factorize_conv2d_modules(model: torch.nn.Module,
-                             min_channels: int,
-                             latent_channels: Union[int, float],
-                             optimizers: Optional[Optimizers] = None):
+                              min_channels: int,
+                              latent_channels: Union[int, float],
+                              optimizers: Optional[Optimizers] = None):
     """Replaces :class:`torch.nn.Conv2d` modules in ``model`` with
     :class:`~composer.algorithms.factorize.FactorizedConv2d` modules.
 
@@ -52,9 +52,9 @@ def _factorize_conv2d_modules(model: torch.nn.Module,
 
 
 def _factorize_linear_modules(model: torch.nn.Module,
-                             min_features: int,
-                             latent_features: Union[int, float],
-                             optimizers: Optional[Optimizers] = None):
+                              min_features: int,
+                              latent_features: Union[int, float],
+                              optimizers: Optional[Optimizers] = None):
     """Replaces :class:`torch.nn.Linear` modules in ``model`` with
     :class:`~composer.algorithms.factorize.FactorizedLinear` modules.
 
@@ -89,9 +89,15 @@ def apply_factorization(model: torch.nn.Module,
     See :class:`Factorize` for details.
     """
     if factorize_convs:
-        _factorize_conv2d_modules(model, min_channels=min_channels, latent_channels=latent_channels, optimizers=optimizers)
+        _factorize_conv2d_modules(model,
+                                  min_channels=min_channels,
+                                  latent_channels=latent_channels,
+                                  optimizers=optimizers)
     if factorize_linears:
-        _factorize_linear_modules(model, min_features=min_features, latent_features=latent_features, optimizers=optimizers)
+        _factorize_linear_modules(model,
+                                  min_features=min_features,
+                                  latent_features=latent_features,
+                                  optimizers=optimizers)
     return model
 
 
