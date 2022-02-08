@@ -343,8 +343,6 @@ class TrainerHparams(hp.Hparams):
 
         try:
             steps_per_epoch = len(train_dataloader)
-            if self.train_subset_num_batches is not None:
-                steps_per_epoch = self.train_subset_num_batches
         except (AttributeError, NotImplementedError):
             steps_per_epoch = None
 
@@ -352,13 +350,14 @@ class TrainerHparams(hp.Hparams):
         if train_dataloader.batch_size is not None:
             batch_size = train_dataloader.batch_size * dist.get_world_size()
 
-        # Adjust tokens per epoch based on train_subset_num_batches
-        if self.train_subset_num_batches is not None and batch_size is not None and steps_per_epoch is not None:
+        # Adjust samples_per_epoch, tokens_per_epoch, and steps_per_epoch based on train_subset_num_batches
+        if self.train_subset_num_batches is not None:
             # TODO: Calculate tokens per epoch when train_subset_num_batches is being used
-            # if tokens_per_epoch is not None:
-            #     tokens_per_epoch = batch_size * self.train_subset_num_batches
-            if samples_per_epoch is not None:
-                samples_per_epoch = batch_size * self.train_subset_num_batches
+            tokens_per_epoch = None
+            if steps_per_epoch is None:
+                steps_per_epoch = self.train_subset_num_batches
+            else:
+                steps_per_epoch = min(steps_per_epoch, self.train_subset_num_batches)
 
         if samples_per_epoch is None and steps_per_epoch is not None and batch_size is not None:
             samples_per_epoch = steps_per_epoch * batch_size
