@@ -86,11 +86,13 @@ extra_deps['dev'] = [
     'myst-parser>=0.15.2',
     'pylint>=2.12.2',
     'docformatter>=1.4',
+    'psutil>=5.8.0',
+    'torch-tb-profiler>=0.3.1',
 ]
 
 extra_deps['logging'] = ['wandb>=0.12.2', 'apache-libcloud>=3.4.1']
 
-extra_deps['perf'] = ['torch-tb-profiler>=0.3.1', 'psutil>=5.8.0', 'tensorboard>=2.7.0']
+extra_deps['perf'] = ['tensorboard>=2.7.0']
 
 extra_deps['nlp'] = [
     'transformers>=4.11.3',
