@@ -4,14 +4,14 @@ train_dataset:
     datadir: /localdisk/coco
     download: false
     shuffle: false
-    drop_last: false
+    drop_last: true
 val_dataset:
   coco:
     is_train: false
     datadir: /localdisk/coco
     download: false
     shuffle: false
-    drop_last: false
+    drop_last: true
 optimizer:
   sgd:
     lr: 2.5e-3
@@ -39,4 +39,5 @@ dataloader:
   persistent_workers: true
   num_workers: 8
 precision: amp
-
+train_subset_num_batches: 2
+eval_subset_num_batches: 2

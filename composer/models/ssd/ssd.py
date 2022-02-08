@@ -30,7 +30,7 @@ class SSD(ComposerModel):
 
         self.hparams = hparams
         ln = COCODetection.labelnum
-        self.module = SSD300(80, model_path="/mnt/r1z1/resnet34-333f7ec4.pth")
+        self.module = SSD300(80, model_path="/mnt/r1z1/laura/composer/resnet34-333f7ec4.pth")
         ##todo(laura): fix weights path
         dboxes = dboxes300_coco()
 
@@ -77,7 +77,7 @@ class SSD(ComposerModel):
         inv_map = {v: k for k, v in val_coco.label_map.items()}
 
         ret = []
-
+        
         overlap_threshold = 0.50
         nms_max_detections = 200
 
@@ -85,6 +85,8 @@ class SSD(ComposerModel):
         encoder = Encoder(dboxes)
 
         (img, img_id, img_size, _, _) = batch
+        targets = get_boxes(val_annotate, img_id)
+        
         with torch.no_grad():
             ploc, plabel = self.module(img)
             ploc, plabel = ploc.float(), plabel.float()
@@ -103,92 +105,48 @@ class SSD(ComposerModel):
 
                 htot, wtot = img_size[0][idx].item(), img_size[1][idx].item()
                 loc, label, prob = [r.cpu().numpy() for r in result]
+                
                 for loc_, label_, prob_ in zip(loc, label, prob):
-                    ret.append([int(img_id[idx].detach().cpu()), loc_[0] * wtot, \
-                                loc_[1] * htot,
-                                (loc_[2] - loc_[0]) * wtot,
-                                (loc_[3] - loc_[1]) * htot,
-                                prob_,
-                                inv_map[label_]])
 
-        
-        return ret, ret
+                    ret.append([
+		        dict(
+                            boxes=torch.Tensor([[loc_[0] * wtot, \
+                                                 loc_[1] * htot,
+                                                 (loc_[2] - loc_[0]) * wtot,
+                                                 (loc_[3] - loc_[1]) * htot]]),
+                            scores=torch.Tensor([prob_]),
+                            labels=torch.IntTensor([inv_map[label_]]),
+                        )
+                    ])
+        return ret, targets
 
-
-def transform_d(val_annotate):
+def get_boxes(val_annotate, ids):
     from pycocotools.coco import COCO
     our_coco = COCO(annotation_file=val_annotate)
     import json
-    json_file = "/localdisk/datasets/coco/annotations/instances_val2017.json"
+    json_file = "/localdisk//coco/annotations/instances_val2017.json"
+
     with open(json_file,'r') as COCO:
         js = json.loads(COCO.read())
-        cat_names = json.dumps(js['categories'])
-    cat_ids = our_coco.getCatIds(catNms=cat_names)
-    target = []
-    for cat_id in cat_ids:
-        # get annotations for a specific class
-        ann_ids = our_coco.getAnnIds(catIds= cat_id)
-        anns = our_coco.loadAnns(ann_ids)
+        anns_all = json.dumps(js['annotations'])
 
-        for ann in anns:
-            x_topleft   = ann['bbox'][0]
-            y_topleft   = ann['bbox'][1]
-            bbox_width  = ann['bbox'][2]
-            bbox_height = ann['bbox'][3]
-
-            img_id = ann['image_id']
-            target.append(dict(boxes=torch.Tensor([[x_topleft, y_topleft, bbox_width, bbox_height]]), labels=torch.Tensor([img_id])))
-
-
-    return target
+    annids = our_coco.getAnnIds(imgIds=ids)
+    anns = our_coco.loadAnns(annids)
     
+    t = []
+    for a in annids:
+        x_topleft   = ann['bbox'][0]
+        y_topleft   = ann['bbox'][1]
+        bbox_width  = ann['bbox'][2]
+        bbox_height = ann['bbox'][3]
 
-class my_map(Metric):
+        cat = ann['category_id']
 
-    def __init__(self):
-        super().__init__(dist_sync_on_step=True)
-        '''
-        data = "/localdisk/coco"
-        self.val_annotate = os.path.join(data, "annotations/instances_val2017.json")
-        self.cocogt = COCO(annotation_file=self.val_annotate)
-        self.predictions = []
-        '''
+        t.append(dict(boxes=torch.Tensor([[x_topleft, y_topleft, bbox_width, bbox_height]]), labels=torch.Tensor([cat])))
 
-    def update(self, pred, target):
-        self.n_updates += 1
-        self.predictions.append(pred)
-        self.metric = MAP()
-        #self.metric.update(pred, target)
+    return t
+            
         
-    def compute(self):
-        data = "/localdisk/coco"
-        val_annotate = os.path.join(data, "annotations/instances_val2017.json")
-        grt = transform_d(val_annotate)
-        ret = []
-        for i in len(self.predictions):
-            ret.append([
-                dict(
-                    boxes=torch.Tensor([[self.predictions[i][1], self.predictions[i][2], self.predictions[i][3], self.predictions[i][4]]]),
-                    scores=torch.Tensor([self.predictions[i][5]]),
-                    labels=torch.IntTensor([0]),
-                )
-            ])
-        import pdb; pdb.set_trace()
-        metric.update(ret, grt)
-        result = metric.compute()
-        return result
-        
-        
-        '''
-        ret = np.asarray(self.predictions)
-        cocodt = self.cocogt.loadRes(ret)
-        E = COCOeval(self.cocogt, cocodt, iouType='bbox')
-        E.evaluate()
-        E.accumulate()
-        E.summarize()
-        return E.stats[0]
-        '''
-
 
 def dboxes300_coco():
     figsize = 300
