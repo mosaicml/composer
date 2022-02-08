@@ -59,10 +59,10 @@ class Trainer:
         model (ComposerModel): The model to train.
         train_dataloader (DataLoader, DataSpec, or dict): The :class:`DataLoader`, :class:`DataSpec`,
             or dict of :class:`DataSpec` kwargs for the training data.
-        eval_dataloader (DataLoader, DataSpec, Evaluators): The :class:`DataLoader`, :class:`DataSpec`,
-            :class:`Evaluators` for the evaluation data. The :class:`Evaluator`
-            class contains metrics relevant to the specific dataset. Set to ``None`` for no evaluation.
         max_duration (Time or str): The maximum duration to train. See `~composer.core.Time` for details.
+        eval_dataloader (Union[DataLoader, DataSpec, Evaluators], optional): The :class:`DataLoader`,
+            :class:`DataSpec`, :class:`Evaluators` for the evaluation data. The :class:`Evaluator`
+            class contains metrics relevant to the specific dataset. Set to ``None`` for no evaluation.
         algorithms (List[Algorithm], optional): The algorithms to use during training.
             (default: ``[]``)
         optimizers: (Optimizers, optional): The optimizers.
@@ -136,8 +136,8 @@ class Trainer:
         *,
         model: ComposerModel,
         train_dataloader: Union[DataLoader, DataSpec],
-        eval_dataloader: Optional[Union[DataLoader, DataSpec, Evaluators]],
         max_duration: Union[str, Time],
+        eval_dataloader: Optional[Union[DataLoader, DataSpec, Evaluators]],
         algorithms: Optional[List[Algorithm]] = None,
         optimizers: Optional[Optimizers] = None,
         schedulers: Optional[Schedulers] = None,
