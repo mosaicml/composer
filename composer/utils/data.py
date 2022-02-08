@@ -1,16 +1,21 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
 import collections.abc
-from typing import List, Tuple, Union
+import logging
+import textwrap
+from typing import Callable, List, Tuple, Union
 
 import numpy as np
 import torch
 import torch.utils.data
 from PIL import Image
 from torchvision import transforms
+from torchvision.datasets import VisionDataset
 
 from composer.core.types import Batch, Dataset, Tensor
 from composer.utils.iter_helpers import ensure_tuple
+
+log = logging.getLogger(__name__)
 
 
 class NormalizationFn:
@@ -93,26 +98,51 @@ def pil_image_collate(batch: List[Tuple[Image.Image, Union[Image.Image, Tensor]]
     return image_tensor, target_tensor
 
 
-def add_dataset_transform(dataset, transform):
-    """Flexibly add a transform to the dataset's collection of transforms.
+def add_dataset_transform(dataset: VisionDataset,
+                          transform: Callable,
+                          is_tensor_transform: bool = False) -> torch.utils.data.Dataset:
+    """Add a transform to a dataset's collection of transforms. Inserts the transform before or after
+    torchvision.transforms.ToTensor(), or at the end of the collection of ToTensor() is not present.
 
     Args:
-        dataset: A torchvision-like dataset
-        transform: Function to be added to the dataset's collection of transforms
+        dataset (VisionDataset): A torchvision-like dataset
+        transform (Callable): Function to be added to the dataset's collection of
+            transforms
+        is_tensor_transform (bool): Whether ``transform`` acts on data of the type
+            torch.Tensor. If ``True``, and torchvision.transforms.ToTensor() is present in
+            ``dataset``'s transforms, will insert the transform after ToTensor(). If
+            ``False`` and ToTensor() is present, will insert the transform before
+            ToTensor(). If ToTensor() is not present, the transform will be appended to
+            the end of collection of transforms. Default = ``False``.
 
     Returns:
         The original dataset. The transform is added in-place.
     """
 
-    if not hasattr(dataset, "transform"):
-        raise ValueError(f"Dataset of type {type(dataset)} has no attribute 'transform'. Expected TorchVision dataset.")
+    transform_added_logstring = textwrap.dedent(f"""\
+        Transform {transform} added to dataset.
+        Dataset now has the following transforms: {dataset.transform}""")
 
     if dataset.transform is None:
         dataset.transform = transform
-    elif hasattr(dataset.transform, "transforms"):  # transform is a Compose
-        dataset.transform.transforms.append(transform)
+        log.warning(transform_added_logstring)
+    elif isinstance(dataset.transform, transforms.Compose):
+        insertion_index = len(dataset.transform.transforms)
+        for i, t in enumerate(dataset.transform.transforms):
+            if isinstance(t, transforms.ToTensor):
+                insertion_index = i
+                break
+        if is_tensor_transform:
+            insertion_index += 1
+        dataset.transform.transforms.insert(insertion_index, transform)
+        log.warning(transform_added_logstring)
     else:  # transform is some other basic transform, join using Compose
-        dataset.transform = transforms.Compose([dataset.transform, transform])
+        if isinstance(dataset.transform, transforms.ToTensor) and not is_tensor_transform:
+            dataset.transform = transforms.Compose([transform, dataset.transform])
+            log.warning(transform_added_logstring)
+        else:
+            dataset.transform = transforms.Compose([dataset.transform, transform])
+            log.warning(transform_added_logstring)
 
     return dataset
 

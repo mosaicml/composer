@@ -39,7 +39,7 @@ class SAMOptimizer(torch.optim.Optimizer):
 
     # TODO(license) code linked above is MIT license
 
-    def __init__(self, base_optimizer, rho, epsilon, interval, **kwargs):
+    def __init__(self, base_optimizer, rho: float = 0.05, epsilon: float = 1.0e-12, interval: int = 1, **kwargs):
         assert rho >= 0.0, f"Invalid rho, should be non-negative: {rho}"
         self.base_optimizer = base_optimizer
         self.global_step = 0
@@ -131,7 +131,7 @@ class SAM(Algorithm):
         self.interval = interval
 
     def match(self, event: Event, state: State) -> bool:
-        """Run on Event.TRAINING_START.
+        """Run on Event.INIT.
 
         Args:
             event (:class:`Event`): The current event.
@@ -139,7 +139,7 @@ class SAM(Algorithm):
         Returns:
             bool: True if this algorithm should run now
         """
-        return event == Event.TRAINING_START
+        return event == Event.INIT
 
     def apply(self, event: Event, state: State, logger: Optional[Logger]) -> Optional[int]:
         """Applies SAM by wrapping the base optimizer with the SAM optimizer.

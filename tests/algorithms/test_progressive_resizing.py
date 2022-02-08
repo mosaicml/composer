@@ -142,9 +142,9 @@ def test_match_correct(event: Event, dummy_algorithm, dummy_state: State):
     assert dummy_algorithm.match(event, dummy_state)
 
 
-@pytest.mark.parametrize("event", [Event.TRAINING_START])
+@pytest.mark.parametrize("event", [Event.INIT])
 def test_match_incorrect(event: Event, dummy_algorithm: ProgressiveResizing, dummy_state: State):
-    """Algo should NOT match TRAINING_START."""
+    """Algo should NOT match INIT."""
     assert not dummy_algorithm.match(event, dummy_state)
 
 

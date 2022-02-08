@@ -10,8 +10,8 @@ import yahp as hp
 from torch.optim.lr_scheduler import (CosineAnnealingLR, CosineAnnealingWarmRestarts, ExponentialLR, MultiStepLR,
                                       StepLR, _LRScheduler)
 
-from composer.core.time import TimeUnit
-from composer.core.types import Optimizer, Scheduler, Schedulers, Time
+from composer.core.time import Time, TimeUnit
+from composer.core.types import Optimizer, Scheduler, Schedulers
 from composer.optim.pytorch_future import LinearLR, WarmUpLR
 from composer.utils._time_conversion import convert as convert_time
 from composer.utils.iter_helpers import ensure_tuple
@@ -354,34 +354,6 @@ class ComposedScheduler(_LRScheduler):
 
     Args:
         schedulers (list): List of chained schedulers.
-    Example:
-        >>> # Assuming optimizer uses lr = 1. for all groups
-        >>> # lr = 0.1      if epoch == 0
-        >>> # lr = 0.1      if epoch == 1
-        >>> # lr = 0.9      if epoch == 2  # ExponentialLR effect starts here
-        >>> # lr = 0.81     if epoch == 3
-        >>> # lr = 0.729    if epoch == 4
-        >>> scheduler1 = WarmUpLR(self.opt, warmup_factor=0.1, warmup_iters=2, warmup_method="constant")
-        >>> scheduler2 = ExponentialLR(self.opt, gamma=0.9)
-        >>> scheduler = ComposedScheduler([scheduler1, scheduler2])
-        >>> for epoch in range(100):
-        >>>     train(...)
-        >>>     validate(...)
-        >>>     scheduler.step()
-
-        >>> # Assuming optimizer uses lr = 1. for all groups
-        >>> # lr = 0.1      if epoch == 0
-        >>> # lr = 0.1      if epoch == 1
-        >>> # lr = 1.0      if epoch == 2
-        >>> # lr = 1.0     if epoch == 3
-        >>> # lr = 0.2    if epoch == 4 . # MultiStepLR effect starts here
-        >>> scheduler1 = WarmUpLR(self.opt, warmup_factor=0.1, warmup_iters=2, warmup_method="constant")
-        >>> scheduler2 = MultiStepLR(optimizer, milestones=[4], gamma=0.2)
-        >>> scheduler = ComposedScheduler([scheduler1, scheduler2])
-        >>> for epoch in range(100):
-        >>>     train(...)
-        >>>     validate(...)
-        >>>     scheduler.step()
     """
 
     def __init__(self, schedulers: Schedulers):

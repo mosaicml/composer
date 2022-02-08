@@ -96,7 +96,7 @@ class Benchmarker(Callback):
         self.step_list = step_list
         self.step_ix = 0
 
-        # initialized at training_start
+        # initialized on the fit_start event
         self.original_max_epochs = -1
         self.wct_dict = {}
 
@@ -110,9 +110,9 @@ class Benchmarker(Callback):
             wct += wct_per_step
         return wct * n_epochs
 
-    def training_start(self, state: State, logger: Logger):
+    def fit_start(self, state: State, logger: Logger):
         del logger  # Unused
-        warnings.warn("The timing monitor is activated. The model will not be fully trained."
+        warnings.warn("The benchmarker is activated. The model will not be fully trained."
                       "All quality metrics for this run will be incorrect.")
         self.wall_clock_train = 0.0
         self.original_max_epochs = state.max_epochs

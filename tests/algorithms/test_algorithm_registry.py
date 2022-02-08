@@ -5,11 +5,11 @@ import dataclasses
 import pytest
 
 from composer.algorithms import (AlgorithmHparams, AlibiHparams, AugMixHparams, BlurPoolHparams, ChannelsLastHparams,
-                                 ColOutHparams, CutMixHparams, CutOutHparams, DummyHparams, FactorizeHparams,
-                                 GhostBatchNormHparams, LabelSmoothingHparams, LayerFreezingHparams, MixUpHparams,
-                                 NoOpModelHparams, ProgressiveResizingHparams, RandAugmentHparams, SAMHparams,
-                                 ScaleScheduleHparams, SelectiveBackpropHparams, SeqLengthWarmupHparams,
-                                 SqueezeExciteHparams, StochasticDepthHparams, SWAHparams, algorithm_registry)
+                                 ColOutHparams, CutMixHparams, CutOutHparams, FactorizeHparams, GhostBatchNormHparams,
+                                 LabelSmoothingHparams, LayerFreezingHparams, MixUpHparams, NoOpModelHparams,
+                                 ProgressiveResizingHparams, RandAugmentHparams, SAMHparams, ScaleScheduleHparams,
+                                 SelectiveBackpropHparams, SeqLengthWarmupHparams, SqueezeExciteHparams,
+                                 StochasticDepthHparams, SWAHparams, algorithm_registry)
 from composer.core.algorithm import Algorithm
 
 default_required_fields = {
@@ -50,16 +50,17 @@ default_required_fields = {
         "truncate": True,
     },
     CutMixHparams: {
-        'alpha': 1.0
+        'alpha': 1.0,
+        'num_classes': 1000
     },
     CutOutHparams: {
         'n_holes': 1,
         'length': 112
     },
     MixUpHparams: {
-        'alpha': 0.2
+        'alpha': 0.2,
+        'num_classes': 1000
     },
-    DummyHparams: {},
     GhostBatchNormHparams: {
         'ghost_batch_size': 32
     },
