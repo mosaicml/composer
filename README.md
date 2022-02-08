@@ -1,5 +1,6 @@
 # MosaicML Composer
 
+
 MosaicML `Composer` contains a library of methods, and ways to compose them together for more efficient ML training. We aim to ease the transition from research to industry through reproducible code and rigorous benchmarking.
 
 The library features:
