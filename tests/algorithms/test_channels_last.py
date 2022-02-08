@@ -1,5 +1,7 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
+from typing import cast
+
 import numpy as np
 import pytest
 import torch
@@ -7,9 +9,13 @@ from torchmetrics.classification.accuracy import Accuracy
 from torchmetrics.collections import MetricCollection
 
 from composer.algorithms import ChannelsLastHparams
+from composer.algorithms.channels_last import apply_channels_last
 from composer.core.event import Event
+from composer.core.logging import Logger
 from composer.core.state import State
 from composer.core.types import DataLoader, Evaluator, Model, Precision, Tensor
+from composer.models.base import ComposerClassifier
+from tests.fixtures.models import SimpleConvModel
 
 
 def _has_singleton_dimension(tensor: Tensor) -> bool:
@@ -46,12 +52,26 @@ def state(simple_conv_model: Model, dummy_train_dataloader: DataLoader, dummy_va
     )
 
 
-def test_channels_last_algorithm(state, dummy_logger):
+def test_channels_last_functional(simple_conv_model: Model):
+    model = cast(torch.nn.Module, simple_conv_model.module)
+    conv = cast(torch.nn.Conv2d, model.conv1)
+    assert _infer_memory_format(conv.weight) == 'nchw'
+    apply_channels_last(simple_conv_model)
+    assert _infer_memory_format(conv.weight) == 'nhwc'
+
+
+@pytest.mark.parametrize("device", [pytest.param("cpu"), pytest.param("gpu", marks=pytest.mark.gpu)])
+def test_channels_last_algorithm(state: State, dummy_logger: Logger, device: str):
     channels_last = ChannelsLastHparams().initialize_object()
 
-    assert state.model is not None
+    assert isinstance(state.model, ComposerClassifier)
+    assert isinstance(state.model.module, SimpleConvModel)
     assert _infer_memory_format(state.model.module.conv1.weight) == 'nchw'
-    channels_last.apply(Event.TRAINING_START, state, dummy_logger)
+    channels_last.apply(Event.INIT, state, dummy_logger)
+    if device == "gpu":
+        state.model = state.model.cuda()  # move the model to gpu
+    assert isinstance(state.model, ComposerClassifier)
+    assert isinstance(state.model.module, SimpleConvModel)
     assert _infer_memory_format(state.model.module.conv1.weight) == 'nhwc'
 
 

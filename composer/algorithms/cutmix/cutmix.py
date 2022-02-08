@@ -1,5 +1,7 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
+from __future__ import annotations
+
 import logging
 from dataclasses import asdict, dataclass
 from typing import Optional, Tuple
@@ -108,13 +110,13 @@ def adjust_lambda(cutmix_lambda: float, x: Tensor, bbox: Tuple) -> float:
     return adjusted_lambda
 
 
-def cutmix(x: Tensor,
-           y: Tensor,
-           alpha: float,
-           n_classes: int,
-           cutmix_lambda: Optional[float] = None,
-           bbox: Optional[Tuple] = None,
-           indices: Optional[torch.Tensor] = None) -> Tuple[torch.Tensor, torch.Tensor]:
+def cutmix_batch(x: Tensor,
+                 y: Tensor,
+                 n_classes: int,
+                 alpha: float = 1.,
+                 cutmix_lambda: Optional[float] = None,
+                 bbox: Optional[Tuple] = None,
+                 indices: Optional[torch.Tensor] = None) -> Tuple[torch.Tensor, torch.Tensor]:
     """Create new samples using combinations of pairs of samples.
 
     This is done by masking a region of x, and filling the masked region with a
@@ -133,8 +135,8 @@ def cutmix(x: Tensor,
             are feature dimensions.
         y: target tensor of shape (B, f1, f2, ..., fm), B is batch size, f1-fn
             are possible target dimensions.
-        alpha: parameter for the beta distribution of the cutmix region size.
         n_classes: total number of classes.
+        alpha: parameter for the beta distribution of the cutmix region size.
         cutmix_lambda: optional, fixed size of cutmix region.
         bbox: optional, predetermined (rx1, ry1, rx2, ry2) coords of the bounding box.
         indices: Permutation of the batch indices `1..B`. Used
@@ -148,7 +150,7 @@ def cutmix(x: Tensor,
         from composer import functional as CF
 
         for X, y in dataloader:
-            X, y, _, _ ,_ = CF.cutmix(X, y, alpha, nclasses)
+            X, y, _, _ ,_ = CF.cutmix(X, y, nclasses=10)
 
             pred = model(X)
             loss = loss_fun(pred, y)  # loss_fun must accept dense labels (ie NOT indices)
@@ -196,10 +198,10 @@ def cutmix(x: Tensor,
 class CutMixHparams(AlgorithmHparams):
     """See :class:`CutMix`"""
 
-    alpha: float = hp.required('Strength of interpolation, should be >= 0. No interpolation if alpha=0.',
-                               template_default=1.0)
+    num_classes: int = hp.required('Number of classes in the task labels.')
+    alpha: float = hp.optional('Strength of interpolation, should be >= 0. No interpolation if alpha=0.', default=1.0)
 
-    def initialize_object(self) -> "CutMix":
+    def initialize_object(self) -> CutMix:
         return CutMix(**asdict(self))
 
 
@@ -214,14 +216,16 @@ class CutMix(Algorithm):
     Training in this fashion reduces generalization error.
 
     Args:
-        alpha: the psuedocount for the Beta distribution used to sample
+        num_classes (int): the number of classes in the task labels.
+        alpha (float): the psuedocount for the Beta distribution used to sample
             area parameters. As ``alpha`` grows, the two samples
             in each pair tend to be weighted more equally. As ``alpha``
             approaches 0 from above, the combination approaches only using
             one element of the pair.
     """
 
-    def __init__(self, alpha: float):
+    def __init__(self, num_classes: int, alpha: float = 1.):
+        self.num_classes = num_classes
         self.alpha = alpha
         self._indices = torch.Tensor()
         self._cutmix_lambda = 0.0
@@ -236,7 +240,7 @@ class CutMix(Algorithm):
         Returns:
             bool: True if this algorithm should run now.
         """
-        return event in (Event.AFTER_DATALOADER, Event.INIT)
+        return event == Event.AFTER_DATALOADER
 
     @property
     def indices(self) -> Tensor:
@@ -270,9 +274,6 @@ class CutMix(Algorithm):
             state (State): the current trainer state
             logger (Logger): the training logger
         """
-        if event == Event.INIT:
-            self.num_classes: int = state.model.num_classes  # type: ignore
-            return
 
         input, target = state.batch_pair
         assert isinstance(input, Tensor) and isinstance(target, Tensor), \
@@ -284,11 +285,11 @@ class CutMix(Algorithm):
         self.bbox = rand_bbox(input.shape[2], input.shape[3], self.cutmix_lambda)
         self.cutmix_lambda = adjust_lambda(self.cutmix_lambda, input, self.bbox)
 
-        new_input, new_target = cutmix(
+        new_input, new_target = cutmix_batch(
             x=input,
             y=target,
-            alpha=alpha,
             n_classes=self.num_classes,
+            alpha=alpha,
             cutmix_lambda=self.cutmix_lambda,
             bbox=self.bbox,
             indices=self.indices,

@@ -1,11 +1,23 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
+"""Track training progress in terms of epochs, batches, samples, and tokens.
+
+Callbacks, algorithms, and schedulers can use the current training time to fire at certain points in the training process.
+
+The :class:`~composer.core.Timer` class tracks the total number of epochs, batches, samples, and tokens.
+The trainer is responsible for updating the :class:`~composer.core.Timer` at the end of every epoch and batch.
+There is only one instance of the :class:`~composer.core.Timer`, which is attached to the :class:`~composer.core.State`.
+
+The :class:`~composer.core.Time` class represents static durations of training time or points in the
+training process in terms of a specific :class:`~composer.core.TimeUnit` enum. The :class:`~composer.core.Time` class
+supports comparisons, arithmetic, and conversions.
+"""
 from __future__ import annotations
 
 import re
 import textwrap
 import warnings
-from typing import TYPE_CHECKING, Generic, TypeVar, Union, cast
+from typing import TYPE_CHECKING, Generic, NamedTuple, TypeVar, Union, cast
 
 from composer.core.serializable import Serializable
 from composer.utils.string_enum import StringEnum
@@ -472,3 +484,43 @@ class Timer(Serializable):
         other = self._parse(other)
         self_counter = self.get(other.unit)
         return self_counter >= other
+
+    def get_timestamp(self):
+        """Returns a snapshot of the current time.
+
+        Unlike the :class:`Timer`, the values in a :class:`Timestamp` are a snapshot and are NOT incremented as
+        training progresses.
+
+        Returns:
+            Timestamp: A snapshot of the current training time.
+        """
+        return Timestamp(
+            epoch=self.epoch,
+            batch=self.batch,
+            batch_in_epoch=self.batch_in_epoch,
+            sample=self.sample,
+            sample_in_epoch=self.sample_in_epoch,
+            token=self.token,
+            token_in_epoch=self.token_in_epoch,
+        )
+
+
+class Timestamp(NamedTuple):
+    """Timestamp represents a snapshot of :class:`Timer`.
+
+    It is returned from a call to :meth:`Timer.get_timestamp`.
+
+    Unlike the :class:`Timer`, the values in a :class:`Timestamp` are a snapshot and are NOT incremented as
+    training progresses.
+
+    .. note::
+
+        :class:`Timestamp` should not be instantiated directly; instead use :meth:`Timer.get_timestamp`.
+    """
+    epoch: Time[int]
+    batch: Time[int]
+    batch_in_epoch: Time[int]
+    sample: Time[int]
+    sample_in_epoch: Time[int]
+    token: Time[int]
+    token_in_epoch: Time[int]

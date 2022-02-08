@@ -179,12 +179,13 @@ def dummy_state_sb(dummy_state: State, dummy_train_dataloader: DataLoader, conv_
                    loss_fun_tuple: Callable, epoch: int, batch: int) -> State:
     """Dummy state with required values set for Selective Backprop."""
 
+    conv_model.loss = loss_fun_tuple
+
     dummy_state.train_dataloader = dummy_train_dataloader
     dummy_state.timer.epoch._value = epoch
     dummy_state.timer.batch._value = epoch * dummy_state.steps_per_epoch + batch
     dummy_state.timer.batch_in_epoch._value = batch
     dummy_state.model = conv_model
-    dummy_state.model.module.loss = loss_fun_tuple
 
     return dummy_state
 
@@ -268,10 +269,9 @@ def test_match_correct(event: Event, dummy_algorithm: SelectiveBackprop, dummy_s
     assert dummy_algorithm.match(event, dummy_state_sb)
 
 
-@pytest.mark.parametrize("event,epoch,batch", [(Event.TRAINING_START, 5, 0), (Event.AFTER_DATALOADER, 0, 0),
-                                               (Event.AFTER_DATALOADER, 5, 1)])
+@pytest.mark.parametrize("event,epoch,batch", [(Event.AFTER_DATALOADER, 0, 0), (Event.AFTER_DATALOADER, 5, 1)])
 def test_match_incorrect(event: Event, dummy_algorithm: SelectiveBackprop, dummy_state_sb: State) -> None:
-    """Algo should NOT match TRAINING_START or the wrong interval."""
+    """Algo should NOT match the wrong interval."""
     dummy_state_sb.max_duration = "10ep"
 
     assert not dummy_algorithm.match(event, dummy_state_sb)
@@ -287,6 +287,7 @@ def test_apply(Ximage: torch.Tensor, y: torch.Tensor, dummy_algorithm: Selective
 
     dummy_state_sb.max_duration = "10ep"
     dummy_state_sb.batch = (Ximage, y)
+    dummy_algorithm.apply(Event.INIT, dummy_state_sb, dummy_logger)
     dummy_algorithm.apply(Event.AFTER_DATALOADER, dummy_state_sb, dummy_logger)
 
     X_scaled, y_scaled = dummy_state_sb.batch

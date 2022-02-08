@@ -138,7 +138,6 @@ def test_ddp(device: DeviceHparams, world_size: int, composer_trainer_hparams: T
     We assert that each of these tensors are different to ensure that 1) random seeding works properly,
     and 2) each ddp process is indeed getting different data.
     """
-    del world_size  # unused. Set via env variables
 
     hparams = composer_trainer_hparams
     model_hparams = hparams.model
@@ -154,7 +153,7 @@ def test_ddp(device: DeviceHparams, world_size: int, composer_trainer_hparams: T
     hparams.train_dataset = TrackedDatasetHparams(
         synthetic_num_unique_samples=hparams.train_batch_size * hparams.train_subset_num_batches,
         is_train=True,
-        data_shape=list(model.in_shape),
+        data_shape=[model.num_channels, 5, 5],
         num_classes=model.num_classes,
     )
     hparams.eval_subset_num_batches = 3
@@ -163,7 +162,7 @@ def test_ddp(device: DeviceHparams, world_size: int, composer_trainer_hparams: T
     hparams.val_dataset = TrackedDatasetHparams(
         synthetic_num_unique_samples=hparams.eval_batch_size * hparams.eval_subset_num_batches,
         is_train=False,
-        data_shape=list(model.in_shape),
+        data_shape=[model.num_channels, 5, 5],
         num_classes=model.num_classes,
     )
     hparams.device = device

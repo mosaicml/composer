@@ -31,8 +31,8 @@ STOCHASTIC_LAYER_MAPPING = {
 }
 
 
-def validate_stochastic_hparams(stochastic_method: str,
-                                target_layer_name: str,
+def validate_stochastic_hparams(target_layer_name: str,
+                                stochastic_method: str,
                                 drop_rate: float,
                                 drop_distribution: str,
                                 drop_warmup: float = 0.0):
@@ -64,10 +64,11 @@ def validate_stochastic_hparams(stochastic_method: str,
 class StochasticDepthHparams(AlgorithmHparams):
     """See :class:`StochasticDepth`"""
 
-    stochastic_method: str = hp.required('The version of stochastic depth to use. One of ["sample", "block"].')
     target_layer_name: str = hp.required(
         f'Reference name of layer to replace. "block" method can be {list(STOCHASTIC_LAYER_MAPPING["block"].keys())}.'
         f' "sample" method can be {list(STOCHASTIC_LAYER_MAPPING["sample"].keys())}.')
+    stochastic_method: str = hp.optional('The version of stochastic depth to use. One of ["sample", "block"].',
+                                         default='block')
     drop_rate: float = hp.optional('The probability of dropping a block or sample.', default=0.2)
     drop_distribution: str = hp.optional(
         '"Uniform" keeps the drop rate the same across blocks. "linear" linearly'
@@ -83,16 +84,16 @@ class StochasticDepthHparams(AlgorithmHparams):
 
     def validate(self):
         super().validate()
-        validate_stochastic_hparams(stochastic_method=self.stochastic_method,
-                                    target_layer_name=self.target_layer_name,
+        validate_stochastic_hparams(target_layer_name=self.target_layer_name,
+                                    stochastic_method=self.stochastic_method,
                                     drop_rate=self.drop_rate,
                                     drop_distribution=self.drop_distribution,
                                     drop_warmup=self.drop_warmup)
 
 
 def apply_stochastic_depth(model: torch.nn.Module,
-                           stochastic_method: str,
                            target_layer_name: str,
+                           stochastic_method: str = 'block',
                            optimizers: Optional[Optimizers] = None,
                            drop_rate: float = 0.2,
                            drop_distribution: str = 'linear',
@@ -106,15 +107,19 @@ def apply_stochastic_depth(model: torch.nn.Module,
     implementation used for EfficientNet in the
     `Tensorflow/TPU repo <https://github.com/tensorflow/tpu>`_.
 
+    .. note::
+
+        Stochastic Depth only works on instances of `torchvision.models.resnet.ResNet` for now.
+
     Args:
         model: model containing modules to be replaced with stochastic versions
-        stochastic_method: The version of stochastic depth to use. ``"block"``
-            randomly drops blocks during training. ``"sample"`` randomly drops
-            samples within a block during training.
         target_layer_name: Block to replace with a stochastic block
             equivalent. The name must be registered in ``STOCHASTIC_LAYER_MAPPING``
             dictionary with the target layer class and the stochastic layer class.
-            Currently, only ``'ResNetBottleneck'`` is supported.
+            Currently, only :class:`torchvision.models.resnet.Bottleneck` is supported.
+        stochastic_method: The version of stochastic depth to use. ``"block"``
+            randomly drops blocks during training. ``"sample"`` randomly drops
+            samples within a block during training.
         optimizers (Optimizers, optional):  Existing optimizers bound to ``model.parameters()``.
             All optimizers that have already been constructed with,
             ``model.parameters()`` must be specified here so they will optimize
@@ -135,8 +140,8 @@ def apply_stochastic_depth(model: torch.nn.Module,
             have each GPU drop a different set of layers. Only used
             with ``"block"`` stochastic method.
     """
-    validate_stochastic_hparams(stochastic_method=stochastic_method,
-                                target_layer_name=target_layer_name,
+    validate_stochastic_hparams(target_layer_name=target_layer_name,
+                                stochastic_method=stochastic_method,
                                 drop_rate=drop_rate,
                                 drop_distribution=drop_distribution)
     transforms = {}
@@ -188,14 +193,18 @@ class StochasticDepth(Algorithm):
     implementation used for EfficientNet in the
     `Tensorflow/TPU repo <https://github.com/tensorflow/tpu>`_.
 
+    .. note::
+
+        Stochastic Depth only works on instances of `torchvision.models.resnet.ResNet` for now.
+
     Args:
-        stochastic_method: The version of stochastic depth to use. ``"block"``
-            randomly drops blocks during training. ``"sample"`` randomly drops
-            samples within a block during training.
         target_layer_name: Block to replace with a stochastic block
             equivalent. The name must be registered in ``STOCHASTIC_LAYER_MAPPING``
             dictionary with the target layer class and the stochastic layer class.
-            Currently, only ``'ResNetBottleneck'`` is supported.
+            Currently, only :class:`torchvision.models.resnet.Bottleneck` is supported.
+        stochastic_method: The version of stochastic depth to use. ``"block"``
+            randomly drops blocks during training. ``"sample"`` randomly drops
+            samples within a block during training.
         drop_rate: The base probability of dropping a layer or sample. Must be
             between 0.0 and 1.0.
         drop_distribution: How ``drop_rate`` is distributed across
@@ -213,8 +222,8 @@ class StochasticDepth(Algorithm):
     """
 
     def __init__(self,
-                 stochastic_method: str,
                  target_layer_name: str,
+                 stochastic_method: str = 'block',
                  drop_rate: float = 0.2,
                  drop_distribution: str = 'linear',
                  drop_warmup: float = 0.0,
@@ -226,8 +235,8 @@ class StochasticDepth(Algorithm):
         if stochastic_method == "sample" and not use_same_gpu_seed:
             log.warning('use_same_gpu_seed=false has no effect when using the "sample" method')
 
-        self.stochastic_method = stochastic_method
         self.target_layer_name = target_layer_name
+        self.stochastic_method = stochastic_method
         self.drop_rate = drop_rate
         self.drop_distribution = drop_distribution
         self.drop_warmup = drop_warmup
@@ -268,8 +277,8 @@ class StochasticDepth(Algorithm):
 
             apply_stochastic_depth(state.model,
                                    optimizers=state.optimizers,
-                                   stochastic_method=self.stochastic_method,
                                    target_layer_name=self.target_layer_name,
+                                   stochastic_method=self.stochastic_method,
                                    drop_rate=self.drop_rate,
                                    drop_distribution=self.drop_distribution,
                                    use_same_gpu_seed=self.use_same_gpu_seed)

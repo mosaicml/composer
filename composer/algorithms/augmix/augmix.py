@@ -1,5 +1,7 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
+import textwrap
+import weakref
 from dataclasses import asdict, dataclass
 from typing import Optional
 
@@ -8,6 +10,7 @@ import torch
 import yahp as hp
 from PIL import Image
 from PIL.Image import Image as ImageType
+from torchvision.datasets import VisionDataset
 
 from composer.algorithms.algorithm_hparams import AlgorithmHparams
 from composer.core.event import Event
@@ -33,12 +36,12 @@ class AugMixHparams(AlgorithmHparams):
         return AugMix(**asdict(self))
 
 
-def augment_and_mix(img: Optional[ImageType] = None,
-                    severity: int = 3,
-                    depth: int = -1,
-                    width: int = 3,
-                    alpha: float = 1.0,
-                    augmentation_set: List = augmentation_sets["all"]) -> ImageType:
+def augmix_image(img: Optional[ImageType] = None,
+                 severity: int = 3,
+                 depth: int = -1,
+                 width: int = 3,
+                 alpha: float = 1.0,
+                 augmentation_set: List = augmentation_sets["all"]) -> ImageType:
     """Applies AugMix (`Hendrycks et al.
 
     <http://arxiv.org/abs/1912.02781>`_) data augmentation to an image. See :class:`AugMix` for details.
@@ -68,7 +71,7 @@ def augment_and_mix(img: Optional[ImageType] = None,
 
 
 class AugmentAndMixTransform(torch.nn.Module):
-    """Wrapper module for :func:`augment_and_mix` that can be passed to :class:`torchvision.transforms.Compose`"""
+    """Wrapper module for :func:`augmix_image` that can be passed to :class:`torchvision.transforms.Compose`"""
 
     def __init__(self,
                  severity: int = 3,
@@ -91,12 +94,12 @@ class AugmentAndMixTransform(torch.nn.Module):
 
     def forward(self, img: ImageType) -> ImageType:
 
-        return augment_and_mix(img=img,
-                               severity=self.severity,
-                               depth=self.depth,
-                               width=self.width,
-                               alpha=self.alpha,
-                               augmentation_set=self.augmentation_set)
+        return augmix_image(img=img,
+                            severity=self.severity,
+                            depth=self.depth,
+                            width=self.width,
+                            alpha=self.alpha,
+                            augmentation_set=self.augmentation_set)
 
 
 class AugMix(Algorithm):
@@ -109,7 +112,8 @@ class AugMix(Algorithm):
     the combined augmented image and the original image is drawn from a
     ``Beta(alpha, alpha)`` distribution, using the same ``alpha``.
 
-    Runs on ``Event.TRAINING_START``.
+    This algorithm runs on on :attr:`Event.FIT_START` to insert a dataset transformation. It is a no-op if this algorithm already
+    applied itself on the :attr:`State.train_dataloader.dataset`.
 
     Args:
         severity: severity of augmentations; ranges from 0
@@ -155,10 +159,10 @@ class AugMix(Algorithm):
         self.width = width
         self.alpha = alpha
         self.augmentation_set = augmentation_set
+        self._transformed_datasets = weakref.WeakSet()
 
     def match(self, event: Event, state: State) -> bool:
-        """Runs on Event.TRAINING_START."""
-        return event == Event.TRAINING_START
+        return event == Event.FIT_START and state.train_dataloader.dataset not in self._transformed_datasets
 
     def apply(self, event: Event, state: State, logger: Logger) -> None:
         """Inserts AugMix into the list of dataloader transforms."""
@@ -167,6 +171,11 @@ class AugMix(Algorithm):
                                     width=self.width,
                                     alpha=self.alpha,
                                     augmentation_set=self.augmentation_set)
-        assert state.train_dataloader is not None, "Train Dataloader is not initialized."
         dataset = state.train_dataloader.dataset
-        add_dataset_transform(dataset, am)
+        if not isinstance(dataset, VisionDataset):
+            raise TypeError(
+                textwrap.dedent(f"""\
+                To use {type(self).__name__}, the dataset must be a
+                {VisionDataset.__qualname__}, not {type(dataset).__name__}"""))
+        add_dataset_transform(dataset, am, is_tensor_transform=False)
+        self._transformed_datasets.add(dataset)

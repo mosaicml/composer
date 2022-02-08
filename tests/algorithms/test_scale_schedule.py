@@ -10,9 +10,9 @@ from torch.optim.lr_scheduler import ExponentialLR, MultiStepLR
 from composer.algorithms import ScaleSchedule
 from composer.algorithms.scale_schedule import scale_scheduler
 from composer.core.event import Event
+from composer.core.logging import Logger
 from composer.core.state import State
 from composer.core.types import Optimizer, Scheduler
-from composer.loggers import Logger
 from composer.optim.pytorch_future import WarmUpLR
 
 
@@ -88,7 +88,7 @@ class TestScaleScheduleAlgorithm():
         dummy_state.schedulers = scheduler
         dummy_state.max_duration = "10ep"
         algorithm = ScaleSchedule(ratio=ssr)
-        algorithm.apply(Event.TRAINING_START, dummy_state, noop_dummy_logger)
+        algorithm.apply(Event.INIT, dummy_state, noop_dummy_logger)
         assert dummy_state.max_epochs == int(10 * ssr)
         assert scheduler.milestones == Counter([int(30 * ssr), int(50 * ssr)])  # type: ignore
 
@@ -106,12 +106,4 @@ def test_epochs_validate_zero_epochs(dummy_state: State, noop_dummy_logger: Logg
     dummy_state.max_duration = "10ep"
     dummy_state.schedulers = tuple()
     with pytest.raises(ValueError):
-        algorithm.apply(Event.TRAINING_START, dummy_state, noop_dummy_logger)
-
-
-def test_epochs_validate_run_once(dummy_state: State, noop_dummy_logger: Logger):
-    algorithm = ScaleSchedule(ratio=0.1)
-    dummy_state.schedulers = tuple()
-    with pytest.raises(AssertionError):
-        algorithm.apply(Event.TRAINING_START, dummy_state, noop_dummy_logger)
-        algorithm.apply(Event.TRAINING_START, dummy_state, noop_dummy_logger)
+        algorithm.apply(Event.INIT, dummy_state, noop_dummy_logger)
