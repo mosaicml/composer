@@ -188,9 +188,8 @@ Standalone
 .. autoclass:: composer.algorithms.factorize.FactorizedLinear
     :members:
 
+.. autofunction:: composer.algorithms.factorize.apply_factorization
 .. autoclass:: composer.algorithms.factorize.LowRankSolution
-.. autofunction:: composer.algorithms.factorize.factorize_conv2d_modules
-.. autofunction:: composer.algorithms.factorize.factorize_linear_modules
 .. autofunction:: composer.algorithms.factorize.factorize_matrix
 .. autofunction:: composer.algorithms.factorize.factorize_conv2d
 

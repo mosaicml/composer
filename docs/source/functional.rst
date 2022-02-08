@@ -37,5 +37,6 @@ Algorithms can be used directly through our functions-based API.
     functional.scale_scheduler
     functional.selective_backprop
     functional.apply_squeeze_excite
+    functional.apply_factorization
     functional.set_batch_sequence_length
     functional.apply_stochastic_depth
