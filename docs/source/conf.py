@@ -53,6 +53,7 @@ extensions = [
     "sphinx.ext.intersphinx",
     "sphinxarg.ext",
     'autodocsumm',
+    'sphinx.ext.doctest',
 ]
 
 # Add any paths that contain templates here, relative to this directory.
@@ -158,6 +159,10 @@ def maybe_skip_member(app, what: str, name: str, obj, skip: bool, options):
     if '_tuplegetter' in obj.__class__.__name__:
         return True
     return None
+
+
+with open(os.path.join(os.path.dirname(__file__), "_doctest_fixtures.py"), "r") as f:
+    doctest_global_setup = f.read()
 
 
 def determine_sphinx_path(app: sphinx.application.Sphinx, item: Union[Type[object], Type[BaseException],

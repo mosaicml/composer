@@ -62,8 +62,11 @@ class Time(Generic[TValue]):
         #. Use a value followed by a :class:`TimeUnit` enum or string. For example,
 
             >>> Time(5, TimeUnit.EPOCH)  # describes 5 epochs.
-            >>> Time(3e4, "tok")  # describes 30,000 tokens.
+            Time(5, TimeUnit.EPOCH)
+            >>> Time(30_000, "tok")  # describes 30,000 tokens.
+            Time(30000, TimeUnit.TOKEN)
             >>> Time(0.5, "dur")  # describes 50% of the training process.
+            Time(0.5, TimeUnit.DURATION)
 
         #. Use one of the helper methods. See:
 
@@ -77,24 +80,30 @@ class Time(Generic[TValue]):
     :class:`Time` supports addition and subtraction with other :class:`Time` instances that share the same
     :class:`TimeUnit`. For example:
 
-    >>> Time(1, TimeUnit.EPOCH) + Time(2, TimeUnit.EPOCH) == Time(3, TimeUnit.EPOCH)
+    >>> Time(1, TimeUnit.EPOCH) + Time(2, TimeUnit.EPOCH)
+    Time(3, TimeUnit.EPOCH)
 
     :class:`Time` supports multiplication. The multiplier must be either a number or have units of
     :attr:`TimeUnit.DURATION`. The multiplicand is scaled, and its units are kept.
 
-    >>> Time(2, TimeUnit.EPOCH) * 0.5 == Time(1, TimeUnit.EPOCH)
-    >>> Time(2, TimeUnit.EPOCH) * Time(0.5, TimeUnit.DURATION) == Time(1, TimeUnit.EPOCH)
+    >>> Time(2, TimeUnit.EPOCH) * 0.5
+    Time(1, TimeUnit.EPOCH)
+
+    >>> Time(2, TimeUnit.EPOCH) * Time(0.5, TimeUnit.DURATION)
+    Time(1, TimeUnit.EPOCH)
 
 
     :class:`Time` supports division. If the divisor is an instance of :class:`Time`, then it
     must have the same units as the dividend, and the result has units of :attr:`TimeUnit.DURATION`.
     For example:
 
-    >>> Time(4, TimeUnit.EPOCH) / Time(2, TimeUnit.EPOCH) == Time(2.0, TimeUnit.DURATION)
+    >>> Time(4, TimeUnit.EPOCH) / Time(2, TimeUnit.EPOCH)
+    Time(2.0, TimeUnit.DURATION)
 
     If the divisor is number, then the dividend is scaled, and it keeps its units. For example:
 
-    >>> Time(4, TimeUnit.EPOCH) / 2 == Time(2, TimeUnit.EPOCH)
+    >>> Time(4, TimeUnit.EPOCH) / 2
+    Time(2, TimeUnit.EPOCH)
 
     Args:
         value (int or float): The amount of time.
@@ -298,9 +307,12 @@ class Time(Generic[TValue]):
         """Parse a time string into a :class:`Time` instance. A time string is a numerical value followed by the value
         of a :class:`TimeUnit` enum. For example:
 
-        >>> Time("5ep")  # describes 5 epochs.
-        >>> Time("3e4tok")  # describes 30,000 tokens.
-        >>> Time("0.5dur")  # describes 50% of the training process.
+        >>> Time.from_timestring("5ep")  # describes 5 epochs.
+        Time(5, TimeUnit.EPOCH)
+        >>> Time.from_timestring("3e4tok")  # describes 30,000 tokens.
+        Time(30000, TimeUnit.TOKEN)
+        >>> Time.from_timestring("0.5dur")  # describes 50% of the training process.
+        Time(0.5, TimeUnit.DURATION)
 
         Returns:
             Time: An instance of :class:`Time`.
