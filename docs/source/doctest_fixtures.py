@@ -18,8 +18,8 @@ from composer.datasets.synthetic import SyntheticBatchPairDataset
 from composer.utils import *  # Make all composer.utils imports available in doctests
 
 # Need to insert the repo root at the beginning of the path, since there may be other modules named `tests`
-_docs_source_dir = os.path.dirname(os.path.dirname(__file__))
-_docs_dir = os.path.dirname(_docs_source_dir)
+# Assuming that docs generation is running from the `docs` directory
+_docs_dir = os.path.abspath(".")
 _repo_root = os.path.dirname(_docs_dir)
 if sys.path[0] != _repo_root:
     sys.path.insert(0, _repo_root)
