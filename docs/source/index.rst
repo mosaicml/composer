@@ -32,8 +32,8 @@ Documentation
 Our documentation is organized into a few sections:
 
 * :doc:`Getting Started </getting_started/installation>` covers installation, a quick tour and explains how to use ``Composer``.
-* :doc:`Core </core/algorithm>` covers the core components of the library.
-* :doc:`composer </algorithms>` contains the library's API reference.
+* :doc:`Core </walkthrough/algorithm>` covers the core components of the library.
+* :doc:`composer <//api_reference>` contains the library's API reference.
 * :doc:`Methods Library </method_cards/alibi>` details our implemented efficiency methods.
 
 
@@ -45,36 +45,22 @@ Our documentation is organized into a few sections:
    getting_started/using_composer.rst
    getting_started/welcome_tour.rst
    tutorials/adding_models_datasets.rst
-   getting_started/distributed.rst
 
 .. toctree::
    :maxdepth: 1
-   :caption: core
+   :caption: Using our Trainer
 
-   core/algorithm.rst
-   core/callback.rst
-   core/engine.rst
-   core/event.rst
-   core/logger.rst
-   core/state.rst
-   core/surgery.rst
-   core/time.rst
-   core/types.rst
+   trainer/summary.rst
+   trainer/composer_model.rst
+   trainer/algorithms.rst
+   trainer/detailed_usage.rst
+
 
 .. toctree::
    :maxdepth: 1
-   :caption: composer
+   :caption: Notebook Examples
 
-   algorithms.rst
-   callbacks.rst
-   datasets.rst
-   functional.rst
-   loggers.rst
-   models.rst
-   optim.rst
-   profiler.rst
-   trainer.rst
-   trainer_devices.rst
+   notebooks/summary.rst
 
 .. toctree::
    :maxdepth: 1
@@ -114,6 +100,37 @@ Our documentation is organized into a few sections:
    model_cards/imagenet_resnet.md
    model_cards/unet.md
 
+.. toctree::
+   :maxdepth: 1
+   :caption: Hparams System (YAHP)
+
+   yahp/getting_started.rst
+
+.. toctree::
+   :maxdepth: 1
+   :caption: Composer Walkthrough
+
+   walkthrough/algorithm.rst
+   walkthrough/callback.rst
+   walkthrough/datasets.rst
+   walkthrough/engine.rst
+   walkthrough/event.rst
+   walkthrough/functional.rst
+   walkthrough/logger.rst
+   walkthrough/models.rst
+   walkthrough/profiler.rst
+   walkthrough/state.rst
+   walkthrough/surgery.rst
+   walkthrough/time.rst
+   walkthrough/trainer.rst
+   walkthrough/types.rst
+
+
+.. toctree::
+   :caption: API Reference
+   :maxdepth: 4
+
+   api_reference.rst
 
 Indices and tables
 ------------------

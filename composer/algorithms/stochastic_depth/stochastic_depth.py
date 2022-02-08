@@ -107,12 +107,16 @@ def apply_stochastic_depth(model: torch.nn.Module,
     implementation used for EfficientNet in the
     `Tensorflow/TPU repo <https://github.com/tensorflow/tpu>`_.
 
+    .. note::
+
+        Stochastic Depth only works on instances of `torchvision.models.resnet.ResNet` for now.
+
     Args:
         model: model containing modules to be replaced with stochastic versions
         target_layer_name: Block to replace with a stochastic block
             equivalent. The name must be registered in ``STOCHASTIC_LAYER_MAPPING``
             dictionary with the target layer class and the stochastic layer class.
-            Currently, only ``'ResNetBottleneck'`` is supported.
+            Currently, only :class:`torchvision.models.resnet.Bottleneck` is supported.
         stochastic_method: The version of stochastic depth to use. ``"block"``
             randomly drops blocks during training. ``"sample"`` randomly drops
             samples within a block during training.
@@ -189,14 +193,18 @@ class StochasticDepth(Algorithm):
     implementation used for EfficientNet in the
     `Tensorflow/TPU repo <https://github.com/tensorflow/tpu>`_.
 
+    .. note::
+
+        Stochastic Depth only works on instances of `torchvision.models.resnet.ResNet` for now.
+
     Args:
-        stochastic_method: The version of stochastic depth to use. ``"block"``
-            randomly drops blocks during training. ``"sample"`` randomly drops
-            samples within a block during training.
         target_layer_name: Block to replace with a stochastic block
             equivalent. The name must be registered in ``STOCHASTIC_LAYER_MAPPING``
             dictionary with the target layer class and the stochastic layer class.
-            Currently, only ``'ResNetBottleneck'`` is supported.
+            Currently, only :class:`torchvision.models.resnet.Bottleneck` is supported.
+        stochastic_method: The version of stochastic depth to use. ``"block"``
+            randomly drops blocks during training. ``"sample"`` randomly drops
+            samples within a block during training.
         drop_rate: The base probability of dropping a layer or sample. Must be
             between 0.0 and 1.0.
         drop_distribution: How ``drop_rate`` is distributed across

@@ -11,10 +11,10 @@ from composer.algorithms.stochastic_depth.sample_stochastic_layers import Sample
 from composer.algorithms.stochastic_depth.stochastic_depth import STOCHASTIC_LAYER_MAPPING
 from composer.algorithms.stochastic_depth.stochastic_layers import StochasticBottleneck, _sample_bernoulli
 from composer.core import Event, Logger, State, surgery
+from composer.core.logging import Logger
 from composer.core.types import Evaluator, Precision
 from composer.datasets.dataloader import DataloaderHparams
 from composer.datasets.imagenet import ImagenetDatasetHparams
-from composer.loggers import Logger
 from composer.models import ResNetHparams
 
 

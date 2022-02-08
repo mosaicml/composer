@@ -1,7 +1,5 @@
 composer.Time
-===============
-
-.. currentmodule:: composer
+=============
 
 Composer includes a a training time tracking module to describe the current
 progress in the training duration. Time is tracked in terms of epochs, batches,
@@ -16,12 +14,7 @@ The :class:`~composer.core.Time` class represents static durations of training t
 training process in terms of a specific :class:`~composer.core.TimeUnit` enum. The :class:`~composer.core.Time` class
 supports comparisons, arithmetic, and conversions.
 
-.. autosummary::
-    :toctree: generated
-    :nosignatures:
-    :recursive:
-   
-    ~composer.core.TimeUnit
-    ~composer.core.Time
-    ~composer.core.Timer
-    ~composer.core.Timestamp
+API Reference
+*************
+
+See :mod:`composer.core.time`.

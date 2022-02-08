@@ -1,5 +1,5 @@
-composer.Logger
-===============
+composer.logging
+================
 
 .. currentmodule:: composer
 
@@ -19,16 +19,9 @@ For example, to define a new logging backend:
         def log_metric(self, epoch, step, log_level, data):
             print(f'Epoch {epoch} Step {step}: {log_level} {data}')
 
-.. note::
 
-    To use Composer's built in loggers, see :doc:`/loggers`.
+API Reference
+*************
 
-.. autosummary::
-    :toctree: generated
-    :nosignatures:
-    :recursive:
-   
-    ~composer.loggers.logger_hparams.BaseLoggerBackendHparams
-    ~composer.core.logging.base_backend.BaseLoggerBackend
-
-.. autoclass:: Logger
+For the base logging classes, see :mod:`composer.core.logging`.
+For a list of loggers available in composer, see the :mod:`composer.loggers`.

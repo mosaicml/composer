@@ -33,12 +33,12 @@ def test_json_trace_profiler_hanlder(composer_trainer_hparams: TrainerHparams):
 
     with open(profiler_file, "r") as f:
         trace_json = json.load(f)
-        has_training_start_event = False
-        has_training_end_event = False
+        has_epoch_start_event = False
+        has_epoch_end_event = False
         for event in trace_json:
-            if event["name"] == "event/training" and event["ph"] == "B":
-                has_training_start_event = True
-            if event["name"] == "event/training" and event["ph"] == "E":
-                has_training_end_event = True
-        assert has_training_start_event
-        assert has_training_end_event
+            if event["name"] == "event/epoch" and event["ph"] == "B":
+                has_epoch_start_event = True
+            if event["name"] == "event/epoch" and event["ph"] == "E":
+                has_epoch_end_event = True
+        assert has_epoch_start_event
+        assert has_epoch_end_event

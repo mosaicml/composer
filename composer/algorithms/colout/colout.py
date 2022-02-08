@@ -3,12 +3,15 @@
 from __future__ import annotations
 
 import logging
+import textwrap
+import weakref
 from dataclasses import asdict, dataclass
-from typing import Union
+from typing import TypeVar
 
 import torch
 import yahp as hp
 from PIL.Image import Image
+from torchvision.datasets import VisionDataset
 from torchvision.transforms import functional as TF
 
 from composer.algorithms import AlgorithmHparams
@@ -18,8 +21,10 @@ from composer.utils.data import add_dataset_transform
 
 log = logging.getLogger(__name__)
 
+TImg = TypeVar("TImg", torch.Tensor, Image)
 
-def colout(img: Union[torch.Tensor, Image], p_row: float = 0.15, p_col: float = 0.15) -> Union[torch.Tensor, Image]:
+
+def colout_image(img: TImg, p_row: float = 0.15, p_col: float = 0.15) -> TImg:
     """Drops random rows and columns from a single image.
 
     Args:
@@ -31,19 +36,15 @@ def colout(img: Union[torch.Tensor, Image], p_row: float = 0.15, p_col: float = 
         torch.Tensor or PIL Image: A smaller image with rows and columns dropped
     """
 
-    as_PIL = False
-
     # Convert image to Tensor if needed
     if isinstance(img, Image):
-        as_PIL = True
-        img = TF.to_tensor(img)
-
-    if not isinstance(img, torch.Tensor):
-        raise ValueError("Invalid input type: img must be either torch.Tensor or PIL Image.")
+        img_tensor = TF.to_tensor(img)
+    else:
+        img_tensor = img
 
     # Get the dimensions of the image
-    row_size = img.shape[1]
-    col_size = img.shape[2]
+    row_size = img_tensor.shape[1]
+    col_size = img_tensor.shape[2]
 
     # Determine how many rows and columns to keep
     kept_row_size = int((1 - p_row) * row_size)
@@ -54,14 +55,14 @@ def colout(img: Union[torch.Tensor, Image], p_row: float = 0.15, p_col: float = 
     kept_col_idx = sorted(torch.randperm(col_size)[:kept_col_size].numpy())
 
     # Keep only the selected row and columns
-    img = img[:, kept_row_idx, :]
-    img = img[:, :, kept_col_idx]
+    img_tensor = img_tensor[:, kept_row_idx, :]
+    img_tensor = img_tensor[:, :, kept_col_idx]
 
     # Convert back to PIL for the rest of the augmentation pipeline
-    if as_PIL:
-        return TF.to_pil_image(img)
+    if isinstance(img, Image):
+        return TF.to_pil_image(img_tensor)
     else:
-        return img
+        return img_tensor
 
 
 class ColOutTransform:
@@ -77,7 +78,7 @@ class ColOutTransform:
         self.p_row = p_row
         self.p_col = p_col
 
-    def __call__(self, img: Union[torch.Tensor, Image]) -> Union[torch.Tensor, Image]:
+    def __call__(self, img: TImg) -> TImg:
         """Drops random rows and columns from a single image.
 
         Args:
@@ -86,10 +87,10 @@ class ColOutTransform:
         Returns:
             torch.Tensor or PIL Image: A smaller image with rows and columns dropped
         """
-        return colout(img, self.p_row, self.p_col)
+        return colout_image(img, self.p_row, self.p_col)
 
 
-def batch_colout(X: torch.Tensor, p_row: float = 0.15, p_col: float = 0.15) -> torch.Tensor:
+def colout_batch(X: torch.Tensor, p_row: float = 0.15, p_col: float = 0.15) -> torch.Tensor:
     """Applies ColOut augmentation to a batch of images, dropping the same random rows and columns from all images in a
     batch.
 
@@ -136,10 +137,15 @@ class ColOut(Algorithm):
     large, this does not significantly alter the content of the image, but reduces its size and provides extra
     variability.
 
+    If ``batch`` is True (the default), this algorithm runs on :attr:`Event.INIT` to insert a dataset transformation.
+    It is a no-op if this algorithm already applied itself on the :attr:`State.train_dataloader.dataset`.
+
+    Otherwise, if ``batch`` is False, then this algorithm runs on :attr:`Event.AFTER_DATALOADER` to modify the batch.
+
     Args:
-        p_row: Fraction of rows to drop (drop along H).
-        p_col: Fraction of columns to drop (drop along W).
-        batch: Run ColOut at the batch level.
+        p_row (float): Fraction of rows to drop (drop along H).
+        p_col (float): Fraction of columns to drop (drop along W).
+        batch (bool): Run ColOut at the batch level.
     """
 
     def __init__(self, p_row: float = 0.15, p_col: float = 0.15, batch: bool = True):
@@ -152,32 +158,33 @@ class ColOut(Algorithm):
         self.p_row = p_row
         self.p_col = p_col
         self.batch = batch
+        self._transformed_datasets = weakref.WeakSet()
 
     def match(self, event: Event, state: State) -> bool:
-        """Apply on Event.TRAINING_START for samplewise or Event.AFTER_DATALOADER for batchwise."""
         if self.batch:
             return event == Event.AFTER_DATALOADER
         else:
-            return event == Event.TRAINING_START
+            return event == Event.FIT_START and state.train_dataloader.dataset not in self._transformed_datasets
 
     def _apply_sample(self, state: State) -> None:
         """Add the ColOut dataset transform to the dataloader."""
-        assert state.train_dataloader is not None
         dataset = state.train_dataloader.dataset
 
         transform = ColOutTransform(p_row=self.p_row, p_col=self.p_col)
 
-        if hasattr(dataset, "transform"):
-            add_dataset_transform(dataset, transform)
-        else:
-            raise ValueError(
-                f"Dataset of type {type(dataset)} has no attribute 'transform'. Expected TorchVision dataset.")
+        if not isinstance(dataset, VisionDataset):
+            raise TypeError(
+                textwrap.dedent(f"""\
+                To use {type(self).__name__}, the dataset must be a
+                {VisionDataset.__qualname__}, not {type(dataset).__name__}"""))
+        add_dataset_transform(dataset, transform, is_tensor_transform=False)
+        self._transformed_datasets.add(dataset)
 
     def _apply_batch(self, state: State) -> None:
         """Transform a batch of images using the ColOut augmentation."""
         inputs, labels = state.batch_pair
         assert isinstance(inputs, Tensor), "Multiple Tensors not supported yet for ColOut"
-        new_inputs = batch_colout(inputs, p_row=self.p_row, p_col=self.p_col)
+        new_inputs = colout_batch(inputs, p_row=self.p_row, p_col=self.p_col)
 
         state.batch = (new_inputs, labels)
 
