@@ -14,6 +14,7 @@ from torch.autograd import Variable
 from torch.utils.data import DataLoader
 from torchmetrics import Metric
 from torchmetrics.detection.map import MeanAveragePrecision as MAP
+
 from composer.core.types import BatchPair, Metrics, Tensor, Tensors
 from composer.datasets.coco import COCO, COCODetection
 from composer.models.base import ComposerModel
@@ -78,7 +79,7 @@ class SSD(ComposerModel):
         inv_map = {v: k for k, v in val_coco.label_map.items()}
 
         ret = []
-        
+
         overlap_threshold = 0.50
         nms_max_detections = 200
 
@@ -87,7 +88,7 @@ class SSD(ComposerModel):
 
         (img, img_id, img_size, _, _) = batch
         targets = get_boxes(val_annotate, img_id)
-        
+
         with torch.no_grad():
             ploc, plabel = self.module(img)
             ploc, plabel = ploc.float(), plabel.float()
@@ -106,11 +107,11 @@ class SSD(ComposerModel):
 
                 htot, wtot = img_size[0][idx].item(), img_size[1][idx].item()
                 loc, label, prob = [r.cpu().numpy() for r in result]
-                
+
                 for loc_, label_, prob_ in zip(loc, label, prob):
 
                     ret.append([
-		        dict(
+                    dict(
                             boxes=torch.Tensor([[loc_[0] * wtot, \
                                                  loc_[1] * htot,
                                                  (loc_[2] - loc_[0]) * wtot,
@@ -124,6 +125,7 @@ class SSD(ComposerModel):
         #import pdb; pdb.set_trace()
         return ret, targets
 
+
 def get_boxes(val_annotate, idss):
     ids = idss.tolist()
     from pycocotools.coco import COCO
@@ -131,28 +133,28 @@ def get_boxes(val_annotate, idss):
     import json
     json_file = "/localdisk//coco/annotations/instances_val2017.json"
 
-    with open(json_file,'r') as COCO:
+    with open(json_file, 'r') as COCO:
         js = json.loads(COCO.read())
         anns_all = json.dumps(js['annotations'])
 
     annids = our_coco.getAnnIds(imgIds=ids)
     anns = our_coco.loadAnns(annids)
-    
+
     t = []
     for ann in anns:
-        x_topleft   = ann['bbox'][0]
-        y_topleft   = ann['bbox'][1]
-        bbox_width  = ann['bbox'][2]
+        x_topleft = ann['bbox'][0]
+        y_topleft = ann['bbox'][1]
+        bbox_width = ann['bbox'][2]
         bbox_height = ann['bbox'][3]
 
         cat = ann['category_id']
 
-        t.append(dict(boxes=torch.Tensor([[x_topleft, y_topleft, bbox_width, bbox_height]]), labels=torch.Tensor([cat])))
+        t.append(dict(boxes=torch.Tensor([[x_topleft, y_topleft, bbox_width, bbox_height]]),
+                      labels=torch.Tensor([cat])))
 
     #
     return t
-            
-        
+
 
 def dboxes300_coco():
     figsize = 300

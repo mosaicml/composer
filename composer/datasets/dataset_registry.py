@@ -3,11 +3,11 @@
 from composer.datasets.ade20k import ADE20kDatasetHparams
 from composer.datasets.brats import BratsDatasetHparams
 from composer.datasets.cifar10 import CIFAR10DatasetHparams
+from composer.datasets.coco import COCODatasetHparams
 from composer.datasets.glue import GLUEHparams
 from composer.datasets.imagenet import ImagenetDatasetHparams
 from composer.datasets.lm_datasets import LMDatasetHparams
 from composer.datasets.mnist import MNISTDatasetHparams
-from composer.datasets.coco import COCODatasetHparams
 
 registry = {
     "ade20k": ADE20kDatasetHparams,

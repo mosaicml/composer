@@ -103,6 +103,10 @@ extra_deps['unet'] = [
     'scikit-learn>=1.0.1',
 ]
 
+extra_deps['ssd'] = [
+        'pycocotools==2.0.1',
+        'matplotlib>=3.0.0',
+]
 extra_deps['deepspeed'] = [
     'deepspeed>=0.5.5',
 ]
