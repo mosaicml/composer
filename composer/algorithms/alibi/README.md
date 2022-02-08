@@ -31,6 +31,23 @@ def training_loop(model, train_loader):
 
 ### Composer Trainer
 
+```python
+from composer.algorithms import Alibi
+from composer.trainer import Trainer
+
+trainer = Trainer(model=model,
+                  train_dataloader=train_dataloader,
+                  max_duration='1ep',
+                  algorithms=[Alibi(position_embedding_attribute="module.transformer.wpe",
+                                    attention_module_name="transformers.models.gpt2.modeling_gpt2.GPT2Attention",
+                                    attr_to_replace="_attn",
+                                    alibi_attention="composer.algorithms.alibi.gpt2_alibi._attn",
+                                    mask_replacement_function="composer.algorithms.alibi.gpt2_alibi.enlarge_mask")
+                  ])
+
+trainer.fit()
+```
+
 ## Suggested Hyperparameters
 
 We found that `train_sequence_length_scaling=0.25` (sequence length 256) provided appreciable speed and accuracy gains for models evaluated at sequence length 1024.
