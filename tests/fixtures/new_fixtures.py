@@ -38,14 +38,15 @@ def empty_logger(minimal_state: State) -> Logger:
 def init_process_group(monkeypatch):
     """Use this fixture when initializing dist is needed outside of the Trainer's codepath."""
 
-    if not "RANK" in os.environ:
+    if "RANK" not in os.environ:
         monkeypatch.setenv("RANK", "0")
         monkeypatch.setenv("LOCAL_RANK", "0")
         monkeypatch.setenv("WORLD_SIZE", "1")
         monkeypatch.setenv("MASTER_ADDR", "127.0.0.1")
         monkeypatch.setenv("MASTER_PORT", str(get_free_tcp_port()))
 
-    dist.init_process_group("gloo", timeout=datetime.timedelta(10))
+    if not dist.is_initialized():
+        dist.init_process_group("gloo", timeout=datetime.timedelta(10))
 
     yield
 
