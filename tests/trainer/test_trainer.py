@@ -298,9 +298,6 @@ class TestTrainerAssets:
     def callback(self, request, tmpdir, monkeypatch):
         name, hparams = request.param
 
-        if name == 'benchmarker':
-            pytest.skip('Deprecated callback.')
-
         # create callback
         if name == 'run_directory_uploader':
             pytest.importorskip('libcloud', reason='libcloud required.')
@@ -322,8 +319,6 @@ class TestTrainerAssets:
         name, hparams = request.param
 
         required_args = {}
-        if name == 'mosaicml':
-            pytest.skip("Not supported logger.")
         if name == 'wandb':
             pytest.importorskip('wandb', reason='Required wandb')
 
