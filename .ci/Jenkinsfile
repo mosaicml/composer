@@ -205,7 +205,9 @@ stage('Build') {
                             string(name: 'P_TIMEOUT', value: pTimeout),
                             string(name: 'P_CPU_LIMIT', value: "2"),
                             string(name: 'P_MEM_LIMIT', value: "7Gi"),
-                            string(name: 'P_COMMAND', value: './scripts/lint.sh'),
+                            string(name: 'P_COMMAND', value: """#!/usr/bin/env bash
+set -euxo pipefail
+pip install .[all] && make lint""")
                         ]
                     )
                 }

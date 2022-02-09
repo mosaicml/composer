@@ -31,26 +31,18 @@ def configure_dist(request: pytest.FixtureRequest):
     if is_deepspeed and is_gpu:
         pytest.fail('Tests should be marked as deepspeed or gpu, not both. Deepspeed tests will run on a gpu.')
 
-    if is_deepspeed:
-        assert not is_gpu
-        if not "RANK" in os.environ:
-            os.environ["RANK"] = str(0)
-            os.environ["LOCAL_RANK"] = str(0)
-            os.environ["WORLD_SIZE"] = str(1)
-            os.environ["MASTER_ADDR"] = "127.0.0.1"
-            os.environ["MASTER_PORT"] = str(26000)
-        import deepspeed
-        deepspeed.init_distributed(timeout=DIST_TIMEOUT)
+    dist_env_variable_names = ("NODE_RANK", "WORLD_SIZE", "LOCAL_WORLD_SIZE", "RANK", "LOCAL_RANK")
+
+    is_missing_all_dist_env_vars = all(x not in os.environ for x in dist_env_variable_names)
+
+    if is_missing_all_dist_env_vars and (not is_deepspeed):
+        # no distributed -- i.e. running pytest on the CLI
+        # deepspeed still requires distributed
         return
 
-    assert not is_deepspeed
-    backend = "nccl" if is_gpu else "gloo"
+    backend = "nccl" if (is_gpu or is_deepspeed) else "gloo"
     if not torch.distributed.is_initialized():
-        if "RANK" in os.environ and "WORLD_SIZE" in os.environ:
-            torch.distributed.init_process_group(backend, timeout=DIST_TIMEOUT)
-        else:
-            store = torch.distributed.HashStore()
-            torch.distributed.init_process_group(backend, timeout=DIST_TIMEOUT, store=store, world_size=1, rank=0)
+        dist.initialize_dist(backend, timeout=DIST_TIMEOUT)
 
 
 @pytest.fixture(autouse=True)

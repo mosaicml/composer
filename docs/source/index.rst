@@ -32,8 +32,7 @@ Documentation
 Our documentation is organized into a few sections:
 
 * :doc:`Getting Started </getting_started/installation>` covers installation, a quick tour and explains how to use ``Composer``.
-* :doc:`Core </walkthrough/algorithm>` covers the core components of the library.
-* :doc:`composer <//api_reference>` contains the library's API reference.
+* :doc:`API Reference </api_reference>` contains the library's API reference.
 * :doc:`Methods Library </method_cards/alibi>` details our implemented efficiency methods.
 
 
@@ -45,26 +44,22 @@ Our documentation is organized into a few sections:
    getting_started/using_composer.rst
    getting_started/welcome_tour.rst
    tutorials/adding_models_datasets.rst
-   getting_started/distributed.rst
 
 .. toctree::
    :maxdepth: 1
-   :caption: Composer Walkthrough
+   :caption: Using our Trainer
 
-   walkthrough/algorithm.rst
-   walkthrough/callback.rst
-   walkthrough/datasets.rst
-   walkthrough/engine.rst
-   walkthrough/event.rst
-   walkthrough/functional.rst
-   walkthrough/logger.rst
-   walkthrough/models.rst
-   walkthrough/profiler.rst
-   walkthrough/state.rst
-   walkthrough/surgery.rst
-   walkthrough/time.rst
-   walkthrough/trainer.rst
-   walkthrough/types.rst
+   trainer/summary.rst
+   trainer/composer_model.rst
+   trainer/algorithms.rst
+   trainer/detailed_usage.rst
+
+
+.. toctree::
+   :maxdepth: 1
+   :caption: Notebook Examples
+
+   notebooks/summary.rst
 
 .. toctree::
    :maxdepth: 1
@@ -104,6 +99,11 @@ Our documentation is organized into a few sections:
    model_cards/imagenet_resnet.md
    model_cards/unet.md
 
+.. toctree::
+   :maxdepth: 1
+   :caption: Hparams System (YAHP)
+
+   yahp/getting_started.rst
 
 .. toctree::
    :caption: API Reference

@@ -22,12 +22,12 @@ from torchmetrics.metric import Metric
 from composer.core import Callback, DataSpec, Engine, Event, Logger, State, Time, surgery
 from composer.core.algorithm import Algorithm
 from composer.core.evaluator import Evaluator
-from composer.core.logging import BaseLoggerBackend, LogLevel
+from composer.core.logging import LoggerCallback, LogLevel
 from composer.core.time import TimeUnit
 from composer.core.types import (Batch, BreakEpochException, DataLoader, Evaluators, Metrics, Optimizers, Precision,
                                  Schedulers)
 from composer.datasets.dataloader import unwrap_data_loader
-from composer.loggers.tqdm_logger import TQDMLoggerBackend
+from composer.loggers.tqdm_logger import TQDMLogger
 from composer.models.base import ComposerModel
 from composer.optim import ComposedScheduler
 from composer.optim.decoupled_weight_decay import DecoupledSGDW
@@ -35,9 +35,7 @@ from composer.profiler.profiler_hparams import ProfilerHparams
 from composer.trainer.checkpoint import CheckpointLoader, CheckpointSaver
 from composer.trainer.ddp import DDPSyncStrategy, ddp_sync_context, prepare_ddp_module
 from composer.trainer.deepspeed import fix_batch_precision_for_deepspeed, parse_deepspeed_config
-from composer.trainer.devices.device import Device
-from composer.trainer.devices.device_cpu import DeviceCPU
-from composer.trainer.devices.device_gpu import DeviceGPU
+from composer.trainer.devices import Device, DeviceCPU, DeviceGPU
 from composer.trainer.scaler import ClosureGradScaler
 from composer.utils import dist, ensure_tuple, map_collection, reproducibility
 from composer.utils.object_store import ObjectStoreProvider
@@ -92,8 +90,8 @@ class Trainer:
         deterministic_mode (bool, optional): Run the model deterministically. Experimental. Performance
             degradations expected. Certain Torch modules may not have deterministic implementations,
             which will result in a crash. (default: ``False``)
-        log_destinations (List[BaseLoggerBackend], optional): The destinations to log training information to.
-            (default: ``[TQDMLoggerBackend()]``).
+        loggers (List[LoggerCallback], optional): The destinations to log training information to.
+            (default: ``[TQDMLogger()]``).
         callbacks (Sequence[Callback], optional): The callbacks to run during training. (default: ``[]``)
         load_path (str, optional): Path to a specific checkpoint to load. If not set (the default),
             then no checkpoint will be loaded. (default: ``None``)
@@ -162,7 +160,7 @@ class Trainer:
         deterministic_mode: bool = False,
 
         # Logging and callbacks
-        log_destinations: Optional[Sequence[BaseLoggerBackend]] = None,
+        loggers: Optional[Sequence[LoggerCallback]] = None,
         callbacks: Sequence[Callback] = tuple(),
 
         # load checkpoint
@@ -226,32 +224,31 @@ class Trainer:
         if not algorithms:
             algorithms = []
 
+        # some algorithms require specific settings
         self.backwards_create_graph = any(map(lambda x: x.backwards_create_graph, algorithms))
-
         find_unused_parameters = any(map(lambda x: x.find_unused_parameters, algorithms))
-
         self.find_unused_parameters = find_unused_parameters
 
-        if self.deepspeed_enabled:
-            import deepspeed
-            deepspeed.init_distributed()
-        else:
+        if self.deepspeed_enabled or dist.get_world_size() > 1:
+            # deepspeed requires torch.distributed to be initialized, even if the world size is 1
+            # distributed is always required with multi-rank training
             dist.initialize_dist(self.device.dist_backend, datetime.timedelta(seconds=dist_timeout))
-            if ddp_sync_strategy is None:
-                self.ddp_sync_strategy = DDPSyncStrategy.SINGLE_AUTO_SYNC if not find_unused_parameters else DDPSyncStrategy.FORCED_SYNC
-            else:
-                self.ddp_sync_strategy = DDPSyncStrategy(ddp_sync_strategy)
+        if ddp_sync_strategy is None:
+            self.ddp_sync_strategy = DDPSyncStrategy.SINGLE_AUTO_SYNC if not find_unused_parameters else DDPSyncStrategy.FORCED_SYNC
+        else:
+            self.ddp_sync_strategy = DDPSyncStrategy(ddp_sync_strategy)
 
-        # `eval_dataloader` could be a dataloader, dataspec, evaluator, List[Evaluator], Tuple[Evaluator, ...], or dict of Dataspec hparams
-        # convert it to `List[Evaluator]`
+        # convert eval_dataloader to `List[Evaluator]`
         self.evaluators: List[Evaluator] = []
         for evaluator in ensure_tuple(eval_dataloader):
             if isinstance(evaluator, Evaluator):
                 self.evaluators.append(evaluator)
             else:
                 metrics = model.metrics(train=False)
-                default_evaluator = Evaluator(label="eval_dataset", dataloader=evaluator, metrics=metrics)
-                self.evaluators.append(default_evaluator)
+                evaluator = Evaluator(label="eval_dataset", dataloader=evaluator, metrics=metrics)
+                self.evaluators.append(evaluator)
+
+        self._eval_subset_num_batches = eval_subset_num_batches
 
         # do a check here to make sure there is at least one validation set
         if len(self.evaluators) == 0:
@@ -259,13 +256,6 @@ class Trainer:
                 textwrap.dedent("""No evaluation dataset was specified. Please specify `eval_dataloader` to periodically
                 evaluate your model while training."""),
                 category=UserWarning)
-
-        # TODO(#123): DeepSpeed still needs a precision context, but it's not completely clear how to
-        # handle this with our version of Pytorch
-        precision_context = self.device.precision_context if not self.deepspeed_enabled else cast(
-            Callable[..., ContextManager], contextlib.nullcontext)
-        if isinstance(precision, str):
-            precision = Precision(precision)
 
         if not isinstance(train_dataloader, DataSpec):
             train_dataloader = DataSpec(train_dataloader)
@@ -285,27 +275,19 @@ class Trainer:
                     To fix, please do not iterate over the dataloader before passing it into
                     the trainer."""))
 
-        if eval_subset_num_batches is not None:
-            for evaluator in self.evaluators:
-                try:
-                    eval_dataloader_len = len(evaluator.dataloader.dataloader)
-                except (NotImplementedError, TypeError):
-                    pass
-                else:
-                    if eval_subset_num_batches > eval_dataloader_len:
-                        warnings.warn(
-                            textwrap.dedent(
-                                f"""SubsetNumBatchesWarning: The eval_subset_num_batches({eval_subset_num_batches})
-                                is greater than the number of batches in the evaluator ({evaluator.label}) dataloader
-                                ({len(evaluator.dataloader.dataloader)})"""))
-        self._eval_subset_num_batches = eval_subset_num_batches
+        # TODO(#123): DeepSpeed still needs a precision context, but it's not completely clear how to
+        # handle this with our version of Pytorch
+        precision_context = self.device.precision_context if not self.deepspeed_enabled else cast(
+            Callable[..., ContextManager], contextlib.nullcontext)
+        if isinstance(precision, str):
+            precision = Precision(precision)
 
+        # optimizers and schedulers
         if not optimizers:
             optimizers = DecoupledSGDW(list(model.parameters()), lr=0.1)
             warnings.warn(f"No optimizer was specified. Defaulting to {repr(optimizers)}")
 
         num_optimizers = len(ensure_tuple(optimizers))
-
         if num_optimizers != 1:
             raise NotImplementedError(f"Only one optimizer is supported; found {num_optimizers} optimizers")
 
@@ -315,9 +297,8 @@ class Trainer:
                 raise ValueError("If a scheduler is not provided, max duration must be in epochs")
             schedulers = CosineAnnealingLR(optimizer, T_max=max_duration.value)
             warnings.warn(f"No scheduler was specified. Defaulting to {repr(schedulers)}")
-        if not isinstance(schedulers, (tuple, list)):
-            schedulers = [schedulers]
-        schedulers = ComposedScheduler(schedulers)
+
+        schedulers = ComposedScheduler(ensure_tuple(schedulers))
 
         self.state = State(
             max_duration=max_duration,
@@ -339,10 +320,10 @@ class Trainer:
             self.state.profiler = profiler.initialize_object(self.state)
             self.state.callbacks.extend(self.state.profiler.event_handlers)
 
-        if log_destinations is None:
-            log_destinations = [TQDMLoggerBackend()]
-        self.logger = Logger(self.state, log_destinations)
-        self.state.callbacks = list(cast(List[Callback], log_destinations)) + self.state.callbacks
+        if loggers is None:
+            loggers = [TQDMLogger()]
+        self.logger = Logger(self.state, loggers)
+        self.state.callbacks = list(cast(List[Callback], loggers)) + self.state.callbacks
 
         self.engine = Engine(
             state=self.state,
@@ -415,8 +396,9 @@ class Trainer:
             # Move any remaining optimizer parameters onto the device
             self.state.optimizers = map_collection(self.state.optimizers, self.device.optimizer_to_device)
 
-            # wrap model with DDP
-            self.state.model = prepare_ddp_module(self.state.model, self.find_unused_parameters)
+            if dist.is_initialized():
+                # wrap model with DDP
+                self.state.model = prepare_ddp_module(self.state.model, self.find_unused_parameters)
 
     @property
     def deepspeed_enabled(self):
