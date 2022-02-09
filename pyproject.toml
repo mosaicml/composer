@@ -54,7 +54,7 @@ addopts = "--strict-markers -m 'not daily_regression and not weekly_regression a
 
 # by default, tests should be fast.
 # for slower tests, use @pytest.mark.timeout with a higher timeout (specified in seconds)
-timeout = 5
+timeout = 2
 markers = [
     "world_size(val)",
     # world size this test requires. If not specified, equivalent to @pytest.mark.world_size(1), meaning a 1-process test

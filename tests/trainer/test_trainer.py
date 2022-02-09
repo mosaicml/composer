@@ -320,7 +320,6 @@ class TestTrainerAssets:
             pytest.skip("Not supported logger.")
         if name == 'wandb':
             pytest.importorskip('wandb', reason='Required wandb')
-            required_args = {'extra_init_params': {'mode': 'disabled'}}
 
         return hparams(**required_args).initialize_object()
 

@@ -4,6 +4,7 @@
 
 import datetime
 import os
+from enum import auto
 
 import pytest
 import torch.distributed as dist
@@ -52,3 +53,10 @@ def init_process_group(monkeypatch):
 
     if dist.is_initialized() and dist.is_available():
         dist.destroy_process_group()
+
+
+@pytest.fixture(autouse=True)
+def disable_wandb(monkeypatch):
+    monkeypatch.setenv("WANDB_MODE", "disabled")
+
+    yield
