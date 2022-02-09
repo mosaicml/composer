@@ -13,26 +13,65 @@ from PIL import Image
 from torch.utils.data import Dataset
 from torchvision.datasets import VisionDataset
 
+from composer.core.precision import Precision
 from composer.models import ComposerClassifier
 from composer.trainer.devices import DeviceCPU, DeviceGPU
 
-
+# syntactic sugar below
 # decorators for common parameterizations and marks
-def device(*args):
 
-    parameters = []
-    for arg in args:
-        if arg == 'cpu':
-            parameters += [pytest.param(DeviceCPU(), id="cpu")]
-        elif arg == 'gpu':
-            parameters += [pytest.param(DeviceGPU(), id="gpu", marks=pytest.mark.gpu)]
-        else:
-            raise ValueError(f'arguments to @device must be cpu, gpu, got {arg}')
+
+def device(*args, precision=False):
+    """Decorator for device and optionally precision.
+
+    Input choices are ('cpu', 'gpu'), or if precision=True,
+    also accept ('gpu-amp', 'gpu-fp32', and 'cpu-fp32').
+
+    Returns the parameter "device", or if precision=True,
+    also returns the parameter "precision".
+    """
+    # convert cpu-fp32 and gpu-fp32 to cpu, gpu
+    if not precision and any(['-' in arg for arg in args]):
+        raise ValueError('-fp32 and -amp tags must be removed if precision=False')
+    args = [arg.replace('-fp32', '') for arg in args]
+
+    # use lambdas to construct DeviceGPU only when gpu requested
+    if precision:
+        devices = {
+            'cpu': lambda: pytest.param(DeviceCPU(), Precision.FP32, id="cpu"),
+            'gpu': lambda: pytest.param(DeviceGPU(), Precision.FP32, id="gpu-fp32", marks=pytest.mark.gpu),
+            'gpu-amp': lambda: pytest.param(DeviceGPU(), Precision.AMP, id='gpu-amp', marks=pytest.mark.gpu)
+        }
+        name = "device,precision"
+    else:
+        devices = {
+            'cpu': lambda: pytest.param(DeviceCPU(), id="cpu"),
+            'gpu': lambda: pytest.param(DeviceGPU(), id="gpu", marks=pytest.mark.gpu),
+        }
+        name = "device"
+
+    parameters = [devices[arg]() for arg in args]
 
     def decorator(test):
         if not parameters:
             return test
-        return pytest.mark.parametrize("device", parameters)(test)
+        return pytest.mark.parametrize(name, parameters)(test)
+
+    return decorator
+
+
+def world_size(*args):
+
+    params = {
+        1: pytest.param(1),
+        2: pytest.param(2, marks=pytest.mark.world_size(2)),
+    }
+    parameters = [params[arg] for arg in args]
+
+    def decorator(test):
+        if not parameters:
+            return test
+        return pytest.mark.parametrize("world_size", parameters)(test)
 
     return decorator
 

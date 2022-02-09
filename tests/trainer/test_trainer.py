@@ -1,6 +1,7 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
 import datetime
+import os
 import pathlib
 import unittest
 from typing import Type
@@ -32,7 +33,7 @@ from composer.core.event import Event
 from composer.core.logging.logger import Logger
 from composer.core.precision import Precision
 from composer.core.profiler import ProfilerEventHandlerHparams
-from composer.core.types import Optimizer, Scheduler
+from composer.core.types import Model, Optimizer, Scheduler
 from composer.loggers import LoggerCallbackHparams
 from composer.loggers.logger_hparams import MosaicMLLoggerHparams
 from composer.loggers.tqdm_logger import TQDMLogger
@@ -43,7 +44,7 @@ from composer.trainer import Trainer, TrainerHparams
 from composer.trainer.devices.device_gpu import DeviceGPU
 from composer.trainer.devices.device_hparams import CPUDeviceHparams, DeviceHparams, GPUDeviceHparams
 from composer.utils import dist
-from tests.common import RandomClassificationDataset, SimpleModel, device
+from tests.common import RandomClassificationDataset, SimpleConvModel, SimpleModel, device, world_size
 from tests.utils.trainer_fit import get_total_loss, train_model
 
 
@@ -73,7 +74,7 @@ class TestTrainerInit():
 
     def test_loggers_before_callbacks(self, config):
         config.update({
-            "log_destinations": [TQDMLogger()],
+            "loggers": [TQDMLogger()],
             "callbacks": [LRMonitor()],
         })
 
@@ -112,10 +113,19 @@ class TestTrainerInit():
             Trainer(**config)
 
 
+@world_size(1, 2)
+@device('cpu', 'gpu', 'gpu-amp', precision=True)
 class TestTrainerEquivalence():
 
+    reference_model: Model
+    reference_folder: pathlib.Path
+
+    def assert_models_equal(self, model_1, model_2):
+        for param1, param2 in zip(model_1.parameters(), model_2.parameters()):
+            torch.testing.assert_allclose(param1, param2)
+
     @pytest.fixture
-    def config(self):
+    def config(self, device, precision, world_size):
         return {
             'model': SimpleModel(),
             'train_dataloader': DataLoader(
@@ -129,37 +139,31 @@ class TestTrainerEquivalence():
             ),
             'max_duration': '2ep',
             'seed': 0,
+            'device': device,
+            'precision': precision,
             'deterministic_mode': True,  # testing equivalence
-            'log_destinations': [],  # no progress bar
+            'loggers': [],  # no progress bar
         }
 
-    @pytest.fixture
-    def trained_model(self, config):
-        """Trains the reference model."""
-        trainer = Trainer(**config)
-        trainer.fit()
-
-        return trainer.state.model
-
-    def assert_models_equal(self, model_1, model_2):
-        for param1, param2 in zip(model_1.parameters(), model_2.parameters()):
-            torch.testing.assert_allclose(param1, param2)
-
-    @device('cpu', 'gpu')
-    def test_determinism(self, config, trained_model, device):
-        config.update({
-            'seed': 777,
-            'model': SimpleModel(),
-            'device': device,
-            'deterministic_mode': False,
-        })
+    @pytest.fixture(autouse=True)
+    def create_reference_model(self, config, tmpdir_factory, *args):
+        """Trains the reference model, and saves checkpoints"""
+        save_folder = tmpdir_factory.mktemp("{device}-{precision}".format(**config))
+        config.update({'save_interval': '1ep', 'save_folder': save_folder})
 
         trainer = Trainer(**config)
         trainer.fit()
 
-        self.assert_models_equal(trainer.state.model, trained_model)
+        self.reference_model = trainer.state.model
+        self.reference_folder = save_folder
 
-    def test_grad_accum(self, config, trained_model):
+    def test_determinism(self, config, *args):
+        trainer = Trainer(**config)
+        trainer.fit()
+
+        self.assert_models_equal(trainer.state.model, self.reference_model)
+
+    def test_grad_accum(self, config, *args):
         config.update({
             'grad_accum': 2,
         })
@@ -167,10 +171,16 @@ class TestTrainerEquivalence():
         trainer = Trainer(**config)
         trainer.fit()
 
-        self.assert_models_equal(trainer.state.model, trained_model)
+        self.assert_models_equal(trainer.state.model, self.reference_model)
 
-    def test_checkpoint(self):
-        pass
+    def test_checkpoint(self, config, *args):
+        checkpoint_file = os.path.join(self.reference_folder, 'ep1.tar')
+        config['load_path'] = checkpoint_file
+
+        trainer = Trainer(**config)
+        trainer.fit()
+
+        self.assert_models_equal(trainer.state.model, self.reference_model)
 
 
 class TestTrainerEvents(unittest.TestCase):
@@ -180,110 +190,45 @@ class TestTrainerEvents(unittest.TestCase):
 
 
 """
-def test_trainer_init_all_defaults(dummy_train_dataloader: DataLoader, dummy_val_dataloader: DataLoader,
-                                   dummy_model: ComposerModel):
-    trainer = Trainer(model=dummy_model,
-                      train_dataloader=dummy_train_dataloader,
-                      eval_dataloader=dummy_val_dataloader,
-                      max_duration="10ep")
+The below is a catch-all test that runs the Trainer
+with each algorithm, callback, and loggers. Success
+is defined as a successful training run.
 
-    assert isinstance(trainer, Trainer)
-
-
-def test_trainer_init_additional_args(dummy_train_dataloader: DataLoader, dummy_val_dataloader: DataLoader,
-                                      dummy_optimizer: Optimizer, dummy_scheduler: Scheduler,
-                                      dummy_model: ComposerModel):
-    trainer = Trainer(
-        model=dummy_model,
-        train_dataloader=dummy_train_dataloader,
-        eval_dataloader=dummy_val_dataloader,
-        max_duration="10ep",
-        optimizers=dummy_optimizer,
-        schedulers=dummy_scheduler,
-        loggers=[TQDMLogger()],
-        callbacks=(LRMonitor(),),
-    )
-
-    assert isinstance(trainer, Trainer)
-    assert trainer.state.optimizers[0] == dummy_optimizer
-
-    assert isinstance(trainer.state.schedulers[0], ComposedScheduler)
-
-    assert len(trainer.logger.backends) == 1
-    assert isinstance(trainer.logger.backends[0], TQDMLogger)
-    assert isinstance(trainer.logger, Logger)
-
-    # log destination and lr monitor, logger destination callback must be first
-    assert len(trainer.state.callbacks) == 2
-    assert isinstance(trainer.state.callbacks[0], TQDMLogger)
-    assert isinstance(trainer.state.callbacks[1], LRMonitor)
+This should eventually be replaced by functional
+tests for each object, in situ of our trainer.
+"""
 
 
-def test_trainer_hparams_initialize_object(composer_trainer_hparams: TrainerHparams):
-    trainer = composer_trainer_hparams.initialize_object()
-    assert isinstance(trainer, Trainer)
+class TestTrainerAssets:
+
+    @pytest.fixture
+    def config(self):
+        return {
+            'model': SimpleConvModel(),
+            'train_dataloader': DataLoader(
+                dataset=RandomClassificationDataset(size=16),
+                batch_size=4,
+                shuffle=True,
+            ),
+            'eval_dataloader': DataLoader(
+                dataset=RandomClassificationDataset(size=16),
+                shuffle=False,
+            ),
+            'max_duration': '2ep',
+            'loggers': [],  # no progress bar
+        }
+
+    def test_algorithms(self):
+        pass
+
+    def test_callbacks(self):
+        pass
+
+    def test_loggers(self):
+        pass
 
 
-@pytest.mark.parametrize('invalid_hparams', [])
-def test_trainer_validation(composer_trainer_hparams: TrainerHparams, invalid_hparams):
-    with patch.multiple(composer_trainer_hparams, **invalid_hparams), pytest.raises(ValueError):
-        composer_trainer_hparams.validate()
-
-
-@pytest.mark.timeout(90)
-@pytest.mark.parametrize("device", [CPUDeviceHparams(), pytest.param(GPUDeviceHparams(), marks=pytest.mark.gpu)])
-def test_trainer_determinism(composer_trainer_hparams: TrainerHparams, device: DeviceHparams):
-    composer_trainer_hparams.seed = 10
-    composer_trainer_hparams.device = device
-    composer_trainer_hparams.max_duration = "2ep"
-
-    first_trainer = composer_trainer_hparams.initialize_object()
-    first_model = first_trainer.state.model
-    first_trainer.fit()
-    if isinstance(first_model, DistributedDataParallel):
-        first_model = first_model.module
-    assert isinstance(first_model, ComposerModel)
-    assert first_trainer.state.train_dataloader is not None
-    first_loss = get_total_loss(first_model, first_trainer.state.train_dataloader, first_trainer.device)
-
-    # Second trainer must be created after fitting the first so that the
-    # seeds get fully reset for the second training run
-    second_trainer = composer_trainer_hparams.initialize_object()
-    second_model = second_trainer.state.model
-    second_trainer.fit()
-    if isinstance(second_model, DistributedDataParallel):
-        second_model = second_model.module
-    assert isinstance(second_model, ComposerModel)
-    assert second_trainer.state.train_dataloader is not None
-    second_loss = get_total_loss(second_model, second_trainer.state.train_dataloader, second_trainer.device)
-
-    torch.testing.assert_allclose(second_loss, first_loss)
-
-
-@pytest.mark.timeout(90)
-@pytest.mark.parametrize("world_size", [
-    pytest.param(1),
-    pytest.param(2, marks=pytest.mark.world_size(2)),
-])
-@pytest.mark.parametrize("device_hparams,precision", [
-    pytest.param(CPUDeviceHparams(), Precision.FP32, id="cpu"),
-    pytest.param(GPUDeviceHparams(), Precision.FP32, id="gpu-fp32", marks=pytest.mark.gpu),
-    pytest.param(GPUDeviceHparams(), Precision.AMP, id="gpu-amp", marks=pytest.mark.gpu),
-])
-@pytest.mark.parametrize("grad_accum", [
-    pytest.param(1, id="ga1"),
-    pytest.param(2, id="ga2"),
-])
-def test_trainer_fit(composer_trainer_hparams: TrainerHparams, device_hparams: DeviceHparams, world_size: int,
-                     grad_accum: int, precision: Precision):
-    del world_size  # unused. Set via env vars
-    composer_trainer_hparams.device = device_hparams
-    composer_trainer_hparams.grad_accum = grad_accum
-    composer_trainer_hparams.precision = precision
-
-    train_model(composer_trainer_hparams, max_epochs=2, run_loss_check=True)
-
-
+"""
 _ALL_LOGGERS_CALLBACKS_ALG_PROFILER_HPARAMS = [
     *TrainerHparams.hparams_registry["algorithms"].values(),
     # excluding the run directory uploader here since it needs a longer timeout -- see below
@@ -366,8 +311,8 @@ def test_fit_on_all_callbacks_loggers_algs_profilers(
 ):
     trainer = _build_trainer(composer_trainer_hparams, dummy_num_classes, hparams_cls, monkeypatch, tmpdir)
     trainer.fit()
-
-
+"""
+"""
 @pytest.mark.parametrize("hparams_cls", _ALL_LOGGERS_CALLBACKS_ALG_PROFILER_HPARAMS)
 def test_multiple_calls_to_fit(
     composer_trainer_hparams: TrainerHparams,
