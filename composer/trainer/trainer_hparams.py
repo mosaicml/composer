@@ -170,9 +170,9 @@ class TrainerHparams(hp.Hparams):
     validate_every_n_batches: int = hp.optional(
         doc="Validate every N batches. Set to -1 to never validate on a batchwise frequency. Defaults to -1.",
         default=-1)
+    scale_schedule_ratio: float = hp.optional(
+        doc="Ratio by which to scale the training duration and learning rate schedules.", default=1.0)
     callbacks: List[CallbackHparams] = hp.optional(doc="Callback hparams", default_factory=list)
-
-    scale_schedule_ratio: float = hp.optional(doc="", default=1.0)
 
     load_path: Optional[str] = hp.optional(doc=textwrap.dedent("""\
         If specified, the path to an existing checkpoint file

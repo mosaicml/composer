@@ -82,7 +82,9 @@ class Trainer:
         compute_training_metrics (bool, optional): True to compute metrics on training data and False to not.
             (default: ``False``)
         precision (str or Precision, optional): Numerical precision to use for training, one of 'fp32', 'fp16'
-            for 'amp' (recommended). (default: ``Precision.FP32``).
+            or 'amp' (recommended). (default: ``Precision.FP32``).
+        scale_schedule_ratio (float, optional): Ratio by which to scale the training duration and learning rate
+            schedules. (default: ``0``),
         dist_timeout (float, optional): Timeout, in seconds, for initializing the distributed process group.
             (default: ``15.0``)
         ddp_sync_strategy (str or DDPSyncStrategy, optional): The strategy to use for synchronizing gradients.
