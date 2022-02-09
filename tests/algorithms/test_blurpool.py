@@ -14,9 +14,10 @@ import torch
 from composer.algorithms import BlurPool
 from composer.algorithms.blurpool import apply_blurpool
 from composer.algorithms.blurpool.blurpool_layers import BlurConv2d, BlurMaxPool2d
-from composer.core import Event, State, surgery
+from composer.core import Event, State
 from composer.core.types import Logger, Tensors
 from composer.models import ComposerClassifier
+from composer.utils import module_surgery
 
 
 class ConvModel(torch.nn.Module):
@@ -148,10 +149,10 @@ def test_blurconv2d_optimizer_params_updated():
     param_list: List[torch.Tensor] = optimizer.param_groups[0]['params']
 
     # assert old parameters removed
-    assert not surgery._tensor_in(original_layer.weight, param_list)
+    assert not module_surgery._tensor_in(original_layer.weight, param_list)
 
     # new params added
     new_conv_layer = new_layer.conv
     assert isinstance(new_conv_layer, torch.nn.Conv2d)
     assert new_conv_layer.weight is not original_layer.weight
-    assert surgery._tensor_in(new_conv_layer.weight, param_list)
+    assert module_surgery._tensor_in(new_conv_layer.weight, param_list)
