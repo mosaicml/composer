@@ -375,15 +375,11 @@ class Trainer:
             )
             # The deepspeed engine is responsible for serializing the model and optimizer state,
             # so these attributes should not be serialized with the composer state.
-            try:
+            if "model" in self.state.serialized_attributes:
                 self.state.serialized_attributes.remove("model")
-            except ValueError:
-                pass
 
-            try:
+            if "optimizers" in self.state.serialized_attributes:
                 self.state.serialized_attributes.remove("optimizers")
-            except ValueError:
-                pass
 
         # If using DeepSpeed, the model must be loaded from checkpoint after the engine has been
         # initialized, but if using PyTorch DDP, the model must be loaded before it is wrapped with
