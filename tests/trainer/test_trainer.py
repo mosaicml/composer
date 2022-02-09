@@ -8,6 +8,7 @@ import pytest
 import torch
 import torch.distributed
 import yahp as hp
+from torch.nn.parallel import DistributedDataParallel
 
 from composer.algorithms import AlgorithmHparams
 from composer.algorithms.alibi.alibi import AlibiHparams
@@ -28,9 +29,9 @@ from composer.core.logging.logger import Logger
 from composer.core.precision import Precision
 from composer.core.profiler import ProfilerEventHandlerHparams
 from composer.core.types import DataLoader, Optimizer, Scheduler
-from composer.loggers import BaseLoggerBackendHparams
-from composer.loggers.logger_hparams import MosaicMLLoggerBackendHparams
-from composer.loggers.tqdm_logger import TQDMLoggerBackend
+from composer.loggers import LoggerCallbackHparams
+from composer.loggers.logger_hparams import MosaicMLLoggerHparams
+from composer.loggers.tqdm_logger import TQDMLogger
 from composer.models.base import ComposerModel
 from composer.optim.scheduler import ComposedScheduler
 from composer.profiler.profiler_hparams import ProfilerCallbackHparams, ProfilerHparams
@@ -59,7 +60,7 @@ def test_trainer_init_additional_args(dummy_train_dataloader: DataLoader, dummy_
         max_duration="10ep",
         optimizers=dummy_optimizer,
         schedulers=dummy_scheduler,
-        log_destinations=[TQDMLoggerBackend()],
+        loggers=[TQDMLogger()],
         callbacks=(LRMonitor(),),
     )
 
@@ -69,12 +70,12 @@ def test_trainer_init_additional_args(dummy_train_dataloader: DataLoader, dummy_
     assert isinstance(trainer.state.schedulers[0], ComposedScheduler)
 
     assert len(trainer.logger.backends) == 1
-    assert isinstance(trainer.logger.backends[0], TQDMLoggerBackend)
+    assert isinstance(trainer.logger.backends[0], TQDMLogger)
     assert isinstance(trainer.logger, Logger)
 
     # log destination and lr monitor, logger destination callback must be first
     assert len(trainer.state.callbacks) == 2
-    assert isinstance(trainer.state.callbacks[0], TQDMLoggerBackend)
+    assert isinstance(trainer.state.callbacks[0], TQDMLogger)
     assert isinstance(trainer.state.callbacks[1], LRMonitor)
 
 
@@ -97,8 +98,10 @@ def test_trainer_determinism(composer_trainer_hparams: TrainerHparams, device: D
     composer_trainer_hparams.max_duration = "2ep"
 
     first_trainer = composer_trainer_hparams.initialize_object()
+    first_model = first_trainer.state.model
     first_trainer.fit()
-    first_model = first_trainer.state.model.module
+    if isinstance(first_model, DistributedDataParallel):
+        first_model = first_model.module
     assert isinstance(first_model, ComposerModel)
     assert first_trainer.state.train_dataloader is not None
     first_loss = get_total_loss(first_model, first_trainer.state.train_dataloader, first_trainer.device)
@@ -106,8 +109,10 @@ def test_trainer_determinism(composer_trainer_hparams: TrainerHparams, device: D
     # Second trainer must be created after fitting the first so that the
     # seeds get fully reset for the second training run
     second_trainer = composer_trainer_hparams.initialize_object()
+    second_model = second_trainer.state.model
     second_trainer.fit()
-    second_model = second_trainer.state.model.module
+    if isinstance(second_model, DistributedDataParallel):
+        second_model = second_model.module
     assert isinstance(second_model, ComposerModel)
     assert second_trainer.state.train_dataloader is not None
     second_loss = get_total_loss(second_model, second_trainer.state.train_dataloader, second_trainer.device)
@@ -179,7 +184,7 @@ def _build_trainer(composer_trainer_hparams: TrainerHparams, dummy_num_classes: 
             "These algorithms require a synthetic Vision (i.e. PIL Image format) dataset, which does not exist")
     if issubclass(hparams_cls, SWAHparams):
         pytest.xfail("SWA does not work with composed schedulers.")
-    if issubclass(hparams_cls, (BenchmarkerHparams, MosaicMLLoggerBackendHparams)):
+    if issubclass(hparams_cls, (BenchmarkerHparams, MosaicMLLoggerHparams)):
         pytest.xfail("Not sure why these are failing, but nobody uses these anyways so going to ignore.")
     if issubclass(hparams_cls, (CutMixHparams, MixUpHparams, LabelSmoothingHparams)):
         pytest.importorskip("torch",
@@ -196,7 +201,7 @@ def _build_trainer(composer_trainer_hparams: TrainerHparams, dummy_num_classes: 
     if instance is None:
         instance = hparams_cls()
 
-    if isinstance(instance, BaseLoggerBackendHparams):
+    if isinstance(instance, LoggerCallbackHparams):
         composer_trainer_hparams.loggers.append(instance)
     elif isinstance(instance, ProfilerCallbackHparams):
         composer_trainer_hparams.profiler = ProfilerHparams(profilers=[instance])

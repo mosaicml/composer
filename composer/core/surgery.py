@@ -1,5 +1,10 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
+"""Surgery modifies model architectures.
+
+This module provides helper functions generally used by algorithms that need to modify a provided model, generally by
+substituting particular modules for optimized replacements.
+"""
 import collections
 import itertools
 import logging
@@ -64,8 +69,7 @@ def replace_module_classes(
     recurse_on_replacements: bool = False,
     indices: Optional[Dict[Any, int]] = None,
 ) -> Dict[torch.nn.Module, torch.nn.Module]:
-    """Modify model in-place by recursively applying replacement policies. Replacement policies are a mapping of source
-    classes and :class:`ReplacementFunction`.
+    """Modify model in-place by recursively applying replacement policies.
 
     Examples:
         The following policy::
@@ -78,6 +82,11 @@ def replace_module_classes(
 
         will replace all convolution layers with linear layers, and all max pooling with average pooling. Linear
         layers will be optionally replaced depending on the number of input features.
+
+    .. warning:: When a module is replaced, any tensor values within the module are not copied over
+                 to the new module even when the shape is identical. For example, if model weights
+                 are initialized and prior to calling this function, the initialized weights will not
+                 be preserved in any replacements.
 
 
     Arguments:
@@ -168,11 +177,16 @@ def count_module_instances(model: torch.nn.Module, module_class: Type[torch.nn.M
     """Counts the number of instances of module_class in the model.
 
     Example:
-        >>> model = nn.Sequential([nn.Linear(16, 32), nn.Linear(32, 64), nn.ReLU])
-        >>> count_module_instances(model, nn.Linear)
-        2
-        >>> count_module_instances(model, (nn.Linear, nn.ReLU))
-        3
+        .. testsetup::
+            from composer.core.surgery import count_module_instances
+
+        .. doctest::
+            >>> from torch import nn
+            >>> model = nn.Sequential([nn.Linear(16, 32), nn.Linear(32, 64), nn.ReLU])
+            >>> count_module_instances(model, nn.Linear)
+            2
+            >>> count_module_instances(model, (nn.Linear, nn.ReLU))
+            3
 
     Args:
         model (torch.nn.Module): Source model
@@ -215,7 +229,7 @@ def _find_param_in_optimizer(param: torch.nn.parameter.Parameter, optimizer: tor
     Args:
         param (torch.nn.parameter.Parameter): The parameter to search for.
         optimizer (torch.optim.Optimizer): The optimizer to search within.
-    
+
     Returns:
         int: The index within `opt.param_groups` of the first group containing ``param``,
         or `-1` if ``param`` is not in the ``opt`.
@@ -311,11 +325,13 @@ def replace_params_in_optimizer(old_params: Iterable[torch.nn.parameter.Paramete
     this function assumes that parameters in `new_params` should inherit the
     param group of the corresponding parameter from `old_params`. Thus, this
     function also assumes that `old_params` and `new_params` have the same length.
+
     Args:
         old_params: Current parameters of the optimizer.
         new_params: New parameters of the optimizer, given in the same order as
             `old_params`. Must be the same length as `old_params`.
         optimizers (Optimizers): One or more `torch.optim.Optimizer` objects.
+
     Raises:
         NotImplementedError: If `optimizers` contains more than one optimizer
         RuntimeError: If `old_params` and `new_params` have different lengths, or

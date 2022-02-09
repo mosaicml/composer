@@ -32,31 +32,6 @@ class WarmUpLR(_LRScheduler):
         verbose (bool): If ``True``, prints a message to stdout for
             each update. Default: ``False``.
         interval (str): Frequency of ``step()`` calls, either ``step`` or ``epoch``. Default: ``epoch``.
-
-    Example:
-        >>> # Assuming optimizer uses lr = 0.05 for all groups
-        >>> # lr = 0.025    if epoch == 0
-        >>> # lr = 0.03125  if epoch == 1
-        >>> # lr = 0.0375   if epoch == 2
-        >>> # lr = 0.04375  if epoch == 3
-        >>> # lr = 0.05    if epoch >= 4
-        >>> scheduler = WarmUpLR(self.opt, warmup_factor=0.5, warmup_iters=4, warmup_method="linear")
-        >>> for epoch in range(100):
-        >>>     train(...)
-        >>>     validate(...)
-        >>>     scheduler.step()
-
-        >>> # Assuming optimizer uses lr = 0.05 for all groups
-        >>> # lr = 0.025    if epoch == 0
-        >>> # lr = 0.025    if epoch == 1
-        >>> # lr = 0.025    if epoch == 2
-        >>> # lr = 0.025    if epoch == 3
-        >>> # lr = 0.05    if epoch >= 4
-        >>> scheduler = WarmUpLR(self.opt, warmup_factor=0.5, warmup_iters=4, warmup_method="constant")
-        >>> for epoch in range(100):
-        >>>     train(...)
-        >>>     validate(...)
-        >>>     scheduler.step()
     """
 
     def __init__(self,
@@ -143,19 +118,6 @@ class LinearLR(_LRScheduler):
         last_epoch (int): The index of the last epoch. Default: -1.
         verbose (bool): If ``True``, prints a message to stdout for
             each update. Default: ``False``.
-
-    Example:
-        >>> # Assuming optimizer uses lr = 0.05 for all groups
-        >>> # lr = 0.025    if epoch == 0
-        >>> # lr = 0.03125  if epoch == 1
-        >>> # lr = 0.0375   if epoch == 2
-        >>> # lr = 0.04375  if epoch == 3
-        >>> # lr = 0.005    if epoch >= 4
-        >>> scheduler = LinearLR(self.opt, start_factor=0.5, total_iters=4)
-        >>> for epoch in range(100):
-        >>>     train(...)
-        >>>     validate(...)
-        >>>     scheduler.step()
     """
 
     def __init__(self, optimizer, start_factor=1.0 / 3, end_factor=1.0, total_iters=5, last_epoch=-1, verbose=False):

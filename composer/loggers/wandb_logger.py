@@ -8,13 +8,13 @@ import textwrap
 import warnings
 from typing import Any, Dict, Optional
 
-from composer.core.logging import BaseLoggerBackend, LogLevel, TLogData
+from composer.core.logging import LoggerCallback, LogLevel, TLogData
 from composer.core.time import Timestamp
 from composer.core.types import Logger, State, StateDict
 from composer.utils import dist, run_directory
 
 
-class WandBLoggerBackend(BaseLoggerBackend):
+class WandBLogger(LoggerCallback):
     """Log to Weights and Biases (https://wandb.ai/)
 
     Args:
