@@ -9,7 +9,7 @@ from _pytest.monkeypatch import MonkeyPatch
 from composer.core import Logger, State
 from composer.core.logging.logger import LogLevel, TLogData
 from composer.core.types import JSON
-from composer.loggers import MosaicMLLoggerBackendHparams, mosaicml_logger
+from composer.loggers import MosaicMLLoggerHparams, mosaicml_logger
 from composer.loggers.mosaicml_logger import RunStatus, RunType
 
 
@@ -20,13 +20,13 @@ def test_mosaic_logger(tmpdir: pathlib.Path, dummy_state: State, dummy_logger: L
 
     flush_every_n_batches = 5
     max_logs_in_buffer = 3
-    hparams = MosaicMLLoggerBackendHparams(run_name="run_name",
-                                           run_type=RunType.BENCHMARKING,
-                                           experiment_name="experiment_name",
-                                           run_id="run_id",
-                                           creds_file=creds_file,
-                                           flush_every_n_batches=flush_every_n_batches,
-                                           max_logs_in_buffer=max_logs_in_buffer)
+    hparams = MosaicMLLoggerHparams(run_name="run_name",
+                                    run_type=RunType.BENCHMARKING,
+                                    experiment_name="experiment_name",
+                                    run_id="run_id",
+                                    creds_file=creds_file,
+                                    flush_every_n_batches=flush_every_n_batches,
+                                    max_logs_in_buffer=max_logs_in_buffer)
     logger = hparams.initialize_object()
 
     data_logged = []

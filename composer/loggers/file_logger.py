@@ -8,13 +8,13 @@ from typing import Any, Dict, Optional, TextIO
 
 import yaml
 
-from composer.core.logging import BaseLoggerBackend, Logger, LogLevel, TLogData, format_log_data_value
+from composer.core.logging import Logger, LoggerCallback, LogLevel, TLogData, format_log_data_value
 from composer.core.state import State
 from composer.core.time import Timestamp
 from composer.utils import run_directory
 
 
-class FileLoggerBackend(BaseLoggerBackend):
+class FileLogger(LoggerCallback):
     """Logs to a file or to the terminal.
 
     Example output::

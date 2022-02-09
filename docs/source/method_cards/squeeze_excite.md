@@ -63,6 +63,6 @@ Because SE modules slow down the model, they compose well with methods that make
     :noindex:
 .. autoclass:: composer.algorithms.squeeze_excite.SqueezeExciteConv2d
     :noindex:
-.. autofunction:: composer.algorithms.squeeze_excite.apply_se
+.. autofunction:: composer.algorithms.squeeze_excite.apply_squeeze_excite
     :noindex:
 ```
