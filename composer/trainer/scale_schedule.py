@@ -46,6 +46,9 @@ def scale_scheduler(scheduler: Scheduler, ssr: float, orig_max_epochs: Optional[
     Raises:
         ValueError: If ``scheduler`` is not an instance of one of the above types.
     """
+    if ssr <= 0:
+        raise ValueError("Scale schedule ratio must be a positive value.")
+
     if isinstance(scheduler, StepLR):
         scheduler.step_size = int(scheduler.step_size * ssr)  # type: ignore  -- unknown attribute
     elif isinstance(scheduler, MultiStepLR):

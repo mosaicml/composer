@@ -42,6 +42,10 @@ class ScaleSchedule(Algorithm):
 
     def __init__(self, ratio: float):
         self.ratio = ratio
+        warnings.warn(
+            "ScaleScheduleDeprecationWarning: The scale schedule algorithm is deprecated. "
+            "Please instead use the scale_schedule_ratio parameter of the Composer Trainer.",
+            category=DeprecationWarning)
 
     def match(self, event: Event, state: State) -> bool:
         """Run on Event.INIT.
@@ -50,13 +54,9 @@ class ScaleSchedule(Algorithm):
             event (:class:`Event`): The current event.
             state (:class:`State`): The current state.
         Returns:
-            bool: True if this algorithm should run no
+            bool: True if this algorithm should run.
         """
         return event == Event.INIT
 
     def apply(self, event: Event, state: State, logger: Logger) -> Optional[int]:
         """No-op."""
-        warnings.warn(
-            "ScaleScheduleDeprecationWarning: The scale schedule algorithm is deprecated. "
-            "Please instead use the scale_schedule_ratio parameter of the Composer Trainer.",
-            category=DeprecationWarning)
