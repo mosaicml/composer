@@ -74,8 +74,11 @@ def _convert_time(time: Union[str, Time], state: State) -> Time[int]:
     if time.unit == TimeUnit.DURATION:
         time = convert_time(time=time, unit=state.max_duration.unit, max_training_duration=state.max_duration)
 
-    return time
+    
+    if time.unit == TimeUnit.EPOCH:
+        time = convert_time(time=time, unit=TimeUnit.BATCH, steps_per_epoch=state.steps_per_epoch)
 
+    return time
 
 class ComposerScheduler(ABC):
 
@@ -84,81 +87,48 @@ class ComposerScheduler(ABC):
         pass
 
 
-class StepScheduler(ComposerScheduler):
+def stepScheduler(state: State, step_size: Union[str, Time], gamma: float = 0.1) -> float:
+    step_size = _convert_time(step_size, state)
+    current_time = state.timer.get(step_size.unit)
+    steps = int(current_time / step_size)
 
-    def __init__(self, step_size: Union[str, Time], gamma: float = 0.1):
-        self.step_size = step_size
-        self.gamma = gamma
-
-    def __call__(self, state: State) -> float:
-        step_size = _convert_time(self.step_size, state)
-        current_time = state.timer.get(step_size.unit)
-        steps = int(current_time / step_size)
-
-        return self.gamma**steps
+    return gamma**steps
 
 
-class MultiStepScheduler(ComposerScheduler):
+def multiStepScheduler(state: State, milestones: List[Union[str, Time]], gamma: float = 0.1) -> float:
+    milestones = [_convert_time(milestone, state) for milestone in milestones]
 
-    def __init__(self, milestones: List[Union[str, Time]], gamma: float = 0.1):
-        self.milestones = milestones
-        self.gamma = gamma
+    factor = 1.0
+    for milestone in milestones:
+        if state.timer >= milestone:
+            factor *= gamma
 
-    def __call__(self, state: State):
-        milestones = [_convert_time(milestone, state) for milestone in self.milestones]
+    return factor
 
-        factor = 1.0
-        for milestone in milestones:
-            if state.timer >= milestone:
-                factor *= self.gamma
 
+def constantScheduler(state: State, factor: float = 1.0 / 3, total_time: Union[str, Time] = '5ep') -> float:
+    total_time = _convert_time(total_time, state)
+
+    if state.timer < total_time:
         return factor
 
-
-class ConstantScheduler(ComposerScheduler):
-
-    def __init__(self, factor: float = 1.0 / 3, total_time: Union[str, Time] = '5ep'):
-        self.factor = factor
-        self.total_time = total_time
-
-    def __call__(self, state: State):
-        total_time = _convert_time(self.total_time, state)
-
-        if state.timer < total_time:
-            return self.factor
-
-        return 1.0
+    return 1.0
 
 
-class LinearScheduler(ComposerScheduler):
+def linearScheduler(state: State, start_factor: float = 1.0 / 3, end_factor: float = 1.0, total_time: Union[str, Time] = '5ep') -> float:
+    total_time = _convert_time(total_time, state)
+    current_time = state.timer.get(total_time.unit)
+    frac_of_total = min(1.0, (current_time / total_time).value)
 
-    def __init__(self, start_factor: float = 1.0 / 3, end_factor: float = 1.0, total_time: Union[str, Time] = '5ep'):
-        self.start_factor = start_factor
-        self.end_factor = end_factor
-        self.total_time = total_time
+    current_factor = start_factor + frac_of_total * (end_factor - start_factor)
 
-    def __call__(self, state: State):
-        total_time = _convert_time(self.total_time, state)
-        current_time = state.timer.get(total_time.unit)
-        frac_of_total = min(1.0, current_time / total_time)
-
-        current_factor = self.start_factor + frac_of_total * (self.end_factor - self.start_factor)
-
-        return current_factor
+    return current_factor
 
 
-class ExponentialScheduler(ComposerScheduler):
+def exponentialScheduler(state: State, gamma: float, time_unit: TimeUnit = TimeUnit.EPOCH) -> float:
+    current_time = state.timer.get(time_unit)
 
-    def __init__(self, gamma: float, time_unit: TimeUnit = TimeUnit.EPOCH):
-        self.gamma = gamma
-        self.time_unit = time_unit
-
-    def __call__(self, state: State):
-        current_time = state.timer.get(self.time_unit)
-
-        return self.gamma**current_time.value
-
-# TODO: SequentialScheduler
+    return gamma**current_time.value
 
 class CosineAnnealingLR(ComposerScheduler):
 
@@ -167,7 +137,7 @@ class CosineAnnealingLR(ComposerScheduler):
         self.min_factor = min_factor
 
     def __call__(self, state: State):
-
+        pass
 
 
 @dataclass
