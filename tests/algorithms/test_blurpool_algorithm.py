@@ -16,9 +16,10 @@ from torchmetrics.collections import MetricCollection
 from composer.algorithms import BlurPool, BlurPoolHparams
 from composer.algorithms.blurpool import apply_blurpool
 from composer.algorithms.blurpool.blurpool_layers import BlurConv2d, BlurMaxPool2d
-from composer.core import Event, State, surgery
+from composer.core import Event, State
 from composer.core.evaluator import Evaluator
 from composer.core.types import DataLoader, Logger, Model, Precision
+from composer.utils import module_surgery
 from tests.fixtures.models import SimpleConvModel
 
 
@@ -129,7 +130,7 @@ def test_blurconv2d_optimizer_params_updated():
     param_list: List[torch.Tensor] = opt.param_groups[0]['params']
 
     # old params removed
-    assert not surgery._tensor_in(orig_conv.weight, param_list)
+    assert not module_surgery._tensor_in(orig_conv.weight, param_list)
 
     # new params added
     new_conv2d = new_conv.conv
@@ -137,4 +138,4 @@ def test_blurconv2d_optimizer_params_updated():
     new_weight = new_conv2d.weight
     assert new_weight is not orig_conv.weight
     assert isinstance(new_weight, torch.Tensor)
-    assert surgery._tensor_in(new_weight, param_list)
+    assert module_surgery._tensor_in(new_weight, param_list)

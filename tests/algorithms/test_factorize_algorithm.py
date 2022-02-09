@@ -8,10 +8,11 @@ import torch
 from composer.algorithms import Factorize, FactorizeHparams
 from composer.algorithms.factorize import FactorizedConv2d, FactorizedLinear
 from composer.algorithms.factorize.factorize import LOG_NUM_CONV2D_REPLACEMENTS_KEY, LOG_NUM_LINEAR_REPLACEMENTS_KEY
-from composer.core import Event, Logger, State, surgery
+from composer.core import Event, Logger, State
 from composer.core.algorithm import Algorithm
 from composer.core.types import Tensors
 from composer.trainer.trainer_hparams import TrainerHparams
+from composer.utils import module_surgery
 from tests.utils.trainer_fit import train_model
 
 
@@ -28,8 +29,8 @@ def algo_instance(request):
 
 def _apply_algo(state_with_model: State, simple_conv_model_input: Tensors, algo_instance: Algorithm, logger: Logger):
     batch = (simple_conv_model_input, None)
-    original_conv_count = surgery.count_module_instances(state_with_model.model, torch.nn.Conv2d)
-    original_linear_count = surgery.count_module_instances(state_with_model.model, torch.nn.Linear)
+    original_conv_count = module_surgery.count_module_instances(state_with_model.model, torch.nn.Conv2d)
+    original_linear_count = module_surgery.count_module_instances(state_with_model.model, torch.nn.Linear)
     out = state_with_model.model.forward(batch)
     original_shape = out.shape
 
@@ -53,9 +54,9 @@ def test_layer_replacement(state_with_model: State, simple_conv_model_input: Ten
 
     # verify that layer replacements have happened
     if algo_instance.factorize_convs:
-        assert original_conv_count == surgery.count_module_instances(state_with_model.model, FactorizedConv2d)
+        assert original_conv_count == module_surgery.count_module_instances(state_with_model.model, FactorizedConv2d)
     if algo_instance.factorize_linears:
-        assert original_linear_count == surgery.count_module_instances(state_with_model.model, FactorizedLinear)
+        assert original_linear_count == module_surgery.count_module_instances(state_with_model.model, FactorizedLinear)
 
 
 def test_forward_shape(state_with_model: State, simple_conv_model_input: Tensors, noop_dummy_logger: Logger,
@@ -72,8 +73,8 @@ def test_forward_shape(state_with_model: State, simple_conv_model_input: Tensors
 
 
 def test_algorithm_logging(state_with_model: State, logger_mock: Logger, algo_instance: Factorize):
-    conv_count = surgery.count_module_instances(state_with_model.model, torch.nn.Conv2d)
-    linear_count = surgery.count_module_instances(state_with_model.model, torch.nn.Linear)
+    conv_count = module_surgery.count_module_instances(state_with_model.model, torch.nn.Conv2d)
+    linear_count = module_surgery.count_module_instances(state_with_model.model, torch.nn.Linear)
     algo_instance.apply(Event.INIT, state_with_model, logger=logger_mock)
 
     factorize_convs = algo_instance.factorize_convs

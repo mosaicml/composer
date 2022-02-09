@@ -14,8 +14,9 @@ from torchvision.models.resnet import Bottleneck
 from composer.algorithms import AlgorithmHparams
 from composer.algorithms.stochastic_depth.sample_stochastic_layers import SampleStochasticBottleneck
 from composer.algorithms.stochastic_depth.stochastic_layers import StochasticBottleneck
-from composer.core import Algorithm, Event, Logger, State, surgery
+from composer.core import Algorithm, Event, Logger, State
 from composer.core.types import Optimizers
+from composer.utils import module_surgery
 
 log = logging.getLogger(__name__)
 
@@ -146,7 +147,7 @@ def apply_stochastic_depth(model: torch.nn.Module,
                                 drop_distribution=drop_distribution)
     transforms = {}
     target_layer, stochastic_layer = STOCHASTIC_LAYER_MAPPING[stochastic_method][target_layer_name]
-    module_count = surgery.count_module_instances(model, target_layer)
+    module_count = module_surgery.count_module_instances(model, target_layer)
     shared_kwargs = {'drop_rate': drop_rate, 'drop_distribution': drop_distribution, 'module_count': module_count}
     if stochastic_method == 'block':
         rand_generator = torch.Generator()  # Random number generator for each layer
@@ -160,7 +161,7 @@ def apply_stochastic_depth(model: torch.nn.Module,
         raise ValueError(f"stochastic_method {stochastic_method} is not supported."
                          f" Must be one of {list(STOCHASTIC_LAYER_MAPPING.keys())}")
     transforms[target_layer] = stochastic_from_target_layer
-    surgery.replace_module_classes(model, optimizers=optimizers, policies=transforms)
+    module_surgery.replace_module_classes(model, optimizers=optimizers, policies=transforms)
 
 
 def _update_drop_rate(module: torch.nn.Module, stochastic_block: Type[torch.nn.Module], drop_rate: float,
@@ -272,7 +273,7 @@ class StochasticDepth(Algorithm):
         target_layer, stochastic_layer = STOCHASTIC_LAYER_MAPPING[self.stochastic_method][self.target_layer_name]
 
         if event == Event.INIT:
-            if surgery.count_module_instances(state.model, target_layer) == 0:
+            if module_surgery.count_module_instances(state.model, target_layer) == 0:
                 log.warning(f'No {self.target_layer_name} found in model! Algorithm will function as a no-op.')
 
             apply_stochastic_depth(state.model,
@@ -282,7 +283,7 @@ class StochasticDepth(Algorithm):
                                    drop_rate=self.drop_rate,
                                    drop_distribution=self.drop_distribution,
                                    use_same_gpu_seed=self.use_same_gpu_seed)
-            num_stochastic_layers = surgery.count_module_instances(state.model, stochastic_layer)
+            num_stochastic_layers = module_surgery.count_module_instances(state.model, stochastic_layer)
             logger.metric_epoch({'stochastic_depth/num_stochastic_layers': num_stochastic_layers})
 
         elif event == Event.BATCH_START:

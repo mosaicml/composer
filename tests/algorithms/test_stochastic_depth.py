@@ -10,12 +10,13 @@ from composer.algorithms import StochasticDepth, StochasticDepthHparams
 from composer.algorithms.stochastic_depth.sample_stochastic_layers import SampleStochasticBottleneck
 from composer.algorithms.stochastic_depth.stochastic_depth import STOCHASTIC_LAYER_MAPPING
 from composer.algorithms.stochastic_depth.stochastic_layers import StochasticBottleneck, _sample_bernoulli
-from composer.core import Event, Logger, State, surgery
+from composer.core import Event, Logger, State
 from composer.core.logging import Logger
 from composer.core.types import Evaluator, Precision
 from composer.datasets.dataloader import DataloaderHparams
 from composer.datasets.imagenet import ImagenetDatasetHparams
 from composer.models import ResNetHparams
+from composer.utils import module_surgery
 
 
 @pytest.fixture()
@@ -45,7 +46,7 @@ def dummy_state(dummy_dataloader_hparams: DataloaderHparams):
 def test_stochastic_depth_bottleneck_replacement(dummy_state: State, stochastic_method: str, target_layer_name: str,
                                                  noop_dummy_logger: Logger):
     target_layer, stochastic_layer = STOCHASTIC_LAYER_MAPPING[stochastic_method][target_layer_name]
-    target_block_count = surgery.count_module_instances(dummy_state.model, target_layer)
+    target_block_count = module_surgery.count_module_instances(dummy_state.model, target_layer)
 
     sd = StochasticDepth(stochastic_method=stochastic_method,
                          target_layer_name=target_layer_name,
@@ -54,7 +55,7 @@ def test_stochastic_depth_bottleneck_replacement(dummy_state: State, stochastic_
                          drop_warmup=0.0,
                          use_same_gpu_seed=False)
     sd.apply(Event.INIT, dummy_state, noop_dummy_logger)
-    stochastic_block_count = surgery.count_module_instances(dummy_state.model, stochastic_layer)
+    stochastic_block_count = module_surgery.count_module_instances(dummy_state.model, stochastic_layer)
 
     assert target_block_count == stochastic_block_count
 
