@@ -4,6 +4,19 @@ import torch
 
 
 def _attn(self, query, key, value, attention_mask=None, head_mask=None):
+    """New self-attention function implementing ALiBi to replace identically-named
+    function in target model.
+
+    Args:
+        query ([type]): [description]
+        key ([type]): [description]
+        value ([type]): [description]
+        attention_mask ([type], optional): [description]. Defaults to None.
+        head_mask ([type], optional): [description]. Defaults to None.
+
+    Returns:
+        [type]: [description]
+    """
     attn_weights = torch.matmul(query, key.transpose(-1, -2))
 
     if self.scale_attn_weights:

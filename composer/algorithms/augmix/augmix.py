@@ -18,6 +18,8 @@ from composer.core.types import Algorithm, Event, List, Logger, State
 from composer.utils.augmentation_primitives import augmentation_sets
 from composer.utils.data import add_dataset_transform
 
+__all__ = ["AugMix", "AugMixHparams", "AugmentAndMixTransform", "augmix_image"]
+
 
 @dataclass
 class AugMixHparams(AlgorithmHparams):

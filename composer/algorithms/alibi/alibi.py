@@ -19,6 +19,8 @@ from composer.core.types import Optimizers
 
 log = logging.getLogger(__name__)
 
+__all__ = ["Alibi", "AlibiHparams", "apply_alibi"]
+
 
 @dataclass
 class AlibiHparams(AlgorithmHparams):
@@ -40,7 +42,7 @@ class AlibiHparams(AlgorithmHparams):
     mask_replacement_function: Optional[str] = hp.optional(
         "function to replace model's attention mask. This is "
         "sometimes necessary for evaluating on sequence "
-        " lengths longer than the model was initialized to accommodate.",
+        " lengths longer than the model was initialized to accommodate. Takes positional arguments ``module`` and ``max_sequence_length``.",
         default=None)
     heads_per_layer: Optional[int] = hp.optional(
         'Number of attention heads per layer. If '
@@ -68,32 +70,31 @@ def apply_alibi(
     mask_replacement_function: Union[Callable, None],
     optimizers: Optional[Optimizers] = None,
 ) -> None:
-    """Removes position embeddings and replaces the attention function and attention mask according to `AliBi.
-
-    <https://arxiv.org/abs/2108.12409>`_.
+    """Removes position embeddings and replaces the attention function and attention mask
+    according to `AliBi <https://arxiv.org/abs/2108.12409>`_.
 
     Args:
-        model: model to transform
-        heads_per_layer: number of attention heads per layer
-        max_sequence_length: maximum sequence length that the
+        model (torch.nn.Module): model to transform
+        heads_per_layer (int): number of attention heads per layer
+        max_sequence_length (int): maximum sequence length that the
             model will be able to accept without returning an error
-        position_embedding_attribute: attribute for position
+        position_embedding_attribute (str): attribute for position
             embeddings. For example in HuggingFace's GPT2, the
             position embeddings are "transformer.wpe".
-        attention_module: module/class that will have its
+        attention_module (torch.nn.Module): module/class that will have its
             self-attention function replaced. For example, in
             HuggingFace's GPT, the self-attention module is
             transformers.models.gpt2.modeling_gpt2.GPT2Attention.
-        attr_to_replace: attribute that self-attention function will
+        attr_to_replace (str): attribute that self-attention function will
             replace. For example, in HuggingFace's GPT2, the
             self-attention function is "_attn".
-        alibi_attention: new self-attention function in which
+        alibi_attention (Callable): new self-attention function in which
             ALiBi is implemented. Used to replace
             "{attention_module}.{attr_to_replace}".
-        mask_replacement_function: function to replace model's
+        mask_replacement_function (Union[Callable, None]): function to replace model's
             attention mask. This is sometimes necessary for evaluating
             on sequence lengths longer than the model was initialized to
-            accommodate.
+            accommodate. Takes positional arguments ``module`` and ``max_sequence_length``.
         optimizers (Optimizers, optional): Existing optimizers bound to ``model.parameters()``.
             All optimizers that have already been constructed with,
             ``model.parameters()`` must be specified here so they will optimize
@@ -104,14 +105,14 @@ def apply_alibi(
             model parameters.
     """
 
-    zero_and_freeze_expand_position_embeddings(model=model,
-                                               attribute=position_embedding_attribute,
-                                               new_embedding_length=max_sequence_length)
+    _zero_and_freeze_expand_position_embeddings(model=model,
+                                                attribute=position_embedding_attribute,
+                                                new_embedding_length=max_sequence_length)
     log.info(f" Position embedding expanded to sequence length {max_sequence_length}, zeroed, and frozen")
 
     def convert_attention(module: torch.nn.Module, module_index: Optional[int] = None):
         del module_index  # unused
-        module = register_alibi(module=module, n_heads=heads_per_layer, max_token_length=max_sequence_length)
+        module = _register_alibi(module=module, n_heads=heads_per_layer, max_token_length=max_sequence_length)
         setattr(module, attr_to_replace, MethodType(alibi_attention, module))
         if mask_replacement_function:
             module = mask_replacement_function(module, max_sequence_length)
@@ -156,7 +157,7 @@ class Alibi(Algorithm):
         mask_replacement_function: Path to function to replace model's
             attention mask. This is sometimes necessary for evaluating on
             sequence lengths longer than the model was initialized to
-            accommodate.
+            accommodate. Takes positional arguments ``module`` and ``max_sequence_length``.
         train_sequence_length_scaling: Amount by which to scale
             training sequence length. One batch of training data will be
             reshaped from size (sequence_length, batch) to
@@ -208,11 +209,11 @@ class Alibi(Algorithm):
                 position_embedding_attribute=self.position_embedding_attribute,
                 attr_to_replace=self.attr_to_replace,
                 # Access method from string
-                attention_module=lazy_import(self.attention_module_name),
+                attention_module=_lazy_import(self.attention_module_name),
                 # Access method from string
-                alibi_attention=lazy_import(self.alibi_attention),
+                alibi_attention=_lazy_import(self.alibi_attention),
                 # Access method from string
-                mask_replacement_function=lazy_import(self.mask_replacement_function))
+                mask_replacement_function=_lazy_import(self.mask_replacement_function))
 
             self._applied = True
 
@@ -226,7 +227,7 @@ class Alibi(Algorithm):
                     state.batch[k] = v.reshape(int(batch_len / sequence_scaling), int(sequence_len * sequence_scaling))
 
 
-def zero_and_freeze_expand_position_embeddings(model: torch.nn.Module, new_embedding_length: int, attribute: str):
+def _zero_and_freeze_expand_position_embeddings(model: torch.nn.Module, new_embedding_length: int, attribute: str):
     try:
         pos_embedding_module = attrgetter(attribute)(model)
         old_weight = getattr(pos_embedding_module, "weight")
@@ -243,9 +244,9 @@ def zero_and_freeze_expand_position_embeddings(model: torch.nn.Module, new_embed
                   f"embeddings may lack attribute 'weight'.")
 
 
-def register_alibi(module: torch.nn.Module, n_heads: int, max_token_length: int):
+def _register_alibi(module: torch.nn.Module, n_heads: int, max_token_length: int):
     # Modified from https://github.com/ofirpress/attention_with_linear_biases/blob/master/fairseq/models/transformer.py#L742
-    slopes = torch.Tensor(get_alibi_head_slopes(n_heads))
+    slopes = torch.Tensor(_get_alibi_head_slopes(n_heads))
     # In the next line, the part after the * is what constructs the diagonal matrix
     # (right matrix in Figure 3 in the paper).
     # If you run it you'll see that it doesn't exactly print out the same matrix as we
@@ -259,7 +260,7 @@ def register_alibi(module: torch.nn.Module, n_heads: int, max_token_length: int)
     return module
 
 
-def get_alibi_head_slopes(n_heads: int):
+def _get_alibi_head_slopes(n_heads: int):
 
     def get_slopes_power_of_2(n_heads):
         start = (2**(-2**-(math.log2(n_heads) - 3)))
@@ -274,11 +275,11 @@ def get_alibi_head_slopes(n_heads: int):
         return get_slopes_power_of_2(n_heads)
     else:
         closest_power_of_2 = 2**math.floor(math.log2(n_heads))
-        return get_slopes_power_of_2(closest_power_of_2) + get_alibi_head_slopes(
+        return get_slopes_power_of_2(closest_power_of_2) + _get_alibi_head_slopes(
             2 * closest_power_of_2)[0::2][:n_heads - closest_power_of_2]
 
 
-def lazy_import(name: Optional[str]) -> Any[Callable, ModuleType, None]:
+def _lazy_import(name: Optional[str]) -> Any[Callable, ModuleType, None]:
     if not name:
         return None
     components = name.split('.')
