@@ -13,7 +13,6 @@ from composer.algorithms.cutout import CutOutHparams
 from composer.algorithms.dummy import DummyHparams
 from composer.algorithms.factorize import FactorizeHparams
 from composer.algorithms.ghost_batchnorm import GhostBatchNormHparams
-from composer.algorithms.grad_ckpt import GradCkptHparams
 from composer.algorithms.label_smoothing import LabelSmoothingHparams
 from composer.algorithms.layer_freezing import LayerFreezingHparams
 from composer.algorithms.mixup import MixUpHparams
@@ -38,7 +37,6 @@ registry: Dict[str, Type[AlgorithmHparams]] = {
     'cutout': CutOutHparams,
     'factorize': FactorizeHparams,
     'ghost_batchnorm': GhostBatchNormHparams,
-    'grad_ckpt': GradCkptHparams,
     'label_smoothing': LabelSmoothingHparams,
     'layer_freezing': LayerFreezingHparams,
     'squeeze_excite': SqueezeExciteHparams,
