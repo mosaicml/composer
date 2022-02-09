@@ -43,6 +43,7 @@ class TestTrainerInit():
         assert isinstance(trainer.state.model, DistributedDataParallel)
 
     def test_model_ddp_not_wrapped(self, config):
+        torch.distributed.destroy_process_group()
         trainer = Trainer(**config)
         assert not isinstance(trainer.state.model, DistributedDataParallel)
 
