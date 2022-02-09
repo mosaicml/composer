@@ -135,7 +135,7 @@ class Trainer:
         model: ComposerModel,
         train_dataloader: Union[DataLoader, DataSpec],
         max_duration: Union[str, Time],
-        eval_dataloader: Optional[Union[DataLoader, DataSpec, Evaluators]],
+        eval_dataloader: Optional[Union[DataLoader, DataSpec, Evaluators]] = None,
         algorithms: Optional[List[Algorithm]] = None,
         optimizers: Optional[Optimizers] = None,
         schedulers: Optional[Schedulers] = None,
