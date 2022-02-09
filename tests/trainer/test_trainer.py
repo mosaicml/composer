@@ -5,7 +5,7 @@ import pathlib
 
 import pytest
 import torch
-import torch.distributed
+from torch import distributed as dist
 from torch.nn.parallel import DistributedDataParallel
 from torch.utils.data import DataLoader
 
@@ -43,7 +43,9 @@ class TestTrainerInit():
         assert isinstance(trainer.state.model, DistributedDataParallel)
 
     def test_model_ddp_not_wrapped(self, config):
-        torch.distributed.destroy_process_group()
+        if dist.is_available() and dist.is_initialized():
+            dist.destroy_process_group()
+
         trainer = Trainer(**config)
         assert not isinstance(trainer.state.model, DistributedDataParallel)
 
