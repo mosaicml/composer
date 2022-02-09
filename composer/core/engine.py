@@ -12,6 +12,7 @@ from composer.core.event import Event
 from composer.core.logging import Logger
 from composer.core.logging.logger import LogLevel
 from composer.core.state import State
+from composer.profiler import ProfilerAction
 
 log = logging.getLogger(__name__)
 Traces = Dict[str, "Trace"]
@@ -94,7 +95,6 @@ class Engine():
         event = Event(event)
 
         if self.state.profiler is not None:
-            from composer.profiler import ProfilerAction
             name = f"event/{event.canonical_name}"
             if (event.is_before_event or event.is_after_event):
                 # if not part of an event pair (e.g. init or after dataloader), then don't record an event here
