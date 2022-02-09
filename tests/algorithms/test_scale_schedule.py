@@ -7,18 +7,17 @@ import pytest
 import torch
 from torch.optim.lr_scheduler import ExponentialLR, MultiStepLR
 
+from composer import Event, Logger, State
 from composer.algorithms import ScaleSchedule
 from composer.algorithms.scale_schedule import scale_scheduler
-from composer.core.event import Event
-from composer.core.logging import Logger
-from composer.core.state import State
 from composer.core.types import Optimizer, Scheduler
 from composer.optim.pytorch_future import WarmUpLR
+from tests.common import SimpleModel
 
 
 @pytest.fixture
-def optimizer(dummy_model: torch.nn.Module):
-    return torch.optim.SGD(dummy_model.parameters(), lr=1)
+def optimizer():
+    return torch.optim.SGD(SimpleModel().parameters(), lr=1)
 
 
 def flatten(lst: list):
@@ -33,7 +32,6 @@ class TestScaleSchedule():
         scale_scheduler(scheduler, ssr)
         for epoch in range(epochs):
             for param_group in optimizer.param_groups:
-                print(f"target: {targets[epoch]}, actual: {param_group['lr']}")
                 torch.testing.assert_allclose(targets[epoch], param_group['lr'])
             scheduler.step()
 
@@ -82,14 +80,14 @@ class TestScaleSchedule():
 @pytest.mark.parametrize('ssr', [0.5, 0.75, 1.0])
 class TestScaleScheduleAlgorithm():
 
-    def test_epochs_scaled(self, dummy_state: State, optimizer: Optimizer, ssr: float, noop_dummy_logger: Logger):
+    def test_epochs_scaled(self, minimal_state: State, optimizer: Optimizer, ssr: float, empty_logger: Logger):
 
         scheduler = MultiStepLR(optimizer, milestones=[30, 50], gamma=0.1)
-        dummy_state.schedulers = scheduler
-        dummy_state.max_duration = "10ep"
+        minimal_state.schedulers = scheduler
+        minimal_state.max_duration = "10ep"
         algorithm = ScaleSchedule(ratio=ssr)
-        algorithm.apply(Event.INIT, dummy_state, noop_dummy_logger)
-        assert dummy_state.max_epochs == int(10 * ssr)
+        algorithm.apply(Event.INIT, minimal_state, empty_logger)
+        assert minimal_state.max_epochs == int(10 * ssr)
         assert scheduler.milestones == Counter([int(30 * ssr), int(50 * ssr)])  # type: ignore
 
     @pytest.mark.xfail
@@ -101,9 +99,9 @@ class TestScaleScheduleAlgorithm():
         return NotImplementedError
 
 
-def test_epochs_validate_zero_epochs(dummy_state: State, noop_dummy_logger: Logger):
+def test_epochs_validate_zero_epochs(minimal_state: State, empty_logger: Logger):
     algorithm = ScaleSchedule(ratio=0.01)
-    dummy_state.max_duration = "10ep"
-    dummy_state.schedulers = tuple()
+    minimal_state.max_duration = "10ep"
+    minimal_state.schedulers = tuple()
     with pytest.raises(ValueError):
-        algorithm.apply(Event.INIT, dummy_state, noop_dummy_logger)
+        algorithm.apply(Event.INIT, minimal_state, empty_logger)
