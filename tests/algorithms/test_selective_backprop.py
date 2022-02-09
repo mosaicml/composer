@@ -6,7 +6,7 @@ import pytest
 import torch
 
 from composer.algorithms.selective_backprop import SelectiveBackprop, SelectiveBackpropHparams
-from composer.algorithms.selective_backprop.selective_backprop import do_selective_backprop, selective_backprop
+from composer.algorithms.selective_backprop.selective_backprop import selective_backprop, should_selective_backprop
 from composer.core import Event
 from composer.core.logging.logger import Logger
 from composer.core.state import State
@@ -195,7 +195,7 @@ def test_do_selective_backprop_true(epoch: int, batch: int, interrupt: int) -> N
     """Test functional match when epoch is within interval."""
     start = 5
     end = 15
-    is_chosen = do_selective_backprop(epoch, batch, start, end, interrupt)
+    is_chosen = should_selective_backprop(epoch, batch, start, end, interrupt)
     assert is_chosen
 
 
@@ -204,7 +204,7 @@ def test_do_selective_backprop_false(epoch: int, batch: int, interrupt: int) -> 
     """Test functional doesn't match when epoch is outside of interval."""
     start = 5
     end = 15
-    is_chosen = do_selective_backprop(epoch, batch, start, end, interrupt)
+    is_chosen = should_selective_backprop(epoch, batch, start, end, interrupt)
     assert not is_chosen
 
 
