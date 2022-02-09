@@ -13,6 +13,7 @@ import torch.profiler
 from torch.profiler.profiler import ProfilerAction as TorchProfilerAction
 
 from composer.core import Callback
+from composer.profiler.profiler import ProfilerAction
 from composer.utils import dist, run_directory
 
 if TYPE_CHECKING:
@@ -95,7 +96,6 @@ class TorchProfiler(Callback):
         assert state.profiler is not None, "composer profiler should be defined"
         composer_profiler_action = state.profiler.get_action(next_batch_in_epoch)
         next_composer_profiler_action = state.profiler.get_action(next_batch_in_epoch + 1)
-        from composer.profiler.profiler import ProfilerAction
         if next_batch_in_epoch == state.steps_per_epoch:
             if composer_profiler_action == ProfilerAction.ACTIVE:
                 # force saving at epoch boundaries
