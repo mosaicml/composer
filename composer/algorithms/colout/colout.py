@@ -24,7 +24,7 @@ log = logging.getLogger(__name__)
 TImg = TypeVar("TImg", torch.Tensor, Image)
 
 
-def colout_image(img: TImg, p_row: float, p_col: float) -> TImg:
+def colout_image(img: TImg, p_row: float = 0.15, p_col: float = 0.15) -> TImg:
     """Drops random rows and columns from a single image.
 
     Args:
@@ -74,7 +74,7 @@ class ColOutTransform:
         p_col (float): Fraction of columns to drop (drop along W).
     """
 
-    def __init__(self, p_row: float, p_col: float):
+    def __init__(self, p_row: float = 0.15, p_col: float = 0.15):
         self.p_row = p_row
         self.p_col = p_col
 
@@ -90,7 +90,7 @@ class ColOutTransform:
         return colout_image(img, self.p_row, self.p_col)
 
 
-def colout_batch(X: torch.Tensor, p_row: float, p_col: float) -> torch.Tensor:
+def colout_batch(X: torch.Tensor, p_row: float = 0.15, p_col: float = 0.15) -> torch.Tensor:
     """Applies ColOut augmentation to a batch of images, dropping the same random rows and columns from all images in a
     batch.
 

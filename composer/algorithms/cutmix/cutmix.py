@@ -1,4 +1,5 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
+
 from __future__ import annotations
 
 import logging
@@ -111,8 +112,8 @@ def adjust_lambda(cutmix_lambda: float, x: Tensor, bbox: Tuple) -> float:
 
 def cutmix_batch(x: Tensor,
                  y: Tensor,
-                 alpha: float,
                  n_classes: int,
+                 alpha: float = 1.,
                  cutmix_lambda: Optional[float] = None,
                  bbox: Optional[Tuple] = None,
                  indices: Optional[torch.Tensor] = None) -> Tuple[torch.Tensor, torch.Tensor]:
@@ -134,8 +135,8 @@ def cutmix_batch(x: Tensor,
             are feature dimensions.
         y: target tensor of shape (B, f1, f2, ..., fm), B is batch size, f1-fn
             are possible target dimensions.
-        alpha: parameter for the beta distribution of the cutmix region size.
         n_classes: total number of classes.
+        alpha: parameter for the beta distribution of the cutmix region size.
         cutmix_lambda: optional, fixed size of cutmix region.
         bbox: optional, predetermined (rx1, ry1, rx2, ry2) coords of the bounding box.
         indices: Permutation of the batch indices `1..B`. Used
@@ -149,7 +150,7 @@ def cutmix_batch(x: Tensor,
         from composer import functional as CF
 
         for X, y in dataloader:
-            X, y, _, _ ,_ = CF.cutmix(X, y, alpha, nclasses)
+            X, y, _, _ ,_ = CF.cutmix(X, y, nclasses=10)
 
             pred = model(X)
             loss = loss_fun(pred, y)  # loss_fun must accept dense labels (ie NOT indices)
@@ -215,17 +216,17 @@ class CutMix(Algorithm):
     Training in this fashion reduces generalization error.
 
     Args:
+        num_classes (int): the number of classes in the task labels.
         alpha (float): the psuedocount for the Beta distribution used to sample
             area parameters. As ``alpha`` grows, the two samples
             in each pair tend to be weighted more equally. As ``alpha``
             approaches 0 from above, the combination approaches only using
             one element of the pair.
-        num_classes (int): the number of classes in the task labels.
     """
 
-    def __init__(self, alpha: float, num_classes: int):
-        self.alpha = alpha
+    def __init__(self, num_classes: int, alpha: float = 1.):
         self.num_classes = num_classes
+        self.alpha = alpha
         self._indices = torch.Tensor()
         self._cutmix_lambda = 0.0
         self._bbox = tuple()
@@ -287,8 +288,8 @@ class CutMix(Algorithm):
         new_input, new_target = cutmix_batch(
             x=input,
             y=target,
-            alpha=alpha,
             n_classes=self.num_classes,
+            alpha=alpha,
             cutmix_lambda=self.cutmix_lambda,
             bbox=self.bbox,
             indices=self.indices,

@@ -249,4 +249,4 @@ class TestStochasticDepthInputValidation():
     @pytest.mark.parametrize("drop_warmup", [-0.5, 1.7])
     def test_invalid_drop_warmup(self, stochastic_method: str, target_layer_name: str, drop_warmup: float):
         with pytest.raises(ValueError):
-            StochasticDepth(stochastic_method, target_layer_name=target_layer_name, drop_warmup=drop_warmup)
+            StochasticDepth(stochastic_method=stochastic_method, target_layer_name=target_layer_name, drop_warmup=drop_warmup,)

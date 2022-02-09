@@ -32,9 +32,10 @@ from composer.core.event import Event
 from composer.core.logging.logger import Logger
 from composer.core.precision import Precision
 from composer.core.profiler import ProfilerEventHandlerHparams
-from composer.loggers import BaseLoggerBackendHparams
-from composer.loggers.logger_hparams import MosaicMLLoggerBackendHparams
-from composer.loggers.tqdm_logger import TQDMLoggerBackend
+from composer.core.types import Optimizer, Scheduler
+from composer.loggers import LoggerCallbackHparams
+from composer.loggers.logger_hparams import MosaicMLLoggerHparams
+from composer.loggers.tqdm_logger import TQDMLogger
 from composer.models.base import ComposerModel
 from composer.optim.scheduler import ComposedScheduler
 from composer.profiler.profiler_hparams import ProfilerCallbackHparams, ProfilerHparams
@@ -72,12 +73,12 @@ class TestTrainerInit():
 
     def test_loggers_before_callbacks(self, config):
         config.update({
-            "log_destinations": [TQDMLoggerBackend()],
+            "log_destinations": [TQDMLogger()],
             "callbacks": [LRMonitor()],
         })
 
         trainer = Trainer(**config)
-        assert isinstance(trainer.state.callbacks[0], TQDMLoggerBackend)
+        assert isinstance(trainer.state.callbacks[0], TQDMLogger)
         assert isinstance(trainer.state.callbacks[1], LRMonitor)
 
     @device('gpu', 'cpu')
@@ -199,7 +200,7 @@ def test_trainer_init_additional_args(dummy_train_dataloader: DataLoader, dummy_
         max_duration="10ep",
         optimizers=dummy_optimizer,
         schedulers=dummy_scheduler,
-        log_destinations=[TQDMLoggerBackend()],
+        loggers=[TQDMLogger()],
         callbacks=(LRMonitor(),),
     )
 
@@ -209,12 +210,12 @@ def test_trainer_init_additional_args(dummy_train_dataloader: DataLoader, dummy_
     assert isinstance(trainer.state.schedulers[0], ComposedScheduler)
 
     assert len(trainer.logger.backends) == 1
-    assert isinstance(trainer.logger.backends[0], TQDMLoggerBackend)
+    assert isinstance(trainer.logger.backends[0], TQDMLogger)
     assert isinstance(trainer.logger, Logger)
 
     # log destination and lr monitor, logger destination callback must be first
     assert len(trainer.state.callbacks) == 2
-    assert isinstance(trainer.state.callbacks[0], TQDMLoggerBackend)
+    assert isinstance(trainer.state.callbacks[0], TQDMLogger)
     assert isinstance(trainer.state.callbacks[1], LRMonitor)
 
 
@@ -323,7 +324,7 @@ def _build_trainer(composer_trainer_hparams: TrainerHparams, dummy_num_classes: 
             "These algorithms require a synthetic Vision (i.e. PIL Image format) dataset, which does not exist")
     if issubclass(hparams_cls, SWAHparams):
         pytest.xfail("SWA does not work with composed schedulers.")
-    if issubclass(hparams_cls, (BenchmarkerHparams, MosaicMLLoggerBackendHparams)):
+    if issubclass(hparams_cls, (BenchmarkerHparams, MosaicMLLoggerHparams)):
         pytest.xfail("Not sure why these are failing, but nobody uses these anyways so going to ignore.")
     if issubclass(hparams_cls, (CutMixHparams, MixUpHparams, LabelSmoothingHparams)):
         pytest.importorskip("torch",
@@ -340,7 +341,7 @@ def _build_trainer(composer_trainer_hparams: TrainerHparams, dummy_num_classes: 
     if instance is None:
         instance = hparams_cls()
 
-    if isinstance(instance, BaseLoggerBackendHparams):
+    if isinstance(instance, LoggerCallbackHparams):
         composer_trainer_hparams.loggers.append(instance)
     elif isinstance(instance, ProfilerCallbackHparams):
         composer_trainer_hparams.profiler = ProfilerHparams(profilers=[instance])
