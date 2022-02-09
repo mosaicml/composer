@@ -15,7 +15,7 @@ from composer.callbacks import LRMonitor
 from composer.callbacks.run_directory_uploader import RunDirectoryUploader
 from composer.core.callback import Callback
 from composer.core.types import Model
-from composer.loggers import FileLogger, TQDMLogger
+from composer.loggers import FileLogger, TQDMLogger, WandBLogger
 from composer.trainer import Trainer
 from composer.trainer.trainer_hparams import algorithms_registry, callback_registry, logger_registry
 from tests.common import (RandomClassificationDataset, RandomImageDataset, SimpleConvModel, SimpleModel, device,
@@ -277,6 +277,7 @@ class TestTrainerAssets:
         if name in skip_list:
             pytest.skip(skip_list[name])
         elif name in ('cutmix, mixup, label_smoothing'):
+            # see: https://github.com/mosaicml/composer/issues/362
             pytest.importorskip("torch", minversion="1.10", reason="Pytorch 1.10 required.")
 
         # create the algorithms
@@ -313,14 +314,15 @@ class TestTrainerAssets:
     def logger(self, request):
 
         name, hparams = request.param
-        skip_list = {
-            'wandb': 'Requires wandb account.',
-            'mosaicml': 'Not supported',
-        }
-        if name in skip_list:
-            pytest.skip(skip_list[name])
 
-        return hparams().initialize_object()
+        required_args = {}
+        if name == 'mosaicml':
+            pytest.skip("Not supported logger.")
+        if name == 'wandb':
+            pytest.importorskip('wandb', reason='Required wandb')
+            required_args = {'extra_init_params': {'mode': 'disabled'}}
+
+        return hparams(**required_args).initialize_object()
 
     """
     Tests that training completes.
@@ -363,8 +365,8 @@ class TestTrainerAssets:
         self._test_multiple_fits(trainer)
 
     def test_loggers_multiple_calls(self, config, logger):
-        if isinstance(logger, FileLogger):
-            pytest.xfail("Known idempotency issue.")
+        if isinstance(logger, (FileLogger, WandBLogger)):
+            pytest.xfail("Cannot close/load multiple times yet.")
         config['loggers'] = [logger]
         trainer = Trainer(**config)
         self._test_multiple_fits(trainer)
