@@ -15,15 +15,15 @@ import yahp as hp
 import composer
 from composer import datasets
 from composer.algorithms import AlgorithmHparams, get_algorithm_registry
-from composer.callbacks import (BenchmarkerHparams, CallbackHparams, GradMonitorHparams, LRMonitorHparams,
-                                MemoryMonitorHparams, RunDirectoryUploaderHparams, SpeedMonitorHparams)
+from composer.callbacks import (CallbackHparams, GradMonitorHparams, LRMonitorHparams, MemoryMonitorHparams,
+                                RunDirectoryUploaderHparams, SpeedMonitorHparams)
 from composer.core import DataSpec
 from composer.core.types import JSON, Precision
 from composer.datasets import DataloaderHparams
 from composer.datasets.dataset_registry import get_dataset_registry
 from composer.datasets.evaluator import EvaluatorHparams
-from composer.loggers import (FileLoggerHparams, InMemoryLoggerHaparms, LoggerCallbackHparams, MosaicMLLoggerHparams,
-                              TQDMLoggerHparams, WandBLoggerHparams)
+from composer.loggers import (FileLoggerHparams, InMemoryLoggerHaparms, LoggerCallbackHparams, TQDMLoggerHparams,
+                              WandBLoggerHparams)
 from composer.models import (BERTForClassificationHparams, BERTHparams, CIFARResNet9Hparams, CIFARResNetHparams,
                              DeepLabV3Hparams, EfficientNetB0Hparams, GPT2Hparams, MnistClassifierHparams, ModelHparams,
                              ResNetHparams, TimmHparams, UnetHparams)
@@ -84,7 +84,6 @@ algorithms_registry = get_algorithm_registry()
 
 callback_registry = {
     "speed_monitor": SpeedMonitorHparams,
-    "benchmarker": BenchmarkerHparams,
     "lr_monitor": LRMonitorHparams,
     "grad_monitor": GradMonitorHparams,
     "memory_monitor": MemoryMonitorHparams,
@@ -95,7 +94,6 @@ logger_registry = {
     "file": FileLoggerHparams,
     "wandb": WandBLoggerHparams,
     "tqdm": TQDMLoggerHparams,
-    "mosaicml": MosaicMLLoggerHparams,
     "in_memory": InMemoryLoggerHaparms,
 }
 

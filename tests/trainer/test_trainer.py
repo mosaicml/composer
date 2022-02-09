@@ -22,7 +22,7 @@ from composer.algorithms.scale_schedule.scale_schedule import ScaleScheduleHpara
 from composer.algorithms.seq_length_warmup.seq_length_warmup import SeqLengthWarmupHparams
 from composer.algorithms.stochastic_depth.stochastic_depth import StochasticDepthHparams
 from composer.algorithms.swa.hparams import SWAHparams
-from composer.callbacks.callback_hparams import BenchmarkerHparams, CallbackHparams, RunDirectoryUploaderHparams
+from composer.callbacks.callback_hparams import CallbackHparams, RunDirectoryUploaderHparams
 from composer.callbacks.lr_monitor import LRMonitor
 from composer.core.event import Event
 from composer.core.logging.logger import Logger
@@ -30,7 +30,6 @@ from composer.core.precision import Precision
 from composer.core.profiler import ProfilerEventHandlerHparams
 from composer.core.types import DataLoader, Optimizer, Scheduler
 from composer.loggers import LoggerCallbackHparams
-from composer.loggers.logger_hparams import MosaicMLLoggerHparams
 from composer.loggers.tqdm_logger import TQDMLogger
 from composer.models.base import ComposerModel
 from composer.optim.scheduler import ComposedScheduler
@@ -184,8 +183,6 @@ def _build_trainer(composer_trainer_hparams: TrainerHparams, dummy_num_classes: 
             "These algorithms require a synthetic Vision (i.e. PIL Image format) dataset, which does not exist")
     if issubclass(hparams_cls, SWAHparams):
         pytest.xfail("SWA does not work with composed schedulers.")
-    if issubclass(hparams_cls, (BenchmarkerHparams, MosaicMLLoggerHparams)):
-        pytest.xfail("Not sure why these are failing, but nobody uses these anyways so going to ignore.")
     if issubclass(hparams_cls, (CutMixHparams, MixUpHparams, LabelSmoothingHparams)):
         pytest.importorskip("torch",
                             minversion="1.10",

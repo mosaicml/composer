@@ -12,8 +12,8 @@ from torch.optim.lr_scheduler import (CosineAnnealingLR, CosineAnnealingWarmRest
 
 from composer.core.time import Time, TimeUnit
 from composer.core.types import Optimizer, Scheduler, Schedulers
+from composer.optim._time_conversion import convert as convert_time
 from composer.optim.pytorch_future import LinearLR, WarmUpLR
-from composer.utils._time_conversion import convert as convert_time
 from composer.utils.iter_helpers import ensure_tuple
 
 log = logging.getLogger(__name__)
