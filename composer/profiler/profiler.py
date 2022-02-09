@@ -159,8 +159,8 @@ class Profiler:
         self._names_to_markers[name].categories = categories
         return self._names_to_markers[name]
 
-    def record_duration_event(self, marker: Marker, is_start: bool, wall_clock_time_ns: int, process_id: int,
-                              thread_id: int, timestamp: Timestamp):
+    def record_duration_event(self, marker: Marker, is_start: bool, wall_clock_time_ns: int, global_rank: int, pid: int,
+                              timestamp: Timestamp):
         """Record a duration event.
 
         .. note::
@@ -172,8 +172,8 @@ class Profiler:
             marker (Marker): The marker.
             is_start (bool): Whether this is the start or end of the duration event.
             wall_clock_time_ns (int): The :meth:`time.time_ns` corresponding to the event.
-            process_id (int): The process id where the event was triggered
-            thread_id (int): The thread id where the event was triggered
+            global_rank (int): The `global_rank` where the event was triggered
+            pid (int): The `pid` where the event was triggered
             timestamp (Timestamp): The timestamp at which the event was triggered.
         """
         for handler in self._event_handlers:
@@ -183,11 +183,11 @@ class Profiler:
                 timestamp=timestamp,
                 is_start=is_start,
                 wall_clock_time_ns=wall_clock_time_ns,
-                process_id=process_id,
-                thread_id=thread_id,
+                global_rank=global_rank,
+                pid=pid,
             )
 
-    def record_instant_event(self, marker: Marker, wall_clock_time_ns: int, process_id: int, thread_id: int,
+    def record_instant_event(self, marker: Marker, wall_clock_time_ns: int, global_rank: int, pid: int,
                              timestamp: Timestamp):
         """Record an instant event.
 
@@ -199,8 +199,8 @@ class Profiler:
         Args:
             marker (Marker): The marker.
             wall_clock_time_ns (int): The :meth:`time.time_ns` corresponding to the event.
-            process_id (int): The process id where the event was triggered.
-            thread_id (int): The thread id where the event was triggered.
+            global_rank (int): The `global_rank` where the event was triggered.
+            pid (int): The `pid` where the event was triggered.
             epoch (int): The epoch at which the event was triggered.
             step (int): The step at which the event was triggered.
         """
@@ -210,16 +210,16 @@ class Profiler:
                 categories=marker.categories,
                 timestamp=timestamp,
                 wall_clock_time_ns=wall_clock_time_ns,
-                process_id=process_id,
-                thread_id=thread_id,
+                global_rank=global_rank,
+                pid=pid,
             )
 
     def record_counter_event(
         self,
         marker: Marker,
         wall_clock_time_ns: int,
-        process_id: int,
-        thread_id: int,
+        global_rank: int,
+        pid: int,
         values: Dict[str, Union[int, float]],
     ) -> None:
         """Record a counter invent.
@@ -235,8 +235,8 @@ class Profiler:
             epoch (Optional[int]): The epoch, if applicable, corresponding to the event.
             step (int): The step, if applicable, corresponding to the event.
             wall_clock_time_ns (int): The :meth:`time.time_ns` corresponding to the event.
-            process_id (int): The process id corresponding to the event.
-            thread_id (int): The thread id corresponding to the event.
+            global_rank (int): The `global_rank` corresponding to the event.
+            pid (int): The `pid` corresponding to the event.
             values (Dict[str, int | float]): The values corresponding to this counter event
         """
         for handler in self._event_handlers:
@@ -244,8 +244,8 @@ class Profiler:
                 name=marker.name,
                 categories=marker.categories,
                 wall_clock_time_ns=wall_clock_time_ns,
-                process_id=process_id,
-                thread_id=thread_id,
+                global_rank=global_rank,
+                pid=pid,
                 values=values,
             )
 
@@ -331,16 +331,16 @@ class Marker:
                 is_start=True,
                 wall_clock_time_ns=wall_clock_time,
                 timestamp=self.profiler.state.timer.get_timestamp(),
-                process_id=dist.get_global_rank(),
-                thread_id=os.getpid(),
+                global_rank=dist.get_global_rank(),
+                pid=os.getpid(),
             )
             if self.record_instant_on_start:
                 self.profiler.record_instant_event(
                     self,
                     timestamp=self.profiler.state.timer.get_timestamp(),
                     wall_clock_time_ns=wall_clock_time,
-                    process_id=dist.get_global_rank(),
-                    thread_id=os.getpid(),
+                    global_rank=dist.get_global_rank(),
+                    pid=os.getpid(),
                 )
         self._started = True
 
@@ -357,16 +357,16 @@ class Marker:
                 is_start=False,
                 timestamp=self.profiler.state.timer.get_timestamp(),
                 wall_clock_time_ns=wall_clock_time,
-                process_id=dist.get_global_rank(),
-                thread_id=os.getpid(),
+                global_rank=dist.get_global_rank(),
+                pid=os.getpid(),
             )
             if self.record_instant_on_finish:
                 self.profiler.record_instant_event(
                     self,
                     wall_clock_time_ns=wall_clock_time,
                     timestamp=self.profiler.state.timer.timestamp(),
-                    process_id=dist.get_global_rank(),
-                    thread_id=os.getpid(),
+                    global_rank=dist.get_global_rank(),
+                    pid=os.getpid(),
                 )
         self._started = False
 
@@ -378,8 +378,8 @@ class Marker:
                 self,
                 wall_clock_time_ns=time.time_ns(),
                 timestamp=self.profiler.state.timer.get_timestamp(),
-                process_id=dist.get_global_rank(),
-                thread_id=os.getpid(),
+                global_rank=dist.get_global_rank(),
+                pid=os.getpid(),
             )
 
     def counter(self, values: Dict[str, Union[float, int]]) -> None:
@@ -389,8 +389,8 @@ class Marker:
             self.profiler.record_counter_event(
                 self,
                 wall_clock_time_ns=time.time_ns(),
-                process_id=dist.get_global_rank(),
-                thread_id=os.getpid(),
+                global_rank=dist.get_global_rank(),
+                pid=os.getpid(),
                 values=values,
             )
 

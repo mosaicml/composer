@@ -29,8 +29,8 @@ class ProfilerEventHandler(Callback, abc.ABC):
         is_start: bool,
         timestamp: Timestamp,
         wall_clock_time_ns: int,
-        process_id: int,
-        thread_id: int,
+        global_rank: int,
+        pid: int,
     ) -> None:
         """Called by the :class:`Profiler` whenever there is a duration event to record.
 
@@ -44,13 +44,11 @@ class ProfilerEventHandler(Callback, abc.ABC):
             categories (List[str] | Tuple[str, ...]): The categories for the event.
             is_start (bool): Whether the event is a start event or end event.
             timestamp (Timestamp): Snapshot of the training time.
-            epoch (int): The epoch corresponding to the event.
-            step (int): The step corresponding to the event.
             wall_clock_time_ns (int): The :meth:`time.time_ns` corresponding to the event.
-            process_id (int): The process id corresponding to the event.
-            thread_id (int): The thread id corresponding to the event.
+            global_rank (int): The `global_rank` corresponding to the event.
+            pid (int): The `pid` corresponding to the event.
         """
-        del name, categories, is_start, timestamp, wall_clock_time_ns, process_id, thread_id  # unused
+        del name, categories, is_start, timestamp, wall_clock_time_ns, global_rank, pid  # unused
         pass
 
     def process_instant_event(
@@ -59,8 +57,8 @@ class ProfilerEventHandler(Callback, abc.ABC):
         categories: Union[List[str], Tuple[str, ...]],
         timestamp: Timestamp,
         wall_clock_time_ns: int,
-        process_id: int,
-        thread_id: int,
+        global_rank: int,
+        pid: int,
     ) -> None:
         """Called by the :class:`Profiler` whenever there is an instant event to record.
 
@@ -70,10 +68,10 @@ class ProfilerEventHandler(Callback, abc.ABC):
             is_start (bool): Whether the event is a start event or end event.
             timestamp (Timestamp): Snapshot of current training time.
             wall_clock_time_ns (int): The :meth:`time.time_ns` corresponding to the event.
-            process_id (int): The process id corresponding to the event.
-            thread_id (int): The thread id corresponding to the event.
+            global_rank (int): The `global_rank` corresponding to the event.
+            pid (int): The `pid` corresponding to the event.
         """
-        del name, categories, timestamp, wall_clock_time_ns, process_id, thread_id  # unused
+        del name, categories, timestamp, wall_clock_time_ns, global_rank, pid  # unused
         pass
 
     def process_counter_event(
@@ -81,8 +79,8 @@ class ProfilerEventHandler(Callback, abc.ABC):
         name: str,
         categories: Union[List[str], Tuple[str, ...]],
         wall_clock_time_ns: int,
-        process_id: int,
-        thread_id: int,
+        global_rank: int,
+        pid: int,
         values: Dict[str, Union[int, float]],
     ) -> None:
         """Called by the :class:`Profiler` whenever there is an counter event to record.
@@ -91,9 +89,9 @@ class ProfilerEventHandler(Callback, abc.ABC):
             name (str): The name of the event.
             categories (List[str] | Tuple[str, ...]): The categories for the event.
             wall_clock_time_ns (int): The :meth:`time.time_ns` corresponding to the event.
-            process_id (int): The process id corresponding to the event.
-            thread_id (int): The thread id corresponding to the event.
+            global_rank (int): The `global_rank` corresponding to the event.
+            pid (int): The `pid` corresponding to the event.
             values (Dict[str, int | float]): The values corresponding to this counter event
         """
-        del name, categories, wall_clock_time_ns, process_id, thread_id, values  # unused
+        del name, categories, wall_clock_time_ns, global_rank, pid, values  # unused
         pass

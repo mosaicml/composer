@@ -144,61 +144,57 @@ class JSONTraceHandler(ProfilerEventHandler):
         name: str,
         categories: Union[List[str], Tuple[str, ...]],
         is_start: bool,
-        timestamp: Optional[Timestamp],
+        timestamp: Timestamp,
         wall_clock_time_ns: int,
-        process_id: int,
-        thread_id: int,
+        global_rank: int,
+        pid: int,
     ) -> None:
         ph = "B" if is_start else "E"
         args = {}
-        if timestamp.epoch is not None:
-            args["epoch"] = timestamp.epoch.value
-        if timestamp.batch_in_epoch is not None:
-            args["batch"] = timestamp.batch.value
+        args["epoch"] = timestamp.epoch.value
+        args["batch"] = timestamp.batch.value
         self._record_event(
             name=name,
             categories=",".join(categories),
             ph=ph,
             wall_clock_ns=wall_clock_time_ns,
-            pid=process_id,
+            pid=global_rank,
             args=args,
-            tid=thread_id,
+            tid=pid,
         )
 
     def process_instant_event(
         self,
         name: str,
         categories: Union[List[str], Tuple[str, ...]],
-        timestamp: Optional[Timestamp],
+        timestamp: Timestamp,
         wall_clock_time_ns: int,
-        process_id: int,
-        thread_id: int,
+        global_rank: int,
+        pid: int,
     ) -> None:
         args = {}
-        if timestamp.epoch is not None:
-            args["epoch"] = timestamp.epoch.value
-        if timestamp.batch_in_epoch is not None:
-            args["batch"] = timestamp.batch.value
+        args["epoch"] = timestamp.epoch.value
+        args["batch"] = timestamp.batch.value
         self._record_event(
             name=name,
             categories=",".join(categories),
             ph="i",
             wall_clock_ns=wall_clock_time_ns,
             args=args,
-            pid=process_id,
-            tid=thread_id,
+            pid=global_rank,
+            tid=pid,
             s="p",  # mark instant event for at process level
         )
 
     def process_counter_event(self, name: str, categories: Union[List[str], Tuple[str, ...]], wall_clock_time_ns: int,
-                              process_id: int, thread_id: int, values: Dict[str, Union[int, float]]) -> None:
+                              global_rank: int, pid: int, values: Dict[str, Union[int, float]]) -> None:
         self._record_event(
             name=name,
             categories=",".join(categories),
             ph='C',  # counter event
             wall_clock_ns=wall_clock_time_ns,
-            pid=process_id,
-            tid=thread_id,
+            pid=global_rank,
+            tid=pid,
             args=values)
 
     def _record_event(self, name: str, ph: str, wall_clock_ns: int, pid: int, tid: int, categories: str = "", **kwargs):
