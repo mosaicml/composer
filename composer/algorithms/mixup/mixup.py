@@ -18,7 +18,7 @@ from composer.models.loss import check_for_index_targets
 log = logging.getLogger(__name__)
 
 
-def gen_mixup_interpolation_lambda(alpha: float) -> float:
+def _gen_interpolation_lambda(alpha: float) -> float:
     """Generates ``Beta(alpha, alpha)`` distribution."""
     # First check if alpha is positive.
     assert alpha >= 0
@@ -38,7 +38,8 @@ def gen_mixup_interpolation_lambda(alpha: float) -> float:
 def mixup_batch(x: Tensor,
                 y: Tensor,
                 n_classes: int,
-                interpolation_lambda: float = 0.9,
+                interpolation_lambda: Optional[float] = 0.9,
+                alpha: float = 0.2,
                 indices: Optional[torch.Tensor] = None) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
     """Create new samples using convex combinations of pairs of samples.
 
@@ -57,6 +58,9 @@ def mixup_batch(x: Tensor,
         y: target tensor of shape (B, f1, f2, ..., fm), B is batch size, f1-fn
             are possible target dimensions.
         interpolation_lambda: amount of interpolation based on alpha.
+        alpha: parameter for the beta distribution over the
+            ``interpolation_lambda``. Only used if ``interpolation_lambda``
+            is not provided.
         n_classes: total number of classes.
         indices: Permutation of the batch indices `1..B`. Used
             for permuting without randomness.
@@ -76,6 +80,8 @@ def mixup_batch(x: Tensor,
             pred = model(X)
             loss = loss_fun(pred, y)  # loss_fun must accept dense labels (ie NOT indices)
     """
+    if interpolation_lambda is None:
+        interpolation_lambda = _gen_interpolation_lambda(alpha)
     # Create shuffled versions of x and y in preparation for interpolation
     # Use given indices if there are any.
     if indices is None:
@@ -174,7 +180,7 @@ class MixUp(Algorithm):
         assert isinstance(input, Tensor) and isinstance(target, Tensor), \
             "Multiple tensors for inputs or targets not supported yet."
 
-        self.interpolation_lambda = gen_mixup_interpolation_lambda(self.alpha)
+        self.interpolation_lambda = _gen_interpolation_lambda(self.alpha)
 
         new_input, new_target, self.indices = mixup_batch(
             x=input,
