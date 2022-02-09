@@ -10,14 +10,20 @@
 # add these directories to sys.path here. If the directory is relative to the
 # documentation root, use os.path.abspath to make it absolute, like shown here.
 #
+import importlib
 import os
 import sys
+import textwrap
 import types
-from typing import List
+from typing import List, Optional, Tuple, Type, Union
 
+import sphinx.application
+import sphinx.util.logging
 import yahp as hp
 
 sys.path.insert(0, os.path.abspath('..'))
+
+log = sphinx.util.logging.getLogger(__name__)
 
 # -- Project information -----------------------------------------------------
 
@@ -47,6 +53,7 @@ extensions = [
     "sphinx.ext.intersphinx",
     "sphinxarg.ext",
     'autodocsumm',
+    'sphinx.ext.doctest',
 ]
 
 # Add any paths that contain templates here, relative to this directory.
@@ -65,10 +72,7 @@ napoleon_custom_sections = [('Returns', 'params_style')]
 # The theme to use for HTML and HTML Help pages.  See the documentation for
 # a list of builtin themes.
 #
-
-html_theme = 'sphinx_rtd_theme'
-
-# html_theme = 'sphinx_rtd_theme'
+html_theme = "furo"
 
 html_theme_options = {
     # Toc options
@@ -91,12 +95,25 @@ autosummary_generate = True
 # relative to this directory. They are copied after the builtin static files,
 # so a file named "default.css" will overwrite the builtin "default.css".
 html_static_path = ['_static']
+html_title = " "
 
 # Customize CSS
 html_css_files = ['css/custom.css']
 
 # Mosaic logo
-html_logo = 'https://storage.googleapis.com/docs.mosaicml.com/images/logo-dark-bg.png'
+# html_logo = 'https://storage.googleapis.com/docs.mosaicml.com/images/logo-dark-bg.png'
+html_theme_options = {
+    "light_logo": "logo-light-mode.png",
+    "dark_logo": "logo-dark-mode.png",
+    "light_css_variables": {
+        "color-brand-primary": "#343434",
+        "color-brand-content": "#343434",
+    },
+    "dark_css_variables": {
+        "color-brand-primary": "#f9f9f9",
+        "color-brand-content": "#f9f9f9",
+    },
+}
 
 # Favicon
 html_favicon = 'https://mosaic-ml-staging.cdn.prismic.io/mosaic-ml-staging/b1f1a2a0-2b54-4b43-9b76-bfa2e24d6fdf_favicon.svg'
@@ -112,6 +129,11 @@ autodoc_type_aliases = {
     'TDeviceTransformFn': 'composer.core.types.TDeviceTransformFn',
     'Hparams': 'yahp.hparams.Hparams',
 }
+
+pygments_style = "manni"
+pygments_dark_style = "monokai"
+
+html_add_permalinks = "#"
 
 intersphinx_mapping = {
     'python': ('https://docs.python.org/3/', None),
@@ -154,49 +176,111 @@ def maybe_skip_member(app, what: str, name: str, obj, skip: bool, options):
     return None
 
 
-def add_module_summary_tables(app, what: str, name: str, obj, options, lines: List[str]):
+with open(os.path.join(os.path.dirname(__file__), "doctest_fixtures.py"), "r") as f:
+    doctest_global_setup = f.read()
+
+
+def determine_sphinx_path(app: sphinx.application.Sphinx, item: Union[Type[object], Type[BaseException],
+                                                                      types.FunctionType],
+                          module_name: str) -> Optional[str]:
+    """Returns the path to where an item is documented.
+    
+    #. If ``item`` is private, then a Sphinx warning is emitted, as private members should not be documented
+    #. If ``item`` is in a private module, but ``item`` itself is public, the parents of ``item`` are searched to see if
+    ``item`` is reimported. If so, the most nested, public reimport is used.
+    #. If no re-import of ``item`` is found, then a sphinx warning is emitted.
+        This is likely to happen for modules missing ``__all__`` and that have external imports,
+        or could be a very unlikely edge condition where a public item in a private module is reimported only by
+        sibling module(s), not any (grand)parents.
+    """
+
+    # Check to see if `item` is itself private
+    if item.__name__.startswith("_"):
+        public_name = item.__name__
+        while public_name.startswith("_"):
+            public_name = public_name[1:]
+
+        log.warning(
+            textwrap.dedent(f"""\
+            {item.__name__} is private, so it should not be re-exported.
+            To fix, please make it public by renaming to {public_name}"""))
+
+    # Find and import the most nested public module of the path
+    module_parts = module_name.split(".")
+    public_module_parts = filter(lambda x: not x.startswith("_"), module_parts)
+    public_module_name = ".".join(public_module_parts)
+    public_module = importlib.import_module(public_module_name)
+
+    # See if item is imported in `public_module`
+    for name, val in vars(public_module).items():
+        if val is item:
+            # Found the item re-imported in `public_module` as `name`
+            return f"{public_module_name}.{name}"
+
+    # `item` was not found in `public_module`. Recursively search the parent module
+    parent_module_name = ".".join(public_module_name.split(".")[:-1])
+    if parent_module_name == "":
+        log.warning(f"{item.__name__} is not re-imported by any public parent or grandparent module.")
+        return None
+    return determine_sphinx_path(app, item, parent_module_name)
+
+
+def add_module_summary_tables(app: sphinx.application.Sphinx, what: str, name: str, obj, options, lines: List[str]):
     """This hook adds in summary tables for each module, documenting all functions, exceptions, classes, and attributes.
 
     It links reimported imports to their original source, as not to create a duplicate, indexed toctree entry.
     It automatically inserts itself at the end of each module docstring. 
     """
-    functions = []
-    exceptions = []
-    classes = []
-    attributes = []
+    functions: List[Tuple[str, types.FunctionType]] = []
+    exceptions: List[Tuple[str, Type[BaseException]]] = []
+    classes: List[Tuple[str, Type[object]]] = []
+    attributes: List[Tuple[str, object]] = []
     if len(lines) == 0:
         # insert a stub docstring so it doesn't start with functions/exceptions/classes/attributes
-        lines.append(obj.__name__)
+        lines.append(name)
     if what == "module":
 
-        for name, val in vars(obj).items():
-            if name.startswith("_"):
+        for item_name, val in vars(obj).items():
+            if item_name.startswith("_"):
+                # Skip private members
                 continue
-            if not hasattr(val, "__module__"):
-                continue
-            if not hasattr(val, "__name__"):
+
+            if isinstance(val, types.ModuleType):
+                # Skip modules; those are documented by autosummary
                 continue
 
             if isinstance(val, types.FunctionType):
-                functions.append(val)
+                functions.append((item_name, val))
             elif isinstance(val, type) and issubclass(val, BaseException):
-                exceptions.append(val)
-            elif isinstance(val, type) and issubclass(val, object):
-                classes.append(val)
-            elif isinstance(val, object) and not isinstance(val, types.ModuleType):
-                attributes.append(val)
+                exceptions.append((item_name, val))
+            elif isinstance(val, type):
+                assert issubclass(val, object)
+                classes.append((item_name, val))
+            else:
+                attributes.append((item_name, val))
+                continue
 
-        for category, name in ((functions, "Functions"), (classes, "Classes"), (attributes, "Attributes"),
-                               (exceptions, "Exceptions")):
+        # Sort by the reimported name
+        functions.sort(key=lambda x: x[0])
+        exceptions.sort(key=lambda x: x[0])
+        classes.sort(key=lambda x: x[0])
+        attributes.sort(key=lambda x: x[0])
+
+        for category, category_name in ((functions, "Functions"), (classes, "Classes"), (exceptions, "Exceptions"),
+                                        (attributes, "Attributes")):
             if len(category) > 0:
                 lines.append("")
-                lines.append(f".. rubric:: {name}")
+                lines.append(f".. rubric:: {category_name}")
                 lines.append("")
                 lines.append(".. autosummary::")
                 lines.append("    :nosignatures:")
                 lines.append("")
-                for item in category:
-                    lines.append(f"    ~{item.__module__}.{item.__name__}")
+                for item_name, item in category:
+                    sphinx_path = f"{name}.{item_name}"
+                    if isinstance(item, types.FunctionType) or (isinstance(item, type) and isinstance(item, object)):
+                        sphinx_path = determine_sphinx_path(app, item, item.__module__)
+                    if sphinx_path is not None:
+                        lines.append(f"    ~{sphinx_path}")
 
 
 def setup(app):

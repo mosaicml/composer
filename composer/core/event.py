@@ -1,21 +1,54 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
+"""
+Events represent specific points in the training loop where a :class:`~composer.core.Algorithm` and
+:class:`~composer.core.Callback` can run.
+"""
 from composer.utils.string_enum import StringEnum
+
+__all__ = ["Event"]
 
 
 class Event(StringEnum):
     """Enum to represent events.
 
-    Training Loop
-    ~~~~~~~~~~~~~
+    The following pseudocode shows where each event fires in the training loop:
 
-    .. include:: /core/event_training_loop_event_docstring.rst
+    .. code-block:: python
+
+        # <INIT>
+        # <FIT_START>
+        for epoch in range(NUM_EPOCHS):
+            # <EPOCH_START>
+            for inputs, targets in dataloader:
+                # <AFTER_DATALOADER>
+
+                # <BATCH_START>
+
+                # <BEFORE_FORWARD>
+                outputs = model.forward(inputs)
+                # <AFTER_FORWARD>
+
+                # <BEFORE_LOSS>
+                loss = model.loss(outputs, targets)
+                # <AFTER_LOSS>
+
+                # <BEFORE_BACKWARD>
+                loss.backward()
+                # <AFTER_BACKWARD>
+
+                optimizer.step()
+
+                # <BATCH_END>
+            # <EPOCH_END>
+
+
 
 
     Attributes:
-        INIT: Invoked during :meth:`Trainer.__init__`. Useful for model transformations.
+        INIT: Invoked in :meth:`Trainer.__init__`. Model surgery typically occurs here.
         FIT_START: Invoked at the beginning of each call to :meth:`Trainer.fit`.
-            Useful for dataloader transformations.
+            Dataset transformations typically occur here.
         EPOCH_START: Start of an epoch.
         BATCH_START: Start of a batch.
         AFTER_DATALOADER: Immediately after the dataloader is called.
@@ -91,10 +124,13 @@ class Event(StringEnum):
 
         Events that have a corresponding "before" or "after" event share the same canonical name.
         Example:
-            >>> Event.EPOCH_START.canonical_name == Event.EPOCH_END.canonical_name == "epoch"
+            >>> Event.EPOCH_START.canonical_name
+            'epoch'
+            >>> Event.EPOCH_END.canonical_name
+            'epoch'
 
         Returns:
-            str: [description]
+            str: The canonical name for an event.
         """
         name: str = self.value
         name = name.replace("before_", "")
