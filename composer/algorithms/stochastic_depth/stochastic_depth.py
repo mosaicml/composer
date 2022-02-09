@@ -242,6 +242,11 @@ class StochasticDepth(Algorithm):
         self.drop_distribution = drop_distribution
         self.drop_warmup = drop_warmup
         self.use_same_gpu_seed = use_same_gpu_seed
+        validate_stochastic_hparams(stochastic_method=self.stochastic_method,
+                                    target_layer_name=self.target_layer_name,
+                                    drop_rate=self.drop_rate,
+                                    drop_distribution=self.drop_distribution,
+                                    drop_warmup=self.drop_warmup)
 
     @property
     def find_unused_parameters(self) -> bool:
