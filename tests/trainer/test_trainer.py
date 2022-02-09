@@ -40,7 +40,7 @@ from composer.loggers.tqdm_logger import TQDMLogger
 from composer.models.base import ComposerModel
 from composer.optim.scheduler import ComposedScheduler
 from composer.profiler.profiler_hparams import ProfilerCallbackHparams, ProfilerHparams
-from composer.trainer import Trainer, TrainerHparams
+from composer.trainer import Trainer, TrainerHparams, trainer_hparams
 from composer.trainer.devices.device_gpu import DeviceGPU
 from composer.trainer.devices.device_hparams import CPUDeviceHparams, DeviceHparams, GPUDeviceHparams
 from composer.utils import dist
@@ -196,6 +196,9 @@ is defined as a successful training run.
 
 This should eventually be replaced by functional
 tests for each object, in situ of our trainer.
+
+We use the hparams_registry associated with our
+config management to retrieve the objects to test.
 """
 
 
@@ -204,43 +207,55 @@ class TestTrainerAssets:
     @pytest.fixture
     def config(self):
         return {
-            'model': SimpleConvModel(),
+            'model': SimpleModel(),
             'train_dataloader': DataLoader(
                 dataset=RandomClassificationDataset(size=16),
                 batch_size=4,
-                shuffle=True,
             ),
-            'eval_dataloader': DataLoader(
-                dataset=RandomClassificationDataset(size=16),
-                shuffle=False,
-            ),
+            'eval_dataloader': DataLoader(dataset=RandomClassificationDataset(size=16),),
             'max_duration': '2ep',
             'loggers': [],  # no progress bar
         }
 
-    def test_algorithms(self):
+    @pytest.mark.parametrize("algorithm", trainer_hparams.algorithms_registry.items())
+    def test_algorithms(self, config, algorithm):
+        skip_list = {
+            'swa': 'SWA not compatible with composed schedulers.',
+            'alibi': 'Not compatible with simple linear model',
+            'seq_length_warmup': 'Not compatible with simple linear model',
+            'randaugment': 'Requires PIL dataset to test.',
+            'augmix': 'Required PIL dataset to test.',
+        }
+        name, hparams = algorithm
+
+        if name in skip_list:
+            pytest.skip(skip_list[name])
+        elif name in ('cutmix, mixup, label_smoothing'):
+            pytest.importorskip("torch", minversion="1.10", reason="Pytorch 1.10 required.")
+
         pass
 
-    def test_callbacks(self):
+    @pytest.mark.parametrize("callback", trainer_hparams.callback_registry.items())
+    def test_callbacks(self, config):
         pass
 
-    def test_loggers(self):
+    @pytest.mark.parametrize("logger", trainer_hparams.logger_registry.items())
+    def test_loggers(self, config):
         pass
 
 
-"""
-_ALL_LOGGERS_CALLBACKS_ALG_PROFILER_HPARAMS = [
-    *TrainerHparams.hparams_registry["algorithms"].values(),
-    # excluding the run directory uploader here since it needs a longer timeout -- see below
-    *[
-        x for x in TrainerHparams.hparams_registry["callbacks"].values()
-        if not issubclass(x, RunDirectoryUploaderHparams)
-    ],
-    *TrainerHparams.hparams_registry["loggers"].values(),
-    *ProfilerHparams.hparams_registry["profilers"].values(),
-    *ProfilerHparams.hparams_registry["trace_event_handlers"].values(),
-    pytest.param(RunDirectoryUploaderHparams, marks=pytest.mark.timeout(10)),  # this test takes longer
-]
+# _ALL_LOGGERS_CALLBACKS_ALG_PROFILER_HPARAMS = [
+#     *TrainerHparams.hparams_registry["algorithms"].values(),
+#     # excluding the run directory uploader here since it needs a longer timeout -- see below
+#     *[
+#         x for x in TrainerHparams.hparams_registry["callbacks"].values()
+#         if not issubclass(x, RunDirectoryUploaderHparams)
+#     ],
+#     *TrainerHparams.hparams_registry["loggers"].values(),
+#     *ProfilerHparams.hparams_registry["profilers"].values(),
+#     *ProfilerHparams.hparams_registry["trace_event_handlers"].values(),
+#     pytest.param(RunDirectoryUploaderHparams, marks=pytest.mark.timeout(10)),  # this test takes longer
+# ]
 
 
 def _build_trainer(composer_trainer_hparams: TrainerHparams, dummy_num_classes: int, hparams_cls: Type[hp.Hparams],
@@ -311,7 +326,8 @@ def test_fit_on_all_callbacks_loggers_algs_profilers(
 ):
     trainer = _build_trainer(composer_trainer_hparams, dummy_num_classes, hparams_cls, monkeypatch, tmpdir)
     trainer.fit()
-"""
+
+
 """
 @pytest.mark.parametrize("hparams_cls", _ALL_LOGGERS_CALLBACKS_ALG_PROFILER_HPARAMS)
 def test_multiple_calls_to_fit(
