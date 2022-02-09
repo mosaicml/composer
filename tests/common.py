@@ -31,22 +31,21 @@ def device(*args, precision=False):
         raise ValueError('-fp32 and -amp tags must be removed if precision=False')
     args = [arg.replace('-fp32', '') for arg in args]
 
-    # use lambdas to construct DeviceGPU only when gpu requested
     if precision:
         devices = {
-            'cpu': lambda: pytest.param('cpu', Precision.FP32, id="cpu-fp32"),
-            'gpu': lambda: pytest.param('gpu', Precision.FP32, id="gpu-fp32", marks=pytest.mark.gpu),
-            'gpu-amp': lambda: pytest.param('gpu', Precision.AMP, id='gpu-amp', marks=pytest.mark.gpu)
+            'cpu': pytest.param('cpu', Precision.FP32, id="cpu-fp32"),
+            'gpu': pytest.param('gpu', Precision.FP32, id="gpu-fp32", marks=pytest.mark.gpu),
+            'gpu-amp': pytest.param('gpu', Precision.AMP, id='gpu-amp', marks=pytest.mark.gpu)
         }
         name = "device,precision"
     else:
         devices = {
-            'cpu': lambda: pytest.param('cpu', id="cpu"),
-            'gpu': lambda: pytest.param('gpu', id="gpu", marks=pytest.mark.gpu),
+            'cpu': pytest.param('cpu', id="cpu"),
+            'gpu': pytest.param('gpu', id="gpu", marks=pytest.mark.gpu),
         }
         name = "device"
 
-    parameters = [devices[arg]() for arg in args]
+    parameters = [devices[arg] for arg in args]
 
     def decorator(test):
         if not parameters:
