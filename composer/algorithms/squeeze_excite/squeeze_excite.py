@@ -82,7 +82,7 @@ class SqueezeExciteConv2d(torch.nn.Module):
         return SqueezeExciteConv2d(conv=module, latent_channels=latent_channels)
 
 
-def apply_se(
+def apply_squeeze_excite(
     model: torch.nn.Module,
     latent_channels: float = 64,
     min_channels: int = 128,
@@ -147,10 +147,10 @@ class SqueezeExcite(Algorithm):
             state (State): the current trainer state
             logger (Logger): the training logger
         """
-        state.model = apply_se(state.model,
-                               optimizers=state.optimizers,
-                               latent_channels=self.latent_channels,
-                               min_channels=self.min_channels)
+        state.model = apply_squeeze_excite(state.model,
+                                           optimizers=state.optimizers,
+                                           latent_channels=self.latent_channels,
+                                           min_channels=self.min_channels)
         layer_count = surgery.count_module_instances(state.model, SqueezeExciteConv2d)
 
         log.info(f'Applied SqueezeExcite to model {state.model.__class__.__name__} '

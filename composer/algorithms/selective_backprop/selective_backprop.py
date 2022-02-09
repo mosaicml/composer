@@ -16,7 +16,7 @@ from composer.core.types import Algorithm, Event, Logger, State, Tensor, Tensors
 from composer.models import ComposerModel
 
 
-def do_selective_backprop(
+def should_selective_backprop(
     current_duration: float,
     batch_idx: int,
     start: float = 0.5,
@@ -50,7 +50,6 @@ def do_selective_backprop(
     return is_interval and is_step
 
 
-# TODO this function should probably be part of the public API
 def selective_backprop(X: torch.Tensor,
                        y: torch.Tensor,
                        model: Callable[[Tensors], Tensor],
@@ -213,7 +212,7 @@ class SelectiveBackprop(Algorithm):
         if not is_keep:
             return False
 
-        is_chosen = do_selective_backprop(
+        is_chosen = should_selective_backprop(
             current_duration=float(state.get_elapsed_duration()),
             batch_idx=state.timer.batch_in_epoch.value,
             start=self.start,

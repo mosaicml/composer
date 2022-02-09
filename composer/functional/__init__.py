@@ -14,25 +14,28 @@
     # replace some layers with squeeze-excite
     cf.apply_se(model, latent_channels=64, min_channels=128)
 """
-from composer.algorithms.alibi.alibi import apply_alibi
-from composer.algorithms.augmix import augmix_image
-from composer.algorithms.blurpool import apply_blurpool
-from composer.algorithms.channels_last.channels_last import apply_channels_last
-from composer.algorithms.colout.colout import colout_batch, colout_image
-from composer.algorithms.cutmix.cutmix import cutmix_batch
-from composer.algorithms.cutout.cutout import apply_cutout, cutout_batch
-from composer.algorithms.ghost_batchnorm.ghost_batchnorm import apply_ghost_batchnorm
-from composer.algorithms.label_smoothing import smooth_labels
-from composer.algorithms.layer_freezing import freeze_layers
-from composer.algorithms.mixup import mixup_batch
-from composer.algorithms.mixup.mixup import gen_interpolation_lambda
-from composer.algorithms.progressive_resizing import resize_inputs
-from composer.algorithms.randaugment import randaugment
-from composer.algorithms.scale_schedule.scale_schedule import scale_scheduler
-from composer.algorithms.selective_backprop.selective_backprop import do_selective_backprop, selective_backprop
-from composer.algorithms.seq_length_warmup.seq_length_warmup import apply_seq_length_warmup
-from composer.algorithms.squeeze_excite import apply_se
-from composer.algorithms.stochastic_depth.stochastic_depth import apply_stochastic_depth
+from composer.algorithms.alibi.alibi import apply_alibi as apply_alibi
+from composer.algorithms.augmix import augmix_image as augmix_image
+from composer.algorithms.blurpool import apply_blurpool as apply_blurpool
+from composer.algorithms.channels_last import apply_channels_last as apply_channels_last
+from composer.algorithms.colout import colout_batch as colout_batch
+from composer.algorithms.colout import colout_image as colout_image
+from composer.algorithms.cutmix import cutmix_batch as cutmix_batch
+from composer.algorithms.cutout import cutout_batch as cutout_batch
+from composer.algorithms.factorize import apply_factorization as apply_factorization
+from composer.algorithms.ghost_batchnorm.ghost_batchnorm import apply_ghost_batchnorm as apply_ghost_batchnorm
+from composer.algorithms.label_smoothing import smooth_labels as smooth_labels
+from composer.algorithms.layer_freezing import freeze_layers as freeze_layers
+from composer.algorithms.mixup import gen_mixup_interpolation_lambda as gen_mixup_interpolation_lambda
+from composer.algorithms.mixup import mixup_batch as mixup_batch
+from composer.algorithms.progressive_resizing import resize_batch as resize_batch
+from composer.algorithms.randaugment import randaugment_image as randaugment_image
+from composer.algorithms.scale_schedule import scale_scheduler as scale_scheduler
+from composer.algorithms.selective_backprop import selective_backprop as selective_backprop
+from composer.algorithms.selective_backprop import should_selective_backprop as should_selective_backprop
+from composer.algorithms.seq_length_warmup import set_batch_sequence_length as set_batch_sequence_length
+from composer.algorithms.squeeze_excite import apply_squeeze_excite as apply_squeeze_excite
+from composer.algorithms.stochastic_depth import apply_stochastic_depth as apply_stochastic_depth
 
 # All must be manually defined so sphinx automodule will work properly
 __all__ = [
@@ -44,18 +47,18 @@ __all__ = [
     "colout_image",
     "cutmix_batch",
     "cutout_batch",
-    "apply_cutout",
+    "apply_factorization",
     "apply_ghost_batchnorm",
     "smooth_labels",
     "freeze_layers",
+    "gen_mixup_interpolation_lambda",
     "mixup_batch",
-    "gen_interpolation_lambda",
-    "resize_inputs",
-    "randaugment",
+    "resize_batch",
+    "randaugment_image",
     "scale_scheduler",
-    "do_selective_backprop",
+    "should_selective_backprop",
     "selective_backprop",
-    "apply_seq_length_warmup",
-    "apply_se",
+    "set_batch_sequence_length",
+    "apply_squeeze_excite",
     "apply_stochastic_depth",
 ]
