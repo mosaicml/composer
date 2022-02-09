@@ -250,9 +250,8 @@ class TrainerHparams(hp.Hparams):
     sys_prof_disk: bool = hp.optional("Whether to record disk statistics", default=False)
     sys_prof_net: bool = hp.optional("Whether to record network statistics", default=False)
     sys_prof_stats_thread_interval_seconds: float = hp.optional("Interval to record stats, in seconds.", default=0.5)
-    torch_profiler: bool = hp.optional("Enable Torch profiler", default=True)
-    torch_prof_trace_handler_dir: str = hp.optional(
-        "directory to store trace results. Relative to the run directory, if set.", default="torch_profiler")
+    torch_profiler_trace_dir: Optional[str] = hp.optional(
+        "directory to store trace results. Relative to the run directory, if set.", default=None)
     torch_prof_use_gzip: bool = hp.optional("Whether to use gzip for trace", default=False)
 
     torch_prof_record_shapes: bool = hp.optional(doc="Whether to record tensor shapes", default=False)
@@ -432,8 +431,7 @@ class TrainerHparams(hp.Hparams):
             sys_prof_disk=self.sys_prof_disk,
             sys_prof_net=self.sys_prof_net,
             sys_prof_stats_thread_interval_seconds=self.sys_prof_stats_thread_interval_seconds,
-            torch_profiler=self.torch_profiler,
-            torch_prof_trace_handler_dir=self.torch_prof_trace_handler_dir,
+            torch_profiler_trace_dir=self.torch_profiler_trace_dir,
             torch_prof_use_gzip=self.torch_prof_use_gzip,
             torch_prof_record_shapes=self.torch_prof_record_shapes,
             torch_prof_profile_memory=self.torch_prof_profile_memory,

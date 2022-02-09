@@ -138,9 +138,9 @@ class Trainer:
         sys_prof_net (bool, optional): Whether to record network statistics. (default: ``False``).
         sys_prof_stats_thread_interval_seconds (float, optional): Interval to record stats, in seconds.
             (default: ``0.5``).
-        torch_profiler (bool): Enable Torch profiler. (default: ``True``).
-        torch_prof_trace_handler_dir (str, optional): Directory to store trace results relative to the run directory, if set.
-            (default: ``torch_profiler``).
+        torch_profiler_trace_dir (str, optional): Directory to store trace results relative to the run directory.
+            The Torch Profiler is only active if the ``torch_profiler_trace_dir`` is set.
+            (default: ``None``).
         torch_prof_use_gzip (bool): Whether to use gzip for trace. (default: ``False``).
         torch_prof_record_shapes (bool, optional): Whether to record tensor shapes. (default: ``False``).
         torch_prof_profile_memory (bool, optional): Track tensor memory allocations and frees. (default: ``True``).
@@ -224,8 +224,7 @@ class Trainer:
         sys_prof_disk: bool = False,
         sys_prof_net: bool = False,
         sys_prof_stats_thread_interval_seconds: float = 0.5,
-        torch_profiler: bool = True,
-        torch_prof_trace_handler_dir: str = "torch_profiler",
+        torch_profiler_trace_dir: Optional[str] = None,
         torch_prof_use_gzip: bool = False,
         torch_prof_record_shapes: bool = False,
         torch_prof_profile_memory: bool = True,
@@ -403,13 +402,14 @@ class Trainer:
                                profile_disk=sys_prof_disk,
                                profile_net=sys_prof_net,
                                stats_thread_interval_seconds=sys_prof_stats_thread_interval_seconds))
-            self.state.callbacks.append(
-                TorchProfiler(tensorboard_trace_handler_dir=torch_prof_trace_handler_dir,
-                              tensorboard_use_gzip=torch_prof_use_gzip,
-                              record_shapes=torch_prof_record_shapes,
-                              profile_memory=torch_prof_profile_memory,
-                              with_stack=torch_prof_with_stack,
-                              with_flops=torch_prof_with_flops))
+            if torch_profiler_trace_dir:
+                self.state.callbacks.append(
+                    TorchProfiler(tensorboard_trace_handler_dir=torch_profiler_trace_dir,
+                                  tensorboard_use_gzip=torch_prof_use_gzip,
+                                  record_shapes=torch_prof_record_shapes,
+                                  profile_memory=torch_prof_profile_memory,
+                                  with_stack=torch_prof_with_stack,
+                                  with_flops=torch_prof_with_flops))
 
         if log_destinations is None:
             log_destinations = [TQDMLoggerBackend()]
