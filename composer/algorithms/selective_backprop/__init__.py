@@ -4,6 +4,8 @@ from composer.algorithms.selective_backprop.selective_backprop import SelectiveB
 from composer.algorithms.selective_backprop.selective_backprop import \
     SelectiveBackpropHparams as SelectiveBackpropHparams
 from composer.algorithms.selective_backprop.selective_backprop import selective_backprop as selective_backprop
+from composer.algorithms.selective_backprop.selective_backprop import \
+    should_selective_backprop as should_selective_backprop
 
 _name = 'Selective Backprop'
 _class_name = 'SelectiveBackprop'
