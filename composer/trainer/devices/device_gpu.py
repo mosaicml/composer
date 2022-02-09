@@ -45,8 +45,6 @@ class DeviceGPU(Device):
         else:
             raise ValueError(f"Precision {precision} not supported for a GPU")
         if enabled and precision == Precision.BF16:
-            #with torch.cuda.amp.autocast(enabled):  #type: ignore
-            #    yield
             with torch.cuda.amp.autocast(True, dtype=torch.bfloat16):
                 yield
         else:
