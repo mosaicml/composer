@@ -185,10 +185,23 @@ class TestStochasticBottleneckLayer:
 class TestStochasticDepthDropRate:
 
     @pytest.fixture
-    def algorithm(self, stochastic_method, target_layer_name, drop_rate, drop_distribution, drop_warmup,
-                  use_same_gpu_seed):
-        return StochasticDepth(stochastic_method, target_layer_name, drop_rate, drop_distribution, drop_warmup,
-                               use_same_gpu_seed)
+    def algorithm(
+        self,
+        stochastic_method,
+        target_layer_name,
+        drop_rate,
+        drop_distribution,
+        drop_warmup,
+        use_same_gpu_seed,
+    ):
+        return StochasticDepth(
+            target_layer_name,
+            stochastic_method,
+            drop_rate,
+            drop_distribution,
+            drop_warmup,
+            use_same_gpu_seed,
+        )
 
     def get_drop_rate_list(self, module: torch.nn.Module, drop_rates: Optional[List] = None):
         if drop_rates is None:
