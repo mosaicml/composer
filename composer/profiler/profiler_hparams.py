@@ -7,16 +7,11 @@ from typing import TYPE_CHECKING
 
 import yahp as hp
 
-from composer.callbacks import CallbackHparams
 from composer.profiler import ProfilerEventHandler
+from composer.profiler.json_trace import JSONTraceHandler
 
 if TYPE_CHECKING:
     from composer.profiler.json_trace import JSONTraceHandler
-
-
-@dataclasses.dataclass
-class ProfilerCallbackHparams(CallbackHparams, abc.ABC):
-    pass
 
 
 @dataclasses.dataclass
@@ -45,5 +40,4 @@ class JSONTraceHandlerHparams(ProfilerEventHandlerHparams):
                                         default="composer_profiler")
 
     def initialize_object(self) -> JSONTraceHandler:
-        from composer.profiler.json_trace import JSONTraceHandler
         return JSONTraceHandler(**dataclasses.asdict(self))

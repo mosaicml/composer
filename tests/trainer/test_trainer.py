@@ -27,14 +27,13 @@ from composer.callbacks.lr_monitor import LRMonitor
 from composer.core.event import Event
 from composer.core.logging.logger import Logger
 from composer.core.precision import Precision
-from composer.core.profiler import ProfilerEventHandlerHparams
 from composer.core.types import DataLoader, Optimizer, Scheduler
 from composer.loggers import LoggerCallbackHparams
 from composer.loggers.logger_hparams import MosaicMLLoggerHparams
 from composer.loggers.tqdm_logger import TQDMLogger
 from composer.models.base import ComposerModel
 from composer.optim.scheduler import ComposedScheduler
-from composer.profiler.profiler_hparams import ProfilerCallbackHparams, ProfilerHparams
+from composer.profiler.profiler_hparams import ProfilerEventHandlerHparams
 from composer.trainer import Trainer, TrainerHparams
 from composer.trainer.devices.device_hparams import CPUDeviceHparams, DeviceHparams, GPUDeviceHparams
 from tests.utils.trainer_fit import get_total_loss, train_model
@@ -152,8 +151,7 @@ _ALL_LOGGERS_CALLBACKS_ALG_PROFILER_HPARAMS = [
         if not issubclass(x, RunDirectoryUploaderHparams)
     ],
     *TrainerHparams.hparams_registry["loggers"].values(),
-    *ProfilerHparams.hparams_registry["profilers"].values(),
-    *ProfilerHparams.hparams_registry["trace_event_handlers"].values(),
+    *TrainerHparams.hparams_registry["prof_event_handlers"].values(),
     pytest.param(RunDirectoryUploaderHparams, marks=pytest.mark.timeout(10)),  # this test takes longer
 ]
 
@@ -203,10 +201,8 @@ def _build_trainer(composer_trainer_hparams: TrainerHparams, dummy_num_classes: 
 
     if isinstance(instance, LoggerCallbackHparams):
         composer_trainer_hparams.loggers.append(instance)
-    elif isinstance(instance, ProfilerCallbackHparams):
-        composer_trainer_hparams.profiler = ProfilerHparams(profilers=[instance])
     elif isinstance(instance, ProfilerEventHandlerHparams):
-        composer_trainer_hparams.profiler = ProfilerHparams(trace_event_handlers=[instance], profilers=[])
+        composer_trainer_hparams.prof_event_handlers.append(instance)
     elif isinstance(instance, CallbackHparams):
         composer_trainer_hparams.callbacks.append(instance)
     elif isinstance(instance, AlgorithmHparams):

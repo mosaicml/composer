@@ -104,6 +104,8 @@ device_registry = {
     "cpu": CPUDeviceHparams,
 }
 
+prof_event_handlers_registry = {"json": JSONTraceHandlerHparams}
+
 
 @dataclass
 class TrainerHparams(hp.Hparams):
@@ -121,6 +123,7 @@ class TrainerHparams(hp.Hparams):
         "val_dataset": dataset_registry,
         "callbacks": callback_registry,
         "device": device_registry,
+        "prof_event_handlers": prof_event_handlers_registry,
     }
 
     device: DeviceHparams = hp.required(doc="Device Parameters")
