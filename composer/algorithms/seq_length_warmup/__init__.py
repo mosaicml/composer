@@ -7,7 +7,7 @@ from composer.algorithms.seq_length_warmup.seq_length_warmup import \
 
 _name = 'Sequential Length Warmup'
 _class_name = 'SeqLengthWarmup'
-_functional = 'set_batch_sequence_length'
+_functional = 'apply_seq_length_warmup'
 _tldr = 'Progressively increase sequence length.'
 _attribution = '(Li et al, 2021)'
 _link = 'https://arxiv.org/abs/2108.06084'

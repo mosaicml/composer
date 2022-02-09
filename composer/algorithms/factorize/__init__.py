@@ -7,11 +7,3 @@ from composer.algorithms.factorize.factorize_core import factorize_conv2d as fac
 from composer.algorithms.factorize.factorize_core import factorize_matrix as factorize_matrix
 from composer.algorithms.factorize.factorize_modules import FactorizedConv2d as FactorizedConv2d
 from composer.algorithms.factorize.factorize_modules import FactorizedLinear as FactorizedLinear
-
-_name = 'Factorize'
-_class_name = 'Factorize'
-_functional = 'apply_factorization'
-_tldr = 'Factorize linear transforms into two smaller transforms'
-_attribution = ''
-_link = ''
-_method_card = ''

@@ -8,7 +8,7 @@ from composer.algorithms.squeeze_excite.squeeze_excite import apply_squeeze_exci
 
 _name = 'SqueezeExcite'
 _class_name = 'SqueezeExcite'
-_functional = 'apply_squeeze_excite'
+_functional = 'apply_se'
 _tldr = 'Replaces eligible layers with Squeeze-Excite layers'
 _attribution = 'Hu et al, 2017'
 _link = 'https://arxiv.org/abs/1709.01507'
