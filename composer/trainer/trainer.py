@@ -19,8 +19,7 @@ from torch.optim.lr_scheduler import CosineAnnealingLR
 from torchmetrics.collections import MetricCollection
 from torchmetrics.metric import Metric
 
-from composer.composer.algorithms.scale_schedule.scale_schedule import ScaleSchedule
-from composer.composer.trainer.scale_schedule import scale_scheduler
+from composer.algorithms import ScaleSchedule
 from composer.core import Callback, DataSpec, Engine, Event, Logger, State, Time, surgery
 from composer.core.algorithm import Algorithm
 from composer.core.evaluator import Evaluator
@@ -38,6 +37,7 @@ from composer.trainer.checkpoint import CheckpointLoader, CheckpointSaver
 from composer.trainer.ddp import DDPSyncStrategy, ddp_sync_context, prepare_ddp_module
 from composer.trainer.deepspeed import fix_batch_precision_for_deepspeed, parse_deepspeed_config
 from composer.trainer.devices import Device, DeviceCPU, DeviceGPU
+from composer.trainer.scale_schedule import scale_scheduler
 from composer.trainer.scaler import ClosureGradScaler
 from composer.utils import dist, ensure_tuple, map_collection, reproducibility
 from composer.utils.object_store import ObjectStoreProvider
@@ -318,7 +318,8 @@ class Trainer:
 
         if scale_schedule_ratio != 1.0:
             if orig_max_duration.unit != TimeUnit.EPOCH:
-                raise NotImplementedError("Max duration must be specified in epochs. Other units are not yet supported.")
+                raise NotImplementedError(
+                    "Max duration must be specified in epochs. Other units are not yet supported.")
 
             for scheduler in ensure_tuple(schedulers):
                 scale_scheduler(scheduler, scale_schedule_ratio, orig_max_duration.value)
