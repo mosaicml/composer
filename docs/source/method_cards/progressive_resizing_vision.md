@@ -68,6 +68,6 @@ Using the recommendations above, we ran a baseline ResNet-50 model on CIFAR-10 a
 ```
 
 ```{eval-rst}
-.. autoclass:: composer.algorithms.progressive_resizing.resize_inputs
+.. autoclass:: composer.algorithms.progressive_resizing.resize_batch
     :noindex:
 ```
