@@ -36,7 +36,7 @@ class Benchmarker(Callback):
         log to the same keys.
 
     .. warning::
-        The :class:`Benchmarker`: modifies the :class:`~compose.core.State`,
+        The :class:`Benchmarker`: modifies the :class:`~composer.core.state.State`,
         which is an exception to the convention that callbacks should NOT
         modify state. This callback may break other algorithms and callbacks.
 
@@ -101,6 +101,7 @@ class Benchmarker(Callback):
         self.wct_dict = {}
 
     def _compute_elapsed_wct(self, epoch_wct_dict, steps_per_epoch: int, n_epochs: int):
+        # wall clock time
         wct = 0.0
         wct_per_step = 0
         assert 0 in epoch_wct_dict, "epoch_wct_dict must contain 0"
@@ -111,6 +112,19 @@ class Benchmarker(Callback):
         return wct * n_epochs
 
     def fit_start(self, state: State, logger: Logger):
+        """Called on the :attr:`~composer.core.event.Event.FIT_START` event.
+
+        Modifies ``epoch_list`` based on ``all_epochs`` (See parameter ``all_epochs`` in
+        :mod:`~composer.callbacks.benchmarker.Benchmarker`)
+        at the :attr:`~composer.core.event.Event.FIT_START` event. ``state`` is also modfied to set total duration of the training.
+
+        Args:
+            state (State): The :class:`~composer.core.state.State` object
+                used during training.
+            logger (Logger):
+                The :class:`~composer.core.logging.logger.Logger` object.
+        """
+
         del logger  # Unused
         warnings.warn("The benchmarker is activated. The model will not be fully trained."
                       "All quality metrics for this run will be incorrect.")
@@ -124,6 +138,17 @@ class Benchmarker(Callback):
         state.max_duration = f"{len(self.epoch_list)}ep"
 
     def epoch_end(self, state: State, logger: Logger):
+        """Called on the :attr:`~composer.core.event.Event.EPOCH_END` event.
+
+        Bookkeeping at the end of an epoch and preparation for the next.
+        ``state`` is also modfied to set epoch and batch values.
+
+        Args:
+            state (State): The :class:`~composer.core.state.State` object
+                used during training.
+            logger (Logger):
+                The :class:`~composer.core.logging.logger.Logger` object.
+        """
         prev_epoch = self.epoch_list[self.epoch_ix]
         epoch_wct_dict = self.wct_dict[prev_epoch]
         self.epoch_ix += 1
@@ -140,6 +165,16 @@ class Benchmarker(Callback):
         logger.metric_epoch({'wall_clock_train': self.wall_clock_train})
 
     def batch_start(self, state: State, logger: Logger):
+        """Called on the :attr:`~composer.core.event.Event.BATCH_START` event.
+
+        Reset timing and profiling bookkeeping variables at the start of a batch.
+
+        Args:
+            state (State): The :class:`~composer.core.state.State` object
+                used during training.
+            logger (Logger):
+                The :class:`~composer.core.logging.logger.Logger` object.
+        """
         del logger  # Unused
         if self.current_time is None:
             self.current_time = time.time()
@@ -149,6 +184,16 @@ class Benchmarker(Callback):
             self.batch_start_num_samples = state.timer.sample
 
     def batch_end(self, state: State, logger: Logger):
+        """Called on the :attr:`~composer.core.event.Event.BATCH_END` event.
+
+        Update timing and profiling related bookkeeping variables and skip rest of the profling steps if done with ``step_list``
+
+        Args:
+            state (State): The :class:`~composer.core.state.State` object
+                used during training.
+            logger (Logger):
+                The :class:`~composer.core.logging.logger.Logger` object.
+        """
         if self.current_time is not None:
             now = time.time()
             elapsed = now - self.current_time

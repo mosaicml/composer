@@ -66,6 +66,11 @@ class BenchmarkerHparams(CallbackHparams):
     )
 
     def initialize_object(self) -> Benchmarker:
+        """Initialize the Benchmarker callback.
+
+        Returns:
+            Benchmarker: An instance of :mod:`~composer.callbacks.benchmarker.Benchmarker`.
+        """
         from composer.callbacks.benchmarker import Benchmarker
         return Benchmarker(
             min_steps=self.min_steps,
@@ -88,6 +93,11 @@ class GradMonitorHparams(CallbackHparams):
     )
 
     def initialize_object(self) -> GradMonitor:
+        """Initialize the GradMonitor callback.
+
+        Returns:
+            GradMonitor: An instance of :mod:`~composer.callbacks.grad_monitor.GradMonitor`.
+        """
         from composer.callbacks.grad_monitor import GradMonitor
         return GradMonitor(log_layer_grad_norms=self.log_layer_grad_norms)
 
@@ -100,6 +110,11 @@ class MemoryMonitorHparams(CallbackHparams):
     """
 
     def initialize_object(self) -> MemoryMonitor:
+        """Initialize the MemoryMonitor callback.
+
+        Returns:
+            MemoryMonitor: An instance of :mod:`~composer.callbacks.memory_monitor.MemoryMonitor`.
+        """
         from composer.callbacks.memory_monitor import MemoryMonitor
         return MemoryMonitor()
 
@@ -112,6 +127,11 @@ class LRMonitorHparams(CallbackHparams):
     """
 
     def initialize_object(self) -> LRMonitor:
+        """Initialize the LRMonitor callback.
+
+        Returns:
+            LRMonitor: An instance of :mod:`~composer.callbacks.lr_monitor.LRMonitor`.
+        """
         from composer.callbacks.lr_monitor import LRMonitor
         return LRMonitor()
 
@@ -128,6 +148,11 @@ class SpeedMonitorHparams(CallbackHparams):
     )
 
     def initialize_object(self) -> SpeedMonitor:
+        """Initialize the SpeedMonitor callback.
+
+        Returns:
+            SpeedMonitor: An instance of :mod:`~composer.callbacks.speed_monitor.SpeedMonitor`.
+        """
         from composer.callbacks.speed_monitor import SpeedMonitor
         return SpeedMonitor(window_size=self.window_size)
 
@@ -158,6 +183,11 @@ class RunDirectoryUploaderHparams(CallbackHparams, ObjectStoreProviderHparams):
                                               default=100)
 
     def initialize_object(self) -> RunDirectoryUploader:
+        """Initialize the RunDirectoryUploader callback.
+
+        Returns:
+            RunDirectoryUploader: An instance of :mod:`~composer.callbacks.run_directory_uploader.RunDirectoryUploader`.
+        """
         from composer.callbacks.run_directory_uploader import RunDirectoryUploader
         return RunDirectoryUploader(
             object_store_provider_hparams=ObjectStoreProviderHparams(

@@ -63,7 +63,7 @@ class RunDirectoryUploader(Callback):
         provider (str): Cloud provider to use.
 
             Specify the last part of the Apache Libcloud Module here.
-            `This document <https://libcloud.readthedocs.io/en/stable/storage/supported_providers.html#provider-matrix>`
+            `This document <https://libcloud.readthedocs.io/en/stable/storage/supported_providers.html#provider-matrix>`_
             lists all supported providers. For example, the module name for Amazon S3 is `libcloud.storage.drivers.s3`, so
             to use S3, specify 's3' here.
 
@@ -77,7 +77,7 @@ class RunDirectoryUploader(Callback):
             would be uploaded to `foo/bar` in the container.
         num_concurrent_uploads (int, optional): Maximum number of concurrent uploads. Defaults to 4.
         upload_staging_folder (str, optional): A folder to use for staging uploads.
-            If not specified, defaults to using a :class:`~tempfile.TemporaryDirectory`.
+            If not specified, defaults to using a :func:`~tempfile.TemporaryDirectory`.
         use_procs (bool, optional): Whether to perform file uploads in background processes (as opposed to threads).
             Defaults to True.
         upload_every_n_batches (int, optional): Interval at which to scan the run directory for changes and to
@@ -139,6 +139,16 @@ class RunDirectoryUploader(Callback):
         _validate_credentials(object_store_provider_hparams, self._object_name_prefix)
 
     def init(self, state: State, logger: Logger) -> None:
+        """Called on the :attr:`~composer.core.event.Event.INIT` event.
+
+        Initialize and start worker threads/processes.
+
+        Args:
+            state (State): The :class:`~composer.core.state.State` object
+                used during training.
+            logger (Logger):
+                The :class:`~composer.core.logging.logger.Logger` object.
+        """
         del state, logger  # unused
         self._finished = self._finished_cls()
         self._last_upload_timestamp = 0.0
@@ -155,14 +165,44 @@ class RunDirectoryUploader(Callback):
             worker.start()
 
     def batch_end(self, state: State, logger: Logger) -> None:
+        """Called on the :attr:`~composer.core.event.Event.BATCH_END` event.
+
+        Trigger the upload of run directory if upload condition is met.
+
+        Args:
+            state (State): The :class:`~composer.core.state.State` object
+                used during training.
+            logger (Logger):
+                The :class:`~composer.core.logging.logger.Logger` object.
+        """
         if int(state.timer.batch_in_epoch) % self._upload_every_n_batches == 0:
             self._trigger_upload(logger, LogLevel.BATCH)
 
     def epoch_end(self, state: State, logger: Logger) -> None:
+        """Called on the :attr:`~composer.core.event.Event.EPOCH_END` event.
+
+        Trigger the upload of run directory.
+
+        Args:
+            state (State): The :class:`~composer.core.state.State` object
+                used during training.
+            logger (Logger):
+                The :class:`~composer.core.logging.logger.Logger` object.
+        """
         del state  # unused
         self._trigger_upload(logger, LogLevel.EPOCH)
 
     def post_close(self):
+        """Called whenever the trainer finishes training and other callbacks are also done.
+
+        Clean up when training is done.
+
+        Args:
+            state (State): The :class:`~composer.core.state.State` object
+                used during training.
+            logger (Logger):
+                The :class:`~composer.core.logging.logger.Logger` object.
+        """
         # Cleaning up on post_close to ensure that all artifacts are uploaded
         self._trigger_upload(logger=None, log_level=None)
         if self._finished is not None:

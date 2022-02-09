@@ -65,7 +65,6 @@ Examples
     # Create a trainer from hparams and train train the model
     trainer = hparams.initialize_object()
     trainer.fit()
-
 """
 from composer.trainer import devices as devices
 from composer.trainer.trainer import Trainer as Trainer

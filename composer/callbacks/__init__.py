@@ -1,16 +1,16 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
-"""Callbacks provide hooks that can run at each :class:`Event`
+"""Callbacks provide hooks that can run at each :class:`~composer.core.event.Event`
 
-Callbacks differ from :class:`Algorithm` in that they do not modify the training of the model.
+Callbacks differ from :class:`~composer.core.algorithm.Algorithm` in that they do not modify the training of the model.
 They are typically used to for non-essential recording functions such as logging or timing.
-By convention, callbacks should not modify the :class:`State`.
+By convention, callbacks should not modify the :class:`~composer.core.state.State`.
 
 
-Each callback inherits from the :class:`Callback` base class.
+Each callback inherits from the :class:`~composer.core.callback.Callback` base class.
 Callbacks can be implemented in two ways:
 
-#.  Override the individual methods named for each :class:`Event`.
+#.  Override the individual methods named for each :class:`~composer.core.event.Event`.
 
     For example,
 

@@ -6,13 +6,25 @@ from composer.core import Callback, Logger, State
 class LRMonitor(Callback):
     """Logs the learning rate.
 
-    Learning rates for each optimizer is logged on each batch under the ``lr-{OPTIMIZER_NAME}/group{GROUP_NUMBER}`` key.
+    Learning rates for each optimizer is logged on each :attr:`~composer.core.event.Event.BATCH_END` event under the
+    ``lr-{OPTIMIZER_NAME}/group{GROUP_NUMBER}`` key.
     """
 
     def __init__(self) -> None:
         super().__init__()
 
     def batch_end(self, state: State, logger: Logger):
+        """Called on the :attr:`~composer.core.event.Event.BATCH_END` event.
+
+        Walks through all optimizers and their parameter groups to log learning rate under the
+        ``lr-{OPTIMIZER_NAME}/group{GROUP_NUMBER}`` key.
+
+        Args:
+            state (State): The :class:`~composer.core.state.State` object
+                used during training.
+            logger (Logger):
+                The :class:`~composer.core.logging.logger.Logger` object.
+        """
         assert state.optimizers is not None, "optimizers must be defined"
         for optimizer in state.optimizers:
             lrs = [group['lr'] for group in optimizer.param_groups]
