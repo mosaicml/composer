@@ -173,17 +173,20 @@ class TestTrainerEquivalence():
 
 class AssertDataAugmented(Callback):
     """Helper callback that asserts test whether the augmented batch was passed to the model during the forward pass.
-    The original batch is passed through the model and we assert that the outputs are not the same.
+    The original batch is passed through the model and we assert that the outputs are not the same. This is to be used
+    in conjunction with an algorithm that augments the data during AFTER_DATALOADER event.
 
-    Assumes batch_size=1, and no gradient accumulation.
+    Assumes gradient accumulation 1.
     """
 
     def __init__(self, dataset):
         self.dataset = dataset
 
     def after_forward(self, state, logger):
+        if state.grad_accum != 1:
+            raise ValueError(f'This check assumes grad_accum of 1, got {state.grad_accum}')
         batch_idx = state.timer.batch_in_epoch.value
-        batch_size = state.train_dataloader.batch_size
+        batch_size = state.batch_num_samples
         original_batch = self.dataset[batch_idx:batch_idx + batch_size]
         original_outputs = state.model(original_batch)
 
