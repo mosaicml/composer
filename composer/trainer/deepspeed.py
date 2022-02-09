@@ -88,6 +88,7 @@ class DeepSpeedHparams(hp.Hparams):
                 "initial_scale_power": 16,
                 "loss_scale_window": 2000,
             }
+            
         if grad_clip_norm:
             deepspeed_config["gradient_clipping"] = grad_clip_norm
 
