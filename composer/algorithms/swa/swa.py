@@ -161,7 +161,8 @@ class SWA(Algorithm):
         if float(state.get_elapsed_duration()) >= 1.0:
             device = next(self.swa_model.parameters()).device
             # TODO(laura) this does not apply the batch split fn. This may result in cuda OOM.
-            update_bn(state.train_dataloader, model=self.swa_model, device=device)
+            # update_bn(state.train_dataloader, model=self.swa_model, device=device)
             assert type(self.swa_model.module) == type(state.model)
             state.model.load_state_dict(self.swa_model.module.state_dict())  # type: ignore
+            # log.info('Updated BN and set model to the averaged model')
             log.info('Updated BN and set model to the averaged model')
