@@ -1,5 +1,5 @@
 import collections.abc
-from typing import Any, Callable, Dict, Generator, Iterator, List, Optional, Tuple, TypeVar, Union, overload
+from typing import Any, Callable, Dict, Iterator, List, Optional, Tuple, TypeVar, Union, overload
 
 import tqdm
 
@@ -46,10 +46,6 @@ def ensure_tuple(x: Dict[Any, T]) -> Tuple[T, ...]:
 
 @overload
 def ensure_tuple(x: Union[T, None, Tuple[T, ...], List[T], Dict[Any, T]]) -> Tuple[T, ...]:
-    ...
-
-
-def zip_collection(singleton: Any, *others: Any) -> Generator[Tuple[Any, ...], None, None]:
     ...
 
 def iterate_with_pbar(iterator: Iterator[TSized], progress_bar: Optional[tqdm.tqdm] = ...) -> Iterator[TSized]:

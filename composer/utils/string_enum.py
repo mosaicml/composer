@@ -1,13 +1,45 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
+"""Base class for Enums containing string values."""
 from __future__ import annotations
 
 import textwrap
 import warnings
 from enum import Enum
 
+__all__ = ["StringEnum"]
+
 
 class StringEnum(Enum):
+    """Base class for Enums containing string values.
+
+    :class:`StringEnum` enforces that all keys are uppercase, and all values are lowercase.
+    
+    In addition, it offers the following features:
+
+    * ``StringEnum(value)`` will perform a case-insensitive match on both the keys and value,
+        and is a no-op if given an existing instance of the class.
+
+        >>> class MyStringEnum(StringEnum):
+        ...     KEY = "value"
+        >>> MyStringEnum("KeY")  # case-insensitive match on the key
+        something
+        >>> MyStringEnum("VaLuE")  # case-insensitive match on the value
+        something
+        >>> MyStringEnum(MyStringEnum.KEY)  # no-op if given an existing instance
+        something
+    
+    * Equality checks support case-insensitive comparisions against strings:
+
+        >>> class MyStringEnum(StringEnum):
+        ...     KEY = "value"
+        >>> MyStringEnum.KEY == "KeY"  # case-insensitive match on the key
+        True
+        >>> MyStringEnum.KEY == "VaLuE"  # case-insensitive match on the value
+        True
+        >>> MyStringEnum.KEY == "something else"
+        False
+    """
     __hash__ = Enum.__hash__
 
     def __eq__(self, o: object) -> bool:

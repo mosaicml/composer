@@ -1,5 +1,9 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
+"""Utilities for working with the run directory.
+
+TODO
+"""
 import datetime
 import logging
 import os
@@ -13,6 +17,13 @@ log = logging.getLogger(__name__)
 _RUN_DIRECTORY_KEY = "COMPOSER_RUN_DIRECTORY"
 
 _start_time_str = datetime.datetime.now().isoformat()
+
+__all__ = [
+    "get_node_run_directory",
+    "get_run_directory",
+    "get_modified_files",
+    "get_run_directory_timestamp",
+]
 
 
 def get_node_run_directory() -> str:
@@ -73,7 +84,7 @@ def get_run_directory_timestamp() -> float:
     time (e.g. when using network filesystems).
 
     Returns:
-        float: the current timestamp on the run directory filesystem.
+        float: The current timestamp on the run directory filesystem.
     """
     run_directory = get_run_directory()
     if run_directory is None:
