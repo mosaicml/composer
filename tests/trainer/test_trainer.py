@@ -280,7 +280,7 @@ class TestTrainerAssets:
 
         # create the algorithms
         if name in ('cutmix, mixup'):  # these algos have required algorithms
-            algorithm = hparams(num_classes=10).initialize_object()
+            algorithm = hparams(num_classes=2).initialize_object()
         else:
             algorithm = hparams().initialize_object()
 

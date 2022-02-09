@@ -14,7 +14,7 @@ from tests.common import SimpleConvModel
 @pytest.fixture
 def state(minimal_state: State):
     """SE tests require a conv model."""
-    minimal_state.model = SimpleConvModel()
+    minimal_state.model = SimpleConvModel(num_channels=32)
     return minimal_state
 
 

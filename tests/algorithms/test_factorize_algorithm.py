@@ -69,7 +69,7 @@ def test_factorize_surgery(state: State, empty_logger: Logger, algo_instance: Fa
 
 def test_forward_shape(state: State, empty_logger: Logger, algo_instance: Factorize):
 
-    batch = (torch.Tensor(64, 32, 32, 32), torch.Tensor())
+    batch = (torch.Tensor(64, 3, 32, 32), torch.Tensor())
     output = state.model.forward(batch)
 
     algo_instance.apply(event=Event.INIT, state=state, logger=empty_logger)
