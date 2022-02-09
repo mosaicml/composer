@@ -19,7 +19,7 @@ Davis W. Blalock and John V. Guttag, `Multiplying Matrices Without Multiplying <
 
 Code
 =====
-.. Link to code in Mosaic
+.. Link to code in Composer
 .. Can also add a code block like this:
 .. code:: python
 

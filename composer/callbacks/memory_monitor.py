@@ -28,8 +28,7 @@ class MemoryMonitor(Callback):
             log.warn("Memory monitor only works on GPU devices.")
 
     def after_train_batch(self, state: State, logger: Logger):
-        """This function calls the torch cuda memory stats and reports basic memory
-        statistics.
+        """This function calls the torch cuda memory stats and reports basic memory statistics.
 
         Args:
             state (State): The :class:`~composer.core.State` object
@@ -64,8 +63,15 @@ def get_memory_report() -> Dict[str, Union[int, float]]:
     if not torch.cuda.is_available():
         log.debug("Cuda is not available. The memory report will be empty.")
         return {}
-    device_stats = torch.cuda.memory_stats()
-    memory_report = {}
-    for torch_stat_name, stat_alias in _MEMORY_STATS.items():
-        memory_report[stat_alias] = device_stats[torch_stat_name]
+    memory_stats = torch.cuda.memory_stats()
+
+    if len(memory_stats) == 0:
+        log.debug("No GPU memory was used, returning empty.")
+        return {}
+
+    # simplify the memory_stats
+    memory_report = {
+        name: memory_stats[torch_name] for (torch_name, name) in _MEMORY_STATS.items() if torch_name in memory_stats
+    }
+
     return memory_report

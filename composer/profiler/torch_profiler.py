@@ -79,7 +79,7 @@ class TorchProfiler(Callback):
             del torch_tb_profiler
         except ModuleNotFoundError:
             warnings.warn(
-                textwrap.dedent("""
+                textwrap.dedent("""\
                 TorchTBProfilerNotFound: torch_tb_profiler not found.
                 You will not be able to visualize torch profiler results.
                 To visualize, run `pip install torch-tb-profiler`"""))
@@ -90,25 +90,23 @@ class TorchProfiler(Callback):
         # Wrapping the default scheduling function to deal with epoch boundaries
         # Giving the torch scheduler the batch in the epoch, not the global step
 
-        # adding 1 since this is called before the step is incremented
-
-        next_batch_in_epoch = int(state.timer.batch_in_epoch) + 1
+        next_batch_in_epoch = int(state.timer.batch_in_epoch)
         if profiler_step == 0:
             next_batch_in_epoch = 0
-        assert state.profiler is not None, "mosaic profiler should be defined"
-        mosaic_profiler_action = state.profiler.get_action(next_batch_in_epoch)
-        next_mosaic_profiler_action = state.profiler.get_action(next_batch_in_epoch + 1)
+        assert state.profiler is not None, "composer profiler should be defined"
+        composer_profiler_action = state.profiler.get_action(next_batch_in_epoch)
+        next_composer_profiler_action = state.profiler.get_action(next_batch_in_epoch + 1)
         if next_batch_in_epoch == state.steps_per_epoch:
-            if mosaic_profiler_action == ProfilerAction.ACTIVE:
+            if composer_profiler_action == ProfilerAction.ACTIVE:
                 # force saving at epoch boundaries
                 return TorchProfilerAction.RECORD_AND_SAVE
-        if mosaic_profiler_action == ProfilerAction.ACTIVE and next_mosaic_profiler_action != ProfilerAction.ACTIVE:
+        if composer_profiler_action == ProfilerAction.ACTIVE and next_composer_profiler_action != ProfilerAction.ACTIVE:
             return TorchProfilerAction.RECORD_AND_SAVE
-        if mosaic_profiler_action == ProfilerAction.ACTIVE:
+        if composer_profiler_action == ProfilerAction.ACTIVE:
             return TorchProfilerAction.RECORD
-        if mosaic_profiler_action == ProfilerAction.WARMUP:
+        if composer_profiler_action == ProfilerAction.WARMUP:
             return TorchProfilerAction.WARMUP
-        assert mosaic_profiler_action == ProfilerAction.SKIP, "invariant error"
+        assert composer_profiler_action == ProfilerAction.SKIP, "invariant error"
         return TorchProfilerAction.NONE
 
     def init(self, state: State, logger: Logger) -> None:
@@ -116,8 +114,9 @@ class TorchProfiler(Callback):
         assert self.profiler is None, "The profiler should be None upon init"
         if state.profiler is None:
             raise RuntimeError(
-                textwrap.dedent("""To use the dataloader profiler, state.profiler must be set.
-                Make sure to run composer with the profiler -- i.e. with the `--profiler` CLI flag."""))
+                textwrap.dedent("""\
+                    To use the dataloader profiler, state.profiler must be set.
+                    Make sure to run composer with the profiler -- i.e. with the `--profiler` CLI flag."""))
         self.profiler = torch.profiler.profile(
             schedule=functools.partial(self._scheduler_fn, state=state),
             # TODO(ravi): Instruct the pytorch profiler to dump trace events through our profiler,

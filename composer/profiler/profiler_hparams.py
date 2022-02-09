@@ -32,7 +32,7 @@ class JSONTraceHandlerHparams(ProfilerEventHandlerHparams):
     flush_every_n_batches: int = hp.optional("Interval at which to flush the logfile.", default=100)
     buffering: int = hp.optional("Buffering parameter passed to :meth:`open` when opening the logfile.", default=-1)
     output_directory: str = hp.optional("Directory, relative to the run directory, to store traces.",
-                                        default="mosaic_profiler")
+                                        default="composer_profiler")
 
     def initialize_object(self) -> JSONTraceHandler:
         from composer.profiler.json_trace import JSONTraceHandler
@@ -40,7 +40,7 @@ class JSONTraceHandlerHparams(ProfilerEventHandlerHparams):
 
 
 @dataclasses.dataclass
-class DataloaderProfilerHparams(CallbackHparams):
+class DataloaderProfilerHparams(ProfilerCallbackHparams):
     """:class:`~composer.profiler.dataloader_profiler.DataloaderProfiler` hyperparameters.
 
     See :class:`~composer.profiler.dataloader_profiler.DataloaderProfiler` for documentation."""
@@ -51,7 +51,7 @@ class DataloaderProfilerHparams(CallbackHparams):
 
 
 @dataclasses.dataclass
-class SystemProfilerHparams(CallbackHparams):
+class SystemProfilerHparams(ProfilerCallbackHparams):
     """:class:`~composer.profiler.system_profiler.SystemProfiler` hyperparameters.
 
     See :class:`~composer.profiler.system_profiler.SystemProfiler` for documentation."""
@@ -68,7 +68,7 @@ class SystemProfilerHparams(CallbackHparams):
 
 
 @dataclasses.dataclass
-class TorchProfilerHparams(CallbackHparams):
+class TorchProfilerHparams(ProfilerCallbackHparams):
     """:class:`~composer.profiler.torch_profiler.TorchProfiler` hyperparameters.
 
     See :class:`~composer.profiler.torch_profiler.TorchProfiler` for documentation.

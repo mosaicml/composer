@@ -16,8 +16,7 @@ from composer.utils import dist
 
 
 class DeviceGPU(Device):
-    """An extension of :class:`~composer.trainer.devices.device.Device` for GPUs.
-    """
+    """An extension of :class:`~composer.trainer.devices.device.Device` for GPUs."""
     dist_backend = "nccl"
 
     def __init__(self):

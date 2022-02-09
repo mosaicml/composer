@@ -6,9 +6,9 @@ import torch
 import torch.nn.functional as F
 
 from composer.algorithms import CutMixHparams
-from composer.algorithms.cutmix.cutmix import cutmix, rand_bbox
+from composer.algorithms.cutmix.cutmix import cutmix_batch, rand_bbox
 from composer.core.types import Event
-from composer.models.base import MosaicClassifier
+from composer.models.base import ComposerClassifier
 from composer.trainer.trainer_hparams import TrainerHparams
 from tests.fixtures.models import SimpleConvModel
 from tests.utils.trainer_fit import train_model
@@ -69,13 +69,13 @@ class TestCutMix:
         cutmix_lambda = 1 - ((bbx2 - bbx1) * (bby2 - bby1) / (x_fake.size()[-1] * x_fake.size()[-2]))
 
         # Apply cutmix
-        x_cutmix, y_cutmix = cutmix(x=x_fake,
-                                    y=y_fake,
-                                    alpha=1.0,
-                                    n_classes=n_classes,
-                                    cutmix_lambda=cutmix_lambda,
-                                    bbox=bbox,
-                                    indices=indices)
+        x_cutmix, y_cutmix = cutmix_batch(x=x_fake,
+                                          y=y_fake,
+                                          alpha=1.0,
+                                          n_classes=n_classes,
+                                          cutmix_lambda=cutmix_lambda,
+                                          bbox=bbox,
+                                          indices=indices)
 
         # Validate results
         validate_cutmix(x=x_fake,
@@ -91,13 +91,11 @@ class TestCutMix:
         # Generate fake data
         x_fake, y_fake, _, _ = fake_data
 
-        algorithm = CutMixHparams(alpha=alpha).initialize_object()
+        algorithm = CutMixHparams(alpha=alpha, num_classes=x_fake.size(1)).initialize_object()
         state = dummy_state
-        state.model = MosaicClassifier
-        state.model.num_classes = x_fake.size(1)  # Grab C
+        state.model = ComposerClassifier(torch.nn.Flatten())
         state.batch = (x_fake, y_fake)
 
-        algorithm.apply(Event.INIT, state, dummy_logger)
         # Apply algo, use test hooks to specify indices and override internally generated interpolation lambda for testability
         algorithm.apply(Event.AFTER_DATALOADER, state, dummy_logger)
 
@@ -114,16 +112,15 @@ class TestCutMix:
 
 
 def test_cutmix_nclasses(dummy_state, dummy_logger):
-    algorithm = CutMixHparams(alpha=1.0).initialize_object()
+    algorithm = CutMixHparams(alpha=1.0, num_classes=10).initialize_object()
     state = dummy_state
-    state.model = MosaicClassifier(SimpleConvModel())
-    state.model.num_classes = 10
+    state.model = ComposerClassifier(SimpleConvModel())
     state.batch = (torch.ones((1, 1, 1, 1)), torch.Tensor([2]))
 
     algorithm.apply(Event.INIT, state, dummy_logger)
     algorithm.apply(Event.AFTER_DATALOADER, state, dummy_logger)
 
 
-def test_cutmix_trains(mosaic_trainer_hparams: TrainerHparams):
-    mosaic_trainer_hparams.algorithms = [CutMixHparams(alpha=1.0)]
-    train_model(mosaic_trainer_hparams)
+def test_cutmix_trains(dummy_num_classes: int, composer_trainer_hparams: TrainerHparams):
+    composer_trainer_hparams.algorithms = [CutMixHparams(alpha=1.0, num_classes=dummy_num_classes)]
+    train_model(composer_trainer_hparams)

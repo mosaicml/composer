@@ -9,7 +9,7 @@ from _pytest.monkeypatch import MonkeyPatch
 from composer.core import Logger, State
 from composer.core.logging.logger import LogLevel, TLogData
 from composer.core.types import JSON
-from composer.loggers import MosaicMLLoggerBackendHparams, mosaicml_logger
+from composer.loggers import MosaicMLLoggerHparams, mosaicml_logger
 from composer.loggers.mosaicml_logger import RunStatus, RunType
 
 
@@ -20,13 +20,13 @@ def test_mosaic_logger(tmpdir: pathlib.Path, dummy_state: State, dummy_logger: L
 
     flush_every_n_batches = 5
     max_logs_in_buffer = 3
-    hparams = MosaicMLLoggerBackendHparams(run_name="run_name",
-                                           run_type=RunType.BENCHMARKING,
-                                           experiment_name="experiment_name",
-                                           run_id="run_id",
-                                           creds_file=creds_file,
-                                           flush_every_n_batches=flush_every_n_batches,
-                                           max_logs_in_buffer=max_logs_in_buffer)
+    hparams = MosaicMLLoggerHparams(run_name="run_name",
+                                    run_type=RunType.BENCHMARKING,
+                                    experiment_name="experiment_name",
+                                    run_id="run_id",
+                                    creds_file=creds_file,
+                                    flush_every_n_batches=flush_every_n_batches,
+                                    max_logs_in_buffer=max_logs_in_buffer)
     logger = hparams.initialize_object()
 
     data_logged = []
@@ -46,7 +46,7 @@ def test_mosaic_logger(tmpdir: pathlib.Path, dummy_state: State, dummy_logger: L
                          run_status: RunStatus,
                          run_config: Optional[Dict[str, JSON]] = None):
         del run_id, run_name, run_type, experiment_name, run_status, run_config  # unused
-        pass
+        return "experiment_id"
 
     # Replace the network call with a function that records logs sent
     monkeypatch.setitem(mosaicml_logger.__dict__, "_send_data", _mock_send_data)
@@ -60,9 +60,10 @@ def test_mosaic_logger(tmpdir: pathlib.Path, dummy_state: State, dummy_logger: L
     expected_data = []
     buffer_length = 0
     expected_log_calls = 0
+    dummy_state.timer.on_epoch_complete()
     for i in range(num_times_to_log):
         data_point = {f'data-{i}': 'value'}
-        logger.log_metric(epoch=1, step=i, log_level=LogLevel.BATCH, data=data_point)
+        logger.log_metric(timestamp=dummy_state.timer.get_timestamp(), log_level=LogLevel.BATCH, data=data_point)
         dummy_state.timer.on_batch_complete()
         logger.batch_end(dummy_state, dummy_logger)
 
@@ -82,7 +83,6 @@ def test_mosaic_logger(tmpdir: pathlib.Path, dummy_state: State, dummy_logger: L
             buffer_length = 0
             expected_log_calls += 1
 
-    logger.training_end(state=dummy_state, logger=dummy_logger)
     logger.post_close()
 
     assert num_log_calls == expected_log_calls

@@ -2,16 +2,18 @@
 
 from __future__ import annotations
 
+import collections.abc
 import sys
 from dataclasses import asdict, dataclass
 from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
-import tqdm
 import yaml
+from tqdm import auto
 
 from composer.core.logging import LogLevel, TLogData, TLogDataValue, format_log_data_value
-from composer.core.logging.base_backend import BaseLoggerBackend
+from composer.core.logging.base_backend import LoggerCallback
 from composer.core.state import State
+from composer.core.time import Timestamp
 from composer.core.types import StateDict
 from composer.utils import dist
 
@@ -35,7 +37,7 @@ class _TQDMLoggerInstance:
 
     def __init__(self, state: _TQDMLoggerInstanceState) -> None:
         self.state = state
-        self.pbar = tqdm.tqdm(total=state.total,
+        self.pbar = auto.tqdm(total=state.total,
                               desc=state.description,
                               position=state.position,
                               bar_format="{l_bar}{bar:10}{r_bar}{bar:-10b}")
@@ -57,7 +59,7 @@ class _TQDMLoggerInstance:
         return asdict(self.state)
 
 
-class TQDMLoggerBackend(BaseLoggerBackend):
+class TQDMLogger(LoggerCallback):
     """Shows TQDM progress bars.
 
     During training, the progress bar logs the batch and training loss.
@@ -65,12 +67,12 @@ class TQDMLoggerBackend(BaseLoggerBackend):
 
     Example output::
 
-        Epoch 1: 100%|██████████| 64/64 [00:01<00:00, 53.17it/s, loss/train=2.3023]                                                                                 
-        Epoch 1 (val): 100%|██████████| 20/20 [00:00<00:00, 100.96it/s, accuracy/val=0.0995]  
+        Epoch 1: 100%|██████████| 64/64 [00:01<00:00, 53.17it/s, loss/train=2.3023]
+        Epoch 1 (val): 100%|██████████| 20/20 [00:00<00:00, 100.96it/s, accuracy/val=0.0995]
 
     .. note::
 
-        It is currently not possible to show additional metrics. 
+        It is currently not possible to show additional metrics.
         Custom metrics for the TQDM progress bar will be supported in a future version.
 
     Args:
@@ -88,8 +90,8 @@ class TQDMLoggerBackend(BaseLoggerBackend):
         del state  # Unused
         return dist.get_global_rank() == 0 and log_level <= LogLevel.BATCH
 
-    def log_metric(self, epoch: int, step: int, log_level: LogLevel, data: TLogData) -> None:
-        del epoch, step, log_level  # Unused
+    def log_metric(self, timestamp: Timestamp, log_level: LogLevel, data: TLogData) -> None:
+        del timestamp, log_level  # Unused
         if self.is_train in self.pbars:
             # Logging outside an epoch
             assert self.is_train is not None
@@ -108,9 +110,15 @@ class TQDMLoggerBackend(BaseLoggerBackend):
         if dist.get_global_rank() != 0:
             return
         assert self.is_train is not None, "self.is_train should be set by the callback"
-        # TODO(anis) -- in #120, len(state.eval_dataloader) is inaccurate, as it does not incorporate
-        # trainer._eval_subset_num_batches. The evaluator spec should fix this.
-        total_steps = state.steps_per_epoch if self.is_train else len(state.eval_dataloader)
+        if self.is_train:
+            total_steps = state.steps_per_epoch
+        else:
+            total_steps = 0
+            for evaluator in state.evaluators:
+                dataloader_spec = evaluator.dataloader
+                assert isinstance(dataloader_spec.dataloader, collections.abc.Sized)
+                total_steps += len(dataloader_spec.dataloader)
+
         desc = f'Epoch {int(state.timer.epoch)}'
         position = 0 if self.is_train else 1
         if not self.is_train:

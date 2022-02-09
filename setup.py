@@ -20,9 +20,11 @@ class develop(develop_orig):
     def run(self):
         if _IS_ROOT and (not _IS_VIRTUALENV) and (not _IS_USER):
             raise RuntimeError(
-                textwrap.dedent("""When installing in editable mode as root outside of a virtual environment,
-                please specify `--user`. Editable installs as the root user outside of a virtual environment
-                do not work without the `--user` flag. Please instead run something like: `pip install --user -e .`"""))
+                textwrap.dedent("""\
+                    When installing in editable mode as root outside of a virtual environment,
+                    please specify `--user`. Editable installs as the root user outside of a virtual environment
+                    do not work without the `--user` flag. Please instead run something like: `pip install --user -e .`"""
+                               ))
         super().run()
 
 
@@ -70,6 +72,7 @@ extra_deps['dev'] = [
     'jupyter>=1.0.0',
     'yamllint>=1.26.2',
     'pytest-timeout>=1.4.2',
+    'pyright>=0.0.13',
     'recommonmark>=0.7.1',
     'sphinx>=4.2.0',
     'sphinx_copybutton>=0.4.0',
@@ -79,8 +82,13 @@ extra_deps['dev'] = [
     'sphinxext.opengraph>=0.4.2',
     'sphinxemoji>=0.2.0',
     'sphinx_rtd_theme>=1.0.0',
+    'furo>=2022.1.2',
+    'sphinx-copybutton>=0.4.0',
+    'autodocsumm>=0.2.7',
     'testbook>=0.4.2',
     'myst-parser>=0.15.2',
+    'pylint>=2.12.2',
+    'docformatter>=1.4',
 ]
 
 extra_deps['logging'] = ['wandb>=0.12.2', 'apache-libcloud>=3.4.1']
@@ -91,6 +99,8 @@ extra_deps['nlp'] = [
     'transformers>=4.11.3',
     'datasets>=1.14.0',
 ]
+
+extra_deps['vision'] = ['timm>=0.5.4']
 
 extra_deps['unet'] = [
     'monai>=0.7.0',
@@ -119,6 +129,9 @@ setup(name="mosaicml",
       packages=setuptools.find_packages(exclude=["tests*"]),
       classifiers=[
           "Programming Language :: Python :: 3",
+          "Programming Language :: Python :: 3.7",
+          "Programming Language :: Python :: 3.8",
+          "Programming Language :: Python :: 3.9",
       ],
       install_requires=install_requires,
       entry_points={
@@ -133,7 +146,8 @@ setup(name="mosaicml",
 # only visible if user installs with verbose -v flag
 # Printing to stdout as not to interfere with setup.py CLI flags (e.g. --version)
 print("*" * 20, file=sys.stderr)
-print(textwrap.dedent("""NOTE: For best performance, we recommend installing Pillow-SIMD
+print(textwrap.dedent("""\
+    NOTE: For best performance, we recommend installing Pillow-SIMD
     for accelerated image processing operations. To install:
     \t pip uninstall pillow && pip install pillow-simd"""),
       file=sys.stderr)

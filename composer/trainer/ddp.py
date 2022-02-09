@@ -84,10 +84,9 @@ def prepare_ddp_module(module: Model, find_unused_parameters: bool) -> Model:
             ddp_model = DistributedDataParallel(module, find_unused_parameters=find_unused_parameters)
             return ddp_model
         return module
-    if dist.get_world_size() == 1:
-        return module
     if dist.is_available():
         raise RuntimeError("Please call dist.initialize_dist() before calling ddp.prepare_module()")
+
     raise RuntimeError("When the world size is > 1, ``torch.distributed`` must be used. However, it is "
                        "not available in your installation of PyTorch. Please install or build PyTorch "
                        "with distributed support.")

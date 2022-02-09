@@ -1,5 +1,7 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
+import textwrap
+import weakref
 from dataclasses import asdict, dataclass
 from typing import Optional
 
@@ -7,6 +9,7 @@ import numpy as np
 import torch
 import yahp as hp
 from PIL.Image import Image as ImageType
+from torchvision.datasets import VisionDataset
 
 from composer.algorithms.algorithm_hparams import AlgorithmHparams
 from composer.core.types import Algorithm, Event, List, Logger, State
@@ -29,11 +32,13 @@ class RandAugmentHparams(AlgorithmHparams):
         return RandAugment(**asdict(self))
 
 
-def randaugment(img: Optional[ImageType] = None,
-                severity: int = 9,
-                depth: int = 2,
-                augmentation_set: List = augmentation_sets["all"]) -> ImageType:
-    """Randomly applies a sequence of image data augmentations (`Cubuk et al. 2019 <https://openaccess.thecvf.com/content_CVPRW_2020/papers/w40/Cubuk_Randaugment_Practical_Automated_Data_Augmentation_With_a_Reduced_Search_Space_CVPRW_2020_paper.pdf>`_).
+def randaugment_image(img: Optional[ImageType] = None,
+                      severity: int = 9,
+                      depth: int = 2,
+                      augmentation_set: List = augmentation_sets["all"]) -> ImageType:
+    """Randomly applies a sequence of image data augmentations (`Cubuk et al.
+
+    2019 <https://openaccess.thecvf.com/content_CVPRW_2020/papers/w40/Cubuk_Randaugment_Practical_Automated_Data_Augmentation_With_a_Reduced_Search_Space_CVPRW_2020_paper.pdf>`_).
     See :class:`RandAugment` for details.
     """
 
@@ -46,7 +51,7 @@ def randaugment(img: Optional[ImageType] = None,
 
 
 class RandAugmentTransform(torch.nn.Module):
-    """Wraps :func:`randaugment` in a ``torchvision``-compatible transform"""
+    """Wraps :func:`randaugment` in a ``torchvision``-compatible transform."""
 
     def __init__(self, severity: int = 9, depth: int = 2, augmentation_set: str = "all"):
         super().__init__()
@@ -62,11 +67,19 @@ class RandAugmentTransform(torch.nn.Module):
 
     def forward(self, img: ImageType) -> ImageType:
 
-        return randaugment(img=img, severity=self.severity, depth=self.depth, augmentation_set=self.augmentation_set)
+        return randaugment_image(img=img,
+                                 severity=self.severity,
+                                 depth=self.depth,
+                                 augmentation_set=self.augmentation_set)
 
 
 class RandAugment(Algorithm):
-    """Randomly applies a sequence of image data augmentations (`Cubuk et al. 2019 <https://openaccess.thecvf.com/content_CVPRW_2020/papers/w40/Cubuk_Randaugment_Practical_Automated_Data_Augmentation_With_a_Reduced_Search_Space_CVPRW_2020_paper.pdf>`_).
+    """Randomly applies a sequence of image data augmentations (`Cubuk et al. 2019 <https://openaccess.thecvf.com/conten
+    t_CVPRW_2020/papers/w40/Cubuk_Randaugment_Practical_Automated_Data_Augmentation_With_a_Reduced_Search_Space_CVPRW_20
+    20_paper.pdf>`_).
+
+    This algorithm runs on on :attr:`Event.INIT` to insert a dataset transformation. It is a no-op if this algorithm already
+    applied itself on the :attr:`State.train_dataloader.dataset`.
 
     Args:
         severity (int): Severity of augmentation operators (between 1 to 10). M in the
@@ -81,11 +94,11 @@ class RandAugment(Algorithm):
             to contain implementation specificities for the augmentations "color",
             "contrast", "sharpness", and "brightness". The original implementations
             have an intensity sampling scheme that samples a value bounded by 0.118
-            at a minimum, and a maximum value of intensity*0.18 + .1, which ranges 
-            from 0.28 (intensity = 1) to 1.9 (intensity 10). These augmentations 
-            have different effects depending on whether they are < 0 or > 0 (or 
-            < 1 or > 1). "augmentations_all" uses implementations of "color", 
-            "contrast", "sharpness", and "brightness" that account for diverging 
+            at a minimum, and a maximum value of intensity*0.18 + .1, which ranges
+            from 0.28 (intensity = 1) to 1.9 (intensity 10). These augmentations
+            have different effects depending on whether they are < 0 or > 0 (or
+            < 1 or > 1). "augmentations_all" uses implementations of "color",
+            "contrast", "sharpness", and "brightness" that account for diverging
             effects around 0 (or 1).
     """
 
@@ -94,28 +107,28 @@ class RandAugment(Algorithm):
             raise ValueError("RandAugment severity value must be 0 ≤ severity ≤ 10")
         if augmentation_set not in augmentation_sets.keys():
             raise KeyError(f"randaugment_augmentation_set is not one of {augmentation_sets.keys()}")
-        self.hparams = RandAugmentHparams(severity=severity, depth=depth, augmentation_set=augmentation_set)
+        self.severity = severity
+        self.depth = depth
+        self.augmentation_set = augmentation_set
+        self._transformed_datasets = weakref.WeakSet()
 
     def match(self, event: Event, state: State) -> bool:
-        """Runs on Event.TRAINING_START
-        
-        Args:
-            event (:class:`Event`): The current event.
-            state (:class:`State`): The current state.
-        Returns:
-            bool: True if this algorithm should run now
-        """
-        return event == Event.TRAINING_START
+        return event == Event.FIT_START and state.train_dataloader.dataset not in self._transformed_datasets
 
     def apply(self, event: Event, state: State, logger: Logger) -> None:
-        """Inserts RandAugment into the list of dataloader transforms
-        
+        """Inserts RandAugment into the list of dataloader transforms.
+
         Args:
             event (Event): the current event
             state (State): the current trainer state
             logger (Logger): the training logger
         """
-        ra = RandAugmentTransform(**self.hparams.to_dict())
+        ra = RandAugmentTransform(severity=self.severity, depth=self.depth, augmentation_set=self.augmentation_set)
         assert state.train_dataloader is not None
         dataset = state.train_dataloader.dataset
-        add_dataset_transform(dataset, ra)
+        if not isinstance(dataset, VisionDataset):
+            raise TypeError(
+                textwrap.dedent(f"""\
+                To use {type(self).__name__}, the dataset must be a
+                {VisionDataset.__qualname__}, not {type(dataset).__name__}"""))
+        add_dataset_transform(dataset, ra, is_tensor_transform=False)

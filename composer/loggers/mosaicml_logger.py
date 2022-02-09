@@ -14,8 +14,9 @@ from typing import Dict, List, Optional
 import requests
 
 from composer.core.logging import LogLevel, TLogData
-from composer.core.logging.base_backend import BaseLoggerBackend
+from composer.core.logging.base_backend import LoggerCallback
 from composer.core.logging.logger import format_log_data_as_json
+from composer.core.time import Timestamp
 from composer.core.types import JSON, Logger, State, StateDict
 from composer.utils import dist
 from composer.utils.string_enum import StringEnum
@@ -94,7 +95,7 @@ def _upsert_run(run_id: str,
         sys.exit(1)
 
 
-class MosaicMLLoggerBackend(BaseLoggerBackend):
+class MosaicMLLogger(LoggerCallback):
     """Log to the MosaicML backend.
 
     Args:
@@ -131,8 +132,8 @@ class MosaicMLLoggerBackend(BaseLoggerBackend):
         self.log_level = log_level
         self.run_name = run_name
         self.run_type = run_type
-        self.run_id = run_id  # if None will be set in training_start
-        self.experiment_id = None  # will be set in training_start
+        self.run_id = run_id  # if None, will via load_state_dict or in _flush_buffered_data
+        self.experiment_id = None  # will be set in _flush_buffered_data
         if experiment_name is None:
             experiment_name = f"experiment_{str(uuid.uuid4())}"
             log.info(f"experiment_name was None, set experiment_name to random value {experiment_name}")
@@ -155,11 +156,13 @@ class MosaicMLLoggerBackend(BaseLoggerBackend):
         self.queue = Queue()
         self.thread = Thread(target=self._listen_to_queue, daemon=True, name="mosaicml-logger-thread")
 
+        self._training_started = False
+
     def will_log(self, state: State, log_level: LogLevel) -> bool:
         del state  # unused
         return log_level <= self.log_level
 
-    def log_metric(self, epoch: int, step: int, log_level: LogLevel, data: TLogData):
+    def log_metric(self, timestamp: Timestamp, log_level: LogLevel, data: TLogData):
         del log_level  # unused
 
         if self.skip_logging:
@@ -167,71 +170,34 @@ class MosaicMLLoggerBackend(BaseLoggerBackend):
 
         formatted_data = format_log_data_as_json(data)
         log_data = {
-            "epoch": epoch,
-            "step": step,
+            "epoch": int(timestamp.epoch),
+            "step": int(timestamp.batch),
         }
         log_data.update(formatted_data)  # type: ignore
         self.buffered_data.append(log_data)
         if len(self.buffered_data) > self.max_logs_in_buffer:
             self._flush_buffered_data()
 
-    def init(self, state: State, logger: Logger) -> None:
-        del state, logger  # unused
-
-        if self.skip_logging:
-            return
-
-        log.info("Starting MosaicML logger thread.")
-
-        # Start the logging thread
-        self.thread.start()
-
-    def training_start(self, state: State, logger: Logger):
-        del state, logger  # unused
-
-        if self.skip_logging or not self.run_id:
-            return
-
-        # This has to happen in training_start as opposed to init in order to make
-        # resume from checkpoint work (i.e. the run_id from the checkpoint is loaded
-        # after Event.INIT is called)
-        # https://github.com/mosaicml/composer/issues/43 will fix this
-        if self.run_id is None:
-            self.run_id = str(uuid.uuid4())
-            log.info(f"run_id was None, set run_id to random value {self.run_id}")
-
-        self.experiment_id = _upsert_run(run_id=self.run_id,
-                                         run_name=self.run_name,
-                                         run_type=self.run_type,
-                                         experiment_name=self.experiment_name,
-                                         run_status=RunStatus.RUNNING,
-                                         run_config=self.run_config)
-
     def batch_end(self, state: State, logger: Logger):
         del logger  # unused
 
+        self._training_started = True
+
         if self.skip_logging:
             return
 
-        if (state.step + 1) % self.flush_every_n_batches == 0:
+        if int(state.timer.batch) % self.flush_every_n_batches == 0:
             self._flush_buffered_data()
-
-    def training_end(self, state: State, logger: Logger):
-        del state, logger  # unused
-
-        if self.skip_logging:
-            return
-
-        # Flush any remaining logs on training end
-        self._flush_buffered_data()
 
     def post_close(self):
         # Write any relevant logs from other callback's close() functions here
-        if self.skip_logging or not self.run_id:
+        if self.skip_logging:
             return
 
         # Flush any remaining logs on training end
         self._flush_buffered_data()
+
+        assert self.run_id is not None, "run ID is set in self._flush_buffered_data"
 
         log.info(f"Updating run status to {RunStatus.COMPLETED}")
         _upsert_run(run_id=self.run_id,
@@ -265,6 +231,30 @@ class MosaicMLLoggerBackend(BaseLoggerBackend):
         if len(self.buffered_data) == 0:
             return
 
+        if not self._training_started:
+            # We need to know that training started to ensure that we loaded the state
+            # from the checkpoint (if we're resuming from the checkpoint) so the
+            # run ID is set correctly
+            return
+
+        if self.thread.ident is None:  # if the thread is not started
+            # run_id could be None if not passed in via __init__ and not resuming from a checkpoint
+            if self.run_id is None:
+                self.run_id = str(uuid.uuid4())
+                log.info(f"run_id was None, set run_id to random value {self.run_id}")
+
+            self.experiment_id = _upsert_run(run_id=self.run_id,
+                                             run_name=self.run_name,
+                                             run_type=self.run_type,
+                                             experiment_name=self.experiment_name,
+                                             run_status=RunStatus.RUNNING,
+                                             run_config=self.run_config)
+
+            log.info("Starting MosaicML logger thread.")
+
+            # Start the logging thread
+            self.thread.start()
+
         data_to_write = self.buffered_data.copy()
         self.buffered_data = []
 
@@ -278,6 +268,9 @@ class MosaicMLLoggerBackend(BaseLoggerBackend):
                 self.queue.task_done()
                 return
 
-            _send_data(run_id=self.run_id, experiment_id=self.experiment_id, data=data)  # type: ignore
+            assert self.run_id is not None, "run ID should be set before the thread is started"
+            assert self.experiment_id is not None, "experiment ID should be set before the thread is started"
+
+            _send_data(run_id=self.run_id, experiment_id=self.experiment_id, data=data)
 
             self.queue.task_done()

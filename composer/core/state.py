@@ -1,5 +1,6 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
+"""The state of the trainer."""
 from __future__ import annotations
 
 import logging
@@ -20,8 +21,10 @@ from composer.utils import ensure_tuple
 from composer.utils.precision import default_precision_factory
 
 if TYPE_CHECKING:
+    from composer.core.algorithm import Algorithm
     from composer.core.callback import Callback
-    from composer.core.types import Algorithm
+
+__all__ = ["State"]
 
 logger = logging.getLogger(__name__)
 
@@ -59,7 +62,7 @@ SKIP_SERIALIZATION_FIELDS = [
     "batch_num_tokens",
     "outputs",
     "train_dataloader",
-    "eval_dataloader",
+    "evaluators",
     "_steps_per_epoch",
     "_precision_context",
     "profiler",
@@ -67,33 +70,46 @@ SKIP_SERIALIZATION_FIELDS = [
 
 
 class State(Serializable):
-    """The class used to store the state of the trainer.
+    """The state of the trainer.
 
     Contains variables that the trainer tracks throughout the training loop.
     Note that the entire state is serialized when the trainer is checkpointed
     so that it can be used restore the trainer and continue training from a
     checkpoint. Algorithms are able to modify this object in-place.
 
+
+    .. note::
+
+        To support multi-GPU training, :attr:`State.model` may be wrapped in :class:`DistributedDataParallel`,
+        and the dataloaders may be wrapped in a device-specific dataloader that handles moving tensors to device.
+
+    .. note::
+
+        ``Schedulers`` are wrapped in ``ComposableScheduler``, which handles stepping either stepwise or epochwise,
+        and also properly sets up learning rate warmups.
+
+
+
     Args:
-        model (types.Model, often BaseMosaicModel): The model, typically as a subclass of :class:`BaseMosaicModel`.
+        model (types.Model, often ComposerModel): The model, typically as a subclass of :class:`ComposerModel`.
         grad_accum (int): The number of gradient accumulation steps to use. The size of each microbatch is ``train_batch_size / num_gpus / grad_accum``.
         train_dataloader (types.DataLoader, types.DataSpec, or dict):
             The :class:`types.DataLoader`, :class:`types.DataSpec`, or dict of :class:`types.DataSpec` kwargs to used for training.
-        eval_dataloader (types.DataLoader, types.DataSpec, or dict):
-            The :class:`types.DataLoader`, :class:`types.DataSpec`, or dict of :class:`types.DataSpec` kwargs to used for evaluation.
+        evaluators (Evaluators):
+            The :class:`types.Evaluators` contain the evaluation datasets used for evaluation with specific metrics.
         max_duration (str or Time): The maximum duration to train for.
 
         precision (str | Precision): The numerical precision to use for training. Should be one of ``[fp32, amp]``.
         precision_context ((precision: Precision) -> ContextManager): Function to produce a context manager to mandate precision.
 
-        optimizers (types.Optimizers): The optimizers being used to train the model. Multiple optimizers are not currently supported.
-        schedulers (types.Schedulers): The learning rate schedulers, typically wrapped in :class:`ComposableScheduler`.
+        optimizers (types.Optimizers, optional): The optimizers being used to train the model. Multiple optimizers are not currently supported.
+        schedulers (types.Schedulers, optional): The learning rate schedulers, typically wrapped in :class:`ComposableScheduler`.
         scaler (torch.cuda.amp.GradScaler, optional): The gradient scaler in use for mixed precision training.
 
         algorithms (Sequence[Algorithm]): The algorithms used for training.
         callbacks (Sequence[Callback]): The callbacks used for training.
 
-        profiler (Optional[Profiler]): The mosaic profiler.
+        profiler (Optional[Profiler]): The Composer profiler.
 
     Attributes:
         batch (types.Batch): The batch. This will be the entire batch during the :attr:`Event.AFTER_DATALOADER`, or a
@@ -107,6 +123,7 @@ class State(Serializable):
     """
 
     _max_duration: Time[int]
+    _steps_per_epoch: Optional[int]
     batch: types.Batch
     batch_num_samples: int
     batch_num_tokens: int
@@ -121,7 +138,7 @@ class State(Serializable):
             # data configurations
             grad_accum: int,
             train_dataloader: types.DataLoader,
-            eval_dataloader: types.DataLoader,
+            evaluators: types.Evaluators,
 
             # stopping conditions
             max_duration: Union[str, Time[int]],
@@ -140,16 +157,19 @@ class State(Serializable):
             # algorithms and callbacks
             algorithms: Sequence[Algorithm] = tuple(),
             callbacks: Sequence[Callback] = tuple(),
+
+            # steps per epoch
+            steps_per_epoch: Optional[int] = None,
     ):
         self.model = model
         self.grad_accum = grad_accum
         self.train_dataloader = train_dataloader
-        self.eval_dataloader = eval_dataloader
+        self.evaluators = list(ensure_tuple(evaluators))
         self.max_duration = max_duration
+        self.steps_per_epoch = steps_per_epoch
 
         self.timer = Timer()
         self._precision = Precision(precision)
-        self._steps_per_epoch = None
         self._precision_context = precision_context
 
         if optimizers is None:
@@ -197,7 +217,7 @@ class State(Serializable):
         self._max_duration = max_duration
 
     def get_elapsed_duration(self) -> Time[float]:
-        """Get the elapsed training duration
+        """Get the elapsed training duration.
 
         Returns:
             Time: The elapsed duration, in ``TimeUnit.DURATION``.
@@ -283,8 +303,7 @@ class State(Serializable):
         return state_dict
 
     def load_model_state(self, state_dict: types.StateDict, strict: bool):
-        """
-        Loads the model's state from a state_dict.
+        """Loads the model's state from a state_dict.
 
         Args:
             state_dict (types.StateDict): object returned from call to :meth:`state_dict`.
@@ -292,18 +311,17 @@ class State(Serializable):
         """
         if state_dict["_is_model_ddp_wrapped"] and not isinstance(self.model, DistributedDataParallel):
             torch.nn.modules.utils.consume_prefix_in_state_dict_if_present(state_dict['model'], "module.")
-            missing_keys, unexpected_keys = self.model.load_state_dict(state_dict['model'], strict=strict)
-            if len(missing_keys) > 0:
-                logger.warning(f"Found these missing keys in the checkpoint: {', '.join(missing_keys)}")
-            if len(unexpected_keys) > 0:
-                logger.warning(f"Found these unexpected keys in the checkpoint: {', '.join(unexpected_keys)}")
+        missing_keys, unexpected_keys = self.model.load_state_dict(state_dict['model'], strict=strict)
+        if len(missing_keys) > 0:
+            logger.warning(f"Found these missing keys in the checkpoint: {', '.join(missing_keys)}")
+        if len(unexpected_keys) > 0:
+            logger.warning(f"Found these unexpected keys in the checkpoint: {', '.join(unexpected_keys)}")
 
     def load_state_dict(self, state: types.StateDict, strict: bool = False):
         """Loads the state.
 
         Args:
             state_dict (types.StateDict): object returned from call to :meth:`state_dict`.
-
         """
 
         deepspeed_enabled = False
@@ -346,21 +364,30 @@ class State(Serializable):
     @property
     def steps_per_epoch(self):
         """int: The maximum number of steps (batches) per epoch."""
-        warnings.warn(textwrap.dedent(
-            """TimeDeprecationWarning: state.steps_per_epoch is deprecated. Please transition to using stateless functions
-            "that do not depends on the number of steps per epoch"""),
-                      category=DeprecationWarning)
         if self._steps_per_epoch is None:
             return len(self.train_dataloader)
         return self._steps_per_epoch
 
     @steps_per_epoch.setter
-    def steps_per_epoch(self, val: Optional[int]):
-        self._steps_per_epoch = val
+    def steps_per_epoch(self, steps_per_epoch: Optional[int]):
+        try:
+            dataloader_len = len(self.train_dataloader)
+        except (TypeError, NotImplementedError):
+            dataloader_len = None
+        if dataloader_len is not None and steps_per_epoch is not None and steps_per_epoch > dataloader_len:
+            warnings.warn(
+                textwrap.dedent(f"""\
+                    SubsetNumBatchesWarning: The steps_per_epoch({steps_per_epoch})
+                    is greater than the number of batches in the training dataloader
+                    ({dataloader_len})"""))
+        self._steps_per_epoch = steps_per_epoch
 
     @property
     def precision(self):
-        """The numerical precision to use for training. Should be one of ``[fp32, amp]``."""
+        """The numerical precision to use for training.
+
+        Should be one of ``[fp32, amp]``.
+        """
         return self._precision
 
     @precision.setter

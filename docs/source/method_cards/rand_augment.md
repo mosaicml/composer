@@ -72,7 +72,7 @@ RandAugment is also more suitable for larger models because large model workload
 
 As general rule, combining regularization-based methods yields sublinear improvements to accuracy. This holds true for RandAugment. For example, adding RandAugment on top of BlurPool, MixUp, and label smoothing yields no significant additional accuracy improvement.
 
---- 
+---
 
 ## Code
 
@@ -81,7 +81,7 @@ As general rule, combining regularization-based methods yields sublinear improve
     :members: match, apply
     :noindex:
 
-.. autofunction:: composer.algorithms.randaugment.randaugment
+.. autofunction:: composer.algorithms.randaugment.randaugment_image
     :noindex:
 
 .. autofunction:: composer.algorithms.randaugment.RandAugmentTransform
