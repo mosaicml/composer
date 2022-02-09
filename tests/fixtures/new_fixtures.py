@@ -2,8 +2,6 @@
 
 """These fixtures are shared globally across the test suite."""
 
-from unittest.mock import Mock
-
 import pytest
 from torch.utils.data import DataLoader
 
