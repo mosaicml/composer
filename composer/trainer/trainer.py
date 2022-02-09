@@ -32,6 +32,10 @@ from composer.models.base import ComposerModel
 from composer.optim import ComposedScheduler
 from composer.optim.decoupled_weight_decay import DecoupledSGDW
 from composer.profiler import Profiler
+from composer.profiler.dataloader_profiler import DataloaderProfiler
+from composer.profiler.json_trace import JSONTraceHandler
+from composer.profiler.system_profiler import SystemProfiler
+from composer.profiler.torch_profiler import TorchProfiler
 from composer.trainer.checkpoint import CheckpointLoader, CheckpointSaver
 from composer.trainer.ddp import DDPSyncStrategy, ddp_sync_context, prepare_ddp_module
 from composer.trainer.deepspeed import fix_batch_precision_for_deepspeed, parse_deepspeed_config
@@ -44,6 +48,8 @@ from composer.utils.object_store import ObjectStoreProvider
 
 if TYPE_CHECKING:
     import deepspeed
+
+    from composer.profiler import ProfilerEventHandler
 
 log = logging.getLogger(__name__)
 
@@ -115,6 +121,32 @@ class Trainer:
         save_interval_unit (str): Unit of ``save_interval``. Can be ``ep`` or ``steps``. (default: ``ep``).
         save_compression (str): Compression algorithm to run on checkpoints. Can be `gzip`, `bzip2`,
             `lzma`, or left blank for no compression.  (default: ``""`` for no compression).
+        profiling (bool, optional): Enable training profiling. (default: ``False``.)
+        prof_merged_trace_file (str, optional): Name of the Mosaic+Torch merged traced file. 
+            (default: ``merged_profiler_trace.json``).
+        prof_event_handlers (List[ProfilerEventHandlerHparams], optional): Trace event handler hparams
+            (default: ``[JSONTraceHandlerHparams()]``).
+        prof_skip_first (int, optional): Number of batches to skip at epoch start. (default: ``optional``).
+        prof_wait (int, optional): Number of batches to skip at the beginning of each cycle. (default: ``optional``).
+        prof_warmup (int, optional): Number of warmup batches in a cycle. (default: ``optional``).
+        prof_active (int, optional): Number of batches to profile in a cycle. (default: ``optional``).
+        prof_repeat (int, optional): Maximum number of profiling cycle repetitions per epoch (0 for no maximum).
+            (default: ``1``).
+        sys_prof_cpu (bool, optional): Whether to record cpu statistics. (default: ``True``).
+        sys_prof_memory (bool, optional): Whether to record memory statistics. (default: ``False``).
+        sys_prof_disk (bool, optional): Whether to record disk statistics. (default: ``False``).
+        sys_prof_net (bool, optional): Whether to record network statistics. (default: ``False``).
+        sys_prof_stats_thread_interval_seconds (float, optional): Interval to record stats, in seconds.
+            (default: ``0.5``).
+        torch_profiler (bool): Enable Torch profiler. (default: ``True``).
+        torch_prof_trace_handler_dir (str, optional): Directory to store trace results relative to the run directory, if set.
+            (default: ``torch_profiler``).
+        torch_prof_use_gzip (bool): Whether to use gzip for trace. (default: ``False``).
+        torch_prof_record_shapes (bool, optional): Whether to record tensor shapes. (default: ``False``).
+        torch_prof_profile_memory (bool, optional): Track tensor memory allocations and frees. (default: ``True``).
+        torch_prof_with_stack (bool, optional): Record stack info. (default: ``False``).
+        torch_prof_with_flops (bool, optional): Estimate flops for operators. (default: ``True``).
+        
         train_subset_num_batches (int, optional): If specified, finish every epoch early after training
             on this many batches. This parameter has no effect if it is greater than ``len(train_dataloader)``.
             If None (the default), then the entire dataloader will be iterated over.
@@ -179,7 +211,26 @@ class Trainer:
         save_compression: str = '',
 
         # Profiling
-        profiler: Optional[Profiler] = None,
+        profiling: bool = False,
+        prof_merged_trace_file: str = "merged_profiler_trace.json",
+        prof_event_handlers: Sequence[ProfilerEventHandler] = [JSONTraceHandler()],
+        prof_skip_first: int = 0,
+        prof_wait: int = 0,
+        prof_warmup: int = 1,
+        prof_active: int = 4,
+        prof_repeat: int = 1,
+        sys_prof_cpu: bool = True,
+        sys_prof_memory: bool = False,
+        sys_prof_disk: bool = False,
+        sys_prof_net: bool = False,
+        sys_prof_stats_thread_interval_seconds: float = 0.5,
+        torch_profiler: bool = True,
+        torch_prof_trace_handler_dir: str = "torch_profiler",
+        torch_prof_use_gzip: bool = False,
+        torch_prof_record_shapes: bool = False,
+        torch_prof_profile_memory: bool = True,
+        torch_prof_with_stack: bool = False,
+        torch_prof_with_flops: bool = True,
 
         # Subset parameters
         train_subset_num_batches: Optional[int] = None,
@@ -334,10 +385,31 @@ class Trainer:
             schedulers=schedulers,
         )
 
-        # Configure the profiler
-        if profiler is not None:
-            self.state.profiler = profiler
-            self.state.callbacks.extend(self.state.profiler.handlers)
+        # Configure profilers if profiling is enabled
+        if profiling:
+            self.state.profiler = Profiler(state=self.state,
+                                           event_handlers=prof_event_handlers,
+                                           skip_first=prof_skip_first,
+                                           wait=prof_wait,
+                                           warmup=prof_warmup,
+                                           active=prof_active,
+                                           repeat=prof_repeat,
+                                           merged_trace_file=prof_merged_trace_file)
+            self.state.callbacks.extend(self.state.profiler.event_handlers)
+            self.state.callbacks.append(DataloaderProfiler())
+            self.state.callbacks.append(
+                SystemProfiler(profile_cpu=sys_prof_cpu,
+                               profile_memory=sys_prof_memory,
+                               profile_disk=sys_prof_disk,
+                               profile_net=sys_prof_net,
+                               stats_thread_interval_seconds=sys_prof_stats_thread_interval_seconds))
+            self.state.callbacks.append(
+                TorchProfiler(tensorboard_trace_handler_dir=torch_prof_trace_handler_dir,
+                              tensorboard_use_gzip=torch_prof_use_gzip,
+                              record_shapes=torch_prof_record_shapes,
+                              profile_memory=torch_prof_profile_memory,
+                              with_stack=torch_prof_with_stack,
+                              with_flops=torch_prof_with_flops))
 
         if log_destinations is None:
             log_destinations = [TQDMLoggerBackend()]

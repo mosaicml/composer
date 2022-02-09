@@ -102,7 +102,7 @@ class Engine():
                     actions = [ProfilerAction.ACTIVE, ProfilerAction.WARMUP, ProfilerAction.SKIP]
                 else:
                     actions = [ProfilerAction.ACTIVE, ProfilerAction.WARMUP]
-                duration_marker = self.state.profiler.marker(name, state=self.state, actions=actions, record_instant_on_start=True)
+                duration_marker = self.state.profiler.marker(name, actions=actions, record_instant_on_start=True)
 
         if event.is_after_event and duration_marker is not None:
             duration_marker.finish()
@@ -136,7 +136,6 @@ class Engine():
             marker = None
             if self.state.profiler is not None:
                 marker = self.state.profiler.marker(f"algorithm/{algorithm.__class__.__name__}/event/{event.value}", 
-                                                    state=self.state,
                                                     categories=[
                                                         event.value,
                                                         algorithm.__class__.__name__,
@@ -218,7 +217,6 @@ class Engine():
             marker = None
             if self.state.profiler is not None:
                 marker = self.state.profiler.marker(f"callback/{cb.__class__.__name__}/event/{event.value}",
-                                                    state=self.state,
                                                     categories=[
                                                         event.value,
                                                         cb.__class__.__name__,
@@ -252,7 +250,7 @@ class Engine():
 
         if self.state.profiler is not None:
             # Merge traces after close, but before post_close, so the merged file will be uploaded
-            self.state.profiler.merge_traces(callbacks=self.state.callbacks)
+            self.state.profiler.merge_traces()
 
         for callback in self.state.callbacks:
             if callback_to_has_exception[callback] is False:

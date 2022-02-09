@@ -31,7 +31,7 @@ from composer.models.resnet20_cifar10.resnet20_cifar10_hparams import CIFARResNe
 from composer.optim import (AdamHparams, AdamWHparams, DecoupledAdamWHparams, DecoupledSGDWHparams, OptimizerHparams,
                             RAdamHparams, RMSPropHparams, SchedulerHparams, SGDHparams, scheduler)
 from composer.optim.scheduler import ensure_warmup_last
-from composer.profiler import Profiler
+from composer.profiler.profiler_hparams import JSONTraceHandlerHparams, ProfilerEventHandlerHparams
 from composer.trainer.ddp import DDPSyncStrategy
 from composer.trainer.devices import CPUDeviceHparams, DeviceHparams, GPUDeviceHparams
 from composer.trainer.trainer import Trainer
@@ -233,7 +233,32 @@ class TrainerHparams(hp.Hparams):
         it will override train_dataset.datadir and val_dataset.datadir"""),
                                          default=None)
 
-    profiler: Optional[Profiler] = hp.optional(doc="Profiler", default=None)
+    #profiler: Optional[Profiler] = hp.optional(doc="Profiler", default=None)
+    profiling: bool = hp.optional(doc="Enable training profiling", default=False)
+    prof_merged_trace_file: str = hp.optional(doc="Name of the Mosaic+Torch merged traced file",
+                                              default="merged_profiler_trace.json")
+    prof_event_handlers: List[ProfilerEventHandlerHparams] = hp.optional(
+        "Trace event handler hparams", default_factory=lambda: [JSONTraceHandlerHparams()])
+    prof_skip_first: int = hp.optional("Number of batches to skip at epoch start", default=0)
+    prof_wait: int = hp.optional("Number of batches to skip at the beginning of each cycle", default=0)
+    prof_warmup: int = hp.optional("Number of warmup batches in a cycle", default=1)
+    prof_active: int = hp.optional("Number of batches to profile in a cycle", default=4)
+    prof_repeat: int = hp.optional("Maximum number of profiling cycle repetitions per epoch (0 for no maximum)",
+                                   default=1)
+    sys_prof_cpu: bool = hp.optional("Whether to record cpu statistics", default=True)
+    sys_prof_memory: bool = hp.optional("Whether to record memory statistics", default=False)
+    sys_prof_disk: bool = hp.optional("Whether to record disk statistics", default=False)
+    sys_prof_net: bool = hp.optional("Whether to record network statistics", default=False)
+    sys_prof_stats_thread_interval_seconds: float = hp.optional("Interval to record stats, in seconds.", default=0.5)
+    torch_profiler: bool = hp.optional("Enable Torch profiler", default=True)
+    torch_prof_trace_handler_dir: str = hp.optional(
+        "directory to store trace results. Relative to the run directory, if set.", default="torch_profiler")
+    torch_prof_use_gzip: bool = hp.optional("Whether to use gzip for trace", default=False)
+
+    torch_prof_record_shapes: bool = hp.optional(doc="Whether to record tensor shapes", default=False)
+    torch_prof_profile_memory: bool = hp.optional(doc="track tensor memory allocations and frees", default=True)
+    torch_prof_with_stack: bool = hp.optional(doc="record stack info", default=False)
+    torch_prof_with_flops: bool = hp.optional(doc="estimate flops for operators", default=True)
 
     def validate(self):
         super().validate()
@@ -394,7 +419,26 @@ class TrainerHparams(hp.Hparams):
             callbacks=callbacks,
 
             # Profiler
-            profiler=self.profiler,
+            profiling=self.profiling,
+            prof_merged_trace_file=self.prof_merged_trace_file,
+            prof_event_handlers=self.prof_event_handlers,
+            prof_skip_first=self.prof_skip_first,
+            prof_wait=self.prof_wait,
+            prof_warmup=self.prof_warmup,
+            prof_active=self.prof_active,
+            prof_repeat=self.prof_repeat,
+            sys_prof_cpu=self.sys_prof_cpu,
+            sys_prof_memory=self.sys_prof_memory,
+            sys_prof_disk=self.sys_prof_disk,
+            sys_prof_net=self.sys_prof_net,
+            sys_prof_stats_thread_interval_seconds=self.sys_prof_stats_thread_interval_seconds,
+            torch_profiler=self.torch_profiler,
+            torch_prof_trace_handler_dir=self.torch_prof_trace_handler_dir,
+            torch_prof_use_gzip=self.torch_prof_use_gzip,
+            torch_prof_record_shapes=self.torch_prof_record_shapes,
+            torch_prof_profile_memory=self.torch_prof_profile_memory,
+            torch_prof_with_stack=self.torch_prof_with_flops,
+            torch_prof_with_flops=self.torch_prof_with_flops,
 
             # Checkpoint parameters
             load_path=self.load_path,

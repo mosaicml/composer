@@ -25,7 +25,7 @@ class ProfiledDataLoader(WrappedDataLoader):
 
     def __init__(self, state: State, dataloader: DataLoader, name: str) -> None:
         super().__init__(dataloader)
-        self._marker = state.profiler.marker(f"dataloader/{name}", state=state, categories=["dataloader"])
+        self._marker = state.profiler.marker(f"dataloader/{name}", categories=["dataloader"])
         self._iterator: Optional[Iterator[Batch]] = None
 
     def __iter__(self) -> ProfiledDataLoader:

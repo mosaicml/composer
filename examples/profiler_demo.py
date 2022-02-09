@@ -4,7 +4,6 @@ from torch.utils.data import DataLoader
 from torchvision import datasets, transforms
 
 import composer
-from composer.profiler import Profiler
 
 # Specify Dataset and Instantiate Dataloader
 batch_size = 2048
@@ -24,9 +23,6 @@ train_dataloader = DataLoader(train_dataset,
 # Instantiate Model
 model = composer.models.MNIST_Classifier(num_classes=10)
 
-# Instantiate profiler and profiling window
-profiler = Profiler(skip_first=0, wait=0, warmup=1, active=4, repeat=1)
-
 # Instantiate the trainer
 train_epochs = "2ep"
 train_subset_num_batches = 8
@@ -40,8 +36,13 @@ trainer = composer.trainer.Trainer(model=model,
                                    validate_every_n_batches=-1,
                                    validate_every_n_epochs=-1,
                                    precision="amp",
-                                   profiler=profiler,
-                                   train_subset_num_batches=train_subset_num_batches)
+                                   train_subset_num_batches=train_subset_num_batches,
+                                   profiling=True,
+                                   prof_skip_first=0,
+                                   prof_wait=0,
+                                   prof_warmup=1,
+                                   prof_active=4,
+                                   prof_repeat=1)
 
 # Run training
 trainer.fit()
