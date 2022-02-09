@@ -82,7 +82,7 @@ def apply_factorization(model: torch.nn.Module,
                         latent_channels: Union[int, float] = 0.25,
                         min_features: int = 512,
                         latent_features: Union[int, float] = 0.25,
-                        optimizers: Optional[Optimizers] = None) -> None:
+                        optimizers: Optional[Optimizers] = None) -> torch.nn.Module:
     """Replaces :class:`torch.nn.Linear` and :class:`torch.nn.Conv2d` modules and with
     :class:`~composer.algorithms.factorize.FactorizedLinear` and :class:`~composer.algorithms.factorize.FactorizedConv2d` modules.
 
