@@ -4,7 +4,6 @@
 
 import datetime
 import os
-from enum import auto
 
 import pytest
 import torch.distributed as dist
