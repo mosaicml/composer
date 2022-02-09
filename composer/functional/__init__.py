@@ -1,11 +1,18 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
-"""Functional API.
+"""Functional API for applying algorithms.
 
-Functional forms of methods are available here via::
+.. code-block:: python
 
     from composer import functional as cf
-    my_model = cf.apply_blurpool(my_model)
+    from torchvision import models
+
+    model = models.resnet(model_name='resnet50')
+
+    # replace some layers with blurpool
+    cf.apply_blurpool(model)
+    # replace some layers with squeeze-excite
+    cf.apply_se(model, latent_channels=64, min_channels=128)
 """
 from composer.algorithms.alibi.alibi import apply_alibi as apply_alibi
 from composer.algorithms.augmix import augmix_image as augmix_image
@@ -25,6 +32,33 @@ from composer.algorithms.progressive_resizing import resize_batch as resize_batc
 from composer.algorithms.randaugment import randaugment_image as randaugment_image
 from composer.algorithms.scale_schedule import scale_scheduler as scale_scheduler
 from composer.algorithms.selective_backprop import selective_backprop as selective_backprop
+from composer.algorithms.selective_backprop import should_selective_backprop as should_selective_backprop
 from composer.algorithms.seq_length_warmup import set_batch_sequence_length as set_batch_sequence_length
 from composer.algorithms.squeeze_excite import apply_squeeze_excite as apply_squeeze_excite
 from composer.algorithms.stochastic_depth import apply_stochastic_depth as apply_stochastic_depth
+
+# All must be manually defined so sphinx automodule will work properly
+__all__ = [
+    "apply_alibi",
+    "augmix_image",
+    "apply_blurpool",
+    "apply_channels_last",
+    "colout_batch",
+    "colout_image",
+    "cutmix_batch",
+    "cutout_batch",
+    "apply_factorization",
+    "apply_ghost_batchnorm",
+    "smooth_labels",
+    "freeze_layers",
+    "gen_mixup_interpolation_lambda",
+    "mixup_batch",
+    "resize_batch",
+    "randaugment_image",
+    "scale_scheduler",
+    "should_selective_backprop",
+    "selective_backprop",
+    "set_batch_sequence_length",
+    "apply_squeeze_excite",
+    "apply_stochastic_depth",
+]

@@ -2,8 +2,8 @@
 
 import pytest
 
+from composer.core.logging import Logger
 from composer.core.state import State
-from composer.loggers import Logger
 
 
 @pytest.fixture()

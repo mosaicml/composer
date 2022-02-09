@@ -13,7 +13,7 @@ if TYPE_CHECKING:
     from composer.core.state import State
 
 
-class BaseLoggerBackend(Callback, ABC):
+class LoggerCallback(Callback, ABC):
     """Base class for logging backends."""
 
     def __init__(self):

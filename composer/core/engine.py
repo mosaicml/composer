@@ -1,5 +1,49 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
+"""[summary]
+composer.Engine
+===============
+
+.. currentmodule:: composer
+
+The order of algorithms can matter significantly during composition. For example, the Selective Backprop algorithm runs during ``AFTER_DATALOADER`` event, and must run before any data augmentations. The :class:`Engine` runs these re-ordering passes.
+
+.. note::
+
+    The design of the :class:`Engine` will be changed in future releases to accommodate more complexity as we investigation the composition of algorithms.
+
+
+Currently, the following passes are registered:
+
+* **LIFO order for events**
+
+   For events that follow the ``after_*`` and ``before_*`` pattern, the ordering of algorithms is reversed for the ``after_*`` events. For example, algorithms will run in a ``ABCD -> DCBA`` ordering before and after say, the loss computation.
+
+   This allows algorithms to "clean up" their changes. e.g. Label smoothing will smooth the labels upon entry to the loss, and then restore the original unsmoothed labels upon exit.
+
+* **Run Selective Backprop first**
+
+   Selective backprop runs after the dataloader returns the batch, and executes an extra forward pass to rank and prune the examples in the batch by loss. To ensure a clean estimate of the example, Selective backprop should run before any other data augmentations during ``AFTER_DATALOADER`` (e.g. such as MixUp).
+
+Trace
+~~~~~
+
+Traces record whether an algorithm ran at a particular step and event combination, and also the order of such executions. These are logged with the key ``{algorithm_name}/{event}``.
+
+For example, the algorithm ``Layer Freezing``, which runs at the end of every epoch, will emit a series of traces:
+
+.. code-block::
+
+   [STEP=0][layer_freezing/INIT=0]
+   [STEP=1][layer_freezing/EPOCH_START=0]
+   [STEP=1][layer_freezing/BATCH_START=0]
+   ...
+   [STEP=2][layer_freezing/BATCH_START=0]
+   ...
+   [STEP=3][layer_freezing/BATCH_START=0]
+   ...
+   [STEP=3][layer_freezing/EPOCH_END=1]  # <-- ran here!
+"""
 import contextlib
 import logging
 from collections import OrderedDict
@@ -17,7 +61,7 @@ from composer.core.state import State
 log = logging.getLogger(__name__)
 Traces = Dict[str, "Trace"]
 
-_ALWAYS_RECORD_EVENTS = [Event.INIT, Event.TRAINING_START, Event.EPOCH_START, Event.EPOCH_END, Event.TRAINING_END]
+_ALWAYS_RECORD_EVENTS = [Event.INIT, Event.FIT_START, Event.EPOCH_START, Event.EPOCH_END]
 
 
 @dataclass
@@ -37,7 +81,7 @@ class Trace():
 
 def _setup_trace(algorithms: Sequence[Algorithm], event: Event) -> Traces:
     """The default traces of an entire run is an OrderedDict, with the keys of format 'algorithm_name/event' (e.g.
-    Blurpool/TRAINING_START)."""
+    Blurpool/INIT)."""
     return OrderedDict([(f'{algo}/{event}', Trace()) for algo in algorithms])
 
 
@@ -72,7 +116,7 @@ class Engine():
         made internally to prevent conflicts.
 
         Returns traces of the execution, a dictionary with keys formatted as ``<algorithm_name>/<event>``
-        (e.g. ``Blurpool/TRAINING_START``), and values are the :class:`composer.core.engine.Trace` object,
+        (e.g. ``Blurpool/INIT``), and values are the :class:`composer.core.engine.Trace` object,
         which include an optional return code from the algorithm, the order of execution, and whether
         the algorithm was run.
 
@@ -81,9 +125,11 @@ class Engine():
         Can be called with either the Event enum, or a string of the event value.
 
         Examples:
-            >>> engine = Engine(state, algorithms, logger, callbacks)
-            >>> engine.run_event(Event.BEFORE_LOSS) # or
+            >>> engine = Engine(state, logger)
+            >>> engine.run_event(Event.BEFORE_LOSS)
+            OrderedDict()
             >>> engine.run_event('before_loss') # also works
+            OrderedDict()
 
 
         Args:
@@ -148,7 +194,7 @@ class Engine():
             trace[trace_key] = Trace(exit_code=exit_code, order=order, run=True)
 
         if self.logger is not None:
-            if event in (Event.INIT, Event.TRAINING_START, Event.TRAINING_END):
+            if event in (Event.INIT, Event.FIT_START):
                 log_level = LogLevel.FIT
             if event in (Event.EPOCH_START, Event.EPOCH_END):
                 log_level = LogLevel.EPOCH

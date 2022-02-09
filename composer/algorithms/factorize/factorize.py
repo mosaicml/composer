@@ -28,8 +28,8 @@ def _python_log_surgery_result(model: torch.nn.Module, new_class: Type[torch.nn.
 
 
 def _factorize_conv2d_modules(model: torch.nn.Module,
-                              min_channels: int,
-                              latent_channels: Union[int, float],
+                              min_channels: int = 512,
+                              latent_channels: Union[int, float] = 0.25,
                               optimizers: Optional[Optimizers] = None):
     """Replaces :class:`torch.nn.Conv2d` modules in ``model`` with
     :class:`~composer.algorithms.factorize.FactorizedConv2d` modules.
@@ -52,8 +52,8 @@ def _factorize_conv2d_modules(model: torch.nn.Module,
 
 
 def _factorize_linear_modules(model: torch.nn.Module,
-                              min_features: int,
-                              latent_features: Union[int, float],
+                              min_features: int = 512,
+                              latent_features: Union[int, float] = 0.25,
                               optimizers: Optional[Optimizers] = None):
     """Replaces :class:`torch.nn.Linear` modules in ``model`` with
     :class:`~composer.algorithms.factorize.FactorizedLinear` modules.
@@ -114,19 +114,19 @@ class FactorizeHparams(AlgorithmHparams):
     )
     min_channels: int = hp.optional(
         doc=('Minimum number of channels in a Conv2d module' + ' for it to be factorized.'),
-        default=256,
+        default=512,
     )
     latent_channels: float = hp.optional(
-        doc='Number of channels in factorized convolution latent representations',
-        default=128,
+        doc='Number or relative fraction of channels in factorized convolution latent representations',
+        default=0.25,
     )
     min_features: int = hp.optional(
         doc=('Minimum number of features in a Linear module' + ' for it to be factorized.'),
-        default=256,
+        default=512,
     )
     latent_features: float = hp.optional(
-        doc='Number of features in factorized linear latent representations',
-        default=128,
+        doc='Number or relative fraction of features in factorized linear latent representations',
+        default=0.25,
     )
 
     def initialize_object(self) -> Factorize:
@@ -186,7 +186,7 @@ class Factorize(Algorithm):
                  factorize_convs: bool = True,
                  factorize_linears: bool = True,
                  min_channels: int = 256,
-                 latent_channels: Union[int, float] = 128,
+                 latent_channels: Union[int, float] = 0.25,
                  min_features: int = 256,
                  latent_features: Union[int, float] = 128):
         self.factorize_convs = factorize_convs

@@ -1,18 +1,41 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
-from composer.core.logging.base_backend import BaseLoggerBackend as BaseLoggerBackend
-from composer.core.logging.logger import Logger as Logger
-from composer.core.logging.logger import LogLevel as LogLevel
-from composer.core.logging.logger import TLogData as TLogData
-from composer.core.logging.logger import TLogDataValue as TLogDataValue
-from composer.loggers.file_logger import FileLoggerBackend as FileLoggerBackend
-from composer.loggers.in_memory_logger import InMemoryLogger as InMemoryLogger
-from composer.loggers.logger_hparams import BaseLoggerBackendHparams as BaseLoggerBackendHparams
-from composer.loggers.logger_hparams import FileLoggerBackendHparams as FileLoggerBackendHparams
-from composer.loggers.logger_hparams import InMemoryLoggerHaparms as InMemoryLoggerHaparms
-from composer.loggers.logger_hparams import MosaicMLLoggerBackendHparams as MosaicMLLoggerBackendHparams
-from composer.loggers.logger_hparams import TQDMLoggerBackendHparams as TQDMLoggerBackendHparams
-from composer.loggers.logger_hparams import WandBLoggerBackendHparams as WandBLoggerBackendHparams
-from composer.loggers.mosaicml_logger import MosaicMLLoggerBackend as MosaicMLLoggerBackend
-from composer.loggers.tqdm_logger import TQDMLoggerBackend as TQDMLoggerBackend
-from composer.loggers.wandb_logger import WandBLoggerBackend as WandBLoggerBackend
+"""Logging.
+
+The trainer includes a :class:`~composer.core.logging.Logger`, which routes logging calls to logger backends.
+Each logger backend inherits from :class:`~composer.core.logging.base_backend.BaseLoggerBackend`,
+which inherits from :class:`Callback`.
+
+For example, to define a new logging backend:
+
+.. code-block:: python
+
+    from composer.core.logging import BaseLoggerBackend
+
+    class MyLoggerBackend(BaseLoggerBackend)
+
+        def log_metric(self, epoch, step, log_level, data):
+            print(f'Epoch {epoch} Step {step}: {log_level} {data}')
+"""
+from composer.loggers.file_logger import FileLogger
+from composer.loggers.in_memory_logger import InMemoryLogger
+from composer.loggers.logger_hparams import (FileLoggerHparams, InMemoryLoggerHaparms, LoggerCallbackHparams,
+                                             MosaicMLLoggerHparams, TQDMLoggerHparams, WandBLoggerHparams)
+from composer.loggers.mosaicml_logger import MosaicMLLogger
+from composer.loggers.tqdm_logger import TQDMLogger
+from composer.loggers.wandb_logger import WandBLogger
+
+# All needs to be defined properly for sphinx autosummary
+__all__ = [
+    "FileLogger",
+    "InMemoryLogger",
+    "LoggerCallbackHparams",
+    "FileLoggerHparams",
+    "InMemoryLoggerHaparms",
+    "MosaicMLLoggerHparams",
+    "TQDMLoggerHparams",
+    "WandBLoggerHparams",
+    "MosaicMLLogger",
+    "TQDMLogger",
+    "WandBLogger",
+]
