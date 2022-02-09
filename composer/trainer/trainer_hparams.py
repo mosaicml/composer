@@ -172,6 +172,8 @@ class TrainerHparams(hp.Hparams):
         default=-1)
     callbacks: List[CallbackHparams] = hp.optional(doc="Callback hparams", default_factory=list)
 
+    scale_schedule_ratio: float = hp.optional(doc="", default=1.0)
+
     load_path: Optional[str] = hp.optional(doc=textwrap.dedent("""\
         If specified, the path to an existing checkpoint file
         (if the checkpoint is on the local disk) or the object name for the checkpoint
@@ -265,6 +267,9 @@ class TrainerHparams(hp.Hparams):
         if self.evaluators is not None and len(self.evaluators) > 0 and self.val_dataset is not None:
             raise ValueError(
                 "val_dataset and evaluators shouldn't both be specified. Only one can be passed in to the trainer.")
+
+        if self.scale_schedule_ratio <= 0:
+            raise ValueError("scale_schedule_ratio must be a positive value.")
 
     def initialize_object(self) -> Trainer:
         self.validate()
@@ -381,6 +386,7 @@ class TrainerHparams(hp.Hparams):
             validate_every_n_epochs=self.validate_every_n_epochs,
             compute_training_metrics=self.compute_training_metrics,
             precision=self.precision,
+            scale_schedule_ratio=self.scale_schedule_ratio,
 
             # dist hparams
             dist_timeout=self.dist_timeout,
