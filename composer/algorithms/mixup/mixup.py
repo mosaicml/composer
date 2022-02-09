@@ -74,8 +74,7 @@ def mixup_batch(x: Tensor,
         from composer import functional as CF
 
         for X, y in dataloader:
-            l = CF.gen_interpolation_lambda(alpha=0.2)
-            X, y, _ = CF.mixup_batch(X, y, l, nclasses)
+            X, y, _ = CF.mixup_batch(X, y, nclasses)
 
             pred = model(X)
             loss = loss_fun(pred, y)  # loss_fun must accept dense labels (ie NOT indices)
