@@ -119,32 +119,43 @@ class Trainer:
         save_interval_unit (str): Unit of ``save_interval``. Can be ``ep`` or ``steps``. (default: ``ep``).
         save_compression (str): Compression algorithm to run on checkpoints. Can be `gzip`, `bzip2`,
             `lzma`, or left blank for no compression.  (default: ``""`` for no compression).
-        profiling (bool, optional): Enable training profiling. (default: ``False``.)
-        prof_merged_trace_file (str, optional): Name of the Mosaic+Torch merged traced file. 
-            (default: ``merged_profiler_trace.json``).
-        prof_event_handlers (List[ProfilerEventHandlerHparams], optional): Trace event handler hparams
-            (default: ``[JSONTraceHandlerHparams()]``).
-        prof_skip_first (int, optional): Number of batches to skip at epoch start. (default: ``optional``).
-        prof_wait (int, optional): Number of batches to skip at the beginning of each cycle. (default: ``optional``).
-        prof_warmup (int, optional): Number of warmup batches in a cycle. (default: ``optional``).
-        prof_active (int, optional): Number of batches to profile in a cycle. (default: ``optional``).
+        profiler_trace_file (str, optional): Name of the trace file, relative to the run directory.
+            Must be specified to activate the profiler (default: ``None``).
+        prof_event_handlers (List[ProfilerEventHandler], optional): Trace event handler hparams
+            Ignored if ``profiler_trace_file`` is not specified. (default: ``[JSONTraceHandlerHparams()]``).
+        prof_skip_first (int, optional): Number of batches to skip at epoch start. 
+            Ignored if ``profiler_trace_file`` is not specified. (default: ``optional``).
+        prof_wait (int, optional): Number of batches to skip at the beginning of each cycle. 
+            Ignored if ``profiler_trace_file`` is not specified. (default: ``optional``).
+        prof_warmup (int, optional): Number of warmup batches in a cycle. 
+            Ignored if ``profiler_trace_file`` is not specified. (default: ``optional``).
+        prof_active (int, optional): Number of batches to profile in a cycle. 
+            Ignored if ``profiler_trace_file`` is not specified. (default: ``optional``).
         prof_repeat (int, optional): Maximum number of profiling cycle repetitions per epoch (0 for no maximum).
-            (default: ``1``).
-        sys_prof_cpu (bool, optional): Whether to record cpu statistics. (default: ``True``).
-        sys_prof_memory (bool, optional): Whether to record memory statistics. (default: ``False``).
-        sys_prof_disk (bool, optional): Whether to record disk statistics. (default: ``False``).
-        sys_prof_net (bool, optional): Whether to record network statistics. (default: ``False``).
+            Ignored if ``profiler_trace_file`` is not specified. (default: ``1``).
+        sys_prof_cpu (bool, optional): Whether to record cpu statistics.
+            Ignored if ``profiler_trace_file`` is not specified. (default: ``True``).
+        sys_prof_memory (bool, optional): Whether to record memory statistics. 
+            Ignored if ``profiler_trace_file`` is not specified. (default: ``False``).
+        sys_prof_disk (bool, optional): Whether to record disk statistics. 
+            Ignored if ``profiler_trace_file`` is not specified. (default: ``False``).
+        sys_prof_net (bool, optional): Whether to record network statistics. 
+            Ignored if ``profiler_trace_file`` is not specified. (default: ``False``).
         sys_prof_stats_thread_interval_seconds (float, optional): Interval to record stats, in seconds.
-            (default: ``0.5``).
+            Ignored if ``profiler_trace_file`` is not specified. (default: ``0.5``).
         torch_profiler_trace_dir (str, optional): Directory to store trace results relative to the run directory.
-            The Torch Profiler is only active if the ``torch_profiler_trace_dir`` is set.
+            Must be specified to activate the Torch profiler. Ignored if ``profiler_trace_file`` is not specified.
             (default: ``None``).
-        torch_prof_use_gzip (bool): Whether to use gzip for trace. (default: ``False``).
-        torch_prof_record_shapes (bool, optional): Whether to record tensor shapes. (default: ``False``).
-        torch_prof_profile_memory (bool, optional): Track tensor memory allocations and frees. (default: ``True``).
-        torch_prof_with_stack (bool, optional): Record stack info. (default: ``False``).
-        torch_prof_with_flops (bool, optional): Estimate flops for operators. (default: ``True``).
-        
+        torch_prof_use_gzip (bool): Whether to use gzip for trace. 
+            Ignored if ``torch_profiler_trace_dir`` and ``profiler_trace_file`` are not specified. (default: ``False``).
+        torch_prof_record_shapes (bool, optional): Whether to record tensor shapes. 
+            Ignored if ``torch_profiler_trace_dir`` and ``profiler_trace_file`` are not specified. (default: ``False``).
+        torch_prof_profile_memory (bool, optional): Track tensor memory allocations and frees. 
+            Ignored if ``torch_profiler_trace_dir`` and ``profiler_trace_file`` are not specified. (default: ``True``).
+        torch_prof_with_stack (bool, optional): Record stack info. 
+            Ignored if ``torch_profiler_trace_dir`` and ``profiler_trace_file`` are not specified. (default: ``False``).
+        torch_prof_with_flops (bool, optional): Estimate flops for operators. 
+            Ignored if ``torch_profiler_trace_dir`` and ``profiler_trace_file`` are not specified. (default: ``True``).
         train_subset_num_batches (int, optional): If specified, finish every epoch early after training
             on this many batches. This parameter has no effect if it is greater than ``len(train_dataloader)``.
             If None (the default), then the entire dataloader will be iterated over.
@@ -209,8 +220,7 @@ class Trainer:
         save_compression: str = '',
 
         # Profiling
-        profiling: bool = False,
-        prof_merged_trace_file: str = "merged_profiler_trace.json",
+        profiler_trace_file: Optional[str] = None,
         prof_event_handlers: Sequence[ProfilerEventHandler] = [JSONTraceHandler()],
         prof_skip_first: int = 0,
         prof_wait: int = 0,
@@ -366,7 +376,7 @@ class Trainer:
         )
 
         # Configure profilers if profiling is enabled
-        if profiling:
+        if profiler_trace_file:
             self.state.profiler = Profiler(state=self.state,
                                            event_handlers=prof_event_handlers,
                                            skip_first=prof_skip_first,
@@ -374,15 +384,19 @@ class Trainer:
                                            warmup=prof_warmup,
                                            active=prof_active,
                                            repeat=prof_repeat,
-                                           merged_trace_file=prof_merged_trace_file)
+                                           merged_trace_file=profiler_trace_file)
             self.state.callbacks.extend(self.state.profiler.event_handlers)
+
             self.state.callbacks.append(DataloaderProfiler())
-            self.state.callbacks.append(
-                SystemProfiler(profile_cpu=sys_prof_cpu,
-                               profile_memory=sys_prof_memory,
-                               profile_disk=sys_prof_disk,
-                               profile_net=sys_prof_net,
-                               stats_thread_interval_seconds=sys_prof_stats_thread_interval_seconds))
+
+            if sys_prof_cpu or sys_prof_memory or sys_prof_disk or sys_prof_net:
+                self.state.callbacks.append(
+                    SystemProfiler(profile_cpu=sys_prof_cpu,
+                                   profile_memory=sys_prof_memory,
+                                   profile_disk=sys_prof_disk,
+                                   profile_net=sys_prof_net,
+                                   stats_thread_interval_seconds=sys_prof_stats_thread_interval_seconds))
+
             if torch_profiler_trace_dir:
                 self.state.callbacks.append(
                     TorchProfiler(tensorboard_trace_handler_dir=torch_profiler_trace_dir,

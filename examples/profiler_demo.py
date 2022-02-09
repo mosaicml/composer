@@ -27,7 +27,7 @@ model = composer.models.MNIST_Classifier(num_classes=10)
 train_epochs = "2ep"
 train_subset_num_batches = 8
 device = composer.trainer.devices.DeviceGPU()
-#torch_trace_dir = None
+profiler_trace_file = "profiler_traces.json"
 torch_trace_dir = "torch_profiler"
 
 trainer = composer.trainer.Trainer(model=model,
@@ -39,7 +39,7 @@ trainer = composer.trainer.Trainer(model=model,
                                    validate_every_n_epochs=-1,
                                    precision="amp",
                                    train_subset_num_batches=train_subset_num_batches,
-                                   profiling=True,
+                                   profiler_trace_file=profiler_trace_file,
                                    prof_skip_first=0,
                                    prof_wait=0,
                                    prof_warmup=1,
