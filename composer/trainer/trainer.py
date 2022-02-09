@@ -20,7 +20,7 @@ from torchmetrics.collections import MetricCollection
 from torchmetrics.metric import Metric
 
 from composer.algorithms import ScaleSchedule
-from composer.core import Callback, DataSpec, Engine, Event, Logger, State, Time, surgery
+from composer.core import Callback, DataSpec, Engine, Event, Logger, State, Time
 from composer.core.algorithm import Algorithm
 from composer.core.evaluator import Evaluator
 from composer.core.logging import LoggerCallback, LogLevel
@@ -39,7 +39,7 @@ from composer.trainer.deepspeed import fix_batch_precision_for_deepspeed, parse_
 from composer.trainer.devices import Device, DeviceCPU, DeviceGPU
 from composer.trainer.scale_schedule import scale_scheduler
 from composer.trainer.scaler import ClosureGradScaler
-from composer.utils import dist, ensure_tuple, map_collection, reproducibility
+from composer.utils import dist, ensure_tuple, map_collection, module_surgery, reproducibility
 from composer.utils.object_store import ObjectStoreProvider
 
 if TYPE_CHECKING:
@@ -417,9 +417,9 @@ class Trainer:
 
             # use surgery to update the parameters of the optimizers, now that the model is on the device
             # see https://pytorch.org/docs/stable/optim.html#constructing-it
-            surgery.replace_params_in_optimizer(old_params=host_model_params,
-                                                new_params=device_model_params,
-                                                optimizers=self.state.optimizers)
+            module_surgery.replace_params_in_optimizer(old_params=host_model_params,
+                                                       new_params=device_model_params,
+                                                       optimizers=self.state.optimizers)
 
             # Move any remaining optimizer parameters onto the device
             self.state.optimizers = map_collection(self.state.optimizers, self.device.optimizer_to_device)
