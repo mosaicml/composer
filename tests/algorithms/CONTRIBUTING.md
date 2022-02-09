@@ -1,4 +1,8 @@
-# Copyright 2021 MosaicML. All Rights Reserved.
+# Contributing algorithm tests
+
+Algorithm-based tests should follow a similar template, as shown below:
+
+```
 import pytest
 
 
@@ -39,8 +43,6 @@ def test_myalgo_logging(state):
             'some_key': some_value
         })
     """
+```
 
-
-# The above is the minimal set, the
-# rest of the test suite will varying depending
-# on the exact algorithm under test.
+The above is a minimal set, the rest of the tests will vary depending on the exact algorithm under test.

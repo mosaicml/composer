@@ -16,11 +16,11 @@ class SimpleModel(ComposerClassifier):
     """Small classification model with 10 input features and 2 classes.
 
     Args:
-        num_features (int): number of input features (default: 10)
+        num_features (int): number of input features (default: 5)
         num_classes (int): number of classes (default: 2)
     """
 
-    def __init__(self, num_features: int = 10, num_classes: int = 2) -> None:
+    def __init__(self, num_features: int = 5, num_classes: int = 2) -> None:
 
         self.num_features = num_features
         self.num_classes = num_classes
@@ -81,6 +81,12 @@ class SimpleConvModel(ComposerClassifier):
         self.conv2 = conv2
 
 
+"""
+We use simplified versions of the SyntheticDatasets below to make the tests
+simpler to read and debug.
+"""
+
+
 class RandomClassificationDataset(Dataset):
     """Classification dataset drawn from a normal distribution.
 
@@ -90,7 +96,7 @@ class RandomClassificationDataset(Dataset):
         num_classes (int): number of classes (default: 100)
     """
 
-    def __init__(self, shape: Sequence[int], size: int = 100, num_classes: int = 2):
+    def __init__(self, shape: Sequence[int] = (5,), size: int = 100, num_classes: int = 2):
         self.size = size
         self.x = torch.randn(size, *shape)
         self.y = torch.randint(0, num_classes, size=(size,))

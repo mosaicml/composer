@@ -5,9 +5,10 @@
 from unittest.mock import Mock
 
 import pytest
+from torch.utils.data import DataLoader
 
 from composer.core import Logger, State
-from composer.core.types import Precision
+from tests.common import RandomClassificationDataset, SimpleModel
 
 
 @pytest.fixture
@@ -16,12 +17,12 @@ def minimal_state():
 
     Tests should configure the state for their specific needs.
     """
-    return State(model=Mock(),
-                 precision=Precision.FP32,
-                 grad_accum=1,
-                 train_dataloader=Mock(__len__=lambda x: 100),
-                 evaluators=Mock(),
-                 max_duration='100ep')
+    return State(
+        model=SimpleModel(),
+        train_dataloader=DataLoader(RandomClassificationDataset()),
+        evaluators=[],
+        max_duration='100ep',
+    )
 
 
 @pytest.fixture
