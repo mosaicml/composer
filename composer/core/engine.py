@@ -181,7 +181,7 @@ class Engine():
         for order, algorithm in enumerate(algorithms_to_run):
             marker = None
             if self.state.profiler is not None:
-                marker = self.state.profiler.marker(f"algorithm/{algorithm.__class__.__name__}/event/{event.value}", 
+                marker = self.state.profiler.marker(f"algorithm/{algorithm.__class__.__name__}/event/{event.value}",
                                                     categories=[
                                                         event.value,
                                                         algorithm.__class__.__name__,

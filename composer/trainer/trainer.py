@@ -123,38 +123,38 @@ class Trainer:
             Must be specified to activate the profiler (default: ``None``).
         prof_event_handlers (List[ProfilerEventHandler], optional): Trace event handler hparams
             Ignored if ``profiler_trace_file`` is not specified. (default: ``[JSONTraceHandlerHparams()]``).
-        prof_skip_first (int, optional): Number of batches to skip at epoch start. 
+        prof_skip_first (int, optional): Number of batches to skip at epoch start.
             Ignored if ``profiler_trace_file`` is not specified. (default: ``optional``).
-        prof_wait (int, optional): Number of batches to skip at the beginning of each cycle. 
+        prof_wait (int, optional): Number of batches to skip at the beginning of each cycle.
             Ignored if ``profiler_trace_file`` is not specified. (default: ``optional``).
-        prof_warmup (int, optional): Number of warmup batches in a cycle. 
+        prof_warmup (int, optional): Number of warmup batches in a cycle.
             Ignored if ``profiler_trace_file`` is not specified. (default: ``optional``).
-        prof_active (int, optional): Number of batches to profile in a cycle. 
+        prof_active (int, optional): Number of batches to profile in a cycle.
             Ignored if ``profiler_trace_file`` is not specified. (default: ``optional``).
         prof_repeat (int, optional): Maximum number of profiling cycle repetitions per epoch (0 for no maximum).
             Ignored if ``profiler_trace_file`` is not specified. (default: ``1``).
         sys_prof_cpu (bool, optional): Whether to record cpu statistics.
             Ignored if ``profiler_trace_file`` is not specified. (default: ``True``).
-        sys_prof_memory (bool, optional): Whether to record memory statistics. 
+        sys_prof_memory (bool, optional): Whether to record memory statistics.
             Ignored if ``profiler_trace_file`` is not specified. (default: ``False``).
-        sys_prof_disk (bool, optional): Whether to record disk statistics. 
+        sys_prof_disk (bool, optional): Whether to record disk statistics.
             Ignored if ``profiler_trace_file`` is not specified. (default: ``False``).
-        sys_prof_net (bool, optional): Whether to record network statistics. 
+        sys_prof_net (bool, optional): Whether to record network statistics.
             Ignored if ``profiler_trace_file`` is not specified. (default: ``False``).
         sys_prof_stats_thread_interval_seconds (float, optional): Interval to record stats, in seconds.
             Ignored if ``profiler_trace_file`` is not specified. (default: ``0.5``).
         torch_profiler_trace_dir (str, optional): Directory to store trace results relative to the run directory.
             Must be specified to activate the Torch profiler. Ignored if ``profiler_trace_file`` is not specified.
             (default: ``None``).
-        torch_prof_use_gzip (bool): Whether to use gzip for trace. 
+        torch_prof_use_gzip (bool): Whether to use gzip for trace.
             Ignored if ``torch_profiler_trace_dir`` and ``profiler_trace_file`` are not specified. (default: ``False``).
-        torch_prof_record_shapes (bool, optional): Whether to record tensor shapes. 
+        torch_prof_record_shapes (bool, optional): Whether to record tensor shapes.
             Ignored if ``torch_profiler_trace_dir`` and ``profiler_trace_file`` are not specified. (default: ``False``).
-        torch_prof_profile_memory (bool, optional): Track tensor memory allocations and frees. 
+        torch_prof_profile_memory (bool, optional): Track tensor memory allocations and frees.
             Ignored if ``torch_profiler_trace_dir`` and ``profiler_trace_file`` are not specified. (default: ``True``).
-        torch_prof_with_stack (bool, optional): Record stack info. 
+        torch_prof_with_stack (bool, optional): Record stack info.
             Ignored if ``torch_profiler_trace_dir`` and ``profiler_trace_file`` are not specified. (default: ``False``).
-        torch_prof_with_flops (bool, optional): Estimate flops for operators. 
+        torch_prof_with_flops (bool, optional): Estimate flops for operators.
             Ignored if ``torch_profiler_trace_dir`` and ``profiler_trace_file`` are not specified. (default: ``True``).
         train_subset_num_batches (int, optional): If specified, finish every epoch early after training
             on this many batches. This parameter has no effect if it is greater than ``len(train_dataloader)``.
