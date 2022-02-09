@@ -7,8 +7,8 @@ import torch
 
 from composer.algorithms import SqueezeExcite, SqueezeExciteConv2d, SqueezeExciteHparams
 from composer.core import Event, Logger, State
-from composer.utils import module_surgery
 from composer.functional import apply_squeeze_excite as apply_se
+from composer.utils import module_surgery
 from tests.common import SimpleConvModel
 
 

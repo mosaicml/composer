@@ -12,8 +12,8 @@ from composer.algorithms.stochastic_depth.sample_stochastic_layers import Sample
 from composer.algorithms.stochastic_depth.stochastic_depth import STOCHASTIC_LAYER_MAPPING, apply_stochastic_depth
 from composer.algorithms.stochastic_depth.stochastic_layers import StochasticBottleneck, _sample_bernoulli
 from composer.core import Event, State
-from composer.utils import module_surgery
 from composer.models import ComposerResNet
+from composer.utils import module_surgery
 
 
 @pytest.fixture()

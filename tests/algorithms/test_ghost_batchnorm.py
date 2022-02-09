@@ -12,9 +12,9 @@ import torch
 from composer.algorithms import ghost_batchnorm as ghostbn
 from composer.algorithms.ghost_batchnorm.ghost_batchnorm import GhostBatchNorm, GhostBatchNormHparams, _GhostBatchNorm
 from composer.core import Event, State
-from composer.utils import module_surgery
 from composer.core.types import Batch, Metrics, Tensors
 from composer.models.base import ComposerModel
+from composer.utils import module_surgery
 
 _GHOSTBN_MODULE_CLASS = _GhostBatchNorm
 _GHOSTBN_CORRECT_EVENT = Event.INIT
