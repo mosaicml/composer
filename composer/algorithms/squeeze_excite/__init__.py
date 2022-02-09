@@ -4,7 +4,7 @@ from composer.algorithms.squeeze_excite.squeeze_excite import SqueezeExcite as S
 from composer.algorithms.squeeze_excite.squeeze_excite import SqueezeExcite2d as SqueezeExcite2d
 from composer.algorithms.squeeze_excite.squeeze_excite import SqueezeExciteConv2d as SqueezeExciteConv2d
 from composer.algorithms.squeeze_excite.squeeze_excite import SqueezeExciteHparams as SqueezeExciteHparams
-from composer.algorithms.squeeze_excite.squeeze_excite import apply_se as apply_se
+from composer.algorithms.squeeze_excite.squeeze_excite import apply_squeeze_excite as apply_squeeze_excite
 
 _name = 'SqueezeExcite'
 _class_name = 'SqueezeExcite'

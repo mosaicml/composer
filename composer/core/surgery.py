@@ -177,11 +177,16 @@ def count_module_instances(model: torch.nn.Module, module_class: Type[torch.nn.M
     """Counts the number of instances of module_class in the model.
 
     Example:
-        >>> model = nn.Sequential([nn.Linear(16, 32), nn.Linear(32, 64), nn.ReLU])
-        >>> count_module_instances(model, nn.Linear)
-        2
-        >>> count_module_instances(model, (nn.Linear, nn.ReLU))
-        3
+        .. testsetup::
+            from composer.core.surgery import count_module_instances
+
+        .. doctest::
+            >>> from torch import nn
+            >>> model = nn.Sequential([nn.Linear(16, 32), nn.Linear(32, 64), nn.ReLU])
+            >>> count_module_instances(model, nn.Linear)
+            2
+            >>> count_module_instances(model, (nn.Linear, nn.ReLU))
+            3
 
     Args:
         model (torch.nn.Module): Source model

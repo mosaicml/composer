@@ -3,7 +3,7 @@
 from composer.algorithms.progressive_resizing.progressive_resizing import ProgressiveResizing as ProgressiveResizing
 from composer.algorithms.progressive_resizing.progressive_resizing import \
     ProgressiveResizingHparams as ProgressiveResizingHparams
-from composer.algorithms.progressive_resizing.progressive_resizing import resize_inputs as resize_inputs
+from composer.algorithms.progressive_resizing.progressive_resizing import resize_batch as resize_batch
 
 _name = 'Progressive Resizing'
 _class_name = 'ProgressiveResizing'
