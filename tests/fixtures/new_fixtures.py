@@ -36,8 +36,7 @@ def empty_logger(minimal_state: State) -> Logger:
 
 @pytest.fixture
 def init_process_group(monkeypatch):
-    """Use this fixture when initializing dist is needed
-    outside of the Trainer's codepath. """
+    """Use this fixture when initializing dist is needed outside of the Trainer's codepath."""
 
     if not "RANK" in os.environ:
         monkeypatch.setenv("RANK", "0")

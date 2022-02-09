@@ -1,9 +1,6 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
-"""
-Contains several commonly used objects (models, dataloaders) that are
-shared across the test suite.
-"""
+"""Contains several commonly used objects (models, dataloaders) that are shared across the test suite."""
 
 from typing import Sequence
 
@@ -110,11 +107,11 @@ class SimpleConvModel(ComposerClassifier):
     """Small convolutional classifer.
 
     Args:
-        num_channels (int): number of input channels (default: 32)
+        num_channels (int): number of input channels (default: 3)
         num_classes (int): number of classes (default: 2)
     """
 
-    def __init__(self, num_channels: int = 32, num_classes: int = 2) -> None:
+    def __init__(self, num_channels: int = 3, num_classes: int = 2) -> None:
 
         self.num_classes = num_classes
         self.num_channels = num_channels
@@ -167,14 +164,17 @@ class RandomClassificationDataset(Dataset):
 class RandomImageDataset(VisionDataset):
     """ Image Classification dataset with values drawn from a normal distribution
     Args:
-        shape (Sequence[int]): shape of features. Defaults to (64, 64, 3)
+        shape (Sequence[int]): shape of features. Defaults to (32, 32, 3)
         size (int): number of samples (default: 100)
         num_classes (int): number of classes (default: 100)
         is_PIL (bool): if true, will emit image in PIL format (default: False)
     """
 
-    def __init__(self, shape: Sequence[int] = (64, 64, 3), size: int = 100, num_classes: int = 2, is_PIL: bool = False):
+    def __init__(self, shape: Sequence[int] = (3, 32, 32), size: int = 100, num_classes: int = 2, is_PIL: bool = False):
         self.is_PIL = is_PIL
+        if is_PIL:  # PIL expects HWC
+            shape = (shape[1], shape[2], shape[0])
+
         self.size = size
         self.x = torch.randn(size, *shape)
         self.y = torch.randint(0, num_classes, size=(size,))
