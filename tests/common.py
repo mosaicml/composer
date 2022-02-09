@@ -72,10 +72,10 @@ def world_size(*args):
 
 
 class SimpleModel(ComposerClassifier):
-    """Small classification model with 10 input features and 2 classes.
+    """Small classification model with 5 input features and 2 classes.
 
     Args:
-        num_features (int): number of input features (default: 10)
+        num_features (int): number of input features (default: 5)
         num_classes (int): number of classes (default: 2)
     """
 

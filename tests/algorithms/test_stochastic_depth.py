@@ -185,8 +185,15 @@ class TestStochasticBottleneckLayer:
 class TestStochasticDepthDropRate:
 
     @pytest.fixture
-    def algorithm(self, target_layer_name, stochastic_method, drop_rate, drop_distribution, drop_warmup,
-                  use_same_gpu_seed):
+    def algorithm(
+        self,
+        target_layer_name,
+        stochastic_method,
+        drop_rate,
+        drop_distribution,
+        drop_warmup,
+        use_same_gpu_seed,
+    ):
         return StochasticDepth(
             target_layer_name,
             stochastic_method,

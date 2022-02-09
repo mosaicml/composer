@@ -135,16 +135,16 @@ class State(Serializable):
             # model
             model: types.Model,
 
-            # data configurations
-            grad_accum: int,
-            train_dataloader: types.DataLoader,
-            evaluators: types.Evaluators,
-
             # stopping conditions
             max_duration: Union[str, Time[int]],
 
+            # data configurations
+            train_dataloader: types.DataLoader,
+            evaluators: types.Evaluators = [],
+            grad_accum: int = 1,
+
             # precision
-            precision: Union[str, types.Precision],
+            precision: Union[str, types.Precision] = Precision.FP32,
             precision_context: Callable[[Precision], ContextManager] = default_precision_factory(),
 
             # optimizers

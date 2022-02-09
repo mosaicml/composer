@@ -24,15 +24,16 @@ DEFAULT_TIMEOUT = 2.0
 os.environ["CUBLAS_WORKSPACE_CONFIG"] = ":4096:8"
 
 # during the pytest refactor transition, this flag
-# indicates whether to include the deprecated fixtures
-include_deprecated_fixtures = True
+# indicates whether to include the deprecated fixtures.
+# used for internal development.
+_include_deprecated_fixtures = True
 
 # Add the path of any pytest fixture files you want to make global
 pytest_plugins = [
     "tests.fixtures.new_fixtures",
 ]
 
-if include_deprecated_fixtures:
+if _include_deprecated_fixtures:
     pytest_plugins += [
         "tests.fixtures.dummy_fixtures",
         "tests.fixtures.distributed_fixtures",

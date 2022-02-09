@@ -21,11 +21,11 @@ log = logging.getLogger(__name__)
 _VALID_MODES = ("crop", "resize")
 
 
-def resize_inputs(X: torch.Tensor,
-                  y: torch.Tensor,
-                  scale_factor: float,
-                  mode: str = "resize",
-                  resize_targets: bool = False) -> Tuple[torch.Tensor, torch.Tensor]:
+def resize_batch(X: torch.Tensor,
+                 y: torch.Tensor,
+                 scale_factor: float,
+                 mode: str = "resize",
+                 resize_targets: bool = False) -> Tuple[torch.Tensor, torch.Tensor]:
     """Resize inputs and optionally outputs by cropping or interpolating.
 
     Args:
@@ -157,9 +157,9 @@ class ProgressiveResizing(Algorithm):
         # Linearly increase to full size at the start of the fine tuning period
         scale_factor = initial_size + (1 - initial_size) * scale_frac_elapsed
 
-        new_input, new_target = resize_inputs(X=input,
-                                              y=target,
-                                              scale_factor=scale_factor,
-                                              mode=self.mode,
-                                              resize_targets=self.resize_targets)
+        new_input, new_target = resize_batch(X=input,
+                                             y=target,
+                                             scale_factor=scale_factor,
+                                             mode=self.mode,
+                                             resize_targets=self.resize_targets)
         state.batch = (new_input, new_target)

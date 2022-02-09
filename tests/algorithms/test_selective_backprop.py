@@ -6,7 +6,7 @@ import pytest
 import torch
 
 from composer.algorithms.selective_backprop import SelectiveBackprop, SelectiveBackpropHparams
-from composer.algorithms.selective_backprop.selective_backprop import do_selective_backprop, selective_backprop
+from composer.algorithms.selective_backprop.selective_backprop import selective_backprop, should_selective_backprop
 from composer.core import Event
 from composer.core.logging.logger import Logger
 from composer.core.state import State
@@ -167,14 +167,14 @@ def test_sb_hparams():
 
 
 # tests of the functional API
-class TestScaleSchedule:
+class TestSelectiveBackprop:
 
     @pytest.mark.parametrize("epoch,batch,interrupt", [(10, 0, 0), (10, 0, 2), (10, 2, 2)])
     def test_do_selective_backprop_true(self, epoch: int, batch: int, interrupt: int) -> None:
         """Test functional match when epoch is within interval."""
         start = 5
         end = 15
-        is_chosen = do_selective_backprop(epoch, batch, start, end, interrupt)
+        is_chosen = should_selective_backprop(epoch, batch, start, end, interrupt)
         assert is_chosen
 
     @pytest.mark.parametrize("epoch,batch,interrupt", [(0, 0, 0), (20, 0, 0), (10, 1, 2)])
@@ -182,7 +182,7 @@ class TestScaleSchedule:
         """Test functional doesn't match when epoch is outside of interval."""
         start = 5
         end = 15
-        is_chosen = do_selective_backprop(epoch, batch, start, end, interrupt)
+        is_chosen = should_selective_backprop(epoch, batch, start, end, interrupt)
         assert not is_chosen
 
     @pytest.mark.parametrize("keep", [0.5])

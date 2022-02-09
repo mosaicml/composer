@@ -4,7 +4,7 @@ import pytest
 import torch
 
 from composer.algorithms import MixUpHparams
-from composer.algorithms.mixup.mixup import gen_interpolation_lambda, mixup_batch
+from composer.algorithms.mixup.mixup import gen_mixup_interpolation_lambda, mixup_batch
 from composer.core.types import Event
 from composer.models.base import ComposerClassifier
 
@@ -44,7 +44,7 @@ class TestMixUp:
         x_fake, y_fake, indices = fake_data
 
         # Get interpolation lambda based on alpha hparam
-        interpolation_lambda = gen_interpolation_lambda(alpha)
+        interpolation_lambda = gen_mixup_interpolation_lambda(alpha)
 
         # Apply mixup
         x_mix, _, _ = mixup_batch(
