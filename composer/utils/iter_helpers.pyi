@@ -23,6 +23,9 @@ def map_collection(list_of_elements: List[T], map_fn: Callable[[T], V], /) -> Li
 def map_collection(dict_of_elements: Dict[KT, T], map_fn: Callable[[T], V], /) -> Dict[KT, V]:
     ...
 
+@overload
+def map_collection(none: None, map_fn: Callable[[Any], Any], /) -> None:
+    ...
 
 @overload
 def map_collection(singleton: T, map_fn: Callable[[T], V], /) -> V:

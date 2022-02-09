@@ -259,12 +259,14 @@ def update_params_in_optimizer(old_params: Iterable[torch.nn.parameter.Parameter
     possible. See `recommended practice <https://github.com/pytorch/pytorch/issues/1489#issuecomment-355301737>`_.
     To simply add new parameters without replacing existing ones, use
     :meth:`~torch.optim.Optimizer.add_param_group`.
+
     Args:
         old_params: Parameters in this iterable should be removed if they are
             not present in `new_params`.
         new_params: Parameters in this iterable should be added if they are
             not present in `old_params`.
         optimizers (Optimizers): One or more `torch.optim.Optimizer` objects
+
     Raises:
         NotImplementedError: If `optimizers` contains more than one optimizer
         RuntimeError: If not all removed parameters are found in the
@@ -320,22 +322,22 @@ def replace_params_in_optimizer(old_params: Iterable[torch.nn.parameter.Paramete
                                 new_params: Iterable[torch.nn.parameter.Parameter], optimizers: Optimizers) -> None:
     """Fully replaces an optimizer's parameters.
 
-    This differs from `update_params_in_optimizer` in that this method is capable
+    This differs from :meth:`update_params_in_optimizer` in that this method is capable
     of replacing parameters spanning multiple param groups. To accomplish this,
-    this function assumes that parameters in `new_params` should inherit the
-    param group of the corresponding parameter from `old_params`. Thus, this
-    function also assumes that `old_params` and `new_params` have the same length.
+    this function assumes that parameters in ``new_params`` should inherit the
+    param group of the corresponding parameter from ``old_params``. Thus, this
+    function also assumes that ``old_params`` and ``new_params` have the same length.
 
     Args:
-        old_params: Current parameters of the optimizer.
-        new_params: New parameters of the optimizer, given in the same order as
-            `old_params`. Must be the same length as `old_params`.
-        optimizers (Optimizers): One or more `torch.optim.Optimizer` objects.
+        old_params (Iterator[torch.nn.parameter.Parameter]): Current parameters of the optimizer.
+        new_params (Iterator[torch.nn.parameter.Parameter]): New parameters of the optimizer, given in the same order as
+            ``old_params``. Must be the same length as ``old_params``.
+        optimizers (Optimizers): One or more :class:`torch.optim.Optimizer` objects.
 
     Raises:
-        NotImplementedError: If `optimizers` contains more than one optimizer
-        RuntimeError: If `old_params` and `new_params` have different lengths, or
-            if a param from `old_params` cannot be found.
+        NotImplementedError: If ``optimizers`` contains more than one optimizer
+        RuntimeError: If ``old_params`` and ``new_params`` have different lengths, or
+            if a param from ``old_params`` cannot be found.
     """
     if len(ensure_tuple(optimizers)) > 1:
         raise NotImplementedError("Surgery with multiple optimizers is not yet supported.")
