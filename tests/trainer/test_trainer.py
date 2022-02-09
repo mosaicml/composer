@@ -16,7 +16,6 @@ from composer.core.callback import Callback
 from composer.core.types import Model
 from composer.loggers import FileLogger, TQDMLogger
 from composer.trainer import Trainer
-from composer.trainer.devices.device_gpu import DeviceGPU
 from composer.trainer.trainer_hparams import algorithms_registry, callback_registry, logger_registry
 from tests.common import (RandomClassificationDataset, RandomImageDataset, SimpleConvModel, SimpleModel, device,
                           world_size)
@@ -63,7 +62,7 @@ class TestTrainerInit():
 
         parameters = trainer.state.optimizers[0].param_groups[0]["params"]
 
-        target_device = 'cuda' if isinstance(device, DeviceGPU) else 'cpu'
+        target_device = 'cuda' if device == 'gpu' else 'cpu'
         assert all(param.device.type == target_device for param in parameters)
 
     def test_invalid_device(self, config):
@@ -153,6 +152,7 @@ class TestTrainerEquivalence():
         config['load_path'] = checkpoint_file
 
         trainer = Trainer(**config)
+        assert trainer.state.timer.epoch == "1ep"  # ensure checkpoint state loaded
         trainer.fit()
 
         self.assert_models_equal(trainer.state.model, self.reference_model)

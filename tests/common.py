@@ -12,7 +12,6 @@ from torchvision.datasets import VisionDataset
 
 from composer.core.precision import Precision
 from composer.models import ComposerClassifier
-from composer.trainer.devices import DeviceCPU, DeviceGPU
 
 # syntactic sugar below
 # decorators for common parameterizations and marks
@@ -35,15 +34,15 @@ def device(*args, precision=False):
     # use lambdas to construct DeviceGPU only when gpu requested
     if precision:
         devices = {
-            'cpu': lambda: pytest.param(DeviceCPU(), Precision.FP32, id="cpu"),
-            'gpu': lambda: pytest.param(DeviceGPU(), Precision.FP32, id="gpu-fp32", marks=pytest.mark.gpu),
-            'gpu-amp': lambda: pytest.param(DeviceGPU(), Precision.AMP, id='gpu-amp', marks=pytest.mark.gpu)
+            'cpu': lambda: pytest.param('cpu', Precision.FP32, id="cpu-fp32"),
+            'gpu': lambda: pytest.param('gpu', Precision.FP32, id="gpu-fp32", marks=pytest.mark.gpu),
+            'gpu-amp': lambda: pytest.param('gpu', Precision.AMP, id='gpu-amp', marks=pytest.mark.gpu)
         }
         name = "device,precision"
     else:
         devices = {
-            'cpu': lambda: pytest.param(DeviceCPU(), id="cpu"),
-            'gpu': lambda: pytest.param(DeviceGPU(), id="gpu", marks=pytest.mark.gpu),
+            'cpu': lambda: pytest.param('cpu', id="cpu"),
+            'gpu': lambda: pytest.param('gpu', id="gpu", marks=pytest.mark.gpu),
         }
         name = "device"
 
