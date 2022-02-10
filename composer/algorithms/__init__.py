@@ -63,6 +63,7 @@ from composer.algorithms.hparams import GhostBatchNormHparams as GhostBatchNormH
 from composer.algorithms.hparams import LabelSmoothingHparams as LabelSmoothingHparams
 from composer.algorithms.hparams import MixUpHparams as MixUpHparams
 from composer.algorithms.hparams import RandAugmentHparams as RandAugmentHparams
+from composer.algorithms.hparams import SqueezeExciteHparams as SqueezeExciteHparams
 from composer.algorithms.label_smoothing import LabelSmoothing as LabelSmoothing
 from composer.algorithms.layer_freezing import LayerFreezing as LayerFreezing
 from composer.algorithms.layer_freezing import LayerFreezingHparams as LayerFreezingHparams
@@ -83,7 +84,6 @@ from composer.algorithms.seq_length_warmup import SeqLengthWarmupHparams as SeqL
 from composer.algorithms.squeeze_excite import SqueezeExcite as SqueezeExcite
 from composer.algorithms.squeeze_excite import SqueezeExcite2d as SqueezeExcite2d
 from composer.algorithms.squeeze_excite import SqueezeExciteConv2d as SqueezeExciteConv2d
-from composer.algorithms.squeeze_excite import SqueezeExciteHparams as SqueezeExciteHparams
 from composer.algorithms.stochastic_depth import StochasticDepth as StochasticDepth
 from composer.algorithms.stochastic_depth import StochasticDepthHparams as StochasticDepthHparams
 from composer.algorithms.swa import SWA as SWA

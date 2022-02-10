@@ -17,6 +17,7 @@ from composer.algorithms.ghost_batchnorm import GhostBatchNorm
 from composer.algorithms.label_smoothing import LabelSmoothing
 from composer.algorithms.mixup import MixUp
 from composer.algorithms.randaugment import RandAugment
+from composer.algorithms.squeeze_excite import SqueezeExcite
 
 
 @dataclass
@@ -193,3 +194,21 @@ class RandAugmentHparams(AlgorithmHparams):
 
     def initialize_object(self) -> "RandAugment":
         return RandAugment(**asdict(self))
+
+
+@dataclass
+class SqueezeExciteHparams(AlgorithmHparams):
+    """See :class:`SqueezeExcite`"""
+
+    latent_channels: float = hp.optional(
+        doc='Dimensionality of hidden layer within the added MLP.',
+        default=64,
+    )
+    min_channels: int = hp.optional(
+        doc='Minimum number of channels in a Conv2d layer'
+        ' for a squeeze-excite block to be placed after it.',
+        default=128,
+    )
+
+    def initialize_object(self) -> SqueezeExcite:
+        return SqueezeExcite(**asdict(self))
