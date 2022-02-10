@@ -11,11 +11,11 @@ from composer.core.types import Algorithm, Batch, Event, Logger, State, Tensor
 from composer.models.transformer_shared import ComposerTransformer
 from composer.utils import ensure_tuple
 
-__all__ = ["SeqLengthWarmup", "apply_seq_length_warmup"]
+__all__ = ["SeqLengthWarmup", "set_batch_sequence_length"]
 
 
-def apply_seq_length_warmup(batch: Dict[str, Tensor], curr_seq_len: int, truncate: bool = True) -> Batch:
-    """Change the sequence length of the current batch.
+def set_batch_sequence_length(batch: Dict[str, Tensor], curr_seq_len: int, truncate: bool = True) -> Batch:
+    """Set the sequence length of the current batch.
 
     Changes the sequence length of all tensors in the provided dictionary
     to ``curr_seq_len``, by either truncating the tensors (``truncate=True``)

@@ -17,4 +17,4 @@ _attribution = '(Li et al, 2021)'
 _link = 'https://arxiv.org/abs/2108.06084'
 _method_card = ''
 
-__all__ = ["SeqLengthWarmup", "SeqLengthWarmupHparams", "apply_seq_length_warmup"]
+__all__ = ["SeqLengthWarmup", "set_batch_sequence_length"]

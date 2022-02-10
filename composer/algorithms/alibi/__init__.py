@@ -19,4 +19,4 @@ _attribution = '(Press et al, 2021)'
 _link = 'https://arxiv.org/abs/2108.12409v1'
 _method_card = 'docs/source/method_cards/alibi.md'
 
-__all__ = ["Alibi", "AlibiHparams", "apply_alibi"]
+__all__ = ["Alibi", "apply_alibi"]

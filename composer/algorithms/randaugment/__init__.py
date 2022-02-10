@@ -18,4 +18,4 @@ _attribution = '(Cubuk et al, 2020)'
 _link = 'https://openaccess.thecvf.com/content_CVPRW_2020/html/w40/Cubuk_Randaugment_Practical_Automated_Data_Augmentation_With_a_Reduced_Search_Space_CVPRW_2020_paper.html'
 _method_card = ''
 
-__all__ = ['RandAugment', 'RandAugmentHparams', "RandAugmentTransform", 'randaugment_image']
+__all__ = ['RandAugment', 'RandAugmentTransform', 'randaugment_image']

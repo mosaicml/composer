@@ -17,7 +17,7 @@ from composer.core.types import Algorithm, Event, Logger, State
 
 log = logging.getLogger(__name__)
 
-__all__ = ['SWA', 'SWAHparams']
+__all__ = ['SWA']
 
 
 @dataclass

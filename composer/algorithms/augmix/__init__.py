@@ -19,4 +19,4 @@ _attribution = '(Hendrycks et al, 2020)'
 _link = 'http://arxiv.org/abs/1912.02781'
 _method_card = ''
 
-__all__ = ['AugMix', 'AugMixHparams', 'augmix_image']
+__all__ = ['AugMix', 'augmix_image']
