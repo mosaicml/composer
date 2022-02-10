@@ -4,10 +4,9 @@ from typing import Dict, List, Type
 
 from composer.algorithms.algorithm_hparams import AlgorithmHparams
 from composer.algorithms.channels_last import ChannelsLastHparams
-from composer.algorithms.ghost_batchnorm import GhostBatchNormHparams
 from composer.algorithms.hparams import (AlibiHparams, AugMixHparams, BlurPoolHparams, ColOutHparams, CutMixHparams,
-                                         CutOutHparams, FactorizeHparams, LabelSmoothingHparams, MixUpHparams,
-                                         RandAugmentHparams)
+                                         CutOutHparams, FactorizeHparams, GhostBatchNormHparams, LabelSmoothingHparams,
+                                         MixUpHparams, RandAugmentHparams)
 from composer.algorithms.layer_freezing import LayerFreezingHparams
 from composer.algorithms.no_op_model import NoOpModelHparams
 from composer.algorithms.progressive_resizing import ProgressiveResizingHparams

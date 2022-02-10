@@ -13,6 +13,7 @@ from composer.algorithms.colout import ColOut
 from composer.algorithms.cutmix import CutMix
 from composer.algorithms.cutout import CutOut
 from composer.algorithms.factorize import Factorize
+from composer.algorithms.ghost_batchnorm import GhostBatchNorm
 from composer.algorithms.label_smoothing import LabelSmoothing
 from composer.algorithms.mixup import MixUp
 from composer.algorithms.randaugment import RandAugment
@@ -146,6 +147,16 @@ class FactorizeHparams(AlgorithmHparams):
 
     def initialize_object(self) -> Factorize:
         return Factorize(**asdict(self))
+
+
+@dataclass
+class GhostBatchNormHparams(AlgorithmHparams):
+    """See :class:`GhostBatchNorm`"""
+
+    ghost_batch_size: int = hp.optional(doc='Size of sub-batches to normalize over', default=32)
+
+    def initialize_object(self) -> GhostBatchNorm:
+        return GhostBatchNorm(**asdict(self))
 
 
 @dataclass
