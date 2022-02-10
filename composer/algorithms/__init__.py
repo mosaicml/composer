@@ -34,7 +34,7 @@ For example, a simple algorithm that shortens training:
         def apply(self, state: State, event: Event, logger: Logger):
             state.max_duration /= 2  # cut training time in half
 
-For more information about events, see :class:`~composer.core.event.Event`. sdaf sdfxdfsdf
+For more information about events, see :class:`~composer.core.event.Event`.
 """
 from composer.algorithms.algorithm_hparams import AlgorithmHparams as AlgorithmHparams
 from composer.algorithms.algorithm_registry import get_algorithm_registry as get_algorithm_registry
