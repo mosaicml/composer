@@ -4,7 +4,7 @@ import pytest
 import torch
 
 from composer.algorithms import CutOutHparams
-from composer.algorithms.cutout.cutout import generate_mask
+from composer.algorithms.cutout.cutout import _generate_mask
 from composer.core.types import Event, Tensor
 
 
@@ -75,7 +75,7 @@ def test_cutout_mask(tensor_sizes, cutout_length, anchors):
     x, y = anchors
 
     test_mask = torch.ones(tensor_sizes)
-    test_mask = generate_mask(mask=test_mask, width=width, height=height, x=x, y=y, cutout_length=cutout_length)
+    test_mask = _generate_mask(mask=test_mask, width=width, height=height, x=x, y=y, cutout_length=cutout_length)
 
     check_box(batch_size, channels, test_mask)
 
