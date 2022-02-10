@@ -6,8 +6,7 @@ import pytest
 import torch
 import torch.nn.functional as F
 
-from composer.algorithms import label_smoothing
-from composer.algorithms.label_smoothing import LabelSmoothingHparams
+from composer.algorithms import LabelSmoothingHparams, label_smoothing
 from composer.core.types import Event
 from composer.models import loss
 

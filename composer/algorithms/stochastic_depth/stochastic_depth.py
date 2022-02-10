@@ -4,14 +4,11 @@ from __future__ import annotations
 
 import functools
 import logging
-from dataclasses import asdict, dataclass
 from typing import Optional, Type
 
 import torch
-import yahp as hp
 from torchvision.models.resnet import Bottleneck
 
-from composer.algorithms import AlgorithmHparams
 from composer.algorithms.stochastic_depth.sample_stochastic_layers import SampleStochasticBottleneck
 from composer.algorithms.stochastic_depth.stochastic_layers import StochasticBottleneck
 from composer.core import Algorithm, Event, Logger, State
@@ -59,37 +56,6 @@ def validate_stochastic_hparams(target_layer_name: str,
 
     if stochastic_method == "sample" and drop_warmup > 0:
         raise ValueError(f"drop_warmup can not be used with 'sample' stochastic_method")
-
-
-@dataclass
-class StochasticDepthHparams(AlgorithmHparams):
-    """See :class:`StochasticDepth`"""
-
-    target_layer_name: str = hp.required(
-        f'Reference name of layer to replace. "block" method can be {list(STOCHASTIC_LAYER_MAPPING["block"].keys())}.'
-        f' "sample" method can be {list(STOCHASTIC_LAYER_MAPPING["sample"].keys())}.')
-    stochastic_method: str = hp.optional('The version of stochastic depth to use. One of ["sample", "block"].',
-                                         default='block')
-    drop_rate: float = hp.optional('The probability of dropping a block or sample.', default=0.2)
-    drop_distribution: str = hp.optional(
-        '"Uniform" keeps the drop rate the same across blocks. "linear" linearly'
-        ' increases the drop rate with block depth until it reaches `drop_rate`.',
-        default='linear')
-    use_same_gpu_seed: bool = hp.optional(
-        'Whether or not to drop the same blocks across GPUs. Only used with "block" method.', default=True)
-    drop_warmup: float = hp.optional(
-        'Percentage of training to warmup `drop_rate`. Only use with "block" stochastic method.', default=0.0)
-
-    def initialize_object(self) -> StochasticDepth:
-        return StochasticDepth(**asdict(self))
-
-    def validate(self):
-        super().validate()
-        validate_stochastic_hparams(target_layer_name=self.target_layer_name,
-                                    stochastic_method=self.stochastic_method,
-                                    drop_rate=self.drop_rate,
-                                    drop_distribution=self.drop_distribution,
-                                    drop_warmup=self.drop_warmup)
 
 
 def apply_stochastic_depth(model: torch.nn.Module,

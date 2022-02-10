@@ -1,6 +1,5 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 from composer.algorithms.factorize.factorize import Factorize as Factorize
-from composer.algorithms.factorize.factorize import FactorizeHparams as FactorizeHparams
 from composer.algorithms.factorize.factorize import apply_factorization as apply_factorization
 from composer.algorithms.factorize.factorize_core import LowRankSolution as LowRankSolution
 from composer.algorithms.factorize.factorize_core import factorize_conv2d as factorize_conv2d

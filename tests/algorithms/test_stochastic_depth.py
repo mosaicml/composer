@@ -188,8 +188,8 @@ class TestStochasticDepthDropRate:
     @pytest.fixture
     def algorithm(
         self,
-        stochastic_method,
         target_layer_name,
+        stochastic_method,
         drop_rate,
         drop_distribution,
         drop_warmup,

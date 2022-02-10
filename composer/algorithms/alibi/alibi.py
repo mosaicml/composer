@@ -5,57 +5,17 @@ from __future__ import annotations
 import importlib
 import logging
 import math
-from dataclasses import asdict, dataclass
 from operator import attrgetter
 from types import MethodType, ModuleType
 from typing import Any, Callable, Optional, Type, Union, cast
 
 import torch
-import yahp as hp
 
-from composer.algorithms import AlgorithmHparams
 from composer.core import Algorithm, Event, Logger, State
 from composer.core.types import Optimizers
 from composer.utils import module_surgery
 
 log = logging.getLogger(__name__)
-
-
-@dataclass
-class AlibiHparams(AlgorithmHparams):
-    """See :class:`Alibi`"""
-
-    position_embedding_attribute: str = hp.required("attribute name of position embeddings within the model. "
-                                                    "For example in HuggingFace's GPT2, the position "
-                                                    "embeddings are 'transformer.wpe'")
-    attention_module_name: str = hp.required("module/class that will have its self-attention "
-                                             "function replaced. For example, in HuggingFace's "
-                                             "GPT, the self-attention module is "
-                                             "'transformers.models.gpt2.modeling_gpt2.GPT2Attention'")
-    attr_to_replace: str = hp.required("model attribute that self-attention function will "
-                                       "replace. For example, in HuggingFace's "
-                                       "GPT2, the self-attention function is '_attn'")
-    alibi_attention: str = hp.required("new self-attention function in which ALiBi is "
-                                       "implemented. Used to replace "
-                                       "'{attention_module}.{attr_to_replace}'")
-    mask_replacement_function: Optional[str] = hp.optional(
-        "function to replace model's attention mask. This is "
-        "sometimes necessary for evaluating on sequence "
-        " lengths longer than the model was initialized to accommodate.",
-        default=None)
-    heads_per_layer: Optional[int] = hp.optional(
-        'Number of attention heads per layer. If '
-        '"None", will attempt to determine from model.config.n_head.',
-        default=None)
-    max_sequence_length: int = hp.optional('Maximum allowable sequence length', default=8192)
-    train_sequence_length_scaling: float = hp.optional(
-        'Amount by which to scale training sequence length. One batch of training data '
-        'will be reshaped from size (sequence_length, batch) to '
-        '(sequence_length*train_sequence_length_scaling, batch/train_sequence_length_scaling)',
-        default=0.25)
-
-    def initialize_object(self) -> "Alibi":
-        return Alibi(**asdict(self))
 
 
 def apply_alibi(

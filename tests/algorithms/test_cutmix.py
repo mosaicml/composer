@@ -5,7 +5,8 @@ import pytest
 import torch
 import torch.nn.functional as F
 
-from composer.algorithms.cutmix.cutmix import CutMix, CutMixHparams, cutmix_batch, rand_bbox
+from composer.algorithms import CutMix, CutMixHparams
+from composer.algorithms.cutmix.cutmix import cutmix_batch, rand_bbox
 from composer.core.types import Event
 from composer.models.base import ComposerClassifier
 from tests.common import SimpleConvModel
