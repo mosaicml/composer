@@ -1,6 +1,7 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
 import logging
+import math
 from abc import ABC, abstractmethod
 from dataclasses import asdict, dataclass
 from typing import Any, Callable, Dict, List, Optional, Sequence, Union
@@ -67,18 +68,20 @@ def _convert_time_fields(interval: str,
                                                   dataset_num_tokens=dataset_num_tokens).value
 
 
-def _convert_time(time: Union[str, Time], state: State) -> Time[int]:
+def _convert_time(time: Union[str, Time], state: State, ssr: float = 1.0) -> Time[int]:
     if isinstance(time, str):
         time = Time.from_timestring(time)
 
     if time.unit == TimeUnit.DURATION:
         time = convert_time(time=time, unit=state.max_duration.unit, max_training_duration=state.max_duration)
+    elif ssr != 1.0:
+        time = Time(value=int(ssr * time.value), unit=time.unit)
 
-    
     if time.unit == TimeUnit.EPOCH:
         time = convert_time(time=time, unit=TimeUnit.BATCH, steps_per_epoch=state.steps_per_epoch)
 
     return time
+
 
 class ComposerScheduler(ABC):
 
@@ -87,16 +90,20 @@ class ComposerScheduler(ABC):
         pass
 
 
-def stepScheduler(state: State, step_size: Union[str, Time], gamma: float = 0.1) -> float:
-    step_size = _convert_time(step_size, state)
+def stepScheduler(state: State, *, ssr: float = 1.0, step_size: Union[str, Time], gamma: float = 0.1) -> float:
+    step_size = _convert_time(step_size, state, ssr=ssr)
     current_time = state.timer.get(step_size.unit)
     steps = int(current_time / step_size)
 
     return gamma**steps
 
 
-def multiStepScheduler(state: State, milestones: List[Union[str, Time]], gamma: float = 0.1) -> float:
-    milestones = [_convert_time(milestone, state) for milestone in milestones]
+def multiStepScheduler(state: State,
+                       *,
+                       ssr: float = 1.0,
+                       milestones: List[Union[str, Time]],
+                       gamma: float = 0.1) -> float:
+    milestones = [_convert_time(milestone, state, ssr=ssr) for milestone in milestones]
 
     factor = 1.0
     for milestone in milestones:
@@ -106,8 +113,12 @@ def multiStepScheduler(state: State, milestones: List[Union[str, Time]], gamma: 
     return factor
 
 
-def constantScheduler(state: State, factor: float = 1.0 / 3, total_time: Union[str, Time] = '5ep') -> float:
-    total_time = _convert_time(total_time, state)
+def constantScheduler(state: State,
+                      *,
+                      ssr: float = 1.0,
+                      factor: float = 1.0 / 3,
+                      total_time: Union[str, Time] = '1dur') -> float:
+    total_time = _convert_time(total_time, state, ssr=ssr)
 
     if state.timer < total_time:
         return factor
@@ -115,8 +126,13 @@ def constantScheduler(state: State, factor: float = 1.0 / 3, total_time: Union[s
     return 1.0
 
 
-def linearScheduler(state: State, start_factor: float = 1.0 / 3, end_factor: float = 1.0, total_time: Union[str, Time] = '5ep') -> float:
-    total_time = _convert_time(total_time, state)
+def linearScheduler(state: State,
+                    *,
+                    ssr: float = 1.0,
+                    start_factor: float = 1.0 / 3,
+                    end_factor: float = 1.0,
+                    total_time: Union[str, Time] = '1dur') -> float:
+    total_time = _convert_time(total_time, state, ssr=ssr)
     current_time = state.timer.get(total_time.unit)
     frac_of_total = min(1.0, (current_time / total_time).value)
 
@@ -125,10 +141,90 @@ def linearScheduler(state: State, start_factor: float = 1.0 / 3, end_factor: flo
     return current_factor
 
 
-def exponentialScheduler(state: State, gamma: float, time_unit: TimeUnit = TimeUnit.EPOCH) -> float:
+def exponentialScheduler(state: State,
+                         *,
+                         ssr: float = 1.0,
+                         gamma: float,
+                         time_unit: TimeUnit = TimeUnit.EPOCH) -> float:
     current_time = state.timer.get(time_unit)
 
-    return gamma**current_time.value
+    return gamma**(current_time.value / ssr)
+
+
+def _cosine_anneal(x: float, min_y: float = 0, max_y: float = 1) -> float:
+    """Implements a cosine decay curve.
+    
+    Curve is cos(x) on domain [0, pi], stretched to the domain [0, 1] and range [min_y, max_y].
+    Additionally, param x is clipped to the interval [0, 1]
+    """
+
+    x = min(max(x, 0.0), 1.0)
+    return min_y + (max_y - min_y) * (1 + math.cos(x * math.pi)) / 2
+
+
+def cosineAnnealingScheduler(state: State,
+                             *,
+                             ssr: float = 1.0,
+                             T_max: Union[str, Time] = '1dur',
+                             min_factor: float = 0.0):
+    T_max = _convert_time(T_max, state, ssr=ssr)
+    current_time = state.timer.get(T_max.unit)
+    frac_of_total = (current_time / T_max).value
+
+    return _cosine_anneal(x=frac_of_total, min_y=min_factor)
+
+
+def cosineAnnealingWarmRestartsScheduler(state: State,
+                                         *,
+                                         ssr: float = 1.0,
+                                         T_0: Union[str, Time] = '1dur',
+                                         T_mult: float = 1.0,
+                                         min_factor: float = 0.0):
+    T_0 = _convert_time(T_0, state, ssr=ssr)
+    current_interval_len = T_0
+    current_interval_end = T_0
+    while current_interval_end < state.timer:
+        if current_interval_len.value == 0:
+            raise ValueError('Interval between restarts for cosine annealing/warm restarts scheduler has decayed to 0.')
+
+        current_interval_len = Time(value=int(T_mult * current_interval_len.value), unit=current_interval_len.unit)
+        current_interval_end += current_interval_len
+
+    current_interval_start = current_interval_end - current_interval_len
+    frac_of_current_interval = ((state.timer.get(T_0.unit) - current_interval_start) / current_interval_len).value
+
+    return _cosine_anneal(x=frac_of_current_interval, min_y=min_factor)
+
+
+def multiStepWarmupScheduler(state: State,
+                             *,
+                             ssr: float = 1.0,
+                             warmup_time: Union[str, Time],
+                             milestones: List[Union[str, Time]],
+                             gamma: float = 0.1) -> float:
+    warmup_time = _convert_time(warmup_time, state)
+    if state.timer < warmup_time:
+        return linearScheduler(state, start_factor=0.0, end_factor=1.0, total_time=warmup_time)
+
+    return multiStepScheduler(state, ssr=ssr, milestones=milestones, gamma=gamma)
+
+
+def cosineAnnealingWarmupScheduler(state: State,
+                                   *,
+                                   ssr: float = 1.0,
+                                   warmup_time: Union[str, Time],
+                                   T_max: Union[str, Time] = '1dur',
+                                   min_factor: float = 0.0):
+    # N.B. warmup time is intentionally *not* subject to scale schedule
+    warmup_time = _convert_time(warmup_time, state)
+    if state.timer < warmup_time:
+        return linearScheduler(state, start_factor=0.0, end_factor=1.0, total_time=warmup_time)
+
+    T_max = _convert_time(T_max, state, ssr=ssr)
+    frac_of_total = ((state.timer.get(warmup_time.unit) - warmup_time) / (T_max - warmup_time)).value
+
+    return _cosine_anneal(x=frac_of_total, min_y=min_factor)
+
 
 class CosineAnnealingLR(ComposerScheduler):
 
