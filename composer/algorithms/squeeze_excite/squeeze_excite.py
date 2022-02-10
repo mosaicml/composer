@@ -3,36 +3,15 @@
 from __future__ import annotations
 
 import logging
-from dataclasses import asdict, dataclass
 from typing import Optional
 
 import torch
-import yahp as hp
 
-from composer.algorithms.algorithm_hparams import AlgorithmHparams
 from composer.core import Algorithm, Event, Logger, State
 from composer.core.types import Optimizers
 from composer.utils import module_surgery
 
 log = logging.getLogger(__name__)
-
-
-@dataclass
-class SqueezeExciteHparams(AlgorithmHparams):
-    """See :class:`SqueezeExcite`"""
-
-    latent_channels: float = hp.optional(
-        doc='Dimensionality of hidden layer within the added MLP.',
-        default=64,
-    )
-    min_channels: int = hp.optional(
-        doc='Minimum number of channels in a Conv2d layer'
-        ' for a squeeze-excite block to be placed after it.',
-        default=128,
-    )
-
-    def initialize_object(self) -> SqueezeExcite:
-        return SqueezeExcite(**asdict(self))
 
 
 class SqueezeExcite2d(torch.nn.Module):

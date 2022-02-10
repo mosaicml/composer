@@ -2,25 +2,11 @@
 
 import logging
 import warnings
-from dataclasses import asdict, dataclass
 from typing import Optional
 
-import yahp as hp
-
-from composer.algorithms import AlgorithmHparams
 from composer.core import Algorithm, Event, Logger, State
 
 log = logging.getLogger(__name__)
-
-
-@dataclass
-class ScaleScheduleHparams(AlgorithmHparams):
-    """See :class:`ScaleSchedule`"""
-
-    ratio: float = hp.optional('Ratio to scale the schedule.', default=1.0)
-
-    def initialize_object(self) -> "ScaleSchedule":
-        return ScaleSchedule(**asdict(self))
 
 
 class ScaleSchedule(Algorithm):

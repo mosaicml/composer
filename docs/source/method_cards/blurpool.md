@@ -69,8 +69,6 @@ We thank Richard Zhang for helpful discussion.
 .. autoclass:: composer.algorithms.blurpool.BlurPool
     :members: match, apply
     :noindex:
-.. autoclass:: composer.algorithms.blurpool.BlurPoolHparams
-    :noindex:
 .. autoclass:: composer.algorithms.blurpool.BlurConv2d
     :noindex:
 .. autoclass:: composer.algorithms.blurpool.BlurMaxPool2d

@@ -5,7 +5,8 @@ from typing import Callable
 import pytest
 import torch
 
-from composer.algorithms.selective_backprop import SelectiveBackprop, SelectiveBackpropHparams
+from composer.algorithms import SelectiveBackpropHparams
+from composer.algorithms.selective_backprop import SelectiveBackprop
 from composer.algorithms.selective_backprop.selective_backprop import selective_backprop, should_selective_backprop
 from composer.core import Event
 from composer.core.logging.logger import Logger
