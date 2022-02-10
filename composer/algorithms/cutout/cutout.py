@@ -12,9 +12,7 @@ from composer.core.types import Algorithm, Event, Logger, State, Tensor
 log = logging.getLogger(__name__)
 
 
-def generate_mask(mask: Tensor, width: int, height: int, x: int, y: int, cutout_length: Union[int, float]) -> Tensor:
-    if 0 < cutout_length < 1:
-        cutout_length = int(min(width, height) * cutout_length)
+def generate_mask(mask: Tensor, width: int, height: int, x: int, y: int, cutout_length: int) -> Tensor:
     y1 = np.clip(y - cutout_length // 2, 0, height)
     y2 = np.clip(y + cutout_length // 2, 0, height)
     x1 = np.clip(x - cutout_length // 2, 0, width)
@@ -43,6 +41,9 @@ def cutout_batch(X: Tensor, n_holes: int, length: Union[int, float]) -> Tensor:
     """
     h = X.size(2)
     w = X.size(3)
+
+    if 0 < length < 1:
+        length = int(min(h, w) * length)
 
     mask = torch.ones_like(X)
     for _ in range(n_holes):
