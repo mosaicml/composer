@@ -4,7 +4,7 @@
 To use :mod:`torch.distributed`, launch your training script with the
 :ref:`composer launch script for distributed training <distributed-training>`. For example
 
-.. console::
+.. code-block:: console
 
     composer -n 8 path/to/train.py  # launches an eight-process training run.
 
@@ -129,7 +129,7 @@ def barrier() -> None:
     
     This function blocks until all processes reach this function.
 
-    .. seealso:: :meth:`torch.distributed.barrier`
+    .. seealso:: :func:`torch.distributed.barrier`
     """
     if dist.is_available() and dist.is_initialized():
         dist.barrier()
@@ -152,7 +152,7 @@ def all_reduce(
     
     All ranks get the same, bitwise-identical result.
 
-    .. seealso:: :meth:`torch.distributed.all_reduce`
+    .. seealso:: :func:`torch.distributed.all_reduce`
 
     Args:
         tensor (torch.Tensor): Input and output of the collective. The function
@@ -193,7 +193,7 @@ def broadcast(tensor: torch.Tensor, src: int) -> None:
     """Broadcasts the tensor to the whole group.
 
     ``tensor`` must have the same number of elements in all processes participating in the collective.
-    See :meth:`torch.distributed.broadcast`.
+    See :func:`torch.distributed.broadcast`.
 
     Args:
         tensor (torch.Tensor): Data to be sent if ``src`` is the rank of current process,
@@ -214,10 +214,10 @@ def broadcast(tensor: torch.Tensor, src: int) -> None:
 def broadcast_object_list(object_list: List[Any], src: int = 0) -> None:
     """Broadcasts picklable objects in ``object_list`` to the whole group.
     
-    Similar to :meth:`broadcast`, but Python objects can be passed in.
+    Similar to :func:`broadcast`, but Python objects can be passed in.
     Note that all objects in ``object_list`` must be picklable in order to be broadcasted.
     
-    .. seealso:: :meth:`torch.distributed.broadcast`.
+    .. seealso:: :func:`torch.distributed.broadcast`.
 
     Args:
         object_list (torch.Tensor): List of input objects to broadcast.
@@ -245,7 +245,7 @@ def all_gather(tensor: torch.Tensor) -> Sequence[torch.Tensor]:
     """Collects a :class:`~torch.Tensor` from each rank and return a sequence of
     :class:`~torch.Tensor`_s indexed by rank.
 
-    .. seealso:: :meth:`torch.distributed.all_gather`
+    .. seealso:: :func:`torch.distributed.all_gather`
 
     Args:
         tensor (torch.Tensor): Tensor from each rank to be gathered.
@@ -269,7 +269,7 @@ def all_gather(tensor: torch.Tensor) -> Sequence[torch.Tensor]:
 def all_gather_object(obj: TObj) -> List[TObj]:
     """Collect a pickleable object from each rank and return a list of these objects indexed by rank.
 
-    .. seealso:: :meth:`torch.distributed.all_gather_object`
+    .. seealso:: :func:`torch.distributed.all_gather_object`
 
     Args:
         obj (TObj): Object to be gathered.
@@ -295,7 +295,7 @@ def all_gather_object(obj: TObj) -> List[TObj]:
 def is_available():
     """Returns whether PyTorch was built with distributed support.
 
-    .. seealso:: :meth:`torch.distributed.is_available`
+    .. seealso:: :func:`torch.distributed.is_available`
     
     Returns:
         bool: Whether PyTorch distributed support is available."""
@@ -305,7 +305,7 @@ def is_available():
 def is_initialized():
     """Returns whether PyTorch distributed is initialized.
 
-    .. seealso:: :meth:`torch.distributed.is_initialized`
+    .. seealso:: :func:`torch.distributed.is_initialized`
     
     Returns:
         bool: Whether PyTorch distributed is initialized."""
@@ -328,7 +328,7 @@ def initialize_dist(backend: str, timeout: datetime.timedelta):
     If none of the environment variables are set, this function will assume a single-rank
     configuration and initialize the default process group using a :class:`torch.distributed.HashStore` store.
 
-    .. seealso:: :meth:`torch.distributed.init_process_group`
+    .. seealso:: :func:`torch.distributed.init_process_group`
 
     Args:
         backend (str): The distributed backend to use. Should be ``gloo`` for CPU training,

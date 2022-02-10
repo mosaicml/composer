@@ -11,7 +11,7 @@ Adapted from
 <https://github.com/google-research/augmix/blob/master/augmentations.py>`_.
 
 Attributes:
-    AugmentationFn ((Image.Image, float) -> Image.Image): The type annotation for describing an
+    AugmentationFn ((PIL.Image.Image, float) -> PIL.Image.Image): The type annotation for describing an
         augmentation function.
 
         Each augmentation takes a :class:`~PIL.Image.Image` and an intensity level on the range ``[0; 10]``,
@@ -20,10 +20,10 @@ Attributes:
     augmentation_sets (Dict[str, List[AugmentationFn]]): The collection of all augmentations.
         This dictionary has the following entries:
 
-        * ``augmentation_sets["safe"]`` contains augmentations that do not overlap with ImageNet-C/CIFAR10-C test sets
+        * ``augmentation_sets["safe"]`` contains augmentations that do not overlap with ImageNet-C/CIFAR10-C test sets.
         * ``augmentation_sets["original"]`` contains augmentations that use the original implementations of
-          enhancing color, contrast, brightness, and sharpness
-        * ``augmentation_sets["all"]`` contains all augmentations
+          enhancing color, contrast, brightness, and sharpness.
+        * ``augmentation_sets["all"]`` contains all augmentations.
 """
 from typing import Callable
 
@@ -103,7 +103,7 @@ def _symmetric_sample(level: float):
 def autocontrast(pil_img: Image.Image, level: float = 0.0):
     """Autocontrast an image.
 
-    .. seealso:: :meth:`PIL.ImageOps.autocontrast`.
+    .. seealso:: :func:`PIL.ImageOps.autocontrast`.
 
     Args:
         pil_img (Image.Image): The image
@@ -115,7 +115,7 @@ def autocontrast(pil_img: Image.Image, level: float = 0.0):
 def equalize(pil_img: Image.Image, level: float):
     """Equalize an image.
 
-    .. seealso:: :meth:`PIL.ImageOps.equalize`.
+    .. seealso:: :func:`PIL.ImageOps.equalize`.
 
     Args:
         pil_img (Image.Image): The image
@@ -127,7 +127,7 @@ def equalize(pil_img: Image.Image, level: float):
 def posterize(pil_img: Image.Image, level: float):
     """Posterize an image.
 
-    .. seealso:: :meth:`PIL.ImageOps.posterize`.
+    .. seealso:: :func:`PIL.ImageOps.posterize`.
 
     Args:
         pil_img (Image.Image): The image
@@ -153,7 +153,7 @@ def rotate(pil_img: Image.Image, level: float):
 def solarize(pil_img: Image.Image, level: float):
     """Solarize an image.
 
-    .. seealso:: :meth:`PIL.ImageOps.solarize`.
+    .. seealso:: :func:`PIL.ImageOps.solarize`.
 
     Args:
         pil_img (Image.Image): The image.
@@ -227,7 +227,7 @@ def translate_y(pil_img: Image.Image, level: float):
 def color(pil_img: Image.Image, level: float):
     """Enhance color on an image.
 
-    .. seealso:: :meth:`PIL.ImageEnhance.Color`.
+    .. seealso:: :class:`PIL.ImageEnhance.Color`.
 
     Args:
         pil_img (Image.Image): The image.
@@ -240,7 +240,7 @@ def color(pil_img: Image.Image, level: float):
 def color_original(pil_img: Image.Image, level: float):
     """Enhance color on an image, following the corruptions in the ImageNet-C/CIFAR10-C test sets.
 
-    .. seealso :meth:`PIL.ImageEnhance.Color`.
+    .. seealso :class:`PIL.ImageEnhance.Color`.
 
     Args:
         pil_img (Image.Image): The image.
@@ -253,7 +253,7 @@ def color_original(pil_img: Image.Image, level: float):
 def contrast(pil_img: Image.Image, level: float):
     """Enhance contrast on an image.
 
-    .. seealso:: :meth:`PIL.ImageEnhance.Contrast`.
+    .. seealso:: :class:`PIL.ImageEnhance.Contrast`.
 
     Args:
         pil_img (Image.Image): The image.
@@ -266,7 +266,7 @@ def contrast(pil_img: Image.Image, level: float):
 def contrast_original(pil_img: Image.Image, level: float):
     """Enhance contrast on an image, following the corruptions in the ImageNet-C/CIFAR10-C test sets.
 
-    .. seealso:: :meth:`PIL.ImageEnhance.Contrast`.
+    .. seealso:: :class:`PIL.ImageEnhance.Contrast`.
 
     Args:
         pil_img (Image.Image): The image.
@@ -279,7 +279,7 @@ def contrast_original(pil_img: Image.Image, level: float):
 def brightness(pil_img: Image.Image, level: float):
     """Enhance brightness on an image.
 
-    .. seealso:: :meth:`PIL.ImageEnhance.Brightness`.
+    .. seealso:: :class:`PIL.ImageEnhance.Brightness`.
 
     Args:
         pil_img (Image.Image): The image.
@@ -295,7 +295,7 @@ def brightness(pil_img: Image.Image, level: float):
 def brightness_original(pil_img: Image.Image, level: float):
     """Enhance brightness on an image, following the corruptions in the ImageNet-C/CIFAR10-C test sets.
 
-    .. seealso:: :meth:`PIL.ImageEnhance.Brightness`.
+    .. seealso:: :class:`PIL.ImageEnhance.Brightness`.
 
     Args:
         pil_img (Image.Image): The image.
@@ -308,7 +308,7 @@ def brightness_original(pil_img: Image.Image, level: float):
 def sharpness(pil_img: Image.Image, level: float):
     """Enhance sharpness on an image.
 
-    .. seealso:: :meth:`PIL.ImageEnhance.Sharpness`.
+    .. seealso:: :class:`PIL.ImageEnhance.Sharpness`.
 
     Args:
         pil_img (Image.Image): The image.
@@ -321,7 +321,7 @@ def sharpness(pil_img: Image.Image, level: float):
 def sharpness_original(pil_img: Image.Image, level: float):
     """Enhance sharpness on an image, following the corruptions in the ImageNet-C/CIFAR10-C test sets.
 
-    .. seealso:: :meth:`PIL.ImageEnhance.Sharpness`.
+    .. seealso:: :class:`PIL.ImageEnhance.Sharpness`.
 
     Args:
         pil_img (Image.Image): The image.
