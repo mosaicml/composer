@@ -120,9 +120,9 @@ class Trainer:
         save_compression (str): Compression algorithm to run on checkpoints. Can be `gzip`, `bzip2`,
             `lzma`, or left blank for no compression.  (default: ``""`` for no compression).
         profiler_trace_file (str, optional): Name of the trace file, relative to the run directory.
-            Must be specified to activate the profiler (default: ``None``).
-        prof_event_handlers (List[ProfilerEventHandler], optional): Trace event handler hparams
-            Ignored if ``profiler_trace_file`` is not specified. (default: ``[JSONTraceHandlerHparams()]``).
+            Must be specified to activate the profiler. (default: ``None``).
+        prof_event_handlers (List[ProfilerEventHandler], optional): Trace event handler.
+            Ignored if ``profiler_trace_file`` is not specified. (default: ``[JSONTraceHandler()]``).
         prof_skip_first (int, optional): Number of batches to skip at epoch start.
             Ignored if ``profiler_trace_file`` is not specified. (default: ``optional``).
         prof_wait (int, optional): Number of batches to skip at the beginning of each cycle.

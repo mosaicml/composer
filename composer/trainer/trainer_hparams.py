@@ -237,31 +237,70 @@ class TrainerHparams(hp.Hparams):
         it will override train_dataset.datadir and val_dataset.datadir"""),
                                          default=None)
 
-    #profiler: Optional[Profiler] = hp.optional(doc="Profiler", default=None)
-    profiling: bool = hp.optional(doc="Enable training profiling", default=False)
-    prof_merged_trace_file: str = hp.optional(doc="Name of the Mosaic+Torch merged traced file",
-                                              default="merged_profiler_trace.json")
+    profiler_trace_file: Optional[str] = hp.optional(doc=textwrap.dedent("""\
+        Name of the trace file, relative to the run directory.  Must be specified to activate the profiler."""),
+                                                     default=None)
     prof_event_handlers: List[ProfilerEventHandlerHparams] = hp.optional(
-        "Trace event handler hparams", default_factory=lambda: [JSONTraceHandlerHparams()])
-    prof_skip_first: int = hp.optional("Number of batches to skip at epoch start", default=0)
-    prof_wait: int = hp.optional("Number of batches to skip at the beginning of each cycle", default=0)
-    prof_warmup: int = hp.optional("Number of warmup batches in a cycle", default=1)
-    prof_active: int = hp.optional("Number of batches to profile in a cycle", default=4)
-    prof_repeat: int = hp.optional("Maximum number of profiling cycle repetitions per epoch (0 for no maximum)",
+        doc=textwrap.dedent("""\
+        Trace event handler.  Ignored if `profiler_trace_file` is not specified."""),
+        default_factory=lambda: [JSONTraceHandlerHparams()])
+    prof_skip_first: int = hp.optional(doc=textwrap.dedent("""\
+        Number of batches to skip at epoch start.  Ignored if `profiler_trace_file` is not specified."""),
+                                       default=0)
+    prof_wait: int = hp.optional(doc=textwrap.dedent("""\
+        Number of batches to skip at the beginning of each cycle.  Ignored if `profiler_trace_file` is not specified."""
+                                                    ),
+                                 default=0)
+    prof_warmup: int = hp.optional(doc=textwrap.dedent("""\
+        Number of warmup batches in a cycle.  Ignored if `profiler_trace_file` is not specified."""),
                                    default=1)
-    sys_prof_cpu: bool = hp.optional("Whether to record cpu statistics", default=True)
-    sys_prof_memory: bool = hp.optional("Whether to record memory statistics", default=False)
-    sys_prof_disk: bool = hp.optional("Whether to record disk statistics", default=False)
-    sys_prof_net: bool = hp.optional("Whether to record network statistics", default=False)
-    sys_prof_stats_thread_interval_seconds: float = hp.optional("Interval to record stats, in seconds.", default=0.5)
-    torch_profiler_trace_dir: Optional[str] = hp.optional(
-        "directory to store trace results. Relative to the run directory, if set.", default=None)
-    torch_prof_use_gzip: bool = hp.optional("Whether to use gzip for trace", default=False)
+    prof_active: int = hp.optional(doc=textwrap.dedent("""\
+        Number of batches to profile in a cycle.  Ignored if `profiler_trace_file` is not specified."""),
+                                   default=4)
+    prof_repeat: int = hp.optional(doc=textwrap.dedent("""\
+        Maximum number of profiling cycle repetitions per epoch (0 for no maximum).  Ignored if `profiler_trace_file` is not specified."""
+                                                      ),
+                                   default=1)
+    sys_prof_cpu: bool = hp.optional(doc=textwrap.dedent("""\
+        Whether to record cpu statistics.  Ignored if `profiler_trace_file` is not specified."""),
+                                     default=True)
+    sys_prof_memory: bool = hp.optional(doc=textwrap.dedent("""\
+        Whether to record memory statistics.  Ignored if `profiler_trace_file` is not specified."""),
+                                        default=False)
+    sys_prof_disk: bool = hp.optional(doc=textwrap.dedent("""\
+        Whether to record disk statistics.  Ignored if `profiler_trace_file` is not specified."""),
+                                      default=False)
+    sys_prof_net: bool = hp.optional(doc=textwrap.dedent("""\
+        Whether to record network statistics.  Ignored if `profiler_trace_file` is not specified."""),
+                                     default=False)
+    sys_prof_stats_thread_interval_seconds: float = hp.optional(doc=textwrap.dedent("""\
+        Interval to record stats, in seconds.  Ignored if `profiler_trace_file` is not specified."""),
+                                                                default=0.5)
+    torch_profiler_trace_dir: Optional[str] = hp.optional(doc=textwrap.dedent("""\
+        Directory to store trace results relative to the run directory.  Must be specified to activate the Torch profiler. 
+        Ignored if ``profiler_trace_file`` is not specified."""),
+                                                          default=None)
+    torch_prof_use_gzip: bool = hp.optional(doc=textwrap.dedent("""\
+        Whether to use gzip for trace.  
+        Ignored if ``torch_profiler_trace_dir`` and `profiler_trace_file` are not specified."""),
+                                            default=False)
 
-    torch_prof_record_shapes: bool = hp.optional(doc="Whether to record tensor shapes", default=False)
-    torch_prof_profile_memory: bool = hp.optional(doc="track tensor memory allocations and frees", default=True)
-    torch_prof_with_stack: bool = hp.optional(doc="record stack info", default=False)
-    torch_prof_with_flops: bool = hp.optional(doc="estimate flops for operators", default=True)
+    torch_prof_record_shapes: bool = hp.optional(doc=textwrap.dedent("""\
+        Whether to record tensor shapes.  
+        Ignored if ``torch_profiler_trace_dir`` and `profiler_trace_file` are not specified."""),
+                                                 default=False)
+    torch_prof_profile_memory: bool = hp.optional(doc=textwrap.dedent("""\
+        Track tensor memory allocations and frees.  
+        Ignored if ``torch_profiler_trace_dir`` and `profiler_trace_file` are not specified."""),
+                                                  default=True)
+    torch_prof_with_stack: bool = hp.optional(doc=textwrap.dedent("""\
+        Record stack information.  
+        Ignored if ``torch_profiler_trace_dir`` and `profiler_trace_file` are not specified."""),
+                                              default=False)
+    torch_prof_with_flops: bool = hp.optional(doc=textwrap.dedent("""\
+        Estimate flops for operators.  
+        Ignored if ``torch_profiler_trace_dir`` and `profiler_trace_file` are not specified."""),
+                                              default=True)
 
     def validate(self):
         super().validate()
@@ -422,9 +461,8 @@ class TrainerHparams(hp.Hparams):
             callbacks=callbacks,
 
             # Profiler
-            profiling=self.profiling,
-            prof_merged_trace_file=self.prof_merged_trace_file,
-            prof_event_handlers=self.prof_event_handlers,
+            profiler_trace_file=self.profiler_trace_file,
+            prof_event_handlers=[x.initialize_object() for x in self.prof_event_handlers],
             prof_skip_first=self.prof_skip_first,
             prof_wait=self.prof_wait,
             prof_warmup=self.prof_warmup,

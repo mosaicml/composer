@@ -5,7 +5,7 @@ import os
 
 import pytest
 
-from composer.profiler import JSONTraceHandlerHparams, ProfilerHparams
+from composer.profiler.profiler_hparams import JSONTraceHandlerHparams
 from composer.trainer import TrainerHparams
 from composer.utils import run_directory
 
@@ -14,16 +14,13 @@ from composer.utils import run_directory
 def test_json_trace_profiler_hanlder(composer_trainer_hparams: TrainerHparams):
     json_trace_handler_params = JSONTraceHandlerHparams(flush_every_n_batches=1,)
 
-    profiler_hparams = ProfilerHparams(
-        trace_event_handlers=[json_trace_handler_params],
-        skip_first=0,
-        warmup=0,
-        wait=0,
-        active=1000,
-        repeat=0,
-    )
-
-    composer_trainer_hparams.profiler = profiler_hparams
+    composer_trainer_hparams.profiler_trace_file = "profiler_traces.json"
+    composer_trainer_hparams.prof_event_handlers = [json_trace_handler_params]
+    composer_trainer_hparams.prof_skip_first = 0
+    composer_trainer_hparams.prof_warmup = 0
+    composer_trainer_hparams.prof_wait = 0
+    composer_trainer_hparams.prof_active = 1000
+    composer_trainer_hparams.prof_repeat = 0
     composer_trainer_hparams.max_duration = "2ep"
 
     trainer = composer_trainer_hparams.initialize_object()
