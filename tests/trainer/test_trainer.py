@@ -21,7 +21,7 @@ from composer.algorithms.randaugment.randaugment import RandAugmentHparams
 from composer.algorithms.scale_schedule.scale_schedule import ScaleScheduleHparams
 from composer.algorithms.seq_length_warmup.seq_length_warmup import SeqLengthWarmupHparams
 from composer.algorithms.stochastic_depth.stochastic_depth import StochasticDepthHparams
-from composer.algorithms.swa.hparams import SWAHparams
+from composer.algorithms.swa import SWAHparams
 from composer.callbacks.callback_hparams import BenchmarkerHparams, CallbackHparams, RunDirectoryUploaderHparams
 from composer.callbacks.lr_monitor import LRMonitor
 from composer.core.event import Event

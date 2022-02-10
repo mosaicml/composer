@@ -1,22 +1,51 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
+"""Core code for Stochastic Weight Averaging."""
+
 from __future__ import annotations
 
 import logging
+from dataclasses import asdict, dataclass
 from typing import Optional
 
 import torch
+import yahp as hp
 from torch.optim.swa_utils import SWALR, AveragedModel, update_bn
 
+from composer.algorithms.algorithm_hparams import AlgorithmHparams
 from composer.core.types import Algorithm, Event, Logger, State
 
 log = logging.getLogger(__name__)
 
-__all__ = ['SWA']
+__all__ = ['SWA', 'SWAHparams']
+
+
+@dataclass
+class SWAHparams(AlgorithmHparams):
+    """See :class:`~composer.algorithms.swa.swa.SWA`"""
+
+    swa_start: float = hp.optional(
+        doc='Percentage of epochs before starting to apply SWA.',
+        default=0.8,
+    )
+    anneal_epochs: int = hp.optional(
+        doc='Number of annealing epochs.',
+        default=10,
+    )
+    swa_lr: Optional[float] = hp.optional(
+        doc='The final learning rate to anneal towards with this scheduler. '
+        'Set to None for no annealing.',
+        default=None,
+    )
+
+    def initialize_object(self):
+        from composer.algorithms.swa import SWA
+        return SWA(**asdict(self))
 
 
 class SWA(Algorithm):
-    """Apply Stochastic Weight Averaging (`Izmailov et al. <https://arxiv.org/abs/1803.05407>`_).
+    """Implements Stochastic Weight Averaging (`Izmailov et al., 2018
+    <https://arxiv.org/abs/1803.05407>`_).
 
     Stochastic Weight Averaging (SWA) averages model weights sampled at
     different times near the end of training. This leads to better

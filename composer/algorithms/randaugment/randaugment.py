@@ -21,7 +21,7 @@ __all__ = ['RandAugment', 'RandAugmentHparams', "RandAugmentTransform", 'randaug
 
 @dataclass
 class RandAugmentHparams(AlgorithmHparams):
-    """See :class:`RandAugment`"""
+    """See :class:`~composer.algorithms.randaugment.randaugment.RandAugment`"""
 
     severity: int = hp.optional(doc="Intensity of each augmentation. Ranges from 0 (none) to 10 (maximum)", default=9)
     depth: int = hp.optional(doc="Number of augmentations to compose in a row", default=2)
@@ -40,7 +40,8 @@ def randaugment_image(img: Optional[ImageType] = None,
                       augmentation_set: List = augmentation_sets["all"]) -> ImageType:
     """Randomly applies a sequence of image data augmentations (`Cubuk et al. 2019
     <https://openaccess.thecvf.com/content_CVPRW_2020/papers/w40/Cubuk_Randaugment_Practical_Automated_Data_Augmentation_With_a_Reduced_Search_Space_CVPRW_2020_paper.pdf>`_)
-    to an image. See :class:`RandAugment` for details.
+    to an image. See :class:`~composer.algorithms.randaugment.randaugment.RandAugment` for
+    details.
 
     Example:
         .. testcode::
@@ -64,7 +65,8 @@ def randaugment_image(img: Optional[ImageType] = None,
 
 
 class RandAugmentTransform(torch.nn.Module):
-    """Wraps :func:`randaugment` in a ``torchvision``-compatible transform.
+    """Wraps :func:`~composer.algorithms.randaugment.randaugment.randaugment_image` in a
+    ``torchvision``-compatible transform. 
 
     Example:
         .. testcode::

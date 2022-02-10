@@ -1,5 +1,7 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
+"""Module containing core ALiBi classes and functions."""
+
 from __future__ import annotations
 
 import importlib
@@ -24,7 +26,7 @@ __all__ = ["Alibi", "AlibiHparams", "apply_alibi"]
 
 @dataclass
 class AlibiHparams(AlgorithmHparams):
-    """See :class:`Alibi`"""
+    """See :class:`~composer.algorithms.alibi.alibi.Alibi`"""
 
     position_embedding_attribute: str = hp.required("attribute name of position embeddings within the model. "
                                                     "For example in HuggingFace's GPT2, the position "
@@ -71,7 +73,7 @@ def apply_alibi(
     optimizers: Optional[Optimizers] = None,
 ) -> None:
     """Removes position embeddings and replaces the attention function and attention mask
-    according to `AliBi <https://arxiv.org/abs/2108.12409>`_.
+    according as per :class:`~composer.algorithms.alibi.alibi.Alibi`.
 
     Example: Waiting on language model test fixtures
 

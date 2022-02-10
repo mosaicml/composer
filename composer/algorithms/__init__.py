@@ -88,7 +88,7 @@ from composer.algorithms.squeeze_excite import SqueezeExciteHparams as SqueezeEx
 from composer.algorithms.stochastic_depth import StochasticDepth as StochasticDepth
 from composer.algorithms.stochastic_depth import StochasticDepthHparams as StochasticDepthHparams
 from composer.algorithms.swa import SWA as SWA
-from composer.algorithms.swa.hparams import SWAHparams as SWAHparams
+from composer.algorithms.swa import SWAHparams as SWAHparams
 
 load_multiple = AlgorithmHparams.load_multiple
 load = AlgorithmHparams.load

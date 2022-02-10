@@ -1,5 +1,7 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
+"""Core code for sequence length warmup."""
+
 import textwrap
 from dataclasses import asdict, dataclass
 from typing import Dict, Mapping, Optional
@@ -16,7 +18,7 @@ __all__ = ["SeqLengthWarmup", "SeqLengthWarmupHparams", "apply_seq_length_warmup
 
 
 def apply_seq_length_warmup(batch: Dict[str, Tensor], curr_seq_len: int, truncate: bool = True) -> Batch:
-    """Progressively increases the sequence length during training.
+    """Change the sequence length of the current batch.
 
     Changes the sequence length of all tensors in the provided dictionary
     to ``curr_seq_len``, by either truncating the tensors (``truncate=True``)
@@ -65,6 +67,7 @@ def apply_seq_length_warmup(batch: Dict[str, Tensor], curr_seq_len: int, truncat
 
 @dataclass
 class SeqLengthWarmupHparams(AlgorithmHparams):
+    """See :class:`~composer.algorithms.seq_length_warmup.seq_length_warmup.SeqLengthWarmup`"""
 
     duration: float = hp.optional("Fraction of total training time to apply sequential length warmup learning.",
                                   default=0.3)
@@ -109,7 +112,7 @@ class SeqLengthWarmup(Algorithm):
         min_seq_length (int, optional): Minimum sequence length to start the warmup.
             Default = ``8``.
         max_seq_length (int, optional): Maximum sequence length to stop the warmup.
-            Default = ``1024.
+            Default = ``1024``.
         step_size (int, optional): Step size of sequence length. Default = ``8``.
         truncate (bool, optional): Truncate tensors or reshape extra tokens to new
             examples. Default = ``True``.

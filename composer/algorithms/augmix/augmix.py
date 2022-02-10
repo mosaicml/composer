@@ -1,5 +1,7 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
+"""Module containing core AugMix classes and functions."""
+
 import textwrap
 import weakref
 from dataclasses import asdict, dataclass
@@ -23,7 +25,7 @@ __all__ = ["AugMix", "AugMixHparams", "AugmentAndMixTransform", "augmix_image"]
 
 @dataclass
 class AugMixHparams(AlgorithmHparams):
-    """See :class:`AugMix`"""
+    """See :class:`~composer.algorithms.augmix.augmix.AugMix`"""
 
     severity: int = hp.optional(doc="Intensity of each augmentation. Ranges from 0 (none) to 10 (maximum)", default=3)
     depth: int = hp.optional(doc="Number of augmentations to compose in a row", default=-1)
@@ -44,8 +46,9 @@ def augmix_image(img: Optional[ImageType] = None,
                  width: int = 3,
                  alpha: float = 1.0,
                  augmentation_set: List = augmentation_sets["all"]) -> ImageType:
-    """Applies AugMix (`Hendrycks et al. <http://arxiv.org/abs/1912.02781>`_) data
-    augmentation to an image. See :class:`AugMix` for details.
+    """Applies AugMix (`Hendrycks et al., 2020 <http://arxiv.org/abs/1912.02781>`_) data
+    augmentation to an image. See :class:`~composer.algorithms.augmix.augmix.AugMix` for
+    details.
 
     Example:
         .. testcode::
@@ -86,8 +89,9 @@ def augmix_image(img: Optional[ImageType] = None,
 
 
 class AugmentAndMixTransform(torch.nn.Module):
-    """Wrapper module for :func:`augmix_image` that can be passed to
-    :class:`torchvision.transforms.Compose`. See :class:`AugMix` for details.
+    """Wrapper module for :func:`~composer.algorithms.augmix.augmix.augmix_image` that can
+    be passed to :class:`torchvision.transforms.Compose`. See
+    :class:`~composer.algorithms.augmix.augmix.AugMix` for details.
     
     Example:
         .. testcode::
@@ -134,13 +138,12 @@ class AugmentAndMixTransform(torch.nn.Module):
 
 
 class AugMix(Algorithm):
-    """AugMix (`Hendrycks et al. <http://arxiv.org/abs/1912.02781>`_) creates ``width`` sequences of ``depth`` image augmentations, applies
-    each sequence with random intensity, and returns a convex combination of the ``width`` augmented images and the
-    original image.
-
-    The coefficients for mixing the augmented images are drawn from a uniform
-    ``Dirichlet(alpha, alpha, ...)`` distribution. The coefficient for mixing
-    the combined augmented image and the original image is drawn from a
+    """AugMix (`Hendrycks et al., 2020 <http://arxiv.org/abs/1912.02781>`_) creates
+    ``width`` sequences of ``depth`` image augmentations, applies each sequence with
+    random intensity, and returns a convex combination of the ``width`` augmented images
+    and the original image.  The coefficients for mixing the augmented images are drawn
+    from a uniform ``Dirichlet(alpha, alpha, ...)`` distribution. The coefficient for
+    mixing the combined augmented image and the original image is drawn from a
     ``Beta(alpha, alpha)`` distribution, using the same ``alpha``.
 
     This algorithm runs on on :attr:`Event.FIT_START` to insert a dataset transformation. It is a no-op if this algorithm already
