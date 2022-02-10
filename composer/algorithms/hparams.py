@@ -11,6 +11,7 @@ from composer.algorithms.cutmix import CutMix
 from composer.algorithms.cutout import CutOut
 from composer.algorithms.label_smoothing import LabelSmoothing
 from composer.algorithms.mixup import MixUp
+from composer.algorithms.randaugment import RandAugment
 
 
 @dataclass
@@ -82,3 +83,18 @@ class MixUpHparams(AlgorithmHparams):
 
     def initialize_object(self) -> MixUp:
         return MixUp(**asdict(self))
+
+
+@dataclass
+class RandAugmentHparams(AlgorithmHparams):
+    """See :class:`RandAugment`"""
+
+    severity: int = hp.optional(doc="Intensity of each augmentation. Ranges from 0 (none) to 10 (maximum)", default=9)
+    depth: int = hp.optional(doc="Number of augmentations to compose in a row", default=2)
+    augmentation_set: str = hp.optional(
+        doc=
+        "Set of augmentations to sample from. 'all', 'safe' (only augmentations that don't appear on CIFAR10C/ImageNet10C), or 'original'",
+        default="all")
+
+    def initialize_object(self) -> "RandAugment":
+        return RandAugment(**asdict(self))
