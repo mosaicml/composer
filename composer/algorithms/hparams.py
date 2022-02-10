@@ -22,6 +22,7 @@ from composer.algorithms.progressive_resizing import ProgressiveResizing
 from composer.algorithms.randaugment import RandAugment
 from composer.algorithms.sam import SAM
 from composer.algorithms.scale_schedule import ScaleSchedule
+from composer.algorithms.selective_backprop import SelectiveBackprop
 from composer.algorithms.squeeze_excite import SqueezeExcite
 from composer.algorithms.stochastic_depth import StochasticDepth
 from composer.algorithms.stochastic_depth.stochastic_depth import STOCHASTIC_LAYER_MAPPING, validate_stochastic_hparams
@@ -258,6 +259,20 @@ class ScaleScheduleHparams(AlgorithmHparams):
 
     def initialize_object(self) -> "ScaleSchedule":
         return ScaleSchedule(**asdict(self))
+
+
+@dataclass
+class SelectiveBackpropHparams(AlgorithmHparams):
+    """See :class:`SelectiveBackprop`"""
+
+    start: float = hp.optional(doc="SB interval start, as fraction of training duration", default=0.5)
+    end: float = hp.optional(doc="SB interval end, as fraction of training duration", default=0.9)
+    keep: float = hp.optional(doc="fraction of minibatch to select and keep for gradient computation", default=0.5)
+    scale_factor: float = hp.optional(doc="scale for downsampling input for selection forward pass", default=0.5)
+    interrupt: int = hp.optional(doc="interrupt SB with a vanilla minibatch step every 'interrupt' batches", default=2)
+
+    def initialize_object(self) -> SelectiveBackprop:
+        return SelectiveBackprop(**asdict(self))
 
 
 @dataclass
