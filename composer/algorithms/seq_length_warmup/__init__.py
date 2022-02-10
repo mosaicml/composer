@@ -1,8 +1,8 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
 from composer.algorithms.seq_length_warmup.seq_length_warmup import SeqLengthWarmup as SeqLengthWarmup
-from composer.algorithms.seq_length_warmup.seq_length_warmup import SeqLengthWarmupHparams as SeqLengthWarmupHparams
-from composer.algorithms.seq_length_warmup.seq_length_warmup import apply_seq_length_warmup as apply_seq_length_warmup
+from composer.algorithms.seq_length_warmup.seq_length_warmup import \
+    set_batch_sequence_length as set_batch_sequence_length
 
 _name = 'Sequential Length Warmup'
 _class_name = 'SeqLengthWarmup'

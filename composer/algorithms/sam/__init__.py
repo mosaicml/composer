@@ -1,7 +1,6 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
 from composer.algorithms.sam.sam import SAM as SAM
-from composer.algorithms.sam.sam import SAMHparams as SAMHparams
 from composer.algorithms.sam.sam import SAMOptimizer as SAMOptimizer
 
 _name = 'SAM'

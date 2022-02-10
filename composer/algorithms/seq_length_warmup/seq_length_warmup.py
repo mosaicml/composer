@@ -1,19 +1,16 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
 import textwrap
-from dataclasses import asdict, dataclass
 from typing import Dict, Mapping, Optional
 
 import torch
-import yahp as hp
 
-from composer.algorithms import AlgorithmHparams
 from composer.core.types import Algorithm, Batch, Event, Logger, State, Tensor
 from composer.models.transformer_shared import ComposerTransformer
 from composer.utils import ensure_tuple
 
 
-def apply_seq_length_warmup(batch: Dict[str, Tensor], curr_seq_len: int, truncate: bool = True) -> Batch:
+def set_batch_sequence_length(batch: Dict[str, Tensor], curr_seq_len: int, truncate: bool = True) -> Batch:
     """Progressively increases the sequence length during training.
 
     Changes the sequence length of all tensors in the provided dictionary
@@ -57,20 +54,6 @@ def apply_seq_length_warmup(batch: Dict[str, Tensor], curr_seq_len: int, truncat
             batch[k] = v.view(-1, curr_seq_len)
 
     return batch
-
-
-@dataclass
-class SeqLengthWarmupHparams(AlgorithmHparams):
-
-    duration: float = hp.optional("Fraction of total training time to apply sequential length warmup learning.",
-                                  default=0.3)
-    min_seq_length: int = hp.optional("Starting sequence length.", default=8)
-    max_seq_length: int = hp.optional("End sequence length", default=1024)
-    step_size: int = hp.optional("Sequence length step size", default=8)
-    truncate: bool = hp.optional("Truncate tensors or reshape extra tokens to new examples.", default=True)
-
-    def initialize_object(self) -> "SeqLengthWarmup":
-        return SeqLengthWarmup(**asdict(self))
 
 
 class SeqLengthWarmup(Algorithm):
@@ -220,7 +203,7 @@ class SeqLengthWarmup(Algorithm):
         curr_seq_len = max(curr_seq_len, self.min_seq_length)
         curr_seq_len = min(curr_seq_len, self.max_seq_length)
 
-        state.batch = apply_seq_length_warmup(state.batch_dict, curr_seq_len, self.truncate)
+        state.batch = set_batch_sequence_length(state.batch_dict, curr_seq_len, self.truncate)
 
         batch_size = state.batch_dict['input_ids'].shape[0]
         logger.metric_batch({
