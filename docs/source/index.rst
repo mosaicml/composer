@@ -65,6 +65,7 @@ Our documentation is organized into a few sections:
    :maxdepth: 1
    :caption: Methods Library
 
+   method_cards/overview.rst
    method_cards/alibi.md
    method_cards/aug_mix.md
    method_cards/blurpool.md

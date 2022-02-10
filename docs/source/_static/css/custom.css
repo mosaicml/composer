@@ -5,3 +5,7 @@
 .related-pages {
     height: 4rem;
 }
+
+.card-img-top {
+    background-color: white;
+}
