@@ -107,7 +107,7 @@ class SSD(ComposerModel):
                 htot, wtot = img_size[0][idx].item(), img_size[1][idx].item()
                 loc, label, prob = [r.cpu().numpy() for r in result]
                 
-                for loc_, label_, prob_ in zip(loc, label, prob):
+                for img_id_, loc_, label_, prob_ in zip(img_id, loc, label, prob):
 
                     ret.append([
 		        dict(
@@ -117,11 +117,12 @@ class SSD(ComposerModel):
                                                  (loc_[3] - loc_[1]) * htot]]),
                             scores=torch.Tensor([prob_]),
                             labels=torch.IntTensor([inv_map[label_]]),
+                            iid=torch.Tensor([img_id_])
                         )
                     ])
 
         print('lengths', len(ret), len(targets))
-        #import pdb; pdb.set_trace()
+        import pdb; pdb.set_trace()
         return ret, targets
 
 def get_boxes(val_annotate, idss):
@@ -146,8 +147,8 @@ def get_boxes(val_annotate, idss):
         bbox_height = ann['bbox'][3]
 
         cat = ann['category_id']
-
-        t.append(dict(boxes=torch.Tensor([[x_topleft, y_topleft, bbox_width, bbox_height]]), labels=torch.Tensor([cat])))
+        iid = ann['image_id']
+        t.append(dict(boxes=torch.Tensor([[x_topleft, y_topleft, bbox_width, bbox_height]]), labels=torch.Tensor([cat]), iid=torch.Tensor([iid])))
 
     #
     return t
