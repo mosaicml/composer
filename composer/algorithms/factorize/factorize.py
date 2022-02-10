@@ -3,13 +3,10 @@
 from __future__ import annotations
 
 import logging
-from dataclasses import asdict, dataclass
 from typing import Optional, Type, Union, cast
 
 import torch
-import yahp as hp
 
-from composer.algorithms import AlgorithmHparams
 from composer.algorithms.factorize.factorize_modules import (FactorizedConv2d, FactorizedLinear,
                                                              factorizing_could_speedup)
 from composer.core import Algorithm, Event, Logger, State
@@ -100,38 +97,6 @@ def apply_factorization(model: torch.nn.Module,
                                   latent_features=latent_features,
                                   optimizers=optimizers)
     return model
-
-
-@dataclass
-class FactorizeHparams(AlgorithmHparams):
-    """See :class:`Factorize`"""
-    factorize_convs: bool = hp.optional(
-        doc='Whether to factorize convolutional layers',
-        default=True,
-    )
-    factorize_linears: bool = hp.optional(
-        doc='Whether to factorize linear layers',
-        default=True,
-    )
-    min_channels: int = hp.optional(
-        doc=('Minimum number of channels in a Conv2d module' + ' for it to be factorized.'),
-        default=512,
-    )
-    latent_channels: float = hp.optional(
-        doc='Number or relative fraction of channels in factorized convolution latent representations',
-        default=0.25,
-    )
-    min_features: int = hp.optional(
-        doc=('Minimum number of features in a Linear module' + ' for it to be factorized.'),
-        default=512,
-    )
-    latent_features: float = hp.optional(
-        doc='Number or relative fraction of features in factorized linear latent representations',
-        default=0.25,
-    )
-
-    def initialize_object(self) -> Factorize:
-        return Factorize(**asdict(self))
 
 
 class Factorize(Algorithm):

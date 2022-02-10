@@ -12,6 +12,7 @@ from composer.algorithms.blurpool import BlurPool
 from composer.algorithms.colout import ColOut
 from composer.algorithms.cutmix import CutMix
 from composer.algorithms.cutout import CutOut
+from composer.algorithms.factorize import Factorize
 from composer.algorithms.label_smoothing import LabelSmoothing
 from composer.algorithms.mixup import MixUp
 from composer.algorithms.randaugment import RandAugment
@@ -114,6 +115,37 @@ class CutOutHparams(AlgorithmHparams):
 
     def initialize_object(self) -> CutOut:
         return CutOut(**asdict(self))
+
+@dataclass
+class FactorizeHparams(AlgorithmHparams):
+    """See :class:`Factorize`"""
+    factorize_convs: bool = hp.optional(
+        doc='Whether to factorize convolutional layers',
+        default=True,
+    )
+    factorize_linears: bool = hp.optional(
+        doc='Whether to factorize linear layers',
+        default=True,
+    )
+    min_channels: int = hp.optional(
+        doc=('Minimum number of channels in a Conv2d module' + ' for it to be factorized.'),
+        default=512,
+    )
+    latent_channels: float = hp.optional(
+        doc='Number or relative fraction of channels in factorized convolution latent representations',
+        default=0.25,
+    )
+    min_features: int = hp.optional(
+        doc=('Minimum number of features in a Linear module' + ' for it to be factorized.'),
+        default=512,
+    )
+    latent_features: float = hp.optional(
+        doc='Number or relative fraction of features in factorized linear latent representations',
+        default=0.25,
+    )
+
+    def initialize_object(self) -> Factorize:
+        return Factorize(**asdict(self))
 
 
 @dataclass

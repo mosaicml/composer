@@ -51,7 +51,6 @@ from composer.algorithms.colout import ColOut as ColOut
 from composer.algorithms.cutmix import CutMix as CutMix
 from composer.algorithms.cutout import CutOut as CutOut
 from composer.algorithms.factorize import Factorize as Factorize
-from composer.algorithms.factorize import FactorizeHparams as FactorizeHparams
 from composer.algorithms.ghost_batchnorm import GhostBatchNorm as GhostBatchNorm
 from composer.algorithms.ghost_batchnorm import GhostBatchNormHparams as GhostBatchNormHparams
 from composer.algorithms.hparams import AlibiHparams as AlibiHparams
@@ -60,6 +59,7 @@ from composer.algorithms.hparams import BlurPoolHparams as BlurPoolHparams
 from composer.algorithms.hparams import ColOutHparams as ColOutHparams
 from composer.algorithms.hparams import CutMixHparams as CutMixHparams
 from composer.algorithms.hparams import CutOutHparams as CutOutHparams
+from composer.algorithms.hparams import FactorizeHparams as FactorizeHparams
 from composer.algorithms.hparams import LabelSmoothingHparams as LabelSmoothingHparams
 from composer.algorithms.hparams import MixUpHparams as MixUpHparams
 from composer.algorithms.hparams import RandAugmentHparams as RandAugmentHparams
