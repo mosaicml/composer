@@ -9,6 +9,7 @@ from composer.algorithms.algorithm_hparams import AlgorithmHparams
 from composer.algorithms.alibi import Alibi
 from composer.algorithms.augmix import AugMix
 from composer.algorithms.blurpool import BlurPool
+from composer.algorithms.channels_last import ChannelsLast
 from composer.algorithms.colout import ColOut
 from composer.algorithms.cutmix import CutMix
 from composer.algorithms.cutout import CutOut
@@ -86,6 +87,14 @@ class BlurPoolHparams(AlgorithmHparams):
 
     def initialize_object(self) -> "BlurPool":
         return BlurPool(**asdict(self))
+
+
+@dataclass
+class ChannelsLastHparams(AlgorithmHparams):
+    """ChannelsLast has no hyperparameters, so this class has no member variables."""
+
+    def initialize_object(self) -> ChannelsLast:
+        return ChannelsLast()
 
 
 @dataclass

@@ -3,12 +3,10 @@
 from __future__ import annotations
 
 import logging
-from dataclasses import dataclass
 from typing import Optional
 
 import torch
 
-from composer.algorithms.algorithm_hparams import AlgorithmHparams
 from composer.core.types import Algorithm, Event, Logger, State
 
 log = logging.getLogger(__name__)
@@ -44,11 +42,3 @@ class ChannelsLast(Algorithm):
 
         log.info(f'Model {state.model.__class__.__name__} changed to channels_last format.')
 
-
-@dataclass
-class ChannelsLastHparams(AlgorithmHparams):
-    """ChannelsLast has no hyperparameters, so this class has no member variables."""
-    pass
-
-    def initialize_object(self) -> ChannelsLast:
-        return ChannelsLast()
