@@ -6,7 +6,7 @@ from composer.algorithms.algorithm_hparams import AlgorithmHparams
 from composer.algorithms.channels_last import ChannelsLastHparams
 from composer.algorithms.hparams import (AlibiHparams, AugMixHparams, BlurPoolHparams, ColOutHparams, CutMixHparams,
                                          CutOutHparams, FactorizeHparams, GhostBatchNormHparams, LabelSmoothingHparams,
-                                         MixUpHparams, RandAugmentHparams, SqueezeExciteHparams)
+                                         MixUpHparams, RandAugmentHparams, SqueezeExciteHparams, StochasticDepthHparams)
 from composer.algorithms.layer_freezing import LayerFreezingHparams
 from composer.algorithms.no_op_model import NoOpModelHparams
 from composer.algorithms.progressive_resizing import ProgressiveResizingHparams
@@ -14,7 +14,6 @@ from composer.algorithms.sam import SAMHparams
 from composer.algorithms.scale_schedule import ScaleScheduleHparams
 from composer.algorithms.selective_backprop import SelectiveBackpropHparams
 from composer.algorithms.seq_length_warmup import SeqLengthWarmupHparams
-from composer.algorithms.stochastic_depth import StochasticDepthHparams
 from composer.algorithms.swa.hparams import SWAHparams
 from composer.core.algorithm import Algorithm
 

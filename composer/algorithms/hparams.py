@@ -18,6 +18,8 @@ from composer.algorithms.label_smoothing import LabelSmoothing
 from composer.algorithms.mixup import MixUp
 from composer.algorithms.randaugment import RandAugment
 from composer.algorithms.squeeze_excite import SqueezeExcite
+from composer.algorithms.stochastic_depth import StochasticDepth
+from composer.algorithms.stochastic_depth.stochastic_depth import STOCHASTIC_LAYER_MAPPING, validate_stochastic_hparams
 
 
 @dataclass
@@ -194,6 +196,37 @@ class RandAugmentHparams(AlgorithmHparams):
 
     def initialize_object(self) -> "RandAugment":
         return RandAugment(**asdict(self))
+
+
+@dataclass
+class StochasticDepthHparams(AlgorithmHparams):
+    """See :class:`StochasticDepth`"""
+
+    target_layer_name: str = hp.required(
+        f'Reference name of layer to replace. "block" method can be {list(STOCHASTIC_LAYER_MAPPING["block"].keys())}.'
+        f' "sample" method can be {list(STOCHASTIC_LAYER_MAPPING["sample"].keys())}.')
+    stochastic_method: str = hp.optional('The version of stochastic depth to use. One of ["sample", "block"].',
+                                         default='block')
+    drop_rate: float = hp.optional('The probability of dropping a block or sample.', default=0.2)
+    drop_distribution: str = hp.optional(
+        '"Uniform" keeps the drop rate the same across blocks. "linear" linearly'
+        ' increases the drop rate with block depth until it reaches `drop_rate`.',
+        default='linear')
+    use_same_gpu_seed: bool = hp.optional(
+        'Whether or not to drop the same blocks across GPUs. Only used with "block" method.', default=True)
+    drop_warmup: float = hp.optional(
+        'Percentage of training to warmup `drop_rate`. Only use with "block" stochastic method.', default=0.0)
+
+    def initialize_object(self) -> StochasticDepth:
+        return StochasticDepth(**asdict(self))
+
+    def validate(self):
+        super().validate()
+        validate_stochastic_hparams(target_layer_name=self.target_layer_name,
+                                    stochastic_method=self.stochastic_method,
+                                    drop_rate=self.drop_rate,
+                                    drop_distribution=self.drop_distribution,
+                                    drop_warmup=self.drop_warmup)
 
 
 @dataclass
