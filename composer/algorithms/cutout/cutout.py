@@ -2,14 +2,11 @@
 from __future__ import annotations
 
 import logging
-from dataclasses import asdict, dataclass
 from typing import Optional
 
 import numpy as np
 import torch
-import yahp as hp
 
-from composer.algorithms import AlgorithmHparams
 from composer.core.types import Algorithm, Event, Logger, State, Tensor
 
 log = logging.getLogger(__name__)
@@ -53,17 +50,6 @@ def cutout_batch(X: Tensor, n_holes: int, length: int) -> Tensor:
 
     X_cutout = apply_cutout(X, mask)
     return X_cutout
-
-
-@dataclass
-class CutOutHparams(AlgorithmHparams):
-    """See :class:`CutOut`"""
-
-    n_holes: int = hp.optional('Number of holes to cut out', default=1)
-    length: int = hp.optional('Side length of the square hole to cut out', default=112)
-
-    def initialize_object(self) -> CutOut:
-        return CutOut(**asdict(self))
 
 
 class CutOut(Algorithm):

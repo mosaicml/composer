@@ -6,13 +6,12 @@ import numpy as np
 import pytest
 import torch
 from PIL import Image
+from torch.utils.data import DataLoader
 
 from composer.algorithms import ColOut, ColOutHparams
 from composer.algorithms.colout.colout import ColOutTransform, colout_batch
 from composer.core import Event, Logger, State
-from composer.core.types import DataLoader
-from composer.trainer import TrainerHparams
-from tests.utils.trainer_fit import train_model
+from tests.common import RandomImageDataset
 
 
 def verify_shape_image(orig: Image.Image, new: Image.Image, p_row: float, p_col: float) -> None:
@@ -107,78 +106,123 @@ def fake_image_batch(H: int, W: int, C: int) -> torch.Tensor:
 
 
 @pytest.fixture
-def dummy_hparams(p_row: float, p_col: float, batch: bool) -> ColOutHparams:
-    """Dummy hparams."""
-    return ColOutHparams(p_row, p_col, batch)
-
-
-@pytest.fixture
-def dummy_algorithm(dummy_hparams: ColOutHparams) -> ColOut:
+def colout_algorithm(p_row: float, p_col: float, batch: bool) -> ColOut:
     """Reusable algorithm instance."""
-    return ColOut(dummy_hparams.p_row, dummy_hparams.p_col, dummy_hparams.batch)
+    return ColOut(p_row, p_col, batch)
 
 
-def test_single_image_drop_size(fake_image: Image.Image, p_row: float, p_col: float):
-    """Test application to single PIL image."""
-    transform = ColOutTransform(p_row, p_col)
-    new_image = transform(fake_image)
-    verify_shape_image(fake_image, new_image, p_row, p_col)
+class TestColOutTransform:
+
+    def test_single_image_drop_size(self, fake_image: Image.Image, p_row: float, p_col: float):
+        """Test application to single PIL image."""
+        transform = ColOutTransform(p_row, p_col)
+        new_image = transform(fake_image)
+        verify_shape_image(fake_image, new_image, p_row, p_col)
+
+    @pytest.mark.parametrize("W", [48])
+    def test_rectangular_image(self, fake_image: Image.Image, p_row: float, p_col: float):
+        """Test application to a rectangular PIL image."""
+        transform = ColOutTransform(p_row, p_col)
+        new_image = transform(fake_image)
+        verify_shape_image(fake_image, new_image, p_row, p_col)  # type: ignore
+
+    def test_single_image_tensor_drop_size(self, fake_image_tensor: torch.Tensor, p_row: float, p_col: float):
+        """Test application to a single torch image tensor."""
+        transform = ColOutTransform(p_row, p_col)
+        new_image = transform(fake_image_tensor)
+        verify_shape_tensor(fake_image_tensor, new_image, p_row, p_col)  # type: ignore
+
+    def test_reproducibility_image(self, fake_image_tensor: torch.Tensor, p_row: float, p_col: float):
+        """Test that transform is reproducible given the same seed."""
+        transform_1 = ColOutTransform(p_row, p_col)
+        transform_2 = ColOutTransform(p_row, p_col)
+
+        torch.manual_seed(42)
+        new_image_1 = transform_1(fake_image_tensor)
+        torch.manual_seed(42)
+        new_image_2 = transform_2(fake_image_tensor)
+
+        assert torch.allclose(new_image_1, new_image_2)
 
 
-@pytest.mark.parametrize("W", [48])
-def test_rectangular_image(fake_image: Image.Image, p_row: float, p_col: float):
-    """Test application to a rectangular PIL image."""
-    transform = ColOutTransform(p_row, p_col)
-    new_image = transform(fake_image)
-    verify_shape_image(fake_image, new_image, p_row, p_col)  # type: ignore
+class TestColOutFunctional:
+
+    def test_reproducibility_batch(self, fake_image_batch: torch.Tensor, p_row: float, p_col: float):
+        """Test that batch augmentation is reproducible given the same seed."""
+        transform_1 = functools.partial(colout_batch, p_row=p_row, p_col=p_col)
+        transform_2 = functools.partial(colout_batch, p_row=p_row, p_col=p_col)
+
+        torch.manual_seed(42)
+        new_batch_1 = transform_1(fake_image_batch)
+        torch.manual_seed(42)
+        new_batch_2 = transform_2(fake_image_batch)
+
+        assert torch.allclose(new_batch_1, new_batch_2)
+
+    def test_batch_drop_size(self, fake_image_batch: torch.Tensor, p_row: float, p_col: float):
+        """Test application to a batch of images."""
+        colout = functools.partial(colout_batch, p_row=p_row, p_col=p_col)
+        new_batch = colout(fake_image_batch)
+        verify_shape_batch(fake_image_batch, new_batch, p_row, p_col)
+
+    @pytest.mark.parametrize("p_col", [0.05, 0.25])
+    def test_rectangle_batch_drop_size(self, fake_image_batch: torch.Tensor, p_row: float, p_col: float):
+        """Test that unequal values of p_row and p_col work properly."""
+        colout = functools.partial(colout_batch, p_row=p_row, p_col=p_col)
+        new_batch = colout(fake_image_batch)
+        verify_shape_batch(fake_image_batch, new_batch, p_row, p_col)
 
 
-def test_single_image_tensor_drop_size(fake_image_tensor: torch.Tensor, p_row: float, p_col: float):
-    """Test application to a single torch image tensor."""
-    transform = ColOutTransform(p_row, p_col)
-    new_image = transform(fake_image_tensor)
-    verify_shape_tensor(fake_image_tensor, new_image, p_row, p_col)  # type: ignore
+class TestColOutAlgorithm:
+
+    @pytest.mark.parametrize("event,batch", [(Event.AFTER_DATALOADER, True), (Event.FIT_START, False)])
+    def test_match_correct(self, event: Event, colout_algorithm: ColOut, minimal_state: State):
+        """Algo should match AFTER_DATALOADER if batch else FIT_START."""
+        assert colout_algorithm.match(event, minimal_state)
+
+    @pytest.mark.parametrize("event,batch", [(Event.FIT_START, True), (Event.AFTER_DATALOADER, False),
+                                             (Event.EPOCH_END, True)])
+    def test_match_incorrect(self, event: Event, colout_algorithm: ColOut, minimal_state: State):
+        """Algo should NOT match FIT_START if batch else AFTER_DATALOADER."""
+        assert not colout_algorithm.match(event, minimal_state)
+
+    @pytest.mark.parametrize("batch", [True])
+    def test_apply_batch(self, fake_image_batch: torch.Tensor, colout_algorithm: ColOut, minimal_state: State,
+                         empty_logger: Logger):
+        """Apply the algorithm to a fake batch."""
+        p_row = colout_algorithm.p_row
+        p_col = colout_algorithm.p_col
+
+        minimal_state.batch = (fake_image_batch, torch.Tensor())
+        colout_algorithm.apply(Event.AFTER_DATALOADER, minimal_state, empty_logger)
+        last_input, _ = minimal_state.batch
+        verify_shape_batch(fake_image_batch, last_input, p_row, p_col)
+
+    @pytest.mark.parametrize("batch", [False])
+    def test_apply_sample(self, colout_algorithm: ColOut, minimal_state: State, empty_logger: Logger):
+        """Test that augmentation is added to dataset and functioning properly."""
+        p_row = colout_algorithm.p_row
+        p_col = colout_algorithm.p_col
+
+        dataset = RandomImageDataset(is_PIL=True)
+        dataloader = DataLoader(dataset)
+
+        original_image, _ = dataset[0]
+        assert isinstance(original_image, Image.Image)
+
+        minimal_state.train_dataloader = dataloader
+        colout_algorithm.apply(Event.INIT, minimal_state, empty_logger)
+
+        new_image, _ = dataset[0]
+        assert isinstance(new_image, Image.Image)
+
+        verify_shape_image(original_image, new_image, p_row, p_col)
 
 
-def test_reproducibility_image(fake_image_tensor: torch.Tensor, p_row: float, p_col: float):
-    """Test that transform is reproducible given the same seed."""
-    transform_1 = ColOutTransform(p_row, p_col)
-    transform_2 = ColOutTransform(p_row, p_col)
-
-    torch.manual_seed(42)
-    new_image_1 = transform_1(fake_image_tensor)
-    torch.manual_seed(42)
-    new_image_2 = transform_2(fake_image_tensor)
-
-    assert torch.allclose(new_image_1, new_image_2)
-
-
-def test_reproducibility_batch(fake_image_batch: torch.Tensor, p_row: float, p_col: float):
-    """Test that batch augmentation is reproducible given the same seed."""
-    transform_1 = functools.partial(colout_batch, p_row=p_row, p_col=p_col)
-    transform_2 = functools.partial(colout_batch, p_row=p_row, p_col=p_col)
-
-    torch.manual_seed(42)
-    new_batch_1 = transform_1(fake_image_batch)
-    torch.manual_seed(42)
-    new_batch_2 = transform_2(fake_image_batch)
-
-    assert torch.allclose(new_batch_1, new_batch_2)
-
-
-def test_batch_drop_size(fake_image_batch: torch.Tensor, p_row: float, p_col: float):
-    """Test application to a batch of images."""
-    colout = functools.partial(colout_batch, p_row=p_row, p_col=p_col)
-    new_batch = colout(fake_image_batch)
-    verify_shape_batch(fake_image_batch, new_batch, p_row, p_col)
-
-
-@pytest.mark.parametrize("p_col", [0.05, 0.25])
-def test_rectangle_batch_drop_size(fake_image_batch: torch.Tensor, p_row: float, p_col: float):
-    """Test that unequal values of p_row and p_col work properly."""
-    colout = functools.partial(colout_batch, p_row=p_row, p_col=p_col)
-    new_batch = colout(fake_image_batch)
-    verify_shape_batch(fake_image_batch, new_batch, p_row, p_col)
+def test_colout_hparams():
+    hparams = ColOutHparams()
+    algorithm = hparams.initialize_object()
+    assert isinstance(algorithm, ColOut)
 
 
 @pytest.mark.parametrize("p_row,p_col", [(1.5, 0.15), (0.15, 1.5)])
@@ -189,52 +233,3 @@ def test_invalid_hparams(p_row: float, p_col: float):
     """
     with pytest.raises(ValueError):
         ColOut(p_row, p_col, False)
-
-
-@pytest.mark.parametrize("event,batch", [(Event.AFTER_DATALOADER, True), (Event.FIT_START, False)])
-def test_match_correct(event: Event, dummy_algorithm: ColOut, dummy_state: State):
-    """Algo should match AFTER_DATALOADER if batch else FIT_START."""
-    assert dummy_algorithm.match(event, dummy_state)
-
-
-@pytest.mark.parametrize("event,batch", [(Event.FIT_START, True), (Event.AFTER_DATALOADER, False),
-                                         (Event.EPOCH_END, True)])
-def test_match_incorrect(event: Event, dummy_algorithm: ColOut, dummy_state: State):
-    """Algo should NOT match FIT_START if batch else AFTER_DATALOADER."""
-    assert not dummy_algorithm.match(event, dummy_state)
-
-
-@pytest.mark.parametrize("batch", [True])
-def test_apply_batch(fake_image_batch: torch.Tensor, dummy_algorithm: ColOut, dummy_state: State, dummy_logger: Logger):
-    """Apply the algorithm to a fake batch."""
-    p_row = dummy_algorithm.p_row
-    p_col = dummy_algorithm.p_col
-
-    dummy_state.batch = (fake_image_batch, torch.Tensor())
-    dummy_algorithm.apply(Event.AFTER_DATALOADER, dummy_state, dummy_logger)
-    last_input, _ = dummy_state.batch
-    verify_shape_batch(fake_image_batch, last_input, p_row, p_col)
-
-
-@pytest.mark.parametrize("batch", [False])
-def test_apply_sample(dummy_algorithm: ColOut, dummy_state: State, dummy_train_pil_dataloader: DataLoader,
-                      dummy_logger: Logger):
-    """Test that augmentation is added to dataset and functioning properly."""
-    p_row = dummy_algorithm.p_row
-    p_col = dummy_algorithm.p_col
-
-    dset = dummy_train_pil_dataloader.dataset
-    orig, _ = dset[0]
-    assert isinstance(orig, Image.Image)
-
-    dummy_state.train_dataloader = dummy_train_pil_dataloader
-    dummy_algorithm.apply(Event.INIT, dummy_state, dummy_logger)
-    new, _ = dset[0]
-    assert isinstance(new, Image.Image)
-
-    verify_shape_image(orig, new, p_row, p_col)
-
-
-def test_colout_trains(composer_trainer_hparams: TrainerHparams):
-    composer_trainer_hparams.algorithms = [ColOutHparams(p_row=0.15, p_col=0.15, batch=True)]
-    train_model(composer_trainer_hparams)

@@ -5,16 +5,13 @@ from __future__ import annotations
 import logging
 import textwrap
 import weakref
-from dataclasses import asdict, dataclass
 from typing import TypeVar
 
 import torch
-import yahp as hp
 from PIL.Image import Image
 from torchvision.datasets import VisionDataset
 from torchvision.transforms import functional as TF
 
-from composer.algorithms import AlgorithmHparams
 from composer.core import Algorithm, Event, Logger, State
 from composer.core.types import Tensor
 from composer.utils.data import add_dataset_transform
@@ -119,17 +116,6 @@ def colout_batch(X: torch.Tensor, p_row: float = 0.15, p_col: float = 0.15) -> t
     X_colout = X[:, :, kept_row_idx, :]
     X_colout = X_colout[:, :, :, kept_col_idx]
     return X_colout
-
-
-@dataclass
-class ColOutHparams(AlgorithmHparams):
-    """See :class:`ColOut`"""
-    p_row: float = hp.optional(doc="Fraction of rows to drop", default=0.15)
-    p_col: float = hp.optional(doc="Fraction of cols to drop", default=0.15)
-    batch: bool = hp.optional(doc="Run ColOut at the batch level", default=True)
-
-    def initialize_object(self) -> ColOut:
-        return ColOut(**asdict(self))
 
 
 class ColOut(Algorithm):

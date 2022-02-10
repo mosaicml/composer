@@ -2,34 +2,16 @@
 
 import textwrap
 import weakref
-from dataclasses import asdict, dataclass
 from typing import Optional
 
 import numpy as np
 import torch
-import yahp as hp
 from PIL.Image import Image as ImageType
 from torchvision.datasets import VisionDataset
 
-from composer.algorithms.algorithm_hparams import AlgorithmHparams
 from composer.core.types import Algorithm, Event, List, Logger, State
 from composer.utils.augmentation_primitives import augmentation_sets
 from composer.utils.data import add_dataset_transform
-
-
-@dataclass
-class RandAugmentHparams(AlgorithmHparams):
-    """See :class:`RandAugment`"""
-
-    severity: int = hp.optional(doc="Intensity of each augmentation. Ranges from 0 (none) to 10 (maximum)", default=9)
-    depth: int = hp.optional(doc="Number of augmentations to compose in a row", default=2)
-    augmentation_set: str = hp.optional(
-        doc=
-        "Set of augmentations to sample from. 'all', 'safe' (only augmentations that don't appear on CIFAR10C/ImageNet10C), or 'original'",
-        default="all")
-
-    def initialize_object(self) -> "RandAugment":
-        return RandAugment(**asdict(self))
 
 
 def randaugment_image(img: Optional[ImageType] = None,

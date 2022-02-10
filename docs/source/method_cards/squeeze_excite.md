@@ -56,8 +56,6 @@ Because SE modules slow down the model, they compose well with methods that make
 .. autoclass:: composer.algorithms.squeeze_excite.SqueezeExcite
     :members: match, apply
     :noindex:
-.. autoclass:: composer.algorithms.squeeze_excite.SqueezeExciteHparams
-    :noindex:
 
 .. autoclass:: composer.algorithms.squeeze_excite.SqueezeExcite2d
     :noindex:
