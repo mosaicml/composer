@@ -69,6 +69,7 @@ Our documentation is organized into a few sections:
    method_cards/aug_mix.md
    method_cards/blurpool.md
    method_cards/channels_last.md
+   method_cards/cutmix.md
    method_cards/col_out.md
    method_cards/cut_out.md
    method_cards/decoupled_weight_decay.md
