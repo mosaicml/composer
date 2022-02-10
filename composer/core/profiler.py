@@ -135,8 +135,8 @@ class ProfilerAction(StringEnum):
     Attributes:
         SKIP: Not currently recording new events at the batch level or below.
             However, any open duration events will still be closed.
-        WARMUP: The profiler 
-        ACTIVE: Record all events. 
+        WARMUP: The profiler
+        ACTIVE: Record all events.
     """
     SKIP = "skip"
     WARMUP = "warmup"
@@ -153,8 +153,8 @@ class Profiler:
     #. The latency each algorithm and callback adds when executing on each event.
 
     #. The latency it takes for the dataloader to yield a batch.
-    
-    The ``event_handlers`` then record and save this data to a usable trace. 
+
+    The ``event_handlers`` then record and save this data to a usable trace.
 
     Args:
         state (State): The state.
@@ -190,8 +190,8 @@ class Profiler:
         self._action = ProfilerAction.SKIP
 
     def get_action(self, batch_idx: int) -> ProfilerAction:
-        """Get the current :class:`ProfilerAction` for the profiler, based upon
-        the parameters ``skip_first``, ``wait``, ``warmup``, ``active``, and ``repeat``.
+        """Get the current :class:`ProfilerAction` for the profiler, based upon the parameters ``skip_first``, ``wait``,
+        ``warmup``, ``active``, and ``repeat``.
 
         The profiler skips the first ``skip_first`` batches in every epoch. Then, it performs a cycle of
         skipping ``wait`` batches, warming up for ``warmup`` batches, and recording ``active`` batches.
@@ -215,11 +215,11 @@ class Profiler:
 
     @property
     def event_handlers(self):
-        """Profiler event handlers"""
+        """Profiler event handlers."""
         return self._event_handlers
 
     def merge_traces(self):
-        """Merge traces together
+        """Merge traces together.
 
         .. note::
 
@@ -350,7 +350,7 @@ class Profiler:
         thread_id: int,
         values: Dict[str, Union[int, float]],
     ) -> None:
-        """Record a counter invent
+        """Record a counter invent.
 
         .. note::
 
@@ -413,7 +413,7 @@ class Marker:
                 @marker
                 def something_to_measure():
                     ...
-                
+
                 something_to_measure()
 
     To use a :class:`Marker` to record an instant, call :meth:`instant`

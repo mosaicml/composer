@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from typing import List, Optional, Tuple
 
 import torch
+import torch.nn.functional as F
 import torch.utils.data
 import torchmetrics
 import yahp as hp
@@ -12,24 +13,18 @@ import yahp as hp
 from composer.core.types import BatchPair, DataLoader, Metrics, Tensor, Tensors
 from composer.datasets.dataloader import DataloaderHparams
 from composer.datasets.hparams import DatasetHparams, SyntheticHparamsMixin
-from composer.datasets.synthetic import SyntheticBatchPairDataset, SyntheticDataLabelType
-from composer.models import BaseMosaicModel, ModelHparams
+from composer.datasets.synthetic import SyntheticBatchPairDataset, SyntheticDataLabelType, SyntheticPILDataset
+from composer.models import ComposerModel, ModelHparams
 
 
-class SimpleBatchPairModel(BaseMosaicModel):
-    """A small model that has a really fast forward pass.
-    """
+class SimpleBatchPairModel(ComposerModel):
+    """A small model that has a really fast forward pass."""
 
-    def __init__(self, in_shape: Tuple[int, ...], num_classes: int) -> None:
+    def __init__(self, num_channels: int, num_classes: int) -> None:
         super().__init__()
 
-        self.in_shape = in_shape
-        in_features_flattened = 1
-        for dim in self.in_shape:
-            in_features_flattened *= dim
         self.num_classes = num_classes
-
-        self.loss_fn = torch.nn.CrossEntropyLoss()
+        self.num_channels = num_channels
 
         self.train_acc = torchmetrics.Accuracy()
         self.val_acc = torchmetrics.Accuracy()
@@ -39,11 +34,12 @@ class SimpleBatchPairModel(BaseMosaicModel):
         # These tests attempt to perform surgery on `fc1` layer, and we want
         # to make sure that post-surgery, self.fc1 refers to the same parameters
         # as self.net[1]
-        self.fc1 = torch.nn.Linear(in_features_flattened, 5)
+        self.fc1 = torch.nn.Linear(num_channels, 5)
 
         self.fc2 = torch.nn.Linear(5, num_classes)
 
         self.net = torch.nn.Sequential(
+            torch.nn.AdaptiveAvgPool2d(1),
             torch.nn.Flatten(),
             self.fc1,
             torch.nn.ReLU(),
@@ -51,9 +47,10 @@ class SimpleBatchPairModel(BaseMosaicModel):
             torch.nn.Softmax(dim=-1),
         )
 
-    def loss(self, outputs: Tensor, batch: BatchPair) -> Tensors:
+    def loss(self, outputs: Tensor, batch: BatchPair, *args, **kwargs) -> Tensors:
         _, target = batch
-        return self.loss_fn(outputs, target)
+        assert isinstance(target, Tensor)
+        return F.cross_entropy(outputs, target, *args, **kwargs)
 
     def validate(self, batch: BatchPair) -> Tuple[Tensor, Tensor]:
         x, target = batch
@@ -101,22 +98,47 @@ class _SimpleDatasetHparams(DatasetHparams, SyntheticHparamsMixin):
         )
 
 
+@dataclasses.dataclass
+class _SimplePILDatasetHparams(DatasetHparams, SyntheticHparamsMixin):
+
+    data_shape: Optional[List[int]] = hp.optional("data shape", default=None)
+    num_classes: Optional[int] = hp.optional("num_classes", default=None)
+
+    def initialize_object(self, batch_size: int, dataloader_hparams: DataloaderHparams) -> DataLoader:
+        assert self.data_shape is not None
+        assert self.num_classes is not None
+        dataset = SyntheticPILDataset(total_dataset_size=10_000,
+                                      data_shape=tuple(self.data_shape),
+                                      label_type=SyntheticDataLabelType.CLASSIFICATION_INT,
+                                      num_classes=self.num_classes,
+                                      num_unique_samples_to_create=self.synthetic_num_unique_samples)
+        if self.shuffle:
+            sampler = torch.utils.data.RandomSampler(dataset)
+        else:
+            sampler = torch.utils.data.SequentialSampler(dataset)
+        return dataloader_hparams.initialize_object(
+            dataset=dataset,
+            batch_size=batch_size,
+            sampler=sampler,
+            drop_last=self.drop_last,
+        )
+
+
 @dataclass
 class _SimpleBatchPairModelHparams(ModelHparams):
-    in_shape: List[int] = hp.optional("shape for a single input", default_factory=lambda: [10])
+    num_channels: int = hp.optional("number of image channels", default_factory=lambda: 3)
     num_classes: int = hp.optional("number of output classes", default=10)
 
     def initialize_object(self) -> SimpleBatchPairModel:
         return SimpleBatchPairModel(
-            in_shape=tuple(self.in_shape),
+            num_channels=self.num_channels,
             num_classes=self.num_classes,
         )
 
 
 class SimpleConvModel(torch.nn.Module):
-    """Very basic forward operation with no activation functions
-    Used just to test that model surgery doesn't create forward prop bugs.
-    """
+    """Very basic forward operation with no activation functions Used just to test that model surgery doesn't create
+    forward prop bugs."""
 
     def __init__(self):
         super().__init__()

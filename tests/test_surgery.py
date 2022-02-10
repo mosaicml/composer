@@ -7,8 +7,8 @@ import pytest
 import torch
 from torch import nn
 
-from composer.core import surgery
 from composer.core.types import Optimizer
+from composer.utils import module_surgery
 from tests.fixtures.models import SimpleBatchPairModel
 
 
@@ -22,9 +22,7 @@ class RecursiveLinear(nn.Linear):
 
 
 class SimpleReplacementPolicy(nn.Module):
-    """
-    Bundle the model, replacement function, and validation into one class
-    """
+    """Bundle the model, replacement function, and validation into one class."""
 
     def __init__(self):
         super().__init__()
@@ -38,7 +36,7 @@ class SimpleReplacementPolicy(nn.Module):
             return RecursiveLinear(cast(int, module.in_features), cast(int, module.out_features))
         return None
 
-    def policy(self) -> Mapping[Type[torch.nn.Module], surgery.ReplacementFunction]:
+    def policy(self) -> Mapping[Type[torch.nn.Module], module_surgery.ReplacementFunction]:
         return {nn.Linear: self.maybe_replace_linear}
 
     def validate_replacements(self, recurse_on_replacements: bool):
@@ -53,9 +51,7 @@ class SimpleReplacementPolicy(nn.Module):
 
 
 class ModuleIdxReplacementPolicy(SimpleReplacementPolicy):
-    """
-    Test replacing only the first instance of a Linear layer
-    """
+    """Test replacing only the first instance of a Linear layer."""
 
     @staticmethod
     def maybe_replace_linear(module: torch.nn.Module, module_index: int):
@@ -89,7 +85,7 @@ class NoOpReplacementPolicy(SimpleReplacementPolicy):
 ])
 def test_module_replacement(model_cls: Type[SimpleReplacementPolicy], recurse_on_replacements: bool):
     model = model_cls()
-    surgery.replace_module_classes(
+    module_surgery.replace_module_classes(
         model,
         optimizers=None,
         policies=model.policy(),
@@ -120,13 +116,15 @@ class _CopyLinear(torch.nn.Module):
 
 @pytest.fixture
 def optimizer_surgery_state():
-    input_shape = (1, 18, 18)
+    num_channels = 1
     n_classes = 10
-    model = SimpleBatchPairModel(input_shape, n_classes)
-    policy: Mapping[Type[torch.nn.Module], surgery.ReplacementFunction] = {torch.nn.Linear: _CopyLinear.from_linear}
+    model = SimpleBatchPairModel(num_channels, n_classes)
+    policy: Mapping[Type[torch.nn.Module], module_surgery.ReplacementFunction] = {
+        torch.nn.Linear: _CopyLinear.from_linear
+    }
     opt = torch.optim.SGD(model.parameters(), lr=.001)
     orig_linear_modules = [model.fc1, model.fc2]
-    surgery.replace_module_classes(model, policies=policy, optimizers=opt)
+    module_surgery.replace_module_classes(model, policies=policy, optimizers=opt)
     new_linear_modules = [model.fc1, model.fc2]
     return orig_linear_modules, new_linear_modules, opt
 
@@ -140,7 +138,7 @@ def test_optimizer_surgery_no_duplicate_params(optimizer_surgery_state: Tuple[Li
 
 
 def _param_in_optimizer(param: torch.nn.parameter.Parameter, opt: torch.optim.Optimizer):
-    return surgery._find_param_in_optimizer(param, opt) >= 0
+    return module_surgery._find_param_in_optimizer(param, opt) >= 0
 
 
 def test_optimizer_surgery_removed_params_gone(optimizer_surgery_state: Tuple[List[torch.nn.Module],

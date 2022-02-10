@@ -6,16 +6,19 @@ from unittest.mock import MagicMock, Mock
 import pytest
 import torch
 import torch.utils.data
+from torchmetrics.classification.accuracy import Accuracy
+from torchmetrics.collections import MetricCollection
 
 from composer import Logger, State
+from composer.core.evaluator import Evaluator
 from composer.core.types import DataLoader, DataSpec, Model, Optimizer, Precision, Scheduler
 from composer.datasets import DataloaderHparams, DatasetHparams
-from composer.models import ModelHparams, MosaicClassifier
+from composer.models import ComposerClassifier, ModelHparams
 from composer.optim import AdamHparams, ExponentialLRHparams
 from composer.trainer import TrainerHparams
 from composer.trainer.devices import CPUDeviceHparams
 from tests.fixtures.models import (SimpleBatchPairModel, SimpleConvModel, _SimpleBatchPairModelHparams,
-                                   _SimpleDatasetHparams)
+                                   _SimpleDatasetHparams, _SimplePILDatasetHparams)
 
 
 @pytest.fixture
@@ -42,7 +45,7 @@ def dummy_val_batch_size() -> int:
 def dummy_model_hparams(
         dummy_in_shape: Tuple[int, ...], dummy_num_classes: int,
         SimpleBatchPairModelHparams: Type[_SimpleBatchPairModelHparams]) -> _SimpleBatchPairModelHparams:
-    return SimpleBatchPairModelHparams(in_shape=list(dummy_in_shape), num_classes=dummy_num_classes)
+    return SimpleBatchPairModelHparams(num_channels=dummy_in_shape[0], num_classes=dummy_num_classes)
 
 
 @pytest.fixture
@@ -51,26 +54,38 @@ def dummy_model(dummy_model_hparams: _SimpleBatchPairModelHparams) -> SimpleBatc
 
 
 @pytest.fixture
-def dummy_train_dataset_hparams(dummy_model: SimpleBatchPairModel,
+def dummy_train_dataset_hparams(dummy_model: SimpleBatchPairModel, dummy_in_shape: Tuple[int],
                                 SimpleDatasetHparams: Type[_SimpleDatasetHparams]) -> DatasetHparams:
     return SimpleDatasetHparams(
         use_synthetic=True,
         drop_last=True,
         shuffle=False,
         num_classes=dummy_model.num_classes,
-        data_shape=list(dummy_model.in_shape),
+        data_shape=list(dummy_in_shape),
     )
 
 
 @pytest.fixture
-def dummy_val_dataset_hparams(dummy_model: SimpleBatchPairModel,
+def dummy_train_pil_dataset_hparams(dummy_model: SimpleBatchPairModel, dummy_in_shape: Tuple[int],
+                                    SimplePILDatasetHparams: Type[_SimplePILDatasetHparams]) -> DatasetHparams:
+    return SimplePILDatasetHparams(
+        use_synthetic=True,
+        drop_last=True,
+        shuffle=False,
+        num_classes=dummy_model.num_classes,
+        data_shape=list(dummy_in_shape)[1:],
+    )
+
+
+@pytest.fixture
+def dummy_val_dataset_hparams(dummy_model: SimpleBatchPairModel, dummy_in_shape: Tuple[int],
                               SimpleDatasetHparams: Type[_SimpleDatasetHparams]) -> DatasetHparams:
     return SimpleDatasetHparams(
         use_synthetic=True,
         drop_last=False,
         shuffle=False,
         num_classes=dummy_model.num_classes,
-        data_shape=list(dummy_model.in_shape),
+        data_shape=list(dummy_in_shape),
     )
 
 
@@ -88,12 +103,15 @@ def dummy_scheduler(dummy_optimizer: Optimizer):
 def dummy_state_without_rank(dummy_model: SimpleBatchPairModel, dummy_train_dataloader: DataLoader,
                              dummy_optimizer: Optimizer, dummy_scheduler: Scheduler,
                              dummy_val_dataloader: DataLoader) -> State:
+    evaluators = [
+        Evaluator(label="dummy_label", dataloader=dummy_val_dataloader, metrics=dummy_model.metrics(train=False))
+    ]
     state = State(
         model=dummy_model,
         precision=Precision.FP32,
         grad_accum=1,
         train_dataloader=dummy_train_dataloader,
-        eval_dataloader=dummy_val_dataloader,
+        evaluators=evaluators,
         optimizers=dummy_optimizer,
         schedulers=dummy_scheduler,
         max_duration="10ep",
@@ -117,6 +135,12 @@ def dummy_dataloader_hparams() -> DataloaderHparams:
 def dummy_train_dataloader(dummy_train_dataset_hparams: DatasetHparams, dummy_train_batch_size: int,
                            dummy_dataloader_hparams: DataloaderHparams) -> Union[DataLoader, DataSpec]:
     return dummy_train_dataset_hparams.initialize_object(dummy_train_batch_size, dummy_dataloader_hparams)
+
+
+@pytest.fixture
+def dummy_train_pil_dataloader(dummy_train_pil_dataset_hparams: DatasetHparams, dummy_train_batch_size: int,
+                               dummy_dataloader_hparams: DataloaderHparams) -> Union[DataLoader, DataSpec]:
+    return dummy_train_pil_dataset_hparams.initialize_object(dummy_train_batch_size, dummy_dataloader_hparams)
 
 
 @pytest.fixture
@@ -163,7 +187,7 @@ def never_match_algorithms():
 
 
 @pytest.fixture
-def mosaic_trainer_hparams(
+def composer_trainer_hparams(
     dummy_model_hparams: ModelHparams,
     dummy_train_dataset_hparams: DatasetHparams,
     dummy_val_dataset_hparams: DatasetHparams,
@@ -204,20 +228,22 @@ def simple_conv_model_input():
 
 @pytest.fixture()
 def state_with_model(simple_conv_model: Model, dummy_train_dataloader: DataLoader, dummy_val_dataloader: DataLoader):
+    metric_coll = MetricCollection([Accuracy()])
+    evaluators = [Evaluator(label="dummy_label", dataloader=dummy_val_dataloader, metrics=metric_coll)]
     state = State(
         grad_accum=1,
         max_duration="100ep",
         model=simple_conv_model,
         precision=Precision.FP32,
         train_dataloader=dummy_train_dataloader,
-        eval_dataloader=dummy_val_dataloader,
+        evaluators=evaluators,
     )
     return state
 
 
 @pytest.fixture()
 def simple_conv_model():
-    return MosaicClassifier(SimpleConvModel())
+    return ComposerClassifier(SimpleConvModel())
 
 
 @pytest.fixture(scope="session")
@@ -230,3 +256,9 @@ def SimpleBatchPairModelHparams():
 def SimpleDatasetHparams():
     TrainerHparams.register_class("train_dataset", _SimpleDatasetHparams, "simple_dataset")
     return _SimpleDatasetHparams
+
+
+@pytest.fixture(scope="session")
+def SimplePILDatasetHparams():
+    TrainerHparams.register_class("train_dataset", _SimplePILDatasetHparams, "simple_pil_dataset")
+    return _SimplePILDatasetHparams

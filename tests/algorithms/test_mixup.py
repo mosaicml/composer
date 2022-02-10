@@ -4,11 +4,9 @@ import pytest
 import torch
 
 from composer.algorithms import MixUpHparams
-from composer.algorithms.mixup.mixup import gen_interpolation_lambda, mixup_batch
+from composer.algorithms.mixup.mixup import _gen_interpolation_lambda, mixup_batch
 from composer.core.types import Event
-from composer.models.base import MosaicClassifier
-from composer.trainer.trainer_hparams import TrainerHparams
-from tests.utils.trainer_fit import train_model
+from composer.models.base import ComposerClassifier
 
 
 # (N, C, d1, d2, n_classes)
@@ -46,7 +44,7 @@ class TestMixUp:
         x_fake, y_fake, indices = fake_data
 
         # Get interpolation lambda based on alpha hparam
-        interpolation_lambda = gen_interpolation_lambda(alpha)
+        interpolation_lambda = _gen_interpolation_lambda(alpha)
 
         # Apply mixup
         x_mix, _, _ = mixup_batch(
@@ -59,35 +57,18 @@ class TestMixUp:
         # Validate results
         validate_mixup_batch(x_fake, y_fake, indices, x_mix, interpolation_lambda)
 
-    def test_mixup_algorithm(self, fake_data, alpha, dummy_state, dummy_logger):
+    def test_mixup_algorithm(self, fake_data, alpha, minimal_state, empty_logger):
         # Generate fake data
         x_fake, y_fake, _ = fake_data
 
-        algorithm = MixUpHparams(alpha=alpha).initialize_object()
-        state = dummy_state
-        state.model = MosaicClassifier
-        state.model.num_classes = x_fake.size(1)  # Grab C
+        algorithm = MixUpHparams(alpha=alpha, num_classes=x_fake.size(1)).initialize_object()
+        state = minimal_state
+        state.model = ComposerClassifier(torch.nn.Flatten())
         state.batch = (x_fake, y_fake)
 
-        algorithm.apply(Event.INIT, state, dummy_logger)
         # Apply algo, use test hooks to specify indices and override internally generated interpolation lambda for testability
-        algorithm.apply(Event.AFTER_DATALOADER, state, dummy_logger)
+        algorithm.apply(Event.AFTER_DATALOADER, state, empty_logger)
 
         x, _ = state.batch
         # Use algorithm generated indices and interpolation_lambda for validation
         validate_mixup_batch(x_fake, y_fake, algorithm.indices, x, algorithm.interpolation_lambda)
-
-
-@pytest.mark.xfail
-def test_mixup_nclasses(dummy_state, dummy_logger):
-    algorithm = MixUpHparams(alpha=0.2).initialize_object()
-    state = dummy_state
-    state.model = MosaicClassifier
-    state.model.num_classes = None  # This should flag AttributeError
-
-    algorithm.apply(Event.AFTER_DATALOADER, state, dummy_logger)
-
-
-def test_mixup_trains(mosaic_trainer_hparams: TrainerHparams):
-    mosaic_trainer_hparams.algorithms = [MixUpHparams(alpha=0.2)]
-    train_model(mosaic_trainer_hparams)

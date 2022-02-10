@@ -58,7 +58,8 @@ def get_parser():
     parser.add_argument("--run_directory",
                         type=str,
                         default=None,
-                        help=textwrap.dedent("""Directory to store run artifcats. 
+                        help=textwrap.dedent("""\
+                            Directory to store run artifcats. 
                             Defaults to runs/{datetime.datetime.now().isoformat()}/""")),
     parser.add_argument("-m",
                         "--module_mode",

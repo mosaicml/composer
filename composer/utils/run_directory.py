@@ -17,7 +17,7 @@ _start_time_str = datetime.datetime.now().isoformat()
 
 def get_node_run_directory() -> str:
     """Returns the run directory for the node. This folder is shared by all ranks on the node.
-    
+
     Returns:
         str: The node run directory.
     """
@@ -31,7 +31,7 @@ def get_node_run_directory() -> str:
 
 def get_run_directory() -> str:
     """Returns the run directory for the current rank.
-    
+
     Returns:
         str: The run directory.
     """
@@ -69,9 +69,8 @@ def get_modified_files(modified_since_timestamp: float, *, ignore_hidden: bool =
 
 
 def get_run_directory_timestamp() -> float:
-    """Returns the current timestamp on the run directory filesystem.
-    Note that the disk time can differ from system time (e.g. when using
-    network filesystems).
+    """Returns the current timestamp on the run directory filesystem. Note that the disk time can differ from system
+    time (e.g. when using network filesystems).
 
     Returns:
         float: the current timestamp on the run directory filesystem.

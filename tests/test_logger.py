@@ -11,8 +11,8 @@ from tqdm import auto
 from composer.core.event import Event
 from composer.core.logging import Logger, LogLevel
 from composer.core.state import State
-from composer.loggers.logger_hparams import (FileLoggerBackendHparams, TQDMLoggerBackendHparams,
-                                             WandBLoggerBackendHparams)
+from composer.loggers.in_memory_logger import InMemoryLogger
+from composer.loggers.logger_hparams import FileLoggerHparams, TQDMLoggerHparams, WandBLoggerHparams
 from composer.trainer.trainer_hparams import TrainerHparams
 from composer.utils import dist
 
@@ -24,30 +24,38 @@ def log_file_name(tmpdir: pathlib.Path) -> str:
 
 @pytest.mark.parametrize("log_level", [LogLevel.EPOCH, LogLevel.BATCH])
 def test_file_logger(dummy_state: State, log_level: LogLevel, log_file_name: str):
-    log_destination = FileLoggerBackendHparams(
+    log_destination = FileLoggerHparams(
         log_interval=3,
         log_level=log_level,
         filename=log_file_name,
         buffer_size=1,
         flush_interval=1,
     ).initialize_object()
-    dummy_state.timer.on_batch_complete()
-    dummy_state.timer.on_batch_complete()
-    dummy_state.timer.on_epoch_complete()
     logger = Logger(dummy_state, backends=[log_destination])
     log_destination.run_event(Event.INIT, dummy_state, logger)
+    log_destination.run_event(Event.EPOCH_START, dummy_state, logger)
+    log_destination.run_event(Event.BATCH_START, dummy_state, logger)
+    dummy_state.timer.on_batch_complete()
+    log_destination.run_event(Event.BATCH_START, dummy_state, logger)
+    dummy_state.timer.on_batch_complete()
+    log_destination.run_event(Event.BATCH_START, dummy_state, logger)
+    dummy_state.timer.on_epoch_complete()
+    log_destination.run_event(Event.EPOCH_START, dummy_state, logger)
     logger.metric_fit({"metric": "fit"})  # should print
     logger.metric_epoch({"metric": "epoch"})  # should print on batch level, since epoch calls are always printed
     logger.metric_batch({"metric": "batch"})  # should print on batch level, since we print every 3 steps
     dummy_state.timer.on_epoch_complete()
+    log_destination.run_event(Event.EPOCH_START, dummy_state, logger)
     logger.metric_epoch({"metric": "epoch1"})  # should print, since we log every 3 epochs
     dummy_state.timer.on_epoch_complete()
+    log_destination.run_event(Event.EPOCH_START, dummy_state, logger)
     dummy_state.timer.on_batch_complete()
+    log_destination.run_event(Event.BATCH_START, dummy_state, logger)
     log_destination.run_event(Event.BATCH_END, dummy_state, logger)
     logger.metric_epoch({"metric": "epoch2"})  # should print on batch level, since epoch calls are always printed
     logger.metric_batch({"metric": "batch1"})  # should NOT print
     log_destination.run_event(Event.BATCH_END, dummy_state, logger)
-    log_destination.run_event(Event.TRAINING_END, dummy_state, logger)
+    log_destination.close()
     with open(log_file_name, 'r') as f:
         if log_level == LogLevel.EPOCH:
             assert f.readlines() == [
@@ -69,7 +77,7 @@ def test_file_logger(dummy_state: State, log_level: LogLevel, log_file_name: str
     pytest.param(1),
     pytest.param(2, marks=pytest.mark.world_size(2)),
 ])
-def test_tqdm_logger(mosaic_trainer_hparams: TrainerHparams, monkeypatch: MonkeyPatch, world_size: int):
+def test_tqdm_logger(composer_trainer_hparams: TrainerHparams, monkeypatch: MonkeyPatch, world_size: int):
     is_train_to_mock_tqdms = {
         True: [],
         False: [],
@@ -85,15 +93,15 @@ def test_tqdm_logger(mosaic_trainer_hparams: TrainerHparams, monkeypatch: Monkey
     monkeypatch.setattr(auto, "tqdm", get_mock_tqdm)
 
     max_epochs = 2
-    mosaic_trainer_hparams.max_duration = f"{max_epochs}ep"
-    mosaic_trainer_hparams.loggers = [TQDMLoggerBackendHparams()]
-    trainer = mosaic_trainer_hparams.initialize_object()
+    composer_trainer_hparams.max_duration = f"{max_epochs}ep"
+    composer_trainer_hparams.loggers = [TQDMLoggerHparams()]
+    trainer = composer_trainer_hparams.initialize_object()
     trainer.fit()
     if dist.get_global_rank() == 1:
         return
     assert len(is_train_to_mock_tqdms[True]) == max_epochs
-    assert mosaic_trainer_hparams.validate_every_n_batches < 0
-    assert len(is_train_to_mock_tqdms[False]) == mosaic_trainer_hparams.validate_every_n_epochs * max_epochs
+    assert composer_trainer_hparams.validate_every_n_batches < 0
+    assert len(is_train_to_mock_tqdms[False]) == composer_trainer_hparams.validate_every_n_epochs * max_epochs
     for mock_tqdm in is_train_to_mock_tqdms[True]:
         assert mock_tqdm.update.call_count == trainer.state.steps_per_epoch
         mock_tqdm.close.assert_called_once()
@@ -107,17 +115,40 @@ def test_tqdm_logger(mosaic_trainer_hparams: TrainerHparams, monkeypatch: Monkey
     pytest.param(2, marks=pytest.mark.world_size(2)),
 ])
 @pytest.mark.timeout(10)
-def test_wandb_logger(mosaic_trainer_hparams: TrainerHparams, world_size: int):
+def test_wandb_logger(composer_trainer_hparams: TrainerHparams, world_size: int):
     try:
         import wandb
         del wandb
     except ImportError:
         pytest.skip("wandb is not installed")
     del world_size  # unused. Set via launcher script
-    mosaic_trainer_hparams.loggers = [
-        WandBLoggerBackendHparams(log_artifacts=True,
-                                  log_artifacts_every_n_batches=1,
-                                  extra_init_params={"mode": "disabled"})
+    composer_trainer_hparams.loggers = [
+        WandBLoggerHparams(log_artifacts=True, log_artifacts_every_n_batches=1, extra_init_params={"mode": "disabled"})
     ]
-    trainer = mosaic_trainer_hparams.initialize_object()
+    trainer = composer_trainer_hparams.initialize_object()
     trainer.fit()
+
+
+def test_in_memory_logger(dummy_state: State):
+    in_memory_logger = InMemoryLogger(LogLevel.EPOCH)
+    logger = Logger(dummy_state, backends=[in_memory_logger])
+    logger.metric_batch({"batch": "should_be_ignored"})
+    logger.metric_epoch({"epoch": "should_be_recorded"})
+    dummy_state.timer.on_batch_complete(samples=1, tokens=1)
+    logger.metric_epoch({"epoch": "should_be_recorded_and_override"})
+
+    # no batch events should be logged, since the level is epoch
+    assert "batch" not in in_memory_logger.data
+    assert len(in_memory_logger.data["epoch"]) == 2
+
+    # `in_memory_logger.data` should contain everything
+    timestamp, _, data = in_memory_logger.data["epoch"][0]
+    assert timestamp.batch == 0
+    assert data == "should_be_recorded"
+    timestamp, _, data = in_memory_logger.data["epoch"][1]
+    assert timestamp.batch == 1
+    assert data == "should_be_recorded_and_override"
+
+    # the most recent values should have just the last call to epoch
+    assert in_memory_logger.most_recent_values["epoch"] == "should_be_recorded_and_override"
+    assert in_memory_logger.most_recent_timestamps["epoch"].batch == 1

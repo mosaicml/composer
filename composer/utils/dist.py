@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import datetime
 import os
+import textwrap
 import warnings
 from typing import Any, List, Optional, Sequence, TypeVar, cast
 
@@ -14,10 +15,12 @@ import torch.utils.data
 TObj = TypeVar("TObj")
 
 
-def _get_distributed_config_var(env_var: str,
-                                human_name: str,
-                                default: int,
-                                fetch_fn_name: Optional[str] = None) -> int:
+def _get_distributed_config_var(
+    env_var: str,
+    human_name: str,
+    default: int,
+    fetch_fn_name: Optional[str] = None,
+) -> int:
     if not dist.is_available():
         warnings.warn("DistributedDefaultValueWarning: Torch distributed is not available; "
                       f"returning {default} for {human_name}")
@@ -72,7 +75,7 @@ def get_local_world_size() -> int:
     Returns:
         int: The local world size
     """
-    return _get_distributed_config_var(env_var="LOCAL_WORLD_SIZE", human_name="local world size", default=1)
+    return _get_distributed_config_var(env_var="LOCAL_WORLD_SIZE", default=1, human_name="local world size")
 
 
 def get_local_rank() -> int:
@@ -81,17 +84,17 @@ def get_local_rank() -> int:
     Returns:
         int: The local world size
     """
-    return _get_distributed_config_var(env_var="LOCAL_RANK", human_name="local rank", default=0)
+    return _get_distributed_config_var(env_var="LOCAL_RANK", default=0, human_name="local rank")
 
 
 def get_node_rank() -> int:
-    """Returns the node rank. For example, if there are 2 nodes, and 2 ranks per node, then
-    global ranks 0-1 will have a node rank of 0, and global ranks 2-3 will have a node rank of 1.
+    """Returns the node rank. For example, if there are 2 nodes, and 2 ranks per node, then global ranks 0-1 will have a
+    node rank of 0, and global ranks 2-3 will have a node rank of 1.
 
     Returns:
         int: The node rank, starting at 0.
     """
-    return _get_distributed_config_var(env_var="NODE_RANK", human_name="node rank", default=0)
+    return _get_distributed_config_var(env_var="NODE_RANK", default=0, human_name="node rank")
 
 
 def barrier() -> None:
@@ -147,10 +150,9 @@ def broadcast(tensor: torch.Tensor, src: int) -> None:
 
 
 def broadcast_object_list(object_list: List[Any], src: int = 0) -> None:
-    """Broadcasts picklable objects in ``object_list`` to the whole group.
-    Similar to :meth:`broadcast`, but Python objects can be passed in.
-    Note that all objects in ``object_list`` must be picklable in order to be broadcasted.
-    See :meth:`torch.distributed.broadcast`.
+    """Broadcasts picklable objects in ``object_list`` to the whole group. Similar to :meth:`broadcast`, but Python
+    objects can be passed in. Note that all objects in ``object_list`` must be picklable in order to be broadcasted. See
+    :meth:`torch.distributed.broadcast`.
 
     Args:
         object_list (torch.Tensor): List of input objects to broadcast.
@@ -173,7 +175,7 @@ def broadcast_object_list(object_list: List[Any], src: int = 0) -> None:
 
 
 def all_gather(tensor: torch.Tensor) -> Sequence[torch.Tensor]:
-    """all_gather collects a tensor from each rank, and returns a sequence of tensors indexed by rank
+    """all_gather collects a tensor from each rank, and returns a sequence of tensors indexed by rank.
 
     Args:
         tensor (torch.Tensor): tensor from each rank to be gathered
@@ -195,8 +197,8 @@ def all_gather(tensor: torch.Tensor) -> Sequence[torch.Tensor]:
 
 
 def all_gather_object(obj: TObj) -> List[TObj]:
-    """all_gather_object collects a pickleable object from each rank, and returns a list of
-    these objects indexed by rank
+    """all_gather_object collects a pickleable object from each rank, and returns a list of these objects indexed by
+    rank.
 
     Args:
         obj (TObj): Object to be gathered
@@ -204,7 +206,7 @@ def all_gather_object(obj: TObj) -> List[TObj]:
     Returns:
         List[TObj]: A list of objects indexed by rank
     """
-    if dist.is_available():
+    if dist.is_available() and dist.is_initialized():
         obj_gather_list = [None for _ in range(get_world_size())]
         dist.all_gather_object(obj_gather_list, obj)
         # torch.distributed will replace the None's in obj_gather_list with the gathered objects on rank 0
@@ -228,11 +230,14 @@ def is_initialized():
 
 
 def initialize_dist(backend: str, timeout: datetime.timedelta):
-    if not dist.is_available():
-        if get_world_size() != 1:
-            raise RuntimeError("When the world size is > 1, ``torch.distributed`` must be used. However, it is "
-                               "not available in your installation of PyTorch. Please install or build PyTorch "
-                               "with distributed support.")
+    if get_world_size() == 1:
+        warnings.warn("DistributedWarning: Initializing of torch.distributed required but the world size is 1."
+                      "This is supported, but not recommended.")
+
+    if get_world_size() > 1 and not dist.is_available():
+        raise RuntimeError("When the world size is > 1, ``torch.distributed`` must be used. However, it is "
+                           "not available in your installation of PyTorch. Please install or build PyTorch "
+                           "with distributed support.")
         return
 
     if dist.is_initialized():
@@ -242,12 +247,27 @@ def initialize_dist(backend: str, timeout: datetime.timedelta):
                                "wish to change backends, please restart the python process.")
         return
 
-    if "RANK" not in os.environ or "WORLD_SIZE" not in os.environ:
-        warnings.warn("NoDistributedWarning: RANK and WORLD_SIZE env vars not set; assuming no "
-                      "parallelization. If this is unexpected, make sure you are running your "
-                      "training script with the composer CLI tool.")
-    elif get_world_size() > 1:
-        dist.init_process_group(backend, timeout=timeout)
+    dist_env_variable_names = ("NODE_RANK", "WORLD_SIZE", "LOCAL_WORLD_SIZE", "RANK", "LOCAL_RANK")
+
+    is_missing_all_dist_env_vars = all(x not in os.environ for x in dist_env_variable_names)
+    if is_missing_all_dist_env_vars:
+        # missing all variables, in which case we should assume a single process
+        # if any variables are set, then it's likely an incomplete configuration, in which case we should not assume
+        # defaults (it would be better to let dist.init_process_group crash)
+        warnings.warn(
+            textwrap.dedent(f"""\
+                NoDistributedWarning: No distributed environment variables are set; assuming no
+                parallelization. If this is unexpected, please run the script with the composer CLI tool."""))
+        # setting the environment variables to single-rank defaults
+        os.environ["LOCAL_RANK"] = "0"
+        os.environ["RANK"] = "0"
+        os.environ["LOCAL_WORLD_SIZE"] = "1"
+        os.environ["WORLD_SIZE"] = "1"
+        os.environ["NODE_RANK"] = "0"
+        dist.init_process_group(backend, store=dist.HashStore(), world_size=1, rank=0)
+        return
+
+    dist.init_process_group(backend, timeout=timeout)
 
 
 def get_sampler(dataset, *, drop_last: bool, shuffle: bool) -> torch.utils.data.Sampler:

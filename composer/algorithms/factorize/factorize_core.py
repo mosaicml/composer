@@ -83,7 +83,7 @@ def factorize_matrix(X: torch.Tensor,
                      Wa: torch.Tensor,
                      Wb: Optional[torch.Tensor] = None,
                      bias: Optional[torch.Tensor] = None,
-                     rank: Union[int, float] = .5,
+                     rank: Union[int, float] = .25,
                      n_iters: int = 3) -> LowRankSolution:
     """Approximates a matrix by factorizing it into a product of two smaller matrices.
 
@@ -130,7 +130,6 @@ def factorize_matrix(X: torch.Tensor,
         solution:
             a :class:`~LowRankSolution` of rank ``rank`` that approximates
             the original matrix.
-
     """
     X = X.detach()
     Y = Y.detach()
@@ -248,12 +247,13 @@ def _mat_to_weights_conv2d(mat: Optional[torch.Tensor], kernel_size) -> Optional
 def factorize_conv2d(X,
                      Wa: torch.Tensor,
                      Wb: Optional[torch.Tensor] = None,
-                     rank: Union[int, float] = .5,
+                     rank: Union[int, float] = .25,
                      biasA: Optional[torch.Tensor] = None,
                      biasB: Optional[torch.Tensor] = None,
                      n_iters=3,
                      **conv2d_kwargs) -> LowRankSolution:
-    """Approximates a KxK convolution by factorizing it into a KxK convolution with fewer channels followed by a 1x1 convolution.
+    """Approximates a KxK convolution by factorizing it into a KxK convolution with fewer channels followed by a 1x1
+    convolution.
 
     Given a convolutional weight tensor ``W`` for a 2d convolution of shape
     ``[out_channels, in_channels, k_h, k_w]`` and a vector ``bias`` of length
@@ -308,7 +308,6 @@ def factorize_conv2d(X,
             If ``biasB`` is provided but not ``Wb`` is not.
         NotImplementedError:
             if ``conv2d_kwargs['dilation'] != 1`` or ``conv2d_kwargs['groups'] != 1``.
-
     """
     X = X.detach()
     Wa = Wa.detach()
