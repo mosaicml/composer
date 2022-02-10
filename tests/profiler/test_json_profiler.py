@@ -12,7 +12,7 @@ from composer.utils import run_directory
 
 @pytest.mark.timeout(10)
 def test_json_trace_profiler_hanlder(composer_trainer_hparams: TrainerHparams):
-    psutil = pytest.importorskip(modname="psutil", reason="Required module psutil could not be imported")
+    pytest.importorskip(modname="psutil", reason="Required module psutil could not be imported")
 
     json_trace_handler_params = JSONTraceHandlerHparams(flush_every_n_batches=1,)
 
