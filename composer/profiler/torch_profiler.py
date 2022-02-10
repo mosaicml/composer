@@ -7,17 +7,14 @@ import json
 import os
 import textwrap
 import warnings
-from typing import TYPE_CHECKING, Optional
+from typing import Optional
 
 import torch.profiler
 from torch.profiler.profiler import ProfilerAction as TorchProfilerAction
 
-from composer.core import Callback
+from composer.core import Callback, Logger, State
 from composer.profiler.profiler import ProfilerAction
 from composer.utils import dist, run_directory
-
-if TYPE_CHECKING:
-    from composer.core import Logger, State
 
 _PROFILE_MISSING_ERROR = "The profiler has not been setup. Please call profiler.init() before training starts."
 

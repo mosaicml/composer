@@ -128,13 +128,13 @@ class Trainer:
         prof_event_handlers (List[ProfilerEventHandler], optional): Trace event handler.
             Ignored if ``profiler_trace_file`` is not specified. (default: ``[JSONTraceHandler()]``).
         prof_skip_first (int, optional): Number of batches to skip at epoch start.
-            Ignored if ``profiler_trace_file`` is not specified. (default: ``optional``).
+            Ignored if ``profiler_trace_file`` is not specified. (default: ``0``).
         prof_wait (int, optional): Number of batches to skip at the beginning of each cycle.
-            Ignored if ``profiler_trace_file`` is not specified. (default: ``optional``).
+            Ignored if ``profiler_trace_file`` is not specified. (default: ``0``).
         prof_warmup (int, optional): Number of warmup batches in a cycle.
-            Ignored if ``profiler_trace_file`` is not specified. (default: ``optional``).
+            Ignored if ``profiler_trace_file`` is not specified. (default: ``1``).
         prof_active (int, optional): Number of batches to profile in a cycle.
-            Ignored if ``profiler_trace_file`` is not specified. (default: ``optional``).
+            Ignored if ``profiler_trace_file`` is not specified. (default: ``4``).
         prof_repeat (int, optional): Maximum number of profiling cycle repetitions per epoch (0 for no maximum).
             Ignored if ``profiler_trace_file`` is not specified. (default: ``1``).
         sys_prof_cpu (bool, optional): Whether to record cpu statistics.

@@ -35,6 +35,7 @@ class Profiler:
     The ``event_handlers`` then record and save this data to a usable trace.
 
     Args:
+        state (State): The state.
         event_handlers (Sequence[ProfilerEventHandler]): Event handlers which record and save profiling data to traces.
         skip_first (int, optional): Number of batches to skip profiling at epoch start. (Default: ``0``)
         wait (int, optional): For each profiling cycle, number of batches to skip at the beginning of the cycle. (Default: ``0``)
@@ -42,6 +43,7 @@ class Profiler:
             after skipping ``wait`` batches.. (Default: ``1``)
         active (int, optional): For each profiling cycle, number of batches to record after warming up. (Default: ``4``)
         repeat (int, optional): Number of profiling cycles to perform per epoch. Set to ``0`` to record the entire epoch. (Default: ``1``)
+        merged_trace_file (str, optional): Name of the trace file, relative to the run directory. (Default: ``merged_profiler_trace.json``)
     """
 
     def __init__(self,
@@ -201,8 +203,7 @@ class Profiler:
             wall_clock_time_ns (int): The :meth:`time.time_ns` corresponding to the event.
             global_rank (int): The `global_rank` where the event was triggered.
             pid (int): The `pid` where the event was triggered.
-            epoch (int): The epoch at which the event was triggered.
-            step (int): The step at which the event was triggered.
+            timestamp (Timestamp): The timestamp at which the event was triggered.
         """
         for handler in self._event_handlers:
             handler.process_instant_event(

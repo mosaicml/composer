@@ -65,7 +65,6 @@ class ProfilerEventHandler(Callback, abc.ABC):
         Args:
             name (str): The name of the event.
             categories (List[str] | Tuple[str, ...]): The categories for the event.
-            is_start (bool): Whether the event is a start event or end event.
             timestamp (Timestamp): Snapshot of current training time.
             wall_clock_time_ns (int): The :meth:`time.time_ns` corresponding to the event.
             global_rank (int): The `global_rank` corresponding to the event.
