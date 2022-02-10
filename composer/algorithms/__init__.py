@@ -72,6 +72,7 @@ from composer.algorithms.hparams import SelectiveBackpropHparams as SelectiveBac
 from composer.algorithms.hparams import SeqLengthWarmupHparams as SeqLengthWarmupHparams
 from composer.algorithms.hparams import SqueezeExciteHparams as SqueezeExciteHparams
 from composer.algorithms.hparams import StochasticDepthHparams as StochasticDepthHparams
+from composer.algorithms.hparams import SWAHparams as SWAHparams
 from composer.algorithms.label_smoothing import LabelSmoothing as LabelSmoothing
 from composer.algorithms.layer_freezing import LayerFreezing as LayerFreezing
 from composer.algorithms.mixup import MixUp as MixUp
@@ -87,7 +88,6 @@ from composer.algorithms.squeeze_excite import SqueezeExcite2d as SqueezeExcite2
 from composer.algorithms.squeeze_excite import SqueezeExciteConv2d as SqueezeExciteConv2d
 from composer.algorithms.stochastic_depth import StochasticDepth as StochasticDepth
 from composer.algorithms.swa import SWA as SWA
-from composer.algorithms.swa.hparams import SWAHparams as SWAHparams
 
 load_multiple = AlgorithmHparams.load_multiple
 load = AlgorithmHparams.load

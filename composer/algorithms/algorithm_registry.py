@@ -8,8 +8,8 @@ from composer.algorithms.hparams import (AlibiHparams, AugMixHparams, BlurPoolHp
                                          GhostBatchNormHparams, LabelSmoothingHparams, LayerFreezingHparams,
                                          MixUpHparams, NoOpModelHparams, ProgressiveResizingHparams, RandAugmentHparams,
                                          SAMHparams, ScaleScheduleHparams, SelectiveBackpropHparams,
-                                         SeqLengthWarmupHparams, SqueezeExciteHparams, StochasticDepthHparams)
-from composer.algorithms.swa.hparams import SWAHparams
+                                         SeqLengthWarmupHparams, SqueezeExciteHparams, StochasticDepthHparams,
+                                         SWAHparams)
 from composer.core.algorithm import Algorithm
 
 registry: Dict[str, Type[AlgorithmHparams]] = {

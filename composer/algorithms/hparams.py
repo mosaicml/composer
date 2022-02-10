@@ -28,6 +28,7 @@ from composer.algorithms.seq_length_warmup import SeqLengthWarmup
 from composer.algorithms.squeeze_excite import SqueezeExcite
 from composer.algorithms.stochastic_depth import StochasticDepth
 from composer.algorithms.stochastic_depth.stochastic_depth import STOCHASTIC_LAYER_MAPPING, validate_stochastic_hparams
+from composer.algorithms.swa import SWA
 
 
 @dataclass
@@ -345,3 +346,26 @@ class SqueezeExciteHparams(AlgorithmHparams):
 
     def initialize_object(self) -> SqueezeExcite:
         return SqueezeExcite(**asdict(self))
+
+
+@dataclass
+class SWAHparams(AlgorithmHparams):
+    """See :class:`~composer.algorithms.swa.SWA`"""
+
+    swa_start: float = hp.optional(
+        doc='Percentage of epochs before starting to apply SWA.',
+        default=0.8,
+    )
+    anneal_epochs: int = hp.optional(
+        doc='Number of annealing epochs.',
+        default=10,
+    )
+    swa_lr: Optional[float] = hp.optional(
+        doc='The final learning rate to anneal towards with this scheduler. '
+        'Set to None for no annealing.',
+        default=None,
+    )
+
+    def initialize_object(self):
+        from composer.algorithms.swa import SWA
+        return SWA(**asdict(self))
