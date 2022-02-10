@@ -7,7 +7,9 @@ Methods Overview
    ---
    .. link-button:: alibi.html
       :text: AliBi
+   ++++++++++++++
    :badge:`NLP,badge-success`
+   ALiBi (Attention with Linear Biases) dispenses with position embeddings for tokens in transformer-based NLP models, instead encoding position information by biasing the query-key attention scores proportionally to each token pair's distance...
 
    ---
 
