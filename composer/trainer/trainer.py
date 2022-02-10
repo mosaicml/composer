@@ -32,7 +32,7 @@ from composer.loggers.tqdm_logger import TQDMLogger
 from composer.models.base import ComposerModel
 from composer.optim import ComposedScheduler
 from composer.optim.decoupled_weight_decay import DecoupledSGDW
-from composer.profiler import Profiler
+from composer.profiler import Profiler, ProfilerEventHandler
 from composer.profiler.dataloader_profiler import DataloaderProfiler
 from composer.profiler.json_trace import JSONTraceHandler
 from composer.profiler.system_profiler import SystemProfiler
@@ -48,8 +48,6 @@ from composer.utils.object_store import ObjectStoreProvider
 
 if TYPE_CHECKING:
     import deepspeed
-
-    from composer.profiler import ProfilerEventHandler
 
 log = logging.getLogger(__name__)
 
