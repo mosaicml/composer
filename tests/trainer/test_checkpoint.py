@@ -291,7 +291,8 @@ def test_checkpoint(
     composer_trainer_hparams.loggers = []
     composer_trainer_hparams.train_batch_size = 8
     composer_trainer_hparams.eval_batch_size = 16
-    composer_trainer_hparams.max_duration = "2ep"
+    num_epochs = 2
+    composer_trainer_hparams.max_duration = f"{num_epochs}ep"
     composer_trainer_hparams.precision = Precision.FP32
     composer_trainer_hparams.callbacks = [DummyStatefulCallbackHparams(), EventCounterCallbackHparams()]
     composer_trainer_hparams.train_subset_num_batches = 5
@@ -311,7 +312,10 @@ def test_checkpoint(
 
     checkpoint_a_folder = "first"
     composer_trainer_hparams.save_folder = checkpoint_a_folder
-    composer_trainer_hparams.save_interval = "1ep" if checkpoint_filename.startswith("ep") else "2ba"
+    save_interval_epochs = 1
+    save_interval_batches = 2
+    composer_trainer_hparams.save_interval = f"{save_interval_epochs}ep" if checkpoint_filename.startswith(
+        "ep") else f"{save_interval_batches}ba"
     composer_trainer_hparams.save_compression = compression
     composer_trainer_hparams.seed = seed
 
@@ -319,9 +323,10 @@ def test_checkpoint(
     composer_trainer_hparams.validate_every_n_epochs = 0 if checkpoint_filename.startswith("ep") else 1
     final_checkpoint = ("ep2" if checkpoint_filename.startswith("ep") else "it8") + (".tar.gz"
                                                                                      if compression else ".pt")
-    trainer = _test_checkpoint_trainer(composer_trainer_hparams)
-    first_run_checkpoint_filepath = trainer.last_checkpoint_filepath
-    assert first_run_checkpoint_filepath is not None
+    first_trainer = _test_checkpoint_trainer(composer_trainer_hparams)
+    expected_num_checkpoints = num_epochs / save_interval_epochs if checkpoint_filename.startswith(
+        "ep") else (composer_trainer_hparams.train_subset_num_batches + 1) / save_interval_batches * num_epochs
+    assert len(first_trainer.saved_checkpoint_filepaths) == expected_num_checkpoints
     checkpoint_a_file_path = os.path.join(checkpoint_a_folder, checkpoint_filename)
     checkpoint_b_file_path = os.path.join(run_directory.get_node_run_directory(), "rank_{RANK}", checkpoint_a_folder,
                                           final_checkpoint)
@@ -336,10 +341,7 @@ def test_checkpoint(
     second_trainer_hparams.load_weights_only = False
     second_trainer_hparams.load_strict_model_weights = False
 
-    trainer = _test_checkpoint_trainer(second_trainer_hparams)
-    second_run_checkpoint_filepath = trainer.last_checkpoint_filepath
-    assert second_run_checkpoint_filepath is not None
-    assert second_run_checkpoint_filepath != first_run_checkpoint_filepath
+    second_trainer = _test_checkpoint_trainer(second_trainer_hparams)
     checkpoint_c_file_path = os.path.join(run_directory.get_node_run_directory(), "rank_{RANK}", checkpoint_b_folder,
                                           final_checkpoint)
 

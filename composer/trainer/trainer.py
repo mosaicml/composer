@@ -442,10 +442,7 @@ class Trainer:
         return self.deepspeed_config is not None
 
     @property
-    def last_checkpoint_filepath(self):
-        if self.checkpoint_saver.last_save_path is None:
-            return None
-
+    def saved_checkpoint_filepaths(self):
         uploader = None
         for c in self.state.callbacks:
             if isinstance(c, RunDirectoryUploader):
@@ -453,12 +450,15 @@ class Trainer:
                 break
 
         if uploader is not None:
-            provider_prefix = uploader.provider_prefix
-            full_object_name = get_obj_name_for_local_file(object_name_prefix=uploader.object_name_prefix,
-                                                           local_filepath=self.checkpoint_saver.last_save_path)
-            return provider_prefix + full_object_name
+            uploaded_paths = []
+            for path in self.checkpoint_saver.save_paths:
+                provider_prefix = uploader.provider_prefix
+                full_object_name = get_obj_name_for_local_file(object_name_prefix=uploader.object_name_prefix,
+                                                               local_filepath=path)
+                uploaded_paths.append(provider_prefix + full_object_name)
+            return uploaded_paths
 
-        return self.checkpoint_saver.last_save_path
+        return self.checkpoint_saver.save_paths
 
     def fit(self):
         """Train and evaluate the model on the provided data."""

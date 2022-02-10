@@ -52,7 +52,7 @@ def _is_pt_file(path: str) -> bool:
 
 
 class CheckpointLoader:
-    """Manager for initializing state and restoring RNG state from existing checkpoints.
+    """Manager for initializing trainer state and restoring RNG state from existing checkpoints.
 
     Args:
         path (str): The template path to an existing checkpoint file.
@@ -366,7 +366,7 @@ def _ensure_archive(file_extension: str, write_mode: str) -> Tuple[str, str]:
 
 
 class CheckpointSaver:
-    """Manager for saving state to checkpoint files.
+    """Manager for saving trainer state to checkpoint files.
 
     Args:
         save_folder (str): The path to store checkpoints in.
@@ -388,7 +388,15 @@ class CheckpointSaver:
         os.makedirs(self.checkpoint_folder, mode=0o775, exist_ok=True)
         self.save_interval = interval
         self.file_extension, self.write_mode = _format_from_compression(compression=compression)
-        self.last_save_path = None
+        self._save_paths = []
+
+    @property
+    def save_paths(self):
+        """A list of the absolute paths to which checkpoints have been saved.
+
+        File paths are sorted in ascending order chronologically.
+        """
+        return self._save_paths
 
     def should_checkpoint(self, state: State, event: Event) -> bool:
         """Given the current state and event, determine whether a checkpoint needs to be created.
@@ -413,6 +421,10 @@ class CheckpointSaver:
 
     def save_checkpoint(self, state: State, seed: int, device: Device) -> None:
         """Save the current state to a a new checkpoint file.
+
+        The default is to save checkpoints in a `.pt` file unless DeepSpeed is being used to train the model
+        in which case checkpoints will be stored in a `.tar` format because there are multiple files in the
+        checkpoint.
 
         Args:
             state (State): The current State of the trainer.
@@ -459,7 +471,7 @@ class CheckpointSaver:
                 # move the file out of tmpdir to the user-specified location
                 shutil.move(composer_states_filepath, checkpoint_filepath)
 
-            self.last_save_path = checkpoint_filepath
+            self._save_paths.append(checkpoint_filepath)
             log.info(f'Trainer checkpoint saved to {checkpoint_filepath}')
 
         # Ensure that the non-rank 0 processes don't exit before the checkpoint is saved.
