@@ -3,15 +3,12 @@
 from __future__ import annotations
 
 import logging
-from dataclasses import asdict, dataclass
 from typing import Optional, Tuple
 
 import numpy as np
 import torch
-import yahp as hp
 from torch.nn import functional as F
 
-from composer.algorithms import AlgorithmHparams
 from composer.core.types import Algorithm, Event, Logger, State, Tensor
 from composer.models.loss import check_for_index_targets
 

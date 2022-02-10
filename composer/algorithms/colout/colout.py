@@ -5,16 +5,13 @@ from __future__ import annotations
 import logging
 import textwrap
 import weakref
-from dataclasses import asdict, dataclass
 from typing import TypeVar
 
 import torch
-import yahp as hp
 from PIL.Image import Image
 from torchvision.datasets import VisionDataset
 from torchvision.transforms import functional as TF
 
-from composer.algorithms import AlgorithmHparams
 from composer.core import Algorithm, Event, Logger, State
 from composer.core.types import Tensor
 from composer.utils.data import add_dataset_transform

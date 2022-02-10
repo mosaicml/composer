@@ -368,5 +368,4 @@ class SWAHparams(AlgorithmHparams):
     )
 
     def initialize_object(self):
-        from composer.algorithms.swa import SWA
         return SWA(**asdict(self))
