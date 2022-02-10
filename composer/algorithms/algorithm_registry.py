@@ -6,13 +6,8 @@ from composer.algorithms.algorithm_hparams import AlgorithmHparams
 from composer.algorithms.alibi import AlibiHparams
 from composer.algorithms.blurpool import BlurPoolHparams
 from composer.algorithms.channels_last import ChannelsLastHparams
-# from composer.algorithms.cutmix import CutMixHparams
-# from composer.algorithms.cutout import CutOutHparams
 from composer.algorithms.factorize import FactorizeHparams
 from composer.algorithms.ghost_batchnorm import GhostBatchNormHparams
-# from composer.algorithms.hparams import AlibiHparams
-# from composer.algorithms.hparams import BlurPoolHparams
-# from composer.algorithms.hparams import ChannelsLastHparams
 from composer.algorithms.hparams import (AugMixHparams, ColOutHparams, CutMixHparams, CutOutHparams,
                                          LabelSmoothingHparams, MixUpHparams, RandAugmentHparams)
 from composer.algorithms.layer_freezing import LayerFreezingHparams
@@ -26,22 +21,6 @@ from composer.algorithms.squeeze_excite import SqueezeExciteHparams
 from composer.algorithms.stochastic_depth import StochasticDepthHparams
 from composer.algorithms.swa.hparams import SWAHparams
 from composer.core.algorithm import Algorithm
-
-# from composer.algorithms.hparams import FactorizeHparams
-# from composer.algorithms.hparams import GhostBatchNormHparams
-# from composer.algorithms.hparams import LabelSmoothingHparams
-# from composer.algorithms.hparams import LayerFreezingHparams
-# from composer.algorithms.hparams import MixUpHparams
-# from composer.algorithms.hparams import NoOpModelHparams
-# from composer.algorithms.hparams import ProgressiveResizingHparams
-# from composer.algorithms.hparams import RandAugmentHparams
-# from composer.algorithms.hparams import SAMHparams
-# from composer.algorithms.hparams import ScaleScheduleHparams
-# from composer.algorithms.hparams import SelectiveBackpropHparams
-# from composer.algorithms.hparams import SeqLengthWarmupHparams
-# from composer.algorithms.hparams import SqueezeExciteHparams
-# from composer.algorithms.hparams import StochasticDepthHparams
-# from composer.algorithms.hparams import SWAHparams
 
 registry: Dict[str, Type[AlgorithmHparams]] = {
     'blurpool': BlurPoolHparams,
