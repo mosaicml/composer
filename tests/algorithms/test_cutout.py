@@ -58,7 +58,8 @@ def tensor_sizes(request):
 # cutout_length=1 won't 0 out (no box is valid)
 # cutout_length=3 should produce 2x2 box due to floor division except when boundary clipping
 # cutout_length=4 should produce 4x4 box due except when boundary clipping
-@pytest.fixture(params=[1, 3, 4])
+# cutout_length=0.5 should produce a box with half the side length of the input
+@pytest.fixture(params=[1, 3, 4, 0.5])
 def cutout_length(request):
     return request.param
 

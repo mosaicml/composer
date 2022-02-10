@@ -132,7 +132,7 @@ class CutOutHparams(AlgorithmHparams):
     """See :class:`CutOut`"""
 
     n_holes: int = hp.optional('Number of holes to cut out', default=1)
-    length: int = hp.optional('Side length of the square hole to cut out', default=112)
+    length: float = hp.optional('Relative or absolute side length of the square hole to cut out', default=0.5)
 
     def initialize_object(self) -> CutOut:
         return CutOut(**asdict(self))

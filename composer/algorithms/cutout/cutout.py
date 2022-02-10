@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import logging
-from typing import Optional
+from typing import Optional, Union
 
 import numpy as np
 import torch
@@ -12,7 +12,9 @@ from composer.core.types import Algorithm, Event, Logger, State, Tensor
 log = logging.getLogger(__name__)
 
 
-def generate_mask(mask: Tensor, width: int, height: int, x: int, y: int, cutout_length: int) -> Tensor:
+def generate_mask(mask: Tensor, width: int, height: int, x: int, y: int, cutout_length: Union[int, float]) -> Tensor:
+    if 0 < cutout_length < 1:
+        cutout_length = int(min(width, height) * cutout_length)
     y1 = np.clip(y - cutout_length // 2, 0, height)
     y2 = np.clip(y + cutout_length // 2, 0, height)
     x1 = np.clip(x - cutout_length // 2, 0, width)
@@ -27,13 +29,14 @@ def apply_cutout(X: Tensor, mask: Tensor):
     return X * mask
 
 
-def cutout_batch(X: Tensor, n_holes: int, length: int) -> Tensor:
+def cutout_batch(X: Tensor, n_holes: int, length: Union[int, float]) -> Tensor:
     """See :class:`CutOut`.
 
     Args:
         X (Tensor): Batch Tensor image of size (B, C, H, W).
         n_holes: Integer number of holes to cut out
-        length: Side length of the square hole to cut out.
+        length: Side length of the square hole to cut out. If ``0 < length < 1``,
+            interpreted as a fraction of ``min(H, W)``.
 
     Returns:
         X_cutout: Image with `n_holes` of dimension `length x length` cut out of it.
@@ -61,10 +64,11 @@ class CutOut(Algorithm):
     Args:
         X (Tensor): Batch Tensor image of size (B, C, H, W).
         n_holes: Integer number of holes to cut out
-        length: Side length of the square hole to cut out.
+        length: Side length of the square hole to cut out. If ``0 < length < 1``,
+            interpreted as a fraction of ``min(H, W)``.
     """
 
-    def __init__(self, n_holes: int, length: int):
+    def __init__(self, n_holes: int = 1, length: Union[int, float] = 0.5):
         self.n_holes = n_holes
         self.length = length
 
