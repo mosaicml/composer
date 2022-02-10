@@ -11,6 +11,7 @@ from composer.datasets.dataloader import WrappedDataLoader
 if TYPE_CHECKING:
     from composer.core.state import State
     from composer.core.types import Batch, DataLoader, Logger
+    from composer.profiler import Profiler
 
 
 class ProfiledDataLoader(WrappedDataLoader):
@@ -23,9 +24,9 @@ class ProfiledDataLoader(WrappedDataLoader):
         name (str): The name for the dataloader.
     """
 
-    def __init__(self, state: State, dataloader: DataLoader, name: str) -> None:
+    def __init__(self, profiler: Profiler, dataloader: DataLoader, name: str) -> None:
         super().__init__(dataloader)
-        self._marker = state.profiler.marker(f"dataloader/{name}", categories=["dataloader"])
+        self._marker = profiler.marker(f"dataloader/{name}", categories=["dataloader"])
         self._iterator: Optional[Iterator[Batch]] = None
 
     def __iter__(self) -> ProfiledDataLoader:
@@ -51,10 +52,10 @@ class DataloaderProfiler(Callback):
                 Make sure to run composer with the profiler -- i.e. with the `--profiler` CLI flag."""))
 
         if not ProfiledDataLoader.is_dataloader_already_wrapped(state.train_dataloader):
-            state.train_dataloader = ProfiledDataLoader(state, state.train_dataloader, "train")
+            state.train_dataloader = ProfiledDataLoader(state.profiler, state.train_dataloader, "train")
 
         for evaluator in state.evaluators:
 
             if not ProfiledDataLoader.is_dataloader_already_wrapped(evaluator.dataloader.dataloader):
-                evaluator.dataloader.dataloader = ProfiledDataLoader(state, evaluator.dataloader.dataloader,
+                evaluator.dataloader.dataloader = ProfiledDataLoader(state.profiler, evaluator.dataloader.dataloader,
                                                                      evaluator.label)
