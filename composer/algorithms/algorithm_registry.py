@@ -5,9 +5,8 @@ from typing import Dict, List, Type
 from composer.algorithms.algorithm_hparams import AlgorithmHparams
 from composer.algorithms.hparams import (AlibiHparams, AugMixHparams, BlurPoolHparams, ChannelsLastHparams,
                                          ColOutHparams, CutMixHparams, CutOutHparams, FactorizeHparams,
-                                         GhostBatchNormHparams, LabelSmoothingHparams, MixUpHparams, RandAugmentHparams,
-                                         SqueezeExciteHparams, StochasticDepthHparams)
-from composer.algorithms.layer_freezing import LayerFreezingHparams
+                                         GhostBatchNormHparams, LabelSmoothingHparams, LayerFreezingHparams,
+                                         MixUpHparams, RandAugmentHparams, SqueezeExciteHparams, StochasticDepthHparams)
 from composer.algorithms.no_op_model import NoOpModelHparams
 from composer.algorithms.progressive_resizing import ProgressiveResizingHparams
 from composer.algorithms.sam import SAMHparams

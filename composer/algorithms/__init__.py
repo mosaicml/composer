@@ -61,13 +61,13 @@ from composer.algorithms.hparams import CutOutHparams as CutOutHparams
 from composer.algorithms.hparams import FactorizeHparams as FactorizeHparams
 from composer.algorithms.hparams import GhostBatchNormHparams as GhostBatchNormHparams
 from composer.algorithms.hparams import LabelSmoothingHparams as LabelSmoothingHparams
+from composer.algorithms.hparams import LayerFreezingHparams as LayerFreezingHparams
 from composer.algorithms.hparams import MixUpHparams as MixUpHparams
 from composer.algorithms.hparams import RandAugmentHparams as RandAugmentHparams
 from composer.algorithms.hparams import SqueezeExciteHparams as SqueezeExciteHparams
 from composer.algorithms.hparams import StochasticDepthHparams as StochasticDepthHparams
 from composer.algorithms.label_smoothing import LabelSmoothing as LabelSmoothing
 from composer.algorithms.layer_freezing import LayerFreezing as LayerFreezing
-from composer.algorithms.layer_freezing import LayerFreezingHparams as LayerFreezingHparams
 from composer.algorithms.mixup import MixUp as MixUp
 from composer.algorithms.no_op_model import NoOpModel as NoOpModel
 from composer.algorithms.no_op_model import NoOpModelHparams as NoOpModelHparams

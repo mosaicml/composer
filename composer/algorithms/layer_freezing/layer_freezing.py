@@ -4,28 +4,14 @@ from __future__ import annotations
 
 import logging
 import textwrap
-from dataclasses import asdict, dataclass
 from typing import List, Optional, Tuple
 
 import torch
-import yahp as hp
 
-from composer.algorithms import AlgorithmHparams
 from composer.core import Algorithm, Event, Logger, State
 from composer.core.types import Model, Optimizers
 
 log = logging.getLogger(__name__)
-
-
-@dataclass
-class LayerFreezingHparams(AlgorithmHparams):
-    """See :class:`LayerFreezing`"""
-
-    freeze_start: float = hp.optional(doc='The percentage of epochs to run before freezing begins.', default=0.5)
-    freeze_level: float = hp.optional(doc='Scale factor for the percentage of the network to freeze.', default=1.0)
-
-    def initialize_object(self) -> LayerFreezing:
-        return LayerFreezing(**asdict(self))
 
 
 def _freeze_schedule(current_duration: float, freeze_start: float, freeze_level: float) -> float:

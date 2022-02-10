@@ -16,6 +16,7 @@ from composer.algorithms.cutout import CutOut
 from composer.algorithms.factorize import Factorize
 from composer.algorithms.ghost_batchnorm import GhostBatchNorm
 from composer.algorithms.label_smoothing import LabelSmoothing
+from composer.algorithms.layer_freezing import LayerFreezing
 from composer.algorithms.mixup import MixUp
 from composer.algorithms.randaugment import RandAugment
 from composer.algorithms.squeeze_excite import SqueezeExcite
@@ -179,6 +180,17 @@ class LabelSmoothingHparams(AlgorithmHparams):
 
     def initialize_object(self) -> LabelSmoothing:
         return LabelSmoothing(**asdict(self))
+
+
+@dataclass
+class LayerFreezingHparams(AlgorithmHparams):
+    """See :class:`LayerFreezing`"""
+
+    freeze_start: float = hp.optional(doc='The percentage of epochs to run before freezing begins.', default=0.5)
+    freeze_level: float = hp.optional(doc='Scale factor for the percentage of the network to freeze.', default=1.0)
+
+    def initialize_object(self) -> LayerFreezing:
+        return LayerFreezing(**asdict(self))
 
 
 @dataclass
