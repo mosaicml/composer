@@ -18,6 +18,7 @@ from composer.algorithms.ghost_batchnorm import GhostBatchNorm
 from composer.algorithms.label_smoothing import LabelSmoothing
 from composer.algorithms.layer_freezing import LayerFreezing
 from composer.algorithms.mixup import MixUp
+from composer.algorithms.progressive_resizing import ProgressiveResizing
 from composer.algorithms.randaugment import RandAugment
 from composer.algorithms.squeeze_excite import SqueezeExcite
 from composer.algorithms.stochastic_depth import StochasticDepth
@@ -202,6 +203,20 @@ class MixUpHparams(AlgorithmHparams):
 
     def initialize_object(self) -> MixUp:
         return MixUp(**asdict(self))
+
+
+@dataclass
+class ProgressiveResizingHparams(AlgorithmHparams):
+    """See :class:`ProgressiveResizing`"""
+
+    mode: str = hp.optional(doc="Type of scaling to perform", default="resize")
+    initial_scale: float = hp.optional(doc="Initial scale factor", default=0.5)
+    finetune_fraction: float = hp.optional(doc="Fraction of training to reserve for finetuning on full-sized inputs",
+                                           default=0.2)
+    resize_targets: bool = hp.optional(doc="Also resize targets", default=False)
+
+    def initialize_object(self) -> ProgressiveResizing:
+        return ProgressiveResizing(**asdict(self))
 
 
 @dataclass

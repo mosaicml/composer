@@ -63,6 +63,7 @@ from composer.algorithms.hparams import GhostBatchNormHparams as GhostBatchNormH
 from composer.algorithms.hparams import LabelSmoothingHparams as LabelSmoothingHparams
 from composer.algorithms.hparams import LayerFreezingHparams as LayerFreezingHparams
 from composer.algorithms.hparams import MixUpHparams as MixUpHparams
+from composer.algorithms.hparams import ProgressiveResizingHparams as ProgressiveResizingHparams
 from composer.algorithms.hparams import RandAugmentHparams as RandAugmentHparams
 from composer.algorithms.hparams import SqueezeExciteHparams as SqueezeExciteHparams
 from composer.algorithms.hparams import StochasticDepthHparams as StochasticDepthHparams
@@ -72,7 +73,6 @@ from composer.algorithms.mixup import MixUp as MixUp
 from composer.algorithms.no_op_model import NoOpModel as NoOpModel
 from composer.algorithms.no_op_model import NoOpModelHparams as NoOpModelHparams
 from composer.algorithms.progressive_resizing import ProgressiveResizing as ProgressiveResizing
-from composer.algorithms.progressive_resizing import ProgressiveResizingHparams as ProgressiveResizingHparams
 from composer.algorithms.randaugment import RandAugment as RandAugment
 from composer.algorithms.sam import SAM as SAM
 from composer.algorithms.sam import SAMHparams as SAMHparams
