@@ -121,17 +121,6 @@ def colout_batch(X: torch.Tensor, p_row: float = 0.15, p_col: float = 0.15) -> t
     return X_colout
 
 
-@dataclass
-class ColOutHparams(AlgorithmHparams):
-    """See :class:`ColOut`"""
-    p_row: float = hp.optional(doc="Fraction of rows to drop", default=0.15)
-    p_col: float = hp.optional(doc="Fraction of cols to drop", default=0.15)
-    batch: bool = hp.optional(doc="Run ColOut at the batch level", default=True)
-
-    def initialize_object(self) -> ColOut:
-        return ColOut(**asdict(self))
-
-
 class ColOut(Algorithm):
     """Drops a fraction of the rows and columns of an input image. If the fraction of rows/columns dropped isn't too
     large, this does not significantly alter the content of the image, but reduces its size and provides extra

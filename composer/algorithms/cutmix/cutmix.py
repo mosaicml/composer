@@ -194,17 +194,6 @@ def cutmix_batch(x: Tensor,
     return x_cutmix, y_cutmix
 
 
-@dataclass
-class CutMixHparams(AlgorithmHparams):
-    """See :class:`CutMix`"""
-
-    num_classes: int = hp.required('Number of classes in the task labels.')
-    alpha: float = hp.optional('Strength of interpolation, should be >= 0. No interpolation if alpha=0.', default=1.0)
-
-    def initialize_object(self) -> CutMix:
-        return CutMix(**asdict(self))
-
-
 class CutMix(Algorithm):
     """`CutMix <https://arxiv.org/abs/1905.04899>`_ trains the network on non-overlapping combinations of pairs of
     examples and iterpolated targets rather than individual examples and targets.
