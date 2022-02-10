@@ -17,7 +17,7 @@ log = logging.getLogger(__name__)
 class ScaleScheduleHparams(AlgorithmHparams):
     """See :class:`ScaleSchedule`"""
 
-    ratio: float = hp.required('Ratio to scale the schedule.')
+    ratio: float = hp.optional('Ratio to scale the schedule.', default=1.0)
 
     def initialize_object(self) -> "ScaleSchedule":
         return ScaleSchedule(**asdict(self))
@@ -34,13 +34,13 @@ class ScaleSchedule(Algorithm):
     Args:
         ratio: The factor by which to scale the duration of the schedule. E.g., 0.5
             makes the schedule take half as long and 2.0 makes it
-            take twice as long.
+            take twice as long. default: 1.0.
 
     See also:
         :func:`composer.trainer.scale_schedule.scale_scheduler`
     """
 
-    def __init__(self, ratio: float):
+    def __init__(self, ratio: float = 1.0):
         self.ratio = ratio
         warnings.warn(
             "ScaleScheduleDeprecationWarning: The scale schedule algorithm is deprecated. "
