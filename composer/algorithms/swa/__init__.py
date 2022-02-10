@@ -19,4 +19,4 @@ _attribution = '(Izmailov et al, 2018)'
 _link = 'https://arxiv.org/abs/1803.05407'
 _method_card = ''
 
-__all__ = ['SWA', 'SWAHparams']
+__all__ = ['SWA']

@@ -3,16 +3,14 @@
 from __future__ import annotations
 
 import logging
-from dataclasses import asdict, dataclass
 from typing import Optional
 
 import numpy as np
 import torch
-import yahp as hp
 
-from composer.algorithms import AlgorithmHparams
-from composer.core import Algorithm, Event, Logger, State, surgery
+from composer.core import Algorithm, Event, Logger, State
 from composer.core.types import Optimizers
+from composer.utils import module_surgery
 
 log = logging.getLogger(__name__)
 
@@ -128,18 +126,8 @@ def apply_ghost_batchnorm(model: torch.nn.Module,
     # we have to specify class names explicitly because replace_module_classes
     # now checks if `module.__class__ == cls`, rather than `isinstance(module, cls)`
     transforms = {cls: maybe_replace for cls in [torch.nn.BatchNorm1d, torch.nn.BatchNorm2d, torch.nn.BatchNorm3d]}
-    surgery.replace_module_classes(model, optimizers=optimizers, policies=transforms)
+    module_surgery.replace_module_classes(model, optimizers=optimizers, policies=transforms)
     return model
-
-
-@dataclass
-class GhostBatchNormHparams(AlgorithmHparams):
-    """See :class:`GhostBatchNorm`"""
-
-    ghost_batch_size: int = hp.optional(doc='Size of sub-batches to normalize over', default=_DEFAULT_GHOST_BATCH_SIZE)
-
-    def initialize_object(self) -> GhostBatchNorm:
-        return GhostBatchNorm(**asdict(self))
 
 
 class GhostBatchNorm(Algorithm):
@@ -176,7 +164,7 @@ class GhostBatchNorm(Algorithm):
         """Logs the result of GhostBatchNorm applications, including the number of modules that have been replaced."""
         assert state.model is not None
 
-        num_new_modules = surgery.count_module_instances(state.model, _GhostBatchNorm)
+        num_new_modules = module_surgery.count_module_instances(state.model, _GhostBatchNorm)
         classname = 'GhostBatchNorm'
         module_name = 'GhostBatchNorm'
 

@@ -6,7 +6,7 @@ Sequence Length Warmup
    :alt: alternate text
    :figclass: align-center
 
-	An example plot showing applying sequence length warmup to 30% of the training duration. 
+	An example plot showing applying sequence length warmup to 30% of the training duration.
 
 |
 Tags: ``Method``, ``Autoregressive Language Modeling``, ``Masked Language Modeling``, ``NLP``, ``Warmup``, ``Curriculum``, ``Speedup``, ``Decreased Wall Clock Time``
@@ -68,20 +68,20 @@ can either:
 
 1. Truncate the tensor at the sequence length specified by
    the warmup schedule.
-2. Reshape the tensor to the sequence length specified by the warmup, 
+2. Reshape the tensor to the sequence length specified by the warmup,
    which allocates the extra tokens along the batch dimension.
 
 **Example when** ``truncate = True`` **and** ``seq_len = 8`` **:**
 
 *Original Input (2 samples):*
 
-.. code-block:: none 
+.. code-block:: none
 
     We choose to go to the moon. We choose to go to the moon in this decade and do the other things, not because they are easy, but because they are hard, because that goal will serve to organize and measure the best of our energies and skills.
 
     It is for these reasons that I regard the decision last year to shift our efforts in space from low to high gear as among the most important decisions that will be made during my incumbency in the office of the Presidency.
 
-*Transformed Inputs (2 samples):* 
+*Transformed Inputs (2 samples):*
 
 .. code-block:: console
 
@@ -171,4 +171,4 @@ Code
 .. autoclass:: composer.algorithms.seq_length_warmup.SeqLengthWarmup
     :members: match, apply
 
-.. autoclass:: composer.algorithms.seq_length_warmup.apply_seq_length_warmup
+.. autoclass:: composer.algorithms.seq_length_warmup.set_batch_sequence_length
