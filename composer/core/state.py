@@ -3,6 +3,7 @@
 """The state of the trainer."""
 from __future__ import annotations
 
+import contextlib
 import logging
 import textwrap
 import warnings
@@ -18,7 +19,6 @@ from composer.core.profiler import Profiler
 from composer.core.serializable import Serializable
 from composer.core.time import Time, Timer, TimeUnit
 from composer.utils import ensure_tuple
-from composer.utils.precision import default_precision_factory
 
 if TYPE_CHECKING:
     from composer.core.algorithm import Algorithm
@@ -27,6 +27,24 @@ if TYPE_CHECKING:
 __all__ = ["State"]
 
 logger = logging.getLogger(__name__)
+
+
+def _default_precision_factory() -> Callable[[Union[str, Precision]], ContextManager]:
+    """Returns a context manager to automatically cast to a specific precision.
+
+    Args:
+        precision (str or Precision): Precision for the context
+    """
+    if torch.cuda.is_available():
+        return lambda precision: torch.cuda.amp.autocast(Precision(precision) == Precision.AMP)
+    else:
+
+        def null(precision):
+            assert Precision(
+                precision) != Precision.AMP, "Precision AMP is only available when `torch.cuda.is_available() == True`."
+            return contextlib.nullcontext()
+
+        return null
 
 
 class State(Serializable):
@@ -120,7 +138,7 @@ class State(Serializable):
 
             # precision
             precision: Union[str, types.Precision] = Precision.FP32,
-            precision_context: Callable[[Precision], ContextManager] = default_precision_factory(),
+            precision_context: Callable[[Precision], ContextManager] = _default_precision_factory(),
 
             # optimizers
             optimizers: Optional[types.Optimizers] = None,

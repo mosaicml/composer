@@ -13,15 +13,16 @@ import yahp as hp
 
 from composer.algorithms import AlgorithmHparams
 from composer.algorithms.blurpool.blurpool_layers import BlurConv2d, BlurMaxPool2d
-from composer.core import Algorithm, Event, Logger, State, surgery
+from composer.core import Algorithm, Event, Logger, State
 from composer.core.types import Optimizers
+from composer.utils import module_surgery
 
 log = logging.getLogger(__name__)
 
 
 def _log_surgery_result(model: torch.nn.Module):
-    num_blurpool_layers = surgery.count_module_instances(model, BlurMaxPool2d)
-    num_blurconv_layers = surgery.count_module_instances(model, BlurConv2d)
+    num_blurpool_layers = module_surgery.count_module_instances(model, BlurMaxPool2d)
+    num_blurconv_layers = module_surgery.count_module_instances(model, BlurConv2d)
     log.info(f'Applied BlurPool to model {model.__class__.__name__}. '
              f'Model now has {num_blurpool_layers} BlurMaxPool2d '
              f'and {num_blurconv_layers} BlurConv2D layers.')
@@ -67,7 +68,7 @@ def apply_blurpool(model: torch.nn.Module,
             _maybe_replace_strided_conv2d,
             blur_first=blur_first,
         )
-    surgery.replace_module_classes(model, optimizers=optimizers, policies=transforms)
+    module_surgery.replace_module_classes(model, optimizers=optimizers, policies=transforms)
     _log_surgery_result(model)
 
 
@@ -151,8 +152,8 @@ class BlurPool(Algorithm):
         """Logs the result of BlurPool application, including the number of layers that have been replaced."""
         assert state.model is not None
 
-        num_blurpool_layers = surgery.count_module_instances(state.model, BlurMaxPool2d)
-        num_blurconv_layers = surgery.count_module_instances(state.model, BlurConv2d)
+        num_blurpool_layers = module_surgery.count_module_instances(state.model, BlurMaxPool2d)
+        num_blurconv_layers = module_surgery.count_module_instances(state.model, BlurConv2d)
 
         # python logger
         log.info(f'Applied BlurPool to model {state.model.__class__.__name__} '
