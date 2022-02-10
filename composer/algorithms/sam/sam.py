@@ -3,31 +3,14 @@
 from __future__ import annotations
 
 import logging
-from dataclasses import asdict, dataclass
 from typing import Optional
 
 import torch
-import yahp as hp
 
-from composer.algorithms import AlgorithmHparams
 from composer.core import Algorithm, Event, Logger, State
 from composer.utils import ensure_tuple
 
 log = logging.getLogger(__name__)
-
-
-@dataclass
-class SAMHparams(AlgorithmHparams):
-    """See :class:`SAM`"""
-    rho: float = hp.optional(doc='The neighborhood size parameter of SAM. Must be greater than 0.', default=0.05)
-    epsilon: float = hp.optional(doc='A small value added to gradient norm for numerical stability.', default=1.0e-12)
-    interval: int = hp.optional(doc='SAM will run once per `interval` steps. A value of 1 will cause'
-                                'SAM to run every step. Steps on which SAM runs take roughly twice'
-                                'as much time to complete.',
-                                default=1)
-
-    def initialize_object(self) -> SAM:
-        return SAM(**asdict(self))
 
 
 class SAMOptimizer(torch.optim.Optimizer):

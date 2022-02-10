@@ -2,7 +2,6 @@
 
 from composer.algorithms.augmix.augmix import AugmentAndMixTransform as AugmentAndMixTransform
 from composer.algorithms.augmix.augmix import AugMix as AugMix
-from composer.algorithms.augmix.augmix import AugMixHparams as AugMixHparams
 from composer.algorithms.augmix.augmix import augmix_image as augmix_image
 
 _name = 'AugMix'

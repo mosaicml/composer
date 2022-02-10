@@ -5,13 +5,11 @@ import pytest
 import torch
 import torch.nn.functional as F
 
-from composer.algorithms import CutMixHparams
+from composer.algorithms import CutMix, CutMixHparams
 from composer.algorithms.cutmix.cutmix import cutmix_batch, rand_bbox
 from composer.core.types import Event
 from composer.models.base import ComposerClassifier
-from composer.trainer.trainer_hparams import TrainerHparams
-from tests.fixtures.models import SimpleConvModel
-from tests.utils.trainer_fit import train_model
+from tests.common import SimpleConvModel
 
 
 # (N, C, d1, d2, n_classes)
@@ -87,17 +85,17 @@ class TestCutMix:
                         bbox=bbox,
                         n_classes=n_classes)
 
-    def test_cutmix_algorithm(self, fake_data, alpha, dummy_state, dummy_logger):
+    def test_cutmix_algorithm(self, fake_data, alpha, minimal_state, empty_logger):
         # Generate fake data
         x_fake, y_fake, _, _ = fake_data
 
-        algorithm = CutMixHparams(alpha=alpha, num_classes=x_fake.size(1)).initialize_object()
-        state = dummy_state
+        algorithm = CutMix(alpha=alpha, num_classes=x_fake.size(1))
+        state = minimal_state
         state.model = ComposerClassifier(torch.nn.Flatten())
         state.batch = (x_fake, y_fake)
 
         # Apply algo, use test hooks to specify indices and override internally generated interpolation lambda for testability
-        algorithm.apply(Event.AFTER_DATALOADER, state, dummy_logger)
+        algorithm.apply(Event.AFTER_DATALOADER, state, empty_logger)
 
         x, y = state.batch
         # Validate results
@@ -111,16 +109,18 @@ class TestCutMix:
                         n_classes=algorithm.num_classes)
 
 
-def test_cutmix_nclasses(dummy_state, dummy_logger):
-    algorithm = CutMixHparams(alpha=1.0, num_classes=10).initialize_object()
-    state = dummy_state
-    state.model = ComposerClassifier(SimpleConvModel())
+def test_cutmix_nclasses(minimal_state, empty_logger):
+    algorithm = CutMix(alpha=1.0, num_classes=10)
+
+    state = minimal_state
+    state.model = SimpleConvModel(num_classes=10)
     state.batch = (torch.ones((1, 1, 1, 1)), torch.Tensor([2]))
 
-    algorithm.apply(Event.INIT, state, dummy_logger)
-    algorithm.apply(Event.AFTER_DATALOADER, state, dummy_logger)
+    algorithm.apply(Event.INIT, state, empty_logger)
+    algorithm.apply(Event.AFTER_DATALOADER, state, empty_logger)
 
 
-def test_cutmix_trains(dummy_num_classes: int, composer_trainer_hparams: TrainerHparams):
-    composer_trainer_hparams.algorithms = [CutMixHparams(alpha=1.0, num_classes=dummy_num_classes)]
-    train_model(composer_trainer_hparams)
+def test_cutmix_hparams():
+    hparams = CutMixHparams(alpha=1.0, num_classes=10)
+    algorithm = hparams.initialize_object()
+    assert isinstance(algorithm, CutMix)

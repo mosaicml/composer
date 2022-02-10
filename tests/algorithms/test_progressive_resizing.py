@@ -3,11 +3,9 @@
 import pytest
 import torch
 
-from composer.algorithms.progressive_resizing import ProgressiveResizing, ProgressiveResizingHparams, resize_batch
+from composer.algorithms.progressive_resizing import ProgressiveResizing, resize_batch
 from composer.core import Event, Logger
 from composer.core.state import State
-from composer.trainer import TrainerHparams
-from tests.utils.trainer_fit import train_model
 
 
 def check_scaled_shape(orig: torch.Tensor, scaled: torch.Tensor, scale_factor: float) -> bool:
@@ -76,53 +74,40 @@ def resize_targets() -> bool:
     return False
 
 
-@pytest.fixture
-def dummy_hparams(mode, initial_scale, finetune_fraction, resize_targets):
-    return ProgressiveResizingHparams(mode, initial_scale, finetune_fraction, resize_targets)
+class TestResizeInputs:
 
+    def test_resize_noop(self, X, y, mode):
+        """Tests that no operation is performed when scale_factor == 1."""
+        Xc, _ = resize_batch(X, y, 1.0, mode, resize_targets=False)
+        assert X is Xc
 
-@pytest.fixture
-def dummy_algorithm(dummy_hparams: ProgressiveResizingHparams):
-    return ProgressiveResizing(dummy_hparams.mode, dummy_hparams.initial_scale, dummy_hparams.finetune_fraction,
-                               dummy_hparams.resize_targets)
+    @pytest.mark.parametrize("y", [None])
+    def test_without_target(self, X, y):
+        """Test that resizing works properly with no target present."""
+        try:
+            resize_batch(X, y, 1.0, "crop", resize_targets=False)
+        except:
+            pytest.fail("apply_progressive_resizing failed with y == None")
 
+    @pytest.mark.parametrize("Wx,Hx", [(31, 31), (32, 32), (32, 16)])
+    def test_resize_batch_shape(self, X: torch.Tensor, y: torch.Tensor, mode: str, scale_factor: float):
+        """Test scaling works for different input shapes."""
 
-def test_resize_noop(X, y, mode):
-    """Tests that no operation is performed when scale_factor == 1."""
-    Xc, _ = resize_batch(X, y, 1.0, mode, resize_targets=False)
-    assert X is Xc
+        Xc, _ = resize_batch(X, y, scale_factor, mode, resize_targets=False)
+        assert check_scaled_shape(X, Xc, scale_factor)
 
+    def test_resize_outputs_shape(self, X: torch.Tensor, y: torch.Tensor, mode: str, scale_factor: float):
+        """Test that resizing outputs works."""
 
-@pytest.mark.parametrize("y", [None])
-def test_without_target(X, y):
-    """Test that resizing works properly with no target present."""
-    try:
-        resize_batch(X, y, 1.0, "crop", resize_targets=False)
-    except:
-        pytest.fail("apply_progressive_resizing failed with y == None")
+        _, yc = resize_batch(X, y, scale_factor, mode, resize_targets=True)
+        assert check_scaled_shape(y, yc, scale_factor)
 
+    @pytest.mark.parametrize("Wx,Hx,Wy,Hy", [(32, 32, 16, 16)])
+    def test_resize_outputs_different_shape(self, X, y, scale_factor: float, mode: str):
+        """Test that resizing works when X and y have different shapes."""
 
-@pytest.mark.parametrize("Wx,Hx", [(31, 31), (32, 32), (32, 16)])
-def test_resize_inputs_shape(X: torch.Tensor, y: torch.Tensor, mode: str, scale_factor: float):
-    """Test scaling works for different input shapes."""
-
-    Xc, _ = resize_batch(X, y, scale_factor, mode, resize_targets=False)
-    assert check_scaled_shape(X, Xc, scale_factor)
-
-
-def test_resize_outputs_shape(X: torch.Tensor, y: torch.Tensor, mode: str, scale_factor: float):
-    """Test that resizing outputs works."""
-
-    _, yc = resize_batch(X, y, scale_factor, mode, resize_targets=True)
-    assert check_scaled_shape(y, yc, scale_factor)
-
-
-@pytest.mark.parametrize("Wx,Hx,Wy,Hy", [(32, 32, 16, 16)])
-def test_resize_outputs_different_shape(X, y, scale_factor: float, mode: str):
-    """Test that resizing works when X and y have different shapes."""
-
-    _, yc = resize_batch(X, y, scale_factor, mode, resize_targets=True)
-    assert check_scaled_shape(y, yc, scale_factor)
+        _, yc = resize_batch(X, y, scale_factor, mode, resize_targets=True)
+        assert check_scaled_shape(y, yc, scale_factor)
 
 
 @pytest.mark.parametrize("mode,initial_scale,finetune_fraction", [("foo", 0.5, 0.2), ("crop", 1.2, 0.2),
@@ -136,35 +121,32 @@ def test_invalid_hparams(mode: str, initial_scale: float, finetune_fraction: flo
         ProgressiveResizing(mode, initial_scale, finetune_fraction, False)
 
 
-@pytest.mark.parametrize("event", [Event.AFTER_DATALOADER])
-def test_match_correct(event: Event, dummy_algorithm, dummy_state: State):
-    """Algo should match AFTER_DATALOADER."""
-    assert dummy_algorithm.match(event, dummy_state)
+class TestProgressiveResizingAlgorithm:
 
+    @pytest.fixture
+    def pr_algorithm(self, mode, initial_scale, finetune_fraction, resize_targets):
+        return ProgressiveResizing(mode, initial_scale, finetune_fraction, resize_targets)
 
-@pytest.mark.parametrize("event", [Event.INIT])
-def test_match_incorrect(event: Event, dummy_algorithm: ProgressiveResizing, dummy_state: State):
-    """Algo should NOT match INIT."""
-    assert not dummy_algorithm.match(event, dummy_state)
+    @pytest.mark.parametrize("event", [Event.AFTER_DATALOADER])
+    def test_match_correct(self, event: Event, pr_algorithm, minimal_state: State):
+        """Algo should match AFTER_DATALOADER."""
+        assert pr_algorithm.match(event, minimal_state)
 
+    @pytest.mark.parametrize("event", [Event.INIT])
+    def test_match_incorrect(self, event: Event, pr_algorithm: ProgressiveResizing, minimal_state: State):
+        """Algo should NOT match INIT."""
+        assert not pr_algorithm.match(event, minimal_state)
 
-@pytest.mark.parametrize("epoch_frac", [0.0, 0.8, 1.0])
-def test_apply(epoch_frac: float, X: torch.Tensor, y: torch.Tensor, dummy_algorithm: ProgressiveResizing,
-               dummy_state: State, dummy_logger: Logger):
-    """Test apply at different epoch fractions (fraction of max epochs)"""
-    dummy_state.timer.epoch._value = int(epoch_frac * dummy_state.max_epochs)
-    s = dummy_algorithm.initial_scale
-    f = dummy_algorithm.finetune_fraction
-    scale_factor = min([s + (1 - s) / (1 - f) * epoch_frac, 1.0])
-    dummy_state.batch = (X, y)
-    dummy_algorithm.apply(Event.AFTER_DATALOADER, dummy_state, dummy_logger)
+    @pytest.mark.parametrize("epoch_frac", [0.0, 0.8, 1.0])
+    def test_apply(self, epoch_frac: float, X: torch.Tensor, y: torch.Tensor, pr_algorithm: ProgressiveResizing,
+                   minimal_state: State, empty_logger: Logger):
+        """Test apply at different epoch fractions (fraction of max epochs)"""
+        minimal_state.timer.epoch._value = int(epoch_frac * minimal_state.max_epochs)
+        s = pr_algorithm.initial_scale
+        f = pr_algorithm.finetune_fraction
+        scale_factor = min([s + (1 - s) / (1 - f) * epoch_frac, 1.0])
+        minimal_state.batch = (X, y)
+        pr_algorithm.apply(Event.AFTER_DATALOADER, minimal_state, empty_logger)
 
-    last_input, _ = dummy_state.batch
-    assert check_scaled_shape(X, last_input, scale_factor)
-
-
-def test_progressive_resizing_trains(composer_trainer_hparams: TrainerHparams):
-    composer_trainer_hparams.algorithms = [
-        ProgressiveResizingHparams(mode="resize", initial_scale=0.5, finetune_fraction=0.2, resize_targets=False)
-    ]
-    train_model(composer_trainer_hparams)
+        last_input, _ = minimal_state.batch
+        assert check_scaled_shape(X, last_input, scale_factor)

@@ -20,8 +20,7 @@ For example, to define a new logging backend:
 from composer.loggers.file_logger import FileLogger
 from composer.loggers.in_memory_logger import InMemoryLogger
 from composer.loggers.logger_hparams import (FileLoggerHparams, InMemoryLoggerHaparms, LoggerCallbackHparams,
-                                             MosaicMLLoggerHparams, TQDMLoggerHparams, WandBLoggerHparams)
-from composer.loggers.mosaicml_logger import MosaicMLLogger
+                                             TQDMLoggerHparams, WandBLoggerHparams)
 from composer.loggers.tqdm_logger import TQDMLogger
 from composer.loggers.wandb_logger import WandBLogger
 
@@ -32,10 +31,8 @@ __all__ = [
     "LoggerCallbackHparams",
     "FileLoggerHparams",
     "InMemoryLoggerHaparms",
-    "MosaicMLLoggerHparams",
     "TQDMLoggerHparams",
     "WandBLoggerHparams",
-    "MosaicMLLogger",
     "TQDMLogger",
     "WandBLogger",
 ]

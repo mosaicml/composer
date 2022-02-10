@@ -4,7 +4,8 @@
 from pathlib import Path
 
 from composer import functional as CF
-from composer import utils
+
+from . import utils
 
 HEADER = ['Name', 'Functional', 'Attribution', 'tl;dr', 'Card']
 ATTRIBUTES = ['_class_name', '_functional', '_tldr', '_attribution', '_link', '_method_card']
@@ -54,7 +55,3 @@ table_md = utils.build_markdown_table(
     sorted_keys=sorted(metadata.keys()),
     row_format=row,
 )
-
-# update table in README.md
-source_file = Path(__file__).parent.joinpath('README.md')
-utils.update_table_in_file(table_md, source_file)
