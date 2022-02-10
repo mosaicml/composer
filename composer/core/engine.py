@@ -55,8 +55,8 @@ from composer.core.callback import Callback
 from composer.core.event import Event
 from composer.core.logging import Logger
 from composer.core.logging.logger import LogLevel
-from composer.core.profiler import ProfilerAction
 from composer.core.state import State
+from composer.profiler import ProfilerAction
 
 log = logging.getLogger(__name__)
 Traces = Dict[str, "Trace"]
