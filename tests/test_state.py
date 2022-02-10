@@ -7,7 +7,7 @@ import torch
 import torch.nn.functional as F
 from torch.functional import Tensor
 
-from composer.algorithms.channels_last import ChannelsLastHparams
+from composer.algorithms import ChannelsLastHparams
 from composer.core import DataSpec, State, types
 from composer.datasets.dataloader import DataloaderHparams
 from composer.datasets.hparams import DatasetHparams

@@ -4,14 +4,11 @@ from __future__ import annotations
 
 import functools
 import logging
-from dataclasses import asdict, dataclass
 from typing import Optional
 
 import numpy as np
 import torch
-import yahp as hp
 
-from composer.algorithms import AlgorithmHparams
 from composer.algorithms.blurpool.blurpool_layers import BlurConv2d, BlurMaxPool2d
 from composer.core import Algorithm, Event, Logger, State
 from composer.core.types import Optimizers
@@ -70,18 +67,6 @@ def apply_blurpool(model: torch.nn.Module,
         )
     module_surgery.replace_module_classes(model, optimizers=optimizers, policies=transforms)
     _log_surgery_result(model)
-
-
-@dataclass
-class BlurPoolHparams(AlgorithmHparams):
-    """See :class:`BlurPool`"""
-
-    replace_convs: bool = hp.optional('Replace Conv2d with BlurConv2d if stride > 1', default=True)
-    replace_maxpools: bool = hp.optional('Replace MaxPool2d with BlurMaxPool2d', default=True)
-    blur_first: bool = hp.optional('Blur input before convolution', default=True)
-
-    def initialize_object(self) -> "BlurPool":
-        return BlurPool(**asdict(self))
 
 
 def _maybe_replace_strided_conv2d(module: torch.nn.Conv2d, module_index: int, blur_first: bool):

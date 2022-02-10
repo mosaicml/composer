@@ -3,15 +3,12 @@
 from __future__ import annotations
 
 import logging
-from dataclasses import asdict, dataclass
 from typing import Optional, Tuple
 
 import numpy as np
 import torch
-import yahp as hp
 from torch.nn import functional as F
 
-from composer.algorithms import AlgorithmHparams
 from composer.core.types import Algorithm, Event, Logger, State, Tensor
 from composer.models.loss import check_for_index_targets
 
@@ -103,17 +100,6 @@ def mixup_batch(x: Tensor,
     else:
         y_mix = ((1. - interpolation_lambda) * y + interpolation_lambda * y_shuffled)
     return x_mix, y_mix, shuffled_idx
-
-
-@dataclass
-class MixUpHparams(AlgorithmHparams):
-    """See :class:`MixUp`"""
-
-    num_classes: int = hp.required('Number of classes in the task labels.')
-    alpha: float = hp.optional('Strength of interpolation, should be >= 0. No interpolation if alpha=0.', default=0.2)
-
-    def initialize_object(self) -> MixUp:
-        return MixUp(**asdict(self))
 
 
 class MixUp(Algorithm):

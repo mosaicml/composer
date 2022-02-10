@@ -9,8 +9,9 @@ from unittest.mock import MagicMock, Mock
 import pytest
 import torch
 
+from composer.algorithms import GhostBatchNormHparams
 from composer.algorithms import ghost_batchnorm as ghostbn
-from composer.algorithms.ghost_batchnorm.ghost_batchnorm import GhostBatchNorm, GhostBatchNormHparams, _GhostBatchNorm
+from composer.algorithms.ghost_batchnorm.ghost_batchnorm import GhostBatchNorm, _GhostBatchNorm
 from composer.core import Event, State
 from composer.core.types import Batch, Metrics, Tensors
 from composer.models.base import ComposerModel
