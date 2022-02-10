@@ -2,7 +2,7 @@
 
 import textwrap
 import weakref
-from typing import Optional, List
+from typing import List, Optional
 
 import numpy as np
 import torch
@@ -10,9 +10,9 @@ from PIL import Image
 from PIL.Image import Image as ImageType
 from torchvision.datasets import VisionDataset
 
+from composer.algorithms.utils import augmentation_sets
 from composer.core.event import Event
 from composer.core.types import Algorithm, Event, Logger, State
-from composer.algorithms.utils import augmentation_sets
 from composer.datasets.utils import add_vision_dataset_transform
 
 

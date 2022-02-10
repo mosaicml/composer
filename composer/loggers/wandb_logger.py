@@ -2,11 +2,11 @@
 
 from __future__ import annotations
 
+import datetime
 import os
 import sys
 import textwrap
 import warnings
-import datetime
 from typing import Any, Dict, Optional
 
 from composer.core.logging import LoggerCallback, LogLevel, TLogData

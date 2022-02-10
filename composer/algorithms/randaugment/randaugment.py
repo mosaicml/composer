@@ -2,15 +2,15 @@
 
 import textwrap
 import weakref
-from typing import Optional, List
+from typing import List, Optional
 
 import numpy as np
 import torch
 from PIL.Image import Image as ImageType
 from torchvision.datasets import VisionDataset
 
-from composer.core.types import Algorithm, Event, Logger, State
 from composer.algorithms.utils import augmentation_sets
+from composer.core.types import Algorithm, Event, Logger, State
 from composer.datasets.utils import add_vision_dataset_transform
 
 

@@ -1,12 +1,14 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
+
 """Helper methods for :mod:`torch.distributed`.
 
 To use :mod:`torch.distributed`, launch your training script with the
-:ref:`composer launch script for distributed training <distributed-training>`. For example
+:ref:`composer launch script for distributed training <distributed-training>`. For example,
+the following command launches an eight-process training run.
 
 .. code-block:: console
 
-    composer -n 8 path/to/train.py  # launches an eight-process training run.
+    composer -n 8 path/to/train.py
 
 The launch script will automatically configure the following environment variables, which are
 required for distributed training:
@@ -20,7 +22,7 @@ required for distributed training:
 * ``MASTER_PORT``: The port for the rank-zero process.
 
 If none of these environment variables are set, this module will safely assume a single-rank configuration, where::
-    
+
     RANK=0
     LOCAL_RANK=0
     NODE_RANK=0
@@ -126,7 +128,7 @@ def get_node_rank() -> int:
 
 def barrier() -> None:
     """Synchronizes all processes.
-    
+
     This function blocks until all processes reach this function.
 
     .. seealso:: :func:`torch.distributed.barrier`
@@ -147,9 +149,8 @@ def all_reduce(
     tensor: torch.Tensor,
     reduce_operation: str = "SUM",
 ) -> None:
-    """
-    Reduce a ``tensor`` by applying the ``reduce_operation``.
-    
+    """Reduce a ``tensor`` by applying the ``reduce_operation``.
+
     All ranks get the same, bitwise-identical result.
 
     .. seealso:: :func:`torch.distributed.all_reduce`
@@ -163,7 +164,7 @@ def all_reduce(
     Args:
         tensor (torch.Tensor): Tensor to reduce. The function operates in-place.
         reduce_operation (str, optional): The reduction operation (default: ``SUM``).
-        
+
             Valid options are:
                 * ``SUM``
                 * ``PRODUCT``
@@ -213,10 +214,10 @@ def broadcast(tensor: torch.Tensor, src: int) -> None:
 
 def broadcast_object_list(object_list: List[Any], src: int = 0) -> None:
     """Broadcasts picklable objects in ``object_list`` to the whole group.
-    
+
     Similar to :func:`broadcast`, but Python objects can be passed in.
     Note that all objects in ``object_list`` must be picklable in order to be broadcasted.
-    
+
     .. seealso:: :func:`torch.distributed.broadcast`.
 
     Args:
@@ -243,7 +244,7 @@ def broadcast_object_list(object_list: List[Any], src: int = 0) -> None:
 
 def all_gather(tensor: torch.Tensor) -> Sequence[torch.Tensor]:
     """Collects a :class:`~torch.Tensor` from each rank and return a sequence of
-    :class:`~torch.Tensor`_s indexed by rank.
+    :class:`~torch.Tensor`\\s indexed by rank.
 
     .. seealso:: :func:`torch.distributed.all_gather`
 
@@ -296,9 +297,10 @@ def is_available():
     """Returns whether PyTorch was built with distributed support.
 
     .. seealso:: :func:`torch.distributed.is_available`
-    
+
     Returns:
-        bool: Whether PyTorch distributed support is available."""
+        bool: Whether PyTorch distributed support is available.
+    """
     return dist.is_available()
 
 
@@ -306,9 +308,10 @@ def is_initialized():
     """Returns whether PyTorch distributed is initialized.
 
     .. seealso:: :func:`torch.distributed.is_initialized`
-    
+
     Returns:
-        bool: Whether PyTorch distributed is initialized."""
+        bool: Whether PyTorch distributed is initialized.
+    """
     return dist.is_initialized()
 
 
@@ -376,10 +379,9 @@ def initialize_dist(backend: str, timeout: datetime.timedelta):
 
 
 def get_sampler(dataset: torch.utils.data.Dataset, *, drop_last: bool, shuffle: bool):
-    """Constructs a :class:`~torch.utils.data.distributed.DistributedSampler` for a dataset.
-    The :class:`~torch.utils.data.distributed.DistributedSampler` assumes that each rank has a
-    complete copy of the dataset. It ensures that each rank sees a unique shard for each epoch
-    containing ``len(datset) / get_world_size()`` samples.
+    """Constructs a :class:`~torch.utils.data.distributed.DistributedSampler` for a dataset. The
+    :class:`~torch.utils.data.distributed.DistributedSampler` assumes that each rank has a complete copy of the dataset.
+    It ensures that each rank sees a unique shard for each epoch containing ``len(datset) / get_world_size()`` samples.
 
     .. note::
 

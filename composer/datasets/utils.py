@@ -1,20 +1,17 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
-from typing import List, Tuple
-
 import logging
+import textwrap
+from typing import Callable, List, Tuple
+
 import numpy as np
 import torch
 import torch.utils.data
 from PIL import Image
-
-import textwrap
-from typing import Callable
-
 from torchvision import transforms
 from torchvision.datasets import VisionDataset
-from composer.core.types import Batch, BatchPair, Tensor
 
+from composer.core.types import Batch, BatchPair, Tensor
 
 __all__ = [
     "add_vision_dataset_transform",
@@ -35,8 +32,8 @@ class NormalizationFn:
     Args:
         mean (Tuple[float, float, float]): The mean pixel value for each channel (RGB) for the dataset.
         std (Tuple[float, float, float]): The standard deviation pixel value for each channel (RGB) for the dataset.
-        ignore_background (bool): If true, ignore the background class in the training loss. Only used in semantic
-            segmentation. Default is False.
+        ignore_background (bool): If ``True``, ignore the background class in the training loss.
+            Only used in semantic segmentation. Default is ``False``.
     """
 
     def __init__(self,
@@ -66,10 +63,11 @@ class NormalizationFn:
             ys = ys.sub_(1)
         return xs, ys
 
+
 def pil_image_collate(batch: List[Tuple[Image.Image, np.ndarray]],
                       memory_format: torch.memory_format = torch.contiguous_format) -> BatchPair:
-    """Constructs a :class:`~composer.core.types.BatchPair` from datasets that yield samples of
-    type :class:`PIL.Image.Image`.
+    """Constructs a :class:`~composer.core.types.BatchPair` from datasets that yield samples of type
+    :class:`PIL.Image.Image`.
 
     This function can be used as the ``collate_fn`` argument of a :class:`torch.utils.data.DataLoader`.
 
@@ -81,7 +79,7 @@ def pil_image_collate(batch: List[Tuple[Image.Image, np.ndarray]],
 
     Returns:
         (torch.Tensor, torch.Tensor): :class:`~composer.core.types.BatchPair` of (image tensor, target tensor)
-        The image tensor will be four-dimensional (NCHW or NHWC, depending on ``memory_format``), 
+            The image tensor will be four-dimensional (NCHW or NHWC, depending on the ``memory_format``).
     """
     imgs = [sample[0] for sample in batch]
     w, h = imgs[0].size
@@ -109,28 +107,26 @@ def pil_image_collate(batch: List[Tuple[Image.Image, np.ndarray]],
     return image_tensor, target_tensor
 
 
-def add_vision_dataset_transform(dataset: VisionDataset,
-                          transform: Callable,
-                          is_tensor_transform: bool = False):
+def add_vision_dataset_transform(dataset: VisionDataset, transform: Callable, is_tensor_transform: bool = False):
     """Add a transform to a dataset's collection of transforms.
 
     Args:
         dataset (VisionDataset): A torchvision dataset.
         transform (Callable): Function to be added to the dataset's collection of
-            :attr:`~torchvision.dataset.transform`_s.
+            :attr:`~torchvision.dataset.transform`\\s.
         is_tensor_transform (bool): Whether ``transform`` acts on data of the type :class:`~torch.Tensor`.
             (default: ``False``)
-            
+
             * If ``True``, and :class:`~torchvision.transforms.ToTensor` is present in
               ``dataset``'s transforms, ``transform`` will be inserted after the
               :class:`~torchvision.transforms.ToTensor` transform.
             * If ``False`` and :class:`~torchvision.transforms.ToTensor` is present, the ``transform`` will be
               inserted before :class:`~torchvision.transforms.ToTensor`.
-            * If `:class:`~torchvision.transforms.ToTensor` is not present, the transform will be appended to
-              the end of collection of transforms. 
+            * If :class:`~torchvision.transforms.ToTensor` is not present, the transform will be appended to
+              the end of collection of transforms.
 
     Returns:
-        None. ``dataset`` is modified in-place.
+        None: The ``dataset`` is modified in-place.
     """
 
     transform_added_logstring = textwrap.dedent(f"""\

@@ -122,9 +122,10 @@ class ObjectStoreProviderHparams(hp.Hparams):
 
     def initialize_object(self):
         """Returns an instance of :class:`ObjectStoreProvider`.
-        
+
         Returns:
-            ObjectStoreProvider: The provider."""
+            ObjectStoreProvider: The provider.
+        """
         init_kwargs = {}
         for key in ("host", "port", "region"):
             kwarg = getattr(self, key)

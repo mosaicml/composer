@@ -30,14 +30,18 @@ def generate_composition_no_tensor():
 @pytest.mark.parametrize("is_tensor_transform,index", [(False, 1), (True, 2)])
 def test_pre_post_to_tensor_compose(is_tensor_transform, index):
     dataset = generate_synthetic_dataset(generate_default_transforms())
-    dataset = add_vision_dataset_transform(dataset, transforms.RandomAutocontrast(), is_tensor_transform=is_tensor_transform)
+    dataset = add_vision_dataset_transform(dataset,
+                                           transforms.RandomAutocontrast(),
+                                           is_tensor_transform=is_tensor_transform)
     assert type(dataset.transform.transforms[index]) == transforms.RandomAutocontrast  # type: ignore
 
 
 @pytest.mark.parametrize("is_tensor_transform,index", [(False, 0), (True, 1)])
 def test_pre_post_to_tensor(is_tensor_transform, index):
     dataset = generate_synthetic_dataset(transforms.ToTensor())
-    dataset = add_vision_dataset_transform(dataset, transforms.RandomAutocontrast(), is_tensor_transform=is_tensor_transform)
+    dataset = add_vision_dataset_transform(dataset,
+                                           transforms.RandomAutocontrast(),
+                                           is_tensor_transform=is_tensor_transform)
     assert type(dataset.transform.transforms[index]) == transforms.RandomAutocontrast  # type: ignore
 
 

@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-import logging
 import datetime
+import logging
 import multiprocessing
 import os
 import queue

@@ -24,14 +24,13 @@ import collections
 import itertools
 import logging
 import textwrap
-from typing import Any, Dict, Iterable, List, Mapping, Optional, OrderedDict, Tuple, Type, Callable, Union
-
-from composer.utils.iter_helpers import ensure_tuple
+from typing import Any, Callable, Dict, Iterable, List, Mapping, Optional, OrderedDict, Tuple, Type, Union
 
 import torch
 import torch.distributed
 
 from composer.core.types import Optimizers
+from composer.utils.iter_helpers import ensure_tuple
 
 log = logging.getLogger(__name__)
 
@@ -182,15 +181,16 @@ def replace_module_classes(
                                        new_params=new_module.parameters(),
                                        optimizers=optimizers)
     elif len(replaced_pairs) > 0:
-        log.info(textwrap.dedent("""\
+        log.info(
+            textwrap.dedent("""\
             optimizers was not provided. Be sure to either create the optimizer after
-            invoking this method, or manually add new parameters to the existing optimizer."""
-        ))
+            invoking this method, or manually add new parameters to the existing optimizer."""))
 
     return replaced_pairs
 
 
-def count_module_instances(module: torch.nn.Module, module_class: Union[Type[torch.nn.Module], Tuple[Type[torch.nn.Module], ...]]) -> int:
+def count_module_instances(module: torch.nn.Module, module_class: Union[Type[torch.nn.Module],
+                                                                        Tuple[Type[torch.nn.Module], ...]]) -> int:
     """Counts the number of instances of ``module_class`` in ``module``, recursively.
 
     .. rubric:: Example
@@ -266,14 +266,14 @@ def _find_param_in_optimizer(param: torch.nn.parameter.Parameter, optimizer: tor
 def update_params_in_optimizer(old_params: Iterable[torch.nn.parameter.Parameter],
                                new_params: Iterable[torch.nn.parameter.Parameter], optimizers: Optimizers) -> None:
     """Remove ``old_params`` from the ``optimizers`` and insert ``new_params``.
-    
+
     Newly added parameters will be added to the same :attr:`~torch.optim.Optimizer.param_group` as the removed
     parameters. A :class:`RuntimeError` will be raised if ``old_params`` is split across multiple parameter groups.
 
     .. note::
 
         Dynamically removing parameters from a :class:`~torch.optim.Optimizer` and adding parameters
-        to an existing :attr:`~torch.optim.Optimizer.param_group`_s are not officially supported, so this
+        to an existing :attr:`~torch.optim.Optimizer.param_group`\\s are not officially supported, so this
         function may fail when PyTorch is updated. The
         `recommended practice <https://github.com/pytorch/pytorch/issues/1489#issuecomment-355301737>`_ is
         to instead recreate the optimizer when the parameter set changes

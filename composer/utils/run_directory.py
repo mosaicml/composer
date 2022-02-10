@@ -114,7 +114,7 @@ def get_modified_files(modified_since_timestamp: datetime.datetime, *, ignore_hi
 
 def get_run_directory_timestamp() -> datetime.datetime:
     """Returns the current timestamp on the run directory filesystem.
-    
+
     .. note::
 
         The disk time can differ from system time (e.g. when using network filesystems).
