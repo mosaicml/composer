@@ -2,7 +2,7 @@
 
 import textwrap
 import weakref
-from typing import Optional
+from typing import Optional, List
 
 import numpy as np
 import torch
@@ -11,9 +11,9 @@ from PIL.Image import Image as ImageType
 from torchvision.datasets import VisionDataset
 
 from composer.core.event import Event
-from composer.core.types import Algorithm, Event, List, Logger, State
-from composer.utils.augmentation_primitives import augmentation_sets
-from composer.utils.data import add_dataset_transform
+from composer.core.types import Algorithm, Event, Logger, State
+from composer.algorithms.utils import augmentation_sets
+from composer.datasets.utils import add_vision_dataset_transform
 
 
 def augmix_image(img: Optional[ImageType] = None,
@@ -157,5 +157,5 @@ class AugMix(Algorithm):
                 textwrap.dedent(f"""\
                 To use {type(self).__name__}, the dataset must be a
                 {VisionDataset.__qualname__}, not {type(dataset).__name__}"""))
-        add_dataset_transform(dataset, am, is_tensor_transform=False)
+        add_vision_dataset_transform(dataset, am, is_tensor_transform=False)
         self._transformed_datasets.add(dataset)

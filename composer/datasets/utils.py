@@ -1,17 +1,26 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
-import logging
-import textwrap
-from typing import Callable, List, Tuple, Union
+from typing import List, Tuple
 
+import logging
 import numpy as np
 import torch
 import torch.utils.data
 from PIL import Image
+
+import textwrap
+from typing import Callable
+
 from torchvision import transforms
 from torchvision.datasets import VisionDataset
+from composer.core.types import Batch, BatchPair, Tensor
 
-from composer.core.types import Batch, Tensor
+
+__all__ = [
+    "add_vision_dataset_transform",
+    "NormalizationFn",
+    "pil_image_collate",
+]
 
 log = logging.getLogger(__name__)
 
@@ -19,10 +28,14 @@ log = logging.getLogger(__name__)
 class NormalizationFn:
     """Normalizes input data and removes the background class from target data if desired.
 
+    An instance of this class can be used as the ``device_transforms`` argument
+    when constructing a :class:`~composer.core.data_spec.DataSpec`. When used here,
+    the data will normalized after it has been loaded onto the device (i.e. GPU).
+
     Args:
-        mean (Tuple[float, float, float]): the mean pixel value for each channel (RGB) for the dataset.
-        std (Tuple[float, float, float]): the standard deviation pixel value for each channel (RGB) for the dataset.
-        ignore_background (bool): if true, ignore the background class in the training loss. Only used in semantic
+        mean (Tuple[float, float, float]): The mean pixel value for each channel (RGB) for the dataset.
+        std (Tuple[float, float, float]): The standard deviation pixel value for each channel (RGB) for the dataset.
+        ignore_background (bool): If true, ignore the background class in the training loss. Only used in semantic
             segmentation. Default is False.
     """
 
@@ -53,30 +66,30 @@ class NormalizationFn:
             ys = ys.sub_(1)
         return xs, ys
 
+def pil_image_collate(batch: List[Tuple[Image.Image, np.ndarray]],
+                      memory_format: torch.memory_format = torch.contiguous_format) -> BatchPair:
+    """Constructs a :class:`~composer.core.types.BatchPair` from datasets that yield samples of
+    type :class:`PIL.Image.Image`.
 
-def pil_image_collate(batch: List[Tuple[Image.Image, Union[Image.Image, Tensor]]],
-                      memory_format: torch.memory_format = torch.contiguous_format) -> Tuple[Tensor, Tensor]:
-    """Constructs a torch tensor batch for training from samples in PIL image format.
+    This function can be used as the ``collate_fn`` argument of a :class:`torch.utils.data.DataLoader`.
 
     Args:
-        batch (List[Tuple[Image.Image, Union[Image.Image, torch.Tensor]]]): list of input-target pairs to be separated
-            and aggregated into batches.
-        memory_format (torch.memory_format): the memory format for the input and target tensors.
+        batch (List[Tuple[Image.Image, np.ndarry]]): List of (image, target) tuples that will be
+            aggregated and converted into a single (:class:`~torch.Tensor`, :class:`~torch.Tensor`) tuple.
+
+        memory_format (torch.memory_format): The memory format for the input and target tensors.
 
     Returns:
-        image_tensor (torch.Tensor): torch tensor containing a batch of images.
-        target_tensor (torch.Tensor): torch tensor containing a batch of targets.
+        (torch.Tensor, torch.Tensor): :class:`~composer.core.types.BatchPair` of (image tensor, target tensor)
+        The image tensor will be four-dimensional (NCHW or NHWC, depending on ``memory_format``), 
     """
     imgs = [sample[0] for sample in batch]
     w, h = imgs[0].size
     image_tensor = torch.zeros((len(imgs), 3, h, w), dtype=torch.uint8).contiguous(memory_format=memory_format)
 
-    # Check if the targets are images
+    # Convert targets to torch tensor
     targets = [sample[1] for sample in batch]
-    if isinstance(targets[0], Image.Image):
-        target_dims = (len(targets), targets[0].size[1], targets[0].size[0])  # type: ignore
-    else:
-        target_dims = (len(targets),)
+    target_dims = (len(targets),)
     target_tensor = torch.zeros(target_dims, dtype=torch.int64).contiguous(memory_format=memory_format)
 
     for i, img in enumerate(imgs):
@@ -96,25 +109,28 @@ def pil_image_collate(batch: List[Tuple[Image.Image, Union[Image.Image, Tensor]]
     return image_tensor, target_tensor
 
 
-def add_dataset_transform(dataset: VisionDataset,
+def add_vision_dataset_transform(dataset: VisionDataset,
                           transform: Callable,
-                          is_tensor_transform: bool = False) -> torch.utils.data.Dataset:
-    """Add a transform to a dataset's collection of transforms. Inserts the transform before or after
-    torchvision.transforms.ToTensor(), or at the end of the collection of ToTensor() is not present.
+                          is_tensor_transform: bool = False):
+    """Add a transform to a dataset's collection of transforms.
 
     Args:
-        dataset (VisionDataset): A torchvision-like dataset
+        dataset (VisionDataset): A torchvision dataset.
         transform (Callable): Function to be added to the dataset's collection of
-            transforms
-        is_tensor_transform (bool): Whether ``transform`` acts on data of the type
-            torch.Tensor. If ``True``, and torchvision.transforms.ToTensor() is present in
-            ``dataset``'s transforms, will insert the transform after ToTensor(). If
-            ``False`` and ToTensor() is present, will insert the transform before
-            ToTensor(). If ToTensor() is not present, the transform will be appended to
-            the end of collection of transforms. Default = ``False``.
+            :attr:`~torchvision.dataset.transform`_s.
+        is_tensor_transform (bool): Whether ``transform`` acts on data of the type :class:`~torch.Tensor`.
+            (default: ``False``)
+            
+            * If ``True``, and :class:`~torchvision.transforms.ToTensor` is present in
+              ``dataset``'s transforms, ``transform`` will be inserted after the
+              :class:`~torchvision.transforms.ToTensor` transform.
+            * If ``False`` and :class:`~torchvision.transforms.ToTensor` is present, the ``transform`` will be
+              inserted before :class:`~torchvision.transforms.ToTensor`.
+            * If `:class:`~torchvision.transforms.ToTensor` is not present, the transform will be appended to
+              the end of collection of transforms. 
 
     Returns:
-        The original dataset. The transform is added in-place.
+        None. ``dataset`` is modified in-place.
     """
 
     transform_added_logstring = textwrap.dedent(f"""\
@@ -141,5 +157,3 @@ def add_dataset_transform(dataset: VisionDataset,
         else:
             dataset.transform = transforms.Compose([dataset.transform, transform])
             log.warning(transform_added_logstring)
-
-    return dataset

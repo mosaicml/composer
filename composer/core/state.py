@@ -47,24 +47,6 @@ def _default_precision_factory() -> Callable[[Union[str, Precision]], ContextMan
         return null
 
 
-def _default_precision_factory() -> Callable[[Union[str, Precision]], ContextManager]:
-    """Returns a context manager to automatically cast to a specific precision.
-
-    Args:
-        precision (str or Precision): Precision for the context
-    """
-    if torch.cuda.is_available():
-        return lambda precision: torch.cuda.amp.autocast(Precision(precision) == Precision.AMP)
-    else:
-
-        def null(precision):
-            assert Precision(
-                precision) != Precision.AMP, "Precision AMP is only available when `torch.cuda.is_available() == True`."
-            return contextlib.nullcontext()
-
-        return null
-
-
 class State(Serializable):
     """The state of the trainer.
 

@@ -18,7 +18,7 @@ from composer.datasets.hparams import DatasetHparams, SyntheticHparamsMixin
 from composer.datasets.imagenet import IMAGENET_CHANNEL_MEAN, IMAGENET_CHANNEL_STD
 from composer.datasets.synthetic import SyntheticBatchPairDataset
 from composer.utils import dist
-from composer.utils.data import NormalizationFn, pil_image_collate
+from composer.datasets.utils import NormalizationFn, pil_image_collate
 
 
 class RandomResizePair(torch.nn.Module):
