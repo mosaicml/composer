@@ -1,25 +1,32 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
-"""Surgery modifies model architectures.
+"""Modify model architectures.
 
-This module provides helper functions generally used by algorithms that need to modify a provided model, generally by
-substituting particular modules for optimized replacements.
+Algorithms, such as :class:`~composer.algorithms.blurpool.BlurPool`, replace model parameters in-place.
+This module contains helper functions to replace parameters in :class:`~torch.nn.Module` and
+:class:`~torch.optim.Optimizer` instances.
+
+Attributes:
+    ReplacementFunction ((torch.nn.Module, int) -> Optional[torch.nn.Module]): Surgery replacement function protocol.
+
+        The function is provided with a :class:`torch.nn.Module` and a counter for the number of
+        instances of the module type have been seen. The function should return a replacement
+        :class:`torch.nn.Module` if the module type should be replaced, or ``None`` otherwise.
+
+        Args:
+            module (torch.nn.Module): Source module
+            module_index (int): The i-th instance of module class.
+
+        Returns:
+            Optional[torch.nn.Module]: The replacement module, or ``None`` to indicate no modification.
 """
 import collections
 import itertools
 import logging
 import textwrap
-from typing import TYPE_CHECKING, Any, Dict, Iterable, List, Mapping, Optional, OrderedDict, Tuple, Type
+from typing import Any, Dict, Iterable, List, Mapping, Optional, OrderedDict, Tuple, Type, Callable
 
 from composer.utils.iter_helpers import ensure_tuple
-
-try:
-    from typing import Protocol
-except ImportError:
-    Protocol = object  # Protocol is not available in python 3.7
-
-if TYPE_CHECKING:
-    from typing import Protocol
 
 import torch
 import torch.distributed
@@ -28,24 +35,12 @@ from composer.core.types import Optimizers
 
 log = logging.getLogger(__name__)
 
+__all__ = [
+    "ReplacementFunction", "replace_module_classes", "count_module_instances", "update_params_in_optimizer",
+    "replace_params_in_optimizer"
+]
 
-class ReplacementFunction(Protocol):
-    """Represents a scheme for replacing a model's modules with other modules.
-
-    For typing reasons we represent this as a ``Protocol``, but in practice this class only describes a function.
-    Replacement policies return either a replacement module, or None. Return of None means that no modifications will
-    be made.
-
-    Args:
-        module (torch.nn.Module): Source module
-        module_index (int): Optionally used, the i-th instance of module class.
-
-    Returns:
-        torch.nn.Module, optional: replacement module, or ``None`` to indicate no modification.
-    """
-
-    def __call__(self, module: torch.nn.Module, module_index: int) -> Optional[torch.nn.Module]:
-        ...
+ReplacementFunction = Callable[[torch.nn.Module, int], Optional[torch.nn.Module]]
 
 
 def _add_children_recursive(
@@ -71,17 +66,32 @@ def replace_module_classes(
 ) -> Dict[torch.nn.Module, torch.nn.Module]:
     """Modify model in-place by recursively applying replacement policies.
 
-    Examples:
-        The following policy::
+    In the following example, all convolution layers with linear layers,
+    and all max pooling with average pooling. Linear layers will be optionally replaced depending
+    on the number of input features.
 
-            policies = {
-                nn.Conv2d: lambda x, idx: nn.Linear(16, 32),
-                nn.MaxPool2d: lambda x, idx: nn.AvgPool2d(3, stride=2),
-                nn.Linear: lambda x, idx: nn.Linear(16, 64) if x.in_features == 32 else None
-            }
-
-        will replace all convolution layers with linear layers, and all max pooling with average pooling. Linear
-        layers will be optionally replaced depending on the number of input features.
+            >>> from torch import nn
+            >>> mnist_module = nn.Sequential([
+            ...     nn.Conv2d(1, 32, 3, 1),
+            ...     nn.ReLU(),
+            ...     nn.Conv2d(32, 64, 3, 1),
+            ...     nn.ReLU(),
+            ...     nn.MaxPool2d(2),
+            ...     nn.Dropout(0.25),
+            ...     nn.Flatten(),
+            ...     nn.Linear(9216, 128),
+            ...     nn.ReLU(),
+            ...     nn.Dropout(0.5),
+            ...     nn.Linear(128, 10),
+            ...     nn.LogSoftmax(dim=1),
+            ...])
+            >>> policies = {
+            ...    nn.Conv2d: lambda x, idx: nn.Linear(16, 32),
+            ...    nn.MaxPool2d: lambda x, idx: nn.AvgPool2d(3, stride=2),
+            ...    nn.Linear: lambda x, idx: nn.Linear(16, 64) if x.in_features == 32 else None
+            ... }
+            >>> replace_module_classes(module, policies)
+            {}
 
     .. warning:: When a module is replaced, any tensor values within the module are not copied over
                  to the new module even when the shape is identical. For example, if model weights
@@ -91,9 +101,9 @@ def replace_module_classes(
 
     Arguments:
         module (torch.nn.Module): Model to modify.
-        policies (Mapping[torch.nn.Module, ReplacementFunction]): Mapping of source class to replacement function. The
-            replacement may be either another module or ``None``. If the latter,
-            this replacement is skipped.
+        policies (Mapping[torch.nn.Module, ReplacementFunction]): Mapping of source module class to
+            a replacement function. The replacement may be either another module or ``None``. If the latter,
+            the source module replacement is skipped.
         recurse_on_replacements (bool): If true, policies will be applied to any module returned
             by another policy. E.g., if one replaces a ``Conv2d`` with a module containing
             another ``Conv2d``, this new child ``Conv2d`` might also be replaced. This can recurse
@@ -146,7 +156,7 @@ def replace_module_classes(
             module_index = indices[policy_class]
             replacement = replacement_fn(
                 child,
-                module_index=module_index,
+                module_index,
             )
             indices[policy_class] += 1
             if replacement is not None:

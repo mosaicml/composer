@@ -23,11 +23,11 @@ class StringEnum(Enum):
         >>> class MyStringEnum(StringEnum):
         ...     KEY = "value"
         >>> MyStringEnum("KeY")  # case-insensitive match on the key
-        something
+        <MyStringEnum.KEY: 'value'>
         >>> MyStringEnum("VaLuE")  # case-insensitive match on the value
-        something
+        <MyStringEnum.KEY: 'value'>
         >>> MyStringEnum(MyStringEnum.KEY)  # no-op if given an existing instance
-        something
+        <MyStringEnum.KEY: 'value'>
     
     * Equality checks support case-insensitive comparisions against strings:
 
@@ -42,16 +42,19 @@ class StringEnum(Enum):
     """
     __hash__ = Enum.__hash__
 
-    def __eq__(self, o: object) -> bool:
-        if isinstance(o, str):
+    def __eq__(self, other: object) -> bool:
+        if isinstance(other, str):
             cls_name = self.__class__.__name__
             warnings.warn(
-                f"Detected comparision between a string and {cls_name}. Please use {cls_name}({o}) "
+                f"Detected comparision between a string and {cls_name}. Please use {cls_name}({other}) "
                 f"to convert both types to {cls_name} before comparing",
                 category=UserWarning)
-            o_enum = type(self)(o)
+            try:
+                o_enum = type(self)(other)
+            except ValueError:  # `other` is not a valid enum option
+                return NotImplemented
             return super().__eq__(o_enum)
-        return super().__eq__(o)
+        return super().__eq__(other)
 
     def __init__(self, *args: object) -> None:
         if self.name.upper() != self.name:

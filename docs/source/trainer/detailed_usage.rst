@@ -18,9 +18,11 @@ Numerics
 Time
 ----
 
+.. _distributed-training:
 
 Distributed Training
 --------------------
+
 
 Distributed data parallel, or DDP, is an essential technique for training large models. It is among the most common ways of parallelizing machine learning models. However, as are many things, parallelization in Python is not well supported. To get around these limitations, we offer a ``composer`` launch script to set up multiprocessing and synchronization. This script is directly analogous to the ``torch.distributed.run``, ``torchrun``, and ``deepspeed`` scripts that users may be familiar with.
 

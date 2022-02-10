@@ -222,10 +222,22 @@ def all_gather_object(obj: TObj) -> List[TObj]:
 
 
 def is_available():
+    """Returns whether PyTorch was built with distributed support.
+
+    .. seealso:: :meth:`torch.dist.is_available`
+    
+    Returns:
+        bool: Whether PyTorch distributed support is available."""
     return dist.is_available()
 
 
 def is_initialized():
+    """Returns whether PyTorch distributed is initialized.
+
+    .. seealso:: :meth:`torch.dist.is_initialized`
+    
+    Returns:
+        bool: Whether PyTorch distributed is initialized."""
     return dist.is_initialized()
 
 

@@ -8,6 +8,8 @@ from typing import Any, Dict, Iterator, Optional, Union
 
 import yahp as hp
 
+__all__ = ["ObjectStoreProviderHparams", "ObjectStoreProvider"]
+
 
 @dataclasses.dataclass
 class ObjectStoreProviderHparams(hp.Hparams):

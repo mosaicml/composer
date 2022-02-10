@@ -1,6 +1,31 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
-"""Helper utilities for configuring deterministic training and ensuring reproducibility."""
+"""Helper utilities for configuring deterministic training and ensuring reproducibility.
+
+.. note::
+
+    For a deterministic model initialization, :meth:`~composer.utils.reproducibility.seed_all` and/or
+    :meth:`~composer.utils.configure_deterministic_mode` should be
+    invoked before creating and initializing a model, before creating the :class:`~composer.trainer.trainer.Trainer`.
+    For example:
+
+    .. testsetup::
+        import torch.nn
+
+        class MyModel(torch.nn.Module):
+            pass
+
+    .. doctest::
+
+        >>> import torch.nn.init
+        >>> from composer.utils import reproducibility
+        >>> reproducibility.configure_deterministic_mode()
+        >>> reproducibility.seed_all(42)
+        >>> model = MyModel()
+        >>> # model will now be deterministically initialized, since the seed is set.
+        >>> model.apply(torch.nn.init.kaiming_uniform_)
+        >>> trainer = Trainer(model)
+"""
 import os
 import random
 import warnings
@@ -21,19 +46,18 @@ def configure_deterministic_mode():
 
     .. note::
 
-        When using the :class:`~composer.trainer.trainer.Trainer`, use the ``determinstic_mode`` flag
+        When using the :class:`~composer.trainer.trainer.Trainer`, you can use the ``deterministic_mode`` flag
         instead of invoking this function directly.
         For example:
 
-        >>> trainer = Trainer(determinstic_mode=True)
-        trainer
+        >>> trainer = Trainer(deterministic_mode=True)
 
-        This is provided for convenience if deterministic operations must be performed before
-        initializing the trainer.
+        However, if deterministic operations must be performed before initializing the trainer
+        (such as model initialization), then this function can be called beforehand.
 
     .. note::
         
-        When training on a GPU, :meth:`configure_deterministic_mode` must be invoked before any CUDA operations.
+        When training on a GPU, this function must be invoked before any CUDA operations.
 
     .. note::
 
@@ -64,6 +88,17 @@ def get_random_seed() -> int:
 
 def seed_all(seed: int):
     """Seed all rng objects.
+
+    .. note::
+
+        When using the :class:`~composer.trainer.trainer.Trainer`, you can use the ``seed`` parameter
+        instead of invoking this function directly.
+        For example:
+
+        >>> trainer = Trainer(seed=42)
+
+        However, if deterministic operations must be performed before initializing the trainer
+        (such as model initialization), then this function can be called beforehand.
 
     Args:
         seed (int): The random seed
