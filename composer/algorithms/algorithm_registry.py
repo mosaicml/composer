@@ -14,9 +14,8 @@ from composer.algorithms.ghost_batchnorm import GhostBatchNormHparams
 # from composer.algorithms.hparams import BlurPoolHparams
 # from composer.algorithms.hparams import ChannelsLastHparams
 from composer.algorithms.hparams import (AugMixHparams, ColOutHparams, CutMixHparams, CutOutHparams,
-                                         LabelSmoothingHparams)
+                                         LabelSmoothingHparams, MixUpHparams)
 from composer.algorithms.layer_freezing import LayerFreezingHparams
-from composer.algorithms.mixup import MixUpHparams
 from composer.algorithms.no_op_model import NoOpModelHparams
 from composer.algorithms.progressive_resizing import ProgressiveResizingHparams
 from composer.algorithms.randaugment import RandAugmentHparams

@@ -10,6 +10,7 @@ from composer.algorithms.colout import ColOut
 from composer.algorithms.cutmix import CutMix
 from composer.algorithms.cutout import CutOut
 from composer.algorithms.label_smoothing import LabelSmoothing
+from composer.algorithms.mixup import MixUp
 
 
 @dataclass
@@ -70,3 +71,14 @@ class LabelSmoothingHparams(AlgorithmHparams):
 
     def initialize_object(self) -> LabelSmoothing:
         return LabelSmoothing(**asdict(self))
+
+
+@dataclass
+class MixUpHparams(AlgorithmHparams):
+    """See :class:`MixUp`"""
+
+    num_classes: int = hp.required('Number of classes in the task labels.')
+    alpha: float = hp.optional('Strength of interpolation, should be >= 0. No interpolation if alpha=0.', default=0.2)
+
+    def initialize_object(self) -> MixUp:
+        return MixUp(**asdict(self))

@@ -61,11 +61,11 @@ from composer.algorithms.hparams import ColOutHparams as ColOutHparams
 from composer.algorithms.hparams import CutMixHparams as CutMixHparams
 from composer.algorithms.hparams import CutOutHparams as CutOutHparams
 from composer.algorithms.hparams import LabelSmoothingHparams as LabelSmoothingHparams
+from composer.algorithms.hparams import MixUpHparams as MixUpHparams
 from composer.algorithms.label_smoothing import LabelSmoothing as LabelSmoothing
 from composer.algorithms.layer_freezing import LayerFreezing as LayerFreezing
 from composer.algorithms.layer_freezing import LayerFreezingHparams as LayerFreezingHparams
 from composer.algorithms.mixup import MixUp as MixUp
-from composer.algorithms.mixup import MixUpHparams as MixUpHparams
 from composer.algorithms.no_op_model import NoOpModel as NoOpModel
 from composer.algorithms.no_op_model import NoOpModelHparams as NoOpModelHparams
 from composer.algorithms.progressive_resizing import ProgressiveResizing as ProgressiveResizing
