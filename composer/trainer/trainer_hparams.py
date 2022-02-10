@@ -26,7 +26,7 @@ from composer.loggers import (FileLoggerHparams, InMemoryLoggerHaparms, LoggerCa
                               WandBLoggerHparams)
 from composer.models import (BERTForClassificationHparams, BERTHparams, CIFARResNet9Hparams, CIFARResNetHparams,
                              DeepLabV3Hparams, EfficientNetB0Hparams, GPT2Hparams, MnistClassifierHparams, ModelHparams,
-                             ResNetHparams, TimmHparams, UnetHparams)
+                             ResNetHparams, TimmHparams, UnetHparams, ViTSmallPatch16Hparams)
 from composer.models.resnet20_cifar10.resnet20_cifar10_hparams import CIFARResNet20Hparams
 from composer.optim import (AdamHparams, AdamWHparams, DecoupledAdamWHparams, DecoupledSGDWHparams, OptimizerHparams,
                             RAdamHparams, RMSPropHparams, SchedulerHparams, SGDHparams, scheduler)
@@ -75,7 +75,8 @@ model_registry = {
     "gpt2": GPT2Hparams,
     "bert": BERTHparams,
     "bert_classification": BERTForClassificationHparams,
-    "timm": TimmHparams
+    "timm": TimmHparams,
+    "vit_small_patch16": ViTSmallPatch16Hparams
 }
 
 dataset_registry = get_dataset_registry()

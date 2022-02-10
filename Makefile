@@ -9,7 +9,7 @@ dirs := composer examples tests
 
 # run this to autoformat your code
 style:
-	isort -i $(dirs)
+	isort -ir $(dirs)
 	yapf -ri $(dirs)
 	docformatter -ri --wrap-summaries 120 --wrap-descriptions 120 $(dirs)
 

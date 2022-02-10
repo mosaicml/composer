@@ -35,11 +35,10 @@ schedulers:
       verbose: false
       interval: step
 model:
-  vit_small_patch16:
+  timm:
+    model_name: 'vit_small_patch16_224'
     num_classes: 1000
-    image_size: 224
-    channels: 3
-    dropout: 0.1
+    drop_rate: 0.1
 loggers:
   - tqdm: {}
 max_duration: 300ep
