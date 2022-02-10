@@ -10,8 +10,10 @@ The output of this setup script does not show up in the documentation.
 import os
 import sys
 
+import numpy as np
 import torch.optim
 import torch.utils.data
+from PIL import Image
 
 from composer import *  # Make all composer imports available in doctests
 from composer.datasets.synthetic import SyntheticBatchPairDataset
@@ -75,3 +77,5 @@ state = State(
 logger = Logger(state)
 
 engine = Engine(state, logger)
+
+image = Image.fromarray(np.random.randint(0, 256, size=(32, 32, 3), dtype=np.uint8))

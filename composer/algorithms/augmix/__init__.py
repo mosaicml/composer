@@ -1,5 +1,11 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
+"""AugMix (`Hendrycks et al. <http://arxiv.org/abs/1912.02781>`_). AugMix
+creates ``width`` sequences of ``depth`` image augmentations, applies each sequence with
+random intensity, and returns a convex combination of the ``width`` augmented images and
+the original image.
+"""
+
 from composer.algorithms.augmix.augmix import AugmentAndMixTransform as AugmentAndMixTransform
 from composer.algorithms.augmix.augmix import AugMix as AugMix
 from composer.algorithms.augmix.augmix import AugMixHparams as AugMixHparams

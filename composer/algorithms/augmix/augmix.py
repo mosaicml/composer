@@ -44,13 +44,26 @@ def augmix_image(img: Optional[ImageType] = None,
                  width: int = 3,
                  alpha: float = 1.0,
                  augmentation_set: List = augmentation_sets["all"]) -> ImageType:
-    """Applies AugMix (`Hendrycks et al.
+    """Applies AugMix (`Hendrycks et al. <http://arxiv.org/abs/1912.02781>`_) data
+    augmentation to an image. See :class:`AugMix` for details.
 
-    <http://arxiv.org/abs/1912.02781>`_) data augmentation to an image. See :class:`AugMix` for details.
+    Example:
+        .. testcode::
+
+            from composer.algorithms.augmix import augmix_image
+            from composer.utils.augmentation_primitives import augmentation_sets
+            augmixed_image = augmix_image(
+                img=image,
+                severity=3,
+                width=3,
+                depth=-1,
+                alpha=1.0,
+                augmentation_set=augmentation_sets["all"]
+            )
     """
 
     assert isinstance(img, ImageType) or isinstance(img, np.ndarray), "img must be a PIL.Image"
-    chain_weights = np.float32(np.random.dirichlet([alpha] * width))
+    chain_weights = np.random.dirichlet([alpha] * width).astype(np.float32)
     mixing_weight = np.float32(np.random.beta(alpha, alpha))
     augmented_combination = np.zeros_like(img, dtype=np.float32)
 
@@ -73,7 +86,23 @@ def augmix_image(img: Optional[ImageType] = None,
 
 
 class AugmentAndMixTransform(torch.nn.Module):
-    """Wrapper module for :func:`augmix_image` that can be passed to :class:`torchvision.transforms.Compose`"""
+    """Wrapper module for :func:`augmix_image` that can be passed to
+    :class:`torchvision.transforms.Compose`. See :class:`AugMix` for details.
+    
+    Example:
+        .. testcode::
+
+            import torchvision.transforms
+            from composer.algorithms.augmix import AugmentAndMixTransform 
+            augmix_transform = AugmentAndMixTransform(
+                severity=3,
+                width=3,
+                depth=-1,
+                alpha=1.0,
+                augmentation_set="all"
+            )
+            composed = transforms.Compose([augmixTransform, transforms.RandomHorizontalFlip()])
+    """
 
     def __init__(self,
                  severity: int = 3,
@@ -105,7 +134,7 @@ class AugmentAndMixTransform(torch.nn.Module):
 
 
 class AugMix(Algorithm):
-    """`AugMix <http://arxiv.org/abs/1912.02781>`_ creates ``width`` sequences of ``depth`` image augmentations, applies
+    """AugMix (`Hendrycks et al. <http://arxiv.org/abs/1912.02781>`_) creates ``width`` sequences of ``depth`` image augmentations, applies
     each sequence with random intensity, and returns a convex combination of the ``width`` augmented images and the
     original image.
 
@@ -117,17 +146,38 @@ class AugMix(Algorithm):
     This algorithm runs on on :attr:`Event.FIT_START` to insert a dataset transformation. It is a no-op if this algorithm already
     applied itself on the :attr:`State.train_dataloader.dataset`.
 
+    Example:
+        .. testcode::
+
+            from composer.algorithms import AugMix
+            from composer.trainer import Trainer
+            augmix_algorithm = AugMix(
+                severity=3,
+                width=3,
+                depth=-1,
+                alpha=1.0,
+                augmentation_set="all"
+            )
+            trainer = Trainer(
+                model=model,
+                train_dataloader=train_dataloader,
+                eval_dataloader=eval_dataloader,
+                max_duration="1ep",
+                algorithms=[augmix_algorithm],
+                optimizers=[optimizer]
+            )
+
     Args:
-        severity: severity of augmentations; ranges from 0
-            (no augmentation) to 10 (most severe).
-        width: number of augmentation sequences
-        depth: number of augmentations per sequence. -1 enables stochastic depth
-            sampled uniformly from [1, 3].
-        alpha: pseudocount for Beta and Dirichlet distributions. Must be > 0.
-            Higher values yield mixing coefficients closer to uniform
-            weighting. As the value approaches 0, the mixing coefficients
-            approach using only one version of each image.
-        augmentation_set: must be one of the following options:
+        severity (int, optional): severity of augmentations; ranges from 0
+            (no augmentation) to 10 (most severe). Default = ``3``.
+        width (int, optional): number of augmentation sequences. Default = ``3``.
+        depth (int, optional): number of augmentations per sequence. -1 enables stochastic
+            depth sampled uniformly from [1, 3]. Default = ``-1``.
+        alpha (float, optional): pseudocount for Beta and Dirichlet distributions. Must be
+            > 0.  Higher values yield mixing coefficients closer to uniform weighting. As
+            the value approaches 0, the mixing coefficients approach using only one
+            version of each image. Default = ``1.0``.
+        augmentation_set (str, optional): must be one of the following options:
 
             * ``"augmentations_all"``
                 Uses all augmentations from the paper.
@@ -138,7 +188,16 @@ class AugMix(Algorithm):
                 Like ``"augmentations_all"``, but some of the implementations
                 are identical to the original Github repository, which contains
                 implementation specificities for the augmentations
-                ``"color"``, ``"contrast"``, ``"sharpness"``, and ``"brightness"``.
+                ``"color"``, ``"contrast"``, ``"sharpness"``, and ``"brightness"``. The
+                original implementations have an intensity sampling scheme that samples a
+                value bounded by 0.118 at a minimum, and a maximum value of intensity*0.18
+                + .1, which ranges from 0.28 (intensity = 1) to 1.9 (intensity 10). These
+                augmentations have different effects depending on whether they are < 0 or
+                > 0 (or < 1 or > 1). "augmentations_all" uses implementations of "color",
+                "contrast", "sharpness", and "brightness" that account for diverging
+                effects around 0 (or 1).
+
+            Default = ``"all"``.
     """
 
     # TODO document each value of augmentation_set in more detail; i.e.,

@@ -12,6 +12,8 @@ from composer.algorithms.algorithm_hparams import AlgorithmHparams
 
 log = logging.getLogger(__name__)
 
+__all__ = ['SWAHparams']
+
 
 @dataclass
 class SWAHparams(AlgorithmHparams):

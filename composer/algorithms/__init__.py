@@ -43,6 +43,7 @@ For more information about events, see :class:`~composer.core.event.Event`.
 from composer.algorithms.algorithm_hparams import AlgorithmHparams as AlgorithmHparams
 from composer.algorithms.algorithm_registry import get_algorithm_registry as get_algorithm_registry
 from composer.algorithms.algorithm_registry import list_algorithms as list_algorithms
+from composer.algorithms.alibi import Alibi as Alibi
 from composer.algorithms.alibi import AlibiHparams as AlibiHparams
 from composer.algorithms.augmix import AugMix as AugMix
 from composer.algorithms.augmix import AugMixHparams as AugMixHparams
