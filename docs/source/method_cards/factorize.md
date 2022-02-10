@@ -63,8 +63,6 @@ Algorithm
 
 .. autoclass:: composer.algorithms.factorize.Factorize
     :noindex:
-.. autoclass:: composer.algorithms.factorize.FactorizeHparams
-    :noindex:
 
 Standalone
 ^^^^^^^^^^

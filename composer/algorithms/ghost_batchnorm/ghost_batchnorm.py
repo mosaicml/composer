@@ -3,14 +3,11 @@
 from __future__ import annotations
 
 import logging
-from dataclasses import asdict, dataclass
 from typing import Optional
 
 import numpy as np
 import torch
-import yahp as hp
 
-from composer.algorithms import AlgorithmHparams
 from composer.core import Algorithm, Event, Logger, State
 from composer.core.types import Optimizers
 from composer.utils import module_surgery
@@ -131,16 +128,6 @@ def apply_ghost_batchnorm(model: torch.nn.Module,
     transforms = {cls: maybe_replace for cls in [torch.nn.BatchNorm1d, torch.nn.BatchNorm2d, torch.nn.BatchNorm3d]}
     module_surgery.replace_module_classes(model, optimizers=optimizers, policies=transforms)
     return model
-
-
-@dataclass
-class GhostBatchNormHparams(AlgorithmHparams):
-    """See :class:`GhostBatchNorm`"""
-
-    ghost_batch_size: int = hp.optional(doc='Size of sub-batches to normalize over', default=_DEFAULT_GHOST_BATCH_SIZE)
-
-    def initialize_object(self) -> GhostBatchNorm:
-        return GhostBatchNorm(**asdict(self))
 
 
 class GhostBatchNorm(Algorithm):

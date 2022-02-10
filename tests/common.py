@@ -4,16 +4,75 @@
 
 from typing import Sequence
 
+import pytest
 import torch
 from PIL import Image
 from torch.utils.data import Dataset
 from torchvision.datasets import VisionDataset
 
+from composer.core.precision import Precision
 from composer.models import ComposerClassifier
+
+# syntactic sugar below
+# decorators for common parameterizations and marks
+
+
+def device(*args, precision=False):
+    """Decorator for device and optionally precision.
+
+    Input choices are ('cpu', 'gpu'), or if precision=True,
+    also accept ('gpu-amp', 'gpu-fp32', and 'cpu-fp32').
+
+    Returns the parameter "device", or if precision=True,
+    also returns the parameter "precision".
+    """
+    # convert cpu-fp32 and gpu-fp32 to cpu, gpu
+    if not precision and any(['-' in arg for arg in args]):
+        raise ValueError('-fp32 and -amp tags must be removed if precision=False')
+    args = [arg.replace('-fp32', '') for arg in args]
+
+    if precision:
+        devices = {
+            'cpu': pytest.param('cpu', Precision.FP32, id="cpu-fp32"),
+            'gpu': pytest.param('gpu', Precision.FP32, id="gpu-fp32", marks=pytest.mark.gpu),
+            'gpu-amp': pytest.param('gpu', Precision.AMP, id='gpu-amp', marks=pytest.mark.gpu)
+        }
+        name = "device,precision"
+    else:
+        devices = {
+            'cpu': pytest.param('cpu', id="cpu"),
+            'gpu': pytest.param('gpu', id="gpu", marks=pytest.mark.gpu),
+        }
+        name = "device"
+
+    parameters = [devices[arg] for arg in args]
+
+    def decorator(test):
+        if not parameters:
+            return test
+        return pytest.mark.parametrize(name, parameters)(test)
+
+    return decorator
+
+
+def world_size(*args):
+
+    params = {
+        1: pytest.param(1),
+        2: pytest.param(2, marks=pytest.mark.world_size(2)),
+    }
+    parameters = [params[arg] for arg in args]
+
+    def decorator(test):
+        if not parameters:
+            return test
+        return pytest.mark.parametrize("world_size", parameters)(test)
+
+    return decorator
 
 
 class SimpleModel(ComposerClassifier):
-    """Small classification model with 10 input features and 2 classes.
+    """Small classification model with 5 input features and 2 classes.
 
     Args:
         num_features (int): number of input features (default: 5)
@@ -29,8 +88,6 @@ class SimpleModel(ComposerClassifier):
         fc2 = torch.nn.Linear(5, num_classes)
 
         net = torch.nn.Sequential(
-            torch.nn.AdaptiveAvgPool2d(1),
-            torch.nn.Flatten(),
             fc1,
             torch.nn.ReLU(),
             fc2,
@@ -48,11 +105,11 @@ class SimpleConvModel(ComposerClassifier):
     """Small convolutional classifer.
 
     Args:
-        num_channels (int): number of input channels (default: 32)
+        num_channels (int): number of input channels (default: 3)
         num_classes (int): number of classes (default: 2)
     """
 
-    def __init__(self, num_channels: int = 32, num_classes: int = 2) -> None:
+    def __init__(self, num_channels: int = 3, num_classes: int = 2) -> None:
 
         self.num_classes = num_classes
         self.num_channels = num_channels
@@ -81,17 +138,11 @@ class SimpleConvModel(ComposerClassifier):
         self.conv2 = conv2
 
 
-"""
-We use simplified versions of the SyntheticDatasets below to make the tests
-simpler to read and debug.
-"""
-
-
 class RandomClassificationDataset(Dataset):
     """Classification dataset drawn from a normal distribution.
 
     Args:
-        shape (Sequence[int]): shape of features
+        shape (Sequence[int]): shape of features (default: 5)
         size (int): number of samples (default: 100)
         num_classes (int): number of classes (default: 100)
     """
@@ -111,14 +162,17 @@ class RandomClassificationDataset(Dataset):
 class RandomImageDataset(VisionDataset):
     """ Image Classification dataset with values drawn from a normal distribution
     Args:
-        shape (Sequence[int]): shape of features. Defaults to (64, 64, 3)
+        shape (Sequence[int]): shape of features. Defaults to (32, 32, 3)
         size (int): number of samples (default: 100)
         num_classes (int): number of classes (default: 100)
         is_PIL (bool): if true, will emit image in PIL format (default: False)
     """
 
-    def __init__(self, shape: Sequence[int] = (64, 64, 3), size: int = 100, num_classes: int = 2, is_PIL: bool = False):
+    def __init__(self, shape: Sequence[int] = (3, 32, 32), size: int = 100, num_classes: int = 2, is_PIL: bool = False):
         self.is_PIL = is_PIL
+        if is_PIL:  # PIL expects HWC
+            shape = (shape[1], shape[2], shape[0])
+
         self.size = size
         self.x = torch.randn(size, *shape)
         self.y = torch.randint(0, num_classes, size=(size,))

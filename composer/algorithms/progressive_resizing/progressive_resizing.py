@@ -3,16 +3,13 @@
 from __future__ import annotations
 
 import logging
-from dataclasses import asdict, dataclass
 from functools import partial
 from typing import Optional, Tuple
 
 import torch
 import torch.nn.functional as F
-import yahp as hp
 from torchvision import transforms
 
-from composer.algorithms import AlgorithmHparams
 from composer.core import Algorithm, Event, Logger, State
 from composer.core.types import Tensor
 
@@ -68,20 +65,6 @@ def resize_batch(X: torch.Tensor,
     else:
         y_sized = y
     return X_sized, y_sized
-
-
-@dataclass
-class ProgressiveResizingHparams(AlgorithmHparams):
-    """See :class:`ProgressiveResizing`"""
-
-    mode: str = hp.optional(doc="Type of scaling to perform", default="resize")
-    initial_scale: float = hp.optional(doc="Initial scale factor", default=0.5)
-    finetune_fraction: float = hp.optional(doc="Fraction of training to reserve for finetuning on full-sized inputs",
-                                           default=0.2)
-    resize_targets: bool = hp.optional(doc="Also resize targets", default=False)
-
-    def initialize_object(self) -> ProgressiveResizing:
-        return ProgressiveResizing(**asdict(self))
 
 
 class ProgressiveResizing(Algorithm):

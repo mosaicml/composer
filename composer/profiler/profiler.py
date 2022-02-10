@@ -364,7 +364,7 @@ class Marker:
                 self.profiler.record_instant_event(
                     self,
                     wall_clock_time_ns=wall_clock_time,
-                    timestamp=self.profiler.state.timer.timestamp(),
+                    timestamp=self.profiler.state.timer.get_timestamp(),
                     global_rank=dist.get_global_rank(),
                     pid=os.getpid(),
                 )

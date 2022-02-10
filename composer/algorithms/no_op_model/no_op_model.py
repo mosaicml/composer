@@ -3,14 +3,12 @@
 from __future__ import annotations
 
 import logging
-from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Optional, Tuple
 
 import torch
 import torch.nn.functional as F
 from torchmetrics.classification.accuracy import Accuracy
 
-from composer.algorithms import AlgorithmHparams
 from composer.core import Algorithm, Event, Logger, State
 from composer.core.types import Metrics, Tensor, as_batch_pair
 from composer.models.base import ComposerModel
@@ -52,13 +50,6 @@ class NoOpModelClass(ComposerModel):
         x, y = as_batch_pair(batch)
         del x  # unused
         return y, y
-
-
-@dataclass
-class NoOpModelHparams(AlgorithmHparams):
-
-    def initialize_object(self) -> NoOpModel:
-        return NoOpModel()
 
 
 class NoOpModel(Algorithm):
