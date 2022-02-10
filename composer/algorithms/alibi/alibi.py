@@ -1,6 +1,6 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
-"""Module containing core ALiBi classes and functions."""
+"""Core ALiBi classes and functions."""
 
 from __future__ import annotations
 

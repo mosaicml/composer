@@ -1,6 +1,6 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
-"""Module containing core AugMix classes and functions."""
+"""Core AugMix classes and functions."""
 
 import textwrap
 import weakref

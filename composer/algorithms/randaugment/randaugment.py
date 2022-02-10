@@ -1,5 +1,7 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
+"""Core RandAugment code."""
+
 import textwrap
 import weakref
 from typing import Optional
