@@ -21,6 +21,7 @@ from composer.algorithms.mixup import MixUp
 from composer.algorithms.progressive_resizing import ProgressiveResizing
 from composer.algorithms.randaugment import RandAugment
 from composer.algorithms.sam import SAM
+from composer.algorithms.scale_schedule import ScaleSchedule
 from composer.algorithms.squeeze_excite import SqueezeExcite
 from composer.algorithms.stochastic_depth import StochasticDepth
 from composer.algorithms.stochastic_depth.stochastic_depth import STOCHASTIC_LAYER_MAPPING, validate_stochastic_hparams
@@ -247,6 +248,16 @@ class SAMHparams(AlgorithmHparams):
 
     def initialize_object(self) -> SAM:
         return SAM(**asdict(self))
+
+
+@dataclass
+class ScaleScheduleHparams(AlgorithmHparams):
+    """See :class:`ScaleSchedule`"""
+
+    ratio: float = hp.optional('Ratio to scale the schedule.', default=1.0)
+
+    def initialize_object(self) -> "ScaleSchedule":
+        return ScaleSchedule(**asdict(self))
 
 
 @dataclass

@@ -7,9 +7,8 @@ from composer.algorithms.hparams import (AlibiHparams, AugMixHparams, BlurPoolHp
                                          ColOutHparams, CutMixHparams, CutOutHparams, FactorizeHparams,
                                          GhostBatchNormHparams, LabelSmoothingHparams, LayerFreezingHparams,
                                          MixUpHparams, ProgressiveResizingHparams, RandAugmentHparams, SAMHparams,
-                                         SqueezeExciteHparams, StochasticDepthHparams)
+                                         ScaleScheduleHparams, SqueezeExciteHparams, StochasticDepthHparams)
 from composer.algorithms.no_op_model import NoOpModelHparams
-from composer.algorithms.scale_schedule import ScaleScheduleHparams
 from composer.algorithms.selective_backprop import SelectiveBackpropHparams
 from composer.algorithms.seq_length_warmup import SeqLengthWarmupHparams
 from composer.algorithms.swa.hparams import SWAHparams

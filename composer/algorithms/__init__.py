@@ -66,6 +66,7 @@ from composer.algorithms.hparams import MixUpHparams as MixUpHparams
 from composer.algorithms.hparams import ProgressiveResizingHparams as ProgressiveResizingHparams
 from composer.algorithms.hparams import RandAugmentHparams as RandAugmentHparams
 from composer.algorithms.hparams import SAMHparams as SAMHparams
+from composer.algorithms.hparams import ScaleScheduleHparams as ScaleScheduleHparams
 from composer.algorithms.hparams import SqueezeExciteHparams as SqueezeExciteHparams
 from composer.algorithms.hparams import StochasticDepthHparams as StochasticDepthHparams
 from composer.algorithms.label_smoothing import LabelSmoothing as LabelSmoothing
@@ -77,7 +78,6 @@ from composer.algorithms.progressive_resizing import ProgressiveResizing as Prog
 from composer.algorithms.randaugment import RandAugment as RandAugment
 from composer.algorithms.sam import SAM as SAM
 from composer.algorithms.scale_schedule import ScaleSchedule as ScaleSchedule
-from composer.algorithms.scale_schedule import ScaleScheduleHparams as ScaleScheduleHparams
 from composer.algorithms.selective_backprop import SelectiveBackprop as SelectiveBackprop
 from composer.algorithms.selective_backprop import SelectiveBackpropHparams as SelectiveBackpropHparams
 from composer.algorithms.seq_length_warmup import SeqLengthWarmup as SeqLengthWarmup
