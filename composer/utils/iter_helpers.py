@@ -11,17 +11,20 @@ import contextlib
 def map_collection(collection, map_fn):
     """Apply ``map_fn`` on each element in ``collection``.
 
-    * If ``collection`` is a tuple or list of elements, ``map_fn`` is applied on each element, and a tuple or list is returned.
-    * If ``collection`` is a dictionary, ``map_fn`` is applied on each value, and a dictionary is returned.
+    * If ``collection`` is a tuple or list of elements, ``map_fn`` is applied on each element,
+      and a tuple or list, respectively, containing mapped values is returned.
+    * If ``collection`` is a dictionary, ``map_fn`` is applied on each value, and a dictionary
+      containing the mapped values is returned.
     * If ``collection`` is ``None``, ``None`` is returned.
-    * If ``collection`` is a single element, ``map_fn`` is applied on it.
+    * If ``collection`` is a single element, the result of applying ``map_fn`` on it is returned.
 
     Args:
         collection: The element, or a tuple of elements.
         map_fn: A function to invoke on each element.
 
     Returns:
-        Collection: The result of applying ``map_fn`` on each element of ``collection``. The type of ``collection`` is preserved.
+        Collection: The result of applying ``map_fn`` on each element of ``collection``.
+        The type of ``collection`` is preserved.
     """
     if collection is None:
         return None

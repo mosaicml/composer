@@ -1,19 +1,20 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
-"""Helper utilities for configuring deterministic training and ensuring reproducibility.
+"""Helper utilities for configuring deterministic training to ensure reproducibility.
 
 .. note::
 
-    For a deterministic model initialization, :meth:`~composer.utils.reproducibility.seed_all` and/or
+    For deterministic model initialization, :meth:`~composer.utils.reproducibility.seed_all` and/or
     :meth:`~composer.utils.configure_deterministic_mode` should be
     invoked before creating and initializing a model, before creating the :class:`~composer.trainer.trainer.Trainer`.
     For example:
 
     .. testsetup::
+
+        import functools
         import torch.nn
 
-        class MyModel(torch.nn.Module):
-            pass
+        MyModel = functools.partial(SimpleBatchPairModel, num_channels, num_classes)
 
     .. doctest::
 
@@ -23,8 +24,8 @@
         >>> reproducibility.seed_all(42)
         >>> model = MyModel()
         >>> # model will now be deterministically initialized, since the seed is set.
-        >>> model.apply(torch.nn.init.kaiming_uniform_)
-        >>> trainer = Trainer(model)
+        >>> model.apply(torch.nn.init.uniform_)
+        >>> trainer = Trainer(model=model)
 """
 import os
 import random
@@ -52,8 +53,8 @@ def configure_deterministic_mode():
 
         >>> trainer = Trainer(deterministic_mode=True)
 
-        However, if deterministic operations must be performed before initializing the trainer
-        (such as model initialization), then this function can be called beforehand.
+        However, to configure deterministic mode for operations before the trainer is initialized, manually invoke this
+        function at the beginning of your training script.
 
     .. note::
         
@@ -61,7 +62,7 @@ def configure_deterministic_mode():
 
     .. note::
 
-        Deterministic mode degrades performance. Its use should be limited to testing and debugging.
+        Deterministic mode degrades performance. Do not use outside of testing and debugging.
     """
     torch.use_deterministic_algorithms(True)
     torch.backends.cudnn.benchmark = False
@@ -97,8 +98,8 @@ def seed_all(seed: int):
 
         >>> trainer = Trainer(seed=42)
 
-        However, if deterministic operations must be performed before initializing the trainer
-        (such as model initialization), then this function can be called beforehand.
+        However, to configure the random seed for operations before the trainer is initialized, manually invoke this
+        function at the beginning of your training script.
 
     Args:
         seed (int): The random seed

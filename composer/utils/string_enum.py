@@ -13,11 +13,10 @@ __all__ = ["StringEnum"]
 class StringEnum(Enum):
     """Base class for Enums containing string values.
 
-    :class:`StringEnum` enforces that all keys are uppercase, and all values are lowercase.
-    
-    In addition, it offers the following features:
+    This class enforces that all keys are uppercase and all values are lowercase. It also offers
+    the following convenience features:
 
-    * ``StringEnum(value)`` will perform a case-insensitive match on both the keys and value,
+    *   ``StringEnum(value)`` will perform a case-insensitive match on both the keys and value,
         and is a no-op if given an existing instance of the class.
 
         >>> class MyStringEnum(StringEnum):
@@ -29,7 +28,7 @@ class StringEnum(Enum):
         >>> MyStringEnum(MyStringEnum.KEY)  # no-op if given an existing instance
         <MyStringEnum.KEY: 'value'>
     
-    * Equality checks support case-insensitive comparisions against strings:
+    *   Equality checks support case-insensitive comparisions against strings:
 
         >>> class MyStringEnum(StringEnum):
         ...     KEY = "value"

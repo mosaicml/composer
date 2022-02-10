@@ -53,7 +53,7 @@ As general rule, scale schedule can be applied in conjunction with any method. I
 ## Code
 
 ```{eval-rst}
-.. autoclass:: composer.trainer.scale_schedule.ScaleSchedule
+.. autoclass:: composer.algorithms.scale_schedule.scale_schedule.ScaleSchedule
     :members: match, apply
     :noindex:
 

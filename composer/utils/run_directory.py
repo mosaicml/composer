@@ -35,7 +35,8 @@ This folder is partitioned into subfolders by each rank. For example:
 >>> os.environ['COMPOSER_RUN_DIRECTORY'] = "./path/to/my_run_directory"
 >>> from composer.utils import run_directory
 >>> os.path.relpath(run_directory.get_run_directory())
-./path/to/my_run_directory/rank_0"""
+'path/to/my_run_directory/rank_0'
+"""
 import datetime
 import logging
 import os

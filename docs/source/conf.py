@@ -144,6 +144,7 @@ intersphinx_mapping = {
     'torchtext': ('https://pytorch.org/text/stable/', None),
     'torchmetrics': ('https://torchmetrics.readthedocs.io/en/latest/', None),
     'libcloud': ('https://libcloud.readthedocs.io/en/stable/', None),
+    'PIL': ('https://pillow.readthedocs.io/en/stable', None),
 }
 
 nitpicky = False  # warn on broken links

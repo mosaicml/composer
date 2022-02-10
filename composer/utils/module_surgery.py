@@ -24,7 +24,7 @@ import collections
 import itertools
 import logging
 import textwrap
-from typing import Any, Dict, Iterable, List, Mapping, Optional, OrderedDict, Tuple, Type, Callable
+from typing import Any, Dict, Iterable, List, Mapping, Optional, OrderedDict, Tuple, Type, Callable, Union
 
 from composer.utils.iter_helpers import ensure_tuple
 
@@ -66,56 +66,62 @@ def replace_module_classes(
 ) -> Dict[torch.nn.Module, torch.nn.Module]:
     """Modify model in-place by recursively applying replacement policies.
 
-    In the following example, all convolution layers with linear layers,
-    and all max pooling with average pooling. Linear layers will be optionally replaced depending
-    on the number of input features.
+    .. rubric:: Example
 
-            >>> from torch import nn
-            >>> mnist_module = nn.Sequential([
-            ...     nn.Conv2d(1, 32, 3, 1),
-            ...     nn.ReLU(),
-            ...     nn.Conv2d(32, 64, 3, 1),
-            ...     nn.ReLU(),
-            ...     nn.MaxPool2d(2),
-            ...     nn.Dropout(0.25),
-            ...     nn.Flatten(),
-            ...     nn.Linear(9216, 128),
-            ...     nn.ReLU(),
-            ...     nn.Dropout(0.5),
-            ...     nn.Linear(128, 10),
-            ...     nn.LogSoftmax(dim=1),
-            ...])
-            >>> policies = {
-            ...    nn.Conv2d: lambda x, idx: nn.Linear(16, 32),
-            ...    nn.MaxPool2d: lambda x, idx: nn.AvgPool2d(3, stride=2),
-            ...    nn.Linear: lambda x, idx: nn.Linear(16, 64) if x.in_features == 32 else None
-            ... }
-            >>> replace_module_classes(module, policies)
-            {}
+    The following example replaces all convolution layers with linear layers, and
+    linear layers will be optionally replaced depending on the number of input features.
 
-    .. warning:: When a module is replaced, any tensor values within the module are not copied over
-                 to the new module even when the shape is identical. For example, if model weights
-                 are initialized and prior to calling this function, the initialized weights will not
-                 be preserved in any replacements.
+    .. testsetup::
+    
+        from composer.utils.module_surgery import replace_module_classes
+    
+    .. doctest::
+
+        >>> from torch import nn
+        >>> module = nn.Sequential(
+        ... nn.Conv2d(1, 32, 3, 1),
+        ... nn.ReLU(),
+        ... nn.MaxPool2d(2),
+        ... nn.Flatten(),
+        ... nn.Linear(5408, 128),
+        ... nn.ReLU(),
+        ... nn.LogSoftmax(dim=1),
+        )
+        >>> policies = {
+        ...    nn.Conv2d: lambda x, idx: nn.Linear(16, 32),
+        ...    nn.Linear: lambda x, idx: nn.Linear(16, 64) if x.in_features == 32 else None
+        ... }
+        >>> replace_module_classes(module, policies)
+        {Conv2d(1, 32, kernel_size=(3, 3), stride=(1, 1)): Linear(in_features=16, out_features=32, bias=True), ...}
+
+    .. warning::
+
+        When a module is replaced, any tensor values within the module are not copied over
+        to the new module even when the shape is identical. For example, if model weights
+        are initialized prior to calling this function, the initialized weights will not
+        be preserved in any replacements.
 
 
     Arguments:
         module (torch.nn.Module): Model to modify.
         policies (Mapping[torch.nn.Module, ReplacementFunction]): Mapping of source module class to
-            a replacement function. The replacement may be either another module or ``None``. If the latter,
-            the source module replacement is skipped.
+            a replacement function. The replacement function may return either another module or ``None``.
+            If the latter, the source module is not replaced.
         recurse_on_replacements (bool): If true, policies will be applied to any module returned
-            by another policy. E.g., if one replaces a ``Conv2d`` with a module containing
-            another ``Conv2d``, this new child ``Conv2d`` might also be replaced. This can recurse
-            infinitely if the replacement policies are not conditioned on
-            module properties that change over the course of the recursion.
+            by another policy. For example, if one policy replaces a :class:`~torch.nn.Conv2d`
+            with a module containing another :class:`~torch.nn.Conv2d`, the replacement function will
+            be invoked with this new child :class:`~torch.nn.Conv2d` instance. If the replacement policies
+            are not conditioned on module properties that change during replacement, infinite recursion is
+            possible. 
         indices (Dict[Any, int], optional): A dictionary mapping module types to the number of times
             they've occurred so far in the recursive traversal of
-            ``module`` and its child modules. Allows us to pass ``module_index``
-            to the replacement policies, so that a policy may switch behavior
-            on the i-th instance of the module_class. Note that these indices
-            may not correspond to the order in which modules get called in the
-            forward pass.
+            ``module`` and its child modules. The value is provided to replacement functions, so they
+            may switch behaviors depending on the number of replacements that occurred for a given module type.
+
+            .. note::
+
+                These indices may not correspond to the order in which modules get called in the forward pass.
+    
         optimizers (Optimizers, optional): One or more :class:`~torch.optim.Optimizer` objects. If provided,
             this function will attempt to remove parameters in replaced modules
             from these optimizers, and add parameters from the newly-created
@@ -176,37 +182,42 @@ def replace_module_classes(
                                        new_params=new_module.parameters(),
                                        optimizers=optimizers)
     elif len(replaced_pairs) > 0:
-        log.info(
-            f"optimizers was not provided. Be sure to either create the optimizer after invoking this method, or manually add new parameters to the existing optimizer."
-        )
+        log.info(textwrap.dedent("""\
+            optimizers was not provided. Be sure to either create the optimizer after
+            invoking this method, or manually add new parameters to the existing optimizer."""
+        ))
 
     return replaced_pairs
 
 
-def count_module_instances(model: torch.nn.Module, module_class: Type[torch.nn.Module]) -> int:
-    """Counts the number of instances of module_class in the model.
+def count_module_instances(module: torch.nn.Module, module_class: Union[Type[torch.nn.Module], Tuple[Type[torch.nn.Module], ...]]) -> int:
+    """Counts the number of instances of ``module_class`` in ``module``, recursively.
 
-    Example:
-        .. testsetup::
-            from composer.core.surgery import count_module_instances
+    .. rubric:: Example
 
-        .. doctest::
-            >>> from torch import nn
-            >>> model = nn.Sequential([nn.Linear(16, 32), nn.Linear(32, 64), nn.ReLU])
-            >>> count_module_instances(model, nn.Linear)
-            2
-            >>> count_module_instances(model, (nn.Linear, nn.ReLU))
-            3
+    .. testsetup::
+
+        from composer.core.surgery import count_module_instances
+
+    .. doctest::
+
+        >>> from torch import nn
+        >>> module = nn.Sequential([nn.Linear(16, 32), nn.Linear(32, 64), nn.ReLU])
+        >>> count_module_instances(module, nn.Linear)
+        2
+        >>> count_module_instances(module, (nn.Linear, nn.ReLU))
+        3
 
     Args:
-        model (torch.nn.Module): Source model
-        module_class (Type[torch.nn.Module]): module_class to count. Can also be a tuple of classes.
+        module (torch.nn.Module): The source module.
+        module_class (Type[torch.nn.Module] | Tuple[Type[torch.nn.Module], ...]):
+            The module type (or tuple of module types) to count.
 
     Returns:
-        int: The number of instances of `module_class` in `model`
+        int: The number of instances of ``module_class`` in ``module``
     """
     count = 0
-    for _, child in model.named_children():
+    for _, child in module.named_children():
         if isinstance(child, module_class):
             count += 1
         count += count_module_instances(child, module_class)
@@ -254,33 +265,32 @@ def _find_param_in_optimizer(param: torch.nn.parameter.Parameter, optimizer: tor
 
 def update_params_in_optimizer(old_params: Iterable[torch.nn.parameter.Parameter],
                                new_params: Iterable[torch.nn.parameter.Parameter], optimizers: Optimizers) -> None:
-    """Removes old parameters from an optimizer and adds in new parameters Parameters found in `old_params` but not
-    `new_params` will be removed from the optimizers.
+    """Remove ``old_params`` from the ``optimizers`` and insert ``new_params``.
+    
+    Newly added parameters will be added to the same :attr:`~torch.optim.Optimizer.param_group` as the removed
+    parameters. A :class:`RuntimeError` will be raised if ``old_params`` is split across multiple parameter groups.
 
-    Similarly, parameters found in `new_params` but not
-    `old_params` will be added to the optimizer. Newly added parameters will
-    be added to the same optimizer `param_group` as the removed parameters
-    on a best-effort basis. If different removed parameters for a given
-    module are in different `param_group`s a RuntimeError will be thrown.
-    Dynamically removing parameters from an optimizer and adding parameters
-    to an existing `param_group` are not officially supported, so this
-    function may fail when PyTorch is updated. The recommended practice is
-    to instead recreate the optimizer when the parameter set changes if
-    possible. See `recommended practice <https://github.com/pytorch/pytorch/issues/1489#issuecomment-355301737>`_.
-    To simply add new parameters without replacing existing ones, use
-    :meth:`~torch.optim.Optimizer.add_param_group`.
+    .. note::
+
+        Dynamically removing parameters from a :class:`~torch.optim.Optimizer` and adding parameters
+        to an existing :attr:`~torch.optim.Optimizer.param_group`_s are not officially supported, so this
+        function may fail when PyTorch is updated. The
+        `recommended practice <https://github.com/pytorch/pytorch/issues/1489#issuecomment-355301737>`_ is
+        to instead recreate the optimizer when the parameter set changes
+        To simply add new parameters without replacing existing ones, use
+        :meth:`~torch.optim.Optimizer.add_param_group`.
 
     Args:
-        old_params: Parameters in this iterable should be removed if they are
-            not present in `new_params`.
+        old_params (Iterable[torch.nn.parameter.Parameter]):
+            Parameters in this iterable should be removed if they are not present in ``new_params``.
         new_params: Parameters in this iterable should be added if they are
-            not present in `old_params`.
-        optimizers (Optimizers): One or more `torch.optim.Optimizer` objects
+            not present in ``old_params``.
+        optimizers (Optimizers): One or more :class:`~torch.optim.Optimizer` objects
 
     Raises:
-        NotImplementedError: If `optimizers` contains more than one optimizer
+        NotImplementedError: If ``optimizers`` contains more than one optimizer.
         RuntimeError: If not all removed parameters are found in the
-            same parameter group, or if any of them are not found at all
+            same parameter group, or if any of them are not found at all.
     """
     if len(ensure_tuple(optimizers)) > 1:
         raise NotImplementedError("Surgery with multiple optimizers is not yet supported.")
@@ -345,7 +355,7 @@ def replace_params_in_optimizer(old_params: Iterable[torch.nn.parameter.Paramete
         optimizers (Optimizers): One or more :class:`torch.optim.Optimizer` objects.
 
     Raises:
-        NotImplementedError: If ``optimizers`` contains more than one optimizer
+        NotImplementedError: If ``optimizers`` contains more than one optimizer.
         RuntimeError: If ``old_params`` and ``new_params`` have different lengths, or
             if a param from ``old_params`` cannot be found.
     """
