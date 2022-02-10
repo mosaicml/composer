@@ -40,7 +40,7 @@ class JSONTraceHandlerHparams(ProfilerEventHandlerHparams):
 
 
 @dataclasses.dataclass
-class DataloaderProfilerHparams(CallbackHparams):
+class DataloaderProfilerHparams(ProfilerCallbackHparams):
     """:class:`~composer.profiler.dataloader_profiler.DataloaderProfiler` hyperparameters.
 
     See :class:`~composer.profiler.dataloader_profiler.DataloaderProfiler` for documentation."""
@@ -51,7 +51,7 @@ class DataloaderProfilerHparams(CallbackHparams):
 
 
 @dataclasses.dataclass
-class SystemProfilerHparams(CallbackHparams):
+class SystemProfilerHparams(ProfilerCallbackHparams):
     """:class:`~composer.profiler.system_profiler.SystemProfiler` hyperparameters.
 
     See :class:`~composer.profiler.system_profiler.SystemProfiler` for documentation."""
@@ -68,7 +68,7 @@ class SystemProfilerHparams(CallbackHparams):
 
 
 @dataclasses.dataclass
-class TorchProfilerHparams(CallbackHparams):
+class TorchProfilerHparams(ProfilerCallbackHparams):
     """:class:`~composer.profiler.torch_profiler.TorchProfiler` hyperparameters.
 
     See :class:`~composer.profiler.torch_profiler.TorchProfiler` for documentation.

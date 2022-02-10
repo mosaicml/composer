@@ -8,13 +8,13 @@ import textwrap
 import warnings
 from typing import Any, Dict, Optional
 
-from composer.core.logging import BaseLoggerBackend, LogLevel, TLogData
+from composer.core.logging import LoggerCallback, LogLevel, TLogData
 from composer.core.time import Timestamp
 from composer.core.types import Logger, State, StateDict
 from composer.utils import dist, run_directory
 
 
-class WandBLoggerBackend(BaseLoggerBackend):
+class WandBLogger(LoggerCallback):
     """Log to Weights and Biases (https://wandb.ai/)
 
     Args:
@@ -90,11 +90,6 @@ class WandBLoggerBackend(BaseLoggerBackend):
             self._upload_artifacts()
 
     def epoch_end(self, state: State, logger: Logger) -> None:
-        del state, logger  # unused
-        if self._enabled and self._log_artifacts:
-            self._upload_artifacts()
-
-    def training_end(self, state: State, logger: Logger) -> None:
         del state, logger  # unused
         if self._enabled and self._log_artifacts:
             self._upload_artifacts()

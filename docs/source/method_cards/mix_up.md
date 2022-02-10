@@ -54,9 +54,6 @@ This method interacts with other methods (such as CutOut) that alter the inputs 
     :members: match, apply
     :noindex:
 
-.. autofunction:: composer.algorithms.mixup.mixup.gen_interpolation_lambda
-  :noindex:
-
 .. autofunction:: composer.algorithms.mixup.mixup_batch
   :noindex:
 

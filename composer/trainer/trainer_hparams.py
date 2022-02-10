@@ -15,15 +15,15 @@ import yahp as hp
 import composer
 from composer import datasets
 from composer.algorithms import AlgorithmHparams, get_algorithm_registry
-from composer.callbacks import (BenchmarkerHparams, CallbackHparams, GradMonitorHparams, LRMonitorHparams,
-                                MemoryMonitorHparams, RunDirectoryUploaderHparams, SpeedMonitorHparams)
+from composer.callbacks import (CallbackHparams, GradMonitorHparams, LRMonitorHparams, MemoryMonitorHparams,
+                                RunDirectoryUploaderHparams, SpeedMonitorHparams)
 from composer.core import DataSpec
 from composer.core.types import JSON, Precision
 from composer.datasets import DataloaderHparams
 from composer.datasets.dataset_registry import get_dataset_registry
 from composer.datasets.evaluator import EvaluatorHparams
-from composer.loggers import (BaseLoggerBackendHparams, FileLoggerBackendHparams, MosaicMLLoggerBackendHparams,
-                              TQDMLoggerBackendHparams, WandBLoggerBackendHparams)
+from composer.loggers import (FileLoggerHparams, InMemoryLoggerHaparms, LoggerCallbackHparams, TQDMLoggerHparams,
+                              WandBLoggerHparams)
 from composer.models import (BERTForClassificationHparams, BERTHparams, CIFARResNet9Hparams, CIFARResNetHparams,
                              DeepLabV3Hparams, EfficientNetB0Hparams, GPT2Hparams, MnistClassifierHparams, ModelHparams,
                              ResNetHparams, TimmHparams, UnetHparams)
@@ -84,7 +84,6 @@ algorithms_registry = get_algorithm_registry()
 
 callback_registry = {
     "speed_monitor": SpeedMonitorHparams,
-    "benchmarker": BenchmarkerHparams,
     "lr_monitor": LRMonitorHparams,
     "grad_monitor": GradMonitorHparams,
     "memory_monitor": MemoryMonitorHparams,
@@ -92,10 +91,10 @@ callback_registry = {
 }
 
 logger_registry = {
-    "file": FileLoggerBackendHparams,
-    "wandb": WandBLoggerBackendHparams,
-    "tqdm": TQDMLoggerBackendHparams,
-    "mosaicml": MosaicMLLoggerBackendHparams,
+    "file": FileLoggerHparams,
+    "wandb": WandBLoggerHparams,
+    "tqdm": TQDMLoggerHparams,
+    "in_memory": InMemoryLoggerHaparms,
 }
 
 device_registry = {
@@ -128,31 +127,22 @@ class TrainerHparams(hp.Hparams):
     optimizer: OptimizerHparams = hp.required(doc="Optimizer to use")
 
     model: ModelHparams = hp.required(doc="model")
-    loggers: List[BaseLoggerBackendHparams] = hp.required(doc="loggers to use")
+    loggers: List[LoggerCallbackHparams] = hp.required(doc="loggers to use")
 
-    max_duration: str = hp.required(
-        doc="Time string for the maximum training duration (e.g., 90ep)",
-        template_default="10ep",
-    )
+    max_duration: str = hp.required(doc="Time string for the maximum training duration (e.g., 90ep)")
 
     train_batch_size: int = hp.required(
-        doc="batch size for each optimization step, across all devices and gradient accumulations.",
-        template_default=2048,
-    )
+        doc="batch size for each optimization step, across all devices and gradient accumulations.")
 
-    eval_batch_size: int = hp.required(
-        doc="batch size to use for each evaluation step",
-        template_default=2048,
-    )
+    eval_batch_size: int = hp.required(doc="batch size to use for each evaluation step")
 
     dataloader: DataloaderHparams = hp.required(doc="dataloader hparams")
 
-    grad_accum: int = hp.required(
-        template_default=1,
-        doc=
-        "Determines the number of microbatches to split a per-gpu batch into, used to compensate for low-memory-capacity devices."
-    )
-    precision: Precision = hp.required(doc="Precision to use for training", template_default=Precision.AMP)
+    grad_accum: int = hp.optional(textwrap.dedent("""\
+        Determines the number of microbatches to split a per-gpu batch into,
+        used to compensate for low-memory-capacity devices."""),
+                                  default=1)
+    precision: Precision = hp.optional(doc="Precision to use for training", default=Precision.AMP)
 
     val_dataset: Optional[datasets.DatasetHparams] = hp.optional(doc="Validation dataset hparams", default=None)
 
@@ -178,6 +168,8 @@ class TrainerHparams(hp.Hparams):
     validate_every_n_batches: int = hp.optional(
         doc="Validate every N batches. Set to -1 to never validate on a batchwise frequency. Defaults to -1.",
         default=-1)
+    scale_schedule_ratio: float = hp.optional(
+        doc="Ratio by which to scale the training duration and learning rate schedules.", default=1.0)
     callbacks: List[CallbackHparams] = hp.optional(doc="Callback hparams", default_factory=list)
 
     load_path: Optional[str] = hp.optional(doc=textwrap.dedent("""\
@@ -274,6 +266,9 @@ class TrainerHparams(hp.Hparams):
             raise ValueError(
                 "val_dataset and evaluators shouldn't both be specified. Only one can be passed in to the trainer.")
 
+        if self.scale_schedule_ratio <= 0:
+            raise ValueError("scale_schedule_ratio must be a positive value.")
+
     def initialize_object(self) -> Trainer:
         self.validate()
         import composer
@@ -292,7 +287,7 @@ class TrainerHparams(hp.Hparams):
 
         # callbacks, loggers, and seed
         dict_config = self.to_dict()
-        log_destinations = [x.initialize_object(config=dict_config) for x in self.loggers]
+        loggers = [x.initialize_object(config=dict_config) for x in self.loggers]
         callbacks = [x.initialize_object() for x in self.callbacks]
 
         if self.datadir is not None:
@@ -389,6 +384,7 @@ class TrainerHparams(hp.Hparams):
             validate_every_n_epochs=self.validate_every_n_epochs,
             compute_training_metrics=self.compute_training_metrics,
             precision=self.precision,
+            scale_schedule_ratio=self.scale_schedule_ratio,
 
             # dist hparams
             dist_timeout=self.dist_timeout,
@@ -399,7 +395,7 @@ class TrainerHparams(hp.Hparams):
             deterministic_mode=self.deterministic_mode,
 
             # Callbacks and logging
-            log_destinations=log_destinations,
+            loggers=loggers,
             callbacks=callbacks,
 
             # Profiler

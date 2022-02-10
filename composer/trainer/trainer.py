@@ -19,15 +19,16 @@ from torch.optim.lr_scheduler import CosineAnnealingLR
 from torchmetrics.collections import MetricCollection
 from torchmetrics.metric import Metric
 
-from composer.core import Callback, DataSpec, Engine, Event, Logger, State, Time, surgery
+from composer.algorithms import ScaleSchedule
+from composer.core import Callback, DataSpec, Engine, Event, Logger, State, Time
 from composer.core.algorithm import Algorithm
 from composer.core.evaluator import Evaluator
-from composer.core.logging import BaseLoggerBackend, LogLevel
+from composer.core.logging import LoggerCallback, LogLevel
 from composer.core.time import TimeUnit
 from composer.core.types import (Batch, BreakEpochException, DataLoader, Evaluators, Metrics, Optimizers, Precision,
                                  Schedulers)
 from composer.datasets.dataloader import unwrap_data_loader
-from composer.loggers.tqdm_logger import TQDMLoggerBackend
+from composer.loggers.tqdm_logger import TQDMLogger
 from composer.models.base import ComposerModel
 from composer.optim import ComposedScheduler
 from composer.optim.decoupled_weight_decay import DecoupledSGDW
@@ -35,11 +36,10 @@ from composer.profiler.profiler_hparams import ProfilerHparams
 from composer.trainer.checkpoint import CheckpointLoader, CheckpointSaver
 from composer.trainer.ddp import DDPSyncStrategy, ddp_sync_context, prepare_ddp_module
 from composer.trainer.deepspeed import fix_batch_precision_for_deepspeed, parse_deepspeed_config
-from composer.trainer.devices.device import Device
-from composer.trainer.devices.device_cpu import DeviceCPU
-from composer.trainer.devices.device_gpu import DeviceGPU
+from composer.trainer.devices import Device, DeviceCPU, DeviceGPU
+from composer.trainer.scale_schedule import scale_scheduler
 from composer.trainer.scaler import ClosureGradScaler
-from composer.utils import dist, ensure_tuple, map_collection, reproducibility
+from composer.utils import dist, ensure_tuple, map_collection, module_surgery, reproducibility
 from composer.utils.object_store import ObjectStoreProvider
 
 if TYPE_CHECKING:
@@ -82,7 +82,9 @@ class Trainer:
         compute_training_metrics (bool, optional): True to compute metrics on training data and False to not.
             (default: ``False``)
         precision (str or Precision, optional): Numerical precision to use for training, one of 'fp32', 'fp16'
-            for 'amp' (recommended). (default: ``Precision.FP32``).
+            or 'amp' (recommended). (default: ``Precision.FP32``).
+        scale_schedule_ratio (float, optional): Ratio by which to scale the training duration and learning rate
+            schedules. See :func:`scale_schedule` for details. (default: ``1.0``)
         dist_timeout (float, optional): Timeout, in seconds, for initializing the distributed process group.
             (default: ``15.0``)
         ddp_sync_strategy (str or DDPSyncStrategy, optional): The strategy to use for synchronizing gradients.
@@ -92,8 +94,8 @@ class Trainer:
         deterministic_mode (bool, optional): Run the model deterministically. Experimental. Performance
             degradations expected. Certain Torch modules may not have deterministic implementations,
             which will result in a crash. (default: ``False``)
-        log_destinations (List[BaseLoggerBackend], optional): The destinations to log training information to.
-            (default: ``[TQDMLoggerBackend()]``).
+        loggers (List[LoggerCallback], optional): The destinations to log training information to.
+            (default: ``[TQDMLogger()]``).
         callbacks (Sequence[Callback], optional): The callbacks to run during training. (default: ``[]``)
         load_path (str, optional): Path to a specific checkpoint to load. If not set (the default),
             then no checkpoint will be loaded. (default: ``None``)
@@ -152,6 +154,7 @@ class Trainer:
         validate_every_n_epochs: int = 1,
         compute_training_metrics: bool = False,
         precision: Union[str, Precision] = Precision.FP32,
+        scale_schedule_ratio: float = 1.0,
 
         # dist hparams
         dist_timeout: float = 300.0,
@@ -162,7 +165,7 @@ class Trainer:
         deterministic_mode: bool = False,
 
         # Logging and callbacks
-        log_destinations: Optional[Sequence[BaseLoggerBackend]] = None,
+        loggers: Optional[Sequence[LoggerCallback]] = None,
         callbacks: Sequence[Callback] = tuple(),
 
         # load checkpoint
@@ -192,8 +195,23 @@ class Trainer:
         # self._use_grad_scaling() will raise a RuntimeError if grad scaling is not available when it is required
         warnings.filterwarnings(action="ignore", message="torch.cuda.amp.GradScaler")
 
+        # ScaleSchedule is a deprecated algorithm, but if it is used, updated SSR with its ratio.
+        # TODO(#434): Remove this completely.
+        for algorithm in algorithms or []:
+            if isinstance(algorithm, ScaleSchedule):
+                scale_schedule_ratio = algorithm.ratio
+
         if isinstance(max_duration, str):
             max_duration = Time.from_timestring(max_duration)
+
+        orig_max_duration = max_duration
+
+        if scale_schedule_ratio != 1.0:
+            max_duration = cast(Time[int], orig_max_duration * scale_schedule_ratio)
+            log.info(f'max_duration changed from {orig_max_duration} to {max_duration}')
+            if max_duration.value == 0:
+                raise ValueError(
+                    'Scale schedule has reduced the max_duration to 0. Set a higher ratio or use more epochs.')
 
         self.deepspeed_config = deepspeed_config
 
@@ -226,32 +244,31 @@ class Trainer:
         if not algorithms:
             algorithms = []
 
+        # some algorithms require specific settings
         self.backwards_create_graph = any(map(lambda x: x.backwards_create_graph, algorithms))
-
         find_unused_parameters = any(map(lambda x: x.find_unused_parameters, algorithms))
-
         self.find_unused_parameters = find_unused_parameters
 
-        if self.deepspeed_enabled:
-            import deepspeed
-            deepspeed.init_distributed()
-        else:
+        if self.deepspeed_enabled or dist.get_world_size() > 1:
+            # deepspeed requires torch.distributed to be initialized, even if the world size is 1
+            # distributed is always required with multi-rank training
             dist.initialize_dist(self.device.dist_backend, datetime.timedelta(seconds=dist_timeout))
-            if ddp_sync_strategy is None:
-                self.ddp_sync_strategy = DDPSyncStrategy.SINGLE_AUTO_SYNC if not find_unused_parameters else DDPSyncStrategy.FORCED_SYNC
-            else:
-                self.ddp_sync_strategy = DDPSyncStrategy(ddp_sync_strategy)
+        if ddp_sync_strategy is None:
+            self.ddp_sync_strategy = DDPSyncStrategy.SINGLE_AUTO_SYNC if not find_unused_parameters else DDPSyncStrategy.FORCED_SYNC
+        else:
+            self.ddp_sync_strategy = DDPSyncStrategy(ddp_sync_strategy)
 
-        # `eval_dataloader` could be a dataloader, dataspec, evaluator, List[Evaluator], Tuple[Evaluator, ...], or dict of Dataspec hparams
-        # convert it to `List[Evaluator]`
+        # convert eval_dataloader to `List[Evaluator]`
         self.evaluators: List[Evaluator] = []
         for evaluator in ensure_tuple(eval_dataloader):
             if isinstance(evaluator, Evaluator):
                 self.evaluators.append(evaluator)
             else:
                 metrics = model.metrics(train=False)
-                default_evaluator = Evaluator(label="eval_dataset", dataloader=evaluator, metrics=metrics)
-                self.evaluators.append(default_evaluator)
+                evaluator = Evaluator(label="eval_dataset", dataloader=evaluator, metrics=metrics)
+                self.evaluators.append(evaluator)
+
+        self._eval_subset_num_batches = eval_subset_num_batches
 
         # do a check here to make sure there is at least one validation set
         if len(self.evaluators) == 0:
@@ -259,13 +276,6 @@ class Trainer:
                 textwrap.dedent("""No evaluation dataset was specified. Please specify `eval_dataloader` to periodically
                 evaluate your model while training."""),
                 category=UserWarning)
-
-        # TODO(#123): DeepSpeed still needs a precision context, but it's not completely clear how to
-        # handle this with our version of Pytorch
-        precision_context = self.device.precision_context if not self.deepspeed_enabled else cast(
-            Callable[..., ContextManager], contextlib.nullcontext)
-        if isinstance(precision, str):
-            precision = Precision(precision)
 
         if not isinstance(train_dataloader, DataSpec):
             train_dataloader = DataSpec(train_dataloader)
@@ -285,27 +295,19 @@ class Trainer:
                     To fix, please do not iterate over the dataloader before passing it into
                     the trainer."""))
 
-        if eval_subset_num_batches is not None:
-            for evaluator in self.evaluators:
-                try:
-                    eval_dataloader_len = len(evaluator.dataloader.dataloader)
-                except (NotImplementedError, TypeError):
-                    pass
-                else:
-                    if eval_subset_num_batches > eval_dataloader_len:
-                        warnings.warn(
-                            textwrap.dedent(
-                                f"""SubsetNumBatchesWarning: The eval_subset_num_batches({eval_subset_num_batches})
-                                is greater than the number of batches in the evaluator ({evaluator.label}) dataloader
-                                ({len(evaluator.dataloader.dataloader)})"""))
-        self._eval_subset_num_batches = eval_subset_num_batches
+        # TODO(#123): DeepSpeed still needs a precision context, but it's not completely clear how to
+        # handle this with our version of Pytorch
+        precision_context = self.device.precision_context if not self.deepspeed_enabled else cast(
+            Callable[..., ContextManager], contextlib.nullcontext)
+        if isinstance(precision, str):
+            precision = Precision(precision)
 
+        # optimizers and schedulers
         if not optimizers:
             optimizers = DecoupledSGDW(list(model.parameters()), lr=0.1)
             warnings.warn(f"No optimizer was specified. Defaulting to {repr(optimizers)}")
 
         num_optimizers = len(ensure_tuple(optimizers))
-
         if num_optimizers != 1:
             raise NotImplementedError(f"Only one optimizer is supported; found {num_optimizers} optimizers")
 
@@ -315,9 +317,16 @@ class Trainer:
                 raise ValueError("If a scheduler is not provided, max duration must be in epochs")
             schedulers = CosineAnnealingLR(optimizer, T_max=max_duration.value)
             warnings.warn(f"No scheduler was specified. Defaulting to {repr(schedulers)}")
-        if not isinstance(schedulers, (tuple, list)):
-            schedulers = [schedulers]
-        schedulers = ComposedScheduler(schedulers)
+
+        if scale_schedule_ratio != 1.0:
+            if orig_max_duration.unit != TimeUnit.EPOCH:
+                raise NotImplementedError(
+                    "Max duration must be specified in epochs. Other units are not yet supported.")
+
+            for scheduler in ensure_tuple(schedulers):
+                scale_scheduler(scheduler, scale_schedule_ratio, orig_max_duration.value)
+
+        schedulers = ComposedScheduler(ensure_tuple(schedulers))
 
         self.state = State(
             max_duration=max_duration,
@@ -339,10 +348,10 @@ class Trainer:
             self.state.profiler = profiler.initialize_object(self.state)
             self.state.callbacks.extend(self.state.profiler.event_handlers)
 
-        if log_destinations is None:
-            log_destinations = [TQDMLoggerBackend()]
-        self.logger = Logger(self.state, log_destinations)
-        self.state.callbacks = list(cast(List[Callback], log_destinations)) + self.state.callbacks
+        if loggers is None:
+            loggers = [TQDMLogger()]
+        self.logger = Logger(self.state, loggers)
+        self.state.callbacks = list(cast(List[Callback], loggers)) + self.state.callbacks
 
         self.engine = Engine(
             state=self.state,
@@ -392,6 +401,13 @@ class Trainer:
                 model=self.state.model,
                 optimizer=optimizer,
             )
+            # The deepspeed engine is responsible for serializing the model and optimizer state,
+            # so these attributes should not be serialized with the composer state.
+            if "model" in self.state.serialized_attributes:
+                self.state.serialized_attributes.remove("model")
+
+            if "optimizers" in self.state.serialized_attributes:
+                self.state.serialized_attributes.remove("optimizers")
 
         # If using DeepSpeed, the model must be loaded from checkpoint after the engine has been
         # initialized, but if using PyTorch DDP, the model must be loaded before it is wrapped with
@@ -408,15 +424,16 @@ class Trainer:
 
             # use surgery to update the parameters of the optimizers, now that the model is on the device
             # see https://pytorch.org/docs/stable/optim.html#constructing-it
-            surgery.replace_params_in_optimizer(old_params=host_model_params,
-                                                new_params=device_model_params,
-                                                optimizers=self.state.optimizers)
+            module_surgery.replace_params_in_optimizer(old_params=host_model_params,
+                                                       new_params=device_model_params,
+                                                       optimizers=self.state.optimizers)
 
             # Move any remaining optimizer parameters onto the device
             self.state.optimizers = map_collection(self.state.optimizers, self.device.optimizer_to_device)
 
-            # wrap model with DDP
-            self.state.model = prepare_ddp_module(self.state.model, self.find_unused_parameters)
+            if dist.is_initialized():
+                # wrap model with DDP
+                self.state.model = prepare_ddp_module(self.state.model, self.find_unused_parameters)
 
     @property
     def deepspeed_enabled(self):
@@ -508,7 +525,7 @@ class Trainer:
         else:
             train_metrics = None
 
-        self.engine.run_event(Event.TRAINING_START)
+        self.engine.run_event(Event.FIT_START)
 
         state.scaler = ClosureGradScaler() if self._use_closures() else GradScaler()
         use_grad_scaling = self._use_grad_scaling(state.precision, state.scaler)
@@ -642,8 +659,6 @@ class Trainer:
 
             if self.checkpoint_saver and self.checkpoint_saver.should_checkpoint(state=state, event=Event.EPOCH_END):
                 self.checkpoint_saver.save_checkpoint(state=state, seed=self.seed, device=self.device)
-
-        self.engine.run_event(Event.TRAINING_END)
 
     def _train_batch(self, microbatches: Sequence[Batch], ddp_sync: bool = True):
         """Run training on a full batch of data.

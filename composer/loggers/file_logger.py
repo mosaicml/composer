@@ -8,13 +8,13 @@ from typing import Any, Dict, Optional, TextIO
 
 import yaml
 
-from composer.core.logging import BaseLoggerBackend, Logger, LogLevel, TLogData, format_log_data_value
+from composer.core.logging import Logger, LoggerCallback, LogLevel, TLogData, format_log_data_value
 from composer.core.state import State
 from composer.core.time import Timestamp
 from composer.utils import run_directory
 
 
-class FileLoggerBackend(BaseLoggerBackend):
+class FileLogger(LoggerCallback):
     """Logs to a file or to the terminal.
 
     Example output::
@@ -72,6 +72,8 @@ class FileLoggerBackend(BaseLoggerBackend):
 
     def epoch_start(self, state: State, logger: Logger) -> None:
         self.is_epoch_interval = (int(state.timer.epoch) + 1) % self.log_interval == 0
+        # Flush any log calls that occurred during INIT or FIT_START
+        self._flush_file()
 
     def will_log(self, state: State, log_level: LogLevel) -> bool:
         if log_level == LogLevel.FIT:
@@ -115,24 +117,21 @@ class FileLoggerBackend(BaseLoggerBackend):
             print("-" * 30, file=self.file)
             print(file=self.file)
 
-    def training_start(self, state: State, logger: Logger) -> None:
-        del state, logger  # unused
-        self._flush_file()
-
     def batch_end(self, state: State, logger: Logger) -> None:
         del logger  # unused
         assert self.file is not None
         if self.log_level == LogLevel.BATCH and int(state.timer.batch) % self.flush_interval == 0:
             self._flush_file()
 
+    def eval_start(self, state: State, logger: Logger) -> None:
+        # Flush any log calls that occurred during INIT when using the trainer in eval-only mode
+        self._flush_file()
+
     def epoch_end(self, state: State, logger: Logger) -> None:
         del logger  # unused
         if self.log_level > LogLevel.EPOCH or self.log_level == LogLevel.EPOCH and int(
                 state.timer.epoch) % self.flush_interval == 0:
             self._flush_file()
-
-    def training_end(self, state: State, logger: Logger) -> None:
-        self._flush_file()
 
     def _flush_file(self) -> None:
         assert self.file is not None

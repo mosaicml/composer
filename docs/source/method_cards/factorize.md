@@ -63,8 +63,6 @@ Algorithm
 
 .. autoclass:: composer.algorithms.factorize.Factorize
     :noindex:
-.. autoclass:: composer.algorithms.factorize.FactorizeHparams
-    :noindex:
 
 Standalone
 ^^^^^^^^^^
@@ -77,11 +75,9 @@ Standalone
     :members:
     :noindex:
 
+.. autofunction:: composer.algorithms.factorize.apply_factorization
+    :noindex:
 .. autoclass:: composer.algorithms.factorize.LowRankSolution
-    :noindex:
-.. autofunction:: composer.algorithms.factorize.factorize_conv2d_modules
-    :noindex:
-.. autofunction:: composer.algorithms.factorize.factorize_linear_modules
     :noindex:
 .. autofunction:: composer.algorithms.factorize.factorize_matrix
     :noindex:
