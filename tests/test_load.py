@@ -39,6 +39,8 @@ def get_model_algs(model_name: str) -> List[str]:
 def test_load(model_name: str):
     if 'timm' in model_name:
         pytest.importorskip("timm")
+    if "vit" in model_name:
+        pytest.importorskip("vit_pytorch")
     if model_name in ['unet']:
         pytest.importorskip("monai")
     if model_name in ['deeplabv3_ade20k']:
