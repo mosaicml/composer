@@ -41,4 +41,3 @@ class ChannelsLast(Algorithm):
         apply_channels_last(state.model)
 
         log.info(f'Model {state.model.__class__.__name__} changed to channels_last format.')
-
