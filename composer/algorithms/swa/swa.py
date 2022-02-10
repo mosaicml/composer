@@ -155,7 +155,7 @@ class SWA(Algorithm):
 
         if self.swa_scheduler is None:
             raise ValueError('SWA LR scheduler was not set.')
-        self.swa_scheduler.step()
+        # self.swa_scheduler.step()
 
         ## end of training
         if float(state.get_elapsed_duration()) >= 1.0:
