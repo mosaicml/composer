@@ -75,6 +75,7 @@ class TestTrainerInit():
         with pytest.raises(ValueError, match="magic_device"):
             Trainer(**config)
 
+    @pytest.mark.timeout(5.0)
     def test_active_iterator_error(self, config):
         dataloader = DataLoader(
             dataset=RandomClassificationDataset(),
