@@ -14,8 +14,9 @@ import torch
 import yahp as hp
 
 from composer.algorithms import AlgorithmHparams
-from composer.core import Algorithm, Event, Logger, State, surgery
+from composer.core import Algorithm, Event, Logger, State
 from composer.core.types import Optimizers
+from composer.utils import module_surgery
 
 log = logging.getLogger(__name__)
 
@@ -117,9 +118,9 @@ def apply_alibi(
             module = mask_replacement_function(module, max_sequence_length)
         return module
 
-    replaced_pairs = surgery.replace_module_classes(model,
-                                                    optimizers=optimizers,
-                                                    policies={attention_module: convert_attention})
+    replaced_pairs = module_surgery.replace_module_classes(model,
+                                                           optimizers=optimizers,
+                                                           policies={attention_module: convert_attention})
 
     count = len(replaced_pairs)
     log.info(f" {count} instances of ALiBi added")

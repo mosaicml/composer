@@ -11,8 +11,9 @@ from composer.algorithms import StochasticDepth, StochasticDepthHparams
 from composer.algorithms.stochastic_depth.sample_stochastic_layers import SampleStochasticBottleneck
 from composer.algorithms.stochastic_depth.stochastic_depth import STOCHASTIC_LAYER_MAPPING, apply_stochastic_depth
 from composer.algorithms.stochastic_depth.stochastic_layers import StochasticBottleneck, _sample_bernoulli
-from composer.core import Event, State, surgery
+from composer.core import Event, State
 from composer.models import ComposerResNet
+from composer.utils import module_surgery
 
 
 @pytest.fixture()
@@ -36,7 +37,7 @@ def stochastic_method():
 @pytest.mark.parametrize('target_layer_name', ['ResNetBottleneck'])
 def test_se_algorithm(state: State, stochastic_method: str, target_layer_name: str):
     target_layer, stochastic_layer = STOCHASTIC_LAYER_MAPPING[stochastic_method][target_layer_name]
-    target_block_count = surgery.count_module_instances(state.model, target_layer)
+    target_block_count = module_surgery.count_module_instances(state.model, target_layer)
 
     sd = StochasticDepth(stochastic_method=stochastic_method,
                          target_layer_name=target_layer_name,
@@ -45,7 +46,7 @@ def test_se_algorithm(state: State, stochastic_method: str, target_layer_name: s
                          drop_warmup=0.0,
                          use_same_gpu_seed=False)
     sd.apply(Event.INIT, state, logger=Mock())
-    stochastic_block_count = surgery.count_module_instances(state.model, stochastic_layer)
+    stochastic_block_count = module_surgery.count_module_instances(state.model, stochastic_layer)
 
     assert target_block_count == stochastic_block_count
 
@@ -54,7 +55,7 @@ def test_se_algorithm(state: State, stochastic_method: str, target_layer_name: s
 @pytest.mark.parametrize('target_layer_name', ['ResNetBottleneck'])
 def test_se_functional(state: State, stochastic_method: str, target_layer_name: str):
     target_layer, stochastic_layer = STOCHASTIC_LAYER_MAPPING[stochastic_method][target_layer_name]
-    target_block_count = surgery.count_module_instances(state.model, target_layer)
+    target_block_count = module_surgery.count_module_instances(state.model, target_layer)
 
     apply_stochastic_depth(model=state.model,
                            stochastic_method=stochastic_method,
@@ -63,7 +64,7 @@ def test_se_functional(state: State, stochastic_method: str, target_layer_name: 
                            drop_distribution='linear',
                            use_same_gpu_seed=False)
 
-    stochastic_block_count = surgery.count_module_instances(state.model, stochastic_layer)
+    stochastic_block_count = module_surgery.count_module_instances(state.model, stochastic_layer)
 
     assert target_block_count == stochastic_block_count
 
@@ -187,8 +188,8 @@ class TestStochasticDepthDropRate:
     @pytest.fixture
     def algorithm(
         self,
-        stochastic_method,
         target_layer_name,
+        stochastic_method,
         drop_rate,
         drop_distribution,
         drop_warmup,
