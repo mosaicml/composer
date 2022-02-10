@@ -20,6 +20,7 @@ from composer.algorithms.layer_freezing import LayerFreezing
 from composer.algorithms.mixup import MixUp
 from composer.algorithms.progressive_resizing import ProgressiveResizing
 from composer.algorithms.randaugment import RandAugment
+from composer.algorithms.sam import SAM
 from composer.algorithms.squeeze_excite import SqueezeExcite
 from composer.algorithms.stochastic_depth import StochasticDepth
 from composer.algorithms.stochastic_depth.stochastic_depth import STOCHASTIC_LAYER_MAPPING, validate_stochastic_hparams
@@ -232,6 +233,20 @@ class RandAugmentHparams(AlgorithmHparams):
 
     def initialize_object(self) -> "RandAugment":
         return RandAugment(**asdict(self))
+
+
+@dataclass
+class SAMHparams(AlgorithmHparams):
+    """See :class:`SAM`"""
+    rho: float = hp.optional(doc='The neighborhood size parameter of SAM. Must be greater than 0.', default=0.05)
+    epsilon: float = hp.optional(doc='A small value added to gradient norm for numerical stability.', default=1.0e-12)
+    interval: int = hp.optional(doc='SAM will run once per `interval` steps. A value of 1 will cause'
+                                'SAM to run every step. Steps on which SAM runs take roughly twice'
+                                'as much time to complete.',
+                                default=1)
+
+    def initialize_object(self) -> SAM:
+        return SAM(**asdict(self))
 
 
 @dataclass
