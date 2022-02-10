@@ -45,16 +45,11 @@ class SystemProfiler(Callback):
             import psutil
             del psutil
         except ImportError as e:
-            raise ImportError(
-                "Please install composer with pip install composer[perf] to use the state.profiler") from e
+            raise ImportError("Please install composer with pip install composer[perf] to use the profiler") from e
 
     def init(self, state: State, logger: Logger):
         del logger  # unused
-        if state.profiler is None:
-            raise RuntimeError(
-                textwrap.dedent("""\
-                    To use the dataloader state.profiler, state.profiler must be set.
-                    Make sure to run composer with the state.profiler -- i.e. with the `--profiler` CLI flag."""))
+        assert state.profiler is not None, "The trainer should have set the profiler in state"
 
         # Start the stats thread
         threading.Thread(target=self._stats_thread, daemon=True, args=[state.profiler]).start()
