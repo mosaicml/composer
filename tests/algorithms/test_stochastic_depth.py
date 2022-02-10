@@ -9,7 +9,7 @@ import torch.nn.functional as F
 
 from composer.algorithms import StochasticDepth, StochasticDepthHparams
 from composer.algorithms.stochastic_depth.sample_stochastic_layers import SampleStochasticBottleneck
-from composer.algorithms.stochastic_depth.stochastic_depth import STOCHASTIC_LAYER_MAPPING, apply_stochastic_depth
+from composer.algorithms.stochastic_depth.stochastic_depth import _STOCHASTIC_LAYER_MAPPING, apply_stochastic_depth
 from composer.algorithms.stochastic_depth.stochastic_layers import StochasticBottleneck, _sample_bernoulli
 from composer.core import Event, State
 from composer.models import ComposerResNet
@@ -36,7 +36,7 @@ def stochastic_method():
 @pytest.mark.parametrize('stochastic_method', ['block', 'sample'])
 @pytest.mark.parametrize('target_layer_name', ['ResNetBottleneck'])
 def test_se_algorithm(state: State, stochastic_method: str, target_layer_name: str):
-    target_layer, stochastic_layer = STOCHASTIC_LAYER_MAPPING[stochastic_method][target_layer_name]
+    target_layer, stochastic_layer = _STOCHASTIC_LAYER_MAPPING[stochastic_method][target_layer_name]
     target_block_count = module_surgery.count_module_instances(state.model, target_layer)
 
     sd = StochasticDepth(stochastic_method=stochastic_method,
@@ -54,7 +54,7 @@ def test_se_algorithm(state: State, stochastic_method: str, target_layer_name: s
 @pytest.mark.parametrize('stochastic_method', ['block', 'sample'])
 @pytest.mark.parametrize('target_layer_name', ['ResNetBottleneck'])
 def test_se_functional(state: State, stochastic_method: str, target_layer_name: str):
-    target_layer, stochastic_layer = STOCHASTIC_LAYER_MAPPING[stochastic_method][target_layer_name]
+    target_layer, stochastic_layer = _STOCHASTIC_LAYER_MAPPING[stochastic_method][target_layer_name]
     target_block_count = module_surgery.count_module_instances(state.model, target_layer)
 
     apply_stochastic_depth(model=state.model,
