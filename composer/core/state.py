@@ -15,7 +15,6 @@ from torch.nn.parallel import DistributedDataParallel
 
 import composer.core.types as types
 from composer.core.precision import Precision
-from composer.core.profiler import Profiler
 from composer.core.serializable import Serializable
 from composer.core.time import Time, Timer, TimeUnit
 from composer.utils import ensure_tuple
@@ -23,6 +22,7 @@ from composer.utils import ensure_tuple
 if TYPE_CHECKING:
     from composer.core.algorithm import Algorithm
     from composer.core.callback import Callback
+    from composer.profiler import Profiler
 
 __all__ = ["State"]
 
