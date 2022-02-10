@@ -9,15 +9,14 @@ Methods Overview
       :text: AliBi
    ++++++++++++++
    :badge:`NLP,badge-success`
-   ALiBi (Attention with Linear Biases) dispenses with position embeddings for tokens in transformer-based NLP models, instead encoding position information by biasing the query-key attention scores proportionally to each token pair's distance...
-
+   Replace attention with AliBi
    ---
 
    .. link-button:: aug_mix.html
       :text: AugMix
    ++++++++++++++
    :badge:`Vision,badge-primary`
-   For each data sample, AugMix creates an *augmentation chain* by sampling `depth` image augmentations from a set (e.g. translation, shear, contrast) and applies them sequentially with randomly sampled intensity...
+   Image-perserving data augmentations
 
    ---
    .. link-button:: blurpool.html
@@ -31,20 +30,19 @@ Methods Overview
       :text: Channels Last
    ++++++++++++++
    :badge:`Vision,badge-primary`
-   Channels Last is a systems optimization that improves the throughput of convolution operations by storing activation and weight tensors in a NHWC (batch, height, width, channels) format, rather than Pytorch's default of NCHW.
-
+   Uses channels last memory format (NHWC)
    ---
    .. link-button:: col_out.html
       :text: ColOut
    ++++++++++++++
    :badge:`Vision,badge-primary`
-   ColOut works by dropping a fraction of the rows and columns of an input image.
+   Removes columns and rows from the image for augmentation and efficiency.
    ---
    .. link-button:: cut_out.html
       :text: Cutout
    ++++++++++++++
    :badge:`Vision,badge-primary`
-
+   Combines pairs of examples in non-overlapping regions and mixes labels
    ---
    .. link-button:: decoupled_weight_decay.html
       :text: Decoupled Weight Decay
@@ -61,62 +59,63 @@ Methods Overview
       :text: Ghost BatchNorm
    ++++++++++++++
    :badge:`Vision,badge-primary`
-
+   Use smaller samples to compute batchnorm
    ---
    .. link-button:: label_smoothing.html
       :text: Label Smoothing
    ++++++++++++++
    :badge:`Vision,badge-primary`
-
+   Smooths the labels with a uniform prior
    ---
    .. link-button:: layer_freezing.html
       :text: Layer Freezing
    ++++++++++++++
    :badge:`Vision,badge-primary`
-
+   Progressively freezes layers during training.
    ---
    .. link-button:: mix_up.html
       :text: MixUp
    ++++++++++++++
    :badge:`Vision,badge-primary`
-
+   Blends pairs of examples and labels
    ---
    .. link-button:: progressive_resizing_vision.html
       :text: Progressive Image Resizing
    ++++++++++++++
    :badge:`Vision,badge-primary`
-
+   Increases the input image size during training
    ---
    .. link-button:: rand_augment.html
       :text: RandAugment
    ++++++++++++++
    :badge:`Vision,badge-primary`
-
+   Applies a series of random augmentations
    ---
    .. link-button:: sam.html
       :text: Sharpness Aware Minimization
    ++++++++++++++
    :badge:`Vision,badge-primary`
-
+   SAM optimizer measures sharpness of optimization space
    ---
    .. link-button:: scale_schedule.html
       :text: Scale Schedule
    ++++++++++++++
-
+   Scales the learning schedule by a factor
    ---
    .. link-button:: selective_backprop.html
       :text: Selective Backprop
    ++++++++++++++
    :badge:`Vision,badge-primary`
    :badge:`NLP,badge-success`
-
+   Drops examples with small loss contributions.
    ---
    .. link-button:: squeeze_excite.html
       :text: Squeeze-and-Excitation
-
+   Replaces eligible layers with Squeeze-Excite layers
    ---
    .. link-button:: stochastic_depth_blockwise.html
       :text: Stochastic Depth (Block-Wise)
+   Replaces a specified layer with a stochastic verion that randomly drops the layer or samples during training
    ++++++++++++++
    :badge:`Vision,badge-primary`
    :badge:`NLP,badge-success`
@@ -130,3 +129,4 @@ Methods Overview
    .. link-button:: swa.html
       :text: Stochastic Weight Averaging
    ++++++++++++++
+   Computes running average of model weights.
