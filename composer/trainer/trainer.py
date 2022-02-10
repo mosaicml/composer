@@ -6,6 +6,7 @@ import contextlib
 import datetime
 import itertools
 import logging
+import os
 import textwrap
 import warnings
 from typing import TYPE_CHECKING, Any, Callable, ContextManager, Dict, List, Optional, Sequence, Union, cast
@@ -19,6 +20,7 @@ from torch.optim.lr_scheduler import CosineAnnealingLR
 from torchmetrics.collections import MetricCollection
 from torchmetrics.metric import Metric
 
+from composer.callbacks.run_directory_uploader import RunDirectoryUploader, get_obj_name_for_local_file
 from composer.core import Callback, DataSpec, Engine, Event, Logger, State, Time, surgery
 from composer.core.algorithm import Algorithm
 from composer.core.evaluator import Evaluator
@@ -403,6 +405,25 @@ class Trainer:
     @property
     def deepspeed_enabled(self):
         return self.deepspeed_config is not None
+
+    @property
+    def last_checkpoint_filepath(self):
+        if self.checkpoint_saver.last_save_path is None:
+            return None
+
+        uploader = None
+        for c in self.state.callbacks:
+            if isinstance(c, RunDirectoryUploader):
+                uploader = c
+                break
+
+        if uploader is not None:
+            provider_prefix = uploader.provider_prefix
+            full_object_name = get_obj_name_for_local_file(object_name_prefix=uploader.object_name_prefix,
+                                                           local_filepath=self.checkpoint_saver.last_save_path)
+            return provider_prefix + full_object_name
+
+        return self.checkpoint_saver.last_save_path
 
     def fit(self):
         """Train and evaluate the model on the provided data."""

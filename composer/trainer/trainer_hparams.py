@@ -211,10 +211,10 @@ class TrainerHparams(hp.Hparams):
         This parameter has no effect if `save_folder` is not specified."""),
                                      default="1ep")
 
-    save_compression: str = hp.optional(doc=textwrap.dedent("""\
+    save_compression: Optional[str] = hp.optional(doc=textwrap.dedent("""\
         Compression algorithm to run on checkpoints. Can be `gzip`, `bzip2`,
-        `lzma`, or left blank for no compression.  (default: ``""`` for no compression)."""),
-                                        default="")
+        `lzma`, or `None` for no compression.  (default: ``None`` for no compression)."""),
+                                                  default=None)
 
     train_subset_num_batches: Optional[int] = hp.optional(
         "If specified, finish every epoch early after training on this many batches.", default=None)

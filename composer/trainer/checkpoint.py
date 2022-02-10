@@ -6,6 +6,7 @@ import contextlib
 import logging
 import os
 import random
+import shutil
 import tarfile
 import tempfile
 import textwrap
@@ -34,7 +35,7 @@ _COMPOSER_STATES_FILENAME = "composer_states.pt"
 _DEEPSPEED_TAG = "deepspeed"  # always tag with the same, deterministic name. We'll rename the tarball to the appropriate name.
 
 
-def _format_path_with_rank(path: str, rank: int):
+def _format_path_with_rank(path: str, rank: int) -> str:
     """Returns the path with ``{{RANK}}`` substituted with the ``rank`` argument. See the :class:`CheckpointLoader` docs
     for a description of how this is used.
 
@@ -45,12 +46,17 @@ def _format_path_with_rank(path: str, rank: int):
     return path.format(RANK=rank)
 
 
+def _is_pt_file(path: str) -> bool:
+    """Returns true if the path is a tar archive and false otherwise."""
+    return path.endswith('.pt')
+
+
 class CheckpointLoader:
     """Manager for initializing state and restoring RNG state from existing checkpoints.
 
     Args:
         path (str): The template path to an existing checkpoint file.
-            It can be a path to a file on local disk, a URL, or if ``object_store_hparams`` is set, the object name
+            It can be a path to a file on local disk, a URL, or if ``object_store`` is set, the object name
             for a checkpoint in a cloud bucket.
 
             When using Deepspeed zero, the :class:`CheckpointSaver` shards checkpoints by rank. To load deepspeed checkpoints,
@@ -178,7 +184,7 @@ class CheckpointLoader:
         rank_zero_checkpoint_archive_filepath = os.path.join(node_checkpoint_folder, rank_zero_checkpoint_archive_name)
         rank_n_checkpoint_archive_filepath = os.path.join(node_checkpoint_folder, rank_n_checkpoint_archive_name)
         extracted_checkpoint_folder = None
-        if rank_zero_checkpoint_archive_filepath.endswith(".pt"):
+        if _is_pt_file(rank_zero_checkpoint_archive_filepath):
             # it's not an archive; it's just the composer state dict
             # and only rank zero has this file
             extracted_checkpoint_folder = None
@@ -333,17 +339,43 @@ class CheckpointLoader:
                     RNG state will not be restored."""))
 
 
+def _format_from_compression(compression: Optional[str]) -> Tuple[str, str]:
+    if compression is None:
+        file_extension = ".pt"
+        write_mode = None
+    elif compression == "gzip":
+        file_extension = ".tar.gz"
+        write_mode = "w:gz"
+    elif compression == "bzip2":
+        file_extension = ".tar.bz2"
+        write_mode = "w:bz2"
+    elif compression == "lzma":
+        file_extension = ".tar.lzma"
+        write_mode = "w:xz"
+    else:
+        raise ValueError(f"Unknown encryption mode: {compression}")
+
+    return file_extension, write_mode
+
+
+def _ensure_archive(file_extension: str, write_mode: str) -> Tuple[str, str]:
+    if '.tar' not in file_extension:
+        file_extension = '.tar'
+        write_mode = 'w'
+    return file_extension, write_mode
+
+
 class CheckpointSaver:
     """Manager for saving state to checkpoint files.
 
     Args:
         save_folder (str): The path to store checkpoints in.
         interval (Time or str): The amount of time units to wait between checkpoints.
-        compression (str): Compression algorithm to run on checkpoints. Can be `gzip`, `bzip2`,
-            `lzma`, or left blank for no compression.  (default: ``""`` for no compression).
+        compression (str, Optional): Compression algorithm to run on checkpoints. Can be `gzip`, `bzip2`,
+            `lzma`, or `None` for no compression.  (default: ``None`` for no compression).
     """
 
-    def __init__(self, save_folder: str, interval: Union[Time, str], compression: str = ""):
+    def __init__(self, save_folder: str, interval: Union[Time, str], compression: Optional[str] = None):
         if not isinstance(interval, Time):
             interval = Time.from_timestring(interval)
         if interval.unit == TimeUnit.EPOCH:
@@ -355,20 +387,8 @@ class CheckpointSaver:
         self.checkpoint_folder = os.path.join(run_directory.get_run_directory(), save_folder)
         os.makedirs(self.checkpoint_folder, mode=0o775, exist_ok=True)
         self.save_interval = interval
-        if compression == "":
-            self.write_mode = "w"
-            self.file_extension = ".tar"
-        elif compression == "gzip":
-            self.write_mode = "w:gz"
-            self.file_extension = ".tar.gz"
-        elif compression == "bzip2":
-            self.write_mode = "w:bz2"
-            self.file_extension = ".tar.bz2"
-        elif compression == "lzma":
-            self.write_mode = "w:xz"
-            self.file_extension = ".tar.lzma"
-        else:
-            raise ValueError(f"Unknown encryption mode: {compression}")
+        self.file_extension, self.write_mode = _format_from_compression(compression=compression)
+        self.last_save_path = None
 
     def should_checkpoint(self, state: State, event: Event) -> bool:
         """Given the current state and event, determine whether a checkpoint needs to be created.
@@ -415,6 +435,9 @@ class CheckpointSaver:
             if is_module_deepspeed(state.model):
                 model = cast("deepspeed.DeepSpeedEngine", state.model)
                 model.save_checkpoint(tmpdir, _DEEPSPEED_TAG)
+                # ensure that deepspeed checkpoints are saved in an archive
+                self.file_extension, self.write_mode = _ensure_archive(file_extension=self.file_extension,
+                                                                       write_mode=self.write_mode)
 
             if dist.get_global_rank() == 0:
                 # only rank 0 saves checkpoints
@@ -427,11 +450,17 @@ class CheckpointSaver:
                 with open(composer_states_filepath, 'xb') as f:
                     torch.save(state_dict, f)
 
-            checkpoint_archive_filepath = os.path.join(self.checkpoint_folder, f'{tag}{self.file_extension}')
-            with tarfile.open(checkpoint_archive_filepath, self.write_mode) as tarball:
-                tarball.add(tmpdir, arcname="")  # add files flat to the tarball
+            checkpoint_filepath = os.path.join(self.checkpoint_folder, f'{tag}{self.file_extension}')
+            if not _is_pt_file(checkpoint_filepath):
+                with tarfile.open(checkpoint_filepath, self.write_mode) as tarball:
+                    # add files flat to the tarball with the specified compression
+                    tarball.add(tmpdir, arcname="")
+            else:
+                # move the file out of tmpdir to the user-specified location
+                shutil.move(composer_states_filepath, checkpoint_filepath)
 
-            log.info(f'Trainer checkpoint saved to {checkpoint_archive_filepath}')
+            self.last_save_path = checkpoint_filepath
+            log.info(f'Trainer checkpoint saved to {checkpoint_filepath}')
 
         # Ensure that the non-rank 0 processes don't exit before the checkpoint is saved.
         dist.barrier()

@@ -114,19 +114,22 @@ def checkpointing_trainer_hparams(composer_trainer_hparams: TrainerHparams) -> T
 def assert_checkpoints_equivalent(hparams_a: TrainerHparams, checkpoint_file_a: str, hparams_b: TrainerHparams,
                                   checkpoint_file_b: str) -> None:
 
+    def _load_checkpoint(checkpoint_dir: str, filename: str):
+        filename = filename.format(RANK=0)
+        if filename.endswith('.pt'):
+            return torch.load(filename, map_location='cpu')
+
+        with tarfile.open(filename) as tarball:
+            tarball.extractall(checkpoint_dir)
+        states_path = os.path.join(checkpoint_dir, 'composer_states.pt')
+        return torch.load(states_path, map_location='cpu')
+
     with tempfile.TemporaryDirectory() as tmpdir:
         a_checkpoint_dir = os.path.join(tmpdir, 'a')
-        with tarfile.open(checkpoint_file_a.format(RANK=0)) as tarball_a:
-            tarball_a.extractall(a_checkpoint_dir)
-        a_states_dir = os.path.join(a_checkpoint_dir, 'composer_states.pt')
-
         b_checkpoint_dir = os.path.join(tmpdir, 'b')
-        with tarfile.open(checkpoint_file_b.format(RANK=0)) as tarball_b:
-            tarball_b.extractall(b_checkpoint_dir)
-        b_states_dir = os.path.join(b_checkpoint_dir, 'composer_states.pt')
 
-        checkpoint_a = torch.load(a_states_dir, map_location='cpu')
-        checkpoint_b = torch.load(b_states_dir, map_location='cpu')
+        checkpoint_a = _load_checkpoint(a_checkpoint_dir, checkpoint_file_a)
+        checkpoint_b = _load_checkpoint(b_checkpoint_dir, checkpoint_file_b)
 
         deep_compare(checkpoint_a["rng"], checkpoint_b["rng"])
 
@@ -197,7 +200,7 @@ def test_load_weights(
     composer_trainer_hparams.seed = None
     composer_trainer_hparams.validate_every_n_batches = 1
     composer_trainer_hparams.validate_every_n_epochs = 0
-    final_checkpoint = "ep2.tar"
+    final_checkpoint = "ep2.pt"
     _test_checkpoint_trainer(composer_trainer_hparams)
 
     # re-create the trainer from the YAML
@@ -240,9 +243,9 @@ def test_load_weights(
     pytest.param(GPUDeviceHparams(), True, 1, id="deepspeed-zero1", marks=pytest.mark.deepspeed),
     pytest.param(GPUDeviceHparams(), True, 2, id="deepspeed-zero2", marks=pytest.mark.deepspeed),
 ])
-@pytest.mark.parametrize(
-    "seed,checkpoint_filename,compression",
-    [[None, "ep1.tar", ""], [42, "ep1.tar", ""], [42, "ep1.tar.gz", "gzip"], [42, "it4.tar", ""], [42, "it6.tar", ""]])
+@pytest.mark.parametrize("seed,checkpoint_filename,compression",
+                         [[None, "ep1.pt", None], [42, "ep1.pt", None], [42, "ep1.tar.gz", "gzip"],
+                          [42, "it4.pt", None], [42, "it6.pt", None]])
 @pytest.mark.parametrize("model_name", [None, "resnet50_synthetic", "gpt2_52m"])
 def test_checkpoint(
     device_hparams: DeviceHparams,
@@ -251,7 +254,7 @@ def test_checkpoint(
     zero_stage: Optional[int],
     composer_trainer_hparams: TrainerHparams,
     checkpoint_filename: str,
-    compression: str,
+    compression: Optional[str],
     seed: Optional[int],
     model_name: Optional[str],
 ):
@@ -314,9 +317,11 @@ def test_checkpoint(
 
     composer_trainer_hparams.validate_every_n_batches = 0 if checkpoint_filename.startswith("it") else 1
     composer_trainer_hparams.validate_every_n_epochs = 0 if checkpoint_filename.startswith("ep") else 1
-    final_checkpoint = ("ep2" if checkpoint_filename.startswith("ep") else "it8") + ".tar" + (".gz"
-                                                                                              if compression else "")
-    _test_checkpoint_trainer(composer_trainer_hparams)
+    final_checkpoint = ("ep2" if checkpoint_filename.startswith("ep") else "it8") + (".tar.gz"
+                                                                                     if compression else ".pt")
+    trainer = _test_checkpoint_trainer(composer_trainer_hparams)
+    first_run_checkpoint_filepath = trainer.last_checkpoint_filepath
+    assert first_run_checkpoint_filepath is not None
     checkpoint_a_file_path = os.path.join(checkpoint_a_folder, checkpoint_filename)
     checkpoint_b_file_path = os.path.join(run_directory.get_node_run_directory(), "rank_{RANK}", checkpoint_a_folder,
                                           final_checkpoint)
@@ -331,8 +336,10 @@ def test_checkpoint(
     second_trainer_hparams.load_weights_only = False
     second_trainer_hparams.load_strict_model_weights = False
 
-    _test_checkpoint_trainer(second_trainer_hparams)
-
+    trainer = _test_checkpoint_trainer(second_trainer_hparams)
+    second_run_checkpoint_filepath = trainer.last_checkpoint_filepath
+    assert second_run_checkpoint_filepath is not None
+    assert second_run_checkpoint_filepath != first_run_checkpoint_filepath
     checkpoint_c_file_path = os.path.join(run_directory.get_node_run_directory(), "rank_{RANK}", checkpoint_b_folder,
                                           final_checkpoint)
 
@@ -350,10 +357,11 @@ def _test_checkpoint_trainer(trainer_hparams: TrainerHparams):
 
     trainer = trainer_hparams.initialize_object()
     trainer.fit()
-    validate_events_called_expected_number_of_times(trainer)
+    _validate_events_called_expected_number_of_times(trainer)
+    return trainer
 
 
-def validate_events_called_expected_number_of_times(trainer: Trainer):
+def _validate_events_called_expected_number_of_times(trainer: Trainer):
     state = trainer.state
 
     num_epochs = state.max_epochs

@@ -138,6 +138,16 @@ class RunDirectoryUploader(Callback):
 
         _validate_credentials(object_store_provider_hparams, self._object_name_prefix)
 
+    @property
+    def provider_prefix(self):
+        provider_name = self._object_store_provider_hparams.provider
+        container = self._object_store_provider_hparams.container
+        return f"{provider_name}:{container}/"
+
+    @property
+    def object_name_prefix(self):
+        return self._object_name_prefix
+
     def init(self, state: State, logger: Logger) -> None:
         del state, logger  # unused
         self._finished = self._finished_cls()
@@ -186,13 +196,12 @@ class RunDirectoryUploader(Callback):
                 raise RuntimeError("Upload worker crashed unexpectedly")
         modified_files = run_directory.get_modified_files(self._last_upload_timestamp)
         for filepath in modified_files:
-            relpath = os.path.relpath(filepath, run_directory.get_run_directory())  # chop off the run directory
             copied_path = os.path.join(self._upload_staging_folder, str(uuid.uuid4()))
-            files_to_be_uploaded.append(relpath)
+            files_to_be_uploaded.append(os.path.relpath(filepath, run_directory.get_run_directory()))
             copied_path_dirname = os.path.dirname(copied_path)
             os.makedirs(copied_path_dirname, exist_ok=True)
             shutil.copy2(filepath, copied_path)
-            self._file_upload_queue.put_nowait((copied_path, relpath))
+            self._file_upload_queue.put_nowait((copied_path, filepath))
 
         self._last_upload_timestamp = new_last_uploaded_timestamp
         if logger is not None and log_level is not None:
@@ -200,6 +209,11 @@ class RunDirectoryUploader(Callback):
             # and any logfiles will now have their last modified timestamp
             # incremented past self._last_upload_timestamp
             logger.metric(log_level, {"run_directory/uploaded_files": files_to_be_uploaded})
+
+
+def get_obj_name_for_local_file(object_name_prefix: str, local_filepath: str) -> str:
+    rel_to_run_dir = os.path.relpath(local_filepath, run_directory.get_run_directory())  # chop off the run directory
+    return object_name_prefix + rel_to_run_dir
 
 
 def _validate_credentials(
@@ -238,13 +252,13 @@ def _upload_worker(
     provider = object_store_provider_hparams.initialize_object()
     while True:
         try:
-            file_path_to_upload, obj_name = file_queue.get(block=True, timeout=0.5)
+            file_path_to_upload, full_local_path = file_queue.get(block=True, timeout=0.5)
         except queue.Empty:
             if is_finished.is_set():
                 break
             else:
                 continue
-        obj_name = object_name_prefix + obj_name
+        obj_name = get_obj_name_for_local_file(object_name_prefix, full_local_path)
         log.info("Uploading file %s to %s://%s/%s", file_path_to_upload, provider.provider_name,
                  provider.container_name, obj_name)
         retry_counter = 0
