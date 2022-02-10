@@ -18,6 +18,7 @@ from composer.algorithms.ghost_batchnorm import GhostBatchNorm
 from composer.algorithms.label_smoothing import LabelSmoothing
 from composer.algorithms.layer_freezing import LayerFreezing
 from composer.algorithms.mixup import MixUp
+from composer.algorithms.no_op_model import NoOpModel
 from composer.algorithms.progressive_resizing import ProgressiveResizing
 from composer.algorithms.randaugment import RandAugment
 from composer.algorithms.sam import SAM
@@ -207,6 +208,13 @@ class MixUpHparams(AlgorithmHparams):
 
     def initialize_object(self) -> MixUp:
         return MixUp(**asdict(self))
+
+
+@dataclass
+class NoOpModelHparams(AlgorithmHparams):
+
+    def initialize_object(self) -> NoOpModel:
+        return NoOpModel()
 
 
 @dataclass
