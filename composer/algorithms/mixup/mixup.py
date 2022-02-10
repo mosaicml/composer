@@ -38,13 +38,13 @@ def _gen_interpolation_lambda(alpha: float) -> float:
 def mixup_batch(x: Tensor,
                 y: Tensor,
                 n_classes: int,
-                interpolation_lambda: Optional[float] = 0.9,
+                interpolation_lambda: Optional[float] = None,
                 alpha: float = 0.2,
                 indices: Optional[torch.Tensor] = None) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
     """Create new samples using convex combinations of pairs of samples.
 
     This is done by taking a convex combination of x with a randomly
-    permuted copy of x. The interploation parameter lambda should be chosen from
+    permuted copy of x. The interpolation parameter lambda should be chosen from
     a ``Beta(alpha, alpha)`` distribution for some parameter alpha > 0.
     Note that the same lambda is used for all examples within the batch.
 
@@ -57,7 +57,9 @@ def mixup_batch(x: Tensor,
             are feature dimensions.
         y: target tensor of shape (B, f1, f2, ..., fm), B is batch size, f1-fn
             are possible target dimensions.
-        interpolation_lambda: amount of interpolation based on alpha.
+        interpolation_lambda: coefficient used to interpolate between the
+            two examples. If provided, must be in ``[0, 1]``. If ``None``,
+            value is drawn from a ``Beta(alpha, alpha)`` distribution.
         alpha: parameter for the beta distribution over the
             ``interpolation_lambda``. Only used if ``interpolation_lambda``
             is not provided.
