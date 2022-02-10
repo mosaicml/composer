@@ -41,8 +41,6 @@ Callbacks can be implemented in two ways:
                 if event == Event.EPOCH_START:
                     print(f'Epoch {state.epoch}/{state.max_epochs}')
 """
-from composer.callbacks.benchmarker import Benchmarker
-from composer.callbacks.callback_hparams import BenchmarkerHparams as BenchmarkerHparams
 from composer.callbacks.callback_hparams import CallbackHparams as CallbackHparams
 from composer.callbacks.callback_hparams import GradMonitorHparams as GradMonitorHparams
 from composer.callbacks.callback_hparams import LRMonitorHparams as LRMonitorHparams
@@ -55,7 +53,6 @@ from composer.callbacks.run_directory_uploader import RunDirectoryUploader
 from composer.callbacks.speed_monitor import SpeedMonitor
 
 __all__ = [
-    "Benchmarker",
     "GradMonitor",
     "LRMonitor",
     "RunDirectoryUploader",

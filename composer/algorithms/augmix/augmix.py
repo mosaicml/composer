@@ -2,38 +2,18 @@
 
 import textwrap
 import weakref
-from dataclasses import asdict, dataclass
 from typing import Optional
 
 import numpy as np
 import torch
-import yahp as hp
 from PIL import Image
 from PIL.Image import Image as ImageType
 from torchvision.datasets import VisionDataset
 
-from composer.algorithms.algorithm_hparams import AlgorithmHparams
 from composer.core.event import Event
 from composer.core.types import Algorithm, Event, List, Logger, State
 from composer.utils.augmentation_primitives import augmentation_sets
 from composer.utils.data import add_dataset_transform
-
-
-@dataclass
-class AugMixHparams(AlgorithmHparams):
-    """See :class:`AugMix`"""
-
-    severity: int = hp.optional(doc="Intensity of each augmentation. Ranges from 0 (none) to 10 (maximum)", default=3)
-    depth: int = hp.optional(doc="Number of augmentations to compose in a row", default=-1)
-    width: int = hp.optional(doc="Number of parallel augmentation sequences to combine", default=3)
-    alpha: float = hp.optional(doc="Mixing parameter for clean vs. augmented images.", default=1.0)
-    augmentation_set: str = hp.optional(
-        doc=
-        "Set of augmentations to sample from. 'all', 'safe' (only augmentations that don't appear on CIFAR10C/ImageNet10C), or 'original'",
-        default="all")
-
-    def initialize_object(self) -> "AugMix":
-        return AugMix(**asdict(self))
 
 
 def augmix_image(img: Optional[ImageType] = None,

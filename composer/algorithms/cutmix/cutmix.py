@@ -3,15 +3,12 @@
 from __future__ import annotations
 
 import logging
-from dataclasses import asdict, dataclass
 from typing import Optional, Tuple
 
 import numpy as np
 import torch
-import yahp as hp
 from torch.nn import functional as F
 
-from composer.algorithms import AlgorithmHparams
 from composer.core.types import Algorithm, Event, Logger, State, Tensor
 from composer.models.loss import check_for_index_targets
 
@@ -192,17 +189,6 @@ def cutmix_batch(x: Tensor,
         y_cutmix = adjusted_lambda * y + (1 - adjusted_lambda) * y_shuffled
 
     return x_cutmix, y_cutmix
-
-
-@dataclass
-class CutMixHparams(AlgorithmHparams):
-    """See :class:`CutMix`"""
-
-    num_classes: int = hp.required('Number of classes in the task labels.')
-    alpha: float = hp.optional('Strength of interpolation, should be >= 0. No interpolation if alpha=0.', default=1.0)
-
-    def initialize_object(self) -> CutMix:
-        return CutMix(**asdict(self))
 
 
 class CutMix(Algorithm):

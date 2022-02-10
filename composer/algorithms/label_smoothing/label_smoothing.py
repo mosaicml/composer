@@ -1,25 +1,12 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass
 from typing import Optional
 
 import torch
-import yahp as hp
 
-from composer.algorithms.algorithm_hparams import AlgorithmHparams
 from composer.core.types import Algorithm, Event, Logger, State, Tensor
 from composer.models.loss import ensure_targets_one_hot
-
-
-@dataclass
-class LabelSmoothingHparams(AlgorithmHparams):
-    """See :class:`LabelSmoothing`"""
-
-    alpha: float = hp.optional(doc='smoothing factor', default=0.1)
-
-    def initialize_object(self) -> LabelSmoothing:
-        return LabelSmoothing(**asdict(self))
 
 
 class LabelSmoothing(Algorithm):
