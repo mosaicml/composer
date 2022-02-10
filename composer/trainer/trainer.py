@@ -19,7 +19,8 @@ from torch.optim.lr_scheduler import CosineAnnealingLR
 from torchmetrics.collections import MetricCollection
 from torchmetrics.metric import Metric
 
-from composer.core import Callback, DataSpec, Engine, Event, Logger, State, Time, surgery
+from composer.algorithms import ScaleSchedule
+from composer.core import Callback, DataSpec, Engine, Event, Logger, State, Time
 from composer.core.algorithm import Algorithm
 from composer.core.evaluator import Evaluator
 from composer.core.logging import LoggerCallback, LogLevel
@@ -40,8 +41,9 @@ from composer.trainer.checkpoint import CheckpointLoader, CheckpointSaver
 from composer.trainer.ddp import DDPSyncStrategy, ddp_sync_context, prepare_ddp_module
 from composer.trainer.deepspeed import fix_batch_precision_for_deepspeed, parse_deepspeed_config
 from composer.trainer.devices import Device, DeviceCPU, DeviceGPU
+from composer.trainer.scale_schedule import scale_scheduler
 from composer.trainer.scaler import ClosureGradScaler
-from composer.utils import dist, ensure_tuple, map_collection, reproducibility
+from composer.utils import dist, ensure_tuple, map_collection, module_surgery, reproducibility
 from composer.utils.object_store import ObjectStoreProvider
 
 if TYPE_CHECKING:
@@ -86,7 +88,9 @@ class Trainer:
         compute_training_metrics (bool, optional): True to compute metrics on training data and False to not.
             (default: ``False``)
         precision (str or Precision, optional): Numerical precision to use for training, one of 'fp32', 'fp16'
-            for 'amp' (recommended). (default: ``Precision.FP32``).
+            or 'amp' (recommended). (default: ``Precision.FP32``).
+        scale_schedule_ratio (float, optional): Ratio by which to scale the training duration and learning rate
+            schedules. See :func:`scale_schedule` for details. (default: ``1.0``)
         dist_timeout (float, optional): Timeout, in seconds, for initializing the distributed process group.
             (default: ``15.0``)
         ddp_sync_strategy (str or DDPSyncStrategy, optional): The strategy to use for synchronizing gradients.
@@ -193,6 +197,7 @@ class Trainer:
         validate_every_n_epochs: int = 1,
         compute_training_metrics: bool = False,
         precision: Union[str, Precision] = Precision.FP32,
+        scale_schedule_ratio: float = 1.0,
 
         # dist hparams
         dist_timeout: float = 300.0,
@@ -250,8 +255,23 @@ class Trainer:
         # self._use_grad_scaling() will raise a RuntimeError if grad scaling is not available when it is required
         warnings.filterwarnings(action="ignore", message="torch.cuda.amp.GradScaler")
 
+        # ScaleSchedule is a deprecated algorithm, but if it is used, updated SSR with its ratio.
+        # TODO(#434): Remove this completely.
+        for algorithm in algorithms or []:
+            if isinstance(algorithm, ScaleSchedule):
+                scale_schedule_ratio = algorithm.ratio
+
         if isinstance(max_duration, str):
             max_duration = Time.from_timestring(max_duration)
+
+        orig_max_duration = max_duration
+
+        if scale_schedule_ratio != 1.0:
+            max_duration = cast(Time[int], orig_max_duration * scale_schedule_ratio)
+            log.info(f'max_duration changed from {orig_max_duration} to {max_duration}')
+            if max_duration.value == 0:
+                raise ValueError(
+                    'Scale schedule has reduced the max_duration to 0. Set a higher ratio or use more epochs.')
 
         self.deepspeed_config = deepspeed_config
 
@@ -357,6 +377,14 @@ class Trainer:
                 raise ValueError("If a scheduler is not provided, max duration must be in epochs")
             schedulers = CosineAnnealingLR(optimizer, T_max=max_duration.value)
             warnings.warn(f"No scheduler was specified. Defaulting to {repr(schedulers)}")
+
+        if scale_schedule_ratio != 1.0:
+            if orig_max_duration.unit != TimeUnit.EPOCH:
+                raise NotImplementedError(
+                    "Max duration must be specified in epochs. Other units are not yet supported.")
+
+            for scheduler in ensure_tuple(schedulers):
+                scale_scheduler(scheduler, scale_schedule_ratio, orig_max_duration.value)
 
         schedulers = ComposedScheduler(ensure_tuple(schedulers))
 
@@ -475,9 +503,9 @@ class Trainer:
 
             # use surgery to update the parameters of the optimizers, now that the model is on the device
             # see https://pytorch.org/docs/stable/optim.html#constructing-it
-            surgery.replace_params_in_optimizer(old_params=host_model_params,
-                                                new_params=device_model_params,
-                                                optimizers=self.state.optimizers)
+            module_surgery.replace_params_in_optimizer(old_params=host_model_params,
+                                                       new_params=device_model_params,
+                                                       optimizers=self.state.optimizers)
 
             # Move any remaining optimizer parameters onto the device
             self.state.optimizers = map_collection(self.state.optimizers, self.device.optimizer_to_device)

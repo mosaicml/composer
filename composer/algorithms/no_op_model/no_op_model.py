@@ -11,9 +11,10 @@ import torch.nn.functional as F
 from torchmetrics.classification.accuracy import Accuracy
 
 from composer.algorithms import AlgorithmHparams
-from composer.core import Algorithm, Event, Logger, State, surgery
+from composer.core import Algorithm, Event, Logger, State
 from composer.core.types import Metrics, Tensor, as_batch_pair
 from composer.models.base import ComposerModel
+from composer.utils import module_surgery
 
 if TYPE_CHECKING:
     from composer.core.types import Batch
@@ -68,9 +69,9 @@ class NoOpModel(Algorithm):
     def apply(self, event: Event, state: State, logger: Logger) -> Optional[int]:
         # replace model with dummy model
         new_model = NoOpModelClass(state.model)
-        surgery.update_params_in_optimizer(old_params=state.model.parameters(),
-                                           new_params=new_model.parameters(),
-                                           optimizers=state.optimizers)
+        module_surgery.update_params_in_optimizer(old_params=state.model.parameters(),
+                                                  new_params=new_model.parameters(),
+                                                  optimizers=state.optimizers)
         state.model = new_model
 
         log.info('Replaced model with a NoOpModel')

@@ -15,15 +15,15 @@ import yahp as hp
 import composer
 from composer import datasets
 from composer.algorithms import AlgorithmHparams, get_algorithm_registry
-from composer.callbacks import (BenchmarkerHparams, CallbackHparams, GradMonitorHparams, LRMonitorHparams,
-                                MemoryMonitorHparams, RunDirectoryUploaderHparams, SpeedMonitorHparams)
+from composer.callbacks import (CallbackHparams, GradMonitorHparams, LRMonitorHparams, MemoryMonitorHparams,
+                                RunDirectoryUploaderHparams, SpeedMonitorHparams)
 from composer.core import DataSpec
 from composer.core.types import JSON, Precision
 from composer.datasets import DataloaderHparams
 from composer.datasets.dataset_registry import get_dataset_registry
 from composer.datasets.evaluator import EvaluatorHparams
-from composer.loggers import (FileLoggerHparams, InMemoryLoggerHaparms, LoggerCallbackHparams, MosaicMLLoggerHparams,
-                              TQDMLoggerHparams, WandBLoggerHparams)
+from composer.loggers import (FileLoggerHparams, InMemoryLoggerHaparms, LoggerCallbackHparams, TQDMLoggerHparams,
+                              WandBLoggerHparams)
 from composer.models import (BERTForClassificationHparams, BERTHparams, CIFARResNet9Hparams, CIFARResNetHparams,
                              DeepLabV3Hparams, EfficientNetB0Hparams, GPT2Hparams, MnistClassifierHparams, ModelHparams,
                              ResNetHparams, TimmHparams, UnetHparams)
@@ -84,7 +84,6 @@ algorithms_registry = get_algorithm_registry()
 
 callback_registry = {
     "speed_monitor": SpeedMonitorHparams,
-    "benchmarker": BenchmarkerHparams,
     "lr_monitor": LRMonitorHparams,
     "grad_monitor": GradMonitorHparams,
     "memory_monitor": MemoryMonitorHparams,
@@ -95,7 +94,6 @@ logger_registry = {
     "file": FileLoggerHparams,
     "wandb": WandBLoggerHparams,
     "tqdm": TQDMLoggerHparams,
-    "mosaicml": MosaicMLLoggerHparams,
     "in_memory": InMemoryLoggerHaparms,
 }
 
@@ -173,6 +171,8 @@ class TrainerHparams(hp.Hparams):
     validate_every_n_batches: int = hp.optional(
         doc="Validate every N batches. Set to -1 to never validate on a batchwise frequency. Defaults to -1.",
         default=-1)
+    scale_schedule_ratio: float = hp.optional(
+        doc="Ratio by which to scale the training duration and learning rate schedules.", default=1.0)
     callbacks: List[CallbackHparams] = hp.optional(doc="Callback hparams", default_factory=list)
 
     load_path: Optional[str] = hp.optional(doc=textwrap.dedent("""\
@@ -332,6 +332,9 @@ class TrainerHparams(hp.Hparams):
             raise ValueError(
                 "val_dataset and evaluators shouldn't both be specified. Only one can be passed in to the trainer.")
 
+        if self.scale_schedule_ratio <= 0:
+            raise ValueError("scale_schedule_ratio must be a positive value.")
+
     def initialize_object(self) -> Trainer:
         self.validate()
         import composer
@@ -447,6 +450,7 @@ class TrainerHparams(hp.Hparams):
             validate_every_n_epochs=self.validate_every_n_epochs,
             compute_training_metrics=self.compute_training_metrics,
             precision=self.precision,
+            scale_schedule_ratio=self.scale_schedule_ratio,
 
             # dist hparams
             dist_timeout=self.dist_timeout,
