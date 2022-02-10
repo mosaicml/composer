@@ -111,8 +111,9 @@ class State(Serializable):
 
     # These attributes will be serialized using .state_dict(), and loaded with .load_state_dict()
     # All other attributes will not be serialized.
-    # For simplicity, the leading underscore for private attributes with public getters/setters
-    # need not be specified
+    # For simplicity, omit the leading underscore for private attributes.
+    # For example, even though the optimizers are stored on the state
+    # as the "_optimizers" attribute, here we specify just "optimizers"
     serialized_attributes = [
         "model",
         "optimizers",
