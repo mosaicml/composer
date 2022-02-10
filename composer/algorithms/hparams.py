@@ -8,6 +8,8 @@ from composer.algorithms.algorithm_hparams import AlgorithmHparams
 from composer.algorithms.augmix import AugMix
 from composer.algorithms.colout import ColOut
 from composer.algorithms.cutmix import CutMix
+from composer.algorithms.cutout import CutOut
+from composer.algorithms.label_smoothing import LabelSmoothing
 
 
 @dataclass
@@ -47,3 +49,24 @@ class CutMixHparams(AlgorithmHparams):
 
     def initialize_object(self) -> CutMix:
         return CutMix(**asdict(self))
+
+
+@dataclass
+class CutOutHparams(AlgorithmHparams):
+    """See :class:`CutOut`"""
+
+    n_holes: int = hp.optional('Number of holes to cut out', default=1)
+    length: int = hp.optional('Side length of the square hole to cut out', default=112)
+
+    def initialize_object(self) -> CutOut:
+        return CutOut(**asdict(self))
+
+
+@dataclass
+class LabelSmoothingHparams(AlgorithmHparams):
+    """See :class:`LabelSmoothing`"""
+
+    alpha: float = hp.optional(doc='smoothing factor', default=0.1)
+
+    def initialize_object(self) -> LabelSmoothing:
+        return LabelSmoothing(**asdict(self))

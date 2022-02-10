@@ -52,7 +52,6 @@ from composer.algorithms.channels_last import ChannelsLastHparams as ChannelsLas
 from composer.algorithms.colout import ColOut as ColOut
 from composer.algorithms.cutmix import CutMix as CutMix
 from composer.algorithms.cutout import CutOut as CutOut
-from composer.algorithms.cutout import CutOutHparams as CutOutHparams
 from composer.algorithms.factorize import Factorize as Factorize
 from composer.algorithms.factorize import FactorizeHparams as FactorizeHparams
 from composer.algorithms.ghost_batchnorm import GhostBatchNorm as GhostBatchNorm
@@ -60,8 +59,9 @@ from composer.algorithms.ghost_batchnorm import GhostBatchNormHparams as GhostBa
 from composer.algorithms.hparams import AugMixHparams as AugMixHparams
 from composer.algorithms.hparams import ColOutHparams as ColOutHparams
 from composer.algorithms.hparams import CutMixHparams as CutMixHparams
+from composer.algorithms.hparams import CutOutHparams as CutOutHparams
+from composer.algorithms.hparams import LabelSmoothingHparams as LabelSmoothingHparams
 from composer.algorithms.label_smoothing import LabelSmoothing as LabelSmoothing
-from composer.algorithms.label_smoothing import LabelSmoothingHparams as LabelSmoothingHparams
 from composer.algorithms.layer_freezing import LayerFreezing as LayerFreezing
 from composer.algorithms.layer_freezing import LayerFreezingHparams as LayerFreezingHparams
 from composer.algorithms.mixup import MixUp as MixUp

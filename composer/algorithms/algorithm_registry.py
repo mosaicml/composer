@@ -7,14 +7,14 @@ from composer.algorithms.alibi import AlibiHparams
 from composer.algorithms.blurpool import BlurPoolHparams
 from composer.algorithms.channels_last import ChannelsLastHparams
 # from composer.algorithms.cutmix import CutMixHparams
-from composer.algorithms.cutout import CutOutHparams
+# from composer.algorithms.cutout import CutOutHparams
 from composer.algorithms.factorize import FactorizeHparams
 from composer.algorithms.ghost_batchnorm import GhostBatchNormHparams
 # from composer.algorithms.hparams import AlibiHparams
 # from composer.algorithms.hparams import BlurPoolHparams
 # from composer.algorithms.hparams import ChannelsLastHparams
-from composer.algorithms.hparams import AugMixHparams, ColOutHparams, CutMixHparams
-from composer.algorithms.label_smoothing import LabelSmoothingHparams
+from composer.algorithms.hparams import (AugMixHparams, ColOutHparams, CutMixHparams, CutOutHparams,
+                                         LabelSmoothingHparams)
 from composer.algorithms.layer_freezing import LayerFreezingHparams
 from composer.algorithms.mixup import MixUpHparams
 from composer.algorithms.no_op_model import NoOpModelHparams
@@ -29,7 +29,6 @@ from composer.algorithms.stochastic_depth import StochasticDepthHparams
 from composer.algorithms.swa.hparams import SWAHparams
 from composer.core.algorithm import Algorithm
 
-# from composer.algorithms.hparams import CutOutHparams
 # from composer.algorithms.hparams import FactorizeHparams
 # from composer.algorithms.hparams import GhostBatchNormHparams
 # from composer.algorithms.hparams import LabelSmoothingHparams
