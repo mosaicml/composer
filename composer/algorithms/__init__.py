@@ -45,7 +45,6 @@ from composer.algorithms.algorithm_registry import get_algorithm_registry as get
 from composer.algorithms.algorithm_registry import list_algorithms as list_algorithms
 from composer.algorithms.augmix import AugMix as AugMix
 from composer.algorithms.blurpool import BlurPool as BlurPool
-from composer.algorithms.blurpool import BlurPoolHparams as BlurPoolHparams
 from composer.algorithms.channels_last import ChannelsLast as ChannelsLast
 from composer.algorithms.channels_last import ChannelsLastHparams as ChannelsLastHparams
 from composer.algorithms.colout import ColOut as ColOut
@@ -57,6 +56,7 @@ from composer.algorithms.ghost_batchnorm import GhostBatchNorm as GhostBatchNorm
 from composer.algorithms.ghost_batchnorm import GhostBatchNormHparams as GhostBatchNormHparams
 from composer.algorithms.hparams import AlibiHparams as AlibiHparams
 from composer.algorithms.hparams import AugMixHparams as AugMixHparams
+from composer.algorithms.hparams import BlurPoolHparams as BlurPoolHparams
 from composer.algorithms.hparams import ColOutHparams as ColOutHparams
 from composer.algorithms.hparams import CutMixHparams as CutMixHparams
 from composer.algorithms.hparams import CutOutHparams as CutOutHparams

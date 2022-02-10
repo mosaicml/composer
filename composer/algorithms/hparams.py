@@ -8,6 +8,7 @@ import yahp as hp
 from composer.algorithms.algorithm_hparams import AlgorithmHparams
 from composer.algorithms.alibi import Alibi
 from composer.algorithms.augmix import AugMix
+from composer.algorithms.blurpool import BlurPool
 from composer.algorithms.colout import ColOut
 from composer.algorithms.cutmix import CutMix
 from composer.algorithms.cutout import CutOut
@@ -68,6 +69,18 @@ class AugMixHparams(AlgorithmHparams):
 
     def initialize_object(self) -> AugMix:
         return AugMix(**asdict(self))
+
+
+@dataclass
+class BlurPoolHparams(AlgorithmHparams):
+    """See :class:`BlurPool`"""
+
+    replace_convs: bool = hp.optional('Replace Conv2d with BlurConv2d if stride > 1', default=True)
+    replace_maxpools: bool = hp.optional('Replace MaxPool2d with BlurMaxPool2d', default=True)
+    blur_first: bool = hp.optional('Blur input before convolution', default=True)
+
+    def initialize_object(self) -> "BlurPool":
+        return BlurPool(**asdict(self))
 
 
 @dataclass
