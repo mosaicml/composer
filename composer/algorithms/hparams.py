@@ -23,6 +23,7 @@ from composer.algorithms.randaugment import RandAugment
 from composer.algorithms.sam import SAM
 from composer.algorithms.scale_schedule import ScaleSchedule
 from composer.algorithms.selective_backprop import SelectiveBackprop
+from composer.algorithms.seq_length_warmup import SeqLengthWarmup
 from composer.algorithms.squeeze_excite import SqueezeExcite
 from composer.algorithms.stochastic_depth import StochasticDepth
 from composer.algorithms.stochastic_depth.stochastic_depth import STOCHASTIC_LAYER_MAPPING, validate_stochastic_hparams
@@ -273,6 +274,20 @@ class SelectiveBackpropHparams(AlgorithmHparams):
 
     def initialize_object(self) -> SelectiveBackprop:
         return SelectiveBackprop(**asdict(self))
+
+
+@dataclass
+class SeqLengthWarmupHparams(AlgorithmHparams):
+
+    duration: float = hp.optional("Fraction of total training time to apply sequential length warmup learning.",
+                                  default=0.3)
+    min_seq_length: int = hp.optional("Starting sequence length.", default=8)
+    max_seq_length: int = hp.optional("End sequence length", default=1024)
+    step_size: int = hp.optional("Sequence length step size", default=8)
+    truncate: bool = hp.optional("Truncate tensors or reshape extra tokens to new examples.", default=True)
+
+    def initialize_object(self) -> "SeqLengthWarmup":
+        return SeqLengthWarmup(**asdict(self))
 
 
 @dataclass
