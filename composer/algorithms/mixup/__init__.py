@@ -2,7 +2,6 @@
 
 from composer.algorithms.mixup.mixup import MixUp as MixUp
 from composer.algorithms.mixup.mixup import MixUpHparams as MixUpHparams
-from composer.algorithms.mixup.mixup import gen_mixup_interpolation_lambda as gen_mixup_interpolation_lambda
 from composer.algorithms.mixup.mixup import mixup_batch as mixup_batch
 
 _name = 'MixUp'
