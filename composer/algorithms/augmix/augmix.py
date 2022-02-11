@@ -85,7 +85,7 @@ class AugmentAndMixTransform(torch.nn.Module):
                 alpha=1.0,
                 augmentation_set="all"
             )
-            composed = transforms.Compose([augmixTransform, transforms.RandomHorizontalFlip()])
+            composed = transforms.Compose([augmix_transform, transforms.RandomHorizontalFlip()])
     """
 
     def __init__(self,
