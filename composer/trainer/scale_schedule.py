@@ -1,15 +1,50 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
+import functools
 from collections import Counter
-from typing import Optional
+from typing import Callable, Optional, Union, get_type_hints
 
 from torch.optim.lr_scheduler import CosineAnnealingLR, CosineAnnealingWarmRestarts, ExponentialLR, MultiStepLR, StepLR
 
+from composer.core.scheduler import ComposerSchedulerFn
 from composer.core.types import Scheduler
-from composer.optim.scheduler import ConstantLR
 
 
-def scale_scheduler(scheduler: Scheduler, ssr: float, orig_max_epochs: Optional[int] = None):
+def _scale_pytorch_scheduler(scheduler: Scheduler, ssr: float, orig_max_epochs: Optional[int] = None):
+    if isinstance(scheduler, StepLR):
+        scheduler.step_size = int(scheduler.step_size * ssr)  # type: ignore  -- unknown attribute
+    elif isinstance(scheduler, MultiStepLR):
+        milestones = scheduler.milestones  # type: ignore  -- unknown attribute
+        milestones = Counter([int(ms * ssr) for ms in milestones])
+        scheduler.milestones = milestones  # type: ignore  -- unknown attribute
+    elif isinstance(scheduler, CosineAnnealingLR):
+        assert orig_max_epochs is not None, "To scale Cosine decay, max_epochs must be provided."
+
+        if hasattr(scheduler, 'interval') and scheduler.interval == "step":  # type: ignore  -- unknown attribute
+            orig_max_epochs *= scheduler.steps_per_epoch  # type: ignore  -- unknown attribute
+
+        warmup = orig_max_epochs - scheduler.T_max  # type: ignore  -- unknown attribute
+        scheduler.T_max = int(orig_max_epochs * ssr - warmup)  # type: ignore  -- unknown attribute
+    elif isinstance(scheduler, CosineAnnealingWarmRestarts):
+        # TODO: account for warmups
+        scheduler.T_0 = int(scheduler.T_0 * ssr)  # type: ignore  -- unknown attribute
+    elif isinstance(scheduler, ExponentialLR):
+        factor = 1 / ssr
+        scheduler.gamma = scheduler.gamma**factor  # type: ignore  -- unknown attribute
+    else:
+        raise ValueError(f'Scale schedule being applied to unrecognized Scheduler {scheduler}. '
+                         'Please implement your scheduler as a function instead.')
+
+    return scheduler
+
+
+def _scale_composer_scheduler(scheduler: ComposerSchedulerFn, ssr: float):
+    return functools.partial(scheduler, ssr=ssr)  # type: ignore
+
+
+def scale_scheduler(scheduler: Union[Scheduler, ComposerSchedulerFn],
+                    ssr: float,
+                    orig_max_epochs: Optional[int] = None):
     """Makes a learning rate schedule take a different number of epochs.
 
     Training for less time is a strong baseline approach to speeding up
@@ -49,31 +84,9 @@ def scale_scheduler(scheduler: Scheduler, ssr: float, orig_max_epochs: Optional[
     if ssr <= 0:
         raise ValueError("Scale schedule ratio must be a positive value.")
 
-    if isinstance(scheduler, StepLR):
-        scheduler.step_size = int(scheduler.step_size * ssr)  # type: ignore  -- unknown attribute
-    elif isinstance(scheduler, MultiStepLR):
-        milestones = scheduler.milestones  # type: ignore  -- unknown attribute
-        milestones = Counter([int(ms * ssr) for ms in milestones])
-        scheduler.milestones = milestones  # type: ignore  -- unknown attribute
-    elif isinstance(scheduler, CosineAnnealingLR):
-        assert orig_max_epochs is not None, "To scale Cosine decay, max_epochs must be provided."
-
-        if hasattr(scheduler, 'interval') and scheduler.interval == "step":  # type: ignore  -- unknown attribute
-            orig_max_epochs *= scheduler.steps_per_epoch  # type: ignore  -- unknown attribute
-
-        warmup = orig_max_epochs - scheduler.T_max  # type: ignore  -- unknown attribute
-        scheduler.T_max = int(orig_max_epochs * ssr - warmup)  # type: ignore  -- unknown attribute
-    elif isinstance(scheduler, CosineAnnealingWarmRestarts):
-        # TODO: account for warmups
-        scheduler.T_0 = int(scheduler.T_0 * ssr)  # type: ignore  -- unknown attribute
-    elif isinstance(scheduler, ExponentialLR):
-        factor = 1 / ssr
-        scheduler.gamma = scheduler.gamma**factor  # type: ignore  -- unknown attribute
-    elif isinstance(scheduler, ConstantLR):
-        return
-    elif hasattr(scheduler, 'scale_schedule') and callable(
-            scheduler.scale_schedule):  # type: ignore  -- unknown attribute
-        scheduler.scale_schedule(ssr)  # type: ignore  -- unknown attribute
+    if isinstance(scheduler, Scheduler):
+        return _scale_pytorch_scheduler(scheduler, ssr=ssr, orig_max_epochs=orig_max_epochs)
+    elif isinstance(scheduler, Callable):
+        return _scale_composer_scheduler(scheduler, ssr=ssr)
     else:
-        raise ValueError(f'Scale schedule being applied to unrecognized Scheduler {scheduler}. '
-                         'Please implement scale_schedule(ssr: float) method in your scheduler.')
+        raise ValueError(f'Received unknown scheduler {scheduler.__name__} of type {type(scheduler)}.')

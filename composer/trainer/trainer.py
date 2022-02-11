@@ -15,23 +15,23 @@ import torch.distributed
 import torch.utils.data
 from torch.cuda.amp.grad_scaler import GradScaler
 from torch.nn.parallel import DistributedDataParallel
-from torch.optim.lr_scheduler import CosineAnnealingLR
 from torchmetrics.collections import MetricCollection
 from torchmetrics.metric import Metric
 
 from composer.algorithms import ScaleSchedule
-from composer.composer.core.scheduler import should_step_scheduler
 from composer.core import Callback, DataSpec, Engine, Event, Logger, State, Time, surgery
 from composer.core.algorithm import Algorithm
 from composer.core.evaluator import Evaluator
 from composer.core.logging import LoggerCallback, LogLevel
+from composer.core.scheduler import ComposerSchedulerFn
 from composer.core.time import TimeUnit
-from composer.core.types import (Batch, BreakEpochException, ComposerSchedulerFn, DataLoader, Evaluators, Many, Metrics,
-                                 Optimizers, Precision, Scheduler)
+from composer.core.types import (Batch, BreakEpochException, DataLoader, Evaluators, Many, Metrics, Optimizers,
+                                 Precision, Scheduler)
 from composer.datasets.dataloader import unwrap_data_loader
 from composer.loggers.tqdm_logger import TQDMLogger
 from composer.models.base import ComposerModel
 from composer.optim.decoupled_weight_decay import DecoupledSGDW
+from composer.optim.scheduler import cosine_annealing_scheduler
 from composer.profiler.profiler_hparams import ProfilerHparams
 from composer.trainer.checkpoint import CheckpointLoader, CheckpointSaver
 from composer.trainer.ddp import DDPSyncStrategy, ddp_sync_context, prepare_ddp_module
@@ -85,6 +85,8 @@ class Trainer:
             or 'amp' (recommended). (default: ``Precision.FP32``).
         scale_schedule_ratio (float, optional): Ratio by which to scale the training duration and learning rate
             schedules. See :func:`scale_schedule` for details. (default: ``1.0``)
+        use_stepwise_schedulers (bool, optional): Whether schedulers will update after every optimizer step 
+            (True), or every epoch (False). (default: ``True``)
         dist_timeout (float, optional): Timeout, in seconds, for initializing the distributed process group.
             (default: ``15.0``)
         ddp_sync_strategy (str or DDPSyncStrategy, optional): The strategy to use for synchronizing gradients.
@@ -155,6 +157,7 @@ class Trainer:
         compute_training_metrics: bool = False,
         precision: Union[str, Precision] = Precision.FP32,
         scale_schedule_ratio: float = 1.0,
+        use_stepwise_schedulers: bool = True,
 
         # dist hparams
         dist_timeout: float = 300.0,
@@ -313,9 +316,7 @@ class Trainer:
 
         if not schedulers:
             optimizer = ensure_tuple(optimizers)[0]
-            if not max_duration.unit == TimeUnit.EPOCH:
-                raise ValueError("If a scheduler is not provided, max duration must be in epochs")
-            schedulers = CosineAnnealingLR(optimizer, T_max=max_duration.value)
+            schedulers = cosine_annealing_scheduler
             warnings.warn(f"No scheduler was specified. Defaulting to {repr(schedulers)}")
 
         if scale_schedule_ratio != 1.0:
@@ -323,8 +324,9 @@ class Trainer:
                 raise NotImplementedError(
                     "Max duration must be specified in epochs. Other units are not yet supported.")
 
-            for scheduler in ensure_tuple(schedulers):
-                scale_scheduler(scheduler, scale_schedule_ratio, orig_max_duration.value)
+            schedulers = [scale_scheduler(scheduler, scale_schedule_ratio, orig_max_duration.value) for scheduler in ensure_tuple(schedulers)]
+
+        self.use_stepwise_schedulers = use_stepwise_schedulers
 
         self.state = State(
             max_duration=max_duration,
@@ -623,8 +625,8 @@ class Trainer:
                         tokens=int(num_tokens_in_batch.item()),
                     )
 
-                    for scheduler in state.schedulers:
-                        if should_step_scheduler(scheduler, is_epoch=False):
+                    if self.use_stepwise_schedulers:
+                        for scheduler in state.schedulers:
                             scheduler.step()
 
                     self.engine.run_event(Event.BATCH_END)
@@ -641,8 +643,8 @@ class Trainer:
 
             state.timer.on_epoch_complete()
 
-            for scheduler in state.schedulers:
-                if should_step_scheduler(scheduler, is_epoch=True):
+            if not self.use_stepwise_schedulers:
+                for scheduler in state.schedulers:
                     scheduler.step()
 
             self.engine.run_event(Event.EPOCH_END)

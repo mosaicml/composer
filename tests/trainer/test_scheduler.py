@@ -9,10 +9,9 @@ from torch.optim.lr_scheduler import ExponentialLR, MultiStepLR, StepLR
 
 from composer.core.types import Optimizer, Scheduler
 from composer.optim.pytorch_future import WarmUpLR
-from composer.optim.scheduler import (ComposedScheduler, ConstantLRHparams, CosineAnnealingLRHparams,
-                                      CosineAnnealingWarmRestartsHparams, ExponentialLRHparams, LinearLRHparams,
-                                      MultiStepLRHparams, PolynomialLRHparams, SchedulerHparams, StepLRHparams,
-                                      WarmUpLRHparams)
+from composer.optim.scheduler import (ConstantLRHparams, CosineAnnealingLRHparams, CosineAnnealingWarmRestartsHparams,
+                                      ExponentialLRHparams, LinearLRHparams, MultiStepLRHparams, PolynomialLRHparams,
+                                      SchedulerHparams, StepLRHparams)
 from composer.trainer.trainer_hparams import scheduler_registry
 
 # for testing, we provide values for required hparams fields
@@ -22,9 +21,8 @@ schedulers: Dict[Type[SchedulerHparams], SchedulerHparams] = {
     MultiStepLRHparams: MultiStepLRHparams(milestones=["5ep", "10ep"],),
     ExponentialLRHparams: ExponentialLRHparams(gamma=0.5,),
     CosineAnnealingLRHparams: CosineAnnealingLRHparams(T_max=f"{MAX_EPOCHS}ep",),
-    LinearLRHparams: LinearLRHparams(total_iters=f"{MAX_EPOCHS}ep",),
+    LinearLRHparams: LinearLRHparams(total_time=f"{MAX_EPOCHS}ep",),
     CosineAnnealingWarmRestartsHparams: CosineAnnealingWarmRestartsHparams(T_0=f"{MAX_EPOCHS}ep",),
-    WarmUpLRHparams: WarmUpLRHparams(),
     ConstantLRHparams: ConstantLRHparams(),
     PolynomialLRHparams: PolynomialLRHparams(T_max="100ep", power=0.9)
 }
@@ -36,7 +34,6 @@ time_field: Dict[Type[SchedulerHparams], str] = {
     CosineAnnealingLRHparams: 'T_max',
     LinearLRHparams: 'total_iters',
     CosineAnnealingWarmRestartsHparams: 'T_0',
-    WarmUpLRHparams: 'warmup_iters',
     ConstantLRHparams: '',
     PolynomialLRHparams: 'T_max'
 }
@@ -102,7 +99,7 @@ class TestSchedulerInit():
         scheduler_hparams = schedulers[obj]
 
         # create the scheduler object using the hparams
-        scheduler = scheduler_hparams.initialize_object(dummy_optimizer, steps_per_epoch=1)
+        scheduler = scheduler_hparams.initialize_object()
         assert isinstance(scheduler, scheduler_hparams.scheduler_object)  # type: ignore
 
     @pytest.mark.parametrize('timestrings', EXPECTED_RESULTS_TIME_CONVERSION.keys())
@@ -119,9 +116,7 @@ class TestSchedulerInit():
             with mock.patch.object(scheduler_hparams, time_field[obj], timestrings), \
                 mock.patch.object(scheduler_hparams, 'interval', interval):
 
-                scheduler = scheduler_hparams.initialize_object(dummy_optimizer,
-                                                                steps_per_epoch=steps_per_epoch,
-                                                                max_training_duration=f"{max_epochs}ep")
+                scheduler = scheduler_hparams.initialize_object()
 
                 assert getattr(scheduler, time_field[obj]) == expected
 

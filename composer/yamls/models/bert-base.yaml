@@ -6,13 +6,13 @@ train_dataset:
       - /datasets/bookcorpus_saved_bert_128
     tokenizer_name: bert-base-uncased
     seed: 19
-    shuffle: true 
-    drop_last: false 
+    shuffle: true
+    drop_last: false
     subsample_ratio: 1.0
     use_masked_lm: true
     mlm_probability: 0.15
-    train_sequence_length: 128 
-    val_sequence_length: 128 
+    train_sequence_length: 128
+    val_sequence_length: 128
 val_dataset:
   lm:
     split: validation
@@ -21,13 +21,13 @@ val_dataset:
       - /datasets/bookcorpus_saved_bert_128
     tokenizer_name: bert-base-uncased
     seed: 19
-    shuffle: true 
-    drop_last: false 
+    shuffle: true
+    drop_last: false
     subsample_ratio: 0.02
     use_masked_lm: true
     mlm_probability: 0.15
-    train_sequence_length: 128 
-    val_sequence_length: 128 
+    train_sequence_length: 128
+    val_sequence_length: 128
 model:
   bert:
     use_pretrained: false
@@ -55,7 +55,7 @@ schedulers:
       verbose: false
 loggers:
   - tqdm: {}
-max_duration: 7ep  # Baseline is 256M samples, 7 epochs is ~280M samples
+max_duration: 7ep # Baseline is 256M samples, 7 epochs is ~280M samples
 train_batch_size: 4000
 eval_batch_size: 2000
 seed: 19

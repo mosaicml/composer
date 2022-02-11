@@ -33,7 +33,6 @@ from composer.loggers import LoggerCallbackHparams
 from composer.loggers.logger_hparams import MosaicMLLoggerHparams
 from composer.loggers.tqdm_logger import TQDMLogger
 from composer.models.base import ComposerModel
-from composer.optim.scheduler import ComposedScheduler
 from composer.profiler.profiler_hparams import ProfilerCallbackHparams, ProfilerHparams
 from composer.trainer import Trainer, TrainerHparams
 from composer.trainer.devices.device_hparams import CPUDeviceHparams, DeviceHparams, GPUDeviceHparams

@@ -27,7 +27,7 @@ Attributes:
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Callable, Dict, Iterable, Iterator, List, Optional, Tuple, TypeVar, Union
+from typing import TYPE_CHECKING, Any, Dict, Iterable, Iterator, List, Optional, Tuple, TypeVar, Union
 
 import torch
 import torch.utils.data
@@ -166,7 +166,6 @@ Evaluators = Many[Evaluator]
 Metrics = Union[Metric, MetricCollection]
 Optimizer = torch.optim.Optimizer
 Optimizers = Many[Optimizer]
-ComposerSchedulerFn = Callable[[State], float]
 Scheduler = torch.optim.lr_scheduler._LRScheduler
 Schedulers = Many[Scheduler]
 

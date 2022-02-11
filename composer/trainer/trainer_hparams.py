@@ -30,7 +30,6 @@ from composer.models import (BERTForClassificationHparams, BERTHparams, CIFARRes
 from composer.models.resnet20_cifar10.resnet20_cifar10_hparams import CIFARResNet20Hparams
 from composer.optim import (AdamHparams, AdamWHparams, DecoupledAdamWHparams, DecoupledSGDWHparams, OptimizerHparams,
                             RAdamHparams, RMSPropHparams, SchedulerHparams, SGDHparams, scheduler)
-from composer.optim.scheduler import ensure_warmup_last
 from composer.profiler import ProfilerHparams
 from composer.trainer.ddp import DDPSyncStrategy
 from composer.trainer.devices import CPUDeviceHparams, DeviceHparams, GPUDeviceHparams
@@ -58,9 +57,11 @@ scheduler_registry = {
     "linear_decay": scheduler.LinearLRHparams,
     "cosine_decay": scheduler.CosineAnnealingLRHparams,
     "cosine_warmrestart": scheduler.CosineAnnealingWarmRestartsHparams,
-    "warmup": scheduler.WarmUpLRHparams,
     "constant": scheduler.ConstantLRHparams,
     "polynomial": scheduler.PolynomialLRHparams,
+    "multistep_with_warmup": scheduler.MultiStepWithWarmupLRHparams,
+    "linear_decay_with_warmup": scheduler.LinearWithWarmupLRHparams,
+    "cosine_decay_with_warmup": scheduler.CosineAnnealingWithWarmupLRHparams,
 }
 
 model_registry = {
@@ -172,6 +173,8 @@ class TrainerHparams(hp.Hparams):
         default=-1)
     scale_schedule_ratio: float = hp.optional(
         doc="Ratio by which to scale the training duration and learning rate schedules.", default=1.0)
+    use_stepwise_schedulers: bool = hp.optional(
+        doc="Whether schedulers will update after every optimizer step (True), or every epoch (False).", default=True)
     callbacks: List[CallbackHparams] = hp.optional(doc="Callback hparams", default_factory=list)
 
     load_path: Optional[str] = hp.optional(doc=textwrap.dedent("""\
@@ -359,13 +362,7 @@ class TrainerHparams(hp.Hparams):
         if samples_per_epoch is None and steps_per_epoch is not None and batch_size is not None:
             samples_per_epoch = steps_per_epoch * batch_size
 
-        schedulers = [
-            x.initialize_object(optimizer=optimizers,
-                                max_training_duration=self.max_duration,
-                                steps_per_epoch=steps_per_epoch,
-                                samples_per_epoch=samples_per_epoch,
-                                dataset_num_tokens=tokens_per_epoch) for x in ensure_warmup_last(self.schedulers)
-        ]
+        schedulers = [scheduler.initialize_object() for scheduler in self.schedulers]
 
         trainer = Trainer(
             model=model,
@@ -387,6 +384,7 @@ class TrainerHparams(hp.Hparams):
             compute_training_metrics=self.compute_training_metrics,
             precision=self.precision,
             scale_schedule_ratio=self.scale_schedule_ratio,
+            use_stepwise_schedulers=self.use_stepwise_schedulers,
 
             # dist hparams
             dist_timeout=self.dist_timeout,

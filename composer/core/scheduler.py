@@ -1,10 +1,12 @@
+from typing import Callable
+
 from torch.optim.lr_scheduler import LambdaLR
 
-from composer.composer.utils.iter_helpers import ensure_tuple
 from composer.core import State
-from composer.core.types import ComposerSchedulerFn, Optimizers, Scheduler
+from composer.core.types import Optimizers, Scheduler
+from composer.utils.iter_helpers import ensure_tuple
 
-COMPOSER_SCHEDULER_FLAG = '__composer_scheduler'
+ComposerSchedulerFn = Callable[[State], float]
 
 
 def compile_scheduler(scheduler: ComposerSchedulerFn, optimizers: Optimizers, state: State) -> Scheduler:
@@ -19,11 +21,5 @@ def compile_scheduler(scheduler: ComposerSchedulerFn, optimizers: Optimizers, st
         return scheduler(state)
 
     lambda_scheduler = LambdaLR(optimizer, scheduler_fn)
-    setattr(lambda_scheduler, COMPOSER_SCHEDULER_FLAG, True)
 
     return lambda_scheduler
-
-
-def should_step_scheduler(scheduler: Scheduler, is_epoch: bool):
-
-    return is_epoch or getattr(scheduler, COMPOSER_SCHEDULER_FLAG, True)
