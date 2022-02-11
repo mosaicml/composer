@@ -52,12 +52,11 @@ def test_notebook(tb):
 
     start = 0
     for stop in seek(tb, tag="trainer_fit"):
-        print("runnin {} -> {}".format(start, stop))
         # run until right before the next trainer.fit call
         tb.execute_cell(range(start, stop))
 
         try:
-            # patch the trainer to only train for 5 batchespyton
+            # patch the trainer to only train for 5 batches
             tb.inject("""
                 from composer.core import Time
                 trainer.state.max_duration = Time.from_timestring('1ep')
