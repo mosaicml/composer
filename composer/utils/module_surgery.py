@@ -360,7 +360,7 @@ def replace_params_in_optimizer(old_params: Iterable[torch.nn.parameter.Paramete
     of replacing parameters spanning multiple param groups. To accomplish this,
     this function assumes that parameters in ``new_params`` should inherit the
     param group of the corresponding parameter from ``old_params``. Thus, this
-    function also assumes that ``old_params`` and ``new_params` have the same length.
+    function also assumes that ``old_params`` and ``new_params`` have the same length.
 
     Args:
         old_params (Iterator[torch.nn.parameter.Parameter]): Current parameters of the optimizer.
