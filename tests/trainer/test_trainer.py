@@ -66,7 +66,7 @@ def test_trainer_init_additional_args(dummy_train_dataloader: DataLoader, dummy_
     assert isinstance(trainer, Trainer)
     assert trainer.state.optimizers[0] == dummy_optimizer
 
-    assert isinstance(trainer.state.schedulers[0], ComposedScheduler)
+    assert isinstance(trainer.state.schedulers[0], Scheduler)
 
     assert len(trainer.logger.backends) == 1
     assert isinstance(trainer.logger.backends[0], TQDMLogger)

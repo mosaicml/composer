@@ -8,7 +8,6 @@ import torch
 from torch.optim.lr_scheduler import ExponentialLR, MultiStepLR, StepLR
 
 from composer.core.types import Optimizer, Scheduler
-from composer.optim.pytorch_future import WarmUpLR
 from composer.optim.scheduler import (ConstantLRHparams, CosineAnnealingLRHparams, CosineAnnealingWarmRestartsHparams,
                                       ExponentialLRHparams, LinearLRHparams, MultiStepLRHparams, PolynomialLRHparams,
                                       SchedulerHparams, StepLRHparams)
