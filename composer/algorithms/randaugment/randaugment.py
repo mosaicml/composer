@@ -55,7 +55,7 @@ class RandAugmentTransform(torch.nn.Module):
     Example:
         .. testcode::
 
-            import torchvision.transforms
+            import torchvision.transforms as transforms
             from composer.algorithms.randaugment import RandAugmentTransform 
             randaugment_transform = RandAugmentTransform(
                 severity=9,

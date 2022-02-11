@@ -76,7 +76,7 @@ class AugmentAndMixTransform(torch.nn.Module):
     Example:
         .. testcode::
 
-            import torchvision.transforms
+            import torchvision.transforms as transforms
             from composer.algorithms.augmix import AugmentAndMixTransform 
             augmix_transform = AugmentAndMixTransform(
                 severity=3,
