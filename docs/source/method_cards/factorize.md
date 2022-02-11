@@ -83,4 +83,6 @@ Standalone
     :noindex:
 .. autofunction:: composer.algorithms.factorize.factorize_conv2d
     :noindex:
+.. autofunction:: composer.algorithms.factorize.factorizing_could_speedup
+    :noindex:
 ```
