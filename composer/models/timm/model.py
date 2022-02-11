@@ -11,7 +11,7 @@ class Timm(ComposerClassifier):
     .. testcode::
         from composer.models import Timm
 
-        model = ComposerClassifier(model_name='resnet18')  # creates a timm resnet18
+        model = Timm(model_name='resnet18')  # creates a timm resnet18
 
     Args:
         model_name (str): timm model name e.g:'resnet50'. List of models can be found at
