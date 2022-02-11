@@ -14,7 +14,7 @@ class CIFAR10_ResNet56(ComposerClassifier):
     on the residual network architecture.
 
     Args:
-        num_classes (int): The number of classes for the model. Default = 10.
+        num_classes (int): The number of classes. Needed for classification tasks. Default = 10
         initializers (List[Initializer], optional): Initializers
             for the model. ``None`` for no initialization.
             (default: ``None``)

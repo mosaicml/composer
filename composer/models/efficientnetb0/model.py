@@ -7,14 +7,14 @@ from composer.models.efficientnets import EfficientNet
 class EfficientNetB0(ComposerClassifier):
     """An EfficientNet-b0 model extending :class:`ComposerClassifier`.
 
-    Based off of this `paper <https://arxiv.org/abs/1905.11946>`_.
+    Based off of the paper EfficientNet: Rethinking Model Scaling for Convolutional Neural Networks `<https://arxiv.org/abs/1905.11946>`_.
 
     Args:
-        num_classes (int): the number of classes in the task.
-        drop_connect_rate (float): probability of dropping a sample within a block before identity connection.
+        num_classes (int): The number of classes. Needed for classification tasks. Default = 1000.
+        drop_connect_rate (float): Probability of dropping a sample within a block before identity connection. Default = 0.2
     """
 
-    def __init__(self, num_classes: int, drop_connect_rate: float = 0.2) -> None:
+    def __init__(self, num_classes: int = 1000, drop_connect_rate: float = 0.2) -> None:
         model = EfficientNet.get_model_from_name(
             "efficientnet-b0",
             num_classes,

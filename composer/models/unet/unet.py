@@ -17,7 +17,7 @@ log = logging.getLogger(__name__)
 
 
 class UNet(ComposerModel):
-    """A U-Net model extending :class:`ComposerClassifier`.
+    """A U-Net model extending :class:`ComposerModel`.
 
     See this `paper <https://arxiv.org/abs/1505.04597>`_ for details on the
     U-Net architecture.
@@ -36,7 +36,7 @@ class UNet(ComposerModel):
         self.hparams = hparams
         self.module = self.build_nnunet()
 
-        self.dice = Dice(3)
+        self.dice = Dice(num_classes=3)
 
         self.dloss = DiceLoss(include_background=False, softmax=True, to_onehot_y=True, batch=True)
         self.closs = nn.CrossEntropyLoss()
@@ -92,7 +92,6 @@ class UNet(ComposerModel):
 
     def validate(self, batch: BatchPair) -> Tuple[Any, Any]:
         assert self.training is False, "For validation, model must be in eval mode"
-
         img, lbl = batch
         pred = self.inference2d(img)
         return pred, lbl[:, 0].long()  # type: ignore

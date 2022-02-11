@@ -9,7 +9,7 @@ from composer.algorithms.stochastic_depth.stochastic_layers import StochasticBot
 _name = 'Stochastic Depth'
 _class_name = 'StochasticDepth'
 _functional = 'apply_stochastic_depth'
-_tldr = 'Replaces a specified layer with a stochastic verion that randomly drops the layer or samples during training'
+_tldr = 'Replaces a specified layer with a stochastic version that randomly drops the layer or samples during training'
 _attribution = '(Huang et al, 2016)'
 _link = 'https://arxiv.org/abs/1603.09382'
 _method_card = ''

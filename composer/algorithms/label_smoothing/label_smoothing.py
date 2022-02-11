@@ -6,7 +6,7 @@ from typing import Optional
 import torch
 
 from composer.core.types import Algorithm, Event, Logger, State, Tensor
-from composer.models.loss import ensure_targets_one_hot
+from composer.models.loss import _ensure_targets_one_hot
 
 
 class LabelSmoothing(Algorithm):
@@ -69,6 +69,6 @@ def smooth_labels(logits: Tensor, targets: Tensor, alpha: float):
             smoothing (targets are ignored).
     """
 
-    targets = ensure_targets_one_hot(logits, targets)
+    targets = _ensure_targets_one_hot(logits, targets)
     n_classes = logits.shape[1]
     return (targets * (1. - alpha)) + (alpha / n_classes)

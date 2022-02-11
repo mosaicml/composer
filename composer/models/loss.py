@@ -63,12 +63,15 @@ class Dice(Metric):
     The Dice Coefficient measures how similar predictions and targets are.
     More concretely, it is computed as 2 * the Area of Overlap divided by
     the total number of pixels in both images.
+
+    Args:
+        num_classes (int): the number of classes in the segmentation task.
     """
 
-    def __init__(self, nclass):
+    def __init__(self, num_classes):
         super().__init__(dist_sync_on_step=True)
         self.add_state("n_updates", default=torch.zeros(1), dist_reduce_fx="sum")
-        self.add_state("dice", default=torch.zeros((nclass,)), dist_reduce_fx="sum")
+        self.add_state("dice", default=torch.zeros((num_classes,)), dist_reduce_fx="sum")
 
     def update(self, pred, target):
         """Update the state based on new predictions and targets."""
@@ -134,13 +137,13 @@ def _infer_target_type(input: Tensor, targets: Tensor) -> str:
                            'inputs.ndim == targets.ndim + 1')
 
 
-def ensure_targets_one_hot(input: Tensor, targets: Tensor) -> Tensor:
+def _ensure_targets_one_hot(input: Tensor, targets: Tensor) -> Tensor:
     if _infer_target_type(input, targets) == 'indices':
         targets = F.one_hot(targets, num_classes=input.shape[1])
     return targets
 
 
-def check_for_index_targets(targets: Tensor) -> bool:
+def _check_for_index_targets(targets: Tensor) -> bool:
     """Checks if a given set of targets are indices by looking at the type."""
     index_types = ['torch.LongTensor', 'torch.cuda.LongTensor']
     return targets.type() in index_types
@@ -153,7 +156,39 @@ def soft_cross_entropy(input: Tensor,
                        ignore_index: int = -100,
                        reduce: Optional[bool] = None,
                        reduction: str = 'mean'):
-    """Drop-in replacement for ``torch.CrossEntropy`` that can handle dense labels.
+    """Drop-in replacement for ``torch.CrossEntropy`` that can handle class indices or one-hot labels.
+
+    Args:
+        input (Tensor) : :math:`(N, C)` where `C = number of classes` or :math:`(N, C, H, W)`
+            in case of 2D Loss, or :math:`(N, C, d_1, d_2, ..., d_K)` where :math:`K \geq 1`
+            in the case of K-dimensional loss. `input` is expected to contain unnormalized scores
+            (often referred to as logits).
+        target (Tensor) : If containing class indices, shape :math:`(N)` where each value is
+            :math:`0 \leq \text{targets}[i] \leq C-1`, or :math:`(N, d_1, d_2, ..., d_K)` with
+            :math:`K \geq 1` in the case of K-dimensional loss. If containing class probabilities,
+            same shape as the input.
+        weight (Tensor, optional): a manual rescaling weight given to each
+            class. If given, has to be a Tensor of size `C`
+        size_average (bool, optional): Deprecated (see :attr:`reduction`). By default,
+            the losses are averaged over each loss element in the batch. Note that for
+            some losses, there multiple elements per sample. If the field :attr:`size_average`
+            is set to ``False``, the losses are instead summed for each minibatch. Ignored
+            when reduce is ``False``. Default: ``True``
+        ignore_index (int, optional): Specifies a target value that is ignored
+            and does not contribute to the input gradient. When :attr:`size_average` is
+            ``True``, the loss is averaged over non-ignored targets. Note that
+            :attr:`ignore_index` is only applicable when the target contains class indices.
+            Default: -100
+        reduce (bool, optional): Deprecated (see :attr:`reduction`). By default, the
+            losses are averaged or summed over observations for each minibatch depending
+            on :attr:`size_average`. When :attr:`reduce` is ``False``, returns a loss per
+            batch element instead and ignores :attr:`size_average`. Default: ``True``
+        reduction (string, optional): Specifies the reduction to apply to the output:
+            ``'none'`` | ``'mean'`` | ``'sum'``. ``'none'``: no reduction will be applied,
+            ``'mean'``: the sum of the output will be divided by the number of
+            elements in the output, ``'sum'``: the output will be summed. Note: :attr:`size_average`
+            and :attr:`reduce` are in the process of being deprecated, and in the meantime,
+            specifying either of those two args will override :attr:`reduction`. Default: ``'mean'``
 
     This function will be obsolete with `this update <https://github.com/pytorch/pytorch/pull/61044>`_.
     """

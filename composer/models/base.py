@@ -82,13 +82,26 @@ class ComposerModel(torch.nn.Module, abc.ABC):
 
 
 class ComposerClassifier(ComposerModel):
-    """Implements the base logic that all classifiers can build on top of.
+    """Convenience class that creates a ComposerModel for classification tasks from a vanilla pytorch model. This
+    ComposerModel requires batches in the form: (input, target) and includes a basic classification training loop with
+    CrossEntropy loss and accuracy logging.
 
     Inherits from :class:`~composer.models.ComposerModel`.
+
+    Example:
+    .. testcode::
+        import torchvision
+        from composer.models import ComposerClassifier
+
+        pytorch_model = torchvision.models.resnet18(pretrained=False)
+        model = ComposerClassifier(pytorch_model)
 
     Args:
         module (torch.nn.Module): The neural network module to wrap with
             :class:`~composer.models.ComposerClassifier`.
+
+    Returns:
+        ComposerClassifier (~composer.models.ComposerClassifier): A Composer Trainer compatible model.
     """
 
     num_classes: Optional[int] = None
@@ -104,22 +117,21 @@ class ComposerClassifier(ComposerModel):
             self.num_classes = getattr(self.module, "num_classes")
 
     def loss(self, outputs: Any, batch: BatchPair, *args, **kwargs) -> Tensors:
-        _, y = batch
+
+        _, targets = batch
         assert isinstance(outputs, Tensor), "Loss expects outputs as Tensor"
-        assert isinstance(y, Tensor), "Loss does not support multiple target Tensors"
-        return soft_cross_entropy(outputs, y, *args, **kwargs)
+        assert isinstance(targets, Tensor), "Loss does not support multiple target Tensors"
+        return soft_cross_entropy(outputs, targets, *args, **kwargs)
 
     def metrics(self, train: bool = False) -> Metrics:
         return self.train_acc if train else MetricCollection([self.val_acc, self.val_loss])
 
     def forward(self, batch: BatchPair) -> Tensor:
-        x, _ = batch
-        logits = self.module(x)
-
-        return logits
+        inputs, _ = batch
+        outputs = self.module(inputs)
+        return outputs
 
     def validate(self, batch: BatchPair) -> Tuple[Any, Any]:
-        assert self.training is False, "For validation, model must be in eval mode"
         _, targets = batch
-        logits = self.forward(batch)
-        return logits, targets
+        outputs = self.forward(batch)
+        return outputs, targets

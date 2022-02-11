@@ -13,11 +13,16 @@ from composer.models.model_hparams import Initializer
 # under the MIT license
 class ResNet9(nn.Module):
     """A 9-layer residual network, excluding BatchNorms and activation functions, as described in this blog post:
-
     https://myrtle.ai/learn/how-to-train-your-resnet-4-architecture/
+
+    See this `paper <https://arxiv.org/abs/1512.03385>`_ for details
+    on the residual network architecture.
+
+    Args:
+        num_classes (int): The number of classes. Needed for classification tasks. Default = 10
     """
 
-    def __init__(self, num_classes: int):
+    def __init__(self, num_classes: int = 10):
         super().__init__()
 
         self.body = nn.Sequential(
@@ -57,7 +62,7 @@ class CIFAR10_ResNet9(ComposerClassifier):
     https://myrtle.ai/learn/how-to-train-your-resnet-4-architecture/
 
     Args:
-        num_classes (int): The number of classes for the model.
+        num_classes (int): The number of classes. Needed for classification tasks. Default = 10
         initializers (List[Initializer], optional): Initializers
             for the model. ``None`` for no initialization.
             (default: ``None``)
@@ -65,7 +70,7 @@ class CIFAR10_ResNet9(ComposerClassifier):
 
     def __init__(
         self,
-        num_classes: int,
+        num_classes: int = 10,
         initializers: Optional[List[Initializer]] = None,
     ) -> None:
         if initializers is None:

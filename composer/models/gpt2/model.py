@@ -16,7 +16,7 @@ if TYPE_CHECKING:
 
 
 class GPT2Model(ComposerTransformer):
-    """Implements a GPT-2 wrapper around a ComposerTransformer.
+    """Implements a GPT-2 extending :class:`ComposerTransformer`.
 
     See this `paper <https://d4mucfpksywv.cloudfront.net/better-language-models/language-models.pdf>`_
     for details on the GPT-2 architecutre.
@@ -26,6 +26,7 @@ class GPT2Model(ComposerTransformer):
         config (transformers.GPT2Config): The config for the model.
         tokenizer_name (str): The name of the tokenizer used for tihs model,
             necessary to assert required model inputs.
+        gradient_checkpointing (bool): Use gradient checkpointing. default: False
     """
 
     def __init__(self,
