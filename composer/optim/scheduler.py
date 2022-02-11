@@ -34,6 +34,7 @@ def _convert_time(time: Union[str, Time], state: State, ssr: float = 1.0) -> Tim
 
 def step_scheduler(state: State, *, ssr: float = 1.0, step_size: Union[str, Time], gamma: float = 0.1) -> float:
     step_size = _convert_time(step_size, state, ssr=ssr)
+    print(step_size)
     current_time = state.timer.get(step_size.unit)
     steps = int(current_time / step_size)
 
@@ -115,13 +116,13 @@ def cosine_annealing_scheduler(state: State,
 def cosine_annealing_warm_restarts_scheduler(state: State,
                                              *,
                                              ssr: float = 1.0,
-                                             T_0: Union[str, Time] = '1dur',
+                                             T_0: Union[str, Time],
                                              T_mult: float = 1.0,
                                              min_factor: float = 0.0):
     T_0 = _convert_time(T_0, state, ssr=ssr)
     current_interval_len = T_0
     current_interval_end = T_0
-    while current_interval_end < state.timer:
+    while current_interval_end <= state.timer.get(current_interval_end.unit):
         if current_interval_len.value == 0:
             raise ValueError('Interval between restarts for cosine annealing/warm restarts scheduler has decayed to 0.')
 
@@ -213,8 +214,6 @@ class SchedulerHparams(hp.Hparams, ABC):
     def initialize_object(self) -> ComposerSchedulerFn:
         if self.scheduler_function is None:
             raise NotImplementedError(f"Cannot initialize {self} because `scheduler_function` is undefined.")
-
-        print('#' * 50, 'doing the init on', self.scheduler_function, asdict(self))
 
         return functools.partial(self.scheduler_function.__func__, **asdict(self))
 
