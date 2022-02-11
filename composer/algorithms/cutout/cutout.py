@@ -42,7 +42,8 @@ def cutout_batch(X: Tensor, n_holes: int, length: Union[int, float]) -> Tensor:
     w = X.size(3)
 
     if 0 < length < 1:
-        length = int(min(h, w) * length)
+        length = min(h, w) * length
+    length = int(length)
 
     mask = torch.ones_like(X)
     for _ in range(n_holes):
