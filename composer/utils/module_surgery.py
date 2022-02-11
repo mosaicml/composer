@@ -73,7 +73,7 @@ def replace_module_classes(
     * The first replacement policy replaces the ``nn.Conv2d(1, 32, 3, 1)`` layer with a ``nn.Linear(16, 32)`` layer.
     * The second replacement policy recurses on this replaced layer. Because ``in_features == 16``, this policy
       replaces the layer with a ``nn.Linear(32, 64)``.
-    * This is policy is invoked again on this new layer. However, since ``in_features == 32``,
+    * This policy is invoked again on this new layer. However, since ``in_features == 32``,
       no replacement occurs and this policy returns ``None``.
     * Since all policies do not match or now return ``None`` on all layers, surgery is finished.
     * All replacements, including intermediate replacements, are returned.
