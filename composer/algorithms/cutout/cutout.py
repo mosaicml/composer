@@ -33,11 +33,14 @@ def cutout_batch(X: Tensor, n_holes: int, length: Union[int, float]) -> Tensor:
     Args:
         X (Tensor): Batch Tensor image of size (B, C, H, W).
         n_holes: Integer number of holes to cut out
-        length: Side length of the square hole to cut out. If ``0 < length < 1``,
-            interpreted as a fraction of ``min(H, W)``.
+        length: Side length of the square holes to cut out. Must be greater than
+            0. If ``0 < length < 1``, ``length`` is interpreted as a fraction
+            of ``min(H, W)`` and converted to ``int(length * min(H, W))``.
+            If ``length >= 1``, ``length`` is used as an integer size directly.
 
     Returns:
-        X_cutout: Image with `n_holes` of dimension `length x length` cut out of it.
+        X_cutout: Batch of images with ``n_holes`` holes of dimension
+            ``length x length`` replaced with zeros.
     """
     h = X.size(2)
     w = X.size(3)
@@ -65,8 +68,10 @@ class CutOut(Algorithm):
     Args:
         X (Tensor): Batch Tensor image of size (B, C, H, W).
         n_holes: Integer number of holes to cut out
-        length: Side length of the square hole to cut out. If ``0 < length < 1``,
-            interpreted as a fraction of ``min(H, W)``.
+        length: Side length of the square holes to cut out. Must be greater than
+            0. If ``0 < length < 1``, ``length`` is interpreted as a fraction
+            of ``min(H, W)`` and converted to ``int(length * min(H, W))``.
+            If ``length >= 1``, ``length`` is used as an integer size directly.
     """
 
     def __init__(self, n_holes: int = 1, length: Union[int, float] = 0.5):
