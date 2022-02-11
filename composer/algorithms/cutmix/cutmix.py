@@ -15,7 +15,7 @@ from composer.models.loss import check_for_index_targets
 log = logging.getLogger(__name__)
 
 
-def gen_indices(x: Tensor) -> Tensor:
+def _gen_indices(x: Tensor) -> Tensor:
     """Generates indices of a random permutation of elements of a batch.
 
     Args:
@@ -28,7 +28,7 @@ def gen_indices(x: Tensor) -> Tensor:
     return torch.randperm(x.shape[0])
 
 
-def gen_cutmix_lambda(alpha: float) -> float:
+def _gen_cutmix_lambda(alpha: float) -> float:
     """Generates lambda from ``Beta(alpha, alpha)``
 
     Args:
@@ -89,7 +89,7 @@ def _rand_bbox(W: int,
     return bbx1, bby1, bbx2, bby2
 
 
-def adjust_lambda(cutmix_lambda: float, x: Tensor, bbox: Tuple) -> float:
+def _adjust_lambda(cutmix_lambda: float, x: Tensor, bbox: Tuple) -> float:
     """Rescale the cutmix lambda according to the size of the clipped bounding box.
 
     Args:
@@ -155,7 +155,7 @@ def cutmix_batch(x: Tensor,
     # Create shuffled indicies across the batch in preparation for cutting and mixing.
     # Use given indices if there are any.
     if indices is None:
-        shuffled_idx = gen_indices(x)
+        shuffled_idx = _gen_indices(x)
     else:
         shuffled_idx = indices
 
@@ -163,7 +163,7 @@ def cutmix_batch(x: Tensor,
     x_cutmix = torch.clone(x)
     # Sample a rectangular box using lambda. Use variable names from the paper.
     if cutmix_lambda is None:
-        cutmix_lambda = gen_cutmix_lambda(alpha)
+        cutmix_lambda = _gen_cutmix_lambda(alpha)
     if bbox:
         rx, ry, rw, rh = bbox[0], bbox[1], bbox[2], bbox[3]
     else:
@@ -174,7 +174,7 @@ def cutmix_batch(x: Tensor,
     x_cutmix[:, :, rx:rw, ry:rh] = x_cutmix[shuffled_idx, :, rx:rw, ry:rh]
     # adjust lambda to exactly match pixel ratio. This is an implementation detail taken from
     # the original implementation, and implies lambda is not actually beta distributed.
-    adjusted_lambda = adjust_lambda(cutmix_lambda, x, bbox)
+    adjusted_lambda = _adjust_lambda(cutmix_lambda, x, bbox)
 
     # Make a shuffled version of y for interpolation
     y_shuffled = y[shuffled_idx]
@@ -266,10 +266,10 @@ class CutMix(Algorithm):
             "Multiple tensors for inputs or targets not supported yet."
         alpha = self.alpha
 
-        self.indices = gen_indices(input)
-        self.cutmix_lambda = gen_cutmix_lambda(alpha)
+        self.indices = _gen_indices(input)
+        self.cutmix_lambda = _gen_cutmix_lambda(alpha)
         self.bbox = _rand_bbox(input.shape[2], input.shape[3], self.cutmix_lambda)
-        self.cutmix_lambda = adjust_lambda(self.cutmix_lambda, input, self.bbox)
+        self.cutmix_lambda = _adjust_lambda(self.cutmix_lambda, input, self.bbox)
 
         new_input, new_target = cutmix_batch(
             x=input,
