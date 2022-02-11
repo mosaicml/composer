@@ -1,5 +1,6 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
+"""Periodically upload run directory to a blob store during training."""
 from __future__ import annotations
 
 import datetime
@@ -26,65 +27,82 @@ from composer.utils.object_store import ObjectStoreProviderHparams
 
 log = logging.getLogger(__name__)
 
+__all__ = ["RunDirectoryUploader"]
+
 
 class RunDirectoryUploader(Callback):
     """Callback to upload the run directory to a blob store.
 
     This callback checks the run directory for new or modified files
-    at the end of every epoch, and after every `upload_every_n_batches` batches.
-    This callback detects new or modified files based off of the file modification
+    at the end of every epoch, and after every ``upload_every_n_batches`` batches.
+    This callback detects new or modified files based on the file modification
     timestamp. Only files that have a newer last modified timestamp since the last upload
     will be  uploaded.
-
-    This uploader is compatible with multi-GPU training. It blocks the main thread
-    for each local rank  when creating a copy of the modified files in the run directory
-    before yielding back to the training loop. Uploads are performed from the copied files.
-    It assumes that only the main thread on each rank writes to the run directory.
 
     While all uploads happen in the background, here are some additional tips for minimizing
     the performance impact:
 
-        * Ensure that `upload_every_n_batches` is sufficiently infrequent as to limit when
-          the blocking scans of the run direcory and copies of modified files.
+        * Ensure that ``upload_every_n_batches`` is sufficiently infrequent as to limit when
+          the blocking scans of the run directory and copies of modified files.
           However, do not make it too infrequent in case if the training process unexpectedly dies,
           since data from the last upload may be lost.
 
-        * Set `use_procs=True` (the default) to use background processes,
+        * Set ``use_procs=True`` (the default) to use background processes,
           instead of threads, to perform the file uploads. Processes are recommended to
           ensure that the GIL is not blocking the training loop when performance CPU
           operations on uploaded files (e.g. comparing and computing checksums).
           Network I/O happens always occurs in the background.
 
-        * Provide a RAM disk path for the `upload_staging_folder` parameter. Copying files to stage on RAM
+        * Provide a RAM disk path for the ``upload_staging_folder`` parameter. Copying files to stage on RAM
           will be faster than writing to disk. However, you must have sufficient excess RAM on your system,
           or you may experience OutOfMemory errors.
 
+    Example
+        >>> osphparams = ObjectStoreProviderHparams(
+        ...     provider="s3",
+        ...     container="run-dir-test",
+        ...     key_environ="OBJECT_STORE_KEY",
+        ...     secret_environ="OBJECT_STORE_SECRET",
+        ...     region="us-west-2",
+        ...     )
+        >>> # For this example, we do not validate credentials
+        >>> def do_not_validate(
+        ...     object_store_provider_hparams: ObjectStoreProviderHparams,
+        ...     object_name_prefix: str,
+        ... ) -> None:
+        ...     pass
+        >>> callbacks.run_directory_uploader._validate_credentials = do_not_validate
+        >>> uploaderCallback = callbacks.RunDirectoryUploader(osphparams)
+        >>> state.callbacks.append(uploaderCallback)
+        >>> _ = engine.run_event(Event.EPOCH_END)
+        >>> _ = state.callbacks.pop()
+
+    .. note::
+
+        * To use this callback, install composer with ``pip install mosaicml[logging]``.
+
+        * RunDirectoryUploader blocks the training loop to copy files from the run directory to ``upload_staging_folder``
+          and to queue these files to the upload queues of the workers. Actual upload happens in the background.
+
     Args:
-        provider (str): Cloud provider to use.
+        object_store_provider_hparams (ObjectStoreProviderHparams): ObjectStoreProvider hyperparameters object
 
-            Specify the last part of the Apache Libcloud Module here.
-            `This document <https://libcloud.readthedocs.io/en/stable/storage/supported_providers.html#provider-matrix>`
-            lists all supported providers. For example, the module name for Amazon S3 is `libcloud.storage.drivers.s3`, so
-            to use S3, specify 's3' here.
+            See :class:`~composer.utils.object_store.ObjectStoreProviderHparams` for documentation.
 
-        container (str): The name of the container (i.e. bucket) to use.
         object_name_prefix (str, optional): A prefix to prepend to all object keys. An object's key is this prefix combined
             with its path relative to the run directory. If the container prefix is non-empty, a trailing slash ('/') will
             be added if necessary. If not specified, then the prefix defaults to the run directory. To disable prefixing,
             set to the empty string.
 
-            For example, if `object_name_prefix = 'foo'` and there is a file in the run directory named `bar`, then that file
-            would be uploaded to `foo/bar` in the container.
+            For example, if ``object_name_prefix = 'foo'`` and there is a file in the run directory named ``bar``, then that file
+            would be uploaded to ``foo/bar`` in the container.
         num_concurrent_uploads (int, optional): Maximum number of concurrent uploads. Defaults to 4.
         upload_staging_folder (str, optional): A folder to use for staging uploads.
-            If not specified, defaults to using a :class:`~tempfile.TemporaryDirectory`.
+            If not specified, defaults to using a :func:`~tempfile.TemporaryDirectory`.
         use_procs (bool, optional): Whether to perform file uploads in background processes (as opposed to threads).
             Defaults to True.
         upload_every_n_batches (int, optional): Interval at which to scan the run directory for changes and to
             queue uploads of files. Uploads are always queued at the end of the epoch. Defaults to every 100 batches.
-        provider_init_kwargs (Dict[str, Any], optional): Parameters to pass into the constructor for the
-            :class:`~libcloud.storage.providers.Provider` constructor. These arguments would usually include the cloud region
-            and credentials. Defaults to None, which is equivalent to an empty dictionary.
     """
 
     def __init__(
@@ -139,6 +157,16 @@ class RunDirectoryUploader(Callback):
         _validate_credentials(object_store_provider_hparams, self._object_name_prefix)
 
     def init(self, state: State, logger: Logger) -> None:
+        """Called on the :attr:`~composer.core.event.Event.INIT` event.
+
+        Initialize and start worker threads/processes.
+
+        Args:
+            state (State): The :class:`~composer.core.state.State` object
+                used during training.
+            logger (Logger):
+                The :class:`~composer.core.logging.logger.Logger` object.
+        """
         del state, logger  # unused
         self._finished = self._finished_cls()
         self._last_upload_timestamp = run_directory.get_run_directory_timestamp()
@@ -155,14 +183,44 @@ class RunDirectoryUploader(Callback):
             worker.start()
 
     def batch_end(self, state: State, logger: Logger) -> None:
+        """Called on the :attr:`~composer.core.event.Event.BATCH_END` event.
+
+        Trigger the upload of run directory if upload condition is met.
+
+        Args:
+            state (State): The :class:`~composer.core.state.State` object
+                used during training.
+            logger (Logger):
+                The :class:`~composer.core.logging.logger.Logger` object.
+        """
         if int(state.timer.batch_in_epoch) % self._upload_every_n_batches == 0:
             self._trigger_upload(logger, LogLevel.BATCH)
 
     def epoch_end(self, state: State, logger: Logger) -> None:
+        """Called on the :attr:`~composer.core.event.Event.EPOCH_END` event.
+
+        Trigger the upload of run directory.
+
+        Args:
+            state (State): The :class:`~composer.core.state.State` object
+                used during training.
+            logger (Logger):
+                The :class:`~composer.core.logging.logger.Logger` object.
+        """
         del state  # unused
         self._trigger_upload(logger, LogLevel.EPOCH)
 
     def post_close(self):
+        """Called whenever the trainer finishes training and other callbacks are also done.
+
+        Clean up when training is done.
+
+        Args:
+            state (State): The :class:`~composer.core.state.State` object
+                used during training.
+            logger (Logger):
+                The :class:`~composer.core.logging.logger.Logger` object.
+        """
         # Cleaning up on post_close to ensure that all artifacts are uploaded
         self._trigger_upload(logger=None, log_level=None)
         if self._finished is not None:

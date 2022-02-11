@@ -1,5 +1,6 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
+"""Log memory usage during training."""
 import logging
 from typing import Dict, Union
 
@@ -10,14 +11,22 @@ from composer.core.callback import Callback
 
 log = logging.getLogger(__name__)
 
+__all__ = ["MemoryMonitor"]
+
 
 class MemoryMonitor(Callback):
-    """Logs the memory usage of the model.
+    """Logs the memory usage of the model during training to a key.
 
-    Logs several memory usage statistics on each batch under
-    the ``memory/{statistic}`` key.
+    +---------------------------------------------+-------------------------------------------------------------+
+    | Key                                         | Logged data                                                 |
+    +=============================================+=============================================================+
+    |                                             | Several memory usage statistics                             |
+    | ``memory/{statistic}``                      | are logged on                                               |
+    |                                             | :attr:`~composer.core.event.Event.AFTER_TRAIN_BATCH` event. |
+    +---------------------------------------------+-------------------------------------------------------------+
 
-    Args:
+    .. note::
+        Memory usage monitoring is only supported for the GPU devices.
     """
 
     def __init__(self):
@@ -28,10 +37,13 @@ class MemoryMonitor(Callback):
             log.warn("Memory monitor only works on GPU devices.")
 
     def after_train_batch(self, state: State, logger: Logger):
-        """This function calls the torch cuda memory stats and reports basic memory statistics.
+        """Called on the :attr:`~composer.core.event.Event.AFTER_TRAIN_BATCH` event.
+
+        This function calls the torch memory stats API for cuda (see :func:`torch.cuda.memory_stats`)
+        and reports basic memory statistics.
 
         Args:
-            state (State): The :class:`~composer.core.State` object
+            state (State): The :class:`~composer.core.state.State` object
                 used during training.
             logger (Logger):
                 The :class:`~composer.core.logging.logger.Logger` object.
@@ -42,7 +54,7 @@ class MemoryMonitor(Callback):
         if n_devices == 0:
             return
 
-        memory_report = get_memory_report()
+        memory_report = _get_memory_report()
 
         for mem_stat, val in memory_report.items():
             logger.metric_batch({'memory/{}'.format(mem_stat): val})
@@ -59,7 +71,7 @@ _MEMORY_STATS = {
 }
 
 
-def get_memory_report() -> Dict[str, Union[int, float]]:
+def _get_memory_report() -> Dict[str, Union[int, float]]:
     if not torch.cuda.is_available():
         log.debug("Cuda is not available. The memory report will be empty.")
         return {}

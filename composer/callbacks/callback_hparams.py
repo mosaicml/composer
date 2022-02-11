@@ -1,6 +1,6 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
-"""Callback Hyperparameters."""
+"""Hyperparameters for callbacks."""
 from __future__ import annotations
 
 import abc
@@ -21,14 +21,19 @@ if TYPE_CHECKING:
     from composer.callbacks.run_directory_uploader import RunDirectoryUploader
     from composer.callbacks.speed_monitor import SpeedMonitor
 
+__all__ = [
+    "CallbackHparams", "BenchmarkerHparams", "GradMonitorHparams", "MemoryMonitorHparams", "LRMonitorHparams",
+    "SpeedMonitorHparams", "RunDirectoryUploaderHparams"
+]
+
 
 @dataclass
 class CallbackHparams(hp.Hparams, abc.ABC):
     """Base class for callback hyperparameters.
 
-    Callback parameters that are added to
-    :attr:`composer.trainer.trainer_hparams.TrainerHparams.callbacks`
-    (e.g. via YAML or the CLI) are initialized in the training loop.
+    Callback parameters that are added to the callbacks argument of
+    :attr:`~composer.trainer.trainer_hparams.TrainerHparams`
+    (e.g., via YAML or the CLI). These are initialized in the training loop.
     """
 
     @abc.abstractmethod
@@ -54,6 +59,11 @@ class GradMonitorHparams(CallbackHparams):
     )
 
     def initialize_object(self) -> GradMonitor:
+        """Initialize the GradMonitor callback.
+
+        Returns:
+            GradMonitor: An instance of :mod:`~composer.callbacks.grad_monitor.GradMonitor`.
+        """
         from composer.callbacks.grad_monitor import GradMonitor
         return GradMonitor(log_layer_grad_norms=self.log_layer_grad_norms)
 
@@ -66,6 +76,11 @@ class MemoryMonitorHparams(CallbackHparams):
     """
 
     def initialize_object(self) -> MemoryMonitor:
+        """Initialize the MemoryMonitor callback.
+
+        Returns:
+            MemoryMonitor: An instance of :mod:`~composer.callbacks.memory_monitor.MemoryMonitor`.
+        """
         from composer.callbacks.memory_monitor import MemoryMonitor
         return MemoryMonitor()
 
@@ -78,6 +93,11 @@ class LRMonitorHparams(CallbackHparams):
     """
 
     def initialize_object(self) -> LRMonitor:
+        """Initialize the LRMonitor callback.
+
+        Returns:
+            LRMonitor: An instance of :mod:`~composer.callbacks.lr_monitor.LRMonitor`.
+        """
         from composer.callbacks.lr_monitor import LRMonitor
         return LRMonitor()
 
@@ -94,15 +114,20 @@ class SpeedMonitorHparams(CallbackHparams):
     )
 
     def initialize_object(self) -> SpeedMonitor:
+        """Initialize the SpeedMonitor callback.
+
+        Returns:
+            SpeedMonitor: An instance of :mod:`~composer.callbacks.speed_monitor.SpeedMonitor`.
+        """
         from composer.callbacks.speed_monitor import SpeedMonitor
         return SpeedMonitor(window_size=self.window_size)
 
 
 @dataclass
 class RunDirectoryUploaderHparams(CallbackHparams, ObjectStoreProviderHparams):
-    """:class:`~composer.callbacks.torch_profiler.RunDirectoryUploader` hyperparameters.
+    """:class:`~composer.callbacks.run_directory_uploader.RunDirectoryUploader` hyperparameters.
 
-    See :class:`~composer.callbacks.torch_profiler.RunDirectoryUploader` for documentation.
+    See :class:`~composer.callbacks.run_directory_uploader.RunDirectoryUploader` for documentation.
     """
 
     object_name_prefix: Optional[str] = hp.optional(textwrap.dedent("""\
@@ -124,6 +149,11 @@ class RunDirectoryUploaderHparams(CallbackHparams, ObjectStoreProviderHparams):
                                               default=100)
 
     def initialize_object(self) -> RunDirectoryUploader:
+        """Initialize the RunDirectoryUploader callback.
+
+        Returns:
+            RunDirectoryUploader: An instance of :mod:`~composer.callbacks.run_directory_uploader.RunDirectoryUploader`.
+        """
         from composer.callbacks.run_directory_uploader import RunDirectoryUploader
         return RunDirectoryUploader(
             object_store_provider_hparams=ObjectStoreProviderHparams(
