@@ -18,7 +18,7 @@ default_required_fields = {
         'attention_module_name': 'transformers.models.gpt2.modeling_gpt2.GPT2Attention',
         'attr_to_replace': '_attn',
         'alibi_attention': 'composer.algorithms.alibi.gpt2_alibi._attn',
-        'mask_replacement_function': 'composer.algorithms.alibi.gpt2_alibi.enlarge_mask',
+        'mask_replacement_function': 'composer.algorithms.alibi.gpt2_alibi._enlarge_mask',
     },
     BlurPoolHparams: {
         'replace_convs': True,

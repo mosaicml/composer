@@ -49,11 +49,11 @@ def gen_cutmix_lambda(alpha: float) -> float:
     return cutmix_lambda
 
 
-def rand_bbox(W: int,
-              H: int,
-              cutmix_lambda: float,
-              cx: Optional[int] = None,
-              cy: Optional[int] = None) -> Tuple[int, int, int, int]:
+def _rand_bbox(W: int,
+               H: int,
+               cutmix_lambda: float,
+               cx: Optional[int] = None,
+               cy: Optional[int] = None) -> Tuple[int, int, int, int]:
     """Randomly samples a bounding box with area determined by cutmix_lambda.
 
     Adapted from original implementation https://github.com/clovaai/CutMix-PyTorch
@@ -167,7 +167,7 @@ def cutmix_batch(x: Tensor,
     if bbox:
         rx, ry, rw, rh = bbox[0], bbox[1], bbox[2], bbox[3]
     else:
-        rx, ry, rw, rh = rand_bbox(x.shape[2], x.shape[3], cutmix_lambda)
+        rx, ry, rw, rh = _rand_bbox(x.shape[2], x.shape[3], cutmix_lambda)
         bbox = (rx, ry, rw, rh)
 
     # Fill in the box with a part of a random image.
@@ -268,7 +268,7 @@ class CutMix(Algorithm):
 
         self.indices = gen_indices(input)
         self.cutmix_lambda = gen_cutmix_lambda(alpha)
-        self.bbox = rand_bbox(input.shape[2], input.shape[3], self.cutmix_lambda)
+        self.bbox = _rand_bbox(input.shape[2], input.shape[3], self.cutmix_lambda)
         self.cutmix_lambda = adjust_lambda(self.cutmix_lambda, input, self.bbox)
 
         new_input, new_target = cutmix_batch(

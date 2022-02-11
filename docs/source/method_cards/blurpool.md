@@ -77,6 +77,8 @@ We thank Richard Zhang for helpful discussion.
     :noindex:
 .. autofunction:: composer.algorithms.blurpool.blur_2d
     :noindex:
+.. autofunction:: composer.algorithms.blurpool.blurmax_pool2d
+    :noindex:
 .. autofunction:: composer.algorithms.blurpool.apply_blurpool
     :noindex:
 ```

@@ -19,7 +19,7 @@ log = logging.getLogger(__name__)
 
 _VALID_LAYER_DISTRIBUTIONS = ("uniform", "linear")
 
-STOCHASTIC_LAYER_MAPPING = {
+_STOCHASTIC_LAYER_MAPPING = {
     'block': {
         'ResNetBottleneck': (Bottleneck, StochasticBottleneck)
     },
@@ -29,20 +29,20 @@ STOCHASTIC_LAYER_MAPPING = {
 }
 
 
-def validate_stochastic_hparams(target_layer_name: str,
-                                stochastic_method: str,
-                                drop_rate: float,
-                                drop_distribution: str,
-                                drop_warmup: float = 0.0):
+def _validate_stochastic_hparams(target_layer_name: str,
+                                 stochastic_method: str,
+                                 drop_rate: float,
+                                 drop_distribution: str,
+                                 drop_warmup: float = 0.0):
     """Helper function to validate the Stochastic Depth hyperparameter values."""
 
-    if stochastic_method and (stochastic_method not in STOCHASTIC_LAYER_MAPPING):
+    if stochastic_method and (stochastic_method not in _STOCHASTIC_LAYER_MAPPING):
         raise ValueError(f"stochastic_method {stochastic_method} is not supported."
-                         f" Must be one of {list(STOCHASTIC_LAYER_MAPPING.keys())}")
+                         f" Must be one of {list(_STOCHASTIC_LAYER_MAPPING.keys())}")
 
-    if target_layer_name and (target_layer_name not in STOCHASTIC_LAYER_MAPPING[stochastic_method]):
+    if target_layer_name and (target_layer_name not in _STOCHASTIC_LAYER_MAPPING[stochastic_method]):
         raise ValueError(f"target_layer_name {target_layer_name} is not supported with {stochastic_method}."
-                         f" Must be one of {list(STOCHASTIC_LAYER_MAPPING[stochastic_method].keys())}")
+                         f" Must be one of {list(_STOCHASTIC_LAYER_MAPPING[stochastic_method].keys())}")
 
     if drop_rate and (drop_rate < 0 or drop_rate > 1):
         raise ValueError(f"drop_rate must be between 0 and 1: {drop_rate}")
@@ -107,12 +107,12 @@ def apply_stochastic_depth(model: torch.nn.Module,
             have each GPU drop a different set of layers. Only used
             with ``"block"`` stochastic method.
     """
-    validate_stochastic_hparams(target_layer_name=target_layer_name,
-                                stochastic_method=stochastic_method,
-                                drop_rate=drop_rate,
-                                drop_distribution=drop_distribution)
+    _validate_stochastic_hparams(target_layer_name=target_layer_name,
+                                 stochastic_method=stochastic_method,
+                                 drop_rate=drop_rate,
+                                 drop_distribution=drop_distribution)
     transforms = {}
-    target_layer, stochastic_layer = STOCHASTIC_LAYER_MAPPING[stochastic_method][target_layer_name]
+    target_layer, stochastic_layer = _STOCHASTIC_LAYER_MAPPING[stochastic_method][target_layer_name]
     module_count = module_surgery.count_module_instances(model, target_layer)
     shared_kwargs = {'drop_rate': drop_rate, 'drop_distribution': drop_distribution, 'module_count': module_count}
     if stochastic_method == 'block':
@@ -125,7 +125,7 @@ def apply_stochastic_depth(model: torch.nn.Module,
         stochastic_from_target_layer = functools.partial(stochastic_layer.from_target_layer, **shared_kwargs)
     else:
         raise ValueError(f"stochastic_method {stochastic_method} is not supported."
-                         f" Must be one of {list(STOCHASTIC_LAYER_MAPPING.keys())}")
+                         f" Must be one of {list(_STOCHASTIC_LAYER_MAPPING.keys())}")
     transforms[target_layer] = stochastic_from_target_layer
     module_surgery.replace_module_classes(model, optimizers=optimizers, policies=transforms)
 
@@ -208,11 +208,11 @@ class StochasticDepth(Algorithm):
         self.drop_distribution = drop_distribution
         self.drop_warmup = drop_warmup
         self.use_same_gpu_seed = use_same_gpu_seed
-        validate_stochastic_hparams(stochastic_method=self.stochastic_method,
-                                    target_layer_name=self.target_layer_name,
-                                    drop_rate=self.drop_rate,
-                                    drop_distribution=self.drop_distribution,
-                                    drop_warmup=self.drop_warmup)
+        _validate_stochastic_hparams(stochastic_method=self.stochastic_method,
+                                     target_layer_name=self.target_layer_name,
+                                     drop_rate=self.drop_rate,
+                                     drop_distribution=self.drop_distribution,
+                                     drop_warmup=self.drop_warmup)
 
     @property
     def find_unused_parameters(self) -> bool:
@@ -241,7 +241,7 @@ class StochasticDepth(Algorithm):
             logger (Logger): the training logger
         """
         assert state.model is not None
-        target_layer, stochastic_layer = STOCHASTIC_LAYER_MAPPING[self.stochastic_method][self.target_layer_name]
+        target_layer, stochastic_layer = _STOCHASTIC_LAYER_MAPPING[self.stochastic_method][self.target_layer_name]
 
         if event == Event.INIT:
             if module_surgery.count_module_instances(state.model, target_layer) == 0:
