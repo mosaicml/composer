@@ -10,7 +10,7 @@ from composer.models.loss import ensure_targets_one_hot
 
 
 class LabelSmoothing(Algorithm):
-    """Shrinks targets towards a uniform distribution to counteract label noise as in `Szegedy et al.
+    """Shrinks targets towards a uniform distribution to counteract label noise as in `Szegedy et al
 
     <https://arxiv.org/abs/1512.00567>`_.
 

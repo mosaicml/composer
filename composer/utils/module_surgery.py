@@ -44,7 +44,7 @@ ReplacementFunction = Callable[[torch.nn.Module, int], Optional[torch.nn.Module]
 
 def _add_children_recursive(
     module: torch.nn.Module,
-    children_to_parents_and_names: Dict[torch.nn.Module, List[Tuple[torch.nn.Module, str]]],
+    children_to_parents_and_names: OrderedDict[torch.nn.Module, List[Tuple[torch.nn.Module, str]]],
 ) -> None:
     # recursively build up children_to_parents_and_names so it maps a module to the list of
     # (parent_module, attribute name)
@@ -111,7 +111,7 @@ def replace_module_classes(
 
     Arguments:
         module (torch.nn.Module): Model to modify.
-        policies (OrderedDict[torch.nn.Module, ReplacementFunction]): Mapping of source module class to
+        policies (Mapping[torch.nn.Module, ReplacementFunction]): Mapping of source module class to
             a replacement function. Matching policies are applied in the iteration order of the dictionary, so
             if order is important, an :class:`OrderedDict` should be used. The replacement function may
             return either another :class:`~torch.nn.Module` or ``None``. If the latter, the source module
