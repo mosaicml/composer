@@ -235,6 +235,7 @@ def determine_sphinx_path(item: Union[Type[object], Type[BaseException], types.M
         return None
     return determine_sphinx_path(item, parent_module_name)
 
+
 def add_module_summary_tables(
     app: sphinx.application.Sphinx,
     what: str,
@@ -320,7 +321,7 @@ def add_module_summary_tables(
             lines.append("")
             for item_name, item in attributes:
                 lines.append(f"* :attr:`~{name}.{item_name}`")
-        
+
         if len(methods) > 0:
             # Documenting bound methods as a list instead of a summary table because
             # autosummary doesn't work for bound methods
@@ -341,6 +342,7 @@ def add_module_summary_tables(
                 lines.append(f".. rubric:: Methods")
                 lines.append("")
                 lines.extend(sphinx_lines)
+
 
 def setup(app: sphinx.application.Sphinx):
     app.connect('autodoc-skip-member', maybe_skip_member)

@@ -270,7 +270,11 @@ def update_params_in_optimizer(old_params: Iterable[torch.nn.parameter.Parameter
     Newly added parameters will be added to the same :attr:`~torch.optim.Optimizer.param_group` as the removed
     parameters. A :class:`RuntimeError` will be raised if ``old_params`` is split across multiple parameter groups.
 
-    .. note::
+    This function differs from :meth:`replace_params_in_optimizer` in that ``len(old_params)`` need not equal
+    ``len(new_params)``. However, this function does not support replacing parameters accross multiple optimizer
+    groups.
+
+    .. warning::
 
         Dynamically removing parameters from a :class:`~torch.optim.Optimizer` and adding parameters
         to an existing :attr:`~torch.optim.Optimizer.param_group`\\s are not officially supported, so this

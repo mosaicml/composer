@@ -1,5 +1,6 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
+"""Utility for uploading to and downloading from cloud object stores."""
 import dataclasses
 import os
 import sys
@@ -181,7 +182,6 @@ class ObjectStoreProvider:
             * :mod:`~libcloud.storage.drivers.oss`
             * :mod:`~libcloud.storage.drivers.rgw`
             * :mod:`~libcloud.storage.drivers.s3`
-            * :mod:`~libcloud.storage.drivers.scaleway`
 
             .. seealso:: :doc:`Full list of libcloud providers <libcloud:storage/supported_providers>`
 
@@ -323,11 +323,11 @@ class ObjectStoreProvider:
         .. seealso:: :meth:`libcloud.storage.base.StorageDriver.download_object_as_stream`.
 
         Args:
-            object_name (str): Object name
+            object_name (str): Object name.
             chunk_size (Optional[int], optional): Optional chunk size (in bytes).
 
         Returns:
-            Iterator[bytes]: The object, as a byte stream
+            Iterator[bytes]: The object, as a byte stream.
         """
         obj = self._get_object(object_name)
         return self._provider.download_object_as_stream(obj, chunk_size=chunk_size)

@@ -15,17 +15,18 @@ directory. For example,
 Run Directory Location
 **********************
 
-If using the :ref:`composer launch script for distributed training <distributed-training>`,
+If using the :ref:`composer launcher for distributed training <distributed-training>`,
 the run directory can be specified using the ``--run_directory`` command line flag. For example:
 
 .. console::
 
     composer --run_directory /path/to/run/directory -n 8 path/to/training/script.py
 
-Otherwise, if launching python directly, the run directory can be specified via the ``COMPOSER_RUN_DIRECTORY`` environment variable.
-(The :ref:`composer launch script <distributed-training>` sets this variable for you.)
+Otherwise, if launching python directly, the run directory can be specified via the
+``COMPOSER_RUN_DIRECTORY`` environment variable.
+(The :ref:`composer launcher <distributed-training>` sets this variable for you.)
 
-If not specified, then the run directory defaults to ``f"./runs/{datetime.datetime.now().isoformat()}"``,
+If not specified, then the run directory defaults to ``./runs/{timestamp}``,
 relative to the current working directory (CWD).
 
 

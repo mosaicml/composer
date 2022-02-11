@@ -3,14 +3,14 @@
 """Helper methods for :mod:`torch.distributed`.
 
 To use :mod:`torch.distributed`, launch your training script with the
-:ref:`composer launch script for distributed training <distributed-training>`. For example,
+:ref:`composer launcher for distributed training <distributed-training>`. For example,
 the following command launches an eight-process training run.
 
 .. code-block:: console
 
     composer -n 8 path/to/train.py
 
-The launch script will automatically configure the following environment variables, which are
+The composer launcher will automatically configure the following environment variables, which are
 required for distributed training:
 
 * ``RANK``: The global rank of the process, which should be on ``[0; WORLD_SIZE - 1]``.
@@ -42,6 +42,24 @@ import torch.distributed as dist
 import torch.utils.data
 
 TObj = TypeVar("TObj")
+
+__all__ = [
+    "all_gather",
+    "all_gather_object",
+    "all_reduce",
+    "barrier",
+    "broadcast",
+    "broadcast_object_list",
+    "get_global_rank",
+    "get_local_rank",
+    "get_local_world_size",
+    "get_node_rank",
+    "get_sampler",
+    "get_world_size",
+    "initialize_dist",
+    "is_available",
+    "is_initialized",
+]
 
 
 def _get_distributed_config_var(
