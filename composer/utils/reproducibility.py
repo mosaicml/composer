@@ -18,13 +18,16 @@
 
     .. doctest::
 
-        >>> import torch.nn.init
+        >>> import torch.nn
         >>> from composer.utils import reproducibility
         >>> reproducibility.configure_deterministic_mode()
         >>> reproducibility.seed_all(42)
         >>> model = MyModel()
+        >>> def init_weights(m):
+        ...     if isinstance(m, torch.nn.Linear):
+        ...         torch.nn.init.xavier_uniform(m.weight)
         >>> # model will now be deterministically initialized, since the seed is set.
-        >>> model.apply(torch.nn.init.uniform_)
+        >>> init_weights(model)
         >>> trainer = Trainer(model=model)
 """
 import os

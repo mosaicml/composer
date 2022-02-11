@@ -44,7 +44,7 @@ ReplacementFunction = Callable[[torch.nn.Module, int], Optional[torch.nn.Module]
 
 def _add_children_recursive(
     module: torch.nn.Module,
-    children_to_parents_and_names: OrderedDict[torch.nn.Module, List[Tuple[torch.nn.Module, str]]],
+    children_to_parents_and_names: Dict[torch.nn.Module, List[Tuple[torch.nn.Module, str]]],
 ) -> None:
     # recursively build up children_to_parents_and_names so it maps a module to the list of
     # (parent_module, attribute name)
@@ -67,31 +67,39 @@ def replace_module_classes(
 
     .. rubric:: Example
 
-    The following example replaces all convolution layers with linear layers, and
-    linear layers will be optionally replaced depending on the number of input features.
+    The following example replaces all convolution layers with linear layers, and linear layers will be replaced if
+    there are 16 input features. Recursion occurs on replacement.
+    
+    * The first replacement policy replaces the ``nn.Conv2d(1, 32, 3, 1)`` layer with a ``nn.Linear(16, 32)`` layer.
+    * The second replacement policy recurses on this replaced layer. Because ``in_features == 16``, this policy
+      replaces the layer with a ``nn.Linear(32, 64)``.
+    * This is policy is invoked again on this new layer. However, since ``in_features == 32``,
+      no replacement occurs and this policy returns ``None``.
+    * Since all policies do not match or now return ``None`` on all layers, surgery is finished.
+    * All replacements, including intermediate replacements, are returned.
 
     .. testsetup::
-    
+
         from composer.utils.module_surgery import replace_module_classes
-    
+
     .. doctest::
 
         >>> from torch import nn
         >>> module = nn.Sequential(
-        ... nn.Conv2d(1, 32, 3, 1),
-        ... nn.ReLU(),
-        ... nn.MaxPool2d(2),
-        ... nn.Flatten(),
-        ... nn.Linear(5408, 128),
-        ... nn.ReLU(),
-        ... nn.LogSoftmax(dim=1),
-        )
+        ...     nn.Conv2d(1, 32, 3, 1),
+        ...     nn.ReLU(),
+        ...     nn.MaxPool2d(2),
+        ...     nn.Flatten(),
+        ...     nn.Linear(5408, 128),
+        ...     nn.ReLU(),
+        ...     nn.LogSoftmax(dim=1),
+        ... )
         >>> policies = {
-        ...    nn.Conv2d: lambda x, idx: nn.Linear(16, 32),
-        ...    nn.Linear: lambda x, idx: nn.Linear(16, 64) if x.in_features == 32 else None
+        ...     nn.Conv2d: lambda x, idx: nn.Linear(16, 32),
+        ...     nn.Linear: lambda x, idx: nn.Linear(32, 64) if x.in_features == 16 else None
         ... }
-        >>> replace_module_classes(module, policies)
-        {Conv2d(1, 32, kernel_size=(3, 3), stride=(1, 1)): Linear(in_features=16, out_features=32, bias=True), ...}
+        >>> replace_module_classes(module, policies, recurse_on_replacements=True)
+        {Conv2d(1, 32, kernel_size=(3, 3), stride=(1, 1)): Linear(in_features=16, out_features=32, bias=True), Linear(in_features=16, out_features=32, bias=True): Linear(in_features=32, out_features=64, bias=True)}
 
     .. warning::
 
@@ -103,9 +111,11 @@ def replace_module_classes(
 
     Arguments:
         module (torch.nn.Module): Model to modify.
-        policies (Mapping[torch.nn.Module, ReplacementFunction]): Mapping of source module class to
-            a replacement function. The replacement function may return either another module or ``None``.
-            If the latter, the source module is not replaced.
+        policies (OrderedDict[torch.nn.Module, ReplacementFunction]): Mapping of source module class to
+            a replacement function. Matching policies are applied in the iteration order of the dictionary, so
+            if order is important, an :class:`OrderedDict` should be used. The replacement function may
+            return either another :class:`~torch.nn.Module` or ``None``. If the latter, the source module
+            is not replaced.
         recurse_on_replacements (bool): If true, policies will be applied to any module returned
             by another policy. For example, if one policy replaces a :class:`~torch.nn.Conv2d`
             with a module containing another :class:`~torch.nn.Conv2d`, the replacement function will
@@ -197,12 +207,12 @@ def count_module_instances(module: torch.nn.Module, module_class: Union[Type[tor
 
     .. testsetup::
 
-        from composer.core.surgery import count_module_instances
+        from composer.utils.module_surgery import count_module_instances
 
     .. doctest::
 
         >>> from torch import nn
-        >>> module = nn.Sequential([nn.Linear(16, 32), nn.Linear(32, 64), nn.ReLU])
+        >>> module = nn.Sequential(nn.Linear(16, 32), nn.Linear(32, 64), nn.ReLU())
         >>> count_module_instances(module, nn.Linear)
         2
         >>> count_module_instances(module, (nn.Linear, nn.ReLU))

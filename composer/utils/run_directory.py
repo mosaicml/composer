@@ -9,16 +9,16 @@ directory. For example,
 * The :class:`~composer.loggers.file_logger.FileLogger` can save log files inside the run directory.
 * The :class:`~composer.profiler.profiler.Profiler` can save profiling traces inside the run directory.
 * The :class:`~composer.callbacks.run_directory_uploader.RunDirectoryUploader` backs up files written to the
-    run directory to cloud object storage.
+  run directory to cloud object storage.
 * The :class:`~composer.loggers.wandb_logger.WandBLogger` can store files in the run directory as artifacts.
 
 Run Directory Location
 **********************
 
-If using the :ref:`composer launcher for distributed training <distributed-training>`,
-the run directory can be specified using the ``--run_directory`` command line flag. For example:
+| If using the :ref:`composer launcher for distributed training <distributed-training>`, the run directory can be specified using the
+| ``--run_directory`` command line flag. For example:
 
-.. console::
+.. code-block:: console
 
     composer --run_directory /path/to/run/directory -n 8 path/to/training/script.py
 
