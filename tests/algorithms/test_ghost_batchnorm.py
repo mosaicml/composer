@@ -9,11 +9,13 @@ from unittest.mock import MagicMock, Mock
 import pytest
 import torch
 
+from composer.algorithms import GhostBatchNormHparams
 from composer.algorithms import ghost_batchnorm as ghostbn
-from composer.algorithms.ghost_batchnorm.ghost_batchnorm import GhostBatchNorm, GhostBatchNormHparams, _GhostBatchNorm
-from composer.core import Event, State, surgery
+from composer.algorithms.ghost_batchnorm.ghost_batchnorm import GhostBatchNorm, _GhostBatchNorm
+from composer.core import Event, State
 from composer.core.types import Batch, Metrics, Tensors
 from composer.models.base import ComposerModel
+from composer.utils import module_surgery
 
 _GHOSTBN_MODULE_CLASS = _GhostBatchNorm
 _GHOSTBN_CORRECT_EVENT = Event.INIT
@@ -75,9 +77,9 @@ def test_ghost_bn_hparams():
 def test_batchnorm_gets_replaced_functional(num_dims: int):
     """GhostBatchNorm{1,2,3}d should work, but other ints should throw."""
     module = ModuleWithBatchnorm(num_dims)
-    assert surgery.count_module_instances(module, _GHOSTBN_MODULE_CLASS) == 0
+    assert module_surgery.count_module_instances(module, _GHOSTBN_MODULE_CLASS) == 0
     ghostbn.apply_ghost_batchnorm(module, ghost_batch_size=1)
-    assert surgery.count_module_instances(module, _GHOSTBN_MODULE_CLASS) == 1
+    assert module_surgery.count_module_instances(module, _GHOSTBN_MODULE_CLASS) == 1
 
 
 @pytest.mark.parametrize('num_dims', _TEST_NUM_DIMS)

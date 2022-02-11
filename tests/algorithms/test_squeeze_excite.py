@@ -6,29 +6,30 @@ import pytest
 import torch
 
 from composer.algorithms import SqueezeExcite, SqueezeExciteConv2d, SqueezeExciteHparams
-from composer.core import Event, Logger, State, surgery
+from composer.core import Event, Logger, State
 from composer.functional import apply_squeeze_excite as apply_se
+from composer.utils import module_surgery
 from tests.common import SimpleConvModel
 
 
 @pytest.fixture
 def state(minimal_state: State):
     """SE tests require a conv model."""
-    minimal_state.model = SimpleConvModel()
+    minimal_state.model = SimpleConvModel(num_channels=32)
     return minimal_state
 
 
 def test_se_functional():
     model = SimpleConvModel()
-    num_conv_layers = surgery.count_module_instances(model, torch.nn.Conv2d)
+    num_conv_layers = module_surgery.count_module_instances(model, torch.nn.Conv2d)
     apply_se(model, latent_channels=64, min_channels=3)
-    num_se_layers = surgery.count_module_instances(model, SqueezeExciteConv2d)
+    num_se_layers = module_surgery.count_module_instances(model, SqueezeExciteConv2d)
 
     assert num_conv_layers == num_se_layers
 
 
 def test_se_algorithm(state: State, empty_logger: Logger):
-    num_conv_layers = surgery.count_module_instances(state.model, torch.nn.Conv2d)
+    num_conv_layers = module_surgery.count_module_instances(state.model, torch.nn.Conv2d)
 
     algorithm = SqueezeExcite(latent_channels=64, min_channels=3)
     algorithm.apply(
@@ -37,7 +38,7 @@ def test_se_algorithm(state: State, empty_logger: Logger):
         logger=empty_logger,
     )
 
-    num_se_layers = surgery.count_module_instances(state.model, SqueezeExciteConv2d)
+    num_se_layers = module_surgery.count_module_instances(state.model, SqueezeExciteConv2d)
     assert num_conv_layers == num_se_layers
 
 
@@ -46,7 +47,7 @@ def test_se_logging(state: State, empty_logger: Logger):
 
     se = SqueezeExcite(latent_channels=64, min_channels=3)
     se.apply(Event.INIT, state, logger=logger_mock)
-    conv_count = surgery.count_module_instances(state.model, torch.nn.Conv2d)
+    conv_count = module_surgery.count_module_instances(state.model, torch.nn.Conv2d)
 
     logger_mock.metric_fit.assert_called_once_with({
         'squeeze_excite/num_squeeze_excite_layers': conv_count,

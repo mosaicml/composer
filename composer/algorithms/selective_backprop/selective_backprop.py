@@ -3,15 +3,12 @@
 from __future__ import annotations
 
 import inspect
-from dataclasses import asdict, dataclass
 from typing import Callable, Optional, Tuple
 
 import numpy as np
 import torch
-import yahp as hp
 from torch.nn import functional as F
 
-from composer.algorithms.algorithm_hparams import AlgorithmHparams
 from composer.core.types import Algorithm, Event, Logger, State, Tensor, Tensors
 from composer.models import ComposerModel
 
@@ -141,23 +138,8 @@ def selective_backprop(X: torch.Tensor,
     return X[select_idx], y[select_idx]
 
 
-@dataclass
-class SelectiveBackpropHparams(AlgorithmHparams):
-    """See :class:`SelectiveBackprop`"""
-
-    start: float = hp.optional(doc="SB interval start, as fraction of training duration", default=0.5)
-    end: float = hp.optional(doc="SB interval end, as fraction of training duration", default=0.9)
-    keep: float = hp.optional(doc="fraction of minibatch to select and keep for gradient computation", default=0.5)
-    scale_factor: float = hp.optional(doc="scale for downsampling input for selection forward pass", default=0.5)
-    interrupt: int = hp.optional(doc="interrupt SB with a vanilla minibatch step every 'interrupt' batches", default=2)
-
-    def initialize_object(self) -> SelectiveBackprop:
-        return SelectiveBackprop(**asdict(self))
-
-
 class SelectiveBackprop(Algorithm):
-    """Selectively backpropagate gradients from a subset of each batch (`Jiang et al. 2019.
-
+    """Selectively backpropagate gradients from a subset of each batch (`Jiang et al. 2019
     <https://arxiv.org/abs/1910.00762>`_).
 
     Selective Backprop (SB) prunes minibatches according to the difficulty

@@ -3,22 +3,19 @@
 from __future__ import annotations
 
 import logging
-from dataclasses import asdict, dataclass
 from typing import Optional, Tuple
 
 import numpy as np
 import torch
-import yahp as hp
 from torch.nn import functional as F
 
-from composer.algorithms import AlgorithmHparams
 from composer.core.types import Algorithm, Event, Logger, State, Tensor
 from composer.models.loss import check_for_index_targets
 
 log = logging.getLogger(__name__)
 
 
-def gen_mixup_interpolation_lambda(alpha: float) -> float:
+def _gen_interpolation_lambda(alpha: float) -> float:
     """Generates ``Beta(alpha, alpha)`` distribution."""
     # First check if alpha is positive.
     assert alpha >= 0
@@ -38,12 +35,13 @@ def gen_mixup_interpolation_lambda(alpha: float) -> float:
 def mixup_batch(x: Tensor,
                 y: Tensor,
                 n_classes: int,
-                interpolation_lambda: float = 0.9,
+                interpolation_lambda: Optional[float] = None,
+                alpha: float = 0.2,
                 indices: Optional[torch.Tensor] = None) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
     """Create new samples using convex combinations of pairs of samples.
 
     This is done by taking a convex combination of x with a randomly
-    permuted copy of x. The interploation parameter lambda should be chosen from
+    permuted copy of x. The interpolation parameter lambda should be chosen from
     a ``Beta(alpha, alpha)`` distribution for some parameter alpha > 0.
     Note that the same lambda is used for all examples within the batch.
 
@@ -56,7 +54,12 @@ def mixup_batch(x: Tensor,
             are feature dimensions.
         y: target tensor of shape (B, f1, f2, ..., fm), B is batch size, f1-fn
             are possible target dimensions.
-        interpolation_lambda: amount of interpolation based on alpha.
+        interpolation_lambda: coefficient used to interpolate between the
+            two examples. If provided, must be in ``[0, 1]``. If ``None``,
+            value is drawn from a ``Beta(alpha, alpha)`` distribution.
+        alpha: parameter for the beta distribution over the
+            ``interpolation_lambda``. Only used if ``interpolation_lambda``
+            is not provided.
         n_classes: total number of classes.
         indices: Permutation of the batch indices `1..B`. Used
             for permuting without randomness.
@@ -70,12 +73,13 @@ def mixup_batch(x: Tensor,
         from composer import functional as CF
 
         for X, y in dataloader:
-            l = CF.gen_interpolation_lambda(alpha=0.2)
-            X, y, _ = CF.mixup_batch(X, y, l, nclasses)
+            X, y, _ = CF.mixup_batch(X, y, nclasses)
 
             pred = model(X)
             loss = loss_fun(pred, y)  # loss_fun must accept dense labels (ie NOT indices)
     """
+    if interpolation_lambda is None:
+        interpolation_lambda = _gen_interpolation_lambda(alpha)
     # Create shuffled versions of x and y in preparation for interpolation
     # Use given indices if there are any.
     if indices is None:
@@ -96,17 +100,6 @@ def mixup_batch(x: Tensor,
     else:
         y_mix = ((1. - interpolation_lambda) * y + interpolation_lambda * y_shuffled)
     return x_mix, y_mix, shuffled_idx
-
-
-@dataclass
-class MixUpHparams(AlgorithmHparams):
-    """See :class:`MixUp`"""
-
-    num_classes: int = hp.required('Number of classes in the task labels.')
-    alpha: float = hp.optional('Strength of interpolation, should be >= 0. No interpolation if alpha=0.', default=0.2)
-
-    def initialize_object(self) -> MixUp:
-        return MixUp(**asdict(self))
 
 
 class MixUp(Algorithm):
@@ -174,7 +167,7 @@ class MixUp(Algorithm):
         assert isinstance(input, Tensor) and isinstance(target, Tensor), \
             "Multiple tensors for inputs or targets not supported yet."
 
-        self.interpolation_lambda = gen_mixup_interpolation_lambda(self.alpha)
+        self.interpolation_lambda = _gen_interpolation_lambda(self.alpha)
 
         new_input, new_target, self.indices = mixup_batch(
             x=input,

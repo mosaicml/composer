@@ -3,15 +3,12 @@
 from __future__ import annotations
 
 import logging
-from dataclasses import asdict, dataclass
 from typing import Optional, Tuple
 
 import numpy as np
 import torch
-import yahp as hp
 from torch.nn import functional as F
 
-from composer.algorithms import AlgorithmHparams
 from composer.core.types import Algorithm, Event, Logger, State, Tensor
 from composer.models.loss import check_for_index_targets
 
@@ -52,11 +49,11 @@ def gen_cutmix_lambda(alpha: float) -> float:
     return cutmix_lambda
 
 
-def rand_bbox(W: int,
-              H: int,
-              cutmix_lambda: float,
-              cx: Optional[int] = None,
-              cy: Optional[int] = None) -> Tuple[int, int, int, int]:
+def _rand_bbox(W: int,
+               H: int,
+               cutmix_lambda: float,
+               cx: Optional[int] = None,
+               cy: Optional[int] = None) -> Tuple[int, int, int, int]:
     """Randomly samples a bounding box with area determined by cutmix_lambda.
 
     Adapted from original implementation https://github.com/clovaai/CutMix-PyTorch
@@ -170,7 +167,7 @@ def cutmix_batch(x: Tensor,
     if bbox:
         rx, ry, rw, rh = bbox[0], bbox[1], bbox[2], bbox[3]
     else:
-        rx, ry, rw, rh = rand_bbox(x.shape[2], x.shape[3], cutmix_lambda)
+        rx, ry, rw, rh = _rand_bbox(x.shape[2], x.shape[3], cutmix_lambda)
         bbox = (rx, ry, rw, rh)
 
     # Fill in the box with a part of a random image.
@@ -192,17 +189,6 @@ def cutmix_batch(x: Tensor,
         y_cutmix = adjusted_lambda * y + (1 - adjusted_lambda) * y_shuffled
 
     return x_cutmix, y_cutmix
-
-
-@dataclass
-class CutMixHparams(AlgorithmHparams):
-    """See :class:`CutMix`"""
-
-    num_classes: int = hp.required('Number of classes in the task labels.')
-    alpha: float = hp.optional('Strength of interpolation, should be >= 0. No interpolation if alpha=0.', default=1.0)
-
-    def initialize_object(self) -> CutMix:
-        return CutMix(**asdict(self))
 
 
 class CutMix(Algorithm):
@@ -282,7 +268,7 @@ class CutMix(Algorithm):
 
         self.indices = gen_indices(input)
         self.cutmix_lambda = gen_cutmix_lambda(alpha)
-        self.bbox = rand_bbox(input.shape[2], input.shape[3], self.cutmix_lambda)
+        self.bbox = _rand_bbox(input.shape[2], input.shape[3], self.cutmix_lambda)
         self.cutmix_lambda = adjust_lambda(self.cutmix_lambda, input, self.bbox)
 
         new_input, new_target = cutmix_batch(

@@ -12,7 +12,7 @@ import yahp as hp
 from composer.core import State
 from composer.core.scheduler import ComposerSchedulerFn
 from composer.core.time import Time, TimeUnit
-from composer.utils._time_conversion import convert as convert_time
+from composer.optim._time_conversion import convert as convert_time
 
 log = logging.getLogger(__name__)
 

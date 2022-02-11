@@ -4,7 +4,7 @@
 import os
 from pathlib import Path
 
-from composer import utils
+from . import utils
 
 HEADER = ['Task', 'Dataset', 'Name', 'Quality', 'Metric', 'TTT', 'Hparams']
 ATTRIBUTES = ['_task', '_dataset', '_name', '_quality', '_metric', '_ttt', '_hparams']
@@ -46,7 +46,3 @@ table_md = utils.build_markdown_table(
     sorted_keys=sorted(metadata.keys()),
     row_format=row,
 )
-
-# update table in README.md
-source_file = Path(__file__).parent.joinpath('README.md')
-utils.update_table_in_file(table_md, source_file)
