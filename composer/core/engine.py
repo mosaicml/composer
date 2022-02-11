@@ -202,7 +202,8 @@ class Engine():
                 # algs don't run on eval events, so don't have to worry about
                 # batch-frequency vs epoch-frequency evaluators
                 log_level = LogLevel.BATCH
-            self.logger.metric(log_level=log_level, data={key: 1 if tr.run else 0 for key, tr in trace.items()})
+            if len(trace) > 0:
+                self.logger.metric(log_level=log_level, data={key: 1 if tr.run else 0 for key, tr in trace.items()})
 
         return trace
 
