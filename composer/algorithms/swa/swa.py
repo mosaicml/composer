@@ -87,26 +87,36 @@ class SWA(Algorithm):
     optimizer state are not doubled.
 
     Args:
-        swa_start: fraction of training completed before stochastic weight averaging is applied
-        swa_lr: the final learning rate used for weight averaging
+        swa_start (float, optional): fraction of training completed before stochastic
+            weight averaging is applied. Default = 0.85.
+        swa_end (float, optional): fraction of training completed before stochastic weight averaging is
+            completed. Default = 0.97
+        swa_lr (float, optional): the final learning rate used for weight averaging
 
     Note that 'anneal_epochs' is not used in the current implementation
     """
 
-    def __init__(self, swa_start: float = 0.8, anneal_epochs: int = 10, swa_lr: Optional[float] = None):
+    def __init__(self,
+                 swa_start: float = 0.85,
+                 swa_end: float = 0.97,
+                 anneal_epochs: int = 10,
+                 swa_lr: Optional[float] = None):
         self.swa_start = swa_start
+        self.swa_end = swa_end
         self.anneal_epochs = anneal_epochs
         self.swa_lr = swa_lr
         self.swa_model: Optional[torch.nn.Module] = None
+        self.swa_completed = False
 
         assert 0 < swa_start < 1, "swa_start must be between 0 and 1."
+        assert swa_end <= 1, "swa_end must be ≤ 1"
         assert anneal_epochs > 0, "anneal_epochs must be great than 0."
 
         self.swa_scheduler = None
         self.swa_model = None
 
     def match(self, event: Event, state: State) -> bool:
-        """Run on EPOCH_END if training duration is greater than `swa_start`
+        """Run on EPOCH_END if training duration is greater than `swa_start` and less than `swa_end`.
 
         Args:
             event (:class:`Event`): The current event.
@@ -114,7 +124,7 @@ class SWA(Algorithm):
         Returns:
             bool: True if this algorithm should run now.
         """
-        should_start_swa = float(state.get_elapsed_duration()) >= self.swa_start
+        should_start_swa = float(state.get_elapsed_duration()) >= self.swa_start and not self.swa_completed
         return event == Event.EPOCH_END and should_start_swa
 
     def apply(self, event: Event, state: State, logger: Logger) -> None:
@@ -157,12 +167,13 @@ class SWA(Algorithm):
             raise ValueError('SWA LR scheduler was not set.')
         # self.swa_scheduler.step()
 
-        ## end of training
-        if float(state.get_elapsed_duration()) >= 1.0:
-            device = next(self.swa_model.parameters()).device
+        ## end of swa window
+        if float(state.get_elapsed_duration()) >= self.swa_end:
+            # device = next(self.swa_model.parameters()).device
             # TODO(laura) this does not apply the batch split fn. This may result in cuda OOM.
             # update_bn(state.train_dataloader, model=self.swa_model, device=device)
             assert type(self.swa_model.module) == type(state.model)
             state.model.load_state_dict(self.swa_model.module.state_dict())  # type: ignore
             # log.info('Updated BN and set model to the averaged model')
-            log.info('Updated BN and set model to the averaged model')
+            self.swa_completed = True
+            log.info('Set model to the averaged model')

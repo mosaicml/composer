@@ -19,7 +19,11 @@ class SWAHparams(AlgorithmHparams):
 
     swa_start: float = hp.optional(
         doc='Percentage of epochs before starting to apply SWA.',
-        default=0.8,
+        default=0.85,
+    )
+    swa_end: float = hp.optional(
+        doc='Percentage of epochs after which to terminate SWA.',
+        default=0.97,
     )
     anneal_epochs: int = hp.optional(
         doc='Number of annealing epochs.',
