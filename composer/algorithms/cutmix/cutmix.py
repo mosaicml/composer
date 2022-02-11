@@ -282,4 +282,3 @@ def _adjust_lambda(cutmix_lambda: float, x: Tensor, bbox: Tuple) -> float:
     rx, ry, rw, rh = bbox[0], bbox[1], bbox[2], bbox[3]
     adjusted_lambda = 1 - ((rw - rx) * (rh - ry) / (x.size()[-1] * x.size()[-2]))
     return adjusted_lambda
-
