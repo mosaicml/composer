@@ -12,7 +12,7 @@ from composer.core.types import Algorithm, Event, Logger, State, Tensor
 log = logging.getLogger(__name__)
 
 
-def generate_mask(mask: Tensor, width: int, height: int, x: int, y: int, cutout_length: int) -> Tensor:
+def _generate_mask(mask: Tensor, width: int, height: int, x: int, y: int, cutout_length: int) -> Tensor:
     y1 = np.clip(y - cutout_length // 2, 0, height)
     y2 = np.clip(y + cutout_length // 2, 0, height)
     x1 = np.clip(x - cutout_length // 2, 0, width)
@@ -21,10 +21,6 @@ def generate_mask(mask: Tensor, width: int, height: int, x: int, y: int, cutout_
     mask[:, :, y1:y2, x1:x2] = 0.
 
     return mask
-
-
-def apply_cutout(X: Tensor, mask: Tensor):
-    return X * mask
 
 
 def cutout_batch(X: Tensor, n_holes: int, length: Union[int, float]) -> Tensor:
@@ -53,9 +49,9 @@ def cutout_batch(X: Tensor, n_holes: int, length: Union[int, float]) -> Tensor:
         y = np.random.randint(h)
         x = np.random.randint(w)
 
-        mask = generate_mask(mask, w, h, x, y, length)
+        mask = _generate_mask(mask, w, h, x, y, length)
 
-    X_cutout = apply_cutout(X, mask)
+    X_cutout = X * mask
     return X_cutout
 
 
