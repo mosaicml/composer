@@ -92,8 +92,8 @@ class WebDatasetHparams(DatasetHparams, abc.ABC, metaclass=metaclass):
     """Abstract base class for hyperparameters to initialize a dataset.
 
     Parameters:
-        dataset_cache_dir (str): WebDataset cache directory.
-        dataset_cache_verbose (str): WebDataset cache verbosity.
+        webdataset_cache_dir (str): WebDataset cache directory.
+        webdataset_cache_verbose (str): WebDataset cache verbosity.
     """
 
     webdataset_cache_dir: str = hp.optional('WebDataset cache directory', default='/tmp/webdataset_cache/')

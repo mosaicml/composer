@@ -1,6 +1,6 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
-from composer.datasets.ade20k import ADE20kDatasetHparams as ADE20kDatasetHparams
+from composer.datasets.ade20k import ADE20kDatasetHparams, ADE20kWebDatasetHparams
 from composer.datasets.brats import BratsDatasetHparams as BratsDatasetHparams
 from composer.datasets.cifar import (CIFAR10DatasetHparams, CIFAR10WebDatasetHparams, CIFAR20WebDatasetHparams,
                                      CIFAR100WebDatasetHparams)

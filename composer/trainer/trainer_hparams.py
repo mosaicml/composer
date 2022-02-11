@@ -87,6 +87,7 @@ dataset_registry = {
     'web_cifar100': datasets.CIFAR100WebDatasetHparams,
     'web_tinyimagenet200': datasets.TinyImagenet200WebDatasetHparams,
     'web_imagenet1k': datasets.Imagenet1KWebDatasetHparams,
+    'web_ade20k': datasets.ADE20kWebDatasetHparams,
 }
 
 algorithms_registry = get_algorithm_registry()
