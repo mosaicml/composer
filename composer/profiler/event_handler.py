@@ -10,6 +10,7 @@ from composer.core.time import Timestamp
 
 __all__ = ["ProfilerEventHandler"]
 
+
 class ProfilerEventHandler(Callback, abc.ABC):
     """Base class for profiler event handlers.
 

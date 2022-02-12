@@ -45,10 +45,12 @@ class _ProfiledDataLoader(WrappedDataLoader):
 
 
 class DataloaderProfiler(Callback):
-    """Records the time it takes the data loader to return a batch by wrapping the original training 
-    and evaluation data loaders and uses the :class:`~composer.profiler.profiler.Marker` API to
-    record the latency of the wrapped data loader.  The profiler is implemented as a :class:`Callback`
-    and accesses the training and evaluation data loaders through :class:`State`.
+    """Records the time it takes the data loader to return a batch by wrapping the original training and evaluation data
+    loaders and uses the :class:`~composer.profiler.profiler.Marker` API to record the latency of the wrapped data
+    loader.
+
+    The profiler is implemented as a :class:`Callback` and accesses the training and evaluation data loaders through
+    :class:`State`.
     """
 
     def fit_start(self, state: State, logger: Logger):

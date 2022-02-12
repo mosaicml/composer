@@ -11,6 +11,7 @@ from composer.profiler.json_trace import JSONTraceHandler
 
 __all__ = ["ProfilerEventHandler", "JSONTraceHandlerHparams"]
 
+
 @dataclasses.dataclass
 class ProfilerEventHandlerHparams(hp.Hparams, abc.ABC):
     """Base class for profile event handler hparams."""

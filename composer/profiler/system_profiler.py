@@ -18,9 +18,8 @@ __all__ = ["SystemProfiler"]
 
 
 class SystemProfiler(Callback):
-    """The SystemProfiler records system level statistics.  Implemented as a :class:`Callback`,
-    the profiler forks a thread during :meth:`Event.init` which polls and records system state 
-    using the `psutil` module.
+    """The SystemProfiler records system level statistics.  Implemented as a :class:`Callback`, the profiler forks a
+    thread during :meth:`Event.init` which polls and records system state using the `psutil` module.
 
     Args:
         profile_cpu (bool): Whether to record cpu statistics (Default: ``True``)
@@ -58,7 +57,7 @@ class SystemProfiler(Callback):
         threading.Thread(target=self._stats_thread, daemon=True, args=[state.profiler]).start()
 
     def _stats_thread(self, profiler: Profiler):
-        """Gathers requested system metrics at :attr:`SystemProfiler.stats_thread_interval_seconds` interval"""
+        """Gathers requested system metrics at :attr:`SystemProfiler.stats_thread_interval_seconds` interval."""
         import psutil  # already checked that it's installed in init
         psutil.disk_io_counters.cache_clear()
         psutil.net_io_counters.cache_clear()

@@ -18,6 +18,7 @@ if TYPE_CHECKING:
 
 __all__ = ["JSONTraceHandler"]
 
+
 class JSONTraceHandler(ProfilerEventHandler):
     """Records trace events in `JSON trace format.
 
