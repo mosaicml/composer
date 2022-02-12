@@ -54,11 +54,11 @@ TValue = TypeVar("TValue", int, float)
 
 
 class Time(Generic[TValue]):
-    """Time represents static durations of training time or points in the training process in terms of a 
+    """Time represents static durations of training time or points in the training process in terms of a
     :class:`TimeUnit` enum (epochs, batches, samples, tokens, or duration).
 
     To construct an instance of :class:`Time`, you can either:
-        
+
         #. Use a value followed by a :class:`TimeUnit` enum or string. For example,
 
             >>> Time(5, TimeUnit.EPOCH)  # describes 5 epochs.
@@ -301,6 +301,9 @@ class Time(Generic[TValue]):
 
     def __rmul__(self, other: object):
         return self * other
+
+    def __hash__(self):
+        return hash(f"{self.value}{self.unit}")
 
     @classmethod
     def from_timestring(cls, timestring: str) -> Time:
