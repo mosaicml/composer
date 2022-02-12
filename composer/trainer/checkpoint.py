@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import contextlib
-import datetime
 import logging
 import os
 import random
@@ -343,7 +342,7 @@ class CheckpointLoader:
 def _format_from_compression(compression: Optional[str]) -> Tuple[str, str]:
     if compression is None:
         file_extension = ".pt"
-        write_mode = None
+        write_mode = ""
     elif compression == "gzip":
         file_extension = ".tar.gz"
         write_mode = "w:gz"
@@ -448,6 +447,7 @@ class CheckpointSaver:
                 self.file_extension, self.write_mode = _ensure_archive(file_extension=self.file_extension,
                                                                        write_mode=self.write_mode)
 
+            composer_states_filepath = os.path.join(tmpdir, _COMPOSER_STATES_FILENAME)
             if dist.get_global_rank() == 0:
                 # only rank 0 saves checkpoints
 
@@ -455,7 +455,6 @@ class CheckpointSaver:
                 # it should be the same across all ranks. per-rank state not stored
                 state_dict['state'] = state.state_dict()
 
-                composer_states_filepath = os.path.join(tmpdir, _COMPOSER_STATES_FILENAME)
                 with open(composer_states_filepath, 'xb') as f:
                     torch.save(state_dict, f)
 

@@ -6,7 +6,6 @@ import contextlib
 import datetime
 import itertools
 import logging
-import os
 import textwrap
 import warnings
 from typing import TYPE_CHECKING, Any, Callable, ContextManager, Dict, List, Optional, Sequence, Union, cast
@@ -21,7 +20,6 @@ from torchmetrics.collections import MetricCollection
 from torchmetrics.metric import Metric
 
 from composer.algorithms import ScaleSchedule
-from composer.callbacks.run_directory_uploader import RunDirectoryUploader
 from composer.core import Callback, DataSpec, Engine, Event, Logger, State, Time
 from composer.core.algorithm import Algorithm
 from composer.core.evaluator import Evaluator
@@ -181,7 +179,7 @@ class Trainer:
         # save_checkpoint
         save_folder: Optional[str] = None,
         save_interval: str = "1ep",
-        save_compression: str = '',
+        save_compression: Optional[str] = None,
 
         # Profiling
         profiler: Optional[ProfilerHparams] = None,

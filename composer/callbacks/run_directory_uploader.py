@@ -218,7 +218,7 @@ class RunDirectoryUploader(Callback):
         return provider_prefix + obj_name.lstrip("/")
 
 
-def _get_obj_name_for_local_file(object_name_prefix: str, local_filepath: str) -> str:
+def _get_obj_name_for_local_file(object_name_prefix: str, local_filepath: Union[pathlib.Path, str]) -> str:
     """Get the object store provider object name for a particular local file.
 
     Args:

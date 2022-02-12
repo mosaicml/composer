@@ -327,6 +327,7 @@ def test_checkpoint(
     first_trainer = _test_checkpoint_trainer(composer_trainer_hparams)
     expected_num_checkpoints = num_epochs / save_interval_epochs if checkpoint_filename.startswith(
         "ep") else (composer_trainer_hparams.train_subset_num_batches + 1) / save_interval_batches * num_epochs
+    assert first_trainer.checkpoint_saver is not None
     assert len(first_trainer.checkpoint_saver.saved_checkpoints) == expected_num_checkpoints
     checkpoint_a_file_path = os.path.join(checkpoint_a_folder, checkpoint_filename)
     checkpoint_b_file_path = os.path.join(run_directory.get_node_run_directory(), "rank_{RANK}", checkpoint_a_folder,
