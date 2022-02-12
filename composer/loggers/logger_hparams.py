@@ -211,7 +211,7 @@ class TQDMLoggerHparams(LoggerCallbackHparams):
 
 
 @dataclass
-class InMemoryLoggerHaparms(LoggerCallbackHparams):
+class InMemoryLoggerHparams(LoggerCallbackHparams):
     """:class:`~composer.loggers.in_memory_logger.InMemoryLogger`
     hyperparameters.
 
