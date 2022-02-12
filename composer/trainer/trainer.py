@@ -21,7 +21,7 @@ from torchmetrics.collections import MetricCollection
 from torchmetrics.metric import Metric
 
 from composer.algorithms import ScaleSchedule
-from composer.callbacks.run_directory_uploader import RunDirectoryUploader, get_obj_name_for_local_file
+from composer.callbacks.run_directory_uploader import RunDirectoryUploader
 from composer.core import Callback, DataSpec, Engine, Event, Logger, State, Time
 from composer.core.algorithm import Algorithm
 from composer.core.evaluator import Evaluator
@@ -440,25 +440,6 @@ class Trainer:
     @property
     def deepspeed_enabled(self):
         return self.deepspeed_config is not None
-
-    @property
-    def saved_checkpoint_filepaths(self):
-        uploader = None
-        for c in self.state.callbacks:
-            if isinstance(c, RunDirectoryUploader):
-                uploader = c
-                break
-
-        if uploader is not None:
-            uploaded_paths = []
-            for path in self.checkpoint_saver.save_paths:
-                provider_prefix = uploader.provider_prefix
-                full_object_name = get_obj_name_for_local_file(object_name_prefix=uploader.object_name_prefix,
-                                                               local_filepath=path)
-                uploaded_paths.append(provider_prefix + full_object_name)
-            return uploaded_paths
-
-        return self.checkpoint_saver.save_paths
 
     def fit(self):
         """Train and evaluate the model on the provided data."""

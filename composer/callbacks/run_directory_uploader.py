@@ -5,6 +5,7 @@ from __future__ import annotations
 import logging
 import multiprocessing
 import os
+import pathlib
 import queue
 import shutil
 import tempfile
@@ -138,16 +139,6 @@ class RunDirectoryUploader(Callback):
 
         _validate_credentials(object_store_provider_hparams, self._object_name_prefix)
 
-    @property
-    def provider_prefix(self):
-        provider_name = self._object_store_provider_hparams.provider
-        container = self._object_store_provider_hparams.container
-        return f"{provider_name}:{container}/"
-
-    @property
-    def object_name_prefix(self):
-        return self._object_name_prefix
-
     def init(self, state: State, logger: Logger) -> None:
         del state, logger  # unused
         self._finished = self._finished_cls()
@@ -210,9 +201,38 @@ class RunDirectoryUploader(Callback):
             # incremented past self._last_upload_timestamp
             logger.metric(log_level, {"run_directory/uploaded_files": files_to_be_uploaded})
 
+    def get_uri_for_uploaded_file(self, local_filepath: Union[pathlib.Path, str]) -> str:
+        """Get the object store provider uri for a specific local filepath.
 
-def get_obj_name_for_local_file(object_name_prefix: str, local_filepath: str) -> str:
-    rel_to_run_dir = os.path.relpath(local_filepath, run_directory.get_run_directory())  # chop off the run directory
+        Args:
+            local_filepath (Union[pathlib.Path, str]): The local file for which to get the uploaded uri.
+
+        Returns:
+            str: The uri corresponding to the upload location of the file.
+        """
+        obj_name = _get_obj_name_for_local_file(self._object_name_prefix, local_filepath)
+        provider_name = self._object_store_provider_hparams.provider
+        container = self._object_store_provider_hparams.container
+        print(f">>>>PROVIDER {provider_name} CONTAINER {container}")
+        provider_prefix = f"{provider_name}://{container}/"
+        return provider_prefix + obj_name.lstrip("/")
+
+
+def _get_obj_name_for_local_file(object_name_prefix: str, local_filepath: str) -> str:
+    """Get the object store provider object name for a particular local file.
+
+    Args:
+        object_name_prefix (str): The user-provided prefix for the object name.
+        local_filepath (str):
+
+    Returns:
+        str: The object name.
+    """
+    # chop off the run directory
+    rel_to_run_dir = os.path.relpath(local_filepath, run_directory.get_run_directory())
+    print(
+        f">>>>LOCAL FILE PATH: {local_filepath} RUN DIR {run_directory.get_run_directory()} OBJ NAME PREFIX {object_name_prefix} REL RESULT {rel_to_run_dir}"
+    )
     return object_name_prefix + rel_to_run_dir
 
 
@@ -258,7 +278,7 @@ def _upload_worker(
                 break
             else:
                 continue
-        obj_name = get_obj_name_for_local_file(object_name_prefix, full_local_path)
+        obj_name = _get_obj_name_for_local_file(object_name_prefix, full_local_path)
         log.info("Uploading file %s to %s://%s/%s", file_path_to_upload, provider.provider_name,
                  provider.container_name, obj_name)
         retry_counter = 0

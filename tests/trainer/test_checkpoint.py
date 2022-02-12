@@ -111,18 +111,19 @@ def checkpointing_trainer_hparams(composer_trainer_hparams: TrainerHparams) -> T
     return composer_trainer_hparams
 
 
+def _load_checkpoint(checkpoint_dir: str, filename: str):
+    filename = filename.format(RANK=0)
+    if filename.endswith('.pt'):
+        return torch.load(filename, map_location='cpu')
+
+    with tarfile.open(filename) as tarball:
+        tarball.extractall(checkpoint_dir)
+    states_path = os.path.join(checkpoint_dir, 'composer_states.pt')
+    return torch.load(states_path, map_location='cpu')
+
+
 def assert_checkpoints_equivalent(hparams_a: TrainerHparams, checkpoint_file_a: str, hparams_b: TrainerHparams,
                                   checkpoint_file_b: str) -> None:
-
-    def _load_checkpoint(checkpoint_dir: str, filename: str):
-        filename = filename.format(RANK=0)
-        if filename.endswith('.pt'):
-            return torch.load(filename, map_location='cpu')
-
-        with tarfile.open(filename) as tarball:
-            tarball.extractall(checkpoint_dir)
-        states_path = os.path.join(checkpoint_dir, 'composer_states.pt')
-        return torch.load(states_path, map_location='cpu')
 
     with tempfile.TemporaryDirectory() as tmpdir:
         a_checkpoint_dir = os.path.join(tmpdir, 'a')
@@ -326,7 +327,7 @@ def test_checkpoint(
     first_trainer = _test_checkpoint_trainer(composer_trainer_hparams)
     expected_num_checkpoints = num_epochs / save_interval_epochs if checkpoint_filename.startswith(
         "ep") else (composer_trainer_hparams.train_subset_num_batches + 1) / save_interval_batches * num_epochs
-    assert len(first_trainer.saved_checkpoint_filepaths) == expected_num_checkpoints
+    assert len(first_trainer.checkpoint_saver.saved_checkpoints) == expected_num_checkpoints
     checkpoint_a_file_path = os.path.join(checkpoint_a_folder, checkpoint_filename)
     checkpoint_b_file_path = os.path.join(run_directory.get_node_run_directory(), "rank_{RANK}", checkpoint_a_folder,
                                           final_checkpoint)
@@ -341,7 +342,7 @@ def test_checkpoint(
     second_trainer_hparams.load_weights_only = False
     second_trainer_hparams.load_strict_model_weights = False
 
-    second_trainer = _test_checkpoint_trainer(second_trainer_hparams)
+    _test_checkpoint_trainer(second_trainer_hparams)
     checkpoint_c_file_path = os.path.join(run_directory.get_node_run_directory(), "rank_{RANK}", checkpoint_b_folder,
                                           final_checkpoint)
 

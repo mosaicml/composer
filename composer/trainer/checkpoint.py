@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import contextlib
+import datetime
 import logging
 import os
 import random
@@ -353,7 +354,7 @@ def _format_from_compression(compression: Optional[str]) -> Tuple[str, str]:
         file_extension = ".tar.lzma"
         write_mode = "w:xz"
     else:
-        raise ValueError(f"Unknown encryption mode: {compression}")
+        raise ValueError(f"Unknown compression mode: {compression}")
 
     return file_extension, write_mode
 
@@ -371,8 +372,12 @@ class CheckpointSaver:
     Args:
         save_folder (str): The path to store checkpoints in.
         interval (Time or str): The amount of time units to wait between checkpoints.
-        compression (str, Optional): Compression algorithm to run on checkpoints. Can be `gzip`, `bzip2`,
+        compression (str, optional): Compression algorithm to run on checkpoints. Can be `gzip`, `bzip2`,
             `lzma`, or `None` for no compression.  (default: ``None`` for no compression).
+
+    Attributes:
+        saved_checkpoints (Dict[Timestamp, List[str]): A dictionary mapping a save timestamp
+            to a list of filepaths corresponding to the checkpoints saved at that time.
     """
 
     def __init__(self, save_folder: str, interval: Union[Time, str], compression: Optional[str] = None):
@@ -388,15 +393,7 @@ class CheckpointSaver:
         os.makedirs(self.checkpoint_folder, mode=0o775, exist_ok=True)
         self.save_interval = interval
         self.file_extension, self.write_mode = _format_from_compression(compression=compression)
-        self._save_paths = []
-
-    @property
-    def save_paths(self):
-        """A list of the absolute paths to which checkpoints have been saved.
-
-        File paths are sorted in ascending order chronologically.
-        """
-        return self._save_paths
+        self.saved_checkpoints = {}
 
     def should_checkpoint(self, state: State, event: Event) -> bool:
         """Given the current state and event, determine whether a checkpoint needs to be created.
@@ -422,8 +419,8 @@ class CheckpointSaver:
     def save_checkpoint(self, state: State, seed: int, device: Device) -> None:
         """Save the current state to a a new checkpoint file.
 
-        The default is to save checkpoints in a `.pt` file unless DeepSpeed is being used to train the model
-        in which case checkpoints will be stored in a `.tar` format because there are multiple files in the
+        The default is to save checkpoints in a ``.pt`` file unless DeepSpeed is being used to train the model
+        in which case checkpoints will be stored in a ``.tar`` format because there are multiple files in the
         checkpoint.
 
         Args:
@@ -471,7 +468,11 @@ class CheckpointSaver:
                 # move the file out of tmpdir to the user-specified location
                 shutil.move(composer_states_filepath, checkpoint_filepath)
 
-            self._save_paths.append(checkpoint_filepath)
+            timestamp = state.timer.get_timestamp()
+            paths = dist.all_gather_object(checkpoint_filepath) if is_module_deepspeed(
+                state.model) else [checkpoint_filepath]
+            self.saved_checkpoints[timestamp] = paths
+
             log.info(f'Trainer checkpoint saved to {checkpoint_filepath}')
 
         # Ensure that the non-rank 0 processes don't exit before the checkpoint is saved.
