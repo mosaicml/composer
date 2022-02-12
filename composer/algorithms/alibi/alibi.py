@@ -100,7 +100,7 @@ class Alibi(Algorithm):
     extrapolation capability by training with shorter sequence lengths,
     which reduces the memory and computation load.
 
-    This algorithm modifies the model and runs on Event.INIT. This algorithm
+    This algorithm modifies the model and runs on :attr:`~composer.core.event.Event.INIT`. This algorithm
     is applied before the model has been moved to accelerators.
 
     Example: Waiting on language model test fixtures
