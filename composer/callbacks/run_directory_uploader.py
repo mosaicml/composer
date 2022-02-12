@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import datetime
 import logging
 import multiprocessing
 import os
@@ -112,7 +113,7 @@ class RunDirectoryUploader(Callback):
                 self._object_name_prefix = object_name_prefix
         # Keep the subfoldering by rank
         self._object_name_prefix += f"rank_{dist.get_global_rank()}/"
-        self._last_upload_timestamp = 0.0  # unix timestamp of last uploaded time
+        self._last_upload_timestamp = datetime.datetime.fromtimestamp(0)  # unix timestamp of last uploaded time
         if upload_staging_folder is None:
             self._tempdir = tempfile.TemporaryDirectory()
             self._upload_staging_folder = self._tempdir.name
@@ -142,7 +143,7 @@ class RunDirectoryUploader(Callback):
     def init(self, state: State, logger: Logger) -> None:
         del state, logger  # unused
         self._finished = self._finished_cls()
-        self._last_upload_timestamp = 0.0
+        self._last_upload_timestamp = run_directory.get_run_directory_timestamp()
         self._workers = [
             self._proc_class(target=_upload_worker,
                              kwargs={
