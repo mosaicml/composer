@@ -101,7 +101,7 @@ class Alibi(Algorithm):
     which reduces the memory and computation load.
 
     This algorithm modifies the model and runs on Event.INIT. This algorithm
-    should be applied before the model has been moved to accelerators.
+    is applied before the model has been moved to accelerators.
 
     Example: Waiting on language model test fixtures
 
