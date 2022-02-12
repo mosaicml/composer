@@ -42,17 +42,17 @@ def apply_alibi(
         model (torch.nn.Module): model to transform
         heads_per_layer (int): number of attention heads per layer
         max_sequence_length (int): maximum sequence length that the
-            model will be able to accept without returning an error
+            model will be able to accept
         position_embedding_attribute (str): attribute for position
             embeddings. For example in HuggingFace's GPT2, the
-            position embeddings are "transformer.wpe".
+            position embeddings are ``transformer.wpe``.
         attention_module (torch.nn.Module): module/class that will have its
             self-attention function replaced. For example, in
             HuggingFace's GPT, the self-attention module is
             transformers.models.gpt2.modeling_gpt2.GPT2Attention.
         attr_to_replace (str): attribute that self-attention function will
             replace. For example, in HuggingFace's GPT2, the
-            self-attention function is "_attn".
+            self-attention function is ``_attn``.
         alibi_attention (Callable): new self-attention function in which
             ALiBi is implemented. Used to replace
             "{attention_module}.{attr_to_replace}".
@@ -61,7 +61,7 @@ def apply_alibi(
             on sequence lengths longer than the model was initialized to
             accommodate. Takes positional arguments ``module`` and ``max_sequence_length``.
         optimizers (Optimizers, optional): Existing optimizers bound to ``model.parameters()``.
-            All optimizers that have already been constructed with,
+            All optimizers that have already been constructed with
             ``model.parameters()`` must be specified here so they will optimize
             the correct parameters.
 
@@ -111,14 +111,14 @@ class Alibi(Algorithm):
             model will be able to accept without returning an error
         position_embedding_attribute (str): attribute for position
             embeddings. For example in HuggingFace's GPT2, the
-            position embeddings are "transformer.wpe".
+            position embeddings are ``transformer.wpe``.
         attention_module (torch.nn.Module): module/class that will have its
             self-attention function replaced. For example, in
             HuggingFace's GPT, the self-attention module is
             transformers.models.gpt2.modeling_gpt2.GPT2Attention.
         attr_to_replace (str): attribute that self-attention function will
             replace. For example, in HuggingFace's GPT2, the
-            self-attention function is "_attn".
+            self-attention function is ``_attn``.
         alibi_attention (Callable): new self-attention function in which
             ALiBi is implemented. Used to replace
             "{attention_module}.{attr_to_replace}".
