@@ -33,7 +33,8 @@ def smooth_labels(logits: Tensor, targets: Tensor, alpha: float):
 
 
 class LabelSmoothing(Algorithm):
-    """Shrinks targets towards a uniform distribution to counteract label noise as in `Szegedy et al
+    """Shrinks targets towards a uniform distribution to counteract label noise as in `Szegedy et al.
+
     <https://arxiv.org/abs/1512.00567>`_.
 
     This is computed by ``(1 - alpha) * targets + alpha * smoothed_targets``
