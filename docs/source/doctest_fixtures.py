@@ -7,6 +7,7 @@ The script is run before any doctests are executed,
 so all imports and variables are available in any doctest.
 The output of this setup script does not show up in the documentation.
 """
+import functools
 import os
 import sys
 
@@ -17,6 +18,7 @@ from PIL import Image
 
 from composer import *  # Make all composer imports available in doctests
 from composer.datasets.synthetic import SyntheticBatchPairDataset
+from composer.trainer import Trainer
 from composer.utils import *  # Make all composer.utils imports available in doctests
 
 # Need to insert the repo root at the beginning of the path, since there may be other modules named `tests`
@@ -79,3 +81,12 @@ logger = Logger(state)
 engine = Engine(state, logger)
 
 image = Image.fromarray(np.random.randint(0, 256, size=(32, 32, 3), dtype=np.uint8))
+
+# bind the required arguments to the Trainer so it can be used without arguments in the doctests
+Trainer = functools.partial(
+    Trainer,
+    model=model,
+    max_duration="1ep",
+    train_dataloader=train_dataloader,
+    eval_dataloader=eval_dataloader,
+)
