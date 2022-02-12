@@ -49,13 +49,13 @@ def apply_alibi(
         attention_module (torch.nn.Module): module/class that will have its
             self-attention function replaced. For example, in
             HuggingFace's GPT, the self-attention module is
-            transformers.models.gpt2.modeling_gpt2.GPT2Attention.
+            ``transformers.models.gpt2.modeling_gpt2.GPT2Attention``.
         attr_to_replace (str): attribute that self-attention function will
             replace. For example, in HuggingFace's GPT2, the
             self-attention function is ``_attn``.
         alibi_attention (Callable): new self-attention function in which
             ALiBi is implemented. Used to replace
-            "{attention_module}.{attr_to_replace}".
+            ``{attention_module}.{attr_to_replace}``.
         mask_replacement_function (Union[Callable, None]): function to replace model's
             attention mask. This is sometimes necessary for evaluating
             on sequence lengths longer than the model was initialized to
@@ -115,21 +115,22 @@ class Alibi(Algorithm):
         attention_module (torch.nn.Module): module/class that will have its
             self-attention function replaced. For example, in
             HuggingFace's GPT, the self-attention module is
-            transformers.models.gpt2.modeling_gpt2.GPT2Attention.
+            ``transformers.models.gpt2.modeling_gpt2.GPT2Attention``.
         attr_to_replace (str): attribute that self-attention function will
             replace. For example, in HuggingFace's GPT2, the
             self-attention function is ``_attn``.
         alibi_attention (Callable): new self-attention function in which
             ALiBi is implemented. Used to replace
-            "{attention_module}.{attr_to_replace}".
+            ``{attention_module}.{attr_to_replace}``.
         mask_replacement_function (Union[Callable, None]): function to replace model's
             attention mask. This is sometimes necessary for evaluating
             on sequence lengths longer than the model was initialized to
             accommodate. Takes positional arguments ``module`` and ``max_sequence_length``.
         train_sequence_length_scaling: Amount by which to scale
             training sequence length. One batch of training data will be
-            reshaped from size (sequence_length, batch) to
-            (sequence_length*sequence_length_fraction, batch/sequence_length_fraction).
+            reshaped from size :math:`(sequence_length, batch)` to
+            :math:`(sequence_length \times sequence_length_fraction,
+            \frac{batch}{sequence_length_fraction})`.
     """
 
     def __init__(self,
