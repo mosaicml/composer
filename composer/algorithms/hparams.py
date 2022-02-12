@@ -27,7 +27,8 @@ from composer.algorithms.selective_backprop import SelectiveBackprop
 from composer.algorithms.seq_length_warmup import SeqLengthWarmup
 from composer.algorithms.squeeze_excite import SqueezeExcite
 from composer.algorithms.stochastic_depth import StochasticDepth
-from composer.algorithms.stochastic_depth.stochastic_depth import STOCHASTIC_LAYER_MAPPING, validate_stochastic_hparams
+from composer.algorithms.stochastic_depth.stochastic_depth import (_STOCHASTIC_LAYER_MAPPING,
+                                                                   _validate_stochastic_hparams)
 from composer.algorithms.swa import SWA
 
 
@@ -132,7 +133,7 @@ class CutOutHparams(AlgorithmHparams):
     """See :class:`CutOut`"""
 
     n_holes: int = hp.optional('Number of holes to cut out', default=1)
-    length: int = hp.optional('Side length of the square hole to cut out', default=112)
+    length: float = hp.optional('Relative or absolute side length of the square hole to cut out', default=0.5)
 
     def initialize_object(self) -> CutOut:
         return CutOut(**asdict(self))
@@ -305,8 +306,8 @@ class StochasticDepthHparams(AlgorithmHparams):
     """See :class:`StochasticDepth`"""
 
     target_layer_name: str = hp.required(
-        f'Reference name of layer to replace. "block" method can be {list(STOCHASTIC_LAYER_MAPPING["block"].keys())}.'
-        f' "sample" method can be {list(STOCHASTIC_LAYER_MAPPING["sample"].keys())}.')
+        f'Reference name of layer to replace. "block" method can be {list(_STOCHASTIC_LAYER_MAPPING["block"].keys())}.'
+        f' "sample" method can be {list(_STOCHASTIC_LAYER_MAPPING["sample"].keys())}.')
     stochastic_method: str = hp.optional('The version of stochastic depth to use. One of ["sample", "block"].',
                                          default='block')
     drop_rate: float = hp.optional('The probability of dropping a block or sample.', default=0.2)
@@ -324,11 +325,11 @@ class StochasticDepthHparams(AlgorithmHparams):
 
     def validate(self):
         super().validate()
-        validate_stochastic_hparams(target_layer_name=self.target_layer_name,
-                                    stochastic_method=self.stochastic_method,
-                                    drop_rate=self.drop_rate,
-                                    drop_distribution=self.drop_distribution,
-                                    drop_warmup=self.drop_warmup)
+        _validate_stochastic_hparams(target_layer_name=self.target_layer_name,
+                                     stochastic_method=self.stochastic_method,
+                                     drop_rate=self.drop_rate,
+                                     drop_distribution=self.drop_distribution,
+                                     drop_warmup=self.drop_warmup)
 
 
 @dataclass

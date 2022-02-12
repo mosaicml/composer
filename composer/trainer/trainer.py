@@ -61,9 +61,11 @@ class Trainer:
 
     Args:
         model (ComposerModel): The model to train.
+
         train_dataloader (DataLoader, DataSpec, or dict): The :class:`DataLoader`, :class:`DataSpec`,
             or dict of :class:`DataSpec` kwargs for the training data.
-        max_duration (Time or str): The maximum duration to train. See `~composer.core.Time` for details.
+        max_duration (int, str, or Time): The maximum duration to train. Can be integer, which will be
+            interpreted to be epochs, a str (e.g. '1ep', or '10ba'), or a :class:`Time` object.
         eval_dataloader (Union[DataLoader, DataSpec, Evaluators], optional): The :class:`DataLoader`,
             :class:`DataSpec`, :class:`Evaluators` for the evaluation data. The :class:`Evaluator`
             class contains metrics relevant to the specific dataset. Set to ``None`` for no evaluation.
@@ -116,9 +118,9 @@ class Trainer:
             ``load_path`` is not specified or if it is a local file path. (default: ``True``)
         save_folder (str, optional): Folder path to save checkpoints, relative to the run directory.
             Set to ``None`` to not save checkpoints. (default: ``None``)
-        save_interval (str): How often to save checkpoints. For example, set to "1ep" to save checkpoints
-            every epoch, or "10ba" to save checkpoints every 10 batches. (default: ``1ep``)
-        save_interval_unit (str): Unit of ``save_interval``. Can be ``ep`` or ``steps``. (default: ``ep``).
+        save_interval (str or int): How often to save checkpoints. For example, set to "1ep" to save checkpoints
+            every epoch, or "10ba" to save checkpoints every 10 batches. An integer will be assumed to be epochs.
+            (default: ``1ep``)
         save_compression (str): Compression algorithm to run on checkpoints. Can be `gzip`, `bzip2`,
             `lzma`, or left blank for no compression.  (default: ``""`` for no compression).
         profiler_trace_file (str, optional): Name of the trace file, relative to the run directory.
@@ -179,7 +181,7 @@ class Trainer:
         *,
         model: ComposerModel,
         train_dataloader: Union[DataLoader, DataSpec],
-        max_duration: Union[str, Time],
+        max_duration: Union[int, str, Time],
         eval_dataloader: Optional[Union[DataLoader, DataSpec, Evaluators]] = None,
         algorithms: Optional[List[Algorithm]] = None,
         optimizers: Optional[Optimizers] = None,
@@ -219,7 +221,7 @@ class Trainer:
 
         # save_checkpoint
         save_folder: Optional[str] = None,
-        save_interval: str = "1ep",
+        save_interval: Union[str, int, Time] = "1ep",
         save_compression: str = '',
 
         # Profiling
@@ -261,6 +263,8 @@ class Trainer:
 
         if isinstance(max_duration, str):
             max_duration = Time.from_timestring(max_duration)
+        elif isinstance(max_duration, int):
+            max_duration = Time.from_epoch(max_duration)
 
         orig_max_duration = max_duration
 
@@ -457,6 +461,8 @@ class Trainer:
 
         self.checkpoint_saver = None
         if save_folder is not None:
+            if isinstance(save_interval, int):
+                save_interval = Time.from_epoch(save_interval)
             self.checkpoint_saver = CheckpointSaver(
                 save_folder=save_folder,
                 interval=save_interval,
@@ -600,7 +606,7 @@ class Trainer:
             log.warn('Computing model evaluation metrics during training.'
                      ' This doubles the number of forward passes and may lead'
                      ' to a throughput degradation.')
-            train_metrics = self.original_model.metrics(train=False)
+            train_metrics = self.original_model.metrics(train=True)
             if isinstance(train_metrics, Metric):
                 # Forcing metrics to be a MetricCollection simplifies logging results
                 train_metrics = MetricCollection([train_metrics])
