@@ -2,7 +2,7 @@
 
 from composer.utils.string_enum import StringEnum
 
-
+__all__ = ["ProfilerAction"]
 class ProfilerAction(StringEnum):
     """Action states for the :class:`Profiler`.
 

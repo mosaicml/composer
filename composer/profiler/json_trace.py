@@ -16,6 +16,7 @@ if TYPE_CHECKING:
     from composer.core.time import Timestamp
     from composer.core.types import Logger
 
+__all__ = ["JSONTraceHandler"]
 
 class JSONTraceHandler(ProfilerEventHandler):
     """Records trace events in `JSON trace format.

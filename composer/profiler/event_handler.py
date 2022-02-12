@@ -8,6 +8,7 @@ from typing import Dict, List, Tuple, Union
 from composer.core.callback import Callback
 from composer.core.time import Timestamp
 
+__all__ = ["ProfilerEventHandler"]
 
 class ProfilerEventHandler(Callback, abc.ABC):
     """Base class for profiler event handlers.

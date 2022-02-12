@@ -16,11 +16,13 @@ from composer.core import Callback, Logger, State
 from composer.profiler.profiler import ProfilerAction
 from composer.utils import dist, run_directory
 
+__all__ = ["TorchProfiler"]
+
 _PROFILE_MISSING_ERROR = "The profiler has not been setup. Please call profiler.init() before training starts."
 
 
 class TorchProfiler(Callback):
-    """Profile the execution using :class:`torch.profiler.profile`.
+    """Profile the execution using :class:`torch.profiler.profile`, implemented as a Composer :class:`Callback`.
 
     Profiling results are stored in TensorBoard format in the
     :param tensorboard_trace_handler_dir: folder.

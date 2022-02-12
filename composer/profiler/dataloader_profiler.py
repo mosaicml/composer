@@ -13,8 +13,10 @@ if TYPE_CHECKING:
     from composer.core.types import Batch, DataLoader, Logger
     from composer.profiler import Profiler
 
+__all__ = ["DataloaderProfiler"]
 
-class ProfiledDataLoader(WrappedDataLoader):
+
+class _ProfiledDataLoader(WrappedDataLoader):
     """Wraps a dataloader to record the duration it takes to yield a batch. This class should not be instantiated
     directly.
 
@@ -29,7 +31,7 @@ class ProfiledDataLoader(WrappedDataLoader):
         self._marker = profiler.marker(f"dataloader/{name}", categories=["dataloader"])
         self._iterator: Optional[Iterator[Batch]] = None
 
-    def __iter__(self) -> ProfiledDataLoader:
+    def __iter__(self) -> _ProfiledDataLoader:
         self._iterator = iter(self.dataloader)
         return self
 
@@ -43,6 +45,11 @@ class ProfiledDataLoader(WrappedDataLoader):
 
 
 class DataloaderProfiler(Callback):
+    """Records the time it takes the data loader to return a batch by wrapping the original training 
+    and evaluation data loaders and uses the :class:`~composer.profiler.profiler.Marker` API to
+    record the latency of the wrapped data loader.  The profiler is implemented as a :class:`Callback`
+    and accesses the training and evaluation data loaders through :class:`State`.
+    """
 
     def fit_start(self, state: State, logger: Logger):
         del logger  # unused
@@ -51,11 +58,11 @@ class DataloaderProfiler(Callback):
                 textwrap.dedent("""To use the dataloader profiler, state.profiler must be set.
                 Make sure to run composer with the profiler -- i.e. with the `--profiler` CLI flag."""))
 
-        if not ProfiledDataLoader.is_dataloader_already_wrapped(state.train_dataloader):
-            state.train_dataloader = ProfiledDataLoader(state.profiler, state.train_dataloader, "train")
+        if not _ProfiledDataLoader.is_dataloader_already_wrapped(state.train_dataloader):
+            state.train_dataloader = _ProfiledDataLoader(state.profiler, state.train_dataloader, "train")
 
         for evaluator in state.evaluators:
 
-            if not ProfiledDataLoader.is_dataloader_already_wrapped(evaluator.dataloader.dataloader):
-                evaluator.dataloader.dataloader = ProfiledDataLoader(state.profiler, evaluator.dataloader.dataloader,
-                                                                     evaluator.label)
+            if not _ProfiledDataLoader.is_dataloader_already_wrapped(evaluator.dataloader.dataloader):
+                evaluator.dataloader.dataloader = _ProfiledDataLoader(state.profiler, evaluator.dataloader.dataloader,
+                                                                      evaluator.label)

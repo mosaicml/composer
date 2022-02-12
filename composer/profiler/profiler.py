@@ -18,6 +18,8 @@ if TYPE_CHECKING:
     from composer.core.time import Timestamp
     from composer.profiler import ProfilerEventHandler
 
+__all__ = ["Profiler", "Marker"]
+
 log = logging.getLogger(__name__)
 
 
@@ -29,8 +31,6 @@ class Profiler:
     #. The duration of each section of the training loop, such as the time it takes to perform a forward pass, backward pass, batch, epoch, etc...
 
     #. The latency each algorithm and callback adds when executing on each event.
-
-    #. The latency it takes for the dataloader to yield a batch.
 
     The ``event_handlers`` then record and save this data to a usable trace.
 
@@ -161,8 +161,8 @@ class Profiler:
         self._names_to_markers[name].categories = categories
         return self._names_to_markers[name]
 
-    def record_duration_event(self, marker: Marker, is_start: bool, wall_clock_time_ns: int, global_rank: int, pid: int,
-                              timestamp: Timestamp):
+    def _record_duration_event(self, marker: Marker, is_start: bool, wall_clock_time_ns: int, global_rank: int,
+                               pid: int, timestamp: Timestamp):
         """Record a duration event.
 
         .. note::
@@ -189,8 +189,8 @@ class Profiler:
                 pid=pid,
             )
 
-    def record_instant_event(self, marker: Marker, wall_clock_time_ns: int, global_rank: int, pid: int,
-                             timestamp: Timestamp):
+    def _record_instant_event(self, marker: Marker, wall_clock_time_ns: int, global_rank: int, pid: int,
+                              timestamp: Timestamp):
         """Record an instant event.
 
         .. note::
@@ -215,7 +215,7 @@ class Profiler:
                 pid=pid,
             )
 
-    def record_counter_event(
+    def _record_counter_event(
         self,
         marker: Marker,
         wall_clock_time_ns: int,
@@ -327,7 +327,7 @@ class Marker:
         self._action_at_start = self.profiler.get_action(batch_idx)
         if self._action_at_start in self.actions:
             wall_clock_time = time.time_ns()
-            self.profiler.record_duration_event(
+            self.profiler._record_duration_event(
                 self,
                 is_start=True,
                 wall_clock_time_ns=wall_clock_time,
@@ -336,7 +336,7 @@ class Marker:
                 pid=os.getpid(),
             )
             if self.record_instant_on_start:
-                self.profiler.record_instant_event(
+                self.profiler._record_instant_event(
                     self,
                     timestamp=self.profiler.state.timer.get_timestamp(),
                     wall_clock_time_ns=wall_clock_time,
@@ -353,7 +353,7 @@ class Marker:
 
         if self._action_at_start in self.actions:
             wall_clock_time = time.time_ns()
-            self.profiler.record_duration_event(
+            self.profiler._record_duration_event(
                 self,
                 is_start=False,
                 timestamp=self.profiler.state.timer.get_timestamp(),
@@ -362,7 +362,7 @@ class Marker:
                 pid=os.getpid(),
             )
             if self.record_instant_on_finish:
-                self.profiler.record_instant_event(
+                self.profiler._record_instant_event(
                     self,
                     wall_clock_time_ns=wall_clock_time,
                     timestamp=self.profiler.state.timer.get_timestamp(),
@@ -375,7 +375,7 @@ class Marker:
         """Record an instant event."""
         batch_idx = self.profiler.state.timer.batch_in_epoch.value
         if self.profiler.get_action(batch_idx) in self.actions:
-            self.profiler.record_instant_event(
+            self.profiler._record_instant_event(
                 self,
                 wall_clock_time_ns=time.time_ns(),
                 timestamp=self.profiler.state.timer.get_timestamp(),
@@ -387,7 +387,7 @@ class Marker:
         """Record a counter event."""
         batch_idx = self.profiler.state.timer.batch_in_epoch.value
         if self.profiler.get_action(batch_idx) in self.actions:
-            self.profiler.record_counter_event(
+            self.profiler._record_counter_event(
                 self,
                 wall_clock_time_ns=time.time_ns(),
                 global_rank=dist.get_global_rank(),
