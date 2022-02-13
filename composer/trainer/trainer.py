@@ -226,7 +226,7 @@ class Trainer:
 
         # Profiling
         profiler_trace_file: Optional[str] = None,
-        prof_event_handlers: Sequence[ProfilerEventHandler] = [JSONTraceHandler()],
+        prof_event_handlers: Sequence[ProfilerEventHandler] = tuple(),
         prof_skip_first: int = 0,
         prof_wait: int = 0,
         prof_warmup: int = 1,
