@@ -34,7 +34,6 @@ from composer.optim import ComposedScheduler
 from composer.optim.decoupled_weight_decay import DecoupledSGDW
 from composer.profiler import Profiler, ProfilerEventHandler
 from composer.profiler.dataloader_profiler import DataloaderProfiler
-from composer.profiler.json_trace import JSONTraceHandler
 from composer.profiler.system_profiler import SystemProfiler
 from composer.profiler.torch_profiler import TorchProfiler
 from composer.trainer.checkpoint import CheckpointLoader, CheckpointSaver
