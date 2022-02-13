@@ -62,7 +62,7 @@ def test_notebook(tb):
                 trainer.state.max_duration = Time.from_timestring('2ep')
                 trainer.state.train_subset_num_batches = 2
             """)
-            trainer = tb.ref("trainers")
+            trainer = tb.ref("trainer")
             assert trainer.state.train_subset_num_batches == 2
         except Exception as e:
             raise Exception(
