@@ -1,5 +1,7 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
+"""Core CutOut classes and functions."""
+
 from __future__ import annotations
 
 import logging
