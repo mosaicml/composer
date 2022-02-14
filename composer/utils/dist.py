@@ -69,8 +69,6 @@ def _get_distributed_config_var(
     fetch_fn_name: Optional[str] = None,
 ) -> int:
     if not dist.is_available():
-        warnings.warn("DistributedDefaultValueWarning: Torch distributed is not available; "
-                      f"returning {default} for {human_name}")
         return default
 
     if dist.is_initialized() and fetch_fn_name is not None:
@@ -90,8 +88,6 @@ def _get_distributed_config_var(
         raise RuntimeError("Torch distributed is initialized but environment variable "
                            f"{env_var} is not set.")
 
-    warnings.warn(f"DistributedDefaultValueWarning: {env_var} env var not set and Torch "
-                  f"distributed not initialized; returning {default} for {human_name}.")
     return default
 
 
