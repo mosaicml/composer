@@ -6,6 +6,7 @@ from composer.algorithms.blurpool.blurpool_layers import BlurConv2d as BlurConv2
 from composer.algorithms.blurpool.blurpool_layers import BlurMaxPool2d as BlurMaxPool2d
 from composer.algorithms.blurpool.blurpool_layers import BlurPool2d as BlurPool2d
 from composer.algorithms.blurpool.blurpool_layers import blur_2d as blur_2d
+from composer.algorithms.blurpool.blurpool_layers import blurmax_pool2d as blurmax_pool2d
 
 _name = 'BlurPool'
 _class_name = 'BlurPool'

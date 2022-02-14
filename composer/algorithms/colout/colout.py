@@ -14,7 +14,7 @@ from torchvision.transforms import functional as TF
 
 from composer.core import Algorithm, Event, Logger, State
 from composer.core.types import Tensor
-from composer.utils.data import add_dataset_transform
+from composer.datasets.utils import add_vision_dataset_transform
 
 log = logging.getLogger(__name__)
 
@@ -163,7 +163,7 @@ class ColOut(Algorithm):
                 textwrap.dedent(f"""\
                 To use {type(self).__name__}, the dataset must be a
                 {VisionDataset.__qualname__}, not {type(dataset).__name__}"""))
-        add_dataset_transform(dataset, transform, is_tensor_transform=False)
+        add_vision_dataset_transform(dataset, transform, is_tensor_transform=False)
         self._transformed_datasets.add(dataset)
 
     def _apply_batch(self, state: State) -> None:

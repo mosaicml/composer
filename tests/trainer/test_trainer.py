@@ -91,6 +91,18 @@ class TestTrainerInit():
         with pytest.raises(ValueError, match="active iterator"):
             Trainer(**config)
 
+    def test_init_with_integers(self, config, tmpdir):
+        config.update({
+            'max_duration': 1,
+            'save_interval': 10,
+            'save_folder': tmpdir,
+        })
+
+        trainer = Trainer(**config)
+        assert trainer.state.max_duration == "1ep"
+        assert trainer.checkpoint_saver is not None and \
+            trainer.checkpoint_saver.save_interval == "10ep"
+
 
 @world_size(1, 2)
 @device('cpu', 'gpu', 'gpu-amp', precision=True)
