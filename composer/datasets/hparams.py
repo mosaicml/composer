@@ -120,7 +120,8 @@ class JpgClsWebDatasetHparams(WebDatasetHparams, SyntheticHparamsMixin):
     """Common functionality for (jpg, cls) WebDatasets.
 
     Parameters:
-        dataset_name (str): Key used to determine where the dataset is stored.
+        dataset_s3_bucket (str): S3 bucket or root directory where dataset is stored.
+        dataset_name (str): Key used to determine where dataset is cached on local filesystem.
         n_train_samples (int): Number of training samples.
         n_val_samples (int): Number of validation samples.
         height (int): Sample image height in pixels.
@@ -155,7 +156,7 @@ class JpgClsWebDatasetHparams(WebDatasetHparams, SyntheticHparamsMixin):
                     transforms.ToTensor(),
                     transforms.Normalize(self.channel_means, self.channel_stds),
                 ])
-            dataset, meta = load_webdataset(self.dataset_name, split, self.webdataset_cache_dir,
+            dataset, meta = load_webdataset(self.dataset_s3_bucket, self.dataset_name, split, self.webdataset_cache_dir,
                                             self.webdataset_cache_verbose)
             dataset = dataset.decode('pil').map_dict(jpg=transform).to_tuple('jpg', 'cls')
             size_per_device = meta['n_shards'] * meta['samples_per_shard'] // dist.get_world_size()

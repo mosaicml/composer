@@ -93,6 +93,7 @@ class ImagenetDatasetHparams(DatasetHparams, SyntheticHparamsMixin):
 class TinyImagenet200WebDatasetHparams(JpgClsWebDatasetHparams):
     """Defines an instance of the TinyImagenet-200 WebDataset for image classification."""
 
+    dataset_s3_bucket = 'mosaicml-internal-dataset-tinyimagenet200'
     dataset_name = 'tinyimagenet200'
     n_train_samples = 100_000
     n_val_samples = 10_000
@@ -147,8 +148,8 @@ class Imagenet1KWebDatasetHparams(WebDatasetHparams, SyntheticHparamsMixin):
                     transforms.CenterCrop(self.crop_size),
                 ])
             split = 'train' if self.is_train else 'val'
-            dataset, meta = load_webdataset('imagenet1k', split, self.webdataset_cache_dir,
-                                            self.webdataset_cache_verbose)
+            dataset, meta = load_webdataset('mosaicml-internal-dataset-imagenet1k', 'imagenet1k', split,
+                                            self.webdataset_cache_dir, self.webdataset_cache_verbose)
             dataset = dataset.decode('pil').map_dict(jpg=transform).to_tuple('jpg', 'cls')
             size_per_device = meta['n_shards'] * meta['samples_per_shard'] // dist.get_world_size()
             dataset = dataset.with_epoch(size_per_device).with_length(size_per_device)

@@ -72,6 +72,7 @@ class CIFAR10DatasetHparams(DatasetHparams, SyntheticHparamsMixin):
 class CIFAR10WebDatasetHparams(JpgClsWebDatasetHparams):
     """Defines an instance of the CIFAR-10 WebDataset for image classification."""
 
+    dataset_s3_bucket = 'mosaicml-internal-dataset-cifar10'
     dataset_name = 'cifar10'
     n_train_samples = 50_000
     n_val_samples = 10_000
@@ -86,6 +87,7 @@ class CIFAR10WebDatasetHparams(JpgClsWebDatasetHparams):
 class CIFAR20WebDatasetHparams(JpgClsWebDatasetHparams):
     """Defines an instance of the CIFAR-20 WebDataset for image classification."""
 
+    dataset_s3_bucket = 'mosaicml-internal-dataset-cifar20'
     dataset_name = 'cifar20'
     n_train_samples = 50_000
     n_val_samples = 10_000
@@ -100,6 +102,7 @@ class CIFAR20WebDatasetHparams(JpgClsWebDatasetHparams):
 class CIFAR100WebDatasetHparams(JpgClsWebDatasetHparams):
     """Defines an instance of the CIFAR-100 WebDataset for image classification."""
 
+    dataset_s3_bucket = 'mosaicml-internal-dataset-cifar100'
     dataset_name = 'cifar100'
     n_train_samples = 50_000
     n_val_samples = 10_000

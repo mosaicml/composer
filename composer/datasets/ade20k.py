@@ -449,8 +449,8 @@ class ADE20kWebDatasetHparams(WebDatasetHparams, SyntheticHparamsMixin):
                     y = target_transforms(y)
                 return x, y
 
-            dataset, meta = load_webdataset('ade20k', self.split, self.webdataset_cache_dir,
-                                            self.webdataset_cache_verbose)
+            dataset, meta = load_webdataset('mosaicml-internal-dataset-ade20k', 'ade20k', self.split,
+                                            self.webdataset_cache_dir, self.webdataset_cache_verbose)
             dataset = dataset.decode('pil').to_tuple('scene.jpg', 'annotation.png').map(map_fn)
             size_per_device = meta['n_shards'] * meta['samples_per_shard'] // dist.get_world_size()
             dataset = dataset.with_epoch(size_per_device).with_length(size_per_device)
