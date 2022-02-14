@@ -459,13 +459,16 @@ class CheckpointSaver:
                     torch.save(state_dict, f)
 
             checkpoint_filepath = os.path.join(self.checkpoint_folder, f'{tag}{self.file_extension}')
-            if not _is_pt_file(checkpoint_filepath):
+            if _is_pt_file(checkpoint_filepath):
+                # only rank 0 will have save states to a pt file
+                if dist.get_global_rank() == 0:
+                    # move the file out of tmpdir to the user-specified location
+                    shutil.move(composer_states_filepath, checkpoint_filepath)
+            else:
+                # using compression, deepspeed, or both
                 with tarfile.open(checkpoint_filepath, self.write_mode) as tarball:
                     # add files flat to the tarball with the specified compression
                     tarball.add(tmpdir, arcname="")
-            else:
-                # move the file out of tmpdir to the user-specified location
-                shutil.move(composer_states_filepath, checkpoint_filepath)
 
             timestamp = state.timer.get_timestamp()
             paths = dist.all_gather_object(checkpoint_filepath) if is_module_deepspeed(
