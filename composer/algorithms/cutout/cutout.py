@@ -12,6 +12,8 @@ from composer.core.types import Algorithm, Event, Logger, State, Tensor
 
 log = logging.getLogger(__name__)
 
+__all__ = ["CutOut", "cutout_batch"]
+
 
 def _generate_mask(mask: Tensor, width: int, height: int, x: int, y: int, cutout_length: int) -> Tensor:
     y1 = np.clip(y - cutout_length // 2, 0, height)
@@ -26,6 +28,16 @@ def _generate_mask(mask: Tensor, width: int, height: int, x: int, y: int, cutout
 
 def cutout_batch(X: Tensor, n_holes: int, length: Union[int, float]) -> Tensor:
     """See :class:`CutOut`.
+
+    Example:
+         .. testcode::
+
+            from composer.algorithms.cutout import cutout_batch
+            new_input_batch = cutout_batch(
+                X=input_batch,
+                n_holes=1,
+                length=16
+            )
 
     Args:
         X (Tensor): Batch Tensor image of size (B, C, H, W).
@@ -62,6 +74,21 @@ class CutOut(Algorithm):
     more square regions of an input image.
 
     This implementation cuts out the same square from all images in a batch.
+
+    Example:
+         .. testcode::
+
+            from composer.algorithms import CutOut
+            from composer.trainer import Trainer
+            cutout_algorithm = CutOut(n_holes=1, length=0.25)
+            trainer = Trainer(
+                model=model,
+                train_dataloader=train_dataloader,
+                eval_dataloader=eval_dataloader,
+                max_duration="1ep",
+                algorithms=[cutout_algorithm],
+                optimizers=[optimizer]
+            )
 
     Args:
         X (Tensor): Batch Tensor image of size (B, C, H, W).
