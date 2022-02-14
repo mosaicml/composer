@@ -214,7 +214,6 @@ class RunDirectoryUploader(Callback):
         obj_name = _get_obj_name_for_local_file(self._object_name_prefix, local_filepath)
         provider_name = self._object_store_provider_hparams.provider
         container = self._object_store_provider_hparams.container
-        print(f">>>>PROVIDER {provider_name} CONTAINER {container}")
         provider_prefix = f"{provider_name}://{container}/"
         return provider_prefix + obj_name.lstrip("/")
 
@@ -231,9 +230,6 @@ def _get_obj_name_for_local_file(object_name_prefix: str, local_filepath: Union[
     """
     # chop off the run directory
     rel_to_run_dir = os.path.relpath(local_filepath, run_directory.get_run_directory())
-    print(
-        f">>>>LOCAL FILE PATH: {local_filepath} RUN DIR {run_directory.get_run_directory()} OBJ NAME PREFIX {object_name_prefix} REL RESULT {rel_to_run_dir}"
-    )
     return object_name_prefix + rel_to_run_dir
 
 
