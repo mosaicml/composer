@@ -9,3 +9,7 @@
 .card-img-top {
     background-color: white;
 }
+
+.card-title {
+    font-size: 22px;
+}
