@@ -1,118 +1,391 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
-from unittest.mock import patch
+import os
+import pathlib
 
 import pytest
 import torch
-import torch.distributed
+from torch import distributed as dist
+from torch.nn.parallel import DistributedDataParallel
+from torch.utils.data import DataLoader
 
-from composer.callbacks.lr_monitor import LRMonitor
-from composer.core.logging.logger import Logger
-from composer.core.precision import Precision
-from composer.core.types import DataLoader, Optimizer, Scheduler
-from composer.loggers.tqdm_logger import TQDMLoggerBackend
-from composer.models.base import ComposerModel
-from composer.optim.scheduler import ComposedScheduler
-from composer.trainer import Trainer, TrainerHparams
-from composer.trainer.devices.device_hparams import CPUDeviceHparams, DeviceHparams, GPUDeviceHparams
-from tests.utils.trainer_fit import get_total_loss, train_model
-
-
-def test_trainer_init_all_defaults(dummy_train_dataloader: DataLoader, dummy_val_dataloader: DataLoader,
-                                   dummy_model: ComposerModel):
-    trainer = Trainer(model=dummy_model,
-                      train_dataloader=dummy_train_dataloader,
-                      eval_dataloader=dummy_val_dataloader,
-                      max_duration="10ep")
-
-    assert isinstance(trainer, Trainer)
+from composer.algorithms import LayerFreezing
+from composer.algorithms.cutout.cutout import CutOut
+from composer.callbacks import LRMonitor
+from composer.callbacks.run_directory_uploader import RunDirectoryUploader
+from composer.core.callback import Callback
+from composer.core.types import Model
+from composer.loggers import FileLogger, TQDMLogger, WandBLogger
+from composer.trainer import Trainer
+from composer.trainer.trainer_hparams import algorithms_registry, callback_registry, logger_registry
+from tests.common import (RandomClassificationDataset, RandomImageDataset, SimpleConvModel, SimpleModel, device,
+                          world_size)
 
 
-def test_trainer_init_additional_args(dummy_train_dataloader: DataLoader, dummy_val_dataloader: DataLoader,
-                                      dummy_optimizer: Optimizer, dummy_scheduler: Scheduler,
-                                      dummy_model: ComposerModel):
-    trainer = Trainer(
-        model=dummy_model,
-        train_dataloader=dummy_train_dataloader,
-        eval_dataloader=dummy_val_dataloader,
-        max_duration="10ep",
-        optimizers=dummy_optimizer,
-        schedulers=dummy_scheduler,
-        log_destinations=[TQDMLoggerBackend()],
-        callbacks=(LRMonitor(),),
-    )
+class TestTrainerInit():
 
-    assert isinstance(trainer, Trainer)
-    assert trainer.state.optimizers[0] == dummy_optimizer
+    @pytest.fixture
+    def config(self):
+        return {
+            'model': SimpleModel(),
+            'train_dataloader': DataLoader(dataset=RandomClassificationDataset()),
+            'eval_dataloader': DataLoader(dataset=RandomClassificationDataset()),
+            'max_duration': '2ep',
+        }
 
-    assert isinstance(trainer.state.schedulers[0], ComposedScheduler)
+    def test_init(self, config):
+        trainer = Trainer(**config)
+        assert isinstance(trainer, Trainer)
 
-    assert len(trainer.logger.backends) == 1
-    assert isinstance(trainer.logger.backends[0], TQDMLoggerBackend)
-    assert isinstance(trainer.logger, Logger)
+    def test_model_ddp_wrapped(self, config, init_process_group):
+        # dist initialized first with init_process_group fixture
+        trainer = Trainer(**config)
+        assert isinstance(trainer.state.model, DistributedDataParallel)
 
-    # log destination and lr monitor, logger destination callback must be first
-    assert len(trainer.state.callbacks) == 2
-    assert isinstance(trainer.state.callbacks[0], TQDMLoggerBackend)
-    assert isinstance(trainer.state.callbacks[1], LRMonitor)
+    @pytest.mark.skip("conflict between new and old fixtues need to be resolved.")
+    def test_model_ddp_not_wrapped(self, config):
+        if dist.is_available() and dist.is_initialized():
+            dist.destroy_process_group()
+
+        trainer = Trainer(**config)
+        assert not isinstance(trainer.state.model, DistributedDataParallel)
+
+    def test_loggers_before_callbacks(self, config):
+        config.update({
+            "loggers": [TQDMLogger()],
+            "callbacks": [LRMonitor()],
+        })
+
+        trainer = Trainer(**config)
+        assert isinstance(trainer.state.callbacks[0], TQDMLogger)
+        assert isinstance(trainer.state.callbacks[1], LRMonitor)
+
+    @device('gpu', 'cpu')
+    def test_optimizer_on_device(self, config, device):
+        config['device'] = device
+        trainer = Trainer(**config)
+
+        parameters = trainer.state.optimizers[0].param_groups[0]["params"]
+
+        target_device = 'cuda' if device == 'gpu' else 'cpu'
+        assert all(param.device.type == target_device for param in parameters)
+
+    def test_invalid_device(self, config):
+        config['device'] = "magic_device"
+
+        with pytest.raises(ValueError, match="magic_device"):
+            Trainer(**config)
+
+    @pytest.mark.timeout(5.0)
+    def test_active_iterator_error(self, config):
+        dataloader = DataLoader(
+            dataset=RandomClassificationDataset(),
+            persistent_workers=True,
+            num_workers=1,
+        )
+
+        # spin one sample
+        _ = next(dataloader.__iter__())
+
+        config['train_dataloader'] = dataloader
+        with pytest.raises(ValueError, match="active iterator"):
+            Trainer(**config)
+
+    def test_init_with_integers(self, config, tmpdir):
+        config.update({
+            'max_duration': 1,
+            'save_interval': 10,
+            'save_folder': tmpdir,
+        })
+
+        trainer = Trainer(**config)
+        assert trainer.state.max_duration == "1ep"
+        assert trainer.checkpoint_saver is not None and \
+            trainer.checkpoint_saver.save_interval == "10ep"
 
 
-def test_trainer_hparams_initialize_object(composer_trainer_hparams: TrainerHparams):
-    trainer = composer_trainer_hparams.initialize_object()
-    assert isinstance(trainer, Trainer)
+@world_size(1, 2)
+@device('cpu', 'gpu', 'gpu-amp', precision=True)
+class TestTrainerEquivalence():
+
+    reference_model: Model
+    reference_folder: pathlib.Path
+
+    def assert_models_equal(self, model_1, model_2):
+        for param1, param2 in zip(model_1.parameters(), model_2.parameters()):
+            torch.testing.assert_allclose(param1, param2)
+
+    @pytest.fixture
+    def config(self, device, precision, world_size):
+        return {
+            'model': SimpleModel(),
+            'train_dataloader': DataLoader(
+                dataset=RandomClassificationDataset(),
+                batch_size=4,
+                shuffle=True,
+            ),
+            'eval_dataloader': DataLoader(
+                dataset=RandomClassificationDataset(),
+                shuffle=False,
+            ),
+            'max_duration': '2ep',
+            'seed': 0,
+            'device': device,
+            'precision': precision,
+            'deterministic_mode': True,  # testing equivalence
+            'loggers': [],  # no progress bar
+        }
+
+    @pytest.fixture(autouse=True)
+    def create_reference_model(self, config, tmpdir_factory, *args):
+        """Trains the reference model, and saves checkpoints."""
+        save_folder = tmpdir_factory.mktemp("{device}-{precision}".format(**config))
+        config.update({'save_interval': '1ep', 'save_folder': save_folder})
+
+        trainer = Trainer(**config)
+        trainer.fit()
+
+        self.reference_model = trainer.state.model
+        self.reference_folder = save_folder
+
+    def test_determinism(self, config, *args):
+        trainer = Trainer(**config)
+        trainer.fit()
+
+        self.assert_models_equal(trainer.state.model, self.reference_model)
+
+    def test_grad_accum(self, config, *args):
+        config.update({
+            'grad_accum': 2,
+        })
+
+        trainer = Trainer(**config)
+        trainer.fit()
+
+        self.assert_models_equal(trainer.state.model, self.reference_model)
+
+    def test_checkpoint(self, config, *args):
+        # load from epoch 1 checkpoint and finish training
+        checkpoint_file = os.path.join(self.reference_folder, 'ep1.tar')
+        config['load_path'] = checkpoint_file
+
+        trainer = Trainer(**config)
+        assert trainer.state.timer.epoch == "1ep"  # ensure checkpoint state loaded
+        trainer.fit()
+
+        self.assert_models_equal(trainer.state.model, self.reference_model)
+
+    def test_model_init(self, config, *args):
+        # as a control test, we reinitialize the model weights, and
+        # expect the resulting trained model to differe from the reference.
+        config['model'] = SimpleModel()
+
+        trainer = Trainer(**config)
+        trainer.fit()
+
+        with pytest.raises(AssertionError):
+            self.assert_models_equal(trainer.state.model, self.reference_model)
 
 
-@pytest.mark.parametrize('invalid_hparams', [])
-def test_trainer_validation(composer_trainer_hparams: TrainerHparams, invalid_hparams):
-    with patch.multiple(composer_trainer_hparams, **invalid_hparams), pytest.raises(ValueError):
-        composer_trainer_hparams.validate()
+class AssertDataAugmented(Callback):
+    """Helper callback that asserts test whether the augmented batch was passed to the model during the forward pass.
+    The original batch is passed through the model and we assert that the outputs are not the same. This is to be used
+    in conjunction with an algorithm that augments the data during AFTER_DATALOADER event.
+
+    Assumes gradient accumulation 1.
+    """
+
+    def __init__(self, dataset):
+        self.dataset = dataset
+
+    def after_forward(self, state, logger):
+        if state.grad_accum != 1:
+            raise ValueError(f'This check assumes grad_accum of 1, got {state.grad_accum}')
+        batch_idx = state.timer.batch_in_epoch.value
+        batch_size = state.batch_num_samples
+        original_batch = self.dataset[batch_idx:batch_idx + batch_size]
+        original_outputs = state.model(original_batch)
+
+        assert not torch.allclose(original_outputs[0], state.outputs[0])
 
 
-@pytest.mark.timeout(90)
-@pytest.mark.parametrize("device", [CPUDeviceHparams(), pytest.param(GPUDeviceHparams(), marks=pytest.mark.gpu)])
-def test_trainer_determinism(composer_trainer_hparams: TrainerHparams, device: DeviceHparams):
-    composer_trainer_hparams.seed = 10
-    composer_trainer_hparams.device = device
-    composer_trainer_hparams.max_duration = "2ep"
+class TestTrainerEvents():
 
-    first_trainer = composer_trainer_hparams.initialize_object()
-    first_trainer.fit()
-    first_model = first_trainer.state.model.module
-    assert isinstance(first_model, ComposerModel)
-    assert first_trainer.state.train_dataloader is not None
-    first_loss = get_total_loss(first_model, first_trainer.state.train_dataloader, first_trainer.device)
+    @pytest.fixture
+    def config(self):
+        return {
+            'model': SimpleConvModel(),
+            'train_dataloader': DataLoader(
+                dataset=RandomImageDataset(size=16),
+                batch_size=4,
+            ),
+            'eval_dataloader': None,
+            'max_duration': '1ep',
+            'loggers': []
+        }
 
-    # Second trainer must be created after fitting the first so that the
-    # seeds get fully reset for the second training run
-    second_trainer = composer_trainer_hparams.initialize_object()
-    second_trainer.fit()
-    second_model = second_trainer.state.model.module
-    assert isinstance(second_model, ComposerModel)
-    assert second_trainer.state.train_dataloader is not None
-    second_loss = get_total_loss(second_model, second_trainer.state.train_dataloader, second_trainer.device)
+    def test_data_augmented(self, config):
+        config['algorithms'] = [CutOut(n_holes=1, length=5)]
 
-    torch.testing.assert_allclose(second_loss, first_loss)
+        # we give the callback access to the dataset to test
+        # that the images have been augmented.
+        config['callbacks'] = [
+            AssertDataAugmented(dataset=config['train_dataloader'].dataset),
+        ]
+        trainer = Trainer(**config)
+        trainer.fit()
+
+    def test_data_not_augmented(self, config):
+        config['callbacks'] = [
+            AssertDataAugmented(dataset=config['train_dataloader'].dataset),
+        ]
+        trainer = Trainer(**config)
+        with pytest.raises(AssertionError):
+            trainer.fit()
 
 
-@pytest.mark.timeout(90)
-@pytest.mark.parametrize("world_size", [
-    pytest.param(1),
-    pytest.param(2, marks=pytest.mark.world_size(2)),
-])
-@pytest.mark.parametrize("device_hparams,precision", [
-    pytest.param(CPUDeviceHparams(), Precision.FP32, id="cpu"),
-    pytest.param(GPUDeviceHparams(), Precision.FP32, id="gpu-fp32", marks=pytest.mark.gpu),
-    pytest.param(GPUDeviceHparams(), Precision.AMP, id="gpu-amp", marks=pytest.mark.gpu),
-])
-@pytest.mark.parametrize("grad_accum", [
-    pytest.param(1, id="ga1"),
-    pytest.param(2, id="ga2"),
-])
-def test_trainer_fit(composer_trainer_hparams: TrainerHparams, device_hparams: DeviceHparams, world_size: int,
-                     grad_accum: int, precision: Precision):
-    del world_size  # unused. Set via env vars
-    composer_trainer_hparams.device = device_hparams
-    composer_trainer_hparams.grad_accum = grad_accum
-    composer_trainer_hparams.precision = precision
+"""
+The below is a catch-all test that runs the Trainer
+with each algorithm, callback, and loggers. Success
+is defined as a successful training run.
 
-    train_model(composer_trainer_hparams, max_epochs=2, run_loss_check=True)
+This should eventually be replaced by functional
+tests for each object, in situ of our trainer.
+
+We use the hparams_registry associated with our
+config management to retrieve the objects to test.
+"""
+
+
+class TestTrainerAssets:
+
+    @pytest.fixture
+    def config(self):
+        return {
+            'model': SimpleConvModel(),
+            'train_dataloader': DataLoader(
+                dataset=RandomImageDataset(size=16),
+                batch_size=4,
+            ),
+            'eval_dataloader': DataLoader(
+                dataset=RandomImageDataset(size=16),
+                batch_size=4,
+            ),
+            'max_duration': '2ep',
+            'loggers': [],  # no progress bar
+        }
+
+    # Note: Not all algorithms, callbacks, and loggers are compatible
+    #       with the above configuration. The fixtures below filter and
+    #       create the objects to test.
+
+    @pytest.fixture(params=algorithms_registry.items(), ids=algorithms_registry.keys())
+    def algorithm(self, request):
+
+        name, hparams = request.param
+        skip_list = {
+            'swa': 'SWA not compatible with composed schedulers.',
+            'alibi': 'Not compatible with conv model.',
+            'seq_length_warmup': 'Not compatible with conv model.',
+            'randaugment': 'Requires PIL dataset to test.',
+            'augmix': 'Required PIL dataset to test.',
+            'stochastic_depth': 'Only applies to ResNets.',
+            'no_op_model': 'Not compatible with this model.'
+        }
+
+        # skip any tests incompatible with this config
+        if name in skip_list:
+            pytest.skip(skip_list[name])
+        elif name in ('cutmix, mixup, label_smoothing'):
+            # see: https://github.com/mosaicml/composer/issues/362
+            pytest.importorskip("torch", minversion="1.10", reason="Pytorch 1.10 required.")
+
+        # create the algorithms
+        if name in ('cutmix, mixup'):  # these algos have required algorithms
+            algorithm = hparams(num_classes=2).initialize_object()
+        else:
+            algorithm = hparams().initialize_object()
+
+        return algorithm
+
+    @pytest.fixture(params=callback_registry.items(), ids=callback_registry.keys())
+    def callback(self, request, tmpdir, monkeypatch):
+        name, hparams = request.param
+
+        # create callback
+        if name == 'run_directory_uploader':
+            pytest.importorskip('libcloud', reason='libcloud required.')
+            monkeypatch.setenv("KEY_ENVIRON", str(tmpdir))
+
+            callback = hparams(
+                provider='local',
+                container='.',
+                key_environ="KEY_ENVIRON",
+            ).initialize_object()
+        else:
+            callback = hparams().initialize_object()
+
+        return callback
+
+    @pytest.fixture(params=logger_registry.items(), ids=logger_registry.keys())
+    def logger(self, request):
+
+        name, hparams = request.param
+
+        required_args = {}
+        if name == 'wandb':
+            pytest.importorskip('wandb', reason='Required wandb')
+
+        return hparams(**required_args).initialize_object()
+
+    """
+    Tests that training completes.
+    """
+
+    def test_algorithms(self, config, algorithm):
+        config['algorithms'] = [algorithm]
+        trainer = Trainer(**config)
+        trainer.fit()
+
+    @pytest.mark.timeout(10)
+    def test_callbacks(self, config, callback):
+        config['callbacks'] = [callback]
+        trainer = Trainer(**config)
+        trainer.fit()
+
+    def test_loggers(self, config, logger):
+        config['loggers'] = [logger]
+        trainer = Trainer(**config)
+        trainer.fit()
+
+    """
+    Tests that training with multiple fits complete.
+    Note: future functional tests should test for
+    idempotency (e.g functionally)
+    """
+
+    def test_algorithms_multiple_calls(self, config, algorithm):
+        if isinstance(algorithm, LayerFreezing):
+            pytest.xfail("Known idempotency issue.")
+        config['algorithms'] = [algorithm]
+        trainer = Trainer(**config)
+        self._test_multiple_fits(trainer)
+
+    def test_callbacks_multiple_calls(self, config, callback):
+        if isinstance(callback, RunDirectoryUploader):
+            pytest.xfail("Known idempotency issue.")
+        config['callbacks'] = [callback]
+        trainer = Trainer(**config)
+        self._test_multiple_fits(trainer)
+
+    def test_loggers_multiple_calls(self, config, logger):
+        if isinstance(logger, (FileLogger, WandBLogger)):
+            pytest.xfail("Cannot close/load multiple times yet.")
+        config['loggers'] = [logger]
+        trainer = Trainer(**config)
+        self._test_multiple_fits(trainer)
+
+    def _test_multiple_fits(self, trainer):
+        trainer.fit()
+        trainer.state.max_duration *= 2
+        trainer.fit()

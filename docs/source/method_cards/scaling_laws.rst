@@ -5,7 +5,7 @@ Tags: ``Autoregressive Language Modeling``, ``NLP``, ``Decreased Wall Clock Time
 Practice``, ``Speedup``
 
 TL;DR
-----
+-----
 
 Scaling Laws capture the optimal training regime for a fixed compute
 budget. Given a number of FLOPs (Floating Point Operations), scaling
@@ -143,7 +143,7 @@ Effects & Implications
    :alt: alternate text
    :figclass: align-center
 
-	Source: Figure 5 from "Scaling Laws for Neural Language Models"
+   Source: Figure 5 from "Scaling Laws for Neural Language Models"
 
 `Scaling Laws for Neural Language
 Models <https://arxiv.org/abs/2001.08361>`__ aims to

@@ -63,10 +63,6 @@ class EventCounterCallback(Callback):
             self.event_to_num_calls[event] = 0
 
     def _run_event(self, event: Event, state: State, logger: Logger):
-        if event == Event.TRAINING_START:
-            # ignoring training start as it is called once per startup
-            # and the states otherwise won't match
-            return
         self.event_to_num_calls[event] += 1
 
     def state_dict(self) -> StateDict:
@@ -100,7 +96,7 @@ def assert_weights_equivalent(original_trainer_hparams: TrainerHparams, new_trai
     recovered_weights = new_trainer.state.model.parameters()
 
     for p1, p2 in zip(original_weights, recovered_weights):
-        assert (p1.data.ne(p2.data).sum() == 0)
+        assert (p1.data == p2.data).all()
 
 
 @pytest.fixture
@@ -115,7 +111,7 @@ def checkpointing_trainer_hparams(composer_trainer_hparams: TrainerHparams) -> T
     return composer_trainer_hparams
 
 
-def assert_checkpoints_equivalent(hparams_file_a: str, checkpoint_file_a: str, hparams_file_b: str,
+def assert_checkpoints_equivalent(hparams_a: TrainerHparams, checkpoint_file_a: str, hparams_b: TrainerHparams,
                                   checkpoint_file_b: str) -> None:
 
     with tempfile.TemporaryDirectory() as tmpdir:
@@ -133,11 +129,6 @@ def assert_checkpoints_equivalent(hparams_file_a: str, checkpoint_file_a: str, h
         checkpoint_b = torch.load(b_states_dir, map_location='cpu')
 
         deep_compare(checkpoint_a["rng"], checkpoint_b["rng"])
-
-    hparams_a = TrainerHparams.create(hparams_file_a, cli_args=False)
-    assert isinstance(hparams_a, TrainerHparams)
-    hparams_b = TrainerHparams.create(hparams_file_b, cli_args=False)
-    assert isinstance(hparams_b, TrainerHparams)
 
     assert hparams_b.load_path is not None
     assert hparams_b.save_folder is not None
@@ -209,10 +200,8 @@ def test_load_weights(
     final_checkpoint = "ep2.tar"
     _test_checkpoint_trainer(composer_trainer_hparams)
 
-    trainer_1_hparams_filepath = os.path.join(run_directory.get_run_directory(), checkpoint_a_folder, "hparams.yaml")
-
     # re-create the trainer from the YAML
-    second_trainer_hparams = TrainerHparams.create(trainer_1_hparams_filepath, cli_args=False)
+    second_trainer_hparams = TrainerHparams.create(data=composer_trainer_hparams.to_dict(), cli_args=False)
 
     checkpoint_a_file_path = os.path.join(run_directory.get_run_directory(), checkpoint_a_folder, final_checkpoint)
 
@@ -251,9 +240,9 @@ def test_load_weights(
     pytest.param(GPUDeviceHparams(), True, 1, id="deepspeed-zero1", marks=pytest.mark.deepspeed),
     pytest.param(GPUDeviceHparams(), True, 2, id="deepspeed-zero2", marks=pytest.mark.deepspeed),
 ])
-@pytest.mark.parametrize("seed,checkpoint_filename",
-                         [[None, "ep1.tar"], [42, "ep1.tar"], [42, "it4.tar"], [42, "it6.tar"]])
-@pytest.mark.parametrize("compression", ["", "gzip"])
+@pytest.mark.parametrize(
+    "seed,checkpoint_filename,compression",
+    [[None, "ep1.tar", ""], [42, "ep1.tar", ""], [42, "ep1.tar.gz", "gzip"], [42, "it4.tar", ""], [42, "it6.tar", ""]])
 @pytest.mark.parametrize("model_name", [None, "resnet50_synthetic", "gpt2_52m"])
 def test_checkpoint(
     device_hparams: DeviceHparams,
@@ -325,15 +314,14 @@ def test_checkpoint(
 
     composer_trainer_hparams.validate_every_n_batches = 0 if checkpoint_filename.startswith("it") else 1
     composer_trainer_hparams.validate_every_n_epochs = 0 if checkpoint_filename.startswith("ep") else 1
-    final_checkpoint = ("ep2" if checkpoint_filename.startswith("ep") else "it8") + ".tar"
+    final_checkpoint = ("ep2" if checkpoint_filename.startswith("ep") else "it8") + ".tar" + (".gz"
+                                                                                              if compression else "")
     _test_checkpoint_trainer(composer_trainer_hparams)
     checkpoint_a_file_path = os.path.join(checkpoint_a_folder, checkpoint_filename)
     checkpoint_b_file_path = os.path.join(run_directory.get_node_run_directory(), "rank_{RANK}", checkpoint_a_folder,
                                           final_checkpoint)
-    trainer_1_hparams_filepath = os.path.join(run_directory.get_node_run_directory(), "rank_0", checkpoint_a_folder,
-                                              "hparams.yaml")
 
-    second_trainer_hparams = TrainerHparams.create(trainer_1_hparams_filepath, cli_args=False)
+    second_trainer_hparams = TrainerHparams.create(data=composer_trainer_hparams.to_dict(), cli_args=False)
     checkpoint_b_folder = "second"
 
     second_trainer_hparams.save_folder = checkpoint_b_folder
@@ -347,13 +335,11 @@ def test_checkpoint(
 
     checkpoint_c_file_path = os.path.join(run_directory.get_node_run_directory(), "rank_{RANK}", checkpoint_b_folder,
                                           final_checkpoint)
-    trainer_2_hparams_filepath = os.path.join(run_directory.get_node_run_directory(), "rank_0", checkpoint_b_folder,
-                                              "hparams.yaml")
 
     assert_checkpoints_equivalent(
-        hparams_file_a=trainer_1_hparams_filepath,
+        hparams_a=composer_trainer_hparams,
         checkpoint_file_a=checkpoint_b_file_path,
-        hparams_file_b=trainer_2_hparams_filepath,
+        hparams_b=second_trainer_hparams,
         checkpoint_file_b=checkpoint_c_file_path,
     )
 
@@ -387,8 +373,6 @@ def validate_events_called_expected_number_of_times(trainer: Trainer):
 
     event_to_num_expected_invocations = {
         Event.INIT: 1,
-        # training start is being ignored, as it should be called once per startup
-        Event.TRAINING_START: 0,
         Event.EPOCH_START: num_epochs,
         Event.BATCH_START: num_total_steps,
         Event.AFTER_DATALOADER: num_total_steps,
@@ -408,7 +392,6 @@ def validate_events_called_expected_number_of_times(trainer: Trainer):
         Event.EVAL_AFTER_FORWARD: num_eval_steps,
         Event.EVAL_BATCH_END: num_eval_steps,
         Event.EVAL_END: num_evals,
-        Event.TRAINING_END: 1,
     }
 
     for callback in trainer.state.callbacks:
@@ -421,6 +404,7 @@ def validate_events_called_expected_number_of_times(trainer: Trainer):
 
 
 def test_checkpoint_load_uri(tmpdir: pathlib.Path):
+    pytest.xfail("example.com sometimes returns a 404. Need to mock out the actual download")
     loader = CheckpointLoader("https://example.com")
     loader._retrieve_checkpoint(destination_filepath=str(tmpdir / "example"), rank=0, ignore_not_found_errors=False)
     with open(str(tmpdir / "example"), "r") as f:

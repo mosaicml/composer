@@ -6,12 +6,15 @@ import json
 import os
 import queue
 import time
-from typing import IO, Dict, List, Optional, Tuple, Union
+from typing import IO, TYPE_CHECKING, Dict, List, Optional, Tuple, Union
 
-from composer.core.profiler import ProfilerEventHandler
-from composer.core.state import State
-from composer.core.types import Logger
+from composer.profiler import ProfilerEventHandler
 from composer.utils import dist, run_directory
+
+if TYPE_CHECKING:
+    from composer.core.state import State
+    from composer.core.time import Timestamp
+    from composer.core.types import Logger
 
 
 class JSONTraceHandler(ProfilerEventHandler):
@@ -111,10 +114,6 @@ class JSONTraceHandler(ProfilerEventHandler):
         if int(state.timer.batch_in_epoch) % self.flush_every_n_batches == 0:
             self._flush()
 
-    def training_end(self, state: State, logger: Logger) -> None:
-        del state, logger  # unused
-        self._flush()
-
     def epoch_end(self, state: State, logger: Logger) -> None:
         del state, logger  # unused
         self._flush()
@@ -145,63 +144,57 @@ class JSONTraceHandler(ProfilerEventHandler):
         name: str,
         categories: Union[List[str], Tuple[str, ...]],
         is_start: bool,
-        epoch: Optional[int],
-        step: Optional[int],
+        timestamp: Timestamp,
         wall_clock_time_ns: int,
-        process_id: int,
-        thread_id: int,
+        global_rank: int,
+        pid: int,
     ) -> None:
         ph = "B" if is_start else "E"
         args = {}
-        if epoch is not None:
-            args["epoch"] = epoch
-        if step is not None:
-            args["step"] = step
+        args["epoch"] = timestamp.epoch.value
+        args["batch"] = timestamp.batch.value
         self._record_event(
             name=name,
             categories=",".join(categories),
             ph=ph,
             wall_clock_ns=wall_clock_time_ns,
-            pid=process_id,
+            pid=global_rank,
             args=args,
-            tid=thread_id,
+            tid=pid,
         )
 
     def process_instant_event(
         self,
         name: str,
         categories: Union[List[str], Tuple[str, ...]],
-        epoch: Optional[int],
-        step: Optional[int],
+        timestamp: Timestamp,
         wall_clock_time_ns: int,
-        process_id: int,
-        thread_id: int,
+        global_rank: int,
+        pid: int,
     ) -> None:
         args = {}
-        if epoch is not None:
-            args["epoch"] = epoch
-        if step is not None:
-            args["step"] = step
+        args["epoch"] = timestamp.epoch.value
+        args["batch"] = timestamp.batch.value
         self._record_event(
             name=name,
             categories=",".join(categories),
             ph="i",
             wall_clock_ns=wall_clock_time_ns,
             args=args,
-            pid=process_id,
-            tid=thread_id,
+            pid=global_rank,
+            tid=pid,
             s="p",  # mark instant event for at process level
         )
 
     def process_counter_event(self, name: str, categories: Union[List[str], Tuple[str, ...]], wall_clock_time_ns: int,
-                              process_id: int, thread_id: int, values: Dict[str, Union[int, float]]) -> None:
+                              global_rank: int, pid: int, values: Dict[str, Union[int, float]]) -> None:
         self._record_event(
             name=name,
             categories=",".join(categories),
             ph='C',  # counter event
             wall_clock_ns=wall_clock_time_ns,
-            pid=process_id,
-            tid=thread_id,
+            pid=global_rank,
+            tid=pid,
             args=values)
 
     def _record_event(self, name: str, ph: str, wall_clock_ns: int, pid: int, tid: int, categories: str = "", **kwargs):

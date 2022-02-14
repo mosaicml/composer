@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import logging
+import textwrap
 from dataclasses import dataclass
 from typing import Any, Callable, Iterator, Optional
 
@@ -12,10 +14,22 @@ import yahp as hp
 
 from composer.core.types import Batch, DataLoader, Dataset
 
+log = logging.getLogger(__name__)
+
 
 class WrappedDataLoader(DataLoader):
 
     def __init__(self, dataloader: DataLoader) -> None:
+        if self.is_dataloader_already_wrapped(dataloader):
+            log.debug(
+                textwrap.dedent("""\
+                    The dataloader is already wrapped with %s; it will be wrapped again.
+                    If this is unintended behavior, guard the wrapping of the dataloader i.e. with:
+                    if not %s.is_dataloader_already_wrapped(dataloader): dataloader = %s(dataloader)"""),
+                type(self).__name__,
+                type(self).__name__,
+                type(self).__name__,
+            )
         self.dataset = dataloader.dataset
         self.batch_size = dataloader.batch_size
         self.num_workers = dataloader.num_workers
@@ -40,6 +54,25 @@ class WrappedDataLoader(DataLoader):
                                             "timeout", "sampler", "prefetch_factor", "dataloader"):
             raise RuntimeError(f"Property {name} cannot be set after initialization in a DataLoader")
         return super().__setattr__(name, value)
+
+    @classmethod
+    def is_dataloader_already_wrapped(cls, dataloader: DataLoader):
+        """Returns whether the ``dataloader`` is wrapped with ``cls``. This helper method checks recursively through all
+        wrappings until the underlying dataloader is reached.
+
+        Args:
+            dataloader (DataLoader): The dataloader to check
+
+        Returns:
+            bool: Whether the ``dataloader`` is wrapped recursively with ``cls``.
+        """
+        if isinstance(dataloader, cls):
+            return True
+        if not isinstance(dataloader, WrappedDataLoader):
+            return False
+        if not isinstance(dataloader.dataloader, WrappedDataLoader):
+            return False
+        return cls.is_dataloader_already_wrapped(dataloader.dataloader)
 
 
 def unwrap_data_loader(dataloader: DataLoader) -> DataLoader:
@@ -69,14 +102,14 @@ class DataloaderHparams(hp.Hparams):
         timeout (float): Timeout, in seconds, for collecting a batch from workers. Set to 0 for no timeout.
     """
 
-    num_workers: int = hp.required("Number of CPU workers to use per device to fetch data.", template_default=8)
-    prefetch_factor: int = hp.required("Number of samples loaded in advance by each worker", template_default=2)
-    persistent_workers: bool = hp.required("Whether to shutdown workers after the dataset has been consumed once",
-                                           template_default=True)
-    pin_memory: bool = hp.required("Whether to copy Tensors into CUDA pinned memory before returning them",
-                                   template_default=True)
-    timeout: float = hp.required("Timeout, in seconds, for collecting a batch from workers. Set to 0 for no timeout",
-                                 template_default=0)
+    num_workers: int = hp.optional("Number of CPU workers to use per device to fetch data.", default=8)
+    prefetch_factor: int = hp.optional("Number of samples loaded in advance by each worker", default=2)
+    persistent_workers: bool = hp.optional("Whether to shutdown workers after the dataset has been consumed once",
+                                           default=True)
+    pin_memory: bool = hp.optional("Whether to copy Tensors into CUDA pinned memory before returning them",
+                                   default=True)
+    timeout: float = hp.optional("Timeout, in seconds, for collecting a batch from workers. Set to 0 for no timeout",
+                                 default=0)
 
     def initialize_object(
         self,

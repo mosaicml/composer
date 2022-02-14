@@ -50,7 +50,7 @@ reportUnusedCoroutine = "error"
 
 # Pytest
 [tool.pytest.ini_options]
-addopts = "--strict-markers -m 'not daily_regression and not weekly_regression and not gpu and not deepspeed'"
+addopts = "--strict-markers -m 'not notebooks and not daily_regression and not weekly_regression and not gpu and not deepspeed'"
 
 # by default, tests should be fast.
 # for slower tests, use @pytest.mark.timeout with a higher timeout (specified in seconds)
@@ -66,6 +66,7 @@ markers = [
     # Specify -m weekly_regression to run weekly_regression tests.
     "deepspeed",
     # Whether the test needs to initialize the DeepSpeed engine.
+    "notebooks",
 ]
 filterwarnings = [
     # "error",  # warnings should be treated like errors, but still need to fix some warnings
@@ -73,6 +74,10 @@ filterwarnings = [
     'ignore:DistributedDefaultValueWarning',  # default distributed values are fine
     'ignore:NoDistributedWarning',  # running without distributed is fine
     'ignore:Deterministic mode is activated:UserWarning',  # all tests run with deterministic mode
+    'ignore:TimeDeprecationWarning:DeprecationWarning',
+    'ignore:SubsetNumBatchesWarning',  # different subsets OK for testing
+    'ignore:No optimizer:UserWarning',  # testing defaults
+    'ignore:No scheduler:UserWarning',  # testing defaults
 ]
 
 # Coverage

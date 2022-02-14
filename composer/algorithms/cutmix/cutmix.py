@@ -1,15 +1,14 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
+from __future__ import annotations
+
 import logging
-from dataclasses import asdict, dataclass
 from typing import Optional, Tuple
 
 import numpy as np
 import torch
-import yahp as hp
 from torch.nn import functional as F
 
-from composer.algorithms import AlgorithmHparams
 from composer.core.types import Algorithm, Event, Logger, State, Tensor
 from composer.models.loss import check_for_index_targets
 
@@ -50,11 +49,11 @@ def gen_cutmix_lambda(alpha: float) -> float:
     return cutmix_lambda
 
 
-def rand_bbox(W: int,
-              H: int,
-              cutmix_lambda: float,
-              cx: Optional[int] = None,
-              cy: Optional[int] = None) -> Tuple[int, int, int, int]:
+def _rand_bbox(W: int,
+               H: int,
+               cutmix_lambda: float,
+               cx: Optional[int] = None,
+               cy: Optional[int] = None) -> Tuple[int, int, int, int]:
     """Randomly samples a bounding box with area determined by cutmix_lambda.
 
     Adapted from original implementation https://github.com/clovaai/CutMix-PyTorch
@@ -108,13 +107,13 @@ def adjust_lambda(cutmix_lambda: float, x: Tensor, bbox: Tuple) -> float:
     return adjusted_lambda
 
 
-def cutmix(x: Tensor,
-           y: Tensor,
-           alpha: float,
-           n_classes: int,
-           cutmix_lambda: Optional[float] = None,
-           bbox: Optional[Tuple] = None,
-           indices: Optional[torch.Tensor] = None) -> Tuple[torch.Tensor, torch.Tensor]:
+def cutmix_batch(x: Tensor,
+                 y: Tensor,
+                 n_classes: int,
+                 alpha: float = 1.,
+                 cutmix_lambda: Optional[float] = None,
+                 bbox: Optional[Tuple] = None,
+                 indices: Optional[torch.Tensor] = None) -> Tuple[torch.Tensor, torch.Tensor]:
     """Create new samples using combinations of pairs of samples.
 
     This is done by masking a region of x, and filling the masked region with a
@@ -133,8 +132,8 @@ def cutmix(x: Tensor,
             are feature dimensions.
         y: target tensor of shape (B, f1, f2, ..., fm), B is batch size, f1-fn
             are possible target dimensions.
-        alpha: parameter for the beta distribution of the cutmix region size.
         n_classes: total number of classes.
+        alpha: parameter for the beta distribution of the cutmix region size.
         cutmix_lambda: optional, fixed size of cutmix region.
         bbox: optional, predetermined (rx1, ry1, rx2, ry2) coords of the bounding box.
         indices: Permutation of the batch indices `1..B`. Used
@@ -148,7 +147,7 @@ def cutmix(x: Tensor,
         from composer import functional as CF
 
         for X, y in dataloader:
-            X, y, _, _ ,_ = CF.cutmix(X, y, alpha, nclasses)
+            X, y, _, _ ,_ = CF.cutmix(X, y, nclasses=10)
 
             pred = model(X)
             loss = loss_fun(pred, y)  # loss_fun must accept dense labels (ie NOT indices)
@@ -168,7 +167,7 @@ def cutmix(x: Tensor,
     if bbox:
         rx, ry, rw, rh = bbox[0], bbox[1], bbox[2], bbox[3]
     else:
-        rx, ry, rw, rh = rand_bbox(x.shape[2], x.shape[3], cutmix_lambda)
+        rx, ry, rw, rh = _rand_bbox(x.shape[2], x.shape[3], cutmix_lambda)
         bbox = (rx, ry, rw, rh)
 
     # Fill in the box with a part of a random image.
@@ -192,18 +191,6 @@ def cutmix(x: Tensor,
     return x_cutmix, y_cutmix
 
 
-@dataclass
-class CutMixHparams(AlgorithmHparams):
-    """See :class:`CutMix`"""
-
-    alpha: float = hp.required('Strength of interpolation, should be >= 0. No interpolation if alpha=0.',
-                               template_default=1.0)
-    num_classes: int = hp.required('Number of classes in the task labels.')
-
-    def initialize_object(self) -> "CutMix":
-        return CutMix(**asdict(self))
-
-
 class CutMix(Algorithm):
     """`CutMix <https://arxiv.org/abs/1905.04899>`_ trains the network on non-overlapping combinations of pairs of
     examples and iterpolated targets rather than individual examples and targets.
@@ -215,17 +202,17 @@ class CutMix(Algorithm):
     Training in this fashion reduces generalization error.
 
     Args:
+        num_classes (int): the number of classes in the task labels.
         alpha (float): the psuedocount for the Beta distribution used to sample
             area parameters. As ``alpha`` grows, the two samples
             in each pair tend to be weighted more equally. As ``alpha``
             approaches 0 from above, the combination approaches only using
             one element of the pair.
-        num_classes (int): the number of classes in the task labels.
     """
 
-    def __init__(self, alpha: float, num_classes: int):
-        self.alpha = alpha
+    def __init__(self, num_classes: int, alpha: float = 1.):
         self.num_classes = num_classes
+        self.alpha = alpha
         self._indices = torch.Tensor()
         self._cutmix_lambda = 0.0
         self._bbox = tuple()
@@ -281,14 +268,14 @@ class CutMix(Algorithm):
 
         self.indices = gen_indices(input)
         self.cutmix_lambda = gen_cutmix_lambda(alpha)
-        self.bbox = rand_bbox(input.shape[2], input.shape[3], self.cutmix_lambda)
+        self.bbox = _rand_bbox(input.shape[2], input.shape[3], self.cutmix_lambda)
         self.cutmix_lambda = adjust_lambda(self.cutmix_lambda, input, self.bbox)
 
-        new_input, new_target = cutmix(
+        new_input, new_target = cutmix_batch(
             x=input,
             y=target,
-            alpha=alpha,
             n_classes=self.num_classes,
+            alpha=alpha,
             cutmix_lambda=self.cutmix_lambda,
             bbox=self.bbox,
             indices=self.indices,

@@ -3,10 +3,12 @@
 import logging
 from dataclasses import dataclass
 from multiprocessing import cpu_count
+from typing import cast
 
 import yahp as hp
 
 from composer.core import DataSpec
+from composer.core.types import Dataset
 from composer.datasets.dataloader import DataloaderHparams
 from composer.datasets.hparams import DatasetHparams
 from composer.datasets.lm_datasets import _split_dict_fn
@@ -106,7 +108,7 @@ class GLUEHparams(DatasetHparams):
         )
 
         data_collator = transformers.data.data_collator.default_data_collator
-        sampler = dist.get_sampler(dataset, drop_last=self.drop_last, shuffle=self.shuffle)
+        sampler = dist.get_sampler(cast(Dataset, dataset), drop_last=self.drop_last, shuffle=self.shuffle)
 
         return DataSpec(
             dataloader=dataloader_hparams.initialize_object(
