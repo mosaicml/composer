@@ -1,6 +1,6 @@
 import glob
 import os
-import traceback
+import textwrap
 
 import pytest
 from testbook import testbook
@@ -59,24 +59,22 @@ def test_notebook(tb):
             # patch the trainer to only train for 5 batches
             tb.inject("""
                 from composer.core import Time
-                trainer.state.max_duration = Time.from_timestring('1ep')
-                trainer.state.train_subset_num_batches = 5
+                trainer.state.max_duration = Time.from_timestring('2ep')
+                trainer.state.train_subset_num_batches = 2
             """)
             trainer = tb.ref("trainer")
-            assert trainer.state.train_subset_num_batches == 5
+            assert trainer.state.train_subset_num_batches == 2
         except Exception as e:
-            traceback.print_exc()
-            print("""
+            raise Exception(
+                textwrap.dedent("""
                 Test failed to patch the trainer's max_duration and
                 train_subset_num_batches before notebook cell {}.
-                The 'trainer' variable must be defined with your trainer
-                and the 'trainer_fit' metadata tag must be attached
-                to the cell that is calling trainer.fit().
+                The 'trainer' variable and the 'trainer_fit' metadata
+                tag must be attached to the cell calling trainer.fit().
 
                 For testing purposes, the definition of the trainer
                 variable must have occured before the trainer.fit cell
                 so the test can patch these variables for a shorter
                 runtime.
-            """.format(stop))
-            raise (e)
+            """.format(stop))) from e
         start = stop

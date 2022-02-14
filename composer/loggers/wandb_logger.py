@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import datetime
 import os
 import sys
 import textwrap
@@ -51,7 +52,7 @@ class WandBLogger(LoggerCallback):
 
         self._log_artifacts = log_artifacts
         self._log_artifacts_every_n_batches = log_artifacts_every_n_batches
-        self._last_upload_timestamp = 0.0
+        self._last_upload_timestamp = datetime.datetime.fromtimestamp(0)
         if init_params is None:
             init_params = {}
         self._init_params = init_params
