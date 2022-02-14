@@ -244,9 +244,9 @@ def test_load_weights(
     pytest.param(GPUDeviceHparams(), True, 1, id="deepspeed-zero1", marks=pytest.mark.deepspeed),
     pytest.param(GPUDeviceHparams(), True, 2, id="deepspeed-zero2", marks=pytest.mark.deepspeed),
 ])
-@pytest.mark.parametrize("seed,checkpoint_filename,compression",
-                         [[None, "ep1.pt", None], [42, "ep1.pt", None], [42, "ep1.tar.gz", "gzip"],
-                          [42, "it4.pt", None], [42, "it6.pt", None]])
+@pytest.mark.parametrize(
+    "seed,checkpoint_filename,compression",
+    [[None, "ep1", None], [42, "ep1", None], [42, "ep1", "gzip"], [42, "it4", None], [42, "it6", None]])
 @pytest.mark.parametrize("model_name", [None, "resnet50_synthetic", "gpt2_52m"])
 def test_checkpoint(
     device_hparams: DeviceHparams,
@@ -284,6 +284,15 @@ def test_checkpoint(
     if not isinstance(composer_trainer_hparams.val_dataset, SyntheticHparamsMixin):
         pytest.skip("Checkpointing tests require synthetic data")
         return
+
+    checkpoint_extension = ".pt"
+    if deepspeed_enabled:
+        # deepspeed checkpoints use .tar because they store multiple files
+        checkpoint_extension = ".tar"
+    if compression == "gzip":
+        checkpoint_extension = ".tar.gz"
+    checkpoint_filename += checkpoint_extension
+
     composer_trainer_hparams.train_dataset.use_synthetic = True
     composer_trainer_hparams.train_dataset.shuffle = False
     composer_trainer_hparams.val_dataset.use_synthetic = True
@@ -322,8 +331,7 @@ def test_checkpoint(
 
     composer_trainer_hparams.validate_every_n_batches = 0 if checkpoint_filename.startswith("it") else 1
     composer_trainer_hparams.validate_every_n_epochs = 0 if checkpoint_filename.startswith("ep") else 1
-    final_checkpoint = ("ep2" if checkpoint_filename.startswith("ep") else "it8") + (".tar.gz"
-                                                                                     if compression else ".pt")
+    final_checkpoint = ("ep2" if checkpoint_filename.startswith("ep") else "it8") + checkpoint_extension
     first_trainer = _test_checkpoint_trainer(composer_trainer_hparams)
     expected_num_checkpoints = num_epochs / save_interval_epochs if checkpoint_filename.startswith(
         "ep") else (composer_trainer_hparams.train_subset_num_batches + 1) / save_interval_batches * num_epochs
