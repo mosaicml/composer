@@ -32,6 +32,9 @@ class ComposerSchedulerFn(Protocol):
         raise NotImplementedError
 
 
+ComposerScheduler = Union[Scheduler, ComposerSchedulerFn]
+
+
 def _convert_time(time: Union[str, Time], state: State, ssr: float = 1.0) -> Time[int]:
     if isinstance(time, str):
         time = Time.from_timestring(time)
@@ -47,7 +50,7 @@ def _convert_time(time: Union[str, Time], state: State, ssr: float = 1.0) -> Tim
     return time
 
 
-def compile_scheduler(scheduler: Union[Scheduler, ComposerSchedulerFn], state: State) -> Scheduler:
+def compile_scheduler(scheduler: ComposerScheduler, state: State) -> Scheduler:
 
     if isinstance(scheduler, Scheduler):
         return scheduler
@@ -240,7 +243,7 @@ class SchedulerHparams(hp.Hparams, ABC):
 
     scheduler_function = None
 
-    def initialize_object(self) -> ComposerSchedulerFn:
+    def initialize_object(self) -> ComposerScheduler:
         if self.scheduler_function is None:
             raise NotImplementedError(f"Cannot initialize {self} because `scheduler_function` is undefined.")
 

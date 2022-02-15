@@ -402,30 +402,6 @@ class TrainerHparams(hp.Hparams):
                     each evaluation epoch may load a different subset of samples."""))
 
         optimizers = self.optimizer.initialize_object(model.parameters())
-
-        train_dataloader = train_data
-
-        samples_per_epoch = None
-        tokens_per_epoch = None
-
-        if isinstance(train_dataloader, DataSpec):
-            if train_dataloader.num_samples is not None:
-                samples_per_epoch = train_dataloader.num_samples
-                tokens_per_epoch = train_dataloader.num_tokens
-            train_dataloader = train_dataloader.dataloader
-
-        try:
-            steps_per_epoch = len(train_dataloader)
-        except (AttributeError, NotImplementedError):
-            steps_per_epoch = None
-
-        batch_size = None
-        if train_dataloader.batch_size is not None:
-            batch_size = train_dataloader.batch_size * dist.get_world_size()
-
-        if samples_per_epoch is None and steps_per_epoch is not None and batch_size is not None:
-            samples_per_epoch = steps_per_epoch * batch_size
-
         schedulers = [scheduler.initialize_object() for scheduler in self.schedulers]
 
         trainer = Trainer(

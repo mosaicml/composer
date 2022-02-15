@@ -1,7 +1,5 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
-from collections import Counter
-
 import numpy as np
 import pytest
 import torch

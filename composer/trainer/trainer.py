@@ -24,13 +24,12 @@ from composer.core.algorithm import Algorithm
 from composer.core.evaluator import Evaluator
 from composer.core.logging import LoggerCallback, LogLevel
 from composer.core.time import TimeUnit
-from composer.core.types import (Batch, BreakEpochException, DataLoader, Evaluators, Many, Metrics, Optimizers,
-                                 Precision, Scheduler)
+from composer.core.types import Batch, BreakEpochException, DataLoader, Evaluators, Many, Metrics, Optimizers, Precision
 from composer.datasets.dataloader import unwrap_data_loader
 from composer.loggers.tqdm_logger import TQDMLogger
 from composer.models.base import ComposerModel
 from composer.optim.decoupled_weight_decay import DecoupledSGDW
-from composer.optim.scheduler import ComposerSchedulerFn, compile_scheduler, cosine_annealing_scheduler
+from composer.optim.scheduler import ComposerScheduler, compile_scheduler, cosine_annealing_scheduler
 from composer.profiler import Profiler, ProfilerEventHandler
 from composer.profiler.dataloader_profiler import DataloaderProfiler
 from composer.profiler.system_profiler import SystemProfiler
@@ -185,7 +184,7 @@ class Trainer:
         eval_dataloader: Optional[Union[DataLoader, DataSpec, Evaluators]] = None,
         algorithms: Optional[List[Algorithm]] = None,
         optimizers: Optional[Optimizers] = None,
-        schedulers: Optional[Many[Union[Scheduler, ComposerSchedulerFn]]] = None,
+        schedulers: Optional[Many[ComposerScheduler]] = None,
 
         # device
         device: Optional[Union[str, Device]] = None,

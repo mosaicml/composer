@@ -1,7 +1,7 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
 import functools
-from typing import List
+from typing import List, cast
 
 import pytest
 
@@ -36,12 +36,12 @@ def dummy_schedulers_state(dummy_model: Model, dummy_train_dataloader: DataLoade
                  [1.0, 0.5, 0.125]),
     pytest.param(functools.partial(step_scheduler, step_size='10ba', gamma=0.5), 0.5, ['3ba', '8ba', '18ba'],
                  [1.0, 0.5, 0.125]),
-    pytest.param(functools.partial(multi_step_scheduler, milestones=['10ba', '30ba', '70ba']), 1.0,
+    pytest.param(functools.partial(multi_step_scheduler, milestones=cast(List, ['10ba', '30ba', '70ba'])), 1.0,
                  ['5ba', '20ba', '50ba', '100ba'], [1.0, 0.1, 0.01, 0.001]),
-    pytest.param(functools.partial(multi_step_scheduler, milestones=['100ba', '1ep', '0.01dur'], gamma=0.5), 1.0,
-                 ['50ba', '500ba', '5000ba', '50000ba'], [1.0, 0.5, 0.25, 0.125]),
-    pytest.param(functools.partial(multi_step_scheduler, milestones=['100ba', '1ep', '0.01dur'], gamma=0.5), 4.0,
-                 ['200ba', '2000ba', '20000ba', '200000ba'], [1.0, 0.5, 0.25, 0.125]),
+    pytest.param(functools.partial(multi_step_scheduler, milestones=cast(List, ['100ba', '1ep', '0.01dur']), gamma=0.5),
+                 1.0, ['50ba', '500ba', '5000ba', '50000ba'], [1.0, 0.5, 0.25, 0.125]),
+    pytest.param(functools.partial(multi_step_scheduler, milestones=cast(List, ['100ba', '1ep', '0.01dur']), gamma=0.5),
+                 4.0, ['200ba', '2000ba', '20000ba', '200000ba'], [1.0, 0.5, 0.25, 0.125]),
     pytest.param(functools.partial(constant_scheduler), 1.0, ['100ba', '1000ba', '10000ba', '100000ba'],
                  [1.0, 1.0, 1.0, 1.0]),
     pytest.param(functools.partial(constant_scheduler, factor=0.5, total_time='5000ba'), 1.0,
@@ -76,10 +76,12 @@ def dummy_schedulers_state(dummy_model: Model, dummy_train_dataloader: DataLoade
                  ['0ba', '10ba', '20ba', '50ba'], [1.0, 0.905, 0.82, 0.625]),
     pytest.param(functools.partial(polynomial_scheduler, power=2.0, t_max='100ba', min_factor=0.5), 0.5,
                  ['0ba', '10ba', '20ba', '50ba'], [1.0, 0.82, 0.68, 0.5]),
-    pytest.param(functools.partial(multi_step_with_warmup_scheduler, warmup_time='10ba', milestones=['20ba', '40ba']),
-                 1.0, ['0ba', '5ba', '15ba', '25ba', '45ba'], [0.0, 0.5, 1.0, 0.1, 0.01]),
     pytest.param(
-        functools.partial(multi_step_with_warmup_scheduler, warmup_time='10ba', milestones=['2ep', '4ep'], gamma=0.5),
+        functools.partial(multi_step_with_warmup_scheduler, warmup_time='10ba', milestones=cast(
+            List, ['20ba', '40ba'])), 1.0, ['0ba', '5ba', '15ba', '25ba', '45ba'], [0.0, 0.5, 1.0, 0.1, 0.01]),
+    pytest.param(
+        functools.partial(
+            multi_step_with_warmup_scheduler, warmup_time='10ba', milestones=cast(List, ['2ep', '4ep']), gamma=0.5),
         0.5, ['0ba', '5ba', '15ba', '1500ba', '2500ba'], [0.0, 0.5, 1.0, 0.5, 0.25]),
     pytest.param(functools.partial(linear_with_warmup_scheduler, warmup_time='500ep'), 1.0,
                  ['0ba', '250000ba', '500000ba', '750000ba', '1000000ba'], [0.0, 0.5, 1.0, 0.5, 0.0]),
