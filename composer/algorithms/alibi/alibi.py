@@ -44,7 +44,7 @@ def apply_alibi(model: torch.nn.Module,
         attention_module (torch.nn.Module): Module/class that will have its
             self-attention function replaced. For example, in
             HuggingFace's GPT, the self-attention module is
-            :class:`~transformers.models.gpt2.modeling_gpt2.GPT2Attention`.
+            :class:`transformers.models.gpt2.modeling_gpt2.GPT2Attention`.
         attr_to_replace (str): See :class:`~composer.algorithms.alibi.alibi.Alibi`.
         alibi_attention (Callable): Path to new self-attention function in which
             ALiBi is implemented. Used to replace
@@ -52,7 +52,7 @@ def apply_alibi(model: torch.nn.Module,
             :func:`~composer.algorithms.alibi._gpt2_alibi._attn`.
         mask_replacement_function ([Callable[[torch.nn.Module, int], torch.nn.Module]],
             optional): Function to replace model's attention mask. This can be
-                necessary for evaluating on sequence lengths longer than the model was
+            necessary for evaluating on sequence lengths longer than the model was
             initialized to accommodate. Takes positional arguments ``module`` and
             ``max_sequence_length``. For example,
             :func:`~composer.algorithms.alibi._gpt2_alibi.enlarge_mask`. Default = ``None``,
