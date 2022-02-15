@@ -25,4 +25,5 @@
 
 .. automodule:: {{ fullname }}
    :members:
+   :show-inheritance:
    :ignore-module-all:

@@ -165,15 +165,9 @@ nitpick_ignore = [
 ]
 
 python_use_unqualified_type_names = True
-autodoc_inherit_docstrings = True
 autodoc_typehints = "none"
 
-# monkeypatch hparams docs so we don't get hparams_registry docstrings everywhere
-hp.Hparams.__doc__ = ""
-hp.Hparams.initialize_object.__doc__ = ""
-
-
-def maybe_skip_member(
+def skip_redundant_namedtuple_attributes(
     app: sphinx.application.Sphinx,
     what: str,
     name: str,
@@ -186,7 +180,6 @@ def maybe_skip_member(
     if '_tuplegetter' in obj.__class__.__name__:
         return True
     return None
-
 
 with open(os.path.join(os.path.dirname(__file__), "doctest_fixtures.py"), "r") as f:
     doctest_global_setup = f.read()
@@ -345,5 +338,6 @@ def add_module_summary_tables(
 
 
 def setup(app: sphinx.application.Sphinx):
-    app.connect('autodoc-skip-member', maybe_skip_member)
+    app.connect('autodoc-skip-member', skip_redundant_namedtuple_attributes)
+    app.connect('autodoc-skip-member', skip_redundant_namedtuple_attributes)
     app.connect('autodoc-process-docstring', add_module_summary_tables)
