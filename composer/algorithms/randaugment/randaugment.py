@@ -24,8 +24,8 @@ def randaugment_image(img: Optional[ImageType] = None,
                       augmentation_set: List = augmentation_sets["all"]) -> ImageType:
     """Randomly applies a sequence of image data augmentations (`Cubuk et al. 2019
     <https://openaccess.thecvf.com/content_CVPRW_2020/papers/w40/Cubuk_Randaugment_Practical_Automated_Data_Augmentation_With_a_Reduced_Search_Space_CVPRW_2020_paper.pdf>`_)
-    to an image. See :class:`~composer.algorithms.randaugment.randaugment.RandAugment` for
-    details.
+    to an image. See :class:`~composer.algorithms.randaugment.randaugment.RandAugment` or
+    the :doc:`Method Card </method_cards/rand_augment>` for details.
 
     Example:
         .. testcode::
@@ -50,7 +50,9 @@ def randaugment_image(img: Optional[ImageType] = None,
 
 class RandAugmentTransform(torch.nn.Module):
     """Wraps :func:`~composer.algorithms.randaugment.randaugment.randaugment_image` in a
-    ``torchvision``-compatible transform. 
+    ``torchvision``-compatible transform. See
+    :class:`~composer.algorithms.randaugment.randaugment.RandAugment` or the :doc:`Method
+    Card </method_cards/rand_augment>` for more details.
 
     Example:
         .. testcode::
@@ -92,7 +94,9 @@ class RandAugment(Algorithm):
 
     This algorithm runs on on :attr:`~composer.core.event.Event.INIT` to insert a dataset
     transformation. It is a no-op if this algorithm already applied itself on the
-    :attr:`State.train_dataloader.dataset`. 
+    :attr:`State.train_dataloader.dataset`.
+
+    See the :doc:`Method Card </method_cards/rand_augment>` for more details.
 
     Example:
         .. testcode::

@@ -27,8 +27,8 @@ def augmix_image(img: Optional[ImageType] = None,
                  alpha: float = 1.0,
                  augmentation_set: List = augmentation_sets["all"]) -> ImageType:
     """Applies AugMix (`Hendrycks et al., 2020 <http://arxiv.org/abs/1912.02781>`_) data
-    augmentation to an image. See :class:`~composer.algorithms.augmix.augmix.AugMix` for
-    details.
+    augmentation to an image. See :class:`~composer.algorithms.augmix.augmix.AugMix` and
+    the :doc:`Method Card </method_cards/aug_mix>` for details.
 
     Example:
         .. testcode::
@@ -71,7 +71,8 @@ def augmix_image(img: Optional[ImageType] = None,
 class AugmentAndMixTransform(torch.nn.Module):
     """Wrapper module for :func:`~composer.algorithms.augmix.augmix.augmix_image` that can
     be passed to :class:`torchvision.transforms.Compose`. See
-    :class:`~composer.algorithms.augmix.augmix.AugMix` for details.
+    :class:`~composer.algorithms.augmix.augmix.AugMix` and the :doc:`Method Card
+    </method_cards/aug_mix>` for details.
     
     Example:
         .. testcode::
@@ -129,6 +130,8 @@ class AugMix(Algorithm):
 
     This algorithm runs on on :attr:`~composer.core.event.Event.FIT_START` to insert a dataset transformation. It is a no-op if this algorithm already
     applied itself on the :attr:`State.train_dataloader.dataset`.
+
+    See the :doc:`Method Card </method_cards/aug_mix>` for more details.
 
     Example:
         .. testcode::

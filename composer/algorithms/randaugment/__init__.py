@@ -6,9 +6,9 @@ randomly applies a sequence of image data augmentations to a single image. See t
 :doc:`Method Card </method_cards/rand_augment>` for more details.
 """
 
-from composer.algorithms.randaugment.randaugment import RandAugment as RandAugment
-from composer.algorithms.randaugment.randaugment import RandAugmentTransform as RandAugmentTransform
-from composer.algorithms.randaugment.randaugment import randaugment_image as randaugment_image
+from composer.algorithms.randaugment.randaugment import RandAugment
+from composer.algorithms.randaugment.randaugment import RandAugmentTransform
+from composer.algorithms.randaugment.randaugment import randaugment_image
 
 __all__ = ['RandAugment', 'RandAugmentTransform', 'randaugment_image']
 

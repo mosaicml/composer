@@ -37,6 +37,8 @@ class SWA(Algorithm):
     This algorithm runs on :attr:`~composer.core.event.Event.EPOCH_END` if training
     duration >= `swa_start`.
 
+    See the :doc:`Method Card </method_cards/swa>` for more details.
+
     Example:
         .. testcode::
 

@@ -32,7 +32,8 @@ def apply_alibi(model: torch.nn.Module,
     optimizers: Optional[Optimizers] = None,
 ) -> None:
     """Removes position embeddings and replaces the attention function and attention mask
-    according as per :class:`~composer.algorithms.alibi.alibi.Alibi`.
+    according as per :class:`~composer.algorithms.alibi.alibi.Alibi`. See the
+    :doc:`Method Card </method_cards/alibi>` for more details.
 
     Example: Waiting on language model test fixtures
 
@@ -101,6 +102,8 @@ class Alibi(Algorithm):
     before the model has been moved to accelerators. It also runs on
     :attr:`~composer.core.event.Event.AFTER_DATALOADER` to modify the shape of a batch of
     data, after the model and data have been moved to accelerators.
+
+    See the :doc:`Method Card </method_cards/alibi>` for more details.
 
     Example: Waiting on language model test fixtures
 

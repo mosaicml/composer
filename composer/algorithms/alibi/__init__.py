@@ -8,8 +8,8 @@ query-key attention scores proportionally to each token pair's distance. See the
 """
 
 from composer.algorithms.alibi import _gpt2_alibi as _gpt2_alibi
-from composer.algorithms.alibi.alibi import Alibi as Alibi
-from composer.algorithms.alibi.alibi import apply_alibi as apply_alibi
+from composer.algorithms.alibi.alibi import Alibi
+from composer.algorithms.alibi.alibi import apply_alibi
 
 __all__ = ["Alibi", "apply_alibi"]
 

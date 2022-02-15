@@ -7,9 +7,9 @@ images and the original image. See the :doc:`Method Card </method_cards/aug_mix>
 details.
 """
 
-from composer.algorithms.augmix.augmix import AugmentAndMixTransform as AugmentAndMixTransform
-from composer.algorithms.augmix.augmix import AugMix as AugMix
-from composer.algorithms.augmix.augmix import augmix_image as augmix_image
+from composer.algorithms.augmix.augmix import AugmentAndMixTransform
+from composer.algorithms.augmix.augmix import AugMix
+from composer.algorithms.augmix.augmix import augmix_image
 
-__all__ = ['AugMix', 'augmix_image']
+__all__ = ['AugmentAndMixTransform', 'AugMix', 'augmix_image']
 

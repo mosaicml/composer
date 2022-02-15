@@ -22,8 +22,10 @@ def set_batch_sequence_length(batch: Dict[str, Tensor], curr_seq_len: int, trunc
     or reshaping the tensors to create new examples from the extra tokens
     (``truncate=False``).
 
-    The schedule for ``curr_seq_len`` over training time should be managed
-    out of this function.
+    .. note::
+    
+        The schedule for ``curr_seq_len`` over training time should be managed
+        out of this function.
 
     Example: Awaiting language model test fixtures.
 
@@ -92,6 +94,8 @@ class SeqLengthWarmup(Algorithm):
         we follow `PyTorch notes
         <https://pytorch.org/tutorials/recipes/recipes/tuning_guide.html#pre-allocate-memory-in-case-of-variable-input-length>`_
          and pre-allocate the memory with a blank forward and backward pass.
+
+    See the :doc:`Method Card </method_cards/seq_len_warmup>` for more details.
 
     Example: Awaiting language model test fixtures.
 
