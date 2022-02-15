@@ -5,7 +5,7 @@ import logging
 import math
 from abc import ABC
 from dataclasses import asdict, dataclass
-from typing import List, Protocol, Union
+from typing import TYPE_CHECKING, List, Union
 
 import yahp as hp
 from torch.optim.lr_scheduler import LambdaLR
@@ -14,6 +14,14 @@ from composer.core import State
 from composer.core.time import Time, TimeUnit
 from composer.core.types import Scheduler
 from composer.optim._time_conversion import convert as convert_time
+
+try:
+    from typing import Protocol
+except ImportError:
+    Protocol = object  # Protocol is not available in python 3.7
+
+if TYPE_CHECKING:
+    from typing import Protocol
 
 log = logging.getLogger(__name__)
 
