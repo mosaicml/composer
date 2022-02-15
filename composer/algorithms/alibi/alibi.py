@@ -128,7 +128,7 @@ class Alibi(Algorithm):
             accommodate. Takes positional arguments ``module`` and ``max_sequence_length``.
         train_sequence_length_scaling: Amount by which to scale
             training sequence length. One batch of training data will be
-            reshaped from size :math:`(sequence\\_length, batch)` to
+            reshaped from shape :math:`(sequence\\_length, batch)` to
             :math:`(sequence_length \\times train\\_sequence\\_length\\_scaling,
             \\frac{batch}{train\\_sequence\\_length\\_scaling})`.
     """
