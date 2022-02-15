@@ -192,8 +192,8 @@ stage('Build') {
             'Lint': { ->
                 runWithChecks(
                     name: 'lint',
-                    title: 'Lint',
-                    summary: 'Static Analysis Checks',
+                    title: 'Lint and Doctests',
+                    summary: 'Static Analysis Checks and Doctests',
                 ) {
                     builds << build(
                         job: "${jenkinsJobBasePath}/command",
@@ -207,7 +207,14 @@ stage('Build') {
                             string(name: 'P_MEM_LIMIT', value: "7Gi"),
                             string(name: 'P_COMMAND', value: """#!/usr/bin/env bash
 set -euxo pipefail
-pip install .[all] && make lint""")
+
+pip install .[all]
+make lint
+
+# Running doctests on linting worker, so they are executed only once
+# on an install with all dependencies
+cd docs && make doctest && cd ..
+""")
                         ]
                     )
                 }

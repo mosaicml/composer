@@ -3,24 +3,24 @@ Installation
 
 MosaicML ``Composer`` requires Python 3.7+ and Pytorch 1.9+. It can be installed via ``pip``:
 
-.. code-block::
+.. code-block:: console
 
     pip install mosaicml
 
-Additional dependencies can be installed by specifying ``mosaicml[tag]``. The following tags are available:
+To install all non-core dependencies, which are sometimes required by individual algorithms, datasets, models,
+and datasets, run:
 
-- ``nlp``: installs huggingface ``transformers`` and ``datasets``
-- ``dev``: packages needed for testing, linting, and docs.
-- ``wandb``: enables the weights & biases logger
-- ``unet``: enables the U-Net model and BRATS dataset
-- ``all``: installs all of the above.
+.. code-block:: console
+
+    pip install mosaicml[extra]
 
 For a developer install, clone directly:
 
 .. code-block::
 
     git clone https://github.com/mosaicml/composer.git
-    cd composer && pip install -e .
+    cd composer
+    pip install -e .[all]
 
 
 .. note::

@@ -60,11 +60,12 @@ extra_deps = {}
 extra_deps['base'] = []
 
 extra_deps['dev'] = [
+    # Imports for docs builds and running tests
     "custom_inherit==2.3.2",
     'junitparser>=2.1.1',
     'coverage[toml]>=6.1.1',
     'fasteners>=0.16.3',  # run_directory_uploader tests require fasteners
-    'pytest>=6.2.0',
+    'pytest>=7.0.0',
     'yapf>=0.32.0',
     'isort>=5.9.3',
     'ipython>=7.29.0',
@@ -81,34 +82,27 @@ extra_deps['dev'] = [
     'sphinxcontrib.katex>=0.8.6',
     'sphinxext.opengraph>=0.4.2',
     'sphinxemoji>=0.2.0',
-    'sphinx_rtd_theme>=1.0.0',
     'furo>=2022.1.2',
     'sphinx-copybutton>=0.4.0',
-    'autodocsumm>=0.2.7',
     'testbook>=0.4.2',
     'myst-parser>=0.15.2',
     'pylint>=2.12.2',
     'docformatter>=1.4',
 ]
 
-extra_deps['logging'] = ['wandb>=0.12.2', 'apache-libcloud>=3.4.1']
-
-extra_deps['perf'] = ['torch-tb-profiler>=0.3.1', 'psutil>=5.8.0', 'tensorboard>=2.7.0']
-
-extra_deps['nlp'] = [
+extra_deps['extra'] = [
+    # All conditional imports should go here
+    'deepspeed>=0.5.5',
+    'wandb>=0.12.2',
+    'apache-libcloud>=3.4.1',
+    'torch-tb-profiler>=0.3.1',
+    'psutil>=5.8.0',
+    'tensorboard>=2.7.0',
     'transformers>=4.11.3',
     'datasets>=1.14.0',
-]
-
-extra_deps['vision'] = ['timm>=0.5.4']
-
-extra_deps['unet'] = [
+    'timm>=0.5.4',
     'monai>=0.7.0',
     'scikit-learn>=1.0.1',
-]
-
-extra_deps['deepspeed'] = [
-    'deepspeed>=0.5.5',
 ]
 
 extra_deps['all'] = set(dep for deps in extra_deps.values() for dep in deps)

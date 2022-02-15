@@ -162,7 +162,7 @@ class ObjectStoreProvider:
 
     .. note::
 
-        To use this utility, install composer with `pip install mosaicml[logging]`.
+        To use this utility, install composer with `pip install mosaicml[extra]`.
 
     Args:
         provider (str): Cloud provider to use. Valid options are:
@@ -210,7 +210,7 @@ class ObjectStoreProvider:
             raise ImportError(
                 textwrap.dedent("""\
                     libcloud is not installed.
-                    To install composer with libcloud, please run `pip install mosaicml[logging]`.""")) from e
+                    To install composer with libcloud, please run `pip install mosaicml[extra]`.""")) from e
         provider_cls = get_driver(provider)
         if provider_init_kwargs is None:
             provider_init_kwargs = {}

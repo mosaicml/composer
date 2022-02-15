@@ -58,7 +58,7 @@ class RunDirectoryUploader(Callback):
 
     .. note::
 
-        To use this callback, install composer with `pip install mosaicml[logging]`.
+        To use this callback, install composer with `pip install mosaicml[extra]`.
 
     Args:
         provider (str): Cloud provider to use.

@@ -59,12 +59,7 @@ markers = [
     "world_size(val)",
     # world size this test requires. If not specified, equivalent to @pytest.mark.world_size(1), meaning a 1-process test
     "gpu",
-    # Whether the test requires GPUs.
-    "daily_regression",
-    # Specify -m daily_regression to run daily_regression tests
-    "weekly_regression",
     # Specify -m weekly_regression to run weekly_regression tests.
-    "deepspeed",
     # Whether the test needs to initialize the DeepSpeed engine.
     "notebooks",
 ]
