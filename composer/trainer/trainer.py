@@ -705,11 +705,10 @@ class Trainer:
                                     else:
                                         optimizer.step()
                         except RuntimeError as e:
-                            print(e)
                             if "CUDA out of memory" in str(e):
                                 rerun_train_batch = True
                                 # Raise runtime error if we can't train even one sample at a time
-                                if state.grad_accum == num_samples_in_batch:
+                                if state.grad_accum >= num_samples_in_batch:
                                     raise RuntimeError("CUDA out of memory. Train loop failed with an internal minibatch of size 1")
                                 else:
                                     # TODO: Log that we're increasing grad accum?
