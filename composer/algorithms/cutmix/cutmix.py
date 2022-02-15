@@ -1,5 +1,7 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
+"""Core CutMix classes and functions."""
+
 from __future__ import annotations
 
 import logging
@@ -14,8 +16,10 @@ from composer.models.loss import check_for_index_targets
 
 log = logging.getLogger(__name__)
 
+__all__ = ["CutMix", "cutmix_batch"]
 
-def gen_indices(x: Tensor) -> Tensor:
+
+def _gen_indices(x: Tensor) -> Tensor:
     """Generates indices of a random permutation of elements of a batch.
 
     Args:
@@ -28,7 +32,7 @@ def gen_indices(x: Tensor) -> Tensor:
     return torch.randperm(x.shape[0])
 
 
-def gen_cutmix_lambda(alpha: float) -> float:
+def _gen_cutmix_lambda(alpha: float) -> float:
     """Generates lambda from ``Beta(alpha, alpha)``
 
     Args:
@@ -89,7 +93,7 @@ def _rand_bbox(W: int,
     return bbx1, bby1, bbx2, bby2
 
 
-def adjust_lambda(cutmix_lambda: float, x: Tensor, bbox: Tuple) -> float:
+def _adjust_lambda(cutmix_lambda: float, x: Tensor, bbox: Tuple) -> float:
     """Rescale the cutmix lambda according to the size of the clipped bounding box.
 
     Args:
@@ -107,7 +111,7 @@ def adjust_lambda(cutmix_lambda: float, x: Tensor, bbox: Tuple) -> float:
     return adjusted_lambda
 
 
-def cutmix_batch(x: Tensor,
+def cutmix_batch(X: Tensor,
                  y: Tensor,
                  n_classes: int,
                  alpha: float = 1.,
@@ -126,6 +130,17 @@ def cutmix_batch(x: Tensor,
     Both the original and shuffled labels are returned. This is done because
     for many loss functions (such as cross entropy) the targets are given as
     indices, so interpolation must be handled separately.
+
+    Example:
+         .. testcode::
+
+            from composer.algorithms.cutmix import cutmix_batch
+            new_input_batch = cutmix_batch(
+                X=input_batch,
+                y=target_batch
+                n_classes=1000,
+                alpha=1.0
+            )
 
     Args:
         x: input tensor of shape (B, d1, d2, ..., dn), B is batch size, d1-dn
@@ -155,26 +170,26 @@ def cutmix_batch(x: Tensor,
     # Create shuffled indicies across the batch in preparation for cutting and mixing.
     # Use given indices if there are any.
     if indices is None:
-        shuffled_idx = gen_indices(x)
+        shuffled_idx = _gen_indices(X)
     else:
         shuffled_idx = indices
 
     # Create the new inputs.
-    x_cutmix = torch.clone(x)
+    X_cutmix = torch.clone(X)
     # Sample a rectangular box using lambda. Use variable names from the paper.
     if cutmix_lambda is None:
-        cutmix_lambda = gen_cutmix_lambda(alpha)
+        cutmix_lambda = _gen_cutmix_lambda(alpha)
     if bbox:
         rx, ry, rw, rh = bbox[0], bbox[1], bbox[2], bbox[3]
     else:
-        rx, ry, rw, rh = _rand_bbox(x.shape[2], x.shape[3], cutmix_lambda)
+        rx, ry, rw, rh = _rand_bbox(X.shape[2], X.shape[3], cutmix_lambda)
         bbox = (rx, ry, rw, rh)
 
     # Fill in the box with a part of a random image.
-    x_cutmix[:, :, rx:rw, ry:rh] = x_cutmix[shuffled_idx, :, rx:rw, ry:rh]
+    X_cutmix[:, :, rx:rw, ry:rh] = X_cutmix[shuffled_idx, :, rx:rw, ry:rh]
     # adjust lambda to exactly match pixel ratio. This is an implementation detail taken from
     # the original implementation, and implies lambda is not actually beta distributed.
-    adjusted_lambda = adjust_lambda(cutmix_lambda, x, bbox)
+    adjusted_lambda = _adjust_lambda(cutmix_lambda, X, bbox)
 
     # Make a shuffled version of y for interpolation
     y_shuffled = y[shuffled_idx]
@@ -188,7 +203,7 @@ def cutmix_batch(x: Tensor,
     else:
         y_cutmix = adjusted_lambda * y + (1 - adjusted_lambda) * y_shuffled
 
-    return x_cutmix, y_cutmix
+    return X_cutmix, y_cutmix
 
 
 class CutMix(Algorithm):
@@ -199,7 +214,22 @@ class CutMix(Algorithm):
     randomly permuted copy of X. The area is drawn from a ``Beta(alpha, alpha)``
     distribution.
 
-    Training in this fashion reduces generalization error.
+    Training in this fashion sometimes reduces generalization error.
+
+    Example:
+         .. testcode::
+
+            from composer.algorithms import CutMix
+            from composer.trainer import Trainer
+            cutmix_algorithm = CutMix(num_classes=1000, alpha=1.0)
+            trainer = Trainer(
+                model=model,
+                train_dataloader=train_dataloader,
+                eval_dataloader=eval_dataloader,
+                max_duration="1ep",
+                algorithms=[cutmix_algorithm],
+                optimizers=[optimizer]
+            )
 
     Args:
         num_classes (int): the number of classes in the task labels.
@@ -266,13 +296,13 @@ class CutMix(Algorithm):
             "Multiple tensors for inputs or targets not supported yet."
         alpha = self.alpha
 
-        self.indices = gen_indices(input)
-        self.cutmix_lambda = gen_cutmix_lambda(alpha)
+        self.indices = _gen_indices(input)
+        self.cutmix_lambda = _gen_cutmix_lambda(alpha)
         self.bbox = _rand_bbox(input.shape[2], input.shape[3], self.cutmix_lambda)
-        self.cutmix_lambda = adjust_lambda(self.cutmix_lambda, input, self.bbox)
+        self.cutmix_lambda = _adjust_lambda(self.cutmix_lambda, input, self.bbox)
 
         new_input, new_target = cutmix_batch(
-            x=input,
+            X=input,
             y=target,
             n_classes=self.num_classes,
             alpha=alpha,
