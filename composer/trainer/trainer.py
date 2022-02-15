@@ -682,10 +682,10 @@ class Trainer:
                     })
                     # Rerun train_batch with smaller mini-batches if we hit CUDA out of memory
                     rerun_train_batch = True
+                    total_loss = None
                     while rerun_train_batch:
                         try:
                             rerun_train_batch = False
-                            total_loss = None
                             microbatches = self._train_data_spec.split_batch(state.batch, state.grad_accum)
                             if self.deepspeed_enabled:
                                 total_loss = self._train_batch(microbatches)
