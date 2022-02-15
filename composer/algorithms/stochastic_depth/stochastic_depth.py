@@ -29,35 +29,6 @@ _STOCHASTIC_LAYER_MAPPING = {
 }
 
 
-def _validate_stochastic_hparams(target_layer_name: str,
-                                 stochastic_method: str,
-                                 drop_rate: float,
-                                 drop_distribution: str,
-                                 drop_warmup: float = 0.0):
-    """Helper function to validate the Stochastic Depth hyperparameter values."""
-
-    if stochastic_method and (stochastic_method not in _STOCHASTIC_LAYER_MAPPING):
-        raise ValueError(f"stochastic_method {stochastic_method} is not supported."
-                         f" Must be one of {list(_STOCHASTIC_LAYER_MAPPING.keys())}")
-
-    if target_layer_name and (target_layer_name not in _STOCHASTIC_LAYER_MAPPING[stochastic_method]):
-        raise ValueError(f"target_layer_name {target_layer_name} is not supported with {stochastic_method}."
-                         f" Must be one of {list(_STOCHASTIC_LAYER_MAPPING[stochastic_method].keys())}")
-
-    if drop_rate and (drop_rate < 0 or drop_rate > 1):
-        raise ValueError(f"drop_rate must be between 0 and 1: {drop_rate}")
-
-    if drop_distribution and (drop_distribution not in _VALID_LAYER_DISTRIBUTIONS):
-        raise ValueError(f"drop_distribution '{drop_distribution}' is"
-                         f" not supported. Must be one of {list(_VALID_LAYER_DISTRIBUTIONS)}")
-
-    if drop_warmup and (drop_warmup < 0 or drop_warmup > 1):
-        raise ValueError(f"drop_warmup must be between 0 and 1, not {drop_warmup}")
-
-    if stochastic_method == "sample" and drop_warmup > 0:
-        raise ValueError(f"drop_warmup can not be used with 'sample' stochastic_method")
-
-
 def apply_stochastic_depth(model: torch.nn.Module,
                            target_layer_name: str,
                            stochastic_method: str = 'block',
@@ -128,26 +99,6 @@ def apply_stochastic_depth(model: torch.nn.Module,
                          f" Must be one of {list(_STOCHASTIC_LAYER_MAPPING.keys())}")
     transforms[target_layer] = stochastic_from_target_layer
     module_surgery.replace_module_classes(model, optimizers=optimizers, policies=transforms)
-
-
-def _update_drop_rate(module: torch.nn.Module, stochastic_block: Type[torch.nn.Module], drop_rate: float,
-                      drop_distribution: str):
-    """Recursively updates a module's drop_rate attributes with a new value."""
-
-    if (len(list(module.children())) == 0 and len(list(module.parameters())) > 0):
-        return
-    else:
-        for child in module.children():
-            if isinstance(child, stochastic_block):
-                if drop_distribution == 'uniform':
-                    current_drop_rate = drop_rate
-                elif drop_distribution == 'linear':
-                    current_drop_rate = ((child.module_id + 1) / child.module_count) * drop_rate  # type: ignore
-                else:
-                    raise ValueError(f"drop_distribution '{drop_distribution}' is"
-                                     f" not supported. Must be one of {list(_VALID_LAYER_DISTRIBUTIONS)}")
-                child.drop_rate = torch.tensor(current_drop_rate)
-            _update_drop_rate(child, stochastic_block, drop_rate, drop_distribution)
 
 
 class StochasticDepth(Algorithm):
@@ -265,3 +216,52 @@ class StochasticDepth(Algorithm):
             else:
                 current_drop_rate = self.drop_rate
             logger.metric_batch({'stochastic_depth/drop_rate': current_drop_rate})
+
+
+def _validate_stochastic_hparams(target_layer_name: str,
+                                 stochastic_method: str,
+                                 drop_rate: float,
+                                 drop_distribution: str,
+                                 drop_warmup: float = 0.0):
+    """Helper function to validate the Stochastic Depth hyperparameter values."""
+
+    if stochastic_method and (stochastic_method not in _STOCHASTIC_LAYER_MAPPING):
+        raise ValueError(f"stochastic_method {stochastic_method} is not supported."
+                         f" Must be one of {list(_STOCHASTIC_LAYER_MAPPING.keys())}")
+
+    if target_layer_name and (target_layer_name not in _STOCHASTIC_LAYER_MAPPING[stochastic_method]):
+        raise ValueError(f"target_layer_name {target_layer_name} is not supported with {stochastic_method}."
+                         f" Must be one of {list(_STOCHASTIC_LAYER_MAPPING[stochastic_method].keys())}")
+
+    if drop_rate and (drop_rate < 0 or drop_rate > 1):
+        raise ValueError(f"drop_rate must be between 0 and 1: {drop_rate}")
+
+    if drop_distribution and (drop_distribution not in _VALID_LAYER_DISTRIBUTIONS):
+        raise ValueError(f"drop_distribution '{drop_distribution}' is"
+                         f" not supported. Must be one of {list(_VALID_LAYER_DISTRIBUTIONS)}")
+
+    if drop_warmup and (drop_warmup < 0 or drop_warmup > 1):
+        raise ValueError(f"drop_warmup must be between 0 and 1, not {drop_warmup}")
+
+    if stochastic_method == "sample" and drop_warmup > 0:
+        raise ValueError(f"drop_warmup can not be used with 'sample' stochastic_method")
+
+
+def _update_drop_rate(module: torch.nn.Module, stochastic_block: Type[torch.nn.Module], drop_rate: float,
+                      drop_distribution: str):
+    """Recursively updates a module's drop_rate attributes with a new value."""
+
+    if (len(list(module.children())) == 0 and len(list(module.parameters())) > 0):
+        return
+    else:
+        for child in module.children():
+            if isinstance(child, stochastic_block):
+                if drop_distribution == 'uniform':
+                    current_drop_rate = drop_rate
+                elif drop_distribution == 'linear':
+                    current_drop_rate = ((child.module_id + 1) / child.module_count) * drop_rate  # type: ignore
+                else:
+                    raise ValueError(f"drop_distribution '{drop_distribution}' is"
+                                     f" not supported. Must be one of {list(_VALID_LAYER_DISTRIBUTIONS)}")
+                child.drop_rate = torch.tensor(current_drop_rate)
+            _update_drop_rate(child, stochastic_block, drop_rate, drop_distribution)

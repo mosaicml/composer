@@ -17,9 +17,7 @@ NOTEBOOKS = [
 
 
 def seek(tb, tag):
-    """ generator that seeks next cell with the metadata tag,
-    and returns the cell index.
-    """
+    """generator that seeks next cell with the metadata tag, and returns the cell index."""
     for idx, cell in enumerate(tb.cells):
         metadata = cell['metadata']
         if 'tags' in metadata and tag in metadata['tags']:
@@ -34,9 +32,7 @@ def tb(request):
 
 
 def _assert_tags_correct(tb):
-    """Checks that the trainer_fit tag exists
-       whenever trainer.fit is called.
-    """
+    """Checks that the trainer_fit tag exists whenever trainer.fit is called."""
     for cell in tb.cells:
         if cell['cell_type'] == 'code' and 'trainer.fit' in cell['source']:
             metadata = cell['metadata']
