@@ -680,25 +680,44 @@ class Trainer:
                         "trainer/global_step": self.state.step,
                         "trainer/batch_idx": self.state.timer.batch_in_epoch.value,
                     })
-                    total_loss = None
-                    microbatches = self._train_data_spec.split_batch(state.batch, state.grad_accum)
-                    if self.deepspeed_enabled:
-                        total_loss = self._train_batch(microbatches)
-                    elif self._use_closures():
-                        for optimizer in state.optimizers:
-                            if use_grad_scaling:
-                                total_loss = state.scaler.step(
-                                    optimizer, closure=lambda **kwargs: self._train_batch(microbatches, **kwargs))
+                    # Rerun train_batch with smaller mini-batches if we hit CUDA error: out of memory
+                    rerun_train_batch = True
+                    while rerun_train_batch:
+                        try:
+                            rerun_train_batch = False
+                            total_loss = None
+                            microbatches = self._train_data_spec.split_batch(state.batch, state.grad_accum)
+                            if self.deepspeed_enabled:
+                                total_loss = self._train_batch(microbatches)
+                            elif self._use_closures():
+                                for optimizer in state.optimizers:
+                                    if use_grad_scaling:
+                                        total_loss = state.scaler.step(
+                                            optimizer, closure=lambda **kwargs: self._train_batch(microbatches, **kwargs))
+                                    else:
+                                        total_loss = optimizer.step(
+                                            closure=lambda **kwargs: self._train_batch(microbatches, **kwargs).item())
                             else:
-                                total_loss = optimizer.step(
-                                    closure=lambda **kwargs: self._train_batch(microbatches, **kwargs).item())
-                    else:
-                        total_loss = self._train_batch(microbatches)
-                        for optimizer in state.optimizers:
-                            if use_grad_scaling:
-                                state.scaler.step(optimizer)
+                                total_loss = self._train_batch(microbatches)
+                                for optimizer in state.optimizers:
+                                    if use_grad_scaling:
+                                        state.scaler.step(optimizer)
+                                    else:
+                                        optimizer.step()
+                        except RuntimeError as e:
+                            if str(e) == "CUDA error: out of memory":
+                                rerun_train_batch = True
+                                # Raise runtime error if we can't train even one sample at a time
+                                if state.grad_accum == num_samples_in_batch:
+                                    raise RuntimeError("CUDA error: out of memory. Train loop failed with an internal minibatch of size 1")
+                                else:
+                                    # TODO: Log that we're increasing grad accum?
+                                    print("!!!! DOUBLING GRAD ACCUM !!!!")
+                                    state.grad_accum *= 2
                             else:
-                                optimizer.step()
+                                # If not CUDA error: out of memory, raise exception to user. Note that this 
+                                # truncates the call stack back only to this newly raised error
+                                raise RuntimeError(e)
 
                     if use_grad_scaling:
                         state.scaler.update()
