@@ -55,7 +55,6 @@ def compile_scheduler(scheduler: Union[Scheduler, ComposerSchedulerFn], state: S
 
 def step_scheduler(state: State, *, ssr: float = 1.0, step_size: Union[str, Time], gamma: float = 0.1) -> float:
     step_size = _convert_time(step_size, state, ssr=ssr)
-    print(step_size)
     current_time = state.timer.get(step_size.unit)
     steps = int(current_time / step_size)
 
@@ -125,11 +124,11 @@ def _cosine_anneal(x: float, min_y: float = 0, max_y: float = 1) -> float:
 def cosine_annealing_scheduler(state: State,
                                *,
                                ssr: float = 1.0,
-                               T_max: Union[str, Time] = '1dur',
+                               t_max: Union[str, Time] = '1dur',
                                min_factor: float = 0.0):
-    T_max = _convert_time(T_max, state, ssr=ssr)
-    current_time = state.timer.get(T_max.unit)
-    frac_of_total = (current_time / T_max).value
+    t_max = _convert_time(t_max, state, ssr=ssr)
+    current_time = state.timer.get(t_max.unit)
+    frac_of_total = (current_time / t_max).value
 
     return _cosine_anneal(x=frac_of_total, min_y=min_factor)
 
@@ -137,21 +136,21 @@ def cosine_annealing_scheduler(state: State,
 def cosine_annealing_warm_restarts_scheduler(state: State,
                                              *,
                                              ssr: float = 1.0,
-                                             T_0: Union[str, Time],
-                                             T_mult: float = 1.0,
+                                             t_0: Union[str, Time],
+                                             t_mult: float = 1.0,
                                              min_factor: float = 0.0):
-    T_0 = _convert_time(T_0, state, ssr=ssr)
-    current_interval_len = T_0
-    current_interval_end = T_0
+    t_0 = _convert_time(t_0, state, ssr=ssr)
+    current_interval_len = t_0
+    current_interval_end = t_0
     while current_interval_end <= state.timer.get(current_interval_end.unit):
         if current_interval_len.value == 0:
             raise ValueError('Interval between restarts for cosine annealing/warm restarts scheduler has decayed to 0.')
 
-        current_interval_len = Time(value=int(T_mult * current_interval_len.value), unit=current_interval_len.unit)
+        current_interval_len = Time(value=int(t_mult * current_interval_len.value), unit=current_interval_len.unit)
         current_interval_end += current_interval_len
 
     current_interval_start = current_interval_end - current_interval_len
-    frac_of_current_interval = ((state.timer.get(T_0.unit) - current_interval_start) / current_interval_len).value
+    frac_of_current_interval = ((state.timer.get(t_0.unit) - current_interval_start) / current_interval_len).value
 
     return _cosine_anneal(x=frac_of_current_interval, min_y=min_factor)
 
@@ -159,12 +158,12 @@ def cosine_annealing_warm_restarts_scheduler(state: State,
 def polynomial_scheduler(state: State,
                          *,
                          ssr: float = 1.0,
-                         T_max: Union[str, Time] = '1dur',
+                         t_max: Union[str, Time] = '1dur',
                          power: float,
                          min_factor: float = 0.0):
-    T_max = _convert_time(T_max, state, ssr=ssr)
-    current_time = state.timer.get(T_max.unit)
-    frac_of_total = (current_time / T_max).value
+    t_max = _convert_time(t_max, state, ssr=ssr)
+    current_time = state.timer.get(t_max.unit)
+    frac_of_total = (current_time / t_max).value
 
     coeff = (1 - frac_of_total)**power
     current_factor = min_factor + coeff * (1.0 - min_factor)
@@ -209,22 +208,18 @@ def cosine_annealing_with_warmup_scheduler(state: State,
                                            *,
                                            ssr: float = 1.0,
                                            warmup_time: Union[str, Time],
-                                           T_max: Union[str, Time] = '1dur',
+                                           t_max: Union[str, Time] = '1dur',
                                            min_factor: float = 0.0):
     # N.B. warmup time is intentionally *not* subject to scale schedule
     warmup_time = _convert_time(warmup_time, state)
     if state.timer < warmup_time:
         return linear_scheduler(state, start_factor=0.0, end_factor=1.0, total_time=warmup_time)
 
-    T_max = _convert_time(T_max, state, ssr=ssr)
+    t_max = _convert_time(t_max, state, ssr=ssr)
     current_time = state.timer.get(warmup_time.unit)
-    frac_of_total = ((current_time - warmup_time) / (T_max - warmup_time)).value
+    frac_of_total = ((current_time - warmup_time) / (t_max - warmup_time)).value
 
     return _cosine_anneal(x=frac_of_total, min_y=min_factor)
-
-
-def get_scheduler(scheduler: ComposerSchedulerFn, ssr: float = 1.0, **kwargs) -> ComposerSchedulerFn:
-    return functools.partial(scheduler, ssr=ssr, **kwargs)
 
 
 @dataclass
@@ -243,7 +238,7 @@ class SchedulerHparams(hp.Hparams, ABC):
 class PolynomialLRHparams(SchedulerHparams):
     """Hyperparameters for the :class:`PolynomialLR` scheduler."""
     power: float = hp.required(doc='Power of LR schedule.')
-    T_max: str = hp.optional(default='1dur', doc='Maximum number of iterations.')
+    t_max: str = hp.optional(default='1dur', doc='Maximum number of iterations.')
     min_factor: float = hp.optional(default=0.0, doc='Minimum learning rate.')
 
     scheduler_function = polynomial_scheduler
@@ -298,7 +293,7 @@ class CosineAnnealingLRHparams(SchedulerHparams):
     """Hyperparameters for the `CosineAnnealingLR <https://pytorch.org/docs/stable/generated/torch.optim.lr_scheduler.Co
     sineAnnealingLR.html#torch.optim.lr_scheduler.CosineAnnealingLR>`_ scheduler."""
 
-    T_max: str = hp.optional(default='1dur', doc="Maximum scheduler duration.")
+    t_max: str = hp.optional(default='1dur', doc="Maximum scheduler duration.")
     min_factor: float = hp.optional(default=0.0, doc='minimum learning rate factor.')
 
     scheduler_function = cosine_annealing_scheduler
@@ -309,9 +304,9 @@ class CosineAnnealingWarmRestartsHparams(SchedulerHparams):
     """Hyperparameters for the ``CosineAnnealingWarmRestarts` <https://pytorch.org/docs/stable/generated/torch.optim.lr_
     scheduler.CosineAnnealingWarmRestarts.html#torch.optim.lr_scheduler.CosineAnnealingWarmRestarts>`_ scheduler."""
 
-    T_0: str = hp.optional(default='1dur', doc="Duration for the first restart.")
+    t_0: str = hp.optional(default='1dur', doc="Duration for the first restart.")
     min_factor: float = hp.optional(default=0.0, doc='minimum learning rate.')
-    T_mult: float = hp.optional(default=1.0, doc="A factor increases :math:`T_{i}` after a restart. Default: 1.")
+    t_mult: float = hp.optional(default=1.0, doc="A factor increases :math:`t_{i}` after a restart. Default: 1.")
 
     scheduler_function = cosine_annealing_warm_restarts_scheduler
 
@@ -361,7 +356,7 @@ class CosineAnnealingWithWarmupLRHparams(SchedulerHparams):
     scheduler.CosineAnnealingWarmRestarts.html#torch.optim.lr_scheduler.CosineAnnealingWarmRestarts>`_ scheduler."""
 
     warmup_time: str = hp.required(doc='foo')
-    T_max: str = hp.optional(default='1dur', doc="Maximum scheduler duration.")
+    t_max: str = hp.optional(default='1dur', doc="Maximum scheduler duration.")
     min_factor: float = hp.optional(default=0.0, doc='minimum learning rate factor.')
 
     scheduler_function = cosine_annealing_with_warmup_scheduler
