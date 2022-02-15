@@ -117,9 +117,9 @@ def exponential_scheduler(state: State, *, ssr: float = 1.0, gamma: float) -> fl
 
 def _cosine_anneal(x: float, min_y: float = 0, max_y: float = 1) -> float:
     """Implements a cosine decay curve.
-    
-    Curve is cos(x) on domain [0, pi], stretched to the domain [0, 1] and range [min_y, max_y].
-    Additionally, param x is clipped to the interval [0, 1]
+
+    Curve is cos(x) on domain [0, pi], stretched to the domain [0, 1] and range [min_y, max_y]. Additionally, param x is
+    clipped to the interval [0, 1]
     """
 
     x = min(max(x, 0.0), 1.0)
@@ -261,9 +261,8 @@ class ConstantLRHparams(SchedulerHparams):
 
 @dataclass
 class StepLRHparams(SchedulerHparams):
-    """Hyperparameters for the `StepLR <https://pytorch.org/docs/stable/generated/torch.optim.lr_scheduler.StepLR.html#torch.optim.lr_scheduler.StepLR>`_
-    scheduler.
-    """
+    """Hyperparameters for the `StepLR <https://pytorch.org/docs/stable/generated/torch.optim.lr_scheduler.StepLR.html#t
+    orch.optim.lr_scheduler.StepLR>`_ scheduler."""
 
     step_size: str = hp.required(doc='Period of learning rate decay')
     gamma: float = hp.optional(default=0.1, doc='multiplicative factor of decay')
@@ -273,9 +272,8 @@ class StepLRHparams(SchedulerHparams):
 
 @dataclass
 class MultiStepLRHparams(SchedulerHparams):
-    """Hyperparameters for the `MultiStepLR <https://pytorch.org/docs/stable/generated/torch.optim.lr_scheduler.MultiStepLR.html#torch.optim.lr_scheduler.MultiStepLR>`_ 
-    scheduler.
-    """
+    """Hyperparameters for the `MultiStepLR <https://pytorch.org/docs/stable/generated/torch.optim.lr_scheduler.MultiSte
+    pLR.html#torch.optim.lr_scheduler.MultiStepLR>`_ scheduler."""
 
     milestones: List[str] = hp.required(doc='List of milestone time strings')
     gamma: float = hp.optional(default=0.1, doc='multiplicative factor of decay')

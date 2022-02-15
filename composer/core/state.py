@@ -170,7 +170,7 @@ class State(Serializable):
             self._optimizers = []
         else:
             self._optimizers = list(ensure_tuple(optimizers))
-    
+
         self._schedulers = []
 
         self.scaler = scaler
