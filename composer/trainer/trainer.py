@@ -23,7 +23,6 @@ from composer.core import Callback, DataSpec, Engine, Event, Logger, State, Time
 from composer.core.algorithm import Algorithm
 from composer.core.evaluator import Evaluator
 from composer.core.logging import LoggerCallback, LogLevel
-from composer.core.scheduler import ComposerSchedulerFn
 from composer.core.time import TimeUnit
 from composer.core.types import (Batch, BreakEpochException, DataLoader, Evaluators, Many, Metrics, Optimizers,
                                  Precision, Scheduler)
@@ -31,7 +30,7 @@ from composer.datasets.dataloader import unwrap_data_loader
 from composer.loggers.tqdm_logger import TQDMLogger
 from composer.models.base import ComposerModel
 from composer.optim.decoupled_weight_decay import DecoupledSGDW
-from composer.optim.scheduler import compile_scheduler, cosine_annealing_scheduler
+from composer.optim.scheduler import ComposerSchedulerFn, compile_scheduler, cosine_annealing_scheduler
 from composer.profiler import Profiler, ProfilerEventHandler
 from composer.profiler.dataloader_profiler import DataloaderProfiler
 from composer.profiler.system_profiler import SystemProfiler

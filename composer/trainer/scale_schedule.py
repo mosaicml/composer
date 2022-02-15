@@ -2,12 +2,12 @@
 
 import functools
 from collections import Counter
-from typing import Callable, Optional, Union, get_type_hints
+from typing import Callable, Optional, Union
 
 from torch.optim.lr_scheduler import CosineAnnealingLR, CosineAnnealingWarmRestarts, ExponentialLR, MultiStepLR, StepLR
 
-from composer.core.scheduler import ComposerSchedulerFn
 from composer.core.types import Scheduler
+from composer.optim.scheduler import ComposerSchedulerFn
 
 
 def _scale_pytorch_scheduler(scheduler: Scheduler, ssr: float, orig_max_epochs: Optional[int] = None):
@@ -39,12 +39,12 @@ def _scale_pytorch_scheduler(scheduler: Scheduler, ssr: float, orig_max_epochs: 
 
 
 def _scale_composer_scheduler(scheduler: ComposerSchedulerFn, ssr: float):
-    return functools.partial(scheduler, ssr=ssr)  # type: ignore
+    return functools.partial(scheduler, ssr=ssr)
 
 
 def scale_scheduler(scheduler: Union[Scheduler, ComposerSchedulerFn],
                     ssr: float,
-                    orig_max_epochs: Optional[int] = None):
+                    orig_max_epochs: Optional[int] = None) -> Union[Scheduler, ComposerSchedulerFn]:
     """Makes a learning rate schedule take a different number of epochs.
 
     Training for less time is a strong baseline approach to speeding up

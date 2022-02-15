@@ -3,20 +3,25 @@
 import functools
 import logging
 import math
-from abc import ABC, abstractmethod
+from abc import ABC
 from dataclasses import asdict, dataclass
-from typing import List, Optional, Union
+from typing import List, Protocol, Union
 
 import yahp as hp
 from torch.optim.lr_scheduler import LambdaLR
 
 from composer.core import State
-from composer.core.scheduler import ComposerSchedulerFn
 from composer.core.time import Time, TimeUnit
 from composer.core.types import Scheduler
 from composer.optim._time_conversion import convert as convert_time
 
 log = logging.getLogger(__name__)
+
+
+class ComposerSchedulerFn(Protocol):
+
+    def __call__(self, state: State, *, ssr: float = 1.0) -> float:
+        raise NotImplementedError
 
 
 def _convert_time(time: Union[str, Time], state: State, ssr: float = 1.0) -> Time[int]:

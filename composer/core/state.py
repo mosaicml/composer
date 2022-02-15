@@ -22,7 +22,6 @@ from composer.utils import ensure_tuple
 if TYPE_CHECKING:
     from composer.core.algorithm import Algorithm
     from composer.core.callback import Callback
-    from composer.core.scheduler import ComposerSchedulerFn
     from composer.profiler import Profiler
 
 __all__ = ["State"]

@@ -6,10 +6,9 @@ from typing import List
 import pytest
 
 from composer.core import State, Time
-from composer.core.scheduler import ComposerSchedulerFn
 from composer.core.time import TimeUnit
 from composer.core.types import DataLoader, Model
-from composer.optim.scheduler import (constant_scheduler, cosine_annealing_scheduler,
+from composer.optim.scheduler import (ComposerSchedulerFn, constant_scheduler, cosine_annealing_scheduler,
                                       cosine_annealing_warm_restarts_scheduler, cosine_annealing_with_warmup_scheduler,
                                       exponential_scheduler, linear_scheduler, linear_with_warmup_scheduler,
                                       multi_step_scheduler, multi_step_with_warmup_scheduler, polynomial_scheduler,
