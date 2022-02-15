@@ -27,8 +27,8 @@ def cutout_batch(X: Tensor, n_holes: int = 1, length: Union[int, float] = 0.5) -
         X_cutout: Batch of images with ``n_holes`` holes of dimension
             ``length x length`` replaced with zeros.
     """
-    h = X.size(2)
-    w = X.size(3)
+    h = X.shape[-2]
+    w = X.shape[-1]
 
     if 0 < length < 1:
         length = min(h, w) * length
@@ -83,6 +83,6 @@ def _generate_mask(mask: Tensor, width: int, height: int, x: int, y: int, cutout
     x1 = np.clip(x - cutout_length // 2, 0, width)
     x2 = np.clip(x + cutout_length // 2, 0, width)
 
-    mask[:, :, y1:y2, x1:x2] = 0.
+    mask[..., y1:y2, x1:x2] = 0.
 
     return mask
