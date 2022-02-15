@@ -1,5 +1,7 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
+"""Core Layer Freezing classes and functions."""
+
 from __future__ import annotations
 
 import logging
@@ -12,6 +14,8 @@ from composer.core import Algorithm, Event, Logger, State
 from composer.core.types import Model, Optimizers
 
 log = logging.getLogger(__name__)
+
+__all__ = ["LayerFreezing", "freeze_layers"]
 
 
 def _freeze_schedule(current_duration: float, freeze_start: float, freeze_level: float) -> float:
@@ -86,6 +90,19 @@ def freeze_layers(
 ) -> Tuple[int, float]:
     """Progressively freeze the layers of the network in-place during training, starting with the earlier layers.
 
+    Example:
+         .. testcode::
+
+            from composer.algorithms.layer_freezing import freeze_layers
+            freeze_depth, feeze_level = freeze_layers(
+                                            model=model,
+                                            optimizers=optimizers,
+                                            current_duration=0.5,
+                                            freeze_start=0.0,
+                                            freeze_level=1.0
+                                        )
+
+
     Args:
         model (Model): The model being trained.
         optimizers (Optimizers): The optimizers used during training.
@@ -134,6 +151,21 @@ class LayerFreezing(Algorithm):
     `Freeze Training <https://arxiv.org/abs/1706.05806>`_.
 
     Runs on ``Event.EPOCH_END``.
+
+    Example:
+         .. testcode::
+
+            from composer.algorithms import LayerFreezing
+            from composer.trainer import Trainer
+            layer_freezing_algorithm = LayerFreezing(freeze_start=0.0, freeze_level=1.0)
+            trainer = Trainer(
+                model=model,
+                train_dataloader=train_dataloader,
+                eval_dataloader=eval_dataloader,
+                max_duration="1ep",
+                algorithms=[layer_freezing_algorithm],
+                optimizers=[optimizer]
+            )
 
     Args:
         freeze_start (float): The fraction of training to run before freezing begins.
