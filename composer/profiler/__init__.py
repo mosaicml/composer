@@ -1,11 +1,5 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
-from composer.profiler.dataloader_profiler import DataloaderProfiler as DataloaderProfiler
-from composer.profiler.json_trace import JSONTraceHandler as JSONTraceHandler
-from composer.profiler.profiler_hparams import DataloaderProfilerHparams as DataloaderProfilerHparams
-from composer.profiler.profiler_hparams import JSONTraceHandlerHparams as JSONTraceHandlerHparams
-from composer.profiler.profiler_hparams import ProfilerHparams as ProfilerHparams
-from composer.profiler.profiler_hparams import SystemProfilerHparams as SystemProfilerHparams
-from composer.profiler.profiler_hparams import TorchProfilerHparams as TorchProfilerHparams
-from composer.profiler.system_profiler import SystemProfiler as SystemProfiler
-from composer.profiler.torch_profiler import TorchProfiler as TorchProfiler
+from composer.profiler.event_handler import ProfilerEventHandler as ProfilerEventHandler
+from composer.profiler.profiler import Profiler as Profiler
+from composer.profiler.profiler_action import ProfilerAction as ProfilerAction

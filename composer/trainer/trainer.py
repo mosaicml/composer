@@ -19,7 +19,8 @@ from torch.optim.lr_scheduler import CosineAnnealingLR
 from torchmetrics.collections import MetricCollection
 from torchmetrics.metric import Metric
 
-from composer.core import Callback, DataSpec, Engine, Event, Logger, State, Time, surgery
+from composer.algorithms import ScaleSchedule
+from composer.core import Callback, DataSpec, Engine, Event, Logger, State, Time
 from composer.core.algorithm import Algorithm
 from composer.core.evaluator import Evaluator
 from composer.core.logging import LoggerCallback, LogLevel
@@ -31,13 +32,17 @@ from composer.loggers.tqdm_logger import TQDMLogger
 from composer.models.base import ComposerModel
 from composer.optim import ComposedScheduler
 from composer.optim.decoupled_weight_decay import DecoupledSGDW
-from composer.profiler.profiler_hparams import ProfilerHparams
+from composer.profiler import Profiler, ProfilerEventHandler
+from composer.profiler.dataloader_profiler import DataloaderProfiler
+from composer.profiler.system_profiler import SystemProfiler
+from composer.profiler.torch_profiler import TorchProfiler
 from composer.trainer.checkpoint import CheckpointLoader, CheckpointSaver
 from composer.trainer.ddp import DDPSyncStrategy, ddp_sync_context, prepare_ddp_module
 from composer.trainer.deepspeed import fix_batch_precision_for_deepspeed, parse_deepspeed_config
 from composer.trainer.devices import Device, DeviceCPU, DeviceGPU
+from composer.trainer.scale_schedule import scale_scheduler
 from composer.trainer.scaler import ClosureGradScaler
-from composer.utils import dist, ensure_tuple, map_collection, reproducibility
+from composer.utils import dist, ensure_tuple, map_collection, module_surgery, reproducibility
 from composer.utils.object_store import ObjectStoreProvider
 
 if TYPE_CHECKING:
@@ -55,12 +60,14 @@ class Trainer:
 
     Args:
         model (ComposerModel): The model to train.
+
         train_dataloader (DataLoader, DataSpec, or dict): The :class:`DataLoader`, :class:`DataSpec`,
             or dict of :class:`DataSpec` kwargs for the training data.
-        eval_dataloader (DataLoader, DataSpec, Evaluators): The :class:`DataLoader`, :class:`DataSpec`,
-            :class:`Evaluators` for the evaluation data. The :class:`Evaluator`
+        max_duration (int, str, or Time): The maximum duration to train. Can be integer, which will be
+            interpreted to be epochs, a str (e.g. '1ep', or '10ba'), or a :class:`Time` object.
+        eval_dataloader (Union[DataLoader, DataSpec, Evaluators], optional): The :class:`DataLoader`,
+            :class:`DataSpec`, :class:`Evaluators` for the evaluation data. The :class:`Evaluator`
             class contains metrics relevant to the specific dataset. Set to ``None`` for no evaluation.
-        max_duration (Time or str): The maximum duration to train. See `~composer.core.Time` for details.
         algorithms (List[Algorithm], optional): The algorithms to use during training.
             (default: ``[]``)
         optimizers: (Optimizers, optional): The optimizers.
@@ -80,7 +87,9 @@ class Trainer:
         compute_training_metrics (bool, optional): True to compute metrics on training data and False to not.
             (default: ``False``)
         precision (str or Precision, optional): Numerical precision to use for training, one of 'fp32', 'fp16'
-            for 'amp' (recommended). (default: ``Precision.FP32``).
+            or 'amp' (recommended). (default: ``Precision.FP32``).
+        scale_schedule_ratio (float, optional): Ratio by which to scale the training duration and learning rate
+            schedules. See :func:`scale_schedule` for details. (default: ``1.0``)
         dist_timeout (float, optional): Timeout, in seconds, for initializing the distributed process group.
             (default: ``15.0``)
         ddp_sync_strategy (str or DDPSyncStrategy, optional): The strategy to use for synchronizing gradients.
@@ -108,11 +117,48 @@ class Trainer:
             ``load_path`` is not specified or if it is a local file path. (default: ``True``)
         save_folder (str, optional): Folder path to save checkpoints, relative to the run directory.
             Set to ``None`` to not save checkpoints. (default: ``None``)
-        save_interval (str): How often to save checkpoints. For example, set to "1ep" to save checkpoints
-            every epoch, or "10ba" to save checkpoints every 10 batches. (default: ``1ep``)
-        save_interval_unit (str): Unit of ``save_interval``. Can be ``ep`` or ``steps``. (default: ``ep``).
+        save_interval (str or int): How often to save checkpoints. For example, set to "1ep" to save checkpoints
+            every epoch, or "10ba" to save checkpoints every 10 batches. An integer will be assumed to be epochs.
+            (default: ``1ep``)
         save_compression (str): Compression algorithm to run on checkpoints. Can be `gzip`, `bzip2`,
             `lzma`, or left blank for no compression.  (default: ``""`` for no compression).
+        profiler_trace_file (str, optional): Name of the trace file, relative to the run directory.
+            Must be specified to activate the profiler. (default: ``None``).
+        prof_event_handlers (List[ProfilerEventHandler], optional): Trace event handler.
+            Ignored if ``profiler_trace_file`` is not specified. (default: ``[JSONTraceHandler()]``).
+        prof_skip_first (int, optional): Number of batches to skip at epoch start.
+            Ignored if ``profiler_trace_file`` is not specified. (default: ``0``).
+        prof_wait (int, optional): Number of batches to skip at the beginning of each cycle.
+            Ignored if ``profiler_trace_file`` is not specified. (default: ``0``).
+        prof_warmup (int, optional): Number of warmup batches in a cycle.
+            Ignored if ``profiler_trace_file`` is not specified. (default: ``1``).
+        prof_active (int, optional): Number of batches to profile in a cycle.
+            Ignored if ``profiler_trace_file`` is not specified. (default: ``4``).
+        prof_repeat (int, optional): Maximum number of profiling cycle repetitions per epoch (0 for no maximum).
+            Ignored if ``profiler_trace_file`` is not specified. (default: ``1``).
+        sys_prof_cpu (bool, optional): Whether to record cpu statistics.
+            Ignored if ``profiler_trace_file`` is not specified. (default: ``True``).
+        sys_prof_memory (bool, optional): Whether to record memory statistics.
+            Ignored if ``profiler_trace_file`` is not specified. (default: ``False``).
+        sys_prof_disk (bool, optional): Whether to record disk statistics.
+            Ignored if ``profiler_trace_file`` is not specified. (default: ``False``).
+        sys_prof_net (bool, optional): Whether to record network statistics.
+            Ignored if ``profiler_trace_file`` is not specified. (default: ``False``).
+        sys_prof_stats_thread_interval_seconds (float, optional): Interval to record stats, in seconds.
+            Ignored if ``profiler_trace_file`` is not specified. (default: ``0.5``).
+        torch_profiler_trace_dir (str, optional): Directory to store trace results relative to the run directory.
+            Must be specified to activate the Torch profiler. Ignored if ``profiler_trace_file`` is not specified.
+            (default: ``None``).
+        torch_prof_use_gzip (bool): Whether to use gzip for trace.
+            Ignored if ``torch_profiler_trace_dir`` and ``profiler_trace_file`` are not specified. (default: ``False``).
+        torch_prof_record_shapes (bool, optional): Whether to record tensor shapes.
+            Ignored if ``torch_profiler_trace_dir`` and ``profiler_trace_file`` are not specified. (default: ``False``).
+        torch_prof_profile_memory (bool, optional): Track tensor memory allocations and frees.
+            Ignored if ``torch_profiler_trace_dir`` and ``profiler_trace_file`` are not specified. (default: ``True``).
+        torch_prof_with_stack (bool, optional): Record stack info.
+            Ignored if ``torch_profiler_trace_dir`` and ``profiler_trace_file`` are not specified. (default: ``False``).
+        torch_prof_with_flops (bool, optional): Estimate flops for operators.
+            Ignored if ``torch_profiler_trace_dir`` and ``profiler_trace_file`` are not specified. (default: ``True``).
         train_subset_num_batches (int, optional): If specified, finish every epoch early after training
             on this many batches. This parameter has no effect if it is greater than ``len(train_dataloader)``.
             If None (the default), then the entire dataloader will be iterated over.
@@ -134,8 +180,8 @@ class Trainer:
         *,
         model: ComposerModel,
         train_dataloader: Union[DataLoader, DataSpec],
-        eval_dataloader: Optional[Union[DataLoader, DataSpec, Evaluators]],
-        max_duration: Union[str, Time],
+        max_duration: Union[int, str, Time],
+        eval_dataloader: Optional[Union[DataLoader, DataSpec, Evaluators]] = None,
         algorithms: Optional[List[Algorithm]] = None,
         optimizers: Optional[Optimizers] = None,
         schedulers: Optional[Schedulers] = None,
@@ -150,6 +196,7 @@ class Trainer:
         validate_every_n_epochs: int = 1,
         compute_training_metrics: bool = False,
         precision: Union[str, Precision] = Precision.FP32,
+        scale_schedule_ratio: float = 1.0,
 
         # dist hparams
         dist_timeout: float = 300.0,
@@ -173,11 +220,28 @@ class Trainer:
 
         # save_checkpoint
         save_folder: Optional[str] = None,
-        save_interval: str = "1ep",
+        save_interval: Union[str, int, Time] = "1ep",
         save_compression: str = '',
 
         # Profiling
-        profiler: Optional[ProfilerHparams] = None,
+        profiler_trace_file: Optional[str] = None,
+        prof_event_handlers: Sequence[ProfilerEventHandler] = tuple(),
+        prof_skip_first: int = 0,
+        prof_wait: int = 0,
+        prof_warmup: int = 1,
+        prof_active: int = 4,
+        prof_repeat: int = 1,
+        sys_prof_cpu: bool = True,
+        sys_prof_memory: bool = False,
+        sys_prof_disk: bool = False,
+        sys_prof_net: bool = False,
+        sys_prof_stats_thread_interval_seconds: float = 0.5,
+        torch_profiler_trace_dir: Optional[str] = None,
+        torch_prof_use_gzip: bool = False,
+        torch_prof_record_shapes: bool = False,
+        torch_prof_profile_memory: bool = True,
+        torch_prof_with_stack: bool = False,
+        torch_prof_with_flops: bool = True,
 
         # Subset parameters
         train_subset_num_batches: Optional[int] = None,
@@ -190,8 +254,25 @@ class Trainer:
         # self._use_grad_scaling() will raise a RuntimeError if grad scaling is not available when it is required
         warnings.filterwarnings(action="ignore", message="torch.cuda.amp.GradScaler")
 
+        # ScaleSchedule is a deprecated algorithm, but if it is used, updated SSR with its ratio.
+        # TODO(#434): Remove this completely.
+        for algorithm in algorithms or []:
+            if isinstance(algorithm, ScaleSchedule):
+                scale_schedule_ratio = algorithm.ratio
+
         if isinstance(max_duration, str):
             max_duration = Time.from_timestring(max_duration)
+        elif isinstance(max_duration, int):
+            max_duration = Time.from_epoch(max_duration)
+
+        orig_max_duration = max_duration
+
+        if scale_schedule_ratio != 1.0:
+            max_duration = cast(Time[int], orig_max_duration * scale_schedule_ratio)
+            log.info(f'max_duration changed from {orig_max_duration} to {max_duration}')
+            if max_duration.value == 0:
+                raise ValueError(
+                    'Scale schedule has reduced the max_duration to 0. Set a higher ratio or use more epochs.')
 
         self.deepspeed_config = deepspeed_config
 
@@ -298,6 +379,14 @@ class Trainer:
             schedulers = CosineAnnealingLR(optimizer, T_max=max_duration.value)
             warnings.warn(f"No scheduler was specified. Defaulting to {repr(schedulers)}")
 
+        if scale_schedule_ratio != 1.0:
+            if orig_max_duration.unit != TimeUnit.EPOCH:
+                raise NotImplementedError(
+                    "Max duration must be specified in epochs. Other units are not yet supported.")
+
+            for scheduler in ensure_tuple(schedulers):
+                scale_scheduler(scheduler, scale_schedule_ratio, orig_max_duration.value)
+
         schedulers = ComposedScheduler(ensure_tuple(schedulers))
 
         self.state = State(
@@ -315,10 +404,36 @@ class Trainer:
             schedulers=schedulers,
         )
 
-        # Configure the profiler
-        if profiler is not None:
-            self.state.profiler = profiler.initialize_object(self.state)
+        # Configure profilers if profiling is enabled
+        if profiler_trace_file:
+            self.state.profiler = Profiler(state=self.state,
+                                           event_handlers=prof_event_handlers,
+                                           skip_first=prof_skip_first,
+                                           wait=prof_wait,
+                                           warmup=prof_warmup,
+                                           active=prof_active,
+                                           repeat=prof_repeat,
+                                           merged_trace_file=profiler_trace_file)
             self.state.callbacks.extend(self.state.profiler.event_handlers)
+
+            self.state.callbacks.append(DataloaderProfiler())
+
+            if sys_prof_cpu or sys_prof_memory or sys_prof_disk or sys_prof_net:
+                self.state.callbacks.append(
+                    SystemProfiler(profile_cpu=sys_prof_cpu,
+                                   profile_memory=sys_prof_memory,
+                                   profile_disk=sys_prof_disk,
+                                   profile_net=sys_prof_net,
+                                   stats_thread_interval_seconds=sys_prof_stats_thread_interval_seconds))
+
+            if torch_profiler_trace_dir:
+                self.state.callbacks.append(
+                    TorchProfiler(tensorboard_trace_handler_dir=torch_profiler_trace_dir,
+                                  tensorboard_use_gzip=torch_prof_use_gzip,
+                                  record_shapes=torch_prof_record_shapes,
+                                  profile_memory=torch_prof_profile_memory,
+                                  with_stack=torch_prof_with_stack,
+                                  with_flops=torch_prof_with_flops))
 
         if loggers is None:
             loggers = [TQDMLogger()]
@@ -345,6 +460,8 @@ class Trainer:
 
         self.checkpoint_saver = None
         if save_folder is not None:
+            if isinstance(save_interval, int):
+                save_interval = Time.from_epoch(save_interval)
             self.checkpoint_saver = CheckpointSaver(
                 save_folder=save_folder,
                 interval=save_interval,
@@ -373,6 +490,13 @@ class Trainer:
                 model=self.state.model,
                 optimizer=optimizer,
             )
+            # The deepspeed engine is responsible for serializing the model and optimizer state,
+            # so these attributes should not be serialized with the composer state.
+            if "model" in self.state.serialized_attributes:
+                self.state.serialized_attributes.remove("model")
+
+            if "optimizers" in self.state.serialized_attributes:
+                self.state.serialized_attributes.remove("optimizers")
 
         # If using DeepSpeed, the model must be loaded from checkpoint after the engine has been
         # initialized, but if using PyTorch DDP, the model must be loaded before it is wrapped with
@@ -389,9 +513,9 @@ class Trainer:
 
             # use surgery to update the parameters of the optimizers, now that the model is on the device
             # see https://pytorch.org/docs/stable/optim.html#constructing-it
-            surgery.replace_params_in_optimizer(old_params=host_model_params,
-                                                new_params=device_model_params,
-                                                optimizers=self.state.optimizers)
+            module_surgery.replace_params_in_optimizer(old_params=host_model_params,
+                                                       new_params=device_model_params,
+                                                       optimizers=self.state.optimizers)
 
             # Move any remaining optimizer parameters onto the device
             self.state.optimizers = map_collection(self.state.optimizers, self.device.optimizer_to_device)
@@ -481,7 +605,7 @@ class Trainer:
             log.warn('Computing model evaluation metrics during training.'
                      ' This doubles the number of forward passes and may lead'
                      ' to a throughput degradation.')
-            train_metrics = self.original_model.metrics(train=False)
+            train_metrics = self.original_model.metrics(train=True)
             if isinstance(train_metrics, Metric):
                 # Forcing metrics to be a MetricCollection simplifies logging results
                 train_metrics = MetricCollection([train_metrics])

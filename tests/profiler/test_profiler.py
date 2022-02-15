@@ -4,8 +4,8 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from composer.core.profiler import Profiler, ProfilerAction
 from composer.core.types import State
+from composer.profiler import Profiler, ProfilerAction
 
 
 @pytest.mark.parametrize("repeat", [1, 0])
