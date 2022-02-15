@@ -667,6 +667,7 @@ class Trainer:
                     state.model.train()
 
                     self.engine.run_event(Event.AFTER_DATALOADER)
+
                     num_samples_in_batch = self.device.tensor_to_device(
                         torch.tensor([state.batch_num_samples], dtype=torch.int))
                     num_tokens_in_batch = self.device.tensor_to_device(
@@ -797,13 +798,13 @@ class Trainer:
                     state.outputs = state.model.forward(state.batch)
 
                 self.engine.run_event(Event.AFTER_FORWARD)
-                
+
                 # loss
                 self.engine.run_event(Event.BEFORE_LOSS)
 
                 with state.precision_context:
                     state.loss = self.original_model.loss(state.outputs, state.batch)
-                
+
                 # We always want to scale loss by the grad_accum before the backwards pass and
                 # also for sake of metrics. Complicating matters, the DeepSpeed engine does its
                 # own scaling when we call `.backward`, but this isn't in place so we still need
@@ -821,9 +822,10 @@ class Trainer:
 
                 # backward
                 self.engine.run_event(Event.BEFORE_BACKWARD)
+
                 if use_grad_scaling:
                     state.loss = state.scaler.scale(state.loss)
-                
+
                 if self.deepspeed_enabled:
                     cast("deepspeed.DeepSpeedEngine", state.model).backward(state.loss)
 
@@ -853,7 +855,7 @@ class Trainer:
             )
 
         self.engine.run_event(Event.AFTER_TRAIN_BATCH)
-        
+
         return total_loss
 
     def eval(self, is_batch: bool):
