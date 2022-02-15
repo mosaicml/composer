@@ -62,31 +62,6 @@ def colout_image(img: TImg, p_row: float = 0.15, p_col: float = 0.15) -> TImg:
         return img_tensor
 
 
-class ColOutTransform:
-    """Torchvision-like transform for performing the ColOut augmentation, where random rows and columns are dropped from
-    a single image.
-
-    Args:
-        p_row (float): Fraction of rows to drop (drop along H).
-        p_col (float): Fraction of columns to drop (drop along W).
-    """
-
-    def __init__(self, p_row: float = 0.15, p_col: float = 0.15):
-        self.p_row = p_row
-        self.p_col = p_col
-
-    def __call__(self, img: TImg) -> TImg:
-        """Drops random rows and columns from a single image.
-
-        Args:
-            img (torch.Tensor or PIL Image): An input image as a torch.Tensor or PIL image
-
-        Returns:
-            torch.Tensor or PIL Image: A smaller image with rows and columns dropped
-        """
-        return colout_image(img, self.p_row, self.p_col)
-
-
 def colout_batch(X: torch.Tensor, p_row: float = 0.15, p_col: float = 0.15) -> torch.Tensor:
     """Applies ColOut augmentation to a batch of images, dropping the same random rows and columns from all images in a
     batch.
@@ -116,6 +91,31 @@ def colout_batch(X: torch.Tensor, p_row: float = 0.15, p_col: float = 0.15) -> t
     X_colout = X[:, :, kept_row_idx, :]
     X_colout = X_colout[:, :, :, kept_col_idx]
     return X_colout
+
+
+class ColOutTransform:
+    """Torchvision-like transform for performing the ColOut augmentation, where random rows and columns are dropped from
+    a single image.
+
+    Args:
+        p_row (float): Fraction of rows to drop (drop along H).
+        p_col (float): Fraction of columns to drop (drop along W).
+    """
+
+    def __init__(self, p_row: float = 0.15, p_col: float = 0.15):
+        self.p_row = p_row
+        self.p_col = p_col
+
+    def __call__(self, img: TImg) -> TImg:
+        """Drops random rows and columns from a single image.
+
+        Args:
+            img (torch.Tensor or PIL Image): An input image as a torch.Tensor or PIL image
+
+        Returns:
+            torch.Tensor or PIL Image: A smaller image with rows and columns dropped
+        """
+        return colout_image(img, self.p_row, self.p_col)
 
 
 class ColOut(Algorithm):

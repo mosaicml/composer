@@ -15,23 +15,6 @@ from composer.models.loss import check_for_index_targets
 log = logging.getLogger(__name__)
 
 
-def _gen_interpolation_lambda(alpha: float) -> float:
-    """Generates ``Beta(alpha, alpha)`` distribution."""
-    # First check if alpha is positive.
-    assert alpha >= 0
-    # Draw the interpolation parameter from a beta distribution.
-    # Check here is needed because beta distribution requires alpha > 0
-    # but alpha = 0 is fine for mixup.
-    if alpha == 0:
-        interpolation_lambda = 0
-    else:
-        interpolation_lambda = np.random.beta(alpha, alpha)
-    # for symmetric beta distribution, can always use 0 <= lambda <= .5;
-    # this way the "main" label is always the original one, which keeps
-    # the training accuracy meaningful
-    return max(interpolation_lambda, 1. - interpolation_lambda)
-
-
 def mixup_batch(x: Tensor,
                 y: Tensor,
                 n_classes: int,
@@ -177,3 +160,20 @@ class MixUp(Algorithm):
         )
 
         state.batch = (new_input, new_target)
+
+
+def _gen_interpolation_lambda(alpha: float) -> float:
+    """Generates ``Beta(alpha, alpha)`` distribution."""
+    # First check if alpha is positive.
+    assert alpha >= 0
+    # Draw the interpolation parameter from a beta distribution.
+    # Check here is needed because beta distribution requires alpha > 0
+    # but alpha = 0 is fine for mixup.
+    if alpha == 0:
+        interpolation_lambda = 0
+    else:
+        interpolation_lambda = np.random.beta(alpha, alpha)
+    # for symmetric beta distribution, can always use 0 <= lambda <= .5;
+    # this way the "main" label is always the original one, which keeps
+    # the training accuracy meaningful
+    return max(interpolation_lambda, 1. - interpolation_lambda)
