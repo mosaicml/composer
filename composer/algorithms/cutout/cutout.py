@@ -12,17 +12,6 @@ from composer.core.types import Algorithm, Event, Logger, State, Tensor
 log = logging.getLogger(__name__)
 
 
-def _generate_mask(mask: Tensor, width: int, height: int, x: int, y: int, cutout_length: int) -> Tensor:
-    y1 = np.clip(y - cutout_length // 2, 0, height)
-    y2 = np.clip(y + cutout_length // 2, 0, height)
-    x1 = np.clip(x - cutout_length // 2, 0, width)
-    x2 = np.clip(x + cutout_length // 2, 0, width)
-
-    mask[:, :, y1:y2, x1:x2] = 0.
-
-    return mask
-
-
 def cutout_batch(X: Tensor, n_holes: int = 1, length: Union[int, float] = 0.5) -> Tensor:
     """See :class:`CutOut`.
 
