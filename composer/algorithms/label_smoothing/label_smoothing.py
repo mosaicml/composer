@@ -14,8 +14,38 @@ from composer.models.loss import ensure_targets_one_hot
 __all__ = ["LabelSmoothing", "smooth_labels"]
 
 
+def smooth_labels(logits: Tensor, targets: Tensor, alpha: float):
+    """Shrinks targets towards a uniform distribution to counteract label noise as in `Szegedy et al.
+
+    <https://arxiv.org/abs/1512.00567>`_.
+
+    This is computed by (1 - alpha) * targets + alpha * smoothed_targets
+    where smoothed_targets is a uniform distribution.
+
+    Example:
+         .. testcode::
+
+            from composer.algorithms.label_smoothing import smooth_labels
+            new_targets = smooth_labels(targets, 0.1)
+
+    Args:
+        logits: Output of the model. Tensor of shape (N, C, d1, ..., dn) for
+            N examples and C classes, and d1, ..., dn extra dimensions.
+        targets: Tensor of shape (N) containing integers 0 <= i <= C-1
+            specifying the target labels for each example.
+        alpha: Strength of the label smoothing, in [0, 1]. ``alpha=0``
+            means no label smoothing, and ``alpha=1`` means maximal
+            smoothing (targets are ignored).
+    """
+
+    targets = ensure_targets_one_hot(logits, targets)
+    n_classes = logits.shape[1]
+    return (targets * (1. - alpha)) + (alpha / n_classes)
+
+
 class LabelSmoothing(Algorithm):
-    """Shrinks targets towards a uniform distribution to counteract label noise as in `Szegedy et al
+    """Shrinks targets towards a uniform distribution to counteract label noise as in `Szegedy et al.
+
     <https://arxiv.org/abs/1512.00567>`_.
 
     This is computed by (1 - alpha) * targets + alpha * smoothed_targets
@@ -68,32 +98,3 @@ class LabelSmoothing(Algorithm):
         elif event == Event.AFTER_LOSS:
             # restore the target to the non-smoothed version
             state.batch = (input, self.original_labels)
-
-
-def smooth_labels(logits: Tensor, targets: Tensor, alpha: float):
-    """Shrinks targets towards a uniform distribution to counteract label noise as in `Szegedy et al.
-
-    <https://arxiv.org/abs/1512.00567>`_.
-
-    This is computed by (1 - alpha) * targets + alpha * smoothed_targets
-    where smoothed_targets is a uniform distribution.
-
-    Example:
-         .. testcode::
-
-            from composer.algorithms.label_smoothing import smooth_labels
-            new_targets = smooth_labels(targets, 0.1)
-
-    Args:
-        logits: Output of the model. Tensor of shape (N, C, d1, ..., dn) for
-            N examples and C classes, and d1, ..., dn extra dimensions.
-        targets: Tensor of shape (N) containing integers 0 <= i <= C-1
-            specifying the target labels for each example.
-        alpha: Strength of the label smoothing, in [0, 1]. ``alpha=0``
-            means no label smoothing, and ``alpha=1`` means maximal
-            smoothing (targets are ignored).
-    """
-
-    targets = ensure_targets_one_hot(logits, targets)
-    n_classes = logits.shape[1]
-    return (targets * (1. - alpha)) + (alpha / n_classes)

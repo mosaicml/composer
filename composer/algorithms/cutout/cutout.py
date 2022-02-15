@@ -17,18 +17,7 @@ log = logging.getLogger(__name__)
 __all__ = ["CutOut", "cutout_batch"]
 
 
-def _generate_mask(mask: Tensor, width: int, height: int, x: int, y: int, cutout_length: int) -> Tensor:
-    y1 = np.clip(y - cutout_length // 2, 0, height)
-    y2 = np.clip(y + cutout_length // 2, 0, height)
-    x1 = np.clip(x - cutout_length // 2, 0, width)
-    x2 = np.clip(x + cutout_length // 2, 0, width)
-
-    mask[:, :, y1:y2, x1:x2] = 0.
-
-    return mask
-
-
-def cutout_batch(X: Tensor, n_holes: int, length: Union[int, float]) -> Tensor:
+def cutout_batch(X: Tensor, n_holes: int = 1, length: Union[int, float] = 0.5) -> Tensor:
     """See :class:`CutOut`.
 
     Example:
@@ -53,8 +42,8 @@ def cutout_batch(X: Tensor, n_holes: int, length: Union[int, float]) -> Tensor:
         X_cutout: Batch of images with ``n_holes`` holes of dimension
             ``length x length`` replaced with zeros.
     """
-    h = X.size(2)
-    w = X.size(3)
+    h = X.shape[-2]
+    w = X.shape[-1]
 
     if 0 < length < 1:
         length = min(h, w) * length
@@ -116,3 +105,14 @@ class CutOut(Algorithm):
 
         new_x = cutout_batch(X=x, n_holes=self.n_holes, length=self.length)
         state.batch = (new_x, y)
+
+
+def _generate_mask(mask: Tensor, width: int, height: int, x: int, y: int, cutout_length: int) -> Tensor:
+    y1 = np.clip(y - cutout_length // 2, 0, height)
+    y2 = np.clip(y + cutout_length // 2, 0, height)
+    x1 = np.clip(x - cutout_length // 2, 0, width)
+    x2 = np.clip(x + cutout_length // 2, 0, width)
+
+    mask[..., y1:y2, x1:x2] = 0.
+
+    return mask
