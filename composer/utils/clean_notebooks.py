@@ -1,6 +1,6 @@
-""" Utility script to clean jupyter notebooks.
-Removes any outputs, all cell metadata except for 'tags', and also
-remove the notebook metadata "widgets".
+"""Utility script to clean jupyter notebooks.
+
+Removes any outputs, all cell metadata except for 'tags', and also remove the notebook metadata "widgets".
 """
 
 import argparse
