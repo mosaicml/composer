@@ -693,7 +693,8 @@ class Trainer:
                                 for optimizer in state.optimizers:
                                     if use_grad_scaling:
                                         total_loss = state.scaler.step(
-                                            optimizer, closure=lambda **kwargs: self._train_batch(microbatches, **kwargs))
+                                            optimizer,
+                                            closure=lambda **kwargs: self._train_batch(microbatches, **kwargs))
                                     else:
                                         total_loss = optimizer.step(
                                             closure=lambda **kwargs: self._train_batch(microbatches, **kwargs).item())
@@ -709,13 +710,14 @@ class Trainer:
                                 rerun_train_batch = True
                                 # Raise runtime error if we can't train even one sample at a time
                                 if state.grad_accum >= num_samples_in_batch:
-                                    raise RuntimeError("CUDA out of memory. Train loop failed with an internal minibatch of size 1")
+                                    raise RuntimeError(
+                                        "CUDA out of memory. Train loop failed with an internal minibatch of size 1")
                                 else:
                                     # TODO: Log that we're increasing grad accum?
                                     print(f"!!!! DOUBLING GRAD ACCUM {state.grad_accum} -> {state.grad_accum*2} !!!!")
                                     state.grad_accum *= 2
                             else:
-                                # If not CUDA out of memory, raise exception to user. Note that this 
+                                # If not CUDA out of memory, raise exception to user. Note that this
                                 # truncates the call stack back only to this newly raised error
                                 raise RuntimeError(e)
 
