@@ -41,15 +41,21 @@ def apply_alibi(model: torch.nn.Module,
         heads_per_layer (int): Number of attention heads per layer.
         max_sequence_length (int): See :class:`~composer.algorithms.alibi.alibi.Alibi`.
         position_embedding_attribute (str): See :class:`~composer.algorithms.alibi.alibi.Alibi`.
-        attention_module (torch.nn.Module): See :class:`~composer.algorithms.alibi.alibi.Alibi`.
+        attention_module (torch.nn.Module): Module/class that will have its
+            self-attention function replaced. For example, in
+            HuggingFace's GPT, the self-attention module is
+            :class:`~transformers.models.gpt2.modeling_gpt2.GPT2Attention`.
         attr_to_replace (str): See :class:`~composer.algorithms.alibi.alibi.Alibi`.
-        alibi_attention (Callable): See :class:`~composer.algorithms.alibi.alibi.Alibi`.
+        alibi_attention (Callable): Path to new self-attention function in which
+            ALiBi is implemented. Used to replace
+            ``{attention_module}.{attr_to_replace}``. Example:
+            :func:`~composer.algorithms.alibi._gpt2_alibi._attn`.
         mask_replacement_function ([Callable[[torch.nn.Module, int], torch.nn.Module]],
             optional): Function to replace model's attention mask. This can be
                 necessary for evaluating on sequence lengths longer than the model was
             initialized to accommodate. Takes positional arguments ``module`` and
             ``max_sequence_length``. For example,
-            ``composer.algorithms.alibi._gpt2_alibi.enlarge_mask``. Default = ``None``,
+            :func:`~composer.algorithms.alibi._gpt2_alibi.enlarge_mask`. Default = ``None``,
             which means no modification of the model's default attention mask.
         optimizers (Optimizers, optional): Existing optimizers bound to ``model.parameters()``.
             All optimizers that have already been constructed with
@@ -107,16 +113,17 @@ class Alibi(Algorithm):
         position_embedding_attribute (str): Attribute for position
             embeddings. For example in HuggingFace's GPT2, the
             position embeddings are ``'transformer.wpe'``.
-        attention_module (torch.nn.Module): Module/class that will have its
+        attention_module_name (str): Module/class that will have its
             self-attention function replaced. For example, in
             HuggingFace's GPT, the self-attention module is
-            ``transformers.models.gpt2.modeling_gpt2.GPT2Attention``.
+            ``'transformers.models.gpt2.modeling_gpt2.GPT2Attention'``.
         attr_to_replace (str): Attribute that self-attention function will
             replace. For example, in HuggingFace's GPT2, the
-            self-attention function is ``_attn``.
-        alibi_attention (Callable): New self-attention function in which
+            self-attention function is ``'_attn'``.
+        alibi_attention (str): Path to new self-attention function in which
             ALiBi is implemented. Used to replace
-            ``{attention_module}.{attr_to_replace}``.
+            ``{attention_module}.{attr_to_replace}``. Example:
+            ``'composer.algorithms.alibi._gpt2_alibi._attn'``.
         mask_replacement_function (Union[str, None]): Path to function to replace model's
             attention mask. This can be necessary if evaluating
             on sequence lengths longer than the model was initialized to
@@ -127,8 +134,8 @@ class Alibi(Algorithm):
         train_sequence_length_scaling (float, optional): Amount by which to scale
             training sequence length. One batch of training data will be
             reshaped from shape :math:`(sequence\\_length, batch)` to
-            :math:`(sequence_length \\times train\\_sequence\\_length\\_scaling,
-            \\frac{batch}{train\\_sequence\\_length\\_scaling})`. Default = 0.25.
+            :math:`(sequence\\_length \\times train\\_sequence\\_length\\_scaling,
+            \\frac{batch}{train\\_sequence\\_length\\_scaling})`. Default = ``0.25``.
     """
 
     def __init__(self,

@@ -63,6 +63,7 @@ class RandAugmentTransform(torch.nn.Module):
                 augmentation_set="all"
             )
             composed = transforms.Compose([randaugment_transform, transforms.RandomHorizontalFlip()])
+            transformed_image = composed(image)
     """
 
     def __init__(self, severity: int = 9, depth: int = 2, augmentation_set: str = "all"):
@@ -117,7 +118,7 @@ class RandAugment(Algorithm):
             in the original paper. Default = ``9``.
         depth (int, optional): Depth of augmentation chain. N in the original paper
             Default = ``2``.
-        augmentation_set (str, optional): must be one of the following options:
+        augmentation_set (str, optional): Must be one of the following options:
 
             * ``"augmentations_all"``
                 Uses all augmentations from the paper.
@@ -130,12 +131,13 @@ class RandAugment(Algorithm):
                 implementation specificities for the augmentations
                 ``"color"``, ``"contrast"``, ``"sharpness"``, and ``"brightness"``. The
                 original implementations have an intensity sampling scheme that samples a
-                value bounded by 0.118 at a minimum, and a maximum value of intensity*0.18
-                + .1, which ranges from 0.28 (intensity = 1) to 1.9 (intensity 10). These
-                augmentations have different effects depending on whether they are < 0 or
-                > 0 (or < 1 or > 1). "augmentations_all" uses implementations of "color",
-                "contrast", "sharpness", and "brightness" that account for diverging
-                effects around 0 (or 1).
+                value bounded by 0.118 at a minimum, and a maximum value of
+                :math:`intensity \times 0.18 + .1`, which ranges from 0.28 (intensity = 1)
+                to 1.9 (intensity 10). These augmentations have different effects
+                depending on whether they are < 0 or > 0 (or < 1 or > 1).
+                "augmentations_all" uses implementations of "color", "contrast",
+                "sharpness", and "brightness" that account for diverging effects around 0
+                (or 1).
 
             Default = ``"all"``.
     """

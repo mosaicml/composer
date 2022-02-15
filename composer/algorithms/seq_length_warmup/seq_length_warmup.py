@@ -76,10 +76,9 @@ class SeqLengthWarmup(Algorithm):
     Tensors are either truncated (``truncate=True``) or reshaped to
     create new examples from the extra tokens (``truncate=False``).
 
-    This algorithm runs on :attr:`~composer.core.event.Event.INIT` to modify the model,
-    before the model has been moved to accelerators. It also runs on
-    :attr:`~composer.core.event.Event.AFTER_DATALOADER` to modify the shape of a batch of
-    data, after the model and data have been moved to accelerators.
+    This algorithm runs on :attr:`~composer.core.event.Event.AFTER_DATALOADER` to modify
+    the sequence length of a batch of data, after the model and data have been moved to
+    accelerators.
 
     .. note::
 
@@ -97,7 +96,7 @@ class SeqLengthWarmup(Algorithm):
     Example: Awaiting language model test fixtures.
 
     Args:
-        duration (float, optional): fraction of total training for sequential length
+        duration (float, optional): Fraction of total training for sequential length
             learning. Default = ``0.3``.
         min_seq_length (int, optional): Minimum sequence length to start the warmup.
             Default = ``8``.
@@ -132,6 +131,10 @@ class SeqLengthWarmup(Algorithm):
         self._original_model = None
 
     def match(self, event: Event, state: State) -> bool:
+        """Runs on Event.AFTER_DATALOADER. Not called by user.
+            
+        :meta private:
+        """        
         return (event == Event.INIT and self._original_model is None) or event == Event.AFTER_DATALOADER
 
     def apply(self, event: Event, state: State, logger: Logger) -> Optional[int]:
@@ -147,7 +150,10 @@ class SeqLengthWarmup(Algorithm):
             state (:class:`State`): The current state.
             logger (:class:`Logger`): A logger to use for logging algorithm-specific metrics.
         Returns:
-            int or None: exit code that is stored in :class:`Trace` and made accessible for debugging.
+            int or None: exit code that is stored in :class:`Trace` and made accessible
+            for debugging.
+            
+        :meta private:
         """
         if event == Event.INIT:
             if not isinstance(state.model, ComposerTransformer):
