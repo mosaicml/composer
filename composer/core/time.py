@@ -303,7 +303,7 @@ class Time(Generic[TValue]):
         return self * other
 
     def __hash__(self):
-        return hash(f"{self.value}{self.unit}")
+        return hash((self.value, self.unit))
 
     @classmethod
     def from_timestring(cls, timestring: str) -> Time:

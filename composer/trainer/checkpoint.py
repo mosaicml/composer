@@ -371,12 +371,15 @@ class CheckpointSaver:
     Args:
         save_folder (str): The path to store checkpoints in.
         interval (Time or str): The amount of time units to wait between checkpoints.
-        compression (str, optional): Compression algorithm to run on checkpoints. Can be `gzip`, `bzip2`,
-            `lzma`, or `None` for no compression.  (default: ``None`` for no compression).
+        compression (str, optional): Compression algorithm to run on checkpoints. Can be ``gzip``, ``bzip2``,
+            ``lzma``, or ``None`` for no compression.  (default: ``None`` for no compression).
 
     Attributes:
         saved_checkpoints (Dict[Timestamp, List[str]): A dictionary mapping a save timestamp
             to a list of filepaths corresponding to the checkpoints saved at that time.
+
+            .. note:: The list of filepaths is for all ranks. The path at index ``i`` is the
+                      path that global rank ``i`` wrote to.
     """
 
     def __init__(self, save_folder: str, interval: Union[Time, str], compression: Optional[str] = None):
