@@ -4,6 +4,7 @@
         "functional": "mixup_batch",
         "tldr": "Blends pairs of examples and labels",
         "attribution": "(Zhang et al, 2017)",
-        "link": "https://arxiv.org/abs/1710.09412"
+        "link": "https://arxiv.org/abs/1710.09412",
+        "domains": ["vision"]
     }
 }

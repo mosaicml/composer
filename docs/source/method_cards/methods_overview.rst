@@ -1,3 +1,4 @@
+
 Methods Overview
 ===================
 
@@ -6,14 +7,14 @@ Methods Overview
 
    ---
    .. link-button:: alibi.html
-      :text: AliBi
+      :text: Alibi
       :classes: card-title
    ++++++++++++++
    :badge:`NLP,badge-success`
    Replace attention with AliBi
-   ---
 
-   .. link-button:: aug_mix.html
+   ---
+   .. link-button:: augmix.html
       :text: AugMix
       :classes: card-title
    ++++++++++++++
@@ -26,128 +27,148 @@ Methods Overview
       :classes: card-title
    ++++++++++++++
    :badge:`Vision,badge-primary`
-   Increases accuracy at nearly the same speed by applying a spatial low-pass filter before the pool in max pooling and whenever using a strided convolution...
+   applies blur before pooling
 
    ---
    .. link-button:: channels_last.html
-      :text: Channels Last
+      :text: ChannelsLast
       :classes: card-title
    ++++++++++++++
    :badge:`Vision,badge-primary`
    Uses channels last memory format (NHWC)
+
    ---
-   .. link-button:: col_out.html
+   .. link-button:: colout.html
       :text: ColOut
       :classes: card-title
    ++++++++++++++
    :badge:`Vision,badge-primary`
    Removes columns and rows from the image for augmentation and efficiency.
+
    ---
-   .. link-button:: cut_out.html
-      :text: Cutout
+   .. link-button:: cutmix.html
+      :text: CutMix
       :classes: card-title
    ++++++++++++++
    :badge:`Vision,badge-primary`
    Combines pairs of examples in non-overlapping regions and mixes labels
+
    ---
-   .. link-button:: decoupled_weight_decay.html
-      :text: Decoupled Weight Decay
+   .. link-button:: cutout.html
+      :text: CutOut
       :classes: card-title
    ++++++++++++++
    :badge:`Vision,badge-primary`
+   Randomly erases rectangular blocks from the image.
 
    ---
    .. link-button:: factorize.html
       :text: Factorize
       :classes: card-title
    ++++++++++++++
+   
+   Factorize GEMMs into smaller GEMMs
 
    ---
    .. link-button:: ghost_batchnorm.html
-      :text: Ghost BatchNorm
+      :text: GhostBatchNorm
       :classes: card-title
    ++++++++++++++
    :badge:`Vision,badge-primary`
    Use smaller samples to compute batchnorm
+
    ---
    .. link-button:: label_smoothing.html
-      :text: Label Smoothing
+      :text: LabelSmoothing
       :classes: card-title
    ++++++++++++++
    :badge:`Vision,badge-primary`
    Smooths the labels with a uniform prior
+
    ---
    .. link-button:: layer_freezing.html
-      :text: Layer Freezing
+      :text: LayerFreezing
       :classes: card-title
    ++++++++++++++
-   :badge:`Vision,badge-primary`
+   
    Progressively freezes layers during training.
+
    ---
-   .. link-button:: mix_up.html
+   .. link-button:: mixup.html
       :text: MixUp
       :classes: card-title
    ++++++++++++++
    :badge:`Vision,badge-primary`
    Blends pairs of examples and labels
+
    ---
-   .. link-button:: progressive_resizing_vision.html
-      :text: Progressive Image Resizing
+   .. link-button:: progressive_resizing.html
+      :text: ProgressiveResizing
       :classes: card-title
    ++++++++++++++
    :badge:`Vision,badge-primary`
    Increases the input image size during training
+
    ---
-   .. link-button:: rand_augment.html
+   .. link-button:: randaugment.html
       :text: RandAugment
       :classes: card-title
    ++++++++++++++
    :badge:`Vision,badge-primary`
    Applies a series of random augmentations
+
    ---
    .. link-button:: sam.html
-      :text: Sharpness Aware Minimization
+      :text: SAM
       :classes: card-title
    ++++++++++++++
    :badge:`Vision,badge-primary`
    SAM optimizer measures sharpness of optimization space
-   ---
-   .. link-button:: scale_schedule.html
-      :text: Scale Schedule
-      :classes: card-title
-   ++++++++++++++
-   Scales the learning schedule by a factor
-   ---
-   .. link-button:: selective_backprop.html
-      :text: Selective Backprop
-      :classes: card-title
-   ++++++++++++++
-   :badge:`Vision,badge-primary`
-   :badge:`NLP,badge-success`
-   Drops examples with small loss contributions.
-   ---
-   .. link-button:: squeeze_excite.html
-      :text: Squeeze-and-Excitation
-      :classes: card-title
-   Replaces eligible layers with Squeeze-Excite layers
-   ---
-   .. link-button:: stochastic_depth_blockwise.html
-      :text: Stochastic Depth (Block-Wise)
-      :classes: card-title
-   Replaces a specified layer with a stochastic verion that randomly drops the layer or samples during training
-   ++++++++++++++
-   :badge:`Vision,badge-primary`
-   :badge:`NLP,badge-success`
 
    ---
-   .. link-button:: stochastic_depth_samplewise.html
-      :text: Stochastic Depth (Sample-Wise)
+   .. link-button:: scale_schedule.html
+      :text: ScaleSchedule
       :classes: card-title
    ++++++++++++++
+   
+   Scale the learning rate schedule by a factor
+
+   ---
+   .. link-button:: selective_backprop.html
+      :text: SelectiveBackprop
+      :classes: card-title
+   ++++++++++++++
+   :badge:`Vision,badge-primary`
+   Drops examples with small loss contributions.
+
+   ---
+   .. link-button:: seq_length_warmup.html
+      :text: SeqLengthWarmup
+      :classes: card-title
+   ++++++++++++++
+   :badge:`NLP,badge-success`
+   Progressively increase sequence length.
+
+   ---
+   .. link-button:: squeeze_excite.html
+      :text: SqueezeExcite
+      :classes: card-title
+   ++++++++++++++
+   :badge:`Vision,badge-primary`
+   Replaces eligible layers with Squeeze-Excite layers
+
+   ---
+   .. link-button:: stochastic_depth.html
+      :text: StochasticDepth
+      :classes: card-title
+   ++++++++++++++
+   :badge:`Vision,badge-primary`
+   Replaces a specified layer with a stochastic verion that randomly drops the layer or samples during training
 
    ---
    .. link-button:: swa.html
-      :text: Stochastic Weight Averaging
+      :text: SWA
       :classes: card-title
    ++++++++++++++
+   :badge:`Vision,badge-primary`
    Computes running average of model weights.

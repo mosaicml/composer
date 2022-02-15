@@ -4,6 +4,7 @@
         "functional": "freeze_layers",
         "tldr": "Progressively freezes layers during training.",
         "attribution": "Many (Raghu et al, 2017)",
-        "link": "https://arxiv.org/abs/1706.05806"
+        "link": "https://arxiv.org/abs/1706.05806",
+        "domains": []
     }
 }
