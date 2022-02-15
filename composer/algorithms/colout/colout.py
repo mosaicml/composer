@@ -76,8 +76,8 @@ def colout_batch(X: torch.Tensor, p_row: float = 0.15, p_col: float = 0.15) -> t
     """
 
     # Get the dimensions of the image
-    row_size = X.shape[2]
-    col_size = X.shape[3]
+    row_size = X.shape[-2]
+    col_size = X.shape[-1]
 
     # Determine how many rows and columns to keep
     kept_row_size = int((1 - p_row) * row_size)
@@ -88,8 +88,8 @@ def colout_batch(X: torch.Tensor, p_row: float = 0.15, p_col: float = 0.15) -> t
     kept_col_idx = sorted(torch.randperm(col_size)[:kept_col_size].numpy())
 
     # Keep only the selected row and columns
-    X_colout = X[:, :, kept_row_idx, :]
-    X_colout = X_colout[:, :, :, kept_col_idx]
+    X_colout = X[..., kept_row_idx, :]
+    X_colout = X_colout[..., :, kept_col_idx]
     return X_colout
 
 
