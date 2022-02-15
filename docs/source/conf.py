@@ -49,7 +49,6 @@ extensions = [
     'sphinxemoji.sphinxemoji',
     "sphinxext.opengraph",
     "sphinx_copybutton",
-    "sphinx_rtd_theme",
     "myst_parser",
     "sphinx.ext.intersphinx",
     "sphinxarg.ext",
