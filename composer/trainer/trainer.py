@@ -34,7 +34,6 @@ from composer.optim import ComposedScheduler
 from composer.optim.decoupled_weight_decay import DecoupledSGDW
 from composer.profiler import Profiler, ProfilerEventHandler
 from composer.profiler.dataloader_profiler import DataloaderProfiler
-from composer.profiler.json_trace import JSONTraceHandler
 from composer.profiler.system_profiler import SystemProfiler
 from composer.profiler.torch_profiler import TorchProfiler
 from composer.trainer.checkpoint import CheckpointLoader, CheckpointSaver
@@ -226,7 +225,7 @@ class Trainer:
 
         # Profiling
         profiler_trace_file: Optional[str] = None,
-        prof_event_handlers: Sequence[ProfilerEventHandler] = [JSONTraceHandler()],
+        prof_event_handlers: Sequence[ProfilerEventHandler] = tuple(),
         prof_skip_first: int = 0,
         prof_wait: int = 0,
         prof_warmup: int = 1,

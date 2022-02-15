@@ -24,7 +24,7 @@ def _generate_mask(mask: Tensor, width: int, height: int, x: int, y: int, cutout
     return mask
 
 
-def cutout_batch(X: Tensor, n_holes: int, length: Union[int, float]) -> Tensor:
+def cutout_batch(X: Tensor, n_holes: int = 1, length: Union[int, float] = 0.5) -> Tensor:
     """See :class:`CutOut`.
 
     Args:
