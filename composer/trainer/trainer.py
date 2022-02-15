@@ -34,7 +34,6 @@ from composer.optim.decoupled_weight_decay import DecoupledSGDW
 from composer.optim.scheduler import compile_scheduler, cosine_annealing_scheduler
 from composer.profiler import Profiler, ProfilerEventHandler
 from composer.profiler.dataloader_profiler import DataloaderProfiler
-from composer.profiler.json_trace import JSONTraceHandler
 from composer.profiler.system_profiler import SystemProfiler
 from composer.profiler.torch_profiler import TorchProfiler
 from composer.trainer.checkpoint import CheckpointLoader, CheckpointSaver
@@ -229,7 +228,7 @@ class Trainer:
 
         # Profiling
         profiler_trace_file: Optional[str] = None,
-        prof_event_handlers: Sequence[ProfilerEventHandler] = [JSONTraceHandler()],
+        prof_event_handlers: Sequence[ProfilerEventHandler] = tuple(),
         prof_skip_first: int = 0,
         prof_wait: int = 0,
         prof_warmup: int = 1,
@@ -609,7 +608,7 @@ class Trainer:
             log.warn('Computing model evaluation metrics during training.'
                      ' This doubles the number of forward passes and may lead'
                      ' to a throughput degradation.')
-            train_metrics = self.original_model.metrics(train=False)
+            train_metrics = self.original_model.metrics(train=True)
             if isinstance(train_metrics, Metric):
                 # Forcing metrics to be a MetricCollection simplifies logging results
                 train_metrics = MetricCollection([train_metrics])
