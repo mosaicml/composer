@@ -126,7 +126,7 @@ class AugMix(Algorithm):
     mixing the combined augmented image and the original image is drawn from a
     ``Beta(alpha, alpha)`` distribution, using the same ``alpha``.
 
-    This algorithm runs on on :attr:`Event.FIT_START` to insert a dataset transformation. It is a no-op if this algorithm already
+    This algorithm runs on on :attr:`~composer.core.event.Event.FIT_START` to insert a dataset transformation. It is a no-op if this algorithm already
     applied itself on the :attr:`State.train_dataloader.dataset`.
 
     Example:
@@ -206,10 +206,17 @@ class AugMix(Algorithm):
         self._transformed_datasets = weakref.WeakSet()
 
     def match(self, event: Event, state: State) -> bool:
+        """Runs on Event.FIT_START. Not called by user.
+            
+        :meta private:
+        """        
         return event == Event.FIT_START and state.train_dataloader.dataset not in self._transformed_datasets
 
     def apply(self, event: Event, state: State, logger: Logger) -> None:
-        """Inserts AugMix into the list of dataloader transforms."""
+        """Inserts AugMix into the list of dataloader transforms. Not called by user. 
+        
+        :meta private:
+        """
         am = AugmentAndMixTransform(severity=self.severity,
                                     depth=self.depth,
                                     width=self.width,

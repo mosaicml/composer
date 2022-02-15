@@ -89,8 +89,9 @@ class RandAugment(Algorithm):
     """Randomly apply a sequence of image data augmentations (`Cubuk et al. 2019
     <https://openaccess.thecvf.com/content_CVPRW_2020/papers/w40/Cubuk_Randaugment_Practical_Automated_Data_Augmentation_With_a_Reduced_Search_Space_CVPRW_2020_paper.pdf>`_).
 
-    This algorithm runs on on :attr:`Event.INIT` to insert a dataset transformation. It is a no-op if this algorithm already
-    applied itself on the :attr:`State.train_dataloader.dataset`.
+    This algorithm runs on on :attr:`~composer.core.event.Event.INIT` to insert a dataset
+    transformation. It is a no-op if this algorithm already applied itself on the
+    :attr:`State.train_dataloader.dataset`. 
 
     Example:
         .. testcode::
@@ -150,15 +151,16 @@ class RandAugment(Algorithm):
         self._transformed_datasets = weakref.WeakSet()
 
     def match(self, event: Event, state: State) -> bool:
+        """Runs on Event.FIT_START. Not called by user.
+            
+        :meta private:
+        """         
         return event == Event.FIT_START and state.train_dataloader.dataset not in self._transformed_datasets
 
     def apply(self, event: Event, state: State, logger: Logger) -> None:
-        """Inserts RandAugment into the list of dataloader transforms.
-
-        Args:
-            event (Event): the current event
-            state (State): the current trainer state
-            logger (Logger): the training logger
+        """Inserts RandAugment into the list of dataloader transforms. Not called by user. 
+        
+        :meta private:
         """
         ra = RandAugmentTransform(severity=self.severity, depth=self.depth, augmentation_set=self.augmentation_set)
         assert state.train_dataloader is not None
