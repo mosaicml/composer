@@ -20,7 +20,6 @@ from typing import Any, List, Optional, Tuple, Type, Union
 import sphinx.application
 import sphinx.ext.autodoc
 import sphinx.util.logging
-import yahp as hp
 
 sys.path.insert(0, os.path.abspath('..'))
 
@@ -50,9 +49,7 @@ extensions = [
     "sphinxext.opengraph",
     "sphinx_copybutton",
     "myst_parser",
-    "sphinx.ext.intersphinx",
     "sphinxarg.ext",
-    'autodocsumm',
     'sphinx.ext.doctest',
 ]
 
@@ -73,17 +70,6 @@ napoleon_custom_sections = [('Returns', 'params_style')]
 # a list of builtin themes.
 #
 html_theme = "furo"
-
-html_theme_options = {
-    # Toc options
-    'collapse_navigation': False,
-    'display_version': False,
-    'navigation_depth': 5,
-    'logo_only': True,
-    'sticky_navigation': False,
-    'globaltoc_collapse': True,
-    'globaltoc_maxdepth': -1,
-}
 
 # Make sure the target is unique
 autosectionlabel_prefix_document = True
@@ -337,6 +323,5 @@ def add_module_summary_tables(
 
 
 def setup(app: sphinx.application.Sphinx):
-    app.connect('autodoc-skip-member', skip_redundant_namedtuple_attributes)
     app.connect('autodoc-skip-member', skip_redundant_namedtuple_attributes)
     app.connect('autodoc-process-docstring', add_module_summary_tables)
