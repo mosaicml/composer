@@ -21,16 +21,14 @@ log = logging.getLogger(__name__)
 
 __all__ = ["Alibi", "apply_alibi"]
 
-
-def apply_alibi(
-    model: torch.nn.Module,
+def apply_alibi(model: torch.nn.Module,
     heads_per_layer: int,
     max_sequence_length: int,
     position_embedding_attribute: str,
     attention_module: Type[torch.nn.Module],
     attr_to_replace: str,
     alibi_attention: Callable,
-    mask_replacement_function: Union[Callable, None],
+    mask_replacement_function: Optional[Callable[[torch.nn.Module, int], torch.nn.Module]]=None,
     optimizers: Optional[Optimizers] = None,
 ) -> None:
     """Removes position embeddings and replaces the attention function and attention mask
@@ -41,25 +39,18 @@ def apply_alibi(
     Args:
         model (torch.nn.Module): Model to transform.
         heads_per_layer (int): Number of attention heads per layer.
-        max_sequence_length (int): Maximum sequence length that the
-            model will be able to accept.
-        position_embedding_attribute (str): Attribute for position
-            embeddings. For example in HuggingFace's GPT2, the
-            position embeddings are ``transformer.wpe``.
-        attention_module (torch.nn.Module): Module/class that will have its
-            self-attention function replaced. For example, in
-            HuggingFace's GPT, the self-attention module is
-            ``transformers.models.gpt2.modeling_gpt2.GPT2Attention``.
-        attr_to_replace (str): Attribute that self-attention function will
-            replace. For example, in HuggingFace's GPT2, the
-            self-attention function is ``_attn``.
-        alibi_attention (Callable): New self-attention function in which
-            ALiBi is implemented. Used to replace
-            ``{attention_module}.{attr_to_replace}``.
-        mask_replacement_function (Union[Callable, None]): Function to replace model's
-            attention mask. This is sometimes necessary for evaluating
-            on sequence lengths longer than the model was initialized to
-            accommodate. Takes positional arguments ``module`` and ``max_sequence_length``.
+        max_sequence_length (int): See :class:`~composer.algorithms.alibi.alibi.Alibi`.
+        position_embedding_attribute (str): See :class:`~composer.algorithms.alibi.alibi.Alibi`.
+        attention_module (torch.nn.Module): See :class:`~composer.algorithms.alibi.alibi.Alibi`.
+        attr_to_replace (str): See :class:`~composer.algorithms.alibi.alibi.Alibi`.
+        alibi_attention (Callable): See :class:`~composer.algorithms.alibi.alibi.Alibi`.
+        mask_replacement_function ([Callable[[torch.nn.Module, int], torch.nn.Module]],
+            optional): Function to replace model's attention mask. This can be
+                necessary for evaluating on sequence lengths longer than the model was
+            initialized to accommodate. Takes positional arguments ``module`` and
+            ``max_sequence_length``. For example,
+            ``composer.algorithms.alibi._gpt2_alibi.enlarge_mask``. Default = ``None``,
+            which means no modification of the model's default attention mask.
         optimizers (Optimizers, optional): Existing optimizers bound to ``model.parameters()``.
             All optimizers that have already been constructed with
             ``model.parameters()`` must be specified here so they will optimize
@@ -108,7 +99,9 @@ class Alibi(Algorithm):
     Args:
         heads_per_layer (int): Number of attention heads per layer
         max_sequence_length (int): Maximum sequence length that the
-            model will be able to accept.
+            model will be able to accept. This is sometimes necessary for evaluating
+            on sequence lengths longer than the model was initialized to
+            accommodate.
         position_embedding_attribute (str): Attribute for position
             embeddings. For example in HuggingFace's GPT2, the
             position embeddings are ``transformer.wpe``.
@@ -122,15 +115,18 @@ class Alibi(Algorithm):
         alibi_attention (Callable): New self-attention function in which
             ALiBi is implemented. Used to replace
             ``{attention_module}.{attr_to_replace}``.
-        mask_replacement_function (Union[Callable, None]): Function to replace model's
-            attention mask. This is sometimes necessary for evaluating
+        mask_replacement_function (Union[str, None]): Path to function to replace model's
+            attention mask. This can be necessary if evaluating
             on sequence lengths longer than the model was initialized to
-            accommodate. Takes positional arguments ``module`` and ``max_sequence_length``.
-        train_sequence_length_scaling: Amount by which to scale
+            accommodate. Takes positional arguments ``module`` and
+            ``max_sequence_length``. For example, 
+            ``'composer.algorithms.alibi._gpt2_alibi.enlarge_mask'``. Default = ``None``,
+            which means no modification of the model's default attention mask.
+        train_sequence_length_scaling (float, optional): Amount by which to scale
             training sequence length. One batch of training data will be
             reshaped from shape :math:`(sequence\\_length, batch)` to
             :math:`(sequence_length \\times train\\_sequence\\_length\\_scaling,
-            \\frac{batch}{train\\_sequence\\_length\\_scaling})`.
+            \\frac{batch}{train\\_sequence\\_length\\_scaling})`. Default = 0.25.
     """
 
     def __init__(self,
@@ -154,11 +150,17 @@ class Alibi(Algorithm):
         self._applied = False
 
     def match(self, event: Event, state: State) -> bool:
-        """Runs on Event.INIT."""
+        """Runs on Event.INIT. Not called by user.
+            
+        :meta private:
+        """
         return (event == Event.INIT and not self._applied) or event == Event.AFTER_DATALOADER
 
     def apply(self, event: Event, state: State, logger: Logger) -> Optional[int]:
-        """Replace model's existing attention mechanism with AliBi."""
+        """Replace model's existing attention mechanism with AliBi. Not called by user. 
+        
+        :meta private:
+        """
 
         if event == Event.INIT:
 
