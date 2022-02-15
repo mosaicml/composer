@@ -16,7 +16,7 @@ Cory Stephenson at MosaicML.
 
 ## Applicable Settings
 
-ColOut is applicable to computer vision tasks where the network architecture is capable of handling different input image sizes. 
+ColOut is applicable to computer vision tasks where the network architecture is capable of handling different input image sizes.
 
 ## Hyperparameters
 
@@ -34,7 +34,7 @@ ColOut currently has two implementations, one which acts as an additional data a
 
 ## Suggested Hyperparameters
 
-`p_row = 0.15` and `p_col = 0.15` strike a good balance between improving training throughput and limiting the negative impact on model accuracy. Setting `batch = True` also yields slightly lower accuracy, but for larger images this is offset by a large increase in throughput (~11% for ResNet-50 on ImageNet) because ColOut is only called once per batch and its operations are offloaded onto the GPU. 
+`p_row = 0.15` and `p_col = 0.15` strike a good balance between improving training throughput and limiting the negative impact on model accuracy. Setting `batch = True` also yields slightly lower accuracy, but for larger images this is offset by a large increase in throughput (~11% for ResNet-50 on ImageNet) because ColOut is only called once per batch and its operations are offloaded onto the GPU.
 
 ## Considerations
 
@@ -51,7 +51,9 @@ ColOut will show diminishing returns with other methods that change the size of 
     :members: match, apply
     :noindex:
 
-.. autofunction:: composer.algorithms.colout.colout
+.. autofunction:: composer.algorithms.colout.colout_image
+    :noindex:
+.. autofunction:: composer.algorithms.colout.colout_batch
     :noindex:
 ```
 

@@ -9,9 +9,7 @@ import warnings
 from typing import Type
 
 import composer
-from composer.profiler import ProfilerHparams
-from composer.profiler.profiler_hparams import DataloaderProfilerHparams, SystemProfilerHparams, TorchProfilerHparams
-from composer.trainer import Trainer, TrainerHparams
+from composer.trainer import TrainerHparams
 
 logger = logging.getLogger(__name__)
 
@@ -38,19 +36,20 @@ def main() -> None:
     logging.getLogger(composer.__name__).setLevel(hparams.log_level)
 
     # Configure the Composer profiler
-    if hparams.profiler is None:
+    hparams.profiler_trace_file = "merged_traces.json"
+    hparams.torch_profiler_trace_dir = "torch_profiler"
+    if hparams.profiler_trace_file is not None:
         if args.detailed:
-            hparams.profiler = ProfilerHparams(profilers=[  # type: ignore
-                DataloaderProfilerHparams(),
-                SystemProfilerHparams(profile_disk=True, profile_memory=True, profile_net=True),
-                TorchProfilerHparams(record_shapes=True, with_stack=True),
-            ])
-        else:
-            hparams.profiler = ProfilerHparams()
+            hparams.sys_prof_disk = True
+            hparams.sys_prof_memory = True
+            hparams.sys_prof_net = True
+            hparams.torch_prof_record_shapes = True
+            hparams.torch_prof_with_stack = True
+
     hparams.max_duration = "2ep"
-    if hparams.profiler.repeat != 0 and hparams.train_subset_num_batches is None:
-        cycle_len = hparams.profiler.wait + hparams.profiler.warmup + hparams.profiler.active
-        num_profiling_batches = hparams.profiler.skip_first + cycle_len * hparams.profiler.repeat
+    if hparams.prof_repeat != 0 and hparams.train_subset_num_batches is None:
+        cycle_len = hparams.prof_wait + hparams.prof_warmup + hparams.prof_active
+        num_profiling_batches = hparams.prof_skip_first + cycle_len * hparams.prof_repeat
         hparams.train_subset_num_batches = num_profiling_batches
 
         # Disable dataset shuffle, since shuffle is not supported when using subset_num_batches
@@ -64,7 +63,7 @@ def main() -> None:
     hparams.validate_every_n_epochs = -1
 
     # Create the trainer and train
-    trainer = Trainer.create_from_hparams(hparams=hparams)
+    trainer = hparams.initialize_object()
     trainer.fit()
 
 

@@ -1,0 +1,9 @@
+{
+    "label_smoothing": {
+        "class_name": "LabelSmoothing",
+        "functional": "smooth_labels",
+        "tldr": "Smooths the labels with a uniform prior",
+        "attribution": "(Szegedy et al, 2015)",
+        "link": "https://arxiv.org/abs/1512.00567"
+    }
+}

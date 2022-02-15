@@ -7,8 +7,6 @@ The library features:
 * Standardized approach to implement and compose efficiency methods, extended from two-way callbacks ([Howard et al, 2020](https://arxiv.org/abs/2002.04688))
 * Easy way to access our methods either directly for your trainer loops, or through the Composer Trainer.
 
-[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/mosaicml/composer/blob/main/examples/composer.ipynb)
-
 
 ## Installing Composer
 
@@ -51,7 +49,7 @@ trainer_hparams = trainer.load("resnet50")
 trainer_hparams.algorithms = algorithms.load_multiple("squeeze_excite", "scale_schedule")
 trainer_hparams.datadir = 'your/dataset/path/'
 
-learner = Trainer.create_from_hparams(hparams=trainer_hparams)
+learner = trainer_hparams.initialize_object()
 learner.fit()
 
 ```

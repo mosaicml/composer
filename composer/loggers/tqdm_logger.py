@@ -11,8 +11,9 @@ import yaml
 from tqdm import auto
 
 from composer.core.logging import LogLevel, TLogData, TLogDataValue, format_log_data_value
-from composer.core.logging.base_backend import BaseLoggerBackend
+from composer.core.logging.base_backend import LoggerCallback
 from composer.core.state import State
+from composer.core.time import Timestamp
 from composer.core.types import StateDict
 from composer.utils import dist
 
@@ -58,7 +59,7 @@ class _TQDMLoggerInstance:
         return asdict(self.state)
 
 
-class TQDMLoggerBackend(BaseLoggerBackend):
+class TQDMLogger(LoggerCallback):
     """Shows TQDM progress bars.
 
     During training, the progress bar logs the batch and training loss.
@@ -89,8 +90,8 @@ class TQDMLoggerBackend(BaseLoggerBackend):
         del state  # Unused
         return dist.get_global_rank() == 0 and log_level <= LogLevel.BATCH
 
-    def log_metric(self, epoch: int, step: int, log_level: LogLevel, data: TLogData) -> None:
-        del epoch, step, log_level  # Unused
+    def log_metric(self, timestamp: Timestamp, log_level: LogLevel, data: TLogData) -> None:
+        del timestamp, log_level  # Unused
         if self.is_train in self.pbars:
             # Logging outside an epoch
             assert self.is_train is not None

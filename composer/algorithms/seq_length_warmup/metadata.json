@@ -1,0 +1,9 @@
+{
+    "seq_length_warmup": {
+        "class_name": "SeqLengthWarmup",
+        "functional": "set_batch_sequence_length",
+        "tldr": "Progressively increase sequence length.",
+        "attribution": "(Li et al, 2021)",
+        "link": "https://arxiv.org/abs/2108.06084"
+    }
+}
