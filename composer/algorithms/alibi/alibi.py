@@ -106,7 +106,7 @@ class Alibi(Algorithm):
             accommodate.
         position_embedding_attribute (str): Attribute for position
             embeddings. For example in HuggingFace's GPT2, the
-            position embeddings are ``transformer.wpe``.
+            position embeddings are ``'transformer.wpe'``.
         attention_module (torch.nn.Module): Module/class that will have its
             self-attention function replaced. For example, in
             HuggingFace's GPT, the self-attention module is

@@ -76,15 +76,23 @@ class SeqLengthWarmup(Algorithm):
     Tensors are either truncated (``truncate=True``) or reshaped to
     create new examples from the extra tokens (``truncate=False``).
 
+    This algorithm runs on :attr:`~composer.core.event.Event.INIT` to modify the model,
+    before the model has been moved to accelerators. It also runs on
+    :attr:`~composer.core.event.Event.AFTER_DATALOADER` to modify the shape of a batch of
+    data, after the model and data have been moved to accelerators.
+
     .. note::
 
-        ``step_size`` should be a multiple of eight for GPUs
+        ``step_size`` should be a `multiple of eight
+        <https://developer.nvidia.com/blog/optimizing-gpu-performance-tensor-cores/>`_ for
+        optimal throughput on NVIDIA GPUs
 
     .. note::
 
         Variable input lengths can create CUDA OOM errors. To avoid this,
-        we follow PyTorch notes and pre-allocate the memory with a blank
-        forward and backward pass.
+        we follow `PyTorch notes
+        <https://pytorch.org/tutorials/recipes/recipes/tuning_guide.html#pre-allocate-memory-in-case-of-variable-input-length>`_
+         and pre-allocate the memory with a blank forward and backward pass.
 
     Example: Awaiting language model test fixtures.
 
