@@ -520,8 +520,8 @@ class Trainer:
             # Move any remaining optimizer parameters onto the device
             self.state.optimizers = map_collection(self.state.optimizers, self.device.optimizer_to_device)
 
-            if dist.is_initialized():
-                # wrap model with DDP
+            if dist.get_world_size() > 1:
+                # Only wrap the module if required
                 self.state.model = prepare_ddp_module(self.state.model, self.find_unused_parameters)
 
     @property

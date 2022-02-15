@@ -5,7 +5,6 @@ import pathlib
 
 import pytest
 import torch
-from torch import distributed as dist
 from torch.nn.parallel import DistributedDataParallel
 from torch.utils.data import DataLoader
 
@@ -18,6 +17,7 @@ from composer.core.types import Model
 from composer.loggers import FileLogger, TQDMLogger, WandBLogger
 from composer.trainer import Trainer
 from composer.trainer.trainer_hparams import algorithms_registry, callback_registry, logger_registry
+from composer.utils import dist
 from tests.common import (RandomClassificationDataset, RandomImageDataset, SimpleConvModel, SimpleModel, device,
                           world_size)
 
@@ -37,18 +37,10 @@ class TestTrainerInit():
         trainer = Trainer(**config)
         assert isinstance(trainer, Trainer)
 
-    def test_model_ddp_wrapped(self, config, init_process_group):
-        # dist initialized first with init_process_group fixture
+    def test_model_ddp_wrapped(self, config):
         trainer = Trainer(**config)
-        assert isinstance(trainer.state.model, DistributedDataParallel)
-
-    @pytest.mark.skip("conflict between new and old fixtues need to be resolved.")
-    def test_model_ddp_not_wrapped(self, config):
-        if dist.is_available() and dist.is_initialized():
-            dist.destroy_process_group()
-
-        trainer = Trainer(**config)
-        assert not isinstance(trainer.state.model, DistributedDataParallel)
+        should_be_ddp_wrapped = dist.get_world_size() > 1 and "deepspeed_config" not in config
+        assert isinstance(trainer.state.model, DistributedDataParallel) == should_be_ddp_wrapped
 
     def test_loggers_before_callbacks(self, config):
         config.update({
