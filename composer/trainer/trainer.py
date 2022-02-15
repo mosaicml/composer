@@ -680,7 +680,7 @@ class Trainer:
                         "trainer/global_step": self.state.step,
                         "trainer/batch_idx": self.state.timer.batch_in_epoch.value,
                     })
-                    # Rerun train_batch with smaller mini-batches if we hit CUDA error: out of memory
+                    # Rerun train_batch with smaller mini-batches if we hit CUDA out of memory
                     rerun_train_batch = True
                     while rerun_train_batch:
                         try:
@@ -705,17 +705,17 @@ class Trainer:
                                     else:
                                         optimizer.step()
                         except RuntimeError as e:
-                            if str(e) == "CUDA error: out of memory":
+                            if "CUDA out of memory" in str(e):
                                 rerun_train_batch = True
                                 # Raise runtime error if we can't train even one sample at a time
                                 if state.grad_accum == num_samples_in_batch:
-                                    raise RuntimeError("CUDA error: out of memory. Train loop failed with an internal minibatch of size 1")
+                                    raise RuntimeError("CUDA out of memory. Train loop failed with an internal minibatch of size 1")
                                 else:
                                     # TODO: Log that we're increasing grad accum?
                                     print("!!!! DOUBLING GRAD ACCUM !!!!")
                                     state.grad_accum *= 2
                             else:
-                                # If not CUDA error: out of memory, raise exception to user. Note that this 
+                                # If not CUDA out of memory, raise exception to user. Note that this 
                                 # truncates the call stack back only to this newly raised error
                                 raise RuntimeError(e)
 
