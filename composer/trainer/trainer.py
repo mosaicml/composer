@@ -31,7 +31,7 @@ from composer.datasets.dataloader import unwrap_data_loader
 from composer.loggers.tqdm_logger import TQDMLogger
 from composer.models.base import ComposerModel
 from composer.optim.decoupled_weight_decay import DecoupledSGDW
-from composer.optim.scheduler import cosine_annealing_scheduler
+from composer.optim.scheduler import compile_scheduler, cosine_annealing_scheduler
 from composer.profiler import Profiler, ProfilerEventHandler
 from composer.profiler.dataloader_profiler import DataloaderProfiler
 from composer.profiler.json_trace import JSONTraceHandler
@@ -376,20 +376,6 @@ class Trainer:
         if num_optimizers != 1:
             raise NotImplementedError(f"Only one optimizer is supported; found {num_optimizers} optimizers")
 
-        if not schedulers:
-            optimizer = ensure_tuple(optimizers)[0]
-            schedulers = cosine_annealing_scheduler
-            warnings.warn(f"No scheduler was specified. Defaulting to {repr(schedulers)}")
-
-        if scale_schedule_ratio != 1.0:
-            if orig_max_duration.unit != TimeUnit.EPOCH:
-                raise NotImplementedError(
-                    "Max duration must be specified in epochs. Other units are not yet supported.")
-
-            schedulers = [scale_scheduler(scheduler, scale_schedule_ratio, orig_max_duration.value) for scheduler in ensure_tuple(schedulers)]
-
-        self.use_stepwise_schedulers = use_stepwise_schedulers
-
         self.state = State(
             max_duration=max_duration,
             algorithms=algorithms,
@@ -402,8 +388,25 @@ class Trainer:
             evaluators=self.evaluators,
             optimizers=optimizers,
             steps_per_epoch=train_subset_num_batches,
-            schedulers=schedulers,
         )
+
+        if not schedulers:
+            schedulers = cosine_annealing_scheduler
+            warnings.warn(f"No scheduler was specified. Defaulting to {repr(schedulers)}")
+        schedulers = ensure_tuple(schedulers)
+
+        if scale_schedule_ratio != 1.0:
+            if orig_max_duration.unit != TimeUnit.EPOCH:
+                raise NotImplementedError(
+                    "Max duration must be specified in epochs. Other units are not yet supported.")
+
+            schedulers = tuple(
+                scale_scheduler(scheduler, scale_schedule_ratio, orig_max_duration.value)
+                for scheduler in ensure_tuple(schedulers))
+
+        self.use_stepwise_schedulers = use_stepwise_schedulers
+
+        schedulers = [compile_scheduler(scheduler, self.state) for scheduler in schedulers]
 
         # Configure profilers if profiling is enabled
         if profiler_trace_file:

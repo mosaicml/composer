@@ -8,10 +8,12 @@ from dataclasses import asdict, dataclass
 from typing import List, Optional, Union
 
 import yahp as hp
+from torch.optim.lr_scheduler import LambdaLR
 
 from composer.core import State
 from composer.core.scheduler import ComposerSchedulerFn
 from composer.core.time import Time, TimeUnit
+from composer.core.types import Scheduler
 from composer.optim._time_conversion import convert as convert_time
 
 log = logging.getLogger(__name__)
@@ -30,6 +32,25 @@ def _convert_time(time: Union[str, Time], state: State, ssr: float = 1.0) -> Tim
         time = convert_time(time=time, unit=TimeUnit.BATCH, steps_per_epoch=state.steps_per_epoch)
 
     return time
+
+
+def compile_scheduler(scheduler: Union[Scheduler, ComposerSchedulerFn], state: State) -> Scheduler:
+
+    if isinstance(scheduler, Scheduler):
+        return scheduler
+
+    optimizers = state.optimizers
+    if len(optimizers) != 1:
+        raise NotImplementedError("Providing functional schedulers is unsupported with multiple optimizers.")
+    optimizer = optimizers[0]
+
+    def scheduler_fn(epoch: int) -> float:
+        del epoch  # unused
+        return scheduler(state)
+
+    lambda_scheduler = LambdaLR(optimizer, scheduler_fn)
+
+    return lambda_scheduler
 
 
 def step_scheduler(state: State, *, ssr: float = 1.0, step_size: Union[str, Time], gamma: float = 0.1) -> float:
