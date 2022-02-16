@@ -80,7 +80,7 @@ else
 fi
 
 # Run pytest
-JUNIT_PREFIX=build/output/\${BUILD_NUMBER} ./scripts/test.sh --duration all -v -m "\$MARKERS"
+JUNIT_PREFIX=build/output/\${BUILD_NUMBER} ./scripts/test.sh --duration all -v -m "\"\$MARKERS\""
 
 # Combine the coverage reports
 python -m coverage combine
