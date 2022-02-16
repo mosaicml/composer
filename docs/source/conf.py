@@ -118,7 +118,7 @@ autodoc_type_aliases = {
 
 autodoc_default_options = {
     # don't document the forward() method. Because of how torch.nn.Module.forward is defined in the
-    # base class, sphinx does not realize that forward overrides an inherited methoed.
+    # base class, sphinx does not realize that forward overrides an inherited method.
     'exclude-members': 'forward'
 }
 
