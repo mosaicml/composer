@@ -403,7 +403,7 @@ class Trainer:
 
         self.use_stepwise_schedulers = use_stepwise_schedulers
 
-        schedulers = [compile_scheduler(scheduler, self.state) for scheduler in schedulers]
+        self.state.schedulers = [compile_scheduler(scheduler, self.state) for scheduler in schedulers]
 
         # Configure profilers if profiling is enabled
         if profiler_trace_file:
