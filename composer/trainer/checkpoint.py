@@ -256,6 +256,8 @@ class CheckpointLoader:
             state (State): The state to load the checkpoint into
             composer_checkpoint_filepath (str): The filepath to the moasic states, which is passed into
                 :meth:`torch.load`
+            extracted_rank_n (bool): A boolean flag indicating whether a tarball was extracted in the case
+                where global rank is greater than 0.
             extracted_checkpoint_folder (Optional[str]): The path to the checkpoint folder, which is passed into
                 :meth:`deepspeed.DeepSpeedEngine.load_checkpoint`.
 
