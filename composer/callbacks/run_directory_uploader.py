@@ -15,6 +15,8 @@ import time
 import uuid
 from typing import Callable, Optional, Tuple, Type, Union
 
+from libcloud.common.types import LibcloudError
+
 from composer.core.callback import Callback
 from composer.core.logging import Logger
 from composer.core.logging.logger import LogLevel
@@ -56,10 +58,6 @@ class RunDirectoryUploader(Callback):
         * Provide a RAM disk path for the `upload_staging_folder` parameter. Copying files to stage on RAM
           will be faster than writing to disk. However, you must have sufficient excess RAM on your system,
           or you may experience OutOfMemory errors.
-
-    .. note::
-
-        To use this callback, install composer with `pip install mosaicml[logging]`.
 
     Args:
         provider (str): Cloud provider to use.
@@ -265,7 +263,6 @@ def _upload_worker(
         object_name_prefix (str): Prefix to prepend to the object names
              before they are uploaded to the blob store.
     """
-    from libcloud.common.types import LibcloudError
     provider = object_store_provider_hparams.initialize_object()
     while True:
         try:

@@ -10,7 +10,7 @@ dirs := composer examples tests
 # run this to autoformat your code
 style:
 	isort -i $(dirs)
-	yapf -ri $(dirs)
+	yapf -rip $(dirs)
 	docformatter -ri --wrap-summaries 120 --wrap-descriptions 120 $(dirs)
 
 # this only checks for style & pyright, makes no code changes

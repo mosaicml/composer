@@ -240,9 +240,9 @@ def test_load_weights(
 @pytest.mark.parametrize("device_hparams,deepspeed_enabled,zero_stage", [
     pytest.param(CPUDeviceHparams(), False, None, id="cpu-ddp"),
     pytest.param(GPUDeviceHparams(), False, None, id="gpu-ddp", marks=pytest.mark.gpu),
-    pytest.param(GPUDeviceHparams(), True, 0, id="deepspeed-zero0", marks=pytest.mark.deepspeed),
-    pytest.param(GPUDeviceHparams(), True, 1, id="deepspeed-zero1", marks=pytest.mark.deepspeed),
-    pytest.param(GPUDeviceHparams(), True, 2, id="deepspeed-zero2", marks=pytest.mark.deepspeed),
+    pytest.param(GPUDeviceHparams(), True, 0, id="deepspeed-zero0", marks=pytest.mark.gpu),
+    pytest.param(GPUDeviceHparams(), True, 1, id="deepspeed-zero1", marks=pytest.mark.gpu),
+    pytest.param(GPUDeviceHparams(), True, 2, id="deepspeed-zero2", marks=pytest.mark.gpu),
 ])
 @pytest.mark.parametrize(
     "seed,checkpoint_filename,compression",
@@ -432,12 +432,6 @@ def test_checkpoint_load_uri(tmpdir: pathlib.Path):
 
 
 def test_checkpoint_load_object_uri(tmpdir: pathlib.Path, monkeypatch: pytest.MonkeyPatch):
-    try:
-        import libcloud
-        del libcloud
-    except ImportError:
-        pytest.skip("Skipping test as libcloud is not installed")
-
     remote_dir = tmpdir / "remote_dir"
     os.makedirs(remote_dir)
     monkeypatch.setenv("OBJECT_STORE_KEY", str(remote_dir))  # for the local option, the key is the path

@@ -3,31 +3,34 @@ Installation
 
 MosaicML ``Composer`` requires Python 3.7+ and Pytorch 1.9+. It can be installed via ``pip``:
 
-.. code-block::
+.. code-block:: console
 
     pip install mosaicml
 
-Additional dependencies can be installed by specifying ``mosaicml[tag]``. The following tags are available:
+To include non-core dependencies that are required by some algorithms, callbacks, datasets, and models, the following installation targets are available:
 
-- ``nlp``: installs huggingface ``transformers`` and ``datasets``
-- ``dev``: packages needed for testing, linting, and docs.
-- ``wandb``: enables the weights & biases logger
-- ``unet``: enables the U-Net model and BRATS dataset
-- ``all``: installs all of the above.
+* ``pip install mosaicml[deepspeed]``: Installs Composer with support for :mod:`deepspeed`.
+* ``pip install mosaicml[nlp]``: Installs Composer with support for NLP models and algorithms
+* ``pip install mosaicml[unet]``: Installs Composer with support for :doc:`Unet </model_cards/unet>`
+* ``pip install mosaicml[timm]``: Installs Composer with support for :mod:`timm`
+* ``pip install mosaicml[wandb]``: Installs Composer with support for :mod:`wandb`.
+* ``pip install mosaicml[dev]``: Installs development dependencies, which are required for running tests and building documentation.
+* ``pip install mosaicml[all]``: Install all optional dependencies
 
 For a developer install, clone directly:
 
-.. code-block::
+.. code-block:: console
 
     git clone https://github.com/mosaicml/composer.git
-    cd composer && pip install -e .
+    cd composer
+    pip install -e .[all]
 
 
 .. note::
 
     For performance in image-based operations, we **highly** recommend installing `Pillow-SIMD <https://github.com/uploadcare/pillow-simd>`_. To install, vanilla pillow must first be uninstalled.
 
-    .. code-block::
+    .. code-block:: console
 
         pip uninstall pillow && pip install pillow-simd
 
