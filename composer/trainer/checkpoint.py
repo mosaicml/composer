@@ -448,7 +448,7 @@ class CheckpointSaver:
         checkpoint.
 
         Args:
-            state (State): The current State of the trainer.
+               state (State): The current State of the trainer.
             seed (int): The seed used for random number generation.
             device (Device): The Device in use by this process.
         """
