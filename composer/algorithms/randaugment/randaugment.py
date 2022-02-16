@@ -4,7 +4,7 @@
 
 import textwrap
 import weakref
-from typing import List, Optional
+from typing import List
 
 import numpy as np
 import torch
@@ -18,7 +18,7 @@ from composer.datasets.utils import add_vision_dataset_transform
 __all__ = ['RandAugment', "RandAugmentTransform", 'randaugment_image']
 
 
-def randaugment_image(img: Optional[ImageType] = None,
+def randaugment_image(img: ImageType,
                       severity: int = 9,
                       depth: int = 2,
                       augmentation_set: List = augmentation_sets["all"]) -> ImageType:

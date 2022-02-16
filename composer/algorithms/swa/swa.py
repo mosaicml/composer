@@ -5,14 +5,11 @@
 from __future__ import annotations
 
 import logging
-from dataclasses import asdict, dataclass
 from typing import Optional
 
 import torch
-import yahp as hp
 from torch.optim.swa_utils import SWALR, AveragedModel, update_bn
 
-from composer.algorithms.algorithm_hparams import AlgorithmHparams
 from composer.core.types import Algorithm, Event, Logger, State
 
 log = logging.getLogger(__name__)
