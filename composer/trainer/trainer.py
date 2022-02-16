@@ -394,6 +394,7 @@ class Trainer:
         self.adaptive_grad_accum = grad_accum == -1
         if grad_accum == -1:
             self.grad_accum = 1
+            grad_accum = 1
         # Cannot use adaptive grad accum on CPU
         if isinstance(self.device, DeviceCPU) and self.adaptive_grad_accum:
             raise ValueError("Cannot use adaptive grad_accum on CPU. Please set grad_accum >= 1")
