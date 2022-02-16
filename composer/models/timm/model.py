@@ -36,7 +36,7 @@ class Timm(ComposerClassifier):
         except ImportError as e:
             raise ImportError(
                 "Composer was installed without timm support. To use timm with Composer, run: `pip install mosaicml[timm]`."
-            )
+            ) from e
 
         model = timm.create_model(
             model_name=model_name,

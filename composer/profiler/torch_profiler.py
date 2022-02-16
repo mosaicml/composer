@@ -6,7 +6,6 @@ import functools
 import json
 import os
 import textwrap
-import warnings
 from typing import Optional
 
 import torch.profiler
