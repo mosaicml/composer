@@ -163,19 +163,24 @@ class CheckpointLoader:
         assert local_rank_zero_path is not None, "local rank zero provides the path"
         return local_rank_zero_path
 
-    def _download_checkpoint(self, node_checkpoint_folder: str) -> Tuple[str, Optional[str]]:
+    def _download_checkpoint(self, node_checkpoint_folder: str) -> Tuple[str, Optional[str], bool]:
         """Download the checkpoint to ``node_checkpoint_folder``
 
         Args:
             node_checkpoint_folder (str): The folder to which to download the checkpoint
 
         Returns:
-            Tuple[str, Optional[str]]: A tuple of ``composer_checkpoint_filepath``, ``extracted_checkpoint_folder``
-                The ``composer_checkpoint_filepath``, is the path to the composer states, which can be passed into
-                :meth:`torch.load`.
+            Tuple[str, Optional[str], bool]: A tuple of ``composer_checkpoint_filepath``,
+                ``extracted_checkpoint_folder``, and ``extracted_rank_n``.
+
+                The ``composer_checkpoint_filepath``, is the path to the composer states,
+                which can be passed into :meth:`torch.load`.
 
                 The ``extracted_checkpoint_folder`` is the path to the checkpoint folder, which can be passed into
                 :meth:`deepspeed.DeepSpeedEngine.load_checkpoint`.
+
+                The ``extracted_rank_n`` is a boolean flag indicating whether a tarball was extracted on global
+                rank greater than 0.
         """
         checkpoint_archive_name = self.path.split(os.path.sep)[-1]
         rank_zero_checkpoint_archive_name = "rank_0." + _format_path_with_rank(checkpoint_archive_name, 0)
@@ -184,6 +189,7 @@ class CheckpointLoader:
         rank_zero_checkpoint_archive_filepath = os.path.join(node_checkpoint_folder, rank_zero_checkpoint_archive_name)
         rank_n_checkpoint_archive_filepath = os.path.join(node_checkpoint_folder, rank_n_checkpoint_archive_name)
         extracted_checkpoint_folder = None
+        extracted_rank_n = False
         if _is_pt_file(rank_zero_checkpoint_archive_filepath):
             # it's not an archive; it's just the composer state dict
             # and only rank zero has this file
@@ -222,9 +228,16 @@ class CheckpointLoader:
                                           ignore_not_found_errors=True)
 
                 if extracted_checkpoint_folder is not None:
-                    # it's an archive and needs to be extracted
-                    with tarfile.open(rank_n_checkpoint_archive_filepath) as tarball:
-                        tarball.extractall(extracted_checkpoint_folder)
+                    try:
+                        # it's an archive and needs to be extracted
+                        with tarfile.open(rank_n_checkpoint_archive_filepath) as tarball:
+                            tarball.extractall(extracted_checkpoint_folder)
+                            extracted_rank_n = True
+                    except FileNotFoundError:
+                        # this will happen most of the time (i.e. whenever deepspeed
+                        # is not being used) so not logging anything
+                        pass
+
         finally:
             # Wait for all checkpoints on the node to finish downloading
             # Putting the barrier in a finally so the rank will always block on the barrier,
@@ -233,9 +246,9 @@ class CheckpointLoader:
             # will detect the process crash and terminate the other ranks
             dist.barrier()
 
-        return composer_checkpoint_filepath, extracted_checkpoint_folder
+        return composer_checkpoint_filepath, extracted_checkpoint_folder, extracted_rank_n
 
-    def _restore_checkpoint(self, state: State, composer_checkpoint_filepath: str,
+    def _restore_checkpoint(self, state: State, composer_checkpoint_filepath: str, extracted_rank_n: bool,
                             extracted_checkpoint_folder: Optional[str]) -> Optional[int]:
         """Restore a checkpoint into ``state``.
 
@@ -257,6 +270,10 @@ class CheckpointLoader:
         if is_module_deepspeed(state.model):
             if extracted_checkpoint_folder is None:
                 raise RuntimeError("Deepspeed checkpoints require a tarball, not a weights file.")
+
+            global_rank = dist.get_global_rank()
+            if global_rank > 0 and not extracted_rank_n:
+                raise RuntimeError(f"Deepspeed checkpoint missing for rank {global_rank}")
 
             load_path, _ = cast("deepspeed.DeepSpeedEngine", state.model).load_checkpoint(
                 extracted_checkpoint_folder,
@@ -301,9 +318,14 @@ class CheckpointLoader:
         tempdir_ctx = tempfile.TemporaryDirectory() if dist.get_local_rank() == 0 else contextlib.nullcontext(None)
         with tempdir_ctx as tempdir:
             node_checkpoint_folder = self._get_node_checkpoint_download_folder(tempdir)
-            composer_checkpoint_filepath, extracted_checkpoint_folder = self._download_checkpoint(
+            composer_checkpoint_filepath, extracted_checkpoint_folder, extracted_rank_n = self._download_checkpoint(
                 node_checkpoint_folder)
-            seed_to_restore = self._restore_checkpoint(state, composer_checkpoint_filepath, extracted_checkpoint_folder)
+            seed_to_restore = self._restore_checkpoint(
+                state,
+                composer_checkpoint_filepath,
+                extracted_rank_n,
+                extracted_checkpoint_folder,
+            )
 
         log.info(f'{"Model weights" if self.load_weights_only else "Trainer checkpoint"}'
                  f' loaded from {self.path}.')
@@ -462,13 +484,12 @@ class CheckpointSaver:
                     torch.save(state_dict, f)
 
             checkpoint_filepath = os.path.join(self.checkpoint_folder, f'{tag}{self.file_extension}')
-            if _is_pt_file(checkpoint_filepath):
-                # only rank 0 will have save states to a pt file
-                if dist.get_global_rank() == 0:
-                    # move the file out of tmpdir to the user-specified location
-                    shutil.move(composer_states_filepath, checkpoint_filepath)
-            else:
-                # using compression, deepspeed, or both
+            if _is_pt_file(checkpoint_filepath) and dist.get_global_rank() == 0:
+                # move the file out of tmpdir to the user-specified location
+                shutil.move(composer_states_filepath, checkpoint_filepath)
+
+            if is_module_deepspeed(state.model) or (not _is_pt_file(checkpoint_filepath) and
+                                                    dist.get_global_rank() == 0):
                 with tarfile.open(checkpoint_filepath, self.write_mode) as tarball:
                     # add files flat to the tarball with the specified compression
                     tarball.add(tmpdir, arcname="")
