@@ -221,7 +221,7 @@ class Trainer:
         # save_checkpoint
         save_folder: Optional[str] = None,
         save_interval: Union[str, int, Time] = "1ep",
-        save_compression: str = '',
+        save_compression: Optional[str] = None,
 
         # Profiling
         profiler_trace_file: Optional[str] = None,
