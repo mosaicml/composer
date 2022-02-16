@@ -13,3 +13,8 @@
 .card-title {
     font-size: 22px;
 }
+
+body[data-theme=dark] .card-title {
+    font-size: 22px;
+    color: white;
+}
