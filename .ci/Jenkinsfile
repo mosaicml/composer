@@ -70,7 +70,7 @@ def runPytest(Map args) {
 set -euxo pipefail
 
 EXTRA_DEPS=$extraDeps
-MARKERS="'$markers'"
+MARKERS="$markers"
 
 # Install dependencies
 if [ -z "\${EXTRA_DEPS}" ]; then
@@ -85,7 +85,7 @@ python -m wandb disabled || true
 set -e
 
 # Run pytest
-JUNIT_PREFIX=build/output/\${BUILD_NUMBER} ./scripts/test.sh --duration all -v -m "\${MARKERS}"
+JUNIT_PREFIX=build/output/\${BUILD_NUMBER} ./scripts/test.sh --duration all -v -m \$MARKERS
 
 # Combine the coverage reports
 python -m coverage combine
