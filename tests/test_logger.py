@@ -23,6 +23,7 @@ def log_file_name(tmpdir: pathlib.Path) -> str:
 
 
 @pytest.mark.parametrize("log_level", [LogLevel.EPOCH, LogLevel.BATCH])
+@pytest.mark.timeout(10)
 def test_file_logger(dummy_state: State, log_level: LogLevel, log_file_name: str):
     log_destination = FileLoggerHparams(
         log_interval=3,
@@ -116,11 +117,7 @@ def test_tqdm_logger(composer_trainer_hparams: TrainerHparams, monkeypatch: Monk
 ])
 @pytest.mark.timeout(10)
 def test_wandb_logger(composer_trainer_hparams: TrainerHparams, world_size: int):
-    try:
-        import wandb
-        del wandb
-    except ImportError:
-        pytest.skip("wandb is not installed")
+    pytest.importorskip("wandb", reason="wandb is an optional dependency")
     del world_size  # unused. Set via launcher script
     composer_trainer_hparams.loggers = [
         WandBLoggerHparams(log_artifacts=True, log_artifacts_every_n_batches=1, extra_init_params={"mode": "disabled"})

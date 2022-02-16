@@ -10,7 +10,7 @@ dirs := composer examples tests
 # run this to autoformat your code
 style:
 	isort -i $(dirs)
-	yapf -ri $(dirs)
+	yapf -rip $(dirs)
 	docformatter -ri --wrap-summaries 120 --wrap-descriptions 120 $(dirs)
 
 # this only checks for style & pyright, makes no code changes
@@ -36,6 +36,6 @@ test-dist:
 test-all: test test-gpu test-deepspeed test-ddp
 
 clean-notebooks:
-	python composer/utils/clean_notebooks.py -i notebooks/*.ipynb
+	python scripts/clean_notebooks.py -i notebooks/*.ipynb
 
 .PHONY: test test-gpu test-dist test-deepspeed test-all lint style clean-notebooks

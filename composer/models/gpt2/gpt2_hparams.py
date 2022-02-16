@@ -14,8 +14,12 @@ class GPT2Hparams(TransformerHparams):
     """Overrides TransformerHparams to create GPT-2 specific models and configs."""
 
     def initialize_object(self) -> "ComposerTransformer":
-        import transformers
-
+        try:
+            import transformers
+        except ImportError as e:
+            raise ImportError(
+                'Composer was installed without NLP support. To use GPT2 with Composer, run: `pip install mosaicml[nlp]`.'
+            ) from e
         from composer.models.gpt2.model import GPT2Model
         self.validate()
 
