@@ -39,13 +39,13 @@ def runPytest(Map args) {
     def nGpus = "0"
     def memLimit = "7Gi"
     def cpuLimit = "2"
-    def markers = "'not notebooks and not gpu'"
+    def markers = "not notebooks and not gpu"
 
     if (gpu){
         nGpus = "2"
         cpuLimit = "16" // 8 cpu per gpu
         memLimit = "15Gi"  // 7.5Gb per gpu
-        markers = "'not notebooks and gpu'"
+        markers = "not notebooks and gpu"
     }
 
     def name = null
@@ -79,13 +79,8 @@ else
     pip install .[\${EXTRA_DEPS}]
 fi
 
-# Disable WandB. Since WandB may not be installed, ignoring errors
-set +e
-python -m wandb disabled || true
-set -e
-
 # Run pytest
-JUNIT_PREFIX=build/output/\${BUILD_NUMBER} ./scripts/test.sh --duration all -v -m \$MARKERS
+JUNIT_PREFIX=build/output/\${BUILD_NUMBER} ./scripts/test.sh --duration all -v -m "\$MARKERS"
 
 # Combine the coverage reports
 python -m coverage combine
