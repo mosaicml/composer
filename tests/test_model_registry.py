@@ -13,10 +13,6 @@ def test_model_registry(model_name, request):
     if model_name in ['unet']:
         pytest.importorskip("monai")
 
-    # TODO (Moin + Ravi): create dummy versions of these models to pass unit tests
-    if model_name in ['gpt2', 'bert', 'bert_classification']:  # do not pull from HF model hub
-        request.applymarker(pytest.mark.xfail())
-
     # create the model hparams object
     model_hparams = model_registry[model_name]()
 

@@ -39,13 +39,13 @@ def runPytest(Map args) {
     def nGpus = "0"
     def memLimit = "7Gi"
     def cpuLimit = "2"
-    def markers = '""' // no markers. interpreted as a bash array
+    def markers = "not notebooks and not gpu"
 
     if (gpu){
         nGpus = "2"
         cpuLimit = "16" // 8 cpu per gpu
         memLimit = "15Gi"  // 7.5Gb per gpu
-        markers = '"gpu" "deepspeed"'  // interpreted as a bash array
+        markers = "not notebooks and gpu"
     }
 
     def name = null
@@ -69,8 +69,8 @@ def runPytest(Map args) {
     def pytestCommand = """#!/usr/bin/env bash
 set -euxo pipefail
 
-EXTRA_DEPS=$extraDeps
-MARKERS=($markers)
+EXTRA_DEPS="$extraDeps"
+MARKERS="$markers"
 
 # Install dependencies
 if [ -z "\${EXTRA_DEPS}" ]; then
@@ -79,23 +79,8 @@ else
     pip install .[\${EXTRA_DEPS}]
 fi
 
-# Disable WandB. Since WandB may not be installed, ignoring errors
-set +e
-python -m wandb disabled || true
-set -e
-
-# For each marker, run pytest
-I=0
-if [ -n "\${MARKERS}"]; then
-    JUNIT_PREFIX=build/output/\${BUILD_NUMBER}_\${I} ./scripts/test.sh --duration all -v
-    ((I=I+1))
-else
-    for marker in \${MARKERS[@]}; do
-        # Run the tests
-        JUNIT_PREFIX=build/output/\${BUILD_NUMBER}_\${I} ./scripts/test.sh --duration all -v -m \$marker
-        ((I=I+1))
-    done
-fi
+# Run pytest
+JUNIT_PREFIX=build/output/\${BUILD_NUMBER} ./scripts/test.sh --duration all -v -m "\$MARKERS"
 
 # Combine the coverage reports
 python -m coverage combine
@@ -192,8 +177,8 @@ stage('Build') {
             'Lint': { ->
                 runWithChecks(
                     name: 'lint',
-                    title: 'Lint',
-                    summary: 'Static Analysis Checks',
+                    title: 'Lint and Doctests',
+                    summary: 'Static Analysis Checks and Doctests',
                 ) {
                     builds << build(
                         job: "${jenkinsJobBasePath}/command",
@@ -207,7 +192,14 @@ stage('Build') {
                             string(name: 'P_MEM_LIMIT', value: "7Gi"),
                             string(name: 'P_COMMAND', value: """#!/usr/bin/env bash
 set -euxo pipefail
-pip install .[all] && make lint""")
+
+pip install .[all]
+make lint
+
+# Running doctests on linting worker, so they are executed only once
+# on an install with all dependencies
+cd docs && make doctest && cd ..
+""")
                         ]
                     )
                 }
