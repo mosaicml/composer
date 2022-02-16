@@ -775,13 +775,13 @@ class Trainer:
                             optimizer.step()
             except RuntimeError as e:
                 if self.adaptive_grad_accum and "CUDA out of memory" in str(e):
-                    rerun_train_batch = True
                     # Raise runtime error if training 1 sample at a time still resulted in CUDA out of memory
                     if self.state.grad_accum == self.state.batch_num_samples:
                         raise RuntimeError(
                             "CUDA out of memory. Train loop failed with an internal microbatch of size 1")
                     else:
-                        self.state.grad_accum = max(2 * self.state.grad_accum, self.state.batch_num_samples)
+                        rerun_train_batch = True
+                        self.state.grad_accum = min(2 * self.state.grad_accum, self.state.batch_num_samples)
                         self.logger.metric_batch({'trainer/grad_accum': self.state.grad_accum})
                 else:
                     # If not CUDA out of memory, raise exception to user. Note that this
