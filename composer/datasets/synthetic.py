@@ -1,9 +1,12 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
+import random
+import string
 from typing import Callable, Optional, Sequence, Union
 
 import torch
 import torch.utils.data
+from datasets import Dataset
 from PIL import Image
 from torchvision.datasets import VisionDataset
 
@@ -19,6 +22,38 @@ class SyntheticDataType(StringEnum):
 class SyntheticDataLabelType(StringEnum):
     CLASSIFICATION_INT = "classification_int"
     CLASSIFICATION_ONE_HOT = "classification_one_hot"
+
+
+class SyntheticHFDataset:
+    """
+    Creates a synthetic HF dataset and passes it to the preprocessing scripts.
+    """
+
+    def __init__(self, num_samples, chars_per_sample, column_names):
+        if column_names is None or len(column_names) == 0:
+            raise ValueError("There must be at least one column name provided for the final dataset.")
+        self.num_samples = num_samples
+        self.chars_per_sample = chars_per_sample
+        self.column_names = column_names
+
+    def generate_dataset(self):
+        data = {}
+        for column_name in self.column_names:
+            data[column_name] = [self.generate_sample() for _ in range(self.num_samples)]
+
+        hf_synthetic_dataset = Dataset.from_dict(data)
+        return hf_synthetic_dataset
+
+    def generate_sample(self):
+        MIN_WORD_LENGTH = 3
+        MAX_WORD_LENGTH = 10
+        valid_chars = string.ascii_letters + string.digits + string.punctuation + ' '
+
+        sample = ''
+        while len(sample) < self.chars_per_sample:
+            sample_len = random.randint(MIN_WORD_LENGTH, MAX_WORD_LENGTH)
+            sample += ' '.join([random.choice(valid_chars) for _ in range(sample_len)])
+        return sample
 
 
 class SyntheticBatchPairDataset(torch.utils.data.Dataset):
