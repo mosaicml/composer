@@ -23,8 +23,7 @@ class BERTForClassificationHparams(TransformerHparams):
         try:
             import transformers
         except ImportError as e:
-            raise ImportError('transformers is not installed. '
-                              'Please install with `pip install \'mosaicml[extra]\'`') from e
+            raise ImportError('Bert requires the `transformers` pip package. To install, run: `pip install transformers`.') from e
 
         from composer.models.bert.model import BERTModel
         self.validate()
@@ -61,8 +60,7 @@ class BERTHparams(TransformerHparams):
         try:
             import transformers
         except ImportError as e:
-            raise ImportError('transformers is not installed. '
-                              'Please install with `pip install \'mosaicml[extra]\'`') from e
+            raise ImportError('Bert requires the `transformers` pip package. To install, run: `pip install transformers`.') from e
 
         from composer.models.bert.model import BERTModel
         self.validate()

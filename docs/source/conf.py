@@ -50,9 +50,7 @@ extensions = [
     "sphinxext.opengraph",
     "sphinx_copybutton",
     "myst_parser",
-    "sphinx.ext.intersphinx",
     "sphinxarg.ext",
-    'autodocsumm',
     'sphinx.ext.doctest',
 ]
 

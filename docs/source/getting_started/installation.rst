@@ -7,16 +7,15 @@ MosaicML ``Composer`` requires Python 3.7+ and Pytorch 1.9+. It can be installed
 
     pip install mosaicml
 
-To install all non-core dependencies, which are sometimes required by individual algorithms, datasets, models,
-and datasets, run:
+Installation targets:
 
-.. code-block:: console
-
-    pip install mosaicml[extra]
+* ``pip install mosaicml[dev]``: Installs development dependencies, which are required for running tests and building documentation.
+* ``pip install mosaicml[extra]``: Installs all non-core dependencies which are used by individual algorithms, datasets, models.
+* ``pip install mosaicml[all]``: Equivalent to installing both the ``dev`` and ``extra`` dependencies.
 
 For a developer install, clone directly:
 
-.. code-block::
+.. code-block:: console
 
     git clone https://github.com/mosaicml/composer.git
     cd composer
@@ -27,7 +26,7 @@ For a developer install, clone directly:
 
     For performance in image-based operations, we **highly** recommend installing `Pillow-SIMD <https://github.com/uploadcare/pillow-simd>`_. To install, vanilla pillow must first be uninstalled.
 
-    .. code-block::
+    .. code-block:: console
 
         pip uninstall pillow && pip install pillow-simd
 

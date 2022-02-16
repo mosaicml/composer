@@ -58,7 +58,11 @@ class RunDirectoryUploader(Callback):
 
     .. note::
 
-        To use this callback, install composer with `pip install mosaicml[extra]`.
+        This callback requires the :mod:`Apache Libcloud<libcloud>` pip package. To install, run:
+        
+        .. code-block:: console
+        
+            pip install apache-libcloud
 
     Args:
         provider (str): Cloud provider to use.

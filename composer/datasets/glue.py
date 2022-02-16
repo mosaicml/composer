@@ -69,8 +69,8 @@ class GLUEHparams(DatasetHparams):
             import datasets
             import transformers
         except ImportError:
-            raise ImportError('huggingface transformers and datasets are not installed. '
-                              'Please install with `pip install \'mosaicml[extra]\'`')
+            raise ImportError('Glue requires the `transformers` and `datasets` pip packages.'
+                              'To install, run: `pip install datasets transformers`.')
 
         self.validate()
         self.tokenizer = transformers.AutoTokenizer.from_pretrained(self.tokenizer_name)  #type: ignore (thirdparty)

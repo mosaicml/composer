@@ -77,9 +77,8 @@ class TorchProfiler(Callback):
         except ModuleNotFoundError:
             warnings.warn(
                 textwrap.dedent("""\
-                TorchTBProfilerNotFound: torch_tb_profiler not found.
-                You will not be able to visualize torch profiler results.
-                To visualize, run `pip install torch-tb-profiler`"""))
+                    Visualizing PyTorch traces requires the `torch_tb_profiler` pip package.
+                    To install, run `pip install torch-tb-profiler`."""))
 
     def _scheduler_fn(self, profiler_step: int, state: State) -> TorchProfilerAction:
         # Invoked on every batch, at the batch end
