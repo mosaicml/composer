@@ -23,7 +23,7 @@ def set_batch_sequence_length(batch: Dict[str, Tensor], curr_seq_len: int, trunc
     (``truncate=False``).
 
     .. note::
-    
+
         The schedule for ``curr_seq_len`` over training time should be managed
         out of this function.
 
@@ -136,9 +136,9 @@ class SeqLengthWarmup(Algorithm):
 
     def match(self, event: Event, state: State) -> bool:
         """Runs on Event.AFTER_DATALOADER. Not called by user.
-            
+
         :meta private:
-        """        
+        """
         return (event == Event.INIT and self._original_model is None) or event == Event.AFTER_DATALOADER
 
     def apply(self, event: Event, state: State, logger: Logger) -> Optional[int]:
@@ -156,7 +156,7 @@ class SeqLengthWarmup(Algorithm):
         Returns:
             int or None: exit code that is stored in :class:`Trace` and made accessible
             for debugging.
-            
+
         :meta private:
         """
         if event == Event.INIT:

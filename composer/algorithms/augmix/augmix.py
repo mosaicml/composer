@@ -26,35 +26,34 @@ def augmix_image(img: ImageType,
                  width: int = 3,
                  alpha: float = 1.0,
                  augmentation_set: List = augmentation_sets["all"]) -> ImageType:
-    """Applies AugMix (`Hendrycks et al., 2020 <http://arxiv.org/abs/1912.02781>`_) data
-    augmentation to an image. See :class:`~composer.algorithms.augmix.augmix.AugMix` and
-    the :doc:`Method Card </method_cards/aug_mix>` for details.
+    """Applies AugMix (`Hendrycks et al., 2020 <http://arxiv.org/abs/1912.02781>`_) data augmentation to an image. See
+    :class:`~composer.algorithms.augmix.augmix.AugMix` and the :doc:`Method Card </method_cards/aug_mix>` for details.
 
-    Example:
-        .. testcode::
+     Example:
+         .. testcode::
 
-            from composer.algorithms.augmix import augmix_image
-            from composer.algorithms.utils import augmentation_sets
-            augmixed_image = augmix_image(
-                img=image,
-                severity=3,
-                width=3,
-                depth=-1,
-                alpha=1.0,
-                augmentation_set=augmentation_sets["all"]
-            )
+             from composer.algorithms.augmix import augmix_image
+             from composer.algorithms.utils import augmentation_sets
+             augmixed_image = augmix_image(
+                 img=image,
+                 severity=3,
+                 width=3,
+                 depth=-1,
+                 alpha=1.0,
+                 augmentation_set=augmentation_sets["all"]
+             )
 
-    Args:
-        img (PIL.Image): Image to be AugMix'd.
-        severity (int, optional): See :class:`~composer.algorithms.augmix.augmix.AugMix`.
-        depth (int, optional): See :class:`~composer.algorithms.augmix.augmix.AugMix`.
-        width (int, optional): See :class:`~composer.algorithms.augmix.augmix.AugMix`.
-        alpha (float, optional): See :class:`~composer.algorithms.augmix.augmix.AugMix`.
-        augmentation_set (str, optional): See
-        :class:`~composer.algorithms.augmix.augmix.AugMix`.
+     Args:
+         img (PIL.Image): Image to be AugMix'd.
+         severity (int, optional): See :class:`~composer.algorithms.augmix.augmix.AugMix`.
+         depth (int, optional): See :class:`~composer.algorithms.augmix.augmix.AugMix`.
+         width (int, optional): See :class:`~composer.algorithms.augmix.augmix.AugMix`.
+         alpha (float, optional): See :class:`~composer.algorithms.augmix.augmix.AugMix`.
+         augmentation_set (str, optional): See
+         :class:`~composer.algorithms.augmix.augmix.AugMix`.
 
-   Returns:
-        mixed (PIL.Image): AugMix'd image.
+    Returns:
+         mixed (PIL.Image): AugMix'd image.
     """
 
     assert isinstance(img, ImageType) or isinstance(img, np.ndarray), "img must be a PIL.Image"
@@ -140,13 +139,11 @@ class AugmentAndMixTransform(torch.nn.Module):
 
 
 class AugMix(Algorithm):
-    """AugMix (`Hendrycks et al., 2020 <http://arxiv.org/abs/1912.02781>`_) creates
-    ``width`` sequences of ``depth`` image augmentations, applies each sequence with
-    random intensity, and returns a convex combination of the ``width`` augmented images
-    and the original image.  The coefficients for mixing the augmented images are drawn
-    from a uniform ``Dirichlet(alpha, alpha, ...)`` distribution. The coefficient for
-    mixing the combined augmented image and the original image is drawn from a
-    ``Beta(alpha, alpha)`` distribution, using the same ``alpha``.
+    """AugMix (`Hendrycks et al., 2020 <http://arxiv.org/abs/1912.02781>`_) creates ``width`` sequences of ``depth``
+    image augmentations, applies each sequence with random intensity, and returns a convex combination of the ``width``
+    augmented images and the original image.  The coefficients for mixing the augmented images are drawn from a uniform
+    ``Dirichlet(alpha, alpha, ...)`` distribution. The coefficient for mixing the combined augmented image and the
+    original image is drawn from a ``Beta(alpha, alpha)`` distribution, using the same ``alpha``.
 
     This algorithm runs on on :attr:`~composer.core.event.Event.FIT_START` to insert a dataset transformation. It is a no-op if this algorithm already
     applied itself on the :attr:`State.train_dataloader.dataset`.
@@ -178,7 +175,7 @@ class AugMix(Algorithm):
         severity (int, optional): Severity of augmentations; ranges from 0
             (no augmentation) to 10 (most severe). Default = ``3``.
         depth (int, optional): Number of augmentations per sequence. -1 enables stochastic
-            depth sampled uniformly from [1, 3]. Default = ``-1``.        
+            depth sampled uniformly from [1, 3]. Default = ``-1``.
         width (int, optional): Number of augmentation sequences. Default = ``3``.
         alpha (float, optional): Pseudocount for Beta and Dirichlet distributions. Must be
             > 0.  Higher values yield mixing coefficients closer to uniform weighting. As
@@ -232,14 +229,14 @@ class AugMix(Algorithm):
 
     def match(self, event: Event, state: State) -> bool:
         """Runs on Event.FIT_START. Not called by user.
-            
+
         :meta private:
-        """        
+        """
         return event == Event.FIT_START and state.train_dataloader.dataset not in self._transformed_datasets
 
     def apply(self, event: Event, state: State, logger: Logger) -> None:
-        """Inserts AugMix into the list of dataloader transforms. Not called by user. 
-        
+        """Inserts AugMix into the list of dataloader transforms. Not called by user.
+
         :meta private:
         """
         am = AugmentAndMixTransform(severity=self.severity,

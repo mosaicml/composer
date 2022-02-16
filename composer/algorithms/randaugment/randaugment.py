@@ -22,7 +22,8 @@ def randaugment_image(img: Optional[ImageType] = None,
                       severity: int = 9,
                       depth: int = 2,
                       augmentation_set: List = augmentation_sets["all"]) -> ImageType:
-    """Randomly applies a sequence of image data augmentations (`Cubuk et al. 2019
+    """Randomly applies a sequence of image data augmentations (`Cubuk et al. 2019.
+
     <https://openaccess.thecvf.com/content_CVPRW_2020/papers/w40/Cubuk_Randaugment_Practical_Automated_Data_Augmentation_With_a_Reduced_Search_Space_CVPRW_2020_paper.pdf>`_)
     to an image. See :class:`~composer.algorithms.randaugment.randaugment.RandAugment` or
     the :doc:`Method Card </method_cards/rand_augment>` for details.
@@ -105,7 +106,8 @@ class RandAugmentTransform(torch.nn.Module):
 
 
 class RandAugment(Algorithm):
-    """Randomly apply a sequence of image data augmentations (`Cubuk et al. 2019
+    """Randomly apply a sequence of image data augmentations (`Cubuk et al. 2019.
+
     <https://openaccess.thecvf.com/content_CVPRW_2020/papers/w40/Cubuk_Randaugment_Practical_Automated_Data_Augmentation_With_a_Reduced_Search_Space_CVPRW_2020_paper.pdf>`_).
 
     This algorithm runs on on :attr:`~composer.core.event.Event.INIT` to insert a dataset
@@ -174,14 +176,14 @@ class RandAugment(Algorithm):
 
     def match(self, event: Event, state: State) -> bool:
         """Runs on Event.FIT_START. Not called by user.
-            
+
         :meta private:
-        """         
+        """
         return event == Event.FIT_START and state.train_dataloader.dataset not in self._transformed_datasets
 
     def apply(self, event: Event, state: State, logger: Logger) -> None:
-        """Inserts RandAugment into the list of dataloader transforms. Not called by user. 
-        
+        """Inserts RandAugment into the list of dataloader transforms. Not called by user.
+
         :meta private:
         """
         ra = RandAugmentTransform(severity=self.severity, depth=self.depth, augmentation_set=self.augmentation_set)

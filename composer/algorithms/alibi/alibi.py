@@ -21,14 +21,16 @@ log = logging.getLogger(__name__)
 
 __all__ = ["Alibi", "apply_alibi"]
 
-def apply_alibi(model: torch.nn.Module,
+
+def apply_alibi(
+    model: torch.nn.Module,
     heads_per_layer: int,
     max_sequence_length: int,
     position_embedding_attribute: str,
     attention_module: Type[torch.nn.Module],
     attr_to_replace: str,
     alibi_attention: Callable,
-    mask_replacement_function: Optional[Callable[[torch.nn.Module, int], torch.nn.Module]]=None,
+    mask_replacement_function: Optional[Callable[[torch.nn.Module, int], torch.nn.Module]] = None,
     optimizers: Optional[Optimizers] = None,
 ) -> None:
     """Removes position embeddings and replaces the attention function and attention mask
@@ -134,7 +136,7 @@ class Alibi(Algorithm):
             attention mask. This can be necessary if evaluating
             on sequence lengths longer than the model was initialized to
             accommodate. Takes positional arguments ``module`` and
-            ``max_sequence_length``. For example, 
+            ``max_sequence_length``. For example,
             ``'composer.algorithms.alibi._gpt2_alibi.enlarge_mask'``. Default = ``None``,
             which means no modification of the model's default attention mask.
         train_sequence_length_scaling (float, optional): Amount by which to scale
@@ -166,14 +168,14 @@ class Alibi(Algorithm):
 
     def match(self, event: Event, state: State) -> bool:
         """Runs on Event.INIT. Not called by user.
-            
+
         :meta private:
         """
         return (event == Event.INIT and not self._applied) or event == Event.AFTER_DATALOADER
 
     def apply(self, event: Event, state: State, logger: Logger) -> Optional[int]:
-        """Replace model's existing attention mechanism with AliBi. Not called by user. 
-        
+        """Replace model's existing attention mechanism with AliBi. Not called by user.
+
         :meta private:
         """
 

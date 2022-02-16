@@ -21,7 +21,8 @@ __all__ = ['SWA']
 
 
 class SWA(Algorithm):
-    """Implements Stochastic Weight Averaging (`Izmailov et al., 2018
+    """Implements Stochastic Weight Averaging (`Izmailov et al., 2018.
+
     <https://arxiv.org/abs/1803.05407>`_).
 
     Stochastic Weight Averaging (SWA) averages model weights sampled at

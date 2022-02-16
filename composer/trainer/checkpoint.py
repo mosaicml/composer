@@ -299,8 +299,7 @@ class CheckpointLoader:
                 node_checkpoint_folder)
             seed_to_restore = self._restore_checkpoint(state, composer_checkpoint_filepath, extracted_checkpoint_folder)
 
-        log.info(f'{"Model weights" if self.load_weights_only else "Trainer checkpoint"}'
-                 f' loaded from {self.path}.')
+        log.info(f'{"Model weights" if self.load_weights_only else "Trainer checkpoint"}' f' loaded from {self.path}.')
 
         return seed_to_restore
 
