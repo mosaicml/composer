@@ -68,9 +68,10 @@ class GLUEHparams(DatasetHparams):
         try:
             import datasets
             import transformers
-        except ImportError:
-            raise ImportError('huggingface transformers and datasets are not installed. '
-                              'Please install with `pip install \'mosaicml[nlp]\'`')
+        except ImportError as e:
+            raise ImportError(
+                'Composer was installed without NLP support. To use NLP with Composer, run: `pip install mosaicml[nlp]`.'
+            ) from e
 
         self.validate()
         self.tokenizer = transformers.AutoTokenizer.from_pretrained(self.tokenizer_name)  #type: ignore (thirdparty)

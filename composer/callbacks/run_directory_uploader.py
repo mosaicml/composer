@@ -6,6 +6,7 @@ import datetime
 import logging
 import multiprocessing
 import os
+import pathlib
 import queue
 import shutil
 import tempfile
@@ -13,6 +14,8 @@ import threading
 import time
 import uuid
 from typing import Callable, Optional, Tuple, Type, Union
+
+from libcloud.common.types import LibcloudError
 
 from composer.core.callback import Callback
 from composer.core.logging import Logger
@@ -55,10 +58,6 @@ class RunDirectoryUploader(Callback):
         * Provide a RAM disk path for the `upload_staging_folder` parameter. Copying files to stage on RAM
           will be faster than writing to disk. However, you must have sufficient excess RAM on your system,
           or you may experience OutOfMemory errors.
-
-    .. note::
-
-        To use this callback, install composer with `pip install mosaicml[logging]`.
 
     Args:
         provider (str): Cloud provider to use.
@@ -187,13 +186,12 @@ class RunDirectoryUploader(Callback):
                 raise RuntimeError("Upload worker crashed unexpectedly")
         modified_files = run_directory.get_modified_files(self._last_upload_timestamp)
         for filepath in modified_files:
-            relpath = os.path.relpath(filepath, run_directory.get_run_directory())  # chop off the run directory
             copied_path = os.path.join(self._upload_staging_folder, str(uuid.uuid4()))
-            files_to_be_uploaded.append(relpath)
+            files_to_be_uploaded.append(os.path.relpath(filepath, run_directory.get_run_directory()))
             copied_path_dirname = os.path.dirname(copied_path)
             os.makedirs(copied_path_dirname, exist_ok=True)
             shutil.copy2(filepath, copied_path)
-            self._file_upload_queue.put_nowait((copied_path, relpath))
+            self._file_upload_queue.put_nowait((copied_path, filepath))
 
         self._last_upload_timestamp = new_last_uploaded_timestamp
         if logger is not None and log_level is not None:
@@ -201,6 +199,36 @@ class RunDirectoryUploader(Callback):
             # and any logfiles will now have their last modified timestamp
             # incremented past self._last_upload_timestamp
             logger.metric(log_level, {"run_directory/uploaded_files": files_to_be_uploaded})
+
+    def get_uri_for_uploaded_file(self, local_filepath: Union[pathlib.Path, str]) -> str:
+        """Get the object store provider uri for a specific local filepath.
+
+        Args:
+            local_filepath (Union[pathlib.Path, str]): The local file for which to get the uploaded uri.
+
+        Returns:
+            str: The uri corresponding to the upload location of the file.
+        """
+        obj_name = _get_obj_name_for_local_file(self._object_name_prefix, local_filepath)
+        provider_name = self._object_store_provider_hparams.provider
+        container = self._object_store_provider_hparams.container
+        provider_prefix = f"{provider_name}://{container}/"
+        return provider_prefix + obj_name.lstrip("/")
+
+
+def _get_obj_name_for_local_file(object_name_prefix: str, local_filepath: Union[pathlib.Path, str]) -> str:
+    """Get the object store provider object name for a particular local file.
+
+    Args:
+        object_name_prefix (str): The user-provided prefix for the object name.
+        local_filepath (str):
+
+    Returns:
+        str: The object name.
+    """
+    # chop off the run directory
+    rel_to_run_dir = os.path.relpath(local_filepath, run_directory.get_run_directory())
+    return object_name_prefix + rel_to_run_dir
 
 
 def _validate_credentials(
@@ -235,17 +263,16 @@ def _upload_worker(
         object_name_prefix (str): Prefix to prepend to the object names
              before they are uploaded to the blob store.
     """
-    from libcloud.common.types import LibcloudError
     provider = object_store_provider_hparams.initialize_object()
     while True:
         try:
-            file_path_to_upload, obj_name = file_queue.get(block=True, timeout=0.5)
+            file_path_to_upload, full_local_path = file_queue.get(block=True, timeout=0.5)
         except queue.Empty:
             if is_finished.is_set():
                 break
             else:
                 continue
-        obj_name = object_name_prefix + obj_name
+        obj_name = _get_obj_name_for_local_file(object_name_prefix, full_local_path)
         log.info("Uploading file %s to %s://%s/%s", file_path_to_upload, provider.provider_name,
                  provider.container_name, obj_name)
         retry_counter = 0
