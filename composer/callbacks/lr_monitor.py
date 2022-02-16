@@ -7,7 +7,24 @@ __all__ = ["LRMonitor"]
 
 
 class LRMonitor(Callback):
-    """Logs the learning rate to a key.
+    """Logs the learning rate.
+
+    This callback iterates over all optimizers and their parameter groups to log learning rate under the
+    ``lr-{OPTIMIZER_NAME}/group{GROUP_NUMBER}`` key.
+
+    Example
+       >>> # constructing trainer object with this callback
+       >>> trainer = Trainer(
+       ...     model=model,
+       ...     train_dataloader=train_dataloader,
+       ...     eval_dataloader=eval_dataloader,
+       ...     optimizers=optimizer,
+       ...     max_duration="1ep",
+       ...     callbacks=[callbacks.LRMonitor()],
+       ... )
+
+    The learning rate is logged by the :class:`~composer.core.logging.logger.Logger` to the following key as described
+    below.
 
     +---------------------------------------------+---------------------------------------+
     | Key                                         | Logged data                           |
@@ -22,17 +39,6 @@ class LRMonitor(Callback):
         super().__init__()
 
     def batch_end(self, state: State, logger: Logger):
-        """Called on the :attr:`~composer.core.event.Event.BATCH_END` event.
-
-        Walks through all optimizers and their parameter groups to log learning rate under the
-        ``lr-{OPTIMIZER_NAME}/group{GROUP_NUMBER}`` key.
-
-        Args:
-            state (State): The :class:`~composer.core.state.State` object
-                used during training.
-            logger (Logger):
-                The :class:`~composer.core.logging.logger.Logger` object.
-        """
         assert state.optimizers is not None, "optimizers must be defined"
         for optimizer in state.optimizers:
             lrs = [group['lr'] for group in optimizer.param_groups]

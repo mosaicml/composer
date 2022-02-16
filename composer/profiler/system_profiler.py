@@ -59,7 +59,7 @@ class SystemProfiler(Callback):
                 cpu_percent = psutil.cpu_percent()
                 profiler.marker(name="cpu", categories=["cpu"]).counter({"cpu_percent": cpu_percent})
 
-            if self.hparams.profile_memory:
+            if self.profile_memory:
                 cuda_memory_stats = memory_monitor._get_memory_report()
                 for name, val in cuda_memory_stats.items():
                     profiler.marker(f"memory/cuda/{name}", categories=["memory"]).counter({name: val})

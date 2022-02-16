@@ -15,7 +15,26 @@ __all__ = ["SpeedMonitor"]
 
 
 class SpeedMonitor(Callback):
-    """Logs the training throughput to various keys.
+    """Logs the training throughput.
+
+    The training throughput in terms of number of samples per second is logged on the
+    :attr:`~composer.core.event.Event.BATCH_END` event if we have reached the ``window_size`` threshold.  Per epoch
+    average throughput and wall clock train time is also logged on the :attr:`~composer.core.event.Event.EPOCH_END`
+    event.
+
+    Example
+        >>> # constructing trainer object with this callback
+        >>> trainer = Trainer(
+        ...     model=model,
+        ...     train_dataloader=train_dataloader,
+        ...     eval_dataloader=eval_dataloader,
+        ...     optimizers=optimizer,
+        ...     max_duration="1ep",
+        ...     callbacks=[callbacks.SpeedMonitor(window_size=100)],
+        ... )
+
+    The training throughput is logged by the :class:`~composer.core.logging.logger.Logger` to the following keys as
+    described below.
 
     +-----------------------+-------------------------------------------------------------+
     | Key                   | Logged data                                                 |
@@ -49,7 +68,7 @@ class SpeedMonitor(Callback):
     def state_dict(self) -> StateDict:
         """Returns a dictionary representing the internal state of the SpeedMonitor object.
 
-        The returned dictionary is pickle-able via :meth:`torch.save`.
+        The returned dictionary is pickle-able via :func:`torch.save`.
 
         Returns:
             StateDict: The state of the SpeedMonitor object
@@ -84,31 +103,11 @@ class SpeedMonitor(Callback):
             self.loaded_state = None
 
     def batch_start(self, state: State, logger: Logger) -> None:
-        """Called on the :attr:`~composer.core.event.Event.BATCH_START` event.
-
-        Bookkeeping for the number of samples at the start of a batch.
-
-        Args:
-            state (State): The :class:`~composer.core.state.State` object
-                used during training.
-            logger (Logger):
-                The :class:`~composer.core.logging.logger.Logger` object.
-        """
         del logger  # unused
         self._load_state()
         self.batch_start_num_samples = state.timer.sample
 
     def epoch_start(self, state: State, logger: Logger):
-        """Called on the :attr:`~composer.core.event.Event.EPOCH_START` event.
-
-        Set/Reset bookkeeping variables at the start of an epoch
-
-        Args:
-            state (State): The :class:`~composer.core.state.State` object
-                used during training.
-            logger (Logger):
-                The :class:`~composer.core.logging.logger.Logger` object.
-        """
         del state, logger  # unused
         self._load_state()
         self.epoch_start_time = time.time()
@@ -117,16 +116,6 @@ class SpeedMonitor(Callback):
         self.train_examples_per_epoch = 0
 
     def batch_end(self, state: State, logger: Logger):
-        """Called on the :attr:`~composer.core.event.Event.BATCH_END` event.
-
-        If we have reached ``window_size`` batches, logs throughput to the ``throughput/step`` key.
-
-        Args:
-            state (State): The :class:`~composer.core.state.State` object
-                used during training.
-            logger (Logger):
-                The :class:`~composer.core.logging.logger.Logger` object.
-        """
         self.batch_end_times.append(time.time())
         new_num_samples = state.timer.sample
         batch_num_samples = int(new_num_samples - self.batch_start_num_samples)
@@ -137,17 +126,6 @@ class SpeedMonitor(Callback):
             logger.metric_batch({'throughput/step': throughput})
 
     def epoch_end(self, state: State, logger: Logger):
-        """Called on the :attr:`~composer.core.event.Event.EPOCH_END` event.
-
-        logs per epoch average throughput to the key ``throughput/epoch`` and wall clock train time to the
-        ``wall_clock_train`` key.
-
-        Args:
-            state (State): The :class:`~composer.core.state.State` object
-                used during training.
-            logger (Logger):
-                The :class:`~composer.core.logging.logger.Logger` object.
-        """
         del state  # unused
         epoch_time = time.time() - self.epoch_start_time
         self.wall_clock_train += epoch_time

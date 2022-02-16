@@ -22,8 +22,8 @@ if TYPE_CHECKING:
     from composer.callbacks.speed_monitor import SpeedMonitor
 
 __all__ = [
-    "CallbackHparams", "BenchmarkerHparams", "GradMonitorHparams", "MemoryMonitorHparams", "LRMonitorHparams",
-    "SpeedMonitorHparams", "RunDirectoryUploaderHparams"
+    "CallbackHparams", "GradMonitorHparams", "MemoryMonitorHparams", "LRMonitorHparams", "SpeedMonitorHparams",
+    "RunDirectoryUploaderHparams"
 ]
 
 
@@ -32,8 +32,9 @@ class CallbackHparams(hp.Hparams, abc.ABC):
     """Base class for callback hyperparameters.
 
     Callback parameters that are added to the callbacks argument of
-    :attr:`~composer.trainer.trainer_hparams.TrainerHparams`
-    (e.g., via YAML or the CLI). These are initialized in the training loop.
+    :attr:`~composer.trainer.trainer_hparams.TrainerHparams` (e.g., via YAML or the CLI). See `Trainer with YAHP
+    <https://docs.mosaicml.com/en/latest/tutorials/adding_models_datasets.html#trainer-with-yahp>`_ for more details.
+    These are initialized in the training loop.
     """
 
     @abc.abstractmethod

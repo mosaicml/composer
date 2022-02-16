@@ -15,15 +15,52 @@ __all__ = ["MemoryMonitor"]
 
 
 class MemoryMonitor(Callback):
-    """Logs the memory usage of the model during training to a key.
+    """Logs the memory usage of the model.
 
-    +---------------------------------------------+-------------------------------------------------------------+
-    | Key                                         | Logged data                                                 |
-    +=============================================+=============================================================+
-    |                                             | Several memory usage statistics                             |
-    | ``memory/{statistic}``                      | are logged on                                               |
-    |                                             | :attr:`~composer.core.event.Event.AFTER_TRAIN_BATCH` event. |
-    +---------------------------------------------+-------------------------------------------------------------+
+    This callback calls the torch memory stats API for cuda (see :func:`torch.cuda.memory_stats`) on the
+    :attr:`~composer.core.event.Event.AFTER_TRAIN_BATCH` and reports different memory statistics.
+
+    Example
+       >>> # constructing trainer object with this callback
+       >>> trainer = Trainer(
+       ...     model=model,
+       ...     train_dataloader=train_dataloader,
+       ...     eval_dataloader=eval_dataloader,
+       ...     optimizers=optimizer,
+       ...     max_duration="1ep",
+       ...     callbacks=[callbacks.MemoryMonitor()],
+       ... )
+
+    The memory statistics are logged by the :class:`~composer.core.logging.logger.Logger` to the following keys as
+    described below.
+
+    +--------------------------+-------------------------------------------------------------+
+    | Key                      | Logged data                                                 |
+    +==========================+=============================================================+
+    |                          | Several memory usage statistics                             |
+    | ``memory/{statistic}``   | are logged on                                               |
+    |                          | :attr:`~composer.core.event.Event.AFTER_TRAIN_BATCH` event. |
+    +--------------------------+-------------------------------------------------------------+
+
+    The following statistics are recorded:
+
+    +----------------+--------------------------------------------------------------------------+
+    | Statistic      | Description                                                              |
+    +================+==========================================================================+
+    | alloc_requests | Number of memory allocation requests received by the memory allocator.   |
+    +----------------+--------------------------------------------------------------------------+
+    | free_requests  | Number of memory free requests received by the memory allocator.         |
+    +----------------+--------------------------------------------------------------------------+
+    | allocated_mem  | Amount of allocated memory.                                              |
+    +----------------+--------------------------------------------------------------------------+
+    | active_mem     | Number of active memory blocks at the time of recording.                 |
+    +----------------+--------------------------------------------------------------------------+
+    | inactive_mem   | Amount of inactive, non-releaseable memory at the time of recording.     |
+    +----------------+--------------------------------------------------------------------------+
+    | reserved_mem   | Amount of reserved memory at the time of recording.                      |
+    +----------------+--------------------------------------------------------------------------+
+    | alloc_retries  | Number of failed cudaMalloc calls that result in a cache flush and retry.|
+    +----------------+--------------------------------------------------------------------------+
 
     .. note::
         Memory usage monitoring is only supported for the GPU devices.
@@ -37,17 +74,6 @@ class MemoryMonitor(Callback):
             log.warn("Memory monitor only works on GPU devices.")
 
     def after_train_batch(self, state: State, logger: Logger):
-        """Called on the :attr:`~composer.core.event.Event.AFTER_TRAIN_BATCH` event.
-
-        This function calls the torch memory stats API for cuda (see :func:`torch.cuda.memory_stats`)
-        and reports basic memory statistics.
-
-        Args:
-            state (State): The :class:`~composer.core.state.State` object
-                used during training.
-            logger (Logger):
-                The :class:`~composer.core.logging.logger.Logger` object.
-        """
         memory_report = {}
 
         n_devices = torch.cuda.device_count()

@@ -9,7 +9,24 @@ __all__ = ["GradMonitor"]
 
 
 class GradMonitor(Callback):
-    """Logs the L2 norm to different keys.
+    """Computes and logs the L2 norm of gradients on the :attr:`~composer.core.event.Event.AFTER_TRAIN_BATCH` event.
+
+    L2 norms are calculated after the reduction of gradients across GPUs. This function iterates over the parameters of
+    the model and hence may cause a reduction in throughput while training large models. In order to ensure the
+    correctness of norm, this function should be called after gradient unscaling in cases where gradients are scaled.
+
+    Example
+       >>> # constructing trainer object with this callback
+       >>> trainer = Trainer(
+       ...     model=model,
+       ...     train_dataloader=train_dataloader,
+       ...     eval_dataloader=eval_dataloader,
+       ...     optimizers=optimizer,
+       ...     max_duration="1ep",
+       ...     callbacks=[callbacks.GradMonitor()],
+       ... )
+
+    The L2 norms are logged by the :class:`~composer.core.logging.logger.Logger` to the following keys as described below.
 
     +-----------------------------------+-------------------------------------------------------------+
     | Key                               | Logged data                                                 |
@@ -34,19 +51,6 @@ class GradMonitor(Callback):
         self.log_layer_grad_norms = log_layer_grad_norms
 
     def after_train_batch(self, state: State, logger: Logger):
-        """Called on the :attr:`~composer.core.event.Event.AFTER_TRAIN_BATCH` event.
-
-        Compute the L2 norm of gradients after the reduction of gradients across GPUs. This function iterates
-        over the parameters of the model and hence may cause a reduction in throughput while training large models. In
-        order to ensure correctness of norm, this function should be called after gradient unscaling in cases where gradients
-        are scaled.
-
-        Args:
-            state (State): The :class:`~composer.core.state.State` object
-                used during training.
-            logger (Logger):
-                The :class:`~composer.core.logging.logger.Logger` object.
-        """
         norm = 0.0
         layer_norms = {}
         for name, p in state.model.named_parameters():
