@@ -143,13 +143,10 @@ class TrainerHparams(hp.Hparams):
 
     grad_accum: int = hp.optional(textwrap.dedent("""\
         Determines the number of microbatches to split a per-gpu batch into,
-        used to compensate for low-memory-capacity devices."""),
-                                  default=1)
-    adaptive_grad_accum: bool = hp.optional(
-        doc=
-        "Dynamically scale down minibatch size and use gradient accumulation if train_batch_size is too large for GPU. Defaults to true",
-        default=True)
-
+        used to compensate for low-memory-capacity devices. If set to -1, 
+        dynamically increases number of microbatch size if train_batch_size is
+        too large for GPU. Defaults to -1"""),
+                                  default=-1)
     precision: Precision = hp.optional(doc="Precision to use for training", default=Precision.AMP)
 
     val_dataset: Optional[datasets.DatasetHparams] = hp.optional(doc="Validation dataset hparams", default=None)
@@ -456,7 +453,6 @@ class TrainerHparams(hp.Hparams):
             compute_training_metrics=self.compute_training_metrics,
             precision=self.precision,
             scale_schedule_ratio=self.scale_schedule_ratio,
-            adaptive_grad_accum=self.adaptive_grad_accum,
 
             # dist hparams
             dist_timeout=self.dist_timeout,

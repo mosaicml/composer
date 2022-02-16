@@ -77,7 +77,8 @@ class Trainer:
         device (str or Device, optional): The device to use for training. Either `cpu` or `gpu`.
             (default `cpu`)
         grad_accum (int, optional): The number of microbatches to split a per-device batch into. Gradients
-            are summed over the microbatches per device. (default: ``1``)
+            are summed over the microbatches per device. If set to -1, dynamically increases number of 
+            microbatch size if train_batch_size is too large for GPU. Defaults to -1 (default: ``-1``)
         grad_clip_norm (float, optional): The norm to clip gradient magnitudes to. Set to None for no gradient
             clipping. (default: ``None``)
         validate_every_n_batches (int, optional): Compute metrics on evaluation data every N batches.
@@ -90,8 +91,6 @@ class Trainer:
             or 'amp' (recommended). (default: ``Precision.FP32``).
         scale_schedule_ratio (float, optional): Ratio by which to scale the training duration and learning rate
             schedules. See :func:`scale_schedule` for details. (default: ``1.0``)
-        adaptive_grad_accum (boolean, optional): Dynamically scale down minibatch size and use gradient 
-            accumulation if train_batch_size is too large for GPU. (default: ``True``)
         dist_timeout (float, optional): Timeout, in seconds, for initializing the distributed process group.
             (default: ``15.0``)
         ddp_sync_strategy (str or DDPSyncStrategy, optional): The strategy to use for synchronizing gradients.
@@ -192,14 +191,13 @@ class Trainer:
         device: Optional[Union[str, Device]] = None,
 
         # training hparams
-        grad_accum: int = 1,
+        grad_accum: int = -1,
         grad_clip_norm: Optional[float] = None,
         validate_every_n_batches: int = -1,
         validate_every_n_epochs: int = 1,
         compute_training_metrics: bool = False,
         precision: Union[str, Precision] = Precision.FP32,
         scale_schedule_ratio: float = 1.0,
-        adaptive_grad_accum: bool = True,
 
         # dist hparams
         dist_timeout: float = 300.0,
@@ -392,7 +390,13 @@ class Trainer:
 
         schedulers = ComposedScheduler(ensure_tuple(schedulers))
 
-        self.adaptive_grad_accum = adaptive_grad_accum
+        # Set initial grad_accum to 1 if using adaptive
+        self.adaptive_grad_accum = grad_accum == -1
+        if grad_accum == -1:
+            self.grad_accum = 1
+        # Cannot use adaptive grad accum on CPU
+        if isinstance(self.device, DeviceCPU) and self.adaptive_grad_accum:
+            raise ValueError("Cannot use adaptive grad_accum on CPU. Please set grad_accum >= 1")
 
         self.state = State(
             max_duration=max_duration,
@@ -685,44 +689,8 @@ class Trainer:
                         "trainer/global_step": self.state.step,
                         "trainer/batch_idx": self.state.timer.batch_in_epoch.value,
                     })
-                    # Rerun train_batch with smaller mini-batches if we hit CUDA out of memory
-                    rerun_train_batch = True
-                    total_loss = None
-                    while rerun_train_batch:
-                        try:
-                            rerun_train_batch = False
-                            microbatches = self._train_data_spec.split_batch(state.batch, state.grad_accum)
-                            if self.deepspeed_enabled:
-                                total_loss = self._train_batch(microbatches)
-                            elif self._use_closures():
-                                for optimizer in state.optimizers:
-                                    if use_grad_scaling:
-                                        total_loss = state.scaler.step(
-                                            optimizer,
-                                            closure=lambda **kwargs: self._train_batch(microbatches, **kwargs))
-                                    else:
-                                        total_loss = optimizer.step(
-                                            closure=lambda **kwargs: self._train_batch(microbatches, **kwargs).item())
-                            else:
-                                total_loss = self._train_batch(microbatches)
-                                for optimizer in state.optimizers:
-                                    if use_grad_scaling:
-                                        state.scaler.step(optimizer)
-                                    else:
-                                        optimizer.step()
-                        except RuntimeError as e:
-                            if self.adaptive_grad_accum and "CUDA out of memory" in str(e):
-                                rerun_train_batch = True
-                                # Raise runtime error if we can't train even one sample at a time
-                                if state.grad_accum >= num_samples_in_batch:
-                                    raise RuntimeError(
-                                        "CUDA out of memory. Train loop failed with an internal minibatch of size 1")
-                                else:
-                                    state.grad_accum *= 2
-                            else:
-                                # If not CUDA out of memory, raise exception to user. Note that this
-                                # truncates the call stack back only to this newly raised error
-                                raise RuntimeError(e)
+
+                    total_loss = self._train_and_compute_loss(state, use_grad_scaling)
 
                     if use_grad_scaling:
                         state.scaler.update()
@@ -734,10 +702,7 @@ class Trainer:
                         # total_loss can be None if gradient scaling failed
                         dist.all_reduce(total_loss, reduce_operation="SUM")
                         full_loss = total_loss.cpu().item()
-                        self.logger.metric_batch({
-                            'loss/train': full_loss / dist.get_world_size(),
-                            'trainer/grad_accum': state.grad_accum
-                        })
+                        self.logger.metric_batch({'loss/train': full_loss / dist.get_world_size()})
 
                     if self.compute_training_metrics:
                         assert train_metrics is not None
@@ -775,6 +740,53 @@ class Trainer:
 
             if self.checkpoint_saver and self.checkpoint_saver.should_checkpoint(state=state, event=Event.EPOCH_END):
                 self.checkpoint_saver.save_checkpoint(state=state, seed=self.seed, device=self.device)
+
+    def _train_and_compute_loss(self, use_grad_scaling: bool):
+        """Compute loss by training on a full batch of data. Adaptively change microbatch size
+        if enabled to maximize GPU usage.
+
+        Args:
+            use_grad_scaling (bool): Enables gradient scaling
+        """
+        # Rerun train_batch with smaller microbatches if we hit CUDA out of memory
+        rerun_train_batch = True
+        total_loss = None
+        while rerun_train_batch:
+            try:
+                rerun_train_batch = False
+                microbatches = self._train_data_spec.split_batch(self.state.batch, self.state.grad_accum)
+                if self.deepspeed_enabled:
+                    total_loss = self._train_batch(microbatches)
+                elif self._use_closures():
+                    for optimizer in self.state.optimizers:
+                        if use_grad_scaling:
+                            total_loss = self.state.scaler.step(
+                                optimizer, closure=lambda **kwargs: self._train_batch(microbatches, **kwargs))
+                        else:
+                            total_loss = optimizer.step(
+                                closure=lambda **kwargs: self._train_batch(microbatches, **kwargs).item())
+                else:
+                    total_loss = self._train_batch(microbatches)
+                    for optimizer in self.state.optimizers:
+                        if use_grad_scaling:
+                            self.state.scaler.step(optimizer)
+                        else:
+                            optimizer.step()
+            except RuntimeError as e:
+                if self.adaptive_grad_accum and "CUDA out of memory" in str(e):
+                    rerun_train_batch = True
+                    # Raise runtime error if training 1 sample at a time still resulted in CUDA out of memory
+                    if self.state.grad_accum == self.state.batch_num_samples:
+                        raise RuntimeError(
+                            "CUDA out of memory. Train loop failed with an internal microbatch of size 1")
+                    else:
+                        self.state.grad_accum = max(2 * self.state.grad_accum, self.state.batch_num_samples)
+                        self.logger.metric_batch({'trainer/grad_accum': self.state.grad_accum})
+                else:
+                    # If not CUDA out of memory, raise exception to user. Note that this
+                    # truncates the call stack back only to this newly raised error
+                    raise RuntimeError(e)
+        return total_loss
 
     def _train_batch(self, microbatches: Sequence[Batch], ddp_sync: bool = True):
         """Run training on a full batch of data.
