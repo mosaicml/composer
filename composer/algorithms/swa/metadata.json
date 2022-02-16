@@ -5,6 +5,6 @@
         "tldr": "Computes running average of model weights.",
         "attribution": "(Izmailov et al, 2018)",
         "link": "https://arxiv.org/abs/1803.05407",
-        "domains": ["vision"]
+        "domains": ["cv", "nlp"]
     }
 }

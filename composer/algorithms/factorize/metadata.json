@@ -5,6 +5,6 @@
         "tldr": "Factorize GEMMs into smaller GEMMs",
         "attribution": "MosaicML",
         "link": "www.mosaicml.com",
-        "domains": []
+        "domains": ["cv", "nlp"]
     }
 }

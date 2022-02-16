@@ -5,6 +5,6 @@
         "tldr": "Image-perserving data augmentations",
         "attribution": "(Hendrycks et al, 2020)",
         "link": "http://arxiv.org/abs/1912.02781",
-        "domains": ["vision"]
+        "domains": ["cv"]
     }
 }

@@ -5,6 +5,6 @@
         "tldr": "Replaces a specified layer with a stochastic verion that randomly drops the layer or samples during training",
         "attribution": "(Huang et al, 2016)",
         "link": "https://arxiv.org/abs/1603.09382",
-        "domains": ["vision"]
+        "domains": ["cv"]
     }
 }

@@ -5,6 +5,6 @@
         "tldr": "Use smaller samples to compute batchnorm",
         "attribution": "(Dimitriou et al, 2020)",
         "link": "https://arxiv.org/abs/2007.08554",
-        "domains": ["vision"]
+        "domains": ["cv"]
     }
 }

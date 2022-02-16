@@ -5,6 +5,6 @@
         "tldr": "Removes columns and rows from the image for augmentation and efficiency.",
         "attribution": "Many",
         "link": "www.mosaicml.com",
-        "domains": ["vision"]
+        "domains": ["cv"]
     }
 }

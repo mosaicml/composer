@@ -5,6 +5,6 @@
         "tldr": "Uses channels last memory format (NHWC)",
         "attribution": "PyTorch",
         "link": "https://pytorch.org/tutorials/intermediate/memory_format_tutorial.html",
-        "domains": ["vision"]
+        "domains": ["cv"]
     }
 }

@@ -5,6 +5,6 @@
         "tldr": "Replaces eligible layers with Squeeze-Excite layers",
         "attribution": "Hu et al, 2017",
         "link": "https://arxiv.org/abs/1709.01507",
-        "domains": ["vision"]
+        "domains": ["cv"]
     }
 }

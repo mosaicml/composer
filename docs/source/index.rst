@@ -87,7 +87,7 @@ Our documentation is organized into a few sections:
    method_cards/seq_length_warmup.rst
    method_cards/sam.md
    method_cards/squeeze_excite.md
-   method_cards/stochastic_depth_blockwise.md
+   method_cards/stochastic_depth.md
    method_cards/stochastic_depth_samplewise.md
    method_cards/swa.md
 

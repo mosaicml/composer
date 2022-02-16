@@ -20,7 +20,7 @@ if not len(methods):
     raise ValueError(f'Found 0 methods in {folder_path}')
 
 print(f'Found {len(methods)} methods with metadata.')
-badges = {"nlp": ":badge:`NLP,badge-success`", "vision": ":badge:`Vision,badge-primary`"}
+badges = {"nlp": ":badge:`NLP,badge-success`", "cv": ":badge:`CV,badge-primary`"}
 
 overview_path = os.path.join(os.path.dirname(__file__), '..', 'method_cards', 'methods_overview.rst')
 print("table_path ", overview_path)
@@ -46,8 +46,8 @@ Methods Overview
    .. link-button:: {name}.html
       :text: {metadata[name]['class_name']}
       :classes: card-title
-   ++++++++++++++
    {badge_string}
+   ++++++++++++++
    {metadata[name]['tldr']}
 """)
 

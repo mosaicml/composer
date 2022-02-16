@@ -5,6 +5,6 @@
         "tldr": "SAM optimizer measures sharpness of optimization space",
         "attribution": "(Foret et al, 2021)",
         "link": "https://arxiv.org/abs/2010.01412",
-        "domains": ["vision"]
+        "domains": ["cv"]
     }
 }
