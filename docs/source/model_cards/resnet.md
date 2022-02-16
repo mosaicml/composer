@@ -1,11 +1,11 @@
 # ResNet
-[\[How to Use\]](#how-to-use) &middot; [\[Architecture\]](#architecture) &middot; [\[Family Members\]](#family-members) &middot; [\[Default Training Hyperparameters\]](#default-training-hyperparameters) &middot; [\[Attribution\]](#attribution) &middot; [\[API Reference\]](#api-reference)
+[\[Example\]](#example) &middot; [\[Architecture\]](#architecture) &middot; [\[Family Members\]](#family-members) &middot; [\[Default Training Hyperparameters\]](#default-training-hyperparameters) &middot; [\[Attribution\]](#attribution) &middot; [\[API Reference\]](#api-reference)
 
 `Vision` / `Image Classification`
 
 The ResNet model family is a set of convolutional neural networks that can be used as the base for a variety of vision tasks. Our implementation is a simple wrapper on top of the [torchvision ResNet implementation](https://pytorch.org/vision/stable/models.html).
 
-## How to Use
+## Example
 
 ```python
 from composer.models import ComposerResNet

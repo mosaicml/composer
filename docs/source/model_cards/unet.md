@@ -1,11 +1,11 @@
 # UNet
-[\[How to Use\]](#how-to-use) &middot; [\[Architecture\]](#architecture) &middot; [\[Default Training Hyperparameters\]](#default-training-hyperparameters) &middot; [\[Attribution\]](#attribution) &middot; [\[API Reference\]](#api-reference)
+[\[Example\]](#example) &middot; [\[Architecture\]](#architecture) &middot; [\[Default Training Hyperparameters\]](#default-training-hyperparameters) &middot; [\[Attribution\]](#attribution) &middot; [\[API Reference\]](#api-reference)
 
 `Vision` / `Segmentation`
 
 Unet is an architecture used for image segmentation.
 
-## How to Use
+## Example
 
 ```python
 from composer.models import UNet

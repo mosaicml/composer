@@ -1,5 +1,5 @@
 # GPT-2
-[\[How to Use\]](#how-to-use) &middot; [\[Architecture\]](#architecture) &middot; [\[Family Members\]](#family-members) &middot; [\[Default Training Hyperparameters\]](#default-training-hyperparameters) &middot; [\[Attribution\]](#attribution) &middot; [\[API Reference\]](#api-reference)
+[\[Example\]](#example) &middot; [\[Architecture\]](#architecture) &middot; [\[Family Members\]](#family-members) &middot; [\[Default Training Hyperparameters\]](#default-training-hyperparameters) &middot; [\[Attribution\]](#attribution) &middot; [\[API Reference\]](#api-reference)
 
 `NLP` /  ``Autoregressive Language Modeling``
 
@@ -7,7 +7,7 @@ The GPT-2 model family is set of transformer-based networks for autoregressive l
 
 Our codebase builds off of the Hugging Face *[Transformers](https://huggingface.co/transformers/)* library. We initialize Huggingface's GPT-2 model with one of our configurations.
 
-## How to Use
+## Example
 
 ```python
 import transformers

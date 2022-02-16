@@ -1,11 +1,11 @@
 # CIFAR ResNet
-[\[How to Use\]](#how-to-use) &middot; [\[Architecture\]](#architecture) &middot; [\[Family Members\]](#family-members) &middot; [\[Default Training Hyperparameters\]](#default-training-hyperparameters) &middot; [\[Attribution\]](#attribution) &middot; [\[API Reference\]](#api-reference)
+[\[Example\]](#example) &middot; [\[Architecture\]](#architecture) &middot; [\[Family Members\]](#family-members) &middot; [\[Default Training Hyperparameters\]](#default-training-hyperparameters) &middot; [\[Attribution\]](#attribution) &middot; [\[API Reference\]](#api-reference)
 
 `Vision` / `Image Classification`
 
 The ResNet model family is a set of convolutional neural networks that can be used as the basis for a variety of vision tasks. CIFAR ResNet models are a subset of this family designed specifically for the [CIFAR-10](https://www.cs.toronto.edu/~kriz/cifar.html) and [CIFAR-100](https://www.cs.toronto.edu/~kriz/cifar.html) datasets.
 
-## How to Use
+## Example
 
 ```python
 from composer.models import CIFAR10_ResNet56
