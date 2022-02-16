@@ -59,9 +59,9 @@ class RunDirectoryUploader(Callback):
     .. note::
 
         This callback requires the :mod:`Apache Libcloud<libcloud>` pip package. To install, run:
-        
+
         .. code-block:: console
-        
+
             pip install apache-libcloud
 
     Args:

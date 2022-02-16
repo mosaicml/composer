@@ -45,7 +45,8 @@ class SystemProfiler(Callback):
             import psutil
             del psutil
         except ImportError as e:
-            raise ImportError(textwrap.dedent("""\
+            raise ImportError(
+                textwrap.dedent("""\
                 Profiling system metrics requires the `psutil` pip package.
                 "To install, run `pip install psutil`.""")) from e
 
