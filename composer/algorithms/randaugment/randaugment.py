@@ -22,11 +22,11 @@ def randaugment_image(img: ImageType,
                       severity: int = 9,
                       depth: int = 2,
                       augmentation_set: List = augmentation_sets["all"]) -> ImageType:
-    """Randomly applies a sequence of image data augmentations (`Cubuk et al. 2019.
-
-    <https://openaccess.thecvf.com/content_CVPRW_2020/papers/w40/Cubuk_Randaugment_Practical_Automated_Data_Augmentation_With_a_Reduced_Search_Space_CVPRW_2020_paper.pdf>`_)
-    to an image. See :class:`~composer.algorithms.randaugment.randaugment.RandAugment` or
-    the :doc:`Method Card </method_cards/rand_augment>` for details.
+    """Randomly applies a sequence of image data augmentations (`Cubuk et al. 2019. <https://openaccess.\\
+    thecvf.com/content_CVPRW_2020/papers/w40/Cubuk_Randaugment_Practical_Automated_\\
+    Data_Augmentation_With_a_Reduced_Search_Space_CVPRW_2020_paper.pdf>`_) to an image. See
+    :class:`~composer.algorithms.randaugment.randaugment.RandAugment` or the :doc:`Method Card
+    </method_cards/rand_augment>` for details.
 
     Example:
         .. testcode::
