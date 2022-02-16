@@ -36,6 +36,6 @@ test-dist:
 test-all: test test-gpu test-deepspeed test-ddp
 
 clean-notebooks:
-	python composer/utils/clean_notebooks.py -i notebooks/*.ipynb
+	python scripts/clean_notebooks.py -i notebooks/*.ipynb
 
 .PHONY: test test-gpu test-dist test-deepspeed test-all lint style clean-notebooks
