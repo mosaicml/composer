@@ -1,14 +1,19 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
+"""Logger registry."""
+
 from typing import Type
 
-from composer.loggers.logger_hparams import (FileLoggerHparams, LoggerCallbackHparams, TQDMLoggerHparams,
-                                             WandBLoggerHparams)
+from composer.loggers.logger_hparams import (FileLoggerHparams, InMemoryLoggerHaparms, LoggerCallbackHparams,
+                                             TQDMLoggerHparams, WandBLoggerHparams)
+
+__all__ = ["get_logger_hparams", "logger_registry"]
 
 logger_registry = {
     "file": FileLoggerHparams,
     "wandb": WandBLoggerHparams,
     "tqdm": TQDMLoggerHparams,
+    "in_memory": InMemoryLoggerHaparms,
 }
 
 

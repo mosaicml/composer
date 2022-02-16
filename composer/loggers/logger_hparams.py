@@ -1,6 +1,6 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
-"""Logger Hyperparameters."""
+"""Logger Hyperparameter classes."""
 from __future__ import annotations
 
 import copy
@@ -19,6 +19,10 @@ if TYPE_CHECKING:
     from composer.loggers.file_logger import FileLogger
     from composer.loggers.tqdm_logger import TQDMLogger
     from composer.loggers.wandb_logger import WandBLogger
+
+__all__ = [
+    "FileLoggerHparams", "InMemoryLoggerHaparms", "LoggerCallbackHparams", "TQDMLoggerHparams", "WandBLoggerHparams"
+]
 
 
 @dataclass
@@ -82,8 +86,8 @@ class WandBLoggerHparams(LoggerCallbackHparams):
         entity (str, optional): Weights and Biases entity name.
         tags (str, optional): Comma-seperated list of tags to add to the run.
         log_artifacts (bool, optional): Whether to log artifacts. Defaults to False.
-        log_artifacts_every_n_batches (int, optional). How frequently to log artifacts. Defaults to 100.
-            Only applicable if `log_artifacts` is True.
+        log_artifacts_every_n_batches (int, optional). How frequently to log artifacts. Default: ``100``.
+            Only applicable if ``log_artifacts`` is True.
 
         extra_init_params (JSON Dictionary, optional): Extra parameters to pass into :func:`wandb.init`.
     """

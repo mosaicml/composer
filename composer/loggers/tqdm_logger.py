@@ -1,5 +1,7 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
+"""Logs metrics to a TQDM progress bar displayed in the terminal."""
+
 from __future__ import annotations
 
 import collections.abc
@@ -19,6 +21,8 @@ from composer.utils import dist
 
 if TYPE_CHECKING:
     from composer.core.logging import Logger
+
+__all__ = ["TQDMLogger"]
 
 _IS_TRAIN_TO_KEYS_TO_LOG = {True: ['loss/train'], False: ['accuracy/val']}
 
@@ -60,7 +64,7 @@ class _TQDMLoggerInstance:
 
 
 class TQDMLogger(LoggerCallback):
-    """Shows TQDM progress bars.
+    """Logs metrics to a TQDM progress bar displayed in the terminal.
 
     During training, the progress bar logs the batch and training loss.
     During validation, the progress bar logs the batch and validation accuracy.
