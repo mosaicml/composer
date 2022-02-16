@@ -54,6 +54,8 @@ install_requires = [
     "yahp>=0.0.14",
     "requests>=2.26.0",
     "numpy==1.21.5",
+    "apache-libcloud>=3.4.1",
+    "psutil>=5.8.0",
 ]
 extra_deps = {}
 
@@ -90,19 +92,26 @@ extra_deps['dev'] = [
     'docformatter>=1.4',
 ]
 
-extra_deps['extra'] = [
-    # All conditional imports should go here
+extra_deps["deepspeed"] = [
     'deepspeed>=0.5.5',
+]
+
+extra_deps["wandb"] = [
     'wandb>=0.12.2',
-    'apache-libcloud>=3.4.1',
-    'torch-tb-profiler>=0.3.1',
-    'psutil>=5.8.0',
-    'tensorboard>=2.7.0',
-    'transformers>=4.11.3',
-    'datasets>=1.14.0',
-    'timm>=0.5.4',
+]
+
+extra_deps["unet"] = [
     'monai>=0.7.0',
     'scikit-learn>=1.0.1',
+]
+
+extra_deps["timm"] = [
+    'timm>=0.5.4',
+]
+
+extra_deps["nlp"] = [
+    'transformers>=4.11.3',
+    'datasets>=1.14.0',
 ]
 
 extra_deps['all'] = set(dep for deps in extra_deps.values() for dep in deps)

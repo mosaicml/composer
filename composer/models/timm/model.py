@@ -31,7 +31,12 @@ class Timm(ComposerClassifier):
         bn_momentum: Optional[float] = None,
         bn_eps: Optional[float] = None,
     ) -> None:
-        import timm
+        try:
+            import timm
+        except ImportError as e:
+            raise ImportError(
+                "Composer was installed without timm support. To use timm with Composer, run: `pip install mosaicml[timm]`."
+            )
 
         model = timm.create_model(
             model_name=model_name,

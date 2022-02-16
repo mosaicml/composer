@@ -170,7 +170,7 @@ def unet():
     try:
         import monai
     except ImportError as e:
-        raise ImportError("unet requires the `monai` pip package. To install, run: `pip install monai`.") from e
+        raise ImportError("Composer was installed without unet support. To use unet with Composer, run: `pip install mosaicml[unet]`.") from e
 ```
 
 This style allows users to install composer without the extra dependencies. Otherwise, if the import is global

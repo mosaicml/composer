@@ -69,7 +69,7 @@ def runPytest(Map args) {
     def pytestCommand = """#!/usr/bin/env bash
 set -euxo pipefail
 
-EXTRA_DEPS=$extraDeps
+EXTRA_DEPS="$extraDeps"
 MARKERS="$markers"
 
 # Install dependencies
@@ -80,7 +80,7 @@ else
 fi
 
 # Run pytest
-JUNIT_PREFIX=build/output/\${BUILD_NUMBER} ./scripts/test.sh --duration all -v -m "\"\$MARKERS\""
+JUNIT_PREFIX=build/output/\${BUILD_NUMBER} ./scripts/test.sh --duration all -v -m "\$MARKERS"
 
 # Combine the coverage reports
 python -m coverage combine

@@ -412,8 +412,6 @@ def test_checkpoint_load_uri(tmpdir: pathlib.Path):
 
 
 def test_checkpoint_load_object_uri(tmpdir: pathlib.Path, monkeypatch: pytest.MonkeyPatch):
-    pytest.importorskip("libcloud", reason="libcloud is an optional dependency")
-
     remote_dir = tmpdir / "remote_dir"
     os.makedirs(remote_dir)
     monkeypatch.setenv("OBJECT_STORE_KEY", str(remote_dir))  # for the local option, the key is the path
