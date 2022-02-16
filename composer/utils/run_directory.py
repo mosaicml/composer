@@ -50,7 +50,7 @@ log = logging.getLogger(__name__)
 
 _RUN_DIRECTORY_KEY = "COMPOSER_RUN_DIRECTORY"
 
-_start_time_str = datetime.datetime.now().isoformat()
+_start_time_str = datetime.datetime.now().isoformat().replace(":", "-")
 
 __all__ = [
     "get_node_run_directory",

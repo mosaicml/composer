@@ -14,6 +14,25 @@ from composer.utils import module_surgery
 log = logging.getLogger(__name__)
 
 
+def apply_squeeze_excite(
+    model: torch.nn.Module,
+    latent_channels: float = 64,
+    min_channels: int = 128,
+    optimizers: Optional[Optimizers] = None,
+):
+    """See :class:`SqueezeExcite`"""
+
+    def convert_module(module: torch.nn.Module, module_index: int):
+        assert isinstance(module, torch.nn.Conv2d), "should only be called with conv2d"
+        if min(module.in_channels, module.out_channels) < min_channels:
+            return None
+        return SqueezeExciteConv2d.from_conv2d(module, module_index, latent_channels=latent_channels)
+
+    module_surgery.replace_module_classes(model, optimizers=optimizers, policies={torch.nn.Conv2d: convert_module})
+
+    return model
+
+
 class SqueezeExcite2d(torch.nn.Module):
     """Squeeze-and-Excitation block from (`Hu et al. 2019 <https://arxiv.org/abs/1709.01507>`_)
 
@@ -60,25 +79,6 @@ class SqueezeExciteConv2d(torch.nn.Module):
     @staticmethod
     def from_conv2d(module: torch.nn.Conv2d, module_index: int, latent_channels: float):
         return SqueezeExciteConv2d(conv=module, latent_channels=latent_channels)
-
-
-def apply_squeeze_excite(
-    model: torch.nn.Module,
-    latent_channels: float = 64,
-    min_channels: int = 128,
-    optimizers: Optional[Optimizers] = None,
-):
-    """See :class:`SqueezeExcite`"""
-
-    def convert_module(module: torch.nn.Module, module_index: int):
-        assert isinstance(module, torch.nn.Conv2d), "should only be called with conv2d"
-        if min(module.in_channels, module.out_channels) < min_channels:
-            return None
-        return SqueezeExciteConv2d.from_conv2d(module, module_index, latent_channels=latent_channels)
-
-    module_surgery.replace_module_classes(model, optimizers=optimizers, policies={torch.nn.Conv2d: convert_module})
-
-    return model
 
 
 class SqueezeExcite(Algorithm):
