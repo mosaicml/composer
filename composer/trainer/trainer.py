@@ -91,7 +91,7 @@ class Trainer:
         scale_schedule_ratio (float, optional): Ratio by which to scale the training duration and learning rate
             schedules. See :func:`scale_schedule` for details. (default: ``1.0``)
         adaptive_train_minibatch_size (boolean, optional): Dynamically scale down minibatch size and use gradient 
-            accumulation if train_batch_size is too large for GPU. (defaultL ``True``)
+            accumulation if train_batch_size is too large for GPU. (default: ``True``)
         dist_timeout (float, optional): Timeout, in seconds, for initializing the distributed process group.
             (default: ``15.0``)
         ddp_sync_strategy (str or DDPSyncStrategy, optional): The strategy to use for synchronizing gradients.
