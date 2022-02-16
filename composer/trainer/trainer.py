@@ -90,6 +90,8 @@ class Trainer:
             or 'amp' (recommended). (default: ``Precision.FP32``).
         scale_schedule_ratio (float, optional): Ratio by which to scale the training duration and learning rate
             schedules. See :func:`scale_schedule` for details. (default: ``1.0``)
+        adaptive_train_minibatch_size (boolean, optional): Dynamically scale down minibatch size and use gradient 
+            accumulation if train_batch_size is too large for GPU. (defaultL ``True``)
         dist_timeout (float, optional): Timeout, in seconds, for initializing the distributed process group.
             (default: ``15.0``)
         ddp_sync_strategy (str or DDPSyncStrategy, optional): The strategy to use for synchronizing gradients.
@@ -197,6 +199,7 @@ class Trainer:
         compute_training_metrics: bool = False,
         precision: Union[str, Precision] = Precision.FP32,
         scale_schedule_ratio: float = 1.0,
+        adaptive_train_minibatch_size: bool = True,
 
         # dist hparams
         dist_timeout: float = 300.0,
@@ -388,6 +391,8 @@ class Trainer:
                 scale_scheduler(scheduler, scale_schedule_ratio, orig_max_duration.value)
 
         schedulers = ComposedScheduler(ensure_tuple(schedulers))
+
+        self.adaptive_train_minibatch_size = adaptive_train_minibatch_size
 
         self.state = State(
             max_duration=max_duration,
@@ -706,15 +711,13 @@ class Trainer:
                                     else:
                                         optimizer.step()
                         except RuntimeError as e:
-                            if "CUDA out of memory" in str(e):
+                            if self.adaptive_train_minibatch_size and "CUDA out of memory" in str(e):
                                 rerun_train_batch = True
                                 # Raise runtime error if we can't train even one sample at a time
                                 if state.grad_accum >= num_samples_in_batch:
                                     raise RuntimeError(
                                         "CUDA out of memory. Train loop failed with an internal minibatch of size 1")
                                 else:
-                                    # TODO: Log that we're increasing grad accum?
-                                    print(f"!!!! DOUBLING GRAD ACCUM {state.grad_accum} -> {state.grad_accum*2} !!!!")
                                     state.grad_accum *= 2
                             else:
                                 # If not CUDA out of memory, raise exception to user. Note that this
@@ -731,7 +734,10 @@ class Trainer:
                         # total_loss can be None if gradient scaling failed
                         dist.all_reduce(total_loss, reduce_operation="SUM")
                         full_loss = total_loss.cpu().item()
-                        self.logger.metric_batch({'loss/train': full_loss / dist.get_world_size()})
+                        self.logger.metric_batch({
+                            'loss/train': full_loss / dist.get_world_size(),
+                            'trainer/grad_accum': state.grad_accum
+                        })
 
                     if self.compute_training_metrics:
                         assert train_metrics is not None
