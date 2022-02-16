@@ -68,9 +68,11 @@ def _add_precision_config(config: Dict[str, Any], state: State):
     if "fp16" in config and "enabled" in config["fp16"] and config["fp16"]["enabled"]:
         ds_precision = Precision.FP16
     if "bf16" in config and "enabled" in config["bf16"] and config["bf16"]["enabled"]:
-        raise ValueError("DeepSpeed is configured to use BFLOAT16, but this is unsupported by the " "Mosaic trainer.")
+        raise ValueError("DeepSpeed is configured to use BFLOAT16, but this is unsupported by the "
+                         "Mosaic trainer.")
     if "amp" in config and "enabled" in config["amp"] and config["amp"]["enabled"]:
-        raise ValueError("DeepSpeed is configured to use Apex AMP, but this is unsupported by the " "Mosaic trainer.")
+        raise ValueError("DeepSpeed is configured to use Apex AMP, but this is unsupported by the "
+                         "Mosaic trainer.")
 
     if ds_precision is not None and ds_precision != precision:
         raise ValueError(f"Provided DeepSpeed configuration specifies precision={ds_precision}, "

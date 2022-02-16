@@ -85,7 +85,8 @@ def _get_distributed_config_var(
         return int(os.environ[env_var])
 
     if dist.is_initialized():
-        raise RuntimeError("Torch distributed is initialized but environment variable " f"{env_var} is not set.")
+        raise RuntimeError("Torch distributed is initialized but environment variable "
+                           f"{env_var} is not set.")
 
     return default
 
