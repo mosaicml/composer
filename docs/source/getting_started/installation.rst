@@ -7,11 +7,15 @@ MosaicML ``Composer`` requires Python 3.7+ and Pytorch 1.9+. It can be installed
 
     pip install mosaicml
 
-To include non-core dependencies that are required for some algorithms, callbacks, datasets, and models, the following installation targets are available:
+To include non-core dependencies that are required by some algorithms, callbacks, datasets, and models, the following installation targets are available:
 
+* ``pip install mosaicml[deepspeed]``: Installs Composer with support for :mod:`deepspeed`.
+* ``pip install mosaicml[nlp]``: Installs Composer with support for NLP models and algorithms
+* ``pip install mosaicml[unet]``: Installs Composer with support for :doc:`Unet </model_cards/unet>`
+* ``pip install mosaicml[timm]``: Installs Composer with support for :mod:`timm`
+* ``pip install mosaicml[wandb]``: Installs Composer with support for :mod:`wandb`.
 * ``pip install mosaicml[dev]``: Installs development dependencies, which are required for running tests and building documentation.
-* ``pip install mosaicml[extra]``: Installs all non-core dependencies which are used by individual algorithms, datasets, models.
-* ``pip install mosaicml[all]``: Equivalent to installing both the ``dev`` and ``extra`` dependencies.
+* ``pip install mosaicml[all]``: Install all optional dependencies
 
 For a developer install, clone directly:
 
