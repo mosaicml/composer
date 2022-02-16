@@ -690,7 +690,7 @@ class Trainer:
                         "trainer/batch_idx": self.state.timer.batch_in_epoch.value,
                     })
 
-                    total_loss = self._train_and_compute_loss(state, use_grad_scaling)
+                    total_loss = self._train_and_compute_loss(use_grad_scaling)
 
                     if use_grad_scaling:
                         state.scaler.update()
