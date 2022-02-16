@@ -18,6 +18,7 @@
 
     .. doctest::
 
+        >>> assert False
         >>> import torch.nn
         >>> from composer.utils import reproducibility
         >>> reproducibility.configure_deterministic_mode()
