@@ -26,34 +26,35 @@ def augmix_image(img: ImageType,
                  width: int = 3,
                  alpha: float = 1.0,
                  augmentation_set: List = augmentation_sets["all"]) -> ImageType:
-    """Applies AugMix (`Hendrycks et al., 2020 <http://arxiv.org/abs/1912.02781>`_) data augmentation to an image. See
-    :class:`~composer.algorithms.augmix.augmix.AugMix` and the :doc:`Method Card </method_cards/aug_mix>` for details.
+    """Applies AugMix (`Hendrycks et al., 2020 <http://arxiv.org/abs/1912.02781>`_) data
+    augmentation to an image. See :class:`~composer.algorithms.augmix.augmix.AugMix` and
+    the :doc:`Method Card </method_cards/aug_mix>` for details.
 
-     Example:
-         .. testcode::
+    Example:
+        .. testcode::
 
-             from composer.algorithms.augmix import augmix_image
-             from composer.algorithms.utils import augmentation_sets
-             augmixed_image = augmix_image(
-                 img=image,
-                 severity=3,
-                 width=3,
-                 depth=-1,
-                 alpha=1.0,
-                 augmentation_set=augmentation_sets["all"]
-             )
+            from composer.algorithms.augmix import augmix_image
+            from composer.algorithms.utils import augmentation_sets
+            augmixed_image = augmix_image(
+                img=image,
+                severity=3,
+                width=3,
+                depth=-1,
+                alpha=1.0,
+                augmentation_set=augmentation_sets["all"]
+            )
 
-     Args:
-         img (PIL.Image): Image to be AugMix'd.
-         severity (int, optional): See :class:`~composer.algorithms.augmix.augmix.AugMix`.
-         depth (int, optional): See :class:`~composer.algorithms.augmix.augmix.AugMix`.
-         width (int, optional): See :class:`~composer.algorithms.augmix.augmix.AugMix`.
-         alpha (float, optional): See :class:`~composer.algorithms.augmix.augmix.AugMix`.
-         augmentation_set (str, optional): See
-         :class:`~composer.algorithms.augmix.augmix.AugMix`.
+    Args:
+        img (PIL.Image): Image to be AugMix'd.
+        severity (int, optional): See :class:`~composer.algorithms.augmix.augmix.AugMix`.
+        depth (int, optional): See :class:`~composer.algorithms.augmix.augmix.AugMix`.
+        width (int, optional): See :class:`~composer.algorithms.augmix.augmix.AugMix`.
+        alpha (float, optional): See :class:`~composer.algorithms.augmix.augmix.AugMix`.
+        augmentation_set (str, optional): See
+            :class:`~composer.algorithms.augmix.augmix.AugMix`.
 
     Returns:
-         mixed (PIL.Image): AugMix'd image.
+         PIL.Image: AugMix'd image.
     """
 
     assert isinstance(img, ImageType) or isinstance(img, np.ndarray), "img must be a PIL.Image"
@@ -106,7 +107,7 @@ class AugmentAndMixTransform(torch.nn.Module):
         width (int, optional): See :class:`~composer.algorithms.augmix.augmix.AugMix`.
         alpha (float, optional): See :class:`~composer.algorithms.augmix.augmix.AugMix`.
         augmentation_set (str, optional): See
-        :class:`~composer.algorithms.augmix.augmix.AugMix`.
+            :class:`~composer.algorithms.augmix.augmix.AugMix`.
     """
 
     def __init__(self,

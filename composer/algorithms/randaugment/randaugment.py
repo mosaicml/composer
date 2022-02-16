@@ -22,11 +22,10 @@ def randaugment_image(img: ImageType,
                       severity: int = 9,
                       depth: int = 2,
                       augmentation_set: List = augmentation_sets["all"]) -> ImageType:
-    """Randomly applies a sequence of image data augmentations (`Cubuk et al. 2019. <https://openaccess.\\
-    thecvf.com/content_CVPRW_2020/papers/w40/Cubuk_Randaugment_Practical_Automated_\\
-    Data_Augmentation_With_a_Reduced_Search_Space_CVPRW_2020_paper.pdf>`_) to an image. See
-    :class:`~composer.algorithms.randaugment.randaugment.RandAugment` or the :doc:`Method Card
-    </method_cards/rand_augment>` for details.
+    """Randomly applies a sequence of image data augmentations
+    (`Cubuk et al, 2019  <https://arxiv.org/abs/1909.13719>`_) to an image. See
+    :class:`~composer.algorithms.randaugment.randaugment.RandAugment` or the :doc:`Method
+    Card </method_cards/rand_augment>` for details.
 
     Example:
         .. testcode::
@@ -45,10 +44,10 @@ def randaugment_image(img: ImageType,
         severity (int, optional): See :class:`~composer.algorithms.randaugment.randaugment.RandAugment`.
         depth (int, optional): See :class:`~composer.algorithms.randaugment.randaugment.RandAugment`.
         augmentation_set (str, optional): See
-        :class:`~composer.algorithms.randaugment.randaugment.RandAugment`.
+            :class:`~composer.algorithms.randaugment.randaugment.RandAugment`.
 
     Returns:
-        mixed (PIL.Image): RandAugmented image.
+        PIL.Image: RandAugmented image.
     """
 
     # Iterate over augmentations
@@ -82,7 +81,7 @@ class RandAugmentTransform(torch.nn.Module):
         severity (int, optional): See :class:`~composer.algorithms.randaugment.randaugment.RandAugment`.
         depth (int, optional): See :class:`~composer.algorithms.randaugment.randaugment.RandAugment`.
         augmentation_set (str, optional): See
-        :class:`~composer.algorithms.randaugment.randaugment.RandAugment`.
+            :class:`~composer.algorithms.randaugment.randaugment.RandAugment`.
     """
 
     def __init__(self, severity: int = 9, depth: int = 2, augmentation_set: str = "all"):
@@ -106,9 +105,8 @@ class RandAugmentTransform(torch.nn.Module):
 
 
 class RandAugment(Algorithm):
-    """Randomly apply a sequence of image data augmentations (`Cubuk et al. 2019.
-
-    <https://openaccess.thecvf.com/content_CVPRW_2020/papers/w40/Cubuk_Randaugment_Practical_Automated_Data_Augmentation_With_a_Reduced_Search_Space_CVPRW_2020_paper.pdf>`_).
+    """Randomly applies a sequence of image data augmentations (`Cubuk et al., 2019
+    <https://arxiv.org/abs/1909.13719>`_) to an image.
 
     This algorithm runs on on :attr:`~composer.core.event.Event.INIT` to insert a dataset
     transformation. It is a no-op if this algorithm already applied itself on the

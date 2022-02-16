@@ -36,8 +36,8 @@ def set_batch_sequence_length(batch: Dict[str, Tensor], curr_seq_len: int, trunc
             new examples out of the extra tokens. Default = ``True``.
 
     Returns:
-        batch: a Mapping of input tensors to the model,
-               where all tensors have curr_seq_len in the second dimension.
+        Dict[str, Tensor]: a Mapping of input tensors to the model,
+            where all tensors have curr_seq_len in the second dimension.
     """
 
     assert isinstance(batch, Mapping)

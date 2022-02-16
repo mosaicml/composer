@@ -53,8 +53,8 @@ def apply_alibi(
             ALiBi is implemented. Used to replace
             ``{attention_module}.{attr_to_replace}``. Example:
             ``composer.algorithms.alibi._gpt2_alibi._attn``.
-        mask_replacement_function ([Callable[[torch.nn.Module, int], torch.nn.Module]],
-            optional): Function to replace model's attention mask. This can be
+        mask_replacement_function ([Callable[[torch.nn.Module, int], torch.nn.Module]], optional):
+            Function to replace model's attention mask. This can be
             necessary for evaluating on sequence lengths longer than the model was
             initialized to accommodate. Takes positional arguments ``module`` and
             ``max_sequence_length``. For example,
@@ -95,8 +95,10 @@ def apply_alibi(
 
 
 class Alibi(Algorithm):
-    """`ALiBi <https://arxiv.org/abs/2108.12409>`_ (Attention with Linear Biases) dispenses with position embeddings and
-    instead directly biases attention matrices such that nearby tokens attend to one another more strongly.
+    """ALiBi (Attention with Linear Biases;
+    `Press et al., 2021 <https://arxiv.org/abs/2108.12409>`_) dispenses with position
+    embeddings and instead directly biases attention matrices such that nearby tokens
+    attend to one another more strongly.
 
     ALiBi yields excellent extrapolation to unseen sequence lengths
     compared to other position embedding schemes. We leverage this
