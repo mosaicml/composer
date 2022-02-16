@@ -7,6 +7,7 @@ from contextlib import contextmanager
 from typing import Generator, Union
 from packaging import version
 
+import torch
 from composer.core.types import Precision, StateDict, Tensor
 from composer.trainer.devices.device import Device, T_nnModule
 
