@@ -1,4 +1,5 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
+
 """Utility script to clean jupyter notebooks.
 
 Removes any outputs, all cell metadata except for 'tags', and also remove the notebook metadata "widgets".
