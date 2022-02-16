@@ -479,7 +479,12 @@ class Trainer:
 
         # place the state, model in the proper devices, and initialize from a checkpoint if provided
         if self.deepspeed_enabled:
-            import deepspeed
+            try:
+                import deepspeed
+            except ImportError as e:
+                raise ImportError(
+                    'Composer was installed without deepspeed support. To use deepspeed with Composer, run: `pip install mosaicml[deepspeed]`.'
+                ) from e
             assert deepspeed_config is not None
             self.deepspeed_config = parse_deepspeed_config(deepspeed_config,
                                                            state=self.state,

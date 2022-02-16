@@ -306,7 +306,6 @@ class TestTrainerAssets:
 
         # create callback
         if name == 'run_directory_uploader':
-            pytest.importorskip('libcloud', reason='libcloud required.')
             monkeypatch.setenv("KEY_ENVIRON", str(tmpdir))
 
             callback = hparams(

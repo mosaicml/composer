@@ -8,6 +8,7 @@ import textwrap
 from typing import Any, Dict, Iterator, Optional, Union
 
 import yahp as hp
+from libcloud.storage.providers import get_driver
 
 __all__ = ["ObjectStoreProviderHparams", "ObjectStoreProvider"]
 
@@ -160,13 +161,6 @@ class ObjectStoreProvider:
     >>> provider
     <composer.utils.object_store.ObjectStoreProvider object at ...>
 
-    .. note::
-
-        This callback requires the :mod:`Apache Libcloud<libcloud>` pip package. To install, run:
-        
-        .. code-block:: console
-        
-            pip install apache-libcloud
     Args:
         provider (str): Cloud provider to use. Valid options are:
 
@@ -207,13 +201,6 @@ class ObjectStoreProvider:
     """
 
     def __init__(self, provider: str, container: str, provider_init_kwargs: Optional[Dict[str, Any]] = None) -> None:
-        try:
-            from libcloud.storage.providers import get_driver
-        except ImportError as e:
-            raise ImportError(
-                textwrap.dedent("""\
-                    libcloud is not installed.
-                    To install composer with libcloud, please run `pip install mosaicml[extra]`.""")) from e
         provider_cls = get_driver(provider)
         if provider_init_kwargs is None:
             provider_init_kwargs = {}

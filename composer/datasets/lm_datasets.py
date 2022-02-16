@@ -78,8 +78,9 @@ class LMDatasetHparams(DatasetHparams):
             import datasets
             import transformers
         except ImportError as e:
-            raise ImportError('LM datasets require the `transformers` and `datasets` pip packages.'
-                              'To install, run: `pip install datasets transformers`.') from e
+            raise ImportError(
+                'Composer was installed without NLP support. To use NLP with Composer, run: `pip install mosaicml[nlp]`.'
+            ) from e
 
         self.validate()
         self.tokenizer = transformers.AutoTokenizer.from_pretrained(self.tokenizer_name)  #type: ignore (thirdparty)

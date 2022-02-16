@@ -16,7 +16,6 @@ from composer.utils import dist, run_directory
 @pytest.mark.timeout(15)
 def test_run_directory_uploader(tmpdir: pathlib.Path, use_procs: bool, dummy_state: State, dummy_logger: Logger,
                                 monkeypatch: pytest.MonkeyPatch):
-    pytest.importorskip("libcloud", reason="libcloud is an optional dependency")
     remote_dir = str(tmpdir / "run_directory_copy")
 
     os.makedirs(remote_dir, exist_ok=True)
