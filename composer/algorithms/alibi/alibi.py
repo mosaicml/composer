@@ -9,7 +9,7 @@ import logging
 import math
 from operator import attrgetter
 from types import MethodType, ModuleType
-from typing import Any, Callable, Optional, Type, Union, cast
+from typing import Any, Callable, Optional, Type, cast
 
 import torch
 
