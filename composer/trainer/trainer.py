@@ -90,7 +90,7 @@ class Trainer:
             or 'amp' (recommended). (default: ``Precision.FP32``).
         scale_schedule_ratio (float, optional): Ratio by which to scale the training duration and learning rate
             schedules. See :func:`scale_schedule` for details. (default: ``1.0``)
-        adaptive_train_minibatch_size (boolean, optional): Dynamically scale down minibatch size and use gradient 
+        adaptive_grad_accum (boolean, optional): Dynamically scale down minibatch size and use gradient 
             accumulation if train_batch_size is too large for GPU. (default: ``True``)
         dist_timeout (float, optional): Timeout, in seconds, for initializing the distributed process group.
             (default: ``15.0``)
@@ -199,7 +199,7 @@ class Trainer:
         compute_training_metrics: bool = False,
         precision: Union[str, Precision] = Precision.FP32,
         scale_schedule_ratio: float = 1.0,
-        adaptive_train_minibatch_size: bool = True,
+        adaptive_grad_accum: bool = True,
 
         # dist hparams
         dist_timeout: float = 300.0,
@@ -392,7 +392,7 @@ class Trainer:
 
         schedulers = ComposedScheduler(ensure_tuple(schedulers))
 
-        self.adaptive_train_minibatch_size = adaptive_train_minibatch_size
+        self.adaptive_grad_accum = adaptive_grad_accum
 
         self.state = State(
             max_duration=max_duration,
@@ -711,7 +711,7 @@ class Trainer:
                                     else:
                                         optimizer.step()
                         except RuntimeError as e:
-                            if self.adaptive_train_minibatch_size and "CUDA out of memory" in str(e):
+                            if self.adaptive_grad_accum and "CUDA out of memory" in str(e):
                                 rerun_train_batch = True
                                 # Raise runtime error if we can't train even one sample at a time
                                 if state.grad_accum >= num_samples_in_batch:

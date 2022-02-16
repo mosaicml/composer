@@ -136,10 +136,6 @@ class TrainerHparams(hp.Hparams):
 
     train_batch_size: int = hp.required(
         doc="batch size for each optimization step, across all devices and gradient accumulations.")
-    adaptive_train_minibatch_size: bool = hp.optional(
-        doc=
-        "Dynamically scale down minibatch size and use gradient accumulation if train_batch_size is too large for GPU. Defaults to true",
-        default=True)
 
     eval_batch_size: int = hp.required(doc="batch size to use for each evaluation step")
 
@@ -149,6 +145,11 @@ class TrainerHparams(hp.Hparams):
         Determines the number of microbatches to split a per-gpu batch into,
         used to compensate for low-memory-capacity devices."""),
                                   default=1)
+    adaptive_grad_accum: bool = hp.optional(
+        doc=
+        "Dynamically scale down minibatch size and use gradient accumulation if train_batch_size is too large for GPU. Defaults to true",
+        default=True)
+
     precision: Precision = hp.optional(doc="Precision to use for training", default=Precision.AMP)
 
     val_dataset: Optional[datasets.DatasetHparams] = hp.optional(doc="Validation dataset hparams", default=None)
@@ -455,7 +456,7 @@ class TrainerHparams(hp.Hparams):
             compute_training_metrics=self.compute_training_metrics,
             precision=self.precision,
             scale_schedule_ratio=self.scale_schedule_ratio,
-            adaptive_train_minibatch_size=self.adaptive_train_minibatch_size,
+            adaptive_grad_accum=self.adaptive_grad_accum,
 
             # dist hparams
             dist_timeout=self.dist_timeout,
