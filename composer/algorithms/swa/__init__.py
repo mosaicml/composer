@@ -8,7 +8,7 @@ training, leading to better generalization than just using the final trained wei
 the :doc:`Method Card </method_cards/swa>` for more details.
 """
 
-from composer.algorithms.swa.swa import SWA as SWA
+from composer.algorithms.swa.swa import SWA
 
 __all__ = ['SWA']
 

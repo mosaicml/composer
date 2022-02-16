@@ -50,13 +50,13 @@ def apply_alibi(model: torch.nn.Module,
         alibi_attention (Callable): Path to new self-attention function in which
             ALiBi is implemented. Used to replace
             ``{attention_module}.{attr_to_replace}``. Example:
-            :func:`~composer.algorithms.alibi._gpt2_alibi._attn`.
+            ``composer.algorithms.alibi._gpt2_alibi._attn``.
         mask_replacement_function ([Callable[[torch.nn.Module, int], torch.nn.Module]],
             optional): Function to replace model's attention mask. This can be
             necessary for evaluating on sequence lengths longer than the model was
             initialized to accommodate. Takes positional arguments ``module`` and
             ``max_sequence_length``. For example,
-            :func:`~composer.algorithms.alibi._gpt2_alibi.enlarge_mask`. Default = ``None``,
+            ``composer.algorithms.alibi._gpt2_alibi.enlarge_mask``. Default = ``None``,
             which means no modification of the model's default attention mask.
         optimizers (Optimizers, optional): Existing optimizers bound to ``model.parameters()``.
             All optimizers that have already been constructed with
@@ -66,6 +66,9 @@ def apply_alibi(model: torch.nn.Module,
             If the optimizer(s) are constructed *after* calling this function,
             then it is safe to omit this parameter. These optimizers will see the correct
             model parameters.
+
+    Returns:
+        None
     """
 
     _zero_and_freeze_expand_position_embeddings(model=model,

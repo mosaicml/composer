@@ -31,13 +31,23 @@ def randaugment_image(img: Optional[ImageType] = None,
         .. testcode::
 
             from composer.algorithms.randaugment import randaugment_image
-            from composer.utils.augmentation_primitives import augmentation_sets
+            from composer.algorithms.utils import augmentation_sets
             randaugmented_image = randaugment_image(
                 img=image,
                 severity=9,
                 depth=2,
                 augmentation_set=augmentation_sets["all"]
             )
+
+    Args:
+        img (PIL.Image): Image to be RandAugmented.
+        severity (int, optional): See :class:`~composer.algorithms.randaugment.randaugment.RandAugment`.
+        depth (int, optional): See :class:`~composer.algorithms.randaugment.randaugment.RandAugment`.
+        augmentation_set (str, optional): See
+        :class:`~composer.algorithms.randaugment.randaugment.RandAugment`.
+
+    Returns:
+        mixed (PIL.Image): RandAugmented image.
     """
 
     # Iterate over augmentations
@@ -66,6 +76,12 @@ class RandAugmentTransform(torch.nn.Module):
             )
             composed = transforms.Compose([randaugment_transform, transforms.RandomHorizontalFlip()])
             transformed_image = composed(image)
+
+    Args:
+        severity (int, optional): See :class:`~composer.algorithms.randaugment.randaugment.RandAugment`.
+        depth (int, optional): See :class:`~composer.algorithms.randaugment.randaugment.RandAugment`.
+        augmentation_set (str, optional): See
+        :class:`~composer.algorithms.randaugment.randaugment.RandAugment`.
     """
 
     def __init__(self, severity: int = 9, depth: int = 2, augmentation_set: str = "all"):
@@ -136,8 +152,8 @@ class RandAugment(Algorithm):
                 ``"color"``, ``"contrast"``, ``"sharpness"``, and ``"brightness"``. The
                 original implementations have an intensity sampling scheme that samples a
                 value bounded by 0.118 at a minimum, and a maximum value of
-                :math:`intensity \times 0.18 + .1`, which ranges from 0.28 (intensity = 1)
-                to 1.9 (intensity 10). These augmentations have different effects
+                :math:`intensity \\times 0.18 + .1`, which ranges from 0.28 (intensity =
+                1) to 1.9 (intensity 10). These augmentations have different effects
                 depending on whether they are < 0 or > 0 (or < 1 or > 1).
                 "augmentations_all" uses implementations of "color", "contrast",
                 "sharpness", and "brightness" that account for diverging effects around 0

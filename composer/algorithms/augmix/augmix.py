@@ -20,7 +20,7 @@ from composer.datasets.utils import add_vision_dataset_transform
 __all__ = ["AugMix", "AugmentAndMixTransform", "augmix_image"]
 
 
-def augmix_image(img: Optional[ImageType] = None,
+def augmix_image(img: ImageType,
                  severity: int = 3,
                  depth: int = -1,
                  width: int = 3,
@@ -34,7 +34,7 @@ def augmix_image(img: Optional[ImageType] = None,
         .. testcode::
 
             from composer.algorithms.augmix import augmix_image
-            from composer.utils.augmentation_primitives import augmentation_sets
+            from composer.algorithms.utils import augmentation_sets
             augmixed_image = augmix_image(
                 img=image,
                 severity=3,
@@ -43,6 +43,18 @@ def augmix_image(img: Optional[ImageType] = None,
                 alpha=1.0,
                 augmentation_set=augmentation_sets["all"]
             )
+
+    Args:
+        img (PIL.Image): Image to be AugMix'd.
+        severity (int, optional): See :class:`~composer.algorithms.augmix.augmix.AugMix`.
+        depth (int, optional): See :class:`~composer.algorithms.augmix.augmix.AugMix`.
+        width (int, optional): See :class:`~composer.algorithms.augmix.augmix.AugMix`.
+        alpha (float, optional): See :class:`~composer.algorithms.augmix.augmix.AugMix`.
+        augmentation_set (str, optional): See
+        :class:`~composer.algorithms.augmix.augmix.AugMix`.
+
+   Returns:
+        mixed (PIL.Image): AugMix'd image.
     """
 
     assert isinstance(img, ImageType) or isinstance(img, np.ndarray), "img must be a PIL.Image"
@@ -88,6 +100,14 @@ class AugmentAndMixTransform(torch.nn.Module):
             )
             composed = transforms.Compose([augmix_transform, transforms.RandomHorizontalFlip()])
             transformed_image = composed(image)
+
+    Args:
+        severity (int, optional): See :class:`~composer.algorithms.augmix.augmix.AugMix`.
+        depth (int, optional): See :class:`~composer.algorithms.augmix.augmix.AugMix`.
+        width (int, optional): See :class:`~composer.algorithms.augmix.augmix.AugMix`.
+        alpha (float, optional): See :class:`~composer.algorithms.augmix.augmix.AugMix`.
+        augmentation_set (str, optional): See
+        :class:`~composer.algorithms.augmix.augmix.AugMix`.
     """
 
     def __init__(self,
@@ -155,11 +175,11 @@ class AugMix(Algorithm):
             )
 
     Args:
-        severity (int, optional): Sverity of augmentations; ranges from 0
+        severity (int, optional): Severity of augmentations; ranges from 0
             (no augmentation) to 10 (most severe). Default = ``3``.
-        width (int, optional): Number of augmentation sequences. Default = ``3``.
         depth (int, optional): Number of augmentations per sequence. -1 enables stochastic
-            depth sampled uniformly from [1, 3]. Default = ``-1``.
+            depth sampled uniformly from [1, 3]. Default = ``-1``.        
+        width (int, optional): Number of augmentation sequences. Default = ``3``.
         alpha (float, optional): Pseudocount for Beta and Dirichlet distributions. Must be
             > 0.  Higher values yield mixing coefficients closer to uniform weighting. As
             the value approaches 0, the mixing coefficients approach using only one
@@ -178,7 +198,7 @@ class AugMix(Algorithm):
                 ``"color"``, ``"contrast"``, ``"sharpness"``, and ``"brightness"``. The
                 original implementations have an intensity sampling scheme that samples a
                 value bounded by 0.118 at a minimum, and a maximum value of
-                :math:`intensity \times 0.18 + .1`, which ranges from 0.28 (intensity = 1)
+                :math:`intensity \\times 0.18 + .1`, which ranges from 0.28 (intensity = 1)
                 to 1.9 (intensity 10). These augmentations have different effects
                 depending on whether they are < 0 or > 0 (or < 1 or > 1).
                 "augmentations_all" uses implementations of "color", "contrast",
