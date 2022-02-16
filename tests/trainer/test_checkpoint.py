@@ -412,11 +412,7 @@ def test_checkpoint_load_uri(tmpdir: pathlib.Path):
 
 
 def test_checkpoint_load_object_uri(tmpdir: pathlib.Path, monkeypatch: pytest.MonkeyPatch):
-    try:
-        import libcloud
-        del libcloud
-    except ImportError:
-        pytest.skip("Skipping test as libcloud is not installed")
+    pytest.importorskip("libcloud", reason="libcloud is an optional dependency")
 
     remote_dir = tmpdir / "remote_dir"
     os.makedirs(remote_dir)

@@ -1,6 +1,7 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
 from __future__ import annotations
+import textwrap
 
 import threading
 import time
@@ -44,7 +45,10 @@ class SystemProfiler(Callback):
             import psutil
             del psutil
         except ImportError as e:
-            raise ImportError("Please install composer with `pip install mosaicml[extra]` to use the profiler") from e
+            raise ImportError(
+                textwrap.dedent("""\
+                Profiling system metrics requires the `psutil` pip package.
+                "To install, run `pip install psutil`.""")) from e
 
     def init(self, state: State, logger: Logger):
         del logger  # unused

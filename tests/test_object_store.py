@@ -9,11 +9,7 @@ from composer.utils.object_store import ObjectStoreProviderHparams
 
 
 def test_object_store(tmpdir: pathlib.Path, monkeypatch: pytest.MonkeyPatch):
-    try:
-        import libcloud
-        del libcloud
-    except ImportError:
-        pytest.skip("Object store test won't work without libcloud")
+    pytest.importorskip("libcloud", reason="libcloud is an optional dependency")
     remote_dir = str(tmpdir / "remote_dir")
     os.makedirs(remote_dir)
     local_dir = str(tmpdir / "local_dir")

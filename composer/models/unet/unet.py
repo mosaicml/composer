@@ -30,8 +30,10 @@ class UNet(ComposerModel):
 
     def __init__(self, hparams: UnetHparams) -> None:
         super().__init__()
-
-        from monai.losses import DiceLoss
+        try:
+            from monai.losses import DiceLoss
+        except ImportError as e:
+            raise ImportError("unet requires the `monai` pip package. To install, run: `pip install monai`.") from e
 
         self.hparams = hparams
         self.module = self.build_nnunet()
