@@ -32,8 +32,7 @@ Documentation
 Our documentation is organized into a few sections:
 
 * :doc:`Getting Started </getting_started/installation>` covers installation, a quick tour and explains how to use ``Composer``.
-* :doc:`Core </walkthrough/algorithm>` covers the core components of the library.
-* :doc:`composer <//api_reference>` contains the library's API reference.
+* :doc:`API Reference </api_reference>` contains the library's API reference.
 * :doc:`Methods Library </method_cards/alibi>` details our implemented efficiency methods.
 
 
@@ -70,6 +69,7 @@ Our documentation is organized into a few sections:
    method_cards/aug_mix.md
    method_cards/blurpool.md
    method_cards/channels_last.md
+   method_cards/cutmix.md
    method_cards/col_out.md
    method_cards/cut_out.md
    method_cards/decoupled_weight_decay.md
@@ -105,26 +105,6 @@ Our documentation is organized into a few sections:
    :caption: Hparams System (YAHP)
 
    yahp/getting_started.rst
-
-.. toctree::
-   :maxdepth: 1
-   :caption: Composer Walkthrough
-
-   walkthrough/algorithm.rst
-   walkthrough/callback.rst
-   walkthrough/datasets.rst
-   walkthrough/engine.rst
-   walkthrough/event.rst
-   walkthrough/functional.rst
-   walkthrough/logger.rst
-   walkthrough/models.rst
-   walkthrough/profiler.rst
-   walkthrough/state.rst
-   walkthrough/surgery.rst
-   walkthrough/time.rst
-   walkthrough/trainer.rst
-   walkthrough/types.rst
-
 
 .. toctree::
    :caption: API Reference

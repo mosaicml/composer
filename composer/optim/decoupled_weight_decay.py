@@ -16,6 +16,8 @@ log = logging.getLogger(__name__)
 class DecoupledSGDW(SGD):
     """SGD optimizer with the weight decay term decoupled from the learning rate.
 
+    Argument defaults are copied from `torch.optim.SGD`.
+
     The standard `SGD
     <https://pytorch.org/docs/stable/generated/torch.optim.SGD.html?highlight=sgd#torch.optim.SGD>`_
     optimizer couples the weight decay term with the gradient calculation. This ties the optimal value
@@ -139,6 +141,8 @@ class DecoupledSGDW(SGD):
 
 class DecoupledAdamW(AdamW):
     """Adam optimizer with the weight decay term decoupled from the learning rate.
+
+    Argument defaults are copied from `torch.optim.AdamW`.
 
     The standard `AdamW <https://pytorch.org/docs/stable/generated/torch.optim.AdamW.html#torch.optim.AdamW>`_
     optimizer explicitly couples the weight decay term with the learning rate. This ties the

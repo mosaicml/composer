@@ -1,0 +1,9 @@
+{
+    "colout": {
+        "class_name": "ColOut",
+        "functional": "colout_batch",
+        "tldr": "Removes columns and rows from the image for augmentation and efficiency.",
+        "attribution": "Many",
+        "link": "www.mosaicml.com"
+    }
+}

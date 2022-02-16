@@ -83,7 +83,7 @@ def factorize_matrix(X: torch.Tensor,
                      Wa: torch.Tensor,
                      Wb: Optional[torch.Tensor] = None,
                      bias: Optional[torch.Tensor] = None,
-                     rank: Union[int, float] = .5,
+                     rank: Union[int, float] = .25,
                      n_iters: int = 3) -> LowRankSolution:
     """Approximates a matrix by factorizing it into a product of two smaller matrices.
 
@@ -247,7 +247,7 @@ def _mat_to_weights_conv2d(mat: Optional[torch.Tensor], kernel_size) -> Optional
 def factorize_conv2d(X,
                      Wa: torch.Tensor,
                      Wb: Optional[torch.Tensor] = None,
-                     rank: Union[int, float] = .5,
+                     rank: Union[int, float] = .25,
                      biasA: Optional[torch.Tensor] = None,
                      biasB: Optional[torch.Tensor] = None,
                      n_iters=3,

@@ -52,11 +52,19 @@ class Algorithm(Serializable, ABC):
 
         To only run on a specific event:
 
-            >>> return event == Event.BEFORE_LOSS
+        >>> class MyAlgorithm:
+        ...     def match(self, event, state):
+        ...         return event == Event.BEFORE_LOSS
+        >>> MyAlgorithm().match(Event.BEFORE_LOSS, state)
+        True
 
         Switching based on state attributes:
 
-            >>> return state.epoch > 30 && state.world_size == 1
+        >>> class MyAlgorithm:
+        ...     def match(self, event, state):
+        ...        return state.timer.epoch > 30
+        >>> MyAlgorithm().match(Event.BEFORE_LOSS, state)
+        False
 
         See :class:`State` for accessible attributes.
 

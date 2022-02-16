@@ -2,34 +2,16 @@
 
 import textwrap
 import weakref
-from dataclasses import asdict, dataclass
-from typing import Optional
+from typing import List, Optional
 
 import numpy as np
 import torch
-import yahp as hp
 from PIL.Image import Image as ImageType
 from torchvision.datasets import VisionDataset
 
-from composer.algorithms.algorithm_hparams import AlgorithmHparams
-from composer.core.types import Algorithm, Event, List, Logger, State
-from composer.utils.augmentation_primitives import augmentation_sets
-from composer.utils.data import add_dataset_transform
-
-
-@dataclass
-class RandAugmentHparams(AlgorithmHparams):
-    """See :class:`RandAugment`"""
-
-    severity: int = hp.optional(doc="Intensity of each augmentation. Ranges from 0 (none) to 10 (maximum)", default=9)
-    depth: int = hp.optional(doc="Number of augmentations to compose in a row", default=2)
-    augmentation_set: str = hp.optional(
-        doc=
-        "Set of augmentations to sample from. 'all', 'safe' (only augmentations that don't appear on CIFAR10C/ImageNet10C), or 'original'",
-        default="all")
-
-    def initialize_object(self) -> "RandAugment":
-        return RandAugment(**asdict(self))
+from composer.algorithms.utils import augmentation_sets
+from composer.core.types import Algorithm, Event, Logger, State
+from composer.datasets.utils import add_vision_dataset_transform
 
 
 def randaugment_image(img: Optional[ImageType] = None,
@@ -131,4 +113,4 @@ class RandAugment(Algorithm):
                 textwrap.dedent(f"""\
                 To use {type(self).__name__}, the dataset must be a
                 {VisionDataset.__qualname__}, not {type(dataset).__name__}"""))
-        add_dataset_transform(dataset, ra, is_tensor_transform=False)
+        add_vision_dataset_transform(dataset, ra, is_tensor_transform=False)

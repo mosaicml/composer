@@ -3,13 +3,15 @@
 from __future__ import annotations
 
 import textwrap
-from typing import Iterator, Optional
+from typing import TYPE_CHECKING, Iterator, Optional
 
 from composer.core.callback import Callback
-from composer.core.profiler import Profiler
-from composer.core.state import State
-from composer.core.types import Batch, DataLoader, Logger
 from composer.datasets.dataloader import WrappedDataLoader
+
+if TYPE_CHECKING:
+    from composer.core.state import State
+    from composer.core.types import Batch, DataLoader, Logger
+    from composer.profiler import Profiler
 
 
 class ProfiledDataLoader(WrappedDataLoader):
