@@ -8,17 +8,22 @@ from composer.core.logging import LoggerCallback, LogLevel, TLogData
 from composer.core.logging.logger import TLogDataValue
 from composer.core.time import Timestamp
 
+__all__ = ["InMemoryLogger"]
+
 
 class InMemoryLogger(LoggerCallback):
     """Stores all logging calls in memory.
 
     Args:
         log_level (str or LogLevel, optional): Minimum LogLevel to record. Defaults to
-            :attr:`LogLevel.BATCH`, which records everything.
+            :attr:`~composer.core.logging.logger.LogLevel.BATCH`, which records 
+            everything.
 
     Attributes:
         data (dict): Mapping of a logged key to a
-            (:class:`Timestamp`, :class:`LogLevel`, :class`~composer.core.logging.TLogDataValue`) tuple.
+            (:class:`~composer.core.time.Timestamp`,
+            :class:`~composer.core.logging.LogLevel`,
+            :class`~composer.core.logging.TLogDataValue`) tuple.
             This dictionary contains all logged data.
         most_recent_values (Dict[str, TLogData]): Mapping of a key to the most recent value for that key.
         most_recent_timestamps (Dict[str, Timestamp]): Mapping of a key to the :class:`Timestamp` of

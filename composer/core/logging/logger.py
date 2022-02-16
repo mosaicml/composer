@@ -1,5 +1,7 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
+"""Base classes, functions, and variables for logger."""
+
 from __future__ import annotations
 
 import collections.abc
@@ -15,6 +17,11 @@ if TYPE_CHECKING:
     from composer.core.logging.base_backend import LoggerCallback
     from composer.core.state import State
     from composer.core.types import JSON
+
+__all__ = [
+    "LoggerCallback", "Logger", "LogLevel", "TLogData", "TLogDataValue", "format_log_data_as_json",
+    "format_log_data_value"
+]
 
 TLogDataValue = Union[str, float, int, torch.Tensor, Sequence["TLogDataValue"], Mapping[str, "TLogDataValue"]]
 TLogData = Mapping[str, TLogDataValue]
@@ -41,7 +48,7 @@ class Logger:
     :class:`~composer.core.logging.base_backend.LoggerCallback`.
 
     Args:
-        state (~composer.core.state.State):
+        state (State):
             The global :class:`~composer.core.state.State` object.
         backends (Sequence[LoggerCallback]):
             A sequence of

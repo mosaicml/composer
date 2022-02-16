@@ -1,5 +1,7 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
+"""Base class for logger callback."""
+
 from __future__ import annotations
 
 from abc import ABC
@@ -12,9 +14,11 @@ if TYPE_CHECKING:
     from composer.core.logging.logger import LogLevel, TLogData
     from composer.core.state import State
 
+__all__ = ["LoggerCallback"]
+
 
 class LoggerCallback(Callback, ABC):
-    """Base class for logging backends."""
+    """Base class for logger callback."""
 
     def __init__(self):
         super().__init__()
@@ -45,8 +49,7 @@ class LoggerCallback(Callback, ABC):
         (e.g. write it to a file, send it to a server, etc...).
 
         Args:
-            epoch (int): The epoch for the logged data.
-            step (int): The global step for the logged data.
+            timestamp (Timestamp): The timestamp for the logged data.
             log_level (LogLevel): The log level.
             data (TLogData): The metric to log.
         """

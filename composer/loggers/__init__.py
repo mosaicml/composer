@@ -2,20 +2,30 @@
 
 """Logging.
 
-The trainer includes a :class:`~composer.core.logging.Logger`, which routes logging calls to logger backends.
-Each logger backend inherits from :class:`~composer.core.logging.base_backend.BaseLoggerBackend`,
-which inherits from :class:`Callback`.
+The trainer includes a :class:`~composer.core.logging.logger.Logger`, which routes logging
+calls to a logger. Each logger inherits from
+:class:`~composer.core.logging.base_backend.LoggerCallback`, which inherits from
+:class:`Callback`.
 
-For example, to define a new logging backend:
+For example, to define a new logger and use it when training:
 
 .. code-block:: python
 
-    from composer.core.logging import BaseLoggerBackend
+    from composer.core.logging import LoggerCallback
 
-    class MyLoggerBackend(BaseLoggerBackend)
+    class MyLogger(LoggerCallback)
 
-        def log_metric(self, epoch, step, log_level, data):
-            print(f'Epoch {epoch} Step {step}: {log_level} {data}')
+        def log_metric(self, timestamp, log_level, data):
+            print(f'Timestamp: {timestamp}: {log_level} {data}')
+
+    trainer = Trainer(
+        model=model,
+        train_dataloader=train_dataloader,
+        eval_dataloader=eval_dataloader,
+        max_duration="1ep",
+        optimizers=[optimizer],
+        loggers=[MyLogger()]
+    )
 """
 from composer.loggers.file_logger import FileLogger
 from composer.loggers.in_memory_logger import InMemoryLogger
