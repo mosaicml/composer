@@ -27,7 +27,7 @@ class GLUEHparams(DatasetHparams):
         split (str): Whether to use 'train', 'validation' or 'test' split.
         max_seq_length (int): Optionally, the ability to set a custom sequence length for the training dataset.
             Default: 256
-        num_workers (int): Optionally, the number of CPU workers to use to preprocess the text. Default: 8
+        num_workers (int): Optionally, the number of CPU workers to use to preprocess the text. Default: 64
         max_network_retries (int): Optionally, the number of times to retry HTTP requests if they fail. Default: 10
 
     Returns:
