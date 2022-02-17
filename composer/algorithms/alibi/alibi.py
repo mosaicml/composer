@@ -95,10 +95,9 @@ def apply_alibi(
 
 
 class Alibi(Algorithm):
-    """ALiBi (Attention with Linear Biases;
-    `Press et al., 2021 <https://arxiv.org/abs/2108.12409>`_) dispenses with position
-    embeddings and instead directly biases attention matrices such that nearby tokens
-    attend to one another more strongly.
+    """ALiBi (Attention with Linear Biases; `Press et al., 2021 <https://arxiv.org/abs/2108.12409>`_) dispenses with
+    position embeddings and instead directly biases attention matrices such that nearby tokens attend to one another
+    more strongly.
 
     ALiBi yields excellent extrapolation to unseen sequence lengths
     compared to other position embedding schemes. We leverage this
