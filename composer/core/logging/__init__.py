@@ -1,6 +1,6 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
-"""Super Badass Docstring about composer.core.logging
+"""Super Badass Docstring about composer.core.logging.
 
 Attributes:
     TLogData: Logging attribute that does stuff

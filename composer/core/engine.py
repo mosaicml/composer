@@ -53,8 +53,7 @@ from typing import ContextManager, Dict, Optional, Sequence, Union, cast
 from composer.core.algorithm import Algorithm
 from composer.core.callback import Callback
 from composer.core.event import Event
-from composer.core.logging import Logger
-from composer.core.logging import LogLevel
+from composer.core.logging import Logger, LogLevel
 from composer.core.state import State
 from composer.profiler import ProfilerAction
 

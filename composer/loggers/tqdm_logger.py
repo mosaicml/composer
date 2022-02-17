@@ -10,8 +10,7 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional
 import yaml
 from tqdm import auto
 
-from composer.core.logging import LogLevel, TLogData, TLogDataValue, format_log_data_value
-from composer.core.logging import LoggerCallback
+from composer.core.logging import LoggerCallback, LogLevel, TLogData, TLogDataValue, format_log_data_value
 from composer.core.state import State
 from composer.core.time import Timestamp
 from composer.core.types import StateDict
