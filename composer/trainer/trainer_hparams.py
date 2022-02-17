@@ -277,28 +277,28 @@ class TrainerHparams(hp.Hparams):
         Interval to record stats, in seconds.  Ignored if `profiler_trace_file` is not specified."""),
                                                                 default=0.5)
     torch_profiler_trace_dir: Optional[str] = hp.optional(doc=textwrap.dedent("""\
-        Directory to store trace results relative to the run directory.  Must be specified to activate the Torch profiler. 
+        Directory to store trace results relative to the run directory.  Must be specified to activate the Torch profiler.
         Ignored if ``profiler_trace_file`` is not specified."""),
                                                           default=None)
     torch_prof_use_gzip: bool = hp.optional(doc=textwrap.dedent("""\
-        Whether to use gzip for trace.  
+        Whether to use gzip for trace.
         Ignored if ``torch_profiler_trace_dir`` and `profiler_trace_file` are not specified."""),
                                             default=False)
 
     torch_prof_record_shapes: bool = hp.optional(doc=textwrap.dedent("""\
-        Whether to record tensor shapes.  
+        Whether to record tensor shapes.
         Ignored if ``torch_profiler_trace_dir`` and `profiler_trace_file` are not specified."""),
                                                  default=False)
     torch_prof_profile_memory: bool = hp.optional(doc=textwrap.dedent("""\
-        Track tensor memory allocations and frees.  
+        Track tensor memory allocations and frees.
         Ignored if ``torch_profiler_trace_dir`` and `profiler_trace_file` are not specified."""),
                                                   default=True)
     torch_prof_with_stack: bool = hp.optional(doc=textwrap.dedent("""\
-        Record stack information.  
+        Record stack information.
         Ignored if ``torch_profiler_trace_dir`` and `profiler_trace_file` are not specified."""),
                                               default=False)
     torch_prof_with_flops: bool = hp.optional(doc=textwrap.dedent("""\
-        Estimate flops for operators.  
+        Estimate flops for operators.
         Ignored if ``torch_profiler_trace_dir`` and `profiler_trace_file` are not specified."""),
                                               default=True)
 
