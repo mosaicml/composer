@@ -31,14 +31,14 @@ class FileLogger(LoggerCallback):
 
     Args:
         filename (str, optional): File to log to.
-            Can be a filepath, ``stdout``, or ``stderr``. (default: ``stdout``)
+            Can be a filepath, ``stdout``, or ``stderr``. Default: ``stdout``.
         buffer_size (int, optional): Buffer size. See :py:func:`open`.
-            (default: ``1`` for line buffering)
+            Default: ``1`` for line buffering.
         log_level (LogLevel, optional): Maximum
             :class:`~composer.core.logging.logger.LogLevel`. to record.
-            (default: :attr:`~composer.core.logging.logger.LogLevel.EPOCH`)
+            Default: :attr:`~composer.core.logging.logger.LogLevel.EPOCH`.
         log_interval (int, optional):
-            Frequency to print logs. If ``log_level` is 
+            Frequency to print logs. If ``log_level`` is 
             :attr:`~composer.core.logging.logger.LogLevel.EPOCH`,
             logs will only be recorded every n epochs. If ``log_level` is
             :attr:`~composer.core.logging.logger.LogLevel.BATCH`, logs will be printed

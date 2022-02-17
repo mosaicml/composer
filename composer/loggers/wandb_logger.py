@@ -16,6 +16,8 @@ from composer.core.time import Timestamp
 from composer.core.types import Logger, State, StateDict
 from composer.utils import dist, run_directory
 
+__all__ = ["WandBLogger"]
+
 
 class WandBLogger(LoggerCallback):
     """Log to Weights and Biases (https://wandb.ai/)
@@ -31,7 +33,8 @@ class WandBLogger(LoggerCallback):
             Artifacts from ranks 1+ will not be stored, which may discard pertinent
             information. For example, when using Deepspeed ZeRO, it would be impossible to
             restore from checkpoints without artifacts from all ranks.
-        init_params (Dict[str, Any], optional): Parameters to pass into :meth:`wandb.init`.
+        init_params (Dict[str, Any], optional): Parameters to pass into :meth:`wandb.init`
+        (see `WandB documentation <https://docs.wandb.ai/ref/python/init>`_).
     """
 
     def __init__(self,

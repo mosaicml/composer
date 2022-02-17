@@ -35,8 +35,8 @@ class LoggerCallback(Callback, ABC):
 
         Returns:
             bool: Whether to log a metric call, given the
-            :class:`~composer.core.state.State` and
-            :class:`~composer.core.logging.logger.LogLevel`.
+                :class:`~composer.core.state.State` and
+                :class:`~composer.core.logging.logger.LogLevel`.
         """
         del state, log_level  # unused
         return True

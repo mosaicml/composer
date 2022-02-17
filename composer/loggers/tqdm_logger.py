@@ -1,6 +1,8 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
-"""Logs metrics to a TQDM progress bar displayed in the terminal."""
+"""Logs metrics to a `TQDM <https://github.com/tqdm/tqdm>`_ progress bar displayed in the
+terminal.
+"""
 
 from __future__ import annotations
 
@@ -64,7 +66,8 @@ class _TQDMLoggerInstance:
 
 
 class TQDMLogger(LoggerCallback):
-    """Logs metrics to a TQDM progress bar displayed in the terminal.
+    """Logs metrics to a `TQDM <https://github.com/tqdm/tqdm>`_ progress bar displayed in
+    the terminal.
 
     During training, the progress bar logs the batch and training loss.
     During validation, the progress bar logs the batch and validation accuracy.
