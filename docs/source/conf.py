@@ -51,6 +51,7 @@ extensions = [
     "myst_parser",
     "sphinxarg.ext",
     'sphinx.ext.doctest',
+    'sphinx_panels',
 ]
 
 # Add any paths that contain templates here, relative to this directory.
@@ -85,6 +86,9 @@ html_title = " "
 
 # Customize CSS
 html_css_files = ['css/custom.css']
+html_js_files = [
+    'js/posthog.js',
+]
 
 # Mosaic logo
 # html_logo = 'https://storage.googleapis.com/docs.mosaicml.com/images/logo-dark-bg.png'
