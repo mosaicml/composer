@@ -377,7 +377,6 @@ def replace_params_in_optimizer(old_params: Iterable[torch.nn.parameter.Paramete
         raise NotImplementedError("Surgery with multiple optimizers is not yet supported.")
 
     opt = ensure_tuple(optimizers)[0]
-    opt.state.clear()
 
     param_to_idxs_map = {}
     for group_idx, param_group in enumerate(opt.param_groups):
