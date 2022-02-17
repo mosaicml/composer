@@ -10,21 +10,20 @@ from types import TracebackType
 from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Sequence, Tuple, Type, Union
 
 from composer.profiler.json_trace import JSONTraceHandler
-from composer.profiler.profiler_action import ProfilerAction
+from composer.profiler._profiler_action import ProfilerAction
 from composer.utils import dist, run_directory
 
 if TYPE_CHECKING:
     from composer.core.state import State
     from composer.core.time import Timestamp
-    from composer.profiler import ProfilerEventHandler
+    from composer.profiler._event_handler import ProfilerEventHandler
 
-__all__ = ["Profiler", "Marker"]
+__all__ = ["Marker", "Profiler", "ProfilerEventHandler"]
 
 log = logging.getLogger(__name__)
 
-
 class Profiler:
-    """The Profiler produces a trace of the training graph.
+    """Records the duration of Trainer :class:`~composer.core.event.Event` using the :class:`Marker` API.
 
     Specifically, it records:
 
@@ -32,7 +31,8 @@ class Profiler:
 
     #. The latency each algorithm and callback adds when executing on each event.
 
-    The ``event_handlers`` then record and save this data to a usable trace.
+    The ``event_handlers`` then record and save this data to a usable trace.  If no ``event_handlers`` is specified, the 
+    :class:`~comoser.profiler.json_trace.JSONTraceHandler` is used by default.
 
     Args:
         state (State): The state.
@@ -253,6 +253,8 @@ class Profiler:
 
 class Marker:
     """Record when something happens or how long something takes.
+
+    Used by the :class:`~composer.core.engine.Engine` to measure the duration of :class:`~composer.core.event.Event` during training.
 
     .. note::
 

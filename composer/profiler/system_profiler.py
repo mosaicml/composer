@@ -1,5 +1,7 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
+"""Profiler to record system level metrics."""
+
 from __future__ import annotations
 
 import threading
@@ -18,7 +20,7 @@ __all__ = ["SystemProfiler"]
 
 
 class SystemProfiler(Callback):
-    """The SystemProfiler records system level statistics.  Implemented as a :class:`Callback`, the profiler forks a
+    """The SystemProfiler records system level metrics.  Implemented as a :class:`Callback`, the profiler forks a
     thread during :meth:`Event.init` which polls and records system state using the `psutil` module.
 
     Args:

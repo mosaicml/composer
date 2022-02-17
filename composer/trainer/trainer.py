@@ -124,7 +124,7 @@ class Trainer:
         save_compression (str): Compression algorithm to run on checkpoints. Can be `gzip`, `bzip2`,
             `lzma`, or left blank for no compression.  (default: ``""`` for no compression).
         profiler_trace_file (str, optional): Name of the trace file, relative to the run directory.
-            Must be specified to activate the profiler. (default: ``None``).
+            Must be specified to activate the profiler. See :mod:`~composer.profiler`. (default: ``None``).
         prof_event_handlers (List[ProfilerEventHandler], optional): Trace event handler.
             Ignored if ``profiler_trace_file`` is not specified. (default: ``[JSONTraceHandler()]``).
         prof_skip_first (int, optional): Number of batches to skip at epoch start.
@@ -149,7 +149,7 @@ class Trainer:
             Ignored if ``profiler_trace_file`` is not specified. (default: ``0.5``).
         torch_profiler_trace_dir (str, optional): Directory to store trace results relative to the run directory.
             Must be specified to activate the Torch profiler. Ignored if ``profiler_trace_file`` is not specified.
-            (default: ``None``).
+            See :mod:`~composer.profiler`.  (default: ``None``).
         torch_prof_use_gzip (bool): Whether to use gzip for trace.
             Ignored if ``torch_profiler_trace_dir`` and ``profiler_trace_file`` are not specified. (default: ``False``).
         torch_prof_record_shapes (bool, optional): Whether to record tensor shapes.

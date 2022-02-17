@@ -1,5 +1,7 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
+"""Profiler to collect :mod:`torch` performance metrics during training."""
+
 from __future__ import annotations
 
 import functools
@@ -13,7 +15,7 @@ import torch.profiler
 from torch.profiler.profiler import ProfilerAction as TorchProfilerAction
 
 from composer.core import Callback, Logger, State
-from composer.profiler.profiler import ProfilerAction
+from composer.profiler._profiler_action import ProfilerAction
 from composer.utils import dist, run_directory
 
 __all__ = ["TorchProfiler"]
@@ -22,10 +24,9 @@ _PROFILE_MISSING_ERROR = "The profiler has not been setup. Please call profiler.
 
 
 class TorchProfiler(Callback):
-    """Profile the execution using :class:`torch.profiler.profile`, implemented as a Composer :class:`Callback`.
+    """Profile the execution using :class:`torch.profiler.profile`, implemented as a Composer :class:`~composer.core.callback.Callback`.
 
-    Profiling results are stored in TensorBoard format in the
-    :param tensorboard_trace_handler_dir: folder.
+    Profiling results are stored in TensorBoard format in the ``tensorboard_trace_handler_dir`` folder.
 
     To view profiling results, run:
 

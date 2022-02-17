@@ -1,5 +1,7 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
+"""Profiler to measure the time it takes the data loader to return a batch"""
+
 from __future__ import annotations
 
 import textwrap
