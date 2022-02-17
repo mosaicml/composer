@@ -38,13 +38,13 @@ class FileLogger(LoggerCallback):
             :class:`~composer.core.logging.logger.LogLevel`. to record.
             Default: :attr:`~composer.core.logging.logger.LogLevel.EPOCH`.
         log_interval (int, optional):
-            Frequency to print logs. If ``log_level`` is 
+            Frequency to print logs. If ``log_level`` is
             :attr:`~composer.core.logging.logger.LogLevel.EPOCH`,
             logs will only be recorded every n epochs. If ``log_level` is
             :attr:`~composer.core.logging.logger.LogLevel.BATCH`, logs will be printed
             every n batches.  Otherwise, if ``log_level` is
             :attr:`~composer.core.logging.logger.LogLevel.FIT`, this parameter is ignored,
-            as calls at the :attr:`~composer.core.logging.logger.LogLevel.FIT` 
+            as calls at the :attr:`~composer.core.logging.logger.LogLevel.FIT`
             log level are always recorded. Default: ``1``.
         flush_interval (int, optional): How frequently to flush the log to the file,
             relative to the ``log_level``. For example, if the ``log_level`` is

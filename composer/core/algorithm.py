@@ -14,6 +14,7 @@ if TYPE_CHECKING:
 
 __all__ = ["Algorithm"]
 
+
 class Algorithm(Serializable, ABC):
     """Base class for algorithms.
 

@@ -1,7 +1,8 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
-"""Logs metrics to dictionary objects that persist in memory throughout training. Useful
-for collecting and plotting data inside notebooks.
+"""Logs metrics to dictionary objects that persist in memory throughout training.
+
+Useful for collecting and plotting data inside notebooks.
 """
 
 from __future__ import annotations
@@ -16,12 +17,12 @@ __all__ = ["InMemoryLogger"]
 
 
 class InMemoryLogger(LoggerCallback):
-    """Logs metrics to dictionary objects that persist in memory throughout training.
-    Useful for collecting and plotting data inside notebooks.
+    """Logs metrics to dictionary objects that persist in memory throughout training. Useful for collecting and plotting
+    data inside notebooks.
 
     Args:
         log_level (str or LogLevel, optional): Minimum LogLevel to record. Defaults to
-            :attr:`~composer.core.logging.logger.LogLevel.BATCH`, which records 
+            :attr:`~composer.core.logging.logger.LogLevel.BATCH`, which records
             everything.
 
     Attributes:
