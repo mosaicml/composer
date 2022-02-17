@@ -13,6 +13,7 @@ API Reference
     callbacks
     core
     datasets
+    functional
     loggers
     models
     optim

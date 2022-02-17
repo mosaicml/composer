@@ -17,14 +17,6 @@ from composer.utils import module_surgery
 log = logging.getLogger(__name__)
 
 
-def _log_surgery_result(model: torch.nn.Module):
-    num_blurpool_layers = module_surgery.count_module_instances(model, BlurMaxPool2d)
-    num_blurconv_layers = module_surgery.count_module_instances(model, BlurConv2d)
-    log.info(f'Applied BlurPool to model {model.__class__.__name__}. '
-             f'Model now has {num_blurpool_layers} BlurMaxPool2d '
-             f'and {num_blurconv_layers} BlurConv2D layers.')
-
-
 def apply_blurpool(model: torch.nn.Module,
                    optimizers: Optional[Optimizers] = None,
                    replace_convs: bool = True,
@@ -67,12 +59,6 @@ def apply_blurpool(model: torch.nn.Module,
         )
     module_surgery.replace_module_classes(model, optimizers=optimizers, policies=transforms)
     _log_surgery_result(model)
-
-
-def _maybe_replace_strided_conv2d(module: torch.nn.Conv2d, module_index: int, blur_first: bool):
-    if (np.max(module.stride) > 1 and module.in_channels >= 16):
-        return BlurConv2d.from_conv2d(module, module_index, blur_first=blur_first)
-    return None
 
 
 class BlurPool(Algorithm):
@@ -151,3 +137,17 @@ class BlurPool(Algorithm):
             'blurpool/num_blurpool_layers': num_blurpool_layers,
             'blurpool/num_blurconv_layers': num_blurconv_layers,
         })
+
+
+def _log_surgery_result(model: torch.nn.Module):
+    num_blurpool_layers = module_surgery.count_module_instances(model, BlurMaxPool2d)
+    num_blurconv_layers = module_surgery.count_module_instances(model, BlurConv2d)
+    log.info(f'Applied BlurPool to model {model.__class__.__name__}. '
+             f'Model now has {num_blurpool_layers} BlurMaxPool2d '
+             f'and {num_blurconv_layers} BlurConv2D layers.')
+
+
+def _maybe_replace_strided_conv2d(module: torch.nn.Conv2d, module_index: int, blur_first: bool):
+    if (np.max(module.stride) > 1 and module.in_channels >= 16):
+        return BlurConv2d.from_conv2d(module, module_index, blur_first=blur_first)
+    return None

@@ -19,60 +19,6 @@ LOG_NUM_CONV2D_REPLACEMENTS_KEY = 'factorize/num_conv2d_replacements'
 LOG_NUM_LINEAR_REPLACEMENTS_KEY = 'factorize/num_linear_replacements'
 
 
-def _python_log_surgery_result(model: torch.nn.Module, new_class: Type[torch.nn.Module]):
-    num_replaced_modules = module_surgery.count_module_instances(model, new_class)
-    log.info(f'Applied factorization to model {model.__class__.__name__}. ' +
-             f'Model now has {num_replaced_modules} {new_class.__name__} modules')
-
-
-def _factorize_conv2d_modules(model: torch.nn.Module,
-                              min_channels: int = 512,
-                              latent_channels: Union[int, float] = 0.25,
-                              optimizers: Optional[Optimizers] = None):
-    """Replaces :class:`torch.nn.Conv2d` modules in ``model`` with
-    :class:`~composer.algorithms.factorize.FactorizedConv2d` modules.
-
-    See :class:`Factorize` for details.
-    """
-
-    def _maybe_replace_conv2d(module: torch.nn.Module, module_index: int) -> Optional[torch.nn.Module]:
-        module = cast(torch.nn.Conv2d, module)
-        wide_enough = min(module.out_channels, module.in_channels) >= min_channels
-        if factorizing_could_speedup(module, latent_channels) and wide_enough:
-            return FactorizedConv2d.from_conv2d(module, module_index, latent_channels=latent_channels)
-        return None  # not enough rank reduction to be worth it
-
-    ret = module_surgery.replace_module_classes(model,
-                                                optimizers=optimizers,
-                                                policies={torch.nn.Conv2d: _maybe_replace_conv2d})
-    _python_log_surgery_result(model, FactorizedConv2d)
-    return ret
-
-
-def _factorize_linear_modules(model: torch.nn.Module,
-                              min_features: int = 512,
-                              latent_features: Union[int, float] = 0.25,
-                              optimizers: Optional[Optimizers] = None):
-    """Replaces :class:`torch.nn.Linear` modules in ``model`` with
-    :class:`~composer.algorithms.factorize.FactorizedLinear` modules.
-
-    See :class:`Factorize` for details.
-    """
-
-    def _maybe_replace_linear(module: torch.nn.Module, module_index: int) -> Optional[torch.nn.Module]:
-        module = cast(torch.nn.Linear, module)
-        wide_enough = min(module.in_features, module.out_features) >= min_features
-        if factorizing_could_speedup(module, latent_features) and wide_enough:
-            return FactorizedLinear.from_linear(module, module_index, latent_features=latent_features)
-        return None  # not enough rank reduction to be worth it
-
-    ret = module_surgery.replace_module_classes(model,
-                                                optimizers=optimizers,
-                                                policies={torch.nn.Linear: _maybe_replace_linear})
-    _python_log_surgery_result(model, FactorizedLinear)
-    return ret
-
-
 def apply_factorization(model: torch.nn.Module,
                         factorize_convs: bool = True,
                         factorize_linears: bool = True,
@@ -203,3 +149,57 @@ class Factorize(Algorithm):
             logger.metric_fit({
                 LOG_NUM_LINEAR_REPLACEMENTS_KEY: num_factorized,
             })
+
+
+def _python_log_surgery_result(model: torch.nn.Module, new_class: Type[torch.nn.Module]):
+    num_replaced_modules = module_surgery.count_module_instances(model, new_class)
+    log.info(f'Applied factorization to model {model.__class__.__name__}. ' +
+             f'Model now has {num_replaced_modules} {new_class.__name__} modules')
+
+
+def _factorize_conv2d_modules(model: torch.nn.Module,
+                              min_channels: int = 512,
+                              latent_channels: Union[int, float] = 0.25,
+                              optimizers: Optional[Optimizers] = None):
+    """Replaces :class:`torch.nn.Conv2d` modules in ``model`` with
+    :class:`~composer.algorithms.factorize.FactorizedConv2d` modules.
+
+    See :class:`Factorize` for details.
+    """
+
+    def _maybe_replace_conv2d(module: torch.nn.Module, module_index: int) -> Optional[torch.nn.Module]:
+        module = cast(torch.nn.Conv2d, module)
+        wide_enough = min(module.out_channels, module.in_channels) >= min_channels
+        if factorizing_could_speedup(module, latent_channels) and wide_enough:
+            return FactorizedConv2d.from_conv2d(module, module_index, latent_channels=latent_channels)
+        return None  # not enough rank reduction to be worth it
+
+    ret = module_surgery.replace_module_classes(model,
+                                                optimizers=optimizers,
+                                                policies={torch.nn.Conv2d: _maybe_replace_conv2d})
+    _python_log_surgery_result(model, FactorizedConv2d)
+    return ret
+
+
+def _factorize_linear_modules(model: torch.nn.Module,
+                              min_features: int = 512,
+                              latent_features: Union[int, float] = 0.25,
+                              optimizers: Optional[Optimizers] = None):
+    """Replaces :class:`torch.nn.Linear` modules in ``model`` with
+    :class:`~composer.algorithms.factorize.FactorizedLinear` modules.
+
+    See :class:`Factorize` for details.
+    """
+
+    def _maybe_replace_linear(module: torch.nn.Module, module_index: int) -> Optional[torch.nn.Module]:
+        module = cast(torch.nn.Linear, module)
+        wide_enough = min(module.in_features, module.out_features) >= min_features
+        if factorizing_could_speedup(module, latent_features) and wide_enough:
+            return FactorizedLinear.from_linear(module, module_index, latent_features=latent_features)
+        return None  # not enough rank reduction to be worth it
+
+    ret = module_surgery.replace_module_classes(model,
+                                                optimizers=optimizers,
+                                                policies={torch.nn.Linear: _maybe_replace_linear})
+    _python_log_surgery_result(model, FactorizedLinear)
+    return ret

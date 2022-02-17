@@ -10,7 +10,7 @@ We're going to explore how MixUp, a fairly simple algorithm, works. MixUp, intro
 
 MixUp operates by modifying the batches of data used to train the model; instead of training on individual samples, we train on convex combinations of samples. Thus, our implementation of the MixUp algorithm needs to be able to modify batches of training data after they are loaded from the dataloader and before they are passed into the forward pass of a model.
 
-For more information on MixUp, see :doc:`/method_cards/mix_up` in our methods library.
+For more information on MixUp, see :doc:`/method_cards/mixup` in our methods library.
 
 So how can we use MixUp within a trainer?
 

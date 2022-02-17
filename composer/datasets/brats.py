@@ -253,7 +253,12 @@ def get_split(data, idx):
 
 
 def get_data_split(path: str):
-    from sklearn.model_selection import KFold
+    try:
+        from sklearn.model_selection import KFold
+    except ImportError as e:
+        raise ImportError(
+            "Composer was installed without unet support. To use unet with Composer, run: `pip install mosaicml[unet]`."
+        ) from e
 
     kfold = KFold(n_splits=5, shuffle=True, random_state=0)
     imgs = load_data(path, "*_x.npy")

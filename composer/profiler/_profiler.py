@@ -49,7 +49,7 @@ class Profiler:
 
     def __init__(self,
                  state: State,
-                 event_handlers: Sequence[ProfilerEventHandler] = [JSONTraceHandler()],
+                 event_handlers: Sequence[ProfilerEventHandler] = tuple(),
                  skip_first: int = 0,
                  wait: int = 0,
                  warmup: int = 1,
@@ -57,7 +57,7 @@ class Profiler:
                  repeat: int = 1,
                  merged_trace_file: str = "merged_profiler_trace.json") -> None:
         self._names_to_markers: Dict[str, Marker] = {}
-        self._event_handlers = event_handlers
+        self._event_handlers = event_handlers if event_handlers else [JSONTraceHandler()]
         self.state = state
         self.skip_first = skip_first
         self.wait = wait
