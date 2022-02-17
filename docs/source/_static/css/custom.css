@@ -15,7 +15,7 @@
     margin: 0;
 }
 
-body[data-theme=dark] .card-title {
+body:not([data-theme="light"]) .card-title {
     font-size: 22px;
     color: white;
     margin: 0;
