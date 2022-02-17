@@ -7,16 +7,20 @@ Methods Overview
 
    ---
    .. link-button:: alibi.html
+
       :text: Alibi
       :classes: card-title
+
    :badge:`NLP,badge-success`
    ++++++++++++++
    Replace attention with AliBi
 
    ---
    .. link-button:: augmix.html
+
       :text: AugMix
       :classes: card-title
+
    :badge:`CV,badge-primary`
    ++++++++++++++
    Image-perserving data augmentations

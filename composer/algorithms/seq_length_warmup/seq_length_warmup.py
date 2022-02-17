@@ -93,7 +93,7 @@ class SeqLengthWarmup(Algorithm):
         Variable input lengths can create CUDA OOM errors. To avoid this,
         we follow `PyTorch notes
         <https://pytorch.org/tutorials/recipes/recipes/tuning_guide.html#pre-allocate-memory-in-case-of-variable-input-length>`_
-         and pre-allocate the memory with a blank forward and backward pass.
+        and pre-allocate the memory with a blank forward and backward pass.
 
     See the :doc:`Method Card </method_cards/seq_length_warmup>` for more details.
 
