@@ -2,7 +2,6 @@
 
 import logging
 from dataclasses import dataclass
-from multiprocessing import cpu_count
 from typing import cast
 
 import yahp as hp
