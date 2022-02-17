@@ -2,7 +2,7 @@
 
 import logging
 import textwrap
-from typing import Callable, List, Tuple
+from typing import Callable, List, Tuple, Union
 
 import numpy as np
 import torch
@@ -64,7 +64,7 @@ class NormalizationFn:
         return xs, ys
 
 
-def pil_image_collate(batch: List[Tuple[Image.Image, np.ndarray]],
+def pil_image_collate(batch: List[Tuple[Image.Image, Union[Image.Image, np.ndarray]]],
                       memory_format: torch.memory_format = torch.contiguous_format) -> BatchPair:
     """Constructs a :class:`~composer.core.types.BatchPair` from datasets that yield samples of type
     :class:`PIL.Image.Image`.
@@ -72,8 +72,9 @@ def pil_image_collate(batch: List[Tuple[Image.Image, np.ndarray]],
     This function can be used as the ``collate_fn`` argument of a :class:`torch.utils.data.DataLoader`.
 
     Args:
-        batch (List[Tuple[Image.Image, np.ndarry]]): List of (image, target) tuples that will be
-            aggregated and converted into a single (:class:`~torch.Tensor`, :class:`~torch.Tensor`) tuple.
+        batch (List[Tuple[Image.Image, Union[Image.Image, np.ndarray]]]): List of (image, target) tuples
+            that will be aggregated and converted into a single (:class:`~torch.Tensor`, :class:`~torch.Tensor`)
+            tuple.
 
         memory_format (torch.memory_format): The memory format for the input and target tensors.
 
