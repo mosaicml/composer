@@ -76,12 +76,12 @@ class GLUEHparams(DatasetHparams):
         self.validate()
         self.tokenizer = transformers.AutoTokenizer.from_pretrained(self.tokenizer_name)  #type: ignore (thirdparty)
 
-        print(f"Loading {self.task.upper()} on rank ", dist.get_global_rank())
+        log.info(f"Loading {self.task.upper()} on rank ", dist.get_global_rank())
         download_config = datasets.utils.DownloadConfig(max_retries=10)
         self.dataset = datasets.load_dataset("glue", self.task, split=self.split, download_config=download_config)
 
         n_cpus = cpu_count() // dist.get_world_size()
-        print(f"Starting tokenization step by preprocessing over {n_cpus} threads!")
+        log.info(f"Starting tokenization step by preprocessing over {n_cpus} threads!")
         text_column_names = self.task_to_keys[self.task]
 
         def tokenize_function(inp):
