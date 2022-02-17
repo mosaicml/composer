@@ -22,6 +22,7 @@ __all__ = ["Marker", "Profiler", "ProfilerEventHandler"]
 
 log = logging.getLogger(__name__)
 
+
 class Profiler:
     """Records the duration of Trainer :class:`~composer.core.event.Event` using the :class:`Marker` API.
 
@@ -31,7 +32,7 @@ class Profiler:
 
     #. The latency each algorithm and callback adds when executing on each event.
 
-    The ``event_handlers`` then record and save this data to a usable trace.  If no ``event_handlers`` is specified, the 
+    The ``event_handlers`` then record and save this data to a usable trace.  If no ``event_handlers`` is specified, the
     :class:`~comoser.profiler.json_trace.JSONTraceHandler` is used by default.
 
     Args:

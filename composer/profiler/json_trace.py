@@ -1,6 +1,6 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
-"""Outputs profiling data in JSON trace format"""
+"""Outputs profiling data in JSON trace format."""
 
 from __future__ import annotations
 
@@ -22,7 +22,8 @@ __all__ = ["JSONTraceHandler"]
 
 
 class JSONTraceHandler(ProfilerEventHandler):
-    """Records trace events in `JSON trace format <https://docs.google.com/document/d/1CvAClvFfyA5R-PhYUmn5OOQtYMH4h6I0nSsKchNAySU/preview>`_.
+    """Records trace events in `JSON trace format
+    <https://docs.google.com/document/d/1CvAClvFfyA5R-PhYUmn5OOQtYMH4h6I0nSsKchNAySU/preview>`_.
 
     Args:
         flush_every_n_batches (int): Interval at which to flush the logfile. (Default: ``100`` batches)

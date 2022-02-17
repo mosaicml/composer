@@ -20,8 +20,8 @@ __all__ = ["SystemProfiler"]
 
 
 class SystemProfiler(Callback):
-    """The SystemProfiler records system level metrics.  Implemented as a :class:`Callback`, the profiler forks a
-    thread during :meth:`Event.init` which polls and records system state using the `psutil` module.
+    """The SystemProfiler records system level metrics.  Implemented as a :class:`Callback`, the profiler forks a thread
+    during :meth:`Event.init` which polls and records system state using the `psutil` module.
 
     Args:
         profile_cpu (bool): Whether to record cpu statistics (Default: ``True``)
