@@ -24,7 +24,7 @@ if ! command -v conda &> /dev/null ; then
     curl -fsSL https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh --output /tmp/miniconda.sh
     chmod u+x /tmp/miniconda.sh
     echo "Installing conda"
-    ./tmp/miniconda.sh -b -f -p $CONDA_PATH 
+    /tmp/miniconda.sh -b -f -p $CONDA_PATH 
 else
     echo "Conda is already installed"
     CONDA_PATH="$(conda info --base)"
