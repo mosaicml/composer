@@ -222,7 +222,7 @@ class Trainer:
         # save_checkpoint
         save_folder: Optional[str] = None,
         save_interval: Union[str, int, Time] = "1ep",
-        save_compression: str = '',
+        save_compression: Optional[str] = None,
 
         # Profiling
         profiler_trace_file: Optional[str] = None,
@@ -480,7 +480,12 @@ class Trainer:
 
         # place the state, model in the proper devices, and initialize from a checkpoint if provided
         if self.deepspeed_enabled:
-            import deepspeed
+            try:
+                import deepspeed
+            except ImportError as e:
+                raise ImportError(
+                    'Composer was installed without deepspeed support. To use deepspeed with Composer, run: `pip install mosaicml[deepspeed]`.'
+                ) from e
             assert deepspeed_config is not None
             self.deepspeed_config = parse_deepspeed_config(deepspeed_config,
                                                            state=self.state,
@@ -521,8 +526,8 @@ class Trainer:
             # Move any remaining optimizer parameters onto the device
             self.state.optimizers = map_collection(self.state.optimizers, self.device.optimizer_to_device)
 
-            if dist.is_initialized():
-                # wrap model with DDP
+            if dist.get_world_size() > 1:
+                # Only wrap the module if required
                 self.state.model = prepare_ddp_module(self.state.model, self.find_unused_parameters)
 
     @property
