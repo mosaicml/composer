@@ -4,6 +4,7 @@
         "functional": "colout_batch",
         "tldr": "Removes columns and rows from the image for augmentation and efficiency.",
         "attribution": "Many",
-        "link": "www.mosaicml.com"
+        "link": "www.mosaicml.com",
+        "domains": ["cv"]
     }
 }

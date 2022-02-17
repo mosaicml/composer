@@ -65,28 +65,29 @@ Our documentation is organized into a few sections:
    :maxdepth: 1
    :caption: Methods Library
 
+   method_cards/methods_overview.rst
    method_cards/alibi.md
    method_cards/aug_mix.md
    method_cards/blurpool.md
    method_cards/channels_last.md
    method_cards/cutmix.md
-   method_cards/col_out.md
-   method_cards/cut_out.md
+   method_cards/colout.md
+   method_cards/cutout.md
    method_cards/decoupled_weight_decay.md
    method_cards/factorize.md
    method_cards/ghost_batchnorm.md
    method_cards/label_smoothing.md
    method_cards/layer_freezing.md
-   method_cards/mix_up.md
-   method_cards/progressive_resizing_vision.md
-   method_cards/rand_augment.md
+   method_cards/mixup.md
+   method_cards/progressive_resizing.md
+   method_cards/randaugment.md
    method_cards/scale_schedule.md
    method_cards/scaling_laws.rst
    method_cards/selective_backprop.md
-   method_cards/seq_len_warmup.rst
+   method_cards/seq_length_warmup.rst
    method_cards/sam.md
    method_cards/squeeze_excite.md
-   method_cards/stochastic_depth_blockwise.md
+   method_cards/stochastic_depth.md
    method_cards/stochastic_depth_samplewise.md
    method_cards/swa.md
 
