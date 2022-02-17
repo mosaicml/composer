@@ -105,8 +105,9 @@ class RandAugmentTransform(torch.nn.Module):
 
 
 class RandAugment(Algorithm):
-    """Randomly applies a sequence of image data augmentations
-    (`Cubuk et al., 2019 <https://arxiv.org/abs/1909.13719>`_) to an image.
+    """Randomly applies a sequence of image data augmentations ( `Cubuk et al., 2019.
+
+    <https://arxiv.org/abs/1909.13719>`_ ) to an image.
 
     This algorithm runs on on :attr:`~composer.core.event.Event.INIT` to insert a dataset
     transformation. It is a no-op if this algorithm already applied itself on the

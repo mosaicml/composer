@@ -20,6 +20,7 @@ build:
 requirements:
   host:
     - python >=3.7
+  build:
     - git
   run:
     - python >=3.7
