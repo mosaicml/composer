@@ -1,0 +1,10 @@
+{
+    "channels_last": {
+        "class_name": "ChannelsLast",
+        "functional": "apply_channels_last",
+        "tldr": "Uses channels last memory format (NHWC)",
+        "attribution": "PyTorch",
+        "link": "https://pytorch.org/tutorials/intermediate/memory_format_tutorial.html",
+        "domains": ["cv"]
+    }
+}

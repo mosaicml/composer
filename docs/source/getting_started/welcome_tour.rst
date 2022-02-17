@@ -10,7 +10,7 @@ We're going to explore how MixUp, a fairly simple algorithm, works. MixUp, intro
 
 MixUp operates by modifying the batches of data used to train the model; instead of training on individual samples, we train on convex combinations of samples. Thus, our implementation of the MixUp algorithm needs to be able to modify batches of training data after they are loaded from the dataloader and before they are passed into the forward pass of a model.
 
-For more information on MixUp, see :doc:`/method_cards/mix_up` in our methods library.
+For more information on MixUp, see :doc:`/method_cards/mixup` in our methods library.
 
 So how can we use MixUp within a trainer?
 
@@ -133,9 +133,14 @@ Putting all the pieces together, our trainer looks something like this:
             engine.run_event("batch_end")
         engine.run_event("epoch_end")
 
-That's it! Our training loop is now taking full advantage of MixUp, and we can easily start using new algorithms! For more information on events, state, and engines, check out :doc:`/walkthrough/event`, :doc:`/walkthrough/state`, and :doc:`/walkthrough/engine`.
+That's it! Our training loop is now taking full advantage of MixUp, and we can easily start using new algorithms!
+For more information on events, state, and engines, check out :class:`~composer.core.event.Event`, :class:`~composer.core.state.State`,
+and :class:`~composer.core.engine.Engine`.
 
 Next: The Composer Trainer
 --------------------------
 
-For advanced experimentation, we recommend using our provided trainer. Our trainer takes care of all the state management and event callbacks from above, and adds a bunch of advanced features, including hyperparameter management, gradient accumulation, and closure support. For more information, check out our trainer documentation at :doc:`/walkthrough/trainer`.
+For advanced experimentation, we recommend using our provided trainer.
+Our trainer takes care of all the state management and event callbacks from above,
+and adds a bunch of advanced features, including hyperparameter management, gradient accumulation, and closure support.
+For more information, check out our trainer documentation at :class:`composer.trainer.trainer.Trainer`.

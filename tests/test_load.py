@@ -9,7 +9,7 @@ import pytest
 import composer
 import composer.algorithms as algorithms
 import composer.trainer as trainer
-from composer.algorithms.scale_schedule.scale_schedule import ScaleScheduleHparams
+from composer.algorithms import ScaleScheduleHparams
 from composer.core.precision import Precision
 from composer.datasets.hparams import SyntheticHparamsMixin
 from composer.trainer.devices import CPUDeviceHparams

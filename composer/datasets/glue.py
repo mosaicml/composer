@@ -2,11 +2,12 @@
 
 import logging
 from dataclasses import dataclass
-from multiprocessing import cpu_count
+from typing import cast
 
 import yahp as hp
 
 from composer.core import DataSpec
+from composer.core.types import Dataset
 from composer.datasets.dataloader import DataloaderHparams
 from composer.datasets.hparams import DatasetHparams
 from composer.datasets.lm_datasets import _split_dict_fn
@@ -25,6 +26,8 @@ class GLUEHparams(DatasetHparams):
         split (str): Whether to use 'train', 'validation' or 'test' split.
         max_seq_length (int): Optionally, the ability to set a custom sequence length for the training dataset.
             Default: 256
+        num_workers (int): Optionally, the number of CPU workers to use to preprocess the text. Default: 64
+        max_network_retries (int): Optionally, the number of times to retry HTTP requests if they fail. Default: 10
 
     Returns:
         A :class:`~composer.core.DataSpec` object
@@ -36,6 +39,10 @@ class GLUEHparams(DatasetHparams):
     split: str = hp.optional("Whether to use 'train', 'validation' or 'test' split.", default=None)
     max_seq_length: int = hp.optional(
         default=256, doc='Optionally, the ability to set a custom sequence length for the training dataset.')
+    num_workers: int = hp.optional(default=64,
+                                   doc="Optionally, the number of CPU workers to use to preprocess the text.")
+    max_network_retries: int = hp.optional(default=10,
+                                           doc="Optionally, the number of times to retry HTTP requests if they fail.")
 
     def validate(self):
         self.task_to_keys = {
@@ -66,18 +73,19 @@ class GLUEHparams(DatasetHparams):
         try:
             import datasets
             import transformers
-        except ImportError:
-            raise ImportError('huggingface transformers and datasets are not installed. '
-                              'Please install with `pip install \'mosaicml[nlp]\'`')
+        except ImportError as e:
+            raise ImportError(
+                'Composer was installed without NLP support. To use NLP with Composer, run: `pip install mosaicml[nlp]`.'
+            ) from e
 
         self.validate()
         self.tokenizer = transformers.AutoTokenizer.from_pretrained(self.tokenizer_name)  #type: ignore (thirdparty)
 
-        log.info(f"Loading {self.task.upper()}...")
-        self.dataset = datasets.load_dataset("glue", self.task, split=self.split)
+        log.info(f"Loading {self.task.upper()} on rank ", dist.get_global_rank())
+        download_config = datasets.utils.DownloadConfig(max_retries=self.max_network_retries)
+        self.dataset = datasets.load_dataset("glue", self.task, split=self.split, download_config=download_config)
 
-        n_cpus = cpu_count()
-        log.info(f"Starting tokenization step by preprocessing over {n_cpus} threads!")
+        log.info(f"Starting tokenization step by preprocessing over {self.num_workers} threads!")
         text_column_names = self.task_to_keys[self.task]
 
         def tokenize_function(inp):
@@ -98,7 +106,7 @@ class GLUEHparams(DatasetHparams):
         dataset = self.dataset.map(
             tokenize_function,
             batched=True,
-            num_proc=n_cpus,
+            num_proc=self.num_workers,
             batch_size=1000,
             remove_columns=columns_to_remove,
             new_fingerprint=f"{self.task}-tokenization-{self.split}",
@@ -106,7 +114,7 @@ class GLUEHparams(DatasetHparams):
         )
 
         data_collator = transformers.data.data_collator.default_data_collator
-        sampler = dist.get_sampler(dataset, drop_last=self.drop_last, shuffle=self.shuffle)
+        sampler = dist.get_sampler(cast(Dataset, dataset), drop_last=self.drop_last, shuffle=self.shuffle)
 
         return DataSpec(
             dataloader=dataloader_hparams.initialize_object(

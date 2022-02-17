@@ -5,26 +5,23 @@ from __future__ import annotations
 import logging
 import textwrap
 import weakref
-from dataclasses import asdict, dataclass
 from typing import TypeVar
 
 import torch
-import yahp as hp
 from PIL.Image import Image
 from torchvision.datasets import VisionDataset
 from torchvision.transforms import functional as TF
 
-from composer.algorithms import AlgorithmHparams
 from composer.core import Algorithm, Event, Logger, State
 from composer.core.types import Tensor
-from composer.utils.data import add_dataset_transform
+from composer.datasets.utils import add_vision_dataset_transform
 
 log = logging.getLogger(__name__)
 
 TImg = TypeVar("TImg", torch.Tensor, Image)
 
 
-def colout_image(img: TImg, p_row: float, p_col: float) -> TImg:
+def colout_image(img: TImg, p_row: float = 0.15, p_col: float = 0.15) -> TImg:
     """Drops random rows and columns from a single image.
 
     Args:
@@ -65,32 +62,7 @@ def colout_image(img: TImg, p_row: float, p_col: float) -> TImg:
         return img_tensor
 
 
-class ColOutTransform:
-    """Torchvision-like transform for performing the ColOut augmentation, where random rows and columns are dropped from
-    a single image.
-
-    Args:
-        p_row (float): Fraction of rows to drop (drop along H).
-        p_col (float): Fraction of columns to drop (drop along W).
-    """
-
-    def __init__(self, p_row: float, p_col: float):
-        self.p_row = p_row
-        self.p_col = p_col
-
-    def __call__(self, img: TImg) -> TImg:
-        """Drops random rows and columns from a single image.
-
-        Args:
-            img (torch.Tensor or PIL Image): An input image as a torch.Tensor or PIL image
-
-        Returns:
-            torch.Tensor or PIL Image: A smaller image with rows and columns dropped
-        """
-        return colout_image(img, self.p_row, self.p_col)
-
-
-def colout_batch(X: torch.Tensor, p_row: float, p_col: float) -> torch.Tensor:
+def colout_batch(X: torch.Tensor, p_row: float = 0.15, p_col: float = 0.15) -> torch.Tensor:
     """Applies ColOut augmentation to a batch of images, dropping the same random rows and columns from all images in a
     batch.
 
@@ -104,8 +76,8 @@ def colout_batch(X: torch.Tensor, p_row: float, p_col: float) -> torch.Tensor:
     """
 
     # Get the dimensions of the image
-    row_size = X.shape[2]
-    col_size = X.shape[3]
+    row_size = X.shape[-2]
+    col_size = X.shape[-1]
 
     # Determine how many rows and columns to keep
     kept_row_size = int((1 - p_row) * row_size)
@@ -116,20 +88,34 @@ def colout_batch(X: torch.Tensor, p_row: float, p_col: float) -> torch.Tensor:
     kept_col_idx = sorted(torch.randperm(col_size)[:kept_col_size].numpy())
 
     # Keep only the selected row and columns
-    X_colout = X[:, :, kept_row_idx, :]
-    X_colout = X_colout[:, :, :, kept_col_idx]
+    X_colout = X[..., kept_row_idx, :]
+    X_colout = X_colout[..., :, kept_col_idx]
     return X_colout
 
 
-@dataclass
-class ColOutHparams(AlgorithmHparams):
-    """See :class:`ColOut`"""
-    p_row: float = hp.optional(doc="Fraction of rows to drop", default=0.15)
-    p_col: float = hp.optional(doc="Fraction of cols to drop", default=0.15)
-    batch: bool = hp.optional(doc="Run ColOut at the batch level", default=True)
+class ColOutTransform:
+    """Torchvision-like transform for performing the ColOut augmentation, where random rows and columns are dropped from
+    a single image.
 
-    def initialize_object(self) -> ColOut:
-        return ColOut(**asdict(self))
+    Args:
+        p_row (float): Fraction of rows to drop (drop along H).
+        p_col (float): Fraction of columns to drop (drop along W).
+    """
+
+    def __init__(self, p_row: float = 0.15, p_col: float = 0.15):
+        self.p_row = p_row
+        self.p_col = p_col
+
+    def __call__(self, img: TImg) -> TImg:
+        """Drops random rows and columns from a single image.
+
+        Args:
+            img (torch.Tensor or PIL Image): An input image as a torch.Tensor or PIL image
+
+        Returns:
+            torch.Tensor or PIL Image: A smaller image with rows and columns dropped
+        """
+        return colout_image(img, self.p_row, self.p_col)
 
 
 class ColOut(Algorithm):
@@ -177,7 +163,7 @@ class ColOut(Algorithm):
                 textwrap.dedent(f"""\
                 To use {type(self).__name__}, the dataset must be a
                 {VisionDataset.__qualname__}, not {type(dataset).__name__}"""))
-        add_dataset_transform(dataset, transform, is_tensor_transform=False)
+        add_vision_dataset_transform(dataset, transform, is_tensor_transform=False)
         self._transformed_datasets.add(dataset)
 
     def _apply_batch(self, state: State) -> None:

@@ -32,8 +32,7 @@ Documentation
 Our documentation is organized into a few sections:
 
 * :doc:`Getting Started </getting_started/installation>` covers installation, a quick tour and explains how to use ``Composer``.
-* :doc:`Core </walkthrough/algorithm>` covers the core components of the library.
-* :doc:`composer <//api_reference>` contains the library's API reference.
+* :doc:`API Reference </api_reference>` contains the library's API reference.
 * :doc:`Methods Library </method_cards/alibi>` details our implemented efficiency methods.
 
 
@@ -45,52 +44,50 @@ Our documentation is organized into a few sections:
    getting_started/using_composer.rst
    getting_started/welcome_tour.rst
    tutorials/adding_models_datasets.rst
-   getting_started/distributed.rst
 
 .. toctree::
    :maxdepth: 1
-   :caption: Composer Walkthrough
+   :caption: Using our Trainer
 
-   walkthrough/algorithm.rst
-   walkthrough/callback.rst
-   walkthrough/datasets.rst
-   walkthrough/engine.rst
-   walkthrough/event.rst
-   walkthrough/functional.rst
-   walkthrough/logger.rst
-   walkthrough/models.rst
-   walkthrough/profiler.rst
-   walkthrough/state.rst
-   walkthrough/surgery.rst
-   walkthrough/time.rst
-   walkthrough/trainer.rst
-   walkthrough/types.rst
+   trainer/summary.rst
+   trainer/composer_model.rst
+   trainer/algorithms.rst
+   trainer/detailed_usage.rst
+
+
+.. toctree::
+   :maxdepth: 1
+   :caption: Notebook Examples
+
+   notebooks/summary.rst
 
 .. toctree::
    :maxdepth: 1
    :caption: Methods Library
 
+   method_cards/methods_overview.rst
    method_cards/alibi.md
-   method_cards/aug_mix.md
+   method_cards/augmix.md
    method_cards/blurpool.md
    method_cards/channels_last.md
-   method_cards/col_out.md
-   method_cards/cut_out.md
+   method_cards/cutmix.md
+   method_cards/colout.md
+   method_cards/cutout.md
    method_cards/decoupled_weight_decay.md
    method_cards/factorize.md
    method_cards/ghost_batchnorm.md
    method_cards/label_smoothing.md
    method_cards/layer_freezing.md
-   method_cards/mix_up.md
-   method_cards/progressive_resizing_vision.md
-   method_cards/rand_augment.md
+   method_cards/mixup.md
+   method_cards/progressive_resizing.md
+   method_cards/randaugment.md
    method_cards/scale_schedule.md
    method_cards/scaling_laws.rst
    method_cards/selective_backprop.md
-   method_cards/seq_len_warmup.rst
+   method_cards/seq_length_warmup.rst
    method_cards/sam.md
    method_cards/squeeze_excite.md
-   method_cards/stochastic_depth_blockwise.md
+   method_cards/stochastic_depth.md
    method_cards/stochastic_depth_samplewise.md
    method_cards/swa.md
 
@@ -104,6 +101,11 @@ Our documentation is organized into a few sections:
    model_cards/imagenet_resnet.md
    model_cards/unet.md
 
+.. toctree::
+   :maxdepth: 1
+   :caption: Hparams System (YAHP)
+
+   yahp/getting_started.rst
 
 .. toctree::
    :caption: API Reference

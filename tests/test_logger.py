@@ -12,8 +12,7 @@ from composer.core.event import Event
 from composer.core.logging import Logger, LogLevel
 from composer.core.state import State
 from composer.loggers.in_memory_logger import InMemoryLogger
-from composer.loggers.logger_hparams import (FileLoggerBackendHparams, TQDMLoggerBackendHparams,
-                                             WandBLoggerBackendHparams)
+from composer.loggers.logger_hparams import FileLoggerHparams, TQDMLoggerHparams, WandBLoggerHparams
 from composer.trainer.trainer_hparams import TrainerHparams
 from composer.utils import dist
 
@@ -24,8 +23,9 @@ def log_file_name(tmpdir: pathlib.Path) -> str:
 
 
 @pytest.mark.parametrize("log_level", [LogLevel.EPOCH, LogLevel.BATCH])
+@pytest.mark.timeout(10)
 def test_file_logger(dummy_state: State, log_level: LogLevel, log_file_name: str):
-    log_destination = FileLoggerBackendHparams(
+    log_destination = FileLoggerHparams(
         log_interval=3,
         log_level=log_level,
         filename=log_file_name,
@@ -95,7 +95,7 @@ def test_tqdm_logger(composer_trainer_hparams: TrainerHparams, monkeypatch: Monk
 
     max_epochs = 2
     composer_trainer_hparams.max_duration = f"{max_epochs}ep"
-    composer_trainer_hparams.loggers = [TQDMLoggerBackendHparams()]
+    composer_trainer_hparams.loggers = [TQDMLoggerHparams()]
     trainer = composer_trainer_hparams.initialize_object()
     trainer.fit()
     if dist.get_global_rank() == 1:
@@ -117,16 +117,10 @@ def test_tqdm_logger(composer_trainer_hparams: TrainerHparams, monkeypatch: Monk
 ])
 @pytest.mark.timeout(10)
 def test_wandb_logger(composer_trainer_hparams: TrainerHparams, world_size: int):
-    try:
-        import wandb
-        del wandb
-    except ImportError:
-        pytest.skip("wandb is not installed")
+    pytest.importorskip("wandb", reason="wandb is an optional dependency")
     del world_size  # unused. Set via launcher script
     composer_trainer_hparams.loggers = [
-        WandBLoggerBackendHparams(log_artifacts=True,
-                                  log_artifacts_every_n_batches=1,
-                                  extra_init_params={"mode": "disabled"})
+        WandBLoggerHparams(log_artifacts=True, log_artifacts_every_n_batches=1, extra_init_params={"mode": "disabled"})
     ]
     trainer = composer_trainer_hparams.initialize_object()
     trainer.fit()
