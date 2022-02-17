@@ -37,6 +37,8 @@ class InMemoryLogger(LoggerCallback):
                 optimizers=[optimizer],
                 loggers=[logger]
             )
+            # Get data from logger. Be sure to confirm logger.backends index.
+            logged_data = trainer.logger.backends[0].data
 
     Args:
         log_level (str or LogLevel, optional):

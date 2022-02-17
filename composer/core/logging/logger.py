@@ -18,10 +18,7 @@ if TYPE_CHECKING:
     from composer.core.state import State
     from composer.core.types import JSON
 
-__all__ = [
-    "LoggerCallback", "Logger", "LogLevel", "TLogData", "TLogDataValue", "format_log_data_as_json",
-    "format_log_data_value"
-]
+__all__ = ["LoggerCallback", "Logger", "LogLevel", "TLogData", "TLogDataValue", "format_log_data_value"]
 
 TLogDataValue = Union[str, float, int, torch.Tensor, Sequence["TLogDataValue"], Mapping[str, "TLogDataValue"]]
 TLogData = Mapping[str, TLogDataValue]
@@ -142,28 +139,3 @@ def format_log_data_value(data: TLogDataValue) -> str:
     if isinstance(data, collections.abc.Iterable):
         return "[" + ", ".join(format_log_data_value(v) for v in data) + "]"
     raise NotImplementedError(f"Unable to format variable of type: {type(data)} with value {data}")
-
-
-def format_log_data_as_json(data: TLogDataValue) -> JSON:
-    """Recursively formats a given log data value into a JSON object.
-
-    Args:
-        data: Data to format.
-
-    Returns:
-        str: The data, as JSON.
-    """
-    if isinstance(data, (str, int, float)):
-        return data
-    if isinstance(data, torch.Tensor):
-        return format_log_data_as_json(data.cpu().item())
-    if isinstance(data, collections.abc.Mapping):
-        data_dict = {}
-        for k in data.keys():
-            assert isinstance(k, str), f"Expected data key {k} to be a string"
-            data_dict[k] = format_log_data_as_json(data[k])
-        return data_dict
-    if isinstance(data, collections.abc.Iterable):
-        return [format_log_data_as_json(val) for val in data]
-    raise NotImplementedError(f"Unable to format variable of type: {type(data)} "
-                              "with value {data} into JSON for logging")
