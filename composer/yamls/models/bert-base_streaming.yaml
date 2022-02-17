@@ -73,12 +73,10 @@ dataloader:
   num_workers: 1
   timeout: 0
   prefetch_factor: 2
-grad_accum: 3
+grad_accum: 1
 precision: amp
 grad_clip_norm: None
 validate_every_n_batches: 1000
 validate_every_n_epochs: 1
-save_checkpoint:
-  folder: bert_checkpoints
-  interval: 1
-  interval_unit: ep
+save_folder: bert_checkpoints
+save_interval: "1ep"
