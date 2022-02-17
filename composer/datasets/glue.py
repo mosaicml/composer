@@ -27,6 +27,7 @@ class GLUEHparams(DatasetHparams):
         split (str): Whether to use 'train', 'validation' or 'test' split.
         max_seq_length (int): Optionally, the ability to set a custom sequence length for the training dataset.
             Default: 256
+        max_network_retries (int): Optionally, the number of times to retry HTTP requests if they fail. Default: 10
 
     Returns:
         A :class:`~composer.core.DataSpec` object
@@ -38,6 +39,8 @@ class GLUEHparams(DatasetHparams):
     split: str = hp.optional("Whether to use 'train', 'validation' or 'test' split.", default=None)
     max_seq_length: int = hp.optional(
         default=256, doc='Optionally, the ability to set a custom sequence length for the training dataset.')
+    max_network_retries: int = hp.optional(default=10,
+                                           doc="Optionally, the number of times to retry HTTP requests if they fail.")
 
     def validate(self):
         self.task_to_keys = {
@@ -76,10 +79,12 @@ class GLUEHparams(DatasetHparams):
         self.validate()
         self.tokenizer = transformers.AutoTokenizer.from_pretrained(self.tokenizer_name)  #type: ignore (thirdparty)
 
-        log.info(f"Loading {self.task.upper()}...")
-        self.dataset = datasets.load_dataset("glue", self.task, split=self.split)
+        log.info(f"Loading {self.task.upper()} on rank ", dist.get_global_rank())
+        download_config = datasets.utils.DownloadConfig(max_retries=self.max_network_retries)
+        self.dataset = datasets.load_dataset("glue", self.task, split=self.split, download_config=download_config)
 
-        n_cpus = cpu_count()
+        n_cpus = cpu_count() // dist.get_world_size()
+
         log.info(f"Starting tokenization step by preprocessing over {n_cpus} threads!")
         text_column_names = self.task_to_keys[self.task]
 
