@@ -1,5 +1,6 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
+"""Periodically upload :mod:`~composer.utils.run_directory` to a blob store during training."""
 from __future__ import annotations
 
 import datetime
@@ -28,65 +29,87 @@ from composer.utils.object_store import ObjectStoreProviderHparams
 
 log = logging.getLogger(__name__)
 
+__all__ = ["RunDirectoryUploader"]
+
 
 class RunDirectoryUploader(Callback):
     """Callback to upload the run directory to a blob store.
 
-    This callback checks the run directory for new or modified files
-    at the end of every epoch, and after every `upload_every_n_batches` batches.
-    This callback detects new or modified files based off of the file modification
-    timestamp. Only files that have a newer last modified timestamp since the last upload
-    will be  uploaded.
+    This callback checks the run directory for new or modified files at the end of every epoch, and after every
+    ``upload_every_n_batches`` batches.  This callback detects new or modified files based on the file modification
+    timestamp. Only files that have a newer last modified timestamp since the last upload will be  uploaded.
 
-    This uploader is compatible with multi-GPU training. It blocks the main thread
-    for each local rank  when creating a copy of the modified files in the run directory
-    before yielding back to the training loop. Uploads are performed from the copied files.
-    It assumes that only the main thread on each rank writes to the run directory.
+    Example
+        .. testsetup:: *
 
-    While all uploads happen in the background, here are some additional tips for minimizing
-    the performance impact:
+           # For this example, we do not validate credentials
+           def do_not_validate(
+               object_store_provider_hparams: ObjectStoreProviderHparams,
+               object_name_prefix: str,
+           ) -> None:
+               pass
+           callbacks.run_directory_uploader._validate_credentials = do_not_validate
 
-        * Ensure that `upload_every_n_batches` is sufficiently infrequent as to limit when
-          the blocking scans of the run direcory and copies of modified files.
-          However, do not make it too infrequent in case if the training process unexpectedly dies,
-          since data from the last upload may be lost.
+        .. doctest::
 
-        * Set `use_procs=True` (the default) to use background processes,
-          instead of threads, to perform the file uploads. Processes are recommended to
-          ensure that the GIL is not blocking the training loop when performance CPU
-          operations on uploaded files (e.g. comparing and computing checksums).
-          Network I/O happens always occurs in the background.
+           >>> osphparams = ObjectStoreProviderHparams(
+           ...     provider="s3",
+           ...     container="run-dir-test",
+           ...     key_environ="OBJECT_STORE_KEY",
+           ...     secret_environ="OBJECT_STORE_SECRET",
+           ...     region="us-west-2",
+           ...     )
+           >>> # construct trainer object with this callback
+           >>> trainer = Trainer(
+           ...     model=model,
+           ...     train_dataloader=train_dataloader,
+           ...     eval_dataloader=eval_dataloader,
+           ...     optimizers=optimizer,
+           ...     max_duration="1ep",
+           ...     callbacks=[callbacks.RunDirectoryUploader(osphparams)],
+           ... )
+           >>> # trainer will run this callback whenever the EPOCH_END
+           >>> # is triggered, like this:
+           >>> _ = trainer.engine.run_event(Event.EPOCH_END)
 
-        * Provide a RAM disk path for the `upload_staging_folder` parameter. Copying files to stage on RAM
-          will be faster than writing to disk. However, you must have sufficient excess RAM on your system,
-          or you may experience OutOfMemory errors.
+    .. note::
+        This callback blocks the training loop to copy files from the :mod:`~composer.utils.run_directory` to the
+        ``upload_staging_folder`` and to queue these files to the upload queues of the workers. Actual upload happens in
+        the background.  While all uploads happen in the background, here are some additional tips for minimizing the
+        performance impact:
+
+        * Ensure that ``upload_every_n_batches`` is sufficiently infrequent as to limit when the blocking scans of the
+          run directory and copies of modified files.  However, do not make it too infrequent in case if the training
+          process unexpectedly dies, since data written after the last upload may be lost.
+
+        * Set ``use_procs=True`` (the default) to use background processes, instead of threads, to perform the file
+          uploads. Processes are recommended to ensure that the GIL is not blocking the training loop when performance CPU
+          operations on uploaded files (e.g. computing and comparing checksums).  Network I/O happens always occurs in the
+          background.
+
+        * Provide a RAM disk path for the ``upload_staging_folder`` parameter. Copying files to stage on RAM will be
+          faster than writing to disk. However, you must have sufficient excess RAM on your system, or you may experience
+          OutOfMemory errors.
 
     Args:
-        provider (str): Cloud provider to use.
+        object_store_provider_hparams (ObjectStoreProviderHparams): ObjectStoreProvider hyperparameters object
 
-            Specify the last part of the Apache Libcloud Module here.
-            `This document <https://libcloud.readthedocs.io/en/stable/storage/supported_providers.html#provider-matrix>`
-            lists all supported providers. For example, the module name for Amazon S3 is `libcloud.storage.drivers.s3`, so
-            to use S3, specify 's3' here.
+            See :class:`~composer.utils.object_store.ObjectStoreProviderHparams` for documentation.
 
-        container (str): The name of the container (i.e. bucket) to use.
         object_name_prefix (str, optional): A prefix to prepend to all object keys. An object's key is this prefix combined
             with its path relative to the run directory. If the container prefix is non-empty, a trailing slash ('/') will
             be added if necessary. If not specified, then the prefix defaults to the run directory. To disable prefixing,
             set to the empty string.
 
-            For example, if `object_name_prefix = 'foo'` and there is a file in the run directory named `bar`, then that file
-            would be uploaded to `foo/bar` in the container.
+            For example, if ``object_name_prefix = 'foo'`` and there is a file in the run directory named ``bar``, then that file
+            would be uploaded to ``foo/bar`` in the container.
         num_concurrent_uploads (int, optional): Maximum number of concurrent uploads. Defaults to 4.
         upload_staging_folder (str, optional): A folder to use for staging uploads.
-            If not specified, defaults to using a :class:`~tempfile.TemporaryDirectory`.
+            If not specified, defaults to using a :func:`~tempfile.TemporaryDirectory`.
         use_procs (bool, optional): Whether to perform file uploads in background processes (as opposed to threads).
             Defaults to True.
         upload_every_n_batches (int, optional): Interval at which to scan the run directory for changes and to
-            queue uploads of files. Uploads are always queued at the end of the epoch. Defaults to every 100 batches.
-        provider_init_kwargs (Dict[str, Any], optional): Parameters to pass into the constructor for the
-            :class:`~libcloud.storage.providers.Provider` constructor. These arguments would usually include the cloud region
-            and credentials. Defaults to None, which is equivalent to an empty dictionary.
+            queue uploads of files. In addition, uploads are always queued at the end of the epoch. Defaults to every 100 batches.
     """
 
     def __init__(
@@ -284,24 +307,13 @@ def _upload_worker(
                     file_path=file_path_to_upload,
                     object_name=obj_name,
                 )
-            except LibcloudError as e:
-                # The S3 driver does not encode the error code in an easy-to-parse manner
-                # So doing something fairly basic to retry on transient error codes
-                if any(x in str(e) for x in ("408", "409", "425", "429", "500", "503", '504')):
-                    if retry_counter < 4:
-                        retry_counter += 1
-                        # exponential backoff
-                        sleep_time = 2**(retry_counter - 1)
-                        log.warn("Request failed with a transient error code. Sleeping %s seconds and retrying",
-                                 sleep_time,
-                                 exc_info=e,
-                                 stack_info=True)
-                        time.sleep(sleep_time)
-                        continue
-                raise e
-            except (ProtocolError, TimeoutError, ConnectionError) as e:
-                # The S3 driver does not encode the error code in an easy-to-parse manner
-                # So doing something fairly basic to retry on transient error codes
+            except (LibcloudError, ProtocolError, TimeoutError, ConnectionError) as e:
+                if isinstance(e, LibcloudError):
+                    # The S3 driver does not encode the error code in an easy-to-parse manner
+                    # So first checking if the error code is non-transient
+                    is_transient_error = any(x in str(e) for x in ("408", "409", "425", "429", "500", "503", '504'))
+                    if not is_transient_error:
+                        raise e
                 if retry_counter < 4:
                     retry_counter += 1
                     # exponential backoff

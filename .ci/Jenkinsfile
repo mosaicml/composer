@@ -198,7 +198,8 @@ make lint
 
 # Running doctests on linting worker, so they are executed only once
 # on an install with all dependencies
-cd docs && make doctest && cd ..
+# Must build the html first to ensure that doctests in .. autosummary generated pages are included
+cd docs && make html && make doctest && cd ..
 """)
                         ]
                     )

@@ -52,18 +52,6 @@ This method interacts with other methods (such as CutOut) that alter the inputs 
     :members: match, apply
     :noindex:
 
-.. autofunction:: composer.algorithms.cutmix.cutmix.gen_indices
-  :noindex:
-
-.. autofunction:: composer.algorithms.cutmix.cutmix.gen_cutmix_lambda
-  :noindex:
-
-.. autofunction:: composer.algorithms.cutmix.cutmix.rand_bbox
-  :noindex:
-
-.. autofunction:: composer.algorithms.cutmix.cutmix.adjust_lambda
-  :noindex:
-
 .. autofunction:: composer.algorithms.cutmix.cutmix_batch
   :noindex:
 
