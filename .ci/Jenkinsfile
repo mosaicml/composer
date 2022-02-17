@@ -168,8 +168,7 @@ stage('Build') {
                             string(name: 'P_CLOUD', value: pCloud),
                             string(name: 'P_GIT_REPO', value: gitUrl),
                             string(name: 'P_GIT_COMMIT', value: gitCommit),
-                            // Using a vanilla docker image, since conda is responsible for installing python
-                            string(name: 'P_DOCKER_IMAGE', value: "ubuntu:20.04"),
+                            string(name: 'P_DOCKER_IMAGE', value: "continuumio/anaconda-pkg-build"),
                             string(name: 'P_TIMEOUT', value: pTimeout),
                             string(name: 'P_CPU_LIMIT', value: "2"),
                             string(name: 'P_MEM_LIMIT', value: "7Gi"),
