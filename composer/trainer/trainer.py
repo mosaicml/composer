@@ -89,7 +89,10 @@ class Trainer:
         scale_schedule_ratio (float, optional): Ratio by which to scale the training duration and learning rate
             schedules. See :func:`scale_schedule` for details. (default: ``1.0``)
         use_stepwise_schedulers (bool, optional): Whether schedulers will update after every optimizer step
-            (True), or every epoch (False). (default: ``True``)
+            (True), or every epoch (False). Setting this to `True` causes continuous schedulers to be able to
+            compute learning rates with greater timewise precision, but native PyTorch schedulers will need to
+            be reconfigured so that their timewise parameters are expressed in terms of batches, not epochs.
+            (default: ``True``)
         dist_timeout (float, optional): Timeout, in seconds, for initializing the distributed process group.
             (default: ``15.0``)
         ddp_sync_strategy (str or DDPSyncStrategy, optional): The strategy to use for synchronizing gradients.
