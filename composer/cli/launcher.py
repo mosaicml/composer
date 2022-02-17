@@ -139,7 +139,6 @@ def launch_processes(nproc: int, world_size: int, base_rank: int, node_rank: int
 
         log.info("Launching process for local_rank(%s), global_rank(%s)", local_rank, global_rank)
 
-        # process = subprocess.Popen(cmd, env=current_env, text=True)
         if local_rank == 0:
             process = subprocess.Popen(cmd, env=current_env, text=True)
         else:
