@@ -1,5 +1,7 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
+"""Core code for Stochastic Weight Averaging."""
+
 from __future__ import annotations
 
 import logging
@@ -12,9 +14,12 @@ from composer.core.types import Algorithm, Event, Logger, State
 
 log = logging.getLogger(__name__)
 
+__all__ = ['SWA']
+
 
 class SWA(Algorithm):
-    """Apply Stochastic Weight Averaging (`Izmailov et al. <https://arxiv.org/abs/1803.05407>`_)
+    """Implements Stochastic Weight Averaging 
+    (`Izmailov et al., 2018 <https://arxiv.org/abs/1803.05407>`_).
 
     Stochastic Weight Averaging (SWA) averages model weights sampled at
     different times near the end of training. This leads to better
@@ -26,11 +31,34 @@ class SWA(Algorithm):
     memory required doubles, however, since stored activations and the
     optimizer state are not doubled.
 
-    Args:
-        swa_start: fraction of training completed before stochastic weight averaging is applied
-        swa_lr: the final learning rate used for weight averaging
+    This algorithm runs on :attr:`~composer.core.event.Event.EPOCH_END` if training
+    duration >= `swa_start`.
 
-    Note that 'anneal_epochs' is not used in the current implementation
+    See the :doc:`Method Card </method_cards/swa>` for more details.
+
+    Example:
+        .. testcode::
+
+            from composer.algorithms import SWA
+            from composer.trainer import Trainer
+            swa_algorithm = SWA(
+                swa_start=0.8
+            )
+            trainer = Trainer(
+                model=model,
+                train_dataloader=train_dataloader,
+                eval_dataloader=eval_dataloader,
+                max_duration="1ep",
+                algorithms=[swa_algorithm],
+                optimizers=[optimizer]
+            )
+
+    Args:
+        swa_start (float): Fraction of training completed before stochastic weight
+            averaging is applied. Defalt = ``0.8``.
+        anneal_epochs (int, optional): Number of epochs over which to anneal SWA
+            learning rate. Default = ``10``.
+        swa_lr (float, optional): The final learning rate used for weight averaging
     """
 
     def __init__(self, swa_start: float = 0.8, anneal_epochs: int = 10, swa_lr: Optional[float] = None):
@@ -53,6 +81,8 @@ class SWA(Algorithm):
             state (:class:`State`): The current state.
         Returns:
             bool: True if this algorithm should run now.
+
+        :meta private:
         """
         should_start_swa = float(state.get_elapsed_duration()) >= self.swa_start
         return event == Event.EPOCH_END and should_start_swa
@@ -64,6 +94,8 @@ class SWA(Algorithm):
             event (Event): the current event
             state (State): the current trainer state
             logger (Logger): the training logger
+
+        :meta private:
         """
 
         if self.swa_scheduler is None:

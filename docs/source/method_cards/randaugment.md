@@ -78,7 +78,6 @@ As general rule, combining regularization-based methods yields sublinear improve
 
 ```{eval-rst}
 .. autoclass:: composer.algorithms.randaugment.RandAugment
-    :members: match, apply
     :noindex:
 
 .. autofunction:: composer.algorithms.randaugment.randaugment_image
