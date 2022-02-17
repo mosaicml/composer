@@ -39,7 +39,7 @@ class InMemoryLogger(LoggerCallback):
             )
 
     Args:
-        log_level (str or LogLevel, optional): 
+        log_level (str or LogLevel, optional):
             :class:`~composer.core.logging.logger.LogLevel` (i.e. unit of resolution) at
             which to record. Defaults to
             :attr:`~composer.core.logging.logger.LogLevel.BATCH`, which records

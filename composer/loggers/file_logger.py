@@ -57,7 +57,7 @@ class FileLogger(LoggerCallback):
         buffer_size (int, optional): Buffer size. See :py:func:`open`.
             Default: ``1`` for line buffering.
         log_level (LogLevel, optional):
-            :class:`~composer.core.logging.logger.LogLevel` (i.e. unit of resolution) at 
+            :class:`~composer.core.logging.logger.LogLevel` (i.e. unit of resolution) at
             which to record. Default:
             :attr:`~composer.core.logging.logger.LogLevel.EPOCH`.
         log_interval (int, optional):
