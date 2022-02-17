@@ -2,23 +2,22 @@
 
 """Profilers can be used to gather performance metrics of a given model and training run.
 
-The starting point is the Composer Trainer :class:`~composer.profiler.Profiler`, which measures the time of each :class:`~comoser.core.event.Event` and
-produces a trace.  The Composer Trainer :class:`~composer.profiler.Profiler` is implemented as a standalone object and must be instantiated by
+The starting point is the Composer Trainer :class:`.Profiler`, which measures the time of each :class:`.Event` and
+produces a trace.  The Composer Trainer :class:`.Profiler` is implemented as a standalone object and must be instantiated by
 the Trainer.
 
-Additionally the following profilers are defined as Composer :class:`~composer.core.callback.Callback`.  The Trainer instantiates and registers each profiler:
+Additionally the following profilers are defined as Composer :class:`.Callback`.  The Trainer instantiates and registers each profiler:
 
-* :class:`~composer.profiler.dataloader_profiler.DataloaderProfiler`: Records the time it takes the data loader to return a batch by wrapping the original training and evaluation data loaders.  Implemented as a Composer :class:`~composer.core.callback.Callback`.
-* :class:`~composer.profiler.system_profiler.SystemProfiler`: Records system level metrics such as CPU, system memory, disk and network utilization.  Implemented as a Composer :class:`~composer.core.callback.Callback`.
-* :class:`~composer.profiler.torch_profiler.TorchProfiler`: Integrates the Torch Profiler to record GPU stats using the Nvidia CUPI API.  Implemented as a Composer :class:`~composer.core.callback.Callback`.
+* :class:`.DataloaderProfiler`: Records the time it takes the data loader to return a batch by wrapping the original training and evaluation data loaders.  Implemented as a Composer :class:`.Callback`.
+* :class:`.SystemProfiler`: Records system level metrics such as CPU, system memory, disk and network utilization.  Implemented as a Composer :class:`.Callback`.
+* :class:`.TorchProfiler`: Integrates the Torch Profiler to record GPU stats using the Nvidia CUPI API.  Implemented as a Composer :class:`.Callback`.
 
-Composer Trainer profiling can be enabled by specifying an output ``profiler_trace_file`` during :class:`~composer.trainer.Trainer` initialization.
-By default, the :class:`~composer.profiler.Profiler`, :class:`~composer.profiler.dataloader_profiler.DataloaderProfiler` and
-:class:`~composer.profiler.system_profiler.SystemProfiler` will be active.  Torch profiling is disabled by default.
+Composer Trainer profiling can be enabled by specifying an output ``profiler_trace_file`` during :class:`.Trainer` initialization.
+By default, the :class:`.Profiler`, :class:`.DataloaderProfiler` and :class:`.SystemProfiler` will be active.  Torch profiling is disabled by default.
 
-To activate the :class:`~composer.profiler.torch_profiler.TorchProfiler`, the ``torch_profiler_trace_dir`` must be specified *in addition* to the
-``profiler_trace_file`` argument.  If Torch profiling is enabled, the ``profiler_trace_file`` will contain the merged trace data from the other
-profilers and the Torch profiler.  The merge allows users to correlate System, Composer Trainer and low-level Torch events durin the training loop.
+To activate the :class:`.TorchProfiler`, the ``torch_profiler_trace_dir`` must be specified *in addition* to the ``profiler_trace_file`` argument.  
+If Torch profiling is enabled, the ``profiler_trace_file`` will contain the merged trace data from the other profilers and the Torch profiler.  
+The merge allows users to correlate System, Composer Trainer and low-level Torch events durin the training loop.
 
 The following example instantiates a basic dataset, model and enables the Composer Trainer Profilers as well as the Torch Profiler:
 
