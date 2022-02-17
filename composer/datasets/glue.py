@@ -1,8 +1,8 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
 import logging
-from dataclasses import dataclass
 import textwrap
+from dataclasses import dataclass
 from typing import cast
 
 import yahp as hp

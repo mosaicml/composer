@@ -3,8 +3,8 @@
 import glob
 import os
 import random
-from dataclasses import dataclass
 import textwrap
+from dataclasses import dataclass
 
 import numpy as np
 import torch

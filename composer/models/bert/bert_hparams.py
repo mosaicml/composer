@@ -1,7 +1,7 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
-from dataclasses import dataclass
 import textwrap
+from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 import yahp as hp

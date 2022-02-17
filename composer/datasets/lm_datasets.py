@@ -2,9 +2,9 @@
 
 import logging
 import tempfile
+import textwrap
 from dataclasses import dataclass
 from os.path import join
-import textwrap
 from typing import List, Optional
 
 import yahp as hp
