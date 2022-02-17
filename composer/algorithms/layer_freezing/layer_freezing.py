@@ -14,69 +14,6 @@ from composer.core.types import Model, Optimizers
 log = logging.getLogger(__name__)
 
 
-def _freeze_schedule(current_duration: float, freeze_start: float, freeze_level: float) -> float:
-    """Implements a linear schedule for freezing. The schedule is linear and begins with no freezing and linearly
-    increases the fraction of layers frozen, reaching the fraction specified by 'freeze_level' at the end of training.
-    The start of freezing is given as a fraction of the total training duration, and is set with 'freeze_start'.
-
-    Args:
-        current_duration (float): The elapsed training duration.
-        freeze_start (float): The fraction of training to run before freezing begins.
-        freeze_level (float): The maximum fraction of levels to freeze.
-    """
-    # No freezing if the current epoch is less than this
-    if current_duration <= freeze_start:
-        return 0.0
-    # `Calculate the total time for freezing to occur
-    total_freezing_time = 1.0 - freeze_start
-    # Calculate the amount of freezing time that has elapsed
-    freezing_time_elapsed = current_duration - freeze_start
-    # Calculate the fraction of the freezing time elapsed.
-    freezing_time_elapsed_frac = freezing_time_elapsed / total_freezing_time
-    # Scale this fraction by the amount of freezing to do.
-    return freeze_level * freezing_time_elapsed_frac
-
-
-def _get_layers(module: Model, flat_children: List[Model]):
-    """Helper function to get all submodules.
-
-    Does a depth first search to flatten out modules which
-    contain parameters.
-
-    Args:
-        module (Model): Current module to search.
-        flat_children (List[Model]): List containing modules.
-    """
-    # Check if given module has no children and parameters.
-    if (len(list(module.children())) == 0 and len(list(module.parameters())) > 0):
-        flat_children.append(module)
-    else:
-        # Otherwise, continue the search over its children.
-        for child in module.children():
-            _get_layers(child, flat_children)
-
-
-def _remove_param_from_optimizers(p: torch.nn.Parameter, optimizers: Optimizers):
-    """Helper function to freeze the training of a parameter.
-
-    To freeze a parameter, it must be removed from the optimizer,
-    otherwise momentum and weight decay may still be applied.
-
-    Args:
-        p (torch.nn.Parameter): The parameter being frozen.
-        optimizers (Optimizers): The optimizers used during training.
-    """
-    # Force optimizers to be iterable
-    if not isinstance(optimizers, (list, tuple)):
-        optimizers = [optimizers]
-
-    # Search over params in the optimizers to find and remove the
-    # given param. Necessary due to the way params are stored.
-    for optimizer in optimizers:
-        for group in optimizer.param_groups:
-            group['params'] = list(filter(lambda x: id(x) != id(p), group['params']))
-
-
 def freeze_layers(
     model: Model,
     optimizers: Optimizers,
@@ -171,3 +108,66 @@ class LayerFreezing(Algorithm):
             'layer_freezing/layers_frozen': freeze_depth,
             'layer_freezing/percentage_frozen': freeze_percentage
         })
+
+
+def _freeze_schedule(current_duration: float, freeze_start: float, freeze_level: float) -> float:
+    """Implements a linear schedule for freezing. The schedule is linear and begins with no freezing and linearly
+    increases the fraction of layers frozen, reaching the fraction specified by 'freeze_level' at the end of training.
+    The start of freezing is given as a fraction of the total training duration, and is set with 'freeze_start'.
+
+    Args:
+        current_duration (float): The elapsed training duration.
+        freeze_start (float): The fraction of training to run before freezing begins.
+        freeze_level (float): The maximum fraction of levels to freeze.
+    """
+    # No freezing if the current epoch is less than this
+    if current_duration <= freeze_start:
+        return 0.0
+    # `Calculate the total time for freezing to occur
+    total_freezing_time = 1.0 - freeze_start
+    # Calculate the amount of freezing time that has elapsed
+    freezing_time_elapsed = current_duration - freeze_start
+    # Calculate the fraction of the freezing time elapsed.
+    freezing_time_elapsed_frac = freezing_time_elapsed / total_freezing_time
+    # Scale this fraction by the amount of freezing to do.
+    return freeze_level * freezing_time_elapsed_frac
+
+
+def _get_layers(module: Model, flat_children: List[Model]):
+    """Helper function to get all submodules.
+
+    Does a depth first search to flatten out modules which
+    contain parameters.
+
+    Args:
+        module (Model): Current module to search.
+        flat_children (List[Model]): List containing modules.
+    """
+    # Check if given module has no children and parameters.
+    if (len(list(module.children())) == 0 and len(list(module.parameters())) > 0):
+        flat_children.append(module)
+    else:
+        # Otherwise, continue the search over its children.
+        for child in module.children():
+            _get_layers(child, flat_children)
+
+
+def _remove_param_from_optimizers(p: torch.nn.Parameter, optimizers: Optimizers):
+    """Helper function to freeze the training of a parameter.
+
+    To freeze a parameter, it must be removed from the optimizer,
+    otherwise momentum and weight decay may still be applied.
+
+    Args:
+        p (torch.nn.Parameter): The parameter being frozen.
+        optimizers (Optimizers): The optimizers used during training.
+    """
+    # Force optimizers to be iterable
+    if not isinstance(optimizers, (list, tuple)):
+        optimizers = [optimizers]
+
+    # Search over params in the optimizers to find and remove the
+    # given param. Necessary due to the way params are stored.
+    for optimizer in optimizers:
+        for group in optimizer.param_groups:
+            group['params'] = list(filter(lambda x: id(x) != id(p), group['params']))

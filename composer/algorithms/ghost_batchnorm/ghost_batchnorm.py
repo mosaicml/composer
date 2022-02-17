@@ -18,86 +18,6 @@ _DEFAULT_GHOST_BATCH_SIZE = 32
 _TORCH_BATCHNORM_BASE_CLASS = torch.nn.modules.batchnorm._BatchNorm
 
 
-def _corresponding_ghost_batchnorm_type(batchnorm: torch.nn.Module):
-    if isinstance(batchnorm, torch.nn.BatchNorm1d):
-        return GhostBatchNorm1d
-    if isinstance(batchnorm, torch.nn.BatchNorm2d):
-        return GhostBatchNorm2d
-    if isinstance(batchnorm, torch.nn.BatchNorm3d):
-        return GhostBatchNorm3d
-    raise ValueError(f"Input was of type {type(batchnorm)}, not one of "
-                     "torch.nn.BatchNorm1d, torch.nn.BatchNorm2d, torch.nn.BatchNorm3d")
-
-
-class _GhostBatchNorm(torch.nn.Module):
-    """`Ghost batch normalization <https://arxiv.org/abs/1705.08741>`_ layer.
-
-    Works by spliting input into chunks of ``ghost_batch_size`` samples and
-    running batch normalization on each chunk separately. Dim 0 is assumed to
-    be the sample axis.
-
-    See also `torch.nn.BatchNorm1d <https://pytorch.org/docs/stable/generated/torch.nn.BatchNorm1d.html>`_,  `torch.nn.BatchNorm2d <https://pytorch.org/docs/stable/generated/torch.nn.BatchNorm2d.html>`_, and
-    `torch.nn.BatchNorm3d <https://pytorch.org/docs/stable/generated/torch.nn.BatchNorm3d.html>`_.
-
-    Args:
-        ghost_batch_size: the size of the chunks passed into the underlying
-            batch normalization
-        base_batchnorm: A batch normalization module to be applied to each chunk
-
-    Raises:
-        ValueError: If ``ghost_batch_size`` exceeds the number of samples in
-            the batch provided to `forward`. This might happen when doing
-            data-parallel training, because the per-worker batch size is usually
-            much smaller than the overall batch size.
-    """
-
-    def __init__(self, base_batchnorm: _TORCH_BATCHNORM_BASE_CLASS, ghost_batch_size: int = _DEFAULT_GHOST_BATCH_SIZE):
-        super().__init__()
-        self.ghost_batch_size = ghost_batch_size
-        self.batchnorm = base_batchnorm
-
-    def _has_momentum(self) -> bool:
-        return hasattr(self.batchnorm, 'momentum') and self.batchnorm.momentum is not None
-
-    def forward(self, input: torch.Tensor) -> torch.Tensor:  # type: ignore
-        batch_size = input.shape[0]
-        if batch_size < self.ghost_batch_size:
-            raise ValueError(f"Worker batch size {batch_size} < ghost_batch_size {self.ghost_batch_size}")
-
-        nchunks = int(np.ceil(batch_size / self.ghost_batch_size))
-        has_momentum = self._has_momentum()
-        if has_momentum:
-            # applying the same batchnorm multiple times greatly increases
-            # the variance of the moving average statistics; reduce the
-            # exponential moving average constant proportionally
-            # to partially compensate for this
-            original_momentum = self.batchnorm.momentum
-            self.batchnorm.momentum = float(original_momentum) / nchunks  # type: ignore
-        normalized_chunks = [self.batchnorm(chunk) for chunk in input.chunk(nchunks, 0)]
-        if has_momentum:
-            self.batchnorm.momentum = original_momentum  # type: ignore
-
-        return torch.cat(normalized_chunks, dim=0)
-
-    @staticmethod
-    def from_batchnorm(module: torch.nn.Module, ghost_batch_size: int) -> _GhostBatchNorm:
-        assert isinstance(module, _TORCH_BATCHNORM_BASE_CLASS), "Module is not a BatchNorm subclass!"
-        bn_type = _corresponding_ghost_batchnorm_type(module)
-        return bn_type(ghost_batch_size=ghost_batch_size, base_batchnorm=module)
-
-
-class GhostBatchNorm1d(_GhostBatchNorm):
-    pass
-
-
-class GhostBatchNorm2d(_GhostBatchNorm):
-    pass
-
-
-class GhostBatchNorm3d(_GhostBatchNorm):
-    pass
-
-
 def apply_ghost_batchnorm(model: torch.nn.Module,
                           ghost_batch_size: int,
                           optimizers: Optional[Optimizers] = None) -> torch.nn.Module:
@@ -177,3 +97,83 @@ class GhostBatchNorm(Algorithm):
             logger.metric_fit({
                 f'{classname}/num_new_modules': num_new_modules,
             })
+
+
+def _corresponding_ghost_batchnorm_type(batchnorm: torch.nn.Module):
+    if isinstance(batchnorm, torch.nn.BatchNorm1d):
+        return GhostBatchNorm1d
+    if isinstance(batchnorm, torch.nn.BatchNorm2d):
+        return GhostBatchNorm2d
+    if isinstance(batchnorm, torch.nn.BatchNorm3d):
+        return GhostBatchNorm3d
+    raise ValueError(f"Input was of type {type(batchnorm)}, not one of "
+                     "torch.nn.BatchNorm1d, torch.nn.BatchNorm2d, torch.nn.BatchNorm3d")
+
+
+class _GhostBatchNorm(torch.nn.Module):
+    """`Ghost batch normalization <https://arxiv.org/abs/1705.08741>`_ layer.
+
+    Works by spliting input into chunks of ``ghost_batch_size`` samples and
+    running batch normalization on each chunk separately. Dim 0 is assumed to
+    be the sample axis.
+
+    See also `torch.nn.BatchNorm1d <https://pytorch.org/docs/stable/generated/torch.nn.BatchNorm1d.html>`_,  `torch.nn.BatchNorm2d <https://pytorch.org/docs/stable/generated/torch.nn.BatchNorm2d.html>`_, and
+    `torch.nn.BatchNorm3d <https://pytorch.org/docs/stable/generated/torch.nn.BatchNorm3d.html>`_.
+
+    Args:
+        ghost_batch_size: the size of the chunks passed into the underlying
+            batch normalization
+        base_batchnorm: A batch normalization module to be applied to each chunk
+
+    Raises:
+        ValueError: If ``ghost_batch_size`` exceeds the number of samples in
+            the batch provided to `forward`. This might happen when doing
+            data-parallel training, because the per-worker batch size is usually
+            much smaller than the overall batch size.
+    """
+
+    def __init__(self, base_batchnorm: _TORCH_BATCHNORM_BASE_CLASS, ghost_batch_size: int = _DEFAULT_GHOST_BATCH_SIZE):
+        super().__init__()
+        self.ghost_batch_size = ghost_batch_size
+        self.batchnorm = base_batchnorm
+
+    def _has_momentum(self) -> bool:
+        return hasattr(self.batchnorm, 'momentum') and self.batchnorm.momentum is not None
+
+    def forward(self, input: torch.Tensor) -> torch.Tensor:  # type: ignore
+        batch_size = input.shape[0]
+        if batch_size < self.ghost_batch_size:
+            raise ValueError(f"Worker batch size {batch_size} < ghost_batch_size {self.ghost_batch_size}")
+
+        nchunks = int(np.ceil(batch_size / self.ghost_batch_size))
+        has_momentum = self._has_momentum()
+        if has_momentum:
+            # applying the same batchnorm multiple times greatly increases
+            # the variance of the moving average statistics; reduce the
+            # exponential moving average constant proportionally
+            # to partially compensate for this
+            original_momentum = self.batchnorm.momentum
+            self.batchnorm.momentum = float(original_momentum) / nchunks  # type: ignore
+        normalized_chunks = [self.batchnorm(chunk) for chunk in input.chunk(nchunks, 0)]
+        if has_momentum:
+            self.batchnorm.momentum = original_momentum  # type: ignore
+
+        return torch.cat(normalized_chunks, dim=0)
+
+    @staticmethod
+    def from_batchnorm(module: torch.nn.Module, ghost_batch_size: int) -> _GhostBatchNorm:
+        assert isinstance(module, _TORCH_BATCHNORM_BASE_CLASS), "Module is not a BatchNorm subclass!"
+        bn_type = _corresponding_ghost_batchnorm_type(module)
+        return bn_type(ghost_batch_size=ghost_batch_size, base_batchnorm=module)
+
+
+class GhostBatchNorm1d(_GhostBatchNorm):
+    pass
+
+
+class GhostBatchNorm2d(_GhostBatchNorm):
+    pass
+
+
+class GhostBatchNorm3d(_GhostBatchNorm):
+    pass

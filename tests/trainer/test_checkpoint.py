@@ -62,7 +62,7 @@ class EventCounterCallback(Callback):
         for event in Event:
             self.event_to_num_calls[event] = 0
 
-    def _run_event(self, event: Event, state: State, logger: Logger):
+    def run_event(self, event: Event, state: State, logger: Logger):
         self.event_to_num_calls[event] += 1
 
     def state_dict(self) -> StateDict:
@@ -111,22 +111,26 @@ def checkpointing_trainer_hparams(composer_trainer_hparams: TrainerHparams) -> T
     return composer_trainer_hparams
 
 
+def _load_checkpoint(checkpoint_dir: str, filename: str):
+    filename = filename.format(RANK=0)
+    if filename.endswith('.pt'):
+        return torch.load(filename, map_location='cpu')
+
+    with tarfile.open(filename) as tarball:
+        tarball.extractall(checkpoint_dir)
+    states_path = os.path.join(checkpoint_dir, 'composer_states.pt')
+    return torch.load(states_path, map_location='cpu')
+
+
 def assert_checkpoints_equivalent(hparams_a: TrainerHparams, checkpoint_file_a: str, hparams_b: TrainerHparams,
                                   checkpoint_file_b: str) -> None:
 
     with tempfile.TemporaryDirectory() as tmpdir:
         a_checkpoint_dir = os.path.join(tmpdir, 'a')
-        with tarfile.open(checkpoint_file_a.format(RANK=0)) as tarball_a:
-            tarball_a.extractall(a_checkpoint_dir)
-        a_states_dir = os.path.join(a_checkpoint_dir, 'composer_states.pt')
-
         b_checkpoint_dir = os.path.join(tmpdir, 'b')
-        with tarfile.open(checkpoint_file_b.format(RANK=0)) as tarball_b:
-            tarball_b.extractall(b_checkpoint_dir)
-        b_states_dir = os.path.join(b_checkpoint_dir, 'composer_states.pt')
 
-        checkpoint_a = torch.load(a_states_dir, map_location='cpu')
-        checkpoint_b = torch.load(b_states_dir, map_location='cpu')
+        checkpoint_a = _load_checkpoint(a_checkpoint_dir, checkpoint_file_a)
+        checkpoint_b = _load_checkpoint(b_checkpoint_dir, checkpoint_file_b)
 
         deep_compare(checkpoint_a["rng"], checkpoint_b["rng"])
 
@@ -197,7 +201,7 @@ def test_load_weights(
     composer_trainer_hparams.seed = None
     composer_trainer_hparams.validate_every_n_batches = 1
     composer_trainer_hparams.validate_every_n_epochs = 0
-    final_checkpoint = "ep2.tar"
+    final_checkpoint = "ep2.pt"
     _test_checkpoint_trainer(composer_trainer_hparams)
 
     # re-create the trainer from the YAML
@@ -236,13 +240,13 @@ def test_load_weights(
 @pytest.mark.parametrize("device_hparams,deepspeed_enabled,zero_stage", [
     pytest.param(CPUDeviceHparams(), False, None, id="cpu-ddp"),
     pytest.param(GPUDeviceHparams(), False, None, id="gpu-ddp", marks=pytest.mark.gpu),
-    pytest.param(GPUDeviceHparams(), True, 0, id="deepspeed-zero0", marks=pytest.mark.deepspeed),
-    pytest.param(GPUDeviceHparams(), True, 1, id="deepspeed-zero1", marks=pytest.mark.deepspeed),
-    pytest.param(GPUDeviceHparams(), True, 2, id="deepspeed-zero2", marks=pytest.mark.deepspeed),
+    pytest.param(GPUDeviceHparams(), True, 0, id="deepspeed-zero0", marks=pytest.mark.gpu),
+    pytest.param(GPUDeviceHparams(), True, 1, id="deepspeed-zero1", marks=pytest.mark.gpu),
+    pytest.param(GPUDeviceHparams(), True, 2, id="deepspeed-zero2", marks=pytest.mark.gpu),
 ])
 @pytest.mark.parametrize(
     "seed,checkpoint_filename,compression",
-    [[None, "ep1.tar", ""], [42, "ep1.tar", ""], [42, "ep1.tar.gz", "gzip"], [42, "it4.tar", ""], [42, "it6.tar", ""]])
+    [[None, "ep1", None], [42, "ep1", None], [42, "ep1", "gzip"], [42, "it4", None], [42, "it6", None]])
 @pytest.mark.parametrize("model_name", [None, "resnet50_synthetic", "gpt2_52m"])
 def test_checkpoint(
     device_hparams: DeviceHparams,
@@ -251,7 +255,7 @@ def test_checkpoint(
     zero_stage: Optional[int],
     composer_trainer_hparams: TrainerHparams,
     checkpoint_filename: str,
-    compression: str,
+    compression: Optional[str],
     seed: Optional[int],
     model_name: Optional[str],
 ):
@@ -280,6 +284,15 @@ def test_checkpoint(
     if not isinstance(composer_trainer_hparams.val_dataset, SyntheticHparamsMixin):
         pytest.skip("Checkpointing tests require synthetic data")
         return
+
+    checkpoint_extension = ".pt"
+    if deepspeed_enabled:
+        # deepspeed checkpoints use .tar because they store multiple files
+        checkpoint_extension = ".tar"
+    if compression == "gzip":
+        checkpoint_extension = ".tar.gz"
+    checkpoint_filename += checkpoint_extension
+
     composer_trainer_hparams.train_dataset.use_synthetic = True
     composer_trainer_hparams.train_dataset.shuffle = False
     composer_trainer_hparams.val_dataset.use_synthetic = True
@@ -288,7 +301,8 @@ def test_checkpoint(
     composer_trainer_hparams.loggers = []
     composer_trainer_hparams.train_batch_size = 8
     composer_trainer_hparams.eval_batch_size = 16
-    composer_trainer_hparams.max_duration = "2ep"
+    num_epochs = 2
+    composer_trainer_hparams.max_duration = f"{num_epochs}ep"
     composer_trainer_hparams.precision = Precision.FP32
     composer_trainer_hparams.callbacks = [DummyStatefulCallbackHparams(), EventCounterCallbackHparams()]
     composer_trainer_hparams.train_subset_num_batches = 5
@@ -308,15 +322,21 @@ def test_checkpoint(
 
     checkpoint_a_folder = "first"
     composer_trainer_hparams.save_folder = checkpoint_a_folder
-    composer_trainer_hparams.save_interval = "1ep" if checkpoint_filename.startswith("ep") else "2ba"
+    save_interval_epochs = 1
+    save_interval_batches = 2
+    composer_trainer_hparams.save_interval = f"{save_interval_epochs}ep" if checkpoint_filename.startswith(
+        "ep") else f"{save_interval_batches}ba"
     composer_trainer_hparams.save_compression = compression
     composer_trainer_hparams.seed = seed
 
     composer_trainer_hparams.validate_every_n_batches = 0 if checkpoint_filename.startswith("it") else 1
     composer_trainer_hparams.validate_every_n_epochs = 0 if checkpoint_filename.startswith("ep") else 1
-    final_checkpoint = ("ep2" if checkpoint_filename.startswith("ep") else "it8") + ".tar" + (".gz"
-                                                                                              if compression else "")
-    _test_checkpoint_trainer(composer_trainer_hparams)
+    final_checkpoint = ("ep2" if checkpoint_filename.startswith("ep") else "it8") + checkpoint_extension
+    first_trainer = _test_checkpoint_trainer(composer_trainer_hparams)
+    expected_num_checkpoints = num_epochs / save_interval_epochs if checkpoint_filename.startswith(
+        "ep") else (composer_trainer_hparams.train_subset_num_batches + 1) / save_interval_batches * num_epochs
+    assert first_trainer.checkpoint_saver is not None
+    assert len(first_trainer.checkpoint_saver.saved_checkpoints) == expected_num_checkpoints
     checkpoint_a_file_path = os.path.join(checkpoint_a_folder, checkpoint_filename)
     checkpoint_b_file_path = os.path.join(run_directory.get_node_run_directory(), "rank_{RANK}", checkpoint_a_folder,
                                           final_checkpoint)
@@ -332,7 +352,6 @@ def test_checkpoint(
     second_trainer_hparams.load_strict_model_weights = False
 
     _test_checkpoint_trainer(second_trainer_hparams)
-
     checkpoint_c_file_path = os.path.join(run_directory.get_node_run_directory(), "rank_{RANK}", checkpoint_b_folder,
                                           final_checkpoint)
 
@@ -350,10 +369,11 @@ def _test_checkpoint_trainer(trainer_hparams: TrainerHparams):
 
     trainer = trainer_hparams.initialize_object()
     trainer.fit()
-    validate_events_called_expected_number_of_times(trainer)
+    _validate_events_called_expected_number_of_times(trainer)
+    return trainer
 
 
-def validate_events_called_expected_number_of_times(trainer: Trainer):
+def _validate_events_called_expected_number_of_times(trainer: Trainer):
     state = trainer.state
 
     num_epochs = state.max_epochs
@@ -412,12 +432,6 @@ def test_checkpoint_load_uri(tmpdir: pathlib.Path):
 
 
 def test_checkpoint_load_object_uri(tmpdir: pathlib.Path, monkeypatch: pytest.MonkeyPatch):
-    try:
-        import libcloud
-        del libcloud
-    except ImportError:
-        pytest.skip("Skipping test as libcloud is not installed")
-
     remote_dir = tmpdir / "remote_dir"
     os.makedirs(remote_dir)
     monkeypatch.setenv("OBJECT_STORE_KEY", str(remote_dir))  # for the local option, the key is the path

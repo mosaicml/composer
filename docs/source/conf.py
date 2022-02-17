@@ -20,7 +20,6 @@ from typing import Any, List, Optional, Tuple, Type, Union
 import sphinx.application
 import sphinx.ext.autodoc
 import sphinx.util.logging
-import yahp as hp
 
 sys.path.insert(0, os.path.abspath('..'))
 
@@ -49,12 +48,10 @@ extensions = [
     'sphinxemoji.sphinxemoji',
     "sphinxext.opengraph",
     "sphinx_copybutton",
-    "sphinx_rtd_theme",
     "myst_parser",
-    "sphinx.ext.intersphinx",
     "sphinxarg.ext",
-    'autodocsumm',
     'sphinx.ext.doctest',
+    'sphinx_panels',
 ]
 
 # Add any paths that contain templates here, relative to this directory.
@@ -75,17 +72,6 @@ napoleon_custom_sections = [('Returns', 'params_style')]
 #
 html_theme = "furo"
 
-html_theme_options = {
-    # Toc options
-    'collapse_navigation': False,
-    'display_version': False,
-    'navigation_depth': 5,
-    'logo_only': True,
-    'sticky_navigation': False,
-    'globaltoc_collapse': True,
-    'globaltoc_maxdepth': -1,
-}
-
 # Make sure the target is unique
 autosectionlabel_prefix_document = True
 autosummary_imported_members = False
@@ -100,6 +86,9 @@ html_title = " "
 
 # Customize CSS
 html_css_files = ['css/custom.css']
+html_js_files = [
+    'js/posthog.js',
+]
 
 # Mosaic logo
 # html_logo = 'https://storage.googleapis.com/docs.mosaicml.com/images/logo-dark-bg.png'
@@ -130,6 +119,13 @@ autodoc_type_aliases = {
     'TDeviceTransformFn': 'composer.core.types.TDeviceTransformFn',
     'Hparams': 'yahp.hparams.Hparams',
 }
+
+autodoc_default_options = {
+    # don't document the forward() method. Because of how torch.nn.Module.forward is defined in the
+    # base class, sphinx does not realize that forward overrides an inherited method.
+    'exclude-members': 'forward'
+}
+autodoc_inherit_docstrings = False
 
 pygments_style = "manni"
 pygments_dark_style = "monokai"
@@ -165,15 +161,9 @@ nitpick_ignore = [
 ]
 
 python_use_unqualified_type_names = True
-autodoc_inherit_docstrings = True
 autodoc_typehints = "none"
 
-# monkeypatch hparams docs so we don't get hparams_registry docstrings everywhere
-hp.Hparams.__doc__ = ""
-hp.Hparams.initialize_object.__doc__ = ""
-
-
-def maybe_skip_member(
+def skip_redundant_namedtuple_attributes(
     app: sphinx.application.Sphinx,
     what: str,
     name: str,
@@ -186,7 +176,6 @@ def maybe_skip_member(
     if '_tuplegetter' in obj.__class__.__name__:
         return True
     return None
-
 
 with open(os.path.join(os.path.dirname(__file__), "doctest_fixtures.py"), "r") as f:
     doctest_global_setup = f.read()
@@ -345,5 +334,5 @@ def add_module_summary_tables(
 
 
 def setup(app: sphinx.application.Sphinx):
-    app.connect('autodoc-skip-member', maybe_skip_member)
+    app.connect('autodoc-skip-member', skip_redundant_namedtuple_attributes)
     app.connect('autodoc-process-docstring', add_module_summary_tables)
