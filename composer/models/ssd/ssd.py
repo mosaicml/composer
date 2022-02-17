@@ -79,9 +79,13 @@ class SSD(ComposerModel):
         inv_map = {v: k for k, v in val_coco.label_map.items()}
         ret = []
         overlap_threshold = 0.50
-        nms_max_detections = 200        
+        nms_max_detections = 200
+        encoder = Encoder(dboxes)
+
         for nbatch, (img, img_id, img_size, bbox, label) in enumerate(val_dataloader):
             ploc, plabel = self.module(img.cuda())
+            #import pdb; pdb.set_trace()
+            
             try:
                 results = encoder.decode_batch(ploc, plabel,
                                                overlap_threshold,
@@ -90,21 +94,25 @@ class SSD(ComposerModel):
             except:
                 print("No object detected in batch: {}".format(nbatch))
                 continue
-        (htot, wtot) = [d.cpu().numpy() for d in img_size]
-        img_id = img_id.cpu().numpy()
-        # Iterate over batch elements
-        for img_id_, wtot_, htot_, result in zip(img_id, wtot, htot, results):
-            loc, label, prob = [r.cpu().numpy() for r in result]
-            # Iterate over image detections
-            for loc_, label_, prob_ in zip(loc, label, prob):
-                ret.append([img_id_, loc_[0]*wtot_, \
-                            loc_[1]*htot_,
-                            (loc_[2] - loc_[0])*wtot_,
-                            (loc_[3] - loc_[1])*htot_,
-                            prob_,
-                            inv_map[label_]])
-        cocoDt = cocoGt.loadRes(np.array(ret))
-        E = COCOeval(cocoGt, cocoDt, iouType='bbox')
+            (htot, wtot) = [d.cpu().numpy() for d in img_size]
+            img_id = img_id.cpu().numpy()
+            # Iterate over batch elements
+            for img_id_, wtot_, htot_, result in zip(img_id, wtot, htot, results):
+                loc, label, prob = [r.cpu().numpy() for r in result]
+                # Iterate over image detections
+                for loc_, label_, prob_ in zip(loc, label, prob):
+                    ret.append([img_id_, loc_[0]*wtot_, \
+                                loc_[1]*htot_,
+                                (loc_[2] - loc_[0])*wtot_,
+                                (loc_[3] - loc_[1])*htot_,
+                                prob_,
+                                inv_map[label_]])
+
+
+
+        #import pdb; pdb.set_trace()
+        cocoDt = cocogt.loadRes(np.array(ret))
+        E = COCOeval(cocogt, cocoDt, iouType='bbox')
         E.evaluate()
         E.accumulate()
         E.summarize()
