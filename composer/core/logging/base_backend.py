@@ -24,7 +24,7 @@ class LoggerCallback(Callback, ABC):
         super().__init__()
 
     def will_log(self, state: State, log_level: LogLevel) -> bool:
-        """Called by the :class:`~composer.core.logging.logger.Logger` to determine whether to log a metric.
+        """Called by the :class:`~.logging.logger.Logger` to determine whether to log a metric.
 
         By default, it always returns ``True``, but this method
         can be overridden.
@@ -35,14 +35,14 @@ class LoggerCallback(Callback, ABC):
 
         Returns:
             bool: Whether to log a metric call, given the
-                :class:`~composer.core.state.State` and
-                :class:`~composer.core.logging.logger.LogLevel`.
+                :class:`~.core.state.State` and
+                :class:`~.logging.logger.LogLevel`.
         """
         del state, log_level  # unused
         return True
 
     def log_metric(self, timestamp: Timestamp, log_level: LogLevel, data: TLogData):
-        """Called by the :class:`~composer.core.logging.logger.Logger` for metrics where :func:`will_log` returned
+        """Called by the :class:`~.logging.logger.Logger` for metrics where :func:`will_log` returned
         ``True``.
 
         The logging backend should override this function to log the data

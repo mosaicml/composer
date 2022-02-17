@@ -28,7 +28,7 @@ TLogData = Mapping[str, TLogDataValue]
 
 
 class LogLevel(IntEnum):
-    """LogLevel denotes where in the training loop log messages are generated.
+    """LogLevel denotes when in the training loop log messages are generated.
 
     Logging destinations use the LogLevel to determine whether to record a given
     metric or state change.
@@ -44,21 +44,19 @@ class LogLevel(IntEnum):
 
 
 class Logger:
-    """Logger routes metrics to the
-    :class:`~composer.core.logging.base_backend.LoggerCallback`.
+    """Logger routes metrics to the :class:`~.logging.base_backend.LoggerCallback`.
 
     Args:
         state (State):
-            The global :class:`~composer.core.state.State` object.
+            The global :class:`~.core.state.State` object.
         backends (Sequence[LoggerCallback]):
-            A sequence of
-            :class:`~composer.core.logging.base_backend.LoggerCallback`\\s
+            A sequence of :class:`~.logging.base_backend.LoggerCallback`\\s
             to which logging calls will be sent.
 
     Attributes:
         backends (Sequence[LoggerCallback]):
             A sequence of
-            :class:`~composer.core.logging.base_backend.LoggerCallback`\\s
+            :class:`~.logging.base_backend.LoggerCallback`\\s
             to which logging calls will be sent.
     """
 
@@ -81,12 +79,11 @@ class Logger:
         Args:
             log_level (Union[str, LogLevel]): A :class:`LogLevel`.
             data (Union[TLogData, Callable[[], TLogData]]):
-                Can be either logging data or a callable that returns
-                data to be logged. Callables will be invoked
-                only when :meth:`~composer.core.logging.logger.Logger.will_log`
-                returns True for at least one
-                :class:`~composer.core.logging.base_backend.LoggerCallback`.
-                Useful when it is expensive to generate the data to be logged.
+                Can be either logging data or a callable that returns data to be logged.
+                Callables will be invoked only when
+                :meth:`~.base_backend.LoggerCallback.will_log` returns True for at least one
+                :class:`~.logging.base_backend.LoggerCallback`. Useful when it is
+                expensive to generate the data to be logged.
         """
         if isinstance(log_level, str):
             log_level = LogLevel[log_level.upper()]
