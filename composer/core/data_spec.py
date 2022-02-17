@@ -19,11 +19,13 @@ class DataSpec:
     Args:
         dataloader (DataLoader): The dataloader.
 
-        num_samples (int, optional). If specified, the total number of samples in the dataset, across all ranks.
-            If not specified, then ``len(dataloader.dataset)`` is used (if this property is available).
-            Otherwise, the dataset is assumed to be unsized.
+        num_samples (int, optional). The total number of samples in an epoch, across all ranks. This
+            field is used by the composer time tracking :class:`~comoser.core.time.Timer`. If not specified, then
+            ``len(dataloader.dataset)`` is used (if this property is available). Otherwise, the dataset is
+            assumed to be unsized.
 
-        num_tokens (int, optional): If specified, the total number of tokens in the dataset.
+        num_tokens (int, optional): The total number of tokens in an epoch. This field is used by the composer
+            time tracking :class:`~comoser.core.time.Timer`.
 
         device_transforms ((Batch) -> Batch, optional): Function that is called by the trainer to modify the batch
             once it has been moved onto the device. For example, this function can be used for GPU-based normalization.
