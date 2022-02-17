@@ -22,6 +22,20 @@ __all__ = ["WandBLogger"]
 class WandBLogger(LoggerCallback):
     """Log to Weights and Biases (https://wandb.ai/)
 
+    Example usage:
+        .. testcode::
+
+            from composer.loggers import WandBLogger
+            from composer.trainer import Trainer
+            trainer = Trainer(
+                model=model,
+                train_dataloader=train_dataloader,
+                eval_dataloader=eval_dataloader,
+                max_duration="1ep",
+                optimizers=[optimizer],
+                loggers=[WandBLogger()]
+            )
+
     Args:
         log_artifacts (bool, optional): Whether to log artifacts (Default: ``False``)
         log_artifacts_every_n_batches (int, optional): Interval at which to upload

@@ -21,6 +21,28 @@ __all__ = ["FileLogger"]
 class FileLogger(LoggerCallback):
     """Logs to a file or to the terminal.
 
+    Example usage:
+        .. testcode::
+
+            from composer.loggers import FileLogger
+            from composer.trainer import Trainer
+            from composer.core.logging import LogLevel
+            logger = FileLogger(
+                filename="log.txt",
+                buffer_size=1,
+                log_level=LogLevel.BATCH,
+                log_interval=2,
+                flush_interval=50
+            )
+            trainer = Trainer(
+                model=model,
+                train_dataloader=train_dataloader,
+                eval_dataloader=eval_dataloader,
+                max_duration="1ep",
+                optimizers=[optimizer],
+                loggers=[logger]
+            )
+
     Example output::
 
         [FIT][step=2]: { "logged_metric": "logged_value", }
@@ -34,9 +56,10 @@ class FileLogger(LoggerCallback):
             Can be a filepath, ``stdout``, or ``stderr``. Default: ``stdout``.
         buffer_size (int, optional): Buffer size. See :py:func:`open`.
             Default: ``1`` for line buffering.
-        log_level (LogLevel, optional): Maximum
-            :class:`~composer.core.logging.logger.LogLevel`. to record.
-            Default: :attr:`~composer.core.logging.logger.LogLevel.EPOCH`.
+        log_level (LogLevel, optional):
+            :class:`~composer.core.logging.logger.LogLevel` (i.e. unit of resolution) at 
+            which to record. Default:
+            :attr:`~composer.core.logging.logger.LogLevel.EPOCH`.
         log_interval (int, optional):
             Frequency to print logs. If ``log_level`` is
             :attr:`~composer.core.logging.logger.LogLevel.EPOCH`,

@@ -20,8 +20,28 @@ class InMemoryLogger(LoggerCallback):
     """Logs metrics to dictionary objects that persist in memory throughout training. Useful for collecting and plotting
     data inside notebooks.
 
+    Example usage:
+        .. testcode::
+
+            from composer.loggers import InMemoryLogger
+            from composer.trainer import Trainer
+            from composer.core.logging import LogLevel
+            logger = InMemoryLogger(
+                log_level=LogLevel.BATCH
+            )
+            trainer = Trainer(
+                model=model,
+                train_dataloader=train_dataloader,
+                eval_dataloader=eval_dataloader,
+                max_duration="1ep",
+                optimizers=[optimizer],
+                loggers=[logger]
+            )
+
     Args:
-        log_level (str or LogLevel, optional): Minimum LogLevel to record. Defaults to
+        log_level (str or LogLevel, optional): 
+            :class:`~composer.core.logging.logger.LogLevel` (i.e. unit of resolution) at
+            which to record. Defaults to
             :attr:`~composer.core.logging.logger.LogLevel.BATCH`, which records
             everything.
 

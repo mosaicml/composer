@@ -69,6 +69,20 @@ class TQDMLogger(LoggerCallback):
     During training, the progress bar logs the batch and training loss.
     During validation, the progress bar logs the batch and validation accuracy.
 
+    Example usage:
+        .. testcode::
+
+            from composer.loggers import TQDMLogger
+            from composer.trainer import Trainer
+            trainer = Trainer(
+                model=model,
+                train_dataloader=train_dataloader,
+                eval_dataloader=eval_dataloader,
+                max_duration="1ep",
+                optimizers=[optimizer],
+                loggers=[TQDMLogger()]
+            )
+
     Example output::
 
         Epoch 1: 100%|██████████| 64/64 [00:01<00:00, 53.17it/s, loss/train=2.3023]
