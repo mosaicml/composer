@@ -15,8 +15,8 @@ Additionally the following profilers are defined as Composer :class:`.Callback`.
 Composer Trainer profiling can be enabled by specifying an output ``profiler_trace_file`` during :class:`.Trainer` initialization.
 By default, the :class:`.Profiler`, :class:`.DataloaderProfiler` and :class:`.SystemProfiler` will be active.  Torch profiling is disabled by default.
 
-To activate the :class:`.TorchProfiler`, the ``torch_profiler_trace_dir`` must be specified *in addition* to the ``profiler_trace_file`` argument.  
-If Torch profiling is enabled, the ``profiler_trace_file`` will contain the merged trace data from the other profilers and the Torch profiler.  
+To activate the :class:`.TorchProfiler`, the ``torch_profiler_trace_dir`` must be specified *in addition* to the ``profiler_trace_file`` argument.
+If Torch profiling is enabled, the ``profiler_trace_file`` will contain the merged trace data from the other profilers and the Torch profiler.
 The merge allows users to correlate System, Composer Trainer and low-level Torch events durin the training loop.
 
 The following example instantiates a basic dataset, model and enables the Composer Trainer Profilers as well as the Torch Profiler:

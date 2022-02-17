@@ -55,7 +55,7 @@ class SystemProfiler(Callback):
 
     def _stats_thread(self, profiler: Profiler):
         """Gathers requested system metrics at :attr:`SystemProfiler.stats_thread_interval_seconds` interval."""
-        
+
         psutil.disk_io_counters.cache_clear()
         psutil.net_io_counters.cache_clear()
         if self.profile_cpu:
