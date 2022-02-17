@@ -36,7 +36,12 @@ class ComposerTransformer(ComposerModel):
                  tokenizer_name: str,
                  gradient_checkpointing: bool = False) -> None:
         super().__init__()
-        import transformers
+        try:
+            import transformers
+        except ImportError as e:
+            raise ImportError(
+                'Composer was installed without NLP support. To use NLP with Composer, run: `pip install mosaicml[nlp]`.'
+            ) from e
 
         self.module = module
         self.config = config
