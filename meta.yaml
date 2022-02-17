@@ -20,6 +20,7 @@ build:
 requirements:
   host:
     - python >=3.7
+    - git
   run:
     - python >=3.7
     - pyyaml >=5.4.1
