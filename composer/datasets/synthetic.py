@@ -25,9 +25,7 @@ class SyntheticDataLabelType(StringEnum):
 
 
 class SyntheticHFDataset:
-    """
-    Creates a synthetic HF dataset and passes it to the preprocessing scripts.
-    """
+    """Creates a synthetic HF dataset and passes it to the preprocessing scripts."""
 
     def __init__(self, num_samples, chars_per_sample, column_names):
         if column_names is None or len(column_names) == 0:

@@ -456,7 +456,7 @@ class Trainer:
             reproducibility.configure_deterministic_mode()
 
         self.engine.run_event(Event.INIT)
- 
+
         assert isinstance(self.state.model, ComposerModel)
         self.original_model = self.state.model  # TODO(ravi) -- update the state to add an original model helper
 

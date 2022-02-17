@@ -46,7 +46,6 @@ dataloader, _, _ = dataloader_spec
 samples = 0
 for i, batch in enumerate(dataloader):
     if i == 0:
-        print (batch)
+        print(batch)
     samples += batch['input_ids'].shape[0]
-print (samples)
-
+print(samples)

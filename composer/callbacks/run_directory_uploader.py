@@ -16,9 +16,9 @@ import time
 import uuid
 from typing import Callable, Optional, Tuple, Type, Union
 
+from libcloud.common.types import LibcloudError
 from requests.exceptions import ConnectionError
 from urllib3.exceptions import ProtocolError
-from libcloud.common.types import LibcloudError
 
 from composer.core.callback import Callback
 from composer.core.logging import Logger

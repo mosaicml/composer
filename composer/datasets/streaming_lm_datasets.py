@@ -36,9 +36,7 @@ CACHED_DATASET_SIZES = {"c4": {"en": {"train": (1024, 356317), "validation": (8,
 
 @dataclass
 class StreamingLMDatasetHparams(DatasetHparams):
-    """
-    Defines a generic dataset class for autoregressive and masked language models.
-    """
+    """Defines a generic dataset class for autoregressive and masked language models."""
 
     dataset_name: str = hp.optional("Name of the dataset to load.", default=None)
     dataset_config_name: Optional[str] = hp.optional(
