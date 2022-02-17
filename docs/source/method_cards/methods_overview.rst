@@ -65,8 +65,7 @@ Methods Overview
    .. link-button:: factorize.html
       :text: Factorize
       :classes: card-title
-   :badge:`CV,badge-primary`
-:badge:`NLP,badge-success`
+   :badge:`CV,badge-primary` :badge:`NLP,badge-success`
    ++++++++++++++
    Factorize GEMMs into smaller GEMMs
 
@@ -90,8 +89,7 @@ Methods Overview
    .. link-button:: layer_freezing.html
       :text: LayerFreezing
       :classes: card-title
-   :badge:`CV,badge-primary`
-:badge:`NLP,badge-success`
+   :badge:`CV,badge-primary` :badge:`NLP,badge-success`
    ++++++++++++++
    Progressively freezes layers during training.
 
@@ -171,7 +169,6 @@ Methods Overview
    .. link-button:: swa.html
       :text: SWA
       :classes: card-title
-   :badge:`CV,badge-primary`
-:badge:`NLP,badge-success`
+   :badge:`CV,badge-primary` :badge:`NLP,badge-success`
    ++++++++++++++
    Computes running average of model weights.

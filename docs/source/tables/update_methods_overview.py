@@ -39,7 +39,7 @@ Methods Overview
         with open(json_path, 'r') as f:
             metadata[name] = json.load(f)[name]
 
-            badge_string = "\n".join([badges[domain] for domain in metadata[name]['domains']])
+            badge_string = " ".join([badges[domain] for domain in metadata[name]['domains']])
 
             overview_file.write(f"""
    ---
