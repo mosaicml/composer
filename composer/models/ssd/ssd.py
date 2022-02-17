@@ -35,7 +35,7 @@ class SSD(ComposerModel):
         dboxes = dboxes300_coco()
 
         self.loss_func = Loss(dboxes)
-        self.MAP = MAP()
+        self.MAP = my_map()#MAP()
 
     def loss(self, outputs: Any, batch: BatchPair) -> Tensors:
 
@@ -108,7 +108,7 @@ class SSD(ComposerModel):
                 loc, label, prob = [r.cpu().numpy() for r in result]
                 
                 for img_id_, loc_, label_, prob_ in zip(img_id, loc, label, prob):
-
+                    '''
                     ret.append([
 		        dict(
                             boxes=torch.Tensor([[loc_[0] * wtot, \
@@ -120,10 +120,45 @@ class SSD(ComposerModel):
                             iid=torch.Tensor([img_id_])
                         )
                     ])
+                    '''
+                    ret.append([int(img_id[idx].detach().cpu()), loc_[0] * wtot, 
+                                loc_[1] * htot,
+                                (loc_[2] - loc_[0]) * wtot,
+                                (loc_[3] - loc_[1]) * htot,
+                                prob_,
+                                inv_map[label_]])
 
         print('lengths', len(ret), len(targets))
-        import pdb; pdb.set_trace()
-        return ret, targets
+        #import pdb; pdb.set_trace()
+        return ret, ret
+
+class my_map(Metric):
+
+    def __init__(self):
+        super().__init__(dist_sync_on_step=True)
+        self.add_state("n_updates", default=torch.zeros(1), dist_reduce_fx="sum")
+        
+        self.predictions = []
+
+    def update(self, pred, target):
+        self.n_updates += 1
+        self.predictions.append(pred)
+        #import pdb; pdb.set_trace()
+
+    def compute(self):
+        data = "/localdisk/coco"
+        self.val_annotate = os.path.join(data, "annotations/instances_val2017.json")
+        self.cocogt = COCO(annotation_file=self.val_annotate)
+        ret = np.asarray(self.predictions)
+
+        cocodt = self.cocogt.loadRes(ret)
+        E = COCOeval(self.cocogt, cocodt, iouType='bbox')
+        E.evaluate()
+        E.accumulate()
+        E.summarize()
+        print('acc', E.stats[0])
+        return E.stats[0]
+
 
 def get_boxes(val_annotate, idss):
     ids = idss.tolist()

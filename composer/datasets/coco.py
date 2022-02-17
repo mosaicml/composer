@@ -1,25 +1,28 @@
-## Code adapted from https://github.com/mlcommons/training/tree/master/single_stage_detector/ssd
-
-import copy
-import itertools
 import json
-import os
-import sys
 import time
-from collections import defaultdict
-from dataclasses import dataclass
-from typing import Sequence
-from urllib.request import urlretrieve
-
 import matplotlib.pyplot as plt
-import numpy as np
-import torch
-import torch.utils.data as data
-import yahp as hp
 from matplotlib.collections import PatchCollection
 from matplotlib.patches import Polygon
-from PIL import Image
+import numpy as np
+from dataclasses import dataclass
+import yahp as hp
+from typing import Sequence
+import copy
+import itertools
 from pycocotools import mask as maskUtils
+import os
+from collections import defaultdict
+import sys
+PYTHON_VERSION = sys.version_info[0]
+if PYTHON_VERSION == 2:
+    from urllib import urlretrieve
+elif PYTHON_VERSION == 3:
+    from urllib.request import urlretrieve
+from PIL import Image
+import torch
+
+def _isArrayLike(obj):
+    return hasattr(obj, '__iter__') and hasattr(obj, '__len__')
 
 from composer.core.types import Batch, DataLoader, Dataset, DataSpec
 from composer.datasets.dataloader import DataloaderHparams
@@ -27,20 +30,9 @@ from composer.datasets.hparams import DatasetHparams
 from composer.models.ssd.utils import DefaultBoxes, SSDTransformer
 
 
-def dboxes300_coco():
-    figsize = 300
-    feat_size = [38, 19, 10, 5, 3, 1]
-    steps = [8, 16, 32, 64, 100, 300]
-    # use the scales here: https://github.com/amdegroot/ssd.pytorch/blob/master/data/config.py
-    scales = [21, 45, 99, 153, 207, 261, 315]
-    aspect_ratios = [[2], [2, 3], [2, 3], [2, 3], [2], [2]]
-    dboxes = DefaultBoxes(figsize, feat_size, steps, scales, aspect_ratios)
-    return dboxes
-
-
 @dataclass
 class COCODatasetHparams(DatasetHparams):
-    """Defines an instance of 
+    """Defines an instance of
 
     Parameters:
         is_train (bool): Whether to load the training or validation dataset.
@@ -93,32 +85,17 @@ class COCODatasetHparams(DatasetHparams):
                 sampler=None,
             ),
                             split_batch=split_dict_fn)
+import torch.utils.data as data
 
-
-def split_dict_fn(batch: Batch, num_microbatches: int) -> Sequence[Batch]:
-    if not isinstance(batch, Sequence):
-        raise ValueError(f'split_fn requires batch be a tuple pair of tensors, got {type(batch)}')
-    x, y, a, b, c = batch
-    nm = num_microbatches
-    if isinstance(x, torch.Tensor) and isinstance(y, torch.Tensor):
-        return list(
-            zip(x.chunk(num_microbatches), y.chunk(num_microbatches), [a[i::nm] for i in range(nm)], b.chunk(nm),
-                c.chunk(nm)))
-    if isinstance(x, List) and isinstance(y, List) and isinstance(a, List) and isinstance(b, List) and isinstance(
-            c, List):
-        return list(
-            zip(
-                [x[i::n_microbatches] for i in range(n_microbatches)],
-                [y[i::n_microbatches] for i in range(n_microbatches)],
-                [a[i::nm] for i in range(nm)],
-                [b[i::nm] for i in range(nm)],
-                [c[i::nm] for i in range(nm)],
-            ))
-
-
-def _isArrayLike(obj):
-    return hasattr(obj, '__iter__') and hasattr(obj, '__len__')
-
+def dboxes300_coco():
+    figsize = 300
+    feat_size = [38, 19, 10, 5, 3, 1]
+    steps = [8, 16, 32, 64, 100, 300]
+    # use the scales here: https://github.com/amdegroot/ssd.pytorch/blob/master/data/config.py
+    scales = [21, 45, 99, 153, 207, 261, 315]
+    aspect_ratios = [[2], [2, 3], [2, 3], [2, 3], [2], [2]]
+    dboxes = DefaultBoxes(figsize, feat_size, steps, scales, aspect_ratios)
+    return dboxes
 
 class COCODetection(data.Dataset):
 
@@ -152,7 +129,7 @@ class COCODetection(data.Dataset):
                 raise Exception("dulpicated image record")
             self.images[img_id] = (img_name, img_size, [])
 
-        # read bboxes
+         # read bboxes
         for bboxes in self.data["annotations"]:
             img_id = bboxes["image_id"]
             category_id = bboxes["category_id"]
@@ -221,8 +198,30 @@ class COCODetection(data.Dataset):
             pass
 
 
-class COCO:
+        
+def split_dict_fn(batch: Batch, num_microbatches: int) -> Sequence[Batch]:
+    if not isinstance(batch, Sequence):
+        raise ValueError(f'split_fn requires batch be a tuple pair of tensors, got {type(batch)}')
+    x, y, a, b, c = batch
+    nm = num_microbatches
+    if isinstance(x, torch.Tensor) and isinstance(y, torch.Tensor):
+        return list(
+            zip(x.chunk(num_microbatches), y.chunk(num_microbatches), [a[i::nm] for i in range(nm)], b.chunk(nm),
+                c.chunk(nm)))
+    if isinstance(x, List) and isinstance(y, List) and isinstance(a, List) and isinstance(b, List) and isinstance(
+            c, List):
+        return list(
+            zip(
+                [x[i::n_microbatches] for i in range(n_microbatches)],
+                [y[i::n_microbatches] for i in range(n_microbatches)],
+                [a[i::nm] for i in range(nm)],
+                [b[i::nm] for i in range(nm)],
+                [c[i::nm] for i in range(nm)],
+            ))
 
+    
+
+class COCO:
     def __init__(self, annotation_file=None):
         """
         Constructor of Microsoft COCO helper class for reading and visualizing annotations.
@@ -231,22 +230,19 @@ class COCO:
         :return:
         """
         # load dataset
-        self.dataset, self.anns, self.cats, self.imgs = dict(), dict(), dict(), dict()
+        self.dataset,self.anns,self.cats,self.imgs = dict(),dict(),dict(),dict()
         self.imgToAnns, self.catToImgs = defaultdict(list), defaultdict(list)
         if not annotation_file == None:
-            print('loading annotations into memory...')
             tic = time.time()
             dataset = json.load(open(annotation_file, 'r'))
-            assert type(dataset) == dict, 'annotation file format {} not supported'.format(type(dataset))
-            print('Done (t={:0.2f}s)'.format(time.time() - tic))
+            assert type(dataset)==dict, 'annotation file format {} not supported'.format(type(dataset))
             self.dataset = dataset
             self.createIndex()
 
     def createIndex(self):
         # create index
-        print('creating index...')
         anns, cats, imgs = {}, {}, {}
-        imgToAnns, catToImgs = defaultdict(list), defaultdict(list)
+        imgToAnns,catToImgs = defaultdict(list),defaultdict(list)
         if 'annotations' in self.dataset:
             for ann in self.dataset['annotations']:
                 imgToAnns[ann['image_id']].append(ann)
@@ -264,7 +260,6 @@ class COCO:
             for ann in self.dataset['annotations']:
                 catToImgs[ann['category_id']].append(ann['image_id'])
 
-        print('index created!')
 
         # create class members
         self.anns = anns
@@ -301,10 +296,8 @@ class COCO:
                 anns = list(itertools.chain.from_iterable(lists))
             else:
                 anns = self.dataset['annotations']
-            anns = anns if len(catIds) == 0 else [ann for ann in anns if ann['category_id'] in catIds]
-            anns = anns if len(areaRng) == 0 else [
-                ann for ann in anns if ann['area'] > areaRng[0] and ann['area'] < areaRng[1]
-            ]
+            anns = anns if len(catIds)  == 0 else [ann for ann in anns if ann['category_id'] in catIds]
+            anns = anns if len(areaRng) == 0 else [ann for ann in anns if ann['area'] > areaRng[0] and ann['area'] < areaRng[1]]
         if not iscrowd == None:
             ids = [ann['id'] for ann in anns if ann['iscrowd'] == iscrowd]
         else:
@@ -327,9 +320,9 @@ class COCO:
             cats = self.dataset['categories']
         else:
             cats = self.dataset['categories']
-            cats = cats if len(catNms) == 0 else [cat for cat in cats if cat['name'] in catNms]
+            cats = cats if len(catNms) == 0 else [cat for cat in cats if cat['name']          in catNms]
             cats = cats if len(supNms) == 0 else [cat for cat in cats if cat['supercategory'] in supNms]
-            cats = cats if len(catIds) == 0 else [cat for cat in cats if cat['id'] in catIds]
+            cats = cats if len(catIds) == 0 else [cat for cat in cats if cat['id']            in catIds]
         ids = [cat['id'] for cat in cats]
         return ids
 
@@ -407,12 +400,12 @@ class COCO:
             polygons = []
             color = []
             for ann in anns:
-                c = (np.random.random((1, 3)) * 0.6 + 0.4).tolist()[0]
+                c = (np.random.random((1, 3))*0.6+0.4).tolist()[0]
                 if 'segmentation' in ann:
                     if type(ann['segmentation']) == list:
                         # polygon
                         for seg in ann['segmentation']:
-                            poly = np.array(seg).reshape((int(len(seg) / 2), 2))
+                            poly = np.array(seg).reshape((int(len(seg)/2), 2))
                             polygons.append(Polygon(poly))
                             color.append(c)
                     else:
@@ -423,38 +416,26 @@ class COCO:
                         else:
                             rle = [ann['segmentation']]
                         m = maskUtils.decode(rle)
-                        img = np.ones((m.shape[0], m.shape[1], 3))
+                        img = np.ones( (m.shape[0], m.shape[1], 3) )
                         if ann['iscrowd'] == 1:
-                            color_mask = np.array([2.0, 166.0, 101.0]) / 255
+                            color_mask = np.array([2.0,166.0,101.0])/255
                         if ann['iscrowd'] == 0:
                             color_mask = np.random.random((1, 3)).tolist()[0]
                         for i in range(3):
-                            img[:, :, i] = color_mask[i]
-                        ax.imshow(np.dstack((img, m * 0.5)))
+                            img[:,:,i] = color_mask[i]
+                        ax.imshow(np.dstack( (img, m*0.5) ))
                 if 'keypoints' in ann and type(ann['keypoints']) == list:
                     # turn skeleton into zero-based index
-                    sks = np.array(self.loadCats(ann['category_id'])[0]['skeleton']) - 1
+                    sks = np.array(self.loadCats(ann['category_id'])[0]['skeleton'])-1
                     kp = np.array(ann['keypoints'])
                     x = kp[0::3]
                     y = kp[1::3]
                     v = kp[2::3]
                     for sk in sks:
-                        if np.all(v[sk] > 0):
-                            plt.plot(x[sk], y[sk], linewidth=3, color=c)
-                    plt.plot(x[v > 0],
-                             y[v > 0],
-                             'o',
-                             markersize=8,
-                             markerfacecolor=c,
-                             markeredgecolor='k',
-                             markeredgewidth=2)
-                    plt.plot(x[v > 1],
-                             y[v > 1],
-                             'o',
-                             markersize=8,
-                             markerfacecolor=c,
-                             markeredgecolor=c,
-                             markeredgewidth=2)
+                        if np.all(v[sk]>0):
+                            plt.plot(x[sk],y[sk], linewidth=3, color=c)
+                    plt.plot(x[v>0], y[v>0],'o',markersize=8, markerfacecolor=c, markeredgecolor='k',markeredgewidth=2)
+                    plt.plot(x[v>1], y[v>1],'o',markersize=8, markerfacecolor=c, markeredgecolor=c, markeredgewidth=2)
             p = PatchCollection(polygons, facecolor=color, linewidths=0, alpha=0.4)
             ax.add_collection(p)
             p = PatchCollection(polygons, facecolor='none', edgecolors=color, linewidths=2)
@@ -472,33 +453,31 @@ class COCO:
         res = COCO()
         res.dataset['images'] = [img for img in self.dataset['images']]
 
-        print('Loading and preparing results...')
         tic = time.time()
-        if type(resFile) == str:  #or type(resFile) == unicode:
+        if type(resFile) == str: #or type(resFile) == unicode:
             anns = json.load(open(resFile))
         elif type(resFile) == np.ndarray:
             anns = self.loadNumpyAnnotations(resFile)
         else:
             anns = resFile
-
-        #assert type(anns) == list, 'results in not an array of objects'
-        #annsImgIds = [ann['image_id'] for ann in anns]
-        #assert set(annsImgIds) == (set(annsImgIds) & set(self.getImgIds())), \
-        #       'Results do not correspond to current coco set'
+        assert type(anns) == list, 'results in not an array of objects'
+        annsImgIds = [ann['image_id'] for ann in anns]
+        assert set(annsImgIds) == (set(annsImgIds) & set(self.getImgIds())), \
+               'Results do not correspond to current coco set'
         if 'caption' in anns[0]:
             imgIds = set([img['id'] for img in res.dataset['images']]) & set([ann['image_id'] for ann in anns])
             res.dataset['images'] = [img for img in res.dataset['images'] if img['id'] in imgIds]
             for id, ann in enumerate(anns):
-                ann['id'] = id + 1
+                ann['id'] = id+1
         elif 'bbox' in anns[0] and not anns[0]['bbox'] == []:
             res.dataset['categories'] = copy.deepcopy(self.dataset['categories'])
             for id, ann in enumerate(anns):
                 bb = ann['bbox']
-                x1, x2, y1, y2 = [bb[0], bb[0] + bb[2], bb[1], bb[1] + bb[3]]
+                x1, x2, y1, y2 = [bb[0], bb[0]+bb[2], bb[1], bb[1]+bb[3]]
                 if not 'segmentation' in ann:
                     ann['segmentation'] = [[x1, y1, x1, y2, x2, y2, x2, y1]]
-                ann['area'] = bb[2] * bb[3]
-                ann['id'] = id + 1
+                ann['area'] = bb[2]*bb[3]
+                ann['id'] = id+1
                 ann['iscrowd'] = 0
         elif 'segmentation' in anns[0]:
             res.dataset['categories'] = copy.deepcopy(self.dataset['categories'])
@@ -507,7 +486,7 @@ class COCO:
                 ann['area'] = maskUtils.area(ann['segmentation'])
                 if not 'bbox' in ann:
                     ann['bbox'] = maskUtils.toBbox(ann['segmentation'])
-                ann['id'] = id + 1
+                ann['id'] = id+1
                 ann['iscrowd'] = 0
         elif 'keypoints' in anns[0]:
             res.dataset['categories'] = copy.deepcopy(self.dataset['categories'])
@@ -515,17 +494,16 @@ class COCO:
                 s = ann['keypoints']
                 x = s[0::3]
                 y = s[1::3]
-                x0, x1, y0, y1 = np.min(x), np.max(x), np.min(y), np.max(y)
-                ann['area'] = (x1 - x0) * (y1 - y0)
+                x0,x1,y0,y1 = np.min(x), np.max(x), np.min(y), np.max(y)
+                ann['area'] = (x1-x0)*(y1-y0)
                 ann['id'] = id + 1
-                ann['bbox'] = [x0, y0, x1 - x0, y1 - y0]
-        print('DONE (t={:0.2f}s)'.format(time.time() - tic))
+                ann['bbox'] = [x0,y0,x1-x0,y1-y0]
 
         res.dataset['annotations'] = anns
         res.createIndex()
         return res
 
-    def download(self, tarDir=None, imgIds=[]):
+    def download(self, tarDir = None, imgIds = [] ):
         '''
         Download COCO images from mscoco.org server.
         :param tarDir (str): COCO results directory name
@@ -533,7 +511,6 @@ class COCO:
         :return:
         '''
         if tarDir is None:
-            print('Please specify target directory')
             return -1
         if len(imgIds) == 0:
             imgs = self.imgs.values()
@@ -547,7 +524,6 @@ class COCO:
             fname = os.path.join(tarDir, img['file_name'])
             if not os.path.exists(fname):
                 urlretrieve(img['coco_url'], fname)
-            print('downloaded {}/{} images (t={:0.1f}s)'.format(i, N, time.time() - tic))
 
     def loadNumpyAnnotations(self, data):
         """
@@ -555,19 +531,22 @@ class COCO:
         :param  data (numpy.ndarray)
         :return: annotations (python nested list)
         """
-        print('Converting ndarray to lists...')
-        print('data shape', data.shape)
-        N = data.shape[0]
+        assert(type(data) == np.ndarray)
+
+        data = data[0]
+        #assert(data.shape[1] == 7)
+        N = len(data) #data.shape[0]
         ann = []
+
         for i in range(N):
-            m = len(data[i])
-            for j in range(m):
-                ann += [{
-                    'image_id': int(data[i][j][0]),
-                    'bbox': [data[i][j][1], data[i][j][2], data[i][j][3], data[i][j][4]],
-                    'score': data[i][j][5],
-                    'category_id': int(data[i][j][6]),
+            ann += [{
+                'image_id'  : int(data[i][0]),
+                'bbox'  : [ data[i][1], data[i][2], data[i][3], data[i][4] ],
+                'score' : data[i][5],
+                'category_id': int(data[i][6]),
                 }]
+
+        #import pdb; pdb.set_trace()        
         return ann
 
     def annToRLE(self, ann):
