@@ -9,8 +9,8 @@ from functools import wraps
 from types import TracebackType
 from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Sequence, Tuple, Type, Union
 
-from composer.profiler.json_trace import JSONTraceHandler
 from composer.profiler._profiler_action import ProfilerAction
+from composer.profiler.json_trace import JSONTraceHandler
 from composer.utils import dist, run_directory
 
 if TYPE_CHECKING:
