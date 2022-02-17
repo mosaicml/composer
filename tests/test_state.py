@@ -7,12 +7,11 @@ import torch
 import torch.nn.functional as F
 from torch.functional import Tensor
 
-from composer.algorithms.dummy import DummyHparams
+from composer.algorithms import ChannelsLastHparams
 from composer.core import DataSpec, State, types
-from composer.core.state import DIRECT_SERIALIZATION_FIELDS, SKIP_SERIALIZATION_FIELDS, STATE_DICT_SERIALIZATION_FIELDS
 from composer.datasets.dataloader import DataloaderHparams
 from composer.datasets.hparams import DatasetHparams
-from composer.models.base import BaseMosaicModel
+from composer.models.base import ComposerModel
 from composer.trainer import deepspeed
 from tests.fixtures.models import SimpleBatchPairModel
 
@@ -21,31 +20,23 @@ def random_tensor(size=(4, 10)):
     return torch.rand(*size)
 
 
-def get_dummy_state(model: BaseMosaicModel, train_dataloader: types.DataLoader, val_dataloader: types.DataLoader):
+def get_dummy_state(model: ComposerModel, train_dataloader: types.DataLoader, val_dataloader: types.DataLoader):
     optimizers = torch.optim.Adadelta(model.parameters())
 
+    evaluators = [types.Evaluator(label="dummy_label", dataloader=val_dataloader, metrics=model.metrics(train=False))]
     state = State(model=model,
                   grad_accum=random.randint(0, 100),
                   precision=types.Precision.AMP,
                   max_duration=f"{random.randint(0, 100)}ep",
                   train_dataloader=train_dataloader,
-                  eval_dataloader=val_dataloader,
+                  evaluators=evaluators,
                   optimizers=optimizers,
                   schedulers=torch.optim.lr_scheduler.StepLR(optimizers, step_size=3),
-                  algorithms=[DummyHparams().initialize_object()])
+                  algorithms=[ChannelsLastHparams().initialize_object()])
     state.loss = random_tensor()
     state.batch = (random_tensor(), random_tensor())
     state.outputs = random_tensor()
     return state
-
-
-def is_field_serialized(field_name: str) -> bool:
-    if field_name in STATE_DICT_SERIALIZATION_FIELDS or field_name in DIRECT_SERIALIZATION_FIELDS:
-        return True
-    elif field_name in SKIP_SERIALIZATION_FIELDS:
-        return False
-    else:
-        raise RuntimeError(f"Serialization method for field {field_name} not specified")
 
 
 def assert_state_equivalent(state1: State, state2: State):
@@ -59,7 +50,7 @@ def assert_state_equivalent(state1: State, state2: State):
     ]
 
     for field_name in state1.__dict__.keys():
-        if field_name in IGNORE_FIELDS or not is_field_serialized(field_name):
+        if field_name in IGNORE_FIELDS or field_name.lstrip("_") not in state1.serialized_attributes:
             continue
 
         var1 = getattr(state1, field_name)
@@ -101,10 +92,9 @@ def get_batch(dataset_hparams: DatasetHparams, dataloader_hparams: DataloaderHpa
     raise RuntimeError("No batch in dataloader")
 
 
-def test_state_serialize(tmpdir: pathlib.Path, dummy_model: BaseMosaicModel,
-                         dummy_dataloader_hparams: DataloaderHparams, dummy_train_dataset_hparams: DatasetHparams,
-                         dummy_train_dataloader: types.DataLoader, dummy_val_dataset_hparams: DatasetHparams,
-                         dummy_val_dataloader: types.DataLoader):
+def test_state_serialize(tmpdir: pathlib.Path, dummy_model: ComposerModel, dummy_dataloader_hparams: DataloaderHparams,
+                         dummy_train_dataset_hparams: DatasetHparams, dummy_train_dataloader: types.DataLoader,
+                         dummy_val_dataset_hparams: DatasetHparams, dummy_val_dataloader: types.DataLoader):
 
     assert isinstance(dummy_model, SimpleBatchPairModel)
 

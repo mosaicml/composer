@@ -4,10 +4,8 @@ import pytest
 import torch
 
 from composer.algorithms import CutOutHparams
-from composer.algorithms.cutout.cutout import generate_mask
+from composer.algorithms.cutout.cutout import _generate_mask
 from composer.core.types import Event, Tensor
-from composer.trainer.trainer_hparams import TrainerHparams
-from tests.utils.trainer_fit import train_model
 
 
 def _is_square(cutout_box: Tensor) -> bool:
@@ -60,6 +58,7 @@ def tensor_sizes(request):
 # cutout_length=1 won't 0 out (no box is valid)
 # cutout_length=3 should produce 2x2 box due to floor division except when boundary clipping
 # cutout_length=4 should produce 4x4 box due except when boundary clipping
+# cutout_length=0.5 should produce a box with half the side length of the input
 @pytest.fixture(params=[1, 3, 4])
 def cutout_length(request):
     return request.param
@@ -77,7 +76,7 @@ def test_cutout_mask(tensor_sizes, cutout_length, anchors):
     x, y = anchors
 
     test_mask = torch.ones(tensor_sizes)
-    test_mask = generate_mask(mask=test_mask, width=width, height=height, x=x, y=y, cutout_length=cutout_length)
+    test_mask = _generate_mask(mask=test_mask, width=width, height=height, x=x, y=y, cutout_length=cutout_length)
 
     check_box(batch_size, channels, test_mask)
 
@@ -86,8 +85,8 @@ def test_cutout_mask(tensor_sizes, cutout_length, anchors):
 @pytest.mark.parametrize('channels', [1, 4])
 @pytest.mark.parametrize('height', [32, 64])
 @pytest.mark.parametrize('width', [32, 71])
-@pytest.mark.parametrize('cutout_length', [16, 23])
-def test_cutout_algorithm(batch_size, channels, height, width, cutout_length, dummy_logger, dummy_state):
+@pytest.mark.parametrize('cutout_length', [16, 23, 0.25, 0.5])
+def test_cutout_algorithm(batch_size, channels, height, width, cutout_length, empty_logger, minimal_state):
 
     # Initialize input tensor
     #   - Add bias to prevent 0. pixels, causes check_box() to fail since based on search for 0's
@@ -96,15 +95,10 @@ def test_cutout_algorithm(batch_size, channels, height, width, cutout_length, du
 
     # Fix cutout_n_holes=1, mask generation is additive and box validation isn't smart enough to detect multiple/coalesced boxes
     algorithm = CutOutHparams(n_holes=1, length=cutout_length).initialize_object()
-    state = dummy_state
+    state = minimal_state
     state.batch = (input, torch.Tensor())
 
-    algorithm.apply(Event.AFTER_DATALOADER, state, dummy_logger)
+    algorithm.apply(Event.AFTER_DATALOADER, state, empty_logger)
 
     input, _ = state.batch
     check_box(batch_size, channels, input)
-
-
-def test_cutout_trains(mosaic_trainer_hparams: TrainerHparams):
-    mosaic_trainer_hparams.algorithms = [CutOutHparams(n_holes=1, length=4)]
-    train_model(mosaic_trainer_hparams)

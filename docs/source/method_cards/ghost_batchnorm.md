@@ -58,8 +58,5 @@ As a general rule, combining multiple regularization-based methods yields dimini
 .. autoclass:: composer.algorithms.ghost_batchnorm.GhostBatchNorm
     :members: match, apply
     :noindex:
-.. autoclass:: composer.algorithms.ghost_batchnorm.GhostBatchNormHparams
-    :noindex:
 .. autofunction:: composer.algorithms.ghost_batchnorm.apply_ghost_batchnorm
     :noindex:
-```

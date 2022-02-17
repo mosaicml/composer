@@ -8,7 +8,7 @@ import yahp as hp
 from composer.models.transformer_hparams import TransformerHparams
 
 if TYPE_CHECKING:
-    from composer.models.transformer_shared import MosaicTransformer
+    from composer.models.transformer_shared import ComposerTransformer
 
 
 @dataclass
@@ -19,12 +19,13 @@ class BERTForClassificationHparams(TransformerHparams):
         if self.num_labels < 1:
             raise ValueError("The number of target labels must be at least one.")
 
-    def initialize_object(self) -> "MosaicTransformer":
+    def initialize_object(self) -> "ComposerTransformer":
         try:
             import transformers
         except ImportError as e:
-            raise ImportError('transformers is not installed. '
-                              'Please install with `pip install mosaicml-composer[nlp]`') from e
+            raise ImportError(
+                'Composer was installed without NLP support. To use BERT with Composer, run: `pip install mosaicml[nlp]`.'
+            ) from e
 
         from composer.models.bert.model import BERTModel
         self.validate()
@@ -57,12 +58,13 @@ class BERTForClassificationHparams(TransformerHparams):
 @dataclass
 class BERTHparams(TransformerHparams):
 
-    def initialize_object(self) -> "MosaicTransformer":
+    def initialize_object(self) -> "ComposerTransformer":
         try:
             import transformers
         except ImportError as e:
-            raise ImportError('transformers is not installed. '
-                              'Please install with `pip install mosaicml-composer[nlp]`') from e
+            raise ImportError(
+                'Composer was installed without NLP support. To use BERT with Composer, run: `pip install mosaicml[nlp]`.'
+            ) from e
 
         from composer.models.bert.model import BERTModel
         self.validate()

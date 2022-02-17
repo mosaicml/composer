@@ -17,8 +17,8 @@ from composer.core.types import DataSpec
 from composer.datasets.hparams import DatasetHparams, SyntheticHparamsMixin
 from composer.datasets.imagenet import IMAGENET_CHANNEL_MEAN, IMAGENET_CHANNEL_STD
 from composer.datasets.synthetic import SyntheticBatchPairDataset
+from composer.datasets.utils import NormalizationFn, pil_image_collate
 from composer.utils import dist
-from composer.utils.data import NormalizationFn, pil_image_collate
 
 
 class RandomResizePair(torch.nn.Module):
@@ -249,9 +249,8 @@ class ADE20kDatasetHparams(DatasetHparams, SyntheticHparamsMixin):
         min_resize_scale (float): the minimum value the samples can be rescaled. Default is 0.5.
         max_resize_scale (float): the maximum value the samples can be rescaled. Default is 2.0.
         final_size (int): the final size of the image and target. Default is 512.
-        ignore_background (bool): if true, ignore the background class when calculating the training loss. 
+        ignore_background (bool): if true, ignore the background class when calculating the training loss.
             Default is true.
-
     """
 
     split: str = hp.optional("Which split of the dataset to use. Either ['train', 'val', 'test']", default='train')
@@ -315,8 +314,7 @@ class ADE20kDatasetHparams(DatasetHparams, SyntheticHparamsMixin):
                 r_mean, g_mean, b_mean = IMAGENET_CHANNEL_MEAN
                 image_transforms = torch.nn.Sequential(
                     PhotometricDistoration(brightness=32. / 255, contrast=0.5, saturation=0.5, hue=18. / 255),
-                    PadToSize(size=(self.final_size, self.final_size),
-                              fill=(int(r_mean * 255), int(g_mean * 255), int(b_mean * 255))))
+                    PadToSize(size=(self.final_size, self.final_size), fill=(int(r_mean), int(g_mean), int(b_mean))))
 
                 target_transforms = PadToSize(size=(self.final_size, self.final_size), fill=0)
             else:

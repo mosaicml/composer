@@ -26,7 +26,6 @@ class ClosureGradScaler(GradScaler):
         ddp_reduce_tensor_sum (Callable[[Tensor], Tensor]): A function that performs
             a ddp reduction across tensors with a `sum` operation. Used to aggregate
             `inf/nan` information stored in tensors across devices.
-
     """
 
     def _force_scaler_ready(self, optimizer: Optimizer):
@@ -56,9 +55,8 @@ class ClosureGradScaler(GradScaler):
     def step(self, optimizer: Optimizer, *args, **kwargs):
         """Step the optimizer with amp.
 
-        Always called before the optimizer step.
-        Checks if the optimizer can handle AMP closures (currently only MosaicML's SAM optimizer)
-        If so, it passes an AMP-modified closure to the optimizer.
+        Always called before the optimizer step. Checks if the optimizer can handle AMP closures (currently only
+        Composer's SAM optimizer) If so, it passes an AMP-modified closure to the optimizer.
         """
 
         closure = kwargs["closure"]

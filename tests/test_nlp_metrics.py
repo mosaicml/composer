@@ -12,8 +12,7 @@ from composer.models.nlp_metrics import BinaryF1Score, CrossEntropyLoss, MaskedA
 @pytest.mark.parametrize("ignore_index", [-100])
 @pytest.mark.parametrize("num_classes", [2, 3, 4, 5])
 def test_masked_accuracy(ignore_index, num_classes):
-    """
-    Sanity check to make sure that masked accuracy has reasonable performance.
+    """Sanity check to make sure that masked accuracy has reasonable performance.
 
     Generates random targets and labels, and then ensures that the random targets and labels
     must hit at-chance accuracy.
@@ -51,8 +50,7 @@ def test_masked_accuracy(ignore_index, num_classes):
 @pytest.mark.parametrize("minibatch_size", [56, 256, 768])
 def test_cross_entropy(batch_size: float, ignore_index: int, sequence_length: int, num_classes: int,
                        minibatch_size: int):
-    """
-    Sanity check to make sure that batched CrossEntropyLoss matches the expected performance.
+    """Sanity check to make sure that batched CrossEntropyLoss matches the expected performance.
 
     Generates a predicted distribution from a normal distribution, and a ground truth from a normal distribution.
     Verifies Cross Entropy Loss against the baseline performance.
@@ -94,8 +92,7 @@ def test_cross_entropy(batch_size: float, ignore_index: int, sequence_length: in
 @pytest.mark.parametrize("batch_size", [1e2, 1e3, 1e4])
 @pytest.mark.parametrize("minibatch_size", [256, 768])
 def test_binary_f1(batch_size, minibatch_size):
-    """
-    Sanity check to make sure that BinaryF1 TorchMetrics implementation matches the sklearn implementation.
+    """Sanity check to make sure that BinaryF1 TorchMetrics implementation matches the sklearn implementation.
 
     Generates a predicted set of labels, and a random set, and compares the resultant Binary F1 score.
 
@@ -103,10 +100,8 @@ def test_binary_f1(batch_size, minibatch_size):
         batch_size (int): how many samples are in each batch
         minibatch_size (int): the minibatch size to simulate for model predictions
     """
-    try:
-        from sklearn.metrics import f1_score
-    except ImportError:
-        pytest.xfail("Sklearn is not installed.")
+    pytest.importorskip("sklearn", reason="sklearn is an optional dependency")
+    from sklearn.metrics import f1_score
 
     batch_size = int(batch_size)
 

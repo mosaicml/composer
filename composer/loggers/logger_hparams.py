@@ -1,30 +1,29 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
-"""Logger Hyperparameters"""
+"""Logger Hyperparameters."""
 from __future__ import annotations
 
+import copy
 from abc import ABC, abstractmethod
 from dataclasses import asdict, dataclass
 from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
 import yahp as hp
 
-from composer.core.logging import BaseLoggerBackend, LogLevel
+from composer.core.logging import LoggerCallback, LogLevel
 from composer.core.types import JSON
-from composer.loggers.mosaicml_logger import RunType
+from composer.loggers.in_memory_logger import InMemoryLogger
 from composer.utils import dist
 
 if TYPE_CHECKING:
-    from composer.loggers.file_logger import FileLoggerBackend
-    from composer.loggers.mosaicml_logger import MosaicMLLoggerBackend
-    from composer.loggers.tqdm_logger import TQDMLoggerBackend
-    from composer.loggers.wandb_logger import WandBLoggerBackend
+    from composer.loggers.file_logger import FileLogger
+    from composer.loggers.tqdm_logger import TQDMLogger
+    from composer.loggers.wandb_logger import WandBLogger
 
 
 @dataclass
-class BaseLoggerBackendHparams(hp.Hparams, ABC):
-    """
-    Base class for logger backend hyperparameters.
+class LoggerCallbackHparams(hp.Hparams, ABC):
+    """Base class for logger backend hyperparameters.
 
     Logger parameters that are added to
     :class:`~composer.trainer.trainer_hparams.TrainerHparams`
@@ -32,7 +31,7 @@ class BaseLoggerBackendHparams(hp.Hparams, ABC):
     """
 
     @abstractmethod
-    def initialize_object(self, config: Optional[Dict[str, Any]] = None) -> BaseLoggerBackend:
+    def initialize_object(self, config: Optional[Dict[str, Any]] = None) -> LoggerCallback:
         """Initializes the logger.
 
         Args:
@@ -43,11 +42,11 @@ class BaseLoggerBackendHparams(hp.Hparams, ABC):
 
 
 @dataclass
-class FileLoggerBackendHparams(BaseLoggerBackendHparams):
-    """:class:`~composer.loggers.file_logger.FileLoggerBackend`
+class FileLoggerHparams(LoggerCallbackHparams):
+    """:class:`~composer.loggers.file_logger.FileLogger`
     hyperparameters.
 
-    See :class:`~composer.loggers.file_logger.FileLoggerBackend`
+    See :class:`~composer.loggers.file_logger.FileLogger`
     for documentation.
     """
     log_level: LogLevel = hp.optional("The maximum verbosity to log. Default: EPOCH", default=LogLevel.EPOCH)
@@ -65,19 +64,20 @@ class FileLoggerBackendHparams(BaseLoggerBackendHparams):
         "Defaults to 1 (record all messages).",
         default=1)
 
-    def initialize_object(self, config: Optional[Dict[str, Any]] = None) -> FileLoggerBackend:
+    def initialize_object(self, config: Optional[Dict[str, Any]] = None) -> FileLogger:
 
-        from composer.loggers.file_logger import FileLoggerBackend
-        return FileLoggerBackend(**asdict(self), config=config)
+        from composer.loggers.file_logger import FileLogger
+        return FileLogger(**asdict(self), config=config)
 
 
 @dataclass
-class WandBLoggerBackendHparams(BaseLoggerBackendHparams):
-    """:class:`~composer.loggers.wandb_logger.WandBLoggerBackend`
+class WandBLoggerHparams(LoggerCallbackHparams):
+    """:class:`~composer.loggers.wandb_logger.WandBLogger`
     hyperparameters.
 
     Args:
         project (str, optional): Weights and Biases project name.
+        group (str, optional): Weights and Biases group name.
         name (str, optional): Weights and Biases run name.
         entity (str, optional): Weights and Biases entity name.
         tags (str, optional): Comma-seperated list of tags to add to the run.
@@ -89,15 +89,20 @@ class WandBLoggerBackendHparams(BaseLoggerBackendHparams):
     """
 
     project: Optional[str] = hp.optional(doc="wandb project name", default=None)
-    name: Optional[str] = hp.optional(doc="wandb group name", default=None)
+    group: Optional[str] = hp.optional(doc="wandb group name", default=None)
+    name: Optional[str] = hp.optional(doc="wandb run name", default=None)
     entity: Optional[str] = hp.optional(doc="wandb entity", default=None)
     tags: str = hp.optional(doc="wandb tags comma separated", default="")
     log_artifacts: bool = hp.optional(doc="Whether to log artifacts", default=False)
     log_artifacts_every_n_batches: int = hp.optional(doc="interval, in batches, to log artifacts", default=100)
     rank_zero_only: bool = hp.optional("Whether to log on rank zero only", default=False)
     extra_init_params: Dict[str, JSON] = hp.optional(doc="wandb parameters", default_factory=dict)
+    flatten_hparams: bool = hp.optional(
+        doc=
+        "Whether the hparams dictionary should be flattened before uploading to WandB. This can make nested fields easier to visualize and query",
+        default=False)
 
-    def initialize_object(self, config: Optional[Dict[str, Any]] = None) -> WandBLoggerBackend:
+    def initialize_object(self, config: Optional[Dict[str, Any]] = None) -> WandBLogger:
         """Initializes the logger.
 
         The ``config`` is flattened and stored as :attr:`wandb.run.config`.
@@ -108,40 +113,14 @@ class WandBLoggerBackendHparams(BaseLoggerBackendHparams):
                 The configuration used by the trainer.
 
         Returns:
-            WandBLoggerBackend: An instance of :class:`~composer.loggers.wandb_logger.WandBLoggerBackend`.
+            WandBLogger: An instance of :class:`~composer.loggers.wandb_logger.WandBLogger`.
         """
         tags = list(set([x.strip() for x in self.tags.split(",") if x.strip() != ""]))
 
         if config is not None:
-            if "algorithms" in config:
-                algos_dict_list = config.get("algorithms", [])
-                algorithm_names = []
-                for algo_dict in algos_dict_list:
-                    if len(algo_dict.keys()) != 0:
-                        algorithm_names.append(list(algo_dict.keys())[0])
-
-                tags += algorithm_names
-                algorithms_str = "-".join(algorithm_names)
-                config["algorithms_str"] = algorithms_str
-
-                # TODO(@averylamp): Remove special algos config columns after data_collection
-                # This format is to keep runs standardized for data collection runs
-                for algo in algos_dict_list:  # type: ignore
-                    for algo_name, algo_params in algo.items():
-                        for param_name, param_value in algo_params.items():
-                            name = ".".join(["algo", algo_name, param_name])
-                            config[name] = param_value
-
-            if "model" in config:
-                model_dict = config.get("model", {"unknown": None})
-                model_name = "unknown"
-                if len(model_dict) == 1:
-                    model_name = list(model_dict.keys())[0]
-                config["model"] = model_name
 
             def get_flattened_dict(data: Dict[str, Any], _prefix: List[str] = []) -> Dict[str, Any]:
-                """
-                Flattens a dictionary with list or sub dicts to have dot syntax
+                """Flattens a dictionary with list or sub dicts to have dot syntax.
 
                 i.e. {
                   "sub_dict":{
@@ -174,30 +153,42 @@ class WandBLoggerBackendHparams(BaseLoggerBackendHparams):
                             if isinstance(item, dict):
                                 found_sub_dicts = True
                                 for sub_key, sub_val in item.items():
-                                    all_items.update(get_flattened_dict(sub_val, key_items + [sub_key]))
+                                    if isinstance(sub_val, dict):
+                                        all_items.update(get_flattened_dict(sub_val, key_items + [sub_key]))
+                                    else:
+                                        all_items.update({sub_key: sub_val})
                         if not found_sub_dicts:
                             all_items[key_name] = val
                     else:
                         all_items[key_name] = val
                 return all_items
 
-            flattened_config = get_flattened_dict(data=config)
+            # extra_init_params may be in ``config`` already. Copy it so we don't get recursive dicts.
+            self.extra_init_params = copy.deepcopy(self.extra_init_params)
+            if self.flatten_hparams:
+                config = get_flattened_dict(data=config)
             if "config" not in self.extra_init_params:
                 self.extra_init_params["config"] = {}
-            self.extra_init_params["config"].update(flattened_config)  # type: ignore
+            if not isinstance(self.extra_init_params["config"], dict):
+                raise TypeError(
+                    f"'config' passed to WandB ``extra_init_params`` must be a dictionary. Got {type(self.extra_init_params['config'])}"
+                )
+            self.extra_init_params["config"].update(config)
 
+        name_suffix = f"Rank {dist.get_global_rank()}"
+        name = f"{self.name}_{name_suffix}" if self.name else name_suffix
+        group = self.name if (not self.group and self.rank_zero_only) else self.group
         init_params = {
             "project": self.project,
-            "name": f"Rank {dist.get_global_rank()}",
-            "group": self.name,
+            "name": name,
+            "group": group,
             "entity": self.entity,
             "tags": tags,
         }
-
         init_params.update(self.extra_init_params)
 
-        from composer.loggers.wandb_logger import WandBLoggerBackend
-        return WandBLoggerBackend(
+        from composer.loggers.wandb_logger import WandBLogger
+        return WandBLogger(
             log_artifacts=self.log_artifacts,
             rank_zero_only=self.rank_zero_only,
             log_artifacts_every_n_batches=self.log_artifacts_every_n_batches,
@@ -206,46 +197,28 @@ class WandBLoggerBackendHparams(BaseLoggerBackendHparams):
 
 
 @dataclass
-class TQDMLoggerBackendHparams(BaseLoggerBackendHparams):
-    """:class:`~composer.loggers.tqdm_logger.TQDMLoggerBackend`
+class TQDMLoggerHparams(LoggerCallbackHparams):
+    """:class:`~composer.loggers.tqdm_logger.TQDMLogger`
     hyperparameters.
 
-    See :class:`~composer.loggers.tqdm_logger.TQDMLoggerBackend`
+    See :class:`~composer.loggers.tqdm_logger.TQDMLogger`
     for documentation.
     """
 
-    def initialize_object(self, config: Optional[Dict[str, Any]] = None) -> TQDMLoggerBackend:
-        from composer.loggers.tqdm_logger import TQDMLoggerBackend
-        return TQDMLoggerBackend(config=config)
+    def initialize_object(self, config: Optional[Dict[str, Any]] = None) -> TQDMLogger:
+        from composer.loggers.tqdm_logger import TQDMLogger
+        return TQDMLogger(config=config)
 
 
 @dataclass
-class MosaicMLLoggerBackendHparams(BaseLoggerBackendHparams):
-    """:class:`~composer.loggers.mosaicml_logger.MosaicMLLoggerBackend`
+class InMemoryLoggerHaparms(LoggerCallbackHparams):
+    """:class:`~composer.loggers.in_memory_logger.InMemoryLogger`
     hyperparameters.
 
-    See :class:`~composer.loggers.mosaicml_logger.MosaicMLLoggerBackend`
+    See :class:`~composer.loggers.in_memory_logger.InMemoryLogger`
     for documentation.
     """
-    run_name: str = hp.required("The name of the run to write logs for.")
-    run_type: RunType = hp.required("The type of the run.")
-    run_id: Optional[str] = hp.optional(
-        "The name of the run to write logs for. If not provided, a random id "
-        "is created.", default=None)
-    experiment_name: Optional[str] = hp.optional(
-        "The name of the experiment to associate the run with. If "
-        "not provided, a random name is created.",
-        default=None)
-    creds_file: Optional[str] = hp.optional(
-        "A file containing the MosaicML api_key. If not provided "
-        "will default to the environment variable MOSAIC_API_KEY.",
-        default=None)
-    flush_every_n_batches: int = hp.optional("Flush the log data buffer every n batches.", default=100)
-    max_logs_in_buffer: int = hp.optional(
-        "The maximum number of log entries allowed in the buffer "
-        "before a forced flush.", default=1000)
-    log_level: LogLevel = hp.optional("The maximum verbosity to log. Default: EPOCH", default=LogLevel.EPOCH)
+    log_level: LogLevel = hp.optional("The maximum verbosity to log. Default: BATCH", default=LogLevel.BATCH)
 
-    def initialize_object(self, config: Optional[Dict[str, Any]] = None) -> MosaicMLLoggerBackend:
-        from composer.loggers.mosaicml_logger import MosaicMLLoggerBackend
-        return MosaicMLLoggerBackend(**asdict(self), config=config)
+    def initialize_object(self, config: Optional[Dict[str, Any]] = None) -> LoggerCallback:
+        return InMemoryLogger(log_level=self.log_level)

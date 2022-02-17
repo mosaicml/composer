@@ -1,13 +1,13 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
-"""Callback Hyperparameters"""
+"""Callback Hyperparameters."""
 from __future__ import annotations
 
 import abc
 import dataclasses
 import textwrap
-from dataclasses import asdict, dataclass
-from typing import TYPE_CHECKING, List, Optional
+from dataclasses import dataclass
+from typing import TYPE_CHECKING, Optional
 
 import yahp as hp
 
@@ -15,19 +15,17 @@ from composer.core.callback import Callback
 from composer.utils.object_store import ObjectStoreProviderHparams
 
 if TYPE_CHECKING:
-    from composer.callbacks.benchmarker import Benchmarker
     from composer.callbacks.grad_monitor import GradMonitor
     from composer.callbacks.lr_monitor import LRMonitor
     from composer.callbacks.memory_monitor import MemoryMonitor
     from composer.callbacks.run_directory_uploader import RunDirectoryUploader
     from composer.callbacks.speed_monitor import SpeedMonitor
-    from composer.callbacks.torch_profiler import TorchProfiler
 
 
 @dataclass
 class CallbackHparams(hp.Hparams, abc.ABC):
     """Base class for callback hyperparameters.
-    
+
     Callback parameters that are added to
     :attr:`composer.trainer.trainer_hparams.TrainerHparams.callbacks`
     (e.g. via YAML or the CLI) are initialized in the training loop.
@@ -41,39 +39,6 @@ class CallbackHparams(hp.Hparams, abc.ABC):
             Callback: An instance of the callback.
         """
         pass
-
-
-@dataclass
-class BenchmarkerHparams(CallbackHparams):
-    """:class:`~composer.callbacks.benchmarker.Benchmarker` hyperparameters.
-
-    See :class:`~composer.callbacks.benchmarker.Benchmarker` for documentation.
-    """
-    min_steps: int = hp.optional(
-        doc="Minimum number of steps to use for measuring throughput.",
-        default=50,
-    )
-    epoch_list: List[int] = hp.optional(
-        doc="List of epochs at which to measure throughput.",
-        default_factory=lambda: [0, 1],
-    )
-    step_list: List[int] = hp.optional(
-        doc="List of steps at which to measure throughput.",
-        default_factory=lambda: [0, 50],
-    )
-    all_epochs: bool = hp.optional(
-        doc="If true, override epoch_list and profile at all epochs.",
-        default=False,
-    )
-
-    def initialize_object(self) -> Benchmarker:
-        from composer.callbacks.benchmarker import Benchmarker
-        return Benchmarker(
-            min_steps=self.min_steps,
-            epoch_list=self.epoch_list,
-            step_list=self.step_list,
-            all_epochs=self.all_epochs,
-        )
 
 
 @dataclass
@@ -134,39 +99,14 @@ class SpeedMonitorHparams(CallbackHparams):
 
 
 @dataclass
-class TorchProfilerHparams(CallbackHparams):
-    """:class:`~composer.callbacks.torch_profiler.TorchProfiler` hyperparameters.
-
-    See :class:`~composer.callbacks.torch_profiler.TorchProfiler` for documentation.
-    """
-
-    tensorboard_trace_handler_dir: str = hp.optional(
-        "directory to store trace results. Relative to the run directory, if set.", default="torch_profiler")
-    tensorboard_use_gzip: bool = hp.optional("Whether to use gzip for trace", default=False)
-    record_shapes: bool = hp.optional(doc="Whether to record tensor shapes", default=True)
-    profile_memory: bool = hp.optional(doc="track tensor memory allocations and frees", default=False)
-    with_stack: bool = hp.optional(doc="record stack info", default=True)
-    with_flops: bool = hp.optional(doc="estimate flops for operators", default=True)
-
-    skip: int = hp.optional("Number of batches to skip at epoch start", default=0)
-    warmup: int = hp.optional("Number of warmup batches in a cycle", default=1)
-    active: int = hp.optional("Number of batches to profile in a cycle", default=5)
-    wait: int = hp.optional("Number of batches to skip at the end of each cycle", default=0)
-    repeat: int = hp.optional("Maximum number of profiling cycle repetitions per epoch (0 for no maximum)", default=0)
-
-    def initialize_object(self) -> TorchProfiler:
-        from composer.callbacks.torch_profiler import TorchProfiler
-        return TorchProfiler(**asdict(self))
-
-
-@dataclass
-class RunDirectoryUploaderHparams(ObjectStoreProviderHparams, CallbackHparams):
+class RunDirectoryUploaderHparams(CallbackHparams, ObjectStoreProviderHparams):
     """:class:`~composer.callbacks.torch_profiler.RunDirectoryUploader` hyperparameters.
 
     See :class:`~composer.callbacks.torch_profiler.RunDirectoryUploader` for documentation.
     """
 
-    object_name_prefix: Optional[str] = hp.optional(textwrap.dedent("""A prefix to prepend to all object keys.
+    object_name_prefix: Optional[str] = hp.optional(textwrap.dedent("""\
+            A prefix to prepend to all object keys.
             An object's key is this prefix combined with its path relative to the run directory.
             If the container prefix is non-empty, a trailing slash ('/') will
             be added if necessary. If not specified, then the prefix defaults to the run directory. To disable prefixing,
@@ -178,10 +118,10 @@ class RunDirectoryUploaderHparams(ObjectStoreProviderHparams, CallbackHparams):
         default=True)
     upload_staging_folder: Optional[str] = hp.optional(
         "Staging folder for uploads. If not specified, will use a temporary directory.", default=None)
-    upload_every_n_batches: int = hp.optional(
-        textwrap.dedent("""Interval at which to scan the run directory for changes and to
+    upload_every_n_batches: int = hp.optional(textwrap.dedent("""\
+            Interval at which to scan the run directory for changes and to
             queue uploads of files. Uploads are also queued at the end of the epoch. Defaults to every 100 batches."""),
-        default=100)
+                                              default=100)
 
     def initialize_object(self) -> RunDirectoryUploader:
         from composer.callbacks.run_directory_uploader import RunDirectoryUploader

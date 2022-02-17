@@ -1,9 +1,14 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
+import random
+import string
 from typing import Callable, Optional, Sequence, Union
 
 import torch
 import torch.utils.data
+from datasets import Dataset
+from PIL import Image
+from torchvision.datasets import VisionDataset
 
 from composer.core.types import MemoryFormat
 from composer.utils.string_enum import StringEnum
@@ -19,6 +24,38 @@ class SyntheticDataLabelType(StringEnum):
     CLASSIFICATION_ONE_HOT = "classification_one_hot"
 
 
+class SyntheticHFDataset:
+    """
+    Creates a synthetic HF dataset and passes it to the preprocessing scripts.
+    """
+
+    def __init__(self, num_samples, chars_per_sample, column_names):
+        if column_names is None or len(column_names) == 0:
+            raise ValueError("There must be at least one column name provided for the final dataset.")
+        self.num_samples = num_samples
+        self.chars_per_sample = chars_per_sample
+        self.column_names = column_names
+
+    def generate_dataset(self):
+        data = {}
+        for column_name in self.column_names:
+            data[column_name] = [self.generate_sample() for _ in range(self.num_samples)]
+
+        hf_synthetic_dataset = Dataset.from_dict(data)
+        return hf_synthetic_dataset
+
+    def generate_sample(self):
+        MIN_WORD_LENGTH = 3
+        MAX_WORD_LENGTH = 10
+        valid_chars = string.ascii_letters + string.digits + string.punctuation + ' '
+
+        sample = ''
+        while len(sample) < self.chars_per_sample:
+            sample_len = random.randint(MIN_WORD_LENGTH, MAX_WORD_LENGTH)
+            sample += ' '.join([random.choice(valid_chars) for _ in range(sample_len)])
+        return sample
+
+
 class SyntheticBatchPairDataset(torch.utils.data.Dataset):
     """Emulates a dataset of provided size and shape.
 
@@ -28,10 +65,10 @@ class SyntheticBatchPairDataset(torch.utils.data.Dataset):
         num_unique_samples_to_create (int): The number of unique samples to allocate memory for.
         data_type (str or SyntheticDataType, optional), Type of synthetic data to create.
         label_type (str or SyntheticDataLabelType, optional), Type of synthetic data to create.
-        num_classes (int, optional): Number of classes to use. Required if `SyntheticDataLabelType`
-            is `CLASSIFICATION_INT` or `CLASSIFICATION_ONE_HOT`. Otherwise, should be `None`.
+        num_classes (int, optional): Number of classes to use. Required if
+            ``SyntheticDataLabelType`` is ``CLASSIFICATION_INT`` or``CLASSIFICATION_ONE_HOT``. Otherwise, should be ``None``.
         label_shape (List[int]): Shape of the tensor for each sample label.
-        device (str): Device to store the sample pool. Set to `cuda` to store samples
+        device (str): Device to store the sample pool. Set to ``cuda`` to store samples
             on the GPU and eliminate PCI-e bandwidth with the dataloader. Set to `cpu`
             to move data between host memory and the gpu on every batch.
         memory_format (MemoryFormat, optional): Memory format for the sample pool.
@@ -125,3 +162,60 @@ class SyntheticBatchPairDataset(torch.utils.data.Dataset):
             return self.transform(self.input_data[idx]), self.input_target[idx]
         else:
             return self.input_data[idx], self.input_target[idx]
+
+
+class SyntheticPILDataset(VisionDataset):
+    """Similar to :class:`SyntheticBatchPairDataset`, but yields samples of type :class:`~Image.Image` and supports
+    dataset transformations.
+
+    Args:
+        total_dataset_size (int): The total size of the dataset to emulate.
+        data_shape (List[int]): Shape of the image for input samples. Default = [64, 64]
+        num_unique_samples_to_create (int): The number of unique samples to allocate memory for.
+        data_type (str or SyntheticDataType, optional), Type of synthetic data to create.
+        label_type (str or SyntheticDataLabelType, optional), Type of synthetic data to create.
+        num_classes (int, optional): Number of classes to use. Required if
+            ``SyntheticDataLabelType`` is ``CLASSIFICATION_INT`` or
+            ``CLASSIFICATION_ONE_HOT``. Otherwise, should be ``None``.
+        label_shape (List[int]): Shape of the tensor for each sample label.
+        transform (Callable): Dataset transforms
+    """
+
+    def __init__(self,
+                 *,
+                 total_dataset_size: int,
+                 data_shape: Sequence[int] = (64, 64, 3),
+                 num_unique_samples_to_create: int = 100,
+                 data_type: Union[str, SyntheticDataType] = SyntheticDataType.GAUSSIAN,
+                 label_type: Union[str, SyntheticDataLabelType] = SyntheticDataLabelType.CLASSIFICATION_INT,
+                 num_classes: Optional[int] = None,
+                 label_shape: Optional[Sequence[int]] = None,
+                 transform: Optional[Callable] = None):
+        super().__init__(root="", transform=transform)
+        self._dataset = SyntheticBatchPairDataset(
+            total_dataset_size=total_dataset_size,
+            data_shape=data_shape,
+            data_type=data_type,
+            num_unique_samples_to_create=num_unique_samples_to_create,
+            label_type=label_type,
+            num_classes=num_classes,
+            label_shape=label_shape,
+        )
+
+    def __len__(self) -> int:
+        return len(self._dataset)
+
+    def __getitem__(self, idx: int):
+        input_data, target = self._dataset[idx]
+
+        input_data = input_data.numpy()
+
+        # Shift and scale to be [0, 255]
+        input_data = (input_data - input_data.min())
+        input_data = (input_data * (255 / input_data.max())).astype("uint8")
+
+        sample = Image.fromarray(input_data)
+        if self.transform is not None:
+            return self.transform(sample), target
+        else:
+            return sample, target

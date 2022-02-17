@@ -2,19 +2,19 @@
 
 from typing import List, Optional
 
-from composer.models.base import MosaicClassifier
+from composer.models.base import ComposerClassifier
 from composer.models.model_hparams import Initializer
 from composer.models.resnets import CIFAR_ResNet
 
 
-class CIFAR10_ResNet56(MosaicClassifier):
-    """A ResNet-56 model extending :class:`MosaicClassifier`.
+class CIFAR10_ResNet56(ComposerClassifier):
+    """A ResNet-56 model extending :class:`ComposerClassifier`.
 
     See this `paper <https://arxiv.org/abs/1512.03385>`_ for details
     on the residual network architecture.
 
     Args:
-        num_classes (int): The number of classes for the model.
+        num_classes (int): The number of classes for the model. Default = 10.
         initializers (List[Initializer], optional): Initializers
             for the model. ``None`` for no initialization.
             (default: ``None``)
@@ -22,7 +22,7 @@ class CIFAR10_ResNet56(MosaicClassifier):
 
     def __init__(
         self,
-        num_classes: int,
+        num_classes: int = 10,
         initializers: Optional[List[Initializer]] = None,
     ) -> None:
         if initializers is None:

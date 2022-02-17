@@ -10,8 +10,7 @@ from composer.models.loss import soft_cross_entropy
 
 
 class MaskedAccuracy(Metric):
-    """
-    Computes accuracy with support for masked indicies.
+    """Computes accuracy with support for masked indicies.
 
     Args:
         ignore_index (int): The class index to ignore.
@@ -209,12 +208,11 @@ class LanguageCrossEntropyLoss(Metric):
 class Perplexity(LanguageCrossEntropyLoss):
     """Subclasses :class:`LanguageCrossEntropyLoss` to implement perplexity.
 
-    If an algorithm modifies the loss function and it is no longer directly
-    provided in the output, then this could be expensive because it'll compute the loss twice.
+    If an algorithm modifies the loss function and it is no longer directly provided in the output, then this could be
+    expensive because it'll compute the loss twice.
     """
 
     def compute(self) -> Tensor:
-        """Returns torch.exp() of the LanguageCrossEntropyLoss.
-        """
+        """Returns torch.exp() of the LanguageCrossEntropyLoss."""
         avg_loss = super().compute()
         return torch.exp(avg_loss)

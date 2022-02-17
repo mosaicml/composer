@@ -1,49 +1,121 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
+"""Utility for uploading to and downloading from cloud object stores."""
 import dataclasses
+import os
 import sys
 import textwrap
 from typing import Any, Dict, Iterator, Optional, Union
 
 import yahp as hp
+from libcloud.storage.providers import get_driver
+
+__all__ = ["ObjectStoreProviderHparams", "ObjectStoreProvider"]
 
 
 @dataclasses.dataclass
 class ObjectStoreProviderHparams(hp.Hparams):
     """:class:`~composer.utils.object_store.ObjectStoreProvider` hyperparameters.
 
+    .. rubric:: Example
+
+    Here's an example on how to connect to an Amazon S3 bucket. This example assumes:
+
+    * The container is named named ``MY_CONTAINER``.
+    * The AWS Access Key ID is stored in an environment variable named ``AWS_ACCESS_KEY_ID``.
+    * The Secret Access Key is in an environmental variable named ``AWS_SECRET_ACCESS_KEY``.
+
+    .. testsetup::
+
+        import os
+        os.environ["AWS_ACCESS_KEY_ID"] = "key"
+        os.environ["AWS_SECRET_ACCESS_KEY"] = "secret"
+
+    .. doctest::
+
+        >>> provider_hparams = ObjectStoreProviderHparams(
+        ...     provider="s3",
+        ...     container="MY_CONTAINER",
+        ...     key_environ="AWS_ACCESS_KEY_ID",
+        ...     secret_environ="AWS_SECRET_ACCESS_KEY",
+        ... )
+        >>> provider = provider_hparams.initialize_object()
+        >>> provider
+        <composer.utils.object_store.ObjectStoreProvider object at ...>
+
     Args:
         provider (str): Cloud provider to use.
 
-            Specify the last part of the Apache Libcloud Module here.
-            `This document <https://libcloud.readthedocs.io/en/stable/storage/supported_providers.html#provider-matrix>`
-            lists all supported providers. For example, the module name for Amazon S3 is `libcloud.storage.drivers.s3`, so
-            to use S3, specify 's3' here.
-
+            See :class:`ObjectStoreProvider` for documentation.
         container (str): The name of the container (i.e. bucket) to use.
-        key (str, optional): API key or username to use to connect to the provider. (default: ``None``)
-        secret (str, optional): API secret to use to connect to the provider.
+        key_environ (str, optional): The name of an environment variable containing the API key or username
+            to use to connect to the provider. If no key is required, then set this field to ``None``.
+            (default: ``None``)
             
-            .. warning::
+            For security reasons, composer requires that the key be specified via an environment variable.
+            For example, if your key is an environment variable called ``OBJECT_STORE_KEY`` that is set to ``MY_KEY``,
+            then you should set this parameter equal to ``OBJECT_STORE_KEY``. Composer will read the key like this:
+            
+            .. testsetup::
+
+                import os
+                import functools
+
+                os.environ["OBJECT_STORE_KEY"] = "MY_KEY"
+                ObjectStoreProviderHparams = functools.partial(ObjectStoreProviderHparams, provider="s3", container="container")
+            
+            .. doctest::
+
+                >>> import os
+                >>> params = ObjectStoreProviderHparams(key_environ="OBJECT_STORE_KEY")
+                >>> key = os.environ[params.key_environ]
+                >>> key
+                'MY_KEY'
+
+        secret_environ (str, optional): The name of an environment variable containing the API secret  or password
+            to use for the provider. If no secret is required, then set this field to ``None``. (default: ``None``)
+
+            For security reasons, composer requires that the secret be specified via an environment variable.
+            For example, if your secret is an environment variable called ``OBJECT_STORE_SECRET`` that is set to ``MY_SECRET``,
+            then you should set this parameter equal to ``OBJECT_STORE_SECRET``. Composer will read the secret like this:
                 
-                For security. do NOT hardcode secrets in code. Instead, please specify via CLI arguments, or even better,
-                environment variables.
-        
+            .. testsetup::
+
+                import os
+                import functools
+                os.environ["OBJECT_STORE_SECRET"] = "MY_SECRET"
+                ObjectStoreProviderHparams = functools.partial(ObjectStoreProviderHparams, provider="s3", container="container")
+
+
+            .. doctest::
+
+                >>> import os
+                >>> params = ObjectStoreProviderHparams(secret_environ="OBJECT_STORE_SECRET")
+                >>> secret = os.environ[params.secret_environ]
+                >>> secret
+                'MY_SECRET'
+
         region (str, optional): Cloud region to use for the cloud provider.
             Most providers do not require the region to be specified. (default: ``None``)
         host (str, optional): Override the hostname for the cloud provider. (default: ``None``)
         port (int, optional): Override the port for the cloud provider. (default: ``None``)
-        extra_init_kwargs (Dict[str, Any], optional): Extra keyword arguments to pass into the constructor for the specified provider.
-            (default: ``None``, which is equivalent to an empty dictionary)
+        extra_init_kwargs (Dict[str, Any], optional): Extra keyword arguments to pass into the constructor
+            for the specified provider. (default: ``None``, which is equivalent to an empty dictionary)
+
+            .. seealso:: :class:`libcloud.storage.base.StorageDriver`
+
     """
 
     provider: str = hp.required("Cloud provider to use.")
     container: str = hp.required("The name of the container (i.e. bucket) to use.")
-    key: Optional[str] = hp.optional("API key or username to use to connect to the provider.", default=None)
-    secret: Optional[str] = hp.optional(textwrap.dedent(
-        """API secret to use to connect to the provider. For security. do NOT hardcode the secret in the YAML.
-Instead, please specify via CLI arguments, or even better, environment variables."""),
-                                        default=None)
+    key_environ: Optional[str] = hp.optional(textwrap.dedent("""\
+        The name of an environment variable containing
+        an API key or username to use to connect to the provider."""),
+                                             default=None)
+    secret_environ: Optional[str] = hp.optional(textwrap.dedent("""\
+        The name of an environment variable containing
+        an API secret or password to use to connect to the provider."""),
+                                                default=None)
     region: Optional[str] = hp.optional("Cloud region to use", default=None)
     host: Optional[str] = hp.optional("Override hostname for connections", default=None)
     port: Optional[int] = hp.optional("Override port for connections", default=None)
@@ -51,11 +123,18 @@ Instead, please specify via CLI arguments, or even better, environment variables
         "Extra keyword arguments to pass into the constructor for the specified provider.", default_factory=dict)
 
     def initialize_object(self):
+        """Returns an instance of :class:`ObjectStoreProvider`.
+
+        Returns:
+            ObjectStoreProvider: The provider.
+        """
         init_kwargs = {}
-        for key in ("key", "secret", "host", "port", "region"):
+        for key in ("host", "port", "region"):
             kwarg = getattr(self, key)
             if getattr(self, key) is not None:
                 init_kwargs[key] = kwarg
+        init_kwargs["key"] = None if self.key_environ is None else os.environ[self.key_environ]
+        init_kwargs["secret"] = None if self.secret_environ is None else os.environ[self.secret_environ]
         init_kwargs.update(self.extra_init_kwargs)
         return ObjectStoreProvider(
             provider=self.provider,
@@ -65,33 +144,63 @@ Instead, please specify via CLI arguments, or even better, environment variables
 
 
 class ObjectStoreProvider:
-    """Utility for uploading to and downloading from object (blob) stores,
-    such as AWS S3 or Google Cloud Storage.
+    """Utility for uploading to and downloading from object (blob) stores, such as Amazon S3.
 
-    .. note::
+    .. rubric:: Example
 
-        To use this utility, install composer with `pip install mosaicml[logging]`.
+    Here's an example for an Amazon S3 bucket named ``MY_CONTAINER``:
+
+    >>> provider = ObjectStoreProvider(
+    ...     provider="s3",
+    ...     container="MY_CONTAINER",
+    ...     provider_init_kwargs={
+    ...         "key": "AKIA...",
+    ...         "secret": "*********",
+    ...     }
+    ... )
+    >>> provider
+    <composer.utils.object_store.ObjectStoreProvider object at ...>
 
     Args:
-        provider (str): Cloud provider to use.
+        provider (str): Cloud provider to use. Valid options are:
 
-            Specify the last part of the Apache Libcloud Module here.
-            `This document <https://libcloud.readthedocs.io/en/stable/storage/supported_providers.html#provider-matrix>`
-            lists all supported providers. For example, the module name for Amazon S3 is `libcloud.storage.drivers.s3`, so
-            to use S3, specify 's3' here.
+            * :mod:`~libcloud.storage.drivers.atmos`
+            * :mod:`~libcloud.storage.drivers.auroraobjects`
+            * :mod:`~libcloud.storage.drivers.azure_blobs`
+            * :mod:`~libcloud.storage.drivers.backblaze_b2`
+            * :mod:`~libcloud.storage.drivers.cloudfiles`
+            * :mod:`~libcloud.storage.drivers.digitalocean_spaces`
+            * :mod:`~libcloud.storage.drivers.google_storage`
+            * :mod:`~libcloud.storage.drivers.ktucloud`
+            * :mod:`~libcloud.storage.drivers.local`
+            * :mod:`~libcloud.storage.drivers.minio`
+            * :mod:`~libcloud.storage.drivers.nimbus`
+            * :mod:`~libcloud.storage.drivers.ninefold`
+            * :mod:`~libcloud.storage.drivers.oss`
+            * :mod:`~libcloud.storage.drivers.rgw`
+            * :mod:`~libcloud.storage.drivers.s3`
+
+            .. seealso:: :doc:`Full list of libcloud providers <libcloud:storage/supported_providers>`
 
         container (str): The name of the container (i.e. bucket) to use.
-        provider_init_kwargs (Dict[str, Any], optional): Parameters to pass into the constructor for the
-            :class:`~libcloud.storage.providers.Provider` constructor. These arguments would usually include the cloud region
-            and credentials. Defaults to None, which is equivalent to an empty dictionary."""
+        provider_init_kwargs (Dict[str, Any], optional):  Keyword arguments to pass into the constructor
+            for the specified provider. These arguments would usually include the cloud region
+            and credentials.
+            
+            Common keys are:
+
+            * ``key`` (str): API key or username to be used (required).
+            * ``secret`` (str): Secret password to be used (required).
+            * ``secure`` (bool): Whether to use HTTPS or HTTP. Note: Some providers only support HTTPS, and it is on by default.
+            * ``host`` (str): Override hostname used for connections.
+            * ``port`` (int): Override port used for connections.
+            * ``api_version`` (str): Optional API version. Only used by drivers which support multiple API versions.
+            * ``region`` (str): Optional driver region. Only used by drivers which support multiple regions.
+
+            .. seealso:: :class:`libcloud.storage.base.StorageDriver`
+    """
 
     def __init__(self, provider: str, container: str, provider_init_kwargs: Optional[Dict[str, Any]] = None) -> None:
-        try:
-            from libcloud.storage.providers import get_driver
-        except ImportError as e:
-            raise ImportError(
-                textwrap.dedent("""libcloud is not installed.
-                To install composer with libcloud, please run `pip install mosaicml[logging]`.""")) from e
         provider_cls = get_driver(provider)
         if provider_init_kwargs is None:
             provider_init_kwargs = {}
@@ -100,12 +209,12 @@ class ObjectStoreProvider:
 
     @property
     def provider_name(self):
-        """The name of the cloud provider"""
+        """The name of the cloud provider."""
         return self._provider.name
 
     @property
     def container_name(self):
-        """The name of the object storage container"""
+        """The name of the object storage container."""
         return self._container.name
 
     def upload_object(self,
@@ -116,17 +225,16 @@ class ObjectStoreProvider:
                       headers: Optional[Dict[str, str]] = None):
         """Upload an object currently located on a disk.
 
-        See :meth:`libcloud.storage.upload_object`.
+        .. seealso:: :meth:`libcloud.storage.base.StorageDriver.upload_object`.
 
         Args:
             file_path (str): Path to the object on disk.
             object_name (str): Object name (i.e. where the object will be stored in the container.)
             verify_hash (bool, optional): Whether to verify hashes (default: ``True``)
             extra (Optional[Dict], optional): Extra attributes to pass to the underlying provider driver.
-                (default: ``None``)
+                (default: ``None``, which is equivalent to an empty dictionary)
             headers (Optional[Dict[str, str]], optional): Additional request headers, such as CORS headers.
-                For example: ``headers = {'Access-Control-Allow-Origin': 'http://mozilla.com'}.``
-                (defaults: ``None``)
+                (defaults: ``None``, which is equivalent to an empty dictionary)
         """
         self._provider.upload_object(file_path=file_path,
                                      container=self._container,
@@ -142,7 +250,7 @@ class ObjectStoreProvider:
                                  headers: Optional[Dict[str, str]] = None):
         """Upload an object.
 
-        See :meth:`libcloud.storage.upload_object_via_stream`.
+        .. seealso:: :meth:`libcloud.storage.base.StorageDriver.upload_object_via_stream`.
 
         Args:
             obj (bytes | Iterator[bytes]): The object.
@@ -151,7 +259,6 @@ class ObjectStoreProvider:
             extra (Optional[Dict], optional): Extra attributes to pass to the underlying provider driver.
                 (default: ``None``)
             headers (Optional[Dict[str, str]], optional): Additional request headers, such as CORS headers.
-                For example: ``headers = {'Access-Control-Allow-Origin': 'http://mozilla.com'}.``
                 (defaults: ``None``)
         """
         if isinstance(obj, bytes):
@@ -183,7 +290,7 @@ class ObjectStoreProvider:
                         delete_on_failure: bool = True):
         """Download an object to the specified destination path.
 
-        See :meth:`libcloud.storage.download_object`.
+        .. seealso:: :meth:`libcloud.storage.base.StorageDriver.download_object`.
 
         Args:
             object_name (str): The name of the object to download.
@@ -203,14 +310,14 @@ class ObjectStoreProvider:
     def download_object_as_stream(self, object_name: str, chunk_size: Optional[int] = None):
         """Return a iterator which yields object data.
 
-        See :meth:`libcloud.storage.download_object_as_stream`.
+        .. seealso:: :meth:`libcloud.storage.base.StorageDriver.download_object_as_stream`.
 
         Args:
-            object_name (str): Object name
+            object_name (str): Object name.
             chunk_size (Optional[int], optional): Optional chunk size (in bytes).
 
         Returns:
-            Iterator[bytes]: The object, as a byte stream
+            Iterator[bytes]: The object, as a byte stream.
         """
         obj = self._get_object(object_name)
         return self._provider.download_object_as_stream(obj, chunk_size=chunk_size)

@@ -72,7 +72,3 @@ precision: amp
 grad_clip_norm: None
 validate_every_n_batches: 1000
 validate_every_n_epochs: 1
-save_checkpoint:
-  folder: bert_checkpoints
-  interval: 1
-  interval_unit: ep

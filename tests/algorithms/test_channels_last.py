@@ -4,10 +4,13 @@ import numpy as np
 import pytest
 import torch
 
-from composer.algorithms import ChannelsLastHparams
+from composer.algorithms.channels_last import apply_channels_last
+from composer.algorithms.channels_last.channels_last import ChannelsLast
 from composer.core.event import Event
+from composer.core.logging import Logger
 from composer.core.state import State
-from composer.core.types import DataLoader, Model, Precision, Tensor
+from composer.core.types import Tensor
+from tests.common import SimpleConvModel
 
 
 def _has_singleton_dimension(tensor: Tensor) -> bool:
@@ -31,24 +34,39 @@ def _infer_memory_format(tensor: Tensor) -> str:
 
 
 @pytest.fixture()
-def state(simple_conv_model: Model, dummy_train_dataloader: DataLoader, dummy_val_dataloader: DataLoader):
-    return State(
-        model=simple_conv_model,
-        precision=Precision.FP32,
-        grad_accum=1,
-        max_duration="10ep",
-        train_dataloader=dummy_train_dataloader,
-        eval_dataloader=dummy_val_dataloader,
-    )
+def state(minimal_state: State):
+    minimal_state.model = SimpleConvModel()
+    return minimal_state
 
 
-def test_channels_last_algorithm(state, dummy_logger):
-    channels_last = ChannelsLastHparams().initialize_object()
+@pytest.fixture()
+def simple_conv_model():
+    return SimpleConvModel()
 
-    assert state.model is not None
-    assert _infer_memory_format(state.model.module.conv1.weight) == 'nchw'
-    channels_last.apply(Event.TRAINING_START, state, dummy_logger)
-    assert _infer_memory_format(state.model.module.conv1.weight) == 'nhwc'
+
+def test_channels_last_functional(simple_conv_model: SimpleConvModel):
+    model = simple_conv_model
+    conv = model.conv1
+    assert _infer_memory_format(conv.weight) == 'nchw'
+    apply_channels_last(simple_conv_model)
+    assert _infer_memory_format(conv.weight) == 'nhwc'
+
+
+@pytest.mark.parametrize(
+    "device",
+    [pytest.param("cpu"), pytest.param("gpu", marks=[pytest.mark.gpu, pytest.mark.timeout(5)])],
+)
+def test_channels_last_algorithm(state: State, empty_logger: Logger, device: str):
+    channels_last = ChannelsLast()
+    if device == "gpu":
+        state.model = state.model.cuda()  # move the model to gpu
+
+    assert isinstance(state.model, SimpleConvModel)
+    assert _infer_memory_format(state.model.conv1.weight) == 'nchw'
+    channels_last.apply(Event.INIT, state, empty_logger)
+
+    assert isinstance(state.model, SimpleConvModel)
+    assert _infer_memory_format(state.model.conv1.weight) == 'nhwc'
 
 
 """

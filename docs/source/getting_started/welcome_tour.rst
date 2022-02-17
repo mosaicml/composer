@@ -1,7 +1,7 @@
 Welcome Tour
 ============
 
-Welcome to the MosaicML *Composer* library! This guide will walk you through the basics of how the MosaicML trainer works, and how it interacts with our methods libary. This guide will assume you've already gone through the installation instructions.
+Welcome to the MosaicML *Composer* library! This guide will walk you through the basics of how the Composer trainer works, and how it interacts with our methods libary. This guide will assume you've already gone through the installation instructions.
 
 Our First Method!
 -----------------
@@ -51,11 +51,12 @@ This works, and is recommend if you want to quickly modify an existing training 
 Introducing... Events, Engines, and State
 -----------------------------------------
 
-The core principle of the MosaicML trainer is to avoid the need to introduce algorithm-specific logic to the trainer by insteading relying on callbacks tied to *events*. Events describe specific stages of the training lifecycle, such as ``BATCH_START``, ``BEFORE_FORWARD``, and ``TRAINING_END``. We could instrument our training loop with events as follows:
+The core principle of the Composer trainer is to avoid the need to introduce algorithm-specific logic to the trainer by instead relying on callbacks tied to *events*. Events describe specific stages of the training lifecycle, such as ``BATCH_START`` and ``BEFORE_FORWARD``. We could instrument our training loop with events as follows:
 
 .. code-block:: python
 
-    # <TRAINING_START>
+    # <INIT>
+    # <FIT_START>
     for epoch in range(NUM_EPOCHS):
         # <EPOCH_START>
         for inputs, targets in dataloader:
@@ -79,7 +80,6 @@ The core principle of the MosaicML trainer is to avoid the need to introduce alg
 
             # <BATCH_END>
         # <EPOCH_END>
-    # <TRAINING_END>
 
 Now we need a way to tie events to algorithms, so that we know which algorithms to run, and when to run them. This is the purpose of the :class:`~composer.core.Engine`. The :class:`~composer.core.Engine` is initialized with a list of algorithms to run, and provides a :meth:`composer.core.Engine.run_event` method that the trainer can call to execute algorithms for the given event. The :class:`~composer.core.Engine` also is responsible for handling potential conflicts between multiple algorithms.
 
@@ -106,7 +106,8 @@ Putting all the pieces together, our trainer looks something like this:
 
     engine = Engine(state=state, algorithms=[MixUp()])
 
-    engine.run_event("training_start")
+    engine.run_event("init")
+    engine.run_event("fit_start")
     for epoch in range(NUM_EPOCHS):
         engine.run_event("epoch_start")
         for state.inputs, state.targets in dataloader:
@@ -131,11 +132,15 @@ Putting all the pieces together, our trainer looks something like this:
 
             engine.run_event("batch_end")
         engine.run_event("epoch_end")
-    engine.run_event("training_end")
 
-That's it! Our training loop is now taking full advantage of MixUp, and we can easily start using new algorithms! For more information on events, state, and engines, check out :doc:`/core/event`, :doc:`/core/state`, and :doc:`/core/engine`.
+That's it! Our training loop is now taking full advantage of MixUp, and we can easily start using new algorithms!
+For more information on events, state, and engines, check out :class:`~composer.core.event.Event`, :class:`~composer.core.state.State`,
+and :class:`~composer.core.engine.Engine`.
 
-Next: The MosaicML Trainer
+Next: The Composer Trainer
 --------------------------
 
-For advanced experimentation, we recommend using our provided trainer. Our trainer takes care of all the state management and event callbacks from above, and adds a bunch of advanced features, including hyperparameter management, gradient accumulation, and closure support. For more information, check out our trainer documentation at :doc:`/trainer`.
+For advanced experimentation, we recommend using our provided trainer.
+Our trainer takes care of all the state management and event callbacks from above,
+and adds a bunch of advanced features, including hyperparameter management, gradient accumulation, and closure support.
+For more information, check out our trainer documentation at :class:`composer.trainer.trainer.Trainer`.

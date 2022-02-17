@@ -20,9 +20,7 @@ PATCH_SIZE = [1, 192, 160]
 
 
 def _my_collate(batch):
-    """Custom collate function to handle images with different depths.
-
-    """
+    """Custom collate function to handle images with different depths."""
     data = [item[0] for item in batch]
     target = [item[1] for item in batch]
 
@@ -32,7 +30,7 @@ def _my_collate(batch):
 @dataclass
 class BratsDatasetHparams(DatasetHparams):
     """Defines an instance of the BraTS dataset for image segmentation.
-    
+
     Parameters:
         oversampling (float): The oversampling ratio to use.
     """
@@ -255,7 +253,12 @@ def get_split(data, idx):
 
 
 def get_data_split(path: str):
-    from sklearn.model_selection import KFold
+    try:
+        from sklearn.model_selection import KFold
+    except ImportError as e:
+        raise ImportError(
+            "Composer was installed without unet support. To use unet with Composer, run: `pip install mosaicml[unet]`."
+        ) from e
 
     kfold = KFold(n_splits=5, shuffle=True, random_state=0)
     imgs = load_data(path, "*_x.npy")

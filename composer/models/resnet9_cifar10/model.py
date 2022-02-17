@@ -3,18 +3,18 @@
 from typing import List, Optional
 
 import torch.nn as nn
+from torchvision.models.resnet import BasicBlock
 
-from composer.models.base import MosaicClassifier
+from composer.models.base import ComposerClassifier
 from composer.models.model_hparams import Initializer
-from composer.models.resnets import BasicBlock
 
 
 # adapted from https://raw.githubusercontent.com/matthias-wright/cifar10-resnet/master/model.py
 # under the MIT license
 class ResNet9(nn.Module):
-    """
-    A 9-layer residual network, excluding BatchNorms and activation functions,
-    as described in this blog post: https://myrtle.ai/learn/how-to-train-your-resnet-4-architecture/
+    """A 9-layer residual network, excluding BatchNorms and activation functions, as described in this blog post:
+
+    https://myrtle.ai/learn/how-to-train-your-resnet-4-architecture/
     """
 
     def __init__(self, num_classes: int):
@@ -50,8 +50,8 @@ class ResNet9(nn.Module):
         return out
 
 
-class CIFAR10_ResNet9(MosaicClassifier):
-    """A ResNet-9 model extending :class:`MosaicClassifier`.
+class CIFAR10_ResNet9(ComposerClassifier):
+    """A ResNet-9 model extending :class:`ComposerClassifier`.
 
     See this blog post for details regarding the architecture:
     https://myrtle.ai/learn/how-to-train-your-resnet-4-architecture/

@@ -6,7 +6,7 @@ from typing import Dict, Tuple
 import pytest
 
 from composer.core.time import Time, TimeUnit
-from composer.utils._time_conversion import convert
+from composer.optim._time_conversion import convert
 
 _INVALID_CONVERSIONS = [
     # from_unit,      to_unit,       drop_last

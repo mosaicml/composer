@@ -14,8 +14,8 @@ from composer.core.types import DataSpec
 from composer.datasets.dataloader import DataloaderHparams
 from composer.datasets.hparams import DatasetHparams, SyntheticHparamsMixin
 from composer.datasets.synthetic import SyntheticBatchPairDataset
+from composer.datasets.utils import NormalizationFn, pil_image_collate
 from composer.utils import dist
-from composer.utils.data import NormalizationFn, pil_image_collate
 
 # ImageNet normalization values from torchvision: https://pytorch.org/vision/stable/models.html
 IMAGENET_CHANNEL_MEAN = (0.485 * 255, 0.456 * 255, 0.406 * 255)
@@ -25,7 +25,7 @@ IMAGENET_CHANNEL_STD = (0.229 * 255, 0.224 * 255, 0.225 * 255)
 @dataclass
 class ImagenetDatasetHparams(DatasetHparams, SyntheticHparamsMixin):
     """Defines an instance of the ImageNet dataset for image classification.
-    
+
     Parameters:
         resize_size (int, optional): The resize size to use. Defaults to -1 to not resize.
         crop size (int): The crop size to use.

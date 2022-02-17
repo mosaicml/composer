@@ -1,96 +1,158 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
+"""Test the blurpool algorithm.
+
+Primitives are tested in test_blurpool.py
+"""
 import itertools
+from typing import List
+from unittest.mock import Mock
 
 import pytest
 import torch
 
-from composer.algorithms import blurpool
-from composer.algorithms.blurpool.blurpool import BlurPoolHparams
-from composer.trainer import TrainerHparams
-from tests.utils.trainer_fit import train_model
+from composer.algorithms import BlurPool
+from composer.algorithms.blurpool import apply_blurpool
+from composer.algorithms.blurpool.blurpool_layers import BlurConv2d, BlurMaxPool2d
+from composer.core import Event, State
+from composer.core.types import Logger, Tensors
+from composer.models import ComposerClassifier
+from composer.utils import module_surgery
 
 
-def generate_pool_args():
-    n_vals = [2]
-    c_vals = [2]
-    size_vals = [(3, 3), (3, 7), (4, 4)]
-    strides = [1, 2]
-    filter_size_vals = [(1, 1), (1, 3), (3, 3)]
-    return list(itertools.product(n_vals, c_vals, size_vals, strides, filter_size_vals))
+class ConvModel(torch.nn.Module):
+    """Convolution Model with layers designed to test different properties of the blurpool algorithm."""
+
+    def __init__(self):
+        super().__init__()
+
+        conv_args = dict(kernel_size=(3, 3), padding=1)
+        self.conv1 = torch.nn.Conv2d(in_channels=32, out_channels=8, stride=2, bias=False, **conv_args)  # stride > 1
+        self.conv2 = torch.nn.Conv2d(in_channels=8, out_channels=32, stride=2, bias=False,
+                                     **conv_args)  # stride > 1 but in_channels < 16
+        self.conv3 = torch.nn.Conv2d(in_channels=32, out_channels=64, stride=1, bias=False, **conv_args)  # stride = 1
+
+        self.pool1 = torch.nn.MaxPool2d(kernel_size=(2, 2), stride=2, padding=1)
+        self.pool2 = torch.nn.AdaptiveAvgPool2d(1)
+        self.flatten = torch.nn.Flatten()
+        self.linear1 = torch.nn.Linear(64, 48)
+        self.linear2 = torch.nn.Linear(48, 10)
+
+    def forward(self, x: Tensors) -> Tensors:
+
+        out = self.conv1(x)
+        out = self.conv2(out)
+        out = self.conv3(out)
+        out = self.pool1(out)
+        out = self.pool2(out)
+        out = self.flatten(out)
+        out = self.linear1(out)
+        out = self.linear2(out)
+        return out
 
 
-@pytest.mark.parametrize('pool_args', generate_pool_args())
-@pytest.mark.timeout(5)
-def test_blurmaxpool_shapes(pool_args):
-    n, c, sz, stride, kernel_size = pool_args
-
-    X = torch.randn(n, c, sz[0], sz[1])
-
-    layer_args = dict(kernel_size=kernel_size, stride=stride, dilation=1)
-    blurpool_layer = blurpool.BlurMaxPool2d(**layer_args)
-    maxpool_layer = torch.nn.MaxPool2d(**layer_args)
-
-    assert blurpool_layer(X).shape == maxpool_layer(X).shape
+@pytest.fixture
+def state(minimal_state: State):
+    minimal_state.model = ComposerClassifier(ConvModel())
+    return minimal_state
 
 
-@pytest.mark.parametrize('blur_first', [True, False])
-@pytest.mark.parametrize('pool_args', generate_pool_args())
-def test_blurconv2d_shapes(pool_args, blur_first):
-    n, c, sz, stride, kernel_size = pool_args
-
-    X = torch.randn(n, c, sz[0], sz[1])
-
-    layer_args = dict(kernel_size=kernel_size, stride=stride, dilation=1, in_channels=c, out_channels=(c + 1))
-    blurconv2d_layer = blurpool.BlurConv2d(**layer_args, blur_first=blur_first)
-    conv2d_layer = torch.nn.Conv2d(**layer_args)
-
-    assert blurconv2d_layer(X).shape == conv2d_layer(X).shape
-
-
-@pytest.mark.parametrize('pool_args', generate_pool_args())
-def test_blur2d_shapes(pool_args):
-    n, c, sz, _, _ = pool_args
-
-    X = torch.randn(n, c, sz[0], sz[1])
-    out = blurpool.blur_2d(X)
-    assert out.shape == X.shape
-
-
-def test_default_2d_filter():
-
-    def reference_filter():
-        filt = torch.FloatTensor([1, 2, 1])
-        filt = torch.outer(filt, filt)
-        filt *= 1. / filt.sum()
-        filt = torch.Tensor(filt)
-        return filt.view(1, 1, *filt.shape)
-
-    torch.testing.assert_allclose(
-        blurpool.blurpool_layers._default_2d_filter(),  # type: ignore
-        reference_filter(),
+@pytest.fixture(params=itertools.product([True, False], [True, False], [True, False]))
+def blurpool_instance(request) -> BlurPool:
+    replace_conv, replace_pool, blur_first = request.param
+    return BlurPool(
+        replace_convs=replace_conv,
+        replace_maxpools=replace_pool,
+        blur_first=blur_first,
     )
 
 
-@pytest.mark.parametrize('pool_args', generate_pool_args())
-def test_blur2d_std(pool_args):
-    n, c, sz, _, _ = pool_args
+def test_blurconv(state: State, blurpool_instance: BlurPool, empty_logger: Logger):
+    blurpool_instance.apply(Event.INIT, state, empty_logger)
+    assert isinstance(state.model.module, ConvModel)
 
-    X = torch.randn(n, c, sz[0], sz[1])
-    out = blurpool.blur_2d(X)
-    assert torch.std(out) <= torch.std(X)
-
-
-def test_blurpool_blurconv2d_params_match_original_params():
-    conv2d = torch.nn.Conv2d(16, 32, 3, stride=1, bias=True)
-    blurconv = blurpool.BlurConv2d.from_conv2d(conv2d)
-    torch.testing.assert_allclose(blurconv.conv.weight, conv2d.weight)
-    torch.testing.assert_allclose(blurconv.conv.bias, conv2d.bias)
-    assert blurconv.conv.weight.requires_grad
-    assert blurconv.conv.bias is not None
-    assert blurconv.conv.bias.requires_grad
+    if blurpool_instance.replace_convs:
+        assert type(state.model.module.conv1) is BlurConv2d
+    else:
+        assert type(state.model.module.conv1) is torch.nn.Conv2d
 
 
-def test_blurpool_trains(mosaic_trainer_hparams: TrainerHparams):
-    mosaic_trainer_hparams.algorithms = [BlurPoolHparams(replace_convs=True, replace_maxpools=True, blur_first=True)]
-    train_model(mosaic_trainer_hparams, run_loss_check=True)
+def test_maybe_replace_strided_conv_stride(state: State, blurpool_instance: BlurPool, empty_logger: Logger):
+    blurpool_instance.apply(Event.INIT, state, empty_logger)
+    assert isinstance(state.model.module, ConvModel)
+
+    assert type(state.model.module.conv3) is torch.nn.Conv2d  # stride = 1, should be no replacement
+
+
+def test_maybe_replace_strided_conv_channels(state: State, blurpool_instance: BlurPool, empty_logger: Logger):
+    blurpool_instance.apply(Event.INIT, state, empty_logger)
+    assert isinstance(state.model.module, ConvModel)
+
+    assert type(state.model.module.conv2) is torch.nn.Conv2d  # channels < 16, should be no replacement
+
+
+def test_blurconv_weights_preserved(state: State, blurpool_instance: BlurPool, empty_logger: Logger):
+    assert isinstance(state.model.module, ConvModel)
+
+    original_weights = state.model.module.conv1.weight.clone()
+    blurpool_instance.apply(Event.INIT, state, empty_logger)
+
+    if isinstance(state.model.module.conv1, BlurConv2d):
+        new_weights = state.model.module.conv1.conv.weight
+    elif isinstance(state.model.module.conv1, torch.nn.Conv2d):
+        new_weights = state.model.module.conv1.weight
+    else:
+        raise TypeError(f'Layer type {type(state.model.module.conv1)} not expected.')
+    assert torch.allclose(original_weights, new_weights)
+
+
+def test_blurpool(state: State, blurpool_instance: BlurPool, empty_logger: Logger):
+    blurpool_instance.apply(Event.INIT, state, empty_logger)
+    assert isinstance(state.model.module, ConvModel)
+
+    if blurpool_instance.replace_maxpools:
+        assert type(state.model.module.pool1) is BlurMaxPool2d
+    else:
+        assert type(state.model.module.pool1) is torch.nn.MaxPool2d
+
+
+def test_blurpool_wrong_event(state: State, blurpool_instance: BlurPool):
+    assert blurpool_instance.match(Event.BATCH_START, state) == False
+
+
+def test_blurpool_correct_event(state: State, blurpool_instance: BlurPool):
+    assert blurpool_instance.match(Event.INIT, state) == True
+
+
+def test_blurpool_algorithm_logging(state: State, blurpool_instance: BlurPool):
+    mock_logger = Mock()
+
+    blurpool_instance.apply(Event.INIT, state, mock_logger)
+
+    mock_logger.metric_fit.assert_called_once_with({
+        'blurpool/num_blurpool_layers': 1 if blurpool_instance.replace_maxpools else 0,
+        'blurpool/num_blurconv_layers': 1 if blurpool_instance.replace_convs else 0,
+    })
+
+
+def test_blurconv2d_optimizer_params_updated():
+
+    model = ConvModel()
+
+    original_layer = model.conv1
+    assert original_layer.stride == (2, 2)  # fail fast if test model changes
+
+    optimizer = torch.optim.SGD(model.parameters(), lr=.01)
+    apply_blurpool(model, optimizers=optimizer)
+
+    new_layer = model.conv1
+    param_list: List[torch.Tensor] = optimizer.param_groups[0]['params']
+
+    # assert old parameters removed
+    assert not module_surgery._tensor_in(original_layer.weight, param_list)
+
+    # new params added
+    new_conv_layer = new_layer.conv
+    assert isinstance(new_conv_layer, torch.nn.Conv2d)
+    assert new_conv_layer.weight is not original_layer.weight
+    assert module_surgery._tensor_in(new_conv_layer.weight, param_list)
