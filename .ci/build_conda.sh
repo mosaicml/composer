@@ -6,14 +6,29 @@ set -euo pipefail
 # are executed. See `meta.yaml` for the conda package
 # configuration
 
+# Only use 'sudo' to run apt commands if not already root
+SUDO="sudo"
+if [ "$UID" == "0" ]; then
+    SUDO=""
+fi
+
+CONDA_PATH=$HOME/miniconda
+
 # Download and install miniconda if it's not installed
 echo "Checking to see if conda is installed"
-if [ ! command -v conda ] &> /dev/null ; then
+if ! command -v conda &> /dev/null ; then
+    echo "Downloading and installing curl"
+    $SUDO apt-get update
+    $SUDO apt-get install -y --no-install-recommends curl ca-certificates
     echo "Downloading and installing conda"
-    curl -fsSL https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh | bash /dev/stdin -bfp $HOME/miniconda
+    curl -fsSL https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh | bash /dev/stdin -bfp $CONDA_PATH
 else
     echo "Conda is already installed"
+    CONDA_PATH=$(conda info --base)
 fi
+
+echo "Sourcing conda"
+source $CONDA_PATH/etc/profile.d/conda.sh
 
 echo "Checking to see if the 'composer' conda environment exists"
 if [[ "$(conda info --envs)" != *"composer"* ]];then
@@ -26,7 +41,6 @@ fi
 
 # Activate this environment
 echo "Activating the composer conda environment"
-source $(conda info --base)/etc/profile.d/conda.sh
 conda activate composer
 
 # Prepare the conda package
