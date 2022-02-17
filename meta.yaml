@@ -54,24 +54,26 @@ test:
     # Including all run_constrained requirements in the test requirements, so those tests will not be import-skipped
     - pip  # for deepspeed, since deepspeed is not available on anaconda
     - wandb >=0.12.2
-    - monai >=0.7.0
-    - scikit-learn >=1.0.1
-    - timm >=0.5.4
-    - transformers >=4.11.3
-    - datasets >=1.14.0
+    # TODO fix the versions for these dependencies -- there is a conflict somewhere.
+    # - monai >=0.7.0
+    # - scikit-learn >=1.0.1
+    - timm >=0.4
+    # - transformers >=4.11.3
+    # - datasets >=1.14.0
   files:
     - "**/composer/**"
     - "**/tests/**"
     - "**/notebooks/**"
     - "**/examples/**"
     - "**/pyproject.toml"
+    - "**/Makefile"
   imports:
     - composer
     - tests
   commands:
     - pip install deepspeed>=0.5.5  # deepspeed is not available on conda
-    - pytest --duration all -m "not notebooks and not gpu"
-    - python -m composer.cli.launcher -n 2 -m pytest --duration all -m "not notebooks and not gpu"
+    - make test DURATION=all EXTRA_ARGS="-m 'not notebooks and not gpu'"
+    - make test-dist DURATION=all EXTRA_ARGS="-m 'not notebooks and not gpu'"
 
 about:
   home: https://www.mosaicml.com

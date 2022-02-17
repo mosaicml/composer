@@ -18,8 +18,8 @@ fi
 # Run pytest
 JUNIT_PREFIX=build/output/${BUILD_NUMBER}
 mkdir -p $(dirname $JUNIT_PREFIX)
-python -m coverage run -m pytest --junitxml $JUNIT_PREFIX.n0.junit.xml --duration all -v -m "$MARKERS"
-python -m composer.cli.launcher -n 2 --master_port 26000 -m coverage run -m pytest --junitxml $JUNIT_PREFIX.n2.junit.xml --duration all -v -m "$MARKERS"
+PYTEST="coverage run -m pytest" DURATION=all EXTRA_ARGS="--junitxml $JUNIT_PREFIX.n0.junit.xml -v -m '$MARKERS'" make test
+PYTEST="coverage run -m pytest" DURATION=all WORLD_SIZE=2 EXTRA_ARGS="--junitxml $JUNIT_PREFIX.n2.junit.xml -v -m '$MARKERS'" make test-dist
 
 # Combine the coverage reports
 python -m coverage combine

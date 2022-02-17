@@ -175,6 +175,7 @@ stage('Build') {
                             string(name: 'P_MEM_LIMIT', value: "7Gi"),
                             string(name: 'P_COMMAND', value: "./.ci/build_conda.sh")
                         ]
+                    )
                 }
             }
         ]

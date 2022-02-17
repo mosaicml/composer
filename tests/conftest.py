@@ -12,8 +12,9 @@ import composer
 from composer.utils import run_directory
 
 # Allowed options for pytest.mark.world_size()
-# Important: when updating this list, make sure to also up scripts/test.sh
-# so tests of all world sizes will be executed
+# Important: when updating this list, make sure to also up ./.ci/test.sh
+# (so tests of all world sizes will be executed) and tests/README.md
+# (so the documentation is correct)
 WORLD_SIZE_OPTIONS = (1, 2)
 
 # default timout threshold is 2 seconds for determinign long and short

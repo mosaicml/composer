@@ -108,7 +108,7 @@ extra_deps["unet"] = [
 ]
 
 extra_deps["timm"] = [
-    'timm>=0.5.4',
+    'timm>=0.4',
 ]
 
 extra_deps["nlp"] = [
