@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import Dict, List, Tuple, Union
 
 from composer.core.logging import LoggerCallback, LogLevel, TLogData
-from composer.core.logging.logger import TLogDataValue
+from composer.core.logging import TLogDataValue
 from composer.core.time import Timestamp
 
 

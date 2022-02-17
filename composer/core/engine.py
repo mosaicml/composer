@@ -54,7 +54,7 @@ from composer.core.algorithm import Algorithm
 from composer.core.callback import Callback
 from composer.core.event import Event
 from composer.core.logging import Logger
-from composer.core.logging.logger import LogLevel
+from composer.core.logging import LogLevel
 from composer.core.state import State
 from composer.profiler import ProfilerAction
 

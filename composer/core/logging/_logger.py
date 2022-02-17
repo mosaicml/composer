@@ -12,7 +12,7 @@ from typing import TYPE_CHECKING, Callable, Generator, Mapping, Sequence, Union
 import torch
 
 if TYPE_CHECKING:
-    from composer.core.logging.base_backend import LoggerCallback
+    from composer.core.logging import LoggerCallback
     from composer.core.state import State
     from composer.core.types import JSON
 

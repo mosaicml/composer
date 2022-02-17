@@ -9,7 +9,7 @@ from composer.core.callback import Callback
 from composer.core.time import Timestamp
 
 if TYPE_CHECKING:
-    from composer.core.logging.logger import LogLevel, TLogData
+    from composer.core.logging import LogLevel, TLogData
     from composer.core.state import State
 
 
