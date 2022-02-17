@@ -14,12 +14,10 @@ import torch
 import yahp as hp
 from transformers.testing_utils import CaptureLogger
 
-from composer.core import DataSpec
-from composer.core.types import Batch
+from composer.core.types import Batch, DataSpec
 from composer.datasets.dataloader import DataloaderHparams
 from composer.datasets.hparams import DatasetHparams
 from composer.utils import dist
-from composer.utils.data import get_subset_dataset
 
 log = logging.getLogger(__name__)
 
