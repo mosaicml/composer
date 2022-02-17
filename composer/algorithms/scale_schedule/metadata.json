@@ -1,0 +1,10 @@
+{
+    "scale_schedule": {
+        "class_name": "ScaleSchedule",
+        "functional": "",
+        "tldr": "Scale the learning rate schedule by a factor",
+        "attribution": "Many",
+        "link": "www.mosaicml.com",
+        "domains": []
+    }
+}

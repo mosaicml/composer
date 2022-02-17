@@ -20,6 +20,7 @@ from composer.core import Time as Time
 from composer.core import Timer as Timer
 from composer.core import TimeUnit as TimeUnit
 from composer.core import types as types
+from composer.models import ComposerModel as ComposerModel
 from composer.trainer import Trainer as Trainer
 
 __version__ = "0.3.1"

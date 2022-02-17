@@ -15,98 +15,6 @@ from composer.models.loss import _check_for_index_targets
 log = logging.getLogger(__name__)
 
 
-def gen_indices(x: Tensor) -> Tensor:
-    """Generates indices of a random permutation of elements of a batch.
-
-    Args:
-        x: input tensor of shape (B, d1, d2, ..., dn), B is batch size, d1-dn
-            are feature dimensions.
-
-    Returns:
-        indices: A random permutation of the batch indices.
-    """
-    return torch.randperm(x.shape[0])
-
-
-def gen_cutmix_lambda(alpha: float) -> float:
-    """Generates lambda from ``Beta(alpha, alpha)``
-
-    Args:
-        alpha: Parameter for the Beta(alpha, alpha) distribution
-
-    Returns:
-        cutmix_lambda: Lambda parameter for performing cutmix.
-    """
-    # First check if alpha is positive.
-    assert alpha >= 0
-    # Draw the area parameter from a beta distribution.
-    # Check here is needed because beta distribution requires alpha > 0
-    # but alpha = 0 is fine for cutmix.
-    if alpha == 0:
-        cutmix_lambda = 0
-    else:
-        cutmix_lambda = np.random.beta(alpha, alpha)
-    return cutmix_lambda
-
-
-def _rand_bbox(W: int,
-               H: int,
-               cutmix_lambda: float,
-               cx: Optional[int] = None,
-               cy: Optional[int] = None) -> Tuple[int, int, int, int]:
-    """Randomly samples a bounding box with area determined by cutmix_lambda.
-
-    Adapted from original implementation https://github.com/clovaai/CutMix-PyTorch
-
-    Args:
-        W: Width of the image
-        H: Height of the image
-        cutmix_lambda: Lambda param from cutmix, used to set the area of the box.
-        cx: Optional x coordinate of the center of the box.
-        cy: Optional y coordinate of the center of the box.
-
-    Returns:
-        bbx1: Leftmost edge of the bounding box
-        bby1: Top edge of the bounding box
-        bbx2: Rightmost edge of the bounding box
-        bby2: Bottom edge of the bounding box
-    """
-    cut_ratio = np.sqrt(1.0 - cutmix_lambda)
-    cut_w = int(W * cut_ratio)
-    cut_h = int(H * cut_ratio)
-
-    # uniform
-    if cx is None:
-        cx = np.random.randint(W)
-    if cy is None:
-        cy = np.random.randint(H)
-
-    bbx1 = np.clip(cx - cut_w // 2, 0, W)
-    bby1 = np.clip(cy - cut_h // 2, 0, H)
-    bbx2 = np.clip(cx + cut_w // 2, 0, W)
-    bby2 = np.clip(cy + cut_h // 2, 0, H)
-
-    return bbx1, bby1, bbx2, bby2
-
-
-def adjust_lambda(cutmix_lambda: float, x: Tensor, bbox: Tuple) -> float:
-    """Rescale the cutmix lambda according to the size of the clipped bounding box.
-
-    Args:
-        cutmix_lambda: Lambda param from cutmix, used to set the area of the box.
-        x: input tensor of shape (B, d1, d2, ..., dn), B is batch size, d1-dn
-            are feature dimensions.
-        bbox: (x1, y1, x2, y2) coordinates of the boundind box, obeying x2 > x1, y2 > y1.
-
-    Returns:
-        adjusted_lambda: Rescaled cutmix_lambda to account for part of the bounding box
-            being potentially out of bounds of the input.
-    """
-    rx, ry, rw, rh = bbox[0], bbox[1], bbox[2], bbox[3]
-    adjusted_lambda = 1 - ((rw - rx) * (rh - ry) / (x.size()[-1] * x.size()[-2]))
-    return adjusted_lambda
-
-
 def cutmix_batch(x: Tensor,
                  y: Tensor,
                  n_classes: int,
@@ -155,7 +63,7 @@ def cutmix_batch(x: Tensor,
     # Create shuffled indicies across the batch in preparation for cutting and mixing.
     # Use given indices if there are any.
     if indices is None:
-        shuffled_idx = gen_indices(x)
+        shuffled_idx = _gen_indices(x)
     else:
         shuffled_idx = indices
 
@@ -163,7 +71,7 @@ def cutmix_batch(x: Tensor,
     x_cutmix = torch.clone(x)
     # Sample a rectangular box using lambda. Use variable names from the paper.
     if cutmix_lambda is None:
-        cutmix_lambda = gen_cutmix_lambda(alpha)
+        cutmix_lambda = _gen_cutmix_lambda(alpha)
     if bbox:
         rx, ry, rw, rh = bbox[0], bbox[1], bbox[2], bbox[3]
     else:
@@ -174,7 +82,7 @@ def cutmix_batch(x: Tensor,
     x_cutmix[:, :, rx:rw, ry:rh] = x_cutmix[shuffled_idx, :, rx:rw, ry:rh]
     # adjust lambda to exactly match pixel ratio. This is an implementation detail taken from
     # the original implementation, and implies lambda is not actually beta distributed.
-    adjusted_lambda = adjust_lambda(cutmix_lambda, x, bbox)
+    adjusted_lambda = _adjust_lambda(cutmix_lambda, x, bbox)
 
     # Make a shuffled version of y for interpolation
     y_shuffled = y[shuffled_idx]
@@ -266,10 +174,10 @@ class CutMix(Algorithm):
             "Multiple tensors for inputs or targets not supported yet."
         alpha = self.alpha
 
-        self.indices = gen_indices(input)
-        self.cutmix_lambda = gen_cutmix_lambda(alpha)
+        self.indices = _gen_indices(input)
+        self.cutmix_lambda = _gen_cutmix_lambda(alpha)
         self.bbox = _rand_bbox(input.shape[2], input.shape[3], self.cutmix_lambda)
-        self.cutmix_lambda = adjust_lambda(self.cutmix_lambda, input, self.bbox)
+        self.cutmix_lambda = _adjust_lambda(self.cutmix_lambda, input, self.bbox)
 
         new_input, new_target = cutmix_batch(
             x=input,
@@ -282,3 +190,95 @@ class CutMix(Algorithm):
         )
 
         state.batch = (new_input, new_target)
+
+
+def _gen_indices(x: Tensor) -> Tensor:
+    """Generates indices of a random permutation of elements of a batch.
+
+    Args:
+        x: input tensor of shape (B, d1, d2, ..., dn), B is batch size, d1-dn
+            are feature dimensions.
+
+    Returns:
+        indices: A random permutation of the batch indices.
+    """
+    return torch.randperm(x.shape[0])
+
+
+def _gen_cutmix_lambda(alpha: float) -> float:
+    """Generates lambda from ``Beta(alpha, alpha)``
+
+    Args:
+        alpha: Parameter for the Beta(alpha, alpha) distribution
+
+    Returns:
+        cutmix_lambda: Lambda parameter for performing cutmix.
+    """
+    # First check if alpha is positive.
+    assert alpha >= 0
+    # Draw the area parameter from a beta distribution.
+    # Check here is needed because beta distribution requires alpha > 0
+    # but alpha = 0 is fine for cutmix.
+    if alpha == 0:
+        cutmix_lambda = 0
+    else:
+        cutmix_lambda = np.random.beta(alpha, alpha)
+    return cutmix_lambda
+
+
+def _rand_bbox(W: int,
+               H: int,
+               cutmix_lambda: float,
+               cx: Optional[int] = None,
+               cy: Optional[int] = None) -> Tuple[int, int, int, int]:
+    """Randomly samples a bounding box with area determined by cutmix_lambda.
+
+    Adapted from original implementation https://github.com/clovaai/CutMix-PyTorch
+
+    Args:
+        W: Width of the image
+        H: Height of the image
+        cutmix_lambda: Lambda param from cutmix, used to set the area of the box.
+        cx: Optional x coordinate of the center of the box.
+        cy: Optional y coordinate of the center of the box.
+
+    Returns:
+        bbx1: Leftmost edge of the bounding box
+        bby1: Top edge of the bounding box
+        bbx2: Rightmost edge of the bounding box
+        bby2: Bottom edge of the bounding box
+    """
+    cut_ratio = np.sqrt(1.0 - cutmix_lambda)
+    cut_w = int(W * cut_ratio)
+    cut_h = int(H * cut_ratio)
+
+    # uniform
+    if cx is None:
+        cx = np.random.randint(W)
+    if cy is None:
+        cy = np.random.randint(H)
+
+    bbx1 = np.clip(cx - cut_w // 2, 0, W)
+    bby1 = np.clip(cy - cut_h // 2, 0, H)
+    bbx2 = np.clip(cx + cut_w // 2, 0, W)
+    bby2 = np.clip(cy + cut_h // 2, 0, H)
+
+    return bbx1, bby1, bbx2, bby2
+
+
+def _adjust_lambda(cutmix_lambda: float, x: Tensor, bbox: Tuple) -> float:
+    """Rescale the cutmix lambda according to the size of the clipped bounding box.
+
+    Args:
+        cutmix_lambda: Lambda param from cutmix, used to set the area of the box.
+        x: input tensor of shape (B, d1, d2, ..., dn), B is batch size, d1-dn
+            are feature dimensions.
+        bbox: (x1, y1, x2, y2) coordinates of the boundind box, obeying x2 > x1, y2 > y1.
+
+    Returns:
+        adjusted_lambda: Rescaled cutmix_lambda to account for part of the bounding box
+            being potentially out of bounds of the input.
+    """
+    rx, ry, rw, rh = bbox[0], bbox[1], bbox[2], bbox[3]
+    adjusted_lambda = 1 - ((rw - rx) * (rh - ry) / (x.size()[-1] * x.size()[-2]))
+    return adjusted_lambda

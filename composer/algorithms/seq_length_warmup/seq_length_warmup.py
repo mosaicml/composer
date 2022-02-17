@@ -1,5 +1,7 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
+"""Core code for sequence length warmup."""
+
 import textwrap
 from typing import Dict, Mapping, Optional
 
@@ -9,27 +11,33 @@ from composer.core.types import Algorithm, Batch, Event, Logger, State, Tensor
 from composer.models.transformer_shared import ComposerTransformer
 from composer.utils import ensure_tuple
 
+__all__ = ["SeqLengthWarmup", "set_batch_sequence_length"]
+
 
 def set_batch_sequence_length(batch: Dict[str, Tensor], curr_seq_len: int, truncate: bool = True) -> Batch:
-    """Progressively increases the sequence length during training.
+    """Set the sequence length of the current batch.
 
     Changes the sequence length of all tensors in the provided dictionary
     to ``curr_seq_len``, by either truncating the tensors (``truncate=True``)
     or reshaping the tensors to create new examples from the extra tokens
     (``truncate=False``).
 
-    The schedule for ``curr_seq_len`` over training time should be managed
-    out of this function.
+    .. note::
+
+        The schedule for ``curr_seq_len`` over training time should be managed
+        out of this function.
+
+    Example: Awaiting language model test fixtures.
 
     Args:
-        batch: The input batch to the model, must be a dictionary.
+        batch (Dict[str, Tensor]): The input batch to the model, must be a dictionary.
         curr_seq_length (int): The desired sequence length to apply.
-        truncate (bool): Truncate sequences early, or reshape tensors
-                         to create new examples out of the extra tokens.
+        truncate (bool, optional): Truncate sequences early, or reshape tensors to create
+            new examples out of the extra tokens. Default = ``True``.
 
     Returns:
-        batch: a Mapping of input tensors to the model,
-               where all tensors have curr_seq_len in the second dimension.
+        Dict[str, Tensor]: a Mapping of input tensors to the model,
+            where all tensors have curr_seq_len in the second dimension.
     """
 
     assert isinstance(batch, Mapping)
@@ -70,23 +78,37 @@ class SeqLengthWarmup(Algorithm):
     Tensors are either truncated (``truncate=True``) or reshaped to
     create new examples from the extra tokens (``truncate=False``).
 
+    This algorithm runs on :attr:`~composer.core.event.Event.AFTER_DATALOADER` to modify
+    the sequence length of a batch of data, after the model and data have been moved to
+    accelerators.
+
     .. note::
 
-        ``step_size`` should be a multiple of eight for GPUs
+        ``step_size`` should be a `multiple of eight
+        <https://developer.nvidia.com/blog/optimizing-gpu-performance-tensor-cores/>`_ for
+        optimal throughput on NVIDIA GPUs
 
     .. note::
 
         Variable input lengths can create CUDA OOM errors. To avoid this,
-        we follow PyTorch notes and pre-allocate the memory with a blank
-        forward and backward pass.
+        we follow `PyTorch notes
+        <https://pytorch.org/tutorials/recipes/recipes/tuning_guide.html#pre-allocate-memory-in-case-of-variable-input-length>`_
+         and pre-allocate the memory with a blank forward and backward pass.
+
+    See the :doc:`Method Card </method_cards/seq_len_warmup>` for more details.
+
+    Example: Awaiting language model test fixtures.
 
     Args:
-        duration (float): fraction of total training for sequential length learning.
-        min_seq_length (int): Minimum sequence length to start the warmup.
-        max_seq_length (int): Maximum sequence length to stop the warmup.
-        step_size (int): Step size of sequence length.
-
-        truncate (bool): Truncate tensors or reshape extra tokens to new examples
+        duration (float, optional): Fraction of total training for sequential length
+            learning. Default = ``0.3``.
+        min_seq_length (int, optional): Minimum sequence length to start the warmup.
+            Default = ``8``.
+        max_seq_length (int, optional): Maximum sequence length to stop the warmup.
+            Default = ``1024``.
+        step_size (int, optional): Step size of sequence length. Default = ``8``.
+        truncate (bool, optional): Truncate tensors or reshape extra tokens to new
+            examples. Default = ``True``.
     """
 
     def __init__(
@@ -113,6 +135,10 @@ class SeqLengthWarmup(Algorithm):
         self._original_model = None
 
     def match(self, event: Event, state: State) -> bool:
+        """Runs on Event.AFTER_DATALOADER. Not called by user.
+
+        :meta private:
+        """
         return (event == Event.INIT and self._original_model is None) or event == Event.AFTER_DATALOADER
 
     def apply(self, event: Event, state: State, logger: Logger) -> Optional[int]:
@@ -128,7 +154,10 @@ class SeqLengthWarmup(Algorithm):
             state (:class:`State`): The current state.
             logger (:class:`Logger`): A logger to use for logging algorithm-specific metrics.
         Returns:
-            int or None: exit code that is stored in :class:`Trace` and made accessible for debugging.
+            int or None: exit code that is stored in :class:`Trace` and made accessible
+            for debugging.
+
+        :meta private:
         """
         if event == Event.INIT:
             if not isinstance(state.model, ComposerTransformer):

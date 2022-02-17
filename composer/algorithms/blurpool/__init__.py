@@ -7,11 +7,3 @@ from composer.algorithms.blurpool.blurpool_layers import BlurMaxPool2d as BlurMa
 from composer.algorithms.blurpool.blurpool_layers import BlurPool2d as BlurPool2d
 from composer.algorithms.blurpool.blurpool_layers import blur_2d as blur_2d
 from composer.algorithms.blurpool.blurpool_layers import blurmax_pool2d as blurmax_pool2d
-
-_name = 'BlurPool'
-_class_name = 'BlurPool'
-_functional = 'apply_blurpool'
-_tldr = ''
-_attribution = '(Zhang, 2019)'
-_link = 'https://arxiv.org/abs/1904.11486'
-_method_card = ''

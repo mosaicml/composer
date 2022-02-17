@@ -30,8 +30,12 @@ class UNet(ComposerModel):
 
     def __init__(self, hparams: UnetHparams) -> None:
         super().__init__()
-
-        from monai.losses import DiceLoss
+        try:
+            from monai.losses import DiceLoss
+        except ImportError as e:
+            raise ImportError(
+                "Composer was installed without unet support. To use unet with Composer, run: `pip install mosaicml[unet]`."
+            ) from e
 
         self.hparams = hparams
         self.module = self.build_nnunet()
