@@ -41,8 +41,9 @@ class WandBLogger(LoggerCallback):
             import wandb
         except ImportError as e:
             raise ImportError(
-                "Composer was installed without WandB support. To use WandB with Composer, run: `pip install mosaicml[wandb]`."
-            ) from e
+                textwrap.dedent("""\
+                Composer was installed without WandB support. To use WandB with Composer, run `pip install mosaicml[wandb]`
+                if using pip or `conda install -c conda-forge wandb` if using Anaconda.""")) from e
         del wandb  # unused
         if log_artifacts and rank_zero_only:
             warnings.warn(

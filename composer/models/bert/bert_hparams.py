@@ -1,6 +1,7 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
 from dataclasses import dataclass
+import textwrap
 from typing import TYPE_CHECKING
 
 import yahp as hp
@@ -24,8 +25,9 @@ class BERTForClassificationHparams(TransformerHparams):
             import transformers
         except ImportError as e:
             raise ImportError(
-                'Composer was installed without NLP support. To use BERT with Composer, run: `pip install mosaicml[nlp]`.'
-            ) from e
+                textwrap.dedent("""\
+                Composer was installed without NLP support. To use NLP with Composer, run `pip install mosaicml[nlp]`
+                if using pip or `conda install -c conda-forge transformers` if using Anaconda.""")) from e
 
         from composer.models.bert.model import BERTModel
         self.validate()
@@ -63,8 +65,9 @@ class BERTHparams(TransformerHparams):
             import transformers
         except ImportError as e:
             raise ImportError(
-                'Composer was installed without NLP support. To use BERT with Composer, run: `pip install mosaicml[nlp]`.'
-            ) from e
+                textwrap.dedent("""\
+                Composer was installed without NLP support. To use NLP with Composer, run `pip install mosaicml[nlp]`
+                if using pip or `conda install -c conda-forge transformers` if using Anaconda.""")) from e
 
         from composer.models.bert.model import BERTModel
         self.validate()
