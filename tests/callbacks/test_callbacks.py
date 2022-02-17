@@ -22,10 +22,9 @@ def test_callbacks_map_to_events():
 class EventTrackerCallback(Callback):
 
     def __init__(self) -> None:
-        super().__init__()
         self.event = None
 
-    def _run_event(self, event: Event, state: State, logger: Logger) -> None:
+    def run_event(self, event: Event, state: State, logger: Logger) -> None:
         del state, logger  # unused
         self.event = event
 

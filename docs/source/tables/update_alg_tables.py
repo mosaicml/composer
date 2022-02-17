@@ -1,52 +1,51 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
 """Helper function to generate the README table."""
+import json
+import os
 from pathlib import Path
 
+import utils
+
+import composer
 from composer import functional as CF
 
-from . import utils
+EXCLUDE_METHODS = ['no_op_model', 'utils']
 
-HEADER = ['Name', 'Functional', 'Attribution', 'tl;dr', 'Card']
-ATTRIBUTES = ['_class_name', '_functional', '_tldr', '_attribution', '_link', '_method_card']
+HEADER = ['Name', 'Functional', 'Attribution', 'tl;dr']
+ATTRIBUTES = ['class_name', 'functional', 'tldr', 'attribution', 'link']
 GITHUB_BASE = 'https://github.com/mosaicml/composer/tree/dev/composer/algorithms/'
 
-folder_path = Path(__file__).parent
-methods = utils.list_dirs(folder_path)
+folder_path = os.path.join(os.path.dirname(composer.__file__), 'algorithms')
+
+methods = utils.list_dirs(Path(folder_path))
+methods = [m for m in methods if m not in EXCLUDE_METHODS]
 
 if not len(methods):
     raise ValueError(f'Found 0 methods in {folder_path}')
 
 print(f'Found {len(methods)} methods with metadata.')
 
-metadata = utils.get_metadata(
-    names=methods,
-    attributes=ATTRIBUTES,
-    module_basepath='composer.algorithms',
-)
+metadata = {}
+for name in methods:
+    json_path = os.path.join(folder_path, name, 'metadata.json')
+    with open(json_path, 'r') as f:
+        metadata[name] = json.load(f)[name]
 
-# add extra keys
-for name, md in metadata.items():
+        # test functional method is importable
+        method_functional = metadata[name]['functional']
+        if method_functional and not hasattr(CF, method_functional):
+            raise ImportError(f'Unable to import functional form {method_functional} for {name}')
 
-    # add github link attribute
-    md['_github_link'] = GITHUB_BASE + name
-
-    # test that functional form is importable
-    if md['_functional']:
-        method_functional = md['_functional']
-
-        if not hasattr(CF, method_functional):
-            raise ImportError(f'Unable to import functional form {method_functional}')
-
-        md['_functional'] = '`CF.{}`'.format(md['_functional'])
+        metadata[name]['functional'] = f'`cf.{method_functional}`'
+        metadata[name]['github_link'] = GITHUB_BASE + name
 
 # define row format
 row = [
-    '[{_class_name}]({_github_link})',
-    '{_functional}',
-    lambda d: '[{_attribution}]({_link})' if d['_link'] else d['_attribution'],
-    '{_tldr}',
-    lambda d: '[Link]({_method_card})' if d['_method_card'] else '',
+    '[{class_name}]({github_link})',
+    '{functional}',
+    lambda d: '[{attribution}]({link})' if d['link'] else ['attribution'],
+    '{tldr}',
 ]
 
 table_md = utils.build_markdown_table(
@@ -55,3 +54,9 @@ table_md = utils.build_markdown_table(
     sorted_keys=sorted(metadata.keys()),
     row_format=row,
 )
+
+table_path = os.path.join(os.path.dirname(__file__), 'algorithms_table.md')
+with open(table_path, 'w') as f:
+    f.write(table_md)
+
+print(f'Table written to {table_path}')

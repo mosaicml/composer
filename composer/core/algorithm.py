@@ -92,7 +92,3 @@ class Algorithm(Serializable, ABC):
                 and made accessible for debugging.
         """
         raise NotImplementedError(f'implement apply() required for {self.__class__.__name__}')
-
-    def __str__(self) -> str:
-        """Returns the class name."""
-        return self.__class__.__name__

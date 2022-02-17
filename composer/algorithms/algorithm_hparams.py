@@ -15,13 +15,16 @@ from composer.core.algorithm import Algorithm
 
 @dataclass
 class AlgorithmHparams(hp.Hparams, ABC):
+    """Hyperparameters for algorithms."""
 
     @abstractmethod
     def initialize_object(self) -> Algorithm:
-        pass
+        """Invoked by the :meth:`TrainerHparams.initialize_object` to create an instance of the :class:`Algorithm`.
 
-    def __init_subclass__(cls) -> None:
-        return super().__init_subclass__()
+        Returns:
+            Algorithm: An instance of the :class:`Algorithm`.
+        """
+        pass
 
     @classmethod
     def load(cls, alg_params: Optional[str] = None) -> AlgorithmHparams:
