@@ -135,30 +135,9 @@ class SeqLengthWarmup(Algorithm):
         self._original_model = None
 
     def match(self, event: Event, state: State) -> bool:
-        """Runs on Event.AFTER_DATALOADER. Not called by user.
-
-        :meta private:
-        """
         return (event == Event.INIT and self._original_model is None) or event == Event.AFTER_DATALOADER
 
     def apply(self, event: Event, state: State, logger: Logger) -> Optional[int]:
-        """Applies on ``Event.AFTER_DATALOADER`` to apply the sequence length warmup to the input batch.
-
-        .. note::
-
-            On the first call of :meth:`apply`, a dummy training pass on the
-            full sequence length is used to preallocate the PyTorch cache.
-
-        Args:
-            event (:class:`Event`): The current event.
-            state (:class:`State`): The current state.
-            logger (:class:`Logger`): A logger to use for logging algorithm-specific metrics.
-        Returns:
-            int or None: exit code that is stored in :class:`Trace` and made accessible
-            for debugging.
-
-        :meta private:
-        """
         if event == Event.INIT:
             if not isinstance(state.model, ComposerTransformer):
                 raise RuntimeError(

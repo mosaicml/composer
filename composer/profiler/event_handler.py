@@ -20,6 +20,8 @@ class ProfilerEventHandler(Callback, abc.ABC):
     event handlers can run on :class:`~composer.Event`\\s (such as on :attr:`~composer.Event.INIT` to open files or on
     :attr:`~composer.Event.BATCH_END` to periodically dump data to files) and use :meth:`~composer.Callback.close`
     to perform any cleanup.
+
+    :private-members: process_duration_event, process_instant_event, process_counter_event
     """
 
     def process_duration_event(
@@ -47,6 +49,8 @@ class ProfilerEventHandler(Callback, abc.ABC):
             wall_clock_time_ns (int): The :meth:`time.time_ns` corresponding to the event.
             global_rank (int): The `global_rank` corresponding to the event.
             pid (int): The `pid` corresponding to the event.
+
+        :meta private:
         """
         del name, categories, is_start, timestamp, wall_clock_time_ns, global_rank, pid  # unused
         pass
@@ -69,6 +73,8 @@ class ProfilerEventHandler(Callback, abc.ABC):
             wall_clock_time_ns (int): The :meth:`time.time_ns` corresponding to the event.
             global_rank (int): The `global_rank` corresponding to the event.
             pid (int): The `pid` corresponding to the event.
+
+        :meta private:
         """
         del name, categories, timestamp, wall_clock_time_ns, global_rank, pid  # unused
         pass
@@ -91,6 +97,8 @@ class ProfilerEventHandler(Callback, abc.ABC):
             global_rank (int): The `global_rank` corresponding to the event.
             pid (int): The `pid` corresponding to the event.
             values (Dict[str, int | float]): The values corresponding to this counter event
+
+        :meta private:
         """
         del name, categories, wall_clock_time_ns, global_rank, pid, values  # unused
         pass

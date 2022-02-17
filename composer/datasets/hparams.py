@@ -56,6 +56,8 @@ class DatasetHparams(hp.Hparams, abc.ABC, metaclass=metaclass):
             If the number of samples is not divisible by the batch size, whether
             to drop the last batch (the default) or pad the last batch with zeros.
         shuffle (bool): Whether to shuffle the dataset. Defaults to True.
+
+    :private-members: initialize_object
     """
 
     is_train: bool = hp.optional("Whether to load the training data (the default) or validation data.", default=True)
@@ -79,5 +81,7 @@ class DatasetHparams(hp.Hparams, abc.ABC, metaclass=metaclass):
         Returns:
             Dataloader or DataSpec: The dataloader, or if the dataloader yields batches of custom types,
             a :class:`DataSpec`.
+
+        :meta private:
         """
         pass

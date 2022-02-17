@@ -57,6 +57,10 @@ class Initializer(StringEnum):
 
 @dataclass
 class ModelHparams(hp.Hparams, ABC):
+    """Model Hparams.
+
+    :private-members: initialize_object
+    """
 
     initializers: List[Initializer] = hp.optional(
         default_factory=lambda: [],
@@ -70,4 +74,11 @@ class ModelHparams(hp.Hparams, ABC):
 
     @abstractmethod
     def initialize_object(self) -> ComposerModel:
+        """Invoked by the :meth:`TrainerHparams.initialize_object` to construct a :class:`ComposerModel`.
+
+        Returns:
+            ComposerModel: The constructed `ComposerModel`
+
+        :meta private:
+        """
         pass

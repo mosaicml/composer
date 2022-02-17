@@ -23,6 +23,8 @@ class Algorithm(Serializable, ABC):
     :func:`match`, which returns whether the algorithm should be run given
     the current event and state, and :func:`apply`, which makes an in-place
     change to the :class:`State`.
+
+    :private-members: find_unused_parameters, backwards_create_graph, match, apply
     """
 
     @property
@@ -31,6 +33,8 @@ class Algorithm(Serializable, ABC):
 
         Used to tell DDP that some parameters will be frozen during training and hence it should not expect gradients
         from them. All algorithms which do any kind of parameter freezing should override this function to return True.
+
+        :meta private:
         """
         return False
 
@@ -40,6 +44,8 @@ class Algorithm(Serializable, ABC):
 
         If True, create_graph=True will be passed to loss.backward() which wil result in the graph of the gradient also
         being constructed.
+
+        :meta private:
         """
         return False
 
@@ -73,6 +79,8 @@ class Algorithm(Serializable, ABC):
             state (:class:`State`): The current state.
         Returns:
             bool: True if this algorithm should run now.
+
+        :meta private:
         """
         raise NotImplementedError(f'implement match() required for {self.__class__.__name__}')
 
@@ -90,9 +98,7 @@ class Algorithm(Serializable, ABC):
         Returns:
             int or None: exit code that is stored in :class:`~composer.core.engine.Trace`
                 and made accessible for debugging.
+
+        :meta private:
         """
         raise NotImplementedError(f'implement apply() required for {self.__class__.__name__}')
-
-    def __str__(self) -> str:
-        """Returns the class name."""
-        return self.__class__.__name__

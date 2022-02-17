@@ -29,14 +29,15 @@ class Callback(Serializable, abc.ABC):
 
     #. Override the individual methods named for each :class:`Event`.
 
-    #. Override :meth:`_run_event` (**not** :meth:`run_event`) to run in response
-       to all events. If this method is overridden, then the individual methods
-       corresponding to each event name will not be automatically called (however,
-       the subclass implementation can invoke these methods as it wishes.)
-    """
+    #. Override :meth:`run_event` to run in response. Individual methods
+       corresponding to each event name will no longer be invoked.
 
-    def __init__(self) -> None:
-        super().__init__()
+    :private-members: run_event, _run_event, init, fit_start, epoch_start, batch_start, \
+        after_dataloader, before_train_batch, before_forward, after_forward, before_loss, \
+        after_loss, before_backward, after_backward, after_train_batch, batch_end, \
+        epoch_end, eval_start, eval_batch_start, eval_before_forward, eval_after_forward, \
+        eval_batch_end, eval_end, close, post_close
+    """
 
     @final
     def run_event(self, event: Event, state: State, logger: Logger) -> None:
@@ -46,11 +47,9 @@ class Callback(Serializable, abc.ABC):
             event (Event): The event.
             state (State): The state.
             logger (Logger): The logger.
-        """
-        self._run_event(event, state, logger)
 
-    def _run_event(self, event: Event, state: State, logger: Logger) -> None:
-        # default fallback if the callback does not override _run_event
+        :meta private:
+        """
         event_cb = getattr(self, event.value)
         return event_cb(state, logger)
 
@@ -60,6 +59,8 @@ class Callback(Serializable, abc.ABC):
         Args:
             state (State): The global state.
             logger (Logger): The logger.
+
+        :meta private:
         """
         del state, logger  # unused
         pass
@@ -70,6 +71,8 @@ class Callback(Serializable, abc.ABC):
         Args:
             state (State): The global state.
             logger (Logger): The logger.
+
+        :meta private:
         """
         del state, logger  # unused
         pass
@@ -80,6 +83,8 @@ class Callback(Serializable, abc.ABC):
         Args:
             state (State): The global state.
             logger (Logger): The logger.
+
+        :meta private:
         """
         del state, logger  # unused
         pass
@@ -90,6 +95,8 @@ class Callback(Serializable, abc.ABC):
         Args:
             state (State): The global state.
             logger (Logger): The logger.
+
+        :meta private:
         """
         del state, logger  # unused
         pass
@@ -100,6 +107,8 @@ class Callback(Serializable, abc.ABC):
         Args:
             state (State): The global state.
             logger (Logger): The logger.
+
+        :meta private:
         """
         del state, logger  # unused
         pass
@@ -110,6 +119,8 @@ class Callback(Serializable, abc.ABC):
         Args:
             state (State): The global state.
             logger (Logger): The logger.
+
+        :meta private:
         """
         del state, logger  # unused
         pass
@@ -120,6 +131,8 @@ class Callback(Serializable, abc.ABC):
         Args:
             state (State): The global state.
             logger (Logger): The logger.
+
+        :meta private:
         """
         del state, logger  # unused
         pass
@@ -130,6 +143,8 @@ class Callback(Serializable, abc.ABC):
         Args:
             state (State): The global state.
             logger (Logger): The logger.
+
+        :meta private:
         """
         del state, logger  # unused
         pass
@@ -140,6 +155,8 @@ class Callback(Serializable, abc.ABC):
         Args:
             state (State): The global state.
             logger (Logger): The logger.
+
+        :meta private:
         """
         del state, logger  # unused
         pass
@@ -150,6 +167,8 @@ class Callback(Serializable, abc.ABC):
         Args:
             state (State): The global state.
             logger (Logger): The logger.
+
+        :meta private:
         """
         del state, logger  # unused
         pass
@@ -160,6 +179,8 @@ class Callback(Serializable, abc.ABC):
         Args:
             state (State): The global state.
             logger (Logger): The logger.
+
+        :meta private:
         """
         del state, logger  # unused
         pass
@@ -170,6 +191,8 @@ class Callback(Serializable, abc.ABC):
         Args:
             state (State): The global state.
             logger (Logger): The logger.
+
+        :meta private:
         """
         del state, logger  # unused
         pass
@@ -180,6 +203,8 @@ class Callback(Serializable, abc.ABC):
         Args:
             state (State): The global state.
             logger (Logger): The logger.
+
+        :meta private:
         """
         del state, logger  # unused
         pass
@@ -197,6 +222,8 @@ class Callback(Serializable, abc.ABC):
         Args:
             state (State): The global state.
             logger (Logger): The logger.
+
+        :meta private:
         """
         del state, logger  # unused
         pass
@@ -211,6 +238,8 @@ class Callback(Serializable, abc.ABC):
         Args:
             state (State): The global state.
             logger (Logger): The logger.
+
+        :meta private:
         """
         del state, logger  # unused
         pass
@@ -221,6 +250,8 @@ class Callback(Serializable, abc.ABC):
         Args:
             state (State): The global state.
             logger (Logger): The logger.
+
+        :meta private:
         """
         del state, logger  # unused
         pass
@@ -231,6 +262,8 @@ class Callback(Serializable, abc.ABC):
         Args:
             state (State): The global state.
             logger (Logger): The logger.
+
+        :meta private:
         """
         del state, logger  # unused
         pass
@@ -241,6 +274,8 @@ class Callback(Serializable, abc.ABC):
         Args:
             state (State): The global state.
             logger (Logger): The logger.
+
+        :meta private:
         """
         del state, logger  # unused
         pass
@@ -251,6 +286,8 @@ class Callback(Serializable, abc.ABC):
         Args:
             state (State): The global state.
             logger (Logger): The logger.
+
+        :meta private:
         """
         del state, logger  # unused
         pass
@@ -261,6 +298,8 @@ class Callback(Serializable, abc.ABC):
         Args:
             state (State): The global state.
             logger (Logger): The logger.
+
+        :meta private:
         """
         del state, logger  # unused
         pass
@@ -271,6 +310,8 @@ class Callback(Serializable, abc.ABC):
         Args:
             state (State): The global state.
             logger (Logger): The logger.
+
+        :meta private:
         """
         del state, logger  # unused
         pass
@@ -280,6 +321,8 @@ class Callback(Serializable, abc.ABC):
 
         It should be used for flushing and closing any files, etc... that may have been opened during the
         :attr:`~Event.INIT` event.
+
+        :meta private:
         """
         pass
 
@@ -289,5 +332,7 @@ class Callback(Serializable, abc.ABC):
 
         This callback can be used to back up any data that may have been written by other callbacks during
         :meth:`close`.
+
+        :meta private:
         """
         pass

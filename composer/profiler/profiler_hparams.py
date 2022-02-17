@@ -12,7 +12,10 @@ from composer.profiler.json_trace import JSONTraceHandler
 
 @dataclasses.dataclass
 class ProfilerEventHandlerHparams(hp.Hparams, abc.ABC):
-    """Base class for profile event handler hparams."""
+    """Base class for profile event handler hparams.
+
+    :private-members: initialize_object
+    """
 
     @abc.abstractmethod
     def initialize_object(self) -> ProfilerEventHandler:
@@ -20,6 +23,8 @@ class ProfilerEventHandlerHparams(hp.Hparams, abc.ABC):
 
         Returns:
             ProfilerEventHandler: The event handler.
+
+        :meta private:
         """
         pass
 

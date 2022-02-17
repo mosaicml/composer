@@ -21,6 +21,8 @@ class Device(Serializable, ABC):
             Should be `gloo`, `mpi`, or `nccl`.
             See `the pytorch docs <https://pytorch.org/docs/stable/distributed.html>`_
             for details.
+
+    :private-members: module_to_device, tensor_to_device, batch_to_device, optimizer_to_device, precision_context
     """
 
     dist_backend: str
@@ -34,6 +36,8 @@ class Device(Serializable, ABC):
 
         Returns:
             T_nnModule: The module on the device.
+
+        :meta private:
         """
         pass
 
@@ -46,6 +50,8 @@ class Device(Serializable, ABC):
 
         Returns:
             Tensor: The tensor on the device.
+
+        :meta private:
         """
         pass
 
@@ -57,6 +63,8 @@ class Device(Serializable, ABC):
 
         Returns:
             Batch: The batch on the device.
+
+        :meta private:
         """
         if isinstance(batch, Tensor):
             return self.tensor_to_device(batch)
@@ -78,6 +86,8 @@ class Device(Serializable, ABC):
 
         Returns:
             Optimizer: The optimizer on the device
+
+        :meta private:
         """
         for state in optimizer.state.values():
             for k, v in state.items():
@@ -102,5 +112,7 @@ class Device(Serializable, ABC):
 
         Yields:
             Generator[None, None, None]: [description]
+
+        :meta private:
         """
         pass

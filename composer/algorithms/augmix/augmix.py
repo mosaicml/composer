@@ -26,9 +26,8 @@ def augmix_image(img: ImageType,
                  width: int = 3,
                  alpha: float = 1.0,
                  augmentation_set: List = augmentation_sets["all"]) -> ImageType:
-    """Applies AugMix (`Hendrycks et al., 2020 <http://arxiv.org/abs/1912.02781>`_) data
-    augmentation to an image. See :class:`~composer.algorithms.augmix.augmix.AugMix` and
-    the :doc:`Method Card </method_cards/aug_mix>` for details.
+    """Applies AugMix (`Hendrycks et al., 2020 <http://arxiv.org/abs/1912.02781>`_) data augmentation to an image. See
+    :class:`~composer.algorithms.augmix.augmix.AugMix` and the :doc:`Method Card </method_cards/aug_mix>` for details.
 
     Example:
         .. testcode::
@@ -229,17 +228,9 @@ class AugMix(Algorithm):
         self._transformed_datasets = weakref.WeakSet()
 
     def match(self, event: Event, state: State) -> bool:
-        """Runs on Event.FIT_START. Not called by user.
-
-        :meta private:
-        """
         return event == Event.FIT_START and state.train_dataloader.dataset not in self._transformed_datasets
 
     def apply(self, event: Event, state: State, logger: Logger) -> None:
-        """Inserts AugMix into the list of dataloader transforms. Not called by user.
-
-        :meta private:
-        """
         am = AugmentAndMixTransform(severity=self.severity,
                                     depth=self.depth,
                                     width=self.width,

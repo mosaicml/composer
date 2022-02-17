@@ -28,6 +28,8 @@ class LoggerCallbackHparams(hp.Hparams, ABC):
     Logger parameters that are added to
     :class:`~composer.trainer.trainer_hparams.TrainerHparams`
     (e.g. via YAML or the CLI) are initialized in the training loop.
+
+    :private-members: initialize_object
     """
 
     @abstractmethod
@@ -37,6 +39,7 @@ class LoggerCallbackHparams(hp.Hparams, ABC):
         Args:
             config (dict): The configuration used by the trainer.
                 The logger can optionally save this configuration.
+        :meta private:
         """
         pass
 

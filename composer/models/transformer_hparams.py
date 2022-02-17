@@ -1,18 +1,21 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
-from abc import ABC, abstractmethod
+from abc import ABC
 from dataclasses import dataclass
 from typing import Dict, Optional
 
 import yahp as hp
 
-from composer.core.types import JSON, Model
+from composer.core.types import JSON
 from composer.models.model_hparams import ModelHparams
 
 
 @dataclass
 class TransformerHparams(ModelHparams, ABC):
-    """Defines the necessary hyparameters for a Transformer base module."""
+    """Defines the necessary hyparameters for a Transformer base module.
+
+    :private-members: initialize_object, validate
+    """
 
     tokenizer_name: str = hp.optional("Model name to pull from Huggingface Model Hub.", default=None)
     pretrained_model_name: Optional[str] = hp.optional(
@@ -36,7 +39,3 @@ class TransformerHparams(ModelHparams, ABC):
 
         if self.use_pretrained and self.model_config:
             raise Exception("A model cannot load pretrained weights from configuration.")
-
-    @abstractmethod
-    def initialize_object(self) -> Model:
-        pass

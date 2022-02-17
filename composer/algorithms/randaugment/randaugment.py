@@ -105,7 +105,8 @@ class RandAugmentTransform(torch.nn.Module):
 
 
 class RandAugment(Algorithm):
-    """Randomly applies a sequence of image data augmentations (`Cubuk et al., 2019
+    """Randomly applies a sequence of image data augmentations (`Cubuk et al., 2019.
+
     <https://arxiv.org/abs/1909.13719>`_) to an image.
 
     This algorithm runs on on :attr:`~composer.core.event.Event.INIT` to insert a dataset
@@ -173,17 +174,9 @@ class RandAugment(Algorithm):
         self._transformed_datasets = weakref.WeakSet()
 
     def match(self, event: Event, state: State) -> bool:
-        """Runs on Event.FIT_START. Not called by user.
-
-        :meta private:
-        """
         return event == Event.FIT_START and state.train_dataloader.dataset not in self._transformed_datasets
 
     def apply(self, event: Event, state: State, logger: Logger) -> None:
-        """Inserts RandAugment into the list of dataloader transforms. Not called by user.
-
-        :meta private:
-        """
         ra = RandAugmentTransform(severity=self.severity, depth=self.depth, augmentation_set=self.augmentation_set)
         assert state.train_dataloader is not None
         dataset = state.train_dataloader.dataset

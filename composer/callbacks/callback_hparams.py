@@ -29,6 +29,8 @@ class CallbackHparams(hp.Hparams, abc.ABC):
     Callback parameters that are added to
     :attr:`composer.trainer.trainer_hparams.TrainerHparams.callbacks`
     (e.g. via YAML or the CLI) are initialized in the training loop.
+
+    :private-members: initialize_object
     """
 
     @abc.abstractmethod
@@ -37,6 +39,8 @@ class CallbackHparams(hp.Hparams, abc.ABC):
 
         Returns:
             Callback: An instance of the callback.
+
+        :meta private:
         """
         pass
 
