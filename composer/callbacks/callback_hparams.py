@@ -51,7 +51,9 @@ class CallbackHparams(hp.Hparams, abc.ABC):
 class GradMonitorHparams(CallbackHparams):
     """:class:`~composer.callbacks.grad_monitor.GradMonitor` hyperparamters.
 
-    See :class:`~composer.callbacks.grad_monitor.GradMonitor` for documentation.
+    Args:
+        log_layer_grad_norms (bool, optional): 
+            See :class:`~composer.callbacks.grad_monitor.GradMonitor` for documentation.
     """
 
     log_layer_grad_norms: bool = hp.optional(
@@ -73,7 +75,7 @@ class GradMonitorHparams(CallbackHparams):
 class MemoryMonitorHparams(CallbackHparams):
     """:class:`~composer.callbacks.memory_monitor.MemoryMonitor` hyperparameters.
 
-    See :class:`~composer.callbacks.memory_monitor.MemoryMonitor` for documentation.
+    There are no parameters as :class:`~composer.callbacks.memory_monitor.MemoryMonitor` does not take any parameters.
     """
 
     def initialize_object(self) -> MemoryMonitor:
@@ -90,7 +92,7 @@ class MemoryMonitorHparams(CallbackHparams):
 class LRMonitorHparams(CallbackHparams):
     """:class:`~composer.callbacks.lr_monitor.LRMonitor` hyperparameters.
 
-    See :class:`~composer.callbacks.lr_monitor.LRMonitor` for documentation.
+    There are no parameters as :class:`~composer.callbacks.lr_monitor.LRMonitor` does not take any parameters.
     """
 
     def initialize_object(self) -> LRMonitor:
@@ -107,7 +109,9 @@ class LRMonitorHparams(CallbackHparams):
 class SpeedMonitorHparams(CallbackHparams):
     """:class:`~composer.callbacks.speed_monitor.SpeedMonitor` hyperparameters.
 
-    See :class:`~composer.callbacks.speed_monitor.SpeedMonitor` fpr documentation.
+    Args:
+        window_size (int, optional):
+            See :class:`~composer.callbacks.speed_monitor.SpeedMonitor` for documentation.
     """
     window_size: int = hp.optional(
         doc="Number of batchs to use for a rolling average of throughput.",
@@ -128,7 +132,33 @@ class SpeedMonitorHparams(CallbackHparams):
 class RunDirectoryUploaderHparams(CallbackHparams, ObjectStoreProviderHparams):
     """:class:`~composer.callbacks.run_directory_uploader.RunDirectoryUploader` hyperparameters.
 
-    See :class:`~composer.callbacks.run_directory_uploader.RunDirectoryUploader` for documentation.
+    Args:
+        provider (str):
+            See :class:`~composer.utils.object_store.ObjectStoreProviderHparams` for documentation.
+        container (str):
+            See :class:`~composer.utils.object_store.ObjectStoreProviderHparams` for documentation.
+        key_environ (str, optional):
+            See :class:`~composer.utils.object_store.ObjectStoreProviderHparams` for documentation.
+        secret_environ (str, optional):
+            See :class:`~composer.utils.object_store.ObjectStoreProviderHparams` for documentation.
+        region (str, optional):
+            See :class:`~composer.utils.object_store.ObjectStoreProviderHparams` for documentation.
+        host (str, optional):
+            See :class:`~composer.utils.object_store.ObjectStoreProviderHparams` for documentation.
+        port (int, optional):
+            See :class:`~composer.utils.object_store.ObjectStoreProviderHparams` for documentation.
+        extra_init_kwargs (Dict[str, Any], optional): Extra keyword arguments to pass into the constructor
+            See :class:`~composer.utils.object_store.ObjectStoreProviderHparams` for documentation.
+        object_name_prefix (str, optional):
+            See :class:`~composer.callbacks.run_directory_uploader.RunDirectoryUploader` for documentation.
+        num_concurrent_uploads (int, optional):
+            See :class:`~composer.callbacks.run_directory_uploader.RunDirectoryUploader` for documentation.
+        upload_staging_folder (str, optional):
+            See :class:`~composer.callbacks.run_directory_uploader.RunDirectoryUploader` for documentation.
+        use_procs (bool, optional):
+            See :class:`~composer.callbacks.run_directory_uploader.RunDirectoryUploader` for documentation.
+        upload_every_n_batches (int, optional):
+            See :class:`~composer.callbacks.run_directory_uploader.RunDirectoryUploader` for documentation.
     """
 
     object_name_prefix: Optional[str] = hp.optional(textwrap.dedent("""\

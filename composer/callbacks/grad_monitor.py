@@ -51,6 +51,7 @@ class GradMonitor(Callback):
         self.log_layer_grad_norms = log_layer_grad_norms
 
     def after_train_batch(self, state: State, logger: Logger):
+        """:meta: private""" 
         norm = 0.0
         layer_norms = {}
         for name, p in state.model.named_parameters():

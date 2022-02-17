@@ -44,23 +44,23 @@ class MemoryMonitor(Callback):
 
     The following statistics are recorded:
 
-    +----------------+--------------------------------------------------------------------------+
-    | Statistic      | Description                                                              |
-    +================+==========================================================================+
-    | alloc_requests | Number of memory allocation requests received by the memory allocator.   |
-    +----------------+--------------------------------------------------------------------------+
-    | free_requests  | Number of memory free requests received by the memory allocator.         |
-    +----------------+--------------------------------------------------------------------------+
-    | allocated_mem  | Amount of allocated memory.                                              |
-    +----------------+--------------------------------------------------------------------------+
-    | active_mem     | Number of active memory blocks at the time of recording.                 |
-    +----------------+--------------------------------------------------------------------------+
-    | inactive_mem   | Amount of inactive, non-releaseable memory at the time of recording.     |
-    +----------------+--------------------------------------------------------------------------+
-    | reserved_mem   | Amount of reserved memory at the time of recording.                      |
-    +----------------+--------------------------------------------------------------------------+
-    | alloc_retries  | Number of failed cudaMalloc calls that result in a cache flush and retry.|
-    +----------------+--------------------------------------------------------------------------+
+    +----------------+--------------------------------------------------------------------------------+
+    | Statistic      | Description                                                                    |
+    +================+================================================================================+
+    | alloc_requests | Number of memory allocation requests received by the memory allocator.         |
+    +----------------+--------------------------------------------------------------------------------+
+    | free_requests  | Number of memory free requests received by the memory allocator.               |
+    +----------------+--------------------------------------------------------------------------------+
+    | allocated_mem  | Amount of allocated memory in bytes.                                           |
+    +----------------+--------------------------------------------------------------------------------+
+    | active_mem     | Amount of active memory in bytes at the time of recording.                     |
+    +----------------+--------------------------------------------------------------------------------+
+    | inactive_mem   | Amount of inactive, non-releaseable memory in bytes at the time of recording.  |
+    +----------------+--------------------------------------------------------------------------------+
+    | reserved_mem   | Amount of reserved memory in bytes at the time of recording.                   |
+    +----------------+--------------------------------------------------------------------------------+
+    | alloc_retries  | Number of failed cudaMalloc calls that result in a cache flush and retry.      |
+    +----------------+--------------------------------------------------------------------------------+
 
     .. note::
         Memory usage monitoring is only supported for the GPU devices.
@@ -74,6 +74,7 @@ class MemoryMonitor(Callback):
             log.warn("Memory monitor only works on GPU devices.")
 
     def after_train_batch(self, state: State, logger: Logger):
+        """:meta: private""" 
         memory_report = {}
 
         n_devices = torch.cuda.device_count()

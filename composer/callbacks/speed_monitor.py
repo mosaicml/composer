@@ -50,11 +50,11 @@ class SpeedMonitor(Callback):
     +-----------------------+-------------------------------------------------------------+
 
     Args:
-        window_size (int):
-            Number of batches to use for a rolling average of throughput.
+        window_size (int, optional):
+            Number of batches to use for a rolling average of throughput. Default to 100.
     """
 
-    def __init__(self, window_size: int):
+    def __init__(self, window_size: int = 100):
         super().__init__()
         self.train_examples_per_epoch = 0
         self.wall_clock_train = 0.0
@@ -103,11 +103,13 @@ class SpeedMonitor(Callback):
             self.loaded_state = None
 
     def batch_start(self, state: State, logger: Logger) -> None:
+        """:meta: private""" 
         del logger  # unused
         self._load_state()
         self.batch_start_num_samples = state.timer.sample
 
     def epoch_start(self, state: State, logger: Logger):
+        """:meta: private""" 
         del state, logger  # unused
         self._load_state()
         self.epoch_start_time = time.time()
@@ -116,6 +118,7 @@ class SpeedMonitor(Callback):
         self.train_examples_per_epoch = 0
 
     def batch_end(self, state: State, logger: Logger):
+        """:meta: private""" 
         self.batch_end_times.append(time.time())
         new_num_samples = state.timer.sample
         batch_num_samples = int(new_num_samples - self.batch_start_num_samples)
@@ -126,6 +129,7 @@ class SpeedMonitor(Callback):
             logger.metric_batch({'throughput/step': throughput})
 
     def epoch_end(self, state: State, logger: Logger):
+        """:meta: private""" 
         del state  # unused
         epoch_time = time.time() - self.epoch_start_time
         self.wall_clock_train += epoch_time

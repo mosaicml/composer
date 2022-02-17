@@ -39,6 +39,7 @@ class LRMonitor(Callback):
         super().__init__()
 
     def batch_end(self, state: State, logger: Logger):
+        """:meta: private""" 
         assert state.optimizers is not None, "optimizers must be defined"
         for optimizer in state.optimizers:
             lrs = [group['lr'] for group in optimizer.param_groups]

@@ -16,6 +16,8 @@ except ImportError:
 if TYPE_CHECKING:
     from composer import Event, Logger, State
 
+__all__ = ["Callback"]
+
 
 class Callback(Serializable, abc.ABC):
     """Base class for callbacks.

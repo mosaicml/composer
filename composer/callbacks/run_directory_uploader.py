@@ -71,28 +71,23 @@ class RunDirectoryUploader(Callback):
            >>> _ = trainer.engine.run_event(Event.EPOCH_END)
 
     .. note::
-        While all uploads happen in the background, here are some additional tips for minimizing the performance impact:
+        This callback blocks the training loop to copy files from the :mod:`~composer.utils.run_directory` to the
+        ``upload_staging_folder`` and to queue these files to the upload queues of the workers. Actual upload happens in
+        the background.  While all uploads happen in the background, here are some additional tips for minimizing the
+        performance impact:
 
-            * Ensure that ``upload_every_n_batches`` is sufficiently infrequent as to limit when the blocking scans of the
-              run directory and copies of modified files.  However, do not make it too infrequent in case if the training
-              process unexpectedly dies, since data written after the last upload may be lost.
+        * Ensure that ``upload_every_n_batches`` is sufficiently infrequent as to limit when the blocking scans of the
+          run directory and copies of modified files.  However, do not make it too infrequent in case if the training
+          process unexpectedly dies, since data written after the last upload may be lost.
 
-            * Set ``use_procs=True`` (the default) to use background processes, instead of threads, to perform the file
-              uploads. Processes are recommended to ensure that the GIL is not blocking the training loop when performance CPU
-              operations on uploaded files (e.g. computing and comparing checksums).  Network I/O happens always occurs in the
-              background.
+        * Set ``use_procs=True`` (the default) to use background processes, instead of threads, to perform the file
+          uploads. Processes are recommended to ensure that the GIL is not blocking the training loop when performance CPU
+          operations on uploaded files (e.g. computing and comparing checksums).  Network I/O happens always occurs in the
+          background.
 
-            * Provide a RAM disk path for the ``upload_staging_folder`` parameter. Copying files to stage on RAM will be
-              faster than writing to disk. However, you must have sufficient excess RAM on your system, or you may experience
-              OutOfMemory errors.
-
-    .. note::
-
-        * To use this callback, install composer with ``pip install mosaicml[logging]``.
-
-        * This callback blocks the training loop to copy files from the :mod:`~composer.utils.run_directory` to the
-          ``upload_staging_folder`` and to queue these files to the upload queues of the workers. Actual upload happens in
-          the background.
+        * Provide a RAM disk path for the ``upload_staging_folder`` parameter. Copying files to stage on RAM will be
+          faster than writing to disk. However, you must have sufficient excess RAM on your system, or you may experience
+          OutOfMemory errors.
 
     Args:
         object_store_provider_hparams (ObjectStoreProviderHparams): ObjectStoreProvider hyperparameters object
@@ -167,6 +162,7 @@ class RunDirectoryUploader(Callback):
         _validate_credentials(object_store_provider_hparams, self._object_name_prefix)
 
     def init(self, state: State, logger: Logger) -> None:
+        """:meta: private""" 
         del state, logger  # unused
         self._finished = self._finished_cls()
         self._last_upload_timestamp = run_directory.get_run_directory_timestamp()
@@ -183,14 +179,17 @@ class RunDirectoryUploader(Callback):
             worker.start()
 
     def batch_end(self, state: State, logger: Logger) -> None:
+        """:meta: private""" 
         if int(state.timer.batch_in_epoch) % self._upload_every_n_batches == 0:
             self._trigger_upload(logger, LogLevel.BATCH)
 
     def epoch_end(self, state: State, logger: Logger) -> None:
+        """:meta: private""" 
         del state  # unused
         self._trigger_upload(logger, LogLevel.EPOCH)
 
     def post_close(self):
+        """:meta: private""" 
         # Cleaning up on post_close to ensure that all artifacts are uploaded
         self._trigger_upload(logger=None, log_level=None)
         if self._finished is not None:
