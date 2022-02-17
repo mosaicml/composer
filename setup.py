@@ -108,12 +108,12 @@ extra_deps["unet"] = [
 ]
 
 extra_deps["timm"] = [
-    'timm>=0.4',
+    'timm>=0.4.12',
 ]
 
 extra_deps["nlp"] = [
-    'transformers>=4.11.3',
-    'datasets>=1.14.0',
+    'transformers>=4.11',
+    'datasets>=1.14',
 ]
 
 extra_deps['all'] = set(dep for deps in extra_deps.values() for dep in deps)

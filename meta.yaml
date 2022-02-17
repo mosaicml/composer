@@ -52,14 +52,13 @@ test:
     - pytest-timeout >=1.4.2
     - testbook >=0.4.2
     # Including all run_constrained requirements in the test requirements, so those tests will not be import-skipped
-    - pip  # for deepspeed, since deepspeed is not available on anaconda
+    - pip  # Since deepspeed is not available on anaconda, it is installed via pip.
     - wandb >=0.12.2
-    # TODO fix the versions for these dependencies -- there is a conflict somewhere.
     - monai >=0.7.0
     - scikit-learn >=1.0.1
-    # - timm >=0.4
-    # - transformers >=4.11.3
-    # - datasets >=1.14.0
+    # - timm >=0.4.12     # TODO conda can't solve dependencies when using timm
+    - transformers >=4.11
+    - datasets >=1.14
   files:
     - "**/composer/**"
     - "**/tests/**"
