@@ -16,7 +16,7 @@ class Timm(ComposerClassifier):
         model = Timm(model_name='resnet18')  # creates a timm resnet18
 
     Args:
-        model_name (str): timm model name e.g: 'resnet50'. List of models can be found at
+        model_name (str): timm model name e.g: "resnet50". List of models can be found at
             https://github.com/rwightman/pytorch-image-models
         pretrained (bool): Imagenet pretrained. Default: False
         num_classes (int): The number of classes. Needed for classification tasks. Default = 1000

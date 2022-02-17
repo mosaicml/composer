@@ -59,13 +59,13 @@ class ComposerModel(torch.nn.Module, abc.ABC):
 
         .. code-block:: python
 
-        def forward(self, batch): # batch is the output of the dataloader
-            inputs, _ = batch
-            return self.model(inputs)
+            def forward(self, batch): # batch is the output of the dataloader
+                inputs, _ = batch
+                return self.model(inputs)
 
         The outputs of :meth:`forward` are passed to :meth:`loss` by the trainer:
 
-         .. code-block:: python
+        .. code-block:: python
 
             for batch in train_dataloader:
                 optimizer.zero_grad()
@@ -100,7 +100,7 @@ class ComposerModel(torch.nn.Module, abc.ABC):
 
         The outputs of :meth:`forward` are passed to :meth:`loss` by the trainer:
 
-         .. code-block:: python
+        .. code-block:: python
 
             for batch in train_dataloader:
                 optimizer.zero_grad()
