@@ -40,7 +40,7 @@ class GLUEHparams(DatasetHparams):
     split: str = hp.optional("Whether to use 'train', 'validation' or 'test' split.", default=None)
     max_seq_length: int = hp.optional(
         default=256, doc='Optionally, the ability to set a custom sequence length for the training dataset.')
-    num_workers: int = hp.optional(default=8,
+    num_workers: int = hp.optional(default=64,
                                    doc="Optionally, the number of CPU workers to use to preprocess the text.")
     max_network_retries: int = hp.optional(default=10,
                                            doc="Optionally, the number of times to retry HTTP requests if they fail.")
