@@ -4,7 +4,7 @@
         "functional": "",
         "tldr": "Scale the learning rate schedule by a factor",
         "attribution": "Many",
-        "link": "www.mosaicml.com",
+        "link": "https://www.mosaicml.com",
         "domains": []
     }
 }

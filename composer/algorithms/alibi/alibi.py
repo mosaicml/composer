@@ -168,18 +168,9 @@ class Alibi(Algorithm):
         self._applied = False
 
     def match(self, event: Event, state: State) -> bool:
-        """Runs on Event.INIT. Not called by user.
-
-        :meta private:
-        """
         return (event == Event.INIT and not self._applied) or event == Event.AFTER_DATALOADER
 
     def apply(self, event: Event, state: State, logger: Logger) -> Optional[int]:
-        """Replace model's existing attention mechanism with AliBi. Not called by user.
-
-        :meta private:
-        """
-
         if event == Event.INIT:
 
             if self.heads_per_layer is None:
