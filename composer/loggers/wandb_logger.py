@@ -22,20 +22,6 @@ __all__ = ["WandBLogger"]
 class WandBLogger(LoggerCallback):
     """Log to Weights and Biases (https://wandb.ai/)
 
-    Example usage:
-        .. testcode::
-
-            from composer.loggers import WandBLogger
-            from composer.trainer import Trainer
-            trainer = Trainer(
-                model=model,
-                train_dataloader=train_dataloader,
-                eval_dataloader=eval_dataloader,
-                max_duration="1ep",
-                optimizers=[optimizer],
-                loggers=[WandBLogger()]
-            )
-
     Args:
         log_artifacts (bool, optional): Whether to log artifacts (Default: ``False``)
         log_artifacts_every_n_batches (int, optional): Interval at which to upload
@@ -48,7 +34,7 @@ class WandBLogger(LoggerCallback):
             information. For example, when using Deepspeed ZeRO, it would be impossible to
             restore from checkpoints without artifacts from all ranks.
         init_params (Dict[str, Any], optional): Parameters to pass into :meth:`wandb.init`
-        (see `WandB documentation <https://docs.wandb.ai/ref/python/init>`_).
+            (see `WandB documentation <https://docs.wandb.ai/ref/python/init>`_).
     """
 
     def __init__(self,
