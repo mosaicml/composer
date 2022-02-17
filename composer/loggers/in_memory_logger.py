@@ -40,20 +40,18 @@ class InMemoryLogger(LoggerCallback):
 
     Args:
         log_level (str or LogLevel, optional):
-            :class:`~composer.core.logging.logger.LogLevel` (i.e. unit of resolution) at
+            :class:`~.logger.LogLevel` (i.e. unit of resolution) at
             which to record. Defaults to
-            :attr:`~composer.core.logging.logger.LogLevel.BATCH`, which records
+            :attr:`~.LogLevel.BATCH`, which records
             everything.
 
     Attributes:
         data (dict): Mapping of a logged key to a
-            (:class:`~composer.core.time.Timestamp`,
-            :class:`~composer.core.logging.LogLevel`,
-            :class`~composer.core.logging.TLogDataValue`) tuple.
-            This dictionary contains all logged data.
+            (:class:`~.time.Timestamp`, :class:`~.logging.LogLevel`,
+            :class`~.logging.TLogDataValue`) tuple.  This dictionary contains all logged
+            data.
         most_recent_values (Dict[str, TLogData]): Mapping of a key to the most recent value for that key.
-        most_recent_timestamps (Dict[str, Timestamp]): Mapping of a key to the :class:`Timestamp` of
-            the last logging call for that key.
+        most_recent_timestamps (Dict[str, Timestamp]): Mapping of a key to the :class:`~time.Timestamp` of the last logging call for that key.
     """
 
     def __init__(self, log_level: Union[str, LogLevel] = LogLevel.BATCH) -> None:

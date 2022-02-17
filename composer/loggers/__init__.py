@@ -2,10 +2,10 @@
 
 """Logging.
 
-The trainer includes a :class:`~composer.core.logging.logger.Logger`, which routes logging
+The trainer includes a :class:`~.logger.Logger`, which routes logging
 calls to a logger. Each logger inherits from
-:class:`~composer.core.logging.base_backend.LoggerCallback`, which inherits from
-:class:`Callback`.
+:class:`~.base_backend.LoggerCallback`, which inherits from
+:class:`~.callback.Callback`.
 
 For example, to define a new logger and use it when training:
 
