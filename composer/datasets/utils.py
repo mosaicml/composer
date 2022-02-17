@@ -87,7 +87,10 @@ def pil_image_collate(batch: List[Tuple[Image.Image, np.ndarray]],
 
     # Convert targets to torch tensor
     targets = [sample[1] for sample in batch]
-    target_dims = (len(targets),)
+    if isinstance(targets[0], Image.Image):
+        target_dims = (len(targets), targets[0].size[1], targets[0].size[0])
+    else:
+        target_dims = (len(targets),)
     target_tensor = torch.zeros(target_dims, dtype=torch.int64).contiguous(memory_format=memory_format)
 
     for i, img in enumerate(imgs):
