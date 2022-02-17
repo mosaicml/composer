@@ -55,8 +55,8 @@ test:
     - pip  # for deepspeed, since deepspeed is not available on anaconda
     - wandb >=0.12.2
     # TODO fix the versions for these dependencies -- there is a conflict somewhere.
-    # - monai >=0.7.0
-    # - scikit-learn >=1.0.1
+    - monai >=0.7.0
+    - scikit-learn >=1.0.1
     # - timm >=0.4
     # - transformers >=4.11.3
     # - datasets >=1.14.0
