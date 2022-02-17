@@ -1,5 +1,33 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
+"""TODO Models. Something something composer models wrap existing pytorch models and define a forward pass + loss.
+
+To write a new composer model you can :
+
+.. code-block:: python
+
+    import torchvision
+    import torch.nn.functional as F
+
+    from composer.models import ComposerModel
+
+    class ResNet18(ComposerModel):
+
+        def __init__(self):
+            super().__init__()
+            self.model = torchvision.models.resnet18()
+
+        def forward(self, batch): # batch is the output of the dataloader
+                    # specify how batches are passed through the model
+            inputs, _ = batch
+            return self.model(inputs)
+
+        def loss(self, outputs, batch):
+                    # pass batches and `forward` outputs to the loss
+            _, targets = batch
+            return F.cross_entropy(outputs, targets)
+"""
+
 from composer.models.base import ComposerClassifier as ComposerClassifier
 from composer.models.base import ComposerModel as ComposerModel
 from composer.models.bert import BERTForClassificationHparams as BERTForClassificationHparams
@@ -21,8 +49,8 @@ from composer.models.resnet20_cifar10 import CIFAR10_ResNet20 as CIFAR10_ResNet2
 from composer.models.resnet20_cifar10 import CIFARResNet20Hparams as CIFARResNet20Hparams
 from composer.models.resnet56_cifar10 import CIFAR10_ResNet56 as CIFAR10_ResNet56
 from composer.models.resnet56_cifar10 import CIFARResNetHparams as CIFARResNetHparams
-from composer.models.resnet.model import ComposerResNet as ComposerResNet
-from composer.models.resnet.resnet_hparams import ResNetHparams as ResNetHparams
+from composer.models.resnet import ComposerResNet as ComposerResNet
+from composer.models.resnet import ResNetHparams as ResNetHparams
 from composer.models.timm import Timm as Timm
 from composer.models.timm import TimmHparams as TimmHparams
 from composer.models.transformer_shared import ComposerTransformer as ComposerTransformer

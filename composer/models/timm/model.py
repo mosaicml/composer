@@ -5,16 +5,18 @@ from composer.models.base import ComposerClassifier
 
 
 class Timm(ComposerClassifier):
-    """A wrapper around timm.create_model() used to create :class:`~composer.models.ComposerClassifier`.
+    """A wrapper around ``timm.create_model()`` used to create :class:`~composer.models.ComposerClassifier`.
 
-    Example:
+    Resnet18 Example:
+
     .. testcode::
+
         from composer.models import Timm
 
         model = Timm(model_name='resnet18')  # creates a timm resnet18
 
     Args:
-        model_name (str): timm model name e.g:'resnet50'. List of models can be found at
+        model_name (str): timm model name e.g: 'resnet50'. List of models can be found at
             https://github.com/rwightman/pytorch-image-models
         pretrained (bool): Imagenet pretrained. Default: False
         num_classes (int): The number of classes. Needed for classification tasks. Default = 1000

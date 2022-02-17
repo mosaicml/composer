@@ -1,7 +1,13 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
+"""
+🤗 See the :doc:`Method Card</model_cards/GPT2>`
+"""
+
 from composer.models.gpt2.gpt2_hparams import GPT2Hparams as GPT2Hparams
 from composer.models.gpt2.model import GPT2Model as GPT2Model
+
+__all__ = [GPT2Model, GPT2Hparams]
 
 _metadata = {
     'gpt2': {

@@ -1,7 +1,12 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
+"""
+See the :doc:`Method Card</model_cards/unet>` for more details.
+"""
 from composer.models.unet.unet import UNet as UNet
 from composer.models.unet.unet_hparams import UnetHparams as UnetHparams
+
+__all__ = [UNet, UnetHparams]
 
 _task = 'Image Segmentation'
 _dataset = 'BRATS'

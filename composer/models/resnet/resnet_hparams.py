@@ -4,7 +4,7 @@ from dataclasses import dataclass
 
 import yahp as hp
 
-from composer.models import ComposerResNet
+from composer.models.resnet.model import ComposerResNet
 from composer.models.model_hparams import ModelHparams
 
 
