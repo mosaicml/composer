@@ -27,6 +27,7 @@ class GLUEHparams(DatasetHparams):
         split (str): Whether to use 'train', 'validation' or 'test' split.
         max_seq_length (int): Optionally, the ability to set a custom sequence length for the training dataset.
             Default: 256
+        num_workers (int): Optionally, the number of CPU workers to use to preprocess the text. Default: 8
         max_network_retries (int): Optionally, the number of times to retry HTTP requests if they fail. Default: 10
 
     Returns:
@@ -39,6 +40,8 @@ class GLUEHparams(DatasetHparams):
     split: str = hp.optional("Whether to use 'train', 'validation' or 'test' split.", default=None)
     max_seq_length: int = hp.optional(
         default=256, doc='Optionally, the ability to set a custom sequence length for the training dataset.')
+    num_workers: int = hp.optional(default=8,
+                                   doc="Optionally, the number of CPU workers to use to preprocess the text.")
     max_network_retries: int = hp.optional(default=10,
                                            doc="Optionally, the number of times to retry HTTP requests if they fail.")
 
@@ -83,9 +86,7 @@ class GLUEHparams(DatasetHparams):
         download_config = datasets.utils.DownloadConfig(max_retries=self.max_network_retries)
         self.dataset = datasets.load_dataset("glue", self.task, split=self.split, download_config=download_config)
 
-        n_cpus = cpu_count() // dist.get_world_size()
-
-        log.info(f"Starting tokenization step by preprocessing over {n_cpus} threads!")
+        log.info(f"Starting tokenization step by preprocessing over {self.num_workers} threads!")
         text_column_names = self.task_to_keys[self.task]
 
         def tokenize_function(inp):
@@ -106,7 +107,7 @@ class GLUEHparams(DatasetHparams):
         dataset = self.dataset.map(
             tokenize_function,
             batched=True,
-            num_proc=n_cpus,
+            num_proc=self.num_workers,
             batch_size=1000,
             remove_columns=columns_to_remove,
             new_fingerprint=f"{self.task}-tokenization-{self.split}",
