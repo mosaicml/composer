@@ -19,20 +19,20 @@ class DataSpec:
     Args:
         dataloader (DataLoader): The dataloader.
 
-        num_samples (int, optional). The total number of samples in an epoch, across all ranks. This
-            field is used by the composer time tracking :class:`~comoser.core.time.Timer`. If not specified, then
+        num_samples (int, optional): The total number of samples in an epoch, across all ranks. This
+            field is used by the composer time tracking :class:`~composer.core.Timer`. If not specified, then
             ``len(dataloader.dataset)`` is used (if this property is available). Otherwise, the dataset is
             assumed to be unsized.
 
         num_tokens (int, optional): The total number of tokens in an epoch. This field is used by the composer
-            time tracking :class:`~comoser.core.time.Timer`.
+            time tracking :class:`~composer.core.Timer`.
 
-        device_transforms ((Batch) -> Batch, optional): Function that is called by the trainer to modify the batch
+        device_transforms ((Batch) -> Batch, optional): Function called by the trainer to modify the batch
             once it has been moved onto the device. For example, this function can be used for GPU-based normalization.
             It can modify the batch in-place, and it should return the modified batch. If omitted, the batch is not
             modified.
 
-        split_batch ((Batch, int) -> Sequence[Batch], optional): Function that is called by the trainer to split a
+        split_batch ((Batch, int) -> Sequence[Batch], optional): Function called by the trainer to split a
             batch (the first parameter) into the number of microbatches specified by the second parameter.
             By default, batches of type :class:`BatchPair` can be split automatically. If the
             :attr:`dataloader` yields batches of a different type, then this function must be specified.
