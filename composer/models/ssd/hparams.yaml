@@ -22,8 +22,8 @@ model:
     initializers: {}
 loggers:
   - tqdm: {}
-train_batch_size: 64
-eval_batch_size: 64
+train_batch_size: 128
+eval_batch_size: 128
 seed: 0
 validate_every_n_epochs: 1
 grad_accum: 1

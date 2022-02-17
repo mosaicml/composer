@@ -35,7 +35,7 @@ class SSD(ComposerModel):
         dboxes = dboxes300_coco()
 
         self.loss_func = Loss(dboxes)
-        self.MAP = my_map()#MAP()
+        self.MAP = MAP()
 
     def loss(self, outputs: Any, batch: BatchPair) -> Tensors:
 
@@ -43,8 +43,8 @@ class SSD(ComposerModel):
         trans_bbox = bbox.transpose(1, 2).contiguous()
 
         ploc, plabel = outputs
-        gloc, glabel = Variable(trans_bbox, requires_grad=False), \
-                        Variable(label, requires_grad=False)
+        gloc, glabel = trans_bbox, label#Variable(trans_bbox, requires_grad=False), \
+                       # Variable(label, requires_grad=False)
 
         loss = self.loss_func(ploc, plabel, gloc, glabel)
         return loss
@@ -55,104 +55,56 @@ class SSD(ComposerModel):
 
     def forward(self, batch: BatchPair) -> Tensor:
         (img, img_id, img_size, bbox, label) = batch
-        context = contextlib.nullcontext if self.training else torch.no_grad
 
-        img = Variable(img, requires_grad=True)
+        #img = Variable(img, requires_grad=True)
         ploc, plabel = self.module(img)
 
         return ploc, plabel
 
     def validate(self, batch: BatchPair) -> Tuple[Any, Any]:
-
-        dboxes = dboxes300_coco()
-        input_size = 300
-        val_trans = SSDTransformer(dboxes, (input_size, input_size), val=True)
         data = "/localdisk/coco"
-
         val_annotate = os.path.join(data, "annotations/instances_val2017.json")
+        cocogt = COCO(annotation_file=val_annotate)
         val_coco_root = os.path.join(data, "val2017")
-        train_annotate = os.path.join(data, "annotations/instances_train2017.json")
-        train_coco_root = os.path.join(data, "train2017")
-        val_coco = COCODetection(val_coco_root, val_annotate, val_trans)
-
-        inv_map = {v: k for k, v in val_coco.label_map.items()}
-
-        ret = []
-        
-        overlap_threshold = 0.50
-        nms_max_detections = 200
-
+        input_size = 300
         dboxes = dboxes300_coco()
-        encoder = Encoder(dboxes)
-
-        (img, img_id, img_size, _, _) = batch
-        targets = get_boxes(val_annotate, img_id)
-        
-        with torch.no_grad():
-            ploc, plabel = self.module(img)
-            ploc, plabel = ploc.float(), plabel.float()
-
-            for idx in range(ploc.shape[0]):
-                ploc_i = ploc[idx, :, :].unsqueeze(0)
-                plabel_i = plabel[idx, :, :].unsqueeze(0)
-
-                try:
-                    result = encoder.decode_batch(ploc_i, plabel_i, 0.50, 200)[0]
-                except:
-                    # raise
-                    print("")
-                    print("No object detected in idx: {}".format(idx))
-                    continue
-
-                htot, wtot = img_size[0][idx].item(), img_size[1][idx].item()
-                loc, label, prob = [r.cpu().numpy() for r in result]
-                
-                for img_id_, loc_, label_, prob_ in zip(img_id, loc, label, prob):
-                    '''
-                    ret.append([
-		        dict(
-                            boxes=torch.Tensor([[loc_[0] * wtot, \
-                                                 loc_[1] * htot,
-                                                 (loc_[2] - loc_[0]) * wtot,
-                                                 (loc_[3] - loc_[1]) * htot]]),
-                            scores=torch.Tensor([prob_]),
-                            labels=torch.IntTensor([inv_map[label_]]),
-                            iid=torch.Tensor([img_id_])
-                        )
-                    ])
-                    '''
-                    ret.append([int(img_id[idx].detach().cpu()), loc_[0] * wtot, 
-                                loc_[1] * htot,
-                                (loc_[2] - loc_[0]) * wtot,
-                                (loc_[3] - loc_[1]) * htot,
-                                prob_,
-                                inv_map[label_]])
-
-        print('lengths', len(ret), len(targets))
-        #import pdb; pdb.set_trace()
-        return ret, ret
-
-class my_map(Metric):
-
-    def __init__(self):
-        super().__init__(dist_sync_on_step=True)
-        self.add_state("n_updates", default=torch.zeros(1), dist_reduce_fx="sum")
-        
-        self.predictions = []
-
-    def update(self, pred, target):
-        self.n_updates += 1
-        self.predictions.append(pred)
-        #import pdb; pdb.set_trace()
-
-    def compute(self):
-        data = "/localdisk/coco"
-        self.val_annotate = os.path.join(data, "annotations/instances_val2017.json")
-        self.cocogt = COCO(annotation_file=self.val_annotate)
-        ret = np.asarray(self.predictions)
-
-        cocodt = self.cocogt.loadRes(ret)
-        E = COCOeval(self.cocogt, cocodt, iouType='bbox')
+        val_trans = SSDTransformer(dboxes, (input_size, input_size), val=True)
+        val_coco = COCODetection(val_coco_root, val_annotate, val_trans)
+        from torch.utils.data import DataLoader
+        val_dataloader = DataLoader(val_coco,
+                                    batch_size=128,
+                                    shuffle=False,
+                                    sampler=None,
+                                    num_workers=4)
+        inv_map = {v: k for k, v in val_coco.label_map.items()}
+        ret = []
+        overlap_threshold = 0.50
+        nms_max_detections = 200        
+        for nbatch, (img, img_id, img_size, bbox, label) in enumerate(val_dataloader):
+            ploc, plabel = self.module(img.cuda())
+            try:
+                results = encoder.decode_batch(ploc, plabel,
+                                               overlap_threshold,
+                                               nms_max_detections,
+                                               nms_valid_thresh=0.05)
+            except:
+                print("No object detected in batch: {}".format(nbatch))
+                continue
+        (htot, wtot) = [d.cpu().numpy() for d in img_size]
+        img_id = img_id.cpu().numpy()
+        # Iterate over batch elements
+        for img_id_, wtot_, htot_, result in zip(img_id, wtot, htot, results):
+            loc, label, prob = [r.cpu().numpy() for r in result]
+            # Iterate over image detections
+            for loc_, label_, prob_ in zip(loc, label, prob):
+                ret.append([img_id_, loc_[0]*wtot_, \
+                            loc_[1]*htot_,
+                            (loc_[2] - loc_[0])*wtot_,
+                            (loc_[3] - loc_[1])*htot_,
+                            prob_,
+                            inv_map[label_]])
+        cocoDt = cocoGt.loadRes(np.array(ret))
+        E = COCOeval(cocoGt, cocoDt, iouType='bbox')
         E.evaluate()
         E.accumulate()
         E.summarize()
