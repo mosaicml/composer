@@ -74,7 +74,6 @@ class MemoryMonitor(Callback):
             log.warn("Memory monitor only works on GPU devices.")
 
     def after_train_batch(self, state: State, logger: Logger):
-        """:meta: private""" 
         memory_report = {}
 
         n_devices = torch.cuda.device_count()

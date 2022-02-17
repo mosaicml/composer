@@ -162,7 +162,6 @@ class RunDirectoryUploader(Callback):
         _validate_credentials(object_store_provider_hparams, self._object_name_prefix)
 
     def init(self, state: State, logger: Logger) -> None:
-        """:meta: private""" 
         del state, logger  # unused
         self._finished = self._finished_cls()
         self._last_upload_timestamp = run_directory.get_run_directory_timestamp()
@@ -179,17 +178,14 @@ class RunDirectoryUploader(Callback):
             worker.start()
 
     def batch_end(self, state: State, logger: Logger) -> None:
-        """:meta: private""" 
         if int(state.timer.batch_in_epoch) % self._upload_every_n_batches == 0:
             self._trigger_upload(logger, LogLevel.BATCH)
 
     def epoch_end(self, state: State, logger: Logger) -> None:
-        """:meta: private""" 
         del state  # unused
         self._trigger_upload(logger, LogLevel.EPOCH)
 
     def post_close(self):
-        """:meta: private""" 
         # Cleaning up on post_close to ensure that all artifacts are uploaded
         self._trigger_upload(logger=None, log_level=None)
         if self._finished is not None:
