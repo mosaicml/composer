@@ -38,7 +38,7 @@ class Timm(ComposerClassifier):
             raise ImportError(
                 textwrap.dedent("""\
                 Composer was installed without timm support. To use timm with Composer, run `pip install mosaicml[timm]`
-                if using pip or `conda install -c conda-forge timm` if using Anaconda.""")) from e
+                if using pip or `pip install timm>=0.5.4` if using Anaconda.""")) from e
 
         model = timm.create_model(
             model_name=model_name,

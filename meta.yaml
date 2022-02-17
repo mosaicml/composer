@@ -6,7 +6,7 @@ package:
 
 source:
   git_url: https://github.com/mosaicml/composer.git
-  # TODO change to "v0.4.0"
+  # TODO change to "v0.3.1"
   git_rev: "dev"
   git_depth: 1
 
@@ -37,9 +37,9 @@ requirements:
     - wandb >=0.12.2
     - monai >=0.7.0
     - scikit-learn >=1.0.1
-    - timm >=0.5.4
-    - transformers >=4.11.3
-    - datasets >=1.14.0
+    # - timm >=0.5.4 # This timm version is not available on conda
+    - transformers >=4.11
+    - datasets >=1.14
 
 test:
   requires:
@@ -52,11 +52,11 @@ test:
     - pytest-timeout >=1.4.2
     - testbook >=0.4.2
     # Including all run_constrained requirements in the test requirements, so those tests will not be import-skipped
-    - pip  # Since deepspeed is not available on anaconda, it is installed via pip.
+    - pip  # Since deepspeed and timm are not available on anaconda, they are installed via pip.
     - wandb >=0.12.2
     - monai >=0.7.0
     - scikit-learn >=1.0.1
-    # - timm >=0.4.12     # TODO conda can't solve dependencies when using timm
+    # - timm >=0.5.4 # This timm version is not available on conda; installing via pip
     - transformers >=4.11
     - datasets >=1.14
   files:
@@ -70,7 +70,7 @@ test:
     - composer
     - tests
   commands:
-    - pip install deepspeed>=0.5.5  # deepspeed is not available on conda
+    - pip install deepspeed>=0.5.5 timm>=0.5.4  # deepspeed is not available on conda, and timm has a conda version conflict
     - make test DURATION=all EXTRA_ARGS="-m 'not notebooks and not gpu'"
     - make test-dist DURATION=all EXTRA_ARGS="-m 'not notebooks and not gpu'"
 
