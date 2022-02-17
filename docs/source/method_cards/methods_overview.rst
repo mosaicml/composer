@@ -7,7 +7,6 @@ Methods Overview
 
    ---
    .. link-button:: alibi.html
-
       :text: Alibi
       :classes: card-title
 
@@ -17,7 +16,6 @@ Methods Overview
 
    ---
    .. link-button:: augmix.html
-
       :text: AugMix
       :classes: card-title
 
@@ -29,6 +27,7 @@ Methods Overview
    .. link-button:: blurpool.html
       :text: BlurPool
       :classes: card-title
+
    :badge:`CV,badge-primary`
    ++++++++++++++
    applies blur before pooling
@@ -37,6 +36,7 @@ Methods Overview
    .. link-button:: channels_last.html
       :text: ChannelsLast
       :classes: card-title
+
    :badge:`CV,badge-primary`
    ++++++++++++++
    Uses channels last memory format (NHWC)
@@ -45,6 +45,7 @@ Methods Overview
    .. link-button:: colout.html
       :text: ColOut
       :classes: card-title
+
    :badge:`CV,badge-primary`
    ++++++++++++++
    Removes columns and rows from the image for augmentation and efficiency.
@@ -53,6 +54,7 @@ Methods Overview
    .. link-button:: cutmix.html
       :text: CutMix
       :classes: card-title
+
    :badge:`CV,badge-primary`
    ++++++++++++++
    Combines pairs of examples in non-overlapping regions and mixes labels
@@ -61,6 +63,7 @@ Methods Overview
    .. link-button:: cutout.html
       :text: CutOut
       :classes: card-title
+
    :badge:`CV,badge-primary`
    ++++++++++++++
    Randomly erases rectangular blocks from the image.
@@ -69,6 +72,7 @@ Methods Overview
    .. link-button:: factorize.html
       :text: Factorize
       :classes: card-title
+
    :badge:`CV,badge-primary` :badge:`NLP,badge-success`
    ++++++++++++++
    Factorize GEMMs into smaller GEMMs
@@ -77,6 +81,7 @@ Methods Overview
    .. link-button:: ghost_batchnorm.html
       :text: GhostBatchNorm
       :classes: card-title
+
    :badge:`CV,badge-primary`
    ++++++++++++++
    Use smaller samples to compute batchnorm
@@ -85,6 +90,7 @@ Methods Overview
    .. link-button:: label_smoothing.html
       :text: LabelSmoothing
       :classes: card-title
+
    :badge:`CV,badge-primary`
    ++++++++++++++
    Smooths the labels with a uniform prior
@@ -93,6 +99,7 @@ Methods Overview
    .. link-button:: layer_freezing.html
       :text: LayerFreezing
       :classes: card-title
+
    :badge:`CV,badge-primary` :badge:`NLP,badge-success`
    ++++++++++++++
    Progressively freezes layers during training.
@@ -101,6 +108,7 @@ Methods Overview
    .. link-button:: mixup.html
       :text: MixUp
       :classes: card-title
+
    :badge:`CV,badge-primary`
    ++++++++++++++
    Blends pairs of examples and labels
@@ -109,6 +117,7 @@ Methods Overview
    .. link-button:: progressive_resizing.html
       :text: ProgressiveResizing
       :classes: card-title
+
    :badge:`CV,badge-primary`
    ++++++++++++++
    Increases the input image size during training
@@ -117,6 +126,7 @@ Methods Overview
    .. link-button:: randaugment.html
       :text: RandAugment
       :classes: card-title
+
    :badge:`CV,badge-primary`
    ++++++++++++++
    Applies a series of random augmentations
@@ -125,6 +135,7 @@ Methods Overview
    .. link-button:: sam.html
       :text: SAM
       :classes: card-title
+
    :badge:`CV,badge-primary`
    ++++++++++++++
    SAM optimizer measures sharpness of optimization space
@@ -141,6 +152,7 @@ Methods Overview
    .. link-button:: selective_backprop.html
       :text: SelectiveBackprop
       :classes: card-title
+
    :badge:`CV,badge-primary`
    ++++++++++++++
    Drops examples with small loss contributions.
@@ -149,6 +161,7 @@ Methods Overview
    .. link-button:: seq_length_warmup.html
       :text: SeqLengthWarmup
       :classes: card-title
+
    :badge:`NLP,badge-success`
    ++++++++++++++
    Progressively increase sequence length.
@@ -157,6 +170,7 @@ Methods Overview
    .. link-button:: squeeze_excite.html
       :text: SqueezeExcite
       :classes: card-title
+
    :badge:`CV,badge-primary`
    ++++++++++++++
    Replaces eligible layers with Squeeze-Excite layers
@@ -165,6 +179,7 @@ Methods Overview
    .. link-button:: stochastic_depth.html
       :text: StochasticDepth
       :classes: card-title
+
    :badge:`CV,badge-primary`
    ++++++++++++++
    Replaces a specified layer with a stochastic verion that randomly drops the layer or samples during training
@@ -173,6 +188,7 @@ Methods Overview
    .. link-button:: swa.html
       :text: SWA
       :classes: card-title
+
    :badge:`CV,badge-primary` :badge:`NLP,badge-success`
    ++++++++++++++
    Computes running average of model weights.
