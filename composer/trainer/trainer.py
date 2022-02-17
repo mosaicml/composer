@@ -456,17 +456,7 @@ class Trainer:
             reproducibility.configure_deterministic_mode()
 
         self.engine.run_event(Event.INIT)
-
-        if warmup_ratio is not None:
-            decay_ratio = 1.0 - warmup_ratio
-            for scheduler in schedulers_hparams:
-                if isinstance(scheduler, WarmUpLRHparams):
-                    print(f"Overriding warmup_ratio via trainer hparam: {scheduler.warmup_iters} to {warmup_ratio}dur")
-                    scheduler.warmup_iters = f"{warmup_ratio}dur"
-                elif isinstance(scheduler, LinearLRHparams):
-                    print(f"Overriding decay_ratio via trainer hparam: {scheduler.total_iters} to {decay_ratio}dur")
-                    scheduler.total_iters = f"{decay_ratio}dur"
-
+ 
         assert isinstance(self.state.model, ComposerModel)
         self.original_model = self.state.model  # TODO(ravi) -- update the state to add an original model helper
 
