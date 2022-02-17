@@ -15,10 +15,7 @@ from composer.models.loss import CrossEntropyLoss, soft_cross_entropy
 
 
 class ComposerModel(torch.nn.Module, abc.ABC):
-    """The minimal interface needed to use a model with :class:`composer.trainer.Trainer`.
-
-    :private-members: loss, forward, metrics, validate
-    """
+    """The minimal interface needed to use a model with :class:`composer.trainer.Trainer`."""
 
     @abc.abstractmethod
     def loss(self, outputs: Any, batch: Batch, *args, **kwargs) -> Tensors:
@@ -31,8 +28,6 @@ class ComposerModel(torch.nn.Module, abc.ABC):
         Returns:
             Tensors:
                 The loss as a ``Tensors`` object.
-
-        :meta private:
         """
         pass
 
@@ -47,8 +42,6 @@ class ComposerModel(torch.nn.Module, abc.ABC):
             Tensors:
                 The result that is passed to :meth:`loss` as a ``Tensors``
                 object.
-
-        :meta private:
         """
         pass
 
@@ -67,8 +60,6 @@ class ComposerModel(torch.nn.Module, abc.ABC):
 
         Returns:
             Metrics: A ``Metrics`` object.
-
-        :meta private:
         """
         raise NotImplementedError('Implement metrics in your ComposerModel to run validation.')
 
@@ -86,8 +77,6 @@ class ComposerModel(torch.nn.Module, abc.ABC):
             Tuple[Any, Any]: Tuple that is passed directly to the
                 `update()` methods of the metrics returned by :meth:`metrics`.
                 Most often, this will be a tuple of the form (predictions, targets).
-
-        :meta private:
         """
         raise NotImplementedError('Implement validate in your ComposerModel to run validation.')
 

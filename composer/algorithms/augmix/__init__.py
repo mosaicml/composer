@@ -4,7 +4,7 @@
 sequences of image augmentations, applies each sequence with random intensity, and returns a convex combination of the
 augmented images and the original image.
 
-See the :doc:`Method Card </method_cards/aug_mix>` for more details.
+See the :doc:`Method Card </method_cards/augmix>` for more details.
 """
 
 from composer.algorithms.augmix.augmix import AugmentAndMixTransform, AugMix, augmix_image

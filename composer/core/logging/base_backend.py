@@ -14,10 +14,7 @@ if TYPE_CHECKING:
 
 
 class LoggerCallback(Callback, ABC):
-    """Base class for logging backends.
-
-    :private-members: will_log, log_metric
-    """
+    """Base class for logging backends."""
 
     def __init__(self):
         super().__init__()
@@ -36,8 +33,6 @@ class LoggerCallback(Callback, ABC):
             bool: Whether to log a metric call, given the
             :class:`~composer.core.state.State` and
             :class:`~composer.core.logging.logger.LogLevel`.
-
-        :meta private:
         """
         del state, log_level  # unused
         return True
@@ -54,8 +49,6 @@ class LoggerCallback(Callback, ABC):
             step (int): The global step for the logged data.
             log_level (LogLevel): The log level.
             data (TLogData): The metric to log.
-
-        :meta private:
         """
         del timestamp, log_level, data  # unused
         pass

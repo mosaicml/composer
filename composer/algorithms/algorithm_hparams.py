@@ -15,10 +15,7 @@ from composer.core.algorithm import Algorithm
 
 @dataclass
 class AlgorithmHparams(hp.Hparams, ABC):
-    """Hyperparameters for algorithms.
-
-    :private-members: initialize_object, load, load_multiple
-    """
+    """Hyperparameters for algorithms."""
 
     @abstractmethod
     def initialize_object(self) -> Algorithm:
@@ -26,14 +23,11 @@ class AlgorithmHparams(hp.Hparams, ABC):
 
         Returns:
             Algorithm: An instance of the :class:`Algorithm`.
-
-        :meta private:
         """
         pass
 
     @classmethod
     def load(cls, alg_params: Optional[str] = None) -> AlgorithmHparams:
-        """:meta private:"""
         from composer.algorithms.algorithm_registry import get_algorithm_registry
         registry = get_algorithm_registry()
         inverted_registry = {v: k for (k, v) in registry.items()}
@@ -51,7 +45,6 @@ class AlgorithmHparams(hp.Hparams, ABC):
 
     @classmethod
     def load_multiple(cls, *algorithms: str):
-        """:meta private:"""
         from composer.algorithms.algorithm_registry import get_algorithm_registry
         registry = get_algorithm_registry()
         alg_hparams = []

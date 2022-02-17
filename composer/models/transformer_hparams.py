@@ -12,10 +12,7 @@ from composer.models.model_hparams import ModelHparams
 
 @dataclass
 class TransformerHparams(ModelHparams, ABC):
-    """Defines the necessary hyparameters for a Transformer base module.
-
-    :private-members: initialize_object, validate
-    """
+    """Defines the necessary hyparameters for a Transformer base module."""
 
     tokenizer_name: str = hp.optional("Model name to pull from Huggingface Model Hub.", default=None)
     pretrained_model_name: Optional[str] = hp.optional(

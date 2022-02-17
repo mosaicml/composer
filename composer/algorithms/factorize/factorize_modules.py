@@ -146,8 +146,6 @@ class _FactorizedModule(nn.Module, abc.ABC):
         Raises:
             ValueError:
                 If ``rank`` is larger than the current latent rank
-
-        :meta private:
         """
         if rank > self.latent_size:
             raise ValueError(f"Requested rank {rank} exceeds current rank {self.latent_size}")
@@ -197,8 +195,6 @@ class _FactorizedModule(nn.Module, abc.ABC):
             solution:
                 An object encapsulating the new parameters to be used and their
                 associated mean squared error on the input
-
-        :meta private:
         """
         ...
 
@@ -214,8 +210,6 @@ class _FactorizedModule(nn.Module, abc.ABC):
                 and their associated mean squared error on the input for
                 which they were optimized. Can be obtained using
                 :meth:`~solution_for_rank`.
-
-        :meta private:
         """
         ...
 

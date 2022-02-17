@@ -125,6 +125,7 @@ autodoc_default_options = {
     # base class, sphinx does not realize that forward overrides an inherited method.
     'exclude-members': 'forward'
 }
+autodoc_inherit_docstrings = False
 
 pygments_style = "manni"
 pygments_dark_style = "monokai"

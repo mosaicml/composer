@@ -95,7 +95,7 @@ class SeqLengthWarmup(Algorithm):
         <https://pytorch.org/tutorials/recipes/recipes/tuning_guide.html#pre-allocate-memory-in-case-of-variable-input-length>`_
          and pre-allocate the memory with a blank forward and backward pass.
 
-    See the :doc:`Method Card </method_cards/seq_len_warmup>` for more details.
+    See the :doc:`Method Card </method_cards/seq_length_warmup>` for more details.
 
     Example: Awaiting language model test fixtures.
 

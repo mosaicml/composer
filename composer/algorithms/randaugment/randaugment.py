@@ -25,7 +25,7 @@ def randaugment_image(img: ImageType,
     """Randomly applies a sequence of image data augmentations
     (`Cubuk et al, 2019  <https://arxiv.org/abs/1909.13719>`_) to an image. See
     :class:`~composer.algorithms.randaugment.randaugment.RandAugment` or the :doc:`Method
-    Card </method_cards/rand_augment>` for details.
+    Card </method_cards/randaugment>` for details.
 
     Example:
         .. testcode::
@@ -62,7 +62,7 @@ class RandAugmentTransform(torch.nn.Module):
     """Wraps :func:`~composer.algorithms.randaugment.randaugment.randaugment_image` in a
     ``torchvision``-compatible transform. See
     :class:`~composer.algorithms.randaugment.randaugment.RandAugment` or the :doc:`Method
-    Card </method_cards/rand_augment>` for more details.
+    Card </method_cards/randaugment>` for more details.
 
     Example:
         .. testcode::
@@ -113,7 +113,7 @@ class RandAugment(Algorithm):
     transformation. It is a no-op if this algorithm already applied itself on the
     :attr:`State.train_dataloader.dataset`.
 
-    See the :doc:`Method Card </method_cards/rand_augment>` for more details.
+    See the :doc:`Method Card </method_cards/randaugment>` for more details.
 
     Example:
         .. testcode::

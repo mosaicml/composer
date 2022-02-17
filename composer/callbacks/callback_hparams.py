@@ -35,8 +35,6 @@ class CallbackHparams(hp.Hparams, abc.ABC):
     :attr:`~composer.trainer.trainer_hparams.TrainerHparams` (e.g., via YAML or the CLI). See `Trainer with YAHP
     <https://docs.mosaicml.com/en/latest/tutorials/adding_models_datasets.html#trainer-with-yahp>`_ for more details.
     These are initialized in the training loop.
-
-    :private-members: initialize_object
     """
 
     @abc.abstractmethod
@@ -45,8 +43,6 @@ class CallbackHparams(hp.Hparams, abc.ABC):
 
         Returns:
             Callback: An instance of the callback.
-
-        :meta private:
         """
         pass
 
