@@ -12,7 +12,7 @@ if [ "$UID" == "0" ]; then
     SUDO=""
 fi
 
-CONDA_PATH=$HOME/miniconda
+CONDA_PATH=$HOME/miniconda3
 
 # Download and install miniconda if it's not installed
 echo "Checking to see if conda is installed"
@@ -20,11 +20,14 @@ if ! command -v conda &> /dev/null ; then
     echo "Downloading and installing curl"
     $SUDO apt-get update
     $SUDO apt-get install -y --no-install-recommends curl ca-certificates
-    echo "Downloading and installing conda"
-    curl -fsSL https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh | bash /dev/stdin -bfp $CONDA_PATH
+    echo "Downloading conda"
+    curl -fsSL https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh --output /tmp/miniconda.sh
+    chmod u+x /tmp/miniconda.sh
+    echo "Installing conda"
+    ./tmp/miniconda.sh -b -f -p $CONDA_PATH 
 else
     echo "Conda is already installed"
-    CONDA_PATH=$(conda info --base)
+    CONDA_PATH="$(conda info --base)"
 fi
 
 echo "Sourcing conda"
@@ -34,7 +37,7 @@ echo "Checking to see if the 'composer' conda environment exists"
 if [[ "$(conda info --envs)" != *"composer"* ]];then
     # If we don't already have a composer conda environment, create it
     echo "Creating the 'composer' conda environment"
-    conda create -y composer
+    conda create -y -n composer
 else
     echo "The 'composer' conda environment already exists"
 fi
