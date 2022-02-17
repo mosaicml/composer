@@ -8,11 +8,6 @@ from typing import TYPE_CHECKING
 
 from composer.core.serializable import Serializable
 
-try:
-    from typing import final
-except ImportError:
-    final = lambda x: x  # final is not available in python 3.7
-
 if TYPE_CHECKING:
     from composer import Event, Logger, State
 
@@ -50,16 +45,14 @@ class Callback(Serializable, abc.ABC):
            >>> _ = trainer.engine.run_event(Event.EPOCH_START)
            Epoch Time(0, TimeUnit.EPOCH)
 
-    #. Override :meth:`_run_event` (**not** :meth:`run_event`) if you want a single method to handle all events. 
-       If this method is overridden, then the individual methods corresponding to each event name will not be
-       automatically called on training loop events. For example, if you override :meth:`_run_event` then
-       :meth:`epoch_start` will not be called on the :attr:`~composer.core.event.Event.EPOCH_START` event, :meth:`batch_start`
-       will not be called on the :attr:`~composer.core.event.Event.BATCH_START` etc. However, you can invoke
-       :meth:`epoch_start`, :meth:`batch_start` etc. in your overriding implementation of :meth:`_run_event`.
+    #. Override :meth:`run_event` if you want a single method to handle all events. 
+       If this method is overridden, then the individual methods corresponding to each event name
+       (such as :meth:`epoch_start`) will no longer be automatically invoked.
+
 
        For example,
            >>> class MyCallback(Callback):
-           ...     def _run_event(self, event: Event, state: State, logger: Logger):
+           ...     def run_event(self, event: Event, state: State, logger: Logger):
            ...         if event == Event.EPOCH_START:
            ...             print(f'Epoch {state.epoch}/{state.max_epochs}')
            >>> # construct trainer object with your callback
@@ -76,14 +69,13 @@ class Callback(Serializable, abc.ABC):
            >>> _ = trainer.engine.run_event(Event.EPOCH_START)
            Epoch 0/1
 
-    :private-members: run_event, _run_event, init, fit_start, epoch_start, batch_start, \
+    :private-members: run_event, init, fit_start, epoch_start, batch_start, \
         after_dataloader, before_train_batch, before_forward, after_forward, before_loss, \
         after_loss, before_backward, after_backward, after_train_batch, batch_end, \
         epoch_end, eval_start, eval_batch_start, eval_before_forward, eval_after_forward, \
         eval_batch_end, eval_end, close, post_close
     """
 
-    @final
     def run_event(self, event: Event, state: State, logger: Logger) -> None:
         """This method is called by the engine on each event.
 
