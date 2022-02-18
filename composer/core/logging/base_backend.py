@@ -21,7 +21,7 @@ class LoggerCallback(Callback, ABC):
     """Base class for logger callback. This is a :class:`~.callback.Callback` with an
     additional interface for logging metrics, :func:`log_metric`. Custom loggers should
     extend this class. Data to be logged should be of the type :attr:`~.logger.TLogData`
-    (i.e. a {'name': value} mapping).
+    (i.e. a ``{'name': value}`` mapping).
     """
 
     def __init__(self):

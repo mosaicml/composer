@@ -21,8 +21,8 @@ def get_logger_hparams(name: str) -> Type[LoggerCallbackHparams]:
     """Returns LoggerCallbackHparams class for a given logger type.
 
     Args:
-        name (str): Logger type to return hparams object of. One of {``"file"``,
-        ``"wandb"``, ``"tqdm``, ``"in_memory"``}.
+        name (str): Logger type of the returned hparams object.  One of 
+                            (``"file"``, ``"wandb"``, ``"tqdm``, ``"in_memory"``).
 
     Returns:
         Type[LoggerCallbackHparams]: LoggerCallbackHparams of specified type.

@@ -29,7 +29,7 @@ class WandBLogger(LoggerCallback):
             `artifacts <https://docs.wandb.ai/ref/python/artifact>`_ to wandb from the
             ``run_directory``. Logging very frequently (e.g.  on every batch) can
             substantially slow down training, so we recommend doing so infrequently. Only
-            applicable when `log_artifacts` is True (default: ``100``).
+            applicable when ``log_artifacts`` is True (default: ``100``).
         rank_zero_only (bool, optional): Whether to log only on the rank-zero process. 
             When logging `artifacts <https://docs.wandb.ai/ref/python/artifact>`_, it is
             highly recommended to log on all ranks.  Artifacts from ranks ≥1 will not be
