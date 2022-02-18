@@ -30,10 +30,10 @@ log = logging.getLogger(__name__)
 class ComposerSchedulerFn(Protocol):
     """Specification for a "stateless" scheduler function.
 
-    A scheduler function should be a pure function that returns a learning rate, given the current
-    trainer state, and optionally a "scale schedule ratio" (SSR). A typical implementation will
-    read `state.timer`, and possibly other fields like `state.max_duration`, to determine the
-    trainer's latest temporal progress.
+    A scheduler function should be a pure function that returns a multiplier to apply to the optimizer's
+    provided learning rate, given the current trainer state, and optionally a "scale schedule ratio" (SSR). 
+    A typical implementation will read `state.timer`, and possibly other fields like `state.max_duration`, 
+    to determine the trainer's latest temporal progress.
     """
 
     def __call__(self, state: State, *, ssr: float = 1.0) -> float:
@@ -78,13 +78,14 @@ def compile(scheduler: ComposerScheduler, state: State) -> Scheduler:
 
 
 def step_scheduler(state: State, *, ssr: float = 1.0, step_size: Union[str, Time], gamma: float = 0.1) -> float:
-    r"""Decays the learning rate of each parameter group by gamma every step_size time.
+    r"""Decays the learning rate discretely at fixed intervals.
     
     Args:
         state (State): The current Composer Trainer state.
         ssr (float): The scale schedule ratio. In general, the learning rate computed by this
             scheduler at time :math:`t` with an SSR of 1.0 should be the same as that computed by
             this scheduler at time :math:`t \times s` with an SSR of :math:`s`. Default = ``1.0``.
+        gamma (float): Gamma. Default = ``0.1``.
     """
 
     step_size = _convert_time(step_size, state, ssr=ssr)
@@ -99,13 +100,15 @@ def multi_step_scheduler(state: State,
                          ssr: float = 1.0,
                          milestones: List[Union[str, Time]],
                          gamma: float = 0.1) -> float:
-    r"""Decays the learning rate of each parameter group by gamma every step_size time.
+    r"""Decays the learning rate discretely at fixed milestones.
     
     Args:
         state (State): The current Composer Trainer state.
         ssr (float): The scale schedule ratio. In general, the learning rate computed by this
             scheduler at time :math:`t` with an SSR of 1.0 should be the same as that computed by
             this scheduler at time :math:`t \times s` with an SSR of :math:`s`. Default = ``1.0``.
+        milestones (list of str or Time): Milestones.
+        gamma (float) Gamma. Default = ``0.1``.
     """
 
     milestones = [_convert_time(milestone, state, ssr=ssr) for milestone in milestones]
@@ -123,13 +126,15 @@ def constant_scheduler(state: State,
                        ssr: float = 1.0,
                        factor: float = 1.0,
                        total_time: Union[str, Time] = '1dur') -> float:
-    r"""Decays the learning rate of each parameter group by gamma every step_size time.
+    r"""Maintains a fixed learning rate.
     
     Args:
         state (State): The current Composer Trainer state.
         ssr (float): The scale schedule ratio. In general, the learning rate computed by this
             scheduler at time :math:`t` with an SSR of 1.0 should be the same as that computed by
             this scheduler at time :math:`t \times s` with an SSR of :math:`s`. Default = ``1.0``.
+        factor (float): Factor. Default = ``1.0``.
+        total_time (str or Time): Total time. Default = ``'1dur'``.
     """
 
     total_time = _convert_time(total_time, state, ssr=ssr)
@@ -146,13 +151,16 @@ def linear_scheduler(state: State,
                      start_factor: float = 1.0,
                      end_factor: float = 0.0,
                      total_time: Union[str, Time] = '1dur') -> float:
-    r"""Decays the learning rate of each parameter group by gamma every step_size time.
+    r"""Adjusts the learning rate linearly.
     
     Args:
         state (State): The current Composer Trainer state.
         ssr (float): The scale schedule ratio. In general, the learning rate computed by this
             scheduler at time :math:`t` with an SSR of 1.0 should be the same as that computed by
             this scheduler at time :math:`t \times s` with an SSR of :math:`s`. Default = ``1.0``.
+        start_factor (float): Start factor. Default = ``1.0``.
+        end_factor (float): End factor. Default = ``0.0``.
+        total_time (str or Time): Total time. Default = ``'1dur'``.
     """
 
     total_time = _convert_time(total_time, state, ssr=ssr)
@@ -165,13 +173,14 @@ def linear_scheduler(state: State,
 
 
 def exponential_scheduler(state: State, *, ssr: float = 1.0, gamma: float) -> float:
-    r"""Decays the learning rate of each parameter group by gamma every step_size time.
+    r"""Decays the learning rate exponentially.
     
     Args:
         state (State): The current Composer Trainer state.
         ssr (float): The scale schedule ratio. In general, the learning rate computed by this
             scheduler at time :math:`t` with an SSR of 1.0 should be the same as that computed by
             this scheduler at time :math:`t \times s` with an SSR of :math:`s`. Default = ``1.0``.
+        gamma (float): Gamma.
     """
 
     current_time = state.timer.epoch
@@ -195,13 +204,15 @@ def cosine_annealing_scheduler(state: State,
                                ssr: float = 1.0,
                                t_max: Union[str, Time] = '1dur',
                                min_factor: float = 0.0):
-    r"""Decays the learning rate of each parameter group by gamma every step_size time.
+    r"""Decays the learning rate according to the decreasing part of a cosine curve.
     
     Args:
         state (State): The current Composer Trainer state.
         ssr (float): The scale schedule ratio. In general, the learning rate computed by this
             scheduler at time :math:`t` with an SSR of 1.0 should be the same as that computed by
             this scheduler at time :math:`t \times s` with an SSR of :math:`s`. Default = ``1.0``.
+        t_max (str or Time): Total time. Default = ``'1dur'``.
+        min_factor (float): Minimum factor. Default = ``0.0``.
     """
 
     t_max = _convert_time(t_max, state, ssr=ssr)
@@ -217,13 +228,16 @@ def cosine_annealing_warm_restarts_scheduler(state: State,
                                              t_0: Union[str, Time],
                                              t_mult: float = 1.0,
                                              min_factor: float = 0.0):
-    r"""Decays the learning rate of each parameter group by gamma every step_size time.
+    r"""Cyclically decays the learning rate according to the decreasing part of a cosine curve.
     
     Args:
         state (State): The current Composer Trainer state.
         ssr (float): The scale schedule ratio. In general, the learning rate computed by this
             scheduler at time :math:`t` with an SSR of 1.0 should be the same as that computed by
             this scheduler at time :math:`t \times s` with an SSR of :math:`s`. Default = ``1.0``.
+        t_0 (str or Time): The first cycle's duration.
+        t_mult (float): The multiplier for subsequent cycles' durations. Default = ``1.0``.
+        min_factor (float): Minimum factor. Default = ``0.0``.
     """
 
     t_0 = _convert_time(t_0, state, ssr=ssr)
@@ -248,13 +262,16 @@ def polynomial_scheduler(state: State,
                          t_max: Union[str, Time] = '1dur',
                          power: float,
                          min_factor: float = 0.0):
-    r"""Decays the learning rate of each parameter group by gamma every step_size time.
+    r"""Sets the learning rate to be exponentially proportional to the percentage of training time left.
     
     Args:
         state (State): The current Composer Trainer state.
         ssr (float): The scale schedule ratio. In general, the learning rate computed by this
             scheduler at time :math:`t` with an SSR of 1.0 should be the same as that computed by
             this scheduler at time :math:`t \times s` with an SSR of :math:`s`. Default = ``1.0``.
+        t_max (str or Time): Total time. Default = ``'1dur'``.
+        power (float): Power.
+        min_factor (float): Minimum factor. Default = ``0.0``.
     """
 
     t_max = _convert_time(t_max, state, ssr=ssr)
@@ -272,13 +289,16 @@ def multi_step_with_warmup_scheduler(state: State,
                                      warmup_time: Union[str, Time],
                                      milestones: List[Union[str, Time]],
                                      gamma: float = 0.1) -> float:
-    r"""Decays the learning rate of each parameter group by gamma every step_size time.
+    r"""Decays the learning rate discretely at fixed milestones, with a linear warmup.
     
     Args:
         state (State): The current Composer Trainer state.
         ssr (float): The scale schedule ratio. In general, the learning rate computed by this
             scheduler at time :math:`t` with an SSR of 1.0 should be the same as that computed by
             this scheduler at time :math:`t \times s` with an SSR of :math:`s`. Default = ``1.0``.
+        warmup_time (str or Time): Warmup time.
+        milestones (list of str or Time): Milestones.
+        gamma (float) Gamma. Default = ``0.1``.
     """
 
     # N.B. warmup time is intentionally *not* subject to scale schedule
@@ -301,13 +321,17 @@ def linear_with_warmup_scheduler(state: State,
                                  start_factor: float = 1.0,
                                  end_factor: float = 0.0,
                                  total_time: Union[str, Time] = '1dur'):
-    r"""Decays the learning rate of each parameter group by gamma every step_size time.
+    r"""Adjusts the learning rate linearly, with a linear warmup.
     
     Args:
         state (State): The current Composer Trainer state.
         ssr (float): The scale schedule ratio. In general, the learning rate computed by this
             scheduler at time :math:`t` with an SSR of 1.0 should be the same as that computed by
             this scheduler at time :math:`t \times s` with an SSR of :math:`s`. Default = ``1.0``.
+        warmup_time (str or Time): Warmup time.
+        start_factor (float): Start factor. Default = ``1.0``.
+        end_factor (float): End factor. Default = ``0.0``.
+        total_time (str or Time): Total time. Default = ``'1dur'``.
     """
 
     # N.B. warmup time is intentionally *not* subject to scale schedule
@@ -335,13 +359,16 @@ def cosine_annealing_with_warmup_scheduler(state: State,
                                            warmup_time: Union[str, Time],
                                            t_max: Union[str, Time] = '1dur',
                                            min_factor: float = 0.0):
-    r"""Decays the learning rate of each parameter group by gamma every step_size time.
+    r"""Decays the learning rate according to the decreasing part of a cosine curve, with a linear warmup.
     
     Args:
         state (State): The current Composer Trainer state.
         ssr (float): The scale schedule ratio. In general, the learning rate computed by this
             scheduler at time :math:`t` with an SSR of 1.0 should be the same as that computed by
             this scheduler at time :math:`t \times s` with an SSR of :math:`s`. Default = ``1.0``.
+        warmup_time (str or Time): Warmup time.
+        t_max (str or Time): Total time. Default = ``'1dur'``.
+        min_factor (float): Minimum factor. Default = ``0.0``.
     """
 
     # N.B. warmup time is intentionally *not* subject to scale schedule
