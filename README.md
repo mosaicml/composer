@@ -166,25 +166,30 @@ Using the Composer Trainer allows you to **add multiple efficient training metho
 
 For concrete examples of methods in Composer, here's some (_see [here](https://docs.mosaicml.com) for all_) efficiency methods currently in Composer:
 
-Name|Functional|tl;dr|Benchmark|Speed Up|Type
-----|----------|-----|---------|--------|----
-[Alibi](https://docs.mosaicml.com/en/latest/method_cards/alibi.html)|`CF.apply_alibi`|[Replace attention with AliBi](https://arxiv.org/abs/2108.12409v1)|GPT-2|1.5x|
-[AugMix](https://docs.mosaicml.com/en/latest/method_cards/augmix.html)|`CF.augmix_image`|[Image-perserving data augmentations](http://arxiv.org/abs/1912.02781)|ResNet-50|N/A|
-[Blur Pool](https://docs.mosaicml.com/en/latest/method_cards/blurpool.html)|`CF.apply_blurpool`|[Applies an anti-aliasing filter before every downsampling operation](https://arxiv.org/abs/1904.11486)|ResNet50|2.1x|
-[Channels Last](https://docs.mosaicml.com/en/latest/method_cards/channels_last.html)|`CF.apply_`<br>`channels_last`|[Uses channels last memory format (NHWC)](https://pytorch.org/tutorials/intermediate/memory_format_tutorial.html)|ResNet-50|2.2x|
-[ColOut](https://docs.mosaicml.com/en/latest/method_cards/colout.html)|`CF.colout_batch`|[Removes columns and rows from the image for augmentation and efficiency.](https://www.mosaicml.com/methods/colout)|ResNet50|1.8x|
-[CutMix](https://docs.mosaicml.com/en/latest/method_cards/cutmix.html)|`CF.cutmix_batch`|[Combines pairs of examples in non-overlapping regions and mixes labels](https://arxiv.org/abs/1905.04899)|ResNet-50|N/A|
-[CutOut](https://docs.mosaicml.com/en/latest/method_cards/cutout.html)|`CF.cutout_batch`|[Randomly erases rectangular blocks from the image.](https://arxiv.org/abs/1708.04552)|ResNet50|1.5x|
-[Ghost Batch Norm](https://docs.mosaicml.com/en/latest/method_cards/ghost_batchnorm.html)|`CF.apply_`<br>`ghost_batchnorm`|[Use smaller samples to compute batchnorm](https://arxiv.org/abs/2007.08554)|ResNet50|N/A|
-[Label Smoothing](https://docs.mosaicml.com/en/latest/method_cards/label_smoothing.html)|`CF.smooth_labels`|[Smooths the labels with a uniform prior](https://arxiv.org/abs/1512.00567)|ResNet50|1.5x|
-[MixUp](https://docs.mosaicml.com/en/latest/method_cards/mixup.html)|`CF.mixup_batch`|[Blends pairs of examples and labels](https://arxiv.org/abs/1710.09412)|ResNet-50|N/A|
-[Progressive Resizing](https://docs.mosaicml.com/en/latest/method_cards/progressive_resizing.html)|`CF.resize_batch`|[Increases the input image size during training](https://github.com/fastai/fastbook/blob/780b76bef3127ce5b64f8230fce60e915a7e0735/07_sizing_and_tta.ipynb)|ResNet50|1.15x|
-[Rand Augment](https://docs.mosaicml.com/en/latest/method_cards/randaugment.html)|`CF.randaugment_image`|[Applies a series of random augmentations](https://openaccess.thecvf.com/content_CVPRW_2020/html/w40/Cubuk_Randaugment_Practical_Automated_Data_Augmentation_With_a_Reduced_Search_Space_CVPRW_2020_paper.html)|ResNet-50||
-[SAM](https://docs.mosaicml.com/en/latest/method_cards/sam.html)|`N/A`|[SAM optimizer measures sharpness of optimization space](https://arxiv.org/abs/2010.01412)|ResNet-50||
-[Seq Length Warmup](https://docs.mosaicml.com/en/latest/method_cards/seq_length_warmup.html)|`CF.set_batch_`<br>`sequence_length`|[Progressively increase sequence length.](https://arxiv.org/abs/2108.06084)|GPT-2|1.3x|
-[Squeeze Excite](https://docs.mosaicml.com/en/latest/method_cards/squeeze_excite.html)|`CF.apply_`<br>`squeeze_excite`|[Replaces eligible layers with Squeeze-Excite layers](https://arxiv.org/abs/1709.01507)|ResNet-50||
-[Stochastic Depth](https://docs.mosaicml.com/en/latest/method_cards/stochastic_depth.html)|`CF.apply_`<br>`stochastic_depth`|[Replaces a specified layer with a stochastic verion that randomly drops the layer or samples during training](https://arxiv.org/abs/1603.09382)|ResNet-50||
-[SWA](https://docs.mosaicml.com/en/latest/method_cards/swa.html)|`N/A` | [Computes running average of model weights.](https://arxiv.org/abs/1803.05407)|ResNet-50||
+Name|Functional|Attribution|tl;dr
+----|----------|-----------|-----
+[Alibi](https://github.com/mosaicml/composer/tree/dev/composer/algorithms/alibi)|`cf.apply_alibi`|[(Press et al, 2021)](https://arxiv.org/abs/2108.12409v1)|Replace attention with AliBi
+[AugMix](https://github.com/mosaicml/composer/tree/dev/composer/algorithms/augmix)|`cf.augmix_image`|[(Hendrycks et al, 2020)](http://arxiv.org/abs/1912.02781)|Image-perserving data augmentations
+[BlurPool](https://github.com/mosaicml/composer/tree/dev/composer/algorithms/blurpool)|`cf.apply_blurpool`|[(Zhang, 2019)](https://arxiv.org/abs/1904.11486)|applies blur before pooling
+[ChannelsLast](https://github.com/mosaicml/composer/tree/dev/composer/algorithms/channels_last)|`cf.apply_channels_last`|[PyTorch](https://pytorch.org/tutorials/intermediate/memory_format_tutorial.html)|Uses channels last memory format (NHWC)
+[ColOut](https://github.com/mosaicml/composer/tree/dev/composer/algorithms/colout)|`cf.colout_batch`|[Many](https://www.mosaicml.com)|Removes columns and rows from the image for augmentation and efficiency.
+[CutMix](https://github.com/mosaicml/composer/tree/dev/composer/algorithms/cutmix)|`cf.cutmix_batch`|[(Yun et al, 2019)](https://arxiv.org/abs/1905.04899)|Combines pairs of examples in non-overlapping regions and mixes labels
+[CutOut](https://github.com/mosaicml/composer/tree/dev/composer/algorithms/cutout)|`cf.cutout_batch`|[(DeVries et al, 2017)](https://arxiv.org/abs/1708.04552)|Randomly erases rectangular blocks from the image.
+[Factorize](https://github.com/mosaicml/composer/tree/dev/composer/algorithms/factorize)|`cf.apply_factorization`|[MosaicML](https://www.mosaicml.com)|Factorize GEMMs into smaller GEMMs
+[GhostBatchNorm](https://github.com/mosaicml/composer/tree/dev/composer/algorithms/ghost_batchnorm)|`cf.apply_ghost_batchnorm`|[(Dimitriou et al, 2020)](https://arxiv.org/abs/2007.08554)|Use smaller samples to compute batchnorm
+[LabelSmoothing](https://github.com/mosaicml/composer/tree/dev/composer/algorithms/label_smoothing)|`cf.smooth_labels`|[(Szegedy et al, 2015)](https://arxiv.org/abs/1512.00567)|Smooths the labels with a uniform prior
+[LayerFreezing](https://github.com/mosaicml/composer/tree/dev/composer/algorithms/layer_freezing)|`cf.freeze_layers`|[Many (Raghu et al, 2017)](https://arxiv.org/abs/1706.05806)|Progressively freezes layers during training.
+[MixUp](https://github.com/mosaicml/composer/tree/dev/composer/algorithms/mixup)|`cf.mixup_batch`|[(Zhang et al, 2017)](https://arxiv.org/abs/1710.09412)|Blends pairs of examples and labels
+[ProgressiveResizing](https://github.com/mosaicml/composer/tree/dev/composer/algorithms/progressive_resizing)|`cf.resize_batch`|[Fast AI](https://github.com/fastai/fastbook/blob/780b76bef3127ce5b64f8230fce60e915a7e0735/07_sizing_and_tta.ipynb)|Increases the input image size during training
+[RandAugment](https://github.com/mosaicml/composer/tree/dev/composer/algorithms/randaugment)|`cf.randaugment_image`|[(Cubuk et al, 2020)](https://openaccess.thecvf.com/content_CVPRW_2020/html/w40/Cubuk_Randaugment_Practical_Automated_Data_Augmentation_With_a_Reduced_Search_Space_CVPRW_2020_paper.html)|Applies a series of random augmentations
+[SAM](https://github.com/mosaicml/composer/tree/dev/composer/algorithms/sam)|`cf.`|[(Foret et al, 2021)](https://arxiv.org/abs/2010.01412)|SAM optimizer measures sharpness of optimization space
+[ScaleSchedule](https://github.com/mosaicml/composer/tree/dev/composer/algorithms/scale_schedule)|`cf.`|[Many](https://www.mosaicml.com)|Scale the learning rate schedule by a factor
+[SelectiveBackprop](https://github.com/mosaicml/composer/tree/dev/composer/algorithms/selective_backprop)|`cf.selective_backprop`|[(Jiang et al, 2019)](https://arxiv.org/abs/1910.00762)|Drops examples with small loss contributions.
+[SeqLengthWarmup](https://github.com/mosaicml/composer/tree/dev/composer/algorithms/seq_length_warmup)|`cf.set_batch_sequence_length`|[(Li et al, 2021)](https://arxiv.org/abs/2108.06084)|Progressively increase sequence length.
+[SqueezeExcite](https://github.com/mosaicml/composer/tree/dev/composer/algorithms/squeeze_excite)|`cf.apply_squeeze_excite`|[Hu et al, 2017](https://arxiv.org/abs/1709.01507)|Replaces eligible layers with Squeeze-Excite layers
+[StochasticDepth](https://github.com/mosaicml/composer/tree/dev/composer/algorithms/stochastic_depth)|`cf.apply_stochastic_depth`|[(Huang et al, 2016)](https://arxiv.org/abs/1603.09382)|Replaces a specified layer with a stochastic verion that randomly drops the layer or samples during training
+[SWA](https://github.com/mosaicml/composer/tree/dev/composer/algorithms/swa)|`cf.`|[(Izmailov et al, 2018)](https://arxiv.org/abs/1803.05407)|Computes running average of model weights.
+
 
 Speedups are measured based on time to train to iso-accuracy.
 
