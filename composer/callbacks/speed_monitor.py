@@ -1,5 +1,6 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
+"""Monitor throughput during training."""
 from __future__ import annotations
 
 import time
@@ -10,25 +11,50 @@ from composer.core import Logger, State
 from composer.core.callback import Callback
 from composer.core.types import StateDict
 
+__all__ = ["SpeedMonitor"]
+
 
 class SpeedMonitor(Callback):
     """Logs the training throughput.
 
-    It logs:
+    The training throughput in terms of number of samples per second is logged on the
+    :attr:`~composer.core.event.Event.BATCH_END` event if we have reached the ``window_size`` threshold.  Per epoch
+    average throughput and wall clock train time is also logged on the :attr:`~composer.core.event.Event.EPOCH_END`
+    event.
 
-    * A rolling average (over the ``window_size`` most recent batches)
-      of the number of samples processed per second to the
-      ``throughput/step`` key.
-    * The number of samples processed per second, averaged over
-      an entire epoch, to the ``throughput/epoch`` key.
-    * The total elapsed training time to the ``wall_clock_train`` key.
+    Example
+        >>> # constructing trainer object with this callback
+        >>> trainer = Trainer(
+        ...     model=model,
+        ...     train_dataloader=train_dataloader,
+        ...     eval_dataloader=eval_dataloader,
+        ...     optimizers=optimizer,
+        ...     max_duration="1ep",
+        ...     callbacks=[callbacks.SpeedMonitor(window_size=100)],
+        ... )
+
+    The training throughput is logged by the :class:`~composer.core.logging.logger.Logger` to the following keys as
+    described below.
+
+    +-----------------------+-------------------------------------------------------------+
+    | Key                   | Logged data                                                 |
+    +=======================+=============================================================+
+    |                       | Rolling average (over ``window_size`` most recent           |
+    | ``throughput/step``   | batches) of the number of samples processed per second      |
+    |                       |                                                             |
+    +-----------------------+-------------------------------------------------------------+
+    |                       | Number of samples processed per second (averaged over       |
+    | ``throughput/epoch``  | an entire epoch)                                            |
+    +-----------------------+-------------------------------------------------------------+
+    |``wall_clock_train``   | Total elapsed training time                                 |
+    +-----------------------+-------------------------------------------------------------+
 
     Args:
-        window_size (int):
-            Number of batchs to use for a rolling average of throughput.
+        window_size (int, optional):
+            Number of batches to use for a rolling average of throughput. Default to 100.
     """
 
-    def __init__(self, window_size: int):
+    def __init__(self, window_size: int = 100):
         super().__init__()
         self.train_examples_per_epoch = 0
         self.wall_clock_train = 0.0
@@ -40,6 +66,13 @@ class SpeedMonitor(Callback):
         self.loaded_state: Optional[StateDict] = None
 
     def state_dict(self) -> StateDict:
+        """Returns a dictionary representing the internal state of the SpeedMonitor object.
+
+        The returned dictionary is pickle-able via :func:`torch.save`.
+
+        Returns:
+            StateDict: The state of the SpeedMonitor object
+        """
         current_time = time.time()
         return {
             "train_examples_per_epoch": self.train_examples_per_epoch,
@@ -50,6 +83,12 @@ class SpeedMonitor(Callback):
         }
 
     def load_state_dict(self, state: StateDict) -> None:
+        """Restores the state of SpeedMonitor object.
+
+        Args:
+            state (StateDict): The state of the object,
+                as previously returned by :meth:`.state_dict`
+        """
         self.loaded_state = state
 
     def _load_state(self) -> None:

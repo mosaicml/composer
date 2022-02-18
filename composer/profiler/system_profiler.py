@@ -6,6 +6,8 @@ import threading
 import time
 from typing import TYPE_CHECKING, Dict, cast
 
+import psutil
+
 from composer.callbacks import memory_monitor
 from composer.core.callback import Callback
 
@@ -39,13 +41,6 @@ class SystemProfiler(Callback):
         self.profile_net = profile_net
         self.stats_thread_interval_seconds = stats_thread_interval_seconds
 
-        try:
-            # Attempt an import of psutil in init to ensure it is installed
-            import psutil
-            del psutil
-        except ImportError as e:
-            raise ImportError("Please install composer with pip install composer[perf] to use the profiler") from e
-
     def init(self, state: State, logger: Logger):
         del logger  # unused
         assert state.profiler is not None, "The trainer should have set the profiler in state"
@@ -54,7 +49,6 @@ class SystemProfiler(Callback):
         threading.Thread(target=self._stats_thread, daemon=True, args=[state.profiler]).start()
 
     def _stats_thread(self, profiler: Profiler):
-        import psutil  # already checked that it's installed in init
         psutil.disk_io_counters.cache_clear()
         psutil.net_io_counters.cache_clear()
         if self.profile_cpu:
@@ -66,7 +60,7 @@ class SystemProfiler(Callback):
                 profiler.marker(name="cpu", categories=["cpu"]).counter({"cpu_percent": cpu_percent})
 
             if self.profile_memory:
-                cuda_memory_stats = memory_monitor.get_memory_report()
+                cuda_memory_stats = memory_monitor._get_memory_report()
                 for name, val in cuda_memory_stats.items():
                     profiler.marker(f"memory/cuda/{name}", categories=["memory"]).counter({name: val})
                 swap_memory = psutil.swap_memory()

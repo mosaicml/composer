@@ -1,9 +1,16 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
+from typing import Tuple
+
 import torch
 
 
-def _attn(self, query, key, value, attention_mask=None, head_mask=None):
+def _attn(self, query, key, value, attention_mask=None, head_mask=None) -> Tuple[torch.Tensor, torch.Tensor]:
+    """Replication of identically-named attention function function ("_attn") in Composer/HuggingFace GPT2 model's
+    GPT2Attention (:func:`transformers.models.gpt2.modeling_gpt2.GPT2Attention._attn`; `GitHub link <https://\\
+    github.com/huggingface/transformers/blob/2e11a043374a6229ec129a4765ee4ba7517832b9/src/transformers/models/\\
+    gpt2/modeling_gpt2.py#L192>`_), but this function implements ALiBi and will be used to replace the default attention
+    function."""
     attn_weights = torch.matmul(query, key.transpose(-1, -2))
 
     if self.scale_attn_weights:
@@ -39,7 +46,14 @@ def _attn(self, query, key, value, attention_mask=None, head_mask=None):
     return attn_output, attn_weights
 
 
-def enlarge_mask(module: torch.nn.Module, max_sequence_length: int):
+def enlarge_mask(module: torch.nn.Module, max_sequence_length: int) -> torch.nn.Module:
+    """Increases the size of the attention mask in Composer/HuggingFace GPT2 model's GPT2Attention
+    (:func:`transformers.models.gpt2.modeling_gpt2.GPT2Attention._attn`; `GitHub link <https://\\
+    github.com/huggingface/transformers/blob/2e11a043374a6229ec129a4765ee4ba7517832b9/src/transformers/\\
+    models/gpt2/modeling_gpt2.py#L140>`_).
+
+    This is necessary for evaluating on sequence lengths longer than the model was initialized to accommodate.
+    """
     old_mask = module.bias
     new_mask = torch.tril(
         torch.ones(

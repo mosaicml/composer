@@ -6,7 +6,6 @@ import functools
 import json
 import os
 import textwrap
-import warnings
 from typing import Optional
 
 import torch.profiler
@@ -27,7 +26,10 @@ class TorchProfiler(Callback):
 
     To view profiling results, run:
 
-    ``tensorboard --logdir tensorboard_trace_handler_dir``
+    .. code-block:: console
+
+        pip install tensorbaord torch_tb_profiler
+        tensorboard --logdir tensorboard_trace_handler_dir
 
     Also see https://pytorch.org/docs/stable/profiler.html.
 
@@ -71,15 +73,6 @@ class TorchProfiler(Callback):
         self.with_stack = with_stack
         self.with_flops = with_flops
         self.profiler: Optional[torch.profiler.profile] = None
-        try:
-            import torch_tb_profiler
-            del torch_tb_profiler
-        except ModuleNotFoundError:
-            warnings.warn(
-                textwrap.dedent("""\
-                TorchTBProfilerNotFound: torch_tb_profiler not found.
-                You will not be able to visualize torch profiler results.
-                To visualize, run `pip install torch-tb-profiler`"""))
 
     def _scheduler_fn(self, profiler_step: int, state: State) -> TorchProfilerAction:
         # Invoked on every batch, at the batch end
