@@ -25,7 +25,7 @@ def cutout_batch(X: Tensor, n_holes: int = 1, length: Union[int, float] = 0.5) -
 
             from composer.algorithms.cutout import cutout_batch
             new_input_batch = cutout_batch(
-                X=input_batch,
+                X=X_example,
                 n_holes=1,
                 length=16
             )

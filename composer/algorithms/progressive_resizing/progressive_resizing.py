@@ -32,10 +32,10 @@ def resize_batch(X: torch.Tensor,
     Example:
          .. testcode::
 
-            from composer.algorithms.progressive_resizing import progressive_resizing
+            from composer.algorithms.progressive_resizing import resize_batch
             X_resized, y_resized = resize_batch(
-                                        X=X,
-                                        y=y,
+                                        X=X_example,
+                                        y=y_example,
                                         scale_factor=0.5,
                                         mode='resize',
                                         resize_targets=False

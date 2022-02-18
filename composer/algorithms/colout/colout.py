@@ -88,8 +88,8 @@ def colout_batch(X: torch.Tensor, p_row: float = 0.15, p_col: float = 0.15) -> t
          .. testcode::
 
             from composer.algorithms.colout import colout_batch
-            new_input_batch = colout_batch(
-                X=input_batch,
+            new_X = colout_batch(
+                X=X_example,
                 p_row=0.15,
                 p_col=0.15
             )

@@ -25,7 +25,7 @@ def smooth_labels(logits: Tensor, targets: Tensor, alpha: float):
          .. testcode::
 
             from composer.algorithms.label_smoothing import smooth_labels
-            new_targets = smooth_labels(targets, 0.1)
+            new_targets = smooth_labels(y_example, 0.1)
 
     Args:
         logits: Output of the model. Tensor of shape (N, C, d1, ..., dn) for

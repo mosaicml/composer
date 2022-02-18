@@ -33,7 +33,7 @@ def freeze_layers(
             from composer.algorithms.layer_freezing import freeze_layers
             freeze_depth, feeze_level = freeze_layers(
                                             model=model,
-                                            optimizers=optimizers,
+                                            optimizers=optimizer,
                                             current_duration=0.5,
                                             freeze_start=0.0,
                                             freeze_level=1.0

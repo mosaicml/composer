@@ -41,8 +41,8 @@ def mixup_batch(x: Tensor,
 
             from composer.algorithms.mixup import mixup_batch
             new_inputs, new_targets, perm = mixup_batch(
-                                                x=inputs,
-                                                y=targets,
+                                                x=X_example,
+                                                y=y_example,
                                                 n_classes=1000,
                                                 alpha=0.2
                                                 )
