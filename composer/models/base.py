@@ -8,7 +8,7 @@ from typing import Any, Optional, Tuple
 
 import torch
 from torch import Tensor
-from torchmetrics.classification.accuracy import Accuracy
+from torchmetrics.classification import Accuracy
 from torchmetrics.collections import MetricCollection
 
 from composer.core.types import Batch, BatchPair, Metrics, Tensors
@@ -127,11 +127,11 @@ class ComposerModel(torch.nn.Module, abc.ABC):
 
         .. code-block:: python
 
-            def __init__(self)
+            def __init__(self):
                 super().__init__()
-                self.train_acc = Accuracy() # :class:`torchmetrics.classification.Accuracy`
+                self.train_acc = Accuracy() # torchmetric
                 self.val_acc = Accuracy()
-                self.val_loss = CrossEntropyLoss() # :class:`composer.models.loss.CrossEntropyLoss`
+                self.val_loss = CrossEntropyLoss()
 
             def metrics(self, train: bool = False):
                 return self.train_acc if train else MetricCollection([self.val_acc, self.val_loss])
@@ -195,7 +195,7 @@ class ComposerClassifier(ComposerModel):
     ComposerModel requires batches in the form: (input, target) and includes a basic classification training loop with
     CrossEntropy loss and accuracy logging.
 
-    Inherits from :class:`~composer.models.ComposerModel`.
+    Inherits from :class:`composer.models.ComposerModel`.
 
     Example:
 
