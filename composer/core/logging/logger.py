@@ -24,7 +24,6 @@ import torch
 if TYPE_CHECKING:
     from composer.core.logging.base_backend import LoggerCallback
     from composer.core.state import State
-    from composer.core.types import JSON
 
 __all__ = ["LoggerCallback", "Logger", "LogLevel", "TLogData", "TLogDataValue", "format_log_data_value"]
 
