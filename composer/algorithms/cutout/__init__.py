@@ -3,7 +3,7 @@
 """`Cutout <https://arxiv.org/abs/1708.04552>`_ is a data augmentation technique that works by masking out one or more
 square regions of an input image.
 
-See the :doc:`Method Card </method_cards/cut_out>` for more details.
+See the :doc:`Method Card </method_cards/cutout>` for more details.
 """
 
 from composer.algorithms.cutout.cutout import CutOut as CutOut

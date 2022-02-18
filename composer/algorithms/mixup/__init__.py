@@ -4,7 +4,7 @@
 
 This is done by taking a convex combination of x with a randomly permuted copy of x.
 
-See the :doc:`Method Card </method_cards/mix_up>` for more details.
+See the :doc:`Method Card </method_cards/mixup>` for more details.
 """
 
 from composer.algorithms.mixup.mixup import MixUp as MixUp

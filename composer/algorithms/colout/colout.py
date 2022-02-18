@@ -28,6 +28,8 @@ __all__ = ["ColOut", "ColOutTransform", "colout_image", "colout_batch"]
 def colout_image(img: TImg, p_row: float = 0.15, p_col: float = 0.15) -> TImg:
     """Drops random rows and columns from a single image.
 
+    See the :doc:`Method Card </method_cards/colout>` for more details.
+
     Example:
          .. testcode::
 
@@ -80,6 +82,8 @@ def colout_batch(X: torch.Tensor, p_row: float = 0.15, p_col: float = 0.15) -> t
     """Applies ColOut augmentation to a batch of images, dropping the same random rows and columns from all images in a
     batch.
 
+    See the :doc:`Method Card </method_cards/colout>` for more details.
+
     Example:
          .. testcode::
 
@@ -121,6 +125,8 @@ class ColOutTransform:
     """Torchvision-like transform for performing the ColOut augmentation, where random rows and columns are dropped from
     a single image.
 
+    See the :doc:`Method Card </method_cards/colout>` for more details.
+
     Example:
          .. testcode::
 
@@ -159,6 +165,8 @@ class ColOut(Algorithm):
     It is a no-op if this algorithm already applied itself on the :attr:`State.train_dataloader.dataset`.
 
     Otherwise, if ``batch`` is False, then this algorithm runs on :attr:`Event.AFTER_DATALOADER` to modify the batch.
+
+    See the :doc:`Method Card </method_cards/colout>` for more details.
 
     Example:
          .. testcode::
@@ -222,13 +230,6 @@ class ColOut(Algorithm):
         state.batch = (new_inputs, labels)
 
     def apply(self, event: Event, state: State, logger: Logger) -> None:
-        """Applies ColOut augmentation to the state's input.
-
-        Args:
-            event (Event): the current event
-            state (State): the current trainer state
-            logger (Optional[Logger], optional): the training logger. Defaults to None.
-        """
         if self.batch:
             self._apply_batch(state)
         else:
