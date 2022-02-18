@@ -506,7 +506,7 @@ class CheckpointSaver:
                 model.save_checkpoint(tmpdir, _DEEPSPEED_TAG)
                 # ensure that deepspeed checkpoints are saved in an archive
                 self._file_extension, self._write_mode = _ensure_archive(file_extension=self._file_extension,
-                                                                       write_mode=self._write_mode)
+                                                                         write_mode=self._write_mode)
 
             composer_states_filepath = os.path.join(tmpdir, _COMPOSER_STATES_FILENAME)
             if dist.get_global_rank() == 0:
