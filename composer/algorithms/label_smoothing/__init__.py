@@ -1,9 +1,7 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
-"""Shrinks targets towards a uniform distribution to counteract label noise as in `Szegedy et al.
-
-<https://arxiv.org/abs/1512.00567>`_. Introduced in `Rethinking the Inception Architecture for Computer Vision
-<https://arxiv.org/abs/1512.00567>`_.
+"""Shrinks targets towards a uniform distribution to counteract label noise. Introduced in `Rethinking the Inception
+Architecture for Computer Vision <https://arxiv.org/abs/1512.00567>`_.
 
 See the :doc:`Method Card </method_cards/label_smoothing>` for more details.
 """
