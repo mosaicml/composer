@@ -10,8 +10,16 @@ from composer.models.resnets import CIFAR_ResNet
 class CIFAR10_ResNet56(ComposerClassifier):
     """A ResNet-56 model extending :class:`ComposerClassifier`.
 
-    See this `paper <https://arxiv.org/abs/1512.03385>`_ for details
-    on the residual network architecture.
+    From the paper Deep Residual Learning for Image Recognition `<https://arxiv.org/abs/1512.03385>`_.
+
+
+    Example:
+
+    .. testcode::
+
+        from composer.models import CIFAR10_ResNet56
+
+        model = CIFAR10_ResNet56()  # creates a resnet56 for cifar image classification
 
     Args:
         num_classes (int): The number of classes. Needed for classification tasks. Default = 10

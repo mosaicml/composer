@@ -1,32 +1,6 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
-"""TODO Models. Something something composer models wrap existing pytorch models and define a forward pass + loss.
-
-To write a new composer model you can :
-
-.. code-block:: python
-
-    import torchvision
-    import torch.nn.functional as F
-
-    from composer.models import ComposerModel
-
-    class ResNet18(ComposerModel):
-
-        def __init__(self):
-            super().__init__()
-            self.model = torchvision.models.resnet18()
-
-        def forward(self, batch): # batch is the output of the dataloader
-                    # specify how batches are passed through the model
-            inputs, _ = batch
-            return self.model(inputs)
-
-        def loss(self, outputs, batch):
-                    # pass batches and `forward` outputs to the loss
-            _, targets = batch
-            return F.cross_entropy(outputs, targets)
-"""
+"""Composer models wrap existing pytorch models and define a forward pass + loss."""
 
 from composer.models.base import ComposerClassifier as ComposerClassifier
 from composer.models.base import ComposerModel as ComposerModel

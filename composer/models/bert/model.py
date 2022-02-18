@@ -17,7 +17,30 @@ if TYPE_CHECKING:
 
 
 class BERTModel(ComposerTransformer):
-    """Implements a BERT wrapper around a ComposerTransformer."""
+    """
+    Implements a BERT wrapper around a ComposerTransformer.
+    Works with `Hugging Face Transformers <https://huggingface.co/transformers/>`_.
+
+    To create a bert model for Language Model pretraining:
+
+    .. testcode::
+
+        from composer.models import BertLMHeadModel
+        import transformers
+
+        config = transformers.BertConfig()
+        hf_model = transformers.BertLMHeadModel(config=config)
+        model = BERTModel(module=hf_model, config=config, tokenizer_name="bert-base-uncased")
+
+    Args:
+        module (transformers.BertModel): An instance of BertModel that
+            contains the forward pass function.
+        config (transformers.BertConfig): The BertConfig object that
+            stores information about the model hyperparameters.
+        tokenizer_name (str): The name of the tokenizer used for this model,
+            necessary to assert required model inputs.
+
+    """
 
     def __init__(self, module: transformers.BertModel, config: transformers.BertConfig, tokenizer_name: str) -> None:
         super().__init__(

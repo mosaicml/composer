@@ -5,9 +5,17 @@ from composer.models.efficientnets import EfficientNet
 
 
 class EfficientNetB0(ComposerClassifier):
-    """An EfficientNet-b0 model extending :class:`ComposerClassifier`.
+    """A :class:`ComposerClassifier` wrapper around the EfficientNet-b0 architecture.
 
-    Based off of the paper EfficientNet: Rethinking Model Scaling for Convolutional Neural Networks `<https://arxiv.org/abs/1905.11946>`_.
+    From the paper EfficientNet: Rethinking Model Scaling for Convolutional Neural Networks `<https://arxiv.org/abs/1905.11946>`_.
+
+    Example:
+
+    .. testcode::
+
+        from composer.models import EfficientNetB0
+
+        model = EfficientNetB0()  # creates EfficientNet-b0 for image classification
 
     Args:
         num_classes (int): The number of classes. Needed for classification tasks. Default = 1000.

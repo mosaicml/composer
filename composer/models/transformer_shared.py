@@ -20,7 +20,7 @@ log = logging.getLogger(__name__)
 
 
 class ComposerTransformer(ComposerModel):
-    """Implements the base logic that all Transformers can build on top of.
+    """Implements the base logic that all Transformers can build on top of. Subclass and implement :meth:`loss` to use.
 
     Works with `Hugging Face Transformers <https://huggingface.co/transformers/>`_.
 
@@ -31,6 +31,7 @@ class ComposerTransformer(ComposerModel):
             stores information about the model hyperparameters.
         tokenizer_name (str): The name of the tokenizer used for this model,
             necessary to assert required model inputs.
+        gradient_checkpointing (bool): Use gradient checkpointing. default: False
     """
 
     def __init__(self,

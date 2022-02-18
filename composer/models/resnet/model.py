@@ -9,23 +9,24 @@ from composer.models.model_hparams import Initializer
 
 
 class ComposerResNet(ComposerClassifier):
-    """ResNet model family extending :class:`ComposerClassifier`.
+    """A :class:`ComposerClassifier` wrapper around the torchvision ResNet model family.
 
-    See this `paper <https://arxiv.org/abs/1512.03385>`_ for details
-    on the residual network architecture.
+    From the paper Deep Residual Learning for Image Recognition `<https://arxiv.org/abs/1512.03385>`_.
 
     Example:
+
     .. testcode::
+
         from composer.models import ComposerResnet
 
-        model = ComposerResnet(model_name='resnet18')  # creates a torchvision resnet18
+        model = ComposerResnet(model_name='resnet18')  # creates a torchvision resnet18 for image classification
 
     Args:
         model_name (str): Name of the ResNet model instance. Either ["resnet18", "resnet34", "resnet50", "resnet101",
             "resnet152"].
         num_classes (int): The number of classes. Needed for classification tasks. Default = 1000.
-        pretrained (bool): If true, use ImageNet pretrained weights. Default = False.
-        groups (int): Number of filter groups for the 3x3 convolution layer in bottleneck blocks. Default = 1
+        pretrained (bool): If True, use ImageNet pretrained weights. Default = False.
+        groups (int): Number of filter groups for the 3x3 convolution layer in bottleneck blocks. Default = 1.
         width_per_group (int): Initial width for each convolution group. Width doubles after each stage.
             Default = 64.
         initializers (List[Initializer], optional): Initializers for the model. ``None`` for no initialization.

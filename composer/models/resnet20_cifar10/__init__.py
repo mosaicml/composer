@@ -1,6 +1,4 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
-
-"""See the :doc:`Method Card</model_cards/cifar_resnet>` for more details."""
 from composer.models.resnet20_cifar10.model import CIFAR10_ResNet20 as CIFAR10_ResNet20
 from composer.models.resnet20_cifar10.resnet20_cifar10_hparams import CIFARResNet20Hparams as CIFARResNet20Hparams
 

@@ -50,6 +50,14 @@ class MNIST_Classifier(ComposerClassifier):
     :class:`composer.models.MNIST_Classifier` is a simple example
     convolutional neural network which can be used to classify MNIST data.
 
+    Example:
+
+    .. testcode::
+
+        from composer.models import MNIST_Classifier
+
+        model = MNIST_Classifier()
+
     Args:
     num_classes (int): The number of classes. Needed for classification tasks. Default = 10
     initializers (List[Initializer], optional): Initializers

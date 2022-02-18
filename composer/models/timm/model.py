@@ -5,7 +5,7 @@ from composer.models.base import ComposerClassifier
 
 
 class Timm(ComposerClassifier):
-    """A wrapper around ``timm.create_model()`` used to create :class:`~composer.models.ComposerClassifier`.
+    """A wrapper around ``timm.create_model()`` used to create :class:`composer.models.ComposerClassifier`.
 
     Resnet18 Example:
 
@@ -17,15 +17,15 @@ class Timm(ComposerClassifier):
 
     Args:
         model_name (str): timm model name e.g: "resnet50". List of models can be found at
-            https://github.com/rwightman/pytorch-image-models
-        pretrained (bool): Imagenet pretrained. Default: False
-        num_classes (int): The number of classes. Needed for classification tasks. Default = 1000
-        drop_rate (float): Dropout rate. Default = 0.0
-        drop_path_rate (float): Drop path rate (model default if None). Default = None
-        drop_block_rate (float): Drop block rate (model default if None). Default = None
-        global_pool (str): Global pool type, one of (fast, avg, max, avgmax, avgmaxc). Model default if None. Default = None
-        bn_momentum (float): BatchNorm momentum override (model default if not None). Default = None
-        bn_eps (float): BatchNorm epsilon override (model default if not None). Default = None
+            https://github.com/rwightman/pytorch-image-models.
+        pretrained (bool): Imagenet pretrained. Default: False.
+        num_classes (int): The number of classes. Needed for classification tasks. Default = 1000.
+        drop_rate (float): Dropout rate. Default = 0.0 .
+        drop_path_rate (float): Drop path rate (model default if None). Default = None.
+        drop_block_rate (float): Drop block rate (model default if None). Default = None.
+        global_pool (str): Global pool type, one of ("fast", "avg", "max", "avgmax", "avgmaxc"). Model default if None. Default = None.
+        bn_momentum (float): BatchNorm momentum override (model default if not None). Default = None.
+        bn_eps (float): BatchNorm epsilon override (model default if not None). Default = None.
     """
 
     def __init__(

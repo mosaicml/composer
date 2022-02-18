@@ -67,7 +67,15 @@ def deeplabv3_builder(num_classes: int,
 class ComposerDeepLabV3(ComposerModel):
     """DeepLabV3 model extending the :class:`ComposerClassifier`.
 
-    See `<arxiv.org/abs/1706.05587>`_ for more details on the DeepLabV3 architecture.
+    From the paper Rethinking Atrous Convolution for Semantic Image Segmentation `<arxiv.org/abs/1706.05587>`_.
+
+    Example:
+
+    .. testcode::
+        from composer.models import ComposerDeepLabV3
+
+        # creates a deeplabv3 for 150 classes with a pretrained resnet101 backbone
+        model = ComposerDeepLabV3(num_classes=150, backbone_arch='resnet101')
 
     Args:
         num_classes (int): The number of classes in the segmentation task.

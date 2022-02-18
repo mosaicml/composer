@@ -16,15 +16,26 @@ if TYPE_CHECKING:
 
 
 class GPT2Model(ComposerTransformer):
-    """Implements a GPT-2 extending :class:`ComposerTransformer`.
+    """Implements :class:`ComposerTransformer` for to wrap huggingface GPT-2 transformers.
+    Logs training and validation perplexity.
 
-    See this `paper <https://d4mucfpksywv.cloudfront.net/better-language-models/language-models.pdf>`_
-    for details on the GPT-2 architecutre.
+    From the paper Language Models are Unsupervised Multitask Learners `<https://d4mucfpksywv.cloudfront.net/better-language-models/language-models.pdf>`_
+
+    To create a GPT-2 model for language modeling pretraining:
+
+    .. testcode::
+
+        from composer.models import GPT2LMHeadModel
+        import transformers
+
+        config = transformers.GPT2Config()
+        hf_model = transformers.GPT2LMHeadModel(config=config) # gpt2-small model from huggingface
+        model = GPT2Model(module=hf_model, config=config, tokenizer_name="gpt2")
 
     Args:
         module (transformers.GPT2Model): The model to wrap with this module.
         config (transformers.GPT2Config): The config for the model.
-        tokenizer_name (str): The name of the tokenizer used for tihs model,
+        tokenizer_name (str): The name of the tokenizer used for this model,
             necessary to assert required model inputs.
         gradient_checkpointing (bool): Use gradient checkpointing. default: False
     """
