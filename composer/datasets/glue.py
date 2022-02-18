@@ -1,6 +1,8 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
+import functools
 import logging
+import operator
 from dataclasses import dataclass
 from typing import cast
 
@@ -9,15 +11,16 @@ import yahp as hp
 from composer.core import DataSpec
 from composer.core.types import Dataset
 from composer.datasets.dataloader import DataloaderHparams
-from composer.datasets.hparams import DatasetHparams
+from composer.datasets.hparams import DatasetHparams, SyntheticHparamsMixin
 from composer.datasets.lm_datasets import _split_dict_fn
+from composer.datasets.synthetic import SyntheticBertTokenizer, SyntheticHFDataset
 from composer.utils import dist
 
 log = logging.getLogger(__name__)
 
 
 @dataclass
-class GLUEHparams(DatasetHparams):
+class GLUEHparams(DatasetHparams, SyntheticHparamsMixin):
     """Sets up a generic GLUE dataset loader.
 
     Args:
@@ -79,11 +82,25 @@ class GLUEHparams(DatasetHparams):
             ) from e
 
         self.validate()
-        self.tokenizer = transformers.AutoTokenizer.from_pretrained(self.tokenizer_name)  #type: ignore (thirdparty)
+        if self.use_synthetic:
+            from transformers.models.bert.tokenization_bert import BasicTokenizer
+            column_names = [i for i in self.task_to_keys[self.task] if i is not None]
 
-        log.info(f"Loading {self.task.upper()} on rank ", dist.get_global_rank())
-        download_config = datasets.utils.DownloadConfig(max_retries=self.max_network_retries)
-        self.dataset = datasets.load_dataset("glue", self.task, split=self.split, download_config=download_config)
+            # we just use the max sequence length in tokens to upper bound the sequence length in characters
+            self.dataset = SyntheticHFDataset(num_samples=self.synthetic_num_unique_samples,
+                                              chars_per_sample=self.max_seq_length,
+                                              column_names=column_names)
+            self.dataset = self.dataset.generate_dataset()
+
+            # flatten the columnar dataset into one column
+            flattened_dataset = functools.reduce(operator.iconcat, [self.dataset[i] for i in column_names], [])
+            self.tokenizer = SyntheticBertTokenizer(flattened_dataset)
+        else:
+            self.tokenizer = transformers.AutoTokenizer.from_pretrained(self.tokenizer_name)  #type: ignore (thirdparty)
+
+            log.info(f"Loading {self.task.upper()} on rank ", dist.get_global_rank())
+            download_config = datasets.utils.DownloadConfig(max_retries=self.max_network_retries)
+            self.dataset = datasets.load_dataset("glue", self.task, split=self.split, download_config=download_config)
 
         log.info(f"Starting tokenization step by preprocessing over {self.num_workers} threads!")
         text_column_names = self.task_to_keys[self.task]
@@ -102,6 +119,7 @@ class GLUEHparams(DatasetHparams):
             )
 
         columns_to_remove = ["idx"] + [i for i in text_column_names if i is not None]
+        print("Columns to remove:", columns_to_remove)
         assert isinstance(self.dataset, datasets.Dataset)
         dataset = self.dataset.map(
             tokenize_function,

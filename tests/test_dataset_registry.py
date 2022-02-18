@@ -34,7 +34,7 @@ default_required_fields: Dict[Type[DatasetHparams], Callable[[], DatasetHparams]
         tokenizer_name='gpt2',
     ),
     GLUEHparams: lambda: GLUEHparams(
-        task="rte",
+        task="cola",
         tokenizer_name="bert-base-uncased",
         split="train",
     ),

@@ -1,11 +1,16 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
+import random
+import string
+from tempfile import NamedTemporaryFile
 from typing import Callable, Optional, Sequence, Union
 
+import datasets
 import torch
 import torch.utils.data
 from PIL import Image
 from torchvision.datasets import VisionDataset
+from transformers import BertTokenizer
 
 from composer.core.types import MemoryFormat
 from composer.utils.string_enum import StringEnum
@@ -19,6 +24,77 @@ class SyntheticDataType(StringEnum):
 class SyntheticDataLabelType(StringEnum):
     CLASSIFICATION_INT = "classification_int"
     CLASSIFICATION_ONE_HOT = "classification_one_hot"
+
+
+class SyntheticBertTokenizer(BertTokenizer):
+
+    def __init__(self, dataset, vocab_size=256):
+        try:
+            import tokenizers
+        except ImportError as e:
+            raise ImportError(
+                'Composer was installed without NLP support. To use NLP with Composer, run: `pip install mosaicml[nlp]`.'
+            ) from e
+
+        tokenizer = tokenizers.Tokenizer(tokenizers.models.WordPiece())
+        tokenizer.normalizer = tokenizers.normalizers.NFKC()
+        tokenizer.pre_tokenizer = tokenizers.pre_tokenizers.ByteLevel()
+        tokenizer.decoder = tokenizers.decoders.ByteLevel()
+        trainer = tokenizers.trainers.WordPieceTrainer(
+            vocab_size=vocab_size,
+            initial_alphabet=tokenizers.pre_tokenizers.ByteLevel.alphabet(),
+            special_tokens=["[UNK]", "[SEP]", "[PAD]", "[CLS]", "[MASK]"],
+        )
+        tokenizer.train_from_iterator(dataset, trainer=trainer)
+        tmp_tokenizer_file = NamedTemporaryFile()
+        tokenizer.save(tmp_tokenizer_file.name)
+        super().__init__(tmp_tokenizer_file.name)
+
+
+class SyntheticHFDataset:
+    """Creates a synthetic HF dataset and passes it to the preprocessing scripts."""
+
+    def __init__(self, num_samples, chars_per_sample, column_names):
+        if column_names is None or len(column_names) == 0:
+            raise ValueError("There must be at least one column name provided for the final dataset.")
+        self.num_samples = num_samples
+        self.chars_per_sample = chars_per_sample
+        self.column_names = column_names
+
+    def generate_dataset(self):
+        data = {}
+        for column_name in self.column_names:
+            data[column_name] = [self.generate_sample() for _ in range(self.num_samples)]
+        data['idx'] = list(range(self.num_samples))
+
+        hf_synthetic_dataset = datasets.Dataset.from_dict(data)
+        return hf_synthetic_dataset
+
+    def generate_sample(self):
+        MIN_WORD_LENGTH = 3
+        MAX_WORD_LENGTH = 10
+        character_set = {
+            "letters": {
+                "weight": 10,
+                "choices": string.ascii_letters
+            },
+            "digits": {
+                "weight": 5,
+                "choices": string.digits
+            },
+            "punctuation": {
+                "weight": 1,
+                "choices": string.punctuation
+            }
+        }
+        valid_chars = ''.join([(i['choices'] * i['weight']) for i in character_set.values()])
+
+        sample = ''
+        while len(sample) < self.chars_per_sample:
+            sample_len = random.randint(MIN_WORD_LENGTH, MAX_WORD_LENGTH)
+            sample += ''.join([random.choice(valid_chars) for _ in range(sample_len)])
+            sample += ' '
+        return sample
 
 
 class SyntheticBatchPairDataset(torch.utils.data.Dataset):
