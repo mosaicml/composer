@@ -5,15 +5,18 @@ import string
 from tempfile import NamedTemporaryFile
 from typing import Callable, Optional, Sequence, Union
 
-import datasets
 import torch
 import torch.utils.data
 from PIL import Image
 from torchvision.datasets import VisionDataset
-from transformers import BertTokenizer
 
 from composer.core.types import MemoryFormat
 from composer.utils.string_enum import StringEnum
+
+try:
+    from transformers import BertTokenizer
+except ImportError as e:
+    BertTokenizer = object
 
 
 class SyntheticDataType(StringEnum):
@@ -66,6 +69,13 @@ class SyntheticHFDataset:
         self.column_names = column_names
 
     def generate_dataset(self):
+        try:
+            import datasets
+        except ImportError as e:
+            raise ImportError(
+                'Composer was installed without NLP support. To use NLP with Composer, run: `pip install mosaicml[nlp]`.'
+            ) from e
+
         data = {}
         for column_name in self.column_names:
             data[column_name] = [self.generate_sample() for _ in range(self.num_samples)]
