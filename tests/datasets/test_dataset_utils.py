@@ -20,20 +20,12 @@ def image_size():
 
 @pytest.fixture()
 def pil_image_list(num_samples: int, image_size: Tuple[int, int]):
-    images = []
-    for i in range(num_samples):
-        image = Image.new(mode='RGB', size=image_size, color=(i, i, i))
-        images.append(image)
-    return images
+    return [Image.new(mode='RGB', size=image_size, color=(i, i, i)) for i in range(num_samples)]
 
 
 @pytest.fixture()
 def pil_target_list(num_samples: int, image_size: Tuple[int, int]):
-    targets = []
-    for i in range(num_samples):
-        image = Image.new(mode='L', size=image_size, color=i)
-        targets.append(image)
-    return targets
+    return [Image.new(mode='L', size=image_size, color=i) for i in range(num_samples)]
 
 
 @pytest.fixture()
