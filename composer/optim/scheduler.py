@@ -37,6 +37,14 @@ class ComposerSchedulerFn(Protocol):
     """
 
     def __call__(self, state: State, *, ssr: float = 1.0) -> float:
+        """Calculate the current learning rate factor.
+    
+        Args:
+            state (State): The current Composer Trainer state.
+            ssr (float): The scale schedule ratio. In general, the learning rate computed by this
+                scheduler at time :math:`t` with an SSR of 1.0 should be the same as that computed by
+                this scheduler at time :math:`t \times s` with an SSR of :math:`s`. Default = ``1.0``.
+        """
         raise NotImplementedError
 
 
