@@ -19,7 +19,8 @@ __all__ = ["BERTModel"]
 
 
 class BERTModel(ComposerTransformer):
-    """Implements a BERT wrapper around a ComposerTransformer. Works with `Hugging Face Transformers
+    """Implements a BERT wrapper around a ComposerTransformer. Works with `Hugging Face Transformers.
+
     <https://huggingface.co/transformers/>`_.
 
     To create a bert model for Language Model pretraining:
