@@ -1,5 +1,7 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
+"""Modify learning rate schedulers according to a scale scedule ratio."""
+
 from collections import Counter
 from typing import Optional
 
@@ -7,6 +9,8 @@ from torch.optim.lr_scheduler import CosineAnnealingLR, CosineAnnealingWarmResta
 
 from composer.core.types import Scheduler
 from composer.optim.scheduler import ConstantLR
+
+__all__ = ["scale_scheduler"]
 
 
 def scale_scheduler(scheduler: Scheduler, ssr: float, orig_max_epochs: Optional[int] = None):
@@ -26,6 +30,13 @@ def scale_scheduler(scheduler: Scheduler, ssr: float, orig_max_epochs: Optional[
     training ends while the learning rate is still ~0.5. If the schedule is
     rescaled, training ends after passing through the full cosine
     curve, at a learning rate near 0.
+
+    .. doctest::
+
+        >>> from composer.trainer.scale_schedule import scale_scheduler
+        >>> from torch.optim.lr_scheduler import CosineAnnealingLR
+        >>> scheduler = CosineAnnealingLR(optimizer, T_max=90)
+        >>> scale_scheduler(scheduler, ssr=0.5, orig_max_epochs=90)
 
     Args:
         scheduler: A learning rate schedule object. Must be one of:

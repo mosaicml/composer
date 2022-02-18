@@ -1,5 +1,7 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
+"""Load and save checkpoints during training."""
+
 from __future__ import annotations
 
 import contextlib
@@ -27,6 +29,8 @@ from composer.trainer.devices.device import Device
 from composer.utils import ObjectStoreProvider, dist, iterate_with_pbar, reproducibility, run_directory
 
 log = logging.getLogger(__name__)
+
+__all__ = ["CheckpointLoader", "CheckpointSaver"]
 
 if TYPE_CHECKING:
     import deepspeed
@@ -59,8 +63,11 @@ class CheckpointLoader:
             It can be a path to a file on local disk, a URL, or if ``object_store`` is set, the object name
             for a checkpoint in a cloud bucket.
 
-            When using Deepspeed zero, the :class:`CheckpointSaver` shards checkpoints by rank. To load deepspeed checkpoints,
-            specify ``{RANK}`` in in the ``checkpoint`` parameter, and this variable will be substituted with the global rank.
+            When using `Deepspeed ZeRO <https://www.deepspeed.ai/tutorials/zero/>`_, the :class:`CheckpointSaver`
+            shards checkpoints by rank. To load deepspeed checkpoints, specify ``{RANK}`` in this ``path``
+            parameter, and the ``RANK`` variable will be substituted with the global rank, thus allowing the correct
+            checkpoints to be loaded per-rank.
+
             For example, suppose that checkpoints are stored in the following structure:
 
             .. code-block::
@@ -70,21 +77,22 @@ class CheckpointLoader:
                 my_model/rank_2/ep1.tar
                 ...
 
-            Then, ``checkpoint`` should be set to ``my_model/rank_{RANK}/ep1.tar``, and all ranks will load the correct
+            Then, ``path`` should be set to ``my_model/rank_{RANK}/ep1.tar``, and all ranks will load the correct
             data.
 
-        object_store (ObjectStoreProvider, optional): If the ``checkpoint`` is in an object store
-            (i.e. AWS S3 or Google Cloud Storage), an instance of :class:`ObjectStoreProvider` which will be used
+        object_store (ObjectStoreProvider, optional): If the ``path`` is in an object store
+            (i.e. AWS S3 or Google Cloud Storage), an instance of
+            :class:`~composer.utils.object_store.ObjectStoreProvider` which will be used
             to retreive the checkpoint. Otherwise, if the checkpoint is a local filepath, set to ``None``.
-            (default: ``None``).
-        load_weights_only (bool): Whether to only restore the weights from the checkpoint without
+            (default: ``None``)
+        load_weights_only (bool): Whether or not to only restore the weights from the checkpoint without
             restoring the associated state.
-        strict_model_weights (bool): Whether to force that the checkpointed weights must exactly match the model
-            weights.
-        chunk_size (int, optional): Chunk size (in bytes) to use when downloading checkpoints. Ignored if the checkpoint
-            is a local file path. (default: ``1_048_576`` bytes (1 MB))
-        progress_bar (bool): Whether to show a progress bar when downloading checkpoints. Ignored if the checkpoint
-            is a local file path. (default: ``True``)
+        strict_model_weights (bool): Whether or not to force that the checkpointed weights must exactly
+            match the model weights.
+        chunk_size (int, optional): Chunk size (in bytes) to use when downloading checkpoints.
+            Ignored if the checkpoint is a local file path. (default: ``1_048_576`` bytes (1 MB))
+        progress_bar (bool): Whether or not to show a progress bar when downloading checkpoints.
+            Ignored if the checkpoint is a local file path. (default: ``True``)
     """
 
     def __init__(
@@ -164,10 +172,10 @@ class CheckpointLoader:
         return local_rank_zero_path
 
     def _download_checkpoint(self, node_checkpoint_folder: str) -> Tuple[str, Optional[str], bool]:
-        """Download the checkpoint to ``node_checkpoint_folder``
+        """Download the checkpoint to ``node_checkpoint_folder``.
 
         Args:
-            node_checkpoint_folder (str): The folder to which to download the checkpoint
+            node_checkpoint_folder (str): The folder to which to download the checkpoint.
 
         Returns:
             Tuple[str, Optional[str], bool]: A tuple of ``composer_checkpoint_filepath``,
@@ -253,16 +261,16 @@ class CheckpointLoader:
         """Restore a checkpoint into ``state``.
 
         Args:
-            state (State): The state to load the checkpoint into
+            state (State): The state to load the checkpoint into.
             composer_checkpoint_filepath (str): The filepath to the moasic states, which is passed into
-                :meth:`torch.load`
+                :meth:`torch.load`.
             extracted_rank_n (bool): A boolean flag indicating whether a tarball was extracted in the case
                 where global rank is greater than 0.
             extracted_checkpoint_folder (Optional[str]): The path to the checkpoint folder, which is passed into
                 :meth:`deepspeed.DeepSpeedEngine.load_checkpoint`.
 
         Returns:
-            Optional[int]: The seed that was loaded from the checkpoint if it exists otherwise `None`.
+            Optional[int]: The seed that was loaded from the checkpoint if it exists otherwise ``None``.
         """
         # Now, all ranks load the checkpoint that local rank zero downloaded
         state_dict = torch.load(composer_checkpoint_filepath, map_location='cpu')
@@ -306,14 +314,14 @@ class CheckpointLoader:
 
         return seed_to_restore
 
-    def load_checkpoint(self, state: State):
+    def load_checkpoint(self, state: State) -> Optional[int]:
         """Initialize state from the loaded checkpoint's data.
 
         Args:
-            state (State): The state to load the checkpoint into.
+            state (State): The :class:`~composer.core.state.State` to load the checkpoint into.
 
         Returns:
-            The seed that was loaded from the checkpoint if it exists otherwise `None`.
+            Optional[int]: The seed that was loaded from the checkpoint if it exists otherwise ``None``.
         """
 
         # download the checkpoint to the node-local folder
@@ -335,7 +343,11 @@ class CheckpointLoader:
         return seed_to_restore
 
     def restore_checkpoint_rng_state(self, device: Device):
-        """Restore the state of all RNG objects in this context from the loaded checkpoint's data."""
+        """Restore the state of all RNG objects in this context from the loaded checkpoint's data.
+
+        Args:
+            device (Device): The device being used for training for which to restore the state.
+        """
 
         if self.checkpoint_rng_state is None:
             return
@@ -393,17 +405,27 @@ class CheckpointSaver:
     """Manager for saving trainer state to checkpoint files.
 
     Args:
-        save_folder (str): The path to store checkpoints in.
+        save_folder (str): The folder to store checkpoints in. The ``save_folder`` will be relative
+            to the folder returned by :meth:`~composer.utils.run_directory.get_run_directory`.
+            If the ``save_folder`` does not exist, it will be created.
         interval (Time or str): The amount of time units to wait between checkpoints.
         compression (str, optional): Compression algorithm to run on checkpoints. Can be ``gzip``, ``bzip2``,
             ``lzma``, or ``None`` for no compression.  (default: ``None`` for no compression).
 
     Attributes:
+        checkpoint_folder (str): The folder in which checkpoints are stored. This folder is relative
+            to the run directory of the training run. If no run directory is proivded, then by default,
+            it is of the form ``runs/<timestamp>/rank_<GLOBAL_RANK>/<save_folder>`` where ``timestamp``
+            is the the start time of the run in iso-format, ``GLOBAL_RANK`` is the global rank of the process,
+            and ``save_folder`` is the save_folder argument provided upon construction.
+
+            .. seealso:: :mod:`~composer.utils.run_directory` for details on the format of the run directory
+                and how to customize it.
         saved_checkpoints (Dict[Timestamp, List[str]): A dictionary mapping a save timestamp
             to a list of filepaths corresponding to the checkpoints saved at that time.
 
             .. note:: The list of filepaths is for all ranks. The path at index ``i`` is the
-                      path that global rank ``i`` wrote to.
+                path that global rank ``i`` wrote to.
     """
 
     def __init__(self, save_folder: str, interval: Union[Time, str], compression: Optional[str] = None):
@@ -417,8 +439,8 @@ class CheckpointSaver:
             raise ValueError(f"Unknown checkpointing interval: {interval.unit}. Must be epochs or batches.")
         self.checkpoint_folder = os.path.join(run_directory.get_run_directory(), save_folder)
         os.makedirs(self.checkpoint_folder, mode=0o775, exist_ok=True)
-        self.save_interval = interval
-        self.file_extension, self.write_mode = _format_from_compression(compression=compression)
+        self._save_interval = interval
+        self._file_extension, self._write_mode = _format_from_compression(compression=compression)
         self.saved_checkpoints = {}
 
     def should_checkpoint(self, state: State, event: Event) -> bool:
@@ -427,6 +449,10 @@ class CheckpointSaver:
         Args:
             state (State): The current State of the trainer.
             event (Event): The current Event being executed.
+
+        Returns:
+            bool: ``True`` if a checkpoint should be created based on the provided
+                state and event and ``False`` otherwise.
         """
 
         # if we're at the end of training, ensure that we checkpoint regardless of save_event frequency
@@ -436,18 +462,26 @@ class CheckpointSaver:
         if event != self.save_event:
             return False
         if self.save_event == Event.EPOCH_END:
-            return int(state.timer.epoch) % int(self.save_interval) == 0
+            return int(state.timer.epoch) % int(self._save_interval) == 0
         if self.save_event == Event.BATCH_END:
-            return int(state.timer.batch) % int(self.save_interval) == 0
+            return int(state.timer.batch) % int(self._save_interval) == 0
 
         return False
 
     def save_checkpoint(self, state: State, seed: int, device: Device) -> None:
-        """Save the current state to a a new checkpoint file.
+        """Save the current state to a new checkpoint file.
 
-        The default is to save checkpoints in a ``.pt`` file unless DeepSpeed is being used to train the model
-        in which case checkpoints will be stored in a ``.tar`` format because there are multiple files in the
-        checkpoint.
+        There are 3 cases for the format in which the checkpoint is saved:
+
+        1. The default is to save checkpoints in a ``.pt`` file if DeepSpeed is not being used to
+        train the model and there is no compression specied.
+
+        2. If DeepSpeed is being used to train the model and there is no compression, then the checkpoint
+        is stored in a ``.tar`` format because DeepSpeed saves model checkpoints
+        as multiple files.
+
+        3. If compression is being used, then the checkpoint is saved in the file format corresponding to the
+        compression type (ex. ``gzip`` compression results in a ``.tar.gz`` file).
 
         Args:
             state (State): The current State of the trainer.
@@ -471,8 +505,8 @@ class CheckpointSaver:
                 model = cast("deepspeed.DeepSpeedEngine", state.model)
                 model.save_checkpoint(tmpdir, _DEEPSPEED_TAG)
                 # ensure that deepspeed checkpoints are saved in an archive
-                self.file_extension, self.write_mode = _ensure_archive(file_extension=self.file_extension,
-                                                                       write_mode=self.write_mode)
+                self._file_extension, self._write_mode = _ensure_archive(file_extension=self._file_extension,
+                                                                       write_mode=self._write_mode)
 
             composer_states_filepath = os.path.join(tmpdir, _COMPOSER_STATES_FILENAME)
             if dist.get_global_rank() == 0:
@@ -485,14 +519,14 @@ class CheckpointSaver:
                 with open(composer_states_filepath, 'xb') as f:
                     torch.save(state_dict, f)
 
-            checkpoint_filepath = os.path.join(self.checkpoint_folder, f'{tag}{self.file_extension}')
+            checkpoint_filepath = os.path.join(self.checkpoint_folder, f'{tag}{self._file_extension}')
             if _is_pt_file(checkpoint_filepath) and dist.get_global_rank() == 0:
                 # move the file out of tmpdir to the user-specified location
                 shutil.move(composer_states_filepath, checkpoint_filepath)
 
             if is_module_deepspeed(state.model) or (not _is_pt_file(checkpoint_filepath) and
                                                     dist.get_global_rank() == 0):
-                with tarfile.open(checkpoint_filepath, self.write_mode) as tarball:
+                with tarfile.open(checkpoint_filepath, self._write_mode) as tarball:
                     # add files flat to the tarball with the specified compression
                     tarball.add(tmpdir, arcname="")
 

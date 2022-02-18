@@ -1,5 +1,7 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
+"""Train models with composed speedup methods!"""
+
 from __future__ import annotations
 
 import contextlib
@@ -41,7 +43,7 @@ from composer.trainer.ddp import DDPSyncStrategy, ddp_sync_context, prepare_ddp_
 from composer.trainer.deepspeed import fix_batch_precision_for_deepspeed, parse_deepspeed_config
 from composer.trainer.devices import Device, DeviceCPU, DeviceGPU
 from composer.trainer.scale_schedule import scale_scheduler
-from composer.trainer.scaler import ClosureGradScaler
+from composer.trainer._scaler import ClosureGradScaler
 from composer.utils import dist, ensure_tuple, map_collection, module_surgery, reproducibility
 from composer.utils.object_store import ObjectStoreProvider
 
@@ -50,60 +52,80 @@ if TYPE_CHECKING:
 
 log = logging.getLogger(__name__)
 
+__all__ = ["Trainer"]
+
 
 class Trainer:
-    """Trainer for training a model with algorithms.
-
-    Can be created either with ``__init__`` or by providing a
-    :class:`~composer.trainer.TrainerHparams` object
-    (see :meth:`~composer.trainer.Trainer.create_from_hparams`).
+    """Trainer for training a models with Composer algorithms.
 
     Args:
         model (ComposerModel): The model to train.
-
         train_dataloader (DataLoader, DataSpec, or dict): The :class:`DataLoader`, :class:`DataSpec`,
             or dict of :class:`DataSpec` kwargs for the training data.
         max_duration (int, str, or Time): The maximum duration to train. Can be integer, which will be
             interpreted to be epochs, a str (e.g. '1ep', or '10ba'), or a :class:`Time` object.
-        eval_dataloader (Union[DataLoader, DataSpec, Evaluators], optional): The :class:`DataLoader`,
-            :class:`DataSpec`, :class:`Evaluators` for the evaluation data. The :class:`Evaluator`
-            class contains metrics relevant to the specific dataset. Set to ``None`` for no evaluation.
-        algorithms (List[Algorithm], optional): The algorithms to use during training.
-            (default: ``[]``)
-        optimizers: (Optimizers, optional): The optimizers.
-            (default: ``DecoupledSGDW(model.parameters(), lr=0.1)``)
-        schedulers: (Schedulers, optional): The schedulers.
-            (default: ``[CosineAnnealingLR()]``).
-        device (str or Device, optional): The device to use for training. Either `cpu` or `gpu`.
-            (default `cpu`)
+        eval_dataloader (DataLoader, DataSpec, or Tuple[Evaluator], optional): The :class:`DataLoader`,
+            :class:`DataSpec`, or :class:`Evaluators` for the evaluation data.
+            The :class:`~composer.core.evaluator.Evaluator` class contains metrics relevant to the
+            specific dataset. ``None`` results in no evaluation. (default: ``None``)
+        algorithms (List[Algorithm], optional): The algorithms to use during training. If ``None``, then
+            no algorithms will be used. (default: ``None``)
+
+            .. seealso:: :mod:`composer.algorithms` for the different algorithms built into Composer.
+        optimizers: (Optimizers, optional): The optimizer.
+            If ``None``, will be set to ``DecoupledSGDW(model.parameters(), lr=0.1)``. (default: ``None``)
+
+            .. seealso:: :mod:`composer.optim` for the different optimizers built into Composer.
+        schedulers: (Schedulers, optional): The learning rate schedulers. If ``None``, will be set to
+            ``[CosineAnnealingLR()]``. (default: ``None``).
+
+            .. seealso:: :mod:`composer.optim.scheduler` for the different schedulers built into Composer.
+        device (str or Device, optional): The device to use for training. Either ``cpu`` or ``gpu``.
+            (default: ``cpu``)
         grad_accum (int, optional): The number of microbatches to split a per-device batch into. Gradients
             are summed over the microbatches per device. (default: ``1``)
-        grad_clip_norm (float, optional): The norm to clip gradient magnitudes to. Set to None for no gradient
+        grad_clip_norm (float, optional): The norm to clip gradient magnitudes to. Set to ``None`` for no gradient
             clipping. (default: ``None``)
         validate_every_n_batches (int, optional): Compute metrics on evaluation data every N batches.
-             Set to -1 to never validate on a batchwise frequency. (default: ``-1``)
+             Set to ``-1`` to never validate on a batchwise frequency. (default: ``-1``)
         validate_every_n_epochs (int, optional): Compute metrics on evaluation data every N epochs.
-            Set to -1 to never validate on a epochwise frequency. (default: ``1``)
-        compute_training_metrics (bool, optional): True to compute metrics on training data and False to not.
+            Set to ``-1`` to never validate on a epochwise frequency. (default: ``1``)
+        compute_training_metrics (bool, optional): ``True`` to compute metrics on training data and ``False`` to not.
             (default: ``False``)
-        precision (str or Precision, optional): Numerical precision to use for training, one of 'fp32', 'fp16'
-            or 'amp' (recommended). (default: ``Precision.FP32``).
+        precision (str or Precision, optional): Numerical precision to use for training. One of ``fp32``, ``fp16``
+            or ``amp`` (recommended). (default: ``Precision.FP32``)
+
+            .. note::
+                ``fp16`` only works if ``deepspeed_config`` is also provided.
         scale_schedule_ratio (float, optional): Ratio by which to scale the training duration and learning rate
-            schedules. See :func:`scale_schedule` for details. (default: ``1.0``)
+            schedules. (default: ``1.0``)
+
+            .. seealso:: :func:`~composer.trainer.scale_schedule.scale_scheduler` for details on how scale scheduling
+                works.
         dist_timeout (float, optional): Timeout, in seconds, for initializing the distributed process group.
             (default: ``15.0``)
         ddp_sync_strategy (str or DDPSyncStrategy, optional): The strategy to use for synchronizing gradients.
-            Leave unset to let the trainer auto-configure this. For more details, see ``DDPSyncStrategy``.
-        seed (int, optional): The seed used in randomization. When not provided a random seed
+            Leave unset to let the trainer auto-configure this. See :class:`~composer.trainer.ddp.DDPSyncStrategy`
+            for more details.
+        seed (int, optional): The seed used in randomization. If ``None``, then a random seed
             will be created. (default: ``None``)
-        deterministic_mode (bool, optional): Run the model deterministically. Experimental. Performance
-            degradations expected. Certain Torch modules may not have deterministic implementations,
-            which will result in a crash. (default: ``False``)
-        loggers (List[LoggerCallback], optional): The destinations to log training information to.
-            (default: ``[TQDMLogger()]``).
-        callbacks (Sequence[Callback], optional): The callbacks to run during training. (default: ``[]``)
-        load_path (str, optional): Path to a specific checkpoint to load. If not set (the default),
-            then no checkpoint will be loaded. (default: ``None``)
+        deterministic_mode (bool, optional): Run the model deterministically. (default: ``False``)
+
+            .. note:: This is an exerpimental feature. Performance degradations expected. Certain Torch modules may
+                not have deterministic implementations, which will result in a crash.
+        loggers (Sequence[LoggerCallback], optional): The destinations to log training information to.
+            If ``None``, will be set to ``[TQDMLogger()]``. (default: ``None``)
+
+            .. seealso:: :mod:`composer.loggers` for the different loggers built into Composer.
+        callbacks (Sequence[Callback], optional): The callbacks to run during training. If ``None``,
+            then no callbacks will be run. (default: ``None``).
+
+            .. seealso:: :mod:`composer.callbacks` for the different callbacks built into Composer.
+        load_path (str, optional): Path to a specific checkpoint to load. If ``None``, then no
+            checkpoint will be loaded and all other ``load_`` parameters are ignored. (default: ``None``)
+
+            .. seealso:: :class:`~composer.trainer.checkpoint.CheckpointLoader` for further details on
+                how checkpoints are loaded.
         load_object_store (ObjectStoreProvider, optional): For loading from object stores (e.g. S3), this
             ObjectStoreProvider instance that will be used to download the checkpoint. Ignored if
             ``load_path`` is not specified. (default: ``None``)
@@ -116,7 +138,11 @@ class Trainer:
         load_progress_bar (bool): Display the progress bar for downloading the checkpoint. Ignored if
             ``load_path`` is not specified or if it is a local file path. (default: ``True``)
         save_folder (str, optional): Folder path to save checkpoints, relative to the run directory.
-            Set to ``None`` to not save checkpoints. (default: ``None``)
+            If ``None``, then checkpoints will not be saved and all other ``save_`` parameters
+            will be ignored. (default: ``None``)
+
+            .. seealso:: :class:`~composer.trainer.checkpoint.CheckpointSaver` for further details on
+                how checkpoints are saved.
         save_interval (str or int): How often to save checkpoints. For example, set to "1ep" to save checkpoints
             every epoch, or "10ba" to save checkpoints every 10 batches. An integer will be assumed to be epochs.
             (default: ``1ep``)
@@ -124,6 +150,8 @@ class Trainer:
             `lzma`, or left blank for no compression.  (default: ``""`` for no compression).
         profiler_trace_file (str, optional): Name of the trace file, relative to the run directory.
             Must be specified to activate the profiler. (default: ``None``).
+
+            .. seealso:: :mod:`composer.profiler` for more details on profiling with the trainer.
         prof_event_handlers (List[ProfilerEventHandler], optional): Trace event handler.
             Ignored if ``profiler_trace_file`` is not specified. (default: ``[JSONTraceHandler()]``).
         prof_skip_first (int, optional): Number of batches to skip at epoch start.
@@ -161,18 +189,24 @@ class Trainer:
             Ignored if ``torch_profiler_trace_dir`` and ``profiler_trace_file`` are not specified. (default: ``True``).
         train_subset_num_batches (int, optional): If specified, finish every epoch early after training
             on this many batches. This parameter has no effect if it is greater than ``len(train_dataloader)``.
-            If None (the default), then the entire dataloader will be iterated over.
+            If ``None``, then the entire dataloader will be iterated over. (default: ``None``)
         eval_subset_num_batches (int, optional): If specified, evaluate on this many batches.
             This parameter has no effect if it is greater than ``len(eval_dataloader)``.
-            If None (the default), then the entire dataloader will be iterated over.
+            If ``None``, then the entire dataloader will be iterated over. (default: ``None``)
         deepspeed_config (Dict[str, Any], optional): Configuration for DeepSpeed, formatted as a JSON
             according to `DeepSpeed's documentation <https://www.deepspeed.ai/docs/config-json/>`_. If any
-            non-None value is provided, the trainer will initialize the DeepSpeed engine. (default: ``None``)
+            ``dict`` is provided, the trainer will initialize the DeepSpeed engine. (default: ``None``)
 
     Attributes:
-        state (State): The :class:`State` object used to store training state.
-        logger (Logger): The :class:`Logger` used for logging.
-        engine (Engine): The :class:`Engine` used for running callbacks and algorithms.
+        state (State): The :class:`~composer.core.state.State` object used to store training state.
+        evaluators (List[Evaluator]): The :class:`~composer.core.evaluator.Evaluator` objects to use for validation
+            during training.
+        checkpoint_saver (CheckpointSaver): The :class:`~composer.trainer.checkpoint.CheckpointSaver`
+            used for saving checkpoints during training.
+        checkpoint_loader (CheckpointLoader): The :class:`~composer.trainer.checkpoint.CheckpointLoader`
+            used for loading from a checkpoint at the start of training.
+        logger (Logger): The :class:`~composer.core.logging.Logger` used for logging.
+        engine (Engine): The :class:`~composer.core.engine.Engine` used for running callbacks and algorithms.
     """
 
     def __init__(
@@ -530,7 +564,11 @@ class Trainer:
                 self.state.model = prepare_ddp_module(self.state.model, self.find_unused_parameters)
 
     @property
-    def deepspeed_enabled(self):
+    def deepspeed_enabled(self) -> bool:
+        """``True`` if DeepSpeed is being used for training and ``False`` otherwise.
+
+        .. seealso:: `DeepSpeed's documentation <https://www.deepspeed.ai/docs/config-json/>`_
+        """
         return self.deepspeed_config is not None
 
     def fit(self):

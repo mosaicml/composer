@@ -1,5 +1,7 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
+"""The CPU device used for training."""
+
 from __future__ import annotations
 
 import logging
@@ -10,6 +12,8 @@ from composer.core.types import Precision, StateDict, Tensor
 from composer.trainer.devices.device import Device, T_nnModule
 
 logger = logging.getLogger(__name__)
+
+__all__ = ["DeviceCPU"]
 
 
 class DeviceCPU(Device):

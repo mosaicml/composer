@@ -2,72 +2,66 @@
 
 """Train models!
 
-The trainer supports models with :class:`ComposerModel` instances.
-The :class:`Trainer` is highly customizable and can support a wide variety of workloads.
+The trainer supports models with :class:`~composer.models.base.ComposerModel` instances.
+The :class:`~composer.trainer.trainer.Trainer` is highly customizable and can
+support a wide variety of workloads.
 
-Examples
+Example
 --------
 
-.. code-block:: python
+.. doctest::
 
-    # Setup dependencies
-    from composer.datasets import MNISTDatasetHparams
-    from composer.models.mnist import MnistClassifierHparams
-    model = MnistClassifierHparams(num_classes=10).initialize_objeect()
-    train_dataloader = DataLoader(
-        datasets.MNIST('~/datasets/', train=True, transform=transforms.ToTensor(), download=True),
-        drop_last=True,
-        shuffle=True,
-        batch_size=256,
-    )
-
-    eval_dataloader = DataLoader(
-        datasets.MNIST('~/datasets/', train=True, transform=transforms.ToTensor(), download=True),
-        drop_last=False,
-        shuffle=False,
-        batch_size=256,
-    )
-
-
-.. code-block:: python
-
-    # Create a trainer that will checkpoint every epoch
-    # and train the model
-    trainer = Trainer(model=model,
-                      train_dataloader=train_dataloader,
-                      eval_dataloader=eval_dataloader,
-                      max_duration="50ep",
-                      train_batch_size=128,
-                      eval_batch_size=128,
-                      checkpoint_interval_unit="ep",
-                      checkpoint_folder="checkpoints",
-                      checkpoint_interval=1)
-    trainer.fit()
-
-
-.. code-block:: python
-
-    # Load a trainer from the saved checkpoint and resume training
-    trainer = Trainer(model=model,
-                      train_dataloader=train_dataloader,
-                      eval_dataloader=eval_dataloader,
-                      max_epochs=50,
-                      train_batch_size=128,
-                      eval_batch_size=128,
-                      checkpoint_filepath="checkpoints/first_checkpoint.pt")
-    trainer.fit()
-
-
-.. code-block:: python
-
-    from composer.trainer import TrainerHparamms
-
-    # Create a trainer from hparams and train train the model
-    trainer = hparams.initialize_object()
-    trainer.fit()
+    >>> import os
+    >>> from composer import Trainer
+    >>>
+    >>> ### Create a trainer
+    >>> trainer = Trainer(model=model,
+    ...                   train_dataloader=train_dataloader,
+    ...                   max_duration="1ep",
+    ...                   eval_dataloader=eval_dataloader,
+    ...                   optimizers=optimizer,
+    ...                   schedulers=scheduler,
+    ...                   device="cpu",
+    ...                   validate_every_n_epochs=1,
+    ...                   save_folder="checkpoints",
+    ...                   save_interval="1ep")
+    >>>
+    >>> ### Fit and run evaluation for 1 epoch.
+    >>> ### Save a checkpoint after 1 epocch as specified during trainer creation.
+    >>> trainer.fit()
+    >>>
+    >>> ### Get the saved checkpoint folder
+    >>> ### By default, the checkpoint folder is of the form runs/<timestamp>/rank_0/checkpoints
+    >>> ### Alternatively, if you set the run directory environment variable as follows:
+    >>> ### os.environ["COMPOSER_RUN_DIRECTORY"] = "my_run_directory", then the checkpoint path
+    >>> ### will be of the form my_run_directory/rank_0/checkpoints
+    >>> checkpoint_folder = trainer.checkpoint_saver.checkpoint_folder
+    >>>
+    >>> ### If the save_interval was in terms of epochs like above then by default,
+    >>> ### checkpoint filenames are of the form "ep{EPOCH_NUMBER}.pt".
+    >>> checkpoint_path = os.path.join(checkpoint_folder, "ep1.pt")
+    >>>
+    >>> ### Create a new trainer with the load_path argument set to the checkpoint path.
+    >>> ### This will automatically load the checkpoint on trainer creation.
+    >>> trainer = Trainer(model=model,
+    ...                   train_dataloader=train_dataloader,
+    ...                   max_duration="2ep",
+    ...                   eval_dataloader=eval_dataloader,
+    ...                   optimizers=optimizer,
+    ...                   schedulers=scheduler,
+    ...                   device="cpu",
+    ...                   validate_every_n_epochs=1,
+    ...                   load_path=checkpoint_path)
+    >>>
+    >>> ### Continue training and running evaluation where the previous trainer left off
+    >>> ### until the new max_duration is reached.
+    >>> ### In this case it will be one additional epoch to reach 2 epochs total.
+    >>> trainer.fit()
 """
 from composer.trainer import devices as devices
 from composer.trainer.trainer import Trainer as Trainer
 from composer.trainer.trainer_hparams import TrainerHparams as TrainerHparams
 
 load = TrainerHparams.load
+
+__all__ = ["Trainer"]

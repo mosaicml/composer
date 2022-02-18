@@ -1,5 +1,7 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
+"""The base :class:`~composer.trainer.devices.device.Device` class."""
+
 from abc import ABC, abstractmethod
 from contextlib import contextmanager
 from typing import Generator, TypeVar, Union, cast
@@ -10,7 +12,10 @@ from composer.core.serializable import Serializable
 from composer.core.types import Batch, BatchPair, Optimizer, Precision, Tensor
 from composer.utils.iter_helpers import map_collection
 
+__all__ = ["Device", "T_nnModule"]
+
 T_nnModule = TypeVar("T_nnModule", bound=torch.nn.Module)
+"""A wrapper over Pytorch's :class:`torch.nn.Module`."""
 
 
 class Device(Serializable, ABC):
@@ -18,7 +23,7 @@ class Device(Serializable, ABC):
 
     Attributes:
         dist_backend (str): Distributed backend to use.
-            Should be `gloo`, `mpi`, or `nccl`.
+            Should be ``gloo``, ``mpi``, or ``nccl``.
             See `the pytorch docs <https://pytorch.org/docs/stable/distributed.html>`_
             for details.
     """
@@ -30,7 +35,7 @@ class Device(Serializable, ABC):
         """Moves a module onto the device instance's device.
 
         Args:
-            module (T_nnModule): The module to move to the device
+            module (T_nnModule): The module to move to the device.
 
         Returns:
             T_nnModule: The module on the device.
@@ -42,7 +47,7 @@ class Device(Serializable, ABC):
         """Moves a tensor onto the device instance's device.
 
         Args:
-            tensor (Tensor): The tensor to move to the device
+            tensor (Tensor): The tensor to move to the device.
 
         Returns:
             Tensor: The tensor on the device.
@@ -53,7 +58,7 @@ class Device(Serializable, ABC):
         """Moves a batch onto the device instance's device.
 
         Args:
-            batch (Batch): The batch to move to the device
+            batch (Batch): The batch to move to the device.
 
         Returns:
             Batch: The batch on the device.
@@ -98,9 +103,9 @@ class Device(Serializable, ABC):
                 forward_pass_with_amp()
 
         Args:
-            precision (Precision): [description]
+            precision (Precision): The desired precision for the device.
 
         Yields:
-            Generator[None, None, None]: [description]
+            Generator[None, None, None]: A context for the precision.
         """
         pass

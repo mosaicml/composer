@@ -1,6 +1,7 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
-"""Example usage and definition of hparams."""
+"""The :class:`~yahp.hparams.Hparams` used to construct the :class:`~composer.trainer.trainer.Trainer`."""
+
 from __future__ import annotations
 
 import logging
@@ -40,6 +41,8 @@ from composer.utils.object_store import ObjectStoreProviderHparams
 
 if TYPE_CHECKING:
     from composer.trainer.trainer import Trainer
+
+__all__ = ["TrainerHparams"]
 
 optimizer_registry = {
     "adam": AdamHparams,
@@ -107,9 +110,9 @@ prof_event_handlers_registry = {"json": JSONTraceHandlerHparams}
 
 @dataclass
 class TrainerHparams(hp.Hparams):
-    """Params for the :class:`Trainer`.
+    """Params for the :class:`~composer.trainer.trainer.Trainer`.
 
-    See the documentation for the :class:`Trainer`.
+    See the documentation for the :class:`~composer.trainer.trainer.Trainer`.
     """
     hparams_registry = {  # type: ignore
         "algorithms": algorithms_registry,
@@ -277,28 +280,28 @@ class TrainerHparams(hp.Hparams):
         Interval to record stats, in seconds.  Ignored if `profiler_trace_file` is not specified."""),
                                                                 default=0.5)
     torch_profiler_trace_dir: Optional[str] = hp.optional(doc=textwrap.dedent("""\
-        Directory to store trace results relative to the run directory.  Must be specified to activate the Torch profiler. 
+        Directory to store trace results relative to the run directory.  Must be specified to activate the Torch profiler.
         Ignored if ``profiler_trace_file`` is not specified."""),
                                                           default=None)
     torch_prof_use_gzip: bool = hp.optional(doc=textwrap.dedent("""\
-        Whether to use gzip for trace.  
+        Whether to use gzip for trace.
         Ignored if ``torch_profiler_trace_dir`` and `profiler_trace_file` are not specified."""),
                                             default=False)
 
     torch_prof_record_shapes: bool = hp.optional(doc=textwrap.dedent("""\
-        Whether to record tensor shapes.  
+        Whether to record tensor shapes.
         Ignored if ``torch_profiler_trace_dir`` and `profiler_trace_file` are not specified."""),
                                                  default=False)
     torch_prof_profile_memory: bool = hp.optional(doc=textwrap.dedent("""\
-        Track tensor memory allocations and frees.  
+        Track tensor memory allocations and frees.
         Ignored if ``torch_profiler_trace_dir`` and `profiler_trace_file` are not specified."""),
                                                   default=True)
     torch_prof_with_stack: bool = hp.optional(doc=textwrap.dedent("""\
-        Record stack information.  
+        Record stack information.
         Ignored if ``torch_profiler_trace_dir`` and `profiler_trace_file` are not specified."""),
                                               default=False)
     torch_prof_with_flops: bool = hp.optional(doc=textwrap.dedent("""\
-        Estimate flops for operators.  
+        Estimate flops for operators.
         Ignored if ``torch_profiler_trace_dir`` and `profiler_trace_file` are not specified."""),
                                               default=True)
 

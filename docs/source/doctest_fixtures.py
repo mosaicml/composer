@@ -21,6 +21,8 @@ from composer.datasets.synthetic import SyntheticBatchPairDataset
 from composer.trainer import Trainer
 from composer.utils import *  # Make all composer.utils imports available in doctests
 
+from torch.optim.lr_scheduler import CosineAnnealingLR
+
 # Need to insert the repo root at the beginning of the path, since there may be other modules named `tests`
 # Assuming that docs generation is running from the `docs` directory
 _docs_dir = os.path.abspath(".")
@@ -37,6 +39,8 @@ data_shape = (num_channels, 5, 5)
 model = SimpleBatchPairModel(num_channels, num_classes)
 
 optimizer = torch.optim.SGD(model.parameters(), lr=0.001)
+
+scheduler = CosineAnnealingLR(optimizer, T_max=1)
 
 dataset = SyntheticBatchPairDataset(
     total_dataset_size=100,

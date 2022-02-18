@@ -8,6 +8,8 @@ from torch.optim import Optimizer
 
 from composer.utils import dist
 
+__all__ = ["ClosureGradScaler"]
+
 
 class ClosureGradScaler(GradScaler):
     """ClosureGradScaler allows for gradient scaling during with closures.

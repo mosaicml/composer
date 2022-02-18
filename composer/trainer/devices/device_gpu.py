@@ -1,5 +1,7 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
+"""The GPU device used for training."""
+
 from __future__ import annotations
 
 from contextlib import contextmanager
@@ -12,6 +14,8 @@ import torch.utils.data
 from composer.core.types import Precision, StateDict, Tensor
 from composer.trainer.devices.device import Device, T_nnModule
 from composer.utils import dist
+
+__all__ = ["DeviceGPU"]
 
 
 class DeviceGPU(Device):

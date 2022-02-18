@@ -1,5 +1,7 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
+"""Helpers for the `DeepSpeed <https://www.deepspeed.ai>`_ integration with Composer."""
+
 import copy
 import warnings
 from typing import Any, Dict, Optional, cast
@@ -10,6 +12,8 @@ from composer.core import State
 from composer.core.types import Batch, Precision, Tensor
 from composer.utils import dist
 from composer.utils.iter_helpers import map_collection
+
+__all__ = ["fix_batch_precision_for_deepspeed", "is_module_deepspeed", "parse_deepspeed_config"]
 
 
 def _add_batch_config(config: Dict[str, Any], state: State):
@@ -114,9 +118,28 @@ def parse_deepspeed_config(config: Dict[str, Any],
     """Parses the provided DeepSpeed config for compatibility with the Mosaic trainer.
 
     Broadly speaking, this function does three things.
+
     1. Check for settings that are unsupported, like DeepSpeed optimizers.
+
     2. Check for inconsistencies between Mosaic trainer config and DeepSpeed config.
+
     3. Use Mosaic trainer config to fill in some defaults for DeepSpeed config.
+
+    Args:
+        config (Dict[str, Any]): The DeepSpeed config to use. Must follow the format specified
+            in `DeepSpeed's documentation <https://www.deepspeed.ai/docs/config-json/>`_.
+        state (State): The state of the trainer.
+        grad_clip_norm (Optional[float]): The norm to clip gradient magnitudes to.
+            ``None`` results in no gradient clipping. (default: ``None``)
+
+    Returns:
+        Dict[str, Any]: The DeepSpeed config updated with values from the arguments passed to the
+            :class:`~composer.trainer.trainer.Trainer`.
+
+    Raises:
+        ValueError: If any of the values in the DeepSpeed config conflict with arguments passed
+            to the trainer.
+        RuntimeError: If the batch size of the train dataloader in the provided state is not set.
     """
 
     new_config = copy.deepcopy(config)
@@ -136,9 +159,17 @@ def _convert_fp32_tensor_to_fp16(tensor: Tensor):
 def fix_batch_precision_for_deepspeed(batch: Batch, precision: Precision) -> Batch:
     """Ensures that a batch is properly formatted for DeepSpeed FP16, if active.
 
-    This is more finnicky than it may sound. Just because we're in FP16 doesn't mean we can convert the entire batch to
-    FP16 too. For example, integer tensors are common in inputs and outputs of various models, and these must not be
-    converted. We make a big assumption that a tensor should only be converted to FP16 if it was given in FP32.
+    .. note:: Just because we're in FP16 doesn't mean we can convert the entire batch to
+              FP16 too. For example, integer tensors are common in inputs and outputs of
+              various models, and these must not be converted. We make a big assumption
+              that a tensor should only be converted to FP16 if it was given in FP32.
+
+    Args:
+        batch (Batch): The batch of data to adjust the precision for.
+        precision (Precision): The precision to use.
+
+    Returns:
+        Batch: The batch with it's precision adjusted to the specified precision.
     """
 
     if precision != Precision.FP16:
