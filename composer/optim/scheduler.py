@@ -506,8 +506,8 @@ class LinearWithWarmupLRHparams(SchedulerHparams):
     """Hyperparameters for the :func:`linear_with_warmup_scheduler` scheduler."""
 
     warmup_time: str = hp.required(doc='Warmup time')
-    start_factor: float = hp.optional("Number to multiply learning rate at the start.", default=1.0 / 3)
-    end_factor: float = hp.optional("Number to multiply learning rate at the end.", default=1.0)
+    start_factor: float = hp.optional("Number to multiply learning rate at the start.", default=1.0)
+    end_factor: float = hp.optional("Number to multiply learning rate at the end.", default=0.0)
     total_time: str = hp.optional("Duration of linear decay steps. Default: full training duration.", default="1dur")
 
     scheduler_function = linear_with_warmup_scheduler
