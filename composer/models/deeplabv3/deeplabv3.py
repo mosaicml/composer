@@ -65,8 +65,8 @@ def deeplabv3_builder(num_classes: int,
 
 
 class ComposerDeepLabV3(ComposerModel):
-    """DeepLabV3 model extending the :class:`ComposerClassifier`.
-    Logs Mean Intersection over Union (MIoU) and Cross Entropy during training and validation.
+    """DeepLabV3 model extending the :class:`ComposerClassifier`. Logs Mean Intersection over Union (MIoU) and Cross
+    Entropy during training and validation.
 
     From the paper Rethinking Atrous Convolution for Semantic Image Segmentation `<arxiv.org/abs/1706.05587>`_.
 
