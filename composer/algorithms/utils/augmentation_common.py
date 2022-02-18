@@ -8,9 +8,8 @@ _InputImgT = TypeVar("_InputImgT", torch.Tensor, PillowImage)
 _OutputImgT = TypeVar("_OutputImgT", torch.Tensor, PillowImage)
 
 
-def image_as_type(image: _InputImgT,
-                  need_type: Type[_OutputImgT]) -> _OutputImgT:
-    """Creates a copy of an image-like object with a different type
+def image_as_type(image: _InputImgT, need_type: Type[_OutputImgT]) -> _OutputImgT:
+    """Creates a copy of an image-like object with a different type.
 
     Args:
         image: a tensor or PIL image. Batches of images in NCHW format are
@@ -41,10 +40,11 @@ def image_as_type(image: _InputImgT,
 
     if isinstance(image, PillowImage):
         return transforms.functional.to_tensor(image)  # PIL -> Tensor
-    return transforms.functional.to_pil_image(image)   # Tensor -> PIL
+    return transforms.functional.to_pil_image(image)  # Tensor -> PIL
 
 
-def image_typed_and_shaped_like(image: _InputImgT, reference_image: _OutputImgT) -> _OutputImgT:  # type: ignore[reportUnusedFunction]
+def image_typed_and_shaped_like(image: _InputImgT,
+                                reference_image: _OutputImgT) -> _OutputImgT:  # type: ignore[reportUnusedFunction]
     """Creates a copy of an image-like object with the same type and shape as another.
 
     Args:

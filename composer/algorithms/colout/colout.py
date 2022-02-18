@@ -18,8 +18,9 @@ from composer.datasets.utils import add_vision_dataset_transform
 
 log = logging.getLogger(__name__)
 
-
 ImgT = TypeVar("ImgT", torch.Tensor, PillowImage)
+
+
 def colout_batch(X: ImgT, p_row: float = 0.15, p_col: float = 0.15) -> ImgT:
     """Applies ColOut augmentation to a batch of images, dropping the same random rows and columns from all images in a
     batch.

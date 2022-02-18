@@ -18,8 +18,9 @@ from composer.datasets.utils import add_vision_dataset_transform
 
 __all__ = ['RandAugment', "RandAugmentTransform", 'randaugment_image']
 
-
 ImgT = TypeVar("ImgT", torch.Tensor, PillowImage)
+
+
 def randaugment_image(img: ImgT,
                       severity: int = 9,
                       depth: int = 2,

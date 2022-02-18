@@ -13,8 +13,9 @@ from composer.core.types import Algorithm, Event, Logger, State, Tensor
 
 log = logging.getLogger(__name__)
 
-
 ImgT = TypeVar("ImgT", torch.Tensor, PillowImage)
+
+
 def cutout_batch(X: ImgT, n_holes: int = 1, length: Union[int, float] = 0.5) -> ImgT:
     """See :class:`CutOut`.
 

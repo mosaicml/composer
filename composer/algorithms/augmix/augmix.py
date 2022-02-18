@@ -20,8 +20,9 @@ from composer.datasets.utils import add_vision_dataset_transform
 
 __all__ = ["AugMix", "AugmentAndMixTransform", "augmix_image"]
 
-
 ImgT = TypeVar("ImgT", torch.Tensor, PillowImage)
+
+
 def augmix_image(img: ImgT,
                  severity: int = 3,
                  depth: int = -1,
