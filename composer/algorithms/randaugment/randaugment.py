@@ -2,34 +2,36 @@
 
 import textwrap
 import weakref
-from typing import List, Optional
+from typing import List, TypeVar
 
 import numpy as np
 import torch
-from PIL.Image import Image as ImageType
+from PIL.Image import Image as PillowImage
 from torchvision.datasets import VisionDataset
 
 from composer.algorithms.utils import augmentation_sets
+from composer.algorithms.utils.augmentation_common import image_as_type, image_typed_and_shaped_like
 from composer.core.types import Algorithm, Event, Logger, State
 from composer.datasets.utils import add_vision_dataset_transform
 
-
-def randaugment_image(img: Optional[ImageType] = None,
+ImgT = TypeVar("ImgT", torch.Tensor, PillowImage)
+def randaugment_image(img: ImgT,
                       severity: int = 9,
                       depth: int = 2,
-                      augmentation_set: List = augmentation_sets["all"]) -> ImageType:
+                      augmentation_set: List = augmentation_sets["all"]) -> ImgT:
     """Randomly applies a sequence of image data augmentations (`Cubuk et al.
 
     2019 <https://openaccess.thecvf.com/content_CVPRW_2020/papers/w40/Cubuk_Randaugment_Practical_Automated_Data_Augmentation_With_a_Reduced_Search_Space_CVPRW_2020_paper.pdf>`_).
     See :class:`RandAugment` for details.
     """
+    img_pil = image_as_type(img, PillowImage)
 
     # Iterate over augmentations
     for _ in range(depth):
         aug = np.random.choice(augmentation_set)
-        img = aug(img, severity)
-    assert img is not None
-    return img
+        img_pil = aug(img_pil, severity)
+
+    return image_typed_and_shaped_like(img_pil, img)
 
 
 class RandAugmentTransform(torch.nn.Module):
@@ -47,8 +49,7 @@ class RandAugmentTransform(torch.nn.Module):
         self.depth = depth
         self.augmentation_set = augmentation_sets[augmentation_set]
 
-    def forward(self, img: ImageType) -> ImageType:
-
+    def forward(self, img: ImgT) -> ImgT:
         return randaugment_image(img=img,
                                  severity=self.severity,
                                  depth=self.depth,
