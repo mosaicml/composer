@@ -7,7 +7,7 @@ Progressive resizing initially reduces input resolution to speed up early traini
 downsampling factor is gradually increased, yielding larger inputs up to the original input size. A final finetuning
 period is then run to finetune the model using the full-sized inputs.
 
-See the :doc:`Method Card </method_cards/progressive_resizing_vision>` for more details.
+See the :doc:`Method Card </method_cards/progressive_resizing>` for more details.
 """
 
 from composer.algorithms.progressive_resizing.progressive_resizing import ProgressiveResizing as ProgressiveResizing
