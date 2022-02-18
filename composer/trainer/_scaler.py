@@ -1,6 +1,7 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
 from collections import defaultdict
+from typing import Optional, Union
 
 import torch
 from torch.cuda.amp.grad_scaler import GradScaler, OptState, _refresh_per_optimizer_state
@@ -14,10 +15,10 @@ __all__ = ["ClosureGradScaler"]
 class ClosureGradScaler(GradScaler):
     """ClosureGradScaler allows for gradient scaling during with closures.
 
-    We use closures with optimizers (see `here <https://pytorch.org/docs/stable/optim.html>`_)
+    We use closures with optimizers (see `here <https://pytorch.org/docs/stable/optim.html>`__)
     during training in order to support certain algorithms like
     :class:`~composer.algorithms.SAM`. This class allows us to perform gradient
-    scaling (see `here <https://pytorch.org/docs/stable/amp.html#torch.cuda.amp.GradScaler>`_)
+    scaling (see `here <https://pytorch.org/docs/stable/amp.html#torch.cuda.amp.GradScaler>`__)
     along with the use of closures during training.
 
     Args:
@@ -78,24 +79,25 @@ class ClosureGradScaler(GradScaler):
 
     # Mostly copied from original grad_scaler implementation
     # See: https://pytorch.org/docs/stable/_modules/torch/cuda/amp/grad_scaler.html#GradScaler
-    def update(self, new_scale=None):
+    def update(self, new_scale: Optional[Union[float, torch.FloatTensor]] = None):
         """Updates the scale factor.
 
-        If any optimizer steps were skipped the scale is multiplied by ``backoff_factor``
+        If any optimizer steps were skipped, the scale is multiplied by ``backoff_factor``
         to reduce it. If ``growth_interval`` non-skipped iterations occurred consecutively,
         the scale is multiplied by ``growth_factor`` to increase it.
 
         Passing ``new_scale`` sets the new scale value manually. (``new_scale`` is not
-        used directly, it's used to fill GradScaler's internal scale tensor. So if
+        used directly; it is used to fill GradScaler's internal scale tensor. So, if
         ``new_scale`` was a tensor, later in-place changes to that tensor will not further
-        affect the scale GradScaler uses internally.)
-
-        Args:
-            new_scale (float or :class:`torch.cuda.FloatTensor`, optional, default=None):  New scale factor.
+        affect the scale that the GradScaler uses internally.)
 
         .. warning::
-            :meth:`update` should only be called at the end of the iteration, after ``scaler.step(optimizer)`` has
+
+            This method should only be called at the end of the iteration, after ``scaler.step(optimizer)`` has
             been invoked for all optimizers used this iteration.
+
+        Args:
+            new_scale (float | FloatTensor, optional):  New scale factor. (default: ``None``)
         """
         if not self._enabled:
             return

@@ -19,6 +19,8 @@ if TYPE_CHECKING:
 
 log = logging.getLogger(__name__)
 
+__all__ = ["NoOpModelClass", "NoOpModel"]
+
 
 class NoOpModelClass(ComposerModel):
 

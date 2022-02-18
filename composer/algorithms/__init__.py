@@ -13,7 +13,7 @@ The latter are easier to compose together, since they all have the same public i
 and work automatically with the Composer :py:class:`~composer.trainer.Trainer`.
 
 For ease of composability, algorithms in our Trainer are based on the two-way callbacks concept from
-`Howard et al., 2020 <https://arxiv.org/abs/2002.04688>`_. Each algorithm implements two methods:
+`Howard et al, 2020 <https://arxiv.org/abs/2002.04688>`_. Each algorithm implements two methods:
 
 * :meth:`Algorithm.match`: returns ``True`` if the algorithm should be run given the current
   :class:`State` and :class:`~composer.core.event.Event`.

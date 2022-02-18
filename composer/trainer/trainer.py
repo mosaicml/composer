@@ -517,8 +517,9 @@ class Trainer:
                 import deepspeed
             except ImportError as e:
                 raise ImportError(
-                    'Composer was installed without deepspeed support. To use deepspeed with Composer, run: `pip install mosaicml[deepspeed]`.'
-                ) from e
+                    textwrap.dedent("""\
+                    Composer was installed without DeepSpeed support. To use DeepSpeed with Composer, run `pip install mosaicml[deepspeed]`
+                    if using pip or `pip install deepspeed>=0.5.5` if using Anaconda.""")) from e
             assert deepspeed_config is not None
             self.deepspeed_config = parse_deepspeed_config(deepspeed_config,
                                                            state=self.state,
