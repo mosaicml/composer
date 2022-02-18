@@ -2,8 +2,6 @@
 from composer.models.unet.unet import UNet as UNet
 from composer.models.unet.unet_hparams import UnetHparams as UnetHparams
 
-__all__ = [UNet, UnetHparams]
-
 _task = 'Image Segmentation'
 _dataset = 'BRATS'
 _name = 'UNet'

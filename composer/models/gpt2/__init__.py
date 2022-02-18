@@ -2,8 +2,6 @@
 from composer.models.gpt2.gpt2_hparams import GPT2Hparams as GPT2Hparams
 from composer.models.gpt2.model import GPT2Model as GPT2Model
 
-__all__ = [GPT2Model, GPT2Hparams]
-
 _metadata = {
     'gpt2': {
         '_task': 'Language Modeling',

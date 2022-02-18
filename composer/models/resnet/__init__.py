@@ -2,8 +2,6 @@
 from composer.models.resnet.model import ComposerResNet as ComposerResNet
 from composer.models.resnet.resnet_hparams import ResNetHparams as ResNetHparams
 
-__all__ = [ComposerResNet, ResNetHparams]
-
 _metadata = {
     'resnet18': {
         '_task': 'Image Classification',

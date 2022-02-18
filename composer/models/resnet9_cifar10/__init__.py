@@ -2,8 +2,6 @@
 from composer.models.resnet9_cifar10.model import CIFAR10_ResNet9 as CIFAR10_ResNet9
 from composer.models.resnet9_cifar10.resnet9_cifar10_hparams import CIFARResNet9Hparams as CIFARResNet9Hparams
 
-__all__ = [CIFAR10_ResNet9, CIFARResNet9Hparams]
-
 _task = 'Image Classification'
 _dataset = 'CIFAR10'
 _name = 'ResNet9'
