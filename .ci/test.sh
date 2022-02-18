@@ -18,8 +18,8 @@ fi
 # Run pytest
 JUNIT_PREFIX=build/output/${BUILD_NUMBER}
 mkdir -p $(dirname $JUNIT_PREFIX)
-PYTEST="coverage run -m pytest" DURATION=all EXTRA_ARGS="--junitxml $JUNIT_PREFIX.n0.junit.xml -v -m '$MARKERS'" make test
-PYTEST="coverage run -m pytest" DURATION=all WORLD_SIZE=2 EXTRA_ARGS="--junitxml $JUNIT_PREFIX.n2.junit.xml -v -m '$MARKERS'" make test-dist
+make test PYTEST="coverage run -m pytest" DURATION=all EXTRA_ARGS="--junitxml $JUNIT_PREFIX.n0.junit.xml -v -m '$MARKERS'"
+make test-dist PYTEST="coverage run -m pytest" DURATION=all WORLD_SIZE=2 EXTRA_ARGS="--junitxml $JUNIT_PREFIX.n2.junit.xml -v -m '$MARKERS'"
 
 # Combine the coverage reports
 python -m coverage combine
