@@ -33,13 +33,13 @@ To run multi-rank GPU tests, run `make test-dist-gpu WORLD_SIZE=2`.
 ## Test Duration
 By default, all tests are run.
 To run only "short" tests (those that take 2 seconds or less) or "long" tests (those that take more than 2 seconds),
-set the `TEST_DURATION` flag to `short` or `long`, respectively.
+set the `DURATION` flag to `short` or `long`, respectively.
 
-The `TEST_DURATION` flag can be combined with other flags. for example:
+The `DURATION` flag can be combined with other flags. for example:
 
-* `make test TEST_DURATION=long ` runs long, single-rank tests.
-* `make test-dist TEST_DURATION=all WORLD_SIZE=2 ` runs all tests that have a world size of two.
-* `make test-gpu TEST_DURATION=all ` runs all single-rank GPU tests.
+* `make test DURATION=long ` runs long, single-rank tests.
+* `make test-dist DURATION=all WORLD_SIZE=2 ` runs all tests that have a world size of two.
+* `make test-gpu DURATION=all ` runs all single-rank GPU tests.
 
 ### Extra Arguments
 To provide extra arguments to PyTest when using Makefile targets, set the `EXTRA_ARGS` flag.

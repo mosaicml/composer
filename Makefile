@@ -1,13 +1,13 @@
 # several pytest settings
 DURATION ?= all  # pytest duration, one of short, long or all
 WORLD_SIZE ?= 1  # world size for launcher tests
-EXTRA_ARGS ?=  # additional arguments
+MASTER_PORT ?= 26000 # port for distributed tests
 PYTHON ?= python
 PYTEST ?= pytest
-MASTER_PORT ?= 26000 # port for distributed tests
+EXTRA_ARGS ?=  # extra arguments for pytest
 
-
-EXTRA_ARGS := --duration $(DURATION) $(EXTRA_ARGS)
+# Force append the duration flag to extra args
+override EXTRA_ARGS += --duration $(DURATION)
 
 dirs := composer examples tests
 
