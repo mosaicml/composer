@@ -43,23 +43,24 @@ Our documentation is organized into a few sections:
    getting_started/installation.rst
    getting_started/using_composer.rst
    getting_started/welcome_tour.rst
-   tutorials/adding_models_datasets.rst
 
 .. toctree::
    :maxdepth: 1
-   :caption: Using our Trainer
+   :caption: Trainer
 
-   trainer/summary.rst
-   trainer/composer_model.rst
-   trainer/algorithms.rst
-   trainer/detailed_usage.rst
-
+   trainer/using_the_trainer.rst
+   trainer/dataloaders.rst
+   trainer/evaluation.rst
+   trainer/checkpointing.rst
+   trainer/logging.rst
+   trainer/distributed_training.rst
+   trainer/callbacks.rst
 
 .. toctree::
    :maxdepth: 1
-   :caption: Notebook Examples
+   :caption: ComposerModel
 
-   notebooks/summary.rst
+    composer_model.rst
 
 .. toctree::
    :maxdepth: 1
@@ -100,12 +101,6 @@ Our documentation is organized into a few sections:
    model_cards/GPT2.md
    model_cards/imagenet_resnet.md
    model_cards/unet.md
-
-.. toctree::
-   :maxdepth: 1
-   :caption: Hparams System (YAHP)
-
-   yahp/getting_started.rst
 
 .. toctree::
    :caption: API Reference

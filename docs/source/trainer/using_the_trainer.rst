@@ -1,0 +1,381 @@
+Using the Trainer
+=================
+
+The Composer :class:`.Trainer` implements a highly-optimized PyTorch training loop for neural networks. Using the trainer gives you several superpowers:
+
+-  Easily insert our library of efficiency speedups methods into the
+   trainer loop and compose them to train more efficiently and build
+   better models.
+-  Strong optimized baseline implementations to kick off your deep
+   learning work, with reproducible results in time-to-train and
+   accuracy.
+-  Integrations with your favorite model hubs -
+   🤗 `Transformers`_, `TIMM`_, and `torchvision`_.
+-  Iterate faster. We take care of performance and efficiency.
+
+.. note::
+
+    We use the two-way callback system developed by (`Howard et al,
+    2020 <https://arxiv.org/abs/2002.04688>`__) to flexible add the logic of
+    our speed-up methods during training.
+
+
+Below are simple examples for getting started with the Composer Trainer
+along with code snippets for more advanced usage such as using speedup
+methods, checkpointing, distributed training.
+
+Getting Started with Composer
+=============================
+
+Create a model class that meets the :class:`.ComposerModel` interface,
+minimally implementing the following methods:
+
+-  ``def forward(batch) -> outputs`` : computes the forward pass based
+   on the ``batch`` returns from the dataloader.
+-  ``def loss(batch, outputs)``: returns the loss based on the
+   ``outputs`` from the forward pass, and the dataloader.
+
+For more information, see the Compose Models guide.
+
+A minimal example of a ResNet-18 model is shown here:
+
+.. testcode::
+
+   import torchvision
+   import torch.nn.functional as F
+
+   from composer.models import ComposerModel
+
+   class ResNet18(ComposerModel):
+
+       def __init__(self):
+           super().__init__()
+           self.model = torchvision.models.resnet18()
+
+       def forward(self, batch):
+           inputs, _ = batch
+           return self.model(inputs)
+
+       def loss(self, outputs, batch):
+           _, targets = batch
+           return F.cross_entropy(outputs, targets)
+
+Then, the model can be passed to the trainer with the relevant torch
+objects.
+
+.. code:: python
+
+   trainer = Trainer(model=ResNet18(),
+                     train_dataloader=train_dataloader,
+                     eval_dataloader=eval_dataloader,
+                                 optimizers=torch.optim.Adam(lr=0.01),
+                     max_duration=10,  # epochs
+                     device='gpu')
+
+   trainer.fit()
+
+In the background, we automatically add the :class:`.TQDMLogger` to log
+training progress to the console.
+
+
+A few tips and tricks for using our Trainer:
+
+-  For time-related inputs such as the ``max_duration`` above, we
+   support both an integer, which we assume is epochs, or as a string.
+   For example, ``"10ba"`` means 10 minibatches or steps, and ``"10ep"``
+   denotes 10 epochs.
+-  If you are using gradient accumulation, the ``batch_size`` in your
+   dataloaders should be the macrobatch size — the batch size of your
+   optimization update. For example, with ``grad_accum=2`` and
+   ``batch_size=2048`` , the train runs through two microbatches of 1024
+   each, then performs a gradient update step.
+-  At any time, most of the relevant quantities for debugging are
+   centralized into one variable: :class:`.State`.
+-  We have an easy abstraction of tracking :class:`.Time`, see the Time guide.
+
+For a full list of Trainer options, see :class:`.Trainer`. Below we
+illustrate some example use cases.
+
+Training loop in a nutshell
+---------------------------
+
+Behind the scenes, our trainer handles much of the engineering for
+distributed training, gradient accumulation, device movement, gradient
+scaling, and others. The *pseudocode* for our trainer loop as it
+interacts with the :class:`.ComposerModel` is as follows:
+
+.. code:: python
+
+   # training loop
+   for batch in train_dataloader:
+
+       outputs = model.forward(batch)
+       loss = model.loss(outputs, batch)
+
+           loss.backward()
+       optimizer.step()
+
+   # eval loop
+   for batch in eval_dataloader:
+       outputs, targets = model.validate(batch)
+       metrics.update(outputs, target)
+
+For the actual code, see :meth:`.Trainer._train_batch_inner` and the :meth:`.Trainer.eval` methods.
+
+Events & State
+~~~~~~~~~~~~~~
+
+The core principle of the Composer trainer is to make it easy to inject
+custom logic to run at various points in the training loop. To do this,
+we have events that run before and after each of the lines above, e.g.
+
+.. code:: python
+
+   engine.run_event("before_forward")
+   outputs = model.forward(batch)
+   engine.run_event("after_forward")
+
+Algorithms and callbacks (see below) register themselves to run on one
+or more events. For full details on the events in Composer, see
+`Events <TBD>`__.
+
+We also maintain a :class:`.State` which stores the trainer's state, such as
+the model, optimizers, dataloader, current batch, etc (See
+:class:`.State`). This allows algorithms to modify the state at the
+various events above.
+
+Algorithms
+~~~~~~~~~~
+
+The Composer trainer is designed to easily apply our library of
+algorithms to both train more efficiently and build better models. These
+can be enabled by passing the algorithm class to ``algorithms``
+argument.
+
+.. testcode::
+
+   from composer import Trainer
+   from composer.algorithms import LayerFreezing, Mixup
+
+   trainer = Trainer(model=model,
+                     train_dataloader=train_dataloader,
+                     eval_dataloader=eval_dataloader,
+                     max_duration='160ep',
+                                       algorithms=[
+                                           LayerFreezing(freeze_start=0.5, freeze_level=0.1),
+                                           Mixup(alpha=0.1),
+                                       ])
+   # the algorithms will automatically be applied during the appropriate
+   # points of the training loop
+   trainer.fit()
+
+We handle inserting those algorithms into the training loop and in the
+right order.
+
+.. seealso::
+
+    `Algorithms <algorithms>`_ Guide
+
+    Individual `Method Cards <methods_overview>`_ for each algorithm.
+
+..
+    TODO: add link to the methods notebook
+
+
+
+Optimizers & Schedulers
+~~~~~~~~~~~~~~~~~~~~~~~
+
+You can easily specify which optimizer and learning rate scheduler to
+use during training. Composer provides a library of various optimizers
+and schedulers but you can also include one of your own.
+
+.. code:: python
+
+   from composer import Trainer
+   from composer.models import ComposerResNet
+   from composer.optim.scheduler import cosine_annealing_scheduler
+   from torch.optim import SGD
+
+   model = ComposerResNet(model_name="resnet50", num_classes=1000)
+   optimizer = SGD(model.parameters(), lr=0.1)
+
+   trainer = Trainer(model=model,
+                     train_dataloader=train_dataloader,
+                     eval_dataloader=eval_dataloader,
+                     max_duration='90ep',
+                                       optimizer=optimizer,
+                                       scheduler=consine_annealing_scheduler)
+
+Training on GPU
+~~~~~~~~~~~~~~~
+
+Control which device you use for training with the ``device`` parameter,
+and we will handle the data movement and other systems-related
+engineering. We currently support the ``cpu`` and ``gpu`` devices.
+
+.. code:: python
+
+   from composer import Trainer
+
+   trainer = Trainer(model=model,
+                     train_dataloader=train_dataloader,
+                     eval_dataloader=eval_dataloader,
+                     max_duration='160ep',
+                                       device='gpu')
+
+Distributed Training
+~~~~~~~~~~~~~~~~~~~~
+
+It's also simple to do data-parallel training on multiple GPUs. Composer
+provides a launcher command that works with the trainer and handles all
+the ``torch.distributed`` setup for you.
+
+.. code:: python
+
+   # run_trainer.py
+
+   from composer import Trainer
+
+   trainer = Trainer(model=model,
+                     train_dataloader=train_dataloader,
+                     eval_dataloader=eval_dataloader,
+                     max_duration='160ep',
+                                       device='gpu')
+   trainer.fit()
+
+Access the Composer launcher via the ``composer`` command along with the
+number of GPUs you'd like to use and your training script. Use
+``composer --help`` to see a full list of configurable options.
+
+.. code:: bash
+
+   # run training on 8 GPUs
+   >>> composer -n 8 run_trainer.py
+
+DeepSpeed Integration
+~~~~~~~~~~~~~~~~~~~~~
+
+Composer comes with DeepSpeed support, allowing you to leverage their
+full set of features that makes it easier to train large models across
+both any type of GPU and multiple nodes. For more details on DeepSpeed,
+see `their website <https://www.deepspeed.ai>`__.
+
+To enable DeepSpeed, simply pass in a config as specified in the
+DeepSpeed docs `here <https://www.deepspeed.ai/docs/config-json/>`__.
+
+.. code:: python
+
+   # run_trainer.py
+
+   from composer import Trainer
+
+   trainer = Trainer(model=model,
+                     train_dataloader=train_dataloader,
+                     eval_dataloader=eval_dataloader,
+                     max_duration='160ep',
+                                       device='gpu',
+                                       deepspeed_config={
+                                           "train_batch_size": 2048,
+                                           "amp": {"enabled": True},
+                                       })
+
+
+.. warning::
+
+    The ``deepspeed_config`` must not conflict with any other parameters
+    passed to the trainer.
+
+
+Callbacks
+~~~~~~~~~
+
+You can insert arbitrary callbacks to be run at various points during
+the training loop. The Composer library provides several useful
+callbacks for things such as monitoring throughput and memory usage
+during training, but you can also implement your own. See
+:mod:`composer.callbacks` for more information.
+
+.. code:: python
+
+   from composer import Trainer
+   from composer.callbacks import SpeedMonitor
+
+   # include a callback for tracking throughput/step during training
+   trainer = Trainer(model=model,
+                     train_dataloader=train_dataloader,
+                     eval_dataloader=eval_dataloader,
+                     max_duration='160ep',
+                                       device='gpu',
+                                       callbacks=[SpeedMonitor(window_size=100)])
+
+Numerics
+~~~~~~~~
+
+Using mixed precision can speed up your training loop and only requires
+setting the ``precision`` parameter in the trainer. Note that ``amp``
+only works if training on a GPU.
+
+.. code:: python
+
+   from composer import Trainer
+
+   # use mixed precision during training
+   trainer = Trainer(model=model,
+                     train_dataloader=train_dataloader,
+                     eval_dataloader=eval_dataloader,
+                     max_duration='160ep',
+                     device='gpu',
+                     precision='amp')
+
+Checkpointing
+~~~~~~~~~~~~~
+
+The Composer trainer makes it easy to both save checkpoints at various
+points during training and load them back to resume training later.
+
+.. code:: python
+
+   from composer import Trainer
+
+   ### Saving checkpoints
+   trainer = Trainer(model=model,
+                     train_dataloader=train_dataloader,
+                     eval_dataloader=eval_dataloader,
+                     max_duration='160ep',
+                                       device='gpu',
+                                       # Checkpointing params
+                                       save_folder: 'checkpoints',
+                                       save_interval: '1ep')
+
+   # will save checkpoints to the 'checkpoints' folder every epoch
+   trainer.fit()
+
+.. code:: python
+
+   from composer import Trainer
+
+   ### Loading checkpoints
+   trainer = Trainer(model=model,
+                     train_dataloader=train_dataloader,
+                     eval_dataloader=eval_dataloader,
+                     max_duration='160ep',
+                                       device='gpu',
+                                       # Checkpointing params
+                                       load_path: 'path/to/checkpoint/mosaic_states.pt')
+
+   # will load the trainer state (including model weights) from the
+   # load_path before resuming training
+   trainer.fit()
+
+This was just a quick tour of all the features within our trainer. Please see the other
+guides and notebooks for more information.
+
+.. _Transformers: https://huggingface.co/docs/transformers/index
+.. _TIMM: https://fastai.github.io/timmdocs/
+.. _torchvision: https://pytorch.org/vision/stable/models.html
+
+
+    Get the latest news at `CNN`_.
+
+.. _CNN: http://cnn.com/
