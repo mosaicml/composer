@@ -26,7 +26,7 @@ def augmix_image(img: ImageType,
                  width: int = 3,
                  alpha: float = 1.0,
                  augmentation_set: List = augmentation_sets["all"]) -> ImageType:
-    """Applies AugMix (`Hendrycks et al., 2020 <http://arxiv.org/abs/1912.02781>`_) data augmentation to an image. See
+    """Applies AugMix (`Hendrycks et al, 2020<http://arxiv.org/abs/1912.02781>`_) data augmentation to an image. See
     :class:`~composer.algorithms.augmix.augmix.AugMix` and the :doc:`Method Card </method_cards/augmix>` for details.
 
     Example:
@@ -139,8 +139,8 @@ class AugmentAndMixTransform(torch.nn.Module):
 
 
 class AugMix(Algorithm):
-    """AugMix (`Hendrycks et al., 2020 <http://arxiv.org/abs/1912.02781>`_) creates ``width`` sequences of ``depth``
-    image augmentations, applies each sequence with random intensity, and returns a convex combination of the ``width``
+    """AugMix (`Hendrycks et al, 2020<http://arxiv.org/abs/1912.02781>`_) creates ``width`` sequences of ``depth`` image
+    augmentations, applies each sequence with random intensity, and returns a convex combination of the ``width``
     augmented images and the original image.  The coefficients for mixing the augmented images are drawn from a uniform
     ``Dirichlet(alpha, alpha, ...)`` distribution. The coefficient for mixing the combined augmented image and the
     original image is drawn from a ``Beta(alpha, alpha)`` distribution, using the same ``alpha``.

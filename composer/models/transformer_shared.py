@@ -19,7 +19,7 @@ log = logging.getLogger(__name__)
 class ComposerTransformer(ComposerModel):
     """Implements the base logic that all Transformers can build on top of.
 
-    Works with `Hugging Face Transformers <https://huggingface.co/transformers/>`_.
+    Works with `Hugging Face Transformers<https://huggingface.co/transformers/>`_.
 
     Args:
         module (transformers.PreTrainedModel): An instance of PreTrainedModel that

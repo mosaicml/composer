@@ -19,7 +19,7 @@ class Device(Serializable, ABC):
     Attributes:
         dist_backend (str): Distributed backend to use.
             Should be `gloo`, `mpi`, or `nccl`.
-            See `the pytorch docs <https://pytorch.org/docs/stable/distributed.html>`_
+            See `the pytorch docs<https://pytorch.org/docs/stable/distributed.html>`_
             for details.
     """
 

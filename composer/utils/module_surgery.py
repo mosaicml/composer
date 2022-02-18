@@ -289,7 +289,7 @@ def update_params_in_optimizer(old_params: Iterable[torch.nn.parameter.Parameter
         Dynamically removing parameters from a :class:`~torch.optim.Optimizer` and adding parameters
         to an existing :attr:`~torch.optim.Optimizer.param_group`\\s are not officially supported, so this
         function may fail when PyTorch is updated. The
-        `recommended practice <https://github.com/pytorch/pytorch/issues/1489#issuecomment-355301737>`_ is
+        `recommended practice<https://github.com/pytorch/pytorch/issues/1489#issuecomment-355301737>`_ is
         to instead recreate the optimizer when the parameter set changes
         To simply add new parameters without replacing existing ones, use
         :meth:`~torch.optim.Optimizer.add_param_group`.

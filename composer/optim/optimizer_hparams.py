@@ -30,10 +30,8 @@ class OptimizerHparams(hp.Hparams, ABC):
 
 @dataclass
 class AdamHparams(OptimizerHparams):
-    """Hyperparameters for the `Adam.
-
-    <https://pytorch.org/docs/stable/generated/torch.optim.Adam.html#torch.optim.Adam>`_ optimizer.
-    """
+    """Hyperparameters for the `Adam<https://pytorch.org/docs/stable/generated/torch.optim.Adam.html#torch.optim.Adam>`_
+    optimizer."""
     lr: float = hp.optional(default=0.001, doc='learning rate')
     betas: List[float] = hp.optional(default_factory=lambda: [0.9, 0.999],
                                      doc='coefficients used for computing running averages of gradient and its square.')
@@ -48,10 +46,8 @@ class AdamHparams(OptimizerHparams):
 
 @dataclass
 class RAdamHparams(OptimizerHparams):
-    """Hyperparameters for the `RAdam.
-
-    <https://pytorch.org/docs/1.10./generated/torch.optim.RAdam.html#torch.optim.RAdam>`_ optimizer.
-    """
+    """Hyperparameters for the
+    `RAdam<https://pytorch.org/docs/1.10./generated/torch.optim.RAdam.html#torch.optim.RAdam>`_ optimizer."""
     lr: float = hp.optional(default=0.001, doc='learning rate')
     betas: List[float] = hp.optional(default_factory=lambda: [0.9, 0.999],
                                      doc='coefficients used for computing running averages of gradient and its square.')
@@ -65,10 +61,8 @@ class RAdamHparams(OptimizerHparams):
 
 @dataclass
 class AdamWHparams(OptimizerHparams):
-    """Hyperparameters for the `AdamW.
-
-    <https://pytorch.org/docs/stable/generated/torch.optim.AdamW.html#torch.optim.AdamW>`_ optimizer.
-    """
+    """Hyperparameters for the
+    `AdamW<https://pytorch.org/docs/stable/generated/torch.optim.AdamW.html#torch.optim.AdamW>`_ optimizer."""
     lr: float = hp.optional(default=0.001, doc='learning rate')
     betas: List[float] = hp.optional(default_factory=lambda: [0.9, 0.999],
                                      doc='coefficients used for computing running averages of gradient and its square.')
@@ -98,7 +92,7 @@ class DecoupledAdamWHparams(OptimizerHparams):
 
 @dataclass
 class SGDHparams(OptimizerHparams):
-    """Hyperparameters for the `SGD <https://pytorch.org/docs/stable/generated/torch.optim.SGD.html#torch.optim.SGD>`_
+    """Hyperparameters for the `SGD<https://pytorch.org/docs/stable/generated/torch.optim.SGD.html#torch.optim.SGD>`_
     optimizer."""
     lr: float = hp.required(doc='learning rate')
     momentum: float = hp.optional(default=0.0, doc='momentum factor')

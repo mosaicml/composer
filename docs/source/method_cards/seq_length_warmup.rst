@@ -51,10 +51,9 @@ Effects
 Our experiments found that Sequence Length Warmup could speed up
 training by a factor of ~1.5x while achieving the same loss. The
 original authors of the paper claim that Sequence Length Warmup reduces
-the outliers in Adam's (`Kingma and
-Ba <https://arxiv.org/abs/1412.6980>`__) variance term, which permits
-training on larger batch sizes and larger learning rates without
-divergence.
+the outliers in Adam's (`Kingma and Ba<https://arxiv.org/abs/1412.6980>`__)
+variance term, which permits training on larger batch sizes and larger
+learning rates without divergence.
 
 Implementation Details
 ----------------------
@@ -147,7 +146,7 @@ Sequence length warmup is a form of curriculum learning, a category of
 techniques that present samples in a structured or organized order, such
 as by difficulty. Accordingly, it may compose poorly with other
 curriculum learning techniques such as batch-size warmup, which is used
-in the `GPT-3 paper <https://arxiv.org/abs/2005.14165>`__.
+in the `GPT-3 paper<https://arxiv.org/abs/2005.14165>`__.
 
 Composition
 -----------
@@ -160,7 +159,7 @@ Attribution
 -----------
 
 `Curriculum Learning: A Regularization Method for Efficient and Stable
-Billion-Scale GPT Model Pre-Training <https://arxiv.org/abs/2108.06084>`__ by Conglong Li,
+Billion-Scale GPT Model Pre-Training<https://arxiv.org/abs/2108.06084>`__ by Conglong Li,
 Minjia Zhang, and Yuxiong He. Posted to arXiv in 2021.
 
 

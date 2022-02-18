@@ -51,7 +51,7 @@ def apply_ghost_batchnorm(model: torch.nn.Module,
 
 
 class GhostBatchNorm(Algorithm):
-    """Replaces batch normalization modules with `Ghost Batch Normalization <https://arxiv.org/abs/1705.08741>`_ modules
+    """Replaces batch normalization modules with `Ghost Batch Normalization<https://arxiv.org/abs/1705.08741>`_ modules
     that simulate the effect of using a smaller batch size.
 
     Works by spliting input into chunks of ``ghost_batch_size`` samples and
@@ -111,14 +111,15 @@ def _corresponding_ghost_batchnorm_type(batchnorm: torch.nn.Module):
 
 
 class _GhostBatchNorm(torch.nn.Module):
-    """`Ghost batch normalization <https://arxiv.org/abs/1705.08741>`_ layer.
+    """`Ghost batch normalization<https://arxiv.org/abs/1705.08741>`_ layer.
 
     Works by spliting input into chunks of ``ghost_batch_size`` samples and
     running batch normalization on each chunk separately. Dim 0 is assumed to
     be the sample axis.
 
-    See also `torch.nn.BatchNorm1d <https://pytorch.org/docs/stable/generated/torch.nn.BatchNorm1d.html>`_,  `torch.nn.BatchNorm2d <https://pytorch.org/docs/stable/generated/torch.nn.BatchNorm2d.html>`_, and
-    `torch.nn.BatchNorm3d <https://pytorch.org/docs/stable/generated/torch.nn.BatchNorm3d.html>`_.
+    See also `torch.nn.BatchNorm1d<https://pytorch.org/docs/stable/generated/torch.nn.BatchNorm1d.html>`_,
+    `torch.nn.BatchNorm2d<https://pytorch.org/docs/stable/generated/torch.nn.BatchNorm2d.html>`_, and
+    `torch.nn.BatchNorm3d<https://pytorch.org/docs/stable/generated/torch.nn.BatchNorm3d.html>`_.
 
     Args:
         ghost_batch_size: the size of the chunks passed into the underlying

@@ -46,7 +46,7 @@ def apply_blurpool(model: torch.nn.Module,
             convolution. When set to ``False``, the convolution is applied with
             a stride of 1 before the blurring, resulting in significant
             overhead (though more closely matching
-            `the paper <http://proceedings.mlr.press/v97/zhang19a.html>`_).
+            `the paper<http://proceedings.mlr.press/v97/zhang19a.html>`_).
             See :class:`~composer.algorithms.blurpool.BlurConv2d` for further discussion.
     """
     transforms = {}
@@ -62,8 +62,8 @@ def apply_blurpool(model: torch.nn.Module,
 
 
 class BlurPool(Algorithm):
-    """`BlurPool <http://proceedings.mlr.press/v97/zhang19a.html>`_ adds anti-aliasing filters to convolutional layers
-    to increase accuracy and invariance to small shifts in the input.
+    """`BlurPool<http://proceedings.mlr.press/v97/zhang19a.html>`_ adds anti-aliasing filters to convolutional layers to
+    increase accuracy and invariance to small shifts in the input.
 
     Runs on ``Event.INIT`` and should be applied both before the model has
     been moved to accelerators and before the model’s parameters have

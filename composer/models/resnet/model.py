@@ -11,7 +11,7 @@ from composer.models.model_hparams import Initializer
 class ComposerResNet(ComposerClassifier):
     """ResNet model family extending :class:`ComposerClassifier`.
 
-    See this `paper <https://arxiv.org/abs/1512.03385>`_ for details
+    See this `paper<https://arxiv.org/abs/1512.03385>`_ for details
     on the residual network architecture.
 
     Args:

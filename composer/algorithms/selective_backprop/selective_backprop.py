@@ -53,7 +53,7 @@ def selective_backprop(X: torch.Tensor,
                        loss_fun: Callable,
                        keep: float,
                        scale_factor: float = 1) -> Tuple[torch.Tensor, torch.Tensor]:
-    """Select a subset of the batch on which to learn as per (`Jiang et al. 2019 <https://arxiv.org/abs/1910.00762>`_)
+    """Select a subset of the batch on which to learn as per (`Jiang et al, 2019<https://arxiv.org/abs/1910.00762>`_)
 
     Selective Backprop (SB) prunes minibatches according to the difficulty
     of the individual training examples and only computes weight gradients
@@ -139,9 +139,8 @@ def selective_backprop(X: torch.Tensor,
 
 
 class SelectiveBackprop(Algorithm):
-    """Selectively backpropagate gradients from a subset of each batch (`Jiang et al. 2019.
-
-    <https://arxiv.org/abs/1910.00762>`_).
+    """Selectively backpropagate gradients from a subset of each batch (`Jiang et al,
+    2019<https://arxiv.org/abs/1910.00762>`_).
 
     Selective Backprop (SB) prunes minibatches according to the difficulty
     of the individual training examples, and only computes weight gradients

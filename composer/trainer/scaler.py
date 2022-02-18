@@ -12,10 +12,10 @@ from composer.utils import dist
 class ClosureGradScaler(GradScaler):
     """ClosureGradScaler allows for gradient scaling during with closures.
 
-    We use closures with optimizers (see `here <https://pytorch.org/docs/stable/optim.html>`_)
+    We use closures with optimizers (see `here<https://pytorch.org/docs/stable/optim.html>`_)
     during training in order to support certain algorithms like
     :class:`~composer.algorithms.SAM`. This class allows us to perform gradient
-    scaling (see `here <https://pytorch.org/docs/stable/amp.html#torch.cuda.amp.GradScaler>`_)
+    scaling (see `here<https://pytorch.org/docs/stable/amp.html#torch.cuda.amp.GradScaler>`_)
     along with the use of closures during training.
 
     Args:

@@ -7,7 +7,7 @@ from composer.models.efficientnets import EfficientNet
 class EfficientNetB0(ComposerClassifier):
     """An EfficientNet-b0 model extending :class:`ComposerClassifier`.
 
-    Based off of this `paper <https://arxiv.org/abs/1905.11946>`_.
+    Based off of this `paper<https://arxiv.org/abs/1905.11946>`_.
 
     Args:
         num_classes (int): the number of classes in the task.

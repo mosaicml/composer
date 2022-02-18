@@ -10,7 +10,7 @@ from composer.models.resnets import CIFAR_ResNet
 class CIFAR10_ResNet20(ComposerClassifier):
     """A ResNet-20 model extending :class:`ComposerClassifier`.
 
-    See this `paper <https://arxiv.org/abs/1512.03385>`_ for details
+    See this `paper<https://arxiv.org/abs/1512.03385>`_ for details
     on the residual network architecture.
 
     Args:

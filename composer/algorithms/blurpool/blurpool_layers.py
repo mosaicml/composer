@@ -81,11 +81,11 @@ def blurmax_pool2d(input: torch.Tensor,
     """Max-pooling with anti-aliasing.
 
     This is a nearly drop-in replacement for Pytorch
-    `max_pool2d <https://pytorch.org/docs/stable/nn.functional.html#max-pool2d>`_.
+    `max_pool2d<https://pytorch.org/docs/stable/nn.functional.html#max-pool2d>`_.
     The only API difference is that the parameter `return_indices` is not
     available, because it is ill-defined when using anti-aliasing.
 
-    See the associated `paper <http://proceedings.mlr.press/v97/zhang19a.html>`_
+    See the associated `paper<http://proceedings.mlr.press/v97/zhang19a.html>`_
     for more details, experimental results, etc.
 
     This function can be understood as decoupling the max from the pooling, and
@@ -107,8 +107,7 @@ def blurmax_pool2d(input: torch.Tensor,
             filter, `padding=1` (the default) returns output of the same size
             as the input.
         dilation: amount by which to "stretch" the pooling region for a given
-            total size. See `this blog post
-            <https://pytorch.org/docs/stable/generated/torch.nn.MaxPool2d.html#torch.nn.MaxPool2d>_
+            total size. See `this blog post<https://pytorch.org/docs/stable/generated/torch.nn.MaxPool2d.html#torch.nn.MaxPool2d>_
             for our favorite explanation of how this works.
         ceil_mode: when True, will use ceil instead of floor to compute the output shape
         filt: a 2d or 4d tensor to be cross-correlated with the input tensor
@@ -131,14 +130,14 @@ def blurmax_pool2d(input: torch.Tensor,
 
 
 class BlurMaxPool2d(nn.Module):
-    """This module is a (nearly) drop-in replacement for PyTorch's `MaxPool2d.
-
-    <https://pytorch.org/docs/stable/generated/torch.nn.MaxPool2d.html>`_, but with an anti-aliasing filter applied.
+    """This module is a (nearly) drop-in replacement for PyTorch's
+    `MaxPool2d<https://pytorch.org/docs/stable/generated/torch.nn.MaxPool2d.html>`_, but with an anti-aliasing filter
+    applied.
 
     The only API difference is that the parameter ``return_indices`` is not
     available, because it is ill-defined when using anti-aliasing.
 
-    See the associated `paper <http://proceedings.mlr.press/v97/zhang19a.html>`_
+    See the associated `paper<http://proceedings.mlr.press/v97/zhang19a.html>`_
     for more details, experimental results, etc.
 
     See also: :func:`~blur_2d`.
@@ -187,9 +186,8 @@ class BlurMaxPool2d(nn.Module):
 
 
 class BlurConv2d(nn.Module):
-    """This module is a drop-in replacement for PyTorch's `Conv2d.
-
-    <https://pytorch.org/docs/stable/generated/torch.nn.Conv2d.html>`_, but with an anti-aliasing filter applied.
+    """This module is a drop-in replacement for PyTorch's
+    `Conv2d<https://pytorch.org/docs/stable/generated/torch.nn.Conv2d.html>`_, but with an anti-aliasing filter applied.
 
     The one new parameter is ``blur_first``. When set to ``True``, the
     anti-aliasing filter is applied before the underlying convolution, and
@@ -205,7 +203,7 @@ class BlurConv2d(nn.Module):
 
     This module should only be used to replace strided convolutions.
 
-    See the associated `paper <http://proceedings.mlr.press/v97/zhang19a.html>`_
+    See the associated `paper<http://proceedings.mlr.press/v97/zhang19a.html>`_
     for more details, experimental results, etc.
 
     See also: :func:`~blur_2d`.

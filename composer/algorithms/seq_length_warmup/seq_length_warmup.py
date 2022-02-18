@@ -84,15 +84,13 @@ class SeqLengthWarmup(Algorithm):
 
     .. note::
 
-        ``step_size`` should be a `multiple of eight
-        <https://developer.nvidia.com/blog/optimizing-gpu-performance-tensor-cores/>`_ for
+        ``step_size`` should be a `multiple of eight<https://developer.nvidia.com/blog/optimizing-gpu-performance-tensor-cores/>`_ for
         optimal throughput on NVIDIA GPUs
 
     .. note::
 
         Variable input lengths can create CUDA OOM errors. To avoid this,
-        we follow `PyTorch notes
-        <https://pytorch.org/tutorials/recipes/recipes/tuning_guide.html#pre-allocate-memory-in-case-of-variable-input-length>`_
+        we follow `PyTorch notes<https://pytorch.org/tutorials/recipes/recipes/tuning_guide.html#pre-allocate-memory-in-case-of-variable-input-length>`_
         and pre-allocate the memory with a blank forward and backward pass.
 
     See the :doc:`Method Card </method_cards/seq_length_warmup>` for more details.
