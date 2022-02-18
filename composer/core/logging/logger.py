@@ -1,6 +1,14 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
-"""Base classes, functions, and variables for logger."""
+"""Base classes, functions, and variables for logger.
+
+Attributes:
+    TLogDataValue: Data value(s) to be logged. Can be any of the following types:
+        ``str``; ``float``; ``int``; :class:`torch.Tensor`; ``Sequence[TLogDataValue``;
+        ``Mapping[str, TLogDataValue]``.
+    TLogData: Name-value pair for data to be logged. Type ``Mapping[str, TLogDataValue]``.
+        Example: {"accuracy", 21.3}.
+"""
 
 from __future__ import annotations
 
@@ -41,7 +49,10 @@ class LogLevel(IntEnum):
 
 
 class Logger:
-    """Logger routes metrics to the :class:`~.logging.base_backend.LoggerCallback`.
+    """Logger routes metrics to the :class:`~.logging.base_backend.LoggerCallback`. Logger
+    is what users call from within algorithms/callbacks. A logger routes the calls/data to
+    any different number of destination :class:`~.logging.base_backend.LoggerCallback`\\s
+    (e.g. :class:`logging.FileLogger`, :class:`logging.InMemoryLogger`, etc.).
 
     Args:
         state (State):
