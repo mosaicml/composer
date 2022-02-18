@@ -121,7 +121,7 @@ def _stat_scores(
     return tp, fp, tn, fn, sup
 
 
-def _infer_target_type(input: Tensor, targets: Tensor) -> str:
+def infer_target_type(input: Tensor, targets: Tensor) -> str:
     """Infers whether the target is in indices format or one_hot format.
 
     Example indices format: [1, 4, 7] Example one_hot format [[0, 1, 0], [1, 0, 0], ...]
@@ -137,8 +137,8 @@ def _infer_target_type(input: Tensor, targets: Tensor) -> str:
                            'inputs.ndim == targets.ndim + 1')
 
 
-def _ensure_targets_one_hot(input: Tensor, targets: Tensor) -> Tensor:
-    if _infer_target_type(input, targets) == 'indices':
+def ensure_targets_one_hot(input: Tensor, targets: Tensor) -> Tensor:
+    if infer_target_type(input, targets) == 'indices':
         targets = F.one_hot(targets, num_classes=input.shape[1])
     return targets
 
@@ -192,7 +192,7 @@ def soft_cross_entropy(input: Tensor,
 
     This function will be obsolete with `this update <https://github.com/pytorch/pytorch/pull/61044>`_.
     """
-    target_type = _infer_target_type(input, target)
+    target_type = infer_target_type(input, target)
 
     if target_type == 'indices':
         return F.cross_entropy(input, target, weight, size_average, ignore_index, reduce, reduction)

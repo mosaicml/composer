@@ -17,14 +17,14 @@ from composer.models.gpt2 import GPT2Hparams as GPT2Hparams
 from composer.models.gpt2 import GPT2Model as GPT2Model
 from composer.models.model_hparams import Initializer as Initializer
 from composer.models.model_hparams import ModelHparams as ModelHparams
+from composer.models.resnet import ComposerResNet as ComposerResNet
+from composer.models.resnet import ResNetHparams as ResNetHparams
 from composer.models.resnet9_cifar10 import CIFAR10_ResNet9 as CIFAR10_ResNet9
 from composer.models.resnet9_cifar10 import CIFARResNet9Hparams as CIFARResNet9Hparams
 from composer.models.resnet20_cifar10 import CIFAR10_ResNet20 as CIFAR10_ResNet20
 from composer.models.resnet20_cifar10 import CIFARResNet20Hparams as CIFARResNet20Hparams
 from composer.models.resnet56_cifar10 import CIFAR10_ResNet56 as CIFAR10_ResNet56
 from composer.models.resnet56_cifar10 import CIFARResNetHparams as CIFARResNetHparams
-from composer.models.resnet import ComposerResNet as ComposerResNet
-from composer.models.resnet import ResNetHparams as ResNetHparams
 from composer.models.timm import Timm as Timm
 from composer.models.timm import TimmHparams as TimmHparams
 from composer.models.transformer_shared import ComposerTransformer as ComposerTransformer

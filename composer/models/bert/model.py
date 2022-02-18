@@ -19,9 +19,8 @@ __all__ = ["BERTModel"]
 
 
 class BERTModel(ComposerTransformer):
-    """
-    Implements a BERT wrapper around a ComposerTransformer.
-    Works with `Hugging Face Transformers <https://huggingface.co/transformers/>`_.
+    """Implements a BERT wrapper around a ComposerTransformer. Works with `Hugging Face Transformers
+    <https://huggingface.co/transformers/>`_.
 
     To create a bert model for Language Model pretraining:
 
@@ -41,7 +40,6 @@ class BERTModel(ComposerTransformer):
             stores information about the model hyperparameters.
         tokenizer_name (str): The name of the tokenizer used for this model,
             necessary to assert required model inputs.
-
     """
 
     def __init__(self, module: transformers.BertModel, config: transformers.BertConfig, tokenizer_name: str) -> None:

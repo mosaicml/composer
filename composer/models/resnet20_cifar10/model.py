@@ -12,7 +12,6 @@ class CIFAR10_ResNet20(ComposerClassifier):
 
     From the paper Deep Residual Learning for Image Recognition `<https://arxiv.org/abs/1512.03385>`_.
 
-
     Example:
 
     .. testcode::
@@ -22,10 +21,10 @@ class CIFAR10_ResNet20(ComposerClassifier):
         model = CIFAR10_ResNet20()  # creates a resnet20 for cifar image classification
 
     Args:
-        num_classes (int): The number of classes. Needed for classification tasks. Default = 10
+        num_classes (int): The number of classes. Needed for classification tasks. Default = 10.
         initializers (List[Initializer], optional): Initializers
             for the model. ``None`` for no initialization.
-            (default: ``None``)
+            (default: ``None``.
     """
 
     def __init__(
