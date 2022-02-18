@@ -7,6 +7,7 @@ See the :doc:`Method Card </method_cards/col_out>` for more details.
 """
 
 from composer.algorithms.colout.colout import ColOut as ColOut
+from composer.algorithms.colout.colout import ColOutTransform as ColOutTransform
 from composer.algorithms.colout.colout import colout_batch as colout_batch
 from composer.algorithms.colout.colout import colout_image as colout_image
 
