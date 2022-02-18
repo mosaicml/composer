@@ -23,7 +23,6 @@ from composer.core import Callback, DataSpec, Engine, Event, Logger, State, Time
 from composer.core.algorithm import Algorithm
 from composer.core.evaluator import Evaluator
 from composer.core.logging import LoggerCallback, LogLevel
-from composer.core.time import TimeUnit
 from composer.core.types import Batch, BreakEpochException, DataLoader, Evaluators, Many, Metrics, Optimizers, Precision
 from composer.datasets.dataloader import unwrap_data_loader
 from composer.loggers.tqdm_logger import TQDMLogger

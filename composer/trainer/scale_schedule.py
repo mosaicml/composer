@@ -2,7 +2,7 @@
 
 import functools
 from collections import Counter
-from typing import Optional, Union
+from typing import Union
 
 from torch.optim.lr_scheduler import CosineAnnealingLR, CosineAnnealingWarmRestarts, ExponentialLR, MultiStepLR, StepLR
 

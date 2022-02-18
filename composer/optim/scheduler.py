@@ -14,7 +14,6 @@ from torch.optim.lr_scheduler import LambdaLR
 from composer.core import State
 from composer.core.time import Time, TimeUnit
 from composer.core.types import Scheduler
-from composer.optim._time_conversion import convert as convert_time
 
 try:
     from typing import Protocol
