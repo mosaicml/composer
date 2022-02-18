@@ -21,6 +21,7 @@ requirements:
   host:
     - python >=3.7
     - setuptools
+    - git
   build:
     - git
   run:
