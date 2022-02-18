@@ -52,7 +52,9 @@ class Logger:
     """Logger routes metrics to the :class:`~.logging.base_backend.LoggerCallback`. Logger
     is what users call from within algorithms/callbacks. A logger routes the calls/data to
     any different number of destination :class:`~.logging.base_backend.LoggerCallback`\\s
-    (e.g. :class:`logging.FileLogger`, :class:`logging.InMemoryLogger`, etc.).
+    (e.g. :class:`logging.FileLogger`, :class:`logging.InMemoryLogger`, etc.). Data to be
+    logged should be of the type :attr:`~.logger.TLogData` (i.e. a {'name': value}
+    mapping).
 
     Args:
         state (State):
