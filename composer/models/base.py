@@ -14,6 +14,8 @@ from torchmetrics.collections import MetricCollection
 from composer.core.types import Batch, BatchPair, Metrics, Tensors
 from composer.models.loss import CrossEntropyLoss, soft_cross_entropy
 
+__all__ = ["ComposerModel", "ComposerClassifier"]
+
 
 class ComposerModel(torch.nn.Module, abc.ABC):
     """The interface needed to use a pytorch model with :class:`composer.Trainer`.

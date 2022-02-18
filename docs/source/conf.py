@@ -20,6 +20,7 @@ from typing import Any, List, Optional, Tuple, Type, Union
 import sphinx.application
 import sphinx.ext.autodoc
 import sphinx.util.logging
+import yahp as hp
 
 sys.path.insert(0, os.path.abspath('..'))
 
@@ -123,8 +124,14 @@ autodoc_type_aliases = {
 autodoc_default_options = {
     # don't document the forward() method. Because of how torch.nn.Module.forward is defined in the
     # base class, sphinx does not realize that forward overrides an inherited method.
-    'exclude-members': 'forward'
+    'exclude-members': 'forward, hparams_registry'
 }
+autodoc_inherit_docstrings = False
+
+# Monkeypatch yahp so we don't document the hparams registry
+
+hp.Hparams.__doc__ = ""
+hp.Hparams.initialize_object.__doc__ = ""
 
 pygments_style = "manni"
 pygments_dark_style = "monokai"
@@ -162,6 +169,7 @@ nitpick_ignore = [
 python_use_unqualified_type_names = True
 autodoc_typehints = "none"
 
+
 def skip_redundant_namedtuple_attributes(
     app: sphinx.application.Sphinx,
     what: str,
@@ -175,6 +183,7 @@ def skip_redundant_namedtuple_attributes(
     if '_tuplegetter' in obj.__class__.__name__:
         return True
     return None
+
 
 with open(os.path.join(os.path.dirname(__file__), "doctest_fixtures.py"), "r") as f:
     doctest_global_setup = f.read()
@@ -199,10 +208,11 @@ def determine_sphinx_path(item: Union[Type[object], Type[BaseException], types.M
         while public_name.startswith("_"):
             public_name = public_name[1:]
 
-        log.warning(
-            textwrap.dedent(f"""\
-            {item.__name__} is private, so it should not be re-exported.
-            To fix, please make it public by renaming to {public_name}"""))
+        if item.__qualname__.startswith("composer"):
+            log.warning(
+                textwrap.dedent(f"""\
+                {item.__qualname__} is private, so it should not be re-exported.
+                To fix, please make it public by renaming to {public_name}"""))
 
     # Find and import the most nested public module of the path
     module_parts = module_name.split(".")
@@ -219,7 +229,7 @@ def determine_sphinx_path(item: Union[Type[object], Type[BaseException], types.M
     # `item` was not found in `public_module`. Recursively search the parent module
     parent_module_name = ".".join(public_module_name.split(".")[:-1])
     if parent_module_name == "":
-        log.warning(f"{item.__name__} is not re-imported by any public parent or grandparent module.")
+        log.warning(f"{item.__name__} in {module_name} is not re-imported by any public parent or grandparent module.")
         return None
     return determine_sphinx_path(item, parent_module_name)
 

@@ -15,6 +15,8 @@ if TYPE_CHECKING:
 
     from composer.core.types import Batch, BatchDict, Metrics, Tensors
 
+__all__ = ["BERTModel"]
+
 
 class BERTModel(ComposerTransformer):
     """

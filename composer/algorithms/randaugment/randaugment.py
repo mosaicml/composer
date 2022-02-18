@@ -23,9 +23,9 @@ def randaugment_image(img: ImageType,
                       depth: int = 2,
                       augmentation_set: List = augmentation_sets["all"]) -> ImageType:
     """Randomly applies a sequence of image data augmentations
-    (`Cubuk et al, 2019  <https://arxiv.org/abs/1909.13719>`_) to an image. See
+    (`Cubuk et al, 2019 <https://arxiv.org/abs/1909.13719>`_) to an image. See
     :class:`~composer.algorithms.randaugment.randaugment.RandAugment` or the :doc:`Method
-    Card </method_cards/rand_augment>` for details.
+    Card </method_cards/randaugment>` for details.
 
     Example:
         .. testcode::
@@ -62,7 +62,7 @@ class RandAugmentTransform(torch.nn.Module):
     """Wraps :func:`~composer.algorithms.randaugment.randaugment.randaugment_image` in a
     ``torchvision``-compatible transform. See
     :class:`~composer.algorithms.randaugment.randaugment.RandAugment` or the :doc:`Method
-    Card </method_cards/rand_augment>` for more details.
+    Card </method_cards/randaugment>` for more details.
 
     Example:
         .. testcode::
@@ -105,15 +105,14 @@ class RandAugmentTransform(torch.nn.Module):
 
 
 class RandAugment(Algorithm):
-    """Randomly applies a sequence of image data augmentations (`Cubuk et al., 2019.
-
-    <https://arxiv.org/abs/1909.13719>`_) to an image.
+    """Randomly applies a sequence of image data augmentations (`Cubuk et al, 2019 <https://arxiv.org/abs/1909.13719>`_)
+    to an image.
 
     This algorithm runs on on :attr:`~composer.core.event.Event.INIT` to insert a dataset
     transformation. It is a no-op if this algorithm already applied itself on the
     :attr:`State.train_dataloader.dataset`.
 
-    See the :doc:`Method Card </method_cards/rand_augment>` for more details.
+    See the :doc:`Method Card </method_cards/randaugment>` for more details.
 
     Example:
         .. testcode::
@@ -174,17 +173,9 @@ class RandAugment(Algorithm):
         self._transformed_datasets = weakref.WeakSet()
 
     def match(self, event: Event, state: State) -> bool:
-        """Runs on Event.FIT_START. Not called by user.
-
-        :meta private:
-        """
         return event == Event.FIT_START and state.train_dataloader.dataset not in self._transformed_datasets
 
     def apply(self, event: Event, state: State, logger: Logger) -> None:
-        """Inserts RandAugment into the list of dataloader transforms. Not called by user.
-
-        :meta private:
-        """
         ra = RandAugmentTransform(severity=self.severity, depth=self.depth, augmentation_set=self.augmentation_set)
         assert state.train_dataloader is not None
         dataset = state.train_dataloader.dataset

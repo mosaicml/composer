@@ -30,6 +30,24 @@ INTERVAL_MAP = {
     'steps': 'batch'
 }
 
+__all__ = [
+    "SchedulerHparams",
+    "ConstantLR",
+    "PolynomialLR",
+    "PolynomialLRHparams",
+    "ConstantLRHparams",
+    "StepLRHparams",
+    "MultiStepLRHparams",
+    "ExponentialLRHparams",
+    "CosineAnnealingLRHparams",
+    "CosineAnnealingWarmRestartsHparams",
+    "LinearLRHparams",
+    "WarmUpLRHparams",
+    "ensure_warmup_last",
+    "get_num_warmup_batches",
+    "ComposedScheduler",
+]
+
 
 def _convert_time_fields(interval: str,
                          kwargs: Dict[str, Any],
@@ -196,11 +214,7 @@ class ConstantLRHparams(SchedulerHparams):
 
 @dataclass
 class StepLRHparams(SchedulerHparams):
-    """Hyperparameters for the `StepLR.
-
-    <https://pytorch.org/docs/stable/generated/torch.optim.lr_scheduler.StepLR.html#torch.optim.lr_scheduler.StepLR>`_
-    scheduler.
-    """
+    """Hyperparameters for the :class:`~torch.optim.lr_scheduler.StepLR` scheduler."""
 
     step_size: str = hp.required(doc='Period of learning rate decay')
     gamma: float = hp.optional(default=0.1, doc='multiplicative factor of decay')
@@ -250,7 +264,7 @@ class CosineAnnealingLRHparams(SchedulerHparams):
 
 @dataclass
 class CosineAnnealingWarmRestartsHparams(SchedulerHparams):
-    """Hyperparameters for the ``CosineAnnealingWarmRestarts` <https://pytorch.org/docs/stable/generated/torch.optim.lr_
+    """Hyperparameters for the `CosineAnnealingWarmRestarts <https://pytorch.org/docs/stable/generated/torch.optim.lr_
     scheduler.CosineAnnealingWarmRestarts.html#torch.optim.lr_scheduler.CosineAnnealingWarmRestarts>`_ scheduler."""
 
     T_0: str = hp.required("Duration for the first restart.")
@@ -264,10 +278,7 @@ class CosineAnnealingWarmRestartsHparams(SchedulerHparams):
 
 @dataclass
 class LinearLRHparams(SchedulerHparams):
-    """Hyperparameters for the `LinearLRHparams.
-
-    <https://pytorch.org/docs/stable/generated/torch.optim.lr_scheduler.LinearLR.html>`_ scheduler.
-    """
+    """Hyperparameters for the :class:`~torch.optim.lr_scheduler.LinearLR` scheduler."""
 
     start_factor: float = hp.optional("Number to multiply learning rate at the start.", default=1.0 / 3)
     end_factor: float = hp.optional("Number to multiply learning rate at the end .", default=1.0)
@@ -340,13 +351,10 @@ class ComposedScheduler(_LRScheduler):
     schedulers that need to be silent during warmup. ``ComposedScheduler`` handles warmups, where as `ChainedScheduler <https://pytorch.org/docs/1.10./generated/torch.optim.lr_scheduler.ChainedScheduler.html?highlight=chained#torch.optim.lr_scheduler.ChainedScheduler>`_
     only combines schedulers.
 
-    `CosineAnnealingLR
-    <https://pytorch.org/docs/stable/generated/torch.optim.lr_scheduler.CosineAnnealingLR.html#torch.optim.lr_scheduler.CosineAnnealingLR>`_
-    and `ExponentialLR
-    <https://pytorch.org/docs/stable/generated/torch.optim.lr_scheduler.ExponentialLR.html#torch.optim.lr_scheduler.ExponentialLR>`_
+    `CosineAnnealingLR <https://pytorch.org/docs/stable/generated/torch.optim.lr_scheduler.CosineAnnealingLR.html#torch.optim.lr_scheduler.CosineAnnealingLR>`_
+    and `ExponentialLR <https://pytorch.org/docs/stable/generated/torch.optim.lr_scheduler.ExponentialLR.html#torch.optim.lr_scheduler.ExponentialLR>`_
     are not stepped during the warmup period. Other schedulers, such as
-    `MultiStepLR
-    <https://pytorch.org/docs/stable/generated/torch.optim.lr_scheduler.MultiStepLR.html#torch.optim.lr_scheduler.MultiStepLR>`_
+    `MultiStepLR <https://pytorch.org/docs/stable/generated/torch.optim.lr_scheduler.MultiStepLR.html#torch.optim.lr_scheduler.MultiStepLR>`_
     are still stepped, to keep their milestones unchanged.
 
     Handles running the :class:`WarmUpLR` at every step if :attr:`WarmUpLR.interval='batch'`, and other schedulers at
@@ -434,7 +442,7 @@ class ComposedScheduler(_LRScheduler):
 
         Args:
             state_dict (Dict[str, Any]): A dict containing the state of all composed schedulers. Should be an object
-            returned from a call to :meth:`state_dict()`.
+                returned from a call to :meth:`state_dict()`.
         """
         for scheduler in self.schedulers:
             scheduler.load_state_dict(state_dict["schedulers"][scheduler.__class__.__qualname__])

@@ -18,7 +18,7 @@ __all__ = ['SWA']
 
 
 class SWA(Algorithm):
-    """Implements Stochastic Weight Averaging (`Izmailov et al., 2018 <https://arxiv.org/abs/1803.05407>`_).
+    """Implements Stochastic Weight Averaging (`Izmailov et al, 2018 <https://arxiv.org/abs/1803.05407>`_).
 
     Stochastic Weight Averaging (SWA) averages model weights sampled at
     different times near the end of training. This leads to better
@@ -73,30 +73,10 @@ class SWA(Algorithm):
         self.swa_model = None
 
     def match(self, event: Event, state: State) -> bool:
-        """Run on EPOCH_END if training duration is greater than `swa_start`
-
-        Args:
-            event (:class:`Event`): The current event.
-            state (:class:`State`): The current state.
-        Returns:
-            bool: True if this algorithm should run now.
-
-        :meta private:
-        """
         should_start_swa = float(state.get_elapsed_duration()) >= self.swa_start
         return event == Event.EPOCH_END and should_start_swa
 
     def apply(self, event: Event, state: State, logger: Logger) -> None:
-        """Apply SWA to weights towards the end of training.
-
-        Args:
-            event (Event): the current event
-            state (State): the current trainer state
-            logger (Logger): the training logger
-
-        :meta private:
-        """
-
         if self.swa_scheduler is None:
 
             if self.swa_lr is None:

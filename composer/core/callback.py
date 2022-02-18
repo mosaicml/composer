@@ -8,11 +8,6 @@ from typing import TYPE_CHECKING
 
 from composer.core.serializable import Serializable
 
-try:
-    from typing import final
-except ImportError:
-    final = lambda x: x  # final is not available in python 3.7
-
 if TYPE_CHECKING:
     from composer import Event, Logger, State
 
@@ -50,16 +45,14 @@ class Callback(Serializable, abc.ABC):
            >>> _ = trainer.engine.run_event(Event.EPOCH_START)
            Epoch Time(0, TimeUnit.EPOCH)
 
-    #. Override :meth:`_run_event` (**not** :meth:`run_event`) if you want a single method to handle all events. 
-       If this method is overridden, then the individual methods corresponding to each event name will not be
-       automatically called on training loop events. For example, if you override :meth:`_run_event` then
-       :meth:`epoch_start` will not be called on the :attr:`~composer.core.event.Event.EPOCH_START` event, :meth:`batch_start`
-       will not be called on the :attr:`~composer.core.event.Event.BATCH_START` etc. However, you can invoke
-       :meth:`epoch_start`, :meth:`batch_start` etc. in your overriding implementation of :meth:`_run_event`.
+    #. Override :meth:`run_event` if you want a single method to handle all events. 
+       If this method is overridden, then the individual methods corresponding to each event name
+       (such as :meth:`epoch_start`) will no longer be automatically invoked.
+
 
        For example,
            >>> class MyCallback(Callback):
-           ...     def _run_event(self, event: Event, state: State, logger: Logger):
+           ...     def run_event(self, event: Event, state: State, logger: Logger):
            ...         if event == Event.EPOCH_START:
            ...             print(f'Epoch {state.epoch}/{state.max_epochs}')
            >>> # construct trainer object with your callback
@@ -77,10 +70,6 @@ class Callback(Serializable, abc.ABC):
            Epoch 0/1
     """
 
-    def __init__(self) -> None:
-        super().__init__()
-
-    @final
     def run_event(self, event: Event, state: State, logger: Logger) -> None:
         """This method is called by the engine on each event.
 
@@ -89,15 +78,11 @@ class Callback(Serializable, abc.ABC):
             state (State): The state.
             logger (Logger): The logger.
         """
-        self._run_event(event, state, logger)
-
-    def _run_event(self, event: Event, state: State, logger: Logger) -> None:
-        # default fallback if the callback does not override _run_event
         event_cb = getattr(self, event.value)
         return event_cb(state, logger)
 
     def init(self, state: State, logger: Logger) -> None:
-        """Called on the :attr:`~Event.INIT` event.
+        """Called on the :attr:`~composer.core.event.Event.INIT` event.
 
         Args:
             state (State): The global state.
@@ -107,7 +92,7 @@ class Callback(Serializable, abc.ABC):
         pass
 
     def fit_start(self, state: State, logger: Logger) -> None:
-        """Called on the :attr:`~Event.FIT_START` event.
+        """Called on the :attr:`~composer.core.event.Event.FIT_START` event.
 
         Args:
             state (State): The global state.
@@ -117,7 +102,7 @@ class Callback(Serializable, abc.ABC):
         pass
 
     def epoch_start(self, state: State, logger: Logger) -> None:
-        """Called on the :attr:`~Event.EPOCH_START` event.
+        """Called on the :attr:`~composer.core.event.Event.EPOCH_START` event.
 
         Args:
             state (State): The global state.
@@ -127,7 +112,7 @@ class Callback(Serializable, abc.ABC):
         pass
 
     def batch_start(self, state: State, logger: Logger) -> None:
-        """Called on the :attr:`~Event.BATCH_START` event.
+        """Called on the :attr:`~composer.core.event.Event.BATCH_START` event.
 
         Args:
             state (State): The global state.
@@ -137,7 +122,7 @@ class Callback(Serializable, abc.ABC):
         pass
 
     def after_dataloader(self, state: State, logger: Logger) -> None:
-        """Called on the :attr:`~Event.AFTER_DATALOADER` event.
+        """Called on the :attr:`~composer.core.event.Event.AFTER_DATALOADER` event.
 
         Args:
             state (State): The global state.
@@ -147,7 +132,7 @@ class Callback(Serializable, abc.ABC):
         pass
 
     def before_train_batch(self, state: State, logger: Logger) -> None:
-        """Called on the :attr:`~Event.BEFORE_TRAIN_BATCH` event.
+        """Called on the :attr:`~composer.core.event.Event.BEFORE_TRAIN_BATCH` event.
 
         Args:
             state (State): The global state.
@@ -157,7 +142,7 @@ class Callback(Serializable, abc.ABC):
         pass
 
     def before_forward(self, state: State, logger: Logger) -> None:
-        """Called on the :attr:`~Event.BEFORE_FORWARD` event.
+        """Called on the :attr:`~composer.core.event.Event.BEFORE_FORWARD` event.
 
         Args:
             state (State): The global state.
@@ -167,7 +152,7 @@ class Callback(Serializable, abc.ABC):
         pass
 
     def after_forward(self, state: State, logger: Logger) -> None:
-        """Called on the :attr:`~Event.AFTER_FORWARD` event.
+        """Called on the :attr:`~composer.core.event.Event.AFTER_FORWARD` event.
 
         Args:
             state (State): The global state.
@@ -177,7 +162,7 @@ class Callback(Serializable, abc.ABC):
         pass
 
     def before_loss(self, state: State, logger: Logger) -> None:
-        """Called on the :attr:`~Event.BEFORE_LOSS` event.
+        """Called on the :attr:`~composer.core.event.Event.BEFORE_LOSS` event.
 
         Args:
             state (State): The global state.
@@ -187,7 +172,7 @@ class Callback(Serializable, abc.ABC):
         pass
 
     def after_loss(self, state: State, logger: Logger) -> None:
-        """Called on the :attr:`~Event.AFTER_LOSS` event.
+        """Called on the :attr:`~composer.core.event.Event.AFTER_LOSS` event.
 
         Args:
             state (State): The global state.
@@ -197,7 +182,7 @@ class Callback(Serializable, abc.ABC):
         pass
 
     def before_backward(self, state: State, logger: Logger) -> None:
-        """Called on the :attr:`~Event.BEFORE_BACKWARD` event.
+        """Called on the :attr:`~composer.core.event.Event.BEFORE_BACKWARD` event.
 
         Args:
             state (State): The global state.
@@ -207,7 +192,7 @@ class Callback(Serializable, abc.ABC):
         pass
 
     def after_backward(self, state: State, logger: Logger) -> None:
-        """Called on the :attr:`~Event.AFTER_BACKWARD` event.
+        """Called on the :attr:`~composer.core.event.Event.AFTER_BACKWARD` event.
 
         Args:
             state (State): The global state.
@@ -217,7 +202,7 @@ class Callback(Serializable, abc.ABC):
         pass
 
     def after_train_batch(self, state: State, logger: Logger) -> None:
-        """Called on the :attr:`~Event.AFTER_TRAIN_BATCH` event.
+        """Called on the :attr:`~composer.core.event.Event.AFTER_TRAIN_BATCH` event.
 
         Args:
             state (State): The global state.
@@ -227,7 +212,7 @@ class Callback(Serializable, abc.ABC):
         pass
 
     def batch_end(self, state: State, logger: Logger) -> None:
-        """Called on the :attr:`~Event.BATCH_END` event.
+        """Called on the :attr:`~composer.core.event.Event.BATCH_END` event.
 
         .. note::
 
@@ -244,7 +229,7 @@ class Callback(Serializable, abc.ABC):
         pass
 
     def epoch_end(self, state: State, logger: Logger) -> None:
-        """Called on the :attr:`~Event.EPOCH_END` event.
+        """Called on the :attr:`~composer.core.event.Event.EPOCH_END` event.
 
         .. note::
 
@@ -258,7 +243,7 @@ class Callback(Serializable, abc.ABC):
         pass
 
     def eval_start(self, state: State, logger: Logger) -> None:
-        """Called on the :attr:`~Event.EVAL_START` event.
+        """Called on the :attr:`~composer.core.event.Event.EVAL_START` event.
 
         Args:
             state (State): The global state.
@@ -268,7 +253,7 @@ class Callback(Serializable, abc.ABC):
         pass
 
     def eval_batch_start(self, state: State, logger: Logger) -> None:
-        """Called on the :attr:`~Event.EVAL_BATCH_START` event.
+        """Called on the :attr:`~composer.core.event.Event.EVAL_BATCH_START` event.
 
         Args:
             state (State): The global state.
@@ -278,7 +263,7 @@ class Callback(Serializable, abc.ABC):
         pass
 
     def eval_before_forward(self, state: State, logger: Logger) -> None:
-        """Called on the :attr:`~Event.EVAL_BATCH_FORWARD` event.
+        """Called on the :attr:`~composer.core.event.Event.EVAL_BATCH_FORWARD` event.
 
         Args:
             state (State): The global state.
@@ -288,7 +273,7 @@ class Callback(Serializable, abc.ABC):
         pass
 
     def eval_after_forward(self, state: State, logger: Logger) -> None:
-        """Called on the :attr:`~Event.EVAL_AFTER_FORWARD` event.
+        """Called on the :attr:`~composer.core.event.Event.EVAL_AFTER_FORWARD` event.
 
         Args:
             state (State): The global state.
@@ -298,7 +283,7 @@ class Callback(Serializable, abc.ABC):
         pass
 
     def eval_batch_end(self, state: State, logger: Logger) -> None:
-        """Called on the :attr:`~Event.EVAL_BATCH_END` event.
+        """Called on the :attr:`~composer.core.event.Event.EVAL_BATCH_END` event.
 
         Args:
             state (State): The global state.
@@ -308,7 +293,7 @@ class Callback(Serializable, abc.ABC):
         pass
 
     def eval_end(self, state: State, logger: Logger) -> None:
-        """Called on the :attr:`~Event.EVAL_END` event.
+        """Called on the :attr:`~composer.core.event.Event.EVAL_END` event.
 
         Args:
             state (State): The global state.
