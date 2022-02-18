@@ -163,6 +163,7 @@ nitpick_ignore = [
 python_use_unqualified_type_names = True
 autodoc_typehints = "none"
 
+
 def skip_redundant_namedtuple_attributes(
     app: sphinx.application.Sphinx,
     what: str,
@@ -176,6 +177,7 @@ def skip_redundant_namedtuple_attributes(
     if '_tuplegetter' in obj.__class__.__name__:
         return True
     return None
+
 
 with open(os.path.join(os.path.dirname(__file__), "doctest_fixtures.py"), "r") as f:
     doctest_global_setup = f.read()
