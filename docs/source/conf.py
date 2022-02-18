@@ -17,11 +17,10 @@ import textwrap
 import types
 from typing import Any, List, Optional, Tuple, Type, Union
 
-import yahp as hp
-
 import sphinx.application
 import sphinx.ext.autodoc
 import sphinx.util.logging
+import yahp as hp
 
 sys.path.insert(0, os.path.abspath('..'))
 

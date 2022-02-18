@@ -1,7 +1,7 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
 from collections import defaultdict
-from typing import Union, Optional
+from typing import Optional, Union
 
 import torch
 from torch.cuda.amp.grad_scaler import GradScaler, OptState, _refresh_per_optimizer_state
