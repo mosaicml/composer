@@ -438,7 +438,7 @@ class CosineAnnealingLRHparams(SchedulerHparams):
 
 @dataclass
 class CosineAnnealingWarmRestartsHparams(SchedulerHparams):
-    """Hyperparameters for the ``CosineAnnealingWarmRestarts` <https://pytorch.org/docs/stable/generated/torch.optim.lr_
+    """Hyperparameters for the `CosineAnnealingWarmRestarts <https://pytorch.org/docs/stable/generated/torch.optim.lr_
     scheduler.CosineAnnealingWarmRestarts.html#torch.optim.lr_scheduler.CosineAnnealingWarmRestarts>`_ scheduler."""
 
     t_0: str = hp.optional(default='1dur', doc="Duration for the first restart.")
@@ -450,10 +450,7 @@ class CosineAnnealingWarmRestartsHparams(SchedulerHparams):
 
 @dataclass
 class LinearLRHparams(SchedulerHparams):
-    """Hyperparameters for the `LinearLRHparams.
-
-    <https://pytorch.org/docs/stable/generated/torch.optim.lr_scheduler.LinearLR.html>`_ scheduler.
-    """
+    """Hyperparameters for the :class:`~torch.optim.lr_scheduler.LinearLR` scheduler."""
 
     start_factor: float = hp.optional("Number to multiply learning rate at the start.", default=1.0 / 3)
     end_factor: float = hp.optional("Number to multiply learning rate at the end.", default=1.0)

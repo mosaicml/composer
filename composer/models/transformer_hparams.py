@@ -1,12 +1,12 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
-from abc import ABC, abstractmethod
+from abc import ABC
 from dataclasses import dataclass
 from typing import Dict, Optional
 
 import yahp as hp
 
-from composer.core.types import JSON, Model
+from composer.core.types import JSON
 from composer.models.model_hparams import ModelHparams
 
 
@@ -36,7 +36,3 @@ class TransformerHparams(ModelHparams, ABC):
 
         if self.use_pretrained and self.model_config:
             raise Exception("A model cannot load pretrained weights from configuration.")
-
-    @abstractmethod
-    def initialize_object(self) -> Model:
-        pass

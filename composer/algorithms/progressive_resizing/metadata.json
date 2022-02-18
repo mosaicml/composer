@@ -4,6 +4,7 @@
         "functional": "resize_batch",
         "tldr": "Increases the input image size during training",
         "attribution": "Fast AI",
-        "link": "https://github.com/fastai/fastbook/blob/780b76bef3127ce5b64f8230fce60e915a7e0735/07_sizing_and_tta.ipynb"
+        "link": "https://github.com/fastai/fastbook/blob/780b76bef3127ce5b64f8230fce60e915a7e0735/07_sizing_and_tta.ipynb",
+        "domains": ["cv"]
     }
 }

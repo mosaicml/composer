@@ -84,18 +84,16 @@ class SeqLengthWarmup(Algorithm):
 
     .. note::
 
-        ``step_size`` should be a `multiple of eight
-        <https://developer.nvidia.com/blog/optimizing-gpu-performance-tensor-cores/>`_ for
+        ``step_size`` should be a `multiple of eight <https://developer.nvidia.com/blog/optimizing-gpu-performance-tensor-cores/>`_ for
         optimal throughput on NVIDIA GPUs
 
     .. note::
 
         Variable input lengths can create CUDA OOM errors. To avoid this,
-        we follow `PyTorch notes
-        <https://pytorch.org/tutorials/recipes/recipes/tuning_guide.html#pre-allocate-memory-in-case-of-variable-input-length>`_
-         and pre-allocate the memory with a blank forward and backward pass.
+        we follow `PyTorch notes <https://pytorch.org/tutorials/recipes/recipes/tuning_guide.html#pre-allocate-memory-in-case-of-variable-input-length>`_
+        and pre-allocate the memory with a blank forward and backward pass.
 
-    See the :doc:`Method Card </method_cards/seq_len_warmup>` for more details.
+    See the :doc:`Method Card </method_cards/seq_length_warmup>` for more details.
 
     Example: Awaiting language model test fixtures.
 
@@ -135,30 +133,9 @@ class SeqLengthWarmup(Algorithm):
         self._original_model = None
 
     def match(self, event: Event, state: State) -> bool:
-        """Runs on Event.AFTER_DATALOADER. Not called by user.
-
-        :meta private:
-        """
         return (event == Event.INIT and self._original_model is None) or event == Event.AFTER_DATALOADER
 
     def apply(self, event: Event, state: State, logger: Logger) -> Optional[int]:
-        """Applies on ``Event.AFTER_DATALOADER`` to apply the sequence length warmup to the input batch.
-
-        .. note::
-
-            On the first call of :meth:`apply`, a dummy training pass on the
-            full sequence length is used to preallocate the PyTorch cache.
-
-        Args:
-            event (:class:`Event`): The current event.
-            state (:class:`State`): The current state.
-            logger (:class:`Logger`): A logger to use for logging algorithm-specific metrics.
-        Returns:
-            int or None: exit code that is stored in :class:`Trace` and made accessible
-            for debugging.
-
-        :meta private:
-        """
         if event == Event.INIT:
             if not isinstance(state.model, ComposerTransformer):
                 raise RuntimeError(

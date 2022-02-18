@@ -168,8 +168,8 @@ class Trainer:
         eval_subset_num_batches (int, optional): If specified, evaluate on this many batches.
             This parameter has no effect if it is greater than ``len(eval_dataloader)``.
             If None (the default), then the entire dataloader will be iterated over.
-        deepspeed_config (Dict[str, Any], optional): Configuration for DeepSpeed, formatted as a JSON
-            according to `DeepSpeed's documentation <https://www.deepspeed.ai/docs/config-json/>`_. If any
+        deepspeed_config (Dict[str, Any], optional): Configuration for DeepSpeed, formatted as a dictionary
+            according to the `DeepSpeed documentation <https://www.deepspeed.ai/docs/config-json/>`_. If any
             non-None value is provided, the trainer will initialize the DeepSpeed engine. (default: ``None``)
 
     Attributes:
@@ -487,8 +487,9 @@ class Trainer:
                 import deepspeed
             except ImportError as e:
                 raise ImportError(
-                    'Composer was installed without deepspeed support. To use deepspeed with Composer, run: `pip install mosaicml[deepspeed]`.'
-                ) from e
+                    textwrap.dedent("""\
+                    Composer was installed without DeepSpeed support. To use DeepSpeed with Composer, run `pip install mosaicml[deepspeed]`
+                    if using pip or `pip install deepspeed>=0.5.5` if using Anaconda.""")) from e
             assert deepspeed_config is not None
             self.deepspeed_config = parse_deepspeed_config(deepspeed_config,
                                                            state=self.state,

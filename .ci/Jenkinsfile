@@ -4,6 +4,7 @@ gitBranch = null
 gitCommit = null
 pTimeout = '1800' // in seconds
 pytorchDockerChanged = null
+dependenciesChanged = null
 runWithChecks = null
 expandDockerMatrix = null
 prChangeset = null
@@ -66,26 +67,6 @@ def runPytest(Map args) {
     }
     def summary = title
 
-    def pytestCommand = """#!/usr/bin/env bash
-set -euxo pipefail
-
-EXTRA_DEPS="$extraDeps"
-MARKERS="$markers"
-
-# Install dependencies
-if [ -z "\${EXTRA_DEPS}" ]; then
-    pip install .
-else
-    pip install .[\${EXTRA_DEPS}]
-fi
-
-# Run pytest
-JUNIT_PREFIX=build/output/\${BUILD_NUMBER} ./scripts/test.sh --duration all -v -m "\$MARKERS"
-
-# Combine the coverage reports
-python -m coverage combine
-python -m coverage xml -o build/output/\${BUILD_NUMBER}.coverage.xml"""
-
     def closure = { ->
         builds << build(
             job: "${jenkinsJobBasePath}/command",
@@ -98,7 +79,7 @@ python -m coverage xml -o build/output/\${BUILD_NUMBER}.coverage.xml"""
                 string(name: 'P_MEM_LIMIT', value: memLimit),
                 string(name: 'P_TIMEOUT', value: pTimeout),
                 string(name: 'P_N_GPUS', value: nGpus),
-                text(name: 'P_COMMAND', value: pytestCommand),
+                text(name: 'P_COMMAND', value: "./.ci/test.sh '$extraDeps' '$markers'"),
                 string(name: 'P_ARTIFACTS_GLOB', value: "build/output/*.xml"),
                 string(name: 'P_JUNIT_GLOB', value: "build/output/*.junit.xml"),
                 string(name: 'P_COVERAGE_GLOB', value: "build/output/*.coverage.xml"),
@@ -142,6 +123,8 @@ stage('Prepare') {
         prChangeset = load "$jenkinsfileWorkspace/utils/prChangeset.groovy"
 
         pytorchDockerChanged = prChangeset("docker/pytorch/")
+        // Keep track of whether dependencies changed, in which case a conda build should be tested
+        dependenciesChanged = prChangeset("setup.py") || prChangeset("meta.yaml")
     }
 }
 
@@ -171,6 +154,31 @@ stage('Build') {
             P_KANIKO_PUSH_FINAL: gitBranch == "dev" || gitBranch == "main", // only push if we're on the main or dev branch
         ) { stagingImage -> dockerImagePostBuild(stagingImage) }
     }
+    if (dependenciesChanged) {
+        jobs << [
+            'Conda': { ->
+                runWithChecks(
+                    name: 'conda',
+                    title: 'Conda build and test',
+                    summary: 'Conda build and test of composer',
+                ) {
+                    builds << build(
+                        job: "${jenkinsJobBasePath}/command",
+                        parameters: [
+                            string(name: 'P_CLOUD', value: pCloud),
+                            string(name: 'P_GIT_REPO', value: gitUrl),
+                            string(name: 'P_GIT_COMMIT', value: gitCommit),
+                            string(name: 'P_DOCKER_IMAGE', value: "continuumio/anaconda-pkg-build"),
+                            string(name: 'P_TIMEOUT', value: pTimeout),
+                            string(name: 'P_CPU_LIMIT', value: "2"),
+                            string(name: 'P_MEM_LIMIT', value: "7Gi"),
+                            string(name: 'P_COMMAND', value: "./.ci/build_conda.sh")
+                        ]
+                    )
+                }
+            }
+        ]
+    }
     if (gitBranch != "main" && gitBranch != "dev") {
         // if not on main or dev, run the pytest again.
         jobs << [
@@ -190,17 +198,7 @@ stage('Build') {
                             string(name: 'P_TIMEOUT', value: pTimeout),
                             string(name: 'P_CPU_LIMIT', value: "2"),
                             string(name: 'P_MEM_LIMIT', value: "7Gi"),
-                            string(name: 'P_COMMAND', value: """#!/usr/bin/env bash
-set -euxo pipefail
-
-pip install .[all]
-make lint
-
-# Running doctests on linting worker, so they are executed only once
-# on an install with all dependencies
-# Must build the html first to ensure that doctests in .. autosummary generated pages are included
-cd docs && make html && make doctest && cd ..
-""")
+                            string(name: 'P_COMMAND', value: "./.ci/lint_doctests.sh")
                         ]
                     )
                 }
