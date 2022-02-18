@@ -28,7 +28,7 @@ def smooth_labels(logits: Tensor, targets: Tensor, alpha: float):
             new_targets = smooth_labels(
                             logits=logits,
                             targets=y_example,
-                            0.1
+                            alpha=0.1
                           )
 
     Args:
