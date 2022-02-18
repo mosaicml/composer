@@ -3,6 +3,7 @@
 import functools
 import logging
 import math
+import warnings
 from abc import ABC
 from dataclasses import asdict, dataclass
 from typing import TYPE_CHECKING, List, Union
@@ -280,7 +281,13 @@ def multi_step_with_warmup_scheduler(state: State,
             this scheduler at time :math:`t \times s` with an SSR of :math:`s`. Default = ``1.0``.
     """
 
+    # N.B. warmup time is intentionally *not* subject to scale schedule
     warmup_time = _convert_time(warmup_time, state)
+    if warmup_time.value == 0:
+        warnings.warn("The warmup duration is 0. If you specified warmup as a fraction of total "
+                      "training duration, take note that the warmup duration is calculated in the "
+                      "same unit as the trainer's max_duration parameter.")
+
     if state.timer < warmup_time:
         return linear_scheduler(state, start_factor=0.0, end_factor=1.0, total_time=warmup_time)
 
@@ -305,6 +312,11 @@ def linear_with_warmup_scheduler(state: State,
 
     # N.B. warmup time is intentionally *not* subject to scale schedule
     warmup_time = _convert_time(warmup_time, state)
+    if warmup_time.value == 0:
+        warnings.warn("The warmup duration is 0. If you specified warmup as a fraction of total "
+                      "training duration, take note that the warmup duration is calculated in the "
+                      "same unit as the trainer's max_duration parameter.")
+
     if state.timer < warmup_time:
         return linear_scheduler(state, start_factor=0.0, end_factor=start_factor, total_time=warmup_time)
 
@@ -334,6 +346,11 @@ def cosine_annealing_with_warmup_scheduler(state: State,
 
     # N.B. warmup time is intentionally *not* subject to scale schedule
     warmup_time = _convert_time(warmup_time, state)
+    if warmup_time.value == 0:
+        warnings.warn("The warmup duration is 0. If you specified warmup as a fraction of total "
+                      "training duration, take note that the warmup duration is calculated in the "
+                      "same unit as the trainer's max_duration parameter.")
+
     if state.timer < warmup_time:
         return linear_scheduler(state, start_factor=0.0, end_factor=1.0, total_time=warmup_time)
 
