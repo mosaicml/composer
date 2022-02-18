@@ -2,21 +2,26 @@
 from __future__ import annotations
 
 import logging
-from typing import Optional, Union
+from typing import Optional, TypeVar, Union
 
 import numpy as np
 import torch
+from PIL.Image import Image as PillowImage
 
+from composer.algorithms.utils.augmentation_common import image_as_type, image_typed_and_shaped_like
 from composer.core.types import Algorithm, Event, Logger, State, Tensor
 
 log = logging.getLogger(__name__)
 
 
-def cutout_batch(X: Tensor, n_holes: int = 1, length: Union[int, float] = 0.5) -> Tensor:
+ImgT = TypeVar("ImgT", torch.Tensor, PillowImage)
+def cutout_batch(X: ImgT, n_holes: int = 1, length: Union[int, float] = 0.5) -> ImgT:
     """See :class:`CutOut`.
 
     Args:
-        X (Tensor): Batch Tensor image of size (B, C, H, W).
+        X: :class:`PIL.Image.Image` or :class:`torch.Tensor` of image data. In
+            the latter case, must be a single image of shape ``CHW`` or a batch
+            of images of shape ``NCHW``.
         n_holes: Integer number of holes to cut out
         length: Side length of the square holes to cut out. Must be greater than
             0. If ``0 < length < 1``, ``length`` is interpreted as a fraction
@@ -27,22 +32,23 @@ def cutout_batch(X: Tensor, n_holes: int = 1, length: Union[int, float] = 0.5) -
         X_cutout: Batch of images with ``n_holes`` holes of dimension
             ``length x length`` replaced with zeros.
     """
-    h = X.size(2)
-    w = X.size(3)
+    X_tensor = image_as_type(X, torch.Tensor)
+    h = X_tensor.shape[-2]
+    w = X_tensor.shape[-1]
 
     if 0 < length < 1:
         length = min(h, w) * length
     length = int(length)
 
-    mask = torch.ones_like(X)
+    mask = torch.ones_like(X_tensor)
     for _ in range(n_holes):
         y = np.random.randint(h)
         x = np.random.randint(w)
 
         mask = _generate_mask(mask, w, h, x, y, length)
 
-    X_cutout = X * mask
-    return X_cutout
+    X_cutout = X_tensor * mask
+    return image_typed_and_shaped_like(X_cutout, X)
 
 
 class CutOut(Algorithm):
@@ -83,6 +89,6 @@ def _generate_mask(mask: Tensor, width: int, height: int, x: int, y: int, cutout
     x1 = np.clip(x - cutout_length // 2, 0, width)
     x2 = np.clip(x + cutout_length // 2, 0, width)
 
-    mask[:, :, y1:y2, x1:x2] = 0.
+    mask[..., y1:y2, x1:x2] = 0.
 
     return mask
