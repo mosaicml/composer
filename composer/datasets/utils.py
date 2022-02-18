@@ -11,7 +11,7 @@ from PIL import Image
 from torchvision import transforms
 from torchvision.datasets import VisionDataset
 
-from composer.core.types import Batch, BatchPair, Tensor
+from composer.core.types import Batch, Tensor
 
 __all__ = [
     "add_vision_dataset_transform",
@@ -65,7 +65,7 @@ class NormalizationFn:
 
 
 def pil_image_collate(batch: List[Tuple[Image.Image, Union[Image.Image, np.ndarray]]],
-                      memory_format: torch.memory_format = torch.contiguous_format) -> BatchPair:
+                      memory_format: torch.memory_format = torch.contiguous_format) -> Tuple[Tensor, Tensor]:
     """Constructs a :class:`~composer.core.types.BatchPair` from datasets that yield samples of type
     :class:`PIL.Image.Image`.
 
