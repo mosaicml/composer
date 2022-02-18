@@ -6,6 +6,9 @@ set -euo pipefail
 # are executed. See `meta.yaml` for the conda package
 # configuration
 
+# Install git manually, since it doesn't seem to work properly via conda
+yum install git
+
 # Prepare the conda package
 echo "Adding 'mosaicml' to the conda channels"
 conda config --add channels mosaicml
