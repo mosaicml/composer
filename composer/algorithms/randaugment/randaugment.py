@@ -22,10 +22,12 @@ def randaugment_image(img: ImageType,
                       severity: int = 9,
                       depth: int = 2,
                       augmentation_set: List = augmentation_sets["all"]) -> ImageType:
-    """Randomly applies a sequence of image data augmentations
-    (`Cubuk et al., 2019 <https://arxiv.org/abs/1909.13719>`_) to an image. See
-    :class:`~composer.algorithms.randaugment.randaugment.RandAugment` or the :doc:`Method
-    Card </method_cards/randaugment>` for details.
+    """Randomly applies a sequence of image data augmentations (`Cubuk et al., 2019.
+
+    <https://arxiv.org/abs/1909.13719>`_) to an image.
+
+    See :class:`~composer.algorithms.randaugment.randaugment.RandAugment` or the :doc:`Method Card
+    </method_cards/randaugment>` for details.
 
     Example:
         .. testcode::
@@ -68,7 +70,7 @@ class RandAugmentTransform(torch.nn.Module):
         .. testcode::
 
             import torchvision.transforms as transforms
-            from composer.algorithms.randaugment import RandAugmentTransform 
+            from composer.algorithms.randaugment import RandAugmentTransform
             randaugment_transform = RandAugmentTransform(
                 severity=9,
                 depth=2,
@@ -105,8 +107,9 @@ class RandAugmentTransform(torch.nn.Module):
 
 
 class RandAugment(Algorithm):
-    """Randomly applies a sequence of image data augmentations
-    (`Cubuk et al., 2019 <https://arxiv.org/abs/1909.13719>`_) to an image.
+    """Randomly applies a sequence of image data augmentations (`Cubuk et al., 2019.
+
+    <https://arxiv.org/abs/1909.13719>`_) to an image.
 
     This algorithm runs on on :attr:`~composer.core.event.Event.INIT` to insert a dataset
     transformation. It is a no-op if this algorithm already applied itself on the

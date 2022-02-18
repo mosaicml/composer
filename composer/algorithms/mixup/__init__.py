@@ -1,7 +1,9 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
-"""Create new samples using convex combinations of pairs of samples. This is done by taking a
-convex combination of x with a randomly permuted copy of x.
+"""Create new samples using convex combinations of pairs of samples.
+
+This is done by taking a convex combination of x with a randomly permuted copy of x.
+
 See the :doc:`Method Card </method_cards/mix_up>` for more details.
 """
 

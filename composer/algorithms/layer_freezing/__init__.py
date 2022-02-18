@@ -1,6 +1,7 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
 """Progressively freeze the layers of the network during training, starting with the earlier layers.
+
 See the :doc:`Method Card </method_cards/layer_freezing>` for more details.
 """
 
