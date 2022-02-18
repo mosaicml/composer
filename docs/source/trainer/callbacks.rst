@@ -2,7 +2,7 @@ Callbacks
 =========
 
 Callbacks enable non-essential code to be executed during any of the
-:class:`.Event` points. By convention, callbacks should not modify the
+|Event| points. By convention, callbacks should not modify the
 training loop by changing the :class:`.State`, but rather be reading and
 logging various metrics. Typical callback use cases include logging, timing,
 or model introspection.
@@ -30,7 +30,7 @@ This example includes callbacks that measure the model throughput (and
 the learning rate) and logs them to weights & biases.
 Callbacks control *what* is being logged, whereas loggers specify
 *where* the information is being saved. For more information on
-loggers, see :doc:`Logging`<trainer/logging>.
+loggers, see :doc:`Logging<trainer/logging>`.
 
 Available Callbacks
 -------------------
@@ -55,7 +55,7 @@ Custom Callbacks
 
 Custom callbacks should inherit from :class:`.Callback` and override any of the
 event-related hooks. For example, below is a simple callback that runs on
-:attr:`.Event.EPOCH_START` and prints the epoch number.
+|EPOCH_START| and prints the epoch number.
 
 .. code:: python
 
@@ -87,9 +87,12 @@ at every event. The below is an equivalent implementation for ``EpochMonitor``:
 Callback Methods
 ----------------
 
-Here is the list of :class:``Callback`` methods that correspond to each
-:class:``Event``.
+Here is the list of :class:`.Callback` methods that correspond to each
+|Event|.
 
 .. currentmodule:: composer.core
 
 .. autoclass:: Event
+
+.. |Event| replace:: :class:`~composer.core.Event`
+.. |EPOCH_START| replace:: :attr:`~composer.core.Event.EPOCH_START`

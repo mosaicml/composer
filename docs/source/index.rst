@@ -70,7 +70,7 @@ Our documentation is organized into a few sections:
    :maxdepth: 1
    :caption: ComposerModel
 
-    composer_model.rst
+   composer_model.rst
 
 .. toctree::
    :maxdepth: 1

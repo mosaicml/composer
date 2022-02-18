@@ -5,7 +5,7 @@ Dataloaders are used to pass in training or evaluation data to the
 Composer :class:`.Trainer`. There are three different ways of doing so:
 
 1. Passing PyTorch :class:`torch.utils.data.DataLoader` objects directly.
-2. Providing a :class:`.DataSpec`, which contains a pytorch dataloader, as well as
+2. Providing a |DataSpec|, which contains a pytorch dataloader, as well as
    additional configurations, such as on-device transforms.
 3. (For validation) Providing :class:`.Evaluator` objects which contain both a
    dataloader but also relevant metrics for validation.
@@ -75,7 +75,7 @@ additional configurations:
    isn't in the dataloader's interface.
 
 For these and other potential uses cases, the trainer can also accept
-:class:`.DataSpec` object with these additional settings. For example,
+|DataSpec| object with these additional settings. For example,
 
 .. code:: python
 
@@ -90,8 +90,8 @@ For these and other potential uses cases, the trainer can also accept
 
    trainer = Trainer(train_dataloader=data_spec, ...)
 
-Examples of how :class:`.DataSpec` is used for popular datasets can be seen in
-our ImageNet and ADE20k files. For reference, the :class:`.DataSpec` arguments
+Examples of how |DataSpec| is used for popular datasets can be seen in
+our ImageNet and ADE20k files. For reference, the |DataSpec| arguments
 are shown below.
 
 .. currentmodule:: composer.core
@@ -108,4 +108,7 @@ multiple datasets to use for validation/evaluation, each
 with their own metrics, :class:`.Evaluator` objects can be used to
 pass in multiple dataloaders/datasets to the trainer.
 
-For more information, see :doc:`Evaluation`</trainer/evaluation>.
+For more information, see :doc:`Evaluation</trainer/evaluation>`.
+
+.. |DataSpec| replace:: :class:`~composer.core.DataSpec`
+.. _pytorch: https://pytorch.org/tutorials/beginner/basics/data_tutorial.html

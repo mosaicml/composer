@@ -78,7 +78,7 @@ to log any desired information.
 
 .. seealso::
 
-    :doc:`Algorithms`<trainer/algorithms> and :doc:`Callbacks`<trainer/callbacks>
+    :doc:`Algorithms<algorithms>` and :doc:`Callbacks<callbacks>`
 
 Logging Levels
 --------------
@@ -129,5 +129,5 @@ into a dictionary:
                self.data[k].append((timestamp, log_level, v))
 
 In addition, :class:`.LoggerCallback` can also implement the typical event-based
-hooks of typical callbacks if needed. See :doc:`Callbacks`<trainer/callbacks> for
+hooks of typical callbacks if needed. See :doc:`Callbacks<callbacks>` for
 more information.

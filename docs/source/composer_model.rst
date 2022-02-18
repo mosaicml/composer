@@ -73,7 +73,7 @@ specifically:
    loss and accuracy metric.
 -  :class:`.TIMM` - creates classification models from the popular `TIMM`_
    library.
--  :class:`.ComposerTransformer` - base class for 🤗 `Tranformers`_ models.
+-  :class:`.ComposerTransformer` - base class for 🤗 `Transformers`_ models.
 
 ..note ::
 
@@ -157,7 +157,7 @@ the results to a ``dict``, use the :class:`.InMemoryLogger`.
 
 .. seealso::
 
-    Our guide to :doc:`Logging`<trainer/logging>
+    Our guide to :doc:`Logging<trainer/logging>`.
 
 
 Multiple Metrics
@@ -178,7 +178,7 @@ To run multiple metrics, wrap them in a :class:`torchmetrics.MetricCollection`.
 
     We all the metrics provided to the validation dataset. If
     you have multiple eval datasets and different metrics, we recommend
-    using :class:`.Evaluator` (see :doc:`Evaluation`<trainer/evaluation>)
+    using :class:`.Evaluator` (see :doc:`Evaluation<trainer/evaluation>`)
 
 
 TIMM
