@@ -80,8 +80,7 @@ def blurmax_pool2d(input: torch.Tensor,
                    filter: Optional[torch.Tensor] = None):
     """Max-pooling with anti-aliasing.
 
-    This is a nearly drop-in replacement for Pytorch
-    `max_pool2d <https://pytorch.org/docs/stable/nn.functional.html#max-pool2d>`_.
+    This is a nearly drop-in replacement for PyTorch's :func:`~torch.nn.functional.max_pool2d`.
     The only API difference is that the parameter `return_indices` is not
     available, because it is ill-defined when using anti-aliasing.
 
@@ -107,7 +106,7 @@ def blurmax_pool2d(input: torch.Tensor,
             filter, `padding=1` (the default) returns output of the same size
             as the input.
         dilation: amount by which to "stretch" the pooling region for a given
-            total size. See `this blog post <https://pytorch.org/docs/stable/generated/torch.nn.MaxPool2d.html#torch.nn.MaxPool2d>_
+            total size. See :class:`~torch.nn.MaxPool2d`
             for our favorite explanation of how this works.
         ceil_mode: when True, will use ceil instead of floor to compute the output shape
         filt: a 2d or 4d tensor to be cross-correlated with the input tensor
