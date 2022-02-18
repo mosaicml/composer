@@ -402,7 +402,8 @@ class SchedulerHparams(hp.Hparams, ABC):
 
 @dataclass
 class PolynomialLRHparams(SchedulerHparams):
-    """Hyperparameters for the :class:`PolynomialLR` scheduler."""
+    """Hyperparameters for the :func:`polynomial_scheduler` scheduler."""
+
     power: float = hp.required(doc='Power of LR schedule.')
     t_max: str = hp.optional(default='1dur', doc='Maximum number of iterations.')
     min_factor: float = hp.optional(default=0.0, doc='Minimum learning rate.')
@@ -412,7 +413,7 @@ class PolynomialLRHparams(SchedulerHparams):
 
 @dataclass
 class ConstantLRHparams(SchedulerHparams):
-    """Hyperparameters for the :class:`ConstantLR` scheduler."""
+    """Hyperparameters for the :func:`constant_scheduler` scheduler."""
 
     factor: float = hp.optional(default=1.0, doc='foo')
     total_time: str = hp.optional(default='1dur', doc='foo')
@@ -422,8 +423,7 @@ class ConstantLRHparams(SchedulerHparams):
 
 @dataclass
 class StepLRHparams(SchedulerHparams):
-    """Hyperparameters for the `StepLR <https://pytorch.org/docs/stable/generated/torch.optim.lr_scheduler.StepLR.html#t
-    orch.optim.lr_scheduler.StepLR>`_ scheduler."""
+    """Hyperparameters for the :func:`step_scheduler` scheduler."""
 
     step_size: str = hp.required(doc='Period of learning rate decay')
     gamma: float = hp.optional(default=0.1, doc='multiplicative factor of decay')
@@ -433,8 +433,7 @@ class StepLRHparams(SchedulerHparams):
 
 @dataclass
 class MultiStepLRHparams(SchedulerHparams):
-    """Hyperparameters for the `MultiStepLR <https://pytorch.org/docs/stable/generated/torch.optim.lr_scheduler.MultiSte
-    pLR.html#torch.optim.lr_scheduler.MultiStepLR>`_ scheduler."""
+    """Hyperparameters for the :func:`multi_step_scheduler` scheduler."""
 
     milestones: List[str] = hp.required(doc='List of milestone time strings')
     gamma: float = hp.optional(default=0.1, doc='multiplicative factor of decay')
@@ -444,8 +443,7 @@ class MultiStepLRHparams(SchedulerHparams):
 
 @dataclass
 class ExponentialLRHparams(SchedulerHparams):
-    """Hyperparameters for the `ExponentialLR <https://pytorch.org/docs/stable/generated/torch.optim.lr_scheduler.Expone
-    ntialLR.html#torch.optim.lr_scheduler.ExponentialLR>`_ scheduler."""
+    """Hyperparameters for the :func:`exponential_scheduler` scheduler."""
 
     gamma: float = hp.required(doc='multiplicative factor of decay')
 
@@ -454,8 +452,7 @@ class ExponentialLRHparams(SchedulerHparams):
 
 @dataclass
 class CosineAnnealingLRHparams(SchedulerHparams):
-    """Hyperparameters for the `CosineAnnealingLR <https://pytorch.org/docs/stable/generated/torch.optim.lr_scheduler.Co
-    sineAnnealingLR.html#torch.optim.lr_scheduler.CosineAnnealingLR>`_ scheduler."""
+    """Hyperparameters for the :func:`cosine_annealing_scheduler` scheduler."""
 
     t_max: str = hp.optional(default='1dur', doc="Maximum scheduler duration.")
     min_factor: float = hp.optional(default=0.0, doc='minimum learning rate factor.')
@@ -465,8 +462,7 @@ class CosineAnnealingLRHparams(SchedulerHparams):
 
 @dataclass
 class CosineAnnealingWarmRestartsHparams(SchedulerHparams):
-    """Hyperparameters for the `CosineAnnealingWarmRestarts <https://pytorch.org/docs/stable/generated/torch.optim.lr_
-    scheduler.CosineAnnealingWarmRestarts.html#torch.optim.lr_scheduler.CosineAnnealingWarmRestarts>`_ scheduler."""
+    """Hyperparameters for the :func:`cosine_annealing_warm_restarts_scheduler` scheduler."""
 
     t_0: str = hp.optional(default='1dur', doc="Duration for the first restart.")
     min_factor: float = hp.optional(default=0.0, doc='minimum learning rate.')
@@ -477,7 +473,7 @@ class CosineAnnealingWarmRestartsHparams(SchedulerHparams):
 
 @dataclass
 class LinearLRHparams(SchedulerHparams):
-    """Hyperparameters for the :class:`~torch.optim.lr_scheduler.LinearLR` scheduler."""
+    """Hyperparameters for the :func:`linear_scheduler` scheduler."""
 
     start_factor: float = hp.optional("Number to multiply learning rate at the start.", default=1.0)
     end_factor: float = hp.optional("Number to multiply learning rate at the end.", default=0.0)
@@ -488,8 +484,7 @@ class LinearLRHparams(SchedulerHparams):
 
 @dataclass
 class MultiStepWithWarmupLRHparams(SchedulerHparams):
-    """Hyperparameters for the ``CosineAnnealingWarmRestarts` <https://pytorch.org/docs/stable/generated/torch.optim.lr_
-    scheduler.CosineAnnealingWarmRestarts.html#torch.optim.lr_scheduler.CosineAnnealingWarmRestarts>`_ scheduler."""
+    """Hyperparameters for the :func:`multi_step_with_warmup_scheduler` scheduler."""
 
     warmup_time: str = hp.required(doc='foo')
     milestones: List[str] = hp.required(doc='List of milestone time strings')
@@ -500,8 +495,7 @@ class MultiStepWithWarmupLRHparams(SchedulerHparams):
 
 @dataclass
 class LinearWithWarmupLRHparams(SchedulerHparams):
-    """Hyperparameters for the ``CosineAnnealingWarmRestarts` <https://pytorch.org/docs/stable/generated/torch.optim.lr_
-    scheduler.CosineAnnealingWarmRestarts.html#torch.optim.lr_scheduler.CosineAnnealingWarmRestarts>`_ scheduler."""
+    """Hyperparameters for the :func:`linear_with_warmup_scheduler` scheduler."""
 
     warmup_time: str = hp.required(doc='foo')
     start_factor: float = hp.optional("Number to multiply learning rate at the start.", default=1.0 / 3)
@@ -513,8 +507,7 @@ class LinearWithWarmupLRHparams(SchedulerHparams):
 
 @dataclass
 class CosineAnnealingWithWarmupLRHparams(SchedulerHparams):
-    """Hyperparameters for the ``CosineAnnealingWarmRestarts` <https://pytorch.org/docs/stable/generated/torch.optim.lr_
-    scheduler.CosineAnnealingWarmRestarts.html#torch.optim.lr_scheduler.CosineAnnealingWarmRestarts>`_ scheduler."""
+    """Hyperparameters for the :func:`cosine_annealing_with_warmup_scheduler` scheduler."""
 
     warmup_time: str = hp.required(doc='foo')
     t_max: str = hp.optional(default='1dur', doc="Maximum scheduler duration.")
