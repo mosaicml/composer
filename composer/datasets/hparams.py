@@ -21,6 +21,8 @@ from composer.core.types import DataLoader, DataSpec, MemoryFormat
 from composer.datasets.dataloader import DataloaderHparams
 
 
+__all__ = ["SyntheticHparamsMixin", "DatasetHparams"]
+
 @dataclasses.dataclass
 class SyntheticHparamsMixin(hp.Hparams, abc.ABC):
     """Synthetic dataset parameter mixin for :class:`DatasetHparams`.

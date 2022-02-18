@@ -20,6 +20,7 @@ if TYPE_CHECKING:
 
 log = logging.getLogger(__name__)
 
+__all__ = ["Profiler", "Marker"]
 
 class Profiler:
     """The Profiler produces a trace of the training graph.

@@ -17,6 +17,8 @@ import textwrap
 import types
 from typing import Any, List, Optional, Tuple, Type, Union
 
+import yahp as hp
+
 import sphinx.application
 import sphinx.ext.autodoc
 import sphinx.util.logging
@@ -123,9 +125,14 @@ autodoc_type_aliases = {
 autodoc_default_options = {
     # don't document the forward() method. Because of how torch.nn.Module.forward is defined in the
     # base class, sphinx does not realize that forward overrides an inherited method.
-    'exclude-members': 'forward'
+    'exclude-members': 'forward, hparams_registry'
 }
 autodoc_inherit_docstrings = False
+
+# Monkeypatch yahp so we don't document the hparams registry
+
+hp.Hparams.__doc__ = ""
+hp.Hparams.initialize_object.__doc__ = ""
 
 pygments_style = "manni"
 pygments_dark_style = "monokai"
@@ -200,10 +207,11 @@ def determine_sphinx_path(item: Union[Type[object], Type[BaseException], types.M
         while public_name.startswith("_"):
             public_name = public_name[1:]
 
-        log.warning(
-            textwrap.dedent(f"""\
-            {item.__name__} is private, so it should not be re-exported.
-            To fix, please make it public by renaming to {public_name}"""))
+        if item.__qualname__.startswith("composer"):
+            log.warning(
+                textwrap.dedent(f"""\
+                {item.__qualname__} is private, so it should not be re-exported.
+                To fix, please make it public by renaming to {public_name}"""))
 
     # Find and import the most nested public module of the path
     module_parts = module_name.split(".")
@@ -220,7 +228,7 @@ def determine_sphinx_path(item: Union[Type[object], Type[BaseException], types.M
     # `item` was not found in `public_module`. Recursively search the parent module
     parent_module_name = ".".join(public_module_name.split(".")[:-1])
     if parent_module_name == "":
-        log.warning(f"{item.__name__} is not re-imported by any public parent or grandparent module.")
+        log.warning(f"{item.__name__} in {module_name} is not re-imported by any public parent or grandparent module.")
         return None
     return determine_sphinx_path(item, parent_module_name)
 

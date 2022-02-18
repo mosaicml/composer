@@ -31,6 +31,25 @@ INTERVAL_MAP = {
 }
 
 
+__all__ = [
+    "SchedulerHparams",
+    "ConstantLR",
+    "PolynomialLR",
+    "PolynomialLRHparams",
+    "ConstantLRHparams",
+    "StepLRHparams",
+    "MultiStepLRHparams",
+    "ExponentialLRHparams",
+    "CosineAnnealingLRHparams",
+    "CosineAnnealingWarmRestartsHparams",
+    "LinearLRHparams",
+    "WarmUpLRHparams",
+    "ensure_warmup_last",
+    "get_num_warmup_batches",
+    "ComposedScheduler",
+]
+
+
 def _convert_time_fields(interval: str,
                          kwargs: Dict[str, Any],
                          max_training_duration: Optional[Union[str, Time[int]]] = None,
@@ -204,7 +223,6 @@ class StepLRHparams(SchedulerHparams):
     interval: str = hp.optional(default='step', doc=_interval_doc)
 
     scheduler_object = torch.optim.lr_scheduler.StepLR
-
 
 @dataclass
 class MultiStepLRHparams(SchedulerHparams):
@@ -424,7 +442,7 @@ class ComposedScheduler(_LRScheduler):
 
         Args:
             state_dict (Dict[str, Any]): A dict containing the state of all composed schedulers. Should be an object
-            returned from a call to :meth:`state_dict()`.
+                returned from a call to :meth:`state_dict()`.
         """
         for scheduler in self.schedulers:
             scheduler.load_state_dict(state_dict["schedulers"][scheduler.__class__.__qualname__])
