@@ -30,7 +30,6 @@ INTERVAL_MAP = {
     'steps': 'batch'
 }
 
-
 __all__ = [
     "SchedulerHparams",
     "ConstantLR",
@@ -223,6 +222,7 @@ class StepLRHparams(SchedulerHparams):
     interval: str = hp.optional(default='step', doc=_interval_doc)
 
     scheduler_object = torch.optim.lr_scheduler.StepLR
+
 
 @dataclass
 class MultiStepLRHparams(SchedulerHparams):

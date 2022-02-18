@@ -77,7 +77,7 @@ class ClosureGradScaler(GradScaler):
 
     # Mostly copied from original grad_scaler implementation
     # See: https://pytorch.org/docs/stable/_modules/torch/cuda/amp/grad_scaler.html#GradScaler
-    def update(self, new_scale: Optional[Union[float, torch.FloatTensor]] =None):
+    def update(self, new_scale: Optional[Union[float, torch.FloatTensor]] = None):
         """Updates the scale factor.
 
         If any optimizer steps were skipped, the scale is multiplied by ``backoff_factor``

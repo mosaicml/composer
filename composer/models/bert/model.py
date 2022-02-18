@@ -17,6 +17,7 @@ if TYPE_CHECKING:
 
 __all__ = ["BERTModel"]
 
+
 class BERTModel(ComposerTransformer):
     """Implements a BERT wrapper around a ComposerTransformer."""
 
