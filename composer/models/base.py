@@ -43,7 +43,7 @@ class ComposerModel(torch.nn.Module, abc.ABC):
                 return self.model(inputs)
 
             def loss(self, outputs, batch):
-                        # pass batches and `forward` outputs to the loss
+                # pass batches and `forward` outputs to the loss
                 _, targets = batch
                 return F.cross_entropy(outputs, targets)
     """
@@ -198,6 +198,7 @@ class ComposerClassifier(ComposerModel):
     Inherits from :class:`~composer.models.ComposerModel`.
 
     Example:
+
     .. testcode::
 
         import torchvision

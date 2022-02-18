@@ -66,6 +66,7 @@ def deeplabv3_builder(num_classes: int,
 
 class ComposerDeepLabV3(ComposerModel):
     """DeepLabV3 model extending the :class:`ComposerClassifier`.
+    Logs Mean Intersection over Union (MIoU) and Cross Entropy during training and validation.
 
     From the paper Rethinking Atrous Convolution for Semantic Image Segmentation `<arxiv.org/abs/1706.05587>`_.
 
@@ -111,18 +112,15 @@ class ComposerDeepLabV3(ComposerModel):
         return logits
 
     def loss(self, outputs: Any, batch: BatchPair):
-        """Calculate the specified loss for training."""
         target = batch[1]
         loss = soft_cross_entropy(outputs, target, ignore_index=-1)  # type: ignore
         return loss
 
     def metrics(self, train: bool = False):
-        """Metrics to compute during validation."""
         metric_list = [self.train_miou, self.train_ce] if train else [self.val_miou, self.val_ce]
         return MetricCollection(metric_list)
 
     def validate(self, batch: BatchPair):
-        """Generate outputs used during validation."""
         assert self.training is False, "For validation, model must be in eval mode"
         target = batch[1]
         logits = self.forward(batch)
