@@ -1,4 +1,5 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
+import textwrap
 from typing import Optional
 
 from composer.models.base import ComposerClassifier
@@ -36,8 +37,9 @@ class Timm(ComposerClassifier):
             import timm
         except ImportError as e:
             raise ImportError(
-                "Composer was installed without timm support. To use timm with Composer, run: `pip install mosaicml[timm]`."
-            ) from e
+                textwrap.dedent("""\
+                Composer was installed without timm support. To use timm with Composer, run `pip install mosaicml[timm]`
+                if using pip or `pip install timm>=0.5.4` if using Anaconda.""")) from e
 
         model = timm.create_model(
             model_name=model_name,
