@@ -12,8 +12,9 @@ import composer
 from composer.utils import run_directory
 
 # Allowed options for pytest.mark.world_size()
-# Important: when updating this list, make sure to also up scripts/test.sh
-# so tests of all world sizes will be executed
+# Important: when updating this list, make sure to also up ./.ci/test.sh
+# (so tests of all world sizes will be executed) and tests/README.md
+# (so the documentation is correct)
 WORLD_SIZE_OPTIONS = (1, 2)
 
 # default timout threshold is 2 seconds for determinign long and short
@@ -42,11 +43,11 @@ if _include_deprecated_fixtures:
 
 def pytest_addoption(parser: pytest.Parser) -> None:
     parser.addoption("--duration",
-                     default="short",
+                     default="all",
                      choices=["short", "long", "all"],
                      help="""Duration of tests, one of short, long, or all.
                              Tests are short if their timeout < 2 seconds
-                             (configurable threshold). Default: short.""")
+                             (configurable threshold). Default: all.""")
     parser.addoption("--world-size",
                      default=int(os.environ.get('WORLD_SIZE', 1)),
                      type=int,
@@ -83,7 +84,7 @@ def _validate_duration(duration: int):
 
 def pytest_collection_modifyitems(config: pytest.Config, items: List[pytest.Item]) -> None:
     """Filter tests by world_size (for multi-GPU tests) and duration (short, long, or all)"""
-    threshold = float(getattr(config, "_env_timeout", 2.0))
+    threshold = float(getattr(config, "_env_timeout", DEFAULT_TIMEOUT))
     duration = config.getoption("duration")
     world_size = config.getoption("world_size")
 

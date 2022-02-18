@@ -30,7 +30,13 @@ class TimmHparams(ModelHparams):
 
     def validate(self):
         if self.model_name is None:
-            import timm
+            try:
+                import timm
+            except ImportError as e:
+                raise ImportError(
+                    textwrap.dedent("""\
+                    Composer was installed without timm support. To use timm with Composer, run `pip install mosaicml[timm]`
+                    if using pip or `pip install timm>=0.5.4` if using Anaconda.""")) from e
             raise ValueError(f"model must be one of {timm.models.list_models()}")
 
     def initialize_object(self):
