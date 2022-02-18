@@ -1,4 +1,7 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
+
+"""Core CutOut classes and functions."""
+
 from __future__ import annotations
 
 import logging
@@ -11,9 +14,21 @@ from composer.core.types import Algorithm, Event, Logger, State, Tensor
 
 log = logging.getLogger(__name__)
 
+__all__ = ["CutOut", "cutout_batch"]
+
 
 def cutout_batch(X: Tensor, n_holes: int = 1, length: Union[int, float] = 0.5) -> Tensor:
     """See :class:`CutOut`.
+
+    Example:
+         .. testcode::
+
+            from composer.algorithms.cutout import cutout_batch
+            new_input_batch = cutout_batch(
+                X=X_example,
+                n_holes=1,
+                length=16
+            )
 
     Args:
         X (Tensor): Batch Tensor image of size (B, C, H, W).
@@ -50,6 +65,21 @@ class CutOut(Algorithm):
     more square regions of an input image.
 
     This implementation cuts out the same square from all images in a batch.
+
+    Example:
+         .. testcode::
+
+            from composer.algorithms import CutOut
+            from composer.trainer import Trainer
+            cutout_algorithm = CutOut(n_holes=1, length=0.25)
+            trainer = Trainer(
+                model=model,
+                train_dataloader=train_dataloader,
+                eval_dataloader=eval_dataloader,
+                max_duration="1ep",
+                algorithms=[cutout_algorithm],
+                optimizers=[optimizer]
+            )
 
     Args:
         X (Tensor): Batch Tensor image of size (B, C, H, W).
