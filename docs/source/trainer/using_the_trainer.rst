@@ -374,8 +374,3 @@ guides and notebooks for more information.
 .. _Transformers: https://huggingface.co/docs/transformers/index
 .. _TIMM: https://fastai.github.io/timmdocs/
 .. _torchvision: https://pytorch.org/vision/stable/models.html
-
-
-    Get the latest news at `CNN`_.
-
-.. _CNN: http://cnn.com/

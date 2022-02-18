@@ -17,7 +17,7 @@ Passing a PyTorch Dataloader
 ----------------------------
 
 Composer dataloaders have type :class:`torch.utils.data.DataLoader`
-(see `pytorch`_` documentation), and can be passed directly to the
+(see `pytorch`_ documentation), and can be passed directly to the
 :class:`.Trainer`.
 
 .. code:: python
@@ -61,8 +61,8 @@ For performance, we highly recommend:
 DataSpec
 --------
 
-Sometimes users may need to provide more configurations than just the
-PyTorch DataLoader:
+Some use cases require users to provide more than just the dataloader, but
+additional configurations:
 
 -  Some transforms that should be run on the device (e.g. ``GPU``) after
    the data has been moved.
@@ -75,7 +75,7 @@ PyTorch DataLoader:
    isn't in the dataloader's interface.
 
 For these and other potential uses cases, the trainer can also accept
-:class:`.DataSpec` object with these additional configurations.
+:class:`.DataSpec` object with these additional settings. For example,
 
 .. code:: python
 
@@ -91,7 +91,8 @@ For these and other potential uses cases, the trainer can also accept
    trainer = Trainer(train_dataloader=data_spec, ...)
 
 Examples of how :class:`.DataSpec` is used for popular datasets can be seen in
-our ImageNet and ADE20k files.
+our ImageNet and ADE20k files. For reference, the :class:`.DataSpec` arguments
+are shown below.
 
 .. currentmodule:: composer.core
 
@@ -102,29 +103,9 @@ Validation
 ----------
 
 To track training progress, validation datasets can be provided to the
-Composer Trainer through the ``eval_dataloader`` parameter. The trainer
-will compute evaluation metrics on the evaluation dataset at a frequency
-specified by the the :class:`.Trainer` parameters ``validate_every_n_batches``
-and ``validate_every_n_epochs`` .
+Composer Trainer through the ``eval_dataloader`` parameter. If there are
+multiple datasets to use for validation/evaluation, each
+with their own metrics, :class:`.Evaluator` objects can be used to
+pass in multiple dataloaders/datasets to the trainer.
 
-Example
-~~~~~~~
-
-.. code:: python
-
-   from composer import Trainer
-
-   trainer = Trainer(
-           ...,
-           eval_dataloader=my_eval_dataloader,
-           validate_every_n_batches = 100, # Default is -1 to not evaluate on batchwise frequency
-       validate_every_n_epochs = 1 # Default is 1
-   )
-
-Multiple Validation Datasets
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-If there are multiple datasets to use for validation/evaluation, each
-with their own evaluation metrics, :class:`.Evaluator` objects can be used to
-pass in multiple dataloaders/datasets to the trainer. For more
-information, see Evaluation.
+For more information, see :doc:`Evaluation`</trainer/evaluation>.
