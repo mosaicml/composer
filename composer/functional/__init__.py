@@ -19,7 +19,6 @@ from composer.algorithms.augmix import augmix_image as augmix_image
 from composer.algorithms.blurpool import apply_blurpool as apply_blurpool
 from composer.algorithms.channels_last import apply_channels_last as apply_channels_last
 from composer.algorithms.colout import colout_batch as colout_batch
-from composer.algorithms.colout import colout_image as colout_image
 from composer.algorithms.cutmix import cutmix_batch as cutmix_batch
 from composer.algorithms.cutout import cutout_batch as cutout_batch
 from composer.algorithms.factorize import apply_factorization as apply_factorization
@@ -42,7 +41,6 @@ __all__ = [
     "apply_blurpool",
     "apply_channels_last",
     "colout_batch",
-    "colout_image",
     "cutmix_batch",
     "cutout_batch",
     "apply_factorization",
