@@ -93,7 +93,7 @@ class TestTrainerInit():
         trainer = Trainer(**config)
         assert trainer.state.max_duration == "1ep"
         assert trainer.checkpoint_saver is not None and \
-            trainer.checkpoint_saver.save_interval == "10ep"
+            trainer.checkpoint_saver._save_interval == "10ep"
 
 
 @world_size(1, 2)
