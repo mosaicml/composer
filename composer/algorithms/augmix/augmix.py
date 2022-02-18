@@ -26,7 +26,7 @@ def augmix_image(img: ImageType,
                  width: int = 3,
                  alpha: float = 1.0,
                  augmentation_set: List = augmentation_sets["all"]) -> ImageType:
-    """Applies AugMix (`Hendrycks et al, 2020<http://arxiv.org/abs/1912.02781>`_) data augmentation to an image. See
+    """Applies AugMix (`Hendrycks et al, 2020 <http://arxiv.org/abs/1912.02781>`_) data augmentation to an image. See
     :class:`~composer.algorithms.augmix.augmix.AugMix` and the :doc:`Method Card </method_cards/augmix>` for details.
 
     Example:
