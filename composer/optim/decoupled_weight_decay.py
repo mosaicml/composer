@@ -18,12 +18,10 @@ class DecoupledSGDW(SGD):
 
     Argument defaults are copied from `torch.optim.SGD`.
 
-    The standard `SGD
-    <https://pytorch.org/docs/stable/generated/torch.optim.SGD.html?highlight=sgd#torch.optim.SGD>`_
+    The standard `SGD <https://pytorch.org/docs/stable/generated/torch.optim.SGD.html?highlight=sgd#torch.optim.SGD>`_
     optimizer couples the weight decay term with the gradient calculation. This ties the optimal value
     of :attr:`weight_decay` to :attr:`lr` and can also hurt generalization in practice. For more details
-    on why decoupling might be desirable, see `"Decoupled Weight Decay Regularization"
-    <https://arxiv.org/abs/1711.05101>`_.
+    on why decoupling might be desirable, see `Decoupled Weight Decay Regularization <https://arxiv.org/abs/1711.05101>`_.
 
     Args:
         params (list): List of parameters to optimize or dicts defining parameter groups.
@@ -147,8 +145,7 @@ class DecoupledAdamW(AdamW):
     The standard `AdamW <https://pytorch.org/docs/stable/generated/torch.optim.AdamW.html#torch.optim.AdamW>`_
     optimizer explicitly couples the weight decay term with the learning rate. This ties the
     optimal value of :attr:`weight_decay` to :attr:`lr` and can also hurt generalization in practice. For more details on
-    why decoupling might be desirable, see `"Decoupled Weight Decay Regularization"
-    <https://arxiv.org/abs/1711.05101>`_.
+    why decoupling might be desirable, see `Decoupled Weight Decay Regularization <https://arxiv.org/abs/1711.05101>`_.
 
     Args:
         params (list): List of parameters to update.

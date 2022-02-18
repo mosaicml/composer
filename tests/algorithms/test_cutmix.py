@@ -67,7 +67,7 @@ class TestCutMix:
         cutmix_lambda = 1 - ((bbx2 - bbx1) * (bby2 - bby1) / (x_fake.size()[-1] * x_fake.size()[-2]))
 
         # Apply cutmix
-        x_cutmix, y_cutmix = cutmix_batch(x=x_fake,
+        x_cutmix, y_cutmix = cutmix_batch(X=x_fake,
                                           y=y_fake,
                                           alpha=1.0,
                                           n_classes=n_classes,
