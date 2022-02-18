@@ -11,7 +11,7 @@ from composer.models.loss import ensure_targets_one_hot
 
 def smooth_labels(logits: Tensor, targets: Tensor, alpha: float):
     """Shrinks targets towards a uniform distribution to counteract label noise as in `Szegedy et
-    al <https://arxiv.org/abs/1512.00567>`_.
+    al<https://arxiv.org/abs/1512.00567>`_.
 
     This is computed by ``(1 - alpha) * targets + alpha * smoothed_targets``
     where ``smoothed_targets`` is a uniform distribution.
@@ -32,8 +32,9 @@ def smooth_labels(logits: Tensor, targets: Tensor, alpha: float):
 
 
 class LabelSmoothing(Algorithm):
-    """Shrinks targets towards a uniform distribution to counteract label noise as in `Szegedy et
-    al <https://arxiv.org/abs/1512.00567>`_.
+    """Shrinks targets towards a uniform distribution to counteract label noise as in `Szegedy et al.
+
+    <https://arxiv.org/abs/1512.00567>`_.
 
     This is computed by ``(1 - alpha) * targets + alpha * smoothed_targets``
     where ``smoothed_targets`` is a vector of ones.

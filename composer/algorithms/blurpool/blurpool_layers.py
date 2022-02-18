@@ -130,9 +130,8 @@ def blurmax_pool2d(input: torch.Tensor,
 
 
 class BlurMaxPool2d(nn.Module):
-    """This module is a (nearly) drop-in replacement for PyTorch's
-    `MaxPool2d <https://pytorch.org/docs/stable/generated/torch.nn.MaxPool2d.html>`_, but with an anti-aliasing filter
-    applied.
+    """This module is a (nearly) drop-in replacement for PyTorch's :class:`~torch.nn.MaxPool2d`, but with an anti-
+    aliasing filter applied.
 
     The only API difference is that the parameter ``return_indices`` is not
     available, because it is ill-defined when using anti-aliasing.
@@ -186,8 +185,8 @@ class BlurMaxPool2d(nn.Module):
 
 
 class BlurConv2d(nn.Module):
-    """This module is a drop-in replacement for PyTorch's
-    `Conv2d <https://pytorch.org/docs/stable/generated/torch.nn.Conv2d.html>`_, but with an anti-aliasing filter applied.
+    """This module is a drop-in replacement for PyTorch's :class:`~torch.nn.Conv2d`, but with an anti-aliasing filter
+    applied.
 
     The one new parameter is ``blur_first``. When set to ``True``, the
     anti-aliasing filter is applied before the underlying convolution, and

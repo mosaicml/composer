@@ -140,7 +140,7 @@ def selective_backprop(X: torch.Tensor,
 
 class SelectiveBackprop(Algorithm):
     """Selectively backpropagate gradients from a subset of each batch (`Jiang et al,
-    2019 <https://arxiv.org/abs/1910.00762>`_).
+    2019<https://arxiv.org/abs/1910.00762>`_).
 
     Selective Backprop (SB) prunes minibatches according to the difficulty
     of the individual training examples, and only computes weight gradients

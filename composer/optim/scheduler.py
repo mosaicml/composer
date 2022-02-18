@@ -196,8 +196,7 @@ class ConstantLRHparams(SchedulerHparams):
 
 @dataclass
 class StepLRHparams(SchedulerHparams):
-    """Hyperparameters for the `StepLR <https://pytorch.org/docs/stable/generated/torch.optim.lr_scheduler.StepLR.html#to
-    rch.optim.lr_scheduler.StepLR>`_ scheduler."""
+    """Hyperparameters for the :class:`~torch.optim.lr_scheduler.StepLR` scheduler."""
 
     step_size: str = hp.required(doc='Period of learning rate decay')
     gamma: float = hp.optional(default=0.1, doc='multiplicative factor of decay')
@@ -261,8 +260,7 @@ class CosineAnnealingWarmRestartsHparams(SchedulerHparams):
 
 @dataclass
 class LinearLRHparams(SchedulerHparams):
-    """Hyperparameters for the
-    `LinearLRHparams <https://pytorch.org/docs/stable/generated/torch.optim.lr_scheduler.LinearLR.html>`_ scheduler."""
+    """Hyperparameters for the :class:`~torch.optim.lr_scheduler.LinearLR` scheduler."""
 
     start_factor: float = hp.optional("Number to multiply learning rate at the start.", default=1.0 / 3)
     end_factor: float = hp.optional("Number to multiply learning rate at the end .", default=1.0)
