@@ -84,8 +84,8 @@ at every event. The below is an equivalent implementation for ``EpochMonitor``:
     If :meth:`.Callback.run_event` is overriden, the individual methods corresponding
     to each event will be ignored.
 
-Callback Methods
-----------------
+Callback API
+------------
 
 Here is the list of :class:`.Callback` methods that correspond to each
 |Event|.

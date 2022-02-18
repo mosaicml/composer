@@ -62,8 +62,8 @@ These are the most important keys to be aware of. There are several
 others that are required to ensure that you can pick back up where you
 left off.
 
-Resume training from a checkpoint
----------------------------------
+Resume training
+---------------
 
 To resumse training from a previous checkpoint, pass the
 checkpoint file path to the :class:`.Trainer` with the
@@ -85,8 +85,8 @@ information will be restored from the checkpoint and
 The above code will load the checkpoint from epoch 25, and continue training
 for another 65 epochs (to reach 90 epochs total).
 
-Fine-tuning from a checkpoint
------------------------------
+Fine-tuning
+-----------
 
 The :class:`.Trainer` will only load the model weights from the checkpoint if
 ``load_weights_only=True``. This is especially useful for model finetuning,
@@ -104,8 +104,8 @@ since the rest of the trainer's state no longer applies.
 This example will load only the model weights from epoch 50, and then continue
 training on the finetuned dataloader for 10 epochs.
 
-Loading weights from outside the trainer
-----------------------------------------
+Loading weights externally
+--------------------------
 
 The model weights are located at ``state_dict["state"]["model"]`` within
 the stored checkpoint. To load them into a model outside of
@@ -226,8 +226,8 @@ From there we can fine-tune with:
                          load_weights_only=True)
    new_trainer.fit()
 
-Trainer checkpoint API reference
---------------------------------
+Trainer checkpoint API
+----------------------
 
 The :class:`.Trainer` has many arguments, and below we provide the API reference
 for the arguments that are specific to checkpoint loading and saving:

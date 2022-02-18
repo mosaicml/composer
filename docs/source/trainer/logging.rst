@@ -33,7 +33,7 @@ Available Loggers
     InMemoryLogger
 
 
-Default values
+Default Values
 --------------
 
 Several quantities are logged by default during :meth:`.Trainer.fit`:
@@ -47,8 +47,8 @@ Several quantities are logged by default during :meth:`.Trainer.fit`:
 -  All the validation metrics specified in the :class:`.ComposerModel`
    object passed to :class:`.Trainer`.
 
-Custom Logging
---------------
+User Logging
+------------
 
 The recommended way to log additional information is to define a custom
 :class:`.Callback`. Each of its methods has access to :class:`.Logger`.

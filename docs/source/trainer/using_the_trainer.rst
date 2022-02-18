@@ -24,8 +24,8 @@ Below are simple examples for getting started with the Composer Trainer
 along with code snippets for more advanced usage such as using speedup
 methods, checkpointing, distributed training.
 
-Getting Started with Composer
-=============================
+Getting Started
+---------------
 
 Create a model class that meets the :class:`.ComposerModel` interface,
 minimally implementing the following methods:
@@ -96,8 +96,8 @@ A few tips and tricks for using our Trainer:
 For a full list of Trainer options, see :class:`.Trainer`. Below we
 illustrate some example use cases.
 
-Training loop in a nutshell
----------------------------
+Training loop
+~~~~~~~~~~~~~
 
 Behind the scenes, our trainer handles much of the engineering for
 distributed training, gradient accumulation, device movement, gradient
@@ -174,9 +174,8 @@ right order.
 
 .. seealso::
 
-    `Algorithms <algorithms>`_ Guide
-
-    Individual `Method Cards <methods_overview>`_ for each algorithm.
+    Our :doc:`Algorithms<algorithms>` guide, and the individual
+    :doc:`Method Cards </method_cards/methods_overview>` for each algorithm.
 
 ..
     TODO: add link to the methods notebook
@@ -184,7 +183,7 @@ right order.
 
 
 Optimizers & Schedulers
-~~~~~~~~~~~~~~~~~~~~~~~
+-----------------------
 
 You can easily specify which optimizer and learning rate scheduler to
 use during training. Composer provides a library of various optimizers
