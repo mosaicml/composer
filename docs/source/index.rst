@@ -12,7 +12,7 @@ The library features:
 
 * Implementation of 20+ efficiency methods curated from the research community
 * Standardized approach to implement and compose efficiency methods, extended from two-way callbacks
-  (`Howard et al, 2020<https://arxiv.org/abs/2002.04688>`_)
+  (`Howard et al, 2020 <https://arxiv.org/abs/2002.04688>`_)
 * Easy way to access our methods either directly for your trainer loops, or through the Composer trainer
 
 .. note::
@@ -27,11 +27,11 @@ not just large companies.
 
 The ML community is overwhelmed by the plethora of new algorithms in the literature and open source.
 It is often difficult to integrate new methods into existing code, due to reproducibility
-(`Pineau et al, 2020<https://arxiv.org/abs/2003.12206>`_) and complexity. In addition, methods should be characterized
+(`Pineau et al, 2020 <https://arxiv.org/abs/2003.12206>`_) and complexity. In addition, methods should be characterized
 according to their effect of time-to-train and interactions with systems.
 
-For more details on our philosophy, see our `Methodology<https://www.mosaicml.com/blog/methodology>`_ and our
-`founder's blog<https://www.mosaicml.com/blog/founders-blog>`_.
+For more details on our philosophy, see our `Methodology <https://www.mosaicml.com/blog/methodology>`_ and our
+`founder's blog <https://www.mosaicml.com/blog/founders-blog>`_.
 
 We hope to contribute to the amazing community around ML Systems and ML Training efficiency.
 

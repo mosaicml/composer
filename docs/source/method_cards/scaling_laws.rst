@@ -15,7 +15,7 @@ tokens in your dataset.
 Attribution
 -----------
 
-`Scaling Laws for Neural Language Models<https://arxiv.org/abs/2001.08361>`__ by Kaplan et al. Posted to
+`Scaling Laws for Neural Language Models <https://arxiv.org/abs/2001.08361>`__ by Kaplan et al. Posted to
 arXiv in 2020.
 
 Applicable Settings
@@ -24,10 +24,10 @@ Applicable Settings
 Scaling laws were originally studied in the context of autoregressive
 language modeling, which is the setting that they are implemented for in
 the Composer repository. However, there is emerging research on scaling laws
-in domains such as `Vision Transformers<https://arxiv.org/abs/2106.04560>`__ and `Generalized Autoregressive 
-Modeling<https://arxiv.org/abs/2010.14701v1>`__. We
+in domains such as `Vision Transformers <https://arxiv.org/abs/2106.04560>`__ and `Generalized Autoregressive 
+Modeling <https://arxiv.org/abs/2010.14701v1>`__. We
 recommend reading Jonathan Rosenfield's Ph.D thesis: "`Scaling Laws for
-Deep Learning<https://arxiv.org/abs/2108.07686>`__\ ".
+Deep Learning <https://arxiv.org/abs/2108.07686>`__\ ".
 
 Hyperparameters
 ---------------
@@ -44,7 +44,7 @@ following table provides tera-flop / second capacity for various common
 hardware accelerators:
 
 `Hardware Accelerator
-TFLOP/s<https://www.notion.so/e1199f4fdc484e63961e4f282438af1c>`__
+TFLOP/s <https://www.notion.so/e1199f4fdc484e63961e4f282438af1c>`__
 
 Scaling Laws describes the relationship between the compute budget for
 training a model (in PF-days) and the final loss. The compute budget can
@@ -146,7 +146,7 @@ Effects & Implications
    Source: Figure 5 from "Scaling Laws for Neural Language Models"
 
 `Scaling Laws for Neural Language
-Models<https://arxiv.org/abs/2001.08361>`__ aims to
+Models <https://arxiv.org/abs/2001.08361>`__ aims to
 answer the question: "how should we train models in a compute-efficient
 manner?"
 

@@ -68,7 +68,7 @@ def resize_batch(X: torch.Tensor,
 
 
 class ProgressiveResizing(Algorithm):
-    """Apply Fastai's `progressive resizing<https://github.com/fastai/fastbook/blob/780b76bef3127ce5b64f8230fce60e915a
+    """Apply Fastai's `progressive resizing <https://github.com/fastai/fastbook/blob/780b76bef3127ce5b64f8230fce60e915a
     7e0735/07_sizing_and_tta.ipynb>`_ data augmentation to speed up training.
 
     Progressive resizing initially reduces input resolution to speed up early training.

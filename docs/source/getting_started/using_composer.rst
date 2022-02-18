@@ -102,7 +102,7 @@ Here are several ways to use the trainer:
 
         trainer.fit()
 
-  For more details on `yahp`_, see the `documentation<https://mosaicml-yahp.readthedocs-hosted.com/en/stable/>`_.
+  For more details on `yahp`_, see the `documentation <https://mosaicml-yahp.readthedocs-hosted.com/en/stable/>`_.
 
 3. (Flexible): The :class:`~composer.trainer.trainer.Trainer` can also be initialized directly:
 

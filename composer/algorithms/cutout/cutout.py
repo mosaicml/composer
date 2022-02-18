@@ -46,7 +46,7 @@ def cutout_batch(X: Tensor, n_holes: int = 1, length: Union[int, float] = 0.5) -
 
 
 class CutOut(Algorithm):
-    """`Cutout<https://arxiv.org/abs/1708.04552>`_ is a data augmentation technique that works by masking out one or
+    """`Cutout <https://arxiv.org/abs/1708.04552>`_ is a data augmentation technique that works by masking out one or
     more square regions of an input image.
 
     This implementation cuts out the same square from all images in a batch.

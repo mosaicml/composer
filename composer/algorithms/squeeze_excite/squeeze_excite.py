@@ -34,7 +34,7 @@ def apply_squeeze_excite(
 
 
 class SqueezeExcite2d(torch.nn.Module):
-    """Squeeze-and-Excitation block from (`Hu et al, 2019<https://arxiv.org/abs/1709.01507>`_)
+    """Squeeze-and-Excitation block from (`Hu et al, 2019 <https://arxiv.org/abs/1709.01507>`_)
 
     This block applies global average pooling to the input, feeds the resulting
     vector to a single-hidden-layer fully-connected network (MLP), and uses the
@@ -82,7 +82,7 @@ class SqueezeExciteConv2d(torch.nn.Module):
 
 
 class SqueezeExcite(Algorithm):
-    """Adds Squeeze-and-Excitation blocks (`Hu et al, 2019<https://arxiv.org/abs/1709.01507>`_) after the
+    """Adds Squeeze-and-Excitation blocks (`Hu et al, 2019 <https://arxiv.org/abs/1709.01507>`_) after the
     :class:`~torch.nn.Conv2d` modules in a neural network.
 
     See :class:`SqueezeExcite2d` for more information.

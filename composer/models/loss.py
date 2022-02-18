@@ -155,7 +155,7 @@ def soft_cross_entropy(input: Tensor,
                        reduction: str = 'mean'):
     """Drop-in replacement for ``torch.CrossEntropy`` that can handle dense labels.
 
-    This function will be obsolete with `this update<https://github.com/pytorch/pytorch/pull/61044>`_.
+    This function will be obsolete with `this update <https://github.com/pytorch/pytorch/pull/61044>`_.
     """
     target_type = _infer_target_type(input, target)
 

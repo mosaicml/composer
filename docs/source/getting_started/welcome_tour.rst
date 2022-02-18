@@ -7,7 +7,7 @@ Our First Method!
 -----------------
 
 We're going to explore how MixUp, a fairly simple algorithm, works. MixUp, introduced in
-`Zhang et al, 2017<https://arxiv.org/abs/1710.09412>`_, is a regularization technique that tends to improve the
+`Zhang et al, 2017 <https://arxiv.org/abs/1710.09412>`_, is a regularization technique that tends to improve the
 accuracy of image categorization models.
 
 MixUp operates by modifying the batches of data used to train the model; instead of training on individual samples,

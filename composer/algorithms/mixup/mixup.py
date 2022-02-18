@@ -86,7 +86,7 @@ def mixup_batch(x: Tensor,
 
 
 class MixUp(Algorithm):
-    """`MixUp<https://arxiv.org/abs/1710.09412>`_ trains the network on convex combinations of pairs of examples and
+    """`MixUp <https://arxiv.org/abs/1710.09412>`_ trains the network on convex combinations of pairs of examples and
     targets rather than individual examples and targets.
 
     This is done by taking a convex combination of a given batch X with a

@@ -67,8 +67,8 @@ class LayerFreezing(Algorithm):
     reaches ``freeze_level`` at the end of training.
 
     This freezing schedule is most similar to
-    `FreezeOut<https://arxiv.org/abs/1706.04983>`_ and
-    `Freeze Training<https://arxiv.org/abs/1706.05806>`_.
+    `FreezeOut <https://arxiv.org/abs/1706.04983>`_ and
+    `Freeze Training <https://arxiv.org/abs/1706.05806>`_.
 
     Runs on ``Event.EPOCH_END``.
 

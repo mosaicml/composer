@@ -100,7 +100,7 @@ def cutmix_batch(x: Tensor,
 
 
 class CutMix(Algorithm):
-    """`CutMix<https://arxiv.org/abs/1905.04899>`_ trains the network on non-overlapping combinations of pairs of
+    """`CutMix <https://arxiv.org/abs/1905.04899>`_ trains the network on non-overlapping combinations of pairs of
     examples and iterpolated targets rather than individual examples and targets.
 
     This is done by taking a non-overlapping combination of a given batch X with a

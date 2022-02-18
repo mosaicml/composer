@@ -31,7 +31,7 @@ For a developer install, clone directly:
 .. note::
 
     For performance in image-based operations, we **highly** recommend installing 
-    Pillow-SIMD<https://github.com/uploadcare/pillow-simd>`_ To install, vanilla pillow must first be uninstalled.
+    Pillow-SIMD <https://github.com/uploadcare/pillow-simd>`_ To install, vanilla pillow must first be uninstalled.
 
     .. code-block:: console
 
@@ -79,7 +79,7 @@ Test ``Composer`` was installed properly by opening a ``python`` prompt, and run
     CF.apply_blurpool(model)
 
 This creates a ResNet50 model and replaces several pooling and convolution layers with BlurPool variants
-(`Zhang et al, 2019<https://arxiv.org/abs/1904.11486>`_). The method should log:
+(`Zhang et al, 2019 <https://arxiv.org/abs/1904.11486>`_). The method should log:
 
 .. code-block:: none
 
