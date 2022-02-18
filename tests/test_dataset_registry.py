@@ -29,14 +29,15 @@ default_required_fields: Dict[Type[DatasetHparams], Callable[[], DatasetHparams]
         download=False,
     ),
     LMDatasetHparams: lambda: LMDatasetHparams(
-        datadir=["hello"],
         split='train',
-        tokenizer_name='gpt2',
+        use_masked_lm=True,
+        train_sequence_length=128,
     ),
     GLUEHparams: lambda: GLUEHparams(
         task="cola",
         tokenizer_name="bert-base-uncased",
         split="train",
+        num_workers=1,
     ),
 }
 

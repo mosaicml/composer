@@ -83,7 +83,6 @@ class GLUEHparams(DatasetHparams, SyntheticHparamsMixin):
 
         self.validate()
         if self.use_synthetic:
-            from transformers.models.bert.tokenization_bert import BasicTokenizer
             column_names = [i for i in self.task_to_keys[self.task] if i is not None]
 
             # we just use the max sequence length in tokens to upper bound the sequence length in characters
@@ -119,7 +118,7 @@ class GLUEHparams(DatasetHparams, SyntheticHparamsMixin):
             )
 
         columns_to_remove = ["idx"] + [i for i in text_column_names if i is not None]
-        print("Columns to remove:", columns_to_remove)
+
         assert isinstance(self.dataset, datasets.Dataset)
         dataset = self.dataset.map(
             tokenize_function,
@@ -131,7 +130,7 @@ class GLUEHparams(DatasetHparams, SyntheticHparamsMixin):
             load_from_cache_file=True,
         )
 
-        data_collator = transformers.data.data_collator.default_data_collator
+        data_collator = transformers.default_data_collator
         sampler = dist.get_sampler(cast(Dataset, dataset), drop_last=self.drop_last, shuffle=self.shuffle)
 
         return DataSpec(

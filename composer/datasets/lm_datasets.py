@@ -1,6 +1,8 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
+import functools
 import logging
+import operator
 import tempfile
 from dataclasses import dataclass
 from os.path import join
@@ -10,7 +12,8 @@ import yahp as hp
 
 from composer.core.types import Batch, DataSpec
 from composer.datasets.dataloader import DataloaderHparams
-from composer.datasets.hparams import DatasetHparams
+from composer.datasets.hparams import DatasetHparams, SyntheticHparamsMixin
+from composer.datasets.synthetic import SyntheticBertTokenizer, SyntheticHFDataset
 from composer.utils import dist
 
 log = logging.getLogger(__name__)
@@ -26,7 +29,7 @@ def _split_dict_fn(batch: Batch, n_microbatches: int) -> List[Batch]:
 
 
 @dataclass
-class LMDatasetHparams(DatasetHparams):
+class LMDatasetHparams(DatasetHparams, SyntheticHparamsMixin):
     """Defines a generic dataset class for autoregressive and masked language models trained with self-supervised
     learning."""
 
@@ -50,14 +53,15 @@ class LMDatasetHparams(DatasetHparams):
         default=1024, doc='Optionally, the ability to set a custom sequence length for the validation dataset.')
 
     def validate(self):
-        if self.datadir is None:
-            raise ValueError("A data directory must be specified.")
+        if not self.use_synthetic:
+            if self.datadir is None:
+                raise ValueError("A data directory must be specified.")
+
+            if self.tokenizer_name is None:
+                raise ValueError("A tokenizer name must be specified to tokenize the dataset.")
 
         if self.split not in ['train', 'validation', 'test']:
             raise ValueError("The dataset split must be one of 'train', 'validation', or 'test'.")
-
-        if self.tokenizer_name is None:
-            raise ValueError("A tokenizer name must be specified to tokenize the dataset.")
 
         if self.use_masked_lm is None:
             raise ValueError("To determine masking, use_masked_lm must be specified.")
@@ -83,13 +87,36 @@ class LMDatasetHparams(DatasetHparams):
             ) from e
 
         self.validate()
-        self.tokenizer = transformers.AutoTokenizer.from_pretrained(self.tokenizer_name)  #type: ignore (thirdparty)
-        self.config = transformers.AutoConfig.from_pretrained(self.tokenizer_name)  #type: ignore (thirdparty)
-        lm_datasets = [datasets.load_from_disk(i) for i in self.datadir]  #type: ignore (thirdparty)
+        if self.use_synthetic:
+            column_names = ["text"]
+
+            # we just use the max sequence length in tokens to upper bound the sequence length in characters
+            lm_datasets = SyntheticHFDataset(num_samples=self.synthetic_num_unique_samples,
+                                             chars_per_sample=self.train_sequence_length,
+                                             column_names=column_names)
+            lm_datasets = lm_datasets.generate_dataset()
+
+            # flatten the columnar dataset into one column
+            flattened_dataset = functools.reduce(operator.iconcat, [lm_datasets[i] for i in column_names], [])
+            self.tokenizer = SyntheticBertTokenizer(flattened_dataset)
+
+            lm_datasets = lm_datasets.map(lambda inp: self.tokenizer(
+                text=inp[column_names[0]
+                        ], padding="max_length", max_length=self.train_sequence_length, truncation=True),
+                                          batched=True,
+                                          num_proc=1,
+                                          keep_in_memory=True)
+
+            lm_datasets = [{self.split: lm_datasets}]
+        else:
+            self.tokenizer = transformers.AutoTokenizer.from_pretrained(self.tokenizer_name)  #type: ignore (thirdparty)
+            self.config = transformers.AutoConfig.from_pretrained(self.tokenizer_name)  #type: ignore (thirdparty)
+            # loads a dataset that is assumed to be pre-tokenized
+            lm_datasets = [datasets.load_from_disk(i) for i in self.datadir]  #type: ignore (thirdparty)
 
         # merge the dataset to re-sample from
         if self.split is None:
-            raise ValueError("split is required")
+            raise ValueError("A dataset split is required")
         merged_dataset = [[d[self.split]] for d in lm_datasets]
         # flatten merged_dataset
         merged_dataset = [item for sublist in merged_dataset for item in sublist]

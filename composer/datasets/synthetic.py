@@ -37,17 +37,21 @@ class SyntheticBertTokenizer(BertTokenizer):
             ) from e
 
         tokenizer = tokenizers.Tokenizer(tokenizers.models.WordPiece())
+        tokenizer.enable_padding(direction="right", pad_id=0, pad_type_id=0, pad_token="[PAD]", pad_to_multiple_of=8)
         tokenizer.normalizer = tokenizers.normalizers.NFKC()
         tokenizer.pre_tokenizer = tokenizers.pre_tokenizers.ByteLevel()
         tokenizer.decoder = tokenizers.decoders.ByteLevel()
         trainer = tokenizers.trainers.WordPieceTrainer(
             vocab_size=vocab_size,
             initial_alphabet=tokenizers.pre_tokenizers.ByteLevel.alphabet(),
-            special_tokens=["[UNK]", "[SEP]", "[PAD]", "[CLS]", "[MASK]"],
+            special_tokens=["[PAD]", "[UNK]", "[SEP]", "[CLS]", "[MASK]"],
         )
         tokenizer.train_from_iterator(dataset, trainer=trainer)
         tmp_tokenizer_file = NamedTemporaryFile()
-        tokenizer.save(tmp_tokenizer_file.name)
+        for token, _ in sorted(tokenizer.get_vocab().items(), key=lambda x: x[1]):
+            tmp_tokenizer_file.write(f"{token}\n".encode())
+        tmp_tokenizer_file.flush()
+
         super().__init__(tmp_tokenizer_file.name)
 
 
