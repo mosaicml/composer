@@ -14,7 +14,7 @@ log = logging.getLogger(__name__)
 
 
 class SAMOptimizer(torch.optim.Optimizer):
-    """Wraps an optimizer with sharpness-aware minimization (`Foret et al. 2020 <https://arxiv.org/abs/2010.01412>`_).
+    """Wraps an optimizer with sharpness-aware minimization (`Foret et al, 2020 <https://arxiv.org/abs/2010.01412>`_).
     See :class:`SAM` for details.
 
     Implementation based on https://github.com/davda54/sam
@@ -91,7 +91,7 @@ class SAMOptimizer(torch.optim.Optimizer):
 
 
 class SAM(Algorithm):
-    """Adds sharpness-aware minimization (`Foret et al. 2020 <https://arxiv.org/abs/2010.01412>`_) by wrapping an
+    """Adds sharpness-aware minimization (`Foret et al, 2020 <https://arxiv.org/abs/2010.01412>`_) by wrapping an
     existing optimizer with a :class:`SAMOptimizer`.
 
     Args:
