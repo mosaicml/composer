@@ -17,6 +17,8 @@ log = logging.getLogger(__name__)
 
 _VALID_MODES = ("crop", "resize")
 
+__all__ = ["resize_batch", "ProgressiveResizing"]
+
 
 def resize_batch(X: torch.Tensor,
                  y: torch.Tensor,
@@ -68,8 +70,9 @@ def resize_batch(X: torch.Tensor,
 
 
 class ProgressiveResizing(Algorithm):
-    """Apply Fastai's `progressive resizing <https://github.com/fastai/fastbook/blob/780b76bef3127ce5b64f8230fce60e915a
-    7e0735/07_sizing_and_tta.ipynb>`_ data augmentation to speed up training.
+    """Apply Fastai's `progressive resizing <https://\\
+    github.com/fastai/fastbook/blob/780b76bef3127ce5b64f8230fce60e915a7e0735/07_sizing_and_tta.ipynb>`_ data
+    augmentation to speed up training.
 
     Progressive resizing initially reduces input resolution to speed up early training.
     Throughout training, the downsampling factor is gradually increased, yielding larger inputs
