@@ -48,14 +48,14 @@ def _convert_time(time: Union[str, Time], state: State, ssr: float = 1.0) -> Tim
         time = Time.from_timestring(time)
 
     if time.unit == TimeUnit.DURATION:
-        time = convert_time(time=time, unit=state.max_duration.unit, max_training_duration=state.max_duration)
-    elif ssr != 1.0:
-        time = Time(value=int(ssr * time.value), unit=time.unit)
+        assert state.max_duration.unit == TimeUnit.EPOCH  # Enforced by the trainer
+        max_duration_batches = state.max_duration.value * state.steps_per_epoch
+        return Time(value=int(time.value * max_duration_batches), unit=TimeUnit.BATCH)
 
     if time.unit == TimeUnit.EPOCH:
-        time = convert_time(time=time, unit=TimeUnit.BATCH, steps_per_epoch=state.steps_per_epoch)
+        time = Time(value=time.value * state.steps_per_epoch, unit=TimeUnit.BATCH)
 
-    return time
+    return Time(value=int(time.value * ssr), unit=time.unit)
 
 
 def compile_scheduler(scheduler: ComposerScheduler, state: State) -> Scheduler:
@@ -143,8 +143,8 @@ def constant_scheduler(state: State,
 def linear_scheduler(state: State,
                      *,
                      ssr: float = 1.0,
-                     start_factor: float = 1.0 / 3,
-                     end_factor: float = 1.0,
+                     start_factor: float = 1.0,
+                     end_factor: float = 0.0,
                      total_time: Union[str, Time] = '1dur') -> float:
     r"""Decays the learning rate of each parameter group by gamma every step_size time.
     
@@ -452,8 +452,8 @@ class CosineAnnealingWarmRestartsHparams(SchedulerHparams):
 class LinearLRHparams(SchedulerHparams):
     """Hyperparameters for the :class:`~torch.optim.lr_scheduler.LinearLR` scheduler."""
 
-    start_factor: float = hp.optional("Number to multiply learning rate at the start.", default=1.0 / 3)
-    end_factor: float = hp.optional("Number to multiply learning rate at the end.", default=1.0)
+    start_factor: float = hp.optional("Number to multiply learning rate at the start.", default=1.0)
+    end_factor: float = hp.optional("Number to multiply learning rate at the end.", default=0.0)
     total_time: str = hp.optional("Duration of linear decay steps. Default: full training duration.", default="1dur")
 
     scheduler_function = linear_scheduler
