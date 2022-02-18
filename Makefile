@@ -1,5 +1,5 @@
 # several pytest settings
-DURATION ?= short  # pytest duration, one of short, long or all
+DURATION ?= all  # pytest duration, one of short, long or all
 WORLD_SIZE ?= 1  # world size for launcher tests
 EXTRA_ARGS ?=  # additional arguments
 PYTHON ?= python
