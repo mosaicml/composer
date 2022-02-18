@@ -6,8 +6,8 @@ set -euo pipefail
 # are executed. See `meta.yaml` for the conda package
 # configuration
 
-# Install git manually, since it doesn't seem to work properly when installed via conda
-yum install -y git
+# Install git and make, which are required to clone the repo and run tests
+yum install -y git make
 
 # Prepare the conda package
 echo "Adding 'mosaicml' to the conda channels"
