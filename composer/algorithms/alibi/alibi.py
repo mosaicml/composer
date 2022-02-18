@@ -95,10 +95,9 @@ def apply_alibi(
 
 
 class Alibi(Algorithm):
-    """ALiBi (Attention with Linear Biases;
-    `Press et al., 2021 <https://arxiv.org/abs/2108.12409>`_) dispenses with position
-    embeddings and instead directly biases attention matrices such that nearby tokens
-    attend to one another more strongly.
+    """ALiBi (Attention with Linear Biases; `Press et al, 2021  <https://arxiv.org/abs/2108.12409>`_) dispenses with
+    position embeddings and instead directly biases attention matrices such that nearby tokens attend to one another
+    more strongly.
 
     ALiBi yields excellent extrapolation to unseen sequence lengths
     compared to other position embedding schemes. We leverage this
@@ -169,18 +168,9 @@ class Alibi(Algorithm):
         self._applied = False
 
     def match(self, event: Event, state: State) -> bool:
-        """Runs on Event.INIT. Not called by user.
-
-        :meta private:
-        """
         return (event == Event.INIT and not self._applied) or event == Event.AFTER_DATALOADER
 
     def apply(self, event: Event, state: State, logger: Logger) -> Optional[int]:
-        """Replace model's existing attention mechanism with AliBi. Not called by user.
-
-        :meta private:
-        """
-
         if event == Event.INIT:
 
             if self.heads_per_layer is None:

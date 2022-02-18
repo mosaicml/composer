@@ -62,7 +62,7 @@ class EventCounterCallback(Callback):
         for event in Event:
             self.event_to_num_calls[event] = 0
 
-    def _run_event(self, event: Event, state: State, logger: Logger):
+    def run_event(self, event: Event, state: State, logger: Logger):
         self.event_to_num_calls[event] += 1
 
     def state_dict(self) -> StateDict:
