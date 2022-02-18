@@ -29,7 +29,7 @@ from composer.datasets.dataloader import unwrap_data_loader
 from composer.loggers.tqdm_logger import TQDMLogger
 from composer.models.base import ComposerModel
 from composer.optim.decoupled_weight_decay import DecoupledSGDW
-from composer.optim.scheduler import ComposerScheduler, compile_scheduler, cosine_annealing_scheduler
+from composer.optim.scheduler import ComposerScheduler, compile, constant_scheduler
 from composer.profiler import Profiler, ProfilerEventHandler
 from composer.profiler.dataloader_profiler import DataloaderProfiler
 from composer.profiler.system_profiler import SystemProfiler
@@ -89,10 +89,12 @@ class Trainer:
         scale_schedule_ratio (float, optional): Ratio by which to scale the training duration and learning rate
             schedules. See :func:`scale_schedule` for details. (default: ``1.0``)
         use_stepwise_schedulers (bool, optional): Whether schedulers will update after every optimizer step
-            (True), or every epoch (False). Setting this to `True` causes continuous schedulers to be able to
+            (True), or every epoch (False). Setting this to ``True`` causes schedulers to be able to
             compute learning rates with greater timewise precision, but native PyTorch schedulers will need to
             be reconfigured so that their timewise parameters are expressed in terms of batches, not epochs.
-            (default: ``True``)
+            By default, stepwise schedulers are used when functional schedulers are provided, but not if only
+            native Pytorch schedulers are provided (i.e. subclasses of ``torch.optim.lr_scheduler._LRScheduler).
+            (default: ``None``)
         dist_timeout (float, optional): Timeout, in seconds, for initializing the distributed process group.
             (default: ``15.0``)
         ddp_sync_strategy (str or DDPSyncStrategy, optional): The strategy to use for synchronizing gradients.
@@ -200,7 +202,7 @@ class Trainer:
         compute_training_metrics: bool = False,
         precision: Union[str, Precision] = Precision.FP32,
         scale_schedule_ratio: float = 1.0,
-        use_stepwise_schedulers: bool = True,
+        use_stepwise_schedulers: Optional[bool] = None,
 
         # dist hparams
         dist_timeout: float = 300.0,
@@ -391,22 +393,19 @@ class Trainer:
         )
 
         if not schedulers:
-            schedulers = cosine_annealing_scheduler
+            schedulers = constant_scheduler
             warnings.warn(f"No scheduler was specified. Defaulting to {repr(schedulers)}")
         schedulers = ensure_tuple(schedulers)
 
         if scale_schedule_ratio != 1.0:
-            if orig_max_duration.unit != TimeUnit.EPOCH:
-                raise NotImplementedError(
-                    "Max duration must be specified in epochs. Other units are not yet supported.")
-
             schedulers = tuple(
-                scale_scheduler(scheduler, scale_schedule_ratio, orig_max_duration.value)
-                for scheduler in ensure_tuple(schedulers))
+                scale_scheduler(scheduler, scale_schedule_ratio) for scheduler in ensure_tuple(schedulers))
 
+        if use_stepwise_schedulers is None:
+            use_stepwise_schedulers = any(callable(scheduler) for scheduler in schedulers)
         self.use_stepwise_schedulers = use_stepwise_schedulers
 
-        self.state.schedulers = [compile_scheduler(scheduler, self.state) for scheduler in schedulers]
+        self.state.schedulers = [compile(scheduler, self.state) for scheduler in schedulers]
 
         # Configure profilers if profiling is enabled
         if profiler_trace_file:

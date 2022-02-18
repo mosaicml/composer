@@ -58,7 +58,7 @@ def _convert_time(time: Union[str, Time], state: State, ssr: float = 1.0) -> Tim
     return Time(value=int(time.value * ssr), unit=time.unit)
 
 
-def compile_scheduler(scheduler: ComposerScheduler, state: State) -> Scheduler:
+def compile(scheduler: ComposerScheduler, state: State) -> Scheduler:
 
     if isinstance(scheduler, Scheduler):
         return scheduler
