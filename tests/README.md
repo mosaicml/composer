@@ -19,29 +19,28 @@ to launch PyTest.
 
 Valid options are `WORLD_SIZE=1` and `WORLD_SIZE=2`. For example:
 
-* `WORLD_SIZE=1 make test-dist`: runs tests that have a world size of one using the composer launch script.
-* `WORLD_SIZE=2 make test-dist`: runs tests that have a world size of two
-* `WORLD_SIZE=2 make test-dist-gpu`: runs GPU tests that have a world size of two
+* `make test-dist WORLD_SIZE=1 `: runs tests that have a world size of one using the composer launch script.
+* `make test-dist WORLD_SIZE=2`: runs tests that have a world size of two
+* `make test-dist-gpu WORLD_SIZE=2`: runs GPU tests that have a world size of two
 
 ## GPU Tests
 GPU tests are marked with `@pytest.mark.gpu`. Tests without this annotation are assumed to be CPU-only tests.
 By default, only CPU tests are run.
 
 To run single-rank GPU tests, run `make test-gpu`.
-To run multi-rank GPU tests, run `WORLD_SIZE=2 make test-dist-gpu`.
+To run multi-rank GPU tests, run `make test-dist-gpu WORLD_SIZE=2`.
 
 ## Test Duration
-By default, only the "short" tests (i.e. those that take less than 2 seconds each) are run.
-To run "long" tests, set the `TEST_DURATION` flag before calling `make`.
-Valid options are `short` (the default) for tests that take 2 seconds or less; `long` for tests that take
-longer than 2 seconds, or `all` for all tests.
+By default, all tests are run.
+To run only "short" tests (those that take 2 seconds or less) or "long" tests (those that take more than 2 seconds),
+set the `TEST_DURATION` flag to `short` or `long`, respectively.
 
 The `TEST_DURATION` flag can be combined with other flags. for example:
 
-* `TEST_DURATION=long make test` runs long, single-rank tests
-* `TEST_DURATION=all WORLD_SIZE=2 make test-dist` runs all tests that have a world size of two
-* `TEST_DURATION=all make test-gpu` runs all single-rank GPU tests.
+* `make test TEST_DURATION=long ` runs long, single-rank tests.
+* `make test-dist TEST_DURATION=all WORLD_SIZE=2 ` runs all tests that have a world size of two.
+* `make test-gpu TEST_DURATION=all ` runs all single-rank GPU tests.
 
 ### Extra Arguments
 To provide extra arguments to PyTest when using Makefile targets, set the `EXTRA_ARGS` flag.
-For example `EXTRA_ARGS='-v' make test` runs PyTest with extra verbosity.
+For example `make test EXTRA_ARGS='-v'` runs PyTest with extra verbosity.
