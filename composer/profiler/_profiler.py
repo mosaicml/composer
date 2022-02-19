@@ -24,16 +24,18 @@ log = logging.getLogger(__name__)
 
 
 class Profiler:
-    """Records the duration of Trainer :class:`~composer.core.event.Event` using the :class:`Marker` API.
+    """Records the duration of Trainer :class:`.Event` using the :class:`.Marker` API.
+
+    The :class:`Profielr` is instantiated by the Composer :class:`.Trainer`\\.
 
     Specifically, it records:
 
-    #. The duration of each section of the training loop, such as the time it takes to perform a forward pass, backward pass, batch, epoch, etc...
+    #. The duration of each section of the training loop, such as the time it takes to perform a forward pass, backward pass, batch, epoch, etc.
 
-    #. The latency each algorithm and callback adds when executing on each event.
+    #. The latency of each algorithm and callback adds when executing on each event.
 
-    The ``event_handlers`` then record and save this data to a usable trace.  If no ``event_handlers`` is specified, the
-    :class:`~comoser.profiler.json_trace.JSONTraceHandler` is used by default.
+    The ``event_handlers`` then record and save this data to a trace file.  If no ``event_handlers`` is specified, the
+    :class:`.JSONTraceHandler` is used by default.
 
     Args:
         state (State): The state.
@@ -75,6 +77,9 @@ class Profiler:
         skipping ``wait`` batches, warming up for ``warmup`` batches, and recording ``active`` batches.
         It repeats this cylce up to ``repeat`` times per epoch (or for the entire epoch, if ``repeat`` is 0).
         This logic repeats every epoch.
+
+        Args:
+            batch_idx (int): The index of the current batch.
 
         Returns:
             ProfilerAction: The current action.
@@ -142,10 +147,27 @@ class Profiler:
         Args:
             name (str): The name for the :class:`Marker`.
             actions (Sequence[ProfilerAction], optional): :class:`ProfilerAction` states to record on.
-                By default, markers will record on :attr:`ProfilerAction.WARMUP` and :attr:`ProfilerAction.ACTIVE`
-            record_instant_on_start (bool, optional): Whether to record an instant event whenever the marker is started
-            record_instant_on_finish (bool, optional): Whether to record an instant event whenever the marker is finished
-            categories (List[str] | Tuple[str, ...], optional): Categories for this marker.
+                By default, markers will record on :attr:`ProfilerAction.WARMUP` and :attr:`ProfilerAction.ACTIVE`.
+                Defaults to (ProfilerAction.WARMUP, ProfilerAction.ACTIVE).
+            record_instant_on_start (bool, optional): Whether to record an instant event whenever the marker is started.
+                Defaults to False.
+            record_instant_on_finish (bool, optional): Whether to record an instant event whenever the marker is finished. 
+                Defaults to False.
+            categories (Union[List[str], Tuple[str, ...]], optional): Categories for this marker. Defaults to tuple().
+
+        Returns:
+            Marker: Instance of :class:`Marker`.
+        """
+        """
+
+
+
+        Args:
+            name (str): 
+            actions (Sequence[ProfilerAction], optional): 
+            record_instant_on_start (bool, optional): 
+            record_instant_on_finish (bool, optional): 
+            categories (List[str] | Tuple[str, ...], optional): 
 
         Returns:
             Marker: [description]
@@ -261,16 +283,15 @@ class Marker:
 
         :class:`Marker` should not be instantiated directly; instead use :meth:`Profiler.marker`.
 
-    To use a `Marker` to record a duration, you can:
+    Markers can record the following types of events:
+        
+    #. Duration: Records the start and stop time of an event of interest (:meth:`Marker.start()`, :meth:`Marker.finish()`).
 
-        #. Invoke :meth:`Marker.start` followed by :meth:`Marker.finish`
+    #. Instant: Record time a particular event occurs, but not the full duration (:meth:`Marker.instant()`).
 
-            .. code-block:: python
+    #. Counter: The value of a variable at given time (:meth:`Marker.counter()`).
 
-                marker = profiler.marker("foo")
-                marker.start()
-                something_to_measure()
-                marker.finish()
+    A :class:`Marker` can also be used as a context manager or decorator to record a duration:
 
         #. Use a :class:`Marker` with a context manager:
 
@@ -291,16 +312,6 @@ class Marker:
                     ...
 
                 something_to_measure()
-
-    To use a :class:`Marker` to record an instant, call :meth:`instant`
-
-    Args:
-        profiler (Profiler): The profiler.
-        name (str): The name of the event.
-        actions (Sequence[ProfilerAction], optional): :class:`ProfilerAction` states to record on.
-        record_instant_on_start (bool): Whether to record an instant event whenever the marker is started
-        record_instant_on_finish (bool): Whether to record an instant event whenever the marker is finished
-        categories (List[str] | Tuple[str, ...]]): Categories corresponding to this event.
     """
 
     def __init__(self, profiler: Profiler, name: str, actions: Sequence[ProfilerAction], record_instant_on_start: bool,
@@ -321,7 +332,17 @@ class Marker:
         self._action_at_start = None
 
     def start(self) -> None:
-        """Record the start of a duration event."""
+        """Record the start of a duration event.  
+        
+        To record the duration of an event, invoke :meth:`Marker.start` followed by :meth:`Marker.finish`\\:
+
+        .. code-block:: python
+
+            marker = profiler.marker("foo")
+            marker.start()
+            something_to_measure()
+            marker.finish()
+        """
         if self._started:
             raise RuntimeError(
                 f"Attempted to start profiler event {self.name}; however, this marker is already started")
@@ -349,7 +370,11 @@ class Marker:
         self._started = True
 
     def finish(self) -> None:
-        """Record the end of a duration event."""
+        """Record the end of a duration event.
+        
+        See :meth:`Marker.start()` for a usage example.
+
+        """
         if not self._started:
             raise RuntimeError(
                 f"Attempted to finish profiler event {self.name}; however, this profiler event is not yet started")
@@ -375,7 +400,16 @@ class Marker:
         self._started = False
 
     def instant(self) -> None:
-        """Record an instant event."""
+        """Record an instant event.
+        
+        To record an instant event:
+
+        .. code-block:: python
+
+            marker = profiler.marker("foo")
+            marker.instant()
+            something_to_measure()
+        """
         batch_idx = self.profiler.state.timer.batch_in_epoch.value
         if self.profiler.get_action(batch_idx) in self.actions:
             self.profiler._record_instant_event(
@@ -387,7 +421,18 @@ class Marker:
             )
 
     def counter(self, values: Dict[str, Union[float, int]]) -> None:
-        """Record a counter event."""
+        """Record a counter event.
+        
+        To record a counter event:
+
+        .. code-block:: python
+
+            marker = profiler.marker("foo")
+            counter_event = 5
+            marker.counter({"counter_event": counter_event})
+            counter_event = 10
+            marker.counter({"counter_event": counter_event})
+        """
         batch_idx = self.profiler.state.timer.batch_in_epoch.value
         if self.profiler.get_action(batch_idx) in self.actions:
             self.profiler._record_counter_event(

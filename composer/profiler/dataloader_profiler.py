@@ -47,9 +47,12 @@ class _ProfiledDataLoader(WrappedDataLoader):
 
 
 class DataloaderProfiler(Callback):
-    """Records the time it takes the data loader to return a batch by wrapping the original training and evaluation data
-    loaders and uses the :class:`~composer.profiler.profiler.Marker` API to record the latency of the wrapped data
-    loader.
+    """Records the time it takes the data loader to return a batch.
+    
+    When used with the Composer :class:`.Trainer`\\, the data loader profiler is enabled if profiling is enabled.
+    
+    Works by wrapping the original training and evaluation data loaders and uses the 
+    :class:`~composer.profiler.profiler.Marker` API to record the latency of the wrapped data loader.
 
     The profiler is implemented as a :class:`Callback` and accesses the training and evaluation data loaders through
     :class:`State`.

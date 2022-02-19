@@ -14,6 +14,8 @@ __all__ = ["ProfilerEventHandler"]
 class ProfilerEventHandler(Callback, abc.ABC):
     """Base class for profiler event handlers.
 
+    Event handlers are responsible for logging trace :class:`.Marker`\\s and saving them to a file in a given trace format for viewing.
+
     Subclasses should implement :meth:`process_duration_event`, :meth:`process_instant_event` and :meth:`process_counter_event`.
     These methods are invoked by the :class:`~composer.profiler.profiler.Profiler` whenever there is an event to record.
 

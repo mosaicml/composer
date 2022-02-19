@@ -24,9 +24,10 @@ _PROFILE_MISSING_ERROR = "The profiler has not been setup. Please call profiler.
 
 class TorchProfiler(Callback):
     """Profile the execution using :class:`torch.profiler.profile`, implemented as a Composer
-    :class:`~composer.core.callback.Callback`.
+    :class:`~composer.core.callback.Callback`.    
 
     Profiling results are stored in TensorBoard format in the ``tensorboard_trace_handler_dir`` folder.
+    When used with the Composer :class:`.Trainer`\\, profiling is enabled only if the ``tensorboard_trace_handler_dir`` is provided.
 
     To view profiling results, run:
 

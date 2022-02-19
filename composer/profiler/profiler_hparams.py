@@ -28,9 +28,21 @@ class ProfilerEventHandlerHparams(hp.Hparams, abc.ABC):
 
 @dataclasses.dataclass
 class JSONTraceHandlerHparams(ProfilerEventHandlerHparams):
-    """:class:`~composer.profiler.json_trace.JSONTraceHandler` hyperparameters.
+    """:class:`.JSONTraceHandler` hyperparameters.
 
-    See :class:`~composer.profiler.json_trace.JSONTraceHandler` for documentation."""
+    See :class:`.JSONTraceHandler` for documentation.
+    
+    Example usage with :class:`.TrainerHparams`\\:
+
+    .. code-block:: yaml
+
+        prof_event_handlers:
+            - json:
+                flush_every_n_batches: 100
+                buffering: -1
+                output_directory: profiler_traces
+
+    """
 
     flush_every_n_batches: int = hp.optional("Interval at which to flush the logfile.", default=100)
     buffering: int = hp.optional("Buffering parameter passed to :meth:`open` when opening the logfile.", default=-1)

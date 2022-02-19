@@ -1,32 +1,31 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
-"""Profilers can be used to gather performance metrics of a given model and training run.
+"""Profilers can be used to gather various metrics during a training run that can be used to diagnose performance
+bottlenecks and facilitate model development.
 
-The starting point is the Composer Trainer :class:`.Profiler`, which measures the time of each :class:`.Event` and
-produces a trace.  The Composer Trainer :class:`.Profiler` is implemented as a standalone object and must be instantiated by
-the Trainer.
+The Composer profiling suite currently offers the following profilers:
 
-Additionally the following profilers are defined as Composer :class:`.Callback`.  The Trainer instantiates and registers each profiler:
+* :class:`.Profiler`: Measure the time of each :class`.Event` during training.
+* :class:`.DataloaderProfiler`: Records the time it takes the data loader to return a batch by wrapping the original training and evaluation data loaders.
+* :class:`.SystemProfiler`: Records system level metrics such as CPU, system memory, disk and network utilization.
+* :class:`.TorchProfiler`: Integrates the Torch Profiler to record GPU stats using the Nvidia CUPI API.
 
-* :class:`.DataloaderProfiler`: Records the time it takes the data loader to return a batch by wrapping the original training and evaluation data loaders.  Implemented as a Composer :class:`.Callback`.
-* :class:`.SystemProfiler`: Records system level metrics such as CPU, system memory, disk and network utilization.  Implemented as a Composer :class:`.Callback`.
-* :class:`.TorchProfiler`: Integrates the Torch Profiler to record GPU stats using the Nvidia CUPI API.  Implemented as a Composer :class:`.Callback`.
-
-Composer Trainer profiling can be enabled by specifying an output ``profiler_trace_file`` during :class:`.Trainer` initialization.
-By default, the :class:`.Profiler`, :class:`.DataloaderProfiler` and :class:`.SystemProfiler` will be active.  Torch profiling is disabled by default.
-
-To activate the :class:`.TorchProfiler`, the ``torch_profiler_trace_dir`` must be specified *in addition* to the ``profiler_trace_file`` argument.
-If Torch profiling is enabled, the ``profiler_trace_file`` will contain the merged trace data from the other profilers and the Torch profiler.
-The merge allows users to correlate System, Composer Trainer and low-level Torch events durin the training loop.
-
-The following example instantiates a basic dataset, model and enables the Composer Trainer Profilers as well as the Torch Profiler:
+The following example demonstrates how to setup and perform profiling on a simple training run.
 
 .. literalinclude:: ../../../examples/profiler_demo.py
     :language: python
     :linenos:
     :emphasize-lines: 6, 27-49
 
-Traces can be viewed by in a Google Chrome browser navigating to ``chrome://tracing`` and opening the ``profiler_trace_file``.
+It is required to specify an output ``profiler_trace_file`` during :class:`.Trainer` initialization to enable profiling.
+The ``profiler_trace_file`` will contain the profiling trace data once the profiling run completes.  By default, the :class:`.Profiler`, 
+:class:`.DataloaderProfiler` and :class:`.SystemProfiler` will be active.  The :class:`.TorchProfiler` is **disabled** by default.
+
+To activate the :class:`.TorchProfiler`, the ``torch_profiler_trace_dir`` must be specified *in addition* to the ``profiler_trace_file`` argument.
+The ``torch_profiler_trace_dir`` will contain the Torch Profiler traces once the profiling run completes.  The :class:`.Profiler` will 
+automatically merge the Torch traces in the ``torch_profiler_trace_dir`` into the ``profiler_trace_file``, allowing users to view a unified trace.
+
+The complete traces can be viewed by in a Google Chrome browser navigating to ``chrome://tracing`` and opening the ``profiler_trace_file``.
 Here is an example trace file:
 
 .. image:: https://storage.googleapis.com/docs.mosaicml.com/images/profiler/profiler_trace_example.png
