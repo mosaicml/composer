@@ -13,14 +13,13 @@ from pycocotools.cocoeval import COCOeval
 from torch.autograd import Variable
 from torch.utils.data import DataLoader
 from torchmetrics import Metric
-#from torchmetrics.detection.map import MeanAveragePrecision as MAP
 from composer.core.types import BatchPair, Metrics, Tensor, Tensors
 from composer.datasets.coco import COCO, COCODetection
 from composer.models.base import ComposerModel
 from composer.models.ssd.base_model import Loss
 from composer.models.ssd.ssd300 import SSD300
 from composer.models.ssd.ssd_hparams import SSDHparams
-from composer.models.ssd.utils import DefaultBoxes, Encoder, SSDTransformer
+from composer.models.ssd.utils import DefaultBoxes, Encoder, SSDTransformer, dboxes300_coco
 
 
 class SSD(ComposerModel):
@@ -29,10 +28,8 @@ class SSD(ComposerModel):
         super().__init__()
 
         self.hparams = hparams
-        ln = COCODetection.labelnum
         self.module = SSD300(80, model_path="/mnt/r1z1/laura/composer/resnet34-333f7ec4.pth")
         ##todo(laura): fix weights path
-        dboxes = dboxes300_coco()
 
         self.loss_func = Loss(dboxes)
         self.MAP = my_map()
@@ -43,39 +40,24 @@ class SSD(ComposerModel):
         trans_bbox = bbox.transpose(1, 2).contiguous()
 
         ploc, plabel = outputs
-        gloc, glabel = trans_bbox, label#Variable(trans_bbox, requires_grad=False), \
-                       # Variable(label, requires_grad=False)
+        gloc, glabel = trans_bbox, label
 
         loss = self.loss_func(ploc, plabel, gloc, glabel)
         return loss
 
     def metrics(self, train: bool = False) -> Metrics:
-
         return self.MAP
 
     def forward(self, batch: BatchPair) -> Tensor:
         (img, img_id, img_size, bbox, label) = batch
-
-        #img = Variable(img, requires_grad=True)
         ploc, plabel = self.module(img)
 
         return ploc, plabel
 
     def validate(self, batch: BatchPair) -> Tuple[Any, Any]:
-        data = "/localdisk/coco"
-        val_annotate = os.path.join(data, "annotations/instances_val2017.json")
-        cocogt = COCO(annotation_file=val_annotate)
-        val_coco_root = os.path.join(data, "val2017")
         input_size = 300
         dboxes = dboxes300_coco()
-        val_trans = SSDTransformer(dboxes, (input_size, input_size), val=True)
-        val_coco = COCODetection(val_coco_root, val_annotate, val_trans)
-        from torch.utils.data import DataLoader
-        val_dataloader = DataLoader(val_coco,
-                                    batch_size=128,
-                                    shuffle=False,
-                                    sampler=None,
-                                    num_workers=4)
+
         inv_map = {v: k for k, v in val_coco.label_map.items()}
         ret = []
         overlap_threshold = 0.50
@@ -83,7 +65,6 @@ class SSD(ComposerModel):
         encoder = Encoder(dboxes)
 
         (img, img_id, img_size, _, _) = batch
-        #for nbatch, (img, img_id, img_size, bbox, label) in enumerate(val_dataloader):
         ploc, plabel = self.module(img.cuda())
 
         try:
@@ -93,7 +74,7 @@ class SSD(ComposerModel):
                                            nms_valid_thresh=0.05)
         except:
             print("No object detected in batch: {}".format(nbatch))
-            #continue
+
         (htot, wtot) = [d.cpu().numpy() for d in img_size]
         img_id = img_id.cpu().numpy()
         # Iterate over batch elements
@@ -121,11 +102,9 @@ class my_map(Metric):
         np.squeeze(self.predictions)
 
     def compute(self):
-        
         data = "/localdisk/coco"
         val_annotate = os.path.join(data, "annotations/instances_val2017.json")
         cocogt = COCO(annotation_file=val_annotate)
-        #import pdb; pdb.set_trace()
         cocoDt = cocogt.loadRes(np.squeeze(self.predictions))
         E = COCOeval(cocogt, cocoDt, iouType='bbox')
         E.evaluate()
@@ -133,47 +112,6 @@ class my_map(Metric):
         E.summarize()
         print('acc', E.stats[0])
         return E.stats[0]
-
-
-def get_boxes(val_annotate, idss):
-    ids = idss.tolist()
-    from pycocotools.coco import COCO
-    our_coco = COCO(annotation_file=val_annotate)
-    import json
-    json_file = "/localdisk//coco/annotations/instances_val2017.json"
-
-    with open(json_file,'r') as COCO:
-        js = json.loads(COCO.read())
-        anns_all = json.dumps(js['annotations'])
-
-    annids = our_coco.getAnnIds(imgIds=ids)
-    anns = our_coco.loadAnns(annids)
-    
-    t = []
-    for ann in anns:
-        x_topleft   = ann['bbox'][0]
-        y_topleft   = ann['bbox'][1]
-        bbox_width  = ann['bbox'][2]
-        bbox_height = ann['bbox'][3]
-
-        cat = ann['category_id']
-        iid = ann['image_id']
-        t.append(dict(boxes=torch.Tensor([[x_topleft, y_topleft, bbox_width, bbox_height]]), labels=torch.Tensor([cat]), iid=torch.Tensor([iid])))
-
-    #
-    return t
-            
-        
-
-def dboxes300_coco():
-    figsize = 300
-    feat_size = [38, 19, 10, 5, 3, 1]
-    steps = [8, 16, 32, 64, 100, 300]
-    # use the scales here: https://github.com/amdegroot/ssd.pytorch/blob/master/data/config.py
-    scales = [21, 45, 99, 153, 207, 261, 315]
-    aspect_ratios = [[2], [2, 3], [2, 3], [2, 3], [2], [2]]
-    dboxes = DefaultBoxes(figsize, feat_size, steps, scales, aspect_ratios)
-    return dboxes
 
 
 def lr_warmup(optim, wb, iter_num, base_lr, args):

@@ -534,10 +534,8 @@ class COCO:
         assert(type(data) == np.ndarray)
 
         data = data[0]
-        #assert(data.shape[1] == 7)
-        N = len(data) #data.shape[0]
+        N = len(data)
         ann = []
-        #import pdb; pdb.set_trace()
         for i in range(N):
             ann += [{
                 'image_id'  : int(data[i][0]),
@@ -545,8 +543,7 @@ class COCO:
                 'score' : data[i][5],
                 'category_id': int(data[i][6]),
                 }]
-
-        #import pdb; pdb.set_trace()        
+            
         return ann
 
     def annToRLE(self, ann):
