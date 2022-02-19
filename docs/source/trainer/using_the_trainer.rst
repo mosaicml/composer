@@ -9,9 +9,9 @@ The Composer :class:`.Trainer` implements a highly-optimized PyTorch training lo
 -  Strong optimized baseline implementations to kick off your deep
    learning work, with reproducible results in time-to-train and
    accuracy.
--  Integrations with your favorite model hubs -
+-  Integrations with your favorite model hubs:
    🤗 `Transformers`_, `TIMM`_, and `torchvision`_.
--  Iterate faster. We take care of performance and efficiency.
+-  Iterate faster! We take care of performance and efficiency.
 
 .. note::
 
@@ -35,7 +35,7 @@ minimally implementing the following methods:
 -  ``def loss(batch, outputs)``: returns the loss based on the
    ``outputs`` from the forward pass, and the dataloader.
 
-For more information, see the Compose Models guide.
+For more information, see the :doc:`ComposerModel</composer_model>` guide.
 
 A minimal example of a ResNet-18 model is shown here:
 
@@ -80,8 +80,8 @@ training progress to the console.
 
 A few tips and tricks for using our Trainer:
 
--  For time-related inputs such as the ``max_duration`` above, we
-   support both an integer, which we assume is epochs, or as a string.
+-  For time-related inputs, such as the ``max_duration`` above, we
+   support both an integer (which we assume is epochs), or as a string.
    For example, ``"10ba"`` means 10 minibatches or steps, and ``"10ep"``
    denotes 10 epochs.
 -  If you are using gradient accumulation, the ``batch_size`` in your
@@ -93,10 +93,10 @@ A few tips and tricks for using our Trainer:
    centralized into one variable: :class:`.State`.
 -  We have an easy abstraction of tracking :class:`.Time`, see the Time guide.
 
-For a full list of Trainer options, see :class:`.Trainer`. Below we
+For a full list of Trainer options, see :class:`.Trainer`. Below, we
 illustrate some example use cases.
 
-Training loop
+Training Loop
 ~~~~~~~~~~~~~
 
 Behind the scenes, our trainer handles much of the engineering for
@@ -112,7 +112,7 @@ interacts with the :class:`.ComposerModel` is as follows:
        outputs = model.forward(batch)
        loss = model.loss(outputs, batch)
 
-           loss.backward()
+       loss.backward()
        optimizer.step()
 
    # eval loop
@@ -140,7 +140,7 @@ or more events. For full details on the events in Composer, see
 `Events <TBD>`__.
 
 We also maintain a :class:`.State` which stores the trainer's state, such as
-the model, optimizers, dataloader, current batch, etc (See
+the model, optimizers, dataloader, current batch, etc (see
 :class:`.State`). This allows algorithms to modify the state at the
 various events above.
 
@@ -149,7 +149,7 @@ Algorithms
 
 The Composer trainer is designed to easily apply our library of
 algorithms to both train more efficiently and build better models. These
-can be enabled by passing the algorithm class to ``algorithms``
+can be enabled by passing the appropriate algorithm class to ``algorithms``
 argument.
 
 .. testcode::
@@ -161,10 +161,11 @@ argument.
                      train_dataloader=train_dataloader,
                      eval_dataloader=eval_dataloader,
                      max_duration='160ep',
-                                       algorithms=[
-                                           LayerFreezing(freeze_start=0.5, freeze_level=0.1),
-                                           Mixup(alpha=0.1),
-                                       ])
+                     algorithms=[
+                         LayerFreezing(freeze_start=0.5, freeze_level=0.1),
+                         Mixup(alpha=0.1),
+                     ])
+                     
    # the algorithms will automatically be applied during the appropriate
    # points of the training loop
    trainer.fit()
@@ -187,7 +188,7 @@ Optimizers & Schedulers
 
 You can easily specify which optimizer and learning rate scheduler to
 use during training. Composer provides a library of various optimizers
-and schedulers but you can also include one of your own.
+and schedulers, but you can also include one of your own.
 
 .. code:: python
 
@@ -203,8 +204,8 @@ and schedulers but you can also include one of your own.
                      train_dataloader=train_dataloader,
                      eval_dataloader=eval_dataloader,
                      max_duration='90ep',
-                                       optimizer=optimizer,
-                                       scheduler=consine_annealing_scheduler)
+                     optimizer=optimizer,
+                     scheduler=consine_annealing_scheduler)
 
 Training on GPU
 ~~~~~~~~~~~~~~~
@@ -221,7 +222,7 @@ engineering. We currently support the ``cpu`` and ``gpu`` devices.
                      train_dataloader=train_dataloader,
                      eval_dataloader=eval_dataloader,
                      max_duration='160ep',
-                                       device='gpu')
+                     device='gpu')
 
 Distributed Training
 ~~~~~~~~~~~~~~~~~~~~
@@ -257,7 +258,7 @@ DeepSpeed Integration
 
 Composer comes with DeepSpeed support, allowing you to leverage their
 full set of features that makes it easier to train large models across
-both any type of GPU and multiple nodes. For more details on DeepSpeed,
+(1) any type of GPU and (2) multiple nodes. For more details on DeepSpeed,
 see `their website <https://www.deepspeed.ai>`__.
 
 To enable DeepSpeed, simply pass in a config as specified in the
@@ -273,11 +274,11 @@ DeepSpeed docs `here <https://www.deepspeed.ai/docs/config-json/>`__.
                      train_dataloader=train_dataloader,
                      eval_dataloader=eval_dataloader,
                      max_duration='160ep',
-                                       device='gpu',
-                                       deepspeed_config={
-                                           "train_batch_size": 2048,
-                                           "amp": {"enabled": True},
-                                       })
+                     device='gpu',
+                     deepspeed_config={
+                         "train_batch_size": 2048,
+                         "amp": {"enabled": True},
+                     })
 
 
 .. warning::
@@ -311,7 +312,7 @@ during training, but you can also implement your own. See
 Numerics
 ~~~~~~~~
 
-Using mixed precision can speed up your training loop and only requires
+Using `mixed precision <https://arxiv.org/abs/1710.03740>`__ can speed up your training loop and only requires
 setting the ``precision`` parameter in the trainer. Note that ``amp``
 only works if training on a GPU.
 
@@ -330,8 +331,8 @@ only works if training on a GPU.
 Checkpointing
 ~~~~~~~~~~~~~
 
-The Composer trainer makes it easy to both save checkpoints at various
-points during training and load them back to resume training later.
+The Composer trainer makes it easy to (1) save checkpoints at various
+points during training and (2) load them back to resume training later.
 
 .. code:: python
 
