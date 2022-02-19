@@ -47,12 +47,12 @@ def should_selective_backprop(
     return is_interval and is_step
 
 
-def selective_backprop(X: torch.Tensor,
-                       y: torch.Tensor,
-                       model: Callable[[Tensors], Tensor],
-                       loss_fun: Callable,
-                       keep: float,
-                       scale_factor: float = 1) -> Tuple[torch.Tensor, torch.Tensor]:
+def select_using_loss(X: torch.Tensor,
+                      y: torch.Tensor,
+                      model: Callable[[Tensors], Tensor],
+                      loss_fun: Callable,
+                      keep: float,
+                      scale_factor: float = 1) -> Tuple[torch.Tensor, torch.Tensor]:
     """Selectively backpropagate gradients from a subset of each batch (`Jiang et al, 2019 <https://\\
     arxiv.org/abs/1910.00762>`_).
 
@@ -224,5 +224,5 @@ class SelectiveBackprop(Algorithm):
             return self._loss_fn(p, (torch.Tensor(), y), reduction=reduction)
 
         with state.precision_context:
-            new_input, new_target = selective_backprop(input, target, model, loss, self.keep, self.scale_factor)
+            new_input, new_target = select_using_loss(input, target, model, loss, self.keep, self.scale_factor)
         state.batch = (new_input, new_target)

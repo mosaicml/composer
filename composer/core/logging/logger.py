@@ -48,12 +48,10 @@ class LogLevel(IntEnum):
 
 
 class Logger:
-    """Logger routes metrics to the :class:`.LoggerCallback`. Logger
-    is what users call from within algorithms/callbacks. A logger routes the calls/data to
-    any different number of destination :class:`.LoggerCallback`\\s
-    (e.g. :class:`.FileLogger`, :class:`.InMemoryLogger`, etc.). Data to be
-    logged should be of the type :attr:`~.logger.TLogData` (i.e. a {'name': value}
-    mapping).
+    """Logger routes metrics to the :class:`.LoggerCallback`. Logger is what users call from within
+    algorithms/callbacks. A logger routes the calls/data to any different number of destination
+    :class:`.LoggerCallback`\\s (e.g. :class:`.FileLogger`, :class:`.InMemoryLogger`, etc.). Data to be logged should be
+    of the type :attr:`~.logger.TLogData` (i.e. a {'name': value} mapping).
 
     Args:
         state (State):
