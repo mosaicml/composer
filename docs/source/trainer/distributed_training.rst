@@ -25,7 +25,7 @@ lower memory utilization when configured correctly.
     We expect future versions of Composer will default to Zero with auto
     configuration for best performance.
 
-Memory usage
+Memory Usage
 ------------
 
 Composer also supports reducing peak memory usage during training, to
@@ -87,7 +87,7 @@ setting.
 
 For all retrievable properties, see :mod:`composer.utils.dist`.
 
-Space-time equivalence
+Space-time Equivalence
 ----------------------
 
 We consider an equivalency principle between distributed training
