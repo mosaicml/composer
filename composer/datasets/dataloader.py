@@ -95,7 +95,7 @@ class DataloaderHparams(hp.Hparams):
 
     Parameters:
         num_workers (int, optional): Number of CPU workers to use per device to fetch data.
-            Set to ``0`` to use the main training thread will be used for dataloading.
+            Set to ``0`` to use the main training thread for dataloading.
             While zero workers can be useful for debugging, it should not be used for performance reasons.
             (default: ``8``)
         prefetch_factor (int, optional): Number of samples loaded in advance by each worker.
@@ -112,7 +112,7 @@ class DataloaderHparams(hp.Hparams):
 
     num_workers: int = hp.optional(textwrap.dedent("""\
         Number of CPU workers to use per device to fetch data.
-        Set to ``0`` to use the main training thread will be used for dataloading.
+        Set to ``0`` to use the main training thread for dataloading.
         While zero workers can be useful for debugging, it should not be used for performance reasons."""),
                                    default=8)
     prefetch_factor: int = hp.optional(textwrap.dedent("""\
