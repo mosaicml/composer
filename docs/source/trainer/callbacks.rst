@@ -30,7 +30,7 @@ This example includes callbacks that measure the model throughput (and
 the learning rate) and logs them to weights & biases.
 Callbacks control *what* is being logged, whereas loggers specify
 *where* the information is being saved. For more information on
-loggers, see :doc:`Logging<trainer/logging>`.
+loggers, see :doc:`Logging</trainer/logging>`.
 
 Available Callbacks
 -------------------
