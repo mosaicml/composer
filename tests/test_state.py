@@ -7,9 +7,8 @@ import torch
 import torch.nn.functional as F
 from torch.functional import Tensor
 
-from composer.algorithms.channels_last import ChannelsLastHparams
+from composer.algorithms import ChannelsLastHparams
 from composer.core import DataSpec, State, types
-from composer.core.state import DIRECT_SERIALIZATION_FIELDS, SKIP_SERIALIZATION_FIELDS, STATE_DICT_SERIALIZATION_FIELDS
 from composer.datasets.dataloader import DataloaderHparams
 from composer.datasets.hparams import DatasetHparams
 from composer.models.base import ComposerModel
@@ -32,21 +31,12 @@ def get_dummy_state(model: ComposerModel, train_dataloader: types.DataLoader, va
                   train_dataloader=train_dataloader,
                   evaluators=evaluators,
                   optimizers=optimizers,
-                  schedulers=torch.optim.lr_scheduler.StepLR(optimizers, step_size=3),
                   algorithms=[ChannelsLastHparams().initialize_object()])
+    state.schedulers = torch.optim.lr_scheduler.StepLR(optimizers, step_size=3)
     state.loss = random_tensor()
     state.batch = (random_tensor(), random_tensor())
     state.outputs = random_tensor()
     return state
-
-
-def is_field_serialized(field_name: str) -> bool:
-    if field_name in STATE_DICT_SERIALIZATION_FIELDS or field_name in DIRECT_SERIALIZATION_FIELDS:
-        return True
-    elif field_name in SKIP_SERIALIZATION_FIELDS:
-        return False
-    else:
-        raise RuntimeError(f"Serialization method for field {field_name} not specified")
 
 
 def assert_state_equivalent(state1: State, state2: State):
@@ -60,7 +50,7 @@ def assert_state_equivalent(state1: State, state2: State):
     ]
 
     for field_name in state1.__dict__.keys():
-        if field_name in IGNORE_FIELDS or not is_field_serialized(field_name):
+        if field_name in IGNORE_FIELDS or field_name.lstrip("_") not in state1.serialized_attributes:
             continue
 
         var1 = getattr(state1, field_name)

@@ -27,7 +27,7 @@ Attributes:
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Dict, Iterable, Iterator, List, Optional, Tuple, Union
+from typing import TYPE_CHECKING, Any, Dict, Iterable, Iterator, List, Optional, Tuple, TypeVar, Union
 
 import torch
 import torch.utils.data
@@ -52,8 +52,11 @@ except ImportError:
 if TYPE_CHECKING:
     from typing import Protocol
 
+T = TypeVar('T')
+Many = Union[T, Tuple[T, ...], List[T]]
+
 Tensor = torch.Tensor
-Tensors = Union[Tensor, Tuple[Tensor, ...], List[Tensor]]
+Tensors = Many[Tensor]
 
 # For BatchPar, if it is a list, then it should always be of length 2.
 # Pytorch's default collate_fn returns a list even when the dataset returns a tuple.
@@ -159,12 +162,12 @@ class DataLoader(Protocol):
         ...
 
 
-Evaluators = Union[Evaluator, List[Evaluator], Tuple[Evaluator, ...]]
+Evaluators = Many[Evaluator]
 Metrics = Union[Metric, MetricCollection]
 Optimizer = torch.optim.Optimizer
-Optimizers = Union[Optimizer, Tuple[Optimizer, ...], List[Optimizer]]
+Optimizers = Many[Optimizer]
 Scheduler = torch.optim.lr_scheduler._LRScheduler
-Schedulers = Union[Scheduler, Tuple[Scheduler, ...], List[Scheduler]]
+Schedulers = Many[Scheduler]
 
 Scaler = torch.cuda.amp.grad_scaler.GradScaler
 

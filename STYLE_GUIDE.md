@@ -162,15 +162,17 @@ In addition, all imports should be added into an appropriate section of [setup.p
 
 ### 5.1 Optional Dependencies
 
-If an import is not in `install_requires` (and instead appears in `extra_deps`), then this import
-MUST be conditionally imported in the code -- e.g. like this:
+If an import is not in `install_requires`, then this import MUST be conditionally imported in the code
+-- e.g. like this:
 
 ```python
 def unet():
     try:
         import monai
-    except ImportError:
-        raise ImportError("monai is not installed. Please run `pip install composer[unet]`")
+    except ImportError as e:
+        raise ImportError(textwrap.dedent("""\
+            Composer was installed without unet support. To use unet with Composer, run: `pip install mosaicml
+            [unet]` if using pip or `conda install -c conda-forge monai` if using Anaconda""") from e
 ```
 
 This style allows users to install composer without the extra dependencies. Otherwise, if the import is global

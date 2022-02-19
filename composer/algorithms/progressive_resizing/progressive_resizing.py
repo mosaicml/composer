@@ -1,24 +1,25 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
+"""Core Progressive Resizing classes and functions."""
+
 from __future__ import annotations
 
 import logging
-from dataclasses import asdict, dataclass
 from functools import partial
 from typing import Optional, Tuple
 
 import torch
 import torch.nn.functional as F
-import yahp as hp
 from torchvision import transforms
 
-from composer.algorithms import AlgorithmHparams
 from composer.core import Algorithm, Event, Logger, State
 from composer.core.types import Tensor
 
 log = logging.getLogger(__name__)
 
 _VALID_MODES = ("crop", "resize")
+
+__all__ = ["resize_batch", "ProgressiveResizing"]
 
 
 def resize_batch(X: torch.Tensor,
@@ -27,6 +28,18 @@ def resize_batch(X: torch.Tensor,
                  mode: str = "resize",
                  resize_targets: bool = False) -> Tuple[torch.Tensor, torch.Tensor]:
     """Resize inputs and optionally outputs by cropping or interpolating.
+
+    Example:
+         .. testcode::
+
+            from composer.algorithms.progressive_resizing import resize_batch
+            X_resized, y_resized = resize_batch(
+                                        X=X_example,
+                                        y=y_example,
+                                        scale_factor=0.5,
+                                        mode='resize',
+                                        resize_targets=False
+            )
 
     Args:
         X: input tensor of shape (N, C, H, W). Resizing will be done along
@@ -70,30 +83,35 @@ def resize_batch(X: torch.Tensor,
     return X_sized, y_sized
 
 
-@dataclass
-class ProgressiveResizingHparams(AlgorithmHparams):
-    """See :class:`ProgressiveResizing`"""
-
-    mode: str = hp.optional(doc="Type of scaling to perform", default="resize")
-    initial_scale: float = hp.optional(doc="Initial scale factor", default=0.5)
-    finetune_fraction: float = hp.optional(doc="Fraction of training to reserve for finetuning on full-sized inputs",
-                                           default=0.2)
-    resize_targets: bool = hp.optional(doc="Also resize targets", default=False)
-
-    def initialize_object(self) -> ProgressiveResizing:
-        return ProgressiveResizing(**asdict(self))
-
-
 class ProgressiveResizing(Algorithm):
-    """Apply Fastai's `progressive resizing.
-
-    <https://github.com/fastai/fastbook/blob/780b76bef3127ce5b64f8230fce60e915a7e0735/07_sizing_and_tta.ipynb>`_ data
+    """Apply Fastai's `progressive resizing <https://\\
+    github.com/fastai/fastbook/blob/780b76bef3127ce5b64f8230fce60e915a7e0735/07_sizing_and_tta.ipynb>`__ data
     augmentation to speed up training.
 
     Progressive resizing initially reduces input resolution to speed up early training.
     Throughout training, the downsampling factor is gradually increased, yielding larger inputs
     up to the original input size. A final finetuning period is then run to finetune the
     model using the full-sized inputs.
+
+    Example:
+         .. testcode::
+
+            from composer.algorithms import ProgressiveResizing
+            from composer.trainer import Trainer
+            progressive_resizing_algorithm = ProgressiveResizing(
+                                                mode='resize',
+                                                initial_scale=1.0,
+                                                finetune_fraction=0.2,
+                                                resize_targets=False
+                                            )
+            trainer = Trainer(
+                model=model,
+                train_dataloader=train_dataloader,
+                eval_dataloader=eval_dataloader,
+                max_duration="1ep",
+                algorithms=[progressive_resizing_algorithm],
+                optimizers=[optimizer]
+            )
 
     Args:
         mode: Type of scaling to perform. Value must be one of ``'crop'`` or ``'resize'``.

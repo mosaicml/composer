@@ -17,8 +17,7 @@ optimizer:
     eps: 0.00000001
     weight_decay: 0.0001
 schedulers:
-  - constant:
-      interval: step
+  - constant: {}
 model:
   unet:
     initializers:
