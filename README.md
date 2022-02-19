@@ -39,7 +39,7 @@
 
 <hr />
 
-<p align="center"> Composer provides well-engineered implementations of efficient training methods to give the tools that help you train a <b>better model for cheaper</b>.</p>
+<p align="center">Composer provides well-engineered implementations of efficient training methods to give the tools that help you train a <b>better model for cheaper</b>.</p>
 
 <p align="center"><img src="docs/images/cost_graph.svg" width="80%"/></p>
 
@@ -47,7 +47,7 @@ Using Composer, you can:
 
 - Train an ImageNet model to 76.1% accuracy for $37 (_with vanilla PyTorch:_ $127)
 - Train a GPT-2 125M to a perplexity of 23.9 for $148 (_with vanilla PyTorch_: $255)
-- Use start-of-the-art implemenations of methods to speed up your own training loop.
+- Use start-of-the-art implementations of methods to speed up your own training loop.
 
 
 ---
@@ -83,7 +83,7 @@ Composer provides both a **Functional API** (similar to `torch.nn.functional`) a
 
 For users who choose to use their own training loop, we provide state-less functional implementations of our algorithms for a end-user to integrate.
 
-The following example highlights using [BlurPool](https://arxiv.org/abs/1904.11486), which applies an anti-aliasing filter before every downsampling operation, and Layer Freezing, which
+The following example highlights using [BlurPool](https://arxiv.org/abs/1904.11486), which applies an anti-aliasing filter before every downsampling operation.
 
 ```python
 from composer import functional as cf
@@ -107,7 +107,7 @@ for epoch in range(NUM_EPOCHS):
 
 See the official [Composer Functional API Colab notebook](https://colab.research.google.com/drive/1HIxLs61pyf0ln7MlnrGYvkNHq1uVbNWu?usp=sharing) for more.
 
-#### Example: Trainer [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/googlecolab/colabtools/blob/master/notebooks/colab-github-demo.ipynb)
+#### Example: Trainer [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://drive.google.com/file/d/12Dl0NVDaj4tf4gfpfg-rkIAoO_H7edo3/edit)
 
 For maximal speedups, we recommend using our Trainer, which manages handling user state, performant algorithm implementations, and provides useful engineering abstractions to permit rapid experimentation.
 
@@ -182,13 +182,13 @@ Name|Functional|Attribution|tl;dr
 [MixUp](https://github.com/mosaicml/composer/tree/dev/composer/algorithms/mixup)|`cf.mixup_batch`|[(Zhang et al, 2017)](https://arxiv.org/abs/1710.09412)|Blends pairs of examples and labels
 [ProgressiveResizing](https://github.com/mosaicml/composer/tree/dev/composer/algorithms/progressive_resizing)|`cf.resize_batch`|[Fast AI](https://github.com/fastai/fastbook/blob/780b76bef3127ce5b64f8230fce60e915a7e0735/07_sizing_and_tta.ipynb)|Increases the input image size during training
 [RandAugment](https://github.com/mosaicml/composer/tree/dev/composer/algorithms/randaugment)|`cf.randaugment_image`|[(Cubuk et al, 2020)](https://openaccess.thecvf.com/content_CVPRW_2020/html/w40/Cubuk_Randaugment_Practical_Automated_Data_Augmentation_With_a_Reduced_Search_Space_CVPRW_2020_paper.html)|Applies a series of random augmentations
-[SAM](https://github.com/mosaicml/composer/tree/dev/composer/algorithms/sam)|`cf.`|[(Foret et al, 2021)](https://arxiv.org/abs/2010.01412)|SAM optimizer measures sharpness of optimization space
-[ScaleSchedule](https://github.com/mosaicml/composer/tree/dev/composer/algorithms/scale_schedule)|`cf.`|[Many](https://www.mosaicml.com)|Scale the learning rate schedule by a factor
+[SAM](https://github.com/mosaicml/composer/tree/dev/composer/algorithms/sam)|`N/A`|[(Foret et al, 2021)](https://arxiv.org/abs/2010.01412)|SAM optimizer measures sharpness of optimization space
+[ScaleSchedule](https://github.com/mosaicml/composer/tree/dev/composer/algorithms/scale_schedule)|`N/A`|[Many](https://www.mosaicml.com)|Scale the learning rate schedule by a factor
 [SelectiveBackprop](https://github.com/mosaicml/composer/tree/dev/composer/algorithms/selective_backprop)|`cf.selective_backprop`|[(Jiang et al, 2019)](https://arxiv.org/abs/1910.00762)|Drops examples with small loss contributions.
 [SeqLengthWarmup](https://github.com/mosaicml/composer/tree/dev/composer/algorithms/seq_length_warmup)|`cf.set_batch_sequence_length`|[(Li et al, 2021)](https://arxiv.org/abs/2108.06084)|Progressively increase sequence length.
 [SqueezeExcite](https://github.com/mosaicml/composer/tree/dev/composer/algorithms/squeeze_excite)|`cf.apply_squeeze_excite`|[Hu et al, 2017](https://arxiv.org/abs/1709.01507)|Replaces eligible layers with Squeeze-Excite layers
 [StochasticDepth](https://github.com/mosaicml/composer/tree/dev/composer/algorithms/stochastic_depth)|`cf.apply_stochastic_depth`|[(Huang et al, 2016)](https://arxiv.org/abs/1603.09382)|Replaces a specified layer with a stochastic verion that randomly drops the layer or samples during training
-[SWA](https://github.com/mosaicml/composer/tree/dev/composer/algorithms/swa)|`cf.`|[(Izmailov et al, 2018)](https://arxiv.org/abs/1803.05407)|Computes running average of model weights.
+[SWA](https://github.com/mosaicml/composer/tree/dev/composer/algorithms/swa)|`N/A`|[(Izmailov et al, 2018)](https://arxiv.org/abs/1803.05407)|Computes running average of model weights.
 
 
 Speedups are measured based on time to train to iso-accuracy.
