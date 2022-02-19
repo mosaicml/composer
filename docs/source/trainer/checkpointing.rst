@@ -50,13 +50,15 @@ Opening one of those checkpoints, you'll see:
    >>> Top level keys: ['rng', 'seed', 'state']
    >>> state keys: ['model', 'grad_accum', '_max_duration', 'timer', '_precision', '_optimizers', '_schedulers', 'scaler', '_algorithms', '_callbacks', '_is_model_ddp_wrapped']
 
-At the top level we see details on the current RNG state and the
-``trainer.state``. Under the ``"state"`` key, we see:
+At the top level, we see details on the current RNG state and the
+``trainer.state``.
 
-1. ``"model"``: model weights
-2. ``"_optimizers"``: optimizer state
-3. ``"_schedulers"``: scheduler state
-4. ``"_algorithms"``: any algorithm state
+Under the ``"state"`` key, we see:
+
+1. ``"model"``: Model weights
+2. ``"_optimizers"``: Optimizer state
+3. ``"_schedulers"``: Scheduler state
+4. ``"_algorithms"``: Any algorithm state
 
 These are the most important keys to be aware of. There are several
 others that are required to ensure that you can pick back up where you
@@ -65,7 +67,7 @@ left off.
 Resume training
 ---------------
 
-To resumse training from a previous checkpoint, pass the
+To resume training from a previous checkpoint, pass the
 checkpoint file path to the :class:`.Trainer` with the
 ``load_path`` argument. This should be an absolute path.
 
@@ -129,12 +131,12 @@ will upload to the object store.
 .. note ::
 
     We use :mod:`libcloud` to connect to the remote object stores, so be
-    sure to have ``apache-libcloud`` installed.
+    sure to have the Python package ``apache-libcloud`` installed.
 
 For this, the :class:`.ObjectStoreProvider` needs to be configured with
 the following arguments:
 
--  ``provider``: name of the object store provider, as recognized by
+-  ``provider``: The name of the object store provider, as recognized by
    :mod:`libcloud`. See available providers
    `here <https://libcloud.readthedocs.io/en/stable/storage/supported_providers.html#provider-matrix>`__.
 -  ``container``: The name of the container (i.e. “bucket”) to use.
@@ -144,7 +146,7 @@ indirectly through environment variables. Set these in your environment
 and provide the following environment variable names:
 
 -  ``key_environ``: The environment variable where your username is
-   stored. For example, the GCS Access Key.
+   stored. For example, the GCS access key.
 -  ``secret_environ``: The environment variable where your secret is
    stored. For example, the GCS secret that is paired with the
    above access key for requests.
@@ -160,9 +162,7 @@ If your cloud provider requires additional parameters, pass them as a
 dictionary under the key ``extra_init_kwargs``.
 
 Once you've configured your object store properly per above, all that's
-left is to add the :class:`.RunDirectoryUploader` as a callback. Currently, in
-order to use uploaded checkpoints for later finetuning you are required
-to specify the a unique ``object_name_prefix`` as well.
+left is to add the :class:`.RunDirectoryUploader` as a callback.
 
 Let's put all this together below:
 
@@ -189,7 +189,7 @@ Let's put all this together below:
                      callbacks=[store_uploader])
 
 This will train your model, saving the checkpoints locally, and also
-upload them to google storage buckets using the username from
+upload them to Google Storage buckets using the username from
 ``GCS_KEY`` and the secrets from ``GCS_SECRET`` in your environment
 variables.
 
