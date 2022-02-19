@@ -39,7 +39,7 @@
 
 <hr />
 
-<p align="center">Composer provides well-engineered implementations of efficient training methods to give the tools that help you train a <b>better model for cheaper</b>.</p>
+<p align="center">Composer provides well-engineered implementations of efficient training methods to give the tools that help you train <b>a better model for cheaper</b>.</p>
 
 <p align="center"><img src="docs/images/cost_graph.svg" width="80%"/></p>
 
@@ -49,8 +49,6 @@ Using Composer, you can:
 - Train a GPT-2 125M to a perplexity of 23.9 for $148 (_with vanilla PyTorch_: $255)
 - Use start-of-the-art implementations of methods to speed up your own training loop.
 
-
----
 At MosaicML, we are focused on making training ML models accessible. To do this, we continually productionize state-of-the-art academic research on efficient model training, and also study the _combinations_ of these methods in order to ensure that model training is ✨ as efficient as possible ✨.
 
 Everyone has their own priorities: best accuracy, cheapest cost, and somewhere in between.  Composer provides novel recipes that push the boundary of both cost and accuracy. Composer allows you to choose **the best model for your real-world constraints**.
@@ -271,8 +269,9 @@ Composer is currently focused on supporting computer vision and natural language
 </div>
 
 ## Why use Composer?
+The compute required to train a state-of-the-art machine learning model is [doubling every 6 months](https://arxiv.org/abs/2202.05924), subsequently making machine learning less accessible for the broader community. Composer shifts the focus to _efficiency_, and contains reproducible versions of cutting-edge algorithms that help reduce the compute and cost required to train state-of-the-art models. While every paper will claim state-of-the-art efficiency results, Composer will be your source well-engineered implementations of those that actually work in practice.
 
-When exploring how to seamlessly combine different efficient training methods, we that existing Trainers failed to provide a flexible design that would be needed to interleave and inject many different methods into the training loop.  To fulfill this need, we designed a Trainer built for efficiency from first-principles.  In Composer, we carefully designed new abstractions to allow us to have flexibility in all necesssary parts of the training loop.
+Furthermore, combining these efficiency methods together isn't a piece of cake. When exploring how to seamlessly combine different efficient training methods, we that existing Trainers failed to provide a flexible design that would be needed to interleave and inject many different methods into the training loop.  To fulfill this need, we designed a Trainer built for efficiency from first-principles.  In Composer, we carefully designed new abstractions to allow us to have flexibility in all necesssary parts of the training loop.
 
 Composer is designed with **two-way callbacks** ([Howard et al, 2020](https://arxiv.org/abs/2002.04688)) as a first-class citizen. This enables easy injection of efficiency methods throughout the entire training loop.  Not only does the two-way callback system trigger at every part of the training loop, each callback is designed to pass the **entire training state** designed so that any part of training can be modified.
 
@@ -286,7 +285,7 @@ With Composer, we make it easy to add your own methods or callbacks to easily in
 
 ## Why shouldn’t I use Composer?
 
-Composer is a relatively opinionated framework built with a focus on training the most _efficient_ model for your downstream task.
+Composer is a framework built with a focus on training the most _efficient_ model for your downstream task.
 
 * If training efficiency is not a concern, then Composer may not be as well suited for your task. Inference efficiency is not in the current roadmap for Composer support.
 * Composer currently supports most computer vision (CV) and natural language processing (NLP) use cases. We will support most industry applications, but may not support highly custom or novel architectures.
