@@ -22,6 +22,8 @@ __all__ = ["Marker", "Profiler", "ProfilerEventHandler"]
 
 log = logging.getLogger(__name__)
 
+__all__ = ["Profiler", "Marker"]
+
 
 class Profiler:
     """Records the duration of Trainer :class:`.Event` using the :class:`.Marker` API.

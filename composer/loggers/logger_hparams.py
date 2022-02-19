@@ -1,6 +1,6 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
-"""Logger Hyperparameters."""
+"""Logger Hyperparameter classes."""
 from __future__ import annotations
 
 import copy
@@ -20,14 +20,17 @@ if TYPE_CHECKING:
     from composer.loggers.tqdm_logger import TQDMLogger
     from composer.loggers.wandb_logger import WandBLogger
 
+__all__ = [
+    "FileLoggerHparams", "InMemoryLoggerHaparms", "LoggerCallbackHparams", "TQDMLoggerHparams", "WandBLoggerHparams"
+]
+
 
 @dataclass
 class LoggerCallbackHparams(hp.Hparams, ABC):
     """Base class for logger backend hyperparameters.
 
-    Logger parameters that are added to
-    :class:`~composer.trainer.trainer_hparams.TrainerHparams`
-    (e.g. via YAML or the CLI) are initialized in the training loop.
+    Logger parameters that are added to :class:`~.trainer_hparams.TrainerHparams` (e.g. via YAML or the CLI) are
+    initialized in the training loop.
     """
 
     @abstractmethod
@@ -46,8 +49,7 @@ class FileLoggerHparams(LoggerCallbackHparams):
     """:class:`~composer.loggers.file_logger.FileLogger`
     hyperparameters.
 
-    See :class:`~composer.loggers.file_logger.FileLogger`
-    for documentation.
+    See :class:`~composer.loggers.file_logger.FileLogger` for documentation.
     """
     log_level: LogLevel = hp.optional("The maximum verbosity to log. Default: EPOCH", default=LogLevel.EPOCH)
     filename: str = hp.optional("The path to the logfile. Can also be `stdout` or `stderr`. Default: stdout",
@@ -72,8 +74,7 @@ class FileLoggerHparams(LoggerCallbackHparams):
 
 @dataclass
 class WandBLoggerHparams(LoggerCallbackHparams):
-    """:class:`~composer.loggers.wandb_logger.WandBLogger`
-    hyperparameters.
+    """:class:`~composer.loggers.wandb_logger.WandBLogger` hyperparameters.
 
     Args:
         project (str, optional): Weights and Biases project name.
@@ -82,8 +83,8 @@ class WandBLoggerHparams(LoggerCallbackHparams):
         entity (str, optional): Weights and Biases entity name.
         tags (str, optional): Comma-seperated list of tags to add to the run.
         log_artifacts (bool, optional): Whether to log artifacts. Defaults to False.
-        log_artifacts_every_n_batches (int, optional). How frequently to log artifacts. Defaults to 100.
-            Only applicable if `log_artifacts` is True.
+        log_artifacts_every_n_batches (int, optional). How frequently to log artifacts.
+            Default: ``100``. Only applicable if ``log_artifacts`` is True.
 
         extra_init_params (JSON Dictionary, optional): Extra parameters to pass into :func:`wandb.init`.
     """

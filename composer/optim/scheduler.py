@@ -1,449 +1,523 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
+import functools
 import logging
+import math
+import warnings
 from abc import ABC
 from dataclasses import asdict, dataclass
-from typing import Any, Callable, Dict, List, Optional, Sequence, Union
+from typing import TYPE_CHECKING, List, Union
 
-import torch
 import yahp as hp
-from torch.optim.lr_scheduler import (CosineAnnealingLR, CosineAnnealingWarmRestarts, ExponentialLR, MultiStepLR,
-                                      StepLR, _LRScheduler)
+from torch.optim.lr_scheduler import LambdaLR
 
+from composer.core import State
 from composer.core.time import Time, TimeUnit
-from composer.core.types import Optimizer, Scheduler, Schedulers
-from composer.optim._time_conversion import convert as convert_time
-from composer.optim.pytorch_future import LinearLR, WarmUpLR
-from composer.utils.iter_helpers import ensure_tuple
+from composer.core.types import Scheduler
+
+try:
+    from typing import Protocol
+except ImportError:
+    Protocol = object  # Protocol is not available in python 3.7
+
+if TYPE_CHECKING:
+    from typing import Protocol
 
 log = logging.getLogger(__name__)
 
-_interval_doc = 'frequency of step() calls, either "batch" or "epoch". Default: "epoch"'
 
-# Allow (batch, batches) or (epoch, epochs). Also accept "step" ~ "batch"
-INTERVAL_MAP = {
-    'batch': 'batch',
-    'batches': 'batch',
-    'epoch': 'epoch',
-    'epochs': 'epoch',
-    'step': 'batch',
-    'steps': 'batch'
-}
+class ComposerSchedulerFn(Protocol):
+    """Specification for a "stateless" scheduler function.
 
-
-def _convert_time_fields(interval: str,
-                         kwargs: Dict[str, Any],
-                         max_training_duration: Optional[Union[str, Time[int]]] = None,
-                         steps_per_epoch: Optional[int] = None,
-                         samples_per_epoch: Optional[int] = None,
-                         dataset_num_tokens: Optional[int] = None) -> None:
-    """Converts all fields in ``kwargs`` that were provided as timestrings (e.g. "32ep") into integers, representing
-    either epochs or batches, depending on the ``interval``.
-
-    Modifies ``kwargs`` in place.
+    A scheduler function should be a pure function that returns a multiplier to apply to the optimizer's
+    provided learning rate, given the current trainer state, and optionally a "scale schedule ratio" (SSR). 
+    A typical implementation will read `state.timer`, and possibly other fields like `state.max_duration`, 
+    to determine the trainer's latest temporal progress.
     """
-    interval_unit = TimeUnit(INTERVAL_MAP[interval])
 
-    for field_name, field_value in kwargs.items():
+    def __call__(self, state: State, *, ssr: float = 1.0) -> float:
+        """Calculate the current learning rate factor.
+    
+        Args:
+            state (State): The current Composer Trainer state.
+            ssr (float): The scale schedule ratio. In general, the learning rate computed by this
+                scheduler at time :math:`t` with an SSR of 1.0 should be the same as that computed by
+                this scheduler at time :math:`t \times s` with an SSR of :math:`s`. Default = ``1.0``.
+        """
+        raise NotImplementedError
 
-        if field_name not in ('interval', 'warmup_method'):
-            if isinstance(field_value, list) and all(isinstance(x, str) for x in field_value):
-                kwargs[field_name] = [
-                    convert_time(t,
-                                 unit=interval_unit,
-                                 steps_per_epoch=steps_per_epoch,
-                                 max_training_duration=max_training_duration,
-                                 samples_per_epoch=samples_per_epoch,
-                                 dataset_num_tokens=dataset_num_tokens).value for t in field_value
-                ]
-                continue
-            if isinstance(field_value, str):
-                kwargs[field_name] = convert_time(field_value,
-                                                  unit=interval_unit,
-                                                  steps_per_epoch=steps_per_epoch,
-                                                  max_training_duration=max_training_duration,
-                                                  samples_per_epoch=samples_per_epoch,
-                                                  dataset_num_tokens=dataset_num_tokens).value
+
+ComposerScheduler = Union[Scheduler, ComposerSchedulerFn]
+
+
+def _convert_time(time: Union[str, Time], state: State, ssr: float = 1.0) -> Time[int]:
+    if isinstance(time, str):
+        time = Time.from_timestring(time)
+
+    if time.unit == TimeUnit.DURATION:
+        assert state.max_duration.unit == TimeUnit.EPOCH  # Enforced by the trainer
+        max_duration_batches = state.max_duration.value * state.steps_per_epoch
+        return Time(value=int(time.value * max_duration_batches), unit=TimeUnit.BATCH)
+
+    if time.unit == TimeUnit.EPOCH:
+        time = Time(value=time.value * state.steps_per_epoch, unit=TimeUnit.BATCH)
+
+    return Time(value=int(time.value * ssr), unit=time.unit)
+
+
+def compile(scheduler: ComposerScheduler, state: State) -> Scheduler:
+
+    if isinstance(scheduler, Scheduler):
+        return scheduler
+
+    optimizers = state.optimizers
+    if len(optimizers) != 1:
+        raise NotImplementedError("Providing functional schedulers is unsupported with multiple optimizers.")
+    optimizer = optimizers[0]
+
+    def scheduler_fn(epoch: int) -> float:
+        del epoch  # unused
+        return scheduler(state)
+
+    lambda_scheduler = LambdaLR(optimizer, scheduler_fn)
+
+    return lambda_scheduler
+
+
+def step_scheduler(state: State, *, ssr: float = 1.0, step_size: Union[str, Time], gamma: float = 0.1) -> float:
+    r"""Decays the learning rate discretely at fixed intervals.
+    
+    Args:
+        state (State): The current Composer Trainer state.
+        ssr (float): The scale schedule ratio. In general, the learning rate computed by this
+            scheduler at time :math:`t` with an SSR of 1.0 should be the same as that computed by
+            this scheduler at time :math:`t \times s` with an SSR of :math:`s`. Default = ``1.0``.
+        gamma (float): Gamma. Default = ``0.1``.
+    """
+
+    step_size = _convert_time(step_size, state, ssr=ssr)
+    current_time = state.timer.get(step_size.unit)
+    steps = int(current_time / step_size)
+
+    return gamma**steps
+
+
+def multi_step_scheduler(state: State,
+                         *,
+                         ssr: float = 1.0,
+                         milestones: List[Union[str, Time]],
+                         gamma: float = 0.1) -> float:
+    r"""Decays the learning rate discretely at fixed milestones.
+    
+    Args:
+        state (State): The current Composer Trainer state.
+        ssr (float): The scale schedule ratio. In general, the learning rate computed by this
+            scheduler at time :math:`t` with an SSR of 1.0 should be the same as that computed by
+            this scheduler at time :math:`t \times s` with an SSR of :math:`s`. Default = ``1.0``.
+        milestones (list of str or Time): Milestones.
+        gamma (float) Gamma. Default = ``0.1``.
+    """
+
+    milestones = [_convert_time(milestone, state, ssr=ssr) for milestone in milestones]
+
+    factor = 1.0
+    for milestone in milestones:
+        if state.timer >= milestone:
+            factor *= gamma
+
+    return factor
+
+
+def constant_scheduler(state: State,
+                       *,
+                       ssr: float = 1.0,
+                       factor: float = 1.0,
+                       total_time: Union[str, Time] = '1dur') -> float:
+    r"""Maintains a fixed learning rate.
+    
+    Args:
+        state (State): The current Composer Trainer state.
+        ssr (float): The scale schedule ratio. In general, the learning rate computed by this
+            scheduler at time :math:`t` with an SSR of 1.0 should be the same as that computed by
+            this scheduler at time :math:`t \times s` with an SSR of :math:`s`. Default = ``1.0``.
+        factor (float): Factor. Default = ``1.0``.
+        total_time (str or Time): Total time. Default = ``'1dur'``.
+    """
+
+    total_time = _convert_time(total_time, state, ssr=ssr)
+
+    if state.timer < total_time:
+        return factor
+
+    return 1.0
+
+
+def linear_scheduler(state: State,
+                     *,
+                     ssr: float = 1.0,
+                     start_factor: float = 1.0,
+                     end_factor: float = 0.0,
+                     total_time: Union[str, Time] = '1dur') -> float:
+    r"""Adjusts the learning rate linearly.
+    
+    Args:
+        state (State): The current Composer Trainer state.
+        ssr (float): The scale schedule ratio. In general, the learning rate computed by this
+            scheduler at time :math:`t` with an SSR of 1.0 should be the same as that computed by
+            this scheduler at time :math:`t \times s` with an SSR of :math:`s`. Default = ``1.0``.
+        start_factor (float): Start factor. Default = ``1.0``.
+        end_factor (float): End factor. Default = ``0.0``.
+        total_time (str or Time): Total time. Default = ``'1dur'``.
+    """
+
+    total_time = _convert_time(total_time, state, ssr=ssr)
+    current_time = state.timer.get(total_time.unit)
+    frac_of_total = min(1.0, (current_time / total_time).value)
+
+    current_factor = start_factor + frac_of_total * (end_factor - start_factor)
+
+    return current_factor
+
+
+def exponential_scheduler(state: State, *, ssr: float = 1.0, gamma: float) -> float:
+    r"""Decays the learning rate exponentially.
+    
+    Args:
+        state (State): The current Composer Trainer state.
+        ssr (float): The scale schedule ratio. In general, the learning rate computed by this
+            scheduler at time :math:`t` with an SSR of 1.0 should be the same as that computed by
+            this scheduler at time :math:`t \times s` with an SSR of :math:`s`. Default = ``1.0``.
+        gamma (float): Gamma.
+    """
+
+    current_time = state.timer.epoch
+
+    return gamma**(current_time.value / ssr)
+
+
+def _cosine_anneal(x: float, min_y: float = 0, max_y: float = 1) -> float:
+    """Implements a cosine decay curve.
+
+    Curve is cos(x) on domain [0, pi], stretched to the domain [0, 1] and range [min_y, max_y]. Additionally, param x is
+    clipped to the interval [0, 1]
+    """
+
+    x = min(max(x, 0.0), 1.0)
+    return min_y + (max_y - min_y) * (1 + math.cos(x * math.pi)) / 2
+
+
+def cosine_annealing_scheduler(state: State,
+                               *,
+                               ssr: float = 1.0,
+                               t_max: Union[str, Time] = '1dur',
+                               min_factor: float = 0.0):
+    r"""Decays the learning rate according to the decreasing part of a cosine curve.
+    
+    Args:
+        state (State): The current Composer Trainer state.
+        ssr (float): The scale schedule ratio. In general, the learning rate computed by this
+            scheduler at time :math:`t` with an SSR of 1.0 should be the same as that computed by
+            this scheduler at time :math:`t \times s` with an SSR of :math:`s`. Default = ``1.0``.
+        t_max (str or Time): Total time. Default = ``'1dur'``.
+        min_factor (float): Minimum factor. Default = ``0.0``.
+    """
+
+    t_max = _convert_time(t_max, state, ssr=ssr)
+    current_time = state.timer.get(t_max.unit)
+    frac_of_total = (current_time / t_max).value
+
+    return _cosine_anneal(x=frac_of_total, min_y=min_factor)
+
+
+def cosine_annealing_warm_restarts_scheduler(state: State,
+                                             *,
+                                             ssr: float = 1.0,
+                                             t_0: Union[str, Time],
+                                             t_mult: float = 1.0,
+                                             min_factor: float = 0.0):
+    r"""Cyclically decays the learning rate according to the decreasing part of a cosine curve.
+    
+    Args:
+        state (State): The current Composer Trainer state.
+        ssr (float): The scale schedule ratio. In general, the learning rate computed by this
+            scheduler at time :math:`t` with an SSR of 1.0 should be the same as that computed by
+            this scheduler at time :math:`t \times s` with an SSR of :math:`s`. Default = ``1.0``.
+        t_0 (str or Time): The first cycle's duration.
+        t_mult (float): The multiplier for subsequent cycles' durations. Default = ``1.0``.
+        min_factor (float): Minimum factor. Default = ``0.0``.
+    """
+
+    t_0 = _convert_time(t_0, state, ssr=ssr)
+    current_interval_len = t_0
+    current_interval_end = t_0
+    while current_interval_end <= state.timer.get(current_interval_end.unit):
+        if current_interval_len.value == 0:
+            raise ValueError('Interval between restarts for cosine annealing/warm restarts scheduler has decayed to 0.')
+
+        current_interval_len = Time(value=int(t_mult * current_interval_len.value), unit=current_interval_len.unit)
+        current_interval_end += current_interval_len
+
+    current_interval_start = current_interval_end - current_interval_len
+    frac_of_current_interval = ((state.timer.get(t_0.unit) - current_interval_start) / current_interval_len).value
+
+    return _cosine_anneal(x=frac_of_current_interval, min_y=min_factor)
+
+
+def polynomial_scheduler(state: State,
+                         *,
+                         ssr: float = 1.0,
+                         t_max: Union[str, Time] = '1dur',
+                         power: float,
+                         min_factor: float = 0.0):
+    r"""Sets the learning rate to be exponentially proportional to the percentage of training time left.
+    
+    Args:
+        state (State): The current Composer Trainer state.
+        ssr (float): The scale schedule ratio. In general, the learning rate computed by this
+            scheduler at time :math:`t` with an SSR of 1.0 should be the same as that computed by
+            this scheduler at time :math:`t \times s` with an SSR of :math:`s`. Default = ``1.0``.
+        t_max (str or Time): Total time. Default = ``'1dur'``.
+        power (float): Power.
+        min_factor (float): Minimum factor. Default = ``0.0``.
+    """
+
+    t_max = _convert_time(t_max, state, ssr=ssr)
+    current_time = state.timer.get(t_max.unit)
+    frac_of_total = (current_time / t_max).value
+
+    coeff = (1 - frac_of_total)**power
+    current_factor = min_factor + coeff * (1.0 - min_factor)
+    return current_factor
+
+
+def multi_step_with_warmup_scheduler(state: State,
+                                     *,
+                                     ssr: float = 1.0,
+                                     warmup_time: Union[str, Time],
+                                     milestones: List[Union[str, Time]],
+                                     gamma: float = 0.1) -> float:
+    r"""Decays the learning rate discretely at fixed milestones, with a linear warmup.
+    
+    Args:
+        state (State): The current Composer Trainer state.
+        ssr (float): The scale schedule ratio. In general, the learning rate computed by this
+            scheduler at time :math:`t` with an SSR of 1.0 should be the same as that computed by
+            this scheduler at time :math:`t \times s` with an SSR of :math:`s`. Default = ``1.0``.
+        warmup_time (str or Time): Warmup time.
+        milestones (list of str or Time): Milestones.
+        gamma (float) Gamma. Default = ``0.1``.
+    """
+
+    # N.B. warmup time is intentionally *not* subject to scale schedule
+    warmup_time = _convert_time(warmup_time, state)
+    if warmup_time.value == 0:
+        warnings.warn("The warmup duration is 0. If you specified warmup as a fraction of total "
+                      "training duration, take note that the warmup duration is calculated in the "
+                      "same unit as the trainer's max_duration parameter.")
+
+    if state.timer < warmup_time:
+        return linear_scheduler(state, start_factor=0.0, end_factor=1.0, total_time=warmup_time)
+
+    return multi_step_scheduler(state, ssr=ssr, milestones=milestones, gamma=gamma)
+
+
+def linear_with_warmup_scheduler(state: State,
+                                 *,
+                                 ssr: float = 1.0,
+                                 warmup_time: Union[str, Time],
+                                 start_factor: float = 1.0,
+                                 end_factor: float = 0.0,
+                                 total_time: Union[str, Time] = '1dur'):
+    r"""Adjusts the learning rate linearly, with a linear warmup.
+    
+    Args:
+        state (State): The current Composer Trainer state.
+        ssr (float): The scale schedule ratio. In general, the learning rate computed by this
+            scheduler at time :math:`t` with an SSR of 1.0 should be the same as that computed by
+            this scheduler at time :math:`t \times s` with an SSR of :math:`s`. Default = ``1.0``.
+        warmup_time (str or Time): Warmup time.
+        start_factor (float): Start factor. Default = ``1.0``.
+        end_factor (float): End factor. Default = ``0.0``.
+        total_time (str or Time): Total time. Default = ``'1dur'``.
+    """
+
+    # N.B. warmup time is intentionally *not* subject to scale schedule
+    warmup_time = _convert_time(warmup_time, state)
+    if warmup_time.value == 0:
+        warnings.warn("The warmup duration is 0. If you specified warmup as a fraction of total "
+                      "training duration, take note that the warmup duration is calculated in the "
+                      "same unit as the trainer's max_duration parameter.")
+
+    if state.timer < warmup_time:
+        return linear_scheduler(state, start_factor=0.0, end_factor=start_factor, total_time=warmup_time)
+
+    total_time = _convert_time(total_time, state, ssr=ssr)
+    current_time = state.timer.get(warmup_time.unit)
+    frac_of_total = min(1.0, ((current_time - warmup_time) / (total_time - warmup_time)).value)
+
+    current_factor = start_factor + frac_of_total * (end_factor - start_factor)
+
+    return current_factor
+
+
+def cosine_annealing_with_warmup_scheduler(state: State,
+                                           *,
+                                           ssr: float = 1.0,
+                                           warmup_time: Union[str, Time],
+                                           t_max: Union[str, Time] = '1dur',
+                                           min_factor: float = 0.0):
+    r"""Decays the learning rate according to the decreasing part of a cosine curve, with a linear warmup.
+    
+    Args:
+        state (State): The current Composer Trainer state.
+        ssr (float): The scale schedule ratio. In general, the learning rate computed by this
+            scheduler at time :math:`t` with an SSR of 1.0 should be the same as that computed by
+            this scheduler at time :math:`t \times s` with an SSR of :math:`s`. Default = ``1.0``.
+        warmup_time (str or Time): Warmup time.
+        t_max (str or Time): Total time. Default = ``'1dur'``.
+        min_factor (float): Minimum factor. Default = ``0.0``.
+    """
+
+    # N.B. warmup time is intentionally *not* subject to scale schedule
+    warmup_time = _convert_time(warmup_time, state)
+    if warmup_time.value == 0:
+        warnings.warn("The warmup duration is 0. If you specified warmup as a fraction of total "
+                      "training duration, take note that the warmup duration is calculated in the "
+                      "same unit as the trainer's max_duration parameter.")
+
+    if state.timer < warmup_time:
+        return linear_scheduler(state, start_factor=0.0, end_factor=1.0, total_time=warmup_time)
+
+    t_max = _convert_time(t_max, state, ssr=ssr)
+    current_time = state.timer.get(warmup_time.unit)
+    frac_of_total = ((current_time - warmup_time) / (t_max - warmup_time)).value
+
+    return _cosine_anneal(x=frac_of_total, min_y=min_factor)
 
 
 @dataclass
 class SchedulerHparams(hp.Hparams, ABC):
 
-    scheduler_object = None  # type: Optional[Callable[..., Scheduler]]
-    interval = 'step'  # type: str
+    scheduler_function = None
 
-    def initialize_object(
-        self,
-        optimizer: Optimizer,
-        steps_per_epoch: Optional[int] = None,
-        samples_per_epoch: Optional[int] = None,
-        dataset_num_tokens: Optional[int] = None,
-        max_training_duration: Optional[Union[str, Time[int]]] = None,
-    ) -> Scheduler:
-        """Create the scheduler object from the current hparams.
+    def initialize_object(self) -> ComposerScheduler:
+        if self.scheduler_function is None:
+            raise NotImplementedError(f"Cannot initialize {self} because `scheduler_function` is undefined.")
 
-        Args:
-            optimizer (Optimizer): the optimizer associated with this scheduler
-            steps_per_epoch (int, optional): The number of optimization steps per epoch.
-            samples_per_epoch (int, optional): The number of samples trained per epoch.
-            dataset_num_tokens (int, optional): The number of tokens in the dataset.
-            max_training_duration (str or Time, optional): The total training duration.
-        Returns:
-            Scheduler: The parametrized scheduler instance
-        """
-
-        assert self.scheduler_object is not None, "Scheduler Hparams needs scheduler_object to initialize."
-        kwargs = {k: v for k, v in asdict(self).items() if k not in ['interval']}
-
-        _convert_time_fields(interval=self.interval,
-                             kwargs=kwargs,
-                             max_training_duration=max_training_duration,
-                             steps_per_epoch=steps_per_epoch,
-                             samples_per_epoch=samples_per_epoch,
-                             dataset_num_tokens=dataset_num_tokens)
-
-        # we pass the interval to the trainer directly
-        obj = self.scheduler_object(optimizer, **kwargs)
-        obj.interval = self.interval  # type: ignore
-        obj.steps_per_epoch = steps_per_epoch  # type: ignore
-        return obj
-
-
-class ConstantLR(_LRScheduler):
-    """Scheduler that does not change the optimizer's learning rate.
-
-    Args:
-        optimizer (Optimizer): the optimizer associated with this scheduler.
-        last_epoch (int, optional): The index of the last epoch. Can be used to restore the state of the
-                                    learning rate schedule. Default: ``-1``.
-        verbose (bool, optional): If ``True``, prints a message to stdout for each update. Default: ``False``.
-    """
-
-    def __init__(self, optimizer: Optimizer, last_epoch: int = -1, verbose: int = False):
-
-        self.optimizer = optimizer
-        super(ConstantLR, self).__init__(optimizer, last_epoch, verbose)  # type: ignore
-
-    def get_lr(self):
-        """Get the current learning rate for each parameter group.
-
-        Returns:
-            List of float: The current learning rate for each parameter group.
-        """
-        return self.base_lrs  # type: ignore
-
-    def _get_closed_form_lr(self):
-        """Get the current learning rate for each parameter group.
-
-        Returns:
-            List of float: The current learning rate for each parameter group.
-        """
-        return [base_lr for base_lr in self.base_lrs]  # type: ignore
-
-
-class PolynomialLR(_LRScheduler):
-    """PolynomialLR scales the learning rate by the remaining train time percentage raised to a specific power.
-
-    Args:
-        optimizer (Optimizer): the optimizer associated with this scheduler.
-        T_max (Time): the number of iterations to perform, either in terms of epochs or batches.
-        power (float): the power to use on the remaining train time percentage for the current schedule coeffecient.
-        eta_min (float): the minimum learning rate to decay to. Default is ``0``.
-        last_epoch (int): the index of the last epoch. Can be used to restore the learning rate schedule state.
-            Default: ``-1``
-        verbose (bool): If ``True``, prints a message to stdout for each update. Default: ``False``.
-    """
-
-    def __init__(self,
-                 optimizer: Optimizer,
-                 T_max: Time,
-                 power: float,
-                 eta_min: float = 0,
-                 last_epoch: int = -1,
-                 verbose: bool = False):
-
-        self.optimizer = optimizer
-        self.T_max = T_max
-        self.power = power
-        self.eta_min = eta_min
-        super(PolynomialLR, self).__init__(optimizer, last_epoch, verbose)  # type: ignore
-
-    def get_lr(self):
-        coeff = (1 - self.last_epoch / self.T_max)**self.power  # type: ignore
-        return [(base_lr - self.eta_min) * coeff + self.eta_min for base_lr in self.base_lrs]  # type: ignore
+        return functools.partial(self.scheduler_function.__func__, **asdict(self))
 
 
 @dataclass
 class PolynomialLRHparams(SchedulerHparams):
-    """Hyperparameters for the :class:`PolynomialLR` scheduler."""
-    T_max: str = hp.required(doc='Maximum number of iterations.')
-    power: float = hp.required(doc='Power of LR schedule.')
-    eta_min: float = hp.optional(default=0.0, doc='Minimum learning rate.')
-    verbose: bool = hp.optional(default=False, doc='Prints message to stdout.')
-    interval: str = hp.optional(default='step', doc=_interval_doc)
+    """Hyperparameters for the :func:`polynomial_scheduler` scheduler."""
 
-    scheduler_object = PolynomialLR
+    power: float = hp.required(doc='Power of LR schedule.')
+    t_max: str = hp.optional(default='1dur', doc='Total scheduler duration.')
+    min_factor: float = hp.optional(default=0.0, doc='Minimum learning rate.')
+
+    scheduler_function = polynomial_scheduler
 
 
 @dataclass
 class ConstantLRHparams(SchedulerHparams):
-    """Hyperparameters for the :class:`ConstantLR` scheduler."""
-    verbose: bool = hp.optional(default=False, doc='prints message to stdout')
-    interval: str = hp.optional(default='step', doc=_interval_doc)
+    """Hyperparameters for the :func:`constant_scheduler` scheduler."""
 
-    scheduler_object = ConstantLR
+    factor: float = hp.optional(default=1.0, doc='Constant learning rate factor')
+    total_time: str = hp.optional(default='1dur', doc='Total scheduler duration')
+
+    scheduler_function = constant_scheduler
 
 
 @dataclass
 class StepLRHparams(SchedulerHparams):
-    """Hyperparameters for the `StepLR.
-
-    <https://pytorch.org/docs/stable/generated/torch.optim.lr_scheduler.StepLR.html#torch.optim.lr_scheduler.StepLR>`_
-    scheduler.
-    """
+    """Hyperparameters for the :func:`step_scheduler` scheduler."""
 
     step_size: str = hp.required(doc='Period of learning rate decay')
-    gamma: float = hp.optional(default=0.1, doc='multiplicative factor of decay')
-    verbose: bool = hp.optional(default=False, doc='prints message to stdout')
-    interval: str = hp.optional(default='step', doc=_interval_doc)
+    gamma: float = hp.optional(default=0.1, doc='Multiplicative factor of decay')
 
-    scheduler_object = torch.optim.lr_scheduler.StepLR
+    scheduler_function = step_scheduler
 
 
 @dataclass
 class MultiStepLRHparams(SchedulerHparams):
-    """Hyperparameters for the `MultiStepLR <https://pytorch.org/docs/stable/generated/torch.optim.lr_scheduler.MultiSte
-    pLR.html#torch.optim.lr_scheduler.MultiStepLR>`_ scheduler."""
+    """Hyperparameters for the :func:`multi_step_scheduler` scheduler."""
 
     milestones: List[str] = hp.required(doc='List of milestone time strings')
-    gamma: float = hp.optional(default=0.1, doc='multiplicative factor of decay')
-    verbose: bool = hp.optional(default=False, doc='prints message to stdout')
-    interval: str = hp.optional(default='step', doc=_interval_doc)
+    gamma: float = hp.optional(default=0.1, doc='Multiplicative factor of decay')
 
-    scheduler_object = torch.optim.lr_scheduler.MultiStepLR
+    scheduler_function = multi_step_scheduler
 
 
 @dataclass
 class ExponentialLRHparams(SchedulerHparams):
-    """Hyperparameters for the `ExponentialLR <https://pytorch.org/docs/stable/generated/torch.optim.lr_scheduler.Expone
-    ntialLR.html#torch.optim.lr_scheduler.ExponentialLR>`_ scheduler."""
+    """Hyperparameters for the :func:`exponential_scheduler` scheduler."""
 
-    gamma: float = hp.required(doc='multiplicative factor of decay')
-    verbose: bool = hp.optional(default=False, doc='prints message to stdout')
-    interval: str = hp.optional(default='step', doc=_interval_doc)
+    gamma: float = hp.required(doc='Multiplicative factor of decay')
 
-    scheduler_object = torch.optim.lr_scheduler.ExponentialLR
+    scheduler_function = exponential_scheduler
 
 
 @dataclass
 class CosineAnnealingLRHparams(SchedulerHparams):
-    """Hyperparameters for the `CosineAnnealingLR <https://pytorch.org/docs/stable/generated/torch.optim.lr_scheduler.Co
-    sineAnnealingLR.html#torch.optim.lr_scheduler.CosineAnnealingLR>`_ scheduler."""
+    """Hyperparameters for the :func:`cosine_annealing_scheduler` scheduler."""
 
-    T_max: str = hp.required(doc="Maximum scheduler duration.")
-    eta_min: float = hp.optional(default=0.0, doc='minimum learning rate.')
-    verbose: bool = hp.optional(default=False, doc='prints message to stdout')
-    interval: str = hp.optional(default='step', doc=_interval_doc)
+    t_max: str = hp.optional(default='1dur', doc="Maximum scheduler duration.")
+    min_factor: float = hp.optional(default=0.0, doc='Minimum learning rate factor.')
 
-    scheduler_object = torch.optim.lr_scheduler.CosineAnnealingLR
+    scheduler_function = cosine_annealing_scheduler
 
 
 @dataclass
 class CosineAnnealingWarmRestartsHparams(SchedulerHparams):
-    """Hyperparameters for the ``CosineAnnealingWarmRestarts` <https://pytorch.org/docs/stable/generated/torch.optim.lr_
-    scheduler.CosineAnnealingWarmRestarts.html#torch.optim.lr_scheduler.CosineAnnealingWarmRestarts>`_ scheduler."""
+    """Hyperparameters for the :func:`cosine_annealing_warm_restarts_scheduler` scheduler."""
 
-    T_0: str = hp.required("Duration for the first restart.")
-    eta_min: float = hp.optional(default=0.0, doc='minimum learning rate.')
-    verbose: bool = hp.optional(default=False, doc='prints message to stdout')
-    interval: str = hp.optional(default='step', doc=_interval_doc)
-    T_mult: int = hp.optional("A factor increases :math:`T_{i}` after a restart. Default: 1.", default=1)
+    t_0: str = hp.optional(default='1dur', doc="Duration for the first restart.")
+    min_factor: float = hp.optional(default=0.0, doc='Minimum learning rate factor.')
+    t_mult: float = hp.optional(default=1.0, doc="A factor increases :math:`t_{i}` after a restart. Default: 1.")
 
-    scheduler_object = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts
+    scheduler_function = cosine_annealing_warm_restarts_scheduler
 
 
 @dataclass
 class LinearLRHparams(SchedulerHparams):
-    """Hyperparameters for the `LinearLRHparams.
+    """Hyperparameters for the :func:`linear_scheduler` scheduler."""
 
-    <https://pytorch.org/docs/stable/generated/torch.optim.lr_scheduler.LinearLR.html>`_ scheduler.
-    """
+    start_factor: float = hp.optional("Number to multiply learning rate at the start.", default=1.0)
+    end_factor: float = hp.optional("Number to multiply learning rate at the end.", default=0.0)
+    total_time: str = hp.optional("Duration of linear decay steps. Default: full training duration.", default="1dur")
 
-    start_factor: float = hp.optional("Number to multiply learning rate at the start.", default=1.0 / 3)
-    end_factor: float = hp.optional("Number to multiply learning rate at the end .", default=1.0)
-    total_iters: str = hp.optional("Duration of linear decay steps. Default: 5 iterations.", default="5ba")
-    verbose: bool = hp.optional('Prints message to stdout', default=False)
-    interval: str = hp.optional(default='step', doc=_interval_doc)
-
-    scheduler_object = LinearLR
+    scheduler_function = linear_scheduler
 
 
 @dataclass
-class WarmUpLRHparams(SchedulerHparams):
-    """Hyperparameters for the :class:`~composer.optim.pytorch_future.WarmUpLR` scheduler.
+class MultiStepWithWarmupLRHparams(SchedulerHparams):
+    """Hyperparameters for the :func:`multi_step_with_warmup_scheduler` scheduler."""
 
-    See the documentation for :class:`~composer.optim.pytorch_future.WarmUpLR`.
-    """
+    warmup_time: str = hp.required(doc='Warmup time')
+    milestones: List[str] = hp.required(doc='List of milestone time strings')
+    gamma: float = hp.optional(default=0.1, doc='multiplicative factor of decay')
 
-    warmup_factor: float = hp.optional("Number to multiply learning rate at start.", default=1.0 / 3)
-    warmup_iters: str = hp.optional("Warmup duration. Default: 5 iterations.", default="5ba")
-    warmup_method: str = hp.optional("Warmup method (linear or constant)", default='linear')
-    verbose: bool = hp.optional('Prints message to stdout', default=False)
-    interval: str = hp.optional('Warmup the LR every step or epoch. Default: epoch', default='step')
-
-    scheduler_object = WarmUpLR
+    scheduler_function = multi_step_with_warmup_scheduler
 
 
-def ensure_warmup_last(schedulers: List[SchedulerHparams]) -> List[SchedulerHparams]:
-    """Ensure that WarmUp-based schedulers appear last in the provided list.
+@dataclass
+class LinearWithWarmupLRHparams(SchedulerHparams):
+    """Hyperparameters for the :func:`linear_with_warmup_scheduler` scheduler."""
 
-    Args:
-        schedulers (List[SchedulerHparams]): List of schedulers.
+    warmup_time: str = hp.required(doc='Warmup time')
+    start_factor: float = hp.optional("Number to multiply learning rate at the start.", default=1.0)
+    end_factor: float = hp.optional("Number to multiply learning rate at the end.", default=0.0)
+    total_time: str = hp.optional("Duration of linear decay steps. Default: full training duration.", default="1dur")
 
-    Returns:
-        List[SchedulerHparams]: A sorted list of schedulers with WarmUp-based schedulers at the end.
-    """
-
-    return sorted(schedulers, key=lambda x: isinstance(x, (WarmUpLR, WarmUpLRHparams)))
-
-
-def get_num_warmup_batches(scheduler_hparams: Sequence[SchedulerHparams], steps_per_epoch: Optional[int] = None) -> int:
-    """Gets the number of warmup steps declared by a list of schedulers.
-
-    Args:
-        scheduler_hparams (Sequence[SchedulerHparams]): List of schedulers
-        steps_per_epoch (Optional[int], optional): Number of steps in a single epoch. Default: ``None``.
-
-    Returns:
-        int: Number of warmup steps
-    """
-
-    warmup_scheduler_hparams = [scheduler for scheduler in scheduler_hparams if isinstance(scheduler, WarmUpLRHparams)]
-    if len(warmup_scheduler_hparams):
-        warmup_iters = warmup_scheduler_hparams[0].warmup_iters
-        if isinstance(warmup_iters, str):
-            interval_unit = TimeUnit(INTERVAL_MAP[warmup_scheduler_hparams[0].interval])
-            return convert_time(
-                time=warmup_iters,
-                unit=interval_unit,
-                steps_per_epoch=steps_per_epoch,
-            ).value
-        else:
-            return warmup_iters
-    return 0
+    scheduler_function = linear_with_warmup_scheduler
 
 
-class ComposedScheduler(_LRScheduler):
-    """Handles warmup for a chained list of schedulers.
+@dataclass
+class CosineAnnealingWithWarmupLRHparams(SchedulerHparams):
+    """Hyperparameters for the :func:`cosine_annealing_with_warmup_scheduler` scheduler."""
 
-    With one call, will run each scheduler's ``step()``. If :class:`WarmUpLR` is in the list, will delay the stepping of
-    schedulers that need to be silent during warmup. ``ComposedScheduler`` handles warmups, where as `ChainedScheduler <https://pytorch.org/docs/1.10./generated/torch.optim.lr_scheduler.ChainedScheduler.html?highlight=chained#torch.optim.lr_scheduler.ChainedScheduler>`_
-    only combines schedulers.
+    warmup_time: str = hp.required(doc='Warmup time')
+    t_max: str = hp.optional(default='1dur', doc="Maximum scheduler duration.")
+    min_factor: float = hp.optional(default=0.0, doc='Minimum learning rate factor.')
 
-    `CosineAnnealingLR
-    <https://pytorch.org/docs/stable/generated/torch.optim.lr_scheduler.CosineAnnealingLR.html#torch.optim.lr_scheduler.CosineAnnealingLR>`_
-    and `ExponentialLR
-    <https://pytorch.org/docs/stable/generated/torch.optim.lr_scheduler.ExponentialLR.html#torch.optim.lr_scheduler.ExponentialLR>`_
-    are not stepped during the warmup period. Other schedulers, such as
-    `MultiStepLR
-    <https://pytorch.org/docs/stable/generated/torch.optim.lr_scheduler.MultiStepLR.html#torch.optim.lr_scheduler.MultiStepLR>`_
-    are still stepped, to keep their milestones unchanged.
-
-    Handles running the :class:`WarmUpLR` at every step if :attr:`WarmUpLR.interval='batch'`, and other schedulers at
-    every epoch.
-
-    Args:
-        schedulers (list): List of chained schedulers.
-    """
-
-    def __init__(self, schedulers: Schedulers):
-        schedulers = ensure_tuple(schedulers)
-        self._validate_same_optimizers(schedulers)
-        self.schedulers = schedulers
-        self.intervals = [getattr(scheduler, "interval", "epoch") for scheduler in schedulers]
-
-        # generous with spelling (batch, batches)/(step, steps) and (epoch, epochs)
-        self.intervals = [INTERVAL_MAP[interval] for interval in self.intervals]
-
-        warmup = [(scheduler, interval)
-                  for scheduler, interval in zip(self.schedulers, self.intervals)
-                  if isinstance(scheduler, WarmUpLR)]
-        if warmup:
-            assert len(warmup) == 1, "ComposedScheduler only supports one WarmUpLR " \
-                                     f"in the provided list, found {len(warmup)}."
-            warmup, interval = warmup[0]
-            self.warmup_iters = warmup.warmup_iters
-            log.info(f'Setting LR Warmup to {self.warmup_iters} {interval}')
-        else:
-            self.warmup_iters = 0
-
-        # these schedulers need to be silent during warmup
-        self.delay_schedulers = [CosineAnnealingLR, CosineAnnealingWarmRestarts, ExponentialLR, LinearLR]
-        self._warmup_counter = 0  # counter to track warmups
-
-    def step(self, interval: str = 'epoch'):
-        """Step all applicable schedulers.
-
-        Args:
-            interval (str, optional): The interval of the current step. Must be either ``'step'`` or ``'epoch'``.
-                                      Default: ``epoch``.
-        """
-        for scheduler, scheduler_interval in zip(self.schedulers, self.intervals):
-            if self._warmup_counter < self.warmup_iters and \
-                any(isinstance(scheduler, delay) for delay in self.delay_schedulers):
-                continue
-
-            if interval == scheduler_interval:
-                scheduler.step()
-                if isinstance(scheduler, WarmUpLR):
-                    self._warmup_counter += 1
-
-    def _validate_schedulers(self, warmup_epochs: int) -> None:
-        """Verify that any stepwise schedulers do not change the LR during the desired warmup period.
-
-        Args:
-            warmup_epochs (int): Number of epochs for warmup.
-        """
-        # since WarmUpLR is non-chainable form, step LR milestones must
-        # occur after warmup is completed
-        lr_step_schedulers = [
-            scheduler for scheduler in self.schedulers if isinstance(scheduler, (StepLR, MultiStepLR))
-        ]
-        for scheduler in lr_step_schedulers:
-            if isinstance(scheduler, StepLR) and scheduler.step_size <= warmup_epochs:  # type: ignore
-                raise ValueError(f'StepLR step_size {scheduler.step_size} must '  # type: ignore
-                                 'be greater than warmup_iters {self.warmup_iters}')
-            elif isinstance(scheduler, MultiStepLR):
-                if any(ms <= warmup_epochs for ms in scheduler.milestones.elements()):  #type: ignore
-                    raise ValueError(f'MultiStepLR milestones must be greater than warmup_iters {warmup_epochs}')
-
-    def state_dict(self) -> Dict[str, Any]:
-        """Returns a dictionary containing the state of all composed schedulers.
-
-        Returns:
-            Dict: the state dictionary
-        """
-        state_dict = {
-            "schedulers": {scheduler.__class__.__qualname__: scheduler.state_dict() for scheduler in self.schedulers},
-            "_warmup_counter": self._warmup_counter,
-        }
-        return state_dict
-
-    def load_state_dict(self, state_dict: Dict[str, Any]) -> None:
-        """Load the state of all composed schedulers from the provided dictionary.
-
-        Args:
-            state_dict (Dict[str, Any]): A dict containing the state of all composed schedulers. Should be an object
-            returned from a call to :meth:`state_dict()`.
-        """
-        for scheduler in self.schedulers:
-            scheduler.load_state_dict(state_dict["schedulers"][scheduler.__class__.__qualname__])
-        self._warmup_counter = state_dict["_warmup_counter"]
-
-    def _validate_same_optimizers(self, schedulers: Schedulers):
-        """Verify that all schedulers correspond to the same optimizer."""
-        schedulers = ensure_tuple(schedulers)
-        for i, scheduler in enumerate(schedulers):
-            if (getattr(scheduler, "optimizer") != getattr(schedulers[0], "optimizer")):
-                raise ValueError("ComposedScheduler expects all schedulers to belong to the same optimizer, but "
-                                 f"got schedulers at index 0 and {i} to be different")
+    scheduler_function = cosine_annealing_with_warmup_scheduler
