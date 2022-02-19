@@ -9,7 +9,6 @@ from composer import optim as optim
 from composer import profiler as profiler
 from composer import trainer as trainer
 from composer import utils as utils
-from composer.algorithms import functional as functional
 from composer.core import Algorithm as Algorithm
 from composer.core import Callback as Callback
 from composer.core import DataSpec as DataSpec
@@ -21,6 +20,7 @@ from composer.core import Time as Time
 from composer.core import Timer as Timer
 from composer.core import TimeUnit as TimeUnit
 from composer.core import types as types
+from composer.models import ComposerModel as ComposerModel
 from composer.trainer import Trainer as Trainer
 
 __version__ = "0.3.1"

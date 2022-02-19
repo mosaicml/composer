@@ -5,13 +5,11 @@ import pytest
 import torch
 import torch.nn.functional as F
 
-from composer.algorithms import CutMixHparams
-from composer.algorithms.cutmix.cutmix import cutmix, rand_bbox
+from composer.algorithms import CutMix, CutMixHparams
+from composer.algorithms.cutmix.cutmix import _rand_bbox, cutmix_batch
 from composer.core.types import Event
 from composer.models.base import ComposerClassifier
-from composer.trainer.trainer_hparams import TrainerHparams
-from tests.fixtures.models import SimpleConvModel
-from tests.utils.trainer_fit import train_model
+from tests.common import SimpleConvModel
 
 
 # (N, C, d1, d2, n_classes)
@@ -59,23 +57,23 @@ class TestCutMix:
         # Get a random bounding box based on cutmix_lambda
         cx = np.random.randint(x_fake.shape[2])
         cy = np.random.randint(x_fake.shape[3])
-        bbx1, bby1, bbx2, bby2 = rand_bbox(W=x_fake.shape[2],
-                                           H=x_fake.shape[3],
-                                           cutmix_lambda=cutmix_lambda,
-                                           cx=cx,
-                                           cy=cy)
+        bbx1, bby1, bbx2, bby2 = _rand_bbox(W=x_fake.shape[2],
+                                            H=x_fake.shape[3],
+                                            cutmix_lambda=cutmix_lambda,
+                                            cx=cx,
+                                            cy=cy)
         bbox = (bbx1, bby1, bbx2, bby2)
         # Adjust lambda
         cutmix_lambda = 1 - ((bbx2 - bbx1) * (bby2 - bby1) / (x_fake.size()[-1] * x_fake.size()[-2]))
 
         # Apply cutmix
-        x_cutmix, y_cutmix = cutmix(x=x_fake,
-                                    y=y_fake,
-                                    alpha=1.0,
-                                    n_classes=n_classes,
-                                    cutmix_lambda=cutmix_lambda,
-                                    bbox=bbox,
-                                    indices=indices)
+        x_cutmix, y_cutmix = cutmix_batch(X=x_fake,
+                                          y=y_fake,
+                                          alpha=1.0,
+                                          n_classes=n_classes,
+                                          cutmix_lambda=cutmix_lambda,
+                                          bbox=bbox,
+                                          indices=indices)
 
         # Validate results
         validate_cutmix(x=x_fake,
@@ -87,19 +85,17 @@ class TestCutMix:
                         bbox=bbox,
                         n_classes=n_classes)
 
-    def test_cutmix_algorithm(self, fake_data, alpha, dummy_state, dummy_logger):
+    def test_cutmix_algorithm(self, fake_data, alpha, minimal_state, empty_logger):
         # Generate fake data
         x_fake, y_fake, _, _ = fake_data
 
-        algorithm = CutMixHparams(alpha=alpha).initialize_object()
-        state = dummy_state
-        state.model = ComposerClassifier
-        state.model.num_classes = x_fake.size(1)  # Grab C
+        algorithm = CutMix(alpha=alpha, num_classes=x_fake.size(1))
+        state = minimal_state
+        state.model = ComposerClassifier(torch.nn.Flatten())
         state.batch = (x_fake, y_fake)
 
-        algorithm.apply(Event.INIT, state, dummy_logger)
         # Apply algo, use test hooks to specify indices and override internally generated interpolation lambda for testability
-        algorithm.apply(Event.AFTER_DATALOADER, state, dummy_logger)
+        algorithm.apply(Event.AFTER_DATALOADER, state, empty_logger)
 
         x, y = state.batch
         # Validate results
@@ -113,17 +109,18 @@ class TestCutMix:
                         n_classes=algorithm.num_classes)
 
 
-def test_cutmix_nclasses(dummy_state, dummy_logger):
-    algorithm = CutMixHparams(alpha=1.0).initialize_object()
-    state = dummy_state
-    state.model = ComposerClassifier(SimpleConvModel())
-    state.model.num_classes = 10
+def test_cutmix_nclasses(minimal_state, empty_logger):
+    algorithm = CutMix(alpha=1.0, num_classes=10)
+
+    state = minimal_state
+    state.model = SimpleConvModel(num_classes=10)
     state.batch = (torch.ones((1, 1, 1, 1)), torch.Tensor([2]))
 
-    algorithm.apply(Event.INIT, state, dummy_logger)
-    algorithm.apply(Event.AFTER_DATALOADER, state, dummy_logger)
+    algorithm.apply(Event.INIT, state, empty_logger)
+    algorithm.apply(Event.AFTER_DATALOADER, state, empty_logger)
 
 
-def test_cutmix_trains(composer_trainer_hparams: TrainerHparams):
-    composer_trainer_hparams.algorithms = [CutMixHparams(alpha=1.0)]
-    train_model(composer_trainer_hparams)
+def test_cutmix_hparams():
+    hparams = CutMixHparams(alpha=1.0, num_classes=10)
+    algorithm = hparams.initialize_object()
+    assert isinstance(algorithm, CutMix)

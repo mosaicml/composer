@@ -4,6 +4,7 @@ gitBranch = null
 gitCommit = null
 pTimeout = '1800' // in seconds
 pytorchDockerChanged = null
+dependenciesChanged = null
 runWithChecks = null
 expandDockerMatrix = null
 prChangeset = null
@@ -13,12 +14,12 @@ jenkinsJobBasePath = "scratch"
 def cloneJenkinsfilesRepo() {
     // Clone the remote jenkins file in WORKSPACE_TMP
     dir ("$WORKSPACE_TMP") {
-        checkout([  
-            $class: 'GitSCM', 
+        checkout([
+            $class: 'GitSCM',
             branches: [[name: 'main']], // TODO RJPP_BRANCH
-            doGenerateSubmoduleConfigurations: false, 
-            extensions: [[$class: 'RelativeTargetDirectory', relativeTargetDir: 'jenkinsfiles']], 
-            submoduleCfg: [], 
+            doGenerateSubmoduleConfigurations: false,
+            extensions: [[$class: 'RelativeTargetDirectory', relativeTargetDir: 'jenkinsfiles']],
+            submoduleCfg: [],
             userRemoteConfigs: [[url: 'https://github.com/mosaicml/testing', credentialsId: "9cf9add1-2cdd-414b-8160-94bd4ac4a13d"]]  // TODO RJPP_SCM_URL
         ])
         return "$WORKSPACE_TMP/jenkinsfiles"
@@ -39,16 +40,16 @@ def runPytest(Map args) {
     def nGpus = "0"
     def memLimit = "7Gi"
     def cpuLimit = "2"
-    def markers = '""' // no markers. interpreted as a bash array
+    def markers = "not notebooks and not gpu"
 
     if (gpu){
         nGpus = "2"
         cpuLimit = "16" // 8 cpu per gpu
         memLimit = "15Gi"  // 7.5Gb per gpu
-        markers = '"gpu" "deepspeed"'  // interpreted as a bash array
+        markers = "not notebooks and gpu"
     }
 
-    def name = null 
+    def name = null
     def title = null
     if (!pDockerImage) {
         if (!pythonVersion) {
@@ -60,46 +61,11 @@ def runPytest(Map args) {
         def cudaVersion = "cpu"
         if (gpu) {
             cudaVersion = pythonVersion == "3.9" ? "cu113" : "cu111"
-            
+
         }
         pDockerImage = "mosaicml/pytorch:${pytorchVersion}_${cudaVersion}-python${pythonVersion}-ubuntu20.04"
     }
     def summary = title
-
-    def pytestCommand = """#!/usr/bin/env bash
-set -euxo pipefail
-
-EXTRA_DEPS=$extraDeps
-MARKERS=($markers)
-
-# Install dependencies
-if [ -z "\${EXTRA_DEPS}" ]; then
-    pip install .
-else
-    pip install .[\${EXTRA_DEPS}]
-fi
-
-# Disable WandB. Since WandB may not be installed, ignoring errors
-set +e
-python -m wandb disabled || true
-set -e
-
-# For each marker, run pytest
-I=0
-if [ -n "\${MARKERS}"]; then
-    JUNIT_PREFIX=build/output/\${BUILD_NUMBER}_\${I} ./scripts/test.sh --test_duration all -v
-    ((I=I+1))
-else
-    for marker in \${MARKERS[@]}; do
-        # Run the tests
-        JUNIT_PREFIX=build/output/\${BUILD_NUMBER}_\${I} ./scripts/test.sh --test_duration all -v -m \$marker
-        ((I=I+1))
-    done
-fi
-
-# Combine the coverage reports
-python -m coverage combine
-python -m coverage xml -o build/output/\${BUILD_NUMBER}.coverage.xml"""
 
     def closure = { ->
         builds << build(
@@ -113,7 +79,7 @@ python -m coverage xml -o build/output/\${BUILD_NUMBER}.coverage.xml"""
                 string(name: 'P_MEM_LIMIT', value: memLimit),
                 string(name: 'P_TIMEOUT', value: pTimeout),
                 string(name: 'P_N_GPUS', value: nGpus),
-                text(name: 'P_COMMAND', value: pytestCommand),
+                text(name: 'P_COMMAND', value: "./.ci/test.sh '$extraDeps' '$markers'"),
                 string(name: 'P_ARTIFACTS_GLOB', value: "build/output/*.xml"),
                 string(name: 'P_JUNIT_GLOB', value: "build/output/*.junit.xml"),
                 string(name: 'P_COVERAGE_GLOB', value: "build/output/*.coverage.xml"),
@@ -157,6 +123,8 @@ stage('Prepare') {
         prChangeset = load "$jenkinsfileWorkspace/utils/prChangeset.groovy"
 
         pytorchDockerChanged = prChangeset("docker/pytorch/")
+        // Keep track of whether dependencies changed, in which case a conda build should be tested
+        dependenciesChanged = prChangeset("setup.py") || prChangeset("meta.yaml")
     }
 }
 
@@ -186,14 +154,39 @@ stage('Build') {
             P_KANIKO_PUSH_FINAL: gitBranch == "dev" || gitBranch == "main", // only push if we're on the main or dev branch
         ) { stagingImage -> dockerImagePostBuild(stagingImage) }
     }
+    if (dependenciesChanged) {
+        jobs << [
+            'Conda': { ->
+                runWithChecks(
+                    name: 'conda',
+                    title: 'Conda build and test',
+                    summary: 'Conda build and test of composer',
+                ) {
+                    builds << build(
+                        job: "${jenkinsJobBasePath}/command",
+                        parameters: [
+                            string(name: 'P_CLOUD', value: pCloud),
+                            string(name: 'P_GIT_REPO', value: gitUrl),
+                            string(name: 'P_GIT_COMMIT', value: gitCommit),
+                            string(name: 'P_DOCKER_IMAGE', value: "continuumio/anaconda-pkg-build"),
+                            string(name: 'P_TIMEOUT', value: pTimeout),
+                            string(name: 'P_CPU_LIMIT', value: "2"),
+                            string(name: 'P_MEM_LIMIT', value: "7Gi"),
+                            string(name: 'P_COMMAND', value: "./.ci/build_conda.sh")
+                        ]
+                    )
+                }
+            }
+        ]
+    }
     if (gitBranch != "main" && gitBranch != "dev") {
         // if not on main or dev, run the pytest again.
         jobs << [
-            'Lint': { -> 
+            'Lint': { ->
                 runWithChecks(
                     name: 'lint',
-                    title: 'Lint',
-                    summary: 'Static Analysis Checks',
+                    title: 'Lint and Doctests',
+                    summary: 'Static Analysis Checks and Doctests',
                 ) {
                     builds << build(
                         job: "${jenkinsJobBasePath}/command",
@@ -205,7 +198,7 @@ stage('Build') {
                             string(name: 'P_TIMEOUT', value: pTimeout),
                             string(name: 'P_CPU_LIMIT', value: "2"),
                             string(name: 'P_MEM_LIMIT', value: "7Gi"),
-                            string(name: 'P_COMMAND', value: './scripts/lint.sh'),
+                            string(name: 'P_COMMAND', value: "./.ci/lint_doctests.sh")
                         ]
                     )
                 }
@@ -215,7 +208,7 @@ stage('Build') {
             'Python 3.9 - All': { -> runPytest(pythonVersion: "3.9") },
             'Python 3.9 - Dev': { -> runPytest(pythonVersion: "3.9", extraDeps: "dev") },
             'Python 3.9 - All (GPU)': { -> runPytest(pythonVersion: "3.9", gpu: true) },
-        ]        
+        ]
     }
     jobs.failFast = true
     try {
@@ -225,7 +218,7 @@ stage('Build') {
         stage('Merge Artifacts') {
             node (pCloud) {
                 checkout scm  // checking out the SCM so the coverage report can load the source
-                builds.each { item -> 
+                builds.each { item ->
                     copyArtifacts(
                         projectName: item.fullProjectName,
                         selector: specific("${item.number}"),

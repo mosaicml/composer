@@ -3,39 +3,38 @@
 from __future__ import annotations
 
 import logging
-from dataclasses import asdict, dataclass
 from typing import Optional
 
 import torch
-import yahp as hp
 
-from composer.algorithms.algorithm_hparams import AlgorithmHparams
-from composer.core import Algorithm, Event, Logger, State, surgery
+from composer.core import Algorithm, Event, Logger, State
 from composer.core.types import Optimizers
+from composer.utils import module_surgery
 
 log = logging.getLogger(__name__)
 
 
-@dataclass
-class SqueezeExciteHparams(AlgorithmHparams):
+def apply_squeeze_excite(
+    model: torch.nn.Module,
+    latent_channels: float = 64,
+    min_channels: int = 128,
+    optimizers: Optional[Optimizers] = None,
+):
     """See :class:`SqueezeExcite`"""
 
-    latent_channels: float = hp.optional(
-        doc='Dimensionality of hidden layer within the added MLP.',
-        default=64,
-    )
-    min_channels: int = hp.optional(
-        doc='Minimum number of channels in a Conv2d layer'
-        ' for a squeeze-excite block to be placed after it.',
-        default=128,
-    )
+    def convert_module(module: torch.nn.Module, module_index: int):
+        assert isinstance(module, torch.nn.Conv2d), "should only be called with conv2d"
+        if min(module.in_channels, module.out_channels) < min_channels:
+            return None
+        return SqueezeExciteConv2d.from_conv2d(module, module_index, latent_channels=latent_channels)
 
-    def initialize_object(self) -> SqueezeExcite:
-        return SqueezeExcite(**asdict(self))
+    module_surgery.replace_module_classes(model, optimizers=optimizers, policies={torch.nn.Conv2d: convert_module})
+
+    return model
 
 
 class SqueezeExcite2d(torch.nn.Module):
-    """Squeeze-and-Excitation block from (`Hu et al. 2019 <https://arxiv.org/abs/1709.01507>`_)
+    """Squeeze-and-Excitation block from (`Hu et al, 2019 <https://arxiv.org/abs/1709.01507>`_)
 
     This block applies global average pooling to the input, feeds the resulting
     vector to a single-hidden-layer fully-connected network (MLP), and uses the
@@ -82,27 +81,8 @@ class SqueezeExciteConv2d(torch.nn.Module):
         return SqueezeExciteConv2d(conv=module, latent_channels=latent_channels)
 
 
-def apply_se(
-    model: torch.nn.Module,
-    latent_channels: float,
-    min_channels: int,
-    optimizers: Optional[Optimizers] = None,
-):
-    """See :class:`SqueezeExcite`"""
-
-    def convert_module(module: torch.nn.Module, module_index: int):
-        assert isinstance(module, torch.nn.Conv2d), "should only be called with conv2d"
-        if min(module.in_channels, module.out_channels) < min_channels:
-            return None
-        return SqueezeExciteConv2d.from_conv2d(module, module_index, latent_channels=latent_channels)
-
-    surgery.replace_module_classes(model, optimizers=optimizers, policies={torch.nn.Conv2d: convert_module})
-
-    return model
-
-
 class SqueezeExcite(Algorithm):
-    """Adds Squeeze-and-Excitation blocks (`Hu et al. 2019 <https://arxiv.org/abs/1709.01507>`_) after the
+    """Adds Squeeze-and-Excitation blocks (`Hu et al, 2019 <https://arxiv.org/abs/1709.01507>`_) after the
     :class:`~torch.nn.Conv2d` modules in a neural network.
 
     See :class:`SqueezeExcite2d` for more information.
@@ -147,11 +127,11 @@ class SqueezeExcite(Algorithm):
             state (State): the current trainer state
             logger (Logger): the training logger
         """
-        state.model = apply_se(state.model,
-                               optimizers=state.optimizers,
-                               latent_channels=self.latent_channels,
-                               min_channels=self.min_channels)
-        layer_count = surgery.count_module_instances(state.model, SqueezeExciteConv2d)
+        state.model = apply_squeeze_excite(state.model,
+                                           optimizers=state.optimizers,
+                                           latent_channels=self.latent_channels,
+                                           min_channels=self.min_channels)
+        layer_count = module_surgery.count_module_instances(state.model, SqueezeExciteConv2d)
 
         log.info(f'Applied SqueezeExcite to model {state.model.__class__.__name__} '
                  f'with latent_channels={self.latent_channels}, '

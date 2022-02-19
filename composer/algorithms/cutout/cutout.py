@@ -1,68 +1,63 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
+"""Core CutOut classes and functions."""
+
+from __future__ import annotations
+
 import logging
-from dataclasses import asdict, dataclass
-from typing import Optional
+from typing import Optional, Union
 
 import numpy as np
 import torch
-import yahp as hp
 
-from composer.algorithms import AlgorithmHparams
 from composer.core.types import Algorithm, Event, Logger, State, Tensor
 
 log = logging.getLogger(__name__)
 
-
-def generate_mask(mask: Tensor, width: int, height: int, x: int, y: int, cutout_length: int) -> Tensor:
-    y1 = np.clip(y - cutout_length // 2, 0, height)
-    y2 = np.clip(y + cutout_length // 2, 0, height)
-    x1 = np.clip(x - cutout_length // 2, 0, width)
-    x2 = np.clip(x + cutout_length // 2, 0, width)
-
-    mask[:, :, y1:y2, x1:x2] = 0.
-
-    return mask
+__all__ = ["CutOut", "cutout_batch"]
 
 
-def apply_cutout(X: Tensor, mask: Tensor):
-    return X * mask
-
-
-def cutout(X: Tensor, n_holes: int, length: int) -> Tensor:
+def cutout_batch(X: Tensor, n_holes: int = 1, length: Union[int, float] = 0.5) -> Tensor:
     """See :class:`CutOut`.
+
+    Example:
+         .. testcode::
+
+            from composer.algorithms.cutout import cutout_batch
+            new_input_batch = cutout_batch(
+                X=X_example,
+                n_holes=1,
+                length=16
+            )
 
     Args:
         X (Tensor): Batch Tensor image of size (B, C, H, W).
         n_holes: Integer number of holes to cut out
-        length: Side length of the square hole to cut out.
+        length: Side length of the square holes to cut out. Must be greater than
+            0. If ``0 < length < 1``, ``length`` is interpreted as a fraction
+            of ``min(H, W)`` and converted to ``int(length * min(H, W))``.
+            If ``length >= 1``, ``length`` is used as an integer size directly.
 
     Returns:
-        X_cutout: Image with `n_holes` of dimension `length x length` cut out of it.
+        X_cutout: Batch of images with ``n_holes`` holes of dimension
+            ``length x length`` replaced with zeros.
     """
-    h = X.size(2)
-    w = X.size(3)
+    h = X.shape[-2]
+    w = X.shape[-1]
+
+    if 0 < length < 1:
+        length = min(h, w) * length
+    length = int(length)
 
     mask = torch.ones_like(X)
     for _ in range(n_holes):
         y = np.random.randint(h)
         x = np.random.randint(w)
 
-        mask = generate_mask(mask, w, h, x, y, length)
+        mask = _generate_mask(mask, w, h, x, y, length)
 
-    X_cutout = apply_cutout(X, mask)
+    X_cutout = X * mask
     return X_cutout
-
-
-@dataclass
-class CutOutHparams(AlgorithmHparams):
-    """See :class:`CutOut`"""
-
-    n_holes: int = hp.required('Number of holes to cut out', template_default=1)
-    length: int = hp.required('Side length of the square hole to cut out', template_default=112)
-
-    def initialize_object(self) -> "CutOut":
-        return CutOut(**asdict(self))
 
 
 class CutOut(Algorithm):
@@ -71,13 +66,31 @@ class CutOut(Algorithm):
 
     This implementation cuts out the same square from all images in a batch.
 
+    Example:
+         .. testcode::
+
+            from composer.algorithms import CutOut
+            from composer.trainer import Trainer
+            cutout_algorithm = CutOut(n_holes=1, length=0.25)
+            trainer = Trainer(
+                model=model,
+                train_dataloader=train_dataloader,
+                eval_dataloader=eval_dataloader,
+                max_duration="1ep",
+                algorithms=[cutout_algorithm],
+                optimizers=[optimizer]
+            )
+
     Args:
         X (Tensor): Batch Tensor image of size (B, C, H, W).
         n_holes: Integer number of holes to cut out
-        length: Side length of the square hole to cut out.
+        length: Side length of the square holes to cut out. Must be greater than
+            0. If ``0 < length < 1``, ``length`` is interpreted as a fraction
+            of ``min(H, W)`` and converted to ``int(length * min(H, W))``.
+            If ``length >= 1``, ``length`` is used as an integer size directly.
     """
 
-    def __init__(self, n_holes: int, length: int):
+    def __init__(self, n_holes: int = 1, length: Union[int, float] = 0.5):
         self.n_holes = n_holes
         self.length = length
 
@@ -90,5 +103,16 @@ class CutOut(Algorithm):
         x, y = state.batch_pair
         assert isinstance(x, Tensor), "Multiple tensors not supported for Cutout."
 
-        new_x = cutout(X=x, n_holes=self.n_holes, length=self.length)
+        new_x = cutout_batch(X=x, n_holes=self.n_holes, length=self.length)
         state.batch = (new_x, y)
+
+
+def _generate_mask(mask: Tensor, width: int, height: int, x: int, y: int, cutout_length: int) -> Tensor:
+    y1 = np.clip(y - cutout_length // 2, 0, height)
+    y2 = np.clip(y + cutout_length // 2, 0, height)
+    x1 = np.clip(x - cutout_length // 2, 0, width)
+    x2 = np.clip(x + cutout_length // 2, 0, width)
+
+    mask[..., y1:y2, x1:x2] = 0.
+
+    return mask

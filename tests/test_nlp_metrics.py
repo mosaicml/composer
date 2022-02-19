@@ -100,10 +100,8 @@ def test_binary_f1(batch_size, minibatch_size):
         batch_size (int): how many samples are in each batch
         minibatch_size (int): the minibatch size to simulate for model predictions
     """
-    try:
-        from sklearn.metrics import f1_score
-    except ImportError:
-        pytest.xfail("Sklearn is not installed.")
+    pytest.importorskip("sklearn", reason="sklearn is an optional dependency")
+    from sklearn.metrics import f1_score
 
     batch_size = int(batch_size)
 

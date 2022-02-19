@@ -149,7 +149,7 @@ README.md.bkp
 .DS_Store
 
 # Sphinx
-generated/
+api_reference/
 
 # Run directory
 runs/

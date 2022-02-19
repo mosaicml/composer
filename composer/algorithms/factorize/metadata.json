@@ -1,0 +1,10 @@
+{
+    "factorize": {
+        "class_name": "Factorize",
+        "functional": "apply_factorization",
+        "tldr": "Factorize GEMMs into smaller GEMMs",
+        "attribution": "MosaicML",
+        "link": "https://www.mosaicml.com",
+        "domains": ["cv", "nlp"]
+    }
+}

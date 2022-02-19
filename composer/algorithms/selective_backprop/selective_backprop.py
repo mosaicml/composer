@@ -3,24 +3,22 @@
 from __future__ import annotations
 
 import inspect
-from dataclasses import asdict, dataclass
 from typing import Callable, Optional, Tuple
 
 import numpy as np
 import torch
-import yahp as hp
 from torch.nn import functional as F
 
-from composer.algorithms.algorithm_hparams import AlgorithmHparams
-from composer.core.types import Algorithm, Event, Logger, State, Tensor
+from composer.core.types import Algorithm, Event, Logger, State, Tensor, Tensors
+from composer.models import ComposerModel
 
 
-def do_selective_backprop(
+def should_selective_backprop(
     current_duration: float,
     batch_idx: int,
-    start: float,
-    end: float,
-    interrupt: int,
+    start: float = 0.5,
+    end: float = 0.9,
+    interrupt: int = 2,
 ) -> bool:
     """Decide if selective backprop should be run based on time in training.
 
@@ -49,14 +47,14 @@ def do_selective_backprop(
     return is_interval and is_step
 
 
-# TODO this function should probably be part of the public API
-def selective_backprop(X: torch.Tensor,
-                       y: torch.Tensor,
-                       model: torch.nn.Module,
-                       loss_fun: Callable,
-                       keep: float,
-                       scale_factor: float = 1) -> Tuple[torch.Tensor, torch.Tensor]:
-    """Select a subset of the batch on which to learn as per (`Jiang et al. 2019 <https://arxiv.org/abs/1910.00762>`_)
+def select_using_loss(X: torch.Tensor,
+                      y: torch.Tensor,
+                      model: Callable[[Tensors], Tensor],
+                      loss_fun: Callable,
+                      keep: float,
+                      scale_factor: float = 1) -> Tuple[torch.Tensor, torch.Tensor]:
+    """Selectively backpropagate gradients from a subset of each batch (`Jiang et al, 2019 <https://\\
+    arxiv.org/abs/1910.00762>`_).
 
     Selective Backprop (SB) prunes minibatches according to the difficulty
     of the individual training examples and only computes weight gradients
@@ -141,27 +139,9 @@ def selective_backprop(X: torch.Tensor,
     return X[select_idx], y[select_idx]
 
 
-@dataclass
-class SelectiveBackpropHparams(AlgorithmHparams):
-    """See :class:`SelectiveBackprop`"""
-
-    start: float = hp.required(doc="SB interval start, as fraction of training duration", template_default=0.5)
-    end: float = hp.required(doc="SB interval end, as fraction of training duration", template_default=0.9)
-    keep: float = hp.required(doc="fraction of minibatch to select and keep for gradient computation",
-                              template_default=0.5)
-    scale_factor: float = hp.required(doc="scale for downsampling input for selection forward pass",
-                                      template_default=0.5)
-    interrupt: int = hp.required(doc="interrupt SB with a vanilla minibatch step every 'interrupt' batches",
-                                 template_default=2)
-
-    def initialize_object(self) -> SelectiveBackprop:
-        return SelectiveBackprop(**asdict(self))
-
-
 class SelectiveBackprop(Algorithm):
-    """Selectively backpropagate gradients from a subset of each batch (`Jiang et al. 2019.
-
-    <https://arxiv.org/abs/1910.00762>`_).
+    """Selectively backpropagate gradients from a subset of each batch (`Jiang et al, 2019 <https://\\
+    arxiv.org/abs/1910.00762>`_).
 
     Selective Backprop (SB) prunes minibatches according to the difficulty
     of the individual training examples, and only computes weight gradients
@@ -187,24 +167,35 @@ class SelectiveBackprop(Algorithm):
             ``interrupt`` batches
     """
 
-    def __init__(self, start: float, end: float, keep: float, scale_factor: float, interrupt: int):
+    def __init__(self,
+                 start: float = 0.5,
+                 end: float = 0.9,
+                 keep: float = 0.5,
+                 scale_factor: float = 0.5,
+                 interrupt: int = 2):
         self.start = start
         self.end = end
         self.keep = keep
         self.scale_factor = scale_factor
         self.interrupt = interrupt
+        self._loss_fn = None  # set on Event.INIT
 
     def match(self, event: Event, state: State) -> bool:
-        """Match on ``Event.AFTER_DATALOADER`` if time is between ``self.start`` and ``self.end``."""
-        is_event = (event == Event.AFTER_DATALOADER)
-        if not is_event:
+        """Matches :attr:`Event.INIT` and `Event.AFTER_DATALOADER`
+
+        * Uses `Event.INIT` to get the loss function before the model is wrapped
+        * Uses `Event.AFTER_DATALOADER`` to apply selective backprop if time is between ``self.start`` and ``self.end``.
+        """
+        if event == Event.INIT:
+            return True
+        if event != Event.AFTER_DATALOADER:
             return False
 
         is_keep = (self.keep < 1)
         if not is_keep:
             return False
 
-        is_chosen = do_selective_backprop(
+        is_chosen = should_selective_backprop(
             current_duration=float(state.get_elapsed_duration()),
             batch_idx=state.timer.batch_in_epoch.value,
             start=self.start,
@@ -215,24 +206,23 @@ class SelectiveBackprop(Algorithm):
 
     def apply(self, event: Event, state: State, logger: Optional[Logger] = None) -> None:
         """Apply selective backprop to the current batch."""
+        if event == Event.INIT:
+            if self._loss_fn is None:
+                if not isinstance(state.model, ComposerModel):
+                    raise RuntimeError("Model must be of type ComposerModel")
+                self._loss_fn = state.model.loss
+            return
         input, target = state.batch_pair
         assert isinstance(input, Tensor) and isinstance(target, Tensor), \
             "Multiple tensors not supported for this method yet."
-
-        assert callable(state.model.module.loss)  # type: ignore - type not found
 
         # Model expected to only take in input, not the full batch
         model = lambda X: state.model((X, None))
 
         def loss(p, y, reduction="none"):
-            return state.model.module.loss(p, (None, y), reduction=reduction)  # type: ignore
+            assert self._loss_fn is not None, "loss_fn should be set on Event.INIT"
+            return self._loss_fn(p, (torch.Tensor(), y), reduction=reduction)
 
         with state.precision_context:
-            new_input, new_target = selective_backprop(
-                input,
-                target,
-                model,  # type: ignore - ditto because of loss
-                loss,
-                self.keep,
-                self.scale_factor)
+            new_input, new_target = select_using_loss(input, target, model, loss, self.keep, self.scale_factor)
         state.batch = (new_input, new_target)

@@ -3,71 +3,68 @@
 from __future__ import annotations
 
 import logging
-from dataclasses import asdict, dataclass
 from typing import TYPE_CHECKING, Any, Optional, Tuple
 
 import torch
+import torch.nn.functional as F
 from torchmetrics.classification.accuracy import Accuracy
 
-from composer.algorithms import AlgorithmHparams
 from composer.core import Algorithm, Event, Logger, State
-from composer.core.types import Metrics, Precision
+from composer.core.types import Metrics, Tensor, as_batch_pair
 from composer.models.base import ComposerModel
+from composer.utils import module_surgery
 
 if TYPE_CHECKING:
-    from composer.core.types import Batch, Tensors
+    from composer.core.types import Batch
 
 log = logging.getLogger(__name__)
 
+__all__ = ["NoOpModelClass", "NoOpModel"]
 
-# TODO: enable for mixed precision
-# TODO: enable for DDP
-# TODO: enable for eval
+
 class NoOpModelClass(ComposerModel):
 
     def __init__(self, original_model: torch.nn.Module):
         super().__init__()
-        self.parameter = torch.nn.parameter.Parameter(data=torch.tensor(0.0))
-        self.zero_tensor = torch.tensor(0.0)
+        self.weights = torch.tensor([1.5], requires_grad=True, dtype=torch.float)
         try:
             # For classification
             self.num_classes = original_model.num_classes
         except AttributeError:
             pass
 
-    def loss(self, outputs: Any, batch: Batch, *args, **kwargs) -> Tensors:
-        mock_loss = self.zero_tensor + self.parameter
-        return mock_loss
+    def loss(self, outputs: Tensor, batch: Batch):
+        x, y = as_batch_pair(batch)
+        assert isinstance(y, Tensor)
+        del x  # unused
+        return F.mse_loss(outputs, y.to(torch.float32))
 
-    def forward(self, batch: Batch) -> Tensors:
-        return self.zero_tensor
+    def forward(self, batch: Batch):
+        x, y = as_batch_pair(batch)
+        del x  # unused
+        assert isinstance(y, Tensor)
+        return y * self.weights
 
     def metrics(self, train: bool) -> Metrics:
         return Accuracy()
 
     def validate(self, batch: Batch) -> Tuple[Any, Any]:
-        raise NotImplementedError("NoOpModel not supported for eval yet.")
-
-
-@dataclass
-class NoOpModelHparams(AlgorithmHparams):
-
-    def initialize_object(self) -> NoOpModel:
-        return NoOpModel(**asdict(self))
+        x, y = as_batch_pair(batch)
+        del x  # unused
+        return y, y
 
 
 class NoOpModel(Algorithm):
-
-    def __init__(self):
-        pass
 
     def match(self, event: Event, state: State) -> bool:
         return event == Event.INIT
 
     def apply(self, event: Event, state: State, logger: Logger) -> Optional[int]:
         # replace model with dummy model
-        if state.precision == Precision.AMP:
-            raise NotImplementedError('NoOpModel not supported for AMP Precision yet.')
+        new_model = NoOpModelClass(state.model)
+        module_surgery.update_params_in_optimizer(old_params=state.model.parameters(),
+                                                  new_params=new_model.parameters(),
+                                                  optimizers=state.optimizers)
+        state.model = new_model
 
-        state.model = NoOpModelClass(state.model)
         log.info('Replaced model with a NoOpModel')

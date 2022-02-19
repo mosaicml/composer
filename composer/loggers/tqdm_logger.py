@@ -1,5 +1,7 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
+"""Logs metrics to a `TQDM <https://github.com/tqdm/tqdm>`_ progress bar displayed in the terminal."""
+
 from __future__ import annotations
 
 import collections.abc
@@ -11,13 +13,16 @@ import yaml
 from tqdm import auto
 
 from composer.core.logging import LogLevel, TLogData, TLogDataValue, format_log_data_value
-from composer.core.logging.base_backend import BaseLoggerBackend
+from composer.core.logging.base_backend import LoggerCallback
 from composer.core.state import State
+from composer.core.time import Timestamp
 from composer.core.types import StateDict
 from composer.utils import dist
 
 if TYPE_CHECKING:
     from composer.core.logging import Logger
+
+__all__ = ["TQDMLogger"]
 
 _IS_TRAIN_TO_KEYS_TO_LOG = {True: ['loss/train'], False: ['accuracy/val']}
 
@@ -58,11 +63,25 @@ class _TQDMLoggerInstance:
         return asdict(self.state)
 
 
-class TQDMLoggerBackend(BaseLoggerBackend):
-    """Shows TQDM progress bars.
+class TQDMLogger(LoggerCallback):
+    """Logs metrics to a `TQDM <https://github.com/tqdm/tqdm>`_ progress bar displayed in the terminal.
 
     During training, the progress bar logs the batch and training loss.
     During validation, the progress bar logs the batch and validation accuracy.
+
+    Example usage:
+        .. testcode::
+
+            from composer.loggers import TQDMLogger
+            from composer.trainer import Trainer
+            trainer = Trainer(
+                model=model,
+                train_dataloader=train_dataloader,
+                eval_dataloader=eval_dataloader,
+                max_duration="1ep",
+                optimizers=[optimizer],
+                loggers=[TQDMLogger()]
+            )
 
     Example output::
 
@@ -89,8 +108,8 @@ class TQDMLoggerBackend(BaseLoggerBackend):
         del state  # Unused
         return dist.get_global_rank() == 0 and log_level <= LogLevel.BATCH
 
-    def log_metric(self, epoch: int, step: int, log_level: LogLevel, data: TLogData) -> None:
-        del epoch, step, log_level  # Unused
+    def log_metric(self, timestamp: Timestamp, log_level: LogLevel, data: TLogData) -> None:
+        del timestamp, log_level  # Unused
         if self.is_train in self.pbars:
             # Logging outside an epoch
             assert self.is_train is not None

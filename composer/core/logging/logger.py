@@ -1,5 +1,15 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
+"""Base classes, functions, and variables for logger.
+
+Attributes:
+    TLogDataValue: Data value(s) to be logged. Can be any of the following types:
+        ``str``; ``float``; ``int``; :class:`torch.Tensor`; ``Sequence[TLogDataValue``;
+        ``Mapping[str, TLogDataValue]``.
+    TLogData: Name-value pair for data to be logged. Type ``Mapping[str, TLogDataValue]``.
+        Example: {"accuracy", 21.3}.
+"""
+
 from __future__ import annotations
 
 import collections.abc
@@ -12,16 +22,17 @@ from typing import TYPE_CHECKING, Callable, Generator, Mapping, Sequence, Union
 import torch
 
 if TYPE_CHECKING:
-    from composer.core.logging.base_backend import BaseLoggerBackend
+    from composer.core.logging.base_backend import LoggerCallback
     from composer.core.state import State
-    from composer.core.types import JSON
+
+__all__ = ["LoggerCallback", "Logger", "LogLevel", "TLogData", "TLogDataValue", "format_log_data_value"]
 
 TLogDataValue = Union[str, float, int, torch.Tensor, Sequence["TLogDataValue"], Mapping[str, "TLogDataValue"]]
 TLogData = Mapping[str, TLogDataValue]
 
 
 class LogLevel(IntEnum):
-    """LogLevel denotes where in the training loop log messages are generated.
+    """LogLevel denotes when in the training loop log messages are generated.
 
     Logging destinations use the LogLevel to determine whether to record a given
     metric or state change.
@@ -37,33 +48,34 @@ class LogLevel(IntEnum):
 
 
 class Logger:
-    """Logger routes metrics to the
-    :class:`~composer.core.logging.base_backend.BaseLoggerBackend`.
+    """Logger routes metrics to the :class:`.LoggerCallback`. Logger is what users call from within
+    algorithms/callbacks. A logger routes the calls/data to any different number of destination
+    :class:`.LoggerCallback`\\s (e.g. :class:`.FileLogger`, :class:`.InMemoryLogger`, etc.). Data to be logged should be
+    of the type :attr:`~.logger.TLogData` (i.e. a {'name': value} mapping).
 
     Args:
-        state (~composer.core.state.State):
-            The global :class:`~composer.core.state.State` object.
-        backends (Sequence[BaseLoggerBackend]):
-            A sequence of
-            :class:`~composer.core.logging.base_backend.BaseLoggerBackend`\\s
+        state (State):
+            The global :class:`~.core.state.State` object.
+        backends (Sequence[LoggerCallback]):
+            A sequence of :class:`~.logging.base_backend.LoggerCallback`\\s
             to which logging calls will be sent.
 
     Attributes:
-        backends (Sequence[BaseLoggerBackend]):
+        backends (Sequence[LoggerCallback]):
             A sequence of
-            :class:`~composer.core.logging.base_backend.BaseLoggerBackend`\\s
+            :class:`~.logging.base_backend.LoggerCallback`\\s
             to which logging calls will be sent.
     """
 
     def __init__(
             self,
             state: State,
-            backends: Sequence[BaseLoggerBackend] = tuple(),
+            backends: Sequence[LoggerCallback] = tuple(),
     ):
         self.backends = backends
         self._state = state
 
-    def _get_destinations_for_log_level(self, log_level: LogLevel) -> Generator[BaseLoggerBackend, None, None]:
+    def _get_destinations_for_log_level(self, log_level: LogLevel) -> Generator[LoggerCallback, None, None]:
         for destination in self.backends:
             if destination.will_log(self._state, log_level):
                 yield destination
@@ -74,12 +86,11 @@ class Logger:
         Args:
             log_level (Union[str, LogLevel]): A :class:`LogLevel`.
             data (Union[TLogData, Callable[[], TLogData]]):
-                Can be either logging data or a callable that returns
-                data to be logged. Callables will be invoked
-                only when :meth:`~composer.core.logging.logger.Logger.will_log`
-                returns True for at least one
-                :class:`~composer.core.logging.base_backend.BaseLoggerBackend`.
-                Useful when it is expensive to generate the data to be logged.
+                Can be either logging data or a callable that returns data to be logged.
+                Callables will be invoked only when
+                :meth:`~.base_backend.LoggerCallback.will_log` returns True for at least one
+                :class:`~.logging.base_backend.LoggerCallback`. Useful when it is
+                expensive to generate the data to be logged.
         """
         if isinstance(log_level, str):
             log_level = LogLevel[log_level.upper()]
@@ -91,7 +102,7 @@ class Logger:
             # this way, the flushed data will be the same as at the time of the logger call
             copied_data = deepcopy(data)
             assert isinstance(copied_data, collections.abc.Mapping)
-            destination.log_metric(self._state.epoch, self._state.step, log_level, copied_data)
+            destination.log_metric(self._state.timer.get_timestamp(), log_level, copied_data)
 
     def metric_fit(self, data: Union[TLogData, Callable[[], TLogData]]) -> None:
         """Helper function for ``metric(LogLevel.FIT, data)``"""
@@ -138,28 +149,3 @@ def format_log_data_value(data: TLogDataValue) -> str:
     if isinstance(data, collections.abc.Iterable):
         return "[" + ", ".join(format_log_data_value(v) for v in data) + "]"
     raise NotImplementedError(f"Unable to format variable of type: {type(data)} with value {data}")
-
-
-def format_log_data_as_json(data: TLogDataValue) -> JSON:
-    """Recursively formats a given log data value into a JSON object.
-
-    Args:
-        data: Data to format.
-
-    Returns:
-        str: The data, as JSON.
-    """
-    if isinstance(data, (str, int, float)):
-        return data
-    if isinstance(data, torch.Tensor):
-        return format_log_data_as_json(data.cpu().item())
-    if isinstance(data, collections.abc.Mapping):
-        data_dict = {}
-        for k in data.keys():
-            assert isinstance(k, str), f"Expected data key {k} to be a string"
-            data_dict[k] = format_log_data_as_json(data[k])
-        return data_dict
-    if isinstance(data, collections.abc.Iterable):
-        return [format_log_data_as_json(val) for val in data]
-    raise NotImplementedError(f"Unable to format variable of type: {type(data)} "
-                              "with value {data} into JSON for logging")

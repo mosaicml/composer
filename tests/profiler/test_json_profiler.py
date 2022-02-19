@@ -5,7 +5,7 @@ import os
 
 import pytest
 
-from composer.profiler import JSONTraceHandlerHparams, ProfilerHparams
+from composer.profiler.profiler_hparams import JSONTraceHandlerHparams
 from composer.trainer import TrainerHparams
 from composer.utils import run_directory
 
@@ -14,16 +14,13 @@ from composer.utils import run_directory
 def test_json_trace_profiler_hanlder(composer_trainer_hparams: TrainerHparams):
     json_trace_handler_params = JSONTraceHandlerHparams(flush_every_n_batches=1,)
 
-    profiler_hparams = ProfilerHparams(
-        trace_event_handlers=[json_trace_handler_params],
-        skip_first=0,
-        warmup=0,
-        wait=0,
-        active=1000,
-        repeat=0,
-    )
-
-    composer_trainer_hparams.profiler = profiler_hparams
+    composer_trainer_hparams.profiler_trace_file = "profiler_traces.json"
+    composer_trainer_hparams.prof_event_handlers = [json_trace_handler_params]
+    composer_trainer_hparams.prof_skip_first = 0
+    composer_trainer_hparams.prof_warmup = 0
+    composer_trainer_hparams.prof_wait = 0
+    composer_trainer_hparams.prof_active = 1000
+    composer_trainer_hparams.prof_repeat = 0
     composer_trainer_hparams.max_duration = "2ep"
 
     trainer = composer_trainer_hparams.initialize_object()
@@ -33,12 +30,12 @@ def test_json_trace_profiler_hanlder(composer_trainer_hparams: TrainerHparams):
 
     with open(profiler_file, "r") as f:
         trace_json = json.load(f)
-        has_training_start_event = False
-        has_training_end_event = False
+        has_epoch_start_event = False
+        has_epoch_end_event = False
         for event in trace_json:
-            if event["name"] == "event/training" and event["ph"] == "B":
-                has_training_start_event = True
-            if event["name"] == "event/training" and event["ph"] == "E":
-                has_training_end_event = True
-        assert has_training_start_event
-        assert has_training_end_event
+            if event["name"] == "event/epoch" and event["ph"] == "B":
+                has_epoch_start_event = True
+            if event["name"] == "event/epoch" and event["ph"] == "E":
+                has_epoch_end_event = True
+        assert has_epoch_start_event
+        assert has_epoch_end_event
