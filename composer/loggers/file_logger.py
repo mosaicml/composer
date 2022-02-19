@@ -54,8 +54,8 @@ class FileLogger(LoggerCallback):
     Args:
         filename (str, optional): File to log to.
             Can be a filepath, ``"stdout"``, or ``"stderr"``. Default: ``"stdout"``.
-            Filepaths should be specified relative to the run directory
-            (:mod:`run_directory`).
+            Filepaths should be specified relative to the 
+            :mod:`~.composer.utils.run_directory`.
         buffer_size (int, optional): Buffer size. See :py:func:`open`.
             Default: ``1`` for line buffering.
         log_level (LogLevel, optional):

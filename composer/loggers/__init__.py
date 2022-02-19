@@ -2,10 +2,10 @@
 
 """Logging.
 
-The trainer includes a :class:`~.logger.Logger`, which routes logging
-calls to a logger. Each logger inherits from
-:class:`~.base_backend.LoggerCallback`, which inherits from
-:class:`~.callback.Callback`.
+In Composer, algorithms and callbacks can make calls to the :class:`~.logger.Logger`,
+which then routes the calls to the appropriate :class:`~.base_backend.LoggerCallback`s.
+The :class:`~.base_backend.LoggerCallback` does the actual logging, for example to a file,
+or Weights and Biases.
 
 See the :class:`~.base_backend.LoggerCallback` documentation for an example of how to
 define a custom logger and use it when training.
