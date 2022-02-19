@@ -86,6 +86,10 @@ engine = Engine(state, logger)
 
 image = Image.fromarray(np.random.randint(0, 256, size=(32, 32, 3), dtype=np.uint8))
 
+X_example = torch.randn(batch_size, num_channels, 32, 32)
+logits = torch.randn(batch_size, num_classes)
+y_example = torch.randint(num_classes, (batch_size,))
+
 # bind the required arguments to the Trainer so it can be used without arguments in the doctests
 Trainer = functools.partial(
     Trainer,
