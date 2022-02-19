@@ -22,8 +22,8 @@ __all__ = ["SystemProfiler"]
 
 
 class SystemProfiler(Callback):
-    """The SystemProfiler records system level metrics.  Implemented as a :class:`.Callback`, the profiler forks a thread
-    during :attr:`.Event.INIT` which polls and records system state.
+    """The SystemProfiler records system level metrics.  Implemented as a :class:`.Callback`, the profiler forks a
+    thread during :attr:`.Event.INIT` which polls and records system state.
 
     When used with the Composer :class:`.Trainer`\\, the system profiler is enabled if profiling is enabled.
 

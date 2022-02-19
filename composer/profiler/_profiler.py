@@ -151,7 +151,7 @@ class Profiler:
                 Defaults to (ProfilerAction.WARMUP, ProfilerAction.ACTIVE).
             record_instant_on_start (bool, optional): Whether to record an instant event whenever the marker is started.
                 Defaults to False.
-            record_instant_on_finish (bool, optional): Whether to record an instant event whenever the marker is finished. 
+            record_instant_on_finish (bool, optional): Whether to record an instant event whenever the marker is finished.
                 Defaults to False.
             categories (Union[List[str], Tuple[str, ...]], optional): Categories for this marker. Defaults to tuple().
 
@@ -284,7 +284,7 @@ class Marker:
         :class:`Marker` should not be instantiated directly; instead use :meth:`Profiler.marker`.
 
     Markers can record the following types of events:
-        
+
     #. Duration: Records the start and stop time of an event of interest (:meth:`Marker.start()`, :meth:`Marker.finish()`).
 
     #. Instant: Record time a particular event occurs, but not the full duration (:meth:`Marker.instant()`).
@@ -332,8 +332,8 @@ class Marker:
         self._action_at_start = None
 
     def start(self) -> None:
-        """Record the start of a duration event.  
-        
+        """Record the start of a duration event.
+
         To record the duration of an event, invoke :meth:`Marker.start` followed by :meth:`Marker.finish`\\:
 
         .. code-block:: python
@@ -371,9 +371,8 @@ class Marker:
 
     def finish(self) -> None:
         """Record the end of a duration event.
-        
-        See :meth:`Marker.start()` for a usage example.
 
+        See :meth:`Marker.start()` for a usage example.
         """
         if not self._started:
             raise RuntimeError(
@@ -401,7 +400,7 @@ class Marker:
 
     def instant(self) -> None:
         """Record an instant event.
-        
+
         To record an instant event:
 
         .. code-block:: python
@@ -422,7 +421,7 @@ class Marker:
 
     def counter(self, values: Dict[str, Union[float, int]]) -> None:
         """Record a counter event.
-        
+
         To record a counter event:
 
         .. code-block:: python
