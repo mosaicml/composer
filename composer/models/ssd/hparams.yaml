@@ -25,11 +25,11 @@ loggers:
 train_batch_size: 128
 eval_batch_size: 128
 seed: 0
-validate_every_n_epochs: 2
+validate_every_n_epochs: 10
 grad_accum: 1
 device:
   gpu: {}
-max_duration: 2ep
+max_duration: 70ep
 dataloader:
   pin_memory: true
   timeout: 0

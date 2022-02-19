@@ -13,7 +13,7 @@ from pycocotools.cocoeval import COCOeval
 from torch.autograd import Variable
 from torch.utils.data import DataLoader
 from torchmetrics import Metric
-from torchmetrics.detection.map import MeanAveragePrecision as MAP
+#from torchmetrics.detection.map import MeanAveragePrecision as MAP
 from composer.core.types import BatchPair, Metrics, Tensor, Tensors
 from composer.datasets.coco import COCO, COCODetection
 from composer.models.base import ComposerModel
@@ -35,7 +35,7 @@ class SSD(ComposerModel):
         dboxes = dboxes300_coco()
 
         self.loss_func = Loss(dboxes)
-        self.MAP = MAP()
+        self.MAP = my_map()
 
     def loss(self, outputs: Any, batch: BatchPair) -> Tensors:
 
@@ -82,36 +82,51 @@ class SSD(ComposerModel):
         nms_max_detections = 200
         encoder = Encoder(dboxes)
 
-        for nbatch, (img, img_id, img_size, bbox, label) in enumerate(val_dataloader):
-            ploc, plabel = self.module(img.cuda())
-            #import pdb; pdb.set_trace()
-            
-            try:
-                results = encoder.decode_batch(ploc, plabel,
-                                               overlap_threshold,
-                                               nms_max_detections,
-                                               nms_valid_thresh=0.05)
-            except:
-                print("No object detected in batch: {}".format(nbatch))
-                continue
-            (htot, wtot) = [d.cpu().numpy() for d in img_size]
-            img_id = img_id.cpu().numpy()
-            # Iterate over batch elements
-            for img_id_, wtot_, htot_, result in zip(img_id, wtot, htot, results):
-                loc, label, prob = [r.cpu().numpy() for r in result]
-                # Iterate over image detections
-                for loc_, label_, prob_ in zip(loc, label, prob):
-                    ret.append([img_id_, loc_[0]*wtot_, \
-                                loc_[1]*htot_,
-                                (loc_[2] - loc_[0])*wtot_,
-                                (loc_[3] - loc_[1])*htot_,
-                                prob_,
-                                inv_map[label_]])
+        (img, img_id, img_size, _, _) = batch
+        #for nbatch, (img, img_id, img_size, bbox, label) in enumerate(val_dataloader):
+        ploc, plabel = self.module(img.cuda())
+
+        try:
+            results = encoder.decode_batch(ploc, plabel,
+                                           overlap_threshold,
+                                           nms_max_detections,
+                                           nms_valid_thresh=0.05)
+        except:
+            print("No object detected in batch: {}".format(nbatch))
+            #continue
+        (htot, wtot) = [d.cpu().numpy() for d in img_size]
+        img_id = img_id.cpu().numpy()
+        # Iterate over batch elements
+        for img_id_, wtot_, htot_, result in zip(img_id, wtot, htot, results):
+            loc, label, prob = [r.cpu().numpy() for r in result]
+            # Iterate over image detections
+            for loc_, label_, prob_ in zip(loc, label, prob):
+                ret.append([img_id_, loc_[0]*wtot_, \
+                            loc_[1]*htot_,
+                            (loc_[2] - loc_[0])*wtot_,
+                            (loc_[3] - loc_[1])*htot_,
+                            prob_,
+                            inv_map[label_]])
+
+        return ret, ret
 
 
+class my_map(Metric):
+    def __init__(self):
+        super().__init__()
+        self.predictions = []
+        
+    def update(self, pred, target):
+        self.predictions.append([pred])
+        np.squeeze(self.predictions)
 
+    def compute(self):
+        
+        data = "/localdisk/coco"
+        val_annotate = os.path.join(data, "annotations/instances_val2017.json")
+        cocogt = COCO(annotation_file=val_annotate)
         #import pdb; pdb.set_trace()
-        cocoDt = cocogt.loadRes(np.array(ret))
+        cocoDt = cocogt.loadRes(np.squeeze(self.predictions))
         E = COCOeval(cocogt, cocoDt, iouType='bbox')
         E.evaluate()
         E.accumulate()
