@@ -10,71 +10,11 @@ from typing import Optional
 import torch
 from torch.optim.swa_utils import SWALR, AveragedModel
 
-from composer.core.types import Algorithm, DataLoader, Event, Logger, State
+from composer.core.types import Algorithm, Event, Logger, State
 
 log = logging.getLogger(__name__)
 
 __all__ = ['SWA']
-
-
-@torch.no_grad()
-def update_bn(loader: DataLoader, model: torch.nn.Module, device: torch.device):
-    """Updates BatchNorm running_mean, running_var buffers in the model.
-
-    It performs one pass over data in `loader` to estimate the activation
-    statistics for BatchNorm layers in the model.
-    Args:
-        loader (torch.utils.data.DataLoader): dataset loader to compute the
-            activation statistics on. Each data batch should be either a
-            tensor, or a list/tuple whose first element is a tensor
-            containing data.
-        model (torch.nn.Module): model for which we seek to update BatchNorm
-            statistics.
-        device (torch.device, optional): If set, data will be transferred to
-            :attr:`device` before being passed into :attr:`model`.
-
-    Example:
-        >>> loader, model = ...
-        >>> torch.optim.swa_utils.update_bn(loader, model)
-
-    .. note::
-        The `update_bn` utility assumes that each data batch in :attr:`loader`
-        is either a tensor or a list or tuple of tensors; in the latter case it
-        is assumed that :meth:`model.forward()` should be called on the first
-        element of the list or tuple corresponding to the data batch.
-    """
-    momenta = {}
-    for module in model.modules():
-        if isinstance(module, torch.nn.modules.batchnorm._BatchNorm):
-            assert module.running_mean is not None
-            module.running_mean = torch.zeros_like(module.running_mean)
-            assert module.running_var is not None
-            module.running_var = torch.ones_like(module.running_var)
-            momenta[module] = module.momentum
-
-    if not momenta:
-        return
-
-    was_training = model.training
-    model.train()
-    for module in momenta.keys():
-        module.momentum = None
-        module.num_batches_tracked *= 0
-
-    for data in loader:
-        import composer.trainer.devices as devices
-        if device.type == "cuda":
-            composer_device = devices.DeviceGPU()
-        elif device.type == "cpu":
-            composer_device = devices.DeviceCPU()
-        else:
-            raise ValueError("`device` must be one of 'cuda', 'cpu'")
-        data = composer_device.batch_to_device(data)
-        model(data)
-
-    for bn_module in momenta.keys():
-        bn_module.momentum = momenta[bn_module]
-    model.train(was_training)
 
 
 class SWA(Algorithm):
@@ -90,12 +30,7 @@ class SWA(Algorithm):
     memory required doubles, however, since stored activations and the
     optimizer state are not doubled.
 
-    Args:
-        swa_start (float, optional): fraction of training completed before stochastic
-            weight averaging is applied. Default = 0.85.
-        swa_end (float, optional): fraction of training completed before stochastic weight averaging is
-            completed. Default = 0.97
-        swa_lr (float, optional): the final learning rate used for weight averaging
+    Uses PyTorch's :mod:`torch.optim.swa_utils` under the hood.
 
     See the :doc:`Method Card </method_cards/swa>` for more details.
 
@@ -105,27 +40,42 @@ class SWA(Algorithm):
             from composer.algorithms import SWA
             from composer.trainer import Trainer
             swa_algorithm = SWA(
-                swa_start=0.8
+                swa_start=0.7,
+                swa_end=0.8
             )
             trainer = Trainer(
                 model=model,
                 train_dataloader=train_dataloader,
                 eval_dataloader=eval_dataloader,
-                max_duration="1ep",
+                max_duration="10ep",
                 algorithms=[swa_algorithm],
                 optimizers=[optimizer]
             )
 
     Args:
-        swa_start (float): Fraction of training completed before stochastic weight
-            averaging is applied. Defalt = ``0.8``.
+        swa_start (float, optional): Fraction of training completed before stochastic
+            weight averaging begins. Defalt = ``0.7``.
+        swa_end (float, optional): Fraction of training completed before the baseline
+            (non-averaged) model is replaced with the stochastic weight averaged model.
+            It's important to have at least one epoch of training after the baseline model
+            is replaced by the SWA model so that the SWA model can have its buffers (most
+            importantly its batch norm statistics) updated. If ``swa_end`` occurs during
+            the final epoch of training (e.g. ``swa_end = 0.9`` and ``max_duration =
+            "5ep"``), the SWA model will not have its buffers updated, which can
+            negatively impact accuracy, so ensure ``swa_end`` <
+            :math:`frac{N_{epochs}-1}{N_{epochs}}. Default = ``0.97``.
+        schedule_swa_lr (bool, optional): Flag to determine whether apply an SWA-specific
+            LR schedule during the period in which SWA is active. Default = ``False``.
+        anneal_strategy (str, optional): SWA learning rate annealing schedule strategy.
+            "linear" for linear annealing, "cos" for cosine annealing. Default =
+            ``"linear"``.
         anneal_epochs (int, optional): Number of epochs over which to anneal SWA
             learning rate. Default = ``10``.
-        swa_lr (float, optional): The final learning rate used for weight averaging
+        swa_lr (float, optional): The final learning rate for the SWA LR schedule.
     """
 
     def __init__(self,
-                 swa_start: float = 0.85,
+                 swa_start: float = 0.7,
                  swa_end: float = 0.97,
                  anneal_epochs: int = 10,
                  swa_lr: Optional[float] = None):
