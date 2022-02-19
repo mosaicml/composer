@@ -11,7 +11,6 @@ class SSD300(nn.Module):
         Build a SSD module to take 300x300 image input,
         and output 8732 per class bounding boxes
 
-        vggt: pretrained vgg16 (partial) model
         label_num: number of classes (including background 0)
     """
 

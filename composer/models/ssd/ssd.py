@@ -10,9 +10,9 @@ import numpy as np
 import torch
 from PIL import Image
 from pycocotools.cocoeval import COCOeval
-from torch.autograd import Variable
 from torch.utils.data import DataLoader
 from torchmetrics import Metric
+
 from composer.core.types import BatchPair, Metrics, Tensor, Tensors
 from composer.datasets.coco import COCO, COCODetection
 from composer.models.base import ComposerModel
@@ -55,7 +55,6 @@ class SSD(ComposerModel):
         return ploc, plabel
 
     def validate(self, batch: BatchPair) -> Tuple[Any, Any]:
-        input_size = 300
         dboxes = dboxes300_coco()
 
         inv_map = {v: k for k, v in val_coco.label_map.items()}
@@ -68,10 +67,7 @@ class SSD(ComposerModel):
         ploc, plabel = self.module(img.cuda())
 
         try:
-            results = encoder.decode_batch(ploc, plabel,
-                                           overlap_threshold,
-                                           nms_max_detections,
-                                           nms_valid_thresh=0.05)
+            results = encoder.decode_batch(ploc, plabel, overlap_threshold, nms_max_detections, nms_valid_thresh=0.05)
         except:
             print("No object detected in batch: {}".format(nbatch))
 
@@ -93,10 +89,11 @@ class SSD(ComposerModel):
 
 
 class my_map(Metric):
+
     def __init__(self):
         super().__init__()
         self.predictions = []
-        
+
     def update(self, pred, target):
         self.predictions.append([pred])
         np.squeeze(self.predictions)

@@ -473,38 +473,3 @@ class SSDTransformer(object):
         bbox, label = self.encoder.encode(bbox, label)
 
         return img, img_size, bbox, label
-
-
-def draw_patches(img, bboxes, labels, order="xywh", label_map={}):
-    import matplotlib.patches as patches
-    import matplotlib.pyplot as plt
-    img = np.array(img)
-    labels = np.array(labels)
-    bboxes = bboxes.numpy()
-
-    if label_map:
-        labels = [label_map.get(l) for l in labels]
-
-    if order == "ltrb":
-        xmin, ymin, xmax, ymax = bboxes[:, 0], bboxes[:, 1], bboxes[:, 2], bboxes[:, 3]
-        cx, cy, w, h = (xmin + xmax) / 2, (ymin + ymax) / 2, xmax - xmin, ymax - ymin
-    else:
-        cx, cy, w, h = bboxes[:, 0], bboxes[:, 1], bboxes[:, 2], bboxes[:, 3]
-
-    htot, wtot, _ = img.shape
-    cx *= wtot
-    cy *= htot
-    w *= wtot
-    h *= htot
-
-    bboxes = zip(cx, cy, w, h)
-
-    plt.imshow(img)
-    ax = plt.gca()
-    for (cx, cy, w, h), label in zip(bboxes, labels):
-        if label == "background":
-            continue
-        ax.add_patch(patches.Rectangle((cx - 0.5 * w, cy - 0.5 * h), w, h, fill=False, color="r"))
-        bbox_props = dict(boxstyle="round", fc="y", ec="0.5", alpha=0.3)
-        ax.text(cx - 0.5 * w, cy - 0.5 * h, label, ha="center", va="center", size=15, bbox=bbox_props)
-    plt.show()
