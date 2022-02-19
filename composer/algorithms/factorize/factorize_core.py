@@ -1,7 +1,7 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
 import dataclasses
-from typing import Optional, Tuple, Union
+from typing import Optional, Sequence, Tuple, Union
 
 import numpy as np
 import torch
@@ -221,7 +221,7 @@ def _activations_conv2d_to_mat(activations,
         raise NotImplementedError(f"Dilation != 1 not implemented; got {dilation}")
     if groups != 1:
         raise NotImplementedError(f"Groups != 1 not implemented; got {groups}")
-    if np.max(padding) > 0 and padding_mode.lower() != 'zeros':
+    if np.max(padding) > 0 and padding_mode.lower() != 'zeros' and isinstance(padding, Sequence):
         activations = F.pad(activations, pad=padding, mode=padding_mode)
         padding = 0
     # always default to stride=1 to maximize amount of data we get here

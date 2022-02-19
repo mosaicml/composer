@@ -29,15 +29,15 @@ log = logging.getLogger(__name__)
 class ComposerSchedulerFn(Protocol):
     """Specification for a "stateless" scheduler function.
 
-    A scheduler function should be a pure function that returns a multiplier to apply to the optimizer's
-    provided learning rate, given the current trainer state, and optionally a "scale schedule ratio" (SSR). 
-    A typical implementation will read `state.timer`, and possibly other fields like `state.max_duration`, 
-    to determine the trainer's latest temporal progress.
+    A scheduler function should be a pure function that returns a multiplier to apply to the optimizer's provided
+    learning rate, given the current trainer state, and optionally a "scale schedule ratio" (SSR). A typical
+    implementation will read `state.timer`, and possibly other fields like `state.max_duration`, to determine the
+    trainer's latest temporal progress.
     """
 
     def __call__(self, state: State, *, ssr: float = 1.0) -> float:
         """Calculate the current learning rate factor.
-    
+
         Args:
             state (State): The current Composer Trainer state.
             ssr (float): The scale schedule ratio. In general, the learning rate computed by this
