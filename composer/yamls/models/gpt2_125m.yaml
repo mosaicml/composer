@@ -64,16 +64,8 @@ optimizer:
     eps: 1.0e-08
     weight_decay: 0.0
 schedulers:
-  - warmup:
-      warmup_method: linear
-      warmup_factor: 0
-      interval: step
-      warmup_iters: 140ba
-  - cosine_decay:
-      interval: step
-      eta_min: 0
-      verbose: false
-      T_max: 13860ba
+  - cosine_decay_with_warmup:
+      warmup_time: 140ba
 loggers:
   - tqdm: {}
 max_duration: 1ep
