@@ -85,7 +85,7 @@ For these and other potential uses cases, the trainer can also accept
    data_spec = DataSpec(
        dataloader=my_train_dataloader,
        num_tokens=193820,
-       get_num_tokens_in_batch=lambda batch: batch['data'].shape[0]
+       get_num_tokens_in_batch=lambda batch: batch['text'].shape[0]
    )
 
    trainer = Trainer(train_dataloader=data_spec, ...)
@@ -109,6 +109,45 @@ with their own metrics, :class:`.Evaluator` objects can be used to
 pass in multiple dataloaders/datasets to the trainer.
 
 For more information, see :doc:`Evaluation</trainer/evaluation>`.
+
+
+Batch Types
+===========
+
+Batch types make it easy to tell the algorithms needed information about
+the data. For data augmentation algorithms, for example, the location of the
+image within the batch, or for natural language processing, the `dict` key
+corresponding to the tokenized inputs.
+
+We have native support for two types of batches:
+
+- `BatchPair` can be a tuple or list of two :class:`~torch.Tensor`: ``(input, target)``
+- `BatchDict` is a `dict` with keys (``str``) and values (:class:`~torch.Tensor`).
+
+For custom batch types, implement and provide the ``split_batch`` function
+to the trainer using :class:`.DataSpec` above. Here's an example function
+for when the batch from the dataloader is the `BatchPair`, a tuple of
+two tensors:
+
+.. code:: python
+
+    def split_batch(self, batch: Batch, num_microbatches: int) -> List[Batch]:
+        x, y = batch
+        if isinstance(x, torch.Tensor) and isinstance(y, torch.Tensor):
+            return list(zip(x.chunk(num_microbatches), y.chunk(num_microbatches)))
+
+Suppose instead the batch had one input image and several target images,
+e.g. ``(Tensor, (Tensor, Tensor, Tensor))``, then the function would be:
+
+.. code:: python
+
+    def split_batch(self, batch: Batch, num_microbatches: int) -> List[Batch]:
+        n = num_microbatches
+
+        x, (y1, y2) = batch
+        chunked = (x.chunk(n), (y1.chunk(n), y2.chunk(n)))
+        return list(zip(*chunked))
+
 
 .. |DataSpec| replace:: :class:`~composer.core.DataSpec`
 .. _pytorch: https://pytorch.org/tutorials/beginner/basics/data_tutorial.html

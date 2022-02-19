@@ -16,68 +16,90 @@ These above string inputs are valid when an argument accepts the |Time|
 type. There are some exceptions -- for example ``dur`` is not valid when setting
 ``max_duration``.
 
-Users can also specify milestones for objects such as Llearning rate schedulers
+Users can also specify milestones for objects such as learning rate schedulers
 in units of ``duration``, such as ``0.1dur``. This makes it easy to build recipes
-such as “a linear LR warmup over the first 1% of training”.
+such as “decay the learning rate 10% into training”.
 
 .. warning::
 
-    For `dur` arguments, we keep the same units as that provided to ``max_duration``,
-    and round down. For example, if ``max_duration = "7ep"``
+    For `dur` arguments, we keep the same units as used in ``max_duration``,
+    and round down. For example, if ``max_duration = "7ep"`` and  ``warmup = "0.2dur"``,
+    then warmup will be converted to ``floor(7 * 0.2) = 1 epoch``.
 
 
 We also support arithmetic between instances that share the same units. For more information,
 see the documentation for |Time|.
 
-The trainer had a :class:`.Timer` object stored in ``state.timer`` that
-accurately measures all the time formats as training progresses. Training
-is stopped once the timer's clock has exceeded ``max_duration``.
+Tracking Time
+-------------
+The trainer has a :class:`.Timer` object stored in :attr:`.State.timer` that
+measures progress in all the time formats above. :attr:`.State.timer` can be
+read by algorithms and callbacks to trigger behavior at different times
+during training. Especially useful is allowing you to use whicheer format
+is most relevant for your algorithm -- e.g. once-every-n batches, or during the
+last 20% of training.
 
-Time Conversions
-----------------
+The trainer's timer increments time as data is consumed. As each batch of data is read,
+the timer accumulates the total number of samples and/or tokens consumed.
+
+By default, we attempt to infer the number of samples in batch:
+
+- If :class:`torch.Tensor`, we return the size of the first dimension
+- If `list` or `tuple`, all elements must have the same first dimension size
+- If `dict`, all elements must have the same first dimension size
+
+Users can supply their own `get_num_samples_in_batch` method to the trainer
+via the :class:`.DataSpec` for more complicated datasets:
+
+.. code:: python
+
+    from composer.core import DataSpec
+    from composer import Trainer
+
+    def my_num_samples(batch: dict) -> int:
+        return batch['image1'].shape[0] + batch['image2'].shape[0]
 
 
+    data_spec = DataSpec(
+        dataloader=my_train_dataloader,
+        get_num_samples_in_batch=my_num_samples,
+    )
+
+    trainer = Trainer(
+        model=model,
+        train_dataloader=data_spec,
+    )
 
 
-between these units, provided that the trainer is supplied with the proper conversion factors.
-For example, to convert between epochs and batches, the supplied `train_dataloader` must either
-implement the `__len__` method,
+To track tokens properly, users will need to supply the `get_num_tokens_in_batch`
+function to the Trainer, otherwise tokens will not be tracked.
 
-
-
-
-
-
-
-.. code:: yaml
-
-   schedulers:
-     - warmup:
-         warmup_method: linear
-         warmup_iters: 0.01dur
-         interval: batch
-
-Before training begins, the Trainer statically converts units of ``dur``
-to the granularity specified in ``interval``. At MosaicML we have found
-in our research that fine-grained LR scheduling leads to better model
-training (LINK HERE), so we step schedulers at the ``batch`` granularity
-by default.
-
-Also, the Trainer’s ``state.timer`` object can be read by algorithms and
-callbacks. This allows algorithms to trigger different behavior at
-different times during training, such as once-every-N batches, or during
-the last 20% of training, etc.
-
-How does it work?
+Samples Per Epoch
 -----------------
 
-The Composer Trainer increments time as data is consumed. As each batch
-of data is read, Composer sums the total number of samples and tokens
-across all devices and accumulates the value into ``state.timer``.
-Default methods are provided, but ``get_num_samples_in_batch`` and
-``get_num_tokens_in_batch`` can also be replaced with custom functions.
-Batches and epochs are similarly incremented.
+To convert between samples and epochs, we infer the samples per epoch
+from ``len(dataloader.dataset)`` if the property is available. If not, we assume
+the dataset is unsized.
 
+``num_samples`` can also be provided directly to the :class:`.DataSpec` to override this
+default behavior.
+
+.. code:: python
+
+    from composer.core import DataSpec
+    from composer import Trainer
+
+    trainer = Trainer(
+        model=model,
+        train_dataloader=DataSpec(
+            dataloader=my_train_dataloader,
+            num_samples=1028428,
+        )
+    )
+
+..
+    TODO: discuss how to handle `drop_last`
+    TODO: warn users against converting between time units
 
 .. |Timer| replace:: :class:`.Timer`
 .. |Time| replace:: :class:`.Time`
