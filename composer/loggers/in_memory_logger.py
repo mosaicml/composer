@@ -53,7 +53,7 @@ class InMemoryLogger(LoggerCallback):
             :attr:`~.logger.TLogDataValue`) tuple. This dictionary contains all logged
             data.
         most_recent_values (Dict[str, TLogData]): Mapping of a key to the most recent value for that key.
-        most_recent_timestamps (Dict[str, Timestamp]): Mapping of a key to the 
+        most_recent_timestamps (Dict[str, Timestamp]): Mapping of a key to the
             :class:`~.time.Timestamp` of the last logging call for that key.
     """
 
