@@ -29,8 +29,8 @@ __all__ = [
 class LoggerCallbackHparams(hp.Hparams, ABC):
     """Base class for logger callback hyperparameters.
 
-    Logger parameters that are added to :class:`~.trainer_hparams.TrainerHparams`
-    (e.g. via YAML or the CLI) are initialized in the training loop.
+    Logger parameters that are added to :class:`~.trainer_hparams.TrainerHparams` (e.g. via YAML or the CLI) are
+    initialized in the training loop.
     """
 
     @abstractmethod

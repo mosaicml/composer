@@ -23,7 +23,7 @@ class WandBLogger(LoggerCallback):
     """Log to Weights and Biases (https://wandb.ai/)
 
     Args:
-        log_artifacts (bool, optional): Whether to log 
+        log_artifacts (bool, optional): Whether to log
             `artifacts <https://docs.wandb.ai/ref/python/artifact>`_ (Default: ``False``).
         log_artifacts_every_n_batches (int, optional): Interval at which to upload
             `artifacts <https://docs.wandb.ai/ref/python/artifact>`_ to wandb from the
@@ -37,8 +37,8 @@ class WandBLogger(LoggerCallback):
             stored, which may discard pertinent information. For example, when using
             Deepspeed ZeRO, it would be impossible to restore from checkpoints without
             artifacts from all ranks (default: ``False``).
-        init_params (Dict[str, Any], optional): Parameters to pass into 
-            ``wandb.init`` (see 
+        init_params (Dict[str, Any], optional): Parameters to pass into
+            ``wandb.init`` (see
             `WandB documentation <https://docs.wandb.ai/ref/python/init>`_).
     """
 
