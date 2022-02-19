@@ -62,7 +62,7 @@ def augmix_image(img: ImgT,
 
     chain_weights = np.random.dirichlet([alpha] * width).astype(np.float32)
     mixing_weight = np.float32(np.random.beta(alpha, alpha))
-    augmented_combination = np.zeros_like(img, dtype=np.float32)
+    augmented_combination = np.zeros_like(img_pil, dtype=np.float32)
 
     # Iterate over image chains
     for chain_i in range(width):
