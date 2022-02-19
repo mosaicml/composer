@@ -217,7 +217,7 @@ def test_load_weights(
     second_trainer_hparams.optimizer = AdamWHparams()
 
     # setup a new LR scheduler
-    scheduler_options = [ConstantLRHparams(), CosineAnnealingLRHparams(T_max=second_trainer_hparams.max_duration)]
+    scheduler_options = [ConstantLRHparams(), CosineAnnealingLRHparams(t_max=second_trainer_hparams.max_duration)]
     second_trainer_hparams.schedulers = [random.choice(scheduler_options)]
 
     # ensure our new choice of scheduler is different than the original scheduler

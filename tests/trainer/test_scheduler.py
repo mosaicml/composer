@@ -1,223 +1,113 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
-from typing import Dict, List, Type, Union
-from unittest import mock
+import functools
+from typing import List, cast
 
 import pytest
-import torch
-from torch.optim.lr_scheduler import ExponentialLR, MultiStepLR, StepLR
 
-from composer.core.types import Optimizer, Scheduler
-from composer.optim.pytorch_future import WarmUpLR
-from composer.optim.scheduler import (ComposedScheduler, ConstantLRHparams, CosineAnnealingLRHparams,
-                                      CosineAnnealingWarmRestartsHparams, ExponentialLRHparams, LinearLRHparams,
-                                      MultiStepLRHparams, PolynomialLRHparams, SchedulerHparams, StepLRHparams,
-                                      WarmUpLRHparams)
-from composer.trainer.trainer_hparams import scheduler_registry
+from composer.core import State, Time
+from composer.core.time import TimeUnit
+from composer.core.types import DataLoader, Model
+from composer.optim.scheduler import (ComposerSchedulerFn, constant_scheduler, cosine_annealing_scheduler,
+                                      cosine_annealing_warm_restarts_scheduler, cosine_annealing_with_warmup_scheduler,
+                                      exponential_scheduler, linear_scheduler, linear_with_warmup_scheduler,
+                                      multi_step_scheduler, multi_step_with_warmup_scheduler, polynomial_scheduler,
+                                      step_scheduler)
 
-# for testing, we provide values for required hparams fields
-MAX_EPOCHS = 1000
-schedulers: Dict[Type[SchedulerHparams], SchedulerHparams] = {
-    StepLRHparams: StepLRHparams(step_size="5ep",),
-    MultiStepLRHparams: MultiStepLRHparams(milestones=["5ep", "10ep"],),
-    ExponentialLRHparams: ExponentialLRHparams(gamma=0.5,),
-    CosineAnnealingLRHparams: CosineAnnealingLRHparams(T_max=f"{MAX_EPOCHS}ep",),
-    LinearLRHparams: LinearLRHparams(total_iters=f"{MAX_EPOCHS}ep",),
-    CosineAnnealingWarmRestartsHparams: CosineAnnealingWarmRestartsHparams(T_0=f"{MAX_EPOCHS}ep",),
-    WarmUpLRHparams: WarmUpLRHparams(),
-    ConstantLRHparams: ConstantLRHparams(),
-    PolynomialLRHparams: PolynomialLRHparams(T_max="100ep", power=0.9)
-}
-
-time_field: Dict[Type[SchedulerHparams], str] = {
-    StepLRHparams: 'step_size',
-    MultiStepLRHparams: '',
-    ExponentialLRHparams: '',
-    CosineAnnealingLRHparams: 'T_max',
-    LinearLRHparams: 'total_iters',
-    CosineAnnealingWarmRestartsHparams: 'T_0',
-    WarmUpLRHparams: 'warmup_iters',
-    ConstantLRHparams: '',
-    PolynomialLRHparams: 'T_max'
-}
-
-EXPECTED_RESULTS_TIME_CONVERSION = {
-    '17ep': {
-        'steps': 1700,
-        'epochs': 17
-    },
-    '5050ba': {
-        'steps': 5050,
-        'epochs': 50
-    },
-    42: {
-        'steps': 42,
-        'epochs': 42
-    },
-    '0.05dur': {
-        'steps': 5000,
-        'epochs': 50,
-    },
-    '0.95dur': {
-        'steps': 95000,
-        'epochs': 950,
-    }
-}
-
-TIME_HPARAMS = {
-    '33ep12ba': {
-        'max_epochs': MAX_EPOCHS,
-        'steps_per_epoch': 100,
-    },
-    '17ep': {
-        'max_epochs': MAX_EPOCHS,
-        'steps_per_epoch': 100,
-    },
-    '5050ba': {
-        'max_epochs': MAX_EPOCHS,
-        'steps_per_epoch': 100,
-    },
-    42: {
-        'max_epochs': MAX_EPOCHS,
-        'steps_per_epoch': 100,
-    },
-    '0.05dur': {
-        'max_epochs': MAX_EPOCHS,
-        'steps_per_epoch': 100,
-    },
-    '0.95dur': {
-        'max_epochs': MAX_EPOCHS,
-        'steps_per_epoch': 100,
-    }
-}
-
-
-@pytest.mark.parametrize("scheduler_name", scheduler_registry.keys())
-class TestSchedulerInit():
-
-    def test_scheduler_initialization(self, scheduler_name: str, dummy_optimizer: Optimizer):
-
-        # create the scheduler hparams object
-        obj: Type[SchedulerHparams] = scheduler_registry[scheduler_name]
-        scheduler_hparams = schedulers[obj]
-
-        # create the scheduler object using the hparams
-        scheduler = scheduler_hparams.initialize_object(dummy_optimizer, steps_per_epoch=1)
-        assert isinstance(scheduler, scheduler_hparams.scheduler_object)  # type: ignore
-
-    @pytest.mark.parametrize('timestrings', EXPECTED_RESULTS_TIME_CONVERSION.keys())
-    @pytest.mark.parametrize('interval', ['steps', 'epochs'])
-    def test_scheduler_time_conversion(self, scheduler_name: str, dummy_optimizer: Optimizer,
-                                       timestrings: Union[str, int], interval: str):
-        expected = EXPECTED_RESULTS_TIME_CONVERSION[timestrings][interval]
-        obj: Type[SchedulerHparams] = scheduler_registry[scheduler_name]
-        steps_per_epoch = TIME_HPARAMS[timestrings]['steps_per_epoch']
-        max_epochs = TIME_HPARAMS[timestrings]['max_epochs']
-
-        if time_field[obj]:
-            scheduler_hparams = schedulers[obj]
-            with mock.patch.object(scheduler_hparams, time_field[obj], timestrings), \
-                mock.patch.object(scheduler_hparams, 'interval', interval):
-
-                scheduler = scheduler_hparams.initialize_object(dummy_optimizer,
-                                                                steps_per_epoch=steps_per_epoch,
-                                                                max_training_duration=f"{max_epochs}ep")
-
-                assert getattr(scheduler, time_field[obj]) == expected
+MAX_DURATION = '1000ep'
+STEPS_PER_EPOCH = 1000
 
 
 @pytest.fixture
-def optimizer(dummy_model: torch.nn.Module):
-    return torch.optim.SGD(dummy_model.parameters(), lr=1)
+def dummy_schedulers_state(dummy_model: Model, dummy_train_dataloader: DataLoader):
+    return State(
+        model=dummy_model,
+        train_dataloader=dummy_train_dataloader,
+        max_duration=MAX_DURATION,
+        steps_per_epoch=STEPS_PER_EPOCH,
+    )
 
 
-class TestComposedScheduler():
+@pytest.mark.parametrize("scheduler,ssr,test_times,expected_lrs", [
+    pytest.param(functools.partial(step_scheduler, step_size='10ba'), 1.0, ['5ba', '15ba', '35ba'], [1.0, 0.1, 0.001]),
+    pytest.param(functools.partial(step_scheduler, step_size='0.002dur', gamma=0.8), 1.0,
+                 ['1000ba', '3000ba', '7000ba'], [1.0, 0.8, 0.512]),
+    pytest.param(functools.partial(step_scheduler, step_size='1ep', gamma=0.5), 1.0, ['500ba', '1500ba', '3500ba'],
+                 [1.0, 0.5, 0.125]),
+    pytest.param(functools.partial(step_scheduler, step_size='10ba', gamma=0.5), 0.5, ['3ba', '8ba', '18ba'],
+                 [1.0, 0.5, 0.125]),
+    pytest.param(functools.partial(multi_step_scheduler, milestones=cast(List, ['10ba', '30ba', '70ba'])), 1.0,
+                 ['5ba', '20ba', '50ba', '100ba'], [1.0, 0.1, 0.01, 0.001]),
+    pytest.param(functools.partial(multi_step_scheduler, milestones=cast(List, ['100ba', '1ep', '0.01dur']), gamma=0.5),
+                 1.0, ['50ba', '500ba', '5000ba', '50000ba'], [1.0, 0.5, 0.25, 0.125]),
+    pytest.param(functools.partial(multi_step_scheduler, milestones=cast(List, ['100ba', '1ep', '0.01dur']), gamma=0.5),
+                 4.0, ['200ba', '2000ba', '20000ba', '200000ba'], [1.0, 0.5, 0.25, 0.125]),
+    pytest.param(functools.partial(constant_scheduler), 1.0, ['100ba', '1000ba', '10000ba', '100000ba'],
+                 [1.0, 1.0, 1.0, 1.0]),
+    pytest.param(functools.partial(constant_scheduler, factor=0.5, total_time='5000ba'), 1.0,
+                 ['100ba', '1000ba', '10000ba', '100000ba'], [0.5, 0.5, 1.0, 1.0]),
+    pytest.param(functools.partial(constant_scheduler, factor=0.5, total_time='5000ba'), 0.1,
+                 ['100ba', '1000ba', '10000ba', '100000ba'], [0.5, 1.0, 1.0, 1.0]),
+    pytest.param(functools.partial(linear_scheduler), 1.0, ['100000ba', '200000ba', '400000ba'], [0.9, 0.8, 0.6]),
+    pytest.param(functools.partial(linear_scheduler, start_factor=0.0, end_factor=2.0), 1.0,
+                 ['100000ba', '200000ba', '400000ba'], [0.2, 0.4, 0.8]),
+    pytest.param(functools.partial(linear_scheduler, start_factor=0.0, end_factor=1.0, total_time='0.25dur'), 1.0,
+                 ['100000ba', '200000ba', '400000ba'], [0.4, 0.8, 1.0]),
+    pytest.param(functools.partial(linear_scheduler, start_factor=0.0, end_factor=1.0, total_time='0.25dur'), 2.0,
+                 ['100000ba', '200000ba', '400000ba'], [0.2, 0.4, 0.8]),
+    pytest.param(functools.partial(exponential_scheduler, gamma=0.5), 1.0, ['1ep', '2ep', '4ep'], [0.5, 0.25, 0.0625]),
+    pytest.param(functools.partial(exponential_scheduler, gamma=0.5), 2.0, ['2ep', '4ep', '8ep'], [0.5, 0.25, 0.0625]),
+    pytest.param(functools.partial(cosine_annealing_scheduler), 1.0,
+                 ['0ba', '333333ba', '500000ba', '666667ba', '1000000ba'], [1.0, 0.75, 0.5, 0.25, 0.0]),
+    pytest.param(functools.partial(cosine_annealing_scheduler, t_max='30ba', min_factor=0.5), 1.0,
+                 ['0ba', '10ba', '15ba', '20ba', '30ba', '50ba'], [1.0, 0.875, 0.75, 0.625, 0.5, 0.5]),
+    pytest.param(functools.partial(cosine_annealing_scheduler, t_max='30ba', min_factor=0.5), 0.2,
+                 ['0ba', '2ba', '3ba', '4ba', '6ba', '10ba'], [1.0, 0.875, 0.75, 0.625, 0.5, 0.5]),
+    pytest.param(functools.partial(cosine_annealing_warm_restarts_scheduler, t_0='30ba'), 1.0,
+                 ['0ba', '10ba', '15ba', '20ba', '30ba', '40ba'], [1.0, 0.75, 0.5, 0.25, 1.0, 0.75]),
+    pytest.param(functools.partial(cosine_annealing_warm_restarts_scheduler, t_0='0.003dur', t_mult=1.5), 1.0,
+                 ['0ba', '1000ba', '3000ba', '4500ba', '7500ba', '14250ba'], [1.0, 0.75, 1.0, 0.75, 1.0, 1.0]),
+    pytest.param(functools.partial(cosine_annealing_warm_restarts_scheduler, t_0='30ep', t_mult=2.0, min_factor=0.5),
+                 0.5, ['0ba', '5000ba', '15000ba', '25000ba'], [1.0, 0.875, 1.0, 0.875]),
+    pytest.param(functools.partial(polynomial_scheduler, power=2.0), 1.0, ['0ba', '100000ba', '200000ba', '500000ba'],
+                 [1.0, 0.81, 0.64, 0.25]),
+    pytest.param(functools.partial(polynomial_scheduler, power=2.0, t_max='100ba', min_factor=0.5), 1.0,
+                 ['0ba', '10ba', '20ba', '50ba'], [1.0, 0.905, 0.82, 0.625]),
+    pytest.param(functools.partial(polynomial_scheduler, power=2.0, t_max='100ba', min_factor=0.5), 0.5,
+                 ['0ba', '10ba', '20ba', '50ba'], [1.0, 0.82, 0.68, 0.5]),
+    pytest.param(
+        functools.partial(multi_step_with_warmup_scheduler, warmup_time='10ba', milestones=cast(
+            List, ['20ba', '40ba'])), 1.0, ['0ba', '5ba', '15ba', '25ba', '45ba'], [0.0, 0.5, 1.0, 0.1, 0.01]),
+    pytest.param(
+        functools.partial(
+            multi_step_with_warmup_scheduler, warmup_time='10ba', milestones=cast(List, ['2ep', '4ep']), gamma=0.5),
+        0.5, ['0ba', '5ba', '15ba', '1500ba', '2500ba'], [0.0, 0.5, 1.0, 0.5, 0.25]),
+    pytest.param(functools.partial(linear_with_warmup_scheduler, warmup_time='500ep'), 1.0,
+                 ['0ba', '250000ba', '500000ba', '750000ba', '1000000ba'], [0.0, 0.5, 1.0, 0.5, 0.0]),
+    pytest.param(
+        functools.partial(
+            linear_with_warmup_scheduler, warmup_time='500ep', start_factor=3.0, end_factor=2.0, total_time='1002ep'),
+        0.5, ['0ba', '250000ba', '500000ba', '500500ba', '501000ba', '502000ba'], [0.0, 1.5, 3.0, 2.5, 2.0, 2.0]),
+    pytest.param(functools.partial(linear_with_warmup_scheduler, warmup_time='0.0005dur'), 1.0,
+                 ['0ba', '250ba', '500ba', '499750ba'], [0.0, 0.5, 1.0, 0.5]),
+    pytest.param(functools.partial(cosine_annealing_with_warmup_scheduler, warmup_time='0.9dur'), 1.0,
+                 ['0ba', '450000ba', '900000ba', '933333ba', '950000ba', '1000000ba'], [0.0, 0.5, 1.0, 0.75, 0.5, 0.0]),
+    pytest.param(functools.partial(cosine_annealing_with_warmup_scheduler, warmup_time='0.9dur', min_factor=0.5), 0.01,
+                 ['0ba', '4500ba', '9000ba', '9333ba', '9500ba', '10000ba'], [0.0, 0.5, 1.0, 0.875, 0.75, 0.5]),
+])
+def test_schedulers(scheduler: ComposerSchedulerFn, ssr: float, test_times: List[str], expected_lrs: List[float],
+                    dummy_schedulers_state: State):
 
-    def _test(self,
-              scheduler: Scheduler,
-              targets: List[List[float]],
-              epochs: int,
-              optimizer: Optimizer,
-              interval: str = 'epoch'):
-        for epoch in range(epochs):
-            for param_group, target in zip(optimizer.param_groups, targets):
-                torch.testing.assert_allclose(target[epoch], param_group['lr'])
-            optimizer.step()
-            scheduler.step(interval)  # type: ignore
+    state = dummy_schedulers_state
+    scheduler = functools.partial(scheduler, ssr=ssr)
+    state._max_duration = Time(value=int(state.max_duration.value * ssr), unit=state.max_duration.unit)
+    for test_time, expected_lr in zip(test_times, expected_lrs):
+        parsed_time = Time.from_timestring(test_time)
+        assert parsed_time.unit in [TimeUnit.EPOCH, TimeUnit.BATCH]
+        if parsed_time.unit == TimeUnit.EPOCH:
+            state.timer._epoch = parsed_time
+        else:
+            state.timer._batch = parsed_time
 
-    def test_composed(self, optimizer: Optimizer):
-        epochs = 9
-        targets = [[1 * 0.2 for _ in range(4)] + [1 * 0.9**x for x in range(7)]]
-        schedulers = [
-            ExponentialLR(optimizer, gamma=0.9),
-            WarmUpLR(optimizer, warmup_factor=0.2, warmup_iters=4, warmup_method="constant")
-        ]
-        scheduler = ComposedScheduler(schedulers)
-        self._test(scheduler, targets, epochs, optimizer)
-
-    def test_composed_linear(self, optimizer: Optimizer):
-        epochs = 9
-        targets = [[1 * 0.5 + (x/4 * 0.5) for x in range(4)] + [1 * 0.9**x for x in range(2)] + \
-                   [1 * 0.9**x for x in range(2, 7)]]
-        schedulers = [
-            ExponentialLR(optimizer, gamma=0.9),
-            WarmUpLR(optimizer, warmup_factor=0.5, warmup_iters=4, warmup_method="linear")
-        ]
-        scheduler = ComposedScheduler(schedulers)
-        self._test(scheduler, targets, epochs, optimizer)
-
-    def test_composed_linear2(self, optimizer: Optimizer):
-        epochs = 9
-        targets = [[1 * 0.5 + (x/4 * 0.5) for x in range(4)] + \
-                   [1 * 0.9**x for x in range(2)] + [1 * 0.9**x * 0.1 for x in range(2, 7)]]
-        schedulers = [
-            ExponentialLR(optimizer, gamma=0.9),
-            MultiStepLR(optimizer, milestones=[6], gamma=0.1),
-            WarmUpLR(optimizer, warmup_factor=0.5, warmup_iters=4, warmup_method="linear")
-        ]
-        scheduler = ComposedScheduler(schedulers)
-        self._test(scheduler, targets, epochs, optimizer)
-
-    def test_composed_linear_from_zero(self, optimizer: Optimizer):
-        epochs = 9
-        targets = [[1 * 0.0 + (x / 4 * 1.0) for x in range(4)] + [1 * 0.9**x for x in range(7)]]
-        schedulers = [
-            ExponentialLR(optimizer, gamma=0.9),
-            WarmUpLR(optimizer, warmup_factor=0, warmup_iters=4, warmup_method="linear")
-        ]
-        scheduler = ComposedScheduler(schedulers)
-        self._test(scheduler, targets, epochs, optimizer)
-
-    def test_composed_linear_from_zero_step(self, optimizer: Optimizer):
-        epochs = 9
-        targets = [[x / 4 for x in range(4)] + [1.0 for _ in range(7)]]
-        schedulers = [
-            ExponentialLR(optimizer, gamma=0.9),
-            WarmUpLR(optimizer, warmup_factor=0, warmup_iters=4, warmup_method="linear"),
-        ]
-        schedulers[0].interval = 'epoch'  # should never trigger
-        schedulers[1].interval = 'batch'
-        scheduler = ComposedScheduler(schedulers)
-        self._test(scheduler, targets, epochs, optimizer, interval='batch')
-
-    @pytest.mark.xfail
-    def test_validate_compose_multistep(self, optimizer: Optimizer):
-        schedulers = [
-            ExponentialLR(optimizer, gamma=0.9),
-            WarmUpLR(optimizer, warmup_factor=0, warmup_iters=4, warmup_method="linear"),
-            MultiStepLR(optimizer, milestones=[3], gamma=0.1)
-        ]
-
-        with pytest.raises(ValueError):
-            ComposedScheduler(schedulers)
-
-    @pytest.mark.xfail
-    def test_validate_compose_step(self, optimizer: Optimizer):
-        schedulers = [
-            ExponentialLR(optimizer, gamma=0.9),
-            WarmUpLR(optimizer, warmup_factor=0, warmup_iters=4, warmup_method="linear"),
-            StepLR(optimizer, step_size=2, gamma=0.1)
-        ]
-
-        with pytest.raises(ValueError):
-            ComposedScheduler(schedulers)
+        lr = scheduler(state)
+        assert lr == pytest.approx(expected_lr, abs=1e-3)
