@@ -22,7 +22,27 @@ class LoggerCallback(Callback, ABC):
     additional interface for logging metrics, :func:`log_metric`. Custom loggers should
     extend this class. Data to be logged should be of the type :attr:`~.logger.TLogData`
     (i.e. a ``{'name': value}`` mapping).
-    """
+
+    For example, to define a custom logger and use it in training:
+
+    .. code-block:: python
+
+        from composer.core.logging import LoggerCallback
+
+        class MyLogger(LoggerCallback)
+
+            def log_metric(self, timestamp, log_level, data):
+                print(f'Timestamp: {timestamp}: {log_level} {data}')
+
+        trainer = Trainer(
+            model=model,
+            train_dataloader=train_dataloader,
+            eval_dataloader=eval_dataloader,
+            max_duration="1ep",
+            optimizers=[optimizer],
+            loggers=[MyLogger()]
+        )
+"""
 
     def __init__(self):
         super().__init__()
