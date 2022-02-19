@@ -473,3 +473,14 @@ class SSDTransformer(object):
         bbox, label = self.encoder.encode(bbox, label)
 
         return img, img_size, bbox, label
+
+
+def dboxes300_coco():
+    figsize = 300
+    feat_size = [38, 19, 10, 5, 3, 1]
+    steps = [8, 16, 32, 64, 100, 300]
+    # use the scales here: https://github.com/amdegroot/ssd.pytorch/blob/master/data/config.py
+    scales = [21, 45, 99, 153, 207, 261, 315]
+    aspect_ratios = [[2], [2, 3], [2, 3], [2, 3], [2], [2]]
+    dboxes = DefaultBoxes(figsize, feat_size, steps, scales, aspect_ratios)
+    return dboxes
