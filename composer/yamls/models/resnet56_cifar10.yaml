@@ -18,18 +18,12 @@ optimizer:
     momentum: 0.9
     weight_decay: 2.0e-3
 schedulers:
-  - warmup:
-      warmup_iters: "5ep"
-      warmup_method: linear
-      warmup_factor: 0
-      verbose: false
-      interval: step
-  - multistep:
+  - multistep_with_warmup:
+      warmup_time: "5ep"
       milestones:
         - "80ep"
         - "120ep"
       gamma: 0.1
-      interval: epoch
 model:
   resnet56_cifar10:
     initializers:
