@@ -1,5 +1,7 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
+"""Core ColOut classes and functions."""
+
 from __future__ import annotations
 
 import logging
@@ -20,10 +22,24 @@ log = logging.getLogger(__name__)
 
 ImgT = TypeVar("ImgT", torch.Tensor, PillowImage)
 
+__all__ = ["ColOut", "ColOutTransform", "colout_image", "colout_batch"]
+
 
 def colout_batch(X: ImgT, p_row: float = 0.15, p_col: float = 0.15) -> ImgT:
     """Applies ColOut augmentation to a batch of images, dropping the same random rows and columns from all images in a
     batch.
+
+    See the :doc:`Method Card </method_cards/colout>` for more details.
+
+    Example:
+         .. testcode::
+
+            from composer.algorithms.colout import colout_batch
+            new_X = colout_batch(
+                X=X_example,
+                p_row=0.15,
+                p_col=0.15
+            )
 
     Args:
         X: :class:`PIL.Image.Image` or :class:`torch.Tensor` of image data. In
@@ -67,6 +83,16 @@ class ColOutTransform:
     """Torchvision-like transform for performing the ColOut augmentation, where random rows and columns are dropped from
     a single image.
 
+    See the :doc:`Method Card </method_cards/colout>` for more details.
+
+    Example:
+         .. testcode::
+
+            from torchvision import datasets, transforms
+            from composer.algorithms.colout import ColOutTransform
+            colout_transform = ColOutTransform(p_row=0.15, p_col=0.15)
+            transforms = transforms.Compose([colout_transform, transforms.ToTensor()])
+
     Args:
         p_row (float): Fraction of rows to drop (drop along H).
         p_col (float): Fraction of columns to drop (drop along W).
@@ -97,6 +123,23 @@ class ColOut(Algorithm):
     It is a no-op if this algorithm already applied itself on the :attr:`State.train_dataloader.dataset`.
 
     Otherwise, if ``batch`` is False, then this algorithm runs on :attr:`Event.AFTER_DATALOADER` to modify the batch.
+
+    See the :doc:`Method Card </method_cards/colout>` for more details.
+
+    Example:
+         .. testcode::
+
+            from composer.algorithms import ColOut
+            from composer.trainer import Trainer
+            colout_algorithm = ColOut(p_row=0.15, p_col=0.15, batch=True)
+            trainer = Trainer(
+                model=model,
+                train_dataloader=train_dataloader,
+                eval_dataloader=eval_dataloader,
+                max_duration="1ep",
+                algorithms=[colout_algorithm],
+                optimizers=[optimizer]
+            )
 
     Args:
         p_row (float): Fraction of rows to drop (drop along H).
@@ -145,13 +188,6 @@ class ColOut(Algorithm):
         state.batch = (new_inputs, labels)
 
     def apply(self, event: Event, state: State, logger: Logger) -> None:
-        """Applies ColOut augmentation to the state's input.
-
-        Args:
-            event (Event): the current event
-            state (State): the current trainer state
-            logger (Optional[Logger], optional): the training logger. Defaults to None.
-        """
         if self.batch:
             self._apply_batch(state)
         else:

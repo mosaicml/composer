@@ -28,7 +28,7 @@ from composer.algorithms.layer_freezing import freeze_layers as freeze_layers
 from composer.algorithms.mixup import mixup_batch as mixup_batch
 from composer.algorithms.progressive_resizing import resize_batch as resize_batch
 from composer.algorithms.randaugment import randaugment_image as randaugment_image
-from composer.algorithms.selective_backprop import selective_backprop as selective_backprop
+from composer.algorithms.selective_backprop import select_using_loss as select_using_loss
 from composer.algorithms.selective_backprop import should_selective_backprop as should_selective_backprop
 from composer.algorithms.seq_length_warmup import set_batch_sequence_length as set_batch_sequence_length
 from composer.algorithms.squeeze_excite import apply_squeeze_excite as apply_squeeze_excite
@@ -51,7 +51,7 @@ __all__ = [
     "resize_batch",
     "randaugment_image",
     "should_selective_backprop",
-    "selective_backprop",
+    "select_using_loss",
     "set_batch_sequence_length",
     "apply_squeeze_excite",
     "apply_stochastic_depth",
