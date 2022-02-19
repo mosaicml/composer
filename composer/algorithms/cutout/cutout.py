@@ -18,7 +18,6 @@ log = logging.getLogger(__name__)
 
 __all__ = ["CutOut", "cutout_batch"]
 
-
 ImgT = TypeVar("ImgT", torch.Tensor, PillowImage)
 
 
