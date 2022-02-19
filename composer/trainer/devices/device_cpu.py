@@ -17,7 +17,11 @@ __all__ = ["DeviceCPU"]
 
 
 class DeviceCPU(Device):
-    """An extension of :class:`~composer.trainer.devices.device.Device` for CPUs."""
+    """An extension of :class:`~composer.trainer.devices.device.Device` for CPUs.
+
+    This class takes no arguments. Below is an example of how to pass it into the
+    trainer.
+    """
 
     dist_backend = "gloo"
 

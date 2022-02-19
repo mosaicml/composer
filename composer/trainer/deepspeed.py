@@ -159,9 +159,9 @@ def _convert_fp32_tensor_to_fp16(tensor: Tensor):
 def fix_batch_precision_for_deepspeed(batch: Batch, precision: Precision) -> Batch:
     """Ensures that a batch is properly formatted for DeepSpeed FP16, if active.
 
-    .. note:: Just because we're in FP16 doesn't mean we can convert the entire batch to
-              FP16 too. For example, integer tensors are common in inputs and outputs of
-              various models, and these must not be converted. We make a big assumption
+    .. note:: Just because the precision is set to FP16 doesn't mean the entire batch can
+              be FP16 too. For example, integer tensors are common in inputs and outputs of
+              various models, and these must not be converted. The assumption here is
               that a tensor should only be converted to FP16 if it was given in FP32.
 
     Args:

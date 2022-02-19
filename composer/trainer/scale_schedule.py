@@ -62,7 +62,7 @@ def scale_scheduler(scheduler: Union[Scheduler, ComposerSchedulerFn],
         >>> from composer.trainer.scale_schedule import scale_scheduler
         >>> from torch.optim.lr_scheduler import CosineAnnealingLR
         >>> scheduler = CosineAnnealingLR(optimizer, T_max=90)
-        >>> scale_scheduler(scheduler, ssr=0.5, orig_max_epochs=90)
+        >>> scheduler = scale_scheduler(scheduler, ssr=0.5)
 
     Args:
         scheduler: A learning rate schedule object. Must be one of:

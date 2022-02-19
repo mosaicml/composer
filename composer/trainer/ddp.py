@@ -93,7 +93,7 @@ def ddp_sync_context(state: State, is_final_microbatch: bool, sync_strategy: Uni
 
 
 def prepare_ddp_module(module: Model, find_unused_parameters: bool) -> Model:
-    """Wraps the module in a :class:`~torch.nn.parallel.DistributedDataParallel` object if
+    """Wraps the module in a :class:`torch.nn.parallel.DistributedDataParallel` object if
     running distributed training.
 
     Args:

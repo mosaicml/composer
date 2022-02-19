@@ -2,8 +2,8 @@
 
 """Train models!
 
-The trainer supports models with :class:`~composer.models.base.ComposerModel` instances.
-The :class:`~composer.trainer.trainer.Trainer` is highly customizable and can
+The trainer supports models with :class:`.ComposerModel` instances.
+The :class:`.Trainer` is highly customizable and can
 support a wide variety of workloads.
 
 Example

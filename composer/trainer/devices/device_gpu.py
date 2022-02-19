@@ -19,7 +19,11 @@ __all__ = ["DeviceGPU"]
 
 
 class DeviceGPU(Device):
-    """An extension of :class:`~composer.trainer.devices.device.Device` for GPUs."""
+    """An extension of :class:`~composer.trainer.devices.device.Device` for GPUs.
+
+    This class takes no arguments. Below is an example of how to pass it into the
+    trainer.
+    """
     dist_backend = "nccl"
 
     def __init__(self):

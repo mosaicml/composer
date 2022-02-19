@@ -85,13 +85,13 @@ class CheckpointLoader:
             :class:`~composer.utils.object_store.ObjectStoreProvider` which will be used
             to retreive the checkpoint. Otherwise, if the checkpoint is a local filepath, set to ``None``.
             (default: ``None``)
-        load_weights_only (bool): Whether or not to only restore the weights from the checkpoint without
-            restoring the associated state.
-        strict_model_weights (bool): Whether or not to force that the checkpointed weights must exactly
-            match the model weights.
+        load_weights_only (bool, optional): Whether or not to only restore the weights from the checkpoint without
+            restoring the associated state. (default: ``False``)
+        strict_model_weights (bool, optional): Whether or not to force that the checkpointed weights must exactly
+            match the model weights. (default: ``False``)
         chunk_size (int, optional): Chunk size (in bytes) to use when downloading checkpoints.
             Ignored if the checkpoint is a local file path. (default: ``1_048_576`` bytes (1 MB))
-        progress_bar (bool): Whether or not to show a progress bar when downloading checkpoints.
+        progress_bar (bool, optional): Whether or not to show a progress bar when downloading checkpoints.
             Ignored if the checkpoint is a local file path. (default: ``True``)
     """
 
@@ -405,27 +405,32 @@ class CheckpointSaver:
     """Manager for saving trainer state to checkpoint files.
 
     Args:
-        save_folder (str): The folder to store checkpoints in. The ``save_folder`` will be relative
+        save_folder (str): The folder to store checkpoints in. If an absolute path is specified, then
+            that path will be used. Otherwise, the ``save_folder`` will be relative
             to the folder returned by :meth:`~composer.utils.run_directory.get_run_directory`.
             If the ``save_folder`` does not exist, it will be created.
         interval (Time or str): The amount of time units to wait between checkpoints.
         compression (str, optional): Compression algorithm to run on checkpoints. Can be ``gzip``, ``bzip2``,
-            ``lzma``, or ``None`` for no compression.  (default: ``None`` for no compression).
+            ``lzma``, or ``None`` for no compression.  (default: ``None``).
 
     Attributes:
-        checkpoint_folder (str): The folder in which checkpoints are stored. This folder is relative
-            to the run directory of the training run. If no run directory is proivded, then by default,
-            it is of the form ``runs/<timestamp>/rank_<GLOBAL_RANK>/<save_folder>`` where ``timestamp``
-            is the the start time of the run in iso-format, ``GLOBAL_RANK`` is the global rank of the process,
+        checkpoint_folder (str): The folder in which checkpoints are stored. If an absolute path was specified for
+            ``save_folder`` upon instantiation, then that path will be used. Otherwise, this folder is relative to
+            the run directory of the training run (e.g. ``{run_directory}/{save_folder}``).
+            If no run directory is provided, then by default, it is of the form
+            ``runs/<timestamp>/rank_<GLOBAL_RANK>/<save_folder>`` where ``timestamp``
+            is the start time of the run in iso-format, ``GLOBAL_RANK`` is the global rank of the process,
             and ``save_folder`` is the save_folder argument provided upon construction.
 
             .. seealso:: :mod:`~composer.utils.run_directory` for details on the format of the run directory
                 and how to customize it.
-        saved_checkpoints (Dict[Timestamp, List[str]): A dictionary mapping a save timestamp
+        saved_checkpoints (Dict[Timestamp, List[str]]): A dictionary mapping a save timestamp
             to a list of filepaths corresponding to the checkpoints saved at that time.
 
-            .. note:: The list of filepaths is for all ranks. The path at index ``i`` is the
-                path that global rank ``i`` wrote to.
+            .. note:: When using DeepSpeed, the index of a filepath in each list corresponds to the
+                global rank of the process that wrote that file. These filepaths are valid only on
+                the global rank's node. Otherwise, when not using DeepSpeed, this list will contain
+                only one filepath since only rank zero saves checkpoints.
     """
 
     def __init__(self, save_folder: str, interval: Union[Time, str], compression: Optional[str] = None):
@@ -474,11 +479,11 @@ class CheckpointSaver:
         There are 3 cases for the format in which the checkpoint is saved:
 
         1. The default is to save checkpoints in a ``.pt`` file if DeepSpeed is not being used to
-        train the model and there is no compression specied.
+        train the model and there is no compression specified.
 
         2. If DeepSpeed is being used to train the model and there is no compression, then the checkpoint
         is stored in a ``.tar`` format because DeepSpeed saves model checkpoints
-        as multiple files.
+        as multiple files (one for model state, and one for optimizer state).
 
         3. If compression is being used, then the checkpoint is saved in the file format corresponding to the
         compression type (ex. ``gzip`` compression results in a ``.tar.gz`` file).

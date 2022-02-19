@@ -32,19 +32,19 @@ class Device(Serializable, ABC):
 
     @abstractmethod
     def module_to_device(self, module: T_nnModule) -> T_nnModule:
-        """Moves a module onto the device instance's device.
+        """Invoked by the :class:`.Trainer` to move a ``module`` onto the device.
 
         Args:
-            module (T_nnModule): The module to move to the device.
+            module (torch.nn.Module): The module to move to the device.
 
         Returns:
-            T_nnModule: The module on the device.
+            torch.nn.Module: The module on the device.
         """
         pass
 
     @abstractmethod
     def tensor_to_device(self, tensor: Tensor) -> Tensor:
-        """Moves a tensor onto the device instance's device.
+        """Invoked by the :class:`.Trainer` to move a tensor onto a device.
 
         Args:
             tensor (Tensor): The tensor to move to the device.
@@ -55,7 +55,7 @@ class Device(Serializable, ABC):
         pass
 
     def batch_to_device(self, batch: Batch) -> Batch:
-        """Moves a batch onto the device instance's device.
+        """Invoked by the :class:`.Trainer` to move the ``batch`` onto the device.
 
         Args:
             batch (Batch): The batch to move to the device.
@@ -72,10 +72,10 @@ class Device(Serializable, ABC):
         raise TypeError(f"Unsupported type for batch: {type(batch)}")
 
     def optimizer_to_device(self, optimizer: Optimizer) -> Optimizer:
-        """Moves an optimizer's state onto the device instance's device.
+        """Invoked by the :class:`.Trainer` to move the optimizer's state onto the device.
 
         As a rule, this usually isn't necessary, since most optimizers lazy initialize their state
-        when `.step()` is first called, based off of the device of the parameters. The prominent
+        when ``.step()`` is first called, based off of the device of the parameters. The prominent
         exception to this rule is when we are restoring from a checkpoint.
 
         Args:
@@ -97,10 +97,19 @@ class Device(Serializable, ABC):
 
         Example usage:
 
-        .. code-block:: python
+        .. doctest::
 
-            with device.precision(Precision.AMP):
-                forward_pass_with_amp()
+            >>> from composer.core.types import Precision
+            >>> from composer.trainer.devices import DeviceCPU
+            >>>
+            >>> device = DeviceCPU()
+            >>> for batch in train_dataloader:
+            ...     with device.precision_context(Precision.FP32):
+            ...         outputs = model.forward(batch)
+            ...
+            ...     with device.precision_context(Precision.FP32):
+            ...         loss = model.loss(outputs, batch)
+            >>>
 
         Args:
             precision (Precision): The desired precision for the device.
