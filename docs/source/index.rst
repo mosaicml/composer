@@ -61,10 +61,12 @@ Our documentation is organized into a few sections:
    trainer/using_the_trainer.rst
    trainer/dataloaders.rst
    trainer/evaluation.rst
+   trainer/optimizers_and_schedulers.rst
+   trainer/time.rst
    trainer/checkpointing.rst
    trainer/logging.rst
-   trainer/distributed_training.rst
    trainer/callbacks.rst
+   trainer/distributed_training.rst
 
 .. toctree::
    :maxdepth: 1
