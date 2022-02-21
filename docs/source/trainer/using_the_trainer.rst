@@ -122,6 +122,12 @@ interacts with the :class:`.ComposerModel` is as follows:
 
 For the actual code, see :meth:`.Trainer._train_batch_inner` and the :meth:`.Trainer.eval` methods.
 
+Quick Tour
+----------
+
+Below is a quick tour of various elements with code snippets for your reference. See the more
+detailed sections in the navigation menu.
+
 Events & State
 ~~~~~~~~~~~~~~
 
@@ -136,13 +142,16 @@ we have events that run before and after each of the lines above, e.g.
    engine.run_event("after_forward")
 
 Algorithms and callbacks (see below) register themselves to run on one
-or more events. For full details on the events in Composer, see
-`Events <TBD>`__.
+or more events.
 
 We also maintain a :class:`.State` which stores the trainer's state, such as
 the model, optimizers, dataloader, current batch, etc (see
 :class:`.State`). This allows algorithms to modify the state at the
 various events above.
+
+.. seealso::
+
+    :doc:`Events<trainer/events>` and :class:`.State`
 
 Algorithms
 ~~~~~~~~~~
@@ -165,7 +174,7 @@ argument.
                          LayerFreezing(freeze_start=0.5, freeze_level=0.1),
                          Mixup(alpha=0.1),
                      ])
-                     
+
    # the algorithms will automatically be applied during the appropriate
    # points of the training loop
    trainer.fit()
@@ -177,10 +186,6 @@ right order.
 
     Our :doc:`Algorithms<algorithms>` guide, and the individual
     :doc:`Method Cards </method_cards/methods_overview>` for each algorithm.
-
-..
-    TODO: add link to the methods notebook
-
 
 
 Optimizers & Schedulers
@@ -206,6 +211,10 @@ and schedulers, but you can also include one of your own.
                      max_duration='90ep',
                      optimizer=optimizer,
                      scheduler=consine_annealing_scheduler)
+
+.. seealso::
+
+    :doc:`Schedulers`<trainer/optimizers_and_schedulers>
 
 Training on GPU
 ~~~~~~~~~~~~~~~
@@ -253,6 +262,12 @@ number of GPUs you'd like to use and your training script. Use
    # run training on 8 GPUs
    >>> composer -n 8 run_trainer.py
 
+.. seealso::
+
+    Our :doc:`Distributed Training<trainer/distributed_training>` guide and
+    the :mod:`composer.utils.dist` module.
+
+
 DeepSpeed Integration
 ~~~~~~~~~~~~~~~~~~~~~
 
@@ -293,8 +308,7 @@ Callbacks
 You can insert arbitrary callbacks to be run at various points during
 the training loop. The Composer library provides several useful
 callbacks for things such as monitoring throughput and memory usage
-during training, but you can also implement your own. See
-:mod:`composer.callbacks` for more information.
+during training, but you can also implement your own.
 
 .. code:: python
 
@@ -308,6 +322,11 @@ during training, but you can also implement your own. See
                      max_duration='160ep',
                                        device='gpu',
                                        callbacks=[SpeedMonitor(window_size=100)])
+
+.. seealso::
+
+    The :doc:`Callbacks<trainer/callbacks>` guide and :mod:`composer.callbacks`.
+
 
 Numerics
 ~~~~~~~~
@@ -367,6 +386,11 @@ points during training and (2) load them back to resume training later.
    # will load the trainer state (including model weights) from the
    # load_path before resuming training
    trainer.fit()
+
+.. seealso::
+
+    The :doc:`Checkpointing<trainer/checkpointing>` guide.
+
 
 This was just a quick tour of all the features within our trainer. Please see the other
 guides and notebooks for more information.
