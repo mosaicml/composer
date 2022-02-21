@@ -272,3 +272,5 @@ RunDirectoryUploader API
 ------------------------
 
 .. autoclass:: composer.callbacks.RunDirectoryUploader
+
+.. TODO: add details on what can be overridden when loading a checkpoint.

@@ -98,3 +98,5 @@ accumulation, and vice versa. Our trainer strives to respect this equivalency
 and ensure identical behavior regardless of the combinations of space and time
 parallelization used.
 
+..
+    TODO: add details on DDP SYNC STRATEGY

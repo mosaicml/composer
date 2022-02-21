@@ -320,8 +320,8 @@ during training, but you can also implement your own.
                      train_dataloader=train_dataloader,
                      eval_dataloader=eval_dataloader,
                      max_duration='160ep',
-                                       device='gpu',
-                                       callbacks=[SpeedMonitor(window_size=100)])
+                     device='gpu',
+                     callbacks=[SpeedMonitor(window_size=100)])
 
 .. seealso::
 
@@ -362,10 +362,10 @@ points during training and (2) load them back to resume training later.
                      train_dataloader=train_dataloader,
                      eval_dataloader=eval_dataloader,
                      max_duration='160ep',
-                                       device='gpu',
-                                       # Checkpointing params
-                                       save_folder: 'checkpoints',
-                                       save_interval: '1ep')
+                     device='gpu',
+                     # Checkpointing params
+                     save_folder: 'checkpoints',
+                     save_interval: '1ep')
 
    # will save checkpoints to the 'checkpoints' folder every epoch
    trainer.fit()
@@ -379,9 +379,9 @@ points during training and (2) load them back to resume training later.
                      train_dataloader=train_dataloader,
                      eval_dataloader=eval_dataloader,
                      max_duration='160ep',
-                                       device='gpu',
-                                       # Checkpointing params
-                                       load_path: 'path/to/checkpoint/mosaic_states.pt')
+                     device='gpu',
+                     # Checkpointing params
+                     load_path: 'path/to/checkpoint/mosaic_states.pt')
 
    # will load the trainer state (including model weights) from the
    # load_path before resuming training
@@ -394,6 +394,90 @@ points during training and (2) load them back to resume training later.
 
 This was just a quick tour of all the features within our trainer. Please see the other
 guides and notebooks for more information.
+
+Annotated Trainer Loop
+----------------------
+
+Our :class:`.Trainer` code is meant to be easily readable and understood. In this section,
+we walk you through the logic flow of the training loop code, from :meth:`.Trainer.fit`
+down to the `backward()` call.
+
+In pseudocode, the trainer is organized as follows:
+
+.. code:: python
+
+    def fit(self):
+        try:
+            _train_loop()
+        finally:  # clean up
+            self.engine.close()
+
+
+The method `_train_loop()` sets up the training, loads any
+provided checkpoints, and then runs the training:
+
+
+.. code:: python
+
+    # pseudocode
+    def _train_loop(self):
+
+        # setup training
+        # metrics, gradient scaling, etc.
+        # if needed, load checkpoints
+
+        while timer < max_duration:
+
+            for batch in train_dataloader:
+
+                # for grad accum, split the batch
+                microbatches = split_batch(batch)
+
+                """"
+                Depending on the config, the _train_batch()
+                is called with slightly different code.
+                """
+                if deepspeed_enabled:
+                    loss = self._train_batch(microbatches)
+                elif _use_closure():
+                    """
+                    Mixed precision and some optimizers
+                    requiring passing a closure.
+                    """"
+                    loss = optimizer.step(
+                        closure=self._train_batch(microbatches)
+                    )
+                else:
+                    loss = self._train_batch(microbatches)
+                    optimizer.step()
+
+                if eval_on_batch:
+                    eval()  # run validation
+
+            if eval_on_epoch:
+                eval()
+
+
+Remaining are two methods: `_train_batch` and `_train_batch_inner`.
+For first decides whether to use the context manager for
+:meth:`torch.nn.parallel.DistributedDataParallel.no_sync`, which
+disables the gradient synchronization for distributed training.
+
+The second carries out the iteration over the `batch`, broken
+into microbatches (for gradient accumulation). This last
+method is where the forward and backward pass take place.
+
+.. code:: python
+
+    # pseudocode
+    # handles precision, grad accum, etc.
+    def _inner_train_batch(self, microbatches):
+        for batch in microbatches:
+
+            # run iteration
+            outputs = model.forward(batch)
+            loss = model.loss(outputs, batch)
+            loss.backward()
 
 .. _Transformers: https://huggingface.co/docs/transformers/index
 .. _TIMM: https://fastai.github.io/timmdocs/
