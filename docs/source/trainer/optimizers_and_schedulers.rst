@@ -32,7 +32,7 @@ Our schedulers differ from the pytorch schedulers in two ways:
 
 - time parameters can be provided in different units:
   samples (``"sp"``), tokens (``"tok"``), batches (``"ba"``), epochs (``"ep"``),
-  and duration (``"dur"``). See :doc:`Time<trainer/time>`.
+  and duration (``"dur"``). See :doc:`Time</trainer/time>`.
 - our schedulers are functions, not classes. They return a multiplier to apply to
   the optimizer's learning rate, given the current trainer state, and optionally
   a "scale schedule ratio" (ssr).
@@ -58,8 +58,30 @@ and return a learning rate multipler. Inside the Trainer, we convert these to
 :class:`torch.optim.lr_scheduler.LabmdaLR` schedulers. By default, our schedulers
 have `use_stepwise_scheduler=True`.
 
-..
-    TODO: insert list of available schedulers
+Below are the supported schedulers found at :mod:`composer.optim.scheduler`.
 
+.. currentmodule:: composer.optim.scheduler
+.. autosummary::
+    :nosignatures:
 
+    step_scheduler
+    multi_step_scheduler
+    multi_step_with_warmup_scheduler
+    constant_scheduler
+    linear_scheduler
+    linear_with_warmup_scheduler
+    exponential_scheduler
+    cosine_annealing_scheduler
+    cosine_annealing_with_warmup_scheduler
+    cosine_annealing_warm_restarts_scheduler
+    polynomial_scheduler
+
+Scale Schedule Ratio
+--------------------
+
+The Scale Schedule Ratio (SSR) scales the learning rate schedule by a factor, and
+is a powerful way to tradeoff training time and quality. `ssr` is an argument to
+the :class:`.Trainer`.
+
+.. TODO: add more here / add a figure
 
