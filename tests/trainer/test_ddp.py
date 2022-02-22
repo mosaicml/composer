@@ -88,7 +88,7 @@ class CheckBatch0(Callback):
     def __init__(self):
         super().__init__()
 
-    def _run_event(self, event: Event, state: State, logger: Logger) -> None:
+    def run_event(self, event: Event, state: State, logger: Logger) -> None:
         if event in (Event.BEFORE_FORWARD, Event.EVAL_BEFORE_FORWARD):
             filepath = get_batch_file_path(rank=dist.get_global_rank(),
                                            epoch=state.epoch,

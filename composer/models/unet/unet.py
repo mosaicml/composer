@@ -2,6 +2,7 @@
 
 import contextlib
 import logging
+import textwrap
 from typing import Any, Optional, Tuple
 
 import torch
@@ -34,8 +35,9 @@ class UNet(ComposerModel):
             from monai.losses import DiceLoss
         except ImportError as e:
             raise ImportError(
-                "Composer was installed without unet support. To use unet with Composer, run: `pip install mosaicml[unet]`."
-            ) from e
+                textwrap.dedent("""\
+                Composer was installed without unet support. To use timm with Composer, run `pip install mosaicml[unet]`
+                if using pip or `conda install -c conda-forge monai` if using Anaconda.""")) from e
 
         self.hparams = hparams
         self.module = self.build_nnunet()

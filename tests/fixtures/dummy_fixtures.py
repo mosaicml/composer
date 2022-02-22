@@ -113,9 +113,9 @@ def dummy_state_without_rank(dummy_model: SimpleBatchPairModel, dummy_train_data
         train_dataloader=dummy_train_dataloader,
         evaluators=evaluators,
         optimizers=dummy_optimizer,
-        schedulers=dummy_scheduler,
         max_duration="10ep",
     )
+    state.schedulers = dummy_scheduler
 
     return state
 

@@ -62,7 +62,7 @@ class EventCounterCallback(Callback):
         for event in Event:
             self.event_to_num_calls[event] = 0
 
-    def _run_event(self, event: Event, state: State, logger: Logger):
+    def run_event(self, event: Event, state: State, logger: Logger):
         self.event_to_num_calls[event] += 1
 
     def state_dict(self) -> StateDict:
@@ -217,7 +217,7 @@ def test_load_weights(
     second_trainer_hparams.optimizer = AdamWHparams()
 
     # setup a new LR scheduler
-    scheduler_options = [ConstantLRHparams(), CosineAnnealingLRHparams(T_max=second_trainer_hparams.max_duration)]
+    scheduler_options = [ConstantLRHparams(), CosineAnnealingLRHparams(t_max=second_trainer_hparams.max_duration)]
     second_trainer_hparams.schedulers = [random.choice(scheduler_options)]
 
     # ensure our new choice of scheduler is different than the original scheduler

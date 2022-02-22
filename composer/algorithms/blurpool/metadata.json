@@ -4,6 +4,7 @@
         "functional": "apply_blurpool",
         "tldr": "applies blur before pooling",
         "attribution": "(Zhang, 2019)",
-        "link": "https://arxiv.org/abs/1904.11486"
+        "link": "https://arxiv.org/abs/1904.11486",
+        "domains": ["cv"]
     }
 }

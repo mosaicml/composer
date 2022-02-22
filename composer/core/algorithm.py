@@ -1,5 +1,7 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
+"""Base class for algorithms."""
+
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
@@ -9,6 +11,8 @@ from composer.core.serializable import Serializable
 
 if TYPE_CHECKING:
     from composer.core import Event, Logger, State
+
+__all__ = ["Algorithm"]
 
 
 class Algorithm(Serializable, ABC):
@@ -92,7 +96,3 @@ class Algorithm(Serializable, ABC):
                 and made accessible for debugging.
         """
         raise NotImplementedError(f'implement apply() required for {self.__class__.__name__}')
-
-    def __str__(self) -> str:
-        """Returns the class name."""
-        return self.__class__.__name__
