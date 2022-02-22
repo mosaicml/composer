@@ -18,7 +18,7 @@ Run Directory Location
 | If using the :ref:`composer launcher for distributed training <distributed-training>`, the run directory can be specified using the
 | ``--run_directory`` command line flag. For example:
 
-.. code-block:: console
+.. code-block::
 
     composer --run_directory /path/to/run/directory -n 8 path/to/training/script.py
 
