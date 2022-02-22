@@ -1,6 +1,7 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
 from __future__ import annotations
+from ast import Call
 
 import contextlib
 import datetime
@@ -674,13 +675,8 @@ class Trainer:
                     if self.compute_training_metrics:
                         # compute metrics on the training set
                         assert train_metrics is not None
-                        state.model.eval()
-                        with torch.no_grad():
-                            for eval_microbatch in self._train_data_spec.split_batch(state.batch, state.grad_accum):
-                                # TODO: Detect if self.run_event(Event.AFTER_DATALOADER) changes the training
-                                # data and if so print a warning that metrics may return unexpected results
-                                outputs, targets = self.original_model.validate(eval_microbatch)
-                                train_metrics.update(outputs, targets)
+                        self.state.model.eval()
+                        self._compute_training_metrics(train_metrics)
 
                     state.model.train()
 
@@ -752,7 +748,50 @@ class Trainer:
             if self.checkpoint_saver and self.checkpoint_saver.should_checkpoint(state=state, event=Event.EPOCH_END):
                 self.checkpoint_saver.save_checkpoint(state=state, seed=self.seed, device=self.device)
 
-    def _train_and_compute_loss(self, use_grad_scaling: bool, batch_num_samples: int):
+    def _dynamic_microbatch_wrapper(self, func: Callable) -> Callable:
+        """Wraps function to catch CUDA Out of Memory Errors and adaptively change microbatch
+        size if enabled to miaximize GPU usage.
+        """
+        # TODO: switch batch_num_samples with new state variable
+        def wrapper(*args, **kwargs):
+            rerun = True
+            while rerun:
+                try:
+                    rerun = False
+                    return func()
+                except RuntimeError as e:
+                    if self.adaptive_grad_accum and "CUDA out of memory" in str(e):
+                        # Raise runtime error if training 1 sample at a time still resulted in CUDA out of memory
+                        if self.state.grad_accum == self.state.batch_num_samples:
+                            raise RuntimeError(
+                                "CUDA out of memory. Train loop failed with an internal microbatch of size 1")
+                        else:
+                            rerun = True
+                            self.state.grad_accum = min(2 * self.state.grad_accum, self.state.batch_num_samples)
+                            self.logger.metric_batch({'trainer/grad_accum': self.state.grad_accum})
+                    else:
+                        # If not CUDA out of memory, raise exception to user. Note that this
+                        # truncates the call stack back only to this newly raised error
+                        raise RuntimeError(e)
+        return wrapper
+
+    @_dynamic_microbatch_wrapper
+    def _compute_training_metrics(self, train_metrics: Metric):
+        """Compute train metrics. Adaptively change microbatch size if enabled to maximize GPU
+        usage.
+
+        Args:
+            train_metrics (Metric): Training metrics
+        """
+        with torch.no_grad():
+            for eval_microbatch in self._train_data_spec.split_batch(self.state.batch, self.state.grad_accum):
+                # TODO: Detect if self.run_event(Event.AFTER_DATALOADER) changes the training
+                # data and if so print a warning that metrics may return unexpected results
+                outputs, targets = self.original_model.validate(eval_microbatch)
+                train_metrics.update(outputs, targets)
+
+    @_dynamic_microbatch_wrapper    
+    def _train_and_compute_loss(self, use_grad_scaling: bool):
         """Compute loss by training on a full batch of data. Adaptively change microbatch size
         if enabled to maximize GPU usage.
 
@@ -762,43 +801,25 @@ class Trainer:
                 is later adjusted to be the microbatch size, so we need an explicit function param
         """
         # Rerun train_batch with smaller microbatches if we hit CUDA out of memory
-        rerun_train_batch = True
         total_loss = None
-        while rerun_train_batch:
-            try:
-                rerun_train_batch = False
-                microbatches = self._train_data_spec.split_batch(self.state.batch, self.state.grad_accum)
-                if self.deepspeed_enabled:
-                    total_loss = self._train_batch(microbatches)
-                elif self._use_closures():
-                    for optimizer in self.state.optimizers:
-                        if use_grad_scaling:
-                            total_loss = self.state.scaler.step(
-                                optimizer, closure=lambda **kwargs: self._train_batch(microbatches, **kwargs))
-                        else:
-                            total_loss = optimizer.step(
-                                closure=lambda **kwargs: self._train_batch(microbatches, **kwargs).item())
+        microbatches = self._train_data_spec.split_batch(self.state.batch, self.state.grad_accum)
+        if self.deepspeed_enabled:
+            total_loss = self._train_batch(microbatches)
+        elif self._use_closures():
+            for optimizer in self.state.optimizers:
+                if use_grad_scaling:
+                    total_loss = self.state.scaler.step(
+                        optimizer, closure=lambda **kwargs: self._train_batch(microbatches, **kwargs))
                 else:
-                    total_loss = self._train_batch(microbatches)
-                    for optimizer in self.state.optimizers:
-                        if use_grad_scaling:
-                            self.state.scaler.step(optimizer)
-                        else:
-                            optimizer.step()
-            except RuntimeError as e:
-                if self.adaptive_grad_accum and "CUDA out of memory" in str(e):
-                    # Raise runtime error if training 1 sample at a time still resulted in CUDA out of memory
-                    if self.state.grad_accum == batch_num_samples:
-                        raise RuntimeError(
-                            "CUDA out of memory. Train loop failed with an internal microbatch of size 1")
-                    else:
-                        rerun_train_batch = True
-                        self.state.grad_accum = min(2 * self.state.grad_accum, batch_num_samples)
-                        self.logger.metric_batch({'trainer/grad_accum': self.state.grad_accum})
+                    total_loss = optimizer.step(
+                        closure=lambda **kwargs: self._train_batch(microbatches, **kwargs).item())
+        else:
+            total_loss = self._train_batch(microbatches)
+            for optimizer in self.state.optimizers:
+                if use_grad_scaling:
+                    self.state.scaler.step(optimizer)
                 else:
-                    # If not CUDA out of memory, raise exception to user. Note that this
-                    # truncates the call stack back only to this newly raised error
-                    raise RuntimeError(e)
+                    optimizer.step()
         return total_loss
 
     def _train_batch(self, microbatches: Sequence[Batch], ddp_sync: bool = True):
