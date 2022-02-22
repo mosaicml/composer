@@ -98,7 +98,7 @@ Doing so can allow models to reach higher quality, but this typically requires (
 > AugMix is a regularization technique that makes training more difficult for the model.
 > This can lead to higher model quality for longer training runs but may decrease accuracy for shorter training runs and require a larger model to overcome this difficulty.
 
-> 🚧 Composiing Regularization Methods
+> 🚧 Composing Regularization Methods
 >
 > As general rule, composing regularization methods may lead to diminishing returns in quality improvements while increasing the risk of creating a CPU bottleneck.
 
