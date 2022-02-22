@@ -14,6 +14,7 @@ from torchvision import transforms
 
 from composer.core import Algorithm, Event, Logger, State
 from composer.core.types import Tensor
+from composer.models.loss import check_for_index_targets
 
 log = logging.getLogger(__name__)
 
@@ -44,20 +45,20 @@ def resize_batch(X: torch.Tensor,
     Args:
         X: input tensor of shape (N, C, H, W). Resizing will be done along
             dimensions H and W using the constant factor ``scale_factor``.
-        y: output tensor of shape (N, C, H, W) that will also be resized if
+        y: output tensor of shape (N, H, W) or (N, C, H, W) that will also be resized if
             ``resize_targets`` is ``True``,
         scale_factor: scaling coefficient for the height and width of the
             input/output tensor. 1.0 keeps the original size.
         mode: type of scaling to perform. Value must be one of ``'crop'`` or
             ``'resize'``. ``'crop'`` performs a random crop, whereas ``'resize'``
-            performs a bilinear interpolation.
+            performs a nearest neighbor interpolation.
         resize_targets: whether to resize the targets, ``y``, as well
 
     Returns:
         X_sized: resized input tensor of shape ``(N, C, H * scale_factor, W * scale_factor)``.
         y_sized: if ``resized_targets`` is ``True``, resized output tensor
-            of shape ``(N, C, H * scale_factor, W * scale_factor)``. Otherwise
-            returns original ``y``.
+            of shape ``(N, H * scale_factor, W * scale_factor)`` or  ``(N, C, H * scale_factor, W * scale_factor)``.
+            Depending on the input ``y``. Otherwise returns original ``y``.
     """
     # Short-circuit if nothing should be done
     if scale_factor >= 1:
@@ -70,14 +71,21 @@ def resize_batch(X: torch.Tensor,
             Wc = int(scale_factor * tensor.shape[3])
             resize_transform = transforms.RandomCrop((Hc, Wc))
         elif mode.lower() == "resize":
-            resize_transform = partial(F.interpolate, scale_factor=scale_factor, mode='bilinear')
+            resize_transform = partial(F.interpolate, scale_factor=scale_factor, mode='nearest')
         else:
             raise ValueError(f"Progressive mode '{mode}' not supported.")
         return resize_transform(tensor)
 
     X_sized = resize_tensor(X)
     if resize_targets:
-        y_sized = resize_tensor(y)
+        if check_for_index_targets(y):
+            # Add a dimension to match shape of the input and change type for resizing
+            y_sized = y.float().unsqueeze(1)
+            y_sized = resize_tensor(y_sized)
+            # Convert back to original format for training
+            y_sized = y_sized.squeeze(dim=1).to(y.dtype)
+        else:
+            y_sized = resize_tensor(y)
     else:
         y_sized = y
     return X_sized, y_sized
