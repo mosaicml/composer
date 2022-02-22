@@ -1,7 +1,6 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
 from __future__ import annotations
-from ast import Call
 
 import contextlib
 import datetime
