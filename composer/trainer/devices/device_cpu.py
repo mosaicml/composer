@@ -5,9 +5,7 @@ from __future__ import annotations
 import logging
 from contextlib import contextmanager
 from typing import Generator, Union
-from packaging import version
 
-import torch
 from composer.core.types import Precision, StateDict, Tensor
 from composer.trainer.devices.device import Device, T_nnModule
 
@@ -30,11 +28,6 @@ class DeviceCPU(Device):
         precision = Precision(precision)
         if precision == Precision.FP32:
             yield
-        elif precision == Precision.BF16:
-            if version.parse(torch.__version__) < version.parse("1.10"):
-                raise ValueError("Bfloat16 is only available for PyTorch versions >= 1.10")
-            with torch.autocast(device_type="cpu", enabled=True, dtype=torch.bfloat16):
-                yield
         else:
             raise ValueError(f"Precision {precision} not supported for a CPU")
 
