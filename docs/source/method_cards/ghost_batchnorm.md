@@ -1,4 +1,4 @@
-# Ghost BatchNorm
+# 👻 Ghost BatchNorm
 
 ![Ghost-batch-normalization-and-alternatives](https://storage.googleapis.com/docs.mosaicml.com/images/methods/ghost-batch-normalization.png)
 

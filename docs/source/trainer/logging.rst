@@ -1,5 +1,5 @@
-Logging
-=======
+|:wood:| Logging
+================
 
 By default, the trainer enables :class:`.TQDMLogger`, which logs
 information to a ``tqdm`` progress bar.

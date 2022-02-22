@@ -1,5 +1,5 @@
-Checkpointing
-=============
+|:white_check_mark:| Checkpointing
+==================================
 
 Composer can be configured to automatically save training checkpoints by
 passing the argument ``save_folder`` when creating the

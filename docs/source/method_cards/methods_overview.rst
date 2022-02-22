@@ -1,6 +1,6 @@
 
-Methods Overview
-===================
+|:black_joker:| Methods Overview
+================================
 
 .. panels::
    :card: shadow
@@ -144,7 +144,7 @@ Methods Overview
    .. link-button:: scale_schedule.html
       :text: ScaleSchedule
       :classes: card-title
-   
+
    ++++++++++++++
    Scale the learning rate schedule by a factor
 

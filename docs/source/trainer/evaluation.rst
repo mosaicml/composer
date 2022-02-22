@@ -1,5 +1,5 @@
-Evaluation
-==========
+|:bar_chart:| Evaluation
+========================
 
 To track training progress, validation datasets can be provided to the
 Composer Trainer through the ``eval_dataloader`` parameter. The trainer
