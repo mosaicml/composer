@@ -699,7 +699,7 @@ class Trainer:
                         "trainer/batch_idx": self.state.timer.batch_in_epoch.value,
                     })
 
-                    total_loss = self._train_and_compute_loss(use_grad_scaling)
+                    total_loss = self._train_and_compute_loss(use_grad_scaling, state.batch_num_samples)
 
                     if use_grad_scaling:
                         state.scaler.update()
@@ -752,12 +752,14 @@ class Trainer:
             if self.checkpoint_saver and self.checkpoint_saver.should_checkpoint(state=state, event=Event.EPOCH_END):
                 self.checkpoint_saver.save_checkpoint(state=state, seed=self.seed, device=self.device)
 
-    def _train_and_compute_loss(self, use_grad_scaling: bool):
+    def _train_and_compute_loss(self, use_grad_scaling: bool, batch_num_samples: int):
         """Compute loss by training on a full batch of data. Adaptively change microbatch size
         if enabled to maximize GPU usage.
 
         Args:
             use_grad_scaling (bool): Enables gradient scaling
+            batch_num_samples (int): Number of samples in batch. Note that state.batch_num_samples
+                is later adjusted to be the microbatch size, so we need an explicit function param
         """
         # Rerun train_batch with smaller microbatches if we hit CUDA out of memory
         rerun_train_batch = True
@@ -786,7 +788,7 @@ class Trainer:
             except RuntimeError as e:
                 if self.adaptive_grad_accum and "CUDA out of memory" in str(e):
                     # Raise runtime error if training 1 sample at a time still resulted in CUDA out of memory
-                    if self.state.grad_accum == self.state.batch_num_samples:
+                    if self.state.grad_accum == batch_num_samples:
                         raise RuntimeError(
                             "CUDA out of memory. Train loop failed with an internal microbatch of size 1")
                     else:
