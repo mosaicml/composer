@@ -793,7 +793,7 @@ class Trainer:
                             "CUDA out of memory. Train loop failed with an internal microbatch of size 1")
                     else:
                         rerun_train_batch = True
-                        self.state.grad_accum = min(2 * self.state.grad_accum, self.state.batch_num_samples)
+                        self.state.grad_accum = min(2 * self.state.grad_accum, batch_num_samples)
                         self.logger.metric_batch({'trainer/grad_accum': self.state.grad_accum})
                 else:
                     # If not CUDA out of memory, raise exception to user. Note that this
