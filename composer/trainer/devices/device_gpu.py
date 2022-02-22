@@ -4,11 +4,11 @@ from __future__ import annotations
 
 from contextlib import contextmanager
 from typing import Generator, Union
-from packaging import version
 
 import torch
 import torch.cuda.amp
 import torch.utils.data
+from packaging import version
 
 from composer.core.types import Precision, StateDict, Tensor
 from composer.trainer.devices.device import Device, T_nnModule
