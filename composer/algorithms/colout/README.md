@@ -1,6 +1,6 @@
 # ColOut
 
-[\[How to Use\]](#how-to-use) &middot; [\[Suggested Hyperparameters\]](#suggested-hyperparameters) &middot; [\[Technical Details\]](#technical-details) &middot; [\[Attribution\]](#attribution)
+[\[How to Use\]](#how-to-use) - [\[Suggested Hyperparameters\]](#suggested-hyperparameters) - [\[Technical Details\]](#technical-details) - [\[Attribution\]](#attribution)
 
 `Computer Vision`
 
@@ -15,6 +15,8 @@ This modification modestly reduces accuracy, but it is a worthwhile tradeoff for
 ## How to Use
 
 ### Functional Interface
+
+TODO(CORY): FIX
 
 ```python
 def training_loop(model, train_loader):
@@ -32,6 +34,27 @@ def training_loop(model, train_loader):
 ```
 
 ### Composer Trainer
+
+TODO(CORY): Fix and provide commentary and/or comments
+
+```python
+from composer.algorithms import Alibi
+from composer.trainer import Trainer
+
+trainer = Trainer(model=model,
+                  train_dataloader=train_dataloader,
+                  max_duration='1ep',
+                  algorithms=[
+                  ])
+
+trainer.fit()
+```
+
+### Implementation Details
+
+ColOut currently has two implementations.
+One implementation acts as an additional data augmentation for use in PyTorch dataloaders. It runs on the CPU and applies ColOut independently to each training example.
+A second implementation runs immediately before the training example is provided to the model. It runs on the GPU and drops the same rows and columns for all training examples in a mini-batch.
 
 ## Suggested Hyperparameters
 
