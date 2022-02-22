@@ -18,7 +18,7 @@ optimizer:
   decoupled_sgdw:
     lr: 0.01
     momentum: 0.9
-    weight_decay: 2.5e-5
+    weight_decay: 2.0e-5
     dampening: 0
     nesterov: false
 schedulers:
