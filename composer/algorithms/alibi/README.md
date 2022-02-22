@@ -1,6 +1,6 @@
 # ALiBi
 
-[\[How to Use\]](#how-to-use) &middot; [\[Suggested Hyperparameters\]](#suggested-hyperparameters) &middot; [\[Technical Details\]](#technical-details) &middot; [\[Attribution\]](#attribution)
+[\[How to Use\]](#how-to-use) - [\[Suggested Hyperparameters\]](#suggested-hyperparameters) - [\[Technical Details\]](#technical-details) - [\[Attribution\]](#attribution)
 
  `Natural Language Processing`
 
@@ -13,6 +13,8 @@ ALiBi (Attention with Linear Biases) dispenses with position embeddings for toke
 ## How to Use
 
 ### Functional Interface
+
+TODO(MATTHEW): FIX
 
 ```python
 def training_loop(model, train_loader):
@@ -31,6 +33,8 @@ def training_loop(model, train_loader):
 
 ### Composer Trainer
 
+TODO(MATTHEW): Verify and provide commentary and/or comments
+
 ```python
 from composer.algorithms import Alibi
 from composer.trainer import Trainer
@@ -48,7 +52,13 @@ trainer = Trainer(model=model,
 trainer.fit()
 ```
 
+### Implementation Details
+
+ALiBi is implemented by performing model surgery... TODO(MATTHEW)
+
 ## Suggested Hyperparameters
+
+TODO(MATTHEW): THIS HYPERPARAMETER IS NOT REFERRED TO IN THE EXAMPLES ABOVE.
 
 We found that `train_sequence_length_scaling=0.25` (sequence length 256) provided appreciable speed and accuracy gains for models evaluated at sequence length 1024.
 We observed that performance significantly degraded for ALiBi models trained on sequence lengths ≤128.
