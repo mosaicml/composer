@@ -380,7 +380,7 @@ class Trainer:
 
         # Set initial grad_accum to 1 if using adaptive
         self.adaptive_grad_accum = isinstance(grad_accum, str) and grad_accum == "auto"
-        if grad_accum == -1:
+        if self.adaptive_grad_accum:
             self.grad_accum = 1
             grad_accum = 1
         # Cannot use adaptive grad accum on CPU
