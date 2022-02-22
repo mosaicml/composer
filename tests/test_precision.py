@@ -34,9 +34,11 @@ def run_and_measure_memory(precision: Precision) -> int:
     return torch.cuda.max_memory_allocated()
 
 
-@pytest.mark.timeout(60)
+@pytest.mark.timeout(90)
 @pytest.mark.gpu
-def test_fp16_mixed():
+def test_precision():
     memory_full = run_and_measure_memory(Precision.FP32)
     memory_amp = run_and_measure_memory(Precision.AMP)
+    memory_bf16 = run_and_measure_memory(Precision.BF16)
     assert memory_amp < 0.7 * memory_full
+    assert memory_bf16 < 0.7 * memory_full
