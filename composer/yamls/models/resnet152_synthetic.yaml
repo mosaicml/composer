@@ -22,17 +22,8 @@ optimizer:
     dampening: 0
     nesterov: false
 schedulers:
-  - warmup:
-      warmup_iters: "8ep"
-      warmup_method: linear
-      warmup_factor: 0
-      verbose: false
-      interval: step
-  - cosine_decay:
-      T_max: "82ep"
-      eta_min: 0
-      verbose: false
-      interval: step
+  - cosine_decay_with_warmup:
+      warmup_time: "8ep"
 model:
   resnet:
     model_name: resnet152

@@ -10,7 +10,7 @@ import utils
 import composer
 from composer import functional as CF
 
-EXCLUDE_METHODS = ['no_op_model']
+EXCLUDE_METHODS = ['no_op_model', 'utils']
 
 HEADER = ['Name', 'Functional', 'Attribution', 'tl;dr']
 ATTRIBUTES = ['class_name', 'functional', 'tldr', 'attribution', 'link']

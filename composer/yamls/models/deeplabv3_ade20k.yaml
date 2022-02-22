@@ -23,10 +23,7 @@ optimizer:
     nesterov: false
 schedulers:
   - polynomial:
-      T_max: "127ep"
-      eta_min: 1e-4
-      verbose: false
-      interval: step
+      min_factor: 0.01
       power: 0.9
 model:
   deeplabv3:

@@ -69,6 +69,6 @@ We have explored Selective Backprop primarily on image recognition tasks such as
     :members: match, apply
     :noindex:
 
-.. autofunction:: composer.algorithms.selective_backprop.selective_backprop
+.. autofunction:: composer.algorithms.selective_backprop.select_using_loss
     :noindex:
 ```

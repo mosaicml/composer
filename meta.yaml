@@ -1,0 +1,87 @@
+# Build configuration for anaconda
+
+package:
+  name: mosaicml
+  version: "0.3.1"
+
+source:
+  git_url: https://github.com/mosaicml/composer.git
+  # TODO change to "v0.3.1"
+  git_rev: "dev"
+  git_depth: 1
+
+build:
+  number: 0
+  noarch: python
+  entry_points:
+    - composer = composer.cli.launcher:main
+  script: python setup.py install --single-version-externally-managed --record=record.txt
+
+requirements:
+  host:
+    - python >=3.7
+    - setuptools
+    - git
+  build:
+    - git
+  run:
+    - python >=3.7
+    - pyyaml >=5.4.1
+    - pytorch >=1.9
+    - torch-optimizer ==0.1.0
+    - torchmetrics >=0.6.0
+    - torchvision >=0.9.0
+    - tqdm >=4.62.3
+    - yahp >=0.0.14
+    - requests >=2.26.0
+    - numpy ==1.21.5
+    - apache-libcloud >=3.3.1
+    - psutil >=5.8.0
+  run_constrained:
+    - wandb >=0.12.2
+    - monai >=0.7.0
+    - scikit-learn >=1.0.1
+    # - timm >=0.5.4 # This timm version is not available on conda
+    - transformers >=4.11
+    - datasets >=1.14
+
+test:
+  requires:
+    - fasteners >=0.16.3
+    - pytest >=7.0.0
+    - toml >=0.10.2
+    - ipython >=7.29.0
+    - ipykernel >=6.5.0
+    - jupyter >=1.0.0
+    - pytest-timeout >=1.4.2
+    - testbook >=0.4.2
+    # Including all run_constrained requirements in the test requirements, so those tests will not be import-skipped
+    - pip  # Since deepspeed and timm are not available on anaconda, they are installed via pip.
+    - wandb >=0.12.2
+    - monai >=0.7.0
+    - scikit-learn >=1.0.1
+    # - timm >=0.5.4 # This timm version is not available on conda; installing via pip
+    - transformers >=4.11
+    - datasets >=1.14
+  files:
+    - "**/composer/**"
+    - "**/tests/**"
+    - "**/notebooks/**"
+    - "**/examples/**"
+    - "**/pyproject.toml"
+    - "**/Makefile"
+  imports:
+    - composer
+    - tests
+  commands:
+    - pip install deepspeed>=0.5.5 timm>=0.5.4  # deepspeed is not available on conda, and timm has a conda version conflict
+    - make test DURATION=all EXTRA_ARGS="-m 'not notebooks and not gpu'"
+    - make test-dist DURATION=all WORLD_SIZE=2 EXTRA_ARGS="-m 'not notebooks and not gpu'"
+
+about:
+  home: https://www.mosaicml.com
+  license: Apache 2.0
+  license_file: LICENSE
+  summary: "composing methods for ML training efficiency"
+  dev_url: https://github.com/mosaicml/composer
+  doc_url: https://docs.mosaicml.com

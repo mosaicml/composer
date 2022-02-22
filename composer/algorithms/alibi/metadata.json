@@ -4,6 +4,7 @@
         "functional": "apply_alibi",
         "tldr": "Replace attention with AliBi",
         "attribution": "(Press et al, 2021)",
-        "link": "https://arxiv.org/abs/2108.12409v1"
+        "link": "https://arxiv.org/abs/2108.12409v1",
+        "domains": ["nlp"]
     }
 }

@@ -18,8 +18,7 @@ optimizer:
     momentum: 0.9
     weight_decay: 1.0e-4
 schedulers:
-  - cosine_decay:
-      T_max: "10ep"
+  - cosine_decay: {}
 model:
   mnist_classifier:
     initializers:
