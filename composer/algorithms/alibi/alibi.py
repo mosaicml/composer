@@ -9,7 +9,7 @@ import logging
 import math
 from operator import attrgetter
 from types import MethodType, ModuleType
-from typing import Any, Callable, Optional, Type, cast
+from typing import Any, Callable, Optional, Tuple, Type, cast
 
 import torch
 
@@ -73,9 +73,12 @@ def apply_alibi(
         None
     """
 
-    _zero_and_freeze_expand_position_embeddings(model=model,
-                                                attribute=position_embedding_attribute,
-                                                new_embedding_length=max_sequence_length)
+    old_embed, new_embed = _zero_and_freeze_expand_position_embeddings(
+        model=model,
+        attribute=position_embedding_attribute,
+        new_embedding_length=max_sequence_length,
+    )
+    module_surgery.update_params_in_optimizer([old_embed], [new_embed], optimizers=optimizers)
     log.info(f" Position embedding expanded to sequence length {max_sequence_length}, zeroed, and frozen")
 
     def convert_attention(module: torch.nn.Module, module_index: Optional[int] = None):
@@ -207,7 +210,11 @@ class Alibi(Algorithm):
                     state.batch[k] = v.reshape(int(batch_len / sequence_scaling), int(sequence_len * sequence_scaling))
 
 
-def _zero_and_freeze_expand_position_embeddings(model: torch.nn.Module, new_embedding_length: int, attribute: str):
+def _zero_and_freeze_expand_position_embeddings(
+    model: torch.nn.Module,
+    new_embedding_length: int,
+    attribute: str,
+) -> Tuple[torch.nn.Parameter]:
     try:
         pos_embedding_module = attrgetter(attribute)(model)
         old_weight = getattr(pos_embedding_module, "weight")
@@ -218,6 +225,8 @@ def _zero_and_freeze_expand_position_embeddings(model: torch.nn.Module, new_embe
                         device=old_weight.device))
         new_weight.requires_grad = False
         setattr(pos_embedding_module, "weight", new_weight)
+
+        return old_weight, new_weight
     except AttributeError:
         log.error(f"Unable to zero and freeze position embeddings. Model "
                   f"{model} may lack attribute {attribute}, or position "
