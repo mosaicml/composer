@@ -95,8 +95,8 @@ class SWA(Algorithm):
         self.swa_completed = False
 
         # Check annealing_strategy string
-        if self.annealing_strategy.lower() in ["linear", "lin"]:
-            self.annealing_strategy = "linear"
+        if self.anneal_strategy.lower() in ["linear", "lin"]:
+            self.anneal_strategy = "linear"
         elif self.anneal_strategy.lower() in ["cos", "cosine"]:
             self.anneal_strategy = "cos"
         else:
