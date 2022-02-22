@@ -4,7 +4,7 @@
 
 To run:
 
-.. code-block:: console
+.. code-block::
 
     python -m composer.profiler.json_trace_merger -o merged_trace_output.json path/to/input_file_1.json path/to/input_file_2.json ...
 
