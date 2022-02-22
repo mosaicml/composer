@@ -748,17 +748,18 @@ class Trainer:
             if self.checkpoint_saver and self.checkpoint_saver.should_checkpoint(state=state, event=Event.EPOCH_END):
                 self.checkpoint_saver.save_checkpoint(state=state, seed=self.seed, device=self.device)
 
-    def _dynamic_microbatch_wrapper(self, func: Callable) -> Callable:
+    def _dynamic_microbatch_wrapper(func: Callable) -> Callable:
         """Wraps function to catch CUDA Out of Memory Errors and adaptively change microbatch
         size if enabled to miaximize GPU usage.
         """
         # TODO: switch batch_num_samples with new state variable
         def wrapper(*args, **kwargs):
+            self = args[0]
             rerun = True
             while rerun:
                 try:
                     rerun = False
-                    return func()
+                    return func(*args, **kwargs)
                 except RuntimeError as e:
                     if self.adaptive_grad_accum and "CUDA out of memory" in str(e):
                         # Raise runtime error if training 1 sample at a time still resulted in CUDA out of memory
