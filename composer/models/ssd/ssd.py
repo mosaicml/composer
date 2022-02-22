@@ -61,7 +61,7 @@ class SSD(ComposerModel):
         data = "/localdisk/coco"
         val_annotate = os.path.join(data, "annotations/instances_val2017.json")
         val_coco_root = os.path.join(data, "val2017")
-        input_size = 300
+        input_size = self.hparams["input_size"]#300
         from composer.datasets.coco import COCO, COCODetection        
         val_trans = SSDTransformer(dboxes, (input_size, input_size), val=True)
 
@@ -76,6 +76,7 @@ class SSD(ComposerModel):
         (img, img_id, img_size, _, _) = batch
         ploc, plabel = self.module(img.cuda())
 
+        results = []
         try:
             results = encoder.decode_batch(ploc, plabel, overlap_threshold, nms_max_detections, nms_valid_thresh=0.05)
         except:
@@ -83,7 +84,7 @@ class SSD(ComposerModel):
 
         (htot, wtot) = [d.cpu().numpy() for d in img_size]
         img_id = img_id.cpu().numpy()
-        if results:
+        if len(results) > 0:
             # Iterate over batch elements
             for img_id_, wtot_, htot_, result in zip(img_id, wtot, htot, results):
                 loc, label, prob = [r.cpu().numpy() for r in result]
