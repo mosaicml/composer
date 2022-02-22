@@ -58,8 +58,6 @@ ALiBi is implemented by performing model surgery... TODO(MATTHEW)
 
 ## Suggested Hyperparameters
 
-TODO(MATTHEW): THIS HYPERPARAMETER IS NOT REFERRED TO IN THE EXAMPLES ABOVE.
-
 We found that `train_sequence_length_scaling=0.25` (sequence length 256) provided appreciable speed and accuracy gains for models evaluated at sequence length 1024.
 We observed that performance significantly degraded for ALiBi models trained on sequence lengths ≤128.
 As such, we do not recommend training models with sequence lengths ≤256 or `train_sequence_length_scaling≤0.03125`, whichever is larger.
