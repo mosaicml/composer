@@ -30,7 +30,9 @@ class SWA(Algorithm):
     memory required doubles, however, since stored activations and the
     optimizer state are not doubled.
 
-    Uses PyTorch's :mod:`torch.optim.swa_utils` under the hood.
+    Uses PyTorch's `torch.optim.swa_util 
+    <https://pytorch.org/docs/stable/optim.html#stochastic-weight-averaging>`_ under the
+    hood.
 
     See the :doc:`Method Card </method_cards/swa>` for more details.
 
@@ -40,7 +42,7 @@ class SWA(Algorithm):
             from composer.algorithms import SWA
             from composer.trainer import Trainer
             swa_algorithm = SWA(
-                swa_start=0.7,
+                swa_start=0.6,
                 swa_end=0.8
             )
             trainer = Trainer(
@@ -63,28 +65,42 @@ class SWA(Algorithm):
             the final epoch of training (e.g. ``swa_end = 0.9`` and ``max_duration =
             "5ep"``), the SWA model will not have its buffers updated, which can
             negatively impact accuracy, so ensure ``swa_end`` <
-            :math:`frac{N_{epochs}-1}{N_{epochs}}. Default = ``0.97``.
-        schedule_swa_lr (bool, optional): Flag to determine whether apply an SWA-specific
-            LR schedule during the period in which SWA is active. Default = ``False``.
+            :math:`\\frac{N_{epochs}-1}{N_{epochs}}`. Default = ``0.97``.
+        schedule_swa_lr (bool, optional): Flag to determine whether to apply an
+            SWA-specific LR schedule during the period in which SWA is active. Default =
+            ``False``.
         anneal_strategy (str, optional): SWA learning rate annealing schedule strategy.
             "linear" for linear annealing, "cos" for cosine annealing. Default =
             ``"linear"``.
         anneal_epochs (int, optional): Number of epochs over which to anneal SWA
             learning rate. Default = ``10``.
-        swa_lr (float, optional): The final learning rate for the SWA LR schedule.
+        swa_lr (float, optional): The final learning rate to anneal towards with SWA LR
+            scheduler. Set to ``None`` for no annealing.
     """
 
     def __init__(self,
                  swa_start: float = 0.7,
                  swa_end: float = 0.97,
+                 schedule_swa_lr: bool = False,
+                 anneal_strategy: str = "linear",
                  anneal_epochs: int = 10,
                  swa_lr: Optional[float] = None):
         self.swa_start = swa_start
         self.swa_end = swa_end
+        self.schedule_swa_lr = schedule_swa_lr
+        self.anneal_strategy = anneal_strategy
         self.anneal_epochs = anneal_epochs
         self.swa_lr = swa_lr
         self.swa_model: Optional[torch.nn.Module] = None
         self.swa_completed = False
+
+        # Check annealing_strategy string
+        if self.annealing_strategy.lower() in ["linear", "lin"]:
+            self.annealing_strategy = "linear"
+        elif self.anneal_strategy.lower() in ["cos", "cosine"]:
+            self.anneal_strategy = "cos"
+        else:
+            raise ValueError("Parameter 'anneal_strategy' must have an argument that is one of {'linear', 'cos'.")
 
         assert 0 < swa_start < 1, "swa_start must be between 0 and 1."
         assert swa_end <= 1, "swa_end must be ≤ 1"
@@ -98,7 +114,7 @@ class SWA(Algorithm):
         return event == Event.EPOCH_END and should_start_swa
 
     def apply(self, event: Event, state: State, logger: Logger) -> None:
-        if self.swa_scheduler is None:
+        if self.swa_scheduler is None and self.schedule_swa_lr:
 
             if self.swa_lr is None:
                 if len(state.schedulers) != 1:
@@ -117,7 +133,7 @@ class SWA(Algorithm):
                 state.optimizers[0],
                 swa_lr=self.swa_lr,
                 anneal_epochs=self.anneal_epochs,
-                anneal_strategy='cos',
+                anneal_strategy=self.anneal_strategy,
             )
 
         if self.swa_model is None:
@@ -125,17 +141,14 @@ class SWA(Algorithm):
 
         self.swa_model.update_parameters(state.model)  # type: ignore
 
-        if self.swa_scheduler is None:
-            raise ValueError('SWA LR scheduler was not set.')
-        # self.swa_scheduler.step()
+        if self.schedule_swa_lr:
+            if self.swa_scheduler is None:
+                raise ValueError('SWA LR scheduler was not set.')
+            self.swa_scheduler.step()
 
-        ## end of swa window
+        # End of swa window
         if float(state.get_elapsed_duration()) >= self.swa_end:
-            # device = next(self.swa_model.parameters()).device
-            # TODO(laura) this does not apply the batch split fn. This may result in cuda OOM.
-            # update_bn(state.train_dataloader, model=self.swa_model, device=device)
             assert type(self.swa_model.module) == type(state.model)
             state.model.load_state_dict(self.swa_model.module.state_dict())  # type: ignore
-            # log.info('Updated BN and set model to the averaged model')
             self.swa_completed = True
             log.info('Set model to the averaged model')
