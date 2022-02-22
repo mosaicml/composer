@@ -6,7 +6,7 @@ To use :mod:`torch.distributed`, launch your training script with the
 :ref:`composer launcher for distributed training <distributed-training>`. For example,
 the following command launches an eight-process training run.
 
-.. code-block:: console
+.. code-block::
 
     composer -n 8 path/to/train.py
 
