@@ -79,21 +79,22 @@ class SSD(ComposerModel):
         try:
             results = encoder.decode_batch(ploc, plabel, overlap_threshold, nms_max_detections, nms_valid_thresh=0.05)
         except:
-            print("No object detected in batch: {}".format(nbatch))
+            print("No object detected")
 
         (htot, wtot) = [d.cpu().numpy() for d in img_size]
         img_id = img_id.cpu().numpy()
-        # Iterate over batch elements
-        for img_id_, wtot_, htot_, result in zip(img_id, wtot, htot, results):
-            loc, label, prob = [r.cpu().numpy() for r in result]
-            # Iterate over image detections
-            for loc_, label_, prob_ in zip(loc, label, prob):
-                ret.append([img_id_, loc_[0]*wtot_, \
-                            loc_[1]*htot_,
-                            (loc_[2] - loc_[0])*wtot_,
-                            (loc_[3] - loc_[1])*htot_,
-                            prob_,
-                            inv_map[label_]])
+        if results:
+            # Iterate over batch elements
+            for img_id_, wtot_, htot_, result in zip(img_id, wtot, htot, results):
+                loc, label, prob = [r.cpu().numpy() for r in result]
+                # Iterate over image detections
+                for loc_, label_, prob_ in zip(loc, label, prob):
+                    ret.append([img_id_, loc_[0]*wtot_, \
+                                loc_[1]*htot_,
+                                (loc_[2] - loc_[0])*wtot_,
+                                (loc_[3] - loc_[1])*htot_,
+                                prob_,
+                                inv_map[label_]])
 
         return ret, ret
 
@@ -105,21 +106,19 @@ class my_map(Metric):
         self.add_state("predictions", default=[])
 
     def update(self, pred, target):
-        #for i in len(
-        #import pdb; pdb.set_trace()
+
         self.predictions.append(pred)
         np.squeeze(self.predictions)
 
 
     def compute(self):
-        #import pdb; 
+        print('self.pred', len(self.predictions))
         data = "/localdisk/coco"
         val_annotate = os.path.join(data, "annotations/instances_val2017.json")
         from composer.datasets.coco import COCO
         cocogt = COCO(annotation_file=val_annotate)
-        #import pdb; pdb.set_trace()
         
-        cocoDt = cocogt.loadRes(np.array(self.predictions))#np.squeeze(self.predictions))
+        cocoDt = cocogt.loadRes(np.array(self.predictions))
 
         E = COCOeval(cocogt, cocoDt, iouType='bbox')
         E.evaluate()

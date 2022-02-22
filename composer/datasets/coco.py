@@ -537,23 +537,17 @@ class COCO:
         :return: annotations (python nested list)
         """
         assert (type(data) == np.ndarray)
-        #import pdb; pdb.set_trace()
-        #data = data[0]
         
         N = len(data)
         ann = []
-        #import pdb; pdb.set_trace()
+
         for i in range(N):
-            for j in range(len(data[i])):
-                #
-                #print('IJ',i,j)
-                #print('DATA', data[0][0][0])
-                ann += [{
-                    'image_id': int(data[i][j][0]),
-                    'bbox': [data[i][j][1], data[i][j][2], data[i][j][3], data[i][j][4]],
-                    'score': data[i][j][5],
-                    'category_id': int(data[i][j][6]),
-                }]
+            ann += [{
+                'image_id': int(data[i][0]),
+                'bbox': [data[i][1], data[i][2], data[i][3], data[i][4]],
+                'score': data[i][5],
+                'category_id': int(data[i][6]),
+            }]
 
         return ann
 
