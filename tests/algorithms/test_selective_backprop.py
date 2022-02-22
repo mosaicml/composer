@@ -7,7 +7,7 @@ import torch
 
 from composer.algorithms import SelectiveBackpropHparams
 from composer.algorithms.selective_backprop import SelectiveBackprop
-from composer.algorithms.selective_backprop.selective_backprop import selective_backprop, should_selective_backprop
+from composer.algorithms.selective_backprop.selective_backprop import select_using_loss, should_selective_backprop
 from composer.core import Event
 from composer.core.logging.logger import Logger
 from composer.core.state import State
@@ -171,7 +171,7 @@ def test_sb_hparams():
 class TestSelectiveBackprop:
 
     @pytest.mark.parametrize("epoch,batch,interrupt", [(10, 0, 0), (10, 0, 2), (10, 2, 2)])
-    def test_do_selective_backprop_true(self, epoch: int, batch: int, interrupt: int) -> None:
+    def test_select_using_loss_true(self, epoch: int, batch: int, interrupt: int) -> None:
         """Test functional match when epoch is within interval."""
         start = 5
         end = 15
@@ -179,7 +179,7 @@ class TestSelectiveBackprop:
         assert is_chosen
 
     @pytest.mark.parametrize("epoch,batch,interrupt", [(0, 0, 0), (20, 0, 0), (10, 1, 2)])
-    def test_do_selective_backprop_false(self, epoch: int, batch: int, interrupt: int) -> None:
+    def test_select_using_loss_false(self, epoch: int, batch: int, interrupt: int) -> None:
         """Test functional doesn't match when epoch is outside of interval."""
         start = 5
         end = 15
@@ -194,7 +194,7 @@ class TestSelectiveBackprop:
         """Test functional selection on 3D inputs."""
         N, D, _ = X3D.shape
 
-        X_scaled, y_scaled = selective_backprop(X3D, y, model, loss_fun, keep, scale_factor)
+        X_scaled, y_scaled = select_using_loss(X3D, y, model, loss_fun, keep, scale_factor)
         assert X_scaled.shape == (int(N * keep), D, D)
         assert y_scaled.shape == (int(N * keep),)
 
@@ -205,7 +205,7 @@ class TestSelectiveBackprop:
         """Test functional selection on 2D inputs."""
         N, D = X.shape
 
-        X_scaled, y_scaled = selective_backprop(X, y, model, loss_fun, keep, scale_factor)
+        X_scaled, y_scaled = select_using_loss(X, y, model, loss_fun, keep, scale_factor)
         assert X_scaled.shape == (int(N * keep), D)
         assert y_scaled.shape == (int(N * keep),)
 
@@ -215,7 +215,7 @@ class TestSelectiveBackprop:
                                            loss_fun: Callable, keep: float, scale_factor: float) -> None:
         """Test functional selection on 4D inputs."""
         N, C, H, W = Ximage.shape
-        X_scaled, y_scaled = selective_backprop(Ximage, y, conv_model.module, loss_fun, keep, scale_factor)
+        X_scaled, y_scaled = select_using_loss(Ximage, y, conv_model.module, loss_fun, keep, scale_factor)
         assert X_scaled.shape == (int(N * keep), C, H, W)
         assert y_scaled.shape == (int(N * keep),)
 
@@ -223,13 +223,13 @@ class TestSelectiveBackprop:
                                                  loss_fun: Callable) -> None:
         """Ensure that ValueError is raised when input tensor can't be scaled."""
         with pytest.raises(ValueError):
-            selective_backprop(X, y, model, loss_fun, 1, 0.5)
+            select_using_loss(X, y, model, loss_fun, 1, 0.5)
 
     def test_selective_backprop_bad_loss_error(self, X: torch.Tensor, y: torch.Tensor, model: torch.nn.Module,
                                                bad_loss: Callable) -> None:
         """Ensure that ValueError is raised when loss function doesn't have `reduction` kwarg."""
         with pytest.raises(TypeError) as execinfo:
-            selective_backprop(X, y, model, bad_loss, 1, 1)
+            select_using_loss(X, y, model, bad_loss, 1, 1)
         MATCH = "must take a keyword argument `reduction`."
         assert MATCH in str(execinfo.value)
 

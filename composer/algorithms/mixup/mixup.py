@@ -1,5 +1,7 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
+"""Core MixUp classes and functions."""
+
 from __future__ import annotations
 
 import logging
@@ -13,6 +15,8 @@ from composer.core.types import Algorithm, Event, Logger, State, Tensor
 from composer.models.loss import check_for_index_targets
 
 log = logging.getLogger(__name__)
+
+__all__ = ["MixUp", "mixup_batch"]
 
 
 def mixup_batch(x: Tensor,
@@ -31,6 +35,17 @@ def mixup_batch(x: Tensor,
     Both the original and shuffled labels are returned. This is done because
     for many loss functions (such as cross entropy) the targets are given as
     indices, so interpolation must be handled separately.
+
+    Example:
+         .. testcode::
+
+            from composer.algorithms.mixup import mixup_batch
+            new_inputs, new_targets, perm = mixup_batch(
+                                                x=X_example,
+                                                y=y_example,
+                                                n_classes=1000,
+                                                alpha=0.2
+                                                )
 
     Args:
         x: input tensor of shape (B, d1, d2, ..., dn), B is batch size, d1-dn
@@ -51,15 +66,6 @@ def mixup_batch(x: Tensor,
         x_mix: batch of inputs after mixup has been applied
         y_mix: labels after mixup has been applied
         perm: the permutation used
-
-    Example:
-        from composer import functional as CF
-
-        for X, y in dataloader:
-            X, y, _ = CF.mixup_batch(X, y, nclasses)
-
-            pred = model(X)
-            loss = loss_fun(pred, y)  # loss_fun must accept dense labels (ie NOT indices)
     """
     if interpolation_lambda is None:
         interpolation_lambda = _gen_interpolation_lambda(alpha)
@@ -91,9 +97,24 @@ class MixUp(Algorithm):
 
     This is done by taking a convex combination of a given batch X with a
     randomly permuted copy of X. The mixing coefficient is drawn from a
-    ``Beta(alpha, alpha)`` distribution.
+    Beta(``alpha``, ``alpha``) distribution.
 
-    Training in this fashion reduces generalization error.
+    Training in this fashion sometimes reduces generalization error.
+
+    Example:
+         .. testcode::
+
+            from composer.algorithms import MixUp
+            from composer.trainer import Trainer
+            mixup_algorithm = MixUp(num_classes=1000, alpha=0.2)
+            trainer = Trainer(
+                model=model,
+                train_dataloader=train_dataloader,
+                eval_dataloader=eval_dataloader,
+                max_duration="1ep",
+                algorithms=[mixup_algorithm],
+                optimizers=[optimizer]
+            )
 
     Args:
         num_classes (int): the number of classes in the task labels.

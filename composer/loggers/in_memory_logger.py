@@ -1,5 +1,10 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
+"""Logs metrics to dictionary objects that persist in memory throughout training.
+
+Useful for collecting and plotting data inside notebooks.
+"""
+
 from __future__ import annotations
 
 from typing import Dict, List, Tuple, Union
@@ -8,21 +13,48 @@ from composer.core.logging import LoggerCallback, LogLevel, TLogData
 from composer.core.logging.logger import TLogDataValue
 from composer.core.time import Timestamp
 
+__all__ = ["InMemoryLogger"]
+
 
 class InMemoryLogger(LoggerCallback):
-    """Stores all logging calls in memory.
+    """Logs metrics to dictionary objects that persist in memory throughout training. Useful for collecting and plotting
+    data inside notebooks.
+
+    Example usage:
+        .. testcode::
+
+            from composer.loggers import InMemoryLogger
+            from composer.trainer import Trainer
+            from composer.core.logging import LogLevel
+            logger = InMemoryLogger(
+                log_level=LogLevel.BATCH
+            )
+            trainer = Trainer(
+                model=model,
+                train_dataloader=train_dataloader,
+                eval_dataloader=eval_dataloader,
+                max_duration="1ep",
+                optimizers=[optimizer],
+                loggers=[logger]
+            )
+            # Get data from logger. Be sure to confirm logger.backends index.
+            logged_data = trainer.logger.backends[0].data
 
     Args:
-        log_level (str or LogLevel, optional): Minimum LogLevel to record. Defaults to
-            :attr:`LogLevel.BATCH`, which records everything.
+        log_level (str or LogLevel, optional):
+            :class:`~.logger.LogLevel` (i.e. unit of resolution) at
+            which to record. Defaults to
+            :attr:`~.LogLevel.BATCH`, which records
+            everything.
 
     Attributes:
         data (dict): Mapping of a logged key to a
-            (:class:`Timestamp`, :class:`LogLevel`, :class`~composer.core.logging.TLogDataValue`) tuple.
-            This dictionary contains all logged data.
+            (:class:`~.time.Timestamp`, :class:`~.logger.LogLevel`,
+            :attr:`~.logger.TLogDataValue`) tuple. This dictionary contains all logged
+            data.
         most_recent_values (Dict[str, TLogData]): Mapping of a key to the most recent value for that key.
-        most_recent_timestamps (Dict[str, Timestamp]): Mapping of a key to the :class:`Timestamp` of
-            the last logging call for that key.
+        most_recent_timestamps (Dict[str, Timestamp]): Mapping of a key to the
+            :class:`~.time.Timestamp` of the last logging call for that key.
     """
 
     def __init__(self, log_level: Union[str, LogLevel] = LogLevel.BATCH) -> None:

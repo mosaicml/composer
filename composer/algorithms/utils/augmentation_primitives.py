@@ -7,8 +7,7 @@ where 10 is the strongest and maximum value an augmentation
 function will accept.
 
 Adapted from
-`AugMix: A Simple Data Processing Method to Improve Robustness and Uncertainty
-<https://github.com/google-research/augmix/blob/master/augmentations.py>`_.
+`AugMix: A Simple Data Processing Method to Improve Robustness and Uncertainty <https://github.com/google-research/augmix/blob/master/augmentations.py>`_.
 
 Attributes:
     AugmentationFn ((PIL.Image.Image, float) -> PIL.Image.Image): The type annotation for describing an
