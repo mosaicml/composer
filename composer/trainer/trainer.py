@@ -690,8 +690,12 @@ class Trainer:
                         torch.tensor([state.batch_num_samples], dtype=torch.int))
                     num_tokens_in_batch = self.device.tensor_to_device(
                         torch.tensor([state.batch_num_tokens], dtype=torch.int))
+                    grad_accum = self.device.tensor_to_device(
+                        torch.tensor([state.grad_accum], dtype=torch.int))
                     dist.all_reduce(num_samples_in_batch, reduce_operation="SUM")
                     dist.all_reduce(num_tokens_in_batch, reduce_operation="SUM")
+                    dist.all_reduce(grad_accum, reduce_operation="MAX")
+                    state.grad_accum = int(grad_accum.item())
 
                     self.engine.run_event(Event.BATCH_START)
                     self.logger.metric_batch({
