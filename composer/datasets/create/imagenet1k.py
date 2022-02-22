@@ -27,18 +27,18 @@ def find_samples(in_root: str, split: str) -> List[Tuple[str, int]]:
     for filename in filenames:
         parts = filename.split(os.path.sep)
         wnid = parts[-2]
-        klass = wnid2class.get(wnid)
-        if klass is None:
-            klass = len(wnid2class)
-            wnid2class[wnid] = wnid
-        pairs.append((filename, klass))
+        cls = wnid2class.get(wnid)
+        if cls is None:
+            cls = len(wnid2class)
+            wnid2class[wnid] = cls
+        pairs.append((filename, cls))
     shuffle(pairs)
     return pairs
 
 
 def each_sample(pairs: List[Tuple[str, int]]) -> Generator[Dict[str, Any], None, None]:
     for idx, (img_file, cls) in enumerate(pairs):
-        img = Image.open(img_file).convert('RGB')
+        img = open(img_file, 'rb').read()
         yield {
             '__key__': f'{idx:05d}',
             'jpg': img,
