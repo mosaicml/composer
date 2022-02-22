@@ -1,12 +1,8 @@
 ## Code adapted from https://github.com/mlcommons/training/tree/master/single_stage_detector/ssd
 
-from collections import OrderedDict
-
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
-from torch.autograd import Variable
-from torchvision.models.resnet import resnet18, resnet34, resnet50
+from torchvision.models.resnet import resnet18, resnet34
 
 
 def _ModifyConvStrideDilation(conv, stride=(1, 1), padding=None):

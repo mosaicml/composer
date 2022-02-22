@@ -2,30 +2,27 @@ import copy
 import itertools
 import json
 import os
-import sys
 import time
 from collections import defaultdict
 from dataclasses import dataclass
 from typing import Sequence
+from urllib.request import urlretrieve
 
 import matplotlib.pyplot as plt
 import numpy as np
+import torch
 import yahp as hp
 from matplotlib.collections import PatchCollection
 from matplotlib.patches import Polygon
-from pycocotools import mask as maskUtils
-
-from urllib.request import urlretrieve
-
-import torch
 from PIL import Image
+from pycocotools import mask as maskUtils
 
 
 def _isArrayLike(obj):
     return hasattr(obj, '__iter__') and hasattr(obj, '__len__')
 
 
-from composer.core.types import Batch, DataLoader, Dataset, DataSpec
+from composer.core.types import Batch, DataSpec
 from composer.datasets.dataloader import DataloaderHparams
 from composer.datasets.hparams import DatasetHparams
 from composer.models.ssd.utils import DefaultBoxes, SSDTransformer, dboxes300_coco
@@ -50,7 +47,6 @@ class COCODatasetHparams(DatasetHparams):
     shuffle: bool = hp.required("Whether to shuffle the dataset for each epoch")
     download: bool = hp.required("whether to download the dataset, if needed")
 
-
     def initialize_object(self, batch_size: int, dataloader_hparams: DataloaderHparams):
 
         dboxes = dboxes300_coco()
@@ -58,11 +54,11 @@ class COCODatasetHparams(DatasetHparams):
         input_size = 300
         train_trans = SSDTransformer(dboxes, (input_size, input_size), val=False, num_cropping_iterations=1)
         val_trans = SSDTransformer(dboxes, (input_size, input_size), val=True)
-        data = "/localdisk/coco"
+        data = self.datadir
 
         val_annotate = os.path.join(data, "annotations/instances_val2017.json")
         val_coco_root = os.path.join(data, "val2017")
-        
+
         train_annotate = os.path.join(data, "annotations/instances_train2017.json")
         train_coco_root = os.path.join(data, "train2017")
 
@@ -104,7 +100,6 @@ class COCODetection(data.Dataset):
 
         self.label_map = {}
         self.label_info = {}
-        start_time = time.time()
         # 0 stands for the background
         cnt = 0
         self.label_info[cnt] = "background"
@@ -125,7 +120,6 @@ class COCODetection(data.Dataset):
         # read bboxes
         for bboxes in self.data["annotations"]:
             img_id = bboxes["image_id"]
-            category_id = bboxes["category_id"]
             bbox = bboxes["bbox"]
             bbox_label = self.label_map[bboxes["category_id"]]
             self.images[img_id][2].append((bbox, bbox_label))
@@ -225,7 +219,6 @@ class COCO:
         self.dataset, self.anns, self.cats, self.imgs = dict(), dict(), dict(), dict()
         self.imgToAnns, self.catToImgs = defaultdict(list), defaultdict(list)
         if not annotation_file == None:
-            tic = time.time()
             dataset = json.load(open(annotation_file, 'r'))
             assert type(dataset) == dict, 'annotation file format {} not supported'.format(type(dataset))
             self.dataset = dataset
@@ -458,7 +451,6 @@ class COCO:
         res = COCO()
         res.dataset['images'] = [img for img in self.dataset['images']]
 
-        tic = time.time()
         if type(resFile) == str:  #or type(resFile) == unicode:
             anns = json.load(open(resFile))
         elif type(resFile) == np.ndarray:
@@ -466,9 +458,6 @@ class COCO:
         else:
             anns = resFile
         assert type(anns) == list, 'results in not an array of objects'
-        #annsImgIds = [ann['image_id'] for ann in anns]
-        #assert set(annsImgIds) == (set(annsImgIds) & set(self.getImgIds())), \
-        #       'Results do not correspond to current coco set'
         if 'caption' in anns[0]:
             imgIds = set([img['id'] for img in res.dataset['images']]) & set([ann['image_id'] for ann in anns])
             res.dataset['images'] = [img for img in res.dataset['images'] if img['id'] in imgIds]
@@ -521,11 +510,9 @@ class COCO:
             imgs = self.imgs.values()
         else:
             imgs = self.loadImgs(imgIds)
-        N = len(imgs)
         if not os.path.exists(tarDir):
             os.makedirs(tarDir)
-        for i, img in enumerate(imgs):
-            tic = time.time()
+        for _, img in enumerate(imgs):
             fname = os.path.join(tarDir, img['file_name'])
             if not os.path.exists(fname):
                 urlretrieve(img['coco_url'], fname)
@@ -537,7 +524,7 @@ class COCO:
         :return: annotations (python nested list)
         """
         assert (type(data) == np.ndarray)
-        
+
         N = len(data)
         ann = []
 

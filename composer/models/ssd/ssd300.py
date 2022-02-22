@@ -135,7 +135,7 @@ class SSD300(nn.Module):
         # last result from network goes into additional blocks
         x = layers[-1]
         additional_results = []
-        for i, l in enumerate(self.additional_blocks):
+        for _, l in enumerate(self.additional_blocks):
             x = l(x)
             additional_results.append(x)
 

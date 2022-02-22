@@ -1,22 +1,12 @@
 ## Code adapted from https://github.com/mlcommons/training/tree/master/single_stage_detector/ssd
 
-import bz2
-import glob
 import itertools
-import json
-import os
-import pickle
 import random
-import time
-from math import ceil, sqrt
-from pathlib import Path
-from xml.etree import ElementTree
+from math import sqrt
 
 import numpy as np
 import torch
 import torch.nn.functional as F
-import torch.utils.data as data
-import torchvision
 import torchvision.transforms as transforms
 from PIL import Image
 
@@ -87,7 +77,7 @@ class Encoder(object):
 
         ious = calc_iou_tensor(bboxes_in, self.dboxes)
         best_dbox_ious, best_dbox_idx = ious.max(dim=0)
-        best_bbox_ious, best_bbox_idx = ious.max(dim=1)
+        _, best_bbox_idx = ious.max(dim=1)
 
         # set best ious 2.0
         best_dbox_ious.index_fill_(0, best_bbox_idx, 2.0)
@@ -175,7 +165,7 @@ class Encoder(object):
             if score.size(0) == 0:
                 continue
 
-            score_sorted, score_idx_sorted = score.sort(dim=0)
+            _, score_idx_sorted = score.sort(dim=0)
 
             # select max_output indices
             score_idx_sorted = score_idx_sorted[-max_num:]
