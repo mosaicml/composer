@@ -21,7 +21,7 @@ if TYPE_CHECKING:
     from composer.loggers.wandb_logger import WandBLogger
 
 __all__ = [
-    "FileLoggerHparams", "InMemoryLoggerHaparms", "LoggerCallbackHparams", "TQDMLoggerHparams", "WandBLoggerHparams"
+    "FileLoggerHparams", "InMemoryLoggerHparams", "LoggerCallbackHparams", "TQDMLoggerHparams", "WandBLoggerHparams"
 ]
 
 
