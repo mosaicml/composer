@@ -100,7 +100,7 @@ class SWA(Algorithm):
         elif self.anneal_strategy.lower() in ["cos", "cosine"]:
             self.anneal_strategy = "cos"
         else:
-            raise ValueError("Parameter 'anneal_strategy' must have an argument that is one of {'linear', 'cos'.")
+            raise ValueError("Parameter 'anneal_strategy' must have an argument that is one of {'linear', 'cos'}.")
 
         assert 0 < swa_start < 1, "swa_start must be between 0 and 1."
         assert swa_end <= 1, "swa_end must be ≤ 1"
