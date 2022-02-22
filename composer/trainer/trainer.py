@@ -695,7 +695,7 @@ class Trainer:
                         "trainer/batch_idx": self.state.timer.batch_in_epoch.value,
                     })
 
-                    total_loss = self._train_and_compute_loss(use_grad_scaling, state.batch_num_samples)
+                    total_loss = self._train_and_compute_loss(use_grad_scaling)
 
                     if use_grad_scaling:
                         state.scaler.update()
@@ -755,13 +755,16 @@ class Trainer:
         # TODO: switch batch_num_samples with new state variable
         def wrapper(*args, **kwargs):
             self = args[0]
+            # Skip adaption if not enabled
+            if not self.adaptive_grad_accum:
+                return func
             rerun = True
             while rerun:
                 try:
                     rerun = False
                     return func(*args, **kwargs)
                 except RuntimeError as e:
-                    if self.adaptive_grad_accum and "CUDA out of memory" in str(e):
+                    if "CUDA out of memory" in str(e):
                         # Raise runtime error if training 1 sample at a time still resulted in CUDA out of memory
                         if self.state.grad_accum == self.state.batch_num_samples:
                             raise RuntimeError(
