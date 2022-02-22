@@ -38,7 +38,7 @@ In most cases, you will likely be training on multiple CPUs or GPUs on a single 
 
 For example, to train ResNet-50 efficiently with DDP on an 8-GPU system, you can use the following command:
 
-.. code-block::
+.. code-block:: console
     
     composer -n 8 examples/run_composer_trainer.py -f composer/yamls/models/resnet50.yaml
 

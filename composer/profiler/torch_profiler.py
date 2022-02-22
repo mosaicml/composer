@@ -26,7 +26,7 @@ class TorchProfiler(Callback):
 
     To view profiling results, run:
 
-    .. code-block::
+    .. code-block:: console
 
         pip install tensorbaord torch_tb_profiler
         tensorboard --logdir tensorboard_trace_handler_dir
