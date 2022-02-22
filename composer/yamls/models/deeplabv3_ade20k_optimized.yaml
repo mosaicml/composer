@@ -23,10 +23,7 @@ optimizer:
     nesterov: false
 schedulers:
   - cosine_decay:
-      T_max: "128ep"
-      eta_min: 0
-      verbose: false
-      interval: step
+      t_max: 1dur
 model:
   deeplabv3:
     initializers:
