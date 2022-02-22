@@ -39,7 +39,7 @@ def training_loop(model, train_loader):
 TODO(MATTHEW): Fix and provide commentary and/or comments
 
 ```python
-from composer.algorithms import Alibi
+from composer.algorithms import XXX
 from composer.trainer import Trainer
 
 trainer = Trainer(model=model,
