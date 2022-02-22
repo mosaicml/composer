@@ -23,4 +23,4 @@ from composer.core import types as types
 from composer.models import ComposerModel as ComposerModel
 from composer.trainer import Trainer as Trainer
 
-__version__ = "0.4.0-rc"
+__version__ = "0.4.0"
