@@ -73,9 +73,9 @@ class Trainer:
             (default: ``[CosineAnnealingLR()]``).
         device (str or Device, optional): The device to use for training. Either `cpu` or `gpu`.
             (default `cpu`)
-        grad_accum (int, optional): The number of microbatches to split a per-device batch into. Gradients
-            are summed over the microbatches per device. If set to -1, dynamically increases number of 
-            microbatch size if train_batch_size is too large for GPU. Defaults to -1 (default: ``-1``)
+        grad_accum (Union[int, str], optional): The number of microbatches to split a per-device batch into. Gradients
+            are summed over the microbatches per device. If set to ``auto``, dynamically increases number of 
+            microbatch size if train_batch_size is too large for GPU. (default: ``auto``)
         grad_clip_norm (float, optional): The norm to clip gradient magnitudes to. Set to None for no gradient
             clipping. (default: ``None``)
         validate_every_n_batches (int, optional): Compute metrics on evaluation data every N batches.
@@ -195,7 +195,7 @@ class Trainer:
         device: Optional[Union[str, Device]] = None,
 
         # training hparams
-        grad_accum: int = -1,
+        grad_accum: Union[int, str] = "auto",
         grad_clip_norm: Optional[float] = None,
         validate_every_n_batches: int = -1,
         validate_every_n_epochs: int = 1,
@@ -379,7 +379,7 @@ class Trainer:
             raise NotImplementedError(f"Only one optimizer is supported; found {num_optimizers} optimizers")
 
         # Set initial grad_accum to 1 if using adaptive
-        self.adaptive_grad_accum = grad_accum == -1
+        self.adaptive_grad_accum = isinstance(grad_accum, str) and grad_accum == "auto"
         if grad_accum == -1:
             self.grad_accum = 1
             grad_accum = 1
