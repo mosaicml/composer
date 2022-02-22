@@ -1,7 +1,11 @@
 .. Composer documentation master file
 
-Composer (Beta)
-===============
+Composer
+========
+
+``Composer`` provides well-engineered implementations of efficient training
+methods to give the tools that help you train faster and better models.
+
 
 MosaicML ``Composer`` contains a library of ML training efficiency methods, and a modular approach to compose them
 together to train deep neural networks. We aim to ease the transition from research to industry through reproducible
@@ -45,6 +49,8 @@ Our documentation is organized into a few sections:
 * :doc:`API Reference</api_reference>` contains the library's API reference.
 * :doc:`Methods Library</method_cards/alibi>` details our implemented efficiency methods.
 
+Table of Contents
+-----------------
 
 .. toctree::
    :maxdepth: 1
@@ -116,7 +122,7 @@ Our documentation is organized into a few sections:
 
 .. toctree::
    :caption: API Reference
-   :maxdepth: 4
+   :maxdepth: 1
 
    api_reference.rst
 

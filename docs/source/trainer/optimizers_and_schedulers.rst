@@ -80,7 +80,7 @@ Scale Schedule Ratio
 --------------------
 
 The Scale Schedule Ratio (SSR) scales the learning rate schedule by a factor, and
-is a powerful way to tradeoff training time and quality. `ssr` is an argument to
+is a powerful way to tradeoff training time and quality. ``ssr`` is an argument to
 the :class:`.Trainer`.
 
 .. TODO: add more here / add a figure
