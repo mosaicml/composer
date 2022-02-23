@@ -36,10 +36,10 @@ from composer.profiler import Profiler, ProfilerEventHandler
 from composer.profiler.dataloader_profiler import DataloaderProfiler
 from composer.profiler.system_profiler import SystemProfiler
 from composer.profiler.torch_profiler import TorchProfiler
-from composer.trainer._scaler import ClosureGradScaler
 from composer.trainer._checkpoint import CheckpointLoader, CheckpointSaver
-from composer.trainer.ddp import DDPSyncStrategy, ddp_sync_context, prepare_ddp_module
 from composer.trainer._deepspeed import fix_batch_precision_for_deepspeed, parse_deepspeed_config
+from composer.trainer._scaler import ClosureGradScaler
+from composer.trainer.ddp import DDPSyncStrategy, ddp_sync_context, prepare_ddp_module
 from composer.trainer.devices import Device, DeviceCPU, DeviceGPU
 from composer.trainer.scale_schedule import scale_scheduler
 from composer.utils import dist, ensure_tuple, map_collection, module_surgery, reproducibility
@@ -279,11 +279,11 @@ class Trainer:
         dist_timeout: float = 300.0,
         ddp_sync_strategy: Optional[Union[str, DDPSyncStrategy]] = None,
 
-        # Randomness
+        # randomness
         seed: Optional[int] = None,
         deterministic_mode: bool = False,
 
-        # Logging and callbacks
+        # logging and callbacks
         loggers: Optional[Sequence[LoggerCallback]] = None,
         callbacks: Sequence[Callback] = tuple(),
 
@@ -300,11 +300,11 @@ class Trainer:
         save_interval: Union[str, int, Time] = "1ep",
         save_compression: Optional[str] = None,
 
-        # Subset parameters
+        # subset parameters
         train_subset_num_batches: Optional[int] = None,
         eval_subset_num_batches: Optional[int] = None,
 
-        # Profiling
+        # profiling
         profiler_trace_file: Optional[str] = None,
         prof_event_handlers: Sequence[ProfilerEventHandler] = tuple(),
         prof_skip_first: int = 0,
@@ -545,11 +545,11 @@ class Trainer:
         self._checkpoint_loader = None
         if load_path is not None:
             self._checkpoint_loader = CheckpointLoader(path=load_path,
-                                                      object_store=load_object_store,
-                                                      load_weights_only=load_weights_only,
-                                                      strict_model_weights=load_strict,
-                                                      chunk_size=load_chunk_size,
-                                                      progress_bar=load_progress_bar)
+                                                       object_store=load_object_store,
+                                                       load_weights_only=load_weights_only,
+                                                       strict_model_weights=load_strict,
+                                                       chunk_size=load_chunk_size,
+                                                       progress_bar=load_progress_bar)
 
         # place the state, model in the proper devices, and initialize from a checkpoint if provided
         if self.deepspeed_enabled:
@@ -562,8 +562,8 @@ class Trainer:
                     if using pip or `pip install deepspeed>=0.5.5` if using Anaconda.""")) from e
             assert deepspeed_config is not None
             self._deepspeed_config = parse_deepspeed_config(deepspeed_config,
-                                                           state=self.state,
-                                                           grad_clip_norm=self._grad_clip_norm)
+                                                            state=self.state,
+                                                            grad_clip_norm=self._grad_clip_norm)
             optimizer = ensure_tuple(self.state.optimizers)[0]
             (self.state.model, self.state.optimizers, _, _) = deepspeed.initialize(
                 config=self._deepspeed_config,
@@ -646,7 +646,6 @@ class Trainer:
 
         """
         return self._checkpoint_saver.checkpoint_folder
-
 
     def fit(self):
         """Train and evaluate the model on the provided data."""
@@ -852,7 +851,7 @@ class Trainer:
                         self.eval(is_batch=True)
 
                     if self._checkpoint_saver and self._checkpoint_saver.should_checkpoint(state=state,
-                                                                                         event=Event.BATCH_END):
+                                                                                           event=Event.BATCH_END):
                         self._checkpoint_saver.save_checkpoint(state=state, seed=self._seed, device=self._device)
             except BreakEpochException:
                 log.info(f'Skipping the rest of Epoch {state.epoch}')
