@@ -85,7 +85,7 @@ A few tips and tricks for using our Trainer:
    For example, ``"10ba"`` means 10 minibatches or steps, and ``"10ep"``
    denotes 10 epochs.
 -  If you are using gradient accumulation, the ``batch_size`` in your
-   dataloaders should be the macrobatch size — the batch size of your
+   dataloaders should be the per-device macrobatch size — the batch size of your
    optimization update. For example, with ``grad_accum=2`` and
    ``batch_size=2048`` , the train runs through two microbatches of 1024
    each, then performs a gradient update step.
