@@ -194,16 +194,16 @@ class Trainer:
             Ignored if ``save_folder`` is ``None``. (default: ``1ep``)
         save_compression (str, optional): Compression algorithm to run on checkpoints. Can be ``gzip``, ``bzip2``,
             ``lzma``, or ``None`` for no compression. Ignored if ``save_folder`` is ``None``. (default: ``None``)
-        profiler_trace_file (str, optional): Name of the trace file, relative to the run directory.
-            Must be specified to activate the profiler. (default: ``None``).
-
-            .. seealso:: :mod:`composer.profiler` for more details on profiling with the trainer.
         train_subset_num_batches (int, optional): If specified, finish every epoch early after training
             on this many batches. This parameter has no effect if it is greater than ``len(train_dataloader)``.
             If ``None``, then the entire dataloader will be iterated over. (default: ``None``)
         eval_subset_num_batches (int, optional): If specified, evaluate on this many batches.
             This parameter has no effect if it is greater than ``len(eval_dataloader)``.
             If ``None``, then the entire dataloader will be iterated over. (default: ``None``)
+        profiler_trace_file (str, optional): Name of the trace file, relative to the run directory.
+            Must be specified to activate the profiler. (default: ``None``).
+
+            .. seealso:: :mod:`composer.profiler` for more details on profiling with the trainer.
         prof_event_handlers (List[ProfilerEventHandler], optional): Trace event handler.
             Ignored if ``profiler_trace_file`` is not specified. (default: ``[JSONTraceHandler()]``).
         prof_skip_first (int, optional): Number of batches to skip at epoch start.
