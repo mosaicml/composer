@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import logging
-import textwrap
 from typing import TYPE_CHECKING, Mapping, Tuple
 
 from composer.models.base import ComposerModel
