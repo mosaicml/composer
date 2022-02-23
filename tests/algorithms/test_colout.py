@@ -1,7 +1,6 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
 import functools
-from typing import cast
 
 import numpy as np
 import pytest
@@ -158,15 +157,15 @@ class TestColOutFunctional:
         torch.manual_seed(42)
         new_batch_2 = transform_2(fake_image_batch)
 
-        new_batch_1 = cast(torch.Tensor, new_batch_1)
-        new_batch_2 = cast(torch.Tensor, new_batch_2)
+        assert isinstance(new_batch_1, torch.Tensor)
+        assert isinstance(new_batch_2, torch.Tensor)
         assert torch.allclose(new_batch_1, new_batch_2)
 
     def test_batch_drop_size(self, fake_image_batch: torch.Tensor, p_row: float, p_col: float):
         """Test application to a batch of images."""
         colout = functools.partial(colout_batch, p_row=p_row, p_col=p_col)
         new_batch = colout(fake_image_batch)
-        new_batch = cast(torch.Tensor, new_batch)
+        assert isinstance(new_batch, torch.Tensor)
         verify_shape_batch(fake_image_batch, new_batch, p_row, p_col)
 
     @pytest.mark.parametrize("p_col", [0.05, 0.25])
@@ -174,7 +173,7 @@ class TestColOutFunctional:
         """Test that unequal values of p_row and p_col work properly."""
         colout = functools.partial(colout_batch, p_row=p_row, p_col=p_col)
         new_batch = colout(fake_image_batch)
-        new_batch = cast(torch.Tensor, new_batch)
+        assert isinstance(new_batch, torch.Tensor)
         verify_shape_batch(fake_image_batch, new_batch, p_row, p_col)
 
 
