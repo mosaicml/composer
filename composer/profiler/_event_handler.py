@@ -17,11 +17,11 @@ class ProfilerEventHandler(Callback, abc.ABC):
     Event handlers are responsible for logging trace :class:`.Marker`\\s and saving them to a file in a given trace format for viewing.
 
     Subclasses should implement :meth:`process_duration_event`, :meth:`process_instant_event` and :meth:`process_counter_event`.
-    These methods are invoked by the :class:`~composer.profiler.profiler.Profiler` whenever there is an event to record.
+    These methods are invoked by the :class:`.Profiler` whenever there is an event to record.
 
     Since :class:`ProfilerEventHandler` subclasses :class:`~composer.core.callback.Callback`,
-    event handlers can run on :class:`~composer.Event`s (such as on :attr:`~composer.core.event.Event.INIT` to open files or on
-    :attr:`~composer.core.event.Event.BATCH_END` to periodically dump data to files) and use :meth:`~composer.core.callback.Callback.close`
+    event handlers can run on :class:`.Event`\\s (such as on :attr:`.Event.INIT` to open files or on
+    :attr:`.Event.BATCH_END` to periodically dump data to files) and use :meth:`.Callback.close`
     to perform any cleanup.
     """
 
