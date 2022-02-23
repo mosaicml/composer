@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import abc
+import logging
 import textwrap
 from dataclasses import dataclass
 from typing import Optional, Union
@@ -17,6 +18,8 @@ except ImportError:
 else:
     metaclass = custom_inherit.DocInheritMeta(style="google_with_merge", abstract_base_class=True)
 
+import math
+
 import yahp as hp
 
 from composer.core.types import DataLoader, DataSpec, MemoryFormat
@@ -24,6 +27,8 @@ from composer.datasets.dataloader import DataloaderHparams
 from composer.datasets.synthetic import SyntheticBatchPairDataset
 from composer.datasets.webdataset import load_webdataset
 from composer.utils import dist
+
+log = logging.getLogger(__name__)
 
 
 @dataclass
@@ -159,8 +164,47 @@ class JpgClsWebDatasetHparams(WebDatasetHparams, SyntheticHparamsMixin):
             dataset, meta = load_webdataset(self.dataset_s3_bucket, self.dataset_name, split, self.webdataset_cache_dir,
                                             self.webdataset_cache_verbose)
             dataset = dataset.decode('pil').map_dict(jpg=transform).to_tuple('jpg', 'cls')
-            size_per_device = meta['n_shards'] * meta['samples_per_shard'] // dist.get_world_size()
-            dataset = dataset.with_epoch(size_per_device).with_length(size_per_device)
+
+            # Ensure that shards can be split among CPU workers
+            num_shards, samples_per_shard = meta['n_shards'], meta['samples_per_shard']
+            num_devices = dist.get_world_size()
+            num_workers_per_device = max(1, dataloader_hparams.num_workers)
+            num_workers_global = num_devices * num_workers_per_device
+            if num_shards % num_workers_global != 0:
+                raise ValueError(f"{num_shards=} must be divisible by {num_workers_global=}!")
+
+            # Set IterableDatset epoch boundary and length for DDP, PyTorch Dataloader compatability
+            shards_per_worker = num_shards // num_devices // num_workers_per_device
+            expected_samples_per_worker = samples_per_shard * shards_per_worker
+            if self.drop_last:
+                samples_per_worker = (expected_samples_per_worker // batch_size) * batch_size
+                samples_per_device = samples_per_worker * num_workers_per_device
+                samples_total = samples_per_device * num_devices
+                expected_samples_total = num_shards * samples_per_shard
+                if samples_total != expected_samples_total:
+                    log.warning(
+                        f"Note that 'drop_last=True' with per-CPU-worker sharding will cause an incomplete batch to be dropped at the end of ** each CPU worker's sample list **. "
+                        f"Given your training configuration, we have calculated this will reduce samples_per_epoch from {expected_samples_total} -> {samples_total}."
+                    )
+            else:
+                samples_per_worker = expected_samples_per_worker
+                samples_per_device = samples_per_worker * num_workers_per_device
+                samples_total = samples_per_device * num_devices
+                if samples_per_worker % batch_size != 0:
+                    expected_batches_per_epoch = math.ceil(samples_per_worker * num_workers_per_device / batch_size)
+                    batches_per_epoch = math.ceil(samples_per_worker / batch_size) * num_workers_per_device
+                    log.warning(
+                        f"Note that 'drop_last=False' with per-CPU-worker sharding will lead to multiple incomplete batches to be read from each device, ** one for each CPU worker **. "
+                        f"Unfortunately, the PyTorch Dataloader does not handle this situation well in its __len__ implementation, so len(dataloader) will be an underestimate of batches_per_epoch. "
+                        f"(See https://github.com/pytorch/pytorch/blob/3d9ec11feacd69d0ff1bffe0b25a825cdf203b87/torch/utils/data/dataloader.py#L403-L411). "
+                        f"Given your training configuration, we have calculated this will increase batches_per_epoch from {expected_batches_per_epoch} -> {batches_per_epoch}."
+                    )
+            # Set epoch boundary (per CPU worker).
+            # Technically not needed if shards are constructed correctly, but used for safety
+            dataset = dataset.with_epoch(samples_per_worker)
+            # Set IterableDataset length (per device), to be read by PyTorch Dataloader
+            dataset = dataset.with_length(samples_per_device)
+
         return dataloader_hparams.initialize_object(dataset,
                                                     batch_size=batch_size,
                                                     sampler=None,
