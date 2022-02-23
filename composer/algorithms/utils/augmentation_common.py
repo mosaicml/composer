@@ -72,6 +72,6 @@ def map_pillow_function(f_pil: Callable[[PillowImage], PillowImage], imgs: _Outp
         imgs_out = [torch.unsqueeze(img, 0) for img in imgs_out]
         imgs_out = torch.cat(imgs_out, dim=0)
     if single_image_input:
-        imgs_out = cast(type(imgs_out), imgs_out) # pyright struggling with typevars
+        imgs_out = cast(type(imgs_out), imgs_out)  # pyright struggling with typevars
         imgs_out = imgs_out[0]
-    return cast(type(imgs_out), imgs_out) # pyright struggling with typevars
+    return cast(type(imgs_out), imgs_out)  # pyright struggling with typevars

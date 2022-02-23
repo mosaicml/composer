@@ -65,7 +65,7 @@ def cutout_batch(X: ImgT, n_holes: int = 1, length: Union[int, float] = 0.5) -> 
 
     X_cutout = X_tensor * mask
     X_out = image_as_type(X_cutout, type(X))
-    return cast(type(X_out), X_out) # cast because pyright is bad at typevars
+    return cast(type(X_out), X_out)  # cast because pyright is bad at typevars
 
 
 class CutOut(Algorithm):
