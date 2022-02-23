@@ -190,9 +190,9 @@ class JpgClsWebDatasetHparams(WebDatasetHparams, SyntheticHparamsMixin):
                 samples_per_worker = expected_samples_per_worker
                 samples_per_device = samples_per_worker * num_workers_per_device
                 samples_total = samples_per_device * num_devices
-                if samples_per_worker % batch_size != 0:
-                    expected_batches_per_epoch = math.ceil(samples_per_worker * num_workers_per_device / batch_size)
-                    batches_per_epoch = math.ceil(samples_per_worker / batch_size) * num_workers_per_device
+                expected_batches_per_epoch = math.ceil(samples_per_worker * num_workers_per_device / batch_size)
+                batches_per_epoch = math.ceil(samples_per_worker / batch_size) * num_workers_per_device
+                if batches_per_epoch != expected_batches_per_epoch:
                     log.warning(
                         f"Note that 'drop_last=False' with per-CPU-worker sharding will lead to multiple incomplete batches to be read from each device, ** one for each CPU worker **. "
                         f"Unfortunately, the PyTorch Dataloader does not handle this situation well in its __len__ implementation, so len(dataloader) will be an underestimate of batches_per_epoch. "
