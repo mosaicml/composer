@@ -18,7 +18,7 @@ from composer.optim import AdamHparams, ExponentialLRHparams
 from composer.trainer import TrainerHparams
 from composer.trainer.devices import CPUDeviceHparams
 from tests.fixtures.models import (SimpleBatchPairModel, SimpleConvModel, _SimpleBatchPairModelHparams,
-                                   _SimpleDatasetHparams)
+                                   _SimpleDatasetHparams, _SimplePILDatasetHparams)
 
 
 @pytest.fixture
@@ -45,7 +45,7 @@ def dummy_val_batch_size() -> int:
 def dummy_model_hparams(
         dummy_in_shape: Tuple[int, ...], dummy_num_classes: int,
         SimpleBatchPairModelHparams: Type[_SimpleBatchPairModelHparams]) -> _SimpleBatchPairModelHparams:
-    return SimpleBatchPairModelHparams(in_shape=list(dummy_in_shape), num_classes=dummy_num_classes)
+    return SimpleBatchPairModelHparams(num_channels=dummy_in_shape[0], num_classes=dummy_num_classes)
 
 
 @pytest.fixture
@@ -54,26 +54,38 @@ def dummy_model(dummy_model_hparams: _SimpleBatchPairModelHparams) -> SimpleBatc
 
 
 @pytest.fixture
-def dummy_train_dataset_hparams(dummy_model: SimpleBatchPairModel,
+def dummy_train_dataset_hparams(dummy_model: SimpleBatchPairModel, dummy_in_shape: Tuple[int],
                                 SimpleDatasetHparams: Type[_SimpleDatasetHparams]) -> DatasetHparams:
     return SimpleDatasetHparams(
         use_synthetic=True,
         drop_last=True,
         shuffle=False,
         num_classes=dummy_model.num_classes,
-        data_shape=list(dummy_model.in_shape),
+        data_shape=list(dummy_in_shape),
     )
 
 
 @pytest.fixture
-def dummy_val_dataset_hparams(dummy_model: SimpleBatchPairModel,
+def dummy_train_pil_dataset_hparams(dummy_model: SimpleBatchPairModel, dummy_in_shape: Tuple[int],
+                                    SimplePILDatasetHparams: Type[_SimplePILDatasetHparams]) -> DatasetHparams:
+    return SimplePILDatasetHparams(
+        use_synthetic=True,
+        drop_last=True,
+        shuffle=False,
+        num_classes=dummy_model.num_classes,
+        data_shape=list(dummy_in_shape)[1:],
+    )
+
+
+@pytest.fixture
+def dummy_val_dataset_hparams(dummy_model: SimpleBatchPairModel, dummy_in_shape: Tuple[int],
                               SimpleDatasetHparams: Type[_SimpleDatasetHparams]) -> DatasetHparams:
     return SimpleDatasetHparams(
         use_synthetic=True,
         drop_last=False,
         shuffle=False,
         num_classes=dummy_model.num_classes,
-        data_shape=list(dummy_model.in_shape),
+        data_shape=list(dummy_in_shape),
     )
 
 
@@ -101,9 +113,9 @@ def dummy_state_without_rank(dummy_model: SimpleBatchPairModel, dummy_train_data
         train_dataloader=dummy_train_dataloader,
         evaluators=evaluators,
         optimizers=dummy_optimizer,
-        schedulers=dummy_scheduler,
         max_duration="10ep",
     )
+    state.schedulers = dummy_scheduler
 
     return state
 
@@ -123,6 +135,12 @@ def dummy_dataloader_hparams() -> DataloaderHparams:
 def dummy_train_dataloader(dummy_train_dataset_hparams: DatasetHparams, dummy_train_batch_size: int,
                            dummy_dataloader_hparams: DataloaderHparams) -> Union[DataLoader, DataSpec]:
     return dummy_train_dataset_hparams.initialize_object(dummy_train_batch_size, dummy_dataloader_hparams)
+
+
+@pytest.fixture
+def dummy_train_pil_dataloader(dummy_train_pil_dataset_hparams: DatasetHparams, dummy_train_batch_size: int,
+                               dummy_dataloader_hparams: DataloaderHparams) -> Union[DataLoader, DataSpec]:
+    return dummy_train_pil_dataset_hparams.initialize_object(dummy_train_batch_size, dummy_dataloader_hparams)
 
 
 @pytest.fixture
@@ -238,3 +256,9 @@ def SimpleBatchPairModelHparams():
 def SimpleDatasetHparams():
     TrainerHparams.register_class("train_dataset", _SimpleDatasetHparams, "simple_dataset")
     return _SimpleDatasetHparams
+
+
+@pytest.fixture(scope="session")
+def SimplePILDatasetHparams():
+    TrainerHparams.register_class("train_dataset", _SimplePILDatasetHparams, "simple_pil_dataset")
+    return _SimplePILDatasetHparams

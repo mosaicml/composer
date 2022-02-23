@@ -1,13 +1,15 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
+import textwrap
 from typing import Optional
 
 from composer.models.base import ComposerClassifier
 
 
 class Timm(ComposerClassifier):
-    """A wrapper around timm.create_model() used to create ComposerClassifiers from timm models
+    """A wrapper around :func:`timm.create_model` used to create a :class:`ComposerClassifier` from a timm model.
+
     Args:
-        model_name (str): timm model name e.g:'resnet50'list of models can be found at
+        model_name (str): timm model name e.g: 'resnet50'. A list of models can be found at
             https://github.com/rwightman/pytorch-image-models
         pretrained (bool): imagenet pretrained. default: False
         num_classes (int): The number of classes.  Needed for classification tasks. default: 1000
@@ -31,7 +33,13 @@ class Timm(ComposerClassifier):
         bn_momentum: Optional[float] = None,
         bn_eps: Optional[float] = None,
     ) -> None:
-        import timm
+        try:
+            import timm
+        except ImportError as e:
+            raise ImportError(
+                textwrap.dedent("""\
+                Composer was installed without timm support. To use timm with Composer, run `pip install mosaicml[timm]`
+                if using pip or `pip install timm>=0.5.4` if using Anaconda.""")) from e
 
         model = timm.create_model(
             model_name=model_name,

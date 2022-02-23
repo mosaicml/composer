@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import textwrap
 from typing import TYPE_CHECKING, Mapping, Tuple
 
 from composer.models.base import ComposerModel
@@ -36,7 +37,13 @@ class ComposerTransformer(ComposerModel):
                  tokenizer_name: str,
                  gradient_checkpointing: bool = False) -> None:
         super().__init__()
-        import transformers
+        try:
+            import transformers
+        except ImportError as e:
+            raise ImportError(
+                textwrap.dedent("""\
+                Composer was installed without NLP support. To use NLP with Composer, run `pip install mosaicml[nlp]`
+                if using pip or `conda install -c conda-forge transformers` if using Anaconda.""")) from e
 
         self.module = module
         self.config = config

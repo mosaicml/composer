@@ -43,7 +43,7 @@ As another example, to apply Progressive Resizing, which increases the image siz
         CF.resize_inputs(image, label, scale_factor=scale)
         scale += 0.01
 
-For more details, please see :doc:`/functional`.
+For more details, please see :mod:`composer.functional`.
 
 .. _using_composer_trainer:
 
@@ -75,10 +75,10 @@ Here are several ways to use the trainer:
        hparams.grad_accum = 2
        hparams.datadir = "~/datasets"
 
-       trainer = Trainer.create_from_hparams(hparams)
+       trainer = hparams.initialize_object()
        trainer.fit()
 
-   For a list of properties, see: :doc:`/trainer`
+   For a list of properties, see: :class:`~composer.trainer.trainer.Trainer`
 
 2. (Configurable): Provide a ``yaml`` file, either from our defaults or customized yourself.
 
@@ -98,7 +98,7 @@ Here are several ways to use the trainer:
 
         hparams = TrainerHparams.create('composer/yamls/models/classify_mnist_cpu.yaml')
         hparams.datadir = "~/datasets"
-        trainer = Trainer.create_from_hparams(hparams)
+        trainer = hparams.initialize_object()
 
         trainer.fit()
 
@@ -135,7 +135,7 @@ Here are several ways to use the trainer:
 
         trainer.fit()
 
-   For a comprehensive list of training arguments, see :doc:`/trainer`.
+   For a comprehensive list of training arguments, see :class:`~composer.trainer.trainer.Trainer`.
 
 
 .. _yahp: https://github.com/mosaicml/yahp

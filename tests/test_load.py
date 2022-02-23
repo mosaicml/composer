@@ -9,7 +9,7 @@ import pytest
 import composer
 import composer.algorithms as algorithms
 import composer.trainer as trainer
-from composer.algorithms.scale_schedule.scale_schedule import ScaleScheduleHparams
+from composer.algorithms import ScaleScheduleHparams
 from composer.core.precision import Precision
 from composer.datasets.hparams import SyntheticHparamsMixin
 from composer.trainer.devices import CPUDeviceHparams
@@ -21,11 +21,11 @@ model_names = [os.path.basename(os.path.splitext(mn)[0]) for mn in model_names]
 
 def get_model_algs(model_name: str) -> List[str]:
     algs = algorithms.list_algorithms()
-    algs.remove("dummy")
     algs.remove("no_op_model")
     is_image_model = any(x in model_name for x in ("resnet", "mnist", "efficientnet"))
     if is_image_model:
         algs.remove("alibi")
+        algs.remove("seq_length_warmup")
     if "alibi" in algs:
         pytest.importorskip("transformers")
     if model_name in ("unet", "gpt2_52m", "gpt2_83m", 'gpt2_125m'):
@@ -41,7 +41,7 @@ def test_load(model_name: str):
         pytest.importorskip("timm")
     if model_name in ['unet']:
         pytest.importorskip("monai")
-    if model_name in ['deeplabv3_ade20k']:
+    if model_name in ['deeplabv3_ade20k_unoptimized', 'deeplabv3_ade20k_optimized']:
         pytest.skip(f"Model {model_name} requires GPU")
 
     trainer_hparams = trainer.load(model_name)

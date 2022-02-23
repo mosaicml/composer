@@ -6,18 +6,18 @@ import contextlib
 import logging
 import os
 import random
+import shutil
 import tarfile
 import tempfile
 import textwrap
 import urllib.parse
 import warnings
-from typing import TYPE_CHECKING, Any, Dict, Iterator, Optional, Tuple, Union, cast
+from typing import TYPE_CHECKING, Iterator, Optional, Tuple, Union, cast
 
 import numpy as np
 import requests
 import torch
 import tqdm
-import yaml
 
 from composer.core import Event, State
 from composer.core.time import Time, TimeUnit
@@ -35,16 +35,28 @@ _COMPOSER_STATES_FILENAME = "composer_states.pt"
 _DEEPSPEED_TAG = "deepspeed"  # always tag with the same, deterministic name. We'll rename the tarball to the appropriate name.
 
 
-def get_composer_checkpoint_filepath(checkpoint_folder: str):
-    return os.path.join(checkpoint_folder, _COMPOSER_STATES_FILENAME)
+def _format_path_with_rank(path: str, rank: int) -> str:
+    """Returns the path with ``{{RANK}}`` substituted with the ``rank`` argument. See the :class:`CheckpointLoader` docs
+    for a description of how this is used.
+
+    Args:
+        path (str): Path to format
+        rank (int): The rank
+    """
+    return path.format(RANK=rank)
+
+
+def _is_pt_file(path: str) -> bool:
+    """Returns true if the path is a tar archive and false otherwise."""
+    return path.endswith('.pt')
 
 
 class CheckpointLoader:
-    """Manager for initializing state and restoring RNG state from existing checkpoints.
+    """Manager for initializing trainer state and restoring RNG state from existing checkpoints.
 
     Args:
         path (str): The template path to an existing checkpoint file.
-            It can be a path to a file on local disk, a URL, or if ``object_store_hparams`` is set, the object name
+            It can be a path to a file on local disk, a URL, or if ``object_store`` is set, the object name
             for a checkpoint in a cloud bucket.
 
             When using Deepspeed zero, the :class:`CheckpointSaver` shards checkpoints by rank. To load deepspeed checkpoints,
@@ -101,7 +113,7 @@ class CheckpointLoader:
         self.checkpoint_rng_state = None
 
     def _retrieve_checkpoint(self, rank: int, destination_filepath: str, ignore_not_found_errors: bool):
-        checkpoint_name = self.path.format(RANK=rank)
+        checkpoint_name = _format_path_with_rank(self.path, rank)
         if self.object_store is not None:
             try:
                 total_size_in_bytes = self.object_store.get_object_size(checkpoint_name)
@@ -151,28 +163,34 @@ class CheckpointLoader:
         assert local_rank_zero_path is not None, "local rank zero provides the path"
         return local_rank_zero_path
 
-    def _download_checkpoint(self, node_checkpoint_folder: str) -> Tuple[str, Optional[str]]:
+    def _download_checkpoint(self, node_checkpoint_folder: str) -> Tuple[str, Optional[str], bool]:
         """Download the checkpoint to ``node_checkpoint_folder``
 
         Args:
             node_checkpoint_folder (str): The folder to which to download the checkpoint
 
         Returns:
-            Tuple[str, Optional[str]]: A tuple of ``composer_checkpoint_filepath``, ``extracted_checkpoint_folder``
-                The ``composer_checkpoint_filepath``, is the path to the composer states, which can be passed into
-                :meth:`torch.load`.
+            Tuple[str, Optional[str], bool]: A tuple of ``composer_checkpoint_filepath``,
+                ``extracted_checkpoint_folder``, and ``extracted_rank_n``.
+
+                The ``composer_checkpoint_filepath``, is the path to the composer states,
+                which can be passed into :meth:`torch.load`.
 
                 The ``extracted_checkpoint_folder`` is the path to the checkpoint folder, which can be passed into
                 :meth:`deepspeed.DeepSpeedEngine.load_checkpoint`.
+
+                The ``extracted_rank_n`` is a boolean flag indicating whether a tarball was extracted on global
+                rank greater than 0.
         """
         checkpoint_archive_name = self.path.split(os.path.sep)[-1]
-        rank_zero_checkpoint_archive_name = "rank_0." + checkpoint_archive_name.format(rank=0)
-        rank_n_checkpoint_archive_name = f"rank_{dist.get_global_rank()}." + checkpoint_archive_name.format(
-            rank=dist.get_global_rank())
+        rank_zero_checkpoint_archive_name = "rank_0." + _format_path_with_rank(checkpoint_archive_name, 0)
+        rank_n_checkpoint_archive_name = f"rank_{dist.get_global_rank()}." + _format_path_with_rank(
+            checkpoint_archive_name, dist.get_global_rank())
         rank_zero_checkpoint_archive_filepath = os.path.join(node_checkpoint_folder, rank_zero_checkpoint_archive_name)
         rank_n_checkpoint_archive_filepath = os.path.join(node_checkpoint_folder, rank_n_checkpoint_archive_name)
         extracted_checkpoint_folder = None
-        if rank_zero_checkpoint_archive_filepath.endswith(".pt"):
+        extracted_rank_n = False
+        if _is_pt_file(rank_zero_checkpoint_archive_filepath):
             # it's not an archive; it's just the composer state dict
             # and only rank zero has this file
             extracted_checkpoint_folder = None
@@ -192,7 +210,7 @@ class CheckpointLoader:
                         with tarfile.open(rank_zero_checkpoint_archive_filepath) as tarball:
                             tarball.extractall(extracted_checkpoint_folder)
                     except FileNotFoundError:
-                        checkpoint_name = self.path.format(rank=dist.get_global_rank())
+                        checkpoint_name = _format_path_with_rank(self.path, dist.get_global_rank())
                         # Not re-raising the file-not-found error as that is irrelevant;
                         # the underlying issue is that the checkpoint file does not exist on the disk
                         # or could not be downloaded
@@ -210,9 +228,16 @@ class CheckpointLoader:
                                           ignore_not_found_errors=True)
 
                 if extracted_checkpoint_folder is not None:
-                    # it's an archive and needs to be extracted
-                    with tarfile.open(rank_n_checkpoint_archive_filepath) as tarball:
-                        tarball.extractall(extracted_checkpoint_folder)
+                    try:
+                        # it's an archive and needs to be extracted
+                        with tarfile.open(rank_n_checkpoint_archive_filepath) as tarball:
+                            tarball.extractall(extracted_checkpoint_folder)
+                            extracted_rank_n = True
+                    except FileNotFoundError:
+                        # this will happen most of the time (i.e. whenever deepspeed
+                        # is not being used) so not logging anything
+                        pass
+
         finally:
             # Wait for all checkpoints on the node to finish downloading
             # Putting the barrier in a finally so the rank will always block on the barrier,
@@ -221,9 +246,9 @@ class CheckpointLoader:
             # will detect the process crash and terminate the other ranks
             dist.barrier()
 
-        return composer_checkpoint_filepath, extracted_checkpoint_folder
+        return composer_checkpoint_filepath, extracted_checkpoint_folder, extracted_rank_n
 
-    def _restore_checkpoint(self, state: State, composer_checkpoint_filepath: str,
+    def _restore_checkpoint(self, state: State, composer_checkpoint_filepath: str, extracted_rank_n: bool,
                             extracted_checkpoint_folder: Optional[str]) -> Optional[int]:
         """Restore a checkpoint into ``state``.
 
@@ -231,6 +256,8 @@ class CheckpointLoader:
             state (State): The state to load the checkpoint into
             composer_checkpoint_filepath (str): The filepath to the moasic states, which is passed into
                 :meth:`torch.load`
+            extracted_rank_n (bool): A boolean flag indicating whether a tarball was extracted in the case
+                where global rank is greater than 0.
             extracted_checkpoint_folder (Optional[str]): The path to the checkpoint folder, which is passed into
                 :meth:`deepspeed.DeepSpeedEngine.load_checkpoint`.
 
@@ -245,6 +272,10 @@ class CheckpointLoader:
         if is_module_deepspeed(state.model):
             if extracted_checkpoint_folder is None:
                 raise RuntimeError("Deepspeed checkpoints require a tarball, not a weights file.")
+
+            global_rank = dist.get_global_rank()
+            if global_rank > 0 and not extracted_rank_n:
+                raise RuntimeError(f"Deepspeed checkpoint missing for rank {global_rank}")
 
             load_path, _ = cast("deepspeed.DeepSpeedEngine", state.model).load_checkpoint(
                 extracted_checkpoint_folder,
@@ -289,9 +320,14 @@ class CheckpointLoader:
         tempdir_ctx = tempfile.TemporaryDirectory() if dist.get_local_rank() == 0 else contextlib.nullcontext(None)
         with tempdir_ctx as tempdir:
             node_checkpoint_folder = self._get_node_checkpoint_download_folder(tempdir)
-            composer_checkpoint_filepath, extracted_checkpoint_folder = self._download_checkpoint(
+            composer_checkpoint_filepath, extracted_checkpoint_folder, extracted_rank_n = self._download_checkpoint(
                 node_checkpoint_folder)
-            seed_to_restore = self._restore_checkpoint(state, composer_checkpoint_filepath, extracted_checkpoint_folder)
+            seed_to_restore = self._restore_checkpoint(
+                state,
+                composer_checkpoint_filepath,
+                extracted_rank_n,
+                extracted_checkpoint_folder,
+            )
 
         log.info(f'{"Model weights" if self.load_weights_only else "Trainer checkpoint"}'
                  f' loaded from {self.path}.')
@@ -327,15 +363,50 @@ class CheckpointLoader:
                     RNG state will not be restored."""))
 
 
+def _format_from_compression(compression: Optional[str]) -> Tuple[str, str]:
+    if compression is None:
+        file_extension = ".pt"
+        write_mode = ""
+    elif compression == "gzip":
+        file_extension = ".tar.gz"
+        write_mode = "w:gz"
+    elif compression == "bzip2":
+        file_extension = ".tar.bz2"
+        write_mode = "w:bz2"
+    elif compression == "lzma":
+        file_extension = ".tar.lzma"
+        write_mode = "w:xz"
+    else:
+        raise ValueError(f"Unknown compression mode: {compression}")
+
+    return file_extension, write_mode
+
+
+def _ensure_archive(file_extension: str, write_mode: str) -> Tuple[str, str]:
+    if '.tar' not in file_extension:
+        file_extension = '.tar'
+        write_mode = 'w'
+    return file_extension, write_mode
+
+
 class CheckpointSaver:
-    """Manager for saving state to checkpoint files.
+    """Manager for saving trainer state to checkpoint files.
 
     Args:
         save_folder (str): The path to store checkpoints in.
         interval (Time or str): The amount of time units to wait between checkpoints.
+        compression (str, optional): Compression algorithm to run on checkpoints. Can be ``gzip``, ``bzip2``,
+            ``lzma``, or ``None`` for no compression.  (default: ``None`` for no compression).
+
+    Attributes:
+        saved_checkpoints (Dict[Timestamp, List[str]): A dictionary mapping a save timestamp
+            to a list of filepaths corresponding to the checkpoints saved at that time.
+
+            .. note:: The list of filepaths is for all ranks. The path at index ``i`` is the
+                      path that global rank ``i`` wrote to.
     """
 
-    def __init__(self, save_folder: str, interval: Union[Time, str]):
+    def __init__(self, save_folder: str, interval: Union[Time, str], compression: Optional[str] = None):
         if not isinstance(interval, Time):
             interval = Time.from_timestring(interval)
         if interval.unit == TimeUnit.EPOCH:
@@ -347,6 +418,8 @@ class CheckpointSaver:
         self.checkpoint_folder = os.path.join(run_directory.get_run_directory(), save_folder)
         os.makedirs(self.checkpoint_folder, mode=0o775, exist_ok=True)
         self.save_interval = interval
+        self.file_extension, self.write_mode = _format_from_compression(compression=compression)
+        self.saved_checkpoints = {}
 
     def should_checkpoint(self, state: State, event: Event) -> bool:
         """Given the current state and event, determine whether a checkpoint needs to be created.
@@ -369,15 +442,17 @@ class CheckpointSaver:
 
         return False
 
-    def save_checkpoint(self, state: State, seed: int, device: Device, config: Optional[Dict[str, Any]] = None) -> None:
+    def save_checkpoint(self, state: State, seed: int, device: Device) -> None:
         """Save the current state to a a new checkpoint file.
+
+        The default is to save checkpoints in a ``.pt`` file unless DeepSpeed is being used to train the model
+        in which case checkpoints will be stored in a ``.tar`` format because there are multiple files in the
+        checkpoint.
 
         Args:
             state (State): The current State of the trainer.
             seed (int): The seed used for random number generation.
             device (Device): The Device in use by this process.
-            ddp (DDP): The DDP engine in use by this trainer.
-            config (Optional[Dict[str, Any]]): The hparams used to initialize this trainer, if any.
         """
         state_dict = {
             'rng': self._get_rng_state(device=device),  # stored across all ranks
@@ -395,7 +470,11 @@ class CheckpointSaver:
             if is_module_deepspeed(state.model):
                 model = cast("deepspeed.DeepSpeedEngine", state.model)
                 model.save_checkpoint(tmpdir, _DEEPSPEED_TAG)
+                # ensure that deepspeed checkpoints are saved in an archive
+                self.file_extension, self.write_mode = _ensure_archive(file_extension=self.file_extension,
+                                                                       write_mode=self.write_mode)
 
+            composer_states_filepath = os.path.join(tmpdir, _COMPOSER_STATES_FILENAME)
             if dist.get_global_rank() == 0:
                 # only rank 0 saves checkpoints
 
@@ -403,31 +482,26 @@ class CheckpointSaver:
                 # it should be the same across all ranks. per-rank state not stored
                 state_dict['state'] = state.state_dict()
 
-                if config:
-                    hparams_path = os.path.join(self.checkpoint_folder, "hparams.yaml")
-                    config_yaml_str = yaml.dump(config)
-                    try:
-                        with open(hparams_path, "x") as f:
-                            # Storing the config (ex. hparams) in a separate file so they can be modified before resuming
-                            f.write(config_yaml_str)
-                    except FileExistsError as e:
-                        with open(hparams_path, "r") as f:
-                            # comparing the parsed hparams to ignore whitespace and formatting differences
-                            if yaml.safe_load(config_yaml_str) != yaml.safe_load(f):
-                                raise RuntimeError(
-                                    f"The hparams in the existing checkpoint folder {self.checkpoint_folder} "
-                                    "differ from those being used in the current training run. "
-                                    "Please specify a new checkpoint folder.") from e
-
-                composer_states_filepath = os.path.join(tmpdir, _COMPOSER_STATES_FILENAME)
                 with open(composer_states_filepath, 'xb') as f:
                     torch.save(state_dict, f)
 
-            checkpoint_archive_filepath = os.path.join(self.checkpoint_folder, f'{tag}.tar')
-            with tarfile.open(checkpoint_archive_filepath, "w") as tarball:
-                tarball.add(tmpdir, arcname="")  # add files flat to the tarball
+            checkpoint_filepath = os.path.join(self.checkpoint_folder, f'{tag}{self.file_extension}')
+            if _is_pt_file(checkpoint_filepath) and dist.get_global_rank() == 0:
+                # move the file out of tmpdir to the user-specified location
+                shutil.move(composer_states_filepath, checkpoint_filepath)
 
-            log.info(f'Trainer checkpoint saved to {checkpoint_archive_filepath}')
+            if is_module_deepspeed(state.model) or (not _is_pt_file(checkpoint_filepath) and
+                                                    dist.get_global_rank() == 0):
+                with tarfile.open(checkpoint_filepath, self.write_mode) as tarball:
+                    # add files flat to the tarball with the specified compression
+                    tarball.add(tmpdir, arcname="")
+
+            timestamp = state.timer.get_timestamp()
+            paths = dist.all_gather_object(checkpoint_filepath) if is_module_deepspeed(
+                state.model) else [checkpoint_filepath]
+            self.saved_checkpoints[timestamp] = paths
+
+            log.info(f'Trainer checkpoint saved to {checkpoint_filepath}')
 
         # Ensure that the non-rank 0 processes don't exit before the checkpoint is saved.
         dist.barrier()

@@ -13,6 +13,8 @@ from torchmetrics.collections import MetricCollection
 from composer.core.types import Batch, BatchPair, Metrics, Tensors
 from composer.models.loss import CrossEntropyLoss, soft_cross_entropy
 
+__all__ = ["ComposerModel", "ComposerClassifier"]
+
 
 class ComposerModel(torch.nn.Module, abc.ABC):
     """The minimal interface needed to use a model with :class:`composer.trainer.Trainer`."""
@@ -45,7 +47,6 @@ class ComposerModel(torch.nn.Module, abc.ABC):
         """
         pass
 
-    @abc.abstractmethod
     def metrics(self, train: bool = False) -> Metrics:
         """Get metrics for evaluating the model.
 
@@ -62,9 +63,8 @@ class ComposerModel(torch.nn.Module, abc.ABC):
         Returns:
             Metrics: A ``Metrics`` object.
         """
-        pass
+        raise NotImplementedError('Implement metrics in your ComposerModel to run validation.')
 
-    @abc.abstractmethod
     def validate(self, batch: Batch) -> Tuple[Any, Any]:
         """Compute model outputs on provided data.
 
@@ -80,7 +80,7 @@ class ComposerModel(torch.nn.Module, abc.ABC):
                 `update()` methods of the metrics returned by :meth:`metrics`.
                 Most often, this will be a tuple of the form (predictions, targets).
         """
-        pass
+        raise NotImplementedError('Implement validate in your ComposerModel to run validation.')
 
 
 class ComposerClassifier(ComposerModel):
