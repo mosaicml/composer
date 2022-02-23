@@ -34,17 +34,9 @@ class ComposerTransformer(ComposerModel):
     def __init__(self,
                  module: transformers.PreTrainedModel,
                  config: transformers.PretrainedConfig,
-                 tokenizer: transformers.PreTrainedTokenizer = None,
+                 tokenizer: transformers.PreTrainedTokenizer,
                  gradient_checkpointing: bool = False) -> None:
         super().__init__()
-        try:
-            import transformers
-        except ImportError as e:
-            raise ImportError(
-                textwrap.dedent("""\
-                Composer was installed without NLP support. To use NLP with Composer, run `pip install mosaicml[nlp]`
-                if using pip or `conda install -c conda-forge transformers` if using Anaconda.""")) from e
-
         self.module = module
         self.config = config
         self.tokenizer = tokenizer

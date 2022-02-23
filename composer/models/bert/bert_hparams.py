@@ -9,7 +9,7 @@ import yahp as hp
 from composer.models.transformer_hparams import TransformerHparams
 
 if TYPE_CHECKING:
-    from composer.models.transformer_shared import ComposerTransformer
+    from composer.models.bert import BERTModel
 
 
 @dataclass
