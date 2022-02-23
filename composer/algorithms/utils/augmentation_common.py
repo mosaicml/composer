@@ -1,5 +1,4 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
-
 from typing import Callable, Iterable, Type, TypeVar, cast
 
 import torch
