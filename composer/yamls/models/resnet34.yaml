@@ -46,4 +46,5 @@ dataloader:
   persistent_workers: true
   num_workers: 8
 validate_every_n_epochs: 1
+grad_accum: "auto"
 precision: amp

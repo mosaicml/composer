@@ -75,7 +75,7 @@ class Trainer:
             (default `cpu`)
         grad_accum (Union[int, str], optional): The number of microbatches to split a per-device batch into. Gradients
             are summed over the microbatches per device. If set to ``auto``, dynamically increases number of 
-            microbatch size if train_batch_size is too large for GPU. (default: ``auto``)
+            microbatch size if train_batch_size is too large for GPU. (default: 1)
         grad_clip_norm (float, optional): The norm to clip gradient magnitudes to. Set to None for no gradient
             clipping. (default: ``None``)
         validate_every_n_batches (int, optional): Compute metrics on evaluation data every N batches.
@@ -195,7 +195,7 @@ class Trainer:
         device: Optional[Union[str, Device]] = None,
 
         # training hparams
-        grad_accum: Union[int, str] = "auto",
+        grad_accum: Union[int, str] = 1,
         grad_clip_norm: Optional[float] = None,
         validate_every_n_batches: int = -1,
         validate_every_n_epochs: int = 1,

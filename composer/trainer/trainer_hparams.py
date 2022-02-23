@@ -146,7 +146,7 @@ class TrainerHparams(hp.Hparams):
         used to compensate for low-memory-capacity devices. If set to auto, 
         dynamically increases number of microbatch size if train_batch_size is
         too large for GPU. Defaults to ``auto``"""),
-                                  default="auto")
+                                  default=1)
     precision: Precision = hp.optional(doc="Precision to use for training", default=Precision.AMP)
 
     val_dataset: Optional[datasets.DatasetHparams] = hp.optional(doc="Validation dataset hparams", default=None)

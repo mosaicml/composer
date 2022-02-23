@@ -44,4 +44,5 @@ dataloader:
   prefetch_factor: 2
   persistent_workers: true
   num_workers: 8
+grad_accum: "auto"
 precision: amp
