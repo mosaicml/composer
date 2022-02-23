@@ -51,7 +51,6 @@ def _dynamic_microbatch_wrapper(func: Callable) -> Callable:
     """Wraps function to catch CUDA Out of Memory Errors and adaptively change microbatch
     size if enabled to miaximize GPU usage.
     """
-    # TODO: switch batch_num_samples with new state variable
     def wrapper(*args, **kwargs):
         self = args[0]
         # Skip adaption if not enabled
