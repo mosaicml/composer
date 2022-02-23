@@ -22,7 +22,7 @@ The Composer :class:`.Trainer` implements a highly-optimized PyTorch training lo
 
 Below are simple examples for getting started with the Composer Trainer
 along with code snippets for more advanced usage such as using speedup
-methods, checkpointing, distributed training.
+methods, checkpointing, and distributed training.
 
 Getting Started
 ---------------
@@ -85,7 +85,7 @@ A few tips and tricks for using our Trainer:
    For example, ``"10ba"`` means 10 minibatches or steps, and ``"10ep"``
    denotes 10 epochs. See: :class:`.Time`.
 -  If you are using gradient accumulation, the ``batch_size`` in your
-   dataloaders should be the macrobatch size — the batch size of your
+   dataloaders should be the per-device macrobatch size — the batch size of your
    optimization update. For example, with ``grad_accum=2`` and
    ``batch_size=2048`` , the train runs through two microbatches of 1024
    each, then performs a gradient update step.
@@ -121,7 +121,7 @@ interacts with the :class:`.ComposerModel` is as follows:
        outputs, targets = model.validate(batch)
        metrics.update(outputs, target)
 
-For the actual code, see :meth:`.Trainer._train_batch_inner` and the :meth:`.Trainer.eval` methods.
+For the actual code, see :meth:`.Trainer.fit` and the :meth:`.Trainer.eval` methods.
 
 Quick Tour
 ----------
@@ -190,7 +190,7 @@ right order.
 
 
 Optimizers & Schedulers
------------------------
+~~~~~~~~~~~~~~~~~~~~~~~
 
 You can easily specify which optimizer and learning rate scheduler to
 use during training. Composer provides a library of various optimizers
@@ -261,7 +261,7 @@ number of GPUs you'd like to use and your training script. Use
 .. code:: bash
 
    # run training on 8 GPUs
-   >>> composer -n 8 run_trainer.py
+   $ composer -n 8 run_trainer.py
 
 .. seealso::
 
@@ -404,7 +404,7 @@ Annotated Trainer Loop
 
 Our :class:`.Trainer` code is meant to be easily readable and understood. In this section,
 we walk you through the logic flow of the training loop code, from :meth:`.Trainer.fit`
-down to the `backward()` call.
+down to the :meth:`~torch.tensor.backward` call.
 
 In pseudocode, the trainer is organized as follows:
 
@@ -417,7 +417,7 @@ In pseudocode, the trainer is organized as follows:
             self.engine.close()
 
 
-The method `_train_loop()` sets up the training, loads any
+The method ``_train_loop()`` sets up the training, loads any
 provided checkpoints, and then runs the training:
 
 
@@ -462,7 +462,7 @@ provided checkpoints, and then runs the training:
                 eval()
 
 
-Remaining are two methods: `_train_batch` and `_train_batch_inner`.
+Remaining are two methods: ``_train_batch`` and ``_train_batch_inner``.
 For first decides whether to use the context manager for
 :meth:`torch.nn.parallel.DistributedDataParallel.no_sync`, which
 disables the gradient synchronization for distributed training.
