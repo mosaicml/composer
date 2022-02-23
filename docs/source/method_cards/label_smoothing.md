@@ -1,4 +1,4 @@
-# Label Smoothing
+# 🏷️ Label Smoothing
 
 Tags: `Vision`, `NLP`, `Classification`, `Increased Accuracy`, `Method`, `Regularization`
 

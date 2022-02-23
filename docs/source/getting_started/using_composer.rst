@@ -1,5 +1,5 @@
-Using Composer
-==============
+|:magic_wand:| Using Composer
+=============================
 
 We provide several paths to use our library:
 

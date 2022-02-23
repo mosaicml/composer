@@ -1,5 +1,5 @@
-Welcome Tour
-============
+|:bus:| Welcome Tour
+====================
 
 Welcome to the MosaicML *Composer* library! This guide will walk you through the basics of how the Composer trainer works, and how it interacts with our methods libary. This guide will assume you've already gone through the installation instructions.
 

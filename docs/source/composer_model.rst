@@ -1,5 +1,5 @@
-ComposerModel
-=============
+|:pickup_truck:| ComposerModel
+==============================
 
 Your Pytorch model and training step must be re-organized as a
 :class:`.ComposerModel` in order to use our :class:`.Trainer`.

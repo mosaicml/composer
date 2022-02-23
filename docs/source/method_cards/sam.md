@@ -1,4 +1,4 @@
-# Sharpness Aware Minimization
+# 🏔️ Sharpness Aware Minimization
 
 ![loss_landscape.png](https://storage.googleapis.com/docs.mosaicml.com/images/methods/sam.png)
 

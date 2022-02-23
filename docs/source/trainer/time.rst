@@ -1,5 +1,5 @@
-Time
-====
+|:hourglass:| Time
+==================
 
 We use a |Time| class to represent and track time throughout
 the training loop. We track several quantities (epochs, batches,

@@ -1,5 +1,5 @@
-Schedulers
-==========
+|:chart_with_downwards_trend:| Schedulers
+=========================================
 
 The :class:`.Trainer` supports both PyTorch :mod:`torch.optim.lr_scheduler` schedulers
 as well as our own schedulers, which take advantage of the :class:`.Time` representation.

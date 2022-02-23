@@ -1,5 +1,5 @@
-Callbacks
-=========
+|:phone:| Callbacks
+===================
 
 Callbacks enable non-essential code to be executed during any of the
 |Event| points. By convention, callbacks should not modify the

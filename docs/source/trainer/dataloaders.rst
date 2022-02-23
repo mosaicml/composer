@@ -1,5 +1,5 @@
-Dataloaders
-===========
+|:cd:| Dataloaders
+==================
 
 Dataloaders are used to pass in training or evaluation data to the
 Composer :class:`.Trainer`. There are three different ways of doing so:
@@ -112,8 +112,8 @@ pass in multiple dataloaders/datasets to the trainer.
 For more information, see :doc:`Evaluation</trainer/evaluation>`.
 
 
-Batch Types
-===========
+|:smile:| Batch Types
+=====================
 
 Batch types make it easy to tell the algorithms needed information about
 the data. For data augmentation algorithms, for example, the location of the

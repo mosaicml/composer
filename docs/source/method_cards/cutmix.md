@@ -1,4 +1,4 @@
-# CutMix
+# ✂️ CutMix
 
 ![cutmix.png](https://storage.googleapis.com/docs.mosaicml.com/images/methods/cutmix.png)
 
