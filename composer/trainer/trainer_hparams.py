@@ -120,7 +120,8 @@ class TrainerHparams(hp.Hparams):
         train_dataset (DatasetHparams): Hparams used to construct the dataset used for training.
 
             .. seealso:: :mod:`composer.datasets` for datasets built into Composer.
-        train_batch_size (int): The batch size to use for training.
+        train_batch_size (int): The optimization batch size to use for training. This is the total batch
+            size that is used to produce a gradient for the optimizer update step.
         dataloader (DataloaderHparams): Hparams used for constructing the dataloader which will be used
             for loading the train dataset and (if provided) the validation dataset.
         max_duration (str): The maximum duration to train as a str (e.g. ``1ep``, or ``10ba``).
@@ -160,18 +161,19 @@ class TrainerHparams(hp.Hparams):
         validate_every_n_batches (int, optional): See :class:`.Trainer`.
         validate_every_n_epochs (int, optional): See :class:`.Trainer`.
         compute_training_metrics (bool, optional): See :class:`.Trainer`.
-        precision (str or Precision, optional): See :class:`.Trainer`.
+        precision (Precision, optional): See :class:`.Trainer`.
         scale_schedule_ratio (float, optional): See :class:`.Trainer`.
-        use_stepwise_schedulers (bool, optional): See :class:`.Trainer`.
+        step_schedulers_every_batch (bool, optional): See :class:`.Trainer`.
         dist_timeout (float, optional): See :class:`.Trainer`.
-        ddp_sync_strategy (str or DDPSyncStrategy, optional): See :class:`.Trainer`.
+        ddp_sync_strategy (DDPSyncStrategy, optional): See :class:`.Trainer`.
         seed (int, optional): See :class:`.Trainer`.
         deterministic_mode (bool, optional): See :class:`.Trainer`.
         loggers (List[LoggerCallbackHparams], optional): Hparams for constructing the destinations
             to log to. (default: ``[]``)
 
             .. seealso:: :mod:`composer.loggers` for the different loggers built into Composer.
-        log_level (str): The Python log level to use. (default: ``INFO``)
+        log_level (str): The Python log level to use for log statements in the :mod:`composer`
+            module. (default: ``INFO``)
 
             .. seealso:: The :mod:`logging` module in Python.
         callbacks (List[CallbackHparams], optional): Hparams to construct the callbacks to
@@ -183,12 +185,13 @@ class TrainerHparams(hp.Hparams):
         load_weights_only (bool, optional): See :class:`.Trainer`.
         load_chunk_size (int, optional): See :class:`.Trainer`.
         save_folder (str, optional): See :class:`.Trainer`.
-        save_interval (str or int, optional): See :class:`.Trainer`.
+        save_interval (str, optional): See :class:`.Trainer`.
         save_compression (str, optional): See :class:`.Trainer`.
         train_subset_num_batches (int, optional): See :class:`.Trainer`.
         eval_subset_num_batches (int, optional): See :class:`.Trainer`.
+        deepspeed_config (bool or Dict[str, Any], optional): See :class:`.Trainer`.
         profiler_trace_file (str, optional): See :class:`.Trainer`.
-        prof_event_handlers (List[ProfilerEventHandler], optional): See :class:`.Trainer`.
+        prof_event_handlers (List[ProfilerEventHandlerHparams], optional): See :class:`.Trainer`.
         prof_skip_first (int, optional): See :class:`.Trainer`.
         prof_wait (int, optional): See :class:`.Trainer`.
         prof_warmup (int, optional): See :class:`.Trainer`.
@@ -205,7 +208,6 @@ class TrainerHparams(hp.Hparams):
         torch_prof_profile_memory (bool, optional): See :class:`.Trainer`.
         torch_prof_with_stack (bool, optional): See :class:`.Trainer`.
         torch_prof_with_flops (bool, optional): See :class:`.Trainer`.
-        deepspeed_config (Dict[str, Any], optional): See :class:`.Trainer`.
     """
 
     hparams_registry = {  # type: ignore
@@ -267,7 +269,7 @@ class TrainerHparams(hp.Hparams):
     precision: Precision = hp.optional(doc="Precision to use for training", default=Precision.AMP)
     scale_schedule_ratio: float = hp.optional(
         doc="Ratio by which to scale the training duration and learning rate schedules.", default=1.0)
-    use_stepwise_schedulers: bool = hp.optional(
+    step_schedulers_every_batch: bool = hp.optional(
         doc="Whether schedulers will update after every optimizer step (True), or every epoch (False).", default=True)
 
     # dist hparams
@@ -342,6 +344,9 @@ class TrainerHparams(hp.Hparams):
     eval_subset_num_batches: Optional[int] = hp.optional("If specified, stop each evaluation after this many batches.",
                                                          default=None)
 
+    # DeepSpeed
+    deepspeed: Optional[Dict[str, JSON]] = hp.optional(doc="Configuration for DeepSpeed.", default=None)
+
     # profiling
     profiler_trace_file: Optional[str] = hp.optional(doc=textwrap.dedent("""\
         Name of the trace file, relative to the run directory.  Must be specified to activate the profiler."""),
@@ -407,9 +412,6 @@ class TrainerHparams(hp.Hparams):
         Estimate flops for operators.
         Ignored if ``torch_profiler_trace_dir`` and `profiler_trace_file` are not specified."""),
                                               default=True)
-
-    # DeepSpeed
-    deepspeed: Optional[Dict[str, JSON]] = hp.optional(doc="Configuration for DeepSpeed.", default=None)
 
     def validate(self):
         super().validate()
@@ -535,7 +537,7 @@ class TrainerHparams(hp.Hparams):
             compute_training_metrics=self.compute_training_metrics,
             precision=self.precision,
             scale_schedule_ratio=self.scale_schedule_ratio,
-            use_stepwise_schedulers=self.use_stepwise_schedulers,
+            step_schedulers_every_batch=self.step_schedulers_every_batch,
 
             # dist hparams
             dist_timeout=self.dist_timeout,

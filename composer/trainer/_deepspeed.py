@@ -13,7 +13,7 @@ from composer.core.types import Batch, Precision, Tensor
 from composer.utils import dist
 from composer.utils.iter_helpers import map_collection
 
-__all__ = ["fix_batch_precision_for_deepspeed", "is_module_deepspeed", "parse_deepspeed_config"]
+__all__ = ["_fix_batch_precision_for_deepspeed", "is_module_deepspeed", "_parse_deepspeed_config"]
 
 
 def _add_batch_config(config: Dict[str, Any], state: State):
@@ -112,9 +112,9 @@ def _add_other_config(config: Dict[str, Any], grad_clip_norm: Optional[float]):
     config["zero_allow_untested_optimizer"] = True
 
 
-def parse_deepspeed_config(config: Dict[str, Any],
-                           state: State,
-                           grad_clip_norm: Optional[float] = None) -> Dict[str, Any]:
+def _parse_deepspeed_config(config: Dict[str, Any],
+                            state: State,
+                            grad_clip_norm: Optional[float] = None) -> Dict[str, Any]:
     """Parses the provided DeepSpeed config for compatibility with the Mosaic trainer.
 
     Broadly speaking, this function does three things.
@@ -156,7 +156,7 @@ def _convert_fp32_tensor_to_fp16(tensor: Tensor):
     return tensor
 
 
-def fix_batch_precision_for_deepspeed(batch: Batch, precision: Precision) -> Batch:
+def _fix_batch_precision_for_deepspeed(batch: Batch, precision: Precision) -> Batch:
     """Ensures that a batch is properly formatted for DeepSpeed FP16, if active.
 
     .. note:: Just because the precision is set to FP16 doesn't mean the entire batch can

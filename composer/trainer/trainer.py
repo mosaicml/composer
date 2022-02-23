@@ -1,6 +1,69 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
-"""Train models with composed speedup methods!"""
+"""Train models!
+
+The trainer supports models with :class:`~composer.models.base.ComposerModel` instances.
+The :class:`.Trainer` is highly customizable and can
+support a wide variety of workloads.
+
+Example
+--------
+
+Train a model and save a checkpoint:
+
+.. testcode::
+
+    import os
+    from composer import Trainer
+
+    ### Create a trainer
+    trainer = Trainer(model=model,
+                      train_dataloader=train_dataloader,
+                      max_duration="1ep",
+                      eval_dataloader=eval_dataloader,
+                      optimizers=optimizer,
+                      schedulers=scheduler,
+                      device="cpu",
+                      validate_every_n_epochs=1,
+                      save_folder="checkpoints",
+                      save_interval="1ep")
+
+    ### Fit and run evaluation for 1 epoch.
+    ### Save a checkpoint after 1 epocch as specified during trainer creation.
+    trainer.fit()
+
+Load the checkpoint and resume training:
+
+.. testcode::
+
+    ### Get the saved checkpoint folder
+    ### By default, the checkpoint folder is of the form runs/<timestamp>/rank_0/checkpoints
+    ### Alternatively, if you set the run directory environment variable as follows:
+    ### os.environ["COMPOSER_RUN_DIRECTORY"] = "my_run_directory", then the checkpoint path
+    ### will be of the form my_run_directory/rank_0/checkpoints
+    checkpoint_folder = trainer.checkpoint_folder
+
+    ### If the save_interval was in terms of epochs like above then by default,
+    ### checkpoint filenames are of the form "ep{EPOCH_NUMBER}.pt".
+    checkpoint_path = os.path.join(checkpoint_folder, "ep1.pt")
+
+    ### Create a new trainer with the load_path argument set to the checkpoint path.
+    ### This will automatically load the checkpoint on trainer creation.
+    trainer = Trainer(model=model,
+                      train_dataloader=train_dataloader,
+                      max_duration="2ep",
+                      eval_dataloader=eval_dataloader,
+                      optimizers=optimizer,
+                      schedulers=scheduler,
+                      device="cpu",
+                      validate_every_n_epochs=1,
+                      load_path=checkpoint_path)
+
+    ### Continue training and running evaluation where the previous trainer left off
+    ### until the new max_duration is reached.
+    ### In this case it will be one additional epoch to reach 2 epochs total.
+    trainer.fit()
+"""
 
 from __future__ import annotations
 
@@ -37,11 +100,11 @@ from composer.profiler.dataloader_profiler import DataloaderProfiler
 from composer.profiler.system_profiler import SystemProfiler
 from composer.profiler.torch_profiler import TorchProfiler
 from composer.trainer._checkpoint import CheckpointLoader, CheckpointSaver
-from composer.trainer._deepspeed import fix_batch_precision_for_deepspeed, parse_deepspeed_config
+from composer.trainer._deepspeed import _fix_batch_precision_for_deepspeed, _parse_deepspeed_config
+from composer.trainer._scale_schedule import scale_scheduler
 from composer.trainer._scaler import ClosureGradScaler
-from composer.trainer.ddp import DDPSyncStrategy, ddp_sync_context, prepare_ddp_module
+from composer.trainer.ddp import DDPSyncStrategy, _ddp_sync_context, _prepare_ddp_module
 from composer.trainer.devices import Device, DeviceCPU, DeviceGPU
-from composer.trainer.scale_schedule import scale_scheduler
 from composer.utils import dist, ensure_tuple, map_collection, module_surgery, reproducibility
 from composer.utils.object_store import ObjectStoreProvider
 
@@ -68,7 +131,7 @@ class Trainer:
 
             .. note:: The ``train_dataloader`` should yield per-rank batches. Each per-rank batch
                 will then be further divided based on the ``grad_accum`` parameter. For example, if the
-                desired optimization batch size is 2048 and training is happening across 8 GPUs, then each
+                desired optimization batch size is ``2048`` and training is happening across 8 GPUs, then each
                 ``train_dataloader`` should yield a batch of size ``2048 / 8 = 256``. If ``grad_accum = 2``,
                 then the per-rank batch will be divided into microbatches of size ``256 / 2 = 128``.
         max_duration (int, str, or Time): The maximum duration to train. Can be an integer, which will be
@@ -83,11 +146,11 @@ class Trainer:
             no algorithms will be used. (default: ``None``)
 
             .. seealso:: :mod:`composer.algorithms` for the different algorithms built into Composer.
-        optimizers: (Optimizers, optional): The optimizer.
+        optimizers (Optimizers, optional): The optimizer.
             If ``None``, will be set to ``DecoupledSGDW(model.parameters(), lr=0.1)``. (default: ``None``)
 
             .. seealso:: :mod:`composer.optim` for the different optimizers built into Composer.
-        schedulers: (Schedulers, optional): The learning rate schedulers. If ``[]`` or ``None``, will be set to
+        schedulers (Schedulers, optional): The learning rate schedulers. If ``[]`` or ``None``, will be set to
             ``[constant_scheduler]``. (default: ``None``).
 
             .. seealso:: :mod:`composer.optim.scheduler` for the different schedulers built into Composer.
@@ -114,17 +177,27 @@ class Trainer:
             .. note::
                 ``fp16`` only works if ``deepspeed_config`` is also provided.
         scale_schedule_ratio (float, optional): Ratio by which to scale the training duration and learning rate
-            schedules. (default: ``1.0``)
+            schedules. E.g., ``0.5`` makes the schedule take half as many epochs and ``2.0`` makes it take twice as many epochs. ``1.0`` means no change.
 
-            .. seealso:: :func:`.scale_scheduler` for details on how scale scheduling
-                works.
-        use_stepwise_schedulers (bool, optional): Whether schedulers will update after every optimizer step
-            (True), or every epoch (False). Setting this to ``True`` causes schedulers to be able to
-            compute learning rates with greater timewise precision, but native PyTorch schedulers will need to
-            be reconfigured so that their timewise parameters are expressed in terms of batches, not epochs.
-            By default, stepwise schedulers are used when functional schedulers are provided, but not if only
-            native Pytorch schedulers are provided (i.e. subclasses of ``torch.optim.lr_scheduler._LRScheduler).
-            (default: ``None``)
+            Training for less time is a strong baseline approach to speeding up
+            training, provided that the training still gets through the entire
+            learning rate schedule. E.g., training for half as long often yields
+            little accuracy degredation, provided that the learning rate schedule
+            is rescaled to take half as long as well. In contrast, if the schedule
+            is not rescaled, training for half as long would mean simply stopping
+            halfway through the training curve, which does reach nearly as
+            high an accuracy.
+
+            To see the difference, consider training for half as long using a cosine
+            annealing learning rate schedule. If the schedule is not rescaled,
+            training ends while the learning rate is still ~0.5. If the schedule is
+            rescaled, training ends after passing through the full cosine
+            curve, at a learning rate near 0.
+            (default: ``1.0``)
+        step_schedulers_every_batch (bool, optional): By default, native
+            `PyTorch schedulers <https://pytorch.org/docs/stable/optim.html#how-to-adjust-learning-rate>`_
+            are updated every epoch, while :mod:`composer schedulers<composer.optim>` are updated every step.
+            Setting this to ``True`` will cause any scheduler passed to the trainer to be stepped every batch, while setting this to ``False`` will cause all schedulers to be stepped every epoch. If this parameter is ``None``, then if any :mod:`composer scheduler<composer.optim>` is provided, schedulers will be stepped every batch. Otherwise, schedulers will be stepped every epoch. (default: ``None``)
         dist_timeout (float, optional): Timeout, in seconds, for initializing the distributed process group.
             (default: ``15.0``)
         ddp_sync_strategy (str or DDPSyncStrategy, optional): The strategy to use for synchronizing gradients.
@@ -144,6 +217,9 @@ class Trainer:
             .. note:: This is an experimental feature. Performance degradations expected. Certain Torch modules may
                 not have deterministic implementations, which will result in a crash.
 
+            .. note:: In order to get reproducible results, call the
+                :func:`.configure_deterministic_mode` function at the start of your script. This will ensure any initialization done before the trainer init also runs deterministically.
+
             .. seealso:: :mod:`composer.utils.reproducibility` for more details on reproducibility.
         loggers (Sequence[LoggerCallback], optional): The destinations to log training information to.
             If ``None``, will be set to ``[TQDMLogger()]``. (default: ``None``)
@@ -158,7 +234,7 @@ class Trainer:
             for a checkpoint in a cloud bucket.
 
             When using `Deepspeed ZeRO <https://www.deepspeed.ai/tutorials/zero/>`_, saved checkpoints are
-            sharded rank. To load deepspeed checkpoints, specify ``{RANK}`` in this ``path``
+            sharded rank. To load deepspeed checkpoints, specify ``{RANK}`` in this ``load_path``
             parameter, and the ``RANK`` variable will be substituted with the global rank, thus allowing the correct
             checkpoints to be loaded per-rank.
 
@@ -171,8 +247,8 @@ class Trainer:
                 my_model/rank_2/ep1.tar
                 ...
 
-            Then, ``path`` should be set to ``my_model/rank_{RANK}/ep1.tar``, and all ranks will load the correct
-            data.
+            Then, ``load_path`` should be set to ``my_model/rank_{RANK}/ep1.tar``, and all ranks
+            will load the correct data.
 
             If ``None`` then no checkpoint will be loaded. (default: ``None``)
         load_object_store (ObjectStoreProvider, optional): If the ``load_path`` is in an object store
@@ -192,9 +268,9 @@ class Trainer:
             to the folder returned by :func:`.get_run_directory`.
             If the ``save_folder`` does not exist, it will be created. If ``None``, then no checkpoints will
             be saved. (default: ``None``)
-        save_interval (str or int, optional): How often to save checkpoints. For example, set to "1ep" to save checkpoints
-            every epoch, or "10ba" to save checkpoints every 10 batches. An integer will be assumed to be epochs.
-            Ignored if ``save_folder`` is ``None``. (default: ``1ep``)
+        save_interval (str or int, optional): How often to save checkpoints. For example, set to ``1ep``
+            to save checkpoints every epoch, or ``10ba`` to save checkpoints every 10 batches. An integer will be
+            assumed to be epochs. Ignored if ``save_folder`` is ``None``. (default: ``1ep``)
         save_compression (str, optional): Compression algorithm to run on checkpoints. Can be ``gzip``, ``bzip2``,
             ``lzma``, or ``None`` for no compression. Ignored if ``save_folder`` is ``None``. (default: ``None``)
         train_subset_num_batches (int, optional): If specified, finish every epoch early after training
@@ -203,8 +279,12 @@ class Trainer:
         eval_subset_num_batches (int, optional): If specified, evaluate on this many batches.
             This parameter has no effect if it is greater than ``len(eval_dataloader)``.
             If ``None``, then the entire dataloader will be iterated over. (default: ``None``)
+        deepspeed_config (bool or Dict[str, Any], optional): Configuration for DeepSpeed, formatted as a JSON
+            according to `DeepSpeed's documentation <https://www.deepspeed.ai/docs/config-json/>`_. If ``True`` is
+            provided, the trainer will initialize the DeepSpeed engine with an empty config ``{}``. If ``False``
+            is provided, deepspeed will not be used. (default: ``False``)
         profiler_trace_file (str, optional): Name of the trace file, relative to the run directory.
-            Must be specified to activate the profiler. (default: ``None``).
+            Setting this parameter activates the profiler. (default: ``None``).
 
             .. seealso:: :mod:`composer.profiler` for more details on profiling with the trainer.
         prof_event_handlers (List[ProfilerEventHandler], optional): Trace event handler.
@@ -242,9 +322,6 @@ class Trainer:
             Ignored if ``torch_profiler_trace_dir`` and ``profiler_trace_file`` are not specified. (default: ``False``).
         torch_prof_with_flops (bool, optional): Estimate flops for operators.
             Ignored if ``torch_profiler_trace_dir`` and ``profiler_trace_file`` are not specified. (default: ``True``).
-        deepspeed_config (Dict[str, Any], optional): Configuration for DeepSpeed, formatted as a JSON
-            according to `DeepSpeed's documentation <https://www.deepspeed.ai/docs/config-json/>`_. If any
-            ``dict`` is provided, the trainer will initialize the DeepSpeed engine. (default: ``None``)
 
     Attributes:
         state (State): The :class:`.State` object used to store training state.
@@ -276,7 +353,7 @@ class Trainer:
         compute_training_metrics: bool = False,
         precision: Union[str, Precision] = Precision.FP32,
         scale_schedule_ratio: float = 1.0,
-        use_stepwise_schedulers: Optional[bool] = None,
+        step_schedulers_every_batch: Optional[bool] = None,
 
         # dist hparams
         dist_timeout: float = 300.0,
@@ -307,6 +384,9 @@ class Trainer:
         train_subset_num_batches: Optional[int] = None,
         eval_subset_num_batches: Optional[int] = None,
 
+        # DeepSpeed
+        deepspeed_config: Union[bool, Dict[str, Any]] = False,
+
         # profiling
         profiler_trace_file: Optional[str] = None,
         prof_event_handlers: Sequence[ProfilerEventHandler] = tuple(),
@@ -326,9 +406,6 @@ class Trainer:
         torch_prof_profile_memory: bool = True,
         torch_prof_with_stack: bool = False,
         torch_prof_with_flops: bool = True,
-
-        # DeepSpeed
-        deepspeed_config: Optional[Dict[str, Any]] = None,
     ):
         # surpressing GradScaler warnings as they are always created
         # self._use_grad_scaling() will raise a RuntimeError if grad scaling is not available when it is required
@@ -354,7 +431,10 @@ class Trainer:
                 raise ValueError(
                     'Scale schedule has reduced the max_duration to 0. Set a higher ratio or use more epochs.')
 
-        self._deepspeed_config = deepspeed_config
+        if isinstance(deepspeed_config, bool):
+            self._deepspeed_config = {} if deepspeed_config else None
+        else:
+            self._deepspeed_config = deepspeed_config
 
         if not device:
             self._device = DeviceCPU() if not self.deepspeed_enabled else DeviceGPU()
@@ -475,9 +555,9 @@ class Trainer:
             schedulers = tuple(
                 scale_scheduler(scheduler, scale_schedule_ratio) for scheduler in ensure_tuple(schedulers))
 
-        if use_stepwise_schedulers is None:
-            use_stepwise_schedulers = any(callable(scheduler) for scheduler in schedulers)
-        self._use_stepwise_schedulers = use_stepwise_schedulers
+        if step_schedulers_every_batch is None:
+            step_schedulers_every_batch = any(callable(scheduler) for scheduler in schedulers)
+        self._step_schedulers_every_batch = step_schedulers_every_batch
 
         self.state.schedulers = [compile(scheduler, self.state) for scheduler in schedulers]
 
@@ -563,10 +643,10 @@ class Trainer:
                     textwrap.dedent("""\
                     Composer was installed without DeepSpeed support. To use DeepSpeed with Composer, run `pip install mosaicml[deepspeed]`
                     if using pip or `pip install deepspeed>=0.5.5` if using Anaconda.""")) from e
-            assert deepspeed_config is not None
-            self._deepspeed_config = parse_deepspeed_config(deepspeed_config,
-                                                            state=self.state,
-                                                            grad_clip_norm=self._grad_clip_norm)
+            assert self._deepspeed_config is not None
+            self._deepspeed_config = _parse_deepspeed_config(self._deepspeed_config,
+                                                             state=self.state,
+                                                             grad_clip_norm=self._grad_clip_norm)
             optimizer = ensure_tuple(self.state.optimizers)[0]
             (self.state.model, self.state.optimizers, _, _) = deepspeed.initialize(
                 config=self._deepspeed_config,
@@ -605,7 +685,7 @@ class Trainer:
 
             if dist.get_world_size() > 1:
                 # Only wrap the module if required
-                self.state.model = prepare_ddp_module(self.state.model, self._find_unused_parameters)
+                self.state.model = _prepare_ddp_module(self.state.model, self._find_unused_parameters)
 
     @property
     def deepspeed_enabled(self) -> bool:
@@ -613,21 +693,20 @@ class Trainer:
 
         .. seealso:: `DeepSpeed's documentation <https://www.deepspeed.ai/docs/config-json/>`_
         """
-        return self._deepspeed_config is not None
+        self._deepspeed_config is not None
 
     @property
     def saved_checkpoints(self) -> Dict[Timestamp, List[str]]:
         """The times and paths to checkpoint files saved across all ranks during training.
 
-        .. note:: When using DeepSpeed, the index of a filepath in each list corresponds to the
+        Returns:
+            Dict[Timestamp, List[str]]: A dictionary mapping a save :class:`.Timestamp`. to a list of
+                filepaths, indexed by global rank, corresponding to the checkpoints saved at that time.
+
+        .. note:: When using DeepSpeed, the index of a filepath corresponds to the
             global rank of the process that wrote that file. These filepaths are valid only on
             the global rank's node. Otherwise, when not using DeepSpeed, this list will contain
             only one filepath since only rank zero saves checkpoints.
-
-        Returns:
-            Dict[Timestamp, List[str]]: A dictionary mapping a save :class:`.Timestamp`. to a list of
-                filepaths corresponding to the checkpoints saved at that time.
-
         """
         return self._checkpoint_saver.saved_checkpoints
 
@@ -635,18 +714,17 @@ class Trainer:
     def checkpoint_folder(self) -> str:
         """The folder in which checkpoints are stored.
 
-            .. seealso:: :mod:`~composer.utils.run_directory` for details on the format of the run directory
-                and how to customize it.
+        .. seealso:: :mod:`~composer.utils.run_directory` for details on the format of the run directory
+            and how to customize it.
 
-            Returns:
-                str: The checkpoint folder. If an absolute path was specified for
-                    ``save_folder`` upon trainer instantiation, then that path will be used. Otherwise, this folder
-                    is relative to the run directory of the training run (e.g. ``{run_directory}/{save_folder}``).
-                    If no run directory is provided, then by default, it is of the form
-                    ``runs/<timestamp>/rank_<GLOBAL_RANK>/<save_folder>`` where ``timestamp``
-                    is the start time of the run in iso-format, ``GLOBAL_RANK`` is the global rank of the process,
-                    and ``save_folder`` is the save_folder argument provided upon construction.
-
+        Returns:
+            str: The checkpoint folder. If an absolute path was specified for
+                ``save_folder`` upon trainer instantiation, then that path will be used. Otherwise, this folder
+                is relative to the run directory of the training run (e.g. ``{run_directory}/{save_folder}``).
+                If no run directory is provided, then by default, it is of the form
+                ``runs/<timestamp>/rank_<GLOBAL_RANK>/<save_folder>`` where ``timestamp``
+                is the start time of the run in iso-format, ``GLOBAL_RANK`` is the global rank of the process,
+                and ``save_folder`` is the save_folder argument provided upon construction.
         """
         return self._checkpoint_saver.checkpoint_folder
 
@@ -773,7 +851,7 @@ class Trainer:
                     state.batch_num_tokens = self._train_data_spec.get_num_tokens_in_batch(state.batch)
 
                     if self.deepspeed_enabled:
-                        state.batch = fix_batch_precision_for_deepspeed(state.batch, state.precision)
+                        state.batch = _fix_batch_precision_for_deepspeed(state.batch, state.precision)
 
                     if self._compute_training_metrics:
                         # compute metrics on the training set
@@ -843,7 +921,7 @@ class Trainer:
                         tokens=int(num_tokens_in_batch.item()),
                     )
 
-                    if self._use_stepwise_schedulers:
+                    if self._step_schedulers_every_batch:
                         for scheduler in state.schedulers:
                             scheduler.step()
 
@@ -861,7 +939,7 @@ class Trainer:
 
             state.timer.on_epoch_complete()
 
-            if not self._use_stepwise_schedulers:
+            if not self._step_schedulers_every_batch:
                 for scheduler in state.schedulers:
                     scheduler.step()
 
@@ -912,7 +990,7 @@ class Trainer:
             state.batch_num_tokens = self._train_data_spec.get_num_tokens_in_batch(state.batch)
             state.batch_num_samples = self._train_data_spec.get_num_samples_in_batch(state.batch)
             is_final_microbatch = microbatch_idx + 1 == len(microbatches)
-            sync_context = contextlib.nullcontext() if self.deepspeed_enabled else ddp_sync_context(
+            sync_context = contextlib.nullcontext() if self.deepspeed_enabled else _ddp_sync_context(
                 state, is_final_microbatch, self._ddp_sync_strategy)
             with sync_context:
                 # forward pass
@@ -1017,7 +1095,7 @@ class Trainer:
                     state.batch_num_tokens = evaluator.dataloader.get_num_tokens_in_batch(state.batch)
 
                     if self.deepspeed_enabled:
-                        state.batch = fix_batch_precision_for_deepspeed(state.batch, state.precision)
+                        state.batch = _fix_batch_precision_for_deepspeed(state.batch, state.precision)
 
                     self.engine.run_event(Event.EVAL_BATCH_START)
 

@@ -15,7 +15,6 @@ from composer.utils.iter_helpers import map_collection
 __all__ = ["Device", "T_nnModule"]
 
 T_nnModule = TypeVar("T_nnModule", bound=torch.nn.Module)
-"""A wrapper over Pytorch's :class:`torch.nn.Module`."""
 
 
 class Device(Serializable, ABC):
@@ -73,10 +72,6 @@ class Device(Serializable, ABC):
 
     def optimizer_to_device(self, optimizer: Optimizer) -> Optimizer:
         """Invoked by the :class:`.Trainer` to move the optimizer's state onto the device.
-
-        As a rule, this usually isn't necessary, since most optimizers lazy initialize their state
-        when ``.step()`` is first called, based off of the device of the parameters. The prominent
-        exception to this rule is when we are restoring from a checkpoint.
 
         Args:
             optimizer (Optimizer): The optimizer to move to the device

@@ -5,7 +5,7 @@
 from __future__ import annotations
 
 from contextlib import contextmanager
-from typing import Generator, Union
+from typing import Generator, TypeVar, Union
 
 import torch
 import torch.cuda.amp
@@ -17,12 +17,13 @@ from composer.utils import dist
 
 __all__ = ["DeviceGPU"]
 
+T_nnModule = TypeVar("T_nnModule", bound=torch.nn.Module)
+
 
 class DeviceGPU(Device):
     """An extension of :class:`~composer.trainer.devices.device.Device` for GPUs.
 
-    This class takes no arguments. Below is an example of how to pass it into the
-    trainer.
+    This class takes no arguments.
     """
     dist_backend = "nccl"
 
