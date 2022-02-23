@@ -2,6 +2,7 @@
 
 """Core RandAugment code."""
 
+import functools
 import textwrap
 import weakref
 from typing import List, TypeVar
@@ -12,7 +13,7 @@ from PIL.Image import Image as PillowImage
 from torchvision.datasets import VisionDataset
 
 from composer.algorithms.utils import augmentation_sets
-from composer.algorithms.utils.augmentation_common import image_as_type, image_typed_and_shaped_like
+from composer.algorithms.utils.augmentation_common import _map_pillow_function
 from composer.core.types import Algorithm, Event, Logger, State
 from composer.datasets.utils import add_vision_dataset_transform
 
@@ -43,7 +44,7 @@ def randaugment_image(img: ImgT,
             )
 
     Args:
-        img (PIL.Image): Image to be RandAugmented.
+        img (PIL.Image): Image or batch of images to be RandAugmented.
         severity (int, optional): See :class:`~composer.algorithms.randaugment.randaugment.RandAugment`.
         depth (int, optional): See :class:`~composer.algorithms.randaugment.randaugment.RandAugment`.
         augmentation_set (str, optional): See
@@ -52,14 +53,19 @@ def randaugment_image(img: ImgT,
     Returns:
         PIL.Image: RandAugmented image.
     """
-    img_pil = image_as_type(img, PillowImage)
 
-    # Iterate over augmentations
-    for _ in range(depth):
-        aug = np.random.choice(augmentation_set)
-        img_pil = aug(img_pil, severity)
+    def _randaugment_pil_image(img: PillowImage,
+                               severity: int,
+                               depth: int,
+                               augmentation_set: List) -> PillowImage:
+        # Iterate over augmentations
+        for _ in range(depth):
+            aug = np.random.choice(augmentation_set)
+            img = aug(img, severity)
+        return img
 
-    return image_typed_and_shaped_like(img_pil, img)
+    f_pil = functools.partial(_randaugment_pil_image, severity=severity, depth=depth, augmentation_set=augmentation_set)
+    return _map_pillow_function(f_pil, img)
 
 
 class RandAugmentTransform(torch.nn.Module):

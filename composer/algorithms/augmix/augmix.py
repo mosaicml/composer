@@ -2,6 +2,7 @@
 
 """Core AugMix classes and functions."""
 
+import functools
 import textwrap
 import weakref
 from typing import List, TypeVar
@@ -13,7 +14,7 @@ from PIL.Image import Image as PillowImage
 from torchvision.datasets import VisionDataset
 
 from composer.algorithms.utils import augmentation_sets
-from composer.algorithms.utils.augmentation_common import image_as_type, image_typed_and_shaped_like
+from composer.algorithms.utils.augmentation_common import _map_pillow_function
 from composer.core.event import Event
 from composer.core.types import Algorithm, Event, Logger, State
 from composer.datasets.utils import add_vision_dataset_transform
@@ -47,7 +48,7 @@ def augmix_image(img: ImgT,
             )
 
     Args:
-        img (PIL.Image): Image to be AugMix'd.
+        img (PIL.Image): Image or batch of images to be AugMix'd.
         severity (int, optional): See :class:`~composer.algorithms.augmix.augmix.AugMix`.
         depth (int, optional): See :class:`~composer.algorithms.augmix.augmix.AugMix`.
         width (int, optional): See :class:`~composer.algorithms.augmix.augmix.AugMix`.
@@ -58,28 +59,35 @@ def augmix_image(img: ImgT,
     Returns:
          PIL.Image: AugMix'd image.
     """
-    img_pil = image_as_type(img, PillowImage)
+    def _augmix_pil_image(img_pil: PillowImage,
+                          severity: int,
+                          depth: int,
+                          width: int,
+                          alpha: float,
+                          augmentation_set: List) -> PillowImage:
+        chain_weights = np.random.dirichlet([alpha] * width).astype(np.float32)
+        mixing_weight = np.float32(np.random.beta(alpha, alpha))
+        augmented_combination = np.zeros_like(img_pil, dtype=np.float32)
 
-    chain_weights = np.random.dirichlet([alpha] * width).astype(np.float32)
-    mixing_weight = np.float32(np.random.beta(alpha, alpha))
-    augmented_combination = np.zeros_like(img_pil, dtype=np.float32)
+        # Iterate over image chains
+        for chain_i in range(width):
+            augmented_image = img_pil.copy()
+            # Determine depth of current augmentation chain
+            if depth > 0:
+                d = depth
+            else:
+                d = np.random.randint(1, 4)
+            # Iterate through chain depth
+            for _ in range(d):
+                aug = np.random.choice(augmentation_set)
+                augmented_image = aug(augmented_image, severity)
+            augmented_combination += chain_weights[chain_i] * np.asarray(augmented_image)
+        mixed = (1 - mixing_weight) * np.asarray(img_pil) + mixing_weight * augmented_combination
+        mixed = Image.fromarray(np.uint8(mixed))
+        return mixed
 
-    # Iterate over image chains
-    for chain_i in range(width):
-        augmented_image = img_pil.copy()
-        # Determine depth of current augmentation chain
-        if depth > 0:
-            d = depth
-        else:
-            d = np.random.randint(1, 4)
-        # Iterate through chain depth
-        for _ in range(d):
-            aug = np.random.choice(augmentation_set)
-            augmented_image = aug(augmented_image, severity)
-        augmented_combination += chain_weights[chain_i] * np.asarray(augmented_image)
-    mixed = (1 - mixing_weight) * np.asarray(img_pil) + mixing_weight * augmented_combination
-    mixed = Image.fromarray(np.uint8(mixed))
-    return image_typed_and_shaped_like(mixed, img)
+    f_pil = functools.partial(_augmix_pil_image, severity=severity, depth=depth, width=width, alpha=alpha, augmentation_set=augmentation_set)
+    return _map_pillow_function(f_pil, img)
 
 
 class AugmentAndMixTransform(torch.nn.Module):

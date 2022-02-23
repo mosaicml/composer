@@ -46,40 +46,16 @@ def img_dtype(request) -> torch.dtype:
 
 
 @pytest.mark.parametrize('img_type', ['pillow', 'single_tensor', 'batch_tensor'])
-@pytest.mark.parametrize('f_aug', [colout_batch, cutout_batch])
+@pytest.mark.parametrize('f_aug', [colout_batch, cutout_batch, augmix_image, randaugment_image])
 def test_batch_augmentation_funcs_preserve_type(img_type: str, img_dtype: torch.dtype, f_aug: InputAugFunction):
     img, out = _input_output_pair(img_type, img_dtype, f_aug)
     assert type(out) == type(img)
 
 
 @pytest.mark.parametrize('img_type', ['pillow', 'single_tensor', 'batch_tensor'])
-@pytest.mark.parametrize('f_aug', [cutout_batch])  # colout changes shape
+@pytest.mark.parametrize('f_aug', [cutout_batch, augmix_image, randaugment_image])  # colout changes shape
 def test_batch_augmentation_funcs_preserve_shape(img_type: str, img_dtype: torch.dtype, f_aug: InputAugFunction):
     img, out = _input_output_pair(img_type, img_dtype, f_aug)
     if img_type == 'pillow':
         img, out = image_as_type(img, torch.Tensor), image_as_type(img, torch.Tensor)
     assert out.shape == img.shape
-
-
-@pytest.mark.parametrize('img_type', ['pillow', 'single_tensor'])
-@pytest.mark.parametrize('f_aug', [augmix_image, randaugment_image])
-def test_single_image_augmentation_funcs_preserve_type(img_type: str, img_dtype: torch.dtype, f_aug: InputAugFunction):
-    img, out = _input_output_pair(img_type, img_dtype, f_aug)
-    assert type(out) == type(img)
-
-
-@pytest.mark.parametrize('img_type', ['pillow', 'single_tensor'])
-@pytest.mark.parametrize('f_aug', [augmix_image, randaugment_image])
-def test_single_image_augmentation_funcs_preserve_shape(img_type: str, img_dtype: torch.dtype, f_aug: InputAugFunction):
-    img, out = _input_output_pair(img_type, img_dtype, f_aug)
-    if img_type == 'pillow':
-        img, out = image_as_type(img, torch.Tensor), image_as_type(img, torch.Tensor)
-    assert out.shape == img.shape
-
-
-@pytest.mark.parametrize('img_type', ['batch_tensor'])
-@pytest.mark.parametrize('f_aug', [augmix_image, randaugment_image])
-def test_image_only_augmentations_throw_for_batches(img_type: str, img_dtype: torch.dtype, f_aug: InputAugFunction):
-    img = _input_image(img_type, img_dtype)
-    with pytest.raises(RuntimeError):
-        f_aug(img)
