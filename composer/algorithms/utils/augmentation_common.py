@@ -37,10 +37,10 @@ def image_as_type(image: _InputImgT, typ: Type[_OutputImgT]) -> _OutputImgT:
     """
     if isinstance(image, typ):
         return image
-    if not issubclass(typ, (torch.Tensor, PillowImage)):
+    if not typ in (torch.Tensor, PillowImage):
         raise TypeError(f"Only typ={{torch.Tensor, Image}} is supported; got {typ}")
 
-    if isinstance(image, PillowImage):
+    if typ is torch.Tensor:
         return transforms.functional.to_tensor(image)  # PIL -> Tensor
     return transforms.functional.to_pil_image(image)  # Tensor -> PIL
 
