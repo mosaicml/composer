@@ -35,8 +35,7 @@ Here is an example trace file:
 Additonal details an be found in the Profiler Guide.
 """
 from composer.profiler._event_handler import ProfilerEventHandler
-from composer.profiler._profiler import Marker
-from composer.profiler._profiler import Profiler
+from composer.profiler._profiler import Marker, Profiler
 from composer.profiler._profiler_action import ProfilerAction
 
 # All needs to be defined properly for sphinx autosummary
