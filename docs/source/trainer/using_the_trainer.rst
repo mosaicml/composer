@@ -68,7 +68,7 @@ objects.
    trainer = Trainer(model=ResNet18(),
                      train_dataloader=train_dataloader,
                      eval_dataloader=eval_dataloader,
-                                 optimizers=torch.optim.Adam(lr=0.01),
+                     optimizers=torch.optim.Adam(lr=0.01),
                      max_duration=10,  # epochs
                      device='gpu')
 
@@ -83,7 +83,7 @@ A few tips and tricks for using our Trainer:
 -  For time-related inputs, such as the ``max_duration`` above, we
    support both an integer (which we assume is epochs), or as a string.
    For example, ``"10ba"`` means 10 minibatches or steps, and ``"10ep"``
-   denotes 10 epochs.
+   denotes 10 epochs. See: :class:`.Time`.
 -  If you are using gradient accumulation, the ``batch_size`` in your
    dataloaders should be the macrobatch size — the batch size of your
    optimization update. For example, with ``grad_accum=2`` and
@@ -91,7 +91,8 @@ A few tips and tricks for using our Trainer:
    each, then performs a gradient update step.
 -  At any time, most of the relevant quantities for debugging are
    centralized into one variable: :class:`.State`.
--  We have an easy abstraction of tracking :class:`.Time`, see the Time guide.
+-  We have an abstraction for tracking :class:`.Time`, see the
+   :doc:`Time<time>` guide.
 
 For a full list of Trainer options, see :class:`.Trainer`. Below, we
 illustrate some example use cases.
@@ -151,7 +152,7 @@ various events above.
 
 .. seealso::
 
-    :doc:`Events<trainer/events>` and :class:`.State`
+    :doc:`Events<events>` and :class:`.State`
 
 Algorithms
 ~~~~~~~~~~
@@ -214,7 +215,7 @@ and schedulers, but you can also include one of your own.
 
 .. seealso::
 
-    :doc:`Schedulers`<trainer/optimizers_and_schedulers>
+    :doc:`Schedulers`<optimizers_and_schedulers>
 
 Training on GPU
 ~~~~~~~~~~~~~~~
@@ -250,7 +251,7 @@ the ``torch.distributed`` setup for you.
                      train_dataloader=train_dataloader,
                      eval_dataloader=eval_dataloader,
                      max_duration='160ep',
-                                       device='gpu')
+                     device='gpu')
    trainer.fit()
 
 Access the Composer launcher via the ``composer`` command along with the
@@ -264,7 +265,7 @@ number of GPUs you'd like to use and your training script. Use
 
 .. seealso::
 
-    Our :doc:`Distributed Training<trainer/distributed_training>` guide and
+    Our :doc:`Distributed Training<distributed_training>` guide and
     the :mod:`composer.utils.dist` module.
 
 
@@ -325,15 +326,18 @@ during training, but you can also implement your own.
 
 .. seealso::
 
-    The :doc:`Callbacks<trainer/callbacks>` guide and :mod:`composer.callbacks`.
+    The :doc:`Callbacks<callbacks>` guide and :mod:`composer.callbacks`.
 
 
 Numerics
 ~~~~~~~~
 
-Using `mixed precision <https://arxiv.org/abs/1710.03740>`__ can speed up your training loop and only requires
-setting the ``precision`` parameter in the trainer. Note that ``amp``
-only works if training on a GPU.
+The trainer automatically handles multiple precision types, either as `fp32` or for GPUs,
+`amp` for automatic mixed precision, which is pytorch's built-in methods of training
+in 16-bit floating point. For more details on ``amp``, see :mod:`torch.cuda.amp` and
+the paper by `Micikevicius∗ et al, 2018 <https://arxiv.org/abs/1710.03740>`__
+
+We recommend using ``amp`` on GPUs to accelerate your training.
 
 .. code:: python
 
@@ -389,7 +393,7 @@ points during training and (2) load them back to resume training later.
 
 .. seealso::
 
-    The :doc:`Checkpointing<trainer/checkpointing>` guide.
+    The :doc:`Checkpointing<checkpointing>` guide.
 
 
 This was just a quick tour of all the features within our trainer. Please see the other
