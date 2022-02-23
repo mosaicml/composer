@@ -69,7 +69,9 @@ def resize_batch(X: torch.Tensor,
         if mode.lower() == "crop":
             Hc = int(scale_factor * tensor.shape[2])
             Wc = int(scale_factor * tensor.shape[3])
-            resize_transform = transforms.RandomCrop((Hc, Wc))
+            top = torch.randint(tensor.shape[2] - Hc, size=(1,))
+            left = torch.randint(tensor.shape[3] - Wc, size=(1,))
+            resize_transform = partial(transforms.functional.crop, top=top, left=left, height=Hc, width=Wc)
         elif mode.lower() == "resize":
             resize_transform = partial(F.interpolate, scale_factor=scale_factor, mode='nearest')
         else:
