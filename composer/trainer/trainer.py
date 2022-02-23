@@ -278,7 +278,7 @@ class Trainer:
 
                 checkpoint_path = "/path_to_the_checkpoint_in_object_store"
 
-                # create a trainer which will load a checkpoint from the specified object store
+                # Create a trainer which will load a checkpoint from the specified object store
                 trainer = Trainer(model=model,
                                   train_dataloader=train_dataloader,
                                   max_duration="10ep",
