@@ -15,15 +15,28 @@ if TYPE_CHECKING:
 
     from composer.core.types import Batch, BatchDict, Metrics, Tensors
 
+__all__ = ["BERTModel"]
+
 
 class BERTModel(ComposerTransformer):
-    """Implements a BERT wrapper around a ComposerTransformer."""
+    """Implements a BERT wrapper around a ComposerTransformer.
 
-    def __init__(self, module: transformers.BertModel, config: transformers.BertConfig, tokenizer_name: str) -> None:
+    See this `paper <https://arxiv.org/abs/1810.04805>`_
+    for details on the BERT architecutre.
+
+    Args:
+        module (transformers.BertModel): The model to wrap with this module.
+        config (transformers.BertConfig): The config for the model.
+        tokenizer (transformers.BertTokenizer): The tokenizer used for this model,
+            necessary to assert required model inputs.
+    """
+
+    def __init__(self, module: transformers.BertModel, config: transformers.BertConfig,
+                 tokenizer: transformers.BertTokenizer) -> None:
         super().__init__(
             module=module,  #type: ignore (thirdparty)
             config=config,
-            tokenizer_name=tokenizer_name)
+            tokenizer=tokenizer)
 
         # we're going to remove the label from the expected inputs
         # since we will handle metric calculation with TorchMetrics instead of HuggingFace.

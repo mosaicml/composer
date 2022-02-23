@@ -3,10 +3,11 @@
 """The state of the trainer."""
 from __future__ import annotations
 
+import contextlib
 import logging
 import textwrap
 import warnings
-from typing import TYPE_CHECKING, Callable, ContextManager, Optional, Sequence, Union, cast
+from typing import TYPE_CHECKING, Callable, ContextManager, List, Optional, Sequence, Union, cast
 
 import torch
 import torch.nn.modules.utils
@@ -14,59 +15,36 @@ from torch.nn.parallel import DistributedDataParallel
 
 import composer.core.types as types
 from composer.core.precision import Precision
-from composer.core.profiler import Profiler
 from composer.core.serializable import Serializable
 from composer.core.time import Time, Timer, TimeUnit
 from composer.utils import ensure_tuple
-from composer.utils.precision import default_precision_factory
 
 if TYPE_CHECKING:
     from composer.core.algorithm import Algorithm
     from composer.core.callback import Callback
+    from composer.profiler import Profiler
 
 __all__ = ["State"]
 
 logger = logging.getLogger(__name__)
 
-# These fields will be serialized directly using torch.save / torch.load
-DIRECT_SERIALIZATION_FIELDS = [
-    "last_batch_size",
-    "grad_accum",
-    "_precision",
-    "_max_duration",
-]
 
-# These fields will be serialized using .state_dict(), and loaded with .load_state_dict()
-STATE_DICT_SERIALIZATION_FIELDS = [
-    "model",
-    "_optimizers",
-    "_schedulers",
-    "_algorithms",
-    "_callbacks",
-    "scaler",
-    "timer",
-]
+def _default_precision_factory() -> Callable[[Union[str, Precision]], ContextManager]:
+    """Returns a context manager to automatically cast to a specific precision.
 
-# These fields will be serialized using .state_dict(), but will be skipped if DeepSpeed is enabled.
-# When DeepSpeed is being used, model and optimizer states are serialized directly by the DeepSpeed engine.
-STATE_DICT_SERIALIZATION_FIELDS_SKIP_DEEPSPEED = [
-    "model",
-    "_optimizers",
-]
+    Args:
+        precision (str or Precision): Precision for the context
+    """
+    if torch.cuda.is_available():
+        return lambda precision: torch.cuda.amp.autocast(Precision(precision) == Precision.AMP)
+    else:
 
-# These fields will not be serialized
-SKIP_SERIALIZATION_FIELDS = [
-    "loss",
-    "batch",
-    "batch_num_samples",
-    "batch_num_tokens",
-    "outputs",
-    "train_dataloader",
-    "evaluators",
-    "_steps_per_epoch",
-    "_precision_context",
-    "profiler",
-]
+        def null(precision):
+            assert Precision(
+                precision) != Precision.AMP, "Precision AMP is only available when `torch.cuda.is_available() == True`."
+            return contextlib.nullcontext()
+
+        return null
 
 
 class State(Serializable):
@@ -120,6 +98,7 @@ class State(Serializable):
         loss (types.Tensors): The most recently computed loss.
         outputs (types.Tensors): The most recently computed output from the model's forward pass.
         timer (types.Timer): The timer that tracks training loop progress.
+        serialized_attributes (List[str]): The list of attributes which will be serialized in a checkpoint.
     """
 
     _max_duration: Time[int]
@@ -129,27 +108,42 @@ class State(Serializable):
     batch_num_tokens: int
     loss: types.Tensors
     outputs: types.Tensors
+    _schedulers: List[types.Scheduler]
+
+    # These attributes will be serialized using .state_dict(), and loaded with .load_state_dict()
+    # All other attributes will not be serialized.
+    # For simplicity, omit the leading underscore for private attributes.
+    # For example, even though the optimizers are stored on the state
+    # as the "_optimizers" attribute, here we specify just "optimizers"
+    serialized_attributes = [
+        "model",
+        "optimizers",
+        "schedulers",
+        "algorithms",
+        "callbacks",
+        "scaler",
+        "timer",
+    ]
 
     def __init__(
             self,
             # model
             model: types.Model,
 
-            # data configurations
-            grad_accum: int,
-            train_dataloader: types.DataLoader,
-            evaluators: types.Evaluators,
-
             # stopping conditions
             max_duration: Union[str, Time[int]],
 
+            # data configurations
+            train_dataloader: types.DataLoader,
+            evaluators: types.Evaluators = [],
+            grad_accum: int = 1,
+
             # precision
-            precision: Union[str, types.Precision],
-            precision_context: Callable[[Precision], ContextManager] = default_precision_factory(),
+            precision: Union[str, types.Precision] = Precision.FP32,
+            precision_context: Callable[[Precision], ContextManager] = _default_precision_factory(),
 
             # optimizers
             optimizers: Optional[types.Optimizers] = None,
-            schedulers: Optional[types.Schedulers] = None,
 
             # scaler
             scaler: Optional[types.Scaler] = None,
@@ -177,10 +171,7 @@ class State(Serializable):
         else:
             self._optimizers = list(ensure_tuple(optimizers))
 
-        if schedulers is None:
-            self._schedulers = []
-        else:
-            self._schedulers = list(ensure_tuple(schedulers))
+        self._schedulers = []
 
         self.scaler = scaler
         self._algorithms = list(algorithms)
@@ -268,38 +259,21 @@ class State(Serializable):
         """Returns the state as a :class:`dict`."""
         state_dict: types.StateDict = {}
 
-        deepspeed_enabled = False
-        try:
-            import deepspeed
-            deepspeed_enabled = isinstance(self.model, deepspeed.DeepSpeedEngine)
-        except ImportError:
-            pass
-
         for state_field_name, state_field_value in self.__dict__.items():
-            if state_field_name in SKIP_SERIALIZATION_FIELDS:
+            if state_field_name.lstrip("_") not in self.serialized_attributes:
                 continue
-            elif state_field_name in DIRECT_SERIALIZATION_FIELDS:
-                state_dict[state_field_name] = state_field_value
-                continue
-            elif state_field_name in STATE_DICT_SERIALIZATION_FIELDS:
-                if deepspeed_enabled and state_field_name in STATE_DICT_SERIALIZATION_FIELDS_SKIP_DEEPSPEED:
-                    continue
-                if state_field_name == "model":
-                    # Save model directly instead of by class name, since model may be wrapped by DistributedDataParallel
-                    serialized_value = state_field_value.state_dict()
-                else:
-                    serialized_value = {
-                        obj.__class__.__qualname__: obj.state_dict()
-                        for obj in ensure_tuple(state_field_value)
-                        if obj is not None
-                    }
-                state_dict[state_field_name] = serialized_value
-
+            if state_field_name == "model":
+                # Save model directly instead of by class name, since model may be wrapped by DistributedDataParallel
+                serialized_value = state_field_value.state_dict()
             else:
-                raise RuntimeError(f"Unable to serialize field {state_field_name}")
+                serialized_value = {
+                    obj.__class__.__qualname__: obj.state_dict()
+                    for obj in ensure_tuple(state_field_value)
+                    if obj is not None
+                }
+            state_dict[state_field_name] = serialized_value
+
         state_dict["_is_model_ddp_wrapped"] = isinstance(self.model, DistributedDataParallel)
-        if deepspeed_enabled:
-            state_dict["_deepspeed_enabled"] = True
         return state_dict
 
     def load_model_state(self, state_dict: types.StateDict, strict: bool):
@@ -324,35 +298,24 @@ class State(Serializable):
             state_dict (types.StateDict): object returned from call to :meth:`state_dict`.
         """
 
-        deepspeed_enabled = False
-        if "_deepspeed_enabled" in state:
-            deepspeed_enabled = state["_deepspeed_enabled"]
-
         for state_field_name, state_field_value in self.__dict__.items():
-            if state_field_name in SKIP_SERIALIZATION_FIELDS:
+            if state_field_name.lstrip("_") not in self.serialized_attributes:
                 continue
-            elif state_field_name in DIRECT_SERIALIZATION_FIELDS:
-                setattr(self, state_field_name, state[state_field_name])
-            elif state_field_name in STATE_DICT_SERIALIZATION_FIELDS:
-                if deepspeed_enabled and state_field_name in STATE_DICT_SERIALIZATION_FIELDS_SKIP_DEEPSPEED:
-                    continue
-                serialized_value = state[state_field_name]
+            serialized_value = state[state_field_name]
 
-                if state_field_name == "model":
-                    self.load_model_state(state, strict=strict)
-                else:
-                    for target in ensure_tuple(state_field_value):
-                        if target is None:
-                            continue
-                        if target.__class__.__qualname__ not in serialized_value:
-                            warnings.warn(
-                                f"{target.__class__.__qualname__} was not found in the state_dict. Its state will NOT be restored",
-                                category=UserWarning)
-                            continue
-                        source = serialized_value[target.__class__.__qualname__]
-                        target.load_state_dict(source)
+            if state_field_name == "model":
+                self.load_model_state(state, strict=strict)
             else:
-                raise RuntimeError(f"Unable to load field {state_field_name}")
+                for target in ensure_tuple(state_field_value):
+                    if target is None:
+                        continue
+                    if target.__class__.__qualname__ not in serialized_value:
+                        warnings.warn(
+                            f"{target.__class__.__qualname__} was not found in the state_dict. Its state will NOT be restored",
+                            category=UserWarning)
+                        continue
+                    source = serialized_value[target.__class__.__qualname__]
+                    target.load_state_dict(source)
 
     @property
     def batch_idx(self) -> int:

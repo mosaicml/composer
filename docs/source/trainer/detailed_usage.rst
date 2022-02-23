@@ -18,15 +18,17 @@ Numerics
 Time
 ----
 
+.. _distributed-training:
 
 Distributed Training
 --------------------
 
-Distributed data parallel, or DDP, is an essential technique for training large models. It is among the most common ways of parallelizing machine learning models. However, as are many things, parallelization in Python is not well supported. To get around these limitations, we offer a ``composer`` launch script to set up multiprocessing and synchronization. This script is directly analogous to the ``torch.distributed.run``, ``torchrun``, and ``deepspeed`` scripts that users may be familiar with.
 
-The ``composer`` script is highly recommended for setting up DDP with the Composer trainer, and will be necessary to access advanced functionality in the future.
+Distributed data parallel, or DDP, is an essential technique for training large models. It is among the most common ways of parallelizing machine learning models. However, as are many things, parallelization in Python is not well supported. To get around these limitations, we offer a ``composer`` launcher to set up multiprocessing and synchronization. This script is directly analogous to the ``torch.distributed.run``, ``torchrun``, and ``deepspeed`` scripts that users may be familiar with.
 
-The ``composer`` script wraps your typical setup script. The wrapped script is responsible for setting up a single process's trainer.
+The ``composer`` launcher is highly recommended for setting up DDP with the Composer trainer, and will be necessary to access advanced functionality in the future.
+
+The ``composer`` launcher wraps your typical setup script. The wrapped script is responsible for setting up a single process's trainer.
 
 
 Single-Node Example
@@ -36,7 +38,7 @@ In most cases, you will likely be training on multiple CPUs or GPUs on a single 
 
 For example, to train ResNet-50 efficiently with DDP on an 8-GPU system, you can use the following command:
 
-.. code-block:: console
+.. code-block::
     
     composer -n 8 examples/run_composer_trainer.py -f composer/yamls/models/resnet50.yaml
 

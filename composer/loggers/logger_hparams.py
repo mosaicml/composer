@@ -1,6 +1,6 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
-"""Logger Hyperparameters."""
+"""Logger Hyperparameter classes."""
 from __future__ import annotations
 
 import copy
@@ -13,23 +13,24 @@ import yahp as hp
 from composer.core.logging import LoggerCallback, LogLevel
 from composer.core.types import JSON
 from composer.loggers.in_memory_logger import InMemoryLogger
-from composer.loggers.mosaicml_logger import RunType
 from composer.utils import dist
 
 if TYPE_CHECKING:
     from composer.loggers.file_logger import FileLogger
-    from composer.loggers.mosaicml_logger import MosaicMLLogger
     from composer.loggers.tqdm_logger import TQDMLogger
     from composer.loggers.wandb_logger import WandBLogger
+
+__all__ = [
+    "FileLoggerHparams", "InMemoryLoggerHaparms", "LoggerCallbackHparams", "TQDMLoggerHparams", "WandBLoggerHparams"
+]
 
 
 @dataclass
 class LoggerCallbackHparams(hp.Hparams, ABC):
     """Base class for logger backend hyperparameters.
 
-    Logger parameters that are added to
-    :class:`~composer.trainer.trainer_hparams.TrainerHparams`
-    (e.g. via YAML or the CLI) are initialized in the training loop.
+    Logger parameters that are added to :class:`~.trainer_hparams.TrainerHparams` (e.g. via YAML or the CLI) are
+    initialized in the training loop.
     """
 
     @abstractmethod
@@ -48,8 +49,7 @@ class FileLoggerHparams(LoggerCallbackHparams):
     """:class:`~composer.loggers.file_logger.FileLogger`
     hyperparameters.
 
-    See :class:`~composer.loggers.file_logger.FileLogger`
-    for documentation.
+    See :class:`~composer.loggers.file_logger.FileLogger` for documentation.
     """
     log_level: LogLevel = hp.optional("The maximum verbosity to log. Default: EPOCH", default=LogLevel.EPOCH)
     filename: str = hp.optional("The path to the logfile. Can also be `stdout` or `stderr`. Default: stdout",
@@ -74,8 +74,7 @@ class FileLoggerHparams(LoggerCallbackHparams):
 
 @dataclass
 class WandBLoggerHparams(LoggerCallbackHparams):
-    """:class:`~composer.loggers.wandb_logger.WandBLogger`
-    hyperparameters.
+    """:class:`~composer.loggers.wandb_logger.WandBLogger` hyperparameters.
 
     Args:
         project (str, optional): Weights and Biases project name.
@@ -84,8 +83,8 @@ class WandBLoggerHparams(LoggerCallbackHparams):
         entity (str, optional): Weights and Biases entity name.
         tags (str, optional): Comma-seperated list of tags to add to the run.
         log_artifacts (bool, optional): Whether to log artifacts. Defaults to False.
-        log_artifacts_every_n_batches (int, optional). How frequently to log artifacts. Defaults to 100.
-            Only applicable if `log_artifacts` is True.
+        log_artifacts_every_n_batches (int, optional). How frequently to log artifacts.
+            Default: ``100``. Only applicable if ``log_artifacts`` is True.
 
         extra_init_params (JSON Dictionary, optional): Extra parameters to pass into :func:`wandb.init`.
     """
@@ -210,38 +209,6 @@ class TQDMLoggerHparams(LoggerCallbackHparams):
     def initialize_object(self, config: Optional[Dict[str, Any]] = None) -> TQDMLogger:
         from composer.loggers.tqdm_logger import TQDMLogger
         return TQDMLogger(config=config)
-
-
-@dataclass
-class MosaicMLLoggerHparams(LoggerCallbackHparams):
-    """:class:`~composer.loggers.mosaicml_logger.MosaicMLLogger`
-    hyperparameters.
-
-    See :class:`~composer.loggers.mosaicml_logger.MosaicMLLogger`
-    for documentation.
-    """
-    run_name: str = hp.required("The name of the run to write logs for.")
-    run_type: RunType = hp.required("The type of the run.")
-    run_id: Optional[str] = hp.optional(
-        "The name of the run to write logs for. If not provided, a random id "
-        "is created.", default=None)
-    experiment_name: Optional[str] = hp.optional(
-        "The name of the experiment to associate the run with. If "
-        "not provided, a random name is created.",
-        default=None)
-    creds_file: Optional[str] = hp.optional(
-        "A file containing the MosaicML api_key. If not provided "
-        "will default to the environment variable MOSAIC_API_KEY.",
-        default=None)
-    flush_every_n_batches: int = hp.optional("Flush the log data buffer every n batches.", default=100)
-    max_logs_in_buffer: int = hp.optional(
-        "The maximum number of log entries allowed in the buffer "
-        "before a forced flush.", default=1000)
-    log_level: LogLevel = hp.optional("The maximum verbosity to log. Default: EPOCH", default=LogLevel.EPOCH)
-
-    def initialize_object(self, config: Optional[Dict[str, Any]] = None) -> MosaicMLLogger:
-        from composer.loggers.mosaicml_logger import MosaicMLLogger
-        return MosaicMLLogger(**asdict(self), config=config)
 
 
 @dataclass

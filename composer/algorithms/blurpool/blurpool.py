@@ -4,27 +4,17 @@ from __future__ import annotations
 
 import functools
 import logging
-from dataclasses import asdict, dataclass
 from typing import Optional
 
 import numpy as np
 import torch
-import yahp as hp
 
-from composer.algorithms import AlgorithmHparams
 from composer.algorithms.blurpool.blurpool_layers import BlurConv2d, BlurMaxPool2d
-from composer.core import Algorithm, Event, Logger, State, surgery
+from composer.core import Algorithm, Event, Logger, State
 from composer.core.types import Optimizers
+from composer.utils import module_surgery
 
 log = logging.getLogger(__name__)
-
-
-def _log_surgery_result(model: torch.nn.Module):
-    num_blurpool_layers = surgery.count_module_instances(model, BlurMaxPool2d)
-    num_blurconv_layers = surgery.count_module_instances(model, BlurConv2d)
-    log.info(f'Applied BlurPool to model {model.__class__.__name__}. '
-             f'Model now has {num_blurpool_layers} BlurMaxPool2d '
-             f'and {num_blurconv_layers} BlurConv2D layers.')
 
 
 def apply_blurpool(model: torch.nn.Module,
@@ -67,26 +57,8 @@ def apply_blurpool(model: torch.nn.Module,
             _maybe_replace_strided_conv2d,
             blur_first=blur_first,
         )
-    surgery.replace_module_classes(model, optimizers=optimizers, policies=transforms)
+    module_surgery.replace_module_classes(model, optimizers=optimizers, policies=transforms)
     _log_surgery_result(model)
-
-
-@dataclass
-class BlurPoolHparams(AlgorithmHparams):
-    """See :class:`BlurPool`"""
-
-    replace_convs: bool = hp.optional('Replace Conv2d with BlurConv2d if stride > 1', default=True)
-    replace_maxpools: bool = hp.optional('Replace MaxPool2d with BlurMaxPool2d', default=True)
-    blur_first: bool = hp.optional('Blur input before convolution', default=True)
-
-    def initialize_object(self) -> "BlurPool":
-        return BlurPool(**asdict(self))
-
-
-def _maybe_replace_strided_conv2d(module: torch.nn.Conv2d, module_index: int, blur_first: bool):
-    if (np.max(module.stride) > 1 and module.in_channels >= 16):
-        return BlurConv2d.from_conv2d(module, module_index, blur_first=blur_first)
-    return None
 
 
 class BlurPool(Algorithm):
@@ -94,7 +66,7 @@ class BlurPool(Algorithm):
     to increase accuracy and invariance to small shifts in the input.
 
     Runs on ``Event.INIT`` and should be applied both before the model has
-    been moved to accelerators and before the model’s parameters have
+    been moved to accelerators and before the model's parameters have
     been passed to an optimizer.
 
     Args:
@@ -151,8 +123,8 @@ class BlurPool(Algorithm):
         """Logs the result of BlurPool application, including the number of layers that have been replaced."""
         assert state.model is not None
 
-        num_blurpool_layers = surgery.count_module_instances(state.model, BlurMaxPool2d)
-        num_blurconv_layers = surgery.count_module_instances(state.model, BlurConv2d)
+        num_blurpool_layers = module_surgery.count_module_instances(state.model, BlurMaxPool2d)
+        num_blurconv_layers = module_surgery.count_module_instances(state.model, BlurConv2d)
 
         # python logger
         log.info(f'Applied BlurPool to model {state.model.__class__.__name__} '
@@ -165,3 +137,17 @@ class BlurPool(Algorithm):
             'blurpool/num_blurpool_layers': num_blurpool_layers,
             'blurpool/num_blurconv_layers': num_blurconv_layers,
         })
+
+
+def _log_surgery_result(model: torch.nn.Module):
+    num_blurpool_layers = module_surgery.count_module_instances(model, BlurMaxPool2d)
+    num_blurconv_layers = module_surgery.count_module_instances(model, BlurConv2d)
+    log.info(f'Applied BlurPool to model {model.__class__.__name__}. '
+             f'Model now has {num_blurpool_layers} BlurMaxPool2d '
+             f'and {num_blurconv_layers} BlurConv2D layers.')
+
+
+def _maybe_replace_strided_conv2d(module: torch.nn.Conv2d, module_index: int, blur_first: bool):
+    if (np.max(module.stride) > 1 and module.in_channels >= 16):
+        return BlurConv2d.from_conv2d(module, module_index, blur_first=blur_first)
+    return None
