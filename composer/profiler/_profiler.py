@@ -40,13 +40,15 @@ class Profiler:
     Args:
         state (State): The state.
         event_handlers (Sequence[ProfilerEventHandler]): Event handlers which record and save profiling data to traces.
-        skip_first (int, optional): Number of batches to skip profiling at epoch start. (Default: ``0``)
-        wait (int, optional): For each profiling cycle, number of batches to skip at the beginning of the cycle. (Default: ``0``)
-        warmup (int, optional): For each profiling cycle, number of batches to be in the warmup state
-            after skipping ``wait`` batches.. (Default: ``1``)
-        active (int, optional): For each profiling cycle, number of batches to record after warming up. (Default: ``4``)
-        repeat (int, optional): Number of profiling cycles to perform per epoch. Set to ``0`` to record the entire epoch. (Default: ``1``)
-        merged_trace_file (str, optional): Name of the trace file, relative to the run directory. (Default: ``merged_profiler_trace.json``)
+        skip_first (int, optional): Number of batches to skip profiling at epoch start.  Defaults to ``0``.
+        wait (int, optional): For each profiling cycle, number of batches to skip at the beginning of the cycle.  
+            Defaults to ``0``.
+        warmup (int, optional): For each profiling cycle, number of batches to be in the warmup state after skipping ``wait`` batches.  
+            Defaults to ``1``.
+        active (int, optional): For each profiling cycle, number of batches to record after warming up.  Defaults to ``4``.
+        repeat (int, optional): Number of profiling cycles to perform per epoch. Set to ``0`` to record the entire epoch.  
+            Defaults to ``1``.
+        merged_trace_file (str, optional): Name of the trace file, relative to the run directory.  Defaults to ``merged_profiler_trace.json``.
     """
 
     def __init__(self,
@@ -101,7 +103,7 @@ class Profiler:
         """Profiler event handlers."""
         return self._event_handlers
 
-    def merge_traces(self):
+    def _merge_traces(self):
         """Merge traces together.
 
         .. note::
@@ -139,21 +141,41 @@ class Profiler:
         record_instant_on_start: bool = False,
         record_instant_on_finish: bool = False,
         categories: Union[List[str], Tuple[str, ...]] = tuple()) -> Marker:
-        """Get a :class:`Marker`.
+        """Create and get an instance of a :class:`Marker`.
 
         If a :class:`Marker` with the specified ``name`` does not already exist, it will be created.
         Otherwise, the existing instance will be returned.
 
+        For example:
+
+        .. testsetup::
+
+            from composer.profiler import Profiler
+            profiler = Profiler(state=state)
+
+        .. doctest::
+
+            >>> marker = profiler.marker("foo")
+            <composer.profiler.Marker object at ...>
+
+        .. note::
+
+            :meth:`Profiler.marker()` should be used to construct markers.  :class:`Marker` **should not** be 
+            instantiated directly by the user.
+
+        Please see :meth:`Marker.start()` and :meth:`Marker.finish()` for usage on creating markers to measure duration events,
+        :meth:`Marker.instant()` for usage on creating markers to mark instant events and :meth:`Marker.counter()` for usage on
+        creating markers for counting.
+
         Args:
             name (str): The name for the :class:`Marker`.
             actions (Sequence[ProfilerAction], optional): :class:`ProfilerAction` states to record on.
-                By default, markers will record on :attr:`ProfilerAction.WARMUP` and :attr:`ProfilerAction.ACTIVE`.
-                Defaults to (ProfilerAction.WARMUP, ProfilerAction.ACTIVE).
+                Defaults to (:attr:`ProfilerAction.WARMUP`, :attr:`ProfilerAction.ACTIVE`).
             record_instant_on_start (bool, optional): Whether to record an instant event whenever the marker is started.
-                Defaults to False.
+                Defaults to ``False``.
             record_instant_on_finish (bool, optional): Whether to record an instant event whenever the marker is finished.
-                Defaults to False.
-            categories (Union[List[str], Tuple[str, ...]], optional): Categories for this marker. Defaults to no categories.
+                Defaults to ``False``.
+            categories (Union[List[str], Tuple[str, ...]], optional): Categories for this marker. Defaults to ``None``.
 
         Returns:
             Marker: Instance of :class:`Marker`.

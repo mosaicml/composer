@@ -27,6 +27,11 @@ class SystemProfiler(Callback):
 
     When used with the Composer :class:`.Trainer`\\, the system profiler is enabled if profiling is enabled.
 
+    .. note:: 
+        
+        The Composer :class:`.Trainer` creates an instance of :class:`.TorchProfiler` when ``tensorboard_trace_handler_dir`` is provided.
+        The user should not create and directly register an instance of :class:`.TorchProfiler` when using the Composer :class:`.Trainer`\\.
+
     Args:
         profile_cpu (bool): Whether to record cpu statistics (Default: ``True``)
         profile_memory (bool): Whether to record memory statistics (Default: ``False``)

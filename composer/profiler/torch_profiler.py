@@ -32,8 +32,8 @@ class TorchProfiler(Callback):
 
     .. note:: 
         
-        The Composer :class:`.Trainer` creates an instance of :class:`TorchProfiler` when ``tensorboard_trace_handler_dir`` is provided.
-        The user should not create and directly register an instance of :class:`TorchProfiler` when using the Composer :class:`.Trainer`\\.
+        The Composer :class:`.Trainer` creates an instance of :class:`.TorchProfiler` when ``tensorboard_trace_handler_dir`` is provided.
+        The user should not create and directly register an instance of :class:`.TorchProfiler` when using the Composer :class:`.Trainer`\\.
 
     To view profiling results, run:
 

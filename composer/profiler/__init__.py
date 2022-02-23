@@ -34,10 +34,10 @@ Here is an example trace file:
 
 Additonal details an be found in the Profiler Guide.
 """
-from composer.profiler._event_handler import ProfilerEventHandler as ProfilerEventHandler
-from composer.profiler._profiler import Marker as Marker
-from composer.profiler._profiler import Profiler as Profiler
-from composer.profiler._profiler_action import ProfilerAction as ProfilerAction
+from composer.profiler._event_handler import ProfilerEventHandler
+from composer.profiler._profiler import Marker
+from composer.profiler._profiler import Profiler
+from composer.profiler._profiler_action import ProfilerAction
 
 # All needs to be defined properly for sphinx autosummary
 __all__ = [
