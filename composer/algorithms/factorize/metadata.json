@@ -4,6 +4,7 @@
         "functional": "apply_factorization",
         "tldr": "Factorize GEMMs into smaller GEMMs",
         "attribution": "MosaicML",
-        "link": "www.mosaicml.com"
+        "link": "https://www.mosaicml.com",
+        "domains": ["cv", "nlp"]
     }
 }

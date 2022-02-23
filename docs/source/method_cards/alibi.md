@@ -22,7 +22,7 @@ ALiBi was developed and tested on NLP tasks, but it could conceivably be applied
 - `position_embedding_attribute` - The model's attribute containing the position embeddings, which ALiBi requires be removed. We achieve this by zeroing and freezing position embedding parameters. Example: In our GPT2 model family (which uses HuggingFace), the position embeddings are `transformer.wpe`.
 - `attention_module_name` - The module/class that will have its self-attention function replaced. Example: In our GPT2 model family, the self-attention module is `transformers.models.gpt2.modeling_gpt2.GPT2Attention`.
 - `attr_to_replace` - The attribute of `attention_module_name` that performs self-attention and will be replaced by the self-attention function implementing ALiBi. Example: In our GPT2 model family, the self-attention is computed by the function `_attn`.
-- `alibi_attention` - Path to the new self-attention function implementing ALiBi. Example: In our codebase, `alibi_attention` for the GPT2 model family is `composer.algorithms.alibi.gpt2_alibi._attn`.
+- `alibi_attention` - Path to the new self-attention function implementing ALiBi. Example: In our codebase, `alibi_attention` for the GPT2 model family is `composer.algorithms.alibi._gpt2_alibi._attn`.
 - `mask_replacement_function` - Path to function to replace model's attention mask. This is sometimes necessary for evaluating on sequence lengths longer than the model was initialized to accommodate.
 - `max_sequence_length` - Maximum allowable sequence length.
 - `heads_per_layer` - Number of attention heads per layer.

@@ -52,5 +52,11 @@ As general rule, combinging regularization-based methods yields sublinear improv
 
 ```{eval-rst}
 .. autoclass:: composer.algorithms.augmix.AugMix
-    :members: match, apply
+    :noindex:
+
+.. autofunction:: composer.algorithms.augmix.augmix_image
+    :noindex:
+
+.. autoclass:: composer.algorithms.augmix.AugmentAndMixTransform
+    :noindex:
 ```

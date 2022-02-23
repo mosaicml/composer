@@ -6,9 +6,8 @@ Sequence Length Warmup
    :alt: alternate text
    :figclass: align-center
 
-	An example plot showing applying sequence length warmup to 30% of the training duration.
+   An example plot showing applying sequence length warmup to 30% of the training duration.
 
-|
 Tags: ``Method``, ``Autoregressive Language Modeling``, ``Masked Language Modeling``, ``NLP``, ``Warmup``, ``Curriculum``, ``Speedup``, ``Decreased Wall Clock Time``
 
 
@@ -52,10 +51,9 @@ Effects
 Our experiments found that Sequence Length Warmup could speed up
 training by a factor of ~1.5x while achieving the same loss. The
 original authors of the paper claim that Sequence Length Warmup reduces
-the outliers in Adam's (`Kingma and
-Ba <https://arxiv.org/abs/1412.6980>`__) variance term, which permits
-training on larger batch sizes and larger learning rates without
-divergence.
+the outliers in Adam's (`Kingma and Ba <https://arxiv.org/abs/1412.6980>`__)
+variance term, which permits training on larger batch sizes and larger
+learning rates without divergence.
 
 Implementation Details
 ----------------------
@@ -83,7 +81,7 @@ can either:
 
 *Transformed Inputs (2 samples):*
 
-.. code-block:: console
+.. code-block::
 
     We choose to go to the moon.
 
@@ -93,14 +91,14 @@ can either:
 
 *Original Input (2 samples):*
 
-.. code-block:: console
+.. code-block::
 
     We choose to go to the moon. We choose to go to the moon in this decade and do the other things, not because they are easy, but because they are hard, because that goal will serve to organize and measure the best of our energies and skills, because that challenge
     It is for these reasons that I regard the decision last year to shift our efforts in space from low to high gear as among the most important decisions that will be made during my incumbency in the office of the Presidency.
 
 *Transformed Inputs (14 samples):*
 
-.. code-block:: console
+.. code-block::
 
     We choose to go to the moon.
     We choose to go to the moon in

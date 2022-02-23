@@ -7,7 +7,7 @@ import contextlib
 import logging
 import textwrap
 import warnings
-from typing import TYPE_CHECKING, Callable, ContextManager, Optional, Sequence, Union, cast
+from typing import TYPE_CHECKING, Callable, ContextManager, List, Optional, Sequence, Union, cast
 
 import torch
 import torch.nn.modules.utils
@@ -108,6 +108,7 @@ class State(Serializable):
     batch_num_tokens: int
     loss: types.Tensors
     outputs: types.Tensors
+    _schedulers: List[types.Scheduler]
 
     # These attributes will be serialized using .state_dict(), and loaded with .load_state_dict()
     # All other attributes will not be serialized.
@@ -143,7 +144,6 @@ class State(Serializable):
 
             # optimizers
             optimizers: Optional[types.Optimizers] = None,
-            schedulers: Optional[types.Schedulers] = None,
 
             # scaler
             scaler: Optional[types.Scaler] = None,
@@ -171,10 +171,7 @@ class State(Serializable):
         else:
             self._optimizers = list(ensure_tuple(optimizers))
 
-        if schedulers is None:
-            self._schedulers = []
-        else:
-            self._schedulers = list(ensure_tuple(schedulers))
+        self._schedulers = []
 
         self.scaler = scaler
         self._algorithms = list(algorithms)
