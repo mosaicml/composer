@@ -94,22 +94,42 @@ class DataloaderHparams(hp.Hparams):
     """Hyperparameters to initialize a :class:`~torch.utils.data.Dataloader`.
 
     Parameters:
-        num_workers (int): Number of CPU workers to use per device to fetch data.
-        prefetch_factor (int): Number of samples loaded in advance by each worker.
-            2 means there will be a total of 2 * num_workers samples prefetched across all workers.
-        persistent_workers (bool): Whether or not to shutdown workers after the dataset has been consumed once.
-        pin_memory (bool): Whether or not to copy Tensors into CUDA pinned memory before returning them.
-        timeout (float): Timeout, in seconds, for collecting a batch from workers. Set to 0 for no timeout.
+        num_workers (int, optional): Number of CPU workers to use per device to fetch data.
+            Set to ``0`` to use the main training thread for dataloading.
+            While zero workers can be useful for debugging, it should not be used for performance reasons.
+            (default: ``8``)
+        prefetch_factor (int, optional): Number of samples loaded in advance by each worker.
+            For example, 2 means there will be a total of 2 * num_workers samples prefetched across all workers.
+            If ``num_workers = 0``, then the ``prefetch_factor`` must be left at the default value.
+            (default: ``2``)
+        persistent_workers (bool): Whether to reuse dataloader workers across epochs. If ``num_workers`` is 0,
+            then this field must be ``False``. (default: ``True``)
+        pin_memory (bool, optional): Whether or not to copy Tensors into CUDA pinned memory before returning them.
+            If ``num_workers = 0``, then the ``pin_memory`` must be ``False``. (default: ``True``)
+        timeout (float): Timeout, in seconds, for collecting a batch from workers. Set to ``0`` for no timeout.
+            (default: ``0``)
     """
 
-    num_workers: int = hp.optional("Number of CPU workers to use per device to fetch data.", default=8)
-    prefetch_factor: int = hp.optional("Number of samples loaded in advance by each worker", default=2)
-    persistent_workers: bool = hp.optional("Whether to shutdown workers after the dataset has been consumed once",
+    num_workers: int = hp.optional(textwrap.dedent("""\
+        Number of CPU workers to use per device to fetch data.
+        Set to ``0`` to use the main training thread for dataloading.
+        While zero workers can be useful for debugging, it should not be used for performance reasons."""),
+                                   default=8)
+    prefetch_factor: int = hp.optional(textwrap.dedent("""\
+        Number of samples loaded in advance by each worker.
+        For example, 2 means there will be a total of 2 * num_workers samples prefetched across all workers.
+        If ``num_workers = 0``, then the ``prefetch_factor`` must be left at the default value."""),
+                                       default=2)
+    persistent_workers: bool = hp.optional(textwrap.dedent("""\
+         Whether to reuse dataloader workers across epochs. If ``num_workers`` is 0,
+            then this field must be ``False``"""),
                                            default=True)
-    pin_memory: bool = hp.optional("Whether to copy Tensors into CUDA pinned memory before returning them",
+    pin_memory: bool = hp.optional(textwrap.dedent("""\
+            Whether or not to copy Tensors into CUDA pinned memory before returning them.
+            If ``num_workers = 0``, then the ``pin_memory`` must be ``False``."""),
                                    default=True)
-    timeout: float = hp.optional("Timeout, in seconds, for collecting a batch from workers. Set to 0 for no timeout",
-                                 default=0)
+    timeout: float = hp.optional(
+        "Timeout, in seconds, for collecting a batch from workers. Set to ``0`` for no timeout.", default=0)
 
     def initialize_object(
         self,
