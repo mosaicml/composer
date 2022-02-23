@@ -22,7 +22,7 @@ log = logging.getLogger(__name__)
 
 ImgT = TypeVar("ImgT", torch.Tensor, PillowImage)
 
-__all__ = ["ColOut", "ColOutTransform", "colout_image", "colout_batch"]
+__all__ = ["ColOut", "ColOutTransform", "colout_batch"]
 
 
 def colout_batch(X: ImgT, p_row: float = 0.15, p_col: float = 0.15) -> ImgT:

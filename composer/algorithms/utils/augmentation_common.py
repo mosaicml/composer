@@ -61,16 +61,17 @@ def map_pillow_function(f_pil: Callable[[PillowImage], PillowImage], imgs: _Outp
     """
     single_image_input = not isinstance(imgs, Iterable)
     single_image_input |= isinstance(imgs, torch.Tensor) and imgs.ndim == 3
-    if single_image_input:
-        imgs = [imgs]
+    imgs_as_iterable = [imgs] if single_image_input else imgs
+    imgs_as_iterable = cast(type(imgs_as_iterable), imgs_as_iterable)  # pyright struggling with typevars
 
-    imgs_pil = [image_as_type(img, PillowImage) for img in imgs]
+    imgs_pil = [image_as_type(img, PillowImage) for img in imgs_as_iterable]
     imgs_out_pil = [f_pil(img_pil) for img_pil in imgs_pil]
-    imgs_out = [image_as_type(img_pil, type(imgs[0])) for img_pil in imgs_out_pil]
+    imgs_out = [image_as_type(img_pil, type(imgs_as_iterable[0])) for img_pil in imgs_out_pil]
 
     if isinstance(imgs, torch.Tensor) and imgs.ndim == 4:  # batch of imgs
         imgs_out = [torch.unsqueeze(img, 0) for img in imgs_out]
         imgs_out = torch.cat(imgs_out, dim=0)
     if single_image_input:
+        imgs_out = cast(type(imgs_out), imgs_out) # pyright struggling with typevars
         imgs_out = imgs_out[0]
-    return imgs_out
+    return cast(type(imgs_out), imgs_out) # pyright struggling with typevars

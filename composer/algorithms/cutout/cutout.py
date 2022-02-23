@@ -5,7 +5,7 @@
 from __future__ import annotations
 
 import logging
-from typing import Optional, TypeVar, Union
+from typing import Optional, TypeVar, Union, cast
 
 import numpy as np
 import torch
@@ -64,8 +64,8 @@ def cutout_batch(X: ImgT, n_holes: int = 1, length: Union[int, float] = 0.5) -> 
         mask = _generate_mask(mask, w, h, x, y, length)
 
     X_cutout = X_tensor * mask
-    # return image_typed_and_shaped_like(X_cutout, X)
-    return image_as_type(X_cutout, type(X))
+    X_out = image_as_type(X_cutout, type(X))
+    return cast(type(X_out), X_out) # cast because pyright is bad at typevars
 
 
 class CutOut(Algorithm):

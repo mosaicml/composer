@@ -1,6 +1,6 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
-from typing import Callable, Tuple, Union
+from typing import Callable, Tuple, Union, cast
 
 import numpy as np
 import pytest
@@ -57,5 +57,10 @@ def test_batch_augmentation_funcs_preserve_type(img_type: str, img_dtype: torch.
 def test_batch_augmentation_funcs_preserve_shape(img_type: str, img_dtype: torch.dtype, f_aug: InputAugFunction):
     img, out = _input_output_pair(img_type, img_dtype, f_aug)
     if img_type == 'pillow':
-        img, out = image_as_type(img, torch.Tensor), image_as_type(img, torch.Tensor)
+        img = cast(type(img), img)  # pyright struggling with typevars
+        out = cast(type(out), out)  # pyright struggling with typevars
+        img = image_as_type(img, torch.Tensor)
+        out = image_as_type(out, torch.Tensor)
+    out = cast(torch.Tensor, out)  # pyright
+    img = cast(torch.Tensor, img)  # pyright
     assert out.shape == img.shape
