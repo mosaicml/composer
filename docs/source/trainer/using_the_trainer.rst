@@ -22,7 +22,7 @@ The Composer :class:`.Trainer` implements a highly-optimized PyTorch training lo
 
 Below are simple examples for getting started with the Composer Trainer
 along with code snippets for more advanced usage such as using speedup
-methods, checkpointing, distributed training.
+methods, checkpointing, and distributed training.
 
 Getting Started
 ---------------
