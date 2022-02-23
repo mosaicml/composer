@@ -12,7 +12,7 @@ from composer.core.types import Model
 from composer.utils import dist
 from composer.utils.string_enum import StringEnum
 
-__all__ = ["DDPSyncStrategy", "_ddp_sync_context", "_prepare_ddp_module"]
+__all__ = ["DDPSyncStrategy"]
 
 
 class DDPSyncStrategy(StringEnum):

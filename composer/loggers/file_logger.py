@@ -49,8 +49,10 @@ class FileLogger(LoggerCallback):
             from composer.utils.run_directory import get_run_directory
 
             path = os.path.join(get_run_directory(), "log.txt")
-            if os.path.exists(path):
+            try:
                 os.remove(path)
+            except FileNotFoundError as e:
+                pass
 
     Example output::
 
