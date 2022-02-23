@@ -258,6 +258,7 @@ def add_module_summary_tables(
     if len(lines) == 0:
         # insert a stub docstring so it doesn't start with functions/exceptions/classes/attributes
         lines.append(name)
+
     if what == "module":
 
         try:
@@ -297,7 +298,12 @@ def add_module_summary_tables(
         classes.sort(key=lambda x: x[0])
         attributes.sort(key=lambda x: x[0])
 
-        for category, category_name in ((functions, "Functions"), (classes, "Classes"), (exceptions, "Exceptions")):
+        # separate hparams classes with other classes
+        hparams = [(n, c) for (n, c) in classes if issubclass(c, hp.Hparams)]
+        classes = [(n, c) for (n, c) in classes if not issubclass(c, hp.Hparams)]
+
+        for category, category_name in ((functions, "Functions"), (classes, "Classes"), (hparams, "Hparams"),
+                                        (exceptions, "Exceptions")):
             sphinx_lines = []
             for item_name, item in category:
                 sphinx_path = determine_sphinx_path(item, item.__module__)
@@ -307,6 +313,9 @@ def add_module_summary_tables(
                 lines.append("")
                 lines.append(f".. rubric:: {category_name}")
                 lines.append("")
+                if category_name == 'Hparams':
+                    lines.append("These classes are used with :mod:`yahp` for ``YAML``-based configuration.")
+                    lines.append("")
                 lines.append(".. autosummary::")
                 lines.append("      :nosignatures:")
                 lines.append("")
