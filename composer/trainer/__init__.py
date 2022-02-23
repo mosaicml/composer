@@ -2,7 +2,7 @@
 
 """Train models!
 
-The trainer supports models with :class:`.ComposerModel` instances.
+The trainer supports models with :class:`~composer.models.base.ComposerModel` instances.
 The :class:`.Trainer` is highly customizable and can
 support a wide variety of workloads.
 
@@ -35,7 +35,7 @@ Example
     >>> ### Alternatively, if you set the run directory environment variable as follows:
     >>> ### os.environ["COMPOSER_RUN_DIRECTORY"] = "my_run_directory", then the checkpoint path
     >>> ### will be of the form my_run_directory/rank_0/checkpoints
-    >>> checkpoint_folder = trainer.checkpoint_saver.checkpoint_folder
+    >>> checkpoint_folder = trainer.checkpoint_folder
     >>>
     >>> ### If the save_interval was in terms of epochs like above then by default,
     >>> ### checkpoint filenames are of the form "ep{EPOCH_NUMBER}.pt".

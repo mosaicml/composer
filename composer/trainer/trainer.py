@@ -25,6 +25,7 @@ from composer.core import Callback, DataSpec, Engine, Event, Logger, State, Time
 from composer.core.algorithm import Algorithm
 from composer.core.evaluator import Evaluator
 from composer.core.logging import LoggerCallback, LogLevel
+from composer.core.time import Timestamp
 from composer.core.types import Batch, BreakEpochException, DataLoader, Evaluators, Many, Metrics, Optimizers, Precision
 from composer.datasets.dataloader import unwrap_data_loader
 from composer.loggers.tqdm_logger import TQDMLogger
@@ -36,9 +37,9 @@ from composer.profiler.dataloader_profiler import DataloaderProfiler
 from composer.profiler.system_profiler import SystemProfiler
 from composer.profiler.torch_profiler import TorchProfiler
 from composer.trainer._scaler import ClosureGradScaler
-from composer.trainer.checkpoint import CheckpointLoader, CheckpointSaver
+from composer.trainer._checkpoint import CheckpointLoader, CheckpointSaver
 from composer.trainer.ddp import DDPSyncStrategy, ddp_sync_context, prepare_ddp_module
-from composer.trainer.deepspeed import fix_batch_precision_for_deepspeed, parse_deepspeed_config
+from composer.trainer._deepspeed import fix_batch_precision_for_deepspeed, parse_deepspeed_config
 from composer.trainer.devices import Device, DeviceCPU, DeviceGPU
 from composer.trainer.scale_schedule import scale_scheduler
 from composer.utils import dist, ensure_tuple, map_collection, module_surgery, reproducibility
@@ -246,10 +247,6 @@ class Trainer:
         state (State): The :class:`.State` object used to store training state.
         evaluators (List[Evaluator]): The :class:`.Evaluator` objects to use for validation
             during training.
-        checkpoint_saver (CheckpointSaver): The :class:`.CheckpointSaver`
-            used for saving checkpoints during training.
-        checkpoint_loader (CheckpointLoader): The :class:`.CheckpointLoader`
-            used for loading from a checkpoint at the start of training.
         logger (Logger): The :class:`.Logger` used for logging.
         engine (Engine): The :class:`.Engine` used for running callbacks and algorithms.
     """
@@ -354,21 +351,21 @@ class Trainer:
                 raise ValueError(
                     'Scale schedule has reduced the max_duration to 0. Set a higher ratio or use more epochs.')
 
-        self.deepspeed_config = deepspeed_config
+        self._deepspeed_config = deepspeed_config
 
         if not device:
-            self.device = DeviceCPU() if not self.deepspeed_enabled else DeviceGPU()
+            self._device = DeviceCPU() if not self.deepspeed_enabled else DeviceGPU()
         elif isinstance(device, str):
             if device == 'cpu':
-                self.device = DeviceCPU()
+                self._device = DeviceCPU()
             elif device == 'gpu':
-                self.device = DeviceGPU()
+                self._device = DeviceGPU()
             else:
                 raise ValueError(f'device ({device}) must be one of (cpu, gpu).')
         else:
             if not isinstance(device, Device):
                 raise ValueError('device must be of class Device')
-            self.device = device
+            self._device = device
 
         if not seed:
             seed = reproducibility.get_random_seed()
@@ -380,24 +377,24 @@ class Trainer:
         # If hparams is used to create the Trainer this function is called twice
         # which is okay because all runs with the hparams codepath will do this
         reproducibility.seed_all(seed)
-        self.seed = seed
+        self._seed = seed
 
         if not algorithms:
             algorithms = []
 
         # some algorithms require specific settings
-        self.backwards_create_graph = any(map(lambda x: x.backwards_create_graph, algorithms))
+        self._backwards_create_graph = any(map(lambda x: x.backwards_create_graph, algorithms))
         find_unused_parameters = any(map(lambda x: x.find_unused_parameters, algorithms))
-        self.find_unused_parameters = find_unused_parameters
+        self._find_unused_parameters = find_unused_parameters
 
         if self.deepspeed_enabled or dist.get_world_size() > 1:
             # deepspeed requires torch.distributed to be initialized, even if the world size is 1
             # distributed is always required with multi-rank training
-            dist.initialize_dist(self.device.dist_backend, datetime.timedelta(seconds=dist_timeout))
+            dist.initialize_dist(self._device.dist_backend, datetime.timedelta(seconds=dist_timeout))
         if ddp_sync_strategy is None:
-            self.ddp_sync_strategy = DDPSyncStrategy.SINGLE_AUTO_SYNC if not find_unused_parameters else DDPSyncStrategy.FORCED_SYNC
+            self._ddp_sync_strategy = DDPSyncStrategy.SINGLE_AUTO_SYNC if not find_unused_parameters else DDPSyncStrategy.FORCED_SYNC
         else:
-            self.ddp_sync_strategy = DDPSyncStrategy(ddp_sync_strategy)
+            self._ddp_sync_strategy = DDPSyncStrategy(ddp_sync_strategy)
 
         # convert eval_dataloader to `List[Evaluator]`
         self.evaluators: List[Evaluator] = []
@@ -438,7 +435,7 @@ class Trainer:
 
         # TODO(#123): DeepSpeed still needs a precision context, but it's not completely clear how to
         # handle this with our version of Pytorch
-        precision_context = self.device.precision_context if not self.deepspeed_enabled else cast(
+        precision_context = self._device.precision_context if not self.deepspeed_enabled else cast(
             Callable[..., ContextManager], contextlib.nullcontext)
         if isinstance(precision, str):
             precision = Precision(precision)
@@ -466,10 +463,10 @@ class Trainer:
             steps_per_epoch=train_subset_num_batches,
         )
 
-        if not schedulers:
-            schedulers = constant_scheduler
-            warnings.warn(f"No scheduler was specified. Defaulting to {repr(schedulers)}")
         schedulers = ensure_tuple(schedulers)
+        if len(schedulers) == 0:
+            schedulers = (constant_scheduler,)
+            warnings.warn(f"No scheduler was specified. Defaulting to {repr(schedulers)}")
 
         if scale_schedule_ratio != 1.0:
             schedulers = tuple(
@@ -477,7 +474,7 @@ class Trainer:
 
         if use_stepwise_schedulers is None:
             use_stepwise_schedulers = any(callable(scheduler) for scheduler in schedulers)
-        self.use_stepwise_schedulers = use_stepwise_schedulers
+        self._use_stepwise_schedulers = use_stepwise_schedulers
 
         self.state.schedulers = [compile(scheduler, self.state) for scheduler in schedulers]
 
@@ -522,10 +519,10 @@ class Trainer:
             logger=self.logger,
         )
 
-        self.validate_every_n_batches = validate_every_n_batches
-        self.validate_every_n_epochs = validate_every_n_epochs
-        self.compute_training_metrics = compute_training_metrics
-        self.grad_clip_norm = grad_clip_norm
+        self._validate_every_n_batches = validate_every_n_batches
+        self._validate_every_n_epochs = validate_every_n_epochs
+        self._compute_training_metrics = compute_training_metrics
+        self._grad_clip_norm = grad_clip_norm
 
         if deterministic_mode:
             reproducibility.configure_deterministic_mode()
@@ -533,21 +530,21 @@ class Trainer:
         self.engine.run_event(Event.INIT)
 
         assert isinstance(self.state.model, ComposerModel)
-        self.original_model = self.state.model  # TODO(ravi) -- update the state to add an original model helper
+        self._original_model = self.state.model  # TODO(ravi) -- update the state to add an original model helper
 
-        self.checkpoint_saver = None
+        self._checkpoint_saver = None
         if save_folder is not None:
             if isinstance(save_interval, int):
                 save_interval = Time.from_epoch(save_interval)
-            self.checkpoint_saver = CheckpointSaver(
+            self._checkpoint_saver = CheckpointSaver(
                 save_folder=save_folder,
                 interval=save_interval,
                 compression=save_compression,
             )
 
-        self.checkpoint_loader = None
+        self._checkpoint_loader = None
         if load_path is not None:
-            self.checkpoint_loader = CheckpointLoader(path=load_path,
+            self._checkpoint_loader = CheckpointLoader(path=load_path,
                                                       object_store=load_object_store,
                                                       load_weights_only=load_weights_only,
                                                       strict_model_weights=load_strict,
@@ -564,12 +561,12 @@ class Trainer:
                     Composer was installed without DeepSpeed support. To use DeepSpeed with Composer, run `pip install mosaicml[deepspeed]`
                     if using pip or `pip install deepspeed>=0.5.5` if using Anaconda.""")) from e
             assert deepspeed_config is not None
-            self.deepspeed_config = parse_deepspeed_config(deepspeed_config,
+            self._deepspeed_config = parse_deepspeed_config(deepspeed_config,
                                                            state=self.state,
-                                                           grad_clip_norm=self.grad_clip_norm)
+                                                           grad_clip_norm=self._grad_clip_norm)
             optimizer = ensure_tuple(self.state.optimizers)[0]
             (self.state.model, self.state.optimizers, _, _) = deepspeed.initialize(
-                config=self.deepspeed_config,
+                config=self._deepspeed_config,
                 model=self.state.model,
                 optimizer=optimizer,
             )
@@ -584,14 +581,14 @@ class Trainer:
         # If using DeepSpeed, the model must be loaded from checkpoint after the engine has been
         # initialized, but if using PyTorch DDP, the model must be loaded before it is wrapped with
         # DDP.
-        if self.checkpoint_loader:
-            restored_seed = self.checkpoint_loader.load_checkpoint(state=self.state)
+        if self._checkpoint_loader is not None:
+            restored_seed = self._checkpoint_loader.load_checkpoint(state=self.state)
             if restored_seed is not None:
-                self.seed = restored_seed
+                self._seed = restored_seed
 
         if not self.deepspeed_enabled:
             host_model_params = self.state.model.parameters()
-            self.state.model = self.device.module_to_device(self.state.model)
+            self.state.model = self._device.module_to_device(self.state.model)
             device_model_params = self.state.model.parameters()
 
             # use surgery to update the parameters of the optimizers, now that the model is on the device
@@ -601,11 +598,11 @@ class Trainer:
                                                        optimizers=self.state.optimizers)
 
             # Move any remaining optimizer parameters onto the device
-            self.state.optimizers = map_collection(self.state.optimizers, self.device.optimizer_to_device)
+            self.state.optimizers = map_collection(self.state.optimizers, self._device.optimizer_to_device)
 
             if dist.get_world_size() > 1:
                 # Only wrap the module if required
-                self.state.model = prepare_ddp_module(self.state.model, self.find_unused_parameters)
+                self.state.model = prepare_ddp_module(self.state.model, self._find_unused_parameters)
 
     @property
     def deepspeed_enabled(self) -> bool:
@@ -613,7 +610,43 @@ class Trainer:
 
         .. seealso:: `DeepSpeed's documentation <https://www.deepspeed.ai/docs/config-json/>`_
         """
-        return self.deepspeed_config is not None
+        return self._deepspeed_config is not None
+
+    @property
+    def saved_checkpoints(self) -> Dict[Timestamp, List[str]]:
+        """The times and paths to checkpoint files saved across all ranks during training.
+
+        .. note:: When using DeepSpeed, the index of a filepath in each list corresponds to the
+            global rank of the process that wrote that file. These filepaths are valid only on
+            the global rank's node. Otherwise, when not using DeepSpeed, this list will contain
+            only one filepath since only rank zero saves checkpoints.
+
+        Returns:
+            Dict[Timestamp, List[str]]: A dictionary mapping a save :class:`.Timestamp`. to a list of
+                filepaths corresponding to the checkpoints saved at that time.
+
+        """
+        return self._checkpoint_saver.saved_checkpoints
+
+    @property
+    def checkpoint_folder(self) -> str:
+        """The folder in which checkpoints are stored.
+
+            .. seealso:: :mod:`~composer.utils.run_directory` for details on the format of the run directory
+                and how to customize it.
+
+            Returns:
+                str: The checkpoint folder. If an absolute path was specified for
+                    ``save_folder`` upon trainer instantiation, then that path will be used. Otherwise, this folder
+                    is relative to the run directory of the training run (e.g. ``{run_directory}/{save_folder}``).
+                    If no run directory is provided, then by default, it is of the form
+                    ``runs/<timestamp>/rank_<GLOBAL_RANK>/<save_folder>`` where ``timestamp``
+                    is the start time of the run in iso-format, ``GLOBAL_RANK`` is the global rank of the process,
+                    and ``save_folder`` is the save_folder argument provided upon construction.
+
+        """
+        return self._checkpoint_saver.checkpoint_folder
+
 
     def fit(self):
         """Train and evaluate the model on the provided data."""
@@ -626,7 +659,7 @@ class Trainer:
         # Safety check to ensure the metric and data are on the same device. Normally not
         # needed because the metric is automatically on the same device as the model.
         # See https://torchmetrics.readthedocs.io/en/latest/pages/overview.html for details.
-        metrics = self.device.module_to_device(metrics)
+        metrics = self._device.module_to_device(metrics)
 
         # HACK: DeepSpeed somehow manages to convert metric internal states to its own dtype. When
         # running with FP16, this tends to result in overflows. Let's assume FP32 is good enough.
@@ -688,11 +721,11 @@ class Trainer:
         # print training start
         self.logger.metric_fit({"trainer/algorithms": [str(algo) for algo in self.state.algorithms]})
 
-        if self.compute_training_metrics:
+        if self._compute_training_metrics:
             log.warn('Computing model evaluation metrics during training.'
                      ' This doubles the number of forward passes and may lead'
                      ' to a throughput degradation.')
-            train_metrics = self.original_model.metrics(train=True)
+            train_metrics = self._original_model.metrics(train=True)
             if isinstance(train_metrics, Metric):
                 # Forcing metrics to be a MetricCollection simplifies logging results
                 train_metrics = MetricCollection([train_metrics])
@@ -708,9 +741,9 @@ class Trainer:
 
         self._spin_dataloaders()
 
-        if self.state.timer.batch_in_epoch == 0 and self.checkpoint_loader:
+        if self.state.timer.batch_in_epoch == 0 and self._checkpoint_loader:
             # only restore the rng state here if the step in the current epoch is zero.
-            self.checkpoint_loader.restore_checkpoint_rng_state(self.device)
+            self._checkpoint_loader.restore_checkpoint_rng_state(self._device)
 
         while state.timer < state.max_duration:
             try:
@@ -728,11 +761,11 @@ class Trainer:
 
                     # if resuming, skip dataloader forward to the minibatch index
                     if batch_idx < self.state.timer.batch_in_epoch:
-                        if self.checkpoint_loader:
-                            self.checkpoint_loader.restore_checkpoint_rng_state(self.device)
+                        if self._checkpoint_loader:
+                            self._checkpoint_loader.restore_checkpoint_rng_state(self._device)
                         continue
 
-                    state.batch = self.device.batch_to_device(state.batch)
+                    state.batch = self._device.batch_to_device(state.batch)
                     state.batch = self._train_data_spec.device_transforms(state.batch)
                     state.batch_num_samples = self._train_data_spec.get_num_samples_in_batch(state.batch)
                     state.batch_num_tokens = self._train_data_spec.get_num_tokens_in_batch(state.batch)
@@ -740,7 +773,7 @@ class Trainer:
                     if self.deepspeed_enabled:
                         state.batch = fix_batch_precision_for_deepspeed(state.batch, state.precision)
 
-                    if self.compute_training_metrics:
+                    if self._compute_training_metrics:
                         # compute metrics on the training set
                         assert train_metrics is not None
                         state.model.eval()
@@ -748,16 +781,16 @@ class Trainer:
                             for eval_microbatch in self._train_data_spec.split_batch(state.batch, state.grad_accum):
                                 # TODO: Detect if self.run_event(Event.AFTER_DATALOADER) changes the training
                                 # data and if so print a warning that metrics may return unexpected results
-                                outputs, targets = self.original_model.validate(eval_microbatch)
+                                outputs, targets = self._original_model.validate(eval_microbatch)
                                 train_metrics.update(outputs, targets)
 
                     state.model.train()
 
                     self.engine.run_event(Event.AFTER_DATALOADER)
 
-                    num_samples_in_batch = self.device.tensor_to_device(
+                    num_samples_in_batch = self._device.tensor_to_device(
                         torch.tensor([state.batch_num_samples], dtype=torch.int))
-                    num_tokens_in_batch = self.device.tensor_to_device(
+                    num_tokens_in_batch = self._device.tensor_to_device(
                         torch.tensor([state.batch_num_tokens], dtype=torch.int))
                     dist.all_reduce(num_samples_in_batch, reduce_operation="SUM")
                     dist.all_reduce(num_tokens_in_batch, reduce_operation="SUM")
@@ -792,14 +825,14 @@ class Trainer:
 
                     if total_loss is not None:
                         if not isinstance(total_loss, torch.Tensor):
-                            total_loss = self.device.tensor_to_device(torch.tensor([total_loss]))
+                            total_loss = self._device.tensor_to_device(torch.tensor([total_loss]))
 
                         # total_loss can be None if gradient scaling failed
                         dist.all_reduce(total_loss, reduce_operation="SUM")
                         full_loss = total_loss.cpu().item()
                         self.logger.metric_batch({'loss/train': full_loss / dist.get_world_size()})
 
-                    if self.compute_training_metrics:
+                    if self._compute_training_metrics:
                         assert train_metrics is not None
                         self._compute_and_log_metrics(train_metrics, is_train=True, is_batch=True)
 
@@ -808,35 +841,35 @@ class Trainer:
                         tokens=int(num_tokens_in_batch.item()),
                     )
 
-                    if self.use_stepwise_schedulers:
+                    if self._use_stepwise_schedulers:
                         for scheduler in state.schedulers:
                             scheduler.step()
 
                     self.engine.run_event(Event.BATCH_END)
 
-                    if self.validate_every_n_batches > 0 and int(
-                            state.timer.batch) % self.validate_every_n_batches == 0:
+                    if self._validate_every_n_batches > 0 and int(
+                            state.timer.batch) % self._validate_every_n_batches == 0:
                         self.eval(is_batch=True)
 
-                    if self.checkpoint_saver and self.checkpoint_saver.should_checkpoint(state=state,
+                    if self._checkpoint_saver and self._checkpoint_saver.should_checkpoint(state=state,
                                                                                          event=Event.BATCH_END):
-                        self.checkpoint_saver.save_checkpoint(state=state, seed=self.seed, device=self.device)
+                        self._checkpoint_saver.save_checkpoint(state=state, seed=self._seed, device=self._device)
             except BreakEpochException:
                 log.info(f'Skipping the rest of Epoch {state.epoch}')
 
             state.timer.on_epoch_complete()
 
-            if not self.use_stepwise_schedulers:
+            if not self._use_stepwise_schedulers:
                 for scheduler in state.schedulers:
                     scheduler.step()
 
             self.engine.run_event(Event.EPOCH_END)
 
-            if self.validate_every_n_epochs > 0 and int(state.timer.epoch) % self.validate_every_n_epochs == 0:
+            if self._validate_every_n_epochs > 0 and int(state.timer.epoch) % self._validate_every_n_epochs == 0:
                 self.eval(is_batch=False)
 
-            if self.checkpoint_saver and self.checkpoint_saver.should_checkpoint(state=state, event=Event.EPOCH_END):
-                self.checkpoint_saver.save_checkpoint(state=state, seed=self.seed, device=self.device)
+            if self._checkpoint_saver and self._checkpoint_saver.should_checkpoint(state=state, event=Event.EPOCH_END):
+                self._checkpoint_saver.save_checkpoint(state=state, seed=self._seed, device=self._device)
 
     def _train_batch(self, microbatches: Sequence[Batch], ddp_sync: bool = True):
         """Run training on a full batch of data.
@@ -870,7 +903,7 @@ class Trainer:
                 optimizer.zero_grad()
 
         # tracker for gradient accumulation
-        total_loss = self.device.tensor_to_device(torch.zeros(size=(1,)))
+        total_loss = self._device.tensor_to_device(torch.zeros(size=(1,)))
         current_batch_size = sum([self._train_data_spec.get_num_samples_in_batch(batch) for batch in microbatches])
 
         for microbatch_idx, state.batch in enumerate(microbatches):
@@ -878,7 +911,7 @@ class Trainer:
             state.batch_num_samples = self._train_data_spec.get_num_samples_in_batch(state.batch)
             is_final_microbatch = microbatch_idx + 1 == len(microbatches)
             sync_context = contextlib.nullcontext() if self.deepspeed_enabled else ddp_sync_context(
-                state, is_final_microbatch, self.ddp_sync_strategy)
+                state, is_final_microbatch, self._ddp_sync_strategy)
             with sync_context:
                 # forward pass
                 self.engine.run_event(Event.BEFORE_FORWARD)
@@ -892,7 +925,7 @@ class Trainer:
                 self.engine.run_event(Event.BEFORE_LOSS)
 
                 with state.precision_context:
-                    state.loss = self.original_model.loss(state.outputs, state.batch)
+                    state.loss = self._original_model.loss(state.outputs, state.batch)
 
                 # We always want to scale loss by the grad_accum before the backwards pass and
                 # also for sake of metrics. Complicating matters, the DeepSpeed engine does its
@@ -924,7 +957,7 @@ class Trainer:
                         total_loss += loss.detach().clone()
                 else:
                     for loss in ensure_tuple(state.loss):
-                        loss.backward(create_graph=self.backwards_create_graph)
+                        loss.backward(create_graph=self._backwards_create_graph)
 
                 self.engine.run_event(Event.AFTER_BACKWARD)
 
@@ -937,10 +970,10 @@ class Trainer:
                 state.scaler.unscale_(optimizer)
 
         # clip gradients if the magnitude is too large
-        if not self.deepspeed_enabled and self.grad_clip_norm is not None:
+        if not self.deepspeed_enabled and self._grad_clip_norm is not None:
             torch.nn.utils.clip_grad_norm_(
                 parameters=state.model.parameters(),
-                max_norm=self.grad_clip_norm,
+                max_norm=self._grad_clip_norm,
             )
 
         self.engine.run_event(Event.AFTER_TRAIN_BATCH)
@@ -975,7 +1008,7 @@ class Trainer:
                     dataloader.sampler.set_epoch(int(self.state.timer.batch))
 
                 for state.batch in itertools.islice(dataloader, self._eval_subset_num_batches):
-                    state.batch = self.device.batch_to_device(state.batch)
+                    state.batch = self._device.batch_to_device(state.batch)
                     if evaluator.dataloader.device_transforms:
                         state.batch = evaluator.dataloader.device_transforms(state.batch)
                     state.batch_num_samples = evaluator.dataloader.get_num_samples_in_batch(state.batch)
@@ -987,7 +1020,7 @@ class Trainer:
                     self.engine.run_event(Event.EVAL_BATCH_START)
 
                     self.engine.run_event(Event.EVAL_BEFORE_FORWARD)
-                    state.outputs, targets = self.original_model.validate(state.batch)
+                    state.outputs, targets = self._original_model.validate(state.batch)
                     self.engine.run_event(Event.EVAL_AFTER_FORWARD)
 
                     metrics.update(state.outputs, targets)
