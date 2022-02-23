@@ -41,12 +41,12 @@ class Profiler:
         state (State): The state.
         event_handlers (Sequence[ProfilerEventHandler]): Event handlers which record and save profiling data to traces.
         skip_first (int, optional): Number of batches to skip profiling at epoch start.  Defaults to ``0``.
-        wait (int, optional): For each profiling cycle, number of batches to skip at the beginning of the cycle.  
+        wait (int, optional): For each profiling cycle, number of batches to skip at the beginning of the cycle.
             Defaults to ``0``.
-        warmup (int, optional): For each profiling cycle, number of batches to be in the warmup state after skipping ``wait`` batches.  
+        warmup (int, optional): For each profiling cycle, number of batches to be in the warmup state after skipping ``wait`` batches.
             Defaults to ``1``.
         active (int, optional): For each profiling cycle, number of batches to record after warming up.  Defaults to ``4``.
-        repeat (int, optional): Number of profiling cycles to perform per epoch. Set to ``0`` to record the entire epoch.  
+        repeat (int, optional): Number of profiling cycles to perform per epoch. Set to ``0`` to record the entire epoch.
             Defaults to ``1``.
         merged_trace_file (str, optional): Name of the trace file, relative to the run directory.  Defaults to ``merged_profiler_trace.json``.
     """
