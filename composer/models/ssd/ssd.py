@@ -30,7 +30,15 @@ class SSD(ComposerModel):
         dboxes = dboxes300_coco()
         self.loss_func = Loss(dboxes)
         self.MAP = coco_map()
-
+        self.encoder = Encoder(dboxes)
+        data = "/localdisk/coco" #self.datadir
+        val_annotate = os.path.join(data, "annotations/instances_val2017.json")
+        val_coco_root = os.path.join(data, "val2017")
+        input_size = self.input_size
+        val_trans = SSDTransformer(dboxes, (input_size, input_size), val=True)
+        from composer.datasets.coco import COCODetection
+        self.val_coco = COCODetection(val_coco_root, val_annotate, val_trans)
+        
     def loss(self, outputs: Any, batch: BatchPair) -> Tensors:
 
         (_, _, _, bbox, label) = batch
@@ -53,27 +61,19 @@ class SSD(ComposerModel):
 
     def validate(self, batch: BatchPair) -> Tuple[Any, Any]:
         dboxes = dboxes300_coco()
-        data = self.datadir
-        val_annotate = os.path.join(data, "annotations/instances_val2017.json")
-        val_coco_root = os.path.join(data, "val2017")
-        input_size = self.input_size
-        from composer.datasets.coco import COCODetection
-        val_trans = SSDTransformer(dboxes, (input_size, input_size), val=True)
 
-        val_coco = COCODetection(val_coco_root, val_annotate, val_trans)
-
-        inv_map = {v: k for k, v in val_coco.label_map.items()}
+        inv_map = {v: k for k, v in self.val_coco.label_map.items()}
         ret = []
         overlap_threshold = self.overlap_threshold
         nms_max_detections = self.nms_max_detections
-        encoder = Encoder(dboxes)
+
 
         (img, img_id, img_size, _, _) = batch
         ploc, plabel = self.module(img.cuda())
 
         results = []
         try:
-            results = encoder.decode_batch(ploc, plabel, overlap_threshold, nms_max_detections, nms_valid_thresh=0.05)
+            results = self.encoder.decode_batch(ploc, plabel, overlap_threshold, nms_max_detections, nms_valid_thresh=0.05)
         except:
             print("No object detected")
 
@@ -106,7 +106,7 @@ class coco_map(Metric):
         np.squeeze(self.predictions)
 
     def compute(self):
-        data = self.datadir
+        data = "/localdisk/coco" #self.datadir
         val_annotate = os.path.join(data, "annotations/instances_val2017.json")
         from composer.datasets.coco import COCO
         cocogt = COCO(annotation_file=val_annotate)
