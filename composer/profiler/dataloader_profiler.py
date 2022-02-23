@@ -15,8 +15,6 @@ if TYPE_CHECKING:
     from composer.core.types import Batch, DataLoader, Logger
     from composer.profiler import Profiler
 
-__all__ = ["DataloaderProfiler"]
-
 
 class _ProfiledDataLoader(WrappedDataLoader):
     """Wraps a dataloader to record the duration it takes to yield a batch. This class should not be instantiated

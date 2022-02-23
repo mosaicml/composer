@@ -22,13 +22,11 @@ __all__ = ["Marker", "Profiler", "ProfilerEventHandler"]
 
 log = logging.getLogger(__name__)
 
-__all__ = ["Profiler", "Marker"]
-
 
 class Profiler:
     """Records the duration of Trainer :class:`.Event` using the :class:`.Marker` API.
 
-    The :class:`Profielr` is instantiated by the Composer :class:`.Trainer`\\.
+    The :class:`Profiler` is instantiated by the Composer :class:`.Trainer`\\.
 
     Specifically, it records:
 
@@ -288,32 +286,30 @@ class Marker:
     Markers can record the following types of events:
 
     #. Duration: Records the start and stop time of an event of interest (:meth:`Marker.start()`, :meth:`Marker.finish()`).
-
     #. Instant: Record time a particular event occurs, but not the full duration (:meth:`Marker.instant()`).
-
     #. Counter: The value of a variable at given time (:meth:`Marker.counter()`).
 
     A :class:`Marker` can also be used as a context manager or decorator to record a duration:
 
-        #. Use a :class:`Marker` with a context manager:
+    #. Use a :class:`Marker` with a context manager:
 
-            .. code-block:: python
+        .. code-block:: python
 
-                marker = profiler.marker("foo")
-                with marker:
-                    something_to_measure()
-
-        #. Use a :class:`Marker` as a decorator:
-
-            .. code-block:: python
-
-                marker = profiler.marker("foo")
-
-                @marker
-                def something_to_measure():
-                    ...
-
+            marker = profiler.marker("foo")
+            with marker:
                 something_to_measure()
+
+    #. Use a :class:`Marker` as a decorator:
+
+        .. code-block:: python
+
+            marker = profiler.marker("foo")
+
+            @marker
+            def something_to_measure():
+                ...
+
+            something_to_measure()
     """
 
     def __init__(self, profiler: Profiler, name: str, actions: Sequence[ProfilerAction], record_instant_on_start: bool,

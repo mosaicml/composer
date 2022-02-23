@@ -1,14 +1,14 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
-"""Profilers can be used to gather various metrics during a training run that can be used to diagnose performance
-bottlenecks and facilitate model development.
+"""The profiler gathers performance metrics during a training run that can be used to diagnose bottlenecks 
+and facilitate model development.
 
-The Composer profiling suite currently offers the following profilers:
+The metrics gathered include:
 
-* :class:`.Profiler`: Measure the time of each :class`.Event` during training.
-* :class:`.DataloaderProfiler`: Records the time it takes the data loader to return a batch by wrapping the original training and evaluation data loaders.
-* :class:`.SystemProfiler`: Records system level metrics such as CPU, system memory, disk and network utilization.
-* :class:`.TorchProfiler`: Integrates the Torch Profiler to record GPU stats using the Nvidia CUPI API.
+* Duration of each :class:`.Event` during training
+* Time taken by the data loader to return a batch
+* Host metrics such as CPU, system memory, disk and network utilization over time
+* Execution order, latency and attributes of PyTorch operators and GPU kernels (see :doc:`profiler`)
 
 The following example demonstrates how to setup and perform profiling on a simple training run.
 
