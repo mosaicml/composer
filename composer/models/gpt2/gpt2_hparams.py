@@ -33,6 +33,9 @@ class GPT2Hparams(TransformerHparams):
         else:
             raise ValueError('One of pretrained_model_name or model_config needed.')
 
+        # setup the tokenizer in the hparams interface
+        tokenizer = transformers.GPT2Tokenizer.from_pretrained(self.tokenizer_name)
+
         if self.use_pretrained:
             model = transformers.AutoModelForCausalLM.from_pretrained(self.pretrained_model_name)
         else:
@@ -41,6 +44,6 @@ class GPT2Hparams(TransformerHparams):
         return GPT2Model(
             module=model,
             config=config,  #type: ignore (thirdparty)
-            tokenizer_name=self.tokenizer_name,
+            tokenizer=tokenizer,
             gradient_checkpointing=self.gradient_checkpointing,
         )
