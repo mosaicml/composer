@@ -11,7 +11,7 @@ Using Callbacks
 ---------------
 
 Built-in callbacks can be accessed in :mod:`composer.callbacks`, and
-registered with the `callbacks` argument to the :class:`.Trainer`.
+registered with the ``callbacks`` argument to the :class:`.Trainer`.
 
 .. code:: python
 
@@ -30,7 +30,7 @@ This example includes callbacks that measure the model throughput (and
 the learning rate) and logs them to weights & biases.
 Callbacks control *what* is being logged, whereas loggers specify
 *where* the information is being saved. For more information on
-loggers, see :doc:`Logging</trainer/logging>`.
+loggers, see :doc:`Logging<logging>`.
 
 Available Callbacks
 -------------------
@@ -84,11 +84,10 @@ at every event. The below is an equivalent implementation for ``EpochMonitor``:
     If :meth:`.Callback.run_event` is overriden, the individual methods corresponding
     to each event will be ignored.
 
-Callback API
-------------
+Events
+------
 
-Here is the list of :class:`.Callback` methods that correspond to each
-|Event|.
+Here is the list supported |Event| for callbacks to hook into.
 
 .. currentmodule:: composer.core
 

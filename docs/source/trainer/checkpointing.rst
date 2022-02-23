@@ -241,13 +241,13 @@ Loading
 
 - ``load_path`` (``str``, `optional`): Path to a specific checkpoint to load. If not set (the default),
   then no checkpoint will be loaded. (default: ``None``)
-- ``load_object_store`` (:class:`.ObjectStoreProvider`, optional): For loading from object stores (e.g. S3),
+- ``load_object_store`` (:class:`.ObjectStoreProvider`, `optional``): For loading from object stores (e.g. S3),
   this will be used to download the checkpoint. Ignored if ``load_path`` is not specified. (default: ``None``)
 - ``load_weights_only`` (``bool``): Only load the model weights.  Ignored if ``load_path`` is not specified.
   (default: ``False``)
-- ``load_strict`` (bool): Ensure that the set of weights in the checkpoint and model must exactly match. Ignored if
+- ``load_strict`` (``bool``): Ensure that the set of weights in the checkpoint and model must exactly match. Ignored if
   ``load_path`` is not specified. (default: ``False``)
-- ``load_chunk_size`` (int): Chunk size (in bytes) to use when downloading checkpoints.
+- ``load_chunk_size`` (``int``): Chunk size (in bytes) to use when downloading checkpoints.
   Ignored if the ``load_path`` is not specified or it is a local file path. (default: ``1,048,675``)
 - ``load_progress_bar`` (``bool``): Display the progress bar for downloading the checkpoint. Ignored if
   ``load_path`` is not specified or if it is a local file path. (default: ``True``)
@@ -260,8 +260,8 @@ Saving
 - ``save_interval`` (``str`` or ``int``): How often to save checkpoints. For example, set to "1ep" to save checkpoints
   every epoch, or "10ba" to save checkpoints every 10 batches. An integer will be assumed to be epochs.
   (default: ``1ep``)
-- ``save_compression`` (``str``): Compression algorithm to run on checkpoints. Can be `gzip`, `bzip2`,
-  `lzma`, or left blank for no compression.  (default: ``""`` for no compression).
+- ``save_compression`` (``str``): Compression algorithm to run on checkpoints. Can be ``gzip``, ``bzip2``,
+  ``lzma``, or left blank for no compression.  (default: ``""`` for no compression).
 
 Object Store API
 ----------------

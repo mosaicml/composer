@@ -53,10 +53,10 @@ For example, the following are equivalent:
         schedulers = scheduler1
     )
 
-These schedulers typically read the `state.timer` to determine the trainer's progress
+These schedulers typically read the ``state.timer`` to determine the trainer's progress
 and return a learning rate multipler. Inside the Trainer, we convert these to
 :class:`torch.optim.lr_scheduler.LabmdaLR` schedulers. By default, our schedulers
-have `use_stepwise_scheduler=True`.
+have ``use_stepwise_scheduler=True``.
 
 Below are the supported schedulers found at :mod:`composer.optim.scheduler`.
 

@@ -213,9 +213,12 @@ and schedulers, but you can also include one of your own.
                      optimizer=optimizer,
                      scheduler=consine_annealing_scheduler)
 
-.. seealso::
+Composer's own custom schedulers are versions that support the
+:class:`.Time` abstraction. Time related inputs such as ``step``
+or ``T_max`` can be provided in many units, from epochs (``"10ep"``)
+to batches (``"2048ba"``) to duration (``"0.7dur"``). See
+:doc:`Schedulers`<optimizers_and_schedulers> for details.
 
-    :doc:`Schedulers`<optimizers_and_schedulers>
 
 Training on GPU
 ~~~~~~~~~~~~~~~
@@ -263,6 +266,17 @@ number of GPUs you'd like to use and your training script. Use
    # run training on 8 GPUs
    $ composer -n 8 run_trainer.py
 
+For multiple GPUs, the ``batch_size`` for each dataloader should be the
+per-device batch size. For example, to use a batch size of 2048, with
+data parallel across 8 GPUs, the dataloader should have ``batch_size=256``.
+
+
+.. warning::
+
+    If using distributed training, your dataloader use the
+    :mod:`torch.utils.data.distributed.DistributedSampler`.
+
+
 .. seealso::
 
     Our :doc:`Distributed Training<distributed_training>` guide and
@@ -296,6 +310,9 @@ DeepSpeed docs `here <https://www.deepspeed.ai/docs/config-json/>`__.
                          "amp": {"enabled": True},
                      })
 
+Providing an empty dictionary to deepspeed is also valid. The deepspeed
+defaults will be used and other fields (such as precision) inferred
+from the trainer.
 
 .. warning::
 
@@ -332,8 +349,8 @@ during training, but you can also implement your own.
 Numerics
 ~~~~~~~~
 
-The trainer automatically handles multiple precision types, either as `fp32` or for GPUs,
-`amp` for automatic mixed precision, which is pytorch's built-in methods of training
+The trainer automatically handles multiple precision types, either as ``fp32`` or for GPUs,
+``amp`` for automatic mixed precision, which is pytorch's built-in methods of training
 in 16-bit floating point. For more details on ``amp``, see :mod:`torch.cuda.amp` and
 the paper by `Micikevicius∗ et al, 2018 <https://arxiv.org/abs/1710.03740>`__
 
@@ -467,7 +484,7 @@ For first decides whether to use the context manager for
 :meth:`torch.nn.parallel.DistributedDataParallel.no_sync`, which
 disables the gradient synchronization for distributed training.
 
-The second carries out the iteration over the `batch`, broken
+The second carries out the iteration over the ``batch``, broken
 into microbatches (for gradient accumulation). This last
 method is where the forward and backward pass take place.
 

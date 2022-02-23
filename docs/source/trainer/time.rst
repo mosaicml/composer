@@ -45,10 +45,10 @@ the timer accumulates the total number of samples and/or tokens consumed.
 By default, we attempt to infer the number of samples in batch:
 
 - If :class:`torch.Tensor`, we return the size of the first dimension
-- If `list` or `tuple`, all elements must have the same first dimension size
-- If `dict`, all elements must have the same first dimension size
+- If ``list`` or ``tuple``, all elements must have the same first dimension size
+- If ``dict``, all elements must have the same first dimension size
 
-Users can supply their own `get_num_samples_in_batch` method to the trainer
+Users can supply their own ``get_num_samples_in_batch`` method to the trainer
 via the :class:`.DataSpec` for more complicated datasets:
 
 .. code:: python
