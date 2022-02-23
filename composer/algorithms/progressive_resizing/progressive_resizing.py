@@ -6,7 +6,7 @@ from __future__ import annotations
 
 import logging
 from functools import partial
-from typing import Optional, Tuple
+from typing import Optional, Tuple, Callable
 
 import torch
 import torch.nn.functional as F
@@ -64,30 +64,24 @@ def resize_batch(X: torch.Tensor,
     if scale_factor >= 1:
         return X, y
 
-    def resize_tensor(tensor: torch.Tensor) -> torch.Tensor:
-        # Reduce the size of input images, either via cropping or downsampling
-        if mode.lower() == "crop":
-            Hc = int(scale_factor * tensor.shape[2])
-            Wc = int(scale_factor * tensor.shape[3])
-            top = torch.randint(tensor.shape[2] - Hc, size=(1,))
-            left = torch.randint(tensor.shape[3] - Wc, size=(1,))
-            resize_transform = partial(transforms.functional.crop, top=top, left=left, height=Hc, width=Wc)
-        elif mode.lower() == "resize":
-            resize_transform = partial(F.interpolate, scale_factor=scale_factor, mode='nearest')
-        else:
-            raise ValueError(f"Progressive mode '{mode}' not supported.")
-        return resize_transform(tensor)
+    if mode.lower() == "crop":
+        resize_transform = _make_crop(tensor=X, scale_factor=scale_factor)
+    elif mode.lower() == "resize":
+        resize_transform = _make_resize(scale_factor=scale_factor)
+    else:
+        raise ValueError(f"Progressive mode '{mode}' not supported.")
+        return X, y
 
-    X_sized = resize_tensor(X)
+    X_sized = resize_transform(X)
     if resize_targets:
         if check_for_index_targets(y):
             # Add a dimension to match shape of the input and change type for resizing
             y_sized = y.float().unsqueeze(1)
-            y_sized = resize_tensor(y_sized)
+            y_sized = resize_transform(y_sized)
             # Convert back to original format for training
             y_sized = y_sized.squeeze(dim=1).to(y.dtype)
         else:
-            y_sized = resize_tensor(y)
+            y_sized = resize_transform(y)
     else:
         y_sized = y
     return X_sized, y_sized
@@ -191,3 +185,16 @@ class ProgressiveResizing(Algorithm):
                                              mode=self.mode,
                                              resize_targets=self.resize_targets)
         state.batch = (new_input, new_target)
+
+
+def _make_crop(tensor: torch.Tensor, scale_factor: float) -> Callable[[torch.Tensor], torch.Tensor]:
+    Hc = int(scale_factor * tensor.shape[2])
+    Wc = int(scale_factor * tensor.shape[3])
+    top = torch.randint(tensor.shape[2] - Hc, size=(1,))
+    left = torch.randint(tensor.shape[3] - Wc, size=(1,))
+    resize_transform = partial(transforms.functional.crop, top=top, left=left, height=Hc, width=Wc)
+    return resize_transform
+
+def _make_resize(scale_factor: int) -> Callable[[torch.Tensor], torch.Tensor]:
+    resize_transform = partial(F.interpolate, scale_factor=scale_factor, mode='nearest')
+    return resize_transform
