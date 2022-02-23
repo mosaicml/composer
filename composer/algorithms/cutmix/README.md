@@ -55,7 +55,7 @@ TODO(CORY): Briefly describe how this is implemented under the hood in Composer.
 
 ## Suggested Hyperparameters
 
-Setting `alpha=1` is a standard choice. This produces a uniform distribution, meaning `lambda` (the interpolation between the original batch and the mixed batch 
+Setting `alpha=1` is a standard choice. This produces a uniform distribution, meaning `lambda` (the interpolation between the labels of the two sets of examples) is selected uniformly between 0 and 1.
 
 ## Technical Details
 
