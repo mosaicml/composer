@@ -46,7 +46,7 @@ def image_as_type(image: _InputImgT, typ: Type[_OutputImgT]) -> _OutputImgT:
 
 
 def map_pillow_function(f_pil: Callable[[PillowImage], PillowImage], imgs: _OutputImgT) -> _OutputImgT:
-    """Lifts a function that requires pillow images to also work on tensors
+    """Lifts a function that requires pillow images to also work on tensors.
 
     Args:
         f_pil: a callable that takes maps :class:`PIL.Image.Image` objects
@@ -57,7 +57,6 @@ def map_pillow_function(f_pil: Callable[[PillowImage], PillowImage], imgs: _Outp
     Returns:
         The result of applying ``f_pil`` to each image in ``imgs``, converted
         back to the same type and (if applicable) tensor layout as ``imgs``.
-
     """
     single_image_input = not isinstance(imgs, Iterable)
     single_image_input |= isinstance(imgs, torch.Tensor) and imgs.ndim == 3
