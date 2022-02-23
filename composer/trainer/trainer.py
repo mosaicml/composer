@@ -709,7 +709,7 @@ class Trainer:
 
                     state.model.train()
 
-                    _dynamic_microbatch_wrapper(self.engine.run_event)(Event.AFTER_DATALOADER)
+                    self._engine_after_dataloader()
 
                     num_samples_in_batch = self.device.tensor_to_device(
                         torch.tensor([state.batch_num_samples], dtype=torch.int))
@@ -776,6 +776,10 @@ class Trainer:
 
             if self.checkpoint_saver and self.checkpoint_saver.should_checkpoint(state=state, event=Event.EPOCH_END):
                 self.checkpoint_saver.save_checkpoint(state=state, seed=self.seed, device=self.device)
+
+    @_dynamic_microbatch_wrapper
+    def _engine_after_dataloader(self):
+        self.engine.run_event(Event.AFTER_DATALOADER)
 
     @_dynamic_microbatch_wrapper
     def _compute_training_metrics(self, train_metrics: Metric):
