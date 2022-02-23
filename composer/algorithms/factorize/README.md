@@ -63,7 +63,7 @@ As such, we do not recommend training models with sequence lengths ≤256 or `tr
 ## Technical Details
 
 Based on ResNet-50 experiments, we have not observed Factorize to ever be helpful.
-Even with conservative settings like `min_channels=256`, `latent_channels-128`, we observe over a 1% accuracy loss and a small (<5%) throughput decrease, rather than increase.
+Even with conservative settings like `min_channels=256`, `latent_channels=128`, we observe over a 1% accuracy loss and a small (<5%) throughput decrease, rather than increase.
 We have provided this implementation and method card for informational purposes, since factorization is a popular technique in the research literature.
 
 > ❗ There is No Evidence that Factorization Improves Accuracy or Efficiency
