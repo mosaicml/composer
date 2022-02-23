@@ -189,7 +189,10 @@ class TrainerHparams(hp.Hparams):
         save_compression (str, optional): See :class:`.Trainer`.
         train_subset_num_batches (int, optional): See :class:`.Trainer`.
         eval_subset_num_batches (int, optional): See :class:`.Trainer`.
-        deepspeed_config (bool or Dict[str, Any], optional): See :class:`.Trainer`.
+        deepspeed_config (Dict[str, JSON], optional): If set to a dict will be used for as the DeepSpeed
+            config for training  (see :class:`.Trainer` for more details). If ``None`` will pass ``False``
+            to the trainer for the ``deepspeed_config`` parameter signaling that DeepSpeed will not be used
+            for training.
         profiler_trace_file (str, optional): See :class:`.Trainer`.
         prof_event_handlers (List[ProfilerEventHandlerHparams], optional): See :class:`.Trainer`.
         prof_skip_first (int, optional): See :class:`.Trainer`.
@@ -485,14 +488,10 @@ class TrainerHparams(hp.Hparams):
                 each training epoch may load a different subset of samples."""))
         train_data = self.train_dataset.initialize_object(train_device_batch_size, self.dataloader)
 
-        val_dataset_exists = self.val_dataset is not None
-        evaluators_exist = self.evaluators is not None and len(self.evaluators) > 0
-
         eval_device_batch_size = (self.eval_batch_size or 0) // dist.get_world_size()
 
         eval_dataloader = None
-
-        if val_dataset_exists:
+        if self.val_dataset is not None:
             if self.val_dataset.shuffle and self.eval_subset_num_batches is not None:
                 warnings.warn(
                     textwrap.dedent(f"""\
@@ -502,7 +501,7 @@ class TrainerHparams(hp.Hparams):
                         subset of samples."""))
             eval_dataloader = self.val_dataset.initialize_object(eval_device_batch_size, self.dataloader)
 
-        if evaluators_exist:
+        if self.evaluators is not None and len(self.evaluators) > 0:
             eval_dataloader = [
                 evaluator.initialize_object(model, eval_device_batch_size, self.dataloader)
                 for evaluator in self.evaluators
@@ -514,8 +513,10 @@ class TrainerHparams(hp.Hparams):
                     (set to {self.eval_subset_num_batches}), evaluator.dataloader.shuffle (for Evaluator: "{evaluator.label}") should be set to False. Otherwise,
                     each evaluation epoch may load a different subset of samples."""))
 
-        optimizers = self.optimizer.initialize_object(model.parameters())
+        optimizer = self.optimizer.initialize_object(model.parameters()) if self.optimizer is not None else None
         schedulers = [scheduler.initialize_object() for scheduler in self.schedulers]
+
+        deepspeed_config = self.deepspeed if self.deepspeed is not None else False
 
         trainer = Trainer(
             model=model,
@@ -523,7 +524,7 @@ class TrainerHparams(hp.Hparams):
             eval_dataloader=eval_dataloader,
             max_duration=self.max_duration,
             algorithms=algorithms,
-            optimizers=optimizers,
+            optimizers=optimizer,
             schedulers=schedulers,
 
             # device
@@ -588,7 +589,7 @@ class TrainerHparams(hp.Hparams):
             eval_subset_num_batches=self.eval_subset_num_batches,
 
             # DeepSpeed
-            deepspeed_config=self.deepspeed,
+            deepspeed_config=deepspeed_config,
         )
 
         return trainer

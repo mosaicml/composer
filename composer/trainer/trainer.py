@@ -255,6 +255,42 @@ class Trainer:
             (i.e. AWS S3 or Google Cloud Storage), an instance of :class:`.ObjectStoreProvider` which
             will be used to retreive the checkpoint. Otherwise, if the checkpoint is a local filepath,
             set to ``None``. Ignored if ``load_path`` is ``None``. (default: ``None``)
+
+            Example:
+
+            .. testsetup::
+
+                from composer.trainer._checkpoint import CheckpointLoader
+
+                CheckpointLoader.load_checkpoint = lambda *args, **kwargs: 0
+
+            .. testcode::
+
+                from composer import Trainer
+                from composer.utils import ObjectStoreProvider
+
+                # Create the object store provider with the specified credentials
+                creds = {"key": "object_store_key",
+                         "secret": "object_store_secret"}
+                store = ObjectStoreProvider(provider="s3",
+                                            container="my_container",
+                                            provider_init_kwargs=creds)
+
+                checkpoint_path = "/path_to_the_checkpoint_in_object_store"
+
+                # create a trainer which will load a checkpoint from the specified object store
+                trainer = Trainer(model=model,
+                                  train_dataloader=train_dataloader,
+                                  max_duration="10ep",
+                                  eval_dataloader=eval_dataloader,
+                                  optimizers=optimizer,
+                                  schedulers=scheduler,
+                                  device="cpu",
+                                  validate_every_n_epochs=1,
+                                  load_path=checkpoint_path,
+                                  load_object_store=store)
+
+
         load_weights_only (bool, optional): Whether or not to only restore the weights from the checkpoint without
             restoring the associated state. Ignored if ``load_path`` is ``None``. (default: ``False``)
         load_strict (bool, optional): Ensure that the set of weights in the checkpoint and model must exactly match.
@@ -693,7 +729,7 @@ class Trainer:
 
         .. seealso:: `DeepSpeed's documentation <https://www.deepspeed.ai/docs/config-json/>`_
         """
-        self._deepspeed_config is not None
+        return self._deepspeed_config is not None
 
     @property
     def saved_checkpoints(self) -> Dict[Timestamp, List[str]]:
@@ -708,6 +744,8 @@ class Trainer:
             the global rank's node. Otherwise, when not using DeepSpeed, this list will contain
             only one filepath since only rank zero saves checkpoints.
         """
+        assert self._checkpoint_saver is not None, \
+            "save_folder must be provided on trainer init in order to save checkpoints"
         return self._checkpoint_saver.saved_checkpoints
 
     @property
@@ -726,6 +764,8 @@ class Trainer:
                 is the start time of the run in iso-format, ``GLOBAL_RANK`` is the global rank of the process,
                 and ``save_folder`` is the save_folder argument provided upon construction.
         """
+        assert self._checkpoint_saver is not None, \
+            "save_folder must be provided on trainer init in order to save checkpoints"
         return self._checkpoint_saver.checkpoint_folder
 
     def fit(self):
