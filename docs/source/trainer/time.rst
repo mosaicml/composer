@@ -6,11 +6,11 @@ the training loop. We track several quantities (epochs, batches,
 samples, and tokens) throughout training. Values
 can be provided as a string:
 
-- epochs: `"10ep"`
-- batches: `"100ba"`
-- samples: `"2048sp"`
-- tokens: `"10242948tok"`
-- duration: `0.7dur` (treated as a fraction of the trainer's ``max_duration``)
+- epochs: ``"10ep"``
+- batches: ``"100ba"``
+- samples: ``"2048sp"``
+- tokens: ``"10242948tok"``
+- duration: ``0.7dur`` (treated as a fraction of the trainer's ``max_duration``)
 
 These above string inputs are valid when an argument accepts the |Time|
 type. There are some exceptions -- for example ``dur`` is not valid when setting
