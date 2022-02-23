@@ -709,7 +709,6 @@ class Trainer:
 
                     state.model.train()
 
-                    self.engine.run_event(Event.AFTER_DATALOADER)
                     _dynamic_microbatch_wrapper(self.engine.run_event)(Event.AFTER_DATALOADER)
 
                     num_samples_in_batch = self.device.tensor_to_device(
