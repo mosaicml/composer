@@ -101,6 +101,10 @@ extra_deps['deepspeed'] = [
     'deepspeed>=0.5.5',
 ]
 
+extra_deps['webdataset'] = [
+    'awscli>=1.22.60', 'wurlitzer>=3.0.2', 'webdataset @ git+https://github.com/mosaicml/webdataset.git@dev'
+]
+
 extra_deps['all'] = set(dep for deps in extra_deps.values() for dep in deps)
 
 setup(name="mosaicml",
