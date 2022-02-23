@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 import logging
+import pdb
 from functools import partial
 from typing import Optional, Tuple
 
@@ -170,7 +171,8 @@ class ProgressiveResizing(Algorithm):
         # Calculate the current size of the inputs to use
         initial_size = self.initial_scale
         finetune_fraction = self.finetune_fraction
-        scale_frac_elapsed = min([(state.epoch / state.max_epochs) / (1 - finetune_fraction), 1])
+        #scale_frac_elapsed = min([(state.epoch / state.max_epochs) / (1 - finetune_fraction), 1])
+        scale_frac_elapsed = min([(state.timer._epoch / state.max_duration)._value / (1 - finetune_fraction), 1])
 
         # Linearly increase to full size at the start of the fine tuning period
         scale_factor = initial_size + (1 - initial_size) * scale_frac_elapsed
