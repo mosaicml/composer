@@ -3,6 +3,7 @@
 import glob
 import os
 import random
+import textwrap
 from dataclasses import dataclass
 
 import numpy as np
@@ -257,8 +258,9 @@ def get_data_split(path: str):
         from sklearn.model_selection import KFold
     except ImportError as e:
         raise ImportError(
-            "Composer was installed without unet support. To use unet with Composer, run: `pip install mosaicml[unet]`."
-        ) from e
+            textwrap.dedent("""\
+            Composer was installed without unet support. To use timm with Composer, run `pip install mosaicml[unet]`
+            if using pip or `conda install -c conda-forge scikit-learn` if using Anaconda.""")) from e
 
     kfold = KFold(n_splits=5, shuffle=True, random_state=0)
     imgs = load_data(path, "*_x.npy")

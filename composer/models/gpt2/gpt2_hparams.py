@@ -1,6 +1,7 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
 import dataclasses
+import textwrap
 from typing import TYPE_CHECKING
 
 from composer.models.transformer_hparams import TransformerHparams
@@ -18,8 +19,9 @@ class GPT2Hparams(TransformerHparams):
             import transformers
         except ImportError as e:
             raise ImportError(
-                'Composer was installed without NLP support. To use GPT2 with Composer, run: `pip install mosaicml[nlp]`.'
-            ) from e
+                textwrap.dedent("""\
+                Composer was installed without NLP support. To use NLP with Composer, run `pip install mosaicml[nlp]`
+                if using pip or `conda install -c conda-forge transformers` if using Anaconda.""")) from e
         from composer.models.gpt2.model import GPT2Model
         self.validate()
 
@@ -30,6 +32,9 @@ class GPT2Hparams(TransformerHparams):
         else:
             raise ValueError('One of pretrained_model_name or model_config needed.')
 
+        # setup the tokenizer in the hparams interface
+        tokenizer = transformers.GPT2Tokenizer.from_pretrained(self.tokenizer_name)
+
         if self.use_pretrained:
             model = transformers.AutoModelForCausalLM.from_pretrained(self.pretrained_model_name)
         else:
@@ -38,6 +43,6 @@ class GPT2Hparams(TransformerHparams):
         return GPT2Model(
             module=model,
             config=config,  #type: ignore (thirdparty)
-            tokenizer_name=self.tokenizer_name,
+            tokenizer=tokenizer,
             gradient_checkpointing=self.gradient_checkpointing,
         )
