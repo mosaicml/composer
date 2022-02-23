@@ -7,10 +7,11 @@ The ResNet model family is a set of convolutional neural networks that can be us
 
 ## Example
 
-```python
-from composer.models import CIFAR10_ResNet56
+```{eval-rst}
+.. doctest::
 
-model = CIFAR10_ResNet56(num_classes=10)
+  >>> from composer.models import CIFAR10_ResNet56
+  >>> model = CIFAR10_ResNet56(num_classes=10)
 ```
 
 ## Architecture
@@ -48,12 +49,13 @@ optimizer:
     learning_rate: 1.2
     momentum: 0.9
     weight_decay: 1e-4
-lr_schedulers:
-  linear_warmup: "5ep"
-  multistep:
-    milestones:
-      - "80ep"
-      - "120ep"
+schedulers:
+  - multistep_with_warmup:
+      warmup_time: "5ep"
+      milestones:
+        - "80ep"
+        - "120ep"
+      gamma: 0.1
 train_batch_size: 1024
 max_duration: 16ep
 ```

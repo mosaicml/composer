@@ -9,13 +9,15 @@ Our codebase builds off of the Hugging Face *[Transformers](https://huggingface.
 
 ## Example
 
-```python
-import transformers
-from composer.models import GPT2Model
+```{eval-rst}
+.. doctest::
 
-model = GPT2Model(module=transformers.AutoModelForCausalLM.from_pretrained("gpt2"),
-                  config=transformers.GPT2Config.from_pretrained("gpt2"),
-                  tokenizer_name="gpt2")
+  >>> import transformers
+  >>> from composer.models import GPT2Model
+  >>> model = GPT2Model(module=transformers.AutoModelForCausalLM.from_pretrained("gpt2"),
+  ...                   config=transformers.GPT2Config.from_pretrained("gpt2"),
+  ...                   tokenizer_name="gpt2")
+  >>>
 ```
 
 ## Architecture
@@ -66,16 +68,8 @@ optimizer:
     eps: 1.0e-08
     weight_decay: 0.0
 schedulers:
-  - warmup:
-    warmup_method: linear
-    warmup_factor: 0
-    interval: step
-    warmup_iters: 140ba # ba = batches
-  - cosine_decay:
-    interval: step
-    eta_min: 0
-    verbose: false
-    T_max: 13860ba
+  - cosine_decay_with_warmup:
+      warmup_time: 140ba
 train_batch_size: 512
 ```
 

@@ -7,10 +7,11 @@ The EfficientNet model family is a set of convolutional neural networks that can
 
 ## Example
 
-```python
-from composer.models import EfficientNetB0
+```{eval-rst}
+.. doctest::
 
-model = EfficientNetB0(num_classes=1000, drop_connect_rate=0.2)
+  >>> from composer.models import EfficientNetB0
+  >>> model = EfficientNetB0(num_classes=1000, drop_connect_rate=0.2)
 ```
 
 ## Architecture
@@ -51,17 +52,8 @@ optimizer:
     eps: 0.01
     weight_decay: 1.0e-5
 schedulers:
-  - warmup:
-      warmup_iters: "16ep"
-      warmup_method: linear
-      warmup_factor: 0
-      verbose: false
-      interval: step
-  - cosine_decay:
-      T_max: "384ep"
-      eta_min: 0
-      verbose: false
-      interval: step
+  - cosine_decay_with_warmup:
+      warmup_time: "16ep"
 train_batch_size: 4096
 max_duration: 400ep
 ```

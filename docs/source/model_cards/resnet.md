@@ -7,10 +7,11 @@ The ResNet model family is a set of convolutional neural networks that can be us
 
 ## Example
 
-```python
-from composer.models import ComposerResNet
+```{eval-rst}
+.. doctest::
 
-model = ComposerResNet(model_name="resnet50", num_classes=1000, pretrained=False)
+  >>> from composer.models import ComposerResNet
+  >>> model = ComposerResNet(model_name="resnet50", num_classes=1000, pretrained=False)
 ```
 
 ## Architecture
@@ -45,13 +46,9 @@ optimizer:
     learning_rate: 2.048
     momentum: 0.875
     weight_decay: 5e-4
-lr_schedulers:
-  linear_warmup: "8ep"
-  cosine_decay:
-      T_max: "82ep"
-      eta_min: 0
-      verbose: false
-      interval: step
+schedulers:
+  - cosine_decay_with_warmup:
+      warmup_time: "8ep"
 train_batch_size: 2048
 max_duration: 90ep
 ```
