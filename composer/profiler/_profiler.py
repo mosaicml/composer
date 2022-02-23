@@ -153,24 +153,10 @@ class Profiler:
                 Defaults to False.
             record_instant_on_finish (bool, optional): Whether to record an instant event whenever the marker is finished.
                 Defaults to False.
-            categories (Union[List[str], Tuple[str, ...]], optional): Categories for this marker. Defaults to tuple().
+            categories (Union[List[str], Tuple[str, ...]], optional): Categories for this marker. Defaults to no categories.
 
         Returns:
             Marker: Instance of :class:`Marker`.
-        """
-        """
-
-
-
-        Args:
-            name (str): 
-            actions (Sequence[ProfilerAction], optional): 
-            record_instant_on_start (bool, optional): 
-            record_instant_on_finish (bool, optional): 
-            categories (List[str] | Tuple[str, ...], optional): 
-
-        Returns:
-            Marker: [description]
         """
         if name not in self._names_to_markers:
             self._names_to_markers[name] = Marker(
@@ -293,23 +279,35 @@ class Marker:
 
     #. Use a :class:`Marker` with a context manager:
 
-        .. code-block:: python
+        .. testsetup::
 
-            marker = profiler.marker("foo")
-            with marker:
-                something_to_measure()
+            from composer.profiler import Profiler
+            profiler = Profiler(state=state)
+
+        .. doctest::
+
+            >>> def something_to_measure():
+            ...     print("something_to_measure")
+            >>> marker = profiler.marker("foo")
+            >>> with marker:
+            ...     something_to_measure()
+            something_to_measure
 
     #. Use a :class:`Marker` as a decorator:
 
-        .. code-block:: python
+        .. testsetup::
 
-            marker = profiler.marker("foo")
+            from compoesr.profiler import Profiler
+            profiler = Profiler(state=state)
 
-            @marker
-            def something_to_measure():
-                ...
+        .. doctest::
 
-            something_to_measure()
+            >>> marker = profiler.marker("foo")
+            >>> @marker
+            ... def something_to_measure():
+            ...     print(something_to_measure)
+            >>> something_to_measure()
+            something_to_measure
     """
 
     def __init__(self, profiler: Profiler, name: str, actions: Sequence[ProfilerAction], record_instant_on_start: bool,

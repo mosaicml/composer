@@ -25,7 +25,7 @@ To activate the :class:`.TorchProfiler`, the ``torch_profiler_trace_dir`` must b
 The ``torch_profiler_trace_dir`` will contain the Torch Profiler traces once the profiling run completes.  The :class:`.Profiler` will
 automatically merge the Torch traces in the ``torch_profiler_trace_dir`` into the ``profiler_trace_file``, allowing users to view a unified trace.
 
-The complete traces can be viewed by in a Google Chrome browser navigating to ``chrome://tracing`` and opening the ``profiler_trace_file``.
+The complete traces can be viewed by in a Google Chrome browser navigating to ``chrome://tracing`` and loading the ``profiler_trace_file``.
 Here is an example trace file:
 
 .. image:: https://storage.googleapis.com/docs.mosaicml.com/images/profiler/profiler_trace_example.png

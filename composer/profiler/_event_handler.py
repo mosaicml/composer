@@ -48,8 +48,8 @@ class ProfilerEventHandler(Callback, abc.ABC):
             is_start (bool): Whether the event is a start event or end event.
             timestamp (Timestamp): Snapshot of the training time.
             wall_clock_time_ns (int): The :py:func:`time.time_ns` corresponding to the event.
-            global_rank (int): The `global_rank` corresponding to the event.
-            pid (int): The `pid` corresponding to the event.
+            global_rank (int): The ``global_rank`` corresponding to the event.
+            pid (int): The ``pid`` corresponding to the event.
         """
         del name, categories, is_start, timestamp, wall_clock_time_ns, global_rank, pid  # unused
         pass
@@ -70,8 +70,8 @@ class ProfilerEventHandler(Callback, abc.ABC):
             categories (List[str] | Tuple[str, ...]): The categories for the event.
             timestamp (Timestamp): Snapshot of current training time.
             wall_clock_time_ns (int): The :py:func:`time.time_ns` corresponding to the event.
-            global_rank (int): The `global_rank` corresponding to the event.
-            pid (int): The `pid` corresponding to the event.
+            global_rank (int): The ``global_rank`` corresponding to the event.
+            pid (int): The ``pid`` corresponding to the event.
         """
         del name, categories, timestamp, wall_clock_time_ns, global_rank, pid  # unused
         pass
@@ -91,9 +91,9 @@ class ProfilerEventHandler(Callback, abc.ABC):
             name (str): The name of the event.
             categories (List[str] | Tuple[str, ...]): The categories for the event.
             wall_clock_time_ns (int): The :py:func:`time.time_ns` corresponding to the event.
-            global_rank (int): The `global_rank` corresponding to the event.
-            pid (int): The `pid` corresponding to the event.
-            values (Dict[str, int | float]): The values corresponding to this counter event
+            global_rank (int): The ``global_rank`` corresponding to the event.
+            pid (int): The ``pid`` corresponding to the event.
+            values (Dict[str, int | float]): The values corresponding to this counter event.
         """
         del name, categories, wall_clock_time_ns, global_rank, pid, values  # unused
         pass

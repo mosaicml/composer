@@ -6,13 +6,12 @@ __all__ = ["ProfilerAction"]
 
 
 class ProfilerAction(StringEnum):
-    """Action states for the :class:`Profiler`.
+    """Action states for the :class:`Profiler` that define whether or not events are being recorded to the trace file.
 
     Attributes:
-        SKIP: Not currently recording new events at the batch level or below.
-            However, any open duration events will still be closed.
-        WARMUP: The profiler
-        ACTIVE: Record all events.
+        SKIP: Do not record new events to the trace.  Any events started during ``ACTIVE`` or ``WARMUP`` will be recorded upon finish.
+        WARMUP: Record all events to the trace `except` those requiring a warmup period to initialize data structures (e.g., :doc:`profiler`).
+        ACTIVE: Record all events to the trace.
     """
     SKIP = "skip"
     WARMUP = "warmup"

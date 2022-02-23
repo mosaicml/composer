@@ -15,6 +15,7 @@ import argparse
 import json
 from typing import Dict, List, Tuple, Union
 
+__all__ = ["merge_traces"]
 
 def _load_trace(file: str) -> Union[Dict, List]:
     with open(file, "r") as f:
@@ -59,16 +60,13 @@ def _get_rank_to_clock_syncs(trace_files: Tuple[str, ...]) -> Dict[int, int]:
 
 
 def merge_traces(output_file: str, *trace_files: str):
-    """Merge trace files together.
-
-    Each trace file must contain ``global_rank`` in the metadata, and
-    one trace file per rank must contain ``clock_sync_timestamp_us`` in the metadata.
+    """Merge profiler output JSON trace files together.
 
     This function will update the trace events such that:
 
     - The ``pid`` will be set to the global rank.
     - The ``ts`` is syncronized with that of the rank 0 process.
-    - Ensures that the backward process is one below the forward process
+    - Ensures that the backward process appears below the forward process
 
     Args:
         output_file (str): The file to write the merged trace to
