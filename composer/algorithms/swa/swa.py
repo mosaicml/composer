@@ -31,7 +31,7 @@ class SWA(Algorithm):
     memory required doubles, however, since stored activations and the
     optimizer state are not doubled.
 
-    Uses PyTorch's `torch.optim.swa_util 
+    Uses PyTorch's `torch.optim.swa_util
     <https://pytorch.org/docs/stable/optim.html#stochastic-weight-averaging>`_ under the
     hood.
 
@@ -59,7 +59,7 @@ class SWA(Algorithm):
         swa_start (str, optional): The time string denoting the amount of training
             completed before stochastic weight averaging begins. Currently only units of
             duration ('dur') and epoch ('ep') are supported. Defalt = ``'0.7dur'``.
-        swa_end (str, optional): The time string denoting the amount of training 
+        swa_end (str, optional): The time string denoting the amount of training
             completed before the baseline (non-averaged) model is replaced with the
             stochastic weight averaged model. It's important to have at least one epoch
             of training after the baseline model is replaced by the SWA model so that the
