@@ -307,7 +307,7 @@ DeepSpeed docs `here <https://www.deepspeed.ai/docs/config-json/>`__.
                      device='gpu',
                      deepspeed_config={
                          "train_batch_size": 2048,
-                         "amp": {"enabled": True},
+                         "fp16": {"enabled": True},
                      })
 
 Providing an empty dictionary to deepspeed is also valid. The deepspeed

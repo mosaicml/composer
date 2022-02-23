@@ -87,6 +87,31 @@ information will be restored from the checkpoint and
 The above code will load the checkpoint from epoch 25, and continue training
 for another 65 epochs (to reach 90 epochs total).
 
+Different ``model`` or ``optimizer`` objects passed into the trainer when
+resume will be respected. However, an error will be raised if the weights or
+state from the checkpoint are not compatible with these new objects.
+
+..note ::
+
+    Only the following attributes from :class:`.State` will be serialized and loaded:
+
+    .. code:: python
+
+        serialized_attributes = [
+                "model",
+                "optimizers",
+                "schedulers",
+                "algorithms",
+                "callbacks",
+                "scaler",
+                "timer",
+            ]
+
+    All other trainer arguments (e.g. ``max_duration`` or ``precision``) will use
+    the defaults or what is passed in during the trainer creation.
+
+
+
 Fine-tuning
 -----------
 
