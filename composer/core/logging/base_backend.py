@@ -18,10 +18,11 @@ __all__ = ["LoggerCallback"]
 
 
 class LoggerCallback(Callback, ABC):
-    """Base class for logger callback. This is a :class:`~.callback.Callback` with an
-    additional interface for logging metrics, :func:`log_metric`. Custom loggers should
-    extend this class. Data to be logged should be of the type :attr:`~.logger.TLogData`
-    (i.e. a ``{'name': value}`` mapping).
+    """Base class for logger callback.
+
+    This is a :class:`~.callback.Callback` with an additional interface for logging metrics, :func:`log_metric`. Custom
+    loggers should extend this class. Data to be logged should be of the type :attr:`~.logger.TLogData` (i.e. a
+    ``{'name': value}`` mapping).
     """
 
     def __init__(self):
@@ -46,8 +47,7 @@ class LoggerCallback(Callback, ABC):
         return True
 
     def log_metric(self, timestamp: Timestamp, log_level: LogLevel, data: TLogData):
-        """Called by the :class:`~.logging.logger.Logger` for metrics where :func:`will_log` returned
-        ``True``.
+        """Called by the :class:`~.logging.logger.Logger` for metrics where :func:`will_log` returned ``True``.
 
         The logger callback should override this function to log the data
         (e.g. write it to a file, send it to a server, etc...).
