@@ -212,11 +212,12 @@ class RunDirectoryUploader(Callback):
         modified_files = run_directory.get_modified_files(self._last_upload_timestamp)
         for filepath in modified_files:
             copied_path = os.path.join(self._upload_staging_folder, str(uuid.uuid4()))
-            files_to_be_uploaded.append(os.path.relpath(filepath, run_directory.get_run_directory()))
+            file_key_name = os.path.relpath(filepath, run_directory.get_run_directory())
+            files_to_be_uploaded.append(file_key_name)
             copied_path_dirname = os.path.dirname(copied_path)
             os.makedirs(copied_path_dirname, exist_ok=True)
             shutil.copy2(filepath, copied_path)
-            self._file_upload_queue.put_nowait((copied_path, filepath))
+            self._file_upload_queue.put_nowait((copied_path, file_key_name))
 
         self._last_upload_timestamp = new_last_uploaded_timestamp
         if logger is not None and log_level is not None:
@@ -234,26 +235,12 @@ class RunDirectoryUploader(Callback):
         Returns:
             str: The uri corresponding to the upload location of the file.
         """
-        obj_name = _get_obj_name_for_local_file(self._object_name_prefix, local_filepath)
+        rel_to_run_dir = os.path.relpath(local_filepath, run_directory.get_run_directory())
+        obj_name = self._object_name_prefix + rel_to_run_dir
         provider_name = self._object_store_provider_hparams.provider
         container = self._object_store_provider_hparams.container
         provider_prefix = f"{provider_name}://{container}/"
         return provider_prefix + obj_name.lstrip("/")
-
-
-def _get_obj_name_for_local_file(object_name_prefix: str, local_filepath: Union[pathlib.Path, str]) -> str:
-    """Get the object store provider object name for a particular local file.
-
-    Args:
-        object_name_prefix (str): The user-provided prefix for the object name.
-        local_filepath (str):
-
-    Returns:
-        str: The object name.
-    """
-    # chop off the run directory
-    rel_to_run_dir = os.path.relpath(local_filepath, run_directory.get_run_directory())
-    return object_name_prefix + rel_to_run_dir
 
 
 def _validate_credentials(
@@ -291,13 +278,13 @@ def _upload_worker(
     provider = object_store_provider_hparams.initialize_object()
     while True:
         try:
-            file_path_to_upload, full_local_path = file_queue.get(block=True, timeout=0.5)
+            file_path_to_upload, object_store_name = file_queue.get(block=True, timeout=0.5)
         except queue.Empty:
             if is_finished.is_set():
                 break
             else:
                 continue
-        obj_name = _get_obj_name_for_local_file(object_name_prefix, full_local_path)
+        obj_name = object_name_prefix + object_store_name
         log.info("Uploading file %s to %s://%s/%s", file_path_to_upload, provider.provider_name,
                  provider.container_name, obj_name)
         retry_counter = 0
