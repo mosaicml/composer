@@ -84,8 +84,8 @@ class Trainer:
             If ``None``, will be set to ``DecoupledSGDW(model.parameters(), lr=0.1)``. (default: ``None``)
 
             .. seealso:: :mod:`composer.optim` for the different optimizers built into Composer.
-        schedulers: (Schedulers, optional): The learning rate schedulers. If ``None``, will be set to
-            ``[CosineAnnealingLR()]``. (default: ``None``).
+        schedulers: (Schedulers, optional): The learning rate schedulers. If ``[]`` or ``None``, will be set to
+            ``[constant_scheduler]``. (default: ``None``).
 
             .. seealso:: :mod:`composer.optim.scheduler` for the different schedulers built into Composer.
         device (str or Device, optional): The device to use for training. Either ``cpu`` or ``gpu``.
