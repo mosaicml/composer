@@ -173,7 +173,7 @@ class JpgClsWebDatasetHparams(WebDatasetHparams, SyntheticHparamsMixin):
             if num_shards % num_workers_global != 0:
                 raise ValueError(f"{num_shards=} must be divisible by {num_workers_global=}!")
 
-            # Set IterableDatset epoch boundary and length for DDP, PyTorch Dataloader compatability
+            # Set IterableDataset epoch boundary and length for DDP, PyTorch Dataloader compatability
             shards_per_worker = num_shards // num_devices // num_workers_per_device
             expected_samples_per_worker = samples_per_shard * shards_per_worker
             if self.drop_last:
