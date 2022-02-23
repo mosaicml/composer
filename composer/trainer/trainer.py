@@ -47,6 +47,36 @@ if TYPE_CHECKING:
 
 log = logging.getLogger(__name__)
 
+def _dynamic_microbatch_wrapper(func: Callable) -> Callable:
+    """Wraps function to catch CUDA Out of Memory Errors and adaptively change microbatch
+    size if enabled to miaximize GPU usage.
+    """
+    # TODO: switch batch_num_samples with new state variable
+    def wrapper(*args, **kwargs):
+        self = args[0]
+        # Skip adaption if not enabled
+        if not self.adaptive_grad_accum:
+            return func
+        rerun = True
+        while rerun:
+            try:
+                rerun = False
+                return func(*args, **kwargs)
+            except RuntimeError as e:
+                if "CUDA out of memory" in str(e):
+                    # Raise runtime error if training 1 sample at a time still resulted in CUDA out of memory
+                    if self.state.grad_accum == self.state.batch_num_samples:
+                        raise RuntimeError(
+                            "CUDA out of memory. Train loop failed with an internal microbatch of size 1")
+                    else:
+                        rerun = True
+                        self.state.grad_accum = min(2 * self.state.grad_accum, self.state.batch_num_samples)
+                        self.logger.metric_batch({'trainer/grad_accum': self.state.grad_accum})
+                else:
+                    # If not CUDA out of memory, raise exception to user. Note that this
+                    # truncates the call stack back only to this newly raised error
+                    raise RuntimeError(e)
+    return wrapper
 
 class Trainer:
     """Trainer for training a model with algorithms.
@@ -680,6 +710,7 @@ class Trainer:
                     state.model.train()
 
                     self.engine.run_event(Event.AFTER_DATALOADER)
+                    _dynamic_microbatch_wrapper(self.engine.run_event)(Event.AFTER_DATALOADER)
 
                     num_samples_in_batch = self.device.tensor_to_device(
                         torch.tensor([state.batch_num_samples], dtype=torch.int))
@@ -746,37 +777,6 @@ class Trainer:
 
             if self.checkpoint_saver and self.checkpoint_saver.should_checkpoint(state=state, event=Event.EPOCH_END):
                 self.checkpoint_saver.save_checkpoint(state=state, seed=self.seed, device=self.device)
-
-    def _dynamic_microbatch_wrapper(func: Callable) -> Callable:
-        """Wraps function to catch CUDA Out of Memory Errors and adaptively change microbatch
-        size if enabled to miaximize GPU usage.
-        """
-        # TODO: switch batch_num_samples with new state variable
-        def wrapper(*args, **kwargs):
-            self = args[0]
-            # Skip adaption if not enabled
-            if not self.adaptive_grad_accum:
-                return func
-            rerun = True
-            while rerun:
-                try:
-                    rerun = False
-                    return func(*args, **kwargs)
-                except RuntimeError as e:
-                    if "CUDA out of memory" in str(e):
-                        # Raise runtime error if training 1 sample at a time still resulted in CUDA out of memory
-                        if self.state.grad_accum == self.state.batch_num_samples:
-                            raise RuntimeError(
-                                "CUDA out of memory. Train loop failed with an internal microbatch of size 1")
-                        else:
-                            rerun = True
-                            self.state.grad_accum = min(2 * self.state.grad_accum, self.state.batch_num_samples)
-                            self.logger.metric_batch({'trainer/grad_accum': self.state.grad_accum})
-                    else:
-                        # If not CUDA out of memory, raise exception to user. Note that this
-                        # truncates the call stack back only to this newly raised error
-                        raise RuntimeError(e)
-        return wrapper
 
     @_dynamic_microbatch_wrapper
     def _compute_training_metrics(self, train_metrics: Metric):
@@ -861,7 +861,6 @@ class Trainer:
         current_batch_size = sum([self._train_data_spec.get_num_samples_in_batch(batch) for batch in microbatches])
 
         for microbatch_idx, state.batch in enumerate(microbatches):
-            state.batch_num_tokens = self._train_data_spec.get_num_tokens_in_batch(state.batch)
             micro_batch_num_samples = self._train_data_spec.get_num_samples_in_batch(state.batch)
             is_final_microbatch = microbatch_idx + 1 == len(microbatches)
             sync_context = contextlib.nullcontext() if self.deepspeed_enabled else ddp_sync_context(
