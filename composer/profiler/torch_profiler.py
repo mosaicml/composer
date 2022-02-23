@@ -19,7 +19,6 @@ from composer.utils import dist, run_directory
 
 __all__ = ["TorchProfiler"]
 
-
 _PROFILE_MISSING_ERROR = "The profiler has not been setup. Please call profiler.init() before training starts."
 
 

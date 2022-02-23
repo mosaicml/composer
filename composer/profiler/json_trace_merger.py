@@ -17,6 +17,7 @@ from typing import Dict, List, Tuple, Union
 
 __all__ = ["merge_traces"]
 
+
 def _load_trace(file: str) -> Union[Dict, List]:
     with open(file, "r") as f:
         trace_str = f.read().strip()

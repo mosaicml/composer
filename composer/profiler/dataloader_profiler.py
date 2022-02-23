@@ -17,6 +17,7 @@ if TYPE_CHECKING:
 
 __all__ = ["DataloaderProfiler"]
 
+
 class _ProfiledDataLoader(WrappedDataLoader):
     """Wraps a dataloader to record the duration it takes to yield a batch. This class should not be instantiated
     directly.
