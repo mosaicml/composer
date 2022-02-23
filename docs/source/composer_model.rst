@@ -192,10 +192,10 @@ Integrate with your favorite `TIMM`_ models with our :class:`.TIMM` class.
 
    timm_model = Timm(model_name='resnet50', pretrained=True)
 
-BERT Example with 🤗 Transformers
+BERT Example with 🤗 Transformers
 ---------------------------------
 
-In this example, we create a BERT model, loading from 🤗Transformers,
+In this example, we create a BERT model, loading from 🤗 Transformers,
 and create a model that is compatible with our trainer.
 
 .. code:: python

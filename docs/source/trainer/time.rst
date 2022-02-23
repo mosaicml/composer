@@ -6,11 +6,11 @@ the training loop. We track several quantities (epochs, batches,
 samples, and tokens) throughout training. Values
 can be provided as a string:
 
-- epochs: `"10ep"`
-- batches: `"100ba"`
-- samples: `"2048sp"`
-- tokens: `"10242948tok"`
-- duration: `0.7dur` (treated as a fraction of the trainer's ``max_duration``)
+- epochs: ``"10ep"``
+- batches: ``"100ba"``
+- samples: ``"2048sp"``
+- tokens: ``"10242948tok"``
+- duration: ``0.7dur`` (treated as a fraction of the trainer's ``max_duration``)
 
 These above string inputs are valid when an argument accepts the |Time|
 type. There are some exceptions -- for example ``dur`` is not valid when setting
@@ -45,10 +45,10 @@ the timer accumulates the total number of samples and/or tokens consumed.
 By default, we attempt to infer the number of samples in batch:
 
 - If :class:`torch.Tensor`, we return the size of the first dimension
-- If `list` or `tuple`, all elements must have the same first dimension size
-- If `dict`, all elements must have the same first dimension size
+- If ``list`` or ``tuple``, all elements must have the same first dimension size
+- If ``dict``, all elements must have the same first dimension size
 
-Users can supply their own `get_num_samples_in_batch` method to the trainer
+Users can supply their own ``get_num_samples_in_batch`` method to the trainer
 via the :class:`.DataSpec` for more complicated datasets:
 
 .. code:: python

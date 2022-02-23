@@ -22,7 +22,7 @@ The Composer :class:`.Trainer` implements a highly-optimized PyTorch training lo
 
 Below are simple examples for getting started with the Composer Trainer
 along with code snippets for more advanced usage such as using speedup
-methods, checkpointing, distributed training.
+methods, checkpointing, and distributed training.
 
 Getting Started
 ---------------
@@ -68,7 +68,7 @@ objects.
    trainer = Trainer(model=ResNet18(),
                      train_dataloader=train_dataloader,
                      eval_dataloader=eval_dataloader,
-                                 optimizers=torch.optim.Adam(lr=0.01),
+                     optimizers=torch.optim.Adam(lr=0.01),
                      max_duration=10,  # epochs
                      device='gpu')
 
@@ -83,15 +83,16 @@ A few tips and tricks for using our Trainer:
 -  For time-related inputs, such as the ``max_duration`` above, we
    support both an integer (which we assume is epochs), or as a string.
    For example, ``"10ba"`` means 10 minibatches or steps, and ``"10ep"``
-   denotes 10 epochs.
+   denotes 10 epochs. See: :class:`.Time`.
 -  If you are using gradient accumulation, the ``batch_size`` in your
-   dataloaders should be the macrobatch size — the batch size of your
+   dataloaders should be the per-device macrobatch size — the batch size of your
    optimization update. For example, with ``grad_accum=2`` and
    ``batch_size=2048`` , the train runs through two microbatches of 1024
    each, then performs a gradient update step.
 -  At any time, most of the relevant quantities for debugging are
    centralized into one variable: :class:`.State`.
--  We have an easy abstraction of tracking :class:`.Time`, see the Time guide.
+-  We have an abstraction for tracking :class:`.Time`, see the
+   :doc:`Time<time>` guide.
 
 For a full list of Trainer options, see :class:`.Trainer`. Below, we
 illustrate some example use cases.
@@ -120,7 +121,7 @@ interacts with the :class:`.ComposerModel` is as follows:
        outputs, targets = model.validate(batch)
        metrics.update(outputs, target)
 
-For the actual code, see :meth:`.Trainer._train_batch_inner` and the :meth:`.Trainer.eval` methods.
+For the actual code, see :meth:`.Trainer.fit` and the :meth:`.Trainer.eval` methods.
 
 Quick Tour
 ----------
@@ -151,7 +152,7 @@ various events above.
 
 .. seealso::
 
-    :doc:`Events<trainer/events>` and :class:`.State`
+    :doc:`Events<events>` and :class:`.State`
 
 Algorithms
 ~~~~~~~~~~
@@ -189,7 +190,7 @@ right order.
 
 
 Optimizers & Schedulers
------------------------
+~~~~~~~~~~~~~~~~~~~~~~~
 
 You can easily specify which optimizer and learning rate scheduler to
 use during training. Composer provides a library of various optimizers
@@ -212,9 +213,12 @@ and schedulers, but you can also include one of your own.
                      optimizer=optimizer,
                      scheduler=consine_annealing_scheduler)
 
-.. seealso::
+Composer's own custom schedulers are versions that support the
+:class:`.Time` abstraction. Time related inputs such as ``step``
+or ``T_max`` can be provided in many units, from epochs (``"10ep"``)
+to batches (``"2048ba"``) to duration (``"0.7dur"``). See
+:doc:`Schedulers`<optimizers_and_schedulers> for details.
 
-    :doc:`Schedulers`<trainer/optimizers_and_schedulers>
 
 Training on GPU
 ~~~~~~~~~~~~~~~
@@ -250,7 +254,7 @@ the ``torch.distributed`` setup for you.
                      train_dataloader=train_dataloader,
                      eval_dataloader=eval_dataloader,
                      max_duration='160ep',
-                                       device='gpu')
+                     device='gpu')
    trainer.fit()
 
 Access the Composer launcher via the ``composer`` command along with the
@@ -260,11 +264,22 @@ number of GPUs you'd like to use and your training script. Use
 .. code:: bash
 
    # run training on 8 GPUs
-   >>> composer -n 8 run_trainer.py
+   $ composer -n 8 run_trainer.py
+
+For multiple GPUs, the ``batch_size`` for each dataloader should be the
+per-device batch size. For example, to use a batch size of 2048, with
+data parallel across 8 GPUs, the dataloader should have ``batch_size=256``.
+
+
+.. warning::
+
+    If using distributed training, your dataloader use the
+    :mod:`torch.utils.data.distributed.DistributedSampler`.
+
 
 .. seealso::
 
-    Our :doc:`Distributed Training<trainer/distributed_training>` guide and
+    Our :doc:`Distributed Training<distributed_training>` guide and
     the :mod:`composer.utils.dist` module.
 
 
@@ -292,9 +307,12 @@ DeepSpeed docs `here <https://www.deepspeed.ai/docs/config-json/>`__.
                      device='gpu',
                      deepspeed_config={
                          "train_batch_size": 2048,
-                         "amp": {"enabled": True},
+                         "fp16": {"enabled": True},
                      })
 
+Providing an empty dictionary to deepspeed is also valid. The deepspeed
+defaults will be used and other fields (such as precision) inferred
+from the trainer.
 
 .. warning::
 
@@ -325,15 +343,18 @@ during training, but you can also implement your own.
 
 .. seealso::
 
-    The :doc:`Callbacks<trainer/callbacks>` guide and :mod:`composer.callbacks`.
+    The :doc:`Callbacks<callbacks>` guide and :mod:`composer.callbacks`.
 
 
 Numerics
 ~~~~~~~~
 
-Using `mixed precision <https://arxiv.org/abs/1710.03740>`__ can speed up your training loop and only requires
-setting the ``precision`` parameter in the trainer. Note that ``amp``
-only works if training on a GPU.
+The trainer automatically handles multiple precision types, either as ``fp32`` or for GPUs,
+``amp`` for automatic mixed precision, which is pytorch's built-in methods of training
+in 16-bit floating point. For more details on ``amp``, see :mod:`torch.cuda.amp` and
+the paper by `Micikevicius∗ et al, 2018 <https://arxiv.org/abs/1710.03740>`__
+
+We recommend using ``amp`` on GPUs to accelerate your training.
 
 .. code:: python
 
@@ -389,7 +410,7 @@ points during training and (2) load them back to resume training later.
 
 .. seealso::
 
-    The :doc:`Checkpointing<trainer/checkpointing>` guide.
+    The :doc:`Checkpointing<checkpointing>` guide.
 
 
 This was just a quick tour of all the features within our trainer. Please see the other
@@ -400,7 +421,7 @@ Annotated Trainer Loop
 
 Our :class:`.Trainer` code is meant to be easily readable and understood. In this section,
 we walk you through the logic flow of the training loop code, from :meth:`.Trainer.fit`
-down to the `backward()` call.
+down to the :meth:`~torch.tensor.backward` call.
 
 In pseudocode, the trainer is organized as follows:
 
@@ -413,7 +434,7 @@ In pseudocode, the trainer is organized as follows:
             self.engine.close()
 
 
-The method `_train_loop()` sets up the training, loads any
+The method ``_train_loop()`` sets up the training, loads any
 provided checkpoints, and then runs the training:
 
 
@@ -458,12 +479,12 @@ provided checkpoints, and then runs the training:
                 eval()
 
 
-Remaining are two methods: `_train_batch` and `_train_batch_inner`.
+Remaining are two methods: ``_train_batch`` and ``_train_batch_inner``.
 For first decides whether to use the context manager for
 :meth:`torch.nn.parallel.DistributedDataParallel.no_sync`, which
 disables the gradient synchronization for distributed training.
 
-The second carries out the iteration over the `batch`, broken
+The second carries out the iteration over the ``batch``, broken
 into microbatches (for gradient accumulation). This last
 method is where the forward and backward pass take place.
 
