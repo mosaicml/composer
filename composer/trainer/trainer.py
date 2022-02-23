@@ -862,7 +862,7 @@ class Trainer:
 
         for microbatch_idx, state.batch in enumerate(microbatches):
             state.batch_num_tokens = self._train_data_spec.get_num_tokens_in_batch(state.batch)
-            state.batch_num_samples = self._train_data_spec.get_num_samples_in_batch(state.batch)
+            micro_batch_num_samples = self._train_data_spec.get_num_samples_in_batch(state.batch)
             is_final_microbatch = microbatch_idx + 1 == len(microbatches)
             sync_context = contextlib.nullcontext() if self.deepspeed_enabled else ddp_sync_context(
                 state, is_final_microbatch, self.ddp_sync_strategy)
@@ -890,7 +890,7 @@ class Trainer:
                 # Likely need to look into the performance impact
                 if not self.deepspeed_enabled:
                     for loss in ensure_tuple(state.loss):
-                        loss.mul_(state.batch_num_samples / current_batch_size)
+                        loss.mul_(micro_batch_num_samples / current_batch_size)
                         total_loss += loss.detach().clone()
 
                 assert state.loss is not None
@@ -907,7 +907,7 @@ class Trainer:
 
                     # This is the same loss scaling and reporting we skipped earlier.
                     for loss in ensure_tuple(state.loss):
-                        loss.mul_(state.batch_num_samples / current_batch_size)
+                        loss.mul_(micro_batch_num_samples / current_batch_size)
                         total_loss += loss.detach().clone()
                 else:
                     for loss in ensure_tuple(state.loss):
