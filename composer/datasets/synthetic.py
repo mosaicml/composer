@@ -5,18 +5,20 @@ import string
 from tempfile import NamedTemporaryFile
 from typing import Callable, Optional, Sequence, Union
 
+import tokenizers
 import torch
 import torch.utils.data
 from PIL import Image
 from torchvision.datasets import VisionDataset
+from transformers import BertTokenizer
 
 from composer.core.types import MemoryFormat
 from composer.utils.string_enum import StringEnum
 
-try:
-    from transformers import BertTokenizer
-except ImportError as e:
-    BertTokenizer = object
+# try:
+# from transformers import BertTokenizer
+# except ImportError as e:
+# BertTokenizer = object
 
 
 class SyntheticDataType(StringEnum):
@@ -28,40 +30,40 @@ class SyntheticDataLabelType(StringEnum):
     CLASSIFICATION_INT = "classification_int"
     CLASSIFICATION_ONE_HOT = "classification_one_hot"
 
+def get_synthetic_bert_tokenizer(dataset, vocab_size=256, return_tokenizer_file=False):
+    try:
+        import tokenizers
+    except ImportError as e:
+        raise ImportError(
+            'Composer was installed without NLP support. To use NLP with Composer, run: `pip install mosaicml[nlp]`.'
+        ) from e
 
-class SyntheticBertTokenizer(BertTokenizer):
+    tokenizer = tokenizers.Tokenizer(tokenizers.models.WordPiece())
+    tokenizer.enable_padding(direction="right", pad_id=0, pad_type_id=0, pad_token="[PAD]", pad_to_multiple_of=8)
+    tokenizer.normalizer = tokenizers.normalizers.NFKC()
+    tokenizer.pre_tokenizer = tokenizers.pre_tokenizers.ByteLevel()
+    tokenizer.decoder = tokenizers.decoders.ByteLevel()
+    trainer = tokenizers.trainers.WordPieceTrainer(
+        vocab_size=vocab_size,
+        initial_alphabet=tokenizers.pre_tokenizers.ByteLevel.alphabet(),
+        special_tokens=["[PAD]", "[UNK]", "[SEP]", "[CLS]", "[MASK]"],
+    )
+    tokenizer.train_from_iterator(dataset, trainer=trainer)
+    tmp_tokenizer_file = NamedTemporaryFile()
+    for token, _ in sorted(tokenizer.get_vocab().items(), key=lambda x: x[1]):
+        tmp_tokenizer_file.write(f"{token}\n".encode())
+    tmp_tokenizer_file.flush()
 
-    def __init__(self, dataset, vocab_size=256):
-        try:
-            import tokenizers
-        except ImportError as e:
-            raise ImportError(
-                'Composer was installed without NLP support. To use NLP with Composer, run: `pip install mosaicml[nlp]`.'
-            ) from e
+    if return_tokenizer_file:
+        return tmp_tokenizer_file.name
 
-        tokenizer = tokenizers.Tokenizer(tokenizers.models.WordPiece())
-        tokenizer.enable_padding(direction="right", pad_id=0, pad_type_id=0, pad_token="[PAD]", pad_to_multiple_of=8)
-        tokenizer.normalizer = tokenizers.normalizers.NFKC()
-        tokenizer.pre_tokenizer = tokenizers.pre_tokenizers.ByteLevel()
-        tokenizer.decoder = tokenizers.decoders.ByteLevel()
-        trainer = tokenizers.trainers.WordPieceTrainer(
-            vocab_size=vocab_size,
-            initial_alphabet=tokenizers.pre_tokenizers.ByteLevel.alphabet(),
-            special_tokens=["[PAD]", "[UNK]", "[SEP]", "[CLS]", "[MASK]"],
-        )
-        tokenizer.train_from_iterator(dataset, trainer=trainer)
-        tmp_tokenizer_file = NamedTemporaryFile()
-        for token, _ in sorted(tokenizer.get_vocab().items(), key=lambda x: x[1]):
-            tmp_tokenizer_file.write(f"{token}\n".encode())
-        tmp_tokenizer_file.flush()
-
-        super().__init__(tmp_tokenizer_file.name)
+    return BertTokenizer(tmp_tokenizer_file.name)
 
 
 class SyntheticHFDataset:
     """Creates a synthetic HF dataset and passes it to the preprocessing scripts."""
 
-    def __init__(self, num_samples, chars_per_sample, column_names):
+    def __init__(self, num_samples: int, chars_per_sample: int, column_names: list):
         if column_names is None or len(column_names) == 0:
             raise ValueError("There must be at least one column name provided for the final dataset.")
         self.num_samples = num_samples
@@ -108,6 +110,7 @@ class SyntheticHFDataset:
             sample_len = random.randint(MIN_WORD_LENGTH, MAX_WORD_LENGTH)
             sample += ''.join([random.choice(valid_chars) for _ in range(sample_len)])
             sample += ' '
+        sample = sample[:self.chars_per_sample]
         return sample
 
 

@@ -9,12 +9,17 @@ import yahp as hp
 from composer.core.types import JSON
 from composer.models.model_hparams import ModelHparams
 
+try:
+    from transformers import PreTrainedTokenizer
+except ImportError as e:
+    PreTrainedTokenizer = object
+
 
 @dataclass
 class TransformerHparams(ModelHparams, ABC):
     """Defines the necessary hyparameters for a Transformer base module."""
 
-    tokenizer_name: str = hp.optional("Model name to pull from Huggingface Model Hub.", default=None)
+    tokenizer_name: str = hp.optional("Tokenizer name to pull from Huggingface Model Hub.", default=None)
     pretrained_model_name: Optional[str] = hp.optional(
         doc="Pretrained model name to pull from Huggingface Model Hub.",
         default=None,

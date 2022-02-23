@@ -6,9 +6,11 @@ import pytest
 
 import composer
 from composer.datasets.hparams import DatasetHparams, SyntheticHparamsMixin
-from composer.models import DeepLabV3Hparams
+from composer.datasets.lm_datasets import LMDatasetHparams
+from composer.models import DeepLabV3Hparams, ModelHparams, TransformerHparams
 from composer.trainer import TrainerHparams
 from composer.trainer.devices import CPUDeviceHparams
+from composer.tests.transformer_utils import generate_dummy_model_config
 
 
 def walk_model_yamls():
@@ -31,6 +33,17 @@ def _configure_dataset_for_synthetic(dataset_hparams: DatasetHparams) -> None:
 
     dataset_hparams.use_synthetic = True
 
+
+def _configure_model_for_synthetic(model_hparams: ModelHparams):
+    if isinstance(model_hparams, TransformerHparams):
+        # force a non-pretrained model
+        model_hparams.pretrained_model_name = None
+        model_hparams_name = type(model_hparams).__name__
+        model_hparams.model_config = generate_dummy_model_config(model_hparams_name) 
+
+    if isinstance(model_hparams, DeepLabV3Hparams):
+        model_hparams.is_backbone_pretrained = False  # prevent downloading pretrained weights during test
+        model_hparams.sync_bn = False  # sync_bn throws an error when run on CPU
 
 @pytest.mark.parametrize("hparams_file", walk_model_yamls())
 class TestHparamsCreate:
@@ -56,12 +69,9 @@ class TestHparamsCreate:
         hparams.dataloader.prefetch_factor = 2
 
         _configure_dataset_for_synthetic(hparams.train_dataset)
+        _configure_model_for_synthetic(hparams.train_dataset)
         if hparams.val_dataset is not None:
             _configure_dataset_for_synthetic(hparams.val_dataset)
         hparams.device = CPUDeviceHparams()
-
-        if isinstance(hparams.model, DeepLabV3Hparams):
-            hparams.model.is_backbone_pretrained = False  # prevent downloading pretrained weights during test
-            hparams.model.sync_bn = False  # sync_bn throws an error when run on CPU
 
         hparams.initialize_object()

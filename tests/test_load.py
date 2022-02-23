@@ -12,6 +12,7 @@ import composer.trainer as trainer
 from composer.algorithms import ScaleScheduleHparams
 from composer.core.precision import Precision
 from composer.datasets.hparams import SyntheticHparamsMixin
+from composer.models.transformer_hparams import TransformerHparams
 from composer.trainer.devices import CPUDeviceHparams
 
 modeldir_path = os.path.join(os.path.dirname(composer.__file__), 'yamls', 'models')
@@ -23,12 +24,34 @@ def get_model_algs(model_name: str) -> List[str]:
     algs = algorithms.list_algorithms()
     algs.remove("no_op_model")
     is_image_model = any(x in model_name for x in ("resnet", "mnist", "efficientnet"))
+    is_language_model = any(x in model_name for x in ("gpt2", "bert"))
     if is_image_model:
         algs.remove("alibi")
         algs.remove("seq_length_warmup")
     if "alibi" in algs:
         pytest.importorskip("transformers")
-    if model_name in ("unet", "gpt2_52m", "gpt2_83m", 'gpt2_125m'):
+    if is_language_model:
+        algs.remove('alibi')
+        algs.remove('blurpool')
+        algs.remove('channels_last')
+        algs.remove('cutmix')
+        algs.remove('cutout')
+        algs.remove('factorize')
+        algs.remove('ghost_batchnorm')
+        algs.remove('label_smoothing')
+        algs.remove('layer_freezing')
+        algs.remove('squeeze_excite')
+        algs.remove('swa')
+        algs.remove('mixup')
+        algs.remove('scale_schedule')
+        algs.remove('stochastic_depth')
+        algs.remove('colout')
+        algs.remove('progressive_resizing')
+        algs.remove('randaugment')
+        algs.remove('augmix')
+        algs.remove('sam')
+        algs.remove('selective_backprop')
+    if model_name in ("unet"):
         algs.remove("mixup")
         algs.remove("cutmix")
     return algs
@@ -47,21 +70,20 @@ def test_load(model_name: str):
     trainer_hparams = trainer.load(model_name)
     trainer_hparams.precision = Precision.FP32
     trainer_hparams.algorithms = algorithms.load_multiple(*get_model_algs(model_name))
-    if not isinstance(trainer_hparams.train_dataset, SyntheticHparamsMixin):
-        pytest.skip(f"Model {model_name} uses a train dataset that doesn't support synthetic")
-    assert isinstance(trainer_hparams.train_dataset, SyntheticHparamsMixin)
-    trainer_hparams.train_subset_num_batches = 1
-    trainer_hparams.train_dataset.use_synthetic = True
 
-    if not isinstance(trainer_hparams.val_dataset, SyntheticHparamsMixin):
-        pytest.skip(f"Model {model_name} uses a val dataset that doesn't support synthetic")
-    assert isinstance(trainer_hparams.val_dataset, SyntheticHparamsMixin)
+    _configure_dataset_for_synthetic(trainer_hparams.train_dataset)
+    trainer_hparams.train_subset_num_batches = 1
+
+    _configure_dataset_for_synthetic(trainer_hparams.val_dataset)
     trainer_hparams.eval_subset_num_batches = 1
-    trainer_hparams.val_dataset.use_synthetic = True
+
     trainer_hparams.dataloader.num_workers = 0
     trainer_hparams.dataloader.pin_memory = False
     trainer_hparams.dataloader.prefetch_factor = 2
     trainer_hparams.dataloader.persistent_workers = False
+
+    if isinstance(trainer_hparams.model, TransformerHparams):
+        model_test_config = 
 
     trainer_hparams.device = CPUDeviceHparams()
     my_trainer = trainer_hparams.initialize_object()

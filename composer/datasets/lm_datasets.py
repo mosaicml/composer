@@ -109,6 +109,9 @@ class LMDatasetHparams(DatasetHparams, SyntheticHparamsMixin):
                                           num_proc=1,
                                           keep_in_memory=True)
 
+            # override sizing to able use of synthetic datasets
+            self.num_tokens = 0
+            self.subsample_ratio = 1.0
             lm_datasets = [{self.split: lm_datasets}]
         else:
             self.tokenizer = transformers.AutoTokenizer.from_pretrained(self.tokenizer_name)  #type: ignore (thirdparty)
