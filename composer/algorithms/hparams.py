@@ -354,13 +354,17 @@ class SqueezeExciteHparams(AlgorithmHparams):
 class SWAHparams(AlgorithmHparams):
     """See :class:`~.composer.algorithms.swa.SWA`"""
 
-    swa_start: float = hp.optional(
-        doc='Fraction of training completed before stochastic weight averaging begins',
-        default=0.7,
+    swa_start: str = hp.optional(
+        doc='Time string denoting the amount of training '
+        'completed before stochastic weight averaging begins. Currently only units of '
+        'duration (e.g. "0.7dur") and epoch (e.g "50ep") are supported.',
+        default="0.7dur",
     )
-    swa_end: float = hp.optional(doc='Fraction of training completed before the baseline '
-                                 '(non-averaged) model is replaced with the stochastic weight averaged model.',
-                                 default=0.97)
+    swa_end: str = hp.optional(
+        doc='Time string denoting amount of training completed before the baseline '
+        '(non-averaged) model is replaced with the stochastic weight averaged model. '
+        'Currently only units of duration (e.g. "0.97dur") and epoch (e.g "88ep") are supported.',
+        default="0.97dur")
     schedule_swa_lr: bool = hp.optional(doc='Flag to determine whether to apply an SWA-specific LR schedule during the '
                                         'period in which SWA is active.',
                                         default=False)
