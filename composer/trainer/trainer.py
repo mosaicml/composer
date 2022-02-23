@@ -57,7 +57,10 @@ class Trainer:
     """Trainer for training a models with Composer algorithms. See the Trainer guide for more information.
 
     Args:
-        model (ComposerModel): The model to train.
+        model (ComposerModel): The model to train. Can be user-defined or one of the models included
+            with Composer.
+
+            .. seealso:: :mod:`composer.models` for models built into Composer.
         train_dataloader (DataLoader, DataSpec, or dict): The :class:`.DataLoader`, :class:`.DataSpec`,
             or dict of :class:`.DataSpec` kwargs for the training data. In order to specify custom
             preprocessing steps on each data batch, specify a :class:`.DataSpec` instead of a
@@ -69,7 +72,7 @@ class Trainer:
                 ``train_dataloader`` should yield a batch of size ``2048 / 8 = 256``. If ``grad_accum = 2``,
                 then the per-rank batch will be divided into microbatches of size ``256 / 2 = 128``.
         max_duration (int, str, or Time): The maximum duration to train. Can be an integer, which will be
-            interpreted to be epochs, a str (e.g. '1ep', or '10ba'), or a :class:`.Time` object.
+            interpreted to be epochs, a str (e.g. ``1ep``, or ``10ba``), or a :class:`.Time` object.
         eval_dataloader (DataLoader, DataSpec, or Evaluators, optional): The :class:`.DataLoader`,
             :class:`.DataSpec`, or :class:`.Evaluators` for the evaluation data.
             In order to evaluate one or more specific metrics across one or more datasets, pass in an
