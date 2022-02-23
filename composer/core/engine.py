@@ -21,20 +21,20 @@ Currently, the following passes are registered:
 
 * **LIFO order for events**
 
-   For the events that follow the ``before_*`` (e.g., :attr:`~.Event.BEFORE_LOSS`) and ``after_*`` (e.g.,
-   :attr:`~.Event.AFTER_LOSS`) pattern, the ordering of algorithms is reversed for the ``after_*`` events. For example,
-   four given algorithms ``A``, ``B``, ``C`` and ``D`` will run in ``ABCD`` ordering on the ``before_*`` event while
-   ``DCBA`` ordering on the ``after_*`` event.
+  For the events that follow the ``before_*`` (e.g., :attr:`~.Event.BEFORE_LOSS`) and ``after_*`` (e.g.,
+  :attr:`~.Event.AFTER_LOSS`) pattern, the ordering of algorithms is reversed for the ``after_*`` events. For example,
+  four given algorithms ``A``, ``B``, ``C`` and ``D`` will run in ``ABCD`` ordering on the ``before_*`` event while
+  ``DCBA`` ordering on the ``after_*`` event.
 
-   This allows algorithms to "clean up" their changes. For example, :class:`~.LabelSmoothing` will smooth the labels
-   upon on :attr:`~.Event.BEFORE_LOSS` event and then restore the original unsmoothed labels on
-   :attr:`~.Event.AFTER_LOSS` event.
+  This allows algorithms to "clean up" their changes. For example, :class:`~.LabelSmoothing` will smooth the labels
+  upon on :attr:`~.Event.BEFORE_LOSS` event and then restore the original unsmoothed labels on
+  :attr:`~.Event.AFTER_LOSS` event.
 
 * **Run Selective Backprop first**
 
-   :class:`~.SelectiveBackprop` runs after the dataloader returns the batch, and executes an extra forward pass to rank
-   and prune the examples in the batch by loss. To ensure a clean estimate of loss, :class:`~.SelectiveBackprop` should
-   run before any other data augmentations (e.g., :class:`~.MixUp`) on the :attr:`~.Event.AFTER_DATALOADER` event.
+  :class:`~.SelectiveBackprop` runs after the dataloader returns the batch, and executes an extra forward pass to rank
+  and prune the examples in the batch by loss. To ensure a clean estimate of loss, :class:`~.SelectiveBackprop` should
+  run before any other data augmentations (e.g., :class:`~.MixUp`) on the :attr:`~.Event.AFTER_DATALOADER` event.
 
 Trace
 ~~~~~

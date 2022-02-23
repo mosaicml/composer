@@ -29,12 +29,14 @@ class DataSpec:
        >>> CHANNEL_MEAN = (0.485 * 255, 0.456 * 255, 0.406 * 255)
        >>> CHANNEL_STD = (0.229 * 255, 0.224 * 255, 0.225 * 255)
        >>> device_transform_fn = NormalizationFn(mean=CHANNEL_MEAN, std=CHANNEL_STD)
-       >>> dspec = DataSpec(train_dataloader, device_transforms=device_transform_fn)
+       >>> train_dspec = DataSpec(train_dataloader, device_transforms=device_transform_fn)
+       >>> # The same function can be used for eval dataloader as well
+       >>> eval_dspec = DataSpec(eval_dataloader, device_transforms=device_transform_fn)
        >>> # Use this DataSpec object to construct trainer
        >>> trainer = Trainer(
        ...     model=model,
-       ...     train_dataloader=dspec,
-       ...     eval_dataloader=eval_dataloader,
+       ...     train_dataloader=train_dspec,
+       ...     eval_dataloader=eval_dspec,
        ...     optimizers=optimizer,
        ...     max_duration="1ep",
        ... )
