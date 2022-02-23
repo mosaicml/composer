@@ -73,11 +73,11 @@ def apply_alibi(
         None
     """
 
-    old_embed, new_embed = _zero_and_freeze_expand_position_embeddings(  # type: ignore
+    old_embed, new_embed = _zero_and_freeze_expand_position_embeddings(
         model=model,
         attribute=position_embedding_attribute,
         new_embedding_length=max_sequence_length,
-    )  # type: ignore
+    )
     if optimizers:
         module_surgery.update_params_in_optimizer([old_embed], [new_embed], optimizers=optimizers)
     log.info(f" Position embedding expanded to sequence length {max_sequence_length}, zeroed, and frozen")
@@ -231,7 +231,7 @@ def _zero_and_freeze_expand_position_embeddings(
         new_weight.requires_grad = False
         setattr(pos_embedding_module, "weight", new_weight)
 
-        return old_weight, new_weight  # type: ignore
+        return old_weight, new_weight
     except AttributeError:
         log.error(f"Unable to zero and freeze position embeddings. Model "
                   f"{model} may lack attribute {attribute}, or position "
