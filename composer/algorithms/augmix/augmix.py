@@ -14,7 +14,7 @@ from PIL.Image import Image as PillowImage
 from torchvision.datasets import VisionDataset
 
 from composer.algorithms.utils import augmentation_sets
-from composer.algorithms.utils.augmentation_common import _map_pillow_function
+from composer.algorithms.utils.augmentation_common import map_pillow_function
 from composer.core.event import Event
 from composer.core.types import Algorithm, Event, Logger, State
 from composer.datasets.utils import add_vision_dataset_transform
@@ -59,11 +59,8 @@ def augmix_image(img: ImgT,
     Returns:
          PIL.Image: AugMix'd image.
     """
-    def _augmix_pil_image(img_pil: PillowImage,
-                          severity: int,
-                          depth: int,
-                          width: int,
-                          alpha: float,
+
+    def _augmix_pil_image(img_pil: PillowImage, severity: int, depth: int, width: int, alpha: float,
                           augmentation_set: List) -> PillowImage:
         chain_weights = np.random.dirichlet([alpha] * width).astype(np.float32)
         mixing_weight = np.float32(np.random.beta(alpha, alpha))
@@ -86,8 +83,13 @@ def augmix_image(img: ImgT,
         mixed = Image.fromarray(np.uint8(mixed))
         return mixed
 
-    f_pil = functools.partial(_augmix_pil_image, severity=severity, depth=depth, width=width, alpha=alpha, augmentation_set=augmentation_set)
-    return _map_pillow_function(f_pil, img)
+    f_pil = functools.partial(_augmix_pil_image,
+                              severity=severity,
+                              depth=depth,
+                              width=width,
+                              alpha=alpha,
+                              augmentation_set=augmentation_set)
+    return map_pillow_function(f_pil, img)
 
 
 class AugmentAndMixTransform(torch.nn.Module):

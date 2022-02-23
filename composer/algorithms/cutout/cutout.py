@@ -11,7 +11,7 @@ import numpy as np
 import torch
 from PIL.Image import Image as PillowImage
 
-from composer.algorithms.utils.augmentation_common import image_as_type, image_typed_and_shaped_like
+from composer.algorithms.utils.augmentation_common import image_as_type
 from composer.core.types import Algorithm, Event, Logger, State, Tensor
 
 log = logging.getLogger(__name__)
@@ -64,7 +64,8 @@ def cutout_batch(X: ImgT, n_holes: int = 1, length: Union[int, float] = 0.5) -> 
         mask = _generate_mask(mask, w, h, x, y, length)
 
     X_cutout = X_tensor * mask
-    return image_typed_and_shaped_like(X_cutout, X)
+    # return image_typed_and_shaped_like(X_cutout, X)
+    return image_as_type(X_cutout, type(X))
 
 
 class CutOut(Algorithm):

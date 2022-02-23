@@ -15,17 +15,25 @@ def image_as_type(image: _InputImgT, typ: Type[_OutputImgT]) -> _OutputImgT:
             :class:`PIL.Image.Image` image representations
 
     Args:
-        image: a single image represented as a :class:`torch.Tensor` or
-            :class:`PIL.Image.Image`
-        typ: type of the copied image. Must be :class:`torch.Tensor` or
-            :class:`PIL.Image.Image`
+        image: a single image represented as a :class:`PIL.Image.Image` or
+            a rank 2 or rank 3 :class:`torch.Tensor` in ``HW`` or ``CHW`` format.
+            A rank 4 or higher tensor can also be provided as long as no type
+            conversion is needed; in this case, the input tensor will be
+            returned. This case is allowed so that functions that natively
+            operate on batch tensors can safely call
+            ``image_as_type(image, torch.Tensor)`` without additional error
+            and type checking.
+        typ: type of the copied image. Must be :class:`PIL.Image.Image`
+            or :class:`torch.Tensor`
 
     Returns:
         A copy of ``image`` with type ``typ``
 
     Raises:
         TypeError: if ``typ`` is not one of :class:`torch.Tensor` or
-            :class:`PIL.Image.Image`.
+            :class:`PIL.Image.Image`
+        ValueError: if ``image`` cannot be converted to the ``typ``
+
     """
     if isinstance(image, typ):
         return image
@@ -34,34 +42,23 @@ def image_as_type(image: _InputImgT, typ: Type[_OutputImgT]) -> _OutputImgT:
 
     if isinstance(image, PillowImage):
         return transforms.functional.to_tensor(image)  # PIL -> Tensor
-    # if we got to here, image is tensor, and requested type is PIL
     return transforms.functional.to_pil_image(image)  # Tensor -> PIL
 
 
-def image_typed_and_shaped_like(image: _InputImgT,
-                                reference_image: _OutputImgT) -> _OutputImgT:  # type: ignore[reportUnusedFunction]
-    """Creates a copy of an image-like object with the same type and shape as another.
+def map_pillow_function(f_pil: Callable[[PillowImage], PillowImage], imgs: _OutputImgT) -> _OutputImgT:
+    """Lifts a function that requires pillow images to also work on tensors
 
     Args:
-        image: A tensor or PIL image
-        reference_image: Another tensor or PIL image with the same shape
+        f_pil: a callable that takes maps :class:`PIL.Image.Image` objects
+            to other :class:`PIL.Image.Image` objects.
+        imgs: a :class:`PIL.Image.Image` or a :class:`torch.Tensor` in ``HW``,
+            ``CHW`` or ``NCHW`` format.
 
     Returns:
-        A copy of ``image`` with the same type and shape as ``reference_image``.
+        The result of applying ``f_pil`` to each image in ``imgs``, converted
+        back to the same type and (if applicable) tensor layout as ``imgs``.
 
-    Raises:
-        See :func:`image_as_type`.
     """
-    typ = type(reference_image)
-    ret_image = cast(_OutputImgT, image_as_type(image, typ=typ))
-    if issubclass(typ, torch.Tensor):
-        new_shape = cast(torch.Tensor, reference_image).shape
-        ret_image = cast(torch.Tensor, ret_image).reshape(new_shape)
-    return cast(_OutputImgT, ret_image)
-
-
-def _map_pillow_function(f_pil: Callable[[PillowImage], PillowImage], imgs: _OutputImgT) -> _OutputImgT:
-    """Lifts a function that requires pillow images to also work on tensors"""
     single_image_input = not isinstance(imgs, Iterable)
     single_image_input |= isinstance(imgs, torch.Tensor) and imgs.ndim == 3
     if single_image_input:

@@ -13,7 +13,7 @@ from PIL.Image import Image as PillowImage
 from torchvision.datasets import VisionDataset
 
 from composer.algorithms.utils import augmentation_sets
-from composer.algorithms.utils.augmentation_common import _map_pillow_function
+from composer.algorithms.utils.augmentation_common import map_pillow_function
 from composer.core.types import Algorithm, Event, Logger, State
 from composer.datasets.utils import add_vision_dataset_transform
 
@@ -54,10 +54,7 @@ def randaugment_image(img: ImgT,
         PIL.Image: RandAugmented image.
     """
 
-    def _randaugment_pil_image(img: PillowImage,
-                               severity: int,
-                               depth: int,
-                               augmentation_set: List) -> PillowImage:
+    def _randaugment_pil_image(img: PillowImage, severity: int, depth: int, augmentation_set: List) -> PillowImage:
         # Iterate over augmentations
         for _ in range(depth):
             aug = np.random.choice(augmentation_set)
@@ -65,7 +62,7 @@ def randaugment_image(img: ImgT,
         return img
 
     f_pil = functools.partial(_randaugment_pil_image, severity=severity, depth=depth, augmentation_set=augmentation_set)
-    return _map_pillow_function(f_pil, img)
+    return map_pillow_function(f_pil, img)
 
 
 class RandAugmentTransform(torch.nn.Module):
