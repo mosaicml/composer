@@ -1,7 +1,7 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
 """The models module contains the :class:`ComposerModel` base class along with reference implementations of many common
-models. Additionally, it includes task specific convenience :class:`ComposerModel`s that wrap existing pytorch models
+models. Additionally, it includes task specific convenience :class:`ComposerModel` s that wrap existing pytorch models
 with standard forward passes and logging to enable quick interaction with the :class:`Trainer`.
 
 See the ComposerModel docs for more details.
