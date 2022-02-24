@@ -10,4 +10,4 @@ class UnetHparams(ModelHparams):
 
     def initialize_object(self):
         from composer.models.unet.unet import UNet
-        return UNet(self)
+        return UNet()
