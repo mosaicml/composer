@@ -69,6 +69,7 @@ Table of Contents
    trainer/evaluation.rst
    trainer/schedulers.rst
    trainer/time.rst
+   trainer/events.rst
    trainer/checkpointing.rst
    trainer/logging.rst
    trainer/callbacks.rst

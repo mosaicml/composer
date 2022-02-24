@@ -10,6 +10,7 @@ can be provided as a string:
    :header: "Unit", "Suffix", "Example", "Enum"
    :widths: 15, 10, 15, 30
    :width: 0.5
+   :align: left
 
    "Epochs", ``"ep"``, ``"10ep"``, :attr:`.TimeUnit.EPOCH`
    "Batches", ``"ba"``, ``"100ba"``, :attr:`.TimeUnit.BATCH`

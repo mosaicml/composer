@@ -165,7 +165,7 @@ argument.
 .. testcode::
 
    from composer import Trainer
-   from composer.algorithms import LayerFreezing, Mixup
+   from composer.algorithms import LayerFreezing, MixUp
 
    trainer = Trainer(model=model,
                      train_dataloader=train_dataloader,
@@ -173,7 +173,7 @@ argument.
                      max_duration='160ep',
                      algorithms=[
                          LayerFreezing(freeze_start=0.5, freeze_level=0.1),
-                         Mixup(alpha=0.1),
+                         MixUp(alpha=0.1),
                      ])
 
    # the algorithms will automatically be applied during the appropriate
