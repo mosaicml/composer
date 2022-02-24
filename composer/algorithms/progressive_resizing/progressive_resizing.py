@@ -65,24 +65,21 @@ def resize_batch(X: torch.Tensor,
     if scale_factor >= 1:
         return X, y
 
+    # Prep targets for resizing if necessary
+    if check_for_index_targets(y) and resize_targets is True:
+        # Add a dimension to match shape of the input and change type for resizing
+        y_sized = y.float().unsqueeze(1)
+    else:
+        y_sized = y
+
     if mode.lower() == "crop" and resize_targets is False:
         # Make a crop transform for X
         resize_transform = _make_crop(tensor=X, scale_factor=scale_factor)
         X_sized, y_sized = resize_transform(X), y
-
     elif mode.lower() == "crop" and resize_targets is True:
-        if check_for_index_targets(y):
-            # Add a dimension to match shape of the input and change type for resizing
-            y_sized = y.float().unsqueeze(1)
-        else:
-            y_sized = y
         # Make a crop transform for X and y
         resize_transform, resize_y = _make_crop_pair(X=X, y=y_sized, scale_factor=scale_factor)
-        X_sized, y_sized = resize_transform(X), resize_y(y)
-        if check_for_index_targets(y):
-            # Convert back to original format for training
-            y_sized = y_sized.squeeze(dim=1).to(y.dtype)
-
+        X_sized, y_sized = resize_transform(X), resize_y(y_sized)
     elif mode.lower() == "resize":
         # Make a resize transform (can be used for X or y)
         resize_transform = _make_resize(scale_factor=scale_factor)
@@ -91,10 +88,14 @@ def resize_batch(X: torch.Tensor,
             y_sized = resize_transform(y)
         else:
             y_sized = y
-
     else:
         raise ValueError(f"Progressive mode '{mode}' not supported.")
         X_sized, y_sized = X, y
+
+    # Revert targets to their original format if they were modified
+    if check_for_index_targets(y) and resize_targets is True:
+        # Convert back to original format for training
+        y_sized = y_sized.squeeze(dim=1).to(y.dtype)
 
     # Log results
     log.info(
