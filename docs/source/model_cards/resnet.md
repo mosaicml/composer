@@ -1,1 +1,1 @@
-../../../composer/models/resnet/resnet.md
+../../../composer/models/resnet/README.md

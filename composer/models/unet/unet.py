@@ -19,8 +19,7 @@ log = logging.getLogger(__name__)
 class UNet(ComposerModel):
     """A U-Net model extending :class:`ComposerClassifier`.
 
-    See this `paper <https://arxiv.org/abs/1505.04597>`_ for details on the
-    U-Net architecture.
+    See this `paper <https://arxiv.org/abs/1505.04597>`_ for details on the U-Net architecture.
     """
 
     n_classes: Optional[int] = None
