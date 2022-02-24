@@ -186,7 +186,7 @@ class ComposerModel(torch.nn.Module, abc.ABC):
             batch (~composer.core.types.Batch): The output batch from dataloader
 
         Returns:
-            Tuple[Any, Any]: A Tuple of (:attr:`outputs`, :attr:`targets`) that is passed directly to the
+            Tuple[Any, Any]: A Tuple of (``outputs``, ``targets``) that is passed directly to the
                 :meth:`~torchmetrics.Metric.update` methods of the metrics returned by :meth:`metrics`.
         """
         raise NotImplementedError('Implement validate in your ComposerModel to run validation.')

@@ -158,7 +158,7 @@ def soft_cross_entropy(input: Tensor,
                        ignore_index: int = -100,
                        reduce: Optional[bool] = None,
                        reduction: str = 'mean'):
-    r"""Drop-in replacement for :class:`torch.CrossEntropy` that can handle class indices or one-hot labels.
+    r"""Drop-in replacement for :class:`~torch.nn.CrossEntropy` that can handle class indices or one-hot labels.
 
     Args:
         input (torch.Tensor) : :math:`(N, C)` where `C = number of classes` or :math:`(N, C, H, W)`
@@ -171,7 +171,7 @@ def soft_cross_entropy(input: Tensor,
             same shape as the input.
         weight (torch.Tensor, optional): a manual rescaling weight given to each
             class. If given, has to be a Tensor of size `C`
-        size_average (bool, optional): Deprecated (see :attr:`reduction`). By default,
+        size_average (bool, optional): Deprecated (see `reduction`). By default,
             the losses are averaged over each loss element in the batch. Note that for
             some losses, there multiple elements per sample. If the field ``size_average``
             is set to ``False``, the losses are instead summed for each minibatch. Ignored
@@ -184,7 +184,7 @@ def soft_cross_entropy(input: Tensor,
         reduce (bool, optional): Deprecated (see ``reduction``). By default, the
             losses are averaged or summed over observations for each minibatch depending
             on `size_average`. When ``reduce`` is ``False``, returns a loss per
-            batch element instead and ignores :attr:`size_average`. Default: ``True``
+            batch element instead and ignores `size_average`. Default: ``True``
         reduction (str, optional): Specifies the reduction to apply to the output:
             ``'none'`` | ``'mean'`` | ``'sum'``. ``'none'``: no reduction will be applied,
             ``'mean'``: the sum of the output will be divided by the number of

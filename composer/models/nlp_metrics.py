@@ -130,7 +130,7 @@ class BinaryF1Score(Metric):
         Args:
             output (Mapping): The output from the model, which must contain
                 either the Tensor or a Mapping type that contains the loss or model logits.
-            target (Tensor): A Tensor of ground-truth values to compare against.
+            target (~torch.Tensor): A Tensor of ground-truth values to compare against.
         """
         predictions = torch.argmax(output, dim=1)
         self.true_positive += predictions[(target == 1)].sum()
@@ -141,7 +141,7 @@ class BinaryF1Score(Metric):
         """Aggregate the state over all processes to compute the metric.
 
         Returns:
-            loss: The loss averaged across all batches as a:class:`~torch.Tensor`.
+            loss: The loss averaged across all batches as a :class:`~torch.Tensor`.
         """
         assert isinstance(self.true_positive, Tensor)
         assert isinstance(self.false_positive, Tensor)
