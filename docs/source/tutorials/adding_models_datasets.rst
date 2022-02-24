@@ -97,7 +97,7 @@ Now that your ``Dataset`` and ``Model`` are ready, you can initialize the :class
         model=SimpleModel(num_hidden=128, num_classes=10),
         train_dataloader=train_dataloader,
         eval_dataloader=eval_dataloader,
-        max_epochs=3,
+        max_duration="3ep",
         algorithms=[
             CutOut(n_holes=1, length=10),
             LabelSmoothing(alpha=0.1),

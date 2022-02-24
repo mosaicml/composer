@@ -67,9 +67,6 @@ def scale_scheduler(scheduler: Union[Scheduler, ComposerSchedulerFn],
         ssr: the factor by which to scale the duration of the schedule. E.g., 0.5
             makes the schedule take half as many epochs and 2.0 makes it
             take twice as many epochs.
-        orig_max_epochs: the current number of epochs spanned by ``scheduler``.
-            Used along with ``ssr`` to determine the new number of epochs
-            ``scheduler`` should span.
 
     Raises:
         ValueError: If ``scheduler`` is not an instance of one of the above types.

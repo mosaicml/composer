@@ -12,6 +12,7 @@ from composer.algorithms.stochastic_depth.sample_stochastic_layers import Sample
 from composer.algorithms.stochastic_depth.stochastic_depth import _STOCHASTIC_LAYER_MAPPING, apply_stochastic_depth
 from composer.algorithms.stochastic_depth.stochastic_layers import StochasticBottleneck, _sample_bernoulli
 from composer.core import Event, State
+from composer.core.time import TimeUnit
 from composer.models import ComposerResNet
 from composer.utils import module_surgery
 
@@ -228,7 +229,8 @@ class TestStochasticDepthDropRate:
         new_drop_rates = []
         self.get_drop_rate_list(state.model, drop_rates=new_drop_rates)
 
-        drop_warmup_iters = state.steps_per_epoch * state.max_epochs * algorithm.drop_warmup
+        assert state.max_duration.unit == TimeUnit.EPOCH
+        drop_warmup_iters = int(state.steps_per_epoch * int(state.max_duration.value) * algorithm.drop_warmup)
         assert torch.all(torch.tensor(new_drop_rates) == ((step / drop_warmup_iters) * torch.tensor(old_drop_rates)))
 
 

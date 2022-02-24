@@ -23,13 +23,13 @@ Changing the length of training will affect the final accuracy of the model. For
 
 ## Implementation Details
 
-Scale schedule is only called once at the beginning of training, and it alters the `max_epochs` stored in the `composer.State()` object.
+Scale schedule is only called once at the beginning of training, and it alters the `max_duration` stored in the `composer.State()` object.
 
 The state update looks something like:
 
 ```python
-new_max_epochs = int(state.max_epochs * ratio)
-state.max_epochs = new_max_epochs
+new_max_duration = int(state.max_duration * ratio)
+state.max_duration = new_max_duration
 ```
 
 Scale schedule is currently only possible with the following learning rate schedulers:

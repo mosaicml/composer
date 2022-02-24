@@ -29,15 +29,15 @@ log = logging.getLogger(__name__)
 class ComposerSchedulerFn(Protocol):
     """Specification for a "stateless" scheduler function.
 
-    A scheduler function should be a pure function that returns a multiplier to apply to the optimizer's
-    provided learning rate, given the current trainer state, and optionally a "scale schedule ratio" (SSR). 
-    A typical implementation will read `state.timer`, and possibly other fields like `state.max_duration`, 
-    to determine the trainer's latest temporal progress.
+    A scheduler function should be a pure function that returns a multiplier to apply to the optimizer's provided
+    learning rate, given the current trainer state, and optionally a "scale schedule ratio" (SSR). A typical
+    implementation will read `state.timer`, and possibly other fields like `state.max_duration`, to determine the
+    trainer's latest temporal progress.
     """
 
     def __call__(self, state: State, *, ssr: float = 1.0) -> float:
         """Calculate the current learning rate factor.
-    
+
         Args:
             state (State): The current Composer Trainer state.
             ssr (float): The scale schedule ratio. In general, the learning rate computed by this
@@ -55,11 +55,16 @@ def _convert_time(time: Union[str, Time], state: State, ssr: float = 1.0) -> Tim
         time = Time.from_timestring(time)
 
     if time.unit == TimeUnit.DURATION:
-        assert state.max_duration.unit == TimeUnit.EPOCH  # Enforced by the trainer
-        max_duration_batches = state.max_duration.value * state.steps_per_epoch
-        return Time(value=int(time.value * max_duration_batches), unit=TimeUnit.BATCH)
+        time = time * state.max_duration
+        # max_duration is one of (epochs, batches, tokens, samples), so the multiplication should
+        # preserve the unit
+        assert time.unit == state.max_duration.unit
+        assert time.unit != TimeUnit.DURATION, "time should now be one of (epochs, batches, tokens, samples)"
 
     if time.unit == TimeUnit.EPOCH:
+        # Epochs do not provide sufficient granularity for SSR scaling
+        # e.g. if max_duration = 1ep, then any SSR would result in a new duration of 0.
+        # so, convert the time into batches
         time = Time(value=time.value * state.steps_per_epoch, unit=TimeUnit.BATCH)
 
     return Time(value=int(time.value * ssr), unit=time.unit)

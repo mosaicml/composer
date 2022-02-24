@@ -130,7 +130,7 @@ Here are several ways to use the trainer:
             model=models.MNIST_Classifier(num_classes=10),
             train_dataloader=train_dataloader,
             eval_dataloader=eval_dataloader,
-            max_epochs=3,
+            max_duration="3ep",
         )
 
         trainer.fit()

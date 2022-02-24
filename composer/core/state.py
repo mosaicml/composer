@@ -180,20 +180,6 @@ class State(Serializable):
         self.profiler: Optional[Profiler] = None
 
     @property
-    def epoch(self) -> int:
-        """The index of the current epoch."""
-        warnings.warn("TimeDeprecationWarning: state.epoch is deprecated. Please use state.timer.epoch",
-                      category=DeprecationWarning)
-        return self.timer.epoch.value
-
-    @property
-    def step(self) -> int:
-        """The index of the current step/batch (measured globally)."""
-        warnings.warn("TimeDeprecationWarning: state.step is deprecated. Please use state.timer.batch",
-                      category=DeprecationWarning)
-        return self.timer.batch.value
-
-    @property
     def max_duration(self):
         return self._max_duration
 
@@ -201,8 +187,6 @@ class State(Serializable):
     def max_duration(self, max_duration: Union[str, Time[int]]):
         if isinstance(max_duration, str):
             max_duration = cast(Time[int], Time.from_timestring(max_duration))
-        if max_duration.unit != TimeUnit.EPOCH:
-            raise NotImplementedError("Max duration must be specified in epochs. Other units are not yet supported.")
         if max_duration.unit == TimeUnit.DURATION:
             raise ValueError("TimeUnit.DURATION is not allowed as a unit for max_duration")
         self._max_duration = max_duration
@@ -214,14 +198,6 @@ class State(Serializable):
             Time: The elapsed duration, in ``TimeUnit.DURATION``.
         """
         return self.timer.get(self.max_duration.unit) / self.max_duration
-
-    @property
-    def max_epochs(self):
-        """The maximum number of epochs to train for."""
-        warnings.warn("TimeDeprecationWarning: state.max_epochs is deprecated. Please use state.max_duration",
-                      category=DeprecationWarning)
-        assert self.max_duration.unit == TimeUnit.EPOCH, "invariant violation -- max duration must be epochs for now"
-        return self.max_duration.value
 
     @property
     def optimizers(self):

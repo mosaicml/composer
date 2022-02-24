@@ -6,6 +6,7 @@ import torch
 from torch.optim.lr_scheduler import ExponentialLR
 
 from composer.algorithms import ScaleScheduleHparams
+from composer.core.time import TimeUnit
 from composer.core.types import Optimizer, Scheduler
 from composer.optim.optimizer_hparams import SGDHparams
 from composer.optim.scheduler import MultiStepLRHparams
@@ -85,7 +86,8 @@ class TestScaleScheduleTrainer():
             composer_trainer_hparams.scale_schedule_ratio = ssr
         trainer = composer_trainer_hparams.initialize_object()
 
-        assert trainer.state.max_epochs == int(10 * ssr)
+        assert trainer.state.max_duration.unit == TimeUnit.EPOCH
+        assert trainer.state.max_duration.value == int(10 * ssr)
         scheduler = trainer.state.schedulers[0]
 
         test_steps = [int(20 * ssr), int(40 * ssr), int(60 * ssr)]

@@ -54,7 +54,7 @@ class Callback(Serializable, abc.ABC):
            >>> class MyCallback(Callback):
            ...     def run_event(self, event: Event, state: State, logger: Logger):
            ...         if event == Event.EPOCH_START:
-           ...             print(f'Epoch {state.epoch}/{state.max_epochs}')
+           ...             print(f'Epoch: {int(state.timer.epoch)}')
            >>> # construct trainer object with your callback
            >>> trainer = Trainer(
            ...     model=model,
@@ -67,7 +67,7 @@ class Callback(Serializable, abc.ABC):
            >>> # trainer will run MyCallback whenever the EPOCH_START
            >>> # is triggered, like this:
            >>> _ = trainer.engine.run_event(Event.EPOCH_START)
-           Epoch 0/1
+           Epoch 0
     """
 
     def run_event(self, event: Event, state: State, logger: Logger) -> None:

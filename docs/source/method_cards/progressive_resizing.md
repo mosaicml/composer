@@ -19,7 +19,7 @@ Progressive Resizing is intended for use on computer vision tasks where the netw
 ## Hyperparameters
 
 - `initial_scale` - The initial scaling coefficient used to determine the height and width of images at the beginning of training. The default value of 0.5 converts a 224x224 image to a 112x112 image, for example.
-- `finetune_fraction` - The fraction of training steps that should be devoted to training on the full-sized images. The default value of 0.2 means that there will be an initial training phase of 80% of `max_epochs` whereby the input images are linearly scaled by a multiple from `initial_scale` to 1.0, followed by a fine-tuning phase of 20% of `max_epochs` with a scale of 1.0.
+- `finetune_fraction` - The fraction of training steps that should be devoted to training on the full-sized images. The default value of 0.2 means that there will be an initial training phase of 80% of `max_duration` whereby the input images are linearly scaled by a multiple from `initial_scale` to 1.0, followed by a fine-tuning phase of 20% of `max_duration` with a scale of 1.0.
 - `mode` - The method by which images should be resized. Currently, the two implemented methods are `"crop"` , where the image is [randomly cropped](https://pytorch.org/vision/stable/transforms.html#torchvision.transforms.RandomCrop) to the desired size, and `"resize"`, where the image is downsampled to the desired size using [bilinear interpolation](https://pytorch.org/docs/stable/generated/torch.nn.functional.interpolate.html).
 - `resize_targets` - Whether the targets should be downsampled as well in the same fashion. This is appropriate for some tasks, such as segmentation, where elements of the output correspond to elements of the input image.
 
