@@ -8,8 +8,8 @@ To run:
 
     python -m composer.profiler.json_trace_merger -o merged_trace_output.json path/to/input_file_1.json path/to/input_file_2.json ...
 
-Then, open the `Chrome Trace Viewer <chrome://tracing>`_ in a browser window, and upload
-``merged_trace_output.json`` to visualize the trace.
+To view the traces, open a Google Chrome browser window, navigate to ``chrome://tracing`` and load the ``merged_trace_output.json``
+to visualize the trace.
 """
 import argparse
 import json
