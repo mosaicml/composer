@@ -20,6 +20,18 @@ from composer.datasets.utils import add_vision_dataset_transform
 __all__ = ["AugMix", "AugmentAndMixTransform", "augmix_image"]
 
 
+def dummy_function(x: int):
+    """Look I have a docstring.
+
+    Args:
+        x: an int
+
+    Returns:
+        x * 7
+    """
+    return x * 7
+
+
 def augmix_image(img: ImageType,
                  severity: int = 3,
                  depth: int = -1,
@@ -84,12 +96,12 @@ class AugmentAndMixTransform(torch.nn.Module):
     be passed to :class:`torchvision.transforms.Compose`. See
     :class:`~composer.algorithms.augmix.augmix.AugMix` and the :doc:`Method Card
     </method_cards/augmix>` for details.
-    
+
     Example:
         .. testcode::
 
             import torchvision.transforms as transforms
-            from composer.algorithms.augmix import AugmentAndMixTransform 
+            from composer.algorithms.augmix import AugmentAndMixTransform
             augmix_transform = AugmentAndMixTransform(
                 severity=3,
                 width=3,
