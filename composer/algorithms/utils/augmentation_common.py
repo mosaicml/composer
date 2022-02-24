@@ -31,7 +31,9 @@ def image_as_type(image: _InputImgT, typ: Type[_OutputImgT]) -> _OutputImgT:
     Raises:
         TypeError: if ``typ`` is not one of :class:`torch.Tensor` or
             :class:`PIL.Image.Image`
-        ValueError: if ``image`` cannot be converted to the ``typ``
+        ValueError: if ``image`` cannot be converted to the ``typ``, such
+            as when requesting conversion of a rank 4 tensor to
+            :class:`PIL.Image.Image`.
 
     """
     if isinstance(image, typ):
