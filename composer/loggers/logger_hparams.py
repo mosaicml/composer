@@ -21,7 +21,7 @@ if TYPE_CHECKING:
     from composer.loggers.wandb_logger import WandBLogger
 
 __all__ = [
-    "FileLoggerHparams", "InMemoryLoggerHaparms", "LoggerCallbackHparams", "TQDMLoggerHparams", "WandBLoggerHparams"
+    "FileLoggerHparams", "InMemoryLoggerHparams", "LoggerCallbackHparams", "TQDMLoggerHparams", "WandBLoggerHparams"
 ]
 
 
@@ -222,7 +222,7 @@ class TQDMLoggerHparams(LoggerCallbackHparams):
 
 
 @dataclass
-class InMemoryLoggerHaparms(LoggerCallbackHparams):
+class InMemoryLoggerHparams(LoggerCallbackHparams):
     """:class:`~composer.loggers.in_memory_logger.InMemoryLogger`
     hyperparameters.
 
