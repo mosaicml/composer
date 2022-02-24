@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Mapping, Tuple
 
+import torch.nn as nn
 from torchmetrics import Accuracy, MatthewsCorrcoef, MeanSquaredError, SpearmanCorrcoef
 from torchmetrics.collections import MetricCollection
 
@@ -85,11 +86,29 @@ class BERTModel(ComposerTransformer):
             self.train_metrics.extend([self.train_loss, self.train_acc])
             self.val_metrics.extend([self.val_loss, self.val_acc])
 
-    def loss(self, outputs: Mapping, batch: Batch) -> Tensors:
-        if outputs.get('loss', None) is not None:
-            return outputs['loss']
+        if config.num_labels == 1:
+            self.loss_func = nn.MSELoss()
         else:
-            raise NotImplementedError('Calculating loss directly not supported yet.')
+            self.loss_func = nn.CrossEntropyLoss()
+
+    def forward(self, batch: BatchDict):
+        if not isinstance(batch, dict):
+            raise ValueError(f'Model expects batch to be a dict, got {type(batch)}')
+
+        for key in self.model_inputs:
+            if key not in batch.keys():
+                raise ValueError(f'Batch missing key: {key}')
+
+        labels = batch.pop('labels')
+        output = self.module(**batch)  # type: ignore (thirdparty)
+        batch['labels'] = labels
+        return output
+
+    def loss(self, outputs: Mapping, batch: Batch) -> Tensors:
+        logits = outputs['logits']
+        labels = batch['labels']
+        loss = self.loss_func(logits.view(-1, logits.size(-1)), labels.view(-1))
+        return loss
 
     def validate(self, batch: BatchDict) -> Tuple[Tensors, Tensors]:
         """Runs the validation step.
@@ -105,10 +124,9 @@ class BERTModel(ComposerTransformer):
 
         assert self.training is False, "For validation, model must be in eval mode"
 
-        # temporary hack until eval on multiple datasets is finished
-        labels = batch.pop('labels')
         output = self.forward(batch)
         output = output['logits']
+        labels = batch['labels']
 
         # if we are in the single class case, then remove the classes dimension
         if output.shape[1] == 1:
