@@ -74,8 +74,10 @@ def resize_batch(X: torch.Tensor,
         if check_for_index_targets(y):
             # Add a dimension to match shape of the input and change type for resizing
             y_sized = y.float().unsqueeze(1)
+        else:
+            y_sized = y
         # Make a crop transform for X and y
-        resize_transform, resize_y = _make_crop_pair(X=X, y=y, scale_factor=scale_factor)
+        resize_transform, resize_y = _make_crop_pair(X=X, y=y_sized, scale_factor=scale_factor)
         X_sized, y_sized = resize_transform(X), resize_y(y)
         if check_for_index_targets(y):
             # Convert back to original format for training
