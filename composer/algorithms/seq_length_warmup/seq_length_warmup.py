@@ -206,10 +206,10 @@ class SeqLengthWarmup(Algorithm):
         else:
             raise NotImplementedError(
                 textwrap.dedent("""\
-                To use sequential length warmup, the max_duration must be in epochs or batches.
-                Specifying the `max_duration` in tokens and epochs for use with sequential
-                length warmup will be supported in a future release of Composer. See
-                https://github.com/mosaicml/composer/issues/226"""))
+                    To use sequential length warmup, the max_duration must be in epochs or batches.
+                    Specifying the `max_duration` in tokens or samples for use with sequential
+                    length warmup will be supported in a future Composer release. See
+                    https://github.com/mosaicml/composer/issues/226."""))
         num_warmup_steps = int(num_optimization_steps * self.duration)  # in batches
 
         # assume the full sequence length is the unaltered sequence length

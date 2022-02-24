@@ -208,11 +208,11 @@ class Time(Generic[TValue]):
 
         For example:
 
-        >>> Time(5, TimeUnit.EPOCH)
-        5ep
+        >>> Time(5, TimeUnit.EPOCH).to_timestring()
+        '5ep'
 
         Returns:
-            str: The time-string representation
+            str: The time-string representation.
         """
         return str(self)
 

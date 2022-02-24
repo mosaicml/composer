@@ -40,7 +40,11 @@ class RunDirectoryUploader(Callback):
     timestamp. Only files that have a newer last modified timestamp since the last upload will be  uploaded.
 
     Example
-        .. testsetup:: *
+        .. testsetup::
+
+           import os
+           import functools
+           from composer.callbacks import RunDirectoryUploader, run_directory_uploader
 
            # For this example, we do not validate credentials
            def do_not_validate(
@@ -48,7 +52,16 @@ class RunDirectoryUploader(Callback):
                object_name_prefix: str,
            ) -> None:
                pass
-           callbacks.run_directory_uploader._validate_credentials = do_not_validate
+
+           run_directory_uploader._validate_credentials = do_not_validate
+           
+           os.environ['OBJECT_STORE_KEY'] = 'KEY'
+           os.environ['OBJECT_STORE_SECRET'] = 'SECRET'
+           RunDirectoryUploader = functools.partial(
+               RunDirectoryUploader,
+               use_procs=False,
+               num_concurrent_uploads=1,
+           )
 
         .. doctest::
 
@@ -66,7 +79,7 @@ class RunDirectoryUploader(Callback):
            ...     eval_dataloader=eval_dataloader,
            ...     optimizers=optimizer,
            ...     max_duration="1ep",
-           ...     callbacks=[callbacks.RunDirectoryUploader(osphparams)],
+           ...     callbacks=[RunDirectoryUploader(osphparams)],
            ... )
            >>> # trainer will run this callback whenever the EPOCH_END
            >>> # is triggered, like this:
