@@ -71,7 +71,7 @@ class ComposerTransformer(ComposerModel):
                 It could contain the loss as computed by Hugging Face,
                 or algorithms can pop the labels from the input in case
                 they modify the loss function.
-            batch (Batch): The set of ground truth labels to use to compute the loss against.
+            batch (~composer.core.types.Batch): The set of ground truth labels to use to compute the loss against.
 
         Returns:
             The loss as a ``Tensors`` object.
@@ -86,7 +86,7 @@ class ComposerTransformer(ComposerModel):
         """Runs the forward pass of the model.
 
         Args:
-            batch (Batch): A dictionary of Dict[str, Tensor] of inputs that the
+            batch (~composer.core.types.Batch): A dictionary of Dict[str, Tensor] of inputs that the
                 model expects, as found in ComposerTransformer.get_model_inputs().
 
         Returns:
@@ -126,7 +126,7 @@ class ComposerTransformer(ComposerModel):
         """Runs the validation step.
 
         Args:
-            batch (Batch): a dictionary of Dict[str, Tensor] of inputs
+            batch (~composer.core.types.Batch): a dictionary of Dict[str, Tensor] of inputs
                 that the model expects, as found in ComposerTransformer.get_model_inputs().
 
         Returns:

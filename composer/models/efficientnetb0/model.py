@@ -5,7 +5,7 @@ from composer.models.efficientnets import EfficientNet
 
 
 class EfficientNetB0(ComposerClassifier):
-    """A :class:`ComposerClassifier` wrapper around the EfficientNet-b0 architecture. From the paper EfficientNet:
+    """A :class:`~composer.models.base.ComposerClassifier` wrapper around the EfficientNet-b0 architecture. From the paper EfficientNet:
     Rethinking Model Scaling for Convolutional Neural Networks `<https://arxiv.org/abs/1905.11946>`_.
 
     Example:

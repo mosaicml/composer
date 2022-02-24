@@ -8,7 +8,7 @@ from composer.models.resnets import CIFAR_ResNet
 
 
 class CIFAR10_ResNet56(ComposerClassifier):
-    """A ResNet-56 model extending :class:`ComposerClassifier`.
+    """A ResNet-56 model extending :class:`~composer.models.base.ComposerClassifier`.
 
     From the paper Deep Residual Learning for Image Recognition `<https://arxiv.org/abs/1512.03385>`_.
 

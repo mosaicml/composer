@@ -80,7 +80,7 @@ class CrossEntropyLoss(Metric):
         Args:
             output (Mapping): The output from the model, which must contain
                 either the Tensor or a Mapping type that contains the loss or model logits.
-            target (Tensor): A Tensor of ground-truth values to compare against.
+            target (~torch.Tensor): A Tensor of ground-truth values to compare against.
         """
 
         assert isinstance(output, Tensor)
@@ -98,7 +98,7 @@ class CrossEntropyLoss(Metric):
         """Aggregate the state over all processes to compute the metric.
 
         Returns:
-            loss (Tensor): The loss averaged across all batches.
+            loss (~torch.Tensor): The loss averaged across all batches.
         """
         # Return average loss over entire dataset
         return self.sum_loss / self.total_items  #type: ignore (third-party)
@@ -141,7 +141,7 @@ class BinaryF1Score(Metric):
         """Aggregate the state over all processes to compute the metric.
 
         Returns:
-            loss (Tensor): The loss averaged across all batches.
+            loss (~torch.Tensor): The loss averaged across all batches.
         """
         assert isinstance(self.true_positive, Tensor)
         assert isinstance(self.false_positive, Tensor)
@@ -175,7 +175,7 @@ class LanguageCrossEntropyLoss(Metric):
         Args:
             output (Mapping): The output from the model, which must contain
                 either the Tensor or a Mapping type that contains the loss or model logits.
-            target (Tensor): A Tensor of ground-truth values to compare against.
+            target (~torch.Tensor): A Tensor of ground-truth values to compare against.
         """
 
         # if logit modification algorithms aren't on, we take the loss directly from the model output
@@ -201,14 +201,14 @@ class LanguageCrossEntropyLoss(Metric):
         """Aggregate the state over all processes to compute the metric.
 
         Returns:
-            loss (Tensor): The loss averaged across all batches.
+            loss (~torch.Tensor): The loss averaged across all batches.
         """
         # Return average loss over entire dataset
         return self.sum_loss / self.total_batches  #type: ignore (third-party)
 
 
 class Perplexity(LanguageCrossEntropyLoss):
-    """Subclasses :class:`LanguageCrossEntropyLoss` to implement perplexity.
+    """Subclasses :class:`~composer.models.nlp_metrics.LanguageCrossEntropyLoss` to implement perplexity.
 
     If an algorithm modifies the loss function and it is no longer directly provided in the output, then this could be
     expensive because it'll compute the loss twice.

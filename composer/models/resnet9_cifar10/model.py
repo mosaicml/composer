@@ -56,7 +56,7 @@ class ResNet9(nn.Module):
 
 
 class CIFAR10_ResNet9(ComposerClassifier):
-    """A ResNet-9 model extending :class:`ComposerClassifier`.
+    """A ResNet-9 model extending :class:`~composer.models.base.ComposerClassifier`.
 
     See this blog post for details regarding the architecture:
     https://myrtle.ai/learn/how-to-train-your-resnet-4-architecture/
