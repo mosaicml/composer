@@ -22,7 +22,7 @@ __all__ = ["JSONTraceHandler"]
 
 
 class JSONTraceHandler(ProfilerEventHandler):
-    """Records trace events in `JSON trace format<https://\\
+    """Records trace events in `JSON trace format <https://\\
     docs.google.com/document/d/1CvAClvFfyA5R-PhYUmn5OOQtYMH4h6I0nSsKchNAySU/preview>`_.
 
     Traces are output to ``output_directory``.  Traces can be visualized using the Chrome Trace Viewer.
