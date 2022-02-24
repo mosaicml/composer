@@ -67,7 +67,7 @@ def merge_traces(output_file: str, *trace_files: str):
 
     - The ``pid`` will be set to the global rank.
     - The ``ts`` is syncronized with that of the rank 0 process.
-    - Ensures that the backward process appears below the forward process
+    - The backward pass process appears below the forward process.
 
     Args:
         output_file (str): The file to write the merged trace to
