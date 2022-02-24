@@ -7,11 +7,10 @@ Unet is an architecture used for image segmentation.
 
 ## Example
 
-```{eval-rst}
-.. doctest::
+```python
+  from composer.models import UNet
 
-  >>> from composer.models import UNet
-  >>> model = UNet()
+  model = UNet()
 ```
 
 ## Architecture
