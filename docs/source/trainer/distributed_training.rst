@@ -1,6 +1,8 @@
 |:family_man_woman_girl_boy:| Distributed Training
 ==================================================
 
+.. _distributed-training:
+
 Composer supports distributed training on multiple devices, whether it
 be multiple GPUs on a single node, or multiple GPUs across multiple
 nodes.

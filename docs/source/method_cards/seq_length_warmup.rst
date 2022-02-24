@@ -81,7 +81,7 @@ can either:
 
 *Transformed Inputs (2 samples):*
 
-.. code-block:: console
+.. code-block::
 
     We choose to go to the moon.
 
@@ -91,14 +91,14 @@ can either:
 
 *Original Input (2 samples):*
 
-.. code-block:: console
+.. code-block::
 
     We choose to go to the moon. We choose to go to the moon in this decade and do the other things, not because they are easy, but because they are hard, because that goal will serve to organize and measure the best of our energies and skills, because that challenge
     It is for these reasons that I regard the decision last year to shift our efforts in space from low to high gear as among the most important decisions that will be made during my incumbency in the office of the Presidency.
 
 *Transformed Inputs (14 samples):*
 
-.. code-block:: console
+.. code-block::
 
     We choose to go to the moon.
     We choose to go to the moon in

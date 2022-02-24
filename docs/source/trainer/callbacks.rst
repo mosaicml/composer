@@ -102,6 +102,7 @@ Here is the list supported |Event| for callbacks to hook into.
 .. currentmodule:: composer.core
 
 .. autoclass:: Event
+    :noindex:
 
 .. |Event| replace:: :class:`~composer.core.Event`
 .. |EPOCH_START| replace:: :attr:`~composer.core.Event.EPOCH_START`

@@ -86,7 +86,7 @@ class SAMOptimizer(torch.optim.Optimizer):
     def _grad_norm(self):
         norm = torch.norm(torch.stack(
             [p.grad.norm(p=2) for group in self.param_groups for p in group["params"] if p.grad is not None]),
-                          p=2)
+                          p="fro")
         return norm
 
 

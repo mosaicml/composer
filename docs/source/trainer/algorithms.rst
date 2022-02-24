@@ -236,11 +236,6 @@ as an example
    model = models.resnet18()
    cf.apply_blurpool(model)
 
-Training loop modifications include ``???`` and and be implemented as
-
-.. code:: python
-
-   ???
 
 Composer Trainer
 ================

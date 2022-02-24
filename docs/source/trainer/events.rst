@@ -6,3 +6,4 @@ Events represent specific points in the training loop where a :class:`~composer.
 
 .. currentmodule:: composer.core
 .. autoclass:: Event
+    :noindex:

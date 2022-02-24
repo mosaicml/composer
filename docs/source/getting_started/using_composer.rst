@@ -62,7 +62,7 @@ Our trainer features:
 * trainer to handle boilerplate around numerics, distributed training, and others
 * integration with popular model libraries such as TIMM or HuggingFace Transformers.
 
-For more details, see :doc:`Using Trainer`
+For more details, see :doc:`Using Trainer</trainer/using_the_trainer>`
 
 
 .. _yahp: https://github.com/mosaicml/yahp

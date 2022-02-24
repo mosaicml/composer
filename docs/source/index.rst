@@ -8,7 +8,7 @@ to give the tools that help you train a better model for cheaper.
 
 Using Composer, you can:
 
-- Train an ImageNet model to 76.1% accuracy for $37 (`with vanilla PyTorch:`$127)
+- Train an ImageNet model to 76.1% accuracy for $37 (`with vanilla PyTorch`:$127)
 - Train a GPT-2 125M to a perplexity of 23.9 for $148 (`with vanilla PyTorch`: $255)
 - Use start-of-the-art implementations of methods to speed up your own training loop.
 
@@ -17,20 +17,16 @@ we continually productionize state-of-the-art academic research on efficient mod
 training, and also study the `combinations`` of these methods in order to ensure
 that model training is ✨ as efficient as possible ✨.
 
-Everyone has their own priorities: best accuracy, cheapest cost, and
-somewhere in between.  Composer provides novel recipes that push the
-boundary of both cost and accuracy. Composer allows you to choose
-**the best model for your real-world constraints**.
 
 Composer features:
 
 - 20+ efficient training methods for training a better language and vision models! Don't waste hours trying to reproduce research papers when Composer has done the work for you.
-- Easy-to-use (optional) Trainer interface written to be as performant as possible, and [integrated best practices](https://www.mosaicml.com/blog/best-practices-dec-2021).
+- Easy-to-use (optional) Trainer interface written to be as performant as possible, and `integrated best practices<https://www.mosaicml.com/blog/best-practices-dec-2021>`.
 - Easy-to-use Functional forms that allow you to integrate efficient training methods into your training loop!
-- Strong, `reproducible`` baselines to get you started as 💨 fast 💨 as possible
+- Strong, `reproducible` baselines to get you started as 💨 fast 💨 as possible
 
-Our documentation is organized into several sections. See :doc:`Getting Started<getting_started/installation>` for
-installation an initial usage, the :doc:`Trainer<using_the_trainer>` section for an introduction
+See :doc:`Getting Started<getting_started/installation>` for
+installation an initial usage, the :doc:`Trainer<trainer/using_the_trainer>` section for an introduction
 to our trainer, and :doc:`Methods<method_cards/methods_overview>` for details about our efficiency methods
 and how to use them in your code.
 
@@ -38,18 +34,6 @@ If you have any questions, please feel free to reach out to us on `Twitter`_, `E
 our `Slack`_ channel!
 
 Composer is part of the broader Machine Learning community, and we welcome any contributions, pull requests, or issues.
-
-Citation
-~~~~~~~~
-
-```
-@misc{mosaicml2022composer,
-    author = {The Mosaic ML Team},
-    title = {composer},
-    year = {2021},
-    howpublished = {\url{https://github.com/mosaicml/composer/}},
-}
-```
 
 Table of Contents
 -----------------
@@ -76,6 +60,8 @@ Table of Contents
    trainer/logging.rst
    trainer/callbacks.rst
    trainer/distributed_training.rst
+   trainer/numerics.rst
+   trainer/performance.rst
 
 .. toctree::
    :maxdepth: 1
@@ -138,5 +124,5 @@ Indices and tables
 
 
 .. _Twitter: https://twitter.com/mosaicml
-.. _Email:: mailto:community@mosaicml.com
-.. _Slack:: https://join.slack.com/t/mosaicml-community/shared_invite/zt-w0tiddn9-WGTlRpfjcO9J5jyrMub1dg
+.. _Email: mailto:community@mosaicml.com
+.. _Slack: https://join.slack.com/t/mosaicml-community/shared_invite/zt-w0tiddn9-WGTlRpfjcO9J5jyrMub1dg

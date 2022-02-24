@@ -296,10 +296,12 @@ Object Store API
 ----------------
 
 .. autoclass:: composer.utils.ObjectStoreProviderHparams
+    :noindex:
 
 RunDirectoryUploader API
 ------------------------
 
 .. autoclass:: composer.callbacks.RunDirectoryUploader
+    :noindex:
 
 .. TODO: add details on what can be overridden when loading a checkpoint.

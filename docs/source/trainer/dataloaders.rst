@@ -98,7 +98,7 @@ are shown below.
 .. currentmodule:: composer.core
 
 .. autoclass:: DataSpec
-
+    :noindex:
 
 Validation
 ----------

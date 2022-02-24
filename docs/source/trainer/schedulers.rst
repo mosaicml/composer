@@ -26,7 +26,7 @@ Our experiments have shown better accuracy using stepwise schedulers, and so
 is the recommended setting in most cases.
 
 Composer Schedulers
-------------------
+-------------------
 
 Our schedulers differ from the pytorch schedulers in two ways:
 
