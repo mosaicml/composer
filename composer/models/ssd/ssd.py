@@ -115,6 +115,7 @@ class coco_map(Metric):
         E.evaluate()
         E.accumulate()
         E.summarize()
+        print('map', E.stats[0])
         return E.stats[0]
 
 
