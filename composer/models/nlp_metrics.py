@@ -98,7 +98,7 @@ class CrossEntropyLoss(Metric):
         """Aggregate the state over all processes to compute the metric.
 
         Returns:
-            loss (~torch.Tensor): The loss averaged across all batches.
+            loss: The loss averaged across all batches as a :class:`~torch.Tensor`.
         """
         # Return average loss over entire dataset
         return self.sum_loss / self.total_items  #type: ignore (third-party)
@@ -141,7 +141,7 @@ class BinaryF1Score(Metric):
         """Aggregate the state over all processes to compute the metric.
 
         Returns:
-            loss (~torch.Tensor): The loss averaged across all batches.
+            loss: The loss averaged across all batches as a:class:`~torch.Tensor`.
         """
         assert isinstance(self.true_positive, Tensor)
         assert isinstance(self.false_positive, Tensor)
@@ -201,7 +201,7 @@ class LanguageCrossEntropyLoss(Metric):
         """Aggregate the state over all processes to compute the metric.
 
         Returns:
-            loss (~torch.Tensor): The loss averaged across all batches.
+            loss: The loss averaged across all batches as a :class:`~torch.Tensor`.
         """
         # Return average loss over entire dataset
         return self.sum_loss / self.total_batches  #type: ignore (third-party)
