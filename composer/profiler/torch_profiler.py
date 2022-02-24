@@ -42,17 +42,19 @@ class TorchProfiler(Callback):
         pip install tensorbaord torch_tb_profiler
         tensorboard --logdir tensorboard_trace_handler_dir
 
-    Also see :doc:`profiler`.
+    .. note::
+
+        See :doc:`profiler` for additional usage details on :class:`torch.profiler.profile`\\.
 
     .. note::
 
         Enabling shape and stack tracing results in additional overhead.
-        When ``record_shapes=True`` is specified, profiler will temporarily hold references to the tensors;
-        that may further prevent certain optimizations that depend on the reference count and introduce extra tensor copies.
+        When ``record_shapes=True`` is specified, the profiler will temporarily hold references to tensors which
+        may prevent certain optimizations that depend on the reference count and can introduce extra tensor copies.
 
     Args:
         tensorboard_trace_handler_dir (str): Directory to store trace results.
-            Relative to the run_directory. Defaults to `torch_profiler` in the
+            Relative to the run_directory. Defaults to ``torch_profiler`` in the
             run directory.
         tensorboard_use_gzip (bool, optional):
             Whether to use gzip for the trace. Defaults to False.

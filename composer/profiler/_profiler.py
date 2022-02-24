@@ -26,7 +26,6 @@ log = logging.getLogger(__name__)
 class Profiler:
     """Records the duration of Trainer :class:`.Event` using the :class:`.Marker` API.
 
-    The :class:`Profiler` is instantiated by the Composer :class:`.Trainer`\\.
 
     Specifically, it records:
 
@@ -36,6 +35,11 @@ class Profiler:
 
     The ``event_handlers`` then record and save this data to a trace file.  If no ``event_handlers`` is specified, the
     :class:`.JSONTraceHandler` is used by default.
+
+    .. note::
+
+        The Composer :class:`.Trainer` creates an instance of :class:`.Profiler` when ``merged_trace_file`` is provided.
+        The user should not create and directly register an instance of :class:`Profiler` when using the Composer :class:`.Trainer`\\.
 
     Args:
         state (State): The state.
@@ -156,6 +160,7 @@ class Profiler:
         .. doctest::
 
             >>> marker = profiler.marker("foo")
+            >>> marker
             <composer.profiler.Marker object at ...>
 
         .. note::
@@ -319,7 +324,7 @@ class Marker:
 
         .. testsetup::
 
-            from compoesr.profiler import Profiler
+            from composer.profiler import Profiler
             profiler = Profiler(state=state)
 
         .. doctest::
@@ -327,7 +332,7 @@ class Marker:
             >>> marker = profiler.marker("foo")
             >>> @marker
             ... def something_to_measure():
-            ...     print(something_to_measure)
+            ...     print("something_to_measure")
             >>> something_to_measure()
             something_to_measure
     """
@@ -354,12 +359,20 @@ class Marker:
 
         To record the duration of an event, invoke :meth:`Marker.start` followed by :meth:`Marker.finish`\\:
 
-        .. code-block:: python
+        .. testsetup::
 
-            marker = profiler.marker("foo")
-            marker.start()
-            something_to_measure()
-            marker.finish()
+            from composer.profiler import Profiler
+            profiler = Profiler(state=state)
+
+        .. doctest::
+
+            >>> def something_to_measure():
+            ...     print("something_to_measure")
+            >>> marker = profiler.marker("foo")
+            >>> marker.start()
+            >>> something_to_measure()
+            something_to_measure
+            >>> marker.finish()
         """
         if self._started:
             raise RuntimeError(
@@ -421,11 +434,19 @@ class Marker:
 
         To record an instant event:
 
-        .. code-block:: python
+        .. testsetup::
 
-            marker = profiler.marker("foo")
-            marker.instant()
-            something_to_measure()
+            from composer.profiler import Profiler
+            profiler = Profiler(state=state)
+
+        .. doctest::
+
+            >>> def something_to_measure():
+            ...     print("something_to_measure")
+            >>> marker = profiler.marker("instant")
+            >>> marker.instant()
+            >>> something_to_measure()
+            something_to_measure
         """
         batch_idx = self.profiler.state.timer.batch_in_epoch.value
         if self.profiler.get_action(batch_idx) in self.actions:
@@ -442,13 +463,18 @@ class Marker:
 
         To record a counter event:
 
-        .. code-block:: python
+        .. testsetup::
 
-            marker = profiler.marker("foo")
-            counter_event = 5
-            marker.counter({"counter_event": counter_event})
-            counter_event = 10
-            marker.counter({"counter_event": counter_event})
+            from composer.profiler import Profiler
+            profiler = Profiler(state=state)
+
+        .. doctest::
+
+            >>> marker = profiler.marker("foo")
+            >>> counter_event = 5
+            >>> marker.counter({"counter_event": counter_event})
+            >>> counter_event = 10
+            >>> marker.counter({"counter_event": counter_event})
         """
         batch_idx = self.profiler.state.timer.batch_in_epoch.value
         if self.profiler.get_action(batch_idx) in self.actions:
