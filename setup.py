@@ -88,7 +88,7 @@ extra_deps['dev'] = [
     'furo>=2022.1.2',
     'sphinx-copybutton>=0.4.0',
     'testbook>=0.4.2',
-    'myst-parser>=0.15.2',
+    'myst-parser==0.16.1',
     'pylint>=2.12.2',
     'docformatter>=1.4',
     'sphinx_panels>=0.6.0',
