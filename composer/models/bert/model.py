@@ -99,12 +99,12 @@ class BERTModel(ComposerTransformer):
             if key not in batch.keys():
                 raise ValueError(f'Batch missing key: {key}')
 
-        labels = batch.pop('labels')
+        labels = batch.pop('labels', None)
         output = self.module(**batch)  # type: ignore (thirdparty)
         batch['labels'] = labels
         return output
 
-    def loss(self, outputs: Mapping, batch: Batch) -> Tensors:
+    def loss(self, outputs: Mapping, batch: BatchDict) -> Tensors:
         logits = outputs['logits']
         labels = batch['labels']
         loss = self.loss_func(logits.view(-1, logits.size(-1)), labels.view(-1))
