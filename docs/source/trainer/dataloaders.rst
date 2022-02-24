@@ -62,10 +62,10 @@ For performance, we highly recommend:
 DataSpec
 --------
 
-Some use cases require users to provide more than just the dataloader, but
+Sometimes, the data configuration requires more than just the dataloader. For example:
 additional configurations:
 
--  Some transforms that should be run on the device (e.g. ``GPU``) after
+-  Some transforms should be run on the data after it has been moved onto the correct device (e.g. ``GPU``)
    the data has been moved.
 -  Custom batch types would need a ``split_batch`` function that tells
    our trainer how to split the batches into microbatches for gradient

@@ -62,7 +62,7 @@ launcher:
    >>> composer -n 8 my_training_script.py
 
 Under the hood, this script (`source code
-here <https://github.com/mosaicml/composer/blob/dev/composer/cli/launcher.py>`__),
+here <https://github.com/mosaicml/composer/blob/dev/composer/cli/launcher.py>`__)
 sets the required :mod:`torch.distributed` environment variables, launches
 the processes, and then runs the script on each process. For additional
 configurations of our launcher script, run ``composer --help``.
