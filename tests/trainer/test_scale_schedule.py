@@ -10,7 +10,7 @@ from composer.core.types import Optimizer, Scheduler
 from composer.optim.optimizer_hparams import SGDHparams
 from composer.optim.scheduler import MultiStepLRHparams
 from composer.trainer import TrainerHparams
-from composer.trainer.scale_schedule import scale_scheduler
+from composer.trainer._scale_schedule import scale_scheduler
 from tests.common import SimpleModel
 
 

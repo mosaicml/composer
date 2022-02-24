@@ -43,6 +43,17 @@ class FileLogger(LoggerCallback):
                 loggers=[logger]
             )
 
+        .. testcleanup::
+
+            import os
+            from composer.utils.run_directory import get_run_directory
+
+            path = os.path.join(get_run_directory(), "log.txt")
+            try:
+                os.remove(path)
+            except FileNotFoundError as e:
+                pass
+
     Example output::
 
         [FIT][step=2]: { "logged_metric": "logged_value", }
