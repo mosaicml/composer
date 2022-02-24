@@ -213,10 +213,7 @@ class WandBLoggerHparams(LoggerCallbackHparams):
 @dataclass
 class TQDMLoggerHparams(LoggerCallbackHparams):
     """:class:`~composer.loggers.tqdm_logger.TQDMLogger`
-    hyperparameters.
-
-    Args:
-        None
+    hyperparameters. This class takes no parameters.
     """
 
     def initialize_object(self, config: Optional[Dict[str, Any]] = None) -> TQDMLogger:
