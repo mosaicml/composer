@@ -78,7 +78,7 @@ def apply_alibi(
         attribute=position_embedding_attribute,
         new_embedding_length=max_sequence_length,
     )
-    if optimizers:
+    if optimizers and old_embed is not None and new_embed is not None:
         module_surgery.update_params_in_optimizer([old_embed], [new_embed], optimizers=optimizers)
     log.info(f" Position embedding expanded to sequence length {max_sequence_length}, zeroed, and frozen")
 
@@ -215,7 +215,7 @@ def _zero_and_freeze_expand_position_embeddings(
     model: torch.nn.Module,
     new_embedding_length: int,
     attribute: str,
-) -> Union[Tuple[torch.nn.Parameter], None]:
+) -> Union[Tuple[torch.nn.Parameter, torch.nn.Parameter], Tuple[None, None]]:
     try:
         pos_embedding_module = attrgetter(attribute)(model)
         old_weight = getattr(pos_embedding_module, "weight")
@@ -236,7 +236,7 @@ def _zero_and_freeze_expand_position_embeddings(
         log.error(f"Unable to zero and freeze position embeddings. Model "
                   f"{model} may lack attribute {attribute}, or position "
                   f"embeddings may lack attribute 'weight'.")
-    return None
+    return None, None
 
 
 def _register_alibi(module: torch.nn.Module, n_heads: int, max_token_length: int):
