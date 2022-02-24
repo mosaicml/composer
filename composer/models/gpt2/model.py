@@ -16,7 +16,7 @@ if TYPE_CHECKING:
 
 
 class GPT2Model(ComposerTransformer):
-    """Implements a GPT-2 wrapper around a ComposerTransformer.
+    """Implements a GPT-2 wrapper around a :class:`ComposerTransformer`.
 
     See this `paper <https://d4mucfpksywv.cloudfront.net/better-language-models/language-models.pdf>`_
     for details on the GPT-2 architecutre.
