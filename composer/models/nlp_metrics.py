@@ -216,3 +216,6 @@ class Perplexity(LanguageCrossEntropyLoss):
         """Returns torch.exp() of the LanguageCrossEntropyLoss."""
         avg_loss = super().compute()
         return torch.exp(avg_loss)
+
+
+__all__ = ["Perplexity", "BinaryF1Score", "LanguageCrossEntropyLoss", "CrossEntropyLoss", "MaskedAccuracy"]

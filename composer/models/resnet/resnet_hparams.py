@@ -10,6 +10,8 @@ from composer.models.resnet.model import ComposerResNet
 
 @dataclass
 class ResNetHparams(ModelHparams):
+    """See :class:`ComposerResNet`"""
+
     model_name: str = hp.optional(
         f"ResNet architecture to instantiate, must be one of {ComposerResNet.valid_model_names}. (default: '')",
         default='')

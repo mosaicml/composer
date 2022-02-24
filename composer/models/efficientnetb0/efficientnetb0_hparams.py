@@ -9,6 +9,7 @@ from composer.models.model_hparams import ModelHparams
 
 @dataclass
 class EfficientNetB0Hparams(ModelHparams):
+    """See :class:`EfficientNetB0`"""
     drop_connect_rate: float = hp.optional(
         doc="Probability of dropping a sample within a block before identity connection.",
         default=0.2,

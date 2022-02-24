@@ -6,7 +6,7 @@ from composer.models.base import ComposerClassifier
 
 
 class Timm(ComposerClassifier):
-    """A wrapper around ``timm.create_model()`` used to create :class:`composer.models.ComposerClassifier`.
+    """A wrapper around :func:`timm.create_model()` used to create :class:`composer.models.ComposerClassifier`.
 
     Resnet18 Example:
 

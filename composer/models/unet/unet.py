@@ -1,6 +1,5 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
-import contextlib
 import logging
 import textwrap
 from typing import Any, Optional, Tuple
@@ -12,7 +11,6 @@ from composer.core.types import BatchPair, Metrics, Tensor, Tensors
 from composer.models.base import ComposerModel
 from composer.models.loss import Dice
 from composer.models.unet.model import UNet as UNetModel
-from composer.models.unet.unet_hparams import UnetHparams
 
 log = logging.getLogger(__name__)
 
@@ -24,12 +22,10 @@ class UNet(ComposerModel):
     U-Net architecture.
 
     Args:
-        hparams (UnetHparams): The hyperparameters for constructing the model.
+        num_classes (int): The number of classes. Needed for classification tasks. Default = 3.
     """
 
-    n_classes: Optional[int] = None
-
-    def __init__(self, hparams: UnetHparams) -> None:
+    def __init__(self, num_classes: Optional[int] = 3) -> None:
         super().__init__()
         try:
             from monai.losses import DiceLoss
@@ -39,21 +35,15 @@ class UNet(ComposerModel):
                 Composer was installed without unet support. To use timm with Composer, run `pip install mosaicml[unet]`
                 if using pip or `conda install -c conda-forge monai` if using Anaconda.""")) from e
 
-        self.hparams = hparams
         self.module = self.build_nnunet()
 
-        self.dice = Dice(num_classes=3)
-
+        self.dice = Dice(num_classes=num_classes)
         self.dloss = DiceLoss(include_background=False, softmax=True, to_onehot_y=True, batch=True)
         self.closs = nn.CrossEntropyLoss()
 
-    def loss(self, outputs: Any, batch: BatchPair) -> Tensors:
-
+    def loss(self, outputs: Any, batch: BatchPair, *args, **kwargs) -> Tensors:
         _, y = batch
         y = y.squeeze(1)  # type: ignore
-
-        assert isinstance(y, Tensor)
-
         loss = self.dloss(outputs, y)
         loss += self.closs(outputs, y[:, 0].long())
         return loss
@@ -63,18 +53,12 @@ class UNet(ComposerModel):
         return torch.stack([out[name] for out in outputs]).mean(dim=0)
 
     def metrics(self, train: bool = False) -> Metrics:
-
         return self.dice
 
     def forward(self, batch: BatchPair) -> Tensor:
         x, _ = batch
-        context = contextlib.nullcontext if self.training else torch.no_grad
-
         x = x.squeeze(1)  # type: ignore
-
-        with context():
-            logits = self.module(x)
-
+        logits = self.module(x)
         return logits
 
     def inference2d(self, image):
@@ -98,14 +82,13 @@ class UNet(ComposerModel):
 
     def validate(self, batch: BatchPair) -> Tuple[Any, Any]:
         assert self.training is False, "For validation, model must be in eval mode"
-        img, lbl = batch
-        pred = self.inference2d(img)
-        return pred, lbl[:, 0].long()  # type: ignore
+        image, target = batch
+        pred = self.inference2d(image)
+        return pred, target[:, 0].long()  # type: ignore
 
     def build_nnunet(self) -> torch.nn.Module:
         kernels = [[3, 3]] * 6
         strides = [[1, 1]] + [[2, 2]] * 5
-
         model = UNetModel(in_channels=4,
                           n_class=4,
                           kernels=kernels,

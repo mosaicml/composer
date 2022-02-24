@@ -9,3 +9,5 @@ _quality = '93.1'
 _metric = 'Top-1 Accuracy'
 _ttt = 'tbd'
 _hparams = 'resnet56_cifar10.yaml'
+
+__all__ = ["CIFAR10_ResNet56", "CIFARResNetHparams"]

@@ -12,7 +12,7 @@ if TYPE_CHECKING:
 
 @dataclasses.dataclass
 class GPT2Hparams(TransformerHparams):
-    """Overrides TransformerHparams to create GPT-2 specific models and configs."""
+    """See :class:`GPT2Model`"""
 
     def initialize_object(self) -> "ComposerTransformer":
         try:

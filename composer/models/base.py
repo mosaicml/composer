@@ -244,3 +244,6 @@ class ComposerClassifier(ComposerModel):
         _, targets = batch
         outputs = self.forward(batch)
         return outputs, targets
+
+
+__all__ = ["ComposerModel", "ComposerClassifier"]

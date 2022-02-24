@@ -3,10 +3,23 @@
 ## Code adapted from https://github.com/NVIDIA/DeepLearningExamples/blob/master/PyTorch/Segmentation/nnUNet/
 import torch.nn as nn
 
-from .layers import ConvBlock, OutputBlock, ResidBlock, UpsampleBlock
+from ._layers import ConvBlock, OutputBlock, ResidBlock, UpsampleBlock
 
 
 class UNet(nn.Module):
+    """Unet Architecture adapted from
+    https://github.com/NVIDIA/DeepLearningExamples/blob/master/PyTorch/Segmentation/nnUNet/.
+
+    Args:
+        in_channels (int): number of input channels.
+        n_class (int): number of output layers.
+        kernels (list): conv layer kernel sizes.
+        strides (list): conv layer strides.
+        normalization_layer (str): normalization layer type, one of ("batch", "instance").
+        negative_slope (float): leaky relu negative slope.
+        residual (bool): use residual connections.
+        dimension (int): filter dimensions.
+    """
 
     def __init__(
         self,

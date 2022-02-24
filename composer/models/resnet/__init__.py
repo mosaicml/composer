@@ -49,3 +49,5 @@ _metadata = {
         '_hparams': 'resnet152.yaml'
     }
 }
+
+__all__ = ["ComposerResNet", "ResNetHparams"]

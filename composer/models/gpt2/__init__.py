@@ -31,3 +31,5 @@ _metadata = {
         '_hparams': 'gpt2_125m.yaml'
     }
 }
+
+__all__ = ["GPT2Model", "GPT2Hparams"]

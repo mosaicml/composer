@@ -244,3 +244,6 @@ class CrossEntropyLoss(Metric):
         assert isinstance(self.total_batches, Tensor)
         assert isinstance(self.sum_loss, Tensor)
         return self.sum_loss / self.total_batches
+
+
+__all__ = ["MIoU", "Dice", "CrossEntropyLoss", "soft_cross_entropy"]

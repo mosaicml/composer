@@ -77,3 +77,6 @@ class ModelHparams(hp.Hparams, ABC):
             ComposerModel: The constructed `ComposerModel`
         """
         pass
+
+
+__all__ = ["ModelHparams", "Initializer"]

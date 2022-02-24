@@ -112,3 +112,6 @@ class CIFAR_ResNet(nn.Module):
         }
 
         return CIFAR_ResNet(model_arch[depth], initializers, outputs)
+
+
+__all__ = ["CIFAR_ResNet"]

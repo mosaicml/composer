@@ -11,6 +11,7 @@ from composer.models.timm.model import Timm
 
 @dataclass
 class TimmHparams(ModelHparams):
+    """See :class:`Timm`"""
 
     model_name: str = hp.optional(
         textwrap.dedent("""\

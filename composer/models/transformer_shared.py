@@ -161,3 +161,6 @@ class ComposerTransformer(ComposerModel):
         """
 
         return self.model_inputs
+
+
+__all__ = ["ComposerTransformer"]

@@ -9,7 +9,8 @@ from composer.models.model_hparams import ModelHparams
 
 @dataclass
 class DeepLabV3Hparams(ModelHparams):
-    """This class specifies arguments for a DeepLabV3 model and can instantiate a DeepLabV3 model.
+    """See :class:`ComposerDeepLabV3` This class specifies arguments for a DeepLabV3 model and can instantiate a
+    DeepLabV3 model.
 
     Args:
         backbone_arch (str): the backbone architecture to use, either ['resnet50', 'resnet101'].

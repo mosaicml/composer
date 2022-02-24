@@ -9,3 +9,5 @@ _quality = '76.63'
 _metric = 'Top-1 Accuracy'
 _ttt = '21h 48m'
 _hparams = 'efficientnetb0.yaml'
+
+__all__ = ["EfficientNetB0", "EfficientNetB0Hparams"]

@@ -459,3 +459,6 @@ class EfficientNet(nn.Module):
                           out_channels=int(args['o']),
                           se_ratio=float(args['se']) if 'se' in args else None)  # type: Dict[str, Any]
         return block_args, num_repeat
+
+
+__all__ = ["EfficientNet"]

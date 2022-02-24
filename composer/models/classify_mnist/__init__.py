@@ -9,3 +9,5 @@ _quality = ''
 _metric = 'Accuracy'
 _ttt = '?'
 _hparams = 'classify_mnist_cpu.yaml'
+
+__all__ = ["MNIST_Classifier", "MnistClassifierHparams"]
