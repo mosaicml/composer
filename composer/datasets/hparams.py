@@ -158,6 +158,8 @@ class JpgClsWebDatasetHparams(WebDatasetHparams, SyntheticHparamsMixin):
                 ])
             dataset, meta = load_webdataset(self.dataset_s3_bucket, self.dataset_name, split, self.webdataset_cache_dir,
                                             self.webdataset_cache_verbose)
+            if self.shuffle:
+                dataset = dataset.shuffle(1000)
             dataset = dataset.decode('pil').map_dict(jpg=transform).to_tuple('jpg', 'cls')
             dataset = size_webdataset(dataset, meta['n_shards'], meta['samples_per_shard'], dist.get_world_size(),
                                       max(1, dataloader_hparams.num_workers), batch_size, self.drop_last)
