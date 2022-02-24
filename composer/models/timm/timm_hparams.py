@@ -11,7 +11,7 @@ from composer.models.timm.model import Timm
 
 @dataclass
 class TimmHparams(ModelHparams):
-    """Yahp Hparams interface for Timm models.
+    """yahp Hparams interface for Timm models.
 
     Args:
         model_name (str): timm model name e.g: "resnet50". List of models can be found at

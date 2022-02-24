@@ -9,7 +9,7 @@ from composer.models.model_hparams import ModelHparams
 
 @dataclass
 class DeepLabV3Hparams(ModelHparams):
-    """See :class:`ComposerDeepLabV3` This class specifies arguments for a DeepLabV3 model and can instantiate a
+    """yahp interface for :class:`ComposerDeepLabV3`,. This class specifies arguments for a DeepLabV3 model and can instantiate a
     DeepLabV3 model.
 
     Args:

@@ -9,7 +9,7 @@ from composer.models.model_hparams import ModelHparams
 
 @dataclass
 class EfficientNetB0Hparams(ModelHparams):
-    """Yahp Hparams interface for EfficientNetB0.
+    """yahp Hparams interface for EfficientNetB0.
 
     Args:
         num_classes (int): The number of classes. Needed for classification tasks. Default = 1000.

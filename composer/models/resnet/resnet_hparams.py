@@ -10,7 +10,7 @@ from composer.models.resnet.model import ComposerResNet
 
 @dataclass
 class ResNetHparams(ModelHparams):
-    """Yahp Hparams interface for ResNet models.
+    """yahp Hparams interface for ResNet models.
 
     Args:
         model_name (str): Name of the ResNet model instance. Either ["resnet18", "resnet34", "resnet50", "resnet101",
