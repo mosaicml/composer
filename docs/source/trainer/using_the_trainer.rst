@@ -152,7 +152,7 @@ various events above.
 
 .. seealso::
 
-    :doc:`Events<events>` and :class:`.State`
+    :class:`.Events` and :class:`.State`
 
 Algorithms
 ~~~~~~~~~~
@@ -217,7 +217,7 @@ Composer's own custom schedulers are versions that support the
 :class:`.Time` abstraction. Time related inputs such as ``step``
 or ``T_max`` can be provided in many units, from epochs (``"10ep"``)
 to batches (``"2048ba"``) to duration (``"0.7dur"``). See
-:doc:`Schedulers`<optimizers_and_schedulers> for details.
+:doc:`Schedulers`<schedulers>` for details.
 
 
 Training on GPU
@@ -273,8 +273,10 @@ data parallel across 8 GPUs, the dataloader should have ``batch_size=256``.
 
 .. warning::
 
-    If using distributed training, your dataloader use the
-    :mod:`torch.utils.data.distributed.DistributedSampler`.
+    For distributed training, your dataloader should use the
+    :mod:`torch.utils.data.distributed.DistributedSampler`. If you
+    are running multi-node, and each rank does not have a copy of the
+    dataset, then a normal sampler can be used.
 
 
 .. seealso::
@@ -352,7 +354,7 @@ Numerics
 The trainer automatically handles multiple precision types, either as ``fp32`` or for GPUs,
 ``amp`` for automatic mixed precision, which is pytorch's built-in methods of training
 in 16-bit floating point. For more details on ``amp``, see :mod:`torch.cuda.amp` and
-the paper by `Micikevicius∗ et al, 2018 <https://arxiv.org/abs/1710.03740>`__
+the paper by `Micikevicius et al, 2018 <https://arxiv.org/abs/1710.03740>`__
 
 We recommend using ``amp`` on GPUs to accelerate your training.
 

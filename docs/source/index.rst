@@ -67,7 +67,7 @@ Table of Contents
    trainer/using_the_trainer.rst
    trainer/dataloaders.rst
    trainer/evaluation.rst
-   trainer/optimizers_and_schedulers.rst
+   trainer/schedulers.rst
    trainer/time.rst
    trainer/checkpointing.rst
    trainer/logging.rst

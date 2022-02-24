@@ -27,10 +27,10 @@ Available Loggers
 .. autosummary::
     :nosignatures:
 
-    FileLogger
-    WandBLogger
-    TQDMLogger
-    InMemoryLogger
+    ~file_logger.FileLogger
+    ~wandb_logger.WandBLogger
+    ~tqdm_logger.TQDMLogger
+    ~in_memory_logger.InMemoryLogger
 
 
 Default Values
@@ -71,7 +71,7 @@ to the trainer, and has three primary methods:
 -  :meth:`.Logger.metric_batch`
 
 Calls to these methods will log the data into each of the destination
-``loggers``, but with different :class:``.LogLevel``.
+``loggers``, but with different :class:`.LogLevel`.
 
 Similarly, :class:`.Algorithm` classes are also provided the :class:`.Logger`
 to log any desired information.

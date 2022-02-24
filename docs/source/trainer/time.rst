@@ -6,15 +6,22 @@ the training loop. We track several quantities (epochs, batches,
 samples, and tokens) throughout training. Values
 can be provided as a string:
 
-- epochs: ``"10ep"``
-- batches: ``"100ba"``
-- samples: ``"2048sp"``
-- tokens: ``"10242948tok"``
-- duration: ``0.7dur`` (treated as a fraction of the trainer's ``max_duration``)
+.. csv-table::
+   :header: "Unit", "Suffix", "Example", "Enum"
+   :widths: 15, 10, 15, 30
+   :width: 0.5
+
+   "Epochs", ``"ep"``, ``"10ep"``, :attr:`.TimeUnit.EPOCH`
+   "Batches", ``"ba"``, ``"100ba"``, :attr:`.TimeUnit.BATCH`
+   "Samples", ``"sp"``, ``"2048sp"``, :attr:`.TimeUnit.SAMPLE`
+   "Tokens", ``"tok"``, ``"93874tok"``, :attr:`.TimeUnit.TOKEN`
+   "Duration", ``"dur"``, ``"0.7dur"``, :attr:`.TimeUnit.DURATION`
+
+Duration is defined as multipler of the ``max_duration``.
 
 These above string inputs are valid when an argument accepts the |Time|
 type. There are some exceptions -- for example ``dur`` is not valid when setting
-``max_duration``.
+``max_duration`` since that is circular.
 
 Users can also specify milestones for objects such as learning rate schedulers
 in units of ``duration``, such as ``0.1dur``. This makes it easy to build recipes
