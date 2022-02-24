@@ -17,19 +17,33 @@ ALiBi (Attention with Linear Biases) dispenses with position embeddings for toke
 TODO(MATTHEW): FIX
 
 ```python
+import composer.functional as cf
+
+from composer.algorithms.alibi.gpt2_alibi import _attn
+from composer.algorithms.alibi.gpt2_alibi import enlarge_mask
+from transformers.models.gpt2.modeling_gpt2 import GPT2Attention
+
 def training_loop(model, train_loader):
-  opt = torch.optim.Adam(model.parameters())
-  loss_fn = F.cross_entropy
-  model.train()
+    cf.apply_alibi(model=model,
+                            heads_per_layer=12,
+                            max_sequence_length=8192,
+                            position_embedding_attribute="module.transformer.wpe",
+                            attention_module=GPT2Attention,
+                            attr_to_replace="_attn",
+                            alibi_attention=_attn,
+                            mask_replacement_function=enlarge_mask)
+
+    opt = torch.optim.Adam(model.parameters())
+    loss_fn = F.cross_entropy
+    model.train()
   
-  for epoch in range(num_epochs):
-      for X, y in train_loader:
-          y_hat = model(X)
-          loss = loss_fn(y_hat, y)
-          loss.backward()
-          opt.step()
-          opt.zero_grad()
-```
+    for epoch in range(num_epochs):
+        for X, y in train_loader:
+            y_hat = model(X)
+            loss = loss_fn(y_hat, y)
+            loss.backward()
+            opt.step()
+            opt.zero_grad()
 
 ### Composer Trainer
 
