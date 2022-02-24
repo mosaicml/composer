@@ -57,10 +57,10 @@ trainer = Trainer(model=model,
                   train_dataloader=train_dataloader,
                   max_duration='1ep',
                   algorithms=[Alibi(position_embedding_attribute="module.transformer.wpe",
-                                    attention_module_name="transformers.models.gpt2.modeling_gpt2.GPT2Attention",
-                                    attr_to_replace="_attn",
-                                    alibi_attention="composer.algorithms.alibi.gpt2_alibi._attn",
-                                    mask_replacement_function="composer.algorithms.alibi.gpt2_alibi.enlarge_mask")
+                                                attention_module_name="transformers.models.gpt2.modeling_gpt2.GPT2Attention",
+                                                attr_to_replace="_attn",
+                                                alibi_attention="composer.algorithms.alibi._gpt2_alibi._attn",
+                                                mask_replacement_function="composer.algorithms.alibi.gpt2_alibi.enlarge_mask")
                   ])
 
 trainer.fit()
