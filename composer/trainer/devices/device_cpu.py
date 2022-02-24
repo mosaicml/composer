@@ -1,19 +1,30 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
+"""The CPU device used for training."""
+
 from __future__ import annotations
 
 import logging
 from contextlib import contextmanager
-from typing import Generator, Union
+from typing import Generator, TypeVar, Union
+
+import torch
 
 from composer.core.types import Precision, StateDict, Tensor
 from composer.trainer.devices.device import Device, T_nnModule
 
 logger = logging.getLogger(__name__)
 
+__all__ = ["DeviceCPU"]
+
+T_nnModule = TypeVar("T_nnModule", bound=torch.nn.Module)
+
 
 class DeviceCPU(Device):
-    """An extension of :class:`~composer.trainer.devices.device.Device` for CPUs."""
+    """An extension of :class:`~composer.trainer.devices.device.Device` for CPUs.
+
+    This class takes no arguments.
+    """
 
     dist_backend = "gloo"
 

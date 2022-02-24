@@ -3,7 +3,8 @@
 from torch.utils.data import DataLoader
 from torchvision import datasets, transforms
 
-import composer
+from composer import Trainer
+from composer.models import MNIST_Classifier
 
 # Specify Dataset and Instantiate Dataloader
 batch_size = 2048
@@ -21,31 +22,28 @@ train_dataloader = DataLoader(train_dataset,
                               num_workers=8)
 
 # Instantiate Model
-model = composer.models.MNIST_Classifier(num_classes=10)
+model = MNIST_Classifier(num_classes=10)
 
 # Instantiate the trainer
-train_epochs = "2ep"
-train_subset_num_batches = 8
-device = composer.trainer.devices.DeviceGPU()
 profiler_trace_file = "profiler_traces.json"
 torch_trace_dir = "torch_profiler"
 
-trainer = composer.trainer.Trainer(model=model,
-                                   train_dataloader=train_dataloader,
-                                   eval_dataloader=train_dataloader,
-                                   max_duration=train_epochs,
-                                   device=device,
-                                   validate_every_n_batches=-1,
-                                   validate_every_n_epochs=-1,
-                                   precision="amp",
-                                   train_subset_num_batches=train_subset_num_batches,
-                                   profiler_trace_file=profiler_trace_file,
-                                   prof_skip_first=0,
-                                   prof_wait=0,
-                                   prof_warmup=1,
-                                   prof_active=4,
-                                   prof_repeat=1,
-                                   torch_profiler_trace_dir=torch_trace_dir)
+trainer = Trainer(model=model,
+                  train_dataloader=train_dataloader,
+                  eval_dataloader=train_dataloader,
+                  max_duration=8,
+                  device="gpu",
+                  validate_every_n_batches=-1,
+                  validate_every_n_epochs=-1,
+                  precision="amp",
+                  train_subset_num_batches=8,
+                  profiler_trace_file=profiler_trace_file,
+                  prof_skip_first=0,
+                  prof_wait=0,
+                  prof_warmup=1,
+                  prof_active=4,
+                  prof_repeat=1,
+                  torch_profiler_trace_dir=torch_trace_dir)
 
 # Run training
 trainer.fit()
