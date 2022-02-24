@@ -11,6 +11,8 @@ import yahp as hp
 from composer.models.base import ComposerModel
 from composer.utils.string_enum import StringEnum
 
+__all__ = ["ModelHparams"]
+
 
 class Initializer(StringEnum):
     KAIMING_NORMAL = "kaiming_normal"
@@ -81,6 +83,3 @@ class ModelHparams(hp.Hparams, ABC):
             ComposerModel: The constructed `ComposerModel`
         """
         pass
-
-
-__all__ = ["ModelHparams"]

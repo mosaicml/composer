@@ -1,6 +1,5 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
-
 from __future__ import annotations
 
 import logging
@@ -17,6 +16,7 @@ if TYPE_CHECKING:
 log = logging.getLogger(__name__)
 
 __all__ = ["ComposerTransformer"]
+
 
 class ComposerTransformer(ComposerModel):
     """Implements the base logic that all Transformers can build on top of. Subclass and implement :meth:`loss` to use.

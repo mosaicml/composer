@@ -14,7 +14,6 @@ if TYPE_CHECKING:
 
 @dataclass
 class BERTForClassificationHparams(TransformerHparams):
-    """See :class:`BertModel`"""
     num_labels: int = hp.optional(doc="The number of possible labels for the task.", default=2)
 
     def validate(self):

@@ -9,6 +9,8 @@ import yahp as hp
 from composer.core.types import JSON
 from composer.models.model_hparams import ModelHparams
 
+__all__ = ["TransformerHparams"]
+
 
 @dataclass
 class TransformerHparams(ModelHparams, ABC):
@@ -45,6 +47,3 @@ class TransformerHparams(ModelHparams, ABC):
 
         if self.use_pretrained and self.model_config:
             raise Exception("A model cannot load pretrained weights from configuration.")
-
-
-__all__ = ["TransformerHparams"]

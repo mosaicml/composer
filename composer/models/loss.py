@@ -15,6 +15,7 @@ if TYPE_CHECKING:
 
 __all__ = ["MIoU", "Dice", "CrossEntropyLoss", "soft_cross_entropy"]
 
+
 class MIoU(Metric):
     """Torchmetric mean Intersection-over-Union (mIoU) implementation.
 

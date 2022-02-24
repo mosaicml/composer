@@ -112,20 +112,19 @@ class ComposerModel(torch.nn.Module, abc.ABC):
 
         Args:
             outputs (Any): The output of the forward pass.
-            batch (:class:`Batch`): The output batch from dataloader.
+            batch (:class:`~composer.core.types.Batch`): The output batch from dataloader.
 
         Returns:
-            Tensors:
-                The loss as a :class:`torch.Tensor`.
+            Tensors: The loss as a :class:`torch.Tensor`.
         """
         pass
 
     def metrics(self, train: bool = False) -> Metrics:
         """Get metrics for evaluating the model. Metrics should be torchmetrics compatible for accurate distributed
         logging and defined in :meth:`__init__`. Metrics consume the outputs of :meth:`validate`. To track multiple
-        metrics, return a list of metrics in a :class:`torchmetrics.collections.MetricCollection`.
+        metrics, return a list of metrics in a :class:`~torchmetrics.collections.MetricCollection`.
 
-        Returning multiple metrics:
+        Example:
 
         .. code-block:: python
 
@@ -149,7 +148,7 @@ class ComposerModel(torch.nn.Module, abc.ABC):
                 during training and False otherwise. (default: ``False``). This flag is set automatically by the :class:`Trainer`
 
         Returns:
-             :mod:`~torchmetrics.Metric` or list of metrics wrapped in :mod:`~torchmetrics.collections.MetricCollection`
+             Metric or MetricCollection: An instance of :mod:`~torchmetrics.Metric` or :mod:`~torchmetrics.collections.MetricCollection`.
         """
         raise NotImplementedError('Implement metrics in your ComposerModel to run validation.')
 
@@ -185,16 +184,15 @@ class ComposerModel(torch.nn.Module, abc.ABC):
             batch (:class:`Batch`): The output batch from dataloader
 
         Returns:
-            Tuple[Any, Any]: Tuple that is passed directly to the
-                `update()` methods of the metrics returned by :meth:`metrics`.
-                Most often, this will be a tuple of the form (outputs, targets).
+            Tuple[Any, Any]: A Tuple of (:attr:`outputs`, :attr:`targets`) that is passed directly to the
+                :meth:`~torchmetrics.Metric.update` methods of the metrics returned by :meth:`metrics`.
         """
         raise NotImplementedError('Implement validate in your ComposerModel to run validation.')
 
 
 class ComposerClassifier(ComposerModel):
-    """A convenience class that creates a :class:`ComposerModel` for classification tasks from a vanilla pytorch
-    model. :class:`ComposerClassifier` requires batches in the form: (input, target) and includes a basic classification
+    """A convenience class that creates a :class:`ComposerModel` for classification tasks from a vanilla pytorch model.
+    :class:`ComposerClassifier` requires batches in the form: (input, target) and includes a basic classification
     training loop with CrossEntropy loss and accuracy logging.
 
     Example:
@@ -211,7 +209,7 @@ class ComposerClassifier(ComposerModel):
         module (torch.nn.Module): A Pytorch neural network module.
 
     Returns:
-        ComposerClassifier: An instance of :mod:`~ComposerClassifier`.
+        ComposerClassifier: An instance of :class:`~ComposerClassifier`.
     """
 
     num_classes: Optional[int] = None

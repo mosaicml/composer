@@ -13,6 +13,7 @@ from composer.models import Initializer
 
 __all__ = ["CIFAR_ResNet"]
 
+
 class CIFAR_ResNet(nn.Module):
     """A residual neural network as originally designed for CIFAR-10."""
 
