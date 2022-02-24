@@ -6,6 +6,9 @@ PYTHON ?= python
 PYTEST ?= pytest
 EXTRA_ARGS ?=  # extra arguments for pytest
 
+# Pin pyright version
+PYRIGHT_PYTHON_FORCE_VERSION ?= 1.1.224
+
 # Force append the duration flag to extra args
 override EXTRA_ARGS += --duration $(DURATION)
 
@@ -17,12 +20,18 @@ style:
 	$(PYTHON) -m yapf -rip $(dirs)
 	$(PYTHON) -m docformatter -ri --wrap-summaries 120 --wrap-descriptions 120 $(dirs)
 
-# this only checks for style & pyright, makes no code changes
-lint:
+# this only checks for style, makes no code changes
+lint-style:
 	$(PYTHON) -m isort -c --diff $(dirs)
 	$(PYTHON) -m yapf -dr $(dirs)
 	$(PYTHON) -m docformatter -r --wrap-summaries 120 --wrap-descriptions 120 $(dirs)
-	pyright $(dirs)
+
+# this only checks pyright, makes no code changes
+lint-pyright:
+	PYRIGHT_PYTHON_FORCE_VERSION=$(PYRIGHT_PYTHON_FORCE_VERSION) pyright $(dirs)
+
+# this only checks style & pyright, makes no code changes
+lint: lint-style lint-pyright
 
 test:
 	$(PYTHON) -m $(PYTEST) tests/ $(EXTRA_ARGS)
