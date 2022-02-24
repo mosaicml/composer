@@ -16,7 +16,7 @@ performing the same work, so inspecting the rank zero is sufficient to
 reason about memory, performance, and other properties.
 
 Within Composer, we have two options for data-parallelism-only
-execution: Pytorch DDP and DeepSpeed Zero. We currently default to
+execution: `Pytorch DDP`_` and `DeepSpeed Zero`_. We currently default to
 Pytorch DDP, though DeepSpeed Zero can provide better performance and
 lower memory utilization when configured correctly.
 
@@ -34,6 +34,7 @@ allow **any model to run anywhere:**
 -  Inside the Trainer, we split device minibatches into device
    microbatches and train with gradient accumulation, greatly reducing
    activation memory. Use ``grad_accum`` argument to enable this.
+   See :class:`.Trainer`.
 
 .. note::
 
@@ -42,7 +43,7 @@ allow **any model to run anywhere:**
     gradient accumulation.
 
 -  We currently also support optimizer and gradient sharing via
-   Zero stages 1 and 2 respectively. In the future, we'll support model
+   `Deepspeed Zero`_` stages 1 and 2 respectively. In the future, we'll support model
    sharding via Zero-3. These methods reduce model state memory by a
    factor of (1 / the number of data-parallel devices).
 -  For some models, activation memory can be reduced by setting
@@ -66,6 +67,12 @@ here <https://github.com/mosaicml/composer/blob/dev/composer/cli/launcher.py>`__
 sets the required :mod:`torch.distributed` environment variables, launches
 the processes, and then runs the script on each process. For additional
 configurations of our launcher script, run ``composer --help``.
+
+.. argparse::
+   :module: composer.cli.launcher
+   :func: get_parser
+   :prog: composer
+
 
 Distributed Properties
 ----------------------
@@ -100,3 +107,7 @@ parallelization used.
 
 ..
     TODO: add details on DDP SYNC STRATEGY
+
+
+.. _Pytorch DDP: https://pytorch.org/docs/master/generated/torch.nn.parallel.DistributedDataParallel.html
+.. _Deepspeed Zero: https://www.deepspeed.ai/

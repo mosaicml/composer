@@ -92,7 +92,7 @@ For these and other potential uses cases, the trainer can also accept
    trainer = Trainer(train_dataloader=data_spec, ...)
 
 Examples of how |DataSpec| is used for popular datasets can be seen in
-our ImageNet and ADE20k files. For reference, the |DataSpec| arguments
+our `ImageNet`_ and `ADE20k`_ files. For reference, the |DataSpec| arguments
 are shown below.
 
 .. currentmodule:: composer.core
@@ -151,4 +151,6 @@ e.g. ``(Tensor, (Tensor, Tensor, Tensor))``, then the function would be:
 
 
 .. |DataSpec| replace:: :class:`~composer.core.DataSpec`
+.. _ImageNet: https://github.com/mosaicml/composer/blob/dev/composer/datasets/imagenet.py
+.. _ADE20k: https://github.com/mosaicml/composer/blob/dev/composer/datasets/ade20k.py
 .. _pytorch: https://pytorch.org/tutorials/beginner/basics/data_tutorial.html

@@ -1,8 +1,8 @@
 |:phone:| Callbacks
 ===================
 
-Callbacks enable non-essential code to be executed during any of the
-|Event| points. By convention, callbacks should not modify the
+Callbacks provide hooks that run at each training loop's |Event|.
+By convention, callbacks should not modify the
 training loop by changing the :class:`.State`, but rather be reading and
 logging various metrics. Typical callback use cases include logging, timing,
 or model introspection.
@@ -83,6 +83,17 @@ at every event. The below is an equivalent implementation for ``EpochMonitor``:
 
     If :meth:`.Callback.run_event` is overriden, the individual methods corresponding
     to each event will be ignored.
+
+The new callback can then be provided to the trainer.
+
+.. code:: python
+
+    from composer import Trainer
+
+    trainer = Trainer(
+        ...,
+        callbacks=[EpochMonitor()]
+    )
 
 Events
 ------

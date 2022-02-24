@@ -6,7 +6,6 @@ passing the argument ``save_folder`` when creating the
 :class:`.Trainer`. The ``save_folder`` can be a relative path, in which case
 checkpoints will be stored in
 ``CWD/runs/<timestamp>/<rank>/<save_folder>``. Absolute paths will be used as-is.
-If it's an absolute path,
 
 By default, checkpoints are saved every epoch, but can be configured
 using the ``save_interval`` argument. Specify ``save_interval="10ep"``
@@ -235,7 +234,12 @@ should be the path to the checkpoint file *within the container/bucket*.
                   "container": "checkpoints-debugging",
                   "key_environ": "GCS_KEY",
                   "secret_environ": "GCS_SECRET"}
-   hp = ObjectStoreProviderHparams(**credentials)
+   hp = ObjectStoreProviderHparams(
+       provider="GOOGLE_STORAGE",
+       container="checkpoints-debugging",
+       key_environ="GCS_KEY",
+       secret_environ="GCS_SECRET",
+   )
    object_store = hp.initialize_object()
 
 From there we can fine-tune with:

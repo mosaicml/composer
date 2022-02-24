@@ -23,7 +23,7 @@ The trainer takes care of:
 -  ``optimizer.step()``
 
 As well as other features such as distributed training, numerics,
-gradient accumulation.
+, and gradient accumulation.
 
 .. code:: python
 
@@ -180,9 +180,13 @@ To run multiple metrics, wrap them in a :class:`torchmetrics.MetricCollection`.
     you have multiple eval datasets and different metrics, we recommend
     using :class:`.Evaluator` (see :doc:`Evaluation<trainer/evaluation>`)
 
+Integrations
+------------
+
+
 
 TIMM
-----
+~~~~
 
 Integrate with your favorite `TIMM`_ models with our :class:`.TIMM` class.
 
@@ -193,7 +197,7 @@ Integrate with your favorite `TIMM`_ models with our :class:`.TIMM` class.
    timm_model = Timm(model_name='resnet50', pretrained=True)
 
 BERT Example with 🤗 Transformers
----------------------------------
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 In this example, we create a BERT model, loading from 🤗 Transformers,
 and create a model that is compatible with our trainer.
