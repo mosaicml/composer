@@ -347,7 +347,7 @@ class Trainer:
             Ignored if ``profiler_trace_file`` is not specified. (default: ``0.5``).
         torch_profiler_trace_dir (str, optional): Directory to store trace results relative to the run directory.
             Must be specified to activate the Torch profiler. Ignored if ``profiler_trace_file`` is not specified.
-            (default: ``None``).
+            See :mod:`~composer.profiler`.  (default: ``None``).
         torch_prof_use_gzip (bool): Whether to use gzip for trace.
             Ignored if ``torch_profiler_trace_dir`` and ``profiler_trace_file`` are not specified. (default: ``False``).
         torch_prof_record_shapes (bool, optional): Whether to record tensor shapes.

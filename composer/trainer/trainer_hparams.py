@@ -21,7 +21,7 @@ from composer.core.types import JSON, Precision
 from composer.datasets import DataloaderHparams, DatasetHparams
 from composer.datasets.dataset_registry import get_dataset_registry
 from composer.datasets.evaluator import EvaluatorHparams
-from composer.loggers import (FileLoggerHparams, InMemoryLoggerHaparms, LoggerCallbackHparams, TQDMLoggerHparams,
+from composer.loggers import (FileLoggerHparams, InMemoryLoggerHparams, LoggerCallbackHparams, TQDMLoggerHparams,
                               WandBLoggerHparams)
 from composer.models import (BERTForClassificationHparams, BERTHparams, CIFARResNet9Hparams, CIFARResNetHparams,
                              DeepLabV3Hparams, EfficientNetB0Hparams, GPT2Hparams, MnistClassifierHparams, ModelHparams,
@@ -96,7 +96,7 @@ logger_registry = {
     "file": FileLoggerHparams,
     "wandb": WandBLoggerHparams,
     "tqdm": TQDMLoggerHparams,
-    "in_memory": InMemoryLoggerHaparms,
+    "in_memory": InMemoryLoggerHparams,
 }
 
 device_registry = {
