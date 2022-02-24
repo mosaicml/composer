@@ -189,7 +189,7 @@ class Alibi(Algorithm):
         max_sequence_length (int): Maximum sequence length that the
             model will be able to accept. This is sometimes necessary for evaluating
             on sequence lengths longer than the model was initialized to
-            accommodate.            
+            accommodate.
         train_sequence_length_scaling (float, optional): Amount by which to scale
             training sequence length. One batch of training data will be
             reshaped from shape :math:`(sequence\\_length, batch)` to
