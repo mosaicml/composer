@@ -84,6 +84,11 @@ class RunDirectoryUploader(Callback):
            >>> # trainer will run this callback whenever the EPOCH_END
            >>> # is triggered, like this:
            >>> _ = trainer.engine.run_event(Event.EPOCH_END)
+        
+        .. testcleanup::
+
+           # Shut down the uploader
+           trainer.state.callbacks[1]._finished.set()
 
     .. note::
         This callback blocks the training loop to copy files from the :mod:`~composer.utils.run_directory` to the
