@@ -26,7 +26,6 @@ log = logging.getLogger(__name__)
 class Profiler:
     """Records the duration of Trainer :class:`.Event` using the :class:`.Marker` API.
 
-
     Specifically, it records:
 
     #. The duration of each section of the training loop, such as the time it takes to perform a forward pass, backward pass, batch, epoch, etc.
