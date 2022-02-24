@@ -42,11 +42,10 @@ TODO(MATTHEW): Fix and provide commentary and/or comments
 from composer.algorithms import XXX
 from composer.trainer import Trainer
 
-trainer = Trainer(model=model,
+trainer = Trainer(model="",
                   train_dataloader=train_dataloader,
                   max_duration='1ep',
-                  algorithms=[
-                  ])
+                  algorithms=[AugMix(severity=3, width=3, depth=-1, alpha=1.0, augmentation_set="all")])
 
 trainer.fit()
 ```
