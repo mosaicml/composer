@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 import logging
+import textwrap
 from functools import partial
 from typing import Optional, Tuple, Callable
 
@@ -84,6 +85,13 @@ def resize_batch(X: torch.Tensor,
             y_sized = resize_transform(y)
     else:
         y_sized = y
+
+    # Log results
+    log.info(
+        textwrap.dedent(f"""\
+            Applied Progressive Resizing with scale_factor={scale_factor} and mode={mode}.
+            Old input dimensions: (H,W)={X.shape[2], X.shape[3]}.
+            New input dimensions: (H,W)={X_sized.shape[2], X_sized.shape[2]}"""))
     return X_sized, y_sized
 
 
@@ -186,6 +194,12 @@ class ProgressiveResizing(Algorithm):
                                              resize_targets=self.resize_targets)
         state.batch = (new_input, new_target)
 
+        if logger is not None:
+            logger.metric_batch({
+                "progressive_resizing/height": new_input.shape[2],
+                "progressive_resizing/width": new_input.shape[3],
+                "progressive_resizing/scale_factor": scale_factor
+            })
 
 def _make_crop(tensor: torch.Tensor, scale_factor: float) -> Callable[[torch.Tensor], torch.Tensor]:
     Hc = int(scale_factor * tensor.shape[2])
