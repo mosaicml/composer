@@ -13,9 +13,9 @@ To create a trainable torchvision ResNet-18 classifier with a cross-entropy loss
 define the |forward| and |loss| methods.
 
 Notice how the forward pass is still under user control (no magic here!)
-and encapsulated together clearly with the architecture.
+and encapsulated together clearly within the architecture.
 
-As an added benefits we take care of:
+As an added benefits we take care of pytorch boilerplate:
 
 -  ``x.to(device), y.to(device)``
 -  ``loss.backward()``
