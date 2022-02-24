@@ -3,7 +3,7 @@
 """Logging.
 
 In Composer, algorithms and callbacks can make calls to the :class:`~.logger.Logger`,
-which then routes the calls to the appropriate :class:`~.base_backend.LoggerCallback`s.
+which then routes the calls to the appropriate :class:`~.base_backend.LoggerCallback`\\s.
 The :class:`~.base_backend.LoggerCallback` does the actual logging, for example to a file,
 or Weights and Biases.
 

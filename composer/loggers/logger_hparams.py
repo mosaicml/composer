@@ -88,11 +88,11 @@ class WandBLoggerHparams(LoggerCallbackHparams):
     """:class:`~composer.loggers.wandb_logger.WandBLogger` hyperparameters.
 
     Args:
-        project (str, optional): See :class:`~composer.loggers.wandb_logger.WandBLogger`.
-        group (str, optional): See :class:`~composer.loggers.wandb_logger.WandBLogger`.
-        name (str, optional): See :class:`~composer.loggers.wandb_logger.WandBLogger`.
-        entity (str, optional): See :class:`~composer.loggers.wandb_logger.WandBLogger`.
-        tags (str, optional): See :class:`~composer.loggers.wandb_logger.WandBLogger`.
+        project (str, optional): WandB project name.
+        group (str, optional): WandB group name.
+        name (str, optional): WandB run name.
+        entity (str, optional): WandB entity name.
+        tags (str, optional): WandB tags, comma-separated.
         log_artifacts (bool, optional): See
             :class:`~composer.loggers.wandb_logger.WandBLogger`.
         log_artifacts_every_n_batches (int, optional). See
@@ -216,8 +216,7 @@ class TQDMLoggerHparams(LoggerCallbackHparams):
     hyperparameters.
 
     Args:
-        config (dict or None, optional):
-            See :class:`~composer.loggers.tqdm_logger.TQDMLogger`.
+        None
     """
 
     def initialize_object(self, config: Optional[Dict[str, Any]] = None) -> TQDMLogger:
