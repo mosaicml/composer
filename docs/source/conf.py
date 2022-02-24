@@ -62,7 +62,7 @@ source_suffix = ['.rst', '.md']
 # List of patterns, relative to source directory, that match files and
 # directories to ignore when looking for source files.
 # This pattern also affects html_static_path and html_extra_path.
-exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store']
+exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store', 'tables/algorithms_table.md']
 
 napoleon_custom_sections = [('Returns', 'params_style')]
 
@@ -192,7 +192,7 @@ with open(os.path.join(os.path.dirname(__file__), "doctest_fixtures.py"), "r") a
 def determine_sphinx_path(item: Union[Type[object], Type[BaseException], types.MethodType, types.FunctionType],
                           module_name: str) -> Optional[str]:
     """Returns the path to where an item is documented.
-    
+
     #. If ``item`` is private, then a Sphinx warning is emitted, as private members should not be documented
     #. If ``item`` is in a private module, but ``item`` itself is public, the parents of ``item`` are searched to see if
     ``item`` is reimported. If so, the most nested, public reimport is used.
@@ -245,7 +245,7 @@ def add_module_summary_tables(
     """This hook adds in summary tables for each module, documenting all functions, exceptions, classes, and attributes.
 
     It links reimported imports to their original source, as not to create a duplicate, indexed toctree entry.
-    It automatically inserts itself at the end of each module docstring. 
+    It automatically inserts itself at the end of each module docstring.
     """
     del app, options  # unused
     functions: List[Tuple[str, types.FunctionType]] = []
@@ -342,6 +342,19 @@ def add_module_summary_tables(
                 lines.extend(sphinx_lines)
 
 
+def rstjinja(app, docname, source):
+    """
+    Render our pages as a jinja template for fancy templating goodness.
+    """
+    # Make sure we're outputting HTML
+    if app.builder.format != 'html':
+        return
+    src = source[0]
+    rendered = app.builder.templates.render_string(src, app.config.html_context)
+    source[0] = rendered
+
+
 def setup(app: sphinx.application.Sphinx):
     app.connect('autodoc-skip-member', skip_redundant_namedtuple_attributes)
     app.connect('autodoc-process-docstring', add_module_summary_tables)
+    app.connect('source-read', rstjinja)
