@@ -34,10 +34,44 @@ def apply_alibi(
     optimizers: Optional[Optimizers] = None,
 ) -> None:
     """Removes position embeddings and replaces the attention function and attention mask
-    according as per :class:`~composer.algorithms.alibi.alibi.Alibi`. See the
-    :doc:`Method Card </method_cards/alibi>` for more details.
+    according as per :class:`~composer.algorithms.alibi.alibi.Alibi`. Note that the
+    majority of the training speed-up from using ALiBi comes from being able to train on
+    shorter sequence lengths; thisfunction does not scale the training sequence length as
+    :class:`~composer.algorithms.alibi.alibi.Alibi` does, so little speedup will be
+    observed from using it alone. See the :doc:`Method Card </method_cards/alibi>` for
+    more details.
 
-    Example: Waiting on language model test fixtures
+    Example:
+    .. code-block:: python
+
+            import torch.nn.functional as F
+
+            import composer.functional as cf
+
+            from composer.algorithms.alibi.gpt2_alibi import _attn
+            from composer.algorithms.alibi.gpt2_alibi import enlarge_mask
+            from transformers.models.gpt2.modeling_gpt2 import GPT2Attention
+
+            cf.apply_alibi(model=model,
+                           heads_per_layer=12,
+                           max_sequence_length=8192,
+                           position_embedding_attribute="module.transformer.wpe",
+                           attention_module=GPT2Attention,
+                           attr_to_replace="_attn",
+                           alibi_attention=_attn,
+                           mask_replacement_function=enlarge_mask)
+
+            opt = torch.optim.Adam(model.parameters())
+            loss_fn = F.cross_entropy
+
+            def training_loop(model, train_loader):
+            model.train()
+            for X, y in train_loader:
+                opt.zero_grad()   
+                y_hat = model(X)
+                loss = loss_fn(y_hat, y)
+                loss.backward()
+                opt.step()
 
     Args:
         model (torch.nn.Module): Model to transform.
@@ -111,14 +145,25 @@ class Alibi(Algorithm):
 
     See the :doc:`Method Card </method_cards/alibi>` for more details.
 
-    Example: Waiting on language model test fixtures
+    Example:
+    .. code-block::
+
+        from composer.algorithms import Alibi
+        from composer.trainer import Trainer
+
+        alibi = Alibi(position_embedding_attribute="module.transformer.wpe",
+                      attention_module_name="transformers.models.gpt2.modeling_gpt2.GPT2Attention"
+                      attr_to_replace="_attn",
+                      alibi_attention="composer.algorithms._gpt2_alibi._attn",
+                      mask_replacement_function="composer.algorithms.alibi.gpt2_alibi.enlarge_mask"
+                      max_sequence_length=8192)
+
+        trainer = Trainer(model=model,
+                          train_dataloader=train_dataloader,
+                          max_duration="1ep",
+                          algorithms=[alibi])
 
     Args:
-        heads_per_layer (int): Number of attention heads per layer
-        max_sequence_length (int): Maximum sequence length that the
-            model will be able to accept. This is sometimes necessary for evaluating
-            on sequence lengths longer than the model was initialized to
-            accommodate.
         position_embedding_attribute (str): Attribute for position
             embeddings. For example in HuggingFace's GPT2, the
             position embeddings are ``'transformer.wpe'``.
@@ -140,6 +185,11 @@ class Alibi(Algorithm):
             ``max_sequence_length``. For example,
             ``'composer.algorithms.alibi._gpt2_alibi.enlarge_mask'``. Default = ``None``,
             which means no modification of the model's default attention mask.
+        heads_per_layer (int, optional): Number of attention heads per layer
+        max_sequence_length (int): Maximum sequence length that the
+            model will be able to accept. This is sometimes necessary for evaluating
+            on sequence lengths longer than the model was initialized to
+            accommodate.            
         train_sequence_length_scaling (float, optional): Amount by which to scale
             training sequence length. One batch of training data will be
             reshaped from shape :math:`(sequence\\_length, batch)` to
