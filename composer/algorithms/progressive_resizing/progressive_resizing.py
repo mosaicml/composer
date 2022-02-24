@@ -7,7 +7,7 @@ from __future__ import annotations
 import logging
 import textwrap
 from functools import partial
-from typing import Optional, Tuple, Callable
+from typing import Callable, Optional, Tuple
 
 import torch
 import torch.nn.functional as F
@@ -65,26 +65,34 @@ def resize_batch(X: torch.Tensor,
     if scale_factor >= 1:
         return X, y
 
-    if mode.lower() == "crop":
+    if mode.lower() == "crop" and resize_targets is False:
+        # Make a crop transform for X
         resize_transform = _make_crop(tensor=X, scale_factor=scale_factor)
-    elif mode.lower() == "resize":
-        resize_transform = _make_resize(scale_factor=scale_factor)
-    else:
-        raise ValueError(f"Progressive mode '{mode}' not supported.")
-        return X, y
+        X_sized, y_sized = resize_transform(X), y
 
-    X_sized = resize_transform(X)
-    if resize_targets:
+    elif mode.lower() == "crop" and resize_targets is True:
         if check_for_index_targets(y):
             # Add a dimension to match shape of the input and change type for resizing
             y_sized = y.float().unsqueeze(1)
-            y_sized = resize_transform(y_sized)
+        # Make a crop transform for X and y
+        resize_transform, resize_y = _make_crop_pair(X=X, y=y, scale_factor=scale_factor)
+        X_sized, y_sized = resize_transform(X), resize_y(y)
+        if check_for_index_targets(y):
             # Convert back to original format for training
             y_sized = y_sized.squeeze(dim=1).to(y.dtype)
-        else:
+
+    elif mode.lower() == "resize":
+        # Make a resize transform (can be used for X or y)
+        resize_transform = _make_resize(scale_factor=scale_factor)
+        X_sized = resize_transform(X)
+        if resize_targets:
             y_sized = resize_transform(y)
+        else:
+            y_sized = y
+
     else:
-        y_sized = y
+        raise ValueError(f"Progressive mode '{mode}' not supported.")
+        X_sized, y_sized = X, y
 
     # Log results
     log.info(
@@ -201,13 +209,41 @@ class ProgressiveResizing(Algorithm):
                 "progressive_resizing/scale_factor": scale_factor
             })
 
+
 def _make_crop(tensor: torch.Tensor, scale_factor: float) -> Callable[[torch.Tensor], torch.Tensor]:
+    """Makes a random crop transform for an input image."""
     Hc = int(scale_factor * tensor.shape[2])
     Wc = int(scale_factor * tensor.shape[3])
     top = torch.randint(tensor.shape[2] - Hc, size=(1,))
     left = torch.randint(tensor.shape[3] - Wc, size=(1,))
     resize_transform = partial(transforms.functional.crop, top=top, left=left, height=Hc, width=Wc)
     return resize_transform
+
+
+def _make_crop_pair(
+        X: torch.Tensor, y: torch.Tensor,
+        scale_factor: float) -> Tuple[Callable[[torch.Tensor], torch.Tensor], Callable[[torch.Tensor], torch.Tensor]]:
+    """Makes a pair of random crops for an input image X and target tensor y such that the same region is selected from
+    both."""
+    # New height and width for X
+    HcX = int(scale_factor * X.shape[2])
+    WcX = int(scale_factor * X.shape[3])
+    # New height and width for y
+    Hcy = int(scale_factor * y.shape[2])
+    Wcy = int(scale_factor * y.shape[3])
+    # Select a corner for the crop from X
+    topX = torch.randint(X.shape[2] - HcX, size=(1,))
+    leftX = torch.randint(X.shape[3] - WcX, size=(1,))
+    # Find the corresponding point for X
+    height_ratio = y.shape[2] / X.shape[2]
+    width_ratio = y.shape[3] / X.shape[3]
+    topy = int(height_ratio * topX)
+    lefty = int(width_ratio * leftX)
+    # Make the two transforms
+    resize_X = partial(transforms.functional.crop, top=topX, left=leftX, height=HcX, width=WcX)
+    resize_y = partial(transforms.functional.crop, top=topy, left=lefty, height=Hcy, width=Wcy)
+    return resize_X, resize_y
+
 
 def _make_resize(scale_factor: int) -> Callable[[torch.Tensor], torch.Tensor]:
     resize_transform = partial(F.interpolate, scale_factor=scale_factor, mode='nearest')
