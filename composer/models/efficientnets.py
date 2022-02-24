@@ -9,6 +9,8 @@ from typing import Any, Callable, Dict, Optional
 import torch
 import torch.nn as nn
 
+__all__ = ["EfficientNet"]
+
 
 def round_channels(
     channels: float,
@@ -459,6 +461,3 @@ class EfficientNet(nn.Module):
                           out_channels=int(args['o']),
                           se_ratio=float(args['se']) if 'se' in args else None)  # type: Dict[str, Any]
         return block_args, num_repeat
-
-
-__all__ = ["EfficientNet"]

@@ -10,7 +10,19 @@ from composer.models.resnet.model import ComposerResNet
 
 @dataclass
 class ResNetHparams(ModelHparams):
-    """See :class:`ComposerResNet`"""
+    """Yahp Hparams interface for ResNet models.
+
+    Args:
+        model_name (str): Name of the ResNet model instance. Either ["resnet18", "resnet34", "resnet50", "resnet101",
+            "resnet152"].
+        num_classes (int): The number of classes. Needed for classification tasks. Default = 1000.
+        pretrained (bool): If True, use ImageNet pretrained weights. Default = False.
+        groups (int): Number of filter groups for the 3x3 convolution layer in bottleneck blocks. Default = 1.
+        width_per_group (int): Initial width for each convolution group. Width doubles after each stage.
+            Default = 64.
+        initializers (List[Initializer], optional): Initializers for the model. ``None`` for no initialization.
+            Default = None.
+    """
 
     model_name: str = hp.optional(
         f"ResNet architecture to instantiate, must be one of {ComposerResNet.valid_model_names}. (default: '')",

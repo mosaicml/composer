@@ -7,7 +7,6 @@ from composer.models.model_hparams import ModelHparams
 
 @dataclass
 class UnetHparams(ModelHparams):
-    """See :class:`Unet`"""
 
     def initialize_object(self):
         from composer.models.unet.unet import UNet

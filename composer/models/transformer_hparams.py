@@ -12,7 +12,16 @@ from composer.models.model_hparams import ModelHparams
 
 @dataclass
 class TransformerHparams(ModelHparams, ABC):
-    """Defines the necessary hyparameters for a Transformer base module."""
+    """Defines the necessary hyparameters for a Transformer base module.
+
+    Args:
+        pretrained_model_name (str): "Pretrained model name to pull from Huggingface Model Hub."
+        model_config (Dict[str, JSON]): A dictionary providing a HuggingFace model configuration.
+        tokenizer_name (str): The tokenizer used for this model,
+            necessary to assert required model inputs.
+        use_pretrained (bool): Whether to initialize the model with the pretrained weights.
+        gradient_checkpointing (bool): Use gradient checkpointing. default: False
+    """
 
     tokenizer_name: str = hp.optional("Tokenizer name to pull from Huggingface Model Hub.", default=None)
     pretrained_model_name: Optional[str] = hp.optional(

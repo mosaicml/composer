@@ -63,7 +63,6 @@ class BERTForClassificationHparams(TransformerHparams):
 
 @dataclass
 class BERTHparams(TransformerHparams):
-    """See :class:`BertModel`"""
 
     def initialize_object(self) -> "BERTModel":
         try:

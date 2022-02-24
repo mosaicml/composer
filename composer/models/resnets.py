@@ -11,6 +11,7 @@ import torch.nn.functional as F
 
 from composer.models import Initializer
 
+__all__ = ["CIFAR_ResNet"]
 
 class CIFAR_ResNet(nn.Module):
     """A residual neural network as originally designed for CIFAR-10."""
@@ -112,6 +113,3 @@ class CIFAR_ResNet(nn.Module):
         }
 
         return CIFAR_ResNet(model_arch[depth], initializers, outputs)
-
-
-__all__ = ["CIFAR_ResNet"]

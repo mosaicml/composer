@@ -14,11 +14,13 @@ from torchmetrics.collections import MetricCollection
 from composer.core.types import Batch, BatchPair, Metrics, Tensors
 from composer.models.loss import CrossEntropyLoss, soft_cross_entropy
 
+__all__ = ["ComposerModel", "ComposerClassifier"]
+
 
 class ComposerModel(torch.nn.Module, abc.ABC):
-    """The interface needed to use a pytorch model with :class:`Trainer`.
+    """The interface needed to use a pytorch model with :class:`composer.Trainer`.
 
-    To create a :class:`Trainer` compatible model, subclass :class:`ComposerModel` and implement
+    To create a :class:`composer.Trainer` compatible model, subclass :class:`ComposerModel` and implement
     :meth:`forward` and :meth:`loss`. For full functionality (logging and validation), implement :meth:`metrics`
     and :meth:`validate`.
 
@@ -78,7 +80,7 @@ class ComposerModel(torch.nn.Module, abc.ABC):
 
         Returns:
             Tensors:
-                The result that is passed to :meth:`loss` as ``outputs``.
+                The result that is passed to :meth:`loss` as :attr:`outputs`.
         """
         pass
 
@@ -147,7 +149,7 @@ class ComposerModel(torch.nn.Module, abc.ABC):
                 during training and False otherwise. (default: ``False``). This flag is set automatically by the :class:`Trainer`
 
         Returns:
-             Train or Eval :class:`torchmetrics.Metric` or list of metrics wrapped :class:`torchmetrics.collections.MetricCollection`
+             :mod:`~torchmetrics.Metric` or list of metrics wrapped in :mod:`~torchmetrics.collections.MetricCollection`
         """
         raise NotImplementedError('Implement metrics in your ComposerModel to run validation.')
 
@@ -191,11 +193,9 @@ class ComposerModel(torch.nn.Module, abc.ABC):
 
 
 class ComposerClassifier(ComposerModel):
-    """A convenience class that creates a ComposerModel for classification tasks from a vanilla pytorch model. This
-    ComposerModel requires batches in the form: (input, target) and includes a basic classification training loop with
-    CrossEntropy loss and accuracy logging.
-
-    Inherits from :class:`ComposerModel`.
+    """A convenience class that creates a :class:`ComposerModel` for classification tasks from a vanilla pytorch
+    model. :class:`ComposerClassifier` requires batches in the form: (input, target) and includes a basic classification
+    training loop with CrossEntropy loss and accuracy logging.
 
     Example:
 
@@ -211,7 +211,7 @@ class ComposerClassifier(ComposerModel):
         module (torch.nn.Module): A Pytorch neural network module.
 
     Returns:
-        ComposerClassifier :class:`ComposerClassifier`: A Composer Trainer compatible classification model.
+        ComposerClassifier: An instance of :mod:`~ComposerClassifier`.
     """
 
     num_classes: Optional[int] = None
@@ -244,6 +244,3 @@ class ComposerClassifier(ComposerModel):
         _, targets = batch
         outputs = self.forward(batch)
         return outputs, targets
-
-
-__all__ = ["ComposerModel", "ComposerClassifier"]

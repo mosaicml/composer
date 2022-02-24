@@ -37,7 +37,7 @@ class GPT2Model(ComposerTransformer):
         config (transformers.GPT2Config): The config for the model.
         tokenizer (transformers.GPT2Tokenizer): The tokenizer used for this model,
             necessary to assert required model inputs.
-        gradient_checkpointing (bool): Use gradient checkpointing. default: False
+        gradient_checkpointing (bool): Use gradient checkpointing. default: False.
     """
 
     def __init__(self,

@@ -8,6 +8,8 @@ from torchmetrics import Metric
 
 from composer.models.loss import soft_cross_entropy
 
+__all__ = ["Perplexity", "BinaryF1Score", "LanguageCrossEntropyLoss", "CrossEntropyLoss", "MaskedAccuracy"]
+
 
 class MaskedAccuracy(Metric):
     """Computes accuracy with support for masked indicies.
@@ -216,6 +218,3 @@ class Perplexity(LanguageCrossEntropyLoss):
         """Returns torch.exp() of the LanguageCrossEntropyLoss."""
         avg_loss = super().compute()
         return torch.exp(avg_loss)
-
-
-__all__ = ["Perplexity", "BinaryF1Score", "LanguageCrossEntropyLoss", "CrossEntropyLoss", "MaskedAccuracy"]

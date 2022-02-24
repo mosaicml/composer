@@ -7,7 +7,6 @@ from composer.models.model_hparams import ModelHparams
 
 @dataclass
 class CIFARResNet9Hparams(ModelHparams):
-    """See :class:`CIFAR10_ResNet9`"""
 
     def initialize_object(self):
         from composer.models import CIFAR10_ResNet9

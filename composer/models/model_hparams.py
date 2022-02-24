@@ -57,8 +57,12 @@ class Initializer(StringEnum):
 
 @dataclass
 class ModelHparams(hp.Hparams, ABC):
-    """Model Hparams."""
+    """Model Hparams interface for yahp.
 
+    Args:
+        num_classes (int): The number of classes. Needed for classification tasks. Default = None.
+        initializers (List[Initializer], optional): The initialization strategy for the model. Default = None
+    """
     initializers: List[Initializer] = hp.optional(
         default_factory=lambda: [],
         doc="The initialization strategy for the model",
@@ -79,4 +83,4 @@ class ModelHparams(hp.Hparams, ABC):
         pass
 
 
-__all__ = ["ModelHparams", "Initializer"]
+__all__ = ["ModelHparams"]
