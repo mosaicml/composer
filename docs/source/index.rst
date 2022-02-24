@@ -3,51 +3,53 @@
 Composer
 ========
 
-``Composer`` provides well-engineered implementations of efficient training
-methods to give the tools that help you train faster and better models.
+Composer provides well-engineered implementations of efficient training methods
+to give the tools that help you train a better model for cheaper.
 
+Using Composer, you can:
 
-MosaicML ``Composer`` contains a library of ML training efficiency methods, and a modular approach to compose them
-together to train deep neural networks. We aim to ease the transition from research to industry through reproducible
-code and rigorous benchmarking. With Composer, speed-up or accuracy-boosting methods can be easily composed into
-complete recipes.
+- Train an ImageNet model to 76.1% accuracy for $37 (`with vanilla PyTorch:`$127)
+- Train a GPT-2 125M to a perplexity of 23.9 for $148 (`with vanilla PyTorch`: $255)
+- Use start-of-the-art implementations of methods to speed up your own training loop.
 
-The library features:
+At MosaicML, we are focused on making training ML models accessible. To do this,
+we continually productionize state-of-the-art academic research on efficient model
+training, and also study the `combinations`` of these methods in order to ensure
+that model training is ✨ as efficient as possible ✨.
 
-* Implementation of 20+ efficiency methods curated from the research community
-* Standardized approach to implement and compose efficiency methods, extended from two-way callbacks
-  (`Howard et al, 2020 <https://arxiv.org/abs/2002.04688>`_)
-* Easy way to access our methods either directly for your trainer loops, or through the Composer trainer
+Everyone has their own priorities: best accuracy, cheapest cost, and
+somewhere in between.  Composer provides novel recipes that push the
+boundary of both cost and accuracy. Composer allows you to choose
+**the best model for your real-world constraints**.
 
-.. note::
-    MosaicML Composer is currently in **beta**, so the API is subject to change.
+Composer features:
 
+- 20+ efficient training methods for training a better language and vision models! Don't waste hours trying to reproduce research papers when Composer has done the work for you.
+- Easy-to-use (optional) Trainer interface written to be as performant as possible, and [integrated best practices](https://www.mosaicml.com/blog/best-practices-dec-2021).
+- Easy-to-use Functional forms that allow you to integrate efficient training methods into your training loop!
+- Strong, `reproducible`` baselines to get you started as 💨 fast 💨 as possible
 
-Motivation
-~~~~~~~~~~
+Our documentation is organized into several sections. See :doc:`Getting Started<getting_started/installation>` for
+installation an initial usage, the :doc:`Trainer<using_the_trainer>` section for an introduction
+to our trainer, and :doc:`Methods<method_cards/methods_overview>` for details about our efficiency methods
+and how to use them in your code.
 
-MosaicML exists to make ML training more efficient. We believe large scale ML should be available to everyone
-not just large companies.
+If you have any questions, please feel free to reach out to us on `Twitter`_, `Email`_, or join
+our `Slack`_ channel!
 
-The ML community is overwhelmed by the plethora of new algorithms in the literature and open source.
-It is often difficult to integrate new methods into existing code, due to reproducibility
-(`Pineau et al, 2020 <https://arxiv.org/abs/2003.12206>`_) and complexity. In addition, methods should be characterized
-according to their effect of time-to-train and interactions with systems.
+Composer is part of the broader Machine Learning community, and we welcome any contributions, pull requests, or issues.
 
-For more details on our philosophy, see our `Methodology <https://www.mosaicml.com/blog/methodology>`_ and our
-`founder's blog <https://www.mosaicml.com/blog/founders-blog>`_.
+Citation
+~~~~~~~~
 
-We hope to contribute to the amazing community around ML Systems and ML Training efficiency.
-
-Documentation
-~~~~~~~~~~~~~
-
-Our documentation is organized into a few sections:
-
-* :doc:`Getting Started</getting_started/installation>` covers installation, a quick tour and
-  explains how to use ``Composer``.
-* :doc:`API Reference</api_reference>` contains the library's API reference.
-* :doc:`Methods Library</method_cards/alibi>` details our implemented efficiency methods.
+```
+@misc{mosaicml2022composer,
+    author = {The Mosaic ML Team},
+    title = {composer},
+    year = {2021},
+    howpublished = {\url{https://github.com/mosaicml/composer/}},
+}
+```
 
 Table of Contents
 -----------------
@@ -133,3 +135,8 @@ Indices and tables
 * :ref:`genindex`
 * :ref:`modindex`
 * :ref:`search`
+
+
+.. _Twitter: https://twitter.com/mosaicml
+.. _Email:: mailto:community@mosaicml.com
+.. _Slack:: https://join.slack.com/t/mosaicml-community/shared_invite/zt-w0tiddn9-WGTlRpfjcO9J5jyrMub1dg
