@@ -42,11 +42,12 @@ class BERTModel(ComposerTransformer):
             necessary to assert required model inputs.
     """
 
-    def __init__(self, module: transformers.BertModel, config: transformers.BertConfig, tokenizer_name: str) -> None:
+    def __init__(self, module: transformers.BertModel, config: transformers.BertConfig,
+                 tokenizer: transformers.BertTokenizer) -> None:
         super().__init__(
             module=module,  #type: ignore (thirdparty)
             config=config,
-            tokenizer_name=tokenizer_name)
+            tokenizer=tokenizer)
 
         # we're going to remove the label from the expected inputs
         # since we will handle metric calculation with TorchMetrics instead of HuggingFace.

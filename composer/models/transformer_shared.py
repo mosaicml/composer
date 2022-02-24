@@ -6,7 +6,6 @@
 from __future__ import annotations
 
 import logging
-import textwrap
 from typing import TYPE_CHECKING, Mapping, Tuple
 
 from composer.models.base import ComposerModel
@@ -30,7 +29,7 @@ class ComposerTransformer(ComposerModel):
             contains the forward pass function.
         config (transformers.PretrainedConfig): The PretrainedConfig object that
             stores information about the model hyperparameters.
-        tokenizer_name (str): The name of the tokenizer used for this model,
+        tokenizer (transformers.PreTrainedTokenizer): The tokenizer used for this model,
             necessary to assert required model inputs.
         gradient_checkpointing (bool): Use gradient checkpointing. default: False
     """
@@ -38,20 +37,12 @@ class ComposerTransformer(ComposerModel):
     def __init__(self,
                  module: transformers.PreTrainedModel,
                  config: transformers.PretrainedConfig,
-                 tokenizer_name: str,
+                 tokenizer: transformers.PreTrainedTokenizer,
                  gradient_checkpointing: bool = False) -> None:
         super().__init__()
-        try:
-            import transformers
-        except ImportError as e:
-            raise ImportError(
-                textwrap.dedent("""\
-                Composer was installed without NLP support. To use NLP with Composer, run `pip install mosaicml[nlp]`
-                if using pip or `conda install -c conda-forge transformers` if using Anaconda.""")) from e
-
         self.module = module
         self.config = config
-        self.tokenizer = transformers.AutoTokenizer.from_pretrained(tokenizer_name)
+        self.tokenizer = tokenizer
         log.info("Number of parameters in the model: " \
                  f"{sum(p.numel() for p in module.parameters()):,}")  # type: ignore (thirdparty)
         log.info("Number of trainable parameters in the model: "

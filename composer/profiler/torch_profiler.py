@@ -1,5 +1,7 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
+"""Profiler to collect :mod:`torch` performance metrics during training."""
+
 from __future__ import annotations
 
 import functools
@@ -12,36 +14,47 @@ import torch.profiler
 from torch.profiler.profiler import ProfilerAction as TorchProfilerAction
 
 from composer.core import Callback, Logger, State
-from composer.profiler.profiler import ProfilerAction
+from composer.profiler._profiler_action import ProfilerAction
 from composer.utils import dist, run_directory
+
+__all__ = ["TorchProfiler"]
 
 _PROFILE_MISSING_ERROR = "The profiler has not been setup. Please call profiler.init() before training starts."
 
 
 class TorchProfiler(Callback):
-    """Profile the execution using :class:`torch.profiler.profile`.
+    """Profile the execution using :class:`torch.profiler.profile`, implemented as a Composer
+    :class:`~composer.core.callback.Callback`.    
 
-    Profiling results are stored in TensorBoard format in the
-    :param tensorboard_trace_handler_dir: folder.
+    Profiling results are stored in TensorBoard format in the ``tensorboard_trace_handler_dir`` folder.
+
+    When used with the Composer :class:`.Trainer`\\, profiling is enabled only if the ``tensorboard_trace_handler_dir`` is provided.
+
+    .. note:: 
+        
+        The Composer :class:`.Trainer` creates an instance of :class:`.TorchProfiler` when ``tensorboard_trace_handler_dir`` is provided.
+        The user should not create and directly register an instance of :class:`.TorchProfiler` when using the Composer :class:`.Trainer`\\.
 
     To view profiling results, run:
 
-    .. code-block:: console
+    .. code-block::
 
         pip install tensorbaord torch_tb_profiler
         tensorboard --logdir tensorboard_trace_handler_dir
 
-    Also see https://pytorch.org/docs/stable/profiler.html.
+    .. note::
+
+        See :doc:`profiler` for additional usage details on :class:`torch.profiler.profile`\\.
 
     .. note::
 
         Enabling shape and stack tracing results in additional overhead.
-        When ``record_shapes=True`` is specified, profiler will temporarily hold references to the tensors;
-        that may further prevent certain optimizations that depend on the reference count and introduce extra tensor copies.
+        When ``record_shapes=True`` is specified, the profiler will temporarily hold references to tensors which
+        may prevent certain optimizations that depend on the reference count and can introduce extra tensor copies.
 
     Args:
         tensorboard_trace_handler_dir (str): Directory to store trace results.
-            Relative to the run_directory. Defaults to `torch_profiler` in the
+            Relative to the run_directory. Defaults to ``torch_profiler`` in the
             run directory.
         tensorboard_use_gzip (bool, optional):
             Whether to use gzip for the trace. Defaults to False.

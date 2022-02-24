@@ -43,6 +43,17 @@ class FileLogger(LoggerCallback):
                 loggers=[logger]
             )
 
+        .. testcleanup::
+
+            import os
+            from composer.utils.run_directory import get_run_directory
+
+            path = os.path.join(get_run_directory(), "log.txt")
+            try:
+                os.remove(path)
+            except FileNotFoundError as e:
+                pass
+
     Example output::
 
         [FIT][step=2]: { "logged_metric": "logged_value", }
@@ -54,6 +65,8 @@ class FileLogger(LoggerCallback):
     Args:
         filename (str, optional): File to log to.
             Can be a filepath, ``"stdout"``, or ``"stderr"``. Default: ``"stdout"``.
+            Filepaths should be specified relative to the
+            :mod:`~.composer.utils.run_directory`.
         buffer_size (int, optional): Buffer size. See :py:func:`open`.
             Default: ``1`` for line buffering.
         log_level (LogLevel, optional):

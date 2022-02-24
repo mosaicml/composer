@@ -9,7 +9,7 @@ import yahp as hp
 from composer.models.transformer_hparams import TransformerHparams
 
 if TYPE_CHECKING:
-    from composer.models.transformer_shared import ComposerTransformer
+    from composer.models.bert import BERTModel
 
 
 @dataclass
@@ -21,7 +21,7 @@ class BERTForClassificationHparams(TransformerHparams):
         if self.num_labels < 1:
             raise ValueError("The number of target labels must be at least one.")
 
-    def initialize_object(self) -> "ComposerTransformer":
+    def initialize_object(self) -> "BERTModel":
         try:
             import transformers
         except ImportError as e:
@@ -43,6 +43,9 @@ class BERTForClassificationHparams(TransformerHparams):
             raise ValueError('One of pretrained_model_name or model_config needed.')
         config.num_labels = self.num_labels
 
+        # setup the tokenizer in the hparams interface
+        tokenizer = transformers.BertTokenizer.from_pretrained(self.tokenizer_name)
+
         if self.use_pretrained:
             # TODO (Moin): handle the warnings on not using the seq_relationship head
             model = transformers.AutoModelForSequenceClassification.from_pretrained(self.pretrained_model_name,
@@ -54,7 +57,7 @@ class BERTForClassificationHparams(TransformerHparams):
         return BERTModel(
             module=model,
             config=config,  #type: ignore (thirdparty)
-            tokenizer_name=self.tokenizer_name,
+            tokenizer=tokenizer,
         )
 
 
@@ -62,7 +65,7 @@ class BERTForClassificationHparams(TransformerHparams):
 class BERTHparams(TransformerHparams):
     """See :class:`BertModel`"""
 
-    def initialize_object(self) -> "ComposerTransformer":
+    def initialize_object(self) -> "BERTModel":
         try:
             import transformers
         except ImportError as e:
@@ -84,6 +87,9 @@ class BERTHparams(TransformerHparams):
         # set the number of labels ot the vocab size, used for measuring MLM accuracy
         config.num_labels = config.vocab_size
 
+        # setup the tokenizer in the hparams interface
+        tokenizer = transformers.BertTokenizer.from_pretrained(self.tokenizer_name)
+
         if self.use_pretrained:
             # TODO (Moin): handle the warnings on not using the seq_relationship head
             model = transformers.AutoModelForMaskedLM.from_pretrained(self.pretrained_model_name)
@@ -93,5 +99,5 @@ class BERTHparams(TransformerHparams):
         return BERTModel(
             module=model,
             config=config,  #type: ignore (thirdparty)
-            tokenizer_name=self.tokenizer_name,
+            tokenizer=tokenizer,
         )

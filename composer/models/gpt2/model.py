@@ -35,7 +35,7 @@ class GPT2Model(ComposerTransformer):
     Args:
         module (transformers.GPT2Model): The model to wrap with this module.
         config (transformers.GPT2Config): The config for the model.
-        tokenizer_name (str): The name of the tokenizer used for this model,
+        tokenizer (transformers.GPT2Tokenizer): The tokenizer used for this model,
             necessary to assert required model inputs.
         gradient_checkpointing (bool): Use gradient checkpointing. default: False
     """
@@ -43,12 +43,12 @@ class GPT2Model(ComposerTransformer):
     def __init__(self,
                  module: transformers.GPT2Model,
                  config: transformers.GPT2Config,
-                 tokenizer_name: str,
+                 tokenizer: transformers.GPT2Tokenizer,
                  gradient_checkpointing: bool = False) -> None:
         super().__init__(
             module=module,  #type: ignore (thirdparty)
             config=config,
-            tokenizer_name=tokenizer_name,
+            tokenizer=tokenizer,
             gradient_checkpointing=gradient_checkpointing)
 
         # If we ever have algorithms that modify the loss function, then this might be a bit inefficient
@@ -59,7 +59,6 @@ class GPT2Model(ComposerTransformer):
         self.val_perplexity = Perplexity()
 
     def loss(self, outputs: Mapping, batch: Batch) -> Tensors:
-
         if outputs.get('loss', None) is not None:
             return outputs['loss']
         else:

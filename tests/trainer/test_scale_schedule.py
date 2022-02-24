@@ -1,7 +1,5 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
-from collections import Counter
-
 import numpy as np
 import pytest
 import torch
@@ -9,10 +7,10 @@ from torch.optim.lr_scheduler import ExponentialLR
 
 from composer.algorithms import ScaleScheduleHparams
 from composer.core.types import Optimizer, Scheduler
-from composer.optim.pytorch_future import WarmUpLR
+from composer.optim.optimizer_hparams import SGDHparams
 from composer.optim.scheduler import MultiStepLRHparams
 from composer.trainer import TrainerHparams
-from composer.trainer.scale_schedule import scale_scheduler
+from composer.trainer._scale_schedule import scale_scheduler
 from tests.common import SimpleModel
 
 
@@ -70,13 +68,6 @@ class TestScaleSchedule():
     def test_scale_schedule_cosine_warm_restarts(self, optimizer: Optimizer, ssr: float):
         raise NotImplementedError
 
-    def test_scale_schedule_warmup(self, optimizer: Optimizer, ssr: float):
-        targets = [0.5] * 4 + [1.0] * 5  # no effect
-        scheduler = WarmUpLR(optimizer, warmup_factor=0.5, warmup_iters=4, warmup_method='constant', interval='step')
-        epochs = int(9 * ssr)
-        targets = targets[:epochs]
-        self._test(targets, scheduler, epochs, optimizer, ssr)
-
 
 @pytest.mark.parametrize('ssr', [0.5, 0.75, 1.0])
 @pytest.mark.parametrize('use_algorithm', [False, True])
@@ -84,8 +75,9 @@ class TestScaleScheduleTrainer():
 
     def test_epochs_scaled(self, ssr: float, use_algorithm: bool, composer_trainer_hparams: TrainerHparams):
 
+        composer_trainer_hparams.optimizer = SGDHparams(lr=1.0)
         composer_trainer_hparams.max_duration = '10ep'
-        composer_trainer_hparams.schedulers = [MultiStepLRHparams(milestones=[30, 50], gamma=0.1)]
+        composer_trainer_hparams.schedulers = [MultiStepLRHparams(milestones=['30ba', '50ba'], gamma=0.1)]
 
         if use_algorithm:
             composer_trainer_hparams.algorithms = [ScaleScheduleHparams(ratio=ssr)]
@@ -94,5 +86,17 @@ class TestScaleScheduleTrainer():
         trainer = composer_trainer_hparams.initialize_object()
 
         assert trainer.state.max_epochs == int(10 * ssr)
-        scheduler = trainer.state.schedulers[0].schedulers[0]  # type: ignore
-        assert scheduler.milestones == Counter([int(30 * ssr), int(50 * ssr)])  # type: ignore
+        scheduler = trainer.state.schedulers[0]
+
+        test_steps = [int(20 * ssr), int(40 * ssr), int(60 * ssr)]
+        target_lrs = [1.0, 0.1, 0.01]
+        current_step = 0
+        for test_step, target_lr in zip(test_steps, target_lrs):
+
+            while current_step < test_step:
+                trainer.state.timer.on_batch_complete()
+                current_step += 1
+
+            scheduler.step()
+
+            assert scheduler.get_last_lr()[0] == pytest.approx(target_lr)
