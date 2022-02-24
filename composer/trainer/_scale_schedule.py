@@ -9,6 +9,8 @@ from torch.optim.lr_scheduler import CosineAnnealingLR, CosineAnnealingWarmResta
 from composer.core.types import Scheduler
 from composer.optim.scheduler import ComposerSchedulerFn
 
+__all__ = ["scale_scheduler"]
+
 
 def _scale_pytorch_scheduler(scheduler: Scheduler, ssr: float):
     if isinstance(scheduler, StepLR):
@@ -54,6 +56,13 @@ def scale_scheduler(scheduler: Union[Scheduler, ComposerSchedulerFn],
     training ends while the learning rate is still ~0.5. If the schedule is
     rescaled, training ends after passing through the full cosine
     curve, at a learning rate near 0.
+
+    .. doctest::
+
+        >>> from composer.trainer._scale_schedule import scale_scheduler
+        >>> from torch.optim.lr_scheduler import CosineAnnealingLR
+        >>> scheduler = CosineAnnealingLR(optimizer, T_max=90)
+        >>> scheduler = scale_scheduler(scheduler, ssr=0.5)
 
     Args:
         scheduler: A learning rate schedule object. Must be one of:

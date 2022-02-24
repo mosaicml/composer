@@ -93,8 +93,8 @@ class TestTrainerInit():
 
         trainer = Trainer(**config)
         assert trainer.state.max_duration == "1ep"
-        assert trainer.checkpoint_saver is not None and \
-            trainer.checkpoint_saver.save_interval == "10ep"
+        assert trainer._checkpoint_saver is not None and \
+            trainer._checkpoint_saver._save_interval == "10ep"
 
     def test_init_with_max_duration_in_batches(self, config):
         config["max_duration"] = '1ba'
