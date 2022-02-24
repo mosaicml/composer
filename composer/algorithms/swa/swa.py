@@ -65,10 +65,11 @@ class SWA(Algorithm):
             of training after the baseline model is replaced by the SWA model so that the
             SWA model can have its buffers (most importantly its batch norm statistics)
             updated. If ``swa_end`` occurs during the final epoch of training (e.g.
-            ``swa_end = 0.9`` and ``max_duration = "5ep"``), the SWA model will not have
-            its buffers updated, which can negatively impact accuracy, so ensure
-            ``swa_end`` < :math:`\\frac{N_{epochs}-1}{N_{epochs}}`. Currently only units
-            of duration ('dur') and epoch ('ep') are supported. Default = ``'0.97dur'``.
+            ``swa_end = 0.9dur`` and ``max_duration = "5ep"``, or ``swa_end = 1.0dur``),
+            the SWA model will not have its buffers updated, which can negatively impact
+            accuracy, so ensure ``swa_end`` < :math:`\\frac{N_{epochs}-1}{N_{epochs}}`.
+            Currently only units of duration ('dur') and epoch ('ep') are supported.
+            Default = ``'0.97dur'``.
         schedule_swa_lr (bool, optional): Flag to determine whether to apply an
             SWA-specific LR schedule during the period in which SWA is active. Default =
             ``False``.
@@ -116,6 +117,9 @@ class SWA(Algorithm):
                 raise ValueError("If swa_start is specified in units of 'dur', it must "
                                  "be in the interval [0, 1).")
         if self.swa_end.unit == TimeUnit.DURATION:
+            if self.swa_end == 1:
+                log.warning("'swa_end' = '1dur'. Batch norm statistics of averaged model "
+                            "will not be updated. This will negatively impact accuracy.")
             if self.swa_end > 1:
                 raise ValueError("If swa_end is specified in units of 'dur', it must be ≤1.")
         if anneal_epochs <= 0:
