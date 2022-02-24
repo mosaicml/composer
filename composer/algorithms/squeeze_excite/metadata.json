@@ -5,6 +5,10 @@
         "tldr": "Replaces eligible layers with Squeeze-Excite layers",
         "attribution": "Hu et al, 2017",
         "link": "https://arxiv.org/abs/1709.01507",
-        "domains": ["cv"]
+        "domains": [
+            "cv"
+        ],
+        "summary": "Adds a channel-wise attention operator in CNNs.",
+        "use": "Convolutional Neural Networks"
     }
 }

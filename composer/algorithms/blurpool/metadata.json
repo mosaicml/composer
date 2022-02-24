@@ -5,6 +5,10 @@
         "tldr": "applies blur before pooling",
         "attribution": "(Zhang, 2019)",
         "link": "https://arxiv.org/abs/1904.11486",
-        "domains": ["cv"]
+        "domains": [
+            "cv"
+        ],
+        "summary": "Applies a spatial low-pass filter before the pool in max pooling and whenever using a strided convolution.",
+        "use": "Convolutional Neural Networks"
     }
 }
