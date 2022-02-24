@@ -1,5 +1,70 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
+"""Train models!
+
+The trainer supports models with :class:`~composer.models.base.ComposerModel` instances.
+The :class:`.Trainer` is highly customizable and can
+support a wide variety of workloads.
+
+Example
+--------
+
+Train a model and save a checkpoint:
+
+.. testcode::
+
+    import os
+    from composer import Trainer
+
+    ### Create a trainer
+    trainer = Trainer(model=model,
+                      train_dataloader=train_dataloader,
+                      max_duration="1ep",
+                      eval_dataloader=eval_dataloader,
+                      optimizers=optimizer,
+                      schedulers=scheduler,
+                      device="cpu",
+                      validate_every_n_epochs=1,
+                      save_folder="checkpoints",
+                      save_interval="1ep")
+
+    ### Fit and run evaluation for 1 epoch.
+    ### Save a checkpoint after 1 epocch as specified during trainer creation.
+    trainer.fit()
+
+Load the checkpoint and resume training:
+
+.. testcode::
+
+    ### Get the saved checkpoint folder
+    ### By default, the checkpoint folder is of the form runs/<timestamp>/rank_0/checkpoints
+    ### Alternatively, if you set the run directory environment variable as follows:
+    ### os.environ["COMPOSER_RUN_DIRECTORY"] = "my_run_directory", then the checkpoint path
+    ### will be of the form my_run_directory/rank_0/checkpoints
+    checkpoint_folder = trainer.checkpoint_folder
+
+    ### If the save_interval was in terms of epochs like above then by default,
+    ### checkpoint filenames are of the form "ep{EPOCH_NUMBER}.pt".
+    checkpoint_path = os.path.join(checkpoint_folder, "ep1.pt")
+
+    ### Create a new trainer with the load_path argument set to the checkpoint path.
+    ### This will automatically load the checkpoint on trainer creation.
+    trainer = Trainer(model=model,
+                      train_dataloader=train_dataloader,
+                      max_duration="2ep",
+                      eval_dataloader=eval_dataloader,
+                      optimizers=optimizer,
+                      schedulers=scheduler,
+                      device="cpu",
+                      validate_every_n_epochs=1,
+                      load_path=checkpoint_path)
+
+    ### Continue training and running evaluation where the previous trainer left off
+    ### until the new max_duration is reached.
+    ### In this case it will be one additional epoch to reach 2 epochs total.
+    trainer.fit()
+"""
+
 from __future__ import annotations
 
 import contextlib
@@ -23,6 +88,7 @@ from composer.core import Callback, DataSpec, Engine, Event, Logger, State, Time
 from composer.core.algorithm import Algorithm
 from composer.core.evaluator import Evaluator
 from composer.core.logging import LoggerCallback, LogLevel
+from composer.core.time import Timestamp
 from composer.core.types import Batch, BreakEpochException, DataLoader, Evaluators, Many, Metrics, Optimizers, Precision
 from composer.datasets.dataloader import unwrap_data_loader
 from composer.loggers.tqdm_logger import TQDMLogger
@@ -33,12 +99,12 @@ from composer.profiler import Profiler, ProfilerEventHandler
 from composer.profiler.dataloader_profiler import DataloaderProfiler
 from composer.profiler.system_profiler import SystemProfiler
 from composer.profiler.torch_profiler import TorchProfiler
-from composer.trainer.checkpoint import CheckpointLoader, CheckpointSaver
-from composer.trainer.ddp import DDPSyncStrategy, ddp_sync_context, prepare_ddp_module
-from composer.trainer.deepspeed import fix_batch_precision_for_deepspeed, parse_deepspeed_config
+from composer.trainer._checkpoint import CheckpointLoader, CheckpointSaver
+from composer.trainer._deepspeed import _fix_batch_precision_for_deepspeed, _parse_deepspeed_config
+from composer.trainer._scale_schedule import scale_scheduler
+from composer.trainer._scaler import ClosureGradScaler
+from composer.trainer.ddp import DDPSyncStrategy, _ddp_sync_context, _prepare_ddp_module
 from composer.trainer.devices import Device, DeviceCPU, DeviceGPU
-from composer.trainer.scale_schedule import scale_scheduler
-from composer.trainer.scaler import ClosureGradScaler
 from composer.utils import dist, ensure_tuple, map_collection, module_surgery, reproducibility
 from composer.utils.object_store import ObjectStoreProvider
 
@@ -47,87 +113,216 @@ if TYPE_CHECKING:
 
 log = logging.getLogger(__name__)
 
+__all__ = ["Trainer"]
+
 
 class Trainer:
-    """Trainer for training a model with algorithms.
-
-    Can be created either with ``__init__`` or by providing a
-    :class:`~composer.trainer.TrainerHparams` object
-    (see :meth:`~composer.trainer.Trainer.create_from_hparams`).
+    """Trainer for training a models with Composer algorithms. See the Trainer guide for more information.
 
     Args:
-        model (ComposerModel): The model to train.
+        model (ComposerModel): The model to train. Can be user-defined or one of the models included
+            with Composer.
 
-        train_dataloader (DataLoader, DataSpec, or dict): The :class:`DataLoader`, :class:`DataSpec`,
-            or dict of :class:`DataSpec` kwargs for the training data.
-        max_duration (int, str, or Time): The maximum duration to train. Can be integer, which will be
-            interpreted to be epochs, a str (e.g. '1ep', or '10ba'), or a :class:`Time` object.
-        eval_dataloader (Union[DataLoader, DataSpec, Evaluators], optional): The :class:`DataLoader`,
-            :class:`DataSpec`, :class:`Evaluators` for the evaluation data. The :class:`Evaluator`
-            class contains metrics relevant to the specific dataset. Set to ``None`` for no evaluation.
-        algorithms (List[Algorithm], optional): The algorithms to use during training.
-            (default: ``[]``)
-        optimizers: (Optimizers, optional): The optimizers.
-            (default: ``DecoupledSGDW(model.parameters(), lr=0.1)``)
-        schedulers: (Schedulers, optional): The schedulers.
-            (default: ``[CosineAnnealingLR()]``).
-        device (str or Device, optional): The device to use for training. Either `cpu` or `gpu`.
-            (default `cpu`)
+            .. seealso:: :mod:`composer.models` for models built into Composer.
+        train_dataloader (DataLoader, DataSpec, or dict): The :class:`.DataLoader`, :class:`.DataSpec`,
+            or dict of :class:`.DataSpec` kwargs for the training data. In order to specify custom
+            preprocessing steps on each data batch, specify a :class:`.DataSpec` instead of a
+            :class:`.DataLoader`.
+
+            .. note:: The ``train_dataloader`` should yield per-rank batches. Each per-rank batch
+                will then be further divided based on the ``grad_accum`` parameter. For example, if the
+                desired optimization batch size is ``2048`` and training is happening across 8 GPUs, then each
+                ``train_dataloader`` should yield a batch of size ``2048 / 8 = 256``. If ``grad_accum = 2``,
+                then the per-rank batch will be divided into microbatches of size ``256 / 2 = 128``.
+        max_duration (int, str, or Time): The maximum duration to train. Can be an integer, which will be
+            interpreted to be epochs, a str (e.g. ``1ep``, or ``10ba``), or a :class:`.Time` object.
+        eval_dataloader (DataLoader, DataSpec, or Evaluators, optional): The :class:`.DataLoader`,
+            :class:`.DataSpec`, or :class:`.Evaluators` for the evaluation data.
+            In order to evaluate one or more specific metrics across one or more datasets, pass in an
+            :class:`.Evaluator`. If a :class:`.DataSpec` or :class:`.DataLoader` is passed in, then all
+            metrics returned by ``model.metrics()`` will be used during evaluation.
+            ``None`` results in no evaluation. (default: ``None``)
+        algorithms (List[Algorithm], optional): The algorithms to use during training. If ``None``, then
+            no algorithms will be used. (default: ``None``)
+
+            .. seealso:: :mod:`composer.algorithms` for the different algorithms built into Composer.
+        optimizers (Optimizers, optional): The optimizer.
+            If ``None``, will be set to ``DecoupledSGDW(model.parameters(), lr=0.1)``. (default: ``None``)
+
+            .. seealso:: :mod:`composer.optim` for the different optimizers built into Composer.
+        schedulers (Schedulers, optional): The learning rate schedulers. If ``[]`` or ``None``, will be set to
+            ``[constant_scheduler]``. (default: ``None``).
+
+            .. seealso:: :mod:`composer.optim.scheduler` for the different schedulers built into Composer.
+        device (str or Device, optional): The device to use for training. Either ``cpu`` or ``gpu``.
+            (default: ``cpu``)
         grad_accum (int, optional): The number of microbatches to split a per-device batch into. Gradients
             are summed over the microbatches per device. (default: ``1``)
-        grad_clip_norm (float, optional): The norm to clip gradient magnitudes to. Set to None for no gradient
+
+            .. note:: This is implemented by taking the batch yielded by the ``train_dataloader`` and splitting
+                it into ``grad_accum`` sections. Each section is of size ``train_dataloader // grad_accum``.
+                If the batch size of the dataloader is not divisible by ``grad_accum``,
+                then the last section will be of size ``batch_size % grad_accum``.
+        grad_clip_norm (float, optional): The norm to clip gradient magnitudes to. Set to ``None`` for no gradient
             clipping. (default: ``None``)
         validate_every_n_batches (int, optional): Compute metrics on evaluation data every N batches.
-             Set to -1 to never validate on a batchwise frequency. (default: ``-1``)
+             Set to ``-1`` to never validate on a batchwise frequency. (default: ``-1``)
         validate_every_n_epochs (int, optional): Compute metrics on evaluation data every N epochs.
-            Set to -1 to never validate on a epochwise frequency. (default: ``1``)
-        compute_training_metrics (bool, optional): True to compute metrics on training data and False to not.
+            Set to ``-1`` to never validate on a epochwise frequency. (default: ``1``)
+        compute_training_metrics (bool, optional): ``True`` to compute metrics on training data and ``False`` to not.
             (default: ``False``)
-        precision (str or Precision, optional): Numerical precision to use for training, one of 'fp32', 'fp16'
-            or 'amp' (recommended). (default: ``Precision.FP32``).
+        precision (str or Precision, optional): Numerical precision to use for training. One of ``fp32``, ``fp16``
+            or ``amp`` (recommended). (default: ``Precision.FP32``)
+
+            .. note::
+                ``fp16`` only works if ``deepspeed_config`` is also provided.
         scale_schedule_ratio (float, optional): Ratio by which to scale the training duration and learning rate
-            schedules. See :func:`scale_schedule` for details. (default: ``1.0``)
-        use_stepwise_schedulers (bool, optional): Whether schedulers will update after every optimizer step
-            (True), or every epoch (False). Setting this to ``True`` causes schedulers to be able to
-            compute learning rates with greater timewise precision, but native PyTorch schedulers will need to
-            be reconfigured so that their timewise parameters are expressed in terms of batches, not epochs.
-            By default, stepwise schedulers are used when functional schedulers are provided, but not if only
-            native Pytorch schedulers are provided (i.e. subclasses of ``torch.optim.lr_scheduler._LRScheduler).
-            (default: ``None``)
+            schedules. E.g., ``0.5`` makes the schedule take half as many epochs and ``2.0`` makes it take twice as many epochs. ``1.0`` means no change.
+
+            Training for less time is a strong baseline approach to speeding up
+            training, provided that the training still gets through the entire
+            learning rate schedule. E.g., training for half as long often yields
+            little accuracy degredation, provided that the learning rate schedule
+            is rescaled to take half as long as well. In contrast, if the schedule
+            is not rescaled, training for half as long would mean simply stopping
+            halfway through the training curve, which does reach nearly as
+            high an accuracy.
+
+            To see the difference, consider training for half as long using a cosine
+            annealing learning rate schedule. If the schedule is not rescaled,
+            training ends while the learning rate is still ~0.5. If the schedule is
+            rescaled, training ends after passing through the full cosine
+            curve, at a learning rate near 0.
+            (default: ``1.0``)
+        step_schedulers_every_batch (bool, optional): By default, native
+            `PyTorch schedulers <https://pytorch.org/docs/stable/optim.html#how-to-adjust-learning-rate>`_
+            are updated every epoch, while :mod:`composer schedulers<composer.optim>` are updated every step.
+            Setting this to ``True`` will cause any scheduler passed to the trainer to be stepped every batch, while setting this to ``False`` will cause all schedulers to be stepped every epoch. If this parameter is ``None``, then if any :mod:`composer scheduler<composer.optim>` is provided, schedulers will be stepped every batch. Otherwise, schedulers will be stepped every epoch. (default: ``None``)
         dist_timeout (float, optional): Timeout, in seconds, for initializing the distributed process group.
             (default: ``15.0``)
         ddp_sync_strategy (str or DDPSyncStrategy, optional): The strategy to use for synchronizing gradients.
-            Leave unset to let the trainer auto-configure this. For more details, see ``DDPSyncStrategy``.
-        seed (int, optional): The seed used in randomization. When not provided a random seed
+            Leave unset to let the trainer auto-configure this. See :class:`.DDPSyncStrategy`
+            for more details.
+        seed (int, optional): The seed used in randomization. If ``None``, then a random seed
             will be created. (default: ``None``)
-        deterministic_mode (bool, optional): Run the model deterministically. Experimental. Performance
-            degradations expected. Certain Torch modules may not have deterministic implementations,
-            which will result in a crash. (default: ``False``)
-        loggers (List[LoggerCallback], optional): The destinations to log training information to.
-            (default: ``[TQDMLogger()]``).
-        callbacks (Sequence[Callback], optional): The callbacks to run during training. (default: ``[]``)
-        load_path (str, optional): Path to a specific checkpoint to load. If not set (the default),
-            then no checkpoint will be loaded. (default: ``None``)
-        load_object_store (ObjectStoreProvider, optional): For loading from object stores (e.g. S3), this
-            ObjectStoreProvider instance that will be used to download the checkpoint. Ignored if
-            ``load_path`` is not specified. (default: ``None``)
-        load_weights_only (bool): Only load the model weights.  Ignored if ``load_path`` is not specified.
-            (default: ``False``)
-        load_strict (bool): Ensure that the set of weights in the checkpoint and model must exactly match. Ignored if
-            ``load_path`` is not specified. (default: ``False``)
-        load_chunk_size (int): Chunk size (in bytes) to use when downloading checkpoints.
-            Ignored if the ``load_path`` is not specified or it is a local file path. (default: ``1,048,675``)
-        load_progress_bar (bool): Display the progress bar for downloading the checkpoint. Ignored if
-            ``load_path`` is not specified or if it is a local file path. (default: ``True``)
-        save_folder (str, optional): Folder path to save checkpoints, relative to the run directory.
-            Set to ``None`` to not save checkpoints. (default: ``None``)
-        save_interval (str or int): How often to save checkpoints. For example, set to "1ep" to save checkpoints
-            every epoch, or "10ba" to save checkpoints every 10 batches. An integer will be assumed to be epochs.
-            (default: ``1ep``)
-        save_compression (str): Compression algorithm to run on checkpoints. Can be `gzip`, `bzip2`,
-            `lzma`, or left blank for no compression.  (default: ``""`` for no compression).
+
+            .. note:: In order to get reproducible results, call the
+                :func:`.seed_all` function at the start of your script with the seed
+                passed to the trainer. This will ensure any initialization done before the trainer init
+                (ex. model weight initialization) also uses the provided seed.
+
+            .. seealso:: :mod:`composer.utils.reproducibility` for more details on reproducibility.
+        deterministic_mode (bool, optional): Run the model deterministically. (default: ``False``)
+
+            .. note:: This is an experimental feature. Performance degradations expected. Certain Torch modules may
+                not have deterministic implementations, which will result in a crash.
+
+            .. note:: In order to get reproducible results, call the
+                :func:`.configure_deterministic_mode` function at the start of your script. This will ensure any initialization done before the trainer init also runs deterministically.
+
+            .. seealso:: :mod:`composer.utils.reproducibility` for more details on reproducibility.
+        loggers (Sequence[LoggerCallback], optional): The destinations to log training information to.
+            If ``None``, will be set to ``[TQDMLogger()]``. (default: ``None``)
+
+            .. seealso:: :mod:`composer.loggers` for the different loggers built into Composer.
+        callbacks (Sequence[Callback], optional): The callbacks to run during training. If ``None``,
+            then no callbacks will be run. (default: ``None``).
+
+            .. seealso:: :mod:`composer.callbacks` for the different callbacks built into Composer.
+        load_path (str, optional):  The template path to an existing checkpoint file.
+            It can be a path to a file on local disk, a URL, or if ``load_object_store`` is set, the object name
+            for a checkpoint in a cloud bucket.
+
+            When using `Deepspeed ZeRO <https://www.deepspeed.ai/tutorials/zero/>`_, saved checkpoints are
+            sharded rank. To load deepspeed checkpoints, specify ``{RANK}`` in this ``load_path``
+            parameter, and the ``RANK`` variable will be substituted with the global rank, thus allowing the correct
+            checkpoints to be loaded per-rank.
+
+            For example, suppose that checkpoints are stored in the following structure:
+
+            .. code-block::
+
+                my_model/rank_0/ep1.tar
+                my_model/rank_1/ep1.tar
+                my_model/rank_2/ep1.tar
+                ...
+
+            Then, ``load_path`` should be set to ``my_model/rank_{RANK}/ep1.tar``, and all ranks
+            will load the correct data.
+
+            If ``None`` then no checkpoint will be loaded. (default: ``None``)
+        load_object_store (ObjectStoreProvider, optional): If the ``load_path`` is in an object store
+            (i.e. AWS S3 or Google Cloud Storage), an instance of :class:`.ObjectStoreProvider` which
+            will be used to retreive the checkpoint. Otherwise, if the checkpoint is a local filepath,
+            set to ``None``. Ignored if ``load_path`` is ``None``. (default: ``None``)
+
+            Example:
+
+            .. testsetup::
+
+                from composer.trainer._checkpoint import CheckpointLoader
+
+                CheckpointLoader.load_checkpoint = lambda *args, **kwargs: 0
+
+            .. testcode::
+
+                from composer import Trainer
+                from composer.utils import ObjectStoreProvider
+
+                # Create the object store provider with the specified credentials
+                creds = {"key": "object_store_key",
+                         "secret": "object_store_secret"}
+                store = ObjectStoreProvider(provider="s3",
+                                            container="my_container",
+                                            provider_init_kwargs=creds)
+
+                checkpoint_path = "/path_to_the_checkpoint_in_object_store"
+
+                # Create a trainer which will load a checkpoint from the specified object store
+                trainer = Trainer(model=model,
+                                  train_dataloader=train_dataloader,
+                                  max_duration="10ep",
+                                  eval_dataloader=eval_dataloader,
+                                  optimizers=optimizer,
+                                  schedulers=scheduler,
+                                  device="cpu",
+                                  validate_every_n_epochs=1,
+                                  load_path=checkpoint_path,
+                                  load_object_store=store)
+
+
+        load_weights_only (bool, optional): Whether or not to only restore the weights from the checkpoint without
+            restoring the associated state. Ignored if ``load_path`` is ``None``. (default: ``False``)
+        load_strict (bool, optional): Ensure that the set of weights in the checkpoint and model must exactly match.
+            Ignored if ``load_path`` is ``None``. (default: ``False``)
+        load_chunk_size (int, optional): Chunk size (in bytes) to use when downloading checkpoints.
+            Ignored if ``load_path`` is either ``None`` or a local file path. (default: ``1,048,675``)
+        load_progress_bar (bool, optional): Display the progress bar for downloading the checkpoint.
+            Ignored if ``load_path`` is either ``None`` or a local file path. (default: ``True``)
+        save_folder (str, optional): The folder to store checkpoints in. If an absolute path is specified, then
+            that path will be used. Otherwise, the ``save_folder`` will be relative
+            to the folder returned by :func:`.get_run_directory`.
+            If the ``save_folder`` does not exist, it will be created. If ``None``, then no checkpoints will
+            be saved. (default: ``None``)
+        save_interval (str or int, optional): How often to save checkpoints. For example, set to ``1ep``
+            to save checkpoints every epoch, or ``10ba`` to save checkpoints every 10 batches. An integer will be
+            assumed to be epochs. Ignored if ``save_folder`` is ``None``. (default: ``1ep``)
+        save_compression (str, optional): Compression algorithm to run on checkpoints. Can be ``gzip``, ``bzip2``,
+            ``lzma``, or ``None`` for no compression. Ignored if ``save_folder`` is ``None``. (default: ``None``)
+        train_subset_num_batches (int, optional): If specified, finish every epoch early after training
+            on this many batches. This parameter has no effect if it is greater than ``len(train_dataloader)``.
+            If ``None``, then the entire dataloader will be iterated over. (default: ``None``)
+        eval_subset_num_batches (int, optional): If specified, evaluate on this many batches.
+            This parameter has no effect if it is greater than ``len(eval_dataloader)``.
+            If ``None``, then the entire dataloader will be iterated over. (default: ``None``)
+        deepspeed_config (bool or Dict[str, Any], optional): Configuration for DeepSpeed, formatted as a JSON
+            according to `DeepSpeed's documentation <https://www.deepspeed.ai/docs/config-json/>`_. If ``True`` is
+            provided, the trainer will initialize the DeepSpeed engine with an empty config ``{}``. If ``False``
+            is provided, deepspeed will not be used. (default: ``False``)
         profiler_trace_file (str, optional): Name of the trace file, relative to the run directory.
-            Must be specified to activate the profiler. See :mod:`~composer.profiler`. (default: ``None``).
+            Setting this parameter activates the profiler. (default: ``None``).
+
+            .. seealso:: :mod:`composer.profiler` for more details on profiling with the trainer.
         prof_event_handlers (List[ProfilerEventHandler], optional): Trace event handler.
             Ignored if ``profiler_trace_file`` is not specified. (default: ``[JSONTraceHandler()]``).
         prof_skip_first (int, optional): Number of batches to skip at epoch start.
@@ -163,20 +358,13 @@ class Trainer:
             Ignored if ``torch_profiler_trace_dir`` and ``profiler_trace_file`` are not specified. (default: ``False``).
         torch_prof_with_flops (bool, optional): Estimate flops for operators.
             Ignored if ``torch_profiler_trace_dir`` and ``profiler_trace_file`` are not specified. (default: ``True``).
-        train_subset_num_batches (int, optional): If specified, finish every epoch early after training
-            on this many batches. This parameter has no effect if it is greater than ``len(train_dataloader)``.
-            If None (the default), then the entire dataloader will be iterated over.
-        eval_subset_num_batches (int, optional): If specified, evaluate on this many batches.
-            This parameter has no effect if it is greater than ``len(eval_dataloader)``.
-            If None (the default), then the entire dataloader will be iterated over.
-        deepspeed_config (Dict[str, Any], optional): Configuration for DeepSpeed, formatted as a dictionary
-            according to the `DeepSpeed documentation <https://www.deepspeed.ai/docs/config-json/>`_. If any
-            non-None value is provided, the trainer will initialize the DeepSpeed engine. (default: ``None``)
 
     Attributes:
-        state (State): The :class:`State` object used to store training state.
-        logger (Logger): The :class:`Logger` used for logging.
-        engine (Engine): The :class:`Engine` used for running callbacks and algorithms.
+        state (State): The :class:`.State` object used to store training state.
+        evaluators (List[Evaluator]): The :class:`.Evaluator` objects to use for validation
+            during training.
+        logger (Logger): The :class:`.Logger` used for logging.
+        engine (Engine): The :class:`.Engine` used for running callbacks and algorithms.
     """
 
     def __init__(
@@ -201,17 +389,17 @@ class Trainer:
         compute_training_metrics: bool = False,
         precision: Union[str, Precision] = Precision.FP32,
         scale_schedule_ratio: float = 1.0,
-        use_stepwise_schedulers: Optional[bool] = None,
+        step_schedulers_every_batch: Optional[bool] = None,
 
         # dist hparams
         dist_timeout: float = 300.0,
         ddp_sync_strategy: Optional[Union[str, DDPSyncStrategy]] = None,
 
-        # Randomness
+        # randomness
         seed: Optional[int] = None,
         deterministic_mode: bool = False,
 
-        # Logging and callbacks
+        # logging and callbacks
         loggers: Optional[Sequence[LoggerCallback]] = None,
         callbacks: Sequence[Callback] = tuple(),
 
@@ -228,7 +416,14 @@ class Trainer:
         save_interval: Union[str, int, Time] = "1ep",
         save_compression: Optional[str] = None,
 
-        # Profiling
+        # subset parameters
+        train_subset_num_batches: Optional[int] = None,
+        eval_subset_num_batches: Optional[int] = None,
+
+        # DeepSpeed
+        deepspeed_config: Union[bool, Dict[str, Any]] = False,
+
+        # profiling
         profiler_trace_file: Optional[str] = None,
         prof_event_handlers: Sequence[ProfilerEventHandler] = tuple(),
         prof_skip_first: int = 0,
@@ -247,13 +442,6 @@ class Trainer:
         torch_prof_profile_memory: bool = True,
         torch_prof_with_stack: bool = False,
         torch_prof_with_flops: bool = True,
-
-        # Subset parameters
-        train_subset_num_batches: Optional[int] = None,
-        eval_subset_num_batches: Optional[int] = None,
-
-        # DeepSpeed
-        deepspeed_config: Optional[Dict[str, Any]] = None,
     ):
         # surpressing GradScaler warnings as they are always created
         # self._use_grad_scaling() will raise a RuntimeError if grad scaling is not available when it is required
@@ -279,21 +467,24 @@ class Trainer:
                 raise ValueError(
                     'Scale schedule has reduced the max_duration to 0. Set a higher ratio or use more epochs.')
 
-        self.deepspeed_config = deepspeed_config
+        if isinstance(deepspeed_config, bool):
+            self._deepspeed_config = {} if deepspeed_config else None
+        else:
+            self._deepspeed_config = deepspeed_config
 
         if not device:
-            self.device = DeviceCPU() if not self.deepspeed_enabled else DeviceGPU()
+            self._device = DeviceCPU() if not self.deepspeed_enabled else DeviceGPU()
         elif isinstance(device, str):
             if device == 'cpu':
-                self.device = DeviceCPU()
+                self._device = DeviceCPU()
             elif device == 'gpu':
-                self.device = DeviceGPU()
+                self._device = DeviceGPU()
             else:
                 raise ValueError(f'device ({device}) must be one of (cpu, gpu).')
         else:
             if not isinstance(device, Device):
                 raise ValueError('device must be of class Device')
-            self.device = device
+            self._device = device
 
         if not seed:
             seed = reproducibility.get_random_seed()
@@ -305,24 +496,24 @@ class Trainer:
         # If hparams is used to create the Trainer this function is called twice
         # which is okay because all runs with the hparams codepath will do this
         reproducibility.seed_all(seed)
-        self.seed = seed
+        self._seed = seed
 
         if not algorithms:
             algorithms = []
 
         # some algorithms require specific settings
-        self.backwards_create_graph = any(map(lambda x: x.backwards_create_graph, algorithms))
+        self._backwards_create_graph = any(map(lambda x: x.backwards_create_graph, algorithms))
         find_unused_parameters = any(map(lambda x: x.find_unused_parameters, algorithms))
-        self.find_unused_parameters = find_unused_parameters
+        self._find_unused_parameters = find_unused_parameters
 
         if self.deepspeed_enabled or dist.get_world_size() > 1:
             # deepspeed requires torch.distributed to be initialized, even if the world size is 1
             # distributed is always required with multi-rank training
-            dist.initialize_dist(self.device.dist_backend, datetime.timedelta(seconds=dist_timeout))
+            dist.initialize_dist(self._device.dist_backend, datetime.timedelta(seconds=dist_timeout))
         if ddp_sync_strategy is None:
-            self.ddp_sync_strategy = DDPSyncStrategy.SINGLE_AUTO_SYNC if not find_unused_parameters else DDPSyncStrategy.FORCED_SYNC
+            self._ddp_sync_strategy = DDPSyncStrategy.SINGLE_AUTO_SYNC if not find_unused_parameters else DDPSyncStrategy.FORCED_SYNC
         else:
-            self.ddp_sync_strategy = DDPSyncStrategy(ddp_sync_strategy)
+            self._ddp_sync_strategy = DDPSyncStrategy(ddp_sync_strategy)
 
         # convert eval_dataloader to `List[Evaluator]`
         self.evaluators: List[Evaluator] = []
@@ -363,7 +554,7 @@ class Trainer:
 
         # TODO(#123): DeepSpeed still needs a precision context, but it's not completely clear how to
         # handle this with our version of Pytorch
-        precision_context = self.device.precision_context if not self.deepspeed_enabled else cast(
+        precision_context = self._device.precision_context if not self.deepspeed_enabled else cast(
             Callable[..., ContextManager], contextlib.nullcontext)
         if isinstance(precision, str):
             precision = Precision(precision)
@@ -391,18 +582,18 @@ class Trainer:
             steps_per_epoch=train_subset_num_batches,
         )
 
-        if not schedulers:
-            schedulers = constant_scheduler
-            warnings.warn(f"No scheduler was specified. Defaulting to {repr(schedulers)}")
         schedulers = ensure_tuple(schedulers)
+        if len(schedulers) == 0:
+            schedulers = (constant_scheduler,)
+            warnings.warn(f"No scheduler was specified. Defaulting to {repr(schedulers)}")
 
         if scale_schedule_ratio != 1.0:
             schedulers = tuple(
                 scale_scheduler(scheduler, scale_schedule_ratio) for scheduler in ensure_tuple(schedulers))
 
-        if use_stepwise_schedulers is None:
-            use_stepwise_schedulers = any(callable(scheduler) for scheduler in schedulers)
-        self.use_stepwise_schedulers = use_stepwise_schedulers
+        if step_schedulers_every_batch is None:
+            step_schedulers_every_batch = any(callable(scheduler) for scheduler in schedulers)
+        self._step_schedulers_every_batch = step_schedulers_every_batch
 
         self.state.schedulers = [compile(scheduler, self.state) for scheduler in schedulers]
 
@@ -447,10 +638,10 @@ class Trainer:
             logger=self.logger,
         )
 
-        self.validate_every_n_batches = validate_every_n_batches
-        self.validate_every_n_epochs = validate_every_n_epochs
-        self.compute_training_metrics = compute_training_metrics
-        self.grad_clip_norm = grad_clip_norm
+        self._validate_every_n_batches = validate_every_n_batches
+        self._validate_every_n_epochs = validate_every_n_epochs
+        self._compute_training_metrics = compute_training_metrics
+        self._grad_clip_norm = grad_clip_norm
 
         if deterministic_mode:
             reproducibility.configure_deterministic_mode()
@@ -458,26 +649,26 @@ class Trainer:
         self.engine.run_event(Event.INIT)
 
         assert isinstance(self.state.model, ComposerModel)
-        self.original_model = self.state.model  # TODO(ravi) -- update the state to add an original model helper
+        self._original_model = self.state.model  # TODO(ravi) -- update the state to add an original model helper
 
-        self.checkpoint_saver = None
+        self._checkpoint_saver = None
         if save_folder is not None:
             if isinstance(save_interval, int):
                 save_interval = Time.from_epoch(save_interval)
-            self.checkpoint_saver = CheckpointSaver(
+            self._checkpoint_saver = CheckpointSaver(
                 save_folder=save_folder,
                 interval=save_interval,
                 compression=save_compression,
             )
 
-        self.checkpoint_loader = None
+        self._checkpoint_loader = None
         if load_path is not None:
-            self.checkpoint_loader = CheckpointLoader(path=load_path,
-                                                      object_store=load_object_store,
-                                                      load_weights_only=load_weights_only,
-                                                      strict_model_weights=load_strict,
-                                                      chunk_size=load_chunk_size,
-                                                      progress_bar=load_progress_bar)
+            self._checkpoint_loader = CheckpointLoader(path=load_path,
+                                                       object_store=load_object_store,
+                                                       load_weights_only=load_weights_only,
+                                                       strict_model_weights=load_strict,
+                                                       chunk_size=load_chunk_size,
+                                                       progress_bar=load_progress_bar)
 
         # place the state, model in the proper devices, and initialize from a checkpoint if provided
         if self.deepspeed_enabled:
@@ -488,13 +679,13 @@ class Trainer:
                     textwrap.dedent("""\
                     Composer was installed without DeepSpeed support. To use DeepSpeed with Composer, run `pip install mosaicml[deepspeed]`
                     if using pip or `pip install deepspeed>=0.5.5` if using Anaconda.""")) from e
-            assert deepspeed_config is not None
-            self.deepspeed_config = parse_deepspeed_config(deepspeed_config,
-                                                           state=self.state,
-                                                           grad_clip_norm=self.grad_clip_norm)
+            assert self._deepspeed_config is not None
+            self._deepspeed_config = _parse_deepspeed_config(self._deepspeed_config,
+                                                             state=self.state,
+                                                             grad_clip_norm=self._grad_clip_norm)
             optimizer = ensure_tuple(self.state.optimizers)[0]
             (self.state.model, self.state.optimizers, _, _) = deepspeed.initialize(
-                config=self.deepspeed_config,
+                config=self._deepspeed_config,
                 model=self.state.model,
                 optimizer=optimizer,
             )
@@ -509,14 +700,14 @@ class Trainer:
         # If using DeepSpeed, the model must be loaded from checkpoint after the engine has been
         # initialized, but if using PyTorch DDP, the model must be loaded before it is wrapped with
         # DDP.
-        if self.checkpoint_loader:
-            restored_seed = self.checkpoint_loader.load_checkpoint(state=self.state)
+        if self._checkpoint_loader is not None:
+            restored_seed = self._checkpoint_loader.load_checkpoint(state=self.state)
             if restored_seed is not None:
-                self.seed = restored_seed
+                self._seed = restored_seed
 
         if not self.deepspeed_enabled:
             host_model_params = self.state.model.parameters()
-            self.state.model = self.device.module_to_device(self.state.model)
+            self.state.model = self._device.module_to_device(self.state.model)
             device_model_params = self.state.model.parameters()
 
             # use surgery to update the parameters of the optimizers, now that the model is on the device
@@ -526,15 +717,56 @@ class Trainer:
                                                        optimizers=self.state.optimizers)
 
             # Move any remaining optimizer parameters onto the device
-            self.state.optimizers = map_collection(self.state.optimizers, self.device.optimizer_to_device)
+            self.state.optimizers = map_collection(self.state.optimizers, self._device.optimizer_to_device)
 
             if dist.get_world_size() > 1:
                 # Only wrap the module if required
-                self.state.model = prepare_ddp_module(self.state.model, self.find_unused_parameters)
+                self.state.model = _prepare_ddp_module(self.state.model, self._find_unused_parameters)
 
     @property
-    def deepspeed_enabled(self):
-        return self.deepspeed_config is not None
+    def deepspeed_enabled(self) -> bool:
+        """``True`` if DeepSpeed is being used for training and ``False`` otherwise.
+
+        .. seealso:: `DeepSpeed's documentation <https://www.deepspeed.ai/docs/config-json/>`_
+        """
+        return self._deepspeed_config is not None
+
+    @property
+    def saved_checkpoints(self) -> Dict[Timestamp, List[str]]:
+        """The times and paths to checkpoint files saved across all ranks during training.
+
+        Returns:
+            Dict[Timestamp, List[str]]: A dictionary mapping a save :class:`.Timestamp`. to a list of
+                filepaths, indexed by global rank, corresponding to the checkpoints saved at that time.
+
+        .. note:: When using DeepSpeed, the index of a filepath corresponds to the
+            global rank of the process that wrote that file. These filepaths are valid only on
+            the global rank's node. Otherwise, when not using DeepSpeed, this list will contain
+            only one filepath since only rank zero saves checkpoints.
+        """
+        assert self._checkpoint_saver is not None, \
+            "save_folder must be provided on trainer init in order to save checkpoints"
+        return self._checkpoint_saver.saved_checkpoints
+
+    @property
+    def checkpoint_folder(self) -> str:
+        """The folder in which checkpoints are stored.
+
+        .. seealso:: :mod:`~composer.utils.run_directory` for details on the format of the run directory
+            and how to customize it.
+
+        Returns:
+            str: The checkpoint folder. If an absolute path was specified for
+                ``save_folder`` upon trainer instantiation, then that path will be used. Otherwise, this folder
+                is relative to the run directory of the training run (e.g. ``{run_directory}/{save_folder}``).
+                If no run directory is provided, then by default, it is of the form
+                ``runs/<timestamp>/rank_<GLOBAL_RANK>/<save_folder>`` where ``timestamp``
+                is the start time of the run in iso-format, ``GLOBAL_RANK`` is the global rank of the process,
+                and ``save_folder`` is the save_folder argument provided upon construction.
+        """
+        assert self._checkpoint_saver is not None, \
+            "save_folder must be provided on trainer init in order to save checkpoints"
+        return self._checkpoint_saver.checkpoint_folder
 
     def fit(self):
         """Train and evaluate the model on the provided data."""
@@ -547,7 +779,7 @@ class Trainer:
         # Safety check to ensure the metric and data are on the same device. Normally not
         # needed because the metric is automatically on the same device as the model.
         # See https://torchmetrics.readthedocs.io/en/latest/pages/overview.html for details.
-        metrics = self.device.module_to_device(metrics)
+        metrics = self._device.module_to_device(metrics)
 
         # HACK: DeepSpeed somehow manages to convert metric internal states to its own dtype. When
         # running with FP16, this tends to result in overflows. Let's assume FP32 is good enough.
@@ -609,11 +841,11 @@ class Trainer:
         # print training start
         self.logger.metric_fit({"trainer/algorithms": [str(algo) for algo in self.state.algorithms]})
 
-        if self.compute_training_metrics:
+        if self._compute_training_metrics:
             log.warn('Computing model evaluation metrics during training.'
                      ' This doubles the number of forward passes and may lead'
                      ' to a throughput degradation.')
-            train_metrics = self.original_model.metrics(train=True)
+            train_metrics = self._original_model.metrics(train=True)
             if isinstance(train_metrics, Metric):
                 # Forcing metrics to be a MetricCollection simplifies logging results
                 train_metrics = MetricCollection([train_metrics])
@@ -629,9 +861,9 @@ class Trainer:
 
         self._spin_dataloaders()
 
-        if self.state.timer.batch_in_epoch == 0 and self.checkpoint_loader:
+        if self.state.timer.batch_in_epoch == 0 and self._checkpoint_loader:
             # only restore the rng state here if the step in the current epoch is zero.
-            self.checkpoint_loader.restore_checkpoint_rng_state(self.device)
+            self._checkpoint_loader.restore_checkpoint_rng_state(self._device)
 
         while state.timer < state.max_duration:
             try:
@@ -649,19 +881,19 @@ class Trainer:
 
                     # if resuming, skip dataloader forward to the minibatch index
                     if batch_idx < self.state.timer.batch_in_epoch:
-                        if self.checkpoint_loader:
-                            self.checkpoint_loader.restore_checkpoint_rng_state(self.device)
+                        if self._checkpoint_loader:
+                            self._checkpoint_loader.restore_checkpoint_rng_state(self._device)
                         continue
 
-                    state.batch = self.device.batch_to_device(state.batch)
+                    state.batch = self._device.batch_to_device(state.batch)
                     state.batch = self._train_data_spec.device_transforms(state.batch)
                     state.batch_num_samples = self._train_data_spec.get_num_samples_in_batch(state.batch)
                     state.batch_num_tokens = self._train_data_spec.get_num_tokens_in_batch(state.batch)
 
                     if self.deepspeed_enabled:
-                        state.batch = fix_batch_precision_for_deepspeed(state.batch, state.precision)
+                        state.batch = _fix_batch_precision_for_deepspeed(state.batch, state.precision)
 
-                    if self.compute_training_metrics:
+                    if self._compute_training_metrics:
                         # compute metrics on the training set
                         assert train_metrics is not None
                         state.model.eval()
@@ -669,16 +901,16 @@ class Trainer:
                             for eval_microbatch in self._train_data_spec.split_batch(state.batch, state.grad_accum):
                                 # TODO: Detect if self.run_event(Event.AFTER_DATALOADER) changes the training
                                 # data and if so print a warning that metrics may return unexpected results
-                                outputs, targets = self.original_model.validate(eval_microbatch)
+                                outputs, targets = self._original_model.validate(eval_microbatch)
                                 train_metrics.update(outputs, targets)
 
                     state.model.train()
 
                     self.engine.run_event(Event.AFTER_DATALOADER)
 
-                    num_samples_in_batch = self.device.tensor_to_device(
+                    num_samples_in_batch = self._device.tensor_to_device(
                         torch.tensor([state.batch_num_samples], dtype=torch.int))
-                    num_tokens_in_batch = self.device.tensor_to_device(
+                    num_tokens_in_batch = self._device.tensor_to_device(
                         torch.tensor([state.batch_num_tokens], dtype=torch.int))
                     dist.all_reduce(num_samples_in_batch, reduce_operation="SUM")
                     dist.all_reduce(num_tokens_in_batch, reduce_operation="SUM")
@@ -713,14 +945,14 @@ class Trainer:
 
                     if total_loss is not None:
                         if not isinstance(total_loss, torch.Tensor):
-                            total_loss = self.device.tensor_to_device(torch.tensor([total_loss]))
+                            total_loss = self._device.tensor_to_device(torch.tensor([total_loss]))
 
                         # total_loss can be None if gradient scaling failed
                         dist.all_reduce(total_loss, reduce_operation="SUM")
                         full_loss = total_loss.cpu().item()
                         self.logger.metric_batch({'loss/train': full_loss / dist.get_world_size()})
 
-                    if self.compute_training_metrics:
+                    if self._compute_training_metrics:
                         assert train_metrics is not None
                         self._compute_and_log_metrics(train_metrics, is_train=True, is_batch=True)
 
@@ -729,35 +961,35 @@ class Trainer:
                         tokens=int(num_tokens_in_batch.item()),
                     )
 
-                    if self.use_stepwise_schedulers:
+                    if self._step_schedulers_every_batch:
                         for scheduler in state.schedulers:
                             scheduler.step()
 
                     self.engine.run_event(Event.BATCH_END)
 
-                    if self.validate_every_n_batches > 0 and int(
-                            state.timer.batch) % self.validate_every_n_batches == 0:
+                    if self._validate_every_n_batches > 0 and int(
+                            state.timer.batch) % self._validate_every_n_batches == 0:
                         self.eval(is_batch=True)
 
-                    if self.checkpoint_saver and self.checkpoint_saver.should_checkpoint(state=state,
-                                                                                         event=Event.BATCH_END):
-                        self.checkpoint_saver.save_checkpoint(state=state, seed=self.seed, device=self.device)
+                    if self._checkpoint_saver and self._checkpoint_saver.should_checkpoint(state=state,
+                                                                                           event=Event.BATCH_END):
+                        self._checkpoint_saver.save_checkpoint(state=state, seed=self._seed, device=self._device)
             except BreakEpochException:
                 log.info(f'Skipping the rest of Epoch {state.epoch}')
 
             state.timer.on_epoch_complete()
 
-            if not self.use_stepwise_schedulers:
+            if not self._step_schedulers_every_batch:
                 for scheduler in state.schedulers:
                     scheduler.step()
 
             self.engine.run_event(Event.EPOCH_END)
 
-            if self.validate_every_n_epochs > 0 and int(state.timer.epoch) % self.validate_every_n_epochs == 0:
+            if self._validate_every_n_epochs > 0 and int(state.timer.epoch) % self._validate_every_n_epochs == 0:
                 self.eval(is_batch=False)
 
-            if self.checkpoint_saver and self.checkpoint_saver.should_checkpoint(state=state, event=Event.EPOCH_END):
-                self.checkpoint_saver.save_checkpoint(state=state, seed=self.seed, device=self.device)
+            if self._checkpoint_saver and self._checkpoint_saver.should_checkpoint(state=state, event=Event.EPOCH_END):
+                self._checkpoint_saver.save_checkpoint(state=state, seed=self._seed, device=self._device)
 
     def _train_batch(self, microbatches: Sequence[Batch], ddp_sync: bool = True):
         """Run training on a full batch of data.
@@ -791,15 +1023,15 @@ class Trainer:
                 optimizer.zero_grad()
 
         # tracker for gradient accumulation
-        total_loss = self.device.tensor_to_device(torch.zeros(size=(1,)))
+        total_loss = self._device.tensor_to_device(torch.zeros(size=(1,)))
         current_batch_size = sum([self._train_data_spec.get_num_samples_in_batch(batch) for batch in microbatches])
 
         for microbatch_idx, state.batch in enumerate(microbatches):
             state.batch_num_tokens = self._train_data_spec.get_num_tokens_in_batch(state.batch)
             state.batch_num_samples = self._train_data_spec.get_num_samples_in_batch(state.batch)
             is_final_microbatch = microbatch_idx + 1 == len(microbatches)
-            sync_context = contextlib.nullcontext() if self.deepspeed_enabled else ddp_sync_context(
-                state, is_final_microbatch, self.ddp_sync_strategy)
+            sync_context = contextlib.nullcontext() if self.deepspeed_enabled else _ddp_sync_context(
+                state, is_final_microbatch, self._ddp_sync_strategy)
             with sync_context:
                 # forward pass
                 self.engine.run_event(Event.BEFORE_FORWARD)
@@ -813,7 +1045,7 @@ class Trainer:
                 self.engine.run_event(Event.BEFORE_LOSS)
 
                 with state.precision_context:
-                    state.loss = self.original_model.loss(state.outputs, state.batch)
+                    state.loss = self._original_model.loss(state.outputs, state.batch)
 
                 # We always want to scale loss by the grad_accum before the backwards pass and
                 # also for sake of metrics. Complicating matters, the DeepSpeed engine does its
@@ -845,7 +1077,7 @@ class Trainer:
                         total_loss += loss.detach().clone()
                 else:
                     for loss in ensure_tuple(state.loss):
-                        loss.backward(create_graph=self.backwards_create_graph)
+                        loss.backward(create_graph=self._backwards_create_graph)
 
                 self.engine.run_event(Event.AFTER_BACKWARD)
 
@@ -858,10 +1090,10 @@ class Trainer:
                 state.scaler.unscale_(optimizer)
 
         # clip gradients if the magnitude is too large
-        if not self.deepspeed_enabled and self.grad_clip_norm is not None:
+        if not self.deepspeed_enabled and self._grad_clip_norm is not None:
             torch.nn.utils.clip_grad_norm_(
                 parameters=state.model.parameters(),
-                max_norm=self.grad_clip_norm,
+                max_norm=self._grad_clip_norm,
             )
 
         self.engine.run_event(Event.AFTER_TRAIN_BATCH)
@@ -896,19 +1128,19 @@ class Trainer:
                     dataloader.sampler.set_epoch(int(self.state.timer.batch))
 
                 for state.batch in itertools.islice(dataloader, self._eval_subset_num_batches):
-                    state.batch = self.device.batch_to_device(state.batch)
+                    state.batch = self._device.batch_to_device(state.batch)
                     if evaluator.dataloader.device_transforms:
                         state.batch = evaluator.dataloader.device_transforms(state.batch)
                     state.batch_num_samples = evaluator.dataloader.get_num_samples_in_batch(state.batch)
                     state.batch_num_tokens = evaluator.dataloader.get_num_tokens_in_batch(state.batch)
 
                     if self.deepspeed_enabled:
-                        state.batch = fix_batch_precision_for_deepspeed(state.batch, state.precision)
+                        state.batch = _fix_batch_precision_for_deepspeed(state.batch, state.precision)
 
                     self.engine.run_event(Event.EVAL_BATCH_START)
 
                     self.engine.run_event(Event.EVAL_BEFORE_FORWARD)
-                    state.outputs, targets = self.original_model.validate(state.batch)
+                    state.outputs, targets = self._original_model.validate(state.batch)
                     self.engine.run_event(Event.EVAL_AFTER_FORWARD)
 
                     metrics.update(state.outputs, targets)
