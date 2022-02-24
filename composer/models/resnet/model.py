@@ -11,7 +11,8 @@ __all__ = ["ComposerResNet"]
 
 
 class ComposerResNet(ComposerClassifier):
-    """A :class:`~composer.models.base.ComposerClassifier` wrapper around the torchvision implementations of the ResNet model family.
+    """A :class:`~composer.models.base.ComposerClassifier` wrapper around the torchvision implementations of the ResNet
+    model family.
 
     From the paper Deep Residual Learning for Image Recognition `<https://arxiv.org/abs/1512.03385>`_.
 

@@ -15,9 +15,7 @@ __all__ = ["ModelHparams", "Initializer"]
 
 
 class Initializer(StringEnum):
-    """
-    Sets the initialization scheme for different layers of a pytorch model.
-    """
+    """Sets the initialization scheme for different layers of a pytorch model."""
     KAIMING_NORMAL = "kaiming_normal"
     KAIMING_UNIFORM = "kaiming_uniform"
     BN_UNIFORM = "bn_uniform"
@@ -80,8 +78,8 @@ class ModelHparams(hp.Hparams, ABC):
 
     @abstractmethod
     def initialize_object(self) -> ComposerModel:
-        """Invoked by the :meth:`~composer.trainer.trainer_hparams.TrainerHparams.initialize_object`
-        to construct a :class:`~composer.models.base.ComposerModel`.
+        """Invoked by the :meth:`~composer.trainer.trainer_hparams.TrainerHparams.initialize_object` to construct a
+        :class:`~composer.models.base.ComposerModel`.
 
         Returns:
             ComposerModel: The constructed :class:`~composer.models.base.ComposerModel`

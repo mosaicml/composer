@@ -6,6 +6,7 @@ from composer.models.model_hparams import ModelHparams
 
 __all__ = ["CIFARResNet9Hparams"]
 
+
 @dataclass
 class CIFARResNet9Hparams(ModelHparams):
 

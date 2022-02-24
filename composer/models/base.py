@@ -86,9 +86,9 @@ class ComposerModel(torch.nn.Module, abc.ABC):
 
     @abc.abstractmethod
     def loss(self, outputs: Any, batch: Batch, *args, **kwargs) -> Tensors:
-        """Compute the loss of the model given ``outputs`` from :meth:`forward` and a :class:`~composer.core.types.Batch`
-        of data from the dataloader. The :class:`~composer.trainer.trainer.Trainer` will call `.backward()` on the
-        returned loss.
+        """Compute the loss of the model given ``outputs`` from :meth:`forward` and a
+        :class:`~composer.core.types.Batch` of data from the dataloader. The :class:`~composer.trainer.trainer.Trainer`
+        will call `.backward()` on the returned loss.
 
         Example:
 
@@ -194,8 +194,8 @@ class ComposerModel(torch.nn.Module, abc.ABC):
 
 class ComposerClassifier(ComposerModel):
     """A convenience class that creates a :class:`~composer.models.base.ComposerModel` for classification tasks from a
-    vanilla pytorch model. :class:`~composer.models.base.ComposerClassifier` requires batches in the form: (``input``, ``target``)
-    and includes a basic classification training loop with CrossEntropy loss and accuracy logging.
+    vanilla pytorch model. :class:`~composer.models.base.ComposerClassifier` requires batches in the form: (``input``,
+    ``target``) and includes a basic classification training loop with CrossEntropy loss and accuracy logging.
 
     Example:
 

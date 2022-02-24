@@ -8,6 +8,7 @@ from composer.models.resnets import CIFAR_ResNet
 
 __all__ = ["CIFAR10_ResNet20"]
 
+
 class CIFAR10_ResNet20(ComposerClassifier):
     """A ResNet-20 model extending :class:`~composer.models.base.ComposerClassifier`.
 

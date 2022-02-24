@@ -16,9 +16,10 @@ if TYPE_CHECKING:
 
 __all__ = ["GPT2Model"]
 
+
 class GPT2Model(ComposerTransformer):
-    """Implements :class:`~composer.models.transformer_shared.ComposerTransformer` to wrap huggingface GPT-2 transformers.
-    Logs training and validation perplexity.
+    """Implements :class:`~composer.models.transformer_shared.ComposerTransformer` to wrap huggingface GPT-2
+    transformers. Logs training and validation perplexity.
 
     From the paper Language Models are Unsupervised Multitask Learners `<https://d4mucfpksywv.cloudfront.net/better-language-models/language-models.pdf>`_
 

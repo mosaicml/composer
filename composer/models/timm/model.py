@@ -6,6 +6,7 @@ from composer.models.base import ComposerClassifier
 
 __all__ = ["Timm"]
 
+
 class Timm(ComposerClassifier):
     """A wrapper around ``timm.create_model()`` used to create :class:`~composer.models.base.ComposerClassifier`.
 

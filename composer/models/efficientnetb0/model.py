@@ -7,8 +7,9 @@ __all__ = ["EfficientNetB0"]
 
 
 class EfficientNetB0(ComposerClassifier):
-    """A :class:`~composer.models.base.ComposerClassifier` wrapper around the EfficientNet-b0 architecture. From the paper EfficientNet:
-    Rethinking Model Scaling for Convolutional Neural Networks `<https://arxiv.org/abs/1905.11946>`_.
+    """A :class:`~composer.models.base.ComposerClassifier` wrapper around the EfficientNet-b0 architecture. From the
+    paper EfficientNet: Rethinking Model Scaling for Convolutional Neural Networks
+    `<https://arxiv.org/abs/1905.11946>`_.
 
     Example:
 
