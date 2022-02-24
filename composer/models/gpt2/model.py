@@ -14,6 +14,7 @@ if TYPE_CHECKING:
 
     from composer.core.types import Batch, Metrics, Tensors
 
+__all__ = ["GPT2Model"]
 
 class GPT2Model(ComposerTransformer):
     """Implements :class:`~composer.models.transformer_shared.ComposerTransformer` to wrap huggingface GPT-2 transformers.

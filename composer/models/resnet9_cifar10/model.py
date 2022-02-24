@@ -8,6 +8,8 @@ from torchvision.models.resnet import BasicBlock
 from composer.models.base import ComposerClassifier
 from composer.models.model_hparams import Initializer
 
+__all__ = ["ResNet9", "CIFAR10_ResNet9"]
+
 
 # adapted from https://raw.githubusercontent.com/matthias-wright/cifar10-resnet/master/model.py
 # under the MIT license

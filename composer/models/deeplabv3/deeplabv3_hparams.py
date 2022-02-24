@@ -6,6 +6,7 @@ import yahp as hp
 
 from composer.models.model_hparams import ModelHparams
 
+__all__ = ["DeepLabV3Hparams"]
 
 @dataclass
 class DeepLabV3Hparams(ModelHparams):

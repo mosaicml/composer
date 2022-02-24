@@ -11,7 +11,7 @@ import yahp as hp
 from composer.models.base import ComposerModel
 from composer.utils.string_enum import StringEnum
 
-__all__ = ["ModelHparams"]
+__all__ = ["ModelHparams", "Initializer"]
 
 
 class Initializer(StringEnum):

@@ -9,6 +9,8 @@ from composer.models.transformer_hparams import TransformerHparams
 if TYPE_CHECKING:
     from composer.models.transformer_shared import ComposerTransformer
 
+__all__ = ["GPT2Hparams"]
+
 
 @dataclasses.dataclass
 class GPT2Hparams(TransformerHparams):

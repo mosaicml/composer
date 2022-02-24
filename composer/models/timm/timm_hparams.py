@@ -8,6 +8,8 @@ import yahp as hp
 from composer.models.model_hparams import ModelHparams
 from composer.models.timm.model import Timm
 
+__all__ = ["TimmHparams"]
+
 
 @dataclass
 class TimmHparams(ModelHparams):

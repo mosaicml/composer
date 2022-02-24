@@ -14,6 +14,8 @@ from composer.models.unet.model import UNet as UNetModel
 
 log = logging.getLogger(__name__)
 
+__all__ = ["UNet"]
+
 
 class UNet(ComposerModel):
     """A U-Net model extending :class:`~composer.models.base.ComposerModel`.

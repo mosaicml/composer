@@ -9,6 +9,7 @@ from torch.nn import functional as F
 from composer.models.base import ComposerClassifier
 from composer.models.model_hparams import Initializer
 
+__all__ = ["Model", "MNIST_Classifier"]
 
 class Model(nn.Module):
     """Toy classifier for MNIST.

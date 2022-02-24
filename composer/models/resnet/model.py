@@ -7,6 +7,8 @@ from torchvision.models import resnet
 from composer.models.base import ComposerClassifier
 from composer.models.model_hparams import Initializer
 
+__all__ = ["ComposerResNet"]
+
 
 class ComposerResNet(ComposerClassifier):
     """A :class:`~composer.models.base.ComposerClassifier` wrapper around the torchvision implementations of the ResNet model family.

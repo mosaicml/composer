@@ -11,6 +11,8 @@ from composer.models.transformer_hparams import TransformerHparams
 if TYPE_CHECKING:
     from composer.models.bert import BERTModel
 
+__all__ = ["BERTForClassificationHparams", "BERTHparams"]
+
 
 @dataclass
 class BERTForClassificationHparams(TransformerHparams):

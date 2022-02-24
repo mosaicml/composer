@@ -3,6 +3,8 @@
 from composer.models.base import ComposerClassifier
 from composer.models.efficientnets import EfficientNet
 
+__all__ = ["EfficientNetB0"]
+
 
 class EfficientNetB0(ComposerClassifier):
     """A :class:`~composer.models.base.ComposerClassifier` wrapper around the EfficientNet-b0 architecture. From the paper EfficientNet:

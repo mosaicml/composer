@@ -7,6 +7,8 @@ import yahp as hp
 from composer.models.model_hparams import ModelHparams
 from composer.models.resnet.model import ComposerResNet
 
+__all__ = ["ResNetHparams"]
+
 
 @dataclass
 class ResNetHparams(ModelHparams):

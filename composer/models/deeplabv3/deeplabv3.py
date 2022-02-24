@@ -12,6 +12,8 @@ from composer.models.base import ComposerModel
 from composer.models.loss import CrossEntropyLoss, MIoU, soft_cross_entropy
 from composer.models.model_hparams import Initializer
 
+__all__ = ["deeplabv3_builder", "ComposerDeepLabV3"]
+
 
 def deeplabv3_builder(num_classes: int,
                       backbone_arch: str = 'resnet101',

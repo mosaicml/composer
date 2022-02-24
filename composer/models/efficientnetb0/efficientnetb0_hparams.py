@@ -6,6 +6,8 @@ import yahp as hp
 
 from composer.models.model_hparams import ModelHparams
 
+__all__ = ["EfficientNetB0Hparams"]
+
 
 @dataclass
 class EfficientNetB0Hparams(ModelHparams):
