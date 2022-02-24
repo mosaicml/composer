@@ -119,7 +119,8 @@ class SWA(Algorithm):
         if self.swa_end.unit == TimeUnit.DURATION:
             if self.swa_end == 1:
                 log.warning("'swa_end' = '1dur'. Batch norm statistics of averaged model "
-                            "will not be updated. This will negatively impact accuracy.")
+                            "will not be updated. This will negatively impact accuracy. "
+                            "See the documentation for the `swa_end` parameter for details.")
             if self.swa_end > 1:
                 raise ValueError("If swa_end is specified in units of 'dur', it must be ≤1.")
         if anneal_epochs <= 0:
@@ -184,6 +185,11 @@ class SWA(Algorithm):
         if self.swa_end.unit == TimeUnit.EPOCH and (state.timer.get("ep") >= self.swa_end):
             self.swa_completed = True
         if self.swa_completed:
+            if state.get_elapsed_duration() == 1:
+                log.warning("The baseline model was replaced with the SWA model after the end of "
+                            "training. This means that SWA model will not have its batch norm "
+                            "statistics updated. This will negatively impact accuracy. See the "
+                            "documentation for the `swa_end` parameter for details.")
             assert type(self.swa_model.module) == type(state.model)
             state.model.load_state_dict(self.swa_model.module.state_dict())  # type: ignore
             log.info('Set model to the averaged model')
