@@ -221,8 +221,15 @@ def soft_cross_entropy(input: Tensor,
 class CrossEntropyLoss(Metric):
     """Torchmetric cross entropy loss implementation.
 
-    This class implements cross entropy loss as a `torchmetric` so that it can be returned by the
-    :meth:`~composer.models.ComposerModel.metric` function in :class:`ComposerModel`.
+    This class implements cross entropy loss as a :class:`torchmetric.Metric` so that it can be returned by the
+    :meth:`ComposerModel.metric`.
+
+    Args:
+        ignore_index (int, optional): Specifies a target value that is ignored
+            and does not contribute to the input gradient. :attr:`ignore_index` is only applicable when the target contains class indices.
+            Default = -100.
+
+        dist_sync_on_step (bool, optional): sync distributed metrics every step. Default = False.
     """
 
     def __init__(self, ignore_index: int = -100, dist_sync_on_step=False):

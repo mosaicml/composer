@@ -16,9 +16,9 @@ from composer.models.loss import CrossEntropyLoss, soft_cross_entropy
 
 
 class ComposerModel(torch.nn.Module, abc.ABC):
-    """The interface needed to use a pytorch model with :class:`composer.Trainer`.
+    """The interface needed to use a pytorch model with :class:`Trainer`.
 
-    To create a :class:`composer.trainer.Trainer` compatible model, subclass :class:`ComposerModel` and implement
+    To create a :class:`Trainer` compatible model, subclass :class:`ComposerModel` and implement
     :meth:`forward` and :meth:`loss`. For full functionality (logging and validation), implement :meth:`metrics`
     and :meth:`validate`.
 
@@ -85,7 +85,7 @@ class ComposerModel(torch.nn.Module, abc.ABC):
     @abc.abstractmethod
     def loss(self, outputs: Any, batch: Batch, *args, **kwargs) -> Tensors:
         """Compute the loss of the model given ``outputs`` from :meth:`forward` and a :class:`Batch` of data from the
-        dataloader. The :class:`composer.trainer.Trainer` will call `.backward()` on the returned loss.
+        dataloader. The :class:`Trainer` will call `.backward()` on the returned loss.
 
         Example:
 
@@ -144,7 +144,7 @@ class ComposerModel(torch.nn.Module, abc.ABC):
 
         Args:
             train (bool, optional): True to return metrics that should be computed
-                during training and False otherwise. (default: ``False``). This flag is set automatically by the :class:`composer.Trainer`
+                during training and False otherwise. (default: ``False``). This flag is set automatically by the :class:`Trainer`
 
         Returns:
              Train or Eval :class:`torchmetrics.Metric` or list of metrics wrapped :class:`torchmetrics.collections.MetricCollection`
@@ -152,7 +152,7 @@ class ComposerModel(torch.nn.Module, abc.ABC):
         raise NotImplementedError('Implement metrics in your ComposerModel to run validation.')
 
     def validate(self, batch: Batch) -> Tuple[Any, Any]:
-        """Compute model outputs on provided data. Will be called by the trainer with ``torch.nograd()`` enabled.
+        """Compute model outputs on provided data. Will be called by the trainer with :func:`torch.nograd()` enabled.
 
         The output of this function will be directly used as input
         to all metrics returned by :meth:`metrics`.
@@ -195,7 +195,7 @@ class ComposerClassifier(ComposerModel):
     ComposerModel requires batches in the form: (input, target) and includes a basic classification training loop with
     CrossEntropy loss and accuracy logging.
 
-    Inherits from :class:`composer.models.ComposerModel`.
+    Inherits from :class:`ComposerModel`.
 
     Example:
 
@@ -211,7 +211,7 @@ class ComposerClassifier(ComposerModel):
         module (torch.nn.Module): A Pytorch neural network module.
 
     Returns:
-        ComposerClassifier :class:`composer.models.ComposerClassifier`: A Composer Trainer compatible classification model.
+        ComposerClassifier :class:`ComposerClassifier`: A Composer Trainer compatible classification model.
     """
 
     num_classes: Optional[int] = None

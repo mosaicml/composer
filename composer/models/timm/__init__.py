@@ -1,4 +1,7 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
+
+"""A wrapper around :func:`timm.create_model()` used to create :class:`ComposerClassifier`."""
+
 from composer.models.timm.model import Timm as Timm
 from composer.models.timm.timm_hparams import TimmHparams as TimmHparams
 

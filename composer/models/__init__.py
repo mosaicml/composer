@@ -1,6 +1,11 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
-"""Composer models wrap existing pytorch models and define a forward pass + loss."""
+"""The models module contains the :class:`ComposerModel` base class along with reference implementations of many common
+models. Additionally, it includes task specific convenience `ComposerModels` that wrap existing pytorch models with
+standard forward passes and logging to enable quick interaction with the :class:`Trainer`.
+
+See the ComposerModel docs for more details.
+"""
 
 from composer.models.base import ComposerClassifier as ComposerClassifier
 from composer.models.base import ComposerModel as ComposerModel
