@@ -73,13 +73,14 @@ class RunDirectoryUploader(Callback):
            ...     region="us-west-2",
            ...     )
            >>> # construct trainer object with this callback
+           >>> run_directory_uploader = RunDirectoryUploader(osphparams)
            >>> trainer = Trainer(
            ...     model=model,
            ...     train_dataloader=train_dataloader,
            ...     eval_dataloader=eval_dataloader,
            ...     optimizers=optimizer,
            ...     max_duration="1ep",
-           ...     callbacks=[RunDirectoryUploader(osphparams)],
+           ...     callbacks=[run_directory_uploader],
            ... )
            >>> # trainer will run this callback whenever the EPOCH_END
            >>> # is triggered, like this:
@@ -88,7 +89,7 @@ class RunDirectoryUploader(Callback):
         .. testcleanup::
 
            # Shut down the uploader
-           trainer.state.callbacks[1]._finished.set()
+           run_directory_uploader._finished.set()
 
     .. note::
         This callback blocks the training loop to copy files from the :mod:`~composer.utils.run_directory` to the
