@@ -15,6 +15,9 @@ __all__ = ["ModelHparams"]
 
 
 class Initializer(StringEnum):
+    """
+    Sets the initialization scheme for different layers of a pytorch model.
+    """
     KAIMING_NORMAL = "kaiming_normal"
     KAIMING_UNIFORM = "kaiming_uniform"
     BN_UNIFORM = "bn_uniform"
