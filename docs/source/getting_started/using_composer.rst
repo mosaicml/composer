@@ -1,5 +1,5 @@
-Using Composer
-==============
+|:art:|Using Composer
+=====================
 
 Composer provides both a **Functional API** (similar to :mod:`torch.nn.functional`) and a
 **Trainer** (that abstracts away the training loop) to provide flexibility to users.

@@ -1,5 +1,5 @@
-Installation
-============
+|:floppy_disk:|Installation
+===========================
 
 ``Composer`` is available with Pip:
 

@@ -68,6 +68,7 @@ Table of Contents
    :caption: ComposerModel
 
    composer_model.rst
+   trainer/algorithms.rst
 
 .. toctree::
    :maxdepth: 1
