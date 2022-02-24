@@ -2,26 +2,30 @@
 
 """Core RandAugment code."""
 
+import functools
 import textwrap
 import weakref
-from typing import List
+from typing import List, TypeVar
 
 import numpy as np
 import torch
-from PIL.Image import Image as ImageType
+from PIL.Image import Image as PillowImage
 from torchvision.datasets import VisionDataset
 
 from composer.algorithms.utils import augmentation_sets
+from composer.algorithms.utils.augmentation_common import map_pillow_function
 from composer.core.types import Algorithm, Event, Logger, State
 from composer.datasets.utils import add_vision_dataset_transform
 
 __all__ = ['RandAugment', "RandAugmentTransform", 'randaugment_image']
 
+ImgT = TypeVar("ImgT", torch.Tensor, PillowImage)
 
-def randaugment_image(img: ImageType,
+
+def randaugment_image(img: ImgT,
                       severity: int = 9,
                       depth: int = 2,
-                      augmentation_set: List = augmentation_sets["all"]) -> ImageType:
+                      augmentation_set: List = augmentation_sets["all"]) -> ImgT:
     """Randomly applies a sequence of image data augmentations
     (`Cubuk et al, 2019 <https://arxiv.org/abs/1909.13719>`_) to an image. See
     :class:`~composer.algorithms.randaugment.randaugment.RandAugment` or the :doc:`Method
@@ -40,7 +44,7 @@ def randaugment_image(img: ImageType,
             )
 
     Args:
-        img (PIL.Image): Image to be RandAugmented.
+        img (PIL.Image): Image or batch of images to be RandAugmented.
         severity (int, optional): See :class:`~composer.algorithms.randaugment.randaugment.RandAugment`.
         depth (int, optional): See :class:`~composer.algorithms.randaugment.randaugment.RandAugment`.
         augmentation_set (str, optional): See
@@ -50,12 +54,15 @@ def randaugment_image(img: ImageType,
         PIL.Image: RandAugmented image.
     """
 
-    # Iterate over augmentations
-    for _ in range(depth):
-        aug = np.random.choice(augmentation_set)
-        img = aug(img, severity)
-    assert img is not None
-    return img
+    def _randaugment_pil_image(img: PillowImage, severity: int, depth: int, augmentation_set: List) -> PillowImage:
+        # Iterate over augmentations
+        for _ in range(depth):
+            aug = np.random.choice(augmentation_set)
+            img = aug(img, severity)
+        return img
+
+    f_pil = functools.partial(_randaugment_pil_image, severity=severity, depth=depth, augmentation_set=augmentation_set)
+    return map_pillow_function(f_pil, img)
 
 
 class RandAugmentTransform(torch.nn.Module):
@@ -96,8 +103,7 @@ class RandAugmentTransform(torch.nn.Module):
         self.depth = depth
         self.augmentation_set = augmentation_sets[augmentation_set]
 
-    def forward(self, img: ImageType) -> ImageType:
-
+    def forward(self, img: ImgT) -> ImgT:
         return randaugment_image(img=img,
                                  severity=self.severity,
                                  depth=self.depth,
