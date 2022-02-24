@@ -85,9 +85,7 @@ def resize_batch(X: torch.Tensor,
         resize_transform = _make_resize(scale_factor=scale_factor)
         X_sized = resize_transform(X)
         if resize_targets:
-            y_sized = resize_transform(y)
-        else:
-            y_sized = y
+            y_sized = resize_transform(y_sized)
     else:
         raise ValueError(f"Progressive mode '{mode}' not supported.")
         X_sized, y_sized = X, y
