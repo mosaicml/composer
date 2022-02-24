@@ -4,7 +4,7 @@
 
 from typing import Type
 
-from composer.loggers.logger_hparams import (FileLoggerHparams, InMemoryLoggerHaparms, LoggerCallbackHparams,
+from composer.loggers.logger_hparams import (FileLoggerHparams, InMemoryLoggerHparams, LoggerCallbackHparams,
                                              TQDMLoggerHparams, WandBLoggerHparams)
 
 __all__ = ["get_logger_hparams", "logger_registry"]
@@ -13,7 +13,7 @@ logger_registry = {
     "file": FileLoggerHparams,
     "wandb": WandBLoggerHparams,
     "tqdm": TQDMLoggerHparams,
-    "in_memory": InMemoryLoggerHaparms,
+    "in_memory": InMemoryLoggerHparams,
 }
 
 
