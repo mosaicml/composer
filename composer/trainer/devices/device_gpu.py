@@ -1,9 +1,11 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
+"""The GPU device used for training."""
+
 from __future__ import annotations
 
 from contextlib import contextmanager
-from typing import Generator, Union
+from typing import Generator, TypeVar, Union
 
 import torch
 import torch.cuda.amp
@@ -13,9 +15,16 @@ from composer.core.types import Precision, StateDict, Tensor
 from composer.trainer.devices.device import Device, T_nnModule
 from composer.utils import dist
 
+__all__ = ["DeviceGPU"]
+
+T_nnModule = TypeVar("T_nnModule", bound=torch.nn.Module)
+
 
 class DeviceGPU(Device):
-    """An extension of :class:`~composer.trainer.devices.device.Device` for GPUs."""
+    """An extension of :class:`~composer.trainer.devices.device.Device` for GPUs.
+
+    This class takes no arguments.
+    """
     dist_backend = "nccl"
 
     def __init__(self):
