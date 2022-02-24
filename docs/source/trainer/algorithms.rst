@@ -1,5 +1,5 @@
-Algorithms
-==========
+|:robot:| Algorithms
+====================
 
 Included in the Composer library is a suite of algorithmic speedup
 algorithms. These modify the basic training procedure, and are intended

@@ -1,5 +1,5 @@
-ComposerModel
-=============
+|:pickup_truck:| ComposerModel
+==============================
 
 Your Pytorch model and training step must be re-organized as a
 :class:`.ComposerModel` in order to use our :class:`.Trainer`.
@@ -15,7 +15,7 @@ define the |forward| and |loss| methods.
 Notice how the forward pass is still under user control (no magic here!)
 and encapsulated together clearly within the architecture.
 
-As an added benefits we take care of pytorch boilerplate:
+The trainer takes care of:
 
 -  ``x.to(device), y.to(device)``
 -  ``loss.backward()``
@@ -75,7 +75,7 @@ specifically:
    library.
 -  :class:`.ComposerTransformer` - base class for 🤗 `Transformers`_ models.
 
-..note ::
+.. note::
 
     Users from other frameworks such as pytorch lightning, may be used to
     defining a ``training_step`` method, which groups the forward and loss

@@ -1,12 +1,12 @@
-Logging
-=======
+|:wood:| Logging
+================
 
 By default, the trainer enables :class:`.TQDMLogger`, which logs
 information to a ``tqdm`` progress bar.
 
 To attach other loggers, use the ``loggers`` argument. For example, the
-below logs the results to `weights and
-biases <https://www.wandb.com/>`__ and also saves them to the file
+below logs the results to `Weights and
+Biases <https://www.wandb.com/>`__ and also saves them to the file
 ``log.txt``.
 
 .. code:: python

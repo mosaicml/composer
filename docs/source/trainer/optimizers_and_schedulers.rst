@@ -1,5 +1,5 @@
-Schedulers
-==========
+|:chart_with_downwards_trend:| Schedulers
+=========================================
 
 The :class:`.Trainer` supports both PyTorch :mod:`torch.optim.lr_scheduler` schedulers
 as well as our own schedulers, which take advantage of the :class:`.Time` representation.
@@ -25,12 +25,12 @@ For pytorch schedulers, we step every epoch by default. To instead step every ba
 Our experiments have shown better accuracy using stepwise schedulers, and so
 is the recommended setting in most cases.
 
-ComposerSchedulers
+Composer Schedulers
 ------------------
 
 Our schedulers differ from the pytorch schedulers in two ways:
 
-- time parameters can be provided in different units:
+- Time parameters can be provided in different units:
   samples (``"sp"``), tokens (``"tok"``), batches (``"ba"``), epochs (``"ep"``),
   and duration (``"dur"``). See :doc:`Time</trainer/time>`.
 - our schedulers are functions, not classes. They return a multiplier to apply to

@@ -1,5 +1,5 @@
-Dataloaders
-===========
+|:cd:| Dataloaders
+==================
 
 Dataloaders are used to pass in training or evaluation data to the
 Composer :class:`.Trainer`. There are three different ways of doing so:
@@ -62,10 +62,10 @@ For performance, we highly recommend:
 DataSpec
 --------
 
-Some use cases require users to provide more than just the dataloader, but
+Sometimes, the data configuration requires more than just the dataloader. For example:
 additional configurations:
 
--  Some transforms that should be run on the device (e.g. ``GPU``) after
+-  Some transforms should be run on the data after it has been moved onto the correct device (e.g. ``GPU``)
    the data has been moved.
 -  Custom batch types would need a ``split_batch`` function that tells
    our trainer how to split the batches into microbatches for gradient
@@ -112,8 +112,8 @@ pass in multiple dataloaders/datasets to the trainer.
 For more information, see :doc:`Evaluation</trainer/evaluation>`.
 
 
-Batch Types
-===========
+|:smile:| Batch Types
+=====================
 
 Batch types make it easy to tell the algorithms needed information about
 the data. For data augmentation algorithms, for example, the location of the

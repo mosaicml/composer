@@ -1,5 +1,5 @@
-Installation
-============
+|:floppy_disk:| Installation
+===========================
 
 MosaicML ``Composer`` requires Python 3.7+ and Pytorch 1.9+. It can be installed via ``pip``:
 
@@ -36,7 +36,7 @@ For a developer install, clone directly:
 
 .. note::
 
-    For performance in image-based operations, we **highly** recommend installing 
+    For performance in image-based operations, we **highly** recommend installing
     Pillow-SIMD <https://github.com/uploadcare/pillow-simd>`_ To install, vanilla pillow must first be uninstalled.
 
     .. code-block:: console

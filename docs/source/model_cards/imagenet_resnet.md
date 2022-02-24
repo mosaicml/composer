@@ -1,4 +1,4 @@
-# ImageNet ResNet
+# 🏙️ ImageNet ResNet
 
 Category of Task: `Vision`
 
@@ -6,7 +6,7 @@ Kind of Task: `Image Classification`
 
 ## Overview
 
-The ResNet model family is a set of convolutional neural networks that can be used as the base for a variety of vision tasks. ImageNet ResNets are a subset of the ResNet family which were designed specifically for classification on the ImageNet dataset. 
+The ResNet model family is a set of convolutional neural networks that can be used as the base for a variety of vision tasks. ImageNet ResNets are a subset of the ResNet family which were designed specifically for classification on the ImageNet dataset.
 
 ## Attribution
 
@@ -36,7 +36,7 @@ ResNet family members are defined by their number of layers. Parameter count, ac
 
 ## Implementation details
 
-The implementation follows He et al. except for the ResNet v1.5 change from Nvidia's DeepLearningExamples. For bottleneck residual blocks that downsample, the downsampling is performed by the 3x3 convolution instead of the 1x1 convolution. Nvidia reports approximately +0.5% absolute accuracy and 5% decrease in throughput from this change. 
+The implementation follows He et al. except for the ResNet v1.5 change from Nvidia's DeepLearningExamples. For bottleneck residual blocks that downsample, the downsampling is performed by the 3x3 convolution instead of the 1x1 convolution. Nvidia reports approximately +0.5% absolute accuracy and 5% decrease in throughput from this change.
 
 ## Default Training Hyperparameters
 

@@ -1,4 +1,4 @@
-# Scale Schedule
+# 🗜️ Scale Schedule
 
 ![scale_schedule.png](https://storage.googleapis.com/docs.mosaicml.com/images/methods/scale_schedule.png)
 
@@ -10,7 +10,7 @@ Scale Schedule changes the number of training steps by a dilation factor and dil
 
 ## Attribution
 
-The number of training steps to perform is an important hyperparameter to tune when developing a model. This technique appears implicitly throughout the deep learning literature. One example of a systematic study of this approach is the *scan-SGD* technique in *[How Important is Importance Sampling for Deep Budgeted Training*](https://openreview.net/forum?id=TqQ0oOzJlai) by Eric Arazo, Diego Ortega, Paul Albert, Noel O'Connor, and Kevin McGuinness. Posted to OpenReview in 2020. 
+The number of training steps to perform is an important hyperparameter to tune when developing a model. This technique appears implicitly throughout the deep learning literature. One example of a systematic study of this approach is the *scan-SGD* technique in *[How Important is Importance Sampling for Deep Budgeted Training*](https://openreview.net/forum?id=TqQ0oOzJlai) by Eric Arazo, Diego Ortega, Paul Albert, Noel O'Connor, and Kevin McGuinness. Posted to OpenReview in 2020.
 
 ## Hyperparameters
 
@@ -34,7 +34,7 @@ state.max_epochs = new_max_epochs
 
 Scale schedule is currently only possible with the following learning rate schedulers:
 
- `StepLR`, `MultiStepLR`, `ExponentialLR`, `CosineAnnealingLR`, `CosineAnnealingWarmRestarts`, 
+ `StepLR`, `MultiStepLR`, `ExponentialLR`, `CosineAnnealingLR`, `CosineAnnealingWarmRestarts`,
 
 Scale schedule does *not* scale the warmup, if it is included at the beginning of the learning rate schedule.
 

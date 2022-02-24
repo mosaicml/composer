@@ -1,5 +1,5 @@
-Time
-====
+|:hourglass:| Time
+==================
 
 We use a |Time| class to represent and track time throughout
 the training loop. We track several quantities (epochs, batches,
@@ -22,7 +22,7 @@ such as “decay the learning rate 10% into training”.
 
 .. warning::
 
-    For `dur` arguments, we keep the same units as used in ``max_duration``,
+    For ``dur`` arguments, we keep the same units as used in ``max_duration``,
     and round down. For example, if ``max_duration = "7ep"`` and  ``warmup = "0.2dur"``,
     then warmup will be converted to ``floor(7 * 0.2) = 1 epoch``.
 
@@ -71,7 +71,7 @@ via the :class:`.DataSpec` for more complicated datasets:
     )
 
 
-To track tokens properly, users will need to supply the `get_num_tokens_in_batch`
+To track tokens properly, users will need to supply the ``get_num_tokens_in_batch``
 function to the Trainer, otherwise tokens will not be tracked.
 
 Samples Per Epoch

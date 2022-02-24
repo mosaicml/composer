@@ -1,5 +1,5 @@
-Callbacks
-=========
+|:phone:| Callbacks
+===================
 
 Callbacks enable non-essential code to be executed during any of the
 |Event| points. By convention, callbacks should not modify the
@@ -27,7 +27,7 @@ registered with the ``callbacks`` argument to the :class:`.Trainer`.
            loggers=[WandBLogger()])
 
 This example includes callbacks that measure the model throughput (and
-the learning rate) and logs them to weights & biases.
+the learning rate) and logs them to Weights & Biases.
 Callbacks control *what* is being logged, whereas loggers specify
 *where* the information is being saved. For more information on
 loggers, see :doc:`Logging<logging>`.

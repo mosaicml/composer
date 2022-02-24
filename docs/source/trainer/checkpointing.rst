@@ -1,5 +1,5 @@
-Checkpointing
-=============
+|:white_check_mark:| Checkpointing
+==================================
 
 Composer can be configured to automatically save training checkpoints by
 passing the argument ``save_folder`` when creating the
@@ -266,7 +266,7 @@ Loading
 
 - ``load_path`` (``str``, `optional`): Path to a specific checkpoint to load. If not set (the default),
   then no checkpoint will be loaded. (default: ``None``)
-- ``load_object_store`` (:class:`.ObjectStoreProvider`, `optional``): For loading from object stores (e.g. S3),
+- ``load_object_store`` (:class:`.ObjectStoreProvider`, `optional`): For loading from object stores (e.g. S3),
   this will be used to download the checkpoint. Ignored if ``load_path`` is not specified. (default: ``None``)
 - ``load_weights_only`` (``bool``): Only load the model weights.  Ignored if ``load_path`` is not specified.
   (default: ``False``)
