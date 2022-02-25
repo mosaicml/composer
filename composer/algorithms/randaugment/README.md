@@ -63,11 +63,11 @@ trainer = Trainer(
 
 RandAugment leverages `torchvision.transforms` to add a transformation to the dataset which will be applied per image on the CPU. The transformation takes in a `PIL.Image` and outputs a `PIL.Image` with RandAugment applied.
 
-The functional form of RandAugment (`XXX()`) requires RandAugment hyperparameters when it is called.
+The functional form of RandAugment (`randaugment_image()`) requires RandAugment hyperparameters when it is called.
 
-The Torchvision transform form of RandAugment (`XXX`) is composable with other dataset transformations via `torchvision.transforms.Compose`.
+The Torchvision transform form of RandAugment (`RandAugmentTransform`) is composable with other dataset transformations via `torchvision.transforms.Compose`.
 
-The class form of RandAugment runs on `Event.FIT_START` and inserts `XXX` into the set of transforms in a `torchvision.datasets.VisionDataset` dataset.
+The class form of RandAugment runs on `Event.FIT_START` and inserts `RandAugmentTransform` into the set of transforms in a `torchvision.datasets.VisionDataset` dataset.
 
 ## Suggested Hyperparameters
 

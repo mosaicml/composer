@@ -69,7 +69,7 @@ trainer = Trainer(model=model,
 
 ### Implementation Details
 
-RandAugment leverages `torchvision.transforms` to add a transformation to the dataset which will be applied per image on the CPU. The transformation takes in a `PIL.Image` and outputs a `PIL.Image` with AugMix applied.
+RandAugment leverages `torchvision.transforms` to add a transformation to the dataset which will be applied per image on the CPU. The transformation takes in a `PIL.Image` and outputs a `PIL.Image` with RandAugment applied.
 
 The functional form of RandAugment (`randaugment_image()`) requires RandAugment hyperparameters when it is called.
 
@@ -121,11 +121,6 @@ substantial training slowdown for `depth` ≥ 3. We also recommend `augmentation
 We found that RandAugment can significantly decrease throughput. This is due to the increased CPU load from performing the image augmentations. We found that training time could increase by up to 2.5x when `depth` **= 2, however the magnitude of the slowdown is determined by the ratio of GPU to CPU resources. For example, applying RandAugment with `depth` = 2 when running on a high GPU to CPU resource system (1 Nvidia V100—a relatively modern, powerful GPU—per 8 Intel Broadwell CPUs) causes throughput to decrease from ~612 im/sec/GPU to ~277 im/sec/GPU, while throughput remains at approximately at 212 im/sec/GPU on a low GPU to CPU system (1 Nvidia T4—a relatively less powerful GPU—per 12 Intel Cascade Lake CPUs).
 
 The regularization benefits of RandAugment also tend to yield a greater benefit in overparameterized regimes (i.e., larger models, smaller datasets, and longer training times). For example, applying RandAugment with `depth` = 2, `severity` = 9, yields a 0.31% accuracy gain for ResNet-18 trained for 90 epochs, a 0.41% accuracy gain for ResNet-50 trained for 90 epochs, and a 1.15% gain for ResNet-50 trained for 120 epochs.
-
-..
-
-    TOOD add in Resnet 101 into the line above
-
 
 ```{eval-rst}
 .. csv-table:: RandAugment

@@ -31,11 +31,11 @@ from composer.algorithms.utils import augmentation_sets
 
 def augmix_image(image: Union[PillowImage, torch.Tensor]):
     augmixed_image = cf.augmix_image(img=image,
-                                    severity=3,
-                                    width=3,
-                                    depth=-1,
-                                    alpha=1.0,
-                                    augmentation_set=augmentation_sets["all"])
+                                     severity=3,
+                                     width=3,
+                                     depth=-1,
+                                     alpha=1.0,
+                                     augmentation_set=augmentation_sets["all"])
     return augmixed_image
 ```
 
@@ -49,13 +49,11 @@ import torchvision.datasets.VisionDataset as VisionDataset
 
 from composer.algorithms.augmix import AugmentAndMixTransform 
 
-augmix_transform = AugmentAndMixTransform(
-    severity=3,
-    width=3,
-    depth=-1,
-    alpha=1.0,
-    augmentation_set="all"
-)
+augmix_transform = AugmentAndMixTransform(severity=3,
+                                          width=3,
+                                          depth=-1,
+                                          alpha=1.0,
+                                          augmentation_set="all")
 composed = transforms.Compose([augmix_transform, transforms.RandomHorizontalFlip()])
 dataset = VisionDataset(data_path, transform=composed)
 ```
@@ -69,21 +67,18 @@ dataset = VisionDataset(data_path, transform=composed)
 from composer.algorithms import AugMix
 from composer.trainer import Trainer
 
-augmix_algorithm = AugMix(
-    severity=3,
-    width=3,
-    depth=-1,
-    alpha=1.0,
-    augmentation_set="all"
-)
-trainer = Trainer(
-    model=model,
-    train_dataloader=train_dataloader,
-    eval_dataloader=eval_dataloader,
-    max_duration="1ep",
-    algorithms=[augmix_algorithm],
-    optimizers=[optimizer]
-)
+augmix_algorithm = AugMix(severity=3,
+                          width=3,
+                          depth=-1,
+                          alpha=1.0,
+                          augmentation_set="all")
+
+trainer = Trainer(model=model,
+                  train_dataloader=train_dataloader,
+                  eval_dataloader=eval_dataloader,
+                  max_duration="1ep",
+                  algorithms=[augmix_algorithm],
+                  optimizers=[optimizer])
 ```
 
 ### Implementation Details
