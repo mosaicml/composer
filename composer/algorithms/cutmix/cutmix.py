@@ -43,7 +43,7 @@ def cutmix_batch(X: Tensor,
          .. testcode::
 
             from composer.algorithms.cutmix import cutmix_batch
-            new_input_batch = cutmix_batch(
+            X_new, y_new = cutmix_batch(
                 X=X_example,
                 y=y_example,
                 n_classes=1000,
