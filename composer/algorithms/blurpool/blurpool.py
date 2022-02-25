@@ -82,9 +82,9 @@ class BlurPool(Algorithm):
 
     Args:
         replace_convs (bool): replace strided :class:`torch.nn.Conv2d` modules with
-            :class:`BlurConv2d` modules
+            :class:`~composer.algorithms.blurpool.BlurConv2d` modules
         replace_maxpools (bool): replace eligible :class:`torch.nn.MaxPool2d` modules
-            with :class:`BlurMaxPool2d` modules.
+            with :class:`~composer.algorithms.blurpool.BlurMaxPool2d` modules.
         blur_first (bool): when ``replace_convs`` is ``True``, blur input before the
             associated convolution. When set to ``False``, the convolution is
             applied with a stride of 1 before the blurring, resulting in

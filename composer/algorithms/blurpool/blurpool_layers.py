@@ -83,7 +83,7 @@ def blurmax_pool2d(input: torch.Tensor,
     """Max-pooling with anti-aliasing.
 
     This is a nearly drop-in replacement for PyTorch's :func:`~torch.nn.functional.max_pool2d`.
-    The only API difference is that the parameter `return_indices` is not
+    The only API difference is that the parameter ``return_indices`` is not
     available, because it is ill-defined when using anti-aliasing.
 
     See the associated `paper <http://proceedings.mlr.press/v97/zhang19a.html>`_
