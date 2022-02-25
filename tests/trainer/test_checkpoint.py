@@ -269,6 +269,9 @@ def test_checkpoint(
     if not isinstance(device_hparams, GPUDeviceHparams) and deepspeed_enabled:
         pytest.skip("DeepSpeed tests must be ran on GPU")
 
+    if model_name == "resnet50_synthetic" and deepspeed_enabled:
+        pytest.skip("Skipping tests timing out on jenkins. TODO: fix.")
+
     if model_name is not None:
         if not isinstance(device_hparams, GPUDeviceHparams):
             pytest.skip("Real models require a GPU -- otherwise they take too long")
