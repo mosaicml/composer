@@ -103,7 +103,7 @@ class TestResizeInputs:
         assert check_scaled_shape(y, yc, scale_factor)
 
     def test_resize_outputs_crop(self, X: torch.Tensor, scale_factor: float):
-        """Test that resizing outputs in crop mode gives the right targets"""
+        """Test that resizing outputs in crop mode gives the right targets."""
 
         xc, yc = resize_batch(X, X, scale_factor, "crop", resize_targets=True)
         assert torch.equal(xc, yc)
