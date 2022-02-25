@@ -8,7 +8,7 @@ Sharpness-Aware Minimization (SAM) is an optimization algorithm that minimizes b
 
 | ![SharpnessAwareMinimization](https://storage.googleapis.com/docs.mosaicml.com/images/methods/sam.png) |
 |:--|
-| *Three-dimensional visualizations of the loss landscaopes of ResNet models trained without SAM (left) and with SAM (right). The loss landscape with SAM appears smoother and the minimum found by the network appears wider and flatter. Note that these are visualizations of high-dimensional landscapes, so the fidelity is not perfect. This image is from Figure 1 in [Foret et al., 2021](https://arxiv.org/abs/2010.01412)* |
+| *Three-dimensional visualizations of the loss landscaopes of ResNet models trained without SAM (left) and with SAM (right). The loss landscape with SAM appears smoother and the minimum found by the network appears wider and flatter. Note that these are visualizations of high-dimensional landscapes, so the fidelity is not perfect. This image is from Figure 1 in [Foret et al., 2021](https://arxiv.org/abs/2010.01412).* |
 
 ## How to Use
 
