@@ -126,40 +126,40 @@ To implement a custom algorithm, it is necessary to first understand how Compose
 know where in the training loop to run an algorithm, and how algorithms can modify the `state` used for
 subsequent computations.
 
-`Events` denote locations inside the training procedure where algorithms can be run. In pseudocode,
-Composer’s `events` look as follows:
+.. `Events` denote locations inside the training procedure where algorithms can be run. In pseudocode,
+.. Composer’s `events` look as follows:
 
-```python
-EVENT.INIT
-state.model = model()
-state.train_dataloader = train_dataloader()
-state.optimizers = optimizers()
-EVENT.FIT_START
-for epoch in epochs:
-	EVENT.EPOCH_START
-	for batch in state,train_dataloader:
-		EVENT.AFTER_DATALOADER
-		EVENT.BATCH_START
-		prepare_batch_for_training()
-		EVENT.BEFORE_TRAIN_BATCH
+.. ```python
+.. EVENT.INIT
+.. state.model = model()
+.. state.train_dataloader = train_dataloader()
+.. state.optimizers = optimizers()
+.. EVENT.FIT_START
+.. for epoch in epochs:
+.. 	EVENT.EPOCH_START
+.. 	for batch in state,train_dataloader:
+.. 		EVENT.AFTER_DATALOADER
+.. 		EVENT.BATCH_START
+.. 		prepare_batch_for_training()
+.. 		EVENT.BEFORE_TRAIN_BATCH
 
-		EVENT.BEFORE_FORWARD
-		forward_pass()
-		EVENT.AFTER_FORWARD
+.. 		EVENT.BEFORE_FORWARD
+.. 		forward_pass()
+.. 		EVENT.AFTER_FORWARD
 
-		EVENT.BEFORE_LOSS
-		compute_loss()
-		EVENT.AFTER_LOSS
+.. 		EVENT.BEFORE_LOSS
+.. 		compute_loss()
+.. 		EVENT.AFTER_LOSS
 
-		EVENT.BEFORE_BACKWARD
-		backward_pass()
-		EVENT.AFTER_BACKWARD
+.. 		EVENT.BEFORE_BACKWARD
+.. 		backward_pass()
+.. 		EVENT.AFTER_BACKWARD
 
-		EVENT.AFTER_TRAIN_BATCH
-		optimizers.step()
-		EVENT.BATCH_END
-	EVENT.EPOCH_END
-```
+.. 		EVENT.AFTER_TRAIN_BATCH
+.. 		optimizers.step()
+.. 		EVENT.BATCH_END
+.. 	EVENT.EPOCH_END
+.. ```
 
 .. Complete definitions of these events can be found [here](https://github.com/mosaicml/composer/blob/dev/composer/core/event.py). Some events have a `before` and `after` flavor. These events differ in the order that algorithms are run. For example, on `EVENT.BEFORE_X`, algorithms passed to the trainer in order `[A, B, C]` are also run in order `[A, B,C]`. On `EVENT.AFTER_X`, algorithms passed to the trainer in order `[A, B, C]` are run in order `[C, B, A]` . This allows algorithms to clean undo their effects on state if necessary.
 

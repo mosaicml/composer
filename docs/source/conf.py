@@ -16,7 +16,6 @@ import sys
 import textwrap
 import types
 from typing import Any, List, Optional, Tuple, Type, Union, Dict
-import composer
 import json
 
 import sphinx.application
@@ -368,9 +367,7 @@ def rstjinja(app, docname, source):
 def get_algorithms_metadata() -> Dict[str, Dict[str, str]]:
     EXCLUDE = ['no_op_model']
 
-    print(os.path.dirname(composer.__file__))
-
-    root = os.path.join(os.path.dirname(composer.__file__), 'algorithms')
+    root = os.path.join(os.path.dirname(__file__), '..', '..', 'composer', 'algorithms')
     algorithms = next(os.walk(root))[1]
     algorithms = [algo for algo in algorithms if algo not in EXCLUDE]
 
