@@ -73,8 +73,6 @@ The final set of targets `y` is created by sampling a value `lambda` (between 0.
 
 CutMix is intended to improve generalization performance, and we empirically found this to be the case in our image classification settings. The original paper also reports improvements in object localization and robustness.
 
-Similar to MixUp, using the shuffled version of a batch to generate mixed samples (rather than sampling an entirely new batch) allows CutMix to be used without loading additional data. This choice avoids putting additional strain on the dataloader.
-
 
 
 > 🚧 Composing Regularization Methods
@@ -83,7 +81,12 @@ Similar to MixUp, using the shuffled version of a batch to generate mixed sample
 
 Data augmentation techniques can sometimes put additional load on the CPU, potentially reaching the point where the CPU becomes a bottleneck for training.
 To prevent this from happening for CutMix, our implementation of CutMix (1) occurs on the GPU and (2) uses the same patch and value of `lambda` for all examples in the minibatch.
-Doing so avoids putting additional work on the CPU (since augmentation occurs on the GPU) and avoids putting additional work on the GPU (since all images are handled uniformly within a batch).
+Doing so avoids putting additional work on the CPU (since augmentation occurs on the GPU) and minimizes additional work on the GPU (since all images are handled uniformly within a batch).
+
+> 🚧 CutMix Requires a Small Amount of Additional GPU Compute and Memory
+>
+> CutMix requires a small amount of additional GPU compute and memory to produce the mixed-up batch.
+> In our experiments, we have found these additional resource requirements to be negligible.
 
 ## Attribution
 
