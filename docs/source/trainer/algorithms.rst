@@ -161,71 +161,71 @@ for epoch in epochs:
 	EVENT.EPOCH_END
 ```
 
-Complete definitions of these events can be found [here](https://github.com/mosaicml/composer/blob/dev/composer/core/event.py). Some events have a `before` and `after` flavor. These events differ in the order that algorithms are run. For example, on `EVENT.BEFORE_X`, algorithms passed to the trainer in order `[A, B, C]` are also run in order `[A, B,C]`. On `EVENT.AFTER_X`, algorithms passed to the trainer in order `[A, B, C]` are run in order `[C, B, A]` . This allows algorithms to clean undo their effects on state if necessary.
+.. Complete definitions of these events can be found [here](https://github.com/mosaicml/composer/blob/dev/composer/core/event.py). Some events have a `before` and `after` flavor. These events differ in the order that algorithms are run. For example, on `EVENT.BEFORE_X`, algorithms passed to the trainer in order `[A, B, C]` are also run in order `[A, B,C]`. On `EVENT.AFTER_X`, algorithms passed to the trainer in order `[A, B, C]` are run in order `[C, B, A]` . This allows algorithms to clean undo their effects on state if necessary.
 
-Composer’s `state` tracks relevant quantities for the training procedure. The code for `state` can be found [here](https://github.com/mosaicml/composer/blob/dev/composer/core/state.py).  Algorithms can modify state, and therefore modify the training procedure.
+.. Composer’s `state` tracks relevant quantities for the training procedure. The code for `state` can be found [here](https://github.com/mosaicml/composer/blob/dev/composer/core/state.py).  Algorithms can modify state, and therefore modify the training procedure.
 
-To implement a custom algorithm, one needs to create a class that inherits from Composer’s `Algorithm` class, and implements a `match` methods that specifies which event(s) the algorithm should run on, and an `apply` function that specifies how the custom algorithm should modify quantities in `state`.
+.. To implement a custom algorithm, one needs to create a class that inherits from Composer’s `Algorithm` class, and implements a `match` methods that specifies which event(s) the algorithm should run on, and an `apply` function that specifies how the custom algorithm should modify quantities in `state`.
 
-The `match` method simply takes `state` and the current `event` as an argument, determines whether or not the algorithm should run, and returns true if it should, false otherwise. In code, a simple  `match` might look like this:
+.. The `match` method simply takes `state` and the current `event` as an argument, determines whether or not the algorithm should run, and returns true if it should, false otherwise. In code, a simple  `match` might look like this:
 
-```python
-def match(self, event, state):
-  return event in [Event.AFTER_DATALOADER, Event.AFTER_FORWARD]
-```
+.. ```python
+.. def match(self, event, state):
+..   return event in [Event.AFTER_DATALOADER, Event.AFTER_FORWARD]
+.. ```
 
-This will cause the algorithm to run on the `AFTER_DATALOADER` and `AFTER_FORWARD` events. Note that a given algorithm might run on multiple events.
+.. This will cause the algorithm to run on the `AFTER_DATALOADER` and `AFTER_FORWARD` events. Note that a given algorithm might run on multiple events.
 
-The `apply` method also takes `state` and the current `event` as arguments. Based on this information, `apply` carries out the appropriate algorithm logic, and modifies `state` with the changes necessary. In code, an `apply` might look like this:
+.. The `apply` method also takes `state` and the current `event` as arguments. Based on this information, `apply` carries out the appropriate algorithm logic, and modifies `state` with the changes necessary. In code, an `apply` might look like this:
 
-```python
-  def apply(self, event, state, logger):
-		if event == Event.AFTER_DATALOADER:
-			state.batch = process_inputs(state.batch)
-		if event == Event.AFTER_FORWARD:
-			state.output = process_outputs(state.outputs)
-```
+.. ```python
+..   def apply(self, event, state, logger):
+.. 		if event == Event.AFTER_DATALOADER:
+.. 			state.batch = process_inputs(state.batch)
+.. 		if event == Event.AFTER_FORWARD:
+.. 			state.output = process_outputs(state.outputs)
+.. ```
 
-Note that different logic can be used for different events.
+.. Note that different logic can be used for different events.
 
-Packaging this all together into a class gives the object that Composer can run:
+.. Packaging this all together into a class gives the object that Composer can run:
 
-```python
-from composer.core import Algoritm, Event
+.. ```python
+.. from composer.core import Algoritm, Event
 
-class MyAlgorithm(Algorithm):
-  def __init__(self, hparam1=1):
-    self.hparam1 = hparam1
+.. class MyAlgorithm(Algorithm):
+..   def __init__(self, hparam1=1):
+..     self.hparam1 = hparam1
 
-	def match(self, event, state):
-	  return event in [Event.AFTER_DATALOADER, Event.AFTER_FORWARD]
+.. 	def match(self, event, state):
+.. 	  return event in [Event.AFTER_DATALOADER, Event.AFTER_FORWARD]
 
-  def apply(self, event, state, logger):
-		if event == Event.AFTER_DATALOADER:
-			state.batch = process_inputs(state.batch, self.hparam1)
-		if event == Event.AFTER_FORWARD:
-			state.output = process_outputs(state.outputs)
-```
+..   def apply(self, event, state, logger):
+.. 		if event == Event.AFTER_DATALOADER:
+.. 			state.batch = process_inputs(state.batch, self.hparam1)
+.. 		if event == Event.AFTER_FORWARD:
+.. 			state.output = process_outputs(state.outputs)
+.. ```
 
-Using this in training can be done the same way as with Composer’s native algorithms.
+.. Using this in training can be done the same way as with Composer’s native algorithms.
 
-```python
-from composer import Trainer
-from composer.algorithms.blurpool import BlurPool
-from composer.algorithms.channels_last import ChannelsLast
+.. ```python
+.. from composer import Trainer
+.. from composer.algorithms.blurpool import BlurPool
+.. from composer.algorithms.channels_last import ChannelsLast
 
-channels_last = ChannelsLast()
-blurpool = BlurPool(replace_convs=True,
-										replace_maxpools=True,
-										blur_first=True)
-custom_algorithm = MyAlgorithm(hparam1=1)
+.. channels_last = ChannelsLast()
+.. blurpool = BlurPool(replace_convs=True,
+.. 										replace_maxpools=True,
+.. 										blur_first=True)
+.. custom_algorithm = MyAlgorithm(hparam1=1)
 
-trainer = Trainer(model=model,
-                  train_dataloader=train_dataloader,
-                  eval_dataloader=test_dataloader,
-                  max_duration='90ep',
-                  device='gpu',
-                  algorithms=[channels_last, blurpool, custom_algorithm],
-                  validate_every_n_epochs=-1,
-                  seed=42)
-```
+.. trainer = Trainer(model=model,
+..                   train_dataloader=train_dataloader,
+..                   eval_dataloader=test_dataloader,
+..                   max_duration='90ep',
+..                   device='gpu',
+..                   algorithms=[channels_last, blurpool, custom_algorithm],
+..                   validate_every_n_epochs=-1,
+..                   seed=42)
+.. ```
