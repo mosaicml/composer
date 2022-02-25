@@ -1,5 +1,11 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
+"""`BlurPool <http://proceedings.mlr.press/v97/zhang19a.html>`_ adds anti-aliasing filters to convolutional layers to
+increase accuracy and invariance to small shifts in the input.
+
+See :class:`~composer.algorithms.BlurPool` or the :doc:`Method Card </method_cards/blurpool>` for details.
+"""
+
 from composer.algorithms.blurpool.blurpool import BlurPool as BlurPool
 from composer.algorithms.blurpool.blurpool import apply_blurpool as apply_blurpool
 from composer.algorithms.blurpool.blurpool_layers import BlurConv2d as BlurConv2d
