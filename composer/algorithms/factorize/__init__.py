@@ -8,12 +8,13 @@ from composer.algorithms.factorize.factorize_modules import FactorizedConv2d as 
 from composer.algorithms.factorize.factorize_modules import FactorizedLinear as FactorizedLinear
 from composer.algorithms.factorize.factorize_modules import factorizing_could_speedup as factorizing_could_speedup
 
-__all__ = ["Factorize",
-           "apply_factorization",
-           "LowRankSolution",
-           "factorize_conv2d",
-           "factorize_matrix",
-           "FactorizedConv2d",
-           "FactorizedLinear",
-           "factorizing_could_speedup",
+__all__ = [
+    "Factorize",
+    "apply_factorization",
+    "LowRankSolution",
+    "factorize_conv2d",
+    "factorize_matrix",
+    "FactorizedConv2d",
+    "FactorizedLinear",
+    "factorizing_could_speedup",
 ]
