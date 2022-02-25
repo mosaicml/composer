@@ -39,15 +39,24 @@ def training_loop(model, train_loader):
 TODO(MATTHEW): Fix and provide commentary and/or comments
 
 ```python
-from composer.algorithms import XXX
+from composer.algorithms import AugMix
 from composer.trainer import Trainer
 
-trainer = Trainer(model="",
-                  train_dataloader=train_dataloader,
-                  max_duration='1ep',
-                  algorithms=[AugMix(severity=3, width=3, depth=-1, alpha=1.0, augmentation_set="all")])
-
-trainer.fit()
+augmix_algorithm = AugMix(
+    severity=3,
+    width=3,
+    depth=-1,
+    alpha=1.0,
+    augmentation_set="all"
+)
+trainer = Trainer(
+    model=model,
+    train_dataloader=train_dataloader,
+    eval_dataloader=eval_dataloader,
+    max_duration="1ep",
+    algorithms=[augmix_algorithm],
+    optimizers=[optimizer]
+)
 ```
 
 ### Implementation Details
