@@ -78,9 +78,7 @@ class BlurPool(Algorithm):
     """`BlurPool <http://proceedings.mlr.press/v97/zhang19a.html>`_ adds anti-aliasing filters to convolutional layers
     to increase accuracy and invariance to small shifts in the input.
 
-    Runs on ``Event.INIT`` and should be applied both before the model has
-    been moved to accelerators and before the model's parameters have
-    been passed to an optimizer.
+    Runs on :attr:`~composer.core.event.Event.INIT`.
 
     Args:
         replace_convs (bool): replace strided :class:`torch.nn.Conv2d` modules with

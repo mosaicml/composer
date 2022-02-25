@@ -33,20 +33,22 @@ def blur_2d(input: torch.Tensor, stride: _size_2_t = 1, filter: Optional[torch.T
     """Apply a spatial low-pass filter.
 
     Args:
-        input (Tensor): a 4d tensor of shape NCHW
+        input (torch.Tensor): a 4d tensor of shape NCHW
         stride (int or tuple, optional): stride(s) along H and W axes. If a single value is passed, this
             value is used for both dimensions.
-        filter: a 2d or 4d tensor to be cross-correlated with the input tensor
+        filter (torch.Tensor, optional): a 2d or 4d tensor to be cross-correlated with the input tensor
             at each spatial position, within each channel. If 4d, the structure
             is required to be ``(C, 1, kH, kW)`` where ``C`` is the number of
             channels in the input tensor and ``kH`` and ``kW`` are the spatial
             sizes of the filter.
 
-            By default, the filter used is:
+    By default, the filter used is:
 
-                [1 2 1]
-                [2 4 2] * 1/16
-                [1 2 1]
+    .. code-block:: python
+
+            [1 2 1]
+            [2 4 2] * 1/16
+            [1 2 1]
 
     Returns:
         The blurred input
@@ -90,13 +92,13 @@ def blurmax_pool2d(input: torch.Tensor,
     This function can be understood as decoupling the max from the pooling, and
     inserting a low-pass filtering step between the two. Concretely, this
     function computes the max within spatial neighborhoods of shape
-    `kernel_size`, then applies an anti-aliasing filter to smooth the maxes,
-    and only then pools according to `stride`.
+    ``kernel_size``, then applies an anti-aliasing filter to smooth the maxes,
+    and only then pools according to ``stride``.
 
     See also: :func:`~blur_2d`.
 
     Args:
-        input (tensor): a 4d tensor of shape NCHW
+        input (torch.Tensor): a 4d tensor of shape NCHW
         kernel_size (int or tuple, optional): size(s) of the spatial neighborhoods over which to pool.
             This is mostly commonly 2x2. If only a scalar ``s`` is provided, the
             neighborhood is of size ``(s, s)``.
@@ -109,15 +111,19 @@ def blurmax_pool2d(input: torch.Tensor,
             total size. See :class:`~torch.nn.MaxPool2d`
             for our favorite explanation of how this works.
         ceil_mode (bool): when True, will use ceil instead of floor to compute the output shape
-        filt (tensor, optional): a 2d or 4d tensor to be cross-correlated with the input tensor
+        filter (torch.Tensor, optional): a 2d or 4d tensor to be cross-correlated with the input tensor
             at each spatial position, within each channel. If 4d, the structure
             is required to be ``(C, 1, kH, kW)`` where ``C`` is the number of
             channels in the input tensor and ``kH`` and ``kW`` are the spatial
-            sizes of the filter. By default, the filter used is:
+            sizes of the filter.
 
-                [1 2 1]
-                [2 4 2] * 1/16
-                [1 2 1]
+    By default, the filter used is:
+
+    .. code-block:: python
+
+            [1 2 1]
+            [2 4 2] * 1/16
+            [1 2 1]
 
     Returns:
          The blurred and max-pooled input
@@ -132,8 +138,7 @@ def blurmax_pool2d(input: torch.Tensor,
 
 
 class BlurMaxPool2d(nn.Module):
-    """This module is a (nearly) drop-in replacement for PyTorch's :class:`~torch.nn.MaxPool2d`, but with an anti-
-    aliasing filter applied.
+    """This module is a (nearly) drop-in replacement for PyTorch's :class:`~torch.nn.MaxPool2d`, but with an anti-aliasing filter applied.
 
     The only API difference is that the parameter ``return_indices`` is not
     available, because it is ill-defined when using anti-aliasing.
