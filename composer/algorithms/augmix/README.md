@@ -75,7 +75,13 @@ trainer = Trainer(
 
 ### Implementation Details
 
-AugMix is implemented by... TODO(Matthew)
+AugMix leverages `torchvision.transforms` to add a transformation to the dataset which will be applied per image on the CPU. The transformation takes in a `PIL.Image` and outputs a `PIL.Image` with AugMix applied.
+
+The functional form of AugMix (`augmix_image()`) requires AugMix hyperparameters when it is called.
+
+The Torchvision transform form of AugMix (`AugmentAndMixTransform`) is composable with other dataset transformations via `torchvision.transforms.Compose`.
+
+The class form of AugMix runs on `Event.FIT_START` and inserts `AugmentAndMixTransform` into the set of transforms in a `torchvision.datasets.VisionDataset` dataset.
 
 ## Suggested Hyperparameters
 
