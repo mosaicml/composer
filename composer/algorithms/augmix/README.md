@@ -30,7 +30,23 @@ augmixed_image = cf.augmix_image(img=image,
                                  alpha=1.0,
                                  augmentation_set=augmentation_sets["all"])
 ```
+### Torchvision Transform
+```python
+import torchvision.transforms as transforms
+import torchvision.datasets.VisionDataset as VisionDataset
 
+from composer.algorithms.augmix import AugmentAndMixTransform 
+
+augmix_transform = AugmentAndMixTransform(
+    severity=3,
+    width=3,
+    depth=-1,
+    alpha=1.0,
+    augmentation_set="all"
+)
+composed = transforms.Compose([augmix_transform, transforms.RandomHorizontalFlip()])
+dataset = VisionDataset(data_path, transform=composed)
+\\\\```
 ### Composer Trainer
 
 TODO(MATTHEW): Fix and provide commentary and/or comments
