@@ -27,7 +27,7 @@ def apply_factorization(model: torch.nn.Module,
                         min_features: int = 512,
                         latent_features: Union[int, float] = 0.25,
                         optimizers: Optional[Optimizers] = None) -> torch.nn.Module:
-    """Replaces :class:`torch.nn.Linear` and :class:`torch.nn.Conv2d` modules and with
+    """Replaces :class:`~torch.nn.Linear` and :class:`~torch.nn.Conv2d` modules and with
     :class:`~composer.algorithms.factorize.FactorizedLinear` and
     :class:`~composer.algorithms.factorize.FactorizedConv2d` modules.
 
@@ -36,9 +36,9 @@ def apply_factorization(model: torch.nn.Module,
     computation, at the cost of expressive power. See :class:`Factorize` for details.
 
     Args:
-        model (Module): the model to modify in-place
-        factorize_convs (bool, optional): whether to try factorizing :class:`torch.nn.Conv2d` modules.
-        factorize_linears (bool, optional): whether to try factorizing :class:`torch.nn.Linear` modules.
+        model (torch.nn.Module): the model to modify in-place
+        factorize_convs (bool, optional): whether to try factorizing :class:`~torch.nn.Conv2d` modules.
+        factorize_linears (bool, optional): whether to try factorizing :class:`~torch.nn.Linear` modules.
         min_channels (int, optional): if a :class:`~torch.nn.Conv2d` module does not have at least
             this many input and output channels, it will be ignored. Modules with
             few channels are unlikely to be accelerated by factorization due
@@ -119,9 +119,11 @@ class Factorize(Algorithm):
     for more information about the factorized modules used to replace the
     original modules.
 
+    Runs on :attr:`~composer.core.event.Event.INIT`.
+
     Args:
-        factorize_convs (bool): whether to try factorizing :class:`torch.nn.Conv2d` modules.
-        factorize_linears (bool): whether to try factorizing :class:`torch.nn.Linear` modules.
+        factorize_convs (bool): whether to try factorizing :class:`~torch.nn.Conv2d` modules.
+        factorize_linears (bool): whether to try factorizing :class:`~torch.nn.Linear` modules.
         min_channels (int): if a :class:`~torch.nn.Conv2d` module does not have at least
             this many input and output channels, it will be ignored. Modules with
             few channels are unlikely to be accelerated by factorization due
@@ -211,7 +213,7 @@ def _factorize_conv2d_modules(model: torch.nn.Module,
                               min_channels: int = 512,
                               latent_channels: Union[int, float] = 0.25,
                               optimizers: Optional[Optimizers] = None):
-    """Replaces :class:`torch.nn.Conv2d` modules in ``model`` with
+    """Replaces :class:`~torch.nn.Conv2d` modules in ``model`` with
     :class:`~composer.algorithms.factorize.FactorizedConv2d` modules.
 
     See :class:`Factorize` for details.
@@ -235,7 +237,7 @@ def _factorize_linear_modules(model: torch.nn.Module,
                               min_features: int = 512,
                               latent_features: Union[int, float] = 0.25,
                               optimizers: Optional[Optimizers] = None):
-    """Replaces :class:`torch.nn.Linear` modules in ``model`` with
+    """Replaces :class:`~torch.nn.Linear` modules in ``model`` with
     :class:`~composer.algorithms.factorize.FactorizedLinear` modules.
 
     See :class:`Factorize` for details.
