@@ -5,3 +5,5 @@ from composer.algorithms.stochastic_depth.sample_stochastic_layers import \
 from composer.algorithms.stochastic_depth.stochastic_depth import StochasticDepth as StochasticDepth
 from composer.algorithms.stochastic_depth.stochastic_depth import apply_stochastic_depth as apply_stochastic_depth
 from composer.algorithms.stochastic_depth.stochastic_layers import StochasticBottleneck as StochasticBottleneck
+
+__all__ = ["StochasticDepth", "apply_stochastic_depth", "StochasticBottleneck", "SampleStochasticBottleneck"]
