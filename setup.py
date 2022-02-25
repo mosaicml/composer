@@ -128,7 +128,7 @@ setup(name="mosaicml",
       url="https://github.com/mosaicml/composer",
       include_package_data=True,
       package_data={
-          "composer": ['py.typed'],
+          "composer": ['py.typed', '*.json'],
           "": package_files('composer/yamls'),
       },
       packages=setuptools.find_packages(exclude=["tests*"]),
