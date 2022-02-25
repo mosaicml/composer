@@ -65,7 +65,7 @@ Table of Contents
 
 .. toctree::
    :maxdepth: 1
-   :caption: ComposerModel
+   :caption: Key Classes
 
    composer_model.rst
    trainer/algorithms.rst
