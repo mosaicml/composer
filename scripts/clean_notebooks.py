@@ -41,12 +41,10 @@ def clean_notebook(notebook: nbformat.NotebookNode):
     if "widgets" in notebook["metadata"]:
         del notebook["metadata"]["widgets"]
 
-
 def _get_parser():
     parser = argparse.ArgumentParser()
     parser.add_argument("--inputs", "-i", nargs="*", metavar="PATH", type=pathlib.Path)
     return parser
-
 
 if __name__ == '__main__':
     parser = _get_parser()

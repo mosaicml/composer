@@ -38,6 +38,7 @@ train_subset_num_batches: 10
 eval_subset_num_batches: 10
 seed: 17
 validate_every_n_epochs: 1
+grad_accum: 1
 device:
   gpu: {}
 dataloader:
@@ -46,5 +47,4 @@ dataloader:
   prefetch_factor: 2
   persistent_workers: true
   num_workers: 8
-grad_accum: 1
 precision: amp
