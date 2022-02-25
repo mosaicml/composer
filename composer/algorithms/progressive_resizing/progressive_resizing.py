@@ -246,6 +246,6 @@ def _make_crop_pair(
     return resize_X, resize_y
 
 
-def _make_resize(scale_factor: int) -> Callable[[torch.Tensor], torch.Tensor]:
+def _make_resize(scale_factor: float) -> Callable[[torch.Tensor], torch.Tensor]:
     resize_transform = partial(F.interpolate, scale_factor=scale_factor, mode='nearest')
     return resize_transform
