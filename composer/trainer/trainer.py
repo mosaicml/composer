@@ -532,7 +532,8 @@ class Trainer:
         if len(self.evaluators) == 0:
             warnings.warn(
                 textwrap.dedent("""No evaluation dataset was specified. Please specify `eval_dataloader` to periodically
-                evaluate your model while training."""))
+                evaluate your model while training."""),
+                category=UserWarning)
 
         if not isinstance(train_dataloader, DataSpec):
             train_dataloader = DataSpec(train_dataloader)
