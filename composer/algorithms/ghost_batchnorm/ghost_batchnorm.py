@@ -70,9 +70,7 @@ class GhostBatchNorm(Algorithm):
     running batch normalization on each chunk separately. Dim 0 is assumed to
     be the sample axis.
 
-    Runs on ``Event.INIT`` and should be applied both before the model has
-    been moved to accelerators and before the model's parameters have
-    been passed to an optimizer.
+    Runs on :attr:`~composer.core.event.Event.INIT`.
 
     Args:
         ghost_batch_size (int): size of sub-batches to normalize over
