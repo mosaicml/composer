@@ -57,8 +57,8 @@ from composer.algorithms import Blurpool
 from composer.trainer import Trainer
 
 blurpool = BlurPool(replace_convs=True,
-                                  replace_maxpools=True,
-                                  blur_first=True)
+                    replace_maxpools=True,
+                    blur_first=True)
 
 trainer = Trainer(model=model,
                   train_dataloader=train_dataloader,
