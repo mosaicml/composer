@@ -20,9 +20,9 @@ class ComposerResNet(ComposerClassifier):
 
     .. testcode::
 
-        from composer.models import ComposerResnet
+        from composer.models import ComposerResNet
 
-        model = ComposerResnet(model_name='resnet18')  # creates a torchvision resnet18 for image classification
+        model = ComposerResNet(model_name='resnet18')  # creates a torchvision resnet18 for image classification
 
     Args:
         model_name (str): Name of the ResNet model instance. Either ["resnet18", "resnet34", "resnet50", "resnet101",

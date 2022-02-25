@@ -27,7 +27,7 @@ class GPT2Model(ComposerTransformer):
 
     .. testcode::
 
-        from composer.models import GPT2LMHeadModel
+        from composer.models.gpt2 import GPT2Model
         import transformers
 
         config = transformers.GPT2Config()

@@ -26,7 +26,7 @@ class BERTModel(ComposerTransformer):
 
     .. testcode::
 
-        from composer.models import BertLMHeadModel
+        from composer.models import BERTModel
         import transformers
 
         config = transformers.BertConfig()
