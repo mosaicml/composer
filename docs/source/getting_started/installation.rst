@@ -80,7 +80,7 @@ Test ``Composer`` was installed properly by opening a ``python`` prompt, and run
     import torchvision.models as models
 
     logging.basicConfig(level=logging.INFO)
-    model = models.resnet(model_name='resnet50')
+    model = models.resnet50()
 
     CF.apply_blurpool(model)
 
@@ -103,7 +103,7 @@ Next, train a small classifier on MNIST with the label smoothing algorithm:
     from composer.algorithms import LabelSmoothing
 
     transform = transforms.Compose([transforms.ToTensor()])
-    dataset = datasets.MNIST("/data", train=True, download=True, transform=transform)
+    dataset = datasets.MNIST("data", train=True, download=True, transform=transform)
     train_dataloader = DataLoader(dataset, batch_size=128)
 
     trainer = Trainer(
