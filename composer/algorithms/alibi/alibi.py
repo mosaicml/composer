@@ -62,18 +62,6 @@ def apply_alibi(
                         alibi_attention=_attn,
                         mask_replacement_function=enlarge_mask)
 
-        opt = torch.optim.Adam(model.parameters())
-        loss_fn = F.cross_entropy
-
-        def training_loop(model, train_loader):
-        model.train()
-        for X, y in train_loader:
-            opt.zero_grad()   
-            y_hat = model(X)
-            loss = loss_fn(y_hat, y)
-            loss.backward()
-            opt.step()
-
     Args:
         model (torch.nn.Module): Model to transform.
         heads_per_layer (int): Number of attention heads per layer.
@@ -147,7 +135,7 @@ class Alibi(Algorithm):
     See the :doc:`Method Card </method_cards/alibi>` for more details.
 
     Example:
-    
+
     .. code-block::
 
         from composer.algorithms import Alibi
