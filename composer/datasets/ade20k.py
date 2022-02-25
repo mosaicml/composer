@@ -17,7 +17,7 @@ from composer.core.types import DataSpec
 from composer.datasets.hparams import DatasetHparams, SyntheticHparamsMixin, WebDatasetHparams
 from composer.datasets.imagenet import IMAGENET_CHANNEL_MEAN, IMAGENET_CHANNEL_STD
 from composer.datasets.synthetic import SyntheticBatchPairDataset
-from composer.datasets.webdataset import load_webdataset
+from composer.datasets.webdataset import load_webdataset, size_webdataset
 from composer.utils import dist
 from composer.utils.data import NormalizationFn, pil_image_collate
 
@@ -451,9 +451,11 @@ class ADE20kWebDatasetHparams(WebDatasetHparams, SyntheticHparamsMixin):
 
             dataset, meta = load_webdataset('mosaicml-internal-dataset-ade20k', 'ade20k', self.split,
                                             self.webdataset_cache_dir, self.webdataset_cache_verbose)
+            if self.shuffle:
+                dataset = dataset.shuffle(512)
             dataset = dataset.decode('pil').to_tuple('scene.jpg', 'annotation.png').map(map_fn)
-            size_per_device = meta['n_shards'] * meta['samples_per_shard'] // dist.get_world_size()
-            dataset = dataset.with_epoch(size_per_device).with_length(size_per_device)
+            dataset = size_webdataset(dataset, meta['n_shards'], meta['samples_per_shard'], dist.get_world_size(),
+                                      dataloader_hparams.num_workers, batch_size, self.drop_last)
 
             collate_fn = pil_image_collate
             device_transform_fn = NormalizationFn(mean=IMAGENET_CHANNEL_MEAN,

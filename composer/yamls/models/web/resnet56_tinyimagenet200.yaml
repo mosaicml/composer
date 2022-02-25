@@ -1,10 +1,12 @@
 train_dataset:
-  web_cifar10:
+  web_tinyimagenet200:
     is_train: true
+    shuffle: true
     drop_last: true
 val_dataset:
-  web_cifar10:
+  web_tinyimagenet200:
     is_train: false
+    shuffle: false
     drop_last: false
 optimizer:
   decoupled_sgdw:
@@ -29,7 +31,7 @@ model:
     initializers:
       - kaiming_normal
       - bn_uniform
-    num_classes: 10
+    num_classes: 200
 loggers:
   - tqdm: {}
 max_duration: 160ep

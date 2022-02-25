@@ -9,7 +9,7 @@ from composer.core.types import DataLoader
 from composer.datasets.dataloader import DataloaderHparams
 from composer.datasets.hparams import DatasetHparams, SyntheticHparamsMixin, WebDatasetHparams
 from composer.datasets.synthetic import SyntheticBatchPairDataset
-from composer.datasets.webdataset import load_webdataset
+from composer.datasets.webdataset import load_webdataset, size_webdataset
 from composer.utils import dist
 
 
@@ -73,9 +73,11 @@ class MNISTWebDatasetHparams(WebDatasetHparams, SyntheticHparamsMixin):
             ])
             dataset, meta = load_webdataset('mosaicml-internal-dataset-mnist', 'mnist', split,
                                             self.webdataset_cache_dir, self.webdataset_cache_verbose)
+            if self.shuffle:
+                dataset = dataset.shuffle(512)
             dataset = dataset.decode('pil').map_dict(jpg=transform).to_tuple('jpg', 'cls')
-            size_per_device = meta['n_shards'] * meta['samples_per_shard'] // dist.get_world_size()
-            dataset = dataset.with_epoch(size_per_device).with_length(size_per_device)
+            dataset = size_webdataset(dataset, meta['n_shards'], meta['samples_per_shard'], dist.get_world_size(),
+                                      dataloader_hparams.num_workers, batch_size, self.drop_last)
         return dataloader_hparams.initialize_object(dataset=dataset,
                                                     batch_size=batch_size,
                                                     sampler=None,

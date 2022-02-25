@@ -14,7 +14,7 @@ from composer.core.types import DataLoader, DataSpec
 from composer.datasets.dataloader import DataloaderHparams
 from composer.datasets.hparams import DatasetHparams, JpgClsWebDatasetHparams, SyntheticHparamsMixin, WebDatasetHparams
 from composer.datasets.synthetic import SyntheticBatchPairDataset
-from composer.datasets.webdataset import load_webdataset
+from composer.datasets.webdataset import load_webdataset, size_webdataset
 from composer.utils import dist
 from composer.utils.data import NormalizationFn, pil_image_collate
 
@@ -150,9 +150,11 @@ class Imagenet1KWebDatasetHparams(WebDatasetHparams, SyntheticHparamsMixin):
             split = 'train' if self.is_train else 'val'
             dataset, meta = load_webdataset('mosaicml-internal-dataset-imagenet1k', 'imagenet1k', split,
                                             self.webdataset_cache_dir, self.webdataset_cache_verbose)
+            if self.shuffle:
+                dataset = dataset.shuffle(512)
             dataset = dataset.decode('pil').map_dict(jpg=transform).to_tuple('jpg', 'cls')
-            size_per_device = meta['n_shards'] * meta['samples_per_shard'] // dist.get_world_size()
-            dataset = dataset.with_epoch(size_per_device).with_length(size_per_device)
+            dataset = size_webdataset(dataset, meta['n_shards'], meta['samples_per_shard'], dist.get_world_size(),
+                                      dataloader_hparams.num_workers, batch_size, self.drop_last)
             collate_fn = pil_image_collate
             device_transform_fn = NormalizationFn(mean=IMAGENET_CHANNEL_MEAN, std=IMAGENET_CHANNEL_STD)
         return DataSpec(dataloader=dataloader_hparams.initialize_object(

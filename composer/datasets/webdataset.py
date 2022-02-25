@@ -83,6 +83,9 @@ def load_webdataset(dataset_s3_bucket: str,
 
 def size_webdataset(dataset: WebDataset, n_shards: int, samples_per_shard: int, n_devices: int,
                     workers_per_device: int, batch_size: bool, drop_last: bool) -> WebDataset:
+    '''Calculate WebDataset with_epoch() and with_length().'''
+    workers_per_device = max(1, workers_per_device)
+
     # Ensure that shards can be split among CPU workers
     n_workers_global = n_devices * workers_per_device
     if n_shards % n_workers_global != 0:
