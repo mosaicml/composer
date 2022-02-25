@@ -8,6 +8,7 @@ For each data sample, AugMix creates an _augmentation chain_ by sampling `depth`
 It then applies these augmentations sequentially with randomly sampled intensity.
 This is repeated `width` times in parallel to create `width` different augmented images.
 The augmented images are then combined via a random convex combination to yield a single augmented image, which is in turn combined via a random convex combination sampled from a Beta(`alpha`, `alpha`) distribution with the original image.
+Training in this fashion regularizes the network and can improve generalization performance.
 
 | ![AugMix](https://storage.googleapis.com/docs.mosaicml.com/images/methods/aug_mix.png) |
 |:--:
@@ -83,23 +84,19 @@ The class form of AugMix runs on `Event.FIT_START` and inserts `AugmentAndMixTra
 
 ## Suggested Hyperparameters
 
-[As per Hendrycks et al. (2020)](https://arxiv.org/abs/1912.02781), we found that `width= 3`, `depth= -1`, (`depth= -1` means that depth will be randomly sampled from the uniform distribution {1, 2, 3} for each data sample), `severity= 3` (out of a maximum possible value of 10), and `alpha= 1` (i.e., performing no mixing with the original image) worked well for different models of the ResNet family. We used `augmentation_set=all`.
+[As per Hendrycks et al. (2020)](https://arxiv.org/abs/1912.02781), we found that `width=3`, `depth=-1`, (`depth=-1` means that depth will be randomly sampled from the uniform distribution {1, 2, 3} for each data sample), `severity=3` (out of a maximum possible value of 10), and `alpha=1` (i.e., performing no mixing with the original image) worked well for different models of the ResNet family. We used `augmentation_set=all`.
 
 > ❗ Potential CPU Bottleneck
 > 
-> Further increasing `width` or `depth` significantly decreases throughput due to bottlenecks in performing data augmentation.
-
-> ❗ CIFAR-10C and ImageNet-C are no longer out-of-distribution
-> 
-> [CIFAR-10C and ImageNet-C](https://github.com/hendrycks/robustness) are test sets created to evaluate the ability of models to generalize to images that are corrupted in various ways (i.e., images that are _out-of-distribution_ with respect to the standard CIFAR-10 and ImageNet training sets).
-> These images were corrupted using some of the augmentation techniques in `augmentation_set=all`.
-> If you use `augmentation_set=all`, these images are therefore no longer out-of-distribution.
+> Further increasing `width` or `depth` significantly decreased throughput when training ResNet-50 on ImageNet due to bottlenecks in performing data augmentation on the CPU.
 
 ## Technical Details
 
-AugMix randomly samples image augmentations (with replacement) from the set of {translate_x, translate_y, shear_x, shear_y, rotate, solarize, equalize, posterize, autocontrast, color, brightness, contrast, sharpness}, with the intensity of each augmentation sampled uniformly from 0.1-`severity` (`severity` ≤ 10).
+AugMix randomly samples `depth` image augmentations (with replacement) from the set of {`translate_x`, `translate_y`, `shear_x`, `shear_y`, `rotate`, `solarize`, `equalize`, `posterize`, `autocontrast`, `color`, `brightness`, `contrast`, `sharpness`}.
 The augmentations use the PILLOW Image library (specifically Pillow-SIMD); we found OpenCV-based augmentations resulted in similar or worse performance.
 AugMix is applied after "standard" image transformations such as resizing and cropping, and before normalization.
+Each augmentation is applied with an intensity randomly sampled uniformly from 0.1-`severity` (`severity` ≤ 10). where `severity` is a unit-free upper bound on the intensity of an augmentation and is mapped to the unit specific for each augmentation. For example, `severity` would be mapped to degrees for the rotation augmentation, and `severity=10` corresponds to 30°.
+
 Hendrycks et al.’s original implementation of AugMix also includes a custom loss function computed across three samples (an image and two AugMix’d versions of that image).
 We omit this custom loss function from our AugMix implementation because it effectively triples the number of samples required for a parameter update step, imposing a significant computational burden.
 Our implementation, which consists only of the augmentation component of AugMix, is referred to by Hendrycks et al. as "AugmentAndMix."
@@ -127,6 +124,12 @@ Doing so can allow models to reach higher quality, but this typically requires (
 > 🚧 Composing Regularization Methods
 >
 > As general rule, composing regularization methods may lead to diminishing returns in quality improvements while increasing the risk of creating a CPU bottleneck.
+
+> ❗ CIFAR-10C and ImageNet-C are no longer out-of-distribution
+> 
+> [CIFAR-10C and ImageNet-C](https://github.com/hendrycks/robustness) are test sets created to evaluate the ability of models to generalize to images that are corrupted in various ways (i.e., images that are _out-of-distribution_ with respect to the standard CIFAR-10 and ImageNet training sets).
+> These images were corrupted using some of the augmentation techniques in `augmentation_set=all`.
+> If you use `augmentation_set=all`, these images are therefore no longer out-of-distribution.
 
 ## Attribution
 
