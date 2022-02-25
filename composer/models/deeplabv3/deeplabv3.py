@@ -78,7 +78,7 @@ class ComposerDeepLabV3(ComposerModel):
         from composer.models import ComposerDeepLabV3
 
         # creates a deeplabv3 for 150 classes with a pretrained resnet101 backbone
-        model = ComposerDeepLabV3(num_classes=150, backbone_arch='resnet101')
+        model = ComposerDeepLabV3(num_classes=150, backbone_arch='resnet101', is_backbone_pretrained=False)
 
     Args:
         num_classes (int): The number of classes in the segmentation task.
