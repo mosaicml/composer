@@ -8,7 +8,7 @@
 Factorize splits a large linear or convolutional layer into two smaller ones that compute a similar function via factorization.
 This can be applied to models for both computer vision and natural language processing.
 
-| ![Factorize](factorize-no-caption.png) |
+| ![Factorize](https://storage.googleapis.com/docs.mosaicml.com/images/methods/factorize-no-caption.png) |
 |:--:
 |*The weights `W` of a 2D convolutional layer with `k x k` filters, `c` input chanels, and `d` output channels (a) is factorized into two smaller convolutions (b) with weights `W'` and `p` with `d'` intermediate channels. The first convolution uses the original filter size but produces only `d'` channels. The second convolution has `1 x 1` filters and produces the original `d` output channels but has only `d'` input channels. This changes the complexity from O(k<sup>2</sup>cd) to O(k<sup>2</sup>cd') + O(d'd). This image is a Figure in [https://ieeexplore.ieee.org/abstract/document/7332968](Zhang et al. (2015)).*|
 
