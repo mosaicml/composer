@@ -27,12 +27,13 @@ class GPT2Model(ComposerTransformer):
 
     .. testcode::
 
-        from composer.models.gpt2 import GPT2Model
+        from composer.models import GPT2Model
         import transformers
 
         config = transformers.GPT2Config()
         hf_model = transformers.GPT2LMHeadModel(config=config) # gpt2-small model from huggingface
-        model = GPT2Model(module=hf_model, config=config, tokenizer_name="gpt2")
+        tokenizer = transformers.GPT2Tokenizer.from_pretrained("gpt2")
+        model = GPT2Model(module=hf_model, config=config, tokenizer=tokenizer)
 
     Args:
         module (transformers.GPT2Model): The model to wrap with this module.

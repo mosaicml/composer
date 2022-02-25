@@ -31,7 +31,8 @@ class BERTModel(ComposerTransformer):
 
         config = transformers.BertConfig()
         hf_model = transformers.BertLMHeadModel(config=config)
-        model = BERTModel(module=hf_model, config=config, tokenizer_name="bert-base-uncased")
+        tokenizer = transformers.BertTokenizer.from_pretrained("bert-base-uncased")
+        model = BERTModel(module=hf_model, config=config, tokenizer=tokenizer)
 
     Args:
         module (transformers.BertModel): An instance of BertModel that
