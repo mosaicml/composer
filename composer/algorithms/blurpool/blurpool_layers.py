@@ -33,25 +33,25 @@ def blur_2d(input: torch.Tensor, stride: _size_2_t = 1, filter: Optional[torch.T
     """Apply a spatial low-pass filter.
 
     Args:
-        input: a 4d tensor of shape NCHW
-        stride: stride(s) along H and W axes. If a single value is passed, this
+        input (Tensor): a 4d tensor of shape NCHW
+        stride (int or tuple, optional): stride(s) along H and W axes. If a single value is passed, this
             value is used for both dimensions.
-        padding: implicit zero-padding to use. For the default 3x3 low-pass
-            filter, `padding=1` (the default) returns output of the same size
-            as the input.
         filter: a 2d or 4d tensor to be cross-correlated with the input tensor
             at each spatial position, within each channel. If 4d, the structure
             is required to be ``(C, 1, kH, kW)`` where ``C`` is the number of
             channels in the input tensor and ``kH`` and ``kW`` are the spatial
             sizes of the filter.
 
-    By default, the filter used is::
+            By default, the filter used is:
 
-        [1 2 1]
-        [2 4 2] * 1/16
-        [1 2 1]
+                [1 2 1]
+                [2 4 2] * 1/16
+                [1 2 1]
+
+    Returns:
+        The blurred input
     """
-    n, c, h, w = input.shape
+    _, c, h, w = input.shape
     n_in_channels = c
 
     if filter is None:
@@ -77,7 +77,7 @@ def blurmax_pool2d(input: torch.Tensor,
                    padding: _size_2_t = 0,
                    dilation: _size_2_t = 1,
                    ceil_mode: bool = False,
-                   filter: Optional[torch.Tensor] = None):
+                   filter: Optional[torch.Tensor] = None) -> torch.Tensor:
     """Max-pooling with anti-aliasing.
 
     This is a nearly drop-in replacement for PyTorch's :func:`~torch.nn.functional.max_pool2d`.
@@ -96,28 +96,31 @@ def blurmax_pool2d(input: torch.Tensor,
     See also: :func:`~blur_2d`.
 
     Args:
-        input: a 4d tensor of shape NCHW
-        kernel_size: size(s) of the spatial neighborhoods over which to pool.
+        input (tensor): a 4d tensor of shape NCHW
+        kernel_size (int or tuple, optional): size(s) of the spatial neighborhoods over which to pool.
             This is mostly commonly 2x2. If only a scalar ``s`` is provided, the
             neighborhood is of size ``(s, s)``.
-        stride: stride(s) along H and W axes. If a single value is passed, this
+        stride (int or tuple, optional): stride(s) along H and W axes. If a single value is passed, this
             value is used for both dimensions.
-        padding: implicit zero-padding to use. For the default 3x3 low-pass
+        padding (int or tuple, optional): implicit zero-padding to use. For the default 3x3 low-pass
             filter, `padding=1` (the default) returns output of the same size
             as the input.
-        dilation: amount by which to "stretch" the pooling region for a given
+        dilation (int or tuple, optional): amount by which to "stretch" the pooling region for a given
             total size. See :class:`~torch.nn.MaxPool2d`
             for our favorite explanation of how this works.
-        ceil_mode: when True, will use ceil instead of floor to compute the output shape
-        filt: a 2d or 4d tensor to be cross-correlated with the input tensor
+        ceil_mode (bool): when True, will use ceil instead of floor to compute the output shape
+        filt (tensor, optional): a 2d or 4d tensor to be cross-correlated with the input tensor
             at each spatial position, within each channel. If 4d, the structure
             is required to be ``(C, 1, kH, kW)`` where ``C`` is the number of
             channels in the input tensor and ``kH`` and ``kW`` are the spatial
-            sizes of the filter. By default, the filter used is::
+            sizes of the filter. By default, the filter used is:
 
                 [1 2 1]
                 [2 4 2] * 1/16
                 [1 2 1]
+
+    Returns:
+         The blurred and max-pooled input
     """
     maxs = F.max_pool2d(input,
                         kernel_size=kernel_size,
@@ -138,7 +141,7 @@ class BlurMaxPool2d(nn.Module):
     See the associated `paper <http://proceedings.mlr.press/v97/zhang19a.html>`_
     for more details, experimental results, etc.
 
-    See also: :func:`~blur_2d`.
+    See :func:`~blurmax_pool2d` for details.
     """
 
     # based on https://pytorch.org/docs/stable/_modules/torch/nn/modules/pooling.html#MaxPool2d # noqa
