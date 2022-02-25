@@ -580,7 +580,7 @@ class Trainer:
                 """),
                 category=UserWarning)
         # Cannot use adaptive grad accum on CPU
-        if isinstance(self.device, DeviceCPU) and self.adaptive_grad_accum:
+        if isinstance(self._device, DeviceCPU) and self.adaptive_grad_accum:
             raise ValueError("Cannot use adaptive grad_accum on CPU. Please set grad_accum >= 1")
 
         self.state = State(
@@ -918,7 +918,7 @@ class Trainer:
                         torch.tensor([state.batch_num_samples], dtype=torch.int))
                     num_tokens_in_batch = self._device.tensor_to_device(
                         torch.tensor([state.batch_num_tokens], dtype=torch.int))
-                    grad_accum = self.device.tensor_to_device(torch.tensor([state.grad_accum], dtype=torch.int))
+                    grad_accum = self._device.tensor_to_device(torch.tensor([state.grad_accum], dtype=torch.int))
                     dist.all_reduce(num_samples_in_batch, reduce_operation="SUM")
                     dist.all_reduce(num_tokens_in_batch, reduce_operation="SUM")
                     dist.all_reduce(grad_accum, reduce_operation="MAX")
@@ -1005,24 +1005,26 @@ class Trainer:
         Args:
             train_metrics (MetricCollection): Existing train metrics 
         """
-        try:
-            if self.compute_training_metrics:
-                # Compute metrics on the training set
-                assert train_metrics is not None
-                self.state.model.eval()
-                with torch.no_grad():
-                    # Store results so we only update train_metrics if all batches are processed without OOM
-                    results = []
-                    for eval_microbatch in self._train_data_spec.split_batch(self.state.batch, self.state.grad_accum):
-                        # TODO: Detect if self.run_event(Event.AFTER_DATALOADER) changes the training
-                        # data and if so print a warning that metrics may return unexpected results
-                        outputs, targets = self.original_model.validate(eval_microbatch)
-                        results.append((outputs, targets))
-                    for outputs, targets in results:
-                        train_metrics.update(outputs, targets)
-        except RuntimeError as e:
-            self._handle_cuda_oom(e)
-            self._compute_metrics(train_metrics)
+        rerun = True
+        while rerun:
+            try:
+                if self._compute_training_metrics:
+                    # Compute metrics on the training set
+                    assert train_metrics is not None
+                    self.state.model.eval()
+                    with torch.no_grad():
+                        # Store results so we only update train_metrics if all batches are processed without OOM
+                        results = []
+                        for eval_microbatch in self._train_data_spec.split_batch(self.state.batch, self.state.grad_accum):
+                            # TODO: Detect if self.run_event(Event.AFTER_DATALOADER) changes the training
+                            # data and if so print a warning that metrics may return unexpected results
+                            outputs, targets = self.original_model.validate(eval_microbatch)
+                            results.append((outputs, targets))
+                        for outputs, targets in results:
+                            train_metrics.update(outputs, targets)
+                rerun = False
+            except RuntimeError as e:
+                self._handle_cuda_oom(e)
 
     def _train_and_compute_loss(self, use_grad_scaling: bool):
         """Compute loss by training on a full batch of data. Adaptively change microbatch size
@@ -1031,30 +1033,32 @@ class Trainer:
         Args:
             use_grad_scaling (bool): Enables gradient scaling
         """
-        try:
-            total_loss = None
-            microbatches = self._train_data_spec.split_batch(self.state.batch, self.state.grad_accum)
-            if self.deepspeed_enabled:
-                total_loss = self._train_batch(microbatches)
-            elif self._use_closures():
-                for optimizer in self.state.optimizers:
-                    if use_grad_scaling:
-                        total_loss = self.state.scaler.step(
-                            optimizer, closure=lambda **kwargs: self._train_batch(microbatches, **kwargs))
-                    else:
-                        total_loss = optimizer.step(
-                            closure=lambda **kwargs: self._train_batch(microbatches, **kwargs).item())
-            else:
-                total_loss = self._train_batch(microbatches)
-                for optimizer in self.state.optimizers:
-                    if use_grad_scaling:
-                        self.state.scaler.step(optimizer)
-                    else:
-                        optimizer.step()
-            return total_loss
-        except RuntimeError as e:
-            self._handle_cuda_oom(e)
-            return self._train_and_compute_loss(use_grad_scaling)
+        rerun = True 
+        while rerun:
+            try:
+                total_loss = None
+                microbatches = self._train_data_spec.split_batch(self.state.batch, self.state.grad_accum)
+                if self.deepspeed_enabled:
+                    total_loss = self._train_batch(microbatches)
+                elif self._use_closures():
+                    for optimizer in self.state.optimizers:
+                        if use_grad_scaling:
+                            total_loss = self.state.scaler.step(
+                                optimizer, closure=lambda **kwargs: self._train_batch(microbatches, **kwargs))
+                        else:
+                            total_loss = optimizer.step(
+                                closure=lambda **kwargs: self._train_batch(microbatches, **kwargs).item())
+                else:
+                    total_loss = self._train_batch(microbatches)
+                    for optimizer in self.state.optimizers:
+                        if use_grad_scaling:
+                            self.state.scaler.step(optimizer)
+                        else:
+                            optimizer.step()
+                rerun = False
+                return total_loss
+            except RuntimeError as e:
+                self._handle_cuda_oom(e)
 
     def _train_batch(self, microbatches: Sequence[Batch], ddp_sync: bool = True):
         """Run training on a full batch of data.
