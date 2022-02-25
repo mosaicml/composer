@@ -4,10 +4,10 @@
 Under construction |:construction:|
 
 .. csv-table::
-    :header: "Name" , "Summary"
+    :header: "Name" , "tldr", "functional"
     :delim: |
-    :widths: 30, 70
+    :widths: 30, 40, 30
 
     {% for name, data in metadata.items() %}
-    :doc:`{{ data.class_name }}</method_cards/{{name}}>` | {{ data.summary }}
+    :doc:`{{ data.class_name }}</method_cards/{{name}}>` | {{ data.tldr }} | ``{{ data.functional }}``
     {% endfor %}
