@@ -14,7 +14,8 @@ from composer.datasets.synthetic import (SyntheticBatchPairDataset, SyntheticDat
 @pytest.mark.parametrize('chars_per_sample', [128])
 @pytest.mark.parametrize('column_names', [['sentence'], ['sentence1', 'sentence2']])
 @pytest.mark.parametrize('tokenizer_family', ['bert', 'gpt2'])
-def test_synthetic_hf_dataset_creation(num_samples: int, chars_per_sample: int, column_names: list, tokenizer_family: str):
+def test_synthetic_hf_dataset_creation(num_samples: int, chars_per_sample: int, column_names: list,
+                                       tokenizer_family: str):
     dataset_generator = SyntheticHFDataset(num_samples=num_samples,
                                            chars_per_sample=chars_per_sample,
                                            column_names=column_names)
@@ -28,9 +29,7 @@ def test_synthetic_hf_dataset_creation(num_samples: int, chars_per_sample: int, 
     assert dataset.column_names == (column_names + ['idx'])
 
     # build the tokenizer
-    # flatten the columnar dataset into one column
-    flattened_dataset = functools.reduce(operator.iconcat, [dataset[i] for i in column_names], [])
-    tokenizer = generate_synthetic_tokenizer(tokenizer_family, dataset=flattened_dataset)
+    tokenizer = generate_synthetic_tokenizer(tokenizer_family, dataset=dataset)
     # verifying the input ids are a part of the tokenizer
     assert 'input_ids' in tokenizer.model_input_names
 

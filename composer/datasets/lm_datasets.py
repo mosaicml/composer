@@ -95,12 +95,9 @@ class LMDatasetHparams(DatasetHparams, SyntheticHparamsMixin):
             # we just use the max sequence length in tokens to upper bound the sequence length in characters
             lm_datasets = SyntheticHFDataset(num_samples=self.synthetic_num_unique_samples,
                                              chars_per_sample=self.train_sequence_length,
-                                             column_names=column_names)
-            lm_datasets = lm_datasets.generate_dataset()
+                                             column_names=column_names).generate_dataset()
 
-            # flatten the columnar dataset into one column
-            flattened_dataset = functools.reduce(operator.iconcat, [lm_datasets[i] for i in column_names], [])
-            self.tokenizer = generate_synthetic_tokenizer(model="bert", dataset=flattened_dataset)
+            self.tokenizer = generate_synthetic_tokenizer(model="bert", dataset=lm_datasets)
 
             lm_datasets = lm_datasets.map(lambda inp: self.tokenizer(
                 text=inp[column_names[0]
