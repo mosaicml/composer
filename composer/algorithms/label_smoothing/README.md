@@ -17,18 +17,27 @@ Label smoothing modifies the target distribution for a task by interpolating bet
 TODO(CORY): FIX
 
 ```python
+# Run the Label Smoothing algorithm directly on the targets using the Composer functional API 
+
+import composer.functional as cf
+
 def training_loop(model, train_loader):
-  opt = torch.optim.Adam(model.parameters())
-  loss_fn = F.cross_entropy
-  model.train()
-  
-  for epoch in range(num_epochs):
-      for X, y in train_loader:
-          y_hat = model(X)
-          loss = loss_fn(y_hat, y)
-          loss.backward()
-          opt.step()
-          opt.zero_grad()
+    opt = torch.optim.Adam(model.parameters())
+    loss_fn = F.cross_entropy
+    model.train()
+
+    for epoch in range(num_epochs):
+        for X, y in train_loader:
+            y_hat = model(X)
+
+            # note that if you were to modify the variable y here it is a good
+            # idea to set y back to the original targets after computing the loss
+            smoothed_targets = cf.smooth_labels(y_hat, y, alpha=0.1)
+
+            loss = loss_fn(y_hat, smoothed_targets)
+            loss.backward()
+            opt.step()
+            opt.zero_grad()
 ```
 
 ### Composer Trainer
@@ -36,21 +45,32 @@ def training_loop(model, train_loader):
 TODO(CORY): Fix and provide commentary and/or comments
 
 ```python
-from composer.algorithms import XXX
+# Instantiate the algorithm and pass it into the Trainer
+# The trainer will automatically run it at the appropriate points in the training loop
+
+from composer.algorithms import LabelSmoothing
 from composer.trainer import Trainer
+
+label_smoothing = LabelSmoothing(alpha=0.1)
 
 trainer = Trainer(model=model,
                   train_dataloader=train_dataloader,
                   max_duration='1ep',
-                  algorithms=[
-                  ])
+                  algorithms=[label_smoothing])
 
 trainer.fit()
 ```
 
 ### Implementation Details
 
-TODO(CORY): Briefly describe how this is implemented under the hood in Composer.
+
+`LabelSmoothing` converts targets to a one-hot representation if they are not in that format already and then applies a convex combination with a uniform distribution over the labels using the following formula:
+
+`smoothed_labels = (targets * (1. - alpha)) + (alpha / n_classes)`
+
+The functional form of the algorithm (accessible with the function `smooth_labels` in `composer.functional`), simply computes smoothed labels and returns them.
+
+The class form of the algorithm also takes care of setting the targets back to the original (pre-smoothing) targets after the loss is computed so that any calculations done with the targets after computing the loss (ex. training metrics) will use the original targets and not the smoothed targets.
 
 ## Suggested Hyperparameters
 

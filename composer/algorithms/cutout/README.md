@@ -18,18 +18,26 @@ It is a regularization technique that improves the accuracy of models for comput
 TODO(CORY): FIX
 
 ```python
+# Run the CutOut algorithm directly on the batch data using the Composer functional API 
+
+from composer import functional as cf
+
 def training_loop(model, train_loader):
-  opt = torch.optim.Adam(model.parameters())
-  loss_fn = F.cross_entropy
-  model.train()
-  
-  for epoch in range(num_epochs):
-      for X, y in train_loader:
-          y_hat = model(X)
-          loss = loss_fn(y_hat, y)
-          loss.backward()
-          opt.step()
-          opt.zero_grad()
+    opt = torch.optim.Adam(model.parameters())
+    loss_fn = F.cross_entropy
+    model.train()
+
+    for epoch in range(num_epochs):
+        for X, y in train_loader:
+            X_cutout = cf.cutout_batch(X=X_example,
+                                       n_holes=1,
+                                       length=16)
+
+            y_hat = model(X_cutout)
+            loss = loss_fn(y_hat, y)
+            loss.backward()
+            opt.step()
+            opt.zero_grad()
 ```
 
 ### Composer Trainer
@@ -37,21 +45,25 @@ def training_loop(model, train_loader):
 TODO(CORY): Fix and provide commentary and/or comments
 
 ```python
-from composer.algorithms import XXX
+# Instantiate the algorithm and pass it into the Trainer
+# The trainer will automatically run it at the appropriate points in the training loop
+
+from composer.algorithms import Cutout
 from composer.trainer import Trainer
+
+cutout = CutOut(n_holes=1, length=0.25)
 
 trainer = Trainer(model=model,
                   train_dataloader=train_dataloader,
                   max_duration='1ep',
-                  algorithms=[
-                  ])
+                  algorithms=[cutout])
 
 trainer.fit()
 ```
 
 ### Implementation Details
 
-TODO(CORY): Briefly describe how this is implemented under the hood in Composer. Need to explain the mask in particular, since it shows up a few times below.
+CutMix randomly selects `n_holes` square regions (which are possibly overlapping) with side length `length` and uses them to generate a binary mask for the image where a point within any hole is set to 0 and the remaining points are set to 1. This mask is then multiplied element-wise with the image in order to set the pixel value of any pixel value within a hole to 0.
 
 ## Suggested Hyperparameters
 
@@ -61,7 +73,7 @@ We found that setting `n_holes=1` (adding a single gray patch) to the image give
 
 Cutout works by randomly choosing one or more square regions from an input image and replacing them with the mean value over the dataset.
 Since it is common to normalize image data based on the dataset mean and variance, the mean value is typically 0.
-To ease implementation, we went with a simple binary mask. **TODO(CORY): Not sure what this means.**
+To ease implementation, we went with a simple binary mask, in which regions to be cut out are set to pixel value zero and the remainder of the image stays the same.
 
 We found Cutout to be an effective way of improving accuracy on ResNets for CIFAR-10 and ImageNet in the absence of robust hyperparameter tuning and other regularizers.
 As we improved our training methodology through improved hyperparameters and by adding other regularization techniques, the benefits of Cutout diminished to the point of becoming negligible.

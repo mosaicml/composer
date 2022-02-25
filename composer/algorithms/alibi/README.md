@@ -15,6 +15,8 @@ ALiBi (Attention with Linear Biases) dispenses with position embeddings for toke
 ### Functional Interface
 
 ```python
+# Run the ALiBi algorithm directly on the model using the Composer functional API 
+
 import torch
 import composer.functional as cf
 
@@ -23,10 +25,6 @@ from composer.algorithms.alibi.gpt2_alibi import enlarge_mask
 from transformers.models.gpt2.modeling_gpt2 import GPT2Attention
 
 def training_loop(model, train_loader):
-    # Removes position embeddings and performs model surgery to replace
-    # the attention function and attention mask
-    # Removes position embeddings and performs model surgery to replace
-    # the attention function and attention mask
     cf.apply_alibi(model=model,
                    heads_per_layer=12,
                    max_sequence_length=256,
@@ -52,24 +50,23 @@ def training_loop(model, train_loader):
 ### Composer Trainer
 
 ```python
+# Instantiate the algorithm and pass it into the Trainer
+# The trainer will automatically run it at the appropriate points in the training loop
+
 from composer.algorithms import Alibi
 from composer.trainer import Trainer
 
-# Instantiate the ALiBi algorithm
 alibi = Alibi(position_embedding_attribute="module.transformer.wpe",
               attention_module_name="transformers.models.gpt2.modeling_gpt2.GPT2Attention",
               attr_to_replace="_attn",
               alibi_attention="composer.algorithms.alibi._gpt2_alibi._attn",
               mask_replacement_function="composer.algorithms.alibi.gpt2_alibi.enlarge_mask")
 
-# Instantiate a trainer using the algorithm
 trainer = Trainer(model=model,
                   train_dataloader=train_dataloader,
                   max_duration='1ep',
                   algorithms=[alibi])
 
-# The trainer will automatically run the algorithm at the appopriate
-# points in the training loop
 trainer.fit()
 ```
 

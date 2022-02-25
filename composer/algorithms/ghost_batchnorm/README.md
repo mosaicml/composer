@@ -19,18 +19,27 @@ This causes training with a large batch size to behave more similarly to trainin
 TODO(DAVIS): FIX
 
 ```python
+# Run the Ghost BatchNorm algorithm directly on the model using the Composer functional API 
+
+import composer.functional as cf
+
 def training_loop(model, train_loader):
-  opt = torch.optim.Adam(model.parameters())
-  loss_fn = F.cross_entropy
-  model.train()
+    opt = torch.optim.Adam(model.parameters())
+    
+    # only need to pass in opt if apply_blurpool is used after optimizer creation
+    # otherwise only the model needs to be passed in
+    cf.apply_ghost_batchnorm(model, ghost_batch_size=32, optimizers=opt)
+
+    loss_fn = F.cross_entropy
+    model.train()
   
-  for epoch in range(num_epochs):
-      for X, y in train_loader:
-          y_hat = model(X)
-          loss = loss_fn(y_hat, y)
-          loss.backward()
-          opt.step()
-          opt.zero_grad()
+    for epoch in range(num_epochs):
+        for X, y in train_loader:
+            y_hat = model(X)
+            loss = loss_fn(y_hat, y)
+            loss.backward()
+            opt.step()
+            opt.zero_grad()
 ```
 
 ### Composer Trainer
@@ -38,21 +47,30 @@ def training_loop(model, train_loader):
 TODO(DAVIS): Fix and provide commentary and/or comments
 
 ```python
-from composer.algorithms import XXX
+# Instantiate the algorithm and pass it into the Trainer
+# The trainer will automatically run it at the appropriate points in the training loop
+
+from composer.algorithms import GhostBatchNorm
 from composer.trainer import Trainer
+
+ghost_batchnorm = GhostBatchNorm(ghost_batch_size=32)
 
 trainer = Trainer(model=model,
                   train_dataloader=train_dataloader,
                   max_duration='1ep',
-                  algorithms=[
-                  ])
+                  algorithms=[ghost_batch_norm])
 
 trainer.fit()
 ```
 
 ### Implementation Details
 
-TODO(DAVIS): Explain how you did this using model surgery etc.
+The Composer implementation of GhostBatchNorm l uses model surgery to replace `BatchNorm` layers with `GhostBatchNorm` layers. Specifically, the following replacements happen:
+1) `BatchNorm1d` -> `GhostBatchNorm1d`
+2) `BatchNorm2d` -> `GhostBatchNorm2d`
+3) `BatchNorm3d` -> `GhostBatchNorm3d`
+
+Each of the above `GhostBatchNorm` layers inherits the same `forward` method which divides the batch into chunks of size `ghost_batch_size` and normalizes each chunk. New momentum is calculated as `float(original_momentum) / nchunks`.
 
 ## Suggested Hyperparameters
 

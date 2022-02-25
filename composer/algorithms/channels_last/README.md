@@ -19,18 +19,24 @@ This is a systems-level method that does not change the math or outcome of train
 TODO(ABHI): FIX
 
 ```python
+# Run the Channels Last algorithm directly on the model using the Composer functional API 
+
+import composer.functional as cf
+
 def training_loop(model, train_loader):
-  opt = torch.optim.Adam(model.parameters())
-  loss_fn = F.cross_entropy
-  model.train()
+    cf.apply_channels_last(model)
+
+    opt = torch.optim.Adam(model.parameters())
+    loss_fn = F.cross_entropy
+    model.train()
   
-  for epoch in range(num_epochs):
-      for X, y in train_loader:
-          y_hat = model(X)
-          loss = loss_fn(y_hat, y)
-          loss.backward()
-          opt.step()
-          opt.zero_grad()
+    for epoch in range(num_epochs):
+        for X, y in train_loader:
+            y_hat = model(X)
+            loss = loss_fn(y_hat, y)
+            loss.backward()
+            opt.step()
+            opt.zero_grad()
 ```
 
 ### Composer Trainer
@@ -38,21 +44,25 @@ def training_loop(model, train_loader):
 TODO(ABHI): Fix and provide commentary and/or comments
 
 ```python
-from composer.algorithms import XXX
+# Instantiate the algorithm and pass it into the Trainer
+# The trainer will automatically run it at the appropriate points in the training loop
+
+from composer.algorithms import ChannelsLast
 from composer.trainer import Trainer
+
+channels_last = ChannelsLast()
 
 trainer = Trainer(model=model,
                   train_dataloader=train_dataloader,
                   max_duration='1ep',
-                  algorithms=[
-                  ])
+                  algorithms=[channels_last])
 
 trainer.fit()
 ```
 
 ### Implementation Details
 
-Channels Last is implemented by converting the entire model to the channels last memory format at the beginning of training.
+Channels Last is implemented by converting the entire model to the channels last memory format at the beginning of training using `model.to(memory_format=torch.channels_last)`.
 
 ## Suggested Hyperparameters
 

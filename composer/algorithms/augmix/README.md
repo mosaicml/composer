@@ -19,20 +19,31 @@ Training in this fashion regularizes the network and can improve generalization 
 ### Functional Interface
 
 ```python
+# Run augmix on the image to produce a new augmixed image
+
+from typing import Union
+
+import torch
+from PIL.Image import Image as PillowImage
+
 import composer.functional as cf
 from composer.algorithms.utils import augmentation_sets
 
-augmixed_image = cf.augmix_image(img=image,
-                                 severity=3,
-                                 width=3,
-                                 depth=-1,
-                                 alpha=1.0,
-                                 augmentation_set=augmentation_sets["all"])
+def augmix_image(image: Union[PillowImage, torch.Tensor]):
+    augmixed_image = cf.augmix_image(img=image,
+                                    severity=3,
+                                    width=3,
+                                    depth=-1,
+                                    alpha=1.0,
+                                    augmentation_set=augmentation_sets["all"])
+    return augmixed_image
 ```
 
 ### Torchvision Transform
 
 ```python
+# Create a callable for AugmentAndMix which can be composed with other image augmentations
+
 import torchvision.transforms as transforms
 import torchvision.datasets.VisionDataset as VisionDataset
 
@@ -52,6 +63,9 @@ dataset = VisionDataset(data_path, transform=composed)
 ### Composer Trainer
 
 ```python
+# Instantiate the algorithm and pass it into the Trainer
+# The trainer will automatically run it at the appropriate points in the training loop
+
 from composer.algorithms import AugMix
 from composer.trainer import Trainer
 

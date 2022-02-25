@@ -18,18 +18,27 @@ It is a regularization technique that improves the generalization accuracy of mo
 TODO(CORY): FIX
 
 ```python
+# Run the CutMix algorithm directly on the batch data using the Composer functional API 
+
+import composer.functional as cf
+
 def training_loop(model, train_loader):
-  opt = torch.optim.Adam(model.parameters())
-  loss_fn = F.cross_entropy
-  model.train()
-  
-  for epoch in range(num_epochs):
-      for X, y in train_loader:
-          y_hat = model(X)
-          loss = loss_fn(y_hat, y)
-          loss.backward()
-          opt.step()
-          opt.zero_grad()
+    opt = torch.optim.Adam(model.parameters())
+    loss_fn = F.cross_entropy
+    model.train()
+
+    for epoch in range(num_epochs):
+        for X, y in train_loader:
+            X_cutmix, y_cutmix = cf.cutmix_batch(X=X,
+                                                 y=y_example,
+                                                 n_classes=1000,
+                                                 alpha=1.0)
+
+            y_hat = model(X_cutmix)
+            loss = loss_fn(y_hat, y_cutmix)
+            loss.backward()
+            opt.step()
+            opt.zero_grad()
 ```
 
 ### Composer Trainer
@@ -37,14 +46,18 @@ def training_loop(model, train_loader):
 TODO(CORY): Fix and provide commentary and/or comments
 
 ```python
-from composer.algorithms import XXX
+# Instantiate the algorithm and pass it into the Trainer
+# The trainer will automatically run it at the appropriate points in the training loop
+
+from composer.algorithms import CutMix
 from composer.trainer import Trainer
+
+cutmix = CutMix(num_classes=1000, alpha=1.0)
 
 trainer = Trainer(model=model,
                   train_dataloader=train_dataloader,
                   max_duration='1ep',
-                  algorithms=[
-                  ])
+                  algorithms=[cutmix])
 
 trainer.fit()
 ```

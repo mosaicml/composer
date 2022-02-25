@@ -11,54 +11,60 @@ Tags: `Vision`, `Increased Accuracy`, `Increased CPU Usage`, `Method`, `Augmenta
 ### Functional Interface
 
 ```python
-from composer.algorithms.randaugment import randaugment_image
+# Run RandAugment on the image to produce a new RandAugmented image
+
+from typing import Union
+
+import torch
+from PIL.Image import Image as PillowImage
+
+import composer.functional as cf
 from composer.algorithms.utils import augmentation_sets
 
-randaugmented_image = randaugment_image(
-    img=image,
-    severity=9,
-    depth=2,
-    augmentation_set=augmentation_sets["all"]
-)
+
+def randaugment_image(image: Union[PillowImage, torch.Tensor]):
+    randaugmented_image = cf.randaugment_image(img=image,
+                                               severity=9,
+                                               depth=2,
+                                               augmentation_set=augmentation_sets["all"])
+    return randaugmented_image
 ```
 
 ### Torchvision Transform
 
 ```python
+# Create a callable for RandAugment which can be composed with other image augmentations
+
 import torchvision.transforms as transforms
-import torchvision.datasets.VisionDataset as VisionDataset
+from torchvision.datasets import VisionDataset
 
 from composer.algorithms.randaugment import RandAugmentTransform 
 
-randaugment_transform = RandAugmentTransform(
-    severity=9,
-    depth=2,
-    augmentation_set="all"
-)
+randaugment_transform = RandAugmentTransform(severity=9,
+                                             depth=2,
+                                             augmentation_set="all")
 composed = transforms.Compose([randaugment_transform, transforms.RandomHorizontalFlip()])
-transformed_image = composed(image)
 dataset = VisionDataset(data_path, transform=composed)
 ```
 
 ### Composer Trainer
 
 ```python
+# Instantiate the algorithm and pass it into the Trainer
+# The trainer will automatically run it at the appropriate points in the training loop
+
 from composer.algorithms import RandAugment
 from composer.trainer import Trainer
 
-randaugment_algorithm = RandAugment(
-    severity=9,
-    depth=2,
-    augmentation_set="all"
-)
-trainer = Trainer(
-    model=model,
-    train_dataloader=train_dataloader,
-    eval_dataloader=eval_dataloader,
-    max_duration="1ep",
-    algorithms=[randaugment_algorithm],
-    optimizers=[optimizer]
-)
+randaugment_algorithm = RandAugment(severity=9,
+                                    depth=2,
+                                    augmentation_set="all")
+trainer = Trainer(model=model,
+                  train_dataloader=train_dataloader,
+                  eval_dataloader=eval_dataloader,
+                  max_duration="1ep",
+                  algorithms=[randaugment_algorithm],
+                  optimizers=[optimizer])
 ```
 
 ### Implementation Details

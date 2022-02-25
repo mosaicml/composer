@@ -19,18 +19,34 @@ This can be applied to models for both computer vision and natural language proc
 TODO(DAVIS): FIX
 
 ```python
+# Run the Factorization algorithm directly on the model using the Composer functional API 
+
+from composer import functional as cf
+
 def training_loop(model, train_loader):
-  opt = torch.optim.Adam(model.parameters())
-  loss_fn = F.cross_entropy
-  model.train()
-  
-  for epoch in range(num_epochs):
-      for X, y in train_loader:
-          y_hat = model(X)
-          loss = loss_fn(y_hat, y)
-          loss.backward()
-          opt.step()
-          opt.zero_grad()
+    opt = torch.optim.Adam(model.parameters())
+
+    # only need to pass in opt if apply_factorization is used after optimizer creation
+    # otherwise only the model needs to be passed in
+    cf.apply_factorization(model,
+                           factorize_convs=True,
+                           factorize_linears=True,
+                           min_channels=512,
+                           latent_channels=0.25,
+                           min_features=512,
+                           latent_features=0.25,
+                           optimizers=opt)
+
+    loss_fn = F.cross_entropy
+    model.train()
+
+    for epoch in range(num_epochs):
+        for X, y in train_loader:
+            y_hat = model(X)
+            loss = loss_fn(y_hat, y)
+            loss.backward()
+            opt.step()
+            opt.zero_grad()
 ```
 
 ### Composer Trainer
@@ -38,14 +54,23 @@ def training_loop(model, train_loader):
 TODO(DAVIS): Verify and provide commentary and/or comments
 
 ```python
-from composer.algorithms import XXX
+# Instantiate the algorithm and pass it into the Trainer
+# The trainer will automatically run it at the appropriate points in the training loop
+
+from composer.algorithms import Factorize
 from composer.trainer import Trainer
+
+factorize = Factorize(factorize_convs=True,
+                      factorize_linears=True,
+                      min_channels=256,
+                      latent_channels=0.25,
+                      min_features=256,
+                      latent_features=128)
 
 trainer = Trainer(model=model,
                   train_dataloader=train_dataloader,
                   max_duration='1ep',
-                  algorithms=[
-                  ])
+                  algorithms=[factorize])
 
 trainer.fit()
 ```

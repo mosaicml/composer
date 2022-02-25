@@ -18,18 +18,31 @@ Doing so reduces [aliasing](https://en.wikipedia.org/wiki/Aliasing) when perform
 TODO(DAVIS): FIX
 
 ```python
+# Run the Blurpool algorithm directly on the model using the Composer functional API 
+
+import composer.functional as cf
+
 def training_loop(model, train_loader):
-  opt = torch.optim.Adam(model.parameters())
-  loss_fn = F.cross_entropy
-  model.train()
+    opt = torch.optim.Adam(model.parameters())
+    
+    # only need to pass in opt if apply_blurpool is used after optimizer creation
+    # otherwise only the model needs to be passed in
+    cf.apply_blurpool(model,
+                      optimizers=opt,
+                      replace_convs=True,
+                      replace_maxpools=True,
+                      blur_first=True)
+
+    loss_fn = F.cross_entropy
+    model.train()
   
-  for epoch in range(num_epochs):
-      for X, y in train_loader:
-          y_hat = model(X)
-          loss = loss_fn(y_hat, y)
-          loss.backward()
-          opt.step()
-          opt.zero_grad()
+    for epoch in range(num_epochs):
+        for X, y in train_loader:
+            y_hat = model(X)
+            loss = loss_fn(y_hat, y)
+            loss.backward()
+            opt.step()
+            opt.zero_grad()
 ```
 
 ### Composer Trainer
@@ -37,14 +50,20 @@ def training_loop(model, train_loader):
 TODO(DAVIS): Fix and provide commentary and/or comments
 
 ```python
-from composer.algorithms import xxx
+# Instantiate the algorithm and pass it into the Trainer
+# The trainer will automatically run it at the appropriate points in the training loop
+
+from composer.algorithms import Blurpool
 from composer.trainer import Trainer
+
+blurpool = BlurPool(replace_convs=True,
+                                  replace_maxpools=True,
+                                  blur_first=True)
 
 trainer = Trainer(model=model,
                   train_dataloader=train_dataloader,
                   max_duration='1ep',
-                  algorithms=[
-                  ])
+                  algorithms=[blurpool])
 
 trainer.fit()
 ```

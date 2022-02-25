@@ -19,33 +19,50 @@ This modification modestly reduces accuracy, but it is a worthwhile tradeoff for
 TODO(CORY): FIX
 
 ```python
-def training_loop(model, train_loader):
-  opt = torch.optim.Adam(model.parameters())
-  loss_fn = F.cross_entropy
-  model.train()
-  
-  for epoch in range(num_epochs):
-      for X, y in train_loader:
-          y_hat = model(X)
-          loss = loss_fn(y_hat, y)
-          loss.backward()
-          opt.step()
-          opt.zero_grad()
+# Run colout on a batch of images to produce a new batch
+
+from typing import Union
+
+import torch
+from PIL.Image import Image as PillowImage
+
+import composer.functional as cf
+from composer.algorithms.utils import augmentation_sets
+
+def colout_batch(image: Union[PillowImage, torch.Tensor]):
+    colout_batch = cf.colout_batch(img=image, p_row=0.15, p_col=0.15)
+    return colout_batch
 ```
 
+###  Torchvision Transform
+
+# Create a callable for ColOut which can be composed with other image augmentations
+
+from torchvision import transforms
+from torchvision.datasets import VisionDataset
+
+from composer.algorithms.colout import ColOutTransform
+
+colout_transform = ColOutTransform(p_row=0.15, p_col=0.15)
+composed = transforms.Compose([colout_transform, transforms.ToTensor()])
+dataset = VisionDataset("data_path", transform=composed)
 ### Composer Trainer
 
 TODO(CORY): Fix and provide commentary and/or comments
 
 ```python
-from composer.algorithms import XXX
+# Instantiate the algorithm and pass it into the Trainer
+# The trainer will automatically run it at the appropriate points in the training loop
+
+from composer.algorithms import ColOut
 from composer.trainer import Trainer
+
+colout = ColOut(p_row=0.15, p_col=0.15, batch=True)
 
 trainer = Trainer(model=model,
                   train_dataloader=train_dataloader,
                   max_duration='1ep',
-                  algorithms=[
-                  ])
+                  algorithms=[colout])
 
 trainer.fit()
 ```
