@@ -35,7 +35,7 @@ def apply_stochastic_depth(model: torch.nn.Module,
                            drop_rate: float = 0.2,
                            drop_distribution: str = 'linear',
                            use_same_gpu_seed: bool = True,
-                           optimizers: Optional[Optimizers] = None) -> None:
+                           optimizers: Optional[Optimizers] = None) -> torch.nn.Module:
     """Applies Stochastic Depth (`Huang et al, 2016 <https://arxiv.org/abs/1603.09382>`_) to the specified model.
 
     The algorithm replaces the specified target layer with a stochastic version

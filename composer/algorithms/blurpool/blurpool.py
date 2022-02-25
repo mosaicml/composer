@@ -21,7 +21,7 @@ def apply_blurpool(model: torch.nn.Module,
                    replace_convs: bool = True,
                    replace_maxpools: bool = True,
                    blur_first: bool = True,
-                   optimizers: Optional[Optimizers] = None) -> None:
+                   optimizers: Optional[Optimizers] = None) -> torch.nn.Module:
     """Add anti-aliasing filters to the strided :class:`torch.nn.Conv2d` and/or :class:`torch.nn.MaxPool2d` modules
     within `model`.
 
