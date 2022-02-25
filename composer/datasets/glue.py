@@ -43,7 +43,7 @@ class GLUEHparams(DatasetHparams, SyntheticHparamsMixin):
     split: str = hp.optional("Whether to use 'train', 'validation' or 'test' split.", default=None)
     max_seq_length: int = hp.optional(
         default=256, doc='Optionally, the ability to set a custom sequence length for the training dataset.')
-    num_workers: int = hp.optional(default=64,
+    num_workers: int = hp.optional(default=8,
                                    doc="Optionally, the number of CPU workers to use to preprocess the text.")
     max_network_retries: int = hp.optional(default=10,
                                            doc="Optionally, the number of times to retry HTTP requests if they fail.")
@@ -90,12 +90,10 @@ class GLUEHparams(DatasetHparams, SyntheticHparamsMixin):
             # we just use the max sequence length in tokens to upper bound the sequence length in characters
             self.dataset = SyntheticHFDataset(num_samples=self.synthetic_num_unique_samples,
                                               chars_per_sample=self.max_seq_length,
-                                              column_names=column_names)
-            self.dataset = self.dataset.generate_dataset()
+                                              column_names=column_names).generate_dataset()
 
             # flatten the columnar dataset into one column
-            flattened_dataset = functools.reduce(operator.iconcat, [self.dataset[i] for i in column_names], [])
-            self.tokenizer = generate_synthetic_tokenizer(model="bert", dataset=flattened_dataset)
+            self.tokenizer = generate_synthetic_tokenizer(model="bert", dataset=self.dataset)
         else:
             self.tokenizer = transformers.AutoTokenizer.from_pretrained(self.tokenizer_name)  #type: ignore (thirdparty)
 

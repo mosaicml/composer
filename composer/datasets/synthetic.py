@@ -7,14 +7,14 @@ import random
 import string
 from os.path import join
 from tempfile import mkdtemp
-from typing import Callable, Optional, Sequence, Union
+from typing import Callable, NamedTuple, Optional, Sequence, Union
 
 import tokenizers
 import torch
 import torch.utils.data
 from PIL import Image
 from torchvision.datasets import VisionDataset
-from transformers import BertTokenizer, GPT2Tokenizer
+from transformers import BertTokenizer, GPT2Tokenizer, PreTrainedTokenizer
 
 from composer.core.types import MemoryFormat
 from composer.utils.string_enum import StringEnum
@@ -32,12 +32,52 @@ class SyntheticDataLabelType(StringEnum):
 
 class SyntheticTokenizerParams(NamedTuple):
     tokenizer_model: tokenizers.models.Model
-    normalizer: tokenizers.normalizer.Normalizer
+    normalizer: tokenizers.normalizers.Normalizer
     pre_tokenizer: tokenizers.pre_tokenizers.PreTokenizer
     decoder: tokenizers.decoders.Decoder
     initial_alphabet: list
     special_tokens: list
-    trainer_cls: tokenizers.trainer.Trainer
+    pad_token: str
+    trainer_cls: tokenizers.trainers.Trainer
+    tokenizer_cls: PreTrainedTokenizer
+
+
+def generate_bert_tokenizer_params(dataset):
+    unk_token = "[UNK]"
+    pad_token = "[PAD]"
+
+    initial_alphabet = "".join([i for i in dataset])
+    initial_alphabet = list(set(initial_alphabet))
+
+    return SyntheticTokenizerParams(
+        tokenizer_model=tokenizers.models.WordPiece(unk_token=unk_token),
+        normalizer=tokenizers.normalizers.BertNormalizer(),
+        pre_tokenizer=tokenizers.pre_tokenizers.BertPreTokenizer(),
+        decoder=tokenizers.decoders.WordPiece(),
+        initial_alphabet=initial_alphabet,
+        special_tokens=[pad_token, unk_token, "[SEP]", "[CLS]", "[MASK]"],
+        pad_token=pad_token,
+        trainer_cls=tokenizers.trainers.WordPieceTrainer,
+        tokenizer_cls=BertTokenizer,
+    )
+
+
+def generate_gpt2_tokenizer_params():
+    unk_token = None
+    pad_token = "<pad>"
+
+    return SyntheticTokenizerParams(
+        tokenizer_model=tokenizers.models.BPE(unk_token=unk_token),
+        normalizer=tokenizers.normalizers.Lowercase(),
+        pre_tokenizer=tokenizers.pre_tokenizers.ByteLevel(),
+        decoder=tokenizers.decoders.ByteLevel(),
+        initial_alphabet=tokenizers.pre_tokenizers.ByteLevel.alphabet(),
+        special_tokens=[pad_token, "<endoftext>"],
+        pad_token=pad_token,
+        trainer_cls=tokenizers.trainers.BpeTrainer,
+        tokenizer_cls=GPT2Tokenizer,
+    )
+
 
 def generate_synthetic_tokenizer(model, dataset=None, vocab_size=256, return_tokenizer_dir=False):
     try:
@@ -52,64 +92,47 @@ def generate_synthetic_tokenizer(model, dataset=None, vocab_size=256, return_tok
         num_samples = 100
         chars_per_sample = 128
         column_names = ['sentence']
-        dataset_generator = SyntheticHFDataset(num_samples=num_samples,
-                                               chars_per_sample=chars_per_sample,
-                                               column_names=column_names)
-        dataset = dataset_generator.generate_dataset()
-        dataset = functools.reduce(operator.iconcat, [dataset[i] for i in column_names], [])
+        dataset = SyntheticHFDataset(num_samples=num_samples,
+                                     chars_per_sample=chars_per_sample,
+                                     column_names=column_names).generate_dataset()
+
+    # flatten dataset to get a simple stream of text for the tokenizer
+    dataset = [dataset[key] for key in dataset.column_names if key != 'idx']
+    dataset = [i for sublist in dataset for i in sublist]
 
     if model == "bert":
-        unk_token = "[UNK]"
-        pad_token = "[PAD]"
-        tokenizer_model = tokenizers.models.WordPiece(unk_token=unk_token)
-        normalizer = tokenizers.normalizers.BertNormalizer()
-        pre_tokenizer = tokenizers.pre_tokenizers.BertPreTokenizer()
-        decoder = tokenizers.decoders.WordPiece()
-        initial_alphabet = "".join([i for i in dataset]
-        initial_alphabet = list(set(initial_alphabet)))  # TODO (Moin): this might be slow, let's see.
-        special_tokens = ["[PAD]", "[UNK]", "[SEP]", "[CLS]", "[MASK]"]
-        trainer_cls = tokenizers.trainers.WordPieceTrainer
+        tokenizer_params = generate_bert_tokenizer_params(dataset)
     elif model == "gpt2":
-        unk_token = None
-        pad_token = "<pad>"
-        tokenizer_model = tokenizers.models.BPE(unk_token=unk_token)
-        normalizer = tokenizers.normalizers.Lowercase()
-        pre_tokenizer = tokenizers.pre_tokenizers.ByteLevel()
-        decoder = tokenizers.decoders.ByteLevel()
-        initial_alphabet = tokenizers.pre_tokenizers.ByteLevel.alphabet()
-        special_tokens = [pad_token, "<endoftext>"]
-        trainer_cls = tokenizers.trainers.BpeTrainer
+        tokenizer_params = generate_gpt2_tokenizer_params()
     else:
         raise ValueError(f"Synthetic tokenizers for model {model} are currently unsupported.")
 
-    tokenizer = tokenizers.Tokenizer(tokenizer_model)
-    tokenizer.enable_padding(direction="right", pad_id=0, pad_type_id=0, pad_token=pad_token, pad_to_multiple_of=8)
-    tokenizer.normalizer = normalizer
-    tokenizer.pre_tokenizer = pre_tokenizer
-    tokenizer.decoder = decoder
-    trainer = trainer_cls(
+    tokenizer = tokenizers.Tokenizer(tokenizer_params.tokenizer_model)
+    tokenizer.enable_padding(direction="right",
+                             pad_id=0,
+                             pad_type_id=0,
+                             pad_token=tokenizer_params.pad_token,
+                             pad_to_multiple_of=8)
+    tokenizer.normalizer = tokenizer_params.normalizer
+    tokenizer.pre_tokenizer = tokenizer_params.pre_tokenizer
+    tokenizer.decoder = tokenizer_params.decoder
+    tokenizer_trainer = tokenizer_params.trainer_cls(
         vocab_size=vocab_size,
-        initial_alphabet=initial_alphabet,
-        special_tokens=special_tokens,
+        initial_alphabet=tokenizer_params.initial_alphabet,
+        special_tokens=tokenizer_params.special_tokens,
     )
-    tokenizer.train_from_iterator(dataset, trainer=trainer)
+    tokenizer.train_from_iterator(dataset, trainer=tokenizer_trainer)
 
+    # save the tokenizer config
     tmp_tokenizer_dir = mkdtemp()
     tmp_tokenizer_file = join(tmp_tokenizer_dir, "tokenizer.json")
     tokenizer.save(tmp_tokenizer_file)
 
-    # generate either vocab file, or merges.txt!
-    if model == "bert":
-        tmp_tokenizer_vocab = join(tmp_tokenizer_dir, "vocab.txt")
-        with open(tmp_tokenizer_vocab, "w") as f:
-            for token, _ in sorted(tokenizer.get_vocab().items(), key=lambda x: x[1]):
-                f.write(f"{token}\n")
-        tokenizer_cls = BertTokenizer
-    elif model == "gpt2":
-        tokenizer_model.save(tmp_tokenizer_dir)
-        tokenizer_cls = GPT2Tokenizer
+    # save the vocabulary and potential merges file
+    tokenizer_params.tokenizer_model.save(tmp_tokenizer_dir)
 
-    tokenizer = tokenizer_cls.from_pretrained(tmp_tokenizer_dir)
+    # instantiate the new tokenizer
+    tokenizer = tokenizer_params.tokenizer_cls.from_pretrained(tmp_tokenizer_dir)
 
     if return_tokenizer_dir:
         return tokenizer, tmp_tokenizer_dir
