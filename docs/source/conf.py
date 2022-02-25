@@ -192,7 +192,7 @@ with open(os.path.join(os.path.dirname(__file__), "doctest_fixtures.py"), "r") a
 def determine_sphinx_path(item: Union[Type[object], Type[BaseException], types.MethodType, types.FunctionType],
                           module_name: str) -> Optional[str]:
     """Returns the path to where an item is documented.
-    
+
     #. If ``item`` is private, then a Sphinx warning is emitted, as private members should not be documented
     #. If ``item`` is in a private module, but ``item`` itself is public, the parents of ``item`` are searched to see if
     ``item`` is reimported. If so, the most nested, public reimport is used.
@@ -245,7 +245,7 @@ def add_module_summary_tables(
     """This hook adds in summary tables for each module, documenting all functions, exceptions, classes, and attributes.
 
     It links reimported imports to their original source, as not to create a duplicate, indexed toctree entry.
-    It automatically inserts itself at the end of each module docstring. 
+    It automatically inserts itself at the end of each module docstring.
     """
     del app, options  # unused
     functions: List[Tuple[str, types.FunctionType]] = []
@@ -256,6 +256,7 @@ def add_module_summary_tables(
     if len(lines) == 0:
         # insert a stub docstring so it doesn't start with functions/exceptions/classes/attributes
         lines.append(name)
+
     if what == "module":
 
         try:
@@ -295,7 +296,12 @@ def add_module_summary_tables(
         classes.sort(key=lambda x: x[0])
         attributes.sort(key=lambda x: x[0])
 
-        for category, category_name in ((functions, "Functions"), (classes, "Classes"), (exceptions, "Exceptions")):
+        # separate hparams classes with other classes
+        hparams = [(n, c) for (n, c) in classes if issubclass(c, hp.Hparams)]
+        classes = [(n, c) for (n, c) in classes if not issubclass(c, hp.Hparams)]
+
+        for category, category_name in ((functions, "Functions"), (classes, "Classes"), (hparams, "Hparams"),
+                                        (exceptions, "Exceptions")):
             sphinx_lines = []
             for item_name, item in category:
                 sphinx_path = determine_sphinx_path(item, item.__module__)
@@ -305,6 +311,9 @@ def add_module_summary_tables(
                 lines.append("")
                 lines.append(f".. rubric:: {category_name}")
                 lines.append("")
+                if category_name == 'Hparams':
+                    lines.append("These classes are used with :mod:`yahp` for ``YAML``-based configuration.")
+                    lines.append("")
                 lines.append(".. autosummary::")
                 lines.append("      :nosignatures:")
                 lines.append("")

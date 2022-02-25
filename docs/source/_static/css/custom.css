@@ -11,13 +11,8 @@
 }
 
 .card-title {
+    color: var(--color-foreground)!important;
     font-size: 22px;
-    margin: 0;
-}
-
-body[data-theme=dark] .card-title {
-    font-size: 22px;
-    color: white;
     margin: 0;
 }
 
