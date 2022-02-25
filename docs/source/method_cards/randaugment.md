@@ -6,6 +6,71 @@ Three example realizations of RandAugment. From [RandAugment: Practical Automate
 
 Tags: `Vision`, `Increased Accuracy`, `Increased CPU Usage`, `Method`, `Augmentation`, `Regularization`
 
+## How to Use
+
+### Functional Interface
+
+```python
+from composer.algorithms.randaugment import randaugment_image
+from composer.algorithms.utils import augmentation_sets
+
+randaugmented_image = randaugment_image(
+    img=image,
+    severity=9,
+    depth=2,
+    augmentation_set=augmentation_sets["all"]
+)
+```
+
+### Torchvision Transform
+
+```python
+import torchvision.transforms as transforms
+import torchvision.datasets.VisionDataset as VisionDataset
+
+from composer.algorithms.randaugment import RandAugmentTransform 
+
+randaugment_transform = RandAugmentTransform(
+    severity=9,
+    depth=2,
+    augmentation_set="all"
+)
+composed = transforms.Compose([randaugment_transform, transforms.RandomHorizontalFlip()])
+transformed_image = composed(image)
+dataset = VisionDataset(data_path, transform=composed)
+```
+
+### Composer Trainer
+
+```python
+from composer.algorithms import RandAugment
+from composer.trainer import Trainer
+
+randaugment_algorithm = RandAugment(
+    severity=9,
+    depth=2,
+    augmentation_set="all"
+)
+trainer = Trainer(
+    model=model,
+    train_dataloader=train_dataloader,
+    eval_dataloader=eval_dataloader,
+    max_duration="1ep",
+    algorithms=[randaugment_algorithm],
+    optimizers=[optimizer]
+)
+```
+
+### Implementation Details
+
+RandAugment leverages `torchvision.transforms` to add a transformation to the dataset which will be applied per image on the CPU. The transformation takes in a `PIL.Image` and outputs a `PIL.Image` with AugMix applied.
+
+The functional form of RandAugment (`randaugment_image()`) requires RandAugment hyperparameters when it is called.
+
+The Torchvision transform form of RandAugment (`RandAugmentTransform`) is composable with other dataset transformations via `torchvision.transforms.Compose`.
+
+The class form of RandAugment runs on `Event.FIT_START` and inserts `RandAugmentTransform` into the set of transforms in a `torchvision.datasets.VisionDataset` dataset.
+
 ## TL;DR
 
 For each data sample, RandAugment randomly samples `depth` image augmentations from a set of augmentations (e.g. translation, shear, contrast) and applies them sequentially with intensity sampled uniformly from 0.1- `severity` **(`severity` ≤ 10) for each augmentation.
