@@ -50,8 +50,6 @@ dataset = VisionDataset(data_path, transform=composed)
 
 ### Composer Trainer
 
-TODO(MATTHEW): Fix and provide commentary and/or comments
-
 ```python
 from composer.algorithms import AugMix
 from composer.trainer import Trainer
