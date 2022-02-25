@@ -10,7 +10,7 @@ While other libraries may have implementations of some of these, the implementat
 in Composer are specifically written to be combined with other methods.
 
 Below is a brief overview of the algorithms currently in Composer.
-For more detailed information about each algorithm, see the :doc:`method cards</method_cards/overview>`,
+For more detailed information about each algorithm, see the :doc:`method cards</method_cards/methods_overview>`,
 also linked in the table. Each algorithm has a functional implementation intended
 for use with your own training loop, and an implementation intended for use with
 Composer's trainer.
@@ -21,7 +21,11 @@ Composer's trainer.
     :widths: 30, 40, 30
 
     {% for name, data in metadata.items() %}
+    {% if data.functional %}
     :doc:`{{ data.class_name }}</method_cards/{{name}}>` | {{ data.tldr }} | ``{{ data.functional }}``
+    {% else %}
+    :doc:`{{ data.class_name }}</method_cards/{{name}}>` | {{ data.tldr }} | {{ data.functional }}
+    {% endif %}
     {% endfor %}
 
 Functional API
