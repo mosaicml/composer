@@ -12,16 +12,10 @@ Using Composer, you can:
 - Train a GPT-2 125M to a perplexity of 23.9 for $148 (`with vanilla PyTorch`: $255)
 - Use start-of-the-art implementations of methods to speed up your own training loop.
 
-At MosaicML, we are focused on making training ML models accessible. To do this,
-we continually productionize state-of-the-art academic research on efficient model
-training, and also study the `combinations`` of these methods in order to ensure
-that model training is ✨ as efficient as possible ✨.
-
-
 Composer features:
 
 - 20+ efficient training methods for training a better language and vision models! Don't waste hours trying to reproduce research papers when Composer has done the work for you.
-- Easy-to-use (optional) Trainer interface written to be as performant as possible, and `integrated best practices<https://www.mosaicml.com/blog/best-practices-dec-2021>`.
+- Easy-to-use Trainer interface written to be as performant as possible, and `integrated best practices<https://www.mosaicml.com/blog/best-practices-dec-2021>`.
 - Easy-to-use Functional forms that allow you to integrate efficient training methods into your training loop!
 - Strong, `reproducible` baselines to get you started as 💨 fast 💨 as possible
 
@@ -29,6 +23,11 @@ See :doc:`Getting Started<getting_started/installation>` for
 installation an initial usage, the :doc:`Trainer<trainer/using_the_trainer>` section for an introduction
 to our trainer, and :doc:`Methods<method_cards/methods_overview>` for details about our efficiency methods
 and how to use them in your code.
+
+At MosaicML, we are focused on making training ML models accessible. To do this,
+we continually productionize state-of-the-art academic research on efficient model
+training, and also study the `combinations`` of these methods in order to ensure
+that model training is ✨ as efficient as possible ✨.
 
 If you have any questions, please feel free to reach out to us on `Twitter`_, `Email`_, or join
 our `Slack`_ channel!
