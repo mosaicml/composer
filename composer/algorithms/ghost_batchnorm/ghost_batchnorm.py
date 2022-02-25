@@ -19,24 +19,36 @@ _TORCH_BATCHNORM_BASE_CLASS = torch.nn.modules.batchnorm._BatchNorm
 
 
 def apply_ghost_batchnorm(model: torch.nn.Module,
-                          ghost_batch_size: int,
+                          ghost_batch_size: int = 32,
                           optimizers: Optional[Optimizers] = None) -> torch.nn.Module:
     """Replace batch normalization modules with ghost batch normalization modules.
 
-    Must be run before the model has been moved to accelerators and before
-    the model's parameters have been passed to an optimizer.
+    Ghost batch normalization modules split their input into chunks of
+    ``ghost_batch_size`` samples and run batch normalization on each chunk
+    separately. Dim 0 is assumed to be the sample axis.
 
     Args:
-        model: model to transform
-        ghost_batch_size: size of sub-batches to normalize over
+        model (Module): the model to modify in-place
+        ghost_batch_size (int, optional): size of sub-batches to normalize over
         optimizers (Optimizers, optional):  Existing optimizers bound to ``model.parameters()``.
-            All optimizers that have already been constructed with,
+            All optimizers that have already been constructed with
             ``model.parameters()`` must be specified here so they will optimize
             the correct parameters.
 
             If the optimizer(s) are constructed *after* calling this function,
             then it is safe to omit this parameter. These optimizers will see the correct
             model parameters.
+
+    Returns:
+        The modified model
+
+    Example:
+        .. testcode::
+
+            import composer.functional as cf
+            from torchvision import models
+            model = models.resnet50()
+            cf.apply_ghost_batchnorm(model)
     """
 
     def maybe_replace(module: torch.nn.Module, module_index: int) -> Optional[torch.nn.Module]:
@@ -63,7 +75,7 @@ class GhostBatchNorm(Algorithm):
     been passed to an optimizer.
 
     Args:
-        ghost_batch_size: size of sub-batches to normalize over
+        ghost_batch_size (int): size of sub-batches to normalize over
     """
 
     def __init__(self, ghost_batch_size: int = _DEFAULT_GHOST_BATCH_SIZE):
