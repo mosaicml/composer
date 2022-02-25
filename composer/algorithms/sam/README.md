@@ -79,6 +79,10 @@ In our experiments we used a value of `interval=10` for our introduced hyperpara
 > Although it causes a reduction in training throughput, the `interval` hyperparameter can be used to minimize the extent of this reduction.
 > The corresponding accuracy increases were a worthwhile tradeoff for the throughput reduction in our experiments on ResNets on ImageNet.
 
+Foret et al. introduced SAM on CNNs for image classification tasks.
+These results have been replicated and/or extended by [Brock et al., (2021)](https://arxiv.org/abs/2102.06171) and MosaicML, and extended to vision transformers by [Chen et al., (2021)](https://arxiv.org/abs/2106.01548). As a generic optimization algorithm, SAM should be applicable across a models and tasks.
+We did not find SAM to provide any improvements on GPT-style language modeling tasks that only see each training example once (i.e., those that have effectively infinite data). This may imply that SAM improves accuracy by mitigating overfitting when the model sees the same examples multiple times.
+
 ## Attribution
 
 [*Sharpness-Aware Minimization for Efficiently Improving Generalization*](https://arxiv.org/abs/2010.01412) by Pierre Foret, Ariel Kleiner, Hossein Mobahi, and Behnam Neyshabur. Published in ICLR 2021.
