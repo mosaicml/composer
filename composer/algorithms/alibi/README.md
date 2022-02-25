@@ -25,6 +25,8 @@ from transformers.models.gpt2.modeling_gpt2 import GPT2Attention
 def training_loop(model, train_loader):
     # Removes position embeddings and performs model surgery to replace
     # the attention function and attention mask
+    # Removes position embeddings and performs model surgery to replace
+    # the attention function and attention mask
     cf.apply_alibi(model=model,
                    heads_per_layer=12,
                    max_sequence_length=256,
