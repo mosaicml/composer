@@ -17,8 +17,6 @@ The augmented images are then combined via a random convex combination to yield 
 
 ### Functional Interface
 
-TODO(MATTHEW): FIX
-
 ```python
 import composer.functional as cf
 from composer.algorithms.utils import augmentation_sets
@@ -30,7 +28,9 @@ augmixed_image = cf.augmix_image(img=image,
                                  alpha=1.0,
                                  augmentation_set=augmentation_sets["all"])
 ```
+
 ### Torchvision Transform
+
 ```python
 import torchvision.transforms as transforms
 import torchvision.datasets.VisionDataset as VisionDataset
@@ -46,7 +46,8 @@ augmix_transform = AugmentAndMixTransform(
 )
 composed = transforms.Compose([augmix_transform, transforms.RandomHorizontalFlip()])
 dataset = VisionDataset(data_path, transform=composed)
-\\\\```
+```
+
 ### Composer Trainer
 
 TODO(MATTHEW): Fix and provide commentary and/or comments
