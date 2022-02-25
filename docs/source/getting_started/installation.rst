@@ -107,7 +107,7 @@ Next, train a small classifier on MNIST with the label smoothing algorithm:
     train_dataloader = DataLoader(dataset, batch_size=128)
 
     trainer = Trainer(
-        model=MNIST_Classifier(),
+        model=MNIST_Classifier(num_classes=10),
         train_dataloader=train_dataloader,
         max_duration="10ep",
         algorithms=[LabelSmoothing(alpha=0.1)]
