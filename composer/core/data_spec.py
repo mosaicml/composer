@@ -107,6 +107,10 @@ class DataSpec:
         return batch
 
     def _default_split_batch(self, batch: Batch, num_microbatches: int) -> Sequence[Batch]:
+        if num_microbatches < 1:
+            raise ValueError("num_microbatches must be at least 1")
+        if num_microbatches == 1:
+            return [batch]
         if not isinstance(batch, Sequence):
             raise ValueError(f'split_fn requires batch be a tuple pair of tensors, got {type(batch)}')
         x, y = batch
