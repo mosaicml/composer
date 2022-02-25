@@ -9,11 +9,6 @@ import yahp as hp
 from composer.core.types import JSON
 from composer.models.model_hparams import ModelHparams
 
-try:
-    from transformers import PreTrainedTokenizer
-except ImportError as e:
-    PreTrainedTokenizer = object
-
 
 @dataclass
 class TransformerHparams(ModelHparams, ABC):
