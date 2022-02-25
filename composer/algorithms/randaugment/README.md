@@ -9,7 +9,7 @@ Each augmentation is applied with a context-specific `severity` sampled uniforml
 Training in this fashion regularizes the network and can improve generalization performance.
 
 | ![RandAugment](https://storage.googleapis.com/docs.mosaicml.com/images/methods/rand_augment.jpg) |
-|:--:
+|:--:|
 |*An image of a dog that undergoes three different augmentation chains. Each of these chains is a possible augmentation that might be applied by RandAugment and gets combined with the original image.*|
 
 ## How to Use
