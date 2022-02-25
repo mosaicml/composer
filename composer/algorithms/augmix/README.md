@@ -9,7 +9,7 @@ It then applies these augmentations sequentially with randomly sampled intensity
 This is repeated `width` times in parallel to create `width` different augmented images.
 The augmented images are then combined via a random convex combination to yield a single augmented image, which is in turn combined via a random convex combination sampled from a Beta(`alpha`, `alpha`) distribution with the original image.
 
-| ![AugMix](aug_mix.png) |
+| ![AugMix](https://storage.googleapis.com/docs.mosaicml.com/images/methods/aug_mix.png) |
 |:--:
 |*An image of a turtle that undergoes three different augmentation chains, gets combined back together using a convex combination, and gets combined with the original image. [Figure 4 from Hendrycks et al. (2020)](https://arxiv.org/abs/1912.02781).*|
 
