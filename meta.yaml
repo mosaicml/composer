@@ -6,7 +6,8 @@ package:
 
 source:
   git_url: https://github.com/mosaicml/composer.git
-  git_rev: "v0.3.1"
+  # TODO change to "v0.3.1"
+  git_rev: "dev"
   git_depth: 1
 
 build:
