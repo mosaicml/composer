@@ -9,7 +9,7 @@ import logging
 import math
 from operator import attrgetter
 from types import MethodType, ModuleType
-from typing import Any, Callable, Optional, Type, cast
+from typing import Any, Callable, Optional, Tuple, Type, Union, cast
 
 import torch
 
@@ -96,9 +96,13 @@ def apply_alibi(
         None
     """
 
-    _zero_and_freeze_expand_position_embeddings(model=model,
-                                                attribute=position_embedding_attribute,
-                                                new_embedding_length=max_sequence_length)
+    old_embed, new_embed = _zero_and_freeze_expand_position_embeddings(
+        model=model,
+        attribute=position_embedding_attribute,
+        new_embedding_length=max_sequence_length,
+    )
+    if optimizers and old_embed is not None and new_embed is not None:
+        module_surgery.update_params_in_optimizer([old_embed], [new_embed], optimizers=optimizers)
     log.info(f" Position embedding expanded to sequence length {max_sequence_length}, zeroed, and frozen")
 
     def convert_attention(module: torch.nn.Module, module_index: Optional[int] = None):
@@ -247,10 +251,18 @@ class Alibi(Algorithm):
                     state.batch[k] = v.reshape(int(batch_len / sequence_scaling), int(sequence_len * sequence_scaling))
 
 
-def _zero_and_freeze_expand_position_embeddings(model: torch.nn.Module, new_embedding_length: int, attribute: str):
+def _zero_and_freeze_expand_position_embeddings(
+    model: torch.nn.Module,
+    new_embedding_length: int,
+    attribute: str,
+) -> Union[Tuple[torch.nn.Parameter, torch.nn.Parameter], Tuple[None, None]]:
     try:
         pos_embedding_module = attrgetter(attribute)(model)
         old_weight = getattr(pos_embedding_module, "weight")
+        if not isinstance(old_weight, torch.nn.Parameter):
+            raise TypeError(
+                f"Model {model._get_name()}, position embedding {attribute}, 'weight' attribute must of type torch.nn.Module"
+            )
         new_weight = torch.nn.Parameter(
             torch.zeros((new_embedding_length, old_weight.shape[1]),
                         dtype=old_weight.dtype,
@@ -258,10 +270,13 @@ def _zero_and_freeze_expand_position_embeddings(model: torch.nn.Module, new_embe
                         device=old_weight.device))
         new_weight.requires_grad = False
         setattr(pos_embedding_module, "weight", new_weight)
+
+        return old_weight, new_weight
     except AttributeError:
         log.error(f"Unable to zero and freeze position embeddings. Model "
                   f"{model} may lack attribute {attribute}, or position "
                   f"embeddings may lack attribute 'weight'.")
+    return None, None
 
 
 def _register_alibi(module: torch.nn.Module, n_heads: int, max_token_length: int):
