@@ -20,18 +20,15 @@ The augmented images are then combined via a random convex combination to yield 
 TODO(MATTHEW): FIX
 
 ```python
-def training_loop(model, train_loader):
-  opt = torch.optim.Adam(model.parameters())
-  loss_fn = F.cross_entropy
-  model.train()
-  
-  for epoch in range(num_epochs):
-      for X, y in train_loader:
-          y_hat = model(X)
-          loss = loss_fn(y_hat, y)
-          loss.backward()
-          opt.step()
-          opt.zero_grad()
+import composer.functional as cf
+from composer.algorithms.utils import augmentation_sets
+
+augmixed_image = cf.augmix_image(img=image,
+                                 severity=3,
+                                 width=3,
+                                 depth=-1,
+                                 alpha=1.0,
+                                 augmentation_set=augmentation_sets["all"])
 ```
 
 ### Composer Trainer
