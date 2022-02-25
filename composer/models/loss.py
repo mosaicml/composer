@@ -223,7 +223,7 @@ def soft_cross_entropy(input: Tensor,
 class CrossEntropyLoss(Metric):
     """Torchmetric cross entropy loss implementation.
 
-    This class implements cross entropy loss as a :class:``torchmetric.Metric` so that it can be returned by the
+    This class implements cross entropy loss as a :class:`torchmetric.Metric` so that it can be returned by the
     :meth:`~composer.models.base.ComposerModel.metrics`.
 
     Args:

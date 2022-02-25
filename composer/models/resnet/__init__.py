@@ -4,7 +4,8 @@
 vision tasks. ImageNet ResNets are a subset of the ResNet family which were designed specifically for classification on
 the ImageNet dataset.
 
-See the :doc:`Model Card </model_cards/imagenet_resnet>` for more details.
+
+See the :doc:`Model Card </model_cards/resnet>` for more details.
 """
 from composer.models.resnet.model import ComposerResNet as ComposerResNet
 from composer.models.resnet.resnet_hparams import ResNetHparams as ResNetHparams
