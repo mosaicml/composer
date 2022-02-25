@@ -1,5 +1,6 @@
 {
     "cutmix": {
+        "name": "CutMix",
         "class_name": "CutMix",
         "functional": "cutmix_batch",
         "tldr": "Combines pairs of examples in non-overlapping regions and mixes labels",

@@ -1,5 +1,6 @@
 {
     "progressive_resizing": {
+        "name": "Progressive Resizing",
         "class_name": "ProgressiveResizing",
         "functional": "resize_batch",
         "tldr": "Increases the input image size during training",

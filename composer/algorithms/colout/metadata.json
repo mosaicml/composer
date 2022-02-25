@@ -1,5 +1,6 @@
 {
     "colout": {
+        "name": "ColOut",
         "class_name": "ColOut",
         "functional": "colout_batch",
         "tldr": "Removes columns and rows from the image for augmentation and efficiency.",

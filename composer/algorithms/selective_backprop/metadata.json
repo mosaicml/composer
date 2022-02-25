@@ -1,5 +1,6 @@
 {
     "selective_backprop": {
+        "name": "Selective Backprop",
         "class_name": "SelectiveBackprop",
         "functional": "selective_backprop",
         "tldr": "Drops examples with small loss contributions.",

@@ -1,5 +1,6 @@
 {
     "augmix": {
+        "name": "AugMix",
         "class_name": "AugMix",
         "functional": "augmix_image",
         "tldr": "Image-perserving data augmentations",

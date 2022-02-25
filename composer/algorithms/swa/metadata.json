@@ -1,5 +1,6 @@
 {
     "swa": {
+        "name": "SWA",
         "class_name": "SWA",
         "functional": "",
         "tldr": "Computes running average of model weights.",

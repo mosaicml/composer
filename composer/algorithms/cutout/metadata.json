@@ -1,5 +1,6 @@
 {
     "cutout": {
+        "name": "CutOut",
         "class_name": "CutOut",
         "functional": "cutout_batch",
         "tldr": "Randomly erases rectangular blocks from the image.",

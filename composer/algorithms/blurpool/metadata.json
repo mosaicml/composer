@@ -1,5 +1,6 @@
 {
     "blurpool": {
+        "name": "BlurPool",
         "class_name": "BlurPool",
         "functional": "apply_blurpool",
         "tldr": "applies blur before pooling",

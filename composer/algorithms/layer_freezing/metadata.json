@@ -1,5 +1,6 @@
 {
     "layer_freezing": {
+        "name": "Layer Freezing",
         "class_name": "LayerFreezing",
         "functional": "freeze_layers",
         "tldr": "Progressively freezes layers during training.",

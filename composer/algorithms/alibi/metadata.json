@@ -1,5 +1,6 @@
 {
     "alibi": {
+        "name": "Alibi",
         "class_name": "Alibi",
         "functional": "apply_alibi",
         "tldr": "Replace attention with AliBi",

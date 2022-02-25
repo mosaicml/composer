@@ -1,5 +1,6 @@
 {
     "seq_length_warmup": {
+        "name": "Sequence Length Warmup",
         "class_name": "SeqLengthWarmup",
         "functional": "set_batch_sequence_length",
         "tldr": "Progressively increase sequence length.",

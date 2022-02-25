@@ -1,5 +1,6 @@
 {
     "scale_schedule": {
+        "name": "Scale Schedule",
         "class_name": "ScaleSchedule",
         "functional": "",
         "tldr": "Scale the learning rate schedule by a factor",

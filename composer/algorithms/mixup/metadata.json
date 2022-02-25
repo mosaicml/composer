@@ -1,5 +1,6 @@
 {
     "mixup": {
+        "name": "MixUp",
         "class_name": "MixUp",
         "functional": "mixup_batch",
         "tldr": "Blends pairs of examples and labels",

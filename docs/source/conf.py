@@ -15,7 +15,9 @@ import os
 import sys
 import textwrap
 import types
-from typing import Any, List, Optional, Tuple, Type, Union
+from typing import Any, List, Optional, Tuple, Type, Union, Dict
+import composer
+import json
 
 import sphinx.application
 import sphinx.ext.autodoc
@@ -352,6 +354,32 @@ def rstjinja(app, docname, source):
     src = source[0]
     rendered = app.builder.templates.render_string(src, app.config.html_context)
     source[0] = rendered
+
+
+def get_algorithms_metadata() -> Dict[str, Dict[str, str]]:
+    EXCLUDE = ['no_op_model']
+
+    root = os.path.join(os.path.dirname(composer.__file__), 'algorithms')
+    algorithms = next(os.walk(root))[1]
+    algorithms = [algo for algo in algorithms if algo not in EXCLUDE]
+
+    metadata = {}
+    for name in algorithms:
+        json_path = os.path.join(root, name, 'metadata.json')
+
+        if os.path.isfile(json_path):
+            with open(json_path, 'r') as f:
+                data = json.load(f)
+
+            for key, value in data.items():
+                if key in metadata:
+                    raise ValueError(f'Duplicate keys in metadata: {key}')
+                metadata[key] = value
+
+    return metadata
+
+
+html_context = {'metadata': get_algorithms_metadata()}
 
 
 def setup(app: sphinx.application.Sphinx):

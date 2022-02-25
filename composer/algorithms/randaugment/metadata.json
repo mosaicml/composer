@@ -1,5 +1,6 @@
 {
     "randaugment": {
+        "name": "RandAugment",
         "class_name": "RandAugment",
         "functional": "randaugment_image",
         "tldr": "Applies a series of random augmentations",

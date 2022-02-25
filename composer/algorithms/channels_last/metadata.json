@@ -1,5 +1,6 @@
 {
     "channels_last": {
+        "name": "Channels Last",
         "class_name": "ChannelsLast",
         "functional": "apply_channels_last",
         "tldr": "Uses channels last memory format (NHWC)",

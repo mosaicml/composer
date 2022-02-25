@@ -1,5 +1,6 @@
 {
     "label_smoothing": {
+        "name": "Label Smoothing",
         "class_name": "LabelSmoothing",
         "functional": "smooth_labels",
         "tldr": "Smooths the labels with a uniform prior",

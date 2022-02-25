@@ -1,5 +1,6 @@
 {
     "ghost_batchnorm": {
+        "name": "Ghost BatchNorm",
         "class_name": "GhostBatchNorm",
         "functional": "apply_ghost_batchnorm",
         "tldr": "Use smaller samples to compute batchnorm",
