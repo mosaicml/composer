@@ -9,43 +9,49 @@ from functools import wraps
 from types import TracebackType
 from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Sequence, Tuple, Type, Union
 
+from composer.profiler._profiler_action import ProfilerAction
 from composer.profiler.json_trace import JSONTraceHandler
-from composer.profiler.profiler_action import ProfilerAction
 from composer.utils import dist, run_directory
 
 if TYPE_CHECKING:
     from composer.core.state import State
     from composer.core.time import Timestamp
-    from composer.profiler import ProfilerEventHandler
+    from composer.profiler._event_handler import ProfilerEventHandler
+
+__all__ = ["Marker", "Profiler", "ProfilerEventHandler"]
 
 log = logging.getLogger(__name__)
 
-__all__ = ["Profiler", "Marker"]
-
 
 class Profiler:
-    """The Profiler produces a trace of the training graph.
+    """Records the duration of Trainer :class:`.Event` using the :class:`.Marker` API.
 
     Specifically, it records:
 
-    #. The duration of each section of the training loop, such as the time it takes to perform a forward pass, backward pass, batch, epoch, etc...
+    #. The duration of each section of the training loop, such as the time it takes to perform a forward pass, backward pass, batch, epoch, etc.
 
-    #. The latency each algorithm and callback adds when executing on each event.
+    #. The latency of each algorithm and callback adds when executing on each event.
 
-    #. The latency it takes for the dataloader to yield a batch.
+    The ``event_handlers`` then record and save this data to a trace file.  If no ``event_handlers`` is specified, the
+    :class:`.JSONTraceHandler` is used by default.
 
-    The ``event_handlers`` then record and save this data to a usable trace.
+    .. note::
+
+        The Composer :class:`.Trainer` creates an instance of :class:`.Profiler` when ``merged_trace_file`` is provided.
+        The user should not create and directly register an instance of :class:`Profiler` when using the Composer :class:`.Trainer`\\.
 
     Args:
         state (State): The state.
         event_handlers (Sequence[ProfilerEventHandler]): Event handlers which record and save profiling data to traces.
-        skip_first (int, optional): Number of batches to skip profiling at epoch start. (Default: ``0``)
-        wait (int, optional): For each profiling cycle, number of batches to skip at the beginning of the cycle. (Default: ``0``)
-        warmup (int, optional): For each profiling cycle, number of batches to be in the warmup state
-            after skipping ``wait`` batches.. (Default: ``1``)
-        active (int, optional): For each profiling cycle, number of batches to record after warming up. (Default: ``4``)
-        repeat (int, optional): Number of profiling cycles to perform per epoch. Set to ``0`` to record the entire epoch. (Default: ``1``)
-        merged_trace_file (str, optional): Name of the trace file, relative to the run directory. (Default: ``merged_profiler_trace.json``)
+        skip_first (int, optional): Number of batches to skip profiling at epoch start.  Defaults to ``0``.
+        wait (int, optional): For each profiling cycle, number of batches to skip at the beginning of the cycle.
+            Defaults to ``0``.
+        warmup (int, optional): For each profiling cycle, number of batches to be in the warmup state after skipping ``wait`` batches.
+            Defaults to ``1``.
+        active (int, optional): For each profiling cycle, number of batches to record after warming up.  Defaults to ``4``.
+        repeat (int, optional): Number of profiling cycles to perform per epoch. Set to ``0`` to record the entire epoch.
+            Defaults to ``1``.
+        merged_trace_file (str, optional): Name of the trace file, relative to the run directory.  Defaults to ``merged_profiler_trace.json``.
     """
 
     def __init__(self,
@@ -77,6 +83,9 @@ class Profiler:
         It repeats this cylce up to ``repeat`` times per epoch (or for the entire epoch, if ``repeat`` is 0).
         This logic repeats every epoch.
 
+        Args:
+            batch_idx (int): The index of the current batch.
+
         Returns:
             ProfilerAction: The current action.
         """
@@ -97,7 +106,7 @@ class Profiler:
         """Profiler event handlers."""
         return self._event_handlers
 
-    def merge_traces(self):
+    def _merge_traces(self):
         """Merge traces together.
 
         .. note::
@@ -135,21 +144,45 @@ class Profiler:
         record_instant_on_start: bool = False,
         record_instant_on_finish: bool = False,
         categories: Union[List[str], Tuple[str, ...]] = tuple()) -> Marker:
-        """Get a :class:`Marker`.
+        """Create and get an instance of a :class:`Marker`.
 
         If a :class:`Marker` with the specified ``name`` does not already exist, it will be created.
         Otherwise, the existing instance will be returned.
 
+        For example:
+
+        .. testsetup::
+
+            from composer.profiler import Profiler
+            profiler = Profiler(state=state)
+
+        .. doctest::
+
+            >>> marker = profiler.marker("foo")
+            >>> marker
+            <composer.profiler.Marker object at ...>
+
+        .. note::
+
+            :meth:`Profiler.marker()` should be used to construct markers.  :class:`Marker` **should not** be 
+            instantiated directly by the user.
+
+        Please see :meth:`Marker.start()` and :meth:`Marker.finish()` for usage on creating markers to measure duration events,
+        :meth:`Marker.instant()` for usage on creating markers to mark instant events and :meth:`Marker.counter()` for usage on
+        creating markers for counting.
+
         Args:
             name (str): The name for the :class:`Marker`.
             actions (Sequence[ProfilerAction], optional): :class:`ProfilerAction` states to record on.
-                By default, markers will record on :attr:`ProfilerAction.WARMUP` and :attr:`ProfilerAction.ACTIVE`
-            record_instant_on_start (bool, optional): Whether to record an instant event whenever the marker is started
-            record_instant_on_finish (bool, optional): Whether to record an instant event whenever the marker is finished
-            categories (List[str] | Tuple[str, ...], optional): Categories for this marker.
+                Defaults to (:attr:`ProfilerAction.WARMUP`, :attr:`ProfilerAction.ACTIVE`).
+            record_instant_on_start (bool, optional): Whether to record an instant event whenever the marker is started.
+                Defaults to ``False``.
+            record_instant_on_finish (bool, optional): Whether to record an instant event whenever the marker is finished.
+                Defaults to ``False``.
+            categories (Union[List[str], Tuple[str, ...]], optional): Categories for this marker. Defaults to ``None``.
 
         Returns:
-            Marker: [description]
+            Marker: Instance of :class:`Marker`.
         """
         if name not in self._names_to_markers:
             self._names_to_markers[name] = Marker(
@@ -163,8 +196,8 @@ class Profiler:
         self._names_to_markers[name].categories = categories
         return self._names_to_markers[name]
 
-    def record_duration_event(self, marker: Marker, is_start: bool, wall_clock_time_ns: int, global_rank: int, pid: int,
-                              timestamp: Timestamp):
+    def _record_duration_event(self, marker: Marker, is_start: bool, wall_clock_time_ns: int, global_rank: int,
+                               pid: int, timestamp: Timestamp):
         """Record a duration event.
 
         .. note::
@@ -191,8 +224,8 @@ class Profiler:
                 pid=pid,
             )
 
-    def record_instant_event(self, marker: Marker, wall_clock_time_ns: int, global_rank: int, pid: int,
-                             timestamp: Timestamp):
+    def _record_instant_event(self, marker: Marker, wall_clock_time_ns: int, global_rank: int, pid: int,
+                              timestamp: Timestamp):
         """Record an instant event.
 
         .. note::
@@ -217,7 +250,7 @@ class Profiler:
                 pid=pid,
             )
 
-    def record_counter_event(
+    def _record_counter_event(
         self,
         marker: Marker,
         wall_clock_time_ns: int,
@@ -256,50 +289,51 @@ class Profiler:
 class Marker:
     """Record when something happens or how long something takes.
 
+    Used by the :class:`~composer.core.engine.Engine` to measure the duration of :class:`~composer.core.event.Event` during training.
+
     .. note::
 
         :class:`Marker` should not be instantiated directly; instead use :meth:`Profiler.marker`.
 
-    To use a `Marker` to record a duration, you can:
+    Markers can record the following types of events:
 
-        #. Invoke :meth:`Marker.start` followed by :meth:`Marker.finish`
+    #. Duration: Records the start and stop time of an event of interest (:meth:`Marker.start()`, :meth:`Marker.finish()`).
+    #. Instant: Record time a particular event occurs, but not the full duration (:meth:`Marker.instant()`).
+    #. Counter: The value of a variable at given time (:meth:`Marker.counter()`).
 
-            .. code-block:: python
+    A :class:`Marker` can also be used as a context manager or decorator to record a duration:
 
-                marker = profiler.marker("foo")
-                marker.start()
-                something_to_measure()
-                marker.finish()
+    #. Use a :class:`Marker` with a context manager:
 
-        #. Use a :class:`Marker` with a context manager:
+        .. testsetup::
 
-            .. code-block:: python
+            from composer.profiler import Profiler
+            profiler = Profiler(state=state)
 
-                marker = profiler.marker("foo")
-                with marker:
-                    something_to_measure()
+        .. doctest::
 
-        #. Use a :class:`Marker` as a decorator:
+            >>> def something_to_measure():
+            ...     print("something_to_measure")
+            >>> marker = profiler.marker("foo")
+            >>> with marker:
+            ...     something_to_measure()
+            something_to_measure
 
-            .. code-block:: python
+    #. Use a :class:`Marker` as a decorator:
 
-                marker = profiler.marker("foo")
+        .. testsetup::
 
-                @marker
-                def something_to_measure():
-                    ...
+            from composer.profiler import Profiler
+            profiler = Profiler(state=state)
 
-                something_to_measure()
+        .. doctest::
 
-    To use a :class:`Marker` to record an instant, call :meth:`instant`
-
-    Args:
-        profiler (Profiler): The profiler.
-        name (str): The name of the event.
-        actions (Sequence[ProfilerAction], optional): :class:`ProfilerAction` states to record on.
-        record_instant_on_start (bool): Whether to record an instant event whenever the marker is started
-        record_instant_on_finish (bool): Whether to record an instant event whenever the marker is finished
-        categories (List[str] | Tuple[str, ...]]): Categories corresponding to this event.
+            >>> marker = profiler.marker("foo")
+            >>> @marker
+            ... def something_to_measure():
+            ...     print("something_to_measure")
+            >>> something_to_measure()
+            something_to_measure
     """
 
     def __init__(self, profiler: Profiler, name: str, actions: Sequence[ProfilerAction], record_instant_on_start: bool,
@@ -320,7 +354,25 @@ class Marker:
         self._action_at_start = None
 
     def start(self) -> None:
-        """Record the start of a duration event."""
+        """Record the start of a duration event.
+
+        To record the duration of an event, invoke :meth:`Marker.start` followed by :meth:`Marker.finish`\\:
+
+        .. testsetup::
+
+            from composer.profiler import Profiler
+            profiler = Profiler(state=state)
+
+        .. doctest::
+
+            >>> def something_to_measure():
+            ...     print("something_to_measure")
+            >>> marker = profiler.marker("foo")
+            >>> marker.start()
+            >>> something_to_measure()
+            something_to_measure
+            >>> marker.finish()
+        """
         if self._started:
             raise RuntimeError(
                 f"Attempted to start profiler event {self.name}; however, this marker is already started")
@@ -329,7 +381,7 @@ class Marker:
         self._action_at_start = self.profiler.get_action(batch_idx)
         if self._action_at_start in self.actions:
             wall_clock_time = time.time_ns()
-            self.profiler.record_duration_event(
+            self.profiler._record_duration_event(
                 self,
                 is_start=True,
                 wall_clock_time_ns=wall_clock_time,
@@ -338,7 +390,7 @@ class Marker:
                 pid=os.getpid(),
             )
             if self.record_instant_on_start:
-                self.profiler.record_instant_event(
+                self.profiler._record_instant_event(
                     self,
                     timestamp=self.profiler.state.timer.get_timestamp(),
                     wall_clock_time_ns=wall_clock_time,
@@ -348,14 +400,17 @@ class Marker:
         self._started = True
 
     def finish(self) -> None:
-        """Record the end of a duration event."""
+        """Record the end of a duration event.
+
+        See :meth:`Marker.start()` for a usage example.
+        """
         if not self._started:
             raise RuntimeError(
                 f"Attempted to finish profiler event {self.name}; however, this profiler event is not yet started")
 
         if self._action_at_start in self.actions:
             wall_clock_time = time.time_ns()
-            self.profiler.record_duration_event(
+            self.profiler._record_duration_event(
                 self,
                 is_start=False,
                 timestamp=self.profiler.state.timer.get_timestamp(),
@@ -364,7 +419,7 @@ class Marker:
                 pid=os.getpid(),
             )
             if self.record_instant_on_finish:
-                self.profiler.record_instant_event(
+                self.profiler._record_instant_event(
                     self,
                     wall_clock_time_ns=wall_clock_time,
                     timestamp=self.profiler.state.timer.get_timestamp(),
@@ -374,10 +429,27 @@ class Marker:
         self._started = False
 
     def instant(self) -> None:
-        """Record an instant event."""
+        """Record an instant event.
+
+        To record an instant event:
+
+        .. testsetup::
+
+            from composer.profiler import Profiler
+            profiler = Profiler(state=state)
+
+        .. doctest::
+
+            >>> def something_to_measure():
+            ...     print("something_to_measure")
+            >>> marker = profiler.marker("instant")
+            >>> marker.instant()
+            >>> something_to_measure()
+            something_to_measure
+        """
         batch_idx = self.profiler.state.timer.batch_in_epoch.value
         if self.profiler.get_action(batch_idx) in self.actions:
-            self.profiler.record_instant_event(
+            self.profiler._record_instant_event(
                 self,
                 wall_clock_time_ns=time.time_ns(),
                 timestamp=self.profiler.state.timer.get_timestamp(),
@@ -386,10 +458,26 @@ class Marker:
             )
 
     def counter(self, values: Dict[str, Union[float, int]]) -> None:
-        """Record a counter event."""
+        """Record a counter event.
+
+        To record a counter event:
+
+        .. testsetup::
+
+            from composer.profiler import Profiler
+            profiler = Profiler(state=state)
+
+        .. doctest::
+
+            >>> marker = profiler.marker("foo")
+            >>> counter_event = 5
+            >>> marker.counter({"counter_event": counter_event})
+            >>> counter_event = 10
+            >>> marker.counter({"counter_event": counter_event})
+        """
         batch_idx = self.profiler.state.timer.batch_in_epoch.value
         if self.profiler.get_action(batch_idx) in self.actions:
-            self.profiler.record_counter_event(
+            self.profiler._record_counter_event(
                 self,
                 wall_clock_time_ns=time.time_ns(),
                 global_rank=dist.get_global_rank(),
