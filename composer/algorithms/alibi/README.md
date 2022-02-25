@@ -14,9 +14,8 @@ ALiBi (Attention with Linear Biases) dispenses with position embeddings for toke
 
 ### Functional Interface
 
-TODO(MATTHEW): FIX
-
 ```python
+import torch
 import composer.functional as cf
 
 from composer.algorithms.alibi.gpt2_alibi import _attn
@@ -25,13 +24,13 @@ from transformers.models.gpt2.modeling_gpt2 import GPT2Attention
 
 def training_loop(model, train_loader):
     cf.apply_alibi(model=model,
-                            heads_per_layer=12,
-                            max_sequence_length=256,
-                            position_embedding_attribute="module.transformer.wpe",
-                            attention_module=GPT2Attention,
-                            attr_to_replace="_attn",
-                            alibi_attention=_attn,
-                            mask_replacement_function=enlarge_mask)
+                   heads_per_layer=12,
+                   max_sequence_length=256,
+                   position_embedding_attribute="module.transformer.wpe",
+                   attention_module=GPT2Attention,
+                   attr_to_replace="_attn",
+                   alibi_attention=_attn,
+                   mask_replacement_function=enlarge_mask)
 
     opt = torch.optim.Adam(model.parameters())
     loss_fn = F.cross_entropy
@@ -44,10 +43,9 @@ def training_loop(model, train_loader):
             loss.backward()
             opt.step()
             opt.zero_grad()
+```
 
 ### Composer Trainer
-
-TODO(MATTHEW): Verify and provide commentary and/or comments
 
 ```python
 from composer.algorithms import Alibi
@@ -57,10 +55,10 @@ trainer = Trainer(model=model,
                   train_dataloader=train_dataloader,
                   max_duration='1ep',
                   algorithms=[Alibi(position_embedding_attribute="module.transformer.wpe",
-                                                attention_module_name="transformers.models.gpt2.modeling_gpt2.GPT2Attention",
-                                                attr_to_replace="_attn",
-                                                alibi_attention="composer.algorithms.alibi._gpt2_alibi._attn",
-                                                mask_replacement_function="composer.algorithms.alibi.gpt2_alibi.enlarge_mask")
+                                    attention_module_name="transformers.models.gpt2.modeling_gpt2.GPT2Attention",
+                                    attr_to_replace="_attn",
+                                    alibi_attention="composer.algorithms.alibi._gpt2_alibi._attn",
+                                    mask_replacement_function="composer.algorithms.alibi.gpt2_alibi.enlarge_mask")
                   ])
 
 trainer.fit()
