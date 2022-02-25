@@ -14,6 +14,7 @@ from composer.core.precision import Precision
 from composer.datasets.hparams import SyntheticHparamsMixin
 from composer.models.transformer_hparams import TransformerHparams
 from composer.trainer.devices import CPUDeviceHparams
+from tests.utils.synthetic_utils import configure_dataset_for_synthetic, configure_model_for_synthetic
 
 modeldir_path = os.path.join(os.path.dirname(composer.__file__), 'yamls', 'models')
 model_names = glob.glob(os.path.join(modeldir_path, '*.yaml'))
@@ -71,10 +72,10 @@ def test_load(model_name: str):
     trainer_hparams.precision = Precision.FP32
     trainer_hparams.algorithms = algorithms.load_multiple(*get_model_algs(model_name))
 
-    _configure_dataset_for_synthetic(trainer_hparams.train_dataset)
+    configure_dataset_for_synthetic(trainer_hparams.train_dataset)
     trainer_hparams.train_subset_num_batches = 1
 
-    _configure_dataset_for_synthetic(trainer_hparams.val_dataset)
+    configure_dataset_for_synthetic(trainer_hparams.val_dataset)
     trainer_hparams.eval_subset_num_batches = 1
 
     trainer_hparams.dataloader.num_workers = 0
@@ -82,8 +83,7 @@ def test_load(model_name: str):
     trainer_hparams.dataloader.prefetch_factor = 2
     trainer_hparams.dataloader.persistent_workers = False
 
-    if isinstance(trainer_hparams.model, TransformerHparams):
-        model_test_config = 
+    configure_model_for_synthetic(trainer_hparams.model)
 
     trainer_hparams.device = CPUDeviceHparams()
     my_trainer = trainer_hparams.initialize_object()

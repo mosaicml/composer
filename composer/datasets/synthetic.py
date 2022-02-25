@@ -1,8 +1,12 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
+import functools
+import json
+import operator
 import random
 import string
-from tempfile import NamedTemporaryFile
+from os.path import join
+from tempfile import mkdtemp
 from typing import Callable, Optional, Sequence, Union
 
 import tokenizers
@@ -10,15 +14,10 @@ import torch
 import torch.utils.data
 from PIL import Image
 from torchvision.datasets import VisionDataset
-from transformers import BertTokenizer
+from transformers import BertTokenizer, GPT2Tokenizer
 
 from composer.core.types import MemoryFormat
 from composer.utils.string_enum import StringEnum
-
-# try:
-# from transformers import BertTokenizer
-# except ImportError as e:
-# BertTokenizer = object
 
 
 class SyntheticDataType(StringEnum):
@@ -30,7 +29,8 @@ class SyntheticDataLabelType(StringEnum):
     CLASSIFICATION_INT = "classification_int"
     CLASSIFICATION_ONE_HOT = "classification_one_hot"
 
-def get_synthetic_bert_tokenizer(dataset, vocab_size=256, return_tokenizer_file=False):
+
+def generate_synthetic_tokenizer(model, dataset=None, vocab_size=256, return_tokenizer_dir=False):
     try:
         import tokenizers
     except ImportError as e:
@@ -38,26 +38,72 @@ def get_synthetic_bert_tokenizer(dataset, vocab_size=256, return_tokenizer_file=
             'Composer was installed without NLP support. To use NLP with Composer, run: `pip install mosaicml[nlp]`.'
         ) from e
 
-    tokenizer = tokenizers.Tokenizer(tokenizers.models.WordPiece())
-    tokenizer.enable_padding(direction="right", pad_id=0, pad_type_id=0, pad_token="[PAD]", pad_to_multiple_of=8)
-    tokenizer.normalizer = tokenizers.normalizers.NFKC()
-    tokenizer.pre_tokenizer = tokenizers.pre_tokenizers.ByteLevel()
-    tokenizer.decoder = tokenizers.decoders.ByteLevel()
-    trainer = tokenizers.trainers.WordPieceTrainer(
+    # generate a synthetic dataset with reasonable defaults is none is provided
+    if dataset is None:
+        num_samples = 100
+        chars_per_sample = 128
+        column_names = ['sentence']
+        dataset_generator = SyntheticHFDataset(num_samples=num_samples,
+                                               chars_per_sample=chars_per_sample,
+                                               column_names=column_names)
+        dataset = dataset_generator.generate_dataset()
+        dataset = functools.reduce(operator.iconcat, [dataset[i] for i in column_names], [])
+
+    if model == "bert":
+        unk_token = "[UNK]"
+        pad_token = "[PAD]"
+        tokenizer_model = tokenizers.models.WordPiece(unk_token=unk_token)
+        normalizer = tokenizers.normalizers.BertNormalizer()
+        pre_tokenizer = tokenizers.pre_tokenizers.BertPreTokenizer()
+        decoder = tokenizers.decoders.WordPiece()
+        initial_alphabet = list(set("".join([i for i in dataset])))  # TODO (Moin): this might be slow, let's see.
+        special_tokens = ["[PAD]", "[UNK]", "[SEP]", "[CLS]", "[MASK]"]
+        trainer_cls = tokenizers.trainers.WordPieceTrainer
+    elif model == "gpt2":
+        unk_token = None
+        pad_token = "<pad>"
+        tokenizer_model = tokenizers.models.BPE(unk_token=unk_token)
+        normalizer = tokenizers.normalizers.Lowercase()
+        pre_tokenizer = tokenizers.pre_tokenizers.ByteLevel()
+        decoder = tokenizers.decoders.ByteLevel()
+        initial_alphabet = tokenizers.pre_tokenizers.ByteLevel.alphabet()
+        special_tokens = [pad_token, "<endoftext>"]
+        trainer_cls = tokenizers.trainers.BpeTrainer
+    else:
+        raise ValueError(f"Synthetic tokenizers for model {model} are currently unsupported.")
+
+    tokenizer = tokenizers.Tokenizer(tokenizer_model)
+    tokenizer.enable_padding(direction="right", pad_id=0, pad_type_id=0, pad_token=pad_token, pad_to_multiple_of=8)
+    tokenizer.normalizer = normalizer
+    tokenizer.pre_tokenizer = pre_tokenizer
+    tokenizer.decoder = decoder
+    trainer = trainer_cls(
         vocab_size=vocab_size,
-        initial_alphabet=tokenizers.pre_tokenizers.ByteLevel.alphabet(),
-        special_tokens=["[PAD]", "[UNK]", "[SEP]", "[CLS]", "[MASK]"],
+        initial_alphabet=initial_alphabet,
+        special_tokens=special_tokens,
     )
     tokenizer.train_from_iterator(dataset, trainer=trainer)
-    tmp_tokenizer_file = NamedTemporaryFile()
-    for token, _ in sorted(tokenizer.get_vocab().items(), key=lambda x: x[1]):
-        tmp_tokenizer_file.write(f"{token}\n".encode())
-    tmp_tokenizer_file.flush()
 
-    if return_tokenizer_file:
-        return tmp_tokenizer_file.name
+    tmp_tokenizer_dir = mkdtemp()
+    tmp_tokenizer_file = join(tmp_tokenizer_dir, "tokenizer.json")
+    tokenizer.save(tmp_tokenizer_file)
 
-    return BertTokenizer(tmp_tokenizer_file.name)
+    # generate either vocab file, or merges.txt!
+    if model == "bert":
+        tmp_tokenizer_vocab = join(tmp_tokenizer_dir, "vocab.txt")
+        with open(tmp_tokenizer_vocab, "w") as f:
+            for token, _ in sorted(tokenizer.get_vocab().items(), key=lambda x: x[1]):
+                f.write(f"{token}\n")
+        tokenizer_cls = BertTokenizer
+    elif model == "gpt2":
+        tokenizer_model.save(tmp_tokenizer_dir)
+        tokenizer_cls = GPT2Tokenizer
+
+    tokenizer = tokenizer_cls.from_pretrained(tmp_tokenizer_dir)
+
+    if return_tokenizer_dir:
+        return tokenizer, tmp_tokenizer_dir
+    return tokenizer
 
 
 class SyntheticHFDataset:

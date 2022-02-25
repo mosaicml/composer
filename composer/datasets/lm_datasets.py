@@ -14,7 +14,7 @@ import yahp as hp
 from composer.core.types import Batch, DataSpec
 from composer.datasets.dataloader import DataloaderHparams
 from composer.datasets.hparams import DatasetHparams, SyntheticHparamsMixin
-from composer.datasets.synthetic import SyntheticBertTokenizer, SyntheticHFDataset
+from composer.datasets.synthetic import generate_synthetic_tokenizer, SyntheticHFDataset
 from composer.utils import dist
 
 log = logging.getLogger(__name__)
@@ -100,7 +100,7 @@ class LMDatasetHparams(DatasetHparams, SyntheticHparamsMixin):
 
             # flatten the columnar dataset into one column
             flattened_dataset = functools.reduce(operator.iconcat, [lm_datasets[i] for i in column_names], [])
-            self.tokenizer = SyntheticBertTokenizer(flattened_dataset)
+            self.tokenizer = generate_synthetic_tokenizer(model="bert", dataset=flattened_dataset)
 
             lm_datasets = lm_datasets.map(lambda inp: self.tokenizer(
                 text=inp[column_names[0]

@@ -14,7 +14,7 @@ from composer.core.types import Dataset
 from composer.datasets.dataloader import DataloaderHparams
 from composer.datasets.hparams import DatasetHparams, SyntheticHparamsMixin
 from composer.datasets.lm_datasets import _split_dict_fn
-from composer.datasets.synthetic import SyntheticBertTokenizer, SyntheticHFDataset
+from composer.datasets.synthetic import generate_synthetic_tokenizer, SyntheticHFDataset
 from composer.utils import dist
 
 log = logging.getLogger(__name__)
@@ -95,7 +95,7 @@ class GLUEHparams(DatasetHparams, SyntheticHparamsMixin):
 
             # flatten the columnar dataset into one column
             flattened_dataset = functools.reduce(operator.iconcat, [self.dataset[i] for i in column_names], [])
-            self.tokenizer = SyntheticBertTokenizer(flattened_dataset)
+            self.tokenizer = generate_synthetic_tokenizer(model="bert", dataset=flattened_dataset)
         else:
             self.tokenizer = transformers.AutoTokenizer.from_pretrained(self.tokenizer_name)  #type: ignore (thirdparty)
 

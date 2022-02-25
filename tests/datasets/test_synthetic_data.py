@@ -6,8 +6,8 @@ from typing import Optional
 
 import pytest
 
-from composer.datasets.synthetic import (SyntheticBatchPairDataset, SyntheticBertTokenizer, SyntheticDataLabelType,
-                                         SyntheticDataType, SyntheticHFDataset, SyntheticPILDataset)
+from composer.datasets.synthetic import (SyntheticBatchPairDataset, SyntheticDataLabelType, SyntheticDataType,
+                                         SyntheticHFDataset, SyntheticPILDataset, generate_synthetic_bert_tokenizer)
 
 
 @pytest.mark.parametrize('num_samples', [50])
@@ -29,7 +29,7 @@ def test_synthetic_hf_dataset_creation(num_samples: int, chars_per_sample: int, 
     # build the tokenizer
     # flatten the columnar dataset into one column
     flattened_dataset = functools.reduce(operator.iconcat, [dataset[i] for i in column_names], [])
-    tokenizer = SyntheticBertTokenizer(flattened_dataset)
+    tokenizer = generate_synthetic_bert_tokenizer(dataset=flattened_dataset)
     # verifying the input ids are a part of the tokenizer
     assert 'input_ids' in tokenizer.model_input_names
 
@@ -50,26 +50,11 @@ def test_synthetic_hf_dataset_creation(num_samples: int, chars_per_sample: int, 
     assert x[-1] == tokenizer.pad_token_id
 
 
-@pytest.mark.parametrize('data_type', [
-    SyntheticDataType.GAUSSIAN,
-    SyntheticDataType.SEPARABLE,
-])
 @pytest.mark.parametrize('label_type', [
     SyntheticDataLabelType.CLASSIFICATION_ONE_HOT,
     SyntheticDataLabelType.CLASSIFICATION_INT,
 ])
 def test_synthetic_tokenizer_creation(data_type: SyntheticDataType, label_type: SyntheticDataLabelType):
-    if data_type == SyntheticDataType.SEPARABLE:
-        if label_type != SyntheticDataLabelType.CLASSIFICATION_INT:
-            pytest.skip("Seperable data requires classification int labels")
-        num_classes = 2
-        label_shape = None
-    else:
-        num_classes = 10
-        label_shape = (1, 10, 12)
-        # run run
-        return
-
     dataset_size = 1000
     data_shape = (3, 32, 32)
     num_samples_to_create = 10

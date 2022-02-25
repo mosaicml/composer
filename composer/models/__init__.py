@@ -26,5 +26,6 @@ from composer.models.resnet.resnet_hparams import ResNetHparams as ResNetHparams
 from composer.models.timm import Timm as Timm
 from composer.models.timm import TimmHparams as TimmHparams
 from composer.models.transformer_shared import ComposerTransformer as ComposerTransformer
+from composer.models.transformer_hparams import TransformerHparams as TransformerHparams
 from composer.models.unet import UNet as UNet
 from composer.models.unet import UnetHparams as UnetHparams
