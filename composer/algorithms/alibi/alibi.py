@@ -36,7 +36,7 @@ def apply_alibi(
     """Removes position embeddings and replaces the attention function and attention mask
     according as per :class:`~composer.algorithms.alibi.alibi.Alibi`. Note that the
     majority of the training speed-up from using ALiBi comes from being able to train on
-    shorter sequence lengths; thisfunction does not scale the training sequence length as
+    shorter sequence lengths; this function does not scale the training sequence length as
     :class:`~composer.algorithms.alibi.alibi.Alibi` does, so little speedup will be
     observed from using it alone. See the :doc:`Method Card </method_cards/alibi>` for
     more details.
