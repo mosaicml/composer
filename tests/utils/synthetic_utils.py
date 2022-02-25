@@ -1,4 +1,4 @@
-from transformers import BertTokenizer
+import pytest
 
 from composer.datasets.hparams import DatasetHparams, SyntheticHparamsMixin
 from composer.datasets.synthetic import generate_synthetic_tokenizer
@@ -16,22 +16,24 @@ def configure_dataset_for_synthetic(dataset_hparams: DatasetHparams) -> None:
 
 
 def configure_model_for_synthetic(model_hparams: ModelHparams):
+    # configure Transformer-based models for synthetic testing
     if isinstance(model_hparams, TransformerHparams):
-        # TODO (moin): move the location of this exception and auto-detect based on (type)
-        if isinstance(model_hparams, GPT2Hparams):
-            model = "gpt2"
-        elif isinstance(model_hparams, BERTHparams) or isinstance(model_hparams, BERTForClassificationHparams):
-            model = "bert"
-        else:
-            print(type(model_hparams))
-            raise ValueError("The current model family is unsupported for unit testing.")
+        model_hparams_name = type(model_hparams).__name__
+        model_hparams_to_name = {"GPT2Hparams": "gpt2", "BERTForClassificationHparams": "bert", "BERTHparams": "bert"}
+        if model_hparams_name not in model_hparams_to_name:
+            raise ValueError(f"Model {model_hparams_name} is currently not supported for synthetic testing!")
+
+        model = model_hparams_to_name[model_hparams_name]
+
         # force a non-pretrained model
         model_hparams.use_pretrained = False
         model_hparams.pretrained_model_name = None
-        model_hparams_name = type(model_hparams).__name__
+
+        # generate tokenizers and synthetic models
         tokenizer, model_hparams.tokenizer_name = generate_synthetic_tokenizer(model=model, return_tokenizer_dir=True)
         model_hparams.model_config = generate_dummy_model_config(model_hparams_name, tokenizer)
 
+    # configure DeepLabV3 models for synthetic testing
     if isinstance(model_hparams, DeepLabV3Hparams):
         model_hparams.is_backbone_pretrained = False  # prevent downloading pretrained weights during test
         model_hparams.sync_bn = False  # sync_bn throws an error when run on CPU

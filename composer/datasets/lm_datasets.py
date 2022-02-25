@@ -14,7 +14,7 @@ import yahp as hp
 from composer.core.types import Batch, DataSpec
 from composer.datasets.dataloader import DataloaderHparams
 from composer.datasets.hparams import DatasetHparams, SyntheticHparamsMixin
-from composer.datasets.synthetic import generate_synthetic_tokenizer, SyntheticHFDataset
+from composer.datasets.synthetic import SyntheticHFDataset, generate_synthetic_tokenizer
 from composer.utils import dist
 
 log = logging.getLogger(__name__)

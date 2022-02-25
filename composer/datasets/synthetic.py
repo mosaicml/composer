@@ -30,6 +30,15 @@ class SyntheticDataLabelType(StringEnum):
     CLASSIFICATION_ONE_HOT = "classification_one_hot"
 
 
+class SyntheticTokenizerParams(NamedTuple):
+    tokenizer_model: tokenizers.models.Model
+    normalizer: tokenizers.normalizer.Normalizer
+    pre_tokenizer: tokenizers.pre_tokenizers.PreTokenizer
+    decoder: tokenizers.decoders.Decoder
+    initial_alphabet: list
+    special_tokens: list
+    trainer_cls: tokenizers.trainer.Trainer
+
 def generate_synthetic_tokenizer(model, dataset=None, vocab_size=256, return_tokenizer_dir=False):
     try:
         import tokenizers
@@ -56,7 +65,8 @@ def generate_synthetic_tokenizer(model, dataset=None, vocab_size=256, return_tok
         normalizer = tokenizers.normalizers.BertNormalizer()
         pre_tokenizer = tokenizers.pre_tokenizers.BertPreTokenizer()
         decoder = tokenizers.decoders.WordPiece()
-        initial_alphabet = list(set("".join([i for i in dataset])))  # TODO (Moin): this might be slow, let's see.
+        initial_alphabet = "".join([i for i in dataset]
+        initial_alphabet = list(set(initial_alphabet)))  # TODO (Moin): this might be slow, let's see.
         special_tokens = ["[PAD]", "[UNK]", "[SEP]", "[CLS]", "[MASK]"]
         trainer_cls = tokenizers.trainers.WordPieceTrainer
     elif model == "gpt2":

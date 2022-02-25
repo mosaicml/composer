@@ -14,7 +14,7 @@ from composer.core.types import Dataset
 from composer.datasets.dataloader import DataloaderHparams
 from composer.datasets.hparams import DatasetHparams, SyntheticHparamsMixin
 from composer.datasets.lm_datasets import _split_dict_fn
-from composer.datasets.synthetic import generate_synthetic_tokenizer, SyntheticHFDataset
+from composer.datasets.synthetic import SyntheticHFDataset, generate_synthetic_tokenizer
 from composer.utils import dist
 
 log = logging.getLogger(__name__)
