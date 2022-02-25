@@ -66,7 +66,11 @@ trainer.fit()
 
 ### Implementation Details
 
-ALiBi is implemented by performing model surgery... TODO(MATTHEW)
+ALiBi is implemented as follows. On `Event.INIT`:
+1. The model's position embeddings are expanded to accommodate sequences of up to length `max_sequence_length`, and then "bypassed" by setting them to zero and freezing them.
+2. The attribute that computes the self-attention (`attr_to_replace`) in the model's self-attention modules (`attention_module_name`) is replaced with an ALiBi-enabled self-attention method (`alibi_attention`) using graph surgery.
+On `Event.AFTER_DATALOADER`, the length of training data sequences in a batch are scaled by `train_sequence_length_scaling` by reshaping the data tensors.
+
 
 ## Suggested Hyperparameters
 
