@@ -44,34 +44,34 @@ def apply_alibi(
     Example:
     .. code-block:: python
 
-            import torch.nn.functional as F
+        import torch.nn.functional as F
 
-            import composer.functional as cf
+        import composer.functional as cf
 
-            from composer.algorithms.alibi.gpt2_alibi import _attn
-            from composer.algorithms.alibi.gpt2_alibi import enlarge_mask
-            from transformers.models.gpt2.modeling_gpt2 import GPT2Attention
+        from composer.algorithms.alibi.gpt2_alibi import _attn
+        from composer.algorithms.alibi.gpt2_alibi import enlarge_mask
+        from transformers.models.gpt2.modeling_gpt2 import GPT2Attention
 
-            cf.apply_alibi(model=model,
-                           heads_per_layer=12,
-                           max_sequence_length=8192,
-                           position_embedding_attribute="module.transformer.wpe",
-                           attention_module=GPT2Attention,
-                           attr_to_replace="_attn",
-                           alibi_attention=_attn,
-                           mask_replacement_function=enlarge_mask)
+        cf.apply_alibi(model=model,
+                        heads_per_layer=12,
+                        max_sequence_length=8192,
+                        position_embedding_attribute="module.transformer.wpe",
+                        attention_module=GPT2Attention,
+                        attr_to_replace="_attn",
+                        alibi_attention=_attn,
+                        mask_replacement_function=enlarge_mask)
 
-            opt = torch.optim.Adam(model.parameters())
-            loss_fn = F.cross_entropy
+        opt = torch.optim.Adam(model.parameters())
+        loss_fn = F.cross_entropy
 
-            def training_loop(model, train_loader):
-            model.train()
-            for X, y in train_loader:
-                opt.zero_grad()   
-                y_hat = model(X)
-                loss = loss_fn(y_hat, y)
-                loss.backward()
-                opt.step()
+        def training_loop(model, train_loader):
+        model.train()
+        for X, y in train_loader:
+            opt.zero_grad()   
+            y_hat = model(X)
+            loss = loss_fn(y_hat, y)
+            loss.backward()
+            opt.step()
 
     Args:
         model (torch.nn.Module): Model to transform.
