@@ -41,6 +41,27 @@ def apply_alibi(
     observed from using it alone. See the :doc:`Method Card </method_cards/alibi>` for
     more details.
 
+    Example:
+
+    .. code-block:: python
+
+        import torch.nn.functional as F
+
+        import composer.functional as cf
+
+        from composer.algorithms.alibi.gpt2_alibi import _attn
+        from composer.algorithms.alibi.gpt2_alibi import enlarge_mask
+        from transformers.models.gpt2.modeling_gpt2 import GPT2Attention
+
+        cf.apply_alibi(model=model,
+                        heads_per_layer=12,
+                        max_sequence_length=8192,
+                        position_embedding_attribute="module.transformer.wpe",
+                        attention_module=GPT2Attention,
+                        attr_to_replace="_attn",
+                        alibi_attention=_attn,
+                        mask_replacement_function=enlarge_mask)
+
     Args:
         model (torch.nn.Module): Model to transform.
         heads_per_layer (int): Number of attention heads per layer.
@@ -73,27 +94,6 @@ def apply_alibi(
 
     Returns:
         None
-
-    Example:
-
-    .. code-block:: python
-
-        import torch.nn.functional as F
-
-        import composer.functional as cf
-
-        from composer.algorithms.alibi.gpt2_alibi import _attn
-        from composer.algorithms.alibi.gpt2_alibi import enlarge_mask
-        from transformers.models.gpt2.modeling_gpt2 import GPT2Attention
-
-        cf.apply_alibi(model=model,
-                        heads_per_layer=12,
-                        max_sequence_length=8192,
-                        position_embedding_attribute="module.transformer.wpe",
-                        attention_module=GPT2Attention,
-                        attr_to_replace="_attn",
-                        alibi_attention=_attn,
-                        mask_replacement_function=enlarge_mask)
     """
 
     _zero_and_freeze_expand_position_embeddings(model=model,
@@ -134,6 +134,25 @@ class Alibi(Algorithm):
 
     See the :doc:`Method Card </method_cards/alibi>` for more details.
 
+    Example:
+
+    .. code-block::
+
+        from composer.algorithms import Alibi
+        from composer.trainer import Trainer
+
+        alibi = Alibi(position_embedding_attribute="module.transformer.wpe",
+                      attention_module_name="transformers.models.gpt2.modeling_gpt2.GPT2Attention"
+                      attr_to_replace="_attn",
+                      alibi_attention="composer.algorithms._gpt2_alibi._attn",
+                      mask_replacement_function="composer.algorithms.alibi.gpt2_alibi.enlarge_mask"
+                      max_sequence_length=8192)
+
+        trainer = Trainer(model=model,
+                          train_dataloader=train_dataloader,
+                          max_duration="1ep",
+                          algorithms=[alibi])
+
     Args:
         position_embedding_attribute (str): Attribute for position
             embeddings. For example in HuggingFace's GPT2, the
@@ -166,25 +185,6 @@ class Alibi(Algorithm):
             reshaped from shape :math:`(sequence\\_length, batch)` to
             :math:`(sequence\\_length \\times train\\_sequence\\_length\\_scaling,
             \\frac{batch}{train\\_sequence\\_length\\_scaling})`. Default = ``0.25``.
-
-    Example:
-
-    .. code-block::
-
-        from composer.algorithms import Alibi
-        from composer.trainer import Trainer
-
-        alibi = Alibi(position_embedding_attribute="module.transformer.wpe",
-                      attention_module_name="transformers.models.gpt2.modeling_gpt2.GPT2Attention"
-                      attr_to_replace="_attn",
-                      alibi_attention="composer.algorithms._gpt2_alibi._attn",
-                      mask_replacement_function="composer.algorithms.alibi.gpt2_alibi.enlarge_mask"
-                      max_sequence_length=8192)
-
-        trainer = Trainer(model=model,
-                          train_dataloader=train_dataloader,
-                          max_duration="1ep",
-                          algorithms=[alibi])
     """
 
     def __init__(self,
