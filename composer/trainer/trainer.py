@@ -341,8 +341,7 @@ class Trainer:
         if len(self.evaluators) == 0:
             warnings.warn(
                 textwrap.dedent("""No evaluation dataset was specified. Please specify `eval_dataloader` to periodically
-                evaluate your model while training."""),
-                category=UserWarning)
+                evaluate your model while training."""))
 
         if not isinstance(train_dataloader, DataSpec):
             train_dataloader = DataSpec(train_dataloader)
@@ -383,6 +382,11 @@ class Trainer:
         if self.adaptive_grad_accum:
             self.grad_accum = 1
             grad_accum = 1
+            warnings.warn(
+                textwrap.dedent("""There are known issues with using adaptive gradient accumulation in conjunction
+                with algorithms which change memory, which may cause CUDA Out of Memory errors.
+                """),
+                category=UserWarning)
         # Cannot use adaptive grad accum on CPU
         if isinstance(self.device, DeviceCPU) and self.adaptive_grad_accum:
             raise ValueError("Cannot use adaptive grad_accum on CPU. Please set grad_accum >= 1")
@@ -671,16 +675,7 @@ class Trainer:
                     if self.deepspeed_enabled:
                         state.batch = fix_batch_precision_for_deepspeed(state.batch, state.precision)
 
-                    if self.compute_training_metrics:
-                        # compute metrics on the training set
-                        assert train_metrics is not None
-                        state.model.eval()
-                        with torch.no_grad():
-                            for eval_microbatch in self._train_data_spec.split_batch(state.batch, state.grad_accum):
-                                # TODO: Detect if self.run_event(Event.AFTER_DATALOADER) changes the training
-                                # data and if so print a warning that metrics may return unexpected results
-                                outputs, targets = self.original_model.validate(eval_microbatch)
-                                train_metrics.update(outputs, targets)
+                    self._compute_training_metrics(train_metrics)
 
                     state.model.train()
 
@@ -690,8 +685,7 @@ class Trainer:
                         torch.tensor([state.batch_num_samples], dtype=torch.int))
                     num_tokens_in_batch = self.device.tensor_to_device(
                         torch.tensor([state.batch_num_tokens], dtype=torch.int))
-                    grad_accum = self.device.tensor_to_device(
-                        torch.tensor([state.grad_accum], dtype=torch.int))
+                    grad_accum = self.device.tensor_to_device(torch.tensor([state.grad_accum], dtype=torch.int))
                     dist.all_reduce(num_samples_in_batch, reduce_operation="SUM")
                     dist.all_reduce(num_tokens_in_batch, reduce_operation="SUM")
                     dist.all_reduce(grad_accum, reduce_operation="MAX")
@@ -703,7 +697,7 @@ class Trainer:
                         "trainer/batch_idx": self.state.timer.batch_in_epoch.value,
                     })
 
-                    total_loss = self._train_and_compute_loss(use_grad_scaling, state.batch_num_samples)
+                    total_loss = self._train_and_compute_loss(use_grad_scaling)
 
                     if use_grad_scaling:
                         state.scaler.update()
@@ -756,54 +750,78 @@ class Trainer:
             if self.checkpoint_saver and self.checkpoint_saver.should_checkpoint(state=state, event=Event.EPOCH_END):
                 self.checkpoint_saver.save_checkpoint(state=state, seed=self.seed, device=self.device)
 
-    def _train_and_compute_loss(self, use_grad_scaling: bool, batch_num_samples: int):
+    def _handle_cuda_oom(self, e: RuntimeError):
+        """Handles CUDA Out of Memory and rescales if using adaptive grad_accum
+        """
+        if self.adaptive_grad_accum and "CUDA out of memory" in str(e):
+            # Raise runtime error if training 1 sample at a time still resulted in CUDA out of memory
+            if self.state.grad_accum == self.state.batch_num_samples:
+                raise RuntimeError("CUDA out of memory. Train loop failed with an internal microbatch of size 1")
+            else:
+                self.state.grad_accum = min(2 * self.state.grad_accum, self.state.batch_num_samples)
+                self.logger.metric_batch({'trainer/grad_accum': self.state.grad_accum})
+        else:
+            # If not CUDA out of memory, raise exception to user. Note that this
+            # truncates the call stack back only to this newly raised error
+            raise e
+
+    def _compute_training_metrics(self, train_metrics: MetricCollection):
+        """Compute training metrics. Adaptively change microbatch size if enabled to maximize
+        GPU usage.
+
+        Args:
+            train_metrics (MetricCollection): Existing train metrics 
+        """
+        try:
+            if self.compute_training_metrics:
+                # Compute metrics on the training set
+                assert train_metrics is not None
+                self.state.model.eval()
+                with torch.no_grad():
+                    # Store results so we only update train_metrics if all batches are processed without OOM
+                    results = []
+                    for eval_microbatch in self._train_data_spec.split_batch(self.state.batch, self.state.grad_accum):
+                        # TODO: Detect if self.run_event(Event.AFTER_DATALOADER) changes the training
+                        # data and if so print a warning that metrics may return unexpected results
+                        outputs, targets = self.original_model.validate(eval_microbatch)
+                        results.append((outputs, targets))
+                    for outputs, targets in results:
+                        train_metrics.update(outputs, targets)
+        except RuntimeError as e:
+            self._handle_cuda_oom(e)
+            self._compute_training_metrics(train_metrics)
+
+    def _train_and_compute_loss(self, use_grad_scaling: bool):
         """Compute loss by training on a full batch of data. Adaptively change microbatch size
         if enabled to maximize GPU usage.
 
         Args:
             use_grad_scaling (bool): Enables gradient scaling
-            batch_num_samples (int): Number of samples in batch. Note that state.batch_num_samples
-                is later adjusted to be the microbatch size, so we need an explicit function param
         """
-        # Rerun train_batch with smaller microbatches if we hit CUDA out of memory
-        rerun_train_batch = True
-        total_loss = None
-        while rerun_train_batch:
-            try:
-                rerun_train_batch = False
-                microbatches = self._train_data_spec.split_batch(self.state.batch, self.state.grad_accum)
-                if self.deepspeed_enabled:
-                    total_loss = self._train_batch(microbatches)
-                elif self._use_closures():
-                    for optimizer in self.state.optimizers:
-                        if use_grad_scaling:
-                            total_loss = self.state.scaler.step(
-                                optimizer, closure=lambda **kwargs: self._train_batch(microbatches, **kwargs))
-                        else:
-                            total_loss = optimizer.step(
-                                closure=lambda **kwargs: self._train_batch(microbatches, **kwargs).item())
-                else:
-                    total_loss = self._train_batch(microbatches)
-                    for optimizer in self.state.optimizers:
-                        if use_grad_scaling:
-                            self.state.scaler.step(optimizer)
-                        else:
-                            optimizer.step()
-            except RuntimeError as e:
-                if self.adaptive_grad_accum and "CUDA out of memory" in str(e):
-                    # Raise runtime error if training 1 sample at a time still resulted in CUDA out of memory
-                    if self.state.grad_accum == batch_num_samples:
-                        raise RuntimeError(
-                            "CUDA out of memory. Train loop failed with an internal microbatch of size 1")
+        try:
+            total_loss = None
+            microbatches = self._train_data_spec.split_batch(self.state.batch, self.state.grad_accum)
+            if self.deepspeed_enabled:
+                total_loss = self._train_batch(microbatches)
+            elif self._use_closures():
+                for optimizer in self.state.optimizers:
+                    if use_grad_scaling:
+                        total_loss = self.state.scaler.step(
+                            optimizer, closure=lambda **kwargs: self._train_batch(microbatches, **kwargs))
                     else:
-                        rerun_train_batch = True
-                        self.state.grad_accum = min(2 * self.state.grad_accum, batch_num_samples)
-                        self.logger.metric_batch({'trainer/grad_accum': self.state.grad_accum})
-                else:
-                    # If not CUDA out of memory, raise exception to user. Note that this
-                    # truncates the call stack back only to this newly raised error
-                    raise RuntimeError(e)
-        return total_loss
+                        total_loss = optimizer.step(
+                            closure=lambda **kwargs: self._train_batch(microbatches, **kwargs).item())
+            else:
+                total_loss = self._train_batch(microbatches)
+                for optimizer in self.state.optimizers:
+                    if use_grad_scaling:
+                        self.state.scaler.step(optimizer)
+                    else:
+                        optimizer.step()
+            return total_loss
+        except RuntimeError as e:
+            self._handle_cuda_oom(e)
+            return self._train_and_compute_loss(use_grad_scaling)
 
     def _train_batch(self, microbatches: Sequence[Batch], ddp_sync: bool = True):
         """Run training on a full batch of data.
@@ -841,8 +859,7 @@ class Trainer:
         current_batch_size = sum([self._train_data_spec.get_num_samples_in_batch(batch) for batch in microbatches])
 
         for microbatch_idx, state.batch in enumerate(microbatches):
-            state.batch_num_tokens = self._train_data_spec.get_num_tokens_in_batch(state.batch)
-            state.batch_num_samples = self._train_data_spec.get_num_samples_in_batch(state.batch)
+            microbatch_num_samples = self._train_data_spec.get_num_samples_in_batch(state.batch)
             is_final_microbatch = microbatch_idx + 1 == len(microbatches)
             sync_context = contextlib.nullcontext() if self.deepspeed_enabled else ddp_sync_context(
                 state, is_final_microbatch, self.ddp_sync_strategy)
@@ -870,7 +887,7 @@ class Trainer:
                 # Likely need to look into the performance impact
                 if not self.deepspeed_enabled:
                     for loss in ensure_tuple(state.loss):
-                        loss.mul_(state.batch_num_samples / current_batch_size)
+                        loss.mul_(microbatch_num_samples / current_batch_size)
                         total_loss += loss.detach().clone()
 
                 assert state.loss is not None
@@ -887,7 +904,7 @@ class Trainer:
 
                     # This is the same loss scaling and reporting we skipped earlier.
                     for loss in ensure_tuple(state.loss):
-                        loss.mul_(state.batch_num_samples / current_batch_size)
+                        loss.mul_(microbatch_num_samples / current_batch_size)
                         total_loss += loss.detach().clone()
                 else:
                     for loss in ensure_tuple(state.loss):

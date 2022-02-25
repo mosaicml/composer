@@ -146,7 +146,7 @@ class TrainerHparams(hp.Hparams):
         used to compensate for low-memory-capacity devices. If set to auto, 
         dynamically increases number of microbatch size if train_batch_size is
         too large for GPU. Defaults to ``auto``"""),
-                                  default=1)
+                                              default=1)
     precision: Precision = hp.optional(doc="Precision to use for training", default=Precision.AMP)
 
     val_dataset: Optional[datasets.DatasetHparams] = hp.optional(doc="Validation dataset hparams", default=None)
@@ -339,7 +339,8 @@ class TrainerHparams(hp.Hparams):
         if self.scale_schedule_ratio <= 0:
             raise ValueError("scale_schedule_ratio must be a positive value.")
 
-        if isinstance(self.grad_accum, str) and self.grad_accum != "auto" or isinstance(self.grad_accum, int) and self.grad_accum < 1:
+        if isinstance(self.grad_accum, str) and self.grad_accum != "auto" or isinstance(self.grad_accum,
+                                                                                        int) and self.grad_accum < 1:
             raise ValueError("grad_accum must be ``auto`` or an int greater than or equal to 1")
 
     def initialize_object(self) -> Trainer:
