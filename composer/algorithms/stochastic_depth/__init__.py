@@ -1,7 +1,6 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
-"""Adds Squeeze-and-Excitation blocks (`Hu et al, 2019 <https://arxiv.org/abs/1709.01507>`_) after the
-:class:`~torch.nn.Conv2d` modules in a neural network.
+"""Replaces standard ResNet blocks with stochastic ResNet blocks (`Huang et al, 2016 <https://arxiv.org/abs/1603.09382>`_).
 
 See :class:`~composer.algorithms.StochasticDepth`, the sample-wise stochastic depth :doc:`method card
 </method_cards/stochastic_depth_samplewise>`, or the block-wise stochastic depth :doc:`method card

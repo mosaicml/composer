@@ -50,7 +50,7 @@ def apply_stochastic_depth(model: torch.nn.Module,
         Stochastic Depth only works on instances of `torchvision.models.resnet.ResNet` for now.
 
     Args:
-        model (Module): model containing modules to be replaced with stochastic versions
+        model (torch.nn.Module): model containing modules to be replaced with stochastic versions
         target_layer_name (str): Block to replace with a stochastic block
             equivalent. The name must be registered in ``STOCHASTIC_LAYER_MAPPING``
             dictionary with the target layer class and the stochastic layer class.
@@ -123,12 +123,14 @@ class StochasticDepth(Algorithm):
     implementation used for EfficientNet in the
     `Tensorflow/TPU repo <https://github.com/tensorflow/tpu>`_.
 
+    Runs on :attr:`~composer.core.event.Event.INIT`.
+
     .. note::
 
         Stochastic Depth only works on instances of `torchvision.models.resnet.ResNet` for now.
 
     Args:
-        target_layer_name: Block to replace with a stochastic block
+        target_layer_name (str): Block to replace with a stochastic block
             equivalent. The name must be registered in ``STOCHASTIC_LAYER_MAPPING``
             dictionary with the target layer class and the stochastic layer class.
             Currently, only :class:`torchvision.models.resnet.Bottleneck` is supported.
