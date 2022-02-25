@@ -54,13 +54,13 @@ def train_model(composer_trainer_hparams: TrainerHparams, max_epochs: int = 2, r
     trainer.fit()
 
     # The original model is on the CPU so move it to GPU if needed
-    if isinstance(trainer.device, DeviceGPU):
-        original_model = trainer.device.module_to_device(original_model)
+    if isinstance(trainer._device, DeviceGPU):
+        original_model = trainer._device.module_to_device(original_model)
 
     if run_loss_check and trainer.state.train_dataloader:
-        initial_loss = get_total_loss(original_model, trainer.state.train_dataloader, trainer.device)
+        initial_loss = get_total_loss(original_model, trainer.state.train_dataloader, trainer._device)
 
         unwrapped_model = trainer.state.model.module
         assert isinstance(unwrapped_model, ComposerModel)
-        post_fit_loss = get_total_loss(unwrapped_model, trainer.state.train_dataloader, trainer.device)
+        post_fit_loss = get_total_loss(unwrapped_model, trainer.state.train_dataloader, trainer._device)
         assert post_fit_loss < initial_loss + 1e-5, f"post_fit_loss({post_fit_loss}) - initial_loss({initial_loss}) >= 1e-5"
