@@ -57,6 +57,6 @@ As general rule, scale schedule can be applied in conjunction with any method. I
     :members: match, apply
     :noindex:
 
-.. autofunction:: composer.trainer.scale_schedule.scale_scheduler
+.. autofunction:: composer.trainer._scale_schedule.scale_scheduler
     :noindex:
 ```

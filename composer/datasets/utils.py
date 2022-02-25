@@ -2,7 +2,7 @@
 
 import logging
 import textwrap
-from typing import Callable, List, Tuple
+from typing import Callable, List, Tuple, Union
 
 import numpy as np
 import torch
@@ -11,7 +11,7 @@ from PIL import Image
 from torchvision import transforms
 from torchvision.datasets import VisionDataset
 
-from composer.core.types import Batch, BatchPair, Tensor
+from composer.core.types import Batch, Tensor
 
 __all__ = [
     "add_vision_dataset_transform",
@@ -64,16 +64,17 @@ class NormalizationFn:
         return xs, ys
 
 
-def pil_image_collate(batch: List[Tuple[Image.Image, np.ndarray]],
-                      memory_format: torch.memory_format = torch.contiguous_format) -> BatchPair:
+def pil_image_collate(batch: List[Tuple[Image.Image, Union[Image.Image, np.ndarray]]],
+                      memory_format: torch.memory_format = torch.contiguous_format) -> Tuple[Tensor, Tensor]:
     """Constructs a :class:`~composer.core.types.BatchPair` from datasets that yield samples of type
     :class:`PIL.Image.Image`.
 
     This function can be used as the ``collate_fn`` argument of a :class:`torch.utils.data.DataLoader`.
 
     Args:
-        batch (List[Tuple[Image.Image, np.ndarry]]): List of (image, target) tuples that will be
-            aggregated and converted into a single (:class:`~torch.Tensor`, :class:`~torch.Tensor`) tuple.
+        batch (List[Tuple[Image.Image, Union[Image.Image, np.ndarray]]]): List of (image, target) tuples
+            that will be aggregated and converted into a single (:class:`~torch.Tensor`, :class:`~torch.Tensor`)
+            tuple.
 
         memory_format (torch.memory_format): The memory format for the input and target tensors.
 
@@ -87,7 +88,10 @@ def pil_image_collate(batch: List[Tuple[Image.Image, np.ndarray]],
 
     # Convert targets to torch tensor
     targets = [sample[1] for sample in batch]
-    target_dims = (len(targets),)
+    if isinstance(targets[0], Image.Image):
+        target_dims = (len(targets), targets[0].size[1], targets[0].size[0])
+    else:
+        target_dims = (len(targets),)
     target_tensor = torch.zeros(target_dims, dtype=torch.int64).contiguous(memory_format=memory_format)
 
     for i, img in enumerate(imgs):

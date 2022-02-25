@@ -106,7 +106,7 @@ Table of Contents
    model_cards/cifar_resnet.md
    model_cards/efficientnet.md
    model_cards/GPT2.md
-   model_cards/imagenet_resnet.md
+   model_cards/resnet.md
    model_cards/unet.md
 
 .. toctree::

@@ -51,8 +51,6 @@ ColOut will show diminishing returns with other methods that change the size of 
     :members: match, apply
     :noindex:
 
-.. autofunction:: composer.algorithms.colout.colout_image
-    :noindex:
 .. autofunction:: composer.algorithms.colout.colout_batch
     :noindex:
 ```

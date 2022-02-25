@@ -20,8 +20,6 @@ class SAMOptimizer(torch.optim.Optimizer):
     Implementation based on https://github.com/davda54/sam
     """
 
-    # TODO(license) code linked above is MIT license
-
     def __init__(self, base_optimizer, rho: float = 0.05, epsilon: float = 1.0e-12, interval: int = 1, **kwargs):
         assert rho >= 0.0, f"Invalid rho, should be non-negative: {rho}"
         self.base_optimizer = base_optimizer
@@ -68,7 +66,8 @@ class SAMOptimizer(torch.optim.Optimizer):
         loss = None
 
         if (self.global_step + 1) % self.interval == 0:
-            loss = closure(ddp_sync=False)  # Compute gradient at (w) per-GPU, and do not sync
+            # Compute gradient at (w) per-GPU, and do not sync
+            loss = closure(ddp_sync=False)  # type: ignore
             if loss:
                 self.first_step()  # Compute e(w) and set weights to (w + (e(w)) separately per-GPU
                 if closure():  # Compute gradient at (w + e(w))
