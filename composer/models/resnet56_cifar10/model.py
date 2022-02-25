@@ -6,7 +6,7 @@ from composer.models.base import ComposerClassifier
 from composer.models.model_hparams import Initializer
 from composer.models.resnets import CIFAR_ResNet
 
-__all__ = ["CIFAR_ResNet56"]
+__all__ = ["CIFAR10_ResNet56"]
 
 
 class CIFAR10_ResNet56(ComposerClassifier):

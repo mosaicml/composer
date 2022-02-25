@@ -11,7 +11,7 @@ from composer.models.nlp_metrics import LanguageCrossEntropyLoss
 if TYPE_CHECKING:
     import transformers
 
-    from composer.core.types import Batch, Metrics, Tensors
+    from composer.core.types import Batch, Tensors
 
 log = logging.getLogger(__name__)
 
