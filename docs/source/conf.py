@@ -368,6 +368,8 @@ def rstjinja(app, docname, source):
 def get_algorithms_metadata() -> Dict[str, Dict[str, str]]:
     EXCLUDE = ['no_op_model']
 
+    print(os.path.dirname(composer.__file__))
+
     root = os.path.join(os.path.dirname(composer.__file__), 'algorithms')
     algorithms = next(os.walk(root))[1]
     algorithms = [algo for algo in algorithms if algo not in EXCLUDE]
@@ -385,6 +387,8 @@ def get_algorithms_metadata() -> Dict[str, Dict[str, str]]:
                     raise ValueError(f'Duplicate keys in metadata: {key}')
                 metadata[key] = value
 
+    if not metadata:
+        raise ValueError(f"No metadata found, {root} not correctly configured.")
     return metadata
 
 
