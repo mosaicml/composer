@@ -42,6 +42,7 @@ def apply_alibi(
     more details.
 
     Example:
+
     .. code-block:: python
 
         import torch.nn.functional as F
@@ -146,6 +147,7 @@ class Alibi(Algorithm):
     See the :doc:`Method Card </method_cards/alibi>` for more details.
 
     Example:
+    
     .. code-block::
 
         from composer.algorithms import Alibi
