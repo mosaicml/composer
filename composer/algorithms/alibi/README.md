@@ -27,7 +27,7 @@ from transformers.models.gpt2.modeling_gpt2 import GPT2Attention
 def training_loop(model, train_loader):
     cf.apply_alibi(model=model,
                    heads_per_layer=12,
-                   max_sequence_length=256,
+                   max_sequence_length=8192,
                    position_embedding_attribute="module.transformer.wpe",
                    attention_module=GPT2Attention,
                    attr_to_replace="_attn",
