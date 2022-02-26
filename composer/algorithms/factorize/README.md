@@ -16,8 +16,6 @@ This can be applied to models for both computer vision and natural language proc
 
 ### Functional Interface
 
-TODO(DAVIS): FIX
-
 ```python
 # Run the Factorization algorithm directly on the model using the Composer functional API 
 
@@ -51,8 +49,6 @@ def training_loop(model, train_loader):
 
 ### Composer Trainer
 
-TODO(DAVIS): Verify and provide commentary and/or comments
-
 ```python
 # Instantiate the algorithm and pass it into the Trainer
 # The trainer will automatically run it at the appropriate points in the training loop
@@ -75,9 +71,7 @@ trainer = Trainer(model=model,
 trainer.fit()
 ```
 
-### Implementation Details
-
-Factorize is implemented by performing model surgery... TODO(Davis)
+<!--### Implementation Details-->
 
 ## Suggested Hyperparameters
 
