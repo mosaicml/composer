@@ -44,9 +44,16 @@ class SyntheticTokenizerParams(NamedTuple):
         import tokenizers.pre_tokenizers as pre_tokenizers
     except ImportError as e:
         decoders = object
+        decoders.Decoder = object
+
         tokenizers_models = object
+        tokenizers_models.Model = object
+
         normalizers = object
+        normalizers.Normalizer = object
+        
         pre_tokenizers = object
+        pre_tokenizers.PreTokenizer = object
 
     tokenizer_model: tokenizers_models.Model
     normalizer: normalizers.Normalizer
