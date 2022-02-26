@@ -375,7 +375,7 @@ class FactorizedLinear(_FactorizedModule):
     smaller of the input and output dimensionality, this factorization
     can reduce the number of multiply-adds necessary to compute the output.
     However, because larger matrix products tend to utilize the hardware
-    better, it make take a reduction of more than 2x to get a speedup
+    better, it may take a reduction of more than 2x to get a speedup
     in practice.
 
     See :func:`~composer.factorize.factorize_matrix` for more details.
