@@ -11,7 +11,7 @@ Progressive Resizing works by initially training on images that have been downsa
 |:--|
 |*An example image as it would appear to the network at different stages of training with progressive resizing. At the beginning of training, each training example is at its smallest size. Throughout the pre-training phase, example size increases linearly. At the end of the pre-training phase, example size has reached its full value and remains at that value for the remainder of training (the fine-tuning phase).*|
 
-## How to Use
+<!--## How to Use
 
 ### Functional Interface
 
@@ -51,7 +51,7 @@ trainer.fit()
 
 ### Implementation Details
 
-TODO(Cory): A brief description of how this works under the hood.
+TODO(Cory): A brief description of how this works under the hood.-->
 
 ## Suggested Hyperparameters
 
