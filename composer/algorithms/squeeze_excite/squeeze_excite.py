@@ -20,7 +20,8 @@ def apply_squeeze_excite(
     min_channels: int = 128,
     optimizers: Optional[Optimizers] = None,
 ):
-    """Adds Squeeze-and-Excitation blocks (`Hu et al, 2019 <https://arxiv.org/abs/1709.01507>`_) after :class:`~torch.nn.Conv2d` layers.
+    """Adds Squeeze-and-Excitation blocks (`Hu et al, 2019 <https://arxiv.org/abs/1709.01507>`_) after
+    :class:`~torch.nn.Conv2d` layers.
 
     A Squeeze-and-Excitation block applies global average pooling to the input,
     feeds the resulting vector to a single-hidden-layer fully-connected

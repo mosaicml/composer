@@ -28,7 +28,7 @@ def apply_ghost_batchnorm(model: torch.nn.Module,
     separately. Dim 0 is assumed to be the sample axis.
 
     Args:
-        model (Module): the model to modify in-place
+        model (torch.nn.Module): the model to modify in-place
         ghost_batch_size (int, optional): size of sub-batches to normalize over
         optimizers (Optimizers, optional):  Existing optimizers bound to ``model.parameters()``.
             All optimizers that have already been constructed with
