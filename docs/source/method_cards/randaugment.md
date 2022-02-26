@@ -1,4 +1,4 @@
-# RandAugment
+# 🎲 RandAugment
 
 ![rand_augment.jpg](https://storage.googleapis.com/docs.mosaicml.com/images/methods/rand_augment.jpg)
 

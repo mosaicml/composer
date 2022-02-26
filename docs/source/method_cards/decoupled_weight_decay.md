@@ -1,4 +1,4 @@
-# Decoupled Weight Decay
+# 🏋️‍♀️ Decoupled Weight Decay
 
 Tags: `Best Practice`, `Increased Accuracy`, `Regularization`
 

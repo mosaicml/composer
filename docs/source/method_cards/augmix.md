@@ -1,4 +1,4 @@
-# AugMix
+# 🎨 AugMix
 
 ![aug_mix.png](https://storage.googleapis.com/docs.mosaicml.com/images/methods/aug_mix.png)
 
@@ -12,7 +12,7 @@ For each data sample, AugMix creates an *augmentation chain* by sampling `depth`
 
 ## Attribution
 
-[AugMix: A Simple Data Processing Method to Improve Robustness and Uncertainty](http://arxiv.org/abs/1912.02781) by Dan Hendrycks, Norman Mu, Ekin D. Cubuk, Barret Zoph, Justin Gilmer, and Balaji Lakshminarayanan. Published at ICLR 2020. 
+[AugMix: A Simple Data Processing Method to Improve Robustness and Uncertainty](http://arxiv.org/abs/1912.02781) by Dan Hendrycks, Norman Mu, Ekin D. Cubuk, Barret Zoph, Justin Gilmer, and Balaji Lakshminarayanan. Published at ICLR 2020.
 
 ## Applicable Settings
 

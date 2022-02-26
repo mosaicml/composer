@@ -1,4 +1,4 @@
-# ColOut
+# 📢 ColOut
 
 ![col_out.png](https://storage.googleapis.com/docs.mosaicml.com/images/methods/col_out.png)
 
