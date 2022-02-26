@@ -6,15 +6,13 @@
 
 Label smoothing modifies the target distribution for a task by interpolating between the target distribution and a another distribution that usually has higher entropy (e.g., the uniform distribution). This typically reduces a model’s confidence in its outputs and serves as a form of regularization.
 
-| ![LabelSmoothing](label_smoothing.png) |
+<!--| ![LabelSmoothing](label_smoothing.png) |
 |:--:
-|*Need a picture.*|
+|*Need a picture.*|-->
 
 ## How to Use
 
 ### Functional Interface
-
-TODO(CORY): FIX
 
 ```python
 # Run the Label Smoothing algorithm directly on the targets using the Composer functional API 
@@ -41,8 +39,6 @@ def training_loop(model, train_loader):
 ```
 
 ### Composer Trainer
-
-TODO(CORY): Fix and provide commentary and/or comments
 
 ```python
 # Instantiate the algorithm and pass it into the Trainer
