@@ -1,4 +1,4 @@
-# Scale Schedule
+# 🗜️ Scale Schedule
 
 ![scale_schedule.png](https://storage.googleapis.com/docs.mosaicml.com/images/methods/scale_schedule.png)
 

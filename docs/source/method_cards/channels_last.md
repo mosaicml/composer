@@ -1,4 +1,4 @@
-# Channels Last
+# 📺 Channels Last
 
 ![](https://storage.googleapis.com/docs.mosaicml.com/images/methods/channels_last.png)
 

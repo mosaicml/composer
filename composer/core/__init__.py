@@ -17,3 +17,4 @@ from composer.core.time import Time as Time
 from composer.core.time import Timer as Timer
 from composer.core.time import Timestamp as Timestamp
 from composer.core.time import TimeUnit as TimeUnit
+from composer.core.types import Evaluator as Evaluator

@@ -1,4 +1,4 @@
-# Selective Backprop
+# ⏮️ Selective Backprop
 
 Tags: `Vision`, `NLP`, `Decreased Accuracy`, `Increased GPU Throughput`, `Method`, `Curriculum`, `Speedup`
 
