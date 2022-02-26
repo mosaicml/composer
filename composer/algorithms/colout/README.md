@@ -16,8 +16,6 @@ This modification modestly reduces accuracy, but it is a worthwhile tradeoff for
 
 ### Functional Interface
 
-TODO(CORY): FIX
-
 ```python
 # Run colout on a batch of images to produce a new batch
 
@@ -46,9 +44,8 @@ from composer.algorithms.colout import ColOutTransform
 colout_transform = ColOutTransform(p_row=0.15, p_col=0.15)
 composed = transforms.Compose([colout_transform, transforms.ToTensor()])
 dataset = VisionDataset("data_path", transform=composed)
-### Composer Trainer
 
-TODO(CORY): Fix and provide commentary and/or comments
+### Composer Trainer
 
 ```python
 # Instantiate the algorithm and pass it into the Trainer
