@@ -43,10 +43,10 @@ class SyntheticTokenizerParams(NamedTuple):
         import tokenizers.normalizers as normalizers
         import tokenizers.pre_tokenizers as pre_tokenizers
     except ImportError as e:
-        raise ImportError(
-            textwrap.dedent("""\
-            Composer was installed without NLP support. To use NLP with Composer, run `pip install mosaicml[nlp]`
-            if using pip or `conda install -c conda-forge tokenizers` if using Anaconda.""")) from e
+        decoders = object
+        tokenizers_models = object
+        normalizers = object
+        pre_tokenizers = object
 
     tokenizer_model: tokenizers_models.Model
     normalizer: normalizers.Normalizer
