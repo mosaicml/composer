@@ -1,38 +1,36 @@
-Using Composer
-==============
+|:art:| Using Composer
+======================
 
-We provide several paths to use our library:
+Composer provides both a **Functional API** (similar to :mod:`torch.nn.functional`) and a
+**Trainer** (that abstracts away the training loop) to provide flexibility to users.
 
-* Use our :ref:`using_composer_functional` to integrate methods directly into your training loops
-* For easy composability, use our :ref:`using_composer_trainer` to quickly experiment with different methods.
-
-.. _using_composer_functional:
 
 Functional API
 ~~~~~~~~~~~~~~
 
-Almost all algorithms (efficiency methods) are implemented as both standalone functions for direct access, and as classes for integration into the :ref:`using_composer_trainer`.
+For users who choose to use their own training loop, we provide state-less functional
+implementations of our algorithms for a end-user to integrate.
 
-For example, to use some of our model surgery-based methods, apply those functions after model creation and before the optimizers are created. First, to understand what is being modified, enable logging:
-
-.. code-block:: python
-
-    import logging
-    logging.basicConfig(level=logging.INFO)
-
-Then, we apply BlurPool and SqueezeExcite methods to replace eligible convolution layers:
+The following example highlights using [BlurPool](https://arxiv.org/abs/1904.11486),
+which applies an anti-aliasing filter before every downsampling operation.
 
 .. code-block:: python
 
-    from composer import functional as CF
+    from composer import functional as cf
     import torchvision
+
     model = torchvision.models.resnet50()
 
-    # replace some layers with blurpool or squeeze-excite layers
-    CF.apply_blurpool(model)
-    CF.apply_se(model, latent_channels=64, min_channels=128)
+    # Apply model surgery before training by replacing eligible layers
+    # with a BlurPool-enabled layer (Zhang, 2019)
+    model = cf.apply_blurpool(model)
 
-As another example, to apply Progressive Resizing, which increases the image size over the course of training:
+    # Start your training loop here
+    train_loop(model)
+
+
+As another example, to apply Progressive Resizing, which increases the
+image size over the course of training:
 
 .. code-block:: python
 
@@ -43,6 +41,9 @@ As another example, to apply Progressive Resizing, which increases the image siz
         CF.resize_inputs(image, label, scale_factor=scale)
         scale += 0.01
 
+        # your train step here
+        train_step()
+
 For more details, please see :mod:`composer.functional`.
 
 .. _using_composer_trainer:
@@ -50,92 +51,18 @@ For more details, please see :mod:`composer.functional`.
 Composer Trainer
 ~~~~~~~~~~~~~~~~
 
-The previous approach is easy to get started and experiment with methods. However, the key to Composer is the ability to quickly configure and compose multiple methods together. For this, use the Composer Trainer. The trainer is designed to be minimally more opinionated than other libraries in order to achieve our composition goals.
+For maximal speedups, we recommend using our Trainer, which manages handling user state,
+performant algorithm implementations, and provides useful engineering abstractions to permit
+rapid experimentation.
 
 Our trainer features:
 
 * interface to flexibly add algorithms to the training loop
 * engine that manages the ordering of algorithms for composition
-* a hyperparameter system based on `yahp`_ (optional, but recommended)
+* trainer to handle boilerplate around numerics, distributed training, and others
+* integration with popular model libraries such as TIMM or HuggingFace Transformers.
 
-Here are several ways to use the trainer:
-
-1. (Fastest): Directly load the hparams for preconfigured models and algorithms.
-
-   .. code-block:: python
-
-       from composer import algorithms, trainer, Trainer
-       from composer.core.types import Precision
-
-       hparams = trainer.load("classify_mnist_cpu")  # loads from composer/yamls/models/classify_mnist_cpu.yaml
-       hparams.algorithms = algorithms.load_multiple("blurpool", "label_smoothing")
-
-       # edit other properties in the hparams object
-       hparams.precision = Precision.FP32
-       hparams.grad_accum = 2
-       hparams.datadir = "~/datasets"
-
-       trainer = hparams.initialize_object()
-       trainer.fit()
-
-   For a list of properties, see: :class:`~composer.trainer.trainer.Trainer`
-
-2. (Configurable): Provide a ``yaml`` file, either from our defaults or customized yourself.
-
-    With our ``run_composer_trainer.py`` entrypoint:
-
-   .. code-block::
-
-       git clone https://github.com/mosaicml/composer.git
-       cd composer && pip install -e .
-       python examples/run_composer_trainer.py -f composer/yamls/models/classify_mnist_cpu.yaml  --datadir ~/datasets
-
-   Or, in Python,
-
-   .. code-block:: python
-
-        from composer.trainer import TrainerHparams, Trainer
-
-        hparams = TrainerHparams.create('composer/yamls/models/classify_mnist_cpu.yaml')
-        hparams.datadir = "~/datasets"
-        trainer = hparams.initialize_object()
-
-        trainer.fit()
-
-  For more details on `yahp`_, see the `documentation <https://mosaicml-yahp.readthedocs-hosted.com/en/stable/>`_.
-
-3. (Flexible): The :class:`~composer.trainer.trainer.Trainer` can also be initialized directly:
-
-   .. code-block:: python
-
-        from composer import Trainer
-        from torch.utils.data import DataLoader
-        from torchvision import datasets, transforms
-
-        train_dataloader = DataLoader(
-            datasets.MNIST('~/datasets/', train=True, transform=transforms.ToTensor(), download=True),
-            drop_last=True,
-            shuffle=True,
-            batch_size=256,
-        )
-
-        eval_dataloader = DataLoader(
-            datasets.MNIST('~/datasets/', train=True, transform=transforms.ToTensor(), download=True),
-            drop_last=False,
-            shuffle=False,
-            batch_size=256,
-        )
-
-        trainer = Trainer(
-            model=models.MNIST_Classifier(num_classes=10),
-            train_dataloader=train_dataloader,
-            eval_dataloader=eval_dataloader,
-            max_epochs=3,
-        )
-
-        trainer.fit()
-
-   For a comprehensive list of training arguments, see :class:`~composer.trainer.trainer.Trainer`.
+For more details, see :doc:`Using Trainer</trainer/using_the_trainer>`
 
 
 .. _yahp: https://github.com/mosaicml/yahp

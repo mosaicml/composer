@@ -1,4 +1,4 @@
-# Stochastic Depth (Sample-Wise)
+# 🎰 Stochastic Depth (Sample-Wise)
 
 Tags: `Method`, `Networks with Residual Connections`, `Method`, `Regularization`, `Increased Accuracy`
 
@@ -37,7 +37,7 @@ We observed that `drop_rate=0.1` and `drop_distribution=linear` yielded maximum 
 
 ## Considerations
 
-Because sample-wise stochastic depth randomly drops samples within each residual block, a shallow model may exhibit instability due to insufficient transformation on some samples. When using a shallow model, it is best to use a small drop rate or avoid sample-wise stochastic depth entirely. 
+Because sample-wise stochastic depth randomly drops samples within each residual block, a shallow model may exhibit instability due to insufficient transformation on some samples. When using a shallow model, it is best to use a small drop rate or avoid sample-wise stochastic depth entirely.
 
 In addition, there may be instability when training on smaller batch sizes since a significant proportion of the batch may be dropped even at low drop rates.
 

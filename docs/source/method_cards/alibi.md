@@ -1,7 +1,7 @@
-# ALiBi
+# 🥸 ALiBi
 
 Tags: `NLP`, `Decreased Wall Clock Time`, `Increased Accuracy`, `Increased GPU`,
-`Throughput`, `Reduced GPU Memory Usage`, `Reduced GPU Usage`, `Method`, 
+`Throughput`, `Reduced GPU Memory Usage`, `Reduced GPU Usage`, `Method`,
 `Memory Reduction`, `Speedup`
 
 ## TL;DR
@@ -68,7 +68,7 @@ When training on sequences of identical length, Press et al. report that ALiBi i
 		GPT2-125m ALiBi 0.25x,23.487,0.63,25280,0.84,74.83,0.78
 ```
 
-Numbers reported are mean±{max,min} when available. The number of training tokens were as follows: GPT2-52m: 3.4B tokens; GPT2-83m: 5.6B tokens; GPT2-114m: 6.7B tokens. See Model Cards for model details. 
+Numbers reported are mean±{max,min} when available. The number of training tokens were as follows: GPT2-52m: 3.4B tokens; GPT2-83m: 5.6B tokens; GPT2-114m: 6.7B tokens. See Model Cards for model details.
 
 ## Composability
 

@@ -1,4 +1,4 @@
-# Layer Freezing
+# ❄️ Layer Freezing
 
 Tags: `Vision`, `Decreased Accuracy`, `Increased GPU Throughput`, `Method`, `Backprop`, `Speedup`
 
