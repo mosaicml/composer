@@ -12,7 +12,6 @@ import composer.trainer as trainer
 from composer.algorithms import ScaleScheduleHparams
 from composer.core.precision import Precision
 from composer.datasets.hparams import SyntheticHparamsMixin
-from composer.models.transformer_hparams import TransformerHparams
 from composer.trainer.devices import CPUDeviceHparams
 from tests.utils.synthetic_utils import configure_dataset_for_synthetic, configure_model_for_synthetic
 
@@ -72,9 +71,11 @@ def test_load(model_name: str):
     trainer_hparams.precision = Precision.FP32
     trainer_hparams.algorithms = algorithms.load_multiple(*get_model_algs(model_name))
 
+    assert trainer_hparams.train_dataset is not None
     configure_dataset_for_synthetic(trainer_hparams.train_dataset)
     trainer_hparams.train_subset_num_batches = 1
 
+    assert trainer_hparams.val_dataset is not None
     configure_dataset_for_synthetic(trainer_hparams.val_dataset)
     trainer_hparams.eval_subset_num_batches = 1
 

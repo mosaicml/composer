@@ -1,7 +1,5 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
-import functools
-import operator
 from typing import Optional
 
 import pytest
@@ -35,16 +33,17 @@ def test_synthetic_hf_dataset_creation(num_samples: int, chars_per_sample: int, 
     assert 'input_ids' in tokenizer.model_input_names
 
     # test tokenizing the dataset
-    dataset = dataset.map(lambda inp: tokenizer(
-        text=inp[column_names[0]], padding="max_length", max_length=chars_per_sample, truncation=True),
-                          batched=True,
-                          num_proc=1,
-                          keep_in_memory=True)
+    max_length = chars_per_sample * 2
+    dataset = dataset.map(
+        lambda inp: tokenizer(text=inp[column_names[0]], padding="max_length", max_length=max_length, truncation=True),
+        batched=True,
+        num_proc=1,
+        keep_in_memory=True)
 
     # verify datapoints are correct
     assert 'input_ids' in dataset.column_names
     x = dataset['input_ids'][0]
-    assert len(x) == chars_per_sample
+    assert len(x) == max_length
 
     # add some tokenizer-specific tests
     if tokenizer_family == "bert":
@@ -52,6 +51,8 @@ def test_synthetic_hf_dataset_creation(num_samples: int, chars_per_sample: int, 
         assert tokenizer.sep_token_id in x
 
     # since our tokenization max_length==chars_per_sample, we should always have padding tokens due to extra space
+    print(tokenizer.convert_ids_to_tokens(x))
+    print(x[-1], tokenizer.pad_token, tokenizer.pad_token_id, tokenizer.convert_ids_to_tokens(x[-1]))
     assert x[-1] == tokenizer.pad_token_id
 
 
@@ -59,9 +60,9 @@ def test_synthetic_hf_dataset_creation(num_samples: int, chars_per_sample: int, 
 @pytest.mark.parametrize('vocab_size', [512])
 def test_synthetic_tokenizer_creation(tokenizer_family, vocab_size):
     tokenizer = generate_synthetic_tokenizer(tokenizer_family=tokenizer_family, vocab_size=vocab_size)
-    if model == "bert":
+    if tokenizer_family == "bert":
         assert isinstance(tokenizer, BertTokenizer)
-    elif model == "gpt2":
+    elif tokenizer_family == "gpt2":
         assert isinstance(tokenizer, GPT2Tokenizer)
 
     assert tokenizer.vocab_size == vocab_size

@@ -1,8 +1,6 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
-import functools
 import logging
-import operator
 import tempfile
 import textwrap
 from dataclasses import dataclass

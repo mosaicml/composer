@@ -1,9 +1,10 @@
+from typing import Any, Dict
+
 import pytest
 
 from composer.datasets.hparams import DatasetHparams, SyntheticHparamsMixin
 from composer.datasets.synthetic import generate_synthetic_tokenizer
-from composer.models import (BERTForClassificationHparams, BERTHparams, DeepLabV3Hparams, GPT2Hparams, ModelHparams,
-                             TransformerHparams)
+from composer.models import DeepLabV3Hparams, ModelHparams, TransformerHparams
 
 
 def configure_dataset_for_synthetic(dataset_hparams: DatasetHparams) -> None:
@@ -15,7 +16,7 @@ def configure_dataset_for_synthetic(dataset_hparams: DatasetHparams) -> None:
     dataset_hparams.use_synthetic = True
 
 
-def configure_model_for_synthetic(model_hparams: ModelHparams):
+def configure_model_for_synthetic(model_hparams: ModelHparams) -> None:
     # configure Transformer-based models for synthetic testing
     if isinstance(model_hparams, TransformerHparams):
         model_hparams_name = type(model_hparams).__name__
@@ -34,8 +35,8 @@ def configure_model_for_synthetic(model_hparams: ModelHparams):
         model_hparams.pretrained_model_name = None
 
         # generate tokenizers and synthetic models
-        tokenizer, model_hparams.tokenizer_name = generate_synthetic_tokenizer(tokenizer_family=tokenizer_family,
-                                                                               return_tokenizer_dir=True)
+        tokenizer = generate_synthetic_tokenizer(tokenizer_family=tokenizer_family)
+        model_hparams.tokenizer_name = tokenizer.name_or_path
         model_hparams.model_config = generate_dummy_model_config(model_hparams_name, tokenizer)
 
     # configure DeepLabV3 models for synthetic testing
@@ -44,7 +45,7 @@ def configure_model_for_synthetic(model_hparams: ModelHparams):
         model_hparams.sync_bn = False  # sync_bn throws an error when run on CPU
 
 
-def generate_dummy_model_config(class_name, tokenizer):
+def generate_dummy_model_config(class_name, tokenizer) -> Dict[str, Dict[str, Any]]:
     model_to_dummy_mapping = {
         "BERTHparams": {
             "architectures": ["BertForMaskedLM"],

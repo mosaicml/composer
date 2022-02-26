@@ -1,18 +1,21 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
-import functools
 import json
-import operator
 import random
 import string
 from os.path import join
 from tempfile import mkdtemp
 from typing import Callable, NamedTuple, Optional, Sequence, Union
 
-import tokenizers
+import tokenizers.decoders as decoders
+import tokenizers.models as tokenizers_models
+import tokenizers.normalizers as normalizers
+import tokenizers.pre_tokenizers as pre_tokenizers
+import tokenizers.trainers as tokenizers_trainer
 import torch
 import torch.utils.data
 from PIL import Image
+from tokenizers import Tokenizer
 from torchvision.datasets import VisionDataset
 from transformers import BertTokenizer, GPT2Tokenizer, PreTrainedTokenizer
 
@@ -31,18 +34,17 @@ class SyntheticDataLabelType(StringEnum):
 
 
 class SyntheticTokenizerParams(NamedTuple):
-    tokenizer_model: tokenizers.models.Model
-    normalizer: tokenizers.normalizers.Normalizer
-    pre_tokenizer: tokenizers.pre_tokenizers.PreTokenizer
-    decoder: tokenizers.decoders.Decoder
+    tokenizer_model: tokenizers_models.Model
+    normalizer: normalizers.Normalizer
+    pre_tokenizer: pre_tokenizers.PreTokenizer
+    decoder: decoders.Decoder
     initial_alphabet: list
     special_tokens: list
     pad_token: str
-    trainer_cls: tokenizers.trainers.Trainer
-    tokenizer_cls: PreTrainedTokenizer
+    trainer_cls: type
+    tokenizer_cls: type
 
-
-def generate_bert_tokenizer_params(dataset):
+def generate_bert_tokenizer_params(dataset) -> SyntheticTokenizerParams:
     unk_token = "[UNK]"
     pad_token = "[PAD]"
 
@@ -50,43 +52,36 @@ def generate_bert_tokenizer_params(dataset):
     initial_alphabet = list(set(initial_alphabet))
 
     return SyntheticTokenizerParams(
-        tokenizer_model=tokenizers.models.WordPiece(unk_token=unk_token),
-        normalizer=tokenizers.normalizers.BertNormalizer(),
-        pre_tokenizer=tokenizers.pre_tokenizers.BertPreTokenizer(),
-        decoder=tokenizers.decoders.WordPiece(),
+        tokenizer_model=tokenizers_models.WordPiece(unk_token=unk_token), # type: ignore
+        normalizer=normalizers.BertNormalizer(),
+        pre_tokenizer=pre_tokenizers.BertPreTokenizer(),
+        decoder=decoders.WordPiece(),
         initial_alphabet=initial_alphabet,
         special_tokens=[pad_token, unk_token, "[SEP]", "[CLS]", "[MASK]"],
         pad_token=pad_token,
-        trainer_cls=tokenizers.trainers.WordPieceTrainer,
+        trainer_cls=tokenizers_trainer.WordPieceTrainer,
         tokenizer_cls=BertTokenizer,
     )
 
 
-def generate_gpt2_tokenizer_params():
+def generate_gpt2_tokenizer_params() -> SyntheticTokenizerParams:
     unk_token = None
     pad_token = "<pad>"
 
     return SyntheticTokenizerParams(
-        tokenizer_model=tokenizers.models.BPE(unk_token=unk_token),
-        normalizer=tokenizers.normalizers.Lowercase(),
-        pre_tokenizer=tokenizers.pre_tokenizers.ByteLevel(),
-        decoder=tokenizers.decoders.ByteLevel(),
-        initial_alphabet=tokenizers.pre_tokenizers.ByteLevel.alphabet(),
+        tokenizer_model=tokenizers_models.BPE(unk_token=unk_token),
+        normalizer=normalizers.Lowercase(),
+        pre_tokenizer=pre_tokenizers.ByteLevel(),
+        decoder=decoders.ByteLevel(),
+        initial_alphabet=pre_tokenizers.ByteLevel.alphabet(),
         special_tokens=[pad_token, "<endoftext>"],
         pad_token=pad_token,
-        trainer_cls=tokenizers.trainers.BpeTrainer,
+        trainer_cls=tokenizers_trainer.BpeTrainer,
         tokenizer_cls=GPT2Tokenizer,
     )
 
 
-def generate_synthetic_tokenizer(tokenizer_family, dataset=None, vocab_size=256, return_tokenizer_dir=False):
-    try:
-        import tokenizers
-    except ImportError as e:
-        raise ImportError(
-            'Composer was installed without NLP support. To use NLP with Composer, run: `pip install mosaicml[nlp]`.'
-        ) from e
-
+def generate_synthetic_tokenizer(tokenizer_family: str, dataset=None, vocab_size=256) -> PreTrainedTokenizer:
     # generate a synthetic dataset with reasonable defaults is none is provided
     if dataset is None:
         num_samples = 100
@@ -107,15 +102,15 @@ def generate_synthetic_tokenizer(tokenizer_family, dataset=None, vocab_size=256,
     else:
         raise ValueError(f"Synthetic tokenizers for tokenizer family {tokenizer_family} are currently unsupported.")
 
-    tokenizer = tokenizers.Tokenizer(tokenizer_params.tokenizer_model)
+    tokenizer = Tokenizer(tokenizer_params.tokenizer_model)
     tokenizer.enable_padding(direction="right",
                              pad_id=0,
                              pad_type_id=0,
                              pad_token=tokenizer_params.pad_token,
                              pad_to_multiple_of=8)
-    tokenizer.normalizer = tokenizer_params.normalizer
-    tokenizer.pre_tokenizer = tokenizer_params.pre_tokenizer
-    tokenizer.decoder = tokenizer_params.decoder
+    tokenizer.normalizer = tokenizer_params.normalizer # type: ignore
+    tokenizer.pre_tokenizer = tokenizer_params.pre_tokenizer # type: ignore
+    tokenizer.decoder = tokenizer_params.decoder # type: ignore
     tokenizer_trainer = tokenizer_params.trainer_cls(
         vocab_size=vocab_size,
         initial_alphabet=tokenizer_params.initial_alphabet,
@@ -130,7 +125,7 @@ def generate_synthetic_tokenizer(tokenizer_family, dataset=None, vocab_size=256,
     print("Temporary directory:", tmp_tokenizer_dir)
 
     # save the vocabulary and potential merges file
-    tokenizer_params.tokenizer_model.save(tmp_tokenizer_dir)
+    tokenizer_params.tokenizer_model.save(tmp_tokenizer_dir) # type: ignore
 
     # the .from_pretrained method doesn't load our padding for some reason, so we save it as a special kwarg
     tmp_tokenizer_config = join(tmp_tokenizer_dir, "tokenizer_config.json")
@@ -138,10 +133,9 @@ def generate_synthetic_tokenizer(tokenizer_family, dataset=None, vocab_size=256,
         json.dump({"pad_token": tokenizer_params.pad_token}, f)
 
     # instantiate the new tokenizer
+    assert isinstance(tokenizer_params.tokenizer_cls, PreTrainedTokenizer)
     tokenizer = tokenizer_params.tokenizer_cls.from_pretrained(tmp_tokenizer_dir)
 
-    if return_tokenizer_dir:
-        return tokenizer, tmp_tokenizer_dir
     return tokenizer
 
 
