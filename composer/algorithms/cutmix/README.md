@@ -16,7 +16,7 @@ It is a regularization technique that improves the generalization accuracy of mo
 ### Functional Interface
 
 ```python
-# Run the CutMix algorithm directly on the batch data using the Composer functional API 
+# Run the CutMix algorithm directly on the batch data using the Composer functional API
 
 import composer.functional as cf
 
@@ -99,6 +99,6 @@ Doing so avoids putting additional work on the CPU (since augmentation occurs on
 
 ## Attribution
 
-[*CutMix: Regularization Strategy to Train Strong Classifiers with Localizable Features*](1905.04899) by Sangdoo Yun, Dongyoon Han, Seong Joon Oh, Sanghyuk Chun, Junsuk Choe, and Youngjoon Yoo. Published in ICCV 2019.
+[*CutMix: Regularization Strategy to Train Strong Classifiers with Localizable Features*](https://arxiv.org/abs/1905.04899) by Sangdoo Yun, Dongyoon Han, Seong Joon Oh, Sanghyuk Chun, Junsuk Choe, and Youngjoon Yoo. Published in ICCV 2019.
 
 *This Composer implementation of this method and the accompanying documentation were produced by Cory Stephenson at MosaicML.*
