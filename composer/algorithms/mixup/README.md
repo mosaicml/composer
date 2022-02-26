@@ -14,7 +14,7 @@ Training in this fashion improves generalization.
 |:--:
 |*Two different training examples (a picture of a bird and a picture of a frog) that have been combined by MixUp into a single example. The corresponding targets are a convex combination of the targets for the bird class and the frog class.*|
 
-## How to Use
+<!--## How to Use
 
 ### Functional Interface
 
@@ -54,7 +54,7 @@ trainer.fit()
 
 ### Implementation Details
 
-TODO(CORY): Briefly describe how this is implemented under the hood in Composer.
+TODO(CORY): Briefly describe how this is implemented under the hood in Composer.-->
 
 ## Suggested Hyperparameters
 
