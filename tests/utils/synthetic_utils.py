@@ -19,18 +19,23 @@ def configure_model_for_synthetic(model_hparams: ModelHparams):
     # configure Transformer-based models for synthetic testing
     if isinstance(model_hparams, TransformerHparams):
         model_hparams_name = type(model_hparams).__name__
-        model_hparams_to_name = {"GPT2Hparams": "gpt2", "BERTForClassificationHparams": "bert", "BERTHparams": "bert"}
-        if model_hparams_name not in model_hparams_to_name:
+        model_hparams_to_tokenizer_family = {
+            "GPT2Hparams": "gpt2",
+            "BERTForClassificationHparams": "bert",
+            "BERTHparams": "bert"
+        }
+        if model_hparams_name not in model_hparams_to_tokenizer_family:
             raise ValueError(f"Model {model_hparams_name} is currently not supported for synthetic testing!")
 
-        model = model_hparams_to_name[model_hparams_name]
+        tokenizer_family = model_hparams_to_tokenizer_family[model_hparams_name]
 
         # force a non-pretrained model
         model_hparams.use_pretrained = False
         model_hparams.pretrained_model_name = None
 
         # generate tokenizers and synthetic models
-        tokenizer, model_hparams.tokenizer_name = generate_synthetic_tokenizer(model=model, return_tokenizer_dir=True)
+        tokenizer, model_hparams.tokenizer_name = generate_synthetic_tokenizer(tokenizer_family=tokenizer_family,
+                                                                               return_tokenizer_dir=True)
         model_hparams.model_config = generate_dummy_model_config(model_hparams_name, tokenizer)
 
     # configure DeepLabV3 models for synthetic testing

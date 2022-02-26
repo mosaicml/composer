@@ -79,7 +79,7 @@ def generate_gpt2_tokenizer_params():
     )
 
 
-def generate_synthetic_tokenizer(model, dataset=None, vocab_size=256, return_tokenizer_dir=False):
+def generate_synthetic_tokenizer(tokenizer_family, dataset=None, vocab_size=256, return_tokenizer_dir=False):
     try:
         import tokenizers
     except ImportError as e:
@@ -100,12 +100,12 @@ def generate_synthetic_tokenizer(model, dataset=None, vocab_size=256, return_tok
     dataset = [dataset[key] for key in dataset.column_names if key != 'idx']
     dataset = [i for sublist in dataset for i in sublist]
 
-    if model == "bert":
+    if tokenizer_family == "bert":
         tokenizer_params = generate_bert_tokenizer_params(dataset)
-    elif model == "gpt2":
+    elif tokenizer_family == "gpt2":
         tokenizer_params = generate_gpt2_tokenizer_params()
     else:
-        raise ValueError(f"Synthetic tokenizers for model {model} are currently unsupported.")
+        raise ValueError(f"Synthetic tokenizers for tokenizer family {tokenizer_family} are currently unsupported.")
 
     tokenizer = tokenizers.Tokenizer(tokenizer_params.tokenizer_model)
     tokenizer.enable_padding(direction="right",
@@ -127,9 +127,15 @@ def generate_synthetic_tokenizer(model, dataset=None, vocab_size=256, return_tok
     tmp_tokenizer_dir = mkdtemp()
     tmp_tokenizer_file = join(tmp_tokenizer_dir, "tokenizer.json")
     tokenizer.save(tmp_tokenizer_file)
+    print("Temporary directory:", tmp_tokenizer_dir)
 
     # save the vocabulary and potential merges file
     tokenizer_params.tokenizer_model.save(tmp_tokenizer_dir)
+
+    # the .from_pretrained method doesn't load our padding for some reason, so we save it as a special kwarg
+    tmp_tokenizer_config = join(tmp_tokenizer_dir, "tokenizer_config.json")
+    with open(tmp_tokenizer_config, "w") as f:
+        json.dump({"pad_token": tokenizer_params.pad_token}, f)
 
     # instantiate the new tokenizer
     tokenizer = tokenizer_params.tokenizer_cls.from_pretrained(tmp_tokenizer_dir)

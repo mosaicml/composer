@@ -97,7 +97,7 @@ class LMDatasetHparams(DatasetHparams, SyntheticHparamsMixin):
                                              chars_per_sample=self.train_sequence_length,
                                              column_names=column_names).generate_dataset()
 
-            self.tokenizer = generate_synthetic_tokenizer(model="bert", dataset=lm_datasets)
+            self.tokenizer = generate_synthetic_tokenizer(tokenizer_family="bert", dataset=lm_datasets)
 
             lm_datasets = lm_datasets.map(lambda inp: self.tokenizer(
                 text=inp[column_names[0]
