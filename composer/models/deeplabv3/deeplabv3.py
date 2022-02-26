@@ -43,10 +43,13 @@ def deeplabv3_builder(num_classes: int,
     feat_extractor = ASPP(in_channels=2048, atrous_rates=[12, 24, 36], out_channels=256)
     feat_extractor.project = feat_extractor.project[:3]  # Remove dropout due to higher standard deviation
     classifier = torch.nn.Conv2d(in_channels=256, out_channels=num_classes, kernel_size=1)
-    head = torch.nn.Sequential(feat_extractor, classifier)
+    #head = torch.nn.Sequential(feat_extractor, classifier)
+    from mmseg import models
+    head = models.DepthwiseSeparableASPPHead(in_channels=2048, in_index=-1, channels=256, dilations=(1, 12, 24, 36), c1_in_channels=256, c1_channels=48, dropout_ratio=0.1, num_classes=num_classes)
 
-    model = DeepLabV3(backbone, head, aux_classifier=None)
-
+    #model = DeepLabV3(backbone, head, aux_classifier=None)
+    model = torch.nn.Sequential(backbone, head)
+    """
     if initializers:
         for initializer in initializers:
             initializer_fn = Initializer(initializer).get_initializer()
@@ -56,7 +59,7 @@ def deeplabv3_builder(num_classes: int,
                 model.classifier.apply(initializer_fn)
             else:
                 model.apply(initializer_fn)
-
+    """
     if sync_bn:
         model = torch.nn.SyncBatchNorm.convert_sync_batchnorm(model)
 
