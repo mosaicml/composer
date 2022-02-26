@@ -93,7 +93,7 @@ BlurPool variants (`Zhang et al, 2019 <https://arxiv.org/abs/1904.11486>`_). The
 
 Next, train a small classifier on MNIST with the label smoothing algorithm:
 
-.. testcode::
+.. code-block:: python
 
     from torchvision import datasets, transforms
     from torch.utils.data import DataLoader
@@ -109,7 +109,7 @@ Next, train a small classifier on MNIST with the label smoothing algorithm:
     trainer = Trainer(
         model=MNIST_Classifier(num_classes=10),
         train_dataloader=train_dataloader,
-        max_duration="10ep",
+        max_duration="2p",
         algorithms=[LabelSmoothing(alpha=0.1)]
     )
     trainer.fit()
