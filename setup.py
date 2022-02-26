@@ -130,6 +130,7 @@ setup(name="mosaicml",
       package_data={
           "composer": ['py.typed'],
           "": package_files('composer/yamls'),
+          "": package_files('composer/algorithms')
       },
       packages=setuptools.find_packages(exclude=["tests*"]),
       classifiers=[
