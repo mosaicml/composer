@@ -123,7 +123,8 @@ class StochasticDepth(Algorithm):
     implementation used for EfficientNet in the
     `Tensorflow/TPU repo <https://github.com/tensorflow/tpu>`_.
 
-    Runs on :attr:`~composer.core.event.Event.INIT`.
+    Runs on :attr:`~composer.core.event.Event.INIT`, as well as
+    :attr:`~composer.core.event.Event.BATCH_START` if ``drop_warmup > 0``.
 
     .. note::
 
@@ -186,11 +187,12 @@ class StochasticDepth(Algorithm):
         return (self.stochastic_method == "block")
 
     def match(self, event: Event, state: State) -> bool:
-        """Apply on Event.INIT and Event.BATCH_START if drop_warmup is > 0.0.
+        """Run on :attr:`~composer.core.event.Event.INIT`, as well as
+    :attr:`~composer.core.event.Event.BATCH_START` if ``drop_warmup > 0``.
 
         Args:
-            event (:class:`Event`): The current event.
-            state (:class:`State`): The current state.
+            event (Event): The current event.
+            state (State): The current state.
         Returns:
             bool: True if this algorithm should run now.
         """

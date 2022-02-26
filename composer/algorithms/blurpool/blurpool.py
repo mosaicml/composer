@@ -103,11 +103,11 @@ class BlurPool(Algorithm):
                         'BlurPool will not be modifying the model.')
 
     def match(self, event: Event, state: State) -> bool:
-        """Runs on Event.INIT.
+        """Runs on :attr:`~composer.core.event.Event.INIT`.
 
         Args:
-            event (:class:`Event`): The current event.
-            state (:class:`State`): The current state.
+            event (Event): The current event.
+            state (State): The current state.
         Returns:
             bool: True if this algorithm should run now.
         """

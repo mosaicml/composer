@@ -161,11 +161,11 @@ class Factorize(Algorithm):
         self.latent_features = latent_features
 
     def match(self, event: Event, state: State) -> bool:
-        """Run on Event.INIT.
+        """Runs on :attr:`~composer.core.event.Event.INIT`.
 
         Args:
-            event: The current event.
-            state: The current state.
+            event (Event): The current event.
+            state (State): The current state.
 
         Returns:
             bool: True if this algorithm should run
@@ -176,9 +176,9 @@ class Factorize(Algorithm):
         """Factorize convolutional and linear layers.
 
         Args:
-            event: the current event
-            state: the current trainer state
-            logger: the training logger
+            event (Event): the current event
+            state (State): the current trainer state
+            logger (Logger): the training logger
         """
         assert state.model is not None, "Model must be part of state!"
 

@@ -80,7 +80,15 @@ class GhostBatchNorm(Algorithm):
         self.ghost_batch_size = ghost_batch_size
 
     def match(self, event: Event, state: State) -> bool:
-        """Runs on Event.INIT."""
+        """Runs on :attr:`~composer.core.event.Event.INIT`.
+
+        Args:
+            event (Event): The current event.
+            state (State): The current state.
+
+        Returns:
+            bool: True if this algorithm should run
+        """
         return event == Event.INIT
 
     def apply(self, event: Event, state: State, logger: Optional[Logger] = None) -> None:

@@ -105,7 +105,7 @@ def blurmax_pool2d(input: torch.Tensor,
         stride (int or tuple, optional): stride(s) along H and W axes. If a single value is passed, this
             value is used for both dimensions.
         padding (int or tuple, optional): implicit zero-padding to use. For the default 3x3 low-pass
-            filter, `padding=1` (the default) returns output of the same size
+            filter, ``padding=1`` (the default) returns output of the same size
             as the input.
         dilation (int or tuple, optional): amount by which to "stretch" the pooling region for a given
             total size. See :class:`~torch.nn.MaxPool2d`
