@@ -1,7 +1,6 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
-"""Replaces standard ResNet blocks with stochastic ResNet blocks (`Huang et al, 2016
-<https://arxiv.org/abs/1603.09382>`_).
+"""Implements stochastic depth (`Huang et al, 2016 <https://arxiv.org/abs/1603.09382>`_) for ResNet blocks.
 
 See :class:`~composer.algorithms.StochasticDepth`, the sample-wise stochastic depth :doc:`method card
 </method_cards/stochastic_depth_samplewise>`, or the block-wise stochastic depth :doc:`method card
