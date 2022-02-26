@@ -16,8 +16,6 @@ This causes training with a large batch size to behave more similarly to trainin
 
 ### Functional Interface
 
-TODO(DAVIS): FIX
-
 ```python
 # Run the Ghost BatchNorm algorithm directly on the model using the Composer functional API 
 
@@ -43,8 +41,6 @@ def training_loop(model, train_loader):
 ```
 
 ### Composer Trainer
-
-TODO(DAVIS): Fix and provide commentary and/or comments
 
 ```python
 # Instantiate the algorithm and pass it into the Trainer
