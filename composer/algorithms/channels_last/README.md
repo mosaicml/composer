@@ -16,8 +16,6 @@ This is a systems-level method that does not change the math or outcome of train
 
 ### Functional Interface
 
-TODO(ABHI): FIX
-
 ```python
 # Run the Channels Last algorithm directly on the model using the Composer functional API 
 
@@ -40,8 +38,6 @@ def training_loop(model, train_loader):
 ```
 
 ### Composer Trainer
-
-TODO(ABHI): Fix and provide commentary and/or comments
 
 ```python
 # Instantiate the algorithm and pass it into the Trainer
