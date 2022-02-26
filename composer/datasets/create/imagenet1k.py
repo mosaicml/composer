@@ -4,8 +4,6 @@ from glob import glob
 from random import shuffle
 from typing import Any, Dict, Generator, List, Tuple
 
-from PIL import Image
-
 from composer.datasets.webdataset import create_webdataset
 
 
