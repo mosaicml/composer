@@ -15,8 +15,6 @@ Doing so reduces [aliasing](https://en.wikipedia.org/wiki/Aliasing) when perform
 
 ### Functional Interface
 
-TODO(DAVIS): FIX
-
 ```python
 # Run the Blurpool algorithm directly on the model using the Composer functional API 
 
@@ -46,8 +44,6 @@ def training_loop(model, train_loader):
 ```
 
 ### Composer Trainer
-
-TODO(DAVIS): Fix and provide commentary and/or comments
 
 ```python
 # Instantiate the algorithm and pass it into the Trainer
