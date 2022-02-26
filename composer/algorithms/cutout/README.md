@@ -15,8 +15,6 @@ It is a regularization technique that improves the accuracy of models for comput
 
 ### Functional Interface
 
-TODO(CORY): FIX
-
 ```python
 # Run the CutOut algorithm directly on the batch data using the Composer functional API 
 
@@ -41,8 +39,6 @@ def training_loop(model, train_loader):
 ```
 
 ### Composer Trainer
-
-TODO(CORY): Fix and provide commentary and/or comments
 
 ```python
 # Instantiate the algorithm and pass it into the Trainer
