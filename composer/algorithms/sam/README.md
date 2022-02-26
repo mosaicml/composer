@@ -12,7 +12,7 @@ Sharpness-Aware Minimization (SAM) is an optimization algorithm that minimizes b
 
 ## How to Use
 
-### Functional Interface
+<!--### Functional Interface
 
 TODO(Abhi): Fix and add comments here describing what happens below.
 
@@ -46,7 +46,7 @@ trainer = Trainer(model=model,
                   ])
 
 trainer.fit()
-```
+```-->
 
 ### Implementation Details
 
