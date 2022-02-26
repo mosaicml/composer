@@ -1,5 +1,5 @@
 
-# Factorize
+# ➗ Factorize
 
 ![Factorizing a Conv2 operation](https://storage.googleapis.com/docs.mosaicml.com/images/methods/factorize-no-caption.png)
 

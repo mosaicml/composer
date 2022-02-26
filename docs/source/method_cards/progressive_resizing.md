@@ -1,4 +1,4 @@
-# Progressive Image Resizing
+# 🏞️ Progressive Image Resizing
 
 ![progressive_resizing_vision.png](https://storage.googleapis.com/docs.mosaicml.com/images/methods/progressive_resizing_vision.png)
 

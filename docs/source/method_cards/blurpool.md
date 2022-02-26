@@ -1,4 +1,4 @@
-# BlurPool
+# 🏊 BlurPool
 
 ![BlurPool Antialiasing](https://storage.googleapis.com/docs.mosaicml.com/images/methods/blurpool-antialiasing.png)
 

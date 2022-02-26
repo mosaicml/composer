@@ -15,7 +15,8 @@ import os
 import sys
 import textwrap
 import types
-from typing import Any, List, Optional, Tuple, Type, Union
+from typing import Any, List, Optional, Tuple, Type, Union, Dict
+import json
 
 import sphinx.application
 import sphinx.ext.autodoc
@@ -62,7 +63,7 @@ source_suffix = ['.rst', '.md']
 # List of patterns, relative to source directory, that match files and
 # directories to ignore when looking for source files.
 # This pattern also affects html_static_path and html_extra_path.
-exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store']
+exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store', 'tables/algorithms_table.md']
 
 napoleon_custom_sections = [('Returns', 'params_style')]
 
@@ -351,6 +352,47 @@ def add_module_summary_tables(
                 lines.extend(sphinx_lines)
 
 
+def rstjinja(app, docname, source):
+    """
+    Render our pages as a jinja template for fancy templating goodness.
+    """
+    # Make sure we're outputting HTML
+    if app.builder.format != 'html':
+        return
+    src = source[0]
+    rendered = app.builder.templates.render_string(src, app.config.html_context)
+    source[0] = rendered
+
+
+def get_algorithms_metadata() -> Dict[str, Dict[str, str]]:
+    EXCLUDE = ['no_op_model']
+
+    root = os.path.join(os.path.dirname(__file__), '..', '..', 'composer', 'algorithms')
+    algorithms = next(os.walk(root))[1]
+    algorithms = [algo for algo in algorithms if algo not in EXCLUDE]
+
+    metadata = {}
+    for name in algorithms:
+        json_path = os.path.join(root, name, 'metadata.json')
+
+        if os.path.isfile(json_path):
+            with open(json_path, 'r') as f:
+                data = json.load(f)
+
+            for key, value in data.items():
+                if key in metadata:
+                    raise ValueError(f'Duplicate keys in metadata: {key}')
+                metadata[key] = value
+
+    if not metadata:
+        raise ValueError(f"No metadata found, {root} not correctly configured.")
+    return metadata
+
+
+html_context = {'metadata': get_algorithms_metadata()}
+
+
 def setup(app: sphinx.application.Sphinx):
     app.connect('autodoc-skip-member', skip_redundant_namedtuple_attributes)
     app.connect('autodoc-process-docstring', add_module_summary_tables)
+    app.connect('source-read', rstjinja)

@@ -1,4 +1,4 @@
-# MixUp
+# 🥣 MixUp
 
 ![mix_up.png](https://storage.googleapis.com/docs.mosaicml.com/images/methods/mix_up.png)
 

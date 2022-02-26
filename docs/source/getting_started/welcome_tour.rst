@@ -1,5 +1,5 @@
-Welcome Tour
-============
+|:bus:| Welcome Tour
+====================
 
 Welcome to the MosaicML *Composer* library! This guide will walk you through the basics of how the Composer trainer works, and how it interacts with our methods libary. This guide will assume you've already gone through the installation instructions.
 
@@ -158,10 +158,12 @@ That's it! Our training loop is now taking full advantage of MixUp, and we can e
 For more information on events, state, and engines, check out :class:`~composer.core.event.Event`,
 :class:`~composer.core.state.State`, and :class:`~composer.core.engine.Engine`.
 
-Next: The Composer Trainer
---------------------------
+Composer Trainer
+----------------
 
 For advanced experimentation, we recommend using our provided trainer.
 Our trainer takes care of all the state management and event callbacks from above,
-and adds a bunch of advanced features, including hyperparameter management, gradient accumulation, and closure support.
-For more information, check out our trainer documentation at :class:`composer.trainer.trainer.Trainer`.
+and adds a bunch of advanced features, including hyperparameter management, gradient accumulation,
+
+and closure support.
+For more information, check out the :doc:`Trainer</trainer/using_the_trainer>` guide.
