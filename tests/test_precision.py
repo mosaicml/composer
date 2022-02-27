@@ -39,7 +39,7 @@ def run_and_measure_memory(precision: Precision) -> int:
 @pytest.mark.parametrize("precision", ['Precision.AMP', 'Precision.BF16'])
 def test_precision_memory(precision):
     if version.parse(torch.__version__) < version.parse("1.10"):
-        return
+        pytest.skip("Test required torch >= 1.10")
     memory_full = run_and_measure_memory(Precision.FP32)
     memory_precision = run_and_measure_memory(precision)
     assert memory_precision < 0.7 * memory_full
