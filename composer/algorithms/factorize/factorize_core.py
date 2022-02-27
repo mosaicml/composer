@@ -222,6 +222,9 @@ def _activations_conv2d_to_mat(activations,
     if groups != 1:
         raise NotImplementedError(f"Groups != 1 not implemented; got {groups}")
     if np.max(padding) > 0 and padding_mode.lower() != 'zeros':
+        if not isinstance(padding, list):
+            padding = [padding]
+
         activations = F.pad(activations, pad=padding, mode=padding_mode)
         padding = 0
     # always default to stride=1 to maximize amount of data we get here

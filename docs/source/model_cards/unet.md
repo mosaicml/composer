@@ -1,4 +1,4 @@
-# UNet
+# ↩️ UNet
 
 Category of Task: `Vision`
 
@@ -12,10 +12,10 @@ Unet is an example of architecture used in image segmentation. The example we ar
 
 ## Attribution
 
-The UNet model has been introduced in "U-Net: Convolutional Networks for Biomedical Image Segmentation" by Olaf Ronneberger, Philipp Fischer, Thomas Brox in [https://arxiv.org/abs/1505.04597](https://arxiv.org/abs/1505.04597). 
+The UNet model has been introduced in "U-Net: Convolutional Networks for Biomedical Image Segmentation" by Olaf Ronneberger, Philipp Fischer, Thomas Brox in [https://arxiv.org/abs/1505.04597](https://arxiv.org/abs/1505.04597).
 
-We are using the NVDA DLE examples version in 
-[https://github.com/NVIDIA/DeepLearningExamples/tree/master/PyTorch/Segmentation/nnUNet](https://github.com/NVIDIA/DeepLearningExamples/tree/master/PyTorch/Segmentation/nnUNet). 
+We are using the NVDA DLE examples version in
+[https://github.com/NVIDIA/DeepLearningExamples/tree/master/PyTorch/Segmentation/nnUNet](https://github.com/NVIDIA/DeepLearningExamples/tree/master/PyTorch/Segmentation/nnUNet).
 
 ## Architecture
 
@@ -25,11 +25,11 @@ The figure below shows a 3D version of the UNet architecture. Quoting the DLE ex
 
 ## Implementation Details
 
-There are 3 main differences between our implementation and the original NVDA DALI implementation. 
+There are 3 main differences between our implementation and the original NVDA DALI implementation.
 
 The first two refer to removing the NVDA DALI pipeline and replacing all transforms with torch implementations. We are omitting the Zoom transform and use a kernel size of 3 for the Gaussian Blur transform.
 
-While NVDA DLE examples reports the training accuracy using an average of 5 folds, we are using only 1 fold in the interest of faster iteration time, so all of our results are reported using fold 0 and 200 epochs. 
+While NVDA DLE examples reports the training accuracy using an average of 5 folds, we are using only 1 fold in the interest of faster iteration time, so all of our results are reported using fold 0 and 200 epochs.
 
 ## Exploring Tradeoffs Between Quality and Training Speed/Cost
 

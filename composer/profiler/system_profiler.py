@@ -1,5 +1,7 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
+"""Profiler to record system level metrics."""
+
 from __future__ import annotations
 
 import threading
@@ -16,9 +18,19 @@ if TYPE_CHECKING:
     from composer.core.state import State
     from composer.profiler import Profiler
 
+__all__ = ["SystemProfiler"]
+
 
 class SystemProfiler(Callback):
-    """The SystemProfiler records system level statistics.
+    """The SystemProfiler records system level metrics.  Implemented as a :class:`.Callback`, the profiler forks a
+    thread during :attr:`.Event.INIT` which polls and records system state.
+
+    When used with the Composer :class:`.Trainer`\\, the system profiler is enabled if profiling is enabled.
+
+    .. note::
+
+        The Composer :class:`.Trainer` creates an instance of :class:`.TorchProfiler` when ``tensorboard_trace_handler_dir`` is provided.
+        The user should not create and directly register an instance of :class:`.TorchProfiler` when using the Composer :class:`.Trainer`\\.
 
     Args:
         profile_cpu (bool): Whether to record cpu statistics (Default: ``True``)
@@ -49,6 +61,8 @@ class SystemProfiler(Callback):
         threading.Thread(target=self._stats_thread, daemon=True, args=[state.profiler]).start()
 
     def _stats_thread(self, profiler: Profiler):
+        """Gathers requested system metrics at :attr:`SystemProfiler.stats_thread_interval_seconds` interval."""
+
         psutil.disk_io_counters.cache_clear()
         psutil.net_io_counters.cache_clear()
         if self.profile_cpu:

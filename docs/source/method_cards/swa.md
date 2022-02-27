@@ -1,4 +1,4 @@
-# Stochastic Weight Averaging
+# 🧩 Stochastic Weight Averaging
 
 ![Untitled](https://storage.googleapis.com/docs.mosaicml.com/images/methods/swa.png)
 
@@ -47,7 +47,7 @@ As per the paper, the majority of training should be completed (e.g. 75%-80%) be
 
 ## Composability
 
-Stochastic Weight Averaging composes well with other methods such as Mix Up and Label Smoothing on ImageNet. 
+Stochastic Weight Averaging composes well with other methods such as Mix Up and Label Smoothing on ImageNet.
 
 There are studies in progress to see the effect of SWA on other image tasks and NLP.
 

@@ -21,13 +21,13 @@ if TYPE_CHECKING:
     from composer.loggers.wandb_logger import WandBLogger
 
 __all__ = [
-    "FileLoggerHparams", "InMemoryLoggerHaparms", "LoggerCallbackHparams", "TQDMLoggerHparams", "WandBLoggerHparams"
+    "FileLoggerHparams", "InMemoryLoggerHparams", "LoggerCallbackHparams", "TQDMLoggerHparams", "WandBLoggerHparams"
 ]
 
 
 @dataclass
 class LoggerCallbackHparams(hp.Hparams, ABC):
-    """Base class for logger backend hyperparameters.
+    """Base class for logger callback hyperparameters.
 
     Logger parameters that are added to :class:`~.trainer_hparams.TrainerHparams` (e.g. via YAML or the CLI) are
     initialized in the training loop.
@@ -50,6 +50,17 @@ class FileLoggerHparams(LoggerCallbackHparams):
     hyperparameters.
 
     See :class:`~composer.loggers.file_logger.FileLogger` for documentation.
+
+    Args:
+        filename (str, optional): See :class:`~composer.loggers.file_logger.FileLogger`
+        buffer_size (int, optional): See
+            :class:`~composer.loggers.file_logger.FileLogger`.
+        log_level (LogLevel, optional): See
+            :class:`~composer.loggers.file_logger.FileLogger`.
+        log_interval (int, optional): See
+            :class:`~composer.loggers.file_logger.FileLogger`.
+        flush_interval (int, optional): See
+            :class:`~composer.loggers.file_logger.FileLogger`.
     """
     log_level: LogLevel = hp.optional("The maximum verbosity to log. Default: EPOCH", default=LogLevel.EPOCH)
     filename: str = hp.optional("The path to the logfile. Can also be `stdout` or `stderr`. Default: stdout",
@@ -77,16 +88,18 @@ class WandBLoggerHparams(LoggerCallbackHparams):
     """:class:`~composer.loggers.wandb_logger.WandBLogger` hyperparameters.
 
     Args:
-        project (str, optional): Weights and Biases project name.
-        group (str, optional): Weights and Biases group name.
-        name (str, optional): Weights and Biases run name.
-        entity (str, optional): Weights and Biases entity name.
-        tags (str, optional): Comma-seperated list of tags to add to the run.
-        log_artifacts (bool, optional): Whether to log artifacts. Defaults to False.
-        log_artifacts_every_n_batches (int, optional). How frequently to log artifacts.
-            Default: ``100``. Only applicable if ``log_artifacts`` is True.
+        project (str, optional): WandB project name.
+        group (str, optional): WandB group name.
+        name (str, optional): WandB run name.
+        entity (str, optional): WandB entity name.
+        tags (str, optional): WandB tags, comma-separated.
+        log_artifacts (bool, optional): See
+            :class:`~composer.loggers.wandb_logger.WandBLogger`.
+        log_artifacts_every_n_batches (int, optional). See
+            :class:`~composer.loggers.wandb_logger.WandBLogger`.
 
-        extra_init_params (JSON Dictionary, optional): Extra parameters to pass into :func:`wandb.init`.
+        extra_init_params (JSON Dictionary, optional): See
+            :class:`~composer.loggers.wandb_logger.WandBLogger`.
     """
 
     project: Optional[str] = hp.optional(doc="wandb project name", default=None)
@@ -200,10 +213,7 @@ class WandBLoggerHparams(LoggerCallbackHparams):
 @dataclass
 class TQDMLoggerHparams(LoggerCallbackHparams):
     """:class:`~composer.loggers.tqdm_logger.TQDMLogger`
-    hyperparameters.
-
-    See :class:`~composer.loggers.tqdm_logger.TQDMLogger`
-    for documentation.
+    hyperparameters. This class takes no parameters.
     """
 
     def initialize_object(self, config: Optional[Dict[str, Any]] = None) -> TQDMLogger:
@@ -212,12 +222,13 @@ class TQDMLoggerHparams(LoggerCallbackHparams):
 
 
 @dataclass
-class InMemoryLoggerHaparms(LoggerCallbackHparams):
+class InMemoryLoggerHparams(LoggerCallbackHparams):
     """:class:`~composer.loggers.in_memory_logger.InMemoryLogger`
     hyperparameters.
 
-    See :class:`~composer.loggers.in_memory_logger.InMemoryLogger`
-    for documentation.
+    Args:
+        log_level (str or LogLevel, optional):
+            See :class:`~composer.loggers.in_memory_logger.InMemoryLogger`.
     """
     log_level: LogLevel = hp.optional("The maximum verbosity to log. Default: BATCH", default=LogLevel.BATCH)
 
