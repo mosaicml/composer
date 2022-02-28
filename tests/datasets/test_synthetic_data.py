@@ -15,7 +15,7 @@ from composer.datasets.synthetic import (SyntheticBatchPairDataset, SyntheticDat
 def test_synthetic_hf_dataset_creation(num_samples: int, chars_per_sample: int, column_names: list,
                                        tokenizer_family: str):
     try:
-        import transformers 
+        import transformers
     except ImportError as e:
         pytest.xfail(f"pip install -e '.[nlp]' to run this test!")
 
@@ -67,7 +67,7 @@ def test_synthetic_tokenizer_creation(tokenizer_family, vocab_size):
         from transformers import BertTokenizer, GPT2Tokenizer
     except ImportError as e:
         pytest.xfail(f"pip install -e '.[nlp]' to run this test!")
-        
+
     tokenizer = generate_synthetic_tokenizer(tokenizer_family=tokenizer_family, vocab_size=vocab_size)
     if tokenizer_family == "bert":
         assert isinstance(tokenizer, BertTokenizer)

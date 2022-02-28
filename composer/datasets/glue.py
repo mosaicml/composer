@@ -83,7 +83,7 @@ class GLUEHparams(DatasetHparams, SyntheticHparamsMixin):
 
         self.validate()
         if self.use_synthetic:
-            column_names = [i for i in self.task_to_keys[self.task] if i is not None]
+            column_names = [i for i in _task_to_keys[self.task] if i is not None]
 
             # we just use the max sequence length in tokens to upper bound the sequence length in characters
             dataset = SyntheticHFDataset(num_samples=self.synthetic_num_unique_samples,

@@ -192,7 +192,7 @@ def generate_synthetic_tokenizer(tokenizer_family: str, dataset=None, vocab_size
         json.dump({"pad_token": tokenizer_params.pad_token}, f)
 
     # instantiate the new tokenizer
-    assert isinstance(tokenizer_params.tokenizer_cls, PreTrainedTokenizer)
+    assert issubclass(tokenizer_params.tokenizer_cls, PreTrainedTokenizer)
     tokenizer = tokenizer_params.tokenizer_cls.from_pretrained(tmp_tokenizer_dir)
 
     return tokenizer

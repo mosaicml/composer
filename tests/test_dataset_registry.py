@@ -53,7 +53,6 @@ def test_dataset(dataset_name: str, dummy_dataloader_hparams: DataloaderHparams)
         pytest.importorskip("datasets")
         pytest.importorskip("tokenizers")
 
-
     assert isinstance(hparams, SyntheticHparamsMixin)
 
     hparams.use_synthetic = True
