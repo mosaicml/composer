@@ -3,7 +3,7 @@
         "name": "BlurPool",
         "class_name": "BlurPool",
         "functional": "apply_blurpool",
-        "tldr": "applies blur before pooling",
+        "tldr": "Applies blur before pooling or downsampling",
         "attribution": "(Zhang, 2019)",
         "link": "https://arxiv.org/abs/1904.11486",
         "domains": [
