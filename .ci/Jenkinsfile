@@ -77,7 +77,7 @@ def runPytest(Map args) {
     def summary = title
 
     def closure = { ->
-        def builtJob == build(
+        def builtJob = build(
             job: "${jenkinsJobBasePath}/command2",
             parameters: [
                 string(name: 'P_CLOUD', value: pCloud),
