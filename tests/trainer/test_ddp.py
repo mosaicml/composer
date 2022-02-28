@@ -91,7 +91,7 @@ class CheckBatch0(Callback):
     def run_event(self, event: Event, state: State, logger: Logger) -> None:
         if event in (Event.BEFORE_FORWARD, Event.EVAL_BEFORE_FORWARD):
             filepath = get_batch_file_path(rank=dist.get_global_rank(),
-                                           epoch=int(state.timer.epoch),
+                                           epoch=state.epoch,
                                            is_train=state.model.training)
             if os.path.exists(filepath):
                 return

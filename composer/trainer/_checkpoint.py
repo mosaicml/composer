@@ -499,9 +499,9 @@ class CheckpointSaver:
         }
 
         if self.save_event == Event.EPOCH_END:
-            tag = f"ep{int(state.timer.epoch)}"
+            tag = f"ep{state.epoch}"
         elif self.save_event == Event.BATCH_END:
-            tag = f"it{int(state.timer.batch)}"
+            tag = f"it{state.step}"
         else:
             raise ValueError(f"Invalid checkpoint event: {self.save_event}")
 
