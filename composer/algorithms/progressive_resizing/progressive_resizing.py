@@ -61,6 +61,11 @@ def resize_batch(X: torch.Tensor,
             of shape ``(N, H * scale_factor, W * scale_factor)`` or  ``(N, C, H * scale_factor, W * scale_factor)``.
             Depending on the input ``y``. Otherwise returns original ``y``.
     """
+    # Verify dimensionalities are enough to support resizing
+    assert X.dim() > 2, "Input dimensionality not large enough for resizing"
+    if resize_targets is True:
+        assert y.dim() > 2, "Target dimensionality not large enough for resizing"
+
     # Short-circuit if nothing should be done
     if scale_factor >= 1:
         return X, y
