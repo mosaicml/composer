@@ -23,8 +23,6 @@ if TYPE_CHECKING:
     import tokenizers.models as tokenizers_models
     import tokenizers.normalizers as normalizers
     import tokenizers.pre_tokenizers as pre_tokenizers
-    import tokenizers.trainers as tokenizers_trainer
-    from tokenizers import Tokenizer
     from transformers import PreTrainedTokenizer
 
 
