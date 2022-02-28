@@ -170,7 +170,7 @@ argument.
    trainer = Trainer(model=model,
                      train_dataloader=train_dataloader,
                      eval_dataloader=eval_dataloader,
-                     max_duration='160ep',
+                     max_duration='5ep',
                      algorithms=[
                          LayerFreezing(freeze_start=0.5, freeze_level=0.1),
                          MixUp(num_classes=10, alpha=0.1),
