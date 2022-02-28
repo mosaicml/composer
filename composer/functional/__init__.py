@@ -7,12 +7,12 @@
     from composer import functional as cf
     from torchvision import models
 
-    model = models.resnet(model_name='resnet50')
+    model = models.resnet50()
 
     # replace some layers with blurpool
     cf.apply_blurpool(model)
     # replace some layers with squeeze-excite
-    cf.apply_se(model, latent_channels=64, min_channels=128)
+    cf.apply_squeeze_excite(model, latent_channels=64, min_channels=128)
 """
 from composer.algorithms.alibi.alibi import apply_alibi as apply_alibi
 from composer.algorithms.augmix import augmix_image as augmix_image
