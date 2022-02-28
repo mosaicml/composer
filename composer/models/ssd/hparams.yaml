@@ -22,7 +22,6 @@ model:
     input_size: 300
     overlap_threshold: 0.5
     nms_max_detections: 200
-    pretrained_backbone: /mnt/r1z1/laura/composer/resnet34-333f7ec4.pth
     initializers: {}
 schedulers:
   - multistep_with_warmup:

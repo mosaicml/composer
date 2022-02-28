@@ -2,6 +2,7 @@ import copy
 import itertools
 import json
 import os
+
 import time
 from collections import defaultdict
 from dataclasses import dataclass
@@ -122,9 +123,8 @@ class COCODetection(data.Dataset):
             bbox_label = self.label_map[bboxes["category_id"]]
             self.images[img_id][2].append((bbox, bbox_label))
 
-        for k, v in list(self.images.items()):
+        for k, v in self.images.items():#list(self.images.items()):
             if len(v[2]) == 0:
-                # print("empty image: {}".format(k))
                 self.images.pop(k)
 
         self.img_keys = list(self.images.keys())
@@ -133,16 +133,6 @@ class COCODetection(data.Dataset):
     #@property
     def labelnum(self):
         return len(self.label_info)
-
-    @staticmethod
-    def load(pklfile):
-        with bz2.open(pklfile, "rb") as fin:
-            ret = pickle.load(fin)
-        return ret
-
-    def save(self, pklfile):
-        with bz2.open(pklfile, "wb") as fout:
-            pickle.dump(self, fout)
 
     def __len__(self):
         return len(self.images)
@@ -153,57 +143,53 @@ class COCODetection(data.Dataset):
         fn = img_data[0]
         img_path = os.path.join(self.img_folder, fn)
 
-        from os.path import exists
 
-        if (exists(img_path)):
-            img = Image.open(img_path).convert("RGB")
+        img = Image.open(img_path).convert("RGB")
 
-            htot, wtot = img_data[1]
-            bbox_sizes = []
-            bbox_labels = []
+        htot, wtot = img_data[1]
+        bbox_sizes = []
+        bbox_labels = []
 
-            for (l, t, w, h), bbox_label in img_data[2]:
-                r = l + w
-                b = t + h
-                bbox_size = (l / wtot, t / htot, r / wtot, b / htot)
-                bbox_sizes.append(bbox_size)
-                bbox_labels.append(bbox_label)
+        for (l, t, w, h), bbox_label in img_data[2]:
+            r = l + w
+            b = t + h
+            bbox_size = (l / wtot, t / htot, r / wtot, b / htot)
+            bbox_sizes.append(bbox_size)
+            bbox_labels.append(bbox_label)
 
-            bbox_sizes = torch.tensor(bbox_sizes)
-            bbox_labels = torch.tensor(bbox_labels)
+        bbox_sizes = torch.tensor(bbox_sizes)
+        bbox_labels = torch.tensor(bbox_labels)
 
-            if self.transform != None:
-                img, (htot, wtot), bbox_sizes, bbox_labels = \
-                    self.transform(img, (htot, wtot), bbox_sizes, bbox_labels)
-            else:
-                pass
-            return img, img_id, (htot, wtot), bbox_sizes, bbox_labels
-        else:
-            print('here')
-            pass
-
+        if self.transform != None:
+            img, (htot, wtot), bbox_sizes, bbox_labels = \
+                self.transform(img, (htot, wtot), bbox_sizes, bbox_labels)
+            
+        return img, img_id, (htot, wtot), bbox_sizes, bbox_labels
 
 def split_dict_fn(batch: Batch, num_microbatches: int) -> Sequence[Batch]:
     if not isinstance(batch, Sequence):
-        raise ValueError(f'split_fn requires batch be a tuple pair of tensors, got {type(batch)}')
-    x, y, a, b, c = batch
+        raise ValueError(f'split_fn requires batch be a tuple of tensors, got {type(batch)}')
+    img, img_id, img_size, bbox_sizes, bbox_labels = batch
     nm = num_microbatches
-    if isinstance(x, torch.Tensor) and isinstance(y, torch.Tensor):
+    if isinstance(img, torch.Tensor) and isinstance(img_id, torch.Tensor):
         return list(
-            zip(x.chunk(num_microbatches), y.chunk(num_microbatches), [a[i::nm] for i in range(nm)], b.chunk(nm),
-                c.chunk(nm)))
-    if isinstance(x, List) and isinstance(y, List) and isinstance(a, List) and isinstance(b, List) and isinstance(
-            c, List):
+            zip(img.chunk(nm), img_id.chunk(nm), img_size.chunk(nm), bbox_sizes.chunk(nm),
+                bbox_labels.chunk(nm)))
+    if isinstance(img, List) and isinstance(img_id, List) and isinstance(img_size, List) and isinstance(bbox_sizes, List) and isinstance(
+            bbox_labels, List):
         return list(
             zip(
-                [x[i::n_microbatches] for i in range(n_microbatches)],
-                [y[i::n_microbatches] for i in range(n_microbatches)],
-                [a[i::nm] for i in range(nm)],
-                [b[i::nm] for i in range(nm)],
-                [c[i::nm] for i in range(nm)],
+                [img[i::nm] for i in range(nm)],
+                [img_id[i::nm] for i in range(nm)],
+                [img_size[i::nm] for i in range(nm)],
+                [bbox_sizes[i::nm] for i in range(nm)],
+                [bbox_labels[i::nm] for i in range(nm)],
             ))
 
+from pycocotools import COCO
 
+
+'''
 class COCO:
 
     def __init__(self, annotation_file=None):
@@ -311,12 +297,12 @@ class COCO:
         return ids
 
     def getImgIds(self, imgIds=[], catIds=[]):
-        '''
+        """
         Get img ids that satisfy given filter conditions.
         :param imgIds (int array) : get imgs for given ids
         :param catIds (int array) : get imgs with all given cats
         :return: ids (int array)  : integer array of img ids
-        '''
+        """
         imgIds = imgIds if _isArrayLike(imgIds) else [imgIds]
         catIds = catIds if _isArrayLike(catIds) else [catIds]
 
@@ -421,12 +407,12 @@ class COCO:
         return res
 
     def download(self, tarDir=None, imgIds=[]):
-        '''
+        """
         Download COCO images from mscoco.org server.
         :param tarDir (str): COCO results directory name
                imgIds (list): images to be downloaded
         :return:
-        '''
+        """
         if tarDir is None:
             return -1
         if len(imgIds) == 0:
@@ -490,3 +476,4 @@ class COCO:
         rle = self.annToRLE(ann)
         m = maskUtils.decode(rle)
         return m
+'''

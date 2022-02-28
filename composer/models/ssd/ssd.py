@@ -22,11 +22,10 @@ class SSD(ComposerModel):
         self.input_size = input_size
         self.overlap_threshold = overlap_threshold
         self.nms_max_detections = nms_max_detections
-        self.pretrained_backbone = pretrained_backbone
+        self.pretrained_backbone = "curl -O https://download.pytorch.org/models/resnet34-333f7ec4.pth"
         self.num_classes = num_classes
         self.module = SSD300(self.num_classes, model_path=self.pretrained_backbone)
 
-        ##todo(laura): fix weights path
         dboxes = dboxes300_coco()
         self.loss_func = Loss(dboxes)
         self.MAP = coco_map()
@@ -68,7 +67,7 @@ class SSD(ComposerModel):
         nms_max_detections = self.nms_max_detections
 
         (img, img_id, img_size, _, _) = batch
-        ploc, plabel = self.module(img.cuda())
+        ploc, plabel = self.module(img)#.cuda())
 
         results = []
         try:
@@ -99,18 +98,18 @@ class coco_map(Metric):
     def __init__(self):
         super().__init__()
         self.add_state("predictions", default=[])
+        data = "/localdisk/coco"
+        val_annotate = os.path.join(data, "annotations/instances_val2017.json")
+        from composer.datasets.coco import COCO
+        self.cocogt = COCO(annotation_file=val_annotate)
 
     def update(self, pred, target):
         self.predictions.append(pred)
         np.squeeze(self.predictions)
 
     def compute(self):
-        data = "/localdisk/coco"
-        val_annotate = os.path.join(data, "annotations/instances_val2017.json")
-        from composer.datasets.coco import COCO
-        cocogt = COCO(annotation_file=val_annotate)
-        cocoDt = cocogt.loadRes(np.array(self.predictions))
-        E = COCOeval(cocogt, cocoDt, iouType='bbox')
+        cocoDt = self.cocogt.loadRes(np.array(self.predictions))
+        E = COCOeval(self.cocogt, cocoDt, iouType='bbox')
         E.evaluate()
         E.accumulate()
         E.summarize()
