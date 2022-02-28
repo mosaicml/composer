@@ -294,13 +294,6 @@ class State(Serializable):
                     target.load_state_dict(source)
 
     @property
-    def batch_idx(self) -> int:
-        """int: batch_idx is the index of the batch in the current epoch."""
-        warnings.warn("TimeDeprecationWarning: state.batch_idx is deprecated. Please use state.timer.batch_in_epoch",
-                      category=DeprecationWarning)
-        return self.timer.batch_in_epoch.value
-
-    @property
     def steps_per_epoch(self):
         """int: The maximum number of steps (batches) per epoch."""
         if self._steps_per_epoch is None:

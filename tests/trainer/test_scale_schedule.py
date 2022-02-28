@@ -71,13 +71,20 @@ class TestScaleSchedule():
 
 
 @pytest.mark.parametrize('ssr', [0.5, 0.75, 1.0])
+@pytest.mark.parametrize('max_duration', ['1ep', '10ep'])
 @pytest.mark.parametrize('use_algorithm', [False, True])
 class TestScaleScheduleTrainer():
 
-    def test_epochs_scaled(self, ssr: float, use_algorithm: bool, composer_trainer_hparams: TrainerHparams):
+    def test_epochs_scaled(
+        self,
+        ssr: float,
+        use_algorithm: bool,
+        composer_trainer_hparams: TrainerHparams,
+        max_duration: str,
+    ):
 
         composer_trainer_hparams.optimizer = SGDHparams(lr=1.0)
-        composer_trainer_hparams.max_duration = '10ep'
+        composer_trainer_hparams.max_duration = max_duration
         composer_trainer_hparams.schedulers = [MultiStepLRHparams(milestones=['30ba', '50ba'], gamma=0.1)]
 
         if use_algorithm:
