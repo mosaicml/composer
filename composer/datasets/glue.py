@@ -16,6 +16,17 @@ from composer.utils import dist
 
 log = logging.getLogger(__name__)
 
+_task_to_keys = {
+    "cola": ("sentence", None),
+    "mnli": ("premise", "hypothesis"),
+    "mrpc": ("sentence1", "sentence2"),
+    "qnli": ("question", "sentence"),
+    "qqp": ("question1", "question2"),
+    "rte": ("sentence1", "sentence2"),
+    "sst2": ("sentence", None),
+    "stsb": ("sentence1", "sentence2"),
+}
+
 
 @dataclass
 class GLUEHparams(DatasetHparams):
@@ -46,19 +57,8 @@ class GLUEHparams(DatasetHparams):
                                            doc="Optionally, the number of times to retry HTTP requests if they fail.")
 
     def validate(self):
-        self.task_to_keys = {
-            "cola": ("sentence", None),
-            "mnli": ("premise", "hypothesis"),
-            "mrpc": ("sentence1", "sentence2"),
-            "qnli": ("question", "sentence"),
-            "qqp": ("question1", "question2"),
-            "rte": ("sentence1", "sentence2"),
-            "sst2": ("sentence", None),
-            "stsb": ("sentence1", "sentence2"),
-        }
-
-        if self.task not in self.task_to_keys.keys():
-            raise ValueError(f"The task must be a valid GLUE task, options are {' ,'.join(self.task_to_keys.keys())}.")
+        if self.task not in _task_to_keys.keys():
+            raise ValueError(f"The task must be a valid GLUE task, options are {' ,'.join(_task_to_keys.keys())}.")
 
         if (self.max_seq_length % 8) != 0:
             log.warning("For best hardware acceleration, it is recommended that sequence lengths be multiples of 8.")
@@ -85,10 +85,10 @@ class GLUEHparams(DatasetHparams):
 
         log.info(f"Loading {self.task.upper()} on rank ", dist.get_global_rank())
         download_config = datasets.utils.DownloadConfig(max_retries=self.max_network_retries)
-        self.dataset = datasets.load_dataset("glue", self.task, split=self.split, download_config=download_config)
+        dataset = datasets.load_dataset("glue", self.task, split=self.split, download_config=download_config)
 
         log.info(f"Starting tokenization step by preprocessing over {self.num_workers} threads!")
-        text_column_names = self.task_to_keys[self.task]
+        text_column_names = _task_to_keys[self.task]
 
         def tokenize_function(inp):
             # truncates sentences to max_length or pads them to max_length
@@ -104,8 +104,8 @@ class GLUEHparams(DatasetHparams):
             )
 
         columns_to_remove = ["idx"] + [i for i in text_column_names if i is not None]
-        assert isinstance(self.dataset, datasets.Dataset)
-        dataset = self.dataset.map(
+        assert isinstance(dataset, datasets.Dataset)
+        dataset = dataset.map(
             tokenize_function,
             batched=True,
             num_proc=self.num_workers,
