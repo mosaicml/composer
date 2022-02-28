@@ -25,13 +25,14 @@ class ObjectStoreProviderHparams(hp.Hparams):
     * The AWS Access Key ID is stored in an environment variable named ``AWS_ACCESS_KEY_ID``.
     * The Secret Access Key is in an environmental variable named ``AWS_SECRET_ACCESS_KEY``.
 
-    .. testsetup::
+    .. testsetup:: composer.utils.object_store.ObjectStoreProviderHparams.__init__.s3
 
         import os
+
         os.environ["AWS_ACCESS_KEY_ID"] = "key"
         os.environ["AWS_SECRET_ACCESS_KEY"] = "secret"
 
-    .. doctest::
+    .. doctest:: composer.utils.object_store.ObjectStoreProviderHparams.__init__.s3
 
         >>> provider_hparams = ObjectStoreProviderHparams(
         ...     provider="s3",
@@ -56,29 +57,21 @@ class ObjectStoreProviderHparams(hp.Hparams):
             For example, if your key is an environment variable called ``OBJECT_STORE_KEY`` that is set to ``MY_KEY``,
             then you should set this parameter equal to ``OBJECT_STORE_KEY``. Composer will read the key like this:
             
-            .. testsetup:: object_store_hparams_key
+            .. testsetup::  composer.utils.object_store.ObjectStoreProviderHparams.__init__.key
 
                 import os
                 import functools
 
-                original_key = os.environ.get("OBJECT_STORE_KEY")
                 os.environ["OBJECT_STORE_KEY"] = "MY_KEY"
                 ObjectStoreProviderHparams = functools.partial(ObjectStoreProviderHparams, provider="s3", container="container")
             
-            .. doctest:: object_store_hparams_key
+            .. doctest:: composer.utils.object_store.ObjectStoreProviderHparams.__init__.key
 
                 >>> import os
                 >>> params = ObjectStoreProviderHparams(key_environ="OBJECT_STORE_KEY")
                 >>> key = os.environ[params.key_environ]
                 >>> key
                 'MY_KEY'
-
-            .. testcleanup:: object_store_hparams_key
-
-                if original_key is None:
-                    del os.environ['OBJECT_STORE_KEY']
-                else:
-                    os.environ['OBJECT_STORE_KEY'] = original_key
 
         secret_environ (str, optional): The name of an environment variable containing the API secret  or password
             to use for the provider. If no secret is required, then set this field to ``None``. (default: ``None``)
@@ -87,7 +80,7 @@ class ObjectStoreProviderHparams(hp.Hparams):
             For example, if your secret is an environment variable called ``OBJECT_STORE_SECRET`` that is set to ``MY_SECRET``,
             then you should set this parameter equal to ``OBJECT_STORE_SECRET``. Composer will read the secret like this:
                 
-            .. testsetup:: object_store_hparams_secret
+            .. testsetup:: composer.utils.object_store.ObjectStoreProviderHparams.__init__.secret
 
                 import os
                 import functools
@@ -96,20 +89,13 @@ class ObjectStoreProviderHparams(hp.Hparams):
                 ObjectStoreProviderHparams = functools.partial(ObjectStoreProviderHparams, provider="s3", container="container")
 
 
-            .. doctest:: object_store_hparams_secret
+            .. doctest:: composer.utils.object_store.ObjectStoreProviderHparams.__init__.secret
 
                 >>> import os
                 >>> params = ObjectStoreProviderHparams(secret_environ="OBJECT_STORE_SECRET")
                 >>> secret = os.environ[params.secret_environ]
                 >>> secret
                 'MY_SECRET'
-
-            .. testcleanup:: object_store_hparams_secret
-
-                if original_secret is None:
-                    del os.environ['OBJECT_STORE_SECRET']
-                else:
-                    os.environ['OBJECT_STORE_SECRET'] = original_secret
 
         region (str, optional): Cloud region to use for the cloud provider.
             Most providers do not require the region to be specified. (default: ``None``)

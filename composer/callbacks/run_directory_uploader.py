@@ -40,7 +40,7 @@ class RunDirectoryUploader(Callback):
     timestamp. Only files that have a newer last modified timestamp since the last upload will be  uploaded.
 
     Example
-        .. testsetup::
+        .. testsetup:: composer.callbacks.RunDirectoryUploader.__init__
 
            import os
            import functools
@@ -63,7 +63,7 @@ class RunDirectoryUploader(Callback):
                num_concurrent_uploads=1,
            )
 
-        .. doctest::
+        .. doctest:: composer.callbacks.RunDirectoryUploader.__init__
 
            >>> osphparams = ObjectStoreProviderHparams(
            ...     provider="s3",
@@ -86,7 +86,7 @@ class RunDirectoryUploader(Callback):
            >>> # is triggered, like this:
            >>> _ = trainer.engine.run_event(Event.EPOCH_END)
         
-        .. testcleanup::
+        .. testcleanup:: composer.callbacks.RunDirectoryUploader.__init__
 
            # Shut down the uploader
            run_directory_uploader._finished.set()
