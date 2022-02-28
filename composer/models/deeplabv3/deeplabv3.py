@@ -73,7 +73,7 @@ def deeplabv3_builder(num_classes: int,
     #model = DeepLabV3(backbone, head, aux_classifier=None)
     #model = torch.nn.Sequential(backbone, head)
     model = SimpleSegmentationModel(backbone, head)
-    """
+
     if initializers:
         for initializer in initializers:
             initializer_fn = Initializer(initializer).get_initializer()
@@ -83,7 +83,7 @@ def deeplabv3_builder(num_classes: int,
                 model.classifier.apply(initializer_fn)
             else:
                 model.apply(initializer_fn)
-    """
+
     if sync_bn:
         model = torch.nn.SyncBatchNorm.convert_sync_batchnorm(model)
 
