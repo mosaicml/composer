@@ -1,4 +1,4 @@
-# Stochastic Depth (Block-Wise)
+# 🧊 Stochastic Depth (Block-Wise)
 
 AKA: Progressive Layer Dropping
 

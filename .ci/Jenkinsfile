@@ -124,7 +124,8 @@ stage('Prepare') {
 
         pytorchDockerChanged = prChangeset("docker/pytorch/")
         // Keep track of whether dependencies changed, in which case a conda build should be tested
-        dependenciesChanged = prChangeset("setup.py") || prChangeset("meta.yaml")
+        // Skipping conda build -- stalling in Jenkins
+        // dependenciesChanged = prChangeset("setup.py") || prChangeset("meta.yaml")
     }
 }
 

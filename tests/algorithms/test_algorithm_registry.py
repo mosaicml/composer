@@ -92,7 +92,10 @@ default_required_fields = {
         'augmentation_set': 'all'
     },
     SWAHparams: {
-        'swa_start': 0.8,
+        'swa_start': "0.7dur",
+        'swa_end': "0.97dur",
+        'schedule_swa_lr': False,
+        'anneal_strategy': 'cos',
         'anneal_epochs': 10,
         'swa_lr': None
     },
