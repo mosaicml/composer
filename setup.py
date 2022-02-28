@@ -76,7 +76,7 @@ extra_deps['dev'] = [
     'jupyter>=1.0.0',
     'yamllint>=1.26.2',
     'pytest-timeout>=1.4.2',
-    'pyright>=0.0.13',
+    'pyright==1.1.224.post1',
     'recommonmark>=0.7.1',
     'sphinx>=4.2.0',
     'sphinx_copybutton>=0.4.0',
