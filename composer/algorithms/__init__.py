@@ -40,10 +40,12 @@ from composer.algorithms.algorithm_hparams import AlgorithmHparams as AlgorithmH
 from composer.algorithms.algorithm_registry import get_algorithm_registry as get_algorithm_registry
 from composer.algorithms.algorithm_registry import list_algorithms as list_algorithms
 from composer.algorithms.alibi import Alibi as Alibi
+from composer.algorithms.augmix import AugmentAndMixTransform as AugmentAndMixTransform
 from composer.algorithms.augmix import AugMix as AugMix
 from composer.algorithms.blurpool import BlurPool as BlurPool
 from composer.algorithms.channels_last import ChannelsLast as ChannelsLast
 from composer.algorithms.colout import ColOut as ColOut
+from composer.algorithms.colout import ColOutTransform as ColOutTransform
 from composer.algorithms.cutmix import CutMix as CutMix
 from composer.algorithms.cutout import CutOut as CutOut
 from composer.algorithms.factorize import Factorize as Factorize
@@ -76,6 +78,7 @@ from composer.algorithms.mixup import MixUp as MixUp
 from composer.algorithms.no_op_model import NoOpModel as NoOpModel
 from composer.algorithms.progressive_resizing import ProgressiveResizing as ProgressiveResizing
 from composer.algorithms.randaugment import RandAugment as RandAugment
+from composer.algorithms.randaugment import RandAugmentTransform as RandAugmentTransform
 from composer.algorithms.sam import SAM as SAM
 from composer.algorithms.scale_schedule import ScaleSchedule as ScaleSchedule
 from composer.algorithms.selective_backprop import SelectiveBackprop as SelectiveBackprop
