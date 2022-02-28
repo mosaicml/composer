@@ -3,7 +3,7 @@ gitUrl = null
 gitBranch = null
 gitCommit = null
 pTimeout = '1800' // in seconds
-pEphemeralStorageLimit = '4gi'
+pEphemeralStorageLimit = '4Gi'
 pytorchDockerChanged = null
 dependenciesChanged = null
 runWithChecks = null
@@ -118,8 +118,8 @@ stage('Prepare') {
         gitCommit = loadedSCM.GIT_COMMIT
 
         if (env.CHANGE_ID) {
-            // Use the origin/pr/PR_NUMBER/head to support commits in external repos
-            gitCommit = "origin/pr/${pullRequest.number}/head"
+            // Use the origin/pr/PR_NUMBER/merge to support commits in external repos
+            gitCommit = "origin/pr/${pullRequest.number}/merge"
         }
 
         echo "gitUrl: $gitUrl"
