@@ -48,6 +48,11 @@ def test_dataset(dataset_name: str, dummy_dataloader_hparams: DataloaderHparams)
     hparams = default_required_fields[hparams_cls]()
     if not isinstance(hparams, SyntheticHparamsMixin):
         pytest.xfail(f"{hparams.__class__.__name__} does not support synthetic data")
+    if isinstance(hparams, GLUEHparams) or isinstance(hparams, LMDatasetHparams):
+        pytest.importorskip("transformers")
+        pytest.importorskip("datasets")
+        pytest.importorskip("tokenizers")
+
 
     assert isinstance(hparams, SyntheticHparamsMixin)
 

@@ -14,6 +14,11 @@ from composer.datasets.synthetic import (SyntheticBatchPairDataset, SyntheticDat
 @pytest.mark.parametrize('tokenizer_family', ['bert', 'gpt2'])
 def test_synthetic_hf_dataset_creation(num_samples: int, chars_per_sample: int, column_names: list,
                                        tokenizer_family: str):
+    try:
+        import transformers 
+    except ImportError as e:
+        pytest.xfail(f"pip install -e '.[nlp]' to run this test!")
+
     dataset_generator = SyntheticHFDataset(num_samples=num_samples,
                                            chars_per_sample=chars_per_sample,
                                            column_names=column_names)
@@ -61,11 +66,8 @@ def test_synthetic_tokenizer_creation(tokenizer_family, vocab_size):
     try:
         from transformers import BertTokenizer, GPT2Tokenizer
     except ImportError as e:
-        raise ImportError(
-            textwrap.dedent("""\
-            Composer was installed without NLP support. To use NLP with Composer, run `pip install mosaicml[nlp]`
-            if using pip or `conda install -c conda-forge datasets transformers` if using Anaconda.""")) from e
-
+        pytest.xfail(f"pip install -e '.[nlp]' to run this test!")
+        
     tokenizer = generate_synthetic_tokenizer(tokenizer_family=tokenizer_family, vocab_size=vocab_size)
     if tokenizer_family == "bert":
         assert isinstance(tokenizer, BertTokenizer)

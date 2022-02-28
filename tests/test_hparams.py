@@ -40,6 +40,12 @@ class TestHparamsCreate:
             pytest.importorskip("timm")
         if hparams_file in ["unet.yaml"]:
             pytest.importorskip("monai")
+        # skip tests that require the NLP stack
+        if 'gpt' in hparams_file or 'bert' in hparams_file:
+            pytest.importorskip("transformers")
+            pytest.importorskip("datasets")
+            pytest.importorskip("tokenizers")
+
         hparams = TrainerHparams.create(hparams_file, cli_args=False)
         hparams.dataloader.num_workers = 0
         hparams.dataloader.persistent_workers = False

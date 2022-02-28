@@ -30,6 +30,8 @@ def get_model_algs(model_name: str) -> List[str]:
         algs.remove("seq_length_warmup")
     if "alibi" in algs:
         pytest.importorskip("transformers")
+        pytest.importorskip("datasets")
+        pytest.importorskip("tokenizers")
     if is_language_model:
         algs.remove('alibi')
         algs.remove('blurpool')
