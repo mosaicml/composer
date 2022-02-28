@@ -21,6 +21,8 @@ log = logging.getLogger(__name__)
 
 _VALID_MODES = ("crop", "resize")
 
+T_ResizeTransform = Callable[[torch.Tensor], torch.Tensor]
+
 __all__ = ["resize_batch", "ProgressiveResizing"]
 
 
@@ -215,7 +217,7 @@ class ProgressiveResizing(Algorithm):
             })
 
 
-def _make_crop(tensor: torch.Tensor, scale_factor: float) -> Callable[[torch.Tensor], torch.Tensor]:
+def _make_crop(tensor: torch.Tensor, scale_factor: float) -> T_ResizeTransform:
     """Makes a random crop transform for an input image."""
     Hc = int(scale_factor * tensor.shape[2])
     Wc = int(scale_factor * tensor.shape[3])
@@ -225,9 +227,8 @@ def _make_crop(tensor: torch.Tensor, scale_factor: float) -> Callable[[torch.Ten
     return resize_transform
 
 
-def _make_crop_pair(
-        X: torch.Tensor, y: torch.Tensor,
-        scale_factor: float) -> Tuple[Callable[[torch.Tensor], torch.Tensor], Callable[[torch.Tensor], torch.Tensor]]:
+def _make_crop_pair(X: torch.Tensor, y: torch.Tensor,
+                    scale_factor: float) -> Tuple[T_ResizeTransform, T_ResizeTransform]:
     """Makes a pair of random crops for an input image X and target tensor y such that the same region is selected from
     both."""
     # New height and width for X
@@ -250,6 +251,6 @@ def _make_crop_pair(
     return resize_X, resize_y
 
 
-def _make_resize(scale_factor: float) -> Callable[[torch.Tensor], torch.Tensor]:
+def _make_resize(scale_factor: float) -> T_ResizeTransform:
     resize_transform = partial(F.interpolate, scale_factor=scale_factor, mode='nearest')
     return resize_transform
