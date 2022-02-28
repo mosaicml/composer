@@ -77,7 +77,7 @@ def runPytest(Map args) {
     def summary = title
 
     def closure = { ->
-        builds << build(
+        def builtJob == build(
             job: "${jenkinsJobBasePath}/command2",
             parameters: [
                 string(name: 'P_CLOUD', value: pCloud),
@@ -95,6 +95,9 @@ def runPytest(Map args) {
                 string(name: 'P_COVERAGE_GLOB', value: "build/output/*.coverage.xml"),
             ]
         )
+        echo "${title} Job URL: ${builtJob.absoluteUrl}"
+
+        builds << builtJob
     }
     if (name != null && title != null && summary != null) {
         runWithChecks(
@@ -173,7 +176,7 @@ stage('Build') {
                     title: 'Conda build and test',
                     summary: 'Conda build and test of composer',
                 ) {
-                    builds << build(
+                    def builtJob = build(
                         job: "${jenkinsJobBasePath}/command2",
                         parameters: [
                             string(name: 'P_CLOUD', value: pCloud),
@@ -187,6 +190,8 @@ stage('Build') {
                             string(name: 'P_COMMAND', value: "./.ci/build_conda.sh")
                         ]
                     )
+                    echo "Conda Job URL: ${builtJob.absoluteUrl}"
+                    builds << builtJob
                 }
             }
         ]
@@ -200,7 +205,7 @@ stage('Build') {
                     title: 'Lint and Doctests',
                     summary: 'Static Analysis Checks and Doctests',
                 ) {
-                    builds << build(
+                    def builtJob = build(
                         job: "${jenkinsJobBasePath}/command2",
                         parameters: [
                             string(name: 'P_CLOUD', value: pCloud),
@@ -214,6 +219,8 @@ stage('Build') {
                             string(name: 'P_COMMAND', value: "./.ci/lint_doctests.sh")
                         ]
                     )
+                    echo "Lint Job URL: ${builtJob.absoluteUrl}"
+                    builds << builtJob
                 }
             },
             'Python 3.7 - All': { -> runPytest(pythonVersion: "3.7") },
