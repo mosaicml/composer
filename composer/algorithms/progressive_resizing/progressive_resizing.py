@@ -93,7 +93,6 @@ def resize_batch(X: torch.Tensor,
             y_sized = resize_transform(y_sized)
     else:
         raise ValueError(f"Progressive mode '{mode}' not supported.")
-        X_sized, y_sized = X, y
 
     # Revert targets to their original format if they were modified
     if check_for_index_targets(y) and resize_targets is True:
