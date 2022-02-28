@@ -27,8 +27,12 @@ from composer.models import (BERTForClassificationHparams, BERTHparams, CIFARRes
                              DeepLabV3Hparams, EfficientNetB0Hparams, GPT2Hparams, MnistClassifierHparams, ModelHparams,
                              ResNetHparams, TimmHparams, UnetHparams)
 from composer.models.resnet20_cifar10.resnet20_cifar10_hparams import CIFARResNet20Hparams
-from composer.optim import (AdamHparams, AdamWHparams, DecoupledAdamWHparams, DecoupledSGDWHparams, OptimizerHparams,
-                            RAdamHparams, RMSPropHparams, SchedulerHparams, SGDHparams, scheduler)
+from composer.optim import (AdamHparams, AdamWHparams, ConstantLRHparams, CosineAnnealingLRHparams,
+                            CosineAnnealingWarmRestartsHparams, CosineAnnealingWithWarmupLRHparams,
+                            DecoupledAdamWHparams, DecoupledSGDWHparams, ExponentialLRHparams, LinearLRHparams,
+                            LinearWithWarmupLRHparams, MultiStepLRHparams, MultiStepWithWarmupLRHparams,
+                            OptimizerHparams, PolynomialLRHparams, RAdamHparams, RMSPropHparams, SchedulerHparams,
+                            SGDHparams, StepLRHparams)
 from composer.profiler.profiler_hparams import JSONTraceHandlerHparams, ProfilerEventHandlerHparams
 from composer.trainer.ddp import DDPSyncStrategy
 from composer.trainer.devices import CPUDeviceHparams, DeviceHparams, GPUDeviceHparams
@@ -52,17 +56,17 @@ optimizer_registry = {
 }
 
 scheduler_registry = {
-    "step": scheduler.StepLRHparams,
-    "multistep": scheduler.MultiStepLRHparams,
-    "exponential": scheduler.ExponentialLRHparams,
-    "linear_decay": scheduler.LinearLRHparams,
-    "cosine_decay": scheduler.CosineAnnealingLRHparams,
-    "cosine_warmrestart": scheduler.CosineAnnealingWarmRestartsHparams,
-    "constant": scheduler.ConstantLRHparams,
-    "polynomial": scheduler.PolynomialLRHparams,
-    "multistep_with_warmup": scheduler.MultiStepWithWarmupLRHparams,
-    "linear_decay_with_warmup": scheduler.LinearWithWarmupLRHparams,
-    "cosine_decay_with_warmup": scheduler.CosineAnnealingWithWarmupLRHparams,
+    "step": StepLRHparams,
+    "multistep": MultiStepLRHparams,
+    "exponential": ExponentialLRHparams,
+    "linear_decay": LinearLRHparams,
+    "cosine_decay": CosineAnnealingLRHparams,
+    "cosine_warmrestart": CosineAnnealingWarmRestartsHparams,
+    "constant": ConstantLRHparams,
+    "polynomial": PolynomialLRHparams,
+    "multistep_with_warmup": MultiStepWithWarmupLRHparams,
+    "linear_decay_with_warmup": LinearWithWarmupLRHparams,
+    "cosine_decay_with_warmup": CosineAnnealingWithWarmupLRHparams,
 }
 
 model_registry = {
