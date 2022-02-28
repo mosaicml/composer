@@ -8,8 +8,9 @@ from torchvision.datasets import CIFAR10
 
 from composer.core.types import DataLoader
 from composer.datasets.dataloader import DataloaderHparams
-from composer.datasets.hparams import DatasetHparams, JpgClsWebDatasetHparams, SyntheticHparamsMixin
+from composer.datasets.hparams import DatasetHparams, SyntheticHparamsMixin, WebDatasetHparams
 from composer.datasets.synthetic import SyntheticBatchPairDataset
+from composer.datasets.webdataset import load_webdataset, size_webdataset
 from composer.utils import dist
 
 
@@ -69,7 +70,61 @@ class CIFAR10DatasetHparams(DatasetHparams, SyntheticHparamsMixin):
 
 
 @dataclass
-class CIFAR10WebDatasetHparams(JpgClsWebDatasetHparams):
+class CIFARWebDatasetHparams(WebDatasetHparams, SyntheticHparamsMixin):
+    """Common functionality for CIFAR WebDatasets.
+
+    Parameters:
+        dataset_s3_bucket (str): S3 bucket or root directory where dataset is stored.
+        dataset_name (str): Key used to determine where dataset is cached on local filesystem.
+        n_train_samples (int): Number of training samples.
+        n_val_samples (int): Number of validation samples.
+        height (int): Sample image height in pixels.
+        width (int): Sample image width in pixels.
+        n_classes (int): Number of output classes.
+        channel_means (list of float): Channel means for normalization.
+        channel_stds (list of float): Channel stds for normalization.
+    """
+
+    def initialize_object(self, batch_size: int, dataloader_hparams: DataloaderHparams) -> DataLoader:
+        if self.use_synthetic:
+            dataset = SyntheticBatchPairDataset(
+                total_dataset_size=self.n_train_samples if self.is_train else self.n_val_samples,
+                data_shape=[3, self.height, self.width],
+                num_classes=self.n_classes,
+                num_unique_samples_to_create=self.synthetic_num_unique_samples,
+                device=self.synthetic_device,
+                memory_format=self.synthetic_memory_format,
+            )
+        else:
+            if self.is_train:
+                split = 'train'
+                transform = transforms.Compose([
+                    transforms.RandomCrop((self.height, self.width), (self.height // 8, self.width // 8)),
+                    transforms.RandomHorizontalFlip(),
+                    transforms.ToTensor(),
+                    transforms.Normalize(self.channel_means, self.channel_stds),
+                ])
+            else:
+                split = 'val'
+                transform = transforms.Compose([
+                    transforms.ToTensor(),
+                    transforms.Normalize(self.channel_means, self.channel_stds),
+                ])
+            dataset, meta = load_webdataset(self.dataset_s3_bucket, self.dataset_name, split, self.webdataset_cache_dir,
+                                            self.webdataset_cache_verbose)
+            if self.shuffle:
+                dataset = dataset.shuffle(512)
+            dataset = dataset.decode('pil').map_dict(jpg=transform).to_tuple('jpg', 'cls')
+            dataset = size_webdataset(dataset, meta['n_shards'], meta['samples_per_shard'], dist.get_world_size(),
+                                      dataloader_hparams.num_workers, batch_size, self.drop_last)
+        return dataloader_hparams.initialize_object(dataset,
+                                                    batch_size=batch_size,
+                                                    sampler=None,
+                                                    drop_last=self.drop_last)
+
+
+@dataclass
+class CIFAR10WebDatasetHparams(CIFARWebDatasetHparams):
     """Defines an instance of the CIFAR-10 WebDataset for image classification."""
 
     dataset_s3_bucket = 'mosaicml-internal-dataset-cifar10'
@@ -84,7 +139,7 @@ class CIFAR10WebDatasetHparams(JpgClsWebDatasetHparams):
 
 
 @dataclass
-class CIFAR20WebDatasetHparams(JpgClsWebDatasetHparams):
+class CIFAR20WebDatasetHparams(CIFARWebDatasetHparams):
     """Defines an instance of the CIFAR-20 WebDataset for image classification."""
 
     dataset_s3_bucket = 'mosaicml-internal-dataset-cifar20'
@@ -99,7 +154,7 @@ class CIFAR20WebDatasetHparams(JpgClsWebDatasetHparams):
 
 
 @dataclass
-class CIFAR100WebDatasetHparams(JpgClsWebDatasetHparams):
+class CIFAR100WebDatasetHparams(CIFARWebDatasetHparams):
     """Defines an instance of the CIFAR-100 WebDataset for image classification."""
 
     dataset_s3_bucket = 'mosaicml-internal-dataset-cifar100'
