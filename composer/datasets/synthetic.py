@@ -1,5 +1,7 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
+from __future__ import annotations
+
 import json
 import random
 import string
@@ -51,7 +53,7 @@ class SyntheticTokenizerParams(NamedTuple):
 
         normalizers = object
         normalizers.Normalizer = object
-        
+
         pre_tokenizers = object
         pre_tokenizers.PreTokenizer = object
 
