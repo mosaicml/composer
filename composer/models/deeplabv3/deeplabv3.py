@@ -3,6 +3,7 @@
 from typing import Any, List
 
 import torch
+import torch.nn.functional as F
 from torchmetrics.collections import MetricCollection
 from torchvision.models import _utils, resnet
 from torchvision.models.segmentation.deeplabv3 import ASPP, DeepLabV3
@@ -11,6 +12,21 @@ from composer.core.types import BatchPair
 from composer.models.base import ComposerModel
 from composer.models.loss import CrossEntropyLoss, MIoU, soft_cross_entropy
 from composer.models.model_hparams import Initializer
+
+
+class SimpleSegmentationModel(torch.nn.Module):
+
+    def __init__(self, backbone, classifier):
+        super().__init__()
+        self.backbone = backbone
+        self.classifier = classifier
+
+    def forward(self, x):
+        input_shape = x.shape[-2:]
+        features = self.backbone(x)
+        logits = self.classifier([features["layer2"], features["layer4"]])
+        logits = F.interpolate(logits, size=input_shape, mode="bilinear", align_corners=False)
+        return logits
 
 
 def deeplabv3_builder(num_classes: int,
@@ -37,18 +53,26 @@ def deeplabv3_builder(num_classes: int,
         raise ValueError(f"backbone_arch must be one of ['resnet50', 'resnet101'] not {backbone_arch}")
     backbone = getattr(resnet, backbone_arch)(pretrained=is_backbone_pretrained,
                                               replace_stride_with_dilation=[False, True, True])
-    backbone = _utils.IntermediateLayerGetter(backbone, return_layers={'layer4': 'out'})
+    backbone = _utils.IntermediateLayerGetter(backbone, return_layers={'layer1': 'layer2', 'layer4': 'layer4'})
 
     # Instantiate head module
-    feat_extractor = ASPP(in_channels=2048, atrous_rates=[12, 24, 36], out_channels=256)
-    feat_extractor.project = feat_extractor.project[:3]  # Remove dropout due to higher standard deviation
-    classifier = torch.nn.Conv2d(in_channels=256, out_channels=num_classes, kernel_size=1)
+    #feat_extractor = ASPP(in_channels=2048, atrous_rates=[12, 24, 36], out_channels=256)
+    #feat_extractor.project = feat_extractor.project[:3]  # Remove dropout due to higher standard deviation
+    #classifier = torch.nn.Conv2d(in_channels=256, out_channels=num_classes, kernel_size=1)
     #head = torch.nn.Sequential(feat_extractor, classifier)
     from mmseg import models
-    head = models.DepthwiseSeparableASPPHead(in_channels=2048, in_index=-1, channels=256, dilations=(1, 12, 24, 36), c1_in_channels=256, c1_channels=48, dropout_ratio=0.1, num_classes=num_classes)
+    head = models.DepthwiseSeparableASPPHead(in_channels=2048,
+                                             in_index=-1,
+                                             channels=512,
+                                             dilations=(1, 12, 24, 36),
+                                             c1_in_channels=256,
+                                             c1_channels=48,
+                                             dropout_ratio=0.1,
+                                             num_classes=num_classes)
 
     #model = DeepLabV3(backbone, head, aux_classifier=None)
-    model = torch.nn.Sequential(backbone, head)
+    #model = torch.nn.Sequential(backbone, head)
+    model = SimpleSegmentationModel(backbone, head)
     """
     if initializers:
         for initializer in initializers:
@@ -101,7 +125,7 @@ class ComposerDeepLabV3(ComposerModel):
 
     def forward(self, batch: BatchPair):
         x = batch[0]
-        logits = self.model(x)['out']
+        logits = self.model(x)  #['out']
         return logits
 
     def loss(self, outputs: Any, batch: BatchPair):
