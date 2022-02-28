@@ -39,23 +39,23 @@ class SyntheticDataLabelType(StringEnum):
 
 
 class SyntheticTokenizerParams(NamedTuple):
-    try:
-        import tokenizers.decoders as decoders
-        import tokenizers.models as tokenizers_models
-        import tokenizers.normalizers as normalizers
-        import tokenizers.pre_tokenizers as pre_tokenizers
-    except ImportError as e:
-        decoders = object
-        decoders.Decoder = object
+    # try:
+        # import tokenizers.decoders as decoders
+        # import tokenizers.models as tokenizers_models
+        # import tokenizers.normalizers as normalizers
+        # import tokenizers.pre_tokenizers as pre_tokenizers
+    # except ImportError as e:
+        # decoders = object
+        # decoders.Decoder = object
 
-        tokenizers_models = object
-        tokenizers_models.Model = object
+        # tokenizers_models = object
+        # tokenizers_models.Model = object
 
-        normalizers = object
-        normalizers.Normalizer = object
+        # normalizers = object
+        # normalizers.Normalizer = object
 
-        pre_tokenizers = object
-        pre_tokenizers.PreTokenizer = object
+        # pre_tokenizers = object
+        # pre_tokenizers.PreTokenizer = object
 
     tokenizer_model: tokenizers_models.Model
     normalizer: normalizers.Normalizer
