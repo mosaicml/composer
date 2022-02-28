@@ -107,7 +107,7 @@ class UNet(ComposerModel):
                           strides=strides,
                           dimension=2,
                           residual=True,
-                          normalization_layer="instance",
+                          normalization_layer="batch",
                           negative_slope=0.01)
 
         return model
