@@ -351,47 +351,6 @@ class SSDCropping(object):
                 wtot = right_idx - left_idx
                 return img, (htot, wtot), bboxes, labels
 
-
-class ToTensor(object):
-
-    def __init__(self):
-        pass
-
-    def __call__(self, img):
-        img = torch.Tensor(np.array(img))
-        # Transform from HWC to CHW
-        img = img.permute(2, 0, 1)
-        return img
-
-
-class LightingNoice(object):
-    """
-        See this question, AlexNet data augumentation:
-        https://stackoverflow.com/questions/43328600
-    """
-
-    def __init__(self):
-        self.eigval = torch.tensor([55.46, 4.794, 1.148])
-        self.eigvec = torch.tensor([[-0.5675, 0.7192, 0.4009], [-0.5808, -0.0045, -0.8140], [-0.5836, -0.6948, 0.4203]])
-
-    def __call__(self, img):
-        img = torch.Tensor(np.array(img))
-        # Transform from HWC to CHW
-        img = img.permute(2, 0, 1)
-        return img
-        alpha0 = random.gauss(sigma=0.1, mu=0)
-        alpha1 = random.gauss(sigma=0.1, mu=0)
-        alpha2 = random.gauss(sigma=0.1, mu=0)
-
-        channels = alpha0 * self.eigval[0] * self.eigvec[0, :] + \
-                   alpha1 * self.eigval[1] * self.eigvec[1, :] + \
-                   alpha2 * self.eigval[2] * self.eigvec[2, :]
-        channels = channels.view(3, 1, 1)
-        img += channels
-
-        return img
-
-
 class RandomHorizontalFlip(object):
 
     def __init__(self, p=0.5):

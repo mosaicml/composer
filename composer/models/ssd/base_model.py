@@ -73,25 +73,6 @@ class ResNet34(nn.Module):
 
         return [layer2_activation]
 
-
-class L2Norm(nn.Module):
-    """
-       Scale shall be learnable according to original paper
-       scale: initial scale number
-       chan_num: L2Norm channel number (norm over all channels)
-    """
-
-    def __init__(self, scale=20, chan_num=512):
-        super(L2Norm, self).__init__()
-        # Scale across channels
-        self.scale = \
-            nn.Parameter(torch.Tensor([scale]*chan_num).view(1, chan_num, 1, 1))
-
-    def forward(self, data):
-        # normalize accross channel
-        return self.scale * data * data.pow(2).sum(dim=1, keepdim=True).clamp(min=1e-12).rsqrt()
-
-
 class Loss(nn.Module):
     """
         Implements the loss as the sum of the followings:

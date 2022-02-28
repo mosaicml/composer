@@ -31,7 +31,7 @@ class SSD(ComposerModel):
         self.loss_func = Loss(dboxes)
         self.MAP = coco_map()
         self.encoder = Encoder(dboxes)
-        data = "/localdisk/coco" #self.datadir
+        data = "/localdisk/coco"
         val_annotate = os.path.join(data, "annotations/instances_val2017.json")
         val_coco_root = os.path.join(data, "val2017")
         input_size = self.input_size
@@ -66,7 +66,6 @@ class SSD(ComposerModel):
         ret = []
         overlap_threshold = self.overlap_threshold
         nms_max_detections = self.nms_max_detections
-
 
         (img, img_id, img_size, _, _) = batch
         ploc, plabel = self.module(img.cuda())
@@ -106,7 +105,7 @@ class coco_map(Metric):
         np.squeeze(self.predictions)
 
     def compute(self):
-        data = "/localdisk/coco" #self.datadir
+        data = "/localdisk/coco"
         val_annotate = os.path.join(data, "annotations/instances_val2017.json")
         from composer.datasets.coco import COCO
         cocogt = COCO(annotation_file=val_annotate)
@@ -115,15 +114,4 @@ class coco_map(Metric):
         E.evaluate()
         E.accumulate()
         E.summarize()
-        print('map', E.stats[0])
         return E.stats[0]
-
-
-def lr_warmup(optim, wb, iter_num, base_lr, args):
-    if iter_num < wb:
-        # mlperf warmup rule
-        warmup_step = base_lr / (wb * (2**args.warmup_factor))
-        new_lr = base_lr - (wb - iter_num) * warmup_step
-
-        for param_group in optim.param_groups:
-            param_group['lr'] = new_lr
