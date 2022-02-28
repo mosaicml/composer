@@ -49,6 +49,16 @@ RUN if [ -n "$CUDA_VERSION" ] ; then \
 ENV USE_SYSTEM_NCCL=${CUDA_VERSION:+1}
 ENV LD_PRELOAD=${CUDA_VERSION:+/usr/lib/x86_64-linux-gnu/libnccl.so.2.9.6}
 
+##############################
+# Install NodeJS (for Pyright)
+##############################
+RUN \
+    curl -fsSL https://deb.nodesource.com/setup_17.x | bash - && \
+    apt-get install -y --no-install-recommends nodejs && \
+    apt-get autoclean && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
+
 ################
 # Install Python
 ################
