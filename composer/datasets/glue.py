@@ -87,8 +87,8 @@ class GLUEHparams(DatasetHparams, SyntheticHparamsMixin):
 
             # we just use the max sequence length in tokens to upper bound the sequence length in characters
             dataset = SyntheticHFDataset(num_samples=self.synthetic_num_unique_samples,
-                                              chars_per_sample=self.max_seq_length,
-                                              column_names=column_names).generate_dataset()
+                                         chars_per_sample=self.max_seq_length,
+                                         column_names=column_names).generate_dataset()
 
             # flatten the columnar dataset into one column
             self.tokenizer = generate_synthetic_tokenizer(tokenizer_family="bert", dataset=dataset)
