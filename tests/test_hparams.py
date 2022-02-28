@@ -43,7 +43,7 @@ class TestHparamsCreate:
 
         nlp_hparam_keys = ['glue', 'gpt', 'bert']
         # skip tests that require the NLP stack
-        if any([i in hparams_file for i in nlp_hparam_keys]): 
+        if any([i in hparams_file for i in nlp_hparam_keys]):
             pytest.importorskip("transformers")
             pytest.importorskip("datasets")
             pytest.importorskip("tokenizers")
