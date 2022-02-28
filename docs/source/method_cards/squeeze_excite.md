@@ -1,4 +1,4 @@
-# Squeeze-and-Excitation
+# 🫀 Squeeze-and-Excitation
 
 Tags: `ConvNets`, `Decreased GPU Throughput`, `Increased Accuracy`, `Method`, `Capacity`
 
