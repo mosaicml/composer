@@ -2,7 +2,7 @@ import os
 from typing import Any, Tuple
 
 import numpy as np
-from pycocotools import COCO
+from pycocotools.coco import COCO
 from pycocotools.cocoeval import COCOeval
 from torchmetrics import Metric
 
