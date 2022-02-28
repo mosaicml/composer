@@ -82,7 +82,7 @@ class TestScaleScheduleTrainer():
     ):
 
         composer_trainer_hparams.optimizer = SGDHparams(lr=1.0)
-        composer_trainer_hparams.max_duration = '1ep'
+        composer_trainer_hparams.max_duration = '10ep'
         composer_trainer_hparams.schedulers = [MultiStepLRHparams(milestones=['30ba', '50ba'], gamma=0.1)]
 
         if use_algorithm:
