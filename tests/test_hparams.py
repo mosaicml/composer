@@ -40,8 +40,10 @@ class TestHparamsCreate:
             pytest.importorskip("timm")
         if hparams_file in ["unet.yaml"]:
             pytest.importorskip("monai")
+
+        nlp_hparam_keys = ['glue', 'gpt', 'bert']
         # skip tests that require the NLP stack
-        if 'gpt' in hparams_file or 'bert' in hparams_file:
+        if any([i in hparams_file for i in nlp_hparam_keys]): 
             pytest.importorskip("transformers")
             pytest.importorskip("datasets")
             pytest.importorskip("tokenizers")
