@@ -871,7 +871,7 @@ class Trainer:
 
                 if self.state.timer.batch_in_epoch == 0:
                     self.engine.run_event(Event.EPOCH_START)
-                    self.logger.metric_epoch({"epoch": self.state.epoch})
+                    self.logger.metric_epoch({"epoch": int(self.state.timer.epoch)})
 
                 if isinstance(self.state.train_dataloader.sampler, torch.utils.data.DistributedSampler):
                     self.state.train_dataloader.sampler.set_epoch(int(self.state.timer.epoch))
@@ -917,7 +917,7 @@ class Trainer:
 
                     self.engine.run_event(Event.BATCH_START)
                     self.logger.metric_batch({
-                        "trainer/global_step": self.state.step,
+                        "trainer/global_step": int(self.state.timer.batch),
                         "trainer/batch_idx": self.state.timer.batch_in_epoch.value,
                     })
                     total_loss = None
@@ -975,7 +975,7 @@ class Trainer:
                                                                                            event=Event.BATCH_END):
                         self._checkpoint_saver.save_checkpoint(state=state, seed=self._seed, device=self._device)
             except BreakEpochException:
-                log.info(f'Skipping the rest of Epoch {state.epoch}')
+                log.info(f'Skipping the rest of Epoch {int(state.timer.epoch)}')
 
             state.timer.on_epoch_complete()
 
