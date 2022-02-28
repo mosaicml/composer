@@ -55,7 +55,7 @@ class SSD300(nn.Module):
         elif input_size == 10:
             idx = 2
 
-        self.additional_blocks = []
+        self.additional_blocks = []  #type: ignore
 
         if input_size == 38:
             self.additional_blocks.append(

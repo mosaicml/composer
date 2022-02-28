@@ -1,5 +1,7 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
+"""Helpers for running distributed data parallel training."""
+
 from contextlib import contextmanager, nullcontext
 from typing import Callable, ContextManager, Union, cast
 
@@ -9,6 +11,8 @@ from composer.core.state import State
 from composer.core.types import Model
 from composer.utils import dist
 from composer.utils.string_enum import StringEnum
+
+__all__ = ["DDPSyncStrategy"]
 
 
 class DDPSyncStrategy(StringEnum):
@@ -41,7 +45,16 @@ class DDPSyncStrategy(StringEnum):
 
 
 @contextmanager
-def ddp_sync_context(state: State, is_final_microbatch: bool, sync_strategy: Union[str, DDPSyncStrategy]):
+def _ddp_sync_context(state: State, is_final_microbatch: bool, sync_strategy: Union[str, DDPSyncStrategy]):
+    """A context manager for handling the :class:`DDPSyncStrategy`.
+
+    Args:
+        state (State): The state of the :class:`~composer.trainer.trainer.Trainer`.
+        is_final_microbatch (bool): Whether or not the context is being used during the final
+            microbatch of the gradient accumulation steps.
+        sync_strategy (str or DDPSyncStrategy): The ddp sync strategy to use. If a string
+            is provided, the string must be one of the values in :class:`DDPSyncStrategy`.
+    """
     if not isinstance(state.model, DistributedDataParallel):
         yield
         return
@@ -78,7 +91,15 @@ def ddp_sync_context(state: State, is_final_microbatch: bool, sync_strategy: Uni
         raise ValueError("Unknown sync strategy", sync_strategy)
 
 
-def prepare_ddp_module(module: Model, find_unused_parameters: bool) -> Model:
+def _prepare_ddp_module(module: Model, find_unused_parameters: bool) -> Model:
+    """Wraps the module in a :class:`torch.nn.parallel.DistributedDataParallel` object if running distributed training.
+
+    Args:
+        module (Model): The module to wrap.
+        find_unused_parameters (bool): Whether or not to do a pass over the autograd graph
+            to find parameters to not expect gradients for. This is useful if there are some
+            parameters in the model that are not being trained.
+    """
     if dist.is_available() and dist.is_initialized():
         if any((p.requires_grad for p in module.parameters())):
             ddp_model = DistributedDataParallel(module, find_unused_parameters=find_unused_parameters)

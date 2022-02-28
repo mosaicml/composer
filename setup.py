@@ -76,8 +76,8 @@ extra_deps['dev'] = [
     'jupyter>=1.0.0',
     'yamllint>=1.26.2',
     'pytest-timeout>=1.4.2',
-    'pyright>=0.0.13',
     'pycocotools>=2.0.1',
+    'pyright==1.1.224.post1',
     'recommonmark>=0.7.1',
     'sphinx>=4.2.0',
     'sphinx_copybutton>=0.4.0',
@@ -89,7 +89,7 @@ extra_deps['dev'] = [
     'furo>=2022.1.2',
     'sphinx-copybutton>=0.4.0',
     'testbook>=0.4.2',
-    'myst-parser>=0.15.2',
+    'myst-parser==0.16.1',
     'pylint>=2.12.2',
     'docformatter>=1.4',
     'sphinx_panels>=0.6.0',
@@ -131,6 +131,7 @@ setup(name="mosaicml",
       package_data={
           "composer": ['py.typed'],
           "": package_files('composer/yamls'),
+          "": package_files('composer/algorithms')
       },
       packages=setuptools.find_packages(exclude=["tests*"]),
       classifiers=[

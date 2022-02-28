@@ -20,7 +20,7 @@ style:
 # this only checks for style & pyright, makes no code changes
 lint:
 	$(PYTHON) -m isort -c --diff $(dirs)
-	$(PYTHON) -m yapf -dr $(dirs)
+	$(PYTHON) -m yapf -ri $(dirs)
 	$(PYTHON) -m docformatter -r --wrap-summaries 120 --wrap-descriptions 120 $(dirs)
 	pyright $(dirs)
 

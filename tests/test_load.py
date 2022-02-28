@@ -41,7 +41,7 @@ def test_load(model_name: str):
         pytest.importorskip("timm")
     if model_name in ['unet']:
         pytest.importorskip("monai")
-    if model_name in ['deeplabv3_ade20k']:
+    if model_name in ['deeplabv3_ade20k_unoptimized', 'deeplabv3_ade20k_optimized']:
         pytest.skip(f"Model {model_name} requires GPU")
 
     trainer_hparams = trainer.load(model_name)

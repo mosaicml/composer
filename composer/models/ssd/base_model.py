@@ -73,6 +73,7 @@ class ResNet34(nn.Module):
 
         return [layer2_activation]
 
+
 class Loss(nn.Module):
     """
         Implements the loss as the sum of the followings:

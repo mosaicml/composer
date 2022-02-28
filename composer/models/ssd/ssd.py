@@ -1,8 +1,8 @@
 import os
-import argparse
 from typing import Any, Tuple
 
 import numpy as np
+from pycocotools import COCO
 from pycocotools.cocoeval import COCOeval
 from torchmetrics import Metric
 
@@ -15,8 +15,7 @@ from composer.models.ssd.utils import Encoder, SSDTransformer, dboxes300_coco
 
 class SSD(ComposerModel):
 
-    def __init__(self, input_size: int, overlap_threshold: float, nms_max_detections: int, pretrained_backbone: str,
-                 num_classes: int):
+    def __init__(self, input_size: int, overlap_threshold: float, nms_max_detections: int, num_classes: int):
         super().__init__()
 
         self.input_size = input_size
@@ -37,10 +36,10 @@ class SSD(ComposerModel):
         val_trans = SSDTransformer(dboxes, (input_size, input_size), val=True)
         from composer.datasets.coco import COCODetection
         self.val_coco = COCODetection(val_coco_root, val_annotate, val_trans)
-        
+
     def loss(self, outputs: Any, batch: BatchPair) -> Tensors:
 
-        (_, _, _, bbox, label) = batch
+        (_, _, _, bbox, label) = batch  #type: ignore
         trans_bbox = bbox.transpose(1, 2).contiguous()
 
         ploc, plabel = outputs
@@ -53,34 +52,36 @@ class SSD(ComposerModel):
         return self.MAP
 
     def forward(self, batch: BatchPair) -> Tensor:
-        (img, _, _, _, _) = batch
+        (img, _, _, _, _) = batch  #type: ignore
         ploc, plabel = self.module(img)
 
-        return ploc, plabel
+        return ploc, plabel  #type: ignore
 
     def validate(self, batch: BatchPair) -> Tuple[Any, Any]:
-        dboxes = dboxes300_coco()
-
         inv_map = {v: k for k, v in self.val_coco.label_map.items()}
         ret = []
         overlap_threshold = self.overlap_threshold
         nms_max_detections = self.nms_max_detections
 
-        (img, img_id, img_size, _, _) = batch
-        ploc, plabel = self.module(img)#.cuda())
+        (img, img_id, img_size, _, _) = batch  #type: ignore
+        ploc, plabel = self.module(img)  #.cuda())
 
         results = []
         try:
-            results = self.encoder.decode_batch(ploc, plabel, overlap_threshold, nms_max_detections, nms_valid_thresh=0.05)
+            results = self.encoder.decode_batch(ploc,
+                                                plabel,
+                                                overlap_threshold,
+                                                nms_max_detections,
+                                                nms_valid_thresh=0.05)
         except:
             print("No object detected")
 
-        (htot, wtot) = [d.cpu().numpy() for d in img_size]
-        img_id = img_id.cpu().numpy()
+        (htot, wtot) = [d.cpu().numpy() for d in img_size]  #type: ignore
+        img_id = img_id.cpu().numpy()  #type: ignore
         if len(results) > 0:
             # Iterate over batch elements
             for img_id_, wtot_, htot_, result in zip(img_id, wtot, htot, results):
-                loc, label, prob = [r.cpu().numpy() for r in result]
+                loc, label, prob = [r.cpu().numpy() for r in result]  #type: ignore
                 # Iterate over image detections
                 for loc_, label_, prob_ in zip(loc, label, prob):
                     ret.append([img_id_, loc_[0]*wtot_, \
@@ -100,12 +101,11 @@ class coco_map(Metric):
         self.add_state("predictions", default=[])
         data = "/localdisk/coco"
         val_annotate = os.path.join(data, "annotations/instances_val2017.json")
-        from composer.datasets.coco import COCO
         self.cocogt = COCO(annotation_file=val_annotate)
 
     def update(self, pred, target):
-        self.predictions.append(pred)
-        np.squeeze(self.predictions)
+        self.predictions.append(pred)  #type: ignore
+        np.squeeze(self.predictions)  #type: ignore
 
     def compute(self):
         cocoDt = self.cocogt.loadRes(np.array(self.predictions))
