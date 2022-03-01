@@ -199,8 +199,6 @@ stage('Build') {
                 def subJobs = [
                     "Pytest - ${tag}" : { -> runPytest(stagingImage, gpu, extraDeps) }
                 ]
-                echo "tag: $tag"
-                echo "lim: $lintImage"
                 if (tag == lintImage) {
                     // and run lint and a dev install on this image
                     subJobs << [
