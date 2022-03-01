@@ -51,9 +51,11 @@ def trackBuild(Map buildArgs) {
     buildArgs['propagate'] = false
     def builtJob = build(buildArgs)
     builds << builtJob
-    echo "${builtJob.fullDisplayName}: ${builtJob.absoluteUrl}"
-    if (builtJob.result != "SUCCESS") {
-        error("Job ${builtJob.fullDisplayName} failed. See ${builtJob.absoluteUrl} for details.")
+    if (builtJob.result == "SUCCESS") {
+        echo "Job ${builtJob.fullDisplayName} was successful. See ${builtJob.absoluteUrl} for details."
+    }
+    else {
+        error "Job ${builtJob.fullDisplayName} failed. See ${builtJob.absoluteUrl} for details."
     }
 }
 
