@@ -3,10 +3,12 @@
 """Core code for sequence length warmup."""
 
 import textwrap
+from math import ceil
 from typing import Dict, Mapping, Optional
 
 import torch
 
+from composer.core.time import TimeUnit
 from composer.core.types import Algorithm, Batch, Event, Logger, State, Tensor
 from composer.models.transformer_shared import ComposerTransformer
 from composer.utils import ensure_tuple
@@ -142,6 +144,10 @@ class SeqLengthWarmup(Algorithm):
                     textwrap.dedent(f"""\
                     {type(self).__name__} requires state.model to be of type {ComposerTransformer.__name__}, not of type {type(state.model)}"""
                                    ))
+
+            if state.train_dataloader.batch_size is None:
+                raise RuntimeError("Sequence Length Warmup algorithm requires constant batch size.")
+
             self._original_model = state.model
             return
 
@@ -166,9 +172,8 @@ class SeqLengthWarmup(Algorithm):
 
             per_gpu_macrobatch = state.train_dataloader.batch_size
             if per_gpu_macrobatch is None:
-                raise RuntimeError("seq_length_warmup requires constant batch sizing")
-            assert per_gpu_macrobatch % state.grad_accum == 0, "grad accum should evenly divide the batch"
-            per_gpu_batch = per_gpu_macrobatch // state.grad_accum
+                raise RuntimeError("Sequence Length Warmup algorithm requires constant batch size.")
+            per_gpu_batch = ceil(per_gpu_macrobatch / state.grad_accum)
 
             input_ids = torch.randint(low=0,
                                       high=vocab_size - 1,
@@ -198,14 +203,24 @@ class SeqLengthWarmup(Algorithm):
 
             self._activated = True
 
-        num_optimization_steps = state.steps_per_epoch * state.max_epochs
-        num_warmup_steps = int(num_optimization_steps * self.duration)
+        if state.max_duration.unit == TimeUnit.EPOCH:
+            num_optimization_steps = state.steps_per_epoch * state.max_duration.value
+        elif state.max_duration.unit == TimeUnit.BATCH:
+            num_optimization_steps = state.max_duration.value
+        else:
+            raise NotImplementedError(
+                textwrap.dedent("""\
+                    To use sequential length warmup, the max_duration must be in epochs or batches.
+                    Specifying the `max_duration` in tokens or samples for use with sequential
+                    length warmup will be supported in a future Composer release. See
+                    https://github.com/mosaicml/composer/issues/226."""))
+        num_warmup_steps = int(num_optimization_steps * self.duration)  # in batches
 
         # assume the full sequence length is the unaltered sequence length
         num_update_steps = (self.max_seq_length - self.min_seq_length) // self.step_size
         update_every_n_steps = num_warmup_steps // num_update_steps
 
-        curr_seq_len = self.step_size * (state.step // update_every_n_steps)
+        curr_seq_len = self.step_size * (int(state.timer.batch) // update_every_n_steps)
         curr_seq_len = max(curr_seq_len, self.min_seq_length)
         curr_seq_len = min(curr_seq_len, self.max_seq_length)
 

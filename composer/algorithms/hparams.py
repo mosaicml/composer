@@ -1,5 +1,6 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
+import textwrap
 from dataclasses import asdict, dataclass
 from typing import Optional
 
@@ -317,8 +318,10 @@ class StochasticDepthHparams(AlgorithmHparams):
         default='linear')
     use_same_gpu_seed: bool = hp.optional(
         'Whether or not to drop the same blocks across GPUs. Only used with "block" method.', default=True)
-    drop_warmup: float = hp.optional(
-        'Percentage of training to warmup `drop_rate`. Only use with "block" stochastic method.', default=0.0)
+    drop_warmup: str = hp.optional(textwrap.dedent("""\
+            Time string to represent the amount of training to warmup the `drop_rate`.
+            Only use with "block" stochastic method."""),
+                                   default="0dur")
 
     def initialize_object(self) -> StochasticDepth:
         return StochasticDepth(**asdict(self))
@@ -352,14 +355,27 @@ class SqueezeExciteHparams(AlgorithmHparams):
 
 @dataclass
 class SWAHparams(AlgorithmHparams):
-    """See :class:`~composer.algorithms.swa.SWA`"""
+    """See :class:`~.composer.algorithms.swa.SWA`"""
 
-    swa_start: float = hp.optional(
-        doc='Percentage of epochs before starting to apply SWA.',
-        default=0.8,
+    swa_start: str = hp.optional(
+        doc='Time string denoting the amount of training '
+        'completed before stochastic weight averaging begins. Currently only units of '
+        'duration (e.g. "0.7dur") and epoch (e.g "50ep") are supported.',
+        default="0.7dur",
     )
+    swa_end: str = hp.optional(
+        doc='Time string denoting amount of training completed before the baseline '
+        '(non-averaged) model is replaced with the stochastic weight averaged model. '
+        'Currently only units of duration (e.g. "0.97dur") and epoch (e.g "88ep") are supported.',
+        default="0.97dur")
+    schedule_swa_lr: bool = hp.optional(doc='Flag to determine whether to apply an SWA-specific LR schedule during the '
+                                        'period in which SWA is active.',
+                                        default=False)
+    anneal_strategy: str = hp.optional(doc='SWA learning rate annealing schedule strategy. '
+                                       '"linear" for linear annealing, "cos" for cosine annealing.',
+                                       default='linear')
     anneal_epochs: int = hp.optional(
-        doc='Number of annealing epochs.',
+        doc='Number of epochs over which to anneal SWA learning rate.',
         default=10,
     )
     swa_lr: Optional[float] = hp.optional(

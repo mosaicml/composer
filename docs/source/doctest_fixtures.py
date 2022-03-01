@@ -86,9 +86,12 @@ engine = Engine(state, logger)
 
 image = Image.fromarray(np.random.randint(0, 256, size=(32, 32, 3), dtype=np.uint8))
 
-X_example = torch.randn(batch_size, num_channels, 32, 32)
-logits = torch.randn(batch_size, num_classes)
-y_example = torch.randint(num_classes, (batch_size,))
+# error: "randn" is not a known member of module (reportGeneralTypeIssues)
+X_example = torch.randn(batch_size, num_channels, 32, 32)  # type: ignore
+# error: "randn" is not a known member of module (reportGeneralTypeIssues)
+logits = torch.randn(batch_size, num_classes)  # type: ignore
+# error: "randint" is not a known member of module (reportGeneralTypeIssues)
+y_example = torch.randint(num_classes, (batch_size,))  # type: ignore
 
 # bind the required arguments to the Trainer so it can be used without arguments in the doctests
 Trainer = functools.partial(

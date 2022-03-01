@@ -18,36 +18,47 @@ log = logging.getLogger(__name__)
 
 
 def apply_blurpool(model: torch.nn.Module,
-                   optimizers: Optional[Optimizers] = None,
                    replace_convs: bool = True,
                    replace_maxpools: bool = True,
-                   blur_first: bool = True) -> None:
+                   blur_first: bool = True,
+                   optimizers: Optional[Optimizers] = None) -> torch.nn.Module:
     """Add anti-aliasing filters to the strided :class:`torch.nn.Conv2d` and/or :class:`torch.nn.MaxPool2d` modules
     within `model`.
 
-    Must be run before the model has been moved to accelerators and before
-    the model's parameters have been passed to an optimizer.
+    These filters increase invariance to small spatial shifts in the input
+    (`Zhang 2019 <http://proceedings.mlr.press/v97/zhang19a.html>`_).
 
     Args:
-        model: model to modify
-        optimizers (Optimizers, optional): Existing optimizers bound to ``model.parameters()``.
-            All optimizers that have already been constructed with,
-            ``model.parameters()`` must be specified here so they will optimize
-            the correct parameters.
-
-            If the optimizer(s) are constructed *after* calling this function,
-            then it is safe to omit this parameter. These optimizers will see the correct
-            model parameters.
-        replace_convs: replace strided :class:`torch.nn.Conv2d` modules with
-            :class:`BlurConv2d` modules
-        replace_maxpools: replace eligible :class:`torch.nn.MaxPool2d` modules
-            with :class:`BlurMaxPool2d` modules.
-        blur_first: for ``replace_convs``, blur input before the associated
+        model (torch.nn.Module): the model to modify in-place
+        replace_convs (bool, optional): replace strided :class:`torch.nn.Conv2d` modules with
+            :class:`.BlurConv2d` modules
+        replace_maxpools (bool, optional): replace eligible :class:`torch.nn.MaxPool2d` modules
+            with :class:`.BlurMaxPool2d` modules.
+        blur_first (bool, optional): for ``replace_convs``, blur input before the associated
             convolution. When set to ``False``, the convolution is applied with
             a stride of 1 before the blurring, resulting in significant
             overhead (though more closely matching
             `the paper <http://proceedings.mlr.press/v97/zhang19a.html>`_).
-            See :class:`~composer.algorithms.blurpool.BlurConv2d` for further discussion.
+            See :class:`.BlurConv2d` for further discussion.
+        optimizers (Optimizers, optional):  Existing optimizers bound to
+            ``model.parameters()``. All optimizers that have already been
+            constructed with ``model.parameters()`` must be specified here so
+            they will optimize the correct parameters.
+
+            If the optimizer(s) are constructed *after* calling this function,
+            then it is safe to omit this parameter. These optimizers will see
+            the correct model parameters.
+
+    Returns:
+        The modified model
+
+    Example:
+        .. testcode::
+
+            import composer.functional as cf
+            from torchvision import models
+            model = models.resnet50()
+            cf.apply_blurpool(model)
     """
     transforms = {}
     if replace_maxpools:
@@ -60,25 +71,25 @@ def apply_blurpool(model: torch.nn.Module,
     module_surgery.replace_module_classes(model, optimizers=optimizers, policies=transforms)
     _log_surgery_result(model)
 
+    return model
+
 
 class BlurPool(Algorithm):
     """`BlurPool <http://proceedings.mlr.press/v97/zhang19a.html>`_ adds anti-aliasing filters to convolutional layers
     to increase accuracy and invariance to small shifts in the input.
 
-    Runs on ``Event.INIT`` and should be applied both before the model has
-    been moved to accelerators and before the model's parameters have
-    been passed to an optimizer.
+    Runs on :attr:`~composer.core.event.Event.INIT`.
 
     Args:
-        replace_convs: replace strided :class:`torch.nn.Conv2d` modules with
-            :class:`BlurConv2d` modules
-        replace_maxpools: replace eligible :class:`torch.nn.MaxPool2d` modules
-            with :class:`BlurMaxPool2d` modules.
-        blur_first: when ``replace_convs`` is ``True``, blur input before the
+        replace_convs (bool): replace strided :class:`torch.nn.Conv2d` modules with
+            :class:`.BlurConv2d` modules
+        replace_maxpools (bool): replace eligible :class:`torch.nn.MaxPool2d` modules
+            with :class:`.BlurMaxPool2d` modules.
+        blur_first (bool): when ``replace_convs`` is ``True``, blur input before the
             associated convolution. When set to ``False``, the convolution is
             applied with a stride of 1 before the blurring, resulting in
             significant overhead (though more closely matching the paper).
-            See :class:`~composer.algorithms.blurpool.BlurConv2d` for further discussion.
+            See :class:`.BlurConv2d` for further discussion.
     """
 
     def __init__(self, replace_convs: bool, replace_maxpools: bool, blur_first: bool) -> None:
@@ -92,11 +103,11 @@ class BlurPool(Algorithm):
                         'BlurPool will not be modifying the model.')
 
     def match(self, event: Event, state: State) -> bool:
-        """Runs on Event.INIT.
+        """Runs on :attr:`~composer.core.event.Event.INIT`.
 
         Args:
-            event (:class:`Event`): The current event.
-            state (:class:`State`): The current state.
+            event (Event): The current event.
+            state (State): The current state.
         Returns:
             bool: True if this algorithm should run now.
         """

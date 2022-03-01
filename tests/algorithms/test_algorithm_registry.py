@@ -77,7 +77,7 @@ default_required_fields = {
         'target_layer_name': 'ResNetBottleneck',
         'drop_rate': 0.2,
         'drop_distribution': 'linear',
-        'drop_warmup': 0.0,
+        'drop_warmup': "0.0dur",
         'use_same_gpu_seed': False
     },
     ProgressiveResizingHparams: {
@@ -92,7 +92,10 @@ default_required_fields = {
         'augmentation_set': 'all'
     },
     SWAHparams: {
-        'swa_start': 0.8,
+        'swa_start': "0.7dur",
+        'swa_end': "0.97dur",
+        'schedule_swa_lr': False,
+        'anneal_strategy': 'cos',
         'anneal_epochs': 10,
         'swa_lr': None
     },
