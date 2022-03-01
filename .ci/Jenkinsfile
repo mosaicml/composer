@@ -170,9 +170,8 @@ stage('Build') {
         // Then, run pytest in the newly-built image
         pytorchDockerBuildMatrix.each { entry ->
             command = entry[0]  // command is the command to run
-            stagingImageTag = entry[1]  // stagingImageTag is where the built docker image is pushed
+            stagingImage = entry[1]  // stagingImage is where the built docker image is pushed
             buildArgs = entry[2]  // buildArgs is a map of the build arguments passed to kaniko
-            echo "command: $command; stagingImageTag: $stagingImageTag; buildArgs: $buildArgs"
             jobs << [ "$buildArgs": { -> 
                 trackBuild(
                     job: jenkinsShellJobName,
@@ -193,7 +192,6 @@ stage('Build') {
                     return
                 }
                 def tag = buildArgs['TAG']
-                echo "Cuda version: ${buildArgs['CUDA_VERSION']}"
                 def gpu = buildArgs['CUDA_VERSION'] != 'cpu'
                 def extraDeps = 'all'
                 def subJobs = [
