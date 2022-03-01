@@ -89,19 +89,20 @@ from composer.core.algorithm import Algorithm
 from composer.core.evaluator import Evaluator
 from composer.core.logging import LoggerCallback, LogLevel
 from composer.core.time import Timestamp
-from composer.core.types import Batch, BreakEpochException, DataLoader, Evaluators, Many, Metrics, Optimizers, Precision
+from composer.core.types import (Batch, BreakEpochException, DataLoader, Evaluators, Many, Metrics, Optimizers,
+                                 Precision, PytorchScheduler)
 from composer.datasets.dataloader import unwrap_data_loader
 from composer.loggers.tqdm_logger import TQDMLogger
 from composer.models.base import ComposerModel
 from composer.optim.decoupled_weight_decay import DecoupledSGDW
-from composer.optim.scheduler import ComposerScheduler, compile, constant_scheduler
+from composer.optim.scheduler import ComposerScheduler, compile_composer_scheduler
 from composer.profiler import Profiler, ProfilerEventHandler
 from composer.profiler.dataloader_profiler import DataloaderProfiler
 from composer.profiler.system_profiler import SystemProfiler
 from composer.profiler.torch_profiler import TorchProfiler
 from composer.trainer._checkpoint import CheckpointLoader, CheckpointSaver
 from composer.trainer._deepspeed import _fix_batch_precision_for_deepspeed, _parse_deepspeed_config
-from composer.trainer._scale_schedule import scale_scheduler
+from composer.trainer._scale_schedule import scale_pytorch_scheduler
 from composer.trainer._scaler import ClosureGradScaler
 from composer.trainer.ddp import DDPSyncStrategy, _ddp_sync_context, _prepare_ddp_module
 from composer.trainer.devices import Device, DeviceCPU, DeviceGPU
@@ -582,20 +583,21 @@ class Trainer:
             steps_per_epoch=train_subset_num_batches,
         )
 
-        schedulers = ensure_tuple(schedulers)
-        if len(schedulers) == 0:
-            schedulers = (constant_scheduler,)
-            warnings.warn(f"No scheduler was specified. Defaulting to {repr(schedulers)}")
-
-        if scale_schedule_ratio != 1.0:
-            schedulers = tuple(
-                scale_scheduler(scheduler, scale_schedule_ratio) for scheduler in ensure_tuple(schedulers))
-
         if step_schedulers_every_batch is None:
-            step_schedulers_every_batch = any(callable(scheduler) for scheduler in schedulers)
+            # only if all schedulers are ComposerSchedulers, then we can step every batch by default
+            step_schedulers_every_batch = all(
+                not isinstance(scheduler, PytorchScheduler) for scheduler in ensure_tuple(schedulers))
         self._step_schedulers_every_batch = step_schedulers_every_batch
 
-        self.state.schedulers = [compile(scheduler, self.state) for scheduler in schedulers]
+        for scheduler in ensure_tuple(schedulers):
+            if isinstance(scheduler, PytorchScheduler):
+                scale_pytorch_scheduler(scheduler, scale_schedule_ratio)
+                self.state.schedulers.append(scheduler)
+            else:  # it's a composer scheduler
+                self.state.schedulers.append(compile_composer_scheduler(scheduler, self.state, scale_schedule_ratio))
+
+        if len(self.state.schedulers) == 0:
+            warnings.warn(f"No scheduler was specified. Defaulting to {repr(schedulers)}")
 
         # Configure profilers if profiling is enabled
         if profiler_trace_file:

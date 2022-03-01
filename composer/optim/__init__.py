@@ -10,7 +10,6 @@ from composer.optim.optimizer_hparams import OptimizerHparams as OptimizerHparam
 from composer.optim.optimizer_hparams import RAdamHparams as RAdamHparams
 from composer.optim.optimizer_hparams import RMSPropHparams as RMSPropHparams
 from composer.optim.optimizer_hparams import SGDHparams as SGDHparams
-from composer.optim.scheduler import ConstantLRHparams as ConstantLRHparams
 from composer.optim.scheduler import CosineAnnealingLRHparams as CosineAnnealingLRHparams
 from composer.optim.scheduler import CosineAnnealingWarmRestartsHparams as CosineAnnealingWarmRestartsHparams
 from composer.optim.scheduler import CosineAnnealingWithWarmupLRHparams as CosineAnnealingWithWarmupLRHparams
