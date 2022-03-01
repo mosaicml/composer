@@ -15,7 +15,7 @@ buildOutputFolder = "build/output"
 artifactsGlob = "$buildOutputFolder/*.xml"
 junitGlob = "$buildOutputFolder/*.junit.xml"
 coverageGlob = "$buildOutputFolder/*.coverage.xml"
-condaBuildImage = "continuumio/anaconda-pkg-build:2022.02.09-amd64"
+condaBuildDockerImage = "continuumio/anaconda-pkg-build:2022.02.09-amd64"
 // must use the kaniko debug image, as Jenkins needs shell access
 // see https://github.com/GoogleContainerTools/kaniko#debug-image
 kanikoDockerImage = "gcr.io/kaniko-project/executor:v1.7.0-debug"
@@ -245,7 +245,7 @@ stage('Build') {
                         string(name: 'P_GIT_REPO', value: gitUrl),
                         string(name: 'P_GIT_COMMIT', value: gitCommit),
                         string(name: 'P_EPHEMERAL_STORAGE_LIMIT', value: '4Gi'),
-                        string(name: 'P_DOCKER_IMAGE', value: condaBuilderImage),
+                        string(name: 'P_DOCKER_IMAGE', value: condaBuildDockerImage),
                         string(name: 'P_TIMEOUT', value: pTimeout),
                         string(name: 'P_CPU_LIMIT', value: "2"),
                         string(name: 'P_MEM_LIMIT', value: "7Gi"),
