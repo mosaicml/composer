@@ -307,7 +307,7 @@ Here's some resources actively maintained by the Composer community to help you 
     <td>An interactive Colab Notebook aimed at teaching users about our Functional API</td>
   </tr>
   <tr>
-    <td><a href="https://colab.research.google.com/github/mosaicml/composer/blob/dev/notebooks/custom_method_tutorial.ipynb" target="_blank" rel="noopener noreferrer">Getting started with building speedup methods</a></td>
+    <td><a href="https://colab.research.google.com/github/mosaicml/composer/blob/dev/notebooks/custom_method_tutorial.ipynb" target="_blank" rel="noopener noreferrer">Building Speedup Methods</a></td>
     <td>An interactive Colab Notebook aimed at teaching users about building speedup methods on top of Composer</td>
   </tr>
   <tr>
