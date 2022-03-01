@@ -35,17 +35,47 @@ def cloneJenkinsfilesRepo() {
     }
 }
 
-def runPytest(Map args) {
-    // Run pytest. Parameters
-    // extraDeps (str, optional): The pip extra deps to install -- e.g. pip install mosaicml[$extraDeps]. (default: `all`)
-    // pythonVersion (str, optional): The python version (should be 3.7, 3.8, or 3.9).
-    //    Required if `pDockerImage` is left blank
-    // gpu (bool, optional): Whether to run tests on a gpu (default: `false`)
-    // pDockerImage (str, optional): Base docker image to use. Required if `pythonVersion` is left blank
-    def extraDeps = args.extraDeps ?: 'all'
-    def pythonVersion = args.pythonVersion
-    def gpu = args.gpu ?: false
-    def pDockerImage = args.pDockerImage
+def getDockerImageName(pythonVersion, gpu) {
+    def pytorchVersion = pythonVersion == "3.9" ? "1.10.0" : "1.9.1"
+    def cudaVersion = "cpu"
+    if (gpu) {
+        cudaVersion = pythonVersion == "3.9" ? "cu113" : "cu111"
+
+    }
+    pDockerImage = "mosaicml/pytorch:${pytorchVersion}_${cudaVersion}-python${pythonVersion}-ubuntu20.04"
+}
+
+lintImage = getDockerImageName("3.9", false)
+
+def runLint(pDockerImage) {
+    runWithChecks(
+        name: 'lint',
+        title: 'Lint and Doctests',
+        summary: 'Static Analysis Checks and Doctests',
+    ) {
+        def builtJob = build(
+            job: "${jenkinsJobBasePath}/command2",
+            parameters: [
+                string(name: 'P_CLOUD', value: pCloud),
+                string(name: 'P_GIT_REPO', value: gitUrl),
+                string(name: 'P_GIT_COMMIT', value: gitCommit),
+                string(name: 'P_EPHEMERAL_STORAGE_LIMIT', value: pEphemeralStorageLimit),
+                string(name: 'P_DOCKER_IMAGE', value: pDockerImage),
+                string(name: 'P_TIMEOUT', value: pTimeout),
+                string(name: 'P_CPU_LIMIT', value: "2"),
+                string(name: 'P_MEM_LIMIT', value: "7Gi"),
+                string(name: 'P_COMMAND', value: "./.ci/lint_doctests.sh")
+            ]
+        )
+        echo "Lint Job URL: ${builtJob.absoluteUrl}"
+        builds << builtJob
+    }
+}
+
+def runPytest(pDockerImage, gpu, extraDeps) {
+    // pDockerImage (str): Base docker image to use.
+    // extraDeps (str): The pip extra deps to install -- e.g. pip install mosaicml[$extraDeps].
+    // gpu (bool): Whether to run tests on a gpu
     def nGpus = "0"
     def memLimit = "7Gi"
     def cpuLimit = "2"
@@ -58,25 +88,13 @@ def runPytest(Map args) {
         markers = "not notebooks and gpu"
     }
 
-    def name = null
-    def title = null
-    if (!pDockerImage) {
-        if (!pythonVersion) {
-            error ("pDockerImage or pythonVersion must be specified")
-        }
-        def pytorchVersion = pythonVersion == "3.9" ? "1.10.0" : "1.9.1"
-        name = "pytest/python${pythonVersion}-extraDeps_${extraDeps}-gpu_$gpu"
-        title = "Pytest - Python ${pythonVersion}, composer[${extraDeps}] (GPU $gpu)"
-        def cudaVersion = "cpu"
-        if (gpu) {
-            cudaVersion = pythonVersion == "3.9" ? "cu113" : "cu111"
+    def name = "$pDockerImage: gpu=$gpu; extraDeps=$extraDeps"
 
-        }
-        pDockerImage = "mosaicml/pytorch:${pytorchVersion}_${cudaVersion}-python${pythonVersion}-ubuntu20.04"
-    }
-    def summary = title
-
-    def closure = { ->
+    runWithChecks(
+        name: name,
+        title: name,
+        summary: name,
+    ) {
         def builtJob = build(
             job: "${jenkinsJobBasePath}/command2",
             parameters: [
@@ -98,17 +116,6 @@ def runPytest(Map args) {
         echo "${title} Job URL: ${builtJob.absoluteUrl}"
 
         builds << builtJob
-    }
-    if (name != null && title != null && summary != null) {
-        runWithChecks(
-            name: name,
-            title: title,
-            summary: summary,
-        ) {
-            closure()
-        }
-    } else {
-        closure()
     }
 }
 
@@ -145,14 +152,6 @@ stage('Prepare') {
     }
 }
 
-def dockerImagePostBuild(stagingImageTag) {
-    if (gitBranch == "main" || gitBranch == "dev") {
-        // no need to run tests again
-        return
-    }
-    runPytest(pDockerImage: stagingImageTag)
-}
-
 stage('Build') {
     def jobs = [:]
     def isMergeCommit = true
@@ -161,6 +160,8 @@ stage('Build') {
     }
     def isCommitToMainOrDev = gitBranch == "dev" || gitBranch == "main"
     if (pytorchDockerBuildMatrix) {
+        // If changing docker, build the docker images first
+        // Then, run pytest in the newly-built image
         jobs << expandDockerMatrix(
             P_CLOUD: pCloud,
             buildMatrix: pytorchDockerBuildMatrix,
@@ -173,44 +174,53 @@ stage('Build') {
             P_MEM_LIMIT: '15Gi',
             P_TIMEOUT: pTimeout,
             P_KANIKO_PUSH_FINAL: isCommitToMainOrDev,
-        ) { stagingImage -> dockerImagePostBuild(stagingImage) }
-    }
-    if (!isMergeCommit) {
-        // only need to run tests if its not a merge commit
-        if (dependenciesChanged) {
-            jobs << [
-                'Conda': { ->
-                    runWithChecks(
-                        name: 'conda',
-                        title: 'Conda build and test',
-                        summary: 'Conda build and test of composer',
-                    ) {
-                        def builtJob = build(
-                            job: "${jenkinsJobBasePath}/command2",
-                            parameters: [
-                                string(name: 'P_CLOUD', value: pCloud),
-                                string(name: 'P_GIT_REPO', value: gitUrl),
-                                string(name: 'P_GIT_COMMIT', value: gitCommit),
-                                string(name: 'P_EPHEMERAL_STORAGE_LIMIT', value: pEphemeralStorageLimit),
-                                string(name: 'P_DOCKER_IMAGE', value: "continuumio/anaconda-pkg-build"),
-                                string(name: 'P_TIMEOUT', value: pTimeout),
-                                string(name: 'P_CPU_LIMIT', value: "2"),
-                                string(name: 'P_MEM_LIMIT', value: "7Gi"),
-                                string(name: 'P_COMMAND', value: "./.ci/build_conda.sh")
-                            ]
-                        )
-                        echo "Conda Job URL: ${builtJob.absoluteUrl}"
-                        builds << builtJob
-                    }
-                }
+        ) { stagingImage, buildArgs ->
+            if (isMergeCommit) {
+                // no need to run tests again
+                return
+            }
+            def tag = buildArgs['TAG']
+            def gpu = buildArgs['CUDA_VERSION'] != 'cpu'
+            def extraDeps = 'all'
+            def subJobs = [
+                "Pytest - ${tag}" : { -> runPytest(stagingImageTag, gpu, extraDeps) }
             ]
+            if (tag == lintImage) {
+                // and run lint and a dev install on this image
+                subJobs << [
+                    "Pytest - ${tag}, extraDeps=dev": { -> runPytest(stagingImageTag, gpu, 'dev') },
+                    "Lint": { -> runLint(stagingImageTag) },
+                ]
+            }
+            subJobs.failFast = true
+            parallel(subJobs)
         }
+    }
+    else if (!isMergeCommit) {
+        // if not rebuilding the docker image, but it's not a merge commit,
+        // just run these checks on the latest images. No need to re-run the
+        // tests on merge commits, as the PR must have passed these checks already
+        // to have been merged.
         jobs << [
-            'Lint': { ->
+            'Python 3.7 - All': { -> runPytest(getDockerImageName("3.7", false), false, 'all') },
+            'Python 3.8 - All': { -> runPytest(getDockerImageName("3.8", false), false, 'all') },
+            'Python 3.9 - All': { -> runPytest(getDockerImageName("3.9", false), false, 'all') },
+            'Python 3.9 - All (GPU)': { -> runPytest(getDockerImageName("3.9", true), true, 'all') },
+            'Lint': { -> runLint(lintImage) },
+            'Python 3.9 - Dev': { -> runPytest(lintImage, false, "dev") },
+        ]
+    }
+
+    
+    if (!isMergeCommit && dependenciesChanged) {
+        // regardless of whether the docker image changed, rebuild the conda package
+        // if the dependencies changed
+        jobs << [
+            'Conda': { ->
                 runWithChecks(
-                    name: 'lint',
-                    title: 'Lint and Doctests',
-                    summary: 'Static Analysis Checks and Doctests',
+                    name: 'conda',
+                    title: 'Conda build and test',
+                    summary: 'Conda build and test of composer',
                 ) {
                     def builtJob = build(
                         job: "${jenkinsJobBasePath}/command2",
@@ -219,22 +229,17 @@ stage('Build') {
                             string(name: 'P_GIT_REPO', value: gitUrl),
                             string(name: 'P_GIT_COMMIT', value: gitCommit),
                             string(name: 'P_EPHEMERAL_STORAGE_LIMIT', value: pEphemeralStorageLimit),
-                            string(name: 'P_DOCKER_IMAGE', value: "mosaicml/pytorch:1.10.0_cpu-python3.9-ubuntu20.04"),
+                            string(name: 'P_DOCKER_IMAGE', value: "continuumio/anaconda-pkg-build"),
                             string(name: 'P_TIMEOUT', value: pTimeout),
                             string(name: 'P_CPU_LIMIT', value: "2"),
                             string(name: 'P_MEM_LIMIT', value: "7Gi"),
-                            string(name: 'P_COMMAND', value: "./.ci/lint_doctests.sh")
+                            string(name: 'P_COMMAND', value: "./.ci/build_conda.sh")
                         ]
                     )
-                    echo "Lint Job URL: ${builtJob.absoluteUrl}"
+                    echo "Conda Job URL: ${builtJob.absoluteUrl}"
                     builds << builtJob
                 }
-            },
-            'Python 3.7 - All': { -> runPytest(pythonVersion: "3.7") },
-            'Python 3.8 - All': { -> runPytest(pythonVersion: "3.8") },
-            'Python 3.9 - All': { -> runPytest(pythonVersion: "3.9") },
-            'Python 3.9 - Dev': { -> runPytest(pythonVersion: "3.9", extraDeps: "dev") },
-            'Python 3.9 - All (GPU)': { -> runPytest(pythonVersion: "3.9", gpu: true) },
+            }
         ]
     }
     jobs.failFast = true
