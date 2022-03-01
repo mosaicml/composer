@@ -13,6 +13,7 @@ from composer.datasets.hparams import SyntheticHparamsMixin
 from composer.trainer import TrainerHparams
 from composer.trainer.devices import GPUDeviceHparams
 
+
 def run_and_measure_memory(precision: Precision) -> int:
     hparams_f = os.path.join(os.path.dirname(composer.__file__), "yamls", "models", "resnet56_cifar10_synthetic.yaml")
     hparams = TrainerHparams.create(f=hparams_f, cli_args=False)
