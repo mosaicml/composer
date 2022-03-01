@@ -141,13 +141,12 @@ stage('Prepare') {
             pytorchDockerBuildMatrix = getDockerBuildMatrix('./docker/pytorch/build_matrix.sh')
         }
         // Keep track of whether dependencies changed, in which case a conda build should be tested
-        // Skipping conda build -- stalling in Jenkins
         dependenciesChanged = isPathModified("setup.py") || isPathModified("meta.yaml")
     }
 }
 
 def dockerImagePostBuild(stagingImageTag) {
-    if (gitBranch == "main") {
+    if (gitBranch == "main" || gitBranch == "dev") {
         // no need to run tests again
         return
     }
@@ -156,6 +155,11 @@ def dockerImagePostBuild(stagingImageTag) {
 
 stage('Build') {
     def jobs = [:]
+    def isMergeCommit = true
+    if (env.CHANGE_ID) {
+        isMergeCommit = false
+    }
+    def isCommitToMainOrDev = gitBranch == "dev" || gitBranch == "main"
     if (pytorchDockerBuildMatrix) {
         jobs << expandDockerMatrix(
             P_CLOUD: pCloud,
@@ -168,39 +172,39 @@ stage('Build') {
             P_CPU_LIMIT: '4',
             P_MEM_LIMIT: '15Gi',
             P_TIMEOUT: pTimeout,
-            P_KANIKO_PUSH_FINAL: gitBranch == "dev" || gitBranch == "main", // only push if we're on the main or dev branch
+            P_KANIKO_PUSH_FINAL: isCommitToMainOrDev,
         ) { stagingImage -> dockerImagePostBuild(stagingImage) }
     }
-    if (dependenciesChanged) {
-        jobs << [
-            'Conda': { ->
-                runWithChecks(
-                    name: 'conda',
-                    title: 'Conda build and test',
-                    summary: 'Conda build and test of composer',
-                ) {
-                    def builtJob = build(
-                        job: "${jenkinsJobBasePath}/command2",
-                        parameters: [
-                            string(name: 'P_CLOUD', value: pCloud),
-                            string(name: 'P_GIT_REPO', value: gitUrl),
-                            string(name: 'P_GIT_COMMIT', value: gitCommit),
-                            string(name: 'P_EPHEMERAL_STORAGE_LIMIT', value: pEphemeralStorageLimit),
-                            string(name: 'P_DOCKER_IMAGE', value: "continuumio/anaconda-pkg-build"),
-                            string(name: 'P_TIMEOUT', value: pTimeout),
-                            string(name: 'P_CPU_LIMIT', value: "2"),
-                            string(name: 'P_MEM_LIMIT', value: "7Gi"),
-                            string(name: 'P_COMMAND', value: "./.ci/build_conda.sh")
-                        ]
-                    )
-                    echo "Conda Job URL: ${builtJob.absoluteUrl}"
-                    builds << builtJob
+    if (!isMergeCommit) {
+        // only need to run tests if its not a merge commit
+        if (dependenciesChanged) {
+            jobs << [
+                'Conda': { ->
+                    runWithChecks(
+                        name: 'conda',
+                        title: 'Conda build and test',
+                        summary: 'Conda build and test of composer',
+                    ) {
+                        def builtJob = build(
+                            job: "${jenkinsJobBasePath}/command2",
+                            parameters: [
+                                string(name: 'P_CLOUD', value: pCloud),
+                                string(name: 'P_GIT_REPO', value: gitUrl),
+                                string(name: 'P_GIT_COMMIT', value: gitCommit),
+                                string(name: 'P_EPHEMERAL_STORAGE_LIMIT', value: pEphemeralStorageLimit),
+                                string(name: 'P_DOCKER_IMAGE', value: "continuumio/anaconda-pkg-build"),
+                                string(name: 'P_TIMEOUT', value: pTimeout),
+                                string(name: 'P_CPU_LIMIT', value: "2"),
+                                string(name: 'P_MEM_LIMIT', value: "7Gi"),
+                                string(name: 'P_COMMAND', value: "./.ci/build_conda.sh")
+                            ]
+                        )
+                        echo "Conda Job URL: ${builtJob.absoluteUrl}"
+                        builds << builtJob
+                    }
                 }
-            }
-        ]
-    }
-    if (gitBranch != "main" && gitBranch != "dev") {
-        // if not on main or dev, run the pytest again.
+            ]
+        }
         jobs << [
             'Lint': { ->
                 runWithChecks(
