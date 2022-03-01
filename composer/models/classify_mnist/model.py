@@ -47,7 +47,7 @@ class Model(nn.Module):
 
 
 class MNIST_Classifier(ComposerClassifier):
-    """A simple convolutional neural network extending :class:`ComposerClassifier`.
+    """A simple convolutional neural network extending :class:`.ComposerClassifier`.
 
     A simple example
     convolutional neural network which can be used to classify MNIST data.
