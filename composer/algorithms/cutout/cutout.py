@@ -45,7 +45,7 @@ def cutout_batch(X: ImgT, n_holes: int = 1, length: Union[int, float] = 0.5, uni
             If ``length >= 1``, ``length`` is used as an integer size directly.
         uniform_sampling: If true, sample the bounding box such that each pixel
             has an equal probability of being masked. If false, defaults to the
-            sampling used in the original paper implementation
+            sampling used in the original paper implementation.
 
     Returns:
         X_cutout: Batch of images with ``n_holes`` holes of dimension
