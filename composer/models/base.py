@@ -55,7 +55,7 @@ class ComposerModel(torch.nn.Module, abc.ABC):
         """Compute model output given a batch from the dataloader.
 
         .. warning:: this is method is different from vanilla pytorch `model.forward(x)` or `model(x)` as it takes a
-                     batch of data that may have to be unpacked.
+                     batch of data that has to be unpacked.
 
         Example:
 
