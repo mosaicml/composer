@@ -16,7 +16,7 @@ leverage.
 | ubuntu:20.04 | 1.9.1           | 11.1.1       | 3.7            | `mosaicml/pytorch:1.9.1_cu111-python3.7-ubuntu20.04`              |
 | ubuntu:20.04 | 1.9.1           | cpu          | 3.7            | `mosaicml/pytorch:1.9.1_cpu-python3.7-ubuntu20.04`                |
 
-Our `latest` image has Ubuntu 18.04, Python 3.8.0, PyTorch 1.9.0, and CUDA 11.1.1, and has been tested to work with
+Our `latest` image has Ubuntu 20.04, Python 3.9, PyTorch 1.10, and CUDA 11.3, and has been tested to work with
 GPU-based instances on AWS, GCP, and Azure. ``Pillow-SIMD`` is installed by default in all images.
 
 **Note**: These images do not include Composer preinstalled. To install composer, once inside the image, run `pip install mosaicml`.
