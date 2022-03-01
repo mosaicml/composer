@@ -167,7 +167,7 @@ class ComposerModel(torch.nn.Module, abc.ABC):
             def validate(self, batch): # batch is the output of the dataloader
                 inputs, targets = batch
                 outputs = self.model(inputs)
-                return outputs, targets # return a tuple of (``outputs``, ``targets``)
+                return outputs, targets # return a tuple of (outputs, targets)
 
 
         How validate outputs are passed to :meth:`metrics` (pseudocode):
