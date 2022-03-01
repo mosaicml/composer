@@ -38,6 +38,7 @@ def cloneJenkinsfilesRepo() {
             doGenerateSubmoduleConfigurations: false,
             extensions: [[$class: 'RelativeTargetDirectory', relativeTargetDir: jenkinsfileRepoTargetDir]],
             submoduleCfg: [],
+            changelog: false,
             userRemoteConfigs: [[url: jenkinsfileRepo, credentialsId: gitCredentialsId]]
         ])
         return "$WORKSPACE_TMP/$jenkinsfileRepoTargetDir"
