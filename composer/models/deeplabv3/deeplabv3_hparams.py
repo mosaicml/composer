@@ -11,7 +11,7 @@ __all__ = ["DeepLabV3Hparams"]
 
 @dataclass
 class DeepLabV3Hparams(ModelHparams):
-    """yahp interface for :class:`~composer.models.deeplabv3.deeplabv3.ComposerDeepLabV3`. This class specifies
+    """yahp interface for :class:`~.ComposerDeepLabV3`. This class specifies
     arguments for a DeepLabV3 model and can instantiate a DeepLabV3 model.
 
     Args:
