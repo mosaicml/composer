@@ -24,7 +24,7 @@ class ComposerModel(torch.nn.Module, abc.ABC):
     implement :meth:`forward` and :meth:`loss`. For full functionality (logging and validation), implement :meth:`metrics`
     and :meth:`validate`.
 
-    See :doc:`Composer Model </trainer/composer_model>` for more details.
+    See :doc:`Composer Model </composer_model>` for more details.
 
     Minimal Example:
 
