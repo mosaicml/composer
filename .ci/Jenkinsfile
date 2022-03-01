@@ -247,8 +247,8 @@ stage('Build') {
                         string(name: 'P_EPHEMERAL_STORAGE_LIMIT', value: '8Gi'),
                         string(name: 'P_DOCKER_IMAGE', value: condaBuildDockerImage),
                         string(name: 'P_TIMEOUT', value: pTimeout),
-                        string(name: 'P_CPU_LIMIT', value: "2"),
-                        string(name: 'P_MEM_LIMIT', value: "4Gi"),
+                        string(name: 'P_CPU_LIMIT', value: "4"),
+                        string(name: 'P_MEM_LIMIT', value: "8Gi"),
                         string(name: 'P_COMMAND', value: "./.ci/build_conda.sh")
                     ]
                 )
