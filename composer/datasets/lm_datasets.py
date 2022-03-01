@@ -97,17 +97,22 @@ class LMDatasetHparams(DatasetHparams, SyntheticHparamsMixin):
 
             self.tokenizer = generate_synthetic_tokenizer(tokenizer_family="bert", dataset=lm_datasets)
 
+
+            columns_to_remove = ["idx"] + column_names 
             lm_datasets = lm_datasets.map(lambda inp: self.tokenizer(
                 text=inp[column_names[0]
                         ], padding="max_length", max_length=self.train_sequence_length, truncation=True),
                                           batched=True,
                                           num_proc=1,
+                                            remove_columns=columns_to_remove,
                                           keep_in_memory=True)
 
             # override sizing to able use of synthetic datasets
             self.num_tokens = 0
             self.subsample_ratio = 1.0
             lm_datasets = [{self.split: lm_datasets}]
+            import ipdb; ipdb.set_trace()
+            print("Dataset:", lm_datasets)
         else:
             self.tokenizer = transformers.AutoTokenizer.from_pretrained(self.tokenizer_name)  #type: ignore (thirdparty)
             self.config = transformers.AutoConfig.from_pretrained(self.tokenizer_name)  #type: ignore (thirdparty)
@@ -164,6 +169,7 @@ class LMDatasetHparams(DatasetHparams, SyntheticHparamsMixin):
 
         sampler = dist.get_sampler(dataset, drop_last=self.drop_last, shuffle=self.shuffle)
 
+        print("Data Collator:", data_collator)
         return DataSpec(dataloader=dataloader_hparams.initialize_object(
             dataset=dataset,
             batch_size=batch_size,

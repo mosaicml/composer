@@ -37,24 +37,6 @@ class SyntheticDataLabelType(StringEnum):
 
 
 class SyntheticTokenizerParams(NamedTuple):
-    # try:
-    # import tokenizers.decoders as decoders
-    # import tokenizers.models as tokenizers_models
-    # import tokenizers.normalizers as normalizers
-    # import tokenizers.pre_tokenizers as pre_tokenizers
-    # except ImportError as e:
-    # decoders = object
-    # decoders.Decoder = object
-
-    # tokenizers_models = object
-    # tokenizers_models.Model = object
-
-    # normalizers = object
-    # normalizers.Normalizer = object
-
-    # pre_tokenizers = object
-    # pre_tokenizers.PreTokenizer = object
-
     tokenizer_model: tokenizers_models.Model
     normalizer: normalizers.Normalizer
     pre_tokenizer: pre_tokenizers.PreTokenizer
@@ -191,6 +173,7 @@ def generate_synthetic_tokenizer(tokenizer_family: str, dataset=None, vocab_size
 
     # instantiate the new tokenizer
     assert issubclass(tokenizer_params.tokenizer_cls, PreTrainedTokenizer)
+    print("Tokenizer class:", tokenizer_params.tokenizer_cls)
     tokenizer = tokenizer_params.tokenizer_cls.from_pretrained(tmp_tokenizer_dir)
 
     return tokenizer
