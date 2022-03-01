@@ -128,7 +128,12 @@ def runPytest(pDockerImage, gpu, extraDeps) {
 
 stage('Prepare') {
     node (pCloud) {
-        milestone()
+        // Automatically cancel old builds
+        // From https://stackoverflow.com/questions/40760716/jenkins-abort-running-build-if-new-one-is-started
+        def buildNumber = env.BUILD_NUMBER as int
+        if (buildNumber > 1) milestone(buildNumber - 1)
+        milestone(buildNumber)
+
         def loadedSCM = checkout scm
 
         gitUrl = loadedSCM.GIT_URL
