@@ -244,7 +244,7 @@ stage('Build') {
                         string(name: 'P_CLOUD', value: pCloud),
                         string(name: 'P_GIT_REPO', value: gitUrl),
                         string(name: 'P_GIT_COMMIT', value: gitCommit),
-                        string(name: 'P_EPHEMERAL_STORAGE_LIMIT', value: '8Gi'),
+                        string(name: 'P_EPHEMERAL_STORAGE_LIMIT', value: '16Gi'),
                         string(name: 'P_DOCKER_IMAGE', value: condaBuildDockerImage),
                         string(name: 'P_TIMEOUT', value: pTimeout),
                         string(name: 'P_CPU_LIMIT', value: "4"),
