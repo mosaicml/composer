@@ -1,4 +1,4 @@
-# ResNet
+# 🏙️ ResNet
 [\[How to Use\]](#how-to-use) &middot; [\[Architecture\]](#architecture) &middot; [\[Family Members\]](#family-members) &middot; [\[Default Training Hyperparameters\]](#default-training-hyperparameters) &middot; [\[Attribution\]](#attribution) &middot; [\[API Reference\]](#api-reference)
 
 `Vision` / `Image Classification`

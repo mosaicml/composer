@@ -66,49 +66,49 @@ extra_deps['dev'] = [
     "custom_inherit==2.3.2",
     'junitparser>=2.1.1',
     'coverage[toml]>=6.1.1',
-    'fasteners>=0.16.3',  # run_directory_uploader tests require fasteners
+    'fasteners==0.17.3',  # run_directory_uploader tests require fasteners
     'pytest>=7.0.0',
-    'toml>=0.10.2',
-    'yapf>=0.32.0',
+    'toml==0.10.2',
+    'yapf==0.32.0',
     'isort>=5.9.3',
     'ipython>=7.29.0',
     'ipykernel>=6.5.0',
     'jupyter>=1.0.0',
     'yamllint>=1.26.2',
     'pytest-timeout>=1.4.2',
-    'pyright>=0.0.13',
-    'recommonmark>=0.7.1',
+    'pyright==1.1.224.post1',
+    'recommonmark==0.7.1',
     'sphinx>=4.2.0',
-    'sphinx_copybutton>=0.4.0',
-    'sphinx_markdown_tables>=0.0.15',
-    'sphinx-argparse>=0.3.1',
-    'sphinxcontrib.katex>=0.8.6',
-    'sphinxext.opengraph>=0.4.2',
-    'sphinxemoji>=0.2.0',
+    'sphinx_copybutton==0.5.0',
+    'sphinx_markdown_tables==0.0.15',
+    'sphinx-argparse==0.3.1',
+    'sphinxcontrib.katex==0.8.6',
+    'sphinxext.opengraph==0.6.1',
+    'sphinxemoji==0.2.0',
     'furo>=2022.1.2',
-    'sphinx-copybutton>=0.4.0',
-    'testbook>=0.4.2',
+    'sphinx-copybutton==0.5.0',
+    'testbook==0.4.2',
     'myst-parser==0.16.1',
     'pylint>=2.12.2',
     'docformatter>=1.4',
-    'sphinx_panels>=0.6.0',
+    'sphinx_panels==0.6.0',
 ]
 
 extra_deps["deepspeed"] = [
-    'deepspeed>=0.5.5',
+    'deepspeed==0.5.10',
 ]
 
 extra_deps["wandb"] = [
-    'wandb>=0.12.2',
+    'wandb==0.12.10',
 ]
 
 extra_deps["unet"] = [
-    'monai>=0.7.0',
+    'monai==0.8.1',
     'scikit-learn>=1.0.1',
 ]
 
 extra_deps["timm"] = [
-    'timm>=0.5.4',
+    'timm==0.5.4',
 ]
 
 extra_deps["nlp"] = [
@@ -119,7 +119,7 @@ extra_deps["nlp"] = [
 extra_deps['all'] = set(dep for deps in extra_deps.values() for dep in deps)
 
 setup(name="mosaicml",
-      version="0.3.1",
+      version="0.4.0",
       author="MosaicML",
       author_email="team@mosaicml.com",
       description="composing methods for ML training efficiency",
@@ -130,6 +130,7 @@ setup(name="mosaicml",
       package_data={
           "composer": ['py.typed'],
           "": package_files('composer/yamls'),
+          "": package_files('composer/algorithms')
       },
       packages=setuptools.find_packages(exclude=["tests*"]),
       classifiers=[
