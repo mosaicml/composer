@@ -7,6 +7,7 @@ from pycocotools.cocoeval import COCOeval
 from torchmetrics import Metric
 
 from composer.core.types import BatchPair, Metrics, Tensor, Tensors
+from composer.datasets.coco import COCODatasetHparams
 from composer.models.base import ComposerModel
 from composer.models.ssd.base_model import Loss
 from composer.models.ssd.ssd300 import SSD300
@@ -21,10 +22,9 @@ class SSD(ComposerModel):
         self.input_size = input_size
         self.overlap_threshold = overlap_threshold
         self.nms_max_detections = nms_max_detections
-        import wget  # requests
+        import wget
         url = "https://download.pytorch.org/models/resnet34-333f7ec4.pth"
-        self.pretrained_backbone = wget.download(
-            url, '.')  #requests.get(url)#"curl -O https://download.pytorch.org/models/resnet34-333f7ec4.pth"
+        self.pretrained_backbone = wget.download(url, '.')
         self.num_classes = num_classes
         self.module = SSD300(self.num_classes, model_path=self.pretrained_backbone)
 
@@ -32,7 +32,7 @@ class SSD(ComposerModel):
         self.loss_func = Loss(dboxes)
         self.MAP = coco_map()
         self.encoder = Encoder(dboxes)
-        data = "/localdisk/coco"
+        data = COCODatasetHparams.datadir
         val_annotate = os.path.join(data, "annotations/instances_val2017.json")
         val_coco_root = os.path.join(data, "val2017")
         input_size = self.input_size
@@ -67,7 +67,7 @@ class SSD(ComposerModel):
         nms_max_detections = self.nms_max_detections
 
         (img, img_id, img_size, _, _) = batch  #type: ignore
-        ploc, plabel = self.module(img)  #.cuda())
+        ploc, plabel = self.module(img)
 
         results = []
         try:
@@ -79,12 +79,12 @@ class SSD(ComposerModel):
         except:
             print("No object detected")
 
-        (htot, wtot) = [d.cpu().numpy() for d in img_size]  #type: ignore
+        (htot, wtot) = [d.numpy() for d in img_size]
         img_id = img_id.cpu().numpy()  #type: ignore
         if len(results) > 0:
             # Iterate over batch elements
             for img_id_, wtot_, htot_, result in zip(img_id, wtot, htot, results):
-                loc, label, prob = [r.cpu().numpy() for r in result]  #type: ignore
+                loc, label, prob = [r.numpy() for r in result]
                 # Iterate over image detections
                 for loc_, label_, prob_ in zip(loc, label, prob):
                     ret.append([img_id_, loc_[0]*wtot_, \
@@ -102,7 +102,7 @@ class coco_map(Metric):
     def __init__(self):
         super().__init__()
         self.add_state("predictions", default=[])
-        data = "/localdisk/coco"
+        data = COCODatasetHparams.datadir
         val_annotate = os.path.join(data, "annotations/instances_val2017.json")
         self.cocogt = COCO(annotation_file=val_annotate)
 

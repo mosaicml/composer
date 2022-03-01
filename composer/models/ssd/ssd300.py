@@ -7,11 +7,9 @@ from composer.models.ssd.base_model import ResNet34
 
 
 class SSD300(nn.Module):
-    """
-        Build a SSD module to take 300x300 image input,
-        and output 8732 per class bounding boxes
+    """Build a SSD module to take 300x300 image input, and output 8732 per class bounding boxes.
 
-        label_num: number of classes (including background 0)
+    label_num: number of classes (including background 0)
     """
 
     def __init__(self, label_num, backbone='resnet34', model_path=None):

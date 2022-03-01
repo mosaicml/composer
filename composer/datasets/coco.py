@@ -21,7 +21,7 @@ from composer.utils import dist
 
 @dataclass
 class COCODatasetHparams(DatasetHparams):
-    """Defines an instance of
+    """Defines an instance of.
 
     Parameters:
         is_train (bool): Whether to load the training or validation dataset.
@@ -29,7 +29,6 @@ class COCODatasetHparams(DatasetHparams):
         download (bool): Whether to download the dataset, if needed.
         drop_last (bool): Whether to drop the last samples for the last batch.
         shuffle (bool): Whether to shuffle the dataset for each epoch.
-
     """
 
     is_train: bool = hp.required("whether to load the training or validation dataset")
@@ -164,8 +163,9 @@ def split_dict_fn(batch: Batch, num_microbatches: int) -> Sequence[Batch]:  #typ
     img, img_id, img_size, bbox_sizes, bbox_labels = batch  #type: ignore
     nm = num_microbatches
     if isinstance(img, torch.Tensor) and isinstance(img_id, torch.Tensor):
-        return list(zip(img.chunk(nm), img_id.chunk(nm), img_size, bbox_sizes.chunk(nm),
-                        bbox_labels.chunk(nm)))  #type: ignore
+        return list(
+            zip(img.chunk(nm), img_id.chunk(nm),
+                torch.Tensor(img_size).chunk(nm), bbox_sizes.chunk(nm), bbox_labels.chunk(nm)))  #type: ignore
     if isinstance(img, List) and isinstance(img_id, List) and isinstance(img_size, List) and isinstance(
             bbox_sizes, List) and isinstance(bbox_labels, List):
         return list(

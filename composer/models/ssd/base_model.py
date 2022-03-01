@@ -75,11 +75,11 @@ class ResNet34(nn.Module):
 
 
 class Loss(nn.Module):
-    """
-        Implements the loss as the sum of the followings:
-        1. Confidence Loss: All labels, with hard negative mining
-        2. Localization Loss: Only on positive labels
-        Suppose input dboxes has the shape 8732x4
+    """Implements the loss as the sum of the followings:
+
+    1. Confidence Loss: All labels, with hard negative mining
+    2. Localization Loss: Only on positive labels
+    Suppose input dboxes has the shape 8732x4
     """
 
     def __init__(self, dboxes):
@@ -94,21 +94,16 @@ class Loss(nn.Module):
         self.con_loss = nn.CrossEntropyLoss(reduce=False)
 
     def _loc_vec(self, loc):
-        """
-            Generate Location Vectors
-        """
+        """Generate Location Vectors."""
         gxy = self.scale_xy * (loc[:, :2, :] - self.dboxes[:, :2, :]) / self.dboxes[:, 2:,]
         gwh = self.scale_wh * (loc[:, 2:, :] / self.dboxes[:, 2:, :]).log()
 
         return torch.cat((gxy, gwh), dim=1).contiguous()
 
     def forward(self, ploc, plabel, gloc, glabel):
-        """
-            ploc, plabel: Nx4x8732, Nxlabel_numx8732
-                predicted location and labels
+        """ploc, plabel: Nx4x8732, Nxlabel_numx8732 predicted location and labels.
 
-            gloc, glabel: Nx4x8732, Nx8732
-                ground truth location and labels
+        gloc, glabel: Nx4x8732, Nx8732     ground truth location and labels
         """
 
         mask = glabel > 0

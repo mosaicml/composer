@@ -46,24 +46,22 @@ def calc_iou_tensor(box1, box2):
 
 # This function is from https://github.com/kuangliu/pytorch-ssd.
 class Encoder(object):
-    """
-        Inspired by https://github.com/kuangliu/pytorch-ssd
-        Transform between (bboxes, lables) <-> SSD output
+    """Inspired by https://github.com/kuangliu/pytorch-ssd Transform between (bboxes, lables) <-> SSD output.
 
-        dboxes: default boxes in size 8732 x 4,
-            encoder: input ltrb format, output xywh format
-            decoder: input xywh format, output ltrb format
+    dboxes: default boxes in size 8732 x 4,
+        encoder: input ltrb format, output xywh format
+        decoder: input xywh format, output ltrb format
 
-        encode:
-            input  : bboxes_in (Tensor nboxes x 4), labels_in (Tensor nboxes)
-            output : bboxes_out (Tensor 8732 x 4), labels_out (Tensor 8732)
-            criteria : IoU threshold of bboexes
+    encode:
+        input  : bboxes_in (Tensor nboxes x 4), labels_in (Tensor nboxes)
+        output : bboxes_out (Tensor 8732 x 4), labels_out (Tensor 8732)
+        criteria : IoU threshold of bboexes
 
-        decode:
-            input  : bboxes_in (Tensor 8732 x 4), scores_in (Tensor 8732 x nitems)
-            output : bboxes_out (Tensor nboxes x 4), labels_out (Tensor nboxes)
-            criteria : IoU threshold of bboexes
-            max_output : maximum number of output bboxes
+    decode:
+        input  : bboxes_in (Tensor 8732 x 4), scores_in (Tensor 8732 x nitems)
+        output : bboxes_out (Tensor nboxes x 4), labels_out (Tensor nboxes)
+        criteria : IoU threshold of bboexes
+        max_output : maximum number of output bboxes
     """
 
     def __init__(self, dboxes):
@@ -103,10 +101,7 @@ class Encoder(object):
         return bboxes_out, labels_out
 
     def scale_back_batch(self, bboxes_in, scores_in):
-        """
-            Do scale and transform from xywh to ltrb
-            suppose input Nx4xnum_bbox Nxlabel_numxnum_bbox
-        """
+        """Do scale and transform from xywh to ltrb suppose input Nx4xnum_bbox Nxlabel_numxnum_bbox."""
         if bboxes_in.device == torch.device("cpu"):
             self.dboxes = self.dboxes.cpu()
             self.dboxes_xywh = self.dboxes_xywh.cpu()
@@ -256,12 +251,12 @@ class DefaultBoxes(object):
 
 # This function is from https://github.com/chauhan-utk/ssd.DomainAdaptation.
 class SSDCropping(object):
-    """ Cropping for SSD, according to original paper
-        Choose between following 3 conditions:
-        1. Preserve the original image
-        2. Random crop minimum IoU is among 0.1, 0.3, 0.5, 0.7, 0.9
-        3. Random crop
-        Reference to https://github.com/chauhan-utk/ssd.DomainAdaptation
+    """Cropping for SSD, according to original paper Choose between following 3 conditions:
+
+    1. Preserve the original image
+    2. Random crop minimum IoU is among 0.1, 0.3, 0.5, 0.7, 0.9
+    3. Random crop
+    Reference to https://github.com/chauhan-utk/ssd.DomainAdaptation
     """
 
     def __init__(self, num_cropping_iterations=1):
@@ -366,12 +361,12 @@ class RandomHorizontalFlip(object):
 
 # Do data augumentation
 class SSDTransformer(object):
-    """ SSD Data Augumentation, according to original paper
-        Composed by several steps:
-        Cropping
-        Resize
-        Flipping
-        Jittering
+    """SSD Data Augumentation, according to original paper Composed by several steps:
+
+    Cropping
+    Resize
+    Flipping
+    Jittering
     """
 
     def __init__(self, dboxes, size=(300, 300), val=False, num_cropping_iterations=1):
