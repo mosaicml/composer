@@ -19,9 +19,7 @@ leverage.
 Our `latest` image has Ubuntu 18.04, Python 3.8.0, PyTorch 1.9.0, and CUDA 11.1.1, and has been tested to work with
 GPU-based instances on AWS, GCP, and Azure. ``Pillow-SIMD`` is installed by default in all images.
 
-```{note}
-These images do not include Composer preinstalled. To install composer, once inside the image, run `pip install mosaicml`.
-```
+**Note**: These images do not include Composer preinstalled. To install composer, once inside the image, run `pip install mosaicml`.
 
 ### Pulling Images
 
@@ -41,6 +39,5 @@ make
 PYTHON_VERSION=3.8 make
 ```
 
-```{note}
-Docker must be [installed](https://docs.docker.com/get-docker/) on your local machine.
-```
+**Note**: Docker must be [installed](https://docs.docker.com/get-docker/) on your local machine.
+
