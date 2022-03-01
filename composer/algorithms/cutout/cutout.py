@@ -21,7 +21,7 @@ __all__ = ["CutOut", "cutout_batch"]
 ImgT = TypeVar("ImgT", torch.Tensor, PillowImage)
 
 
-def cutout_batch(X: ImgT, n_holes: int = 1, length: Union[int, float] = 0.5) -> ImgT:
+def cutout_batch(X: ImgT, n_holes: int = 1, length: Union[int, float] = 0.5, uniform_sampling: bool = False) -> ImgT:
     """See :class:`CutOut`.
 
     Example:
@@ -43,6 +43,9 @@ def cutout_batch(X: ImgT, n_holes: int = 1, length: Union[int, float] = 0.5) -> 
             0. If ``0 < length < 1``, ``length`` is interpreted as a fraction
             of ``min(H, W)`` and converted to ``int(length * min(H, W))``.
             If ``length >= 1``, ``length`` is used as an integer size directly.
+        uniform_sampling: If true, sample the bounding box such that each pixel
+            has an equal probability of being masked. If false, defaults to the
+            sampling used in the original paper implementation
 
     Returns:
         X_cutout: Batch of images with ``n_holes`` holes of dimension
@@ -58,8 +61,12 @@ def cutout_batch(X: ImgT, n_holes: int = 1, length: Union[int, float] = 0.5) -> 
 
     mask = torch.ones_like(X_tensor)
     for _ in range(n_holes):
-        y = np.random.randint(h)
-        x = np.random.randint(w)
+        if uniform_sampling is True:
+            y = np.random.randint(-length // 2, high=h + length // 2)
+            x = np.random.randint(-length // 2, high=w + length // 2)
+        else:
+            y = np.random.randint(h)
+            x = np.random.randint(w)
 
         mask = _generate_mask(mask, w, h, x, y, length)
 
@@ -98,9 +105,10 @@ class CutOut(Algorithm):
             If ``length >= 1``, ``length`` is used as an integer size directly.
     """
 
-    def __init__(self, n_holes: int = 1, length: Union[int, float] = 0.5):
+    def __init__(self, n_holes: int = 1, length: Union[int, float] = 0.5, uniform_sampling: bool = False):
         self.n_holes = n_holes
         self.length = length
+        self.uniform_sampling = uniform_sampling
 
     def match(self, event: Event, state: State) -> bool:
         """Runs on Event.AFTER_DATALOADER."""
@@ -111,7 +119,7 @@ class CutOut(Algorithm):
         x, y = state.batch_pair
         assert isinstance(x, Tensor), "Multiple tensors not supported for Cutout."
 
-        new_x = cutout_batch(X=x, n_holes=self.n_holes, length=self.length)
+        new_x = cutout_batch(X=x, n_holes=self.n_holes, length=self.length, uniform_sampling=self.uniform_sampling)
         state.batch = (new_x, y)
 
 
