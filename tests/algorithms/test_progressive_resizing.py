@@ -6,6 +6,7 @@ import torch
 from composer.algorithms.progressive_resizing import ProgressiveResizing, resize_batch
 from composer.core import Event, Logger
 from composer.core.state import State
+from composer.core.time import TimeUnit
 
 
 def check_scaled_shape(orig: torch.Tensor, scaled: torch.Tensor, scale_factor: float) -> bool:
@@ -141,7 +142,8 @@ class TestProgressiveResizingAlgorithm:
     def test_apply(self, epoch_frac: float, X: torch.Tensor, y: torch.Tensor, pr_algorithm: ProgressiveResizing,
                    minimal_state: State, empty_logger: Logger):
         """Test apply at different epoch fractions (fraction of max epochs)"""
-        minimal_state.timer.epoch._value = int(epoch_frac * minimal_state.max_epochs)
+        assert minimal_state.max_duration.unit == TimeUnit.EPOCH
+        minimal_state.timer.epoch._value = int(epoch_frac * minimal_state.max_duration.value)
         s = pr_algorithm.initial_scale
         f = pr_algorithm.finetune_fraction
         scale_factor = min([s + (1 - s) / (1 - f) * epoch_frac, 1.0])

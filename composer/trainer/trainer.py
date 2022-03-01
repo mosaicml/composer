@@ -868,7 +868,7 @@ class Trainer:
 
                 if self.state.timer.batch_in_epoch == 0:
                     self.engine.run_event(Event.EPOCH_START)
-                    self.logger.metric_epoch({"epoch": self.state.epoch})
+                    self.logger.metric_epoch({"epoch": int(self.state.timer.epoch)})
 
                 if isinstance(self.state.train_dataloader.sampler, torch.utils.data.DistributedSampler):
                     self.state.train_dataloader.sampler.set_epoch(int(self.state.timer.epoch))
@@ -915,7 +915,7 @@ class Trainer:
 
                     self.engine.run_event(Event.BATCH_START)
                     self.logger.metric_batch({
-                        "trainer/global_step": self.state.step,
+                        "trainer/global_step": int(self.state.timer.batch),
                         "trainer/batch_idx": self.state.timer.batch_in_epoch.value,
                     })
                     total_loss = None
@@ -972,8 +972,15 @@ class Trainer:
                     if self._checkpoint_saver and self._checkpoint_saver.should_checkpoint(state=self.state,
                                                                                            event=Event.BATCH_END):
                         self._checkpoint_saver.save_checkpoint(state=self.state, seed=self._seed, device=self._device)
+
+                    if self.state.timer >= self.state.max_duration:
+                        # If max_duration is specified in batches, samples, or tokens, and
+                        # and the max_duration is reached mid-epoch, then break out of the dataloader
+                        # to finish the epoch early and finish training.
+                        break
+
             except BreakEpochException:
-                log.info(f'Skipping the rest of Epoch {self.state.epoch}')
+                log.info(f'Skipping the rest of Epoch {int(self.state.timer.epoch)}')
 
             self.state.timer.on_epoch_complete()
 
@@ -1105,9 +1112,9 @@ class Trainer:
             is_batch (bool): True to log metrics with ``LogLevel.BATCH``
                 and False to log metrics with ``LogLevel.EPOCH``.
         """
-        restore_model_train = self.model.training
+        restore_model_train = self.state.model.training
 
-        self.model.eval()
+        self.state.model.eval()
         with torch.no_grad():
 
             self.engine.run_event(Event.EVAL_START)
@@ -1147,7 +1154,7 @@ class Trainer:
             self.engine.run_event(Event.EVAL_END)
 
         if restore_model_train:
-            self.model.train()
+            self.state.model.train()
 
     def _use_grad_scaling(self, precision: Union[str, Precision], scaler: Optional[GradScaler]) -> bool:
         """Determines based on precision when to use grad scaling.
