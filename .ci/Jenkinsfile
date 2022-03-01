@@ -180,8 +180,8 @@ stage('Build') {
         pytorchDockerBuildMatrix.each { entry ->
             def command = entry[0]  // command is the command to run
             def stagingImage = entry[1]  // stagingImage is where the built docker image is pushed
-            def buildArgs = entry[2]  // buildArgs is a map of the build arguments passed to kaniko
-            jobs << [ "$buildArgs": { -> 
+            def buildConfigListOfTuples = entry[2]  // buildConfigListOfTuples is a list of (key, value) pairs of the build args passed to kaniko
+            jobs << [ "$buildConfigListOfTuples": { -> 
                 trackBuild(
                     job: jenkinsShellJobName,
                     parameters: [
@@ -200,16 +200,31 @@ stage('Build') {
                     // no need to run tests again
                     return
                 }
-                def tag = buildArgs['TAG']
-                def gpu = buildArgs['CUDA_VERSION'] != 'cpu'
+                def gpu = false
+                def isLintImage = false
+                def tag = null
+                buildConfigListOfTuples.each { item ->
+                    def key = item[0]
+                    def val = item[1]
+
+                    if (key == 'CUDA_VERSION') {
+                        gpu = val != 'cpu'
+                    }
+                    if (key == 'TAG') {
+                        tag = val
+                        // there could be multiple tags
+                        isLintImage == isLintImage || tag == lintImage
+                    }
+                
+                }
                 def extraDeps = 'all'
                 def subJobs = [
                     "Pytest - ${tag}" : { -> runPytest(stagingImage, gpu, extraDeps) }
                 ]
-                if (tag == lintImage) {
+                if (isLintImage) {
                     // and run lint and a dev install on this image
                     subJobs << [
-                        "Pytest - ${tag}, extraDeps=dev": { -> runPytest(stagingImage, false, 'dev') },
+                        "Pytest - extraDeps=dev": { -> runPytest(stagingImage, false, 'dev') },
                         "Lint": { -> runLint(stagingImage) },
                     ]
                 }
@@ -245,7 +260,7 @@ stage('Build') {
                         string(name: 'P_CLOUD', value: pCloud),
                         string(name: 'P_GIT_REPO', value: gitUrl),
                         string(name: 'P_GIT_COMMIT', value: gitCommit),
-                        string(name: 'P_EPHEMERAL_STORAGE_LIMIT', value: '16Gi'),
+                        string(name: 'P_EPHEMERAL_STORAGE_LIMIT', value: '32Gi'),
                         string(name: 'P_DOCKER_IMAGE', value: condaBuildDockerImage),
                         string(name: 'P_TIMEOUT', value: '3600'), // Conda builds take longer
                         string(name: 'P_CPU_LIMIT', value: "4"),
