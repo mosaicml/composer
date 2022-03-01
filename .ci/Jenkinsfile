@@ -66,7 +66,7 @@ def getDockerImageName(pythonVersion, gpu) {
         cudaVersion = pythonVersion == "3.9" ? "cu113" : "cu111"
 
     }
-    pDockerImage = "mosaicml/pytorch:${pytorchVersion}_${cudaVersion}-python${pythonVersion}-ubuntu20.04"
+    return "mosaicml/pytorch:${pytorchVersion}_${cudaVersion}-python${pythonVersion}-ubuntu20.04"
 }
 
 lintImage = getDockerImageName("3.9", false)
@@ -199,6 +199,8 @@ stage('Build') {
                 def subJobs = [
                     "Pytest - ${tag}" : { -> runPytest(stagingImage, gpu, extraDeps) }
                 ]
+                echo "tag: $tag"
+                echo "lim: $lintImage"
                 if (tag == lintImage) {
                     // and run lint and a dev install on this image
                     subJobs << [
