@@ -213,7 +213,7 @@ stage('Build') {
                     if (key == 'TAG') {
                         tag = val
                         // there could be multiple tags
-                        isLintImage == isLintImage || tag == lintImage
+                        isLintImage = isLintImage || tag == lintImage
                     }
                 
                 }
