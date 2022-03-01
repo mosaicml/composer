@@ -56,6 +56,7 @@ install_requires = [
     "numpy==1.21.5",
     "apache-libcloud>=3.3.1",
     "psutil>=5.8.0",
+    "wget==3.2"
 ]
 extra_deps = {}
 

@@ -21,7 +21,10 @@ class SSD(ComposerModel):
         self.input_size = input_size
         self.overlap_threshold = overlap_threshold
         self.nms_max_detections = nms_max_detections
-        self.pretrained_backbone = "curl -O https://download.pytorch.org/models/resnet34-333f7ec4.pth"
+        import wget  # requests
+        url = "https://download.pytorch.org/models/resnet34-333f7ec4.pth"
+        self.pretrained_backbone = wget.download(
+            url, '.')  #requests.get(url)#"curl -O https://download.pytorch.org/models/resnet34-333f7ec4.pth"
         self.num_classes = num_classes
         self.module = SSD300(self.num_classes, model_path=self.pretrained_backbone)
 

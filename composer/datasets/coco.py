@@ -115,7 +115,7 @@ class COCODetection(data.Dataset):
             bbox_label = self.label_map[bboxes["category_id"]]
             self.images[img_id][2].append((bbox, bbox_label))
 
-        for k, v in self.images.items():  #list(self.images.items()):
+        for k, v in list(self.images.items()):
             if len(v[2]) == 0:
                 self.images.pop(k)
 
@@ -164,9 +164,8 @@ def split_dict_fn(batch: Batch, num_microbatches: int) -> Sequence[Batch]:  #typ
     img, img_id, img_size, bbox_sizes, bbox_labels = batch  #type: ignore
     nm = num_microbatches
     if isinstance(img, torch.Tensor) and isinstance(img_id, torch.Tensor):
-        return list(
-            zip(img.chunk(nm), img_id.chunk(nm), img_size.chunk(nm), bbox_sizes.chunk(nm),
-                bbox_labels.chunk(nm)))  #type: ignore
+        return list(zip(img.chunk(nm), img_id.chunk(nm), img_size, bbox_sizes.chunk(nm),
+                        bbox_labels.chunk(nm)))  #type: ignore
     if isinstance(img, List) and isinstance(img_id, List) and isinstance(img_size, List) and isinstance(
             bbox_sizes, List) and isinstance(bbox_labels, List):
         return list(

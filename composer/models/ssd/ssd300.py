@@ -21,6 +21,7 @@ class SSD300(nn.Module):
         self.label_num = label_num
 
         if backbone == 'resnet34':
+            print('MP', model_path)
             self.model = ResNet34(model_path=model_path)
             out_channels = 256
             out_size = 38
