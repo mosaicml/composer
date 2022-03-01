@@ -910,7 +910,10 @@ class Trainer:
                     if self.deepspeed_enabled:
                         state.batch = _fix_batch_precision_for_deepspeed(state.batch, state.precision)
 
-                    self._compute_metrics(train_metrics)
+                    # Compute metrics on the training set
+                    if self._compute_training_metrics:
+                        assert train_metrics is not None
+                        self._compute_metrics(train_metrics)
 
                     state.model.train()
 
@@ -1008,21 +1011,17 @@ class Trainer:
         rerun = True
         while rerun:
             try:
-                if self._compute_training_metrics:
-                    # Compute metrics on the training set
-                    assert train_metrics is not None
-                    self.state.model.eval()
-                    with torch.no_grad():
-                        # Store results so we only update train_metrics if all batches are processed without OOM
-                        results = []
-                        for eval_microbatch in self._train_data_spec.split_batch(self.state.batch,
-                                                                                 self.state.grad_accum):
-                            # TODO: Detect if self.run_event(Event.AFTER_DATALOADER) changes the training
-                            # data and if so print a warning that metrics may return unexpected results
-                            outputs, targets = self.original_model.validate(eval_microbatch)
-                            results.append((outputs, targets))
-                        for outputs, targets in results:
-                            train_metrics.update(outputs, targets)
+                self.state.model.eval()
+                with torch.no_grad():
+                    # Store results so we only update train_metrics if all batches are processed without OOM
+                    results = []
+                    for eval_microbatch in self._train_data_spec.split_batch(self.state.batch, self.state.grad_accum):
+                        # TODO: Detect if self.run_event(Event.AFTER_DATALOADER) changes the training
+                        # data and if so print a warning that metrics may return unexpected results
+                        outputs, targets = self._original_model.validate(eval_microbatch)
+                        results.append((outputs, targets))
+                    for outputs, targets in results:
+                        train_metrics.update(outputs, targets)
                 rerun = False
             except RuntimeError as e:
                 self._handle_cuda_oom(e)
@@ -1037,6 +1036,7 @@ class Trainer:
         rerun = True
         while rerun:
             try:
+                assert self.state.scaler is not None
                 total_loss = None
                 microbatches = self._train_data_spec.split_batch(self.state.batch, self.state.grad_accum)
                 if self.deepspeed_enabled:
