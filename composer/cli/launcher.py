@@ -122,10 +122,12 @@ def launch_processes(nproc: int, world_size: int, base_rank: int, node_rank: int
 
     for local_rank in range(nproc):
         global_rank = base_rank + local_rank
+        cmd = f"{sys.executable} -u"
         if module_mode:
-            cmd = [sys.executable, '-u', '-m', training_script, *training_script_args]
-        else:
-            cmd = [sys.executable, '-u', training_script, *training_script_args]
+            cmd += " -m"
+        training_script_args_quoted = [f'"{arg}"' for arg in training_script_args]
+
+        cmd += f" {training_script} {' '.join(training_script_args_quoted)}"
 
         current_env = os.environ.copy()
         current_env["RANK"] = str(global_rank)
@@ -137,15 +139,17 @@ def launch_processes(nproc: int, world_size: int, base_rank: int, node_rank: int
         current_env["MASTER_PORT"] = str(master_port)
         current_env["COMPOSER_RUN_DIRECTORY"] = run_directory
 
-        log.info("Launching process for local_rank(%s), global_rank(%s)", local_rank, global_rank)
+        log.info("Launching process for local_rank(%s), global_rank(%s) with command(%s)", local_rank, global_rank, cmd)
 
         if local_rank == 0:
-            process = subprocess.Popen(cmd, env=current_env, text=True)
+            process = subprocess.Popen(cmd, env=current_env, text=True, shell=True)
         else:
             logs_dir = os.path.join(run_directory, f"rank_{global_rank}", "logs")
             os.makedirs(logs_dir, exist_ok=True)
             process = subprocess.Popen(
                 cmd,
+                # Using a shell to execute the command, so the env variables will be available to the CLI arguments
+                shell=True,
                 env=current_env,
                 stdout=open(os.path.join(logs_dir, f"rank_{global_rank}.stdout.txt"), "x"),
                 stderr=open(os.path.join(logs_dir, f"rank_{global_rank}.stderr.txt"), "x"),
