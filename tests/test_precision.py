@@ -37,7 +37,7 @@ def run_and_measure_memory(precision: Precision) -> int:
 
 @pytest.mark.timeout(60)
 @pytest.mark.gpu
-@pytest.mark.parametrize("precision", ['Precision.AMP', 'Precision.BF16'])
+@pytest.mark.parametrize("precision", [Precision.AMP, Precision.BF16])
 def test_precision_memory(precision):
     if version.parse(torch.__version__) < version.parse("1.10"):
         pytest.skip("Test required torch >= 1.10")
