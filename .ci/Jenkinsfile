@@ -4,7 +4,6 @@ gitBranch = null
 gitCommit = null
 pTimeout = '1800' // in seconds
 dependenciesChanged = null
-expandDockerMatrix = null
 pytorchDockerBuildMatrix = null
 isPathModified = null
 builds = []
@@ -17,6 +16,9 @@ artifactsGlob = "$buildOutputFolder/*.xml"
 junitGlob = "$buildOutputFolder/*.junit.xml"
 coverageGlob = "$buildOutputFolder/*.coverage.xml"
 condaBuildImage = "continuumio/anaconda-pkg-build:2022.02.09-amd64"
+// must use the kaniko debug image, as Jenkins needs shell access
+// see https://github.com/GoogleContainerTools/kaniko#debug-image
+kanikoDockerImage = "gcr.io/kaniko-project/executor:v1.7.0-debug"
 
 properties(
     [
@@ -43,6 +45,9 @@ def cloneJenkinsfilesRepo() {
 }
 
 def trackBuild(Map buildArgs) {
+    // 1. Run a build() command, but manually echo a link to the spawned job, since it may not show up
+    //    in blue ocean. See https://issues.jenkins.io/browse/JENKINS-60995.
+    // 2. Add the build to the `builds` variable
     buildArgs['propagate'] = false
     def builtJob = build(buildArgs)
     builds << builtJob
@@ -138,13 +143,16 @@ stage('Prepare') {
 
         def jenkinsfileWorkspace = cloneJenkinsfilesRepo()
 
-        expandDockerMatrix = load "$jenkinsfileWorkspace/utils/expandDockerMatrix.groovy"
         def getDockerBuildMatrix = load "$jenkinsfileWorkspace/utils/getDockerBuildMatrix.groovy"
 
         isPathModified = load "$jenkinsfileWorkspace/utils/isPathModified.groovy"
 
         if (isPathModified("docker/pytorch/")) {
-            pytorchDockerBuildMatrix = getDockerBuildMatrix('./docker/pytorch/build_matrix.sh')
+            def shouldPush = gitBranch == "dev" || gitBranch == "main"
+            def dockerfile = 'Dockerfile'
+            def buildContext = './docker/pytorch'
+            def buildMatrix = './docker/pytorch/build_matrix.sh'
+            pytorchDockerBuildMatrix = getDockerBuildMatrix(buildMatrix, buildContext, dockerfile, shouldPush)
         }
         // Keep track of whether dependencies changed, in which case a conda build should be tested
         dependenciesChanged = isPathModified("setup.py") || isPathModified("meta.yaml")
@@ -157,28 +165,33 @@ stage('Build') {
     if (env.CHANGE_ID) {
         isMergeCommit = false
     }
-    def isCommitToMainOrDev = gitBranch == "dev" || gitBranch == "main"
     if (pytorchDockerBuildMatrix) {
         // If changing docker, build the docker images first
         // Then, run pytest in the newly-built image
-        jobs << expandDockerMatrix(
-            P_CLOUD: pCloud,
-            buildMatrix: pytorchDockerBuildMatrix,
-            P_DOCKERFILE: 'Dockerfile',
-            P_BUILD_CONTEXT: './docker/pytorch',
-            P_EPHEMERAL_STORAGE_LIMIT: '32Gi', // need space to build the docker image
-            P_GIT_REPO: gitUrl,
-            P_GIT_COMMIT: gitCommit,
-            P_CPU_LIMIT: '4',
-            P_MEM_LIMIT: '15Gi',
-            P_TIMEOUT: pTimeout,
-            P_KANIKO_PUSH_FINAL: isCommitToMainOrDev,
-        ) { stagingImage, buildArgs ->
+        pytorchDockerBuildMatrix.each { command, stagingImageTag, buildArgs -> {
+            // command is the command to run
+            // stagingImageTag is where the built docker image is pushed
+            // buildArgs is a map of the build arguments passed to kaniko
+            trackBuild(
+                job: jenkinsShellJobName,
+                parameters: [
+                    string(name: 'P_CLOUD', value: pCloud),
+                    string(name: 'P_GIT_REPO', value: gitRepo),
+                    string(name: 'P_GIT_COMMIT', value: gitCommit),
+                    string(name: 'P_DOCKER_IMAGE', value: kanikoDockerImage),
+                    string(name: 'P_EPHEMERAL_STORAGE_LIMIT', value: '32Gi'), // need space to build the docker image
+                    text(name: 'P_COMMAND', value: command),
+                    string(name: 'P_TIMEOUT', value: pTimeout),
+                    string(name: 'P_CPU_LIMIT', value: '4'),
+                    string(name: 'P_MEM_LIMIT', value: '15Gi'),
+                ]
+            )
             if (isMergeCommit) {
                 // no need to run tests again
                 return
             }
             def tag = buildArgs['TAG']
+            echo "Cuda version: ${buildArgs['CUDA_VERSION']}"
             def gpu = buildArgs['CUDA_VERSION'] != 'cpu'
             def extraDeps = 'all'
             def subJobs = [
@@ -187,7 +200,7 @@ stage('Build') {
             if (tag == lintImage) {
                 // and run lint and a dev install on this image
                 subJobs << [
-                    "Pytest - ${tag}, extraDeps=dev": { -> runPytest(stagingImage, gpu, 'dev') },
+                    "Pytest - ${tag}, extraDeps=dev": { -> runPytest(stagingImage, false, 'dev') },
                     "Lint": { -> runLint(stagingImage) },
                 ]
             }
