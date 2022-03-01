@@ -168,7 +168,7 @@ stage('Build') {
     if (pytorchDockerBuildMatrix) {
         // If changing docker, build the docker images first
         // Then, run pytest in the newly-built image
-        pytorchDockerBuildMatrix.each { command, stagingImageTag, buildArgs -> {
+        pytorchDockerBuildMatrix.each { command, stagingImageTag, buildArgs ->
             // command is the command to run
             // stagingImageTag is where the built docker image is pushed
             // buildArgs is a map of the build arguments passed to kaniko
