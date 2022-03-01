@@ -172,40 +172,42 @@ stage('Build') {
             // command is the command to run
             // stagingImageTag is where the built docker image is pushed
             // buildArgs is a map of the build arguments passed to kaniko
-            trackBuild(
-                job: jenkinsShellJobName,
-                parameters: [
-                    string(name: 'P_CLOUD', value: pCloud),
-                    string(name: 'P_GIT_REPO', value: gitRepo),
-                    string(name: 'P_GIT_COMMIT', value: gitCommit),
-                    string(name: 'P_DOCKER_IMAGE', value: kanikoDockerImage),
-                    string(name: 'P_EPHEMERAL_STORAGE_LIMIT', value: '32Gi'), // need space to build the docker image
-                    text(name: 'P_COMMAND', value: command),
-                    string(name: 'P_TIMEOUT', value: pTimeout),
-                    string(name: 'P_CPU_LIMIT', value: '4'),
-                    string(name: 'P_MEM_LIMIT', value: '15Gi'),
+            jobs << [ "$buildArgs": { -> 
+                trackBuild(
+                    job: jenkinsShellJobName,
+                    parameters: [
+                        string(name: 'P_CLOUD', value: pCloud),
+                        string(name: 'P_GIT_REPO', value: gitRepo),
+                        string(name: 'P_GIT_COMMIT', value: gitCommit),
+                        string(name: 'P_DOCKER_IMAGE', value: kanikoDockerImage),
+                        string(name: 'P_EPHEMERAL_STORAGE_LIMIT', value: '32Gi'), // need space to build the docker image
+                        text(name: 'P_COMMAND', value: command),
+                        string(name: 'P_TIMEOUT', value: pTimeout),
+                        string(name: 'P_CPU_LIMIT', value: '4'),
+                        string(name: 'P_MEM_LIMIT', value: '15Gi'),
+                    ]
+                )
+                if (isMergeCommit) {
+                    // no need to run tests again
+                    return
+                }
+                def tag = buildArgs['TAG']
+                echo "Cuda version: ${buildArgs['CUDA_VERSION']}"
+                def gpu = buildArgs['CUDA_VERSION'] != 'cpu'
+                def extraDeps = 'all'
+                def subJobs = [
+                    "Pytest - ${tag}" : { -> runPytest(stagingImage, gpu, extraDeps) }
                 ]
-            )
-            if (isMergeCommit) {
-                // no need to run tests again
-                return
-            }
-            def tag = buildArgs['TAG']
-            echo "Cuda version: ${buildArgs['CUDA_VERSION']}"
-            def gpu = buildArgs['CUDA_VERSION'] != 'cpu'
-            def extraDeps = 'all'
-            def subJobs = [
-                "Pytest - ${tag}" : { -> runPytest(stagingImage, gpu, extraDeps) }
-            ]
-            if (tag == lintImage) {
-                // and run lint and a dev install on this image
-                subJobs << [
-                    "Pytest - ${tag}, extraDeps=dev": { -> runPytest(stagingImage, false, 'dev') },
-                    "Lint": { -> runLint(stagingImage) },
-                ]
-            }
-            subJobs.failFast = true
-            parallel(subJobs)
+                if (tag == lintImage) {
+                    // and run lint and a dev install on this image
+                    subJobs << [
+                        "Pytest - ${tag}, extraDeps=dev": { -> runPytest(stagingImage, false, 'dev') },
+                        "Lint": { -> runLint(stagingImage) },
+                    ]
+                }
+                subJobs.failFast = true
+                parallel(subJobs)
+            }]
         }
     }
     else if (!isMergeCommit) {
