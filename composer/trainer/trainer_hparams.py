@@ -9,7 +9,7 @@ import os
 import textwrap
 import warnings
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Dict, List, Optional, cast, Union
+from typing import TYPE_CHECKING, Dict, List, Optional, Union, cast
 
 import yahp as hp
 
