@@ -202,7 +202,10 @@ class CutMix(Algorithm):
 
         self.indices = _gen_indices(input)
         self.cutmix_lambda = _gen_cutmix_lambda(alpha)
-        self.bbox = _rand_bbox(input.shape[2], input.shape[3], self.cutmix_lambda)
+        self.bbox = _rand_bbox(input.shape[2],
+                               input.shape[3],
+                               self.cutmix_lambda,
+                               uniform_sampling=self.uniform_sampling)
         self.cutmix_lambda = _adjust_lambda(self.cutmix_lambda, input, self.bbox)
 
         new_input, new_target = cutmix_batch(X=input,
@@ -211,8 +214,7 @@ class CutMix(Algorithm):
                                              alpha=alpha,
                                              cutmix_lambda=self.cutmix_lambda,
                                              bbox=self.bbox,
-                                             indices=self.indices,
-                                             uniform_sampling=self.uniform_sampling)
+                                             indices=self.indices)
 
         state.batch = (new_input, new_target)
 
