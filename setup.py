@@ -56,6 +56,8 @@ install_requires = [
     "numpy==1.21.5",
     "apache-libcloud>=3.3.1",
     "psutil>=5.8.0",
+    "wget==3.2",
+    "pycocotools@git+https://github.com/cocodataset/cocoapi#egg=pycocotools&subdirectory=PythonAPI",
 ]
 extra_deps = {}
 
