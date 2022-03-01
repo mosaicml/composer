@@ -10,7 +10,7 @@ __all__ = ["CIFAR10_ResNet20"]
 
 
 class CIFAR10_ResNet20(ComposerClassifier):
-    """A ResNet-20 model extending :class:`~composer.models.base.ComposerClassifier`.
+    """A ResNet-20 model extending :class:`.ComposerClassifier`.
 
     From the paper Deep Residual Learning for Image Recognition `<https://arxiv.org/abs/1512.03385>`_.
 

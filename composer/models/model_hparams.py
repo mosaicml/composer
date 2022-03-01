@@ -79,9 +79,9 @@ class ModelHparams(hp.Hparams, ABC):
     @abstractmethod
     def initialize_object(self) -> ComposerModel:
         """Invoked by the :meth:`~composer.trainer.trainer_hparams.TrainerHparams.initialize_object` to construct a
-        :class:`~composer.models.base.ComposerModel`.
+        :class:`.ComposerModel`.
 
         Returns:
-            ComposerModel: The constructed :class:`~composer.models.base.ComposerModel`
+            ComposerModel: The constructed :class:`.ComposerModel`
         """
         pass

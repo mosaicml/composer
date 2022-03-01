@@ -20,7 +20,7 @@ __all__ = ["ComposerModel", "ComposerClassifier"]
 class ComposerModel(torch.nn.Module, abc.ABC):
     """The interface needed to use a pytorch model with :class:`.Trainer`.
 
-    To create a :class:`.Trainer` compatible model, subclass :class:`~composer.models.base.ComposerModel` and
+    To create a :class:`.Trainer` compatible model, subclass :class:`.ComposerModel` and
     implement :meth:`forward` and :meth:`loss`. For full functionality (logging and validation), implement :meth:`metrics`
     and :meth:`validate`.
 
@@ -89,7 +89,7 @@ class ComposerModel(torch.nn.Module, abc.ABC):
     @abc.abstractmethod
     def loss(self, outputs: Any, batch: Batch, *args, **kwargs) -> Tensors:
         """Compute the loss of the model given ``outputs`` from :meth:`forward` and a
-        :class:`~composer.core.types.Batch` of data from the dataloader. The :class:`~composer.trainer.trainer.Trainer`
+        :class:`~composer.core.types.Batch` of data from the dataloader. The :class:`.Trainer`
         will call `.backward()` on the returned loss.
 
         Example:
@@ -149,7 +149,7 @@ class ComposerModel(torch.nn.Module, abc.ABC):
         Args:
             train (bool, optional): True to return metrics that should be computed
                 during training and False otherwise. (default: ``False``). This flag is set automatically by the
-                :class:`~composer.trainer.trainer.Trainer`
+                :class:`.Trainer`
 
         Returns:
              Metric or MetricCollection: An instance of :class:`~torchmetrics.Metric` or :class:`~torchmetrics.MetricCollection`.
@@ -195,8 +195,8 @@ class ComposerModel(torch.nn.Module, abc.ABC):
 
 
 class ComposerClassifier(ComposerModel):
-    """A convenience class that creates a :class:`~composer.models.base.ComposerModel` for classification tasks from a
-    vanilla pytorch model. :class:`~composer.models.base.ComposerClassifier` requires batches in the form: (``input``,
+    """A convenience class that creates a :class:`.ComposerModel` for classification tasks from a
+    vanilla pytorch model. :class:`.ComposerClassifier` requires batches in the form: (``input``,
     ``target``) and includes a basic classification training loop with CrossEntropy loss and accuracy logging.
 
     Example:
@@ -213,7 +213,7 @@ class ComposerClassifier(ComposerModel):
         module (torch.nn.Module): A Pytorch neural network module.
 
     Returns:
-        ComposerClassifier: An instance of :class:`~composer.models.base.ComposerClassifier`.
+        ComposerClassifier: An instance of :class:`.ComposerClassifier`.
     """
 
     num_classes: Optional[int] = None

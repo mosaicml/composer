@@ -8,7 +8,7 @@ __all__ = ["Timm"]
 
 
 class Timm(ComposerClassifier):
-    """A wrapper around ``timm.create_model()`` used to create :class:`~composer.models.base.ComposerClassifier`.
+    """A wrapper around ``timm.create_model()`` used to create :class:`.ComposerClassifier`.
 
     Resnet18 Example:
 
