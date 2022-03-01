@@ -74,7 +74,7 @@ def test_load(model_name: str):
     trainer_hparams.algorithms = algorithms.load_multiple(*get_model_algs(model_name))
 
     assert trainer_hparams.train_dataset is not None
-    configure_dataset_for_synthetic(trainer_hparams.train_dataset)
+    configure_dataset_for_synthetic(trainer_hparams.train_dataset, model_hparams=trainer_hparams.model)
     trainer_hparams.train_subset_num_batches = 1
 
     assert trainer_hparams.val_dataset is not None

@@ -91,7 +91,7 @@ class GLUEHparams(DatasetHparams, SyntheticHparamsMixin):
                                          column_names=column_names).generate_dataset()
 
             # flatten the columnar dataset into one column
-            self.tokenizer = generate_synthetic_tokenizer(tokenizer_family="bert", dataset=dataset)
+            self.tokenizer = generate_synthetic_tokenizer(tokenizer_family=self.tokenizer_name, dataset=dataset)
         else:
             self.tokenizer = transformers.AutoTokenizer.from_pretrained(self.tokenizer_name)  #type: ignore (thirdparty)
 

@@ -7,7 +7,7 @@ from composer.datasets.synthetic import generate_synthetic_tokenizer
 from composer.models import DeepLabV3Hparams, ModelHparams, TransformerHparams
 
 
-def configure_dataset_for_synthetic(dataset_hparams: DatasetHparams) -> None:
+def configure_dataset_for_synthetic(dataset_hparams: DatasetHparams, model_hparams: ModelHparams = None) -> None:
     if not isinstance(dataset_hparams, SyntheticHparamsMixin):
         pytest.xfail(f"{dataset_hparams.__class__.__name__} does not support synthetic data or num_total_batches")
 
@@ -15,20 +15,30 @@ def configure_dataset_for_synthetic(dataset_hparams: DatasetHparams) -> None:
 
     dataset_hparams.use_synthetic = True
 
+    if isinstance(model_hparams, TransformerHparams):
+        model_hparams_name = type(model_hparams).__name__
+
+        if model_hparams_name not in _model_hparams_to_tokenizer_family:
+            raise ValueError(f"Model {model_hparams_name} is currently not supported for synthetic testing!")
+
+        tokenizer_family = _model_hparams_to_tokenizer_family[model_hparams_name]
+        dataset_hparams.tokenizer_name = tokenizer_family
+
+_model_hparams_to_tokenizer_family = {
+    "GPT2Hparams": "gpt2",
+    "BERTForClassificationHparams": "bert",
+    "BERTHparams": "bert"
+}
 
 def configure_model_for_synthetic(model_hparams: ModelHparams) -> None:
     # configure Transformer-based models for synthetic testing
     if isinstance(model_hparams, TransformerHparams):
         model_hparams_name = type(model_hparams).__name__
-        model_hparams_to_tokenizer_family = {
-            "GPT2Hparams": "gpt2",
-            "BERTForClassificationHparams": "bert",
-            "BERTHparams": "bert"
-        }
-        if model_hparams_name not in model_hparams_to_tokenizer_family:
+
+        if model_hparams_name not in _model_hparams_to_tokenizer_family:
             raise ValueError(f"Model {model_hparams_name} is currently not supported for synthetic testing!")
 
-        tokenizer_family = model_hparams_to_tokenizer_family[model_hparams_name]
+        tokenizer_family = _model_hparams_to_tokenizer_family[model_hparams_name]
 
         # force a non-pretrained model
         model_hparams.use_pretrained = False

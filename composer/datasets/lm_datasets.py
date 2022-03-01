@@ -56,8 +56,8 @@ class LMDatasetHparams(DatasetHparams, SyntheticHparamsMixin):
             if self.datadir is None:
                 raise ValueError("A data directory must be specified.")
 
-            if self.tokenizer_name is None:
-                raise ValueError("A tokenizer name must be specified to tokenize the dataset.")
+        if self.tokenizer_name is None:
+            raise ValueError("A tokenizer name must be specified to tokenize the dataset.")
 
         if self.split not in ['train', 'validation', 'test']:
             raise ValueError("The dataset split must be one of 'train', 'validation', or 'test'.")
@@ -95,7 +95,7 @@ class LMDatasetHparams(DatasetHparams, SyntheticHparamsMixin):
                                              chars_per_sample=self.train_sequence_length,
                                              column_names=column_names).generate_dataset()
 
-            self.tokenizer = generate_synthetic_tokenizer(tokenizer_family="bert", dataset=lm_datasets)
+            self.tokenizer = generate_synthetic_tokenizer(tokenizer_family=self.tokenizer_name, dataset=lm_datasets)
 
 
             columns_to_remove = ["idx"] + column_names 

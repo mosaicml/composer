@@ -293,10 +293,10 @@ def test_checkpoint(
 
     configure_model_for_synthetic(composer_trainer_hparams.model)
 
-    configure_dataset_for_synthetic(composer_trainer_hparams.train_dataset)
+    configure_dataset_for_synthetic(composer_trainer_hparams.train_dataset, composer_trainer_hparams.model)
     composer_trainer_hparams.train_dataset.shuffle = False
 
-    configure_dataset_for_synthetic(composer_trainer_hparams.val_dataset)
+    configure_dataset_for_synthetic(composer_trainer_hparams.val_dataset, composer_trainer_hparams.model)
     composer_trainer_hparams.val_dataset.shuffle = False
 
     composer_trainer_hparams.grad_accum = 2
