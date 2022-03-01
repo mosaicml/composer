@@ -50,16 +50,19 @@ class ComposerSchedulerFn(Protocol):
 ComposerScheduler = Union[Scheduler, ComposerSchedulerFn]
 
 
-def _convert_time(time: Union[str, Time], state: State, ssr: float = 1.0) -> Time[int]:
+def _convert_time(time: Union[str, Time[int], Time[float]], state: State, ssr: float = 1.0) -> Time[int]:
     if isinstance(time, str):
         time = Time.from_timestring(time)
 
     if time.unit == TimeUnit.DURATION:
-        assert state.max_duration.unit == TimeUnit.EPOCH  # Enforced by the trainer
-        max_duration_batches = state.max_duration.value * state.steps_per_epoch
-        return Time(value=int(time.value * max_duration_batches), unit=TimeUnit.BATCH)
+        if state.max_duration.unit == TimeUnit.EPOCH:
+            return Time(int(time.value * state.steps_per_epoch * state.max_duration.value), TimeUnit.BATCH)
+        return Time(int(time.value * state.max_duration.value), state.max_duration.unit)
 
     if time.unit == TimeUnit.EPOCH:
+        # Epochs do not provide sufficient granularity for SSR scaling
+        # e.g. if max_duration = 1ep, then any SSR would result in a new duration of 0.
+        # so, convert the time into batches
         time = Time(value=time.value * state.steps_per_epoch, unit=TimeUnit.BATCH)
 
     return Time(value=int(time.value * ssr), unit=time.unit)

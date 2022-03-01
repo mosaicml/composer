@@ -200,6 +200,22 @@ class Time(Generic[TValue]):
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}({self.value}, {self.unit})"
 
+    def __str__(self) -> str:
+        return f"{self.value}{self.unit.value}"
+
+    def to_timestring(self):
+        """Get the time-string representation.
+
+        For example:
+
+        >>> Time(5, TimeUnit.EPOCH).to_timestring()
+        '5ep'
+
+        Returns:
+            str: The time-string representation.
+        """
+        return str(self)
+
     def _parse(self, other: object) -> Time:
         # parse ``other`` into a Time object
         if isinstance(other, Time):
