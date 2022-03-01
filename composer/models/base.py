@@ -121,7 +121,7 @@ class ComposerModel(torch.nn.Module, abc.ABC):
         pass
 
     def metrics(self, train: bool = False) -> Metrics:
-        """Get metrics for evaluating the model. Metrics should be torchmetrics compatible for accurate distributed
+        """Get metrics for evaluating the model. Metrics should be :class:`torchmetrics.Metrics` compatible for accurate distributed
         logging and defined in :meth:`__init__`. Metrics consume the outputs of :meth:`validate`. To track multiple
         metrics, return a list of metrics in a :class:`~torchmetrics.MetricCollection`.
 
