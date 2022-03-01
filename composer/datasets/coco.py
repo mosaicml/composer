@@ -164,8 +164,8 @@ def split_dict_fn(batch: Batch, num_microbatches: int) -> Sequence[Batch]:  #typ
     nm = num_microbatches
     if isinstance(img, torch.Tensor) and isinstance(img_id, torch.Tensor):
         return list(
-            zip(img.chunk(nm), img_id.chunk(nm),
-                torch.Tensor(img_size).chunk(nm), bbox_sizes.chunk(nm), bbox_labels.chunk(nm)))  #type: ignore
+            zip(img.chunk(nm), img_id.chunk(nm), (img_size[i:i + nm] for i in range(0, len(img_size), nm)),
+                bbox_sizes.chunk(nm), bbox_labels.chunk(nm)))  #type: ignore
     if isinstance(img, List) and isinstance(img_id, List) and isinstance(img_size, List) and isinstance(
             bbox_sizes, List) and isinstance(bbox_labels, List):
         return list(

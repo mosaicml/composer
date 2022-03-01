@@ -7,7 +7,6 @@ from pycocotools.cocoeval import COCOeval
 from torchmetrics import Metric
 
 from composer.core.types import BatchPair, Metrics, Tensor, Tensors
-from composer.datasets.coco import COCODatasetHparams
 from composer.models.base import ComposerModel
 from composer.models.ssd.base_model import Loss
 from composer.models.ssd.ssd300 import SSD300
@@ -16,7 +15,7 @@ from composer.models.ssd.utils import Encoder, SSDTransformer, dboxes300_coco
 
 class SSD(ComposerModel):
 
-    def __init__(self, input_size: int, overlap_threshold: float, nms_max_detections: int, num_classes: int):
+    def __init__(self, input_size: int, overlap_threshold: float, nms_max_detections: int, num_classes: int, data: str):
         super().__init__()
 
         self.input_size = input_size
@@ -30,11 +29,12 @@ class SSD(ComposerModel):
 
         dboxes = dboxes300_coco()
         self.loss_func = Loss(dboxes)
-        self.MAP = coco_map()
+
         self.encoder = Encoder(dboxes)
-        data = COCODatasetHparams.datadir
-        val_annotate = os.path.join(data, "annotations/instances_val2017.json")
-        val_coco_root = os.path.join(data, "val2017")
+        self.data = data
+        self.MAP = coco_map(self.data)
+        val_annotate = os.path.join(self.data, "annotations/instances_val2017.json")
+        val_coco_root = os.path.join(self.data, "val2017")
         input_size = self.input_size
         val_trans = SSDTransformer(dboxes, (input_size, input_size), val=True)
         from composer.datasets.coco import COCODetection
@@ -99,10 +99,9 @@ class SSD(ComposerModel):
 
 class coco_map(Metric):
 
-    def __init__(self):
+    def __init__(self, data):
         super().__init__()
         self.add_state("predictions", default=[])
-        data = COCODatasetHparams.datadir
         val_annotate = os.path.join(data, "annotations/instances_val2017.json")
         self.cocogt = COCO(annotation_file=val_annotate)
 

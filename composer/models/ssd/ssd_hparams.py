@@ -27,6 +27,10 @@ class SSDHparams(ModelHparams):
         doc="nms max dets",
         default=200,
     )
+    data: str = hp.optional(
+        doc="data",
+        default="/localdisk/coco",
+    )
 
     def initialize_object(self):
         from composer.models.ssd.ssd import SSD
@@ -35,4 +39,5 @@ class SSDHparams(ModelHparams):
             overlap_threshold=self.overlap_threshold,
             nms_max_detections=self.nms_max_detections,
             num_classes=self.num_classes,
+            data=self.data,
         )
