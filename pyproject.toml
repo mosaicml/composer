@@ -72,7 +72,6 @@ filterwarnings = [
     'ignore:DistributedDefaultValueWarning',  # default distributed values are fine
     'ignore:NoDistributedWarning',  # running without distributed is fine
     'ignore:Deterministic mode is activated:UserWarning',  # all tests run with deterministic mode
-    'ignore:TimeDeprecationWarning:DeprecationWarning',
     'ignore:SubsetNumBatchesWarning',  # different subsets OK for testing
     'ignore:No optimizer:UserWarning',  # testing defaults
     'ignore:No scheduler:UserWarning',  # testing defaults
