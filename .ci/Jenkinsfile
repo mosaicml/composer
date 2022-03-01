@@ -166,7 +166,7 @@ stage('Build') {
             buildMatrix: pytorchDockerBuildMatrix,
             P_DOCKERFILE: 'Dockerfile',
             P_BUILD_CONTEXT: './docker/pytorch',
-            P_EPHEMERAL_STORAGE_LIMIT: pEphemeralStorageLimit,
+            P_EPHEMERAL_STORAGE_LIMIT: '32Gi', // need space to build the docker image
             P_GIT_REPO: gitUrl,
             P_GIT_COMMIT: gitCommit,
             P_CPU_LIMIT: '4',
