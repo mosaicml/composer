@@ -7,13 +7,11 @@
 <!--<center><h3><b>Bring state-of-the-art efficiency research to you</h3></center>-->
 
 <p align='center'>
-<a href="https://google.com">[Website]</a>
-- <a href="https://google.com">[Getting Started]</a>
-- <a href="https://google.com">[Examples]</a>
-- <a href="https://google.com">[Docs]</a>
-- <a href="https://google.com">[Methods]</a>
-- <a href="https://google.com">[Explorer]</a>
-- <a href="https://google.com">[We're Hiring!]</a>
+<a href="https://www.mosaicml.com">[Website]</a>
+- <a href="https://docs.mosaicml.com/en/stable/getting_started/installation.html">[Getting Started]</a>
+- <a href="https://docs.mosaicml.com/">[Docs]</a>
+- <a href="https://docs.mosaicml.com/en/stable/method_cards/methods_overview.html">[Methods]</a>
+- <a href="https://www.mosaicml.com/team">[We're Hiring!]</a>
 </p>
 
 <p align="center">
@@ -113,54 +111,42 @@ See the official [Composer Functional API Colab notebook](https://colab.research
 For maximal speedups, we recommend using our Trainer, which manages handling user state, performant algorithm implementations, and provides useful engineering abstractions to permit rapid experimentation.
 
 ```python
+import torch
+from torch.utils.data import DataLoader
+from torch.optim.lr_scheduler import CosineAnnealingLR
+from torch.optim import Adam
+from torchvision import datasets, transforms
 
-import composer
+from composer import Trainer, models
+from composer.algorithms import LabelSmoothing
 
-# Normalization constants
-mean = (0.507, 0.487, 0.441)
-std = (0.267, 0.256, 0.276)
+transform = transforms.ToTensor()
 
-batch_size = 1024
-
-# setup data
-data_directory = "data"
-cifar10_transforms = transforms.Compose([transforms.ToTensor(), transforms.Normalize(mean, std)]
-train_dataset = datasets.CIFAR10(data_directory, train=True, download=True, transform=cifar10_transforms)
-test_dataset = datasets.CIFAR10(data_directory, train=False, download=True, transform=cifar10_transforms)
-
-# setup model & optimization
-model = composer.models.CIFAR10_ResNet56()
-
-optimizer = composer.optim.DecoupledSGDW(
-    model.parameters(), # Model parameters to update
-    lr=0.05, # Peak learning rate
-    momentum=0.9,
-    weight_decay=2.0e-3 # If this looks large, it's because its not scaled by the LR as in non-decoupled weight decay
+train_dataloader = DataLoader(
+    datasets.MNIST('.data/', transform=transform, download=True, train=True),
+    batch_size=64,
 )
 
-warmup = composer.optim.WarmUpLR(
-    optimizer, # Optimizer
-    warmup_iters=25, # Number of iterations to warmup over. 50k samples * 1 batch/2048 samples
-    warmup_method="linear", # Linear warmup
-    warmup_factor=1e-4, # Initial LR = LR * warmup_factor
-    interval="step", # Update LR with stepwise granularity for superior results
+eval_dataloader = DataLoader(
+    datasets.MNIST('.data/', transform=transform, download=True, train=False),
+    batch_size=64,
 )
 
-# setup algorithm in one line
-blurpool = composer.algorithms.BlurPool()  # credit:  (Zhang, 2019)
+model = models.MNIST_Classifier(num_classes=10)
+optimizer = Adam(model.parameters())
 
-# for brevity, we hardcode some argument values
-trainer = composer.trainer.Trainer(model=model,
-                                   train_dataloader=train_dataloader,
-                                   eval_dataloader=test_dataloader,
-                                   max_duration="3ep", # Train for 3 epochs because we're assuming Colab environment and hardware
-                                   optimizers=optimizer,
-                                   schedulers=[warmup],
-                                   algorithms=[blurpool] # Adding BlurPool via model surgery, can just add more algorithms here!
-                                   device="gpu" # Train on the GPU,
-                                   seed=42) # the meaning to life, the universe, and everything
+trainer = Trainer(
+    model=model,
+    # add algorithms below
+    algorithms=[LabelSmoothing(alpha=0.1)],
+    train_dataloader=train_dataloader,
+    eval_dataloader=eval_dataloader,
+    optimizers=optimizer,
+    schedulers=CosineAnnealingLR(optimizer, T_max=2),
+    max_duration="2ep",
+)
 
-# start training!
+# Starting training!
 trainer.fit()
 ```
 Using the Composer Trainer allows you to **add multiple efficient training methods in a single line of code!**  Trying out new methods or combinations of methods is as easy as adding another line! As Composer gets better and we implement more methods and quality of life improvements, the savings are directly passed to you.
@@ -298,38 +284,6 @@ Composer is an active and ongoing project. Since Composer is still in alpha, our
 We welcome any comments, feedback, or contributions to Composer! Please do not hesitate to file an issue or pull request 🤩.
 
 ## Learn More
-
-Here's some resources actively maintained by the Composer community to help you get started:
-<table>
-<thead>
-  <tr>
-      <th><b>Resource</b></th>
-      <th><b>Details</b></th>
-  </tr>
-</thead>
-<tbody>
-  <tr>
-    <td><a href="https://www.mosaicml.com/blog/founders-blog" target="_blank" rel="noopener noreferrer">Founder's Blog</a></td>
-    <td>A blog post by our founders highlighting why MosaicML exists</td>
-  </tr>
-  <tr>
-    <td><a href="https://drive.google.com/file/d/12Dl0NVDaj4tf4gfpfg-rkIAoO_H7edo3/edit" target="_blank" rel="noopener noreferrer">Getting started with our Trainer</a></td>
-    <td>An interactive Colab Notebook aimed at teaching users about our Trainer</td>
-  </tr>
-  <tr>
-    <td><a href="https://colab.research.google.com/drive/1HIxLs61pyf0ln7MlnrGYvkNHq1uVbNWu?usp=sharing" target="_blank" rel="noopener noreferrer">Getting started with our Functional API</a></td>
-    <td>An interactive Colab Notebook aimed at teaching users about our Functional API</td>
-  </tr>
-  <tr>
-    <td><a href="https://colab.research.google.com/" target="_blank" rel="noopener noreferrer">PyTorch Lightning Migration Guide</a></td>
-    <td>An interactive Colab Notebook aimed at helping users migrate from PTL to Composer</td>
-  </tr>
-  <tr>
-    <td><a href="https://mosaicml.com/jobs" target="_blank" rel="noopener noreferrer">We're Hiring!</a></td>
-    <td>Join us! 🤩</td>
-  </tr>
-</tbody>
-</table>
 
 If you have any questions, please feel free to reach out to us on [Twiter](https://twitter.com/mosaicml), [email](mailto:community@mosaicml.com), or our [Community Slack](https://join.slack.com/t/mosaicml-community/shared_invite/zt-w0tiddn9-WGTlRpfjcO9J5jyrMub1dg)!
 

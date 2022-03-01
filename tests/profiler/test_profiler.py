@@ -25,29 +25,29 @@ def test_profiler_get_action(dummy_state: State, repeat: int):
         repeat=repeat,
     )
 
-    assert profiler.get_action(dummy_state.batch_idx) == ProfilerAction.SKIP  # skip first epoch
+    assert profiler.get_action(int(dummy_state.timer.batch_in_epoch)) == ProfilerAction.SKIP  # skip first epoch
 
     for _ in range(skip_first):
         dummy_state.timer.on_batch_complete()
-    assert profiler.get_action(dummy_state.batch_idx) == ProfilerAction.SKIP
+    assert profiler.get_action(int(dummy_state.timer.batch_in_epoch)) == ProfilerAction.SKIP
 
     for _ in range(wait):
         dummy_state.timer.on_batch_complete()
 
-    assert profiler.get_action(dummy_state.batch_idx) == ProfilerAction.WARMUP
+    assert profiler.get_action(int(dummy_state.timer.batch_in_epoch)) == ProfilerAction.WARMUP
 
     for _ in range(warmup):
         dummy_state.timer.on_batch_complete()
 
-    assert profiler.get_action(dummy_state.batch_idx) == ProfilerAction.ACTIVE
+    assert profiler.get_action(int(dummy_state.timer.batch_in_epoch)) == ProfilerAction.ACTIVE
 
     for _ in range(active + wait + warmup):
         dummy_state.timer.on_batch_complete()
 
     if repeat == 0:
-        assert profiler.get_action(dummy_state.batch_idx) == ProfilerAction.ACTIVE
+        assert profiler.get_action(int(dummy_state.timer.batch_in_epoch)) == ProfilerAction.ACTIVE
     else:
-        assert profiler.get_action(dummy_state.batch_idx) == ProfilerAction.SKIP
+        assert profiler.get_action(int(dummy_state.timer.batch_in_epoch)) == ProfilerAction.SKIP
 
 
 def test_marker(dummy_state: State):
