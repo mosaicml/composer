@@ -180,7 +180,7 @@ stage('Build') {
         pytorchDockerBuildMatrix.each { entry ->
             def command = entry[0]  // command is the command to run
             def stagingImage = entry[1]  // stagingImage is where the built docker image is pushed
-            def buildConfigListOfTuples = entry[2]  // buildConfigListOfTuples is a list of (key, value) pairs of the build args passed to kaniko
+            def buildConfigListOfTuples = entry[2]  // buildConfigListOfTuples is a list of (key, value) pairs of the build args from the matrix
             jobs << [ "$buildConfigListOfTuples": { -> 
                 trackBuild(
                     job: jenkinsShellJobName,
