@@ -113,7 +113,7 @@ class CIFARWebDatasetHparams(WebDatasetHparams, SyntheticHparamsMixin):
             dataset, meta = load_webdataset(self.dataset_s3_bucket, self.dataset_name, split, self.webdataset_cache_dir,
                                             self.webdataset_cache_verbose)
             if self.shuffle:
-                dataset = dataset.shuffle(512)
+                dataset = dataset.shuffle(self.shuffle_buffer_per_worker)
             dataset = dataset.decode('pil').map_dict(jpg=transform).to_tuple('jpg', 'cls')
             dataset = size_webdataset(dataset, meta['n_shards'], meta['samples_per_shard'], dist.get_world_size(),
                                       dataloader_hparams.num_workers, batch_size, self.drop_last)

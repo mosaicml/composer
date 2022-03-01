@@ -98,6 +98,7 @@ class WebDatasetHparams(DatasetHparams, abc.ABC, metaclass=metaclass):
 
     webdataset_cache_dir: str = hp.optional('WebDataset cache directory', default='/tmp/webdataset_cache/')
     webdataset_cache_verbose: bool = hp.optional('WebDataset cache verbosity', default=False)
+    shuffle_buffer_per_worker: int = hp.optional('WebDataset shuffle buffer size per worker', default=256)
 
     @abc.abstractmethod
     def initialize_object(self, batch_size: int, dataloader_hparams: DataloaderHparams) -> Union[DataLoader, DataSpec]:

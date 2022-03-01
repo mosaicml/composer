@@ -452,7 +452,7 @@ class ADE20kWebDatasetHparams(WebDatasetHparams, SyntheticHparamsMixin):
             dataset, meta = load_webdataset('mosaicml-internal-dataset-ade20k', 'ade20k', self.split,
                                             self.webdataset_cache_dir, self.webdataset_cache_verbose)
             if self.shuffle:
-                dataset = dataset.shuffle(512)
+                dataset = dataset.shuffle(self.shuffle_buffer_per_worker)
             dataset = dataset.decode('pil').to_tuple('scene.jpg', 'annotation.png').map(map_fn)
             dataset = size_webdataset(dataset, meta['n_shards'], meta['samples_per_shard'], dist.get_world_size(),
                                       dataloader_hparams.num_workers, batch_size, self.drop_last)
