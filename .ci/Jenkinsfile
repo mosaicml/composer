@@ -189,7 +189,7 @@ stage('Build') {
                         string(name: 'P_GIT_REPO', value: gitUrl),
                         string(name: 'P_GIT_COMMIT', value: gitCommit),
                         string(name: 'P_DOCKER_IMAGE', value: kanikoDockerImage),
-                        string(name: 'P_EPHEMERAL_STORAGE_LIMIT', value: '16Gi'),
+                        string(name: 'P_EPHEMERAL_STORAGE_LIMIT', value: '32Gi'),
                         text(name: 'P_COMMAND', value: command),
                         string(name: 'P_TIMEOUT', value: pTimeout),
                         string(name: 'P_CPU_LIMIT', value: '4'),
