@@ -976,7 +976,7 @@ class Trainer:
                         self._checkpoint_saver.save_checkpoint(state=state, seed=self._seed, device=self._device)
 
                     if state.timer >= state.max_duration:
-                        # If max_duration is specified in batches, samples, or tokens, and the batch
+                        # If max_duration is specified in batches, samples, or tokens, and
                         # and the max_duration is reached mid-epoch, then break out of the dataloader
                         # to finish the epoch early and finish training.
                         break
