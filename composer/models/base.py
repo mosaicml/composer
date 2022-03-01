@@ -83,6 +83,8 @@ class ComposerModel(torch.nn.Module, abc.ABC):
         Returns:
             Tensors:
                 The result that is passed to :meth:`loss` as :attr:`outputs`.
+
+        :meta public:
         """
         pass
 
@@ -123,9 +125,9 @@ class ComposerModel(torch.nn.Module, abc.ABC):
         pass
 
     def metrics(self, train: bool = False) -> Metrics:
-        """Get metrics for evaluating the model. Metrics should be :class:`torchmetrics.Metrics` compatible for accurate distributed
+        """Get metrics for evaluating the model. Metrics should be :class:`~torchmetrics.Metric` compatible for accurate distributed
         logging and defined in :meth:`__init__`. Metrics consume the outputs of :meth:`validate`. To track multiple
-        metrics, return a list of metrics in a :class:`~torchmetrics.MetricCollection`.
+        metrics, return a list of metrics in a :ref:`MetricCollection </pages/overview.rst#metriccollection>`.
 
         Example:
 
@@ -152,7 +154,7 @@ class ComposerModel(torch.nn.Module, abc.ABC):
                 :class:`.Trainer`
 
         Returns:
-             Metric or MetricCollection: An instance of :class:`~torchmetrics.Metric` or :class:`~torchmetrics.MetricCollection`.
+             Metric or MetricCollection: An instance of :class:`~torchmetrics.Metric` or :ref:`MetricCollection </pages/overview.rst#metriccollection>`.
         """
         raise NotImplementedError('Implement metrics in your ComposerModel to run validation.')
 

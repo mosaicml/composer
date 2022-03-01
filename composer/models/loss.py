@@ -17,7 +17,7 @@ __all__ = ["MIoU", "Dice", "CrossEntropyLoss", "soft_cross_entropy"]
 
 
 class MIoU(Metric):
-    """Torchmetric mean Intersection-over-Union (mIoU) implementation.
+    """Torchmetrics mean Intersection-over-Union (mIoU) implementation.
 
     IoU calculates the intersection area between the predicted class mask and the label class mask.
     The intersection is then divided by the area of the union of the predicted and label masks.
@@ -158,7 +158,7 @@ def soft_cross_entropy(input: Tensor,
                        ignore_index: int = -100,
                        reduce: Optional[bool] = None,
                        reduction: str = 'mean'):
-    r"""Drop-in replacement for :class:`~torch.nn.CrossEntropy` that can handle class indices or one-hot labels.
+    r"""Drop-in replacement for :class:`~torch.nn.CrossEntropyLoss` that can handle class indices or one-hot labels.
 
     Args:
         input (torch.Tensor) : :math:`(N, C)` where `C = number of classes` or :math:`(N, C, H, W)`
@@ -221,10 +221,10 @@ def soft_cross_entropy(input: Tensor,
 
 
 class CrossEntropyLoss(Metric):
-    """Torchmetric cross entropy loss implementation.
+    """Torchmetrics cross entropy loss implementation.
 
-    This class implements cross entropy loss as a :class:`torchmetric.Metric` so that it can be returned by the
-    :meth:`~composer.models.base.ComposerModel.metrics`.
+    This class implements cross entropy loss as a :class:`torchmetrics.Metric` so that it can be returned by the
+    :meth:`~.ComposerModel.metrics`.
 
     Args:
         ignore_index (int, optional): Specifies a target value that is ignored
