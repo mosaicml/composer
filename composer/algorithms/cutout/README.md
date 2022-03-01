@@ -61,6 +61,10 @@ trainer.fit()
 
 CutMix randomly selects `n_holes` square regions (which are possibly overlapping) with side length `length` and uses them to generate a binary mask for the image where a point within any hole is set to 0 and the remaining points are set to 1. This mask is then multiplied element-wise with the image in order to set the pixel value of any pixel value within a hole to 0.
 
+CutMix is implemented following the [original paper](https://arxiv.org/abs/1905.04899). This means CutMix runs immediately before the training example is provided to the model, and on the GPU if one is being used.
+
+The construction of the bounding box for the mixed region follows the [paper's implementation](https://github.com/clovaai/CutMix-PyTorch) which selects the center pixel of the bounding box uniformly at random from all locations in the image, and clips the bounding box to fit. This implies that the size of the region mixed by CutMix is not always square, and the area is not directly drawn from a beta distribution. It also implies that not all regions are equally likely to lie inside the bounding box.
+
 ## Suggested Hyperparameters
 
 We found that setting `n_holes=1` (adding a single gray patch) to the image gives good results. We found that setting `length` (the size of the patch) to a number of pixels equivalent to half of the image width or height produces good results. However, in some scenarios this may be too large, obstructing a quarter of the total area of the image; if so, setting `length` to a number of pixels equivalent to a quarter of the image width or height may be better.
