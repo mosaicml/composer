@@ -29,6 +29,7 @@ def set_batch_sequence_length(batch: Dict[str, Tensor], curr_seq_len: int, trunc
         out of this function.
 
     Example:
+    
     .. code-block::
 
         import composer.functional as cf

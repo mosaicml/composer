@@ -31,18 +31,18 @@ def augmix_image(img: ImgT,
                  alpha: float = 1.0,
                  augmentation_set: List = augmentation_sets["all"]) -> ImgT:
     """Applies AugMix (`Hendrycks et al, 2020 <http://arxiv.org/abs/1912.02781>`_) data
-    augmentation to a single image. See
+    augmentation to a single image or batch of images. See
     :class:`~composer.algorithms.augmix.augmix.AugMix` and the 
     :doc:`Method Card </method_cards/augmix>` for details. This function only acts on a
-    single image per call and is unlikely to be used in a training loop. Use
+    single image (or batch) per call and is unlikely to be used in a training loop. Use
     :class:`~composer.algorithms.augmix.augmix.AugmentAndMixTransform` to use AugMix as
-    part of a :class:`torchvision.datasets.VisionDataset`\\s `transform`.
+    part of a :class:`torchvision.datasets.VisionDataset`\\'s ``transform``.
 
     Example:
         .. testcode::
 
             import composer.functional as cf
-            
+
             from composer.algorithms.utils import augmentation_sets
 
             augmixed_image = cf.augmix_image(
