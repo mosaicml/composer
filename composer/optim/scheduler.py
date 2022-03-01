@@ -1,6 +1,27 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
-"""Framework for and implementations of stateless learning rate schedulers."""
+"""Framework for and implementations of stateless learning rate schedulers.
+
+Stateless schedulers solve some of the problems associated with PyTorch's built-in schedulers provided in 
+:mod:`torch.optim.lr_scheduler`. Those schedulers use internal state to keep track of the current time, which is
+incremented every time their ``.step()`` method is called. In practice, this means that PyTorch's schedulers can only
+interpret the current time (or training progress) as a single integer: the number of times ``.step()`` has been called.
+PyTorch's schedulers were written under the assumption that this value would represent the current epoch. This requires
+that ``.step()`` be called exactly once per epoch.
+
+A critical problem with this approach is that it oversimplifies the notion of time. Time can be measured in multiple
+other units besides epochs, such as samples, batches, and even tokens for NLP datasets, and in practice it can be useful
+to use even a combination of these units in configuring schedulers.
+
+A second problem is that there are major benefits to reap from updating a scheduler more frequently than just every
+epoch. It is commonly found that updating a scheduler after every batch improves model accuracy. With PyTorch's
+
+However, time can be measured in multiple other units, such as samples, batches, and even tokens for NLP datasets. 
+It can be useful to represent scheduler parameters See :mod:`~composer.core.time` for more information on how the Composer library 
+handles representations of time.
+
+See `~.ComposerSchedulerFn` for the definition of a stateless scheduler.
+"""
 
 import logging
 import math
@@ -36,7 +57,7 @@ class ComposerSchedulerFn(Protocol):
 
     A scheduler function should be a pure function that returns a multiplier to apply to the optimizer's provided
     learning rate, given the current trainer state, and optionally a "scale schedule ratio" (SSR). A typical
-    implementation will read `state.timer`, and possibly other fields like `state.max_duration`, to determine the
+    implementation will read ``state.timer``, and possibly other fields like ``state.max_duration``, to determine the
     trainer's latest temporal progress.
     """
 

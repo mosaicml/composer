@@ -5,20 +5,21 @@
 import functools
 from abc import ABC
 from dataclasses import asdict, dataclass
+from typing import List
 
 import yahp as hp
 
-from composer.optim.scheduler import (ComposerScheduler, ComposerSchedulerFn, constant_scheduler,
-                                      cosine_annealing_scheduler, cosine_annealing_warm_restarts_scheduler,
-                                      cosine_annealing_with_warmup_scheduler, exponential_scheduler, linear_scheduler,
-                                      linear_with_warmup_scheduler, multi_step_scheduler,
-                                      multi_step_with_warmup_scheduler, polynomial_scheduler, step_scheduler)
+from composer.optim.scheduler import (ComposerScheduler, constant_scheduler, cosine_annealing_scheduler,
+                                      cosine_annealing_warm_restarts_scheduler, cosine_annealing_with_warmup_scheduler,
+                                      exponential_scheduler, linear_scheduler, linear_with_warmup_scheduler,
+                                      multi_step_scheduler, multi_step_with_warmup_scheduler, polynomial_scheduler,
+                                      step_scheduler)
 
 
 @dataclass
 class SchedulerHparams(hp.Hparams, ABC):
 
-    scheduler_function = None  # type: ComposerSchedulerFn
+    scheduler_function = None
 
     def initialize_object(self) -> ComposerScheduler:
         if self.scheduler_function is None:
