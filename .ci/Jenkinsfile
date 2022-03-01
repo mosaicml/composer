@@ -169,9 +169,9 @@ stage('Build') {
         // If changing docker, build the docker images first
         // Then, run pytest in the newly-built image
         pytorchDockerBuildMatrix.each { entry ->
-            command = entry[0]  // command is the command to run
-            stagingImage = entry[1]  // stagingImage is where the built docker image is pushed
-            buildArgs = entry[2]  // buildArgs is a map of the build arguments passed to kaniko
+            def command = entry[0]  // command is the command to run
+            def stagingImage = entry[1]  // stagingImage is where the built docker image is pushed
+            def buildArgs = entry[2]  // buildArgs is a map of the build arguments passed to kaniko
             jobs << [ "$buildArgs": { -> 
                 trackBuild(
                     job: jenkinsShellJobName,
