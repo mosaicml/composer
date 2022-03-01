@@ -5,7 +5,7 @@ implementations of many common models. Additionally, it includes task specific c
 :class:`~composer.models.base.ComposerModel` s that wrap existing pytorch models with standard forward passes
 and logging to enable quick interaction with the :class:`~composer.trainer.trainer.Trainer`.
 
-See the ComposerModel docs for more details.
+See :doc:`Composer Model </trainer/composer_model>` for more details.
 """
 
 from composer.models.base import ComposerClassifier as ComposerClassifier

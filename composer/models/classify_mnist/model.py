@@ -61,7 +61,7 @@ class MNIST_Classifier(ComposerClassifier):
         model = MNIST_Classifier()
 
     Args:
-        num_classes (int): The number of classes. Needed for classification tasks. Default = 10
+        num_classes (int): The number of classes. Needed for classification tasks. Default: 10
         initializers (List[Initializer], optional): list of Initializers
             for the model. ``None`` for no initialization. (default: ``None``)
     """

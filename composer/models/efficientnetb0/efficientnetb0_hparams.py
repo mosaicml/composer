@@ -14,8 +14,8 @@ class EfficientNetB0Hparams(ModelHparams):
     """yahp Hparams interface for EfficientNetB0.
 
     Args:
-        num_classes (int): The number of classes. Needed for classification tasks. Default = 1000.
-        drop_connect_rate (float): Probability of dropping a sample within a block before identity connection. Default = 0.2.
+        num_classes (int): The number of classes. Needed for classification tasks. Default: 1000.
+        drop_connect_rate (float): Probability of dropping a sample within a block before identity connection. Default: 0.2.
     """
     drop_connect_rate: float = hp.optional(
         doc="Probability of dropping a sample within a block before identity connection.",

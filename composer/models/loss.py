@@ -229,9 +229,9 @@ class CrossEntropyLoss(Metric):
     Args:
         ignore_index (int, optional): Specifies a target value that is ignored
             and does not contribute to the input gradient. ``ignore_index`` is only applicable when the target
-            contains class indices. Default = -100.
+            contains class indices. Default: -100.
 
-        dist_sync_on_step (bool, optional): sync distributed metrics every step. Default = False.
+        dist_sync_on_step (bool, optional): sync distributed metrics every step. Default: False.
     """
 
     def __init__(self, ignore_index: int = -100, dist_sync_on_step=False):

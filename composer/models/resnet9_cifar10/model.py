@@ -21,7 +21,7 @@ class ResNet9(nn.Module):
     on the residual network architecture.
 
     Args:
-        num_classes (int): The number of classes. Needed for classification tasks. Default = 10
+        num_classes (int): The number of classes. Needed for classification tasks. Default: 10
     """
 
     def __init__(self, num_classes: int = 10):
@@ -72,7 +72,7 @@ class CIFAR10_ResNet9(ComposerClassifier):
         model = CIFAR10_ResNet9()  # creates a resnet9 for cifar image classification
 
     Args:
-        num_classes (int): The number of classes. Needed for classification tasks. Default = 10.
+        num_classes (int): The number of classes. Needed for classification tasks. Default: 10.
         initializers (List[Initializer], optional): Initializers
             for the model. ``None`` for no initialization.
             (default: ``None``).

@@ -20,8 +20,8 @@ class EfficientNetB0(ComposerClassifier):
         model = EfficientNetB0()  # creates EfficientNet-b0 for image classification
 
     Args:
-        num_classes (int): The number of classes. Needed for classification tasks. Default = 1000.
-        drop_connect_rate (float): Probability of dropping a sample within a block before identity connection. Default = 0.2.
+        num_classes (int): The number of classes. Needed for classification tasks. Default: 1000.
+        drop_connect_rate (float): Probability of dropping a sample within a block before identity connection. Default: 0.2.
     """
 
     def __init__(self, num_classes: int = 1000, drop_connect_rate: float = 0.2) -> None:
