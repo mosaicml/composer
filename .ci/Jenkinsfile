@@ -4,11 +4,11 @@ gitBranch = null
 gitCommit = null
 pTimeout = '1800' // in seconds
 pEphemeralStorageLimit = '4Gi'
-pytorchDockerChanged = null
 dependenciesChanged = null
 runWithChecks = null
 expandDockerMatrix = null
-prChangeset = null
+pytorchDockerBuildMatrix = null
+isPathModified = null
 builds = []
 jenkinsJobBasePath = "scratch"
 
@@ -133,12 +133,16 @@ stage('Prepare') {
 
         runWithChecks = load "$jenkinsfileWorkspace/utils/runWithChecks.groovy"
         expandDockerMatrix = load "$jenkinsfileWorkspace/utils/expandDockerMatrix.groovy"
-        prChangeset = load "$jenkinsfileWorkspace/utils/prChangeset.groovy"
+        def getDockerBuildMatrix = load "$jenkinsfileWorkspace/utils/getDockerBuildMatrix.groovy"
 
-        pytorchDockerChanged = prChangeset("docker/pytorch/")
+        isPathModified = load "$jenkinsfileWorkspace/utils/isPathModified.groovy"
+
+        if (isPathModified("docker/pytorch/")) {
+            pytorchDockerBuildMatrix = getDockerBuildMatrix('./docker/pytorch/build_matrix.sh')
+        }
         // Keep track of whether dependencies changed, in which case a conda build should be tested
         // Skipping conda build -- stalling in Jenkins
-        dependenciesChanged = prChangeset("setup.py") || prChangeset("meta.yaml")
+        dependenciesChanged = isPathModified("setup.py") || isPathModified("meta.yaml")
     }
 }
 
@@ -152,10 +156,10 @@ def dockerImagePostBuild(stagingImageTag) {
 
 stage('Build') {
     def jobs = [:]
-    if (pytorchDockerChanged) {
+    if (pytorchDockerBuildMatrix) {
         jobs << expandDockerMatrix(
             P_CLOUD: pCloud,
-            P_BUILD_MATRIX: './docker/pytorch/build_matrix.sh',
+            buildMatrix: pytorchDockerBuildMatrix,
             P_DOCKERFILE: 'Dockerfile',
             P_BUILD_CONTEXT: './docker/pytorch',
             P_EPHEMERAL_STORAGE_LIMIT: pEphemeralStorageLimit,
