@@ -157,7 +157,7 @@ class Trainer:
         device (str or Device, optional): The device to use for training. Either ``cpu`` or ``gpu``.
             (default: ``cpu``)
         grad_accum (Union[int, str], optional): The number of microbatches to split a per-device batch into. Gradients
-            are summed over the microbatches per device. If set to ``auto``, dynamically increases number of 
+            are summed over the microbatches per device. If set to ``auto``, dynamically increases number of
             microbatch size if train_batch_size is too large for GPU. (default: ``1``)
 
             .. note:: This is implemented by taking the batch yielded by the ``train_dataloader`` and splitting
@@ -572,7 +572,6 @@ class Trainer:
         # Set initial grad_accum to 1 if using adaptive
         self.adaptive_grad_accum = isinstance(grad_accum, str) and grad_accum == "auto"
         if self.adaptive_grad_accum:
-            self.grad_accum = 1
             grad_accum = 1
             warnings.warn(
                 textwrap.dedent("""There are known issues with using adaptive gradient accumulation in conjunction
@@ -582,6 +581,9 @@ class Trainer:
         # Cannot use adaptive grad accum on CPU
         if isinstance(self._device, DeviceCPU) and self.adaptive_grad_accum:
             raise ValueError("Cannot use adaptive grad_accum on CPU. Please set grad_accum >= 1")
+        # grad_accum should be int as we've already handled "auto" case
+        if isinstance(grad_accum, str):
+            raise ValueError("grad_accum must be an int or ``auto``")
 
         self.state = State(
             max_duration=max_duration,
@@ -984,8 +986,7 @@ class Trainer:
                 self._checkpoint_saver.save_checkpoint(state=state, seed=self._seed, device=self._device)
 
     def _handle_cuda_oom(self, e: RuntimeError):
-        """Handles CUDA Out of Memory and rescales if using adaptive grad_accum
-        """
+        """Handles CUDA Out of Memory and rescales if using adaptive grad_accum."""
         if self.adaptive_grad_accum and "CUDA out of memory" in str(e):
             # Raise runtime error if training 1 sample at a time still resulted in CUDA out of memory
             if self.state.grad_accum == self.state.batch_num_samples:
@@ -999,11 +1000,10 @@ class Trainer:
             raise e
 
     def _compute_metrics(self, train_metrics: MetricCollection):
-        """Compute training metrics. Adaptively change microbatch size if enabled to maximize
-        GPU usage.
+        """Compute training metrics. Adaptively change microbatch size if enabled to maximize GPU usage.
 
         Args:
-            train_metrics (MetricCollection): Existing train metrics 
+            train_metrics (MetricCollection): Existing train metrics
         """
         rerun = True
         while rerun:
@@ -1028,8 +1028,8 @@ class Trainer:
                 self._handle_cuda_oom(e)
 
     def _train_and_compute_loss(self, use_grad_scaling: bool):
-        """Compute loss by training on a full batch of data. Adaptively change microbatch size
-        if enabled to maximize GPU usage.
+        """Compute loss by training on a full batch of data. Adaptively change microbatch size if enabled to maximize
+        GPU usage.
 
         Args:
             use_grad_scaling (bool): Enables gradient scaling
