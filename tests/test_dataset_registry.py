@@ -4,8 +4,8 @@ from typing import Callable, Dict, Type
 
 import pytest
 
-from composer.datasets import (ADE20kDatasetHparams, BratsDatasetHparams, CIFAR10DatasetHparams, DataloaderHparams,
-                               DatasetHparams, GLUEHparams, ImagenetDatasetHparams, LMDatasetHparams,
+from composer.datasets import (ADE20kDatasetHparams, BratsDatasetHparams, CIFAR10DatasetHparams, COCODatasetHparams,
+                               DataloaderHparams, DatasetHparams, GLUEHparams, ImagenetDatasetHparams, LMDatasetHparams,
                                MNISTDatasetHparams, SyntheticHparamsMixin)
 from composer.trainer.trainer_hparams import dataset_registry
 
@@ -38,6 +38,7 @@ default_required_fields: Dict[Type[DatasetHparams], Callable[[], DatasetHparams]
         tokenizer_name="bert-base-uncased",
         split="train",
     ),
+    COCODatasetHparams: lambda: COCODatasetHparams(is_train=False,),
 }
 
 
