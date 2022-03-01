@@ -15,7 +15,7 @@ Using Composer, you can:
 Composer features:
 
 - 20+ efficient training methods for training a better language and vision models! Don't waste hours trying to reproduce research papers when Composer has done the work for you.
-- Easy-to-use Trainer interface written to be as performant as possible, and `integrated best practices<https://www.mosaicml.com/blog/best-practices-dec-2021>`.
+- Easy-to-use Trainer interface written to be as performant as possible, and `integrated best practices <https://www.mosaicml.com/blog/best-practices-dec-2021>`_.
 - Easy-to-use Functional forms that allow you to integrate efficient training methods into your training loop!
 - Strong, `reproducible` baselines to get you started as 💨 fast 💨 as possible
 
