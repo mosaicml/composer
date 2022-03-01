@@ -6,7 +6,7 @@ ARG DEBIAN_FRONTEND=noninteractive
 # remove a bad symlink from the base composer image
 # If this file is present after the first command, kaniko
 # won't be able to build the docker image.
-RUN rm -f /usr/local/cuda-11.3/cuda-11.3 && touch /usr/local/cuda-11.3/cuda-11.3
+RUN rm -f /usr/local/cuda-11.3/cuda-11.3 && mkdir -p /usr/local/cuda-11.3 && touch /usr/local/cuda-11.3/cuda-11.3
 
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
