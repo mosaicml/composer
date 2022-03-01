@@ -39,7 +39,10 @@
 
 <p align="center">Composer provides well-engineered implementations of efficient training methods to give the tools that help you train <b>a better model for cheaper</b>.</p>
 
-<p align="center"><img src="docs/images/cost_graph.svg" width="80%"/></p>
+<p align="center">
+<img src="docs/images/cost_graph_light.svg#gh-light-mode-only" width="80%"/>
+<img src="docs/images/cost_graph_dark.svg#gh-dark-mode-only" width="80%"/>
+</p>
 
 Using Composer, you can:
 
