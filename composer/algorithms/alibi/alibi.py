@@ -9,7 +9,7 @@ import logging
 import math
 from operator import attrgetter
 from types import MethodType, ModuleType
-from typing import Any, Callable, Optional, Type, cast
+from typing import Any, Callable, Optional, Tuple, Type, Union, cast
 
 import torch
 
@@ -34,10 +34,33 @@ def apply_alibi(
     optimizers: Optional[Optimizers] = None,
 ) -> None:
     """Removes position embeddings and replaces the attention function and attention mask
-    according as per :class:`~composer.algorithms.alibi.alibi.Alibi`. See the
-    :doc:`Method Card </method_cards/alibi>` for more details.
+    according as per :class:`~composer.algorithms.alibi.alibi.Alibi`. Note that the
+    majority of the training speed-up from using ALiBi comes from being able to train on
+    shorter sequence lengths; this function does not scale the training sequence length as
+    :class:`~composer.algorithms.alibi.alibi.Alibi` does, so little speedup will be
+    observed from using it alone. See the :doc:`Method Card </method_cards/alibi>` for
+    more details.
 
-    Example: Waiting on language model test fixtures
+    Example:
+
+    .. code-block:: python
+
+        import torch.nn.functional as F
+
+        import composer.functional as cf
+
+        from composer.algorithms.alibi.gpt2_alibi import _attn
+        from composer.algorithms.alibi.gpt2_alibi import enlarge_mask
+        from transformers.models.gpt2.modeling_gpt2 import GPT2Attention
+
+        cf.apply_alibi(model=model,
+                        heads_per_layer=12,
+                        max_sequence_length=8192,
+                        position_embedding_attribute="module.transformer.wpe",
+                        attention_module=GPT2Attention,
+                        attr_to_replace="_attn",
+                        alibi_attention=_attn,
+                        mask_replacement_function=enlarge_mask)
 
     Args:
         model (torch.nn.Module): Model to transform.
@@ -73,9 +96,13 @@ def apply_alibi(
         None
     """
 
-    _zero_and_freeze_expand_position_embeddings(model=model,
-                                                attribute=position_embedding_attribute,
-                                                new_embedding_length=max_sequence_length)
+    old_embed, new_embed = _zero_and_freeze_expand_position_embeddings(
+        model=model,
+        attribute=position_embedding_attribute,
+        new_embedding_length=max_sequence_length,
+    )
+    if optimizers and old_embed is not None and new_embed is not None:
+        module_surgery.update_params_in_optimizer([old_embed], [new_embed], optimizers=optimizers)
     log.info(f" Position embedding expanded to sequence length {max_sequence_length}, zeroed, and frozen")
 
     def convert_attention(module: torch.nn.Module, module_index: Optional[int] = None):
@@ -111,14 +138,26 @@ class Alibi(Algorithm):
 
     See the :doc:`Method Card </method_cards/alibi>` for more details.
 
-    Example: Waiting on language model test fixtures
+    Example:
+
+    .. code-block::
+
+        from composer.algorithms import Alibi
+        from composer.trainer import Trainer
+
+        alibi = Alibi(position_embedding_attribute="module.transformer.wpe",
+                      attention_module_name="transformers.models.gpt2.modeling_gpt2.GPT2Attention"
+                      attr_to_replace="_attn",
+                      alibi_attention="composer.algorithms._gpt2_alibi._attn",
+                      mask_replacement_function="composer.algorithms.alibi.gpt2_alibi.enlarge_mask"
+                      max_sequence_length=8192)
+
+        trainer = Trainer(model=model,
+                          train_dataloader=train_dataloader,
+                          max_duration="1ep",
+                          algorithms=[alibi])
 
     Args:
-        heads_per_layer (int): Number of attention heads per layer
-        max_sequence_length (int): Maximum sequence length that the
-            model will be able to accept. This is sometimes necessary for evaluating
-            on sequence lengths longer than the model was initialized to
-            accommodate.
         position_embedding_attribute (str): Attribute for position
             embeddings. For example in HuggingFace's GPT2, the
             position embeddings are ``'transformer.wpe'``.
@@ -140,6 +179,11 @@ class Alibi(Algorithm):
             ``max_sequence_length``. For example,
             ``'composer.algorithms.alibi._gpt2_alibi.enlarge_mask'``. Default = ``None``,
             which means no modification of the model's default attention mask.
+        heads_per_layer (int, optional): Number of attention heads per layer
+        max_sequence_length (int): Maximum sequence length that the
+            model will be able to accept. This is sometimes necessary for evaluating
+            on sequence lengths longer than the model was initialized to
+            accommodate.
         train_sequence_length_scaling (float, optional): Amount by which to scale
             training sequence length. One batch of training data will be
             reshaped from shape :math:`(sequence\\_length, batch)` to
@@ -207,10 +251,18 @@ class Alibi(Algorithm):
                     state.batch[k] = v.reshape(int(batch_len / sequence_scaling), int(sequence_len * sequence_scaling))
 
 
-def _zero_and_freeze_expand_position_embeddings(model: torch.nn.Module, new_embedding_length: int, attribute: str):
+def _zero_and_freeze_expand_position_embeddings(
+    model: torch.nn.Module,
+    new_embedding_length: int,
+    attribute: str,
+) -> Union[Tuple[torch.nn.Parameter, torch.nn.Parameter], Tuple[None, None]]:
     try:
         pos_embedding_module = attrgetter(attribute)(model)
         old_weight = getattr(pos_embedding_module, "weight")
+        if not isinstance(old_weight, torch.nn.Parameter):
+            raise TypeError(
+                f"Model {model._get_name()}, position embedding {attribute}, 'weight' attribute must of type torch.nn.Module"
+            )
         new_weight = torch.nn.Parameter(
             torch.zeros((new_embedding_length, old_weight.shape[1]),
                         dtype=old_weight.dtype,
@@ -218,10 +270,13 @@ def _zero_and_freeze_expand_position_embeddings(model: torch.nn.Module, new_embe
                         device=old_weight.device))
         new_weight.requires_grad = False
         setattr(pos_embedding_module, "weight", new_weight)
+
+        return old_weight, new_weight
     except AttributeError:
         log.error(f"Unable to zero and freeze position embeddings. Model "
                   f"{model} may lack attribute {attribute}, or position "
                   f"embeddings may lack attribute 'weight'.")
+    return None, None
 
 
 def _register_alibi(module: torch.nn.Module, n_heads: int, max_token_length: int):
