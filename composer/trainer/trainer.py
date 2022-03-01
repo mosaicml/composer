@@ -1015,7 +1015,8 @@ class Trainer:
                     with torch.no_grad():
                         # Store results so we only update train_metrics if all batches are processed without OOM
                         results = []
-                        for eval_microbatch in self._train_data_spec.split_batch(self.state.batch, self.state.grad_accum):
+                        for eval_microbatch in self._train_data_spec.split_batch(self.state.batch,
+                                                                                 self.state.grad_accum):
                             # TODO: Detect if self.run_event(Event.AFTER_DATALOADER) changes the training
                             # data and if so print a warning that metrics may return unexpected results
                             outputs, targets = self.original_model.validate(eval_microbatch)
@@ -1033,7 +1034,7 @@ class Trainer:
         Args:
             use_grad_scaling (bool): Enables gradient scaling
         """
-        rerun = True 
+        rerun = True
         while rerun:
             try:
                 total_loss = None
