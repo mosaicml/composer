@@ -170,7 +170,7 @@ class ComposerModel(torch.nn.Module, abc.ABC):
                 return outputs, targets # return a tuple of (outputs, targets)
 
 
-        How validate outputs are passed to :meth:`metrics` (pseudocode):
+        This pseudocode illustrates how validate outputs are passed to :meth:`metrics`:
 
         .. code-block:: python
 
