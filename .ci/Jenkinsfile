@@ -4,7 +4,6 @@ gitBranch = null
 gitCommit = null
 pTimeout = '1800' // in seconds
 dependenciesChanged = null
-runWithChecks = null
 expandDockerMatrix = null
 pytorchDockerBuildMatrix = null
 isPathModified = null
@@ -43,6 +42,16 @@ def cloneJenkinsfilesRepo() {
     }
 }
 
+def trackBuild(Map buildArgs) {
+    buildArgs['propagate'] = false
+    def builtJob = build(buildArgs)
+    builds << builtJob
+    echo "${builtJob.fullDisplayName}: ${builtJob.absoluteUrl}"
+    if (builtJob.result != "SUCCESS") {
+        error("Job ${builtJob.fullDisplayName} failed. See ${builtJob.absoluteUrl} for details.")
+    }
+}
+
 def getDockerImageName(pythonVersion, gpu) {
     def pytorchVersion = pythonVersion == "3.9" ? "1.10.0" : "1.9.1"
     def cudaVersion = "cpu"
@@ -56,28 +65,20 @@ def getDockerImageName(pythonVersion, gpu) {
 lintImage = getDockerImageName("3.9", false)
 
 def runLint(pDockerImage) {
-    runWithChecks(
-        name: 'lint',
-        title: 'Lint and Doctests',
-        summary: 'Static Analysis Checks and Doctests',
-    ) {
-        def builtJob = build(
-            job: jenkinsShellJobName,
-            parameters: [
-                string(name: 'P_CLOUD', value: pCloud),
-                string(name: 'P_GIT_REPO', value: gitUrl),
-                string(name: 'P_GIT_COMMIT', value: gitCommit),
-                string(name: 'P_EPHEMERAL_STORAGE_LIMIT', value: '4Gi'),
-                string(name: 'P_DOCKER_IMAGE', value: pDockerImage),
-                string(name: 'P_TIMEOUT', value: pTimeout),
-                string(name: 'P_CPU_LIMIT', value: "2"),
-                string(name: 'P_MEM_LIMIT', value: "7Gi"),
-                string(name: 'P_COMMAND', value: "./.ci/lint_doctests.sh")
-            ]
-        )
-        echo "Lint Job URL: ${builtJob.absoluteUrl}"
-        builds << builtJob
-    }
+    trackBuild(
+        job: jenkinsShellJobName,
+        parameters: [
+            string(name: 'P_CLOUD', value: pCloud),
+            string(name: 'P_GIT_REPO', value: gitUrl),
+            string(name: 'P_GIT_COMMIT', value: gitCommit),
+            string(name: 'P_EPHEMERAL_STORAGE_LIMIT', value: '4Gi'),
+            string(name: 'P_DOCKER_IMAGE', value: pDockerImage),
+            string(name: 'P_TIMEOUT', value: pTimeout),
+            string(name: 'P_CPU_LIMIT', value: "2"),
+            string(name: 'P_MEM_LIMIT', value: "7Gi"),
+            string(name: 'P_COMMAND', value: "./.ci/lint_doctests.sh")
+        ]
+    )
 }
 
 def runPytest(pDockerImage, gpu, extraDeps) {
@@ -98,33 +99,24 @@ def runPytest(pDockerImage, gpu, extraDeps) {
 
     def name = "$pDockerImage: gpu=$gpu; extraDeps=$extraDeps"
 
-    runWithChecks(
-        name: name,
-        title: name,
-        summary: name,
-    ) {
-        def builtJob = build(
-            job: jenkinsShellJobName,
-            parameters: [
-                string(name: 'P_CLOUD', value: pCloud),
-                string(name: 'P_GIT_REPO', value: gitUrl),
-                string(name: 'P_GIT_COMMIT', value: gitCommit),
-                string(name: 'P_DOCKER_IMAGE', value: pDockerImage),
-                string(name: 'P_CPU_LIMIT', value: cpuLimit),
-                string(name: 'P_MEM_LIMIT', value: memLimit),
-                string(name: 'P_TIMEOUT', value: pTimeout),
-                string(name: 'P_N_GPUS', value: nGpus),
-                string(name: 'P_EPHEMERAL_STORAGE_LIMIT', value: '4Gi'),
-                text(name: 'P_COMMAND', value: "./.ci/test.sh '$extraDeps' '$markers'"),
-                string(name: 'P_ARTIFACTS_GLOB', value: artifactsGlob),
-                string(name: 'P_JUNIT_GLOB', value: junitGlob),
-                string(name: 'P_COVERAGE_GLOB', value: coverageGlob),
-            ]
-        )
-        echo "${title} Job URL: ${builtJob.absoluteUrl}"
-
-        builds << builtJob
-    }
+    trackBuild(
+        job: jenkinsShellJobName,
+        parameters: [
+            string(name: 'P_CLOUD', value: pCloud),
+            string(name: 'P_GIT_REPO', value: gitUrl),
+            string(name: 'P_GIT_COMMIT', value: gitCommit),
+            string(name: 'P_DOCKER_IMAGE', value: pDockerImage),
+            string(name: 'P_CPU_LIMIT', value: cpuLimit),
+            string(name: 'P_MEM_LIMIT', value: memLimit),
+            string(name: 'P_TIMEOUT', value: pTimeout),
+            string(name: 'P_N_GPUS', value: nGpus),
+            string(name: 'P_EPHEMERAL_STORAGE_LIMIT', value: '4Gi'),
+            text(name: 'P_COMMAND', value: "./.ci/test.sh '$extraDeps' '$markers'"),
+            string(name: 'P_ARTIFACTS_GLOB', value: artifactsGlob),
+            string(name: 'P_JUNIT_GLOB', value: junitGlob),
+            string(name: 'P_COVERAGE_GLOB', value: coverageGlob),
+        ]
+    )
 }
 
 stage('Prepare') {
@@ -146,7 +138,6 @@ stage('Prepare') {
 
         def jenkinsfileWorkspace = cloneJenkinsfilesRepo()
 
-        runWithChecks = load "$jenkinsfileWorkspace/utils/runWithChecks.groovy"
         expandDockerMatrix = load "$jenkinsfileWorkspace/utils/expandDockerMatrix.groovy"
         def getDockerBuildMatrix = load "$jenkinsfileWorkspace/utils/getDockerBuildMatrix.groovy"
 
@@ -225,28 +216,20 @@ stage('Build') {
         // if the dependencies changed
         jobs << [
             'Conda': { ->
-                runWithChecks(
-                    name: 'conda',
-                    title: 'Conda build and test',
-                    summary: 'Conda build and test of Composer',
-                ) {
-                    def builtJob = build(
-                        job: jenkinsShellJobName,
-                        parameters: [
-                            string(name: 'P_CLOUD', value: pCloud),
-                            string(name: 'P_GIT_REPO', value: gitUrl),
-                            string(name: 'P_GIT_COMMIT', value: gitCommit),
-                            string(name: 'P_EPHEMERAL_STORAGE_LIMIT', value: '4Gi'),
-                            string(name: 'P_DOCKER_IMAGE', value: condaBuilderImage),
-                            string(name: 'P_TIMEOUT', value: pTimeout),
-                            string(name: 'P_CPU_LIMIT', value: "2"),
-                            string(name: 'P_MEM_LIMIT', value: "7Gi"),
-                            string(name: 'P_COMMAND', value: "./.ci/build_conda.sh")
-                        ]
-                    )
-                    echo "Conda Job URL: ${builtJob.absoluteUrl}"
-                    builds << builtJob
-                }
+                trackBuild(
+                    job: jenkinsShellJobName,
+                    parameters: [
+                        string(name: 'P_CLOUD', value: pCloud),
+                        string(name: 'P_GIT_REPO', value: gitUrl),
+                        string(name: 'P_GIT_COMMIT', value: gitCommit),
+                        string(name: 'P_EPHEMERAL_STORAGE_LIMIT', value: '4Gi'),
+                        string(name: 'P_DOCKER_IMAGE', value: condaBuilderImage),
+                        string(name: 'P_TIMEOUT', value: pTimeout),
+                        string(name: 'P_CPU_LIMIT', value: "2"),
+                        string(name: 'P_MEM_LIMIT', value: "7Gi"),
+                        string(name: 'P_COMMAND', value: "./.ci/build_conda.sh")
+                    ]
+                )
             }
         ]
     }
