@@ -108,7 +108,7 @@ class BERTModel(ComposerTransformer):
 
         Args:
             batch (BatchDict): a dictionary of Dict[str, Tensor] of inputs
-                that the model expects, as found in :meth:`composer.models.transformer_shared.ComposerTransformer.get_model_inputs`.
+                that the model expects, as found in :meth:`.ComposerTransformer.get_model_inputs`.
 
         Returns:
             A tuple of (Tensor, Tensor): with the output from the forward pass and the correct labels.
