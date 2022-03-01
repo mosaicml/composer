@@ -30,7 +30,7 @@
     <a href="https://join.slack.com/t/mosaicml-community/shared_invite/zt-w0tiddn9-WGTlRpfjcO9J5jyrMub1dg">
         <img alt="Chat @ Slack" src="https://img.shields.io/badge/slack-chat-2eb67d.svg?logo=slack">
     </a>
-    <a href="https://join.slack.com/t/mosaicml-community/shared_invite/zt-w0tiddn9-WGTlRpfjcO9J5jyrMub1dg">
+    <a href="https://github.com/mosaicml/composer/blob/dev/LICENSE">
         <img alt="License" src="https://img.shields.io/badge/License-Apache%202.0-green.svg?logo=slack">
     </a>
 </p>
@@ -40,8 +40,8 @@
 <p align="center">Composer provides well-engineered implementations of efficient training methods to give the tools that help you train <b>a better model for cheaper</b>.</p>
 
 <p align="center">
-<img src="docs/images/cost_graph_light.svg#gh-light-mode-only" width="80%"/>
-<img src="docs/images/cost_graph_dark.svg#gh-dark-mode-only" width="80%"/>
+<img src="docs/images/cost_graph_light.svg#gh-light-mode-only" width="100%"/>
+<img src="docs/images/cost_graph_dark.svg#gh-dark-mode-only" width="100%"/>
 </p>
 
 Using Composer, you can:
