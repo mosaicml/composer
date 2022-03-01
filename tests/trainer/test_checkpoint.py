@@ -320,7 +320,7 @@ def test_checkpoint(
                 pytest.skip(
                     textwrap.dedent(f"""\
                         Skipping test since deterministic mode is required for
-                        non-trivial models, but deterministic mode isn't compatible with deepsped
+                        non-trivial models, but deterministic mode isn't compatible with deepspeed
                         zero stage {zero_stage}"""))
         composer_trainer_hparams.deepspeed = {"zero_stage": zero_stage}
 
