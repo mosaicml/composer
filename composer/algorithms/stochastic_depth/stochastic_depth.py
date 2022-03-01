@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import functools
 import logging
-from typing import Optional, Type
+from typing import Optional, Type, Union
 
 import torch
 from torchvision.models.resnet import Bottleneck
@@ -12,6 +12,7 @@ from torchvision.models.resnet import Bottleneck
 from composer.algorithms.stochastic_depth.sample_stochastic_layers import SampleStochasticBottleneck
 from composer.algorithms.stochastic_depth.stochastic_layers import StochasticBottleneck
 from composer.core import Algorithm, Event, Logger, State
+from composer.core.time import Time, TimeUnit
 from composer.core.types import Optimizers
 from composer.utils import module_surgery
 
@@ -145,9 +146,9 @@ class StochasticDepth(Algorithm):
             ``"uniform"`` assigns the same ``drop_rate`` across all layers.
             ``"linear"`` linearly increases the drop rate across layer depth
             starting with 0 drop rate and ending with ``drop_rate``.
-        drop_warmup (float, optional): Percentage of training epochs to linearly
-            increase the drop probability to `linear_drop_rate`. Must be between
-            0.0 and 1.0.
+        drop_warmup (str | Time | float, optional): A :class:`Time` object, time-string, or float
+            on [0.0; 1.0] representing the fraction of the training duration to linearly
+            increase the drop probability to `linear_drop_rate`. (default: ``0.0``)
         use_same_gpu_seed (bool, optional): Set to ``True`` to have the same layers dropped
             across GPUs when using multi-GPU training. Set to ``False`` to
             have each GPU drop a different set of layers. Only used
@@ -159,7 +160,7 @@ class StochasticDepth(Algorithm):
                  stochastic_method: str = 'block',
                  drop_rate: float = 0.2,
                  drop_distribution: str = 'linear',
-                 drop_warmup: float = 0.0,
+                 drop_warmup: Union[float, Time, str] = 0.0,
                  use_same_gpu_seed: bool = True):
 
         if drop_rate == 0.0:
@@ -172,13 +173,17 @@ class StochasticDepth(Algorithm):
         self.stochastic_method = stochastic_method
         self.drop_rate = drop_rate
         self.drop_distribution = drop_distribution
+        if isinstance(drop_warmup, str):
+            drop_warmup = Time.from_timestring(drop_warmup)
+        if isinstance(drop_warmup, float):
+            drop_warmup = Time(drop_warmup, TimeUnit.DURATION)
         self.drop_warmup = drop_warmup
         self.use_same_gpu_seed = use_same_gpu_seed
         _validate_stochastic_hparams(stochastic_method=self.stochastic_method,
                                      target_layer_name=self.target_layer_name,
                                      drop_rate=self.drop_rate,
                                      drop_distribution=self.drop_distribution,
-                                     drop_warmup=self.drop_warmup)
+                                     drop_warmup=str(self.drop_warmup))
 
     @property
     def find_unused_parameters(self) -> bool:
@@ -225,9 +230,8 @@ class StochasticDepth(Algorithm):
             logger.metric_epoch({'stochastic_depth/num_stochastic_layers': num_stochastic_layers})
 
         elif event == Event.BATCH_START:
-            drop_warmup_iters = state.steps_per_epoch * state.max_epochs * self.drop_warmup
-            if state.step < drop_warmup_iters:
-                current_drop_rate = (state.step / drop_warmup_iters) * self.drop_rate
+            if state.get_elapsed_duration() < self.drop_warmup:
+                current_drop_rate = float(state.get_elapsed_duration() / self.drop_warmup) * self.drop_rate
                 _update_drop_rate(state.model, stochastic_layer, current_drop_rate, self.drop_distribution)
             else:
                 current_drop_rate = self.drop_rate
@@ -238,7 +242,7 @@ def _validate_stochastic_hparams(target_layer_name: str,
                                  stochastic_method: str,
                                  drop_rate: float,
                                  drop_distribution: str,
-                                 drop_warmup: float = 0.0):
+                                 drop_warmup: str = "0dur"):
     """Helper function to validate the Stochastic Depth hyperparameter values."""
 
     if stochastic_method and (stochastic_method not in _STOCHASTIC_LAYER_MAPPING):
@@ -256,10 +260,7 @@ def _validate_stochastic_hparams(target_layer_name: str,
         raise ValueError(f"drop_distribution '{drop_distribution}' is"
                          f" not supported. Must be one of {list(_VALID_LAYER_DISTRIBUTIONS)}")
 
-    if drop_warmup and (drop_warmup < 0 or drop_warmup > 1):
-        raise ValueError(f"drop_warmup must be between 0 and 1, not {drop_warmup}")
-
-    if stochastic_method == "sample" and drop_warmup > 0:
+    if stochastic_method == "sample" and Time.from_timestring(drop_warmup).value != 0:
         raise ValueError(f"drop_warmup can not be used with 'sample' stochastic_method")
 
 

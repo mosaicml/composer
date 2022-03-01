@@ -1,5 +1,6 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
+import textwrap
 from dataclasses import asdict, dataclass
 from typing import Optional
 
@@ -317,8 +318,10 @@ class StochasticDepthHparams(AlgorithmHparams):
         default='linear')
     use_same_gpu_seed: bool = hp.optional(
         'Whether or not to drop the same blocks across GPUs. Only used with "block" method.', default=True)
-    drop_warmup: float = hp.optional(
-        'Percentage of training to warmup `drop_rate`. Only use with "block" stochastic method.', default=0.0)
+    drop_warmup: str = hp.optional(textwrap.dedent("""\
+            Time string to represent the amount of training to warmup the `drop_rate`.
+            Only use with "block" stochastic method."""),
+                                   default="0dur")
 
     def initialize_object(self) -> StochasticDepth:
         return StochasticDepth(**asdict(self))
