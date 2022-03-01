@@ -13,9 +13,7 @@ from PIL import Image
 
 # This function is from https://github.com/kuangliu/pytorch-ssd.
 def calc_iou_tensor(box1, box2):
-    """ Calculation of IoU based on two boxes tensor,
-        Reference to https://github.com/kuangliu/pytorch-ssd
-    """
+    """Calculation of IoU based on two boxes tensor, Reference to https://github.com/kuangliu/pytorch-ssd."""
     N = box1.size(0)
     M = box2.size(0)
 
