@@ -57,7 +57,7 @@ install_requires = [
     "apache-libcloud>=3.3.1",
     "psutil>=5.8.0",
     "wget==3.2",
-    "pycocotools@git+https://github.com/cocodataset/cocoapi#egg=pycocotools&subdirectory=PythonAPI",`
+    "pycocotools@git+https://github.com/cocodataset/cocoapi#egg=pycocotools&subdirectory=PythonAPI",
 ]
 extra_deps = {}
 
@@ -78,7 +78,6 @@ extra_deps['dev'] = [
     'jupyter>=1.0.0',
     'yamllint>=1.26.2',
     'pytest-timeout>=1.4.2',
-
     'pyright==1.1.224.post1',
     'recommonmark==0.7.1',
     'sphinx>=4.2.0',
