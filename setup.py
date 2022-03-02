@@ -94,7 +94,7 @@ extra_deps['dev'] = [
     'docformatter>=1.4',
     'sphinx_panels==0.6.0',
     'Cython>=0.29',
-    'pycocotools==2.0',
+    'pycocotools==2.0.0',
 ]
 
 extra_deps["deepspeed"] = [
