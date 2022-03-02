@@ -402,7 +402,7 @@ html_context = {'metadata': get_algorithms_metadata()}
 #   we'll apply this patch inside of the add_directive_header method.
 # From https://stackoverflow.com/questions/46279030/how-can-i-prevent-sphinx-from-listing-object-as-a-base-class
 add_line = ClassDocumenter.add_line
-line_to_delete = _(u'Bases: %s') % u':class:`object`'
+line_to_delete = _('Bases: %s') % u':py:class:`object`'
 
 def add_line_no_object_base(self, text, *args, **kwargs):
     if text.strip() == line_to_delete:
