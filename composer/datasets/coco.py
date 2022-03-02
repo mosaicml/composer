@@ -21,7 +21,7 @@ from composer.utils import dist
 
 @dataclass
 class COCODatasetHparams(DatasetHparams):
-    """Defines an instance of.
+    """Defines an instance of COCO Dataset.
 
     Parameters:
         is_train (bool): Whether to load the training or validation dataset.

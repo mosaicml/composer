@@ -1,14 +1,14 @@
 train_dataset:
   coco:
     is_train: true
-    datadir: /localdisk/coco
+    datadir: /datasets/coco
     download: false
     shuffle: false
     drop_last: false
 val_dataset:
   coco:
     is_train: false
-    datadir: /localdisk/coco
+    datadir: /datasets/coco
     download: false
     shuffle: false
     drop_last: false
@@ -23,7 +23,7 @@ model:
     overlap_threshold: 0.5
     nms_max_detections: 200
     initializers: {}
-    data: /localdisk/coco
+    data: /datasets/coco
 schedulers:
   - multistep_with_warmup:
       warmup_time: "3ep"
