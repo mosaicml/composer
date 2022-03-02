@@ -295,9 +295,11 @@ def test_checkpoint(
 
     configure_model_for_synthetic(composer_trainer_hparams.model)
 
+    assert isinstance(composer_trainer_hparams.train_dataset, DatasetHparams) 
     configure_dataset_for_synthetic(composer_trainer_hparams.train_dataset, composer_trainer_hparams.model)
     composer_trainer_hparams.train_dataset.shuffle = False
 
+    assert isinstance(composer_trainer_hparams.val_dataset, DatasetHparams) 
     configure_dataset_for_synthetic(composer_trainer_hparams.val_dataset, composer_trainer_hparams.model)
     composer_trainer_hparams.val_dataset.shuffle = False
 

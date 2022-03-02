@@ -85,6 +85,7 @@ class LMDatasetHparams(DatasetHparams, SyntheticHparamsMixin):
                 if using pip or `conda install -c conda-forge datasets transformers` if using Anaconda.""")) from e
 
         self.validate()
+        assert self.tokenizer_name is not None
         if self.use_synthetic:
             column_names = ["text"]
 

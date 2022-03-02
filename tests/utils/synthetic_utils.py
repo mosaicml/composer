@@ -7,7 +7,7 @@ from composer.datasets.synthetic import generate_synthetic_tokenizer
 from composer.models import DeepLabV3Hparams, ModelHparams, TransformerHparams
 
 
-def configure_dataset_for_synthetic(dataset_hparams: DatasetHparams, model_hparams: ModelHparams = None) -> None:
+def configure_dataset_for_synthetic(dataset_hparams: DatasetHparams, model_hparams: ModelHparams) -> None:
     if not isinstance(dataset_hparams, SyntheticHparamsMixin):
         pytest.xfail(f"{dataset_hparams.__class__.__name__} does not support synthetic data or num_total_batches")
 
