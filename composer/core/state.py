@@ -81,7 +81,7 @@ class State(Serializable):
         precision_context ((precision: Precision) -> ContextManager): Function to produce a context manager to mandate precision.
 
         optimizers (types.Optimizers, optional): The optimizers being used to train the model. Multiple optimizers are not currently supported.
-        schedulers (types.PytorchScheduler, optional): The learning rate schedulers.
+        schedulers (PyTorchScheduler, optional): The learning rate scheduler (can also be a list or tuple of schedulers).
         scaler (torch.cuda.amp.GradScaler, optional): The gradient scaler in use for mixed precision training.
 
         algorithms (Sequence[Algorithm]): The algorithms used for training.
@@ -108,7 +108,7 @@ class State(Serializable):
     batch_num_tokens: int
     loss: types.Tensors
     outputs: types.Tensors
-    _schedulers: List[types.PytorchScheduler]
+    _schedulers: List[types.PyTorchScheduler]
 
     # These attributes will be serialized using .state_dict(), and loaded with .load_state_dict()
     # All other attributes will not be serialized.
@@ -212,7 +212,7 @@ class State(Serializable):
         return self._schedulers
 
     @schedulers.setter
-    def schedulers(self, schedulers: types.PytorchScheduler):
+    def schedulers(self, schedulers: types.PyTorchScheduler):
         self._schedulers[:] = ensure_tuple(schedulers)
 
     @property

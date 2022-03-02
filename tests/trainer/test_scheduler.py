@@ -1,16 +1,19 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
-from typing import List, cast
+import contextlib
+from typing import List, Optional, Type, cast
 
 import pytest
 
 from composer.core import State, Time
 from composer.core.time import TimeUnit
 from composer.core.types import DataLoader, Model
+from composer.models.base import ComposerModel
 from composer.optim.scheduler import (ComposerScheduler, CosineAnnealingScheduler, CosineAnnealingWarmRestartsScheduler,
                                       CosineAnnealingWithWarmupScheduler, ExponentialScheduler, LinearScheduler,
                                       LinearWithWarmupScheduler, MultiStepScheduler, MultiStepWithWarmupScheduler,
                                       PolynomialScheduler, StepScheduler)
+from composer.trainer.trainer import Trainer
 
 MAX_DURATION = '1000ep'
 STEPS_PER_EPOCH = 1000
@@ -81,8 +84,8 @@ def dummy_schedulers_state(dummy_model: Model, dummy_train_dataloader: DataLoade
     pytest.param(CosineAnnealingWithWarmupScheduler(warmup_time='0.9dur', min_factor=0.5), 0.01,
                  ['0ba', '4500ba', '9000ba', '9333ba', '9500ba', '10000ba'], [0.0, 0.5, 1.0, 0.875, 0.75, 0.5]),
 ])
-def test_schedulers(scheduler: ComposerScheduler, ssr: float, test_times: List[str], expected_lrs: List[float],
-                    dummy_schedulers_state: State):
+def test_scheduler_init(scheduler: ComposerScheduler, ssr: float, test_times: List[str], expected_lrs: List[float],
+                        dummy_schedulers_state: State):
 
     state = dummy_schedulers_state
     state._max_duration = Time(value=int(state.max_duration.value * ssr), unit=state.max_duration.unit)
@@ -91,10 +94,33 @@ def test_schedulers(scheduler: ComposerScheduler, ssr: float, test_times: List[s
         assert parsed_time.unit in [TimeUnit.EPOCH, TimeUnit.BATCH]
         if parsed_time.unit == TimeUnit.EPOCH:
             state.timer._epoch = parsed_time
-            state.timer._batch = Time(int(state.steps_per_epoch * state.timer._epoch.value * ssr), TimeUnit.BATCH)
+            state.timer._batch = Time(int(state.steps_per_epoch * state.timer._epoch.value), TimeUnit.BATCH)
         else:
             state.timer._batch = parsed_time
-            state.timer._epoch = Time(int(state.timer._batch.value * ssr / state.steps_per_epoch), TimeUnit.EPOCH)
+            state.timer._epoch = Time(int(state.timer._batch.value / state.steps_per_epoch), TimeUnit.EPOCH)
 
         lr = scheduler(state, ssr)
         assert lr == pytest.approx(expected_lr, abs=1e-3)
+
+
+@pytest.mark.parametrize(
+    "scheduler,ssr,should_raise",
+    [
+        (StepScheduler(step_size='10ba'), 1.0, None),
+        (StepScheduler(step_size='0.002dur', gamma=0.8), 0.5, None),
+        (lambda state, ssr=1.0: 0.01 * ssr, 1.5, None),  # lambda's are also allowed as a ComposerScheduler
+        (lambda state: 0.01, 1.0, None),  # if the ssr = 1.0, then the lambda need not take the ssr parameter
+        (lambda state: 0.01, 1.5,
+         ValueError),  # this should error since the ssr != 1.0 and the lambda doesn't support ssr
+    ])
+def test_scheduler_trains(scheduler: ComposerScheduler, ssr: float, dummy_model: ComposerModel,
+                          dummy_train_dataloader: DataLoader, should_raise: Optional[Type[Exception]]):
+    with pytest.raises(should_raise) if should_raise is not None else contextlib.nullcontext():
+        trainer = Trainer(
+            model=dummy_model,
+            train_dataloader=dummy_train_dataloader,
+            max_duration='2ep',
+            scale_schedule_ratio=ssr,
+            schedulers=scheduler,
+        )
+        trainer.fit()

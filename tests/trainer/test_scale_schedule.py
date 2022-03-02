@@ -9,7 +9,7 @@ from torch.optim.lr_scheduler import ExponentialLR
 
 from composer.algorithms import ScaleScheduleHparams
 from composer.core.time import TimeUnit
-from composer.core.types import Optimizer, PytorchScheduler
+from composer.core.types import Optimizer, PyTorchScheduler
 from composer.optim.optimizer_hparams import SGDHparams
 from composer.optim.scheduler import MultiStepLRHparams
 from composer.trainer import TrainerHparams
@@ -30,7 +30,7 @@ def flatten(lst: list):
 class TestScaleSchedule():
 
     @staticmethod
-    def _test(targets: List[float], scheduler: PytorchScheduler, epochs: int, optimizer: Optimizer, ssr: float):
+    def _test(targets: List[float], scheduler: PyTorchScheduler, epochs: int, optimizer: Optimizer, ssr: float):
         scale_pytorch_scheduler(scheduler, ssr)
         for epoch in range(epochs):
             for param_group in optimizer.param_groups:

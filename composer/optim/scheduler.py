@@ -1,5 +1,6 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
+import inspect
 import logging
 import math
 import textwrap
@@ -70,8 +71,21 @@ def compile_composer_scheduler(scheduler: ComposerScheduler, state: State, ssr: 
         raise NotImplementedError("Providing functional schedulers is unsupported with multiple optimizers.")
     optimizer = optimizers[0]
 
+    scheduler_sig = inspect.signature(scheduler)
+
     def scheduler_fn(epoch: int) -> float:
         del epoch  # unused. Provided by the pytorch LambdaLR
+
+        # if the ssr is 1.0, don't pass it to the scheduler. This allows users to pass in lambdas that only take
+        # one parameter -- the state
+        if len(scheduler_sig.parameters) == 1:
+            if ssr == 1.0:
+                return scheduler(state)
+            else:
+                raise ValueError(
+                    textwrap.dedent(f"""\
+                    Scheduler {scheduler} does not support `scale_schedule_ratio`.
+                    To use `scale_schedule_ratio`, the scheduler must take two arguments (state, ssr)"""))
         return scheduler(state, ssr)
 
     lambda_scheduler = LambdaLR(optimizer, scheduler_fn)
@@ -79,7 +93,7 @@ def compile_composer_scheduler(scheduler: ComposerScheduler, state: State, ssr: 
     return lambda_scheduler
 
 
-class StepScheduler:
+class StepScheduler(ComposerScheduler):
     r"""Decays the learning rate discretely at fixed intervals.
     
     Args:
@@ -99,7 +113,7 @@ class StepScheduler:
         return self.gamma**steps
 
 
-class MultiStepScheduler:
+class MultiStepScheduler(ComposerScheduler):
     r"""Decays the learning rate discretely at fixed milestones.
     
     Args:
@@ -122,7 +136,28 @@ class MultiStepScheduler:
         return factor
 
 
-class LinearScheduler:
+class ConstantScheduler(ComposerScheduler):
+    r"""Maintains a fixed learning rate.
+    
+    Args:
+        factor (float): Factor. Default = ``1.0``.
+        total_time (str or Time): Total time. Default = ``'1dur'``.
+    """
+
+    def __init__(self, factor: float = 1.0, total_time: Union[str, Time] = '1dur') -> None:
+        self.factor = factor
+        self.total_time = total_time
+
+    def __call__(self, state: State, ssr: float = 1.0) -> float:
+        total_time = _convert_time(self.total_time, state, ssr=ssr)
+
+        if state.timer < total_time:
+            return self.factor
+
+        return 1.0
+
+
+class LinearScheduler(ComposerScheduler):
     r"""Adjusts the learning rate linearly.
     
     Args:
@@ -146,7 +181,7 @@ class LinearScheduler:
         return current_factor
 
 
-class ExponentialScheduler:
+class ExponentialScheduler(ComposerScheduler):
     """Decays the learning rate exponentially.
 
     Args:
@@ -158,11 +193,11 @@ class ExponentialScheduler:
 
     def __init__(self, gamma: float, decay_period: Union[str, Time] = '1ep'):
         self.gamma = gamma
-        self.decay_period = Time.from_timestring(decay_period) if isinstance(decay_period, str) else decay_period
+        self.decay_period = decay_period
 
     def __call__(self, state: State, ssr: float = 1.0):
         decay_period = _convert_time(self.decay_period, state, ssr)
-        current_time_in_decay_units = state.timer.get(decay_period.unit) / ssr
+        current_time_in_decay_units = state.timer.get(decay_period.unit)
 
         return self.gamma**float(current_time_in_decay_units / decay_period)
 
@@ -178,7 +213,7 @@ def _cosine_anneal(x: float, min_y: float = 0.0, max_y: float = 1.0) -> float:
     return min_y + (max_y - min_y) * (1 + math.cos(x * math.pi)) / 2
 
 
-class CosineAnnealingScheduler:
+class CosineAnnealingScheduler(ComposerScheduler):
     """Decays the learning rate according to the decreasing part of a cosine curve.
 
     Args:
@@ -198,7 +233,7 @@ class CosineAnnealingScheduler:
         return _cosine_anneal(x=frac_of_total, min_y=self.min_factor)
 
 
-class CosineAnnealingWarmRestartsScheduler:
+class CosineAnnealingWarmRestartsScheduler(ComposerScheduler):
     """Cyclically decays the learning rate according to the decreasing part of a cosine curve.
 
     Args:
@@ -231,7 +266,7 @@ class CosineAnnealingWarmRestartsScheduler:
         return _cosine_anneal(x=frac_of_current_interval, min_y=self.min_factor)
 
 
-class PolynomialScheduler:
+class PolynomialScheduler(ComposerScheduler):
     """Sets the learning rate to be exponentially proportional to the percentage of training time left.
 
     Args:
@@ -255,7 +290,7 @@ class PolynomialScheduler:
         return current_factor
 
 
-class MultiStepWithWarmupScheduler:
+class MultiStepWithWarmupScheduler(ComposerScheduler):
     """Decays the learning rate discretely at fixed milestones, with a linear warmup.
 
     Args:
@@ -282,13 +317,12 @@ class MultiStepWithWarmupScheduler:
                 same unit as the trainer's max_duration parameter."""))
 
         if state.timer < warmup_time:
-            # N.B. warmup time is intentionally *not* subject to scale schedule
             return self.warmup_scheduler(state)
 
         return self.step_scheduler(state, ssr)
 
 
-class LinearWithWarmupScheduler:
+class LinearWithWarmupScheduler(ComposerScheduler):
     """Adjusts the learning rate linearly, with a linear warmup.
 
     Args:
@@ -331,14 +365,7 @@ class LinearWithWarmupScheduler:
         return current_factor
 
 
-class CosineAnnealingWithWarmupScheduler:
-
-    def __init__(self, warmup_time: Union[str, Time], t_max: Union[str, Time] = '1dur', min_factor: float = 0.0):
-        self.warmup_time = warmup_time
-        self.t_max = t_max
-        self.min_factor = min_factor
-        self.warmup_scheduler = LinearScheduler(start_factor=0.0, end_factor=1.0, total_time=warmup_time)
-
+class CosineAnnealingWithWarmupScheduler(ComposerScheduler):
     r"""Decays the learning rate according to the decreasing part of a cosine curve, with a linear warmup.
     
     Args:
@@ -346,6 +373,12 @@ class CosineAnnealingWithWarmupScheduler:
         t_max (str or Time): Total time. Default = ``'1dur'``.
         min_factor (float): Minimum factor. Default = ``0.0``.
     """
+
+    def __init__(self, warmup_time: Union[str, Time], t_max: Union[str, Time] = '1dur', min_factor: float = 0.0):
+        self.warmup_time = warmup_time
+        self.t_max = t_max
+        self.min_factor = min_factor
+        self.warmup_scheduler = LinearScheduler(start_factor=0.0, end_factor=1.0, total_time=warmup_time)
 
     def __call__(self, state: State, ssr: float = 1.0):
         # N.B. warmup time is intentionally *not* subject to scale schedule
@@ -374,7 +407,7 @@ class SchedulerHparams(hp.Hparams, ABC):
 
     def initialize_object(self) -> ComposerScheduler:
         if self.scheduler_cls is None:
-            raise NotImplementedError(f"Cannot initialize {self} because `scheduler_function` is undefined.")
+            raise NotImplementedError(f"Cannot initialize {self} because `scheduler_cls` is undefined.")
 
         # Expected no arguments to "ComposerScheduler" constructor
         return self.scheduler_cls(**asdict(self))  # type: ignore
@@ -389,6 +422,16 @@ class PolynomialLRHparams(SchedulerHparams):
     min_factor: float = hp.optional(default=0.0, doc='Minimum learning rate.')
 
     scheduler_cls = PolynomialScheduler
+
+
+@dataclass
+class ConstantLRHparams(SchedulerHparams):
+    """Hyperparameters for the :class:`ConstantScheduler` scheduler."""
+
+    factor: float = hp.optional(default=1.0, doc='Constant learning rate factor')
+    total_time: str = hp.optional(default='1dur', doc='Total scheduler duration')
+
+    scheduler_cls = ConstantScheduler
 
 
 @dataclass

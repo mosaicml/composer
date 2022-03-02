@@ -38,6 +38,8 @@ optimizer:
     betas: [0.9, 0.999]
     eps: 0.00000001
     weight_decay: 0.0001
+schedulers:
+  - constant: {}
 train_batch_size: 64
 max_duration: 200ep
 ```
