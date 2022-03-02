@@ -21,50 +21,68 @@ __all__ = ["CutMix", "cutmix_batch"]
 
 def cutmix_batch(X: Tensor,
                  y: Tensor,
-                 n_classes: int,
+                 num_classes: int,
                  alpha: float = 1.,
-                 cutmix_lambda: Optional[float] = None,
+                 cut_proportion: Optional[float] = None,
                  bbox: Optional[Tuple] = None,
                  indices: Optional[torch.Tensor] = None) -> Tuple[torch.Tensor, torch.Tensor]:
     """Create new samples using combinations of pairs of samples.
 
-    This is done by masking a region of X, and filling the masked region with a
-    permuted copy of x. The cutmix parameter lambda should be chosen from
-    a Beta(alpha, alpha) distribution for some parameter alpha > 0. The area of
-    the masked region is determined by lambda, and so labels are interpolated accordingly.
-    Note that the same lambda is used for all examples within the batch. The original
-    paper used a fixed value of alpha = 1.
+    This is done by masking a region of ``X`` and filling the masked region with
+    the corresponding content in a permuted copy ``X``. The permutation takes
+    place along the sample axis (dim 0), so that each output image has part
+    of it replaced with content from another image.
 
-    Both the original and shuffled labels are returned. This is done because
-    for many loss functions (such as cross entropy) the targets are given as
-    indices, so interpolation must be handled separately.
+    The area of the masked region is determined by ``cut_proportion``, which
+    must be in :math:`(0, 1)` if provided. If not provided, ``cut_proportion``
+    is drawn from a :math:`Beta(alpha, alpha)` distribution for some parameter
+    ``alpha > 0``. The original paper used a fixed value of ``alpha = 1``.
 
-    Example:
-         .. testcode::
-
-            from composer.algorithms.cutmix import cutmix_batch
-            new_input_batch = cutmix_batch(
-                X=X_example,
-                y=y_example,
-                n_classes=1000,
-                alpha=1.0
-            )
+    Note that the same ``cut_proportion`` and masked region are used for all
+    examples within the batch.
 
     Args:
-        X: input tensor of shape (B, d1, d2, ..., dn), B is batch size, d1-dn
-            are feature dimensions.
-        y: target tensor of shape (B, f1, f2, ..., fm), B is batch size, f1-fn
-            are possible target dimensions.
-        n_classes: total number of classes.
-        alpha: parameter for the beta distribution of the cutmix region size.
-        cutmix_lambda: optional, fixed size of cutmix region.
-        bbox: optional, predetermined (rx1, ry1, rx2, ry2) coords of the bounding box.
-        indices: Permutation of the batch indices `1..B`. Used
-            for permuting without randomness.
+        X (torch.Tensor): input tensor of shape ``NCHW``
+        y (torch.Tensor): target tensor of either shape ``N`` or
+            ``(N, num_classes)``. In the former case, elements of ``y`` must
+            be integer class ids in the range ``0..num_classes``. In the
+            latter case, rows of ``y`` may be arbitrary vectors of targets,
+            including, e.g., one-hot encoded class labels, smoothed class
+            labels, or multi-output regression targets.
+        num_classes (int): total number of classes or output variables
+        alpha (float, optional): parameter for the beta distribution of the
+            ``cut_proportion``.
+        cut_proportion (float, optional): relative area of cutmix region
+            compared to the original size. Must be in the interval :math:`(0, 1)`.
+        bbox (Tuple, optional): predetermined ``(rx1, ry1, rx2, ry2)``
+            coordinates of the bounding box.
+        indices: Permutation of the batch indices ``1..B``. Used for permuting
+            without randomness.
 
     Returns:
-        X_cutmix: batch of inputs after cutmix has been applied.
-        y_cutmix: labels after cutmix has been applied.
+        X_mixed: batch of inputs after cutmix has been applied.
+        y_mixed: soft labels for mixed input samples. These are a convex
+            combination of the (possibly one-hot-encoded) labels from the
+            original samples and the samples chosen to fill the masked
+            regions, with the relative weighting equal to ``cut_proportion``.
+            E.g., if a sample was originally an image with label ``0`` and
+            40% of the image of was replaced with data from an image with label
+            ``2``, the resulting labels, assuming only three classes, would be
+            ``[1, 0, 0] * 0.6 + [0, 0, 1] * 0.4 = [0.6, 0, 0.4]``.
+
+    Example:
+        .. testcode::
+
+            import torch
+            from composer.algorithms.cutmix import cutmix_batch
+
+            N, C, H, W = 2, 3, 4, 5
+            num_classes = 10
+            X = torch.randn(N, C, H, W)
+            y = torch.randint(num_classes, size=(N,))
+            X_mixed, y_mixed = cutmix_batch(
+                X, y, num_classes=num_classes, alpha=0.2)
+
     """
     # Create shuffled indicies across the batch in preparation for cutting and mixing.
     # Use given indices if there are any.
@@ -76,19 +94,19 @@ def cutmix_batch(X: Tensor,
     # Create the new inputs.
     X_cutmix = torch.clone(X)
     # Sample a rectangular box using lambda. Use variable names from the paper.
-    if cutmix_lambda is None:
-        cutmix_lambda = _gen_cutmix_lambda(alpha)
+    if cut_proportion is None:
+        cut_proportion = _gen_cutmix_coef(alpha)
     if bbox:
         rx, ry, rw, rh = bbox[0], bbox[1], bbox[2], bbox[3]
     else:
-        rx, ry, rw, rh = _rand_bbox(X.shape[2], X.shape[3], cutmix_lambda)
+        rx, ry, rw, rh = _rand_bbox(X.shape[2], X.shape[3], cut_proportion)
         bbox = (rx, ry, rw, rh)
 
     # Fill in the box with a part of a random image.
     X_cutmix[:, :, rx:rw, ry:rh] = X_cutmix[shuffled_idx, :, rx:rw, ry:rh]
     # adjust lambda to exactly match pixel ratio. This is an implementation detail taken from
     # the original implementation, and implies lambda is not actually beta distributed.
-    adjusted_lambda = _adjust_lambda(cutmix_lambda, X, bbox)
+    adjusted_lambda = _adjust_lambda(cut_proportion, X, bbox)
 
     # Make a shuffled version of y for interpolation
     y_shuffled = y[shuffled_idx]
@@ -96,8 +114,8 @@ def cutmix_batch(X: Tensor,
     # First check if labels are indices. If so, convert them to onehots.
     # This is under the assumption that the loss expects torch.LongTensor, which is true for pytorch cross_entropy
     if check_for_index_targets(y):
-        y_onehot = F.one_hot(y, num_classes=n_classes)
-        y_shuffled_onehot = F.one_hot(y_shuffled, num_classes=n_classes)
+        y_onehot = F.one_hot(y, num_classes=num_classes)
+        y_shuffled_onehot = F.one_hot(y_shuffled, num_classes=num_classes)
         y_cutmix = adjusted_lambda * y_onehot + (1 - adjusted_lambda) * y_shuffled_onehot
     else:
         y_cutmix = adjusted_lambda * y + (1 - adjusted_lambda) * y_shuffled
@@ -196,16 +214,16 @@ class CutMix(Algorithm):
         alpha = self.alpha
 
         self.indices = _gen_indices(input)
-        self.cutmix_lambda = _gen_cutmix_lambda(alpha)
+        self.cutmix_lambda = _gen_cutmix_coef(alpha)
         self.bbox = _rand_bbox(input.shape[2], input.shape[3], self.cutmix_lambda)
         self.cutmix_lambda = _adjust_lambda(self.cutmix_lambda, input, self.bbox)
 
         new_input, new_target = cutmix_batch(
             X=input,
             y=target,
-            n_classes=self.num_classes,
+            num_classes=self.num_classes,
             alpha=alpha,
-            cutmix_lambda=self.cutmix_lambda,
+            cut_proportion=self.cutmix_lambda,
             bbox=self.bbox,
             indices=self.indices,
         )
@@ -226,7 +244,7 @@ def _gen_indices(x: Tensor) -> Tensor:
     return torch.randperm(x.shape[0])
 
 
-def _gen_cutmix_lambda(alpha: float) -> float:
+def _gen_cutmix_coef(alpha: float) -> float:
     """Generates lambda from ``Beta(alpha, alpha)``
 
     Args:
