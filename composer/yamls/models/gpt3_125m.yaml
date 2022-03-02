@@ -1,0 +1,86 @@
+train_dataset:
+  c4:
+    split: train
+    max_samples: 3584000 # Compute-optimal 7.3e9 tok ~= 256[bs] * 14000[ba] * 2048[msl] = 3584000[sa] * 2048[msl]
+    max_seq_len: 2048
+    tokenizer_name: gpt2
+    group_method: concat
+    seed: 17
+    shuffle: true
+    drop_last: true
+val_dataset:
+  c4:
+    split: validation
+    max_samples: 102400 # Approx 100k samples
+    max_seq_len: 2048
+    tokenizer_name: gpt2
+    group_method: concat
+    seed: 17
+    shuffle: false
+    drop_last: false
+model:
+  gpt2:
+    use_pretrained: false
+    tokenizer_name: gpt2
+    model_config:
+      activation_function: gelu_new
+      architectures:
+        - GPT2LMHeadModel
+      attn_pdrop: 0.0
+      bos_token_id: 50256
+      embd_pdrop: 0.0
+      eos_token_id: 50256
+      initializer_range: 0.02
+      layer_norm_epsilon: 1.0e-05
+      model_type: gpt2
+      n_embd: 768
+      n_head: 12
+      n_inner: 3072
+      n_layer: 12
+      n_positions: 2048
+      resid_pdrop: 0.0
+      scale_attn_weights: true
+      summary_activation: null
+      summary_first_dropout: 0.0
+      summary_proj_to_labels: true
+      summary_type: cls_index
+      summary_use_proj: true
+      task_specific_params:
+        text-generation:
+          do_sample: true
+          max_length: 50
+      transformers_version: 4.16.2
+      use_cache: true
+      vocab_size: 50257
+optimizer:
+  decoupled_adamw:
+    lr: 6.0e-4
+    betas:
+      - 0.9
+      - 0.95
+    eps: 1.0e-08
+    weight_decay: 0.0
+schedulers:
+  - cosine_decay_with_warmup:
+      warmup_time: 0.01dur
+loggers:
+  - tqdm: {}
+max_duration: 1ep
+train_batch_size: 256 # 0.5e6 tok ~= 256[bs] * 2048[msl]
+grad_accum: 2 # 256[bs] / 8[devices] / 16[per_gpu_microbatch_size] = 2[ga], assuming 8xA100-80GB
+eval_batch_size: 128 # 128[bs] / 8[devices] = 16[per_gpu_microbatch_size], assuming 8xA100-80GB
+seed: 17
+device:
+  gpu: {}
+dataloader:
+  pin_memory: true
+  persistent_workers: true
+  num_workers: 1
+  timeout: 0
+  prefetch_factor: 2
+deepspeed:
+  zero_stage: 0
+precision: fp16
+grad_clip_norm: 1.0
+validate_every_n_batches: 1000
+validate_every_n_epochs: 1
