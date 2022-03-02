@@ -50,55 +50,73 @@ def _default_precision_factory() -> Callable[[Union[str, Precision]], ContextMan
 class State(Serializable):
     """The state of the trainer.
 
-    Contains variables that the trainer tracks throughout the training loop.
-    Note that the entire state is serialized when the trainer is checkpointed
-    so that it can be used restore the trainer and continue training from a
-    checkpoint. Algorithms are able to modify this object in-place.
+    Contains variables that the trainer tracks throughout the training loop. Note that all the necessary parts (i.e.,
+    :attr:`serialized_attributes`) of state are serialized when the trainer is checkpointed so that it can be used
+    restore the trainer and continue training from a checkpoint.  :mod:`~composer.algorithms` are able to modify an
+    instance of this class in-place.
 
 
     .. note::
 
-        To support multi-GPU training, :attr:`State.model` may be wrapped in :class:`DistributedDataParallel`,
-        and the dataloaders may be wrapped in a device-specific dataloader that handles moving tensors to device.
+        * An instance of this class is automatically constructed by the :class:`~.Trainer` constructor. A user need
+          not instantiate this class.
 
-    .. note::
+        * To support multi-GPU training, ``State.model`` may be wrapped in :class:`torch.nn.parallel.DistributedDataParallel`,
+          and the dataloaders may be wrapped in a device-specific dataloader that handles moving tensors to device.
 
-        ``Schedulers`` are wrapped in ``ComposableScheduler``, which handles stepping either stepwise or epochwise,
-        and also properly sets up learning rate warmups.
-
-
+        * :attr:`~.types.PyTorchScheduler` are wrapped in :attr:`~.ComposerScheduler`, which handles stepping either
+          stepwise or epochwise, and also properly sets up learning rate warmups.
 
     Args:
-        model (types.Model, often ComposerModel): The model, typically as a subclass of :class:`ComposerModel`.
-        grad_accum (int): The number of gradient accumulation steps to use. The size of each microbatch is ``train_batch_size / num_gpus / grad_accum``.
-        train_dataloader (types.DataLoader, types.DataSpec, or dict):
-            The :class:`types.DataLoader`, :class:`types.DataSpec`, or dict of :class:`types.DataSpec` kwargs to used for training.
-        evaluators (Evaluators):
-            The :class:`types.Evaluators` contain the evaluation datasets used for evaluation with specific metrics.
+        model (:attr:`~.types.Model`): The model, typically as a subclass of :class:`~.ComposerModel`.
+        grad_accum (int): The number of gradient accumulation steps to use. With this argument, micro batch size for
+            each device becomes ``microbatch_size = train_batch_size / (num_devices * grad_accum)``.
+        train_dataloader (types.DataLoader, DataSpec, or dict):
+            The :class:`~.types.DataLoader`, :class:`~.DataSpec`, or dict of :class:`~.DataSpec` kwargs to used for training.
+        evaluators (:attr:`~.types.Evaluators`):
+            The :attr:`~.types.Evaluators` contain the evaluation datasets used for evaluation with specific metrics.
         max_duration (str or Time): The maximum duration to train for.
-
-        precision (str | Precision): The numerical precision to use for training. Should be one of ``[fp32, amp]``.
-        precision_context ((precision: Precision) -> ContextManager): Function to produce a context manager to mandate precision.
-
-        optimizers (types.Optimizers, optional): The optimizers being used to train the model. Multiple optimizers are not currently supported.
-        schedulers (PyTorchScheduler, optional): The learning rate scheduler (can also be a list or tuple of schedulers).
+        precision (str | Precision): The numerical precision to use for training. See :class:`~.Precision` for
+            the supported precisions.
+        precision_context (Callable[[Precision], ContextManager]): Function to produce a context manager to mandate precision.
+        optimizers (:attr:`~.types.Optimizers`, optional): The optimizers being used to train the model. Multiple optimizers are not currently supported.
+        schedulers (:attr:`~.types.PyTorchScheduler` | List[:attr:`~.types.PyTorchScheduler`] | Tuple[:attr:`~.types.PyTorchScheduler`, ...], optional):
+            The learning rate scheduler (can also be a list or tuple of schedulers).
         scaler (torch.cuda.amp.GradScaler, optional): The gradient scaler in use for mixed precision training.
-
         algorithms (Sequence[Algorithm]): The algorithms used for training.
         callbacks (Sequence[Callback]): The callbacks used for training.
-
         profiler (Optional[Profiler]): The Composer profiler.
 
     Attributes:
-        batch (types.Batch): The batch. This will be the entire batch during the :attr:`Event.AFTER_DATALOADER`, or a
-            microbatch between :attr:`Event.BATCH_START` and :attr:`Event.BATCH_END`.
+        batch (:attr:`~.types.Batch`): The batch. This will be the entire batch during the :attr:`.Event.AFTER_DATALOADER`, or a
+            microbatch between :attr:`.Event.BATCH_START` and :attr:`.Event.BATCH_END`.
         batch_num_samples (int): The number of samples in the :attr:`batch`.
         batch_num_tokens (int): The number of tokens in the :attr:`batch`.
 
-        loss (types.Tensors): The most recently computed loss.
-        outputs (types.Tensors): The most recently computed output from the model's forward pass.
-        timer (types.Timer): The timer that tracks training loop progress.
-        serialized_attributes (List[str]): The list of attributes which will be serialized in a checkpoint.
+        loss (:attr:`~.types.Tensors`): The most recently computed loss.
+        outputs (:attr:`~.types.Tensors`): The most recently computed output from the model's forward pass.
+        timer (Timer): The timer that tracks training loop progress.
+        serialized_attributes (List[str]): The state of attributes in this list will be serialized in a checkpoint.
+
+            This list contains the following attributes:
+
+            +-----------------------+-------------------------------------------------------------+
+            | Attribute             | Description                                                 |
+            +=======================+=============================================================+
+            | model                 | The model under training.                                   |
+            +-----------------------+-------------------------------------------------------------+
+            | optimizers            | The optimizers being used to train the model.               |
+            +-----------------------+-------------------------------------------------------------+
+            | schedulers            | The learning rate schedulers.                               |
+            +-----------------------+-------------------------------------------------------------+
+            | algorithms            | The algorithms used for training.                           |
+            +-----------------------+-------------------------------------------------------------+
+            | callbacks             | The callbacks used for training.                            |
+            +-----------------------+-------------------------------------------------------------+
+            | scaler                | The gradient scaler in use for mixed precision training.    |
+            +-----------------------+-------------------------------------------------------------+
+            | timer                 | The timer that tracks training loop progress.               |
+            +-----------------------+-------------------------------------------------------------+
     """
 
     _max_duration: Time[int]
@@ -109,21 +127,6 @@ class State(Serializable):
     loss: types.Tensors
     outputs: types.Tensors
     _schedulers: List[types.PyTorchScheduler]
-
-    # These attributes will be serialized using .state_dict(), and loaded with .load_state_dict()
-    # All other attributes will not be serialized.
-    # For simplicity, omit the leading underscore for private attributes.
-    # For example, even though the optimizers are stored on the state
-    # as the "_optimizers" attribute, here we specify just "optimizers"
-    serialized_attributes = [
-        "model",
-        "optimizers",
-        "schedulers",
-        "algorithms",
-        "callbacks",
-        "scaler",
-        "timer",
-    ]
 
     def __init__(
             self,
@@ -178,6 +181,20 @@ class State(Serializable):
         self._callbacks = list(callbacks)
 
         self.profiler: Optional[Profiler] = None
+        # These attributes will be serialized using .state_dict(), and loaded with .load_state_dict()
+        # All other attributes will not be serialized.
+        # For simplicity, omit the leading underscore for private attributes.
+        # For example, even though the optimizers are stored on the state
+        # as the "_optimizers" attribute, here we specify just "optimizers"
+        self.serialized_attributes = [
+            "model",
+            "optimizers",
+            "schedulers",
+            "algorithms",
+            "callbacks",
+            "scaler",
+            "timer",
+        ]
 
     @property
     def max_duration(self):
@@ -195,7 +212,8 @@ class State(Serializable):
         """Get the elapsed training duration.
 
         Returns:
-            Time: The elapsed duration, in ``TimeUnit.DURATION``.
+            Time: The elapsed duration, in :attr:`TimeUnit.DURATION`. ``Time(0.0, TimeUnit.DURATION)`` represents the
+                beginning of training and ``Time(1.0, TimeUnit.DURATION)`` represents a completed training process.
         """
         return self.timer.get(self.max_duration.unit) / self.max_duration
 
@@ -257,7 +275,8 @@ class State(Serializable):
 
         Args:
             state_dict (types.StateDict): object returned from call to :meth:`state_dict`.
-            strict (bool): whether the keys in the state_dict should perfectly match the keys in the model.
+            strict (bool): whether the keys (i.e., model parameter names) in the ``state_dict["model"]`` should
+                perfectly match the keys in the ``self.model``.
         """
         if state_dict["_is_model_ddp_wrapped"] and not isinstance(self.model, DistributedDataParallel):
             torch.nn.modules.utils.consume_prefix_in_state_dict_if_present(state_dict['model'], "module.")
@@ -271,7 +290,9 @@ class State(Serializable):
         """Loads the state.
 
         Args:
-            state_dict (types.StateDict): object returned from call to :meth:`state_dict`.
+            state (types.StateDict): object returned from call to :meth:`state_dict`.
+            strict (bool): whether the keys in the ``state["model"]`` should perfectly match the keys in the
+                ``self.model``. Defaults to False.
         """
 
         for state_field_name, state_field_value in self.__dict__.items():
@@ -318,7 +339,7 @@ class State(Serializable):
     def precision(self):
         """The numerical precision to use for training.
 
-        Should be one of ``[fp32, amp]``.
+        See :class:`~.Precision` for the supported precisions.
         """
         return self._precision
 
@@ -328,19 +349,19 @@ class State(Serializable):
 
     @property
     def batch_pair(self) -> types.BatchPair:
-        """:class:`~types.BatchPair`: The current batch, represented as a :class:`~types.BatchPair`.
+        """:attr:`~.types.BatchPair`: The current batch, represented as a :attr:`~.types.BatchPair`.
 
         Raises:
-            TypeError: If the current batch is not a :class:`~types.BatchPair`.
+            TypeError: If the current batch is not a :attr:`~.types.BatchPair`.
         """
         return types.as_batch_pair(self.batch)
 
     @property
     def batch_dict(self) -> types.BatchDict:
-        """:class:`~types.BatchDict`: The current batch, represented as a :class:`~types.BatchDict`.
+        """:attr:`~.types.BatchDict`: The current batch, represented as a :attr:`~.types.BatchDict`.
 
         Raises:
-            TypeError: If the current batch is not a :class:`~types.BatchDict`.
+            TypeError: If the current batch is not a :attr:`~.types.BatchDict`.
         """
         return types.as_batch_dict(self.batch)
 
