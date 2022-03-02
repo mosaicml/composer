@@ -260,8 +260,8 @@ class TrainerHparams(hp.Hparams):
     grad_accum: Union[int, str] = hp.optional(textwrap.dedent("""\
         Determines the number of microbatches to split a per-gpu batch into,
         used to compensate for low-memory-capacity devices. If set to auto, 
-        dynamically increases number of microbatch size if train_batch_size is
-        too large for GPU. Defaults to ``1``"""),
+        dynamically increases grad_accum if microbatch size is too large for
+        GPU. Defaults to ``1``"""),
                                               default=1)
     grad_clip_norm: Optional[float] = hp.optional(
         default=None, doc='the norm to clip gradient magnitudes to. Default: None (no clip)')
@@ -455,9 +455,9 @@ class TrainerHparams(hp.Hparams):
         if self.scale_schedule_ratio <= 0:
             raise ValueError("scale_schedule_ratio must be a positive value.")
 
-        if isinstance(self.grad_accum, str) and self.grad_accum != "auto" or isinstance(self.grad_accum,
-                                                                                        int) and self.grad_accum < 1:
-            raise ValueError("grad_accum must be ``auto`` or an int greater than or equal to 1")
+        if (isinstance(self.grad_accum, str) and self.grad_accum != "auto") or (isinstance(self.grad_accum, int) and
+                                                                                self.grad_accum < 1):
+            raise ValueError('grad_accum must be "auto" or an int greater than or equal to 1')
 
     def initialize_object(self) -> Trainer:
         self.validate()

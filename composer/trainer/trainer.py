@@ -157,8 +157,8 @@ class Trainer:
         device (str or Device, optional): The device to use for training. Either ``cpu`` or ``gpu``.
             (default: ``cpu``)
         grad_accum (Union[int, str], optional): The number of microbatches to split a per-device batch into. Gradients
-            are summed over the microbatches per device. If set to ``auto``, dynamically increases number of
-            microbatch size if train_batch_size is too large for GPU. (default: ``1``)
+            are summed over the microbatches per device. If set to ``auto``, dynamically increases grad_accum
+            if microbatch is too large for GPU. (default: ``1``)
 
             .. note:: This is implemented by taking the batch yielded by the ``train_dataloader`` and splitting
                 it into ``grad_accum`` sections. Each section is of size ``train_dataloader // grad_accum``.
@@ -573,11 +573,11 @@ class Trainer:
         self.adaptive_grad_accum = isinstance(grad_accum, str) and grad_accum == "auto"
         if self.adaptive_grad_accum:
             grad_accum = 1
-            warnings.warn(
-                textwrap.dedent("""There are known issues with using adaptive gradient accumulation in conjunction
-                with algorithms which change memory, which may cause CUDA Out of Memory errors.
+            warnings.warn(textwrap.dedent("""Auto grad_accum is enabled. This is an experimental feature
+                which may cause uncaught Cuda Out of Memory errors. In this case, please manually
+                set grad_accum instead.
                 """),
-                category=UserWarning)
+                          category=UserWarning)
         # Cannot use adaptive grad accum on CPU
         if isinstance(self._device, DeviceCPU) and self.adaptive_grad_accum:
             raise ValueError("Cannot use adaptive grad_accum on CPU. Please set grad_accum >= 1")
