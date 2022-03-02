@@ -16,7 +16,7 @@ log = logging.getLogger(__name__)
 __all__ = ["ExponentialMovingAverage", "exponential_moving_average"]
 
 
-def moving_average(model: Model, ema_model: Model, alpha: float = 1):
+def exponential_moving_average(model: Model, ema_model: Model, alpha: float = 1):
     for param1, param2 in zip(ema_model.parameters(), model.parameters()):
         param1.data *= alpha
         param1.data += param2.data * (1.0 - alpha)
@@ -40,7 +40,7 @@ class ExponentialMovingAverage(Algorithm):
             self.ema_model = copy.deepcopy(state.model.module)
         if event == Event.BATCH_END:
             # Update the ema model
-            moving_average(state.model.module, self.ema_model, alpha=self.alpha)
+            exponential_moving_average(state.model.module, self.ema_model, alpha=self.alpha)
         if event == Event.EVAL_START:
             # Swap out the training model for the ema model in state
             self.training_model = state.model.module
