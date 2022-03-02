@@ -39,13 +39,12 @@ def apply_alibi(
     shorter sequence lengths; this function does not scale the training sequence length as
     :class:`~composer.algorithms.alibi.alibi.Alibi` does, so little speedup will be
     observed from using it alone. See the :doc:`Method Card </method_cards/alibi>` for
-    more details.
+    more details. This function should be called after the model is instantiated and
+    before training begins.
 
     Example:
 
     .. code-block:: python
-
-        import torch.nn.functional as F
 
         import composer.functional as cf
 

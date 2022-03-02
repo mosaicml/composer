@@ -30,15 +30,22 @@ def augmix_image(img: ImgT,
                  width: int = 3,
                  alpha: float = 1.0,
                  augmentation_set: List = augmentation_sets["all"]) -> ImgT:
-    """Applies AugMix (`Hendrycks et al, 2020 <http://arxiv.org/abs/1912.02781>`_) data augmentation to an image. See
-    :class:`~composer.algorithms.augmix.augmix.AugMix` and the :doc:`Method Card </method_cards/augmix>` for details.
+    """Applies AugMix (`Hendrycks et al, 2020 <http://arxiv.org/abs/1912.02781>`_) data
+    augmentation to a single image or batch of images. See
+    :class:`~composer.algorithms.augmix.augmix.AugMix` and the 
+    :doc:`Method Card </method_cards/augmix>` for details. This function only acts on a
+    single image (or batch) per call and is unlikely to be used in a training loop. Use
+    :class:`~composer.algorithms.augmix.augmix.AugmentAndMixTransform` to use AugMix as
+    part of a :class:`torchvision.datasets.VisionDataset`\\'s ``transform``.
 
     Example:
         .. testcode::
 
-            from composer.algorithms.augmix import augmix_image
+            import composer.functional as cf
+
             from composer.algorithms.utils import augmentation_sets
-            augmixed_image = augmix_image(
+
+            augmixed_image = cf.augmix_image(
                 img=image,
                 severity=3,
                 width=3,
@@ -104,6 +111,7 @@ class AugmentAndMixTransform(torch.nn.Module):
             import torchvision.transforms as transforms
 
             from composer.algorithms.augmix import AugmentAndMixTransform
+
             augmix_transform = AugmentAndMixTransform(
                 severity=3,
                 width=3,
@@ -169,6 +177,7 @@ class AugMix(Algorithm):
 
             from composer.algorithms import AugMix
             from composer.trainer import Trainer
+
             augmix_algorithm = AugMix(
                 severity=3,
                 width=3,
