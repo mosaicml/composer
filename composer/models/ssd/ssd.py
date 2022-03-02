@@ -79,12 +79,12 @@ class SSD(ComposerModel):
         except:
             print("No object detected")
 
-        (htot, wtot) = [d.cpu().numpy() for d in img_size] #type: ignore
+        (htot, wtot) = [d.cpu().numpy() for d in img_size]  #type: ignore
         img_id = img_id.cpu().numpy()  #type: ignore
         if len(results) > 0:
             # Iterate over batch elements
             for img_id_, wtot_, htot_, result in zip(img_id, wtot, htot, results):
-                loc, label, prob = [r.cpu().numpy() for r in result] #type: ignore
+                loc, label, prob = [r.cpu().numpy() for r in result]  #type: ignore
                 # Iterate over image detections
                 for loc_, label_, prob_ in zip(loc, label, prob):
                     ret.append([img_id_, loc_[0]*wtot_, \
