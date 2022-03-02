@@ -1178,13 +1178,8 @@ class Trainer:
 
                     self.engine.run_event(Event.EVAL_BATCH_END)
 
-                if hasattr(self.state, "epoch"):
-                    self.logger.metric_epoch({"epoch": self.state.epoch})  # type: ignore
-                if hasattr(self.state, "step"):
-                    self.logger.metric_batch({
-                        "trainer/global_step":
-                            self.state.step  # type: ignore
-                    })
+                self.logger.metric_epoch({"epoch": self.state.timer.epoch.value})
+                self.logger.metric_batch({"trainer/global_step": self.state.timer.batch.value})
 
                 self._compute_and_log_metrics(metrics, is_train=False, is_batch=is_batch, logging_label=evaluator.label)
 
