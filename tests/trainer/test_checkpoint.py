@@ -282,6 +282,8 @@ def test_checkpoint(
         composer_trainer_hparams.model = model_hparams.model
         composer_trainer_hparams.optimizer = model_hparams.optimizer
         composer_trainer_hparams.schedulers = model_hparams.schedulers
+        # to ensure that synthetic data is properly cast
+        composer_trainer_hparams.dataloader.pin_memory = True
     
     checkpoint_extension = ".pt"
     if deepspeed_enabled:

@@ -46,10 +46,8 @@ class LMDatasetHparams(DatasetHparams, SyntheticHparamsMixin):
                                          default=0.15)
     seed: int = hp.optional("Which seed to use to generate train and validation splits.", default=5)
     subsample_ratio: float = hp.optional(default=1.0, doc='If desired, the percentage of the dataset to use.')
-    train_sequence_length: int = hp.optional(
+    max_seq_length: int = hp.optional(
         default=1024, doc='Optionally, the ability to set a custom sequence length for the training dataset.')
-    val_sequence_length: int = hp.optional(
-        default=1024, doc='Optionally, the ability to set a custom sequence length for the validation dataset.')
 
     def validate(self):
         if not self.use_synthetic:
@@ -73,7 +71,7 @@ class LMDatasetHparams(DatasetHparams, SyntheticHparamsMixin):
         if self.num_tokens > 0 and self.subsample_ratio < 1.0:
             raise Exception("Must specify one of num_tokens OR subsample_ratio, cannot specify both.")
 
-        if (self.train_sequence_length % 8 != 0) or (self.val_sequence_length % 8 != 0):
+        if (self.max_seq_length % 8 != 0):
             log.warning("For best hardware acceleration, it is recommended that sequence lengths be multiples of 8.")
 
     def initialize_object(self, batch_size: int, dataloader_hparams: DataloaderHparams) -> DataSpec:
@@ -92,27 +90,23 @@ class LMDatasetHparams(DatasetHparams, SyntheticHparamsMixin):
 
             # we just use the max sequence length in tokens to upper bound the sequence length in characters
             lm_datasets = SyntheticHFDataset(num_samples=self.synthetic_num_unique_samples,
-                                             chars_per_sample=self.train_sequence_length,
+                                             chars_per_sample=self.max_seq_length,
                                              column_names=column_names).generate_dataset()
 
             self.tokenizer = generate_synthetic_tokenizer(tokenizer_family=self.tokenizer_name, dataset=lm_datasets)
 
-
-            columns_to_remove = ["idx"] + column_names 
+            columns_to_remove = ["idx"] + column_names
             lm_datasets = lm_datasets.map(lambda inp: self.tokenizer(
-                text=inp[column_names[0]
-                        ], padding="max_length", max_length=self.train_sequence_length, truncation=True),
+                text=inp[column_names[0]], padding="max_length", max_length=self.max_seq_length, truncation=True),
                                           batched=True,
                                           num_proc=1,
-                                            remove_columns=columns_to_remove,
+                                          remove_columns=columns_to_remove,
                                           keep_in_memory=True)
 
             # override sizing to able use of synthetic datasets
             self.num_tokens = 0
             self.subsample_ratio = 1.0
             lm_datasets = [{self.split: lm_datasets}]
-            import ipdb; ipdb.set_trace()
-            print("Dataset:", lm_datasets)
         else:
             self.tokenizer = transformers.AutoTokenizer.from_pretrained(self.tokenizer_name)  #type: ignore (thirdparty)
             self.config = transformers.AutoConfig.from_pretrained(self.tokenizer_name)  #type: ignore (thirdparty)
@@ -169,7 +163,6 @@ class LMDatasetHparams(DatasetHparams, SyntheticHparamsMixin):
 
         sampler = dist.get_sampler(dataset, drop_last=self.drop_last, shuffle=self.shuffle)
 
-        print("Data Collator:", data_collator)
         return DataSpec(dataloader=dataloader_hparams.initialize_object(
             dataset=dataset,
             batch_size=batch_size,

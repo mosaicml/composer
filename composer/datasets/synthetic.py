@@ -161,7 +161,6 @@ def generate_synthetic_tokenizer(tokenizer_family: str, dataset=None, vocab_size
     tmp_tokenizer_dir = mkdtemp()
     tmp_tokenizer_file = join(tmp_tokenizer_dir, "tokenizer.json")
     tokenizer.save(tmp_tokenizer_file)
-    print("Temporary directory:", tmp_tokenizer_dir)
 
     # save the vocabulary and potential merges file
     tokenizer_params.tokenizer_model.save(tmp_tokenizer_dir)  # type: ignore
@@ -173,7 +172,6 @@ def generate_synthetic_tokenizer(tokenizer_family: str, dataset=None, vocab_size
 
     # instantiate the new tokenizer
     assert issubclass(tokenizer_params.tokenizer_cls, PreTrainedTokenizer)
-    print("Tokenizer class:", tokenizer_params.tokenizer_cls)
     tokenizer = tokenizer_params.tokenizer_cls.from_pretrained(tmp_tokenizer_dir)
 
     return tokenizer

@@ -23,6 +23,7 @@ def configure_dataset_for_synthetic(dataset_hparams: DatasetHparams, model_hpara
 
         tokenizer_family = _model_hparams_to_tokenizer_family[model_hparams_name]
         dataset_hparams.tokenizer_name = tokenizer_family
+        dataset_hparams.max_seq_length = 128
 
 _model_hparams_to_tokenizer_family = {
     "GPT2Hparams": "gpt2",
