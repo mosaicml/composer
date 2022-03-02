@@ -76,32 +76,22 @@ class InMemoryLogger(LoggerCallback):
         self.most_recent_values.update(data)
         self.most_recent_timestamps.update({k: timestamp for k in data})
 
-    def get_timeseries(self, metric: str, time_unit: Union[str, None] = None):
+    def get_timeseries(self, metric: str) -> Dict[str, TLogData]:
         """Returns logged data as dict containing values of a desired metric over time.
 
         Args:
             metric (str): Metric of interest. Must be present in self.data.keys().
-            time_unit(str or None, optional) Which unit of time to return. Options =
-                {"batch", "epoch", "sample", "token", "duration", None}. If ``None``,
-                will return all available units of time. Default=``None``.
 
         Returns:
-            timeseries (dict): Dictionary in which one key is ``metric``, and the
-                associated value is a list of values of that metric. The remaining key(s)
-                are each a unit of time, and the associated values are each a list of
+            timeseries (Dict[str, TLogData]): Dictionary in which one key is ``metric``,
+                and the associated value is a list of values of that metric. The remaining
+                keys are each a unit of time, and the associated values are each a list of
                 values of that time unit for the corresponding index of the metric. For
                 example:
-                >>> InMemoryLogger.get_timeseries(metric="accuracy/val",
-                time_unit="epoch")
-                {"epoch": [1, 2, 3, 4, ...], "accuracy/val": [31.2, 45.6, 59.3, 64.7, ...]}
+                >>> InMemoryLogger.get_timeseries(metric="accuracy/val")
+                {"accuracy/val": [31.2, 45.6, 59.3, 64.7, "epoch": [1, 2, 3, 4, ...],
+                ...], "batch": [49, 98, 147, 196, ...], ...}
         """
-
-        # Check time_unit string
-        valid_time_strings = {"batch", "epoch", "sample", "token", "duration", None}
-        if time_unit not in valid_time_strings:
-            raise ValueError(f"InMemoryLogger.get_timeseries() passed {time_unit} "
-                             f"as argument for parameter `time_unit`. This method only accepts "
-                             f"the following arguments: {valid_time_strings}.")
 
         # Check that desired metric is in present data
         if metric not in self.data.keys():
@@ -111,14 +101,10 @@ class InMemoryLogger(LoggerCallback):
         timeseries = defaultdict(list)
         # Iterate through datapoints
         for datapoint in self.data[metric]:
-            metric_value = datapoint[2]
+            timestamp, _, metric_value = datapoint
             timeseries[metric].append(metric_value)
-            timestamp = datapoint[0]
-            if time_unit:
-                timeseries[time_unit].append(getattr(timestamp, time_unit).value)
-            else:
-                # Iterate through time units and add them all!
-                for field in timestamp._fields:
-                    time_value = getattr(timestamp, field).value
-                    timeseries[field].append(time_value)
+            # Iterate through time units and add them all!
+            for field in timestamp._fields:
+                time_value = getattr(timestamp, field).value
+                timeseries[field].append(time_value)
         return timeseries
