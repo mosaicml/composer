@@ -27,7 +27,7 @@ def set_batch_sequence_length(batch: Dict[str, Tensor], curr_seq_len: int, trunc
     .. note::
 
         The schedule for ``curr_seq_len`` over training time should be managed
-        out of this function.
+        outside of this function.
 
     Example:
     
