@@ -166,8 +166,7 @@ Evaluators = Many[Evaluator]
 Metrics = Union[Metric, MetricCollection]
 Optimizer = torch.optim.Optimizer
 Optimizers = Many[Optimizer]
-Scheduler = torch.optim.lr_scheduler._LRScheduler
-Schedulers = Many[Scheduler]
+PyTorchScheduler = torch.optim.lr_scheduler._LRScheduler
 
 Scaler = torch.cuda.amp.grad_scaler.GradScaler
 
