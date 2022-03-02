@@ -27,16 +27,22 @@ def randaugment_image(img: ImgT,
                       depth: int = 2,
                       augmentation_set: List = augmentation_sets["all"]) -> ImgT:
     """Randomly applies a sequence of image data augmentations
-    (`Cubuk et al, 2019 <https://arxiv.org/abs/1909.13719>`_) to an image. See
-    :class:`~composer.algorithms.randaugment.randaugment.RandAugment` or the :doc:`Method
-    Card </method_cards/randaugment>` for details.
+    (`Cubuk et al, 2019 <https://arxiv.org/abs/1909.13719>`_) to an image or batch of
+    images. See :class:`~composer.algorithms.randaugment.randaugment.RandAugment` or the
+    :doc:`Method Card </method_cards/randaugment>` for details. This function only acts on
+    a single image (or batch of images) per call and is unlikely to be used in a training
+    loop. Use :class:`~composer.algorithms.randaugment.randaugment.RandAugmentTransform`
+    to use RandAugment as part of a :class:`torchvision.datasets.VisionDataset`\\'s
+    ``transform``.
 
     Example:
         .. testcode::
 
-            from composer.algorithms.randaugment import randaugment_image
+            import composer.functional as cf
+
             from composer.algorithms.utils import augmentation_sets
-            randaugmented_image = randaugment_image(
+
+            randaugmented_image = cf.randaugment_image(
                 img=image,
                 severity=9,
                 depth=2,
@@ -76,6 +82,7 @@ class RandAugmentTransform(torch.nn.Module):
 
             import torchvision.transforms as transforms
             from composer.algorithms.randaugment import RandAugmentTransform
+
             randaugment_transform = RandAugmentTransform(
                 severity=9,
                 depth=2,
@@ -125,6 +132,7 @@ class RandAugment(Algorithm):
 
             from composer.algorithms import RandAugment
             from composer.trainer import Trainer
+
             randaugment_algorithm = RandAugment(
                 severity=9,
                 depth=2,
