@@ -15,6 +15,7 @@ from composer.algorithms.channels_last import ChannelsLast
 from composer.algorithms.colout import ColOut
 from composer.algorithms.cutmix import CutMix
 from composer.algorithms.cutout import CutOut
+from composer.algorithms.exponential_moving_average import ExponentialMovingAverage
 from composer.algorithms.factorize import Factorize
 from composer.algorithms.ghost_batchnorm import GhostBatchNorm
 from composer.algorithms.label_smoothing import LabelSmoothing
@@ -157,6 +158,15 @@ class CutOutHparams(AlgorithmHparams):
 
     def initialize_object(self) -> CutOut:
         return CutOut(**asdict(self))
+
+@dataclass
+class ExponentialMovingAverageHparams(AlgorithmHparams):
+    """See :class:`ExponentialMovingAverage`"""
+
+    alpha: float = hp.optional('Strength of exponential moving average.', default=0.9)
+
+    def initialize_object(self) -> ExponentialMovingAverage:
+        return ExponentialMovingAverage(**asdict(self))
 
 
 @dataclass
