@@ -134,9 +134,9 @@ def generate_synthetic_tokenizer(tokenizer_family: str, dataset=None, vocab_size
     dataset = [dataset[key] for key in dataset.column_names if key != 'idx']
     dataset = [i for sublist in dataset for i in sublist]
 
-    if tokenizer_family == "bert":
+    if "bert" in tokenizer_family:
         tokenizer_params = generate_bert_tokenizer_params(dataset)
-    elif tokenizer_family == "gpt2":
+    elif "gpt2" in tokenizer_family:
         tokenizer_params = generate_gpt2_tokenizer_params()
     else:
         raise ValueError(f"Synthetic tokenizers for tokenizer family {tokenizer_family} are currently unsupported.")
