@@ -15,9 +15,17 @@ from composer.utils import ensure_tuple
 
 __all__ = ["SeqLengthWarmup", "set_batch_sequence_length"]
 
+cuda_oom_note = """
+    .. note::
+
+        Variable input lengths can create CUDA OOM errors. To avoid this,
+        we follow `PyTorch notes <https://pytorch.org/tutorials/recipes/recipes/tuning_guide.html#pre-allocate-memory-in-case-of-variable-input-length>`_
+        and pre-allocate the memory with a blank forward and backward pass.
+"""
+
 
 def set_batch_sequence_length(batch: Dict[str, Tensor], curr_seq_len: int, truncate: bool = True) -> Batch:
-    """Set the sequence length of a batch.
+    __doc__ = """Set the sequence length of a batch.
 
     Changes the sequence length of all tensors in the provided dictionary
     to ``curr_seq_len``, by either truncating the tensors (``truncate=True``)
@@ -28,6 +36,8 @@ def set_batch_sequence_length(batch: Dict[str, Tensor], curr_seq_len: int, trunc
 
         The schedule for ``curr_seq_len`` over training time should be managed
         outside of this function.
+
+    {note}
 
     Example:
     
@@ -58,7 +68,7 @@ def set_batch_sequence_length(batch: Dict[str, Tensor], curr_seq_len: int, trunc
     Returns:
         Dict[str, Tensor]: a Mapping of input tensors to the model,
             where all tensors have curr_seq_len in the second dimension.
-    """
+    """.format(note=cuda_oom_note)
 
     assert isinstance(batch, Mapping)
 
@@ -85,7 +95,7 @@ def set_batch_sequence_length(batch: Dict[str, Tensor], curr_seq_len: int, trunc
 
 
 class SeqLengthWarmup(Algorithm):
-    """Progressively increases the sequence length during training.
+    __doc__ = """Progressively increases the sequence length during training.
 
     Changes the sequence length of all tensors in the input batch. The
     sequence length increases from ``min_seq_length`` to ``max_seq_length``
@@ -107,11 +117,7 @@ class SeqLengthWarmup(Algorithm):
         ``step_size`` should be a `multiple of eight <https://developer.nvidia.com/blog/optimizing-gpu-performance-tensor-cores/>`_ for
         optimal throughput on NVIDIA GPUs
 
-    .. note::
-
-        Variable input lengths can create CUDA OOM errors. To avoid this,
-        we follow `PyTorch notes <https://pytorch.org/tutorials/recipes/recipes/tuning_guide.html#pre-allocate-memory-in-case-of-variable-input-length>`_
-        and pre-allocate the memory with a blank forward and backward pass.
+    {note}
 
     See the :doc:`Method Card </method_cards/seq_length_warmup>` for more details.
 
@@ -143,7 +149,7 @@ class SeqLengthWarmup(Algorithm):
         step_size (int, optional): Step size of sequence length. Default = ``8``.
         truncate (bool, optional): Truncate tensors or reshape extra tokens to new
             examples. Default = ``True``.
-    """
+    """.format(note=cuda_oom_note)
 
     def __init__(
         self,
