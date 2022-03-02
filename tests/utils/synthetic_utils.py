@@ -25,11 +25,13 @@ def configure_dataset_for_synthetic(dataset_hparams: DatasetHparams, model_hpara
         dataset_hparams.tokenizer_name = tokenizer_family
         dataset_hparams.max_seq_length = 128
 
+
 _model_hparams_to_tokenizer_family = {
     "GPT2Hparams": "gpt2",
     "BERTForClassificationHparams": "bert",
     "BERTHparams": "bert"
 }
+
 
 def configure_model_for_synthetic(model_hparams: ModelHparams) -> None:
     # configure Transformer-based models for synthetic testing

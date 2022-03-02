@@ -31,7 +31,7 @@ from composer.utils import run_directory
 from composer.utils.object_store import ObjectStoreProviderHparams
 from tests.test_state import assert_state_equivalent
 from tests.utils.deep_compare import deep_compare
-from tests.utils.synthetic_utils import configure_model_for_synthetic, configure_dataset_for_synthetic
+from tests.utils.synthetic_utils import configure_dataset_for_synthetic, configure_model_for_synthetic
 
 
 class DummyStatefulCallback(Callback):
@@ -284,7 +284,7 @@ def test_checkpoint(
         composer_trainer_hparams.schedulers = model_hparams.schedulers
         # to ensure that synthetic data is properly cast
         composer_trainer_hparams.dataloader.pin_memory = True
-    
+
     checkpoint_extension = ".pt"
     if deepspeed_enabled:
         # deepspeed checkpoints use .tar because they store multiple files
