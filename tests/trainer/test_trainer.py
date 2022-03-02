@@ -2,23 +2,23 @@
 
 import os
 import pathlib
+from copy import deepcopy
 
 import pytest
 import torch
 from torch.nn.parallel import DistributedDataParallel
 from torch.utils.data import DataLoader
 
-from composer.algorithms import LayerFreezing
-from composer.algorithms.cutout.cutout import CutOut
-from composer.callbacks import LRMonitor
-from composer.callbacks.run_directory_uploader import RunDirectoryUploader
+from composer import Trainer
+from composer.algorithms import CutOut, LabelSmoothing, LayerFreezing
+from composer.callbacks import LRMonitor, RunDirectoryUploader
 from composer.core.callback import Callback
 from composer.core.time import Time, TimeUnit
 from composer.core.types import Model
 from composer.loggers import FileLogger, TQDMLogger, WandBLogger
-from composer.trainer import Trainer
 from composer.trainer.trainer_hparams import algorithms_registry, callback_registry, logger_registry
 from composer.utils import dist
+from composer.utils.reproducibility import seed_all
 from tests.common import (RandomClassificationDataset, RandomImageDataset, SimpleConvModel, SimpleModel, device,
                           world_size)
 
@@ -110,17 +110,21 @@ class TestTrainerEquivalence():
     reference_folder: pathlib.Path
 
     def assert_models_equal(self, model_1, model_2):
+        assert id(model_1) != id(model_2), "Same model should not be compared."
         for param1, param2 in zip(model_1.parameters(), model_2.parameters()):
             torch.testing.assert_allclose(param1, param2)
 
-    @pytest.fixture
+    @pytest.fixture(scope="function")
     def config(self, device, precision, world_size):
+        """ Returns the reference config. """
+
+        seed_all(seed=0)
         return {
             'model': SimpleModel(),
             'train_dataloader': DataLoader(
                 dataset=RandomClassificationDataset(),
                 batch_size=4,
-                shuffle=True,
+                shuffle=False,
             ),
             'eval_dataloader': DataLoader(
                 dataset=RandomClassificationDataset(),
@@ -137,6 +141,8 @@ class TestTrainerEquivalence():
     @pytest.fixture(autouse=True)
     def create_reference_model(self, config, tmpdir_factory, *args):
         """Trains the reference model, and saves checkpoints."""
+        config = deepcopy(config)
+
         save_folder = tmpdir_factory.mktemp("{device}-{precision}".format(**config))
         config.update({'save_interval': '1ep', 'save_folder': save_folder})
 
@@ -166,9 +172,10 @@ class TestTrainerEquivalence():
         max_duration = Time.from_timestring(config['max_duration'])
         assert max_duration.unit == TimeUnit.EPOCH
         max_duration_in_batches = Time(len(config['train_dataloader']) * int(max_duration.value), TimeUnit.BATCH)
+
         config['max_duration'] = max_duration_in_batches.to_timestring()
+
         trainer = Trainer(**config)
-        assert trainer.state.max_duration.unit == TimeUnit.BATCH
         trainer.fit()
         self.assert_models_equal(trainer.state.model, self.reference_model)
 
@@ -182,6 +189,16 @@ class TestTrainerEquivalence():
         trainer.fit()
 
         self.assert_models_equal(trainer.state.model, self.reference_model)
+
+    def test_algorithm_different(self, config, *args):
+        # as a control, we train with an algorithm and
+        # expect the test to fail
+        config['algorithms'] = [LabelSmoothing(alpha=0.1)]
+        trainer = Trainer(**config)
+        trainer.fit()
+
+        with pytest.raises(AssertionError):
+            self.assert_models_equal(trainer.state.model, self.reference_model)
 
     def test_model_init(self, config, *args):
         # as a control test, we reinitialize the model weights, and
