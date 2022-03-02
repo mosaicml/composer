@@ -93,8 +93,7 @@ extra_deps['dev'] = [
     'pylint>=2.12.2',
     'docformatter>=1.4',
     'sphinx_panels==0.6.0',
-    'Cython>=0.29',
-    'pycocotools==2.0.0',
+    '"pycocotools@git+https://github.com/cocodataset/cocoapi#egg=pycocotools&subdirectory=PythonAPI"',
 ]
 
 extra_deps["deepspeed"] = [
