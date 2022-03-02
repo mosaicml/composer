@@ -7,7 +7,6 @@ Useful for collecting and plotting data inside notebooks.
 
 from __future__ import annotations
 
-from collections import defaultdict
 from typing import Dict, List, Tuple, Union
 
 from composer.core.logging import LoggerCallback, LogLevel, TLogData
@@ -98,13 +97,13 @@ class InMemoryLogger(LoggerCallback):
             raise ValueError(f"Invalid value for argument `metric`: {metric}. Requested "
                              "metric is not present in self.data.keys().")
 
-        timeseries = defaultdict(list)
+        timeseries = {}
         # Iterate through datapoints
         for datapoint in self.data[metric]:
             timestamp, _, metric_value = datapoint
-            timeseries[metric].append(metric_value)
+            timeseries.setdefault(metric, []).append(metric_value)
             # Iterate through time units and add them all!
             for field in timestamp._fields:
                 time_value = getattr(timestamp, field).value
-                timeseries[field].append(time_value)
+                timeseries.setdefault(field, []).append(time_value)
         return timeseries
