@@ -11,7 +11,7 @@ from typing import Dict, List, Tuple, Union
 
 from composer.core.logging import LoggerCallback, LogLevel, TLogData
 from composer.core.logging.logger import TLogDataValue
-from composer.core.time import Time, Timestamp
+from composer.core.time import Timestamp
 
 __all__ = ["InMemoryLogger"]
 
