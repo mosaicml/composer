@@ -38,6 +38,7 @@ default_required_fields: Dict[Type[DatasetHparams], Callable[[], DatasetHparams]
             datadir=["hello"],
             split='train',
             tokenizer_name='gpt2',
+            use_masked_lm=False,
         ),
     GLUEHparams:
         lambda: GLUEHparams(
