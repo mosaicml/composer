@@ -81,7 +81,7 @@ class State(Serializable):
         precision_context ((precision: Precision) -> ContextManager): Function to produce a context manager to mandate precision.
 
         optimizers (types.Optimizers, optional): The optimizers being used to train the model. Multiple optimizers are not currently supported.
-        schedulers (types.Schedulers, optional): The learning rate schedulers, typically wrapped in :class:`ComposableScheduler`.
+        schedulers (PyTorchScheduler, optional): The learning rate scheduler (can also be a list or tuple of schedulers).
         scaler (torch.cuda.amp.GradScaler, optional): The gradient scaler in use for mixed precision training.
 
         algorithms (Sequence[Algorithm]): The algorithms used for training.
@@ -108,7 +108,7 @@ class State(Serializable):
     batch_num_tokens: int
     loss: types.Tensors
     outputs: types.Tensors
-    _schedulers: List[types.Scheduler]
+    _schedulers: List[types.PyTorchScheduler]
 
     # These attributes will be serialized using .state_dict(), and loaded with .load_state_dict()
     # All other attributes will not be serialized.
@@ -180,20 +180,6 @@ class State(Serializable):
         self.profiler: Optional[Profiler] = None
 
     @property
-    def epoch(self) -> int:
-        """The index of the current epoch."""
-        warnings.warn("TimeDeprecationWarning: state.epoch is deprecated. Please use state.timer.epoch",
-                      category=DeprecationWarning)
-        return self.timer.epoch.value
-
-    @property
-    def step(self) -> int:
-        """The index of the current step/batch (measured globally)."""
-        warnings.warn("TimeDeprecationWarning: state.step is deprecated. Please use state.timer.batch",
-                      category=DeprecationWarning)
-        return self.timer.batch.value
-
-    @property
     def max_duration(self):
         return self._max_duration
 
@@ -201,8 +187,6 @@ class State(Serializable):
     def max_duration(self, max_duration: Union[str, Time[int]]):
         if isinstance(max_duration, str):
             max_duration = cast(Time[int], Time.from_timestring(max_duration))
-        if max_duration.unit != TimeUnit.EPOCH:
-            raise NotImplementedError("Max duration must be specified in epochs. Other units are not yet supported.")
         if max_duration.unit == TimeUnit.DURATION:
             raise ValueError("TimeUnit.DURATION is not allowed as a unit for max_duration")
         self._max_duration = max_duration
@@ -214,14 +198,6 @@ class State(Serializable):
             Time: The elapsed duration, in ``TimeUnit.DURATION``.
         """
         return self.timer.get(self.max_duration.unit) / self.max_duration
-
-    @property
-    def max_epochs(self):
-        """The maximum number of epochs to train for."""
-        warnings.warn("TimeDeprecationWarning: state.max_epochs is deprecated. Please use state.max_duration",
-                      category=DeprecationWarning)
-        assert self.max_duration.unit == TimeUnit.EPOCH, "invariant violation -- max duration must be epochs for now"
-        return self.max_duration.value
 
     @property
     def optimizers(self):
@@ -236,7 +212,7 @@ class State(Serializable):
         return self._schedulers
 
     @schedulers.setter
-    def schedulers(self, schedulers: types.Schedulers):
+    def schedulers(self, schedulers: types.PyTorchScheduler):
         self._schedulers[:] = ensure_tuple(schedulers)
 
     @property
@@ -316,13 +292,6 @@ class State(Serializable):
                         continue
                     source = serialized_value[target.__class__.__qualname__]
                     target.load_state_dict(source)
-
-    @property
-    def batch_idx(self) -> int:
-        """int: batch_idx is the index of the batch in the current epoch."""
-        warnings.warn("TimeDeprecationWarning: state.batch_idx is deprecated. Please use state.timer.batch_in_epoch",
-                      category=DeprecationWarning)
-        return self.timer.batch_in_epoch.value
 
     @property
     def steps_per_epoch(self):

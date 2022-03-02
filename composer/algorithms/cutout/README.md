@@ -1,4 +1,4 @@
-# ✂️ Cutout
+# 🎃 Cutout
 
 [\[How to Use\]](#how-to-use) - [\[Suggested Hyperparameters\]](#suggested-hyperparameters) - [\[Technical Details\]](#technical-details) - [\[Attribution\]](#attribution)
 
@@ -16,7 +16,7 @@ It is a regularization technique that improves the accuracy of models for comput
 ### Functional Interface
 
 ```python
-# Run the CutOut algorithm directly on the batch data using the Composer functional API 
+# Run the CutOut algorithm directly on the batch data using the Composer functional API
 
 from composer import functional as cf
 
