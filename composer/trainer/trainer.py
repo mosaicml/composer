@@ -83,25 +83,27 @@ from torch.nn.parallel import DistributedDataParallel
 from torchmetrics.collections import MetricCollection
 from torchmetrics.metric import Metric
 
+import composer
 from composer.algorithms import ScaleSchedule
 from composer.core import Callback, DataSpec, Engine, Event, Logger, State, Time
 from composer.core.algorithm import Algorithm
 from composer.core.evaluator import Evaluator
 from composer.core.logging import LoggerCallback, LogLevel
 from composer.core.time import Timestamp
-from composer.core.types import Batch, BreakEpochException, DataLoader, Evaluators, Many, Metrics, Optimizers, Precision
+from composer.core.types import (Batch, BreakEpochException, DataLoader, Evaluators, Many, Metrics, Optimizers,
+                                 Precision, PyTorchScheduler)
 from composer.datasets.dataloader import unwrap_data_loader
 from composer.loggers.tqdm_logger import TQDMLogger
 from composer.models.base import ComposerModel
 from composer.optim.decoupled_weight_decay import DecoupledSGDW
-from composer.optim.scheduler import ComposerScheduler, compile, constant_scheduler
+from composer.optim.scheduler import ComposerScheduler, compile_composer_scheduler
 from composer.profiler import Profiler, ProfilerEventHandler
 from composer.profiler.dataloader_profiler import DataloaderProfiler
 from composer.profiler.system_profiler import SystemProfiler
 from composer.profiler.torch_profiler import TorchProfiler
 from composer.trainer._checkpoint import CheckpointLoader, CheckpointSaver
 from composer.trainer._deepspeed import _fix_batch_precision_for_deepspeed, _parse_deepspeed_config
-from composer.trainer._scale_schedule import scale_scheduler
+from composer.trainer._scale_schedule import scale_pytorch_scheduler
 from composer.trainer._scaler import ClosureGradScaler
 from composer.trainer.ddp import DDPSyncStrategy, _ddp_sync_context, _prepare_ddp_module
 from composer.trainer.devices import Device, DeviceCPU, DeviceGPU
@@ -582,20 +584,47 @@ class Trainer:
             steps_per_epoch=train_subset_num_batches,
         )
 
-        schedulers = ensure_tuple(schedulers)
-        if len(schedulers) == 0:
-            schedulers = (constant_scheduler,)
-            warnings.warn(f"No scheduler was specified. Defaulting to {repr(schedulers)}")
+        pytorch_schedulers = [
+            scheduler for scheduler in ensure_tuple(schedulers) if isinstance(scheduler, PyTorchScheduler)
+        ]
+        if len(pytorch_schedulers) > 0:
+            if step_schedulers_every_batch is True:
+                log.info(
+                    textwrap.dedent(f"""\
+                    Schedulers are being steped every batch, as `step_schedulers_every_batch` is True.
+                    The trainer cannot automatically convert the parameters (e.g. step_size, T_max) of the
+                    PyTorch {type(pytorch_schedulers[0]).__name__} scheduler to be in terms of batches.
+                    Please ensure that the scheduler parameters are in terms of batches, not epochs.
+                    Alternatively, use a ComposerScheduler. For more information, see
+                    https://docs.mosaicml.com/en/v{composer.__version__}/trainer/schedulers.html.
+                    """))
 
-        if scale_schedule_ratio != 1.0:
-            schedulers = tuple(
-                scale_scheduler(scheduler, scale_schedule_ratio) for scheduler in ensure_tuple(schedulers))
+            if step_schedulers_every_batch is None:
+                # only if all schedulers are ComposerSchedulers, then we can step every batch by default
+                step_schedulers_every_batch = False
 
-        if step_schedulers_every_batch is None:
-            step_schedulers_every_batch = any(callable(scheduler) for scheduler in schedulers)
+            log.info(
+                textwrap.dedent(f"""\
+                Schedulers will be stepped every epoch because the Trainer was constructed with a PyTorch
+                {type(pytorch_schedulers[0]).__name__} scheduler. To step the schedulers every batch, adjust the
+                scheduler parameters (e.g. step_size, T_max) to be in terms of batches and set
+                `step_schedulers_every_batch` to True, or alternatively use a ComposerScheduler. For more information,
+                see https://docs.mosaicml.com/en/v{composer.__version__}/trainer/schedulers.html."""))
+
+        else:
+            step_schedulers_every_batch = True
+
         self._step_schedulers_every_batch = step_schedulers_every_batch
 
-        self.state.schedulers = [compile(scheduler, self.state) for scheduler in schedulers]
+        for scheduler in ensure_tuple(schedulers):
+            if isinstance(scheduler, PyTorchScheduler):
+                scale_pytorch_scheduler(scheduler, scale_schedule_ratio)
+                self.state.schedulers.append(scheduler)
+            else:  # it's a composer scheduler
+                self.state.schedulers.append(compile_composer_scheduler(scheduler, self.state, scale_schedule_ratio))
+
+        if len(self.state.schedulers) == 0:
+            warnings.warn(f"NoSchedulerWarning: No schedulers were specified. The learning rate will be constant.")
 
         # Configure profilers if profiling is enabled
         if profiler_trace_file:
