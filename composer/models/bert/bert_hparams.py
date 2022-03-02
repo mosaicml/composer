@@ -17,6 +17,7 @@ __all__ = ["BERTForClassificationHparams", "BERTHparams"]
 @dataclass
 class BERTForClassificationHparams(TransformerHparams):
     """yahp Hparams interface for BERT classification Models.
+
     Args:
         pretrained_model_name (str): "Pretrained model name to pull from Huggingface Model Hub."
         model_config (Dict[str, JSON]): A dictionary providing a HuggingFace model configuration.
