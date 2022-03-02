@@ -1,5 +1,7 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
+from typing import List
+
 import numpy as np
 import pytest
 import torch
@@ -7,11 +9,11 @@ from torch.optim.lr_scheduler import ExponentialLR
 
 from composer.algorithms import ScaleScheduleHparams
 from composer.core.time import TimeUnit
-from composer.core.types import Optimizer, Scheduler
+from composer.core.types import Optimizer, PyTorchScheduler
 from composer.optim.optimizer_hparams import SGDHparams
 from composer.optim.scheduler import MultiStepLRHparams
 from composer.trainer import TrainerHparams
-from composer.trainer._scale_schedule import scale_scheduler
+from composer.trainer._scale_schedule import scale_pytorch_scheduler
 from tests.common import SimpleModel
 
 
@@ -28,8 +30,8 @@ def flatten(lst: list):
 class TestScaleSchedule():
 
     @staticmethod
-    def _test(targets, scheduler: Scheduler, epochs: int, optimizer: Optimizer, ssr: float):
-        scale_scheduler(scheduler, ssr)
+    def _test(targets: List[float], scheduler: PyTorchScheduler, epochs: int, optimizer: Optimizer, ssr: float):
+        scale_pytorch_scheduler(scheduler, ssr)
         for epoch in range(epochs):
             for param_group in optimizer.param_groups:
                 torch.testing.assert_allclose(targets[epoch], param_group['lr'])
