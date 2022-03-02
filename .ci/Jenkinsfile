@@ -118,7 +118,7 @@ def runPytest(pDockerImage, gpu, extraDeps) {
             string(name: 'P_MEM_LIMIT', value: memLimit),
             string(name: 'P_TIMEOUT', value: pTimeout),
             string(name: 'P_N_GPUS', value: nGpus),
-            string(name: 'P_EPHEMERAL_STORAGE_LIMIT', value: '8Gi'),
+            string(name: 'P_EPHEMERAL_STORAGE_LIMIT', value: '32Gi'),
             text(name: 'P_COMMAND', value: "./.ci/test.sh '$extraDeps' '$markers'"),
             string(name: 'P_ARTIFACTS_GLOB', value: artifactsGlob),
             string(name: 'P_JUNIT_GLOB', value: junitGlob),
