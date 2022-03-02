@@ -1,6 +1,6 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
-"""The ComposerModel Interface for Transformers."""
+"""The ComposerModel base interface for Transformers."""
 from __future__ import annotations
 
 import logging
@@ -20,7 +20,7 @@ __all__ = ["ComposerTransformer"]
 
 
 class ComposerTransformer(ComposerModel):
-    """Implements the base logic that all Transformers can build on top of. Subclass and implement :meth:`loss` to use.
+    """The ComposerModel base interface for Transformers.
 
     Works with `Hugging Face Transformers <https://huggingface.co/transformers/>`_.
 

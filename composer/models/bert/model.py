@@ -111,8 +111,8 @@ class BERTModel(ComposerTransformer):
                 that the model expects, as found in :meth:`.ComposerTransformer.get_model_inputs`.
 
         Returns:
-            A tuple of (Tensor, Tensor): with the output from the forward pass and the correct labels.
-            This is fed into directly into the output of :meth:`.ComposerModel.metrics`.
+            tuple (Tensor, Tensor): with the output from the forward pass and the correct labels.
+                This is fed into directly into the output of :meth:`.ComposerModel.metrics`.
         """
         assert self.training is False, "For validation, model must be in eval mode"
 

@@ -1,6 +1,6 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
-"""The ComposerModel Interface."""
+"""The ComposerModel base interface."""
 from __future__ import annotations
 
 import abc
