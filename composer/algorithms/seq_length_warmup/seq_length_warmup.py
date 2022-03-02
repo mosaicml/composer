@@ -35,26 +35,6 @@ def set_batch_sequence_length(batch: Dict[str, Tensor], curr_seq_len: int, trunc
         we follow `PyTorch notes <https://pytorch.org/tutorials/recipes/recipes/tuning_guide.html#pre-allocate-memory-in-case-of-variable-input-length>`_
         and pre-allocate the memory with a blank forward and backward pass.
 
-    Example:
-    
-    .. code-block::
-
-        import composer.functional as cf
-
-        def training_loop(model, train_loader, sequence_length):
-            opt = torch.optim.Adam(model.parameters())
-            loss_fn = F.cross_entropy
-            model.train()
-
-            for epoch in range(num_epochs):
-                for X, y in train_loader:
-                    X = cf.set_batch_sequence_length(X, sequence_length)
-                    y_hat = model(X_cutmix)
-                    loss = loss_fn(y_hat, y_cutmix)
-                    loss.backward()
-                    opt.step()
-                    opt.zero_grad()
-
     Args:
         batch (Dict[str, Tensor]): The input batch to the model, must be a dictionary.
         curr_seq_length (int): The desired sequence length to apply.
@@ -64,6 +44,18 @@ def set_batch_sequence_length(batch: Dict[str, Tensor], curr_seq_len: int, trunc
     Returns:
         Dict[str, Tensor]: a Mapping of input tensors to the model,
             where all tensors have curr_seq_len in the second dimension.
+
+    Example:
+    
+    .. code-block::
+
+        import composer.functional as cf
+
+        for epoch in range(num_epochs):
+            for X, y in train_loader:
+                X = cf.set_batch_sequence_length(X, sequence_length)
+                y_hat = model(X)
+                loss = loss_fn(y_hat, y)
     """
 
     assert isinstance(batch, Mapping)
