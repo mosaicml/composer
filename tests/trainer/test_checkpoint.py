@@ -21,7 +21,7 @@ from composer.core.precision import Precision
 from composer.core.state import State
 from composer.core.time import TimeUnit
 from composer.core.types import Logger, StateDict
-from composer.datasets import SyntheticHparamsMixin
+from composer.datasets import DatasetHparams, SyntheticHparamsMixin
 from composer.optim import AdamWHparams
 from composer.optim.scheduler import ConstantLRHparams, CosineAnnealingLRHparams
 from composer.trainer._checkpoint import CheckpointLoader
@@ -295,11 +295,11 @@ def test_checkpoint(
 
     configure_model_for_synthetic(composer_trainer_hparams.model)
 
-    assert isinstance(composer_trainer_hparams.train_dataset, DatasetHparams) 
+    assert isinstance(composer_trainer_hparams.train_dataset, DatasetHparams)
     configure_dataset_for_synthetic(composer_trainer_hparams.train_dataset, composer_trainer_hparams.model)
     composer_trainer_hparams.train_dataset.shuffle = False
 
-    assert isinstance(composer_trainer_hparams.val_dataset, DatasetHparams) 
+    assert isinstance(composer_trainer_hparams.val_dataset, DatasetHparams)
     configure_dataset_for_synthetic(composer_trainer_hparams.val_dataset, composer_trainer_hparams.model)
     composer_trainer_hparams.val_dataset.shuffle = False
 
