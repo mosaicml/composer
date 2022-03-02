@@ -907,10 +907,7 @@ class Trainer:
                     if self.deepspeed_enabled:
                         self.state.batch = _fix_batch_precision_for_deepspeed(self.state.batch, self.state.precision)
 
-                    # Compute metrics on the training set
-                    if self._compute_training_metrics:
-                        assert train_metrics is not None
-                        self._compute_metrics(train_metrics)
+                    self._compute_metrics(train_metrics)
 
                     self.state.model.train()
 
@@ -1007,29 +1004,22 @@ class Trainer:
             # truncates the call stack back only to this newly raised error
             raise e
 
-    def _compute_metrics(self, train_metrics: MetricCollection):
-        """Compute training metrics. Adaptively change microbatch size if enabled to maximize GPU usage.
+    def _compute_metrics(self, train_metrics: Union[MetricCollection, None]):
+        """Compute training metrics. 
 
         Args:
-            train_metrics (MetricCollection): Existing train metrics
+            train_metrics (Union[MetricCollection, None]): Existing train metrics
         """
-        rerun = True
-        while rerun:
-            try:
-                self.state.model.eval()
-                with torch.no_grad():
-                    # Store results so we only update train_metrics if all batches are processed without OOM
-                    results = []
-                    for eval_microbatch in self._train_data_spec.split_batch(self.state.batch, self.state.grad_accum):
-                        # TODO: Detect if self.run_event(Event.AFTER_DATALOADER) changes the training
-                        # data and if so print a warning that metrics may return unexpected results
-                        outputs, targets = self._original_model.validate(eval_microbatch)
-                        results.append((outputs, targets))
-                    for outputs, targets in results:
-                        train_metrics.update(outputs, targets)
-                rerun = False
-            except RuntimeError as e:
-                self._handle_cuda_oom(e)
+        # Compute metrics on the training set
+        if self._compute_training_metrics:
+            assert train_metrics is not None
+            self.state.model.eval()
+            with torch.no_grad():
+                for eval_microbatch in self._train_data_spec.split_batch(self.state.batch, self.state.grad_accum):
+                    # TODO: Detect if self.run_event(Event.AFTER_DATALOADER) changes the training
+                    # data and if so print a warning that metrics may return unexpected results
+                    outputs, targets = self._original_model.validate(eval_microbatch)
+                    train_metrics.update(outputs, targets)
 
     def _train_and_compute_loss(self, use_grad_scaling: bool):
         """Compute loss by training on a full batch of data. Adaptively change microbatch size if enabled to maximize
