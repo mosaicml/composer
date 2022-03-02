@@ -54,7 +54,6 @@ install_requires = [
     "yahp>=0.0.14",
     "requests>=2.26.0",
     "numpy==1.21.5",
-    "pycocotools@git+https://github.com/cocodataset/cocoapi#egg=pycocotools&subdirectory=PythonAPI",
     "apache-libcloud>=3.3.1",
     "psutil>=5.8.0",
     "wget==3.2",
