@@ -14,7 +14,7 @@ dirs := composer examples tests
 
 # run this to autoformat your code
 style:
-	$(PYTHON) -m isort -i $(dirs)
+	$(PYTHON) -m isort $(dirs)
 	$(PYTHON) -m yapf -rip $(dirs)
 	$(PYTHON) -m docformatter -ri --wrap-summaries 120 --wrap-descriptions 120 $(dirs)
 

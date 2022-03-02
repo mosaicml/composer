@@ -64,17 +64,17 @@ Below are the supported schedulers found at :mod:`composer.optim.scheduler`.
 .. autosummary::
     :nosignatures:
 
-    step_scheduler
-    multi_step_scheduler
-    multi_step_with_warmup_scheduler
-    constant_scheduler
-    linear_scheduler
-    linear_with_warmup_scheduler
-    exponential_scheduler
-    cosine_annealing_scheduler
-    cosine_annealing_with_warmup_scheduler
-    cosine_annealing_warm_restarts_scheduler
-    polynomial_scheduler
+    StepScheduler
+    MultiStepScheduler
+    MultiStepWithWarmupScheduler
+    ConstantScheduler
+    LinearScheduler
+    LinearWithWarmupScheduler
+    ExponentialScheduler
+    CosineAnnealingScheduler
+    CosineAnnealingWithWarmupScheduler
+    CosineAnnealingWarmRestartsScheduler
+    PolynomialScheduler
 
 Scale Schedule Ratio
 --------------------
