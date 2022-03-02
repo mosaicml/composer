@@ -12,6 +12,7 @@ from composer.algorithms.stochastic_depth.sample_stochastic_layers import Sample
 from composer.algorithms.stochastic_depth.stochastic_depth import _STOCHASTIC_LAYER_MAPPING, apply_stochastic_depth
 from composer.algorithms.stochastic_depth.stochastic_layers import StochasticBottleneck, _sample_bernoulli
 from composer.core import Event, State
+from composer.core.time import TimeUnit
 from composer.models import ComposerResNet
 from composer.utils import module_surgery
 
@@ -93,7 +94,8 @@ class TestSampleBernoulli:
         return 0.5
 
     @pytest.fixture
-    def test_sample_bernoulli_use_same_gpu_seed(self, probability: float, device_ids, module_ids):
+    def test_sample_bernoulli_use_same_gpu_seed(self, probability: float, device_ids: torch.Tensor,
+                                                module_ids: torch.Tensor):
         mask_matrix = torch.zeros(len(device_ids), len(module_ids))
         for device_id in device_ids:
             torch.manual_seed(0)  # Simulates each device having the same random_seed as is the case with DDP
@@ -126,7 +128,8 @@ class TestSampleBernoulli:
         # Check for unique drop masks across devices
         assert (torch.unique(mask_matrix, dim=0).size(0) != 1)
 
-    def test_sample_bernoulli_layers_not_same_gpu(self, probability, device_ids, module_ids):
+    def test_sample_bernoulli_layers_not_same_gpu(self, probability: float, device_ids: torch.Tensor,
+                                                  module_ids: torch.Tensor):
         mask_matrix = torch.zeros(len(device_ids), len(module_ids))
         for device_id in device_ids:
             torch.manual_seed(0)  # Simulates each device having the same random_seed as is the case with DDP
@@ -146,7 +149,7 @@ class TestSampleBernoulli:
 class TestStochasticBottleneckLayer:
 
     @pytest.mark.parametrize('drop_rate', [1.0])
-    def test_stochastic_bottleneck_drop(self, drop_rate):
+    def test_stochastic_bottleneck_drop(self, drop_rate: float):
         X = torch.randn(4, 4, 16, 16)
         generator = torch.Generator().manual_seed(144385)
         stochastic_layer = StochasticBottleneck(drop_rate=drop_rate,
@@ -161,7 +164,7 @@ class TestStochasticBottleneckLayer:
         assert new_X is X
 
     @pytest.mark.parametrize('drop_rate', [0.0])
-    def test_stochastic_bottleneck_keep(self, drop_rate):
+    def test_stochastic_bottleneck_keep(self, drop_rate: float):
         X = torch.randn(4, 4, 16, 16)
         generator = torch.Generator().manual_seed(144385)
         stochastic_layer = StochasticBottleneck(drop_rate=drop_rate,
@@ -176,7 +179,7 @@ class TestStochasticBottleneckLayer:
         assert new_X is not X
 
     @pytest.mark.parametrize('drop_rate', [1.0])
-    def test_sample_stochastic_bottleneck_drop_all(self, drop_rate):
+    def test_sample_stochastic_bottleneck_drop_all(self, drop_rate: float):
         x = F.relu(torch.randn(4, 4, 16, 16))  # inputs and outputs will match if the input has been ReLUed
         sample_stochastic_block = SampleStochasticBottleneck(drop_rate=drop_rate, inplanes=4, planes=1)
         x_dropped = sample_stochastic_block(x)
@@ -188,12 +191,12 @@ class TestStochasticDepthDropRate:
     @pytest.fixture
     def algorithm(
         self,
-        target_layer_name,
-        stochastic_method,
-        drop_rate,
-        drop_distribution,
-        drop_warmup,
-        use_same_gpu_seed,
+        target_layer_name: str,
+        stochastic_method: str,
+        drop_rate: float,
+        drop_distribution: str,
+        drop_warmup: str,
+        use_same_gpu_seed: bool,
     ):
         return StochasticDepth(
             target_layer_name,
@@ -219,7 +222,7 @@ class TestStochasticDepthDropRate:
     @pytest.mark.parametrize("drop_rate", [0.0, 0.5, 1.0])
     @pytest.mark.parametrize("drop_distribution", ['uniform', 'linear'])
     @pytest.mark.parametrize("use_same_gpu_seed", [True])
-    @pytest.mark.parametrize("drop_warmup", [0.1])
+    @pytest.mark.parametrize("drop_warmup", ["0.1dur"])
     def test_drop_rate_warmup(self, algorithm: StochasticDepth, step: int, state: State):
         old_drop_rates = []
         self.get_drop_rate_list(state.model, drop_rates=old_drop_rates)
@@ -228,7 +231,8 @@ class TestStochasticDepthDropRate:
         new_drop_rates = []
         self.get_drop_rate_list(state.model, drop_rates=new_drop_rates)
 
-        drop_warmup_iters = state.steps_per_epoch * state.max_epochs * algorithm.drop_warmup
+        assert state.max_duration.unit == TimeUnit.EPOCH
+        drop_warmup_iters = int(state.steps_per_epoch * int(state.max_duration.value) * algorithm.drop_warmup)
         assert torch.all(torch.tensor(new_drop_rates) == ((step / drop_warmup_iters) * torch.tensor(old_drop_rates)))
 
 
@@ -259,12 +263,3 @@ class TestStochasticDepthInputValidation():
             StochasticDepth(stochastic_method=stochastic_method,
                             target_layer_name=target_layer_name,
                             drop_distribution=drop_distribution)
-
-    @pytest.mark.parametrize("drop_warmup", [-0.5, 1.7])
-    def test_invalid_drop_warmup(self, stochastic_method: str, target_layer_name: str, drop_warmup: float):
-        with pytest.raises(ValueError):
-            StochasticDepth(
-                stochastic_method=stochastic_method,
-                target_layer_name=target_layer_name,
-                drop_warmup=drop_warmup,
-            )
