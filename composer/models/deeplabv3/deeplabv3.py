@@ -25,6 +25,7 @@ class SimpleSegmentationModel(torch.nn.Module):
         input_shape = x.shape[-2:]
         features = self.backbone(x)
         logits = self.classifier([features["layer2"], features["layer4"]])
+        #logits = self.classifier(features["layer4"])
         logits = F.interpolate(logits, size=input_shape, mode="bilinear", align_corners=False)
         return logits
 
@@ -61,6 +62,7 @@ def deeplabv3_builder(num_classes: int,
     #classifier = torch.nn.Conv2d(in_channels=256, out_channels=num_classes, kernel_size=1)
     #head = torch.nn.Sequential(feat_extractor, classifier)
     from mmseg import models
+    norm_cfg = dict(type='SyncBN', requires_grad=True)
     head = models.DepthwiseSeparableASPPHead(in_channels=2048,
                                              in_index=-1,
                                              channels=512,
@@ -68,11 +70,14 @@ def deeplabv3_builder(num_classes: int,
                                              c1_in_channels=256,
                                              c1_channels=48,
                                              dropout_ratio=0.1,
-                                             num_classes=num_classes)
+                                             num_classes=num_classes,
+                                             norm_cfg=norm_cfg,
+                                             align_corners=False)
 
     #model = DeepLabV3(backbone, head, aux_classifier=None)
     #model = torch.nn.Sequential(backbone, head)
     model = SimpleSegmentationModel(backbone, head)
+    print(head)
 
     if initializers:
         for initializer in initializers:
