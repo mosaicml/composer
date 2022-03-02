@@ -51,7 +51,7 @@ The drop rate will primarily depend on the model depth. For ResNet50 on ImageNet
 
 - `drop_rate = 0.2`
 - `drop_distribution = "linear"`
-- `drop_warmup = 0`
+- `drop_warmup = 0.0dur`
 - `use_same_gpu_seed = true`
 
 ## Considerations

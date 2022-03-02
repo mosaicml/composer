@@ -119,10 +119,12 @@ extra_deps["nlp"] = [
 extra_deps['all'] = set(dep for deps in extra_deps.values() for dep in deps)
 
 setup(name="mosaicml",
-      version="0.3.1",
+      version="0.4.0",
       author="MosaicML",
       author_email="team@mosaicml.com",
-      description="composing methods for ML training efficiency",
+      description=
+          "Composer provides well-engineered implementations of efficient training methods to give "
+          "the tools that help you train a better model for cheaper.",
       long_description=long_description,
       long_description_content_type="text/markdown",
       url="https://github.com/mosaicml/composer",

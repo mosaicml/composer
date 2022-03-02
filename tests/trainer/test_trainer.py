@@ -13,6 +13,7 @@ from composer.algorithms.cutout.cutout import CutOut
 from composer.callbacks import LRMonitor
 from composer.callbacks.run_directory_uploader import RunDirectoryUploader
 from composer.core.callback import Callback
+from composer.core.time import Time, TimeUnit
 from composer.core.types import Model
 from composer.loggers import FileLogger, TQDMLogger, WandBLogger
 from composer.trainer import Trainer
@@ -95,6 +96,11 @@ class TestTrainerInit():
         assert trainer._checkpoint_saver is not None and \
             trainer._checkpoint_saver._save_interval == "10ep"
 
+    def test_init_with_max_duration_in_batches(self, config):
+        config["max_duration"] = '1ba'
+        trainer = Trainer(**config)
+        assert trainer.state.max_duration.to_timestring() == "1ba"
+
 
 @world_size(1, 2)
 @device('cpu', 'gpu', 'gpu-amp', precision=True)
@@ -154,6 +160,16 @@ class TestTrainerEquivalence():
         trainer = Trainer(**config)
         trainer.fit()
 
+        self.assert_models_equal(trainer.state.model, self.reference_model)
+
+    def test_max_duration(self, config, *args):
+        max_duration = Time.from_timestring(config['max_duration'])
+        assert max_duration.unit == TimeUnit.EPOCH
+        max_duration_in_batches = Time(len(config['train_dataloader']) * int(max_duration.value), TimeUnit.BATCH)
+        config['max_duration'] = max_duration_in_batches.to_timestring()
+        trainer = Trainer(**config)
+        assert trainer.state.max_duration.unit == TimeUnit.BATCH
+        trainer.fit()
         self.assert_models_equal(trainer.state.model, self.reference_model)
 
     def test_checkpoint(self, config, *args):

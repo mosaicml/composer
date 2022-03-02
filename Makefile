@@ -5,6 +5,7 @@ MASTER_PORT ?= 26000 # port for distributed tests
 PYTHON ?= python
 PYTEST ?= pytest
 EXTRA_ARGS ?=  # extra arguments for pytest
+PYRIGHT_PYTHON_FORCE_VERSION ?= 1.1.224
 
 # Force append the duration flag to extra args
 override EXTRA_ARGS += --duration $(DURATION)
@@ -13,7 +14,7 @@ dirs := composer examples tests
 
 # run this to autoformat your code
 style:
-	$(PYTHON) -m isort -i $(dirs)
+	$(PYTHON) -m isort $(dirs)
 	$(PYTHON) -m yapf -rip $(dirs)
 	$(PYTHON) -m docformatter -ri --wrap-summaries 120 --wrap-descriptions 120 $(dirs)
 
@@ -22,7 +23,7 @@ lint:
 	$(PYTHON) -m isort -c --diff $(dirs)
 	$(PYTHON) -m yapf -dr $(dirs)
 	$(PYTHON) -m docformatter -r --wrap-summaries 120 --wrap-descriptions 120 $(dirs)
-	pyright $(dirs)
+	PYRIGHT_PYTHON_FORCE_VERSION=$(PYRIGHT_PYTHON_FORCE_VERSION) pyright $(dirs)
 
 test:
 	$(PYTHON) -m $(PYTEST) tests/ $(EXTRA_ARGS)

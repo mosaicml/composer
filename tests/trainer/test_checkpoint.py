@@ -19,6 +19,7 @@ from composer.core.callback import Callback
 from composer.core.event import Event
 from composer.core.precision import Precision
 from composer.core.state import State
+from composer.core.time import TimeUnit
 from composer.core.types import Logger, StateDict
 from composer.datasets import SyntheticHparamsMixin
 from composer.optim import AdamWHparams
@@ -265,12 +266,11 @@ def test_checkpoint(
     - assert that the checkpoint from the new trainer at the end is the same as the checkpoint from the first trainer at the end.
     """
     del world_size  # unused. Read via env variable
+    if deepspeed_enabled:
+        pytest.skip("Deepspeed tests are unstable. See https://github.com/mosaicml/composer/issues/610.")
 
     if not isinstance(device_hparams, GPUDeviceHparams) and deepspeed_enabled:
         pytest.skip("DeepSpeed tests must be ran on GPU")
-
-    if model_name == "resnet50_synthetic" and deepspeed_enabled:
-        pytest.skip("Skipping tests timing out on jenkins. TODO: fix.")
 
     if model_name is not None:
         if not isinstance(device_hparams, GPUDeviceHparams):
@@ -379,7 +379,8 @@ def _test_checkpoint_trainer(trainer_hparams: TrainerHparams):
 def _validate_events_called_expected_number_of_times(trainer: Trainer):
     state = trainer.state
 
-    num_epochs = state.max_epochs
+    assert state.max_duration.unit == TimeUnit.EPOCH
+    num_epochs = state.max_duration.value
     num_total_steps = num_epochs * state.steps_per_epoch
     num_total_microbatches = num_total_steps * state.grad_accum
     num_evals = 0
