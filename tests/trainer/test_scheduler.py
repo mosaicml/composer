@@ -106,8 +106,8 @@ def test_scheduler_init(scheduler: ComposerScheduler, ssr: float, test_times: Li
 @pytest.mark.parametrize(
     "scheduler,ssr,should_raise",
     [
-        (StepScheduler(step_size='10ba'), 1.0, None),
-        (StepScheduler(step_size='0.002dur', gamma=0.8), 0.5, None),
+        (StepScheduler(step_size='2ba'), 1.0, None),
+        (StepScheduler(step_size='0.2dur', gamma=0.8), 0.5, None),
         (lambda state, ssr=1.0: 0.01 * ssr, 1.5, None),  # lambda's are also allowed as a ComposerScheduler
         (lambda state: 0.01, 1.0, None),  # if the ssr = 1.0, then the lambda need not take the ssr parameter
         (lambda state: 0.01, 1.5,
@@ -120,6 +120,7 @@ def test_scheduler_trains(scheduler: ComposerScheduler, ssr: float, dummy_model:
             model=dummy_model,
             train_dataloader=dummy_train_dataloader,
             max_duration='2ep',
+            train_subset_num_batches=5,
             scale_schedule_ratio=ssr,
             schedulers=scheduler,
         )
