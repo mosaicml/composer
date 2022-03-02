@@ -55,7 +55,7 @@ class DeviceGPU(Device):
                 yield
         # Retain compatibility with PyTorch < 1.10
         if precision != Precision.BF16:
-            with torch.cuda.amp.autocast(enabled):
+            with torch.cuda.amp.autocast(enabled): # type: ignore
                 yield
 
     def state_dict(self) -> StateDict:
