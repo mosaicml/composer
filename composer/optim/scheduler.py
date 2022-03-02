@@ -10,17 +10,27 @@ PyTorch's schedulers were written under the assumption that this value would rep
 that ``.step()`` be called exactly once per epoch.
 
 A critical problem with this approach is that it oversimplifies the notion of time. Time can be measured in multiple
-other units besides epochs, such as samples, batches, and even tokens for NLP datasets, and in practice it can be useful
-to use even a combination of these units in configuring schedulers.
+other units besides epochs, such as samples, batches, and even tokens for NLP datasets. PyTorch's schedulers are unable
+to recognize this multiplicity, since their understanding of time is limited to how much ``.step()`` has been called.
 
-A second problem is that there are major benefits to reap from updating a scheduler more frequently than just every
-epoch. It is commonly found that updating a scheduler after every batch improves model accuracy. With PyTorch's
+To offer a concrete example, PyTorch's :class:`~torch.optim.lr_scheduler.MultiStepLR` is configured by a ``milestones``
+parameter whose type is a list of integers. Each of these milestones represents a time at which the learning rate should
+change. Implicitly, these milestones are expected to be epoch indices.
 
-However, time can be measured in multiple other units, such as samples, batches, and even tokens for NLP datasets. 
-It can be useful to represent scheduler parameters See :mod:`~composer.core.time` for more information on how the Composer library 
-handles representations of time.
+So what happens if you want to change the learning rate not after an epoch, but after a batch, as is common in some NLP
+training loads? Despite that PyTorch's schedulers weren't designed for this, it's possible to call ``.step()`` after
+every batch, rather than after every epoch. Unfortunately, if you do this, you need to adjust all timewise parameters of
+your schedulers, since their unit has now been implicitly changed from epochs to batches.
 
-See `~.ComposerSchedulerFn` for the definition of a stateless scheduler.
+The primary design goal of the stateless schedulers provided in this module is to allow schedulers to reason about
+explicit time units via Composer's :mod:`~composer.core.time` abstraction. This means that schedulers can be configured
+using arbitrary but explicit time units.
+
+See :class:`~.ComposerSchedulerFn` for more information on stateless schedulers.
+
+Attributes:
+    ComposerScheduler (:attr:`~composer.core.types.Scheduler` or :class:`~.ComposerSchedulerFn`): Union type for
+        representing both PyTorch's built-in schedulers and also Composer's stateless schedulers.
 """
 
 import logging
@@ -45,7 +55,7 @@ if TYPE_CHECKING:
 log = logging.getLogger(__name__)
 
 __all__ = [
-    "ComposerSchedulerFn", "compile", "step_scheduler", "multi_step_scheduler", "constant_scheduler",
+    "ComposerSchedulerFn", "ComposerScheduler", "compile", "step_scheduler", "multi_step_scheduler", "constant_scheduler",
     "linear_scheduler", "exponential_scheduler", "cosine_annealing_scheduler",
     "cosine_annealing_warm_restarts_scheduler", "polynomial_scheduler", "multi_step_with_warmup_scheduler",
     "linear_with_warmup_scheduler", "cosine_annealing_with_warmup_scheduler"
@@ -53,7 +63,7 @@ __all__ = [
 
 
 class ComposerSchedulerFn(Protocol):
-    """Specification for a "stateless" scheduler function.
+    """Specification for a stateless scheduler function.
 
     A scheduler function should be a pure function that returns a multiplier to apply to the optimizer's provided
     learning rate, given the current trainer state, and optionally a "scale schedule ratio" (SSR). A typical
@@ -69,6 +79,9 @@ class ComposerSchedulerFn(Protocol):
             ssr (float): The scale schedule ratio. In general, the learning rate computed by this
                 scheduler at time :math:`t` with an SSR of 1.0 should be the same as that computed by
                 this scheduler at time :math:`t \times s` with an SSR of :math:`s`. Default = ``1.0``.
+
+        Returns:
+            alpha (float): A multiplier to apply to the optimizer's provided learning rate.
         """
         raise NotImplementedError
 
@@ -92,13 +105,30 @@ def _convert_time(time: Union[str, Time], state: State, ssr: float = 1.0) -> Tim
 
 
 def compile(scheduler: ComposerScheduler, state: State) -> Scheduler:
+    """Converts stateless schedulers into a PyTorch scheduler object.
+    
+    While the resulting scheduler provides a ``.step()`` interface similar to other PyTorch schedulers, the scheduler is
+    also given a bound reference to the current :class:`~composer.core.State`. This means that any internal state updated
+    by ``.step()`` can be ignored, and the scheduler can instead simply use the bound state to recalculate the current
+    learning rate.
+
+    If this function is provided an object that is already a PyTorch scheduler, it just returns the scheduler.
+
+    Args:
+        scheduler (ComposerScheduler): A scheduler, represented either as a :attr:`~composer.core.types.Scheduler` or as
+            a :class:`~composer.optim.scheduler.ComposerSchedulerFn`.
+        state (State): The Composer Trainer's state.
+
+    Returns:
+        compiled_scheduler (Scheduler): The scheduler, in a form compatible with PyTorch scheduler interfaces.
+    """
 
     if isinstance(scheduler, Scheduler):
         return scheduler
 
     optimizers = state.optimizers
     if len(optimizers) != 1:
-        raise NotImplementedError("Providing functional schedulers is unsupported with multiple optimizers.")
+        raise NotImplementedError("Providing stateless schedulers is unsupported with multiple optimizers.")
     optimizer = optimizers[0]
 
     def scheduler_fn(epoch: int) -> float:
@@ -112,13 +142,21 @@ def compile(scheduler: ComposerScheduler, state: State) -> Scheduler:
 
 def step_scheduler(state: State, *, ssr: float = 1.0, step_size: Union[str, Time], gamma: float = 0.1) -> float:
     r"""Decays the learning rate discretely at fixed intervals.
+
+    Analogous to :class:`~torch.optim.lr_scheduler.StepLR`.
+
+    Decays the learning rate by ``gamma`` periodically, with a frequency determined by ``step_size``.
     
     Args:
         state (State): The current Composer Trainer state.
         ssr (float): The scale schedule ratio. In general, the learning rate computed by this
             scheduler at time :math:`t` with an SSR of 1.0 should be the same as that computed by
             this scheduler at time :math:`t \times s` with an SSR of :math:`s`. Default = ``1.0``.
-        gamma (float): Gamma. Default = ``0.1``.
+        step_size (str or Time): The amount of time between changes to the learning rate.
+        gamma (float): Multiplicative decay factor. Default = ``0.1``.
+
+    Returns:
+        alpha (float): A multiplier to apply to the optimizer's provided learning rate.
     """
 
     step_size = _convert_time(step_size, state, ssr=ssr)
@@ -134,14 +172,21 @@ def multi_step_scheduler(state: State,
                          milestones: List[Union[str, Time]],
                          gamma: float = 0.1) -> float:
     r"""Decays the learning rate discretely at fixed milestones.
+
+    Analogous to :class:`~torch.optim.lr_scheduler.MultiStepLR`.
+
+    Decays the learning rate by ``gamma`` whenever a time milestone in ``milestones`` is reached.
     
     Args:
         state (State): The current Composer Trainer state.
         ssr (float): The scale schedule ratio. In general, the learning rate computed by this
             scheduler at time :math:`t` with an SSR of 1.0 should be the same as that computed by
             this scheduler at time :math:`t \times s` with an SSR of :math:`s`. Default = ``1.0``.
-        milestones (list of str or Time): Milestones.
-        gamma (float) Gamma. Default = ``0.1``.
+        milestones (list of str or Time): Times at which the learning rate should change.
+        gamma (float) Multiplicative decay factor. Default = ``0.1``.
+
+    Returns:
+        alpha (float): A multiplier to apply to the optimizer's provided learning rate.
     """
 
     milestones = [_convert_time(milestone, state, ssr=ssr) for milestone in milestones]
@@ -157,23 +202,31 @@ def multi_step_scheduler(state: State,
 def constant_scheduler(state: State,
                        *,
                        ssr: float = 1.0,
-                       factor: float = 1.0,
-                       total_time: Union[str, Time] = '1dur') -> float:
+                       alpha: float = 1.0,
+                       t_max: Union[str, Time] = '1dur') -> float:
     r"""Maintains a fixed learning rate.
+
+    Analagous to :class:`~torch.optim.lr_scheduler.ConstantLR`.
+
+    The default settings for this scheduler simply maintain a learning rate factor of 1 for the entire training
+    duration. However, both the factor and the duration of this scheduler can be configured.
     
     Args:
         state (State): The current Composer Trainer state.
         ssr (float): The scale schedule ratio. In general, the learning rate computed by this
             scheduler at time :math:`t` with an SSR of 1.0 should be the same as that computed by
             this scheduler at time :math:`t \times s` with an SSR of :math:`s`. Default = ``1.0``.
-        factor (float): Factor. Default = ``1.0``.
-        total_time (str or Time): Total time. Default = ``'1dur'``.
+        alpha (float): The learning rate multiplier to output while this scheduler is active. Default = ``1.0``.
+        t_max (str or Time): The duration of this scheduler. Default = ``'1dur'``.
+
+    Returns:
+        alpha (float): A multiplier to apply to the optimizer's provided learning rate.
     """
 
-    total_time = _convert_time(total_time, state, ssr=ssr)
+    total_time = _convert_time(t_max, state, ssr=ssr)
 
     if state.timer < total_time:
-        return factor
+        return alpha
 
     return 1.0
 
@@ -181,39 +234,58 @@ def constant_scheduler(state: State,
 def linear_scheduler(state: State,
                      *,
                      ssr: float = 1.0,
-                     start_factor: float = 1.0,
-                     end_factor: float = 0.0,
-                     total_time: Union[str, Time] = '1dur') -> float:
+                     alpha_i: float = 1.0,
+                     alpha_f: float = 0.0,
+                     t_max: Union[str, Time] = '1dur') -> float:
     r"""Adjusts the learning rate linearly.
+
+    Analogous to :class:`~torch.optim.lr_scheduler.LinearLR`.
+
+    Linearly adjusts the learning rate multiplier from ``alpha_i`` to ``alpha_f`` over ``t_max`` time.
+
+    .. warning::
+        Note that the defaults for this scheduler differ from the defaults for  :class:`~torch.optim.lr_scheduler.LinearLR`.
+        The PyTorch scheduler, by default, linearly increases the learning rate multiplier from 1.0 / 3 to 1.0, whereas
+        this implementation, by default, linearly decreases the multiplier from 1.0 to 0.0.
     
     Args:
         state (State): The current Composer Trainer state.
         ssr (float): The scale schedule ratio. In general, the learning rate computed by this
             scheduler at time :math:`t` with an SSR of 1.0 should be the same as that computed by
             this scheduler at time :math:`t \times s` with an SSR of :math:`s`. Default = ``1.0``.
-        start_factor (float): Start factor. Default = ``1.0``.
-        end_factor (float): End factor. Default = ``0.0``.
-        total_time (str or Time): Total time. Default = ``'1dur'``.
+        alpha_i (float): Initial learning rate multiplier. Default = ``1.0``.
+        alpha_f (float): Final learning rate multiplier. Default = ``0.0``.
+        t_max (str or Time): The duration of this scheduler. Default = ``'1dur'``.
+
+    Returns:
+        alpha (float): A multiplier to apply to the optimizer's provided learning rate.
     """
 
-    total_time = _convert_time(total_time, state, ssr=ssr)
+    total_time = _convert_time(t_max, state, ssr=ssr)
     current_time = state.timer.get(total_time.unit)
     frac_of_total = min(1.0, (current_time / total_time).value)
 
-    current_factor = start_factor + frac_of_total * (end_factor - start_factor)
+    current_factor = alpha_i + frac_of_total * (alpha_f - alpha_i)
 
     return current_factor
 
 
 def exponential_scheduler(state: State, *, ssr: float = 1.0, gamma: float) -> float:
     r"""Decays the learning rate exponentially.
+
+    Analogous to :class:`~torch.optim.lr_scheduler.ExponentialLR`.
+
+    Decays the learning rate multiplier by a factor of ``gamma`` every epoch.
     
     Args:
         state (State): The current Composer Trainer state.
         ssr (float): The scale schedule ratio. In general, the learning rate computed by this
             scheduler at time :math:`t` with an SSR of 1.0 should be the same as that computed by
             this scheduler at time :math:`t \times s` with an SSR of :math:`s`. Default = ``1.0``.
-        gamma (float): Gamma.
+        gamma (float): Multiplicative decay factor.
+
+    Returns:
+        alpha (float): A multiplier to apply to the optimizer's provided learning rate.
     """
 
     current_time = state.timer.epoch
@@ -236,8 +308,15 @@ def cosine_annealing_scheduler(state: State,
                                *,
                                ssr: float = 1.0,
                                t_max: Union[str, Time] = '1dur',
-                               min_factor: float = 0.0):
+                               alpha_f: float = 0.0):
     r"""Decays the learning rate according to the decreasing part of a cosine curve.
+
+    Analogous to :class:`~torch.optim.lr_scheduler.CosineAnnealingLR`.
+
+    Specifically, the learning rate multiplier :math:`\eta` can be expressed as
+    :math:`\alpha(\tau) = \alpha_f + (1 - \alpha_f) \times \frac{1}{2}(1 + \cos(\pi \times \tau))`, where :math:`\tau`
+    represents the fraction of time elapsed :math:`t / t_{max}` (clipped to the interval :math:`[0, 1]`), and
+    :math:`\alpha_f` represents the learning rate multiplier to decay to.
     
     Args:
         state (State): The current Composer Trainer state.
@@ -245,7 +324,10 @@ def cosine_annealing_scheduler(state: State,
             scheduler at time :math:`t` with an SSR of 1.0 should be the same as that computed by
             this scheduler at time :math:`t \times s` with an SSR of :math:`s`. Default = ``1.0``.
         t_max (str or Time): Total time. Default = ``'1dur'``.
-        min_factor (float): Minimum factor. Default = ``0.0``.
+        alpha_f (float): Learning rate multiplier to decay to. Default = ``0.0``.
+
+    Returns:
+        alpha (float): A multiplier to apply to the optimizer's provided learning rate.
     """
 
     t_max = _convert_time(t_max, state, ssr=ssr)
@@ -260,7 +342,7 @@ def cosine_annealing_warm_restarts_scheduler(state: State,
                                              ssr: float = 1.0,
                                              t_0: Union[str, Time],
                                              t_mult: float = 1.0,
-                                             min_factor: float = 0.0):
+                                             alpha_f: float = 0.0):
     r"""Cyclically decays the learning rate according to the decreasing part of a cosine curve.
     
     Args:
@@ -270,7 +352,10 @@ def cosine_annealing_warm_restarts_scheduler(state: State,
             this scheduler at time :math:`t \times s` with an SSR of :math:`s`. Default = ``1.0``.
         t_0 (str or Time): The first cycle's duration.
         t_mult (float): The multiplier for subsequent cycles' durations. Default = ``1.0``.
-        min_factor (float): Minimum factor. Default = ``0.0``.
+        alpha_f (float): Minimum factor. Default = ``0.0``.
+
+    Returns:
+        alpha (float): A multiplier to apply to the optimizer's provided learning rate.
     """
 
     t_0 = _convert_time(t_0, state, ssr=ssr)
@@ -305,6 +390,9 @@ def polynomial_scheduler(state: State,
         t_max (str or Time): Total time. Default = ``'1dur'``.
         power (float): Power.
         min_factor (float): Minimum factor. Default = ``0.0``.
+
+    Returns:
+        alpha (float): A multiplier to apply to the optimizer's provided learning rate.
     """
 
     t_max = _convert_time(t_max, state, ssr=ssr)
@@ -332,6 +420,9 @@ def multi_step_with_warmup_scheduler(state: State,
         warmup_time (str or Time): Warmup time.
         milestones (list of str or Time): Milestones.
         gamma (float) Gamma. Default = ``0.1``.
+
+    Returns:
+        alpha (float): A multiplier to apply to the optimizer's provided learning rate.
     """
 
     # N.B. warmup time is intentionally *not* subject to scale schedule
@@ -365,6 +456,9 @@ def linear_with_warmup_scheduler(state: State,
         start_factor (float): Start factor. Default = ``1.0``.
         end_factor (float): End factor. Default = ``0.0``.
         total_time (str or Time): Total time. Default = ``'1dur'``.
+
+    Returns:
+        alpha (float): A multiplier to apply to the optimizer's provided learning rate.
     """
 
     # N.B. warmup time is intentionally *not* subject to scale schedule
@@ -402,6 +496,9 @@ def cosine_annealing_with_warmup_scheduler(state: State,
         warmup_time (str or Time): Warmup time.
         t_max (str or Time): Total time. Default = ``'1dur'``.
         min_factor (float): Minimum factor. Default = ``0.0``.
+
+    Returns:
+        alpha (float): A multiplier to apply to the optimizer's provided learning rate.
     """
 
     # N.B. warmup time is intentionally *not* subject to scale schedule
