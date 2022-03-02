@@ -51,11 +51,11 @@ class DeviceGPU(Device):
         elif precision == Precision.BF16:
             if version.parse(torch.__version__) < version.parse("1.10"):
                 raise ValueError(f"BF16 precision requires torch > 1.10, got version {torch.__version__}")
-            with torch.cuda.amp.autocast(True, torch.bfloat16): # type: ignore
+            with torch.cuda.amp.autocast(True, torch.bfloat16):  # type: ignore
                 yield
         # Retain compatibility with PyTorch < 1.10
         if precision != Precision.BF16:
-            with torch.cuda.amp.autocast(enabled): # type: ignore
+            with torch.cuda.amp.autocast(enabled):  # type: ignore
                 yield
 
     def state_dict(self) -> StateDict:
