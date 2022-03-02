@@ -273,16 +273,16 @@ class EfficientNet(nn.Module):
     Args:
         num_classes (int): Size of the EfficientNet output, typically viewed
              as the number of classes in a classification task.
-        width_multiplier (float): How much to scale the EfficientNet-B0 channel
+        width_multiplier (float, optional): How much to scale the EfficientNet-B0 channel
              dimension throughout the model.
-        depth_multiplier (float): How much to scale the EFficientNet-B0 depth.
-        drop_rate (float): Dropout probability for the penultimate activations.
-        drop_connect_rate (float): Probability of dropping a sample before the
+        depth_multiplier (float, optional): How much to scale the EFficientNet-B0 depth.
+        drop_rate (float, optional): Dropout probability for the penultimate activations.
+        drop_connect_rate (float, optional): Probability of dropping a sample before the
              identity connection, provides regularization similar to stochastic
              depth.
-        act_layer (torch.nn.Module): Activation layer to use in the model.
-        norm_kwargs (dict): Normalization layer's keyword arguments.
-        norm_layer (torch.nn.Module): Normalization layer to use in the model.
+        act_layer (torch.nn.Module, optional): Activation layer to use in the model.
+        norm_kwargs (dict, optional): Normalization layer's keyword arguments.
+        norm_layer (torch.nn.Module, optional): Normalization layer to use in the model.
     """
 
     # EfficientNet-B0 architecture specification

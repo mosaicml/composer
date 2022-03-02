@@ -16,7 +16,7 @@ class MaskedAccuracy(Metric):
 
     Args:
         ignore_index (int): The class index to ignore.
-        dist_sync_on_step (bool): Synchronize metric state across processes at
+        dist_sync_on_step (bool, optional): Synchronize metric state across processes at
             each forward() before returning the value at the step.
 
     State:
@@ -56,9 +56,9 @@ class CrossEntropyLoss(Metric):
 
     Args:
         vocab_size (int): the size of the tokenizer vocabulary.
-        dist_sync_on_step (bool): Synchronize metric state across processes at
+        dist_sync_on_step (bool, optional): Synchronize metric state across processes at
             each forward() before returning the value at the step.
-        ignore_index (int): The class index to ignore. Defaults to -100.
+        ignore_index (int, optional): The class index to ignore. Defaults to -100.
 
     State:
         sum_loss (float): the sum of the per-example loss in the batch.
@@ -108,7 +108,7 @@ class BinaryF1Score(Metric):
     """Implements F1 Scores for binary classification tasks via sklearn.
 
     Args:
-        dist_sync_on_step (bool): Synchronize metric state across processes at
+        dist_sync_on_step (bool, optional): Synchronize metric state across processes at
             each forward() before returning the value at the step.
 
     State:
@@ -155,7 +155,7 @@ class LanguageCrossEntropyLoss(Metric):
     """Hugging Face compatible cross entropy loss.
 
     Args:
-        dist_sync_on_step (bool): Synchronize metric state across processes at
+        dist_sync_on_step (bool, optional): Synchronize metric state across processes at
             each forward() before returning the value at the step.
 
     State:

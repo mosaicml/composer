@@ -30,7 +30,7 @@ class ComposerTransformer(ComposerModel):
             stores information about the model hyperparameters.
         tokenizer (transformers.PreTrainedTokenizer): The tokenizer used for this model,
             necessary to assert required model inputs.
-        gradient_checkpointing (bool): Use gradient checkpointing. default: False
+        gradient_checkpointing (bool, optional): Use gradient checkpointing. default: False
     """
 
     def __init__(self,

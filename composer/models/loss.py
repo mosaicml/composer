@@ -28,7 +28,7 @@ class MIoU(Metric):
 
     Args:
         num_classes (int): the number of classes in the segmentation task.
-        ignore_index (int): the index to ignore when computing mIoU. Default is -1.
+        ignore_index (int, optional): the index to ignore when computing mIoU. Default: -1.
     """
 
     def __init__(self, num_classes: int, ignore_index: int = -1):

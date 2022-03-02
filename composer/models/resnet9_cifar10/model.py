@@ -21,7 +21,7 @@ class ResNet9(nn.Module):
     on the residual network architecture.
 
     Args:
-        num_classes (int): The number of classes. Needed for classification tasks. Default: 10.
+        num_classes (int, optional): The number of classes. Needed for classification tasks. Default: 10.
     """
 
     def __init__(self, num_classes: int = 10):

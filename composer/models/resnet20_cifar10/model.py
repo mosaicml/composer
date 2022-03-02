@@ -23,7 +23,7 @@ class CIFAR10_ResNet20(ComposerClassifier):
         model = CIFAR10_ResNet20()  # creates a resnet20 for cifar image classification
 
     Args:
-        num_classes (int): The number of classes. Needed for classification tasks. Default: 10.
+        num_classes (int, optional): The number of classes. Needed for classification tasks. Default: 10.
         initializers (List[Initializer], optional): Initializers
             for the model. ``None`` for no initialization.
             (default: ``None``).

@@ -39,8 +39,8 @@ class BERTModel(ComposerTransformer):
             contains the forward pass function.
         config (transformers.BertConfig): The BertConfig object that
             stores information about the model hyperparameters.
-        tokenizer_name (str): The name of the tokenizer used for this model,
-            necessary to assert required model inputs.
+        tokenizer (transformers.BertTokenizer): An instance of BertTokenizer. Necessary to process model inputs.
+
     """
 
     def __init__(self, module: transformers.BertModel, config: transformers.BertConfig,
