@@ -90,10 +90,10 @@ class InMemoryLogger(LoggerCallback):
                 associated value is a list of values of that metric. The remaining key(s)
                 are each a unit of time, and the associated values are each a list of
                 values of that time unit for the corresponding index of the metric. For
-                example, plotting timeseries['accuracy/val'] vs. timeseries['epoch'] would
-                plot validation accuracy as a function of epoch. And if
-                timeseries['accuracy/val'][5] == 41.2, and timeseries['batch'][5] == 680,
-                that means that 'accuracy/val' was equal to 41.2 on the 680th batch.
+                example:
+                >>> InMemoryLogger.get_timeseries(metric="accuracy/val",
+                time_unit="epoch")
+                {"epoch": [1, 2, 3, 4, ...], "accuracy/val": [31.2, 45.6, 59.3, 64.7, ...]}
         """
 
         # Check time_unit string
