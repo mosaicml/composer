@@ -42,6 +42,7 @@ class SWA(Algorithm):
 
             from composer.algorithms import SWA
             from composer.trainer import Trainer
+
             swa_algorithm = SWA(
                 swa_start="6ep",
                 swa_end="8ep"
