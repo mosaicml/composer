@@ -120,7 +120,7 @@ class SeqLengthWarmup(Algorithm):
     .. code-block::
 
         from composer.algorithms import SeqLengthWarmup
-        from composer.trainer import Trainer
+        from composer import Trainer
 
         seq_length_warmup = SeqLengthWarmup(duration=0.5,
                                             min_seq_length=8,
