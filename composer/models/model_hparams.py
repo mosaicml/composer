@@ -1,5 +1,6 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
+"""Model Hparams interface for yahp."""
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import Callable, List, Optional
@@ -15,7 +16,7 @@ __all__ = ["ModelHparams", "Initializer"]
 
 
 class Initializer(StringEnum):
-    """Sets the initialization scheme for different layers of a pytorch model."""
+    """Sets the initialization scheme for different layers of a PyTorch model."""
     KAIMING_NORMAL = "kaiming_normal"
     KAIMING_UNIFORM = "kaiming_uniform"
     BN_UNIFORM = "bn_uniform"

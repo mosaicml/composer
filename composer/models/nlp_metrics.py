@@ -1,5 +1,6 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
+"""A collection of common torchmetrics for NLP tasks."""
 from typing import Mapping, Union
 
 import torch

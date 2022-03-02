@@ -1,5 +1,6 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
+"""Transformer Hparams interface for yahp."""
 from abc import ABC
 from dataclasses import dataclass
 from typing import Dict, Optional
@@ -21,8 +22,8 @@ class TransformerHparams(ModelHparams, ABC):
         model_config (Dict[str, JSON]): A dictionary providing a HuggingFace model configuration.
         tokenizer_name (str): The tokenizer used for this model,
             necessary to assert required model inputs.
-        use_pretrained (bool): Whether to initialize the model with the pretrained weights.
-        gradient_checkpointing (bool): Use gradient checkpointing. default: False
+        use_pretrained (bool, optional): Whether to initialize the model with the pretrained weights.
+        gradient_checkpointing (bool, optional): Use gradient checkpointing. default: False.
     """
 
     tokenizer_name: str = hp.optional("Tokenizer name to pull from Huggingface Model Hub.", default=None)

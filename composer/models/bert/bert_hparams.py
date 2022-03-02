@@ -16,6 +16,16 @@ __all__ = ["BERTForClassificationHparams", "BERTHparams"]
 
 @dataclass
 class BERTForClassificationHparams(TransformerHparams):
+    """yahp Hparams interface for BERT classification Models.
+    Args:
+        pretrained_model_name (str): "Pretrained model name to pull from Huggingface Model Hub."
+        model_config (Dict[str, JSON]): A dictionary providing a HuggingFace model configuration.
+        tokenizer_name (str): The tokenizer used for this model,
+            necessary to assert required model inputs.
+        use_pretrained (bool, optional): Whether to initialize the model with the pretrained weights.
+        gradient_checkpointing (bool, optional): Use gradient checkpointing. default: False.
+        num_labels (int, optional): The number of classes in the segmentation task. Default: 2.
+    """
     num_labels: int = hp.optional(doc="The number of possible labels for the task.", default=2)
 
     def validate(self):
@@ -64,7 +74,16 @@ class BERTForClassificationHparams(TransformerHparams):
 
 @dataclass
 class BERTHparams(TransformerHparams):
+    """yahp Hparams interface for BERT Models.
 
+    Args:
+        pretrained_model_name (str): "Pretrained model name to pull from Huggingface Model Hub."
+        model_config (Dict[str, JSON]): A dictionary providing a HuggingFace model configuration.
+        tokenizer_name (str): The tokenizer used for this model,
+            necessary to assert required model inputs.
+        use_pretrained (bool, optional): Whether to initialize the model with the pretrained weights.
+        gradient_checkpointing (bool, optional): Use gradient checkpointing. default: False.
+    """
     def initialize_object(self) -> "BERTModel":
         try:
             import transformers

@@ -1,7 +1,7 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
 from composer.models.base import ComposerClassifier
-from composer.models.efficientnets import EfficientNet
+from composer.models.efficientnetb0.efficientnets import EfficientNet
 
 __all__ = ["EfficientNetB0"]
 

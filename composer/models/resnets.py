@@ -1,5 +1,13 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
+"""The ResNet model family is a set of convolutional neural networks that can be used as the base for a variety of
+vision tasks. ImageNet ResNets are a subset of the ResNet family which were designed specifically for classification on
+the ImageNet dataset.
+
+
+See the :doc:`Model Card </model_cards/resnet>` for more details.
+"""
+
 # Code below adapted from https://github.com/facebookresearch/open_lth
 # and https://github.com/pytorch/vision
 

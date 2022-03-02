@@ -2,7 +2,7 @@
 
 """The models module contains the :class:`.ComposerModel` base class along with reference
 implementations of many common models. Additionally, it includes task specific convenience
-:class:`.ComposerModel` s that wrap existing pytorch models with standard forward passes
+:class:`.ComposerModel` s that wrap existing Pytorch models with standard forward passes
 and logging to enable quick interaction with the :class:`.Trainer`.
 
 See :doc:`Composer Model </composer_model>` for more details.

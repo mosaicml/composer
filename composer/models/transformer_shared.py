@@ -1,5 +1,6 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
+"""The ComposerModel Interface for Transformers."""
 from __future__ import annotations
 
 import logging

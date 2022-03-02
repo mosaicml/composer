@@ -18,7 +18,7 @@ __all__ = ["ComposerModel", "ComposerClassifier"]
 
 
 class ComposerModel(torch.nn.Module, abc.ABC):
-    """The interface needed to use a pytorch model with :class:`.Trainer`.
+    """The interface needed to use a PyTorch model with :class:`.Trainer`.
 
     To create a :class:`.Trainer` compatible model, subclass :class:`.ComposerModel` and
     implement :meth:`forward` and :meth:`loss`. For full functionality (logging and validation), implement :meth:`metrics`
@@ -39,7 +39,7 @@ class ComposerModel(torch.nn.Module, abc.ABC):
 
             def __init__(self):
                 super().__init__()
-                self.model = torchvision.models.resnet18() # define pytorch model in __init__.
+                self.model = torchvision.models.resnet18() # define PyTorch model in __init__.
 
             def forward(self, batch): # batch is the output of the dataloader
                 # specify how batches are passed through the model
@@ -56,7 +56,7 @@ class ComposerModel(torch.nn.Module, abc.ABC):
     def forward(self, batch: Batch) -> Tensors:
         """Compute model output given a batch from the dataloader.
 
-        .. warning:: this is method is different from vanilla pytorch `model.forward(x)` or `model(x)` as it takes a
+        .. warning:: this is method is different from vanilla PyTorch `model.forward(x)` or `model(x)` as it takes a
                      batch of data that has to be unpacked.
 
         Example:
@@ -198,7 +198,7 @@ class ComposerModel(torch.nn.Module, abc.ABC):
 
 class ComposerClassifier(ComposerModel):
     """A convenience class that creates a :class:`.ComposerModel` for classification tasks from a
-    vanilla pytorch model. :class:`.ComposerClassifier` requires batches in the form: (``input``,
+    vanilla PyTorch model. :class:`.ComposerClassifier` requires batches in the form: (``input``,
     ``target``) and includes a basic classification training loop with CrossEntropy loss and accuracy logging.
 
     Example:
@@ -212,7 +212,7 @@ class ComposerClassifier(ComposerModel):
         model = ComposerClassifier(pytorch_model)
 
     Args:
-        module (torch.nn.Module): A Pytorch neural network module.
+        module (torch.nn.Module): A PyTorch neural network module.
 
     Returns:
         ComposerClassifier: An instance of :class:`.ComposerClassifier`.

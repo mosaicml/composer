@@ -1,5 +1,6 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
+"""A collection of common torchmetrics and loss functions."""
 from __future__ import annotations
 
 from typing import TYPE_CHECKING, Optional, Tuple
