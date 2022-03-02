@@ -79,7 +79,7 @@ class Loss(nn.Module):
 
     1. Confidence Loss: All labels, with hard negative mining
     2. Localization Loss: Only on positive labels
-    Suppose input dboxes has the shape 8732x4
+
     """
 
     def __init__(self, dboxes):

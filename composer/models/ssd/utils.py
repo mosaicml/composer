@@ -249,6 +249,7 @@ class SSDCropping(object):
     1. Preserve the original image
     2. Random crop minimum IoU is among 0.1, 0.3, 0.5, 0.7, 0.9
     3. Random crop
+
     Reference to https://github.com/chauhan-utk/ssd.DomainAdaptation
     """
 
