@@ -1,0 +1,50 @@
+train_dataset:
+  coco:
+    is_train: true
+    datadir: /datasets/coco
+    download: false
+    shuffle: false
+    drop_last: false
+val_dataset:
+  coco:
+    is_train: false
+    datadir: /datasets/coco
+    download: false
+    shuffle: false
+    drop_last: false
+optimizer:
+  sgd:
+    lr: 0.08
+    weight_decay: 5e-4
+    momentum: 0.9
+model:
+  ssd:
+    input_size: 300
+    overlap_threshold: 0.5
+    nms_max_detections: 200
+    initializers: {}
+    data: /datasets/coco
+schedulers:
+  - multistep_with_warmup:
+      warmup_time: "3ep"
+      milestones:
+        - "40ep"
+        - "50ep"
+      gamma: 0.1
+loggers:
+  - tqdm: {}
+train_batch_size: 1024
+eval_batch_size: 1024
+seed: 0
+validate_every_n_epochs: 10
+grad_accum: 1
+device:
+  gpu: {}
+max_duration: 80ep
+dataloader:
+  pin_memory: true
+  timeout: 0
+  prefetch_factor: 2
+  persistent_workers: true
+  num_workers: 8
+precision: amp
