@@ -189,7 +189,7 @@ class MixUp(Algorithm):
 
 
 def _gen_interpolation_lambda(alpha: float) -> float:
-    """Samples :math:`max(z, 1-z), z \sim Beta(alpha, alpha)``."""
+    """Samples ``max(z, 1-z), z ~ Beta(alpha, alpha)``."""
     # First check if alpha is positive.
     assert alpha >= 0
     # Draw the interpolation parameter from a beta distribution.

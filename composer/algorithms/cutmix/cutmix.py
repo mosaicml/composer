@@ -25,7 +25,7 @@ def cutmix_batch(X: Tensor,
                  cut_proportion: Optional[float] = None,
                  alpha: float = 1.,
                  bbox: Optional[Tuple] = None,
-                 indices: Optional[torch.Tensor] = None) -> Tuple[torch.Tensor, torch.Tensor]:
+                 indices: Optional[torch.Tensor] = None) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
     """Create new samples using combinations of pairs of samples.
 
     This is done by masking a region of ``X`` and filling the masked region with
