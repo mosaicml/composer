@@ -8,7 +8,6 @@ from abc import ABC, abstractmethod
 from dataclasses import asdict, dataclass
 from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
-import coolname
 import yahp as hp
 
 from composer.core.logging import LoggerCallback, LogLevel
@@ -193,7 +192,16 @@ class WandBLoggerHparams(LoggerCallbackHparams):
         # If name=None, wandb.init(..) will automatically produce a unique run name
         # But for multi-rank grouped runs, we want to provide a group name ahead of time to link the runs
         # So let's explicitly default the run name here in a consistent way for single-rank and multi-rank
-        self.name = self.name if self.name else coolname.generate_slug(2)
+        if self.name is None:
+            try:
+                import coolname
+            except ImportError as e:
+                raise ImportError(
+                    textwrap.dedent("""\
+                    Composer was installed without 'coolname' support which is used to configure WandB names.
+                    To use 'coolname' with Composer, run `pip install mosaicml[wandb]` if using pip
+                    or `conda install -c conda-forge coolname` if using Anaconda.""")) from e
+            self.name = coolname.generate_slug(2)
 
         if self.rank_zero_only:
             name = self.name
