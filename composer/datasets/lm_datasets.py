@@ -11,7 +11,8 @@ import yahp as hp
 
 from composer.core.types import Batch, DataSpec
 from composer.datasets.dataloader import DataloaderHparams
-from composer.datasets.hparams import DatasetHparams
+from composer.datasets.hparams import DatasetHparams, SyntheticHparamsMixin
+from composer.datasets.synthetic import SyntheticHFDataset, generate_synthetic_tokenizer
 from composer.utils import dist
 
 log = logging.getLogger(__name__)
@@ -27,7 +28,7 @@ def _split_dict_fn(batch: Batch, n_microbatches: int) -> List[Batch]:
 
 
 @dataclass
-class LMDatasetHparams(DatasetHparams):
+class LMDatasetHparams(DatasetHparams, SyntheticHparamsMixin):
     """Defines a generic dataset class for autoregressive and masked language models trained with self-supervised
     learning."""
 
@@ -45,20 +46,19 @@ class LMDatasetHparams(DatasetHparams):
                                          default=0.15)
     seed: int = hp.optional("Which seed to use to generate train and validation splits.", default=5)
     subsample_ratio: float = hp.optional(default=1.0, doc='If desired, the percentage of the dataset to use.')
-    train_sequence_length: int = hp.optional(
+    max_seq_length: int = hp.optional(
         default=1024, doc='Optionally, the ability to set a custom sequence length for the training dataset.')
-    val_sequence_length: int = hp.optional(
-        default=1024, doc='Optionally, the ability to set a custom sequence length for the validation dataset.')
 
     def validate(self):
-        if self.datadir is None:
-            raise ValueError("A data directory must be specified.")
-
-        if self.split not in ['train', 'validation', 'test']:
-            raise ValueError("The dataset split must be one of 'train', 'validation', or 'test'.")
+        if not self.use_synthetic:
+            if self.datadir is None:
+                raise ValueError("A data directory must be specified.")
 
         if self.tokenizer_name is None:
             raise ValueError("A tokenizer name must be specified to tokenize the dataset.")
+
+        if self.split not in ['train', 'validation', 'test']:
+            raise ValueError("The dataset split must be one of 'train', 'validation', or 'test'.")
 
         if self.use_masked_lm is None:
             raise ValueError("To determine masking, use_masked_lm must be specified.")
@@ -71,7 +71,7 @@ class LMDatasetHparams(DatasetHparams):
         if self.num_tokens > 0 and self.subsample_ratio < 1.0:
             raise Exception("Must specify one of num_tokens OR subsample_ratio, cannot specify both.")
 
-        if (self.train_sequence_length % 8 != 0) or (self.val_sequence_length % 8 != 0):
+        if (self.max_seq_length % 8 != 0):
             log.warning("For best hardware acceleration, it is recommended that sequence lengths be multiples of 8.")
 
     def initialize_object(self, batch_size: int, dataloader_hparams: DataloaderHparams) -> DataSpec:
@@ -85,13 +85,38 @@ class LMDatasetHparams(DatasetHparams):
                 if using pip or `conda install -c conda-forge datasets transformers` if using Anaconda.""")) from e
 
         self.validate()
-        self.tokenizer = transformers.AutoTokenizer.from_pretrained(self.tokenizer_name)  #type: ignore (thirdparty)
-        self.config = transformers.AutoConfig.from_pretrained(self.tokenizer_name)  #type: ignore (thirdparty)
-        lm_datasets = [datasets.load_from_disk(i) for i in self.datadir]  #type: ignore (thirdparty)
+        assert self.tokenizer_name is not None
+        if self.use_synthetic:
+            column_names = ["text"]
+
+            # we just use the max sequence length in tokens to upper bound the sequence length in characters
+            lm_datasets = SyntheticHFDataset(num_samples=self.synthetic_num_unique_samples,
+                                             chars_per_sample=self.max_seq_length,
+                                             column_names=column_names).generate_dataset()
+
+            self.tokenizer = generate_synthetic_tokenizer(tokenizer_family=self.tokenizer_name, dataset=lm_datasets)
+
+            columns_to_remove = ["idx"] + column_names
+            lm_datasets = lm_datasets.map(lambda inp: self.tokenizer(
+                text=inp[column_names[0]], padding="max_length", max_length=self.max_seq_length, truncation=True),
+                                          batched=True,
+                                          num_proc=1,
+                                          remove_columns=columns_to_remove,
+                                          keep_in_memory=True)
+
+            # override sizing to able use of synthetic datasets
+            self.num_tokens = 0
+            self.subsample_ratio = 1.0
+            lm_datasets = [{self.split: lm_datasets}]
+        else:
+            self.tokenizer = transformers.AutoTokenizer.from_pretrained(self.tokenizer_name)  #type: ignore (thirdparty)
+            self.config = transformers.AutoConfig.from_pretrained(self.tokenizer_name)  #type: ignore (thirdparty)
+            # loads a dataset that is assumed to be pre-tokenized
+            lm_datasets = [datasets.load_from_disk(i) for i in self.datadir]  #type: ignore (thirdparty)
 
         # merge the dataset to re-sample from
         if self.split is None:
-            raise ValueError("split is required")
+            raise ValueError("A dataset split is required")
         merged_dataset = [[d[self.split]] for d in lm_datasets]
         # flatten merged_dataset
         merged_dataset = [item for sublist in merged_dataset for item in sublist]
