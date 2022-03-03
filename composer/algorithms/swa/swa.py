@@ -229,6 +229,5 @@ class SWA(Algorithm):
                             "training. This means that SWA model will not have its batch norm "
                             "statistics updated. This will negatively impact accuracy. See the "
                             "documentation for the `swa_end` parameter for details.")
-            assert type(self.swa_model.module) == type(state.model)
             state.model.load_state_dict(self.swa_model.module.state_dict())  # type: ignore
             log.info('Set model to the averaged model')
