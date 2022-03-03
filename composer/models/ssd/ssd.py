@@ -1,7 +1,10 @@
 import os
+import tempfile
+import textwrap
 from typing import Any, Tuple
 
 import numpy as np
+import requests
 from torchmetrics import Metric
 
 from composer.core.types import BatchPair, Metrics, Tensor, Tensors
@@ -19,11 +22,16 @@ class SSD(ComposerModel):
         self.input_size = input_size
         self.overlap_threshold = overlap_threshold
         self.nms_max_detections = nms_max_detections
-        import wget
-        url = "https://download.pytorch.org/models/resnet34-333f7ec4.pth"
-        self.pretrained_backbone = wget.download(url, '.')
         self.num_classes = num_classes
-        self.module = SSD300(self.num_classes, model_path=self.pretrained_backbone)
+        url = "https://download.pytorch.org/models/resnet34-333f7ec4.pth"
+        with tempfile.TemporaryDirectory() as tempdir:
+            with requests.get(url, stream=True) as r:
+                r.raise_for_status()
+                pretrained_backbone = os.path.join(tempdir, "weights.pth")
+                with open(pretrained_backbone, 'wb') as f:
+                    for chunk in r.iter_content(chunk_size=8192):
+                        f.write(chunk)
+                self.module = SSD300(self.num_classes, model_path=pretrained_backbone)
 
         dboxes = dboxes300_coco()
         self.loss_func = Loss(dboxes)
@@ -102,8 +110,11 @@ class coco_map(Metric):
         try:
             from pycocotools.coco import COCO
         except ImportError:
-            raise ImportError('Module pycocotools not installed. '
-                              'Please install with `pip install composer[coco]`')
+            raise ImportError(
+                textwrap.dedent("""\
+                Composer was installed without coco support.
+                To use coco with Composer, run `pip install mosaicml[coco]` if using pip or
+                `conda install -c conda-forge pycocotools` if using Anaconda.`"""))
         self.add_state("predictions", default=[])
         val_annotate = os.path.join(data, "annotations/instances_val2017.json")
         self.cocogt = COCO(annotation_file=val_annotate)
@@ -116,8 +127,11 @@ class coco_map(Metric):
         try:
             from pycocotools.cocoeval import COCOeval
         except ImportError:
-            raise ImportError('Module pycocotools not installed. '
-                              'Please install with `pip install composer[coco]`')
+            raise ImportError(
+                textwrap.dedent("""\
+                Composer was installed without coco support.
+                To use coco with Composer, run `pip install mosaicml[coco]` if using pip or
+                `conda install -c conda-forge pycocotools` if using Anaconda.`"""))
         cocoDt = self.cocogt.loadRes(np.array(self.predictions))
         E = COCOeval(self.cocogt, cocoDt, iouType='bbox')
         E.evaluate()
