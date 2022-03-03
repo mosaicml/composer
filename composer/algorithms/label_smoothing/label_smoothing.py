@@ -14,70 +14,97 @@ from composer.models.loss import ensure_targets_one_hot
 __all__ = ["LabelSmoothing", "smooth_labels"]
 
 
-def smooth_labels(logits: Tensor, targets: Tensor, alpha: float):
-    """Shrinks targets towards a uniform distribution to counteract label noise as in `Szegedy et al <https://\\
+def smooth_labels(logits: Tensor, targets: Tensor, interpolation: float = 0.1):
+    """Shrinks targets towards a uniform distribution as in `Szegedy et al <https://\\
     arxiv.org/abs/1512.00567>`_.
 
-    This is computed by (1 - alpha) * targets + alpha * smoothed_targets
-    where smoothed_targets is a uniform distribution.
-
-    Example:
-         .. testcode::
-
-            from composer.algorithms.label_smoothing import smooth_labels
-            new_targets = smooth_labels(
-                            logits=logits,
-                            targets=y_example,
-                            alpha=0.1
-                          )
+    The smoothed labels are computed as ``(1 - interpolation) * targets + interpolation * unif``
+    where ``unif`` is a vector with elements all equal to ``1 / num_classes``.
 
     Args:
-        logits: Output of the model. Tensor of shape (N, C, d1, ..., dn) for
-            N examples and C classes, and d1, ..., dn extra dimensions.
-        targets: Tensor of shape (N) containing integers 0 <= i <= C-1
-            specifying the target labels for each example.
-        alpha: Strength of the label smoothing, in [0, 1]. ``alpha=0``
-            means no label smoothing, and ``alpha=1`` means maximal
-            smoothing (targets are ignored).
+        logits: Predicted values for ``targets``, or any other tensor with the
+            same shape. Shape must be ``(N, num_classes, ...)`` for
+            ``N`` examples and ``num_classes`` classes, with any number of
+            optional extra dimensions.
+        targets (torch.Tensor): target tensor of either shape ``N`` or
+            ``(N, num_classes, ...)``. In the former case, elements of
+            ``targets`` must be integer class ids in the range
+            ``0..num_classes``. In the latter case, ``targets`` must have the
+            same shape as ``logits``.
+        interpolation (float, optional): Strength of the label smoothing, in
+            :math`[0, 1]`. ``interpolation=0`` means no label smoothing, and
+            ``interpolation=1`` means maximal smoothing (targets are ignored).
+
+    Example:
+        .. testcode::
+
+            import torch
+
+            num_classes = 10
+            targets = torch.randint(num_classes, size=(100,))
+            from composer.algorithms.label_smoothing import smooth_labels
+            new_targets = smooth_labels(logits=logits,
+                                        targets=targets,
+                                        interpolation=0.1)
     """
 
     targets = ensure_targets_one_hot(logits, targets)
     n_classes = logits.shape[1]
-    return (targets * (1. - alpha)) + (alpha / n_classes)
+    return (targets * (1. - interpolation)) + (interpolation / n_classes)
 
 
 class LabelSmoothing(Algorithm):
     """Shrinks targets towards a uniform distribution to counteract label noise as in `Szegedy et al <https://\\
     arxiv.org/abs/1512.00567>`_.
 
-    This is computed by (1 - alpha) * targets + alpha * smoothed_targets
-    where smoothed_targets is a vector of ones.
+    The smoothed labels are computed as ``(1 - interpolation) * targets + interpolation * unif``
+    where ``unif`` is a vector with elements all equal to ``1 / num_classes``.
 
     Introduced in `Rethinking the Inception Architecture for Computer Vision <https://arxiv.org/abs/1512.00567>`_.
 
     Example:
-         .. testcode::
+        .. testsetup::
 
+            import torch
+            from composer import models
             from composer.algorithms import LabelSmoothing
             from composer.trainer import Trainer
-            label_smoothing_algorithm = LabelSmoothing(alpha=0.1)
+
+            # create dataloaders and optimizer
+            num_batches, batch_size, num_features = 2, 3, 5
+            num_classes = 10
+            X_train = torch.randn(num_batches, num_features)
+            y_train = torch.randint(num_classes, size=(num_batches, batch_size))
+            X_val = torch.randn(num_batches, num_features)
+            y_val = torch.randint(num_classes, size=(num_batches, batch_size))
+            train_dataloader = torch.utils.data.DataLoader(zip(X_train, y_train))
+            eval_dataloader = torch.utils.data.DataLoader(zip(X_val, y_val))
+
+            # create model and optimizer
+            model = models.MNIST_Classifier(num_classes=num_classes)
+            optimizer = torch.optim.Adam(model.parameters())
+
+
+        .. testcode::
+
+            algorithm = LabelSmoothing(interpolation=0.1)
             trainer = Trainer(
                 model=model,
                 train_dataloader=train_dataloader,
                 eval_dataloader=eval_dataloader,
                 max_duration="1ep",
-                algorithms=[label_smoothing_algorithm],
+                algorithms=[algorithm],
                 optimizers=[optimizer]
             )
 
     Args:
-        alpha: Strength of the label smoothing, in [0, 1]. ``alpha=0``
-            means no label smoothing, and ``alpha=1`` means maximal
-            smoothing (targets are ignored).
+        interpolation: Strength of the label smoothing, in :math:`[0, 1]`.
+            ``interpolation=0`` means no label smoothing, and
+            ``interpolation=1`` means maximal smoothing (targets are ignored).
     """
 
-    def __init__(self, alpha: float):
-        self.alpha = alpha
+    def __init__(self, interpolation: float = 0.1):
+        self.interpolation = interpolation
         self.original_labels = torch.Tensor()
 
     def match(self, event: Event, state: State) -> bool:
@@ -94,7 +121,7 @@ class LabelSmoothing(Algorithm):
             smoothed_labels = smooth_labels(
                 state.outputs,
                 labels,
-                alpha=self.alpha,
+                interpolation=self.interpolation,
             )
             state.batch = (input, smoothed_labels)
         elif event == Event.AFTER_LOSS:
