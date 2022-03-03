@@ -46,7 +46,7 @@ def set_batch_sequence_length(batch: Dict[str, Tensor], curr_seq_len: int, trunc
             where all tensors have curr_seq_len in the second dimension.
 
     Example:
-    
+
     .. code-block::
 
         import composer.functional as cf
