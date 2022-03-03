@@ -3,11 +3,12 @@
 """Base classes, functions, and variables for logger.
 
 Attributes:
-    TLogDataValue: Data value(s) to be logged. Can be any of the following types:
-        ``str``; ``float``; ``int``; :class:`torch.Tensor`; ``Sequence[TLogDataValue``;
-        ``Mapping[str, TLogDataValue]``.
-    TLogData: Name-value pair for data to be logged. Type ``Mapping[str, TLogDataValue]``.
-        Example: {"accuracy", 21.3}.
+
+     TLogDataValue: Data value(s) to be logged. Can be any of the following types:
+         ``str``; ``float``; ``int``; :class:`torch.Tensor`; ``Sequence[TLogDataValue]``;
+         ``Mapping[str, TLogDataValue]``.
+     TLogData: Name-value pair for data to be logged. Type ``Mapping[str, TLogDataValue]``.
+         Example: ``{"accuracy", 21.3}``.
 """
 
 from __future__ import annotations
@@ -50,21 +51,16 @@ class LogLevel(IntEnum):
 class Logger:
     """Logger routes metrics to the :class:`.LoggerCallback`. Logger is what users call from within
     algorithms/callbacks. A logger routes the calls/data to any different number of destination
-    :class:`.LoggerCallback`\\s (e.g. :class:`.FileLogger`, :class:`.InMemoryLogger`, etc.). Data to be logged should be
-    of the type :attr:`~.logger.TLogData` (i.e. a {'name': value} mapping).
+    :class:`.LoggerCallback`\\s (e.g., :class:`.FileLogger`, :class:`.InMemoryLogger`, etc.). Data to be logged should be
+    of the type :attr:`~.logger.TLogData` (i.e., a ``{<name>: <value>}`` mapping).
 
     Args:
-        state (State):
-            The global :class:`~.core.state.State` object.
-        backends (Sequence[LoggerCallback]):
-            A sequence of :class:`~.logging.base_backend.LoggerCallback`\\s
-            to which logging calls will be sent.
+        state (State): The global :class:`~.core.state.State` object.
+        backends (Sequence[LoggerCallback]): A sequence of :class:`.LoggerCallback`\\s to which logging calls will be sent.
 
     Attributes:
         backends (Sequence[LoggerCallback]):
-            A sequence of
-            :class:`~.logging.base_backend.LoggerCallback`\\s
-            to which logging calls will be sent.
+            A sequence of :class:`~..base_backend.LoggerCallback`\\s to which logging calls will be sent.
     """
 
     def __init__(
@@ -124,7 +120,7 @@ def format_log_data_value(data: TLogDataValue) -> str:
         data: Data to format.
 
     Returns:
-        str: The data, as a string.
+        str: ``data`` as a string.
     """
     if data is None:
         return "None"

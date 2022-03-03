@@ -17,7 +17,7 @@ __all__ = ["SeqLengthWarmup", "set_batch_sequence_length"]
 
 
 def set_batch_sequence_length(batch: Dict[str, Tensor], curr_seq_len: int, truncate: bool = True) -> Batch:
-    """Set the sequence length of the current batch.
+    """Set the sequence length of a batch.
 
     Changes the sequence length of all tensors in the provided dictionary
     to ``curr_seq_len``, by either truncating the tensors (``truncate=True``)
@@ -27,9 +27,13 @@ def set_batch_sequence_length(batch: Dict[str, Tensor], curr_seq_len: int, trunc
     .. note::
 
         The schedule for ``curr_seq_len`` over training time should be managed
-        out of this function.
+        outside of this function.
 
-    Example: Awaiting language model test fixtures.
+    .. note::
+
+        Variable input lengths can create CUDA OOM errors. To avoid this,
+        we follow `PyTorch notes <https://pytorch.org/tutorials/recipes/recipes/tuning_guide.html#pre-allocate-memory-in-case-of-variable-input-length>`_
+        and pre-allocate the memory with a blank forward and backward pass.
 
     Args:
         batch (Dict[str, Tensor]): The input batch to the model, must be a dictionary.
@@ -40,6 +44,18 @@ def set_batch_sequence_length(batch: Dict[str, Tensor], curr_seq_len: int, trunc
     Returns:
         Dict[str, Tensor]: a Mapping of input tensors to the model,
             where all tensors have curr_seq_len in the second dimension.
+
+    Example:
+
+    .. code-block::
+
+        import composer.functional as cf
+
+        for epoch in range(num_epochs):
+            for X, y in train_loader:
+                X = cf.set_batch_sequence_length(X, sequence_length)
+                y_hat = model(X)
+                loss = loss_fn(y_hat, y)
     """
 
     assert isinstance(batch, Mapping)
@@ -97,7 +113,23 @@ class SeqLengthWarmup(Algorithm):
 
     See the :doc:`Method Card </method_cards/seq_length_warmup>` for more details.
 
-    Example: Awaiting language model test fixtures.
+    Example:
+
+    .. code-block::
+
+        from composer.algorithms import SeqLengthWarmup
+        from composer import Trainer
+
+        seq_length_warmup = SeqLengthWarmup(duration=0.5,
+                                            min_seq_length=8,
+                                            max_seq_length=1024,
+                                            ste_size=8,
+                                            truncate=False)
+
+        trainer = Trainer(model=model,
+                          train_dataloader=train_dataloader,
+                          max_duration="1ep",
+                          algorithms=[seq_length_warmup])
 
     Args:
         duration (float, optional): Fraction of total training for sequential length

@@ -44,6 +44,7 @@ requirements:
     # - timm >=0.5.4 # This timm version is not available on conda
     - transformers >=4.11
     - datasets >=1.14
+    - pycocotools >=2.0.4
 
 test:
   requires:
@@ -63,6 +64,7 @@ test:
     # - timm >=0.5.4 # This timm version is not available on conda; installing via pip
     - transformers >=4.11
     - datasets >=1.14
+    - pycocotools >=2.0.4
   files:
     - "**/composer/**"
     - "**/tests/**"

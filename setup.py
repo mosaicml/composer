@@ -78,7 +78,8 @@ extra_deps['dev'] = [
     'pytest-timeout>=1.4.2',
     'pyright==1.1.224.post1',
     'recommonmark==0.7.1',
-    'sphinx>=4.2.0',
+    'sphinx>=4.4.0',
+    'docutils>=0.17',
     'sphinx_copybutton==0.5.0',
     'sphinx_markdown_tables==0.0.15',
     'sphinx-argparse==0.3.1',
@@ -111,6 +112,10 @@ extra_deps["timm"] = [
     'timm==0.5.4',
 ]
 
+extra_deps["coco"] = [
+    'pycocotools>=2.0.4',
+]
+
 extra_deps["nlp"] = [
     'transformers>=4.11',
     'datasets>=1.14',
@@ -122,7 +127,8 @@ setup(name="mosaicml",
       version="0.4.0",
       author="MosaicML",
       author_email="team@mosaicml.com",
-      description="composing methods for ML training efficiency",
+      description="Composer provides well-engineered implementations of efficient training methods to give "
+      "the tools that help you train a better model for cheaper.",
       long_description=long_description,
       long_description_content_type="text/markdown",
       url="https://github.com/mosaicml/composer",

@@ -11,7 +11,7 @@ from torchmetrics.collections import MetricCollection
 
 from composer import Logger, State
 from composer.core.evaluator import Evaluator
-from composer.core.types import DataLoader, DataSpec, Model, Optimizer, Precision, Scheduler
+from composer.core.types import DataLoader, DataSpec, Model, Optimizer, Precision, PyTorchScheduler
 from composer.datasets import DataloaderHparams, DatasetHparams
 from composer.models import ComposerClassifier, ModelHparams
 from composer.optim import AdamHparams, ExponentialLRHparams
@@ -101,7 +101,7 @@ def dummy_scheduler(dummy_optimizer: Optimizer):
 
 @pytest.fixture()
 def dummy_state_without_rank(dummy_model: SimpleBatchPairModel, dummy_train_dataloader: DataLoader,
-                             dummy_optimizer: Optimizer, dummy_scheduler: Scheduler,
+                             dummy_optimizer: Optimizer, dummy_scheduler: PyTorchScheduler,
                              dummy_val_dataloader: DataLoader) -> State:
     evaluators = [
         Evaluator(label="dummy_label", dataloader=dummy_val_dataloader, metrics=dummy_model.metrics(train=False))
