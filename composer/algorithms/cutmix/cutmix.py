@@ -147,6 +147,7 @@ class CutMix(Algorithm):
         .. testsetup::
 
             import torch
+            from composer import models
             from composer.algorithms import CutMix
             from composer.trainer import Trainer
 
@@ -157,22 +158,23 @@ class CutMix(Algorithm):
             y_train = torch.randint(num_classes, size=(num_batches, batch_size))
             X_val = torch.randn(num_batches, num_features)
             y_val = torch.randint(num_classes, size=(num_batches, batch_size))
-            train_dataloader = zip(X_train, y_train)
-            eval_dataloader = zip(X_val, y_val)
+            train_dataloader = torch.utils.data.DataLoader(zip(X_train, y_train))
+            eval_dataloader = torch.utils.data.DataLoader(zip(X_val, y_val))
 
-            # create optimizer
-            optimizer = torch.optim.Adam()
+            # create model and optimizer
+            model = models.MNIST_Classifier(num_classes=num_classes)
+            optimizer = torch.optim.Adam(model.parameters())
 
 
         .. testcode::
 
-            mixup_algorithm = CutMix(num_classes=num_clases, alpha=0.2)
+            algorithm = CutMix(num_classes=num_classes, alpha=0.2)
             trainer = Trainer(
                 model=model,
                 train_dataloader=train_dataloader,
                 eval_dataloader=eval_dataloader,
                 max_duration="1ep",
-                algorithms=[mixup_algorithm],
+                algorithms=[algorithm],
                 optimizers=[optimizer]
             )
     """
