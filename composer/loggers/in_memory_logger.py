@@ -9,6 +9,9 @@ from __future__ import annotations
 
 from typing import Dict, List, Tuple, Union
 
+import numpy as np
+from torch import Tensor
+
 from composer.core.logging import LoggerCallback, LogLevel, TLogData
 from composer.core.logging.logger import TLogDataValue
 from composer.core.time import Timestamp
@@ -106,4 +109,11 @@ class InMemoryLogger(LoggerCallback):
             for field in timestamp._fields:
                 time_value = getattr(timestamp, field).value
                 timeseries.setdefault(field, []).append(time_value)
+        # Convert to numpy arrays
+        for k, v in timeseries.items():
+            if isinstance(v[0], Tensor):
+                v = Tensor(v).numpy()
+            else:
+                v = np.array(v)
+            timeseries[k] = v
         return timeseries
