@@ -1,45 +1,48 @@
 train_dataset:
-  web_tinyimagenet200:
+  wds_imagenet1k:
+    resize_size: -1
+    crop_size: 224
     is_train: true
     shuffle: true
     drop_last: true
 val_dataset:
-  web_tinyimagenet200:
+  wds_imagenet1k:
+    resize_size: 256
+    crop_size: 224
     is_train: false
     shuffle: false
     drop_last: false
 optimizer:
   decoupled_sgdw:
-    lr: 1.2
-    momentum: 0.9
-    weight_decay: 2.0e-3
+    lr: 2.048
+    momentum: 0.875
+    weight_decay: 5.0e-4
+    dampening: 0
+    nesterov: false
 schedulers:
   - warmup:
-      warmup_iters: "5ep"
+      warmup_iters: "8ep"
       warmup_method: linear
       warmup_factor: 0
       verbose: false
       interval: step
-  - multistep:
-      milestones:
-        - "80ep"
-        - "120ep"
-      gamma: 0.1
-      interval: epoch
+  - cosine_decay:
+      T_max: "82ep"
+      eta_min: 0
+      verbose: false
+      interval: step
 model:
-  resnet56_cifar10:
+  resnet50:
     initializers:
       - kaiming_normal
       - bn_uniform
-    num_classes: 200
+    num_classes: 1000
 loggers:
   - tqdm: {}
-max_duration: 160ep
-train_batch_size: 1024
-eval_batch_size: 1000
+max_duration: 90ep
+train_batch_size: 2048
+eval_batch_size: 2048
 seed: 17
-validate_every_n_epochs: 1
-grad_accum: 1
 device:
   gpu: {}
 dataloader:
@@ -48,4 +51,6 @@ dataloader:
   prefetch_factor: 2
   persistent_workers: true
   num_workers: 8
+validate_every_n_epochs: 1
+grad_accum: 1
 precision: amp

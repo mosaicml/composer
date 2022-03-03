@@ -30,7 +30,7 @@ from composer.datasets.evaluator import EvaluatorHparams as EvaluatorHparams
 from composer.datasets.glue import GLUEHparams as GLUEHparams
 from composer.datasets.hparams import DatasetHparams as DatasetHparams
 from composer.datasets.hparams import SyntheticHparamsMixin as SyntheticHparamsMixin
-from composer.datasets.imagenet import (Imagenet1KWebDatasetHparams, ImagenetDatasetHparams,
+from composer.datasets.imagenet import (Imagenet1kWebDatasetHparams, ImagenetDatasetHparams,
                                         TinyImagenet200WebDatasetHparams)
 from composer.datasets.lm_datasets import LMDatasetHparams as LMDatasetHparams
 from composer.datasets.mnist import (MNISTDatasetHparams as MNISTDatasetHparams,

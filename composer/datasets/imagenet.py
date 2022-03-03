@@ -154,8 +154,8 @@ class TinyImagenet200WebDatasetHparams(WebDatasetHparams, SyntheticHparamsMixin)
 
 
 @dataclass
-class Imagenet1KWebDatasetHparams(WebDatasetHparams, SyntheticHparamsMixin):
-    """Defines an instance of the ImageNet-1K dataset for image classification.
+class Imagenet1kWebDatasetHparams(WebDatasetHparams, SyntheticHparamsMixin):
+    """Defines an instance of the ImageNet-1k dataset for image classification.
 
     Parameters:
         resize_size (int, optional): The resize size to use. Defaults to -1 to not resize.

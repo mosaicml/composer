@@ -71,7 +71,7 @@ def main(args: Namespace) -> None:
             wnids.txt  # 200 rows of (wnid)
             words.txt  # 82115 rows of (wnid, wordnet category name)
 
-        web_tinyimagenet200/
+        wds_tinyimagenet200/
             train_{shard}.tar
             val_{shard}.tar
     '''
