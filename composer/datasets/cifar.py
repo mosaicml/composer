@@ -1,11 +1,11 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
 from dataclasses import dataclass
+from typing import List
 
 import yahp as hp
 from torchvision import transforms
 from torchvision.datasets import CIFAR10
-from typing import List
 
 from composer.core.types import DataLoader
 from composer.datasets.dataloader import DataloaderHparams
@@ -75,8 +75,8 @@ class CIFARWebDatasetHparams(WebDatasetHparams, SyntheticHparamsMixin):
     """Common functionality for CIFAR WebDatasets.
 
     Parameters:
-        dataset_s3_bucket (str): S3 bucket or root directory where dataset is stored.
-        dataset_name (str): Key used to determine where dataset is cached on local filesystem.
+        webdataset_s3_bucket (str): S3 bucket or root directory where dataset is stored.
+        webdataset_name (str): Key used to determine where dataset is cached on local filesystem.
         n_train_samples (int): Number of training samples.
         n_val_samples (int): Number of validation samples.
         height (int): Sample image height in pixels.
@@ -111,7 +111,7 @@ class CIFARWebDatasetHparams(WebDatasetHparams, SyntheticHparamsMixin):
                     transforms.ToTensor(),
                     transforms.Normalize(self.channel_means, self.channel_stds),
                 ])
-            dataset, meta = load_webdataset(self.dataset_s3_bucket, self.dataset_name, split, self.webdataset_cache_dir,
+            dataset, meta = load_webdataset(self.webdataset_s3_bucket, self.webdataset_name, split, self.webdataset_cache_dir,
                                             self.webdataset_cache_verbose)
             if self.shuffle:
                 dataset = dataset.shuffle(self.shuffle_buffer_per_worker)
@@ -128,8 +128,8 @@ class CIFARWebDatasetHparams(WebDatasetHparams, SyntheticHparamsMixin):
 class CIFAR10WebDatasetHparams(CIFARWebDatasetHparams):
     """Defines an instance of the CIFAR-10 WebDataset for image classification."""
 
-    dataset_s3_bucket: str = hp.optional('WebDataset S3 bucket name', default='mosaicml-internal-dataset-cifar10')
-    dataset_name: str = 'cifar10'
+    webdataset_s3_bucket: str = hp.optional('WebDataset S3 bucket name', default='mosaicml-internal-dataset-cifar10')
+    webdataset_name: str = hp.optional('WebDataset local cache name', default='cifar10')
     n_train_samples: int = 50_000
     n_val_samples: int = 10_000
     height: int = 32
@@ -143,8 +143,8 @@ class CIFAR10WebDatasetHparams(CIFARWebDatasetHparams):
 class CIFAR20WebDatasetHparams(CIFARWebDatasetHparams):
     """Defines an instance of the CIFAR-20 WebDataset for image classification."""
 
-    dataset_s3_bucket: str = hp.optional('WebDataset S3 bucket name', default='mosaicml-internal-dataset-cifar20')
-    dataset_name: str = 'cifar20'
+    webdataset_s3_bucket: str = hp.optional('WebDataset S3 bucket name', default='mosaicml-internal-dataset-cifar20')
+    webdataset_name: str = hp.optional('WebDataset local cache name', default='cifar20')
     n_train_samples: int = 50_000
     n_val_samples: int = 10_000
     height: int = 32
@@ -158,8 +158,8 @@ class CIFAR20WebDatasetHparams(CIFARWebDatasetHparams):
 class CIFAR100WebDatasetHparams(CIFARWebDatasetHparams):
     """Defines an instance of the CIFAR-100 WebDataset for image classification."""
 
-    dataset_s3_bucket: str = hp.optional('WebDataset S3 bucket name', default='mosaicml-internal-dataset-cifar100')
-    dataset_name: str = 'cifar100'
+    webdataset_s3_bucket: str = hp.optional('WebDataset S3 bucket name', default='mosaicml-internal-dataset-cifar100')
+    webdataset_name: str = hp.optional('WebDataset local cache name', default='cifar100')
     n_train_samples: int = 50_000
     n_val_samples: int = 10_000
     height: int = 32

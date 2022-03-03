@@ -7,8 +7,6 @@ import textwrap
 from dataclasses import dataclass
 from typing import Optional, Union
 
-from torchvision import transforms
-
 try:
     import custom_inherit
 except ImportError:
@@ -21,9 +19,6 @@ import yahp as hp
 
 from composer.core.types import DataLoader, DataSpec, MemoryFormat
 from composer.datasets.dataloader import DataloaderHparams
-from composer.datasets.synthetic import SyntheticBatchPairDataset
-from composer.datasets.webdataset import load_webdataset, size_webdataset
-from composer.utils import dist
 
 __all__ = ["SyntheticHparamsMixin", "DatasetHparams"]
 

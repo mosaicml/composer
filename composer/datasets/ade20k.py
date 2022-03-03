@@ -17,8 +17,8 @@ from composer.core.types import DataSpec
 from composer.datasets.hparams import DatasetHparams, SyntheticHparamsMixin, WebDatasetHparams
 from composer.datasets.imagenet import IMAGENET_CHANNEL_MEAN, IMAGENET_CHANNEL_STD
 from composer.datasets.synthetic import SyntheticBatchPairDataset
-from composer.datasets.webdataset import load_webdataset, size_webdataset
 from composer.datasets.utils import NormalizationFn, pil_image_collate
+from composer.datasets.webdataset import load_webdataset, size_webdataset
 from composer.utils import dist
 
 
@@ -353,8 +353,8 @@ class ADE20kWebDatasetHparams(WebDatasetHparams):
     """Defines an instance of the ADE20k dataset for semantic segmentation.
 
     Parameters:
-        dataset_s3_bucket (str): S3 bucket or root directory where dataset is stored.
-        dataset_name (str): Key used to determine where dataset is cached on local filesystem.
+        webdataset_s3_bucket (str): S3 bucket or root directory where dataset is stored.
+        webdataset_name (str): Key used to determine where dataset is cached on local filesystem.
         split (str): the dataset split to use either 'train', 'val', or 'test'. Default is `train`.
         base_size (int): initial size of the image and target before other augmentations. Default is 512.
         min_resize_scale (float): the minimum value the samples can be rescaled. Default is 0.5.
@@ -365,8 +365,8 @@ class ADE20kWebDatasetHparams(WebDatasetHparams):
 
     """
 
-    dataset_s3_bucket: str = hp.optional('WebDataset S3 bucket name', default='mosaicml-internal-dataset-ade20k')
-    dataset_name: str = 'ade20k'
+    webdataset_s3_bucket: str = hp.optional('WebDataset S3 bucket name', default='mosaicml-internal-dataset-ade20k')
+    webdataset_name: str = hp.optional('WebDataset local cache name', default='ade20k')
     split: str = hp.optional("Which split of the dataset to use. Either ['train', 'val', 'test']", default='train')
     base_size: int = hp.optional("Initial size of the image and target before other augmentations", default=512)
     min_resize_scale: float = hp.optional("Minimum value that the image and target can be scaled", default=0.5)
@@ -415,8 +415,7 @@ class ADE20kWebDatasetHparams(WebDatasetHparams):
             image_transforms = transforms.Resize(size=(self.final_size, self.final_size),
                                                  interpolation=TF.InterpolationMode.BILINEAR)
             target_transforms = transforms.Compose([
-                transforms.Resize(size=(self.final_size, self.final_size),
-                                  interpolation=TF.InterpolationMode.NEAREST),
+                transforms.Resize(size=(self.final_size, self.final_size), interpolation=TF.InterpolationMode.NEAREST),
                 transforms.Grayscale(),
             ])
 
@@ -430,7 +429,7 @@ class ADE20kWebDatasetHparams(WebDatasetHparams):
                 y = target_transforms(y)
             return x, y
 
-        dataset, meta = load_webdataset(self.dataset_s3_bucket, self.dataset_name, self.split,
+        dataset, meta = load_webdataset(self.webdataset_s3_bucket, self.webdataset_name, self.split,
                                         self.webdataset_cache_dir, self.webdataset_cache_verbose)
         if self.shuffle:
             dataset = dataset.shuffle(self.shuffle_buffer_per_worker)

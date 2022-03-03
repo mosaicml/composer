@@ -47,37 +47,38 @@ def create_webdataset(samples: Iterable[Dict[str, Any]],
     create_webdataset_meta(split_dir, n_samples, n_shards)
 
 
-def download_webdataset_meta(dataset_s3_bucket: str, split: str) -> bytes:
+def download_webdataset_meta(s3_bucket: str, split: str) -> bytes:
     '''Download a WebDataset meta file from S3.'''
-    url = f's3://{dataset_s3_bucket}/{split}/meta.json'
+    url = f's3://{s3_bucket}/{split}/meta.json'
     cmd = 'aws', 's3', 'cp', url, '-'
     return subprocess.run(cmd, capture_output=True).stdout
 
 
-def load_webdataset(dataset_s3_bucket: str,
-                    dataset_name: str,
+def load_webdataset(s3_bucket: str,
+                    cache_name: str,
                     split: str,
                     cache_dir: Optional[str] = None,
                     cache_verbose: bool = False) -> Tuple[WebDataset, dict]:
     '''Initialize a WebDataset pointed at S3 with an optional local cache dir.'''
     if cache_dir:
-        split_dir = os.path.join(cache_dir, dataset_name, split)
+        split_dir = os.path.join(cache_dir, cache_name, split)
         meta_file = os.path.join(split_dir, 'meta.json')
         if os.path.exists(meta_file):
             text = open(meta_file).read()
         else:
-            text = download_webdataset_meta(dataset_s3_bucket, split)
+            text = download_webdataset_meta(s3_bucket, split)
             if not os.path.exists(split_dir):
                 os.makedirs(split_dir)
             with open(meta_file, 'wb') as out:
                 out.write(text)
     else:
-        text = download_webdataset_meta(dataset_s3_bucket, split)
+        split_dir = None
+        text = download_webdataset_meta(s3_bucket, split)
     meta = json.loads(text)
     max_shard = meta['n_shards'] - 1
     shards = f'{{{0:05d}..{max_shard:05d}}}.tar'
-    urls = f'pipe: aws s3 cp s3://{dataset_s3_bucket}/{split}/{shards} -'
-    dataset = WebDataset(urls, cache_dir=cache_dir, cache_verbose=cache_verbose)
+    urls = f'pipe: aws s3 cp s3://{s3_bucket}/{split}/{shards} -'
+    dataset = WebDataset(urls, cache_dir=split_dir, cache_verbose=cache_verbose)
     return dataset, meta
 
 

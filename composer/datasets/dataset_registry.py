@@ -7,11 +7,10 @@ from composer.datasets.cifar import (CIFAR10DatasetHparams, CIFAR10WebDatasetHpa
                                      CIFAR100WebDatasetHparams)
 from composer.datasets.coco import COCODatasetHparams
 from composer.datasets.glue import GLUEHparams
-from composer.datasets.imagenet import (ImagenetDatasetHparams, Imagenet1kWebDatasetHparams,
+from composer.datasets.imagenet import (Imagenet1kWebDatasetHparams, ImagenetDatasetHparams,
                                         TinyImagenet200WebDatasetHparams)
 from composer.datasets.lm_datasets import LMDatasetHparams
 from composer.datasets.mnist import MNISTDatasetHparams, MNISTWebDatasetHparams
-
 
 registry = {
     "ade20k": ADE20kDatasetHparams,
