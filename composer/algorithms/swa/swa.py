@@ -71,7 +71,7 @@ class SWA(Algorithm):
             accuracy, so ensure ``swa_end`` < :math:`\\frac{N_{epochs}-1}{N_{epochs}}`.
             Currently only units of duration ('dur') and epoch ('ep') are supported.
             Default = ``'0.97dur'``.
-        update_interval (str, optional): Time string denoting how often the averaged 
+        update_interval (str, optional): Time string denoting how often the averaged
             model is updated. For example, ``'1ep'`` means the averaged model will be
             updated once per epoch, and ``'5ba'`` means the averaged model will be updated
             every 5 batches. Note that for single-epoch training runs (e.g. many NLP
