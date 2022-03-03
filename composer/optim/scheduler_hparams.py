@@ -17,6 +17,7 @@ from composer.optim.scheduler import (ComposerScheduler, ConstantScheduler, Cosi
 
 @dataclass
 class SchedulerHparams(hp.Hparams, ABC):
+    """Abstract base class for scheduler hyperparameter classes."""
 
     scheduler_cls = None  # type: Optional[Type[ComposerScheduler]]
 

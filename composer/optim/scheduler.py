@@ -522,8 +522,9 @@ class LinearWithWarmupScheduler(ComposerScheduler):
     .. math::
         \tau_w = (t - t_{warmup} / t_{max}
     
-    Where :math:`t_warmup` represents the warmup time, :math:`\alpha_i` represents the initial learning rate multiplier, and :math:`\alpha_f`
-    represents the learning rate multiplier to decay to, and :math:`t_max` represents the duration of this scheduler.
+    Where :math:`t_warmup` represents the warmup time, :math:`\alpha_i` represents the initial learning rate multiplier,
+    and :math:`\alpha_f` represents the learning rate multiplier to decay to, and :math:`t_max` represents the duration
+    of this scheduler.
 
     Args:
         t_warmup (str or Time): Warmup time.
@@ -581,7 +582,8 @@ class CosineAnnealingWithWarmupScheduler(ComposerScheduler):
     .. math::
        \tau_w = (t - t_{warmup} / t_{max}
     
-    Where :math:`t_warmup` represents the warmup time, :math:`t_max` represents the duration of this scheduler, and :math:`\alpha_f` represents the learning rate multiplier to decay to.
+    Where :math:`t_warmup` represents the warmup time, :math:`t_max` represents the duration of this scheduler, and
+    :math:`\alpha_f` represents the learning rate multiplier to decay to.
     
     Args:
         t_warmup (str or Time): Warmup time.
