@@ -141,7 +141,7 @@ class TestTrainerEquivalence():
     @pytest.fixture(autouse=True)
     def create_reference_model(self, config, tmpdir_factory, *args):
         """Trains the reference model, and saves checkpoints."""
-        config = deepcopy(config)
+        config = deepcopy(config)  # ensure the reference model is not passed to tests
 
         save_folder = tmpdir_factory.mktemp("{device}-{precision}".format(**config))
         config.update({'save_interval': '1ep', 'save_folder': save_folder})
