@@ -22,8 +22,8 @@ __all__ = ["CutMix", "cutmix_batch"]
 def cutmix_batch(X: Tensor,
                  y: Tensor,
                  num_classes: int,
-                 alpha: float = 1.,
                  cut_proportion: Optional[float] = None,
+                 alpha: float = 1.,
                  bbox: Optional[Tuple] = None,
                  indices: Optional[torch.Tensor] = None) -> Tuple[torch.Tensor, torch.Tensor]:
     """Create new samples using combinations of pairs of samples.
@@ -40,9 +40,9 @@ def cutmix_batch(X: Tensor,
 
     Note that the same ``cut_proportion`` and masked region are used for all
     examples within the batch.
-
+l
     Args:
-        X (torch.Tensor): input tensor of shape ``NCHW``
+        X (torch.Tensor): input tensor of shape ``(N, C, H, W)``
         y (torch.Tensor): target tensor of either shape ``N`` or
             ``(N, num_classes)``. In the former case, elements of ``y`` must
             be integer class ids in the range ``0..num_classes``. In the
@@ -50,14 +50,15 @@ def cutmix_batch(X: Tensor,
             including, e.g., one-hot encoded class labels, smoothed class
             labels, or multi-output regression targets.
         num_classes (int): total number of classes or output variables
-        alpha (float, optional): parameter for the beta distribution of the
-            ``cut_proportion``.
         cut_proportion (float, optional): relative area of cutmix region
-            compared to the original size. Must be in the interval :math:`(0, 1)`.
+            compared to the original size. Must be in the interval
+            :math:`(0, 1)`. If ``None``, value is drawn from a
+            ``Beta(alpha, alpha)`` distribution.
+        alpha (float, optional): parameter for the beta distribution over
+            ``cut_proportion``. Ignored if ``cut_proportion`` is provided.
         bbox (Tuple, optional): predetermined ``(rx1, ry1, rx2, ry2)``
             coordinates of the bounding box.
-        indices: Permutation of the batch indices ``1..B``. Used for permuting
-            without randomness.
+        indices: Permutation of the batch dimension indices ``1..N`` to use.
 
     Returns:
         X_mixed: batch of inputs after cutmix has been applied.
@@ -69,12 +70,13 @@ def cutmix_batch(X: Tensor,
             40% of the image of was replaced with data from an image with label
             ``2``, the resulting labels, assuming only three classes, would be
             ``[1, 0, 0] * 0.6 + [0, 0, 1] * 0.4 = [0.6, 0, 0.4]``.
+        perm: the permutation used
 
     Example:
         .. testcode::
 
             import torch
-            from composer.algorithms.cutmix import cutmix_batch
+            from composer.functional import cutmix_batch
 
             N, C, H, W = 2, 3, 4, 5
             num_classes = 10
@@ -120,7 +122,7 @@ def cutmix_batch(X: Tensor,
     else:
         y_cutmix = adjusted_lambda * y + (1 - adjusted_lambda) * y_shuffled
 
-    return X_cutmix, y_cutmix
+    return X_cutmix, y_cutmix, shuffled_idx
 
 
 class CutMix(Algorithm):
@@ -128,25 +130,10 @@ class CutMix(Algorithm):
     examples and iterpolated targets rather than individual examples and targets.
 
     This is done by taking a non-overlapping combination of a given batch X with a
-    randomly permuted copy of X. The area is drawn from a ``Beta(alpha, alpha)``
+    randomly permuted copy of X. The area is drawn from a :math:`Beta(\alpha, \alpha)`
     distribution.
 
     Training in this fashion sometimes reduces generalization error.
-
-    Example:
-         .. testcode::
-
-            from composer.algorithms import CutMix
-            from composer.trainer import Trainer
-            cutmix_algorithm = CutMix(num_classes=1000, alpha=1.0)
-            trainer = Trainer(
-                model=model,
-                train_dataloader=train_dataloader,
-                eval_dataloader=eval_dataloader,
-                max_duration="1ep",
-                algorithms=[cutmix_algorithm],
-                optimizers=[optimizer]
-            )
 
     Args:
         num_classes (int): the number of classes in the task labels.
@@ -155,6 +142,39 @@ class CutMix(Algorithm):
             in each pair tend to be weighted more equally. As ``alpha``
             approaches 0 from above, the combination approaches only using
             one element of the pair.
+
+    Example:
+        .. testsetup::
+
+            import torch
+            from composer.algorithms import CutMix
+            from composer.trainer import Trainer
+
+            # create dataloaders and optimizer
+            num_batches, batch_size, num_features = 2, 3, 5
+            num_classes = 10
+            X_train = torch.randn(num_batches, num_features)
+            y_train = torch.randint(num_classes, size=(num_batches, batch_size))
+            X_val = torch.randn(num_batches, num_features)
+            y_val = torch.randint(num_classes, size=(num_batches, batch_size))
+            train_dataloader = zip(X_train, y_train)
+            eval_dataloader = zip(X_val, y_val)
+
+            # create optimizer
+            optimizer = torch.optim.Adam()
+
+
+        .. testcode::
+
+            mixup_algorithm = CutMix(num_classes=num_clases, alpha=0.2)
+            trainer = Trainer(
+                model=model,
+                train_dataloader=train_dataloader,
+                eval_dataloader=eval_dataloader,
+                max_duration="1ep",
+                algorithms=[mixup_algorithm],
+                optimizers=[optimizer]
+            )
     """
 
     def __init__(self, num_classes: int, alpha: float = 1.):
@@ -218,7 +238,7 @@ class CutMix(Algorithm):
         self.bbox = _rand_bbox(input.shape[2], input.shape[3], self.cutmix_lambda)
         self.cutmix_lambda = _adjust_lambda(self.cutmix_lambda, input, self.bbox)
 
-        new_input, new_target = cutmix_batch(
+        new_input, new_target, _ = cutmix_batch(
             X=input,
             y=target,
             num_classes=self.num_classes,
