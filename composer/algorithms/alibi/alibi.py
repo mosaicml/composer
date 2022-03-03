@@ -85,7 +85,7 @@ def apply_alibi(
         optimizers (Optimizers, optional): Existing optimizers bound to ``model.parameters()``.
             All optimizers that have already been constructed with
             ``model.parameters()`` must be specified here so they will optimize
-            the correct parameters. Default: ``None`.
+            the correct parameters. Default: ``None``.
 
             If the optimizer(s) are constructed *after* calling this function,
             then it is safe to omit this parameter. These optimizers will see the correct
