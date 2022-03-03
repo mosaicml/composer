@@ -84,6 +84,7 @@ class TestTrainerInit():
         with pytest.raises(ValueError, match="active iterator"):
             Trainer(**config)
 
+    @pytest.mark.timeout(5.0)
     def test_init_with_integers(self, config, tmpdir):
         config.update({
             'max_duration': 1,
@@ -96,6 +97,7 @@ class TestTrainerInit():
         assert trainer._checkpoint_saver is not None and \
             trainer._checkpoint_saver._save_interval == "10ep"
 
+    @pytest.mark.timeout(5.0)
     def test_init_with_max_duration_in_batches(self, config):
         config["max_duration"] = '1ba'
         trainer = Trainer(**config)
