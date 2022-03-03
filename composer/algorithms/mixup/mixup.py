@@ -19,75 +19,76 @@ log = logging.getLogger(__name__)
 __all__ = ["MixUp", "mixup_batch"]
 
 
-def mixup_batch(x: Tensor,
+def mixup_batch(X: Tensor,
                 y: Tensor,
-                n_classes: int,
-                interpolation_lambda: Optional[float] = None,
+                num_classes: int,
+                interpolation: Optional[float] = None,
                 alpha: float = 0.2,
                 indices: Optional[torch.Tensor] = None) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
     """Create new samples using convex combinations of pairs of samples.
 
-    This is done by taking a convex combination of x with a randomly
-    permuted copy of x. The interpolation parameter lambda should be chosen from
-    a ``Beta(alpha, alpha)`` distribution for some parameter alpha > 0.
-    Note that the same lambda is used for all examples within the batch.
+    This is done by taking a convex combination of ``X`` with a randomly
+    permuted copy of ``X``. The permutation takes place along the sample
+    axis (dim 0).
 
-    Both the original and shuffled labels are returned. This is done because
-    for many loss functions (such as cross entropy) the targets are given as
-    indices, so interpolation must be handled separately.
-
-    Example:
-         .. testcode::
-
-            from composer.algorithms.mixup import mixup_batch
-            new_inputs, new_targets, perm = mixup_batch(
-                                                x=X_example,
-                                                y=y_example,
-                                                n_classes=1000,
-                                                alpha=0.2
-                                                )
+    The relative weight of the original ``X`` versus the permuted copy is
+    defined by the ``interpolation`` parameter. This parameter should be chosen
+    from a ``Beta(alpha, alpha)`` distribution for some parameter ``alpha > 0``.
+    Note that the same ``interpolation`` is used for the whole batch.
 
     Args:
-        x: input tensor of shape (B, d1, d2, ..., dn), B is batch size, d1-dn
-            are feature dimensions.
-        y: target tensor of shape (B, f1, f2, ..., fm), B is batch size, f1-fn
-            are possible target dimensions.
-        interpolation_lambda: coefficient used to interpolate between the
-            two examples. If provided, must be in ``[0, 1]``. If ``None``,
-            value is drawn from a ``Beta(alpha, alpha)`` distribution.
-        alpha: parameter for the beta distribution over the
-            ``interpolation_lambda``. Only used if ``interpolation_lambda``
-            is not provided.
-        n_classes: total number of classes.
-        indices: Permutation of the batch indices `1..B`. Used
-            for permuting without randomness.
+        X (torch.Tensor): input tensor of shape ``(minibatch, ...)``, where
+            ``...`` indicates zero or more dimensions.
+        y (torch.Tensor): target tensor of shape ``(minibatch, ...)``, where
+            ``...`` indicates zero or more dimensions.
+        num_classes (int): total number of classes or output variables
+        interpolation (float, optional): coefficient used to interpolate
+            between the two examples. If provided, must be in :math:`[0, 1]`.
+            If ``None``, value is drawn from a :math:`Beta(alpha, alpha)`
+            distribution.
+        alpha (float, optional): parameter for the Beta distribution over
+            ``interpolation``. Ignored if ``interpolation`` is provided.
+        indices (torch.Tensor, optional): Permutation of the samples to use.
 
     Returns:
-        x_mix: batch of inputs after mixup has been applied
+        X_mix: batch of inputs after mixup has been applied
         y_mix: labels after mixup has been applied
         perm: the permutation used
+
+    Example:
+        .. testcode::
+
+            import torch
+            from composer.functional import mixup_batch
+
+            N, C, H, W = 2, 3, 4, 5
+            num_classes = 10
+            X = torch.randn(N, C, H, W)
+            y = torch.randint(num_classes, size=(N,))
+            X_mixed, y_mixed, perm = mixup_batch(
+                X, y, num_classes=num_classes, alpha=0.2)
     """
-    if interpolation_lambda is None:
-        interpolation_lambda = _gen_interpolation_lambda(alpha)
+    if interpolation is None:
+        interpolation = _gen_interpolation_lambda(alpha)
     # Create shuffled versions of x and y in preparation for interpolation
     # Use given indices if there are any.
     if indices is None:
-        shuffled_idx = torch.randperm(x.shape[0])
+        shuffled_idx = torch.randperm(X.shape[0])
     else:
         shuffled_idx = indices
-    x_shuffled = x[shuffled_idx]
+    x_shuffled = X[shuffled_idx]
     y_shuffled = y[shuffled_idx]
     # Interpolate between the inputs
-    x_mix = (1 - interpolation_lambda) * x + interpolation_lambda * x_shuffled
+    x_mix = (1 - interpolation) * X + interpolation * x_shuffled
 
     # First check if labels are indices. If so, convert them to onehots.
     # This is under the assumption that the loss expects torch.LongTensor, which is true for pytorch cross_entropy
     if check_for_index_targets(y):
-        y_onehot = F.one_hot(y, num_classes=n_classes)
-        y_shuffled_onehot = F.one_hot(y_shuffled, num_classes=n_classes)
-        y_mix = ((1. - interpolation_lambda) * y_onehot + interpolation_lambda * y_shuffled_onehot)
+        y_onehot = F.one_hot(y, num_classes=num_classes)
+        y_shuffled_onehot = F.one_hot(y_shuffled, num_classes=num_classes)
+        y_mix = ((1. - interpolation) * y_onehot + interpolation * y_shuffled_onehot)
     else:
-        y_mix = ((1. - interpolation_lambda) * y + interpolation_lambda * y_shuffled)
+        y_mix = ((1. - interpolation) * y + interpolation * y_shuffled)
     return x_mix, y_mix, shuffled_idx
 
 
@@ -97,24 +98,9 @@ class MixUp(Algorithm):
 
     This is done by taking a convex combination of a given batch X with a
     randomly permuted copy of X. The mixing coefficient is drawn from a
-    Beta(``alpha``, ``alpha``) distribution.
+    :math:`Beta(alpha, alpha)` distribution.
 
     Training in this fashion sometimes reduces generalization error.
-
-    Example:
-         .. testcode::
-
-            from composer.algorithms import MixUp
-            from composer.trainer import Trainer
-            mixup_algorithm = MixUp(num_classes=1000, alpha=0.2)
-            trainer = Trainer(
-                model=model,
-                train_dataloader=train_dataloader,
-                eval_dataloader=eval_dataloader,
-                max_duration="1ep",
-                algorithms=[mixup_algorithm],
-                optimizers=[optimizer]
-            )
 
     Args:
         num_classes (int): the number of classes in the task labels.
@@ -123,13 +109,48 @@ class MixUp(Algorithm):
             in each pair tend to be weighted more equally. As ``alpha``
             approaches 0 from above, the combination approaches only using
             one element of the pair.
+
+    Example:
+        .. testsetup::
+
+            import torch
+            from composer import models
+            from composer.algorithms import CutMix
+            from composer.trainer import Trainer
+
+            # create dataloaders and optimizer
+            num_batches, batch_size, num_features = 2, 3, 5
+            num_classes = 10
+            X_train = torch.randn(num_batches, num_features)
+            y_train = torch.randint(num_classes, size=(num_batches, batch_size))
+            X_val = torch.randn(num_batches, num_features)
+            y_val = torch.randint(num_classes, size=(num_batches, batch_size))
+            train_dataloader = torch.utils.data.DataLoader(zip(X_train, y_train))
+            eval_dataloader = torch.utils.data.DataLoader(zip(X_val, y_val))
+
+            # create model and optimizer
+            model = models.MNIST_Classifier(num_classes=num_classes)
+            optimizer = torch.optim.Adam(model.parameters())
+
+
+        .. testcode::
+
+            algorithm = MixUp(num_classes=num_clases, alpha=0.2)
+            trainer = Trainer(
+                model=model,
+                train_dataloader=train_dataloader,
+                eval_dataloader=eval_dataloader,
+                max_duration="1ep",
+                algorithms=[mixup_algorithm],
+                optimizers=[optimizer]
+            )
     """
 
     def __init__(self, num_classes: int, alpha: float = 0.2):
         self.num_classes = num_classes
         self.alpha = alpha
-        self._interpolation_lambda = 0.0
-        self._indices = torch.Tensor()
+        self.interpolation = 0.0
+        self.indices = torch.Tensor()
 
     def match(self, event: Event, state: State) -> bool:
         """Runs on Event.INIT and Event.AFTER_DATALOADER.
@@ -141,22 +162,6 @@ class MixUp(Algorithm):
             bool: True if this algorithm should run now.
         """
         return event == Event.AFTER_DATALOADER
-
-    @property
-    def interpolation_lambda(self) -> float:
-        return self._interpolation_lambda
-
-    @interpolation_lambda.setter
-    def interpolation_lambda(self, new_int_lamb: float) -> None:
-        self._interpolation_lambda = new_int_lamb
-
-    @property
-    def indices(self) -> Tensor:
-        return self._indices
-
-    @indices.setter
-    def indices(self, new_indices: Tensor) -> None:
-        self._indices = new_indices
 
     def apply(self, event: Event, state: State, logger: Logger) -> None:
         """Applies MixUp augmentation on State input.
@@ -171,20 +176,20 @@ class MixUp(Algorithm):
         assert isinstance(input, Tensor) and isinstance(target, Tensor), \
             "Multiple tensors for inputs or targets not supported yet."
 
-        self.interpolation_lambda = _gen_interpolation_lambda(self.alpha)
+        self.interpolation = _gen_interpolation_lambda(self.alpha)
 
         new_input, new_target, self.indices = mixup_batch(
-            x=input,
-            y=target,
-            interpolation_lambda=self.interpolation_lambda,
-            n_classes=self.num_classes,
+            input,
+            target,
+            interpolation=self.interpolation,
+            num_classes=self.num_classes,
         )
 
         state.batch = (new_input, new_target)
 
 
 def _gen_interpolation_lambda(alpha: float) -> float:
-    """Generates ``Beta(alpha, alpha)`` distribution."""
+    """Samples :math:`max(z, 1-z), z \sim Beta(alpha, alpha)``."""
     # First check if alpha is positive.
     assert alpha >= 0
     # Draw the interpolation parameter from a beta distribution.

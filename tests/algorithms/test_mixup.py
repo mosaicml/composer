@@ -9,14 +9,14 @@ from composer.core.types import Event
 from composer.models.base import ComposerClassifier
 
 
-# (N, C, d1, d2, n_classes)
+# (N, C, d1, d2, num_classes)
 @pytest.fixture(params=[(7, 11, 3, 5, 10)])
 def fake_data(request):
     # Generate some fake data
-    N, C, d1, d2, n_classes = request.param
+    N, C, d1, d2, num_classes = request.param
     torch.manual_seed(0)
     x_fake = torch.randn(N, C, d1, d2)
-    y_fake = torch.randint(n_classes, size=(N,))
+    y_fake = torch.randint(num_classes, size=(N,))
     indices = torch.randperm(N)
     return x_fake, y_fake, indices
 
@@ -48,10 +48,10 @@ class TestMixUp:
 
         # Apply mixup
         x_mix, _, _ = mixup_batch(
-            x=x_fake,
-            y=y_fake,
-            interpolation_lambda=interpolation_lambda,
-            n_classes=x_fake.size(1),  # Grab C
+            x_fake,
+            y_fake,
+            interpolation=interpolation_lambda,
+            num_classes=x_fake.size(1),  # Grab C
             indices=indices)
 
         # Validate results
@@ -71,4 +71,4 @@ class TestMixUp:
 
         x, _ = state.batch
         # Use algorithm generated indices and interpolation_lambda for validation
-        validate_mixup_batch(x_fake, y_fake, algorithm.indices, x, algorithm.interpolation_lambda)
+        validate_mixup_batch(x_fake, y_fake, algorithm.indices, x, algorithm.interpolation)
