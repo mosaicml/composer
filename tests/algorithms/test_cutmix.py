@@ -101,11 +101,11 @@ class TestCutMix:
         # Validate results
         validate_cutmix(x=x_fake,
                         y=y_fake,
-                        indices=algorithm.indices,
+                        indices=algorithm._indices,
                         x_cutmix=x,
                         y_cutmix=y,
                         cut_proportion=algorithm._cutmix_lambda,
-                        bbox=algorithm.bbox,
+                        bbox=algorithm._bbox,
                         num_classes=algorithm.num_classes)
 
 

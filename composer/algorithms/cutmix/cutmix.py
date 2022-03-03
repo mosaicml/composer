@@ -38,9 +38,9 @@ def cutmix_batch(X: Tensor,
     is drawn from a :math:`Beta(alpha, alpha)` distribution for some parameter
     ``alpha > 0``. The original paper used a fixed value of ``alpha = 1``.
 
-    Note that the same ``cut_proportion`` and masked region are used for all
-    examples within the batch.
-l
+    Note that the same ``cut_proportion`` and masked region are used for
+    the whole batch.
+
     Args:
         X (torch.Tensor): input tensor of shape ``(N, C, H, W)``
         y (torch.Tensor): target tensor of either shape ``N`` or
@@ -54,11 +54,11 @@ l
             compared to the original size. Must be in the interval
             :math:`(0, 1)`. If ``None``, value is drawn from a
             ``Beta(alpha, alpha)`` distribution.
-        alpha (float, optional): parameter for the beta distribution over
+        alpha (float, optional): parameter for the Beta distribution over
             ``cut_proportion``. Ignored if ``cut_proportion`` is provided.
         bbox (Tuple, optional): predetermined ``(rx1, ry1, rx2, ry2)``
             coordinates of the bounding box.
-        indices: Permutation of the batch dimension indices ``1..N`` to use.
+        indices: Permutation of the samples to use.
 
     Returns:
         X_mixed: batch of inputs after cutmix has been applied.
@@ -184,7 +184,7 @@ class CutMix(Algorithm):
         self.alpha = alpha
         self._indices = torch.Tensor()
         self._cutmix_lambda = 0.0
-        self._bbox = tuple()
+        self._bbox: Tuple[int, int, int, int] = 0, 0, 0, 0
 
     def match(self, event: Event, state: State) -> bool:
         """Runs on Event.INIT and Event.AFTER_DATALOADER.
@@ -196,30 +196,6 @@ class CutMix(Algorithm):
             bool: True if this algorithm should run now.
         """
         return event == Event.AFTER_DATALOADER
-
-    @property
-    def indices(self) -> Tensor:
-        return self._indices
-
-    @indices.setter
-    def indices(self, new_indices: Tensor) -> None:
-        self._indices = new_indices
-
-    @property
-    def cutmix_lambda(self) -> float:
-        return self._cutmix_lambda
-
-    @cutmix_lambda.setter
-    def cutmix_lambda(self, new_lambda: float) -> None:
-        self._cutmix_lambda = new_lambda
-
-    @property
-    def bbox(self) -> Tuple[int, int, int, int]:
-        return self._bbox
-
-    @bbox.setter
-    def bbox(self, new_bbox: Tuple[int, int, int, int]) -> None:
-        self._bbox = new_bbox
 
     def apply(self, event: Event, state: State, logger: Logger) -> None:
         """Applies CutMix augmentation on State input.
@@ -235,19 +211,20 @@ class CutMix(Algorithm):
             "Multiple tensors for inputs or targets not supported yet."
         alpha = self.alpha
 
-        self.indices = _gen_indices(input)
-        self.cutmix_lambda = _gen_cutmix_coef(alpha)
-        self.bbox = _rand_bbox(input.shape[2], input.shape[3], self.cutmix_lambda)
-        self.cutmix_lambda = _adjust_lambda(self.cutmix_lambda, input, self.bbox)
+        # these are saved only for testing
+        self._indices = _gen_indices(input)
+        self._cutmix_lambda = _gen_cutmix_coef(alpha)
+        self._bbox = _rand_bbox(input.shape[2], input.shape[3], self._cutmix_lambda)
+        self._cutmix_lambda = _adjust_lambda(self._cutmix_lambda, input, self._bbox)
 
         new_input, new_target, _ = cutmix_batch(
             X=input,
             y=target,
             num_classes=self.num_classes,
             alpha=alpha,
-            cut_proportion=self.cutmix_lambda,
-            bbox=self.bbox,
-            indices=self.indices,
+            cut_proportion=self._cutmix_lambda,
+            bbox=self._bbox,
+            indices=self._indices,
         )
 
         state.batch = (new_input, new_target)
