@@ -179,27 +179,28 @@ class Trainer:
             .. note::
                 ``fp16`` only works if ``deepspeed_config`` is also provided.
         scale_schedule_ratio (float, optional): Ratio by which to scale the training duration and learning rate
-            schedules. E.g., ``0.5`` makes the schedule take half as many epochs and ``2.0`` makes it take twice as many epochs. ``1.0`` means no change.
+            schedules. E.g., ``0.5`` makes the schedule take half as many epochs and ``2.0`` makes it take twice as
+            many epochs. ``1.0`` means no change. (default: ``1.0``)
 
-            Training for less time is a strong baseline approach to speeding up
-            training, provided that the training still gets through the entire
-            learning rate schedule. E.g., training for half as long often yields
-            little accuracy degredation, provided that the learning rate schedule
-            is rescaled to take half as long as well. In contrast, if the schedule
-            is not rescaled, training for half as long would mean simply stopping
-            halfway through the training curve, which does reach nearly as
-            high an accuracy.
+            .. note ::
 
-            To see the difference, consider training for half as long using a cosine
-            annealing learning rate schedule. If the schedule is not rescaled,
-            training ends while the learning rate is still ~0.5. If the schedule is
-            rescaled, training ends after passing through the full cosine
-            curve, at a learning rate near 0.
-            (default: ``1.0``)
+                Training for less time, while rescaling the learning rate schedule,
+                is a strong baseline approach to speeding up training. E.g., training
+                for half duration often yields minor accuracy degradation,
+                provided that the learning rate schedule is also rescaled to take half as long.
+
+                To see the difference, consider training for half as long using a cosine
+                annealing learning rate schedule. If the schedule is not rescaled,
+                training ends while the learning rate is still ~0.5 of the initial LR.
+                If the schedule is rescaled with ``scale_schedule_ratio``, the LR schedule
+                would finish the entire cosine curve, ending with a learning rate near zero.
+
         step_schedulers_every_batch (bool, optional): By default, native
             `PyTorch schedulers <https://pytorch.org/docs/stable/optim.html#how-to-adjust-learning-rate>`_
             are updated every epoch, while :mod:`composer schedulers<composer.optim>` are updated every step.
-            Setting this to ``True`` will cause any scheduler passed to the trainer to be stepped every batch, while setting this to ``False`` will cause all schedulers to be stepped every epoch. If this parameter is ``None``, then if any :mod:`composer scheduler<composer.optim>` is provided, schedulers will be stepped every batch. Otherwise, schedulers will be stepped every epoch. (default: ``None``)
+            Setting this to ``True`` will force schedulers to be stepped every batch,
+            while ``False`` means schedulers stepped every epoch. ``None`` indicates the default behavior.
+            (default: ``None``)
         dist_timeout (float, optional): Timeout, in seconds, for initializing the distributed process group.
             (default: ``15.0``)
         ddp_sync_strategy (str or DDPSyncStrategy, optional): The strategy to use for synchronizing gradients.
