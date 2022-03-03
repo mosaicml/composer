@@ -110,7 +110,7 @@ class TestTrainerEquivalence():
     reference_folder: pathlib.Path
 
     def assert_models_equal(self, model_1, model_2):
-        assert id(model_1) != id(model_2), "Same model should not be compared."
+        assert model_1 is not model_2, "Same model should not be compared."
         for param1, param2 in zip(model_1.parameters(), model_2.parameters()):
             torch.testing.assert_allclose(param1, param2)
 
