@@ -50,8 +50,10 @@ class BERTForClassificationHparams(TransformerHparams):
             model = transformers.AutoModelForSequenceClassification.from_pretrained(self.pretrained_model_name,
                                                                                     **model_hparams)
         else:
+            for k, v in model_hparams.items():
+                assert getattr(config, k) == v
             model = transformers.AutoModelForSequenceClassification.from_config(  #type: ignore (thirdparty)
-                config, **model_hparams)
+                config)
 
         return BERTModel(
             module=model,

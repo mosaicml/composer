@@ -5,7 +5,81 @@ from typing import Optional
 import pytest
 
 from composer.datasets.synthetic import (SyntheticBatchPairDataset, SyntheticDataLabelType, SyntheticDataType,
-                                         SyntheticPILDataset)
+                                         SyntheticHFDataset, SyntheticPILDataset, generate_synthetic_tokenizer)
+
+
+@pytest.mark.parametrize('num_samples', [50])
+@pytest.mark.parametrize('chars_per_sample', [128])
+@pytest.mark.parametrize('column_names', [['sentence'], ['sentence1', 'sentence2']])
+@pytest.mark.parametrize('tokenizer_family', ['bert', 'gpt2'])
+def test_synthetic_hf_dataset_creation(num_samples: int, chars_per_sample: int, column_names: list,
+                                       tokenizer_family: str):
+    pytest.importorskip("transformers")
+    pytest.importorskip("datasets")
+    pytest.importorskip("tokenizers")
+
+    dataset_generator = SyntheticHFDataset(num_samples=num_samples,
+                                           chars_per_sample=chars_per_sample,
+                                           column_names=column_names)
+
+    sample = dataset_generator.generate_sample()
+    assert len(sample) == chars_per_sample
+
+    dataset = dataset_generator.generate_dataset()
+    assert len(dataset) == num_samples
+    assert len(dataset[column_names[0]][0]) == chars_per_sample
+    assert dataset.column_names == (column_names + ['idx'])
+
+    # build the tokenizer
+    tokenizer = generate_synthetic_tokenizer(tokenizer_family, dataset=dataset)
+    # verifying the input ids are a part of the tokenizer
+    assert 'input_ids' in tokenizer.model_input_names
+
+    # test tokenizing the dataset
+    max_length = chars_per_sample * 2
+    dataset = dataset.map(
+        lambda inp: tokenizer(text=inp[column_names[0]], padding="max_length", max_length=max_length, truncation=True),
+        batched=True,
+        num_proc=1,
+        keep_in_memory=True)
+
+    # verify datapoints are correct
+    assert 'input_ids' in dataset.column_names
+    x = dataset['input_ids'][0]
+    assert len(x) == max_length
+
+    # add some tokenizer-specific tests
+    if tokenizer_family == "bert":
+        assert x[0] == tokenizer.cls_token_id
+        assert tokenizer.sep_token_id in x
+
+    # since our tokenization max_length==chars_per_sample, we should always have padding tokens due to extra space
+    print(tokenizer.convert_ids_to_tokens(x))
+    print(x[-1], tokenizer.pad_token, tokenizer.pad_token_id, tokenizer.convert_ids_to_tokens(x[-1]))
+    assert x[-1] == tokenizer.pad_token_id
+
+
+@pytest.mark.parametrize('tokenizer_family', ["bert", "gpt2"])
+@pytest.mark.parametrize('vocab_size', [512])
+def test_synthetic_tokenizer_creation(tokenizer_family, vocab_size):
+    try:
+        from transformers import BertTokenizer, GPT2Tokenizer
+    except:
+        pytest.xfail(f"pip install -e '.[nlp]' to run this test!")
+
+    tokenizer = generate_synthetic_tokenizer(tokenizer_family=tokenizer_family, vocab_size=vocab_size)
+    if tokenizer_family == "bert":
+        assert isinstance(tokenizer, BertTokenizer)
+    elif tokenizer_family == "gpt2":
+        assert isinstance(tokenizer, GPT2Tokenizer)
+
+    assert tokenizer.vocab_size == vocab_size
+    assert tokenizer.pad_token_id == 0
+    if tokenizer_family == "bert":
+        assert tokenizer.cls_token is not None
+        assert tokenizer.sep_token is not None
+    elif tokenizer_family == "gpt2":
+        assert tokenizer.eos_token is not None
 
 
 @pytest.mark.parametrize('data_type', [
@@ -16,7 +90,7 @@ from composer.datasets.synthetic import (SyntheticBatchPairDataset, SyntheticDat
     SyntheticDataLabelType.CLASSIFICATION_ONE_HOT,
     SyntheticDataLabelType.CLASSIFICATION_INT,
 ])
-def test_synthetic_data_creation(data_type: SyntheticDataType, label_type: SyntheticDataLabelType):
+def test_synthetic_batch_pair_creation(data_type: SyntheticDataType, label_type: SyntheticDataLabelType):
     if data_type == SyntheticDataType.SEPARABLE:
         if label_type != SyntheticDataLabelType.CLASSIFICATION_INT:
             pytest.skip("Seperable data requires classification int labels")
