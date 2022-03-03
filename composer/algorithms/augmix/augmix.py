@@ -32,7 +32,7 @@ def augmix_image(img: ImgT,
                  augmentation_set: List = augmentation_sets["all"]) -> ImgT:
     """Applies AugMix (`Hendrycks et al, 2020 <http://arxiv.org/abs/1912.02781>`_) data
     augmentation to a single image or batch of images. See
-    :class:`.AugMix`` and the
+    :class:`.AugMix` and the
     :doc:`Method Card </method_cards/augmix>` for details. This function only acts on a
     single image (or batch) per call and is unlikely to be used in a training loop. Use
     :class:`~composer.algorithms.augmix.augmix.AugmentAndMixTransform` to use AugMix as
@@ -56,12 +56,12 @@ def augmix_image(img: ImgT,
 
     Args:
         img (PIL.Image): Image or batch of images to be AugMix'd.
-        severity (int, optional): See :class:`.AugMix``.
-        depth (int, optional): See :class:`.AugMix``.
-        width (int, optional): See :class:`.AugMix``.
-        alpha (float, optional): See :class:`.AugMix``.
+        severity (int, optional): See :class:`.AugMix`.
+        depth (int, optional): See :class:`.AugMix`.
+        width (int, optional): See :class:`.AugMix`.
+        alpha (float, optional): See :class:`.AugMix`.
         augmentation_set (str, optional): See
-            :class:`.AugMix``.
+            :class:`.AugMix`.
 
     Returns:
          PIL.Image: AugMix'd image.
@@ -102,7 +102,7 @@ def augmix_image(img: ImgT,
 class AugmentAndMixTransform(torch.nn.Module):
     """Wrapper module for :func:`~composer.algorithms.augmix.augmix.augmix_image` that can
     be passed to :class:`torchvision.transforms.Compose`. See
-    :class:`.AugMix`` and the :doc:`Method Card
+    :class:`.AugMix` and the :doc:`Method Card
     </method_cards/augmix>` for details.
 
     Example:
@@ -123,12 +123,12 @@ class AugmentAndMixTransform(torch.nn.Module):
             transformed_image = composed(image)
 
     Args:
-        severity (int, optional): See :class:`.AugMix``.
-        depth (int, optional): See :class:`.AugMix``.
-        width (int, optional): See :class:`.AugMix``.
-        alpha (float, optional): See :class:`.AugMix``.
+        severity (int, optional): See :class:`.AugMix`.
+        depth (int, optional): See :class:`.AugMix`.
+        width (int, optional): See :class:`.AugMix`.
+        alpha (float, optional): See :class:`.AugMix`.
         augmentation_set (str, optional): See
-            :class:`.AugMix``.
+            :class:`.AugMix`.
     """
 
     def __init__(self,
