@@ -2,8 +2,6 @@ import os
 from typing import Any, Tuple
 
 import numpy as np
-from pycocotools.coco import COCO
-from pycocotools.cocoeval import COCOeval
 from torchmetrics import Metric
 
 from composer.core.types import BatchPair, Metrics, Tensor, Tensors
@@ -101,6 +99,11 @@ class coco_map(Metric):
 
     def __init__(self, data):
         super().__init__()
+        try:
+            from pycocotools.coco import COCO
+        except ImportError:
+            raise ImportError('Module pycocotools not installed. '
+                              'Please install with `pip install composer[coco]`')
         self.add_state("predictions", default=[])
         val_annotate = os.path.join(data, "annotations/instances_val2017.json")
         self.cocogt = COCO(annotation_file=val_annotate)
@@ -110,6 +113,11 @@ class coco_map(Metric):
         np.squeeze(self.predictions)  #type: ignore
 
     def compute(self):
+        try:
+            from pycocotools.cocoeval import COCOeval
+        except ImportError:
+            raise ImportError('Module pycocotools not installed. '
+                              'Please install with `pip install composer[coco]`')
         cocoDt = self.cocogt.loadRes(np.array(self.predictions))
         E = COCOeval(self.cocogt, cocoDt, iouType='bbox')
         E.evaluate()

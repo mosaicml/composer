@@ -94,7 +94,6 @@ extra_deps['dev'] = [
     'pylint>=2.12.2',
     'docformatter>=1.4',
     'sphinx_panels==0.6.0',
-    'pycocotools@git+https://github.com/cocodataset/cocoapi#egg=pycocotools&subdirectory=PythonAPI',
 ]
 
 extra_deps["deepspeed"] = [
@@ -112,6 +111,10 @@ extra_deps["unet"] = [
 
 extra_deps["timm"] = [
     'timm==0.5.4',
+]
+
+extra_deps["coco"] = [
+    'pycocotools@git+https://github.com/cocodataset/cocoapi#egg=pycocotools&subdirectory=PythonAPI',
 ]
 
 extra_deps["nlp"] = [
