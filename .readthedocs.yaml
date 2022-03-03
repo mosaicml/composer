@@ -15,4 +15,6 @@ python:
    version: "3.8"
    install:
       - method: pip
+        path: .[base]
+      - method: pip
         path: .[all]
