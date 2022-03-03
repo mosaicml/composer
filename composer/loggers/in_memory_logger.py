@@ -93,6 +93,16 @@ class InMemoryLogger(LoggerCallback):
                 >>> InMemoryLogger.get_timeseries(metric="accuracy/val")
                 {"accuracy/val": [31.2, 45.6, 59.3, 64.7, "epoch": [1, 2, 3, 4, ...],
                 ...], "batch": [49, 98, 147, 196, ...], ...}
+
+        Example:
+            .. testcode::
+
+                import matplotlib.pyplot as plt
+
+                timeseries = in_memory_logger_populated.get_timeseries("accuracy/val")
+                plt.plot(timeseries["batch"], timeseries["accuracy/val"])
+                plt.xlabel("Batch")
+                plt.ylabel("Validation Accuracy")
         """
 
         # Check that desired metric is in present data

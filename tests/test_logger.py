@@ -17,6 +17,7 @@ from composer.loggers.in_memory_logger import InMemoryLogger
 from composer.loggers.logger_hparams import FileLoggerHparams, TQDMLoggerHparams, WandBLoggerHparams
 from composer.trainer.trainer_hparams import TrainerHparams
 from composer.utils import dist
+from tests.fixtures.new_fixtures import in_memory_logger_populated
 
 
 @pytest.fixture
