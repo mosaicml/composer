@@ -199,7 +199,7 @@ class WandBLoggerHparams(LoggerCallbackHparams):
             name = self.name
             group = self.group
         else:
-            name = f"{self.name}_RANK_{dist.get_global_rank()}"
+            name = f"{self.name} [RANK_{dist.get_global_rank()}]"
             group = self.group if self.group else self.name
         init_params = {
             "project": self.project,
