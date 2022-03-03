@@ -87,11 +87,10 @@ class ComposerTransformer(ComposerModel):
 
         Args:
             batch (~composer.core.types.Batch): A dictionary of Dict[str, Tensor] of inputs that the
-                model expects, as found in :meth:`~composer.models.transformer_shared.ComposerTransformer.get_model_inputs`.
+                model expects, as found in :meth:`.ComposerTransformer.get_model_inputs`.
 
         Returns:
-            output: A dictionary of model outputs as a ``Mapping``. It will include the loss
-            if `labels` is passed as an input.
+            output: A dictionary of model outputs as a ``Mapping``. It will include the loss if `labels` is passed as an input.
         """
         if not isinstance(batch, dict):
             raise ValueError(f'Model expects batch to be a dict, got {type(batch)}')
@@ -108,11 +107,11 @@ class ComposerTransformer(ComposerModel):
 
         Args:
             batch (~composer.core.types.Batch): a dictionary of Dict[str, Tensor] of inputs
-                that the model expects, as found in :meth:`~composer.models.transformer_shared.ComposerTransformer.get_model_inputs`.
+                that the model expects, as found in :meth:`.ComposerTransformer.get_model_inputs`.
 
         Returns:
             Tuple[Mapping, None]: A tuple containing the output from the forward pass.
-                This is fed into directly into the output of :meth:`~composer.models.base.ComposerModel.metrics`.
+                This is fed into directly into the output of :meth:`.ComposerModel.metrics`.
         """
         assert self.training is False, "For validation, model must be in eval mode"
         output = self.forward(batch)
