@@ -14,7 +14,7 @@ from torchmetrics.collections import MetricCollection
 from composer.core.types import Batch, BatchPair, Metrics, Tensors
 from composer.models.loss import CrossEntropyLoss, soft_cross_entropy
 
-__all__ = ["ComposerModel", "ComposerClassifier"]
+__all__ = ["ComposerClassifier", "ComposerModel"]
 
 
 class ComposerModel(torch.nn.Module, abc.ABC):
@@ -56,7 +56,7 @@ class ComposerModel(torch.nn.Module, abc.ABC):
     def forward(self, batch: Batch) -> Tensors:
         """Compute model output given a batch from the dataloader.
 
-        .. warning:: this is method is different from vanilla PyTorch `model.forward(x)` or `model(x)` as it takes a
+        .. warning:: This method is different from vanilla PyTorch ``model.forward(x)`` or ``model(x)`` as it takes a
                      batch of data that has to be unpacked.
 
         Example:
@@ -92,7 +92,7 @@ class ComposerModel(torch.nn.Module, abc.ABC):
     def loss(self, outputs: Any, batch: Batch, *args, **kwargs) -> Tensors:
         """Compute the loss of the model given ``outputs`` from :meth:`forward` and a
         :class:`~composer.core.types.Batch` of data from the dataloader. The :class:`.Trainer`
-        will call `.backward()` on the returned loss.
+        will call ``.backward()`` on the returned loss.
 
         Example:
 
@@ -125,13 +125,15 @@ class ComposerModel(torch.nn.Module, abc.ABC):
         pass
 
     def metrics(self, train: bool = False) -> Metrics:
-        """Get metrics for evaluating the model. Metrics should be :class:`~torchmetrics.Metric` compatible for accurate distributed
-        logging and defined in :meth:`__init__`. Metrics consume the outputs of :meth:`validate`. To track multiple
+        """Get metrics for evaluating the model. Metrics should be instances of :class:`torchmetrics.Metric` defined in :meth:`__init__`.
+        This format enables accurate distributed logging. Metrics consume the outputs of :meth:`validate`. To track multiple
         metrics, return a list of metrics in a :ref:`MetricCollection </pages/overview.rst#metriccollection>`.
 
         Example:
 
         .. code-block:: python
+            from torchmetrics.classification import Accuracy
+            from composer.models.loss import CrossEntropyLoss
 
             def __init__(self):
                 super().__init__()

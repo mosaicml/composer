@@ -3,7 +3,7 @@
 ## Code adapted from https://github.com/NVIDIA/DeepLearningExamples/blob/master/PyTorch/Segmentation/nnUNet/
 import torch.nn as nn
 
-from composer.models.unet.layers import ConvBlock, OutputBlock, ResidBlock, UpsampleBlock
+from composer.models.unet._layers import ConvBlock, OutputBlock, ResidBlock, UpsampleBlock
 
 
 class UNet(nn.Module):
