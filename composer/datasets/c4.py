@@ -95,6 +95,10 @@ class C4DatasetHparams(DatasetHparams):
             raise ImportError('HuggingFace transformers not installed. '
                               'Please install with `pip install composer[nlp]`')
 
+        if dataloader_hparams.num_workers > 1:
+            log.warning("C4 Dataset not compatible with num_workers > 1. Overwriting value to num_workers=1")
+            dataloader_hparams.num_workers = 1
+
         # Get C4 dataset
         c4_dataset = C4Dataset(split=self.split,
                                max_samples=self.max_samples,
