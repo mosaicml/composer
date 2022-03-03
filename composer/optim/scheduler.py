@@ -1,30 +1,11 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
-"""Framework for and implementations of stateless learning rate schedulers.
+"""Stateless learning rate schedulers.
 
 Stateless schedulers solve some of the problems associated with PyTorch's built-in schedulers provided in
-:mod:`torch.optim.lr_scheduler`. Those schedulers use internal state to keep track of the current time, which is
-incremented every time their ``.step()`` method is called. In practice, this means that PyTorch's schedulers can only
-interpret the current time (or training progress) as a single integer: the number of times ``.step()`` has been called.
-PyTorch's schedulers were written under the assumption that this value would represent the current epoch. This requires
-that ``.step()`` be called exactly once per epoch.
-
-A critical problem with this approach is that it oversimplifies the notion of time. Time can be measured in multiple
-other units besides epochs, such as samples, batches, and even tokens for NLP datasets. PyTorch's schedulers are unable
-to recognize this multiplicity, since their understanding of time is limited to how much ``.step()`` has been called.
-
-To offer a concrete example, PyTorch's :class:`~torch.optim.lr_scheduler.MultiStepLR` is configured by a ``milestones``
-parameter whose type is a list of integers. Each of these milestones represents a time at which the learning rate should
-change. Implicitly, these milestones are expected to be epoch indices.
-
-So what happens if you want to change the learning rate not after an epoch, but after a batch, as is common in some NLP
-training loads? Despite that PyTorch's schedulers weren't designed for this, it's possible to call ``.step()`` after
-every batch, rather than after every epoch. Unfortunately, if you do this, you need to adjust all timewise parameters of
-your schedulers, since their unit has now been implicitly changed from epochs to batches.
-
-The primary design goal of the stateless schedulers provided in this module is to allow schedulers to reason about
-explicit time units via Composer's :mod:`~composer.core.time` abstraction. This means that schedulers can be configured
-using arbitrary but explicit time units.
+:mod:`torch.optim.lr_scheduler`. The primary design goal of the schedulers provided in this module is to allow
+schedulers to interface directly with Composer's :mod:`~composer.core.time` abstraction. This means that schedulers can
+be configured using arbitrary but explicit time units.
 
 See :class:`~.ComposerScheduler` for more information on stateless schedulers.
 """
@@ -64,6 +45,46 @@ class ComposerScheduler(Protocol):
 
     While this specification is provided as a Python class, an ordinary function can implement this interface as long
     as it matches the signature of this interface's :meth:`~.ComposerScheduler.__call__` method.
+
+    For example, a scheduler that halves the learning rate after 10 epochs could be written as:
+
+    .. code:: python
+
+        def ten_epoch_decay_scheduler(state: State) -> float:
+            if state.timer.epoch < 10:
+                return 1.0
+            return 0.5
+
+        # ten_epoch_decay_scheduler is a valid ComposerScheduler
+        trainer = Trainer(
+            schedulers=[ten_epoch_decay_scheduler],
+            ...
+        )
+
+    In order to allow schedulers to be configured, schedulers may also written as callable classes:
+
+    .. code:: python
+
+        class VariableEpochDecayScheduler(ComposerScheduler):
+
+            def __init__(num_epochs: int):
+                self.num_epochs = num_epochs
+
+            def __call__(state: State) -> float:
+                if state.time.epoch < self.num_epochs:
+                    return 1.0
+                return 0.5
+
+        ten_epoch_decay_scheduler = VariableEpochDecayScheduler(num_epochs=10)
+        # ten_epoch_decay_scheduler is also a valid ComposerScheduler
+        trainer = Trainer(
+            schedulers=[ten_epoch_decay_scheduler],
+            ...
+        )
+
+    The constructions of ``ten_epoch_decay_scheduler`` in each of the examples above are equivalent. Note that neither
+    scheduler uses the ``scale_schedule_ratio`` parameter. As long as this parameter is not used when initializing
+    :class:`~composer.trainer.trainer.Trainer`, it is not required that any schedulers implement that parameter.
 
     .. automethod:: __call__
     """
@@ -169,7 +190,8 @@ def compile_composer_scheduler(scheduler: ComposerScheduler, state: State, ssr: 
 class StepScheduler(ComposerScheduler):
     r"""Decays the learning rate discretely at fixed intervals.
 
-    Analogous to :class:`~torch.optim.lr_scheduler.StepLR`.
+    .. seealso::
+        This scheduler is based on :class:`~torch.optim.lr_scheduler.StepLR` from PyTorch.
 
     Decays the learning rate by a factor of ``gamma`` periodically, with a frequency determined by ``step_size``.
 
@@ -201,7 +223,8 @@ class StepScheduler(ComposerScheduler):
 class MultiStepScheduler(ComposerScheduler):
     r"""Decays the learning rate discretely at fixed milestones.
 
-    Analogous to :class:`~torch.optim.lr_scheduler.MultiStepLR`.
+    .. seealso::
+        This scheduler is based on :class:`~torch.optim.lr_scheduler.MultiStepLR` from PyTorch.
 
     Decays the learning rate by a factor of ``gamma`` whenever a time milestone in ``milestones`` is reached.
 
@@ -214,7 +237,7 @@ class MultiStepScheduler(ComposerScheduler):
     multiplicative decay factor.
     
     Args:
-        milestones (list of str or Time): Times at which the learning rate should change.
+        milestones (List[str or Time]): Times at which the learning rate should change.
         gamma (float): Multiplicative decay factor. Default = ``0.1``.
     """
 
@@ -236,7 +259,7 @@ class MultiStepScheduler(ComposerScheduler):
 class ConstantScheduler(ComposerScheduler):
     r"""Maintains a fixed learning rate.
 
-    Analagous to :class:`~torch.optim.lr_scheduler.ConstantLR`.
+    This scheduler is based on  :class:`~torch.optim.lr_scheduler.ConstantLR` from PyTorch.
 
     The default settings for this scheduler simply maintain a learning rate factor of 1 for the entire training
     duration. However, both the factor and the duration of this scheduler can be configured.
@@ -251,10 +274,10 @@ class ConstantScheduler(ComposerScheduler):
     
     Args:
         alpha (float): Learning rate multiplier to maintain while this scheduler is active. Default = ``1.0``.
-        t_max (str or Time): Duration of this scheduler. Default = ``'1dur'``.
+        t_max (str or Time): Duration of this scheduler. Default = ``"1dur"``.
     """
 
-    def __init__(self, alpha: float = 1.0, t_max: Union[str, Time] = '1dur') -> None:
+    def __init__(self, alpha: float = 1.0, t_max: Union[str, Time] = "1dur") -> None:
         self.alpha = alpha
         self.t_max = t_max
 
@@ -270,7 +293,8 @@ class ConstantScheduler(ComposerScheduler):
 class LinearScheduler(ComposerScheduler):
     r"""Adjusts the learning rate linearly.
 
-    Analogous to :class:`~torch.optim.lr_scheduler.LinearLR`.
+    .. seealso::
+        This scheduler is based on :class:`~torch.optim.lr_scheduler.LinearLR` from PyTorch.
 
     .. warning::
         Note that the defaults for this scheduler differ from the defaults for
@@ -296,10 +320,10 @@ class LinearScheduler(ComposerScheduler):
     Args:
         alpha_i (float): Initial learning rate multiplier. Default = ``1.0``.
         alpha_f (float): Final learning rate multiplier. Default = ``0.0``.
-        t_max (str or Time): The duration of this scheduler. Default = ``'1dur'``.
+        t_max (str or Time): The duration of this scheduler. Default = ``"1dur"``.
     """
 
-    def __init__(self, alpha_i: float = 1.0, alpha_f: float = 0.0, t_max: Union[str, Time] = '1dur'):
+    def __init__(self, alpha_i: float = 1.0, alpha_f: float = 0.0, t_max: Union[str, Time] = "1dur"):
         self.alpha_i = alpha_i
         self.alpha_f = alpha_f
         self.t_max = Time.from_timestring(t_max) if isinstance(t_max, str) else t_max
@@ -317,7 +341,8 @@ class LinearScheduler(ComposerScheduler):
 class ExponentialScheduler(ComposerScheduler):
     r"""Decays the learning rate exponentially.
 
-    Analogous to :class:`~torch.optim.lr_scheduler.ExponentialLR`.
+    .. seealso::
+        This scheduler is based on :class:`~torch.optim.lr_scheduler.ExponentialLR` from PyTorch.
 
     Exponentially decays the learning rate such that it decays by a factor of ``gamma`` every ``decay_period`` time.
 
@@ -329,11 +354,11 @@ class ExponentialScheduler(ComposerScheduler):
     Where :math:`\rho` represents the decay period, and :math:`\gamma` represents the multiplicative decay factor.
     
     Args:
-        decay_period (str or Time): Decay period. Default = ``'1ep'``.
+        decay_period (str or Time): Decay period. Default = ``"1ep"``.
         gamma (float): Multiplicative decay factor.
     """
 
-    def __init__(self, gamma: float, decay_period: Union[str, Time] = '1ep'):
+    def __init__(self, gamma: float, decay_period: Union[str, Time] = "1ep"):
         self.gamma = gamma
         self.decay_period = decay_period
 
@@ -358,7 +383,8 @@ def _cosine_anneal(x: float, min_y: float = 0.0, max_y: float = 1.0) -> float:
 class CosineAnnealingScheduler(ComposerScheduler):
     r"""Decays the learning rate according to the decreasing part of a cosine curve.
 
-    Analogous to :class:`~torch.optim.lr_scheduler.CosineAnnealingLR`.
+    .. seealso::
+        This scheduler is based on :class:`~torch.optim.lr_scheduler.CosineAnnealingLR` from PyTorch.
 
     Specifically, the learning rate multiplier :math:`\alpha` can be expressed as:
 
@@ -374,11 +400,11 @@ class CosineAnnealingScheduler(ComposerScheduler):
     represents the duration of this scheduler, and :math:`\alpha_f` represents the learning rate multiplier to decay to.
     
     Args:
-        t_max (str or Time): The duration of this scheduler. Default = ``'1dur'``.
+        t_max (str or Time): The duration of this scheduler. Default = ``"1dur"``.
         alpha_f (float): Learning rate multiplier to decay to. Default = ``0.0``.
     """
 
-    def __init__(self, t_max: Union[str, Time] = '1dur', alpha_f: float = 0.0):
+    def __init__(self, t_max: Union[str, Time] = "1dur", alpha_f: float = 0.0):
         self.t_max = t_max
         self.alpha_f = alpha_f
 
@@ -393,7 +419,8 @@ class CosineAnnealingScheduler(ComposerScheduler):
 class CosineAnnealingWarmRestartsScheduler(ComposerScheduler):
     r"""Cyclically decays the learning rate according to the decreasing part of a cosine curve.
 
-    Analogous to :class:`~torch.optim.lr_scheduler.CosineAnnealingWarmRestarts`.
+    .. seealso::
+        This scheduler is based on :class:`~torch.optim.lr_scheduler.CosineAnnealingWarmRestarts` from PyTorch.
 
     This scheduler resembles a regular cosine annealing curve, as seen in :class:`~.CosineAnnealingScheduler`, except
     that after the curve first completes ``t_0`` time, the curve resets to the start. The durations of subsequent cycles
@@ -431,7 +458,7 @@ class CosineAnnealingWarmRestartsScheduler(ComposerScheduler):
         while current_interval_end <= state.timer.get(current_interval_end.unit):
             if current_interval_len.value == 0:
                 raise ValueError(
-                    'Interval between restarts for cosine annealing/warm restarts scheduler has decayed to 0.')
+                    "Interval between restarts for cosine annealing/warm restarts scheduler has decayed to 0.")
 
             current_interval_len = Time(value=int(self.t_mult * current_interval_len.value),
                                         unit=current_interval_len.unit)
@@ -462,11 +489,11 @@ class PolynomialScheduler(ComposerScheduler):
 
     Args:
         power (float): The exponent to be used for the proportionality relationship.
-        t_max (str or Time): The duration of this scheduler. Default = ``'1dur'``.
+        t_max (str or Time): The duration of this scheduler. Default = ``"1dur"``.
         alpha_f (float): Learning rate multiplier to decay to. Default = ``0.0``.
     """
 
-    def __init__(self, power: float, t_max: Union[str, Time] = '1dur', alpha_f: float = 0.0):
+    def __init__(self, power: float, t_max: Union[str, Time] = "1dur", alpha_f: float = 0.0):
         self.t_max = t_max
         self.power = power
         self.alpha_f = alpha_f
@@ -484,7 +511,8 @@ class PolynomialScheduler(ComposerScheduler):
 class MultiStepWithWarmupScheduler(ComposerScheduler):
     r"""Decays the learning rate discretely at fixed milestones, with an initial warmup.
 
-    Variant of :class:`~.MultiStepScheduler` that adds a linear warmup.
+    .. seealso::
+        This scheduler is based on :class:`~.MultiStepScheduler`, with an added warmup.
 
     Starts with a linear warmup over ``t_warmup`` time, then decays the learning rate by a factor of ``gamma``
     whenever a time milestone in ``milestones`` is reached.
@@ -510,7 +538,7 @@ class MultiStepWithWarmupScheduler(ComposerScheduler):
 
     Args:
         t_warmup (str or Time): Warmup time.
-        milestones (list of str or Time): Times at which the learning rate should change.
+        milestones (List[str or Time]): Times at which the learning rate should change.
         gamma (float): Multiplicative decay factor. Default = ``0.1``.
     """
 
@@ -522,7 +550,6 @@ class MultiStepWithWarmupScheduler(ComposerScheduler):
         self.step_scheduler = MultiStepScheduler(milestones=milestones, gamma=gamma)
 
     def __call__(self, state: State, ssr: float = 1.0):
-        # N.B. warmup time is intentionally *not* subject to scale schedule
         t_warmup = _convert_time(self.t_warmup, state)
         if t_warmup.value == 0:
             warnings.warn(
@@ -540,7 +567,8 @@ class MultiStepWithWarmupScheduler(ComposerScheduler):
 class LinearWithWarmupScheduler(ComposerScheduler):
     r"""Adjusts the learning rate linearly, with an initial warmup.
 
-    Variant of :class:`~.LinearScheduler` that adds a linear warmup.
+    .. seealso::
+        This scheduler is based on :class:`~.LinearScheduler`, with an added warmup.
 
     Linearly adjusts the learning rate multiplier from ``alpha_i`` to ``alpha_f`` over ``t_{max}`` time.
 
@@ -570,14 +598,14 @@ class LinearWithWarmupScheduler(ComposerScheduler):
         t_warmup (str or Time): Warmup time.
         alpha_i (float): Initial learning rate multiplier. Default = ``1.0``.
         alpha_f (float): Final learning rate multiplier. Default = ``0.0``.
-        t_max (str or Time): The duration of this scheduler. Default = ``'1dur'``.
+        t_max (str or Time): The duration of this scheduler. Default = ``"1dur"``.
     """
 
     def __init__(self,
                  t_warmup: Union[str, Time],
                  alpha_i: float = 1.0,
                  alpha_f: float = 0.0,
-                 t_max: Union[str, Time] = '1dur'):
+                 t_max: Union[str, Time] = "1dur"):
         self.t_warmup = t_warmup
         self.alpha_i = alpha_i
         self.alpha_f = alpha_f
@@ -585,7 +613,6 @@ class LinearWithWarmupScheduler(ComposerScheduler):
         self.warmup_scheduler = LinearScheduler(alpha_i=0.0, alpha_f=alpha_i, t_max=t_warmup)
 
     def __call__(self, state: State, ssr: float = 1.0):
-        # N.B. warmup time is intentionally *not* subject to scale schedule
         t_warmup = _convert_time(self.t_warmup, state)
         if t_warmup.value == 0:
             warnings.warn(
@@ -609,7 +636,8 @@ class LinearWithWarmupScheduler(ComposerScheduler):
 class CosineAnnealingWithWarmupScheduler(ComposerScheduler):
     r"""Decays the learning rate according to the decreasing part of a cosine curve, with an initial warmup.
 
-    Variant of :class:`~.CosineAnnealingScheduler` that adds a linear warmup.
+    .. seealso::
+        This scheduler is based on :class:`~.CosineAnnealingScheduler`, with an added warmup.
 
     Specifically, the learning rate multiplier :math:`\alpha` can be expressed as:
 
@@ -634,18 +662,17 @@ class CosineAnnealingWithWarmupScheduler(ComposerScheduler):
     
     Args:
         t_warmup (str or Time): Warmup time.
-        t_max (str or Time): The duration of this scheduler. Default = ``'1dur'``.
+        t_max (str or Time): The duration of this scheduler. Default = ``"1dur"``.
         alpha_f (float): Learning rate multiplier to decay to. Default = ``0.0``.
     """
 
-    def __init__(self, t_warmup: Union[str, Time], t_max: Union[str, Time] = '1dur', alpha_f: float = 0.0):
+    def __init__(self, t_warmup: Union[str, Time], t_max: Union[str, Time] = "1dur", alpha_f: float = 0.0):
         self.t_warmup = t_warmup
         self.t_max = t_max
         self.alpha_f = alpha_f
         self.warmup_scheduler = LinearScheduler(alpha_i=0.0, alpha_f=1.0, t_max=t_warmup)
 
     def __call__(self, state: State, ssr: float = 1.0):
-        # N.B. warmup time is intentionally *not* subject to scale schedule
         t_warmup = _convert_time(self.t_warmup, state)
         if t_warmup.value == 0:
             warnings.warn(

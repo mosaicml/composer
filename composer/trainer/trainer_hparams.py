@@ -32,7 +32,7 @@ from composer.optim import (AdamHparams, AdamWHparams, ConstantSchedulerHparams,
                             DecoupledAdamWHparams, DecoupledSGDWHparams, ExponentialSchedulerHparams,
                             LinearSchedulerHparams, LinearWithWarmupSchedulerHparams, MultiStepSchedulerHparams,
                             MultiStepWithWarmupSchedulerHparams, OptimizerHparams, PolynomialSchedulerHparams,
-                            RAdamHparams, RMSPropHparams, SchedulerHparams, SGDHparams, StepSchedulerHparams)
+                            RAdamHparams, RMSpropHparams, SchedulerHparams, SGDHparams, StepSchedulerHparams)
 from composer.profiler.profiler_hparams import JSONTraceHandlerHparams, ProfilerEventHandlerHparams
 from composer.trainer.ddp import DDPSyncStrategy
 from composer.trainer.devices import CPUDeviceHparams, DeviceHparams, GPUDeviceHparams
@@ -52,7 +52,7 @@ optimizer_registry = {
     "radam": RAdamHparams,
     "sgd": SGDHparams,
     "decoupled_sgdw": DecoupledSGDWHparams,
-    "rmsprop": RMSPropHparams,
+    "rmsprop": RMSpropHparams,
 }
 
 scheduler_registry = {

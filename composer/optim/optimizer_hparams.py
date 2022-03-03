@@ -1,5 +1,7 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
+"""Hyperparameters for optimizers."""
+
 from abc import ABC, abstractmethod
 from dataclasses import asdict, dataclass
 from typing import List, Type
@@ -12,6 +14,11 @@ from composer.core.types import ModelParameters, Optimizer
 from composer.optim import DecoupledAdamW, DecoupledSGDW
 
 # Optimizer parameters and defaults match those in torch.optim
+
+__all__ = [
+    "OptimizerHparams", "AdamHparams", "RAdamHparams", "AdamWHparams", "DecoupledAdamWHparams", "SGDHparams",
+    "DecoupledSGDWHparams", "RMSpropHparams"
+]
 
 
 @dataclass
@@ -31,7 +38,7 @@ class OptimizerHparams(hp.Hparams, ABC):
         """Initializes the optimizer.
 
         Args:
-            param_group (ModelParameters): Parameters for this optimizer to optimize.
+            param_group (:attr:`~composer.core.types.ModelParameters`): Parameters for this optimizer to optimize.
         """
 
         assert issubclass(self.optimizer_object, torch.optim.Optimizer)
@@ -51,12 +58,12 @@ class AdamHparams(OptimizerHparams):
         weight_decay (float, optional): See :class:`~torch.optim.Adam`.
         amsgrad (bool, optional): See :class:`~torch.optim.Adam`.
     """
-    lr: float = hp.optional(default=0.001, doc='learning rate')
+    lr: float = hp.optional(default=0.001, doc="learning rate")
     betas: List[float] = hp.optional(default_factory=lambda: [0.9, 0.999],
-                                     doc='coefficients used for computing running averages of gradient and its square.')
-    eps: float = hp.optional(default=1e-8, doc='term for numerical stability')
-    weight_decay: float = hp.optional(default=0.0, doc='weight decay (L2 penalty)')
-    amsgrad: bool = hp.optional(default=False, doc='use AMSGrad variant')
+                                     doc="coefficients used for computing running averages of gradient and its square.")
+    eps: float = hp.optional(default=1e-8, doc="term for numerical stability")
+    weight_decay: float = hp.optional(default=0.0, doc="weight decay (L2 penalty)")
+    amsgrad: bool = hp.optional(default=False, doc="use AMSGrad variant")
 
     @property
     def optimizer_object(cls) -> Type[torch.optim.Adam]:
@@ -75,11 +82,11 @@ class RAdamHparams(OptimizerHparams):
         eps (float, optional): See :class:`~torch.optim.RAdam`.
         weight_decay (float, optional): See :class:`~torch.optim.RAdam`.
     """
-    lr: float = hp.optional(default=0.001, doc='learning rate')
+    lr: float = hp.optional(default=0.001, doc="learning rate")
     betas: List[float] = hp.optional(default_factory=lambda: [0.9, 0.999],
-                                     doc='coefficients used for computing running averages of gradient and its square.')
-    eps: float = hp.optional(default=1e-8, doc='term for numerical stability')
-    weight_decay: float = hp.optional(default=0.0, doc='weight decay (L2 penalty)')
+                                     doc="coefficients used for computing running averages of gradient and its square.")
+    eps: float = hp.optional(default=1e-8, doc="term for numerical stability")
+    weight_decay: float = hp.optional(default=0.0, doc="weight decay (L2 penalty)")
 
     @property
     def optimizer_object(cls) -> Type[torch_optimizer.RAdam]:
@@ -99,12 +106,12 @@ class AdamWHparams(OptimizerHparams):
         weight_decay (float, optional): See :class:`~torch.optim.AdamW`.
         amsgrad (bool, optional): See :class:`~torch.optim.AdamW`.
     """
-    lr: float = hp.optional(default=0.001, doc='learning rate')
+    lr: float = hp.optional(default=0.001, doc="learning rate")
     betas: List[float] = hp.optional(default_factory=lambda: [0.9, 0.999],
-                                     doc='coefficients used for computing running averages of gradient and its square.')
-    eps: float = hp.optional(default=1e-8, doc='term for numerical stability')
-    weight_decay: float = hp.optional(default=1e-2, doc='weight decay (L2 penalty)')
-    amsgrad: bool = hp.optional(default=False, doc='use AMSGrad variant')
+                                     doc="coefficients used for computing running averages of gradient and its square.")
+    eps: float = hp.optional(default=1e-8, doc="term for numerical stability")
+    weight_decay: float = hp.optional(default=1e-2, doc="weight decay (L2 penalty)")
+    amsgrad: bool = hp.optional(default=False, doc="use AMSGrad variant")
 
     @property
     def optimizer_object(cls) -> Type[torch.optim.AdamW]:
@@ -113,23 +120,23 @@ class AdamWHparams(OptimizerHparams):
 
 @dataclass
 class DecoupledAdamWHparams(OptimizerHparams):
-    """Hyperparameters for the :class:`~composer.optim.DecoupledAdamW` optimizer.
+    """Hyperparameters for the :class:`~composer.optim.decoupled_weight_decay.DecoupledAdamW` optimizer.
 
-    See :class:`~composer.optim.DecoupledAdamW` for documentation.
+    See :class:`~composer.optim.decoupled_weight_decay.DecoupledAdamW` for documentation.
 
     Args:
-        lr (float, optional): See :class:`~composer.optim.DecoupledAdamW`.
-        betas (float, optional): See :class:`~composer.optim.DecoupledAdamW`.
-        eps (float, optional): See :class:`~composer.optim.DecoupledAdamW`.
-        weight_decay (float, optional): See :class:`~composer.optim.DecoupledAdamW`.
-        amsgrad (bool, optional): See :class:`~composer.optim.DecoupledAdamW`.
+        lr (float, optional): See :class:`~composer.optim.decoupled_weight_decay.DecoupledAdamW`.
+        betas (float, optional): See :class:`~composer.optim.decoupled_weight_decay.DecoupledAdamW`.
+        eps (float, optional): See :class:`~composer.optim.decoupled_weight_decay.DecoupledAdamW`.
+        weight_decay (float, optional): See :class:`~composer.optim.decoupled_weight_decay.DecoupledAdamW`.
+        amsgrad (bool, optional): See :class:`~composer.optim.decoupled_weight_decay.DecoupledAdamW`.
     """
-    lr: float = hp.optional(default=0.001, doc='learning rate')
+    lr: float = hp.optional(default=0.001, doc="learning rate")
     betas: List[float] = hp.optional(default_factory=lambda: [0.9, 0.999],
-                                     doc='coefficients used for computing running averages of gradient and its square.')
-    eps: float = hp.optional(default=1e-8, doc='term for numerical stability')
-    weight_decay: float = hp.optional(default=1e-2, doc='weight decay (L2 penalty)')
-    amsgrad: bool = hp.optional(default=False, doc='use AMSGrad variant')
+                                     doc="coefficients used for computing running averages of gradient and its square.")
+    eps: float = hp.optional(default=1e-8, doc="term for numerical stability")
+    weight_decay: float = hp.optional(default=1e-2, doc="weight decay (L2 penalty)")
+    amsgrad: bool = hp.optional(default=False, doc="use AMSGrad variant")
 
     @property
     def optimizer_object(cls) -> Type[DecoupledAdamW]:
@@ -147,13 +154,13 @@ class SGDHparams(OptimizerHparams):
         momentum (float, optional): See :class:`~torch.optim.SGD`.
         weight_decay (float, optional): See :class:`~torch.optim.SGD`.
         dampening (float, optional): See :class:`~torch.optim.SGD`.
-        amsgrad (bool, optional): See :class:`~torch.optim.SGD`.
+        nesterov (bool, optional): See :class:`~torch.optim.SGD`.
     """
-    lr: float = hp.required(doc='learning rate')
-    momentum: float = hp.optional(default=0.0, doc='momentum factor')
-    weight_decay: float = hp.optional(default=0.0, doc='weight decay (L2 penalty)')
-    dampening: float = hp.optional(default=0.0, doc='dampening for momentum')
-    nesterov: bool = hp.optional(default=False, doc='Nesterov momentum')
+    lr: float = hp.required(doc="learning rate")
+    momentum: float = hp.optional(default=0.0, doc="momentum factor")
+    weight_decay: float = hp.optional(default=0.0, doc="weight decay (L2 penalty)")
+    dampening: float = hp.optional(default=0.0, doc="dampening for momentum")
+    nesterov: bool = hp.optional(default=False, doc="Nesterov momentum")
 
     @property
     def optimizer_object(cls) -> Type[torch.optim.SGD]:
@@ -162,22 +169,22 @@ class SGDHparams(OptimizerHparams):
 
 @dataclass
 class DecoupledSGDWHparams(OptimizerHparams):
-    """Hyperparameters for the :class:`~composer.optim.DecoupledSGDW` optimizer.
+    """Hyperparameters for the :class:`~composer.optim.decoupled_weight_decay.DecoupledSGDW` optimizer.
 
-    See :class:`~composer.optim.DecoupledSGDW` for documentation.
+    See :class:`~composer.optim.decoupled_weight_decay.DecoupledSGDW` for documentation.
 
     Args:
-        lr (float): See :class:`~composer.optim.DecoupledSGDW`.
-        momentum (float, optional): See :class:`~composer.optim.DecoupledSGDW`.
-        weight_decay (float, optional): See :class:`~composer.optim.DecoupledSGDW`.
-        dampening (float, optional): See :class:`~composer.optim.DecoupledSGDW`.
-        amsgrad (bool, optional): See :class:`~composer.optim.DecoupledSGDW`.
+        lr (float): See :class:`~composer.optim.decoupled_weight_decay.DecoupledSGDW`.
+        momentum (float, optional): See :class:`~composer.optim.decoupled_weight_decay.DecoupledSGDW`.
+        weight_decay (float, optional): See :class:`~composer.optim.decoupled_weight_decay.DecoupledSGDW`.
+        dampening (float, optional): See :class:`~composer.optim.decoupled_weight_decay.DecoupledSGDW`.
+        nesterov (bool, optional): See :class:`~composer.optim.decoupled_weight_decay.DecoupledSGDW`.
     """
-    lr: float = hp.required(doc='learning rate')
-    momentum: float = hp.optional(default=0.0, doc='momentum factor')
-    weight_decay: float = hp.optional(default=0.0, doc='weight decay (L2 penalty)')
-    dampening: float = hp.optional(default=0.0, doc='dampening for momentum')
-    nesterov: bool = hp.optional(default=False, doc='Nesterov momentum')
+    lr: float = hp.required(doc="learning rate")
+    momentum: float = hp.optional(default=0.0, doc="momentum factor")
+    weight_decay: float = hp.optional(default=0.0, doc="weight decay (L2 penalty)")
+    dampening: float = hp.optional(default=0.0, doc="dampening for momentum")
+    nesterov: bool = hp.optional(default=False, doc="Nesterov momentum")
 
     @property
     def optimizer_object(cls) -> Type[DecoupledSGDW]:
@@ -185,7 +192,7 @@ class DecoupledSGDWHparams(OptimizerHparams):
 
 
 @dataclass
-class RMSPropHparams(OptimizerHparams):
+class RMSpropHparams(OptimizerHparams):
     """Hyperparameters for the :class:`~torch.optim.RMSprop` optimizer.
 
     See :class:`~torch.optim.RMSprop` for documentation.
@@ -196,29 +203,18 @@ class RMSPropHparams(OptimizerHparams):
         eps (float, optional): See :class:`~torch.optim.RMSprop`.
         momentum (float, optional): See :class:`~torch.optim.RMSprop`.
         weight_decay (float, optional): See :class:`~torch.optim.RMSprop`.
-        centeredx (bool, optional): See :class:`~torch.optim.RMSprop`.
+        centered (bool, optional): See :class:`~torch.optim.RMSprop`.
     """
-    lr: float = hp.required(doc='learning rate')
-    alpha: float = hp.optional(default=0.99, doc='smoothing constant')
-    eps: float = hp.optional(default=1e-8, doc='term for numerical stability')
-    momentum: float = hp.optional(default=0.0, doc='momentum factor')
-    weight_decay: float = hp.optional(default=0.0, doc='weight decay (L2 penalty)')
+    lr: float = hp.required(doc="learning rate")
+    alpha: float = hp.optional(default=0.99, doc="smoothing constant")
+    eps: float = hp.optional(default=1e-8, doc="term for numerical stability")
+    momentum: float = hp.optional(default=0.0, doc="momentum factor")
+    weight_decay: float = hp.optional(default=0.0, doc="weight decay (L2 penalty)")
     centered: bool = hp.optional(
         default=False,
-        doc='normalize gradient by an estimation of variance',
+        doc="normalize gradient by an estimation of variance",
     )
 
     @property
     def optimizer_object(cls) -> Type[torch.optim.RMSprop]:
         return torch.optim.RMSprop
-
-
-def get_optimizer(param_groups: ModelParameters, hparams: OptimizerHparams) -> Optimizer:
-    """Get the optimizer specified by the given hyperparameters.
-
-    Args:
-        param_groups (ModelParameters): List of model parameters to optimize.
-        hparams (OptimizerHparams): Instance of an optimizer's hyperparameters.
-    """
-
-    return hparams.initialize_object(param_group=param_groups)
