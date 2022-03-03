@@ -11,12 +11,12 @@
 # documentation root, use os.path.abspath to make it absolute, like shown here.
 #
 import importlib
+import json
 import os
 import sys
 import textwrap
 import types
-from typing import Any, List, Optional, Tuple, Type, Union, Dict
-import json
+from typing import Any, Dict, List, Optional, Tuple, Type, Union
 
 import torch.nn
 
