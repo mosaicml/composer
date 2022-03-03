@@ -38,8 +38,8 @@ from typing import TYPE_CHECKING, List, Union
 
 from torch.optim.lr_scheduler import LambdaLR
 
-from composer.core import State
 from composer.core.time import Time, TimeUnit
+from composer.core.types import PyTorchScheduler, State
 
 try:
     from typing import Protocol
@@ -60,16 +60,38 @@ __all__ = [
 
 
 class ComposerScheduler(Protocol):
-    """Specification for a "stateless" scheduler function.
+    r"""Specification for a stateless scheduler function.
 
-    A scheduler function should be a pure function that returns a multiplier to apply to the optimizer's provided
-    learning rate, given the current trainer state, and optionally a "scale schedule ratio" (SSR). A typical
-    implementation will read ``state.timer``, and possibly other fields like ``state.max_duration``, to determine the
-    trainer's latest temporal progress.
+    While this specification is provided as a Python class, an ordinary function can implement this interface as long
+    as it matches the signature of this interface's :meth:`~.ComposerScheduler.__call__` method.
+
+    .. automethod:: __call__
     """
 
     def __call__(self, state: State, ssr: float = 1.0) -> float:
-        r"""Calculate the current learning rate factor.
+        r"""Calculate the current learning rate multiplier :math:`\alpha`.
+
+        A scheduler function should be a pure function that returns a multiplier to apply to the optimizer's provided
+        learning rate, given the current trainer state, and optionally a "scale schedule ratio" (SSR). A typical
+        implementation will read ``state.timer``, and possibly other fields like ``state.max_duration``, to determine
+        the trainer's latest temporal progress.
+
+        .. note::
+            All instances of :class:`~.ComposerScheduler` output a `multiplier` for the learning rate, rather than the
+            learning rate directly. By convention, we use the symbol :math:`\alpha` to refer to this multiplier. This
+            means that the learning rate :math:`\eta` at time :math:`t` can be represented as
+            :math:`\eta(t) = \eta_i \times \alpha(t)`, where :math:`\eta_i` represents the learning rate used to
+            initialize the optimizer.
+
+        .. note::
+            It is possible to use multiple schedulers, in which case their effects will stack multiplicatively.
+
+        The ``ssr`` param indicates that the schedule should be "stretched" accordingly. In symbolic terms, where 
+        :math:`\alpha_\sigma(t)` represents the scheduler output at time :math:`t` using scale schedule ratio
+        :math:`\sigma`:
+
+        .. math::
+            \alpha_{\sigma}(t) = \alpha(t / \sigma)
 
         Args:
             state (State): The current Composer Trainer state.
@@ -101,7 +123,7 @@ def _convert_time(time: Union[str, Time[int], Time[float]], state: State, ssr: f
     return Time(value=int(time.value * ssr), unit=time.unit)
 
 
-def compile_composer_scheduler(scheduler: ComposerScheduler, state: State, ssr: float = 1.0) -> LambdaLR:
+def compile_composer_scheduler(scheduler: ComposerScheduler, state: State, ssr: float = 1.0) -> PyTorchScheduler:
     """Converts a stateless scheduler into a PyTorch scheduler object.
 
     While the resulting scheduler provides a ``.step()`` interface similar to other PyTorch schedulers, the scheduler is
@@ -114,7 +136,7 @@ def compile_composer_scheduler(scheduler: ComposerScheduler, state: State, ssr: 
         state (State): The Composer Trainer's state.
 
     Returns:
-        compiled_scheduler (Scheduler): The scheduler, in a form compatible with PyTorch scheduler interfaces.
+        compiled_scheduler (PyTorchScheduler): The scheduler, in a form compatible with PyTorch scheduler interfaces.
     """
 
     optimizers = state.optimizers
@@ -250,7 +272,13 @@ class LinearScheduler(ComposerScheduler):
 
     Analogous to :class:`~torch.optim.lr_scheduler.LinearLR`.
 
-    Linearly adjusts the learning rate multiplier from ``alpha_i`` to ``alpha_f`` over ``t_max`` time.
+    .. warning::
+        Note that the defaults for this scheduler differ from the defaults for
+        :class:`~torch.optim.lr_scheduler.LinearLR`. The PyTorch scheduler, by default, linearly increases the learning
+        rate multiplier from 1.0 / 3 to 1.0, whereas this implementation, by default, linearly decreases the multiplier 
+        rom 1.0 to 0.0.
+
+    Linearly adjusts the learning rate multiplier from ``alpha_i`` to ``alpha_f`` over ``t_{max}`` time.
 
     Specifically, the learning rate multiplier :math:`\alpha` can be expressed as:
 
@@ -264,11 +292,6 @@ class LinearScheduler(ComposerScheduler):
     
     Where :math:`\alpha_i` represents the initial learning rate multiplier, :math:`\alpha_f` represents
     the learning rate multiplier to decay to, and :math:`t_{max}` represents the duration of this scheduler.
-
-    .. warning::
-        Note that the defaults for this scheduler differ from the defaults for  :class:`~torch.optim.lr_scheduler.LinearLR`.
-        The PyTorch scheduler, by default, linearly increases the learning rate multiplier from 1.0 / 3 to 1.0, whereas
-        this implementation, by default, linearly decreases the multiplier from 1.0 to 0.0.
     
     Args:
         alpha_i (float): Initial learning rate multiplier. Default = ``1.0``.
@@ -459,7 +482,9 @@ class PolynomialScheduler(ComposerScheduler):
 
 
 class MultiStepWithWarmupScheduler(ComposerScheduler):
-    r"""Decays the learning rate discretely at fixed milestones, with a linear warmup.
+    r"""Decays the learning rate discretely at fixed milestones, with an initial warmup.
+
+    Variant of :class:`~.MultiStepScheduler` that adds a linear warmup.
 
     Starts with a linear warmup over ``t_warmup`` time, then decays the learning rate by a factor of ``gamma``
     whenever a time milestone in ``milestones`` is reached.
@@ -468,12 +493,20 @@ class MultiStepWithWarmupScheduler(ComposerScheduler):
 
     .. math::
         \alpha(t) = \begin{cases}
-            \\ t / t_{warmup}, & \text{if } t < t_{warmup}
+            t / t_{warmup}, & \text{if } t < t_{warmup} \\
             \gamma ^ x & \text{otherwise}
         \end{cases}
 
-    Where :math:`t_warmup` represents the warmup time, :math:`x` represents the amount of milestones that have been
+    Where :math:`t_{warmup}` represents the warmup time, :math:`x` represents the amount of milestones that have been
     reached, and :math:`\gamma` represents the multiplicative decay factor.
+
+    .. warning::
+        All milestones should be greater than ``t_warmup``; otherwise, they will have no effect on the computed learning
+        rate multiplier until the warmup has completed.
+
+    .. warning::
+        Initial warmup time is **not** scaled according to any provided scale schedule ratio! However, the milestones
+        will still be scaled accordingly.
 
     Args:
         t_warmup (str or Time): Warmup time.
@@ -505,26 +538,33 @@ class MultiStepWithWarmupScheduler(ComposerScheduler):
 
 
 class LinearWithWarmupScheduler(ComposerScheduler):
-    r"""Adjusts the learning rate linearly, with a linear warmup.
+    r"""Adjusts the learning rate linearly, with an initial warmup.
 
-    Linearly adjusts the learning rate multiplier from ``alpha_i`` to ``alpha_f`` over ``t_max`` time.
+    Variant of :class:`~.LinearScheduler` that adds a linear warmup.
+
+    Linearly adjusts the learning rate multiplier from ``alpha_i`` to ``alpha_f`` over ``t_{max}`` time.
 
     Specifically, the learning rate multiplier :math:`\alpha` can be expressed as:
 
     .. math::
         \alpha(t) = \begin{cases}    
-            \\ t / t_{warmup}, & \text{if } t < t_{warmup}
+            t / t_{warmup}, & \text{if } t < t_{warmup} \\
             \alpha_i + (alpha_f - \alpha_i) \times \tau_w & \text{otherwise}
         \end{cases}
 
     Given :math:`\tau_w`, the fraction of post-warmup time elpased (clipped to the interval :math:`[0, 1]`), as:
 
     .. math::
-        \tau_w = (t - t_{warmup} / t_{max}
+        \tau_w = (t - t_{warmup}) / t_{max}
     
-    Where :math:`t_warmup` represents the warmup time, :math:`\alpha_i` represents the initial learning rate multiplier,
-    and :math:`\alpha_f` represents the learning rate multiplier to decay to, and :math:`t_max` represents the duration
+    Where :math:`t_{warmup}` represents the warmup time, :math:`\alpha_i` represents the initial learning rate multiplier,
+    and :math:`\alpha_f` represents the learning rate multiplier to decay to, and :math:`t_{max}` represents the duration
     of this scheduler.
+
+    .. warning::
+        Initial warmup time is **not** scaled according to any provided scale schedule ratio! However, the duration of
+        the scheduler is still scaled accordingly. To achieve this, after warmup, the scheduler's "pace" will be
+        slightly distorted from what would otherwise be expected.
 
     Args:
         t_warmup (str or Time): Warmup time.
@@ -567,23 +607,30 @@ class LinearWithWarmupScheduler(ComposerScheduler):
 
 
 class CosineAnnealingWithWarmupScheduler(ComposerScheduler):
-    r"""Decays the learning rate according to the decreasing part of a cosine curve, with a linear warmup.
+    r"""Decays the learning rate according to the decreasing part of a cosine curve, with an initial warmup.
+
+    Variant of :class:`~.CosineAnnealingScheduler` that adds a linear warmup.
 
     Specifically, the learning rate multiplier :math:`\alpha` can be expressed as:
 
     .. math::
         \alpha(t) = \begin{cases}    
-            \\ t / t_{warmup}, & \text{if } t < t_{warmup}
+            t / t_{warmup}, & \text{if } t < t_{warmup} \\
             \alpha_f + (1 - \alpha_f) \times \frac{1}{2} (1 + \cos(\pi \times \tau_w)) & \text{otherwise}
         \end{cases}
 
     Given :math:`\tau_w`, the fraction of post-warmup time elpased (clipped to the interval :math:`[0, 1]`), as:
 
     .. math::
-       \tau_w = (t - t_{warmup} / t_{max}
+       \tau_w = (t - t_{warmup}) / t_{max}
     
-    Where :math:`t_warmup` represents the warmup time, :math:`t_max` represents the duration of this scheduler, and
+    Where :math:`t_{warmup}` represents the warmup time, :math:`t_{max}` represents the duration of this scheduler, and
     :math:`\alpha_f` represents the learning rate multiplier to decay to.
+
+    .. warning::
+        Initial warmup time is **not** scaled according to any provided scale schedule ratio! However, the duration of
+        the scheduler is still scaled accordingly. To achieve this, after warmup, the scheduler's "pace" will be
+        slightly distorted from what would otherwise be expected.
     
     Args:
         t_warmup (str or Time): Warmup time.
