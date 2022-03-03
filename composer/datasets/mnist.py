@@ -52,32 +52,22 @@ class MNISTDatasetHparams(DatasetHparams, SyntheticHparamsMixin):
 
 
 @dataclass
-class MNISTWebDatasetHparams(WebDatasetHparams, SyntheticHparamsMixin):
+class MNISTWebDatasetHparams(WebDatasetHparams):
     """Defines an instance of the MNIST WebDataset for image classification."""
 
     def initialize_object(self, batch_size: int, dataloader_hparams: DataloaderHparams) -> DataLoader:
-        if self.use_synthetic:
-            dataset = SyntheticBatchPairDataset(
-                total_dataset_size=60_000 if self.is_train else 10_000,
-                data_shape=[1, 28, 28],
-                num_classes=10,
-                num_unique_samples_to_create=self.synthetic_num_unique_samples,
-                device=self.synthetic_device,
-                memory_format=self.synthetic_memory_format,
-            )
-        else:
-            split = 'train' if self.is_train else 'val'
-            transform = transforms.Compose([
-                transforms.Grayscale(),
-                transforms.ToTensor(),
-            ])
-            dataset, meta = load_webdataset('mosaicml-internal-dataset-mnist', 'mnist', split,
-                                            self.webdataset_cache_dir, self.webdataset_cache_verbose)
-            if self.shuffle:
-                dataset = dataset.shuffle(self.shuffle_buffer_per_worker)
-            dataset = dataset.decode('pil').map_dict(jpg=transform).to_tuple('jpg', 'cls')
-            dataset = size_webdataset(dataset, meta['n_shards'], meta['samples_per_shard'], dist.get_world_size(),
-                                      dataloader_hparams.num_workers, batch_size, self.drop_last)
+        split = 'train' if self.is_train else 'val'
+        transform = transforms.Compose([
+            transforms.Grayscale(),
+            transforms.ToTensor(),
+        ])
+        dataset, meta = load_webdataset('mosaicml-internal-dataset-mnist', 'mnist', split,
+                                        self.webdataset_cache_dir, self.webdataset_cache_verbose)
+        if self.shuffle:
+            dataset = dataset.shuffle(self.shuffle_buffer_per_worker)
+        dataset = dataset.decode('pil').map_dict(jpg=transform).to_tuple('jpg', 'cls')
+        dataset = size_webdataset(dataset, meta['n_shards'], meta['samples_per_shard'], dist.get_world_size(),
+                                  dataloader_hparams.num_workers, batch_size, self.drop_last)
         return dataloader_hparams.initialize_object(dataset=dataset,
                                                     batch_size=batch_size,
                                                     sampler=None,

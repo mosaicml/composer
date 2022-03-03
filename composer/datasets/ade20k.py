@@ -349,7 +349,7 @@ class ADE20kDatasetHparams(DatasetHparams, SyntheticHparamsMixin):
 
 
 @dataclass
-class ADE20kWebDatasetHparams(WebDatasetHparams, SyntheticHparamsMixin):
+class ADE20kWebDatasetHparams(WebDatasetHparams):
     """Defines an instance of the ADE20k dataset for semantic segmentation.
 
     Args:
@@ -385,81 +385,59 @@ class ADE20kWebDatasetHparams(WebDatasetHparams, SyntheticHparamsMixin):
 
     def initialize_object(self, batch_size, dataloader_hparams) -> DataSpec:
         self.validate()
-
-        if self.use_synthetic:
-            if self.split == 'train':
-                total_dataset_size = 20_206
-            elif self.split == 'val':
-                total_dataset_size = 2_000
-            else:
-                total_dataset_size = 3_352
-
-            dataset = SyntheticBatchPairDataset(
-                total_dataset_size=total_dataset_size,
-                data_shape=[3, self.final_size, self.final_size],
-                label_shape=[self.final_size, self.final_size],
-                num_classes=150,
-                num_unique_samples_to_create=self.synthetic_num_unique_samples,
-                device=self.synthetic_device,
-                memory_format=self.synthetic_memory_format,
+        # Define data transformations based on data split
+        if self.split == 'train':
+            both_transforms = torch.nn.Sequential(
+                RandomResizePair(min_scale=self.min_resize_scale,
+                                 max_scale=self.max_resize_scale,
+                                 base_size=(self.base_size, self.base_size)),
+                RandomCropPair(crop_size=(self.final_size, self.final_size)),
+                RandomHFlipPair(),
             )
-            collate_fn = None
-            device_transform_fn = None
 
+            # Photometric distoration values come from mmsegmentation:
+            # https://github.com/open-mmlab/mmsegmentation/blob/master/mmseg/datasets/pipelines/transforms.py#L837
+            r_mean, g_mean, b_mean = IMAGENET_CHANNEL_MEAN
+            image_transforms = torch.nn.Sequential(
+                PhotometricDistoration(brightness=32. / 255, contrast=0.5, saturation=0.5, hue=18. / 255),
+                PadToSize(size=(self.final_size, self.final_size), fill=(int(r_mean), int(g_mean), int(b_mean))))
+
+            target_transforms = transforms.Compose([
+                PadToSize(size=(self.final_size, self.final_size), fill=0),
+                transforms.Grayscale(),
+            ])
         else:
-            # Define data transformations based on data split
-            if self.split == 'train':
-                both_transforms = torch.nn.Sequential(
-                    RandomResizePair(min_scale=self.min_resize_scale,
-                                     max_scale=self.max_resize_scale,
-                                     base_size=(self.base_size, self.base_size)),
-                    RandomCropPair(crop_size=(self.final_size, self.final_size)),
-                    RandomHFlipPair(),
-                )
+            both_transforms = None
+            image_transforms = transforms.Resize(size=(self.final_size, self.final_size),
+                                                 interpolation=TF.InterpolationMode.BILINEAR)
+            target_transforms = transforms.Compose([
+                transforms.Resize(size=(self.final_size, self.final_size),
+                                  interpolation=TF.InterpolationMode.NEAREST),
+                transforms.Grayscale(),
+            ])
 
-                # Photometric distoration values come from mmsegmentation:
-                # https://github.com/open-mmlab/mmsegmentation/blob/master/mmseg/datasets/pipelines/transforms.py#L837
-                r_mean, g_mean, b_mean = IMAGENET_CHANNEL_MEAN
-                image_transforms = torch.nn.Sequential(
-                    PhotometricDistoration(brightness=32. / 255, contrast=0.5, saturation=0.5, hue=18. / 255),
-                    PadToSize(size=(self.final_size, self.final_size), fill=(int(r_mean), int(g_mean), int(b_mean))))
+        def map_fn(args):
+            x, y = args
+            if both_transforms:
+                x, y = both_transforms((x, y))
+            if image_transforms:
+                x = image_transforms(x)
+            if target_transforms:
+                y = target_transforms(y)
+            return x, y
 
-                target_transforms = transforms.Compose([
-                    PadToSize(size=(self.final_size, self.final_size), fill=0),
-                    transforms.Grayscale(),
-                ])
-            else:
-                both_transforms = None
-                image_transforms = transforms.Resize(size=(self.final_size, self.final_size),
-                                                     interpolation=TF.InterpolationMode.BILINEAR)
-                target_transforms = transforms.Compose([
-                    transforms.Resize(size=(self.final_size, self.final_size),
-                                      interpolation=TF.InterpolationMode.NEAREST),
-                    transforms.Grayscale(),
-                ])
+        dataset, meta = load_webdataset('mosaicml-internal-dataset-ade20k', 'ade20k', self.split,
+                                        self.webdataset_cache_dir, self.webdataset_cache_verbose)
+        if self.shuffle:
+            dataset = dataset.shuffle(self.shuffle_buffer_per_worker)
+        dataset = dataset.decode('pil').to_tuple('scene.jpg', 'annotation.png').map(map_fn)
+        dataset = size_webdataset(dataset, meta['n_shards'], meta['samples_per_shard'], dist.get_world_size(),
+                                  dataloader_hparams.num_workers, batch_size, self.drop_last)
 
-            def map_fn(args):
-                x, y = args
-                if both_transforms:
-                    x, y = both_transforms((x, y))
-                if image_transforms:
-                    x = image_transforms(x)
-                if target_transforms:
-                    y = target_transforms(y)
-                return x, y
-
-            dataset, meta = load_webdataset('mosaicml-internal-dataset-ade20k', 'ade20k', self.split,
-                                            self.webdataset_cache_dir, self.webdataset_cache_verbose)
-            if self.shuffle:
-                dataset = dataset.shuffle(self.shuffle_buffer_per_worker)
-            dataset = dataset.decode('pil').to_tuple('scene.jpg', 'annotation.png').map(map_fn)
-            dataset = size_webdataset(dataset, meta['n_shards'], meta['samples_per_shard'], dist.get_world_size(),
-                                      dataloader_hparams.num_workers, batch_size, self.drop_last)
-
-            collate_fn = pil_image_collate
-            device_transform_fn = NormalizationFn(mean=IMAGENET_CHANNEL_MEAN,
-                                                  std=IMAGENET_CHANNEL_STD,
-                                                  ignore_background=self.ignore_background)
+        collate_fn = pil_image_collate
+        device_transform_fn = NormalizationFn(mean=IMAGENET_CHANNEL_MEAN,
+                                              std=IMAGENET_CHANNEL_STD,
+                                              ignore_background=self.ignore_background)
 
         return DataSpec(dataloader=dataloader_hparams.initialize_object(
             dataset=dataset,

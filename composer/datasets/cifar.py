@@ -5,7 +5,7 @@ from dataclasses import dataclass
 import yahp as hp
 from torchvision import transforms
 from torchvision.datasets import CIFAR10
-from typing import Tuple
+from typing import List
 
 from composer.core.types import DataLoader
 from composer.datasets.dataloader import DataloaderHparams
@@ -135,8 +135,8 @@ class CIFAR10WebDatasetHparams(CIFARWebDatasetHparams):
     height: int = 32
     width: int = 32
     n_classes: int = 10
-    channel_means: Tuple[float] = 0.4914, 0.4822, 0.4465
-    channel_stds: Tuple[float] = 0.247, 0.243, 0.261
+    channel_means: List[float] = 0.4914, 0.4822, 0.4465
+    channel_stds: List[float] = 0.247, 0.243, 0.261
 
 
 @dataclass
@@ -150,8 +150,8 @@ class CIFAR20WebDatasetHparams(CIFARWebDatasetHparams):
     height: int = 32
     width: int = 32
     n_classes: int = 20
-    channel_means: Tuple[float] = 0.5071, 0.4867, 0.4408
-    channel_stds: Tuple[float] = 0.2675, 0.2565, 0.2761
+    channel_means: List[float] = 0.5071, 0.4867, 0.4408
+    channel_stds: List[float] = 0.2675, 0.2565, 0.2761
 
 
 @dataclass
@@ -165,5 +165,5 @@ class CIFAR100WebDatasetHparams(CIFARWebDatasetHparams):
     height: int = 32
     width: int = 32
     n_classes: int = 100
-    channel_means: Tuple[float] = 0.5071, 0.4867, 0.4408
-    channel_stds: Tuple[float] = 0.2675, 0.2565, 0.2761
+    channel_means: List[float] = 0.5071, 0.4867, 0.4408
+    channel_stds: List[float] = 0.2675, 0.2565, 0.2761
