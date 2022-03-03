@@ -158,10 +158,14 @@ class Imagenet1kWebDatasetHparams(WebDatasetHparams, SyntheticHparamsMixin):
     """Defines an instance of the ImageNet-1k dataset for image classification.
 
     Parameters:
+        dataset_s3_bucket (str): S3 bucket or root directory where dataset is stored.
+        dataset_name (str): Key used to determine where dataset is cached on local filesystem.
         resize_size (int, optional): The resize size to use. Defaults to -1 to not resize.
         crop size (int): The crop size to use.
     """
 
+    dataset_s3_bucket = 'mosaicml-internal-dataset-imagenet1k'
+    dataset_name = 'imagenet1k'
     resize_size: int = hp.optional("resize size. Set to -1 to not resize", default=-1)
     crop_size: int = hp.optional("crop size", default=224)
 
@@ -197,8 +201,8 @@ class Imagenet1kWebDatasetHparams(WebDatasetHparams, SyntheticHparamsMixin):
                     transforms.CenterCrop(self.crop_size),
                 ])
             split = 'train' if self.is_train else 'val'
-            dataset, meta = load_webdataset('mosaicml-internal-dataset-imagenet1k', 'imagenet1k', split,
-                                            self.webdataset_cache_dir, self.webdataset_cache_verbose)
+            dataset, meta = load_webdataset(self.dataset_s3_bucket, self.dataset_name, split, self.webdataset_cache_dir,
+                                            self.webdataset_cache_verbose)
             if self.shuffle:
                 dataset = dataset.shuffle(self.shuffle_buffer_per_worker)
             dataset = dataset.decode('pil').map_dict(jpg=transform).to_tuple('jpg', 'cls')

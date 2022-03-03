@@ -352,7 +352,9 @@ class ADE20kDatasetHparams(DatasetHparams, SyntheticHparamsMixin):
 class ADE20kWebDatasetHparams(WebDatasetHparams):
     """Defines an instance of the ADE20k dataset for semantic segmentation.
 
-    Args:
+    Parameters:
+        dataset_s3_bucket (str): S3 bucket or root directory where dataset is stored.
+        dataset_name (str): Key used to determine where dataset is cached on local filesystem.
         split (str): the dataset split to use either 'train', 'val', or 'test'. Default is `train`.
         base_size (int): initial size of the image and target before other augmentations. Default is 512.
         min_resize_scale (float): the minimum value the samples can be rescaled. Default is 0.5.
@@ -363,6 +365,8 @@ class ADE20kWebDatasetHparams(WebDatasetHparams):
 
     """
 
+    dataset_s3_bucket: str = hp.optional('WebDataset S3 bucket name', default='mosaicml-internal-dataset-ade20k')
+    dataset_name: str = 'ade20k'
     split: str = hp.optional("Which split of the dataset to use. Either ['train', 'val', 'test']", default='train')
     base_size: int = hp.optional("Initial size of the image and target before other augmentations", default=512)
     min_resize_scale: float = hp.optional("Minimum value that the image and target can be scaled", default=0.5)
@@ -426,7 +430,7 @@ class ADE20kWebDatasetHparams(WebDatasetHparams):
                 y = target_transforms(y)
             return x, y
 
-        dataset, meta = load_webdataset('mosaicml-internal-dataset-ade20k', 'ade20k', self.split,
+        dataset, meta = load_webdataset(self.dataset_s3_bucket, self.dataset_name, self.split,
                                         self.webdataset_cache_dir, self.webdataset_cache_verbose)
         if self.shuffle:
             dataset = dataset.shuffle(self.shuffle_buffer_per_worker)
