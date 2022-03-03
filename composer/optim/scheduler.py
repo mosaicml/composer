@@ -156,11 +156,11 @@ class StepScheduler(ComposerScheduler):
     .. math::
         \alpha(t) = \gamma ^ {\text{floor}(t / \rho)}
 
-    Where :math:`\rho` represents the amount of time between changes to the learning rate (the step size), and
+    Where :math:`\rho` represents the time between changes to the learning rate (the step size), and
     :math:`\gamma` represents the multiplicative decay factor.
     
     Args:
-        step_size (str or Time): The amount of time between changes to the learning rate.
+        step_size (str or Time): Time between changes to the learning rate.
         gamma (float): Multiplicative decay factor. Default = ``0.1``.
     """
 
@@ -228,18 +228,18 @@ class ConstantScheduler(ComposerScheduler):
     :math:`t_{max}` represents the duration of this scheduler.
     
     Args:
-        alpha (float): The learning rate multiplier to maintain while this scheduler is active. Default = ``1.0``.
-        t_max (str or Time): The duration of this scheduler. Default = ``'1dur'``.
+        alpha (float): Learning rate multiplier to maintain while this scheduler is active. Default = ``1.0``.
+        t_max (str or Time): Duration of this scheduler. Default = ``'1dur'``.
     """
 
-    def __init__(self, alpha: float = 1.0, total_time: Union[str, Time] = '1dur') -> None:
+    def __init__(self, alpha: float = 1.0, t_max: Union[str, Time] = '1dur') -> None:
         self.alpha = alpha
-        self.total_time = total_time
+        self.t_max = t_max
 
     def __call__(self, state: State, ssr: float = 1.0) -> float:
-        total_time = _convert_time(self.total_time, state, ssr=ssr)
+        t_max = _convert_time(self.t_max, state, ssr=ssr)
 
-        if state.timer < total_time:
+        if state.timer < t_max:
             return self.alpha
 
         return 1.0
@@ -461,44 +461,44 @@ class PolynomialScheduler(ComposerScheduler):
 class MultiStepWithWarmupScheduler(ComposerScheduler):
     r"""Decays the learning rate discretely at fixed milestones, with a linear warmup.
 
-    Starts with a linear warmup over ``warmup_time`` time, then decays the learning rate by a factor of ``gamma``
+    Starts with a linear warmup over ``t_warmup`` time, then decays the learning rate by a factor of ``gamma``
     whenever a time milestone in ``milestones`` is reached.
 
     Specifically, the learning rate multiplier :math:`\alpha` can be expressed as:
 
     .. math::
         \alpha(t) = \begin{cases}
-            \gamma ^ x, & \text{if } t < t_{warmup} 
-            \\ t / t_{warmup} & \text{otherwise}
+            \\ t / t_{warmup}, & \text{if } t < t_{warmup}
+            \gamma ^ x & \text{otherwise}
         \end{cases}
 
     Where :math:`t_warmup` represents the warmup time, :math:`x` represents the amount of milestones that have been
     reached, and :math:`\gamma` represents the multiplicative decay factor.
 
     Args:
-        warmup_time (str or Time): Warmup time.
+        t_warmup (str or Time): Warmup time.
         milestones (list of str or Time): Times at which the learning rate should change.
         gamma (float): Multiplicative decay factor. Default = ``0.1``.
     """
 
-    def __init__(self, warmup_time: Union[str, Time], milestones: List[Union[str, Time]], gamma: float = 0.1):
-        self.warmup_time = warmup_time
+    def __init__(self, t_warmup: Union[str, Time], milestones: List[Union[str, Time]], gamma: float = 0.1):
+        self.t_warmup = t_warmup
         self.milestones = milestones
         self.gamma = gamma
-        self.warmup_scheduler = LinearScheduler(alpha_i=0.0, alpha_f=1.0, t_max=warmup_time)
+        self.warmup_scheduler = LinearScheduler(alpha_i=0.0, alpha_f=1.0, t_max=t_warmup)
         self.step_scheduler = MultiStepScheduler(milestones=milestones, gamma=gamma)
 
     def __call__(self, state: State, ssr: float = 1.0):
         # N.B. warmup time is intentionally *not* subject to scale schedule
-        warmup_time = _convert_time(self.warmup_time, state)
-        if warmup_time.value == 0:
+        t_warmup = _convert_time(self.t_warmup, state)
+        if t_warmup.value == 0:
             warnings.warn(
                 textwrap.dedent("""\
                 The warmup duration is 0. If you specified warmup as a fraction of total
                 training duration, take note that the warmup duration is calculated in the
                 same unit as the trainer's max_duration parameter."""))
 
-        if state.timer < warmup_time:
+        if state.timer < t_warmup:
             return self.warmup_scheduler(state)
 
         return self.step_scheduler(state, ssr)
@@ -513,8 +513,8 @@ class LinearWithWarmupScheduler(ComposerScheduler):
 
     .. math::
         \alpha(t) = \begin{cases}    
-            \alpha_i + (alpha_f - \alpha_i) \times \tau_w, & \text{if } t < t_{warmup}
-            \\ t / t_{warmup} & \text{otherwise}
+            \\ t / t_{warmup}, & \text{if } t < t_{warmup}
+            \alpha_i + (alpha_f - \alpha_i) \times \tau_w & \text{otherwise}
         \end{cases}
 
     Given :math:`\tau_w`, the fraction of post-warmup time elpased (clipped to the interval :math:`[0, 1]`), as:
@@ -526,39 +526,39 @@ class LinearWithWarmupScheduler(ComposerScheduler):
     represents the learning rate multiplier to decay to, and :math:`t_max` represents the duration of this scheduler.
 
     Args:
-        warmup_time (str or Time): Warmup time.
+        t_warmup (str or Time): Warmup time.
         alpha_i (float): Initial learning rate multiplier. Default = ``1.0``.
         alpha_f (float): Final learning rate multiplier. Default = ``0.0``.
         t_max (str or Time): The duration of this scheduler. Default = ``'1dur'``.
     """
 
     def __init__(self,
-                 warmup_time: Union[str, Time],
+                 t_warmup: Union[str, Time],
                  alpha_i: float = 1.0,
                  alpha_f: float = 0.0,
                  t_max: Union[str, Time] = '1dur'):
-        self.warmup_time = warmup_time
+        self.t_warmup = t_warmup
         self.alpha_i = alpha_i
         self.alpha_f = alpha_f
         self.t_max = t_max
-        self.warmup_scheduler = LinearScheduler(alpha_i=0.0, alpha_f=alpha_i, t_max=warmup_time)
+        self.warmup_scheduler = LinearScheduler(alpha_i=0.0, alpha_f=alpha_i, t_max=t_warmup)
 
     def __call__(self, state: State, ssr: float = 1.0):
         # N.B. warmup time is intentionally *not* subject to scale schedule
-        warmup_time = _convert_time(self.warmup_time, state)
-        if warmup_time.value == 0:
+        t_warmup = _convert_time(self.t_warmup, state)
+        if t_warmup.value == 0:
             warnings.warn(
                 textwrap.dedent("""\
                 The warmup duration is 0. If you specified warmup as a fraction of total
                 training duration, take note that the warmup duration is calculated in the
                 same unit as the trainer's max_duration parameter."""))
 
-        if state.timer < warmup_time:
+        if state.timer < t_warmup:
             return self.warmup_scheduler(state)
 
         t_max = _convert_time(self.t_max, state, ssr=ssr)
-        current_time = state.timer.get(warmup_time.unit)
-        frac_of_total = min(1.0, ((current_time - warmup_time) / (t_max - warmup_time)).value)
+        current_time = state.timer.get(t_warmup.unit)
+        frac_of_total = min(1.0, ((current_time - t_warmup) / (t_max - t_warmup)).value)
 
         current_factor = self.alpha_i + frac_of_total * (self.alpha_f - self.alpha_i)
 
@@ -572,8 +572,8 @@ class CosineAnnealingWithWarmupScheduler(ComposerScheduler):
 
     .. math::
         \alpha(t) = \begin{cases}    
-            \alpha_f + (1 - \alpha_f) \times \frac{1}{2} (1 + \cos(\pi \times \tau_w)), & \text{if } t < t_{warmup}
-            \\ t / t_{warmup} & \text{otherwise}
+            \\ t / t_{warmup}, & \text{if } t < t_{warmup}
+            \alpha_f + (1 - \alpha_f) \times \frac{1}{2} (1 + \cos(\pi \times \tau_w)) & \text{otherwise}
         \end{cases}
 
     Given :math:`\tau_w`, the fraction of post-warmup time elpased (clipped to the interval :math:`[0, 1]`), as:
@@ -584,32 +584,32 @@ class CosineAnnealingWithWarmupScheduler(ComposerScheduler):
     Where :math:`t_warmup` represents the warmup time, :math:`t_max` represents the duration of this scheduler, and :math:`\alpha_f` represents the learning rate multiplier to decay to.
     
     Args:
-        warmup_time (str or Time): Warmup time.
+        t_warmup (str or Time): Warmup time.
         t_max (str or Time): The duration of this scheduler. Default = ``'1dur'``.
         alpha_f (float): Learning rate multiplier to decay to. Default = ``0.0``.
     """
 
-    def __init__(self, warmup_time: Union[str, Time], t_max: Union[str, Time] = '1dur', alpha_f: float = 0.0):
-        self.warmup_time = warmup_time
+    def __init__(self, t_warmup: Union[str, Time], t_max: Union[str, Time] = '1dur', alpha_f: float = 0.0):
+        self.t_warmup = t_warmup
         self.t_max = t_max
         self.alpha_f = alpha_f
-        self.warmup_scheduler = LinearScheduler(alpha_i=0.0, alpha_f=1.0, t_max=warmup_time)
+        self.warmup_scheduler = LinearScheduler(alpha_i=0.0, alpha_f=1.0, t_max=t_warmup)
 
     def __call__(self, state: State, ssr: float = 1.0):
         # N.B. warmup time is intentionally *not* subject to scale schedule
-        warmup_time = _convert_time(self.warmup_time, state)
-        if warmup_time.value == 0:
+        t_warmup = _convert_time(self.t_warmup, state)
+        if t_warmup.value == 0:
             warnings.warn(
                 textwrap.dedent("""\
                 The warmup duration is 0. If you specified warmup as a fraction of total
                 training duration, take note that the warmup duration is calculated in the
                 same unit as the trainer's max_duration parameter."""))
 
-        if state.timer < warmup_time:
+        if state.timer < t_warmup:
             return self.warmup_scheduler(state)
 
         t_max = _convert_time(self.t_max, state, ssr=ssr)
-        current_time = state.timer.get(warmup_time.unit)
-        frac_of_total = ((current_time - warmup_time) / (t_max - warmup_time)).value
+        current_time = state.timer.get(t_warmup.unit)
+        frac_of_total = ((current_time - t_warmup) / (t_max - t_warmup)).value
 
         return _cosine_anneal(x=frac_of_total, min_y=self.alpha_f)

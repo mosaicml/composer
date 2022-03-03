@@ -32,8 +32,8 @@ class SchedulerHparams(hp.Hparams, ABC):
 class StepSchedulerHparams(SchedulerHparams):
     """Hyperparameters for the :class:`StepScheduler` scheduler."""
 
-    step_size: str = hp.required(doc='Period of learning rate decay')
-    gamma: float = hp.optional(default=0.1, doc='Multiplicative factor of decay')
+    step_size: str = hp.required(doc='Time between changes to the learning rate.')
+    gamma: float = hp.optional(default=0.1, doc='Multiplicative decay factor.')
 
     scheduler_cls = StepScheduler
 
@@ -42,8 +42,8 @@ class StepSchedulerHparams(SchedulerHparams):
 class MultiStepSchedulerHparams(SchedulerHparams):
     """Hyperparameters for the :class:`MultiStepScheduler` scheduler."""
 
-    milestones: List[str] = hp.required(doc='List of milestone time strings')
-    gamma: float = hp.optional(default=0.1, doc='Multiplicative factor of decay')
+    milestones: List[str] = hp.required(doc='Times at which the learning rate should change.')
+    gamma: float = hp.optional(default=0.1, doc='Multiplicative decay factor.')
 
     scheduler_cls = MultiStepScheduler
 
@@ -52,8 +52,8 @@ class MultiStepSchedulerHparams(SchedulerHparams):
 class ConstantSchedulerHparams(SchedulerHparams):
     """Hyperparameters for the :class:`ConstantScheduler` scheduler."""
 
-    factor: float = hp.optional(default=1.0, doc='Constant learning rate factor')
-    total_time: str = hp.optional(default='1dur', doc='Total scheduler duration')
+    alpha: float = hp.optional(default=1.0, doc='Learning rate multiplier to maintain while this scheduler is active.')
+    t_max: str = hp.optional(default='1dur', doc='Duration of this scheduler.')
 
     scheduler_cls = ConstantScheduler
 
@@ -62,9 +62,9 @@ class ConstantSchedulerHparams(SchedulerHparams):
 class LinearSchedulerHparams(SchedulerHparams):
     """Hyperparameters for the :class:`LinearScheduler` scheduler."""
 
-    start_factor: float = hp.optional("Number to multiply learning rate at the start.", default=1.0)
-    end_factor: float = hp.optional("Number to multiply learning rate at the end.", default=0.0)
-    total_time: str = hp.optional("Duration of linear decay steps. Default: full training duration.", default="1dur")
+    alpha_i: float = hp.optional("Initial learning rate multiplier.", default=1.0)
+    alpha_f: float = hp.optional("Final learning rate multiplier.", default=0.0)
+    t_max: str = hp.optional(default='1dur', doc='Duration of this scheduler.')
 
     scheduler_cls = LinearScheduler
 
@@ -73,8 +73,8 @@ class LinearSchedulerHparams(SchedulerHparams):
 class ExponentialSchedulerHparams(SchedulerHparams):
     """Hyperparameters for the :class:`ExponentialScheduler` scheduler."""
 
-    gamma: float = hp.required(doc='Multiplicative factor of decay')
-    decay_period: str = hp.optional(default='1ep', doc='Decay period')
+    gamma: float = hp.required(doc='Multiplicative decay factor.')
+    decay_period: str = hp.optional(default='1ep', doc='Decay period.')
 
     scheduler_cls = ExponentialScheduler
 
@@ -83,8 +83,8 @@ class ExponentialSchedulerHparams(SchedulerHparams):
 class CosineAnnealingSchedulerHparams(SchedulerHparams):
     """Hyperparameters for the :class:`CosineAnnealingScheduler` scheduler."""
 
-    t_max: str = hp.optional(default='1dur', doc="Maximum scheduler duration.")
-    min_factor: float = hp.optional(default=0.0, doc='Minimum learning rate factor.')
+    t_max: str = hp.optional(default='1dur', doc='Duration of this scheduler.')
+    alpha_f: float = hp.optional(default=0.0, doc='Learning rate multiplier to decay to.')
 
     scheduler_cls = CosineAnnealingScheduler
 
@@ -93,9 +93,9 @@ class CosineAnnealingSchedulerHparams(SchedulerHparams):
 class CosineAnnealingWarmRestartsSchedulerHparams(SchedulerHparams):
     """Hyperparameters for the :class:`CosineAnnealingWarmRestartsScheduler` scheduler."""
 
-    t_0: str = hp.optional(default='1dur', doc="Duration for the first restart.")
-    min_factor: float = hp.optional(default=0.0, doc='Minimum learning rate factor.')
-    t_mult: float = hp.optional(default=1.0, doc="A factor increases :math:`t_{i}` after a restart. Default: 1.")
+    t_0: str = hp.optional(default='1dur', doc="The period of the first cycle.")
+    alpha_f: float = hp.optional(default=0.0, doc='Learning rate multiplier to decay to.')
+    t_mult: float = hp.optional(default=1.0, doc="The multiplier for the duration of successive cycles.")
 
     scheduler_cls = CosineAnnealingWarmRestartsScheduler
 
@@ -104,9 +104,9 @@ class CosineAnnealingWarmRestartsSchedulerHparams(SchedulerHparams):
 class PolynomialSchedulerHparams(SchedulerHparams):
     """Hyperparameters for the :class:`PolynomialScheduler` scheduler."""
 
-    power: float = hp.required(doc='Power of LR schedule.')
-    t_max: str = hp.optional(default='1dur', doc='Total scheduler duration.')
-    min_factor: float = hp.optional(default=0.0, doc='Minimum learning rate.')
+    power: float = hp.required(doc='The exponent to be used for the proportionality relationship.')
+    t_max: str = hp.optional(default='1dur', doc='Duration of this scheduler.')
+    alpha_f: float = hp.optional(default=0.0, doc='Learning rate multiplier to decay to.')
 
     scheduler_cls = PolynomialScheduler
 
@@ -115,9 +115,9 @@ class PolynomialSchedulerHparams(SchedulerHparams):
 class MultiStepWithWarmupSchedulerHparams(SchedulerHparams):
     """Hyperparameters for the :class:`MultiStepWithWarmupScheduler` scheduler."""
 
-    warmup_time: str = hp.required(doc='Warmup time')
-    milestones: List[str] = hp.required(doc='List of milestone time strings')
-    gamma: float = hp.optional(default=0.1, doc='multiplicative factor of decay')
+    t_warmup: str = hp.required(doc='Warmup time.')
+    milestones: List[str] = hp.required(doc='Times at which the learning rate should change.')
+    gamma: float = hp.optional(default=0.1, doc='Multiplicative decay factor.')
 
     scheduler_cls = MultiStepWithWarmupScheduler
 
@@ -126,10 +126,10 @@ class MultiStepWithWarmupSchedulerHparams(SchedulerHparams):
 class LinearWithWarmupSchedulerHparams(SchedulerHparams):
     """Hyperparameters for the :class:`LinearWithWarmupScheduler` scheduler."""
 
-    warmup_time: str = hp.required(doc='Warmup time')
-    start_factor: float = hp.optional("Number to multiply learning rate at the start.", default=1.0)
-    end_factor: float = hp.optional("Number to multiply learning rate at the end.", default=0.0)
-    total_time: str = hp.optional("Duration of linear decay steps. Default: full training duration.", default="1dur")
+    t_warmup: str = hp.required(doc='Warmup time.')
+    alpha_i: float = hp.optional("Initial learning rate multiplier.", default=1.0)
+    alpha_f: float = hp.optional("Final learning rate multiplier.", default=0.0)
+    t_max: str = hp.optional(default='1dur', doc='Duration of this scheduler.')
 
     scheduler_cls = LinearWithWarmupScheduler
 
@@ -138,8 +138,8 @@ class LinearWithWarmupSchedulerHparams(SchedulerHparams):
 class CosineAnnealingWithWarmupSchedulerHparams(SchedulerHparams):
     """Hyperparameters for the :class:`CosineAnnealingWithWarmupScheduler` scheduler."""
 
-    warmup_time: str = hp.required(doc='Warmup time')
-    t_max: str = hp.optional(default='1dur', doc="Maximum scheduler duration.")
-    min_factor: float = hp.optional(default=0.0, doc='Minimum learning rate factor.')
+    t_warmup: str = hp.required(doc='Warmup time.')
+    t_max: str = hp.optional(default='1dur', doc='Duration of this scheduler.')
+    alpha_f: float = hp.optional(default=0.0, doc='Learning rate multiplier to decay to.')
 
     scheduler_cls = CosineAnnealingWithWarmupScheduler
