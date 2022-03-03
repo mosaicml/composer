@@ -1,6 +1,6 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
-"""Model Hparams interface for yahp."""
+"""General yahp Hparams interface for ComposerModels."""
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import Callable, List, Optional
@@ -61,7 +61,7 @@ class Initializer(StringEnum):
 
 @dataclass
 class ModelHparams(hp.Hparams, ABC):
-    """Model Hparams interface for yahp.
+    """General yahp Hparams interface for ComposerModels.
 
     Args:
         num_classes (int): The number of classes. Needed for classification tasks. Default: None.
