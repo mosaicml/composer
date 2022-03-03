@@ -31,6 +31,10 @@ from composer.models.resnet20_cifar10 import CIFAR10_ResNet20 as CIFAR10_ResNet2
 from composer.models.resnet20_cifar10 import CIFARResNet20Hparams as CIFARResNet20Hparams
 from composer.models.resnet56_cifar10 import CIFAR10_ResNet56 as CIFAR10_ResNet56
 from composer.models.resnet56_cifar10 import CIFARResNetHparams as CIFARResNetHparams
+from composer.models.resnet.model import ComposerResNet as ComposerResNet
+from composer.models.resnet.resnet_hparams import ResNetHparams as ResNetHparams
+from composer.models.ssd import SSD as SSD
+from composer.models.ssd import SSDHparams as SSDHparams
 from composer.models.timm import Timm as Timm
 from composer.models.timm import TimmHparams as TimmHparams
 from composer.models.transformer_shared import ComposerTransformer as ComposerTransformer
