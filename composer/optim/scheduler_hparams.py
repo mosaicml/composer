@@ -17,11 +17,17 @@ from composer.optim.scheduler import (ComposerScheduler, ConstantScheduler, Cosi
 
 @dataclass
 class SchedulerHparams(hp.Hparams, ABC):
-    """Abstract base class for scheduler hyperparameter classes."""
+    """Base class for scheduler hyperparameter classes.
+
+    Scheduler parameters that are added to :class:`~composer.trainer.trainer_hparams.TrainerHparams` (e.g. via YAML or
+    the CLI) are initialized in the training loop.
+    """
 
     scheduler_cls = None  # type: Optional[Type[ComposerScheduler]]
 
     def initialize_object(self) -> ComposerScheduler:
+        """Initializes the scheduler."""
+
         if self.scheduler_cls is None:
             raise NotImplementedError(f"Cannot initialize {self} because `scheduler_cls` is undefined.")
 
@@ -31,7 +37,14 @@ class SchedulerHparams(hp.Hparams, ABC):
 
 @dataclass
 class StepSchedulerHparams(SchedulerHparams):
-    """Hyperparameters for the :class:`StepScheduler` scheduler."""
+    """Hyperparameters for the :class:`StepScheduler` scheduler.
+
+    See :class:`StepScheduler` for documentation.
+
+    Args:
+        step_size (str, optional): See :class:`StepScheduler`.
+        gamma (float, optional): See :class:`StepScheduler`.
+    """
 
     step_size: str = hp.required(doc='Time between changes to the learning rate.')
     gamma: float = hp.optional(default=0.1, doc='Multiplicative decay factor.')
@@ -41,7 +54,14 @@ class StepSchedulerHparams(SchedulerHparams):
 
 @dataclass
 class MultiStepSchedulerHparams(SchedulerHparams):
-    """Hyperparameters for the :class:`MultiStepScheduler` scheduler."""
+    """Hyperparameters for the :class:`MultiStepScheduler` scheduler.
+
+    See :class:`MultiStepScheduler` for documentation.
+
+    Args:
+        milestones (list of str): See :class:`MultiStepScheduler`.
+        gamma (float, optional): See :class:`MultiStepScheduler`.
+    """
 
     milestones: List[str] = hp.required(doc='Times at which the learning rate should change.')
     gamma: float = hp.optional(default=0.1, doc='Multiplicative decay factor.')
@@ -51,7 +71,14 @@ class MultiStepSchedulerHparams(SchedulerHparams):
 
 @dataclass
 class ConstantSchedulerHparams(SchedulerHparams):
-    """Hyperparameters for the :class:`ConstantScheduler` scheduler."""
+    """Hyperparameters for the :class:`ConstantScheduler` scheduler.
+
+    See :class:`ConstantScheduler` for documentation.
+
+    Args:
+        alpha (float, optional): See :class:`ConstantScheduler`.
+        t_max (str, optional): See :class:`ConstantScheduler`.
+    """
 
     alpha: float = hp.optional(default=1.0, doc='Learning rate multiplier to maintain while this scheduler is active.')
     t_max: str = hp.optional(default='1dur', doc='Duration of this scheduler.')
@@ -61,7 +88,15 @@ class ConstantSchedulerHparams(SchedulerHparams):
 
 @dataclass
 class LinearSchedulerHparams(SchedulerHparams):
-    """Hyperparameters for the :class:`LinearScheduler` scheduler."""
+    """Hyperparameters for the :class:`LinearScheduler` scheduler.
+
+    See :class:`LinearScheduler` for documentation.
+
+    Args:
+        alpha_i (float, optional): See :class:`LinearScheduler`.
+        alpha_f (float, optional): See :class:`LinearScheduler`.
+        t_max (str, optional): See :class:`LinearScheduler`.
+    """
 
     alpha_i: float = hp.optional("Initial learning rate multiplier.", default=1.0)
     alpha_f: float = hp.optional("Final learning rate multiplier.", default=0.0)
@@ -72,7 +107,14 @@ class LinearSchedulerHparams(SchedulerHparams):
 
 @dataclass
 class ExponentialSchedulerHparams(SchedulerHparams):
-    """Hyperparameters for the :class:`ExponentialScheduler` scheduler."""
+    """Hyperparameters for the :class:`ExponentialScheduler` scheduler.
+
+    See :class:`ExponentialScheduler` for documentation.
+
+    Args:
+        gamma (float): See :class:`ExponentialScheduler`.
+        decay_period (str, optional): See :class:`ExponentialScheduler`.
+    """
 
     gamma: float = hp.required(doc='Multiplicative decay factor.')
     decay_period: str = hp.optional(default='1ep', doc='Decay period.')
@@ -82,7 +124,14 @@ class ExponentialSchedulerHparams(SchedulerHparams):
 
 @dataclass
 class CosineAnnealingSchedulerHparams(SchedulerHparams):
-    """Hyperparameters for the :class:`CosineAnnealingScheduler` scheduler."""
+    """Hyperparameters for the :class:`CosineAnnealingScheduler` scheduler.
+
+    See :class:`CosineAnnealingScheduler` for documentation.
+
+    Args:
+        t_max (str, optional): See :class:`CosineAnnealingScheduler`.
+        alpha_f (float, optional): See :class:`CosineAnnealingScheduler`.
+    """
 
     t_max: str = hp.optional(default='1dur', doc='Duration of this scheduler.')
     alpha_f: float = hp.optional(default=0.0, doc='Learning rate multiplier to decay to.')
@@ -92,7 +141,15 @@ class CosineAnnealingSchedulerHparams(SchedulerHparams):
 
 @dataclass
 class CosineAnnealingWarmRestartsSchedulerHparams(SchedulerHparams):
-    """Hyperparameters for the :class:`CosineAnnealingWarmRestartsScheduler` scheduler."""
+    """Hyperparameters for the :class:`CosineAnnealingWarmRestartsScheduler` scheduler.
+
+    See :class:`CosineAnnealingWarmRestartsScheduler` for documentation.
+
+    Args:
+        t_0 (str, optional): See :class:`CosineAnnealingWarmRestartsScheduler`.
+        alpha_f (float, optional): See :class:`CosineAnnealingWarmRestartsScheduler`.
+        t_mult (float, optional): See :class:`CosineAnnealingWarmRestartsScheduler`.
+    """
 
     t_0: str = hp.optional(default='1dur', doc="The period of the first cycle.")
     alpha_f: float = hp.optional(default=0.0, doc='Learning rate multiplier to decay to.')
@@ -103,7 +160,15 @@ class CosineAnnealingWarmRestartsSchedulerHparams(SchedulerHparams):
 
 @dataclass
 class PolynomialSchedulerHparams(SchedulerHparams):
-    """Hyperparameters for the :class:`PolynomialScheduler` scheduler."""
+    """Hyperparameters for the :class:`PolynomialScheduler` scheduler.
+
+    See :class:`PolynomialScheduler` for documentation.
+
+    Args:
+        power (float): See :class:`PolynomialScheduler`.
+        t_max (str, optional): See :class:`PolynomialScheduler`.
+        alpha_f (float, optional): See :class:`PolynomialScheduler`.
+    """
 
     power: float = hp.required(doc='The exponent to be used for the proportionality relationship.')
     t_max: str = hp.optional(default='1dur', doc='Duration of this scheduler.')
@@ -114,7 +179,15 @@ class PolynomialSchedulerHparams(SchedulerHparams):
 
 @dataclass
 class MultiStepWithWarmupSchedulerHparams(SchedulerHparams):
-    """Hyperparameters for the :class:`MultiStepWithWarmupScheduler` scheduler."""
+    """Hyperparameters for the :class:`MultiStepWithWarmupScheduler` scheduler.
+
+    See :class:`MultiStepWithWarmupScheduler` for documentation.
+
+    Args:
+        t_warmup (str,): See :class:`MultiStepWithWarmupScheduler`.
+        milestones (list of str): See :class:`MultiStepWithWarmupScheduler`.
+        gamma (float, optional): See :class:`MultiStepWithWarmupScheduler`.
+    """
 
     t_warmup: str = hp.required(doc='Warmup time.')
     milestones: List[str] = hp.required(doc='Times at which the learning rate should change.')
@@ -125,7 +198,16 @@ class MultiStepWithWarmupSchedulerHparams(SchedulerHparams):
 
 @dataclass
 class LinearWithWarmupSchedulerHparams(SchedulerHparams):
-    """Hyperparameters for the :class:`LinearWithWarmupScheduler` scheduler."""
+    """Hyperparameters for the :class:`LinearWithWarmupScheduler` scheduler.
+
+    See :class:`LinearWithWarmupScheduler` for documentation.
+
+    Args:
+        t_warmup (str): See :class:`LinearWithWarmupScheduler`.
+        alpha_i (float, optional): See :class:`LinearWithWarmupScheduler`.
+        alpha_f (float, optional): See :class:`LinearWithWarmupScheduler`.
+        t_max (str, optional): See :class:`LinearWithWarmupScheduler`.
+    """
 
     t_warmup: str = hp.required(doc='Warmup time.')
     alpha_i: float = hp.optional("Initial learning rate multiplier.", default=1.0)
@@ -137,7 +219,15 @@ class LinearWithWarmupSchedulerHparams(SchedulerHparams):
 
 @dataclass
 class CosineAnnealingWithWarmupSchedulerHparams(SchedulerHparams):
-    """Hyperparameters for the :class:`CosineAnnealingWithWarmupScheduler` scheduler."""
+    """Hyperparameters for the :class:`CosineAnnealingWithWarmupScheduler` scheduler.
+
+    See :class:`CosineAnnealingWithWarmupScheduler` for documentation.
+
+    Args:
+        t_warmup (str): See :class:`CosineAnnealingWithWarmupScheduler`.
+        t_max (str, optional): See :class:`CosineAnnealingWithWarmupScheduler`.
+        alpha_f (float, optional): See :class:`CosineAnnealingWithWarmupScheduler`.
+    """
 
     t_warmup: str = hp.required(doc='Warmup time.')
     t_max: str = hp.optional(default='1dur', doc='Duration of this scheduler.')
