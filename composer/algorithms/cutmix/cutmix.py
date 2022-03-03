@@ -51,16 +51,16 @@ def cutmix_batch(X: Tensor,
             )
 
     Args:
-        X: input tensor of shape (B, d1, d2, ..., dn), B is batch size, d1-dn
+        X (Tensor): input tensor of shape (B, d1, d2, ..., dn), B is batch size, d1-dn
             are feature dimensions.
-        y: target tensor of shape (B, f1, f2, ..., fm), B is batch size, f1-fn
+        y (Tensor): target tensor of shape (B, f1, f2, ..., fm), B is batch size, f1-fn
             are possible target dimensions.
-        n_classes: total number of classes.
-        alpha: parameter for the beta distribution of the cutmix region size.
-        cutmix_lambda: optional, fixed size of cutmix region.
-        bbox: optional, predetermined (rx1, ry1, rx2, ry2) coords of the bounding box.
-        indices: Permutation of the batch indices `1..B`. Used
-            for permuting without randomness.
+        n_classes (int): total number of classes.
+        alpha (float, optional): parameter for the beta distribution of the cutmix region size. Default: ``1``.
+        cutmix_lambda (float, optional): fixed size of cutmix region. Default: ``None``.
+        bbox (tuple, optional): predetermined (rx1, ry1, rx2, ry2) coords of the bounding box. Default: ``None``.
+        indices (Tensor, optional): Permutation of the batch indices `1..B`. Used
+            for permuting without randomness. Default: ``None``.
 
     Returns:
         X_cutmix: batch of inputs after cutmix has been applied.
@@ -132,11 +132,11 @@ class CutMix(Algorithm):
 
     Args:
         num_classes (int): the number of classes in the task labels.
-        alpha (float): the psuedocount for the Beta distribution used to sample
+        alpha (float, optional): the psuedocount for the Beta distribution used to sample
             area parameters. As ``alpha`` grows, the two samples
             in each pair tend to be weighted more equally. As ``alpha``
             approaches 0 from above, the combination approaches only using
-            one element of the pair.
+            one element of the pair. Default: ``1``.
     """
 
     def __init__(self, num_classes: int, alpha: float = 1.):
