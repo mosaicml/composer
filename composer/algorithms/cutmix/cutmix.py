@@ -58,7 +58,7 @@ def cutmix_batch(X: Tensor,
             ``cut_proportion``. Ignored if ``cut_proportion`` is provided.
         bbox (Tuple, optional): predetermined ``(rx1, ry1, rx2, ry2)``
             coordinates of the bounding box.
-        indices: Permutation of the samples to use.
+        indices (torch.Tensor, optional): Permutation of the samples to use.
 
     Returns:
         X_mixed: batch of inputs after cutmix has been applied.

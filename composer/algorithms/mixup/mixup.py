@@ -115,7 +115,7 @@ class MixUp(Algorithm):
 
             import torch
             from composer import models
-            from composer.algorithms import CutMix
+            from composer.algorithms import MixUp
             from composer.trainer import Trainer
 
             # create dataloaders and optimizer
