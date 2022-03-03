@@ -1,13 +1,13 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
-from composer.algorithms.colout.colout import ColOut as ColOut
-from composer.algorithms.colout.colout import ColOutHparams as ColOutHparams
-from composer.algorithms.colout.colout import colout as colout
+"""Drops a fraction of the rows and columns of an input image. If the fraction of rows/columns dropped isn't too large,
+this does not significantly alter the content of the image, but reduces its size and provides extra variability.
 
-_name = 'ColumnOut'
-_class_name = 'ColOut'
-_functional = 'colout'
-_tldr = 'Removes columns and rows from the image for augmentation and efficiency.'
-_attribution = 'MosaicML'
-_link = ''
-_method_card = ''
+See the :doc:`Method Card </method_cards/colout>` for more details.
+"""
+
+from composer.algorithms.colout.colout import ColOut as ColOut
+from composer.algorithms.colout.colout import ColOutTransform as ColOutTransform
+from composer.algorithms.colout.colout import colout_batch as colout_batch
+
+__all__ = ["ColOut", "ColOutTransform", "colout_batch"]

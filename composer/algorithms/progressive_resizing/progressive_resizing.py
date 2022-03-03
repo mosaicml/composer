@@ -1,99 +1,144 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
+"""Core Progressive Resizing classes and functions."""
+
 from __future__ import annotations
 
 import logging
-from dataclasses import asdict, dataclass
+import textwrap
 from functools import partial
-from typing import Optional, Tuple
+from typing import Callable, Optional, Tuple
 
 import torch
 import torch.nn.functional as F
-import yahp as hp
 from torchvision import transforms
 
-from composer.algorithms import AlgorithmHparams
 from composer.core import Algorithm, Event, Logger, State
 from composer.core.types import Tensor
+from composer.models.loss import check_for_index_targets
 
 log = logging.getLogger(__name__)
 
 _VALID_MODES = ("crop", "resize")
 
+T_ResizeTransform = Callable[[torch.Tensor], torch.Tensor]
 
-def resize_inputs(X: torch.Tensor,
-                  y: torch.Tensor,
-                  scale_factor: float,
-                  mode: str = "resize",
-                  resize_targets: bool = False) -> Tuple[torch.Tensor, torch.Tensor]:
+__all__ = ["resize_batch", "ProgressiveResizing"]
+
+
+def resize_batch(X: torch.Tensor,
+                 y: torch.Tensor,
+                 scale_factor: float,
+                 mode: str = "resize",
+                 resize_targets: bool = False) -> Tuple[torch.Tensor, torch.Tensor]:
     """Resize inputs and optionally outputs by cropping or interpolating.
+
+    Example:
+         .. testcode::
+
+            from composer.algorithms.progressive_resizing import resize_batch
+            X_resized, y_resized = resize_batch(
+                                        X=X_example,
+                                        y=y_example,
+                                        scale_factor=0.5,
+                                        mode='resize',
+                                        resize_targets=False
+            )
 
     Args:
         X: input tensor of shape (N, C, H, W). Resizing will be done along
             dimensions H and W using the constant factor ``scale_factor``.
-        y: output tensor of shape (N, C, H, W) that will also be resized if
+        y: output tensor of shape (N, H, W) or (N, C, H, W) that will also be resized if
             ``resize_targets`` is ``True``,
         scale_factor: scaling coefficient for the height and width of the
             input/output tensor. 1.0 keeps the original size.
         mode: type of scaling to perform. Value must be one of ``'crop'`` or
             ``'resize'``. ``'crop'`` performs a random crop, whereas ``'resize'``
-            performs a bilinear interpolation.
+            performs a nearest neighbor interpolation.
         resize_targets: whether to resize the targets, ``y``, as well
 
     Returns:
         X_sized: resized input tensor of shape ``(N, C, H * scale_factor, W * scale_factor)``.
         y_sized: if ``resized_targets`` is ``True``, resized output tensor
-            of shape ``(N, C, H * scale_factor, W * scale_factor)``. Otherwise
-            returns original ``y``.
-
+            of shape ``(N, H * scale_factor, W * scale_factor)`` or  ``(N, C, H * scale_factor, W * scale_factor)``.
+            Depending on the input ``y``. Otherwise returns original ``y``.
     """
+    # Verify dimensionalities are enough to support resizing
+    assert X.dim() > 2, "Input dimensionality not large enough for resizing"
+    if resize_targets is True:
+        assert y.dim() > 2, "Target dimensionality not large enough for resizing"
+
     # Short-circuit if nothing should be done
     if scale_factor >= 1:
         return X, y
 
-    def resize_tensor(tensor: torch.Tensor) -> torch.Tensor:
-        # Reduce the size of input images, either via cropping or downsampling
-        if mode.lower() == "crop":
-            Hc = int(scale_factor * tensor.shape[2])
-            Wc = int(scale_factor * tensor.shape[3])
-            resize_transform = transforms.RandomCrop((Hc, Wc))
-        elif mode.lower() == "resize":
-            resize_transform = partial(F.interpolate, scale_factor=scale_factor, mode='bilinear')
-        else:
-            raise ValueError(f"Progressive mode '{mode}' not supported.")
-        return resize_transform(tensor)
-
-    X_sized = resize_tensor(X)
-    if resize_targets:
-        y_sized = resize_tensor(y)
+    # Prep targets for resizing if necessary
+    if check_for_index_targets(y) and resize_targets is True:
+        # Add a dimension to match shape of the input and change type for resizing
+        y_sized = y.float().unsqueeze(1)
     else:
         y_sized = y
+
+    if mode.lower() == "crop" and resize_targets is False:
+        # Make a crop transform for X
+        resize_transform = _make_crop(tensor=X, scale_factor=scale_factor)
+        X_sized, y_sized = resize_transform(X), y
+    elif mode.lower() == "crop" and resize_targets is True:
+        # Make a crop transform for X and y
+        resize_transform, resize_y = _make_crop_pair(X=X, y=y_sized, scale_factor=scale_factor)
+        X_sized, y_sized = resize_transform(X), resize_y(y_sized)
+    elif mode.lower() == "resize":
+        # Make a resize transform (can be used for X or y)
+        resize_transform = _make_resize(scale_factor=scale_factor)
+        X_sized = resize_transform(X)
+        if resize_targets:
+            y_sized = resize_transform(y_sized)
+    else:
+        raise ValueError(f"Progressive mode '{mode}' not supported.")
+
+    # Revert targets to their original format if they were modified
+    if check_for_index_targets(y) and resize_targets is True:
+        # Convert back to original format for training
+        y_sized = y_sized.squeeze(dim=1).to(y.dtype)
+
+    # Log results
+    log.info(
+        textwrap.dedent(f"""\
+            Applied Progressive Resizing with scale_factor={scale_factor} and mode={mode}.
+            Old input dimensions: (H,W)={X.shape[2], X.shape[3]}.
+            New input dimensions: (H,W)={X_sized.shape[2], X_sized.shape[2]}"""))
     return X_sized, y_sized
 
 
-@dataclass
-class ProgressiveResizingHparams(AlgorithmHparams):
-    """See :class:`ProgressiveResizing`"""
-
-    mode: str = hp.optional(doc="Type of scaling to perform", default="resize")
-    initial_scale: float = hp.optional(doc="Initial scale factor", default=0.5)
-    finetune_fraction: float = hp.optional(doc="Fraction of training to reserve for finetuning on full-sized inputs",
-                                           default=0.2)
-    resize_targets: bool = hp.optional(doc="Also resize targets", default=False)
-
-    def initialize_object(self) -> ProgressiveResizing:
-        return ProgressiveResizing(**asdict(self))
-
-
 class ProgressiveResizing(Algorithm):
-    """Apply Fastai's
-    `progressive resizing <https://github.com/fastai/fastbook/blob/780b76bef3127ce5b64f8230fce60e915a7e0735/07_sizing_and_tta.ipynb>`_
-    data augmentation to speed up training
+    """Apply Fastai's `progressive resizing <https://\\
+    github.com/fastai/fastbook/blob/780b76bef3127ce5b64f8230fce60e915a7e0735/07_sizing_and_tta.ipynb>`__ data
+    augmentation to speed up training.
 
     Progressive resizing initially reduces input resolution to speed up early training.
     Throughout training, the downsampling factor is gradually increased, yielding larger inputs
     up to the original input size. A final finetuning period is then run to finetune the
     model using the full-sized inputs.
+
+    Example:
+         .. testcode::
+
+            from composer.algorithms import ProgressiveResizing
+            from composer.trainer import Trainer
+            progressive_resizing_algorithm = ProgressiveResizing(
+                                                mode='resize',
+                                                initial_scale=1.0,
+                                                finetune_fraction=0.2,
+                                                resize_targets=False
+                                            )
+            trainer = Trainer(
+                model=model,
+                train_dataloader=train_dataloader,
+                eval_dataloader=eval_dataloader,
+                max_duration="1ep",
+                algorithms=[progressive_resizing_algorithm],
+                optimizers=[optimizer]
+            )
 
     Args:
         mode: Type of scaling to perform. Value must be one of ``'crop'`` or ``'resize'``.
@@ -121,14 +166,14 @@ class ProgressiveResizing(Algorithm):
         if not (0 <= finetune_fraction <= 1):
             raise ValueError(f"finetune_fraction must be between 0 and 1: {finetune_fraction}")
 
-        self.hparams = ProgressiveResizingHparams(mode=mode,
-                                                  initial_scale=initial_scale,
-                                                  finetune_fraction=finetune_fraction,
-                                                  resize_targets=resize_targets)
+        self.mode = mode
+        self.initial_scale = initial_scale
+        self.finetune_fraction = finetune_fraction
+        self.resize_targets = resize_targets
 
     def match(self, event: Event, state: State) -> bool:
-        """Run on Event.AFTER_DATALOADER
-        
+        """Run on Event.AFTER_DATALOADER.
+
         Args:
             event (:class:`Event`): The current event.
             state (:class:`State`): The current state.
@@ -138,7 +183,7 @@ class ProgressiveResizing(Algorithm):
         return event == Event.AFTER_DATALOADER
 
     def apply(self, event: Event, state: State, logger: Optional[Logger] = None) -> None:
-        """Applies ProgressiveResizing on input images
+        """Applies ProgressiveResizing on input images.
 
         Args:
             event (Event): the current event
@@ -150,16 +195,63 @@ class ProgressiveResizing(Algorithm):
             "Multiple tensors not supported for this method yet."
 
         # Calculate the current size of the inputs to use
-        initial_size = self.hparams.initial_scale
-        finetune_fraction = self.hparams.finetune_fraction
-        scale_frac_elapsed = min([(state.epoch / state.max_epochs) / (1 - finetune_fraction), 1])
+        initial_size = self.initial_scale
+        finetune_fraction = self.finetune_fraction
+        scale_frac_elapsed = min([state.get_elapsed_duration().value / (1 - finetune_fraction), 1])
 
         # Linearly increase to full size at the start of the fine tuning period
         scale_factor = initial_size + (1 - initial_size) * scale_frac_elapsed
 
-        new_input, new_target = resize_inputs(X=input,
-                                              y=target,
-                                              scale_factor=scale_factor,
-                                              mode=self.hparams.mode,
-                                              resize_targets=self.hparams.resize_targets)
+        new_input, new_target = resize_batch(X=input,
+                                             y=target,
+                                             scale_factor=scale_factor,
+                                             mode=self.mode,
+                                             resize_targets=self.resize_targets)
         state.batch = (new_input, new_target)
+
+        if logger is not None:
+            logger.metric_batch({
+                "progressive_resizing/height": new_input.shape[2],
+                "progressive_resizing/width": new_input.shape[3],
+                "progressive_resizing/scale_factor": scale_factor
+            })
+
+
+def _make_crop(tensor: torch.Tensor, scale_factor: float) -> T_ResizeTransform:
+    """Makes a random crop transform for an input image."""
+    Hc = int(scale_factor * tensor.shape[2])
+    Wc = int(scale_factor * tensor.shape[3])
+    top = torch.randint(tensor.shape[2] - Hc, size=(1,))
+    left = torch.randint(tensor.shape[3] - Wc, size=(1,))
+    resize_transform = partial(transforms.functional.crop, top=top, left=left, height=Hc, width=Wc)
+    return resize_transform
+
+
+def _make_crop_pair(X: torch.Tensor, y: torch.Tensor,
+                    scale_factor: float) -> Tuple[T_ResizeTransform, T_ResizeTransform]:
+    """Makes a pair of random crops for an input image X and target tensor y such that the same region is selected from
+    both."""
+    # New height and width for X
+    HcX = int(scale_factor * X.shape[2])
+    WcX = int(scale_factor * X.shape[3])
+    # New height and width for y
+    Hcy = int(scale_factor * y.shape[2])
+    Wcy = int(scale_factor * y.shape[3])
+    # Select a corner for the crop from X
+    topX = torch.randint(X.shape[2] - HcX, size=(1,))
+    leftX = torch.randint(X.shape[3] - WcX, size=(1,))
+    # Find the corresponding point for X
+    height_ratio = y.shape[2] / X.shape[2]
+    width_ratio = y.shape[3] / X.shape[3]
+    topy = int(height_ratio * topX)
+    lefty = int(width_ratio * leftX)
+    # Make the two transforms
+    resize_X = partial(transforms.functional.crop, top=topX, left=leftX, height=HcX, width=WcX)
+    resize_y = partial(transforms.functional.crop, top=topy, left=lefty, height=Hcy, width=Wcy)
+    return resize_X, resize_y
+
+
+def _make_resize(scale_factor: float) -> T_ResizeTransform:
+    """Makes a nearest-neighbor interpolation transform at the specified scale factor."""
+    resize_transform = partial(F.interpolate, scale_factor=scale_factor, mode='nearest')
+    return resize_transform

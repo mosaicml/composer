@@ -3,38 +3,72 @@
 from __future__ import annotations
 
 import logging
-from dataclasses import asdict, dataclass
 from typing import Optional
 
 import torch
-import yahp as hp
 
-from composer.algorithms.algorithm_hparams import AlgorithmHparams
-from composer.core import Algorithm, Event, Logger, State, surgery
+from composer.core import Algorithm, Event, Logger, State
+from composer.core.types import Optimizers
+from composer.utils import module_surgery
 
 log = logging.getLogger(__name__)
 
 
-@dataclass
-class SqueezeExciteHparams(AlgorithmHparams):
-    """See :class:`SqueezeExcite`"""
+def apply_squeeze_excite(
+    model: torch.nn.Module,
+    latent_channels: float = 64,
+    min_channels: int = 128,
+    optimizers: Optional[Optimizers] = None,
+):
+    """Adds Squeeze-and-Excitation blocks (`Hu et al, 2019 <https://arxiv.org/abs/1709.01507>`_) after
+    :class:`~torch.nn.Conv2d` layers.
 
-    latent_channels: float = hp.optional(
-        doc='Dimensionality of hidden layer within the added MLP.',
-        default=64,
-    )
-    min_channels: int = hp.optional(
-        doc='Minimum number of channels in a Conv2d layer'
-        ' for a squeeze-excite block to be placed after it.',
-        default=128,
-    )
+    A Squeeze-and-Excitation block applies global average pooling to the input,
+    feeds the resulting vector to a single-hidden-layer fully-connected
+    network (MLP), and uses the output of this MLP as attention coefficients
+    to rescale the input. This allows the network to take into account global
+    information about each input, as opposed to only local receptive fields
+    like in a convolutional layer.
 
-    def initialize_object(self) -> SqueezeExcite:
-        return SqueezeExcite(**asdict(self))
+    Args:
+        latent_channels (float, optional): Dimensionality of the hidden layer within the added
+            MLP. If less than 1, interpreted as a fraction of the number of
+            output channels in the :class:`~torch.nn.Conv2d` immediately
+            preceding each Squeeze-and-Excitation block.
+        optimizers (Optimizers, optional):  Existing optimizers bound to ``model.parameters()``.
+            All optimizers that have already been constructed with
+            ``model.parameters()`` must be specified here so they will optimize
+            the correct parameters.
+
+            If the optimizer(s) are constructed *after* calling this function,
+            then it is safe to omit this parameter. These optimizers will see the correct
+            model parameters.
+
+    Returns:
+        The modified model
+
+    Example:
+        .. testcode::
+
+            import composer.functional as cf
+            from torchvision import models
+            model = models.resnet50()
+            cf.apply_stochastic_depth(model, target_layer_name='ResNetBottleneck')
+    """
+
+    def convert_module(module: torch.nn.Module, module_index: int):
+        assert isinstance(module, torch.nn.Conv2d), "should only be called with conv2d"
+        if min(module.in_channels, module.out_channels) < min_channels:
+            return None
+        return SqueezeExciteConv2d.from_conv2d(module, module_index, latent_channels=latent_channels)
+
+    module_surgery.replace_module_classes(model, optimizers=optimizers, policies={torch.nn.Conv2d: convert_module})
+
+    return model
 
 
 class SqueezeExcite2d(torch.nn.Module):
-    """Squeeze-and-Excitation block from (`Hu et al. 2019 <https://arxiv.org/abs/1709.01507>`_)
+    """Squeeze-and-Excitation block from (`Hu et al, 2019 <https://arxiv.org/abs/1709.01507>`_)
 
     This block applies global average pooling to the input, feeds the resulting
     vector to a single-hidden-layer fully-connected network (MLP), and uses the
@@ -43,8 +77,8 @@ class SqueezeExcite2d(torch.nn.Module):
     as opposed to only local receptive fields like in a convolutional layer.
 
     Args:
-        num_features: Number of features or channels in the input
-        latent_channels: Dimensionality of the hidden layer within the added
+        num_features (int): Number of features or channels in the input
+        latent_channels (float, optional): Dimensionality of the hidden layer within the added
             MLP. If less than 1, interpreted as a fraction of ``num_features``.
     """
 
@@ -81,27 +115,17 @@ class SqueezeExciteConv2d(torch.nn.Module):
         return SqueezeExciteConv2d(conv=module, latent_channels=latent_channels)
 
 
-def apply_se(model: torch.nn.Module, latent_channels: float, min_channels: int):
-    """See :class:`SqueezeExcite`"""
-
-    def convert_module(module: torch.nn.Conv2d, module_index: int):
-        if min(module.in_channels, module.out_channels) < min_channels:
-            return None
-        return SqueezeExciteConv2d.from_conv2d(module, module_index, latent_channels=latent_channels)
-
-    transforms = {torch.nn.Conv2d: convert_module}
-    surgery.replace_module_classes(model, transforms)  # type: ignore
-    return model
-
-
 class SqueezeExcite(Algorithm):
-    """Adds Squeeze-and-Excitation blocks (`Hu et al. 2019 <https://arxiv.org/abs/1709.01507>`_) after the :class:`~torch.nn.Conv2d` modules in a neural network.
+    """Adds Squeeze-and-Excitation blocks (`Hu et al, 2019 <https://arxiv.org/abs/1709.01507>`_) after the
+    :class:`~torch.nn.Conv2d` modules in a neural network.
 
-    See :class:`SqueezeExcite2d` for more information.
+    Runs on :attr:`~composer.core.event.Event.INIT`. See :class:`SqueezeExcite2d` for more information.
 
     Args:
         latent_channels: Dimensionality of the hidden layer within the added
-            MLP. If less than 1, interpreted as a fraction of ``num_features``.
+            MLP. If less than 1, interpreted as a fraction of the number of
+            output channels in the :class:`~torch.nn.Conv2d` immediately
+            preceding each Squeeze-and-Excitation block.
         min_channels: An SE block is added after a :class:`~torch.nn.Conv2d`
             module ``conv`` only if
             ``min(conv.in_channels, conv.out_channels) >= min_channels``.
@@ -117,19 +141,17 @@ class SqueezeExcite(Algorithm):
         latent_channels: float = 64,
         min_channels: int = 128,
     ):
-        self.hparams = SqueezeExciteHparams(
-            latent_channels=latent_channels,
-            min_channels=min_channels,
-        )
+        self.latent_channels = latent_channels
+        self.min_channels = min_channels
 
     def match(self, event: Event, state: State) -> bool:
-        """Run on Event.INIT
+        """Runs on :attr:`~composer.core.event.Event.INIT`
 
         Args:
-            event (:class:`Event`): The current event.
-            state (:class:`State`): The current state.
+            event (Event): The current event.
+            state (State): The current state.
         Returns:
-            bool: True if this algorithm should run no         
+            bool: True if this algorithm should run no
         """
         return event == Event.INIT
 
@@ -139,16 +161,17 @@ class SqueezeExcite(Algorithm):
         Args:
             event (Event): the current event
             state (State): the current trainer state
-            logger (Logger): the training logger        
+            logger (Logger): the training logger
         """
-        state.model = apply_se(state.model,
-                               latent_channels=self.hparams.latent_channels,
-                               min_channels=self.hparams.min_channels)
-        layer_count = surgery.count_module_instances(state.model, SqueezeExciteConv2d)
+        state.model = apply_squeeze_excite(state.model,
+                                           optimizers=state.optimizers,
+                                           latent_channels=self.latent_channels,
+                                           min_channels=self.min_channels)
+        layer_count = module_surgery.count_module_instances(state.model, SqueezeExciteConv2d)
 
         log.info(f'Applied SqueezeExcite to model {state.model.__class__.__name__} '
-                 f'with latent_channels={self.hparams.latent_channels}, '
-                 f'min_channels={self.hparams.min_channels}. '
+                 f'with latent_channels={self.latent_channels}, '
+                 f'min_channels={self.min_channels}. '
                  f'Model now has {layer_count} SqueezeExcite layers.')
 
         logger.metric_fit({

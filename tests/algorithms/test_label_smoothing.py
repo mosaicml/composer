@@ -6,19 +6,13 @@ import pytest
 import torch
 import torch.nn.functional as F
 
-from composer.algorithms import label_smoothing
-from composer.algorithms.label_smoothing import LabelSmoothingHparams
+from composer.algorithms import LabelSmoothingHparams, label_smoothing
 from composer.core.types import Event
 from composer.models import loss
-from composer.trainer.trainer_hparams import TrainerHparams
-from tests.utils.trainer_fit import train_model
 
 
 def _generate_tensors_classification(batch_size: int, num_classes: int):
-    """
-    Helper functions to generate input, target pairs
-    for image classification (1d indices)
-    """
+    """Helper functions to generate input, target pairs for image classification (1d indices)"""
     N = batch_size
     C = num_classes
 
@@ -30,10 +24,7 @@ def _generate_tensors_classification(batch_size: int, num_classes: int):
 
 
 def _generate_tensors_segmentation(batch_size: int, num_classes: int, H: int, W: int):
-    """
-    Helper functions to generate input, target pairs
-    for image segmentation (2d indices)
-    """
+    """Helper functions to generate input, target pairs for image segmentation (2d indices)"""
     N = batch_size
     C = num_classes
 
@@ -45,9 +36,7 @@ def _generate_tensors_segmentation(batch_size: int, num_classes: int, H: int, W:
 
 
 def xfail(val):
-    """
-    shorthand to mark xfail parameters
-    """
+    """shorthand to mark xfail parameters."""
     return pytest.param(val, marks=pytest.mark.xfail)
 
 
@@ -111,25 +100,25 @@ class TestLabelSmoothing:
         torch.testing.assert_allclose(labels_indices, labels_ref)
 
     @pytest.mark.parametrize('target_type', ['onehot', 'indices'])
-    def test_label_smoothing_algorithm(self, tensors, alpha, target_type, dummy_logger, dummy_state):
+    def test_label_smoothing_algorithm(self, tensors, alpha, target_type, empty_logger, minimal_state):
         (outputs, target_indices, target_onehot) = tensors
 
         target = target_indices if target_type == 'indices' else target_onehot
 
         algorithm = LabelSmoothingHparams(alpha=alpha).initialize_object()
-        state = dummy_state
+        state = minimal_state
         state.batch = (torch.Tensor(), target)
         state.outputs = outputs
 
         # BEFORE_LOSS should smooth the labels
-        algorithm.apply(Event.BEFORE_LOSS, state, dummy_logger)
+        algorithm.apply(Event.BEFORE_LOSS, state, empty_logger)
         smoothed_reference = self.reference_smooth_labels(target_onehot, alpha)
 
         _, labels = state.batch
         torch.testing.assert_allclose(labels, smoothed_reference)
 
         # AFTER_LOSS should restore the original targets
-        algorithm.apply(Event.AFTER_LOSS, state, dummy_logger)
+        algorithm.apply(Event.AFTER_LOSS, state, empty_logger)
 
         _, labels = state.batch
         torch.testing.assert_allclose(labels, target)
@@ -139,8 +128,3 @@ def test_label_smoothing_match():
     algorithm = LabelSmoothingHparams(alpha=0.1).initialize_object()
     assert algorithm.match(Event.BEFORE_LOSS, Mock())
     assert algorithm.match(Event.AFTER_LOSS, Mock())
-
-
-def test_label_smoothing_trains(mosaic_trainer_hparams: TrainerHparams):
-    mosaic_trainer_hparams.algorithms = [LabelSmoothingHparams(alpha=0.1)]
-    train_model(mosaic_trainer_hparams)

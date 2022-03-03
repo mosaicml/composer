@@ -3,7 +3,7 @@ train_dataset:
     resize_size: -1
     crop_size: 224
     is_train: true
-    datadir: /mnt/raid/datasets/ImageNet
+    datadir: /datasets/ImageNet
     shuffle: true
     drop_last: true
 val_dataset:
@@ -11,7 +11,7 @@ val_dataset:
     resize_size: 256
     crop_size: 224
     is_train: false
-    datadir: /mnt/raid/datasets/ImageNet
+    datadir: /datasets/ImageNet
     shuffle: true
     drop_last: true
 optimizer:
@@ -22,19 +22,11 @@ optimizer:
     dampening: 0
     nesterov: false
 schedulers:
-  - warmup:
-      warmup_iters: "8ep"
-      warmup_method: linear
-      warmup_factor: 0
-      verbose: false
-      interval: step
-  - cosine_decay:
-      T_max: "82ep"
-      eta_min: 0
-      verbose: false
-      interval: step
+  - cosine_decay_with_warmup:
+      warmup_time: "8ep"
 model:
-  resnet18:
+  resnet:
+    model_name: resnet18
     initializers:
       - kaiming_normal
       - bn_uniform

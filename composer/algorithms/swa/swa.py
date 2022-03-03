@@ -1,61 +1,25 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
-# type: ignore
+"""Core code for Stochastic Weight Averaging."""
+
 from __future__ import annotations
 
 import logging
 from typing import Optional
 
 import torch
-from torch.optim.lr_scheduler import CosineAnnealingLR
 from torch.optim.swa_utils import SWALR, AveragedModel
 
-from composer.algorithms.swa.hparams import SWAHparams
+from composer.core.time import Time, TimeUnit
 from composer.core.types import Algorithm, Event, Logger, State
 
 log = logging.getLogger(__name__)
 
-import math
-
-import torch
-from torch.nn import Module
-
-
-@torch.no_grad()
-def update_bn(loader, model, device=None):
-    """
-    Updates BatchNorm running_mean, running_var buffers in the model.
-    It performs one pass over data in `loader` to estimate the activation
-    statistics for BatchNorm layers in the model.
-    Adapted from https://github.com/pytorch/pytorch/blob/master/torch/optim/swa_utils.py
-    in order to work with our internal trainer.
-    """
-    momenta = {}
-    for module in model.modules():
-        if isinstance(module, torch.nn.modules.batchnorm._BatchNorm):
-            module.running_mean = torch.zeros_like(module.running_mean)
-            module.running_var = torch.ones_like(module.running_var)
-            momenta[module] = module.momentum
-
-    if not momenta:
-        return
-
-    was_training = model.training
-    model.train()
-    for module in momenta.keys():
-        module.momentum = None
-        module.num_batches_tracked *= 0
-
-    for i, data in enumerate(loader):
-        model(data)
-
-    for bn_module in momenta.keys():
-        bn_module.momentum = momenta[bn_module]
-    model.train(was_training)
+__all__ = ['SWA']
 
 
 class SWA(Algorithm):
-    """Apply Stochastic Weight Averaging (`Izmailov et al. <https://arxiv.org/abs/1803.05407>`_)
+    """Apply Stochastic Weight Averaging (`Izmailov et al, 2018 <https://arxiv.org/abs/1803.05407>`_)
 
     Stochastic Weight Averaging (SWA) averages model weights sampled at
     different times near the end of training. This leads to better
@@ -67,77 +31,166 @@ class SWA(Algorithm):
     memory required doubles, however, since stored activations and the
     optimizer state are not doubled.
 
-    Args:
-        swa_start: fraction of training completed before stochastic weight averaging is applied
-        swa_lr: the final learning rate used for weight averaging
+    Uses PyTorch's `torch.optim.swa_util
+    <https://pytorch.org/docs/stable/optim.html#stochastic-weight-averaging>`_ under the
+    hood.
 
-    Note that 'anneal_epochs' is not used in the current implementation
-    """
+    See the :doc:`Method Card </method_cards/swa>` for more details.
 
-    def __init__(self, swa_start: float = 0.8, anneal_epochs: int = 10, swa_lr: Optional[float] = None):
-        self.hparams = SWAHparams(
-            swa_start=swa_start,
-            anneal_epochs=anneal_epochs,
-            swa_lr=swa_lr,
-        )
-        assert 0 < swa_start < 1, "swa_start must be between 0 and 1."
-        assert anneal_epochs > 0, "anneal_epochs must be great than 0."
+    Example:
+        .. testcode::
 
-        self.swa_scheduler = None
+            from composer.algorithms import SWA
+            from composer.trainer import Trainer
 
-    def match(self, event: Event, state: State) -> bool:
-        """Run in Event.TRAINING_START, Event.TRAINING_END or if Event.EPOCH_END and epochs greater than or equal to `swa_start * max_epochs`
-
-        Args:
-            event (:class:`Event`): The current event.
-            state (:class:`State`): The current state.
-        Returns:
-            bool: True if this algorithm should run now.
-        """
-        should_start_swa = state.epoch >= int(self.hparams.swa_start * state.max_epochs)
-        return event in (Event.TRAINING_START, Event.TRAINING_END) or \
-             (event == Event.EPOCH_END and should_start_swa)
-
-    def apply(self, event: Event, state: State, logger: Logger) -> None:
-        """Apply SWA to weights towards the end of training
-
-        Args:
-            event (Event): the current event
-            state (State): the current trainer state
-            logger (Logger): the training logger
-        """
-        assert state.model is not None, 'We cannot apply SWA to None'
-
-        swa_start_epochs = int(self.hparams.swa_start * state.max_epochs)
-
-        if event == Event.TRAINING_START:
-            self.swa_model = AveragedModel(state.model)
-
-        if event == Event.EPOCH_END and state.epoch == swa_start_epochs:
-            assert self.swa_scheduler is None, "SWA Scheduler should only be set once. Another algorithm "
-            "may have adjusted the max_epochs."
-
-            if self.hparams.swa_lr is None:
-                last_lr = state.schedulers.schedulers[0].get_last_lr()  # assumes ComposedScheduler
-                log.info(f'Setting SWA LR to {last_lr}')
-                self.hparams.swa_lr = last_lr
-
-            self.swa_scheduler = SWALR(
-                state.optimizers[0] if isinstance(state.optimizers, tuple) else state.optimizers,
-                swa_lr=self.hparams.swa_lr,
-                anneal_epochs=self.hparams.anneal_epochs,
-                anneal_strategy='cos',
+            swa_algorithm = SWA(
+                swa_start="6ep",
+                swa_end="8ep"
+            )
+            trainer = Trainer(
+                model=model,
+                train_dataloader=train_dataloader,
+                eval_dataloader=eval_dataloader,
+                max_duration="10ep",
+                algorithms=[swa_algorithm],
+                optimizers=[optimizer]
             )
 
-        if event == Event.EPOCH_END and state.epoch >= swa_start_epochs:
-            self.swa_model.update_parameters(state.model)
+    Args:
+        swa_start (str, optional): The time string denoting the amount of training
+            completed before stochastic weight averaging begins. Currently only units of
+            duration ('dur') and epoch ('ep') are supported. Defalt = ``'0.7dur'``.
+        swa_end (str, optional): The time string denoting the amount of training
+            completed before the baseline (non-averaged) model is replaced with the
+            stochastic weight averaged model. It's important to have at least one epoch
+            of training after the baseline model is replaced by the SWA model so that the
+            SWA model can have its buffers (most importantly its batch norm statistics)
+            updated. If ``swa_end`` occurs during the final epoch of training (e.g.
+            ``swa_end = 0.9dur`` and ``max_duration = "5ep"``, or ``swa_end = 1.0dur``),
+            the SWA model will not have its buffers updated, which can negatively impact
+            accuracy, so ensure ``swa_end`` < :math:`\\frac{N_{epochs}-1}{N_{epochs}}`.
+            Currently only units of duration ('dur') and epoch ('ep') are supported.
+            Default = ``'0.97dur'``.
+        schedule_swa_lr (bool, optional): Flag to determine whether to apply an
+            SWA-specific LR schedule during the period in which SWA is active. Default =
+            ``False``.
+        anneal_strategy (str, optional): SWA learning rate annealing schedule strategy.
+            "linear" for linear annealing, "cos" for cosine annealing. Default =
+            ``"linear"``.
+        anneal_epochs (int, optional): Number of epochs over which to anneal SWA
+            learning rate. Default = ``10``.
+        swa_lr (float, optional): The final learning rate to anneal towards with SWA LR
+            scheduler. Set to ``None`` for no annealing.
+    """
 
+    def __init__(self,
+                 swa_start: str = "0.7dur",
+                 swa_end: str = "0.97dur",
+                 schedule_swa_lr: bool = False,
+                 anneal_strategy: str = "linear",
+                 anneal_epochs: int = 10,
+                 swa_lr: Optional[float] = None):
+        self.schedule_swa_lr = schedule_swa_lr
+        self.anneal_strategy = anneal_strategy
+        self.anneal_epochs = anneal_epochs
+        self.swa_lr = swa_lr
+        self.swa_model: Optional[torch.nn.Module] = None
+        self.swa_completed = False
+
+        # Check timestrings are parsable and convert into time objects
+        try:
+            self.swa_start = Time.from_timestring(swa_start)
+        except ValueError as error:
+            raise ValueError(f"Invalid time string for parameter swa_start") from error
+        try:
+            self.swa_end = Time.from_timestring(swa_end)
+        except ValueError as error:
+            raise ValueError(f"Invalid time string for parameter swa_end") from error
+
+        # Check time objects have supported units
+        for time_attr in ["swa_start", "swa_end"]:
+            time_obj = getattr(self, time_attr)
+            if time_obj.unit not in [TimeUnit.DURATION, TimeUnit.EPOCH]:
+                raise ValueError(f"Invalid unit string for parameter {time_attr}: {time_obj.unit}")
+
+        if self.swa_start.unit == TimeUnit.DURATION:
+            if self.swa_start < 0 or self.swa_start >= 1:
+                raise ValueError("If swa_start is specified in units of 'dur', it must "
+                                 "be in the interval [0, 1).")
+        if self.swa_end.unit == TimeUnit.DURATION:
+            if self.swa_end == 1:
+                log.warning("'swa_end' = '1dur'. Batch norm statistics of averaged model "
+                            "will not be updated. This will negatively impact accuracy. "
+                            "See the documentation for the `swa_end` parameter for details.")
+            if self.swa_end > 1:
+                raise ValueError("If swa_end is specified in units of 'dur', it must be ≤1.")
+        if anneal_epochs <= 0:
+            raise ValueError("anneal_epochs must be greater than 0")
+
+        # Check annealing_strategy string
+        if self.anneal_strategy.lower() in ["linear", "lin"]:
+            self.anneal_strategy = "linear"
+        elif self.anneal_strategy.lower() in ["cos", "cosine"]:
+            self.anneal_strategy = "cos"
+        else:
+            raise ValueError("Parameter 'anneal_strategy' must have an argument that is one of {'linear', 'cos'}.")
+
+        self.swa_scheduler = None
+        self.swa_model = None
+
+    def match(self, event: Event, state: State) -> bool:
+        if self.swa_start.unit == TimeUnit.DURATION:
+            should_start_swa = state.get_elapsed_duration() >= self.swa_start and not self.swa_completed
+        elif self.swa_start.unit == TimeUnit.EPOCH:
+            should_start_swa = state.timer.get("ep") >= self.swa_start and not self.swa_completed
+        else:
+            should_start_swa = False
+        return event == Event.EPOCH_END and should_start_swa
+
+    def apply(self, event: Event, state: State, logger: Logger) -> None:
+        if self.swa_scheduler is None and self.schedule_swa_lr:
+
+            if self.swa_lr is None:
+                if len(state.schedulers) != 1:
+                    raise RuntimeError("SWA supports only one scheduler")
+                scheduler = state.schedulers[0]
+                last_lr = scheduler.get_last_lr()
+                if len(last_lr) != 1:
+                    raise RuntimeError(f"SWA supports only one LR; instead found {len(last_lr)}")
+                log.info(f'Setting SWA LR to {last_lr}')
+                self.swa_lr = last_lr[0]
+
+            if len(state.optimizers) != 1:
+                raise RuntimeError("SWA supports one and only one optimizer")
+
+            self.swa_scheduler = SWALR(
+                state.optimizers[0],
+                swa_lr=self.swa_lr,
+                anneal_epochs=self.anneal_epochs,
+                anneal_strategy=self.anneal_strategy,
+            )
+
+        if self.swa_model is None:
+            self.swa_model = AveragedModel(state.model)
+
+        self.swa_model.update_parameters(state.model)  # type: ignore
+
+        if self.schedule_swa_lr:
             if self.swa_scheduler is None:
                 raise ValueError('SWA LR scheduler was not set.')
             self.swa_scheduler.step()
 
-        ## end of training
-        if event == Event.TRAINING_END:
-            update_bn(state.train_dataloader, self.swa_model)
-            state.model = self.swa_model
-            log.info('Updated BN and set model to the averaged model')
+        # Determine whether it's time to end SWA
+        if self.swa_end.unit == TimeUnit.DURATION and (state.get_elapsed_duration() >= self.swa_end):
+            self.swa_completed = True
+        if self.swa_end.unit == TimeUnit.EPOCH and (state.timer.get("ep") >= self.swa_end):
+            self.swa_completed = True
+        if self.swa_completed:
+            if state.get_elapsed_duration() == 1:
+                log.warning("The baseline model was replaced with the SWA model after the end of "
+                            "training. This means that SWA model will not have its batch norm "
+                            "statistics updated. This will negatively impact accuracy. See the "
+                            "documentation for the `swa_end` parameter for details.")
+            assert type(self.swa_model.module) == type(state.model)
+            state.model.load_state_dict(self.swa_model.module.state_dict())  # type: ignore
+            log.info('Set model to the averaged model')

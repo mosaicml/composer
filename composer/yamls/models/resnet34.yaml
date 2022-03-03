@@ -1,0 +1,50 @@
+train_dataset:
+  imagenet:
+    resize_size: -1
+    crop_size: 224
+    is_train: true
+    datadir: /datasets/ImageNet
+    shuffle: true
+    drop_last: true
+val_dataset:
+  imagenet:
+    resize_size: 256
+    crop_size: 224
+    is_train: false
+    datadir: /datasets/ImageNet
+    shuffle: false
+    drop_last: false
+optimizer:
+  decoupled_sgdw:
+    lr: 2.048
+    momentum: 0.875
+    weight_decay: 5.0e-4
+    dampening: 0
+    nesterov: false
+schedulers:
+  - cosine_decay_with_warmup:
+      warmup_time: "8ep"
+model:
+  resnet:
+    model_name: resnet34
+    initializers:
+      - kaiming_normal
+      - bn_uniform
+    num_classes: 1000
+loggers:
+  - tqdm: {}
+max_duration: 90ep
+train_batch_size: 2048
+eval_batch_size: 2048
+seed: 17
+device:
+  gpu: {}
+dataloader:
+  pin_memory: true
+  timeout: 0
+  prefetch_factor: 2
+  persistent_workers: true
+  num_workers: 8
+validate_every_n_epochs: 1
+grad_accum: 1
+precision: amp

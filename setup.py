@@ -20,9 +20,11 @@ class develop(develop_orig):
     def run(self):
         if _IS_ROOT and (not _IS_VIRTUALENV) and (not _IS_USER):
             raise RuntimeError(
-                textwrap.dedent("""When installing in editable mode as root outside of a virtual environment,
-                please specify `--user`. Editable installs as the root user outside of a virtual environment
-                do not work without the `--user` flag. Please instead run something like: `pip install --user -e .`"""))
+                textwrap.dedent("""\
+                    When installing in editable mode as root outside of a virtual environment,
+                    please specify `--user`. Editable installs as the root user outside of a virtual environment
+                    do not work without the `--user` flag. Please instead run something like: `pip install --user -e .`"""
+                               ))
         super().run()
 
 
@@ -52,53 +54,69 @@ install_requires = [
     "yahp>=0.0.14",
     "requests>=2.26.0",
     "numpy==1.21.5",
+    "apache-libcloud>=3.3.1",
+    "psutil>=5.8.0",
+    "wget==3.2",
 ]
 extra_deps = {}
 
 extra_deps['base'] = []
 
 extra_deps['dev'] = [
+    # Imports for docs builds and running tests
     "custom_inherit==2.3.2",
     'junitparser>=2.1.1',
     'coverage[toml]>=6.1.1',
-    'fasteners>=0.16.3',  # run_directory_uploader tests require fasteners
-    'pytest>=6.2.0',
-    'yapf>=0.32.0',
+    'fasteners==0.17.3',  # run_directory_uploader tests require fasteners
+    'pytest>=7.0.0',
+    'toml==0.10.2',
+    'yapf==0.32.0',
     'isort>=5.9.3',
     'ipython>=7.29.0',
     'ipykernel>=6.5.0',
     'jupyter>=1.0.0',
     'yamllint>=1.26.2',
     'pytest-timeout>=1.4.2',
-    'recommonmark>=0.7.1',
-    'sphinx>=4.2.0',
-    'sphinx_copybutton>=0.4.0',
-    'sphinx_markdown_tables>=0.0.15',
-    'sphinx-argparse>=0.3.1',
-    'sphinxcontrib.katex>=0.8.6',
-    'sphinxext.opengraph>=0.4.2',
-    'sphinxemoji>=0.2.0',
-    'sphinx_rtd_theme>=1.0.0',
-    'testbook>=0.4.2',
-    'myst-parser>=0.15.2',
+    'pyright==1.1.224.post1',
+    'recommonmark==0.7.1',
+    'sphinx>=4.4.0',
+    'docutils>=0.17',
+    'sphinx_copybutton==0.5.0',
+    'sphinx_markdown_tables==0.0.15',
+    'sphinx-argparse==0.3.1',
+    'sphinxcontrib.katex==0.8.6',
+    'sphinxext.opengraph==0.6.1',
+    'sphinxemoji==0.2.0',
+    'furo>=2022.1.2',
+    'sphinx-copybutton==0.5.0',
+    'testbook==0.4.2',
+    'myst-parser==0.16.1',
+    'pylint>=2.12.2',
+    'docformatter>=1.4',
+    'sphinx_panels==0.6.0',
+    'pycocotools@git+https://github.com/cocodataset/cocoapi#egg=pycocotools&subdirectory=PythonAPI',
 ]
 
-extra_deps['logging'] = ['wandb>=0.12.2', 'apache-libcloud>=3.4.1']
-
-extra_deps['perf'] = ['torch-tb-profiler>=0.3.1', 'psutil>=5.8.0', 'tensorboard>=2.7.0']
-
-extra_deps['nlp'] = [
-    'transformers>=4.11.3',
-    'datasets>=1.14.0',
+extra_deps["deepspeed"] = [
+    'deepspeed==0.5.10',
 ]
 
-extra_deps['unet'] = [
-    'monai>=0.7.0',
+extra_deps["wandb"] = [
+    'wandb==0.12.10',
+]
+
+extra_deps["unet"] = [
+    'monai==0.8.1',
     'scikit-learn>=1.0.1',
 ]
 
-extra_deps['deepspeed'] = [
-    'deepspeed>=0.5.5',
+extra_deps["timm"] = [
+    'timm==0.5.4',
+]
+
+extra_deps["nlp"] = [
+    'transformers>=4.11',
+    'datasets>=1.14',
 ]
 
 extra_deps['webdataset'] = [
@@ -108,10 +126,11 @@ extra_deps['webdataset'] = [
 extra_deps['all'] = set(dep for deps in extra_deps.values() for dep in deps)
 
 setup(name="mosaicml",
-      version="0.3.1",
+      version="0.4.0",
       author="MosaicML",
       author_email="team@mosaicml.com",
-      description="composing methods for ML training efficiency",
+      description="Composer provides well-engineered implementations of efficient training methods to give "
+      "the tools that help you train a better model for cheaper.",
       long_description=long_description,
       long_description_content_type="text/markdown",
       url="https://github.com/mosaicml/composer",
@@ -119,10 +138,14 @@ setup(name="mosaicml",
       package_data={
           "composer": ['py.typed'],
           "": package_files('composer/yamls'),
+          "": package_files('composer/algorithms')
       },
       packages=setuptools.find_packages(exclude=["tests*"]),
       classifiers=[
           "Programming Language :: Python :: 3",
+          "Programming Language :: Python :: 3.7",
+          "Programming Language :: Python :: 3.8",
+          "Programming Language :: Python :: 3.9",
       ],
       install_requires=install_requires,
       entry_points={
@@ -137,7 +160,8 @@ setup(name="mosaicml",
 # only visible if user installs with verbose -v flag
 # Printing to stdout as not to interfere with setup.py CLI flags (e.g. --version)
 print("*" * 20, file=sys.stderr)
-print(textwrap.dedent("""NOTE: For best performance, we recommend installing Pillow-SIMD
+print(textwrap.dedent("""\
+    NOTE: For best performance, we recommend installing Pillow-SIMD
     for accelerated image processing operations. To install:
     \t pip uninstall pillow && pip install pillow-simd"""),
       file=sys.stderr)

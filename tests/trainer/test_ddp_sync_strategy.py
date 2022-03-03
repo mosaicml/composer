@@ -5,10 +5,12 @@ from typing import List, Optional
 import pytest
 import torch
 import torch.nn as nn
+from torchmetrics.classification.accuracy import Accuracy
+from torchmetrics.collections import MetricCollection
 
 from composer.core.state import State
-from composer.core.types import DataLoader, Tensor
-from composer.trainer.ddp import ddp_sync_context, prepare_ddp_module
+from composer.core.types import DataLoader, Evaluator, Tensor
+from composer.trainer.ddp import _ddp_sync_context, _prepare_ddp_module
 from composer.utils import dist
 
 
@@ -50,21 +52,22 @@ def test_ddp_sync_strategy(ddp_sync_strategy: str, expected_grads: List[Optional
     original_model = MinimalConditionalModel()
     # ddp = DDP(backend="gloo", find_unused_parameters=True, sync_strategy=ddp_sync_strategy, timeout=5.)
     optimizer = torch.optim.SGD(original_model.parameters(), 0.1)
-
+    metric_coll = MetricCollection([Accuracy()])
+    evaluators = [Evaluator(label="dummy_label", dataloader=dummy_val_dataloader, metrics=metric_coll)]
     state = State(model=original_model,
                   optimizers=optimizer,
                   grad_accum=2,
                   max_duration="1ep",
                   train_dataloader=dummy_train_dataloader,
-                  eval_dataloader=dummy_val_dataloader,
+                  evaluators=evaluators,
                   precision='fp32')
 
     batches = [[(1, Tensor([1])), (1, Tensor([2]))], [(2, Tensor([1])), (2, Tensor([2]))]]
-    state.model = prepare_ddp_module(state.model, find_unused_parameters=True)
+    state.model = _prepare_ddp_module(state.model, find_unused_parameters=True)
     optimizer.zero_grad()
 
     for microbatch_idx in range(2):
-        with ddp_sync_context(state, microbatch_idx == 1, sync_strategy=ddp_sync_strategy):
+        with _ddp_sync_context(state, microbatch_idx == 1, sync_strategy=ddp_sync_strategy):
             input, target = batches[microbatch_idx][dist.get_local_rank()]
 
             output = state.model.forward(input)

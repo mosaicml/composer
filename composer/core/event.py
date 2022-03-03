@@ -1,43 +1,68 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
+"""Events represent specific points in the training loop where an :class:`~.core.Algorithm` and :class:`~.core.Callback`
+can run."""
 from composer.utils.string_enum import StringEnum
+
+__all__ = ["Event"]
 
 
 class Event(StringEnum):
-    """Enum to represent events.
+    """Enum to represent events in the training loop.
 
-    Training Loop
-    ~~~~~~~~~~~~~
+    The following pseudocode shows where each event fires in the training loop:
 
-    .. include:: /core/event_training_loop_event_docstring.rst
+    .. code-block:: python
+
+        # <INIT>
+        # <FIT_START>
+        for epoch in range(NUM_EPOCHS):
+            # <EPOCH_START>
+            for inputs, targets in dataloader:
+                # <AFTER_DATALOADER>
+
+                # <BATCH_START>
+
+                # <BEFORE_FORWARD>
+                outputs = model.forward(inputs)
+                # <AFTER_FORWARD>
+
+                # <BEFORE_LOSS>
+                loss = model.loss(outputs, targets)
+                # <AFTER_LOSS>
+
+                # <BEFORE_BACKWARD>
+                loss.backward()
+                # <AFTER_BACKWARD>
+
+                optimizer.step()
+
+                # <BATCH_END>
+            # <EPOCH_END>
+
+
 
 
     Attributes:
-        INIT: Immediately after ``model`` initialization,
-            and before creation of ``optimizers`` and ``schedulers``.
-            Model surgery typically occurs here.
-        TRAINING_START: Start of training.
-            For multi-GPU training, runs after the DDP process fork.
+        INIT: Invoked in the constructor of :class:`~.trainer.Trainer`. Model surgery (see
+            :mod:`~composer.utils.module_surgery`) typically occurs here.
+        FIT_START: Invoked at the beginning of each call to :meth:`.Trainer.fit`. Dataset transformations typically
+            occur here.
         EPOCH_START: Start of an epoch.
         BATCH_START: Start of a batch.
-        AFTER_DATALOADER: Immediately after the dataloader is called.
-            Typically used for on-GPU dataloader transforms.
-        BEFORE_TRAIN_BATCH: Before the forward-loss-backward
-            computation for a training batch. When using
-            gradient accumulation, this is still called only once.
+        AFTER_DATALOADER: Immediately after the dataloader is called.  Typically used for on-GPU dataloader transforms.
+        BEFORE_TRAIN_BATCH: Before the forward-loss-backward computation for a training batch. When using gradient
+            accumulation, this is still called only once.
         BEFORE_FORWARD: Before the call to ``model.forward()``.
         AFTER_FORWARD: After the call to ``model.forward()``.
         BEFORE_LOSS: Before the call to ``model.loss()``.
         AFTER_LOSS: After the call to ``model.loss()``.
         BEFORE_BACKWARD: Before the call to ``loss.backward()``.
         AFTER_BACKWARD: After the call to ``loss.backward()``.
-        AFTER_TRAIN_BATCH: After the forward-loss-backward
-            computation for a training batch. When using
-            gradient accumulation, this is still called only once.
-        BATCH_END: End of a batch, which occurs after the optimizer step
-            and any gradient scaling.
+        AFTER_TRAIN_BATCH: After the forward-loss-backward computation for a training batch. When using gradient
+            accumulation, this event still fires only once.
+        BATCH_END: End of a batch, which occurs after the optimizer step and any gradient scaling.
         EPOCH_END: End of an epoch.
-        TRAINING_END: End of training. 
 
         EVAL_START: Start of evaluation through the validation dataset.
         EVAL_BATCH_START: Before the call to ``model.validate(batch)``
@@ -48,8 +73,8 @@ class Event(StringEnum):
     """
 
     INIT = "init"
+    FIT_START = "fit_start"
 
-    TRAINING_START = "training_start"
     EPOCH_START = "epoch_start"
     BATCH_START = "batch_start"
 
@@ -71,8 +96,6 @@ class Event(StringEnum):
     BATCH_END = "batch_end"
     EPOCH_END = "epoch_end"
 
-    TRAINING_END = "training_end"
-
     EVAL_START = "eval_start"
     EVAL_BATCH_START = "eval_batch_start"
     EVAL_BEFORE_FORWARD = "eval_before_forward"
@@ -82,12 +105,14 @@ class Event(StringEnum):
 
     @property
     def is_before_event(self) -> bool:
-        """Whether the event has a corresponding `after` event"""
+        """Whether the event is a 'before_*' event (e.g., :attr:`~Event.BEFORE_LOSS`) and has a corresponding 'after_*'
+        (.e.g., :attr:`~Event.AFTER_LOSS`)."""
         return self in _BEFORE_EVENTS
 
     @property
     def is_after_event(self) -> bool:
-        """Whether the event has a corresponding `before` event"""
+        """Whether the event is an 'after_*' event (e.g., :attr:`~Event.AFTER_LOSS`) and has a corresponding 'before_*'
+        (.e.g., :attr:`~Event.BEFORE_LOSS`)."""
         return self in _AFTER_EVENTS
 
     @property
@@ -95,11 +120,15 @@ class Event(StringEnum):
         """The name of the event, without before/after markers.
 
         Events that have a corresponding "before" or "after" event share the same canonical name.
+
         Example:
-            >>> Event.TRAINING_START.canonical_name == Event.TRAINING_END.canonical_name == "training"
+            >>> Event.EPOCH_START.canonical_name
+            'epoch'
+            >>> Event.EPOCH_END.canonical_name
+            'epoch'
 
         Returns:
-            str: [description]
+            str: The canonical name of the event.
         """
         name: str = self.value
         name = name.replace("before_", "")
@@ -109,8 +138,8 @@ class Event(StringEnum):
         return name
 
 
-_BEFORE_EVENTS = (Event.TRAINING_START, Event.EPOCH_START, Event.BATCH_START, Event.BEFORE_TRAIN_BATCH,
-                  Event.BEFORE_FORWARD, Event.BEFORE_LOSS, Event.BEFORE_BACKWARD, Event.EVAL_START,
-                  Event.EVAL_BATCH_START, Event.EVAL_BEFORE_FORWARD)
-_AFTER_EVENTS = (Event.TRAINING_END, Event.EPOCH_END, Event.BATCH_END, Event.AFTER_TRAIN_BATCH, Event.AFTER_FORWARD,
-                 Event.AFTER_LOSS, Event.AFTER_BACKWARD, Event.EVAL_END, Event.EVAL_BATCH_END, Event.EVAL_AFTER_FORWARD)
+_BEFORE_EVENTS = (Event.EPOCH_START, Event.BATCH_START, Event.BEFORE_TRAIN_BATCH, Event.BEFORE_FORWARD,
+                  Event.BEFORE_LOSS, Event.BEFORE_BACKWARD, Event.EVAL_START, Event.EVAL_BATCH_START,
+                  Event.EVAL_BEFORE_FORWARD)
+_AFTER_EVENTS = (Event.EPOCH_END, Event.BATCH_END, Event.AFTER_TRAIN_BATCH, Event.AFTER_FORWARD, Event.AFTER_LOSS,
+                 Event.AFTER_BACKWARD, Event.EVAL_END, Event.EVAL_BATCH_END, Event.EVAL_AFTER_FORWARD)

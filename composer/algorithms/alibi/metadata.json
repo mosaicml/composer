@@ -1,0 +1,15 @@
+{
+    "alibi": {
+        "name": "Alibi",
+        "class_name": "Alibi",
+        "functional": "apply_alibi",
+        "tldr": "Replace attention with AliBi",
+        "attribution": "(Press et al, 2021)",
+        "link": "https://arxiv.org/abs/2108.12409v1",
+        "domains": [
+            "nlp"
+        ],
+        "summary": "Encodes position information by biasing the query-key attention scores proportionally to each token pair\u2019s distance.",
+        "use": "Transformer-based NLP models"
+    }
+}

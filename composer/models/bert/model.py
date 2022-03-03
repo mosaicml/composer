@@ -8,24 +8,35 @@ from torchmetrics import Accuracy, MatthewsCorrcoef, MeanSquaredError, SpearmanC
 from torchmetrics.collections import MetricCollection
 
 from composer.models.nlp_metrics import BinaryF1Score, CrossEntropyLoss, MaskedAccuracy
-from composer.models.transformer_shared import MosaicTransformer
+from composer.models.transformer_shared import ComposerTransformer
 
 if TYPE_CHECKING:
     import transformers
 
     from composer.core.types import Batch, BatchDict, Metrics, Tensors
 
+__all__ = ["BERTModel"]
 
-class BERTModel(MosaicTransformer):
-    """
-    Implements a BERT wrapper around a MosaicTransformer.
+
+class BERTModel(ComposerTransformer):
+    """Implements a BERT wrapper around a ComposerTransformer.
+
+    See this `paper <https://arxiv.org/abs/1810.04805>`_
+    for details on the BERT architecutre.
+
+    Args:
+        module (transformers.BertModel): The model to wrap with this module.
+        config (transformers.BertConfig): The config for the model.
+        tokenizer (transformers.BertTokenizer): The tokenizer used for this model,
+            necessary to assert required model inputs.
     """
 
-    def __init__(self, module: transformers.BertModel, config: transformers.BertConfig, tokenizer_name: str) -> None:
+    def __init__(self, module: transformers.BertModel, config: transformers.BertConfig,
+                 tokenizer: transformers.BertTokenizer) -> None:
         super().__init__(
             module=module,  #type: ignore (thirdparty)
             config=config,
-            tokenizer_name=tokenizer_name)
+            tokenizer=tokenizer)
 
         # we're going to remove the label from the expected inputs
         # since we will handle metric calculation with TorchMetrics instead of HuggingFace.
@@ -85,7 +96,7 @@ class BERTModel(MosaicTransformer):
 
         Args:
             batch (BatchDict): a dictionary of Dict[str, Tensor] of inputs
-                that the model expects, as found in MosaicTransformer.get_model_inputs().
+                that the model expects, as found in ComposerTransformer.get_model_inputs().
 
         Returns:
             A tuple of (Tensor, Tensor) with the output from the forward pass and the correct labels.

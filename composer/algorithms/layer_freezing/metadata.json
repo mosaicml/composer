@@ -1,0 +1,16 @@
+{
+    "layer_freezing": {
+        "name": "Layer Freezing",
+        "class_name": "LayerFreezing",
+        "functional": "freeze_layers",
+        "tldr": "Progressively freezes layers during training.",
+        "attribution": "Many (Raghu et al, 2017)",
+        "link": "https://arxiv.org/abs/1706.05806",
+        "domains": [
+            "cv",
+            "nlp"
+        ],
+        "summary": "Layer Freezing gradually makes early modules not trainable (\u201cfreezing\u201d them), saving the cost of backpropagating to and updating frozen modules.",
+        "use": "Generally applicable"
+    }
+}

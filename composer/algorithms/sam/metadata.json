@@ -1,0 +1,14 @@
+{
+    "sam": {
+        "name": "SAM",
+        "class_name": "SAM",
+        "functional": "",
+        "tldr": "SAM optimizer measures sharpness of optimization space",
+        "attribution": "(Foret et al, 2021)",
+        "link": "https://arxiv.org/abs/2010.01412",
+        "domains": [
+            "cv"
+        ],
+        "summary": "Sharpness Aware Minimization, an optimizer."
+    }
+}

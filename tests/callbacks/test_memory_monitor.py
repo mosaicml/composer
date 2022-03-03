@@ -11,27 +11,27 @@ from composer.trainer.devices import DeviceGPU
 from composer.trainer.devices.device_hparams import GPUDeviceHparams
 
 
-def _do_trainer_fit(mosaic_trainer_hparams: TrainerHparams, testing_with_gpu: bool = False):
+def _do_trainer_fit(composer_trainer_hparams: TrainerHparams, testing_with_gpu: bool = False):
     memory_monitor_hparams = MemoryMonitorHparams()
-    mosaic_trainer_hparams.callbacks.append(memory_monitor_hparams)
+    composer_trainer_hparams.callbacks.append(memory_monitor_hparams)
 
     max_epochs = 1
-    mosaic_trainer_hparams.max_duration = f"{max_epochs}ep"
+    composer_trainer_hparams.max_duration = f"{max_epochs}ep"
 
-    mosaic_trainer_hparams.train_batch_size = 50
+    composer_trainer_hparams.train_batch_size = 50
 
-    trainer = mosaic_trainer_hparams.initialize_object()
+    trainer = composer_trainer_hparams.initialize_object()
 
     # Default model uses CPU
     if testing_with_gpu:
-        trainer.device = DeviceGPU()
+        trainer._device = DeviceGPU()
 
     log_destination = MagicMock()
     log_destination.will_log.return_value = True
     trainer.logger.backends = [log_destination]
     trainer.fit()
 
-    num_train_steps = mosaic_trainer_hparams.train_subset_num_batches
+    num_train_steps = composer_trainer_hparams.train_subset_num_batches
     assert isinstance(num_train_steps, int)
 
     expected_calls = num_train_steps * max_epochs
@@ -40,12 +40,12 @@ def _do_trainer_fit(mosaic_trainer_hparams: TrainerHparams, testing_with_gpu: bo
 
 
 @pytest.mark.timeout(60)
-def test_memory_monitor_cpu(mosaic_trainer_hparams: TrainerHparams):
-    log_destination, _ = _do_trainer_fit(mosaic_trainer_hparams, testing_with_gpu=False)
+def test_memory_monitor_cpu(composer_trainer_hparams: TrainerHparams):
+    log_destination, _ = _do_trainer_fit(composer_trainer_hparams, testing_with_gpu=False)
 
     memory_monitor_called = False
     for log_call in log_destination.log_metric.mock_calls:
-        metrics = log_call[1][3]
+        metrics = log_call[1][2]
         if "memory/alloc_requests" in metrics:
             if metrics["memory/alloc_requests"] > 0:
                 memory_monitor_called = True
@@ -55,15 +55,16 @@ def test_memory_monitor_cpu(mosaic_trainer_hparams: TrainerHparams):
 
 @pytest.mark.timeout(60)
 @pytest.mark.gpu
-def test_memory_monitor_gpu(mosaic_trainer_hparams: TrainerHparams):
+def test_memory_monitor_gpu(composer_trainer_hparams: TrainerHparams):
     n_cuda_devices = device_count()
-    mosaic_trainer_hparams.device = GPUDeviceHparams()
+    composer_trainer_hparams.device = GPUDeviceHparams()
     if n_cuda_devices > 0:
-        log_destination, expected_calls = _do_trainer_fit(mosaic_trainer_hparams, testing_with_gpu=True)
+        log_destination, expected_calls = _do_trainer_fit(composer_trainer_hparams, testing_with_gpu=True)
 
         num_memory_monitor_calls = 0
+
         for log_call in log_destination.log_metric.mock_calls:
-            metrics = log_call[1][3]
+            metrics = log_call[1][2]
             if "memory/alloc_requests" in metrics:
                 if metrics["memory/alloc_requests"] > 0:
                     num_memory_monitor_calls += 1

@@ -1,0 +1,1 @@
+../../../composer/algorithms/progressive_resizing/README.md

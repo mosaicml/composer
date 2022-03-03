@@ -1,12 +1,12 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
 import torch
-
-from composer.models.resnets import Bottleneck
+from torchvision.models.resnet import Bottleneck
 
 
 def _sample_drop(x: torch.Tensor, sample_drop_rate: float, is_training: bool):
     """Randomly drops samples from the input batch according to the `sample_drop_rate`.
+
     This is implemented by setting the samples to be dropped to zeros.
     """
 
@@ -55,7 +55,7 @@ class SampleStochasticBottleneck(Bottleneck):
         if self.downsample is not None:
             identity = self.downsample(x)
 
-        if self.training and self.drop_rate:
+        if self.drop_rate:
             out = _sample_drop(out, self.drop_rate, self.training)
         out += identity
 

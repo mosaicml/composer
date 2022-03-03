@@ -1,11 +1,23 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
+"""Utilities to track training progress in terms of epochs, batches, samples, and tokens.
+
+Callbacks, algorithms, and schedulers can use the current training time to fire at certain points in the training
+process.
+
+The :class:`~.time.Timer` class tracks the total number of epochs, batches, samples, and tokens. The trainer is
+responsible for updating it at the end of every epoch and batch.  There is only one instance of the
+:class:`~.time.Timer`, which is attached to the :class:`~.state.State`.
+
+The :class:`~.time.Time` class represents static durations of training time or points in the training process in terms
+of a specific :class:`~.time.TimeUnit` enum. This class supports comparisons, arithmetic, and conversions.
+"""
 from __future__ import annotations
 
 import re
 import textwrap
 import warnings
-from typing import TYPE_CHECKING, Generic, TypeVar, Union, cast
+from typing import TYPE_CHECKING, Generic, NamedTuple, TypeVar, Union, cast
 
 from composer.core.serializable import Serializable
 from composer.utils.string_enum import StringEnum
@@ -13,13 +25,15 @@ from composer.utils.string_enum import StringEnum
 if TYPE_CHECKING:
     from composer.core.types import StateDict
 
+__all__ = ["TimeUnit", "Time", "Timer", "Timestamp"]
+
 
 class TimeUnit(StringEnum):
-    """Units of time for the training process.
+    """Enum class to represent units of time for the training process.
 
     Attributes:
         EPOCH (str): Epochs.
-        BATCH (str): Batchs (i.e. number of optimization steps)
+        BATCH (str): Batches (i.e. number of optimization steps)
         SAMPLE (str): Samples.
         TOKEN (str): Tokens. Applicable for natural language processing (NLP) models.
         DURATION (str): Fraction of the training process complete, on ``[0.0, 1.0)``
@@ -31,7 +45,8 @@ class TimeUnit(StringEnum):
     DURATION = "dur"
 
 
-_NUM_REGEX = r'-?[\d.]+(?:e-?\d+)?'  # regex for parsing integers / decimals / scientific notation
+# regex for parsing integers / decimals / scientific notation
+_NUM_REGEX = r'-?[\d.]+(?:e-?\d+)?'
 
 # regex for parsing a time string.
 _TIME_STR_REGEX = re.compile(r'^(?:' + r'|'.join(fr"(?:({_NUM_REGEX})({time_unit.value}))" for time_unit in TimeUnit) +
@@ -42,47 +57,56 @@ TValue = TypeVar("TValue", int, float)
 
 
 class Time(Generic[TValue]):
-    """Time represents static durations of training time or points in the training process in terms of a 
+    """Time represents static durations of training time or points in the training process in terms of a
     :class:`TimeUnit` enum (epochs, batches, samples, tokens, or duration).
 
     To construct an instance of :class:`Time`, you can either:
-        
-        #. Use a value followed by a :class:`TimeUnit` enum or string. For example,
 
-            >>> Time(5, TimeUnit.EPOCH)  # describes 5 epochs.
-            >>> Time(3e4, "tok")  # describes 30,000 tokens.
-            >>> Time(0.5, "dur")  # describes 50% of the training process.
+    #. Use a value followed by a :class:`TimeUnit` enum or string. For example,
 
-        #. Use one of the helper methods. See:
+    >>> Time(5, TimeUnit.EPOCH)  # describes 5 epochs.
+    Time(5, TimeUnit.EPOCH)
+    >>> Time(30_000, "tok")  # describes 30,000 tokens.
+    Time(30000, TimeUnit.TOKEN)
+    >>> Time(0.5, "dur")  # describes 50% of the training process.
+    Time(0.5, TimeUnit.DURATION)
 
-            - :meth:`Time.from_epoch`
-            - :meth:`Time.from_batch`
-            - :meth:`Time.from_sample`
-            - :meth:`Time.from_token`
-            - :meth:`Time.from_duration`
-            - :meth:`Time.from_timestring`.
+    #. Use one of the helper methods. See:
+
+    - :meth:`Time.from_epoch`
+    - :meth:`Time.from_batch`
+    - :meth:`Time.from_sample`
+    - :meth:`Time.from_token`
+    - :meth:`Time.from_duration`
+    - :meth:`Time.from_timestring`.
 
     :class:`Time` supports addition and subtraction with other :class:`Time` instances that share the same
     :class:`TimeUnit`. For example:
 
-    >>> Time(1, TimeUnit.EPOCH) + Time(2, TimeUnit.EPOCH) == Time(3, TimeUnit.EPOCH)
+    >>> Time(1, TimeUnit.EPOCH) + Time(2, TimeUnit.EPOCH)
+    Time(3, TimeUnit.EPOCH)
 
     :class:`Time` supports multiplication. The multiplier must be either a number or have units of
     :attr:`TimeUnit.DURATION`. The multiplicand is scaled, and its units are kept.
 
-    >>> Time(2, TimeUnit.EPOCH) * 0.5 == Time(1, TimeUnit.EPOCH)
-    >>> Time(2, TimeUnit.EPOCH) * Time(0.5, TimeUnit.DURATION) == Time(1, TimeUnit.EPOCH)
+    >>> Time(2, TimeUnit.EPOCH) * 0.5
+    Time(1, TimeUnit.EPOCH)
+
+    >>> Time(2, TimeUnit.EPOCH) * Time(0.5, TimeUnit.DURATION)
+    Time(1, TimeUnit.EPOCH)
 
 
     :class:`Time` supports division. If the divisor is an instance of :class:`Time`, then it
     must have the same units as the dividend, and the result has units of :attr:`TimeUnit.DURATION`.
     For example:
 
-    >>> Time(4, TimeUnit.EPOCH) / Time(2, TimeUnit.EPOCH) == Time(2.0, TimeUnit.DURATION)
+    >>> Time(4, TimeUnit.EPOCH) / Time(2, TimeUnit.EPOCH)
+    Time(2.0, TimeUnit.DURATION)
 
     If the divisor is number, then the dividend is scaled, and it keeps its units. For example:
 
-    >>> Time(4, TimeUnit.EPOCH) / 2 == Time(2, TimeUnit.EPOCH)
+    >>> Time(4, TimeUnit.EPOCH) / 2
+    Time(2, TimeUnit.EPOCH)
 
     Args:
         value (int or float): The amount of time.
@@ -104,8 +128,7 @@ class Time(Generic[TValue]):
 
     @classmethod
     def from_epoch(cls, epoch: int) -> Time:
-        """Create a :class:`Time` with units of :attr:`TimeUnit.EPOCH`.
-        Equivalent to ``Time(epoch, TimeUnit.EPOCH)``.
+        """Create a :class:`Time` with units of :attr:`TimeUnit.EPOCH`. Equivalent to ``Time(epoch, TimeUnit.EPOCH)``.
 
         Args:
             epoch (int): Number of epochs.
@@ -117,8 +140,7 @@ class Time(Generic[TValue]):
 
     @classmethod
     def from_batch(cls, batch: int) -> Time:
-        """Create a :class:`Time` with units of :attr:`TimeUnit.BATCH`.
-        Equivalent to ``Time(batch, TimeUnit.BATCH)``.
+        """Create a :class:`Time` with units of :attr:`TimeUnit.BATCH`. Equivalent to ``Time(batch, TimeUnit.BATCH)``.
 
         Args:
             batch (int): Number of batches.
@@ -130,8 +152,8 @@ class Time(Generic[TValue]):
 
     @classmethod
     def from_sample(cls, sample: int) -> Time:
-        """Create a :class:`Time` with units of :attr:`TimeUnit.SAMPLE`.
-        Equivalent to ``Time(sample, TimeUnit.SAMPLE)``.
+        """Create a :class:`Time` with units of :attr:`TimeUnit.SAMPLE`. Equivalent to ``Time(sample,
+        TimeUnit.SAMPLE)``.
 
         Args:
             sample (int): Number of samples.
@@ -143,8 +165,7 @@ class Time(Generic[TValue]):
 
     @classmethod
     def from_token(cls, token: int) -> Time:
-        """Create a :class:`Time` with units of :attr:`TimeUnit.TOKEN`.
-        Equivalent to ``Time(sample, TimeUnit.TOKEN)``.
+        """Create a :class:`Time` with units of :attr:`TimeUnit.TOKEN`. Equivalent to ``Time(sample, TimeUnit.TOKEN)``.
 
         Args:
             token (int): Number of tokens.
@@ -156,8 +177,8 @@ class Time(Generic[TValue]):
 
     @classmethod
     def from_duration(cls, duration: float) -> Time:
-        """Create a :class:`Time` with units of :attr:`TimeUnit.DURATION`.
-        Equivalent to ``Time(duration, TimeUnit.DURATION)``.
+        """Create a :class:`Time` with units of :attr:`TimeUnit.DURATION`. Equivalent to ``Time(duration,
+        TimeUnit.DURATION)``.
 
         Args:
             duration (float): Duration of the training process. Should be on ``[0, 1)``
@@ -182,6 +203,22 @@ class Time(Generic[TValue]):
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}({self.value}, {self.unit})"
 
+    def __str__(self) -> str:
+        return f"{self.value}{self.unit.value}"
+
+    def to_timestring(self):
+        """Get the time-string representation.
+
+        For example:
+
+        >>> Time(5, TimeUnit.EPOCH).to_timestring()
+        '5ep'
+
+        Returns:
+            str: The time-string representation.
+        """
+        return str(self)
+
     def _parse(self, other: object) -> Time:
         # parse ``other`` into a Time object
         if isinstance(other, Time):
@@ -189,9 +226,10 @@ class Time(Generic[TValue]):
         if isinstance(other, str):
             other_parsed = Time.from_timestring(other)
             warnings.warn(
-                textwrap.dedent(f"""TimeImplicitStringConversion:
-                Implicitly converting {other} to {other_parsed}.
-                To fix this warning, replace {other} with {other_parsed}."""))
+                textwrap.dedent(f"""\
+                    TimeImplicitStringConversion:
+                    Implicitly converting {other} to {other_parsed}.
+                    To fix this warning, replace {other} with {other_parsed}."""))
             return other_parsed
 
         raise NotImplementedError(f"Cannot convert type {other} to {self.__class__.__name__}")
@@ -283,14 +321,20 @@ class Time(Generic[TValue]):
     def __rmul__(self, other: object):
         return self * other
 
+    def __hash__(self):
+        return hash((self.value, self.unit))
+
     @classmethod
     def from_timestring(cls, timestring: str) -> Time:
-        """Parse a time string into a :class:`Time` instance.
-        A time string is a numerical value followed by the value of a :class:`TimeUnit` enum. For example:
+        """Parse a time string into a :class:`Time` instance. A time string is a numerical value followed by the value
+        of a :class:`TimeUnit` enum. For example:
 
-        >>> Time("5ep")  # describes 5 epochs.
-        >>> Time("3e4tok")  # describes 30,000 tokens.
-        >>> Time("0.5dur")  # describes 50% of the training process.
+        >>> Time.from_timestring("5ep")  # describes 5 epochs.
+        Time(5, TimeUnit.EPOCH)
+        >>> Time.from_timestring("3e4tok")  # describes 30,000 tokens.
+        Time(30000, TimeUnit.TOKEN)
+        >>> Time.from_timestring("0.5dur")  # describes 50% of the training process.
+        Time(0.5, TimeUnit.DURATION)
 
         Returns:
             Time: An instance of :class:`Time`.
@@ -402,7 +446,7 @@ class Timer(Serializable):
         .. note::
 
             For accurate time tracking, the trainer is responsible for accumulating the total number of
-            samples and/or tokens trained across all ranks before invoking this function. 
+            samples and/or tokens trained across all ranks before invoking this function.
 
         Args:
             samples (int or Time, optional): The number of samples trained in the batch. Defaults to 0.
@@ -433,9 +477,10 @@ class Timer(Serializable):
         if isinstance(other, str):
             other_parsed = Time.from_timestring(other)
             warnings.warn(
-                textwrap.dedent(f"""TimeImplicitStringConversion:
-                Implicitly converting {other} to {other_parsed}.
-                To fix this warning, replace {other} with {other_parsed}."""))
+                textwrap.dedent(f"""\
+                    TimeImplicitStringConversion:
+                    Implicitly converting {other} to {other_parsed}.
+                    To fix this warning, replace {other} with {other_parsed}."""))
             return other_parsed
 
         raise NotImplementedError(f"Cannot convert type {other} to {self.__class__.__name__}")
@@ -473,3 +518,54 @@ class Timer(Serializable):
         other = self._parse(other)
         self_counter = self.get(other.unit)
         return self_counter >= other
+
+    def get_timestamp(self):
+        """Returns a snapshot of the current time.
+
+        Unlike the :class:`Timer`, the values in a :class:`Timestamp` are a snapshot and are NOT incremented as
+        training progresses.
+
+        Returns:
+            Timestamp: A snapshot of the current training time.
+        """
+        return Timestamp(
+            epoch=self.epoch,
+            batch=self.batch,
+            batch_in_epoch=self.batch_in_epoch,
+            sample=self.sample,
+            sample_in_epoch=self.sample_in_epoch,
+            token=self.token,
+            token_in_epoch=self.token_in_epoch,
+        )
+
+
+class Timestamp(NamedTuple):
+    """Timestamp represents a snapshot of :class:`Timer`.
+
+    It is returned from a call to :meth:`Timer.get_timestamp`.
+
+    Unlike the :class:`Timer`, the values in a :class:`Timestamp` are a snapshot and are NOT incremented as training
+    progresses.
+
+    See the :doc:`Time Guide </trainer/time>` for more details on tracking time during training.
+
+    .. note::
+
+        :class:`Timestamp` should not be instantiated directly; instead use :meth:`Timer.get_timestamp`.
+
+    Attributes:
+        epoch (Time[int]): epoch at a snapshot.
+        batch (Time[int]): batch at a snapshot.
+        batch_in_epoch (Time[int]): The number of batches seen in the epoch at a snapshot.
+        sample (Time[int]): sample at a snapshot.
+        sample_in_epoch (Time[int]): The number of samples seen in the epoch at a snapshot.
+        token (Time[int]): token at a snapshot.
+        token_in_epoch (Time[int]): The number of tokens seen in the epoch at a snapshot.
+    """
+    epoch: Time[int]
+    batch: Time[int]
+    batch_in_epoch: Time[int]
+    sample: Time[int]
+    sample_in_epoch: Time[int]
+    token: Time[int]
+    token_in_epoch: Time[int]

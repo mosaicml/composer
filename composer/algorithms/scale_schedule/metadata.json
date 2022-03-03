@@ -1,0 +1,13 @@
+{
+    "scale_schedule": {
+        "name": "Scale Schedule",
+        "class_name": "ScaleSchedule",
+        "functional": "",
+        "tldr": "Scale the learning rate schedule by a factor",
+        "attribution": "Many",
+        "link": "https://www.mosaicml.com",
+        "domains": [],
+        "summary": "Changes the number of training steps by a dilation factor and dilating learning rate changes accordingly.",
+        "use": "Generally applicable"
+    }
+}

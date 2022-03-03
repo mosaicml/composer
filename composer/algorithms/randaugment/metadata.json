@@ -1,0 +1,15 @@
+{
+    "randaugment": {
+        "name": "RandAugment",
+        "class_name": "RandAugment",
+        "functional": "randaugment_image",
+        "tldr": "Applies a series of random augmentations",
+        "attribution": "(Cubuk et al, 2020)",
+        "link": "https://openaccess.thecvf.com/content_CVPRW_2020/html/w40/Cubuk_Randaugment_Practical_Automated_Data_Augmentation_With_a_Reduced_Search_Space_CVPRW_2020_paper.html",
+        "domains": [
+            "cv"
+        ],
+        "summary": "Randomly samples image augmentations from a set of augmentations and applies them sequentially with random intensity.",
+        "use": "Computer vision tasks"
+    }
+}

@@ -25,6 +25,8 @@ from composer.datasets.synthetic import SyntheticBatchPairDataset
 from composer.datasets.webdataset import load_webdataset, size_webdataset
 from composer.utils import dist
 
+__all__ = ["SyntheticHparamsMixin", "DatasetHparams"]
+
 
 @dataclass
 class SyntheticHparamsMixin(hp.Hparams, abc.ABC):
@@ -64,7 +66,8 @@ class DatasetHparams(hp.Hparams, abc.ABC, metaclass=metaclass):
     """
 
     is_train: bool = hp.optional("Whether to load the training data (the default) or validation data.", default=True)
-    drop_last: bool = hp.optional(textwrap.dedent("""If the number of samples is not divisible by the batch size,
+    drop_last: bool = hp.optional(textwrap.dedent("""\
+        If the number of samples is not divisible by the batch size,
         whether to drop the last batch (the default) or pad the last batch with zeros."""),
                                   default=True)
     shuffle: bool = hp.optional("Whether to shuffle the dataset for each epoch. Defaults to True.", default=True)

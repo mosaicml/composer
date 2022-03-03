@@ -70,6 +70,7 @@ instance/
 
 # Sphinx documentation
 docs/_build/
+docs/path/
 docs/source/_build/
 # PyBuilder
 target/
@@ -149,7 +150,7 @@ README.md.bkp
 .DS_Store
 
 # Sphinx
-generated/
+api_reference/
 
 # Run directory
 runs/

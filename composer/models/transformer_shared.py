@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING, Mapping, Tuple
 
-from composer.models.base import BaseMosaicModel
+from composer.models.base import ComposerModel
 from composer.models.nlp_metrics import LanguageCrossEntropyLoss
 
 if TYPE_CHECKING:
@@ -16,7 +16,7 @@ if TYPE_CHECKING:
 log = logging.getLogger(__name__)
 
 
-class MosaicTransformer(BaseMosaicModel):
+class ComposerTransformer(ComposerModel):
     """Implements the base logic that all Transformers can build on top of.
 
     Works with `Hugging Face Transformers <https://huggingface.co/transformers/>`_.
@@ -26,21 +26,19 @@ class MosaicTransformer(BaseMosaicModel):
             contains the forward pass function.
         config (transformers.PretrainedConfig): The PretrainedConfig object that
             stores information about the model hyperparameters.
-        tokenizer_name (str): The name of the tokenizer used for this model,
+        tokenizer (transformers.PreTrainedTokenizer): The tokenizer used for this model,
             necessary to assert required model inputs.
     """
 
     def __init__(self,
                  module: transformers.PreTrainedModel,
                  config: transformers.PretrainedConfig,
-                 tokenizer_name: str,
+                 tokenizer: transformers.PreTrainedTokenizer,
                  gradient_checkpointing: bool = False) -> None:
         super().__init__()
-        import transformers
-
         self.module = module
         self.config = config
-        self.tokenizer = transformers.AutoTokenizer.from_pretrained(tokenizer_name)
+        self.tokenizer = tokenizer
         log.info("Number of parameters in the model: " \
                  f"{sum(p.numel() for p in module.parameters()):,}")  # type: ignore (thirdparty)
         log.info("Number of trainable parameters in the model: "
@@ -86,7 +84,7 @@ class MosaicTransformer(BaseMosaicModel):
 
         Args:
             batch (Batch): A dictionary of Dict[str, Tensor] of inputs that the
-                model expects, as found in MosaicTransformer.get_model_inputs().
+                model expects, as found in ComposerTransformer.get_model_inputs().
 
         Returns:
             A dictionary of model outputs as a ``Mapping``. It will include the loss
@@ -126,7 +124,7 @@ class MosaicTransformer(BaseMosaicModel):
 
         Args:
             batch (Batch): a dictionary of Dict[str, Tensor] of inputs
-                that the model expects, as found in MosaicTransformer.get_model_inputs().
+                that the model expects, as found in ComposerTransformer.get_model_inputs().
 
         Returns:
             Tuple[Mapping, None]: A tuple containing the output from the forward pass.

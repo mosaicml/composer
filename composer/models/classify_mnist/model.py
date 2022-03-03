@@ -6,12 +6,15 @@ import torch
 import torch.nn as nn
 from torch.nn import functional as F
 
-from composer.models.base import MosaicClassifier
+from composer.models.base import ComposerClassifier
 from composer.models.model_hparams import Initializer
 
 
 class Model(nn.Module):
-    """Toy classifier for MNIST. Should not be used to evaluate any method."""
+    """Toy classifier for MNIST.
+
+    Should not be used to evaluate any method.
+    """
 
     def __init__(self, initializers: Sequence[Union[str, Initializer]], outputs: int):
         super().__init__()
@@ -41,8 +44,8 @@ class Model(nn.Module):
         return self.fc2(out)
 
 
-class MNIST_Classifier(MosaicClassifier):
-    """A simple convolutional neural network.
+class MNIST_Classifier(ComposerClassifier):
+    """A simple convolutional neural network extending :class:`ComposerClassifier`.
 
     :class:`composer.models.MNIST_Classifier` is a simple example
     convolutional neural network which can be used to classify MNIST data.

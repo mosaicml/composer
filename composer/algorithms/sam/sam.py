@@ -3,46 +3,29 @@
 from __future__ import annotations
 
 import logging
-from dataclasses import asdict, dataclass
 from typing import Optional
 
 import torch
-import yahp as hp
 
-from composer.algorithms import AlgorithmHparams
 from composer.core import Algorithm, Event, Logger, State
 from composer.utils import ensure_tuple
 
 log = logging.getLogger(__name__)
 
 
-@dataclass
-class SAMHparams(AlgorithmHparams):
-    """See :class:`SAM`"""
-    rho: float = hp.optional(doc='The neighborhood size parameter of SAM. Must be greater than 0.', default=0.05)
-    epsilon: float = hp.optional(doc='A small value added to gradient norm for numerical stability.', default=1.0e-12)
-    interval: int = hp.optional(doc='SAM will run once per `interval` steps. A value of 1 will cause'
-                                'SAM to run every step. Steps on which SAM runs take roughly twice'
-                                'as much time to complete.',
-                                default=1)
-
-    def initialize_object(self) -> SAM:
-        return SAM(**asdict(self))
-
-
 class SAMOptimizer(torch.optim.Optimizer):
-    """Wraps an optimizer with sharpness-aware minimization (`Foret et al. 2020 <https://arxiv.org/abs/2010.01412>`_). See :class:`SAM` for details.
+    """Wraps an optimizer with sharpness-aware minimization (`Foret et al, 2020 <https://arxiv.org/abs/2010.01412>`_).
+    See :class:`SAM` for details.
 
-    Implementation based on https://github.com/davda54/sam"""
+    Implementation based on https://github.com/davda54/sam
+    """
 
-    # TODO(license) code linked above is MIT license
-
-    def __init__(self, base_optimizer, rho, epsilon, interval, **kwargs):
+    def __init__(self, base_optimizer, rho: float = 0.05, epsilon: float = 1.0e-12, interval: int = 1, **kwargs):
         assert rho >= 0.0, f"Invalid rho, should be non-negative: {rho}"
         self.base_optimizer = base_optimizer
         self.global_step = 0
         self.interval = interval
-        self._step_supports_amp_closure = True  # Flag for Mosaic trainer
+        self._step_supports_amp_closure = True  # Flag for Composer trainer
         defaults = dict(rho=rho, epsilon=epsilon, **kwargs)
         super(SAMOptimizer, self).__init__(self.base_optimizer.param_groups, defaults)
 
@@ -83,7 +66,8 @@ class SAMOptimizer(torch.optim.Optimizer):
         loss = None
 
         if (self.global_step + 1) % self.interval == 0:
-            loss = closure(ddp_sync=False)  # Compute gradient at (w) per-GPU, and do not sync
+            # Compute gradient at (w) per-GPU, and do not sync
+            loss = closure(ddp_sync=False)  # type: ignore
             if loss:
                 self.first_step()  # Compute e(w) and set weights to (w + (e(w)) separately per-GPU
                 if closure():  # Compute gradient at (w + e(w))
@@ -101,12 +85,13 @@ class SAMOptimizer(torch.optim.Optimizer):
     def _grad_norm(self):
         norm = torch.norm(torch.stack(
             [p.grad.norm(p=2) for group in self.param_groups for p in group["params"] if p.grad is not None]),
-                          p=2)
+                          p="fro")
         return norm
 
 
 class SAM(Algorithm):
-    """Adds sharpness-aware minimization (`Foret et al. 2020 <https://arxiv.org/abs/2010.01412>`_) by wrapping an existing optimizer with a :class:`SAMOptimizer`.
+    """Adds sharpness-aware minimization (`Foret et al, 2020 <https://arxiv.org/abs/2010.01412>`_) by wrapping an
+    existing optimizer with a :class:`SAMOptimizer`.
 
     Args:
         rho: The neighborhood size parameter of SAM. Must be greater than 0.
@@ -122,25 +107,25 @@ class SAM(Algorithm):
         epsilon: float = 1.0e-12,
         interval: int = 1,
     ):
-        """
-        __init__ is constructed from the same fields as in hparams.
-        """
-        self.hparams = SAMHparams(rho=rho, epsilon=epsilon, interval=interval)
+        """__init__ is constructed from the same fields as in hparams."""
+        self.rho = rho
+        self.epsilon = epsilon
+        self.interval = interval
 
     def match(self, event: Event, state: State) -> bool:
-        """Run on Event.TRAINING_START
-        
+        """Run on Event.INIT.
+
         Args:
             event (:class:`Event`): The current event.
             state (:class:`State`): The current state.
         Returns:
             bool: True if this algorithm should run now
         """
-        return event == Event.TRAINING_START
+        return event == Event.INIT
 
     def apply(self, event: Event, state: State, logger: Optional[Logger]) -> Optional[int]:
-        """Applies SAM by wrapping the base optimizer with the SAM optimizer
-        
+        """Applies SAM by wrapping the base optimizer with the SAM optimizer.
+
         Args:
             event (Event): the current event
             state (State): the current trainer state
@@ -151,7 +136,7 @@ class SAM(Algorithm):
         state.optimizers = tuple(
             SAMOptimizer(
                 base_optimizer=optimizer,
-                rho=self.hparams.rho,
-                epsilon=self.hparams.epsilon,
-                interval=self.hparams.interval,
+                rho=self.rho,
+                epsilon=self.epsilon,
+                interval=self.interval,
             ) for optimizer in ensure_tuple(state.optimizers))

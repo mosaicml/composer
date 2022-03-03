@@ -1,4 +1,4 @@
-# Squeeze-and-Excitation
+# 🫀 Squeeze-and-Excitation
 
 Tags: `ConvNets`, `Decreased GPU Throughput`, `Increased Accuracy`, `Method`, `Capacity`
 
@@ -56,13 +56,11 @@ Because SE modules slow down the model, they compose well with methods that make
 .. autoclass:: composer.algorithms.squeeze_excite.SqueezeExcite
     :members: match, apply
     :noindex:
-.. autoclass:: composer.algorithms.squeeze_excite.SqueezeExciteHparams
-    :noindex:
 
 .. autoclass:: composer.algorithms.squeeze_excite.SqueezeExcite2d
     :noindex:
 .. autoclass:: composer.algorithms.squeeze_excite.SqueezeExciteConv2d
     :noindex:
-.. autofunction:: composer.algorithms.squeeze_excite.apply_se
+.. autofunction:: composer.algorithms.squeeze_excite.apply_squeeze_excite
     :noindex:
 ```

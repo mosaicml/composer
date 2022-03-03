@@ -1,0 +1,15 @@
+{
+    "cutout": {
+        "name": "CutOut",
+        "class_name": "CutOut",
+        "functional": "cutout_batch",
+        "tldr": "Randomly erases rectangular blocks from the image.",
+        "attribution": "(DeVries et al, 2017)",
+        "link": "https://arxiv.org/abs/1708.04552",
+        "domains": [
+            "cv"
+        ],
+        "summary": "Masks out one or more square regions of an input image.",
+        "use": "Computer vision tasks"
+    }
+}

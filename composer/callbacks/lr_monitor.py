@@ -1,13 +1,38 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
+"""Monitor learning rate during training."""
 from composer.core import Callback, Logger, State
+
+__all__ = ["LRMonitor"]
 
 
 class LRMonitor(Callback):
     """Logs the learning rate.
 
-    Learning rates for each optimizer is logged on each batch
-    under the ``lr-{OPTIMIZER_NAME}/group{GROUP_NUMBER}`` key.
+    This callback iterates over all optimizers and their parameter groups to log learning rate under the
+    ``lr-{OPTIMIZER_NAME}/group{GROUP_NUMBER}`` key.
+
+    Example
+       >>> # constructing trainer object with this callback
+       >>> trainer = Trainer(
+       ...     model=model,
+       ...     train_dataloader=train_dataloader,
+       ...     eval_dataloader=eval_dataloader,
+       ...     optimizers=optimizer,
+       ...     max_duration="1ep",
+       ...     callbacks=[callbacks.LRMonitor()],
+       ... )
+
+    The learning rate is logged by the :class:`~composer.core.logging.logger.Logger` to the following key as described
+    below.
+
+    +---------------------------------------------+---------------------------------------+
+    | Key                                         | Logged data                           |
+    +=============================================+=======================================+
+    |                                             | Learning rate for each optimizer and  |
+    | ``lr-{OPTIMIZER_NAME}/group{GROUP_NUMBER}`` | parameter group for that optimizer is |
+    |                                             | logged to a separate key              |
+    +---------------------------------------------+---------------------------------------+
     """
 
     def __init__(self) -> None:

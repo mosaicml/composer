@@ -18,8 +18,8 @@ from composer.datasets.hparams import DatasetHparams, SyntheticHparamsMixin, Web
 from composer.datasets.imagenet import IMAGENET_CHANNEL_MEAN, IMAGENET_CHANNEL_STD
 from composer.datasets.synthetic import SyntheticBatchPairDataset
 from composer.datasets.webdataset import load_webdataset, size_webdataset
+from composer.datasets.utils import NormalizationFn, pil_image_collate
 from composer.utils import dist
-from composer.utils.data import NormalizationFn, pil_image_collate
 
 
 class RandomResizePair(torch.nn.Module):
@@ -252,7 +252,6 @@ class ADE20kDatasetHparams(DatasetHparams, SyntheticHparamsMixin):
         final_size (int): the final size of the image and target. Default is 512.
         ignore_background (bool): if true, ignore the background class when calculating the training loss.
             Default is true.
-
     """
 
     split: str = hp.optional("Which split of the dataset to use. Either ['train', 'val', 'test']", default='train')

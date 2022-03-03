@@ -1,0 +1,16 @@
+{
+    "swa": {
+        "name": "SWA",
+        "class_name": "SWA",
+        "functional": "",
+        "tldr": "Computes running average of model weights.",
+        "attribution": "(Izmailov et al, 2018)",
+        "link": "https://arxiv.org/abs/1803.05407",
+        "domains": [
+            "cv",
+            "nlp"
+        ],
+        "summary": "Maintains a running average of the weights towards the end of training.",
+        "use": "Generally applicable"
+    }
+}

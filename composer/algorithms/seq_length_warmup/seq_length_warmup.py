@@ -1,38 +1,61 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
-from dataclasses import asdict, dataclass
+"""Core code for sequence length warmup."""
+
+import textwrap
+from math import ceil
 from typing import Dict, Mapping, Optional
 
 import torch
-import yahp as hp
 
-from composer.algorithms import AlgorithmHparams
+from composer.core.time import TimeUnit
 from composer.core.types import Algorithm, Batch, Event, Logger, State, Tensor
-from composer.models.transformer_shared import MosaicTransformer
+from composer.models.transformer_shared import ComposerTransformer
 from composer.utils import ensure_tuple
 
+__all__ = ["SeqLengthWarmup", "set_batch_sequence_length"]
 
-def apply_seq_length_warmup(batch: Dict[str, Tensor], curr_seq_len: int, truncate: bool) -> Batch:
-    """
-    Progressively increases the sequence length during training.
+
+def set_batch_sequence_length(batch: Dict[str, Tensor], curr_seq_len: int, truncate: bool = True) -> Batch:
+    """Set the sequence length of a batch.
 
     Changes the sequence length of all tensors in the provided dictionary
     to ``curr_seq_len``, by either truncating the tensors (``truncate=True``)
     or reshaping the tensors to create new examples from the extra tokens
     (``truncate=False``).
 
-    The schedule for ``curr_seq_len`` over training time should be managed
-    out of this function.
+    .. note::
+
+        The schedule for ``curr_seq_len`` over training time should be managed
+        outside of this function.
+
+    .. note::
+
+        Variable input lengths can create CUDA OOM errors. To avoid this,
+        we follow `PyTorch notes <https://pytorch.org/tutorials/recipes/recipes/tuning_guide.html#pre-allocate-memory-in-case-of-variable-input-length>`_
+        and pre-allocate the memory with a blank forward and backward pass.
 
     Args:
-        batch: The input batch to the model, must be a dictionary.
+        batch (Dict[str, Tensor]): The input batch to the model, must be a dictionary.
         curr_seq_length (int): The desired sequence length to apply.
-        truncate (bool): Truncate sequences early, or reshape tensors
-                         to create new examples out of the extra tokens.
+        truncate (bool, optional): Truncate sequences early, or reshape tensors to create
+            new examples out of the extra tokens. Default = ``True``.
 
     Returns:
-        batch: a Mapping of input tensors to the model,
-               where all tensors have curr_seq_len in the second dimension.
+        Dict[str, Tensor]: a Mapping of input tensors to the model,
+            where all tensors have curr_seq_len in the second dimension.
+
+    Example:
+
+    .. code-block::
+
+        import composer.functional as cf
+
+        for epoch in range(num_epochs):
+            for X, y in train_loader:
+                X = cf.set_batch_sequence_length(X, sequence_length)
+                y_hat = model(X)
+                loss = loss_fn(y_hat, y)
     """
 
     assert isinstance(batch, Mapping)
@@ -59,28 +82,6 @@ def apply_seq_length_warmup(batch: Dict[str, Tensor], curr_seq_len: int, truncat
     return batch
 
 
-@dataclass
-class SeqLengthWarmupHparams(AlgorithmHparams):
-
-    duration: float = hp.optional("Fraction of total training time to apply sequential length warmup learning.",
-                                  default=0.3)
-    min_seq_length: int = hp.optional("Starting sequence length.", default=8)
-    max_seq_length: int = hp.optional("End sequence length", default=1024)
-    step_size: int = hp.optional("Sequence length step size", default=8)
-    truncate: bool = hp.optional("Truncate tensors or reshape extra tokens to new examples.", default=True)
-
-    def validate(self):
-        if self.duration < 0 or self.duration > 1:
-            raise ValueError(f'Duration must be getween 0 and 1, got: {self.duration}')
-
-        if self.max_seq_length < self.min_seq_length:
-            raise ValueError(f'max_seq_length={self.max_seq_length} must be '
-                             f'greater than min_seq_length={self.min_seq_length}')
-
-    def initialize_object(self) -> "SeqLengthWarmup":
-        return SeqLengthWarmup(**asdict(self))
-
-
 class SeqLengthWarmup(Algorithm):
     """Progressively increases the sequence length during training.
 
@@ -95,23 +96,51 @@ class SeqLengthWarmup(Algorithm):
     Tensors are either truncated (``truncate=True``) or reshaped to
     create new examples from the extra tokens (``truncate=False``).
 
+    This algorithm runs on :attr:`~composer.core.event.Event.AFTER_DATALOADER` to modify
+    the sequence length of a batch of data, after the model and data have been moved to
+    accelerators.
+
     .. note::
 
-        ``step_size`` should be a multiple of eight for GPUs
+        ``step_size`` should be a `multiple of eight <https://developer.nvidia.com/blog/optimizing-gpu-performance-tensor-cores/>`_ for
+        optimal throughput on NVIDIA GPUs
 
     .. note::
 
         Variable input lengths can create CUDA OOM errors. To avoid this,
-        we follow PyTorch notes and pre-allocate the memory with a blank
-        forward and backward pass.
+        we follow `PyTorch notes <https://pytorch.org/tutorials/recipes/recipes/tuning_guide.html#pre-allocate-memory-in-case-of-variable-input-length>`_
+        and pre-allocate the memory with a blank forward and backward pass.
+
+    See the :doc:`Method Card </method_cards/seq_length_warmup>` for more details.
+
+    Example:
+
+    .. code-block::
+
+        from composer.algorithms import SeqLengthWarmup
+        from composer import Trainer
+
+        seq_length_warmup = SeqLengthWarmup(duration=0.5,
+                                            min_seq_length=8,
+                                            max_seq_length=1024,
+                                            ste_size=8,
+                                            truncate=False)
+
+        trainer = Trainer(model=model,
+                          train_dataloader=train_dataloader,
+                          max_duration="1ep",
+                          algorithms=[seq_length_warmup])
 
     Args:
-        duration (float): fraction of total training for sequential length learning.
-        min_seq_length (int): Minimum sequence length to start the warmup.
-        max_seq_length (int): Maximum sequence length to stop the warmup.
-        step_size (int): Step size of sequence length.
-
-        truncate (bool): Truncate tensors or reshape extra tokens to new examples
+        duration (float, optional): Fraction of total training for sequential length
+            learning. Default = ``0.3``.
+        min_seq_length (int, optional): Minimum sequence length to start the warmup.
+            Default = ``8``.
+        max_seq_length (int, optional): Maximum sequence length to stop the warmup.
+            Default = ``1024``.
+        step_size (int, optional): Step size of sequence length. Default = ``8``.
+        truncate (bool, optional): Truncate tensors or reshape extra tokens to new
+            examples. Default = ``True``.
     """
 
     def __init__(
@@ -122,57 +151,51 @@ class SeqLengthWarmup(Algorithm):
         step_size: int = 8,
         truncate: bool = True,
     ):
-        self.hparams = SeqLengthWarmupHparams(duration=duration,
-                                              min_seq_length=min_seq_length,
-                                              max_seq_length=max_seq_length,
-                                              step_size=step_size,
-                                              truncate=truncate)
-        self.hparams.validate()
+        self.duration = duration
+        self.min_seq_length = min_seq_length
+        self.max_seq_length = max_seq_length
+        self.step_size = step_size
+        self.truncate = truncate
+
+        if self.duration < 0 or self.duration > 1:
+            raise ValueError(f'Duration must be getween 0 and 1, got: {self.duration}')
+
+        if self.max_seq_length < self.min_seq_length:
+            raise ValueError(f'max_seq_length={self.max_seq_length} must be '
+                             f'greater than min_seq_length={self.min_seq_length}')
+        self._activated = False
+        self._original_model = None
 
     def match(self, event: Event, state: State) -> bool:
-        """
-        Sequence Length Warmup matches on two events:
-
-        1. ``Event.TRAINING_START`` in order to run a blank forward and backward pass and allocate PyTorch cache. 
-        2. ``Event.AFTER_DATALOADER`` in order to apply the sequence length warmup before the forward pass. 
-
-        Args:
-            event (:class:`Event`): The current event.
-            state (:class:`State`): The current state.
-
-        Returns:
-            bool: True if this algorithm should run now.
-        """
-
-        return event in (Event.TRAINING_START, Event.AFTER_DATALOADER)
+        return (event == Event.INIT and self._original_model is None) or event == Event.AFTER_DATALOADER
 
     def apply(self, event: Event, state: State, logger: Logger) -> Optional[int]:
-        """
-        Applies on ``Event.TRAINING_START`` to allocate PyTorch cache, or ``Event.AFTER_DATALOADER`` to apply the 
-        sequence length warmup to the input batch.
+        if event == Event.INIT:
+            if not isinstance(state.model, ComposerTransformer):
+                raise RuntimeError(
+                    textwrap.dedent(f"""\
+                    {type(self).__name__} requires state.model to be of type {ComposerTransformer.__name__}, not of type {type(state.model)}"""
+                                   ))
 
-        Args:
-            event (:class:`Event`): The current event.
-            state (:class:`State`): The current state.
-            logger (:class:`Logger`): A logger to use for logging algorithm-specific metrics.
-        Returns:
-            int or None: exit code that is stored in :class:`Trace` and made accessible for debugging.
+            if state.train_dataloader.batch_size is None:
+                raise RuntimeError("Sequence Length Warmup algorithm requires constant batch size.")
 
-        """
+            self._original_model = state.model
+            return
 
         # in order to avoid OOMs, we do a forward and a backward pass on a dummy input.
-        if event == Event.TRAINING_START:
+        if not self._activated:
             # ensure that input_ids is a valid model input. since we don't need the
             # results, we don't use all inputs.
-
-            original_model = state.model.module
-            assert isinstance(original_model, MosaicTransformer)
-            model_inputs = original_model.get_model_inputs()  # type: ignore
-            assert 'input_ids' in model_inputs
-            assert 'labels' in model_inputs
+            assert self._original_model is not None, "original model should be set on Event.INIT"
+            model_inputs = self._original_model.get_model_inputs()
+            if 'input_ids' not in model_inputs:
+                raise RuntimeError("'input_ids' must be in model inputs")
+            if 'labels' not in model_inputs:
+                raise RuntimeError("'labels' must be in model inputs")
 
             # create fake inputs
-            vocab_size = len(original_model.tokenizer)  # type: ignore
+            vocab_size = len(self._original_model.tokenizer)
 
             # simplifying assumption: Composer doesn't support model-parallelism,
             # so the first parameter's device is likely the same device for
@@ -181,13 +204,12 @@ class SeqLengthWarmup(Algorithm):
 
             per_gpu_macrobatch = state.train_dataloader.batch_size
             if per_gpu_macrobatch is None:
-                raise RuntimeError("seq_length_warmup requires constant batch sizing")
-            assert per_gpu_macrobatch % state.grad_accum == 0, "grad accum should evenly divide the batch"
-            per_gpu_batch = per_gpu_macrobatch // state.grad_accum
+                raise RuntimeError("Sequence Length Warmup algorithm requires constant batch size.")
+            per_gpu_batch = ceil(per_gpu_macrobatch / state.grad_accum)
 
             input_ids = torch.randint(low=0,
                                       high=vocab_size - 1,
-                                      size=(per_gpu_batch, self.hparams.max_seq_length),
+                                      size=(per_gpu_batch, self.max_seq_length),
                                       device=device).long()
             labels = input_ids.clone()
             attn_mask = torch.ones_like(labels)
@@ -201,35 +223,43 @@ class SeqLengthWarmup(Algorithm):
             # of the maximum sequence length to allocate cache.
             with state.precision_context:
                 outputs = state.model.forward(model_inputs)
-                loss = original_model.loss(outputs, model_inputs)
+                loss = self._original_model.loss(outputs, model_inputs)
 
             # since use_grad_scaling is in the Trainer, and we
             # don't care about the loss values, skip scaling
             for loss_item in ensure_tuple(loss):
                 loss_item.backward()
 
-            # zero out gradients and proceed to normal training
-            assert state.optimizers is not None, \
-                "optimizers are set before TRAINING_START"
-
             for optimizer in state.optimizers:
                 optimizer.zero_grad()
+
+            self._activated = True
+
+        if state.max_duration.unit == TimeUnit.EPOCH:
+            num_optimization_steps = state.steps_per_epoch * state.max_duration.value
+        elif state.max_duration.unit == TimeUnit.BATCH:
+            num_optimization_steps = state.max_duration.value
         else:
-            num_optimization_steps = state.steps_per_epoch * state.max_epochs
-            num_warmup_steps = int(num_optimization_steps * self.hparams.duration)
+            raise NotImplementedError(
+                textwrap.dedent("""\
+                    To use sequential length warmup, the max_duration must be in epochs or batches.
+                    Specifying the `max_duration` in tokens or samples for use with sequential
+                    length warmup will be supported in a future Composer release. See
+                    https://github.com/mosaicml/composer/issues/226."""))
+        num_warmup_steps = int(num_optimization_steps * self.duration)  # in batches
 
-            # assume the full sequence length is the unaltered sequence length
-            num_update_steps = (self.hparams.max_seq_length - self.hparams.min_seq_length) // self.hparams.step_size
-            update_every_n_steps = num_warmup_steps // num_update_steps
+        # assume the full sequence length is the unaltered sequence length
+        num_update_steps = (self.max_seq_length - self.min_seq_length) // self.step_size
+        update_every_n_steps = num_warmup_steps // num_update_steps
 
-            curr_seq_len = self.hparams.step_size * (state.step // update_every_n_steps)
-            curr_seq_len = max(curr_seq_len, self.hparams.min_seq_length)
-            curr_seq_len = min(curr_seq_len, self.hparams.max_seq_length)
+        curr_seq_len = self.step_size * (int(state.timer.batch) // update_every_n_steps)
+        curr_seq_len = max(curr_seq_len, self.min_seq_length)
+        curr_seq_len = min(curr_seq_len, self.max_seq_length)
 
-            state.batch = apply_seq_length_warmup(state.batch_dict, curr_seq_len, self.hparams.truncate)
+        state.batch = set_batch_sequence_length(state.batch_dict, curr_seq_len, self.truncate)
 
-            batch_size = state.batch_dict['input_ids'].shape[0]
-            logger.metric_batch({
-                'seq_length_warmup/curr_seq_len': curr_seq_len,
-                'seq_length_warmup/curr_bs': batch_size,
-            })
+        batch_size = state.batch_dict['input_ids'].shape[0]
+        logger.metric_batch({
+            'seq_length_warmup/curr_seq_len': curr_seq_len,
+            'seq_length_warmup/curr_bs': batch_size,
+        })

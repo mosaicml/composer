@@ -3,6 +3,7 @@
 import glob
 import os
 import random
+import textwrap
 from dataclasses import dataclass
 
 import numpy as np
@@ -20,9 +21,7 @@ PATCH_SIZE = [1, 192, 160]
 
 
 def _my_collate(batch):
-    """Custom collate function to handle images with different depths.
-
-    """
+    """Custom collate function to handle images with different depths."""
     data = [item[0] for item in batch]
     target = [item[1] for item in batch]
 
@@ -32,7 +31,7 @@ def _my_collate(batch):
 @dataclass
 class BratsDatasetHparams(DatasetHparams):
     """Defines an instance of the BraTS dataset for image segmentation.
-    
+
     Parameters:
         oversampling (float): The oversampling ratio to use.
     """
@@ -255,7 +254,13 @@ def get_split(data, idx):
 
 
 def get_data_split(path: str):
-    from sklearn.model_selection import KFold
+    try:
+        from sklearn.model_selection import KFold
+    except ImportError as e:
+        raise ImportError(
+            textwrap.dedent("""\
+            Composer was installed without unet support. To use timm with Composer, run `pip install mosaicml[unet]`
+            if using pip or `conda install -c conda-forge scikit-learn` if using Anaconda.""")) from e
 
     kfold = KFold(n_splits=5, shuffle=True, random_state=0)
     imgs = load_data(path, "*_x.npy")

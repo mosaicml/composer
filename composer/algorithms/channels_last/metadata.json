@@ -1,0 +1,15 @@
+{
+    "channels_last": {
+        "name": "Channels Last",
+        "class_name": "ChannelsLast",
+        "functional": "apply_channels_last",
+        "tldr": "Uses channels last memory format (NHWC)",
+        "attribution": "PyTorch",
+        "link": "https://pytorch.org/tutorials/intermediate/memory_format_tutorial.html",
+        "domains": [
+            "cv"
+        ],
+        "summary": "Stores activation and weight tensors in a NHWC (batch, height, width, channels) format, rather than Pytorch\u2019s default of NCHW.",
+        "use": "2D Convolutional Neural Networks"
+    }
+}

@@ -1,15 +1,14 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
+"""Adds Squeeze-and-Excitation blocks (`Hu et al, 2019 <https://arxiv.org/abs/1709.01507>`_) after the
+:class:`~torch.nn.Conv2d` modules in a neural network.
+
+See :class:`~composer.algorithms.SqueezeExcite` or the :doc:`Method Card </method_cards/squeeze_excite>` for details.
+"""
+
 from composer.algorithms.squeeze_excite.squeeze_excite import SqueezeExcite as SqueezeExcite
 from composer.algorithms.squeeze_excite.squeeze_excite import SqueezeExcite2d as SqueezeExcite2d
 from composer.algorithms.squeeze_excite.squeeze_excite import SqueezeExciteConv2d as SqueezeExciteConv2d
-from composer.algorithms.squeeze_excite.squeeze_excite import SqueezeExciteHparams as SqueezeExciteHparams
-from composer.algorithms.squeeze_excite.squeeze_excite import apply_se as apply_se
+from composer.algorithms.squeeze_excite.squeeze_excite import apply_squeeze_excite as apply_squeeze_excite
 
-_name = 'SqueezeExcite'
-_class_name = 'SqueezeExcite'
-_functional = 'apply_se'
-_tldr = 'Replaces eligible layers with Squeeze-Excite layers'
-_attribution = 'Hu et al, 2017'
-_link = 'https://arxiv.org/abs/1709.01507'
-_method_card = ''
+__all__ = ["SqueezeExcite", "SqueezeExcite2d", "SqueezeExciteConv2d", "apply_squeeze_excite"]

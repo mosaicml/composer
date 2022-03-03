@@ -1,19 +1,42 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
-from composer.datasets.ade20k import ADE20kDatasetHparams, ADE20kWebDatasetHparams
+"""Datasets  TODO -- more description.
+:class:`DataloaderHparams` contains the :class:`torch.utils.data.dataloader` settings that are common across both training and eval datasets:
+* ``num_workers``
+* ``prefetch_factor``
+* ``persistent_workers``
+* ``pin_memory``
+* ``timeout``
+Each :class:`DatasetHparams` is then responsible for settings such as:
+* ``dataset``
+* ``drop_last``
+* ``shuffle``
+* ``collate_fn``
+A :class:`DatasetHparams` is responsible for returning a :class:`torch.utils.data.dataloader` or a :class:`DataloaderSpec`.
+"""
+from composer.datasets.ade20k import (ADE20kDatasetHparams as ADE20kDatasetHparams,
+                                      ADE20kWebDatasetHparams as ADE20kWebDatasetHparams)
 from composer.datasets.brats import BratsDatasetHparams as BratsDatasetHparams
-from composer.datasets.cifar import (CIFAR10DatasetHparams, CIFAR10WebDatasetHparams, CIFAR20WebDatasetHparams,
-                                     CIFAR100WebDatasetHparams)
+from composer.datasets.c4 import C4DatasetHparams as C4DatasetHparams
+from composer.datasets.cifar import (CIFAR10DatasetHparams as CIFAR10DatasetHparams,
+                                     CIFAR10WebDatasetHparams as CIFAR10WebDatasetHparams,
+                                     CIFAR20WebDatasetHparams as CIFAR20WebDatasetHparams,
+                                     CIFAR100WebDatasetHparams as CIFAR100WebDatasetHparams)
+from composer.datasets.coco import COCODatasetHparams as COCODatasetHparams
 from composer.datasets.dataloader import DataloaderHparams as DataloaderHparams
 from composer.datasets.dataloader import WrappedDataLoader as WrappedDataLoader
+from composer.datasets.dataset_registry import get_dataset_registry as get_dataset_registry
+from composer.datasets.evaluator import EvaluatorHparams as EvaluatorHparams
 from composer.datasets.glue import GLUEHparams as GLUEHparams
 from composer.datasets.hparams import DatasetHparams as DatasetHparams
 from composer.datasets.hparams import SyntheticHparamsMixin as SyntheticHparamsMixin
 from composer.datasets.imagenet import (Imagenet1KWebDatasetHparams, ImagenetDatasetHparams,
                                         TinyImagenet200WebDatasetHparams)
 from composer.datasets.lm_datasets import LMDatasetHparams as LMDatasetHparams
-from composer.datasets.mnist import MNISTDatasetHparams, MNISTWebDatasetHparams
+from composer.datasets.mnist import (MNISTDatasetHparams as MNISTDatasetHparams,
+                                     MNISTWebDatasetHparams as MNISTWebDatasetHparams)
 from composer.datasets.synthetic import MemoryFormat as MemoryFormat
 from composer.datasets.synthetic import SyntheticBatchPairDataset as SyntheticBatchPairDataset
 from composer.datasets.synthetic import SyntheticDataLabelType as SyntheticDataLabelType
 from composer.datasets.synthetic import SyntheticDataType as SyntheticDataType
+from composer.datasets.synthetic import SyntheticPILDataset as SyntheticPILDataset

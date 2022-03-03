@@ -1,0 +1,15 @@
+{
+    "colout": {
+        "name": "ColOut",
+        "class_name": "ColOut",
+        "functional": "colout_batch",
+        "tldr": "Removes columns and rows from the image for augmentation and efficiency.",
+        "attribution": "Many",
+        "link": "https://www.mosaicml.com",
+        "domains": [
+            "cv"
+        ],
+        "summary": "Drops a fraction of the rows and columns of an input image to reduce the image size and add variability.",
+        "use": "Computer vision tasks"
+    }
+}
