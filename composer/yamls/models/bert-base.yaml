@@ -11,8 +11,7 @@ train_dataset:
     subsample_ratio: 1.0
     use_masked_lm: true
     mlm_probability: 0.15
-    train_sequence_length: 128
-    val_sequence_length: 128
+    max_seq_length: 128
 val_dataset:
   lm:
     split: validation
@@ -26,8 +25,7 @@ val_dataset:
     subsample_ratio: 0.02
     use_masked_lm: true
     mlm_probability: 0.15
-    train_sequence_length: 128
-    val_sequence_length: 128
+    max_seq_length: 128
 model:
   bert:
     use_pretrained: false
