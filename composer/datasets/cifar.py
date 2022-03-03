@@ -5,6 +5,7 @@ from dataclasses import dataclass
 import yahp as hp
 from torchvision import transforms
 from torchvision.datasets import CIFAR10
+from typing import Tuple
 
 from composer.core.types import DataLoader
 from composer.datasets.dataloader import DataloaderHparams
@@ -127,42 +128,42 @@ class CIFARWebDatasetHparams(WebDatasetHparams, SyntheticHparamsMixin):
 class CIFAR10WebDatasetHparams(CIFARWebDatasetHparams):
     """Defines an instance of the CIFAR-10 WebDataset for image classification."""
 
-    dataset_s3_bucket = 'mosaicml-internal-dataset-cifar10'
-    dataset_name = 'cifar10'
-    n_train_samples = 50_000
-    n_val_samples = 10_000
-    height = 32
-    width = 32
-    n_classes = 10
-    channel_means = 0.4914, 0.4822, 0.4465
-    channel_stds = 0.247, 0.243, 0.261
+    dataset_s3_bucket: str = hp.optional('WebDataset S3 bucket name', default='mosaicml-internal-dataset-cifar10')
+    dataset_name: str = 'cifar10'
+    n_train_samples: int = 50_000
+    n_val_samples: int = 10_000
+    height: int = 32
+    width: int = 32
+    n_classes: int = 10
+    channel_means: Tuple[float] = 0.4914, 0.4822, 0.4465
+    channel_stds: Tuple[float] = 0.247, 0.243, 0.261
 
 
 @dataclass
 class CIFAR20WebDatasetHparams(CIFARWebDatasetHparams):
     """Defines an instance of the CIFAR-20 WebDataset for image classification."""
 
-    dataset_s3_bucket = 'mosaicml-internal-dataset-cifar20'
-    dataset_name = 'cifar20'
-    n_train_samples = 50_000
-    n_val_samples = 10_000
-    height = 32
-    width = 32
-    n_classes = 20
-    channel_means = 0.5071, 0.4867, 0.4408
-    channel_stds = 0.2675, 0.2565, 0.2761
+    dataset_s3_bucket: str = hp.optional('WebDataset S3 bucket name', default='mosaicml-internal-dataset-cifar20')
+    dataset_name: str = 'cifar20'
+    n_train_samples: int = 50_000
+    n_val_samples: int = 10_000
+    height: int = 32
+    width: int = 32
+    n_classes: int = 20
+    channel_means: Tuple[float] = 0.5071, 0.4867, 0.4408
+    channel_stds: Tuple[float] = 0.2675, 0.2565, 0.2761
 
 
 @dataclass
 class CIFAR100WebDatasetHparams(CIFARWebDatasetHparams):
     """Defines an instance of the CIFAR-100 WebDataset for image classification."""
 
-    dataset_s3_bucket = 'mosaicml-internal-dataset-cifar100'
-    dataset_name = 'cifar100'
-    n_train_samples = 50_000
-    n_val_samples = 10_000
-    height = 32
-    width = 32
-    n_classes = 100
-    channel_means = 0.5071, 0.4867, 0.4408
-    channel_stds = 0.2675, 0.2565, 0.2761
+    dataset_s3_bucket: str = hp.optional('WebDataset S3 bucket name', default='mosaicml-internal-dataset-cifar100')
+    dataset_name: str = 'cifar100'
+    n_train_samples: int = 50_000
+    n_val_samples: int = 10_000
+    height: int = 32
+    width: int = 32
+    n_classes: int = 100
+    channel_means: Tuple[float] = 0.5071, 0.4867, 0.4408
+    channel_stds: Tuple[float] = 0.2675, 0.2565, 0.2761
