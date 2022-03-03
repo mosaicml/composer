@@ -25,7 +25,7 @@ from composer.loggers import (FileLoggerHparams, InMemoryLoggerHparams, LoggerCa
                               WandBLoggerHparams)
 from composer.models import (BERTForClassificationHparams, BERTHparams, CIFARResNet9Hparams, CIFARResNetHparams,
                              DeepLabV3Hparams, EfficientNetB0Hparams, GPT2Hparams, MnistClassifierHparams, ModelHparams,
-                             ResNetHparams, TimmHparams, UnetHparams)
+                             ResNetHparams, SSDHparams, TimmHparams, UnetHparams)
 from composer.models.resnet20_cifar10.resnet20_cifar10_hparams import CIFARResNet20Hparams
 from composer.optim import (AdamHparams, AdamWHparams, ConstantSchedulerHparams, CosineAnnealingSchedulerHparams,
                             CosineAnnealingWarmRestartsSchedulerHparams, CosineAnnealingWithWarmupSchedulerHparams,
@@ -71,6 +71,7 @@ scheduler_registry = {
 
 model_registry = {
     "unet": UnetHparams,
+    "ssd": SSDHparams,
     "deeplabv3": DeepLabV3Hparams,
     "efficientnetb0": EfficientNetB0Hparams,
     "resnet56_cifar10": CIFARResNetHparams,

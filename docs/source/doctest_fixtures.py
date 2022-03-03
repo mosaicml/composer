@@ -15,13 +15,12 @@ import numpy as np
 import torch.optim
 import torch.utils.data
 from PIL import Image
+from torch.optim.lr_scheduler import CosineAnnealingLR
 
 from composer import *  # Make all composer imports available in doctests
 from composer.datasets.synthetic import SyntheticBatchPairDataset
 from composer.trainer import Trainer
 from composer.utils import *  # Make all composer.utils imports available in doctests
-
-from torch.optim.lr_scheduler import CosineAnnealingLR
 
 # Need to insert the repo root at the beginning of the path, since there may be other modules named `tests`
 # Assuming that docs generation is running from the `docs` directory

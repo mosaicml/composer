@@ -1,4 +1,7 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
+
+"""A wrapper for a dataloader to include metrics that apply to a specific dataset."""
+
 from __future__ import annotations
 
 import copy
@@ -11,15 +14,30 @@ from composer.core.data_spec import DataSpec as DataSpec
 if TYPE_CHECKING:
     from composer.core.types import DataLoader, Metrics
 
+__all__ = ["Evaluator"]
+
 
 class Evaluator:
-    """Wrapper for a dataloader to include metrics that apply to a specific dataset.
+    """A wrapper for a dataloader to include metrics that apply to a specific dataset.
 
-    Attributes:
+    For example, :class:`~.nlp_metrics.CrossEntropyLoss` metric for NLP models.
+
+       >>> from torchmetrics.classification.accuracy import Accuracy
+       >>> eval_evaluator = Evaluator(label="myEvaluator", dataloader=eval_dataloader, metrics=Accuracy())
+       >>> trainer = Trainer(
+       ...     model=model,
+       ...     train_dataloader=train_dataloader,
+       ...     eval_dataloader=eval_evaluator,
+       ...     optimizers=optimizer,
+       ...     max_duration="1ep",
+       ... )
+
+
+    Args:
         label (str): Name of the Evaluator
         dataloader (Union[DataSpec, DataLoader]): Dataloader/DataSpec for evaluation data
-        metrics (Metrics): Metrics to log. The metrics will be deep-copied to ensure that
-            each evaluator updates only its metrics.
+        metrics (Metrics): :class:`torchmetrics.Metric` to log. ``metrics`` will be deep-copied to ensure
+            that each evaluator updates only its ``metrics``.
     """
 
     def __init__(self, *, label: str, dataloader: Union[DataSpec, DataLoader], metrics: Metrics):
