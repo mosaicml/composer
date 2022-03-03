@@ -10,8 +10,9 @@ import yahp as hp
 from composer.core import DataSpec
 from composer.core.types import Dataset
 from composer.datasets.dataloader import DataloaderHparams
-from composer.datasets.hparams import DatasetHparams
+from composer.datasets.hparams import DatasetHparams, SyntheticHparamsMixin
 from composer.datasets.lm_datasets import _split_dict_fn
+from composer.datasets.synthetic import SyntheticHFDataset, generate_synthetic_tokenizer
 from composer.utils import dist
 
 log = logging.getLogger(__name__)
@@ -29,7 +30,7 @@ _task_to_keys = {
 
 
 @dataclass
-class GLUEHparams(DatasetHparams):
+class GLUEHparams(DatasetHparams, SyntheticHparamsMixin):
     """Sets up a generic GLUE dataset loader.
 
     Args:
@@ -51,7 +52,7 @@ class GLUEHparams(DatasetHparams):
     split: str = hp.optional("Whether to use 'train', 'validation' or 'test' split.", default=None)
     max_seq_length: int = hp.optional(
         default=256, doc='Optionally, the ability to set a custom sequence length for the training dataset.')
-    num_workers: int = hp.optional(default=64,
+    num_workers: int = hp.optional(default=8,
                                    doc="Optionally, the number of CPU workers to use to preprocess the text.")
     max_network_retries: int = hp.optional(default=10,
                                            doc="Optionally, the number of times to retry HTTP requests if they fail.")
@@ -81,11 +82,22 @@ class GLUEHparams(DatasetHparams):
                 if using pip or `conda install -c conda-forge datasets transformers` if using Anaconda.""")) from e
 
         self.validate()
-        self.tokenizer = transformers.AutoTokenizer.from_pretrained(self.tokenizer_name)  #type: ignore (thirdparty)
+        if self.use_synthetic:
+            column_names = [i for i in _task_to_keys[self.task] if i is not None]
 
-        log.info(f"Loading {self.task.upper()} on rank ", dist.get_global_rank())
-        download_config = datasets.utils.DownloadConfig(max_retries=self.max_network_retries)
-        dataset = datasets.load_dataset("glue", self.task, split=self.split, download_config=download_config)
+            # we just use the max sequence length in tokens to upper bound the sequence length in characters
+            dataset = SyntheticHFDataset(num_samples=self.synthetic_num_unique_samples,
+                                         chars_per_sample=self.max_seq_length,
+                                         column_names=column_names).generate_dataset()
+
+            # flatten the columnar dataset into one column
+            self.tokenizer = generate_synthetic_tokenizer(tokenizer_family=self.tokenizer_name, dataset=dataset)
+        else:
+            self.tokenizer = transformers.AutoTokenizer.from_pretrained(self.tokenizer_name)  #type: ignore (thirdparty)
+
+            log.info(f"Loading {self.task.upper()} on rank ", dist.get_global_rank())
+            download_config = datasets.utils.DownloadConfig(max_retries=self.max_network_retries)
+            dataset = datasets.load_dataset("glue", self.task, split=self.split, download_config=download_config)
 
         log.info(f"Starting tokenization step by preprocessing over {self.num_workers} threads!")
         text_column_names = _task_to_keys[self.task]
@@ -104,6 +116,7 @@ class GLUEHparams(DatasetHparams):
             )
 
         columns_to_remove = ["idx"] + [i for i in text_column_names if i is not None]
+
         assert isinstance(dataset, datasets.Dataset)
         dataset = dataset.map(
             tokenize_function,
@@ -115,7 +128,7 @@ class GLUEHparams(DatasetHparams):
             load_from_cache_file=True,
         )
 
-        data_collator = transformers.data.data_collator.default_data_collator
+        data_collator = transformers.default_data_collator
         sampler = dist.get_sampler(cast(Dataset, dataset), drop_last=self.drop_last, shuffle=self.shuffle)
 
         return DataSpec(
