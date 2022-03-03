@@ -1,7 +1,6 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
-"""The Unet architecture used in image segmentation. The example we are using is for medical brain tumor
-data.
+"""The Unet architecture used in image segmentation. The example we are using is for medical brain tumor data.
 
 See the :doc:`Model Card </model_cards/unet>` for more details.
 """

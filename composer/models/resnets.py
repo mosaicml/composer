@@ -2,7 +2,6 @@
 
 """The CIFAR ResNet torch module.
 
-
 See the :doc:`Model Card </model_cards/resnet>` for more details.
 """
 

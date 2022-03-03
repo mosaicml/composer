@@ -85,6 +85,7 @@ class BERTHparams(TransformerHparams):
         use_pretrained (bool, optional): Whether to initialize the model with the pretrained weights.
         gradient_checkpointing (bool, optional): Use gradient checkpointing. default: False.
     """
+
     def initialize_object(self) -> "BERTModel":
         try:
             import transformers

@@ -11,8 +11,8 @@ __all__ = ["DeepLabV3Hparams"]
 
 @dataclass
 class DeepLabV3Hparams(ModelHparams):
-    """yahp interface for :class:`~.ComposerDeepLabV3`. This class specifies
-    arguments for a DeepLabV3 model and can instantiate a DeepLabV3 model.
+    """yahp interface for :class:`~.ComposerDeepLabV3`. This class specifies arguments for a DeepLabV3 model and can
+    instantiate a DeepLabV3 model.
 
     Args:
         num_classes (int): The number of classes in the segmentation task.

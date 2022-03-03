@@ -17,6 +17,7 @@ class MnistClassifierHparams(ModelHparams):
             for the model. ``None`` for no initialization.
             (default: ``None``).
     """
+
     def initialize_object(self):
         from composer.models import MNIST_Classifier
         return MNIST_Classifier(**asdict(self))

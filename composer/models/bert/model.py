@@ -40,7 +40,6 @@ class BERTModel(ComposerTransformer):
         config (transformers.BertConfig): The BertConfig object that
             stores information about the model hyperparameters.
         tokenizer (transformers.BertTokenizer): An instance of BertTokenizer. Necessary to process model inputs.
-
     """
 
     def __init__(self, module: transformers.BertModel, config: transformers.BertConfig,

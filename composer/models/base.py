@@ -125,9 +125,10 @@ class ComposerModel(torch.nn.Module, abc.ABC):
         pass
 
     def metrics(self, train: bool = False) -> Metrics:
-        """Get metrics for evaluating the model. Metrics should be instances of :class:`torchmetrics.Metric` defined in :meth:`__init__`.
-        This format enables accurate distributed logging. Metrics consume the outputs of :meth:`validate`. To track multiple
-        metrics, return a list of metrics in a :ref:`MetricCollection </pages/overview.rst#metriccollection>`.
+        """Get metrics for evaluating the model. Metrics should be instances of :class:`torchmetrics.Metric` defined in
+        :meth:`__init__`. This format enables accurate distributed logging. Metrics consume the outputs of
+        :meth:`validate`. To track multiple metrics, return a list of metrics in a :ref:`MetricCollection
+        </pages/overview.rst#metriccollection>`.
 
         Example:
 
@@ -199,9 +200,9 @@ class ComposerModel(torch.nn.Module, abc.ABC):
 
 
 class ComposerClassifier(ComposerModel):
-    """A convenience class that creates a :class:`.ComposerModel` for classification tasks from a
-    vanilla PyTorch model. :class:`.ComposerClassifier` requires batches in the form: (``input``,
-    ``target``) and includes a basic classification training loop with CrossEntropy loss and accuracy logging.
+    """A convenience class that creates a :class:`.ComposerModel` for classification tasks from a vanilla PyTorch model.
+    :class:`.ComposerClassifier` requires batches in the form: (``input``, ``target``) and includes a basic
+    classification training loop with CrossEntropy loss and accuracy logging.
 
     Example:
 
