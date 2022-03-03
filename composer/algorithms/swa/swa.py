@@ -76,7 +76,8 @@ class SWA(Algorithm):
             updated once per epoch, and ``'5ba'`` means the averaged model will be updated
             every 5 batches. Note that for single-epoch training runs (e.g. many NLP
             training runs) ``update_interval`` must be specified in units of ``'ba'``,
-            otherwise SWA won't happen. Default = ``'1ep'``.
+            otherwise SWA won't happen. Also note that very small update intervals (e.g.
+            ``"1ba"``) can substantially slow down training. Default = ``'1ep'``.
         schedule_swa_lr (bool, optional): Flag to determine whether to apply an
             SWA-specific LR schedule during the period in which SWA is active. Default =
             ``False``.

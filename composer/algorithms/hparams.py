@@ -370,7 +370,7 @@ class SWAHparams(AlgorithmHparams):
         default="0.97dur")
     update_interval: str = hp.optional(doc='Time string denoting how often the averaged model is updated. For example, '
                                        '"1ep" means the averaged model will be updated once per epoch, and '
-                                       '"5ba" means the averaged model will be updated every 5 batches.',
+                                       '"10ba" means the averaged model will be updated every 10 batches.',
                                        default="1ep")
     schedule_swa_lr: bool = hp.optional(doc='Flag to determine whether to apply an SWA-specific LR schedule during the '
                                         'period in which SWA is active.',
