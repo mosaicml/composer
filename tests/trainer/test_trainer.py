@@ -114,7 +114,7 @@ class TestTrainerEquivalence():
         for param1, param2 in zip(model_1.parameters(), model_2.parameters()):
             torch.testing.assert_allclose(param1, param2)
 
-    @pytest.fixture(scope="function")
+    @pytest.fixture
     def config(self, device, precision, world_size):
         """ Returns the reference config. """
 
