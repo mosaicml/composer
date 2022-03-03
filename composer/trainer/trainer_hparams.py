@@ -31,7 +31,7 @@ from composer.optim import (AdamHparams, AdamWHparams, DecoupledAdamWHparams, De
                             RAdamHparams, RMSPropHparams, SchedulerHparams, SGDHparams, scheduler)
 from composer.profiler.profiler_hparams import JSONTraceHandlerHparams, ProfilerEventHandlerHparams
 from composer.trainer.ddp import DDPSyncStrategy
-from composer.trainer.devices import CPUDeviceHparams, DeviceHparams, GPUDeviceHparams
+from composer.trainer.devices import CPUDeviceHparams, DeviceHparams, GPUDeviceHparams, TPUDeviceHparams
 from composer.trainer.trainer import Trainer
 from composer.utils import dist, reproducibility
 from composer.utils.object_store import ObjectStoreProviderHparams
@@ -102,6 +102,7 @@ logger_registry = {
 device_registry = {
     "gpu": GPUDeviceHparams,
     "cpu": CPUDeviceHparams,
+    "tpu": TPUDeviceHparams,
 }
 
 prof_event_handlers_registry = {"json": JSONTraceHandlerHparams}
