@@ -5,7 +5,7 @@
 from __future__ import annotations
 
 import logging
-from typing import Optional, Tuple
+from typing import Optional, Tuple, Union
 
 import numpy as np
 import torch
@@ -22,7 +22,7 @@ __all__ = ["CutMix", "cutmix_batch"]
 def cutmix_batch(X: Tensor,
                  y: Tensor,
                  num_classes: int,
-                 cut_proportion: Optional[float] = None,
+                 length: Optional[Union[int, float]] = None,
                  alpha: float = 1.,
                  bbox: Optional[Tuple] = None,
                  indices: Optional[torch.Tensor] = None) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
@@ -33,13 +33,25 @@ def cutmix_batch(X: Tensor,
     place along the sample axis (dim 0), so that each output image has part
     of it replaced with content from another image.
 
-    The area of the masked region is determined by ``cut_proportion``, which
-    must be in :math:`(0, 1)` if provided. If not provided, ``cut_proportion``
-    is drawn from a :math:`Beta(alpha, alpha)` distribution for some parameter
-    ``alpha > 0``. The original paper used a fixed value of ``alpha = 1``.
+    The position of the masked region is determined by drawing a center point
+    uniformly at random from all spatial positions.
 
-    Note that the same ``cut_proportion`` and masked region are used for
-    the whole batch.
+    The area of the masked region is computed using either ``length`` or
+    ``alpha``. If ``length`` is provided, it directly determines the size
+    of the masked region. If it is not provided, the fraction of the input
+    area to cut is drawn from a ``Beta(alpha, alpha)`` distribution.
+    The original paper used a fixed value of ``alpha = 1``.
+
+    Alternatively, one may provide a bounding box to cut directly, in
+    which case ``alpha`` is ignored and ``length`` must not be provided.
+
+    The same masked region is used for the whole batch.
+
+    .. note::
+        The masked region is clipped at the spatial boundaries of the inputs.
+        This means that there is no padding required, but the actual region
+        used may be smaller than the nominal size computed using ``length``
+        or ``alpha``.
 
     Args:
         X (torch.Tensor): input tensor of shape ``(N, C, H, W)``
@@ -50,13 +62,15 @@ def cutmix_batch(X: Tensor,
             including, e.g., one-hot encoded class labels, smoothed class
             labels, or multi-output regression targets.
         num_classes (int): total number of classes or output variables
-        cut_proportion (float, optional): relative area of cutmix region
-            compared to the original size. Must be in the interval
-            :math:`(0, 1)`. If ``None``, value is drawn from a
-            ``Beta(alpha, alpha)`` distribution.
+        length (float, optional): side length of the hole to cut. Must be
+            greater than 0. If ``0 < length < 1``, ``length`` is
+            interpreted as a fraction of ``H`` and ``W`` and the resulting box
+
+            If ``length >= 1``, ``length`` is used as an integer size directly.
         alpha (float, optional): parameter for the Beta distribution over
-            ``cut_proportion``. Ignored if ``cut_proportion`` is provided.
-        bbox (Tuple, optional): predetermined ``(rx1, ry1, rx2, ry2)``
+            the fraction of the input to cut and replace. Ignored
+            if ``length`` is provided.
+        bbox (Tuple, optional): predetermined ``(x1, y1, x2, y2)``
             coordinates of the bounding box.
         indices (torch.Tensor, optional): Permutation of the samples to use.
 
@@ -65,12 +79,16 @@ def cutmix_batch(X: Tensor,
         y_mixed: soft labels for mixed input samples. These are a convex
             combination of the (possibly one-hot-encoded) labels from the
             original samples and the samples chosen to fill the masked
-            regions, with the relative weighting equal to ``cut_proportion``.
+            regions, with the relative weighting equal to the fraction of
+            the spatial size that is cut.
             E.g., if a sample was originally an image with label ``0`` and
             40% of the image of was replaced with data from an image with label
             ``2``, the resulting labels, assuming only three classes, would be
             ``[1, 0, 0] * 0.6 + [0, 0, 1] * 0.4 = [0.6, 0, 0.4]``.
         perm: the permutation used
+
+    Raises:
+        ValueError: If both ``length`` and ``bbox`` are provided.
 
     Example:
         .. testcode::
@@ -86,6 +104,9 @@ def cutmix_batch(X: Tensor,
                 X, y, num_classes=num_classes, alpha=0.2)
 
     """
+    if bbox is not None and length is not None:
+        raise ValueError(f"Cannot provide both length and bbox; got {length} and {bbox}")
+
     # Create shuffled indicies across the batch in preparation for cutting and mixing.
     # Use given indices if there are any.
     if indices is None:
@@ -93,22 +114,36 @@ def cutmix_batch(X: Tensor,
     else:
         shuffled_idx = indices
 
+    H, W = X.shape[-2], X.shape[-1]
+
+    # figure out fraction of area to cut
+    cut_w, cut_h = None, None
+    if length is None:
+        cutmix_lambda = _gen_cutmix_coef(alpha)
+    else:
+        if 0 < length < 1: # relative length
+            cut_w = int(length * W)
+            cut_h = int(length * H)
+        else: # absolute length
+            cut_w, cut_h = length, length
+        cutmix_lambda = (cut_w * cut_h) / (H * W)
+
     # Create the new inputs.
     X_cutmix = torch.clone(X)
     # Sample a rectangular box using lambda. Use variable names from the paper.
-    if cut_proportion is None:
-        cut_proportion = _gen_cutmix_coef(alpha)
     if bbox:
         rx, ry, rw, rh = bbox[0], bbox[1], bbox[2], bbox[3]
+        box_area = (rw - rx) * (rh - ry)
+        cutmix_lambda = box_area / (H * W)
     else:
-        rx, ry, rw, rh = _rand_bbox(X.shape[2], X.shape[3], cut_proportion)
+        rx, ry, rw, rh = _rand_bbox(X.shape[2], X.shape[3], cutmix_lambda, cut_w=cut_w, cut_h=cut_h)
         bbox = (rx, ry, rw, rh)
 
     # Fill in the box with a part of a random image.
     X_cutmix[:, :, rx:rw, ry:rh] = X_cutmix[shuffled_idx, :, rx:rw, ry:rh]
     # adjust lambda to exactly match pixel ratio. This is an implementation detail taken from
     # the original implementation, and implies lambda is not actually beta distributed.
-    adjusted_lambda = _adjust_lambda(cut_proportion, X, bbox)
+    adjusted_lambda = _adjust_lambda(cutmix_lambda, X, bbox)
 
     # Make a shuffled version of y for interpolation
     y_shuffled = y[shuffled_idx]
@@ -213,16 +248,15 @@ class CutMix(Algorithm):
 
         # these are saved only for testing
         self._indices = _gen_indices(input)
-        self._cutmix_lambda = _gen_cutmix_coef(alpha)
-        self._bbox = _rand_bbox(input.shape[2], input.shape[3], self._cutmix_lambda)
-        self._cutmix_lambda = _adjust_lambda(self._cutmix_lambda, input, self._bbox)
+        _cutmix_lambda = _gen_cutmix_coef(alpha)
+        self._bbox = _rand_bbox(input.shape[2], input.shape[3], _cutmix_lambda)
+        self._cutmix_lambda = _adjust_lambda(_cutmix_lambda, input, self._bbox)
 
         new_input, new_target, _ = cutmix_batch(
             X=input,
             y=target,
             num_classes=self.num_classes,
             alpha=alpha,
-            cut_proportion=self._cutmix_lambda,
             bbox=self._bbox,
             indices=self._indices,
         )
@@ -268,7 +302,9 @@ def _rand_bbox(W: int,
                H: int,
                cutmix_lambda: float,
                cx: Optional[int] = None,
-               cy: Optional[int] = None) -> Tuple[int, int, int, int]:
+               cy: Optional[int] = None,
+               cut_w: Optional[int] = None,
+               cut_h: Optional[int] = None) -> Tuple[int, int, int, int]:
     """Randomly samples a bounding box with area determined by cutmix_lambda.
 
     Adapted from original implementation https://github.com/clovaai/CutMix-PyTorch
@@ -276,9 +312,12 @@ def _rand_bbox(W: int,
     Args:
         W: Width of the image
         H: Height of the image
-        cutmix_lambda: Lambda param from cutmix, used to set the area of the box.
+        cutmix_lambda: Lambda param from cutmix, used to set the area of the
+            box if ``cut_w`` or ``cut_h`` is not provided.
         cx: Optional x coordinate of the center of the box.
         cy: Optional y coordinate of the center of the box.
+        cut_w: Optional width of the box
+        cut_h: Optional height of the box
 
     Returns:
         bbx1: Leftmost edge of the bounding box
@@ -287,8 +326,8 @@ def _rand_bbox(W: int,
         bby2: Bottom edge of the bounding box
     """
     cut_ratio = np.sqrt(1.0 - cutmix_lambda)
-    cut_w = int(W * cut_ratio)
-    cut_h = int(H * cut_ratio)
+    cut_w = cut_w or int(W * cut_ratio)
+    cut_h = cut_h or int(H * cut_ratio)
 
     # uniform
     if cx is None:
@@ -298,8 +337,8 @@ def _rand_bbox(W: int,
 
     bbx1 = np.clip(cx - cut_w // 2, 0, W)
     bby1 = np.clip(cy - cut_h // 2, 0, H)
-    bbx2 = np.clip(cx + cut_w // 2, 0, W)
-    bby2 = np.clip(cy + cut_h // 2, 0, H)
+    bbx2 = np.clip(cx + (cut_w + 1) // 2, 0, W)
+    bby2 = np.clip(cy + (cut_h + 1) // 2, 0, H)
 
     return bbx1, bby1, bbx2, bby2
 

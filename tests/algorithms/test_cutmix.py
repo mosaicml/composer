@@ -24,7 +24,7 @@ def fake_data(request):
     return x_fake, y_fake, indices, num_classes
 
 
-def validate_cutmix(x, y, indices, x_cutmix, y_cutmix, cut_proportion, bbox, num_classes):
+def validate_cutmix(x, y, indices, x_cutmix, y_cutmix, cutmix_lambda, bbox, num_classes):
     # Create shuffled version of x, y for reference checking
     x_perm = x[indices]
     y_perm = y[indices]
@@ -41,7 +41,7 @@ def validate_cutmix(x, y, indices, x_cutmix, y_cutmix, cut_proportion, bbox, num
         # Check the label
         y_onehot = F.one_hot(y[i], num_classes=num_classes)
         y_perm_onehot = F.one_hot(y_perm[i], num_classes=num_classes)
-        y_interp = cut_proportion * y_onehot + (1 - cut_proportion) * y_perm_onehot
+        y_interp = cutmix_lambda * y_onehot + (1 - cutmix_lambda) * y_perm_onehot
         torch.testing.assert_allclose(y_interp, y_cutmix[i])
 
 
@@ -54,7 +54,7 @@ class TestCutMix:
 
         # Get lambda based on alpha hparam
         cutmix_lambda = np.random.beta(alpha, alpha)
-        # Get a random bounding box based on cut_proportion
+        # Get a random bounding box based on cutmix_lambda
         cx = np.random.randint(x_fake.shape[2])
         cy = np.random.randint(x_fake.shape[3])
         bbx1, bby1, bbx2, bby2 = _rand_bbox(W=x_fake.shape[2],
@@ -71,7 +71,6 @@ class TestCutMix:
                                                         y=y_fake,
                                                         alpha=1.0,
                                                         num_classes=num_classes,
-                                                        cut_proportion=cutmix_lambda,
                                                         bbox=bbox,
                                                         indices=indices)
 
@@ -81,7 +80,7 @@ class TestCutMix:
                         indices=used_indices,
                         x_cutmix=x_cutmix,
                         y_cutmix=y_cutmix,
-                        cut_proportion=cutmix_lambda,
+                        cutmix_lambda=cutmix_lambda,
                         bbox=bbox,
                         num_classes=num_classes)
 
@@ -104,7 +103,7 @@ class TestCutMix:
                         indices=algorithm._indices,
                         x_cutmix=x,
                         y_cutmix=y,
-                        cut_proportion=algorithm._cutmix_lambda,
+                        cutmix_lambda=algorithm._cutmix_lambda,
                         bbox=algorithm._bbox,
                         num_classes=algorithm.num_classes)
 
