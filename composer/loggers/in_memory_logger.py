@@ -99,8 +99,12 @@ class InMemoryLogger(LoggerCallback):
 
                 import matplotlib.pyplot as plt
 
-                populated_logger = in_memory_logger_populated(datafield="accuracy/val")
-                timeseries = in_memory_logger_populated.get_timeseries("accuracy/val")
+                from composer.core.logging import LogLevel
+                from from composer.loggers import InMemoryLogger
+
+                in_mem_logger = InMemoryLogger(LogLevel.BATCH)
+                in_mem_logger = populate_in_memory_logger(in_mem_logger, datafield="accuracy/val")
+                timeseries = in_mem_logger.get_timeseries("accuracy/val")
                 plt.plot(timeseries["batch"], timeseries["accuracy/val"])
                 plt.xlabel("Batch")
                 plt.ylabel("Validation Accuracy")

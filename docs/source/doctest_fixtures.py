@@ -10,6 +10,7 @@ The output of this setup script does not show up in the documentation.
 import functools
 import os
 import sys
+from typing import Callable
 
 import numpy as np
 import torch.optim
@@ -18,10 +19,13 @@ from PIL import Image
 from torch.optim.lr_scheduler import CosineAnnealingLR
 
 import composer
-from composer import *  # Make all composer imports available in doctests
-from composer.datasets.synthetic import SyntheticBatchPairDataset
-from composer.utils import *  # Make all composer.utils imports available in doctests
 from composer import Trainer as OriginalTrainer
+from composer import *  # Make all composer imports available in doctests
+from composer.core.logging import LogLevel
+from composer.core.time import Time, Timestamp
+from composer.datasets.synthetic import SyntheticBatchPairDataset
+from composer.loggers import InMemoryLogger
+from composer.utils import *  # Make all composer.utils imports available in doctests
 
 # Need to insert the repo root at the beginning of the path, since there may be other modules named `tests`
 # Assuming that docs generation is running from the `docs` directory
@@ -31,7 +35,6 @@ if sys.path[0] != _repo_root:
     sys.path.insert(0, _repo_root)
 
 from tests.fixtures.models import SimpleBatchPairModel
-from tests.fixtures.new_fixtures import in_memory_logger_populated
 
 num_channels = 3
 num_classes = 10
@@ -112,4 +115,26 @@ Trainer = functools.partial(
 # patch composer so that 'from composer import Trainer' calls do not override change above
 composer.Trainer = Trainer
 
-in_memory_logger_populated
+
+def populate_in_memory_logger(logger: InMemoryLogger,
+                              datafxn: Callable = lambda x: x / 3,
+                              datafield: str = "accuracy/val",
+                              n_epochs: int = 5,
+                              batches_per_epoch: int = 6,
+                              samples_per_batch: int = 10,
+                              tokens_per_sample: int = 20,
+                              loglevel: LogLevel = LogLevel.BATCH):
+    for batch in range(n_epochs * batches_per_epoch):
+        datapoint = datafxn(batch)
+        sample_in_epoch = (batch % batches_per_epoch) * samples_per_batch
+        token = tokens_per_sample * samples_per_batch * batch
+        token_in_epoch = (batch % batches_per_epoch) * samples_per_batch * tokens_per_sample
+        timestamp = Timestamp(epoch=Time(batch // batches_per_epoch, "ep"),
+                              batch=Time(batch, "ba"),
+                              batch_in_epoch=Time(batch % batches_per_epoch, "ba"),
+                              sample=Time(batch * samples_per_batch, "sp"),
+                              sample_in_epoch=Time(sample_in_epoch, "sp"),
+                              token=Time(token, "tok"),
+                              token_in_epoch=Time(token_in_epoch, "tok"))
+        logger.log_metric(timestamp=timestamp, log_level=loglevel, data={datafield: datapoint})
+    return logger
