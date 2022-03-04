@@ -136,13 +136,13 @@ class MixUp(Algorithm):
 
         .. testcode::
 
-            algorithm = MixUp(num_classes=num_clases, alpha=0.2)
+            algorithm = MixUp(num_classes=10, alpha=0.2)
             trainer = Trainer(
                 model=model,
                 train_dataloader=train_dataloader,
                 eval_dataloader=eval_dataloader,
                 max_duration="1ep",
-                algorithms=[mixup_algorithm],
+                algorithms=[algorithm],
                 optimizers=[optimizer]
             )
     """

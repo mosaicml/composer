@@ -103,7 +103,7 @@ def cutmix_batch(input: Tensor,
             num_classes = 10
             X = torch.randn(N, C, H, W)
             y = torch.randint(num_classes, size=(N,))
-            X_mixed, y_mixed = cutmix_batch(
+            X_mixed, y_mixed, perm = cutmix_batch(
                 X, y, num_classes=num_classes, alpha=0.2)
     """
     if bbox is not None and length is not None:
@@ -205,7 +205,7 @@ class CutMix(Algorithm):
 
         .. testcode::
 
-            algorithm = CutMix(num_classes=num_classes, alpha=0.2)
+            algorithm = CutMix(num_classes=10, alpha=0.2)
             trainer = Trainer(
                 model=model,
                 train_dataloader=train_dataloader,
