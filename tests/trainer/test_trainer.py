@@ -13,8 +13,6 @@ from composer import Trainer
 from composer.algorithms import CutOut, LabelSmoothing, LayerFreezing
 from composer.callbacks import LRMonitor, RunDirectoryUploader
 from composer.core.callback import Callback
-from composer.core.precision import Precision
-from composer.core.time import Time, TimeUnit
 from composer.core.types import Model
 from composer.loggers import FileLogger, TQDMLogger, WandBLogger
 from composer.trainer.trainer_hparams import algorithms_registry, callback_registry, logger_registry
