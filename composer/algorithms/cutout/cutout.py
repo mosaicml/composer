@@ -38,11 +38,12 @@ def cutout_batch(X: ImgT, n_holes: int = 1, length: Union[int, float] = 0.5) -> 
         X: :class:`PIL.Image.Image` or :class:`torch.Tensor` of image data. In
             the latter case, must be a single image of shape ``CHW`` or a batch
             of images of shape ``NCHW``.
-        n_holes: Integer number of holes to cut out
+        n_holes: Integer number of holes to cut out. Default: ``1``.
         length: Side length of the square holes to cut out. Must be greater than
             0. If ``0 < length < 1``, ``length`` is interpreted as a fraction
             of ``min(H, W)`` and converted to ``int(length * min(H, W))``.
             If ``length >= 1``, ``length`` is used as an integer size directly.
+            Default: ``0.5``.
 
     Returns:
         X_cutout: Batch of images with ``n_holes`` holes of dimension
@@ -91,11 +92,12 @@ class CutOut(Algorithm):
 
     Args:
         X (Tensor): Batch Tensor image of size (B, C, H, W).
-        n_holes: Integer number of holes to cut out
+        n_holes: Integer number of holes to cut out. Default: ``1``.
         length: Side length of the square holes to cut out. Must be greater than
             0. If ``0 < length < 1``, ``length`` is interpreted as a fraction
             of ``min(H, W)`` and converted to ``int(length * min(H, W))``.
             If ``length >= 1``, ``length`` is used as an integer size directly.
+            Default: ``0.5``.
     """
 
     def __init__(self, n_holes: int = 1, length: Union[int, float] = 0.5):
