@@ -50,7 +50,7 @@ class TestMixUp:
         x_mix, _, _ = mixup_batch(
             x_fake,
             y_fake,
-            interpolation=interpolation_lambda,
+            mixing=interpolation_lambda,
             num_classes=x_fake.size(1),  # Grab C
             indices=indices)
 
@@ -71,4 +71,4 @@ class TestMixUp:
 
         x, _ = state.batch
         # Use algorithm generated indices and interpolation_lambda for validation
-        validate_mixup_batch(x_fake, y_fake, algorithm.indices, x, algorithm.interpolation)
+        validate_mixup_batch(x_fake, y_fake, algorithm.indices, x, algorithm.mixing)
