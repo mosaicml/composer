@@ -58,14 +58,8 @@ class State(Serializable):
 
     .. note::
 
-        * An instance of this class is automatically constructed by the :class:`~.Trainer` constructor. A user need
-          not instantiate this class.
-
-        * To support multi-GPU training, ``State.model`` may be wrapped in :class:`torch.nn.parallel.DistributedDataParallel`,
-          and the dataloaders may be wrapped in a device-specific dataloader that handles moving tensors to device.
-
-        * :attr:`~.types.PyTorchScheduler` are wrapped in :attr:`~.ComposerScheduler`, which handles stepping either
-          stepwise or epochwise, and also properly sets up learning rate warmups.
+        An instance of this class is automatically constructed by the :class:`~.Trainer` constructor. A user need
+        not instantiate this class.
 
     Args:
         model (:attr:`~.types.Model`): The model, typically as a subclass of :class:`~.ComposerModel`.
@@ -96,9 +90,9 @@ class State(Serializable):
         loss (:attr:`~.types.Tensors`): The most recently computed loss.
         outputs (:attr:`~.types.Tensors`): The most recently computed output from the model's forward pass.
         timer (Timer): The timer that tracks training loop progress.
-        serialized_attributes (List[str]): The state of attributes in this list will be serialized in a checkpoint.
+        serialized_attributes (List[str]): The names of the attribute which are serialized in a checkpoint.
 
-            This list contains the following attributes:
+            By default, the following attributes are serialized:
 
             +-----------------------+-------------------------------------------------------------+
             | Attribute             | Description                                                 |
