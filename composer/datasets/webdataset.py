@@ -47,39 +47,56 @@ def create_webdataset(samples: Iterable[Dict[str, Any]],
     create_webdataset_meta(split_dir, n_samples, n_shards)
 
 
-def download_webdataset_meta(s3_bucket: str, split: str) -> bytes:
-    '''Download a WebDataset meta file from S3.'''
-    url = f's3://{s3_bucket}/{split}/meta.json'
+def load_webdataset_meta_from_s3(remote: str, split: str) -> bytes:
+    '''Read a WebDataset meta file from S3.'''
+    url = f'{remote}/{split}/meta.json'
     cmd = 'aws', 's3', 'cp', url, '-'
     ret = subprocess.run(cmd, capture_output=True)
     assert not ret.stderr, 'Download failed, check your credentials?'
     return ret.stdout
 
 
-def load_webdataset(s3_bucket: str,
+def load_webdataset_meta_from_local(remote: str, split: str) -> bytes:
+    '''Read a WebDataset meta file from local filesystem.'''
+    path = f'{remote}/{split}/meta.json'
+    return open(path, 'rb').read()
+
+
+def load_webdataset_meta(remote: str, split: str) -> bytes:
+    '''Read a WebDataset meta file.'''
+    if remote.startswith('s3://'):
+        return load_webdataset_meta_from_s3(remote, split)
+    else:
+        return load_webdataset_meta_from_local(remote, split)
+
+
+def load_webdataset(remote: str,
                     cache_name: str,
                     split: str,
                     cache_dir: Optional[str] = None,
                     cache_verbose: bool = False) -> Tuple[WebDataset, dict]:
-    '''Initialize a WebDataset pointed at S3 with an optional local cache dir.'''
+    '''Initialize a WebDataset with an optional local cache dir.'''
     if cache_dir:
         split_dir = os.path.join(cache_dir, cache_name, split)
         meta_file = os.path.join(split_dir, 'meta.json')
         if os.path.exists(meta_file):
             text = open(meta_file).read()
         else:
-            text = download_webdataset_meta(s3_bucket, split)
+            text = load_webdataset_meta(remote, split)
             if not os.path.exists(split_dir):
                 os.makedirs(split_dir)
             with open(meta_file, 'wb') as out:
                 out.write(text)
     else:
         split_dir = None
-        text = download_webdataset_meta(s3_bucket, split)
+        text = load_webdataset_meta(remote, split)
     meta = json.loads(text)
     max_shard = meta['n_shards'] - 1
     shards = f'{{{0:05d}..{max_shard:05d}}}.tar'
-    urls = f'pipe: aws s3 cp s3://{s3_bucket}/{split}/{shards} -'
+    if remote.startswith('s3://'):
+        urls = f'pipe: aws s3 cp {remote}/{split}/{shards} -'
+    else:
+        urls = f'{remote}/{split}/{shards}'
     dataset = WebDataset(urls, cache_dir=split_dir, cache_verbose=cache_verbose)
     return dataset, meta
 
