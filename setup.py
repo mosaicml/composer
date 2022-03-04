@@ -79,7 +79,7 @@ extra_deps['dev'] = [
     'pyright==1.1.224.post1',
     'recommonmark==0.7.1',
     'sphinx>=4.4.0',
-    'docutils>=0.17',
+    'docutils>=0.15',
     'sphinx_copybutton==0.5.0',
     'sphinx_markdown_tables==0.0.15',
     'sphinx-argparse==0.3.1',
