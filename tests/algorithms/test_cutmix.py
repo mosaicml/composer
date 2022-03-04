@@ -75,7 +75,8 @@ class TestCutMix:
                                           n_classes=n_classes,
                                           cutmix_lambda=cutmix_lambda,
                                           bbox=bbox,
-                                          indices=indices)
+                                          indices=indices,
+                                          uniform_sampling=uniform_sampling)
 
         # Validate results
         validate_cutmix(x=x_fake,
