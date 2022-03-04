@@ -195,7 +195,7 @@ Optimizers & Schedulers
 ~~~~~~~~~~~~~~~~~~~~~~~
 
 You can easily specify which optimizer and learning rate scheduler to
-use during training. Composer supports both pytorch schedulers as
+use during training. Composer supports both PyTorch schedulers as
 well as Composer's custom schedulers.
 
 .. testcode::
@@ -239,7 +239,7 @@ For example, the below would step the learning rate at 30%, 50%, and
                       ))
 
 
-See :doc:`Schedulers`<schedulers>` for details.
+See :doc:`Schedulers<schedulers>` for details.
 
 
 Training on GPU

@@ -76,9 +76,9 @@ Below are the supported schedulers found at :mod:`composer.optim.scheduler`.
 
 .. note::
 
-    Compared to pytorch schedulers, :class:`.ComposerScheduler` need not be provided
-    an ``optimizer`` directly. The trainer will handle binding the optimizer when
-    converting our schedulers to :class:`~torch.optim.lr_scheduler.LabmdaLR`.
+    Compared to PyTorch schedulers, :class:`.ComposerScheduler` need not be provided
+    an optimizer directly. The trainer will handle binding the optimizer when
+    it compiles the scheduler later.
 
 Scale Schedule Ratio
 --------------------
@@ -116,7 +116,7 @@ For example, the code below will scale the training time by half
     )
 
 Importantly, for our schedulers that have warmup, the warmup
-period is _never_ scaled. For example, if we apply
+period is *never* scaled. For example, if we apply
 ``scale_schedule_ratio=0.5`` to:
 
 .. testcode::

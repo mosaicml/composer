@@ -197,7 +197,7 @@ class Trainer:
 
         step_schedulers_every_batch (bool, optional): By default, native
             `PyTorch schedulers <https://pytorch.org/docs/stable/optim.html#how-to-adjust-learning-rate>`_
-            are updated every epoch, while :mod:`composer schedulers<composer.optim>` are updated every step.
+            are updated every epoch, while :doc:`Composer Schedulers</trainer/schedulers>` are updated every step.
             Setting this to ``True`` will force schedulers to be stepped every batch,
             while ``False`` means schedulers stepped every epoch. ``None`` indicates the default behavior.
             (default: ``None``)
