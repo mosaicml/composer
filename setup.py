@@ -101,6 +101,7 @@ extra_deps["deepspeed"] = [
 
 extra_deps["wandb"] = [
     'wandb==0.12.10',
+    'coolname>=1.1.0',
 ]
 
 extra_deps["unet"] = [

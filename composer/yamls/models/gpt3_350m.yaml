@@ -33,10 +33,10 @@ model:
       initializer_range: 0.02
       layer_norm_epsilon: 1.0e-05
       model_type: gpt2
-      n_embd: 768
-      n_head: 12
-      n_inner: 3072
-      n_layer: 12
+      n_embd: 1024
+      n_head: 16
+      n_inner: 4096
+      n_layer: 24
       n_positions: 2048
       resid_pdrop: 0.0
       scale_attn_weights: true
@@ -54,7 +54,7 @@ model:
       vocab_size: 50257
 optimizer:
   decoupled_adamw:
-    lr: 6.0e-4
+    lr: 3.0e-4
     betas:
       - 0.9
       - 0.95
@@ -67,8 +67,8 @@ loggers:
   - tqdm: {}
 max_duration: 1ep
 train_batch_size: 256 # 0.5e6 tok ~= 256[bs] * 2048[msl]
-grad_accum: 8 # 256[bs] / 8[devices] / 4[per_gpu_microbatch_size] = 8[ga], assuming 8xA100-40GB
-eval_batch_size: 32 # 32[bs] / 8[devices] = 4[per_gpu_microbatch_size], assuming 8xA100-40GB
+grad_accum: 16 # 256[bs] / 8[devices] / 2[per_gpu_microbatch_size] = 16[ga], assuming 8xA100-40GB
+eval_batch_size: 16 # 16[bs] / 8[devices] = 2[per_gpu_microbatch_size], assuming 8xA100-40GB
 seed: 17
 device:
   gpu: {}
