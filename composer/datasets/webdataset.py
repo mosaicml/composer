@@ -3,13 +3,26 @@ import logging
 import math
 import os
 import subprocess
+import textwrap
 from typing import Any, Dict, Iterable, Optional, Tuple
 
 from tqdm import tqdm
-from webdataset import ShardWriter, WebDataset
+try:
+    from webdataset import ShardWriter, WebDataset
+except:
+    WebDataset = None
 from wurlitzer import pipes
 
 log = logging.getLogger(__name__)
+
+
+def require_webdataset():
+    '''Hard require webdataset.'''
+    if WebDataset is None:
+        raise ImportError(
+            textwrap.dedent('''
+                Composer was installed without WebDataset support. To use WebDataset with Composer, run `pip install
+                mosaicml[webdataset]`.'''))
 
 
 def create_webdataset_meta(split_dir: str, n_samples: int, n_shards: int) -> None:
@@ -32,6 +45,7 @@ def create_webdataset(samples: Iterable[Dict[str, Any]],
                       n_shards: int,
                       use_tqdm: int = 1) -> None:
     '''Write an entire WebDataset to a local directory, given an iterable of samples.'''
+    require_webdataset()
     split_dir = os.path.join(dataset_dir, split)
     os.makedirs(split_dir)
     pattern = os.path.join(split_dir, '%05d.tar')
@@ -76,6 +90,7 @@ def init_webdataset(remote: str,
                     cache_dir: Optional[str] = None,
                     cache_verbose: bool = False) -> Tuple[WebDataset, dict]:
     '''Initialize a WebDataset with an optional local cache dir.'''
+    require_webdataset()
     if cache_dir:
         split_dir = os.path.join(cache_dir, name, split)
         meta_file = os.path.join(split_dir, 'meta.json')
