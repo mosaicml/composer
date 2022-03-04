@@ -424,7 +424,7 @@ class TrainerHparams(hp.Hparams):
             self.deepspeed["steps_per_print"] = cast(int, self.deepspeed.get("steps_per_print", 1e20))
 
             if "zero_optimization" in self.deepspeed:
-                zero_stage = cast(dict, self.deepspeed["zero_optimization"]).get("stage")
+                zero_stage = cast(dict, self.deepspeed["zero_optimization"]).get("stage", 0)
             else:
                 zero_stage = 0
 
