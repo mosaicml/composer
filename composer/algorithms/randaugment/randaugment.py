@@ -28,10 +28,10 @@ def randaugment_image(img: ImgT,
                       augmentation_set: List = augmentation_sets["all"]) -> ImgT:
     """Randomly applies a sequence of image data augmentations
     (`Cubuk et al, 2019 <https://arxiv.org/abs/1909.13719>`_) to an image or batch of
-    images. See :class:`~composer.algorithms.randaugment.randaugment.RandAugment` or the
+    images. See :class:`.RandAugment` or the
     :doc:`Method Card </method_cards/randaugment>` for details. This function only acts on
     a single image (or batch of images) per call and is unlikely to be used in a training
-    loop. Use :class:`~composer.algorithms.randaugment.randaugment.RandAugmentTransform`
+    loop. Use :class:`.RandAugmentTransform`
     to use RandAugment as part of a :class:`torchvision.datasets.VisionDataset`\\'s
     ``transform``.
 
@@ -51,10 +51,10 @@ def randaugment_image(img: ImgT,
 
     Args:
         img (PIL.Image): Image or batch of images to be RandAugmented.
-        severity (int, optional): See :class:`~composer.algorithms.randaugment.randaugment.RandAugment`.
-        depth (int, optional): See :class:`~composer.algorithms.randaugment.randaugment.RandAugment`.
+        severity (int, optional): See :class:`.RandAugment`.
+        depth (int, optional): See :class:`.RandAugment`.
         augmentation_set (str, optional): See
-            :class:`~composer.algorithms.randaugment.randaugment.RandAugment`.
+            :class:`.RandAugment`.
 
     Returns:
         PIL.Image: RandAugmented image.
@@ -72,9 +72,9 @@ def randaugment_image(img: ImgT,
 
 
 class RandAugmentTransform(torch.nn.Module):
-    """Wraps :func:`~composer.algorithms.randaugment.randaugment.randaugment_image` in a
+    """Wraps :func:`.randaugment_image` in a
     ``torchvision``-compatible transform. See
-    :class:`~composer.algorithms.randaugment.randaugment.RandAugment` or the :doc:`Method
+    :class:`.RandAugment` or the :doc:`Method
     Card </method_cards/randaugment>` for more details.
 
     Example:
@@ -92,10 +92,10 @@ class RandAugmentTransform(torch.nn.Module):
             transformed_image = composed(image)
 
     Args:
-        severity (int, optional): See :class:`~composer.algorithms.randaugment.randaugment.RandAugment`.
-        depth (int, optional): See :class:`~composer.algorithms.randaugment.randaugment.RandAugment`.
+        severity (int, optional): See :class:`.RandAugment`.
+        depth (int, optional): See :class:`.RandAugment`.
         augmentation_set (str, optional): See
-            :class:`~composer.algorithms.randaugment.randaugment.RandAugment`.
+            :class:`.RandAugment`.
     """
 
     def __init__(self, severity: int = 9, depth: int = 2, augmentation_set: str = "all"):
@@ -149,9 +149,9 @@ class RandAugment(Algorithm):
 
     Args:
         severity (int, optional): Severity of augmentation operators (between 1 to 10). M
-            in the original paper. Default = ``9``.
+            in the original paper. Default: ``9``.
         depth (int, optional): Depth of augmentation chain. N in the original paper
-            Default = ``2``.
+            Default: ``2``.
         augmentation_set (str, optional): Must be one of the following options:
 
             * ``"augmentations_all"``
@@ -173,7 +173,7 @@ class RandAugment(Algorithm):
                 "sharpness", and "brightness" that account for diverging effects around 0
                 (or 1).
 
-            Default = ``"all"``.
+            Default: ``"all"``.
     """
 
     def __init__(self, severity: int = 9, depth: int = 2, augmentation_set: str = "all"):

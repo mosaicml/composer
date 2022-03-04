@@ -37,23 +37,24 @@ def mixup_batch(X: Tensor,
     Note that the same ``mixing`` is used for the whole batch.
 
     Args:
-        X (torch.Tensor): input tensor of shape ``(minibatch, ...)``, where
+        X (Tensor): input tensor of shape ``(minibatch, ...)``, where
             ``...`` indicates zero or more dimensions.
-        y (torch.Tensor): target tensor of shape ``(minibatch, ...)``, where
+        y (Tensor): target tensor of shape ``(minibatch, ...)``, where
             ``...`` indicates zero or more dimensions.
         num_classes (int): total number of classes or output variables
         mixing (float, optional): coefficient used to interpolate
             between the two examples. If provided, must be in :math:`[0, 1]`.
             If ``None``, value is drawn from a :math:`Beta(alpha, alpha)`
-            distribution.
+            distribution. Default: ``None``.
         alpha (float, optional): parameter for the Beta distribution over
-            ``mixing``. Ignored if ``mixing`` is provided.
-        indices (torch.Tensor, optional): Permutation of the samples to use.
+            ``mixing``. Ignored if ``mixing`` is provided. Default: ``0.2``.
+        indices (Tensor, optional): Permutation of the samples to use.
+            Default: ``None``.
 
     Returns:
-        X_mix: batch of inputs after mixup has been applied
-        y_mix: labels after mixup has been applied
-        perm: the permutation used
+        X_mix (Tensor): batch of inputs after mixup has been applied
+        y_mix (Tensor): labels after mixup has been applied
+        perm (Tensor): the permutation used
 
     Example:
         .. testcode::
@@ -104,11 +105,11 @@ class MixUp(Algorithm):
 
     Args:
         num_classes (int): the number of classes in the task labels.
-        alpha (float): the psuedocount for the Beta distribution used to sample
+        alpha (float, optional): the psuedocount for the Beta distribution used to sample
             mixing parameters. As ``alpha`` grows, the two samples
             in each pair tend to be weighted more equally. As ``alpha``
             approaches 0 from above, the combination approaches only using
-            one element of the pair.
+            one element of the pair. Default: ``0.2``.
 
     Example:
         .. testsetup::
