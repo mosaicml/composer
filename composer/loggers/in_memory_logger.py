@@ -99,6 +99,7 @@ class InMemoryLogger(LoggerCallback):
 
                 import matplotlib.pyplot as plt
 
+                populated_logger = in_memory_logger_populated(datafield="accuracy/val")
                 timeseries = in_memory_logger_populated.get_timeseries("accuracy/val")
                 plt.plot(timeseries["batch"], timeseries["accuracy/val"])
                 plt.xlabel("Batch")

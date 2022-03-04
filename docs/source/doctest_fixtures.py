@@ -30,6 +30,7 @@ if sys.path[0] != _repo_root:
     sys.path.insert(0, _repo_root)
 
 from tests.fixtures.models import SimpleBatchPairModel
+from tests.fixtures.new_fixtures import in_memory_logger_populated
 
 num_channels = 3
 num_classes = 10
@@ -100,3 +101,5 @@ Trainer = functools.partial(
     train_dataloader=train_dataloader,
     eval_dataloader=eval_dataloader,
 )
+
+in_memory_logger_populated
