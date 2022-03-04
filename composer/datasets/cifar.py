@@ -11,7 +11,7 @@ from composer.core.types import DataLoader
 from composer.datasets.dataloader import DataloaderHparams
 from composer.datasets.hparams import DatasetHparams, SyntheticHparamsMixin, WebDatasetHparams
 from composer.datasets.synthetic import SyntheticBatchPairDataset
-from composer.datasets.webdataset import load_webdataset, size_webdataset
+from composer.datasets.webdataset import load_webdataset
 from composer.utils import dist
 
 
@@ -75,8 +75,8 @@ class CIFARWebDatasetHparams(WebDatasetHparams):
     """Common functionality for CIFAR WebDatasets.
 
     Parameters:
-        webdataset_s3_bucket (str): S3 bucket or root directory where dataset is stored.
-        webdataset_name (str): Key used to determine where dataset is cached on local filesystem.
+        remote (str): S3 bucket or root directory where dataset is stored.
+        name (str): Key used to determine where dataset is cached on local filesystem.
         n_train_samples (int): Number of training samples.
         n_val_samples (int): Number of validation samples.
         height (int): Sample image height in pixels.
@@ -101,12 +101,9 @@ class CIFARWebDatasetHparams(WebDatasetHparams):
                 transforms.ToTensor(),
                 transforms.Normalize(self.channel_means, self.channel_stds),
             ])
-        dataset, meta = load_webdataset(self.webdataset_s3_bucket, self.webdataset_name, split, self.webdataset_cache_dir,
-                                        self.webdataset_cache_verbose)
-        if self.shuffle:
-            dataset = dataset.shuffle(self.shuffle_buffer_per_worker)
-        dataset = dataset.decode('pil').map_dict(jpg=transform).to_tuple('jpg', 'cls')
-        dataset = size_webdataset(dataset, meta['n_shards'], meta['samples_per_shard'], dist.get_world_size(),
+        preprocess = lambda dataset: dataset.decode('pil').map_dict(jpg=transform).to_tuple('jpg', 'cls')
+        dataset = load_webdataset(self.remote, self.name, split, self.webdataset_cache_dir, self.webdataset_cache_verbose,
+                                  self.shuffle, self.shuffle_buffer, preprocess, dist.get_world_size(),
                                   dataloader_hparams.num_workers, batch_size, self.drop_last)
         return dataloader_hparams.initialize_object(dataset,
                                                     batch_size=batch_size,
@@ -118,8 +115,8 @@ class CIFARWebDatasetHparams(WebDatasetHparams):
 class CIFAR10WebDatasetHparams(CIFARWebDatasetHparams):
     """Defines an instance of the CIFAR-10 WebDataset for image classification."""
 
-    webdataset_s3_bucket: str = hp.optional('WebDataset S3 bucket name', default='mosaicml-internal-dataset-cifar10')
-    webdataset_name: str = hp.optional('WebDataset local cache name', default='cifar10')
+    remote: str = hp.optional('WebDataset S3 bucket name', default='s3://mosaicml-internal-dataset-cifar10')
+    name: str = hp.optional('WebDataset local cache name', default='cifar10')
     n_train_samples: int = 50_000
     n_val_samples: int = 10_000
     height: int = 32
@@ -133,8 +130,8 @@ class CIFAR10WebDatasetHparams(CIFARWebDatasetHparams):
 class CIFAR20WebDatasetHparams(CIFARWebDatasetHparams):
     """Defines an instance of the CIFAR-20 WebDataset for image classification."""
 
-    webdataset_s3_bucket: str = hp.optional('WebDataset S3 bucket name', default='mosaicml-internal-dataset-cifar20')
-    webdataset_name: str = hp.optional('WebDataset local cache name', default='cifar20')
+    remote: str = hp.optional('WebDataset S3 bucket name', default='s3://mosaicml-internal-dataset-cifar20')
+    name: str = hp.optional('WebDataset local cache name', default='cifar20')
     n_train_samples: int = 50_000
     n_val_samples: int = 10_000
     height: int = 32
@@ -148,8 +145,8 @@ class CIFAR20WebDatasetHparams(CIFARWebDatasetHparams):
 class CIFAR100WebDatasetHparams(CIFARWebDatasetHparams):
     """Defines an instance of the CIFAR-100 WebDataset for image classification."""
 
-    webdataset_s3_bucket: str = hp.optional('WebDataset S3 bucket name', default='mosaicml-internal-dataset-cifar100')
-    webdataset_name: str = hp.optional('WebDataset local cache name', default='cifar100')
+    remote: str = hp.optional('WebDataset S3 bucket name', default='s3://mosaicml-internal-dataset-cifar100')
+    name: str = hp.optional('WebDataset local cache name', default='cifar100')
     n_train_samples: int = 50_000
     n_val_samples: int = 10_000
     height: int = 32

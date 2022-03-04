@@ -18,7 +18,7 @@ from composer.datasets.hparams import DatasetHparams, SyntheticHparamsMixin, Web
 from composer.datasets.imagenet import IMAGENET_CHANNEL_MEAN, IMAGENET_CHANNEL_STD
 from composer.datasets.synthetic import SyntheticBatchPairDataset
 from composer.datasets.utils import NormalizationFn, pil_image_collate
-from composer.datasets.webdataset import load_webdataset, size_webdataset
+from composer.datasets.webdataset import load_webdataset
 from composer.utils import dist
 
 
@@ -353,8 +353,8 @@ class ADE20kWebDatasetHparams(WebDatasetHparams):
     """Defines an instance of the ADE20k dataset for semantic segmentation.
 
     Parameters:
-        webdataset_s3_bucket (str): S3 bucket or root directory where dataset is stored.
-        webdataset_name (str): Key used to determine where dataset is cached on local filesystem.
+        remote (str): S3 bucket or root directory where dataset is stored.
+        name (str): Key used to determine where dataset is cached on local filesystem.
         split (str): the dataset split to use either 'train', 'val', or 'test'. Default is `train`.
         base_size (int): initial size of the image and target before other augmentations. Default is 512.
         min_resize_scale (float): the minimum value the samples can be rescaled. Default is 0.5.
@@ -362,11 +362,10 @@ class ADE20kWebDatasetHparams(WebDatasetHparams):
         final_size (int): the final size of the image and target. Default is 512.
         ignore_background (bool): if true, ignore the background class when calculating the training loss.
             Default is true.
-
     """
 
-    webdataset_s3_bucket: str = hp.optional('WebDataset S3 bucket name', default='mosaicml-internal-dataset-ade20k')
-    webdataset_name: str = hp.optional('WebDataset local cache name', default='ade20k')
+    remote: str = hp.optional('WebDataset S3 bucket name', default='s3://mosaicml-internal-dataset-ade20k')
+    name: str = hp.optional('WebDataset local cache name', default='ade20k')
     split: str = hp.optional("Which split of the dataset to use. Either ['train', 'val', 'test']", default='train')
     base_size: int = hp.optional("Initial size of the image and target before other augmentations", default=512)
     min_resize_scale: float = hp.optional("Minimum value that the image and target can be scaled", default=0.5)
@@ -429,12 +428,9 @@ class ADE20kWebDatasetHparams(WebDatasetHparams):
                 y = target_transforms(y)
             return x, y
 
-        dataset, meta = load_webdataset(self.webdataset_s3_bucket, self.webdataset_name, self.split,
-                                        self.webdataset_cache_dir, self.webdataset_cache_verbose)
-        if self.shuffle:
-            dataset = dataset.shuffle(self.shuffle_buffer_per_worker)
-        dataset = dataset.decode('pil').to_tuple('scene.jpg', 'annotation.png').map(map_fn)
-        dataset = size_webdataset(dataset, meta['n_shards'], meta['samples_per_shard'], dist.get_world_size(),
+        preprocess = lambda dataset: dataset.decode('pil').to_tuple('scene.jpg', 'annotation.png').map(map_fn)
+        dataset = load_webdataset(self.remote, self.name, split, self.webdataset_cache_dir, self.webdataset_cache_verbose,
+                                  self.shuffle, self.shuffle_buffer, preprocess, dist.get_world_size(),
                                   dataloader_hparams.num_workers, batch_size, self.drop_last)
 
         collate_fn = pil_image_collate

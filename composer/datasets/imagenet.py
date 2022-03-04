@@ -15,7 +15,7 @@ from composer.datasets.dataloader import DataloaderHparams
 from composer.datasets.hparams import DatasetHparams, SyntheticHparamsMixin, WebDatasetHparams
 from composer.datasets.synthetic import SyntheticBatchPairDataset
 from composer.datasets.utils import NormalizationFn, pil_image_collate
-from composer.datasets.webdataset import load_webdataset, size_webdataset
+from composer.datasets.webdataset import load_webdataset
 from composer.utils import dist
 
 # ImageNet normalization values from torchvision: https://pytorch.org/vision/stable/models.html
@@ -94,8 +94,8 @@ class TinyImagenet200WebDatasetHparams(WebDatasetHparams):
     """Defines an instance of the TinyImagenet-200 WebDataset for image classification.
 
     Parameters:
-        webdataset_s3_bucket (str): S3 bucket or root directory where dataset is stored.
-        webdataset_name (str): Key used to determine where dataset is cached on local filesystem.
+        remote (str): S3 bucket or root directory where dataset is stored.
+        name (str): Key used to determine where dataset is cached on local filesystem.
         n_train_samples (int): Number of training samples.
         n_val_samples (int): Number of validation samples.
         height (int): Sample image height in pixels.
@@ -105,9 +105,8 @@ class TinyImagenet200WebDatasetHparams(WebDatasetHparams):
         channel_stds (list of float): Channel stds for normalization.
     """
 
-    webdataset_s3_bucket: str = hp.optional('WebDataset S3 bucket name',
-                                            default='mosaicml-internal-dataset-tinyimagenet200')
-    webdataset_name: str = hp.optional('WebDataset local cache name', default='tinyimagenet200')
+    remote: str = hp.optional('WebDataset S3 bucket name', default='s3://mosaicml-internal-dataset-tinyimagenet200')
+    name: str = hp.optional('WebDataset local cache name', default='tinyimagenet200')
     n_train_samples = 100_000
     n_val_samples = 10_000
     height = 64
@@ -131,12 +130,9 @@ class TinyImagenet200WebDatasetHparams(WebDatasetHparams):
                 transforms.ToTensor(),
                 transforms.Normalize(self.channel_means, self.channel_stds),
             ])
-        dataset, meta = load_webdataset(self.webdataset_s3_bucket, self.webdataset_name, split,
-                                        self.webdataset_cache_dir, self.webdataset_cache_verbose)
-        if self.shuffle:
-            dataset = dataset.shuffle(self.shuffle_buffer_per_worker)
-        dataset = dataset.decode('pil').map_dict(jpg=transform).to_tuple('jpg', 'cls')
-        dataset = size_webdataset(dataset, meta['n_shards'], meta['samples_per_shard'], dist.get_world_size(),
+        preprocess = lambda dataset: dataset.decode('pil').map_dict(jpg=transform).to_tuple('jpg', 'cls')
+        dataset = load_webdataset(self.remote, self.name, split, self.webdataset_cache_dir, self.webdataset_cache_verbose,
+                                  self.shuffle, self.shuffle_buffer, preprocess, dist.get_world_size(),
                                   dataloader_hparams.num_workers, batch_size, self.drop_last)
         return dataloader_hparams.initialize_object(dataset,
                                                     batch_size=batch_size,
@@ -149,14 +145,14 @@ class Imagenet1kWebDatasetHparams(WebDatasetHparams):
     """Defines an instance of the ImageNet-1k dataset for image classification.
 
     Parameters:
-        webdataset_s3_bucket (str): S3 bucket or root directory where dataset is stored.
-        webdataset_name (str): Key used to determine where dataset is cached on local filesystem.
+        remote (str): S3 bucket or root directory where dataset is stored.
+        name (str): Key used to determine where dataset is cached on local filesystem.
         resize_size (int, optional): The resize size to use. Defaults to -1 to not resize.
         crop size (int): The crop size to use.
     """
 
-    webdataset_s3_bucket: str = hp.optional('WebDataset S3 bucket name', default='mosaicml-internal-dataset-imagenet1k')
-    webdataset_name: str = hp.optional('WebDataset local cache name', default='imagenet1k')
+    remote: str = hp.optional('WebDataset S3 bucket name', default='s3://mosaicml-internal-dataset-imagenet1k')
+    name: str = hp.optional('WebDataset local cache name', default='imagenet1k')
     resize_size: int = hp.optional("resize size. Set to -1 to not resize", default=-1)
     crop_size: int = hp.optional("crop size", default=224)
 
@@ -180,12 +176,9 @@ class Imagenet1kWebDatasetHparams(WebDatasetHparams):
                 transforms.CenterCrop(self.crop_size),
             ])
         split = 'train' if self.is_train else 'val'
-        dataset, meta = load_webdataset(self.webdataset_s3_bucket, self.webdataset_name, split,
-                                        self.webdataset_cache_dir, self.webdataset_cache_verbose)
-        if self.shuffle:
-            dataset = dataset.shuffle(self.shuffle_buffer_per_worker)
-        dataset = dataset.decode('pil').map_dict(jpg=transform).to_tuple('jpg', 'cls')
-        dataset = size_webdataset(dataset, meta['n_shards'], meta['samples_per_shard'], dist.get_world_size(),
+        preprocess = lambda dataset: dataset.decode('pil').map_dict(jpg=transform).to_tuple('jpg', 'cls')
+        dataset = load_webdataset(self.remote, self.name, split, self.webdataset_cache_dir, self.webdataset_cache_verbose,
+                                  self.shuffle, self.shuffle_buffer, preprocess, dist.get_world_size(),
                                   dataloader_hparams.num_workers, batch_size, self.drop_last)
         collate_fn = pil_image_collate
         device_transform_fn = NormalizationFn(mean=IMAGENET_CHANNEL_MEAN, std=IMAGENET_CHANNEL_STD)

@@ -47,7 +47,7 @@ def create_webdataset(samples: Iterable[Dict[str, Any]],
     create_webdataset_meta(split_dir, n_samples, n_shards)
 
 
-def load_webdataset_meta_from_s3(remote: str, split: str) -> bytes:
+def init_webdataset_meta_from_s3(remote: str, split: str) -> bytes:
     '''Read a WebDataset meta file from S3.'''
     url = f'{remote}/{split}/meta.json'
     cmd = 'aws', 's3', 'cp', url, '-'
@@ -56,40 +56,40 @@ def load_webdataset_meta_from_s3(remote: str, split: str) -> bytes:
     return ret.stdout
 
 
-def load_webdataset_meta_from_local(remote: str, split: str) -> bytes:
+def init_webdataset_meta_from_local(remote: str, split: str) -> bytes:
     '''Read a WebDataset meta file from local filesystem.'''
     path = f'{remote}/{split}/meta.json'
     return open(path, 'rb').read()
 
 
-def load_webdataset_meta(remote: str, split: str) -> bytes:
+def init_webdataset_meta(remote: str, split: str) -> bytes:
     '''Read a WebDataset meta file.'''
     if remote.startswith('s3://'):
-        return load_webdataset_meta_from_s3(remote, split)
+        return init_webdataset_meta_from_s3(remote, split)
     else:
-        return load_webdataset_meta_from_local(remote, split)
+        return init_webdataset_meta_from_local(remote, split)
 
 
-def load_webdataset(remote: str,
-                    cache_name: str,
+def init_webdataset(remote: str,
+                    name: str,
                     split: str,
                     cache_dir: Optional[str] = None,
                     cache_verbose: bool = False) -> Tuple[WebDataset, dict]:
     '''Initialize a WebDataset with an optional local cache dir.'''
     if cache_dir:
-        split_dir = os.path.join(cache_dir, cache_name, split)
+        split_dir = os.path.join(cache_dir, name, split)
         meta_file = os.path.join(split_dir, 'meta.json')
         if os.path.exists(meta_file):
             text = open(meta_file).read()
         else:
-            text = load_webdataset_meta(remote, split)
+            text = init_webdataset_meta(remote, split)
             if not os.path.exists(split_dir):
                 os.makedirs(split_dir)
             with open(meta_file, 'wb') as out:
                 out.write(text)
     else:
         split_dir = None
-        text = load_webdataset_meta(remote, split)
+        text = init_webdataset_meta(remote, split)
     meta = json.loads(text)
     max_shard = meta['n_shards'] - 1
     shards = f'{{{0:05d}..{max_shard:05d}}}.tar'
@@ -142,3 +142,39 @@ def size_webdataset(dataset: WebDataset, n_shards: int, samples_per_shard: int, 
     dataset = dataset.with_epoch(samples_per_worker)
     # Set IterableDataset length (per device), to be read by PyTorch Dataloader
     return dataset.with_length(samples_per_device)
+
+
+def load_webdataset(remote: str,
+                    name: str,
+                    split: str,
+                    cache_dir: Optional[str],
+                    cache_verbose: bool,
+                    shuffle: bool,
+                    shuffle_buffer: int,
+                    preprocess,
+                    n_devices: int,
+                    workers_per_device: int,
+                    batch_size: int,
+                    drop_last: bool):
+    '''Load WebDataset from remote, optionally caching, with the given preprocessing and batching.
+
+    Args:
+        remote (str): Remote path (either an s3:// url or a directory on local filesystem).
+        name (str): Name of this dataset, used to locate dataset in local cache.
+        cache_dir (str, optional): Root directory of local filesystem cache.
+        cache_verbose (bool): WebDataset caching verbosity.
+        shuffle (bool): Whether to shuffle samples.
+        shuffle_buffer (int): How many samples to buffer when shuffling.
+        preprocess (Callable): What transformations to apply to the samples, as WebDataset iterator(s).
+        n_devices (int): Number of devices.
+        workers_per_device (int): Number of workers per device.
+        batch_size (int): Batch size.
+        drop_last (bool): Whether to drop last.
+    '''
+    dataset, meta = init_webdataset(remote, name, split, cache_dir, cache_verbose)
+    if shuffle:
+        dataset = dataset.shuffle(shuffle_buffer)
+    if preprocess:
+        dataset = preprocess(dataset)
+    return size_webdataset(dataset, meta['n_shards'], meta['samples_per_shard'], n_devices, workers_per_device,
+                           batch_size, drop_last)

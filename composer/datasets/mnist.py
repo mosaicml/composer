@@ -9,7 +9,7 @@ from composer.core.types import DataLoader
 from composer.datasets.dataloader import DataloaderHparams
 from composer.datasets.hparams import DatasetHparams, SyntheticHparamsMixin, WebDatasetHparams
 from composer.datasets.synthetic import SyntheticBatchPairDataset
-from composer.datasets.webdataset import load_webdataset, size_webdataset
+from composer.datasets.webdataset import load_webdataset
 from composer.utils import dist
 
 
@@ -56,12 +56,12 @@ class MNISTWebDatasetHparams(WebDatasetHparams):
     '''Defines an instance of the MNIST WebDataset for image classification.
 
     Parameters:
-        webdataset_s3_bucket (str): S3 bucket or root directory where dataset is stored.
-        webdataset_name (str): Key used to determine where dataset is cached on local filesystem.
+        remote (str): S3 bucket or root directory where dataset is stored.
+        name (str): Key used to determine where dataset is cached on local filesystem.
     '''
 
-    webdataset_s3_bucket: str = hp.optional('WebDataset S3 bucket name', default='mosaicml-internal-dataset-mnist')
-    webdataset_name: str = hp.optional('WebDataset local cache name', default='mnist')
+    remote: str = hp.optional('WebDataset S3 bucket name', default='s3://mosaicml-internal-dataset-mnist')
+    name: str = hp.optional('WebDataset local cache name', default='mnist')
 
     def initialize_object(self, batch_size: int, dataloader_hparams: DataloaderHparams) -> DataLoader:
         split = 'train' if self.is_train else 'val'
@@ -69,12 +69,9 @@ class MNISTWebDatasetHparams(WebDatasetHparams):
             transforms.Grayscale(),
             transforms.ToTensor(),
         ])
-        dataset, meta = load_webdataset(self.webdataset_s3_bucket, self.webdataset_name, split,
-                                        self.webdataset_cache_dir, self.webdataset_cache_verbose)
-        if self.shuffle:
-            dataset = dataset.shuffle(self.shuffle_buffer_per_worker)
-        dataset = dataset.decode('pil').map_dict(jpg=transform).to_tuple('jpg', 'cls')
-        dataset = size_webdataset(dataset, meta['n_shards'], meta['samples_per_shard'], dist.get_world_size(),
+        preprocess = lambda dataset: dataset.decode('pil').map_dict(jpg=transform).to_tuple('jpg', 'cls')
+        dataset = load_webdataset(self.remote, self.name, split, self.webdataset_cache_dir, self.webdataset_cache_verbose,
+                                  self.shuffle, self.shuffle_buffer, preprocess, dist.get_world_size(),
                                   dataloader_hparams.num_workers, batch_size, self.drop_last)
         return dataloader_hparams.initialize_object(dataset=dataset,
                                                     batch_size=batch_size,
