@@ -56,7 +56,6 @@ install_requires = [
     "numpy==1.21.5",
     "apache-libcloud>=3.3.1",
     "psutil>=5.8.0",
-    "wget==3.2",
 ]
 extra_deps = {}
 
@@ -94,7 +93,6 @@ extra_deps['dev'] = [
     'pylint>=2.12.2',
     'docformatter>=1.4',
     'sphinx_panels==0.6.0',
-    'pycocotools@git+https://github.com/cocodataset/cocoapi#egg=pycocotools&subdirectory=PythonAPI',
 ]
 
 extra_deps["deepspeed"] = [
@@ -103,6 +101,7 @@ extra_deps["deepspeed"] = [
 
 extra_deps["wandb"] = [
     'wandb==0.12.10',
+    'coolname>=1.1.0',
 ]
 
 extra_deps["unet"] = [
@@ -112,6 +111,10 @@ extra_deps["unet"] = [
 
 extra_deps["timm"] = [
     'timm==0.5.4',
+]
+
+extra_deps["coco"] = [
+    'pycocotools>=2.0.4',
 ]
 
 extra_deps["nlp"] = [

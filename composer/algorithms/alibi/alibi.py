@@ -80,12 +80,12 @@ def apply_alibi(
             necessary for evaluating on sequence lengths longer than the model was
             initialized to accommodate. Takes positional arguments ``module`` and
             ``max_sequence_length``. For example,
-            ``composer.algorithms.alibi._gpt2_alibi.enlarge_mask``. Default = ``None``,
+            ``composer.algorithms.alibi._gpt2_alibi.enlarge_mask``. Default: ``None``,
             which means no modification of the model's default attention mask.
         optimizers (Optimizers, optional): Existing optimizers bound to ``model.parameters()``.
             All optimizers that have already been constructed with
             ``model.parameters()`` must be specified here so they will optimize
-            the correct parameters.
+            the correct parameters. Default: ``None``.
 
             If the optimizer(s) are constructed *after* calling this function,
             then it is safe to omit this parameter. These optimizers will see the correct
@@ -182,12 +182,12 @@ class Alibi(Algorithm):
         max_sequence_length (int): Maximum sequence length that the
             model will be able to accept. This is sometimes necessary for evaluating
             on sequence lengths longer than the model was initialized to
-            accommodate.
+            accommodate. Default: ``8192``.
         train_sequence_length_scaling (float, optional): Amount by which to scale
             training sequence length. One batch of training data will be
             reshaped from shape :math:`(sequence\\_length, batch)` to
             :math:`(sequence\\_length \\times train\\_sequence\\_length\\_scaling,
-            \\frac{batch}{train\\_sequence\\_length\\_scaling})`. Default = ``0.25``.
+            \\frac{batch}{train\\_sequence\\_length\\_scaling})`. Default: ``0.25``.
     """
 
     def __init__(self,
