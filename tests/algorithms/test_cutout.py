@@ -86,7 +86,9 @@ def test_cutout_mask(tensor_sizes, cutout_length, anchors):
 @pytest.mark.parametrize('height', [32, 64])
 @pytest.mark.parametrize('width', [32, 71])
 @pytest.mark.parametrize('cutout_length', [16, 23, 0.25, 0.5])
-def test_cutout_algorithm(batch_size, channels, height, width, cutout_length, empty_logger, minimal_state):
+@pytest.mark.parametrize('uniform_sampling', [True, False])
+def test_cutout_algorithm(batch_size, channels, height, width, cutout_length, empty_logger, minimal_state,
+                          uniform_sampling):
 
     # Initialize input tensor
     #   - Add bias to prevent 0. pixels, causes check_box() to fail since based on search for 0's
@@ -94,7 +96,7 @@ def test_cutout_algorithm(batch_size, channels, height, width, cutout_length, em
     input = torch.rand((batch_size, channels, height, width)) + 1
 
     # Fix cutout_n_holes=1, mask generation is additive and box validation isn't smart enough to detect multiple/coalesced boxes
-    algorithm = CutOutHparams(n_holes=1, length=cutout_length).initialize_object()
+    algorithm = CutOutHparams(n_holes=1, length=cutout_length, uniform_sampling=uniform_sampling).initialize_object()
     state = minimal_state
     state.batch = (input, torch.Tensor())
 
