@@ -172,7 +172,8 @@ class TestTrainerEquivalence():
 
     def test_grad_accum(self, config, device, *args):
         if device == 'cpu':
-            pytest.mark.skip()
+            pytest.skip("skipping")
+
         config.update({
             'grad_accum': 2,
         })
