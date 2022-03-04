@@ -51,7 +51,9 @@ def download_webdataset_meta(s3_bucket: str, split: str) -> bytes:
     '''Download a WebDataset meta file from S3.'''
     url = f's3://{s3_bucket}/{split}/meta.json'
     cmd = 'aws', 's3', 'cp', url, '-'
-    return subprocess.run(cmd, capture_output=True).stdout
+    ret = subprocess.run(cmd, capture_output=True)
+    assert not ret.stderr, 'Download failed, check your credentials?'
+    return ret.stdout
 
 
 def load_webdataset(s3_bucket: str,
