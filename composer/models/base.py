@@ -133,6 +133,7 @@ class ComposerModel(torch.nn.Module, abc.ABC):
         Example:
 
         .. code-block:: python
+
             from torchmetrics.classification import Accuracy
             from composer.models.loss import CrossEntropyLoss
 
