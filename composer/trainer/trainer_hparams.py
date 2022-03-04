@@ -423,11 +423,10 @@ class TrainerHparams(hp.Hparams):
         if self.deepspeed is not None:
             self.deepspeed["steps_per_print"] = cast(int, self.deepspeed.get("steps_per_print", 1e20))
 
-            zero_stage = 0
-            zero_config = cast(dict,
-                               self.deepspeed["zero_optimization"]) if "zero_optimization" in self.deepspeed else None
-            if zero_config:
-                zero_stage = cast(int, zero_config.get("stage"))
+            if "zero_optimization" in self.deepspeed:
+                zero_stage = cast(dict, self.deepspeed["zero_optimization"]).get("stage")
+            else:
+                zero_stage = 0
 
             if self.deterministic_mode and zero_stage > 0:
                 raise ValueError("Deepspeed with zero stage > 0 is not compatible with deterministic mode")
