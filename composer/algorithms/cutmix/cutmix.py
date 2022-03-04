@@ -62,7 +62,7 @@ def cutmix_batch(X: Tensor,
         bbox: optional, predetermined (rx1, ry1, rx2, ry2) coords of the bounding box.
         indices: Permutation of the batch indices `1..B`. Used
             for permuting without randomness.
-        uniform_sampling: If true, sample the bounding box such that each pixel
+        uniform_sampling (bool, optional): If true, sample the bounding box such that each pixel
             has an equal probability of being mixed. If false, defaults to the
             sampling used in the original paper implementation. Default: False
 
