@@ -13,6 +13,7 @@ from composer import Trainer
 from composer.algorithms import CutOut, LabelSmoothing, LayerFreezing
 from composer.callbacks import LRMonitor, RunDirectoryUploader
 from composer.core.callback import Callback
+from composer.core.precision import Precision
 from composer.core.time import Time, TimeUnit
 from composer.core.types import Model
 from composer.loggers import FileLogger, TQDMLogger, WandBLogger
@@ -112,7 +113,18 @@ class TestTrainerEquivalence():
     def assert_models_equal(self, model_1, model_2):
         assert model_1 is not model_2, "Same model should not be compared."
         for param1, param2 in zip(model_1.parameters(), model_2.parameters()):
-            torch.testing.assert_allclose(param1, param2)
+            torch.testing.assert_allclose(param1, param2, **self.threshold)
+
+    @pytest.fixture(autouse=True)
+    def threshold(self, device, precision, world_size):
+        self.threshold = {'atol': 0, 'rtol': 0}
+        # if precision == Precision.AMP:
+        #     self.threshold = {
+        #         'atol': 1e-4,
+        #         'rtol': 1e-3,
+        #     }
+        # else:
+        #     self.threshold = {}
 
     @pytest.fixture
     def config(self, device, precision, world_size):
@@ -169,11 +181,8 @@ class TestTrainerEquivalence():
         self.assert_models_equal(trainer.state.model, self.reference_model)
 
     def test_max_duration(self, config, *args):
-        max_duration = Time.from_timestring(config['max_duration'])
-        assert max_duration.unit == TimeUnit.EPOCH
-        max_duration_in_batches = Time(len(config['train_dataloader']) * int(max_duration.value), TimeUnit.BATCH)
-
-        config['max_duration'] = max_duration_in_batches.to_timestring()
+        num_batches = 2 * len(config["train_dataloader"])  # convert 2ep to batches
+        config['max_duration'] = f'{num_batches}ba'
 
         trainer = Trainer(**config)
         trainer.fit()
