@@ -107,13 +107,14 @@ class TinyImagenet200WebDatasetHparams(WebDatasetHparams):
 
     remote: str = hp.optional('WebDataset S3 bucket name', default='s3://mosaicml-internal-dataset-tinyimagenet200')
     name: str = hp.optional('WebDataset local cache name', default='tinyimagenet200')
-    n_train_samples = 100_000
-    n_val_samples = 10_000
-    height = 64
-    width = 64
-    n_classes = 200
-    channel_means = 0.485, 0.456, 0.406
-    channel_stds = 0.229, 0.224, 0.225
+
+    n_train_samples: int = hp.optional('Number of samples in training split', default=100_000)
+    n_val_samples: int = hp.optional('Number of samples in validation split', default=10_000)
+    height: int = hp.optional('Image height', default=64)
+    width: int = hp.optional('Image width', default=64)
+    n_classes: int = hp.optional('Number of output classes', default=200)
+    channel_means: List[float] = hp.optional('Mean per image channel', default=(0.485, 0.456, 0.406))
+    channel_stds: List[float] = hp.optional('Std per image channel', default=(0.229, 0.224, 0.225))
 
     def initialize_object(self, batch_size: int, dataloader_hparams: DataloaderHparams) -> DataLoader:
         if self.is_train:

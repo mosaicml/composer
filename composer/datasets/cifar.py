@@ -117,13 +117,14 @@ class CIFAR10WebDatasetHparams(CIFARWebDatasetHparams):
 
     remote: str = hp.optional('WebDataset S3 bucket name', default='s3://mosaicml-internal-dataset-cifar10')
     name: str = hp.optional('WebDataset local cache name', default='cifar10')
-    n_train_samples: int = 50_000
-    n_val_samples: int = 10_000
-    height: int = 32
-    width: int = 32
-    n_classes: int = 10
-    channel_means: List[float] = 0.4914, 0.4822, 0.4465
-    channel_stds: List[float] = 0.247, 0.243, 0.261
+
+    n_train_samples: int = hp.optional('Number of samples in training split', default=50_000)
+    n_val_samples: int = hp.optional('Number of samples in validation split', default=10_000)
+    height: int = hp.optional('Image height', default=32)
+    width: int = hp.optional('Image width', default=32)
+    n_classes: int = hp.optional('Number of output classes', default=10)
+    channel_means: List[float] = hp.optional('Mean per image channel', default=(0.4914, 0.4822, 0.4465))
+    channel_stds: List[float] = hp.optional('Std per image channel', default=(0.247, 0.243, 0.261))
 
 
 @dataclass
@@ -132,13 +133,14 @@ class CIFAR20WebDatasetHparams(CIFARWebDatasetHparams):
 
     remote: str = hp.optional('WebDataset S3 bucket name', default='s3://mosaicml-internal-dataset-cifar20')
     name: str = hp.optional('WebDataset local cache name', default='cifar20')
-    n_train_samples: int = 50_000
-    n_val_samples: int = 10_000
-    height: int = 32
-    width: int = 32
-    n_classes: int = 20
-    channel_means: List[float] = 0.5071, 0.4867, 0.4408
-    channel_stds: List[float] = 0.2675, 0.2565, 0.2761
+
+    n_train_samples: int = hp.optional('Number of samples in training split', default=50_000)
+    n_val_samples: int = hp.optional('Number of samples in validation split', default=10_000)
+    height: int = hp.optional('Image height', default=32)
+    width: int = hp.optional('Image width', default=32)
+    n_classes: int = hp.optional('Number of output classes', default=20)
+    channel_means: List[float] = hp.optional('Mean per image channel', default=(0.5071, 0.4867, 0.4408))
+    channel_stds: List[float] = hp.optional('Std per image channel', default=(0.2675, 0.2565, 0.2761))
 
 
 @dataclass
@@ -147,10 +149,11 @@ class CIFAR100WebDatasetHparams(CIFARWebDatasetHparams):
 
     remote: str = hp.optional('WebDataset S3 bucket name', default='s3://mosaicml-internal-dataset-cifar100')
     name: str = hp.optional('WebDataset local cache name', default='cifar100')
-    n_train_samples: int = 50_000
-    n_val_samples: int = 10_000
-    height: int = 32
-    width: int = 32
-    n_classes: int = 100
-    channel_means: List[float] = 0.5071, 0.4867, 0.4408
-    channel_stds: List[float] = 0.2675, 0.2565, 0.2761
+
+    n_train_samples: int = hp.optional('Number of samples in training split', default=50_000)
+    n_val_samples: int = hp.optional('Number of samples in validation split', default=10_000)
+    height: int = hp.optional('Image height', default=32)
+    width: int = hp.optional('Image width', default=32)
+    n_classes: int = hp.optional('Number of output classes', default=20)
+    channel_means: List[float] = hp.optional('Mean per image channel', default=(0.5071, 0.4867, 0.4408))
+    channel_stds: List[float] = hp.optional('Std per image channel', default=(0.2675, 0.2565, 0.2761))
