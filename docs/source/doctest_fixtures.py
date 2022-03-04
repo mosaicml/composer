@@ -15,13 +15,13 @@ import numpy as np
 import torch.optim
 import torch.utils.data
 from PIL import Image
+from torch.optim.lr_scheduler import CosineAnnealingLR
 
+import composer
 from composer import *  # Make all composer imports available in doctests
 from composer.datasets.synthetic import SyntheticBatchPairDataset
-from composer.trainer import Trainer
 from composer.utils import *  # Make all composer.utils imports available in doctests
-
-from torch.optim.lr_scheduler import CosineAnnealingLR
+from composer import Trainer as OriginalTrainer
 
 # Need to insert the repo root at the beginning of the path, since there may be other modules named `tests`
 # Assuming that docs generation is running from the `docs` directory
@@ -93,6 +93,12 @@ logits = torch.randn(batch_size, num_classes)  # type: ignore
 # error: "randint" is not a known member of module (reportGeneralTypeIssues)
 y_example = torch.randint(num_classes, (batch_size,))  # type: ignore
 
+
+# patch the Trainer to accept ellipses
+def Trainer(fake_ellipses='...', *args, **kwargs):
+    return OriginalTrainer(*args, **kwargs)
+
+
 # bind the required arguments to the Trainer so it can be used without arguments in the doctests
 Trainer = functools.partial(
     Trainer,
@@ -101,3 +107,6 @@ Trainer = functools.partial(
     train_dataloader=train_dataloader,
     eval_dataloader=eval_dataloader,
 )
+
+# patch composer so that 'from composer import Trainer' calls do not override change above
+composer.Trainer = Trainer
