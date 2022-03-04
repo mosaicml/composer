@@ -71,7 +71,7 @@ class CIFAR10DatasetHparams(DatasetHparams, SyntheticHparamsMixin):
 
 
 @dataclass
-class CIFARWebDatasetHparams(WebDatasetHparams, SyntheticHparamsMixin):
+class CIFARWebDatasetHparams(WebDatasetHparams):
     """Common functionality for CIFAR WebDatasets.
 
     Parameters:

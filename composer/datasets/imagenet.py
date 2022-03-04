@@ -90,7 +90,7 @@ class ImagenetDatasetHparams(DatasetHparams, SyntheticHparamsMixin):
 
 
 @dataclass
-class TinyImagenet200WebDatasetHparams(WebDatasetHparams, SyntheticHparamsMixin):
+class TinyImagenet200WebDatasetHparams(WebDatasetHparams):
     """Defines an instance of the TinyImagenet-200 WebDataset for image classification.
 
     Parameters:
@@ -145,7 +145,7 @@ class TinyImagenet200WebDatasetHparams(WebDatasetHparams, SyntheticHparamsMixin)
 
 
 @dataclass
-class Imagenet1kWebDatasetHparams(WebDatasetHparams, SyntheticHparamsMixin):
+class Imagenet1kWebDatasetHparams(WebDatasetHparams):
     """Defines an instance of the ImageNet-1k dataset for image classification.
 
     Parameters:
