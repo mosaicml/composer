@@ -3,6 +3,7 @@
 import os
 import pathlib
 from copy import deepcopy
+from typing import Dict
 
 import pytest
 import torch
@@ -107,6 +108,7 @@ class TestTrainerEquivalence():
 
     reference_model: Model
     reference_folder: pathlib.Path
+    threshold: Dict[str, float]
 
     def assert_models_equal(self, model_1, model_2):
         assert model_1 is not model_2, "Same model should not be compared."
@@ -114,7 +116,7 @@ class TestTrainerEquivalence():
             torch.testing.assert_allclose(param1, param2, **self.threshold)
 
     @pytest.fixture(autouse=True)
-    def threshold(self, device, precision, world_size):
+    def set_threshold(self, device, precision, world_size):
         self.threshold = {'atol': 0, 'rtol': 0}
         # if precision == Precision.AMP:
         #     self.threshold = {
@@ -126,7 +128,7 @@ class TestTrainerEquivalence():
 
     @pytest.fixture
     def config(self, device, precision, world_size):
-        """ Returns the reference config. """
+        """Returns the reference config."""
 
         seed_all(seed=0)
         return {
