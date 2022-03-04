@@ -87,37 +87,27 @@ class CIFARWebDatasetHparams(WebDatasetHparams, SyntheticHparamsMixin):
     """
 
     def initialize_object(self, batch_size: int, dataloader_hparams: DataloaderHparams) -> DataLoader:
-        if self.use_synthetic:
-            dataset = SyntheticBatchPairDataset(
-                total_dataset_size=self.n_train_samples if self.is_train else self.n_val_samples,
-                data_shape=[3, self.height, self.width],
-                num_classes=self.n_classes,
-                num_unique_samples_to_create=self.synthetic_num_unique_samples,
-                device=self.synthetic_device,
-                memory_format=self.synthetic_memory_format,
-            )
+        if self.is_train:
+            split = 'train'
+            transform = transforms.Compose([
+                transforms.RandomCrop((self.height, self.width), (self.height // 8, self.width // 8)),
+                transforms.RandomHorizontalFlip(),
+                transforms.ToTensor(),
+                transforms.Normalize(self.channel_means, self.channel_stds),
+            ])
         else:
-            if self.is_train:
-                split = 'train'
-                transform = transforms.Compose([
-                    transforms.RandomCrop((self.height, self.width), (self.height // 8, self.width // 8)),
-                    transforms.RandomHorizontalFlip(),
-                    transforms.ToTensor(),
-                    transforms.Normalize(self.channel_means, self.channel_stds),
-                ])
-            else:
-                split = 'val'
-                transform = transforms.Compose([
-                    transforms.ToTensor(),
-                    transforms.Normalize(self.channel_means, self.channel_stds),
-                ])
-            dataset, meta = load_webdataset(self.webdataset_s3_bucket, self.webdataset_name, split, self.webdataset_cache_dir,
-                                            self.webdataset_cache_verbose)
-            if self.shuffle:
-                dataset = dataset.shuffle(self.shuffle_buffer_per_worker)
-            dataset = dataset.decode('pil').map_dict(jpg=transform).to_tuple('jpg', 'cls')
-            dataset = size_webdataset(dataset, meta['n_shards'], meta['samples_per_shard'], dist.get_world_size(),
-                                      dataloader_hparams.num_workers, batch_size, self.drop_last)
+            split = 'val'
+            transform = transforms.Compose([
+                transforms.ToTensor(),
+                transforms.Normalize(self.channel_means, self.channel_stds),
+            ])
+        dataset, meta = load_webdataset(self.webdataset_s3_bucket, self.webdataset_name, split, self.webdataset_cache_dir,
+                                        self.webdataset_cache_verbose)
+        if self.shuffle:
+            dataset = dataset.shuffle(self.shuffle_buffer_per_worker)
+        dataset = dataset.decode('pil').map_dict(jpg=transform).to_tuple('jpg', 'cls')
+        dataset = size_webdataset(dataset, meta['n_shards'], meta['samples_per_shard'], dist.get_world_size(),
+                                  dataloader_hparams.num_workers, batch_size, self.drop_last)
         return dataloader_hparams.initialize_object(dataset,
                                                     batch_size=batch_size,
                                                     sampler=None,
