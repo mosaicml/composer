@@ -566,13 +566,13 @@ class Timestamp(NamedTuple):
         :class:`Timestamp` should not be instantiated directly; instead use :meth:`Timer.get_timestamp`.
 
     Attributes:
-        epoch (Time[int]): The total epoch count at which the :class`Timestamp` was generated.
-        batch (Time[int]): The total batch count at which the :class`Timestamp` was generated.
-        batch_in_epoch (Time[int]): The batch count in the epoch at which the :class`Timestamp` was generated.
-        sample (Time[int]): The total sample count at which the :class`Timestamp` was generated.
-        sample_in_epoch (Time[int]): The sample count in the epoch at which the :class`Timestamp` was generated.
-        token (Time[int]): The total token count at which the :class`Timestamp` was generated.
-        token_in_epoch (Time[int]): The token count in the epoch at which the :class`Timestamp` was generated.
+        epoch (Time[int]): The total epoch count when the :class`Timestamp` was generated.
+        batch (Time[int]): The total batch count when the :class`Timestamp` was generated.
+        batch_in_epoch (Time[int]): The batch count in the epoch when the :class`Timestamp` was generated.
+        sample (Time[int]): The total sample count when the :class`Timestamp` was generated.
+        sample_in_epoch (Time[int]): The sample count in the epoch when the :class`Timestamp` was generated.
+        token (Time[int]): The total token count when the :class`Timestamp` was generated.
+        token_in_epoch (Time[int]): The token count in the epoch when the :class`Timestamp` was generated.
     """
     epoch: Time[int]
     batch: Time[int]
