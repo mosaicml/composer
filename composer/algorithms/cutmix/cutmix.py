@@ -64,7 +64,7 @@ def cutmix_batch(X: Tensor,
             for permuting without randomness.
         uniform_sampling: If true, sample the bounding box such that each pixel
             has an equal probability of being mixed. If false, defaults to the
-            sampling used in the original paper implementation.
+            sampling used in the original paper implementation. Default: False
 
     Returns:
         X_cutmix: batch of inputs after cutmix has been applied.
