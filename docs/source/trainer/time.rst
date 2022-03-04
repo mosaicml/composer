@@ -43,9 +43,9 @@ Tracking Time
 The trainer has a :class:`.Timer` object stored in :attr:`.State.timer` that
 measures progress in all the time formats above. :attr:`.State.timer` can be
 read by algorithms and callbacks to trigger behavior at different times
-during training. Especially useful is allowing you to use whichever format
-is most relevant for your algorithm -- e.g. once-every-n batches, or during the
-last 20% of training.
+during training. This feature allows algorithms to specify time in whatever unit
+is most useful -- e.g. an algorithm could activate once every *n* batches, or
+during the last 20% of training.
 
 The trainer's timer increments time as data is consumed. As each batch of data is read,
 the timer accumulates the total number of samples and/or tokens consumed.

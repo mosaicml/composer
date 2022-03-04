@@ -399,37 +399,37 @@ class Timer(Serializable):
 
     @property
     def epoch(self) -> Time[int]:
-        """The current epoch."""
+        """The total epoch count."""
         return self._epoch
 
     @property
     def batch(self) -> Time[int]:
-        """The current batch."""
+        """The total batch count."""
         return self._batch
 
     @property
     def sample(self) -> Time[int]:
-        """The current sample."""
+        """The total sample count."""
         return self._sample
 
     @property
     def token(self) -> Time[int]:
-        """The current token."""
+        """The total token count."""
         return self._token
 
     @property
     def batch_in_epoch(self) -> Time[int]:
-        """The number of batches seen in the current epoch (resets at 0 at the beginning of every epoch)."""
+        """The batch count in the current epoch (resets at 0 at the beginning of every epoch)."""
         return self._batch_in_epoch
 
     @property
     def sample_in_epoch(self) -> Time[int]:
-        """The number of samples seen in the current epoch (resets at 0 at the beginning of every epoch)."""
+        """The sample count in the current epoch (resets at 0 at the beginning of every epoch)."""
         return self._sample_in_epoch
 
     @property
     def token_in_epoch(self) -> Time[int]:
-        """The number of tokens seen in the current epoch (resets at 0 at the beginning of every epoch)."""
+        """The token count in the current epoch (resets at 0 at the beginning of every epoch)."""
         return self._token_in_epoch
 
     def get(self, unit: Union[str, TimeUnit]) -> Time[int]:
@@ -566,13 +566,13 @@ class Timestamp(NamedTuple):
         :class:`Timestamp` should not be instantiated directly; instead use :meth:`Timer.get_timestamp`.
 
     Attributes:
-        epoch (Time[int]): The epoch.
-        batch (Time[int]): The batch.
-        batch_in_epoch (Time[int]): The number of batch seen in the last epoch.
-        sample (Time[int]): The sample count.
-        sample_in_epoch (Time[int]): The number of samples seen in the last epoch.
-        token (Time[int]): The token count.
-        token_in_epoch (Time[int]): The number of tokens seen in the last epoch.
+        epoch (Time[int]): The total epoch count at which the :class`Timestamp` was generated.
+        batch (Time[int]): The total batch count at which the :class`Timestamp` was generated.
+        batch_in_epoch (Time[int]): The batch count in the epoch at which the :class`Timestamp` was generated.
+        sample (Time[int]): The total sample count at which the :class`Timestamp` was generated.
+        sample_in_epoch (Time[int]): The sample count in the epoch at which the :class`Timestamp` was generated.
+        token (Time[int]): The total token count at which the :class`Timestamp` was generated.
+        token_in_epoch (Time[int]): The token count in the epoch at which the :class`Timestamp` was generated.
     """
     epoch: Time[int]
     batch: Time[int]
