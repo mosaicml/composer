@@ -170,8 +170,9 @@ class TestTrainerEquivalence():
 
         self.assert_models_equal(trainer.state.model, self.reference_model)
 
-    @pytest.skip
-    def test_grad_accum(self, config, *args):
+    def test_grad_accum(self, config, device, *args):
+        if device == 'cpu':
+            pytest.mark.skip()
         config.update({
             'grad_accum': 2,
         })
