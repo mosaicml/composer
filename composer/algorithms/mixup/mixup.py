@@ -19,27 +19,27 @@ log = logging.getLogger(__name__)
 __all__ = ["MixUp", "mixup_batch"]
 
 
-def mixup_batch(X: Tensor,
-                y: Tensor,
+def mixup_batch(input: Tensor,
+                target: Tensor,
                 num_classes: int,
                 mixing: Optional[float] = None,
                 alpha: float = 0.2,
                 indices: Optional[torch.Tensor] = None) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
     """Create new samples using convex combinations of pairs of samples.
 
-    This is done by taking a convex combination of ``X`` with a randomly
-    permuted copy of ``X``. The permutation takes place along the sample
+    This is done by taking a convex combination of ``input`` with a randomly
+    permuted copy of ``input``. The permutation takes place along the sample
     axis (dim 0).
 
-    The relative weight of the original ``X`` versus the permuted copy is
+    The relative weight of the original ``input`` versus the permuted copy is
     defined by the ``mixing`` parameter. This parameter should be chosen
     from a ``Beta(alpha, alpha)`` distribution for some parameter ``alpha > 0``.
     Note that the same ``mixing`` is used for the whole batch.
 
     Args:
-        X (torch.Tensor): input tensor of shape ``(minibatch, ...)``, where
+        input (torch.Tensor): input tensor of shape ``(minibatch, ...)``, where
             ``...`` indicates zero or more dimensions.
-        y (torch.Tensor): target tensor of shape ``(minibatch, ...)``, where
+        target (torch.Tensor): target tensor of shape ``(minibatch, ...)``, where
             ``...`` indicates zero or more dimensions.
         num_classes (int): total number of classes or output variables
         mixing (float, optional): coefficient used to interpolate
@@ -52,8 +52,8 @@ def mixup_batch(X: Tensor,
             Default: ``None``.
 
     Returns:
-        X_mix (torch.Tensor): batch of inputs after mixup has been applied
-        y_mix (torch.Tensor): labels after mixup has been applied
+        input_mixed (torch.Tensor): batch of inputs after mixup has been applied
+        target_mixed (torch.Tensor): labels after mixup has been applied
         perm (torch.Tensor): the permutation used
 
     Example:
@@ -74,22 +74,22 @@ def mixup_batch(X: Tensor,
     # Create shuffled versions of x and y in preparation for interpolation
     # Use given indices if there are any.
     if indices is None:
-        shuffled_idx = torch.randperm(X.shape[0])
+        shuffled_idx = torch.randperm(input.shape[0])
     else:
         shuffled_idx = indices
-    x_shuffled = X[shuffled_idx]
-    y_shuffled = y[shuffled_idx]
+    x_shuffled = input[shuffled_idx]
+    y_shuffled = target[shuffled_idx]
     # Interpolate between the inputs
-    x_mix = (1 - mixing) * X + mixing * x_shuffled
+    x_mix = (1 - mixing) * input + mixing * x_shuffled
 
     # First check if labels are indices. If so, convert them to onehots.
     # This is under the assumption that the loss expects torch.LongTensor, which is true for pytorch cross_entropy
-    if check_for_index_targets(y):
-        y_onehot = F.one_hot(y, num_classes=num_classes)
+    if check_for_index_targets(target):
+        y_onehot = F.one_hot(target, num_classes=num_classes)
         y_shuffled_onehot = F.one_hot(y_shuffled, num_classes=num_classes)
         y_mix = ((1. - mixing) * y_onehot + mixing * y_shuffled_onehot)
     else:
-        y_mix = ((1. - mixing) * y + mixing * y_shuffled)
+        y_mix = ((1. - mixing) * target + mixing * y_shuffled)
     return x_mix, y_mix, shuffled_idx
 
 

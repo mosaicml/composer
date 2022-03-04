@@ -14,7 +14,7 @@ from composer.models.loss import ensure_targets_one_hot
 __all__ = ["LabelSmoothing", "smooth_labels"]
 
 
-def smooth_labels(logits: Tensor, targets: Tensor, smoothing: float = 0.1):
+def smooth_labels(logits: Tensor, target: Tensor, smoothing: float = 0.1):
     """Shrinks targets towards a uniform distribution as in `Szegedy et al <https://\\
     arxiv.org/abs/1512.00567>`_.
 
@@ -22,11 +22,11 @@ def smooth_labels(logits: Tensor, targets: Tensor, smoothing: float = 0.1):
     where ``unif`` is a vector with elements all equal to ``1 / num_classes``.
 
     Args:
-        logits (torch.Tensor): predicted values for ``targets``, or any other tensor
+        logits (torch.Tensor): predicted value for ``target``, or any other tensor
             with the same shape. Shape must be ``(N, num_classes, ...)`` for
             ``N`` examples and ``num_classes`` classes, with any number of
             optional extra dimensions.
-        targets (torch.Tensor): target tensor of either shape ``N`` or
+        target (torch.Tensor): target tensor of either shape ``N`` or
             ``(N, num_classes, ...)``. In the former case, elements of
             ``targets`` must be integer class ids in the range
             ``0..num_classes``. In the latter case, ``targets`` must have the
@@ -48,13 +48,13 @@ def smooth_labels(logits: Tensor, targets: Tensor, smoothing: float = 0.1):
             targets = torch.randint(num_classes, size=(100,))
             from composer.algorithms.label_smoothing import smooth_labels
             new_targets = smooth_labels(logits=logits,
-                                        targets=targets,
+                                        target=targets,
                                         smoothing=0.1)
     """
 
-    targets = ensure_targets_one_hot(logits, targets)
+    target = ensure_targets_one_hot(logits, target)
     n_classes = logits.shape[1]
-    return (targets * (1. - smoothing)) + (smoothing / n_classes)
+    return (target * (1. - smoothing)) + (smoothing / n_classes)
 
 
 class LabelSmoothing(Algorithm):

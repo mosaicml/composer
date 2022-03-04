@@ -27,8 +27,8 @@ def training_loop(model, train_loader):
 
     for epoch in range(num_epochs):
         for X, y in train_loader:
-            X_cutmix, y_cutmix = cf.cutmix_batch(X=X,
-                                                 y=y_example,
+            X_cutmix, y_cutmix = cf.cutmix_batch(X,
+                                                 y_example,
                                                  num_classes=1000,
                                                  alpha=1.0)
 

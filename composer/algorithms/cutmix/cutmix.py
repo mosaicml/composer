@@ -19,8 +19,8 @@ log = logging.getLogger(__name__)
 __all__ = ["CutMix", "cutmix_batch"]
 
 
-def cutmix_batch(X: Tensor,
-                 y: Tensor,
+def cutmix_batch(input: Tensor,
+                 target: Tensor,
                  num_classes: int,
                  length: Optional[Union[int, float]] = None,
                  alpha: float = 1.,
@@ -28,8 +28,8 @@ def cutmix_batch(X: Tensor,
                  indices: Optional[torch.Tensor] = None) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
     """Create new samples using combinations of pairs of samples.
 
-    This is done by masking a region of ``X`` and filling the masked region with
-    the corresponding content in a permuted copy of ``X``. The permutation takes
+    This is done by masking a region of ``input`` and filling the masked region with
+    the corresponding content in a permuted copy of ``input``. The permutation takes
     place along the sample axis (dim 0), so that each output image has part
     of it replaced with content from another image.
 
@@ -54,11 +54,11 @@ def cutmix_batch(X: Tensor,
         or ``alpha``.
 
     Args:
-        X (torch.Tensor): input tensor of shape ``(N, C, H, W)``
-        y (torch.Tensor): target tensor of either shape ``N`` or
-            ``(N, num_classes)``. In the former case, elements of ``y`` must
-            be integer class ids in the range ``0..num_classes``. In the
-            latter case, rows of ``y`` may be arbitrary vectors of targets,
+        input (torch.Tensor): input tensor of shape ``(N, C, H, W)``
+        target (torch.Tensor): target tensor of either shape ``N`` or
+            ``(N, num_classes)``. In the former case, elements of ``target``
+            must be integer class ids in the range ``0..num_classes``. In the
+            latter case, rows of ``target`` may be arbitrary vectors of targets,
             including, e.g., one-hot encoded class labels, smoothed class
             labels, or multi-output regression targets.
         num_classes (int): total number of classes or output variables
@@ -77,12 +77,13 @@ def cutmix_batch(X: Tensor,
             Default: ``None``.
 
     Returns:
-        X_mixed (torch.Tensor): batch of inputs after cutmix has been applied.
-        y_mixed (torch.Tensor): soft labels for mixed input samples. These are a convex
-            combination of the (possibly one-hot-encoded) labels from the
-            original samples and the samples chosen to fill the masked
-            regions, with the relative weighting equal to the fraction of
-            the spatial size that is cut.
+        input_mixed (torch.Tensor): batch of inputs after cutmix has been
+            applied.
+        target_mixed (torch.Tensor): soft labels for mixed input samples.
+            These are a convex combination of the (possibly one-hot-encoded)
+            labels from the original samples and the samples chosen to fill
+            the masked regions, with the relative weighting equal to the
+            fraction of the spatial size that is cut.
             E.g., if a sample was originally an image with label ``0`` and
             40% of the image of was replaced with data from an image with label
             ``2``, the resulting labels, assuming only three classes, would be
@@ -112,11 +113,11 @@ def cutmix_batch(X: Tensor,
     # Create shuffled indicies across the batch in preparation for cutting and mixing.
     # Use given indices if there are any.
     if indices is None:
-        shuffled_idx = _gen_indices(X)
+        shuffled_idx = _gen_indices(input)
     else:
         shuffled_idx = indices
 
-    H, W = X.shape[-2], X.shape[-1]
+    H, W = input.shape[-2], input.shape[-1]
 
     # figure out fraction of area to cut
     cut_w, cut_h = None, None
@@ -131,33 +132,33 @@ def cutmix_batch(X: Tensor,
         cutmix_lambda = (cut_w * cut_h) / (H * W)
 
     # Create the new inputs.
-    X_cutmix = torch.clone(X)
+    X_cutmix = torch.clone(input)
     # Sample a rectangular box using lambda. Use variable names from the paper.
     if bbox:
         rx, ry, rw, rh = bbox[0], bbox[1], bbox[2], bbox[3]
         box_area = (rw - rx) * (rh - ry)
         cutmix_lambda = box_area / (H * W)
     else:
-        rx, ry, rw, rh = _rand_bbox(X.shape[2], X.shape[3], cutmix_lambda, cut_w=cut_w, cut_h=cut_h)
+        rx, ry, rw, rh = _rand_bbox(input.shape[2], input.shape[3], cutmix_lambda, cut_w=cut_w, cut_h=cut_h)
         bbox = (rx, ry, rw, rh)
 
     # Fill in the box with a part of a random image.
     X_cutmix[:, :, rx:rw, ry:rh] = X_cutmix[shuffled_idx, :, rx:rw, ry:rh]
     # adjust lambda to exactly match pixel ratio. This is an implementation detail taken from
     # the original implementation, and implies lambda is not actually beta distributed.
-    adjusted_lambda = _adjust_lambda(cutmix_lambda, X, bbox)
+    adjusted_lambda = _adjust_lambda(cutmix_lambda, input, bbox)
 
     # Make a shuffled version of y for interpolation
-    y_shuffled = y[shuffled_idx]
+    y_shuffled = target[shuffled_idx]
     # Interpolate between labels using the adjusted lambda
     # First check if labels are indices. If so, convert them to onehots.
     # This is under the assumption that the loss expects torch.LongTensor, which is true for pytorch cross_entropy
-    if check_for_index_targets(y):
-        y_onehot = F.one_hot(y, num_classes=num_classes)
+    if check_for_index_targets(target):
+        y_onehot = F.one_hot(target, num_classes=num_classes)
         y_shuffled_onehot = F.one_hot(y_shuffled, num_classes=num_classes)
         y_cutmix = adjusted_lambda * y_onehot + (1 - adjusted_lambda) * y_shuffled_onehot
     else:
-        y_cutmix = adjusted_lambda * y + (1 - adjusted_lambda) * y_shuffled
+        y_cutmix = adjusted_lambda * target + (1 - adjusted_lambda) * y_shuffled
 
     return X_cutmix, y_cutmix, shuffled_idx
 
@@ -255,8 +256,8 @@ class CutMix(Algorithm):
         self._cutmix_lambda = _adjust_lambda(_cutmix_lambda, input, self._bbox)
 
         new_input, new_target, _ = cutmix_batch(
-            X=input,
-            y=target,
+            input=input,
+            target=target,
             num_classes=self.num_classes,
             alpha=alpha,
             bbox=self._bbox,
