@@ -14,11 +14,11 @@ from composer.models.loss import ensure_targets_one_hot
 __all__ = ["LabelSmoothing", "smooth_labels"]
 
 
-def smooth_labels(logits: Tensor, targets: Tensor, interpolation: float = 0.1):
+def smooth_labels(logits: Tensor, targets: Tensor, smoothing: float = 0.1):
     """Shrinks targets towards a uniform distribution as in `Szegedy et al <https://\\
     arxiv.org/abs/1512.00567>`_.
 
-    The smoothed labels are computed as ``(1 - interpolation) * targets + interpolation * unif``
+    The smoothed labels are computed as ``(1 - smoothing) * targets + smoothing * unif``
     where ``unif`` is a vector with elements all equal to ``1 / num_classes``.
 
     Args:
@@ -31,9 +31,9 @@ def smooth_labels(logits: Tensor, targets: Tensor, interpolation: float = 0.1):
             ``targets`` must be integer class ids in the range
             ``0..num_classes``. In the latter case, ``targets`` must have the
             same shape as ``logits``.
-        interpolation (float, optional): Strength of the label smoothing, in
-            :math`[0, 1]`. ``interpolation=0`` means no label smoothing, and
-            ``interpolation=1`` means maximal smoothing (targets are ignored).
+        smoothing (float, optional): Strength of the label smoothing, in
+            :math`[0, 1]`. ``smoothing=0`` means no label smoothing, and
+            ``smoothing=1`` means maximal smoothing (targets are ignored).
 
     Example:
         .. testcode::
@@ -45,19 +45,19 @@ def smooth_labels(logits: Tensor, targets: Tensor, interpolation: float = 0.1):
             from composer.algorithms.label_smoothing import smooth_labels
             new_targets = smooth_labels(logits=logits,
                                         targets=targets,
-                                        interpolation=0.1)
+                                        smoothing=0.1)
     """
 
     targets = ensure_targets_one_hot(logits, targets)
     n_classes = logits.shape[1]
-    return (targets * (1. - interpolation)) + (interpolation / n_classes)
+    return (targets * (1. - smoothing)) + (smoothing / n_classes)
 
 
 class LabelSmoothing(Algorithm):
     """Shrinks targets towards a uniform distribution to counteract label noise as in `Szegedy et al <https://\\
     arxiv.org/abs/1512.00567>`_.
 
-    The smoothed labels are computed as ``(1 - interpolation) * targets + interpolation * unif``
+    The smoothed labels are computed as ``(1 - smoothing) * targets + smoothing * unif``
     where ``unif`` is a vector with elements all equal to ``1 / num_classes``.
 
     Introduced in `Rethinking the Inception Architecture for Computer Vision <https://arxiv.org/abs/1512.00567>`_.
@@ -87,7 +87,7 @@ class LabelSmoothing(Algorithm):
 
         .. testcode::
 
-            algorithm = LabelSmoothing(interpolation=0.1)
+            algorithm = LabelSmoothing(smoothing=0.1)
             trainer = Trainer(
                 model=model,
                 train_dataloader=train_dataloader,
@@ -98,13 +98,13 @@ class LabelSmoothing(Algorithm):
             )
 
     Args:
-        interpolation: Strength of the label smoothing, in :math:`[0, 1]`.
-            ``interpolation=0`` means no label smoothing, and
-            ``interpolation=1`` means maximal smoothing (targets are ignored).
+        smoothing: Strength of the label smoothing, in :math:`[0, 1]`.
+            ``smoothing=0`` means no label smoothing, and
+            ``smoothing=1`` means maximal smoothing (targets are ignored).
     """
 
-    def __init__(self, interpolation: float = 0.1):
-        self.interpolation = interpolation
+    def __init__(self, smoothing: float = 0.1):
+        self.smoothing = smoothing
         self.original_labels = torch.Tensor()
 
     def match(self, event: Event, state: State) -> bool:
@@ -121,7 +121,7 @@ class LabelSmoothing(Algorithm):
             smoothed_labels = smooth_labels(
                 state.outputs,
                 labels,
-                interpolation=self.interpolation,
+                smoothing=self.smoothing,
             )
             state.batch = (input, smoothed_labels)
         elif event == Event.AFTER_LOSS:

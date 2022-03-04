@@ -186,7 +186,7 @@ class GhostBatchNormHparams(AlgorithmHparams):
 class LabelSmoothingHparams(AlgorithmHparams):
     """See :class:`LabelSmoothing`"""
 
-    interpolation: float = hp.optional(doc='smoothing factor between 0 and 1', default=0.1)
+    smoothing: float = hp.optional(doc='smoothing factor between 0 and 1', default=0.1)
 
     def initialize_object(self) -> LabelSmoothing:
         return LabelSmoothing(**asdict(self))
