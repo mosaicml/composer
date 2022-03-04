@@ -105,7 +105,6 @@ def cutmix_batch(input: Tensor,
             y = torch.randint(num_classes, size=(N,))
             X_mixed, y_mixed = cutmix_batch(
                 X, y, num_classes=num_classes, alpha=0.2)
-
     """
     if bbox is not None and length is not None:
         raise ValueError(f"Cannot provide both length and bbox; got {length} and {bbox}")

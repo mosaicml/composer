@@ -15,8 +15,7 @@ __all__ = ["LabelSmoothing", "smooth_labels"]
 
 
 def smooth_labels(logits: Tensor, target: Tensor, smoothing: float = 0.1):
-    """Shrinks targets towards a uniform distribution as in `Szegedy et al <https://\\
-    arxiv.org/abs/1512.00567>`_.
+    """Shrink targets towards a uniform distribution as in `Szegedy et al <https://arxiv.org/abs/1512.00567>`_.
 
     The smoothed labels are computed as ``(1 - smoothing) * targets + smoothing * unif``
     where ``unif`` is a vector with elements all equal to ``1 / num_classes``.
@@ -58,8 +57,7 @@ def smooth_labels(logits: Tensor, target: Tensor, smoothing: float = 0.1):
 
 
 class LabelSmoothing(Algorithm):
-    """Shrinks targets towards a uniform distribution to counteract label noise as in `Szegedy et al <https://\\
-    arxiv.org/abs/1512.00567>`_.
+    """Shrink targets towards a uniform distribution as in `Szegedy et al <https://arxiv.org/abs/1512.00567>`_.
 
     The smoothed labels are computed as ``(1 - smoothing) * targets + smoothing * unif``
     where ``unif`` is a vector with elements all equal to ``1 / num_classes``.
