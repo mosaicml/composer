@@ -29,7 +29,7 @@ def cutmix_batch(X: Tensor,
     """Create new samples using combinations of pairs of samples.
 
     This is done by masking a region of ``X`` and filling the masked region with
-    the corresponding content in a permuted copy ``X``. The permutation takes
+    the corresponding content in a permuted copy of ``X``. The permutation takes
     place along the sample axis (dim 0), so that each output image has part
     of it replaced with content from another image.
 
@@ -39,10 +39,10 @@ def cutmix_batch(X: Tensor,
     The area of the masked region is computed using either ``length`` or
     ``alpha``. If ``length`` is provided, it directly determines the size
     of the masked region. If it is not provided, the fraction of the input
-    area to cut is drawn from a ``Beta(alpha, alpha)`` distribution.
+    area to mask is drawn from a ``Beta(alpha, alpha)`` distribution.
     The original paper used a fixed value of ``alpha = 1``.
 
-    Alternatively, one may provide a bounding box to cut directly, in
+    Alternatively, one may provide a bounding box to mask directly, in
     which case ``alpha`` is ignored and ``length`` must not be provided.
 
     The same masked region is used for the whole batch.
@@ -54,30 +54,31 @@ def cutmix_batch(X: Tensor,
         or ``alpha``.
 
     Args:
-        X (Tensor): input tensor of shape ``(N, C, H, W)``
-        y (Tensor): target tensor of either shape ``N`` or
+        X (torch.Tensor): input tensor of shape ``(N, C, H, W)``
+        y (torch.Tensor): target tensor of either shape ``N`` or
             ``(N, num_classes)``. In the former case, elements of ``y`` must
             be integer class ids in the range ``0..num_classes``. In the
             latter case, rows of ``y`` may be arbitrary vectors of targets,
             including, e.g., one-hot encoded class labels, smoothed class
             labels, or multi-output regression targets.
         num_classes (int): total number of classes or output variables
-        length (float, optional): side length of the hole to cut. Must be
+        length (float, optional): side length of the masked region. Must be
             greater than 0. If ``0 < length < 1``, ``length`` is
             interpreted as a fraction of ``H`` and ``W`` and the resulting box
             is of size ``(length * H, length * W)``. If ``length >= 1``,
-            ``length`` is used as an integer size directly. Default: ``None``.
+            ``length`` the resulting box is of size ``(length, length)``.
+            Default: ``None``.
         alpha (float, optional): parameter for the Beta distribution over
-            the fraction of the input to cut and replace. Ignored
-            if ``length`` is provided. Default: ``1``.
+            the fraction of the input to mask. Ignored if ``length`` is
+            provided. Default: ``1``.
         bbox (tuple, optional): predetermined ``(x1, y1, x2, y2)``
             coordinates of the bounding box. Default: ``None``.
         indices (torch.Tensor, optional): Permutation of the samples to use.
             Default: ``None``.
 
     Returns:
-        X_mixed (Tensor): batch of inputs after cutmix has been applied.
-        y_mixed (Tensor): soft labels for mixed input samples. These are a convex
+        X_mixed (torch.Tensor): batch of inputs after cutmix has been applied.
+        y_mixed (torch.Tensor): soft labels for mixed input samples. These are a convex
             combination of the (possibly one-hot-encoded) labels from the
             original samples and the samples chosen to fill the masked
             regions, with the relative weighting equal to the fraction of
@@ -86,7 +87,7 @@ def cutmix_batch(X: Tensor,
             40% of the image of was replaced with data from an image with label
             ``2``, the resulting labels, assuming only three classes, would be
             ``[1, 0, 0] * 0.6 + [0, 0, 1] * 0.4 = [0.6, 0, 0.4]``.
-        perm (Tensor): the permutation used
+        perm (torch.Tensor): the permutation used
 
     Raises:
         ValueError: If both ``length`` and ``bbox`` are provided.
@@ -166,15 +167,15 @@ class CutMix(Algorithm):
     examples and iterpolated targets rather than individual examples and targets.
 
     This is done by taking a non-overlapping combination of a given batch X with a
-    randomly permuted copy of X. The area is drawn from a :math:`Beta(\alpha, \alpha)`
+    randomly permuted copy of X. The area is drawn from a ``Beta(alpha, alpha)``
     distribution.
 
     Training in this fashion sometimes reduces generalization error.
 
     Args:
         num_classes (int): the number of classes in the task labels.
-        alpha (float, optional): the psuedocount for the Beta distribution used to sample
-            area parameters. As ``alpha`` grows, the two samples
+        alpha (float, optional): the psuedocount for the Beta distribution
+            used to sample area parameters. As ``alpha`` grows, the two ssamples
             in each pair tend to be weighted more equally. As ``alpha``
             approaches 0 from above, the combination approaches only using
             one element of the pair. Default: ``1``.
@@ -282,7 +283,7 @@ def _gen_cutmix_coef(alpha: float) -> float:
     """Generates lambda from ``Beta(alpha, alpha)``
 
     Args:
-        alpha: Parameter for the Beta(alpha, alpha) distribution
+        alpha: Parameter for the ``Beta(alpha, alpha)`` distribution
 
     Returns:
         cutmix_lambda: Lambda parameter for performing cutmix.

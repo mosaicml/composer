@@ -22,22 +22,22 @@ def smooth_labels(logits: Tensor, targets: Tensor, smoothing: float = 0.1):
     where ``unif`` is a vector with elements all equal to ``1 / num_classes``.
 
     Args:
-        logits (Tensor): predicted values for ``targets``, or any other tensor
+        logits (torch.Tensor): predicted values for ``targets``, or any other tensor
             with the same shape. Shape must be ``(N, num_classes, ...)`` for
             ``N`` examples and ``num_classes`` classes, with any number of
             optional extra dimensions.
-        targets (Tensor): target tensor of either shape ``N`` or
+        targets (torch.Tensor): target tensor of either shape ``N`` or
             ``(N, num_classes, ...)``. In the former case, elements of
             ``targets`` must be integer class ids in the range
             ``0..num_classes``. In the latter case, ``targets`` must have the
             same shape as ``logits``.
         smoothing (float, optional): strength of the label smoothing, in
-            :math`[0, 1]`. ``smoothing=0`` means no label smoothing, and
+            :math:`[0, 1]`. ``smoothing=0`` means no label smoothing, and
             ``smoothing=1`` means maximal smoothing (targets are ignored).
             Default: ``0.1``.
 
     Returns:
-        targets_smooth (Tensor): The smoothed targets
+        targets_smooth (torch.Tensor): The smoothed targets
 
     Example:
         .. testcode::
@@ -64,7 +64,11 @@ class LabelSmoothing(Algorithm):
     The smoothed labels are computed as ``(1 - smoothing) * targets + smoothing * unif``
     where ``unif`` is a vector with elements all equal to ``1 / num_classes``.
 
-    Introduced in `Rethinking the Inception Architecture for Computer Vision <https://arxiv.org/abs/1512.00567>`_.
+    Args:
+        smoothing: Strength of the label smoothing, in :math:`[0, 1]`.
+            ``smoothing=0`` means no label smoothing, and
+            ``smoothing=1`` means maximal smoothing (targets are ignored).
+            Default: ``0.1``.
 
     Example:
         .. testsetup::
@@ -100,12 +104,6 @@ class LabelSmoothing(Algorithm):
                 algorithms=[algorithm],
                 optimizers=[optimizer]
             )
-
-    Args:
-        smoothing: Strength of the label smoothing, in :math:`[0, 1]`.
-            ``smoothing=0`` means no label smoothing, and
-            ``smoothing=1`` means maximal smoothing (targets are ignored).
-            Default: ``0.1``.
     """
 
     def __init__(self, smoothing: float = 0.1):

@@ -37,14 +37,14 @@ def mixup_batch(X: Tensor,
     Note that the same ``mixing`` is used for the whole batch.
 
     Args:
-        X (Tensor): input tensor of shape ``(minibatch, ...)``, where
+        X (torch.Tensor): input tensor of shape ``(minibatch, ...)``, where
             ``...`` indicates zero or more dimensions.
-        y (Tensor): target tensor of shape ``(minibatch, ...)``, where
+        y (torch.Tensor): target tensor of shape ``(minibatch, ...)``, where
             ``...`` indicates zero or more dimensions.
         num_classes (int): total number of classes or output variables
         mixing (float, optional): coefficient used to interpolate
             between the two examples. If provided, must be in :math:`[0, 1]`.
-            If ``None``, value is drawn from a :math:`Beta(alpha, alpha)`
+            If ``None``, value is drawn from a ``Beta(alpha, alpha)``
             distribution. Default: ``None``.
         alpha (float, optional): parameter for the Beta distribution over
             ``mixing``. Ignored if ``mixing`` is provided. Default: ``0.2``.
@@ -52,9 +52,9 @@ def mixup_batch(X: Tensor,
             Default: ``None``.
 
     Returns:
-        X_mix (Tensor): batch of inputs after mixup has been applied
-        y_mix (Tensor): labels after mixup has been applied
-        perm (Tensor): the permutation used
+        X_mix (torch.Tensor): batch of inputs after mixup has been applied
+        y_mix (torch.Tensor): labels after mixup has been applied
+        perm (torch.Tensor): the permutation used
 
     Example:
         .. testcode::
@@ -99,7 +99,7 @@ class MixUp(Algorithm):
 
     This is done by taking a convex combination of a given batch X with a
     randomly permuted copy of X. The mixing coefficient is drawn from a
-    :math:`Beta(alpha, alpha)` distribution.
+    ``Beta(alpha, alpha)`` distribution.
 
     Training in this fashion sometimes reduces generalization error.
 
