@@ -72,7 +72,7 @@ def randaugment_image(img: ImgT,
 
 
 class RandAugmentTransform(torch.nn.Module):
-    """Wraps :func:`.RandAugment_image` in a
+    """Wraps :func:`.randaugment_image` in a
     ``torchvision``-compatible transform. See
     :class:`.RandAugment` or the :doc:`Method
     Card </method_cards/randaugment>` for more details.
