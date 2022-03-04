@@ -32,7 +32,7 @@ def augmix_image(img: ImgT,
                  augmentation_set: List = augmentation_sets["all"]) -> ImgT:
     """Applies AugMix (`Hendrycks et al, 2020 <http://arxiv.org/abs/1912.02781>`_) data
     augmentation to a single image or batch of images. See
-    :class:`~composer.algorithms.augmix.augmix.AugMix` and the 
+    :class:`.AugMix` and the
     :doc:`Method Card </method_cards/augmix>` for details. This function only acts on a
     single image (or batch) per call and is unlikely to be used in a training loop. Use
     :class:`~composer.algorithms.augmix.augmix.AugmentAndMixTransform` to use AugMix as
@@ -56,12 +56,12 @@ def augmix_image(img: ImgT,
 
     Args:
         img (PIL.Image): Image or batch of images to be AugMix'd.
-        severity (int, optional): See :class:`~composer.algorithms.augmix.augmix.AugMix`.
-        depth (int, optional): See :class:`~composer.algorithms.augmix.augmix.AugMix`.
-        width (int, optional): See :class:`~composer.algorithms.augmix.augmix.AugMix`.
-        alpha (float, optional): See :class:`~composer.algorithms.augmix.augmix.AugMix`.
+        severity (int, optional): See :class:`.AugMix`.
+        depth (int, optional): See :class:`.AugMix`.
+        width (int, optional): See :class:`.AugMix`.
+        alpha (float, optional): See :class:`.AugMix`.
         augmentation_set (str, optional): See
-            :class:`~composer.algorithms.augmix.augmix.AugMix`.
+            :class:`.AugMix`.
 
     Returns:
          PIL.Image: AugMix'd image.
@@ -102,7 +102,7 @@ def augmix_image(img: ImgT,
 class AugmentAndMixTransform(torch.nn.Module):
     """Wrapper module for :func:`~composer.algorithms.augmix.augmix.augmix_image` that can
     be passed to :class:`torchvision.transforms.Compose`. See
-    :class:`~composer.algorithms.augmix.augmix.AugMix` and the :doc:`Method Card
+    :class:`.AugMix` and the :doc:`Method Card
     </method_cards/augmix>` for details.
 
     Example:
@@ -123,12 +123,12 @@ class AugmentAndMixTransform(torch.nn.Module):
             transformed_image = composed(image)
 
     Args:
-        severity (int, optional): See :class:`~composer.algorithms.augmix.augmix.AugMix`.
-        depth (int, optional): See :class:`~composer.algorithms.augmix.augmix.AugMix`.
-        width (int, optional): See :class:`~composer.algorithms.augmix.augmix.AugMix`.
-        alpha (float, optional): See :class:`~composer.algorithms.augmix.augmix.AugMix`.
+        severity (int, optional): See :class:`.AugMix`.
+        depth (int, optional): See :class:`.AugMix`.
+        width (int, optional): See :class:`.AugMix`.
+        alpha (float, optional): See :class:`.AugMix`.
         augmentation_set (str, optional): See
-            :class:`~composer.algorithms.augmix.augmix.AugMix`.
+            :class:`.AugMix`.
     """
 
     def __init__(self,
@@ -167,8 +167,8 @@ class AugMix(Algorithm):
     ``Dirichlet(alpha, alpha, ...)`` distribution. The coefficient for mixing the combined augmented image and the
     original image is drawn from a ``Beta(alpha, alpha)`` distribution, using the same ``alpha``.
 
-    This algorithm runs on on :attr:`~composer.core.event.Event.FIT_START` to insert a dataset transformation. It is a no-op if this algorithm already
-    applied itself on the :attr:`State.train_dataloader.dataset`.
+    This algorithm runs on on :attr:`~composer.core.event.Event.FIT_START` to insert a dataset transformation.
+    It is a no-op if this algorithm already applied itself on the :attr:`State.train_dataloader.dataset`.
 
     See the :doc:`Method Card </method_cards/augmix>` for more details.
 
@@ -196,14 +196,14 @@ class AugMix(Algorithm):
 
     Args:
         severity (int, optional): Severity of augmentations; ranges from 0
-            (no augmentation) to 10 (most severe). Default = ``3``.
+            (no augmentation) to 10 (most severe). Default: ``3``.
         depth (int, optional): Number of augmentations per sequence. -1 enables stochastic
-            depth sampled uniformly from [1, 3]. Default = ``-1``.
-        width (int, optional): Number of augmentation sequences. Default = ``3``.
+            depth sampled uniformly from [1, 3]. Default: ``-1``.
+        width (int, optional): Number of augmentation sequences. Default: ``3``.
         alpha (float, optional): Pseudocount for Beta and Dirichlet distributions. Must be
             > 0.  Higher values yield mixing coefficients closer to uniform weighting. As
             the value approaches 0, the mixing coefficients approach using only one
-            version of each image. Default = ``1.0``.
+            version of each image. Default: ``1.0``.
         augmentation_set (str, optional): Must be one of the following options:
 
             * ``"augmentations_all"``
@@ -225,7 +225,7 @@ class AugMix(Algorithm):
                 "sharpness", and "brightness" that account for diverging effects around 0
                 (or 1).
 
-            Default = ``"all"``.
+            Default: ``"all"``.
     """
 
     # TODO document each value of augmentation_set in more detail; i.e.,

@@ -32,11 +32,11 @@ def smooth_labels(logits: Tensor, targets: Tensor, alpha: float):
                           )
 
     Args:
-        logits: Output of the model. Tensor of shape (N, C, d1, ..., dn) for
+        logits (Tensor): Output of the model. Tensor of shape (N, C, d1, ..., dn) for
             N examples and C classes, and d1, ..., dn extra dimensions.
-        targets: Tensor of shape (N) containing integers 0 <= i <= C-1
+        targets (Tensor): Tensor of shape (N) containing integers 0 <= i <= C-1
             specifying the target labels for each example.
-        alpha: Strength of the label smoothing, in [0, 1]. ``alpha=0``
+        alpha (float): Strength of the label smoothing, in [0, 1]. ``alpha=0``
             means no label smoothing, and ``alpha=1`` means maximal
             smoothing (targets are ignored).
     """
@@ -71,7 +71,7 @@ class LabelSmoothing(Algorithm):
             )
 
     Args:
-        alpha: Strength of the label smoothing, in [0, 1]. ``alpha=0``
+        alpha (float): Strength of the label smoothing, in [0, 1]. ``alpha=0``
             means no label smoothing, and ``alpha=1`` means maximal
             smoothing (targets are ignored).
     """
