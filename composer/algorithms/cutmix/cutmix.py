@@ -121,11 +121,11 @@ def cutmix_batch(X: Tensor,
     if length is None:
         cutmix_lambda = _gen_cutmix_coef(alpha)
     else:
-        if 0 < length < 1: # relative length
+        if 0 < length < 1:  # relative length
             cut_w = int(length * W)
             cut_h = int(length * H)
-        else: # absolute length
-            cut_w, cut_h = length, length
+        else:  # absolute length
+            cut_w, cut_h = int(length), int(length)
         cutmix_lambda = (cut_w * cut_h) / (H * W)
 
     # Create the new inputs.
