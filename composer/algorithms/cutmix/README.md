@@ -29,7 +29,7 @@ def training_loop(model, train_loader):
         for X, y in train_loader:
             X_cutmix, y_cutmix = cf.cutmix_batch(X=X,
                                                  y=y_example,
-                                                 n_classes=1000,
+                                                 num_classes=1000,
                                                  alpha=1.0)
 
             y_hat = model(X_cutmix)
@@ -64,7 +64,7 @@ TODO(CORY): Briefly describe how this is implemented under the hood in Composer.
 
 ## Suggested Hyperparameters
 
-Setting `alpha=1` is a standard choice. This produces a uniform distribution, meaning `interpolation` (the interpolation between the labels of the two sets of examples) is selected uniformly between 0 and 1.
+Setting `alpha=1` is a standard choice. This produces a uniform distribution, meaning the interpolation between the labels of the two sets of examples is selected uniformly between 0 and 1.
 
 ## Technical Details
 
@@ -89,7 +89,7 @@ CutMix is intended to improve generalization performance, and we empirically fou
 > As general rule, composing regularization methods may lead to diminishing returns in quality improvements. CutMix is one such regularization method.
 
 Data augmentation techniques can sometimes put additional load on the CPU, potentially reaching the point where the CPU becomes a bottleneck for training.
-To prevent this from happening for CutMix, our implementation of CutMix (1) occurs on the GPU and (2) uses the same patch and value of `interpolation` for all examples in the minibatch.
+To prevent this from happening for CutMix, our implementation of CutMix (1) occurs on the GPU and (2) uses the same patch and interpolation for all examples in the minibatch.
 Doing so avoids putting additional work on the CPU (since augmentation occurs on the GPU) and minimizes additional work on the GPU (since all images are handled uniformly within a batch).
 
 > 🚧 CutMix Requires a Small Amount of Additional GPU Compute and Memory
