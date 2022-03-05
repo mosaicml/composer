@@ -70,7 +70,7 @@ pip install mosaicml
 ```
 Alternatively install Composer with Conda
 ```bash
-conda install mosaicml
+conda install -c mosaicml mosaicml
 ```
 ---
 

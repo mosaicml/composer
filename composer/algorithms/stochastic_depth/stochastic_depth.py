@@ -58,18 +58,18 @@ def apply_stochastic_depth(model: torch.nn.Module,
             Currently, only :class:`torchvision.models.resnet.Bottleneck` is supported.
         stochastic_method (str, optional): The version of stochastic depth to use. ``"block"``
             randomly drops blocks during training. ``"sample"`` randomly drops
-            samples within a block during training.
+            samples within a block during training. Default: ``"block"``.
         drop_rate (float, optional): The base probability of dropping a layer or sample. Must be
-            between 0.0 and 1.0.
+            between 0.0 and 1.0. Default: `0.2``.
         drop_distribution (str, optional): How ``drop_rate`` is distributed across
             layers. Value must be one of ``"uniform"`` or ``"linear"``.
             ``"uniform"`` assigns the same ``drop_rate`` across all layers.
             ``"linear"`` linearly increases the drop rate across layer depth
-            starting with 0 drop rate and ending with ``drop_rate``.
+            starting with 0 drop rate and ending with ``drop_rate``. Default: ``"linear"``.
         use_same_gpu_seed (bool, optional): Set to ``True`` to have the same layers dropped
             across GPUs when using multi-GPU training. Set to ``False`` to
             have each GPU drop a different set of layers. Only used
-            with ``"block"`` stochastic method.
+            with ``"block"`` stochastic method. Default: ``True``.
         optimizers (Optimizers, optional):  Existing optimizers bound to ``model.parameters()``.
             All optimizers that have already been constructed with
             ``model.parameters()`` must be specified here so they will optimize
@@ -138,21 +138,21 @@ class StochasticDepth(Algorithm):
             Currently, only :class:`torchvision.models.resnet.Bottleneck` is supported.
         stochastic_method (str, optional): The version of stochastic depth to use. ``"block"``
             randomly drops blocks during training. ``"sample"`` randomly drops
-            samples within a block during training.
+            samples within a block during training. Default: ``"block"``.
         drop_rate (float, optional): The base probability of dropping a layer or sample. Must be
-            between 0.0 and 1.0.
+            between 0.0 and 1.0. Default: ``0.2``.
         drop_distribution (str, optional): How ``drop_rate`` is distributed across
             layers. Value must be one of ``"uniform"`` or ``"linear"``.
             ``"uniform"`` assigns the same ``drop_rate`` across all layers.
             ``"linear"`` linearly increases the drop rate across layer depth
-            starting with 0 drop rate and ending with ``drop_rate``.
+            starting with 0 drop rate and ending with ``drop_rate``. Default: ``"linear"``.
         drop_warmup (str | Time | float, optional): A :class:`Time` object, time-string, or float
             on [0.0; 1.0] representing the fraction of the training duration to linearly
-            increase the drop probability to `linear_drop_rate`. (default: ``0.0``)
+            increase the drop probability to `linear_drop_rate`. Default: ``0.0``.
         use_same_gpu_seed (bool, optional): Set to ``True`` to have the same layers dropped
             across GPUs when using multi-GPU training. Set to ``False`` to
             have each GPU drop a different set of layers. Only used
-            with ``"block"`` stochastic method.
+            with ``"block"`` stochastic method. Default: ``True``.
     """
 
     def __init__(self,

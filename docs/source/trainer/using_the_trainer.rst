@@ -65,6 +65,8 @@ objects.
 
 .. code:: python
 
+   import torch
+
    trainer = Trainer(model=ResNet18(),
                      train_dataloader=train_dataloader,
                      eval_dataloader=eval_dataloader,
@@ -170,7 +172,7 @@ argument.
    trainer = Trainer(model=model,
                      train_dataloader=train_dataloader,
                      eval_dataloader=eval_dataloader,
-                     max_duration='5ep',
+                     max_duration='2ep',
                      algorithms=[
                          LayerFreezing(freeze_start=0.5, freeze_level=0.1),
                          MixUp(num_classes=10, alpha=0.1),
@@ -193,31 +195,51 @@ Optimizers & Schedulers
 ~~~~~~~~~~~~~~~~~~~~~~~
 
 You can easily specify which optimizer and learning rate scheduler to
-use during training. Composer provides a library of various optimizers
-and schedulers, but you can also include one of your own.
+use during training. Composer supports both PyTorch schedulers as
+well as Composer's custom schedulers.
 
-.. code:: python
+.. testcode::
 
    from composer import Trainer
    from composer.models import ComposerResNet
-   from composer.optim.scheduler import cosine_annealing_scheduler
    from torch.optim import SGD
+   from torch.optim.lr_scheduler import LinearLR
 
    model = ComposerResNet(model_name="resnet50", num_classes=1000)
    optimizer = SGD(model.parameters(), lr=0.1)
+   scheduler = LinearLR(optimizer)
 
    trainer = Trainer(model=model,
                      train_dataloader=train_dataloader,
                      eval_dataloader=eval_dataloader,
                      max_duration='90ep',
-                     optimizer=optimizer,
-                     scheduler=consine_annealing_scheduler)
+                     optimizers=optimizer,
+                     schedulers=scheduler)
 
 Composer's own custom schedulers are versions that support the
 :class:`.Time` abstraction. Time related inputs such as ``step``
 or ``T_max`` can be provided in many units, from epochs (``"10ep"``)
-to batches (``"2048ba"``) to duration (``"0.7dur"``). See
-:doc:`Schedulers`<schedulers>` for details.
+to batches (``"2048ba"``) to duration (``"0.7dur"``).
+
+For example, the below would step the learning rate at 30%, 50%, and
+90% through training:
+
+
+.. testcode::
+
+    from composer import Trainer
+    from composer.optim.scheduler import MultiStepScheduler
+
+    trainer = Trainer(model=model,
+                      train_dataloader=train_dataloader,
+                      max_duration='90ep',
+                      schedulers=MultiStepScheduler(
+                          milestones=['0.3dur', '0.5dur', '0.9dur'],
+                          gamma=0.1
+                      ))
+
+
+See :doc:`Schedulers<schedulers>` for details.
 
 
 Training on GPU
@@ -227,15 +249,15 @@ Control which device you use for training with the ``device`` parameter,
 and we will handle the data movement and other systems-related
 engineering. We currently support the ``cpu`` and ``gpu`` devices.
 
-.. code:: python
+.. testcode::
 
    from composer import Trainer
 
    trainer = Trainer(model=model,
                      train_dataloader=train_dataloader,
                      eval_dataloader=eval_dataloader,
-                     max_duration='160ep',
-                     device='gpu')
+                     max_duration='2ep',
+                     device='cpu')
 
 Distributed Training
 ~~~~~~~~~~~~~~~~~~~~
