@@ -17,7 +17,7 @@ Attributes:
     BatchDict (Dict[str, Tensor]): Commonly used in natural language processing tasks.
     Metrics (Metric | MetricCollection): Union type covering common formats for representing metrics.
     Optimizer (torch.optim.Optimizer): Alias for :class:`torch.optim.Optimizer`
-    Optimizers (Optimizer | Sequence[Optimizer]): Union type for indeterminate amounts of optimizers.
+    Optimizers (Many[Optimizer]): Union type for indeterminate amounts of optimizers.
     PyTorchScheduler (torch.optim.lr_scheduler._LRScheduler): Alias for base class of learning rate schedulers such
         as :class:`torch.optim.lr_scheduler.ConstantLR`
     Scaler (torch.cuda.amp.grad_scaler.GradScaler): Alias for :class:`torch.cuda.amp.GradScaler`.
