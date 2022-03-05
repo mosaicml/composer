@@ -53,28 +53,26 @@ def each_sample(pairs: List[Tuple[str, int]]) -> Generator[Dict[str, Any], None,
         }
 
 
+"""
+Directory layout:
+
+    tiny-imagenet-200/
+        test/
+            images/
+                (10k images)
+        train/
+            (200 wnids)/
+                (500 images per dir)
+        val/
+            images/
+                (10k images)
+            val_annotations.txt  # 10k rows of (file, wnid, x, y, h, w)
+        wnids.txt  # 200 rows of (wnid)
+        words.txt  # 82115 rows of (wnid, wordnet category name)
+"""
+
+
 def main(args: Namespace) -> None:
-    '''
-    Directory layout:
-
-        tiny-imagenet-200/
-            test/
-                images/
-                    (10k images)
-            train/
-                (200 wnids)/
-                    (500 images per dir)
-            val/
-                images/
-                    (10k images)
-                val_annotations.txt  # 10k rows of (file, wnid, x, y, h, w)
-            wnids.txt  # 200 rows of (wnid)
-            words.txt  # 82115 rows of (wnid, wordnet category name)
-
-        wds_tinyimagenet200/
-            train_{shard}.tar
-            val_{shard}.tar
-    '''
     filename = os.path.join(args.in_root, 'wnids.txt')
     wnids = open(filename).read().split()
     wnid2idx = dict(zip(wnids, range(len(wnids))))

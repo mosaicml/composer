@@ -42,24 +42,26 @@ def process_split(in_root: str, out_root: str, split: str, n_shards: int, use_tq
     create_webdataset(each_sample(pairs), out_root, split, len(pairs), n_shards, use_tqdm)
 
 
-def main(args: Namespace) -> None:
-    '''
-    Directory layout:
+"""
+Directory layout:
 
-        ADE20k/
-            annotations/
-                train/
-                    ADE_train_%08d.png
-                val/
-                    ADE_val_%08d.png
-            images/
-                test/
-                    ADE_test_%08d.jpg
-                train/
-                    ADE_train_%08d.jpg
-                val/
-                    ADE_val_%08d.jpg
-    '''
+    ADE20k/
+        annotations/
+            train/
+                ADE_train_%08d.png
+            val/
+                ADE_val_%08d.png
+        images/
+            test/
+                ADE_test_%08d.jpg
+            train/
+                ADE_train_%08d.jpg
+            val/
+                ADE_val_%08d.jpg
+"""
+
+
+def main(args: Namespace) -> None:
     process_split(args.in_root, args.out_root, 'train', args.train_shards, args.tqdm)
     process_split(args.in_root, args.out_root, 'val', args.val_shards, args.tqdm)
 

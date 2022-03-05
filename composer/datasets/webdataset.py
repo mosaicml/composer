@@ -18,16 +18,16 @@ log = logging.getLogger(__name__)
 
 
 def require_webdataset():
-    '''Hard require webdataset.'''
+    """Hard require webdataset."""
     if WebDataset is None:
         raise ImportError(
-            textwrap.dedent('''
+            textwrap.dedent("""
                 Composer was installed without WebDataset support. To use WebDataset with Composer, run `pip install
-                mosaicml[webdataset]`.'''))
+                mosaicml[webdataset]`."""))
 
 
 def create_webdataset_meta(split_dir: str, n_samples: int, n_shards: int) -> None:
-    '''Write a WebDataset meta file.'''
+    """Write a WebDataset meta file."""
     samples_per_shard = n_samples // n_shards
     n_leftover = n_samples % samples_per_shard
     obj = {
@@ -45,7 +45,7 @@ def create_webdataset(samples: Iterable[Dict[str, Any]],
                       n_samples: int,
                       n_shards: int,
                       use_tqdm: int = 1) -> None:
-    '''Write an entire WebDataset to a local directory, given an iterable of samples.'''
+    """Write an entire WebDataset to a local directory, given an iterable of samples."""
     require_webdataset()
     split_dir = os.path.join(dataset_dir, split)
     os.makedirs(split_dir)
@@ -63,7 +63,7 @@ def create_webdataset(samples: Iterable[Dict[str, Any]],
 
 
 def init_webdataset_meta_from_s3(remote: str, split: str) -> bytes:
-    '''Read a WebDataset meta file from S3.'''
+    """Read a WebDataset meta file from S3."""
     url = f'{remote}/{split}/meta.json'
     cmd = 'aws', 's3', 'cp', url, '-'
     ret = subprocess.run(cmd, capture_output=True)
@@ -72,13 +72,13 @@ def init_webdataset_meta_from_s3(remote: str, split: str) -> bytes:
 
 
 def init_webdataset_meta_from_local(remote: str, split: str) -> bytes:
-    '''Read a WebDataset meta file from local filesystem.'''
+    """Read a WebDataset meta file from local filesystem."""
     path = f'{remote}/{split}/meta.json'
     return open(path, 'rb').read()
 
 
 def init_webdataset_meta(remote: str, split: str) -> bytes:
-    '''Read a WebDataset meta file.'''
+    """Read a WebDataset meta file."""
     if remote.startswith('s3://'):
         return init_webdataset_meta_from_s3(remote, split)
     else:
@@ -90,7 +90,7 @@ def init_webdataset(remote: str,
                     split: str,
                     cache_dir: Optional[str] = None,
                     cache_verbose: bool = False) -> Tuple[WebDataset, dict]:
-    '''Initialize a WebDataset with an optional local cache dir.'''
+    """Initialize a WebDataset with an optional local cache dir."""
     require_webdataset()
     if cache_dir:
         split_dir = os.path.join(cache_dir, name, split)
@@ -119,7 +119,7 @@ def init_webdataset(remote: str,
 
 def size_webdataset(dataset: WebDataset, n_shards: int, samples_per_shard: int, n_devices: int, workers_per_device: int,
                     batch_size: int, drop_last: bool) -> WebDataset:
-    '''Calculate WebDataset with_epoch() and with_length().'''
+    """Calculate WebDataset with_epoch() and with_length()."""
     workers_per_device = max(1, workers_per_device)
 
     # Ensure that shards can be split among CPU workers
@@ -163,7 +163,7 @@ def size_webdataset(dataset: WebDataset, n_shards: int, samples_per_shard: int, 
 def load_webdataset(remote: str, name: str, split: str, cache_dir: Optional[str], cache_verbose: bool, shuffle: bool,
                     shuffle_buffer: int, preprocess, n_devices: int, workers_per_device: int, batch_size: int,
                     drop_last: bool):
-    '''Load WebDataset from remote, optionally caching, with the given preprocessing and batching.
+    """Load WebDataset from remote, optionally caching, with the given preprocessing and batching.
 
     Args:
         remote (str): Remote path (either an s3:// url or a directory on local filesystem).
@@ -177,7 +177,7 @@ def load_webdataset(remote: str, name: str, split: str, cache_dir: Optional[str]
         workers_per_device (int): Number of workers per device.
         batch_size (int): Batch size.
         drop_last (bool): Whether to drop last.
-    '''
+    """
     dataset, meta = init_webdataset(remote, name, split, cache_dir, cache_verbose)
     if shuffle:
         dataset = dataset.shuffle(shuffle_buffer)

@@ -53,12 +53,12 @@ class MNISTDatasetHparams(DatasetHparams, SyntheticHparamsMixin):
 
 @dataclass
 class MNISTWebDatasetHparams(WebDatasetHparams):
-    '''Defines an instance of the MNIST WebDataset for image classification.
+    """Defines an instance of the MNIST WebDataset for image classification.
 
     Parameters:
         remote (str): S3 bucket or root directory where dataset is stored.
         name (str): Key used to determine where dataset is cached on local filesystem.
-    '''
+    """
 
     remote: str = hp.optional('WebDataset S3 bucket name', default='s3://mosaicml-internal-dataset-mnist')
     name: str = hp.optional('WebDataset local cache name', default='mnist')
