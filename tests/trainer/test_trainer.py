@@ -108,23 +108,24 @@ class TestTrainerEquivalence():
 
     reference_model: Model
     reference_folder: pathlib.Path
-    threshold: Dict[str, float]
+    default_threshold: Dict[str, float]
 
-    def assert_models_equal(self, model_1, model_2):
+    def assert_models_equal(self, model_1, model_2, threshold=None):
+        if threshold is None:
+            threshold = self.default_threshold
+
         assert model_1 is not model_2, "Same model should not be compared."
         for param1, param2 in zip(model_1.parameters(), model_2.parameters()):
-            torch.testing.assert_allclose(param1, param2, **self.threshold)
+            torch.testing.assert_allclose(param1, param2, **threshold)
 
     @pytest.fixture(autouse=True)
-    def set_threshold(self, device, precision, world_size):
-        self.threshold = {'atol': 0, 'rtol': 0}
-        # if precision == Precision.AMP:
-        #     self.threshold = {
-        #         'atol': 1e-4,
-        #         'rtol': 1e-3,
-        #     }
-        # else:
-        #     self.threshold = {}
+    def set_default_threshold(self, device, precision, world_size):
+        """Sets the default threshold to 0.
+
+        Individual tests can override by passing thresholds directly
+        to assert_models_equal.
+        """
+        self.default_threshold = {'atol': 0, 'rtol': 0}
 
     @pytest.fixture
     def config(self, device, precision, world_size):
@@ -171,8 +172,11 @@ class TestTrainerEquivalence():
         self.assert_models_equal(trainer.state.model, self.reference_model)
 
     def test_grad_accum(self, config, device, *args):
-        if device == 'cpu':
-            pytest.skip("skipping")
+        # grad accum requires non-zero tolerance
+        threshold = {
+            'atol': 1e-08,
+            'rtol': 1e-05,
+        }
 
         config.update({
             'grad_accum': 2,
@@ -181,7 +185,7 @@ class TestTrainerEquivalence():
         trainer = Trainer(**config)
         trainer.fit()
 
-        self.assert_models_equal(trainer.state.model, self.reference_model)
+        self.assert_models_equal(trainer.state.model, self.reference_model, threshold=threshold)
 
     def test_max_duration(self, config, *args):
         num_batches = 2 * len(config["train_dataloader"])  # convert 2ep to batches
