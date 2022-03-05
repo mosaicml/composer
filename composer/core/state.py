@@ -7,7 +7,7 @@ import contextlib
 import logging
 import textwrap
 import warnings
-from typing import TYPE_CHECKING, Callable, ContextManager, List, Optional, Sequence, Union, cast
+from typing import TYPE_CHECKING, Callable, ContextManager, Optional, Sequence, Tuple, Union, cast
 
 import torch
 import torch.nn.modules.utils
@@ -74,7 +74,7 @@ class State(Serializable):
             the supported precisions.
         precision_context (Callable[[Precision], ContextManager]): Function to produce a context manager to mandate precision.
         optimizers (:attr:`~.types.Optimizers`, optional): The optimizers being used to train the model. Multiple optimizers are not currently supported.
-        schedulers (:attr:`~.types.PyTorchScheduler` | List[:attr:`~.types.PyTorchScheduler`] | Tuple[:attr:`~.types.PyTorchScheduler`, ...], optional):
+        schedulers (:attr:`~.types.PyTorchScheduler` | Sequence[:attr:`~.types.PyTorchScheduler`], optional):
             The learning rate scheduler (can also be a list or tuple of schedulers).
         scaler (torch.cuda.amp.GradScaler, optional): The gradient scaler in use for mixed precision training.
         algorithms (Sequence[Algorithm]): The algorithms used for training.
@@ -120,7 +120,7 @@ class State(Serializable):
     batch_num_tokens: int
     loss: types.Tensors
     outputs: types.Tensors
-    _schedulers: List[types.PyTorchScheduler]
+    _schedulers: Tuple[types.PyTorchScheduler]
 
     def __init__(
             self,
