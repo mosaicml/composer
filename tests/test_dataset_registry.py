@@ -13,31 +13,38 @@ from composer.trainer.trainer_hparams import dataset_registry
 # to initialize test hparams objects
 default_required_fields: Dict[Type[DatasetHparams], Callable[[], DatasetHparams]] = {
     #  hparams with empty dicts have no required fields
-    CIFAR10DatasetHparams: lambda: CIFAR10DatasetHparams(
-        is_train=False,
-        download=False,
-    ),
-    ADE20kDatasetHparams: lambda: ADE20kDatasetHparams(is_train=False),
-    BratsDatasetHparams: lambda: BratsDatasetHparams(is_train=False,),
-    ImagenetDatasetHparams: lambda: ImagenetDatasetHparams(
-        is_train=False,
-        crop_size=224,
-        resize_size=-1,
-    ),
-    MNISTDatasetHparams: lambda: MNISTDatasetHparams(
-        is_train=False,
-        download=False,
-    ),
-    LMDatasetHparams: lambda: LMDatasetHparams(
-        datadir=["hello"],
-        split='train',
-        tokenizer_name='gpt2',
-    ),
-    GLUEHparams: lambda: GLUEHparams(
-        task="rte",
-        tokenizer_name="bert-base-uncased",
-        split="train",
-    ),
+    CIFAR10DatasetHparams:
+        lambda: CIFAR10DatasetHparams(
+            is_train=False,
+            download=False,
+        ),
+    ADE20kDatasetHparams:
+        lambda: ADE20kDatasetHparams(is_train=False),
+    BratsDatasetHparams:
+        lambda: BratsDatasetHparams(is_train=False,),
+    ImagenetDatasetHparams:
+        lambda: ImagenetDatasetHparams(
+            is_train=False,
+            crop_size=224,
+            resize_size=-1,
+        ),
+    MNISTDatasetHparams:
+        lambda: MNISTDatasetHparams(
+            is_train=False,
+            download=False,
+        ),
+    LMDatasetHparams:
+        lambda: LMDatasetHparams(
+            datadir=["hello"],  # type: ignore # need to remove the datadir from the base class.
+            split='train',
+            tokenizer_name='gpt2',
+        ),
+    GLUEHparams:
+        lambda: GLUEHparams(
+            task="rte",
+            tokenizer_name="bert-base-uncased",
+            split="train",
+        ),
 }
 
 
